@@ -1,10 +1,10 @@
 # Forgejo redesign status
 
-Updated 12 September 2026 in `/Users/vince/Projects/sodaos`, branch `main`.
+Updated 12 September 2026 in `~/Projects/sodaos`, branch `main`.
 
 ## Current workspace
 
-The owner moved ongoing work to the canonical `/Users/vince/Projects/sodaos`
+The owner moved ongoing work to the canonical `~/Projects/sodaos`
 checkout on `main`. The redesign through `bcf0fb1` was merged in `b81cab4`.
 The deleted worktree is no longer used for development or local presentation mounts.
 The six approved subway backgrounds are now source assets and are installed on

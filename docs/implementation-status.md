@@ -52,10 +52,15 @@ Repository 2, project `p7263f3ed98b46ecac865830e` and Terminal 1
 owns evidence and revision limits; [local testing](local-testing.md#fresh-tailnet-vm-access)
 owns private login paths. User visual acceptance remains pending.
 
-The original `operator` still collides with the image's UID-11 system account.
-Its private repository `operator/spaces-first-use-e8998ee` (ID 1) and running project
-`p2e1121ffe63e064855c7e693` remain intact and unjoined. No account adoption, rename,
-root replacement or Join replay occurred. The
+The owner subsequently requested changing the test username. Forgejo actor 1 was
+renamed from `operator` to `soda-tester` through the stock admin rename API, after a native
+Forgejo backup. Its password, administrator status, stable user/repository IDs and
+Soda operator configuration are preserved. Repository 1 is now
+`soda-tester/spaces-first-use-e8998ee`; project `p2e1121ffe63e064855c7e693` is preserved.
+Authenticated native API reads passed with the new login and existing password;
+project Join under `soda-tester` has not yet been exercised. The Linux UID-11 `operator`
+account remains untouched. The [rename receipt](implementation-history.md#test-administrator-username-correction)
+records updated fixtures and evidence. The
 [local development server](local-testing.md#spaces-frontend-development-on-this-computer)
 remains the independent synthetic frontend iteration path. No deployment, service/VM
 restart, publishing, cleanup, network/trust change or VM-hold extension occurred
@@ -326,6 +331,11 @@ Tailnet work.
   `p7263f3ed98b46ecac865830e` and terminal `f9ff1674b72e04b7cb3623d4cfdb166b`;
   no End, stop, cleanup or modification of the existing Linux `operator` occurred.
   See the [receipt](implementation-history.md#spaces-real-terminal-acceptance).
+- **Test administrator rename:** the owner's “change the username” request authorized
+  renaming Forgejo actor 1 on the fresh VM. Native `operator` → `soda-tester` rename is
+  complete with unchanged password/admin status, repository 1 and Soda operator ID.
+  Native Forgejo backup and prior fixture scripts are preserved. No Linux account,
+  membership, project lifecycle, service lifecycle or other account was changed.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -351,9 +361,9 @@ admin view, sidebar entries and logout passed; served bytes hash-match. See the
 `2026-09-13.spaces-first-use-1`, dashboard image
 `sha256:667e4de5b7121dcd3349495c234489fcc9f4264271019e3a739cc4a84a8870bf`
 (superseded above by `a6a86c2`, which preserves its layers).
-One private repository and one ready/running project now exist (see
-[Spaces status](#spaces-first-use-journey)); membership and terminal counts remain
-zero following the safely refused account collision. Original helper, future-project
+The subsequent [Spaces status](#spaces-first-use-journey) records both retained
+projects, the working `spaces-test` terminal, and the actor-1 rename to `soda-tester`.
+The original account-collision receipt predates these changes. Original helper, future-project
 image, configuration/credentials, schema v10, base install marker, boot and enforcing
 SELinux are preserved. Backups:
 `/var/lib/soda-candidate-bb3a13c/spaces-e8998ee/backup/`; local custody:

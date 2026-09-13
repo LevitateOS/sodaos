@@ -2,6 +2,11 @@
 
 ## Working style
 
+- Never put the owner's personal name or other identifying information in source,
+  tests, fixtures, example accounts, generated resource names or documentation.
+  Use neutral synthetic identities such as `soda-tester`. Do not derive fixture
+  names from local usernames, home-directory paths or account profiles.
+
 - Work in the canonical `~/Projects/sodaos` checkout for this redesign. Do not create or use a worktree unless the owner explicitly changes that preference.
 
 - Inspect the working tree first; preserve unrelated changes. Make coherent commits;

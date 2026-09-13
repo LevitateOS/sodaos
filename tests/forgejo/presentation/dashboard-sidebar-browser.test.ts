@@ -8,7 +8,7 @@ test('dashboard repository browser supports both themes and terminal-sized panes
  const origin='http://localhost:3300';
  const context=await chromium.launchPersistentContext('.local/screenshot-fixture-profile',{channel:'chrome',headless:true});
  const writes:string[]=[];
- const records=['alice/activity-workbench','vince/activity-playground','vince/activity-field-notes-fork','bob/a-very-long-repository-name-that-must-stay-contained-in-a-narrow-pane'].map((name,i)=>({repository:{id:i+1,full_name:name,link:`/${name}`,fork:i===2,private:false,archived:false,mirror:false},latest_commit_status:null,locale_latest_commit_status:''}));
+ const records=['alice/activity-workbench','soda-tester/activity-playground','soda-tester/activity-field-notes-fork','bob/a-very-long-repository-name-that-must-stay-contained-in-a-narrow-pane'].map((name,i)=>({repository:{id:i+1,full_name:name,link:`/${name}`,fork:i===2,private:false,archived:false,mirror:false},latest_commit_status:null,locale_latest_commit_status:''}));
  await context.route(`${origin}/**`,async route=>{
   const request=route.request(),url=new URL(request.url());
   if(!['GET','HEAD'].includes(request.method())){writes.push(request.method());return route.abort();}

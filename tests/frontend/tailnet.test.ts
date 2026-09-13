@@ -47,7 +47,7 @@ async function tailnetPage(t: TestContext, operator = true) {
     if (path === '/-/soda/api/session') {
       state.sessionReads++;
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);
-      return route.fulfill({json: {user: {id: state.actor, login: 'operator'}, csrf_token: state.csrf, soda_operator: state.operator, forgejo_url: state.forgejoURL}});
+      return route.fulfill({json: {user: {id: state.actor, login: 'soda-tester'}, csrf_token: state.csrf, soda_operator: state.operator, forgejo_url: state.forgejoURL}});
     }
     if (path.startsWith('/-/soda/api/settings/tailnet')) {
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);

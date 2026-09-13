@@ -10,6 +10,10 @@ test('native form workspaces fit desktop/mobile and preserve interactive control
   timeout: 180000,
 }, async () => {
   const origin = 'http://localhost:3300';
+  const repository = process.env.SODA_FORGEJO_REVIEW_REPOSITORY;
+  assert(repository && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository) &&
+    repository.split('/').every(part => part !== '.' && part !== '..'),
+    'Set SODA_FORGEJO_REVIEW_REPOSITORY to an existing authorized fixture owner/repository');
   const root = new URL('../../../', import.meta.url);
   const context = await chromium.launchPersistentContext(new URL('.local/screenshot-fixture-profile', root).pathname, {
     channel: 'chrome', headless: true, chromiumSandbox: true,
@@ -31,8 +35,8 @@ test('native form workspaces fit desktop/mobile and preserve interactive control
     assert(style.ok());
     assert((await style.body()).equals(await readFile(new URL('assets/branding/forgejo/form-pages.css', root))));
     const routes = [
-      '/repo/create', '/org/create', '/vince/activity-playground/fork',
-      '/soda-screenshot/-/projects/new', '/vince/activity-playground/issues/new',
+      '/repo/create', '/org/create', `/${repository}/fork`,
+      '/soda-screenshot/-/projects/new', `/${repository}/issues/new`,
       '/user/settings/applications/tokens/new', '/user/settings/hooks/forgejo/new',
       '/user/settings/packages/rules/add',
     ];

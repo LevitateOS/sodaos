@@ -144,7 +144,7 @@ Final native captures used the existing fixture, stock Forgejo 15.0.7 and
 
 | Evidence directory | Viewport/theme | Inspected routes, in numbered PNG order |
 | --- | --- | --- |
-| `native-fresh-desktop/` | 1440×1000, light | Issues, Pull requests, Milestones, Notifications, Subscriptions, Watching, New repository, Migrate, Explore repositories, People, Fork (`/repo/fork/23`), personal New project (`/soda-screenshot/-/projects/new`), Wiki (`/vince/activity-playground/wiki`), intentional 404 |
+| `native-fresh-desktop/` | 1440×1000, light | Issues, Pull requests, Milestones, Notifications, Subscriptions, Watching, New repository, Migrate, Explore repositories, People, Fork (`/repo/fork/23`), personal New project (`/soda-screenshot/-/projects/new`), Wiki (the selected fixture repository’s wiki), intentional 404 |
 | `native-fresh-mobile/` | 390×844, light | Issues, New repository, People, Subscriptions, personal New project, Wiki, intentional 404 |
 | `native-fresh-dark/` | 1440×1000, dark | Issues, New repository, People, Wiki |
 

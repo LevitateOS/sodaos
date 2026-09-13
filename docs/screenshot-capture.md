@@ -214,10 +214,14 @@ errors before saving a PNG. `--landmark CSS` tightens the expected page landmark
 `--theme light` or `--theme dark` changes only the capture browser's stylesheet
 and document theme; it does not submit or persist an account preference.
 
+Set `SODA_FORGEJO_REVIEW_REPOSITORY` locally to an existing authorized fixture
+repository in `owner/repository` form. The opt-in native form review test uses this
+same input; account-specific paths must not be committed.
+
 ```sh
 bun scripts/screenshot.ts --verify --landmark .soda-repo-issue-editor \
   --profile .local/screenshot-fixture-profile --theme dark --scroll-top \
-  http://localhost:3300/vince/activity-playground/issues/new
+  "http://localhost:3300/${SODA_FORGEJO_REVIEW_REPOSITORY:?Set the fixture repository}/issues/new"
 ```
 
 Every accepted verified PNG has a JSON sidecar with requested/actual URL,

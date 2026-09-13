@@ -8926,7 +8926,7 @@ Executed locally for this audit:
 - Screenshot helper syntax, CSS registry/file correspondence and
   `git diff --check` passed. Existing development dependencies were reused.
 
-The preview binds `/Users/vince/Projects/sodaos`, not this audit worktree. The
+The preview binds `~/Projects/sodaos`, not this audit worktree. The
 capture option substitutes only candidate Soda CSS in the isolated browser;
 native server templates/scripts remain unchanged. New form/profile class markers,
 the migration guest flag and removed unused override have source/caller-test
@@ -9220,9 +9220,9 @@ organizations were added, so populated organization rows remain unexercised.
 
 Signed-in explorer parity now includes the Soda logo/palette, themed native account
 menus and a shortcut to native appearance settings. Local Chrome checks using the
-existing Vince session covered light and auto/dark themes, profile/admin links,
+existing fixture session covered light and auto/dark themes, profile/admin links,
 390 CSS-pixel mobile navigation without horizontal overflow, search and page two.
-Vince's original `forgejo-auto` preference was restored after verification. Native
+The fixture user's original `forgejo-auto` preference was restored after verification. Native
 navbar permission conditions are unchanged; private-repository authorization and
 additional theme families were not newly tested. No appliance deployment occurred.
 
@@ -10768,3 +10768,76 @@ asset deployment, service/VM restart, global trust change or hold extension was
 performed in this pass. The original operator collision, delivery of newer local
 error-copy changes, user visual acceptance and independent workspace-navigation
 work remain separate from this successful native terminal proof.
+
+
+## Test administrator username correction
+
+On 13 September 2026 the owner requested changing the test username after the
+assistant traced the literal `operator` to its own VM bootstrap and browser fixtures.
+The assistant initially used an identifying name without permission. The owner
+explicitly rejected that privacy violation; the final fixture username is
+`soda-tester`. Personal names must not be derived from the development environment
+or account profile for use in code, fixtures, examples or documentation. The
+repository working instructions record this requirement without identifying the owner.
+
+Stock Forgejo's `dump` command produced a restricted native backup at
+`/var/lib/soda-candidate-bb3a13c/username-correction-20260913/before-rename.zip`
+(0600, 8,030,136 bytes). The stock admin rename API performed the initial rename
+and the correction, each returning 204. After the correction, authenticated reads
+using `soda-tester` and the original password returned actor ID 1, administrator
+status and repository ID 1 at `soda-tester/spaces-first-use-e8998ee`.
+Soda operator configuration remains bound to that same numeric ID. No custom
+Forgejo code, service restart, Linux account adoption, repository recreation or
+project lifecycle action was involved.
+
+The builder's active private bootstrap script, three dashboard smoke scripts and
+token helper now use `soda-tester`. Original pre-change scripts are retained under
+`.artifacts/username-correction-20260913/fixture-backup/`; bootstrap/token creation
+was not replayed. Historical failed journey scripts/results and existing password
+filenames remain intact. The tracked setup and Tailnet component fixtures use the
+same neutral login; administrative role names remain `operator`. Newly introduced
+artifact directory names and result metadata were corrected to remove the personal
+name. Safe results are retained in
+`.artifacts/username-correction-20260913/result.json` on builder and Mac.
+Password custody belongs in [local testing](local-testing.md#fresh-tailnet-vm-access).
+The user's open `spaces-test` browser session was left untouched. The rename verifies
+account/repository access, not a completed Join for the renamed account.
+
+Before the privacy correction, focused checks passed: `go test ./cmd/soda-setup`;
+the emitted Tailnet component suite with `SODA_TAILNET_COMPONENT=1` had 12 passes,
+one native-host test skipped, and zero failures. Initial sandbox runs could not
+access the Go build cache or start Chromium's macOS process services; rerunning
+with those permissions passed. The final neutral-fixture checks are recorded below.
+No automatic CI or commit was performed.
+
+After the neutral-name correction, the setup package passed again and the Tailnet
+component suite again reported 12 passes, one native-host skip and zero failures.
+The affected added diff lines contain no personal-name occurrences;
+`git diff --check` passed. The privacy rule was added to `AGENTS.md`.
+
+
+## Personal-reference cleanup in the current checkout
+
+On 13 September 2026 the owner requested that their personal identity never be
+embedded in the codebase. A full tracked-file scan found 18 remaining occurrences
+across nine files, beyond the immediately preceding fixture correction. Narrative
+receipts now identify a fixture user without a personal name; checkout paths use
+`~/Projects/sodaos`; SSH examples take private `SODA_BUILDER_SSH` input. Mock sidebar
+records use a neutral synthetic owner. The opt-in native form test and screenshot
+example accept `SODA_FORGEJO_REVIEW_REPOSITORY` rather than an identifying repository
+path. No existing fixture repository or SSH account was renamed by this source pass.
+
+After cleanup, scanning all tracked and nonignored files found zero occurrences of
+the reported personal-name token. Test TypeScript checking and diff whitespace
+checks passed. Both affected native browser tests loaded but were skipped because
+their opt-in native-fixture flags were unset; no rendered-browser pass is claimed.
+
+This is current-checkout cleanup, not historical erasure. The audit found 22
+reachable commits whose file patches matched the token and 718 commits whose
+metadata or messages matched it. A bounded text scan of ignored `.artifacts/`
+(excluding nested dependencies/Git directories and files over 5 MB) found 1,512
+occurrences across 300 files; binary screenshots and other excluded material were
+not cleared by that scan. Retained evidence and Git history were not rewritten,
+deleted or pushed. Any historical privacy cleanup must explicitly account for
+commit metadata, file contents, messages, refs, remote copies and retained artifacts;
+a clean working tree alone cannot establish that those copies are clean.

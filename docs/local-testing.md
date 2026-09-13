@@ -50,25 +50,34 @@ credentials. Do not use `scripts/test-vm.sh` for this instance. Its installed so
 correction, current hold deadline and permissions belong in the
 [current handoff](implementation-status.md#fresh-tailnet-access-fixture).
 
-From the laptop, keep this tunnel running while using the browser:
+Set `SODA_BUILDER_SSH` locally to the existing builder SSH destination (user and
+host, or an SSH configuration alias). Keep identifying connection details in private
+local configuration, outside tracked files. From the laptop, keep this tunnel running
+while using the browser:
 
 ```sh
 ssh -N -o ExitOnForwardFailure=yes \
   -L 24454:127.0.0.1:24454 \
-  -L 29094:127.0.0.1:29094 vince@192.168.2.253
+  -L 29094:127.0.0.1:29094 "${SODA_BUILDER_SSH:?Set your private builder SSH destination}"
 ```
 
 | Service | Origin | Username | Private password file on builder |
 | --- | --- | --- | --- |
-| Dashboard / Forgejo | `https://localhost:24454/` | `operator` | `.artifacts/tailnet-vm-bb3a13c/forgejo-operator-password` |
+| Dashboard / Forgejo | `https://localhost:24454/` | `soda-tester` | `.artifacts/tailnet-vm-bb3a13c/forgejo-operator-password` |
 | Cockpit | `https://localhost:29094/` | `root` | `.artifacts/tailnet-vm-bb3a13c/root-password` |
 | Spaces real-terminal fixture | `https://localhost:24454/?soda-view=spaces` | `spaces-test` | `.artifacts/spaces-live-repair-20260913/password` |
 
-For the working real terminal, sign out of `operator` and sign in as `spaces-test`,
+The original Forgejo administrator was renamed from `operator` to `soda-tester` using
+Forgejo’s native rename API. Its password and user ID are unchanged. The existing
+password filename on the builder is retained; a mode-0600 copy on this Mac is
+`.artifacts/username-correction-20260913/password`. Its repository is now
+`soda-tester/spaces-first-use-e8998ee`; this account’s project Join has not yet been
+verified after the rename.
+
+For the separately verified real terminal, sign in as `spaces-test`,
 then select `spaces-test/spaces-review` → **Terminal 1**. Its private password file
 is also available on this Mac at
-`/Users/vince/Projects/sodaos/.artifacts/spaces-live-repair-20260913/password` (0600).
-The existing `operator` project has a Linux username collision and remains unjoined.
+`~/Projects/sodaos/.artifacts/spaces-live-repair-20260913/password` (0600).
 Current fixture state and permissions belong to the
 [handoff](implementation-status.md#current-permissions).
 
@@ -121,7 +130,7 @@ SSH transport is:
 ```sh
 ssh -N -o ExitOnForwardFailure=yes \
   -L 24444:127.0.0.1:24444 \
-  -L 29090:127.0.0.1:29090 vince@192.168.2.253
+  -L 29090:127.0.0.1:29090 "${SODA_BUILDER_SSH:?Set your private builder SSH destination}"
 ```
 
 Do not open duplicate occupied tunnels. Keep the exact configured localhost

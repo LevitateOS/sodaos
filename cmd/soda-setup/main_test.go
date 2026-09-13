@@ -59,7 +59,7 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 						http.Error(w, token, http.StatusForbidden)
 						return
 					}
-					_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "operator", "is_admin": name != "non-admin"})
+					_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "soda-tester", "is_admin": name != "non-admin"})
 				case "POST /api/v1/user/applications/oauth2":
 					body, _ := io.ReadAll(r.Body)
 					var got map[string]any

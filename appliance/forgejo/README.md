@@ -277,7 +277,7 @@ light/dark/auto theme families. Account menus, notifications, create actions and
 administrator links are still generated entirely by the stock navbar. A paintbrush
 shortcut opens native appearance settings; it does not write a separate preference.
 
-Local Chrome verification with the existing Vince session covered native light
+Local Chrome verification with the existing fixture session covered native light
 and auto/dark appearance, the appearance shortcut, profile/admin menu links,
 mobile menu at 390 CSS pixels without horizontal overflow, repository search and
 page-two navigation. The original `forgejo-auto` account preference was restored.
@@ -314,7 +314,7 @@ New custom copy is English pending the existing i18n follow-up.
 `dashboard-papercraft.png` is a newly generated supplemental asset; its exact
 prompt is in [historical artwork record](https://github.com/LevitateOS/sodaos/blob/cf6beb61e8bda6c6aeeae714ef50d84a2f03a477/assets/branding/forgejo/dashboard-art-prompt.md).
 
-Local stock 15.0.7 template reload succeeded. Chrome checks covered the Vince
+Local stock 15.0.7 template reload succeeded. Chrome checks covered the fixture user
 empty feed, sidebar tab switching, light and auto/dark colors, native appearance
 shortcut, and 390px mobile layout without horizontal overflow. The original
 `forgejo-auto` preference was restored. An authenticated HTTP check as the existing
@@ -352,7 +352,7 @@ no-match search and 390px layout with no horizontal overflow. No new fixture dat
 or deployment. Light appearance and pagination were not newly exercised.
 
 Additional user-authorized local PR fixtures #9–15 in alice/activity-workbench
-include a native draft, review requested from Vince, approved and changes-requested
+include a native draft, review requested from the fixture user, approved and changes-requested
 reviews, assignments, labels, milestone/task progress, multilingual/long titles and
 a real one-file merge conflict. Local browser confirmed 8 open / 2 closed requests
 and the native waiting-review/approval/change-request/conflict summaries. Native API
