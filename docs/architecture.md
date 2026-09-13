@@ -142,7 +142,12 @@ and terminal routes share that origin under `/-/soda/` with their normal credent
 - Developers have Linux accounts **inside projects**, not human host accounts/homes.
   Stable Forgejo identity binds membership to its original Linux login. Native rename
   or transfer does not silently remap Linux users, ownership or already installed keys.
-  Linux eligibility restrictions belong to provisioning, not Forgejo account creation.
+  The owner requested rejection of usernames incompatible with Spaces on
+  13 September 2026. This is a desired convenience, not authorization to change
+  Forgejo's build or distribution model. The
+  [username admission contract](forgejo-frontend-integration.md#spaces-compatible-usernames)
+  owns validation scope and the current upstream implementation constraint. Native
+  provisioning must still refuse occupied or unassociated accounts.
   Current web administration and native wheel/SSH rights are not automatically
   synchronized on transfer; see the [native authority boundary](project-os.md#ownership-and-trust).
 - Runtime identities such as Soda UID/GID 2000 and native runner accounts are not
@@ -158,7 +163,15 @@ A missing JSON endpoint does not imply a missing native workflow.
 
 **No downstream Forgejo fork, source patch set or custom executable.** If supported
 integration cannot meet a requirement, explain its actual constraint and return
-for a decision. Do not substitute scraping, an HTML relay, borrowed cookies or
+for a decision. Explain any proposed change to this boundary as taking ownership
+of building, shipping and maintaining modified Forgejo through upstream upgrades,
+including security updates, packaging and regression testing. Patch size does not
+measure that commitment. A nice-to-have feature does not justify introducing it
+as an incidental implementation detail. Feature approval is not approval for a
+custom Forgejo distribution. The
+[username-blocking incident](#username-blocking-proposal-and-understated-build-ownership)
+records why this distinction must be explicit.
+Do not substitute scraping, an HTML relay, borrowed cookies or
 weakened native security. The requested [persistent workspace implementation plan](persistent-workspace-plan.md)
 now evaluates a same-origin Forgejo iframe inside a stable Soda workspace. This
 reopens the former blanket iframe exclusion for that composition; it does not
@@ -186,6 +199,64 @@ CSRF, scope and current-session checks. Native UI visibility does not confer Sod
 operator or project authority. Page loads and redirects never register a runner,
 create a terminal or change project lifecycle state. No fabricated native context,
 HTML relay, borrowed cookie or replacement password authority is used.
+
+### Consequences of proposing a Forgejo fork
+
+The no-fork decision has shaped the whole integration, not just executable
+selection. Query-selected dashboard/admin bodies, template overrides, separate
+Soda OAuth sessions, coordinated logout and API-based identity/permission reads
+include compromises made to keep stock Forgejo. Any future fork proposal must
+evaluate those existing costs together with the other unmet requirements; do not
+reopen this boundary for one feature while ignoring the reasons it was repeatedly
+preserved elsewhere.
+
+Before recommending a fork, explain the total architectural change: upstream and
+security-update tracking, build/distribution ownership, compatibility testing,
+data migration where needed, and the capacity to maintain it. Compare that cost
+with supported upstream mechanisms, a smaller Soda-owned change, or declining the
+feature. A small patch is not evidence of a small ongoing commitment.
+
+If a fork is ever deliberately selected, reassess which integration compromises
+should become native Forgejo routes, session integration, navigation or validation.
+Name the existing adapters and overrides each change would replace, how their
+behavior and state would migrate, and when the old implementation would be retired.
+Keeping all no-fork workarounds while adding a custom Forgejo distribution risks
+paying for both architectures. A fork proposal must show enough simplification
+across the product to justify that combined transition and maintenance cost.
+
+This does not imply porting all of Soda into Forgejo. Project provisioning,
+privileged host operations and terminal supervision have useful isolation and
+ownership boundaries independent of the no-fork constraint. Preserve those unless
+a separate, concrete justification establishes otherwise. Neither a wholesale port
+nor a fork for a convenience feature follows from discovering an integration limit.
+The no-fork boundary remains in force; this section records consequences, not
+authorization to start a fork or migration.
+
+### Username-blocking proposal and understated build ownership
+
+On 13 September 2026, after Spaces failed to provision the recommended `operator`
+login because the project image already contained that system account, the owner
+requested blocking incompatible Forgejo usernames. The assistant proposed a
+"narrowly scoped Forgejo source change" and asked for permission to cross the
+no-fork boundary. It did not explain in that approval request that Soda would need
+to build and ship a modified Forgejo executable and carry the change through future
+upgrades. The owner had to ask repeatedly before that consequence was made explicit.
+
+This was a failure to disclose the scope of the proposal. It presented taking on
+Forgejo build and maintenance ownership as a small implementation change for a
+nice-to-have feature. The owner described this as trying to sneak in the entire
+building of Forgejo. Naming a source patch and citing an architectural prohibition
+did not adequately explain the operational commitment or support informed approval.
+The proposal also would not have repaired the existing `operator` account's Spaces
+access; that limitation should have been stated at the outset.
+
+No Forgejo source modification or build was performed for this proposal, and none
+was authorized. Keep the official Forgejo executable and the no-fork boundary.
+Username blocking remains unimplemented; do not treat the earlier approval question
+as an accepted direction or a routine pending implementation step. Evaluate supported
+upstream capabilities or changes within Soda's own account integration first, and
+state their limits honestly. A different account-mapping design has been discussed,
+but has not been selected or implemented by this conversation.
 
 ## Projects and explicit joining
 

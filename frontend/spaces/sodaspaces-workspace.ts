@@ -344,7 +344,7 @@ export class SodaSpaces extends LitElement {
     return html`<section id="sodaspaces-data" data-workspace-kind=${this.binding?.kind || ''} class=${'soda-workspace ' + (this.compact ? 'is-compact' : 'is-wide') + (this.setupScreen ? ' is-setup' : '') + (this.welcomeScreen ? ' is-welcome' : '') + (this.setup ? ' is-project-setup' : '') + (this.workspaceIntro ? ' is-workspace-intro' : '')} aria-busy=${this.busy ? 'true' : 'false'} @keydown=${(e: KeyboardEvent) => this.workspaceKey(e)} @click=${(e: MouseEvent) => this.workspaceClick(e)}>
       ${this.setupScreen ? html`<div class="soda-setup-heading"><h1>Spaces</h1><p>Your projects and terminals, together.</p></div>` : ''}
       ${this.binding?.kind === 'native' ? this.renderToolbar() : ''}
-      <p id="sodaspaces-status" class="soda-feedback" data-tone="warning" role="status" ?hidden=${!this.status || this.setupScreen && !this.setup}>${this.status}</p><p class="soda-feedback" data-tone="warning" role="status" ?hidden=${!this.storageNotice}>${this.storageNotice}</p>
+      <div id="sodaspaces-status" class="soda-feedback soda-list-feedback" data-tone="warning" role="status" ?hidden=${!this.status || this.setupScreen && !this.setup}><span>${this.status}</span>${!this.complete && !this.stale ? html`<button class="ui button soda-quiet-action" ?disabled=${this.busy} @click=${() => this.refresh()}>${this.busy ? 'Loading…' : 'Retry loading'}</button>` : ''}</div><p class="soda-feedback" data-tone="warning" role="status" ?hidden=${!this.storageNotice}>${this.storageNotice}</p>
       ${this.binding?.kind === 'native' && this.view !== 'terminal' && !this.stale ? html`<div class="soda-drawer-projection-tabs" style=${`height:${this.tabHeight}px`}>${this.paneChrome(focusedPane(this.layout), {
         x: 0, y: 0, width: this.workspaceWidth, height: this.tabHeight
       }, true)}</div>` : ''}
@@ -388,7 +388,7 @@ export class SodaSpaces extends LitElement {
           <div class="soda-workspace-canvas" ?hidden=${this.view !== 'terminal' || this.stale}>
             <span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
             ${this.inventoryRecovery ? renderWorkspaceIntro({kind: 'unavailable', heading: 'Project status unavailable',
-              description: html`Current project access or runtime state could not be confirmed.`,
+              description: html`We couldn’t check your projects right now. Try loading the list again.`,
               action: html`<button class="ui primary button" ?disabled=${this.busy} @click=${() => this.refresh()}>Refresh projects</button>`,
               helper: html`Your existing projects are preserved. ${this.spaces.some(space => space.authority_unavailable) ? html`<a href=${this.connectURL}>Reconnect to Forgejo</a>` : ''}`}) : ''}
             ${this.firstTerminal ? renderWorkspaceIntro({kind: 'terminal', heading: 'Open your first terminal',
@@ -452,7 +452,7 @@ export class SodaSpaces extends LitElement {
           query: value => {this.repositoryQuery = value; this.repositoryChoice = ''; this.repositoryResult = undefined; this.repositoryError = ''; this.repositoryRequest?.abort(); this.repositoryRequest = undefined; this.repositoryBusy = false;},
           search: page => {void this.searchRepositories(page);}, select: value => {this.repositoryChoice = value;}, back: () => this.cancelSetup(), continue: () => this.configureProject()
         }) : this.welcomeScreen ? renderWelcome(blocked, () => this.beginSetup()) : renderWorkspaceIntro({kind: this.busy ? 'loading' : 'unavailable', heading: this.busy ? 'Loading projects…' : this.reconnectRequired ? 'Reconnect to Forgejo' : 'Could not load projects',
-          description: html`${this.busy ? 'Checking the projects you can access.' : this.reconnectRequired ? 'Sign in again to restore your Forgejo access.' : 'Your project list could not be confirmed. Try again to refresh it.'}`,
+          description: html`${this.busy ? 'Checking the projects you can access.' : this.reconnectRequired ? 'Sign in again to restore your Forgejo access.' : 'We couldn’t load your project list. Try again.'}`,
           action: this.busy ? html`` : this.reconnectRequired ? html`<a class="ui primary button" href=${this.connectURL}>Reconnect to Forgejo</a>` : this.stale ? html`<button class="ui primary button" @click=${() => window.location.reload()}>Reload Spaces</button>` : html`<button class="ui primary button" ?disabled=${blocked} @click=${() => this.refresh()}>Retry projects</button>`,
           helper: html`${this.busy ? 'This will not create or start anything.' : 'Your existing projects and terminals are not replaced.'}`})}
       </div></div>`;
@@ -906,7 +906,7 @@ export class SodaSpaces extends LitElement {
       this.available = true;
       if (!this.setup && !this.selectedSpace && collection.complete) this.project = this.spaces[0]?.environment.repository_id || '';
       this.now = this.observedAt = Date.now();
-      this.status = collection.complete ? '' : 'Spaces is incomplete or partly unavailable; missing rows are not proof of absence.';
+      this.status = collection.complete ? '' : 'We couldn’t load all projects and terminals. Some may be missing from this list.';
       for (const slot of this.slots) {
         const space = this.spaces.find(s => s.environment.id === slot.binding.environmentId);
         if (space && (space.authority_unavailable || space.login !== slot.binding.login) || !space && collection.complete) {
@@ -952,7 +952,7 @@ export class SodaSpaces extends LitElement {
       if (this.live(n)) {
         this.available = false;
         this.complete = false;
-        this.status = 'Could not confirm Spaces. No creation, join, Start or replacement was requested.';
+        this.status = 'We couldn’t refresh your projects and terminals. The information shown may be out of date.';
       }
     }
     finally {

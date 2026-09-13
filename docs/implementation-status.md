@@ -42,19 +42,33 @@ A subsequent normal Forgejo reconnect restored native inventory/project access.
 Backend epoch/image,
 project resources, accounts and service lifecycles were unchanged.
 
-**J5 step 14 is blocked on a fixture-actor decision:** `operator` collides with the
-image's existing UID-11 system account. Join was refused without membership,
-managed keys or terminals; no account adoption/rename or replay was attempted.
-The retained private repository is `operator/spaces-first-use-e8998ee` (ID 1), project
-`p2e1121ffe63e064855c7e693`, running with Tailnet Off. Approval was requested for a
-new `spaces-test` Forgejo user/private repository and one additional project to
-finish native input/re-entry, preserving this first project. That follow-up is not
-granted: the owner chose a mock backend on this Mac for ongoing frontend development.
-The [local development server](local-testing.md#spaces-frontend-development-on-this-computer)
-now renders real Spaces components with synthetic HTTP/socket state, scenario controls
-and automatic reload. [Local verification](implementation-history.md#spaces-local-development-fixture)
-does not complete native shell acceptance. No publishing, cleanup, OS update or
-VM-hold extension occurred.
+**J5 step 14 passed for the approved additional fixture actor.** On 13 September
+2026 the owner approved creating non-admin `spaces-test`, its private `spaces-review`
+repository and one project, then joining and opening a real terminal. Native Create,
+Join, terminal input and browser reload reattachment to the same shell all passed.
+Repository 2, project `p7263f3ed98b46ecac865830e` and Terminal 1
+(`f9ff1674b72e04b7cb3623d4cfdb166b`) remain available. The
+[real-terminal receipt](implementation-history.md#spaces-real-terminal-acceptance)
+owns evidence and revision limits; [local testing](local-testing.md#fresh-tailnet-vm-access)
+owns private login paths. User visual acceptance remains pending.
+
+The original `operator` still collides with the image's UID-11 system account.
+Its private repository `operator/spaces-first-use-e8998ee` (ID 1) and running project
+`p2e1121ffe63e064855c7e693` remain intact and unjoined. No account adoption, rename,
+root replacement or Join replay occurred. The
+[local development server](local-testing.md#spaces-frontend-development-on-this-computer)
+remains the independent synthetic frontend iteration path. No deployment, service/VM
+restart, publishing, cleanup, network/trust change or VM-hold extension occurred
+in this additional native acceptance pass.
+
+The owner subsequently requested blocking incompatible usernames at Forgejo account
+creation. The [admission contract](forgejo-frontend-integration.md#spaces-compatible-usernames)
+records exact 15.0.7 source findings and affected creation/rename paths. That version
+has no configurable additional reserved-name policy. The owner objected to the
+assistant presenting custom Forgejo build ownership as a narrow source change;
+the [architecture record](architecture.md#username-blocking-proposal-and-understated-build-ownership)
+owns that correction. No custom build was authorized, and the stock-executable
+boundary remains. No admission code or installed configuration has changed.
 
 ## Persistent workspace planning
 
@@ -305,9 +319,13 @@ Tailnet work.
   private repository/project creation are complete. One keyless Join was refused
   because the original `operator` Linux system account has no Soda association.
   Preserve repository 1, project `p2e1121ffe63e064855c7e693`, its running root and all
-  failed observers. No terminal was created. A new Forgejo user/private repository
-  plus one additional project has been requested to resolve the actor collision;
-  this is pending, not authorization to change or adopt existing accounts.
+  failed observers. The owner subsequently explicitly approved the additional
+  non-admin `spaces-test` account, private `spaces-review` repository and one project,
+  Join and real-terminal exercise. These completed successfully, including exact-shell
+  reattachment after reload. Preserve repository 2, project
+  `p7263f3ed98b46ecac865830e` and terminal `f9ff1674b72e04b7cb3623d4cfdb166b`;
+  no End, stop, cleanup or modification of the existing Linux `operator` occurred.
+  See the [receipt](implementation-history.md#spaces-real-terminal-acceptance).
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.

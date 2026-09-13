@@ -569,32 +569,33 @@ and deployment each keep their own status.
 | Visual redesign working terminal | Main canvas retained; header primary, selected tabs/sidebar rows and contextual Pane/Move/terminal menus refined locally; [contract](spaces-design.md#project-workspace-and-contextual-actions) and [receipt](implementation-history.md#spaces-working-terminal-refinement) |
 | Visual redesign coherence | Shared hover/focus and feedback treatment, recovery compositions, Back focus restoration, bounded/dismissible menus and short-screen/long-name refinements implemented locally; [contract](spaces-design.md#interaction-and-recovery-finish) and [receipt](implementation-history.md#spaces-interaction-and-recovery-refinement) |
 | Visual redesign rendered review | Selected references compared with emitted-component captures; corrected primary scale, panel growth, Back alignment, sidebar density, mobile clipping and terminal insets; [comparison gallery](../.artifacts/spaces-reference-comparison/index.html) and [receipt](implementation-history.md#spaces-rendered-reference-review) |
-| Current presentation acceptance | Native localhost:24454 rereviewed and frontend updated: outer gutters removed with sidebar retained, tighter spacing and clearer access recovery. Local split/restore and responsive journeys pass. Normal Forgejo reconnect subsequently restored native reads; usable native terminal input and user visual acceptance remain pending. [Receipt](implementation-history.md#spaces-full-width-native-rereview) |
+| Current presentation acceptance | Native localhost:24454 rereviewed and frontend updated: outer gutters removed with sidebar retained, tighter spacing and clearer access recovery. Local split/restore and responsive journeys pass. Normal Forgejo reconnect subsequently restored native reads; native input and exact-shell reload subsequently passed with `spaces-test`; user visual acceptance remains pending. [Receipt](implementation-history.md#spaces-full-width-native-rereview) |
 | Local visual development | Real emitted frontend with a loopback mock HTTP/socket backend, scenario/fault/theme controls and automatic reload on this Mac; [run instructions](local-testing.md#spaces-frontend-development-on-this-computer) and [receipt](implementation-history.md#spaces-local-development-fixture) |
 | Understandable Join recovery | Local source/preview replace generic outcome warnings with account-specific explanations and Check join status; a confirmed join advances without another Join request. Native deployment remains pending. [Receipt](implementation-history.md#spaces-join-error-clarity) |
+| Username admission | Requested convenience; exact 15.0.7 creation/rename paths inspected. Custom Forgejo build not authorized; the [architecture correction](architecture.md#username-blocking-proposal-and-understated-build-ownership) records the understated proposal. [Admission contract](forgejo-frontend-integration.md#spaces-compatible-usernames) remains unimplemented and undeployed. |
 | Plan and reconciliation of conflicting full-page design requirements | Authored; documentation only |
 | File-level implementation guide, steps 1–15 under J1–J5 | Authored with per-step checks and separate local/native/delivery exits |
 | J1–J4 source implementation, steps 1–12 | Implemented through existing Go/Lit/project/terminal owners |
 | J5 step 13: source, emitted browser and layout | Passed within the scoped [source receipt](implementation-history.md#spaces-first-use-source-and-local-journey) |
-| J5 step 14: native journey | Native login/discovery/Create passed; Join safely refused the existing `operator` system account; new fixture-actor approval pending |
+| J5 step 14: native journey | Passed with approved `spaces-test`: native Create → Join → terminal input → reload to the same shell; [receipt](implementation-history.md#spaces-real-terminal-acceptance) |
 | J5 step 15: help, status and requested delivery | Updated; matching `e8998ee` browser/backend delivered with fresh backups |
-| Deployment / retained-target changes | Installed on the selected fresh VM; epoch `2026-09-13.spaces-first-use-1`; one private repo/project retained, no membership or terminal |
+| Deployment / retained-target changes | Installed on the selected fresh VM; epoch `2026-09-13.spaces-first-use-1`; original private repo/project preserved; second approved repo/project has membership and a running real terminal |
 
 Steps 1–13 have source/local evidence; checked items do not claim exhaustive native
 acceptance or installation. Component screenshots use synthetic APIs/transport and
 have no native Forgejo header. The native-owned terminal admission/identity helpers
 now accommodate the displayed default name without silently adding Rename. The
 bounded first-use scenario reuses the native login, input and process observers;
-[installed evidence](implementation-history.md#spaces-native-delivery-and-account-collision)
-is partial, not a shell pass.
+[original installed evidence](implementation-history.md#spaces-native-delivery-and-account-collision)
+was partial; the [additional-actor pass](implementation-history.md#spaces-real-terminal-acceptance)
+now proves native input and exact-shell reattachment on the current installation.
 
 **Current development path:** the owner chose the local mock backend for continued
 frontend iteration and visual review on this Mac. Use its scenario controls to
-review the journey without remote deployment. Native J5 step 14 remains separate:
-the original `operator` actor conflicts with the image's UID-11 system account,
-and the proposed additional fixture actor/project is not approved. Do not adopt
-or rename the account, replay Join or replace the retained root. Local simulated
-terminals do not satisfy native input/reattachment acceptance.
+review the journey without remote deployment. Native J5 step 14 separately passed
+with the subsequently approved `spaces-test` actor/project. The original `operator`
+actor still conflicts with the image's UID-11 system account; its account and retained
+root were preserved. Local simulated terminals remain distinct from native proof.
 
 ## Product correction — development workspace, not a modal form
 

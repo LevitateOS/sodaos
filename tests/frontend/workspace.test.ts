@@ -954,3 +954,21 @@ test('native CSS loaded last preserves full-width Spaces and quiet controls', as
   assert.equal(await page.locator('#native-button-probe').evaluate(node => getComputedStyle(node).borderTopWidth), '1px');
   assert((await page.locator('#native-button-probe').boundingBox())!.height >= 44, 'native controls outside Spaces lost their target size');
 });
+
+test('partial project list explains missing items and retries reads without replacing a terminal', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await openSession(page, 'Build');
+  const terminal = await page.locator('.xterm').elementHandle();
+  await page.evaluate(async () => {const f = window.workspaceFixture; f.setComplete(false); await f.api.refresh();});
+  await page.getByText('We couldn’t load all projects and terminals. Some may be missing from this list.', {exact: true}).waitFor();
+  await page.setViewportSize({width: 390, height: 844});
+  assert(await page.locator('#sodaspaces-status').evaluate(node => node.scrollWidth <= node.clientWidth));
+  await captureSpacesComponent(page, 'partial-list-mobile');
+  await page.evaluate(() => window.workspaceFixture.setComplete(true));
+  await page.getByRole('button', {name: 'Retry loading', exact: true}).click();
+  await page.locator('#sodaspaces-status').waitFor({state: 'hidden'});
+  assert(await terminal?.evaluate(node => node.isConnected));
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
+});

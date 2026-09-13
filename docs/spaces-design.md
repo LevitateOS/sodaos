@@ -342,6 +342,11 @@ composition. Loading uses a static clock and explanatory copy rather than simula
 progress; inventory loading exposes no mutation controls or guessed setup footer.
 Only authorized stopped projects offer Start. Missing authority/observation offers
 read-only recovery, not a guessed lifecycle state.
+An incomplete project/terminal list says **We couldn’t load all projects and
+terminals. Some may be missing from this list.** and offers **Retry loading**.
+Failed refreshes explain that displayed information may be out of date. These
+notices describe what the user can see; keep internal terms such as “proof of
+absence” out of product copy. Retrying only refreshes reads and preserves terminals.
 
 Pending operations use neutral feedback panels; failures and uncertain outcomes use
 canonical warning background, border and text roles. Recovery keeps the affected

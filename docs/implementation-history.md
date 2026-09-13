@@ -10727,3 +10727,44 @@ the initial focused run exposed the missing parent refresh on recovered membersh
 which was fixed before the final full workspace run. The local server was restarted
 to load the updated fixture code, and its error example was verified in the in-app
 browser. Final logs are retained with the captures. No remote delivery occurred.
+
+
+## Spaces real terminal acceptance
+
+On 13 September 2026 the owner explicitly approved the proposed non-admin
+`spaces-test` Forgejo account, private `spaces-review` repository, one project,
+Join and real-terminal exercise on `soda-native-tailnet-bb3a13c`. Normal Forgejo
+reauthentication first restored the existing operator project reads. Read-only native
+inspection confirmed that Linux already owns `operator` as UID 11 with nologin and
+no Soda association; that account and the original project were left untouched.
+
+The existing guarded native first-use driver was adapted in the builder's ignored
+`.artifacts/spaces-live-repair-20260913/` directory. It used native Forgejo login,
+repository form, OAuth and actual HTTP/WebSocket transport with one-use mutation
+permits and the previously configured isolated browser trust. It created actor 2,
+repository 2 (`spaces-test/spaces-review`), project `p7263f3ed98b46ecac865830e`
+(Create 201), membership (Join 200), and Terminal 1
+`f9ff1674b72e04b7cb3623d4cfdb166b`. Browser input reached a real bash shell as
+`spaces-test`, PID 137, start ticks 6408737, with a TTY and `TERM=screen-256color`.
+Native process observation independently corroborated these facts. Browser reload
+reattached to that exact terminal and shell, with no new terminal reservation.
+The driver reported PASS and closed only its observer browser. Post-checks found
+both project containers running, the new bash process alive, and original Linux
+`operator` unchanged. No terminal End, project stop, cleanup or root replacement
+occurred.
+
+The builder directory retains `result.json`, `browser.log`, guarded `browser.ts`
+and journey screenshots in `captures/`. Safe result metadata and the reattached
+`real-terminal.png`/`capture.json` were copied to the same relative artifact directory
+on this Mac. The generated password remains only in restricted files; access paths
+belong in [local testing](local-testing.md#fresh-tailnet-vm-access). No password is
+included in screenshots or this receipt.
+
+This proves the bounded journey on the current native installation. The driver's
+`applicationRevision` field reused the earlier `e8998ee` base-reference input; it is
+not a fresh byte-for-byte binding of all currently installed assets to that commit.
+Presentation epoch `2026-09-13.spaces-first-use-1` was checked. No source build,
+asset deployment, service/VM restart, global trust change or hold extension was
+performed in this pass. The original operator collision, delivery of newer local
+error-copy changes, user visual acceptance and independent workspace-navigation
+work remain separate from this successful native terminal proof.

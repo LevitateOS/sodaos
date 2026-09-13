@@ -412,3 +412,54 @@ by this guide. All retained project state, private credentials and evidence stay
 The owner selected an image-light interface: no decorative robots or routine dashboard/profile photography. The complete override set now inherits neutral light/dark surfaces, red actions, square controls, Barlow Condensed headings, Barlow body text and IBM Plex Mono controls. Text-led intros, restrained functional empty-state icons, mobile-first creation/dashboard layouts and symbol-only navigation replace the older presentation. Native forms, permissions, translations, Git status/diff colors, avatars, organization logos and repository content retain their owners.
 
 [The independent redesign status](forgejo-redesign-status.md) records the source changes, browser fixtures and remaining installed verification. The terminal ASCII identity now follows the canonical symbol; [terminal branding](../assets/branding/terminal/README.md) owns its fastfetch/MOTD contract. Older route-specific art and visual receipts are historical, not the current design contract.
+
+
+## Spaces-compatible usernames
+
+On 13 September 2026 the owner requested that Forgejo reject new usernames that
+cannot complete Spaces onboarding. This requested convenience remains unimplemented
+within the stock-Forgejo boundary; it is not approval to build modified Forgejo.
+The [architecture record](architecture.md#username-blocking-proposal-and-understated-build-ownership)
+documents the assistant's understated proposal and the owner's objection. It does not authorize
+adopting existing Linux system accounts or silently remapping existing memberships.
+
+The restriction must apply before a new local account is persisted, including
+native signup, administrator creation, the admin API, CLI/bootstrap creation and
+external-auth creation of local users. Rename must not introduce an incompatible
+name either. Existing users keep login and repository access; blocking new creation
+does not repair their project membership. Remote ActivityPub identities and
+organization names are not personal Linux login requests.
+
+With the current project-account contract, eligible names match
+`^[a-z][a-z0-9_-]{0,30}$`, satisfy Forgejo's own stricter separator rules, and avoid
+`root` and the shipped project images' reserved accounts. The actual Rocky 10.2
+fixture additionally contains `bin`, `daemon`, `adm`, `lp`, `sync`, `shutdown`,
+`halt`, `mail`, `operator`, `games`, `ftp`, `nobody`, `tss`, `systemd-oom`, `dbus`
+and `sshd`. This observed list is evidence, not an exhaustive policy for future
+images or administrator-installed services. Implementation must establish the
+reserved namespace from supported image builds and retain native occupied-account
+checks; account admission cannot guarantee runtime availability or provisioning
+success. The same policy must govern bootstrap examples so setup does not recommend
+a username that Spaces rejects. The form should explain an incompatible name
+before submission, and server errors must give a clear reason and ask for another
+username. Browser validation alone does not satisfy this contract.
+
+### Verified implementation constraint
+
+Inspection of the retained exact Forgejo 15.0.7 source found that
+`models/user/user.go::IsUsableUsername` validates syntax then checks hard-coded
+`reservedUsernames`/`reservedUserPatterns`. Both `CreateUser` and `AdminCreateUser`
+reach it, as does `services/user/user.go::renameUser`. Native admin forms, admin
+API and CLI call those model entry points. `modules/validation/helpers.go` permits
+uppercase and digit-leading names; `[service] ALLOW_DOTS_IN_USERNAMES` can disable
+dots but cannot express Soda's length, lowercase or reserved-account restrictions.
+No configurable additional denylist or validation hook was found in the selected
+source/settings; see also the [v15 configuration reference](https://forgejo.org/docs/v15.0/admin/config-cheat-sheet/).
+
+Therefore full admission enforcement requires a Forgejo source change or a
+separately selected identity architecture. The current
+[stock-executable boundary](architecture.md#frontend-and-session-boundary) prohibits
+such a patch. The owner objected to the assistant's failure to explain the custom
+build and continuing maintenance commitment; no source change was authorized.
+This is not a selected implementation awaiting routine approval. No partial browser-only gate, reverse-proxy form
+interceptor, account reservation trick or source fork has been implemented.

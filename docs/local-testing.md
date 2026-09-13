@@ -62,6 +62,15 @@ ssh -N -o ExitOnForwardFailure=yes \
 | --- | --- | --- | --- |
 | Dashboard / Forgejo | `https://localhost:24454/` | `operator` | `.artifacts/tailnet-vm-bb3a13c/forgejo-operator-password` |
 | Cockpit | `https://localhost:29094/` | `root` | `.artifacts/tailnet-vm-bb3a13c/root-password` |
+| Spaces real-terminal fixture | `https://localhost:24454/?soda-view=spaces` | `spaces-test` | `.artifacts/spaces-live-repair-20260913/password` |
+
+For the working real terminal, sign out of `operator` and sign in as `spaces-test`,
+then select `spaces-test/spaces-review` → **Terminal 1**. Its private password file
+is also available on this Mac at
+`/Users/vince/Projects/sodaos/.artifacts/spaces-live-repair-20260913/password` (0600).
+The existing `operator` project has a Linux username collision and remains unjoined.
+Current fixture state and permissions belong to the
+[handoff](implementation-status.md#current-permissions).
 
 Paths are relative to `~/Projects/sodaos`. Open password files privately; never
 print them in tool output/chat/logs. Dashboard authentication uses Forgejo, not a

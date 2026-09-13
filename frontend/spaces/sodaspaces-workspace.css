@@ -301,6 +301,8 @@
 .soda-workspace .soda-feedback[data-tone=warning]:not(:empty) { color: var(--soda-page-warning); background: var(--soda-page-warning-bg); border-color: var(--soda-page-warning-edge); }
 .soda-workspace > .soda-feedback:not(:empty) { margin: var(--soda-space-2); flex-shrink: 0; max-height: 20dvh; overflow: auto; }
 .soda-feedback:empty { display: none; }
+.soda-workspace .soda-list-feedback { display: flex; align-items: center; justify-content: space-between; gap: var(--soda-space-2); flex-wrap: wrap; }
+.soda-list-feedback > span { flex: 1 1 240px; }
 .soda-workspace-intro[data-state=unavailable] .soda-workspace-illustration { color: var(--soda-page-warning); }
 .soda-workspace-intro[data-state=stopped] .soda-workspace-illustration { color: var(--soda-button-danger); }
 .soda-workspace-intro[data-state=loading] .soda-workspace-illustration { color: var(--soda-page-muted); }
