@@ -111,6 +111,43 @@ func TestProjectRuntimeEnableCASAndNoImplicitRetarget(t *testing.T) {
 		t.Fatal("cancelled policy admitted")
 	}
 }
+func TestProjectPolicyMissingIsOffWhileMalformedFailsSafely(t *testing.T) {
+	m, policy, parent := runtimePolicy(t)
+	project, cid := "p"+strings.Repeat("a", 24), strings.Repeat("b", 64)
+	// Missing project policy is Off, never an error or an enrollment.
+	view, e := m.Project(t.Context(), ProjectRequest{Project: project, Action: "inspect"}, cid)
+	if e != nil || view.Enabled || view.Validate() != nil {
+		t.Fatal("missing project policy is not Off", view, e)
+	}
+	target := RunTarget{Project: project, Container: cid, Run: strings.Repeat("e", 64)}
+	if binding, e := m.RunBinding(t.Context(), target); e != nil || binding.Enabled {
+		t.Fatal("missing binding is not Off", binding, e)
+	}
+	// An enabled project binds its original container; a replacement is conflict.
+	in := ProjectRequest{Project: project, Action: "enable", Revision: "0", Binding: policy.Binding, ConfirmID: project}
+	first, e := m.Project(t.Context(), in, cid)
+	if e != nil || !first.Enabled {
+		t.Fatal(first, e)
+	}
+	if _, e = m.Project(t.Context(), ProjectRequest{Project: project, Action: "inspect"}, strings.Repeat("c", 64)); !errors.Is(e, ErrConflict) {
+		t.Fatal("replacement container adopted", e)
+	}
+	// A malformed configured file fails safely and distinctly from missing.
+	path := filepath.Join(parent, "soda-tailnet", "project-"+project+".json")
+	if e = os.WriteFile(path, []byte(`{}`), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = m.Project(t.Context(), ProjectRequest{Project: project, Action: "inspect"}, cid); !errors.Is(e, ErrUnavailable) {
+		t.Fatal("malformed project policy accepted", e)
+	}
+	if _, e = m.RunBinding(t.Context(), target); !errors.Is(e, ErrUnavailable) {
+		t.Fatal("malformed binding accepted", e)
+	}
+	if after, e := os.ReadFile(path); e != nil || string(after) != `{}` {
+		t.Fatal("malformed policy altered", e)
+	}
+}
+
 func TestProjectHasNodeUsesCurrentStateAndOptionalNodeKey(t *testing.T) {
 	for _, tc := range []struct {
 		body          string
