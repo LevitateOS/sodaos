@@ -19,11 +19,12 @@ a timer or production migration before implementing the replacement.
   console/tools. No program/image build, mutable image lookup, second OS assembly,
   client-side RPM layering or bundled `install-native.sh` occurs in the target lane.
   Install and update use identical immutable host/app digests.
-- Inspect the selected upstream bootc install/local-content mechanism and actual Soda
-  caller before coding. Keep stock live boot and supported media customization.
-  `coreos-installer install --offline` is not assumed to accept a derived OCI host.
-  Do not import the predecessor installer, invent a boot backend or add insecure flags.
-- General ISO installation and first boot must have host, bound-app and retained-runtime
+- Apply the [minimum-deviation FCOS contract](release-engineering-plan.md#minimum-deviation-fcos-contract):
+  retain CoreOS Installer disk installation and Ignition provisioning, with stock
+  live boot and supported media customization. Verify exact native inputs before
+  coding; `coreos-installer install --offline` is not assumed to accept a derived OCI
+  host. No Soda partitioning/boot backend, predecessor installer or insecure flags.
+- General ISO installation and first boot must have host, appliance-app and retained-runtime
   content without a registry dependency. Prove transport, signature policy, storage
   lifetime and media removal. Provider/marketplace networking is outside this claim.
 - Native installation provides image-owned software. Machine identity, host keys,
@@ -35,82 +36,49 @@ a timer or production migration before implementing the replacement.
   space. Private network media remains private. Final qualification stays outside
   the ISO so signing/publication does not rebuild tested bytes.
 
-### B1 selected native mechanism — source and CLI proof
+### B1 native mechanism review — reopened
 
-**Selected for the native feasibility test: `bootc install to-filesystem`, not the
-plain `to-disk` wrapper. Disk/boot proof is still pending.** Bootc v1.16.7 source is
-pinned at `bb8fb41e39cbb8c68b6e602307854a57b58f693a`; the retained `45ac843` host actually
-reports bootc 1.16.7, bootupd 0.2.35, Ignition 2.26.0, CoreOS Installer 0.26.0 and
-Podman 5.8.4. The [B1 receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline)
-records native read-only inspection and exact retained sources. Decisive upstream
-callers are the pinned [partitioning code](https://github.com/bootc-dev/bootc/blob/bb8fb41e39cbb8c68b6e602307854a57b58f693a/crates/lib/src/install/baseline.rs),
-[installation/import code](https://github.com/bootc-dev/bootc/blob/bb8fb41e39cbb8c68b6e602307854a57b58f693a/crates/lib/src/install.rs)
-and [stored-image copy](https://github.com/bootc-dev/bootc/blob/bb8fb41e39cbb8c68b6e602307854a57b58f693a/crates/lib/src/podstorage.rs).
+**No replacement install transport/backend is yet proved.** The owner clarified
+that minimum deviation from mature FCOS installation/updating takes priority over
+the earlier bootc bound-image recommendation. The `bootc to-filesystem` proposal,
+Soda-managed `sfdisk`/`mkfs` layout, hand-written first-boot marker/BLS handling and
+manual bootc finalization sequence are withdrawn. Calling upstream tools within
+that sequence would still make Soda responsible for reproducing FCOS integration.
+No such adapter was implemented or disk installation performed.
 
-The simple bootc `direct` disk layout has no separate `/boot` partition. The actual
-FCOS image's `coreos-ignition-setup-user.sh` requires `/dev/disk/by-label/boot` and
-reads `ignition/config.ign` there; its generator also expects label `root` and its
-bootc configuration omits root/boot mount-spec kargs for CoreOS first-boot handling.
-Therefore do not assume the default `to-disk` layout preserves this installer contract,
-or enable LUKS just to obtain a boot partition. The upstream-supported external-
-filesystem interface avoids inventing a boot backend or installing stock CoreOS first.
+Current Soda source in `internal/installer/install_linux.go` invokes **CoreOS
+Installer 0.26.0** with `install --offline --ignition-file ... --copy-network` after
+its disk/confirmation guards. Public Butane/Ignition owns provisioning; the existing
+extension unit requests packages through rpm-ostree. This is the actual baseline,
+not proof that the stock offline image contains Soda's derived host/application set.
+Preserve the native installation owner while replacing the separate software
+producer/continuation, rather than replacing disk installation to suit its output.
 
-The B3 adapter will use native `sfdisk`, `mkfs` and mount operations for a fixed
-CoreOS-style layout, after the existing disk revalidation and exact erase confirmation:
-x86_64 BIOS boot area, EFI filesystem, separate XFS `boot`, and XFS `root` using the
-remaining disk. The feasibility fixture proposes 1 MiB BIOS, 512 MiB EFI and 1 GiB
-boot; these sizes are not yet a qualified physical-hardware support promise.
-Mount root at an owned empty target, boot below it and EFI at `boot/efi`. Upstream
-bootc/OSTree and bootupd own deployment, SELinux labeling, kernel and bootloader work;
-Soda does not implement them or introduce a partition editor. Native proof must
-confirm label/GUID/UUID discovery and boot behavior before this path is accepted.
+B1 must establish the following against the locked FCOS release and actual callers:
 
-Installation handoff, only on the exact authorized target:
+1. Which supported CoreOS Installer input/customization path can carry the candidate,
+   how that input is produced upstream, and what identities/authentication it preserves.
+   Distinguish a raw install image, an OSTree deployment and an OCI transport; a
+   command accepting one is not evidence that it accepts another. Do not invent a
+   stock-install/OCI-rebase recipe or custom disk-image producer to fill a gap.
+2. How native Ignition provisions machine state without Soda recreating partition
+   layout, bootloader setup, first-boot markers or kernel-argument plumbing. Retain
+   password-only interaction, disk identity/erase guards and private-file inputs.
+3. How the exact host/application content is installed and subsequently updated by
+   supported FCOS mechanisms, including authenticated offline availability, native
+   cache behavior, SELinux and retained-image lifetime after media removal. Do not
+   presume bootc-bound storage or signed-directory snapshots are the required layout.
+4. Whether the immutable candidate/offline requirements can be met with those native
+   mechanisms. Bring any concrete conflict to the owner before changing product
+   requirements or taking on an alternative installer/updater. Only then define the
+   smallest exact native fixture/action request and run the corresponding proof.
 
-1. Verify native artifact signatures and expected manifest/config/platform identities
-   **before** loading/running the privileged host image. Populate only this live
-   installation's rootful store with host and three bound images under their exact
-   repository/digest identities; verify the resulting lookup and content again.
-2. Run the exact verified host reference in a privileged, host-PID/IPC Podman container,
-   with no network, no pull, the required `/dev`, `/var/lib/containers`, `/var/tmp`,
-   `/run/udev` and prepared target mounts, using the image's `/usr/bin/bootc`. Retain
-   its CID/diagnostics; no `--rm`, root replacement or cleanup shortcut.
-3. Invoke `install to-filesystem` with `--bound-images=stored`, the exact registry
-   `--target-imgref`, `--enforce-container-sigpolicy` and `--skip-finalize` for the
-   machine-configuration handoff. Supply the metal Ignition platform and literal
-   `$ignition_firstboot` BLS kernel-argument placeholder through fixed argv, not shell
-   interpolation; the retained GRUB snippet supplies that variable from its marker.
-   Native proof must verify first and subsequent boot arguments. Use `--generic-image`
-   for the initial VM proof to avoid firmware mutation. No `--replace`,
-   `to-existing-root`, composefs experiment, `--disable-selinux`, arbitrary destination
-   or registry credential in generic media.
-4. Write only the bounded private destination Ignition into the new boot filesystem's
-   `ignition/config.ign`, and the standard `ignition.firstboot` marker consumed by
-   the image's GRUB snippet. Reuse native CoreOS first-boot network handoff for selected
-   private keyfiles; verify its exact paths/modes in the fixture. Destination Ignition
-   supplies machine configuration/operator access, not `soda-extensions.service` or
-   another software bundle. It must not overwrite the vendor software/unit graph.
-5. Run native `bootc install finalize`, persist and unmount the exact target in checked
-   order before reporting completion/media removal. A failed write/finalization remains
-   partial, not a retry. Verify first boot consumes Ignition once, preserves enforcing
-   SELinux and can resolve all required images with media removed and no registry.
-
-**Offline does not mean unverified.** In this version, the source import is already-
-loaded content and explicitly bypasses another signature check; stored bound-image
-copy even removes signatures on its target-store push. `--enforce-container-sigpolicy`
-controls the installed target reference, not authentication of that cached input.
-The trusted-media/preverified-input and controlled-store boundary above is therefore
-mandatory. Missing/tampered/cached substitution tests remain required. Actual source
-runs the remote fetch check only when `--run-fetch-check` is selected, despite prose
-that says it is automatic; neither a fake registry nor an insecure flag is needed.
-
-Use native signed `dir:` transport snapshots for on-media host and three bound apps;
-this retains signatures and avoids an ever-growing single OCI tar file. Project OS
-and Tailnet archives are already embedded in the signed host and import into ordinary
-retained Podman storage; do not duplicate them as another on-media image set. Preserve
-all six external release artifacts for qualification/publication. The existing archives
-fit the current ISO per-file limit (largest 1,864,480,768 bytes); the future directory
-layout still needs size guards for individual blobs and complete readback verification.
+The [earlier B1 receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline)
+retains useful version/config/source observations, archive sizing and tests. Its
+separate-boot/Ignition mismatch is evidence against treating the simple bootc disk
+path as a drop-in FCOS installer. It does not establish that FCOS lacks a supported
+solution, nor qualify the withdrawn workaround. Existing signature/tamper, media
+readback and no-replay requirements remain; this correction does not weaken them.
 
 ### Implementation responsibilities
 
@@ -118,7 +86,7 @@ layout still needs size guards for individual blobs and complete readback verifi
 | --- | --- |
 | `tools/soda-build` and existing Go build packages | Build the candidate and media programs once; own timing, cancellation, source identity and exact handoff |
 | `scripts/build-installer.py` | Become media-only assembly (rename to `assemble-installer.py` if retained); remove native-build invocation, Go compilation and independent supervision |
-| `appliance/installer`, `internal/installer` | Invoke the B1-selected image installation path, preserving the text/disk/secret guards below; replace extension/bundle continuation with per-machine setup |
+| `appliance/installer`, `internal/installer` | Preserve CoreOS Installer/Ignition ownership and the text/disk/secret guards; change candidate handoff only after B1 proves the supported path |
 | Public provisioning/branding owners | Reuse public bootstrap and canonical artwork; separate live from destination inputs and bounded private additions |
 | Existing media/native test drivers | Verify actual media readback and native installation/update/recovery; consume prebuilt artifacts, never another production build |
 
@@ -265,4 +233,5 @@ permission to write disks, publish, change trust or migrate a retained machine.
 
 These sources were consulted for the earlier implementation. Inputs remain under
 `.artifacts/coreos-installer-research/`; the build replacement still requires B1's
-exact bootc/install caller review. Historical media checks are not new native proof.
+reopened FCOS-native install/update caller review. Historical media checks are not
+new native proof.

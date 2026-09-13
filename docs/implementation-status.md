@@ -13,9 +13,10 @@ not this implementation queue.
 
 ## Current position
 
-**B1 in progress: source/caller review, native CLI/config inspection, handoffs and
-removal baseline are recorded. Disk/boot feasibility remains unrun pending the exact
-fixture grant below. All six milestones remain open; B2–B6 have not started.**
+**B1 mechanism review reopened under the owner's minimum-deviation FCOS priority.**
+Bootc is not the selected install/update requirement; the custom-partitioning test
+and VM request are withdrawn. B1 is not merely blocked on permission: the native
+FCOS handoff still needs review. All six milestones remain open; B2–B6 have not started.
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -29,12 +30,12 @@ candidate complete and delivery next no longer describe the active execution ord
 
 ### 1. Verify the native installation contract — B1
 
-**Source/inspection portion complete; native disk proof pending.** Bootc 1.16.7's
-`to-filesystem` plus preloaded bound images is selected for testing: its simple
-`to-disk` direct layout lacks the separate boot filesystem required by this FCOS
-Ignition path. Native CLI/config and existing installer/verification tests passed;
-no actual bootc installation or stored-image copy has run. Artifact/schema/security
-handoffs and the 2,508 → 2,879 production-orchestration baseline are recorded. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
+**Mechanism selection unresolved; earlier bootc recommendation withdrawn.** Start
+with CoreOS Installer/Ignition and native rpm-ostree/Zincati ownership, verifying the
+exact supported customization, transport and offline-content path. Reuse the caller
+inventory, scoped version/config checks, tests and **2,508 → 2,879** orchestration
+baseline. They do not complete this reopened review. No disk-install or native
+update/recovery proof has run. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
 
 ### 2. Implement one Go build controller — B2
 
@@ -75,11 +76,14 @@ milestone. [Implementation and exit](release-engineering-plan.md#milestone-6--re
 
 ## Immediate prerequisites and next action
 
-Finish B1 with the bounded native proof below. The [selected install contract](coreos-installer-plan.md#b1-selected-native-mechanism--source-and-cli-proof)
-and [handoff/removal baseline](release-engineering-plan.md#b1-artifact-and-authority-handoffs)
-are now recorded from `e4f485a` and pinned upstream source. Bootc cached-source import
-is not itself signature verification; preverification and protected store ownership
-remain mandatory. The old writable installer stays usable until native cutover.
+Complete the [reopened native mechanism review](coreos-installer-plan.md#b1-native-mechanism-review--reopened)
+under the [minimum-deviation FCOS contract](release-engineering-plan.md#minimum-deviation-fcos-contract).
+Trace CoreOS Installer's supported candidate inputs and Ignition handoff, then the
+rpm-ostree/Zincati update source, staging and maintenance interfaces. Establish how
+the immutable host/app set and offline requirements fit without a Soda disk/updater
+substitute. Do not assume Zincati understands the existing GHCR release documents.
+Report any concrete requirement conflict before selecting a deviation. Preserve the
+old installer and retained experiments; do not resume the withdrawn test.
 
 - Actual disk/VM installation, reboot and recovery need an exact native fixture,
   baseline, resource budget and lifecycle grant. Existing fixtures are not implicit
@@ -91,33 +95,14 @@ remain mandatory. The old writable installer stays usable until native cutover.
   automatic stable promotion, native aarch64 or retained-appliance migration to begin
   or complete the independently scoped replacement work.
 
-### Requested native feasibility scope — not yet approved
+### Withdrawn native experiment
 
-- One active x86_64 fixture at a time, with up to three fresh attempts named
-  `soda-b1-install-e4f485a-{1,2,3}`, rooted exclusively at
-  `.artifacts/single-run-b1/e4f485a-KUmwaG/native-vm/attempt-{1,2,3}/` (parent absent).
-- Four vCPUs and 16 GiB RAM maximum active; one new 64 GiB disk and private copied
-  UEFI variables per attempt (192 GiB maximum logical disk allocation in total);
-  `/usr/libexec/qemu-kvm` 10.1.0 and the matching `/usr/share/edk2/ovmf/OVMF_CODE.fd` /
-  `OVMF_VARS.fd` inputs, with hashes recorded before launch. This is not Secure Boot
-  or physical hardware acceptance.
-- Verified selected FCOS live media and a separate read-only candidate-content medium;
-  isolated fixture trust/password files, no production keys/auth. No virtual NIC,
-  inbound tunnel, bridge/firewall change or real provider operation.
-- Boot live media, perform one confirmed install onto that new disk using the selected
-  native filesystem path, remove media, boot the installed candidate and reboot once
-  to check one-time Ignition/state behavior. Inspect host identity, enforcing SELinux,
-  bound-image availability and embedded retained-image import offline. This is engine
-  feasibility, not the full B3/B4 user journey or supported upgrade matrix.
-- Shut down within four hours total; retain every disk/NVRAM/input/log afterward.
-  A failed install stops with its partial disk intact. A corrected attempt may use
-  only the next fresh named directory/disk above, never wipe/recreate/replay the old
-  one. No cleanup, host installation or contact with retained appliances. Any missing prerequisite needing
-  installation on the builder requires its own applicable grant.
-
-Observed builder capacity supports this proposed scope: native x86_64, 16 logical
-CPUs, 62 GiB RAM (44 GiB available), 518 GiB home and 40 GiB root free; KVM is readable/
-writable. These are observations, not reserved resources or permission to start.
+The `6a360d3` proposal for bootc filesystem installation with Soda-owned partitioning
+and up to three VM/disk attempts is withdrawn, not awaiting approval. No proposed
+VM/disk was created or installation performed. The original request remains in Git
+and the [historical receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline),
+not as a current grant. A new fixture request must follow the corrected mechanism
+review and describe only the native path it actually needs to prove.
 
 ## Reusable foundations — not completed replacement milestones
 
@@ -129,7 +114,9 @@ writable. These are observations, not reserved resources or permission to start.
 - `45ac843`: complete local native x86_64 host/app candidate, 391 immutable Forgejo
   files, locked 625-RPM inventory and bootc lint 13 passed/one skipped/no warnings.
   [Receipt](implementation-history.md#complete-local-appliance-candidate). No install/
-  update/recovery acceptance is implied.
+  update/recovery acceptance is implied. Its bootc-bound storage and disabled Zincati
+  are experimental source choices to revisit, not replacement requirements. No
+  runtime policy is changed or existing artifact relabelled by this correction.
 - Existing trusted-delivery models, native Sigstore, exact permits and durable
   publication/high-water handling have source/local native proof.
   [Receipt](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof).
@@ -182,6 +169,8 @@ grants belong to the user's task and exact target/action, not this plan's comman
   was explicitly approved; the owner has now selected B1. Its source/upstream audit,
   local tests and bounded rootless read-only image inspections are recorded. This
   does not add a VM/disk, protected worker, publication or commissioning grant.
+  The current correction restores the FCOS-native baseline and withdraws the bootc
+  filesystem experiment; it does not authorize another installation path.
 - **Bounded real delivery:** the owner confirmed `LevitateOS`, selected current
   GitHub identity `veighnsche` and approved protected signing setup plus public
   `ghcr.io/levitateos/sodaos-*` namespace/signature commissioning and the **candidate
@@ -199,9 +188,10 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-B1 now records the concrete source-backed filesystem-install path, the offline cached-
-image trust boundary, minimal metadata handoffs, measured removal baseline and exact
-native fixture request. Native CLI/config inspection and focused existing source tests
-ran; no new release image/ISO, disk installation, VM, protected-key operation, registry
-write or retained-appliance change occurred. Rootless inspection containers and all
-attempts/evidence remain retained; B1 is not marked complete.
+Corrected the unjustified promotion of bootc from an earlier recommendation to a
+required architecture. Removed the custom partition/first-boot sequence and fixture
+request; reopened B1 and unbound B2–B5 from bootc-specific storage, transport and
+activation assumptions. Preserved the six-milestone order, measured LOC baseline,
+verification requirements, existing code/artifacts and real custody/grants. This pass
+changes documentation only; no build, VM, installation, key, registry, service or
+retained-appliance effect occurred. The FCOS-native candidate mechanism is not yet proved.

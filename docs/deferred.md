@@ -40,8 +40,10 @@ correction/restart and a usable continuation. [Media delivery](installation.md#p
 now selects an ISO consuming the same immutable candidate as updates; QCOW2 remains
 an optional unimplemented later consumer. The [release engineering plan](release-engineering-plan.md#single-run-build-replacement-implementation)
 prioritizes the six single-run replacement milestones before public commissioning,
-unattended scheduling, production readiness and launch. Derived FCOS/bootc is the
-selected direction; exact native installation and migration remain unqualified.
+unattended scheduling, production readiness and launch. The owner's
+[minimum-deviation FCOS contract](release-engineering-plan.md#minimum-deviation-fcos-contract)
+governs B1's reopened native handoff review; bootc is not a selected requirement.
+Exact native installation and migration remain unqualified.
 This replacement is active, not deferred; general fleet orchestration remains outside it. Planning does not authorize disk writes,
 publication, automatic CI or retained-appliance migration. The
 [Services marketplace](services-and-ai-plan.md) can use GitHub-hosted public recipes;

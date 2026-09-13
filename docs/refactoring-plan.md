@@ -57,6 +57,8 @@ immutable install/update candidate, media as a consumer, connected local protect
 qualification/signing/delivery tests, then deletion of the competing producers.
 Timers, public delivery commissioning, readiness and launch follow B6. Compare production code/call graphs against `830ca94` and current
 source, separately from tests/docs; shared functions alone do not satisfy the exit.
+B1's reopened [FCOS-native mechanism review](release-engineering-plan.md#minimum-deviation-fcos-contract)
+also prevents moving upstream disk/boot/update orchestration into Soda wrappers.
 This is the selected replacement plan, not completed implementation or approval of
 other audit recommendations.
 

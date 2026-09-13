@@ -133,6 +133,12 @@ Without `--complete`, this remains **host-content-only**: binaries, vendor units
 Quadlets and basic native configuration, retaining legacy/dev app references.
 It does not deliver the application payload or complete first-boot setup.
 
+**Existing experiment, not the selected replacement install/update architecture.**
+The [FCOS contract](release-engineering-plan.md#minimum-deviation-fcos-contract)
+reopens B1; these retained tool recipes do not select bootc or authorize its withdrawn
+filesystem/partitioning test. Preserve their source/evidence without treating their
+storage layout or disabled Zincati as replacement requirements.
+
 For the complete local candidate, add an explicit **intended** repository prefix:
 
 ```sh

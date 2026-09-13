@@ -11,6 +11,13 @@ The plan owns requirements and current task status; this receipt records finding
 
 ## Recommendation
 
+**Historical recommendation, superseded as the selected direction.** The owner
+clarified minimum deviation from FCOS installation/updating; the
+[current contract](release-engineering-plan.md#minimum-deviation-fcos-contract)
+reopens B1 around CoreOS Installer/Ignition and rpm-ostree/Zincati. Preserve the
+findings below as scoped evidence, not permission to require bootc, disable Zincati
+or implement a different disk/boot/update workflow.
+
 **Prove a derived Fedora CoreOS image with bootc's existing OSTree backend and
 logically bound appliance images.** Use the exact stable base, native container
 build tooling and GHCR. Start with explicit activation, not an automatic timer.

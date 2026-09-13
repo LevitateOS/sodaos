@@ -1,8 +1,10 @@
 # CoreOS installation media
 
 **Active implementation: the [single-run replacement](release-engineering-plan.md#single-run-build-replacement-implementation),
-not another release of the writable-bundle installer.** B1 proves the native image
-install path, B2 builds the candidate/tools, B3 makes media consume them, B4 qualifies
+not another release of the writable-bundle installer.** B1's [FCOS-native handoff
+review is reopened](coreos-installer-plan.md#b1-native-mechanism-review--reopened):
+CoreOS Installer/Ignition remain the installation baseline, not a bootc partitioning
+adapter. B2 builds the candidate/tools, B3 makes media consume them, B4 qualifies
 installation/update/recovery and B6 retires the old producers. The
 [installer contract](coreos-installer-plan.md#image-based-replacement-contract) owns
 its disk/bootstrap requirements. Public ISO delivery and scheduling follow B6.

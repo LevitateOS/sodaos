@@ -161,9 +161,10 @@ A previous host deployment is not a snapshot of later database or project writes
 Product media still requires authenticity, signer/key custody, supported
 architectures, licensing, security updates and failure recovery. The later selected
 [release engineering plan](release-engineering-plan.md) owns GHCR distribution, signed
-CoreOS-aligned releases and an emergency lane. The selected build replacement uses
-a derived FCOS/bootc candidate for both installation and updates; its exact native
-install/offline-content path is B1's proof, not an already qualified migration.
+CoreOS-aligned releases and an emergency lane. The selected build replacement must
+follow the [minimum-deviation FCOS contract](release-engineering-plan.md#minimum-deviation-fcos-contract).
+The same immutable install/update candidate remains the goal; B1's native handoff
+review is reopened, not a selected bootc migration.
 A custom update server is not selected. Preserve current installer usability until
 native cutover; the predecessor's reserved Updates platform remains separate.
 
@@ -196,18 +197,19 @@ for boot. This is startup of installed versions, not an app-image upgrade. App
 database migration, compatibility and backups cannot be delegated to Zincati, and
 rolling back a container image alone does not restore its changed database.
 
-**A derived Soda host OCI is the selected single-run installation/update target**
-under the [release engineering plan](release-engineering-plan.md), not an implemented
-migration or completed build-lane replacement. OCI is a packaging/distribution format, QCOW2 a virtual-disk format,
-and ISO installation media. A bootable host OCI can carry OS
-content, unlike an ordinary application image. [bootc](https://bootc.dev/bootc/)
-specializes in installing/updating such OS images; it is not the only way to use
-OCI on CoreOS. [rpm-ostree also supports OCI-based OS transport and upgrades](https://coreos.github.io/rpm-ostree/container/).
-Do not turn “Soda has no qualified host OCI update path” into “CoreOS cannot use OCI.”
-The replacement installer now consumes the selected image directly, after exact
-OS/version, trust and native mechanism proof. Migrating existing appliances is later
-work, not a prerequisite for building that installer or the Services marketplace. Existing application OCI archives remain separate artifacts,
-with the selected release record binding their compatible versions.
+**One immutable host/application candidate shared by installation and updates is
+the selected goal; its FCOS-native installation/update handoff remains unresolved.**
+The existing derived host OCI is experimental evidence, not a mandate to replace
+CoreOS Installer or Zincati. OCI is a packaging/distribution format, QCOW2 a virtual-
+disk format, and ISO installation media. [rpm-ostree supports OCI-based OS transport
+and upgrades](https://coreos.github.io/rpm-ostree/container/); that does not establish
+that CoreOS Installer consumes OCI or Zincati follows a custom OCI release channel.
+[bootc](https://bootc.dev/bootc/) is genuine upstream software, but its availability
+alone does not justify choosing a different install/update workflow. B1 must resolve
+the supported path under the release owner's FCOS contract before selecting adapters.
+Migrating existing appliances is later work with its own grant, not a prerequisite
+for this review or the Services marketplace. Application image identities and
+compatibility remain bound by the release record.
 
 The [release engineering plan](release-engineering-plan.md) now owns the selected
 CoreOS-aligned train, emergency releases, GHCR hosting, trust, qualification and

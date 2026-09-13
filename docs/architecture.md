@@ -78,6 +78,10 @@ remain product requirements.
 | Projects | Persistent Rocky + mise containers, project-local accounts/homes, writable roots, SSH and shared installations/files |
 | Project workloads | Nested Podman; bounded native x86_64 proof exists, not universal or final-image compatibility |
 
+The release replacement follows the owner's [minimum-deviation FCOS contract](release-engineering-plan.md#minimum-deviation-fcos-contract).
+Existing experimental host-image tooling is not a decision to replace native FCOS
+installation/updating or migrate retained appliances.
+
 **Forgejo is a standalone container, not a Podman pod.** A pod groups containers;
 it is not a user database, init system or filesystem. Project containers share the
 host kernel; Rocky supplies userspace. The [Project OS baseline](project-os.md)

@@ -23,7 +23,9 @@ unimplemented. See
 [handoff](development-handoff.md) for actual native build/check limits. The recipes
 below describe the retiring sealed-bundle/private-provisioning path. Its bundled ISO
 source does not contain a configured appliance or install the derived host candidate.
-The new lane will install that candidate directly and reuse its identity for updates.
+The new lane must install and update the same immutable candidate through the
+[FCOS-native handoff review](coreos-installer-plan.md#b1-native-mechanism-review--reopened);
+no direct OCI disk-install capability or replacement update engine is presumed.
 No preinstalled QCOW2 is supplied. Do not replay first-install as a service upgrade.
 
 ## Publication direction
@@ -33,7 +35,7 @@ commissioning follows B6 using those same artifacts, not another build recipe.
 
 | Artifact | Role in the replacement | Current state |
 | --- | --- | --- |
-| Host and five application OCI images | One immutable candidate shared by installation and updates | Existing local x86_64 candidate and signed Internal GHCR snapshots are reusable foundations, not single-run or install/update proof |
+| Host candidate and five application images | One immutable candidate shared by installation and updates; B1 must establish supported host transport | Existing host OCI, local x86_64 candidate and signed Internal GHCR snapshots are scoped experimental foundations, not a selected native handoff or install/update proof |
 | SodaOS ISO | Media-only consumer of the signed candidate and prebuilt console/tools; offline installation/first-boot content | Image-based handoff unimplemented; older required-key media has bounded boot evidence and password-only writable-bundle source exists |
 | Final signed release metadata | Binds tested host/app/ISO identities, compatibility and protected evidence without rebuilding | Delivery primitives exist; integration into the run remains B5 |
 | Sealed writable Soda bundle | Retiring product of the old producer, not an output of the replacement | Preserve existing artifacts/maintenance readers; remove competing production at B6 |
@@ -158,7 +160,7 @@ and the final summary must identify the other retained artifacts as well.
 | `build-native.sh` | Legacy admission/lock and sealing around `soda-host-image --legacy-native`. The common Go producer emits programs/support tools, browser/terminal/Tea assets, staged files and five OCI archives. Legacy Forgejo/Caddy remain upstream images. |
 | `build-installer.py` | Installer console and verifier, verified upstream ISO, on-media bundle snapshot, intermediate remastered ISO, final `soda.iso`, configuration, readback evidence and media metadata/checksums. |
 | `build-iso.sh` | Runs both existing phases and reports their retained outputs and timings. The name describes the requested final target; it does not imply that only an ISO was produced. |
-| `soda-host-image --build [--complete …]` | Canonical release-image assembly using that same producer: vendor-tagged programs, immutable Forgejo presentation, host OCI archive, application archives, payload/candidate records and wall timings. No legacy assembly, ISO, signing or publication is implied. |
+| `soda-host-image --build [--complete …]` | Existing experimental host-image assembly using that same producer: vendor-tagged programs, immutable Forgejo presentation, host OCI archive, application archives, payload/candidate records and wall timings. No legacy assembly, ISO, signing or publication is implied. |
 
 The final timing summary lists the sealed native payload, its application-image
 archives, the final ISO and the timing log. Give native production its own subtotal,
@@ -258,7 +260,7 @@ payload. For a combined ISO build, snapshot the just-produced verifier for reuse
 Each boundary remains timed. Existing outputs and the producer executable are
 retained rather than overwritten or cleared.
 
-**Release-only assembly — [soda-host-image](../tools/soda-host-image/main.go)**
+**Experimental host-image assembly (retiring) — [soda-host-image](../tools/soda-host-image/main.go)**
 
 Admission; freeze committed source with `git archive`; prepare host context;
 compile vendor programs once; lock host package inputs; common asset/image

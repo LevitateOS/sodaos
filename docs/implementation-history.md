@@ -15,6 +15,49 @@ not claims that those outputs are still retained.
 
 ---
 
+## B1 correction — preserve FCOS ownership
+
+After `6a360d3`, the owner clarified that minimum deviation from mature Fedora
+CoreOS installation/updating takes priority. The original `04541ca` plan explicitly
+did not select bootc; `310dd38` recommended it for bound application-image handling.
+That recommendation was subsequently promoted to a requirement without establishing
+that it was the least-deviation FCOS path.
+
+The correction is grounded in that priority and the already observed separate-boot/
+Ignition mismatch: the proposed `sfdisk`/`mkfs` plus bootc filesystem/first-boot sequence
+would transfer FCOS integration ownership to Soda even though its individual tools
+are upstream. This does not establish that bootc is an imitation or that another
+native path already satisfies all immutable-candidate/offline requirements.
+
+The [release owner](release-engineering-plan.md#minimum-deviation-fcos-contract) now
+starts B1 with CoreOS Installer/Ignition and rpm-ostree/Zincati, requiring an exact
+supported handoff review before choosing transport/storage/activation interfaces.
+The custom-partitioning sequence and its three-attempt VM request are withdrawn.
+B1's source review is reopened, not merely awaiting a disk grant. B2–B5 no longer
+inherit bootc-bound storage, signed-directory media, fixed v2 schema or bootc-specific
+staging semantics as established replacement requirements.
+
+The actual current installer caller still uses `coreos-installer install --offline
+--ignition-file ... --copy-network`; public provisioning requests extension packages
+through rpm-ostree. Neither proves the new immutable/offline candidate contract.
+No custom partitioner or new activation engine was implemented by the prior B1 pass.
+Existing experimental host-image code, disabled-Zincati candidate content, native
+verification, artifacts, protected keys/ledgers and unrelated grants are preserved;
+this correction does not enable competing update owners or migrate any installation.
+The LOC baseline and scoped inspection/test evidence remain valid at their scope.
+
+This pass changes owning contracts, status and dependent documentation only. Evidence
+is in `.artifacts/single-run-b1/correction-6a360d3-Pk0iSO/`. Checks passed for withdrawal/
+priority consistency, unchanged baseline/custody/grants, actual current installer
+caller and documentation-only diff scope; 339 local links and two pinned historical
+anchors resolve, with no new broken links. The initial whole-file scan also found
+two preexisting unrelated defects (the old Spaces-page anchor in `deferred.md` and
+removed Cockpit stream source in `refactoring-plan.md`); they remain outside this
+correction and are recorded, not counted as passing links. `git diff --check` passed.
+No Go/native test was rerun to imply mechanism proof; no build, VM, disk, service,
+signing or publication effect occurred. The separately committed `a7ed436` working-
+style clarification was preserved.
+
 ## B1 native installation contract and removal baseline
 
 The owner selected B1 of the single-run replacement. The canonical tree was clean
@@ -28,7 +71,7 @@ source/doc/test files from v1.16.7 commit
 `bb8fb41e39cbb8c68b6e602307854a57b58f693a`, their URLs and SHA-256 values. Existing
 research and original candidate bytes were read without modification.
 
-Findings now owned by the [installer contract](coreos-installer-plan.md#b1-selected-native-mechanism--source-and-cli-proof):
+Findings now owned by the [installer contract at that revision](https://github.com/LevitateOS/sodaos/blob/6a360d326be6fca8161881a1f72c2f9fe65d8b2f/docs/coreos-installer-plan.md#b1-selected-native-mechanism--source-and-cli-proof):
 
 - Bootc's supported `to-filesystem` path installs its verified running image and
   copies preloaded logical apps with `--bound-images=stored`. The simple `to-disk`
@@ -74,7 +117,7 @@ input/storage measurements, not the size of a new ISO or a bootability result.
 existing disk/secret/payload/OCI/metadata contracts, not native engine proof. Source/
 CLI assertions, documentation links and diff checks are scoped to this B1 record.
 
-The [current handoff](implementation-status.md#requested-native-feasibility-scope--not-yet-approved)
+The [handoff at that revision](https://github.com/LevitateOS/sodaos/blob/6a360d326be6fca8161881a1f72c2f9fe65d8b2f/docs/implementation-status.md#requested-native-feasibility-scope--not-yet-approved)
 requests one active 4-vCPU/16-GiB x86_64 UEFI fixture, no NIC, with up to three fresh
 64-GiB install attempts, preserving each one, and bounded first/subsequent boot under
 one four-hour ceiling. It is not yet approved.
