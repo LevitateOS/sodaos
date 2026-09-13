@@ -2,11 +2,17 @@
 
 ## Status and decisions
 
-**Planning selected; implementation and native acceptance have not started.** The
+**Stage-1 source/upstream feasibility review recorded; implementation and native
+acceptance have not started.** The
 owner selected GHCR distribution and a CoreOS-aligned Soda release train with an
 independent emergency lane. This guide owns the release engineering workstream and
 its status: build engineering, release management, distribution and appliance updates.
-Appliance updates are part of this workstream, not a separate platform. It does not authorize registry publication, automatic CI, signing-key
+Appliance updates are part of this workstream, not a separate platform. The owner
+approved the first source/upstream investigation; its
+[receipt and recommendation](release-engineering-feasibility.md) propose derived
+FCOS with bootc's OSTree backend and logically bound core app images for proof.
+This is not a validated migration or production mechanism. The work does not
+authorize registry publication, automatic CI, signing-key
 creation, trust changes, appliance migration, service/VM lifecycle or cleanup.
 Consult the [handoff](implementation-status.md#current-permissions) before native work.
 The predecessor repository and its reserved Updates platform remain separate.
@@ -18,6 +24,12 @@ Selected product decisions:
   Soda changes. Qualification precedes promotion; there is no same-day promise.
 - Publish signed production releases through **GHCR**. Appliances pull approved
   updates; publishing does not immediately reboot every appliance.
+- Automate the normal detect → freeze inputs → build → test → sign → publish →
+  progressive promotion pipeline. Initial manual promotion is a commissioning
+  safeguard, not the intended permanent release process.
+- Use this machine as the proposed initial release builder, subject to host/resource
+  and isolation inspection. A systemd timer and one-shot job poll upstream metadata;
+  no continuously running listener or inbound webhook server is required.
 - Support emergency Soda and CoreOS releases independently of the normal cadence.
 - Prefer a derived bootable Soda host image, with application images pinned by the
   same release. This is the target to validate, not a selected bootc migration or
@@ -166,8 +178,8 @@ without exact cleanup approval.
 
 1. Collect ready Soda changes with focused tests and explicit migrations; unfinished
    changes remain out of the release branch/candidate.
-2. Detect a new upstream stable release using supported upstream metadata. Scheduled
-   polling in authorized CI is sufficient; no custom listener daemon is required.
+2. Detect a new upstream stable release using supported upstream metadata through
+   the scheduled trigger below; no custom listener daemon is required.
 3. Resolve immutable inputs and build a candidate. Duplicate triggers must not create
    competing promotions or silently change the candidate's contents.
 4. Qualify it using the matrix below. If a Soda feature blocks the new base, omit it
@@ -177,8 +189,74 @@ without exact cleanup approval.
    bounded observation and explicit release-owner approval initially.
 6. Record supported upgrade paths, release notes, interruptions and known limitations.
 
+### Automated trigger and initial local builder
+
+**The intended normal process is automated end to end.** The initial implementation
+must expose noninteractive build/test/release commands usable by both a local
+scheduler and CI. Do not build a manual-only recipe and later duplicate it in a
+workflow. Manual promotion is used while commissioning; after qualification of the
+pipeline and explicit production-automation approval, passing releases progress
+through the configured observation gates without a human running each command.
+Failed or inconclusive gates stop promotion and notify the release owner.
+
+The proposed initial host is **this development/build machine**, not an appliance
+being updated. Before installing anything, inspect its actual architecture, available
+CPU/RAM/disk, virtualization support, uptime expectations and existing workloads.
+Resolve build/test isolation and exact resource limits; do not infer that the current
+checkout location makes the host a dedicated or suitably privileged builder. Native
+architecture proof remains separate from cross-building image artifacts.
+
+Use a native **systemd timer plus a one-shot job**:
+
+- Poll the supported CoreOS stable metadata periodically; an hourly interval is the
+  initial recommendation, to confirm with the host setup. No public listener is
+  needed. A GitHub Actions schedule is an alternative execution host, not another
+  pipeline or concurrent publication owner.
+- Compare upstream release identity with durable candidate results. Freeze the exact
+  base digests and an explicitly approved Soda staging revision at admission. Staged
+  updates mean release-ready commits, not the working tree or everything on a moving
+  branch. Select the actual staging ref/approval convention before enabling the job.
+- Serialize admission and publication using native locking and a small durable
+  candidate/result record. Repeated polls must not rebuild or republish the same
+  candidate, race an emergency release, or silently change frozen inputs. New Soda
+  changes after admission wait for the next candidate or explicit emergency trigger.
+- Build and test those frozen inputs, then sign and publish the exact passing
+  artifacts. Do not rebuild after testing. Restrict signing/promotion to a separate
+  protected execution step; ordinary build scripts and test workloads must not have
+  signing keys or publication credentials. A local scheduler does not make a checked
+  out branch trusted release code automatically.
+- Preserve failed/interrupted runs and emit sanitized status and failure notification.
+  Network polling failures can be retried on a later tick, but a failed candidate
+  must not enter a tight automatic build/publish loop. Resume or retry an interrupted
+  pipeline only from observed state and explicit safe step semantics; never replay
+  an uncertain promotion blindly.
+- Use persistent scheduling/catch-up after downtime. Reconcile missed releases
+  against supported upgrade paths rather than assume the newest base is always
+  directly upgradeable. An offline host cannot detect, qualify or publish releases;
+  its availability is part of the release-response commitment.
+
+Keep candidate inputs, outputs and receipts under ignored `.artifacts/`; private
+inputs remain restricted and untracked. Define storage capacity, evidence retention
+and notification destination before unattended runs; no automatic pruning is implied.
+The scheduler must not mutate this canonical checkout or include another agent's
+uncommitted work. Build from the recorded committed revision in an approved isolated
+source snapshot, not a new Git worktree or an automatically checked-out branch here.
+
+The same entrypoints should move to a dedicated builder or scheduled GitHub Actions
+without redesign. Initially choose one scheduler/promotion owner. A custom central
+update service, fleet telemetry and inbound remote execution remain unnecessary.
+Appliance-side download/activation policy is separate: automatic publication does
+not authorize simultaneous reboot of all appliances or bypass maintenance windows.
+
+This is an implementation requirement and proposed host selection, **not permission
+to install/enable the timer, start unattended CI or native VM tests, create signing
+keys, register GHCR credentials or publish**. Those effects require the applicable
+host/action approval after inspection and proof.
+
 ### Emergency lane
 
+- An explicit authorized emergency trigger feeds the same noninteractive pipeline
+  and serialization/promotion owner, without waiting for the upstream timer.
 - Critical Soda fix: use the current qualified base unless the fix needs a new one.
 - Urgent CoreOS fix: qualify the corrected base without waiting for staged features.
 - Use the same provenance, signature, upgrade and preservation checks. Shorten
@@ -287,12 +365,12 @@ Each stage is a coherent work package, not permission to execute native effects.
 | Stage | Work | Exit |
 | --- | --- | --- |
 | 1 — feasibility and decisions | Audit actual layout, selected upstream versions, image build/consumer/signing support, Zincati ownership and Cockpit error | Concrete mechanism decision, source references, unresolved limits and exact isolated proof proposal; no speculative adapter |
-| 2 — local candidate production | Derived host recipe or explicitly selected alternative, pinned apps/release record, verifier, provenance and trust fixtures | Reproducible-input local candidate and negative verification tests; no publication |
+| 2 — local candidate production | Noninteractive, CI-reusable host recipe and build/test entrypoints, pinned apps/release record, verifier, provenance and trust fixtures; inspect proposed local builder | Reproducible-input local candidate and negative verification tests; builder/resource assessment; no publication or enabled scheduler |
 | 3 — isolated native upgrade | Authorized fixture with synthetic persistent state; initial release, next release, interruption and recovery cases | Actual activation/preservation/recovery receipts on the selected architecture |
-| 4 — release delivery | Separately authorized GHCR repositories/visibility, signing authority, protected manual promotion and consumer discovery | Signed round trip, incomplete-publication refusal, retention/rotation procedure; no public automatic rollout |
-| 5 — operator maintenance | Native status, explicit activation, then download/window policy and preview promotion | Effective policy, actionable failures and bounded progressive rollout proved |
+| 4 — release delivery and pipeline automation | Separately authorized GHCR/signing setup, local timer/one-shot trigger, frozen-input pipeline, protected initial manual promotion and consumer discovery | Signed round trip; duplicate poll, offline catch-up, failed/interrupted run and emergency-trigger tests; incomplete-publication refusal; retention/rotation and notifications; automatic production promotion still disabled |
+| 5 — maintenance and automatic promotion | Native status, explicit activation, then download/window policy; qualify automated preview-to-stable promotion with separate activation policy | Effective policy, failed-gate promotion refusal, observation gates and bounded progressive rollout proved; enable unattended production only with explicit approval |
 | 6 — migration and production readiness | Existing-install migration, matching ISO/QCOW2 linkage where available, emergency drill and release ownership | Explicit supported starting states, architecture evidence, operational response targets and approved first production release |
-| 7 — subsequent improvements | Offline import, optional broader cohorts/automation | Separate bounded acceptance; not prerequisites for the initial explicit online flow |
+| 7 — subsequent improvements | Offline import, optional broader fleet cohorts and alternate builder hosting | Separate bounded acceptance; not prerequisites for the core automated release pipeline |
 
 Migration must inspect and preserve each target's current origin, layered packages,
 writable payloads, config/data and later writes. Do not replay first-install, clone a
@@ -303,11 +381,26 @@ credential-bearing appliance into an image or rebase retained fixtures as a shor
 - [x] Agree normal CoreOS-aligned train and emergency lane.
 - [x] Select GHCR for OCI distribution and mandatory production signing.
 - [x] Record target architecture, preservation boundaries and staged implementation.
-- [ ] Stage 1: inspect upstream/native feasibility and select exact mechanisms.
+- [x] Clarify automated normal/emergency pipeline and proposed local timer/one-shot
+  builder, with noninteractive reusable commands and separate execution grants.
+- [ ] Inspect local builder and select staging ref, schedule, resource/isolation limits,
+  notification destination and signing/promotion boundary before unattended setup.
+- [x] Stage 1 source/upstream review: exact base/package metadata, caller/layout
+  audit, bootc/rpm-ostree comparison, signature options and bounded proof proposal.
+- [ ] Stage 1 closure: accept the recommended proof mechanism; resolve native/client
+  questions, trust/channel details and package/configuration migration findings.
 - [ ] Stages 2–7: not started.
 
-**Next:** source/upstream research for Stage 1, resulting in a small decision table
-with exact versions and a bounded local/native proof proposal. No current target
-was inspected or changed for this plan. No registry, workflow, signing key, image,
-update client or release has been created. Independent Tailnet tasks remain with
-their own workstream; this plan does not absorb their task list.
+**Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
+digest-pinned logically bound core appliance images and native keyed-Sigstore
+verification, initially with explicit activation. The
+[research receipt](release-engineering-feasibility.md) owns exact versions, source
+references, the writable-layout/client-layering costs and the isolated proof proposal.
+No custom update server or alternative boot backend is proposed.
+
+**Next:** accept that proof target, then prepare the bounded local recipe/layout
+slice and obtain applicable fixture/trust grants before native execution. The
+Cockpit error still needs installed-version/caller confirmation; it does not block
+independent source work. No current target was inspected or changed. No registry,
+workflow, signing key, image, update client or release has been created. Independent
+Tailnet tasks remain with their own workstream; this plan does not absorb their list.

@@ -61,10 +61,18 @@ VM-hold extension occurred.
 The owner selected GHCR hosting and a CoreOS-stable-aligned Soda release train,
 with staged Soda changes, qualification, mandatory signing, progressive availability
 and independent emergency releases. The [release engineering plan](release-engineering-plan.md)
-owns its decisions, stages and task status. A derived host image is the preferred
-feasibility target; no build/update/signature mechanism or bootc migration has been
-validated or implemented. Next is Stage-1 upstream/source feasibility research.
-This planning selection grants no publication/automatic CI, signing/trust change,
+owns its decisions, stages and task status. The owner approved Stage-1 source/upstream
+research; its [first receipt](release-engineering-feasibility.md) recommends proving
+derived FCOS with bootc's OSTree backend, bound core app images and native signature
+policy. Current writable payload placement and client-side layering require explicit
+migration. No build/update/signature mechanism or bootc migration has native proof.
+The plan records the proposed local/native next steps and remaining decisions.
+The owner's automation clarification now explicitly selects an automated release
+pipeline, with this machine proposed as the initial timer/one-shot builder pending
+inspection. [The trigger section](release-engineering-plan.md#automated-trigger-and-initial-local-builder)
+owns scheduling, frozen inputs, protected promotion and failure/catch-up behavior.
+No timer or unattended pipeline has been installed or enabled.
+This research selection grants no publication/automatic CI, signing/trust change,
 service/VM lifecycle or retained-appliance migration. No installed state changed.
 
 ## Active work — Tailnet
