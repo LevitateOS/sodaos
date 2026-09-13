@@ -1100,9 +1100,11 @@ preserved after source-producer retirement.
 
 **20. [ ] Connect the full normal and emergency pipeline.**
 
-- Deliverable: detect/admit → build → tests/native qualification → protected signing
-  → publish → preview, with explicit initial stable promotion. The emergency entry
-  uses the same pipeline and serialization without waiting for the CoreOS trigger.
+- Deliverable: the [single-run phase sequence](#single-run-release-build-contract),
+  including protected candidate signing before native qualification and final signed
+  release metadata afterward, then authorized publication/promotion. The emergency
+  entry uses the same pipeline and serialization without waiting for the CoreOS
+  trigger; initial stable promotion remains explicit.
 - Check: failures stop downstream effects and notify the owner; uncertain publication
   is observed rather than blindly replayed; normal/emergency races cannot publish
   conflicting channels. Candidate provenance identifies exactly what was tested.
