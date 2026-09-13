@@ -101,7 +101,7 @@ with the shared definitions in `assets/branding/forgejo/components.css`.
 | --- | --- | --- |
 | Width | Outer frame up to 1240px, centered; fluid 16–48px page inset | Full native page width; bypass the ordinary 1120px content container |
 | Reading measure | Welcome up to 560px; repository/configuration forms up to 720px | Project identity in the main header; terminal uses the remaining width |
-| Vertical composition | Title/subtitle above one outlined frame; centered content and separated orientation footer; scroll on short screens | Sidebar starts beside the project header and extends to the workspace bottom; canvas fills remaining height |
+| Vertical composition | Title/subtitle above one outlined frame; centered welcome, aligned setup forms and separated orientation footer; scroll on short screens | Sidebar starts beside the project header and extends to the workspace bottom; canvas fills remaining height |
 | Heading scale | Soda title role, fluid 28–40px; 16px body and 14px supporting text | Same project title role; 22px sidebar heading; existing dense terminal chrome |
 | Spacing and rules | 32px title/frame separation, fluid 24–64px frame inset, 1px border | 112px desktop header, 24px canvas inset; compact header/content use 16px/12px insets |
 | Action hierarchy | Red primary with 44px minimum target; outlined secondary actions and quiet navigation/help | Red New terminal, outlined Project settings; contextual controls keep their dense sizing |
@@ -161,6 +161,29 @@ an explicit workspace action. No percentage, countdown or completion stage is
 invented when the backend supplies only a pending outcome.
 
 ### Repository selection and configuration
+
+Both steps share the same 1240px maximum outer frame, a 720px form measure and
+identical header/action tracks. The setup frame has a 640px minimum height and can
+grow with the viewport. The Back row and **New project** heading block retain their
+position between steps. Longer repository results or configuration fields scroll
+within the form, with space reserved for the primary action and orientation footer.
+On short screens the surrounding setup can also scroll; no action is clipped under
+the footer.
+
+Selection uses contiguous 64px minimum rows, a native radio indicator, neutral fill
+and a slim red leading edge. The search input and Search action share one row.
+Pagination appears only when there is another page to visit; bounded-search limit
+notices remain visible independently. The selected repository becomes a matching
+identity row in configuration, with its Forgejo owner/name and a quiet **Change**
+action. **Back**, **Change** and **Cancel setup** remain low-emphasis text buttons;
+**Continue** and **Create project** share the right action edge.
+
+Use the existing orientation footer as the sole step indicator: repository selection
+is current first, then confirmed selection receives a check and project configuration
+becomes current. This is form progress, not provisioning progress. The ready form
+omits routine status/retry controls. Loading, denied and uncertain outcomes retain
+announced feedback and recovery; pending creation says **Creating project…**, retains
+the selection and disables navigation without a percentage or extra dashboard.
 
 - Search only the current Forgejo's authorized repositories. Visibility and creation
   eligibility are different facts. The [environment API](dashboard-api.md) owns

@@ -65,6 +65,8 @@ export class SodaProjectControls extends LitElement {
       state: true
     }, repository: {
       state: true
+    }, repositoryName: {
+      state: true
     }, repositoryURL: {
       state: true
     }, session: {
@@ -120,6 +122,7 @@ export class SodaProjectControls extends LitElement {
   declare private status: string;
   declare private outcome: string;
   declare private repository: string;
+  declare private repositoryName: string;
   declare private repositoryURL: string;
   declare private session: Session | undefined;
   declare private environment: Environment | undefined;
@@ -160,7 +163,7 @@ export class SodaProjectControls extends LitElement {
     this.observedOS = undefined;
     this.osStatus = '';
     this.status = 'Refresh to inspect your shared environment.';
-    this.outcome = this.repository = this.repositoryURL = this.draft = '';
+    this.outcome = this.repository = this.repositoryName = this.repositoryURL = this.draft = '';
     this.session = this.environment = this.detail = this.saved = this.keyPreview = this.lifecycle = this.connection = this.profileKeys = undefined;
     this.busy = this.stale = this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
     this.connectVisible = true;
@@ -237,20 +240,22 @@ export class SodaProjectControls extends LitElement {
     }, 'Project created. Join explicitly to set up your browser-terminal account.');
   }
   private renderJourney() {
+    const configureReady = !this.environment && this.canCreate && !this.busy && !this.stale && !this.outcome && !this.networkReview;
     return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls soda-project-journey" aria-busy=${this.busy ? 'true' : 'false'}>
-      ${!this.environment ? html`<h2 tabindex="-1">Configure project</h2><p>${this.repository}</p>
+      ${!this.environment ? html`<header class="soda-setup-step-heading"><p class="soda-setup-eyebrow">New project</p><h2 tabindex="-1">Configure project</h2><p>Choose the system for your project.</p></header>
+        <div class="soda-configuration-fields"><div class="soda-configuration-repository"><p>Repository</p><div class="soda-config-repository"><span class="soda-journey-icon soda-repository-icon" aria-hidden="true"></span><span class="soda-config-repository-name">${this.repositoryName || 'Loading repository…'}<small>Forgejo</small></span><button class="ui button soda-quiet-action" aria-label="Change repository" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => {this.dispatchEvent(new CustomEvent('soda-project-change-repository', {bubbles: true}));})}>Change</button></div></div>
         ${renderProjectOS(this.profiles, this.selectedProfile, undefined, this.blocked, value => {if (this.profiles.some(p => p.id === value)) this.selectedProfile = value;}, 'configure')}
         ${this.networkOptions?.available ? renderNetworkSelection(this.networkOptions, this.networkEnabled, this.blocked, enabled => {this.networkEnabled = enabled; this.networkReview = false;}, 'Enable project Tailnet') : ''}
         ${this.networkReview ? html`<p role="alert">Network availability changed. Review the option before creating.</p><button class="ui button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => {this.networkEnabled = this.networkReview = false;})}>Use without Tailnet</button>` : ''}
-        <button class="ui primary button" ?disabled=${this.blocked || !this.canCreate || this.networkReview} @click=${(e: Event) => this.command(e, () => this.createProject())}>${this.mutationPending ? 'Creating project…' : 'Create project'}</button>
+        </div><div class="soda-setup-actions"><button class="ui primary button" ?disabled=${this.blocked || !this.canCreate || this.networkReview} @click=${(e: Event) => this.command(e, () => this.createProject())}>${this.mutationPending ? 'Creating project…' : 'Create project'}</button></div>
       ` : html`<h2>${!this.detail?.environment.provisioned ? 'Project needs inspection' : !this.running ? 'Project not ready' : !this.detail.login ? 'Project created' : 'Your account is ready'}</h2>
         <p>${this.repository}</p>
         ${this.running && !this.detail?.login ? html`<p>Join to create your personal account in this shared project. Browser terminals do not require SSH keys.</p><button class="ui primary button" ?disabled=${this.blocked || !!this.detail?.authority_unavailable} @click=${(e: Event) => this.command(e, () => this.joinEnvironment())}>${this.mutationPending ? 'Joining project…' : 'Join project'}</button>` : ''}
         ${!this.running && this.lifecycle ? html`<button class="ui primary button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.changeLifecycle(false))}>${this.mutationPending ? 'Starting project…' : 'Start project'}</button>` : ''}
         ${this.detail?.login ? html`<p>Project account: ${this.detail.login}</p>` : ''}
       `}
-      <p role="status">${this.status}</p><p role="status">${this.outcome}</p>
-      <button class="ui button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.refresh())}>Refresh status</button>
+      <p role="status" ?hidden=${configureReady || this.mutationPending}>${this.status}</p><p role="status">${this.mutationPending && !this.environment ? 'Creating your project…' : this.outcome}</p>
+      <button class="ui button soda-quiet-action" ?hidden=${configureReady || this.busy} ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.refresh())}>Refresh status</button>
       ${this.stale ? html`<p>Access changed. Reload Spaces to reconnect; no operation will be repeated.</p>` : ''}
     </section>`;
   }
@@ -381,7 +386,7 @@ export class SodaProjectControls extends LitElement {
     this.readController?.abort();
     this.reset();
     this.session = undefined;
-    this.repository = '';
+    this.repository = this.repositoryName = '';
     this.connectVisible = false;
     this.status = 'Page context changed. Reload the full repository page; no action was replayed or undone. A dispatched operation may still have completed.';
   }
@@ -447,6 +452,7 @@ export class SodaProjectControls extends LitElement {
       check(repository.id === repositoryId && Array.isArray(collection.items) && collection.items.length <= 1 && typeof collection.can_create === 'boolean');
       check(typeof repository.owner === 'string' && typeof repository.name === 'string');
       for (const part of [repository.owner, repository.name]) check(part !== '' && part !== '.' && part !== '..' && part.length <= 255 && !/[\/\\\x00\r\n]/.test(part));
+      this.repositoryName = `${repository.owner}/${repository.name}`;
       this.repository = `Repository ${repository.owner}/${repository.name} · ID ${repositoryId}`;
       this.repositoryURL = location.origin + '/' + encodeURIComponent(repository.owner) + '/' + encodeURIComponent(repository.name);
       if (!collection.items.length) {
@@ -566,6 +572,7 @@ export class SodaProjectControls extends LitElement {
     try {
       dispatched = true;
       this.mutationPending = true;
+      this.dispatchEvent(new CustomEvent('soda-project-operation', {bubbles: true}));
       this.outcome = 'Request dispatched. Closing does not cancel or undo native work.';
       const raw = await this.api(path, method, body, controller.signal), result = raw === null ? null : object(raw);
       if (!this.active(n))
@@ -597,6 +604,7 @@ export class SodaProjectControls extends LitElement {
         check(keys.some(k => k.public_key?.trim().split(/\s+/).slice(0, 2).join(' ') === publicKey.trim().split(/\s+/).slice(0, 2).join(' ')));
       }
       this.mutationPending = false;
+      this.dispatchEvent(new CustomEvent('soda-project-operation', {bubbles: true}));
       this.outcome = message;
       this.dispatchEvent(new CustomEvent('soda-project-changed', {
         bubbles: true, detail: {

@@ -12,8 +12,8 @@ export function renderProjectOS(profiles: readonly CreationProfile[], selected: 
       <p>Creation metadata describes the original image, not later installed packages. Changing distribution/interface for an existing root is not implemented.</p></section>`;
   }
   return profiles.length ? html`<label>Project OS <select .value=${selected} ?disabled=${blocked} @change=${(event: Event) => {if (event.target instanceof HTMLSelectElement && !blocked) select(event.target.value);}}>
-    ${profiles.map(p => html`<option value=${p.id} ?selected=${p.id === selected}>Rocky ${p.version} headless (${p.architecture})</option>`)}
-    </select></label><p>${context === 'configure' ? 'Headless provides browser terminal access to the shared development system. Nothing is provisioned until you create the project.' : 'Headless provides terminal access to the shared development foundation. KDE adds graphical access, but KDE and Fedora are not available in this build. Selection alone does not pull or start anything.'}</p>` : html``;
+    ${profiles.map(p => html`<option value=${p.id} ?selected=${p.id === selected}>${context === 'configure' ? `Rocky Linux ${p.version} · Terminal` : `Rocky ${p.version} headless (${p.architecture})`}</option>`)}
+    </select></label><p>${context === 'configure' ? 'A shared Linux system with browser terminal access.' : 'Headless provides terminal access to the shared development foundation. KDE adds graphical access, but KDE and Fedora are not available in this build. Selection alone does not pull or start anything.'}</p>` : html``;
 }
 
 export function renderOSObservation(observed: OSObservation | undefined, status: string, blocked: boolean, inspect: (event: MouseEvent) => void): TemplateResult {

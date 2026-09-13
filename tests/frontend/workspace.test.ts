@@ -447,11 +447,16 @@ for (const retirement of ['invalidate', 'dispose', 'disconnect'] as const) test(
 async function chooseFirstRepository(page: Page, capture?: string) {
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
   await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
-  if (capture) await captureSpacesComponent(page, 'picker-' + capture);
   await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  if (capture) await captureSpacesComponent(page, 'picker-' + capture);
+  const picker = {frame: await page.locator('.soda-workspace-frame').boundingBox(), heading: await page.getByRole('heading', {name: 'Choose a repository'}).boundingBox(), action: await page.getByRole('button', {name: 'Continue', exact: true}).boundingBox()};
+  const selection = await page.locator('.soda-repository-choice:has(input:checked)').evaluate(node => ({background: getComputedStyle(node).backgroundColor, edge: getComputedStyle(node).boxShadow}));
+  assert.notEqual(selection.edge, 'none', 'selection needs a shape treatment beyond radio color');
+  assert.equal(await page.getByRole('navigation', {name: 'Repository pages'}).count(), 0, 'single-page results should not show pagination');
   await page.getByRole('button', {name: 'Continue', exact: true}).click();
   await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
   await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
+  return picker;
 }
 for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]) test(`first use ${theme}/${width}: explicit welcome to typed terminal, then exact re-entry`, async t => {
   const page = await fixture(t, 'page', undefined, true);
@@ -475,8 +480,17 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
   const welcome = await page.locator('.soda-setup-welcome').boundingBox();
   assert(welcome && welcome.width <= 560 && welcome.x > setupBounds.x, 'welcome lacks a focused reading measure');
   await captureSpacesComponent(page, `welcome-${theme}-${width}`);
-  await chooseFirstRepository(page, `${theme}-${width}`);
+  const picker = await chooseFirstRepository(page, `${theme}-${width}`);
   const configureBounds = await page.locator('.soda-workspace-frame').boundingBox();
+  const configureHeading = await page.getByRole('heading', {name: 'Configure project'}).boundingBox();
+  const configureAction = await page.getByRole('button', {name: 'Create project', exact: true}).boundingBox();
+  assert(picker.frame && configureBounds && Math.abs(picker.frame.height - configureBounds.height) <= 1 && Math.abs(picker.frame.y - configureBounds.y) <= 1, 'panel jumps between setup steps');
+  assert(picker.heading && configureHeading && Math.abs(picker.heading.x - configureHeading.x) <= 1 && Math.abs(picker.heading.y - configureHeading.y) <= 1, 'setup headings lose their alignment');
+  assert(picker.action && configureAction && Math.abs(picker.action.x + picker.action.width - configureAction.x - configureAction.width) <= 1, 'primary actions lose their right alignment');
+  const footerTop = (await page.locator('.soda-setup-footer').boundingBox())?.y;
+  assert(footerTop && picker.action && configureAction && picker.action.y + picker.action.height <= footerTop && configureAction.y + configureAction.height <= footerTop, 'setup actions are clipped below the progress footer');
+  assert.equal(await page.getByRole('button', {name: 'Refresh status', exact: true}).count(), 0, 'ready configuration should not show routine recovery controls');
+  assert.equal((await page.locator('[aria-current=step]').innerText()).replace(/\s+/g, ' '), '02 Create a project');
   assert(configureBounds && configureBounds.x === setupBounds.x && configureBounds.width === setupBounds.width, 'configuration changed the outer frame');
   const form = await page.locator('.soda-project-journey').boundingBox();
   assert(form && form.width <= 720 && form.width < configureBounds.width, 'configuration needs an inset form measure');
@@ -555,6 +569,25 @@ for (const viewport of [{width: 320, height: 568}, {width: 720, height: 422}]) t
   await page.keyboard.press('Enter');
   await page.getByRole('heading', {name: 'Choose a repository'}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0, 'welcome action created a resource');
+});
+test('setup: pending creation keeps its selection and disables navigation without duplicate writes', async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => {
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {configurable: true, value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).endsWith('/api/environments') && init?.method === 'POST') await new Promise<void>(resolve => window.addEventListener('release-creation', () => resolve(), {once: true}));
+      return original(input, init);
+    }});
+    return window.workspaceFixture.api.refresh();
+  });
+  await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Creating project…', exact: true}).waitFor();
+  for (const name of ['Back', 'Change repository', 'Cancel setup', 'Creating project…']) assert(await page.getByRole('button', {name, exact: true}).isDisabled(), name);
+  assert.equal(await page.locator('.soda-config-repository-name').innerText(), 'alice/Alpha\nForgejo');
+  await page.evaluate(() => window.dispatchEvent(new Event('release-creation')));
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
 });
 for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const) test(`first use: ${outcome} creation is inspected, not replayed`, async t => {
   const page = await fixture(t, 'page', undefined, true);

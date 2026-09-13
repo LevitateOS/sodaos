@@ -280,6 +280,12 @@ export class SodaSpaces extends LitElement {
       if (detail.repositoryId !== this.project || this.projects.get(this.project)?.host.firstElementChild !== e.target) return;
       if (this.setup === 'configure' && projectId(detail.environmentId)) void this.refresh();
     });
+    this.addEventListener('soda-project-operation', e => {
+      if (!this.disposed && this.projects.get(this.project)?.host.firstElementChild === e.target) this.requestUpdate();
+    });
+    this.addEventListener('soda-project-change-repository', e => {
+      if (this.projects.get(this.project)?.host.firstElementChild === e.target) this.changeRepository();
+    });
     this.addEventListener('soda-project-changed', e => {
       if (!(e instanceof CustomEvent))
         return;
@@ -322,7 +328,7 @@ export class SodaSpaces extends LitElement {
   protected render() {
     const blocked = this.stale || !this.available;
     const navigation = this.view === 'sessions' || (!this.compact && this.layout.sidebar !== null);
-    return html`<section id="sodaspaces-data" data-workspace-kind=${this.binding?.kind || ''} class=${'soda-workspace ' + (this.compact ? 'is-compact' : 'is-wide') + (this.setupScreen ? ' is-setup' : '') + (this.welcomeScreen ? ' is-welcome' : '')} aria-busy=${this.busy ? 'true' : 'false'} @keydown=${(e: KeyboardEvent) => this.workspaceKey(e)}>
+    return html`<section id="sodaspaces-data" data-workspace-kind=${this.binding?.kind || ''} class=${'soda-workspace ' + (this.compact ? 'is-compact' : 'is-wide') + (this.setupScreen ? ' is-setup' : '') + (this.welcomeScreen ? ' is-welcome' : '') + (this.setup ? ' is-project-setup' : '')} aria-busy=${this.busy ? 'true' : 'false'} @keydown=${(e: KeyboardEvent) => this.workspaceKey(e)}>
       ${this.setupScreen ? html`<div class="soda-setup-heading"><h1>Spaces</h1><p>Your projects and terminals, together.</p></div>` : ''}
       ${this.binding?.kind === 'native' ? this.renderToolbar() : ''}
       <p id="sodaspaces-status" role="status" ?hidden=${!this.status}>${this.status}</p><p role="status" ?hidden=${!this.storageNotice}>${this.storageNotice}</p>
@@ -330,6 +336,7 @@ export class SodaSpaces extends LitElement {
         x: 0, y: 0, width: this.workspaceWidth, height: this.tabHeight
       }, true)}</div>` : ''}
       <div class="soda-workspace-frame">
+      ${this.setup ? html`<div class="soda-setup-topbar"><button class="ui button soda-quiet-action" ?disabled=${this.stale || !this.canRestore} @click=${() => this.setup === 'configure' ? this.changeRepository() : this.cancelSetup()}><span aria-hidden="true">←</span> Back</button>${this.setup === 'configure' ? html`<button class="ui button soda-quiet-action" ?disabled=${this.stale || !this.canRestore} @click=${() => this.cancelSetup()}>Cancel setup</button>` : ''}</div>` : ''}
       ${this.setupScreen ? this.renderSetup() : ''}
       <div ?hidden=${this.setupScreen && this.setup !== 'configure'} class=${'soda-workspace-body' + (this.view === 'sessions' ? ' is-navigating' : '')} style=${!this.setupScreen && !this.compact && this.layout.sidebar !== null && this.view !== 'sessions' ? `grid-template-columns:${this.layout.sidebar}px 6px minmax(0,1fr)` : 'grid-template-columns:minmax(0,1fr)'}>
         <nav class="soda-workspace-navigation" aria-label=${this.binding?.kind === 'page' ? 'Projects and terminals' : 'Projects and sessions'} ?hidden=${this.setupScreen || !navigation || this.stale} @keydown=${(e: KeyboardEvent) => {
@@ -364,7 +371,7 @@ export class SodaSpaces extends LitElement {
         <div class="soda-sidebar-divider" role="separator" tabindex="0" aria-label="Resize project sidebar" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="360" aria-valuenow=${this.layout.sidebar || 256} ?hidden=${this.setupScreen || this.compact || this.layout.sidebar === null || this.view === 'sessions'} @pointerdown=${(e: PointerEvent) => this.capture(e)} @pointermove=${(e: PointerEvent) => this.resizeSidebar(e)} @pointerup=${(e: PointerEvent) => this.releasePointer(e)} @keydown=${(e: KeyboardEvent) => this.sidebarKey(e)}></div>
         <div class="soda-workspace-work">
           ${this.binding?.kind === 'page' ? this.renderToolbar() : ''}
-          ${this.setup === 'configure' ? html`<div class="soda-setup-change"><button class="ui button" ?disabled=${this.stale || !this.canRestore} @click=${() => {if (!this.stale && this.canRestore) {this.setup = 'repositories'; this.focusSetup();}}}>Change repository</button><button class="ui button" ?disabled=${this.stale || !this.canRestore} @click=${() => this.cancelSetup()}>Cancel setup</button></div>` : ''}
+
           <div class="soda-workspace-canvas" ?hidden=${this.view !== 'terminal' || this.stale}>
             <span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
             ${this.firstTerminal ? html`<div class="soda-first-terminal"><span class="soda-journey-icon soda-terminal-icon" aria-hidden="true"></span><h2>Open your first terminal</h2><p>Your account is ready in ${this.selectedSpace ? this.projectName(this.selectedSpace) : ''}. Open a browser terminal to start working.</p><button class="ui primary button" data-environment-id=${this.selectedSpace?.environment.id || ''} data-terminal-name=${this.defaultTerminalName(this.selectedSpace)} ?disabled=${blocked || this.creating} @click=${() => this.newTerminal()}>New terminal</button><p>Project account: ${this.selectedSpace?.login}</p></div>` : ''}
@@ -375,7 +382,7 @@ export class SodaSpaces extends LitElement {
           <div class="soda-workspace-management" ?hidden=${this.view !== 'project' || this.stale}></div>
         </div>
       </div>
-      ${this.welcomeScreen ? renderWelcomeSteps() : this.setupScreen ? html`<p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p>` : ''}
+      ${this.welcomeScreen || this.setup ? renderWelcomeSteps(this.setup === 'configure' ? 2 : this.setup === 'repositories' ? 1 : undefined) : this.setupScreen ? html`<p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p>` : ''}
       </div>
       ${this.creation ? this.creationForm(this.creation) : ''}
       ${this.editing ? renderRename(this.editing.name, this.slots.find(s => s.key === this.editing?.key)?.binding.projectName || '', !validName(this.editing.name) || this.renaming.has(this.editing.key) || this.stale, name => {
@@ -433,6 +440,10 @@ export class SodaSpaces extends LitElement {
     this.setupReturn = {project: this.project, view: this.view, mode: this.managementMode};
     this.setup = 'repositories'; this.repositoryChoice = '';
     this.focusSetup(); void this.searchRepositories(1);
+  }
+  private changeRepository() {
+    if (this.stale || !this.canRestore || this.setup !== 'configure' || !this.activeSurface) return;
+    this.setup = 'repositories'; this.focusSetup();
   }
   private cancelSetup() {
     if (this.stale || !this.canRestore) return;

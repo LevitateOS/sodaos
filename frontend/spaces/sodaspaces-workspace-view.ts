@@ -16,33 +16,33 @@ export function renderWelcome(blocked: boolean, create: () => void) {
     <p class="soda-welcome-help"><a href="https://github.com/levitateos/sodaos/blob/main/docs/public/30-Use-Soda/20-projects-and-workspaces.md" target="_blank" rel="noopener noreferrer">How Spaces works <span aria-hidden="true">↗</span><span class="soda-visually-hidden"> (opens in a new tab)</span></a></p>`;
 }
 
-export function renderWelcomeSteps() {
-  return html`<ol class="soda-setup-footer soda-welcome-steps" aria-label="Getting started">
-    <li><span aria-hidden="true">01</span> Choose a repository</li>
-    <li><span aria-hidden="true">02</span> Create a project</li>
+export function renderWelcomeSteps(step?: 1 | 2) {
+  return html`<ol class="soda-setup-footer soda-welcome-steps" aria-label=${step ? 'New project progress' : 'Getting started'} data-step=${step || 0}>
+    <li aria-current=${step === 1 ? 'step' : 'false'}><span aria-hidden="true">${step === 2 ? '✓' : '01'}</span> Choose a repository</li>
+    <li aria-current=${step === 2 ? 'step' : 'false'}><span aria-hidden="true">02</span> Create a project</li>
     <li><span aria-hidden="true">03</span> Open a terminal</li>
   </ol>`;
 }
 
 export function renderRepositoryPicker(view: {query: string; result: RepositoryChoices | undefined; selected: string; busy: boolean; error: string; blocked: boolean; createURL: string}, actions: {query: (value: string) => void; search: (page: number) => void; select: (id: string) => void; back: () => void; continue: () => void}) {
   const choice = view.result?.items.find(item => item.id === view.selected);
-  return html`<h2 tabindex="-1">Choose a repository</h2>
-    <p>Choose a repository you own on this Forgejo. Shared projects already available to you are in Projects.</p>
-    <form @submit=${(e: SubmitEvent) => {e.preventDefault(); actions.search(1);}}>
-      <label>Search repositories<input type="search" maxlength="200" .value=${view.query} ?disabled=${view.blocked} @input=${(e: Event) => {if (e.target instanceof HTMLInputElement) actions.query(e.target.value);}}></label>
+  return html`<header class="soda-setup-step-heading"><p class="soda-setup-eyebrow">New project</p><h2 tabindex="-1">Choose a repository</h2>
+    <p>Choose a repository you own on this Forgejo.</p></header>
+    <form class="soda-repository-search" @submit=${(e: SubmitEvent) => {e.preventDefault(); actions.search(1);}}>
+      <label><span class="soda-visually-hidden">Search repositories</span><input placeholder="Search repositories…" type="search" maxlength="200" .value=${view.query} ?disabled=${view.blocked} @input=${(e: Event) => {if (e.target instanceof HTMLInputElement) actions.query(e.target.value);}}></label>
       <button class="ui button" ?disabled=${view.busy || view.blocked}>Search</button>
     </form>
-    <div role="status">${view.busy ? 'Finding repositories…' : view.error}</div>
-    <fieldset ?disabled=${view.busy || view.blocked}><legend>Repositories</legend>
+    <div class="soda-repository-notice" role="status">${view.busy ? 'Finding repositories…' : view.error}</div>
+    <fieldset class="soda-repository-results" ?disabled=${view.busy || view.blocked}><legend>Available repositories</legend><div class="soda-repository-rows">
       ${view.result?.items.map(item => html`<label class="soda-repository-choice">
         <input type="radio" name="soda-repository" .checked=${view.selected === item.id} @change=${() => actions.select(item.id)}>
-        <span class="soda-journey-icon soda-repository-icon" aria-hidden="true"></span><span>${item.owner}/${item.name}<small>${item.project ? item.project.provisioned ? 'Project exists' : 'Provisioning needs inspection' : 'Ready to configure'}</small></span>
+        <span class="soda-journey-icon soda-repository-icon" aria-hidden="true"></span><span>${item.owner}/${item.name}<small>${item.project ? item.project.provisioned ? 'Project exists' : 'Provisioning needs inspection' : ''}</small></span>
       </label>`)}
       ${view.result && !view.result.items.length ? html`<p>${view.query ? 'No matching eligible repositories. Clear your search or create a repository.' : 'No eligible repositories on this page. Only a human repository owner can create its project.'}</p>` : ''}
-    </fieldset>
-    ${view.result ? html`<nav aria-label="Repository pages"><button class="ui button" ?disabled=${view.busy || view.blocked || view.result.page <= 1} @click=${() => actions.search((view.result?.page || 1) - 1)}>Previous repositories</button><span>Page ${view.result.page}</span><button class="ui button" ?disabled=${view.busy || view.blocked || !view.result.more} @click=${() => actions.search((view.result?.page || 1) + 1)}>Next repositories</button></nav>${view.result.limited ? html`<p>Search limit reached. Narrow your search.</p>` : ''}` : ''}
-    <p><a href=${view.createURL}>Create a new repository</a> in Forgejo, then return here and search again.</p>
-    <div class="soda-setup-actions"><button class="ui button" ?disabled=${view.blocked} @click=${actions.back}>Back</button><button class="ui primary button" ?disabled=${view.busy || view.blocked || !choice} @click=${actions.continue}>${choice?.project ? choice.project.provisioned ? 'Open project' : 'Inspect project' : 'Continue'}</button></div>`;
+    </div></fieldset>
+    ${view.result && (view.result.more || view.result.page > 1) ? html`<nav aria-label="Repository pages"><button class="ui button" ?disabled=${view.busy || view.blocked || view.result.page <= 1} @click=${() => actions.search((view.result?.page || 1) - 1)}>Previous repositories</button><span>Page ${view.result.page}</span><button class="ui button" ?disabled=${view.busy || view.blocked || !view.result.more} @click=${() => actions.search((view.result?.page || 1) + 1)}>Next repositories</button></nav>` : ''}
+    ${view.result?.limited ? html`<p>Search limit reached. Narrow your search.</p>` : ''}
+    <div class="soda-setup-actions"><a href=${view.createURL}>Create a new repository</a><button class="ui primary button" ?disabled=${view.busy || view.blocked || !choice} @click=${actions.continue}>${choice?.project ? choice.project.provisioned ? 'Open project' : 'Inspect project' : 'Continue'}</button></div>`;
 }
 
 /** Stateless chrome. Callbacks capture the owner's original entry/pane/project. */

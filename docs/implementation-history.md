@@ -14,6 +14,36 @@ not claims that those outputs are still retained.
 
 ---
 
+## Spaces repository flow refinement
+
+On 13 September 2026, aligned repository selection and configuration inside the
+same setup frame. Both steps retain heading and primary-action alignment; selected
+rows use radio, neutral fill and a red leading edge. Configuration displays the
+validated Forgejo repository name with Change and a short installed-profile label.
+Back/Cancel remain quiet. The shared footer indicates form progress, while routine
+ready-state status/retry controls are omitted. Existing failure recovery remains
+available. Pending-operation notifications update the parent's disabled navigation
+without changing mutation admission, authority or request payloads.
+
+Build and strict TypeScript/Lit checks passed. The emitted workspace and visual-token
+suites passed 63 tests; after the final compact action-row adjustment, 11 affected
+journey, pending-creation and token cases passed again. New checks compare panel
+height/position, heading alignment and primary-action edges across both steps in
+light/dark at 1440, 800, 640 and 390px. They also check unclipped actions, selected-row
+treatment, quiet one-page results, current-step semantics and one dispatched creation
+with navigation disabled while pending. Existing Back/Change tests retain the choice
+without writes; error cases retain recovery and terminal continuity still passes.
+
+The first visual review caught clipped actions in the fixed frame; the final layout
+reserves their space and scrolls longer form content. A test text assertion was also
+normalized for rendered whitespace. [The local comparison gallery](../.artifacts/spaces-flow-captures/index.html)
+contains final emitted-component captures from `scripts/screenshot.ts`; desktop and
+mobile were visually reviewed. These use synthetic APIs/terminal transport, not
+native Forgejo HTML or installed-project proof. No appliance delivery or retained
+native-resource change occurred. The [visual owner](spaces-design.md#repository-selection-and-configuration)
+and [workstream](sodaspaces-plan.md#current-progress-and-next-action) retain the design
+contract and remaining acceptance.
+
 ## Spaces welcome refinement
 
 On 13 September 2026, implemented the selected welcome composition using the

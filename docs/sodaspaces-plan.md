@@ -561,7 +561,8 @@ and deployment each keep their own status.
 | Visual redesign reference completion | Working-terminal reference and separate terminal/pane menu details generated; [full local gallery](../.artifacts/design/spaces-empty-state/journey-gallery.html) available for review |
 | Visual redesign layout foundation | Centered setup frame and full-height workspace implemented locally; [composition contract](spaces-design.md#page-compositions) and [local receipt](implementation-history.md#spaces-visual-layout-foundation) |
 | Visual redesign welcome | Selected composition implemented locally: decorative cube, focused explanation, one red Create project action, quiet help and numbered orientation; [welcome contract](spaces-design.md#welcome-composition) and [receipt](implementation-history.md#spaces-welcome-refinement) |
-| Current presentation acceptance | Layout and welcome rebuilt; remaining journey screens, contextual-control polish and user visual acceptance remain pending |
+| Visual redesign repository flow | Selection and configuration share a stable frame, aligned form/action tracks, explicit selection treatment and quiet navigation/progress; [contract](spaces-design.md#repository-selection-and-configuration) and [receipt](implementation-history.md#spaces-repository-flow-refinement) |
+| Current presentation acceptance | Layout, welcome and repository setup rebuilt; post-creation screens, contextual-control polish and user visual acceptance remain pending |
 | Plan and reconciliation of conflicting full-page design requirements | Authored; documentation only |
 | File-level implementation guide, steps 1–15 under J1–J5 | Authored with per-step checks and separate local/native/delivery exits |
 | J1–J4 source implementation, steps 1–12 | Implemented through existing Go/Lit/project/terminal owners |

@@ -127,13 +127,13 @@
 .soda-workspace .soda-setup-welcome .soda-welcome-help { margin: 0; font: var(--soda-font-meta); }
 .soda-workspace .soda-welcome-help a { color: var(--soda-page-muted); text-underline-offset: .2em; }
 .soda-workspace .soda-welcome-help a:is(:hover, :focus-visible) { color: var(--soda-page-text); }
-.soda-workspace.is-welcome .soda-welcome-steps { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--soda-space-6) var(--soda-space-8); list-style: none; margin-inline: var(--soda-spaces-panel-inset); padding-inline: 0; font: var(--soda-font-button); }
+.soda-workspace.is-setup .soda-welcome-steps { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--soda-space-6) var(--soda-space-8); list-style: none; margin-inline: var(--soda-spaces-panel-inset); padding-inline: 0; font: var(--soda-font-button); }
 .soda-welcome-steps li { display: flex; align-items: baseline; gap: var(--soda-space-3); }
 .soda-welcome-steps li > span { color: var(--soda-page-muted); }
-.soda-welcome-steps li:first-child > span { color: var(--soda-page-link); }
+.soda-welcome-steps:not([data-step="2"]) li:first-child > span, .soda-welcome-steps li[aria-current=step] > span { color: var(--soda-page-link); }
 .soda-welcome-steps li + li::before { content: "\2192"; margin-right: var(--soda-space-4); }
 @media (max-width: 640px) {
-  .soda-workspace.is-welcome .soda-welcome-steps { flex-direction: column; align-items: center; gap: var(--soda-space-3); }
+  .soda-workspace.is-setup .soda-welcome-steps { flex-direction: column; align-items: center; gap: var(--soda-space-3); }
   .soda-welcome-steps li { width: 100%; max-width: 240px; }
   .soda-welcome-steps li + li::before { content: none; }
 }
@@ -183,3 +183,50 @@
 .soda-selected-project small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .soda-workspace .ui.button.soda-project-select[aria-pressed=true] { background: var(--soda-page-hover); color: var(--soda-page-text); border-color: transparent; border-inline-start-color: var(--soda-button-primary-bg); }
 .soda-project-status { display: block; padding: 0 var(--soda-space-2) var(--soda-space-2); }
+
+/* Repository selection and configuration occupy the same fixed frame tracks.
+   Long results/options scroll inside the form; the outer panel does not jump. */
+.soda-workspace.is-project-setup .soda-workspace-frame { flex: 1 0 640px; min-height: 640px; height: 640px; }
+.soda-setup-topbar { display: flex; justify-content: space-between; flex-shrink: 0; width: calc(100% - 2 * var(--soda-spaces-panel-inset)); max-width: var(--soda-spaces-form-width); margin-inline: auto; padding-block: var(--soda-space-4) var(--soda-space-2); }
+.soda-workspace.is-project-setup .soda-setup-panel { align-items: stretch; flex: 1 1 0; min-height: 0; overflow: auto; padding-block: var(--soda-space-4) var(--soda-space-6); }
+.soda-workspace.is-project-setup .soda-setup-form { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.soda-workspace.is-project-setup .soda-workspace-body { flex: 1 1 0; overflow: auto; }
+.soda-workspace.is-project-setup .soda-workspace-work { justify-content: flex-start; padding-block: var(--soda-space-4) var(--soda-space-6); }
+.soda-workspace.is-project-setup .soda-workspace-management { flex: 1; min-height: 0; }
+.soda-workspace.is-project-setup :is(.soda-workspace-management > div, soda-project-controls) { height: 100%; }
+.soda-workspace.is-project-setup .soda-project-journey { height: 100%; min-height: 0; justify-content: flex-start; gap: 0; }
+.soda-workspace.is-project-setup .soda-setup-step-heading { flex-shrink: 0; margin-bottom: var(--soda-space-6); }
+.soda-workspace.is-project-setup .soda-setup-step-heading h2 { margin: 0 0 var(--soda-space-3); }
+.soda-workspace.is-project-setup .soda-setup-step-heading p { margin: 0; }
+.soda-workspace.is-project-setup .soda-setup-step-heading .soda-setup-eyebrow { margin-bottom: var(--soda-space-3); font: var(--soda-font-button); text-transform: uppercase; }
+.soda-workspace.is-project-setup .soda-repository-search { display: flex; align-items: stretch; gap: var(--soda-space-2); margin: 0 0 var(--soda-space-6); }
+.soda-repository-search label { flex: 1; min-width: 0; }
+.soda-workspace.is-project-setup .soda-repository-search input { height: 100%; margin: 0; }
+.soda-repository-notice:empty { display: none; }
+.soda-repository-notice { margin-bottom: var(--soda-space-4); color: var(--soda-page-muted); }
+.soda-workspace.is-project-setup .soda-repository-results { flex: 1; min-height: 90px; overflow-y: auto; margin: 0 0 var(--soda-space-4); }
+.soda-repository-results legend { margin-bottom: var(--soda-space-3); font: var(--soda-font-label); color: var(--soda-page-muted); }
+.soda-repository-rows { min-width: 0; }
+.soda-workspace.is-project-setup .soda-repository-choice { box-sizing: border-box; margin: 0; min-height: 64px; padding: var(--soda-space-3) var(--soda-space-4); gap: var(--soda-space-4); }
+.soda-repository-choice + .soda-repository-choice { border-top: 0; }
+.soda-workspace.is-project-setup .soda-repository-choice:has(input:checked) { background: var(--soda-page-hover); border-color: var(--soda-page-edge); box-shadow: inset 3px 0 var(--soda-button-primary-bg); }
+.soda-repository-choice input { accent-color: var(--soda-button-primary-bg); flex-shrink: 0; }
+.soda-repository-choice small:empty { display: none; }
+.soda-workspace.is-project-setup .soda-configuration-fields { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--soda-space-3); width: 100%; margin-bottom: var(--soda-space-6); }
+.soda-configuration-repository { margin-bottom: var(--soda-space-4); }
+.soda-workspace.is-project-setup .soda-configuration-repository > p { font: var(--soda-font-label); color: var(--soda-page-text); margin-bottom: var(--soda-space-2); }
+.soda-config-repository { box-sizing: border-box; display: flex; align-items: center; gap: var(--soda-space-4); min-height: 64px; border: 1px solid var(--soda-page-edge); padding: var(--soda-space-2) var(--soda-space-4); }
+.soda-config-repository-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.soda-config-repository small { display: block; font: var(--soda-font-meta); color: var(--soda-page-muted); }
+.soda-workspace.is-project-setup .soda-configuration-fields select { margin-bottom: 0; }
+.soda-workspace.is-project-setup .soda-setup-actions { border-top: 0; width: 100%; margin-top: auto; gap: var(--soda-space-4); padding-top: var(--soda-space-6); flex-shrink: 0; }
+.soda-setup-actions > .primary { margin-left: auto !important; min-width: 160px; }
+.soda-workspace.is-project-setup .soda-setup-actions > a { color: var(--soda-page-muted); font: var(--soda-font-meta); text-underline-offset: .2em; }
+.soda-workspace.is-project-setup .soda-project-journey > [role=status]:not([hidden]):not(:empty) { margin-top: var(--soda-space-4); }
+.soda-workspace.is-project-setup .ui.button.soda-quiet-action { border-color: transparent; background: transparent; color: var(--soda-page-muted); padding: var(--soda-space-2) 0 !important; font: var(--soda-font-meta) !important; text-transform: none; letter-spacing: normal; min-height: var(--soda-control-height) !important; }
+.soda-workspace.is-project-setup .ui.button.soda-quiet-action:is(:hover, :focus-visible) { color: var(--soda-page-text); text-decoration: underline; }
+.soda-config-repository .soda-quiet-action { text-decoration: underline; text-underline-offset: .2em; }
+@media (max-width: 640px) {
+  .soda-workspace.is-project-setup .soda-setup-actions { gap: var(--soda-space-3); }
+  .soda-workspace.is-project-setup .soda-setup-actions > .primary { min-width: 144px; }
+}
