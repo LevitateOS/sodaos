@@ -28,11 +28,10 @@ export async function exerciseRunnerContention(operator: Page, input: RunnerInpu
   operator.on('request',observe);
   try {
     evidence.stage='prepare native controls before admission hold';
-    assert(before.inventory.runners.find(r=>r.id === input.runner_id)?.service.active === 'active','Use an idle running disposable listener');
+    assert(before.inventory.runners.find(r=>r.id === input.runner_id)?.service?.active === 'active','Use an idle running disposable listener');
     evidence.stage='native exact Restart confirmation';
     const view=operator.locator('soda-runners');
     await view.getByRole('button',{name:'restart '+input.runner_id,exact:true}).click();
-    await view.getByLabel('Exact runner ID',{exact:true}).fill(input.runner_id);
     // Recheck both native records after login and before the deliberately held lock.
     evidence.stage='native preservation before hold';
     const prepared=await readRunnerState(input); assert.deepEqual(prepared,before);
@@ -64,7 +63,7 @@ export async function exerciseRunnerContention(operator: Page, input: RunnerInpu
       await finished;
       const held=receipt.held_at; assert(typeof held === 'number');
       evidence.stage='one native Restart under held admission';
-      permit(input.operator_id,route.slice('/-/soda'.length),JSON.stringify({confirm_id:input.runner_id}));
+      permit(input.operator_id,route.slice('/-/soda'.length),'{}');
       const dispatched=operator.waitForRequest(r=>new URL(r.url()).pathname === route && r.method() === 'POST');
       if(input.phase === 'contention') {
         web=operator.waitForResponse(r=>new URL(r.url()).origin === input.origin && new URL(r.url()).pathname === route && r.request().method() === 'POST',{timeout:200000}).then(async response=>{

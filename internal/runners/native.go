@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/filelock"
@@ -54,48 +53,47 @@ func NewNative() *Native {
 	return &Native{RootPath: DefaultRootPath, LockPath: DefaultLockPath, Runner: ExecCommandRunner{}}
 }
 
-func (native *Native) List(ctx context.Context) ([]RunnerView, error) {
+func (native *Native) List(ctx context.Context) (Inventory, error) {
+	inventory := Inventory{Runners: []RunnerView{}, Unavailable: []string{}}
 	lock, err := native.lock(ctx)
 	if err != nil {
-		return nil, err
+		return Inventory{}, err
 	}
 	defer lock.Close()
 	entries, err := os.ReadDir(native.rootPath())
 	if errors.Is(err, os.ErrNotExist) {
-		return []RunnerView{}, nil
+		return inventory, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read local runner directory: %w", err)
+		return Inventory{}, fmt.Errorf("read local runner directory: %w", err)
 	}
-	views := make([]RunnerView, 0, len(entries))
+	// ReadDir is sorted. A bad row cannot erase earlier independent observations.
 	for _, entry := range entries {
 		if !entry.IsDir() || ValidateID(entry.Name()) != nil {
 			continue
 		}
-		view, viewErr := native.runnerView(ctx, entry.Name())
-		if viewErr != nil {
-			return nil, viewErr
+		descriptor, err := native.readDescriptor(entry.Name())
+		if err != nil {
+			inventory.Unavailable = append(inventory.Unavailable, entry.Name())
+			continue
 		}
-		views = append(views, view)
+		view := RunnerView{Descriptor: descriptor, Capacity: RunnerCapacity}
+		if service, err := native.serviceState(ctx, entry.Name()); err == nil {
+			view.Service = &service
+		}
+		inventory.Runners = append(inventory.Runners, view)
 	}
-	sort.Slice(views, func(i, j int) bool { return views[i].ID < views[j].ID })
-	return views, nil
-}
-
-func (native *Native) runnerView(ctx context.Context, id string) (RunnerView, error) {
-	descriptor, err := native.readDescriptor(id)
-	if err != nil {
-		return RunnerView{}, err
+	if len(inventory.Runners) > 0 {
+		// One installed client serves every descriptor; absence is not lost inventory.
+		version, _ := native.forgejoVersion(ctx)
+		for i := range inventory.Runners {
+			inventory.Runners[i].Version = version
+		}
 	}
-	service, err := native.serviceState(ctx, id)
-	if err != nil {
-		return RunnerView{}, err
+	if ctx.Err() != nil {
+		return Inventory{}, ctx.Err()
 	}
-	version, err := native.forgejoVersion(ctx)
-	if err != nil {
-		return RunnerView{}, err
-	}
-	return RunnerView{Descriptor: descriptor, Version: version, Capacity: RunnerCapacity, Service: service}, nil
+	return inventory, nil
 }
 
 func (native *Native) Start(ctx context.Context, id string) error {

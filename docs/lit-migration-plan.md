@@ -695,9 +695,9 @@ authorization to execute a target. Follow [native validation](native-validation.
    x86_64, aarch64, real mobile keyboards and laptop reachability are distinct facts.
 4. **Retained rollout separately approved:** review the affected-component procedure
    and its interruption with the operator/project users, deliver exact tested bytes
-   only to the named target, then repeat relevant preservation/access checks. Backend
-   replacement/shutdown cancels its runtime session ownership; navigation continuity
-   is not daemon-upgrade resurrection. Old backups are not lossless rollback of
+   only to the named target, then repeat relevant preservation/access checks. Consult
+   the [actual deployed terminal representation](installation.md#retained-sodaspaces-cutover)
+   rather than assuming the new source lifetime applies to retained work. Old backups are not lossless rollback of
    later writes. No first-install-as-updater, install-on-Open, automatic replay or
    cleanup beyond exact authorized run-owned resources.
 

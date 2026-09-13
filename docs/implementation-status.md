@@ -22,9 +22,10 @@ unchanged. The first source slice removes enrollment attempt journals, uses
 activation-owned memory node identity, stores one active credential/policy, removes
 release-number vetoes, and applies networking after successful project provisioning.
 Old Tailnet configuration conversion remains separately authorized maintenance.
-The next source slice replaces terminal lifetime owners/receipts with native units,
-one-use allocation/exact lookup and current disposable layout; local checks are
-recorded in the [workstream](refactoring-plan.md#selected-mechanism-removals).
+The [D1–D13 workstream](refactoring-plan.md#selected-mechanism-removals) now records
+completed source/local checks for native terminal ownership/lookup and disposable
+layout, bootstrap-bound browser operations, scoped uncertainty, partial runner
+inventory and proportional confirmation. Native/installed acceptance is not claimed.
 Neither retained old terminal runtimes nor Tailnet state were converted or cleaned.
 
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in

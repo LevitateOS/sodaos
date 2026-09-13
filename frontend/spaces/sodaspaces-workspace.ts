@@ -10,8 +10,8 @@ import type {TerminalContext, TerminalLocator} from './sodaspaces-terminal.js';
 import {emptyLayout, focusedPane, paneFor, selectTab, hideTab, putEntry, forgetEntry, sameLocator, parseLayout, serializeLayout, layoutLimit, panes, splitPane, moveTab, resizeSplit, consolidate, projectLayout} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Pane, Split, Area, Minimum, DividerArea} from './sodaspaces-layout.js';
 import {check, id, object, readSodaJSON, sessionResponse, spacesResponse, terminalResponse, terminalMetadata, terminalID} from './sodaspaces-api.js';
-import type {Space, TerminalMetadata} from './sodaspaces-api.js';
-export type WorkspaceContext = {
+import type {Space, TerminalMetadata, Session} from './sodaspaces-api.js';
+export type WorkspaceContext = {session?: Session | undefined} & ({
   kind: 'native';
   expectedUserId?: string | undefined;
   repositoryId: string;
@@ -19,7 +19,7 @@ export type WorkspaceContext = {
 } | {
   kind: 'page';
   expectedUserId: string;
-};
+});
 type TerminalFactory = typeof mountTerminal;
 interface Slot {
   key: string;
@@ -221,6 +221,8 @@ export class SodaSpaces extends LitElement {
     this.binding = {
       ...context
     };
+    check(!context.session || context.session.user.id === context.expectedUserId);
+    this.session = context.session;
     this.factory = factory;
     this.storageKey = 'soda-spaces:v3:' + context.expectedUserId;
     window.addEventListener('soda-session-retired', () => this.invalidate(), {signal: this.lifetime.signal});
@@ -1253,7 +1255,7 @@ export class SodaSpaces extends LitElement {
       const host = document.createElement('div');
       layer.append(host);
       const api = mountProjectControls(host, {
-        repositoryId, expectedUserId: this.binding.expectedUserId, page: this.binding.kind === 'page'
+        repositoryId, expectedUserId: this.binding.expectedUserId, page: this.binding.kind === 'page', session: this.session
       });
       project = {
         host, api
@@ -1321,7 +1323,7 @@ export class SodaSpaces extends LitElement {
       project.api.invalidate();
     this.spaces = [];
     this.display();
-    this.status = this.canRestore ? 'Page or Soda identity changed. Reload; no action was replayed.' : 'Project outcome unconfirmed. Ask the operator to inspect; do not repeat, recreate or repair. No action was replayed.';
+    this.status = 'Page or Soda identity changed. Reload; no action was replayed. Inspect any dispatched operation independently.';
   }
   get canRestore() { return [...this.projects.values()].every(project => project.api.canRestore); }
   dispose() {

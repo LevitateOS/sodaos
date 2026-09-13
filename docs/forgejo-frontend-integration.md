@@ -290,10 +290,11 @@ Always show repository/environment context, the actual Soda acting identity and 
 | Pending action | “Creating…” / “Saving key…” / “Adding you…” with duplicate submits disabled, not an invented progress/job system |
 | Stopped, incomplete, denied or unavailable | Honest state; **Refresh status** for a safe reread. No implicit start/repair, automatic mutation retry or second creation over a reservation |
 
-Closing synchronously invalidates stale reads/results, including before the browser's
-queued close event; it does not undo an in-flight native mutation. Reopen requires
-explicit full-page reload, never remounting to evade an ended terminal or uncertain
-operation. Existing join is not later key propagation. The shell now mounts the
+Page/actor retirement invalidates stale callbacks; it does not undo an in-flight
+native mutation. Hide/show follows the [workspace lifetime](terminal-integration.md).
+The [project submission contract](sodaspaces-plan.md#submission-and-result-handling)
+owns scoped uncertainty and independently valid later actions; remounting never
+replays a write or creates replacement work. Existing join is not later key propagation. The shell now mounts the
 complete management content: Start/Stop and reviewed own-key Apply are explicit
 source-implemented operations, still requiring scoped native persistence/revocation
 proof at each new delivery target. That proof now passed on the isolated x86_64

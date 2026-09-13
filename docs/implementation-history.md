@@ -9254,3 +9254,87 @@ normal-exit, startup/failure/capacity and continuity/security acceptance remain
 unproved. Retained guard-era work may still terminate on its owner's restart;
 it is not silently adopted by this candidate. D3, remaining D10 and D11–D12 remain
 in the owning workstream; no whole-change LOC saving is claimed yet.
+
+## Mechanism removals — browser admission and partial runner observations
+
+Continued from `7099832`: completed D3, remaining D10 and D11–D12 as source work.
+The native entry passes its validated actor/CSRF directly to Runners, Tailnet and
+Spaces/project owners; the standalone drawer bootstraps once and shares that context
+with children. Inspection of the actual Runners/Tailnet mount callers allowed removing
+their session-fetch wrappers entirely, rather than adding a cached authorization
+service. Actual protected requests keep original credentials and server admission;
+stale clicks can reach HTTP but must have no unauthorized native effects. Existing
+logout/bootstrap, post-IO Tailnet checks, lifetime retirement and secret scrubbing
+remain. No forwarded Forgejo-cookie substitute was introduced.
+
+Removed project `uncertain` from permanent action/restoration admission. In-flight
+suppression and scoped notices remain; readback does not certify an earlier write.
+Create stays hidden until its reservation is reread, while the real API/store keeps
+unique persistent creation. Each key Apply consumes its preview and requires a new
+current revision for another Apply; uncertainty does not disable unrelated controls.
+
+Runner native inventory now retains readable descriptors when another is malformed,
+unsupported or lacks service/version observations. Unavailable descriptor IDs disclose
+no unsafe fields and grant no lifecycle authority. Service is nullable, unknown
+version is empty, and counts/`complete` qualify known versus whole inventory. The
+shared client version is read once. Directory/lock/transport failures still error.
+The CLI/helper/API/browser use this same projection. Start/Stop/Restart submit strict
+`{}` to their named paths with impact/boot-policy warnings; Remove alone keeps typed
+exact-ID confirmation. Native/installed source callers and exact-request guards were
+ported, not executed; complete preservation observations remain necessary for their
+retained-state acceptance, not for unrelated valid UI actions.
+
+Requirements were updated in their owning guides. Cache epoch is
+`2026-09-13.mechanism-removal-3`; template changes are epoch-only with reviewed inventory
+hashes. Added an explicit Runners **synthetic emitted-component** mode to its existing
+browser driver and wired it into `test:frontend:prepared`, alongside Tailnet. This
+mode rejects a simultaneous native origin and never substitutes for native HTML,
+CSP, provider or installed acceptance.
+
+Final local checks on Go 1.27.1 / Darwin arm64 and pinned Bun 1.4.2:
+
+- Readonly-module, CGO-disabled Go tests passed for `internal/runners`, `internal/host`,
+  `internal/web`, `internal/tailnet`, `cmd/soda-host` and `cmd/soda-runners`.
+- Focused `Runner|Admission` tests passed with `-race`/CGO in `internal/runners` and
+  `internal/web`. The prior terminal race receipt remains separate and valid for its
+  unchanged native/web implementation.
+- Strict TypeScript/Lit, positive/negative analyzer fixtures and emitted build passed.
+  `bun run test:frontend:prepared --timeout 20000` passed **252 tests**, with **7
+  explicit skips** across 18 files; eight build/epoch/presentation-inventory tests
+  also passed. Native-page/Back, private-pipe and opt-in page/layout cases were not
+  claimed as executed by that aggregate. The earlier local drawer geometry receipt
+  and Python **21 passed / 11 Linux-only skipped** receipt retain their own scopes.
+- Go formatting and whitespace checks passed. Initial failures were stale routine
+  typed-ID/whole-list fixtures and two ambiguous browser text locators; they were
+  ported and rerun without weakening the actual API admission tests.
+
+Logs and measured-file ledger: `.artifacts/mechanism-removal-8bd0af4/`.
+All selected D1–D13 source changes now have local evidence. No provider jobs,
+retained fixture/service/VM lifecycle, installation, publishing, conversion or
+cleanup occurred. Systemd/tmux/Podman/Tailnet/provider behavior and installed native
+journeys still require exact approved targets/actions; other workstreams' native
+or delivery statuses were not promoted by these source checks.
+
+### Completed mechanism-removal size
+
+Compare the completed implementation to approved source start
+`8bd0af4ecb2b2bce0a1568183d004f8eb426df30`, not by summing overlapping commits or
+inspection pools. Count physical implementation lines, including comments/blanks
+and required replacement code; exclude docs, tests and generated/ignored outputs.
+The ledger includes all changed production Go/Python/TypeScript/declaration sources,
+native units, templates and the build/test command wiring. Net deltas were checked
+both through `git diff --numstat` and before/after physical file counts.
+
+| Implementation group | Changed files | Added | Deleted | Net |
+| --- | ---: | ---: | ---: | ---: |
+| Browser source | 16 | 236 | 475 | −239 |
+| Backend/native integration source | 26 | 759 | 1,026 | −267 |
+| Units/templates/build wiring | 5 | 13 | 11 | +2 |
+| **Total** | **47** | **1,008** | **1,512** | **−504** |
+
+Those changed files total **11,690 → 11,186** physical lines. This is **504 net lines
+removed**, below the conditional 1,000–2,000 estimate—not a claimed fulfillment of
+that estimate or a new quota. Native lifetime/allocation/lookup and partial-inventory
+representation required more replacement code than the preliminary sizing allowed;
+the audited pools were inspection footprints, not deletion ledgers. No padding,
+unrelated cleanup or test/document deletion was counted toward the result.

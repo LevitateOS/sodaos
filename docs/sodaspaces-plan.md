@@ -896,9 +896,9 @@ schema change, frontend build, component library or upstream executable is plann
    Missing/invalid repository context, a malformed signed actor or unsupported
    placement means no active mount, not guessed endpoints. Anonymous context remains
    valid for explicit sign-in. Do not alter `base/head_script` or native `window.config`.
-3. On explicit open, bootstrap `GET /-/soda/api/session`. Compare its user ID to the
-   signed native-page ID, then check fresh `/-/soda/api/forgejo/me` with
-   `X-Soda-Expected-User-ID`. Only matching page/session/provider IDs unlock reads.
+3. Follow the [bootstrap-bound operation contract](forgejo-soda-pages-plan.md#bootstrap-bound-operations)
+   on explicit open. Compare the bootstrap actor with the native page; protected
+   reads and writes enforce actual provider authority, not duplicate browser probes.
    Anonymous/mismatched pages get explicit sign-in/re-authentication, never the
    bootstrap actor silently substituted for the page actor. Login links carry only
    the validated repository ID and, when signed in, expected native user ID.
@@ -1062,13 +1062,12 @@ of native operations and legitimate Soda records.
 
 #### Submission and result handling
 
-- Require an explicit action, a non-stale native document and matching page/session/
-  fresh-provider IDs before submission. Recheck the current session/provider on the
-  action path; after any asynchronous read, confirm the same active context before
-  dispatch. Send the expected actor and in-memory CSRF token on protected JSON writes.
-  The server still owns operation-specific authority; a client precheck is not
-  authorization or atomic native-session verification. Keep existing-member joins
-  idempotent with their original login and preserve degraded own-access API behavior.
+- Require an explicit action and a non-stale command owner. Follow the
+  [bootstrap-bound operation contract](forgejo-soda-pages-plan.md#bootstrap-bound-operations):
+  send the original actor/CSRF, retain active-context checks after asynchronous work,
+  and let actual endpoints enforce current session/provider/native authority. Keep
+  existing-member joins idempotent with their original login and preserve degraded
+  own-access reads.
 - Reuse fixed same-origin paths, redirect rejection, no-store, bounded streamed JSON
   and field/association validation for the additional reads and write results. Render
   text/values, not response HTML. Keep development keys separate from Forgejo Git keys;
@@ -1088,8 +1087,14 @@ of native operations and legitimate Soda records.
   repository reservation/detail or own connection as applicable, without polling.
   A missing membership after helper/persistence failure is not proof that no Linux
   account was created, nor permission to retry/repair. Keep unresolved native outcomes
-  explicit and direct them to operator inspection; no durable jobs, browser operation
-  journal, automatic compensation or generalized recovery subsystem.
+  explicit, without a permanent browser `uncertain` admission flag or cross-project
+  restoration veto. An independently valid explicit action remains available after
+  inspection; Refresh does not confirm the earlier write. Each key Apply consumes
+  its preview and requires another current revision for a later Apply. Failed Create
+  hides that action until the repository reservation is read again; the server still
+  refuses another Create over retained state. In-flight duplicate suppression and
+  stale-page/actor retirement remain. No durable jobs, browser operation journal,
+  automatic compensation or generalized recovery subsystem.
 
 **Exit:** handler/UI tests cover current owner/non-owner/org/admin boundaries,
 rename/transfer and access loss between read and submit, malformed/large stable IDs,

@@ -58,7 +58,7 @@ to redirect, and no content or authority is embedded in the bridge.
 
 Forgejo's actual document supplies the native actor and chrome. The existing Lit
 components use protected APIs for inventory and operations, with expected-actor,
-CSRF/origin, scope and fresh-session checks. Spaces retains its per-row degraded
+CSRF/origin, scope and server-side current-session checks. Spaces retains its per-row degraded
 observation rules and logout-winning publication; the redirect is not authorization.
 Native page CSP and assets belong to Forgejo's documented template integration;
 its [upstream support limits](forgejo-frontend-integration.md#shared-presentation-components)
@@ -153,13 +153,21 @@ accepted. The protected JSON routes are:
 
 - `GET /api/settings/runners`: bounded local inventory, configured slots/listeners;
   not provider online/busy/available capacity. Forgejo links use the configured
-  public origin. Unavailable reads are errors, not empty inventory.
+  public origin. Returns `runners`, `unavailable` (validated IDs of unreadable
+  descriptors), `complete`, `runner_count`, `active_listeners`, `total_capacity` and
+  `forgejo_url`. A readable row has nullable `service` and an empty `version` when
+  those observations are unavailable. `complete` is true only with no unavailable
+  descriptors and known service/version on every row. Counts describe validated
+  rows/known listeners/slots; partial counts are not complete or available capacity.
+  Whole-read failures remain errors, not empty inventory.
 - `POST /api/settings/runners`: existing strict runner registration fields;
   `provider` must be `forgejo`; other values are rejected before native dispatch.
   Forgejo's internal URL is server-selected. Requires an explicitly supplied native
   registration token. No provider record is borrowed or silently reset.
-- `POST /api/settings/runners/{id}/{start|stop|restart|remove}`: body
-  `{"confirm_id":"exact-id"}`. Fixed native lifecycle and partial effects follow
+- `POST /api/settings/runners/{id}/{start|stop|restart}`: strict `{}`; target and
+  action are in the route. No typed-ID field is accepted for these routine actions.
+- `POST /api/settings/runners/{id}/remove`: strict `{"confirm_id":"exact-id"}`.
+  Fixed native lifecycle, named-target/impact confirmation and partial effects follow
   the [runner guide](runners-port.md).
 
 Every read/mutation checks configured operator ID, fresh acting-user identity and
@@ -341,9 +349,10 @@ Normal session, CSRF, grant and operation-specific authorization checks still ap
 
 `GET /api/session` alone may omit the header to inspect the current Soda identity
 and CSRF token. If supplied there, the header is still checked. The native-page
-caller must compare its signed-in stable ID with that session and the fresh
-`GET /api/forgejo/me` result, not silently substitute the bootstrap identity when
-they differ. Explicit Soda logout also uses the expected **Soda** actor and CSRF;
+caller binds the matching native actor and CSRF once under the
+[bootstrap-bound operation contract](forgejo-soda-pages-plan.md#bootstrap-bound-operations).
+Actual protected endpoints own fresh provider authorization; the browser does not
+reproduce it with per-operation session/`forgejo/me` probes or adopt newer credentials. Explicit Soda logout also uses the expected **Soda** actor and CSRF;
 it does not sign out Forgejo or Linux. The retained connection probe checks its
 supplied fixture username against bootstrap before using the actor ID.
 

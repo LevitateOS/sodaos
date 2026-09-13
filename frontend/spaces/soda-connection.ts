@@ -1,4 +1,5 @@
 import {id, object, readSodaJSON, sessionResponse} from './sodaspaces-api.js';
+import type {Session} from './sodaspaces-api.js';
 
 const suppressionKey = 'soda-signout';
 let retired = false;
@@ -126,7 +127,7 @@ document.addEventListener('click', event => {
 
 // Entry-only bootstrap: callers invoke this before exposing editable content.
 // No focus/polling/error handler is permitted to restart OAuth.
-export async function connectPage(actor: string, destination: string, repository: string, isCurrent: () => boolean, retry = false, restoring = false): Promise<boolean> {
+export async function connectPage(actor: string, destination: string, repository: string, isCurrent: () => boolean, retry = false, restoring = false): Promise<Session | false> {
   if (!id(actor) || !['spaces', 'runners', 'tailnet', 'repository-spaces'].includes(destination) || (destination === 'repository-spaces' ? !id(repository) : repository !== '')) throw Error('Invalid page context');
   const key = 'soda-entry:' + destination + ':' + repository + ':' + actor;
   if (!isCurrent()) return false;
@@ -142,7 +143,7 @@ export async function connectPage(actor: string, destination: string, repository
     const session = sessionResponse(await readSodaJSON(response), location.origin);
     if (!isCurrent() || connectionSuppressed() || session.user.id !== actor) throw Error('Entry or Forgejo account changed.');
     try {sessionStorage.removeItem(key);} catch { /* No authority stored here. */ }
-    return true;
+    return session;
   }
   const missing = response.status === 401; await response.body?.cancel();
   if (!isCurrent() || connectionSuppressed()) return false;

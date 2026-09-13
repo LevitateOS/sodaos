@@ -10,7 +10,7 @@ import (
 )
 
 type LocalReader interface {
-	List(context.Context) ([]RunnerView, error)
+	List(context.Context) (Inventory, error)
 }
 
 type Coordinator struct {
@@ -42,17 +42,11 @@ func (coordinator Coordinator) list(ctx context.Context, input io.Reader) (ListR
 	if err := strictjson.Decode(input, &request); err != nil {
 		return ListResponse{}, err
 	}
-	views, err := coordinator.Local.List(ctx)
+	inventory, err := coordinator.Local.List(ctx)
 	if err != nil {
 		return ListResponse{}, err
 	}
-	response := ListResponse{ForgejoURL: coordinator.ForgejoPublicURL, Runners: views, RunnerCount: len(views), TotalCapacity: len(views) * RunnerCapacity}
-	for _, view := range views {
-		if view.Service.Active == "active" && view.Service.Sub == "running" {
-			response.ActiveListeners++
-		}
-	}
-	return response, nil
+	return inventory.Response(coordinator.ForgejoPublicURL), nil
 }
 
 func (coordinator Coordinator) create(ctx context.Context, input io.Reader) (MutationResponse, error) {

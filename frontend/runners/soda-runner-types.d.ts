@@ -12,11 +12,13 @@ export interface Runner {
   architecture: string;
   version: string;
   capacity: number;
-  service: Service;
+  service: Service | null;
 }
 export interface ListResponse {
   forgejo_url?: string;
   runners: Runner[];
+  unavailable: string[];
+  complete: boolean;
   runner_count: number;
   active_listeners: number;
   total_capacity: number;

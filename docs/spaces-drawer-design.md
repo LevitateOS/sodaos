@@ -158,11 +158,11 @@ There is no independently synchronized drawer session list or second backend own
   creation still requires an explicit project/account review and action.
 - A newly created tab joins the selected session's original group (or the initial
   group if none exists). It opens no other shell, environment, account or worktree.
-- **× = Hide this tab**, with the same effective-retention tooltip and uncertainty
-  handling as the full page. End is an explicitly named menu action with confirmation.
+- **× = Hide this tab**, a presentation-only change under the same
+  [terminal contract](terminal-integration.md) as the full page. End is an explicitly named menu action with confirmation.
 - Hiding removes that tab from the working set, including its original pane. If a
   group becomes empty, the normal full-page empty-pane rule applies. The session can
-  remain discoverable as kept; removal from a view is not process cleanup.
+  remain discoverable through native inventory; removal from a view is not process cleanup.
 - Pane splits, drag-reordering across groups and arrangement happen in full Spaces.
   The drawer's first design deliberately has no recursive split controls or second
   layout editor. **Open in Spaces** is the visible way to arrange these same sessions.

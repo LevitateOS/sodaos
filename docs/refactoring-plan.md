@@ -24,7 +24,7 @@ grants native execution or deployment permission.
 
 ## Selected mechanism removals
 
-**Status: implementation in progress.**
+**Status: D1–D13 source implementation and local checks complete; native validation/delivery remain separate.**
 
 The owner approved implementing D1–D13 from the
 [Spaces/Runners/Tailnet deletion audit](mechanism-deletion-audit.md), including the
@@ -41,13 +41,19 @@ service operations, provider requests, installation and publishing are not.
 | --- | --- |
 | D4–D8: Tailnet enrollment recovery, activation lifetime, independent Create, active credential storage and concrete interface checks | Implemented; focused Go, emitted Create/epoch, strict TS/Lit and presentation inventory checks passed. [Receipt](implementation-history.md#mechanism-removals--tailnet-and-helper-reads). Native proof/conversion remain separate. |
 | D1–D2: native-owned terminal lifetime and exact lookup; D9: current-only disposable workspace cache | Implemented; native one-use allocation shares Create/End locking, no web owner/receipt registry, native inventory and v3 cache. Go/race, Python boundary doubles, emitted browser/geometry and strict TS/Lit checks passed. [Receipt](implementation-history.md#mechanism-removals--native-terminals-and-disposable-layout). No native proof/conversion. |
-| D3/D10: scoped uncertainty and bootstrap-only browser session acquisition | In progress: terminal/workspace bootstrap binding implemented; project/Runners/Tailnet callers and D3 remain pending. |
-| D11–D12: partial runner inventory and routine confirmations | Pending |
+| D3/D10: scoped uncertainty and bootstrap-only browser session acquisition | Implemented with owning requirements and caller/test ports. Entry passes original actor/CSRF to command owners; actual APIs refuse stale requests. Scoped outcome notices and current key previews replace sticky uncertainty fencing. [Receipt](implementation-history.md#mechanism-removals--browser-admission-and-partial-runner-observations). |
+| D11–D12: partial runner inventory and routine confirmations | Implemented with owning requirements and caller/test ports. Independent readable rows survive unavailable observations; qualified counts/nullable service cross helper/API/CLI/UI boundaries. Routine HTTP actions use `{}`; Remove retains typed exact-ID confirmation. [Receipt](implementation-history.md#mechanism-removals--browser-admission-and-partial-runner-observations). |
 | D13: concurrent bounded helper reads | Implemented; four fixed read-only routes bypass mutation admission; cancellation/writer-serialization checks passed. |
 
-Change owning feature requirements and affected tests with each source slice.
+Measured against approved start `8bd0af4`: **504 net implementation lines removed**
+(1,512 deleted, 1,008 added across 47 files), including comments/blanks and necessary
+replacement code, excluding tests/docs/generated artifacts. This is below the
+conditional 1,000–2,000 preliminary estimate; it was not a quota. The
+[measurement and scope](implementation-history.md#completed-mechanism-removal-size)
+distinguish this ledger from the audit's inspection pools.
+
 Native replacement behavior remains unproved until separately authorized native
-validation; no retained target or fixture is changed by this work.
+validation; no retained target or fixture was changed by this work.
 
 ## Decision
 

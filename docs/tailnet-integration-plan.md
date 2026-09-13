@@ -227,6 +227,8 @@ browser reload or polling side effect.
   alone is not authority to inspect Tailnet addresses, peers or credential status.
   Copy-connection remains own-membership-only. Add focused transfer/rename/denial tests.
 - Reuse expected-actor, Origin/CSRF, strict bounded JSON and current-session admission.
+  The [page guide](forgejo-soda-pages-plan.md#bootstrap-bound-operations) owns browser
+  bootstrap reuse; actual guarded operations replace browser session pre/postflights.
   Fixed helper operations resolve original project/container identity server-side;
   no caller-selected socket, namespace, PID, UID, unit, executable or host flag.
   Connection/lifecycle actions resolve tags from the saved enrollment binding.

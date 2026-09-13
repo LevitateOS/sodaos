@@ -40,16 +40,18 @@ async function tailnetPage(t: TestContext, operator = true) {
   t.after(() => browser.close());
   const page = await browser.newPage({ignoreHTTPSErrors: true, storageState: process.env.SODA_PAGE_STATE || ''});
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); t.after(() => assert.deepEqual(errors, []));
-  const state = {data: snapshot(), actor, operator, csrf: 'fixture-csrf', forgejoURL: origin, readStatus: 200, postStatus: 200, readbackUnavailable: false, reads: 0};
+  const state = {data: snapshot(), actor, operator, csrf: 'fixture-csrf', forgejoURL: origin, readStatus: 200, postStatus: 200, readbackUnavailable: false, reads: 0, sessionReads: 0};
   const posts: {path: string; body: Record<string, unknown>}[] = [];
   await page.route(origin + '/**', async route => {
     const request = route.request(), path = new URL(request.url()).pathname;
     if (path === '/-/soda/api/session') {
+      state.sessionReads++;
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);
       return route.fulfill({json: {user: {id: state.actor, login: 'operator'}, csrf_token: state.csrf, soda_operator: state.operator, forgejo_url: state.forgejoURL}});
     }
     if (path.startsWith('/-/soda/api/settings/tailnet')) {
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);
+      if (!state.operator || state.actor !== actor || state.forgejoURL !== origin || (request.method() !== 'GET' && request.headers()['x-csrf-token'] !== state.csrf)) return route.fulfill({status:403, json:{error:{code:'reauthentication_required'}}});
       if (request.method() === 'GET') {state.reads++; return route.fulfill({status: state.readStatus, json: state.readStatus === 200 ? state.data : {error: {message: 'private-native-diagnostic'}}});}
       assert.equal(request.headers()['x-csrf-token'], 'fixture-csrf');
       const body: unknown = request.postDataJSON(); assert(body && typeof body === 'object' && !Array.isArray(body));
@@ -100,18 +102,18 @@ async function credential(page: Page) {
 async function frame(page: Page) {await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));}
 async function hide(page: Page) {await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', {persisted: true})));}
 async function restore(page: Page) {await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}))); await settled(page);}
-async function pause(page: Page, kind: 'session' | 'mutation') {
-  await page.evaluate(({kind, actor}) => {
+async function pause(page: Page, kind: 'read' | 'mutation', denied = false) {
+  await page.evaluate(({kind, denied}) => {
     const original = window.fetch; let armed = true;
     window.fetch = Object.assign(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      const match = kind === 'session' ? url.endsWith('/api/session') : url.includes('/api/settings/tailnet/') && init?.method === 'POST';
+      const match = url.includes('/api/settings/tailnet') && (kind === 'read' ? init?.method === 'GET' : init?.method === 'POST');
       if (!armed || !match) return original(input, init);
       armed = false; document.documentElement.dataset.tailnetPaused = kind;
       await new Promise<void>(resolve => window.addEventListener('release-tailnet', () => resolve(), {once: true}));
-      return new Response(JSON.stringify(kind === 'session' ? {user: {id: actor, login: 'operator'}, csrf_token: 'old', soda_operator: true, forgejo_url: location.origin} : {outcome: 'confirmed', host: null, readback_unavailable: true}), {headers: {'Content-Type': 'application/json'}});
+      return new Response(JSON.stringify(denied ? {error:{code:'reauthentication_required'}} : {outcome: 'confirmed', host: null, readback_unavailable: true}), {status:denied ? 403 : 200, headers: {'Content-Type': 'application/json'}});
     }, original);
-  }, {kind, actor});
+  }, {kind, denied});
 }
 
 test('native Tailnet host retains native chrome, scopes, theme and narrow keyboard layout', nativeCase, async t => {
@@ -172,6 +174,7 @@ test('host component operations use independent explicit confirmation and safe t
   await page.getByRole('button', {name: 'Refresh observations'}).click(); await settled(page);
   assert.match(await page.locator('.tailnet-notice').innerText(), /readback failed/);
   assert.deepEqual(posts.map(p => p.body.action), ['signin', 'authentication', 'refresh-forgejo']);
+  assert.equal(state.sessionReads, 1, 'all operations retain the entry bootstrap CSRF');
 });
 
 test('drafts and revisions survive refresh, targeted writes and failed native results', behaviorCase, async t => {
@@ -246,13 +249,14 @@ test('admission/default writes preserve unsent enrollment fields and their origi
   }
 });
 
-test('invalid CSRF or provider origin refuses credential dispatch and clears private controls', behaviorCase, async t => {
+test('actual operation rejects stale CSRF or provider origin without native effects or credential adoption', behaviorCase, async t => {
   for (const invalid of ['csrf', 'origin']) {
     const {page, state, posts} = await tailnetPage(t); await credential(page);
     if (invalid === 'csrf') state.csrf = ''; else state.forgejoURL = 'https://other.example.test';
     await page.getByRole('button', {name: 'Check credential only'}).click(); await settled(page);
     assert.equal(posts.length, 0); assert.equal(await page.locator('soda-tailnet input').count(), 0);
-    assert.match(await page.locator('.tailnet-notice').innerText(), /Operation was not sent/);
+    assert.equal(state.sessionReads, 1);
+    assert.match(await page.locator('.tailnet-notice').innerText(), /unconfirmed/);
     assert(!await page.locator('soda-tailnet').innerText().then(text => text.includes('appliance.soda.ts.net')));
   }
 });
@@ -287,9 +291,9 @@ test('denied operator and actor loss expose no private controls or credentials',
 });
 
 test('late reads/writes ignoring abort cannot dispatch or publish after BFCache retirement', behaviorCase, async t => {
-  for (const kind of ['session', 'mutation'] as const) {
+  for (const kind of ['read', 'mutation'] as const) {
     const {page, posts} = await tailnetPage(t);
-    await pause(page, kind); await page.getByRole('button', {name: 'Resume / reauthenticate'}).click();
+    await pause(page, kind); await page.getByRole('button', {name: kind === 'read' ? 'Refresh observations' : 'Resume / reauthenticate'}).click();
     await page.locator(`html[data-tailnet-paused=${kind}]`).waitFor();
     await hide(page); await restore(page);
     await page.evaluate(() => window.dispatchEvent(new Event('release-tailnet'))); await frame(page);
@@ -304,7 +308,7 @@ test('duplicate activation is single-dispatch and post-response operator loss hi
   await page.getByRole('button', {name: 'Confirm logout', exact: true}).evaluate(el => {if (el instanceof HTMLButtonElement) {el.click(); el.click();}});
   await settled(page); assert.equal(posts.length, 1); assert.equal(posts[0]?.body.action, 'logout');
   await page.getByRole('button', {name: 'Refresh observations'}).click(); await settled(page);
-  await pause(page, 'mutation'); await page.getByRole('button', {name: 'Sign in appliance'}).click();
+  await pause(page, 'mutation', true); await page.getByRole('button', {name: 'Sign in appliance'}).click();
   await page.locator('html[data-tailnet-paused=mutation]').waitFor(); state.operator = false;
   await page.evaluate(() => window.dispatchEvent(new Event('release-tailnet'))); await settled(page);
   assert.equal(await page.locator('soda-tailnet fieldset').count(), 0);

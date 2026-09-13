@@ -4,11 +4,11 @@ export const environmentID = 'p0123456789abcdef01234567';
 export const fixtureProfile = {id: 'rocky-headless', distribution: 'rocky', version: '10.2', interface: 'headless', architecture: 'amd64', image: 'sha256:' + 'a'.repeat(64), revision: 'b'.repeat(40)};
 export const fixtureFingerprint = 'SHA256:' + 'A'.repeat(43);
 export interface Call {url: string; method: string; body?: string; headers: Record<string, string>}
-export interface State {tailnetCreateOutcome: 'queued' | 'unconfirmed'; tailnetAvailable: boolean; tailnetEnabled: boolean; tailnetDefault: boolean; tailnetState: string; tailnetRevision: string; running: boolean; member: boolean; admin: boolean; absent: boolean; saved: string[]; installed: string[]; user: string; provider: string; provisioned: boolean; unavailable: boolean}
+export interface State {csrf: string; tailnetCreateOutcome: 'queued' | 'unconfirmed'; tailnetAvailable: boolean; tailnetEnabled: boolean; tailnetDefault: boolean; tailnetState: string; tailnetRevision: string; running: boolean; member: boolean; admin: boolean; absent: boolean; saved: string[]; installed: string[]; user: string; provider: string; provisioned: boolean; unavailable: boolean}
 function createFixture(extra: Partial<State> = {}) {
   const root = document.querySelector('main'); if (!root) throw Error('fixture mount missing');
   const calls: Call[] = [];
-  const state: State = {tailnetCreateOutcome: 'queued', tailnetAvailable: false, tailnetEnabled: false, tailnetDefault: false, tailnetState: 'unconfirmed', tailnetRevision: '0', running: true, member: true, admin: true, absent: false, saved: [fixtureFingerprint], installed: [fixtureFingerprint], user: '1', provider: '1', provisioned: true, unavailable: false, ...extra};
+  const state: State = {csrf: 'synthetic-csrf', tailnetCreateOutcome: 'queued', tailnetAvailable: false, tailnetEnabled: false, tailnetDefault: false, tailnetState: 'unconfirmed', tailnetRevision: '0', running: true, member: true, admin: true, absent: false, saved: [fixtureFingerprint], installed: [fixtureFingerprint], user: '1', provider: '1', provisioned: true, unavailable: false, ...extra};
   const network = (saved = false) => ({project: environmentID, revision: state.tailnetRevision, binding: state.tailnetEnabled || state.tailnetRevision !== '0' ? 'a'.repeat(32) : '', enabled: state.tailnetEnabled, saved,
     state: state.tailnetAvailable ? state.tailnetState : 'runtime-unsupported', outcome: saved ? 'queued' : 'observed',
     ...(state.tailnetAvailable ? {available_binding: 'a'.repeat(32), available_network: 'soda.example.test'} : {}),
@@ -19,6 +19,7 @@ function createFixture(extra: Partial<State> = {}) {
     calls.push(call);
     const override = await reply?.(call); if (override) return override;
     const {url, method, body: encoded} = call;
+    if (!url.endsWith('/api/session') && !url.includes('/api/login/cancel') && (state.user !== '1' || state.provider !== '1' || (method !== 'GET' && call.headers['x-csrf-token'] !== state.csrf))) return Response.json({error:{code:'reauthentication_required'}}, {status:403});
     let body: unknown;
     if (method !== 'GET') {
       const input: unknown = JSON.parse(encoded || '{}');
@@ -42,7 +43,7 @@ function createFixture(extra: Partial<State> = {}) {
       else if (method === 'DELETE') body = {removed: true, existing_project_access_changed: false};
       else body = {items: []};
     } else if (url.endsWith('/api/login/cancel')) return new Response(null, {status: 204});
-    else if (url.endsWith('/api/session')) body = {user: {id: state.user, login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin};
+    else if (url.endsWith('/api/session')) body = {user: {id: state.user, login: 'alice'}, csrf_token: state.csrf, forgejo_url: location.origin};
     else if (url.endsWith('/api/forgejo/me')) body = {id: state.provider};
     else if (url.endsWith('/tailnet-options')) body = {revision: state.tailnetAvailable ? 'b'.repeat(32) : '0', binding: state.tailnetAvailable ? 'a'.repeat(32) : '', tailnet: state.tailnetAvailable ? 'soda.example.test' : '', available: state.tailnetAvailable, default: state.tailnetAvailable && state.tailnetDefault};
     else if (url.endsWith('/tailnet')) body = network();

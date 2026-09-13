@@ -18,9 +18,9 @@ import (
 var runnerAPIRequests = []struct{ name, method, path, body string }{
 	{"list", "GET", "/api/settings/runners", ""},
 	{"create", "POST", "/api/settings/runners", `{"id":"one","provider":"forgejo","registration_url":"https://untrusted.invalid","registration_id":"33834eef-e758-48c4-a676-1745426747aa","labels":"soda:host","registration_token":"synthetic-runner-secret"}`},
-	{"start", "POST", "/api/settings/runners/one/start", `{"confirm_id":"one"}`},
-	{"stop", "POST", "/api/settings/runners/one/stop", `{"confirm_id":"one"}`},
-	{"restart", "POST", "/api/settings/runners/one/restart", `{"confirm_id":"one"}`},
+	{"start", "POST", "/api/settings/runners/one/start", `{}`},
+	{"stop", "POST", "/api/settings/runners/one/stop", `{}`},
+	{"restart", "POST", "/api/settings/runners/one/restart", `{}`},
 	{"remove", "POST", "/api/settings/runners/one/remove", `{"confirm_id":"one"}`},
 }
 
@@ -214,7 +214,7 @@ func TestRunnerOperationsDispatchOnceWithFixedTargetsAndSanitizedFailures(t *tes
 						return
 					}
 					if operation.name == "list" {
-						fmt.Fprint(w, "[]")
+						fmt.Fprint(w, `{"runners":[],"unavailable":[]}`)
 					} else {
 						fmt.Fprint(w, `{"ok":true}`)
 					}

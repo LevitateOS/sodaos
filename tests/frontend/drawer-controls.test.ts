@@ -119,6 +119,8 @@ test('project control mount is inert; refresh only reads and never owns a termin
   const page = await fixture(t);
   assert.equal(await page.evaluate(() => window.drawerFixture.calls.length), 0);
   await refresh(page); await refresh(page);
+  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter(c => c.url.endsWith('/api/session')).length), 1);
+  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter(c => c.url.endsWith('/api/forgejo/me')).length), 0);
   assert.deepEqual(await writes(page), []);
   assert.deepEqual(await page.evaluate(() => ({count: window.drawerFixture.terminals.length,
     native: document.getElementById('native')?.textContent, input: document.querySelector<HTMLInputElement>('#native-input')?.value})),
@@ -266,6 +268,20 @@ test('review then explicit Apply confirms last-key removal', async t => {
   await page.locator('input[type=checkbox]').nth(1).check(); await click(page, 'Apply reviewed saved keys to this project');
   assert.deepEqual(JSON.parse((await writes(page))[0]?.body || '{}'), {revision: 'a'.repeat(64), saved_fingerprints: [], confirm_empty: true});
 });
+test('an unconfirmed key apply requires another target preview, not permanent page lockout', async t => {
+  const page = await fixture(t); await refresh(page); await click(page, 'Review this project’s SSH keys');
+  await page.evaluate(() => window.drawerFixture.setReply(async call => {
+    if (!call.url.endsWith('/access-keys')) return null;
+    return call.method === 'POST' ? new Response(null, {status:502}) : Response.json({login:'alice',revision:'b'.repeat(64),installed_fingerprints:[],saved_fingerprints:[]});
+  }));
+  await click(page, 'Apply reviewed saved keys to this project');
+  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  assert(await page.evaluate(() => window.drawerFixture.api.canRestore));
+  assert.equal(await page.getByRole('button', {name:'Apply reviewed saved keys to this project',exact:true}).count(), 0);
+  await click(page, 'Review this project’s SSH keys');
+  assert.equal((await writes(page)).length, 1);
+  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+});
 test('own Forgejo key selection is explicit and does not install or silently save a profile key', async t => {
   const page = await fixture(t, {saved: []}); await refresh(page);
   await page.evaluate(() => window.drawerFixture.setReply(async call => {
@@ -305,11 +321,20 @@ test('external SSH at Join requires explicit saved-key selection', async t => {
   await click(page, 'Join environment');
   assert.deepEqual(JSON.parse((await writes(page))[0]?.body || '{}'), {ssh_keys: 'saved'});
 });
-test('unknown mutation outcome blocks replay, not safe refresh or logout', async t => {
+test('unconfirmed Create keeps its notice without a permanent lock or another reservation', async t => {
   const page = await fixture(t, {absent: true});
-  await page.evaluate(() => window.drawerFixture.setReply(async call => call.method === 'POST' && call.url.endsWith('/api/environments') ? new Response(null, {status: 502}) : null));
-  await refresh(page); await click(page, 'Create environment'); await refresh(page);
-  assert.equal(await page.locator('[data-control=create]').isDisabled(), true); assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  await page.evaluate(() => window.drawerFixture.setReply(async call => {
+    if (call.method !== 'POST' || !call.url.endsWith('/api/environments')) return null;
+    window.drawerFixture.state.absent = false; window.drawerFixture.state.provisioned = false;
+    return new Response(null, {status: 502});
+  }));
+  await refresh(page); await click(page, 'Create environment');
+  assert(await page.evaluate(() => window.drawerFixture.api.canRestore));
+  await refresh(page);
+  assert.equal(await page.getByRole('button', {name:'Create environment', exact:true}).count(), 0);
+  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  assert.match(await page.locator('main').innerText(), /Provisioning incomplete/);
+  assert.equal((await writes(page)).length, 1);
   await click(page, 'Sign out'); assert((await writes(page)).some(call => call.url.endsWith('/api/session/logout')));
 });
 test('stale project controls cannot refresh/replay on focus', async t => {
@@ -320,10 +345,14 @@ test('stale project controls cannot refresh/replay on focus', async t => {
   assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
   assert.equal(await page.locator('[data-control=refresh]').isDisabled(), true); assert.equal(await page.locator('#native').count(), 1);
 });
-for (const authority of ['user', 'provider'] as const) test(`${authority} mismatch at action time dispatches no mutation`, async t => {
+for (const authority of ['user', 'provider', 'csrf'] as const) test(`${authority} change is refused by the actual operation without adopting credentials`, async t => {
   const page = await fixture(t, {absent: true}); await refresh(page);
   await page.evaluate(authority => {window.drawerFixture.state[authority] = '2';}, authority);
-  await click(page, 'Create environment'); assert.deepEqual(await writes(page), []);
+  await click(page, 'Create environment');
+  const sent = await writes(page); assert.equal(sent.length, 1);
+  assert.equal(sent[0]?.headers['x-csrf-token'], 'synthetic-csrf');
+  assert(await page.evaluate(() => window.drawerFixture.state.absent), 'protected peer changed no native state');
+  assert.equal(await page.evaluate(() => window.drawerFixture.calls.filter(c => c.url.endsWith('/api/session')).length), 1);
 });
 for (const kind of ['HTML', 'oversized', '401', '403'] as const) test(`${kind} response cannot expose actions`, async t => {
   const page = await fixture(t);
@@ -336,21 +365,26 @@ test('repeated project refresh never acquires terminal ownership', async t => {
   assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
   assert.doesNotMatch(await page.locator('main').innerText(), /terminal session ended/);
 });
-test('closing while authorization is pending never dispatches the mutation', async t => {
-  const page = await fixture(t, {absent: true}); await refresh(page);
+test('closing during initial bootstrap cannot publish controls or dispatch a mutation', async t => {
+  const page = await fixture(t, {absent: true});
   await page.evaluate(async () => {
     let release: ((value: Response) => void) | undefined;
     const f = window.drawerFixture;
     f.setReply(async call => call.url.endsWith('/api/session') ? new Promise(resolve => {release = resolve;}) : null);
-    (await f.showButton('Create environment')).click(); f.api.dispose();
-    if (!release) throw Error('authorization was not pending');
+    const pending = f.api.refresh(); f.api.dispose();
+    if (!release) throw Error('bootstrap was not pending');
     release(Response.json({user: {id: '1', login: 'alice'}, csrf_token: 'synthetic-csrf', forgejo_url: location.origin}));
+    await pending;
   });
   assert.deepEqual(await writes(page), []);
 });
 test('unknown key-save response cannot claim a confirmed key', async t => {
   const page = await fixture(t); await refresh(page); await click(page, 'Access');
   await page.locator('textarea').fill('ssh-ed25519 YWJj'); await click(page, 'Save public key');
+  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  assert(await page.evaluate(() => window.drawerFixture.api.canRestore));
+  assert(!await page.getByRole('button', {name: 'Save public key', exact:true}).isDisabled());
+  await refresh(page);
   assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
 });
 test('hidden create and lifecycle actions cannot dispatch through their handlers', async t => {

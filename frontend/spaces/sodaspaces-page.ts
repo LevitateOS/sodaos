@@ -1,10 +1,11 @@
 import {mountSodaspaces} from './sodaspaces-workspace.js';
 import {id} from './sodaspaces-api.js';
+import type {Session} from './sodaspaces-api.js';
 
-export function mountSpacesPage(root: HTMLElement, actor: string) {
+export function mountSpacesPage(root: HTMLElement, actor: string, session?: Session) {
   if (!id(actor)) throw Error('Invalid Spaces actor');
   root.classList.add('soda-spaces-page-mount');
-  const workspace = mountSodaspaces(root, {kind: 'page', expectedUserId: actor});
+  const workspace = mountSodaspaces(root, {kind: 'page', expectedUserId: actor, session});
   let disposed = false;
   const measure = () => {
     if (disposed || !root.isConnected) return;

@@ -47,7 +47,7 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
     if (input.phase === 'dispatch' || input.phase === 'job') {
       if (input.phase === 'dispatch') {
         assert(!before.proof, 'Observation already exists; do not redispatch or erase its proof');
-        assert(before.inventory.runners.some(row => row.id === input.runner_id && row.service.active === 'active' && row.service.sub === 'running'), 'Declared fixture listener not running');
+        assert(before.inventory.runners.some(row => row.id === input.runner_id && row.service?.active === 'active' && row.service.sub === 'running'), 'Declared fixture listener not running');
       }
       evidence.stage='provider ' + input.phase;
       try {
@@ -119,8 +119,8 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
       body=JSON.stringify({id:input.runner_id,provider:'forgejo',registration_url:'',registration_id:registration.uuid,labels:registration.labels,registration_token:token}); token='';
     } else {
       await view.getByRole('button',{name:input.phase + ' ' + input.runner_id,exact:true}).click();
-      await view.getByLabel('Exact runner ID',{exact:true}).fill(input.runner_id);
-      body=JSON.stringify({confirm_id:input.runner_id});
+      if (input.phase === 'remove') await view.getByLabel('Exact runner ID',{exact:true}).fill(input.runner_id);
+      body=JSON.stringify(input.phase === 'remove' ? {confirm_id:input.runner_id} : {});
     }
     permit(input.operator_id,route,body); body='';
     evidence.stage='dispatch ' + input.phase;
