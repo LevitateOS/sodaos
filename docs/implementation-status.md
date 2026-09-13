@@ -32,6 +32,16 @@ configuration/data. Native login, private repository discovery and one project C
 passed. [The delivery/partial-journey receipt](implementation-history.md#spaces-native-delivery-and-account-collision)
 owns exact effects and evidence.
 
+The subsequent [full-width rereview](implementation-history.md#spaces-full-width-native-rereview)
+updated seven public frontend assets on this same target with fresh exact-file
+backups. The Projects sidebar remains; native outer gutters are removed. At a
+1654px viewport the workspace now occupies all 1654px, previously 1120px. Source
+and local emitted tests cover split restoration using xterm's render completion.
+That live review verified unavailable-access recovery, not native terminal input.
+A subsequent normal Forgejo reconnect restored native inventory/project access.
+Backend epoch/image,
+project resources, accounts and service lifecycles were unchanged.
+
 **J5 step 14 is blocked on a fixture-actor decision:** `operator` collides with the
 image's existing UID-11 system account. Join was refused without membership,
 managed keys or terminals; no account adoption/rename or replay was attempted.
@@ -39,7 +49,12 @@ The retained private repository is `operator/spaces-first-use-e8998ee` (ID 1), p
 `p2e1121ffe63e064855c7e693`, running with Tailnet Off. Approval was requested for a
 new `spaces-test` Forgejo user/private repository and one additional project to
 finish native input/re-entry, preserving this first project. That follow-up is not
-yet granted. No publishing, cleanup, OS update or VM-hold extension occurred.
+granted: the owner chose a mock backend on this Mac for ongoing frontend development.
+The [local development server](local-testing.md#spaces-frontend-development-on-this-computer)
+now renders real Spaces components with synthetic HTTP/socket state, scenario controls
+and automatic reload. [Local verification](implementation-history.md#spaces-local-development-fixture)
+does not complete native shell acceptance. No publishing, cleanup, OS update or
+VM-hold extension occurred.
 
 ## Release engineering
 

@@ -43,8 +43,9 @@
   --soda-spaces-setup-width: 1240px;
   --soda-spaces-form-width: 720px;
   --soda-spaces-page-inset: clamp(16px, 3vw, 48px);
-  --soda-spaces-panel-inset: clamp(24px, 4vw, 64px);
+  --soda-spaces-panel-inset: clamp(16px, 3vw, 32px);
   --soda-font-title: 800 clamp(28px, 4vw, 40px)/1.05 "Barlow Condensed", "Arial Narrow", sans-serif;
+  --soda-font-workspace-title: 800 28px/1.1 "Barlow Condensed", "Arial Narrow", sans-serif;
   --soda-font-heading: 800 22px/1.2 "Barlow Condensed", "Arial Narrow", sans-serif;
   --soda-font-body: 400 16px/1.5 Barlow, Arial, sans-serif;
   --soda-font-label: 600 15px/1.5 Barlow, Arial, sans-serif;

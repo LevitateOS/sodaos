@@ -26,7 +26,8 @@
     "test:lit": "bun run build:forgejo && SODA_LIT_BROWSER=1 bun test --timeout 120000 tests/forgejo/lit-*.test.ts tests/forgejo/settings-link.test.ts tests/frontend/drawer-controls.test.ts tests/frontend/workspace.test.ts tests/frontend/workspace-journey.test.ts tests/frontend/spaces-attention.test.ts tests/frontend/terminal.test.ts",
     "screenshot": "bun scripts/screenshot.ts",
     "build:forgejo": "python3 scripts/fetch-terminal.py --out .artifacts/browser-terminal/vendor && bun scripts/build-forgejo.ts",
-    "build:preview": "bun scripts/build-forgejo-preview.ts"
+    "build:preview": "bun scripts/build-forgejo-preview.ts",
+    "dev:spaces": "bun run build:forgejo && bun scripts/preview-spaces.ts"
   },
   "devDependencies": {
     "@types/bun": "1.4.2",

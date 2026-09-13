@@ -242,6 +242,13 @@ export class SodaProjectControls extends LitElement {
     }, 'Project created. Join explicitly to set up your browser-terminal account.');
   }
   private renderJourney() {
+    if (this.stale || !this.environment && !this.canCreate) return html`<section data-project-controls class="soda-spaces-controls soda-project-journey soda-ready-project" aria-busy=${this.busy ? 'true' : 'false'}>
+      ${renderWorkspaceIntro({kind: this.busy ? 'loading' : 'unavailable', heading: this.stale && this.connectVisible ? 'Reconnect to Forgejo' : this.stale ? 'Project access changed' : this.busy ? 'Checking project' : 'Project status unavailable',
+        description: html`${this.stale && this.connectVisible ? 'Sign in again to restore your Forgejo access.' : this.stale ? 'Reload Spaces to check your current access.' : this.busy ? 'Checking your account and project.' : 'Current project access or runtime state could not be confirmed.'}`,
+        action: this.busy ? html`` : this.stale && this.connectVisible ? html`<a class="ui primary button" href=${this.connectURL}>Reconnect to Forgejo</a>` : this.stale ? html`<button class="ui primary button" @click=${() => location.reload()}>Reload Spaces</button>` : html`<button class="ui primary button" @click=${() => this.refresh()}>Refresh status</button>`,
+        helper: html`No operation is repeated when you refresh.`,
+        feedback: html`<p role="status">${this.outcomeNeedsAttention ? this.outcome : ''}</p>`})}
+    </section>`;
     const joinReady = !this.stale && this.detail?.environment.provisioned && this.running && !this.detail.login && !this.detail.authority_unavailable && !this.detail.native_unavailable;
     if (joinReady) return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls soda-project-journey soda-ready-project" aria-busy=${this.busy ? 'true' : 'false'}>
       ${renderWorkspaceIntro({kind: 'project', heading: 'Project created',
@@ -280,8 +287,14 @@ export class SodaProjectControls extends LitElement {
       ${this.stale ? html`<p>Access changed. Reload Spaces to reconnect; no operation will be repeated.</p>` : ''}
     </section>`;
   }
+  private get connectURL() {
+    const intent = new URLSearchParams(this.binding?.page && !this.binding.settings ? {destination: 'spaces'} : {repository_id: this.binding?.repositoryId || ''});
+    if (this.binding?.settings) intent.set('destination', 'repository-spaces');
+    if (this.binding?.expectedUserId) intent.set('expected_user_id', this.binding.expectedUserId);
+    return '/-/soda/login?' + intent;
+  }
   protected render() {
-    if (this.presentation === 'journey') return this.renderJourney();
+    if (this.presentation === 'journey' || this.stale && this.connectVisible) return this.renderJourney();
     const intent = new URLSearchParams({
       repository_id: this.binding?.repositoryId || ''
     });
@@ -431,7 +444,10 @@ export class SodaProjectControls extends LitElement {
       } : {})
     });
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) this.invalidate();
+      if (response.status === 401 || response.status === 403) {
+        this.invalidate();
+        this.connectVisible = response.status === 401;
+      }
       let code: string | undefined;
       try {
         const error = object(object(await readSodaJSON(response)).error);

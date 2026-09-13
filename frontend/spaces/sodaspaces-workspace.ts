@@ -141,6 +141,7 @@ export class SodaSpaces extends LitElement {
   } | null;
   declare private attentionOnly: boolean;
   declare private openingDrawer: boolean;
+  private reconnectRequired = false;
   private observedAt = 0;
   private now = Date.now();
   private attentionTimer: number | undefined;
@@ -213,9 +214,9 @@ export class SodaSpaces extends LitElement {
     const space = this.selectedSpace;
     return this.binding?.kind === 'page' && !this.setupScreen && this.complete && !!space?.login && !space.authority_unavailable && !space.native_unavailable && space.observed?.running === true && space.environment.provisioned && !this.rows(space).length && !this.selected;
   }
+  private get inventoryRecovery() { return this.binding?.kind === 'page' && !this.setupScreen && !this.complete && !this.selected && this.view === 'terminal'; }
   private get workspaceIntro() {
-    const space = this.selectedSpace;
-    return this.firstTerminal || this.binding?.kind === 'page' && !this.setupScreen && this.view === 'project' && this.managementMode === 'journey' && !!space?.environment.provisioned && !space.login && !space.authority_unavailable && !space.native_unavailable && space.observed?.running === true;
+    return this.firstTerminal || this.inventoryRecovery || this.binding?.kind === 'page' && !this.setupScreen && this.view === 'project' && this.managementMode === 'journey';
   }
   private projectState(space: Space): 'running' | 'stopped' | 'unknown' {
     return space.authority_unavailable || space.native_unavailable || !space.observed ? 'unknown' : space.observed.running ? 'running' : 'stopped';
@@ -386,11 +387,15 @@ export class SodaSpaces extends LitElement {
 
           <div class="soda-workspace-canvas" ?hidden=${this.view !== 'terminal' || this.stale}>
             <span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
+            ${this.inventoryRecovery ? renderWorkspaceIntro({kind: 'unavailable', heading: 'Project status unavailable',
+              description: html`Current project access or runtime state could not be confirmed.`,
+              action: html`<button class="ui primary button" ?disabled=${this.busy} @click=${() => this.refresh()}>Refresh projects</button>`,
+              helper: html`Your existing projects are preserved. ${this.spaces.some(space => space.authority_unavailable) ? html`<a href=${this.connectURL}>Reconnect to Forgejo</a>` : ''}`}) : ''}
             ${this.firstTerminal ? renderWorkspaceIntro({kind: 'terminal', heading: 'Open your first terminal',
               description: html`<span>Your account is ready in ${this.selectedSpace ? this.projectName(this.selectedSpace) : ''}.</span><span>Open a browser terminal to start working.</span>`,
               action: html`<button class="ui primary button" data-environment-id=${this.selectedSpace?.environment.id || ''} data-terminal-name=${this.defaultTerminalName(this.selectedSpace)} ?disabled=${blocked || this.creating} @click=${() => this.newTerminal()}><span aria-hidden="true">＋</span> New terminal</button>`,
               helper: html`Project account: ${this.selectedSpace?.login}`}) : ''}
-            <div class="soda-workspace-chrome" ?hidden=${this.firstTerminal}>${repeat(this.projection.panes, area => area.pane.key, area => this.paneChrome(area.pane, area))}
+            <div class="soda-workspace-chrome" ?hidden=${this.firstTerminal || this.inventoryRecovery}>${repeat(this.projection.panes, area => area.pane.key, area => this.paneChrome(area.pane, area))}
               ${repeat(this.projection.dividers, divider => divider.key, divider => html`<div class="soda-pane-divider" role="separator" tabindex="0" aria-label="Resize panes" aria-orientation=${divider.axis === 'right' ? 'vertical' : 'horizontal'} aria-valuemin=${Math.ceil(divider.minimum * 100)} aria-valuemax=${Math.floor(divider.maximum * 100)} aria-valuenow=${Math.round(divider.ratio * 100)} style=${this.rectangle(divider)} @pointerdown=${(e: PointerEvent) => this.capture(e)} @pointermove=${(e: PointerEvent) => this.dragDivider(e, divider)} @pointerup=${(e: PointerEvent) => this.releasePointer(e)} @keydown=${(e: KeyboardEvent) => this.keyDivider(e, divider)}></div>`)}
             </div><div class="soda-workspace-owners"></div>
           </div>
@@ -414,6 +419,11 @@ export class SodaSpaces extends LitElement {
           void this.rename(slot, edit.name);
       }) : ''}
     </section>`;
+  }
+  private get connectURL() {
+    const intent = new URLSearchParams(this.binding?.kind === 'page' ? {destination: 'spaces'} : {repository_id: this.binding?.repositoryId || ''});
+    if (this.binding?.expectedUserId) intent.set('expected_user_id', this.binding.expectedUserId);
+    return '/-/soda/login?' + intent;
   }
   private renderToolbar() {
     const blocked = this.stale || !this.available, connect = this.binding?.kind === 'page' ? 'destination=spaces' : 'repository_id=' + this.binding?.repositoryId;
@@ -441,9 +451,9 @@ export class SodaSpaces extends LitElement {
         ${this.setup === 'repositories' ? renderRepositoryPicker({query: this.repositoryQuery, result: this.repositoryResult, selected: this.repositoryChoice, busy: this.repositoryBusy, error: this.repositoryError, blocked, createURL: prefix + '/repo/create'}, {
           query: value => {this.repositoryQuery = value; this.repositoryChoice = ''; this.repositoryResult = undefined; this.repositoryError = ''; this.repositoryRequest?.abort(); this.repositoryRequest = undefined; this.repositoryBusy = false;},
           search: page => {void this.searchRepositories(page);}, select: value => {this.repositoryChoice = value;}, back: () => this.cancelSetup(), continue: () => this.configureProject()
-        }) : this.welcomeScreen ? renderWelcome(blocked, () => this.beginSetup()) : renderWorkspaceIntro({kind: this.busy ? 'loading' : 'unavailable', heading: this.busy ? 'Loading projects…' : 'Could not load projects',
-          description: html`${this.busy ? 'Checking the projects you can access.' : 'Your project list could not be confirmed. Try again to refresh it.'}`,
-          action: this.busy ? html`` : this.stale ? html`<button class="ui primary button" @click=${() => window.location.reload()}>Reload Spaces</button>` : html`<button class="ui primary button" ?disabled=${blocked} @click=${() => this.refresh()}>Retry projects</button>`,
+        }) : this.welcomeScreen ? renderWelcome(blocked, () => this.beginSetup()) : renderWorkspaceIntro({kind: this.busy ? 'loading' : 'unavailable', heading: this.busy ? 'Loading projects…' : this.reconnectRequired ? 'Reconnect to Forgejo' : 'Could not load projects',
+          description: html`${this.busy ? 'Checking the projects you can access.' : this.reconnectRequired ? 'Sign in again to restore your Forgejo access.' : 'Your project list could not be confirmed. Try again to refresh it.'}`,
+          action: this.busy ? html`` : this.reconnectRequired ? html`<a class="ui primary button" href=${this.connectURL}>Reconnect to Forgejo</a>` : this.stale ? html`<button class="ui primary button" @click=${() => window.location.reload()}>Reload Spaces</button>` : html`<button class="ui primary button" ?disabled=${blocked} @click=${() => this.refresh()}>Retry projects</button>`,
           helper: html`${this.busy ? 'This will not create or start anything.' : 'Your existing projects and terminals are not replaced.'}`})}
       </div></div>`;
   }
@@ -857,8 +867,10 @@ export class SodaSpaces extends LitElement {
       } : {}), signal: signal || this.lifetime.signal
     });
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403)
+      if (response.status === 401 || response.status === 403) {
         this.invalidate();
+        this.reconnectRequired = response.status === 401;
+      }
       throw Error('Spaces request refused');
     }
     return readSodaJSON(response);
@@ -1484,6 +1496,7 @@ export class SodaSpaces extends LitElement {
       void this.refresh();
   }
   invalidate() {
+    this.reconnectRequired = false;
     if (this.stale)
       return;
     this.stale = true;

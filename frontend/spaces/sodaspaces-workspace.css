@@ -3,9 +3,9 @@
 /* Native page geometry stays inside its explicit mount. */
 .soda-spaces-page-mount { min-height: 0; min-width: 0; }
 .soda-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; clip-path: inset(50%); white-space: nowrap; }
-.soda-native-page:has([data-view="spaces"]) { padding: 0; margin: 0; min-height: 0; }
-.soda-native-page:has([data-view="spaces"]) > .soda-page-container { max-width: none; width: 100% !important; padding: 0; margin: 0; }
-.soda-native-page:has([data-view="spaces"]) .soda-page-intro { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip-path: inset(50%); }
+.soda-page.soda-native-page:has([data-view="spaces"]) { padding: 0; margin: 0; min-height: 0; }
+.soda-page.soda-native-page:has([data-view="spaces"]) > .soda-page-container { max-width: none; width: 100% !important; padding: 0; margin: 0; }
+.soda-page.soda-native-page:has([data-view="spaces"]) .soda-page-intro { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip-path: inset(50%); }
 .soda-workspace { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; font: var(--soda-font-workspace); color: var(--soda-page-text); }
 .soda-workspace [hidden] { display: none !important; }
 .soda-workspace p { margin: var(--soda-space-1) var(--soda-space-2); overflow-wrap: anywhere; }
@@ -19,6 +19,8 @@
   margin: 0;
   border: 1px solid transparent;
   border-radius: var(--soda-workspace-radius);
+  text-transform: uppercase;
+  letter-spacing: normal;
   font: var(--soda-font-button) !important;
   background: transparent;
   color: var(--soda-page-text);
@@ -45,7 +47,7 @@
 .soda-attention { color: var(--soda-page-warning); }
 .soda-attention-filters { display: flex; flex-wrap: wrap; gap: var(--soda-space-1); margin-block: var(--soda-space-2); }
 .soda-session-list { display: flex; flex-direction: column; gap: var(--soda-space-half); }
-.soda-session-list .ui.button { text-align: left; white-space: normal; width: 100%; overflow-wrap: anywhere; }
+.soda-session-list .ui.button { display: block; text-align: left; white-space: normal; width: 100%; overflow-wrap: anywhere; }
 .soda-project-details { margin-top: var(--soda-space-2) !important; white-space: normal; text-align: left; width: 100%; }
 .soda-sidebar-divider { background: linear-gradient(to right, var(--soda-page-edge) 1px, transparent 1px); cursor: col-resize; touch-action: none; }
 .soda-workspace-work { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
@@ -89,13 +91,13 @@
 /* The frame and terminal owners remain mounted across setup and working views. */
 .soda-workspace-frame { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .soda-workspace[data-workspace-kind=page] { background: var(--soda-page-canvas); }
-.soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { padding: var(--soda-space-6) var(--soda-space-8); gap: var(--soda-space-3); min-height: 112px; }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { padding: var(--soda-space-3) var(--soda-space-4); gap: var(--soda-space-2); min-height: 80px; border-bottom: 0; }
 .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar > .ui.button { min-height: var(--soda-control-height) !important; padding-inline: var(--soda-space-4) !important; border-color: var(--soda-page-edge); }
 .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar .soda-menu > div { right: 0; left: auto; }
-.soda-workspace[data-workspace-kind=page] .soda-workspace-navigation { padding: var(--soda-space-6) var(--soda-space-4); }
-.soda-projects-heading { display: flex; align-items: center; min-height: var(--soda-control-height); margin-bottom: var(--soda-space-6); }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-navigation { padding: var(--soda-space-3) var(--soda-space-3); }
+.soda-projects-heading { display: flex; align-items: center; min-height: var(--soda-control-height); margin-bottom: var(--soda-space-2); }
 .soda-projects-heading h2, .soda-workspace .soda-projects-heading .ui.button { margin: 0; font: var(--soda-font-heading) !important; text-transform: none; letter-spacing: normal; }
-.soda-workspace[data-workspace-kind=page] .soda-workspace-canvas { margin: var(--soda-space-6); border: 1px solid var(--soda-page-edge); }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-canvas { margin: 0; border: 0; }
 .soda-workspace[data-workspace-kind=page] .soda-workspace-body.is-navigating { grid-template-rows: auto minmax(0, 1fr); }
 .soda-workspace[data-workspace-kind=page] .soda-workspace-body.is-navigating .soda-workspace-work { display: flex; grid-row: 1; }
 .soda-workspace[data-workspace-kind=page] .soda-workspace-body.is-navigating .soda-workspace-navigation { grid-row: 2; }
@@ -104,10 +106,10 @@
    screens scroll the setup; working screens reserve height for the terminal. */
 .soda-workspace.is-setup { overflow-y: auto; box-sizing: border-box; padding: var(--soda-space-8) var(--soda-spaces-page-inset); font: var(--soda-font-body); }
 .soda-setup-heading, .soda-workspace.is-setup .soda-workspace-frame { box-sizing: border-box; width: 100%; max-width: var(--soda-spaces-setup-width); margin-inline: auto; }
-.soda-setup-heading { flex-shrink: 0; padding-bottom: var(--soda-space-8); }
+.soda-setup-heading { flex-shrink: 0; padding-bottom: var(--soda-space-4); }
 .soda-setup-heading h1 { margin: 0 0 var(--soda-space-3); font: var(--soda-font-title); }
 .soda-setup-heading p { margin: 0; color: var(--soda-page-muted); }
-.soda-workspace.is-setup .soda-workspace-frame { flex: 1 0 auto; min-height: 560px; max-height: 720px; border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); }
+.soda-workspace.is-setup .soda-workspace-frame { flex: 1 0 auto; min-height: 480px; max-height: 640px; border: 0; background: var(--soda-page-surface); }
 .soda-setup-panel { display: flex; flex: 1; justify-content: center; align-items: center; padding: var(--soda-spaces-panel-inset); }
 .soda-setup-form, .soda-setup-change, .soda-workspace.is-setup .soda-workspace-management { box-sizing: border-box; width: 100%; max-width: var(--soda-spaces-form-width); margin-inline: auto; }
 .soda-setup-welcome { width: 100%; max-width: 560px; text-align: center; }
@@ -147,7 +149,7 @@
 .soda-repository-choice small, .soda-selected-project small { display: block; font: var(--soda-font-caption); }
 .soda-setup-actions, .soda-setup-panel nav { display: flex; flex-wrap: wrap; gap: var(--soda-space-3); align-items: center; }
 .soda-setup-actions { justify-content: space-between; padding-top: var(--soda-space-6); border-top: 1px solid var(--soda-page-edge); }
-.soda-workspace .soda-setup-footer { margin: 0; padding: var(--soda-space-6) var(--soda-spaces-panel-inset); border-top: 1px solid var(--soda-page-edge); color: var(--soda-page-muted); font: var(--soda-font-meta); text-align: center; }
+.soda-workspace .soda-setup-footer { margin: 0; padding: var(--soda-space-4) var(--soda-spaces-panel-inset); border-top: 0; color: var(--soda-page-muted); font: var(--soda-font-meta); text-align: center; }
 .soda-workspace :is(.soda-setup-panel, .soda-project-journey, .soda-setup-change, .soda-workspace-intro) .ui.button { min-height: var(--soda-control-height) !important; padding: var(--soda-space-3) var(--soda-space-6) !important; }
 .soda-workspace .soda-setup-panel .ui.button:not(.primary) { border-color: var(--soda-page-edge); }
 .soda-workspace[data-workspace-kind=page] .soda-project-journey { box-sizing: border-box; justify-content: center; align-items: center; gap: var(--soda-space-4); max-width: var(--soda-spaces-form-width); min-height: 100%; height: auto; margin-inline: auto; padding: var(--soda-spaces-panel-inset); text-align: center; font: var(--soda-font-body); }
@@ -159,7 +161,7 @@
   .soda-workspace.is-setup { padding-block: var(--soda-space-6); }
   .soda-workspace.is-setup .soda-workspace-frame { min-height: 480px; }
   .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { padding: var(--soda-space-4); min-height: 88px; }
-  .soda-workspace[data-workspace-kind=page] .soda-workspace-canvas { margin: var(--soda-space-3); }
+  .soda-workspace[data-workspace-kind=page] .soda-workspace-canvas { margin: 0; }
   .soda-workspace[data-workspace-kind=page] .soda-workspace-navigation { padding: var(--soda-space-4); }
 }
 .soda-workspace-toolbar { flex-wrap: wrap; }
@@ -175,7 +177,7 @@
 /* Repository selection and configuration occupy the same fixed frame tracks.
    Long results/options scroll inside the form; the outer panel does not jump. */
 .soda-workspace.is-project-setup .soda-workspace-frame { flex: 1 0 640px; min-height: 640px; height: 640px; }
-.soda-setup-topbar { display: flex; justify-content: space-between; flex-shrink: 0; width: calc(100% - 2 * var(--soda-spaces-panel-inset)); margin-inline: auto; padding-block: var(--soda-space-4) var(--soda-space-2); }
+.soda-setup-topbar { display: flex; justify-content: space-between; flex-shrink: 0; width: calc(100% - 2 * var(--soda-spaces-panel-inset)); margin-inline: auto; padding-block: var(--soda-space-2); }
 .soda-workspace.is-project-setup .soda-setup-panel { align-items: stretch; flex: 1 1 0; min-height: 0; overflow: auto; padding-block: var(--soda-space-4) var(--soda-space-6); }
 .soda-workspace.is-project-setup .soda-setup-form { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .soda-workspace.is-project-setup .soda-workspace-body { flex: 1 1 0; overflow: auto; }
@@ -183,7 +185,7 @@
 .soda-workspace.is-project-setup .soda-workspace-management { flex: 1; min-height: 0; }
 .soda-workspace.is-project-setup :is(.soda-workspace-management > div, soda-project-controls) { height: 100%; }
 .soda-workspace.is-project-setup .soda-project-journey { height: 100%; min-height: 0; justify-content: flex-start; gap: 0; }
-.soda-workspace.is-project-setup .soda-setup-step-heading { flex-shrink: 0; margin-bottom: var(--soda-space-6); }
+.soda-workspace.is-project-setup .soda-setup-step-heading { flex-shrink: 0; margin-bottom: var(--soda-space-4); }
 .soda-workspace.is-project-setup .soda-setup-step-heading h2 { margin: 0 0 var(--soda-space-3); }
 .soda-workspace.is-project-setup .soda-setup-step-heading p { margin: 0; }
 .soda-workspace.is-project-setup .soda-setup-step-heading .soda-setup-eyebrow { margin-bottom: var(--soda-space-3); font: var(--soda-font-button); text-transform: uppercase; }
@@ -207,7 +209,7 @@
 .soda-config-repository-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .soda-config-repository small { display: block; font: var(--soda-font-meta); color: var(--soda-page-muted); }
 .soda-workspace.is-project-setup .soda-configuration-fields select { margin-bottom: 0; }
-.soda-workspace.is-project-setup .soda-setup-actions { border-top: 0; width: 100%; margin-top: auto; gap: var(--soda-space-4); padding-top: var(--soda-space-6); flex-shrink: 0; }
+.soda-workspace.is-project-setup .soda-setup-actions { border-top: 0; width: 100%; margin-top: auto; gap: var(--soda-space-4); padding-top: var(--soda-space-4); flex-shrink: 0; }
 .soda-setup-actions > .primary { margin-left: auto !important; min-width: 160px; }
 .soda-workspace.is-project-setup .soda-setup-actions > a { color: var(--soda-page-muted); font: var(--soda-font-meta); text-underline-offset: .2em; }
 .soda-workspace.is-project-setup .soda-project-journey > [role=status]:not([hidden]):not(:empty) { margin-top: var(--soda-space-4); }
@@ -221,7 +223,7 @@
 
 /* The first workspace keeps identity fixed while the centered next action changes. */
 .soda-project-heading { display: flex; align-items: center; flex-wrap: wrap; gap: var(--soda-space-2) var(--soda-space-4); }
-.soda-project-heading h1 { min-width: 0; max-width: 100%; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--soda-font-title); }
+.soda-project-heading h1 { min-width: 0; max-width: 100%; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--soda-font-workspace-title); }
 .soda-workspace .soda-project-profile { margin: var(--soda-space-2) 0 0; font: var(--soda-font-meta); color: var(--soda-page-muted); }
 .soda-project-state, .soda-project-status { display: inline-flex; align-items: center; gap: var(--soda-space-2); color: var(--soda-page-muted); font: var(--soda-font-meta); white-space: nowrap; }
 .soda-project-state::before, .soda-project-status::before { content: ""; display: inline-block; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
@@ -230,23 +232,23 @@
 .soda-projects-heading { justify-content: space-between; gap: var(--soda-space-2); }
 .soda-project-count { font: var(--soda-font-meta); color: var(--soda-page-muted); }
 .soda-workspace[data-workspace-kind=page] .soda-project-group { margin: 0 0 var(--soda-space-2); padding: 0; border: 0; }
-.soda-workspace .ui.button.soda-project-select { display: flex; align-items: flex-start; gap: var(--soda-space-3); padding: var(--soda-space-2) var(--soda-space-3) !important; border-inline-start-width: 3px; text-transform: none; letter-spacing: normal; font: var(--soda-font-body) !important; }
+.soda-workspace .ui.button.soda-project-select { display: flex; align-items: flex-start; justify-content: flex-start; text-align: left; gap: var(--soda-space-3); padding: var(--soda-space-2) var(--soda-space-3) !important; border-inline-start-width: 3px; text-transform: none; letter-spacing: normal; font: var(--soda-font-body) !important; }
 .soda-project-select-body { display: flex; flex-direction: column; min-width: 0; gap: var(--soda-space-1); }
 .soda-project-select .soda-repository-icon { flex: 0 0 auto; margin-top: var(--soda-space-1); }
 .soda-project-select .soda-project-status { display: inline-flex; white-space: normal; font: var(--soda-font-meta); }
-.soda-workspace .ui.button.soda-create-another-project { display: flex; align-items: center; gap: var(--soda-space-2); width: 100%; text-align: left; padding: var(--soda-space-3) !important; text-transform: none; letter-spacing: normal; font: var(--soda-font-body) !important; color: var(--soda-page-muted); }
+.soda-workspace .ui.button.soda-create-another-project { display: flex; align-items: center; justify-content: flex-start; gap: var(--soda-space-2); width: 100%; text-align: left; padding: var(--soda-space-3) !important; text-transform: none; letter-spacing: normal; font: var(--soda-font-body) !important; color: var(--soda-page-muted); }
 .soda-workspace[data-workspace-kind=page] .soda-project-journey.soda-ready-project { display: block; height: 100%; min-height: 0; max-width: none; padding: 0; }
 .soda-workspace.is-workspace-intro .soda-workspace-canvas { margin: 0; border: 0; overflow: auto; }
 .soda-workspace-intro { display: flex; min-height: 100%; box-sizing: border-box; padding: var(--soda-space-8) var(--soda-spaces-panel-inset); text-align: center; font: var(--soda-font-body); }
 .soda-workspace-intro-content { width: 100%; max-width: 560px; margin: auto; }
-.soda-workspace-illustration { display: block; width: 128px; height: 104px; margin: 0 auto var(--soda-space-6); color: var(--soda-page-text); }
+.soda-workspace-illustration { display: block; width: 128px; height: 104px; margin: 0 auto var(--soda-space-4); color: var(--soda-page-text); }
 .soda-created-check { fill: var(--soda-page-canvas); stroke: var(--soda-page-success); stroke-width: 1.5; }
 .soda-created-checkmark { fill: none; stroke: var(--soda-page-success); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .soda-terminal-cursor { fill: none; stroke: var(--soda-button-primary-bg); stroke-width: 3; }
-.soda-workspace-intro h2 { margin: 0 0 var(--soda-space-6); font: var(--soda-font-title); }
+.soda-workspace-intro h2 { margin: 0 0 var(--soda-space-4); font: var(--soda-font-title); }
 .soda-workspace .soda-workspace-intro .soda-intro-description { margin: 0; color: var(--soda-page-muted); text-wrap: pretty; }
 .soda-intro-description span { display: block; }
-.soda-intro-action { margin-block: var(--soda-space-8) var(--soda-space-6); }
+.soda-intro-action { margin-block: var(--soda-space-6) var(--soda-space-4); }
 .soda-workspace .soda-workspace-intro .ui.primary.button { display: inline-flex; align-items: center; justify-content: center; gap: var(--soda-space-3); min-width: 224px; max-width: 100%; min-height: calc(var(--soda-control-height) + var(--soda-space-2)) !important; }
 .soda-workspace .soda-workspace-intro .soda-intro-helper { margin: 0; color: var(--soda-page-muted); font: var(--soda-font-meta); }
 .soda-intro-feedback:not(:empty) { margin-top: var(--soda-space-6); font: var(--soda-font-meta); }
@@ -265,7 +267,7 @@
 .soda-tab-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .soda-tab-icon { display: inline-block; flex: 0 0 auto; width: 18px; height: 18px; background: currentColor; mask: url('soda/forgejo/icons/terminal-19.14.0.svg') center / contain no-repeat; }
 .soda-workspace[data-workspace-kind=native] .soda-tab-icon { display: none; }
-.soda-workspace[data-workspace-kind=page] .soda-session-list { margin: var(--soda-space-2) 0 var(--soda-space-4) var(--soda-space-4); }
+.soda-workspace[data-workspace-kind=page] .soda-session-list { margin: var(--soda-space-1) 0 var(--soda-space-2) var(--soda-space-4); }
 .soda-workspace[data-workspace-kind=page] .soda-session-list .ui.button { position: relative; padding: var(--soda-space-3) var(--soda-space-3) var(--soda-space-3) var(--soda-space-8) !important; font: var(--soda-font-button) !important; text-transform: none; letter-spacing: normal; }
 .soda-workspace[data-workspace-kind=page] .soda-session-list .ui.button::before { content: ""; position: absolute; left: var(--soda-space-2); top: var(--soda-space-3); width: 18px; height: 18px; background: currentColor; mask: url('soda/forgejo/icons/terminal-19.14.0.svg') center / contain no-repeat; }
 .soda-workspace[data-workspace-kind=page] .soda-session-list .ui.button[aria-current=true] { background: var(--soda-page-hover); }

@@ -12,7 +12,8 @@
     ]
   },
   "include": [
-    "scripts/**/*.ts"
+    "scripts/**/*.ts",
+    "frontend/spaces/terminal-vendor.d.ts"
   ],
   "exclude": [
     "node_modules",

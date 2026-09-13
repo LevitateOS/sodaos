@@ -10398,3 +10398,98 @@ not actual Forgejo admin-page, installed or native-architecture acceptance.
 admin-eligible fixture selection/maintenance requires its own authorization.
 No native build, installation, service/VM lifecycle, provider operation, delivery
 or push was performed.
+
+
+## Spaces full-width native rereview
+
+On 13 September 2026 the owner requested a refreshed localhost rereview, tighter
+spacing and fewer dividers, then clarified that the Projects sidebar must remain:
+remove the outer content container's left/right margins. Work remained in the
+canonical checkout, initially clean at `3b07c39`.
+
+Native Chrome inspection found the later-loaded canonical stylesheet constraining
+Spaces to 1120px inside a 1654px viewport, and native button defaults adding borders
+and centering sidebar contents. Spaces now wins that container cascade, keeps the
+existing resizable sidebar, uses an 80px desktop header with 12px/16px padding,
+removes the enclosing canvas border/inset and quiets setup frame/footer rules.
+Forms retain their focused reading width; mobile configuration helpers remain
+visible. Native button styling stays outside the workspace's explicit control roles.
+Incomplete inventory and denied project reads render recovery prompts instead of
+empty pane actions or a guessed disabled configuration form.
+
+The browser fixture now loads native component CSS after workspace CSS and exercises
+upstream button centering. Its mount lookup prefers the intended main element over
+the enclosing native page class. The split/restore check exposed a real stale-grid
+measurement: a generic animation frame could divide the previous maximized grid
+by the restored column count. Minimum sizing now uses xterm 6.0.0's public
+`onRender` completion, retaining the same owners, sockets and session IDs.
+
+Final checks passed: `bun run build:forgejo`, `bun run typecheck`, 114 emitted
+workspace/terminal tests, and the workspace token source check. Captures cover both
+themes, 1536/1440/800/640/390 widths, short screens, contextual menus, recovery and
+two panes at 1920px. The final [gallery](../.artifacts/spaces-final-width-review/index.html)
+is synthetic component evidence, with real emitted xterm and synthetic transport.
+Initial failing receipts were retained; the final passing logs are
+`/tmp/spaces-final-width-tests.log`, `/tmp/spaces-final-types.log` and
+`/tmp/spaces-final-tokens.log`.
+
+The owner's localhost fix request was applied as a minimal public-asset delta to
+`soda-native-tailnet-bb3a13c` through its recorded pinned SSH path. Comparison found
+all unaffected Spaces modules already matching. Six files were updated first,
+followed by one stylesheet alignment refinement and the terminal sizing module:
+seven distinct public assets in total. Every replacement checked its current
+preimage hash, backed up that exact file with metadata, and replaced it atomically.
+Custody and manifests are under `.artifacts/spaces-full-width-delivery/`,
+`.artifacts/spaces-row-alignment-delivery/` and
+`.artifacts/spaces-render-sizing-delivery/`. Exact VM preimages remain in
+`/var/tmp/soda-spaces-width-yGqGLc2R/backup/`,
+`/var/tmp/soda-spaces-width-q8uAKMWj/backup/` and
+`/var/tmp/soda-spaces-width-Uxkmg3df/backup/` respectively.
+No service restart, backend/image update, account/project/terminal creation,
+credential/network change, cleanup or publishing occurred.
+
+Native reload verified the full 1654px container, retained 266px stored sidebar,
+and canvas ending at the viewport's right edge. Selecting the retained repository
+now shows a clear Project access changed / Reload Spaces state. Inventory remains
+incomplete and project reads unavailable on this instance; this pass neither fixes
+that authority/runtime condition nor claims real Join, shell input or reattachment.
+The previously recorded operator-account collision and pending fixture-actor decision
+remain separate unresolved native acceptance work.
+
+## Spaces local development fixture
+
+On 13 September 2026 normal Forgejo reauthentication restored the retained native
+project reads. The owner then chose a mock backend on this Mac to make visual
+iteration independent of remote deployment. The proposed additional native actor,
+repository and project were not created; native Join/input remains unverified.
+
+`bun run dev:spaces` now serves the emitted Spaces frontend, canonical Soda styles
+and real xterm renderer on loopback port 24455. A Bun HTTP/WebSocket adapter reuses
+the existing component fixture model, extracted without browser globals. Synthetic
+projects, explicit Create/Join, exact terminal reservations, attach, rename/end,
+lifecycle and simulated shell output stay local. Scenario/fault/theme/reset controls
+sit outside the product UI. Frontend changes rebuild/reload while retaining server
+state and tab layout. No VM, credentials or shell subprocess is involved. The
+fixture shell is not native Forgejo HTML; native routes/integration remain separate.
+
+Expired project and inventory reads now offer the existing actor-bound Forgejo
+reconnect link; 403 still retires the view and offers Reload Spaces. Both recovery
+paths preserve the no-write-replay behavior. The local fixture's reconnect action
+only clears its synthetic expired-access response.
+
+Verification: strict TypeScript/Lit checks and the existing asset build passed;
+115 workspace/terminal tests passed after the shared-model extraction, including
+new 401 versus 403 project recovery coverage. Two local-server tests passed through
+Welcome → repository → configure → Create → Join → terminal input, transcript and
+layout restoration without repeated writes, two panes, mobile/light mode, expired
+access recovery, browser-context isolation, and host/origin/path restrictions.
+Desktop and mobile component captures and logs are retained under
+`.artifacts/spaces-dev-review-3/`. The live in-app browser also displayed the actual
+local server: `echo reload-check` returned simulated output; touching the workspace
+stylesheet triggered rebuild/reload and preserved that transcript and selected pane.
+These checks prove local frontend development behavior, not native shell operation.
+
+Run/reset/persistence instructions belong in
+[local testing](local-testing.md#spaces-frontend-development-on-this-computer).
+No remote asset delivery, new account/project, service/VM lifecycle, publishing,
+network/trust change or cleanup occurred in this local fixture follow-up.

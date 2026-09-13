@@ -14,6 +14,7 @@ bun run typecheck
 bun run test
 bun run build
 bun run build:preview # local Forgejo branding mount
+bun run dev:spaces # local interactive Spaces mock backend and frontend
 bun run screenshot --help
 ```
 
@@ -30,6 +31,9 @@ is used. Synthetic operation APIs remain separate from native/provider proof.
 The local Lit runtime and operator settings-link browser checks are enabled in the
 Forgejo group. Installed/provider checks keep their explicit opt-in flags
 and target/action permissions; installing dependencies does not run those journeys.
+
+For Spaces visual development without a VM, use the
+[local fixture server](local-testing.md#spaces-frontend-development-on-this-computer).
 
 ## Local source checks
 

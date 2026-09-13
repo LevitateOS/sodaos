@@ -7,6 +7,42 @@ Installed versions, active grants and preservation results have one home in the
 [implementation history](implementation-history.md). None of the addresses below
 is a fresh liveness observation.
 
+## Spaces frontend development on this computer
+
+Run `bun run dev:spaces` from the canonical checkout, then open
+**http://127.0.0.1:24455/**. This starts a Bun development server on this computer's
+loopback interface. It needs the locked workspace dependencies and Python 3 for
+the existing terminal asset preparation, but no VM, SSH tunnel, Forgejo account,
+appliance deployment or project provisioning. Stop it with Ctrl-C. To choose a
+different port, run `bun run dev:spaces --port 24456`.
+
+The server serves the real emitted Spaces components and canonical Soda styles.
+Its HTTP and WebSocket handlers reuse the component tests' synthetic model.
+The labelled development toolbar can reset to Welcome, Project created / Join,
+First terminal, working tabs, two panes, long names, stopped/unavailable projects
+and expired access. The normal Create → Join → New terminal flow also works.
+Responses can be slow, unavailable, expired, or reject Create/Join; themes can be
+switched without changing product code. Reconnect is simulated locally.
+
+Frontend TypeScript, CSS and fixture-shell changes rebuild and reload the browser
+automatically. Project state and terminal transcripts stay in server memory across
+reloads; layout stays in tab session storage. Restarting the server clears its data.
+Reset scenario replaces the current browser session's mock state. Separate browser
+contexts have separate fixtures; tabs sharing the cookie share mock projects.
+Backend/scenario-model changes require restarting the command.
+
+The terminal renderer and controls are real; its shell is simulated. Try `help`,
+`pwd`, `ls`, `git status`, `bun test`, `echo hello` or `clear`. These commands never
+execute on this computer. The surrounding navigation is a labelled preview shell;
+native Forgejo pages, real OAuth, project runtimes and shell identity still require
+their separately authorized integration checks. Fixture routes never proxy to the VM.
+
+Focused verification: `bun test --timeout 30000 tests/frontend/spaces-preview.test.ts`
+after asset preparation. This exercises the local HTTP/socket journey, transcript
+restoration, scenario resets, responsive layouts, expired-access recovery and
+request boundaries. Screenshot evidence uses the existing
+[component capture helper](screenshot-capture.md), not native-page proof.
+
 ## Fresh Tailnet VM access
 
 The separately created **`soda-native-tailnet-bb3a13c`** has its own ports and

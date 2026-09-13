@@ -81,7 +81,7 @@ There is no GitHub branding, external provider picker or clone-URL onboarding fi
 Generated images illustrate hierarchy, not exact CSS, supported data or new tokens.
 
 Before the first project, show the page title **Spaces** and subtitle **Your projects
-and terminals, together.** One outlined content panel contains the welcome and setup
+and terminals, together.** One unbordered content panel contains the welcome and setup
 steps. Show no empty sidebar, Sessions toolbar, terminal controls, pane dropdown,
 Attention filters, drawer controls or SSH forms. Forms may scroll on short screens;
 the working terminal later fills the available visual viewport.
@@ -101,13 +101,15 @@ with the shared definitions in `assets/branding/forgejo/components.css`.
 | --- | --- | --- |
 | Width | Outer frame up to 1240px, centered; fluid 16–48px page inset | Full native page width; bypass the ordinary 1120px content container |
 | Reading measure | Welcome up to 560px; repository/configuration forms up to 720px | Project identity in the main header; terminal uses the remaining width |
-| Vertical composition | Title/subtitle above one outlined frame; centered welcome, aligned setup forms and separated orientation footer; scroll on short screens | Sidebar starts beside the project header and extends to the workspace bottom; canvas fills remaining height |
-| Heading scale | Soda title role, fluid 28–40px; 16px body and 14px supporting text | Same project title role; 22px sidebar heading; existing dense terminal chrome |
-| Spacing and rules | 32px title/frame separation, fluid 24–64px frame inset, 1px border | 112px desktop header, 24px canvas inset; compact header/content use 16px/12px insets |
+| Vertical composition | Title/subtitle above one unbordered frame; centered welcome, aligned setup forms and quiet orientation footer; scroll on short screens | Sidebar starts beside the project header and extends to the workspace bottom; canvas fills remaining height |
+| Heading scale | Soda title role, fluid 28–40px; 16px body and 14px supporting text | 28px project title role; 22px sidebar heading; existing dense terminal chrome |
+| Spacing and rules | 16px title/frame separation, fluid 16–32px frame inset, no outer rule | 80px desktop header with 12px/16px padding; canvas has no outer margin or enclosing border |
 | Action hierarchy | Red primary with 44px minimum target; outlined secondary actions and quiet navigation/help | Red New terminal, outlined Project settings; contextual controls keep their dense sizing |
 
 The frame, project-controls hosts and terminal owners remain mounted when setup is
 entered or cancelled. Page layout rules do not change the native drawer density.
+The outer native content container must not add left/right margins, even when native
+styles load after Spaces. This removes the outer gutters, not the Projects sidebar.
 The existing 256px default sidebar and 220–360px user resize range remain intact;
 compact presentation still follows measured terminal viability. On compact widths,
 project identity leads the header and controls wrap without horizontal overflow.
@@ -162,7 +164,7 @@ invented when the backend supplies only a pending outcome.
 ### Repository selection and configuration
 
 Both steps share the same 1240px maximum outer frame, a 720px form measure and
-identical header/action tracks. The setup frame has a 640px minimum height and grows only to 720px; tall
+identical header/action tracks. The setup frame has a stable 640px height; tall
 viewports must not stretch the gap between fields and actions. The Back row and **New project** heading block retain their
 position between steps. Longer repository results or configuration fields scroll
 within the form, with space reserved for the primary action and orientation footer.
@@ -238,8 +240,8 @@ accessible text. **Project settings** stays outlined at the right on wide screen
 
 **Project created / Join** and **Open your first terminal** share one centered
 composition in the remaining workspace height: a 560px maximum reading measure,
-a 128×104px decorative illustration area (104×85px on compact screens), 24px to
-the heading and explanation, 32px before the primary action and 24px before the
+a 128×104px decorative illustration area (104×85px on compact screens), 16px to
+the heading and explanation, 24px before the primary action and 16px before the
 helper. The primary action is at least 224×52px. A cube with a success check marks
 confirmed creation; a terminal outline with a red cursor marks account readiness.
 Both use Soda's existing type and color roles. Short screens scroll this content
@@ -266,8 +268,8 @@ out of the work header and retain its shared-impact confirmation. Tab and pane m
 hold Rename, split/move, Hide and End with the distinctions in sections 4 and 6.
 Drawer/Attention controls remain contextual and are absent from first-use setup.
 
-The working canvas retains the full remaining height with the existing inset and
-one border. Its screen has 16px desktop padding and 8px compact padding, with the
+The working canvas fills the remaining width and height without an enclosing
+margin or border. Keep the functional sidebar and pane resize separators. Its screen has 16px desktop padding and 8px compact padding, with the
 account label and tab icon sharing the text grid’s left edge. Xterm fitting and
 minimum-size measurement include these insets. The short-name sidebar project card
 is approximately 67px high; long names can grow without clipping status. **New terminal** is the red header action; **Project settings** remains

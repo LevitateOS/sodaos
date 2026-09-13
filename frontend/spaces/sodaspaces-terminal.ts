@@ -5,7 +5,7 @@ import {object, readSodaJSON, terminalID, terminalResponse, id as identifier} fr
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
 import type {TerminalMetadata} from './sodaspaces-api.js';
-export type TerminalView = Pick<Terminal, 'cols' | 'rows' | 'options' | 'parser' | 'loadAddon' | 'attachCustomKeyEventHandler' | 'onData' | 'open' | 'focus' | 'dispose' | 'write'>;
+export type TerminalView = Pick<Terminal, 'cols' | 'rows' | 'options' | 'parser' | 'loadAddon' | 'attachCustomKeyEventHandler' | 'onData' | 'onRender' | 'open' | 'focus' | 'dispose' | 'write'>;
 export interface Renderer {
   Terminal: new (options: ITerminalOptions & ITerminalInitOnlyOptions) => TerminalView;
   FitAddon: new () => Pick<FitAddon, 'fit'> & ITerminalAddon;
@@ -81,7 +81,6 @@ export class SodaTerminal extends LitElement {
     width: number;
     height: number;
   } | undefined;
-  private geometryFrame: number | undefined;
   constructor() {
     super();
     this.confirming = undefined;
@@ -224,9 +223,6 @@ export class SodaTerminal extends LitElement {
     }
     this.observer?.disconnect();
     this.observer = undefined;
-    if (this.geometryFrame !== undefined)
-      cancelAnimationFrame(this.geometryFrame);
-    this.geometryFrame = undefined;
     const old = this.socket;
     this.socket = undefined;
     if (old && old.readyState < 2)
@@ -337,13 +333,7 @@ export class SodaTerminal extends LitElement {
         type: 'resize', cols, rows
       });
     }
-    // Xterm changes cols/rows before its rendered grid catches up. Measuring in
-    // this same callback would divide the old grid by the new column count.
-    if (this.geometryFrame === undefined)
-      this.geometryFrame = requestAnimationFrame(() => {
-        this.geometryFrame = undefined;
-        this.measureMinimum();
-      });
+
   };
   private measureMinimum() {
     const screen = this.querySelector<HTMLElement>('.soda-terminal-screen');
@@ -477,6 +467,12 @@ export class SodaTerminal extends LitElement {
             type: 'input', data: btoa(String.fromCharCode(...bytes.subarray(i, i + 16384)))
           }))
             break;
+      });
+      // Public render completion pairs the grid with the current cols/rows.
+      // A generic animation frame can still observe the previous pane's grid.
+      terminal.onRender(() => {
+        if (this.live(n) && this.terminal === terminal)
+          this.measureMinimum();
       });
       terminal.open(screen);
       if (screen.clientWidth && screen.clientHeight)

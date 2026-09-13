@@ -14,14 +14,16 @@ const root = path.resolve(import.meta.dirname, '../..');
 let browser: Browser, server: ReturnType<typeof Bun.serve>;
 before(async () => {
   const fixture = await buildForgejoModule(path.join(root, 'tests/frontend/fixtures/workspace-fixture.ts'), 'public/assets/workspace-fixture.js');
+  const model = await buildForgejoModule(path.join(root, 'tests/frontend/fixtures/workspace-model.ts'), 'public/assets/workspace-model.js');
   server = Bun.serve({hostname: '127.0.0.1', port: 0, fetch(req) {
     const url = new URL(req.url);
+    if (url.pathname === '/assets/workspace-model.js') return new Response(model, {headers: {'Content-Type': 'text/javascript'}});
     if (url.pathname === '/assets/workspace-fixture.js') return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
     const target = 'public' + url.pathname;
     const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
     if (source) {const file = source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : source.startsWith('@build/terminal-assets/') ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source)) : path.join(root, source); return new Response(Bun.file(file), {headers: {'Content-Type': /\.m?js$/.test(source) ? 'text/javascript' : source.endsWith('.css') ? 'text/css' : source.endsWith('.svg') ? 'image/svg+xml' : 'application/octet-stream'}});}
     if (url.pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><style>.ui.button{display:inline-flex;justify-content:center;text-align:center}</style><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });
@@ -36,7 +38,7 @@ async function fixture(t: TestContext, mode: 'native' | 'page' = 'page', beforeM
     const mount = document.querySelector('main');
     if (!mount) throw Error('Missing fixture mount');
     const shell = document.createElement('div'), container = document.createElement('div');
-    shell.className = 'soda-page soda-native-page'; container.className = 'soda-page-container';
+    shell.className = 'page-content soda-page soda-native-page'; container.className = 'soda-page-container';
     mount.dataset.view = 'spaces'; mount.before(shell); shell.append(container); container.append(mount);
   });
   if (beforeMount) await page.evaluate(beforeMount);
@@ -328,6 +330,9 @@ test('real xterm owners survive pane moves, keyboard divider, maximize, compact 
   await captureSpacesComponent(page, 'move-menu-1920');
   await page.getByRole('button', {name: 'Pane 2', exact: true}).click();
   await page.waitForFunction(() => document.querySelectorAll('.soda-workspace-terminal:not([hidden])').length === 2);
+  const panes = await page.locator('.soda-workspace-terminal:visible').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width));
+  assert.equal(panes.length, 2);
+  assert(panes.every(width => width >= 800), 'two terminals should share the available width after the sidebar');
   await captureSpacesComponent(page, 'split-workspace-1920');
   await page.evaluate(() => {
     const f = window.workspaceFixture, names = [...document.querySelectorAll('.soda-pane-chrome [aria-selected=true]')].map(tab => tab.textContent?.trim());
@@ -339,7 +344,7 @@ test('real xterm owners survive pane moves, keyboard divider, maximize, compact 
   await page.getByRole('separator', {name: 'Resize panes', exact: true}).press('ArrowLeft');
   const stored = await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1'));
   await paneAction(page, 'Maximize pane'); assert.equal(await page.locator('.soda-pane-chrome').count(), 1);
-  await paneAction(page, 'Restore panes'); assert.equal(await page.locator('.soda-pane-chrome').count(), 2);
+  await paneAction(page, 'Restore panes'); await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 2);
   await page.setViewportSize({width: 720, height: 900}); await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 1);
   assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1')), stored);
   await page.getByLabel('Focused pane', {exact: true}).selectOption({label: 'Pane 1'});
@@ -514,7 +519,7 @@ for (const theme of ['light', 'dark']) for (const width of [1536, 1440, 800, 640
   const configureBounds = await page.locator('.soda-workspace-frame').boundingBox();
   const configureHeading = await page.getByRole('heading', {name: 'Configure project'}).boundingBox();
   const configureAction = await page.getByRole('button', {name: 'Create project', exact: true}).boundingBox();
-  assert(picker.frame && configureBounds && Math.abs(picker.frame.height - configureBounds.height) <= 1 && Math.abs(picker.frame.y - configureBounds.y) <= 1, 'panel jumps between setup steps');
+  assert(picker.frame && configureBounds && Math.abs(picker.frame.height - configureBounds.height) <= 1 && Math.abs(picker.frame.y - configureBounds.y) <= 1, 'panel jumps between setup steps: ' + JSON.stringify({picker: picker.frame, configure: configureBounds}));
   assert(picker.heading && configureHeading && Math.abs(picker.heading.x - configureHeading.x) <= 1 && Math.abs(picker.heading.y - configureHeading.y) <= 1, 'setup headings lose their alignment');
   assert(picker.action && configureAction && Math.abs(picker.action.x + picker.action.width - configureAction.x - configureAction.width) <= 1, 'primary actions lose their right alignment');
   assert(picker.action && configureAction && picker.action.height >= 52 && configureAction.height >= 52, 'setup primary actions need the prominent journey target');
@@ -581,11 +586,8 @@ for (const theme of ['light', 'dark']) for (const width of [1536, 1440, 800, 640
   assert(Math.abs(terminalInsets.accountOffset) <= 1, 'account identity and terminal text lose their shared left edge');
   assert(geometry.canvas.height > geometry.workspace.height * .65, 'chrome consumes too much terminal height');
   assert(geometry.workspace.bottom - geometry.canvas.bottom <= 26, 'terminal leaves unused space below it');
-  if (!geometry.compact) {
-    assert(geometry.header.x >= geometry.nav.right, 'project header overlaps the sidebar');
-    assert(Math.abs(geometry.header.y - geometry.nav.y) <= 1, 'sidebar must start alongside the project header');
-    assert(geometry.nav.bottom >= geometry.canvas.bottom, 'sidebar must extend alongside the terminal');
-  }
+  assert(Math.abs(geometry.canvas.x + geometry.canvas.width - width) <= 1, 'native container leaves a right gutter');
+  if (!geometry.compact) assert(geometry.header.x >= geometry.nav.right, 'project header overlaps sidebar');
   await captureSpacesComponent(page, `working-${theme}-${width}`);
   assert.equal(await page.locator('.soda-workspace-toolbar').getByRole('button', {name: 'New terminal', exact: true}).count(), 1);
   assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 1);
@@ -897,4 +899,39 @@ for (const theme of ['light', 'dark']) test(`coherence short ${theme}: long name
   assert(await owner?.evaluate(node => node.isConnected));
   assert.equal(await page.locator('.soda-workspace-terminal:visible').getAttribute('id'), locator);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), baseline.writes);
+});
+
+for (const status of [401, 403]) test(`native recovery: ${status} project reads never masquerade as new configuration`, async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  await page.evaluate(status => window.workspaceFixture.setStatus(status), status);
+  await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
+  await page.getByRole('heading', {name: status === 401 ? 'Reconnect to Forgejo' : 'Project access changed'}).waitFor();
+  assert.equal(await page.getByRole('heading', {name: 'Configure project', exact: true}).count(), 0);
+  if (status === 401) {
+    assert.equal(await page.getByRole('link', {name: 'Reconnect to Forgejo', exact: true}).getAttribute('href'), '/-/soda/login?destination=spaces&expected_user_id=1');
+    assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).count(), 0);
+  } else assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).isEnabled(), true);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
+  await captureSpacesComponent(page, status === 401 ? 'project-reconnect' : 'project-access-changed');
+});
+
+test('native CSS loaded last preserves full-width Spaces and quiet controls', async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => {
+    const button = document.createElement('button');
+    button.className = 'ui button'; button.id = 'native-button-probe'; button.textContent = 'Native action';
+    document.body.append(button);
+  });
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await chooseFirstRepository(page);
+  const layout = await page.locator('.soda-page-container').boundingBox();
+  assert(layout && layout.x === 0 && layout.width === 1440, 'native content gutters returned');
+  const back = page.getByRole('button', {name: 'Back', exact: true});
+  assert.equal(await back.evaluate(node => getComputedStyle(node).borderTopColor), 'rgba(0, 0, 0, 0)', 'native button rules boxed the quiet Back action');
+  assert.equal(await page.locator('#native-button-probe').evaluate(node => getComputedStyle(node).borderTopWidth), '1px');
+  assert((await page.locator('#native-button-probe').boundingBox())!.height >= 44, 'native controls outside Spaces lost their target size');
 });

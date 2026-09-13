@@ -75,6 +75,7 @@ function createFixture(options: TerminalFixtureOptions = {}) {
       registerCsiHandler() {return {dispose() {}};}, registerDcsHandler() {return {dispose() {}};}, registerEscHandler() {return {dispose() {}};}};
     constructor(public options: ITerminalOptions & ITerminalInitOnlyOptions) {terms.push(this);}
     loadAddon() {} attachCustomKeyEventHandler(fn: (event: KeyboardEvent) => boolean) {this.key = fn;}
+    onRender() {return {dispose() {}};}
     onData(fn: (data: string) => void) {this.input = fn; return {dispose() {}};}
     open(node: HTMLElement) {node.append(this.textarea);}
     focus() {this.textarea.focus();} dispose() {this.disposed++;}

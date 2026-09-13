@@ -37,10 +37,12 @@ test('native Spaces to drawer and back preserves exact sessions and named End', 
  const query = new URLSearchParams({id: repository.id, owner: repository.owner, name: repository.name});
  const fixture = await buildForgejoModule(path.resolve('tests/frontend/fixtures/native-workspace-fixture.ts'), 'public/assets/native-workspace-fixture.js');
  const model = await buildForgejoModule(path.resolve('tests/frontend/fixtures/workspace-fixture.ts'), 'public/assets/workspace-fixture.js');
+ const peer = await buildForgejoModule(path.resolve('tests/frontend/fixtures/workspace-model.ts'), 'public/assets/workspace-model.js');
  const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
  const page = await browser.newPage({ignoreHTTPSErrors: true, storageState: process.env.SODA_PAGE_STATE || '', viewport: {width: 1440, height: 1000}});
  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
  await page.route(origin + '/**', async route => {
+   if (new URL(route.request().url()).pathname === '/assets/workspace-model.js') return route.fulfill({contentType: 'text/javascript', body: await peer.text()});
    if (new URL(route.request().url()).pathname === '/assets/workspace-fixture.js') return route.fulfill({contentType: 'text/javascript', body: await model.text()});
    if (new URL(route.request().url()).pathname === '/assets/native-workspace-fixture.js') return route.fulfill({contentType: 'text/javascript', body: await fixture.text()});
    if (route.request().isNavigationRequest()) {

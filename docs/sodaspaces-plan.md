@@ -566,7 +566,8 @@ and deployment each keep their own status.
 | Visual redesign working terminal | Main canvas retained; header primary, selected tabs/sidebar rows and contextual Pane/Move/terminal menus refined locally; [contract](spaces-design.md#project-workspace-and-contextual-actions) and [receipt](implementation-history.md#spaces-working-terminal-refinement) |
 | Visual redesign coherence | Shared hover/focus and feedback treatment, recovery compositions, Back focus restoration, bounded/dismissible menus and short-screen/long-name refinements implemented locally; [contract](spaces-design.md#interaction-and-recovery-finish) and [receipt](implementation-history.md#spaces-interaction-and-recovery-refinement) |
 | Visual redesign rendered review | Selected references compared with emitted-component captures; corrected primary scale, panel growth, Back alignment, sidebar density, mobile clipping and terminal insets; [comparison gallery](../.artifacts/spaces-reference-comparison/index.html) and [receipt](implementation-history.md#spaces-rendered-reference-review) |
-| Current presentation acceptance | Local rendered journey reviewed with synthetic APIs/transport. Native localhost:24454 refused connections during this pass; installed interactions and user visual acceptance remain pending |
+| Current presentation acceptance | Native localhost:24454 rereviewed and frontend updated: outer gutters removed with sidebar retained, tighter spacing and clearer access recovery. Local split/restore and responsive journeys pass. Normal Forgejo reconnect subsequently restored native reads; usable native terminal input and user visual acceptance remain pending. [Receipt](implementation-history.md#spaces-full-width-native-rereview) |
+| Local visual development | Real emitted frontend with a loopback mock HTTP/socket backend, scenario/fault/theme controls and automatic reload on this Mac; [run instructions](local-testing.md#spaces-frontend-development-on-this-computer) and [receipt](implementation-history.md#spaces-local-development-fixture) |
 | Plan and reconciliation of conflicting full-page design requirements | Authored; documentation only |
 | File-level implementation guide, steps 1–15 under J1–J5 | Authored with per-step checks and separate local/native/delivery exits |
 | J1–J4 source implementation, steps 1–12 | Implemented through existing Go/Lit/project/terminal owners |
@@ -583,13 +584,13 @@ bounded first-use scenario reuses the native login, input and process observers;
 [installed evidence](implementation-history.md#spaces-native-delivery-and-account-collision)
 is partial, not a shell pass.
 
-**Next action: J5, step 14**, obtain the requested scope for a new `spaces-test`
-Forgejo user/private repository and one additional project. The original fixture
-actor `operator` conflicts with the image's existing UID-11 system account; do not
-adopt/rename it, replay Join or replace the retained first root to fix the fixture.
-Then finish native input/reattachment with the same guarded driver. This does not
-reopen organization creation policy, new OS profiles, Git credential automation or
-provider setup.
+**Current development path:** the owner chose the local mock backend for continued
+frontend iteration and visual review on this Mac. Use its scenario controls to
+review the journey without remote deployment. Native J5 step 14 remains separate:
+the original `operator` actor conflicts with the image's UID-11 system account,
+and the proposed additional fixture actor/project is not approved. Do not adopt
+or rename the account, replay Join or replace the retained root. Local simulated
+terminals do not satisfy native input/reattachment acceptance.
 
 ## Product correction — development workspace, not a modal form
 

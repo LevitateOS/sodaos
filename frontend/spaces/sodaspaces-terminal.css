@@ -12,7 +12,7 @@ soda-terminal { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .soda-terminal > .soda-terminal-status { margin: 0; padding: var(--soda-space-1) var(--soda-space-2); max-height: 30%; overflow: auto; }
 .soda-terminal-confirm { position: absolute; top: 36px; left: var(--soda-space-2); right: var(--soda-space-2); max-height: calc(100% - 44px); overflow: auto; z-index: 25; background: var(--soda-page-warning-bg); color: var(--soda-page-warning); padding: var(--soda-space-3); border: 1px solid var(--soda-page-warning-edge); box-shadow: var(--soda-elevation-dialog); }
 /* Keep the original account/project strip attached to its stable terminal owner. */
-.soda-workspace[data-workspace-kind=page] .soda-terminal-context { font: var(--soda-font-button); padding-left: var(--soda-space-4); border-bottom: 1px solid var(--soda-page-edge); background: var(--soda-page-canvas); }
+.soda-workspace[data-workspace-kind=page] .soda-terminal-context { font: var(--soda-font-button); padding-left: var(--soda-space-4); border-bottom: 0; background: var(--soda-page-canvas); }
 .soda-workspace[data-workspace-kind=page] .soda-terminal-screen { padding: var(--soda-space-4); }
 @media (max-width: 640px) {
   .soda-workspace[data-workspace-kind=page] .soda-terminal-context { padding-left: var(--soda-space-2); }

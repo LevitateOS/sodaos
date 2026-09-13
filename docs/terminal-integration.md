@@ -52,6 +52,10 @@ Flat terminal hosts remain in one owner layer through tabs, pane moves, splits,
 maximize, compact projection and project details. Splits create views, never shells,
 and require measured 56-column × 12-row children after chrome. The drawer flattens
 the desired tree and offers a This page filter without switching the selected project.
+Pane minimums are measured after xterm's public `onRender` event, when the
+rendered grid matches its current rows/columns. A generic animation-frame callback
+can pair the previous wide grid with restored split columns and wrongly collapse
+the layout. Measurements do not replace terminal owners or create sessions.
 Rename is display metadata. Hide and show change presentation only: no retention,
 Return or Keep operation exists. End remains a separate named, Cancel-first
 confirmation. Project Stop remains a separate shared-impact action.
