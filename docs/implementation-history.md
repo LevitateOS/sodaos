@@ -51,6 +51,76 @@ in `.artifacts/forgejo-deploy-a6a86c2-PREPARED/`; guest backups under
 covers this delivery only: no further restart, enrollment, cleanup or hold
 extension follows.
 
+## GHCR namespace and signing bootstrap
+
+The owner confirmed control of `LevitateOS`, selected the **current `gh` account**
+and approved straightforward protected signing setup without per-release attendance.
+The current account is `veighnsche`, with active organization admin membership and
+`write:packages`. Its existing broader OAuth scopes were not changed; no new GitHub
+account/token was requested. The public `LevitateOS/sodaos` source repository is
+admin-accessible. The preexisting public **`soda-os`** package is separate and untouched.
+
+**Completed real effects:** eight new GHCR packages have immutable digest-tagged
+content and native Sigstore attachments, all verified by an **authenticated** native
+signature/digest round trip. The six M1 host/app image manifests are unchanged from
+`complete-45ac843`; they were not rebuilt. Additional metadata identities:
+
+| Object | Manifest digest |
+| --- | --- |
+| `sodaos-release`, local-only serial 1, normal lane | `sha256:b91c48e9100316e2a8093f33a9bda7d850798d683b29162a51e06d9f523c5fe3` |
+| `sodaos-channel-candidate`, sequence 1, immutable document only | `sha256:d45506d432c0704e0cb51e271bf1c932de604c68db559ca11dd77ecc02ee750b` |
+
+The eight exact package names are `sodaos-host`, `sodaos-dashboard`, `sodaos-forgejo`,
+`sodaos-proxy`, `sodaos-project-os`, `sodaos-tailnet`, `sodaos-release` and
+`sodaos-channel-candidate`. Native signing and upload used the reviewed worker source
+`e8323d5`, pinned Go 1.26.7 and native skopeo 1.22.2. The bootstrap uploaded only
+`sha256-DIGEST` tags plus native `.sig` attachments. **No mutable `candidate`, preview
+or stable channel tag was promoted.** The staged candidate document expires
+`2026-09-14T18:00:29Z`; if commissioning continues later, prepare a fresh higher
+sequence and permits, never publish the expired offer or silently reset state.
+
+**Protected builder state:** `/var/lib/soda-release` was absent before setup and is
+now a new root-only directory. It retains the reviewed worker/checksum, separate
+artifact/candidate/preview/stable P-256 key pairs, encrypted private keys and restricted
+passphrase/signer files, current-account registry auth, exact permits, public inputs,
+signed snapshots, attempts and a local encrypted-key archive. Credentials passed
+from `gh` to the root setup program through stdin; no secret value was printed or
+placed in argv/source. No account, sudo rule, service or timer was created. Explicit
+unprivileged reads of registry auth and selected private keys were denied. The
+trusted administrator still has sudo and its original `gh` credential; this is not
+proof of isolation from malicious build jobs running as that administrator. Unattended
+build-worker separation remains M4 work. Off-machine encrypted recovery custody and
+passphrase recovery remain outstanding; the local archive does not protect against
+builder loss.
+
+The public trust anchor is recorded at `appliance/keys/release-trust.json`, SHA-256
+`0db03033fe2314de1989352c9ed8e9d8003b00dd4cdc745457e961349e9f689c`.
+It passes the worker's trust validation/policy generation. It has **not** been installed
+into this host's container policy or any appliance. Private keys/credentials are not
+in that public file. The exact one-time Go setup/bootstrap driver and sanitized
+metadata receipts are retained under `.artifacts/release-delivery/commission-e8323d5/`;
+root-only logs/intents and each authenticated copy remain under
+`/var/lib/soda-release/attempts/bootstrap-NAME/`. Each contains a completed
+`verified.json`; do not rerun its upload merely to repair an observer.
+
+**Concrete remaining blocker:** GitHub reports all eight new packages as **internal**.
+Its package documentation distinguishes repository permission inheritance from
+visibility; the supported visibility change is in package settings, not the documented
+REST/GraphQL package mutations. An isolated credential-free native proxy pull refused
+as expected, with no authenticated fallback (`anonymous-proxy.log`). The existing
+publication tool's anonymous gate was not weakened. One-time namespace bootstrap
+therefore staged immutable objects only and performed authenticated verification;
+it did not claim a public or approved channel offer. All eight namespaces now exist
+before the user's single visibility handoff.
+
+The owner should open the eight new `sodaos-*` packages in
+[LevitateOS Packages](https://github.com/orgs/LevitateOS/packages), choose **Package
+settings → Change visibility → Public**, and leave the old `soda-os` package alone.
+After that, observe current state, verify anonymous native signatures/digests, and
+commission candidate selection/failure handling under the bounded existing grant.
+Do not create new keys/roots, replay the bootstrap, promote stable, enable automation,
+or change retained appliances to bypass this observer/visibility gate.
+
 ## Trusted delivery source and native filesystem proof
 
 Milestone 2 now has noninteractive release-worker source and native **filesystem

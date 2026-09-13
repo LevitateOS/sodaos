@@ -10,8 +10,10 @@ Six milestones carry the work through automated production operation; the 28 det
 items are acceptance criteria, not separate execution/approval rounds. **This remains
 unpublished, not an installable or boot/upgrade-qualified release.** Milestone 2 now
 has source tooling and native filesystem Sigstore proof, including synthetic-key
-signing of that exact host, all five apps and its release document. Production key/
-GHCR provisioning and the actual registry round trip remain pending. The
+signing of that exact host, all five apps and its release document. Root-protected real keys and eight GHCR namespaces are now provisioned using the
+owner-selected current `gh` account. Authenticated native signature/digest round trips
+pass. GitHub created the packages as **internal**; public visibility, anonymous proof
+and mutable candidate-channel promotion remain pending. The
 owner selected GHCR distribution and a CoreOS-aligned Soda release train with an
 independent emergency lane. This guide owns the release engineering workstream and
 its status: build engineering, release management, distribution and appliance updates.
@@ -285,7 +287,11 @@ error output. Public trust and worker command arguments must be integrity-contro
 by that owner, not selected by an untrusted build job. Actual UID/credential isolation
 and custody are not proved merely by passing file-mode tests.
 
-Artifacts are signed/uploaded first using native digest preservation, then copied
+Namespace bootstrap stages only immutable signed content and checks it with the
+publisher's authenticated native client. It does not move a channel tag or claim
+public readiness. GitHub package visibility must then be set to Public through its
+supported settings UI; repository permission inheritance does not confer public
+visibility. Routine publication uses native digest preservation and copies artifacts
 back with signature policy and **anonymous** access. A channel promotion verifies all
 advertised architectures and every referenced artifact before uploading its immutable
 OCI document/signature. Native tag listing distinguishes bootstrap absence from
@@ -303,18 +309,29 @@ commit is not observable, preserve the hold/evidence for explicit reconciliation
 not a fresh ledger or blind retry. Failure handling may require operations attention;
 routine successful releases require nobody to attend or sign them.
 
-**One-time provisioning/rotation still outstanding.** Select the exact public GHCR
-namespace and nonhuman least-privilege publication identity; provision separate
-protected artifact/channel worker credentials. Prefer service credential files and
-distinct worker identities with no build-worker access, including to process state;
-never expose a generic privileged signing command to the build UID. Keep encrypted,
-access-controlled recovery copies outside the builder and rehearse recovery under its
-own grant. Public trust bootstrap is delivered by the approved installation/update
+**Selected commissioning custody.** The owner confirmed control of `LevitateOS`,
+selected the current `gh` account (`veighnsche`) and approved straightforward protected
+signing setup. The approved namespaces are `ghcr.io/levitateos/sodaos-*`, candidate
+channel only for this commissioning; the predecessor `soda-os` package is untouched.
+`/var/lib/soda-release` is root-only retained builder state: reviewed worker binary,
+separate encrypted artifact/candidate/preview/stable keys, private passphrase files,
+current-account registry credential copy, permits and retained attempts. Public trust
+is recorded in [`appliance/keys/release-trust.json`](../appliance/keys/release-trust.json),
+not installed into host policy or obtained from the channel it authenticates.
+No extra account, service or timer was created. Ordinary unprivileged key/credential
+reads refuse; the trusted administrator still has sudo and its existing broad `gh`
+credential. This is **not isolation from untrusted jobs running as that administrator**.
+M4 must keep such jobs away from the signing/publishing identity, process state and
+privileged command authority; no new GitHub identity is required for commissioning.
+An encrypted-key backup is retained locally, with passphrases separate. Off-machine
+recovery custody and its authorized drill remain outstanding; a same-machine backup
+is not builder-loss recovery. Public trust bootstrap is delivered by the approved installation/update
 owner, not downloaded from the channel it is meant to authenticate. Rotation adds a
 new same-role key and increments the trust epoch, re-signs retained supported content,
 then removes the old key only after qualified overlap. Revocation, offline clients
-and key/ledger loss need the authorized M3/M5 recovery drills. No production keys,
-workers, global policy, repositories or timers have been provisioned by this source work.
+and key/ledger loss need the authorized M3/M5 recovery drills. Real immutable namespace
+bootstrap has occurred, but no global host policy, mutable candidate/stable offer,
+worker service, timer or appliance activation has been installed/enabled.
 
 ## 5. Normal and emergency release process
 
@@ -600,8 +617,9 @@ milestone 3; aarch64 qualification remains milestone 5.
 
 **Source/local-native slice implemented.** Native keyed-Sigstore directory proof
 passes over synthetic fixtures and the actual retained M1 host/app payload. Real
-provisioning (9), GHCR round-trip/promotion commissioning (10), and installed
-bootc/cache enforcement are not inferred from it. See the
+keys and immutable packages are now staged and authenticated native GHCR round trips
+pass. Public visibility/anonymous and promotion commissioning (9–10), plus installed
+bootc/cache enforcement, remain distinct pending evidence. See the
 [receipt](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof).
 
 **8. [x] Implement trust and channel verification with local fixtures.**
@@ -834,8 +852,8 @@ to the predecessor's separately reserved Updates platform.
 
 The [six milestones above](#9-implementation-stages-and-exits) are the single task
 list for this workstream. **Milestone 1 is complete for the x86_64 local candidate
-at `45ac843`; milestone 2 has source/local-native proof, with real provisioning and
-registry commissioning still pending. Milestones 3–6 remain pending.** This consolidation changes execution granularity,
+at `45ac843`; milestone 2 has real protected keys and authenticated immutable GHCR
+round trips, with public visibility/anonymous and channel commissioning pending. Milestones 3–6 remain pending.** This consolidation changes execution granularity,
 not production gates or effect permissions.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
@@ -868,15 +886,16 @@ image choices refuse, and changing the companion image within an existing run is
 not an admitted hot upgrade. RPM bytes are not mirrored; aarch64 has no transaction
 lock/native proof. Metadata has no qualified upgrade edges.
 
-**Next within milestone 2: commission the exact production resources and GHCR
-round trip.** Noninteractive signing/publication/fetch tooling, role-scoped native
-policy, freshness/downgrade guards and failure/observation handling are implemented.
-[Local proof](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof)
-includes native signatures on the actual M1 host, all five apps and release metadata,
-using only synthetic keys. It is not GHCR or installed bootc proof. Real namespace/
-visibility, nonhuman publication identity, protected worker/key custody and applicable
-provisioning/publication permissions must be established before those effects.
-No timer or retained-appliance migration is implied. The Cockpit error still needs
-installed-version/caller confirmation. No retained target, registry, production
-signer, workflow or update client has been changed. Independent
+**Next within milestone 2: the owner sets the eight new GHCR packages to Public.**
+The [real commissioning receipt](implementation-history.md#ghcr-namespace-and-signing-bootstrap)
+records root-protected keys, the selected existing `gh` account, eight immutable
+signed uploads and authenticated native signature/digest round trips. GitHub currently
+reports **internal** visibility; an isolated anonymous probe refused, with no
+credential fallback. All eight packages exist before this one-time UI handoff.
+No mutable candidate tag was promoted. After visibility changes, verify anonymously
+and commission candidate selection/failure handling under the existing bounded grant.
+The local M1 payload remains unqualified for preview/stable or native installation.
+Off-machine recovery custody and unattended worker isolation remain later readiness
+work, not per-release human signing. No timer or retained-appliance migration is
+implied. The Cockpit error still needs installed-version/caller confirmation. Independent
 Tailnet tasks remain with their own workstream; this plan does not absorb their list.

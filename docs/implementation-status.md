@@ -147,11 +147,14 @@ records artifacts, failures and checks. Milestone 2 now has noninteractive sourc
 tooling and native filesystem Sigstore proof over synthetic cases and the exact M1
 host/apps/release document. Production signing stays automated; no per-release human
 signature is required. The [trusted-delivery receipt](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof)
-records scope. Actual GHCR/key/worker provisioning and registry commissioning remain
-pending; neither milestone supplies boot/upgrade or production acceptance.
-No timer or unattended pipeline has been installed or enabled.
-The current selection grants no publication/automatic CI, signing/trust change,
-service/VM lifecycle or retained-appliance migration. No installed state changed.
+records source/local scope. The owner then confirmed `LevitateOS`, selected current
+`gh` account `veighnsche`, and approved simple protected signing setup and candidate
+commissioning. Real keys and eight immutable GHCR packages now exist; authenticated
+native signature/digest round trips pass. The packages are **internal** pending the
+owner's one-time Public visibility change; anonymous verification and mutable
+candidate promotion are not complete. The [bootstrap receipt](implementation-history.md#ghcr-namespace-and-signing-bootstrap)
+records retained state and exact effects. No timer/unattended pipeline, stable
+promotion, appliance deployment or VM/service lifecycle occurred.
 
 ## Active work — Tailnet
 
@@ -291,14 +294,19 @@ Tailnet work.
   [the refactoring plan](refactoring-plan.md#selected-mechanism-removals)
   owns that source work. This does not grant retained-state conversion/cleanup,
   provider requests, fixture/service lifecycle, native delivery or publishing.
-- **Release engineering:** the owner approved milestone 1 source/local builds and
-  then milestone 2 implementation, with noninteractive automated signing rather
-  than per-release human signing. Source/local tests include restricted synthetic-key
-  native filesystem proof. No exact production namespace/visibility, publication
-  identity or protected worker/key custody has been established; real GHCR writes,
-  production signing/trust provisioning, timer/unattended deployment, native fixture
-  lifecycle and retained-appliance migration remain outside the current local work. The
-  [owning plan](release-engineering-plan.md#10-workstream-status-and-next-action)
+- **Release engineering:** the owner approved M2 source/local tests, then confirmed
+  control of `LevitateOS`, selected the current `gh` account and approved straightforward
+  protected signing setup. The bounded grant covers public `ghcr.io/levitateos/sodaos-*`
+  namespace/signature commissioning and the **candidate channel only**. Real root-only
+  signing state now lives at `/var/lib/soda-release`; preserve keys, passphrases,
+  registry auth, reviewed worker, inputs, attempts and the local encrypted-key backup.
+  Eight immutable packages are staged/verified with authentication; GitHub currently
+  reports internal visibility. The owner must change those packages to Public before
+  anonymous verification/candidate promotion can finish. The existing `soda-os`
+  package is unrelated and untouched. No stable/preview promotion, unattended timer,
+  global host policy, appliance installation/migration, service/VM lifecycle or cleanup
+  is authorized by this commissioning. Off-machine recovery custody and untrusted-job
+  isolation remain unproved. The [owning plan](release-engineering-plan.md#10-workstream-status-and-next-action)
   tracks completion independently of other workstreams.
 - **Tailnet:** the user explicitly selected Stage 4 source implementation and local
   tests, and then explicitly requested source completion rather than another blocker
@@ -374,8 +382,9 @@ Tailnet work.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
-- No outstanding grant for provider jobs/registration, network/trust changes,
-  publishing/automatic CI, cleanup or restoration. The isolated runner fixture's
+- Apart from the exact release-signing/candidate-publication grant above, there is
+  no outstanding grant for provider jobs/registration, network/trust changes,
+  other publishing/automatic CI, cleanup or restoration. The isolated runner fixture's
   one reboot/exact `probe-one` removal and the two-GET diagnostic grants were used;
   its old time-bounded VM hold is not a new lifecycle grant.
 - Preserve retained roots, v9 data, credentials, fixtures, archives, stopped records,

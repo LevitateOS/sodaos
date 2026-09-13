@@ -210,8 +210,16 @@ SODA_RELEASE_NATIVE_OUT="$PWD/.artifacts/release-delivery/UNIQUE-NATIVE-PROOF" \
 The directory must not exist. Keys, private passphrase, failed copies and the receipt
 remain restricted there; never commit or publish them. This opt-in native receipt
 is not GHCR attachment/anonymous-pull, installed bootc policy/cache, worker isolation
-or native boot/upgrade acceptance. Real resource provisioning/publication still needs
-its exact grant; no release timer or worker service is installed by these commands.
+or native boot/upgrade acceptance. Real resource provisioning/publication needs its
+exact grant; no release timer or worker service is installed by these commands.
+
+The [retained real bootstrap receipt](implementation-history.md#ghcr-namespace-and-signing-bootstrap)
+identifies the root-only builder state at `/var/lib/soda-release`, public trust at
+`appliance/keys/release-trust.json`, completed immutable uploads and the remaining
+GitHub visibility step. That operational state is separate from synthetic/local-test
+outputs. Do not rerun initialization/key generation or recreate its root. Use the
+[current handoff](implementation-status.md#current-permissions) for the bounded
+candidate commissioning grant; this guide does not authorize additional effects.
 
 ## SSH, commands and exact-source remote phases
 

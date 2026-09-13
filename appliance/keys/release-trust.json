@@ -1,0 +1,27 @@
+{
+  "ClockSkewSeconds": 300,
+  "Epoch": 1,
+  "Format": 1,
+  "Keys": {
+    "artifact": [
+      "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEgU6eHCmrBB6YqTJAMzyMpZSHCg0Y\nCdcFkivoFS2bxRqsXpvwd+ESH6GZDK4eZnJsTc19zlaUfRkKYxxDKB8cqw==\n-----END PUBLIC KEY-----\n"
+    ],
+    "candidate": [
+      "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEsSLLRJpcXQGEC7P+bCDhngkFwFyi\nqxwQGtfQ27TYqINvd4CneQHuid2OLUYk5gIUQfTqqOz7PRtagKaSzkSycw==\n-----END PUBLIC KEY-----\n"
+    ],
+    "preview": [
+      "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE27zSWGB4GVEcuxUMNNG0GQ+HDGtv\nCiDVzpwXFs4fQC/yfyfUCCZj1Kn9AtKVMQkBziFgmN4SZgpXdvZolNbjmg==\n-----END PUBLIC KEY-----\n"
+    ],
+    "stable": [
+      "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQaKF2PIJ15WJdD6mb6W+Zk0OIGs2\nz31x/2Cu+WH08hIsGhCVTFkHzyM4S39vvEJhQx6CgrEHlgeYfdGKbfQ97g==\n-----END PUBLIC KEY-----\n"
+    ]
+  },
+  "MaxAgeSeconds": 86400,
+  "MinimumSequence": {
+    "candidate": 1,
+    "preview": 1,
+    "stable": 1
+  },
+  "NotBefore": 1789321996,
+  "Prefix": "ghcr.io/levitateos/sodaos"
+}
