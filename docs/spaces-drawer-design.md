@@ -1,5 +1,12 @@
 # Spaces drawer: browse the forge, work in the project
 
+The [uninterrupted-browsing target](terminal-integration.md#target-uninterrupted-forge-browsing)
+and requested [persistent workspace plan](persistent-workspace-plan.md) now govern
+the navigation redesign. The reattachment and no-iframe descriptions below record
+the previous composition. Full Spaces/drawer transitions, chrome and placement are
+explicit review decisions in the new plan; the shared session and action semantics
+remain with their existing owners. No new browser composition is implemented yet.
+
 ## Project OS extension
 
 The drawer remains the compact view of the same Spaces workspace. The selected
@@ -230,6 +237,10 @@ That is useful cross-project work, not an account mismatch or a warning conditio
   association for native administration/settings pages.
 
 ## 6. Drawer ↔ full Spaces ↔ native page
+
+The table records the previous document-navigation design. Its legacy URLs resolve
+through the [current native hosts](forgejo-soda-pages-plan.md#3-native-page-host-and-ownership).
+The proposed same-owner transitions are in the [persistent workspace decisions](persistent-workspace-plan.md#3-decisions-to-resolve-before-production-routing).
 
 | Action | What changes | What stays |
 | --- | --- | --- |

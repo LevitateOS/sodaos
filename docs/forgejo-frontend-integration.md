@@ -36,6 +36,12 @@ cache versioning, duplicate-entry retirement checks and real BFCache/cache evide
 Its remaining acceptance limits are in the leading handoff; no delivery follows.
 The fixed native login-entry constraint and non-atomic logout limit still apply.
 
+**Next browser composition:** the requested [persistent workspace plan](persistent-workspace-plan.md)
+develops a stable outer workspace with a same-origin Forgejo iframe and compares
+the other navigation options. It addresses the [live terminal continuity gap](terminal-integration.md#target-uninterrupted-forge-browsing)
+in the current page/drawer integration. Host, URL and chrome decisions remain in
+that plan; this is not a completed iframe port or a new native acceptance receipt.
+
 ## Image-owned presentation
 
 The complete local appliance candidate reuses `internal/nativebuild/forgejo-payload.json`

@@ -158,8 +158,15 @@ A missing JSON endpoint does not imply a missing native workflow.
 
 **No downstream Forgejo fork, source patch set or custom executable.** If supported
 integration cannot meet a requirement, explain its actual constraint and return
-for a decision. Do not substitute scraping, an HTML relay, borrowed cookies, an
-iframe or weakened native security. Management and terminal controls now use
+for a decision. Do not substitute scraping, an HTML relay, borrowed cookies or
+weakened native security. The requested [persistent workspace implementation plan](persistent-workspace-plan.md)
+now evaluates a same-origin Forgejo iframe inside a stable Soda workspace. This
+reopens the former blanket iframe exclusion for that composition; it does not
+select arbitrary embedding, a separate-origin trust model or a Forgejo fork.
+Shell hosting and URL behavior remain explicit planning decisions. The
+[terminal continuity target](terminal-integration.md#target-uninterrupted-forge-browsing)
+owns the required user behavior; implementation and delivery are pending.
+Management and terminal controls now use
 [Lit](lit.md), loaded on demand; the page and drawer share a multi-session workspace
 with flat terminal owners. Xterm/transport remain imperative. The Lit and terminal
 guides own their rendering and session contracts; the handoff records evidence.

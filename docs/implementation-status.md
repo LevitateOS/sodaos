@@ -56,6 +56,16 @@ and automatic reload. [Local verification](implementation-history.md#spaces-loca
 does not complete native shell acceptance. No publishing, cleanup, OS update or
 VM-hold extension occurred.
 
+## Persistent workspace planning
+
+The owner clarified that ordinary Forgejo navigation must preserve the live terminal
+view, then requested a complete iframe implementation plan with the alternatives.
+The [independent plan and status](persistent-workspace-plan.md#10-workstream-status)
+now record the source findings, proposed composition, decision points, implementation
+stages and evidence boundaries. This is documentation only: source implementation,
+browser feasibility, native terminal acceptance and delivery are pending. Existing
+retained-target state and action-specific permissions below are unchanged.
+
 ## Release engineering
 
 The owner selected GHCR hosting and a CoreOS-stable-aligned Soda release train,

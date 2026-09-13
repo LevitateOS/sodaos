@@ -1,5 +1,11 @@
 # Lit implementation plan: Spaces page and right drawer
 
+The requested [persistent workspace plan](persistent-workspace-plan.md) owns the
+new navigation composition and its separate status. It reuses these completed Lit
+owners while addressing the [live terminal continuity target](terminal-integration.md#target-uninterrupted-forge-browsing).
+Descriptions below of fresh owners across native navigation and exclusion of an
+iframe describe the prior composition, not acceptance for the new browsing target.
+
 Implement the selected [Spaces page](spaces-design.md) and
 [right-half drawer](spaces-drawer-design.md) with the shared Lit scaffold, not two
 frontends or another preview application. The [leading plan](sodaspaces-plan.md)

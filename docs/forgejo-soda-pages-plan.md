@@ -4,6 +4,14 @@ This guide owns the native page host, connection/logout, navigation and browser
 acceptance contracts. Product scope belongs to [Sodaspaces](sodaspaces-plan.md);
 runner operation semantics belong to [Runners](runners-port.md).
 
+The requested [persistent workspace plan](persistent-workspace-plan.md) develops
+the next browser composition. The host and navigation rules below describe the
+current implementation; their whole-document transitions do not meet the new
+[terminal continuity target](terminal-integration.md#target-uninterrupted-forge-browsing).
+The plan records the host/URL choices that must be resolved before changing these
+contracts. Native authentication, protected Soda operations and coordinated logout
+retain their existing owners; no replacement host or implementation is implied here.
+
 The [combined plan](native-pages-runners-plan.md) owns the delivered native-page/
 Runners coordination and runner retirement. The separately selected
 [Tailnet plan](tailnet-integration-plan.md) owns its host/project feature and Cockpit

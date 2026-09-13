@@ -39,7 +39,24 @@ streaming output or reconnection usability. Compare actual selected versions wit
 ordinary SSH in a capable local terminal. This concern does not select another
 renderer, remove the browser terminal or authorize provider use.
 
+## Target: uninterrupted forge browsing
+
+The user clarified on 13 September 2026 that ordinary Forgejo navigation must
+preserve the live terminal view: the same mounted component, xterm renderer and
+WebSocket attachment. Recreating a view and reattaching the same native shell does
+not satisfy this requirement. Browsing another repository must not retarget the
+terminal's project, account or session. Existing authorization still bounds access.
+
+The [persistent workspace plan](persistent-workspace-plan.md) develops the iframe
+composition and records alternative approaches, unresolved decisions, implementation
+stages and acceptance. It is a documentation deliverable, not implementation or
+native evidence. Actual outer-page reload/departure, browser loss and transport loss
+remain distinct recovery cases; exact-ID restoration and native lifetime still apply.
+
 ## Current workspace layout and continuity
+
+This section describes the existing source. Its document-navigation teardown is
+the gap against the target above, not the desired behavior for ordinary forge browsing.
 
 Native Forgejo hooks mount one shared workspace on explicit opening. The drawer is
 a non-modal aside, not an outside-click-dismissed dialog. Desktop begins at half

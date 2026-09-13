@@ -15,6 +15,9 @@ Spaces panes are required. Both surfaces share Lit components, not separate fron
 
 Detailed requirements stay with their owners:
 
+- [Persistent workspace](persistent-workspace-plan.md): requested iframe implementation
+  plan, navigation alternatives and independent status. The [terminal continuity target](terminal-integration.md#target-uninterrupted-forge-browsing)
+  supersedes reattachment as acceptance for ordinary Forgejo browsing; source work is pending.
 - [Native page integration](forgejo-soda-pages-plan.md): native hosts, fixed bookmark
   bridges, initial connection and coordinated logout; no separate Go page shells.
 - [Full-page](spaces-design.md) and [drawer](spaces-drawer-design.md) designs: UX,
@@ -632,11 +635,13 @@ preview port is selected.
   without killing sessions; do not shrink both panes into unusable columns.
 - **Stable workspace and session identity across native navigation.** Native Forgejo
   loads whole pages, so CSS and removal of blur listeners alone cannot deliver this.
-  Reattach the same authorized native shell after navigation/reload or a transient
-  transport loss; never relaunch a shell and call it restoration. Keep the chosen
-  environment visibly identified and do not retarget a running shell merely because
-  the left pane navigated to another repository. Native routes remain native, not an
-  iframe, scraped page or new SPA navigation layer.
+  Follow the [uninterrupted-browsing target](terminal-integration.md#target-uninterrupted-forge-browsing)
+  and the requested [iframe implementation plan](persistent-workspace-plan.md).
+  The existing whole-document teardown/reattachment is a source gap against that
+  target. Exact-ID recovery remains relevant to real reloads and transport loss;
+  never relaunch a shell and call it restoration. Native routes and authorization
+  remain Forgejo-owned. The former no-iframe choice is reopened for the planned
+  same-origin composition; other alternatives are documented without being selected.
 - **Native shell lifetime, authorized attachment lifetime.** Follow the owning
   [terminal contract](terminal-integration.md#managed-terminal-implementation-and-proof-limits).
   Browser closure/logout does not End native work. Abandoned shells consume native
