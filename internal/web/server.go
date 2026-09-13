@@ -23,6 +23,7 @@ type Server struct {
 	providerLocks    providerLocks
 	terminalMu       sync.Mutex
 	spacesSlots      chan struct{}
+	repositorySlots  chan struct{}
 	terminalPeers    map[*http.Request]*terminalPeer
 	terminalStopping map[string]bool
 	terminalClosed   bool
@@ -30,7 +31,7 @@ type Server struct {
 }
 
 func New(c config.Config, db *store.Store) *Server {
-	s := &Server{Config: c, Store: db, Forgejo: forgejo.New(c.ForgejoInternalURL), Host: host.NewClient(c.HostSocket), mux: http.NewServeMux(), spacesSlots: make(chan struct{}, 4)}
+	s := &Server{Config: c, Store: db, Forgejo: forgejo.New(c.ForgejoInternalURL), Host: host.NewClient(c.HostSocket), mux: http.NewServeMux(), spacesSlots: make(chan struct{}, 4), repositorySlots: make(chan struct{}, 4)}
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("ok\n"))

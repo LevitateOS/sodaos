@@ -80,6 +80,48 @@ can retire it. Storage failure permits live use without guaranteed restoration.
 These are local Go/emitted-browser results with synthetic HTTP/socket peers, not
 concurrent native tmux or selected-CLI acceptance.
 
+## Spaces repository discovery
+
+`GET /api/repositories?q=&page=1` is a protected, read-only picker for projects the
+acting **human repository owner** can create or inspect. It requires the existing
+`read:user` and `read:repository` consent, native actor verification, expected actor
+header and current Soda session. The configured operator/site-admin roles do not
+expand discovery to other owners. Existing shared projects remain in `/api/spaces`.
+
+Exactly one `q` and one canonical decimal `page` are required; other/duplicate
+fields are rejected. Search text is valid UTF-8, at most 200 bytes, without control
+characters. Pages are 1–100, twelve upstream rows per page, with at most four
+concurrent searches and an eight-second total budget. Raw query is bounded to
+2048 bytes; provider JSON uses the existing 2-MiB bound and the small projected
+response fits the browser's 64-KiB limit. No unbounded local enumeration or helper
+inspection occurs.
+
+The selected Forgejo 15.0.7 operation is native `GET /api/v1/repos/search` using
+`q`, actor-derived `uid`, `exclusive=true`, `private=true`, `page`, `limit=12` and
+stable ID ordering. Its actor/reducer-aware search and repository read-scope route
+middleware own upstream visibility. Soda uses the stored acting grant, validates
+the returned owner/IDs, then re-resolves each ID to account for transfers/removal
+before reading any reservation. This is not a browser token or a copied role catalog.
+
+The result is `{items, page, more, limited}`. Each item has string `id`, `owner`,
+`name`, `can_create`, and `project`: null for an unreserved eligible repository,
+otherwise `{id, provisioned}` with `can_create:false`. Current ownership authorizes
+this projection; it does not establish native running state or membership. Existing
+incomplete reservations are inspection targets, not another Create. Freshly denied
+or transferred search rows are omitted without exposing their project metadata.
+
+A full upstream page permits a next-page request, not a total-count claim; that
+next page may be empty. A full final bounded page reports `limited:true` and
+`more:false`; narrow the search instead of treating the cap as exhaustive. Provider
+or store failures are errors, not empty inventory. Logout/context change wins
+publication. Final Create retains its independent fresh ownership, profile/network
+admission and unique reservation checks. Picker reads never create, start, join,
+enroll, allocate terminals or repair state.
+
+Native repository creation is a link to Forgejo's own `/repo/create` under its
+configured sub-URL. Returning to Spaces re-reads choices and requires deliberate
+selection; there is no callback that automatically creates a project.
+
 ## Repository settings and immutable creation profiles
 
 `GET /-/soda/repositories/{repository_id}/settings/spaces` is Soda-owned HTML with

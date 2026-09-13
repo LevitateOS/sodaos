@@ -149,6 +149,27 @@ export function spacesResponse(value: unknown, expectedUserId: string): {items: 
   });
   return {items, complete: data.complete};
 }
+export interface RepositoryChoice {id: string; owner: string; name: string; canCreate: boolean; project: {id: string; provisioned: boolean} | null}
+export interface RepositoryChoices {items: RepositoryChoice[]; page: number; more: boolean; limited: boolean}
+export function repositoryChoices(value: unknown, page: number): RepositoryChoices {
+  const data = object(value);
+  check(Number.isInteger(page) && page >= 1 && page <= 100 && data.page === page && typeof data.more === 'boolean' && typeof data.limited === 'boolean' && !(data.more && data.limited) && (!data.more || page < 100) && (!data.limited || page === 100));
+  check(Array.isArray(data.items) && data.items.length <= 12);
+  const seen = new Set<string>();
+  const items = data.items.map((raw: unknown): RepositoryChoice => {
+    const row = object(raw);
+    check(id(row.id) && !seen.has(row.id) && typeof row.can_create === 'boolean'); seen.add(row.id);
+    const part = (v: unknown): v is string => typeof v === 'string' && v !== '' && v !== '.' && v !== '..' && new TextEncoder().encode(v).length <= 255 && !/[\/\\\\\p{Cc}\p{Cf}]/u.test(v);
+    check(part(row.owner) && part(row.name));
+    let project: RepositoryChoice['project'] = null;
+    if (row.project !== null) {
+      const p = object(row.project); check(projectId(p.id) && typeof p.provisioned === 'boolean' && !row.can_create);
+      project = {id: p.id, provisioned: p.provisioned};
+    } else check(row.can_create);
+    return {id: row.id, owner: row.owner, name: row.name, canCreate: row.can_create, project};
+  });
+  return {items, page, more: data.more, limited: data.limited};
+}
 export class SodaRequestError extends Error {
   constructor(readonly status: number, readonly code?: string) { super('Soda request failed'); }
 }
