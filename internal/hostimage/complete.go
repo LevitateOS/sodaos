@@ -81,10 +81,9 @@ func ownedWrite(path string, data []byte, mode os.FileMode) error {
 }
 func hashBytes(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
 
-// CopyPublicTree accepts only the generated public stage, never a mutable
-// installed /etc or /var tree. Symlinks/special files are refused; new output is
-// normalized independently of the build user's private umask.
-func CopyPublicTree(source, dest string) (map[string]string, error) {
+// publicFiles verifies directly emitted assets without another layout copy.
+// Public modes must not depend on the builder's umask.
+func publicFiles(source string) (map[string]string, error) {
 	files := map[string]string{}
 	info, err := os.Lstat(source)
 	if err != nil || !info.IsDir() {
@@ -98,35 +97,30 @@ func CopyPublicTree(source, dest string) (map[string]string, error) {
 		if err != nil {
 			return err
 		}
-		to := filepath.Join(dest, rel)
-		if d.IsDir() {
-			if err = os.MkdirAll(to, 0755); err != nil {
-				return err
-			}
-			return os.Chmod(to, 0755)
-		}
 		info, err := d.Info()
 		if err != nil {
 			return err
 		}
+		if d.IsDir() {
+			if info.Mode() != os.ModeDir|0755 {
+				return errors.New("public presentation directory must be 0755")
+			}
+			return nil
+		}
 		if !info.Mode().IsRegular() {
 			return errors.New("public stage symlink/special file refused")
 		}
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return err
+		if info.Mode() != 0644 {
+			return errors.New("public presentation file must be 0644")
 		}
-		if err = ownedWrite(to, b, 0644); err != nil {
-			return err
-		}
-		files[filepath.ToSlash(rel)] = hashBytes(b)
-		return nil
+		files[filepath.ToSlash(rel)], err = nativebuild.HashFile(path)
+		return err
 	})
 	return files, err
 }
 
-func StagePresentation(nativeRoot, forgejoContext, context string) (string, error) {
-	files, err := CopyPublicTree(filepath.Join(nativeRoot, "var/lib/soda/forgejo/gitea"), filepath.Join(forgejoContext, "forgejo"))
+func StagePresentation(forgejoContext, context string) (string, error) {
+	files, err := publicFiles(filepath.Join(forgejoContext, "forgejo"))
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +143,7 @@ func StagePresentation(nativeRoot, forgejoContext, context string) (string, erro
 
 // Complete binds native app callers to the same immutable payload metadata and
 // packages the two persistent-runtime image archives outside bootc's GC store.
-func Complete(source, nativeRoot, context, archives string, p appliancerelease.Payload) error {
+func Complete(source, context, archives string, p appliancerelease.Payload) error {
 	if err := p.Validate(); err != nil {
 		return err
 	}
@@ -175,33 +169,24 @@ func Complete(source, nativeRoot, context, archives string, p appliancerelease.P
 			return err
 		}
 	}
-	// Canonical branding already adapted by the ordinary staging owner.
-	if _, err := CopyPublicTree(filepath.Join(nativeRoot, "etc/cockpit/branding"), filepath.Join(root, "etc/cockpit/branding")); err != nil {
-		return err
+	// Retain public-tree verification at the final destinations, without copying.
+	for _, dir := range []string{"etc/cockpit/branding", "usr/share/soda/fastfetch", "etc/fastfetch"} {
+		if _, err := publicFiles(filepath.Join(root, dir)); err != nil {
+			return err
+		}
 	}
-	if _, err := CopyPublicTree(filepath.Join(nativeRoot, "usr/local/share/soda/fastfetch"), filepath.Join(root, "usr/share/soda/fastfetch")); err != nil {
-		return err
+	motd, err := os.Lstat(filepath.Join(root, "etc/motd"))
+	if err != nil || motd.Mode() != 0644 {
+		return errors.New("regular public MOTD required")
 	}
-	for from, to := range map[string]string{
-		"etc/motd": "etc/motd", "etc/fastfetch/config.jsonc": "etc/fastfetch/config.jsonc",
-		"etc/soda/forgejo.env": "etc/soda/forgejo.env", "etc/soda/proxy.Caddyfile": "etc/soda/proxy.Caddyfile",
-	} {
-		b, err := os.ReadFile(filepath.Join(nativeRoot, from))
+	// Keep the public factory defaults alongside /etc, not another stage.
+	for _, name := range []string{"forgejo.env", "proxy.Caddyfile"} {
+		b, err := os.ReadFile(filepath.Join(root, "etc/soda", name))
 		if err != nil {
 			return err
 		}
-		b = []byte(strings.ReplaceAll(string(b), "/usr/local/share/soda/", "/usr/share/soda/"))
-		mode := os.FileMode(0644)
-		if strings.HasSuffix(from, "forgejo.env") {
-			mode = 0600
-		}
-		if err = ownedWrite(filepath.Join(root, to), b, mode); err != nil {
+		if err = ownedWrite(filepath.Join(root, "usr/share/soda/defaults", name), b, 0644); err != nil {
 			return err
-		}
-		if strings.HasPrefix(from, "etc/soda/") {
-			if err = ownedWrite(filepath.Join(root, "usr/share/soda/defaults", filepath.Base(from)), b, 0644); err != nil {
-				return err
-			}
 		}
 	}
 	// Machine setup must supply the explicit private subnet. Images are not saved

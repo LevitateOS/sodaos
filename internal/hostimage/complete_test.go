@@ -40,21 +40,33 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 	source := sourceRoot(t)
 	work := t.TempDir()
 	context := filepath.Join(work, "context")
-	native := filepath.Join(work, "native")
 	forgejo := filepath.Join(work, "forgejo")
 	archives := filepath.Join(work, "images")
 	base, err := Prepare(source, context, "x86_64", strings.Repeat("a", 40))
 	require.NoError(t, err)
 	for name, data := range map[string]string{
-		"var/lib/soda/forgejo/gitea/templates/custom/header.tmpl":                   "fixture header",
-		"var/lib/soda/forgejo/gitea/public/assets/soda/forgejo/soda-native-page.js": "fixture module",
-		"etc/cockpit/branding/branding.css":                                         "fixture branding", "usr/local/share/soda/fastfetch/sodaos.txt": "fixture logo",
-		"etc/motd": "fixture MOTD", "etc/fastfetch/config.jsonc": "/usr/local/share/soda/fastfetch/sodaos.txt",
+		"etc/cockpit/branding/branding.css": "fixture branding", "usr/share/soda/fastfetch/sodaos.txt": "fixture logo",
+		"etc/motd": "fixture MOTD", "etc/fastfetch/config.jsonc": "/usr/share/soda/fastfetch/sodaos.txt",
 		"etc/soda/forgejo.env": "FORGEJO____APP_NAME=Soda OS\n", "etc/soda/proxy.Caddyfile": "fixture proxy",
 	} {
-		require.NoError(t, ownedWrite(filepath.Join(native, name), []byte(data), 0644))
+		require.NoError(t, ownedWrite(filepath.Join(context, "rootfs", name), []byte(data), 0644))
 	}
-	presentation, err := StagePresentation(native, forgejo, context)
+	for name, data := range map[string]string{
+		"templates/custom/header.tmpl":                   "fixture header",
+		"public/assets/soda/forgejo/soda-native-page.js": "fixture module",
+	} {
+		require.NoError(t, ownedWrite(filepath.Join(forgejo, "forgejo", name), []byte(data), 0644))
+	}
+	// Match the asset leaf's explicit public directory modes under private umask.
+	for _, root := range []string{filepath.Join(forgejo, "forgejo"), filepath.Join(context, "rootfs")} {
+		require.NoError(t, filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+			if err == nil && d.IsDir() {
+				err = os.Chmod(path, 0755)
+			}
+			return err
+		}))
+	}
+	presentation, err := StagePresentation(forgejo, context)
 	require.NoError(t, err)
 	p := appliancerelease.Payload{Format: 1, ID: base.Release + ".soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: base.Release, Base: base.Images["x86_64"], RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: presentation, HostPackagesSHA256: strings.Repeat("b", 64), Images: map[string]appliancerelease.Image{}}
 	for _, name := range appliancerelease.Names {
@@ -65,7 +77,7 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 		}
 		p.Images[name] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + name + "@sha256:" + strings.Repeat("c", 64), Manifest: "sha256:" + strings.Repeat("c", 64), Config: "sha256:" + strings.Repeat("d", 64), ArchiveSHA256: hashBytes([]byte("archive fixture")), Storage: storage}
 	}
-	require.NoError(t, Complete(source, native, context, archives, p))
+	require.NoError(t, Complete(source, context, archives, p))
 	read := func(path string) string {
 		t.Helper()
 		b, e := os.ReadFile(filepath.Join(context, "rootfs", path))
@@ -100,12 +112,37 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 	require.NoError(t, e)
 	require.Equal(t, p, loaded)
 	require.Contains(t, read("etc/fastfetch/config.jsonc"), "/usr/share/soda/fastfetch")
+	require.Equal(t, read("etc/soda/forgejo.env"), read("usr/share/soda/defaults/forgejo.env"))
+	require.Equal(t, read("etc/soda/proxy.Caddyfile"), read("usr/share/soda/defaults/proxy.Caddyfile"))
+}
+
+func TestDirectPresentationDoesNotNormalizeOrCopyUntrustedInputs(t *testing.T) {
+	for _, mode := range []os.FileMode{0600, 0755} {
+		source := filepath.Join(t.TempDir(), "public")
+		file := filepath.Join(source, "asset")
+		require.NoError(t, ownedWrite(file, []byte("fixture bytes"), mode))
+		require.NoError(t, os.Chmod(source, 0755))
+		_, err := publicFiles(source)
+		require.ErrorContains(t, err, "file must be 0644")
+		info, err := os.Stat(file)
+		require.NoError(t, err)
+		require.Equal(t, mode, info.Mode().Perm())
+	}
+	source := t.TempDir()
+	_, err := publicFiles(source)
+	require.ErrorContains(t, err, "directory must be 0755")
+	require.NoError(t, os.Chmod(source, 0755))
+	require.NoError(t, ownedWrite(filepath.Join(source, "asset"), []byte("fixture bytes"), 0644))
+	files, err := publicFiles(source)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"asset": hashBytes([]byte("fixture bytes"))}, files)
 }
 
 func TestPublicStageAndQuadletRefuseAmbiguity(t *testing.T) {
 	source := t.TempDir()
+	require.NoError(t, os.Chmod(source, 0755))
 	require.NoError(t, os.Symlink("/etc/shadow", filepath.Join(source, "not-public")))
-	_, err := CopyPublicTree(source, filepath.Join(t.TempDir(), "out"))
+	_, err := publicFiles(source)
 	require.ErrorContains(t, err, "symlink/special")
 	for _, body := range []string{"[Container]\n", "[Container]\nImage=a\nImage=b\n", "[Container]\nImage=a\nGlobalArgs=--root=/other"} {
 		_, err = BoundQuadlet(body, "ghcr.io/example/image@sha256:"+strings.Repeat("a", 64))

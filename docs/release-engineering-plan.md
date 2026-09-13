@@ -253,7 +253,9 @@ media leaf, test driver or another renamed package.
 
 ### Milestone 2 — implement one Go build controller
 
-**B2; not started.** Replace execution ownership, not just command duplication.
+**B2; in progress.** Direct vendor asset staging is implemented; the one controller
+and native candidate exit are not. [Status and remaining work](implementation-status.md#2-implement-one-go-build-controller--b2).
+Replace execution ownership, not just command duplication.
 
 1. Replace `tools/soda-host-image` orchestration with `tools/soda-build`, reusing
    `internal/nativebuild` and `internal/hostimage` primitives. A fixed
@@ -735,8 +737,9 @@ this does not defer the replacement's required local content after the
 
 ## Workstream status and next action
 
-**Next: resolve B1's native-client trust choice, admit the matching upstream build
-capsule, and request the exact native packaging/install proof.** Source now identifies
+**Next: continue selected B2 controller work while resolving B1's native-client trust
+choice and admitting the matching upstream build capsule.** Direct vendor staging is
+implemented; do not claim P5/P6 or native installation proof from that change. Source identifies
 Assembler/OSBuild/osmet and Zincati/rpm-ostree OCI mechanisms, not a Soda partitioner
 or updater. The bootc filesystem experiment remains withdrawn. No native candidate-
 media build, disk installation or update was run in this review. None of the

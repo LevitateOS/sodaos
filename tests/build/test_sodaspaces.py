@@ -109,7 +109,7 @@ class SodaspacesPackaging(unittest.TestCase):
     def test_actual_stage_recipe_with_synthetic_build_inputs(self):
         # No generated artifact is placed in the production .artifacts/native tree.
         with tempfile.TemporaryDirectory() as tmp:
-            checkout = Path(tmp)
+            checkout = Path(tmp).resolve()
             (checkout / 'scripts').mkdir()
             shutil.copyfile(ROOT / 'scripts/stage.py', checkout / 'scripts/stage.py')
             shutil.copytree(ROOT / 'assets', checkout / 'assets')
@@ -199,6 +199,66 @@ class SodaspacesPackaging(unittest.TestCase):
                 self.assertEqual(p.read_bytes(), ('synthetic asset ' + Path(name).name).encode())
                 self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
                 self.assertEqual(stat.S_IMODE(p.parent.stat().st_mode), 0o755)
+
+            # Reuse these exact inputs for the direct vendor destinations. Keep
+            # the legacy result as an oracle, not an intermediate vendor input.
+            legacy = stage.rename(build / 'legacy-fixture')
+            host = checkout / 'host-context'
+            vendor_root = host / 'rootfs'
+            marker = vendor_root / 'usr/libexec/soda/soda-dashboard'
+            marker.parent.mkdir(parents=True)
+            marker.write_text('already compiled vendor program; never executed')
+            forgejo_context = checkout / 'forgejo-context'
+            forgejo_context.mkdir(mode=0o700)
+            host.chmod(0o700)
+            args = ['stage.py', '--arch', 'x86_64', '--host-context', str(host), '--forgejo-context', str(forgejo_context)]
+            def vendor_stage(argv=args):
+                previous = os.umask(0o077)
+                try:
+                    with patch('sys.argv', argv), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
+                        runpy.run_path(str(checkout / 'scripts/stage.py'), run_name='__main__')
+                finally:
+                    os.umask(previous)
+            vendor_stage()
+            self.assertFalse(stage.exists(), 'vendor assets recreated writable staging')
+            self.assertFalse((vendor_root / 'var').exists())
+            self.assertFalse((vendor_root / 'usr/local').exists())
+            self.assertEqual(marker.read_text(), 'already compiled vendor program; never executed')
+            for directory in (host, forgejo_context):
+                self.assertEqual(stat.S_IMODE(directory.stat().st_mode), 0o700, 'changed private context ancestor')
+            presentation = forgejo_context / 'forgejo'
+            def inventory(root):
+                return {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            self.assertEqual(inventory(presentation), inventory(legacy / PREFIX.removeprefix('rootfs/')))
+            for path in [presentation, *presentation.rglob('*')]:
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755 if path.is_dir() else 0o644)
+            self.assertEqual(inventory(vendor_root / 'etc/cockpit/branding'), inventory(legacy / 'etc/cockpit/branding'))
+            for path in (vendor_root / 'etc/cockpit/branding').rglob('*'):
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755 if path.is_dir() else 0o644)
+            self.assertEqual((vendor_root / 'usr/share/soda/fastfetch/sodaos.txt').read_bytes(), (legacy / 'usr/local/share/soda/fastfetch/sodaos.txt').read_bytes())
+            self.assertIn('/usr/share/soda/fastfetch/', (vendor_root / 'etc/fastfetch/config.jsonc').read_text())
+            self.assertEqual(stat.S_IMODE((vendor_root / 'etc/soda/forgejo.env').stat().st_mode), 0o600)
+            before = inventory(vendor_root), inventory(presentation)
+            with self.assertRaises(SystemExit):
+                vendor_stage()
+            self.assertEqual(before, (inventory(vendor_root), inventory(presentation)))
+            with self.assertRaises(SystemExit):
+                vendor_stage(['stage.py', '--arch', 'x86_64', '--host-context', str(host)])
+            link = checkout / 'linked-forgejo-context'
+            link.symlink_to(forgejo_context, target_is_directory=True)
+            with self.assertRaises(SystemExit):
+                vendor_stage(args[:-1] + [str(link)])
+            bad_host, bad_forgejo = checkout / 'bad-host', checkout / 'bad-forgejo'
+            (bad_host / 'rootfs').mkdir(parents=True)
+            bad_forgejo.mkdir()
+            asset = build / 'terminal-assets' / lock[0]['files'][0]['file']
+            asset.write_bytes(b'wrong locked asset; synthetic input only')
+            with self.assertRaises(SystemExit):
+                vendor_stage(['stage.py', '--arch', 'x86_64', '--host-context', str(bad_host), '--forgejo-context', str(bad_forgejo)])
+            self.assertEqual(before, (inventory(vendor_root), inventory(presentation)))
+            self.assertFalse(stage.exists())
+            # Copying public data must not normalize the canonical/private inputs.
+            self.assertEqual(stat.S_IMODE((checkout / 'assets/branding/source/soda-symbol-brutalist.svg').stat().st_mode), 0o600)
 
     def test_original_source_notices_in_metadata(self):
         module = runpy.run_path(str(ROOT / 'scripts/native-build-info.py'))

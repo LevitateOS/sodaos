@@ -90,9 +90,18 @@ func (p Production) Compile(name, pkg, dest string) error {
 }
 
 // Assets runs exactly once before layout-specific assembly or image production.
-func (p Production) Assets() error {
+func (p Production) Assets(hostContext, forgejoContext string) error {
 	if e := p.validate(); e != nil {
 		return e
+	}
+	stage := []string{"python3", "scripts/stage.py", "--arch", p.Arch}
+	if p.Vendor {
+		if !filepath.IsAbs(hostContext) || !filepath.IsAbs(forgejoContext) {
+			return errors.New("explicit vendor asset destinations required")
+		}
+		stage = append(stage, "--host-context", hostContext, "--forgejo-context", forgejoContext)
+	} else if hostContext != "" || forgejoContext != "" {
+		return errors.New("legacy assets cannot use vendor destinations")
 	}
 	if e := p.step("Check frontend toolchain"); e != nil {
 		return e
@@ -120,7 +129,7 @@ func (p Production) Assets() error {
 		{"Fetch terminal assets", []string{"python3", "scripts/fetch-terminal.py", "--out", filepath.Join(p.Native, "terminal-assets")}},
 		{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
 		{"Fetch upstream Tea binary", []string{"python3", "scripts/fetch-tea.py", "--arch", p.Arch}},
-		{"Stage appliance files", []string{"python3", "scripts/stage.py", "--arch", p.Arch}},
+		{"Stage appliance files", stage},
 	}
 	for _, s := range steps {
 		if e := p.step(s.label); e != nil {

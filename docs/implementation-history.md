@@ -15,6 +15,42 @@ not claims that those outputs are still retained.
 
 ---
 
+## B2 direct vendor staging
+
+The owner selected B2 after `6aafb1c`. This first implementation removes the
+writable-stage translation from the existing host producer; it does **not** complete
+B2 or rename that producer into the replacement controller.
+
+`Production.Assets` supplies explicit host/Forgejo contexts to the existing Python
+asset leaf. Vendor assets go straight to their final destinations; vendor staging
+neither copies the shipping programs again nor creates `.artifacts/native/ARCH/rootfs`.
+`StagePresentation` hashes/checks the final presentation in place, and `Complete`
+verifies final host assets instead of copying three staged trees and translating
+configuration paths. Factory defaults remain deliberate image content, not another
+staging root. Existing v1 payload/bound-image/update semantics are unchanged; this is
+not the B1 native-storage implementation. The legacy installer still uses its
+original writable layout until native replacement proof permits retirement.
+
+Checks passed: Go tests, race and vet for `internal/hostimage`, `internal/nativebuild`
+and `tools/soda-host-image`; seven extended staging/Spaces tests; 13 timing/producer
+handoff tests; four payload tests; 19 ISO tests; six independent branding tests.
+The existing staging fixture now compares every Forgejo presentation byte and
+Cockpit branding between layouts, with private input/umask, final public modes,
+untouched private context ancestors, no vendor writable root, occupied/mixed/linked
+context refusal and locked-asset tamper refusal. Initial Go fixture failures exposed
+private-umask directory modes; fixtures were corrected to model the asset leaf's
+public output, rather than relaxing production verification.
+
+Evidence: `.artifacts/build-controller/staging-6aafb1c-EZdIfV/`. No native app/host
+image build, media generation, installation/update, signing or publication ran.
+Physical source in the affected production files is **935 → 959 (+24)**; affected
+tests **907 → 1,022 (+115)**. Using the retained B1 responsibility inventory, build
+assembly/orchestration is now **2,903**, selected production **11,732**, colocated
+tests **5,208**, and `tests/build` **3,792**. This removes one translation, not a
+producer or net orchestration growth: both old assemblers and the Python timing
+bridge remain. Native execution ownership, once-only prepared tests, frozen input
+admission and the B1-supported complete candidate remain outstanding for B2.
+
 ## B1 FCOS-native handoff source findings
 
 The owner selected the reopened B1 review at clean `bf4b4fa`. Evidence is retained

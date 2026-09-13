@@ -42,18 +42,17 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 			return p, err
 		}
 	}
-	if err = producer.Assets(); err != nil {
-		return p, err
-	}
-	if err = producer.Next("Assemble immutable Forgejo presentation"); err != nil {
-		return p, err
-	}
-	nativeRoot := filepath.Join(native, "rootfs")
 	forgejoContext := filepath.Join(out, "forgejo-context")
 	if err = os.Mkdir(forgejoContext, 0700); err != nil {
 		return p, err
 	}
-	p.PresentationSHA256, err = hostimage.StagePresentation(nativeRoot, forgejoContext, context)
+	if err = producer.Assets(context, forgejoContext); err != nil {
+		return p, err
+	}
+	if err = producer.Next("Verify immutable Forgejo presentation"); err != nil {
+		return p, err
+	}
+	p.PresentationSHA256, err = hostimage.StagePresentation(forgejoContext, context)
 	if err != nil {
 		return p, err
 	}
@@ -97,7 +96,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	if err = p.Validate(); err != nil {
 		return p, err
 	}
-	if err = hostimage.Complete(source, nativeRoot, context, filepath.Join(out, "images"), p); err != nil {
+	if err = hostimage.Complete(source, context, filepath.Join(out, "images"), p); err != nil {
 		return p, err
 	}
 	record, err := json.MarshalIndent(p, "", "  ")

@@ -20,7 +20,9 @@ matching builder capsule admission and exact native proof remain. Bootc filesyst
 installation stays withdrawn. The owner now selects a
 [minimal network-install ISO](coreos-installer-plan.md#selected-media--minimal-network-install),
 not self-contained offline media; native download/bootstrap and size proof are still
-outstanding. All six milestones are open; B2–B6 have not started.
+outstanding. The owner has selected B2 implementation; direct vendor staging is now
+implemented, but the replacement controller is not. All six milestones remain open;
+B2 is in progress and B3–B6 have not started.
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -38,14 +40,19 @@ candidate complete and delivery next no longer describe the active execution ord
 Recommend the locked FCOS producer's OCI import → native metal/live/osmet path,
 unchanged CoreOS Installer/Ignition, and Zincati/rpm-ostree OCI updates. The stock
 Fedora graph does not qualify Soda images; native graph trust is not equivalent to
-Soda's existing signed-channel client checks. The **2,508 → 2,879** orchestration
-baseline remains unchanged. No native media/install/update proof ran in this pass. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
+Soda's existing signed-channel client checks. The initial **2,508 → 2,879**
+orchestration baseline remains recorded; B2 deltas are reported separately. No
+native media/install/update proof ran in the B1 source review. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
 
 ### 2. Implement one Go build controller — B2
 
-**Not started.** One controller owns frozen inputs, direct timing/cancellation,
-shipping compilation/assets, prepared tests, app images, direct vendor host assembly
-and candidate verification. No second producer or writable staging translation.
+**In progress — direct vendor staging implemented, controller still outstanding.**
+The asset leaf writes directly to the host and Forgejo contexts; the host producer
+no longer builds an unused writable root or copies its public trees into vendor
+paths. Verification and the required legacy installer remain. No new producer or
+`soda-build` stub was added. Frozen-input execution ownership, prepared tests, native
+Go timing/cancellation and the B1-supported P5/P6 candidate remain to implement.
+This scoped change is not B2 completion or native candidate evidence.
 [Implementation and exit](release-engineering-plan.md#milestone-2--implement-one-go-build-controller).
 
 ### 3. Make the ISO consume the candidate — B3
@@ -80,6 +87,11 @@ and smaller production orchestration. No timer or production launch is part of t
 milestone. [Implementation and exit](release-engineering-plan.md#milestone-6--retire-old-lanes-and-prove-the-replacement).
 
 ## Immediate prerequisites and next action
+
+The owner selected B2. Continue its independent controller work, but do not promote
+the existing bootc experiment into the replacement or claim full P1–P6 completion
+before the B1 host/storage handoff is established. The direct staging change removes
+one translation, not either remaining assembler or the Go/Python timing bridge.
 
 The [installation findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
 and [native update/authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
@@ -193,8 +205,9 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 - **Source/local work:** routine implementation, builds and tests for selected work
   remain authorized within their existing scope. The shared-build/timing extraction
-  was explicitly approved; the owner has now selected B1. Its source/upstream audit,
-  local tests and bounded rootless read-only image inspections are recorded. This
+  was explicitly approved; the owner selected B1 and has now selected B2 implementation.
+  B1's source/upstream audit, local tests and bounded rootless read-only image
+  inspections are recorded; B2's initial change is direct vendor asset staging. This
   does not add a VM/disk, protected worker, publication or commissioning grant.
   The current correction restores the FCOS-native baseline and withdraws the bootc
   filesystem experiment; it does not authorize another installation path.
@@ -215,10 +228,11 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-Recorded the owner's minimal network-install selection in the installer contract;
-removed the active self-contained/offline ISO requirement and linked the release/
-installation guides to the new size/download target. Preserved exact candidate
-identity, local content after installation, authentication, native FCOS ownership
-and disk safeguards. The prior source receipt remains in history; this pass changed
-documentation only and checked affected links/contracts. No native execution,
-publication, trust change or new lifecycle grant occurred. B1 remains open.
+Implemented and tested direct vendor staging in the existing producer, without
+changing its experimental storage/update semantics. Removed the writable-stage
+translation and retained public-byte/mode/identity checks; legacy installation stays
+usable. Go/race/vet, the existing staging/progress/payload/ISO fixtures and independent
+branding checks passed. [Receipt](implementation-history.md#b2-direct-vendor-staging).
+The scoped production change is **+24 lines**, not a claimed orchestration-size win.
+No image build, native installation, publication or new lifecycle grant occurred.
+B2 remains incomplete; the old assemblers and timing bridge are still present.

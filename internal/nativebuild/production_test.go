@@ -102,12 +102,13 @@ func TestProductionBothLayoutsUseOneAssetAndImageSequence(t *testing.T) {
 	for _, vendor := range []bool{false, true} {
 		t.Run(map[bool]string{false: "legacy", true: "vendor"}[vendor], func(t *testing.T) {
 			p, calls := productionFixture(t, vendor)
-			if e := p.Assets(); e != nil {
-				t.Fatal(e)
-			}
-			forgejo := ""
+			host, forgejo := "", ""
 			if vendor {
+				host = filepath.Join(p.Out, "context")
 				forgejo = filepath.Join(p.Out, "forgejo-context")
+			}
+			if e := p.Assets(host, forgejo); e != nil {
+				t.Fatal(e)
 			}
 			images, e := p.Images(forgejo)
 			if e != nil {
@@ -121,6 +122,9 @@ func TestProductionBothLayoutsUseOneAssetAndImageSequence(t *testing.T) {
 				if strings.Count(text, needle) != 1 {
 					t.Fatalf("not produced exactly once: %s\n%s", needle, text)
 				}
+			}
+			if strings.Contains(text, "--host-context "+host+" --forgejo-context "+forgejo) != vendor {
+				t.Fatal("asset destinations do not match the selected layout", text)
 			}
 			if strings.Count(text, " save --format=oci-archive") != 5 {
 				t.Fatal(text)
@@ -183,7 +187,7 @@ func TestProductionRefusesWrongToolchainInputsAndLayout(t *testing.T) {
 			switch mode {
 			case "bun":
 				p.Capture = func(string, string, ...string) (string, error) { return "different", nil }
-				if e := p.Assets(); e == nil {
+				if e := p.Assets(filepath.Join(p.Out, "context"), filepath.Join(p.Out, "forgejo-context")); e == nil {
 					t.Fatal("wrong Bun accepted")
 				}
 				return
@@ -205,6 +209,19 @@ func TestProductionRefusesWrongToolchainInputsAndLayout(t *testing.T) {
 				t.Fatal("invalid inputs accepted")
 			}
 		})
+	}
+}
+
+func TestProductionAssetDestinationsRefuseBeforeCommands(t *testing.T) {
+	for _, vendor := range []bool{false, true} {
+		p, calls := productionFixture(t, vendor)
+		host, forgejo := "/host-context", "/forgejo-context"
+		if vendor {
+			forgejo = ""
+		}
+		if err := p.Assets(host, forgejo); err == nil || len(*calls) != 0 {
+			t.Fatal("invalid asset layout had downstream effects", err, *calls)
+		}
 	}
 }
 

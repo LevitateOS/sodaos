@@ -137,9 +137,10 @@ class ProductionOwnership(unittest.TestCase):
             self.assertNotIn(duplicate, host)
             self.assertNotIn(duplicate, legacy)
         self.assertIn('--legacy-native', shell)
-        self.assertEqual(host.count('producer.Assets()'), 1)
+        self.assertEqual(host.count('producer.Assets(context, forgejoContext)'), 1)
+        self.assertNotIn('nativeRoot', host)
         self.assertEqual(host.count('producer.Images('), 1)
-        self.assertEqual(legacy.count('p.Assets()'), 1)
+        self.assertEqual(legacy.count('p.Assets("", "")'), 1)
         self.assertEqual(legacy.count('p.Images('), 1)
         # Timing is shared too, rather than a second Go clock/log format.
         bridge = (ROOT / 'internal/nativebuild/progress.go').read_text()

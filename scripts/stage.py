@@ -4,30 +4,52 @@ import argparse, hashlib, json, os, platform, shutil, struct
 from pathlib import Path
 p = argparse.ArgumentParser()
 p.add_argument('--arch', choices=['x86_64', 'aarch64'], required=True)
+p.add_argument('--host-context', type=Path)
+p.add_argument('--forgejo-context', type=Path)
 a = p.parse_args()
+if bool(a.host_context) != bool(a.forgejo_context):
+    p.error('host and Forgejo contexts must be supplied together')
+vendor = a.host_context is not None
 if platform.system() != 'Linux' or platform.machine() != a.arch:
     p.error('matching native Linux required')
 source = Path(__file__).resolve().parents[1]
 build = source / '.artifacts/native' / a.arch
-stage = build / 'rootfs'
-if stage.exists():
-    p.error('rootfs staging already exists; inspect and explicitly clear only this generated directory before restaging')
-stage.mkdir(parents=True)
-def copy(src, dest, mode=None):
-    target = stage / dest.lstrip('/')
+stage = a.host_context / 'rootfs' if vendor else build / 'rootfs'
+forgejo = a.forgejo_context / 'forgejo' if vendor else stage / 'var/lib/soda/forgejo/gitea'
+if vendor:
+    for directory in (stage, a.forgejo_context):
+        if not directory.is_absolute() or directory.resolve() != directory or not directory.is_dir():
+            p.error('real prepared host and fresh Forgejo context directories required')
+    if forgejo.exists() or forgejo.is_symlink():
+        p.error('occupied Forgejo presentation refused')
+else:
+    if stage.exists() or stage.is_symlink():
+        p.error('rootfs staging already exists; retain the attempt and use fresh output')
+    stage.mkdir(parents=True)
+def copy(src, dest, mode=None, root=stage):
+    target = root / dest.lstrip('/')
     target.parent.mkdir(parents=True, exist_ok=True)
+    for parent in target.parents:
+        if parent == root:
+            break
+        parent.chmod(0o755)
+    if target.exists() or target.is_symlink():
+        p.error('occupied staging file refused')
     shutil.copy2(src, target)
     if mode is not None:
         target.chmod(mode)
     return target
-for command in (source / 'cmd').iterdir():
-    if command.is_dir():
-        if command.name in {'soda-artifacts', 'soda-acceptance'}:
-            p.error('outside support tools must not be staged on the appliance')
-        copy(build / 'bin' / command.name, f'/usr/local/libexec/soda/{command.name}', 0o755)
-for unit in (source / 'appliance/services').iterdir():
-    folder = '/etc/containers/systemd' if unit.suffix == '.container' else '/etc/systemd/system'
-    copy(unit, f'{folder}/{unit.name}', 0o644)
+# Vendor programs/units/configuration are already emitted directly by Go.
+# Keep the retiring writable layout usable; never create it for vendor assets.
+if not vendor:
+    for command in (source / 'cmd').iterdir():
+        if command.is_dir():
+            if command.name in {'soda-artifacts', 'soda-acceptance'}:
+                p.error('outside support tools must not be staged on the appliance')
+            copy(build / 'bin' / command.name, f'/usr/local/libexec/soda/{command.name}', 0o755)
+    for unit in (source / 'appliance/services').iterdir():
+        folder = '/etc/containers/systemd' if unit.suffix == '.container' else '/etc/systemd/system'
+        copy(unit, f'{folder}/{unit.name}', 0o644)
 # Stock Cockpit only. Never copy an ignored retired cockpit/dist tree.
 configs = {
     'soda.sysusers': '/etc/sysusers.d/soda.conf',
@@ -38,12 +60,12 @@ configs = {
     'cockpit.pam': '/etc/pam.d/cockpit',
     'cockpit.conf': '/etc/cockpit/cockpit.conf',
     'cockpit.socket.conf': '/etc/systemd/system/cockpit.socket.d/10-soda.conf',
-    'proxy.Caddyfile': '/etc/soda/proxy.Caddyfile',
     'console-welcome.sh': '/etc/profile.d/soda-console-welcome.sh',
 }
-for src, dest in configs.items():
-    copy(source / 'appliance/config' / src, dest, 0o644)
-(stage / 'etc/cockpit/disallowed-users').write_text('')
+if not vendor:
+    for src, dest in configs.items():
+        copy(source / 'appliance/config' / src, dest, 0o644)
+    (stage / 'etc/cockpit/disallowed-users').write_text('')
 # Config-root branding avoids immutable /usr/share and native package conflicts.
 brand = stage / 'etc/cockpit/branding'
 brand.mkdir(parents=True)
@@ -63,8 +85,12 @@ for size, data in frames:
     entries.append(struct.pack('<BBBBHHII', size, size, 0, 0, 1, 32, len(data), offset))
     offset += len(data)
 (brand / 'favicon.ico').write_bytes(struct.pack('<HHH', 0, 1, len(frames)) + b''.join(entries) + b''.join(data for _, data in frames))
-# Adapt the canonical asset tree to Forgejo's native /assets URL root.
-custom = stage / 'var/lib/soda/forgejo/gitea/public/assets'
+for target in [brand, *brand.rglob('*')]:
+    target.chmod(0o755 if target.is_dir() else 0o644)
+# Adapt directly to the final Forgejo build context for vendor images.
+forgejo.mkdir(parents=True)
+forgejo.chmod(0o755)
+custom = forgejo / 'public/assets'
 shutil.copytree(source / 'assets/branding/forgejo/css', custom / 'css')
 shutil.copytree(source / 'assets/branding/theme', custom / 'theme')
 for stylesheet in (custom / 'css').glob('*.css'):
@@ -99,21 +125,26 @@ for name, origin in payload.items():
         p.error('missing or unsafe Forgejo payload input')
     if origin.startswith('@build/terminal-assets/') and hashlib.sha256(src.read_bytes()).hexdigest() != locked[src.name]:
         p.error('terminal asset differs from locked upstream bytes')
-    target = copy(src, '/var/lib/soda/forgejo/gitea/' + name, 0o644)
+    target = copy(src, name, 0o644, root=forgejo)
     for parent in target.parents:
-        if parent == stage:
-            break
         parent.chmod(0o755)
+        if parent == (forgejo if vendor else stage / 'var'):
+            break
 # MOTD is plain text; fastfetch alone interprets the logo's color placeholders.
 copy(source / 'assets/branding/terminal/motd.txt', '/etc/motd', 0o644)
-copy(source / 'assets/branding/terminal/sodaos.txt', '/usr/local/share/soda/fastfetch/sodaos.txt', 0o644)
-copy(source / 'assets/branding/terminal/fastfetch.jsonc', '/etc/fastfetch/config.jsonc', 0o644)
-copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
-copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)
-tailnet_cli = stage / 'usr/local/bin/soda-tailnet'
-tailnet_cli.parent.mkdir(parents=True, exist_ok=True)
-tailnet_cli.symlink_to('/usr/local/libexec/soda/soda-tailnet')
-link = stage / 'usr/local/sbin/soda-setup'
-link.symlink_to('/usr/local/libexec/soda/soda-setup')
+share = '/usr/share/soda' if vendor else '/usr/local/share/soda'
+copy(source / 'assets/branding/terminal/sodaos.txt', share + '/fastfetch/sodaos.txt', 0o644)
+fastfetch = copy(source / 'assets/branding/terminal/fastfetch.jsonc', '/etc/fastfetch/config.jsonc', 0o644)
+if vendor:
+    fastfetch.write_text(fastfetch.read_text().replace('/usr/local/share/soda/', '/usr/share/soda/'))
+else:
+    copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
+    copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)
+    tailnet_cli = stage / 'usr/local/bin/soda-tailnet'
+    tailnet_cli.parent.mkdir(parents=True, exist_ok=True)
+    tailnet_cli.symlink_to('/usr/local/libexec/soda/soda-tailnet')
+    link = stage / 'usr/local/sbin/soda-setup'
+    link.symlink_to('/usr/local/libexec/soda/soda-setup')
 copy(source / 'appliance/config/forgejo.env', '/etc/soda/forgejo.env', 0o600)
+copy(source / 'appliance/config/proxy.Caddyfile', '/etc/soda/proxy.Caddyfile', 0o644)
 print(stage)

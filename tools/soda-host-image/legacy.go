@@ -34,7 +34,7 @@ func legacyNative(source, out, arch, revision string, execution nativebuild.Buil
 			return e
 		}
 	}
-	if e = p.Assets(); e != nil {
+	if e = p.Assets("", ""); e != nil {
 		return e
 	}
 	if _, e = p.Images(""); e != nil {
