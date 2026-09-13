@@ -229,6 +229,30 @@ effects; do not assume an old target inventory or replay completed maintenance.
    later-write preservation decision under the credential contract; never lower a
    schema marker or replay a mutation to fix an observer.
 
+### Cockpit addon maintenance
+
+The [Cockpit guide](cockpit-port.md#selected-root-administration-baseline) owns the
+selected page/package baseline. On an authorized existing appliance, use its native
+rpm-ostree transaction, not the first installer or application setup again. Inspect
+pending deployments and actual workloads, preserve affected configuration (including
+PAM, certificates and any navigation override), and preview the package delta.
+
+For a purely additive transaction, the selected native rpm-ostree may support
+`install --apply-live`: it records the next-boot deployment and adds files to the
+running system without a reboot. The [fresh fixture receipt](implementation-history.md#native-cockpit-administration-additions)
+exercises that native path. Do not add `--allow-replacement`, force file replacement,
+reset a deployment or reboot as an unreviewed fallback. If replacements/removals or
+an activation interruption are required, assess the concrete transaction and its
+authorization/preservation scope first. Fresh provisioning retains its explicit
+extension-activation reboot; live maintenance is not an implicit bootstrap change.
+
+Verify installed versions, unchanged workloads/boot identity when claiming no
+interruption, native page loading and the root-only PAM boundary. Refresh the
+operator's login to discover new manifests; avoid restarting Cockpit globally merely
+to repair a cached navigation observer. Report generation/upload, policy changes,
+container mutations and optional VM/recording/crash-capture setup are separate
+operations, not consequences of installing their administration interface.
+
 ## 4. Establish real project reachability
 
 The implemented profile is a native routed Podman bridge (`soda0`) on the appliance. Host-to-project access is through that bridge; developer clients need a route for the chosen project subnet via the appliance. Set that route on the deployment's LAN router, or use a native Tailscale subnet route with the required Tailnet administrator approval. Respect existing firewall policy and authorize only the intended private ingress/forwarding. No project DNS, SSH gateway or extra identity authority is required.

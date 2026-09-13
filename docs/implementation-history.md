@@ -14,6 +14,62 @@ not claims that those outputs are still retained.
 
 ---
 
+## Native Cockpit administration additions
+
+The user selected the revised baseline and requested continuation. Work applied
+only to `soda-native-tailnet-bb3a13c` and source; the conditional VM, crash-capture
+and recording roles were not selected. Evidence:
+`.artifacts/cockpit-admin-additions-lwhgJX/`.
+
+**Native transaction:** fresh read-only inventory found zero projects and the
+three original running appliance containers. Native rpm-ostree `2026.2` help and
+transaction preview established additive live activation support and no installed
+package version changes. Restricted backup
+`/var/lib/soda-candidate-bb3a13c/cockpit-admin-additions/config-before.tar` preserves
+Cockpit configuration/certificates, PAM and socket configuration with metadata.
+The exact old Accounts override was hash-checked and moved to
+`users.override.before.json` in that same private backup directory.
+
+`rpm-ostree install -y --apply-live` added the four selected native packages and
+their dependencies: **42 additions, no RPM replacements/removals**. Actual resolved
+versions were `cockpit-podman-130-1.fc44`, `cockpit-files-43-1.fc44`, and
+`cockpit-{selinux,sosreport}-367-1.fc44`; the earlier published package-webpage
+listings were research, not installer pins. No forced replacement, deployment
+reset or reboot was used. The next-boot deployment retains the same package requests.
+
+**Native checks passed:** a fresh trusted browser/root login displayed Accounts
+and opened Podman containers, File browser, SELinux, Diagnostic reports and Accounts,
+then used native Session → Log out. Podman displayed all three appliance containers
+and its native Unix API backend was active. SELinux policy remained enforcing;
+File browser's Upload and Diagnostic reports' Run report controls loaded without
+being activated. The existing stock Overview/native socket/CLI/Services/Logs checks
+also passed. Separate native PAM account checks admitted root and explicitly denied
+existing non-root `nobody`; no account was created or password changed.
+
+Before/after observations preserved the boot ID, all original container IDs/image
+IDs/running states, zero project records and the `3cb7408` helper hash. Native
+container start times precede maintenance. App services remained active and both
+endpoints returned trusted HTTPS 200. No global Cockpit/dashboard restart, report
+collection/upload, container mutation, policy write, Tailnet enrollment or provider
+job was requested. Existing user sessions were not forcibly refreshed.
+
+**Source:** provisioning and first-install package preflight require the four
+addons. The obsolete Accounts override is removed from source/staging and the new
+bundle allowlist, while root-only PAM is unchanged. The operator journey observes
+visible Podman rows, native addon-specific readiness and actual frame navigation
+instead of treating an assigned iframe `src` as committed navigation.
+
+Nineteen installer/provisioning tests, seven source staging fixtures, nativebuild
+Go race tests, strict TypeScript/Lit and installer shell syntax passed. The updated
+actual-stage Accounts assertion is authored; no new native bundle/media build is
+claimed. The original bundle/private Ignition and previous receipts remain intact.
+Preserved failed observers include hidden duplicate Podman name matches, the File
+browser's absent h1, SELinux/report label assumptions and an iframe navigation race;
+these were fixed in the test rather than by changing the native pages. An interrupted
+source-check attempt was retained and completed in a fresh log; no installation was
+replayed to repair observers. No older retained target, private credential, network/
+trust configuration or unrelated runtime was changed, and nothing was pushed.
+
 ## Cockpit administration recommendation review
 
 The user rejected the prior blanket exclusion of Podman and requested a complete

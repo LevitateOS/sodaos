@@ -152,6 +152,9 @@ class SodaspacesPackaging(unittest.TestCase):
             stage = build / 'rootfs'
             self.assertFalse((stage / 'usr/local/share/cockpit/soda-runners').exists())
             self.assertFalse((stage / 'usr/local/share/cockpit').exists())
+            self.assertFalse((stage / 'etc/cockpit/users.override.json').exists())
+            self.assertFalse((stage / 'etc/cockpit/users.override.json').is_symlink())
+            self.assertIn('uid = 0', (stage / 'etc/pam.d/cockpit').read_text())
             brand = stage / 'etc/cockpit/branding'
             self.assertEqual((brand / 'soda-symbol-brutalist.svg').read_bytes(), (ROOT / 'assets/branding/source/soda-symbol-brutalist.svg').read_bytes())
             self.assertTrue((brand / 'fonts/barlow-condensed/LICENSE').is_file())

@@ -32,7 +32,8 @@ branding assets against the current design and validate the actual installed
 Cockpit version; shared palette imports alone do not prove visual alignment.
 
 “Stock” here removes all Soda extension pages, not root-only PAM/private access,
-native SELinux transitions, branding or the existing Accounts navigation policy.
+native SELinux transitions or branding. Accounts now retains upstream visibility
+for root host administration.
 No native Cockpit package removal or security-policy reset is selected by the UI move.
 
 ## Page recommendations
@@ -44,13 +45,15 @@ by itself a reason to omit a page: Terminal, Services, Storage and Networking
 already provide that authority. Preserve the root-only/private access boundary;
 explain resource ownership consistently across all administrative tools.
 
-These are proposed product choices, **not installed changes or evidence that every
-additional package has passed native acceptance**. The [review receipt](implementation-history.md#cockpit-administration-recommendation-review)
-records source/package research; the earlier [inventory](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement)
-records what is installed. The existing Accounts navigation policy below remains
-in force until a separately approved change.
+The user selected the baseline below. Provisioning and first-install checks now
+include its four additional native packages, and Accounts is no longer hidden.
+The [installation receipt](implementation-history.md#native-cockpit-administration-additions)
+records additive live activation and native read-only page/PAM checks on the fresh
+x86_64 fixture, not validation of every administrative mutation or delivery to older
+retained targets. The [earlier review](implementation-history.md#cockpit-administration-recommendation-review)
+separates package/source research from that installed evidence.
 
-### Proposed root-administration baseline
+### Selected root-administration baseline
 
 | Page | Recommendation | Actual administrative purpose and qualification |
 | --- | --- | --- |
@@ -59,12 +62,12 @@ in force until a separately approved change.
 | Storage | Keep | Disks, filesystems, mounts and capacity; Soda's project UI is not a host storage manager. Destructive changes need the same preservation discipline as CLI changes. |
 | Networking | Keep | Native host interfaces and firewall configuration. This is broader than dashboard Tailnet controls; preserve a recovery access path when changing connectivity. |
 | Services | Keep | Host services, sockets and timers, including appliance Quadlets and Soda project units. Use their native systemd ownership during maintenance. |
-| Podman Containers | Add | Host container, image, pod and volume administration, logs and troubleshooting. Soda does not supply a general host-engine UI. Upstream already supports systemd/Quadlet lifecycle; see the verified mechanism below. |
+| Podman Containers | Include | Host container, image, pod and volume administration, logs and troubleshooting. Soda does not supply a general host-engine UI. Upstream already supports systemd/Quadlet lifecycle; see the verified mechanism below. |
 | Terminal | Keep | General root diagnosis/recovery, not developer terminals or evidence that every graphical tool is redundant. |
-| Files (`cockpit-files`) | Add | Graphical host file inspection, transfer and deliberate configuration maintenance. Root permissions still apply; do not expose private files in support evidence. |
-| SELinux | Add | Diagnose policy denials on the enforcing appliance. The ability to change policy is not a reason to hide diagnosis; disabling enforcement or automatically allowing denials is not the recommendation. |
-| Diagnostic Reports | Add, with manual collection/export | Collect a native support bundle when needed. Reports can contain private configuration and must be reviewed before sharing; no automatic collection/upload is proposed. |
-| Accounts | Recommend exposing for root administration | Manages host Linux accounts/passwords/keys, not Forgejo identities or project-local accounts. Those different identity domains do not make the page redundant. This revises the recommendation, not the currently applied hiding policy. |
+| Files (`cockpit-files`, shown as File browser) | Include | Graphical host file inspection, transfer and deliberate configuration maintenance. Root permissions still apply; do not expose private files in support evidence. |
+| SELinux | Include | Diagnose policy denials on the enforcing appliance. The ability to change policy is not a reason to hide diagnosis; disabling enforcement or automatically allowing denials is not the recommendation. |
+| Diagnostic Reports | Include, with manual collection/export | Collect a native support bundle when needed. Reports can contain private configuration and must be reviewed before sharing; no automatic collection/upload is proposed. |
+| Accounts | Show for root administration | Manages host Linux accounts/passwords/keys, not Forgejo identities or project-local accounts. Those different identity domains do not make the page redundant. Showing it does not broaden Cockpit login eligibility. |
 | Software updates (OSTree) | Keep | Native CoreOS deployment updates and rollback. It is not an updater for Soda application images. |
 | Metrics / hardware details | Keep available | Host resource diagnosis and hardware inventory. Continuous PCP history/recording is a separate resource/retention decision, not implied by the page being present. |
 
@@ -105,7 +108,14 @@ remain upstream infrastructure, not additional product pages to remove.
 
 ## Native delivery candidate
 
-Use native Cockpit packages layered onto the upstream Fedora CoreOS deployment, following its [OS extension mechanism](https://docs.fedoraproject.org/en-US/fedora-coreos/os-extensions/). Layering requires an explicitly authorized reboot; it is provisioning, not a Soda update/release platform. Package installation and initial Cockpit access have been exercised on the isolated x86_64 VM, not on all supported targets.
+Use native Cockpit packages layered onto the upstream Fedora CoreOS deployment,
+following its [OS extension mechanism](https://docs.fedoraproject.org/en-US/fedora-coreos/os-extensions/).
+The selected baseline adds `cockpit-podman`, `cockpit-files`, `cockpit-selinux` and
+`cockpit-sosreport` to ordinary system/storage/network/OSTree administration.
+[Installation](installation.md#cockpit-addon-maintenance) owns activation and
+preservation, including the additive live-update option for existing deployments.
+This is not a Soda update/release platform. Native checks cover the recorded
+x86_64 fixture, not every supported host or administrative operation.
 
 Install the native PAM configuration from `appliance/config/cockpit.pam`, explicitly allow root by replacing `/etc/cockpit/disallowed-users` with an empty file, and retain normal PAM authentication. Only UID 0 may pass the account check. Developer/project-owner identities do not get host Cockpit access. The socket binds loopback by default; use an operator SSH tunnel to port 9090 unless private access is configured explicitly through native tooling.
 
@@ -124,10 +134,18 @@ See [branding assets](../assets/branding/cockpit/README.md) for the source-check
 New bundles forbid custom `/usr/local/share/cockpit` payload; no immutable stock
 package files are overwritten.
 
-The stock **Accounts** navigation entry is hidden with `/etc/cockpit/users.override.json`, using Cockpit's native [manifest override](https://docs.cockpit-project.org/cockpit-guide/latest/guide/packages.html#package-manifest-override) mechanism. It removes only `users.menu.index`: the upstream package, host accounts, native account tools and all other operator pages remain intact. This is navigation cleanup, not an authorization boundary. Soda people belong in the dashboard/Forgejo, and developer Linux accounts belong inside projects. Log out and back in if an existing Cockpit session still displays its cached Accounts entry.
+The stock **Accounts** page is visible for host administration. Soda no longer
+ships `/etc/cockpit/users.override.json`; the root-only PAM gate remains unchanged.
+Forgejo identities and project-local Linux accounts still belong to their own
+systems. On an authorized existing target, preserve and inspect the exact old
+override before removing Soda's known hiding configuration; do not delete an
+operator's unrelated customization. Log out and back in after package/navigation
+changes to refresh Cockpit's cached manifests, rather than interrupt every session.
 
 The installed operator journey now selects stock Overview and `--stock-read-only`;
-it retains root/non-root login, SELinux/socket/native CLI, Services/Logs and logout
-checks without an advertisement-refresh effect. It rejects Soda custom packages.
-It is authored coverage, not proof on a retained target: validate these controls and
-actual branding separately during the authorized replacement/removal window.
+it retains root/non-root authorization, SELinux/socket/native CLI, Services/Logs
+and logout checks without an advertisement-refresh effect. It also opens Podman,
+File browser, SELinux, Diagnostic reports and Accounts without management writes
+or report collection. It rejects Soda custom packages. The receipt records the
+checks actually run; full visual/keyboard/theme and destructive-operation acceptance
+remain separate from these native access checks.

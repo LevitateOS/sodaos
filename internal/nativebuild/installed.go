@@ -75,7 +75,7 @@ func verifyInstalled(root *os.Root, inv Inventory, revision string, inspect func
 		if file.Directory {
 			continue
 		}
-		selected := strings.HasPrefix(name, "rootfs/etc/systemd/system/soda-") || strings.HasPrefix(name, "rootfs/usr/local/") || strings.HasPrefix(name, "rootfs/etc/cockpit/branding/") || strings.HasPrefix(name, "rootfs/var/lib/soda/forgejo/gitea/public/") || name == "rootfs/etc/pam.d/cockpit" || name == "rootfs/etc/cockpit/users.override.json"
+		selected := strings.HasPrefix(name, "rootfs/etc/systemd/system/soda-") || strings.HasPrefix(name, "rootfs/usr/local/") || strings.HasPrefix(name, "rootfs/etc/cockpit/branding/") || strings.HasPrefix(name, "rootfs/var/lib/soda/forgejo/gitea/public/") || name == "rootfs/etc/pam.d/cockpit"
 		for _, sodaFile := range forgejoFiles {
 			selected = selected || name == sodaFile
 		}

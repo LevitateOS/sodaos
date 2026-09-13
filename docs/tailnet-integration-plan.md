@@ -45,7 +45,8 @@ Recommended first-release decisions from the brainstorm:
 - “Stock Cockpit” means no Soda extension pages, with branding aligned to the current
   Soda design under the [Cockpit owner's contract](cockpit-port.md#selected-tailnet-move-and-stock-administration).
   Preserve upstream administration, root-only PAM/SELinux transition, private socket
-  access and the Accounts navigation policy. Resetting security/access is separate scope.
+  access and the [current administration-page policy](cockpit-port.md#selected-root-administration-baseline).
+  Resetting security/access is separate scope.
 
 Requirements remain with their owners:
 

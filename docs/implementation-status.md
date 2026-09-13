@@ -162,6 +162,13 @@ Tailnet work.
   Count Me retried once successfully. The source directory was retired by relocating
   provenance and archiving ignored outputs, not deleting their contents. This grant
   is complete; no other target repair, package removal or cleanup is implied.
+- **Native Cockpit additions:** the user approved the revised baseline on the fresh
+  Tailnet VM and requested continuation. Four native addons and their additive
+  dependencies were installed/live-activated, the exact Accounts hiding override
+  was preserved outside the active configuration, and native access/PAM checks
+  completed. No reboot was needed. This does not select the conditional VM,
+  kernel-dump or recording roles, authorize report collection/upload or changes to
+  projects/policy/accounts, extend the VM hold, or affect older retained targets.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -198,8 +205,22 @@ requests successfully; its timer and historical logs remain. Provisioning source
 no longer overrides OS metadata. The top-level `cockpit/` directory is gone;
 tracked provenance is retained under `assets/branding/cockpit/provenance/`, and
 ignored outputs/dependency links are archived under
-`.artifacts/cockpit-metadata-fix-Ace3yt/retired-workspace/`. Native package/navigation
-changes beyond the existing stock-only policy are recommendations, not applied.
+`.artifacts/cockpit-metadata-fix-Ace3yt/retired-workspace/`.
+
+The [native administration additions](implementation-history.md#native-cockpit-administration-additions)
+are now installed on this fixture: Podman 130, Files 43, SELinux and Diagnostic
+Reports 367; Accounts is visible. rpm-ostree added 42 packages with no RPM
+replacements/removals and applied them live. Boot ID, all three appliance container
+IDs/images/running states, zero project records and the corrected helper hash were
+preserved. Root login, all addon pages and logout passed; native PAM admits root
+and denies existing non-root `nobody`, with SELinux still enforcing. Config/PAM/TLS
+backup and the old override remain under guest
+`/var/lib/soda-candidate-bb3a13c/cockpit-admin-additions/`.
+Evidence: `.artifacts/cockpit-admin-additions-lwhgJX/`. Existing browser sessions
+need logout/login to refresh cached navigation; no global Cockpit restart was used.
+The pending native deployment also carries the additions for next boot. Source
+provisioning/preflight now requires the addons and no longer stages Accounts
+hiding; the original sealed bundle/old private Ignition remain unchanged.
 
 ## Installed state
 
@@ -318,15 +339,11 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Provisioning now preserves upstream OS metadata; the fresh VM's actual Count Me
-failure was repaired and successfully retried. Obsolete `cockpit/` contents were
-preserved outside the retired top-level workspace. The
-[receipt](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement)
-records source/native checks and preservation. The subsequent
-[administration review](implementation-history.md#cockpit-administration-recommendation-review)
-withdraws the blanket Podman/addon exclusion and proposes a complete host-admin
-baseline, including reconsidering Accounts visibility. The
-[Cockpit guide](cockpit-port.md#page-recommendations) owns the revised recommendations;
-installed packages and the existing Accounts hiding policy are unchanged.
-No older retained target, native package selection,
-Tailnet enrollment/provider job, project data or credentials changed. Nothing pushed.
+The user-selected native Cockpit baseline is wired into provisioning/preflight and
+installed on the fresh VM, with Accounts restored to native visibility. The owned
+operator driver now tests addon pages using their real layouts and waits for actual
+iframe navigation. Source checks and native read-only page/PAM/preservation checks
+passed; see the [installation receipt](implementation-history.md#native-cockpit-administration-additions).
+No reboot, older retained-target change, report collection/upload, Tailnet/provider
+job or project mutation was performed. Credentials and original application images
+remain unchanged. Nothing pushed.

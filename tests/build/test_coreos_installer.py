@@ -474,6 +474,19 @@ class ProductProvisioning(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.module.render(self.key, self.password, self.root / 'both.bu', hostname='soda-native-fixture', product_hostname='soda')
 
+    def test_public_extensions_include_native_administration_not_conditional_roles(self):
+        unit = self.module.public_config()['systemd']['units'][0]['contents']
+        install = next(line for line in unit.splitlines() if line.startswith('ExecStart='))
+        packages = install.split()[1:]
+        preflight = (ROOT / 'scripts/install-native.sh').read_text()
+        query = next(line for line in preflight.splitlines() if line.startswith('rpm -q cockpit-system'))
+        for package in ('cockpit-podman', 'cockpit-files', 'cockpit-selinux', 'cockpit-sosreport'):
+            self.assertEqual(packages.count(package), 1)
+            self.assertEqual(query.split().count(package), 1)
+        for package in ('cockpit-machines', 'cockpit-kdump', 'cockpit-session-recording', 'cockpit-packagekit'):
+            self.assertNotIn(package, packages)
+        self.assertNotIn('--apply-live', unit)  # fresh boot retains explicit activation
+
     def test_public_template_remains_single_identity_free_source(self):
         data = self.module.public_config()
         base = json.loads((ROOT / 'appliance/provisioning/base.json').read_text())

@@ -100,6 +100,12 @@ func fixtureBundle(t *testing.T) string {
 	}
 	return root
 }
+func TestBundleDoesNotShipAccountsHidingOverride(t *testing.T) {
+	if allowedPayload("rootfs/etc/cockpit/users.override.json") {
+		t.Fatal("retired Accounts navigation override admitted")
+	}
+}
+
 func TestTerminalBrandingUsesOnlyDeliveredPublicPaths(t *testing.T) {
 	for _, name := range []string{"rootfs/etc/fastfetch", "rootfs/etc/fastfetch/config.jsonc", "rootfs/usr/local/share/soda/fastfetch/sodaos.txt"} {
 		if !allowedPayload(name) {

@@ -68,7 +68,7 @@ The export's parent must already exist; the `ARCH` directory must not. A bundle 
 
 `SHA256SUMS` identifies `build-info.json`, which identifies every delivered payload file. Establish that checksum through a trusted external channel **before executing any bundled program**, then verify the inventory. These are integrity records, not signatures or reproducible-build claims. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 
-The first installer verifies before copying writable prefixes, validates the RFC1918 subnet and subordinate ranges before applying them, and refuses existing/partial Soda state. `/etc/soda/install-started` remains after a partial failure; do not remove it to pretend the attempt was clean. Application setup, HTTPS activation and migrations still use core-owned commands. An extension request needs its separately approved activation reboot before installation. Do not install Soda on the builder.
+The first installer verifies before copying writable prefixes, validates the RFC1918 subnet and subordinate ranges before applying them, and refuses existing/partial Soda state. `/etc/soda/install-started` remains after a partial failure; do not remove it to pretend the attempt was clean. Application setup, HTTPS activation and migrations still use core-owned commands. Fresh extension bootstrap needs its separately approved activation reboot before installation; [existing Cockpit addon maintenance](installation.md#cockpit-addon-maintenance) owns the native additive live-update option. Do not install Soda on the builder.
 
 ## SSH, commands and exact-source remote phases
 
