@@ -14,6 +14,78 @@ not claims that those outputs are still retained.
 
 ---
 
+## Fresh VM paired runtime upgrade
+
+After the incompatible UI-only upgrade warning, the user explicitly approved the
+full paired frontend/backend upgrade on `soda-native-tailnet-bb3a13c`. Work used
+clean native x86_64 source `c13781f` (merged code at `5d6b6bf`), with Go 1.26.7 and
+Bun 1.4.2. Evidence: `.artifacts/paired-runtime-upgrade-tFj0Do/`.
+
+**Preflight:** zero projects, runner records, companions and Tailnet policy/state;
+only the three core containers were present. These conditions and absent active
+Forgejo HTTP/Git connections were rechecked before the window. No old terminal
+representation or version-1 credential record needed conversion. No project root,
+credential, enrollment or provider operation was created for testing.
+
+**Native build:** six affected commands were rebuilt with clean VCS metadata. The
+dashboard image reuses its exact installed base layers plus the new executable;
+the future-project image reuses its exact installed layers plus the current
+`project-terminal` program. OCI layer/config/file hashes verified both deltas.
+No RPM transaction, base-image pull, image recipe/package upgrade or Tailscale image
+change was substituted for this maintenance. Original images remain retained.
+
+The selected delta was **31 files**: 21 emitted modules, three templates, six native
+binaries and `soda-tailnet@.service`. The new graph epoch is
+`2026-09-13.admin-settings-mechanism-1`. The dashboard Quadlet now pins its new image;
+the only host JSON change is the immutable future-project image. Sidebar files
+already matched and were not rewritten. All canonical public payload hashes and
+metadata were checked after delivery, not just the selected changed files.
+
+**Preservation/window:** transferred script, manifest, payload and both OCI hashes
+matched before loading. Exact occupant hashes/metadata and trusted ancestors were
+checked again before publication. The proxy closed browser admission, then dashboard,
+helper/socket and Forgejo stopped. Restricted guest
+`/var/lib/soda-candidate-bb3a13c/paired-c13781f/backup/` preserves affected files with
+metadata, configuration/key inputs, and consistent stopped-writer Soda/Forgejo
+SQLite snapshots. Both integrity checks passed. Files/configuration used exclusive
+temporaries, original metadata/xattrs, fsync and atomic replacement.
+
+After daemon reload and starting Forgejo/helper/dashboard, actual dashboard health,
+container image, executable and helper process hashes passed. **Every original Soda
+table row matched the fresh backup before admission reopened**; no database restore,
+setup replay, schema rewrite or credential replacement occurred. The proxy then
+reopened. Boot identity, schema v10, user/repository/project identities, private
+configuration except the selected image, Forgejo/proxy images and enforcing SELinux
+were preserved. All core services were active and both trusted HTTPS endpoints were
+200. Only the authorized application services were restarted; no VM reboot or hold
+extension, Cockpit/Tailscale restart or older-target operation occurred.
+
+**Checks passed:** full affected Go race packages (`host`, `tailnet`, `runners`, `web`)
+and command tests; 32 terminal and two Tailnet image Python tests; frontend suite
+**252 pass / seven explicit skips**. The unchanged source also reuses the prior
+merged TypeScript/Lit, scripts/nativebuild and Forgejo suite (**43 pass / 29 skips**)
+receipts. Native browser verified left sidebar placement/keyboard, no prior Soda
+session/OAuth merely for navigation, explicit Runners entry and the new complete/
+unavailable inventory fields, Tailnet `NeedsLogin`/unconfigured state, ready Spaces
+with no terminals, no browser errors and coordinated logout. Native runner CLI
+returned the same complete empty inventory. Image layer verification is not a
+native project creation/terminal/enrollment lifecycle scenario; those remain unrun.
+
+The failed first browser observer incorrectly read `host_state` rather than
+`host.state`; the corrected fresh-browser journey passed. The first CLI observer
+omitted its required `{}` stdin and returned `decode request: EOF`; the proper
+read-only request passed. Both failures are retained; neither caused a repeated
+cutover, mutation replay or state rollback.
+
+Installed dashboard image:
+`sha256:1e07589f84a765d05ba3cc1a3aa3448472f7846459553ef319457895af30153c`.
+Future-project image:
+`sha256:f2c35d274660b5f74fab4b1b5871c2b65c260520569410590261f43b6b53ad55`.
+Helper SHA-256:
+`52a944ffad682892e5397144a55e6043606c932c596f69d1eebb102ec74197bc`.
+The original bundle/install marker remains; this is an explicitly recorded paired
+delta, not a rebuilt/resealed complete native bundle. No push command was issued.
+
 ## Sidebar upstream merge and reapplication check
 
 The user requested pulling upstream, resolving conflicts and reapplying the change

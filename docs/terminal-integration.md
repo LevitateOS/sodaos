@@ -2,10 +2,12 @@
 
 The [selected mechanism removals](refactoring-plan.md#selected-mechanism-removals)
 replace browser-owned shell lifetime with native ownership, exact native lookup and
-a disposable current browser cache. This is a **source candidate**, not an installed
-upgrade. The [handoff](implementation-status.md) owns target state/permissions;
-[history](implementation-history.md) owns earlier receipts. Evidence for the former
-guard/lease/receipt implementation does not establish this candidate's native behavior.
+a disposable current browser cache. The [handoff](implementation-status.md) owns
+native delivery and target state/permissions; the fresh paired upgrade had no
+projects or managed shells. Its access checks do not establish terminal lifetime,
+creation, attachment or recovery behavior. [History](implementation-history.md) owns
+earlier receipts. Evidence for the former guard/lease/receipt implementation does
+not establish this implementation's native behavior.
 
 ## Boundary with planned desktop and automation views
 

@@ -22,8 +22,10 @@ from step 2 remains; no retained-target upgrade follows from local page checks.
 
 ## Tailnet credentials and schema-v10 return
 
-**Stage-2 backend plus Stage-4 enrollment-core source, not installed migration or
-real enrollment proof.**
+**Current credential contract; native delivery scope is recorded in the
+[handoff](implementation-status.md#fresh-tailnet-access-fixture).** The paired fresh-VM
+upgrade had no saved policy/credential inputs; it does not establish old-state
+conversion or real enrollment proof.
 The [Tailnet plan](tailnet-integration-plan.md) owns host-only credential, policy and
 future ephemeral-node state separation; [the API](dashboard-api.md#tailnet-backend)
 owns requests and projections. These credentials are not Forgejo session grants,
@@ -56,8 +58,9 @@ does not revoke a device that already consumed it.
 Retained version-1 reference-based policies and project policies containing the
 retired `active_run` field require an explicitly authorized conversion before using
 the changed helper. Reads refuse them without mutation; Save does not silently
-convert, overwrite or delete them. No retained target has received this source
-change. Preserve their complete policy/credential inputs and later writes when
+convert, overwrite or delete them. The fresh fixture received the changed helper
+with no saved Tailnet state; no version-1 policy was converted. Preserve complete
+policy/credential inputs and later writes on other targets when
 planning that conversion; old-helper restoration is not automatically compatible
 with version 2.
 

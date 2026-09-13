@@ -195,6 +195,14 @@ Tailnet work.
   approved the sidebar correction: the two-template `574b917` delta, fresh backups,
   one further Forgejo stop/start and native sidebar/read/logout checks are complete.
   That follow-up does not grant another restart or extend the existing VM hold.
+- **Paired fresh-VM runtime upgrade:** the user explicitly approved applying the
+  merged frontend/backend together after the compatibility warning. The `c13781f`
+  native build, two minimal image layers, six binaries, matching public graph,
+  Tailnet unit/default-image configuration, fresh consistent backups and coordinated
+  service window are complete. No projects, runners or saved Tailnet state existed;
+  no old-state conversion or project-root change was needed. Native access/contract
+  and preservation checks passed. This does not select real project/provider jobs,
+  enrollment, another service/VM restart, cleanup or an extended VM hold.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -269,6 +277,31 @@ was restarted; its image, other core runtimes, configuration and data identities
 were preserved. Fresh restricted backups remain under
 `/var/lib/soda-candidate-bb3a13c/forgejo-sidebar-574b917/backup/`.
 No browser modules, package versions or module epoch changed in this delivery.
+
+The subsequent [paired runtime upgrade](implementation-history.md#fresh-vm-paired-runtime-upgrade)
+installed the merged source built at `c13781f`: 21 browser modules/three templates,
+six native binaries and the Tailnet unit, with epoch
+`2026-09-13.admin-settings-mechanism-1`. The dashboard runs immutable image
+`sha256:1e07589f84a765d05ba3cc1a3aa3448472f7846459553ef319457895af30153c`;
+future project creation uses
+`sha256:f2c35d274660b5f74fab4b1b5871c2b65c260520569410590261f43b6b53ad55`.
+Both reuse the exact prior image layers plus one program file; OS packages, original
+images, Forgejo/proxy/Tailscale image selections and the original install marker are
+preserved. Current helper SHA-256 is
+`52a944ffad682892e5397144a55e6043606c932c596f69d1eebb102ec74197bc`.
+
+No projects, runner records, companions or saved Tailnet policy existed before the
+window, and none were created by validation. The proxy closed browser admission;
+Forgejo/dashboard/helper were stopped for consistent database backups and paired
+publication, then restarted and verified before reopening. All original Soda table
+rows matched the fresh backup before browser login. Native sidebar, new runner
+inventory/API/CLI, Tailnet NeedsLogin/unconfigured state, Spaces and logout passed.
+Schema v10, user/repository/project identities, credentials, private configuration
+apart from the selected future image, and enforcing SELinux were preserved.
+Backup custody: `/var/lib/soda-candidate-bb3a13c/paired-c13781f/backup/`;
+local evidence: `.artifacts/paired-runtime-upgrade-tFj0Do/`. This is a recorded paired
+delta, not a new sealed full bundle. Native project-terminal/enrollment/lifecycle
+acceptance remains pending.
 
 ## Installed state
 
@@ -408,3 +441,17 @@ This admin-host source candidate is not delivered. The historical
 verified the earlier sidebar bytes against their own source; it does not establish
 that the new `/admin` host or its module graph is installed. Older targets,
 providers, projects and all existing backups/evidence are unchanged.
+
+The latest recorded fresh-VM delivery is the approved
+[paired frontend/backend upgrade](implementation-history.md#fresh-vm-paired-runtime-upgrade)
+on `soda-native-tailnet-bb3a13c`, built from the original, pre-rebase `c13781f`
+source—not the newer admin-host candidate above. Matching native binaries/images/
+public assets were installed with epoch `2026-09-13.admin-settings-mechanism-1`;
+the sidebar correction remains intact. Affected Go race/command, Python and
+frontend checks passed alongside reused merge TypeScript/Lit/Forgejo evidence.
+Native checks passed for the new empty runner inventory, Tailnet/Spaces bootstrap,
+operator access/logout, installed identities and preservation. Existing OS packages,
+roots, credentials and previous artifacts were not replaced or cleaned up. No
+old-state conversion was necessary on this empty fixture. No real project/provider
+operation or full new-runtime acceptance matrix is claimed. The documentation
+rebase does not deploy the admin-host candidate or grant further target actions.
