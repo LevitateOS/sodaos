@@ -14,6 +14,43 @@ not claims that those outputs are still retained.
 
 ---
 
+## Forgejo design delta delivery to fresh VM
+
+The owner approved deploying the pending Forgejo/design updates to the existing
+live fixture `soda-native-tailnet-bb3a13c` (full delta since `e8998ee`, brief
+Forgejo/dashboard/proxy service window, running project preserved). The payload
+was built from a clean `a6a86c2` export after HEAD moved past the staged
+`15e03d0` preparation; another agent's uncommitted work was excluded by building
+outside the canonical checkout.
+
+**Delivered `a6a86c2`: 11 changed files, no new files.** Redesigned workspace,
+project, terminal and drawer modules/CSS, `components.css`, the admin dashboard
+eyebrow (`Forgejo administration` → `Soda administration`) and the dashboard
+binary (now including the committed Tailnet/host backend). New dashboard image
+`sha256:7c1c65de…` reuses every layer of `667e4de5…` plus one program file.
+No migration: schema v10 on both sides.
+
+The applier's guards were adapted for today's fixture: exactly project
+`p2e1121ffe63e064855c7e693` with zero memberships, its container/unit left
+running (a dashboard-plane restart does not touch it; stopping it would be the
+more invasive lifecycle action). Fresh SQLite backups, hash-bound publication,
+health-gated reopen and full table-identity match passed. Post-state: running
+image and `/proc/1/exe` are the new bytes, project active/running, SELinux
+enforcing.
+
+Native verification passed: operator login, Runners page with the new
+`SODA ADMINISTRATION` eyebrow and sidebar, both admin sidebar entries, logout;
+served `components.css` bytes hash-match the payload. The proxy serves only the
+configured `localhost` host (pre-existing `FORGEJO_ORIGIN` behavior, unrelated
+to this delta): checks must use `https://localhost:24454/`, not the literal IP.
+
+Evidence: `.artifacts/forgejo-deploy-a6a86c2-11fbc08e/` (manifest, before/
+desired states, login/admin drivers, screenshots, build stamp); staging inputs
+in `.artifacts/forgejo-deploy-a6a86c2-PREPARED/`; guest backups under
+`/var/lib/soda-candidate-bb3a13c/forgejo-deploy-a6a86c2/backup/`. This grant
+covers this delivery only: no further restart, enrollment, cleanup or hold
+extension follows.
+
 ## First local host-content image build
 
 The owner approved the first release-engineering implementation slice. Source

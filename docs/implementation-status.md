@@ -295,9 +295,18 @@ Tailnet work.
 
 ## Fresh Tailnet access fixture
 
+**Latest Forgejo/design delta:** `a6a86c2` is installed (11 changed files, no
+new files): redesigned workspace/project/terminal/drawer presentation, admin
+eyebrow and dashboard binary. Dashboard image
+`sha256:7c1c65de3f9c18157137c669f92145576492f08832dbc12ba8a8f1a15bc864ad`
+reuses all `667e4de5…` layers plus one program file. Native login, Runners
+admin view, sidebar entries and logout passed; served bytes hash-match. See the
+[delivery receipt](implementation-history.md#forgejo-design-delta-delivery-to-fresh-vm).
+
 **Latest Spaces delta:** `e8998ee` is installed with epoch
 `2026-09-13.spaces-first-use-1`, dashboard image
-`sha256:667e4de5b7121dcd3349495c234489fcc9f4264271019e3a739cc4a84a8870bf`.
+`sha256:667e4de5b7121dcd3349495c234489fcc9f4264271019e3a739cc4a84a8870bf`
+(superseded above by `a6a86c2`, which preserves its layers).
 One private repository and one ready/running project now exist (see
 [Spaces status](#spaces-first-use-journey)); membership and terminal counts remain
 zero following the safely refused account collision. Original helper, future-project
