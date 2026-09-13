@@ -173,7 +173,10 @@ Tailnet work.
   `6c76af9` to the fresh VM and its brief Forgejo restart. The 24-file public delta,
   restricted backups, single Forgejo service restart and native entry/read/logout
   checks are complete. No other service/VM lifecycle, provider operation, cleanup
-  or repeat restart is granted by that completed action.
+  or repeat restart is granted by that completed action. The user subsequently
+  approved the sidebar correction: the two-template `574b917` delta, fresh backups,
+  one further Forgejo stop/start and native sidebar/read/logout checks are complete.
+  That follow-up does not grant another restart or extend the existing VM hold.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -238,6 +241,16 @@ and coordinated logout. Neither link appears in global navigation. No new native
 bundle/image is implied. Guest backups, including the consistent stopped-writer
 Forgejo database snapshot, remain under
 `/var/lib/soda-candidate-bb3a13c/forgejo-nav-6c76af9/backup/`.
+
+The [sidebar correction delivery](implementation-history.md#administrator-sidebar-correction-delivery)
+then applied `574b917`: one changed layout and one new native navbar override.
+Runners/Tailnet are now ordinary entries in the **left administration menu**, and
+`#soda-admin-settings` is absent. Native desktop placement, keyboard order,
+no-Soda-session visibility, protected entry/reads and logout passed. Only Forgejo
+was restarted; its image, other core runtimes, configuration and data identities
+were preserved. Fresh restricted backups remain under
+`/var/lib/soda-candidate-bb3a13c/forgejo-sidebar-574b917/backup/`.
+No browser modules, package versions or module epoch changed in this delivery.
 
 ## Installed state
 
@@ -363,7 +376,9 @@ navbar is preserved apart from the bounded Soda addition; canonical staging incl
 that override. Rendered placement/gate, upstream-parity, payload, TypeScript/Lit
 and browser checks passed; see the [correction receipt](implementation-history.md#administrator-sidebar-placement-correction).
 No browser runtime, auth behavior or entry destination changed, so the existing
-module epoch is retained. This correction is **source-only and not pushed**: the
-fresh VM still has the preceding [delivered content toolbar](implementation-history.md#administrator-navigation-delivery-to-fresh-vm).
-No target contact or repeat restart was performed; that earlier delivery grant is
-complete. Native sidebar visual acceptance and delivery remain unclaimed.
+module epoch is retained. The user subsequently approved and received the
+[sidebar correction on the fresh VM](implementation-history.md#administrator-sidebar-correction-delivery),
+including its one required Forgejo restart. Two exact template hashes, native left
+menu placement/keyboard/entry/read/logout, consistent backups and preservation
+checks passed. The full visual/theme/mobile matrix is not claimed. This work is
+not pushed; no older target, provider or project mutation occurred.

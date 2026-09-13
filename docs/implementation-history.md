@@ -14,6 +14,48 @@ not claims that those outputs are still retained.
 
 ---
 
+## Administrator sidebar correction delivery
+
+The user explicitly requested applying `574b917` to the fresh VM. The existing
+hold remained valid and `soda-native-tailnet-bb3a13c` was already running.
+Evidence: `.artifacts/admin-sidebar-delivery-lwHedp/`.
+
+Preflight confirmed the exact previous layout hash, the absence of a custom
+`admin/navbar.tmpl`, active services and no established Forgejo HTTP/Git connections.
+The same connection/occupant checks ran immediately before stopping Forgejo.
+Only two public templates were selected: replace `admin/layout_head.tmpl` and add
+`admin/navbar.tmpl`. Transfer hashes matched. Restricted guest
+`/var/lib/soda-candidate-bb3a13c/forgejo-sidebar-574b917/backup/` preserves the old
+layout with metadata, an explicit absent-navbar record, configuration/key inputs
+and a fresh consistent stopped-writer Forgejo SQLite snapshot. Its quick check passed.
+
+Publication preserved ownership/modes/xattrs, used exclusive temporaries and fsync,
+and refused an occupied new-navbar path rather than overwrite a later customization.
+Only Forgejo was stopped/started once; no VM reboot or other service restart occurred.
+Both installed hashes and `1000:1000`/0644/single-link metadata passed verification.
+No browser assets, module epoch, image, package, helper or configuration changed.
+
+A fresh native browser at explicit 1440px desktop width verified both links as
+ordinary direct children of the native left vertical menu, its position left of
+content, absence of the old toolbar/content links, and Runners → Tailnet keyboard
+order. The links appeared while Soda session/settings reads remained 401, with
+zero OAuth starts. Explicit Runners entry then completed the existing native OAuth
+flow and authorized read; Tailnet reused the matching session and read successfully.
+Coordinated logout ended only this browser login. No management mutation was requested.
+
+Before/final checks preserved boot identity, schema, user/repository/project identity
+summaries, configuration/helper hashes, all image IDs and dashboard/proxy container
+identities. All core services stayed active afterward, SELinux was enforcing, and
+both endpoints returned trusted HTTPS 200. Existing credentials/sessions and other
+targets were not reset. This is an exact installed UI delta, not a new sealed bundle.
+
+Failed browser observers are retained: the first omitted the local private browser
+socket directory; the second asserted desktop placement with an implicit viewport.
+The corrected observer used the required directory and explicit desktop dimensions.
+Neither failure caused deployment replay or an additional Forgejo restart. Full
+visual/theme/mobile and provider/runtime acceptance are outside this receipt.
+Nothing from this delivery was pushed.
+
 ## Administrator sidebar placement correction
 
 The user correctly rejected the content toolbar as inconsistent with Forgejo's
