@@ -20,7 +20,10 @@ COPY rootfs/ /
 RUN sed -i '/^[[:space:]]*$/d' /usr/lib/sysusers.d/forgejo-runner.conf
 # Do not enable a competing automatic updater in the candidate. These changes
 # affect only the built image, never the builder's services or trust configuration.
-RUN systemctl mask bootc-fetch-apply-updates.timer && \
+# Lint resolves tmpfiles paths, including /sys entries. Give this rootless build
+# step an empty /sys rather than the host's protected IMA filesystem. This is a
+# build-only mount, not a shipped mount or a skipped lint/privileged build.
+RUN --mount=type=tmpfs,target=/sys systemctl mask bootc-fetch-apply-updates.timer && \
     ostree container commit && \
     bootc container lint
 

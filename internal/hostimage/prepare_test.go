@@ -148,7 +148,7 @@ func TestRecipeDoesNotInstallOrPublishOnBuilder(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(sourceRoot(t), "appliance/host.Containerfile"))
 	require.NoError(t, err)
 	recipe := string(b)
-	for _, required := range []string{"ARG BASE_IMAGE\nFROM ${BASE_IMAGE}", "rpm-ostree install $(cat /run/soda-build/packages.list)", "ostree container commit", "bootc container lint", "systemctl mask bootc-fetch-apply-updates.timer", "host-content-only"} {
+	for _, required := range []string{"ARG BASE_IMAGE\nFROM ${BASE_IMAGE}", "rpm-ostree install $(cat /run/soda-build/packages.list)", "ostree container commit", "bootc container lint", "systemctl mask bootc-fetch-apply-updates.timer", "--mount=type=tmpfs,target=/sys", "host-content-only"} {
 		require.Contains(t, recipe, required)
 	}
 	for _, bad := range []string{"FROM quay.io/fedora/fedora-coreos:stable", "COPY . ", "install-native.sh", "podman push", "systemctl enable", "tailscale up"} {
