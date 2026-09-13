@@ -37,8 +37,10 @@ is evidence of added integration ownership, not a reason to write a custom parti
 Bootc's presence in FCOS and OCI image transport do not select bootc installation or
 activation. The `to-filesystem` workaround and its fixture request are withdrawn.
 
-Keep the one-run, same immutable install/update candidate and offline-content goals.
-Verify how the exact upstream versions support them before fixing transport/layout
+Keep one run and the same immutable install/update candidate. The owner's
+[minimal network-install target](coreos-installer-plan.md#selected-media--minimal-network-install)
+supersedes self-contained/offline installation: download installation content while
+keeping the distributed ISO small. Verify exact upstream support before fixing transport/layout
 or activation APIs. Do not assume CoreOS Installer consumes an OCI image, rpm-ostree
 alone coordinates application images, or Zincati consumes Soda's GHCR channel records.
 If these requirements conflict with the native FCOS workflow, report the supported
@@ -55,7 +57,7 @@ can proceed while an exact native-effect gate is blocked.
 
 | Active milestone | Deliverable | Exit |
 | --- | --- | --- |
-| 1 / B1 — Verify the native installation contract | Selected upstream mechanism, frozen-input/dataflow contract and deletion baseline | No assumed image-install/offline-content capability hidden in an adapter |
+| 1 / B1 — Verify the native installation contract | Selected upstream mechanism, frozen-input/dataflow contract and deletion baseline | No assumed image-install/network-bootstrap capability hidden in an adapter |
 | 2 / B2 — Implement one Go build controller | Programs/assets/apps/host produced once with direct timing and cancellation | One complete candidate, no writable staging translation or second producer |
 | 3 / B3 — Make the ISO consume that candidate | Media-only assembly and image-based first-install handoff | Actual ISO installs the same host/app digests used by updates |
 | 4 / B4 — Connect native qualification | Exact ISO and baseline-to-candidate install/update/recovery tests | Protected, byte-bound native evidence without rebuilding shipping artifacts |
@@ -85,13 +87,14 @@ B1 complete.
    tests/docs separately. Do not shrink the budget by deleting verifiers.
 2. Trace the locked FCOS release's CoreOS Installer/Ignition installation and
    rpm-ostree/Zincati update paths against upstream source and actual Soda callers.
-   Establish supported customization, authenticated offline content and application
-   image availability without replacing native deployment/boot/reboot ownership.
+   Establish native minimal-media customization, authenticated network downloads and
+   installed application availability without replacing deployment/boot/reboot ownership.
    Compare supported install/update handoffs before selecting a host transport or
    adapter; explicitly identify any incompatibility with the single-candidate goal.
 3. Resolve bootloader, SELinux, storage lifetime, first-machine setup, media-removal
-   behavior and disk space. Check ISO level-1 per-file limits, primary filenames,
-   preserved boot metadata, actual archive/blob sizes and the 256 KiB Ignition area.
+   behavior and disk space. Check the installer owner's distributed-ISO size ceiling,
+   download sizes/host limits, pre-live networking, ISO per-file limits, primary names,
+   preserved boot metadata and the 256 KiB Ignition area.
    No Soda-owned disk-layout/boot-provisioning substitute, temporary registry server
    or insecure install flag. A native interface alone does not justify taking over
    upstream orchestration.
@@ -136,10 +139,10 @@ bootc interfaces. The authority and byte-identity boundaries remain requirements
 | Frozen inputs → producer | Approved commit/base/tool/package and explicit component selections; public-only source snapshot. No privileged signer credentials or implicit selected VM. |
 | Producer → protected admission | Existing exact payload/candidate bytes plus OCI identities and hashed provenance. Treat outputs as untrusted until independently checked and copied into protected fresh snapshots. Never execute candidate-supplied tests as authority. |
 | Component provenance | Record actual producing revision/upstream reference for each selection without a second image inventory or relabelling reused images. Current payload v1 requires three bootc-bound roles; ordinary-Podman storage therefore needs an explicit versioned payload/caller change, not silently reinterpreted v1 fields. Retain strict historical readers. |
-| Candidate → media | Recommended native handoff: admitted OCI archive → Assembler import → upstream metal/live packaging and osmet. Record unchanged OCI manifest, native deployment identity and raw/media hashes. Put every required app archive in the signed host; prove native Podman availability instead of bootc-bound storage. Version the media binding after native proof. |
+| Candidate → media | Recommended native handoff: admitted OCI archive → Assembler import → upstream metal/live packaging → minimal ISO plus downloadable matching live content/osmet. Bind OCI/deployment identity and raw/media/download hashes; prove bootstrap authentication and local Podman availability after download. Version the media binding after native proof. |
 | Media → live installer | Independently trusted media/tool bytes and verified content before privileged use. CoreOS Installer owns disk installation; Ignition owns first-boot provisioning. Prove native signature/cache behavior, not just file presence. |
 | Live installer → installed state | Preserve native FCOS disk/boot/provisioning ownership. Prove how the same immutable host/app set is installed and updated with required content available after media removal. Do not manufacture that capability with Soda partitioning or a second writable software producer. |
-| Qualification → final release | Bind ISO name/hash/size/location, exact proved starting releases and protected evidence without altering tested content. Choose minimal strict schema changes after B1's handoff review, not a preselected v2 transport design. Existing embedded `UpgradeFrom` remains unchanged; preserve retained-format verification without upgrading its claimed scope. |
+| Qualification → final release | Bind ISO and downloadable installation-content names/hashes/sizes/locations, exact proved starting releases and protected evidence without altering tested content. Choose minimal strict schema changes after B1's handoff review, not a preselected v2 transport design. Existing embedded `UpgradeFrom` remains unchanged; preserve retained-format verification without upgrading its claimed scope. |
 | Protected finalization → optional publisher | Exact-digest permit, final signed document and evidence; existing ledgers/observation semantics. No arbitrary commands, fixture credentials or authority from build-reported success. |
 
 Controller, builder, native qualification and signer are distinct authorities. A
@@ -200,7 +203,8 @@ If the additional existing client checks must all remain, their integration need
 supported upstream solution or an explicitly approved deviation before implementation.
 
 The [native installation proposal](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
-can provide offline host/application bytes without bootc. It does not by itself
+can provide locally available host/application bytes after network installation,
+without bootc. It does not by itself
 resolve this update-authority choice. Public commissioning remains after B6; this is
 a source/interface decision, not a demand to launch a service before replacement.
 
@@ -300,16 +304,20 @@ qualified end-to-end release or the command's final success outcome.
 3. Replace bundled `install-native.sh` and client-side package-layering continuation
    with the exact host/app handoff. Keep per-machine identity, configuration, operator
    setup and credentials outside immutable software. Required content must remain
-   available after media removal, without registry access during install/first boot.
-4. Keep the console/content in ordinary ISO files and preserve native boot equipment
-   and readback verification. Private-network media is not public distribution media.
+   available after the network-assisted installation and media removal, without
+   further payload downloads at normal first boot.
+4. Follow the [minimal-media contract](coreos-installer-plan.md#selected-media--minimal-network-install)
+   for download/bootstrap placement and size. Preserve native boot equipment and
+   readback verification. Private-network media is not public distribution media.
    The final post-test report stays outside the ISO; do not rebuild media after testing.
 
 **Checks/exit:** assembly invokes no compiler/component builder; candidate/architecture/
 path/signature substitution and oversized content refuse; metadata/ownership/modes/
 boot/Ignition readback pass. Under an exact native fixture grant, install the actual
-ISO, remove media and boot its selected host/apps with enforcing SELinux and working
-operator access. Test partial writes and cancellation without replay. The updater
+minimal ISO, verify its measured size and authenticated downloads, remove media and
+boot its selected host/apps with enforcing SELinux and working operator access. Test
+pre-live network failure, missing/mismatched content, interrupted downloads, partial
+writes and cancellation without replay. The updater
 must consume those same immutable identities. The [installer owner](coreos-installer-plan.md#image-based-replacement-contract)
 owns detailed disk/bootstrap constraints.
 
@@ -437,7 +445,7 @@ independently runnable and scoped; they are not another release product.
 | P5 Host candidate | Supported FCOS customization and exact app bindings using B1's verified native handoff; no prescribed bootc storage/layout |
 | P6 Freeze/verify candidate | Native content/platform/inventory/presentation/Quadlet and selected upstream deployment-format checks; exact payload/candidate identities |
 | P7 Authenticate candidate | Protected exact-digest artifact signing after static admission, before privileged installation/tests |
-| P8 Assemble media | B1-proved upstream candidate-derived live/osmet packaging, native customization and prebuilt console/tools; no second shipping component build |
+| P8 Assemble media | B1-proved minimal ISO/downloadable candidate-derived live content, native customization and prebuilt console/tools; no second shipping component build |
 | P9 Native qualification | QEMU/KVM and reviewed existing drivers test the actual ISO and admitted update/recovery baselines |
 | P10 Finalize/sign release | Bind candidate, ISO checksum/location, compatibility and protected evidence without rebuilding tested bytes |
 | P11 Optional delivery | Native skopeo/signatures, immutable image/media uploads and anonymous checks, then channel last; available only under applicable commissioning/grants |
@@ -620,7 +628,7 @@ Reuse existing drivers and feature contracts, with exact fixture/action grants.
 | Area | Evidence for claimed support |
 | --- | --- |
 | Build/trust | Frozen inputs, native ELF/OCI, complete inventory, signatures and rejection of tampering/wrong authority/missing content |
-| Fresh install | Actual matching ISO, per-machine setup, offline first boot/media removal, protected operator access, enforcing SELinux |
+| Fresh install | Actual minimal ISO and authenticated network install, per-machine setup, media removal/startup without further payload downloads, protected operator access, enforcing SELinux |
 | Update | Both same-base and separately qualified new-base cases; populated data/projects and explicit supported intermediates |
 | Compatibility | Matching helper/API/browser graph, Forgejo/packages, units/Quadlets, configuration and required image availability |
 | Maintenance | One owner, exact staged release, download-only versus activation, notices/deferral and no unqualified upstream bypass |
@@ -722,7 +730,8 @@ machines need fresh inventory and their own grant even after a rehearsal passes.
 QCOW2 is not implemented or required for the first ISO replacement. If later selected,
 it consumes the same candidate rather than assembling another OS. Offline update
 import, broader cohorts/telemetry and moving to a dedicated host are follow-ups;
-this does not defer the replacement ISO's offline installation/first-boot content.
+this does not defer the replacement's required local content after the
+[selected network installation](coreos-installer-plan.md#selected-media--minimal-network-install).
 
 ## Workstream status and next action
 

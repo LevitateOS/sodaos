@@ -36,7 +36,7 @@ commissioning follows B6 using those same artifacts, not another build recipe.
 | Artifact | Role in the replacement | Current state |
 | --- | --- | --- |
 | Host candidate and five application images | One immutable candidate shared by installation and updates; B1 must establish supported host transport | Existing host OCI, local x86_64 candidate and signed Internal GHCR snapshots are scoped experimental foundations, not a selected native handoff or install/update proof |
-| SodaOS ISO | Media-only consumer of the signed candidate and prebuilt console/tools; offline installation/first-boot content | Image-based handoff unimplemented; older required-key media has bounded boot evidence and password-only writable-bundle source exists |
+| SodaOS ISO | Minimal network-install consumer of the signed candidate and prebuilt tools; [media/download contract](coreos-installer-plan.md#selected-media--minimal-network-install) | Image-based handoff unimplemented; older required-key media has bounded boot evidence and password-only writable-bundle source exists |
 | Final signed release metadata | Binds tested host/app/ISO identities, compatibility and protected evidence without rebuilding | Delivery primitives exist; integration into the run remains B5 |
 | Sealed writable Soda bundle | Retiring product of the old producer, not an output of the replacement | Preserve existing artifacts/maintenance readers; remove competing production at B6 |
 | SodaOS QCOW2 | Optional later consumer of the same candidate | No producer or distributable product; not a prerequisite for this replacement |
@@ -50,8 +50,10 @@ and machine configuration per installation. Private-network media is not public 
 The [installer contract](coreos-installer-plan.md#image-based-replacement-contract)
 owns the native disk/bootstrap handoff. Preserve the selected password-only text flow,
 but replace bundle copying and client-side RPM installation with the signed candidate.
-The old path remains network-assisted; only actual replacement native evidence can
-establish its offline installation/first-boot claim. Marketplace networking is separate.
+The replacement downloads content during installation under the
+[minimal-media target](coreos-installer-plan.md#selected-media--minimal-network-install).
+Native proof must establish download integrity and complete local payload availability
+before installation finishes. Marketplace networking remains separate.
 Historical upstream QCOW2/private-Ignition runtime tests are not image-based ISO proof.
 
 The following commands describe **current retiring component/fixture recipes**.

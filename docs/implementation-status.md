@@ -17,7 +17,10 @@ not this implementation queue.
 proved.** Assembler/OSBuild can consume the candidate for live/osmet packaging, and
 Zincati 0.0.32 supports OCI through rpm-ostree. A client-trust contract decision,
 matching builder capsule admission and exact native proof remain. Bootc filesystem
-installation stays withdrawn. All six milestones are open; B2–B6 have not started.
+installation stays withdrawn. The owner now selects a
+[minimal network-install ISO](coreos-installer-plan.md#selected-media--minimal-network-install),
+not self-contained offline media; native download/bootstrap and size proof are still
+outstanding. All six milestones are open; B2–B6 have not started.
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -48,8 +51,9 @@ and candidate verification. No second producer or writable staging translation.
 ### 3. Make the ISO consume the candidate — B3
 
 **Not started.** Media-only assembly takes the exact signed host/app candidate and
-prebuilt tools. Prove actual ISO installation, media removal and first boot with the
-same digests used by updates; preserve the password-only wizard and disk safeguards.
+prebuilt tools. Prove minimal ISO size, authenticated network installation, media
+removal and first boot with the same digests used by updates; preserve the
+password-only wizard and disk safeguards.
 [Implementation and exit](release-engineering-plan.md#milestone-3--make-the-iso-consume-the-candidate).
 
 ### 4. Connect native qualification — B4
@@ -81,6 +85,12 @@ The [installation findings](coreos-installer-plan.md#source-backed-packaging-rou
 and [native update/authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
 now identify concrete upstream calls and boundaries, not a custom disk/updater design.
 
+**Selected media:** minimize ISO size and download installation content using native
+FCOS where possible. Apply the [owning media contract](coreos-installer-plan.md#selected-media--minimal-network-install);
+do not retain the full/offline ISO requirement or assume GHCR must serve every file.
+B1 must verify native minimal extraction, pre-live networking and authenticated
+rootfs/bootstrap binding before implementing that handoff.
+
 **Decision needed:** adopt native Zincati graph/image trust and maintenance as the
 appliance update contract, or retain all existing client-side signed-channel checks.
 Recommend the native model for minimum FCOS deviation, with protected qualification/
@@ -93,8 +103,8 @@ or publish an unsigned graph as a silent replacement for those checks.
 matching OSBuild/live-stage/tool versions; the reviewed source commit alone is not
 that executable pin. Then scope its supermin build VM and a fresh x86_64 install
 fixture. Required proof includes unchanged OCI input/installed digest, native osmet
-reconstruction, private Ignition/SELinux/boot, media removal and offline availability
-of all five application images. The existing candidate needs versioned storage/
+reconstruction after download, minimal ISO size and network-failure behavior, private
+Ignition/SELinux/boot, media removal and local availability of all five application images. The existing candidate needs versioned storage/
 import changes; it is not already a suitable complete fixture. No new VM request or
 lifecycle approval is inferred from the withdrawn experiment.
 
@@ -205,10 +215,10 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-Traced the selected upstream native mechanisms and Soda callers. Recorded the
-Assembler/OSBuild/osmet route, positive Zincati OCI support, all-app offline storage
-requirements, exact identity/security handoffs and the native-client trust conflict.
-Recommended native ownership without silently changing that security contract.
-Preserved source, LOC baseline, evidence and grants. This pass fetched public source
-and ran scoped source/document checks only; no image build/pull, VM, installation,
-update, key, registry write or retained-state mutation occurred. B1 remains open.
+Recorded the owner's minimal network-install selection in the installer contract;
+removed the active self-contained/offline ISO requirement and linked the release/
+installation guides to the new size/download target. Preserved exact candidate
+identity, local content after installation, authentication, native FCOS ownership
+and disk safeguards. The prior source receipt remains in history; this pass changed
+documentation only and checked affected links/contracts. No native execution,
+publication, trust change or new lifecycle grant occurred. B1 remains open.

@@ -24,17 +24,54 @@ a timer or production migration before implementing the replacement.
   live boot and supported media customization. Verify exact native inputs before
   coding; `coreos-installer install --offline` is not assumed to accept a derived OCI
   host. No Soda partitioning/boot backend, predecessor installer or insecure flags.
-- General ISO installation and first boot must have host, appliance-app and retained-runtime
-  content without a registry dependency. Prove transport, signature policy, storage
-  lifetime and media removal. Provider/marketplace networking is outside this claim.
+- Follow the [selected minimal network-install target](#selected-media--minimal-network-install),
+  replacing the earlier self-contained/offline installation requirement. Prove download
+  authentication, exact candidate selection, storage lifetime and media removal.
+  Provider/marketplace networking remains a separate runtime requirement.
 - Native installation provides image-owned software. Machine identity, host keys,
   network/subnet, root access and first-operator/application setup remain per-machine
   work, not baked-in credentials/databases. Do not replay first-install over retained
   or partial state; native failures are not automatic erase/reinstall permission.
-- Keep the candidate and console in ordinary ISO files, not oversized Ignition.
-  Preserve boot equipment/primary names and verify content, ownership, SELinux and
-  space. Private network media remains private. Final qualification stays outside
-  the ISO so signing/publication does not rebuild tested bytes.
+- Keep bulk software off the distributed ISO; bounded bootstrap must not become
+  oversized Ignition. Preserve boot equipment/primary names and verify content,
+  ownership, SELinux and space. Private network media remains private. Final
+  qualification stays outside the ISO so signing does not rebuild tested bytes.
+
+### Selected media — minimal network install
+
+**Owner-selected priority: less on the ISO; download the payload during installation
+where supported by native FCOS.** Minimize actual ISO size, not merely fit under the
+ceiling: the distributed ISO must be below **2 GB (2,000,000,000 bytes)**. This is a
+conservative bound for [GitHub Release's per-asset limit](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases),
+not a GHCR 2 GB limit. Do not invent a smaller numerical target before measuring.
+
+- Prefer the upstream minimal-ISO/network-boot mechanism. Keep only necessary boot
+  and small bootstrap/trust material on media; download the matching live filesystem
+  and host/application content during the installation session. A full image may
+  remain an internal upstream packaging input, not a second release/build lane or
+  a required public download. Networkless installation is no longer a requirement.
+- Preserve the one immutable install/update candidate. Downloads select its exact
+  admitted content, never mutable latest versions or every package/tag in a registry.
+  Fetching a candidate-derived live filesystem containing the application archives
+  is compatible with this goal; separate GHCR pulls for each image are not required.
+  GHCR is not mandated as the sole download source. Every separately hosted artifact
+  must fit its host's limits; moving a large rootfs beside the ISO on GitHub Releases
+  does not evade the per-asset limit. Hosting/publication requires its own grant.
+- Authenticate the bootstrap and all downloaded executable/software content before
+  use; verify the native rootfs-to-bootstrap identity binding. No insecure fallback,
+  custom boot downloader or stock-install/second-conversion lane to save ISO bytes.
+  Measure ISO size, downloaded bytes and memory/disk requirements separately.
+- Minimal boot may require networking before the Soda wizard can run. Prove supported
+  pre-live network configuration and honest network/download failure handling; the
+  current post-boot wizard and ISO-mounted console loader are not proof of that path.
+  Preserve password-only setup, disk/erase guards, cancellation and no write replay.
+- Installation must finish with the required host and all five application images
+  available locally; do not merely defer missing installation payload to normal
+  first boot. Media removal and normal host/app startup without further payload
+  downloads remain required. This is not a claim of a network-independent appliance.
+
+This changes the media/download requirement, not the native ownership or client-trust
+contract. Minimal candidate media, download integrity and actual size remain unproved.
 
 ### B1 native mechanism review — reopened
 
@@ -65,8 +102,9 @@ investigate without Soda disk-layout code or a CoreOS source rebuild:
 one admitted host OCI archive (including required application archives)
   → upstream cosa import --skip-prune
   → upstream cosa buildextend-live / OSBuild metal + metal4k dependencies
-  → candidate-derived live media and native osmet reconstruction data
-  → unchanged CoreOS Installer --offline + private destination Ignition
+  → candidate-derived minimal ISO + separately hosted matching live rootfs/osmet
+  → native network boot downloads and authenticates the matching live content
+  → CoreOS Installer --offline (local osmet after download) + destination Ignition
   → native installed OSTree deployment with the candidate's OCI update identity
 ```
 
@@ -74,7 +112,11 @@ This is a source-backed recommendation, not a runnable Soda command or native
 acceptance. It changes the earlier stock-ISO-remaster-only assumption: adding a
 Soda OCI tar to an unchanged Fedora live ISO does not change the stock disk image
 that `--offline` reconstructs. Media generation is an upstream packaging consumer
-of the already-built candidate, not a second compilation of Soda or the OS.
+of the already-built candidate, not a second compilation of Soda or the OS. The
+owner's minimal-network target changes distribution of that content, not its identity.
+The disk writer's `--offline` flag would describe use of already-downloaded osmet,
+not an offline installation session. Native minimal extraction/customization order
+and the rootfs authentication handoff still need verification.
 
 - [Assembler import](https://github.com/coreos/coreos-assembler/blob/fa114018875a04c3df39dca17ab57274764bf563/src/cmd-import)
   copies an `oci-archive:` input unchanged and records its manifest/archive identity.
@@ -99,7 +141,7 @@ of the already-built candidate, not a second compilation of Soda or the OS.
   a derivative. Direct `--image-file` instead requires a detached GPG signature using
   compiled-in keys in Installer 0.26.0; the existing P-256 Sigstore keys are not that
   keyring. Neither `--insecure`, a GPG wrapper nor a custom installer build is selected.
-- **Offline apps:** recommend embedding all five exact application archives in the
+- **Locally available apps after download:** recommend embedding all five exact application archives in the
   immutable host and importing into ordinary Podman storage through native commands
   and systemd ordering. This uses the signed host as their integrity boundary and
   avoids bootc-bound storage. The current importer embeds/loads only Project OS and
@@ -112,7 +154,8 @@ Before native execution, admit the exact Assembler container digest and its OSBu
 live-stage/tool inputs, not only the source commit; record resource/effect bounds for
 its supermin build VM and a separate fresh installation target. Prove reconstructed
 raw checksums, installed OCI digest/origin, untouched shipping content, native boot/
-Ignition/SELinux, media removal and offline image availability. Preserve original
+Ignition/SELinux, minimal-media size/download integrity, media removal and local
+image availability after installation. Preserve original
 Soda tool/readback guards while adapting them to upstream-generated media. No builder
 image was pulled, media generated or VM started in this source review.
 
@@ -223,9 +266,11 @@ are not prerequisites for this selected keyboard-only installation.
   Prove larger candidate/blob sizes against per-file ISO limits without breaking the
   primary names used by CoreOS Installer 0.26.0. Preserve imported boot-equipment
   replay, volume identity, native kargs/Ignition readback and bounded branding edits.
-- Full ISO is the selected path, not PXE/minimal/fromram. Existing removal of obsolete
-  absolute-offset miniso metadata is version-specific evidence, not a generic ISO
-  rewrite rule. Do not weaken readback to fit a new payload.
+- The [minimal network-install target](#selected-media--minimal-network-install)
+  supersedes the earlier full-ISO selection. The retiring remaster removes obsolete
+  absolute-offset miniso metadata; do not apply that operation to native minimal
+  extraction inputs. Prove upstream extraction/customization order and readback,
+  rather than treating the old full-ISO recipe as a minimal-ISO producer.
 - The final signed release record authenticates the resulting ISO hash via independent
   trust. An embedded hash or public key alone cannot authenticate malicious media to
   an outside consumer. Qualification reports are produced after testing, outside ISO.
@@ -239,8 +284,10 @@ command failure, incomplete setup, no unintended auto-install and no write repla
 Media readback checks content/permissions/boot identity and confirms no component
 compiler/image-builder was invoked.
 
-Actual product evidence includes the real ISO, confirmed installation, media removal,
-password-only local login, offline host/app startup, enforcing SELinux, private setup
+Actual product evidence includes measured minimal ISO size, authenticated network
+boot/downloads, missing network/content and interrupted-download failures, confirmed
+installation, media removal, password-only local login, host/app startup without
+further payload downloads, enforcing SELinux, private setup
 and applicable first-project journey; then the same candidate's supported update/
 recovery tests. Prove key enrollment and normal key login, timeout/reboot closure,
 restricted enrollment commands and unchanged ordinary SSH policy. Keyboard-only VM

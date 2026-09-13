@@ -16,7 +16,9 @@ compile Soda programs, invoke the old component builder or install stock CoreOS 
 a Soda bundle. B1's [source-backed packaging proposal](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
 uses native Assembler/OSBuild to generate candidate-derived live/osmet media from the
 already-built host, rather than merely appending its OCI archive to a stock ISO.
-That upstream packaging and its native effects have not yet been exercised here.
+The owner now selects [minimal network-install media](coreos-installer-plan.md#selected-media--minimal-network-install):
+small boot media with installation content downloaded, not a self-contained full ISO.
+That packaging, network bootstrap and actual size have not yet been proved here.
 
 **Reusable current evidence:** previous required-key media has bounded diskless
 BIOS/UEFI boot proof. Current source has password-only input, correction/Back/pre-write
@@ -103,9 +105,11 @@ regenerated for the relocated files. ISO level 1 preserves primary names such as
 Its per-file limit is 4 GiB minus one byte; the builder refuses larger individual
 payload files before remastering. A larger archive requires a separately verified
 packaging change that preserves the upstream primary-name contract.
-The obsolete `/coreos/miniso.dat` absolute-offset copy table is removed: this is
-**full-ISO delivery**, not a minimal-ISO/PXE export recipe. The normal live-ISO boot
-is selected; `coreos.liveiso.fromram`/eject-before-start is not supported here.
+The obsolete `/coreos/miniso.dat` absolute-offset copy table is removed by this
+**retiring full-ISO recipe**, which is not a minimal-ISO/PXE exporter. Its normal
+live-ISO boot does not support `coreos.liveiso.fromram`/eject-before-start. These are
+current-source limits, not the replacement's media selection; do not apply this
+miniso-metadata removal to inputs needed by native minimal extraction.
 
 Later Soda bootstrap still needs network access for RPM/repository dependencies;
 this is not a fully offline appliance. CoreOS disk writing uses the full ISO's
