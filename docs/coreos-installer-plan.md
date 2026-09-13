@@ -35,6 +35,83 @@ a timer or production migration before implementing the replacement.
   space. Private network media remains private. Final qualification stays outside
   the ISO so signing/publication does not rebuild tested bytes.
 
+### B1 selected native mechanism — source and CLI proof
+
+**Selected for the native feasibility test: `bootc install to-filesystem`, not the
+plain `to-disk` wrapper. Disk/boot proof is still pending.** Bootc v1.16.7 source is
+pinned at `bb8fb41e39cbb8c68b6e602307854a57b58f693a`; the retained `45ac843` host actually
+reports bootc 1.16.7, bootupd 0.2.35, Ignition 2.26.0, CoreOS Installer 0.26.0 and
+Podman 5.8.4. The [B1 receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline)
+records native read-only inspection and exact retained sources. Decisive upstream
+callers are the pinned [partitioning code](https://github.com/bootc-dev/bootc/blob/bb8fb41e39cbb8c68b6e602307854a57b58f693a/crates/lib/src/install/baseline.rs),
+[installation/import code](https://github.com/bootc-dev/bootc/blob/bb8fb41e39cbb8c68b6e602307854a57b58f693a/crates/lib/src/install.rs)
+and [stored-image copy](https://github.com/bootc-dev/bootc/blob/bb8fb41e39cbb8c68b6e602307854a57b58f693a/crates/lib/src/podstorage.rs).
+
+The simple bootc `direct` disk layout has no separate `/boot` partition. The actual
+FCOS image's `coreos-ignition-setup-user.sh` requires `/dev/disk/by-label/boot` and
+reads `ignition/config.ign` there; its generator also expects label `root` and its
+bootc configuration omits root/boot mount-spec kargs for CoreOS first-boot handling.
+Therefore do not assume the default `to-disk` layout preserves this installer contract,
+or enable LUKS just to obtain a boot partition. The upstream-supported external-
+filesystem interface avoids inventing a boot backend or installing stock CoreOS first.
+
+The B3 adapter will use native `sfdisk`, `mkfs` and mount operations for a fixed
+CoreOS-style layout, after the existing disk revalidation and exact erase confirmation:
+x86_64 BIOS boot area, EFI filesystem, separate XFS `boot`, and XFS `root` using the
+remaining disk. The feasibility fixture proposes 1 MiB BIOS, 512 MiB EFI and 1 GiB
+boot; these sizes are not yet a qualified physical-hardware support promise.
+Mount root at an owned empty target, boot below it and EFI at `boot/efi`. Upstream
+bootc/OSTree and bootupd own deployment, SELinux labeling, kernel and bootloader work;
+Soda does not implement them or introduce a partition editor. Native proof must
+confirm label/GUID/UUID discovery and boot behavior before this path is accepted.
+
+Installation handoff, only on the exact authorized target:
+
+1. Verify native artifact signatures and expected manifest/config/platform identities
+   **before** loading/running the privileged host image. Populate only this live
+   installation's rootful store with host and three bound images under their exact
+   repository/digest identities; verify the resulting lookup and content again.
+2. Run the exact verified host reference in a privileged, host-PID/IPC Podman container,
+   with no network, no pull, the required `/dev`, `/var/lib/containers`, `/var/tmp`,
+   `/run/udev` and prepared target mounts, using the image's `/usr/bin/bootc`. Retain
+   its CID/diagnostics; no `--rm`, root replacement or cleanup shortcut.
+3. Invoke `install to-filesystem` with `--bound-images=stored`, the exact registry
+   `--target-imgref`, `--enforce-container-sigpolicy` and `--skip-finalize` for the
+   machine-configuration handoff. Supply the metal Ignition platform and literal
+   `$ignition_firstboot` BLS kernel-argument placeholder through fixed argv, not shell
+   interpolation; the retained GRUB snippet supplies that variable from its marker.
+   Native proof must verify first and subsequent boot arguments. Use `--generic-image`
+   for the initial VM proof to avoid firmware mutation. No `--replace`,
+   `to-existing-root`, composefs experiment, `--disable-selinux`, arbitrary destination
+   or registry credential in generic media.
+4. Write only the bounded private destination Ignition into the new boot filesystem's
+   `ignition/config.ign`, and the standard `ignition.firstboot` marker consumed by
+   the image's GRUB snippet. Reuse native CoreOS first-boot network handoff for selected
+   private keyfiles; verify its exact paths/modes in the fixture. Destination Ignition
+   supplies machine configuration/operator access, not `soda-extensions.service` or
+   another software bundle. It must not overwrite the vendor software/unit graph.
+5. Run native `bootc install finalize`, persist and unmount the exact target in checked
+   order before reporting completion/media removal. A failed write/finalization remains
+   partial, not a retry. Verify first boot consumes Ignition once, preserves enforcing
+   SELinux and can resolve all required images with media removed and no registry.
+
+**Offline does not mean unverified.** In this version, the source import is already-
+loaded content and explicitly bypasses another signature check; stored bound-image
+copy even removes signatures on its target-store push. `--enforce-container-sigpolicy`
+controls the installed target reference, not authentication of that cached input.
+The trusted-media/preverified-input and controlled-store boundary above is therefore
+mandatory. Missing/tampered/cached substitution tests remain required. Actual source
+runs the remote fetch check only when `--run-fetch-check` is selected, despite prose
+that says it is automatic; neither a fake registry nor an insecure flag is needed.
+
+Use native signed `dir:` transport snapshots for on-media host and three bound apps;
+this retains signatures and avoids an ever-growing single OCI tar file. Project OS
+and Tailnet archives are already embedded in the signed host and import into ordinary
+retained Podman storage; do not duplicate them as another on-media image set. Preserve
+all six external release artifacts for qualification/publication. The existing archives
+fit the current ISO per-file limit (largest 1,864,480,768 bytes); the future directory
+layout still needs size guards for individual blobs and complete readback verification.
+
 ### Implementation responsibilities
 
 | Owner | Required change in the replacement |

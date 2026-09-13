@@ -15,6 +15,71 @@ not claims that those outputs are still retained.
 
 ---
 
+## B1 native installation contract and removal baseline
+
+The owner selected B1 of the single-run replacement. The canonical tree was clean
+at `e4f485a72d3e643cf1c6ffe4d046168179632dc7`. This pass audited callers and pinned
+upstream source, ran two rootless read-only/networkless image inspections and focused
+source tests, and recorded the concrete native fixture request. **No disk install,
+bootc stored-image transfer, VM boot or full replacement acceptance was performed.**
+
+Evidence: `.artifacts/single-run-b1/e4f485a-KUmwaG/`. `sources.json` records 18 bootc
+source/doc/test files from v1.16.7 commit
+`bb8fb41e39cbb8c68b6e602307854a57b58f693a`, their URLs and SHA-256 values. Existing
+research and original candidate bytes were read without modification.
+
+Findings now owned by the [installer contract](coreos-installer-plan.md#b1-selected-native-mechanism--source-and-cli-proof):
+
+- Bootc's supported `to-filesystem` path installs its verified running image and
+  copies preloaded logical apps with `--bound-images=stored`. The simple `to-disk`
+  direct layout has no separate boot partition, while the actual FCOS first-boot
+  scripts require labels `boot`/`root` and read `boot/ignition/config.ign`.
+- The actual image config enforces target signature policy, selects stateroot
+  `fedora-coreos`, omits root/boot mount-spec kargs and tells bootupd not to stamp
+  changing boot UUIDs. Its GRUB snippet implements the `ignition.firstboot` marker.
+- Source import explicitly trusts already-loaded image bytes; stored logical-image
+  copying strips signatures. Thus authenticated media, native preverification and
+  controlled source storage are required, not an assumed second signature check.
+  The actual source runs the remote fetch check only with `--run-fetch-check`.
+- Native runtime versions: bootc 1.16.7, bootupd 0.2.35, OSTree 2026.3, rpm-ostree
+  2026.2, Ignition 2.26.0, CoreOS Installer 0.26.0 and Podman 5.8.4. Host tools:
+  Podman 5.8.2, skopeo 1.22.2, xorriso 1.5.6 and QEMU-KVM 10.1.0.
+
+`native-inspect.log` contains successful version/help/config output, followed by an
+exit-1 `find` of nonexistent `/usr/lib/ignition`; those earlier observations remain
+valid, but the whole command was not labelled PASS. `native-config.log` is a separate
+successful read-only help/tool/config-path inspection. A guessed old GRUB config
+copy failed and remains in `grub-copy.log`; the actual bootupd public config directory
+was then copied successfully. No privileged container, host device/storage mount,
+cleanup, signing key or registry operation was used. Both stopped inspection CIDs
+and their outputs remain retained.
+
+`loc-baseline.tsv`/JSON count fixed selected responsibilities at `830ca94` and
+`e4f485a`: build assembly/orchestration **2,508 → 2,879 (+371)**; selected total
+production **11,337 → 11,708**. Asset leaves, image recipes/workspace manifest,
+verifiers/payload, installer/layout, protected delivery and native acceptance are
+shown separately. Selected colocated tests are 4,731 → 5,154; separate build fixtures 3,675 → 3,731; seven owning guides 3,889 → 2,958.
+The [release owner](release-engineering-plan.md#b1-removal-and-size-baseline) records
+removal boundaries and requires future renamed/new equivalents to remain in scope.
+These are physical line counts, not a runtime benchmark or a claim of simplification.
+
+All six original archives total 2,550,077,952 bytes; host plus the three bound apps
+are 2,073,164,800 bytes. Largest archive is the host at 1,864,480,768 bytes; its largest
+compressed layer is 515,343,465 bytes. Native image size is 3,191,098,652 bytes.
+Project OS/Tailnet archives already reside inside the signed-host content. These are
+input/storage measurements, not the size of a new ISO or a bootability result.
+
+**Checks run:** `GOTOOLCHAIN=go1.26.7 go test ./internal/installer ./internal/nativebuild
+./internal/appliancerelease` passed; `source-tests.log` retains results. These preserve
+existing disk/secret/payload/OCI/metadata contracts, not native engine proof. Source/
+CLI assertions, documentation links and diff checks are scoped to this B1 record.
+
+The [current handoff](implementation-status.md#requested-native-feasibility-scope--not-yet-approved)
+requests one active 4-vCPU/16-GiB x86_64 UEFI fixture, no NIC, with up to three fresh
+64-GiB install attempts, preserving each one, and bounded first/subsequent boot under
+one four-hour ceiling. It is not yet approved.
+No retained target, real credential, global policy, public package or timer changed.
+
 ## Forgejo design delta delivery to fresh VM
 
 The owner approved deploying the pending Forgejo/design updates to the existing

@@ -13,7 +13,9 @@ not this implementation queue.
 
 ## Current position
 
-**Planned; replacement implementation has not started. All six milestones are open.**
+**B1 in progress: source/caller review, native CLI/config inspection, handoffs and
+removal baseline are recorded. Disk/boot feasibility remains unrun pending the exact
+fixture grant below. All six milestones remain open; B2–B6 have not started.**
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -27,10 +29,12 @@ candidate complete and delivery next no longer describe the active execution ord
 
 ### 1. Verify the native installation contract — B1
 
-**Not started — next work.** Verify the selected bootc/media/offline-content mechanism
-against exact upstream versions and Soda callers. Fix artifact/evidence/privilege
-handoffs, native fixture requests and the removal/production-LOC baseline before
-adding an adapter. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
+**Source/inspection portion complete; native disk proof pending.** Bootc 1.16.7's
+`to-filesystem` plus preloaded bound images is selected for testing: its simple
+`to-disk` direct layout lacks the separate boot filesystem required by this FCOS
+Ignition path. Native CLI/config and existing installer/verification tests passed;
+no actual bootc installation or stored-image copy has run. Artifact/schema/security
+handoffs and the 2,508 → 2,879 production-orchestration baseline are recorded. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
 
 ### 2. Implement one Go build controller — B2
 
@@ -71,9 +75,11 @@ milestone. [Implementation and exit](release-engineering-plan.md#milestone-6--re
 
 ## Immediate prerequisites and next action
 
-Start B1's exact native mechanism/caller and deletion-baseline review. Compare
-production orchestration against `830ca94` and current source, separately from tests/docs.
-The old writable installer stays usable until its replacement passes native proof.
+Finish B1 with the bounded native proof below. The [selected install contract](coreos-installer-plan.md#b1-selected-native-mechanism--source-and-cli-proof)
+and [handoff/removal baseline](release-engineering-plan.md#b1-artifact-and-authority-handoffs)
+are now recorded from `e4f485a` and pinned upstream source. Bootc cached-source import
+is not itself signature verification; preverification and protected store ownership
+remain mandatory. The old writable installer stays usable until native cutover.
 
 - Actual disk/VM installation, reboot and recovery need an exact native fixture,
   baseline, resource budget and lifecycle grant. Existing fixtures are not implicit
@@ -85,7 +91,40 @@ The old writable installer stays usable until its replacement passes native proo
   automatic stable promotion, native aarch64 or retained-appliance migration to begin
   or complete the independently scoped replacement work.
 
+### Requested native feasibility scope — not yet approved
+
+- One active x86_64 fixture at a time, with up to three fresh attempts named
+  `soda-b1-install-e4f485a-{1,2,3}`, rooted exclusively at
+  `.artifacts/single-run-b1/e4f485a-KUmwaG/native-vm/attempt-{1,2,3}/` (parent absent).
+- Four vCPUs and 16 GiB RAM maximum active; one new 64 GiB disk and private copied
+  UEFI variables per attempt (192 GiB maximum logical disk allocation in total);
+  `/usr/libexec/qemu-kvm` 10.1.0 and the matching `/usr/share/edk2/ovmf/OVMF_CODE.fd` /
+  `OVMF_VARS.fd` inputs, with hashes recorded before launch. This is not Secure Boot
+  or physical hardware acceptance.
+- Verified selected FCOS live media and a separate read-only candidate-content medium;
+  isolated fixture trust/password files, no production keys/auth. No virtual NIC,
+  inbound tunnel, bridge/firewall change or real provider operation.
+- Boot live media, perform one confirmed install onto that new disk using the selected
+  native filesystem path, remove media, boot the installed candidate and reboot once
+  to check one-time Ignition/state behavior. Inspect host identity, enforcing SELinux,
+  bound-image availability and embedded retained-image import offline. This is engine
+  feasibility, not the full B3/B4 user journey or supported upgrade matrix.
+- Shut down within four hours total; retain every disk/NVRAM/input/log afterward.
+  A failed install stops with its partial disk intact. A corrected attempt may use
+  only the next fresh named directory/disk above, never wipe/recreate/replay the old
+  one. No cleanup, host installation or contact with retained appliances. Any missing prerequisite needing
+  installation on the builder requires its own applicable grant.
+
+Observed builder capacity supports this proposed scope: native x86_64, 16 logical
+CPUs, 62 GiB RAM (44 GiB available), 518 GiB home and 40 GiB root free; KVM is readable/
+writable. These are observations, not reserved resources or permission to start.
+
 ## Reusable foundations — not completed replacement milestones
+
+- B1 evidence: `.artifacts/single-run-b1/e4f485a-KUmwaG/` contains commit-pinned bootc
+  source, native public configuration/help, both retained rootless inspection CIDs,
+  original failed lookups, artifact sizes, exact LOC inventories and passing focused
+  Go tests. [Receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline).
 
 - `45ac843`: complete local native x86_64 host/app candidate, 391 immutable Forgejo
   files, locked 625-RPM inventory and bootc lint 13 passed/one skipped/no warnings.
@@ -140,8 +179,9 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 - **Source/local work:** routine implementation, builds and tests for selected work
   remain authorized within their existing scope. The shared-build/timing extraction
-  was explicitly approved; the latest replacement work produced the requested plan
-  only. Refocusing this status does not claim implementation or commission effects.
+  was explicitly approved; the owner has now selected B1. Its source/upstream audit,
+  local tests and bounded rootless read-only image inspections are recorded. This
+  does not add a VM/disk, protected worker, publication or commissioning grant.
 - **Bounded real delivery:** the owner confirmed `LevitateOS`, selected current
   GitHub identity `veighnsche` and approved protected signing setup plus public
   `ghcr.io/levitateos/sodaos-*` namespace/signature commissioning and the **candidate
@@ -159,7 +199,9 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-The implementation docs now make B1–B6 the active six replacement milestones and
-place service commissioning/readiness/launch after B6. Existing evidence remains
-reusable, not a misleading completion marker. This is documentation only; no source
-implementation, build, signing, publication or native lifecycle action was performed.
+B1 now records the concrete source-backed filesystem-install path, the offline cached-
+image trust boundary, minimal metadata handoffs, measured removal baseline and exact
+native fixture request. Native CLI/config inspection and focused existing source tests
+ran; no new release image/ISO, disk installation, VM, protected-key operation, registry
+write or retained-appliance change occurred. Rootless inspection containers and all
+attempts/evidence remain retained; B1 is not marked complete.

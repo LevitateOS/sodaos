@@ -46,7 +46,11 @@ Local-only or synthetic evidence never authorizes a production channel.
 
 ### Milestone 1 — verify the native installation contract
 
-**B1; not started.** Resolve the mechanism before moving orchestration.
+**B1 in progress: source/caller audit, native CLI/config inspection and baseline
+recorded; disk/boot feasibility awaits an exact native fixture grant.** The selected
+path and offline/security constraints are in the [installer contract](coreos-installer-plan.md#b1-selected-native-mechanism--source-and-cli-proof).
+The [receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline)
+distinguishes passed source/inspection checks from still-unrun installation.
 
 1. Audit the actual native/ISO and host-image call graphs, outputs, trust domains and
    effects. Record production build/timing/orchestration LOC against `830ca94` (before
@@ -75,6 +79,85 @@ transport/native feasibility evidence for the selected mechanism; explicit fixtu
 requests and file-removal/LOC baseline. If upstream cannot satisfy the desired path,
 stop for that specific product decision—do not silently restore the writable-bundle
 lane. No unrelated architecture or provider gate is added to x86_64 work.
+
+#### B1 artifact and authority handoffs
+
+The current caller graph is:
+
+```text
+build-iso.sh → build-installer.py --build-native → build-native.sh
+  → soda-host-image --legacy-native → Production → native metadata/seal → ISO
+
+soda-host-image --complete → frozen archive → Production + hostimage
+  → writable-shaped stage.py output → vendor translation → candidate
+
+soda-release → separately reviewed trust/prepare/sign/publish/fetch operations
+```
+
+Keep one future source-to-release graph; separate security identities are not separate
+build recipes. Preserve existing content/verification owners rather than copying them.
+
+| Boundary | B1 decision for implementation |
+| --- | --- |
+| Frozen inputs → producer | Approved commit/base/tool/package and explicit component selections; public-only source snapshot. No privileged signer credentials or implicit selected VM. |
+| Producer → protected admission | Existing exact payload/candidate bytes plus OCI identities and hashed provenance. Treat outputs as untrusted until independently checked and copied into protected fresh snapshots. Never execute candidate-supplied tests as authority. |
+| Component provenance | Keep the first replacement's payload/candidate v1 identity contract where sufficient. Extend versioned `app-inputs.json` to record actual producing revision or upstream reference for each selection; do not add a second independently maintained image inventory or relabel reused images. Strict reader/caller changes precede reuse. |
+| Candidate → media | Existing candidate/payload bindings plus native signed directory snapshots of host and three bound apps. Embedded Project OS/Tailnet archives travel inside the signed host. Replace `mediaIdentity.BundleSHA256` with a versioned candidate-byte binding; the media record is not self-issued signing authority. |
+| Media → live installer | Independently trusted media/tool bytes and verified artifact signatures before privileged image execution. The exact rootful store belongs to this installation; rootless/default builder storage is not a supported bootc install source. Native lookup/digest/cache tests remain required. |
+| Live installer → installed state | Upstream filesystem installation and native bound-image copying; machine-only Ignition and first-boot import of embedded retained images. No writable bundle or client RPM transaction. |
+| Qualification → final release | Extend `releasedelivery.Release` with a strict v2 media record (ISO name/hash/size and planned public URL when applicable) and exact proved starting-release references. Keep embedded `UpgradeFrom` empty rather than changing the host after tests. Retained v1 verification stays supported at its existing scope, not silently promoted to a v2 media/native claim. |
+| Protected finalization → optional publisher | Exact-digest permit, final signed document and evidence; existing ledgers/observation semantics. No arbitrary commands, fixture credentials or authority from build-reported success. |
+
+Controller, builder, native qualification and signer are distinct authorities. A
+reviewed controller dispatches fixed operations; the builder can write only its work
+outputs. Qualification uses an admitted driver/baseline in an isolated target. The
+signer snapshots/checks exact bytes with protected keys, independent of untrusted
+build code. Fixture trust cannot enter real channels; root-only files do not isolate
+jobs running as the sudo-capable administrator. Installing those identities/workers
+is an explicit host action, not performed by this audit.
+
+#### B1 removal and size baseline
+
+Measured physical source lines (including comments/blanks) at `830ca94` and
+`e4f485a`; production, tests and guides are separate. The receipt retains the exact
+path inventory in `loc-baseline.tsv`/JSON, not a guessed count or production benchmark.
+
+| Selected responsibility | Before extraction | Current baseline | Production delta |
+| --- | ---: | ---: | ---: |
+| Build assembly/orchestration, including full media/staging/metadata helpers | 2,508 | 2,879 | +371 |
+| Asset/bootstrap leaves | 335 | 335 | 0 |
+| Image recipes and full workspace manifest | 160 | 160 | 0 |
+| Artifact verification, including payload/import owner | 1,556 | 1,556 | 0 |
+| Installer runtime and layout owner | 3,483 | 3,483 | 0 |
+| Protected delivery | 1,526 | 1,526 | 0 |
+| Native acceptance | 1,769 | 1,769 | 0 |
+| Selected production total | 11,337 | 11,708 | +371 |
+
+Selected colocated tests: 4,731 → 5,154; `tests/build` fixtures: 3,675 → 3,731;
+seven owning guides: 3,889 → 2,958. Documentation shrinkage is not production
+simplification. These are explicit selected areas, not total repository LOC.
+
+- **Remove producer ownership:** `build-native.sh`, `build-iso.sh`, `--legacy-native`,
+  partial host modes and old `tools/soda-host-image` entrypoint; replace with the one
+  controller rather than retain success wrappers around them.
+- **Remove overlapping supervision:** `build_progress.py`, `build-progress.sh` and
+  `internal/nativebuild/progress.go`'s Python bridge. Port necessary process/timing
+  checks to the native Go owner, not another helper clock.
+- **Collapse assembly:** the dual-layout `Production` contract, writable staging and
+  subsequent `StagePresentation`/`Complete` translation; retain canonical manifests,
+  actual recipes/assets and checks. Retire legacy metadata/sealing only as production;
+  keep supported historical-artifact readers and maintenance consumers.
+- **Convert media to a leaf:** remove its compiler/native invocation and coordinator,
+  but preserve ISO trust/readback/boot verification. Replace runtime bundle copying/
+  extension continuation, preserving disk identity, secret, partial-write and setup
+  guards. Report new functional installer code separately rather than hiding it.
+- **Retain and connect:** ELF/OCI/bundle readers, native acceptance and protected
+  delivery mechanisms. Rewire their callers; deleting verification is not savings.
+
+At B6, classify every new/moved equivalent by responsibility, regardless of path or
+language; compare both the pre-extraction and current baselines and show combined
+production impact. No budget pass can come from moving orchestration into a verifier,
+media leaf, test driver or another renamed package.
 
 ### Milestone 2 — implement one Go build controller
 
@@ -537,7 +620,10 @@ this does not defer the replacement ISO's offline installation/first-boot conten
 
 ## Workstream status and next action
 
-**Next: B1, then B2–B6. None is complete.** The old local candidate at `45ac843`,
+**Next: finish B1's exact native filesystem-install/first-boot proof, then B2–B6.**
+B1's caller/source/native CLI review, handoffs and deletion baseline are recorded;
+no disk installation or bootc stored-image copy has run. None of the replacement
+milestones is complete. The old local candidate at `45ac843`,
 native trusted-delivery source and protected bootstrap, and `d054a60`/`fde23d0`
 transitional tests remain evidence to reuse. They do not mark milestones of the
 replacement complete. The [status](implementation-status.md) records exact artifacts,
