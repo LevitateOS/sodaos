@@ -100,7 +100,10 @@ application-image production steps; `build-native.sh` is the legacy writable-lay
 admission/sealing adapter, not another copy of those recipes. This section owns
 progress/timing for both callers. Containerfiles, locks, staging and
 [ISO generation](coreos-installer.md) still own their content contracts.
-Full native build/installation evidence is separate from these source checks.
+Actual native x86_64 host-context preparation at `d054a60` also passed through the
+new shared compiler/timing bridge; see the [receipt](implementation-history.md#shared-build-production-and-timing-consolidation).
+It did not build application/host images or an ISO. Full native build/installation
+evidence remains separate.
 
 ### Run the timed build
 

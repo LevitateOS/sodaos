@@ -108,7 +108,17 @@ admission. Go timing tests cover shared parent totals, failed exit codes, cancel
 occupied log preservation and pinned compiler selection. These are source/process/
 packaging fixtures, not native image/ISO rebuild or installed acceptance.
 
-Logs remain under `.artifacts/build-consolidation/source-checks/`. No GHCR upload,
+**Actual native preparation:** after committing `d054a60`, the canonical CLI ran
+successfully from its clean committed archive on native x86_64:
+`.artifacts/build-consolidation/prepared-d054a60/`. It prepared the host context,
+compiled/ELF-checked all eight vendor programs once and wrote the inventory plus
+section/total timing log. The measured tool total was **3 seconds with the existing
+Go cache**; this is only host-context preparation, **not** an entire SodaOS/image/ISO
+build benchmark. No `--build` or `--complete` was selected, so no Podman operation,
+app-image build, RPM transaction or registry access followed. The actual supervised
+CLI also refused mixed legacy/release flags with a failed preflight timing and exit 1.
+
+Source logs remain under `.artifacts/build-consolidation/source-checks/`. No GHCR upload,
 key/credential change, service/timer activation, VM operation or appliance mutation
 was performed. Existing images, failed attempts, protected release state and the
 legacy installer remain retained. The owning release plan keeps the retirement gate:

@@ -89,8 +89,10 @@ and [release owner](release-engineering-plan.md#milestone-4--automated-release-b
 record the current commands, output distinction and legacy retirement boundary.
 Go/race/vet and the focused production, CLI, timing, ISO and staging fixtures pass;
 [history](implementation-history.md#shared-build-production-and-timing-consolidation)
-records scope. This is not an image-based installer cutover, unattended pipeline,
-complete rebuilt image/ISO or boot/install acceptance. No registry/key/fixture/service
+records scope. Clean committed `d054a60` also passed actual native x86_64 host-context
+preparation: eight vendor programs compiled/ELF-checked once, with working section/
+total timings. That is not a complete image build. This is not an image-based
+installer cutover, unattended pipeline, rebuilt ISO or boot/install acceptance. No registry/key/fixture/service
 or installed-appliance state was changed by the source consolidation.
 
 ## Maintenance-commitment audit
