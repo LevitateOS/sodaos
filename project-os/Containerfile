@@ -28,7 +28,7 @@ RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; e
     curl -fLSsO "https://github.com/jdx/mise/releases/download/v${MISE_VERSION}/SHASUMS256.txt" && \
     awk -v file="$file" '$2 == file || $2 == "./" file { print }' SHASUMS256.txt | sha256sum -c - && \
     tar -xzf "$file" && install -m 0755 mise/bin/mise /usr/local/bin/mise && rm -rf /tmp/mise /tmp/mise-* /tmp/SHASUMS256.txt
-# Supplied by the matching-native Tea source build, never a Fedora RPM in Rocky.
+# Official upstream Linux binary, checksum-verified by scripts/fetch-tea.py.
 COPY ${ARTIFACT_DIR}/project-tools/bin/tea /usr/local/bin/tea
 COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/licenses/tea/LICENSE
 COPY project-os/rootfs/ /

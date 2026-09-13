@@ -33,7 +33,7 @@ def collect(root, arch, revision):
     inputs.mkdir()
     for source, name in (
         ('go.mod', 'go.mod'), ('go.sum', 'go.sum'),
-        ('project-os/locks/tea-source.toml', 'tea-source.toml'),
+        ('project-os/locks/tea-binary.toml', 'tea-binary.toml'),
         ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
         ('appliance/locks/tailscale-image.json', 'tailscale-image.json'),
         ('package.json', 'package.json'),

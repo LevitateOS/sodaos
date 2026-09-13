@@ -54,7 +54,7 @@ go mod verify
 # Soda is Go/Lit. Stock Cockpit packages and branding need no custom frontend build.
 bun install --frozen-lockfile
 bun scripts/build-forgejo.ts --out "$out/forgejo-js"
-python3 scripts/build-project-tools.py --arch "$arch"
+python3 scripts/fetch-tea.py --arch "$arch"
 case "$arch" in x86_64) oci_arch=amd64;; aarch64) oci_arch=arm64;; esac
 # Resolve the unchanged core-owned base and service references for this platform.
 base_ref=$(awk -F= '$1=="ARG BASE_IMAGE" {print $2}' project-os/Containerfile)

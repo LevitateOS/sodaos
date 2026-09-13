@@ -121,7 +121,7 @@ class AvatarPackaging(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             # Actual public inputs; only the build observations below are synthetic.
-            for source in ('go.mod', 'go.sum', 'project-os/locks/tea-source.toml',
+            for source in ('go.mod', 'go.sum', 'project-os/locks/tea-binary.toml',
                            'appliance/locks/coreos-qemu.json', 'appliance/locks/tailscale-image.json',
                            'package.json', 'tools/lit-check/package.json', 'bun.lock', 'bunfig.toml', 'scripts/install-native.sh',
                            'docs/native-support-notices.md', 'project-os/licenses/tea-LICENSE',

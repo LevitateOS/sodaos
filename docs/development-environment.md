@@ -99,7 +99,7 @@ Repository permissions remain with that host. Joining the Soda environment does 
 
 ## Native provider CLIs
 
-The project image recipe includes Tea and GitHub CLI, with native personal authentication rather than shared credentials. See [project CLIs](project-clis.md) for source inputs, build requirements and later login guidance. Their versions/availability were checked in the native x86_64 projects; that does not imply authenticated Tea/GitHub CLI sessions. Personal native Git SSH was exercised separately.
+The project image recipe includes Tea and GitHub CLI, with native personal authentication rather than shared credentials. See [project CLIs](project-clis.md) for upstream binary packaging and later login guidance. Their versions/availability were checked in the native x86_64 projects; that does not imply authenticated Tea/GitHub CLI sessions. Personal native Git SSH was exercised separately.
 
 ## Shared installed tools
 

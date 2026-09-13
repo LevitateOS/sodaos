@@ -1,0 +1,12 @@
+version = "0.16.0"
+license_url = "https://gitea.com/gitea/tea/raw/tag/v0.16.0/LICENSE"
+license_sha256 = "a804f8028d201e1e36e44372674025f74c71f67a28c58f09991c1069726f1fd2"
+
+# Upstream checksums: https://dl.gitea.com/tea/0.16.0/checksums.txt
+[linux.x86_64]
+url = "https://dl.gitea.com/tea/0.16.0/tea-0.16.0-linux-amd64"
+sha256 = "9c142c8a0b31485eea2387031c1c404f12b7141075eb4ffbd7ced49441590636"
+
+[linux.aarch64]
+url = "https://dl.gitea.com/tea/0.16.0/tea-0.16.0-linux-arm64"
+sha256 = "0e14a036322eeb1fc55e266acafeb8490e523ed99f9232034ae74861e2339879"

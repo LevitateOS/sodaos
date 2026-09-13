@@ -75,6 +75,23 @@ the [architecture record](architecture.md#username-blocking-proposal-and-underst
 owns that correction. No custom build was authorized, and the stock-executable
 boundary remains. No admission code or installed configuration has changed.
 
+## Maintenance-commitment audit
+
+The owner requested a repository-wide audit of disproportionate maintenance
+commitments after the understated Forgejo-build proposal. The
+[current audit](upstream-ownership-audit.md#maintenance-commitment-audit--13-september-2026)
+reviews `e9cec3b`, including the initial working-tree edits committed during the
+review, across all 18 internal
+packages and build/frontend/native callers. It records confirmed smaller
+alternatives, conditional feature tradeoffs, justified boundaries and inspection
+limits. [Follow-up order](refactoring-plan.md#maintenance-commitment-audit-follow-up)
+is recommended, not newly selected implementation work. This pass changed audit
+and status documentation only; no product fix, upstream build, fixture mutation,
+service operation or deployment is claimed.
+
+
+The owner subsequently authorized MC2: Tea source compilation is removed from both build paths and replaced with upstream Tea 0.16.0 Linux binaries. The [CLI packaging status](project-clis.md#source-and-packaging) records the implementation and checks. This is a source/build-input change; no retained project or VM was updated.
+
 ## Persistent workspace planning
 
 The owner clarified that ordinary Forgejo navigation must preserve the live terminal

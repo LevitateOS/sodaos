@@ -1,5 +1,225 @@
 # Upstream ownership audit
 
+## Maintenance-commitment audit — 13 September 2026
+
+**Current review:** `e9cec3b`. Review began at `4b56271` plus the existing
+working-tree edits; those edits were committed as `e9cec3b` during the review. The
+commit delta was checked: it contains the already-reviewed Spaces error feedback
+and documentation, not a change to the audited build/runtime mechanisms.
+This is a repository-wide architecture and caller audit, not a
+claim that every line or runtime path was tested. No implementation, deployment,
+provider operation, fixture cleanup or upstream source build was performed.
+
+The trigger was the assistant's proposal to build modified Forgejo for username
+blocking, described as a “narrowly scoped source change.” The
+[architecture record](architecture.md#username-blocking-proposal-and-understated-build-ownership)
+records that failure. This review asks where the same imbalance already exists:
+a small outcome causes Soda to own upstream build behavior, file formats, native UI,
+release coordination or a second source of truth indefinitely.
+
+**The pattern is present, but it is not equally present everywhere.** The strongest
+examples are copied native templates for CSS classes, compiling an unmodified
+optional CLI, boot-file byte editing for installer branding, a second version/fetch contract
+for the native locale behind eleven labels, and duplicated application build orchestration. Some costly
+features were explicitly selected; their cost must be exposed, not retroactively
+called unauthorized. Tests, manifests and earlier assistant-written guides establish
+what depends on a mechanism, not independent proof that the mechanism earns its cost.
+
+The [refactoring plan](refactoring-plan.md#maintenance-commitment-audit-follow-up)
+remains the sole implementation-decision owner. Findings below are recommendations,
+not accepted deletions or permission to change retained state.
+
+### Largest commitments and clearest reductions
+
+| ID | Current commitment | Smaller direction | Consequence / confidence |
+| --- | --- | --- | --- |
+| MC1 | 244 native Forgejo templates are shadowed by local copies; some copies exist only to add styling classes. | Retire proven class-only overrides and style stable native selectors through existing hooks. | Concrete equivalent-style examples verified; not all redesign overrides can be removed without changing the design. |
+| MC2 | Resolved in source: both paths fetch upstream Tea binaries. | Official Linux amd64/arm64 Tea 0.16.0 binaries replace source compilation. | Source fetcher, compiler wrapper and source lock removed; native image execution remains unverified for this replacement. |
+| MC3 | Installer branding edits boot configuration bytes and preserves upstream embedding offsets. | Keep native boot-menu branding and brand the actual Soda wizard. | Gives up a cosmetic boot-menu label; does not by itself eliminate full-payload remastering. |
+| MC4 | Writable installer and immutable host-image candidate separately orchestrate the same five application roles. | Share genuinely common producers and packaging inputs, then retire the superseded delivery path when a replacement is qualified. | Paths currently produce different layouts/images. Neither wholesale archive reuse nor an immediate bootc cutover is proven. |
+| MC5 | Eleven Soda labels trigger a full native locale copy with its own separate version/URL lock. | Keep the required merge, but derive the native catalog from the already selected pinned Forgejo image. | Removes the second native-version authority; hard-coded English would change the selected translation contract. |
+| MC6 | Join forces Forgejo usernames into Linux's namespace even though membership already stores a separate login. | Investigate an internal stable-ID-derived login for new memberships, using the existing mapping. | Fix belongs in Soda; displayed SSH/shell login changes and native checks are needed. The proposed Forgejo fork never shipped. |
+
+#### MC1 — presentation changes create upstream template ownership
+
+The inventory has **254 local templates: 244 shadow upstream files and 10 are
+local additions**. The shadowed native surface corresponds to 16,598 upstream lines.
+All 244 differ, but 47 have at most five changed lines; nine have at most two changed lines after excluding provenance comments; some
+add a marker rather than replacing a class. These numbers locate the review
+surface; they do not prove all copies are unnecessary.
+
+A decisive example is [repo/view_list.tmpl](../appliance/forgejo/templates/repo/view_list.tmpl):
+its only behavior-relevant difference is adding `soda-code-files` to the table.
+The native table already has `id="repo-files-table"`.
+[repository-code.css](../assets/branding/forgejo/repository-code.css), lines 104–119,
+can target that native ID instead. The existing custom header hook already loads
+Soda CSS. Copying the file makes Soda responsible for following native loading,
+link, permission and markup changes merely to attach a class. The native
+`.switch.issue-list-navbar` selector offers another concrete class-only candidate.
+
+**Recommendation:** start with exact before/after comparisons of the small leaf
+overrides. Keep the requested style, handlers and form behavior. Validate native
+rendering, HTMX updates, relevant permissions, both themes and responsive screenshots
+before removing each override. Do not delete all 244 copies or replace the redesign
+with stock appearance under the guise of equivalent cleanup. Broader reductions
+require explicit design tradeoffs.
+
+#### MC2 — a developer CLI creates a second upstream compilation obligation
+
+At the audited revision, both build paths downloaded Tea source, invoked its Makefile with controlled Go flags, staged the binary and normalized its version output. [The CLI guide](project-clis.md#source-and-packaging) records actual maintenance failures involving exported `GOFLAGS` and ANSI version output. There was no Soda patch to Tea; the source build was inherited rather than required by the product.
+
+**Remediation authorized and implemented on 13 September 2026:** both callers now use [fetch-tea.py](../scripts/fetch-tea.py) with official Linux amd64/arm64 release binaries. The source fetcher, Make/Go wrapper, source lock and obsolete tests were removed. Tea 0.16.0 replaces 0.15.1 in accordance with the owner's latest-version preference. The [binary manifest](../project-os/locks/tea-binary.toml) records upstream URLs/checksums; the unchanged license remains staged. No new signing service or build framework was added. See the [CLI guide](project-clis.md#source-and-packaging) for packaging and validation status.
+
+#### MC3 — cosmetic boot labels acquire boot-format compatibility work
+
+[build-installer.py](../scripts/build-installer.py), lines 322–369, replaces exact
+Fedora CoreOS menu text and GRUB classes with equal-length Soda strings so native
+embedding offsets remain intact. The surrounding remaster path separately handles ISO extents,
+BIOS boot-info and upstream file-layout expectations for the selected on-media payload. Every upstream layout or label
+change can invalidate the branding operation even when the native installer works.
+
+**Recommendation:** retain native boot-menu entries and brand Soda's own console
+instead if this cosmetic difference does not earn the maintenance burden. The
+keyboard/disk/password wizard remains. This removes the branding branch, not all
+ISO verification. The same-media console and verified bundle are explicitly selected in the
+[installer plan](coreos-installer-plan.md); their payload-copy/continuation and
+remastering work is not an unrequested feature. Installation still needs RPM
+network access ([installer guide](coreos-installer.md#the-console-ships-on-the-iso)).
+An online verified release payload would change that explicit same-media
+requirement and its availability/trust properties. It is not selected or recommended
+as an equivalent refactor. Do not introduce a download service or new release trust
+system merely to simplify a branding feature. Fresh BIOS/UEFI media proof is needed
+for any boot-path change.
+
+#### MC4 — transitional build paths are becoming duplicated release ownership
+
+[build-native.sh](../scripts/build-native.sh), lines 45–112, builds commands/assets,
+Tea and image archives for the writable bundle. [complete.go](../tools/soda-host-image/complete.go),
+lines 44–73 and 145–289, independently prepares content and builds/exports the host
+candidate's corresponding application roles. [installlayout](../internal/installlayout)
+also carries `/usr/local` versus vendor `/usr` path variants.
+
+The new Forgejo image embeds presentation; the old path uses stock Forgejo plus a
+separate staged tree. The same role names do **not** imply interchangeable archives.
+The bootable candidate is not yet an installable, upgrade-qualified replacement.
+The owner selected a release train; temporary coexistence is therefore understandable.
+The recurring cost is maintaining parallel commands, images, versions, metadata and
+layout wiring without a concrete retirement boundary.
+
+**Recommendation:** extract only genuinely shared production steps/inputs into the
+existing build owner, preserve explicit packaging variants and define when the old
+producer can be retired. Do not create a generic build framework, silently choose
+bootc, or erase existing fixtures. Validate content identity per variant, then fresh
+installation before changing the supported entrypoint. Zero customer installations
+remove an assumed customer migration programme; they do not remove retained data.
+
+#### MC5 — locale additions create a duplicate upstream-version authority
+
+[forgejo-locales.py](../scripts/forgejo-locales.py), lines 1–55, locks/fetches a full
+native catalog and appends [eleven Soda labels](../appliance/forgejo/i18n/en-US.ini).
+The result is staged as a native locale override. Exact Forgejo 15.0.7 source confirms
+custom files shadow the whole catalog rather than merging those eleven keys.
+Consequently the merger is necessary **if the selected native translation mechanism
+is kept**. Its presence alone is not evidence of overengineering.
+
+The avoidable cost is the separate [locale URL/version lock](../appliance/forgejo/locale.lock.json)
+next to the selected Forgejo image: each upgrade must reconcile both sources, and
+building also depends on the raw catalog endpoint. **Recommendation:** extract the
+catalog from the exact already-selected Forgejo image and feed the existing small
+merger; remove the unused `profile_portrait` key. Verify the extraction method,
+selected image identity, unchanged native catalog bytes and all used Soda labels.
+This preserves translation ownership and avoids a new localization framework.
+
+An initial recommendation to use literal English was narrowed after independent
+counter-review: it would give up a documented translation contract. If the owner
+chooses that tradeoff, native keys/literals can remove more of the locale surface,
+but it is not an equivalent cleanup merely because current Soda labels are English.
+
+#### MC6 — a local identity constraint escalated into an upstream-build proposal
+
+[Join](../internal/web/environments_api.go), line 315, copies `access.actor.Login`
+into the native account request. [Membership storage](../internal/store/store.go),
+lines 208–215, already records `(project, Forgejo user ID) → Linux login` independently.
+Existing membership is reused before a new account is provisioned. The native helper
+correctly refuses an existing unassociated system account; taking over `operator`
+is not a simplification.
+
+The preceding native journey demonstrated the collision. No new mutation was
+performed during this audit. A new stable, bounded Soda login derived from the
+Forgejo numeric identity could use the existing association and preserve all old
+memberships. This needs first-Join, repeated-Join, reserved-name, Forgejo-rename,
+existing-membership, terminal and SSH checks. It changes visible native login names.
+**Recommendation:** resolve that Soda policy explicitly; do not build modified
+Forgejo to enforce an accidental naming equality. Neither the mapping change nor
+username blocking is implemented by this audit.
+
+### Additional commitments and their actual tradeoffs
+
+| Area and source evidence | Assessment and smaller direction | What must remain / what is not proved |
+| --- | --- | --- |
+| [custom/header.tmpl](../appliance/forgejo/templates/custom/header.tmpl), lines 2–57: 53 stylesheet links and 28 manual version strings; [redesign status](forgejo-redesign-status.md#second-pass-refinement) records a missing payload stylesheet | Confirmed avoidable delivery coordination. One ordered build-generated CSS entry and version can preserve modular authoring and the current cascade. | Check URL/font rewriting, load order, themes, native subpaths and caching. No need for a new asset manager. |
+| [presentation inventory](../tests/forgejo/presentation/inventory.json) and [test](../tests/forgejo/presentation/inventory.test.ts), lines 14–27: per-template callers, roles, review hashes and states | Confirmed supporting bookkeeping, not native runtime proof. Generate derived closure/callers; keep focused behavior/permission/visual tests and retire metadata whose only consumer checks that metadata. | Exact delivery allowlists and real native parity checks remain useful. Inventory size alone does not justify deleting tests. |
+| [notification preview](../assets/branding/forgejo/notification-preview.ts) and [repository switcher](../assets/branding/forgejo/repository-switcher.ts), with native fragment/header overrides | Optional UI convenience creates continuing coupling to HTMX fragments and `/repo/search`. Native notifications and repository/dashboard navigation avoid the added controllers. | Removing previews/dropdowns changes convenience, not a behavior-preserving refactor. Keep unless the owner selects that tradeoff. |
+| [avatar renderer](../internal/avatar/avatar.go), [HTTP adapter](../internal/web/avatars.go), proxy/activation settings and DiceBear dependency | Custom robot avatars are a shipped optional commitment. Built-in Forgejo avatars avoid a backend endpoint, renderer dependency, provider setting and snapshot/catalog work. | Custom robots were a documented design choice; no fork or replacement renderer was found. Dropping that identity treatment requires a feature decision. |
+| [runtime recipe validation](../internal/host/tailnet_companion.go), lines 71–94, and [terminal service checks](../internal/host/project_terminal.py), lines 513–534 | Existing R6 remains: exact CreateCommand arrays, empty drop-in paths and textual unit properties couple ownership to incidental representation. Narrowing to effective protections could reduce upgrade fragility. | Conditional: retain exact project/account/CID identity, capabilities, mounts, namespaces, cgroup cleanup and transport isolation. A property-to-protection comparison and refusal tests are needed before relaxing checks. |
+| [Tailnet host management](../internal/tailnet/management.go), lines 122–451, plus frontend models | Significant custom UI/LocalAPI maintenance. Tailscale has a [native device web interface](https://tailscale.com/docs/features/client/device-web-interface); a connected-host handoff is a candidate. | Not a drop-in: user-owned client/check-mode auth, tagged-device grants, HTTPS reachability and offline recovery can change the operator journey. Keep Soda enrollment/recovery and project policy until an actual replacement is proved. No new proxy or auth bridge selected. |
+| [runner unit](../appliance/services/soda-runner@.service) and [Launch](../internal/runners/launch.go) | Smaller confirmed duplication: another executable repeats the unit's user directory/HOME then execs a fixed Forgejo runner. Direct `ExecStart` could retire the wrapper. | It would remove the descriptor precheck on boot/manual unit start. Preserve hardening and management validation; test startup failure and stop/restart. Do not add a new generic launcher. |
+| [OAuth migrations](../internal/store/migrations.go), lines 21–57, [return structure](../internal/store/store.go), lines 249–255, and [return routing](../internal/web/auth.go), lines 236–255 | Smaller confirmed coupling: navigation destinations cause schema fields/CHECK changes. At a necessary schema update, one bounded destination discriminator plus existing actor/repository IDs could replace boolean combinations. | Keep PKCE, original actor, fixed URL construction and logout-winning cancellation. No arbitrary `return_to`, mass database rewrite or new routing framework. |
+| [acceptance tool](../tools/soda-acceptance/main.go), lines 35–98, and [support package](../internal/acceptance) | Development-only orchestration has grown a compiled P/U workstream registry alongside QMP/process/SSH/evidence code. Separate plan-number metadata from executable transport contracts; keep scenarios in existing tests. | Do not replace this with libvirt or another daemon casually. Cancellation, descendant cleanup, pinned trust and secret-safe logs have real callers. A complete simpler replacement was not established. |
+| [host package locking](../internal/hostimage/complete.go), lines 19–44, and [RPM inventory](../appliance/locks/host-packages-x86_64.json) | Large release-review surface: 17 requested packages, 170 install entries, 625 resulting inventory entries. It detects NEVRA drift but explicitly does not preserve RPM bytes. | Not proven gratuitous: qualification was selected. Do not promise reproducibility or add a package mirror as a 'small fix'. Decide whether generated inventory evidence is enough or snapshot retention is worth a separate commitment. |
+| [Lit tool workspace](../tools/lit-check/package.json) and [resolver adapter](../scripts/check-lit.ts) | Moderate development cost from TS7 plus a classic TS5 analyzer. This is an adapter around upstream compilers, **not a custom compiler**. | Selected diagnostics and TS7 explain it. Revisit at the next toolchain choice; no safe equally capable replacement was proved. Do not drop checks or change the pinned compiler merely to make a line-count reduction. |
+
+### Earlier simplification work that is still unfinished
+
+The current [R3 reconciliation](refactoring-plan.md#removal-reconciliation-follow-up)
+is corroborated: [StartTailnet](../internal/host/tailnet_companion.go), lines 291–305,
+creates a new incarnation after stopping the old one; `stopTailnetRun`, lines 436–470,
+never removes the stopped container, and [runFiles.prepare](../internal/host/tailnet_files.go)
+creates per-incarnation directories without retirement. `/run` disappears on reboot;
+Podman stopped containers/writable roots do not. This leaves ongoing operator cleanup.
+
+This is **incomplete lifecycle follow-through**, not proof that the isolated
+companion itself is unnecessary. Retire exact newly owned completed resources under
+the existing lock after required shutdown/ownership checks; do not add a fleet
+collector or run pruning on preserved fixtures. Cleanup-failure policy must be
+explicit and must not introduce another permanent retry fence by accident. Source
+command tests and authorized native lifecycle proof remain outstanding.
+
+Old findings were not blindly counted again: the removed browser lease/heartbeat
+supervisor, obsolete layout migrations, retired GitHub runner and unused bootstrap
+secret retention are not reported as still-present giant mechanisms. Small remaining
+duplicate dispatch/validation sites stay in the existing R4/R5/R7 records.
+
+### Coverage, method and limits
+
+The tracked inventory contains **1,113 files and 18 internal packages**. Root and
+three independent domain reviewers inspected the package/entrypoint inventory and
+followed affected build/runtime/frontend callers and tests. A separate counter-review
+checked whether proposed simplifications preserve the requested outcomes. It caused
+the locale recommendation to narrow, reaffirmed the selected same-media installer
+requirement, and rejected describing the Lit adapter as a custom compiler. The
+consolidated findings above supersede broader suggestions in individual notes.
+
+| Repository area | Review coverage and disposition |
+| --- | --- |
+| `internal/web`, `store`, `forgejo`, `config`, `avatar`, `strictjson` and dashboard/setup commands | Account, OAuth/session/grant, repository/terminal, state/migration and request boundaries traced. MC6 and the navigation/optional-avatar costs; no independent authentication replacement proposed. |
+| `frontend/{spaces,runners,tailnet}`, native browser hooks, local preview | Entry/disposal, state, layouts, transport, recovery and fixture owners examined. Multiple terminals and real xterm are user requirements; one disposable v3 layout and local mock development are justified. |
+| `internal/host`, `tailnet`, `runners`, `linuxhost`, `filelock`, runtime CLIs and `project-os/rootfs` | Native account, terminal, service, project network and runner callers reviewed. Exact-recipe fragility, runner wrapper and completed-resource retirement noted. Fixed privileged operations and original identity checks remain necessary. |
+| `internal/nativebuild`, `appliancerelease`, `hostimage`, `installlayout`, `installer`, `projectos`, appliance/tools/build scripts and locks | Build/stage/install/release/media graph traced. MC2–MC4 and package-lock tradeoff. CoreOS, Podman, standard Go compilation and digest-bound artifacts serve selected product requirements. |
+| `internal/acceptance`, support commands, test-VM and installed test drivers | Transport/evidence/scenario ownership reviewed. Compiled plan numbering is unnecessary coupling; no claim a 63-line VM script replaces the stronger harness's security and cancellation behavior. |
+| Forgejo templates/locales, branding/static assets, payload manifests and presentation/build tests | Exact 15.0.7 source comparison for copied templates, locale shadowing, native notification/search callers. MC1/MC5, CSS coordination and optional UI costs. Attribution/assets preserved. |
+| Docs, root manifests, automation inventory and future feature plans | No tracked CI workflow declarations were found; current vs historical status and selected vs proposed scope examined. Iframe workspace, marketplace/AI/desktop and remaining release milestones are not misreported as shipped code. Product scope recorded only in docs is not independent proof of consent. |
+
+Exact upstream Forgejo source was read from the retained 15.0.7 tree; Tea's official
+release files and Tailscale's native UI documentation were checked. Findings are
+source/caller evidence and explicitly bounded alternative research. No full source
+suite, installer boot, browser comparison run, native runtime or destructive test
+was performed for this audit. Future validation above is not a list of checks that
+already passed. Detailed reviewer notes and inventory are retained in
+`.artifacts/maintenance-commitment-audit/`; this document is the consolidated record.
+
+## Historical audit — 10 September 2026
+
 Reviewed on 10 September 2026 against installer candidate `8320f9c`.
 **Source ownership review complete; findings are not implemented fixes.** This audit covers every `internal/` package present at that revision
 and follows the actual application, native, frontend and build callers. It asks

@@ -14,6 +14,44 @@ is based on the rebased `1f1a9d3` tree. It is the current maintenance order and
 accounts for already implemented schema checks, source-check wiring and shared
 session/page mechanics. The earlier sections retain their design/evidence context.
 
+## Maintenance-commitment audit follow-up
+
+The owner requested a repository-wide review on 13 September 2026 after the
+assistant understated the commitment of building modified Forgejo for username
+blocking. The [current audit](upstream-ownership-audit.md#maintenance-commitment-audit--13-september-2026)
+records source findings at `e9cec3b` (the initial working-tree edits were committed
+during review), coverage,
+upstream evidence, actual costs and tradeoffs. It is separate from the older audits
+below. Audit completion does not mean the findings have been fixed.
+
+**Recommended order, not a newly approved implementation programme:**
+
+1. Reduce maintenance without changing the selected product behavior: prove/remove
+   class-only native template copies (MC1), derive locale input from the selected Forgejo image (MC5), and
+   consolidate stylesheet delivery through the existing build owner.
+2. Resolve concrete product-policy choices explicitly: Soda Linux-login mapping
+   (MC6), whether installer boot-menu branding earns its cost (MC3), and whether
+   optional notification/switcher/avatar enhancements are worth retaining. A
+   rejected feature is not permission to remove retained user data or credentials.
+3. Consolidate actual common build production (MC4), with the current writable
+   installer and unqualified immutable candidate clearly distinguished. Define a
+   retirement boundary; do not force an unproved image/layout cutover or introduce
+   a generic build framework.
+4. Complete already identified native follow-through under its existing owner:
+   R3 exact completed-resource retirement and R6 semantic-runtime validation review.
+   Their actual source and native checks remain outstanding.
+5. Keep conditional investigations bounded: a native Tailscale UI handoff must
+   work for the real operator before replacing Soda controls. Support tooling,
+   package-lock policy and the analyzer toolchain do not justify new infrastructure
+   or removing necessary verification solely to shrink the codebase.
+
+**MC2 separately authorized and implemented:** Tea source compilation has been removed from both build paths and replaced with verified upstream 0.16.0 binaries for both target architectures. The [CLI guide](project-clis.md#source-and-packaging) owns the resulting packaging and validation status. This does not approve the other recommendations.
+
+The audit is the findings owner; this plan remains the decision/order owner.
+No remediation code, retained-target operation, custom Forgejo build or deployment
+was performed by this audit. Existing independent workstream decisions and the
+approved D1–D13 history below are preserved.
+
 ## Requested full upstream-ownership audit — source review complete
 
 The [audit](upstream-ownership-audit.md) is the evidence source for the remediation

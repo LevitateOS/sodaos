@@ -20,7 +20,7 @@ Reference: `soda-os` commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`. The pred
 | Native console welcome and profile hook | `appliance/bin/soda-console-welcome`, interactive-only host hook, actual configured HTTPS origins and loopback Cockpit guidance |
 | `docs/public/40-Develop/10-connect-and-develop.md` | Reworked editor, SSH/SCP/SFTP, Git, tool and service guidance for project-local users/IPs and shared installations |
 | `docs/screenshot-capture.md` | Current-page capture/redaction rules, with no fabricated images or published placeholders |
-| Tea source lock/license/fetch/build inputs | `project-os/locks/`, `project-os/licenses/`, source fetch and native CLI build feeding the Rocky image instead of a Fedora host RPM |
+| Tea CLI and license | Tea remains preinstalled in Rocky projects; inherited source-build machinery was replaced with verified upstream binaries. See [project CLIs](project-clis.md#source-and-packaging). |
 | GitHub CLI baseline and user guidance | Same version baseline via GitHub's signed RPM repository inside Rocky; personal native authentication, not host runner credentials |
 
 Relevant operating instructions are linked from the README. Native application configuration uses current container paths; image/build recipes and tests carry their own callers rather than leaving copied files unused.

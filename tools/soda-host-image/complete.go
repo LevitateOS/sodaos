@@ -64,7 +64,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 		{"bun", "scripts/build-forgejo.ts", "--out", filepath.Join(native, "forgejo-js")},
 		{"python3", "scripts/fetch-terminal.py", "--out", filepath.Join(native, "terminal-assets")},
 		{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(native, "forgejo-locales/locale_en-US.ini")},
-		{"python3", "scripts/build-project-tools.py", "--arch", arch},
+		{"python3", "scripts/fetch-tea.py", "--arch", arch},
 		{"python3", "scripts/stage.py", "--arch", arch},
 	} {
 		if err = execute(source, cmd[0], cmd[1:]...); err != nil {
