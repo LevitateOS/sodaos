@@ -50,8 +50,9 @@ Lit workspace and its existing interaction/resource contracts. The dimensions be
 remain design intent; implementation must express reusable visual values through
 canonical tokens and deliberate density variants, not a separate Spaces palette.
 
-**Direction:** a project/session sidebar for finding work, tabs for switching within
-a pane, and direct splits for the few terminals being viewed together. Native CLI
+**Direction:** a focused first-use journey, then a project/terminal sidebar for
+finding work, tabs for switching within a pane, and contextual splits for the few
+terminals being viewed together. Native CLI
 agents remain inside real terminals. No agent-chat frontend, worktree-per-task policy,
 new application origin or new preview server.
 
@@ -61,13 +62,163 @@ split, mobile terminal/switcher and failure states, plus the complementary
 They are static drawings with fictional content, not another functioning mockup or
 screenshots of installed Soda.
 
+## First-use journey — selected 13 September 2026
+
+**Design selected; implementation pending.** The user selected the focused welcome
+concept and walked through repository selection, configuration, creation, joining,
+first terminal and working workspace. The [journey implementation plan](sodaspaces-plan.md#first-use-journey-implementation-plan)
+owns execution order and status. This section owns the resulting presentation.
+The pasted UX proposal supplied context; the agreed journey below is the selected
+scope, not automatic adoption of every suggestion in that proposal.
+
+### Visual direction and scope
+
+Keep the native Forgejo header and current Soda style: canonical dark/light tokens,
+Barlow interface type, Plex Mono controls/terminal type, square geometry, thin rules,
+restrained red primary actions, quiet secondary links and clear whitespace. Reuse
+canonical repository and terminal icons; every repository lives on **this Forgejo**.
+There is no GitHub branding, external provider picker or clone-URL onboarding field.
+Generated images illustrate hierarchy, not exact CSS, supported data or new tokens.
+
+Before the first project, show the page title **Spaces** and subtitle **Your projects
+and terminals, together.** One outlined content panel contains the welcome and setup
+steps. Show no empty sidebar, Sessions toolbar, terminal controls, pane dropdown,
+Attention filters, drawer controls or SSH forms. Forms may scroll on short screens;
+the working terminal later fills the available visual viewport.
+
+The first three setup states replace content inside that panel. They are views in
+the existing native Spaces page, not new application origins or modal overlays.
+Back/Change preserve nonsecret selections during the active flow and never mutate
+resources. Ordinary reload re-reads authorized state; it never replays submission.
+
+### State sequence
+
+| State | Content and primary action | Confirmed transition |
+| --- | --- | --- |
+| 1. No projects | **Create your first project**; “A shared development system, connected to your repository. Open terminals and work together, right in your browser.” Primary **Create project**; quiet **How Spaces works** help link | Opens repository selection; no project is created |
+| 2. Choose a repository | **Choose a repository**; search and a bounded list of eligible Forgejo repositories showing full owner/name; explicit radio selection; **Continue** becomes available after selection | Opens configuration for that exact repository ID |
+| 3. Configure project | Selected repository with **Change**, **Project OS** selector, optional unchecked **Enable project Tailnet** when available, primary **Create project** | Submits explicit creation once |
+| 4. Creating project | Retain repository identity and selected options; **Creating project…** with an indeterminate busy indicator and announced status; prevent duplicate submission | Read confirmed result and current project state; an uncertain response is not success |
+| 5. Project created, not joined | Replace setup panel with project workspace; selected project in sidebar, project name/status and secondary **Project settings**; center **Project created**, explanatory account copy and primary **Join project** | Explicitly creates/attaches this user's membership; no terminal creation |
+| 6. Joined, no terminals | Same workspace; terminal outline icon, **Open your first terminal**, “Your account is ready in owner/repository. Open a browser terminal to start working.” Primary **New terminal**; quiet **Project account: login** | Explicitly creates one terminal in the displayed project/account |
+| 7. Opening terminal | The workspace shows **Opening terminal…** for the exact pending entry; prevent duplicate clicks | A confirmed terminal attaches and receives deliberate keyboard focus |
+| 8. Working | Main canvas is a usable terminal; its tab and sidebar row appear; **New terminal** moves to the project header beside secondary **Project settings** | First-use happy path complete when the user can type and work |
+
+The mockup's “Connected as” helper becomes **Project account: login** in implementation:
+membership readiness must not imply an established terminal connection. Use actual
+repository/account names, installed profile labels and observed state throughout.
+
+The quiet setup footer reads **Choose a repository → Create a project → Open a
+terminal**. It is a high-level orientation aid, not a claim there are only three
+backend operations. It disappears with the setup panel after creation. Join remains
+an explicit workspace action. No percentage, countdown or completion stage is
+invented when the backend supplies only a pending outcome.
+
+### Repository selection and configuration
+
+- Search only the current Forgejo's authorized repositories. Visibility and creation
+  eligibility are different facts. The [environment API](dashboard-api.md) owns
+  permissions; the current create caller requires the human repository owner and
+  refuses organization-owned creation. The illustrative `acme/api` image does not
+  expand that authority. Use an eligible personal repository in acceptance fixtures.
+- Use stable repository IDs across search, Back, Change and submission. Ignore stale
+  search results. Selection has a radio indicator and shape/background treatment,
+  with color as additional emphasis. No repository is silently preselected on entry.
+- **Create a new repository** opens Forgejo's existing native creation flow. Returning
+  to Spaces refreshes the list and allows deliberate selection; no invented callback
+  route, automatic project creation or write-capable token is part of this flow.
+- Where a visible repository already has an authorized project, offer **Open project**.
+  An incomplete reservation offers inspection/recovery, never another Create.
+  Do not expose inaccessible project existence or count through picker metadata.
+- Project OS defaults to the available Rocky terminal profile and lists only installed,
+  compatible choices. Its labels and availability come from the [Project OS owner](project-os.md#selected-environment-profiles).
+  No free-form image, architecture/version guess, unsupported desktop choice or extra
+  CPU/RAM configuration is introduced by these mockups.
+- Tailnet remains optional and unchecked. Availability, admission, selection binding
+  and outcomes use the [existing Tailnet contract](tailnet-integration-plan.md).
+  Hide unavailable options; if availability changes after selection, explain and
+  require the user to review the choice rather than silently changing submitted intent.
+- **How Spaces works** points to existing user help, refined as needed. Browser terminal
+  onboarding does not request SSH keys. External SSH remains optional under Access.
+
+### Project workspace and contextual actions
+
+After confirmed creation, show the sidebar with the new project selected and a quiet
+**Create project** link. Defer project search for the initial one-project/no-terminal
+state; show search when there is a collection worth filtering. Returning users with
+existing projects enter their authorized workspace directly, bypassing welcome.
+Starting another project reuses the setup flow without destroying existing terminal
+owners or the saved pane tree; cancel returns to the previous workspace.
+
+The header shows the selected project and its observed status. Project selection
+changes navigation context only: it never retargets existing shells. Mixed-project
+tabs/panes keep their own trusted original identities. The primary action is
+appropriate to the selected project's readiness; pending/denied state never leaves
+a mysterious enabled `+`. **New terminal** appears once in the empty workspace and
+moves to the header when there is a terminal. Naming is optional through Rename
+after creation; no extra naming form interrupts the selected-project happy path.
+
+**Project settings** is a secondary view with Back and **Overview / Access / Network**.
+Overview contains authorized lifecycle actions; Access contains account information
+and **External SSH — Optional**; Network reuses the current Tailnet view. Keep Stop
+out of the work header and retain its shared-impact confirmation. Tab and pane menus
+hold Rename, split/move, Hide and End with the distinctions in sections 4 and 6.
+Drawer/Attention controls remain contextual and are absent from first-use setup.
+
+### Required branches and responsive behavior
+
+| Condition | Presentation and recovery |
+| --- | --- |
+| Inventory loading / unavailable | Loading or **Could not load projects** with read-only retry; never flash the welcome as a guessed empty result |
+| No repository matches / none eligible | Distinct helpful messages, clear search reset or native Create repository link; state permission limits without leaking hidden repositories |
+| Ownership or session changes | Refresh authorization; remove stale choices and protect drafts/private context under the existing auth contract; no automatic mutation after reconnect |
+| Creation rejected before reservation | Explain the affected field/admission error and allow correction plus an explicit resubmission |
+| Creation outcome uncertain / reservation incomplete | Preserve known project identity, inspect current state and show operator guidance where necessary; no automatic retry or root recreation |
+| Project stopped | **Start project** only for an authorized actor, otherwise administrator guidance; confirmed Start is followed by Join or New terminal according to membership |
+| Project running, user not joined | **Join project** with account-setup explanation; pending/error stays scoped here and never falls through to terminal Create |
+| Already joined, no visible terminal | First-terminal copy only when the inventory confirms none; discover existing/hidden terminals before offering unnecessary new creation |
+| Terminal Create pending / uncertain / refused | Retain exact pending locator and scoped outcome; recover using the terminal contract, not a new ID or repeated request |
+| Disconnected / attached elsewhere | Recovery belongs to the exact terminal; **Reconnect terminal** or other-window guidance, not another New terminal CTA |
+| Optional Tailnet setup incomplete | Show network status under Project settings; successful project creation remains successful and is never repeated to repair network observation |
+
+At desktop width, setup stays a centered readable single-column form; workspace uses
+the project sidebar. Around 800px, retain a narrower sidebar only while the selected
+surface remains usable. Around 640px and at 390px, use a labeled **Projects** navigation
+view and one full-width selected terminal. Measured geometry decides split projection,
+not a fixed pane count. Preserve layout when returning to a wider screen.
+
+Use keyboard-operable repository radio rows, real labels, visible token-based focus,
+announced pending/error states and 44px touch targets. Back restores sensible focus;
+successful user-requested terminal creation focuses the shell, while background
+refresh never steals focus. Check both themes, long repository names, zoom, short
+viewports and mobile keyboards. These requirements complement section 7.
+
+### Selected visual references
+
+These generated mockups and their sibling prompt files are local ignored design
+artifacts, not installed screenshots or tracked product assets. This written design
+is sufficient when those local files are unavailable in another checkout.
+
+| State | Local reference |
+| --- | --- |
+| Focused welcome, selected | [01-focused-welcome.png](../.artifacts/design/spaces-empty-state/01-focused-welcome.png) |
+| Choose repository, corrected neutral icons | [03-choose-repository.png](../.artifacts/design/spaces-empty-state/03-choose-repository.png) |
+| Configure project | [04-configure-project.png](../.artifacts/design/spaces-empty-state/04-configure-project.png) |
+| Created / Join | [05-project-created-join.png](../.artifacts/design/spaces-empty-state/05-project-created-join.png) |
+| Joined / first terminal | [06-open-first-terminal.png](../.artifacts/design/spaces-empty-state/06-open-first-terminal.png) |
+
+The alternate empty-sidebar concept (`02-projects-sidebar.png`) was not selected.
+Creating/Opening and the final populated workspace are specified here; they do not
+yet have newly generated journey mockups. Older layout sheets remain supporting
+references for terminal geometry, subject to this selected control hierarchy.
+
 ## 1. Design decisions
 
 | Keep | Change from the previous proposal |
 | --- | --- |
 | Spaces in native navigation, at `/?soda-view=spaces` | Deliver inside the existing application origin; do not send users to another port |
 | Shared project roots and personal native sessions | Name sessions for the work; do not create a new environment/worktree for every agent |
-| Searchable project/session sidebar | One stable list with attention filtering, not separate active/kept catalogs or dashboard cards |
+| Searchable project/terminal sidebar after setup | One stable list with contextual attention filtering, not a competing Sessions destination |
 | Real terminal tabs and cross-project panes | Direct **Split right / Split below**, drag-resize and maximize; remove the layout-preset dropdown |
 | One large terminal by default | No automatic grid as session count grows, and no arbitrary four-pane product limit |
 | Hide, End and Stop are different actions | Keep End/Stop out of everyday toolbar controls; make Hide's finite retention explicit |
@@ -85,7 +236,7 @@ is a user label, not a claim that Soda understands the task.
 ## 2. Information model and navigation
 
 - **Project:** the actual shared environment and its repository association.
-- **Session:** one personal native terminal, immutably bound to its original project,
+- **Terminal** (internal/API **session**): one personal native terminal, immutably bound to its original project,
   account and Soda sign-in context. Several sessions may exist in one project.
 - **Tab:** that session's place in a pane. One session occupies at most one pane in
   this browser window; selecting it elsewhere focuses/moves the existing view.
@@ -94,7 +245,7 @@ is a user label, not a claim that Soda understands the task.
 - **Working set:** sessions deliberately open in this window, including inactive tabs.
   Kept/hidden sessions remain discoverable but are not implicitly attached by listing.
 
-The sidebar lists **projects → sessions**; there is no extra task/workspace nesting
+The sidebar lists **projects → terminals**; there is no extra task/workspace nesting
 between them. Tabs repeat only the current pane's working set, not a second global
 session inventory. User labels can change without changing IDs or native targets.
 
@@ -107,11 +258,11 @@ another device. Another writer is shown as **Attached elsewhere**, not forcibly 
 ```text
 soda    Issues  Pull requests  Milestones  Explore  Spaces       Soda: alex
 ────────────────────────────────────────────────────────────────────────────
-Spaces  [Find a session…]                    [Next attention] [+ New terminal]
-──────────────────────┬─────────────────────────────────────────────────────
-All  |  Attention (1) │ api / Auth refactor   api / Review auth !   …   +
-                     ├─────────────────────────────────────────────────────
-▾ acme/api       ⋯   │ alex @ acme/api            Split right  Below  ⛶  ⋯
+Projects              │ acme/api · Running    [New terminal] [Project settings]
+[Search projects…]    ├─────────────────────────────────────────────────────
+                      │ api / Auth refactor   api / Review auth !       …
+                      ├─────────────────────────────────────────────────────
+▾ acme/api           │ alex @ acme/api                                  ⋯
   Auth refactor      │
   Review auth     !  │  Native CLI / shell, almost all available space
   Test watcher    •  │
@@ -144,7 +295,7 @@ inflate workspace chrome or shrink terminal text to reconcile them.
   permanent rows above the terminal. Lifecycle warnings occupy space only when needed.
 - Interface text: 14px, secondary labels 12px; terminal default 14px with approximately
   20px line height. Respect font/zoom preferences, never shrink text to fit more panes.
-- Thin separators, restrained selected fill and one blue focus outline. Amber marks
+- Thin separators, restrained selected fill and the canonical visible focus outline. Amber marks
   attention, not focus. Text/icons accompany color. Avoid a forest of rounded cards.
 - One canvas fills the remaining height. Sidebar/terminal scroll independently;
   there is no outer scrolling page or fixed-height terminal console inside a card.
@@ -158,7 +309,7 @@ Do not invent branch, port, resource or working-directory telemetry.
 
 Project headers disclose sessions and have a project menu. Clicking a disclosure
 only expands/collapses; it neither focuses a hidden shell nor creates an anchor shell.
-Project details are reached through the menu, not by overloading the disclosure.
+Project settings are reached through the header or menu, not by overloading the disclosure.
 
 Rows have a primary user-chosen label and a small secondary state where useful.
 Running project state belongs to the project header, not every terminal. Do not add
@@ -167,14 +318,16 @@ indicators without making a selected row look like the only live process.
 
 - Search matches authorized project/session labels, never transcripts or filesystem
   contents. It filters the sidebar only; current panes do not disappear or retarget.
-- **All / Attention** is a view filter over the same list. Keep project and row order
+- **All / Attention** is a contextual view filter over the same list, exposed when
+  relevant terminals exist rather than in the empty setup. Keep project and row order
   stable as events arrive. Do not move a row underneath the pointer.
 - Attention count is the number of sessions needing attention, not an event total or
   number of connected agents. Aggregate only currently authorized, observed state.
 - Hiding a tab leaves its row here with the actual deadline. No second “archive”.
-- Projects without sessions remain collapsed with explicit membership/environment
-  state. New environment setup stays in the native repository's existing flow.
-- Empty states distinguish **No matches**, **No sessions yet**, **Nothing needs your
+- Projects without terminals remain selectable with explicit membership/project
+  state. Global project setup follows the first-use journey above; native repository
+  entry reuses the same creation owner with that repository already identified.
+- Empty states distinguish **No matches**, **No terminals yet**, **Nothing needs your
   attention**, and **Status unavailable**. A failed request is not a successful zero.
 
 ### Selecting, creating and naming
@@ -184,10 +337,12 @@ session requests exact authorized attach, never create. Deliberate Return applie
 only to the selected eligible session, after attach; display its effective deadline
 until confirmed. Automatic restoration does not perform Return.
 
-**New terminal** opens a compact project/name chooser, not a task prompt. It shows the
-full project and original account before submission. The pane `+` may preselect its
-current project, but never takes an invisible target from the last native repository.
-Default label is `Terminal N`; naming is optional. Name is metadata, never shell input.
+**New terminal** in a selected project explicitly creates in that displayed project
+and original account, with default label `Terminal N`; it opens without a second
+project/name form. Naming remains optional through Rename. A contextual action with
+no unambiguous project/account target must first present a compact project chooser;
+it never takes an invisible target from the last native repository or another pane.
+Name is metadata, never shell input.
 Use a bounded single-line name (80 Unicode code points, no control characters),
 ellipsis plus full accessible text in tight rows. Duplicate names are permitted;
 stable IDs and project context still identify the action.
@@ -279,7 +434,7 @@ sheets do not preserve the superseded browser retention/lease/receipt requiremen
 | Switch tab/pane/project; maximize | Preserve live owners; presentation is not native lifecycle |
 | Hide tab (`×`) | **Hide NAME** removes the view, not the native work; no lifetime request |
 | Page navigation/reload | Restore current UI locators/layout and inspect/attach exact surviving IDs; no input replay or new shells |
-| Connection lost | Retain bounded display, disable input, show observation age and **Reconnect existing**; no queued keys or silent replacement |
+| Connection lost | Retain bounded display, disable input, show observation age and **Reconnect terminal**; no queued keys or silent replacement |
 | Attached elsewhere | No writable terminal/retained transcript from another window; ask to detach there. No force takeover |
 | End terminal… | Confirm full project/name/account and process loss. Submit End; show **Ending…** until actual native outcome. No transient message race or socket-close success assumption |
 | Native ended / absent | Clear live controls; explicit **New terminal** creates a new ID. No “Undo”, “Resume” or restart masquerading as continuity |
@@ -287,7 +442,7 @@ sheets do not preserve the superseded browser retention/lease/receipt requiremen
 | Capacity reached | Refuse new creation without evicting anyone. Let the user review their own sessions and explicitly End one; do not expose other users' metadata or retry in a loop |
 | Required native support missing/refused | Report the refusal and operator next step. No install-on-Open, fallback PTY or project replacement |
 | Authorization lost / Soda logout | Cancel affected access and clear private renderers/locators. Whole-context loss affects all its sessions; project denial is not another project's stop |
-| Stop environment… | Only in Project details, authorized owner/operator, shared-impact confirmation. Start uses the same retained root but cannot restore ended shells |
+| Stop project… | Only in Project settings → Overview, authorized owner/operator, shared-impact confirmation. Start uses the same retained root but cannot restore ended shells |
 
 End confirmation copy: **“End ‘Auth refactor’ in acme/api?”** Follow with: “This ends
 this terminal and processes in its managed session. Unsaved in-process work will be
@@ -295,21 +450,21 @@ lost. Files and independently managed services remain.” Default focus is **Can
 No guessing whether an editor is dirty and no generic red `×` that sometimes means End.
 
 Session menu: Rename; Move to pane; Hide; divider; End terminal…. Pane menu: Split right/below; Maximize/Restore;
-Consolidate panes. Project menu: Open repository; Project details. Separate ownership,
+Consolidate panes. Project menu: Open repository; Project settings. Separate ownership,
 not one huge menu. Bulk End, floating windows and stacked-pane mode are not part
 of this first design; they can be reconsidered after core interactions work.
 
 ## 7. Mobile, compact drawer and accessibility
 
-At about 800px and below, show **one full-width terminal**, never a scaled desktop grid.
-Use a compact native-like header, a **Sessions** button with current project/session,
+When measured space cannot support the desktop layout, show **one usable terminal**,
+never a scaled desktop grid. Use a compact native-like header, a **Projects** button with current project/terminal,
 and a small overflow menu. Touch targets are at least 44px. Pane selection goes into
 **Panes (N)** only when more than one pane exists; no extra always-visible toolbar.
 
-**Sessions** opens a full-height navigation view with the same search, project grouping
+**Projects** opens a full-height navigation view with the same search, project grouping
 and Attention filter. It is a view change, not Hide, detach or a modal over a live prompt.
 Selecting returns to the exact terminal. Explicit Back returns without changing the
-selection. Project details uses another view with its own Back action. Keyboard focus
+selection. Project settings uses another view with its own Back action. Keyboard focus
 returns to the invoking control unless the user deliberately selected a terminal.
 
 The terminal fits the visual viewport when a mobile keyboard opens; no fixed bottom
@@ -363,7 +518,9 @@ cannot recreate terminal renderers, replace IDs or become a keep-alive mechanism
 
 ## 9. Implementation and review acceptance
 
-Follow the single [Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices).
+The [first-use journey plan](sodaspaces-plan.md#first-use-journey-implementation-plan)
+owns the selected presentation changes above. Reuse the existing
+[Lit sequence](lit-migration-plan.md#4-ordered-implementation-slices) and its evidence.
 The rendering ports, ID-bound concurrency/collection, authenticated page/shared
 drawer and direct layouts are locally implemented through step 5. Apply the
 [frontend cleanup](frontend-improvement-plan.md#8-implementation-order-and-exits)

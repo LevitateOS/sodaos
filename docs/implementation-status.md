@@ -13,6 +13,16 @@ historical approvals are not renewed execution permission.
 
 The canonical `~/Projects/sodaos` checkout on `main` contains the new visual system across the Forgejo override set. The local presentation mounts also use that canonical directory; the deleted redesign worktree is no longer used. [Its independent status](forgejo-redesign-status.md) owns scope, source checks and browser review evidence. The owner-selected Mac localhost:3300 Forgejo presentation is updated on its existing sodaos-local-forgejo_data volume, with a consistent private backup; the separate builder/VM targets are unchanged. The independent status records parity and delivery evidence. The subsequent fastfetch/ASCII identity update and staging checks are recorded in the independent redesign status.
 
+## Spaces first-use journey
+
+The user selected the focused welcome-to-terminal UX and requested a written plan.
+The [Sodaspaces journey plan](sodaspaces-plan.md#first-use-journey-implementation-plan)
+owns its independent implementation stages and status; the
+[Spaces design](spaces-design.md#first-use-journey--selected-13-september-2026) owns
+the agreed states and local mockup references. Planning is recorded; implementation
+and journey acceptance remain pending. This documentation work changes no installed
+state, current execution grant or other workstream's completion status.
+
 ## Active work — Tailnet
 
 The owner has selected the [mechanism removals](refactoring-plan.md#selected-mechanism-removals)
