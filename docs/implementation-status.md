@@ -82,9 +82,12 @@ The owner requested consolidated execution and approved **milestone 1: complete
 appliance candidate** (source/local builds). The plan's
 [six milestones](release-engineering-plan.md#9-implementation-stages-and-exits)
 are the execution units; 28 retained criteria are not separate approval handoffs.
-App binding, immutable Forgejo assets, defaults/storage ownership, RPM fixes and
-local metadata are authored; focused tests pass and the frozen full x86_64 build
-is next. The owning plan retains exact status, limitations and subsequent grants.
+Milestone 1 is complete at native x86_64 local-build/inspection scope (`45ac843`):
+full host/app payload, 391 verified Forgejo files, locked 625-RPM inventory and
+bootc lint 13 passed/one skipped/no warnings. The
+[complete-candidate receipt](implementation-history.md#complete-local-appliance-candidate)
+records artifacts, failures and checks. The owning plan retains limitations and
+milestone 2 (trusted delivery) as next; this is not boot/upgrade or production proof.
 No timer or unattended pipeline has been installed or enabled.
 The current selection grants no publication/automatic CI, signing/trust change,
 service/VM lifecycle or retained-appliance migration. No installed state changed.

@@ -49,6 +49,11 @@ func TestCompanionRecordRequiresImmutableCIDRecipeAndRunningIncarnation(t *testi
 	if e = validateCompanionRecord(original, run, image, id); e != nil {
 		t.Fatal(e)
 	}
+	// A new release default is not authority to adopt/replace an existing run's
+	// companion. Native update qualification must cover coordinated run turnover.
+	if e = validateCompanionRecord(original, run, "sha256:"+strings.Repeat("f", 64), id); e == nil {
+		t.Fatal("changed release default adopted an existing companion")
+	}
 	// Before first native start there is no daemon PID or generated resolver metadata.
 	created := original
 	created.Running = false

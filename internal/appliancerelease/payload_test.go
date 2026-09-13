@@ -129,6 +129,40 @@ func TestRetainedImportUsesOnlyExactArchivesAndNeverLifecycle(t *testing.T) {
 		require.NotContains(t, strings.Join(calls, "\n"), " start ")
 		require.NotContains(t, strings.Join(calls, "\n"), " rm ")
 	}
+	for _, failLoad := range []bool{true, false} {
+		queries, loads := 0, 0
+		err := ImportRetained(t.Context(), p, root, func(_ context.Context, _ string, args ...string) error {
+			if args[1] == "load" {
+				loads++
+				if failLoad {
+					return errors.New("DO_NOT_LOG raw native diagnostic")
+				}
+				return nil
+			}
+			queries++
+			return statusError(1)
+		})
+		require.Error(t, err)
+		require.NotContains(t, err.Error(), "DO_NOT_LOG")
+		require.Equal(t, 1, loads, "never replay a failed/unconfirmed import")
+		if failLoad {
+			require.Equal(t, 1, queries)
+			require.ErrorContains(t, err, "import unconfirmed")
+		} else {
+			require.Equal(t, 2, queries)
+			require.ErrorContains(t, err, "imported image unavailable")
+		}
+	}
+	wrong := fixture()
+	wrong.Images = make(map[string]Image)
+	for k, v := range p.Images {
+		wrong.Images[k] = v
+	}
+	im := wrong.Images["project-os"]
+	im.Manifest = "sha256:" + strings.Repeat("0", 64)
+	im.Reference = wrong.RepositoryPrefix + "-project-os@" + im.Manifest
+	wrong.Images["project-os"] = im
+	require.ErrorContains(t, ImportRetained(t.Context(), wrong, root, func(context.Context, string, ...string) error { t.Fatal("wrong image identity dispatched"); return nil }), "identity mismatch")
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	require.ErrorIs(t, ImportRetained(ctx, p, root, func(context.Context, string, ...string) error { t.Fatal("cancelled import dispatched"); return nil }), context.Canceled)

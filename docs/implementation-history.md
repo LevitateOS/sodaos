@@ -51,6 +51,99 @@ in `.artifacts/forgejo-deploy-a6a86c2-PREPARED/`; guest backups under
 covers this delivery only: no further restart, enrollment, cleanup or hold
 extension follows.
 
+## Complete local appliance candidate
+
+Release-engineering milestone 1 is complete **for native x86_64 local build and
+inspection**, not installation, native boot/update, signing or production acceptance.
+The source slice is `3fe7e02`; the corrected successful frozen candidate is
+`45ac8435f0d70bb6cf43a5a3198404352794011d`. The six-milestone execution plan retains
+28 detailed acceptance criteria rather than requiring 28 implementation handoffs.
+
+The invocation used `--build --complete --repository-prefix ghcr.io/levitateos/sodaos`
+with pinned Go 1.26.7 and workspace Bun 1.4.2. Those are **intended, unpublished** GHCR
+names, not provisioned resources. `.artifacts/host-image/complete-45ac843/` retains
+source.tar, the snapshot/context, logs, all five app OCI archives, resolved upstream
+app inputs, embedded payload metadata, native-generated Quadlets and inspection CIDs.
+
+| Artifact identity | Value |
+| --- | --- |
+| Base | FCOS `44.20260817.3.2`, x86_64 digest `4222ad36286b40b8233e4ace5756fcdc73e22f498e4c6cc93cfe4a0e640dc27e` |
+| Host OCI manifest | `sha256:ac152604f750cc5c588bf995b630a43c14ee5c4b0f3c5867493ad5bbd1a69855` |
+| Host config/image ID | `sha256:a27e3f7c506606b31d86c2075b75d9f12e6b0cfe5956882e9e6007b092ffbc71` |
+| `host.oci` archive SHA-256 | `f189af15f6bcb693cacbf1127579db5d75b216d132f09d8f1691e1efa79cc709` |
+| Host archive bytes | `1,864,480,768` |
+| Embedded payload SHA-256 | `5e0a458a39b277128f5fad256b2464884e248869b338ec4149c6d92dcaab7b62` |
+
+`candidate.json` binds the final host manifest to the exact `payload.json` bytes;
+the payload owns all five app references/config IDs/archive hashes, presentation and
+RPM inventory hashes, source/base/architecture and schema 10. Qualified upgrade
+edges are explicitly empty. The three fixed core apps use native bootc-bound Quadlets
+with service-scoped additional storage, never a global store for projects. Project
+OS/Tailnet archives are embedded for the root-only verified import phase; it has no
+container lifecycle or cleanup operation. Existing project roots remain unchanged.
+Vendor creation defaults reject conflicting saved image selections instead of
+rewriting configuration. The companion caller audit confirms exact run CID/recipe/
+configured-image admission: an image change during an existing run conflicts, rather
+than authorizing adoption/replacement. Native coordinated run-turnover proof is still
+pending; no hot companion upgrade is claimed.
+
+The Forgejo app uses the canonical generated payload at `/usr/share/soda/forgejo`;
+its config symlink retains upstream `/data/gitea/conf`. Read-only/networkless binary
+inspection reports Forgejo `15.0.7+gitea-1.22.0`; all **391** presentation files match
+the generated hash map and have mode 0444. Host read-only checks confirm the embedded
+runtime archive hashes, metadata/RPM hashes, three exact bound-image symlinks, vendor
+binaries/units, absent machine JSON/activation/TLS and no global storage override.
+Native Podman 5.8.4 Quadlet `--dryrun` preserves the exact digest references and scoped
+storage flags. These generated service commands were **not executed**. Existing OCI
+streaming verification passed for the host and every app export.
+
+The x86_64 package lock contains 170 added NEVRAs and 625 expected final RPM records,
+derived from the preserved first build/base inventory, not a fresh version upgrade.
+The complete build matches that full inventory. Package-owned tmpfiles entries
+resolve the earlier Forgejo-runner/udisks2 warning: **bootc lint 13 passed, one skipped,
+no warnings**. The build log still preserves ordinary repository/mirror and upstream
+package warnings; this is not a claim of a warning-free toolchain. Exact versions
+must remain accessible at the configured repositories; RPM bytes are not mirrored,
+app package repositories remain live and no byte-reproducibility claim is made.
+
+Checks actually run:
+
+- Focused Go tests for `appliancerelease`, `hostimage`, `host`, `tailnet`, `store`,
+  `nativebuild`, the import command and host-image tool compilation; race checks for
+  payload/import/preparation/host/Tailnet and both helper layouts; relevant Go vet.
+- Strict TypeScript/Lit checks; emitted frontend suite **287 passed, seven skipped**;
+  Forgejo/presentation suite **44 passed, 29 skipped**. Native fixture-dependent
+  skips are not acceptance. Logs are `.artifacts/host-image/milestone1-*.log`.
+- Python packaging suites: host packages (1), canonical Forgejo payload (4), native
+  support (8), Tailnet image (2) and project tools (5) passed. A `test_stage.py`
+  discovery matched no tests and supplies no evidence.
+- Additional import failure/unconfirmed-load/no-replay tests and companion-default
+  conflict coverage passed after the build; they change tests, not built runtime
+  code. `complete-content-inspect.txt` and `complete-presentation-inspect.txt` record
+  the additional read-only image hash checks; their exact CIDs remain preserved.
+
+Preserved failures and fixes:
+
+- `complete-3fe7e02` failed while compiling Tea: its upstream 0.15.1 Makefile rewrites
+  PATH, selecting distro `/bin/go` against the caller's Go distribution. `45ac843`
+  uses the upstream `GO` override to preserve the caller-selected executable, with
+  source tests for exact selection and missing-tool refusal before mutation. No
+  toolchain version was changed, and the failed attempt/log remains.
+- Frontend qualification found the shared observer comparing the project name plus
+  new status text. `2775ee2` checks the existing exact accessible name instead; both
+  actor journeys then pass. No UI/action authority changed.
+- The presentation inventory retained a stale hash for `0e7b69f`'s one-line
+  “Forgejo administration” → “Soda administration” text change. After reviewing that
+  exact delta, `53604f9` records its hash. The full suite then passes at stated scope;
+  no structural guard was removed or bulk inventory rebaselined.
+
+No registry writes, signing keys/trust changes, timer installation, unattended
+execution, application service/VM lifecycle, enrollment/provider request or retained
+appliance migration occurred. Earlier artifacts, stopped inspection containers and
+failed attempts remain. Aarch64 needs its own package lock/native evidence; first
+install, signed/digest-preserving GHCR delivery, offline staging/activation and
+compatibility-aware recovery remain later milestones.
+
 ## First local host-content image build
 
 The owner approved the first release-engineering implementation slice. Source

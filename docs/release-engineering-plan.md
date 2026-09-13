@@ -2,12 +2,13 @@
 
 ## Status and decisions
 
-**Milestone 1 — complete appliance candidate — is being implemented as one source/
-local-build slice. The original host-content build (`f390aa6`) remains preserved;
-complete-payload source checks pass and its frozen native x86_64 build is next.
-Six milestones below carry the work through automated production operation; the
-28 detailed items are acceptance criteria, not 28 execution/approval rounds.
-This is not yet an installable release; native boot/upgrade acceptance remains pending.** The
+**Milestone 1 is complete at native x86_64 local-build/inspection scope (`45ac843`).**
+The complete host/app payload is exported; bootc lint passes with 13 checks and one
+skip, and all 391 immutable Forgejo files plus embedded runtime archives are verified.
+[Receipt](implementation-history.md#complete-local-appliance-candidate).
+Six milestones carry the work through automated production operation; the 28 detailed
+items are acceptance criteria, not separate execution/approval rounds. **This remains
+unsigned/unpublished, not an installable or boot/upgrade-qualified release.** The
 owner selected GHCR distribution and a CoreOS-aligned Soda release train with an
 independent emergency lane. This guide owns the release engineering workstream and
 its status: build engineering, release management, distribution and appliance updates.
@@ -127,8 +128,12 @@ The feasibility receipt must resolve:
 - Vendor helpers derive **new creation** image defaults from the immutable record.
   `/etc/soda/host.json` still supplies machine network/Tailnet settings. Conflicting
   saved image selections refuse with an explicit-migration error; they are never
-  silently rewritten. Existing container/profile and saved companion IDs remain
-  authoritative for their retained objects, not substituted with the new defaults.
+  silently rewritten. Existing project/profile IDs remain authoritative for retained
+  roots. Companion admission still binds the run-scoped CID and exact CreateCommand
+  to the configured immutable image: changing that image during an existing run
+  refuses, rather than adopting/replacing the companion. `/run` receipts are not a
+  persistent-image migration protocol. Native update proof must cover coordinated
+  run turnover; no hot companion-image upgrade is qualified.
 - `/usr/share/soda/defaults` contains public examples/defaults, not credentials.
   Initial public Forgejo/proxy defaults also enter the image's `/etc` using native
   OSTree configuration merging. Machine JSON, activated identity, TLS, databases,
@@ -421,6 +426,12 @@ permissions conferred by completing source work or reaching a numbered criterion
 
 ### Milestone 1 — complete appliance candidate
 
+**Complete for the x86_64 local candidate:** criteria 2–7 below have source/emitted
+artifact evidence at `45ac843`, detailed in the
+[receipt](implementation-history.md#complete-local-appliance-candidate). Native
+first-boot/offline upgrade, SELinux/runtime and companion-turnover proof remain
+milestone 3; aarch64 qualification remains milestone 5.
+
 **1. [x] Establish the mechanism and first host-content build.**
 
 - Deliverable: reviewed FCOS/bootc direction, pinned base, frozen-source builder,
@@ -429,7 +440,7 @@ permissions conferred by completing source work or reaching a numbered criterion
   [receipt](implementation-history.md#first-local-host-content-image-build).
 - This does not complete the appliance payload, signing or native boot proof.
 
-**2. [ ] Bind the fixed appliance application images.**
+**2. [x] Bind the fixed appliance application images.**
 
 - Deliverable: immutable Forgejo, dashboard and proxy image references in vendor
   Quadlets, using bootc's bound-image mechanism and service-scoped image storage.
@@ -437,7 +448,7 @@ permissions conferred by completing source work or reaching a numbered criterion
   app content is available before activation. Native offline-after-staging proof
   follows in step 14. Do not globally attach bootc storage to all Podman workloads.
 
-**3. [ ] Package the matching Forgejo presentation.**
+**3. [x] Package the matching Forgejo presentation.**
 
 - Deliverable: canonical templates, native locale, browser modules, branding/fonts
   and notices in immutable release-owned content, with the actual Forgejo caller
@@ -446,7 +457,7 @@ permissions conferred by completing source work or reaching a numbered criterion
   paths and SELinux/mount expectations; no release content depends on copying over
   a live Forgejo data tree. Run affected frontend/packaging checks.
 
-**4. [ ] Separate image defaults from machine state and persistent project images.**
+**4. [x] Separate image defaults from machine state and persistent project images.**
 
 - Deliverable: explicit ownership for app selection, `/etc/soda` settings/secrets,
   runtime paths and retained image storage. Preserve project roots and keep their
@@ -456,7 +467,7 @@ permissions conferred by completing source work or reaching a numbered criterion
   credentials/configuration; project image references remain valid across host
   release changes. No real Tailnet/provider job is triggered by validation.
 
-**5. [ ] Finish the host package/build contract.**
+**5. [x] Finish the host package/build contract.**
 
 - Deliverable: resolve the recorded Forgejo-runner/udisks2 tmpfiles warning through
   native package/service ownership; capture and pin the resolved RPM inputs and
@@ -465,7 +476,7 @@ permissions conferred by completing source work or reaching a numbered criterion
   for, and repeating frozen inputs cannot silently resolve newer RPMs. Do not claim
   byte-reproducible image output unless that property is separately demonstrated.
 
-**6. [ ] Define and emit the complete local payload/candidate record.**
+**6. [x] Define and emit the complete local payload/candidate record.**
 
 - Deliverable: version/release ID, architecture-specific host/app digests, source
   revision, provenance/inventory, schema, supported upgrade edges, migration
@@ -477,7 +488,7 @@ permissions conferred by completing source work or reaching a numbered criterion
   inputs fail safely. Inventory and app references have one authority, not multiple
   independently maintained release manifests.
 
-**7. [ ] Build and inspect the complete local candidate.**
+**7. [x] Build and inspect the complete local candidate.**
 
 - Deliverable: a noninteractive complete host/app build from a clean frozen revision,
   with public-only artifacts and scoped local evidence.
@@ -716,9 +727,8 @@ to the predecessor's separately reserved Updates platform.
 ## 10. Workstream status and next action
 
 The [six milestones above](#9-implementation-stages-and-exits) are the single task
-list for this workstream. **Milestone 1 is approved and in progress as one coherent
-slice; complete source/local checks precede the frozen full-candidate build.**
-Milestones 2–6 remain pending. This consolidation changes execution granularity,
+list for this workstream. **Milestone 1 is complete for the x86_64 local candidate
+at `45ac843`; milestones 2–6 remain pending.** This consolidation changes execution granularity,
 not production gates or effect permissions.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
@@ -737,22 +747,23 @@ logical CPUs, 62 GiB RAM, about 543 GiB free and local rootless Podman 5.8.2. Th
 is resource availability, not dedicated capacity or VM qualification. Builds use
 pinned Go 1.26.7 rather than the shell's Go 1.27.0.
 
-**Built:** `.artifacts/host-image/verified-f390aa6/host.oci` is an unsigned,
-host-content-only candidate. The [receipt](implementation-history.md#first-local-host-content-image-build)
-records its exact identity, local checks, two corrected build failures and retained
-attempts. Bootc lint reports 12 passed, one skipped and one warning for package-created
-`/var/lib/forgejo-runner` and `/var/lib/udisks2` directories; no warning-free or
-first-boot claim is made.
+**Built:** `.artifacts/host-image/complete-45ac843/host.oci`, five app archives,
+`payload.json` and detached `candidate.json`. The
+[receipt](implementation-history.md#complete-local-appliance-candidate) records exact
+digests, source/local tests and retained attempts. Three digest-bound Quadlets pass
+the native generator; 391 Forgejo files and embedded Project OS/Tailnet archives
+match their hashes. The 625-RPM inventory matches its lock and bootc lint now reports
+13 passed, one skipped, no warnings. The earlier host-only candidate is preserved.
 
-**Next within milestone 1: freeze, build and inspect the complete x86_64 candidate.**
-Source now emits three native bound-image Quadlets and packages the two persistent
-runtime archives for non-destructive import outside bootc storage. The canonical
-Forgejo payload is image-owned; machine settings/secrets are not generated. Release
-metadata supplies creation-image defaults, rejecting conflicting saved image IDs.
-The host RPM transaction and final inventory are locked from the retained x86_64
-receipt; missing exact versions fail, rather than selecting newer packages. RPM bytes
-are not mirrored and no aarch64 transaction lock/native proof is inferred.
-Applicable fixture/trust grants are still required before appliance proof.
+The [content ownership contract](#local-candidate-content-and-machine-state-ownership)
+retains the limits: no machine settings/secrets are generated, conflicting saved
+image choices refuse, and changing the companion image within an existing run is
+not an admitted hot upgrade. RPM bytes are not mirrored; aarch64 has no transaction
+lock/native proof. Metadata has no qualified upgrade edges.
+
+**Next: milestone 2 — trusted delivery.** Source/synthetic verification can be built
+without enabling publication; actual GHCR/signing/trust effects require their
+applicable grant. No timer, native fixture or retained-appliance migration is implied.
 The Cockpit error still needs installed-version/caller confirmation. No retained
 target, registry, workflow, signing key or update client has been changed. Independent
 Tailnet tasks remain with their own workstream; this plan does not absorb their list.
