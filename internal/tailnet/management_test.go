@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/installlayout"
 )
 
 type managementRoundTrip func(*http.Request) (*http.Response, error)
@@ -200,7 +202,7 @@ func TestTailnetHostActionsConfirmAndSeparateFailedReadback(t *testing.T) {
 				if action == "advertise-exit-node" && (path != DefaultCLI || strings.Join(args, " ") != "--socket="+hostSocket+" set --advertise-exit-node=true") {
 					t.Error("unexpected command")
 				}
-				if action == "refresh-forgejo" && (path != "/usr/local/libexec/soda/soda-forgejo-tailnet" || len(args) != 0) {
+				if action == "refresh-forgejo" && (path != installlayout.Libexec+"/soda-forgejo-tailnet" || len(args) != 0) {
 					t.Error("unexpected refresh")
 				}
 				m.local.Transport = managementRoundTrip(func(*http.Request) (*http.Response, error) { return nil, errors.New("synthetic secret error") })

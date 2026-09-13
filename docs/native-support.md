@@ -70,6 +70,50 @@ The export's parent must already exist; the `ARCH` directory must not. A bundle 
 
 The first installer verifies before copying writable prefixes, validates the RFC1918 subnet and subordinate ranges before applying them, and refuses existing/partial Soda state. `/etc/soda/install-started` remains after a partial failure; do not remove it to pretend the attempt was clean. Application setup, HTTPS activation and migrations still use core-owned commands. Fresh extension bootstrap needs its separately approved activation reboot before installation; [existing Cockpit addon maintenance](installation.md#cockpit-addon-maintenance) owns the native additive live-update option. Do not install Soda on the builder.
 
+## Local host-content image candidate
+
+The [release engineering plan](release-engineering-plan.md) owns this new image
+path; the existing writable installer and sealed application bundle remain unchanged.
+`tools/soda-host-image` is a noninteractive local build tool, never an installed
+appliance helper or update scheduler.
+
+```sh
+# Run from the canonical checkout after committing the candidate source.
+# The fresh attempt's parent must exist; never clear/reuse an earlier attempt.
+mkdir -p .artifacts/host-image
+GOTOOLCHAIN=go1.26.7 go run ./tools/soda-host-image \
+  --arch x86_64 --out "$PWD/.artifacts/host-image/UNIQUE-ATTEMPT" --build
+```
+
+Without `--build`, the command only snapshots committed source, prepares the public
+context and compiles/inspects native binaries. It requires a clean checkout and
+matching-native Linux/Go 1.26.7. `git archive` freezes the revision in the new ignored
+attempt; it does not create a worktree, switch branches or touch another agent's
+uncommitted work. Source archive, context inventory and private build log remain.
+
+With `--build`, it pulls the architecture-specific digest in
+`appliance/locks/coreos-host.json`, builds using local Podman (never a remote engine),
+then runs one networkless read-only package/layout inspection container and exports
+`host.oci`. `host.iid`, `inspect.cid`, `packages.txt` and `result.json` identify the
+image, retained inspection container, installed package inventory and archive hash.
+Build/intermediate/failed outputs are retained; no pruning or automatic cleanup is
+performed. These are build effects, not VM/installed-appliance lifecycle effects.
+No signing keys, scheduler, GHCR publication or global trust changes are involved.
+
+The `soda_host_image` Go build tag selects fixed vendor helper/unit locations, while
+ordinary builds retain the existing writable paths. `appliance/host.Containerfile`
+installs the package list extracted from the current provisioning owner and records
+resolved RPMs. The base is digest-pinned; live Fedora/Tailscale repositories are not
+snapshotted, so this is **not a reproducible-RPM or production-release claim**.
+
+This first slice is **host-content-only**: binaries, vendor units/Quadlets and basic
+native configuration. It does not yet bind/load app images, deliver Forgejo browser
+customization, migrate saved image IDs/configuration, or supply complete first-boot
+setup. The staged Quadlets retain their existing image references pending that next
+slice. Do not deploy this image or substitute it for an installable Soda release.
+Zincati updates are disabled and bootc's automatic timer masked only inside the
+candidate image, not on the builder or retained appliances.
+
 ## SSH, commands and exact-source remote phases
 
 Owned process execution (`exec`, `native`, `transfer`, `vm`) now requires Linux's

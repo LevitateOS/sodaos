@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/installlayout"
 )
 
 type managementExec func(context.Context, []byte, string, ...string) ([]byte, error)
@@ -37,7 +39,7 @@ func TestLifecycleUsesExistingUnitAndRetainsIdentity(t *testing.T) {
 							if enabled {
 								state = "enabled"
 							}
-							return []byte("LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=" + dropIn + "\nUnitFileState=" + state + "\n"), nil
+							return []byte("LoadState=loaded\nFragmentPath=" + installlayout.ProjectUnit + "\nDropInPaths=" + dropIn + "\nUnitFileState=" + state + "\n"), nil
 						}
 						verb := "enable"
 						if action == "stop" {
@@ -86,7 +88,7 @@ func TestLifecycleRefusesUnexpectedUnitBeforeMutation(t *testing.T) {
 				if args[0] != "show" {
 					t.Fatal("unexpected unit was mutated")
 				}
-				return []byte(unit), nil
+				return []byte(strings.ReplaceAll(unit, "/etc/systemd/system/soda-project@.service", installlayout.ProjectUnit)), nil
 			}
 			return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":"p0123456789abcdef01234567","owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64))), nil
 		})}

@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/levitateos/sodaos/internal/installlayout"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -120,7 +121,7 @@ func (d *Daemon) lifecycle(ctx context.Context, in Lifecycle) (LifecycleState, e
 		// to every service. Like FragmentPath, this trusts installed host-root
 		// configuration, not arbitrary per-project overrides or caller paths.
 		dropIns := fields["DropInPaths"]
-		if len(fields) != 4 || fields["LoadState"] != "loaded" || fields["FragmentPath"] != "/etc/systemd/system/soda-project@.service" || (dropIns != "" && dropIns != "/usr/lib/systemd/system/service.d/10-timeout-abort.conf") || (fields["UnitFileState"] != "enabled" && fields["UnitFileState"] != "disabled") {
+		if len(fields) != 4 || fields["LoadState"] != "loaded" || fields["FragmentPath"] != installlayout.ProjectUnit || (dropIns != "" && dropIns != "/usr/lib/systemd/system/service.d/10-timeout-abort.conf") || (fields["UnitFileState"] != "enabled" && fields["UnitFileState"] != "disabled") {
 			return false, errors.New("native unit is not the selected project unit")
 		}
 		return fields["UnitFileState"] == "enabled", nil

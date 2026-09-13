@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/installlayout"
 	"github.com/levitateos/sodaos/internal/strictjson"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -402,7 +403,7 @@ func (m *Management) HostAction(ctx context.Context, r HostRequest) (HostResult,
 	case "advertise-exit-node":
 		err = m.run(ctx, "set", "--advertise-exit-node="+boolString(*r.Advertise))
 	case "refresh-forgejo":
-		_, err = m.command(ctx, "/usr/local/libexec/soda/soda-forgejo-tailnet")
+		_, err = m.command(ctx, installlayout.Libexec+"/soda-forgejo-tailnet")
 	}
 	result := HostResult{Outcome: "confirmed"}
 	after, auth, readErr := m.observe(ctx)

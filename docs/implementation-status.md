@@ -71,6 +71,9 @@ The owner's automation clarification now explicitly selects an automated release
 pipeline, with this machine proposed as the initial timer/one-shot builder pending
 inspection. [The trigger section](release-engineering-plan.md#automated-trigger-and-initial-local-builder)
 owns scheduling, frozen inputs, protected promotion and failure/catch-up behavior.
+The owner subsequently approved the first local implementation slice: the plan now
+records source for the noninteractive host-content builder, vendor layout and focused
+tests. The existing installer remains unchanged; no deployable release is claimed.
 No timer or unattended pipeline has been installed or enabled.
 This research selection grants no publication/automatic CI, signing/trust change,
 service/VM lifecycle or retained-appliance migration. No installed state changed.

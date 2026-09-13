@@ -2,8 +2,9 @@
 
 ## Status and decisions
 
-**Stage-1 source/upstream feasibility review recorded; implementation and native
-acceptance have not started.** The
+**Stage-1 review recorded; the first Stage-2 local host-content build slice is
+implemented in source. Image-build and native boot/upgrade acceptance remain to
+record.** The
 owner selected GHCR distribution and a CoreOS-aligned Soda release train with an
 independent emergency lane. This guide owns the release engineering workstream and
 its status: build engineering, release management, distribution and appliance updates.
@@ -389,7 +390,11 @@ credential-bearing appliance into an image or rebase retained fixtures as a shor
   audit, bootc/rpm-ostree comparison, signature options and bounded proof proposal.
 - [ ] Stage 1 closure: accept the recommended proof mechanism; resolve native/client
   questions, trust/channel details and package/configuration migration findings.
-- [ ] Stages 2–7: not started.
+- [x] Stage 2 first source slice: pinned host base, noninteractive source-snapshot
+  builder, image-time package recipe, vendor-path binaries/units and packaging tests.
+- [ ] Stage 2 completion: actual image-build receipt, reproducible RPM inputs, bound
+  app images/customization, full release metadata and trust fixtures.
+- [ ] Stages 3–7: not started.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
 digest-pinned logically bound core appliance images and native keyed-Sigstore
@@ -398,9 +403,18 @@ verification, initially with explicit activation. The
 references, the writable-layout/client-layering costs and the isolated proof proposal.
 No custom update server or alternative boot backend is proposed.
 
-**Next:** accept that proof target, then prepare the bounded local recipe/layout
-slice and obtain applicable fixture/trust grants before native execution. The
-Cockpit error still needs installed-version/caller confirmation; it does not block
-independent source work. No current target was inspected or changed. No registry,
-workflow, signing key, image, update client or release has been created. Independent
+The owner approved implementing the first local recipe/layout slice. The
+[host-image build command](native-support.md#local-host-content-image-candidate)
+owns its invocation/effects and host-content-only limitations. Default installer
+paths are preserved; a compile-time tag selects vendor paths without widening native
+unit admission. Local packaging and both-layout host/Tailnet checks pass. Initial
+builder inspection found x86_64, 16 logical CPUs, 62 GiB RAM, approximately 543 GiB
+free in the checkout filesystem, readable KVM and local rootless Podman 5.8.2. This
+is resource availability, not dedicated capacity or native VM qualification. The
+shell's default Go is 1.27.0; this slice explicitly uses pinned Go 1.26.7.
+
+**Next:** execute/inspect the local host-content build, then finish app binding and
+release inputs. Obtain applicable fixture/trust grants before native appliance proof.
+The Cockpit error still needs installed-version/caller confirmation. No retained
+target, registry, workflow, signing key or update client has been changed. Independent
 Tailnet tasks remain with their own workstream; this plan does not absorb their list.
