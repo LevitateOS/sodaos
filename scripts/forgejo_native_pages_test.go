@@ -221,7 +221,7 @@ func TestAdminSodaSettingsHost(t *testing.T) {
 				body := renderAdminSettingsHost(t, prefix, "?soda-view="+view, adminSettingsHostData(prefix, true))
 				assertSodaSidebarEntries(t, body)
 				for _, want := range []string{
-					`<header>NATIVE_HEAD</header>`, `NATIVE_ALERT`, `ADMIN_FOOTER`,
+					`<header>NATIVE_HEAD</header>`, `NATIVE_ALERT`, `ADMIN_FOOTER`, `<p class="soda-page-eyebrow">Soda administration</p>`,
 					`id="soda-native-content"`, `data-view="` + view + `"`,
 					`data-actor="1"`, `data-repository-id=""`,
 					`href="` + prefix + `/-/soda/settings/runners"`, `href="` + prefix + `/-/soda/settings/tailnet"`,
