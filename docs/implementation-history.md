@@ -14,6 +14,26 @@ not claims that those outputs are still retained.
 
 ---
 
+## Spaces first-use implementation guide
+
+The user requested a step-by-step guide after reviewing planning commit `fe59bce`.
+Expanded the owning [journey plan](sodaspaces-plan.md#implementation-sequence-and-exits)
+in place into 15 ordered steps under its existing J1–J5 stages, with concrete file
+owners, integration seams, behavior/failure tests and completion criteria. The
+selected visual design remains unchanged; the independent handoff links the guide.
+
+Inspected the selected Forgejo 15.0.7 tagged search/list handlers and current Soda
+client, API, project mutation, workspace and terminal owners. The guide identifies
+upstream discovery support without claiming a new Soda picker endpoint exists. It
+calls out the current private project command boundary, reduced error responses and
+optional SSH-read coupling rather than prescribing a parallel command implementation.
+
+Documentation checks: whitespace/conflict-marker checks, ordered step/stage and
+pending-status checks, local links/anchors in the changed guide and handoff, and
+preservation of unrelated plan/history content. No application test, native journey,
+installation, provider/project operation or deployment was performed for this guide.
+Application implementation and native usable-input acceptance remain pending.
+
 ## Fresh VM paired runtime upgrade
 
 After the incompatible UI-only upgrade warning, the user explicitly approved the

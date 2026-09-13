@@ -19,9 +19,13 @@ The user selected the focused welcome-to-terminal UX and requested a written pla
 The [Sodaspaces journey plan](sodaspaces-plan.md#first-use-journey-implementation-plan)
 owns its independent implementation stages and status; the
 [Spaces design](spaces-design.md#first-use-journey--selected-13-september-2026) owns
-the agreed states and local mockup references. Planning is recorded; implementation
-and journey acceptance remain pending. This documentation work changes no installed
-state, current execution grant or other workstream's completion status.
+the agreed states and local mockup references. The plan now includes a
+[file-level guide](sodaspaces-plan.md#implementation-sequence-and-exits): 15 ordered
+steps under J1–J5, per-step checks and distinct local/native/delivery exits. Tagged
+Forgejo discovery support and current Soda callers were inspected for the guide;
+application implementation and journey acceptance remain pending. This documentation
+work changes no installed state, current execution grant or other workstream's
+completion status.
 
 ## Active work — Tailnet
 

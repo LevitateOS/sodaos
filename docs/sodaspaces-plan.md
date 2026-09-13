@@ -136,8 +136,9 @@ already implemented tmux or postpone independent Lit/source work.
 
 ## First-use journey implementation plan
 
-**Updated 13 September 2026. Status: design direction selected; plan authored;
-implementation and journey acceptance pending.** This workstream owns the bounded
+**Updated 13 September 2026. Status: design direction selected; step-by-step
+implementation guide authored; application implementation and journey acceptance
+pending.** This workstream owns the bounded
 Spaces first-use redesign, separately from Tailnet, Forgejo-wide redesign and the
 broader Project OS/Services/AI roadmap. The current request is to document the plan;
 no application code, installed service or project state is changed by this work.
@@ -197,107 +198,359 @@ are generated concepts with illustrative data, not an eligibility specification.
 
 ### Implementation sequence and exits
 
+Execute steps 1–15 in the existing J1–J5 order. Add the listed tests alongside each
+behavior change, not after assembling the whole UI. Use coherent commits at stage
+boundaries; keep this workstream's progress below current. Checkbox completion means
+the stated exit has evidence, not that native delivery happened.
+
+Before editing application code, inspect `git status`, the current handoff and the
+selected design. Use the canonical checkout and pinned toolchain. The
+[TypeScript guide](typescript.md) owns prerequisites and test effects; the
+[Lit guide](lit.md) owns rendering and component boundaries. Read those rather than
+introducing a setup controller, state-machine framework or separate frontend.
+
 #### J1 — Establish the repository picker contract
 
-- [ ] Inspect repository enumeration/search in the Forgejo version selected by
-  `appliance/services/forgejo.container` and the actual `internal/forgejo` client,
-  including pagination, private visibility and granted read scopes. Reuse supported
-  upstream operations before proposing a bounded Go endpoint. Do not introduce a
-  provider adapter, copied role catalog, credential in browser code or incidental upgrade.
-- [ ] Define a typed, bounded picker result using stable repository identity,
-  display name and server-authorized creation/existing-project outcomes. Keep the
-  existing final Create reauthorization; picker results do not grant write authority.
-- [ ] Wire the fixed native Create repository handoff and deliberate return/refresh.
-  Update `docs/dashboard-api.md` if an API contract is added; link to it here.
-- [ ] Test personal-owner eligibility, organization/collaborator refusal, private
-  visibility, ownership transfer, existing/incomplete reservation, paging/search
-  bounds, failed enumeration and logout/actor changes. No hidden metadata disclosure.
+**Files:** `internal/forgejo/`, `internal/web/environments_api.go`,
+`internal/web/environment_authority.go`, `frontend/spaces/sodaspaces-api.ts` and
+`docs/dashboard-api.md`. A focused repository-list client/handler file is reasonable
+if needed; a new Soda endpoint is not implemented or named by this guide.
 
-**Exit:** the global entry can select a real eligible Forgejo repository without
-weakening existing creation policy. Upstream API choice is recorded with source
-evidence; lack of an existing Soda method is not declared an upstream limitation.
+##### Step 1 — Resolve the upstream discovery operation
+
+- [ ] Confirm the selected Forgejo image in `appliance/services/forgejo.container`.
+  Guide inspection found **15.0.7**. Its tagged
+  [`repo.Search`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/repo/repo.go)
+  implements `GET /repos/search` with `q`, `uid`, `exclusive`, `private`, `page`
+  and `limit`; tagged
+  [`user.ListMyRepos`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/user/repo.go)
+  provides a paginated `GET /user/repos`. These are upstream capabilities, not new
+  Soda methods. Check their route middleware and effective OAuth read scopes before
+  selecting one. Do not implement global search by filtering only one list page.
+- [ ] Prefer upstream owner-filtered search for creation discovery if its effective
+  grant behavior fits. Derive the owner from the authenticated actor, never from a
+  browser-supplied user ID. Existing shared projects still come from `/api/spaces`.
+  Check returned identity/ownership rather than trusting a search filter as authority.
+- [ ] Record the selected upstream request, pagination semantics and private-repository
+  behavior in the API owner when implementing it. Reuse `Client.request`, bounded
+  response decoding, `RepositoryByID` and effective-consent checks where applicable.
+  Keep credentials server-side; no provider adapter or incidental dependency upgrade.
+
+**Check:** add `httptest` client cases in `internal/forgejo/` for query encoding,
+paging, authenticated requests, malformed/oversized responses and provider failures.
+These establish Soda client behavior, not real-provider acceptance.
+
+##### Step 2 — Implement the protected picker projection
+
+- [ ] Add only the bounded read operation the picker needs and register it through
+  the existing `apiProtected` route owner. Document its path, accepted query fields,
+  limits, result shape and failures in `docs/dashboard-api.md` in the same commit.
+- [ ] Return stable repository IDs and display names, server-evaluated eligibility,
+  and authorized existing-project/reservation outcomes. Separate more pages or
+  incomplete results from a confirmed empty result. Choose explicit query/page,
+  response-byte, request-duration and concurrency bounds; test their actual edges.
+- [ ] Reuse current acting-user repository and project-read authority before exposing
+  project metadata. Visibility, creation permission and permission to open an existing
+  project are distinct. Do not publish a hidden project's existence or aggregate count.
+- [ ] Leave final Create reauthorization and unique reservation in
+  `apiCreateEnvironment`. Picker reads perform no provisioning, membership, terminal
+  or network mutation. Recheck the original session before publishing delayed results.
+
+**Check:** personal owner versus collaborator/organization/site-admin eligibility;
+private and inaccessible repositories; ownership transfer; existing and incomplete
+reservations; unknown/repeated/oversized query fields; empty, partial and failed
+reads; logout/actor change during a delayed provider response. Extend the existing
+`internal/web/` authorization tests, using the real handler and synthetic peers.
+
+##### Step 3 — Add the typed browser caller
+
+- [ ] Add a runtime-validated picker response beside existing decoders in
+  `sodaspaces-api.ts`. Validate identity, bounds and mutually consistent outcomes;
+  do not cast parsed JSON into a trusted interface.
+- [ ] Call it through the workspace's existing actor-bound request path. Associate
+  requests with the active query/page and session; ignore superseded responses and
+  retire pending reads on logout/disposal. Do not create another login/session owner.
+- [ ] Add decoder and request tests in `tests/frontend/spaces-api.test.ts` and the
+  existing workspace fixture. Include out-of-order search completion and an actor
+  change while a request is pending.
+
+**J1 exit:** a real supported upstream operation can supply bounded, authorized
+repository choices through the tested Soda contract. No UI choice grants creation
+permission and no new OAuth scope or write token has been silently introduced.
 
 #### J2 — Build welcome, selection and configuration
 
-- [ ] Compose the three setup views inside the existing full-page Lit mount. Show
-  welcome only after successful empty inventory; returning users bypass it.
-- [ ] Implement explicit selection, search, Back and Change, preserving nonsecret
-  in-flow choices and ignoring stale results. Reuse the canonical current-theme
-  components and icons; implement both themes from the same semantic tokens.
-- [ ] Reuse project profile and optional Tailnet controls and their live availability.
-  Link **How Spaces works** to native user help; update the existing
-  `docs/public/30-Use-Soda/20-projects-and-workspaces.md` as needed.
-- [ ] Test selection without writes, empty versus failed reads, unavailable options,
-  long names, keyboard navigation and draft preservation. Add no terminal/session
-  controls to the zero-project surface.
+**Files:** `frontend/spaces/sodaspaces-page.ts`, `sodaspaces-workspace.ts`,
+`sodaspaces-workspace-view.ts`, `sodaspaces-project.ts`,
+`sodaspaces-environment-view.ts`, `sodaspaces-network.ts` and existing Spaces CSS.
 
-**Exit:** all setup states render with real typed data and one clear primary action;
-only the final Create control can submit creation.
+##### Step 4 — Add the setup presentation to the existing workspace
+
+- [ ] Keep `mountSpacesPage` and the native Forgejo entry. Add the small typed
+  presentation state needed for welcome, repository selection and configuration to
+  `SodaSpaces`; keep it separate from the pane tree, terminal owners and server facts.
+- [ ] Render welcome only when `/api/spaces` confirms `complete: true` and no items.
+  Loading, failure and incomplete-empty inventory need their own presentation. With
+  existing projects, enter the workspace directly. Use the design owner's exact copy
+  and control hierarchy, not a second specification in the implementation.
+- [ ] Add stateless typed render helpers alongside `sodaspaces-workspace-view.ts` as
+  needed. Keep terminal host nodes stable while switching setup/workspace/settings.
+  Preserve the previous workspace when starting another project's setup; Cancel
+  restores it without closing shells or overwriting the pane tree.
+
+**Check:** extend `tests/frontend/workspace.test.ts` and
+`tests/frontend/fixtures/workspace-fixture.ts`: loading never flashes welcome;
+incomplete/failed reads never claim no projects; returning users bypass onboarding;
+starting and cancelling setup with live terminals preserves owner identity.
+
+##### Step 5 — Build repository selection and the native creation handoff
+
+- [ ] Wire Create project to the picker, then implement radio selection, search,
+  paging, Continue and Back using J1's typed results. Store the selected repository
+  ID, not its label or list index. No implicit first-row selection.
+- [ ] Preserve nonsecret choices during Back/Change in the active flow; invalidate
+  choices when current authorization no longer permits them. Render existing-project
+  Open or incomplete-reservation guidance from authorized results, never another Create.
+- [ ] Link Create a new repository to Forgejo's existing native repository creation
+  route using the supported sub-URL context. On return, refresh choices and require
+  deliberate selection; no custom callback, automatic selection or project mutation.
+- [ ] Wire How Spaces works to existing user help. Update
+  `docs/public/30-Use-Soda/20-projects-and-workspaces.md` for the selected explanation
+  rather than adding an unrelated onboarding site.
+
+**Check:** keyboard radio/search/paging use, empty search versus no eligible repository,
+long owner/name labels, stable selection across pages, Back/Change focus, native
+handoff under a sub-URL and no writes from selection or navigation.
+
+##### Step 6 — Compose configuration from the project owner
+
+- [ ] Use the selected repository to load the existing project/profile/Tailnet option
+  reads. Reuse `SodaProjectControls` drafts and admission through a small typed
+  presentation interface or setup mode as needed. `mountProjectControls` currently
+  exposes refresh/readiness/invalidation/disposal, not a public Create API; do not
+  bypass its private guards with a second workspace POST implementation.
+- [ ] Render only installed profile choices from the API. Preserve the selected
+  repository identity and the design's optional Tailnet behavior. Changing repository
+  must invalidate repository-bound profile/network observations before submission.
+- [ ] Keep readiness and failures scoped: unavailable profiles block creation;
+  unavailable optional network management does not block explicit Off creation.
+  If a selected network option becomes invalid, require review rather than silently
+  changing the submitted choice. Keep SSH forms outside setup.
+
+**Check:** extend `tests/frontend/repository-settings.test.ts` and
+`tests/frontend/drawer-controls.test.ts` with emitted-component cases where possible;
+exercise delayed profile results, changed repository, missing profile, Tailnet Off,
+changed network binding and draft preservation. Native-only cases remain separately
+labelled; a skipped native case is not source coverage.
+
+**J2 exit:** welcome, picker and configuration use typed data and existing owners;
+only the final Create button can submit project creation. New helpers, if extracted,
+are staged with the normal module graph rather than served as raw TypeScript.
 
 #### J3 — Integrate Create, Join and readiness
 
-- [ ] Route creation through the existing project mutation owner; display pending,
-  confirmed, rejected and uncertain outcomes in place. Preserve known reservation
-  IDs and inspect them after uncertain responses; never automatically repeat Create.
-- [ ] Enter the selected project workspace after confirmation. Determine Start,
-  Join or New terminal from current provisioned/running/membership/authority facts.
-  Use explicit browser-only Join without adding an SSH setup prerequisite.
-- [ ] Show scoped progress/errors for Start and Join, retain unrelated live work and
-  handle optional network outcome separately from successful project creation.
-- [ ] Test one submission per deliberate action, duplicate-click prevention,
-  response loss/partial reservation, stopped and denied states, keyless Join and
-  changed authority. Prove no Create → Join → Start → terminal chaining.
+**Files:** `sodaspaces-project.ts`, `sodaspaces-workspace.ts`, their view helpers,
+`internal/web/environments_api.go` if an affected response contract needs a change.
 
-**Exit:** a successfully joined actor reaches the first-terminal state; failures
-remain actionable without duplicate resources or misleading ready/running claims.
+##### Step 7 — Connect explicit Create and its confirmed result
+
+- [ ] Submit through `SodaProjectControls.mutate` and its existing command admission.
+  Capture the repository, selected profile and optional network intent at dispatch;
+  disable duplicate submissions synchronously. Configuration renders pending state
+  without manufacturing native progress percentages.
+- [ ] Validate the confirmed response against that captured identity. Use the existing
+  `soda-project-changed` notification to trigger readback, not to infer readiness or
+  trigger Join. If the setup view needs a richer outcome, expose only a typed result
+  from this same owner; do not add a generic command bus.
+- [ ] Refresh authorized project/detail state and select the created project. Show the
+  sidebar only after confirmation; do not guess success from a timeout or receipt of
+  an arbitrary JSON object.
+
+**Check:** one POST for a deliberate click/double-click sequence, correct repository
+and option binding, no late result publication after actor change, and no automatic
+Join, separate lifecycle Start, or terminal creation after Create. Native provisioning
+may itself return a running project; that is not a reason to send another Start.
+
+##### Step 8 — Keep uncertain creation recoverable without replay
+
+- [ ] Inspect `apiCreateEnvironment`'s retained-reservation error responses and the
+  browser error path. The current request helper reduces failures to status/code;
+  preserve validated project identity from an admitted error when available, or
+  recover it through the existing repository-scoped read. Never trust a raw Location
+  or arbitrary error URL as a new target.
+- [ ] Distinguish rejection before reservation, retained incomplete reservation and
+  transport/readback uncertainty. Keep the original repository/known project ID and
+  offer read-only inspection or operator guidance. Reload must observe, not resubmit.
+- [ ] Keep successful provisioning separate from optional Tailnet outcome. Network
+  follow-up belongs to the Network view; it must not send Create again.
+
+**Check:** lost response, malformed success, returned incomplete reservation, failed
+result persistence, conflict with another creator, logout during dispatch and network
+setup failure after provisioning. Assert mutation counts and retained identities,
+not merely the presence of an error message.
+
+##### Step 9 — Present Start, Join or first-terminal readiness
+
+- [ ] Derive the primary action from fresh provisioned/running/membership/authority
+  facts using existing project reads. Do not treat a sidebar selection as a target
+  change for a pending operation or an existing terminal.
+- [ ] Keep Start an explicit authorized lifecycle command. Keep Join a separate
+  command using `{"ssh_keys":"none"}` for this browser-only journey. Reuse their
+  current owner and validate readback before presenting the next step.
+- [ ] Show the actual account login from confirmed membership. Failed optional
+  external-SSH/key reads must not become a browser-terminal prerequisite; isolate
+  those reads in the Access presentation if the shared refresh currently couples them.
+- [ ] Before declaring the project has no terminals, inspect the authorized inventory
+  including hidden/existing entries. Partial inventory is uncertainty, not permission
+  to invent a first-terminal state. Offer the appropriate existing-terminal navigation.
+
+**Check:** stopped authorized/denied, incomplete project, running not joined, pending
+and failed Join, already joined, unsupported login, keyless membership, hidden terminal
+and incomplete inventory. Assert separate clicks and original account/target identity.
+
+**J3 exit:** confirmed creation and explicit membership lead to an accurate terminal
+entry state; uncertainty is actionable without duplicate resources or chained writes.
 
 #### J4 — Complete the working terminal transition
 
-- [ ] Add selected-project direct **New terminal** using the existing creation path,
-  a default `Terminal N` name and the visible project/account. Require a chooser
-  only where the target is ambiguous; Rename remains available afterward.
-- [ ] Show Opening, attach the exact returned terminal, then move the action into
-  the project header. Keep one terminal tab and its sidebar row synchronized and
-  give the user-requested shell keyboard focus when ready.
-- [ ] Preserve original identity in mixed-project panes, existing/hidden terminal
-  discovery, exact attach, one-writer refusal and pending locator recovery.
-- [ ] Put terminal/pane operations into contextual menus and expose Project settings
-  as Overview/Access/Network. Keep desktop navigation stable; mobile uses Projects.
-  Shared drawer components must continue to work through the same owners; update
-  `docs/spaces-drawer-design.md` when changing its visible labels/composition.
-- [ ] Test direct creation with no naming dialog, target races, capacity/refusal,
-  focus, returning users, second-project creation/cancel with live terminals,
-  tab/pane switching and affected page/drawer continuity.
+**Files:** `sodaspaces-workspace.ts`, `sodaspaces-workspace-view.ts`,
+`sodaspaces-project-view.ts`, the existing terminal facade and Spaces CSS.
 
-**Exit:** a running joined project opens one usable shell with the agreed workspace
-hierarchy. Navigation, settings, splits and hiding remain presentation operations.
+##### Step 10 — Open the first terminal without a naming dialog
+
+- [ ] Route selected-project New terminal into the existing `createTerminal()` path
+  with a default `Terminal N` name and an existing valid destination pane. Retain a
+  chooser only where project/account targeting is genuinely ambiguous.
+- [ ] Reuse `addSlot` and the terminal facade's `open` path. Preserve native ID
+  allocation, publication before Create, exact pending recovery and all admission
+  guards from the [terminal contract](terminal-integration.md). Do not allocate a
+  replacement ID to repair an observer or an uncertain Create.
+- [ ] Show Opening for that entry until its exact terminal is usable. Then expose its
+  tab/sidebar row and place New terminal in the header, only once. Focus the shell
+  after user-requested attachment; background updates must not steal focus.
+
+**Check:** extend `tests/frontend/workspace.test.ts`, `terminal.test.ts` and
+`workspace-journey.test.ts`: no mandatory naming dialog, one reservation/Create path,
+correct default name, project/destination race, capacity refusal, pending response
+loss, another writer, focus and subsequent Rename. Test usable input/output against
+the synthetic peer while labelling it separately from native shell proof.
+
+##### Step 11 — Finish project navigation and contextual controls
+
+- [ ] Add the selected-project header and sidebar selection without retargeting
+  mixed-project terminal slots. Keep project search conditional as specified by the
+  design. A hidden terminal stays discoverable without another Create.
+- [ ] Present Project settings through the same project owner as Overview/Access/
+  Network, with Back restoring the workspace. Keep optional SSH there and reuse
+  existing lifecycle confirmations and coordinated native sign-out.
+- [ ] Move terminal and pane actions into their contextual menus. Preserve distinct
+  Hide, named End, split/move and shared-project Stop semantics. Retain keyboard
+  alternatives and disclose Reconnect at the affected terminal.
+- [ ] Update `docs/spaces-drawer-design.md` only for labels/composition actually
+  changed in shared controls. Do not rebuild the repository drawer or global
+  administration navigation as part of this journey.
+
+**Check:** selected project versus focused terminal identity, settings Back, hidden
+terminal rediscovery, exact End/Cancel target, split/move without shell creation,
+keyboard menu use and the existing page/drawer continuity cases.
+
+##### Step 12 — Apply responsive styling without rebuilding terminal owners
+
+- [ ] Use existing `sodaspaces-workspace.css`, `sodaspaces-project.css` and canonical
+  theme tokens. Apply the [selected responsive design](spaces-design.md#required-branches-and-responsive-behavior)
+  to setup, settings and the populated workspace; avoid independent theme palettes.
+- [ ] Keep the measured pane projection and stable terminal host layer. Compact
+  Projects navigation must not replace live renderers or overwrite the desired
+  desktop layout. Handle short viewports, zoom and mobile keyboard geometry.
+- [ ] Check focus order, real labels, radio semantics, live pending/error announcements
+  and touch targets in both themes. Use the canonical icons, not generated mockup art
+  as production assets.
+
+**Check:** extend `tests/frontend/spaces-layout.test.ts`, `spaces-attention.test.ts`
+and affected drawer layout cases. Review 1440, 800, 640 and 390px with long names,
+overflowing tabs and multiple panes. Capture actual UI with `scripts/screenshot.ts`
+under the [capture guide](screenshot-capture.md); mockups are not implementation proof.
+
+**J4 exit:** a running joined project opens one usable terminal through the existing
+owner. The agreed full-page hierarchy works without breaking identity, lifetime,
+layout restoration or the shared drawer.
 
 #### J5 — Close journey acceptance and document delivery limits
 
-- [ ] Run strict TypeScript/Lit checks and the affected existing frontend/browser
-  drivers. Run focused Go authorization/failure tests if J1/J3 changes Go contracts.
-  Build emitted assets using the normal workspace scripts and keep native staging
-  and presentation epoch wiring aligned with the changed caller.
-- [ ] Exercise the complete welcome-to-input journey with synthetic/local fixtures,
-  plus relevant failure branches from the design owner. Check 1440, 800, 640 and
-  390px, both themes, long names, short viewports and keyboard-only operation.
-  Use `scripts/screenshot.ts` under the [capture guide](screenshot-capture.md) for
-  actual UI review, keeping new captures in `.artifacts/`.
-- [ ] Under applicable target/action approval, verify the same journey in native
-  Forgejo with an eligible repository, supported installed profile, browser-only
-  Join and real terminal input. Confirm one project/membership/terminal and actual
-  project/account identity. Optional Tailnet remains off unless separately in scope.
-- [ ] Verify reload/re-entry attaches the existing authorized terminal without
-  replaying creation/input; run the affected page/drawer regression cases. Reuse
-  valid broader terminal evidence and identify what it does not prove for this change.
-- [ ] Update this status and user help; put detailed commands, outcomes and evidence
-  in implementation history. Separate design review, local checks, native evidence
-  and any separately authorized deployment. No mockup is an acceptance receipt.
+##### Step 13 — Wire the emitted graph and run affected local checks
 
-**Exit:** the tested scope is reported precisely. A complete first-use journey claim
-requires native browser-to-shell proof; source completion can be reported separately
-while native fixture/action approval or proof is pending. This does not gate unrelated
-source progress on a sibling architecture or unrelated provider/desktop roadmap.
+- [ ] Register any new production modules in
+  `internal/nativebuild/forgejo-payload.json` and keep `scripts/build-forgejo.ts`
+  aligned. Bump the presentation epoch and all affected entry/style URLs together
+  under the [TypeScript asset contract](typescript.md). Do not edit emitted files.
+- [ ] Extend the existing fixture/driver with the whole welcome-to-input sequence,
+  recording each mutation and target. Verify Back, refresh, failed reads and normal
+  re-entry generate no writes. Reuse existing terminal journey/navigation helpers
+  rather than adding a second scenario runner.
+- [ ] Select the checks below for changed contracts. Run them with the documented
+  prerequisites and no installed/provider opt-in flags for ordinary source testing.
+  Reuse valid unchanged-source evidence rather than treating this as a mandatory
+  aggregate build sequence.
+
+| Change / evidence | Existing command or driver |
+| --- | --- |
+| Go picker, authorization or response behavior | `go test -race ./internal/forgejo ./internal/web` (or the affected named tests during iteration) |
+| Strict browser types and Lit templates | `bun run typecheck` |
+| Emitted production assets | `bun run build:forgejo` |
+| Frontend/component behavior | `bun run test:frontend`; it prepares the emitted assets itself |
+| Shared drawer geometry | `bun run test:layout` |
+| Native hooks, presentation epoch and emitted closure | `bun run test:forgejo`; payload changes also select affected `internal/nativebuild` / `scripts` Go tests |
+| Actual native-page HTML/CSP and connection | `bun run test:pages`, only with its authorized fixture prerequisites; operations are still synthetic |
+
+Extend `tests/frontend/spaces-page.test.ts` and the native connection producer only
+where the new entry/picker contract requires it. A skipped native-page test is not
+coverage. Missing or declined fixture repair does not block independent source work;
+record the missing evidence instead of starting or repairing retained services.
+
+**Local exit:** report separately which source, emitted-browser, layout and native-HTML
+checks actually passed. No native project/terminal claim follows from synthetic peers.
+
+##### Step 14 — Prove the journey with a real project and terminal when authorized
+
+- [ ] Consult the latest target handoff and confirm its current availability/hold.
+  Select an eligible personal repository, supported installed profile, actor and exact
+  project/membership/terminal effects under applicable approval. Native repository
+  creation, Start, End, cleanup and any fixture/service lifecycle need their respective
+  scope; this guide does not grant them. Leave Tailnet Off unless separately selected.
+- [ ] Extend the existing `tests/installed/sodaspaces.ts` journey and input/observer
+  owners for this path. Use native login and protected file inputs; follow the owning
+  [native validation](native-validation.md) and [support](native-support.md) guides
+  before execution. Do not invent another browser login or mutate to repair a test.
+- [ ] Walk welcome → selection → configuration → confirmed Create → explicit Join →
+  New terminal. Observe one project, the actual actor membership and one native
+  terminal. Type harmless input and verify output and the expected non-root account
+  in the intended project using the native observer—not a browser label alone.
+- [ ] Reload/re-enter and verify the same authorized terminal is discovered/attached
+  without repeating Create or input. Run affected page/drawer cases within their
+  approved scope. Preserve resources and failure evidence; no automatic teardown.
+
+**Native exit:** native browser-to-shell input and exact identity/continuity are
+recorded. Zero-project access smoke is insufficient. Wider CLI/concurrency acceptance
+retains its terminal-owner scope; it is not silently claimed by this one-user journey.
+
+##### Step 15 — Record completion and prepare a separate compatible delivery
+
+- [ ] Update the progress table below, user help and the workstream's handoff link.
+  Put detailed revisions, commands, results, screenshots and limitations in
+  `docs/implementation-history.md`. Distinguish authored tests, local passes,
+  native journey proof and installation; leave unrun items explicitly pending.
+- [ ] If delivery is subsequently requested, identify the matching browser/backend
+  revision and target's actual installed state. A new picker API cannot be delivered
+  as frontend-only assets to a backend that lacks it. Follow
+  [retained cutover](installation.md#retained-sodaspaces-cutover) for the separately
+  authorized target/action; do not reuse old maintenance or VM-hold grants.
+- [ ] Report source completion even when native fixture approval/proof or delivery is
+  pending. Do not require a sibling architecture, provider enrollment or unrelated
+  desktop roadmap to finish this bounded source work.
+
+**J5 exit:** completion claims match their evidence. The first-use journey is complete
+only with native usable-input proof; documentation, implementation, local acceptance
+and deployment each keep their own status.
 
 ### Current progress and next action
 
@@ -305,12 +558,15 @@ source progress on a sibling architecture or unrelated provider/desktop roadmap.
 | --- | --- |
 | Agreed journey, desktop hierarchy and five selected mockups | Recorded in the design owner |
 | Plan and reconciliation of conflicting full-page design requirements | Authored; documentation only |
+| File-level implementation guide, steps 1–15 under J1–J5 | Authored with per-step checks and separate local/native/delivery exits |
 | J1–J4 source implementation | Pending |
 | J5 source/browser/native acceptance | Pending |
 | Deployment / retained-target changes | Not performed by this planning task |
 
-**Next implementation action: J1**, establishing authorized Forgejo repository
-discovery against the current caller. The remaining stages reuse existing project,
+**Next implementation action: J1, step 1**, finalizing authorized Forgejo repository
+discovery against the current caller. Guide inspection identified tagged upstream
+search/list support; endpoint selection, its Soda projection and behavioral tests
+remain implementation work. The remaining stages reuse existing project,
 terminal and layout owners; they do not reopen native architecture, organization
 creation policy, new OS profiles, Git credential automation or provider setup.
 
