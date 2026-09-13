@@ -21,7 +21,7 @@ export function createWorkspaceModel(origin: string, actor = '1', repository?: {
   }
   if (firstUse) spaces.splice(0);
   const profile = {id: 'rocky-headless', distribution: 'rocky', version: '9', interface: 'headless', architecture: 'amd64', image: 'sha256:' + '1'.repeat(64), revision: '1'.repeat(40)};
-  let createOutcome: 'confirmed' | 'uncertain' | 'incomplete' | 'rejected' = 'confirmed', joinFailure = false, profileAvailable = true;
+  let createOutcome: 'confirmed' | 'uncertain' | 'incomplete' | 'rejected' = 'confirmed', joinFailure: false | string = false, profileAvailable = true;
   const calls: {path: string; method: string; body: Record<string, unknown> | null}[] = [], sockets: Socket[] = [];
   let user = actor, complete = true, status = 200, unknownEnd = false, serial = 0;
   const reservations = new Set<string>();
@@ -61,7 +61,7 @@ export function createWorkspaceModel(origin: string, actor = '1', repository?: {
     const space = spaces.find(p => path.includes(p.environment.id) || path.endsWith('repository_id=' + p.environment.repository_id));
     if (!space) return new Response(null, {status: 404});
     if (path.endsWith('/join') && method === 'POST') {
-      if (joinFailure) return Response.json({error: {code: 'join_failed'}}, {status: 502});
+      if (joinFailure) return Response.json({error: {code: joinFailure}}, {status: 502});
       if (body?.ssh_keys !== 'none') throw Error('First-use must join without keys');
       space.login = 'alice'; return Response.json({login: space.login});
     }
@@ -118,5 +118,5 @@ export function createWorkspaceModel(origin: string, actor = '1', repository?: {
       this.onclose?.();
     }
   }
-  return {request, Socket, profile, spaces, calls, sockets, setCreateOutcome(value: typeof createOutcome) {createOutcome = value;}, setJoinFailure(value: boolean) {joinFailure = value;}, setProfileAvailable(value: boolean) {profileAvailable = value;}, setUser(value: string) {user = value;}, setStatus(value: number) {status = value;}, setComplete(value: boolean) {complete = value;}, setUnknownEnd() {unknownEnd = true;}, pause(value: Promise<void> | undefined) {pause = value;}};
+  return {request, Socket, profile, spaces, calls, sockets, setCreateOutcome(value: typeof createOutcome) {createOutcome = value;}, setJoinFailure(value: boolean | string) {joinFailure = value === true ? 'account_incomplete' : value;}, setProfileAvailable(value: boolean) {profileAvailable = value;}, setUser(value: string) {user = value;}, setStatus(value: number) {status = value;}, setComplete(value: boolean) {complete = value;}, setUnknownEnd() {unknownEnd = true;}, pause(value: Promise<void> | undefined) {pause = value;}};
 }

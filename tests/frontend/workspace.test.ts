@@ -673,7 +673,7 @@ for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const) test(`fi
   await page.evaluate(outcome => {window.workspaceFixture.setCreateOutcome(outcome); return window.workspaceFixture.api.refresh();}, outcome);
   await chooseFirstRepository(page);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
-  await page.getByText(outcome === 'rejected' ? /Installed Project OS unavailable\. No reservation/ : /Outcome unconfirmed/).waitFor();
+  await page.getByText(outcome === 'rejected' ? /Installed Project OS unavailable\. No reservation/ : /Project creation could not be confirmed/).waitFor();
   await page.getByRole('button', {name: 'Refresh status', exact: true}).click();
   if (outcome === 'uncertain') await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
   else if (outcome === 'incomplete') await page.getByRole('heading', {name: 'Project needs inspection'}).waitFor();
@@ -784,17 +784,36 @@ for (const state of ['missing-observation', 'native-unavailable', 'authority-una
   assert.equal(await page.getByRole('heading', {name: 'Open your first terminal'}).count(), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
 });
-test('first use: failed Join stays scoped; later explicit keyless Join opens no terminal', async t => {
+for (const [code, message] of [
+  ['account_incomplete', 'Ask your Soda administrator to check the account setup'],
+  ['membership_not_saved', 'Soda could not save your access'],
+  ['unsupported_linux_login', 'username cannot be used for a project account'],
+  ['unknown_failure', 'We couldn’t confirm whether you joined']
+]) test(`first use: ${code} Join explains recovery without replay`, async t => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => window.workspaceFixture.api.refresh()); await chooseFirstRepository(page);
   await page.getByRole('button', {name: 'Create project', exact: true}).click();
   await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
-  await page.evaluate(() => window.workspaceFixture.setJoinFailure(true));
+  await page.evaluate(code => window.workspaceFixture.setJoinFailure(code || ''), code);
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
-  await page.getByText(/Outcome unconfirmed/).waitFor();
+  await page.getByRole('heading', {name: 'Couldn’t join project'}).waitFor();
+  assert((await page.locator('.soda-ready-project').innerText()).includes(message || ''));
+  assert(!/Outcome unconfirmed|reserved project|earlier write/.test(await page.locator('.soda-ready-project').innerText()));
   assert.equal(await page.getByRole('heading', {name: 'Open your first terminal'}).count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'Try joining again', exact: true}).count(), 0);
+  if (code === 'membership_not_saved') {
+    await page.evaluate(() => {const space = window.workspaceFixture.spaces[0]; if (space) space.login = 'alice';});
+    await page.getByRole('button', {name: 'Check join status', exact: true}).click();
+    await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 2);
+    assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+    return;
+  }
+  await page.getByRole('button', {name: 'Check join status', exact: true}).click();
+  await page.getByText('You haven’t joined this project yet.').waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 2);
   await page.evaluate(() => window.workspaceFixture.setJoinFailure(false));
-  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByRole('button', {name: 'Try joining again', exact: true}).click();
   await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 3);
@@ -864,7 +883,7 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 390]) test(`co
   await captureSpacesComponent(page, `stopped-${theme}-${width}`);
   await page.evaluate(async () => {const f = window.workspaceFixture, space = f.spaces[0]; if (!space?.observed) throw Error('fixture'); space.observed.running = true; await f.api.refresh(); f.setJoinFailure(true);});
   await page.getByRole('button', {name: 'Join project', exact: true}).click();
-  await page.getByText(/Outcome unconfirmed/).waitFor();
+  await page.getByRole('heading', {name: 'Couldn’t join project'}).waitFor();
   await captureSpacesComponent(page, `join-error-${theme}-${width}`);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 2);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);

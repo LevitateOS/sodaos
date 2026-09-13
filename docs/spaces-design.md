@@ -351,6 +351,16 @@ existing detach behavior: it preserves identity and offers reconnect without cla
 that the renderer or output buffer survives a lost connection. No motion is required
 to understand loading, selection or recovery.
 
+Join errors replace the success illustration and heading with **Couldn’t join
+project**. Explain the affected account setup, saved project access or unsupported
+username in plain language using the API's known error code. Unknown responses
+say that joining could not be confirmed; never guess a specific underlying cause.
+Do not show project-reservation or write-replay terminology after Join.
+**Check join status** performs only reads. Confirmed membership advances to the
+first-terminal screen; confirmed absence makes **Try joining again** available as
+a separate quiet action. Account-setup failures direct the user to their Soda
+administrator before retrying. A refresh is never presented as repairing an account.
+
 ### Selected visual references
 
 These generated mockups and their sibling prompt files are local ignored design

@@ -152,6 +152,8 @@ export class SodaProjectControls extends LitElement {
   private disposed = false;
   private mutationPending = false;
   private outcomeNeedsAttention = false;
+  private joinFailed = false;
+  private joinNeedsCheck = false;
   get canRestore() { return !this.mutationPending; }
   constructor() {
     super();
@@ -250,6 +252,13 @@ export class SodaProjectControls extends LitElement {
         feedback: html`<p role="status">${this.outcomeNeedsAttention ? this.outcome : ''}</p>`})}
     </section>`;
     const joinReady = !this.stale && this.detail?.environment.provisioned && this.running && !this.detail.login && !this.detail.authority_unavailable && !this.detail.native_unavailable;
+    if (joinReady && this.joinFailed) return html`<section data-project-controls class="soda-spaces-controls soda-project-journey soda-ready-project" aria-busy=${this.busy ? 'true' : 'false'}>
+      ${renderWorkspaceIntro({kind: 'unavailable', heading: 'Couldn’t join project',
+        description: html`<span role="status">${this.outcome}</span>`,
+        action: html`<button class="ui primary button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.refresh())}>${this.busy ? 'Checking join status…' : 'Check join status'}</button>`,
+        helper: html`${this.joinNeedsCheck ? 'Checking status won’t try to join again.' : 'You haven’t joined this project yet.'}`,
+        feedback: !this.joinNeedsCheck && !this.busy ? html`<button class="ui button soda-quiet-action" @click=${(e: Event) => this.command(e, () => this.joinEnvironment())}>Try joining again</button>` : html``})}
+    </section>`;
     if (joinReady) return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls soda-project-journey soda-ready-project" aria-busy=${this.busy ? 'true' : 'false'}>
       ${renderWorkspaceIntro({kind: 'project', heading: 'Project created',
         description: html`Join ${this.repositoryName} to set up your personal account<span>on this shared development system.</span>`,
@@ -466,6 +475,7 @@ export class SodaProjectControls extends LitElement {
     const {expectedUserId, repositoryId} = this.binding;
     const n = ++this.epoch;
     const prior = {profile: this.selectedProfile, network: this.networkOptions, enabled: this.networkEnabled};
+    let recoveredJoin = false;
     this.readController?.abort();
     this.reset();
     const control = this.readController = new AbortController(), timeout = window.setTimeout(() => control.abort(), 15000);
@@ -523,6 +533,10 @@ export class SodaProjectControls extends LitElement {
       if (!this.active(n))
         return;
       this.detail = detail;
+      if (this.joinFailed && !detail.authority_unavailable && !detail.native_unavailable) {
+        this.joinNeedsCheck = false;
+        if (detail.login) {recoveredJoin = true; this.joinFailed = false; this.outcomeNeedsAttention = false; this.outcome = '';}
+      }
       if (detail.login) check(/^[a-z][a-z0-9_-]{0,30}$/.test(detail.login) && detail.login !== 'root');
       const running = this.running;
       this.status = !detail.environment.provisioned ? 'Provisioning incomplete. Ask the operator to inspect; do not recreate it.' : detail.native_unavailable || !detail.observed ? 'Native state unavailable; refresh or ask the operator to inspect.' : running ? 'Environment running.' : 'Environment stopped.';
@@ -594,6 +608,7 @@ export class SodaProjectControls extends LitElement {
           repositoryId, environmentId: this.environment?.id || '', provisioned: this.detail?.environment.provisioned === true,
           login: this.detail?.login || '', running: this.running
         }}));
+        if (recoveredJoin) this.dispatchEvent(new CustomEvent('soda-project-changed', {bubbles: true, detail: {repositoryId}}));
         await this.updateComplete;
       }
     }
@@ -604,6 +619,7 @@ export class SodaProjectControls extends LitElement {
     const n = this.epoch;
     this.busy = true;
     this.outcomeNeedsAttention = false;
+    this.joinFailed = false;
     this.outcome = 'Sending the explicit operation with the original page identity…';
     let dispatched = false, inspectCreation = false;
     const controller = new AbortController(), timeout = window.setTimeout(() => controller.abort(), 255000);
@@ -669,7 +685,18 @@ export class SodaProjectControls extends LitElement {
       };
       const reason = reasons[e.code || ''];
       this.outcomeNeedsAttention = true;
-      this.outcome = !uncertain && reason ? reason : uncertain ? 'Outcome unconfirmed. Refresh the target before another explicit action; this does not confirm the earlier write. Never recreate a reserved project.' : 'Request rejected. Refresh and review current state before another explicit action.';
+      if (path.endsWith('/join')) {
+        this.joinFailed = true;
+        this.joinNeedsCheck = true;
+        const joinReasons: Record<string, string> = {
+          account_incomplete: 'Soda could not finish setting up your project account. Ask your Soda administrator to check the account setup before you try again.',
+          membership_not_saved: 'Your account was set up, but Soda could not save your access to this project. Ask your Soda administrator to check your project access.',
+          unsupported_linux_login: 'Your Forgejo username cannot be used for a project account. Ask your Soda administrator for help choosing a supported username.'
+        };
+        this.outcome = joinReasons[e.code || ''] || (uncertain ? 'We couldn’t confirm whether you joined. Check join status before trying again.' : 'Your request to join was declined. Check your project access or ask your Soda administrator for help.');
+      } else {
+        this.outcome = !uncertain && reason ? reason : path === '/api/environments' && uncertain ? 'Project creation could not be confirmed. Check the project status before trying again.' : uncertain ? 'We couldn’t confirm that this change finished. Refresh status to check the result before trying again.' : 'This change could not be applied. Refresh status and review your settings before trying again.';
+      }
     }
     finally {
       window.clearTimeout(timeout);

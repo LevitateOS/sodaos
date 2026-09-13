@@ -10699,3 +10699,31 @@ Run/reset/persistence instructions belong in
 [local testing](local-testing.md#spaces-frontend-development-on-this-computer).
 No remote asset delivery, new account/project, service/VM lifecycle, publishing,
 network/trust change or cleanup occurred in this local fixture follow-up.
+
+## Spaces Join error clarity
+
+On 13 September 2026 the owner reported that the Join warning was incomprehensible.
+The project component was discarding meaningful `account_incomplete` and
+`membership_not_saved` API codes for every 5xx response and showing generic advice
+about reserved projects. The journey now replaces the success heading/illustration
+with **Couldn’t join project**, explains account setup, membership saving or an
+unsupported username, and gives **Check join status** as the primary read-only
+action. Unknown responses describe uncertainty about joining without guessing its
+cause. A confirmed missing membership exposes a separate **Try joining again**;
+a confirmed existing membership refreshes the workspace and opens the first-terminal
+state without another Join or terminal creation. Generic creation/change failures
+also identify the affected operation instead of saying “Outcome unconfirmed.”
+
+The mock Join failure now returns the production `account_incomplete` code.
+The native API still does not expose a specific account-collision code; the frontend
+therefore does not claim that every account-setup failure is a name collision.
+Native runtime/accounts and deployment remain unchanged.
+
+`bun run build:forgejo`, `bun run typecheck`, and 82 workspace/local-preview tests
+passed. Coverage includes distinct Join failures, no write on Check join status,
+explicit successful retry and recovery when membership already exists. Dark/light
+1440px and 390px failure captures are retained in `.artifacts/spaces-join-errors/`;
+the initial focused run exposed the missing parent refresh on recovered membership,
+which was fixed before the final full workspace run. The local server was restarted
+to load the updated fixture code, and its error example was verified in the in-app
+browser. Final logs are retained with the captures. No remote delivery occurred.
