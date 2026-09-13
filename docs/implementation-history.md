@@ -14,6 +14,31 @@ not claims that those outputs are still retained.
 
 ---
 
+## Sidebar upstream merge and reapplication check
+
+The user requested pulling upstream, resolving conflicts and reapplying the change
+to the VM. `git pull --no-rebase origin main` produced merge `5d6b6bf` with parents
+`817a341` and `027db58`; no textual conflicts occurred and no history was rewritten.
+The sidebar templates were unchanged by the incoming work. Go scripts/nativebuild
+race tests, TypeScript/Lit, emitted asset build and the Forgejo suite passed
+(**43 pass, 29 explicit skips**). No manual conflict resolution was needed.
+
+Read-only checks on `soda-native-tailnet-bb3a13c` verified that both installed sidebar
+template hashes and expected regular/single-link/1000:1000/0644 metadata exactly
+match the merged source. Forgejo was active. Reapplication therefore required no
+write or restart; the earlier installed placement/keyboard/read/logout receipt was
+not expanded into a claim about new code. Evidence:
+`.artifacts/sidebar-upstream-merge-c3foaN/`.
+
+The pull also includes the separate Runners/Tailnet/terminal mechanism removals,
+not just navigation. Current VM dashboard image and helper hashes still match the
+prior delivery. The new runner response decoder requires `unavailable`/`complete`
+and revised inventory semantics; installing that new browser graph against the
+old backend would be an incompatible partial upgrade. Full paired runtime delivery
+and applicable old-state conversion were not silently selected or performed as a
+sidebar reapplication. No target service restart, VM lifecycle, provider/project
+mutation or push command was issued in this check.
+
 ## Administrator sidebar correction delivery
 
 The user explicitly requested applying `574b917` to the fresh VM. The existing

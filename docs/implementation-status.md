@@ -403,7 +403,8 @@ the former nonadmin fixture is ineligible, and no retained account, service or
 fixture was changed to run it. Installed callers and current fixture prerequisites
 now reflect that boundary, without granting roles automatically.
 
-This source candidate is not delivered or pushed. The last fresh-VM delivery
-remains the [sidebar correction](implementation-history.md#administrator-sidebar-correction-delivery)
-recorded above, not this host move. Older targets, providers, projects and all
-existing backups/evidence are unchanged.
+This admin-host source candidate is not delivered. The historical
+[merge/reapplication check](implementation-history.md#sidebar-upstream-merge-and-reapplication-check)
+verified the earlier sidebar bytes against their own source; it does not establish
+that the new `/admin` host or its module graph is installed. Older targets,
+providers, projects and all existing backups/evidence are unchanged.
