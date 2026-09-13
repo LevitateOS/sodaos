@@ -31,7 +31,7 @@ export async function prepareManagedTerminal(page: Page, repositoryName: string,
   if (await page.locator('#sodaspaces-data').getAttribute('data-workspace-kind') !== 'page') return undefined;
   const project = page.locator(`.soda-project-group[data-environment-id="${environment}"] .soda-project-select`);
   if (!await project.isVisible()) await page.getByRole('button', {name: 'Projects', exact: true}).click();
-  assert.equal((await project.innerText()).trim(), repositoryName, 'The observed original project must match the selected target before submission');
+  assert.equal(await project.getAttribute('aria-label'), repositoryName, 'The observed original project must match the selected target before submission');
   await project.click();
   const create = page.getByRole('button', {name: 'New terminal', exact: true});
   assert.equal(await create.getAttribute('data-environment-id'), environment);
