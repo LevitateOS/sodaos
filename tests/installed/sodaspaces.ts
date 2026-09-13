@@ -3,7 +3,7 @@ import {loadRunnerInput, exerciseRunners, type RunnerEvidence} from './runners.t
 import {chromium, type Page, type BrowserContext, type Dialog, type WebSocket} from 'playwright';
 import {matchesTerminalReservation, journeyInput, managementInput, object} from './sodaspaces-input.ts';
 import type {ManagementEvidence} from './sodaspaces-management.ts';
-import {projectView, newManagedTerminal, terminalMenu} from './sodaspaces-controls.ts';
+import {projectView, newManagedTerminal, terminalMenu, loginNativeForgejo} from './sodaspaces-controls.ts';
 import {matrixInput} from './sodaspaces-matrix-input.ts';
 import {exerciseWorkspaceMatrix} from './sodaspaces-workspace-journey.ts';
 import {observeMatrixShell, inspectMatrixProcess} from './sodaspaces-matrix-native.ts';
@@ -245,15 +245,7 @@ try {
   }
   async function nativeLogin(p: Page, index: number) {
     const user = input.users[index], password = passwords[index]; assert(user && password);
-    assert(!interrupted);
-    await p.goto(origin.origin + '/user/login');
-    await p.locator('#user_name').fill(user.login);
-    await p.locator('#password').fill(password);
-    assert(!interrupted);
-    await Promise.all([
-      p.waitForURL(url => url.pathname !== '/user/login'),
-      p.locator('form:has(#user_name) button').click(),
-    ]);
+    await loginNativeForgejo(p, origin.origin, user.login, password, () => assert(!interrupted));
     if (runnerMode) return; // Native-view connection below, not the drawer journey.
     await p.goto(repoURL);
     assert.equal(await p.locator('#sodaspaces-root').getAttribute('data-user-id'), user.id);

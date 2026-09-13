@@ -23,8 +23,13 @@ export function matrixSSH(request: MatrixInput, project: MatrixProject, actor: n
 }
 export async function inspectMatrixProcess(request: MatrixInput, project: MatrixProject, actor: number, session: MatrixSession, facts: MatrixFacts, ended: boolean,
   read: (command: string) => string = command => matrixSSH(request, project, actor, command)) {
+  assert(session.environment === project.environment && session.actor === request.actors[actor]);
+  return inspectNativeTerminal(session, facts, ended, read);
+}
+// Same fixed native observation via an explicitly selected operator transport.
+export async function inspectNativeTerminal(session: MatrixSession, facts: MatrixFacts, ended: boolean, read: (command: string) => string) {
   assert(Number.isSafeInteger(facts.pid) && facts.pid > 0 && /^\d+$/.test(facts.start));
-  assert(terminalID(session.id) && session.environment === project.environment && session.actor === request.actors[actor]);
+  assert(terminalID(session.id));
   const code = `import os,pwd,json,subprocess,stat
 from pathlib import Path
 identifier=${JSON.stringify(session.id)}
@@ -49,7 +54,7 @@ print(json.dumps(dict(login=pwd.getpwuid(os.getuid()).pw_name,start=p.rsplit(') 
   const deadline = Date.now() + (ended ? 15000 : 1);
   do {
     const found = object(JSON.parse(read('python3 -I -c ' + quote(code))));
-    assert.equal(found.login, facts.login, 'SSH and browser must observe the same original account');
+    assert.equal(found.login, facts.login, 'Native observer and browser must observe the same original account');
     if (ended ? found.start !== facts.start && found.record === false && found.socket === false && found.populated === '0' && (found.state === 'inactive' || found.state === 'failed')
       : found.start === facts.start && found.record === true && found.owned_socket === true && found.populated === '1' && found.state === 'active') return;
     if (!ended) break;

@@ -518,7 +518,7 @@ checks actually passed. No native project/terminal claim follows from synthetic 
   project/membership/terminal effects under applicable approval. Native repository
   creation, Start, End, cleanup and any fixture/service lifecycle need their respective
   scope; this guide does not grant them. Leave Tailnet Off unless separately selected.
-- [ ] Extend the existing `tests/installed/sodaspaces.ts` journey and input/observer
+- [x] Extend the existing `tests/installed/sodaspaces.ts` journey and input/observer
   owners for this path. Use native login and protected file inputs; follow the owning
   [native validation](native-validation.md) and [support](native-support.md) guides
   before execution. Do not invent another browser login or mutate to repair a test.
@@ -540,7 +540,7 @@ retains its terminal-owner scope; it is not silently claimed by this one-user jo
   Put detailed revisions, commands, results, screenshots and limitations in
   `docs/implementation-history.md`. Distinguish authored tests, local passes,
   native journey proof and installation; leave unrun items explicitly pending.
-- [ ] If delivery is subsequently requested, identify the matching browser/backend
+- [x] If delivery is subsequently requested, identify the matching browser/backend
   revision and target's actual installed state. A new picker API cannot be delivered
   as frontend-only assets to a backend that lacks it. Follow
   [retained cutover](installation.md#retained-sodaspaces-cutover) for the separately
@@ -562,21 +562,25 @@ and deployment each keep their own status.
 | File-level implementation guide, steps 1–15 under J1–J5 | Authored with per-step checks and separate local/native/delivery exits |
 | J1–J4 source implementation, steps 1–12 | Implemented through existing Go/Lit/project/terminal owners |
 | J5 step 13: source, emitted browser and layout | Passed within the scoped [source receipt](implementation-history.md#spaces-first-use-source-and-local-journey) |
-| J5 step 14: native HTML/login and real project-to-shell acceptance | Pending selected target, applicable project/terminal permissions and native evidence |
-| J5 step 15: help and status | Updated; compatible delivery remains separately scoped |
-| Deployment / retained-target changes | Not performed; candidate epoch `2026-09-13.spaces-first-use-1` is source only |
+| J5 step 14: native journey | Native login/discovery/Create passed; Join safely refused the existing `operator` system account; new fixture-actor approval pending |
+| J5 step 15: help, status and requested delivery | Updated; matching `e8998ee` browser/backend delivered with fresh backups |
+| Deployment / retained-target changes | Installed on the selected fresh VM; epoch `2026-09-13.spaces-first-use-1`; one private repo/project retained, no membership or terminal |
 
 Steps 1–13 have source/local evidence; checked items do not claim exhaustive native
 acceptance or installation. Component screenshots use synthetic APIs/transport and
 have no native Forgejo header. The native-owned terminal admission/identity helpers
-now accommodate the displayed default name without silently adding Rename, but the
-real first-use scenario and installed proof remain step 14 work.
+now accommodate the displayed default name without silently adding Rename. The
+bounded first-use scenario reuses the native login, input and process observers;
+[installed evidence](implementation-history.md#spaces-native-delivery-and-account-collision)
+is partial, not a shell pass.
 
-**Next action: J5, step 14**, select/authorize the target, eligible repository,
-project creation, membership and exact terminal effects; then finish the native
-journey with its existing login/input/observer owners. Do not deploy only the new
-browser picker to an old backend. This work does not reopen organization creation
-policy, new OS profiles, Git credential automation or provider setup.
+**Next action: J5, step 14**, obtain the requested scope for a new `spaces-test`
+Forgejo user/private repository and one additional project. The original fixture
+actor `operator` conflicts with the image's existing UID-11 system account; do not
+adopt/rename it, replay Join or replace the retained first root to fix the fixture.
+Then finish native input/reattachment with the same guarded driver. This does not
+reopen organization creation policy, new OS profiles, Git credential automation or
+provider setup.
 
 ## Product correction — development workspace, not a modal form
 

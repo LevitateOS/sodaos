@@ -336,6 +336,23 @@ General upstream service/error logging remains native. Native configuration and
 query-free OAuth request observations are recorded in the phase-5 handoff; old private
 journals/evidence are retained, not cleared or described as never having logged state.
 
+### Bounded first-use scenario
+
+`exerciseFirstUse` in `tests/installed/sodaspaces-workspace-journey.ts` is the focused
+single-actor scenario for an explicitly authorized native consumer. It reuses the
+native login helper, default-name controls, terminal input and exact process
+observer; it does not enable the older two-user access/End matrix. The consumer
+must admit only each declared actor/path/body-bound write, bind installed artifacts
+separately, and preserve the returned project/terminal identities and failed steps.
+Native repository/user creation needs its selected scope before this scenario.
+
+The first installed run confirmed native login, private repository selection and
+one Create, then refused Join because the fixture's Forgejo `operator` collides with
+an unassociated native system account. Do not repurpose that account or replay work
+to repair an observer. The [current handoff](implementation-status.md#spaces-first-use-journey)
+owns the preserved project and pending fixture-actor decision. No native usable-input
+or reattachment pass follows from that partial result.
+
 ## Minimum management controls — native proof still required
 
 The helper/API/independent drawer source adds explicit Start/Stop and own-key preview/

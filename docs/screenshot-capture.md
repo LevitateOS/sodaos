@@ -145,6 +145,15 @@ a passing test or capture does not prove good framing, readability, real provisi
 or terminal processes. Keep earlier failures/poorly framed captures; do not publish
 fixture images as installed-product proof.
 
+### Installed Spaces captures
+
+`captureInstalledSpaces` reuses the installed consumer's authenticated page. It
+requires the selected `SODA_NATIVE_VALIDATE` target, explicit HTTPS origin and
+presentation epoch, a private output directory and the actual native header at
+`/?soda-view=spaces`. Password/fixture-marker pages are refused. It does not alter
+HTML, cookies, APIs or terminal transport. Each new capture has its own scoped
+receipt; backend identity and native input/process proof remain separate evidence.
+
 ### Synthetic Spaces component captures
 
 For the existing emitted-component tests only, `captureSpacesComponent` in

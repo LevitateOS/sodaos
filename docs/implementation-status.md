@@ -25,12 +25,21 @@ and native-hook/source checks; synthetic input/screenshots are not native shell 
 The [Spaces design](spaces-design.md#first-use-journey--selected-13-september-2026)
 still owns presentation. Candidate epoch: `2026-09-13.spaces-first-use-1`.
 
-**J5 step 14 remains pending:** select/authorize a real target and repository/project,
-membership and terminal effects, then prove native login, creation, usable input and
-exact re-entry. Step 15 help/status are updated; delivery needs a matching backend
-and browser under separate target/action approval. No installation, retained state,
-provider enrollment, VM lifecycle, publishing or other workstream completion was
-changed by this source task.
+The owner subsequently approved native acceptance and matching delivery. Candidate
+`e8998ee` is now installed on `soda-native-tailnet-bb3a13c`: 31 changed/new files and
+one dashboard image layer, with fresh consistent backups and preserved original
+configuration/data. Native login, private repository discovery and one project Create
+passed. [The delivery/partial-journey receipt](implementation-history.md#spaces-native-delivery-and-account-collision)
+owns exact effects and evidence.
+
+**J5 step 14 is blocked on a fixture-actor decision:** `operator` collides with the
+image's existing UID-11 system account. Join was refused without membership,
+managed keys or terminals; no account adoption/rename or replay was attempted.
+The retained private repository is `operator/spaces-first-use-e8998ee` (ID 1), project
+`p2e1121ffe63e064855c7e693`, running with Tailnet Off. Approval was requested for a
+new `spaces-test` Forgejo user/private repository and one additional project to
+finish native input/re-entry, preserving this first project. That follow-up is not
+yet granted. No publishing, cleanup, OS update or VM-hold extension occurred.
 
 ## Active work — Tailnet
 
@@ -222,6 +231,16 @@ Tailnet work.
   no old-state conversion or project-root change was needed. Native access/contract
   and preservation checks passed. This does not select real project/provider jobs,
   enrollment, another service/VM restart, cleanup or an extended VM hold.
+- **Spaces first-use native acceptance:** the owner approved the proposed target/
+  repository selection, matching deployment and Create → Join → one terminal →
+  harmless input/reattachment, preserving resources. The existing live fresh VM was
+  selected; its original hold was still valid. The paired `e8998ee` delta and native
+  private repository/project creation are complete. One keyless Join was refused
+  because the original `operator` Linux system account has no Soda association.
+  Preserve repository 1, project `p2e1121ffe63e064855c7e693`, its running root and all
+  failed observers. No terminal was created. A new Forgejo user/private repository
+  plus one additional project has been requested to resolve the actor collision;
+  this is pending, not authorization to change or adopt existing accounts.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -234,6 +253,18 @@ Tailnet work.
   new permission.
 
 ## Fresh Tailnet access fixture
+
+**Latest Spaces delta:** `e8998ee` is installed with epoch
+`2026-09-13.spaces-first-use-1`, dashboard image
+`sha256:667e4de5b7121dcd3349495c234489fcc9f4264271019e3a739cc4a84a8870bf`.
+One private repository and one ready/running project now exist (see
+[Spaces status](#spaces-first-use-journey)); membership and terminal counts remain
+zero following the safely refused account collision. Original helper, future-project
+image, configuration/credentials, schema v10, base install marker, boot and enforcing
+SELinux are preserved. Backups:
+`/var/lib/soda-candidate-bb3a13c/spaces-e8998ee/backup/`; local custody:
+`.artifacts/spaces-native-e8998ee-Mppoz4/`. No full-bundle reseal is implied.
+The following access/install receipts describe their historical scopes.
 
 **`soda-native-tailnet-bb3a13c`**, custody `.artifacts/tailnet-vm-bb3a13c/`, is the
 new x86_64 access fixture. Base installation is the sealed `bb3a13c` export;
@@ -440,7 +471,8 @@ reorganization does not authorize cleanup or re-execution.
 ## Latest local change
 
 The [Spaces source journey](#spaces-first-use-journey) is the newest local slice.
-The independently owned administration candidate below remains undelivered:
+The administration host changes below were included in the approved Spaces paired
+delivery; their bounded native shell/sidebar/protected reads now pass:
 
 Runners/Tailnet now render inside the existing `/admin` shell in source, with
 fixed bookmark/OAuth returns and bounded selectors. The reviewed candidate keeps
@@ -453,27 +485,21 @@ gate; protected Soda operator authority remains independent.
 Affected Go packages, strict TypeScript/Lit, emitted assets, the frontend suite
 (252 passed, 7 explicit skips), and focused navigation/connection/cache browser
 checks (11 passed) passed locally. The [source review receipt](implementation-history.md#runnerstailnet-admin-shell-host-move-source-only)
-records fixes and exact commands. Native admin-page acceptance remains pending:
-the former nonadmin fixture is ineligible, and no retained account, service or
+records fixes and exact commands. The Spaces follow-up verified both actual `/admin`
+Soda views with the existing operator and no management writes. The earlier
+nonadmin fixture remains ineligible, and no retained account, service or
 fixture was changed to run it. Installed callers and current fixture prerequisites
 now reflect that boundary, without granting roles automatically.
 
-This admin-host source candidate is not delivered. The historical
-[merge/reapplication check](implementation-history.md#sidebar-upstream-merge-and-reapplication-check)
-verified the earlier sidebar bytes against their own source; it does not establish
-that the new `/admin` host or its module graph is installed. Older targets,
-providers, projects and all existing backups/evidence are unchanged.
+The latest actual delivery is the [Spaces paired delta](implementation-history.md#spaces-native-delivery-and-account-collision),
+not the earlier documentation rebase. It installs the admin-host and Spaces browser
+contracts together with their backend while preserving the existing sidebar. Wider
+native administration/theme/security matrices remain unclaimed. Older retained
+targets and provider resources were not contacted or changed.
 
-The latest recorded fresh-VM delivery is the approved
-[paired frontend/backend upgrade](implementation-history.md#fresh-vm-paired-runtime-upgrade)
-on `soda-native-tailnet-bb3a13c`, built from the original, pre-rebase `c13781f`
-source—not the newer admin-host candidate above. Matching native binaries/images/
-public assets were installed with epoch `2026-09-13.admin-settings-mechanism-1`;
-the sidebar correction remains intact. Affected Go race/command, Python and
-frontend checks passed alongside reused merge TypeScript/Lit/Forgejo evidence.
-Native checks passed for the new empty runner inventory, Tailnet/Spaces bootstrap,
-operator access/logout, installed identities and preservation. Existing OS packages,
-roots, credentials and previous artifacts were not replaced or cleaned up. No
-old-state conversion was necessary on this empty fixture. No real project/provider
-operation or full new-runtime acceptance matrix is claimed. The documentation
-rebase does not deploy the admin-host candidate or grant further target actions.
+The preceding [paired runtime upgrade](implementation-history.md#fresh-vm-paired-runtime-upgrade)
+was built from original pre-rebase `c13781f`, with epoch
+`2026-09-13.admin-settings-mechanism-1`; its original images, binaries, backups and
+receipts remain preserved. Its empty-fixture access smoke did not prove real projects.
+The newer Spaces receipt records the first project and the subsequent account
+collision separately; no native shell or complete first-use pass is claimed yet.

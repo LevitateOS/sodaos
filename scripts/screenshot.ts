@@ -94,6 +94,21 @@ export async function capturePageFixture(page: Page, name: string, landmark: str
   }, null, 2));
 }
 
+// Existing authenticated installed consumer; no login, rendering or transport substitution.
+export async function captureInstalledSpaces(page: Page, input: {directory: string; origin: string; target: string; epoch: string}, name: string) {
+  assert(process.env.SODA_NATIVE_VALIDATE === input.target && path.isAbsolute(input.directory) && /^[a-z0-9-]+$/.test(name));
+  const info = await stat(input.directory); assert(info.isDirectory() && !(info.mode & 0o077));
+  const url = new URL(page.url());
+  assert(url.protocol === 'https:' && url.origin === input.origin && url.pathname === '/' && url.search === '?soda-view=spaces' && !url.hash);
+  assert.equal(await page.locator('#navbar').count(), 1);
+  assert.equal(await page.locator('input[type=password], meta[name="soda-component-fixture"]').count(), 0);
+  assert.equal(await page.locator('meta[name="soda-presentation-revision"]').getAttribute('content'), input.epoch);
+  await page.locator('soda-spaces').waitFor(); await page.evaluate(() => document.fonts.ready);
+  const out = path.join(input.directory, name); await mkdir(out, {mode: 0o700});
+  await page.screenshot({path: path.join(out, 'viewport.png')});
+  await Bun.write(path.join(out, 'capture.json'), JSON.stringify({scope: 'Installed native Spaces viewport; backend/process and input proof are separate receipts', target: input.target, epoch: input.epoch, viewport: page.viewportSize(), capturedAt: new Date().toISOString()}, null, 2));
+}
+
 // Explicitly separate from native-page capture: this is the existing local
 // emitted Spaces component driver, with synthetic APIs and no authentication.
 export async function captureSpacesComponent(page: Page, name: string) {

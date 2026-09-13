@@ -14,6 +14,101 @@ not claims that those outputs are still retained.
 
 ---
 
+## Spaces native delivery and account collision
+
+The owner approved the proposed native target/repository selection, matching
+browser/backend delivery and Create → Join → one terminal → harmless input and
+reattachment, preserving resources. The selected existing fixture
+`soda-native-tailnet-bb3a13c` was freshly observed live on 13 September 2026, before
+its original 22:37 UTC hold deadline. No hold extension or VM restart was needed.
+Native acceptance is **partial**, not a usable-shell pass.
+
+### Compatible delivery completed
+
+- Native x86_64 dashboard built with pinned Go 1.26.7 from clean
+  `e8998eef8ed8b26ca0ec337d75a32572b6e75538`, `CGO_ENABLED=0`, verified VCS metadata;
+  emitted browser modules and the locked complete locale were prepared separately.
+  This was an affected-component delta, not a new full native build/sealed bundle.
+- The 31-file delta contains 20 modules, four templates, workspace CSS, four
+  icon/license/provenance files, NOTICE and the dashboard executable. All existing
+  selected occupants matched their previous paired-delivery hashes before writes.
+  New dashboard image:
+  `sha256:667e4de5b7121dcd3349495c234489fcc9f4264271019e3a739cc4a84a8870bf`.
+  It preserves every layer of installed `1e07589f…` and adds only the executable.
+  OCI blob hashes, trusted transfer and actual running `/proc/1/exe` were verified.
+- Browser admission was closed, actual Forgejo/dashboard writers stopped, and fresh
+  consistent Soda/Forgejo SQLite backups plus matching configuration/files/metadata
+  were retained. The dashboard Quadlet alone changes its image selection. All Soda
+  table rows matched the new backup before reopening admission. All **381** canonical
+  public/template/locale/native-dashboard files matched the prepared source afterward.
+- The first maintenance observer required `inactive`; the stopped proxy instead had
+  `failed`, exit-code result and zero MainPID/ControlPID. It paused **before database
+  backup or publication**. The exact stopped/no-container/no-publication state and
+  unchanged occupants were checked, then a hash-bound continuation performed only
+  the remaining backup/publication/verification. No stop/update replay or database
+  restoration occurred. The failed attempt and native failed-stop history remain.
+- Original helper hash, project image `f2c35d27…`, OS packages, private configuration,
+  keys, credentials, schema v10, base install marker, boot and enforcing SELinux were
+  preserved. The host helper, Cockpit and Tailscale were not restarted. Only the
+  affected Forgejo/dashboard/proxy service window was used.
+
+The paired graph also delivers the preceding admin-host source candidate. Native
+operator login and actual left-sidebar Runners/Tailnet entries reached their `/admin`
+views and passed protected reads: complete empty runner inventory; host NeedsLogin
+and unconfigured Tailnet enrollment. No management/provider write was sent. This is
+bounded admin-shell acceptance, not the full theme/role/security matrix.
+
+### Real first-use effects and safe refusal
+
+There were initially no repositories or projects. The native Forgejo form created
+exactly one private repository, `operator/spaces-first-use-e8998ee`, ID **1**, owner
+**1**. No initialization commit/workflow/provider job was requested. Native OAuth,
+the installed private-repository picker, configuration and explicit project Create
+passed. The existing installed profile was used; no image/profile upgrade occurred.
+
+The retained ready/running project is **`p2e1121ffe63e064855c7e693`**, container
+`a5bbc70fa670cd0b3d2f9a5cffd63fb3654a8004166f53fa9b7cac02c08522f5`, using the unchanged
+future-project image. Tailnet was Off. One explicit keyless Join did not establish
+membership. Read-only inspection found the existing native `operator` system account:
+UID **11**, GID **0**, home `/root`, shell `/usr/sbin/nologin`, with **no** Soda account
+marker or managed-key file. The native account owner refuses that unassociated
+account rather than adopting it. Membership count is **zero**; no terminal exists.
+No account rename, marker fabrication, privilege change, root replacement or Join
+replay was attempted.
+
+Two observer-only corrections preceded Create: the native repository form has an
+implicit-submit primary button, not `button[type=submit]`; its Project OS control
+needed its actual combobox accessible name rather than an exact label-text match.
+The first failed selector dispatched no repository creation; the second retained the
+new repository and it was subsequently read, never recreated. A later read-only
+Podman observer corrected `.Id` to `.ID`; no mutation was repeated for that failure.
+
+The reusable first-use scenario now lives in the existing workspace-journey owner,
+sharing native login, default-name admission, input and process observation helpers.
+It preserves identifiers and response status on failure and never Ends or cleans up.
+Strict TypeScript/Lit passed; the six existing matrix/admission/source cases passed
+locally after the shared-helper changes. No synthetic result is native shell proof.
+
+### Custody and remaining decision
+
+Local evidence: `.artifacts/spaces-native-e8998ee-Mppoz4/`, pointer
+`.artifacts/spaces-native-current.txt`. Guest originals/backups:
+`/var/lib/soda-candidate-bb3a13c/spaces-e8998ee/backup/`. Retained files include
+build/VCS/image/transfer records, `manifest.json`, `apply.py`/failed `apply.log`,
+`continue.py`/successful `continue.log`, before/after/final identities, canonical
+file comparisons, all three browser attempts/results, read-only picker diagnostics,
+`admin-read.log`, `preserved-project-02.json`, and source-driver type/check receipts.
+`captures-03/` contains actual native-header welcome/picker/configure/pre-Join
+viewports via `scripts/screenshot.ts`; no terminal screenshot or input pass exists.
+Browser homes trust only the already selected public fixture CA. Secrets remain in
+restricted inputs; no cookie seeding, response substitution or TLS bypass was used.
+
+The owner was asked to approve a dedicated **`spaces-test` Forgejo user and private
+repository plus one additional project**, preserving this first project, to finish
+single-actor first-use input/reattachment without altering the system account. That
+new actor/resource scope remains pending at this receipt. No publishing, cleanup,
+provider enrollment, other retained-target action or new VM hold is implied.
+
 ## Spaces first-use source and local journey
 
 The owner requested end-to-end work through the selected first-use guide. Source

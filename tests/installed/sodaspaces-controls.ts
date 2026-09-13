@@ -3,6 +3,16 @@
 import assert from 'node:assert/strict';
 import type {Page} from 'playwright';
 import {validID} from './sodaspaces-input.ts';
+// Native password form shared by the installed journey and bounded follow-ups.
+export async function loginNativeForgejo(page: Page, origin: string, login: string, password: string, active: () => void = () => {}) {
+  active();
+  await page.goto(origin + '/user/login');
+  await page.locator('#user_name').fill(login);
+  await page.locator('#password').fill(password);
+  active();
+  await Promise.all([page.waitForURL(url => url.pathname !== '/user/login'), page.locator('form:has(#user_name) button').click()]);
+}
+
 export async function projectView(page: Page, repository: string, view: 'Environment' | 'Access' = 'Environment') {
   assert(validID(repository));
   const controls = page.locator(`[data-project-controls][data-repository-id="${repository}"]`);
