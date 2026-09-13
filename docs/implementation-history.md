@@ -14,6 +14,45 @@ not claims that those outputs are still retained.
 
 ---
 
+## Operator settings navigation move
+
+The user reported that Runners/Tailnet appeared only after connecting to Soda,
+then clarified that these operator functions belong in administrator settings,
+not the global top bar. The earlier session-dependent visibility design was the
+cause; public global links were not selected or installed.
+
+Source now renders a **Soda** section in the existing native administrator layout,
+with fixed Runners/Tailnet bookmark entries. It preserves upstream `admin/navbar`,
+alerts and forms without copying the navbar, adding a handler or fabricating admin
+context inside the dashboard. Native signed/admin flags govern this section's
+visibility; the protected APIs still require Soda's configured operator, not merely
+Forgejo administrator status. Entry pages and OAuth returns remain with their
+existing owners. No new identity service or public operator inventory was added.
+
+The header module no longer fetches `/api/session`, creates settings links or hides
+links during session retirement. It retains Spaces' validated native current-page
+cue and explicitly imports the coordinated logout owner. The signed-actor/sub-URL
+marker is preserved. Paired HTML entries and the complete module import graph use
+`2026-09-13.admin-settings-1`; five changed template inventory hashes have explicit
+reviews, and the exact admin addition is bounded by upstream-parity checks.
+
+**Checks:** all `scripts` Go race tests passed; focused web race checks passed for
+both fixed entry guards, operator denial, mutation admission and OAuth return/error
+handling. TypeScript/Lit, browser asset generation and the Forgejo suite passed:
+**43 pass, 29 explicit skips**. Emitted tests cover no-session/nonoperator/mismatched/
+expired Soda states, native admin/nonadmin/guest placement, no JavaScript, no passive
+session/OAuth requests, prefixes, retirement events and Spaces current-page cues.
+The actual Go template renders are separate from those synthetic browser fixtures.
+The initial combined Go run completed `scripts` but timed out while running the
+whole web package; its log is preserved, not claimed as a full web-package pass.
+
+Evidence: `.artifacts/admin-settings-navigation-8ykFIV/`. This was source-only:
+no target contact, UI installation, Forgejo restart, provider action or project
+mutation occurred. Native installed navigation/visual acceptance and a new full
+bundle build are not claimed. The live fixture still has its previous Forgejo UI;
+public-payload delivery and the required template-activation restart need the
+applicable target/action grant. Nothing pushed.
+
 ## Native Cockpit administration additions
 
 The user selected the revised baseline and requested continuation. Work applied

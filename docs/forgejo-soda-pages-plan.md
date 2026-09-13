@@ -22,12 +22,16 @@ Historical lane links resolve here. Their original text is available with
   notifications and account links on every integrated Soda view. Profile,
   password, account settings and Forgejo administration continue to use native
   Forgejo pages and handlers.
-- The existing native navigation gains **Spaces**, **Runners** and **Tailnet**. Runners/Tailnet are
-  visible for the configured Soda operator after identity/bootstrap verification;
+- The global native navigation retains **Spaces**. **Runners** and **Tailnet**
+  belong in the **Soda** section of Forgejo's administration area, not the top bar.
+  The existing native admin layout renders those fixed entry links for signed-in
+  Forgejo administrators, including before a Soda session exists and without
+  JavaScript. It does not discover an operator, probe a Soda session or begin OAuth
+  merely to display navigation. Entering either destination uses the existing
+  connection flow; protected APIs still require the configured Soda operator.
   Forgejo site-administrator status is not substituted for that authority.
-  Spaces/Runners use native active-link styling and `aria-current="page"` only for
-  their matching validated native content host and actor, not a URL hint. This
-  presentation does not authorize Soda operations or reveal an otherwise hidden link.
+  Spaces uses native active-link styling and `aria-current="page"` only for its
+  matching validated native content host and actor, not a URL hint.
 - Opening a Soda view reuses a valid matching Soda session. When connection is
   needed on a controlled initial entry, it starts the normal Forgejo OAuth flow
   automatically and returns to the selected view. First authorization can still
@@ -80,7 +84,7 @@ Use **one query-selected presentation of Forgejo's existing global dashboard**.
 | Repository Spaces settings | `/?soda-view=repository-spaces&repository_id=123` | Shared project controls, authorized for that stable repository ID |
 
 Tailnet is now admitted by source through the [Tailnet plan](tailnet-integration-plan.md).
-Its fixed bookmark/OAuth return, operator settings-link visibility, mount/title,
+Its fixed bookmark/OAuth return, administrator settings navigation, mount/title,
 selector validation and native fixture consumer share these owners. The stopped local
 Forgejo fixture blocks actual native-page acceptance; emitted-component tests are not
 a substitute. There is no generic return URL or second login coordinator. Future
@@ -153,12 +157,15 @@ application router, user store or general authentication framework.
    On an existing native page with a draft or active workspace, retain its native
    departure warning and an explicit connection/retry action when needed.
 
-The header can discover an operator from an existing matching Soda session without
-starting OAuth on every ordinary Forgejo page. A newly signed-in user may need to
-enter Spaces once before the operator-only Runners link is revealed. The old
-protected Runners URL must also remain a working direct entry into automatic
-connection. Do not solve discoverability with a site-admin check or a new public
-operator inventory.
+Administration entry links do not depend on a Soda login. They use the fixed
+`/-/soda/settings/runners` and `/-/soda/settings/tailnet` bridges under `AppSubUrl`,
+which remain valid direct bookmarks too. Native admin-page eligibility controls
+where the links appear, not Soda authorization: another Forgejo administrator can
+see them but cannot read or manage operator settings without the configured Soda
+operator identity. An operator without current native admin-page eligibility can
+still use a direct bookmark; this navigation change does not change backend roles.
+Keep the global signed-actor/sub-URL marker and coordinated logout initialization;
+removing operator discovery must not silently remove native-menu sign-out handling.
 
 ### One normal sign-out action
 

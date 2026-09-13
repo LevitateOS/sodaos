@@ -339,11 +339,14 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-The user-selected native Cockpit baseline is wired into provisioning/preflight and
-installed on the fresh VM, with Accounts restored to native visibility. The owned
-operator driver now tests addon pages using their real layouts and waits for actual
-iframe navigation. Source checks and native read-only page/PAM/preservation checks
-passed; see the [installation receipt](implementation-history.md#native-cockpit-administration-additions).
-No reboot, older retained-target change, report collection/upload, Tailnet/provider
-job or project mutation was performed. Credentials and original application images
-remain unchanged. Nothing pushed.
+The user clarified that operator-only Runners/Tailnet entries belong in administrator
+settings, not global navigation. Source now renders them in the existing native
+Forgejo administration layout without a Soda-session discovery request. Spaces and
+the shared signed-actor/logout owner remain in the header; protected entry/API
+operator checks are unchanged. Epoch `2026-09-13.admin-settings-1` covers the paired
+module graph. Template, emitted browser, TypeScript/Lit and affected web authorization
+checks passed; see the [source receipt](implementation-history.md#operator-settings-navigation-move).
+This UI correction has **not been delivered to any VM**. Applying the template
+change requires an authorized Forgejo restart and exact public-payload delivery;
+no target contact/restart, data mutation or new full native build occurred. The fresh
+VM retains the recorded Cockpit additions and previous Forgejo UI. Nothing pushed.
