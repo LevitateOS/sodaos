@@ -1,0 +1,288 @@
+// Package releasedelivery binds native Sigstore verification to Soda release and
+// channel semantics. It never installs an image, changes host trust or reboots.
+package releasedelivery
+
+import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/json"
+	"encoding/pem"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/levitateos/sodaos/internal/appliancerelease"
+	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/strictjson"
+)
+
+var ErrUnavailable = errors.New("release transport unavailable; preserve attempt and observe before retrying publication")
+var ErrRefused = errors.New("release authority or completeness refused")
+
+func Hash(b []byte) string { h := sha256.Sum256(b); return "sha256:" + hex.EncodeToString(h[:]) }
+func Digest(s string) bool {
+	return strings.HasPrefix(s, "sha256:") && nativebuild.Digest(strings.TrimPrefix(s, "sha256:"))
+}
+func channel(s string) bool        { return s == "candidate" || s == "preview" || s == "stable" }
+func decode(b []byte, v any) error { return strictjson.Decode(bytes.NewReader(b), v) }
+
+// Keys are public PEM, not paths to mutable builder-selected trust. Separate
+// channel roles prevent an artifact/preview signing key from approving stable.
+type Trust struct {
+	Format           int
+	Prefix           string
+	Epoch            uint64
+	Keys             map[string][]string // artifact, candidate, preview, stable; rotation overlap within a role
+	NotBefore        int64
+	MaxAgeSeconds    int64
+	ClockSkewSeconds int64
+	MinimumSequence  map[string]uint64
+}
+
+func (t Trust) Validate() error {
+	if t.Format != 1 || !appliancerelease.ValidRepositoryPrefix(t.Prefix) || t.Epoch == 0 || t.NotBefore <= 0 || t.MaxAgeSeconds < 60 || t.MaxAgeSeconds > 7*86400 || t.ClockSkewSeconds < 0 || t.ClockSkewSeconds > 300 || len(t.Keys) != 4 || len(t.MinimumSequence) != 3 {
+		return ErrRefused
+	}
+	seen := map[string]bool{}
+	for _, role := range []string{"artifact", "candidate", "preview", "stable"} {
+		keys := t.Keys[role]
+		if len(keys) < 1 || len(keys) > 4 {
+			return ErrRefused
+		}
+		for _, key := range keys {
+			block, rest := pem.Decode([]byte(key))
+			if block == nil || block.Type != "PUBLIC KEY" || len(bytes.TrimSpace(rest)) != 0 {
+				return ErrRefused
+			}
+			pub, e := x509.ParsePKIXPublicKey(block.Bytes)
+			if e != nil {
+				return ErrRefused
+			}
+			ec, ok := pub.(*ecdsa.PublicKey)
+			if !ok || ec.Curve != elliptic.P256() {
+				return errors.New("native P-256 Sigstore public key required")
+			}
+			fingerprint := Hash(block.Bytes)
+			if seen[fingerprint] {
+				return errors.New("signer roles must not share keys")
+			}
+			seen[fingerprint] = true
+		}
+		if role != "artifact" && t.MinimumSequence[role] == 0 {
+			return ErrRefused
+		}
+	}
+	return nil
+}
+func (t Trust) Role(repository string) (string, error) {
+	for _, n := range append([]string{"host", "release"}, appliancerelease.Names...) {
+		if repository == t.Prefix+"-"+n {
+			return "artifact", nil
+		}
+	}
+	for _, c := range []string{"candidate", "preview", "stable"} {
+		if repository == t.Prefix+"-channel-"+c {
+			return c, nil
+		}
+	}
+	return "", ErrRefused
+}
+func (t Trust) Reference(ref string) (string, string, error) {
+	repo, d, ok := strings.Cut(ref, "@")
+	if !ok || !Digest(d) {
+		return "", "", ErrRefused
+	}
+	role, e := t.Role(repo)
+	return repo, role, e
+}
+
+type Candidate struct {
+	Format                                                            int
+	Host                                                              nativebuild.Image
+	HostReference, HostArchiveSHA256, PayloadSHA256, Migration, Notes string
+}
+
+func (c Candidate) Validate(p appliancerelease.Payload, payload []byte) error {
+	arch, e := nativebuild.OCIArchitecture(p.Architecture)
+	if e != nil || p.Validate() != nil || c.Format != 1 || c.PayloadSHA256 != strings.TrimPrefix(Hash(payload), "sha256:") || c.HostReference != p.RepositoryPrefix+"-host@"+c.Host.Manifest || !Digest(c.Host.Manifest) || !Digest(c.Host.Config) || !nativebuild.Digest(c.HostArchiveSHA256) || c.Host.Architecture != arch || c.Host.Revision != p.Revision || c.Host.BaseName != p.Base || c.Host.BaseDigest != strings.Split(p.Base, "@")[1] || c.Host.Source != "https://github.com/LevitateOS/sodaos" || c.Migration == "" || c.Notes == "" {
+		return ErrRefused
+	}
+	return nil
+}
+
+// Exact existing metadata bytes are embedded, not independently re-maintained
+// component inventories. Native qualification is evidence, not self-authorizing:
+// the protected signer must admit the exact prepared document digest separately.
+type Release struct {
+	Format        int
+	Serial        uint64
+	Class         string // normal or emergency
+	Payload       []byte
+	Candidate     []byte
+	Provenance    map[string]string
+	Qualification string // local-only or native-install-upgrade-recovery
+	Evidence      map[string]string
+	Notes         string
+}
+
+func (r Release) Validate(t Trust) (appliancerelease.Payload, Candidate, error) {
+	var p appliancerelease.Payload
+	var c Candidate
+	if r.Format != 1 || r.Serial == 0 || (r.Class != "normal" && r.Class != "emergency") || (r.Qualification != "local-only" && r.Qualification != "native-install-upgrade-recovery") || len(r.Evidence) == 0 || len(r.Evidence) > 64 || len(r.Notes) == 0 || len(r.Notes) > 16384 || decode(r.Payload, &p) != nil || decode(r.Candidate, &c) != nil || p.RepositoryPrefix != t.Prefix || c.Validate(p, r.Payload) != nil {
+		return p, c, ErrRefused
+	}
+	if len(r.Provenance) != 4 {
+		return p, c, ErrRefused
+	}
+	for _, n := range []string{"source.tar", "app-inputs.json", "packages.txt", "presentation.json"} {
+		if !Digest(r.Provenance[n]) {
+			return p, c, ErrRefused
+		}
+	}
+	if r.Provenance["packages.txt"] != "sha256:"+p.HostPackagesSHA256 || r.Provenance["presentation.json"] != "sha256:"+p.PresentationSHA256 {
+		return p, c, ErrRefused
+	}
+	for n, h := range r.Evidence {
+		if len(n) == 0 || len(n) > 128 || strings.ContainsAny(n, "\n\r\x00") || !Digest(h) {
+			return p, c, ErrRefused
+		}
+	}
+	return p, c, nil
+}
+func (r Release) References(t Trust) ([]string, error) {
+	p, c, e := r.Validate(t)
+	if e != nil {
+		return nil, e
+	}
+	refs := []string{c.HostReference}
+	for _, n := range appliancerelease.Names {
+		refs = append(refs, p.Images[n].Reference)
+	}
+	return refs, nil
+}
+
+type Channel struct {
+	Format          int
+	Name            string
+	Sequence        uint64
+	Issued, Expires int64
+	Withdrawn       bool
+	Releases        map[string]string // advertised architecture -> signed release OCI digest reference
+}
+type Seen struct {
+	Sequence uint64
+	Digest   string
+	Issued   int64
+}
+type Highwater struct {
+	Format     int
+	TrustEpoch uint64
+	CheckedAt  int64
+	Channels   map[string]Seen
+	Serials    map[string]uint64
+	Releases   map[string]string // same serial must retain exactly the same release digest
+}
+
+func EmptyState() Highwater {
+	return Highwater{Format: 1, Channels: map[string]Seen{}, Serials: map[string]uint64{}, Releases: map[string]string{}}
+}
+func (s Highwater) Validate() error {
+	if s.Format != 1 || s.Channels == nil || s.Serials == nil || s.Releases == nil || len(s.Channels) > 3 || len(s.Serials) > 2 || len(s.Releases) != len(s.Serials) || s.CheckedAt < 0 {
+		return ErrRefused
+	}
+	for c, v := range s.Channels {
+		if !channel(c) || v.Sequence == 0 || !Digest(v.Digest) || v.Issued <= 0 {
+			return ErrRefused
+		}
+	}
+	for a, n := range s.Serials {
+		if _, e := nativebuild.OCIArchitecture(a); e != nil || n == 0 {
+			return ErrRefused
+		}
+		if !Digest(s.Releases[a]) {
+			return ErrRefused
+		}
+	}
+	return nil
+}
+
+// AdmitChannel is pure. Persist its result as soon as the signed channel is
+// validated, even when a later artifact is unavailable. Equal, unexpired offers
+// permit safe observation retries; same-sequence substitutions never do.
+func AdmitChannel(t Trust, s Highwater, c Channel, digest, wanted string, now time.Time) (Highwater, error) {
+	if t.Validate() != nil || s.Validate() != nil || !channel(wanted) || !Digest(digest) || c.Format != 1 || c.Name != wanted || c.Sequence < t.MinimumSequence[wanted] || s.TrustEpoch > t.Epoch || now.Unix() < t.NotBefore || now.Unix() < s.CheckedAt-t.ClockSkewSeconds || c.Issued < t.NotBefore || c.Issued > now.Unix()+t.ClockSkewSeconds || c.Expires <= now.Unix() || c.Expires <= c.Issued || c.Expires-c.Issued > t.MaxAgeSeconds {
+		return s, ErrRefused
+	}
+	if c.Withdrawn {
+		if len(c.Releases) != 0 {
+			return s, ErrRefused
+		}
+	} else if len(c.Releases) < 1 || len(c.Releases) > 2 {
+		return s, ErrRefused
+	}
+	for a, ref := range c.Releases {
+		if _, e := nativebuild.OCIArchitecture(a); e != nil {
+			return s, ErrRefused
+		}
+		repo, role, e := t.Reference(ref)
+		if e != nil || role != "artifact" || repo != t.Prefix+"-release" {
+			return s, ErrRefused
+		}
+	}
+	old := s.Channels[wanted]
+	if c.Sequence < old.Sequence || c.Issued < old.Issued || (c.Sequence == old.Sequence && digest != old.Digest) {
+		return s, ErrRefused
+	}
+	// Deep copy: a rejected later release cannot accidentally modify caller state.
+	b, _ := json.Marshal(s)
+	var next Highwater
+	_ = json.Unmarshal(b, &next)
+	next.TrustEpoch = t.Epoch
+	next.CheckedAt = max(s.CheckedAt, now.Unix())
+	next.Channels[wanted] = Seen{c.Sequence, digest, c.Issued}
+	return next, nil
+}
+func AdmitRelease(t Trust, s Highwater, c Channel, arch, ref string, r Release) (Highwater, error) {
+	p, _, e := r.Validate(t)
+	if e != nil || s.Validate() != nil || !channel(c.Name) || c.Format != 1 || c.Withdrawn || c.Releases[arch] != ref || p.Architecture != arch || (c.Name != "candidate" && r.Qualification != "native-install-upgrade-recovery") {
+		return s, ErrRefused
+	}
+	_, d, _ := strings.Cut(ref, "@")
+	if r.Serial < s.Serials[arch] || (r.Serial == s.Serials[arch] && s.Releases[arch] != d) {
+		return s, ErrRefused
+	}
+	b, _ := json.Marshal(s)
+	var next Highwater
+	_ = json.Unmarshal(b, &next)
+	next.Serials[arch] = r.Serial
+	next.Releases[arch] = d
+	return next, nil
+}
+
+// Permit is produced by the protected qualification/promotion owner, never by
+// trusting a build's "passed" label. The future scheduler supplies it unattended.
+// Each exact digest/repository is admitted separately; no arbitrary sign target.
+type Permit struct {
+	Format             int
+	Repository, Digest string
+	Previous           string // channel publication only: exact previous manifest, or "absent" for bootstrap
+	Expires            int64
+}
+
+func (p Permit) Validate(t Trust, now time.Time) error {
+	_, e := t.Role(p.Repository)
+	if e != nil || p.Format != 1 || !Digest(p.Digest) || p.Expires <= now.Unix() || p.Expires-now.Unix() > 86400 {
+		return ErrRefused
+	}
+	return nil
+}
+func marshal(v any) ([]byte, error) {
+	b, e := json.MarshalIndent(v, "", "  ")
+	return append(b, '\n'), e
+}
+func errorAt(operation string) error { return fmt.Errorf("%s: %w", operation, ErrRefused) }

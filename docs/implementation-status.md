@@ -132,8 +132,12 @@ Milestone 1 is complete at native x86_64 local-build/inspection scope (`45ac843`
 full host/app payload, 391 verified Forgejo files, locked 625-RPM inventory and
 bootc lint 13 passed/one skipped/no warnings. The
 [complete-candidate receipt](implementation-history.md#complete-local-appliance-candidate)
-records artifacts, failures and checks. The owning plan retains limitations and
-milestone 2 (trusted delivery) as next; this is not boot/upgrade or production proof.
+records artifacts, failures and checks. Milestone 2 now has noninteractive source
+tooling and native filesystem Sigstore proof over synthetic cases and the exact M1
+host/apps/release document. Production signing stays automated; no per-release human
+signature is required. The [trusted-delivery receipt](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof)
+records scope. Actual GHCR/key/worker provisioning and registry commissioning remain
+pending; neither milestone supplies boot/upgrade or production acceptance.
 No timer or unattended pipeline has been installed or enabled.
 The current selection grants no publication/automatic CI, signing/trust change,
 service/VM lifecycle or retained-appliance migration. No installed state changed.
@@ -276,10 +280,13 @@ Tailnet work.
   [the refactoring plan](refactoring-plan.md#selected-mechanism-removals)
   owns that source work. This does not grant retained-state conversion/cleanup,
   provider requests, fixture/service lifecycle, native delivery or publishing.
-- **Release engineering:** milestone 1 complete-candidate source/local builds are
-  approved as one slice, including read-only image inspections. This is not GHCR
-  publication, signing/trust setup, timer/automatic execution, native fixture
-  lifecycle or retained-appliance migration approval. The
+- **Release engineering:** the owner approved milestone 1 source/local builds and
+  then milestone 2 implementation, with noninteractive automated signing rather
+  than per-release human signing. Source/local tests include restricted synthetic-key
+  native filesystem proof. No exact production namespace/visibility, publication
+  identity or protected worker/key custody has been established; real GHCR writes,
+  production signing/trust provisioning, timer/unattended deployment, native fixture
+  lifecycle and retained-appliance migration remain outside the current local work. The
   [owning plan](release-engineering-plan.md#10-workstream-status-and-next-action)
   tracks completion independently of other workstreams.
 - **Tailnet:** the user explicitly selected Stage 4 source implementation and local

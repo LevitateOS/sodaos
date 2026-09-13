@@ -51,6 +51,90 @@ in `.artifacts/forgejo-deploy-a6a86c2-PREPARED/`; guest backups under
 covers this delivery only: no further restart, enrollment, cleanup or hold
 extension follows.
 
+## Trusted delivery source and native filesystem proof
+
+Milestone 2 now has noninteractive release-worker source and native **filesystem
+transport** signing/verification evidence. It is not fully commissioned: exact
+production GHCR resources, signing/worker custody, anonymous registry round trip
+and installed bootc/cache enforcement remain unproved/unprovisioned. The user
+explicitly clarified that routine signing must be automatic, not require attendance.
+The worker exposes the same noninteractive operations for the later scheduler;
+protected permits are pipeline inputs, not a permanent human signing procedure.
+
+`internal/releasedelivery` and `tools/soda-release` reuse skopeo/containers policy,
+standard OCI metadata images and the M1 archive verifier. The selected native
+skopeo is **1.22.2** (client source dependency **5.39.2**, pinned in tools.json).
+The existing matching upstream policy/registries documentation was reused; native
+CLI help confirmed the actual file-based signing, digest preservation, anonymous
+access, directory transport and tag-listing flags. Selected upstream directory and
+Docker destination source is retained in `.artifacts/release-delivery/`; it confirms
+native directory signatures and append/nonduplicate registry Sigstore attachments.
+No custom cryptographic signature format, registry server or fleet controller was
+introduced, and no dependency/toolchain version was upgraded.
+
+Implemented source contracts and checks:
+
+- P-256 keyed Sigstore, exact repository identity, distinct artifact and three
+  channel signer roles, same-role rotation overlap and proposed scoped native policy
+  preserving unrelated vendor trust. The signer removes preexisting signatures only
+  in its new private snapshot, preventing an old valid signature from masking a
+  wrong signing key. It signs only after matching the protected permit's digest.
+- Release OCI documents embed exact M1 metadata bytes and bind serial/class,
+  provenance/evidence and qualification. Channels bind name, sequence, freshness,
+  advertised architecture references and withdrawal. Local-only evidence cannot
+  enter preview/stable. A producer's qualification assertions never themselves
+  authorize signing: production isolation/admission still needs commissioning.
+- Durable observed-authority floors reject clock rollback, expired/stale offers,
+  same-sequence substitutions, older serials/same-serial forks and trust rollback.
+  Valid observations remain recorded when later content is missing. Unsupported
+  architecture has no sibling fallback. Missing/corrupt state never silently resets.
+- Publication verifies the local signature, uploads immutable content with digest
+  preservation, and verifies it anonymously. Channel promotion checks every advertised
+  artifact/architecture first, round-trips the immutable channel and signature,
+  checks the authenticated predecessor, and moves the mutable tag last. The topology
+  requires one protected publisher/ledger per repository; GHCR CAS is not claimed.
+- Persistent intent/locking, held uncertain outcomes, read-only observation and
+  duplicate invocation checks prevent blind write replay. There is no generic
+  ignore-signature/recovery/reset, delete/prune, appliance install or reboot operation.
+  Restricted secret/permit/state files and sanitized native subprocess environments/
+  errors are tested; this is not a claim that production worker identities are isolated.
+
+Checks actually run:
+
+- `GOTOOLCHAIN=go1.26.7 go test -race ./internal/releasedelivery ./tools/soda-release ./internal/appliancerelease`
+  passed; relevant Go vet and whitespace checks passed. Process/registry-double
+  tests cover complete publication/download, missing release/image/architecture,
+  local-only stable refusal, higher observed authority surviving missing content,
+  uncertain commit followed by observation rather than replay, and no activation.
+- Opt-in `TestNativeSigstoreDirectoryRoundTrip` passed in both `native-suite-1` and
+  final `native-suite-2`. The offline wrapper refuses any Docker network transport.
+  Real skopeo signs/verifies fresh synthetic fixtures and rejects unsigned,
+  wrong-repository, wrong-key (despite a preexisting good signature), revoked-key,
+  preview-as-stable and tampered-manifest inputs. Same-role rotation overlap passes.
+  No fixture/service listener or global policy is installed.
+- The CLI `prepare` consumed `.artifacts/host-image/complete-45ac843/`, verified its
+  actual host plus five OCI app archives and metadata/provenance, and emitted a
+  **local-only**, serial-1 normal release document. The CLI then signed and natively
+  verified that release document and **all six actual M1 image archives**, with
+  exact admitted digests and only the synthetic artifact key. Every local round
+  trip passed; no archive was rebuilt or republished. These are native signing/
+  byte-identity checks, not native appliance boot or qualified release approval.
+
+Evidence is retained under `.artifacts/release-delivery/`: the initial bounded
+`native-probe`, both native suites and private test inputs, `source-checks-{1,2}.log`,
+plus `m1-proof/{release-oci,prepared-reference.txt,signed-*,sign-*.log}`. Synthetic
+private keys/passphrases remain restricted and untracked. The M1 payload/host
+identities remain those recorded below. Private signed snapshots and failures are
+preserved; no automatic cleanup or registry writes occurred.
+
+The [owning plan](release-engineering-plan.md#implemented-trusted-delivery-contract)
+records the selected protocol, one-time provisioning/rotation design and limits.
+Next is exact production namespace/visibility and nonhuman identity/worker/key
+custody authorization, followed by actual GHCR signature/availability/interruption
+commissioning. Public anonymous pull is the implemented target, not an already
+provisioned property. No production key, host trust, timer/unattended execution,
+retained appliance, project/provider state or VM/service lifecycle changed.
+
 ## Complete local appliance candidate
 
 Release-engineering milestone 1 is complete **for native x86_64 local build and

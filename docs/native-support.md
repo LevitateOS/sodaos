@@ -143,6 +143,76 @@ qualified upgrade edges. Do not deploy either mode as an installable Soda releas
 Zincati updates are disabled and bootc's automatic timer masked only inside these
 candidate images, not on the builder or retained appliances.
 
+## Trusted release-delivery worker
+
+The [release plan](release-engineering-plan.md#implemented-trusted-delivery-contract)
+owns authority, protocol and custody. `tools/soda-release` is a noninteractive worker
+CLI; it does not run build code, install a policy/image, import Podman state or reboot.
+It uses the locked native skopeo from `internal/releasedelivery/tools.json` and the
+existing M1 OCI verifier. No new Go cryptographic signing implementation or registry
+server is introduced. Run source checks/builds with the repository-pinned Go.
+
+All operations require `--trust PUBLIC-TRUST.json` and an absolute `--out`. Trust is
+public but integrity-controlled; it is not build-supplied authority. The exact JSON
+types are in [`internal/releasedelivery/model.go`](../internal/releasedelivery/model.go).
+Native subprocesses do not inherit ambient credentials/proxy/user configuration.
+Public anonymous GHCR access is the implemented commissioning target; private pulls
+or an ambient authenticated proxy are not silently substituted.
+
+| Operation | Inputs and effects |
+| --- | --- |
+| `prepare` | `--input M1-CANDIDATE-DIR --qualification PUBLIC-QUALIFICATION.json`; verifies all six archives/identities and emits one local release OCI layout. Prints its intended digest reference. No signatures/registry effects. |
+| `channel` | `--input CHANNEL.json`; validates channel shape/freshness and writes its local OCI layout/reference. Does not authorize publication or prove referenced artifacts available. |
+| `policy` | Optional `--base-policy FILE`; writes proposed policy/registries.d into a fresh directory, preserving unrelated scopes or refusing conflicts. Never installs it. |
+| `init-state` | `--out NEW-PRIVATE-STATE-FILE`; explicit bootstrap only, refuses an existing file. No discovery/reset/recovery side effect. |
+| `init-ledger` | `--repository EXACT-REPOSITORY --out NEW-PRIVATE-LEDGER-FILE`; explicit publisher bootstrap. Existing channel history cannot be silently adopted with a fresh ledger. |
+| `sign` | `--input LOCAL-PATH --transport oci\|oci-archive\|dir --permit PRIVATE-PERMIT.json --signer PRIVATE-SIGNER.json`; private snapshot, exact-digest admission, local native signing and verification. No registry write or interactive signing prompt. |
+| `publish` | `--input SIGNED-DIR --permit PRIVATE-PERMIT.json --auth-file PRIVATE-AUTH.json --ledger EXISTING-LEDGER`; **real registry writes**, credential use and protected promotion if authorized. Requires fresh output; stops/holds on uncertain effects. |
+| `publish --observe` | Same protected permit/ledger, but no input/auth file needed; observes a recorded pending/completed publication without replaying uploads, including after permit expiry. It is not a fresh-offer/activation approval. |
+| `fetch` | `--channel candidate\|preview\|stable --arch ARCH --state EXISTING-STATE`; public discovery plus native signature-verified downloads, durable observed-authority state and a verified receipt only after completeness. No installation/activation. |
+
+Except the two initialization operations, `--out` names a **new** directory with an
+existing real parent. It is never reused/cleared automatically. Keep local outputs
+under `.artifacts/release-delivery/`. Private keys/passphrases/permits/auth/signer
+configuration must be real files owned by the worker, with no group/other access,
+inside restricted directories. `PRIVATE-SIGNER.json` contains only `Key` and
+`Passphrase` absolute filenames; secret values never go in argv. `Permit` specifies
+exact `Repository`, `Digest`, expiry and, for promotion, the previously approved
+channel digest or explicit `absent` bootstrap. The **protected pipeline worker**
+produces these permits after qualification; users do not manually sign releases or
+write per-release permits as the intended operating procedure. Build/test workers
+must not share the signer's UID, credentials or generic command authority.
+
+Preserve snapshots, signatures, pending ledgers and failed outputs. Skopeo's
+`--remove-signatures` applies only to the new private signing snapshot so an existing
+signature cannot mask the wrong signing key; it does not remove registry artifacts
+or signatures. Every publication uses `--preserve-digests` and verifies an anonymous
+native round trip. A complete or uncertain job is observed, not automatically replayed.
+There is no tag CAS or distributed publisher lock; obey the owning single-writer
+contract. Explicit fault reconciliation is not ordinary per-release manual signing.
+
+Source/process-double checks:
+
+```sh
+GOTOOLCHAIN=go1.26.7 go test -race ./internal/releasedelivery ./tools/soda-release
+```
+
+Native **filesystem-only** Sigstore proof, using fresh synthetic keys and no network
+transport, registry, daemon, fixture lifecycle or global trust changes:
+
+```sh
+mkdir -p .artifacts/release-delivery
+SODA_RELEASE_NATIVE_OUT="$PWD/.artifacts/release-delivery/UNIQUE-NATIVE-PROOF" \
+  GOTOOLCHAIN=go1.26.7 go test ./internal/releasedelivery \
+  -run '^TestNativeSigstoreDirectoryRoundTrip$' -count=1 -v
+```
+
+The directory must not exist. Keys, private passphrase, failed copies and the receipt
+remain restricted there; never commit or publish them. This opt-in native receipt
+is not GHCR attachment/anonymous-pull, installed bootc policy/cache, worker isolation
+or native boot/upgrade acceptance. Real resource provisioning/publication still needs
+its exact grant; no release timer or worker service is installed by these commands.
+
 ## SSH, commands and exact-source remote phases
 
 Owned process execution (`exec`, `native`, `transfer`, `vm`) now requires Linux's

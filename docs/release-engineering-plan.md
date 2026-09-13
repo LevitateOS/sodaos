@@ -8,7 +8,10 @@ skip, and all 391 immutable Forgejo files plus embedded runtime archives are ver
 [Receipt](implementation-history.md#complete-local-appliance-candidate).
 Six milestones carry the work through automated production operation; the 28 detailed
 items are acceptance criteria, not separate execution/approval rounds. **This remains
-unsigned/unpublished, not an installable or boot/upgrade-qualified release.** The
+unpublished, not an installable or boot/upgrade-qualified release.** Milestone 2 now
+has source tooling and native filesystem Sigstore proof, including synthetic-key
+signing of that exact host, all five apps and its release document. Production key/
+GHCR provisioning and the actual registry round trip remain pending. The
 owner selected GHCR distribution and a CoreOS-aligned Soda release train with an
 independent emergency lane. This guide owns the release engineering workstream and
 its status: build engineering, release management, distribution and appliance updates.
@@ -194,9 +197,10 @@ GHCR is the selected artifact host. A dynamic service is not an initial requirem
 
 ## 4. Trust and publication
 
-Production signing and appliance verification are mandatory. Stage 1 selects a
-native-supported signature scheme, trusted signer identity and bootstrap mechanism;
-keyless signing is not assumed to work with the chosen OS client.
+Production signing and appliance verification are mandatory. The implemented native
+scheme is **keyed P-256 Sigstore using skopeo/containers policy**, not a custom
+cryptographic envelope or assumed keyless-CI integration. Production identities and
+bootstrap installation still require their exact provisioning grant.
 
 Define signing-key/identity custody, protected release authority, backup where
 applicable, rotation with overlap, revocation and recovery from compromise. Keep
@@ -215,6 +219,102 @@ publication and missing per-architecture content. Define retention for supported
 upgrade intermediates and recovery artifacts; do not assume mutable tags retain
 otherwise unreferenced images. Never prune retained fixture or registry evidence
 without exact cleanup approval.
+
+### Implemented trusted-delivery contract
+
+`internal/releasedelivery` and `tools/soda-release` implement these contracts;
+[native support](native-support.md#trusted-release-delivery-worker) owns invocations.
+`internal/releasedelivery/tools.json` owns the selected skopeo/client source versions.
+The worker never installs an image, imports into Podman, changes host policy or reboots.
+
+**Native signatures and roles.** Artifact and release repositories use an artifact
+key role. Candidate, preview and stable each have a separate channel key role and
+repository (`PREFIX-channel-NAME`); roles cannot share keys. The other repositories
+are the M1 `PREFIX-{host,dashboard,forgejo,proxy,project-os,tailnet}` plus `PREFIX-release`.
+These are intended names, not reserved GHCR resources. Each native policy requires
+`sigstoreSigned`, explicit `exactRepository` identity and the configured public keys.
+Repository-scoped `use-sigstore-attachments` is enabled in generated worker config.
+The proposed appliance policy preserves unrelated vendor rules and refuses existing
+Soda-specific overrides for review; it is never automatically installed.
+
+The native directory transport supports local signatures as well as registry
+attachments. Signers snapshot public inputs into a private attempt, remove signatures
+only from that new snapshot, check the admitted manifest digest, sign it, and verify
+with the required role. An existing good signature cannot mask a wrong signer. No
+Rekor/keyless identity service or signing prompt is required. The selected upstream
+registry writer appends nonduplicate Sigstore signatures, supporting overlap without
+removing old registry signatures; actual GHCR behavior still needs commissioning.
+
+**Release and channel documents.** Small, non-executable standard OCI images carry
+one `record.json`; native skopeo owns signatures and transport. A release embeds the
+exact M1 payload/candidate bytes, serial, normal/emergency classification, provenance
+hashes, public qualification evidence and notes. It does not maintain a second image
+inventory. Native OCI verification and M1 hashes check preparation inputs. A local
+qualification assertion is not signing authority and cannot enter preview/stable;
+those require the `native-install-upgrade-recovery` scope backed by actual later
+milestone evidence. A protected worker must independently admit the exact document
+digest: a build's self-reported “passed” JSON never grants signing credentials.
+Changing frozen release metadata requires a new serial; preview-to-stable promotion
+uses the same already-qualified release document and image digests, not a rebuild.
+
+A channel binds its name, strictly increasing sequence, issued/expiry times and exact
+per-architecture signed release references, or an explicit withdrawal. Trust inputs
+supply a bootstrap `NotBefore`, minimum sequences and freshness limits (60 seconds
+through seven days; clock tolerance at most five minutes), not an invented release
+SLA. Authenticated, credible system time is a deployment prerequisite; backward or
+out-of-range time fails closed. Expiry requires the pipeline to refresh offers with
+a higher sequence, not rebuild their images. Expiry/withdrawal stops new uptake; it
+does not roll back installed data or deployments.
+
+**Freshness and recovery.** Private high-water state records the highest accepted
+trust epoch, signed channel sequence/digest and observed release serial/digest per
+architecture. Same-sequence substitutions, older serials, same-serial forks, expired
+offers and trust rollback refuse; re-observation of the identical fresh offer is
+allowed. Authenticated channel/release observations remain recorded even when later
+content is unavailable. These are **observed authority**, not installed-state fields.
+Missing/corrupt state never silently bootstraps; initialization refuses existing
+state. There is no generic ignore-signature/downgrade/reset flag. Deliberate native
+boot fallback remains separate M3 recovery work and must not rewind these floors.
+
+**Publication and failure.** Signing and publishing are separate noninteractive
+operations. Exact-digest permits come from the protected qualification/promotion
+owner; the future scheduler supplies them automatically. Public inputs are not
+executed with secrets. Signer/passphrase, permit and registry credential files are
+restricted; native subprocesses discard ambient credentials/configuration and raw
+error output. Public trust and worker command arguments must be integrity-controlled
+by that owner, not selected by an untrusted build job. Actual UID/credential isolation
+and custody are not proved merely by passing file-mode tests.
+
+Artifacts are signed/uploaded first using native digest preservation, then copied
+back with signature policy and **anonymous** access. A channel promotion verifies all
+advertised architectures and every referenced artifact before uploading its immutable
+OCI document/signature. Native tag listing distinguishes bootstrap absence from
+transport/auth failures; an authenticated previous digest must match the permit and
+preserved publisher history. Only then does the mutable channel tag move. Readers
+discover a tag's digest, verify the pinned document, validate authority, then verify
+the selected architecture's images through fresh native copies—not cache existence
+or an inspect-only call. Unsupported architecture never falls back to its sibling.
+
+GHCR tag writes have no CAS in this implementation. Use **one protected publisher
+and persistent locked ledger per repository**, with no external competing tag writer.
+The durable intent is recorded before writes. An uncertain operation is held; a
+separate read-only observation can confirm completion without replay. If the desired
+commit is not observable, preserve the hold/evidence for explicit reconciliation,
+not a fresh ledger or blind retry. Failure handling may require operations attention;
+routine successful releases require nobody to attend or sign them.
+
+**One-time provisioning/rotation still outstanding.** Select the exact public GHCR
+namespace and nonhuman least-privilege publication identity; provision separate
+protected artifact/channel worker credentials. Prefer service credential files and
+distinct worker identities with no build-worker access, including to process state;
+never expose a generic privileged signing command to the build UID. Keep encrypted,
+access-controlled recovery copies outside the builder and rehearse recovery under its
+own grant. Public trust bootstrap is delivered by the approved installation/update
+owner, not downloaded from the channel it is meant to authenticate. Rotation adds a
+new same-role key and increments the trust epoch, re-signs retained supported content,
+then removes the old key only after qualified overlap. Revocation, offline clients
+and key/ledger loss need the authorized M3/M5 recovery drills. No production keys,
+workers, global policy, repositories or timers have been provisioned by this source work.
 
 ## 5. Normal and emergency release process
 
@@ -498,7 +598,13 @@ milestone 3; aarch64 qualification remains milestone 5.
 
 ### Milestone 2 — trusted delivery
 
-**8. [ ] Implement trust and channel verification with local fixtures.**
+**Source/local-native slice implemented.** Native keyed-Sigstore directory proof
+passes over synthetic fixtures and the actual retained M1 host/app payload. Real
+provisioning (9), GHCR round-trip/promotion commissioning (10), and installed
+bootc/cache enforcement are not inferred from it. See the
+[receipt](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof).
+
+**8. [x] Implement trust and channel verification with local fixtures.**
 
 - Deliverable: select the native-supported production signing scheme, signer/key
   custody and bootstrap/rotation design; implement signed channel/release binding,
@@ -728,7 +834,8 @@ to the predecessor's separately reserved Updates platform.
 
 The [six milestones above](#9-implementation-stages-and-exits) are the single task
 list for this workstream. **Milestone 1 is complete for the x86_64 local candidate
-at `45ac843`; milestones 2–6 remain pending.** This consolidation changes execution granularity,
+at `45ac843`; milestone 2 has source/local-native proof, with real provisioning and
+registry commissioning still pending. Milestones 3–6 remain pending.** This consolidation changes execution granularity,
 not production gates or effect permissions.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
@@ -761,9 +868,15 @@ image choices refuse, and changing the companion image within an existing run is
 not an admitted hot upgrade. RPM bytes are not mirrored; aarch64 has no transaction
 lock/native proof. Metadata has no qualified upgrade edges.
 
-**Next: milestone 2 — trusted delivery.** Source/synthetic verification can be built
-without enabling publication; actual GHCR/signing/trust effects require their
-applicable grant. No timer, native fixture or retained-appliance migration is implied.
-The Cockpit error still needs installed-version/caller confirmation. No retained
-target, registry, workflow, signing key or update client has been changed. Independent
+**Next within milestone 2: commission the exact production resources and GHCR
+round trip.** Noninteractive signing/publication/fetch tooling, role-scoped native
+policy, freshness/downgrade guards and failure/observation handling are implemented.
+[Local proof](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof)
+includes native signatures on the actual M1 host, all five apps and release metadata,
+using only synthetic keys. It is not GHCR or installed bootc proof. Real namespace/
+visibility, nonhuman publication identity, protected worker/key custody and applicable
+provisioning/publication permissions must be established before those effects.
+No timer or retained-appliance migration is implied. The Cockpit error still needs
+installed-version/caller confirmation. No retained target, registry, production
+signer, workflow or update client has been changed. Independent
 Tailnet tasks remain with their own workstream; this plan does not absorb their list.
