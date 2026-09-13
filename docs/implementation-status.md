@@ -15,17 +15,22 @@ The canonical `~/Projects/sodaos` checkout on `main` contains the new visual sys
 
 ## Spaces first-use journey
 
-The user selected the focused welcome-to-terminal UX and requested a written plan.
-The [Sodaspaces journey plan](sodaspaces-plan.md#first-use-journey-implementation-plan)
-owns its independent implementation stages and status; the
-[Spaces design](spaces-design.md#first-use-journey--selected-13-september-2026) owns
-the agreed states and local mockup references. The plan now includes a
-[file-level guide](sodaspaces-plan.md#implementation-sequence-and-exits): 15 ordered
-steps under J1–J5, per-step checks and distinct local/native/delivery exits. Tagged
-Forgejo discovery support and current Soda callers were inspected for the guide;
-application implementation and journey acceptance remain pending. This documentation
-work changes no installed state, current execution grant or other workstream's
-completion status.
+The selected welcome-to-terminal journey is implemented in source through steps
+1–13 of the [independent plan](sodaspaces-plan.md#first-use-journey-implementation-plan).
+It uses protected Forgejo-owned repository discovery, focused configuration,
+explicit Create/Start/Join, and direct default-named terminal creation through the
+existing owners. [Local evidence](implementation-history.md#spaces-first-use-source-and-local-journey)
+covers Go race checks, strict TypeScript/Lit, emitted component journeys, layout
+and native-hook/source checks; synthetic input/screenshots are not native shell proof.
+The [Spaces design](spaces-design.md#first-use-journey--selected-13-september-2026)
+still owns presentation. Candidate epoch: `2026-09-13.spaces-first-use-1`.
+
+**J5 step 14 remains pending:** select/authorize a real target and repository/project,
+membership and terminal effects, then prove native login, creation, usable input and
+exact re-entry. Step 15 help/status are updated; delivery needs a matching backend
+and browser under separate target/action approval. No installation, retained state,
+provider enrollment, VM lifecycle, publishing or other workstream completion was
+changed by this source task.
 
 ## Active work — Tailnet
 
@@ -434,11 +439,14 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
+The [Spaces source journey](#spaces-first-use-journey) is the newest local slice.
+The independently owned administration candidate below remains undelivered:
+
 Runners/Tailnet now render inside the existing `/admin` shell in source, with
 fixed bookmark/OAuth returns and bounded selectors. The reviewed candidate keeps
 one content owner, preserves the ordinary drawer on rejected selectors and marks
 only the matching Soda sidebar entry instead of also highlighting Dashboard.
-The paired presentation epoch is `2026-09-13.admin-host-1`. The
+At `4c9ef98`, its paired presentation epoch was `2026-09-13.admin-host-1`. The
 [native page contract](forgejo-soda-pages-plan.md) owns the resulting admin rendering
 gate; protected Soda operator authority remains independent.
 

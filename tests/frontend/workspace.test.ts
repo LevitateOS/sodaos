@@ -7,6 +7,7 @@ import {buildForgejoModule} from '../../scripts/build-forgejo';
 import type {} from './fixtures/workspace-fixture';
 import {installMeasurementProbe} from './fixtures/workspace-measurement-probe';
 import {projectView, newManagedTerminal, terminalMenu} from '../installed/sodaspaces-controls.ts';
+import {captureSpacesComponent} from '../../scripts/screenshot';
 import {parseLayout, focusedPane} from '../../frontend/spaces/sodaspaces-layout';
 
 const root = path.resolve(import.meta.dirname, '../..');
@@ -18,36 +19,37 @@ before(async () => {
     if (url.pathname === '/assets/workspace-fixture.js') return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
     const target = 'public' + url.pathname;
     const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
-    if (source) {const file = source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : source.startsWith('@build/terminal-assets/') ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source)) : path.join(root, source); return new Response(Bun.file(file), {headers: {'Content-Type': /\.m?js$/.test(source) ? 'text/javascript' : source.endsWith('.css') ? 'text/css' : 'application/octet-stream'}});}
+    if (source) {const file = source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : source.startsWith('@build/terminal-assets/') ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source)) : path.join(root, source); return new Response(Bun.file(file), {headers: {'Content-Type': /\.m?js$/.test(source) ? 'text/javascript' : source.endsWith('.css') ? 'text/css' : source.endsWith('.svg') ? 'image/svg+xml' : 'application/octet-stream'}});}
     if (url.pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });
 after(async () => {await browser?.close(); server?.stop(true);});
-async function fixture(t: TestContext, mode: 'native' | 'page' = 'page', beforeMount?: () => void) {
+async function fixture(t: TestContext, mode: 'native' | 'page' = 'page', beforeMount?: () => void, firstUse = false) {
   const page = await browser.newPage({viewport: {width: 1440, height: 1000}}), errors: string[] = [];
   page.setDefaultTimeout(5000); page.on('pageerror', e => errors.push(e.message));
   t.after(async () => {await page.close(); assert.deepEqual(errors, []);});
   await page.goto(server.url.href); await page.waitForFunction(() => !!window.createWorkspaceFixture);
   if (beforeMount) await page.evaluate(beforeMount);
-  await page.evaluate(async mode => {window.workspaceFixture = window.createWorkspaceFixture(mode); await window.workspaceFixture.api.ready;}, mode);
+  await page.evaluate(async ({mode, firstUse}) => {window.workspaceFixture = window.createWorkspaceFixture(mode, firstUse); await window.workspaceFixture.api.ready;}, {mode, firstUse});
   return page;
 }
 async function openSession(page: Page, name: string) {
-  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
+  await page.getByRole('button', {name: /^(Sessions|Projects)$/}).click();
   await page.locator('.soda-session-list button').filter({hasText: name}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
 }
 async function action(page: Page, name: string) {
   await page.locator('.soda-workspace-terminal:not([hidden]) summary[aria-label="Terminal actions"]').click();
-  await page.getByRole('button', {name, exact: true}).click();
+  await page.locator('.soda-workspace-terminal:not([hidden])').getByRole('button', {name, exact: true}).click();
 }
 async function create(page: Page, name = 'New build') {
   await page.getByRole('button', {name: 'New terminal', exact: true}).click();
-  await page.getByLabel('Terminal name', {exact: true}).fill(name);
-  await page.getByRole('button', {name: 'Create terminal', exact: true}).click();
   await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
+  await action(page, 'Rename terminal');
+  await page.getByLabel('Session name', {exact: true}).fill(name);
+  await page.getByRole('button', {name: 'Save name', exact: true}).click();
 }
 async function paneAction(page: Page, name: string) {
   await page.getByLabel('Pane actions', {exact: true}).click();
@@ -68,6 +70,7 @@ for (const failure of ['unavailable', 'unsafe-path', 'wrong-repository', 'storag
         : fetch(input, init)});
     }
   }, failure);
+  await page.getByLabel('Workspace options', {exact: true}).click();
   await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
   await page.getByText(failure === 'storage' ? 'Save the workspace before opening it in the drawer; restoration is unavailable.' : 'Could not open the repository drawer. Your terminal remains here; refresh and try again.', {exact: true}).waitFor();
   assert.equal(page.url(), original); assert(await screen?.evaluate(node => node.isConnected));
@@ -131,10 +134,8 @@ test('observed unread coalesces noisy hidden output, survives refresh, and clear
   await tab.locator('.soda-unread').waitFor();
   assert.equal(await page.getByRole('tab', {name: 'Edit · alice/Alpha', exact: true}).locator('.soda-unread').count(), 0);
   await page.evaluate(() => window.workspaceFixture.api.refresh()); assert.equal(await tab.locator('.soda-unread').count(), 1);
-  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
-  await page.getByRole('button', {name: 'Attention (0)', exact: true}).waitFor();
-  await page.getByRole('button', {name: 'Next attention', exact: true}).click();
-  await page.getByText('No currently authorized sessions need attention.').waitFor();
+  await page.getByRole('button', {name: 'Projects', exact: true}).click();
+  assert.equal(await page.locator('.soda-attention-filters:visible').count(), 0);
   await openSession(page, 'Build'); await page.waitForFunction(() => !document.querySelector('[aria-selected=true] .soda-unread'));
   assert(await screen?.evaluate(node => node.isConnected));
   await page.evaluate(() => {
@@ -156,16 +157,16 @@ test('attention has stable authorized counts/order and exact navigation without 
     c.state = 'ending'; c.ready = false;
     return f.api.refresh();
   });
-  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
+  await page.getByRole('button', {name: 'Projects', exact: true}).click();
   await page.getByRole('button', {name: 'Attention (3)', exact: true}).click();
   assert.deepEqual(await page.locator('.soda-session-list > button > span').allTextContents(), ['Build', 'Edit', 'Other project']);
   await page.getByRole('button', {name: 'Next attention', exact: true}).click();
   await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).waitFor();
-  await page.getByRole('button', {name: 'Sessions', exact: true}).click(); await page.getByRole('button', {name: 'Next attention', exact: true}).click();
+  await page.getByRole('button', {name: 'Projects', exact: true}).click(); await page.getByRole('button', {name: 'Next attention', exact: true}).click();
   await page.getByRole('tab', {name: 'Edit · alice/Alpha', exact: true}).waitFor();
   await page.getByText('Native transition is still in progress.', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
-  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
+  await page.getByRole('button', {name: 'Projects', exact: true}).click();
   await page.evaluate(() => {const b = window.workspaceFixture.spaces[1]; if (b) {b.authority_unavailable = true; b.environment_administrator = false; b.terminals = []; b.login = ''; } return window.workspaceFixture.api.refresh();});
   await page.getByRole('button', {name: 'Attention (2)', exact: true}).waitFor();
   await page.evaluate(() => {window.workspaceFixture.setUser('2'); return window.workspaceFixture.api.refresh();});
@@ -178,18 +179,18 @@ test('stale metadata and late transport generations cannot claim cleanup or repl
   const peer = await page.evaluateHandle(() => window.workspaceFixture.sockets[0]);
   await page.evaluate(() => window.workspaceFixture.sockets[0]?.onmessage?.({data: JSON.stringify({type: 'closed', reason: 'unavailable'})}));
   await page.getByText('Attachment ended or unavailable.', {exact: false}).waitFor();
-  await page.getByRole('button', {name: 'Sessions', exact: true}).click();
+  await page.getByRole('button', {name: 'Projects', exact: true}).click();
   await peer.evaluate(socket => socket?.onmessage?.({data: JSON.stringify({type: 'output', data: btoa('late')})}));
   assert.equal(await page.locator('.soda-unread').count(), 0);
   await page.getByRole('button', {name: 'Attention (1)', exact: true}).waitFor();
   assert.match(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
 });
 
-test('explicit New chooser reserves one named locator before creating, not singleton storage', async t => {
+test('direct New reserves one default-named locator before creating; Rename is separate', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh());
   await create(page, 'Named build');
   const result = await page.evaluate(() => ({frames: window.workspaceFixture.sockets.flatMap(s => s.sent.filter(f => f.action === 'create')), saved: sessionStorage.getItem('soda-spaces:v3:1'), legacy: sessionStorage.getItem('soda-terminal:1:p' + '1'.repeat(24))}));
-  assert.equal(result.frames.length, 1); assert.equal(result.frames[0]?.name, 'Named build'); assert.match(String(result.frames[0]?.id), /^[a-f0-9]{32}$/); assert(!('request_id' in (result.frames[0] || {}))); assert.equal(result.legacy, null); assert(result.saved); assert(!result.saved.includes('synthetic-only'));
+  assert.equal(result.frames.length, 1); assert.equal(result.frames[0]?.name, 'Terminal 3'); assert.match(String(result.frames[0]?.id), /^[a-f0-9]{32}$/); assert(!('request_id' in (result.frames[0] || {}))); assert.equal(result.legacy, null); assert(result.saved); assert(!result.saved.includes('synthetic-only'));
 });
 test('End confirmation defaults Cancel and unknown cleanup preserves exact locator', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
@@ -208,33 +209,35 @@ test('changed actor invalidates siblings and clears private navigation observati
   await page.evaluate(async () => {window.workspaceFixture.setUser('2'); await window.workspaceFixture.api.refresh();});
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets[0]?.closed), 1);
   assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
-  assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).isDisabled(), true);
+  assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 0);
   assert.equal(await page.locator('.soda-session-list button').count(), 0);
 });
 test('a terminal admission actor mismatch invalidates every sibling without creating a replacement', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh());
   await openSession(page, 'Build'); await openSession(page, 'Edit');
-  await page.getByRole('button', {name: 'New terminal', exact: true}).click();
   await page.evaluate(() => window.workspaceFixture.setUser('2'));
-  await page.getByRole('button', {name: 'Create terminal', exact: true}).click();
-  await page.getByRole('link', {name: 'Connect to Soda', exact: true}).waitFor();
+  await page.getByRole('button', {name: 'New terminal', exact: true}).click();
+  await page.getByRole('button', {name: 'Reload Spaces', exact: true}).waitFor();
   assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map(socket => socket.closed)), [1, 1]);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.flatMap(socket => socket.sent).filter(frame => frame.action === 'create').length), 0);
   assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
 });
 test('Hide preserves renderer/socket and showing through the shared navigation does not Return', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
-  const screen = await page.locator('.xterm').elementHandle(); await action(page, 'Hide session');
+  const screen = await page.locator('.xterm').elementHandle(); await action(page, 'Hide terminal');
   assert.equal(await page.locator('.xterm').count(), 1); assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
   await openSession(page, 'Build'); assert(await screen?.evaluate(el => el.isConnected));
   assert.deepEqual(await page.evaluate(() => ({sockets: window.workspaceFixture.sockets.length, closed: window.workspaceFixture.sockets[0]?.closed, returns: window.workspaceFixture.calls.filter(c => c.body?.action === 'return').length})), {sockets: 1, closed: 0, returns: 0});
 });
 test('project drafts and independent terminal owners survive detail switching', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
-  await action(page, 'Environment / access'); await page.locator('soda-project-controls [aria-busy=false]').waitFor();
+  await action(page, 'Project settings'); await page.locator('soda-project-controls [aria-busy=false]').waitFor();
   await page.getByRole('tab', {name: 'Access', exact: true}).click(); await page.locator('soda-project-controls textarea').fill('unsent public key draft');
-  await page.getByRole('button', {name: 'Environment / access: alice/Beta', exact: true}).click(); await page.locator('soda-project-controls:visible [aria-busy=false]').waitFor();
-  await page.getByRole('button', {name: 'Environment / access: alice/Alpha', exact: true}).click();
+  await page.locator('.soda-project-select').filter({hasText: 'alice/Beta'}).click();
+  await page.getByRole('button', {name: 'Project settings', exact: true}).click();
+  await page.locator('soda-project-controls:visible [aria-busy=false]').waitFor();
+  await page.locator('.soda-project-select').filter({hasText: 'alice/Alpha'}).click();
+  await page.getByRole('button', {name: 'Project settings', exact: true}).click();
   assert.equal(await page.locator('soda-project-controls:visible textarea').inputValue(), 'unsent public key draft');
   assert.equal(await page.locator('.xterm').count(), 1); assert.equal(await page.evaluate(() => window.workspaceFixture.sockets[0]?.closed), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
@@ -244,7 +247,7 @@ test('pending rename keeps original ID while another project is deliberately sel
   await action(page, 'Rename terminal'); await page.getByLabel('Session name', {exact: true}).fill('Original project build');
   await page.evaluate(() => window.workspaceFixture.pause(new Promise<void>(resolve => {window.setTimeout(resolve, 600);})));
   await page.getByRole('button', {name: 'Save name', exact: true}).click();
-  await page.getByRole('button', {name: 'Environment / access: alice/Beta', exact: true}).click();
+  await page.locator('.soda-project-select').filter({hasText: 'alice/Beta'}).click();
   await page.waitForFunction(() => window.workspaceFixture.calls.some(c => c.body?.action === 'rename'));
   const calls = await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.body?.action === 'rename'));
   assert.equal(calls.length, 1); assert(calls[0]?.path.endsWith('/terminal-sessions/' + 'a'.repeat(32))); assert.equal(calls[0]?.body?.name, 'Original project build');
@@ -254,7 +257,7 @@ test('search and This page change navigation only; New defaults to selected orig
   const calls = await page.evaluate(() => window.workspaceFixture.calls.length);
   await page.getByRole('button', {name: 'Sessions', exact: true}).click(); await page.getByLabel('This page only').check();
   assert.equal(await page.locator('.soda-session-list button').count(), 2);
-  await page.getByLabel('Find a session').fill('missing'); await page.getByText('No matches.', {exact: true}).waitFor();
+  await page.getByLabel('Find a terminal').fill('missing'); await page.getByText('No matches.', {exact: true}).waitFor();
   await page.getByRole('button', {name: 'Back to terminal', exact: true}).click();
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), calls);
   assert.equal(await page.locator('.xterm').count(), 1);
@@ -387,7 +390,7 @@ test('authorized collection reports an observed other writer without needing a f
   await page.getByText('An existing writer is attached.', {exact: false}).waitFor();
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   await page.evaluate(async () => {const f = window.workspaceFixture, terminal = f.spaces[0]?.terminals[0]; if (!terminal) throw Error('fixture'); terminal.attached = false; await f.api.refresh();});
-  await page.getByRole('button', {name: 'Attention (0)', exact: true}).waitFor();
+  assert.equal(await page.locator('.soda-attention-filters:visible').count(), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(call => call.body).length), 0);
 });
@@ -431,6 +434,182 @@ for (const retirement of ['invalidate', 'dispose', 'disconnect'] as const) test(
     await f.api.ready;
     return window.measurementProbe.observers.length;
   }), 1);
+});
+
+async function chooseFirstRepository(page: Page, capture?: string) {
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
+  if (capture) await captureSpacesComponent(page, 'picker-' + capture);
+  await page.getByRole('radio', {name: /alice\/Alpha/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
+  await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
+}
+for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]) test(`first use ${theme}/${width}: explicit welcome to typed terminal, then exact re-entry`, async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.setViewportSize({width, height: 844});
+  await page.evaluate(theme => {document.documentElement.style.colorScheme = theme;}, theme);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
+  assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 0);
+  await captureSpacesComponent(page, `welcome-${theme}-${width}`);
+  await chooseFirstRepository(page, `${theme}-${width}`);
+  await captureSpacesComponent(page, `configure-${theme}-${width}`);
+  assert.equal(await page.getByRole('checkbox').count(), 0, 'unavailable Tailnet must stay out of setup');
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
+  await captureSpacesComponent(page, `join-${theme}-${width}`);
+  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.some(c => c.path.endsWith('/development-keys'))), false);
+  assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 1);
+  await captureSpacesComponent(page, `first-terminal-${theme}-${width}`);
+  await page.getByRole('button', {name: 'New terminal', exact: true}).click();
+  await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
+  assert.equal(await page.getByRole('dialog', {name: 'New terminal', exact: true}).count(), 0);
+  await page.waitForFunction(() => document.activeElement?.classList.contains('xterm-helper-textarea'));
+  await page.keyboard.type('spaces-ready');
+  await page.waitForFunction(() => document.querySelector('.xterm-rows')?.textContent?.includes('spaces-ready'));
+  assert(await page.locator('.soda-workspace').evaluate(node => node.scrollWidth <= node.clientWidth), 'page overflow');
+  await captureSpacesComponent(page, `working-${theme}-${width}`);
+  const before = await page.evaluate(() => {
+    const f = window.workspaceFixture;
+    return {id: f.spaces[0]?.terminals[0]?.id, writes: f.calls.filter(c => c.method !== 'GET'), creates: f.sockets.flatMap(s => s.sent).filter(c => c.action === 'create').length};
+  });
+  assert.equal(before.creates, 1); assert.equal(before.writes.length, 3);
+  assert.deepEqual(before.writes[1]?.body, {ssh_keys: 'none'});
+  await page.evaluate(() => window.workspaceFixture.remount());
+  await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
+  assert.deepEqual(await page.evaluate(() => {
+    const f = window.workspaceFixture;
+    return {id: f.spaces[0]?.terminals[0]?.id, writes: f.calls.filter(c => c.method !== 'GET'), creates: f.sockets.flatMap(s => s.sent).filter(c => c.action === 'create').length};
+  }), before);
+});
+for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const) test(`first use: ${outcome} creation is inspected, not replayed`, async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(outcome => {window.workspaceFixture.setCreateOutcome(outcome); return window.workspaceFixture.api.refresh();}, outcome);
+  await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByText(outcome === 'rejected' ? /Installed Project OS unavailable\. No reservation/ : /Outcome unconfirmed/).waitFor();
+  await page.getByRole('button', {name: 'Refresh status', exact: true}).click();
+  if (outcome === 'uncertain') await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  else if (outcome === 'incomplete') await page.getByRole('heading', {name: 'Project needs inspection'}).waitFor();
+  else await page.getByRole('button', {name: 'Create project', exact: true}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+});
+test('first use: keyboard selection, Back and Change retain the repository without writes', async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => {
+    const marker = document.createElement('span'); marker.id = 'soda-settings-link'; marker.hidden = true; marker.dataset.subUrl = '/forgejo.test'; document.body.append(marker);
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('button', {name: 'Create project', exact: true}).focus(); await page.keyboard.press('Enter');
+  await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
+  assert(await page.getByRole('button', {name: 'Continue', exact: true}).isDisabled());
+  assert.equal(await page.getByRole('link', {name: 'Create a new repository'}).getAttribute('href'), '/forgejo.test/repo/create');
+  await page.getByRole('radio', {name: /alice\/Alpha/}).focus(); await page.keyboard.press('Space');
+  await page.getByRole('button', {name: 'Continue', exact: true}).focus(); await page.keyboard.press('Enter');
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  await page.getByRole('button', {name: 'Change repository', exact: true}).click();
+  assert(await page.getByRole('radio', {name: /alice\/Alpha/}).isChecked());
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.waitForFunction(() => !!document.querySelector('.soda-project-journey button.primary:not([disabled])'));
+  await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
+  await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
+});
+test('first use: superseded search and retired actor cannot publish stale private choices', async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => {
+    const original = window.fetch;
+    Object.defineProperty(window, 'fetch', {configurable: true, value: (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), location.origin);
+      if (url.pathname.endsWith('/api/repositories') && url.searchParams.get('q') === 'Alpha') return new Promise<Response>(resolve => window.addEventListener('release-old-search', () => resolve(Response.json({items: [{id: '7', owner: 'alice', name: 'Alpha', can_create: true, project: null}], page: 1, more: false, limited: false})), {once: true}));
+      return original(input, init);
+    }});
+    return window.workspaceFixture.api.refresh();
+  });
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
+  const search = page.getByRole('searchbox', {name: 'Search repositories'});
+  await search.fill('Alpha'); await search.press('Enter');
+  await search.fill('Beta'); await search.press('Enter');
+  await page.getByRole('radio', {name: /alice\/Beta/}).check();
+  await page.evaluate(() => window.dispatchEvent(new Event('release-old-search')));
+  assert.equal(await page.getByRole('radio', {name: /alice\/Alpha/}).count(), 0);
+  assert(await page.getByRole('radio', {name: /alice\/Beta/}).isChecked());
+  await search.fill('Alpha'); await search.press('Enter');
+  await page.evaluate(async () => {window.workspaceFixture.setUser('2'); await window.workspaceFixture.api.refresh(); window.dispatchEvent(new Event('release-old-search'));});
+  await page.getByRole('button', {name: 'Reload Spaces', exact: true}).waitFor();
+  assert.equal(await page.getByRole('radio').count(), 0);
+  assert.equal(await page.getByRole('heading', {name: 'Create your first project'}).count(), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
+});
+for (const administrator of [true, false]) test(`first use: stopped project Start is explicit and authorized (${administrator})`, async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh()); await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  await page.evaluate(async administrator => {
+    const f = window.workspaceFixture, space = f.spaces[0]; if (!space?.observed) throw Error('fixture');
+    space.observed.running = false; space.environment_administrator = administrator; await f.api.refresh();
+  }, administrator);
+  await page.getByRole('heading', {name: 'Project not ready'}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 1);
+  if (administrator) {
+    await page.getByRole('button', {name: 'Start project', exact: true}).click();
+    await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 2);
+  } else assert.equal(await page.getByRole('button', {name: 'Start project', exact: true}).count(), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+});
+test('first use: failed Join stays scoped; later explicit keyless Join opens no terminal', async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh()); await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
+  await page.evaluate(() => window.workspaceFixture.setJoinFailure(true));
+  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByText(/Outcome unconfirmed/).waitFor();
+  assert.equal(await page.getByRole('heading', {name: 'Open your first terminal'}).count(), 0);
+  await page.evaluate(() => window.workspaceFixture.setJoinFailure(false));
+  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 3);
+});
+test('first use: second-project setup cancellation preserves the live renderer, input target and layout', async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(() => window.workspaceFixture.api.refresh()); await chooseFirstRepository(page);
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('button', {name: 'Join project', exact: true}).click();
+  await page.getByRole('heading', {name: 'Open your first terminal'}).waitFor();
+  await page.getByRole('button', {name: 'New terminal', exact: true}).click();
+  await page.locator('.is-connected').waitFor();
+  const screen = await page.locator('.xterm').elementHandle();
+  const before = await page.evaluate(() => ({layout: sessionStorage.getItem('soda-spaces:v3:1'), writes: window.workspaceFixture.calls.filter(c => c.method !== 'GET').length}));
+  await page.getByRole('button', {name: 'Create project', exact: true}).click();
+  await page.getByRole('radio', {name: /alice\/Beta/}).check();
+  await page.getByRole('button', {name: 'Continue', exact: true}).click();
+  await page.getByRole('heading', {name: 'Configure project'}).waitFor();
+  assert.equal(await page.locator('.soda-workspace-terminal:visible').count(), 0);
+  await page.getByRole('button', {name: 'Cancel setup', exact: true}).click();
+  await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
+  assert(await screen?.evaluate(node => node.isConnected));
+  assert.deepEqual(await page.evaluate(() => ({layout: sessionStorage.getItem('soda-spaces:v3:1'), writes: window.workspaceFixture.calls.filter(c => c.method !== 'GET').length})), before);
+  assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map(s => s.closed)), [0]);
+});
+test('first use: incomplete and failed inventories never render guessed welcome', async t => {
+  const page = await fixture(t, 'page', undefined, true);
+  await page.evaluate(async () => {window.workspaceFixture.setComplete(false); await window.workspaceFixture.api.refresh();});
+  assert.equal(await page.getByRole('heading', {name: 'Create your first project'}).count(), 0);
+  await page.getByRole('heading', {name: 'Could not load projects'}).waitFor();
+  await page.evaluate(async () => {window.workspaceFixture.setStatus(503); await window.workspaceFixture.api.refresh();});
+  assert.equal(await page.getByRole('heading', {name: 'Create your first project'}).count(), 0);
 });
 
 test('departure during authorization cannot dispatch a late collection read', async t => {

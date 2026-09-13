@@ -38,6 +38,11 @@ and copied into new native bundles; this is not broader distribution clearance.
   Unresolved rights/source obligations stop distribution; they are not fixed by
   deleting a notice or assuming permission. The predecessor remains unchanged.
 
+Spaces uses two unmodified Primer Octicons 19.14.0 SVGs, matching the icon package
+selected by Forgejo 15.0.7. Their [source and MIT notice](../assets/branding/icons/octicons/README.md)
+are staged with the icons; this does not add a JS package dependency or change
+Forgejo's own licensing obligations.
+
 ## Retained concrete findings
 
 From the U01 review at `542de21`, whose architecture acceptance was later withdrawn:

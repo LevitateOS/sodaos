@@ -214,11 +214,12 @@ introducing a setup controller, state-machine framework or separate frontend.
 **Files:** `internal/forgejo/`, `internal/web/environments_api.go`,
 `internal/web/environment_authority.go`, `frontend/spaces/sodaspaces-api.ts` and
 `docs/dashboard-api.md`. A focused repository-list client/handler file is reasonable
-if needed; a new Soda endpoint is not implemented or named by this guide.
+if needed. The implemented bounded `GET /api/repositories` contract is now owned
+by [the API guide](dashboard-api.md#spaces-repository-discovery).
 
 ##### Step 1 — Resolve the upstream discovery operation
 
-- [ ] Confirm the selected Forgejo image in `appliance/services/forgejo.container`.
+- [x] Confirm the selected Forgejo image in `appliance/services/forgejo.container`.
   Guide inspection found **15.0.7**. Its tagged
   [`repo.Search`](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/routers/api/v1/repo/repo.go)
   implements `GET /repos/search` with `q`, `uid`, `exclusive`, `private`, `page`
@@ -227,11 +228,11 @@ if needed; a new Soda endpoint is not implemented or named by this guide.
   provides a paginated `GET /user/repos`. These are upstream capabilities, not new
   Soda methods. Check their route middleware and effective OAuth read scopes before
   selecting one. Do not implement global search by filtering only one list page.
-- [ ] Prefer upstream owner-filtered search for creation discovery if its effective
+- [x] Prefer upstream owner-filtered search for creation discovery if its effective
   grant behavior fits. Derive the owner from the authenticated actor, never from a
   browser-supplied user ID. Existing shared projects still come from `/api/spaces`.
   Check returned identity/ownership rather than trusting a search filter as authority.
-- [ ] Record the selected upstream request, pagination semantics and private-repository
+- [x] Record the selected upstream request, pagination semantics and private-repository
   behavior in the API owner when implementing it. Reuse `Client.request`, bounded
   response decoding, `RepositoryByID` and effective-consent checks where applicable.
   Keep credentials server-side; no provider adapter or incidental dependency upgrade.
@@ -242,17 +243,17 @@ These establish Soda client behavior, not real-provider acceptance.
 
 ##### Step 2 — Implement the protected picker projection
 
-- [ ] Add only the bounded read operation the picker needs and register it through
+- [x] Add only the bounded read operation the picker needs and register it through
   the existing `apiProtected` route owner. Document its path, accepted query fields,
   limits, result shape and failures in `docs/dashboard-api.md` in the same commit.
-- [ ] Return stable repository IDs and display names, server-evaluated eligibility,
+- [x] Return stable repository IDs and display names, server-evaluated eligibility,
   and authorized existing-project/reservation outcomes. Separate more pages or
   incomplete results from a confirmed empty result. Choose explicit query/page,
   response-byte, request-duration and concurrency bounds; test their actual edges.
-- [ ] Reuse current acting-user repository and project-read authority before exposing
+- [x] Reuse current acting-user repository and project-read authority before exposing
   project metadata. Visibility, creation permission and permission to open an existing
   project are distinct. Do not publish a hidden project's existence or aggregate count.
-- [ ] Leave final Create reauthorization and unique reservation in
+- [x] Leave final Create reauthorization and unique reservation in
   `apiCreateEnvironment`. Picker reads perform no provisioning, membership, terminal
   or network mutation. Recheck the original session before publishing delayed results.
 
@@ -264,13 +265,13 @@ reads; logout/actor change during a delayed provider response. Extend the existi
 
 ##### Step 3 — Add the typed browser caller
 
-- [ ] Add a runtime-validated picker response beside existing decoders in
+- [x] Add a runtime-validated picker response beside existing decoders in
   `sodaspaces-api.ts`. Validate identity, bounds and mutually consistent outcomes;
   do not cast parsed JSON into a trusted interface.
-- [ ] Call it through the workspace's existing actor-bound request path. Associate
+- [x] Call it through the workspace's existing actor-bound request path. Associate
   requests with the active query/page and session; ignore superseded responses and
   retire pending reads on logout/disposal. Do not create another login/session owner.
-- [ ] Add decoder and request tests in `tests/frontend/spaces-api.test.ts` and the
+- [x] Add decoder and request tests in `tests/frontend/spaces-api.test.ts` and the
   existing workspace fixture. Include out-of-order search completion and an actor
   change while a request is pending.
 
@@ -286,14 +287,14 @@ permission and no new OAuth scope or write token has been silently introduced.
 
 ##### Step 4 — Add the setup presentation to the existing workspace
 
-- [ ] Keep `mountSpacesPage` and the native Forgejo entry. Add the small typed
+- [x] Keep `mountSpacesPage` and the native Forgejo entry. Add the small typed
   presentation state needed for welcome, repository selection and configuration to
   `SodaSpaces`; keep it separate from the pane tree, terminal owners and server facts.
-- [ ] Render welcome only when `/api/spaces` confirms `complete: true` and no items.
+- [x] Render welcome only when `/api/spaces` confirms `complete: true` and no items.
   Loading, failure and incomplete-empty inventory need their own presentation. With
   existing projects, enter the workspace directly. Use the design owner's exact copy
   and control hierarchy, not a second specification in the implementation.
-- [ ] Add stateless typed render helpers alongside `sodaspaces-workspace-view.ts` as
+- [x] Add stateless typed render helpers alongside `sodaspaces-workspace-view.ts` as
   needed. Keep terminal host nodes stable while switching setup/workspace/settings.
   Preserve the previous workspace when starting another project's setup; Cancel
   restores it without closing shells or overwriting the pane tree.
@@ -305,16 +306,16 @@ starting and cancelling setup with live terminals preserves owner identity.
 
 ##### Step 5 — Build repository selection and the native creation handoff
 
-- [ ] Wire Create project to the picker, then implement radio selection, search,
+- [x] Wire Create project to the picker, then implement radio selection, search,
   paging, Continue and Back using J1's typed results. Store the selected repository
   ID, not its label or list index. No implicit first-row selection.
-- [ ] Preserve nonsecret choices during Back/Change in the active flow; invalidate
+- [x] Preserve nonsecret choices during Back/Change in the active flow; invalidate
   choices when current authorization no longer permits them. Render existing-project
   Open or incomplete-reservation guidance from authorized results, never another Create.
-- [ ] Link Create a new repository to Forgejo's existing native repository creation
+- [x] Link Create a new repository to Forgejo's existing native repository creation
   route using the supported sub-URL context. On return, refresh choices and require
   deliberate selection; no custom callback, automatic selection or project mutation.
-- [ ] Wire How Spaces works to existing user help. Update
+- [x] Wire How Spaces works to existing user help. Update
   `docs/public/30-Use-Soda/20-projects-and-workspaces.md` for the selected explanation
   rather than adding an unrelated onboarding site.
 
@@ -324,15 +325,15 @@ handoff under a sub-URL and no writes from selection or navigation.
 
 ##### Step 6 — Compose configuration from the project owner
 
-- [ ] Use the selected repository to load the existing project/profile/Tailnet option
+- [x] Use the selected repository to load the existing project/profile/Tailnet option
   reads. Reuse `SodaProjectControls` drafts and admission through a small typed
   presentation interface or setup mode as needed. `mountProjectControls` currently
   exposes refresh/readiness/invalidation/disposal, not a public Create API; do not
   bypass its private guards with a second workspace POST implementation.
-- [ ] Render only installed profile choices from the API. Preserve the selected
+- [x] Render only installed profile choices from the API. Preserve the selected
   repository identity and the design's optional Tailnet behavior. Changing repository
   must invalidate repository-bound profile/network observations before submission.
-- [ ] Keep readiness and failures scoped: unavailable profiles block creation;
+- [x] Keep readiness and failures scoped: unavailable profiles block creation;
   unavailable optional network management does not block explicit Off creation.
   If a selected network option becomes invalid, require review rather than silently
   changing the submitted choice. Keep SSH forms outside setup.
@@ -354,15 +355,15 @@ are staged with the normal module graph rather than served as raw TypeScript.
 
 ##### Step 7 — Connect explicit Create and its confirmed result
 
-- [ ] Submit through `SodaProjectControls.mutate` and its existing command admission.
+- [x] Submit through `SodaProjectControls.mutate` and its existing command admission.
   Capture the repository, selected profile and optional network intent at dispatch;
   disable duplicate submissions synchronously. Configuration renders pending state
   without manufacturing native progress percentages.
-- [ ] Validate the confirmed response against that captured identity. Use the existing
+- [x] Validate the confirmed response against that captured identity. Use the existing
   `soda-project-changed` notification to trigger readback, not to infer readiness or
   trigger Join. If the setup view needs a richer outcome, expose only a typed result
   from this same owner; do not add a generic command bus.
-- [ ] Refresh authorized project/detail state and select the created project. Show the
+- [x] Refresh authorized project/detail state and select the created project. Show the
   sidebar only after confirmation; do not guess success from a timeout or receipt of
   an arbitrary JSON object.
 
@@ -373,15 +374,15 @@ may itself return a running project; that is not a reason to send another Start.
 
 ##### Step 8 — Keep uncertain creation recoverable without replay
 
-- [ ] Inspect `apiCreateEnvironment`'s retained-reservation error responses and the
+- [x] Inspect `apiCreateEnvironment`'s retained-reservation error responses and the
   browser error path. The current request helper reduces failures to status/code;
   preserve validated project identity from an admitted error when available, or
   recover it through the existing repository-scoped read. Never trust a raw Location
   or arbitrary error URL as a new target.
-- [ ] Distinguish rejection before reservation, retained incomplete reservation and
+- [x] Distinguish rejection before reservation, retained incomplete reservation and
   transport/readback uncertainty. Keep the original repository/known project ID and
   offer read-only inspection or operator guidance. Reload must observe, not resubmit.
-- [ ] Keep successful provisioning separate from optional Tailnet outcome. Network
+- [x] Keep successful provisioning separate from optional Tailnet outcome. Network
   follow-up belongs to the Network view; it must not send Create again.
 
 **Check:** lost response, malformed success, returned incomplete reservation, failed
@@ -391,16 +392,16 @@ not merely the presence of an error message.
 
 ##### Step 9 — Present Start, Join or first-terminal readiness
 
-- [ ] Derive the primary action from fresh provisioned/running/membership/authority
+- [x] Derive the primary action from fresh provisioned/running/membership/authority
   facts using existing project reads. Do not treat a sidebar selection as a target
   change for a pending operation or an existing terminal.
-- [ ] Keep Start an explicit authorized lifecycle command. Keep Join a separate
+- [x] Keep Start an explicit authorized lifecycle command. Keep Join a separate
   command using `{"ssh_keys":"none"}` for this browser-only journey. Reuse their
   current owner and validate readback before presenting the next step.
-- [ ] Show the actual account login from confirmed membership. Failed optional
+- [x] Show the actual account login from confirmed membership. Failed optional
   external-SSH/key reads must not become a browser-terminal prerequisite; isolate
   those reads in the Access presentation if the shared refresh currently couples them.
-- [ ] Before declaring the project has no terminals, inspect the authorized inventory
+- [x] Before declaring the project has no terminals, inspect the authorized inventory
   including hidden/existing entries. Partial inventory is uncertainty, not permission
   to invent a first-terminal state. Offer the appropriate existing-terminal navigation.
 
@@ -418,14 +419,14 @@ entry state; uncertainty is actionable without duplicate resources or chained wr
 
 ##### Step 10 — Open the first terminal without a naming dialog
 
-- [ ] Route selected-project New terminal into the existing `createTerminal()` path
+- [x] Route selected-project New terminal into the existing `createTerminal()` path
   with a default `Terminal N` name and an existing valid destination pane. Retain a
   chooser only where project/account targeting is genuinely ambiguous.
-- [ ] Reuse `addSlot` and the terminal facade's `open` path. Preserve native ID
+- [x] Reuse `addSlot` and the terminal facade's `open` path. Preserve native ID
   allocation, publication before Create, exact pending recovery and all admission
   guards from the [terminal contract](terminal-integration.md). Do not allocate a
   replacement ID to repair an observer or an uncertain Create.
-- [ ] Show Opening for that entry until its exact terminal is usable. Then expose its
+- [x] Show Opening for that entry until its exact terminal is usable. Then expose its
   tab/sidebar row and place New terminal in the header, only once. Focus the shell
   after user-requested attachment; background updates must not steal focus.
 
@@ -437,16 +438,16 @@ the synthetic peer while labelling it separately from native shell proof.
 
 ##### Step 11 — Finish project navigation and contextual controls
 
-- [ ] Add the selected-project header and sidebar selection without retargeting
+- [x] Add the selected-project header and sidebar selection without retargeting
   mixed-project terminal slots. Keep project search conditional as specified by the
   design. A hidden terminal stays discoverable without another Create.
-- [ ] Present Project settings through the same project owner as Overview/Access/
+- [x] Present Project settings through the same project owner as Overview/Access/
   Network, with Back restoring the workspace. Keep optional SSH there and reuse
   existing lifecycle confirmations and coordinated native sign-out.
-- [ ] Move terminal and pane actions into their contextual menus. Preserve distinct
+- [x] Move terminal and pane actions into their contextual menus. Preserve distinct
   Hide, named End, split/move and shared-project Stop semantics. Retain keyboard
   alternatives and disclose Reconnect at the affected terminal.
-- [ ] Update `docs/spaces-drawer-design.md` only for labels/composition actually
+- [x] Update `docs/spaces-drawer-design.md` only for labels/composition actually
   changed in shared controls. Do not rebuild the repository drawer or global
   administration navigation as part of this journey.
 
@@ -456,13 +457,13 @@ keyboard menu use and the existing page/drawer continuity cases.
 
 ##### Step 12 — Apply responsive styling without rebuilding terminal owners
 
-- [ ] Use existing `sodaspaces-workspace.css`, `sodaspaces-project.css` and canonical
+- [x] Use existing `sodaspaces-workspace.css`, `sodaspaces-project.css` and canonical
   theme tokens. Apply the [selected responsive design](spaces-design.md#required-branches-and-responsive-behavior)
   to setup, settings and the populated workspace; avoid independent theme palettes.
-- [ ] Keep the measured pane projection and stable terminal host layer. Compact
+- [x] Keep the measured pane projection and stable terminal host layer. Compact
   Projects navigation must not replace live renderers or overwrite the desired
   desktop layout. Handle short viewports, zoom and mobile keyboard geometry.
-- [ ] Check focus order, real labels, radio semantics, live pending/error announcements
+- [x] Check focus order, real labels, radio semantics, live pending/error announcements
   and touch targets in both themes. Use the canonical icons, not generated mockup art
   as production assets.
 
@@ -479,15 +480,15 @@ layout restoration or the shared drawer.
 
 ##### Step 13 — Wire the emitted graph and run affected local checks
 
-- [ ] Register any new production modules in
+- [x] Register any new production modules in
   `internal/nativebuild/forgejo-payload.json` and keep `scripts/build-forgejo.ts`
   aligned. Bump the presentation epoch and all affected entry/style URLs together
   under the [TypeScript asset contract](typescript.md). Do not edit emitted files.
-- [ ] Extend the existing fixture/driver with the whole welcome-to-input sequence,
+- [x] Extend the existing fixture/driver with the whole welcome-to-input sequence,
   recording each mutation and target. Verify Back, refresh, failed reads and normal
   re-entry generate no writes. Reuse existing terminal journey/navigation helpers
   rather than adding a second scenario runner.
-- [ ] Select the checks below for changed contracts. Run them with the documented
+- [x] Select the checks below for changed contracts. Run them with the documented
   prerequisites and no installed/provider opt-in flags for ordinary source testing.
   Reuse valid unchanged-source evidence rather than treating this as a mandatory
   aggregate build sequence.
@@ -535,7 +536,7 @@ retains its terminal-owner scope; it is not silently claimed by this one-user jo
 
 ##### Step 15 — Record completion and prepare a separate compatible delivery
 
-- [ ] Update the progress table below, user help and the workstream's handoff link.
+- [x] Update the progress table below, user help and the workstream's handoff link.
   Put detailed revisions, commands, results, screenshots and limitations in
   `docs/implementation-history.md`. Distinguish authored tests, local passes,
   native journey proof and installation; leave unrun items explicitly pending.
@@ -544,7 +545,7 @@ retains its terminal-owner scope; it is not silently claimed by this one-user jo
   as frontend-only assets to a backend that lacks it. Follow
   [retained cutover](installation.md#retained-sodaspaces-cutover) for the separately
   authorized target/action; do not reuse old maintenance or VM-hold grants.
-- [ ] Report source completion even when native fixture approval/proof or delivery is
+- [x] Report source completion even when native fixture approval/proof or delivery is
   pending. Do not require a sibling architecture, provider enrollment or unrelated
   desktop roadmap to finish this bounded source work.
 
@@ -559,16 +560,23 @@ and deployment each keep their own status.
 | Agreed journey, desktop hierarchy and five selected mockups | Recorded in the design owner |
 | Plan and reconciliation of conflicting full-page design requirements | Authored; documentation only |
 | File-level implementation guide, steps 1–15 under J1–J5 | Authored with per-step checks and separate local/native/delivery exits |
-| J1–J4 source implementation | Pending |
-| J5 source/browser/native acceptance | Pending |
-| Deployment / retained-target changes | Not performed by this planning task |
+| J1–J4 source implementation, steps 1–12 | Implemented through existing Go/Lit/project/terminal owners |
+| J5 step 13: source, emitted browser and layout | Passed within the scoped [source receipt](implementation-history.md#spaces-first-use-source-and-local-journey) |
+| J5 step 14: native HTML/login and real project-to-shell acceptance | Pending selected target, applicable project/terminal permissions and native evidence |
+| J5 step 15: help and status | Updated; compatible delivery remains separately scoped |
+| Deployment / retained-target changes | Not performed; candidate epoch `2026-09-13.spaces-first-use-1` is source only |
 
-**Next implementation action: J1, step 1**, finalizing authorized Forgejo repository
-discovery against the current caller. Guide inspection identified tagged upstream
-search/list support; endpoint selection, its Soda projection and behavioral tests
-remain implementation work. The remaining stages reuse existing project,
-terminal and layout owners; they do not reopen native architecture, organization
-creation policy, new OS profiles, Git credential automation or provider setup.
+Steps 1–13 have source/local evidence; checked items do not claim exhaustive native
+acceptance or installation. Component screenshots use synthetic APIs/transport and
+have no native Forgejo header. The native-owned terminal admission/identity helpers
+now accommodate the displayed default name without silently adding Rename, but the
+real first-use scenario and installed proof remain step 14 work.
+
+**Next action: J5, step 14**, select/authorize the target, eligible repository,
+project creation, membership and exact terminal effects; then finish the native
+journey with its existing login/input/observer owners. Do not deploy only the new
+browser picker to an old backend. This work does not reopen organization creation
+policy, new OS profiles, Git credential automation or provider setup.
 
 ## Product correction — development workspace, not a modal form
 

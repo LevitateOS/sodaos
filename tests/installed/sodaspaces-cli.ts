@@ -28,9 +28,9 @@ export async function exerciseSelectedCLIs(page: Page, request: MatrixInput, act
     assert(prompt && !/[\x00-\x08\x0b-\x1f\x7f]/.test(prompt) && !prompt.includes(scenario.expected_text));
     assert.equal(matrixSSH(request, project, actor, scenario.tool + ' --version'), scenario.version);
     const nativeContext = objectContext(matrixSSH(request, project, actor, `python3 -I -c 'import subprocess,json; print(json.dumps({"tmux":subprocess.check_output(["tmux","-V"],text=True).strip(),"terminfo":[subprocess.run(["infocmp",t],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0 for t in ["screen-256color","xterm-256color"]]}))'`), session.facts.term);
-    await page.getByRole('button', {name: 'Sessions', exact: true}).click();
-    await page.getByRole('button', {name: 'All', exact: true}).click();
-    await page.locator('.soda-session-list button').filter({hasText: session.name}).click();
+    await page.getByRole('button', {name: 'Projects', exact: true}).click();
+    const all = page.getByRole('button', {name: 'All', exact: true}); if (await all.isVisible()) await all.click();
+    await page.locator(`.soda-session-list button[data-terminal-id="${session.id}"]`).click();
     const screen = page.locator('.soda-workspace-terminal:visible .xterm-helper-textarea'); await screen.focus();
     stream.clear(session.id); await page.keyboard.insertText(scenario.tool + ' --version'); await page.keyboard.press('Enter');
     let deadline = Date.now() + 15000;

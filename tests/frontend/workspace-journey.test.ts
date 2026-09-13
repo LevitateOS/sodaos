@@ -11,7 +11,7 @@ import {matrixInput} from '../installed/sodaspaces-matrix-input';
 import {exerciseWorkspaceMatrix, type MatrixEvidence} from '../installed/sodaspaces-workspace-journey';
 import {inspectMatrixProcess} from '../installed/sodaspaces-matrix-native';
 import {cliProtocolObservation} from '../installed/sodaspaces-cli';
-import {newManagedTerminal} from '../installed/sodaspaces-controls';
+import {newManagedTerminal, prepareManagedTerminal} from '../installed/sodaspaces-controls';
 const base = journeyInput({ca_file: '/synthetic/ca', origin: 'https://fixture.invalid', target: 'fixture', oauth_client_id: 'synthetic-client', repository_id: '7', repository_path: '/alice/Alpha', revision: '1'.repeat(40), terminal_actions: ['create', 'end'], users: [{id: '1', login: 'alice', password_file: '/synthetic/a'}, {id: '2', login: 'bob', password_file: '/synthetic/b'}]}, false, true);
 const scope = () => ({target: base.target, revision: base.revision, actors: ['1', '2'], sessions_per_actor: 6, actions: ['create', 'attach', 'end'], ssh_config: '/synthetic/ssh', projects: [{environment: 'p' + '1'.repeat(24), repository_id: '7', repository_path: '/alice/Alpha', ssh: ['soda-matrix-a-alice', 'soda-matrix-a-bob']}, {environment: 'p' + '2'.repeat(24), repository_id: '8', repository_path: '/alice/Beta', ssh: ['soda-matrix-b-alice', 'soda-matrix-b-bob']}], cli: [], cli_effects: [], provider_use: 'none'});
 test('matrix approval cannot inherit a single-terminal, foreign actor/project or provider scope', () => {
@@ -151,17 +151,21 @@ for (const actorIndex of [0, 1]) test(`matrix and page/drawer navigation actor $
     // Additional local navigation coverage, not part of the installed matrix's
     // reported native proof. Actual page entrypoint, footer and drawer adapter.
     const first = spaces[0]; assert(first);
-    await newManagedTerminal(page, first.environment.repository, 'From Spaces', first.environment.id);
+    const defaultName = await prepareManagedTerminal(page, first.environment.repository, first.environment.id); assert(defaultName);
+    allowed = `/-/soda/api/environments/${first.environment.id}/terminal-sessions:` + JSON.stringify({name: defaultName});
+    await newManagedTerminal(page, first.environment.repository, defaultName, first.environment.id);
     const fromSpaces = first.terminals.at(-1); assert(fromSpaces);
     const layout = await page.evaluate(actor => sessionStorage.getItem('soda-spaces:v3:' + actor), actor);
     const screen = await page.locator('.xterm:visible').elementHandle();
     await page.evaluate(() => {window.onbeforeunload = event => {event.preventDefault(); event.returnValue = 'Unsaved fixture draft'; return event.returnValue;};});
     const cancelled = page.waitForEvent('dialog').then(dialog => dialog.dismiss());
+    await page.getByLabel('Workspace options', {exact: true}).click();
     await page.getByRole('button', {name: 'Open in drawer', exact: true}).click(); await cancelled;
     assert.equal(new URL(page.url()).search, '?soda-view=spaces'); assert(await screen?.evaluate(node => node.isConnected));
     assert.deepEqual(connections.at(-1), {action: 'create', id: fromSpaces.id});
     await page.evaluate(() => {window.onbeforeunload = null;});
 
+    await page.getByLabel('Workspace options', {exact: true}).click();
     await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
     await page.waitForURL('**/current/Alpha-renamed#sodaspaces'); await page.locator('#sodaspaces-drawer .is-connected').waitFor();
     assert.deepEqual(connections.at(-1), {action: 'attach', id: fromSpaces.id});
@@ -183,6 +187,7 @@ for (const actorIndex of [0, 1]) test(`matrix and page/drawer navigation actor $
     await page.getByRole('link', {name: 'Open in Spaces', exact: true}).click();
     await page.waitForURL('**/?soda-view=spaces'); await page.locator('.is-connected').waitFor();
     assert.deepEqual(connections.at(-1), {action: 'attach', id: fromDrawer.id});
+    await page.getByLabel('Workspace options', {exact: true}).click();
     await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
     await page.waitForURL('**/current/Alpha-renamed#sodaspaces'); await page.locator('#sodaspaces-drawer .is-connected').waitFor();
     assert.deepEqual(connections.at(-1), {action: 'attach', id: fromDrawer.id});

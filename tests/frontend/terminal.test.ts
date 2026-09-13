@@ -68,7 +68,7 @@ for (const event of ['pagehide', 'pageshow']) test(`${event} retires access with
   const page = await fixture(t); await ready(page);
   await page.evaluate(async event => {const f = window.terminalFixture; window.dispatchEvent(event === 'pageshow' ? new PageTransitionEvent(event, {persisted: true}) : new Event(event)); await f.api.ready; f.socket().message({type: 'output', data: 'YWJj'}); window.dispatchEvent(new Event('focus')); f.root.querySelector('button')?.click();}, event);
   assert.deepEqual(await page.evaluate(() => ({disposed: window.terminalFixture.term().disposed, state: window.terminalFixture.socket().readyState, count: window.terminalFixture.sockets.length, output: window.terminalFixture.term().writes.length})), {disposed: 1, state: 3, count: 1, output: 0});
-  assert(await page.getByRole('button', {name: 'Reconnect terminal', includeHidden: true}).isDisabled()); assert.deepEqual(await actions(page), []);
+  assert.equal(await page.getByRole('button', {name: 'Reconnect terminal', includeHidden: true}).count(), 0); assert.deepEqual(await actions(page), []);
 });
 test('visibility changes preserve renderer and perform no lifetime operation', async t => {
   const page = await fixture(t); await ready(page);

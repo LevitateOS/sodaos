@@ -127,6 +127,13 @@ Three rows, then the terminal fills the rest:
    selected-session menu. Show a warning row only for an actual lifecycle/connection
    problem or supported reported attention, not a permanent setup summary.
 
+The shared terminal menu labels its management action **Project settings** and its
+non-destructive view action **Hide terminal**. **End terminal** remains separate and
+confirmed; actionable reconnect appears inline with connection status. The native
+drawer retains its named terminal chooser. The full-page
+[first-use journey](sodaspaces-plan.md#first-use-journey-implementation-plan) owns its
+project picker and direct default-named New terminal, not a new drawer setup flow.
+
 A small connection footer is optional within the terminal area. The terminal's own
 prompt and agent controls remain native terminal content; there is no Soda composer,
 Send button, approval button or universal agent launcher.

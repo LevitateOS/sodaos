@@ -53,7 +53,7 @@ test('native Spaces to drawer and back preserves exact sessions and named End', 
  });
  page.on('dialog', dialog => dialog.accept());
  await page.goto(origin + '/?soda-view=spaces');
- await page.getByRole('button', {name: 'Sessions', exact: true}).click();
+ await page.getByRole('button', {name: 'Projects', exact: true}).click();
  await page.locator('.soda-session-list button').filter({hasText: 'Build'}).click();
  await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
  if (process.env.SODA_PAGE_CAPTURES) {
@@ -75,6 +75,7 @@ test('native Spaces to drawer and back preserves exact sessions and named End', 
  assert.equal(await page.locator('soda-spaces').count(), 1);
  assert.equal(await page.evaluate(() => window.nativeWorkspaceModel.sockets.flatMap(s => s.sent).filter(f => f.action === 'attach').at(-1)?.id), 'a'.repeat(32));
  assert.equal(await page.evaluate(() => window.nativeWorkspaceModel.spaces[0]?.terminals[0]?.state), 'ready');
+ await page.getByLabel('Workspace options', {exact: true}).click();
  await page.getByRole('button', {name: 'Open in drawer', exact: true}).click();
  await page.waitForURL('**/' + repository.owner + '/' + repository.name + '#sodaspaces');
  await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
@@ -89,7 +90,7 @@ test('native Spaces to drawer and back preserves exact sessions and named End', 
  assert.equal(await page.evaluate(() => window.nativeWorkspaceModel.calls.filter(c => c.method !== 'GET').length), 0);
  for (const name of ['Build', 'Edit']) {
    if (name === 'Edit') {
-     await page.getByRole('button', {name: 'Sessions', exact: true}).click();
+     await page.getByRole('button', {name: 'Projects', exact: true}).click();
      await page.locator('.soda-session-list button').filter({hasText: name}).click();
      await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
    }

@@ -11,7 +11,7 @@ export function visualFaults(source: string): string[] {
     .replace('#sodaspaces-drawer .soda-workspace-toolbar { padding-right: 80px; }', '');
   return [
     ...text.matchAll(/#[\da-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\s*\(/gi),
-    ...text.matchAll(/var\([^,]+,\s*(?!(?:auto|none|inherit|initial|unset|currentColor|transparent)\b)[a-z]+\s*\)/gi),
+    ...text.matchAll(/var\([^,()]+,\s*(?!(?:auto|none|inherit|initial|unset|currentColor|transparent)\b)[a-z]+\s*\)/gi),
     ...text.matchAll(/\bfont(?:-family|-size|-weight)?\s*:(?!\s*(?:var\(|inherit\b))[^;}\n]+/g),
     ...text.matchAll(/\bborder-radius\s*:\s*[1-9][\d.]*px/g),
     ...text.matchAll(/\bfontFamily\s*:\s*['"][^'"]+['"]|\b(?:fontSize|lineHeight)\s*:\s*[\d.]+/g),
@@ -22,6 +22,7 @@ export function visualFaults(source: string): string[] {
 }
 test('workspace raw-visual guard rejects literals including fallbacks and inline templates', () => {
   for (const bad of ['color: #fff', 'color: var(--missing, #4583db)', 'style="color:rgb(1,2,3)"', 'font: 14px serif', 'font-family: Barlow', 'border-radius: 8px', 'padding: 8px', 'gap: 6px', 'fontFamily: "Mono"', 'fontSize: 14', 'background: red;', 'color: var(--missing, red)']) assert(visualFaults(bad).length, bad);
+  assert.deepEqual(visualFaults('.a { margin: var(--soda-space-2); } .b :is(input, select) { color: var(--soda-page-text); }'), []);
   assert.deepEqual(visualFaults('font: var(--soda-font-meta); width: 480px; padding: 0; border-radius: var(--soda-control-radius);'), []);
 });
 test('every authored workspace CSS/TS module consumes canonical visual roles', async () => {

@@ -1,11 +1,11 @@
 import {html} from 'lit';
 import type {ProjectNetwork, ProjectOptions} from '../tailnet/soda-tailnet-response.js';
 
-export function renderNetworkSelection(options: ProjectOptions | undefined, enabled: boolean, blocked: boolean, change: (enabled: boolean) => void) {
+export function renderNetworkSelection(options: ProjectOptions | undefined, enabled: boolean, blocked: boolean, change: (enabled: boolean) => void, label = 'Use appliance-managed Tailnet') {
   return html`<fieldset ?disabled=${blocked}><legend>Project network</legend>
     <label><input type="checkbox" .checked=${enabled} ?disabled=${!options?.available}
       @change=${(event: Event) => {if (event.target instanceof HTMLInputElement) change(event.target.checked);}}>
-      Use appliance-managed Tailnet${options?.tailnet ? ' · ' + options.tailnet : ''}</label>
+      ${label}${options?.tailnet ? ' · ' + options.tailnet : ''}</label>
     <p>${options?.available ? 'Creates a separate ephemeral device when this project runs. This reviewed selection is saved with Create.' : 'Managed enrollment is unavailable. Creation remains available with networking Off.'}
       Off does not change ordinary LAN access. Network failure never deletes the project.</p>
   </fieldset>`;

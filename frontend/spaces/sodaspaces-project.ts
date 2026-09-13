@@ -49,6 +49,7 @@ function renderLifecycle(lifecycle: Lifecycle | undefined, blocked: boolean, con
 }
 export class SodaProjectControls extends LitElement {
   static properties = {
+    presentation: {state: true}, networkReview: {state: true},
     network: {state: true}, networkOptions: {state: true}, networkEnabled: {state: true}, networkConfirmed: {state: true}, networkNotice: {state: true},
     observedOS: {
       state: true
@@ -105,6 +106,8 @@ export class SodaProjectControls extends LitElement {
       state: true
     },
   };
+  declare private presentation: 'standard' | 'journey' | 'settings';
+  declare private networkReview: boolean;
   declare private network: ProjectNetwork | undefined;
   declare private networkOptions: ProjectOptions | undefined;
   declare private networkEnabled: boolean;
@@ -147,6 +150,8 @@ export class SodaProjectControls extends LitElement {
   get canRestore() { return !this.mutationPending; }
   constructor() {
     super();
+    this.presentation = 'standard';
+    this.networkReview = false;
     this.network = this.networkOptions = undefined;
     this.networkEnabled = this.networkConfirmed = false;
     this.networkNotice = '';
@@ -219,7 +224,38 @@ export class SodaProjectControls extends LitElement {
       return;
     void action();
   }
+  setPresentation(presentation: 'standard' | 'journey' | 'settings') {
+    if (this.presentation === presentation) return false;
+    this.presentation = presentation; this.selected = 'environment';
+    return true;
+  }
+  private createProject() {
+    if (!this.canCreate || this.networkReview || !this.profiles.some(p => p.id === this.selectedProfile)) return;
+    return this.mutate('/api/environments', {
+      repository_id: this.binding?.repositoryId, profile_id: this.selectedProfile,
+      tailnet: this.networkEnabled && this.networkOptions?.available ? {enabled: true, revision: this.networkOptions.revision, binding: this.networkOptions.binding} : {enabled: false}
+    }, 'Project created. Join explicitly to set up your browser-terminal account.');
+  }
+  private renderJourney() {
+    return html`<section data-project-controls data-repository-id=${this.binding?.repositoryId || ''} data-environment-id=${this.environment?.id || ''} class="soda-spaces-controls soda-project-journey" aria-busy=${this.busy ? 'true' : 'false'}>
+      ${!this.environment ? html`<h2 tabindex="-1">Configure project</h2><p>${this.repository}</p>
+        ${renderProjectOS(this.profiles, this.selectedProfile, undefined, this.blocked, value => {if (this.profiles.some(p => p.id === value)) this.selectedProfile = value;}, 'configure')}
+        ${this.networkOptions?.available ? renderNetworkSelection(this.networkOptions, this.networkEnabled, this.blocked, enabled => {this.networkEnabled = enabled; this.networkReview = false;}, 'Enable project Tailnet') : ''}
+        ${this.networkReview ? html`<p role="alert">Network availability changed. Review the option before creating.</p><button class="ui button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => {this.networkEnabled = this.networkReview = false;})}>Use without Tailnet</button>` : ''}
+        <button class="ui primary button" ?disabled=${this.blocked || !this.canCreate || this.networkReview} @click=${(e: Event) => this.command(e, () => this.createProject())}>${this.mutationPending ? 'Creating project…' : 'Create project'}</button>
+      ` : html`<h2>${!this.detail?.environment.provisioned ? 'Project needs inspection' : !this.running ? 'Project not ready' : !this.detail.login ? 'Project created' : 'Your account is ready'}</h2>
+        <p>${this.repository}</p>
+        ${this.running && !this.detail?.login ? html`<p>Join to create your personal account in this shared project. Browser terminals do not require SSH keys.</p><button class="ui primary button" ?disabled=${this.blocked || !!this.detail?.authority_unavailable} @click=${(e: Event) => this.command(e, () => this.joinEnvironment())}>${this.mutationPending ? 'Joining project…' : 'Join project'}</button>` : ''}
+        ${!this.running && this.lifecycle ? html`<button class="ui primary button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.changeLifecycle(false))}>${this.mutationPending ? 'Starting project…' : 'Start project'}</button>` : ''}
+        ${this.detail?.login ? html`<p>Project account: ${this.detail.login}</p>` : ''}
+      `}
+      <p role="status">${this.status}</p><p role="status">${this.outcome}</p>
+      <button class="ui button" ?disabled=${this.blocked} @click=${(e: Event) => this.command(e, () => this.refresh())}>Refresh status</button>
+      ${this.stale ? html`<p>Access changed. Reload Spaces to reconnect; no operation will be repeated.</p>` : ''}
+    </section>`;
+  }
   protected render() {
+    if (this.presentation === 'journey') return this.renderJourney();
     const intent = new URLSearchParams({
       repository_id: this.binding?.repositoryId || ''
     });
@@ -236,7 +272,7 @@ export class SodaProjectControls extends LitElement {
       <div class="soda-spaces-tabs" role="tablist" aria-label="Workspace views">${views.map(view => html`
         <button type="button" class="ui basic button" data-view=${view} role="tab" aria-controls=${'soda-project-' + this.binding?.repositoryId + '-' + view}
           aria-selected=${this.selected === view ? 'true' : 'false'} tabindex=${this.selected === view ? 0 : -1}
-          @click=${() => this.select(view)} @keydown=${(e: KeyboardEvent) => this.tabKey(e, view)}>${view[0]?.toUpperCase()}${view.slice(1)}</button>`)}</div>
+          @click=${() => this.select(view)} @keydown=${(e: KeyboardEvent) => this.tabKey(e, view)}>${view === 'environment' && this.presentation === 'settings' ? 'Overview' : (view[0]?.toUpperCase() || '') + view.slice(1)}</button>`)}</div>
       <section id=${'soda-project-' + this.binding?.repositoryId + '-environment'} class="soda-spaces-view" role="tabpanel" aria-label="Environment" ?hidden=${this.selected !== 'environment'}>
         ${renderProjectOS(this.profiles, this.selectedProfile, this.detail?.environment || this.environment, this.blocked, value => {
       if (this.profiles.some(p => p.id === value))
@@ -248,7 +284,7 @@ export class SodaProjectControls extends LitElement {
         ${renderEnvironment({
       connectURL: '/-/soda/login?' + intent, connectVisible: this.connectVisible,
       busy: this.busy, stale: this.stale, signedIn: !!this.session, blocked: this.blocked, canCreate: this.canCreate,
-      canJoin: !!this.detail?.environment.provisioned && !this.detail.login && this.running && !!this.saved,
+      canJoin: !!this.detail?.environment.provisioned && !this.detail.login && this.running && (!this.useSavedKeys || !!this.saved),
       sshKeys: this.saved?.map(key => key.fingerprint) || [], useSavedKeys: this.useSavedKeys
     }, {
       selectSSH: checked => {
@@ -264,10 +300,7 @@ export class SodaProjectControls extends LitElement {
           window.location.reload();
       },
       logout: event => this.command(event, () => signOut(this.session?.user.id || '')),
-      create: event => this.command(event, () => this.mutate('/api/environments', {
-        repository_id: this.binding?.repositoryId, profile_id: this.selectedProfile,
-        tailnet: this.networkEnabled && this.networkOptions?.available ? {enabled: true, revision: this.networkOptions.revision, binding: this.networkOptions.binding} : {enabled: false}
-      }, 'Environment created. Explicitly Join for a browser terminal; external SSH keys are optional. Creation does not join you.')),
+      create: event => this.command(event, () => this.createProject()),
       join: event => this.command(event, () => this.joinEnvironment()),
     }, renderLifecycle(this.lifecycle, this.blocked, this.stopConfirmed, event => this.command(event, () => this.changeLifecycle(false)), event => this.command(event, () => this.changeLifecycle(true)), checked => {
       this.stopConfirmed = checked;
@@ -306,9 +339,9 @@ export class SodaProjectControls extends LitElement {
     </section>`;
   }
   private joinEnvironment() {
-    if (!this.environment) return;
+    if (!this.environment || !this.running || this.detail?.login || this.detail?.authority_unavailable) return;
     return this.mutate('/api/environments/' + this.environment.id + '/join', {
-      ssh_keys: this.useSavedKeys ? 'saved' : 'none'
+      ssh_keys: this.presentation !== 'journey' && this.useSavedKeys ? 'saved' : 'none'
     }, 'Native join confirmed. Your browser terminal uses this account, not SSH. Later SSH-key changes require a separate explicit Apply.');
   }
   private selectForgejoKey(key: string) {
@@ -390,6 +423,7 @@ export class SodaProjectControls extends LitElement {
       return;
     const {expectedUserId, repositoryId} = this.binding;
     const n = ++this.epoch;
+    const prior = {profile: this.selectedProfile, network: this.networkOptions, enabled: this.networkEnabled};
     this.readController?.abort();
     this.reset();
     const control = this.readController = new AbortController(), timeout = window.setTimeout(() => control.abort(), 15000);
@@ -422,20 +456,22 @@ export class SodaProjectControls extends LitElement {
             return;
           check(Array.isArray(available.items) && available.items.length === 1);
           this.profiles = available.items.map(creationProfile);
-          this.selectedProfile = this.profiles[0]?.id || '';
+          this.selectedProfile = this.profiles.some(p => p.id === prior.profile) ? prior.profile : this.profiles[0]?.id || '';
           this.canCreate = !!this.selectedProfile;
           try {
             const options = projectOptions(await this.api('/api/repositories/' + repositoryId + '/tailnet-options', 'GET', undefined, control.signal));
             if (!this.active(n)) return;
-            this.networkOptions = options; this.networkEnabled = options.available && options.default;
+            this.networkOptions = options;
+            this.networkReview = prior.enabled && (!options.available || prior.network?.binding !== options.binding || prior.network.revision !== options.revision);
+            this.networkEnabled = prior.enabled || (this.presentation !== 'journey' && options.available && options.default);
           } catch (error) {
             if (error instanceof SodaRequestError && error.status === 401) throw error;
             if (!this.active(n)) return;
             // A missing/off helper must not block legacy Off creation.
-            this.networkOptions = undefined; this.networkEnabled = false;
+            this.networkOptions = undefined; this.networkEnabled = prior.enabled; this.networkReview = prior.enabled;
           }
         }
-        this.status = 'No shared environment. Creation is owner-only and does not join you.';
+        this.status = this.presentation === 'journey' ? 'Creation is owner-only. You join separately after the project is ready.' : 'No shared environment. Creation is owner-only and does not join you.';
         return;
       }
       const environment = environmentResponse(collection.items[0], repositoryId);
@@ -444,14 +480,21 @@ export class SodaProjectControls extends LitElement {
       if (!this.active(n))
         return;
       this.detail = detail;
+      if (detail.login) check(/^[a-z][a-z0-9_-]{0,30}$/.test(detail.login) && detail.login !== 'root');
       const running = this.running;
       this.status = !detail.environment.provisioned ? 'Provisioning incomplete. Ask the operator to inspect; do not recreate it.' : detail.native_unavailable || !detail.observed ? 'Native state unavailable; refresh or ask the operator to inspect.' : running ? 'Environment running.' : 'Environment stopped.';
       if (detail.environment.provisioned && !running && !detail.native_unavailable && !detail.environment_administrator)
         this.status += ' Ask the project administrator or Soda operator to Start it; nothing is started automatically.';
-      const saved = savedKeysResponse(await this.api('/api/me/development-keys', 'GET', undefined, control.signal));
-      if (!this.active(n))
-        return;
-      this.saved = saved;
+      if (this.presentation !== 'journey') {
+        try {
+          const saved = savedKeysResponse(await this.api('/api/me/development-keys', 'GET', undefined, control.signal));
+          if (!this.active(n)) return;
+          this.saved = saved;
+        } catch {
+          if (!this.active(n)) return;
+          this.outcome = 'External SSH keys unavailable. Browser-only Join remains independent.';
+        }
+      }
       if (detail.environment.provisioned && detail.environment_administrator) {
         const state = object(await this.api(`/api/environments/${environment.id}/lifecycle`, 'GET', undefined, control.signal)), native = object(state.environment);
         if (!this.active(n))
@@ -461,7 +504,7 @@ export class SodaProjectControls extends LitElement {
           running: native.running, boot: state.boot_enabled
         };
       }
-      if (detail.login && running) {
+      if (detail.login && running && this.presentation !== 'journey') {
         check(/^[a-z][a-z0-9_-]{0,30}$/.test(detail.login) && detail.login !== 'root');
         const own = object(await this.api(`/api/environments/${environment.id}/connection`, 'GET', undefined, control.signal));
         if (!this.active(n))
@@ -504,6 +547,10 @@ export class SodaProjectControls extends LitElement {
       window.clearTimeout(timeout);
       if (this.active(n)) {
         this.busy = false;
+        this.dispatchEvent(new CustomEvent('soda-project-observed', {bubbles: true, detail: {
+          repositoryId, environmentId: this.environment?.id || '', provisioned: this.detail?.environment.provisioned === true,
+          login: this.detail?.login || '', running: this.running
+        }}));
         await this.updateComplete;
       }
     }
@@ -514,7 +561,7 @@ export class SodaProjectControls extends LitElement {
     const n = this.epoch;
     this.busy = true;
     this.outcome = 'Sending the explicit operation with the original page identity…';
-    let dispatched = false;
+    let dispatched = false, inspectCreation = false;
     const controller = new AbortController(), timeout = window.setTimeout(() => controller.abort(), 255000);
     try {
       dispatched = true;
@@ -564,7 +611,11 @@ export class SodaProjectControls extends LitElement {
         return;
       const e = error instanceof SodaRequestError ? error : new SodaRequestError(0);
       const uncertain = dispatched && !rejected.has(e.status);
-      if (uncertain && path === '/api/environments') this.canCreate = false;
+      if (uncertain && path === '/api/environments') {
+        this.canCreate = false;
+        inspectCreation = true;
+        this.dispatchEvent(new CustomEvent('soda-project-changed', {bubbles: true, detail: {repositoryId: this.binding?.repositoryId}}));
+      }
       this.mutationPending = false;
       const reasons: Record<string, string> = {
         profile_unavailable: 'Installed Project OS unavailable. No reservation was created; refresh before another explicit action.', unsupported_linux_login: 'Your Forgejo username is not supported as a Linux login. No automatic rename is performed.', invalid_public_key: 'Provide one public SSH key without options or private key material.', saved_keys_changed: 'Saved keys changed. Review them again before Apply.', owner_required: 'Only the current human repository owner can create this environment.', not_provisioned: 'Provisioning is incomplete. Ask the operator to inspect; do not recreate it.'
@@ -575,8 +626,10 @@ export class SodaProjectControls extends LitElement {
     finally {
       window.clearTimeout(timeout);
       this.mutationPending = false;
-      if (this.active(n))
+      if (this.active(n)) {
         this.busy = false;
+        if (inspectCreation) await this.refresh(); // Read-only recovery of the original repository, never another Create.
+      }
     }
   }
   private changeNetwork(action: 'enable' | 'disable' | 'retry') {
@@ -723,6 +776,7 @@ export function mountProjectControls(root: HTMLElement, context: ProjectContext)
   return {
     get canRestore() { return box.canRestore; },
     refresh: () => box.refresh(), invalidate: () => box.invalidate(),
+    setPresentation: (mode: 'standard' | 'journey' | 'settings') => box.setPresentation(mode),
     get ready() {
       return box.updateComplete;
     }, dispose: () => box.dispose()

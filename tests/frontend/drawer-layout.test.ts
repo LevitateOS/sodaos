@@ -146,7 +146,7 @@ test('integrated drawer source: measured cells, themes, compact/native focus and
         await page.getByLabel('Terminal actions', {exact: true}).press('Escape');
         await page.setViewportSize({width, height: 900});
       }
-      await terminalMenu(page, 'Environment / access'); await projectView(page, '7', 'Access'); await page.locator('[data-control=command]').waitFor();
+      await terminalMenu(page, 'Project settings'); await projectView(page, '7', 'Access'); await page.locator('[data-control=command]').waitFor();
       await page.getByRole('button', {name: 'Back to terminal', exact: true}).click();
       assert(await screen?.evaluate(node => node.isConnected)); assert(await host?.evaluate(node => node.isConnected));
       assert.deepEqual(await page.evaluate(() => window.fixtureActions), []);

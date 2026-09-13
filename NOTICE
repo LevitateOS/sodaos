@@ -22,6 +22,10 @@ container inputs retain their respective licenses. Forgejo and customized native
 templates retain their applicable GPL-3.0-or-later/per-file terms, not an
 Apache-only license. See docs/licensing.md for source/notices requirements.
 
+The Spaces repository and terminal icons are unmodified Primer Octicons 19.14.0,
+Copyright (c) 2024 GitHub Inc., under the MIT license. The license and provenance
+are retained in assets/branding/icons/octicons/ and staged beside the icons.
+
 This notice records attribution and scope. It is not a complete third-party
 notice bundle or evidence that an appliance distribution has passed its license
 and corresponding-source checks. No trademark rights or endorsement are implied.

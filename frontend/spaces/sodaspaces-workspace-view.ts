@@ -1,6 +1,28 @@
 import {html} from 'lit';
 import type {TemplateResult} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
+import type {RepositoryChoices} from './sodaspaces-api.js';
+
+export function renderRepositoryPicker(view: {query: string; result: RepositoryChoices | undefined; selected: string; busy: boolean; error: string; blocked: boolean; createURL: string}, actions: {query: (value: string) => void; search: (page: number) => void; select: (id: string) => void; back: () => void; continue: () => void}) {
+  const choice = view.result?.items.find(item => item.id === view.selected);
+  return html`<h2 tabindex="-1">Choose a repository</h2>
+    <p>Choose a repository you own on this Forgejo. Shared projects already available to you are in Projects.</p>
+    <form @submit=${(e: SubmitEvent) => {e.preventDefault(); actions.search(1);}}>
+      <label>Search repositories<input type="search" maxlength="200" .value=${view.query} ?disabled=${view.blocked} @input=${(e: Event) => {if (e.target instanceof HTMLInputElement) actions.query(e.target.value);}}></label>
+      <button class="ui button" ?disabled=${view.busy || view.blocked}>Search</button>
+    </form>
+    <div role="status">${view.busy ? 'Finding repositories…' : view.error}</div>
+    <fieldset ?disabled=${view.busy || view.blocked}><legend>Repositories</legend>
+      ${view.result?.items.map(item => html`<label class="soda-repository-choice">
+        <input type="radio" name="soda-repository" .checked=${view.selected === item.id} @change=${() => actions.select(item.id)}>
+        <span class="soda-journey-icon soda-repository-icon" aria-hidden="true"></span><span>${item.owner}/${item.name}<small>${item.project ? item.project.provisioned ? 'Project exists' : 'Provisioning needs inspection' : 'Ready to configure'}</small></span>
+      </label>`)}
+      ${view.result && !view.result.items.length ? html`<p>${view.query ? 'No matching eligible repositories. Clear your search or create a repository.' : 'No eligible repositories on this page. Only a human repository owner can create its project.'}</p>` : ''}
+    </fieldset>
+    ${view.result ? html`<nav aria-label="Repository pages"><button class="ui button" ?disabled=${view.busy || view.blocked || view.result.page <= 1} @click=${() => actions.search((view.result?.page || 1) - 1)}>Previous repositories</button><span>Page ${view.result.page}</span><button class="ui button" ?disabled=${view.busy || view.blocked || !view.result.more} @click=${() => actions.search((view.result?.page || 1) + 1)}>Next repositories</button></nav>${view.result.limited ? html`<p>Search limit reached. Narrow your search.</p>` : ''}` : ''}
+    <p><a href=${view.createURL}>Create a new repository</a> in Forgejo, then return here and search again.</p>
+    <div class="soda-setup-actions"><button class="ui button" ?disabled=${view.blocked} @click=${actions.back}>Back</button><button class="ui primary button" ?disabled=${view.busy || view.blocked || !choice} @click=${actions.continue}>${choice?.project ? choice.project.provisioned ? 'Open project' : 'Inspect project' : 'Continue'}</button></div>`;
+}
 
 /** Stateless chrome. Callbacks capture the owner's original entry/pane/project. */
 export function renderMenu(label: string, glyph: string, body: TemplateResult, className = ''): TemplateResult {
@@ -39,6 +61,7 @@ export function renderSessionTab(tab: SessionTab, navigation: boolean, draggable
 }
 export interface NavigationSession {
   readonly key: string;
+  readonly terminalId: string;
   readonly name: string;
   readonly description: string;
   readonly unread: boolean;
@@ -46,23 +69,24 @@ export interface NavigationSession {
   readonly disabled: boolean;
   readonly select: () => void;
 }
-export function renderProjectNavigation(name: string, status: string, rows: readonly NavigationSession[], disabled: boolean, details: () => void): TemplateResult {
+export function renderProjectNavigation(name: string, status: string, rows: readonly NavigationSession[], disabled: boolean, details: () => void, selection?: {active: boolean; environmentId: string; select: () => void}): TemplateResult {
   return html`
-    <section class="soda-project-group">
-      <details ?open=${rows.length > 0}>
-        <summary>${name} <small>${status}</small></summary>
+    <section class="soda-project-group" data-environment-id=${selection?.environmentId || ''}>
+      ${selection ? html`<button class="ui button soda-project-select" aria-pressed=${selection.active ? 'true' : 'false'} aria-describedby=${'soda-project-status-' + selection.environmentId} ?disabled=${disabled} @click=${selection.select}>${name}</button><small class="soda-project-status" id=${'soda-project-status-' + selection.environmentId}>${status}</small>` : ''}
+      <details ?hidden=${!!selection && rows.length === 0} ?open=${rows.length > 0}>
+        <summary>${selection ? 'Terminals' : name} ${!selection ? html`<small>${status}</small>` : ''}</summary>
         <div class="soda-session-list">
           ${repeat(rows, row => row.key, row => html`
-            <button class="ui button" ?disabled=${row.disabled} @click=${row.select}>
+            <button class="ui button" data-terminal-id=${row.terminalId} ?disabled=${row.disabled} @click=${row.select}>
               <span>${row.name}${row.unread ? html`<span class="soda-unread" aria-label="Unread output"> •</span>` : ''}</span>
               <small>${row.description}</small>
               ${row.attention ? html`<small class="soda-attention">${row.attention}</small>` : ''}
             </button>
           `)}
         </div>
-        <p ?hidden=${rows.length !== 0}>No sessions yet.</p>
+        <p ?hidden=${rows.length !== 0}>No terminals observed.</p>
       </details>
-      <button class="ui button soda-project-details" ?disabled=${disabled} @click=${details}>Environment / access: ${name}</button>
+      ${!selection ? html`<button class="ui button soda-project-details" ?disabled=${disabled} @click=${details}>Environment / access: ${name}</button>` : ''}
     </section>
   `;
 }

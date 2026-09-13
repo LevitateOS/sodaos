@@ -94,6 +94,28 @@ export async function capturePageFixture(page: Page, name: string, landmark: str
   }, null, 2));
 }
 
+// Explicitly separate from native-page capture: this is the existing local
+// emitted Spaces component driver, with synthetic APIs and no authentication.
+export async function captureSpacesComponent(page: Page, name: string) {
+  const directory = process.env.SODA_SPACES_COMPONENT_CAPTURES;
+  if (!directory) return;
+  assert(path.isAbsolute(directory) && /^[a-z0-9-]+$/.test(name));
+  const info = await stat(directory); assert(info.isDirectory() && (info.mode & 0o077) === 0);
+  const url = new URL(page.url());
+  assert(url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.pathname === '/' && !url.search && !url.hash);
+  assert.equal(await page.locator('meta[name="soda-component-fixture"]').getAttribute('content'), 'spaces');
+  assert.equal(await page.locator('#navbar, input[type=password]').count(), 0);
+  const out = path.join(directory, name); await mkdir(out, {mode: 0o700});
+  await page.evaluate(() => document.fonts.ready);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.screenshot({path: path.join(out, 'viewport.png')});
+  await Bun.write(path.join(out, 'capture.json'), JSON.stringify({
+    scope: 'Emitted Spaces component; synthetic API/transport, no native Forgejo HTML, authentication or project proof',
+    viewport: page.viewportSize(), theme: await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme),
+    name, capturedAt: new Date().toISOString()
+  }, null, 2));
+}
+
 async function main() {
   const { values, positionals } = parseArgs({
     allowPositionals: true,

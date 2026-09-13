@@ -28,8 +28,6 @@ export interface TerminalCommands {
 }
 function actions(view: TerminalPresentation, commands: TerminalCommands): TemplateResult {
   return html`
-    <button type="button" class="ui primary button" ?disabled=${!view.canConnect}
-      @click=${commands.connect}>${view.connectLabel}</button>
     <button type="button" class="ui basic button" data-action="end" ?disabled=${!view.canEnd}
       @click=${commands.end}>End terminal…</button>
   `;
@@ -56,13 +54,14 @@ export function renderTerminal(view: TerminalPresentation, commands: TerminalCom
         <details class="soda-menu" @keydown=${commands.menuKey}>
           <summary aria-label="Terminal actions" data-action="controls">⋯</summary>
           <div>
-            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.project}>Environment / access</button>
+            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.project}>Project settings</button>
             <button type="button" class="ui button" ?disabled=${!view.canEnd} @click=${commands.rename}>Rename terminal</button>
-            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.hide}>Hide session</button>
+            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.hide}>Hide terminal</button>
             ${actions(view, commands)}
           </div>
         </details>
       </div>
+      ${!view.ready && view.canConnect ? html`<button type="button" class="ui primary button" @click=${commands.connect}>${view.connectLabel}</button>` : ''}
       <p class=${'soda-terminal-status' + (!view.notice ? ' soda-visually-hidden' : '')}
         role="status" tabindex="-1">${view.message}</p>
       ${view.confirmingName !== null ? confirmation(view, commands) : ''}

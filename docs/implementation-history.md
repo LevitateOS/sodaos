@@ -14,6 +14,99 @@ not claims that those outputs are still retained.
 
 ---
 
+## Spaces first-use source and local journey
+
+The owner requested end-to-end work through the selected first-use guide. Source
+steps 1–13 and step 15 help/status are implemented in the canonical checkout. J1
+repository discovery is commit `c80c867`; the companion UI commit records this entry.
+Candidate presentation epoch: **`2026-09-13.spaces-first-use-1`**. No retained target,
+installation, credentials, provider enrollment, service/VM lifecycle or publishing
+was changed. J5 step 14 native acceptance and compatible delivery remain pending.
+
+### Implemented scope
+
+- Forgejo 15.0.7 native owner-filtered `/repos/search`, with acting read scopes,
+  twelve-row pagination, bounded query/JSON/time/concurrency, ID re-resolution and
+  final session recheck. `GET /api/repositories` publishes only the authorized
+  creation/inspection projection. Final Create keeps its original authority and
+  unique reservation. No provider adapter, new schema or native runtime mechanism.
+- Confirmed-empty welcome, repository radio/search/paging, native repository-create
+  handoff, configuration and cancellation within the existing page/workspace owner.
+  Existing project controls own explicit Create, read-only uncertain-result recovery,
+  Start and browser-only Join (`ssh_keys:"none"`). No automatic mutation chain or
+  optional SSH-key dependency. Existing reservations are opened/inspected.
+- Project selection/settings and direct default-named New terminal reuse the native
+  allocation/facade/layout owners. Hide and End remain distinct; End stays confirmed.
+  Pane controls are contextual, native drawer chooser behavior is retained, and
+  full-page/narrow projections preserve renderer/socket/terminal identity.
+- Canonical light/dark tokens and licensed repository/terminal Octicons are staged
+  through the existing payload map. Official Octicons 19.14.0 archive integrity and
+  its three extracted files were checked; no JS dependency was added. The shared
+  epoch and all affected entry/style URLs move together with the new backend API.
+- Installed journey helpers now verify the displayed default name and original
+  project before permitting creation; they never silently add Rename. This is
+  authored driver compatibility, not execution of a real first-use scenario.
+
+### Local evidence and corrections
+
+- `go test -race ./internal/forgejo ./internal/web ./internal/nativebuild ./scripts`
+  passed with the pinned Go 1.26.7 toolchain. The Forgejo package reused its valid
+  cached race result; web/nativebuild/scripts executed. Log:
+  `.artifacts/spaces-first-use-go-final.log`.
+- Strict TypeScript and Lit passed, including checker fixtures:
+  `.artifacts/spaces-first-use-typecheck-closed.log`.
+- `bun run test:frontend` built the emitted assets and passed **271 tests**, with
+  **seven explicit skips**. `bun run test:layout:prepared` passed its integrated
+  measured-layout check. Logs: `.artifacts/spaces-first-use-{frontend,layout}-final.log`.
+- Eighteen first-use component cases cover both themes at 1440/800/640/390px,
+  explicit writes, keyboard selection, late search/actor retirement, incomplete and
+  failed inventory, rejected/incomplete/uncertain Create, authorized stopped-state
+  Start, failed Join, second-project cancellation and same-ID re-entry. Input is
+  echoed by a synthetic transport, **not a Linux shell**. The existing two-actor
+  matrix/page/drawer driver also passed (six tests including its admission checks).
+  The final native repository-link sub-URL correction had a focused passing keyboard
+  rerun (`.artifacts/spaces-first-use-suburl-verified.log`), a fresh emitted build
+  and strict type/Lit checks; unchanged component evidence was reused.
+- The Forgejo suite passed **43 tests** with **29 skips** after icon/token corrections;
+  its remaining inventory failure was corrected and the focused inventory rerun
+  passed (one pass, one native-export skip). Valid unchanged suite evidence was
+  reused, not represented as a fresh all-green aggregate invocation. Logs:
+  `.artifacts/spaces-first-use-forgejo-verified.log` and
+  `.artifacts/spaces-first-use-inventory-verified.log`.
+- Inventory had pre-existing drift from the administration-host candidate: the
+  affected header/footer/dashboard hashes and missing `admin/dashboard.tmpl` intro
+  caller were corrected. The four production template diffs in this task were
+  verified to contain **only epoch substitutions**; native parity Go checks passed.
+  The CSS raw-visual guard was corrected to stop matching across a closed `var()`
+  into a following `:is()` selector; a focused positive regression was added.
+- Failure testing corrected retired-context false welcome, uncertain-Create
+  inspection, stale readiness, and a menu left open after cancelled navigation.
+  Initial visual review caught squeezed mobile project/status text, duplicate
+  sidebar project labels and undersized profile selection; corrected captures and
+  the eight theme/width journey reruns passed. Failed attempts remain preserved.
+
+Forty-eight final component viewport captures (six states × eight theme/width
+combinations), with explicitly scoped receipts, are retained in
+`.artifacts/spaces-first-use-captures-iQ5g2A/`; the pointer is
+`.artifacts/spaces-first-use-captures-current.txt`. `scripts/screenshot.ts` is the
+capture owner. Reviewed examples include dark 390px working, light 390px configure,
+and dark 1440px picker/first-terminal; the unchanged welcome also had visual review.
+These are emitted-component fixtures with a visible synthetic native-form sentinel,
+**not native Forgejo-header, authentication, installation or project evidence**.
+Earlier captures and all `.artifacts/spaces-first-use-*` / workspace regression
+logs remain in place. No screenshots are represented as installed handbook proof.
+
+### Remaining exit
+
+The [owning plan](sodaspaces-plan.md#current-progress-and-next-action) retains J5
+step 14: select and authorize the target/repository/project/membership/terminal
+scope, then finish native login-to-shell and exact re-entry with the existing
+input/observer owners. Native page HTML/CSP checks were not run against a retained
+fixture, and skips are not coverage. The historical VM hold was not renewed.
+Delivery must pair this browser graph with its backend; the old installed runtime
+cannot receive only the picker UI. Other native terminal/concurrency, provider and
+administration workstreams retain their separate status and permissions.
+
 ## Spaces first-use implementation guide
 
 The user requested a step-by-step guide after reviewing planning commit `fe59bce`.

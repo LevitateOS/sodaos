@@ -2,7 +2,7 @@ import {html} from 'lit';
 import type {TemplateResult} from 'lit';
 import type {CreationProfile, Environment, OSObservation} from './sodaspaces-api.js';
 
-export function renderProjectOS(profiles: readonly CreationProfile[], selected: string, environment: Environment | undefined, blocked: boolean, select: (id: string) => void): TemplateResult {
+export function renderProjectOS(profiles: readonly CreationProfile[], selected: string, environment: Environment | undefined, blocked: boolean, select: (id: string) => void, context: 'standard' | 'configure' = 'standard'): TemplateResult {
   if (environment) {
     const p = environment.profile;
     return html`<section aria-label="Project OS"><h3>Project OS</h3>
@@ -13,7 +13,7 @@ export function renderProjectOS(profiles: readonly CreationProfile[], selected: 
   }
   return profiles.length ? html`<label>Project OS <select .value=${selected} ?disabled=${blocked} @change=${(event: Event) => {if (event.target instanceof HTMLSelectElement && !blocked) select(event.target.value);}}>
     ${profiles.map(p => html`<option value=${p.id} ?selected=${p.id === selected}>Rocky ${p.version} headless (${p.architecture})</option>`)}
-    </select></label><p>Headless provides terminal access to the shared development foundation. KDE adds graphical access, but KDE and Fedora are not available in this build. Selection alone does not pull or start anything.</p>` : html``;
+    </select></label><p>${context === 'configure' ? 'Headless provides browser terminal access to the shared development system. Nothing is provisioned until you create the project.' : 'Headless provides terminal access to the shared development foundation. KDE adds graphical access, but KDE and Fedora are not available in this build. Selection alone does not pull or start anything.'}</p>` : html``;
 }
 
 export function renderOSObservation(observed: OSObservation | undefined, status: string, blocked: boolean, inspect: (event: MouseEvent) => void): TemplateResult {

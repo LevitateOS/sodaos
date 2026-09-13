@@ -145,6 +145,17 @@ a passing test or capture does not prove good framing, readability, real provisi
 or terminal processes. Keep earlier failures/poorly framed captures; do not publish
 fixture images as installed-product proof.
 
+### Synthetic Spaces component captures
+
+For the existing emitted-component tests only, `captureSpacesComponent` in
+`scripts/screenshot.ts` accepts `SODA_SPACES_COMPONENT_CAPTURES` pointing to a fresh
+absolute, mode-0700 output directory. Run the first-use light/dark cases in
+`tests/frontend/workspace.test.ts` after building browser assets. Each state gets a
+new directory, viewport PNG and a receipt explicitly labelled **synthetic API and
+transport, no native Forgejo HTML/authentication or project proof**. The helper
+requires the loopback component marker and refuses native navigation/password
+controls. It does not relax `captureNativePage` or create a login shortcut.
+
 ## Conditions
 
 Use an explicitly authorized matching-native installation/browser and disposable representative identities, projects and repositories. Hide tokens, private keys, passwords, authentication URLs, personal email, private repository names and sensitive terminal details **before capture**. Do not crop away a warning or alter a control to imply a capability.

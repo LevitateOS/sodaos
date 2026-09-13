@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import type {Page, WebSocket} from 'playwright';
 import {object} from './sodaspaces-input';
 import type {MatrixInput, MatrixProject} from './sodaspaces-matrix-input';
-import {newManagedTerminal, terminalMenu} from './sodaspaces-controls';
+import {newManagedTerminal, prepareManagedTerminal, terminalMenu} from './sodaspaces-controls';
 import {terminalID} from '../../frontend/spaces/sodaspaces-api';
 export interface MatrixSession {name: string; environment: string; id: string; actor: string}
 export interface MatrixFacts {pid: number; start: string; login: string; marker: string; tty: boolean; term: string}
@@ -60,9 +60,9 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
   };
   page.on('websocket', receive);
   const select = async (session: MatrixSession) => {
-    await page.getByRole('button', {name: 'Sessions', exact: true}).click();
-    await page.getByRole('button', {name: 'All', exact: true}).click();
-    await page.locator('.soda-session-list button').filter({hasText: session.name}).click();
+    await page.getByRole('button', {name: 'Projects', exact: true}).click();
+    const all = page.getByRole('button', {name: 'All', exact: true}); if (await all.isVisible()) await all.click();
+    await page.locator(`.soda-session-list button[data-terminal-id="${session.id}"]`).click();
     await page.locator('.soda-workspace-terminal:visible .is-connected').waitFor();
     assert(!protocolFailure);
   };
@@ -74,7 +74,7 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
     assert.equal(await page.locator('#soda-native-content').getAttribute('data-actor'), actor);
     await page.setViewportSize({width: 1920, height: 1200});
     for (const project of request.projects) for (let number = 0; number < 3; number++) {
-      const name = `matrix-${actorIndex}-${sessions.length}-${crypto.randomUUID().slice(0, 8)}`;
+      const name = await prepareManagedTerminal(page, project.repository_path.slice(1), project.environment); assert(name);
       pending.push({name, environment: project.environment});
       evidence.stage = 'create ' + sessions.length;
       permit({name, environment: project.environment, actor}, 'reserve');
@@ -94,9 +94,9 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
       contender.on('websocket', receive);
       await contender.goto(new URL('/?soda-view=spaces', page.url()).href);
       await contender.locator('#sodaspaces-data[aria-busy=false]').waitFor();
-      await contender.getByRole('button', {name: 'Sessions', exact: true}).click();
+      await contender.getByRole('button', {name: 'Projects', exact: true}).click();
       const first = sessions[0]; assert(first);
-      await contender.locator('.soda-session-list button').filter({hasText: first.name}).click();
+      await contender.locator(`.soda-session-list button[data-terminal-id="${first.id}"]`).click();
       await contender.getByText('An existing writer is attached.', {exact: false}).waitFor();
       assert.equal(await contender.locator('.is-connected').count(), 0); assert(!protocolFailure);
     } finally {contender.off('websocket', receive); await contender.close();}
@@ -118,7 +118,7 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
     evidence.same_document = true;
     evidence.stage = 'hide and show without native actions';
     const first = sessions[0]; assert(first); await select(first);
-    await terminalMenu(page, 'Hide session'); await select(first);
+    await terminalMenu(page, 'Hide terminal'); await select(first);
     // Document replacement is attachment loss, not End or six new shells.
     evidence.stage = 'exact reload';
     await page.reload(); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();

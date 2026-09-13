@@ -3,14 +3,14 @@ import type {ReactiveController} from 'lit';
 import {repeat} from 'lit/directives/repeat.js';
 import {attentionReason, terminalObservation} from './sodaspaces-attention.js';
 import type {TerminalObservation} from './sodaspaces-attention.js';
-import {renderMenu, renderSessionTab, renderProjectNavigation, renderRename, renderCreation} from './sodaspaces-workspace-view.js';
+import {renderMenu, renderSessionTab, renderProjectNavigation, renderRename, renderCreation, renderRepositoryPicker} from './sodaspaces-workspace-view.js';
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext, TerminalLocator} from './sodaspaces-terminal.js';
 import {emptyLayout, focusedPane, paneFor, selectTab, hideTab, putEntry, forgetEntry, sameLocator, parseLayout, serializeLayout, layoutLimit, panes, splitPane, moveTab, resizeSplit, consolidate, projectLayout} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Pane, Split, Area, Minimum, DividerArea} from './sodaspaces-layout.js';
-import {check, id, object, readSodaJSON, sessionResponse, spacesResponse, terminalResponse, terminalMetadata, terminalID} from './sodaspaces-api.js';
-import type {Space, TerminalMetadata, Session} from './sodaspaces-api.js';
+import {check, id, object, readSodaJSON, sessionResponse, spacesResponse, terminalResponse, terminalMetadata, terminalID, repositoryChoices, projectId} from './sodaspaces-api.js';
+import type {Space, TerminalMetadata, Session, RepositoryChoices} from './sodaspaces-api.js';
 export type WorkspaceContext = {session?: Session | undefined} & ({
   kind: 'native';
   expectedUserId?: string | undefined;
@@ -29,6 +29,7 @@ interface Slot {
   observedAt: number;
   observation: TerminalObservation | undefined;
   metadata: TerminalMetadata | undefined;
+  proposedName?: string;
   minimum?: Minimum;
   unavailable: boolean;
   host: HTMLElement;
@@ -91,6 +92,8 @@ class WorkspaceMeasurement implements ReactiveController {
 // hosts never leave their flat parent. Rendering cannot create/attach/Return.
 export class SodaSpaces extends LitElement {
   static properties = {
+    setup: {state: true}, project: {state: true}, complete: {state: true},
+    repositoryQuery: {state: true}, repositoryResult: {state: true}, repositoryChoice: {state: true}, repositoryBusy: {state: true}, repositoryError: {state: true},
     spaces: {
       state: true
     }, status: {
@@ -148,7 +151,17 @@ export class SodaSpaces extends LitElement {
     host: HTMLElement;
     api: ReturnType<typeof mountProjectControls>;
   }>();
-  private project = '';
+  declare private project: string;
+  declare private setup: 'repositories' | 'configure' | null;
+  declare private complete: boolean;
+  declare private repositoryQuery: string;
+  declare private repositoryResult: RepositoryChoices | undefined;
+  declare private repositoryChoice: string;
+  declare private repositoryBusy: boolean;
+  declare private repositoryError: string;
+  private repositoryRequest: AbortController | undefined;
+  private setupReturn: {project: string; view: 'terminal' | 'sessions' | 'project'; mode: 'standard' | 'journey' | 'settings'} | undefined;
+  private managementMode: 'standard' | 'journey' | 'settings' = 'standard';
   private request: AbortController | undefined;
   private renaming = new Set<string>();
   private epoch = 0;
@@ -176,7 +189,10 @@ export class SodaSpaces extends LitElement {
   constructor() {
     super();
     this.spaces = [];
-    this.status = 'Refresh to inspect Spaces.';
+    this.project = this.repositoryQuery = this.repositoryChoice = this.repositoryError = '';
+    this.setup = null; this.complete = this.repositoryBusy = false;
+    this.repositoryResult = undefined;
+    this.status = 'Loading projects…';
     this.busy = this.stale = this.thisPage = this.creating = false;
     this.attentionOnly = this.openingDrawer = false;
     this.view = 'terminal';
@@ -189,6 +205,12 @@ export class SodaSpaces extends LitElement {
   }
   private get activeSurface() {
     return this.surfaceVisible && this.isConnected && !this.closest('[hidden], [inert]');
+  }
+  private get selectedSpace() { return this.spaces.find(s => s.environment.repository_id === this.project); }
+  private get setupScreen() { return this.binding?.kind === 'page' && (!!this.setup || !this.spaces.length); }
+  private get firstTerminal() {
+    const space = this.selectedSpace;
+    return this.binding?.kind === 'page' && !this.setupScreen && this.complete && !!space?.login && !space.authority_unavailable && space.observed?.running === true && space.environment.provisioned && !this.rows(space).length && !this.selected;
   }
   private get selected() {
     return focusedPane(this.layout).selected || '';
@@ -251,6 +273,12 @@ export class SodaSpaces extends LitElement {
       if (this.activeSurface && document.visibilityState === 'visible' && this.now - this.observedAt >= 60000)
         void this.refresh();
     }, 30000);
+    this.addEventListener('soda-project-observed', e => {
+      if (!(e instanceof CustomEvent) || this.stale || this.disposed || this.binding?.kind !== 'page') return;
+      const detail = object(e.detail);
+      if (detail.repositoryId !== this.project || this.projects.get(this.project)?.host.firstElementChild !== e.target) return;
+      if (this.setup === 'configure' && projectId(detail.environmentId)) void this.refresh();
+    });
     this.addEventListener('soda-project-changed', e => {
       if (!(e instanceof CustomEvent))
         return;
@@ -293,34 +321,36 @@ export class SodaSpaces extends LitElement {
   protected render() {
     const blocked = this.stale || !this.available, connect = this.binding?.kind === 'page' ? 'destination=spaces' : 'repository_id=' + this.binding?.repositoryId;
     const navigation = this.view === 'sessions' || (!this.compact && this.layout.sidebar !== null);
-    return html`<section id="sodaspaces-data" class=${'soda-workspace ' + (this.compact ? 'is-compact' : 'is-wide')} aria-busy=${this.busy ? 'true' : 'false'} @keydown=${(e: KeyboardEvent) => this.workspaceKey(e)}>
-      <header class="soda-workspace-toolbar">
-        <button class="ui button" data-workspace="sessions" ?disabled=${blocked} @click=${() => this.showSessions()}>Sessions</button>
-        <button class="ui button" aria-label="New terminal" title="New terminal" ?disabled=${blocked || this.creating} @click=${() => this.newTerminal()}>＋</button>
-        ${this.view === 'terminal' ? this.paneActions() : ''}
-        ${this.view !== 'terminal' ? html`<button class="ui button" @click=${() => this.back()}>Back to terminal</button>` : ''}
+    return html`<section id="sodaspaces-data" data-workspace-kind=${this.binding?.kind || ''} class=${'soda-workspace ' + (this.compact ? 'is-compact' : 'is-wide') + (this.setupScreen ? ' is-setup' : '')} aria-busy=${this.busy ? 'true' : 'false'} @keydown=${(e: KeyboardEvent) => this.workspaceKey(e)}>
+      ${this.setupScreen ? this.renderSetup() : ''}
+      <header class="soda-workspace-toolbar" ?hidden=${this.setupScreen}>
+        <button class="ui button" data-workspace="sessions" ?disabled=${blocked} @click=${() => this.showSessions()}>${this.binding?.kind === 'page' ? 'Projects' : 'Sessions'}</button>
+        ${this.binding?.kind === 'page' ? html`<div class="soda-selected-project"><strong>${this.selectedSpace ? this.projectName(this.selectedSpace) : 'Spaces'}</strong><small>${this.selectedSpace ? this.selectedSpace.authority_unavailable || this.selectedSpace.native_unavailable ? 'Status unavailable' : this.selectedSpace.observed?.running ? 'Running' : 'Stopped' : ''}</small></div>` : ''}
+        <button class=${this.binding?.kind === 'page' ? 'ui primary button' : 'ui button'} data-environment-id=${this.selectedSpace?.environment.id || ''} data-terminal-name=${this.defaultTerminalName(this.selectedSpace)} aria-label="New terminal" title="New terminal" ?hidden=${this.firstTerminal || (this.binding?.kind === 'page' && (!this.selectedSpace?.login || this.selectedSpace.observed?.running !== true))} ?disabled=${blocked || this.creating || (this.binding?.kind === 'page' && (!this.selectedSpace?.environment.provisioned || this.selectedSpace.authority_unavailable || this.selectedSpace.native_unavailable))} @click=${() => this.newTerminal()}>${this.binding?.kind === 'page' ? 'New terminal' : '＋'}</button>
+        ${this.binding?.kind === 'page' ? html`<button class="ui button" ?disabled=${blocked || !this.selectedSpace} @click=${() => this.showManagement(this.project)}>Project settings</button>` : ''}
+        ${this.view !== 'terminal' ? html`<button class="ui button" @click=${() => this.back()}>${this.binding?.kind === 'page' ? 'Back to workspace' : 'Back to terminal'}</button>` : ''}
         ${renderMenu('Workspace options', '⋯', html`
           <button class="ui button" ?disabled=${this.busy || this.stale} @click=${() => this.refresh()}>Refresh Spaces</button>
+          ${this.binding?.kind === 'page' ? html`<button class="ui button" ?disabled=${blocked || this.openingDrawer || !this.selected} @click=${() => this.openInDrawer()}>Open in drawer</button>` : ''}
           ${this.binding?.kind === 'page' ? html`<button class="ui button" @click=${() => this.toggleSidebar()}>Toggle sidebar</button>` : ''}
           ${this.binding?.kind === 'native' ? html`<button class="ui button" ?disabled=${blocked} @click=${() => this.showManagement(this.binding?.kind === 'native' ? this.binding.repositoryId : '')}>Repository environment / access</button>` : ''}
         `)}
         ${this.binding?.kind === 'native' ? html`<a href="/?soda-view=spaces" aria-label="Open in Spaces" title="Open in Spaces">↗</a>` : ''}
-        ${this.binding?.kind === 'page' ? html`<button class="ui button" aria-label="Open in drawer" title=${this.openingDrawer ? 'Opening repository…' : 'Open in drawer'} ?disabled=${blocked || this.openingDrawer || !this.selected} @click=${() => this.openInDrawer()}>${this.workspaceWidth < 800 ? '↘' : this.openingDrawer ? 'Opening repository…' : 'Open in drawer'}</button>` : ''}
         <a ?hidden=${this.available && !this.stale} href=${'/-/soda/login?' + connect + (this.binding?.expectedUserId ? '&expected_user_id=' + this.binding.expectedUserId : '')}>Connect to Soda</a>
       </header>
       <p id="sodaspaces-status" role="status" ?hidden=${!this.status}>${this.status}</p><p role="status" ?hidden=${!this.storageNotice}>${this.storageNotice}</p>
       ${this.binding?.kind === 'native' && this.view !== 'terminal' && !this.stale ? html`<div class="soda-drawer-projection-tabs" style=${`height:${this.tabHeight}px`}>${this.paneChrome(focusedPane(this.layout), {
         x: 0, y: 0, width: this.workspaceWidth, height: this.tabHeight
       }, true)}</div>` : ''}
-      <div class=${'soda-workspace-body' + (this.view === 'sessions' ? ' is-navigating' : '')} style=${!this.compact && this.layout.sidebar !== null && this.view !== 'sessions' ? `grid-template-columns:${this.layout.sidebar}px 6px minmax(0,1fr)` : 'grid-template-columns:minmax(0,1fr)'}>
-        <nav class="soda-workspace-navigation" aria-label="Projects and sessions" ?hidden=${!navigation || this.stale} @keydown=${(e: KeyboardEvent) => {
+      <div ?hidden=${this.setupScreen && this.setup !== 'configure'} class=${'soda-workspace-body' + (this.view === 'sessions' ? ' is-navigating' : '')} style=${!this.setupScreen && !this.compact && this.layout.sidebar !== null && this.view !== 'sessions' ? `grid-template-columns:${this.layout.sidebar}px 6px minmax(0,1fr)` : 'grid-template-columns:minmax(0,1fr)'}>
+        <nav class="soda-workspace-navigation" aria-label=${this.binding?.kind === 'page' ? 'Projects and terminals' : 'Projects and sessions'} ?hidden=${this.setupScreen || !navigation || this.stale} @keydown=${(e: KeyboardEvent) => {
         if (e.key === 'Escape' && this.view === 'sessions') {
           e.preventDefault();
           e.stopPropagation();
           this.back();
         }
       }}>
-          <label>Find a session <input type="search" .value=${this.search} @input=${(e: Event) => {
+          <label ?hidden=${this.binding?.kind === 'page' && this.spaces.length < 2 && !this.spaces.some(s => s.terminals.length)}>Find a terminal <input type="search" .value=${this.search} @input=${(e: Event) => {
         if (e.target instanceof HTMLInputElement)
           this.search = e.target.value;
       }}></label>
@@ -328,7 +358,7 @@ export class SodaSpaces extends LitElement {
         if (e.target instanceof HTMLInputElement)
           this.thisPage = e.target.checked;
       }}> This page only</label>` : ''}
-          <div class="soda-attention-filters" aria-label="Session attention">
+          <div class="soda-attention-filters" aria-label="Session attention" ?hidden=${this.binding?.kind === 'page' && !this.attentionRows().length && !this.attentionOnly}>
             <button class="ui button" aria-pressed=${this.attentionOnly ? 'false' : 'true'} @click=${() => {
         this.attentionOnly = false;
       }}>All</button>
@@ -338,19 +368,22 @@ export class SodaSpaces extends LitElement {
             <button class="ui button" @click=${() => this.nextAttention()}>Next attention</button>
           </div>
           ${repeat(this.filteredSpaces(), space => space.environment.id, space => this.projectRows(space))}
+          ${this.binding?.kind === 'page' ? html`<button class="ui button" ?disabled=${blocked || !this.canRestore} @click=${() => this.beginSetup()}>Create project</button>` : ''}
           ${!this.filteredSpaces().length ? html`<p>${this.available ? this.attentionOnly ? 'No matching sessions need attention.' : this.search || this.thisPage ? 'No matches.' : 'No authorized projects available.' : 'Status unavailable.'}</p>` : ''}
         </nav>
-        <div class="soda-sidebar-divider" role="separator" tabindex="0" aria-label="Resize project sidebar" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="360" aria-valuenow=${this.layout.sidebar || 256} ?hidden=${this.compact || this.layout.sidebar === null || this.view === 'sessions'} @pointerdown=${(e: PointerEvent) => this.capture(e)} @pointermove=${(e: PointerEvent) => this.resizeSidebar(e)} @pointerup=${(e: PointerEvent) => this.releasePointer(e)} @keydown=${(e: KeyboardEvent) => this.sidebarKey(e)}></div>
+        <div class="soda-sidebar-divider" role="separator" tabindex="0" aria-label="Resize project sidebar" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="360" aria-valuenow=${this.layout.sidebar || 256} ?hidden=${this.setupScreen || this.compact || this.layout.sidebar === null || this.view === 'sessions'} @pointerdown=${(e: PointerEvent) => this.capture(e)} @pointermove=${(e: PointerEvent) => this.resizeSidebar(e)} @pointerup=${(e: PointerEvent) => this.releasePointer(e)} @keydown=${(e: KeyboardEvent) => this.sidebarKey(e)}></div>
         <div class="soda-workspace-work">
           <div class="soda-workspace-canvas" ?hidden=${this.view !== 'terminal' || this.stale}>
             <span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
-            <div class="soda-workspace-chrome">${repeat(this.projection.panes, area => area.pane.key, area => this.paneChrome(area.pane, area))}
+            ${this.firstTerminal ? html`<div class="soda-first-terminal"><span class="soda-journey-icon soda-terminal-icon" aria-hidden="true"></span><h2>Open your first terminal</h2><p>Your account is ready in ${this.selectedSpace ? this.projectName(this.selectedSpace) : ''}. Open a browser terminal to start working.</p><button class="ui primary button" data-environment-id=${this.selectedSpace?.environment.id || ''} data-terminal-name=${this.defaultTerminalName(this.selectedSpace)} ?disabled=${blocked || this.creating} @click=${() => this.newTerminal()}>New terminal</button><p>Project account: ${this.selectedSpace?.login}</p></div>` : ''}
+            <div class="soda-workspace-chrome" ?hidden=${this.firstTerminal}>${repeat(this.projection.panes, area => area.pane.key, area => this.paneChrome(area.pane, area))}
               ${repeat(this.projection.dividers, divider => divider.key, divider => html`<div class="soda-pane-divider" role="separator" tabindex="0" aria-label="Resize panes" aria-orientation=${divider.axis === 'right' ? 'vertical' : 'horizontal'} aria-valuemin=${Math.ceil(divider.minimum * 100)} aria-valuemax=${Math.floor(divider.maximum * 100)} aria-valuenow=${Math.round(divider.ratio * 100)} style=${this.rectangle(divider)} @pointerdown=${(e: PointerEvent) => this.capture(e)} @pointermove=${(e: PointerEvent) => this.dragDivider(e, divider)} @pointerup=${(e: PointerEvent) => this.releasePointer(e)} @keydown=${(e: KeyboardEvent) => this.keyDivider(e, divider)}></div>`)}
             </div><div class="soda-workspace-owners"></div>
           </div>
           <div class="soda-workspace-management" ?hidden=${this.view !== 'project' || this.stale}></div>
         </div>
       </div>
+      ${this.setup === 'configure' ? html`<div class="soda-setup-change"><p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p></div>` : ''}
       ${this.creation ? this.creationForm(this.creation) : ''}
       ${this.editing ? renderRename(this.editing.name, this.slots.find(s => s.key === this.editing?.key)?.binding.projectName || '', !validName(this.editing.name) || this.renaming.has(this.editing.key) || this.stale, name => {
         if (this.editing)
@@ -366,6 +399,69 @@ export class SodaSpaces extends LitElement {
           void this.rename(slot, edit.name);
       }) : ''}
     </section>`;
+  }
+  private renderSetup() {
+    const blocked = this.stale || !this.canRestore;
+    const sub = document.querySelector<HTMLElement>('#soda-settings-link')?.dataset.subUrl || '';
+    const prefix = /^(\/[^/\\?#\s]+)*$/u.test(sub) && !sub.split('/').some(part => part === '.' || part === '..') ? sub : '';
+    return html`<div class="soda-setup-heading"><h1>Spaces</h1><p>Your projects and terminals, together.</p></div>
+      <div class="soda-setup-panel" ?hidden=${this.setup === 'configure'}>
+        ${this.setup === 'repositories' ? renderRepositoryPicker({query: this.repositoryQuery, result: this.repositoryResult, selected: this.repositoryChoice, busy: this.repositoryBusy, error: this.repositoryError, blocked, createURL: prefix + '/repo/create'}, {
+          query: value => {this.repositoryQuery = value; this.repositoryChoice = ''; this.repositoryResult = undefined; this.repositoryError = ''; this.repositoryRequest?.abort(); this.repositoryRequest = undefined; this.repositoryBusy = false;},
+          search: page => {void this.searchRepositories(page);}, select: value => {this.repositoryChoice = value;}, back: () => this.cancelSetup(), continue: () => this.configureProject()
+        }) : this.available && this.complete ? html`<h2 tabindex="-1">Create your first project</h2><p>A shared development system, connected to your repository. Open terminals and work together, right in your browser.</p><button class="ui primary button" ?disabled=${blocked} @click=${() => this.beginSetup()}>Create project</button><p><a href="https://github.com/levitateos/sodaos/blob/main/docs/public/30-Use-Soda/20-projects-and-workspaces.md" target="_blank" rel="noopener noreferrer">How Spaces works</a></p>` : html`<h2>${this.busy ? 'Loading projects…' : 'Could not load projects'}</h2><p>Only confirmed inventory can show whether you have projects.</p>${this.stale ? html`<button class="ui button" @click=${() => window.location.reload()}>Reload Spaces</button>` : html`<button class="ui button" ?disabled=${this.busy || blocked} @click=${() => this.refresh()}>Retry projects</button>`}`}
+        <p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p>
+      </div>
+      ${this.setup === 'configure' ? html`<div class="soda-setup-change"><button class="ui button" ?disabled=${blocked} @click=${() => {if (!blocked) {this.setup = 'repositories'; this.focusSetup();}}}>Change repository</button><button class="ui button" ?disabled=${blocked} @click=${() => this.cancelSetup()}>Cancel setup</button></div>` : ''}`;
+  }
+  private focusSetup() {
+    void this.updateComplete.then(() => {
+      if (!this.stale && this.activeSurface) this.querySelector<HTMLElement>('.soda-setup-panel:not([hidden]) h2, .soda-project-journey h2')?.focus();
+    });
+  }
+  private beginSetup() {
+    if (this.stale || !this.available || !this.canRestore || !this.activeSurface) return;
+    this.rememberFocus();
+    this.setupReturn = {project: this.project, view: this.view, mode: this.managementMode};
+    this.setup = 'repositories'; this.repositoryChoice = '';
+    this.focusSetup(); void this.searchRepositories(1);
+  }
+  private cancelSetup() {
+    if (this.stale || !this.canRestore) return;
+    this.repositoryRequest?.abort(); this.repositoryRequest = undefined; this.repositoryBusy = false;
+    this.setup = null;
+    if (this.setupReturn) {this.project = this.setupReturn.project; this.view = this.setupReturn.view; this.managementMode = this.setupReturn.mode;}
+    this.setupReturn = undefined;
+    if (!this.selectedSpace && this.spaces[0]) this.selectProject(this.spaces[0]);
+    this.restoreFocus();
+  }
+  private async searchRepositories(page: number) {
+    if (this.stale || !this.available || this.setup !== 'repositories' || !this.activeSurface) return;
+    this.repositoryRequest?.abort();
+    const request = this.repositoryRequest = new AbortController(), query = this.repositoryQuery;
+    const timer = window.setTimeout(() => request.abort(), 15000);
+    this.repositoryBusy = true; this.repositoryError = ''; this.repositoryChoice = ''; this.repositoryResult = undefined;
+    try {
+      const result = repositoryChoices(await this.api('/api/repositories?' + new URLSearchParams({q: query, page: String(page)}), undefined, request.signal), page);
+      if (!this.stale && this.repositoryRequest === request && !request.signal.aborted && this.repositoryQuery === query) this.repositoryResult = result;
+    } catch {
+      if (!this.stale && this.repositoryRequest === request && this.repositoryQuery === query) this.repositoryError = 'Could not find repositories. Search again; no project was created.';
+    } finally {
+      window.clearTimeout(timer);
+      if (this.repositoryRequest === request) this.repositoryBusy = false;
+    }
+  }
+  private configureProject() {
+    const choice = this.repositoryResult?.items.find(item => item.id === this.repositoryChoice);
+    if (!choice || this.repositoryBusy || this.stale || !this.canRestore || this.setup !== 'repositories') return;
+    this.setup = 'configure';
+    void this.showManagement(choice.id, 'journey');
+  }
+  private selectProject(space: Space) {
+    if (this.stale || !this.available || !this.canRestore) return;
+    this.project = space.environment.repository_id;
+    this.back();
+    if (!space.login || !space.environment.provisioned || space.observed?.running !== true) void this.showManagement(this.project, 'journey');
   }
   private toggleSidebar() {
     this.layout = {...this.layout, sidebar: this.layout.sidebar === null ? 256 : null};
@@ -479,13 +575,13 @@ export class SodaSpaces extends LitElement {
     })];
   }
   private rowName(row: Row) {
-    return row.metadata?.name || (row.metadata ? 'Terminal ' + row.metadata.id.slice(0, 8) : row.entry?.locator.kind === 'new' ? 'Unsent terminal' : 'Saved ' + (row.entry?.locator.kind || 'unknown') + ' terminal');
+    return row.metadata?.name || this.slots.find(slot => slot.key === row.key)?.proposedName || (row.metadata ? 'Terminal ' + row.metadata.id.slice(0, 8) : row.entry?.locator.kind === 'new' ? 'Unsent terminal' : 'Saved ' + (row.entry?.locator.kind || 'unknown') + ' terminal');
   }
   private projectRows(space: Space) {
     const query = this.search.toLocaleLowerCase(), rows = this.rows(space).filter(row => !query || this.projectName(space).toLocaleLowerCase().includes(query) || this.rowName(row).toLocaleLowerCase().includes(query));
     const shown = this.attentionOnly ? rows.filter(row => this.rowAttention(space, row)) : rows;
     return renderProjectNavigation(this.projectName(space), (space.authority_unavailable || space.native_unavailable ? 'Status unavailable' : space.observed?.running ? 'Running' : 'Stopped') + (space.tailnet_state ? ' · Tailnet policy: ' + space.tailnet_state : ''), shown.map(row => ({
-      key: row.key, name: this.rowName(row), unread: !!this.slots.find(slot => slot.key === row.key)?.unread, attention: this.rowAttention(space, row),
+      key: row.key, terminalId: row.metadata?.id || (row.entry?.locator.kind === 'existing' ? row.entry.locator.id : ''), name: this.rowName(row), unread: !!this.slots.find(slot => slot.key === row.key)?.unread, attention: this.rowAttention(space, row),
       description: row.metadata && row.metadata.state !== 'ready' ? row.metadata.state
         : row.entry && !paneFor(this.layout.tree, row.entry.key) ? 'Hidden' : row.entry ? 'In this window' : '',
       disabled: this.stale || !this.available || !space.login || space.authority_unavailable,
@@ -497,7 +593,7 @@ export class SodaSpaces extends LitElement {
       },
     })), this.stale || !this.available, () => {
       void this.showManagement(space.environment.repository_id);
-    });
+    }, this.binding?.kind === 'page' ? {active: this.project === space.environment.repository_id, environmentId: space.environment.id, select: () => this.selectProject(space)} : undefined);
   }
   private paneChrome(pane: Pane, area: Area, navigation = false) {
     const keys = this.binding?.kind === 'native' ? panes(this.layout.tree).flatMap(p => p.tabs) : pane.tabs;
@@ -556,6 +652,7 @@ export class SodaSpaces extends LitElement {
           event.preventDefault();
       }))}
       </div>
+      ${pane.key === this.layout.focused && pane.selected && !navigation ? this.paneActions() : ''}
       <details class="soda-menu soda-tab-overflow"><summary aria-label="Open tabs">⌄</summary><div><input type="search" aria-label="Find an open tab" @input=${(e: Event) => {
         if (e.target instanceof HTMLInputElement && e.currentTarget instanceof HTMLElement) {
           const text = e.target.value.toLocaleLowerCase();
@@ -649,11 +746,13 @@ export class SodaSpaces extends LitElement {
     this.rememberFocus();
     this.choosingPane = pane;
     this.thisPage = false;
-    this.view = 'sessions';
-    const active = document.activeElement;
+    if (this.binding?.kind === 'page' && !this.compact) {
+      if (this.layout.sidebar === null) {this.layout = {...this.layout, sidebar: 256}; this.persist();}
+    } else this.view = 'sessions';
+    const active = document.activeElement, view = this.view;
     void this.updateComplete.then(() => {
-      if (!this.stale && this.activeSurface && this.view === 'sessions' && (document.activeElement === active || document.activeElement === document.body))
-        this.querySelector<HTMLInputElement>('.soda-workspace-navigation input')?.focus();
+      if (!this.stale && this.activeSurface && this.view === view && (document.activeElement === active || document.activeElement === document.body))
+        this.querySelector<HTMLElement>('.soda-workspace-navigation label:not([hidden]) input, .soda-workspace-navigation .soda-project-select')?.focus();
     });
   }
   private back() {
@@ -662,16 +761,21 @@ export class SodaSpaces extends LitElement {
     this.restoreFocus();
     this.markViewed();
   }
+  private defaultTerminalName(space: Space | undefined) {
+    return 'Terminal ' + (Math.max(space?.terminals.length || 0, this.layout.entries.filter(e => e.environmentId === space?.environment.id).length) + 1);
+  }
   private newTerminal(pane = this.layout.focused) {
     if (this.stale || this.creating || !this.available || !this.activeSurface)
       return;
     this.rememberFocus();
     const selected = this.slots.find(s => s.key === this.selected);
     const native = this.binding?.kind === 'native' ? this.binding.repositoryId : undefined;
-    const space = this.spaces.find(s => s.environment.id === selected?.binding.environmentId) || this.spaces.find(s => s.environment.repository_id === native) || this.spaces[0];
+    const space = (this.binding?.kind === 'page' ? this.selectedSpace : undefined) || this.spaces.find(s => s.environment.id === selected?.binding.environmentId) || this.spaces.find(s => s.environment.repository_id === native) || this.spaces[0];
+    if (this.binding?.kind === 'page' && space && (!space.login || space.authority_unavailable || !space.environment.provisioned || space.observed?.running !== true)) return;
     this.creation = {
-      pane, environmentId: space?.environment.id || '', name: 'Terminal ' + ((space?.terminals.length || 0) + 1)
+      pane, environmentId: space?.environment.id || '', name: this.defaultTerminalName(space)
     };
+    if (this.binding?.kind === 'page' && this.selectedSpace) {void this.createTerminal(); return;}
     void this.updateComplete.then(() => {
       if (this.creation?.pane === pane && !this.stale && this.surfaceVisible)
         this.querySelector<HTMLElement>('.soda-workspace-dialog select')?.focus();
@@ -730,7 +834,9 @@ export class SodaSpaces extends LitElement {
       if (!this.live(n))
         return;
       this.spaces = collection.items;
+      this.complete = collection.complete;
       this.available = true;
+      if (!this.setup && !this.selectedSpace && collection.complete) this.project = this.spaces[0]?.environment.repository_id || '';
       this.now = this.observedAt = Date.now();
       this.status = collection.complete ? '' : 'Spaces is incomplete or partly unavailable; missing rows are not proof of absence.';
       for (const slot of this.slots) {
@@ -738,6 +844,7 @@ export class SodaSpaces extends LitElement {
         if (space && (space.authority_unavailable || space.login !== slot.binding.login) || !space && collection.complete) {
           slot.unavailable = true;
           slot.metadata = undefined;
+          delete slot.proposedName;
           slot.observation = undefined;
           slot.unread = slot.readRequested = false;
           slot.terminal.invalidate();
@@ -763,11 +870,20 @@ export class SodaSpaces extends LitElement {
         this.restored = true;
         await this.restoreLocators(n, request.signal);
       }
+      if (this.setup === 'configure' && this.selectedSpace?.environment.provisioned) {this.setup = null; this.setupReturn = undefined;}
+      if (this.binding.kind === 'page' && !this.setup && this.selectedSpace) {
+        const space = this.selectedSpace;
+        if (space.login && !space.authority_unavailable && !space.native_unavailable && space.environment.provisioned && space.observed?.running === true) {
+          if (this.view === 'project' && this.managementMode === 'journey') this.view = 'terminal';
+        } else if (this.view === 'terminal') void this.showManagement(this.project, 'journey');
+        else if (this.view === 'project' && this.managementMode === 'journey') void this.projects.get(this.project)?.api.refresh();
+      }
       this.display();
     }
     catch {
       if (this.live(n)) {
         this.available = false;
+        this.complete = false;
         this.status = 'Could not confirm Spaces. No creation, join, Start or replacement was requested.';
       }
     }
@@ -812,6 +928,7 @@ export class SodaSpaces extends LitElement {
     const n = this.epoch, request = new AbortController();
     const timer = window.setTimeout(() => request.abort(), 15000);
     this.openingDrawer = true;
+    this.closeMenus();
     try {
       // Resolve current native names by stable ID; stored project labels may be
       // stale after a rename/transfer. This existing endpoint also checks actor
@@ -857,7 +974,7 @@ export class SodaSpaces extends LitElement {
   }
   private slotName(slot: Slot) {
     const locator = this.locator(slot);
-    return slot.metadata?.name || 'Terminal ' + (locator.kind === 'existing' ? locator.id.slice(0, 8) : locator.kind);
+    return slot.metadata?.name || slot.proposedName || 'Terminal ' + (locator.kind === 'existing' ? locator.id.slice(0, 8) : locator.kind);
   }
   private confirmedEnd(key: string) {
     const slot = this.slots.find(s => s.key === key), entry = this.layout.entries.find(e => e.key === key);
@@ -1057,7 +1174,7 @@ export class SodaSpaces extends LitElement {
     const projection = this.projection;
     for (const slot of this.slots) {
       const area = projection.panes.find(area => area.pane.selected === slot.key);
-      slot.host.hidden = this.stale || slot.unavailable || this.view !== 'terminal' || !area;
+      slot.host.hidden = this.stale || this.setupScreen || slot.unavailable || this.view !== 'terminal' || !area;
       if (area) {
         slot.host.style.cssText = this.rectangle({
           ...area, y: area.y + this.tabHeight, height: Math.max(0, area.height - this.tabHeight)
@@ -1205,8 +1322,10 @@ export class SodaSpaces extends LitElement {
       this.view = 'terminal';
       this.creation = null;
       const slot = await this.addSlot(space, entry);
-      if (slot)
+      if (slot) {
+        slot.proposedName = draft.name; this.requestUpdate();
         await slot.terminal.open(draft.name);
+      }
     }
     finally {
       this.creating = false;
@@ -1238,17 +1357,19 @@ export class SodaSpaces extends LitElement {
         this.status = 'The exact session could not be opened. No locator was replaced or creation requested.';
     }
   }
-  private async showManagement(repositoryId: string) {
+  private async showManagement(repositoryId: string, mode: 'standard' | 'journey' | 'settings' = this.binding?.kind === 'page' ? 'settings' : 'standard') {
     if (!id(repositoryId) || !this.binding?.expectedUserId || !this.available || this.stale || this.disposed || !this.activeSurface)
       return;
     this.rememberFocus();
     this.project = repositoryId;
+    this.managementMode = mode;
     this.view = 'project';
     const n = this.epoch;
     await this.updateComplete;
     if (!this.live(n))
       return;
     let project = this.projects.get(repositoryId);
+    const created = !project;
     if (!project) {
       const layer = this.querySelector('.soda-workspace-management');
       check(layer);
@@ -1261,9 +1382,12 @@ export class SodaSpaces extends LitElement {
         host, api
       };
       this.projects.set(repositoryId, project);
-      void api.refresh();
     }
+    const changed = project.api.setPresentation(mode);
+    if (created || changed || mode === 'journey') void project.api.refresh();
     this.display();
+    await project.api.ready;
+    if (this.live(n) && this.project === repositoryId && this.setup === 'configure') this.focusSetup();
   }
   private async rename(slot: Slot, name: string) {
     if (this.renaming.has(slot.key) || this.stale || this.disposed || !this.activeSurface || !validName(name) || this.editing?.key !== slot.key)
@@ -1307,14 +1431,19 @@ export class SodaSpaces extends LitElement {
     if (this.stale)
       return;
     this.stale = true;
+    this.available = this.complete = false;
     this.measurement.retire();
     window.clearInterval(this.attentionTimer);
     ++this.epoch;
     this.request?.abort();
+    this.repositoryRequest?.abort(); this.repositoryRequest = undefined;
+    this.repositoryResult = undefined; this.repositoryQuery = this.repositoryChoice = ''; this.repositoryBusy = false;
+    this.setup = null; this.setupReturn = undefined;
     this.busy = false;
     this.creation = this.editing = null;
     for (const slot of this.slots) {
       slot.metadata = undefined;
+      delete slot.proposedName;
       slot.observation = undefined;
       slot.unread = slot.readRequested = false;
       slot.terminal.invalidate();

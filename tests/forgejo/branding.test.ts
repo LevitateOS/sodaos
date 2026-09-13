@@ -19,10 +19,12 @@ test('Forgejo delivers no decorative robot artwork and retains the new identity'
   'public/assets/soda/forgejo/login-station/approaching-train.webp',
   'public/assets/soda/source/soda-symbol-brutalist.svg',
   'public/assets/soda/source/soda-symbol-brutalist-dark.svg',
+  'public/assets/soda/forgejo/icons/repo-19.14.0.svg',
+  'public/assets/soda/forgejo/icons/terminal-19.14.0.svg',
  ];
  for(const size of ['mobile','tablet','desktop']) for(const mode of ['day','night'])
   approvedImages.push(`public/assets/soda/forgejo/backgrounds/subway-${size}-${mode}.webp`);
- assert.deepEqual(Object.keys(payload).filter(path=>/\.(svg|png|jpe?g|webp|gif|ico|avif)$/i.test(path)).sort(),approvedImages.sort(),'only approved brand images, welcome backgrounds and the login station may be delivered');
+ assert.deepEqual(Object.keys(payload).filter(path=>/\.(svg|png|jpe?g|webp|gif|ico|avif)$/i.test(path)).sort(),approvedImages.sort(),'only canonical brand images, welcome backgrounds, the login station and the two licensed Forgejo-style functional icons may be delivered');
  const imageSources=await readdir(new URL('assets/branding/forgejo/',root));
  assert(!imageSources.some(name=>name.includes('papercraft')||name.endsWith('-prompt.md')||name.endsWith('-prompts.md')),'retired artwork or prompt sheet returned');
  const light=await readFile(new URL('assets/branding/source/soda-symbol-brutalist.svg',root),'utf8');
@@ -31,6 +33,18 @@ test('Forgejo delivers no decorative robot artwork and retains the new identity'
  for(const source of [light,dark]) {assert(source.includes('fill="#df001b"'));assert.equal((source.match(/fill-rule="evenodd"/g)||[]).length,2);}
  const staging=await readFile(new URL('scripts/stage.py',root),'utf8');
  assert(staging.includes("'assets/branding/source/soda-symbol-brutalist.svg', images / name"));
+});
+
+test('Spaces functional icons are bounded static masks staged with their MIT notice', async () => {
+ for (const name of ['repo', 'terminal'] as const) {
+  const target = `public/assets/soda/forgejo/icons/${name}-19.14.0.svg` as const;
+  const svg = await readFile(new URL(payload[target], root), 'utf8');
+  assert(svg.startsWith('<svg ') && svg.includes('<path ') && svg.length < 2000);
+  assert(!/<(?:script|image|foreignObject)|\bon\w+=|href=/i.test(svg));
+ }
+ const license = await readFile(new URL(payload['public/assets/soda/forgejo/icons/LICENSE'], root), 'utf8');
+ assert(license.includes('MIT License') && license.includes('Copyright (c) 2024 GitHub Inc.'));
+ assert(payload['public/assets/soda/forgejo/icons/README.md']);
 });
 
 test('shared neutral surfaces, links, actions and control edges retain contrast in both modes',async()=>{

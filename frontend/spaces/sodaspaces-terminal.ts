@@ -512,7 +512,7 @@ export class SodaTerminal extends LitElement {
             action, id: this.sessionID, ...(action === 'create' ? {name: this.createName} : {}),
             expected_user_id: expectedUserId, repository_id: repositoryId, csrf_token: this.binding?.csrfToken, cols, rows
           }));
-          this.message = action === 'create' ? 'Starting the managed terminal…' : 'Attaching the existing terminal…';
+          this.message = action === 'create' ? 'Opening terminal…' : 'Attaching the existing terminal…';
         }
         catch {
           this.detach('Attachment dispatch was not confirmed. No creation or input was retried.');
