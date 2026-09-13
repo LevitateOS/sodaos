@@ -70,13 +70,14 @@ Local-only or synthetic evidence never authorizes a production channel.
 
 ### Milestone 1 — verify the native installation contract
 
-**B1 mechanism review reopened; not merely waiting for a VM grant.** The previous
-bootc-specific handoff is not selected. Reuse the caller audit, native version/config
-observations and LOC baseline at their stated scope, not as a passed FCOS mechanism
-review. Apply the [minimum-deviation contract](#minimum-deviation-fcos-contract) and
-[installer boundary](coreos-installer-plan.md#b1-native-mechanism-review--reopened).
-The [earlier receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline)
-remains historical evidence, not current execution instructions.
+**B1 source review now identifies a native FCOS route; native proof and a client-trust
+choice remain open.** The locked Fedora build uses OCI import and native Assembler/
+OSBuild metal/live packaging; Zincati 0.0.32 supports OCI updates through rpm-ostree.
+The [installer findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+and [update/authority findings](#b1-native-update-and-authority-findings) distinguish
+this evidence from unrun native qualification. Bootc filesystem installation stays
+withdrawn. Reuse the existing caller/LOC baseline; source observations do not mark
+B1 complete.
 
 1. Audit the actual native/ISO and host-image call graphs, outputs, trust domains and
    effects. Record production build/timing/orchestration LOC against `830ca94` (before
@@ -134,8 +135,8 @@ bootc interfaces. The authority and byte-identity boundaries remain requirements
 | --- | --- |
 | Frozen inputs → producer | Approved commit/base/tool/package and explicit component selections; public-only source snapshot. No privileged signer credentials or implicit selected VM. |
 | Producer → protected admission | Existing exact payload/candidate bytes plus OCI identities and hashed provenance. Treat outputs as untrusted until independently checked and copied into protected fresh snapshots. Never execute candidate-supplied tests as authority. |
-| Component provenance | Keep the first replacement's payload/candidate v1 identity contract where sufficient. Extend versioned `app-inputs.json` to record actual producing revision or upstream reference for each selection; do not add a second independently maintained image inventory or relabel reused images. Strict reader/caller changes precede reuse. |
-| Candidate → media | Bind the exact candidate and every required offline component through authenticated upstream-supported transports. Directory snapshots, bootc-bound storage and embedded runtime archives are existing experiment choices, not mandatory replacement interfaces. Version the media candidate binding only after B1 resolves the native input contract. |
+| Component provenance | Record actual producing revision/upstream reference for each selection without a second image inventory or relabelling reused images. Current payload v1 requires three bootc-bound roles; ordinary-Podman storage therefore needs an explicit versioned payload/caller change, not silently reinterpreted v1 fields. Retain strict historical readers. |
+| Candidate → media | Recommended native handoff: admitted OCI archive → Assembler import → upstream metal/live packaging and osmet. Record unchanged OCI manifest, native deployment identity and raw/media hashes. Put every required app archive in the signed host; prove native Podman availability instead of bootc-bound storage. Version the media binding after native proof. |
 | Media → live installer | Independently trusted media/tool bytes and verified content before privileged use. CoreOS Installer owns disk installation; Ignition owns first-boot provisioning. Prove native signature/cache behavior, not just file presence. |
 | Live installer → installed state | Preserve native FCOS disk/boot/provisioning ownership. Prove how the same immutable host/app set is installed and updated with required content available after media removal. Do not manufacture that capability with Soda partitioning or a second writable software producer. |
 | Qualification → final release | Bind ISO name/hash/size/location, exact proved starting releases and protected evidence without altering tested content. Choose minimal strict schema changes after B1's handoff review, not a preselected v2 transport design. Existing embedded `UpgradeFrom` remains unchanged; preserve retained-format verification without upgrading its claimed scope. |
@@ -148,6 +149,60 @@ signer snapshots/checks exact bytes with protected keys, independent of untruste
 build code. Fixture trust cannot enter real channels; root-only files do not isolate
 jobs running as the sudo-capable administrator. Installing those identities/workers
 is an explicit host action, not performed by this audit.
+
+#### B1 native update and authority findings
+
+Source pins: rpm-ostree **2026.2** at `d5ef5f0cb5ace53f40a8d92933cc87e69ad8c7f4`,
+Zincati **0.0.32** at `64b64c513dc3e83890cac1fd8b57b1f8d4050e0b`; the locked FCOS
+inventory selects these versions. [Source receipt](implementation-history.md#b1-fcos-native-handoff-source-findings)
+retains exact inputs and the limits of this review.
+
+- Zincati's [Cincinnati reader](https://github.com/coreos/zincati/blob/64b64c513dc3e83890cac1fd8b57b1f8d4050e0b/src/cincinnati/mod.rs)
+  handles both checksum and OCI nodes. It finds the booted exact image reference in
+  the graph, follows declared edges and applies age-index/downgrade checks. A custom
+  Soda image absent from Fedora's graph does not gain updates by inheriting `stable`.
+- Its [native caller](https://github.com/coreos/zincati/blob/64b64c513dc3e83890cac1fd8b57b1f8d4050e0b/src/rpm_ostree/cli_deploy.rs)
+  uses `rpm-ostree deploy --lock-finalization DIGEST` for OCI, with
+  `--disallow-downgrade` by default; migration can use native rebase. Finalization
+  passes the exact digest to `rpm-ostree finalize-deployment`. Native `periodic`
+  maintenance windows already exist. Do not add a Soda update/reboot state machine
+  or copy Zincati's migration-only booted-status override to fake graph membership.
+- Recommend a qualified **native Cincinnati graph** as release output, with a
+  configured per-architecture/stream base URL. The client GETs `v1/graph` as JSON;
+  ordinary HTTPS static hosting can serve a fixed graph without a custom graph
+  server. Static data does not supply Fedora's server-side phased-rollout logic.
+  Native URL, content-type, graph identity and update behavior still need proof.
+- The host must carry the intended signed OCI origin in its Assembler image metadata,
+  not inherit Fedora's repository or the local archive fallback. Do not embed the
+  host's own digest in its contents: use a stable origin reference, with exact digest
+  supplied by native deployment/graph metadata. Channel selection must not require
+  rebuilding a promoted host. Bind its unique Soda image version, OCI manifest,
+  imported/deployed OSTree identity, embedded app hashes,
+  generated media/raw checksums and producing tool inputs in the one run. Verify
+  installed `container-image-reference-digest` equals the admitted manifest; an
+  OSTree commit checksum is not an interchangeable OCI digest. No after-test rebuild.
+
+**Unresolved owner decision — native client trust versus the existing custom signed-
+channel contract.** Zincati consumes HTTP graph JSON, not `releasedelivery.Channel`.
+Its native graph hints plus signed image policy/downgrade checks do not implement
+Soda's separate candidate/preview/stable metadata signatures, expiry/high-water floors,
+withdrawal or qualification-record admission. Artifact signatures alone still do not
+prove channel approval. A static graph must not be called equivalent verification.
+
+For the minimum-deviation priority, recommend native Zincati/rpm-ostree client trust
+and maintenance, with protected qualification/publication of the graph and native
+image signatures, rather than a second Soda client updater. This would **change**
+those client-side release-admission requirements; it is not an automatic simplification
+with identical security properties. Keep signed final media/release evidence and
+protected publishing custody. No such contract change, graph publication, trust
+installation or automatic-update configuration is authorized by this recommendation.
+If the additional existing client checks must all remain, their integration needs a
+supported upstream solution or an explicitly approved deviation before implementation.
+
+The [native installation proposal](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+can provide offline host/application bytes without bootc. It does not by itself
+resolve this update-authority choice. Public commissioning remains after B6; this is
+a source/interface decision, not a demand to launch a service before replacement.
 
 #### B1 removal and size baseline
 
@@ -234,7 +289,9 @@ qualified end-to-end release or the command's final success outcome.
 1. Convert `scripts/build-installer.py` to media-only assembly; rename it to
    `assemble-installer.py` if retained. Remove native-build invocation, Go compilation,
    source selection and independent supervision/timing. Inputs are the signed
-   candidate, prebuilt console/tools, public trust/bootstrap and selected live media.
+   candidate, prebuilt console/tools and public trust/bootstrap. B1's recommended
+   native Assembler/OSBuild packaging generates candidate-derived live media; do not
+   silently keep a stock-image osmet payload while appending a different host OCI.
 2. Update `appliance/installer` / `internal/installer` only after B1 establishes the
    supported CoreOS Installer/Ignition handoff. Do not replace their partitioning,
    boot provisioning or finalization with Soda steps. Preserve password-only input, disk identity/in-use and
@@ -380,7 +437,7 @@ independently runnable and scoped; they are not another release product.
 | P5 Host candidate | Supported FCOS customization and exact app bindings using B1's verified native handoff; no prescribed bootc storage/layout |
 | P6 Freeze/verify candidate | Native content/platform/inventory/presentation/Quadlet and selected upstream deployment-format checks; exact payload/candidate identities |
 | P7 Authenticate candidate | Protected exact-digest artifact signing after static admission, before privileged installation/tests |
-| P8 Assemble media | Stock live media and native customization/xorriso plus the exact candidate and prebuilt console/tools; no component build |
+| P8 Assemble media | B1-proved upstream candidate-derived live/osmet packaging, native customization and prebuilt console/tools; no second shipping component build |
 | P9 Native qualification | QEMU/KVM and reviewed existing drivers test the actual ISO and admitted update/recovery baselines |
 | P10 Finalize/sign release | Bind candidate, ISO checksum/location, compatibility and protected evidence without rebuilding tested bytes |
 | P11 Optional delivery | Native skopeo/signatures, immutable image/media uploads and anonymous checks, then channel last; available only under applicable commissioning/grants |
@@ -388,8 +445,10 @@ independently runnable and scoped; they are not another release product.
 One reviewed Go owner handles order, elapsed time, subprocesses, cancellation,
 handoffs and the final scoped result. No new workflow framework, server, cache DB
 or monitoring service. Python asset/media leaves can remain; upstream native tools
-own compilation, image transport, installation and verification. Versions stay in
-source manifests/locks; no incidental upgrade or predecessor updater import.
+own compilation, image transport, installation and verification. CoreOS Assembler/
+OSBuild may own their upstream packaging internals; do not copy their manifests or
+turn them into a second Soda recipe/controller. Versions stay in source manifests/
+locks; no incidental upgrade or predecessor updater import.
 
 One new `.artifacts/releases/RUN/` contains `inputs/`, `work/`, `artifacts/`, `evidence/`,
 `release/` and `logs/`. Preserve fresh-output refusal and every failed attempt.
@@ -667,12 +726,12 @@ this does not defer the replacement ISO's offline installation/first-boot conten
 
 ## Workstream status and next action
 
-**Next: complete B1's reopened FCOS-native mechanism review, then request only the
-exact native proof it justifies.** The custom-partitioning/bootc filesystem experiment
-is withdrawn, not waiting for approval. Caller/version/LOC evidence remains valid at
-its scope; transport, storage and activation choices are not settled. No disk
-installation or bootc stored-image copy has run. None of the replacement milestones
-is complete. The old local candidate at `45ac843`,
+**Next: resolve B1's native-client trust choice, admit the matching upstream build
+capsule, and request the exact native packaging/install proof.** Source now identifies
+Assembler/OSBuild/osmet and Zincati/rpm-ostree OCI mechanisms, not a Soda partitioner
+or updater. The bootc filesystem experiment remains withdrawn. No native candidate-
+media build, disk installation or update was run in this review. None of the
+replacement milestones is complete. The old local candidate at `45ac843`,
 native trusted-delivery source and protected bootstrap, and `d054a60`/`fde23d0`
 transitional tests remain evidence to reuse. They do not mark milestones of the
 replacement complete. The [status](implementation-status.md) records exact artifacts,

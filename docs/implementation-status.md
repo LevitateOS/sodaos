@@ -13,10 +13,11 @@ not this implementation queue.
 
 ## Current position
 
-**B1 mechanism review reopened under the owner's minimum-deviation FCOS priority.**
-Bootc is not the selected install/update requirement; the custom-partitioning test
-and VM request are withdrawn. B1 is not merely blocked on permission: the native
-FCOS handoff still needs review. All six milestones remain open; B2–B6 have not started.
+**B1 source review identifies a native FCOS packaging/update route; not yet native-
+proved.** Assembler/OSBuild can consume the candidate for live/osmet packaging, and
+Zincati 0.0.32 supports OCI through rpm-ostree. A client-trust contract decision,
+matching builder capsule admission and exact native proof remain. Bootc filesystem
+installation stays withdrawn. All six milestones are open; B2–B6 have not started.
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -30,12 +31,12 @@ candidate complete and delivery next no longer describe the active execution ord
 
 ### 1. Verify the native installation contract — B1
 
-**Mechanism selection unresolved; earlier bootc recommendation withdrawn.** Start
-with CoreOS Installer/Ignition and native rpm-ostree/Zincati ownership, verifying the
-exact supported customization, transport and offline-content path. Reuse the caller
-inventory, scoped version/config checks, tests and **2,508 → 2,879** orchestration
-baseline. They do not complete this reopened review. No disk-install or native
-update/recovery proof has run. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
+**Source-backed route found; native proof and update-authority choice outstanding.**
+Recommend the locked FCOS producer's OCI import → native metal/live/osmet path,
+unchanged CoreOS Installer/Ignition, and Zincati/rpm-ostree OCI updates. The stock
+Fedora graph does not qualify Soda images; native graph trust is not equivalent to
+Soda's existing signed-channel client checks. The **2,508 → 2,879** orchestration
+baseline remains unchanged. No native media/install/update proof ran in this pass. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
 
 ### 2. Implement one Go build controller — B2
 
@@ -76,14 +77,26 @@ milestone. [Implementation and exit](release-engineering-plan.md#milestone-6--re
 
 ## Immediate prerequisites and next action
 
-Complete the [reopened native mechanism review](coreos-installer-plan.md#b1-native-mechanism-review--reopened)
-under the [minimum-deviation FCOS contract](release-engineering-plan.md#minimum-deviation-fcos-contract).
-Trace CoreOS Installer's supported candidate inputs and Ignition handoff, then the
-rpm-ostree/Zincati update source, staging and maintenance interfaces. Establish how
-the immutable host/app set and offline requirements fit without a Soda disk/updater
-substitute. Do not assume Zincati understands the existing GHCR release documents.
-Report any concrete requirement conflict before selecting a deviation. Preserve the
-old installer and retained experiments; do not resume the withdrawn test.
+The [installation findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+and [native update/authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
+now identify concrete upstream calls and boundaries, not a custom disk/updater design.
+
+**Decision needed:** adopt native Zincati graph/image trust and maintenance as the
+appliance update contract, or retain all existing client-side signed-channel checks.
+Recommend the native model for minimum FCOS deviation, with protected qualification/
+publication and signed final release evidence. This changes role-scoped channel
+admission, expiry/high-water and withdrawal semantics; no equivalence or permission
+to weaken the existing contract is assumed. Do not implement a second client updater
+or publish an unsigned graph as a silent replacement for those checks.
+
+**Native proof prerequisites:** admit an exact Assembler container digest with the
+matching OSBuild/live-stage/tool versions; the reviewed source commit alone is not
+that executable pin. Then scope its supermin build VM and a fresh x86_64 install
+fixture. Required proof includes unchanged OCI input/installed digest, native osmet
+reconstruction, private Ignition/SELinux/boot, media removal and offline availability
+of all five application images. The existing candidate needs versioned storage/
+import changes; it is not already a suitable complete fixture. No new VM request or
+lifecycle approval is inferred from the withdrawn experiment.
 
 - Actual disk/VM installation, reboot and recovery need an exact native fixture,
   baseline, resource budget and lifecycle grant. Existing fixtures are not implicit
@@ -106,7 +119,11 @@ review and describe only the native path it actually needs to prove.
 
 ## Reusable foundations — not completed replacement milestones
 
-- B1 evidence: `.artifacts/single-run-b1/e4f485a-KUmwaG/` contains commit-pinned bootc
+- Reopened B1 source evidence: `.artifacts/single-run-b1/fcos-bf4b4fa-SbnzJa/` contains
+  39 pinned upstream files, resolved commits, public source hashes and scoped contract
+  checks. [Receipt](implementation-history.md#b1-fcos-native-handoff-source-findings).
+  No Assembler image, media build, native installation or update was executed.
+- Earlier B1 evidence: `.artifacts/single-run-b1/e4f485a-KUmwaG/` contains commit-pinned bootc
   source, native public configuration/help, both retained rootless inspection CIDs,
   original failed lookups, artifact sizes, exact LOC inventories and passing focused
   Go tests. [Receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline).
@@ -188,10 +205,10 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-Corrected the unjustified promotion of bootc from an earlier recommendation to a
-required architecture. Removed the custom partition/first-boot sequence and fixture
-request; reopened B1 and unbound B2–B5 from bootc-specific storage, transport and
-activation assumptions. Preserved the six-milestone order, measured LOC baseline,
-verification requirements, existing code/artifacts and real custody/grants. This pass
-changes documentation only; no build, VM, installation, key, registry, service or
-retained-appliance effect occurred. The FCOS-native candidate mechanism is not yet proved.
+Traced the selected upstream native mechanisms and Soda callers. Recorded the
+Assembler/OSBuild/osmet route, positive Zincati OCI support, all-app offline storage
+requirements, exact identity/security handoffs and the native-client trust conflict.
+Recommended native ownership without silently changing that security contract.
+Preserved source, LOC baseline, evidence and grants. This pass fetched public source
+and ran scoped source/document checks only; no image build/pull, VM, installation,
+update, key, registry write or retained-state mutation occurred. B1 remains open.

@@ -54,24 +54,71 @@ not proof that the stock offline image contains Soda's derived host/application 
 Preserve the native installation owner while replacing the separate software
 producer/continuation, rather than replacing disk installation to suit its output.
 
-B1 must establish the following against the locked FCOS release and actual callers:
+#### Source-backed packaging route — native proof outstanding
 
-1. Which supported CoreOS Installer input/customization path can carry the candidate,
-   how that input is produced upstream, and what identities/authentication it preserves.
-   Distinguish a raw install image, an OSTree deployment and an OCI transport; a
-   command accepting one is not evidence that it accepts another. Do not invent a
-   stock-install/OCI-rebase recipe or custom disk-image producer to fill a gap.
-2. How native Ignition provisions machine state without Soda recreating partition
-   layout, bootloader setup, first-boot markers or kernel-argument plumbing. Retain
-   password-only interaction, disk identity/erase guards and private-file inputs.
-3. How the exact host/application content is installed and subsequently updated by
-   supported FCOS mechanisms, including authenticated offline availability, native
-   cache behavior, SELinux and retained-image lifetime after media removal. Do not
-   presume bootc-bound storage or signed-directory snapshots are the required layout.
-4. Whether the immutable candidate/offline requirements can be met with those native
-   mechanisms. Bring any concrete conflict to the owner before changing product
-   requirements or taking on an alternative installer/updater. Only then define the
-   smallest exact native fixture/action request and run the corresponding proof.
+The locked FCOS `44.20260817.3.2` build metadata records **OCI import by CoreOS
+Assembler**, at commit `fa114018875a04c3df39dca17ab57274764bf563`, using FCOS config
+`682c839aabbc01564f1605bb41687a7511180031`. This supplies an upstream route to
+investigate without Soda disk-layout code or a CoreOS source rebuild:
+
+```text
+one admitted host OCI archive (including required application archives)
+  → upstream cosa import --skip-prune
+  → upstream cosa buildextend-live / OSBuild metal + metal4k dependencies
+  → candidate-derived live media and native osmet reconstruction data
+  → unchanged CoreOS Installer --offline + private destination Ignition
+  → native installed OSTree deployment with the candidate's OCI update identity
+```
+
+This is a source-backed recommendation, not a runnable Soda command or native
+acceptance. It changes the earlier stock-ISO-remaster-only assumption: adding a
+Soda OCI tar to an unchanged Fedora live ISO does not change the stock disk image
+that `--offline` reconstructs. Media generation is an upstream packaging consumer
+of the already-built candidate, not a second compilation of Soda or the OS.
+
+- [Assembler import](https://github.com/coreos/coreos-assembler/blob/fa114018875a04c3df39dca17ab57274764bf563/src/cmd-import)
+  copies an `oci-archive:` input unchanged and records its manifest/archive identity.
+  Use a fresh dedicated workspace and `--skip-prune`; never reuse retained roots.
+  Its import trusts local input, so protected native signature/content admission must
+  precede it. Its required `containers.bootc=1` label is inherited FCOS metadata, not
+  selection of the bootc installation engine.
+- [Native image assembly](https://github.com/coreos/coreos-assembler/blob/fa114018875a04c3df39dca17ab57274764bf563/src/cmd-osbuild)
+  defaults `bootc-install-to-fs` to false; the locked FCOS image config does not enable
+  it. Upstream OSBuild owns OSTree deployment, Ignition setup, partitions, filesystems,
+  boot integration and labeling. Keep those upstream manifests, not Soda copies.
+  The builder explicitly avoids a containers-storage optimization because it changed
+  deployed digests and broke Zincati; preserve the admitted OCI archive path.
+- [Live packaging](https://github.com/coreos/coreos-assembler/blob/fa114018875a04c3df39dca17ab57274764bf563/src/osbuild-manifests/platform.live.ipp.yaml)
+  consumes native metal/metal4k output. [CoreOS Installer osmet](https://github.com/coreos/coreos-installer/blob/22d9f23e9c35ee035ed632a20d38eae000536687/docs/osmet.md)
+  reconstructs the original raw image bit-for-bit from live-root objects plus packed
+  disk metadata, checking its checksum. Installer then owns destination Ignition,
+  network copying and first-boot arguments. Do not manually recreate those operations.
+- **Trust boundary:** Installer trusts osmet in the live environment; its checksum is
+  not independent authentication. Verify the final Soda-signed ISO binding before
+  privileged boot/use. Fedora's signature on its original ISO does not authenticate
+  a derivative. Direct `--image-file` instead requires a detached GPG signature using
+  compiled-in keys in Installer 0.26.0; the existing P-256 Sigstore keys are not that
+  keyring. Neither `--insecure`, a GPG wrapper nor a custom installer build is selected.
+- **Offline apps:** recommend embedding all five exact application archives in the
+  immutable host and importing into ordinary Podman storage through native commands
+  and systemd ordering. This uses the signed host as their integrity boundary and
+  avoids bootc-bound storage. The current importer embeds/loads only Project OS and
+  Tailnet; current v1 validation requires the other three to be bound. Versioned
+  metadata/caller changes and real load/identity/service-order tests are required;
+  the retained candidate is not already proof of this proposal. Preserve existing
+  projects and later writes; image import is not permission to replace workloads.
+
+Before native execution, admit the exact Assembler container digest and its OSBuild/
+live-stage/tool inputs, not only the source commit; record resource/effect bounds for
+its supermin build VM and a separate fresh installation target. Prove reconstructed
+raw checksums, installed OCI digest/origin, untouched shipping content, native boot/
+Ignition/SELinux, media removal and offline image availability. Preserve original
+Soda tool/readback guards while adapting them to upstream-generated media. No builder
+image was pulled, media generated or VM started in this source review.
+
+The [update and authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
+identify a remaining client-trust decision. Do not claim this packaging route also
+implements the existing signed-channel admission contract.
 
 The [earlier B1 receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline)
 retains useful version/config/source observations, archive sizing and tests. Its

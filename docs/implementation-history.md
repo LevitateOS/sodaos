@@ -15,6 +15,67 @@ not claims that those outputs are still retained.
 
 ---
 
+## B1 FCOS-native handoff source findings
+
+The owner selected the reopened B1 review at clean `bf4b4fa`. Evidence is retained
+at `.artifacts/single-run-b1/fcos-bf4b4fa-SbnzJa/`: 39 public upstream source/doc files,
+resolved source versions/trees and URL/SHA-256 inventory. No upstream tool/image was
+built or pulled, no VM or installer/update command executed, and no retained root,
+credential, registry package, policy or service changed.
+
+Exact source pins:
+
+| Component | Reviewed version/commit |
+| --- | --- |
+| CoreOS Installer | 0.26.0 / `22d9f23e9c35ee035ed632a20d38eae000536687` |
+| rpm-ostree | 2026.2 / `d5ef5f0cb5ace53f40a8d92933cc87e69ad8c7f4` |
+| Zincati | 0.0.32 / `64b64c513dc3e83890cac1fd8b57b1f8d4050e0b` |
+| CoreOS Assembler | `fa114018875a04c3df39dca17ab57274764bf563`, identified in the locked FCOS build metadata |
+| FCOS image configuration | `682c839aabbc01564f1605bb41687a7511180031`, from the same build |
+
+The key new evidence is **positive native support**, not an assertion that stock
+CoreOS cannot use OCI. Zincati parses OCI graph nodes and invokes rpm-ostree with
+locked-finalization digest deployment and native finalization. The actual Fedora
+build metadata records Assembler OCI import; its upstream OSBuild path defaults to
+non-bootc installation and owns disk/boot/Ignition setup. Native live packaging uses
+metal/metal4k dependencies and Installer's osmet reconstruction. The locked live-root
+configuration uses EROFS; historical descriptions of squashfs are not a new format pin.
+
+The [installer findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+recommend candidate-derived native live/osmet media, not an unchanged stock ISO plus
+an OCI tar or a Soda partitioner. Assembler copies an OCI archive input unchanged;
+its disabled containers-storage optimization documents a deployed-digest mismatch
+that would break Zincati. This is a reason to retain the archive identity, not to
+patch the observed digest. Its internal unverified import and osmet's trusted-live-
+environment model require protected admission and independent final ISO authenticity.
+Direct Installer `--image-file` uses compiled-in GPG keys, not Soda's Sigstore keys;
+no insecure flag, GPG shim or modified installer was used or recommended.
+
+Soda callers were traced: current disk writing remains stock `coreos-installer
+install --offline --ignition-file ... --copy-network`; current host assembly/import
+embeds only Project OS/Tailnet and payload v1 insists the three core apps are bootc-
+bound. Recommending all five archives in the signed host with ordinary Podman import
+requires explicit versioned source changes and native tests, not reinterpretation
+of the existing candidate. Upstream Assembler needs its exact executable container/
+OSBuild inputs admitted before native execution; its source pin alone is insufficient.
+
+The [update findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
+identify the remaining contract choice. A qualified native Cincinnati graph can be
+static HTTPS data, not a custom server, but native graph/image trust is not equivalent
+to Soda's signed-channel roles, expiry, high-water and qualification admission. The
+recommendation favors native client ownership for the stated maintenance priority,
+explicitly subject to changing those requirements rather than silently removing them.
+No graph was generated/published and the existing security contract remains in force.
+
+**Checks passed:** all 39 pinned source hashes and relevant source branches/calls;
+107 inventoried production/test blobs unchanged from `e4f485a`; 67 local documentation
+links; unchanged LOC baseline, custody/grants and withdrawn-test scope; documentation-
+only diff and `git diff --check`. `source-checks.json` and `document-checks.json` retain
+the scoped results. Existing Go/native receipts are reused only at their original
+scope; no new native acceptance is claimed. The source recommendation does
+not complete B1: native tool admission, the client-trust decision and exact native
+packaging/install proof remain outstanding.
+
 ## B1 correction — preserve FCOS ownership
 
 After `6a360d3`, the owner clarified that minimum deviation from mature Fedora

@@ -12,7 +12,11 @@ its disk/bootstrap requirements. Public ISO delivery and scheduling follow B6.
 The replacement is not implemented yet. The operational commands below describe
 the current retiring source and remain available until native cutover; they are
 not instructions to build a second release lane. The new media assembler will not
-compile programs, invoke a native builder or install stock CoreOS plus a Soda bundle.
+compile Soda programs, invoke the old component builder or install stock CoreOS plus
+a Soda bundle. B1's [source-backed packaging proposal](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+uses native Assembler/OSBuild to generate candidate-derived live/osmet media from the
+already-built host, rather than merely appending its OCI archive to a stock ISO.
+That upstream packaging and its native effects have not yet been exercised here.
 
 **Reusable current evidence:** previous required-key media has bounded diskless
 BIOS/UEFI boot proof. Current source has password-only input, correction/Back/pre-write
