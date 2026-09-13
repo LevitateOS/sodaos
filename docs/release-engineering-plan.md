@@ -2,10 +2,12 @@
 
 ## Status and decisions
 
-**Deployment step 1 is complete: feasibility review and the first host-content
-slice built/inspected on native x86_64 (`f390aa6`). Steps 2–28 below carry the work
-through production deployment and automated operation. This is not yet an installable release;
-native boot/upgrade acceptance remains pending.** The
+**Milestone 1 — complete appliance candidate — is being implemented as one source/
+local-build slice. The original host-content build (`f390aa6`) remains preserved;
+complete-payload source checks pass and its frozen native x86_64 build is next.
+Six milestones below carry the work through automated production operation; the
+28 detailed items are acceptance criteria, not 28 execution/approval rounds.
+This is not yet an installable release; native boot/upgrade acceptance remains pending.** The
 owner selected GHCR distribution and a CoreOS-aligned Soda release train with an
 independent emergency lane. This guide owns the release engineering workstream and
 its status: build engineering, release management, distribution and appliance updates.
@@ -107,6 +109,41 @@ The feasibility receipt must resolve:
   `/usr/local` and writable Soda payload placement cannot be assumed transactional.
 - Boot selection/fallback and pinned app compatibility after interrupted activation.
 - Root CLI/console recovery without working Forgejo, Soda UI or Tailnet access.
+
+### Local candidate content and machine-state ownership
+
+`--complete` selects the image-owned layout without altering the writable installer:
+
+- `/usr/share/soda/release.json` owns the five exact image selections, source/base,
+  schema and content hashes. Three core Quadlets link into
+  `/usr/lib/bootc/bound-images.d`; **only their callers** add
+  `/usr/lib/bootc/storage` as an additional image store. Publication must preserve
+  the exported OCI manifest digests; the GHCR round trip remains milestone 2 proof.
+- Project OS and Tailnet archives live in `/usr/share/soda/images`. The root-only,
+  fixed-input `soda-image-import` verifies them and imports missing image IDs into
+  ordinary Podman storage before the host helper/project start. It neither starts,
+  replaces nor deletes containers/images. Existing project roots and companion
+  backing layers remain outside bootc GC; host updates do not select their lifecycle.
+- Vendor helpers derive **new creation** image defaults from the immutable record.
+  `/etc/soda/host.json` still supplies machine network/Tailnet settings. Conflicting
+  saved image selections refuse with an explicit-migration error; they are never
+  silently rewritten. Existing container/profile and saved companion IDs remain
+  authoritative for their retained objects, not substituted with the new defaults.
+- `/usr/share/soda/defaults` contains public examples/defaults, not credentials.
+  Initial public Forgejo/proxy defaults also enter the image's `/etc` using native
+  OSTree configuration merging. Machine JSON, activated identity, TLS, databases,
+  accounts and `/var` roots are not built into the candidate. The empty subnet in
+  the example intentionally requires first-install selection; this is not a working
+  preinitialized host configuration or a retained-install migration tool.
+- The [Forgejo customization owner](forgejo-frontend-integration.md#image-owned-presentation)
+  defines its immutable presentation/data split. `payload.json` is the exact embedded
+  record; detached `candidate.json` adds the resulting host manifest and the payload
+  byte hash without a circular self-digest. Neither is signed channel authority.
+- The x86_64 RPM lock pins all added NEVRAs and the full expected inventory from the
+  retained build, including the selected base. Exact versions must still be available
+  from the configured Fedora/Tailscale repositories. Missing versions fail closed;
+  RPM bytes/repositories are not mirrored and byte reproducibility is not claimed.
+  Aarch64 requires its own transaction lock and native evidence.
 
 **Separate defect:** the reported Cockpit error treating
 `ostree-image-signed:docker://quay.io/fedora/fedora-coreos` as a remote requires exact
@@ -362,19 +399,27 @@ checks actually performed; do not claim exhaustive supported upgrade coverage.
 
 ## 9. Implementation stages and exits
 
-This is the ordered **release engineering deployment checklist**, from the existing
-local image to an operational automated release train. It replaces the earlier
-coarse stage table. Requirements remain in sections 1–8; these steps identify the
-implementation work and evidence, not another set of policies. References to the
-old Stage 1/2 in historical receipts mean feasibility/initial local production.
+Execute **six consolidated milestones**, not 28 separate implementation rounds.
+The detailed criteria retain their numbers for traceability and evidence. Finish an
+approved milestone without repeated handoffs; independent source work can overlap.
+Requirements remain in sections 1–8. Historical Stage 1/2 meant feasibility/initial
+local production, not these milestone numbers.
 
-Work in this order by default. Independent source work may overlap, but production
-promotion cannot bypass the relevant checks. Reuse valid evidence rather than rerun
-every earlier step for a documentation-only change. Each checked box supports only
-its stated scope. A planned native, trust, service or publication action still needs
-its applicable target/action approval; this checklist does not grant those effects.
+| Milestone | Acceptance criteria | Execution boundary |
+| --- | --- | --- |
+| 1. Complete appliance candidate | 1–7 | Source and local image builds/inspection; no deployment or publication |
+| 2. Trusted delivery | 8–10 | Source/synthetic trust checks; exact signing/trust/GHCR effects need approval |
+| 3. Native update and recovery | 11–17 | Source plus explicitly authorized isolated native fixture/effects |
+| 4. Automated release builder | 18–22 | Source first; timer installation and unattended/promotion effects need approval |
+| 5. Production readiness | 23–26 | Advertised native architectures, migration/media and authorized operational drills |
+| 6. Production launch | 27–28 | Exact release/target approval, progressive launch and live automated-train proof |
 
-### Phase A — complete the local appliance candidate
+Reuse valid evidence rather than rerun earlier criteria for documentation changes.
+A checked box supports only its stated scope; production promotion cannot bypass
+applicable checks. The effect boundaries above are real grants, not automatic
+permissions conferred by completing source work or reaching a numbered criterion.
+
+### Milestone 1 — complete appliance candidate
 
 **1. [x] Establish the mechanism and first host-content build.**
 
@@ -384,7 +429,7 @@ its applicable target/action approval; this checklist does not grant those effec
   [receipt](implementation-history.md#first-local-host-content-image-build).
 - This does not complete the appliance payload, signing or native boot proof.
 
-**2. [ ] Bind the fixed appliance application images. — NEXT**
+**2. [ ] Bind the fixed appliance application images.**
 
 - Deliverable: immutable Forgejo, dashboard and proxy image references in vendor
   Quadlets, using bootc's bound-image mechanism and service-scoped image storage.
@@ -420,12 +465,14 @@ its applicable target/action approval; this checklist does not grant those effec
   for, and repeating frozen inputs cannot silently resolve newer RPMs. Do not claim
   byte-reproducible image output unless that property is separately demonstrated.
 
-**6. [ ] Define and emit the complete release record.**
+**6. [ ] Define and emit the complete local payload/candidate record.**
 
 - Deliverable: version/release ID, architecture-specific host/app digests, source
-  revision, provenance/inventory, supported upgrade edges, migration requirements
-  and release notes, following sections 3–4. Select actual GHCR repository names
-  and the approved Soda staging-ref convention; do not create them implicitly.
+  revision, provenance/inventory, schema, supported upgrade edges, migration
+  requirements and release notes, following sections 3–4. Empty qualified upgrade
+  edges are explicit, not permission to migrate. Intended GHCR names in a local
+  candidate do not reserve/provision them. Milestone 2 establishes actual namespace/
+  signing/channel authority; milestone 4 establishes the approved staging-ref policy.
 - Check: complete-or-error parsing and architecture selection; unknown/incomplete
   inputs fail safely. Inventory and app references have one authority, not multiple
   independently maintained release manifests.
@@ -438,7 +485,7 @@ its applicable target/action approval; this checklist does not grant those effec
   permissions, no machine secrets/state and all affected source tests. This is the
   first complete candidate, still not a native acceptance or production release.
 
-### Phase B — establish trusted distribution
+### Milestone 2 — trusted delivery
 
 **8. [ ] Implement trust and channel verification with local fixtures.**
 
@@ -468,7 +515,7 @@ its applicable target/action approval; this checklist does not grant those effec
   upload/promotion, duplicate invocation and withdrawn offer. A failure leaves the
   prior valid channel usable. Include exact per-architecture completeness checks.
 
-### Phase C — prove installation, update and recovery
+### Milestone 3 — native update and recovery
 
 **11. [ ] Implement the native update admission and activation caller.**
 
@@ -536,7 +583,7 @@ its applicable target/action approval; this checklist does not grant those effec
   authority and never offer an independent incompatible update path. Do not invent
   an OSTree remote or replace the whole Cockpit page to hide the error.
 
-### Phase D — deploy the release pipeline on the builder
+### Milestone 4 — automated release builder
 
 **18. [ ] Finalize this machine's builder operating contract.**
 
@@ -585,7 +632,7 @@ its applicable target/action approval; this checklist does not grant those effec
   withdrawal behavior. Without fleet telemetry, use explicit controlled preview
   evidence rather than interpreting downloads as fleet health.
 
-### Phase E — production delivery and operational acceptance
+### Milestone 5 — production readiness
 
 **23. [ ] Qualify each supported architecture and upgrade path.**
 
@@ -625,6 +672,8 @@ its applicable target/action approval; this checklist does not grant those effec
   remain available and later writes survive the selected recovery path. A runbook
   alone is not a successful operational drill.
 
+### Milestone 6 — production launch
+
 **27. [ ] Publish and deploy the first production release progressively.**
 
 - Deliverable, after exact release/target approval: promote the signed qualified
@@ -648,7 +697,7 @@ its applicable target/action approval; this checklist does not grant those effec
 
 ### Definition of done and follow-ups
 
-**Done means steps 1–28 have evidence for the advertised deployment scope:** a new
+**Done means all six milestones have evidence for their applicable criteria and advertised deployment scope:** a new
 CoreOS stable release automatically produces a qualified, signed Soda release from
 approved staged changes, publishes/promotes through GHCR, and reaches appliances
 under explicit maintenance policy. Emergency releases work independently. Trust,
@@ -666,12 +715,11 @@ to the predecessor's separately reserved Updates platform.
 
 ## 10. Workstream status and next action
 
-The [ordered checklist above](#9-implementation-stages-and-exits) is the single task
-list for this workstream. **Step 1 is complete at its stated local-build scope;
-steps 2–28 remain pending.** Earlier feasibility/open-mechanism questions are now
-assigned to concrete payload, trust, native and migration steps rather than a
-second parallel Stage-1 closure list. No execution permissions changed when the
-coarse stages were expanded into this deployment sequence.
+The [six milestones above](#9-implementation-stages-and-exits) are the single task
+list for this workstream. **Milestone 1 is approved and in progress as one coherent
+slice; complete source/local checks precede the frozen full-candidate build.**
+Milestones 2–6 remain pending. This consolidation changes execution granularity,
+not production gates or effect permissions.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
 digest-pinned logically bound core appliance images and native keyed-Sigstore
@@ -680,15 +728,14 @@ verification, initially with explicit activation. The
 references, the writable-layout/client-layering costs and the isolated proof proposal.
 No custom update server or alternative boot backend is proposed.
 
-The owner approved implementing the first local recipe/layout slice. The
-[host-image build command](native-support.md#local-host-content-image-candidate)
-owns its invocation/effects and host-content-only limitations. Default installer
-paths are preserved; a compile-time tag selects vendor paths without widening native
-unit admission. Local packaging and both-layout host/Tailnet checks pass. Initial
-builder inspection found x86_64, 16 logical CPUs, 62 GiB RAM, approximately 543 GiB
-free in the checkout filesystem, readable KVM and local rootless Podman 5.8.2. This
-is resource availability, not dedicated capacity or native VM qualification. The
-shell's default Go is 1.27.0; this slice explicitly uses pinned Go 1.26.7.
+The owner approved the complete appliance candidate milestone, including app binding,
+Forgejo presentation, defaults/storage ownership, package fixes and release metadata.
+The [host-image command](native-support.md#local-host-content-image-candidate) owns
+invocation/effects. Default installer paths remain unchanged; vendor builds do not
+widen native unit admission. Initial builder inspection found native x86_64, 16
+logical CPUs, 62 GiB RAM, about 543 GiB free and local rootless Podman 5.8.2. That
+is resource availability, not dedicated capacity or VM qualification. Builds use
+pinned Go 1.26.7 rather than the shell's Go 1.27.0.
 
 **Built:** `.artifacts/host-image/verified-f390aa6/host.oci` is an unsigned,
 host-content-only candidate. The [receipt](implementation-history.md#first-local-host-content-image-build)
@@ -697,10 +744,15 @@ attempts. Bootc lint reports 12 passed, one skipped and one warning for package-
 `/var/lib/forgejo-runner` and `/var/lib/udisks2` directories; no warning-free or
 first-boot claim is made.
 
-**Next: step 2 — bind the fixed core application images**, then steps 3–7 complete
-the local appliance payload and package/release inputs. The checklist carries the
-remaining trust, native proof, scheduler deployment and production rollout in order.
-Obtain applicable fixture/trust grants before appliance proof.
+**Next within milestone 1: freeze, build and inspect the complete x86_64 candidate.**
+Source now emits three native bound-image Quadlets and packages the two persistent
+runtime archives for non-destructive import outside bootc storage. The canonical
+Forgejo payload is image-owned; machine settings/secrets are not generated. Release
+metadata supplies creation-image defaults, rejecting conflicting saved image IDs.
+The host RPM transaction and final inventory are locked from the retained x86_64
+receipt; missing exact versions fail, rather than selecting newer packages. RPM bytes
+are not mirrored and no aarch64 transaction lock/native proof is inferred.
+Applicable fixture/trust grants are still required before appliance proof.
 The Cockpit error still needs installed-version/caller confirmation. No retained
 target, registry, workflow, signing key or update client has been changed. Independent
 Tailnet tasks remain with their own workstream; this plan does not absorb their list.

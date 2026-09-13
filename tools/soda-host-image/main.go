@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/appliancerelease"
 	"github.com/levitateos/sodaos/internal/hostimage"
 	"github.com/levitateos/sodaos/internal/nativebuild"
 )
@@ -32,7 +33,15 @@ func run() error {
 	arch := flag.String("arch", "", "matching native x86_64 or aarch64")
 	out := flag.String("out", "", "new absolute attempt directory below this checkout's .artifacts (parent must exist)")
 	build := flag.Bool("build", false, "also pull the locked base, build/export and inspect the local OCI image")
+	complete := flag.Bool("complete", false, "build the full local appliance payload (requires --build; no publication)")
+	repository := flag.String("repository-prefix", "", "intended GHCR repository prefix for complete candidates; does not register or publish it")
 	flag.Parse()
+	if *complete && (!*build || !appliancerelease.ValidRepositoryPrefix(*repository)) {
+		return errors.New("--complete requires --build and an explicit ghcr.io/OWNER/PREFIX")
+	}
+	if !*complete && *repository != "" {
+		return errors.New("repository prefix applies only to complete candidates")
+	}
 	if flag.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
 	}
@@ -88,7 +97,7 @@ func run() error {
 		cmd.Dir = dir
 		cmd.Stdout = log
 		cmd.Stderr = log
-		cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOFLAGS=-mod=readonly", "CGO_ENABLED=0")
+		cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOFLAGS=-mod=readonly", "CGO_ENABLED=0", "PATH="+filepath.Join(runtime.GOROOT(), "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("%s failed; retain attempt and inspect build.log: %w", name, err)
 		}
@@ -129,6 +138,13 @@ func run() error {
 			return err
 		}
 	}
+	scope := "host-content-only"
+	if *complete {
+		if _, err = completeCandidate(snapshot, contextDir, *out, *arch, revision, *repository, base, execute, capture); err != nil {
+			return err
+		}
+		scope = "complete-local-payload"
+	}
 	if err = hostimage.Inventory(contextDir); err != nil {
 		return err
 	}
@@ -142,7 +158,7 @@ func run() error {
 		return err
 	}
 	iid := filepath.Join(*out, "host.iid")
-	if err = execute(contextDir, "podman", "--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/"+platform, "--build-arg=BASE_IMAGE="+pinned, "--label=org.opencontainers.image.revision="+revision, "--label=org.opencontainers.image.base.name="+pinned, "--label=org.opencontainers.image.base.digest="+strings.SplitN(pinned, "@", 2)[1], "--label=org.opencontainers.image.version="+base.Release+".soda-"+revision[:12], "--iidfile", iid, "--file", "Containerfile", "."); err != nil {
+	if err = execute(contextDir, "podman", "--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/"+platform, "--build-arg=BASE_IMAGE="+pinned, "--build-arg=PAYLOAD_SCOPE="+scope, "--label=org.opencontainers.image.revision="+revision, "--label=org.opencontainers.image.base.name="+pinned, "--label=org.opencontainers.image.base.digest="+strings.SplitN(pinned, "@", 2)[1], "--label=org.opencontainers.image.version="+base.Release+".soda-"+revision[:12], "--iidfile", iid, "--file", "Containerfile", "."); err != nil {
 		return err
 	}
 	data, err := os.ReadFile(iid)
@@ -158,7 +174,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if observed != "linux/"+platform+" "+revision+" host-content-only" {
+	if observed != "linux/"+platform+" "+revision+" "+scope {
 		return errors.New("built image identity/platform mismatch")
 	}
 	// Networkless, read-only build inspection, not an appliance boot. Keep the
@@ -183,6 +199,11 @@ func run() error {
 	if err = nativebuild.WriteNew(filepath.Join(*out, "packages.txt"), []byte(packages+"\n"), 0600); err != nil {
 		return err
 	}
+	if *complete {
+		if err = inspectComplete(contextDir, *out, id, capture); err != nil {
+			return err
+		}
+	}
 	if err = execute(contextDir, "podman", "--remote=false", "save", "--format=oci-archive", "--output", filepath.Join(*out, "host.oci"), id); err != nil {
 		return err
 	}
@@ -197,7 +218,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	result := struct{ Revision, Architecture, Base, Image, ArchiveSHA256, Scope string }{revision, *arch, pinned, id, hash, "host-content-only; unsigned; no boot/install/upgrade acceptance"}
+	if *complete {
+		if err = recordCandidate(*out, *repository, archiveImage, hash); err != nil {
+			return err
+		}
+	}
+	result := struct{ Revision, Architecture, Base, Image, Manifest, ArchiveSHA256, Scope string }{revision, *arch, pinned, id, archiveImage.Manifest, hash, scope + "; unsigned/unpublished; no boot/install/upgrade acceptance"}
 	encoded, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return err
@@ -205,7 +231,7 @@ func run() error {
 	if err = nativebuild.WriteNew(filepath.Join(*out, "result.json"), append(encoded, '\n'), 0600); err != nil {
 		return err
 	}
-	fmt.Println("Built local unsigned host-content image at", *out, "; not an installable appliance release")
+	fmt.Println("Built local unsigned", scope, "at", *out, "; no publication or boot/upgrade acceptance")
 	return nil
 }
 

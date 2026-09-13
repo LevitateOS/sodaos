@@ -152,24 +152,25 @@ func Prepare(source, out, arch, revision string) (Base, error) {
 	if err = copyFile("appliance/host.Containerfile", "Containerfile", 0644, false); err != nil {
 		return b, err
 	}
-	for name, text := range map[string]string{"packages.list": strings.Join(packages, "\n") + "\n", "tailscale-repo.url": repo + "\n"} {
+	for name, text := range map[string]string{"packages.list": strings.Join(packages, "\n") + "\n", "packages.expected": "", "tailscale-repo.url": repo + "\n"} {
 		if err = write(name, []byte(text), 0644); err != nil {
 			return b, err
 		}
 	}
 	// Deliberately enumerate only shipped host inputs, never recursively copy /etc.
 	files := map[string]string{
-		"appliance/config/soda.sysusers":        "usr/lib/sysusers.d/soda.conf",
-		"appliance/config/runners.sysusers":     "usr/lib/sysusers.d/soda-runners.conf",
-		"appliance/config/soda.tmpfiles":        "usr/lib/tmpfiles.d/soda.conf",
-		"appliance/config/runners.tmpfiles":     "usr/lib/tmpfiles.d/soda-runners.conf",
-		"appliance/config/90-soda-routing.conf": "usr/lib/sysctl.d/90-soda-routing.conf",
-		"appliance/config/cockpit.socket.conf":  "usr/lib/systemd/system/cockpit.socket.d/10-soda.conf",
-		"appliance/config/cockpit.pam":          "etc/pam.d/cockpit",
-		"appliance/config/cockpit.conf":         "etc/cockpit/cockpit.conf",
-		"appliance/config/console-welcome.sh":   "etc/profile.d/soda-console-welcome.sh",
-		"LICENSE":                               "usr/share/licenses/soda/LICENSE",
-		"NOTICE":                                "usr/share/licenses/soda/NOTICE",
+		"appliance/config/soda.sysusers":         "usr/lib/sysusers.d/soda.conf",
+		"appliance/host-image/packages.tmpfiles": "usr/lib/tmpfiles.d/soda-host-packages.conf",
+		"appliance/config/runners.sysusers":      "usr/lib/sysusers.d/soda-runners.conf",
+		"appliance/config/soda.tmpfiles":         "usr/lib/tmpfiles.d/soda.conf",
+		"appliance/config/runners.tmpfiles":      "usr/lib/tmpfiles.d/soda-runners.conf",
+		"appliance/config/90-soda-routing.conf":  "usr/lib/sysctl.d/90-soda-routing.conf",
+		"appliance/config/cockpit.socket.conf":   "usr/lib/systemd/system/cockpit.socket.d/10-soda.conf",
+		"appliance/config/cockpit.pam":           "etc/pam.d/cockpit",
+		"appliance/config/cockpit.conf":          "etc/cockpit/cockpit.conf",
+		"appliance/config/console-welcome.sh":    "etc/profile.d/soda-console-welcome.sh",
+		"LICENSE":                                "usr/share/licenses/soda/LICENSE",
+		"NOTICE":                                 "usr/share/licenses/soda/NOTICE",
 	}
 	for _, name := range []string{"soda-host.service", "soda-host.socket", "soda-project@.service", "soda-tailnet@.service", "soda-runner@.service"} {
 		files["appliance/services/"+name] = "usr/lib/systemd/system/" + name

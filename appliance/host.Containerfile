@@ -5,13 +5,16 @@ FROM ${BASE_IMAGE}
 
 # Keep the existing provisioning package list as the source of authority. The
 # preparation command validates it and emits this argument file and repository URL.
-COPY packages.list tailscale-repo.url /run/soda-build/
+COPY packages.list packages.expected tailscale-repo.url /run/soda-build/
 RUN curl --fail --show-error --location "$(cat /run/soda-build/tailscale-repo.url)" \
       --output /etc/yum.repos.d/tailscale.repo && \
     rpm-ostree install $(cat /run/soda-build/packages.list) && \
     mkdir -p /usr/share/soda/host-image && \
     rpm -qa --qf '%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' > /run/soda-build/packages.unsorted && \
-    LC_ALL=C sort /run/soda-build/packages.unsorted > /usr/share/soda/host-image/packages.txt
+    LC_ALL=C sort /run/soda-build/packages.unsorted > /usr/share/soda/host-image/packages.txt && \
+    if test -s /run/soda-build/packages.expected; then \
+      diff -u /run/soda-build/packages.expected /usr/share/soda/host-image/packages.txt; \
+    fi
 
 COPY rootfs/ /
 # forgejo-runner-12.13.2-1.fc44 ships whitespace-only tab lines that bootc
@@ -27,6 +30,7 @@ RUN --mount=type=tmpfs,target=/sys systemctl mask bootc-fetch-apply-updates.time
     ostree container commit && \
     bootc container lint
 
-LABEL org.opencontainers.image.title="SodaOS host-content candidate" \
+ARG PAYLOAD_SCOPE=host-content-only
+LABEL org.opencontainers.image.title="SodaOS appliance candidate" \
       org.opencontainers.image.source="https://github.com/LevitateOS/sodaos" \
-      io.soda.host-image.scope="host-content-only"
+      io.soda.host-image.scope="${PAYLOAD_SCOPE}"

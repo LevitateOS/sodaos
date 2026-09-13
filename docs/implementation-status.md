@@ -75,15 +75,16 @@ The owner subsequently approved the first local implementation slice: the plan n
 records the noninteractive host-content builder, vendor layout and focused tests.
 Its [first native x86_64 build receipt](implementation-history.md#first-local-host-content-image-build)
 now records `f390aa6` built/exported and checked with the existing OCI verifier plus
-a read-only package/layout inspection. The tmpfiles lint warning and missing full
+a read-only package/layout inspection. That first artifact's tmpfiles lint warning and missing full
 appliance payload remain explicit. The existing installer is unchanged; no deployable
 release or native boot/upgrade proof is claimed.
-The owner requested a complete deployment sequence. The plan's
-[28-step checklist](release-engineering-plan.md#9-implementation-stages-and-exits)
-is now the single release-engineering task list through complete payload, trusted
-GHCR delivery, native recovery proof, local automation and production operation.
-Step 1 is complete at local-build scope; step 2 (core application image binding) is
-next. This documentation expansion grants no additional execution effects.
+The owner requested consolidated execution and approved **milestone 1: complete
+appliance candidate** (source/local builds). The plan's
+[six milestones](release-engineering-plan.md#9-implementation-stages-and-exits)
+are the execution units; 28 retained criteria are not separate approval handoffs.
+App binding, immutable Forgejo assets, defaults/storage ownership, RPM fixes and
+local metadata are authored; focused tests pass and the frozen full x86_64 build
+is next. The owning plan retains exact status, limitations and subsequent grants.
 No timer or unattended pipeline has been installed or enabled.
 The current selection grants no publication/automatic CI, signing/trust change,
 service/VM lifecycle or retained-appliance migration. No installed state changed.
@@ -226,6 +227,12 @@ Tailnet work.
   [the refactoring plan](refactoring-plan.md#selected-mechanism-removals)
   owns that source work. This does not grant retained-state conversion/cleanup,
   provider requests, fixture/service lifecycle, native delivery or publishing.
+- **Release engineering:** milestone 1 complete-candidate source/local builds are
+  approved as one slice, including read-only image inspections. This is not GHCR
+  publication, signing/trust setup, timer/automatic execution, native fixture
+  lifecycle or retained-appliance migration approval. The
+  [owning plan](release-engineering-plan.md#10-workstream-status-and-next-action)
+  tracks completion independently of other workstreams.
 - **Tailnet:** the user explicitly selected Stage 4 source implementation and local
   tests, and then explicitly requested source completion rather than another blocker
   handoff. The source candidate is prepared; further source fixes/tests need no new

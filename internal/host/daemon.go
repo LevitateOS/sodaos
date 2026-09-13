@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/levitateos/sodaos/internal/appliancerelease"
+	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/nativebuild"
 	"github.com/levitateos/sodaos/internal/projectos"
 	"github.com/levitateos/sodaos/internal/runners"
 	"github.com/levitateos/sodaos/internal/strictjson"
@@ -38,6 +41,10 @@ type Config struct {
 }
 
 func LoadConfig(path string) (Config, error) {
+	return loadConfig(path, installlayout.Release)
+}
+
+func loadConfig(path, releasePath string) (Config, error) {
 	var c Config
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -47,6 +54,22 @@ func LoadConfig(path string) (Config, error) {
 	d.DisallowUnknownFields()
 	if err = d.Decode(&c); err != nil {
 		return c, err
+	}
+	if releasePath != "" {
+		p, err := appliancerelease.Load(releasePath)
+		if err != nil || nativebuild.RequireNative(p.Architecture) != nil {
+			return c, errors.New("immutable appliance image defaults unavailable")
+		}
+		// Never silently replace an operator's saved image choice. New installs
+		// omit these fields; a conflicting old install needs explicit migration.
+		project, companion := p.Images["project-os"].Config, p.Images["tailnet"].Config
+		if (c.Image != "" && c.Image != project) || (c.TailnetImage != "" && c.TailnetImage != companion) {
+			return c, errors.New("saved image selection conflicts with appliance release; explicit migration required")
+		}
+		c.Image = project
+		if c.TailnetManagement {
+			c.TailnetImage = companion
+		}
 	}
 	if _, err = netip.ParsePrefix(c.Subnet); err != nil {
 		return c, err
@@ -78,19 +101,19 @@ func (Native) Run(ctx context.Context, in []byte, command string, args ...string
 }
 
 type Daemon struct {
-	Tailnet        *tailnet.Management
-	Runners        *runners.Operations
-	Config         Config
-	Exec           Executor
+	Tailnet *tailnet.Management
+	Runners *runners.Operations
+	Config  Config
+	Exec    Executor
 	// tailnetEnabledCheck stubs the Off pre-check in tests. Production leaves
 	// it nil so StartTailnet uses the real policy owner with native identity.
 	tailnetEnabledCheck func(ctx context.Context, project, cid string) (bool, error)
-	admissionOnce  sync.Once
-	admission      chan struct{}
-	terminalMu     sync.Mutex
-	terminals      map[*http.Request]context.CancelFunc
-	terminalClosed bool
-	terminalWG     sync.WaitGroup
+	admissionOnce       sync.Once
+	admission           chan struct{}
+	terminalMu          sync.Mutex
+	terminals           map[*http.Request]context.CancelFunc
+	terminalClosed      bool
+	terminalWG          sync.WaitGroup
 }
 
 func (d *Daemon) podman(ctx context.Context, in []byte, args ...string) ([]byte, error) {

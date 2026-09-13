@@ -51,6 +51,10 @@ DROP TABLE oauth;
 ALTER TABLE oauth_tailnet RENAME TO oauth;`,
 }
 
+// SchemaVersion identifies the schema produced by this source's migration owner.
+// Matching versions alone do not establish an approved appliance upgrade path.
+func SchemaVersion() int { return len(migrations) }
+
 func migrate(ctx context.Context, db *sql.DB) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {

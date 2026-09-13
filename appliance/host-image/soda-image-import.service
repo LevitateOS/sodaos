@@ -1,0 +1,11 @@
+[Unit]
+Description=Import release-owned project and Tailnet images into retained Podman storage
+After=systemd-tmpfiles-setup.service
+Before=soda-host.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/soda/soda-image-import
+RemainAfterExit=yes
+TimeoutStartSec=11min
+UMask=0077

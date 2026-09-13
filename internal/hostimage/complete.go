@@ -1,0 +1,306 @@
+package hostimage
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+
+	"github.com/levitateos/sodaos/internal/appliancerelease"
+	"github.com/levitateos/sodaos/internal/nativebuild"
+)
+
+type PackageLock struct {
+	CoreOS       string
+	Architecture string
+	Requested    []string
+	Install      []string
+	Inventory    []string
+}
+
+// LockHostPackages pins the complete added transaction and checks the entire
+// resulting RPM inventory. Mirrors may disappear: fail, never resolve a newer
+// substitute. This is NEVRA/provenance locking, not byte-reproducible RPM storage.
+func LockHostPackages(source, context, arch string, base Base) (string, error) {
+	var lock PackageLock
+	if err := nativebuild.ReadJSON(filepath.Join(source, "appliance/locks/host-packages-"+arch+".json"), &lock); err != nil {
+		return "", fmt.Errorf("qualified architecture package lock required: %w", err)
+	}
+	b, err := os.ReadFile(filepath.Join(source, "appliance/provisioning/base.json"))
+	if err != nil {
+		return "", err
+	}
+	requested, _, err := PackageInputs(b)
+	if err != nil {
+		return "", err
+	}
+	if lock.CoreOS != base.Release || lock.Architecture != arch || !slices.Equal(lock.Requested, requested) || len(lock.Install) == 0 || len(lock.Inventory) == 0 {
+		return "", errors.New("host package lock does not match current base/provisioning")
+	}
+	seen := map[string]bool{}
+	for _, n := range lock.Install {
+		if !regexp.MustCompile(`^[a-z0-9][a-zA-Z0-9+._:-]*$`).MatchString(n) || seen[n] {
+			return "", errors.New("invalid RPM lock entry")
+		}
+		seen[n] = true
+	}
+	if !slices.IsSorted(lock.Inventory) {
+		return "", errors.New("sorted RPM inventory required")
+	}
+	seen = map[string]bool{}
+	for _, line := range lock.Inventory {
+		if !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9+._-]* [0-9]+:[a-zA-Z0-9+._~^-]+$`).MatchString(line) || seen[line] {
+			return "", errors.New("invalid expected RPM inventory")
+		}
+		seen[line] = true
+	}
+	expected := []byte(strings.Join(lock.Inventory, "\n") + "\n")
+	if err = ownedWrite(filepath.Join(context, "packages.list"), []byte(strings.Join(lock.Install, "\n")+"\n"), 0644); err != nil {
+		return "", err
+	}
+	if err = ownedWrite(filepath.Join(context, "packages.expected"), expected, 0644); err != nil {
+		return "", err
+	}
+	return hashBytes(expected), nil
+}
+
+func ownedWrite(path string, data []byte, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, data, mode); err != nil {
+		return err
+	}
+	return os.Chmod(path, mode)
+}
+func hashBytes(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
+
+// CopyPublicTree accepts only the generated public stage, never a mutable
+// installed /etc or /var tree. Symlinks/special files are refused; new output is
+// normalized independently of the build user's private umask.
+func CopyPublicTree(source, dest string) (map[string]string, error) {
+	files := map[string]string{}
+	info, err := os.Lstat(source)
+	if err != nil || !info.IsDir() {
+		return nil, errors.New("real generated public directory required")
+	}
+	err = filepath.WalkDir(source, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		to := filepath.Join(dest, rel)
+		if d.IsDir() {
+			if err = os.MkdirAll(to, 0755); err != nil {
+				return err
+			}
+			return os.Chmod(to, 0755)
+		}
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return errors.New("public stage symlink/special file refused")
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err = ownedWrite(to, b, 0644); err != nil {
+			return err
+		}
+		files[filepath.ToSlash(rel)] = hashBytes(b)
+		return nil
+	})
+	return files, err
+}
+
+func StagePresentation(nativeRoot, forgejoContext, context string) (string, error) {
+	files, err := CopyPublicTree(filepath.Join(nativeRoot, "var/lib/soda/forgejo/gitea"), filepath.Join(forgejoContext, "forgejo"))
+	if err != nil {
+		return "", err
+	}
+	if len(files) == 0 || files["templates/custom/header.tmpl"] == "" {
+		return "", errors.New("complete Forgejo presentation required")
+	}
+	data, err := json.MarshalIndent(files, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	data = append(data, '\n')
+	if err = ownedWrite(filepath.Join(forgejoContext, "presentation.json"), data, 0644); err != nil {
+		return "", err
+	}
+	if err = ownedWrite(filepath.Join(context, "rootfs/usr/share/soda/host-image/presentation.json"), data, 0644); err != nil {
+		return "", err
+	}
+	return hashBytes(data), nil
+}
+
+// Complete binds native app callers to the same immutable payload metadata and
+// packages the two persistent-runtime image archives outside bootc's GC store.
+func Complete(source, nativeRoot, context, archives string, p appliancerelease.Payload) error {
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	root := filepath.Join(context, "rootfs")
+	for _, name := range []string{"forgejo", "dashboard", "proxy"} {
+		unit := map[string]string{"forgejo": "forgejo.container", "dashboard": "soda-dashboard.container", "proxy": "soda-proxy.container"}[name]
+		original, err := os.ReadFile(filepath.Join(source, "appliance/services", unit))
+		if err != nil {
+			return err
+		}
+		body, err := BoundQuadlet(string(original), p.Images[name].Reference)
+		if err != nil {
+			return err
+		}
+		if err = ownedWrite(filepath.Join(root, "usr/share/containers/systemd", unit), []byte(body), 0644); err != nil {
+			return err
+		}
+		link := filepath.Join(root, "usr/lib/bootc/bound-images.d", unit)
+		if err = os.MkdirAll(filepath.Dir(link), 0755); err != nil {
+			return err
+		}
+		if err = os.Symlink("/usr/share/containers/systemd/"+unit, link); err != nil {
+			return err
+		}
+	}
+	// Canonical branding already adapted by the ordinary staging owner.
+	if _, err := CopyPublicTree(filepath.Join(nativeRoot, "etc/cockpit/branding"), filepath.Join(root, "etc/cockpit/branding")); err != nil {
+		return err
+	}
+	if _, err := CopyPublicTree(filepath.Join(nativeRoot, "usr/local/share/soda/fastfetch"), filepath.Join(root, "usr/share/soda/fastfetch")); err != nil {
+		return err
+	}
+	for from, to := range map[string]string{
+		"etc/motd": "etc/motd", "etc/fastfetch/config.jsonc": "etc/fastfetch/config.jsonc",
+		"etc/soda/forgejo.env": "etc/soda/forgejo.env", "etc/soda/proxy.Caddyfile": "etc/soda/proxy.Caddyfile",
+	} {
+		b, err := os.ReadFile(filepath.Join(nativeRoot, from))
+		if err != nil {
+			return err
+		}
+		b = []byte(strings.ReplaceAll(string(b), "/usr/local/share/soda/", "/usr/share/soda/"))
+		mode := os.FileMode(0644)
+		if strings.HasSuffix(from, "forgejo.env") {
+			mode = 0600
+		}
+		if err = ownedWrite(filepath.Join(root, to), b, mode); err != nil {
+			return err
+		}
+		if strings.HasPrefix(from, "etc/soda/") {
+			if err = ownedWrite(filepath.Join(root, "usr/share/soda/defaults", filepath.Base(from)), b, 0644); err != nil {
+				return err
+			}
+		}
+	}
+	// Machine setup must supply the explicit private subnet. Images are not saved
+	// here: the vendor helper reads their immutable IDs from the release owner.
+	example := []byte("{\n  \"network\": \"soda-projects\",\n  \"bridge\": \"soda0\",\n  \"subnet\": \"\",\n  \"tailnet_management\": false\n}\n")
+	if err := ownedWrite(filepath.Join(root, "usr/share/soda/defaults/host.example.json"), example, 0644); err != nil {
+		return err
+	}
+	for from, to := range map[string]string{
+		"appliance/host-image/soda-image-import.service": "usr/lib/systemd/system/soda-image-import.service",
+		"appliance/host-image/retained-images.conf":      "usr/lib/systemd/system/soda-host.service.d/10-images.conf",
+	} {
+		b, err := os.ReadFile(filepath.Join(source, from))
+		if err != nil {
+			return err
+		}
+		if err = ownedWrite(filepath.Join(root, to), b, 0644); err != nil {
+			return err
+		}
+	}
+	dropin, err := os.ReadFile(filepath.Join(source, "appliance/host-image/retained-images.conf"))
+	if err != nil {
+		return err
+	}
+	// Keep the project unit's exact-fragment/drop-in admission contract unchanged:
+	// put this dependency directly in its generated vendor fragment, not a drop-in.
+	project := filepath.Join(root, "usr/lib/systemd/system/soda-project@.service")
+	body, err := os.ReadFile(project)
+	if err != nil {
+		return err
+	}
+	body = []byte(strings.Replace(string(body), "[Unit]\n", string(dropin)+"\n", 1))
+	if err = ownedWrite(project, body, 0644); err != nil {
+		return err
+	}
+	for _, name := range []string{"project-os", "tailnet"} {
+		archive := filepath.Join(archives, name+".oci")
+		got, err := nativebuild.HashFile(archive)
+		if err != nil || got != p.Images[name].ArchiveSHA256 {
+			return fmt.Errorf("%s archive changed before staging", name)
+		}
+		// A hard link keeps the immutable input identity without a second multi-GB
+		// copy. Both paths live in this fresh attempt; neither is mutable runtime data.
+		dest := filepath.Join(root, "usr/share/soda/images", name+".oci")
+		if err = os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+			return err
+		}
+		if err = os.Link(archive, dest); err != nil {
+			return err
+		}
+		if err = os.Chmod(dest, 0644); err != nil {
+			return err
+		}
+	}
+	// The complete payload is the sole resolved-image/defaults owner. Leave only
+	// a pointer in the earlier host-content build marker, not stale scope data.
+	if err := ownedWrite(filepath.Join(root, "usr/share/soda/host-image/build.json"), []byte("{\"Scope\":\"complete-local-payload\",\"ReleaseMetadata\":\"/usr/share/soda/release.json\"}\n"), 0644); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err = ownedWrite(filepath.Join(root, "usr/share/soda/release.json"), append(data, '\n'), 0644); err != nil {
+		return err
+	}
+	// Normalize only fresh image context directories, not credentials or sources.
+	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return os.Chmod(path, 0755)
+		}
+		return nil
+	})
+}
+
+func BoundQuadlet(body, reference string) (string, error) {
+	lines := strings.Split(body, "\n")
+	image, container := 0, 0
+	var out []string
+	for _, line := range lines {
+		switch {
+		case line == "[Container]":
+			container++
+			out = append(out, line, "GlobalArgs=--storage-opt=additionalimagestore=/usr/lib/bootc/storage", "Pull=never")
+		case strings.HasPrefix(line, "Image="):
+			image++
+			out = append(out, "Image="+reference)
+		case strings.HasPrefix(line, "Pull="):
+		case strings.HasPrefix(line, "GlobalArgs="):
+			return "", errors.New("unexpected existing Quadlet storage arguments")
+		default:
+			out = append(out, line)
+		}
+	}
+	if image != 1 || container != 1 {
+		return "", errors.New("one fixed Quadlet container/image required")
+	}
+	return strings.Join(out, "\n"), nil
+}

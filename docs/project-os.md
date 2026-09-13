@@ -422,6 +422,13 @@ remain outside scope.
 
 ## Persistent state and lifecycle
 
+The image-owned appliance candidate changes only **creation defaults**, not this
+retained-root contract. Its Project OS/Tailnet backing images must remain in ordinary
+Podman storage rather than bootc's garbage-collected bound-app store. The
+[release engineering owner](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership)
+defines exact import/defaults ownership and refusal of conflicting saved image IDs;
+this does not migrate, restart or rebuild an existing project/companion.
+
 | State | Contract |
 | --- | --- |
 | Account databases, `/var/lib/soda/accounts/`, homes | Preserve original identities, UID/GID/groups, checkouts, dirty/untracked files, user configuration and private inputs in the existing writable root. No rename/remapping or checkout reset on Open/Start. |

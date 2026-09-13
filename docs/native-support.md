@@ -106,13 +106,42 @@ installs the package list extracted from the current provisioning owner and reco
 resolved RPMs. The base is digest-pinned; live Fedora/Tailscale repositories are not
 snapshotted, so this is **not a reproducible-RPM or production-release claim**.
 
-This first slice is **host-content-only**: binaries, vendor units/Quadlets and basic
-native configuration. It does not yet bind/load app images, deliver Forgejo browser
-customization, migrate saved image IDs/configuration, or supply complete first-boot
-setup. The staged Quadlets retain their existing image references pending that next
-slice. Do not deploy this image or substitute it for an installable Soda release.
-Zincati updates are disabled and bootc's automatic timer masked only inside the
-candidate image, not on the builder or retained appliances.
+Without `--complete`, this remains **host-content-only**: binaries, vendor units/
+Quadlets and basic native configuration, retaining legacy/dev app references.
+It does not deliver the application payload or complete first-boot setup.
+
+For the complete local candidate, add an explicit **intended** repository prefix:
+
+```sh
+GOTOOLCHAIN=go1.26.7 go run ./tools/soda-host-image \
+  --arch x86_64 --out "$PWD/.artifacts/host-image/UNIQUE-COMPLETE-ATTEMPT" \
+  --build --complete --repository-prefix ghcr.io/OWNER/PREFIX
+```
+
+Replace `OWNER/PREFIX` with lowercase intended names; this does not reserve or create
+GHCR resources. `--complete` requires `--build`, the workspace-pinned Bun and the
+ordinary native asset/project-tool prerequisites. It reuses the existing recipes,
+Forgejo payload manifest, browser/locales/terminal builders and `stage.py` inside the
+frozen snapshot. App bases resolve once and are built by digest with `--pull=never`.
+The host transaction requires `appliance/locks/host-packages-ARCH.json`; currently
+only x86_64 has the qualified NEVRA/inventory input. No ARM lock is synthesized.
+
+Additional effects: public dependency downloads, local app builds and OCI exports,
+read-only/networkless Forgejo binary/presentation inspection and native host Quadlet
+`--dryrun` generation. Exact inspection containers/CIDs and intermediates remain.
+No application service, provider, VM or retained project is started. Output includes
+`images/{dashboard,forgejo,proxy,project-os,tailnet}.oci`, `app-inputs.json`, immutable
+presentation hashes, `payload.json`, `candidate.json`, `generated-quadlets.txt`,
+`host.oci` and the final `result.json`. Only retained-runtime archives are embedded
+in the host; three bound app references require later digest-preserving publication.
+A failed attempt is not complete merely because some archives or payload.json exist.
+
+The [release plan](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership)
+owns defaults, persistent image storage and metadata. Complete candidates are still
+unsigned/unpublished, with no native first-install/update/recovery acceptance or
+qualified upgrade edges. Do not deploy either mode as an installable Soda release.
+Zincati updates are disabled and bootc's automatic timer masked only inside these
+candidate images, not on the builder or retained appliances.
 
 ## SSH, commands and exact-source remote phases
 

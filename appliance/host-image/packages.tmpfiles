@@ -1,0 +1,4 @@
+# The package image creates these directories; declare their native boot-time
+# recreation rather than depend on image /var content surviving deployment.
+d /var/lib/forgejo-runner 0755 forgejo-runner forgejo-runner -
+d /var/lib/udisks2 0700 root root -

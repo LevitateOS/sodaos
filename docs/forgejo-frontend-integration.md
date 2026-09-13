@@ -36,6 +36,23 @@ cache versioning, duplicate-entry retirement checks and real BFCache/cache evide
 Its remaining acceptance limits are in the leading handoff; no delivery follows.
 The fixed native login-entry constraint and non-atomic logout limit still apply.
 
+## Image-owned presentation
+
+The complete local appliance candidate reuses `internal/nativebuild/forgejo-payload.json`
+and the existing browser/locales/terminal/staging owners; it has no second asset list.
+`appliance/forgejo.Containerfile` puts that exact public tree at
+`/usr/share/soda/forgejo`, root-owned with read-only files. Both upstream custom-path
+variables (`GITEA_CUSTOM`, `FORGEJO_CUSTOM`) select it. Its `conf` symlink points to
+retained `/data/gitea/conf`: the selected upstream entrypoint creates that directory
+before setup writes app.ini. Databases/repos/configuration remain in `/data`; no
+release update copies templates over the live data tree. Resources inside the app
+image need no additional host bind mount or relabeling exception.
+
+This is packaging/caller wiring, not authenticated first-boot or SELinux/upgrade
+acceptance. The [release engineering plan](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership)
+owns image selection, evidence and native proof; the existing writable installer
+continues staging its current custom tree until a separately qualified migration.
+
 ## Verified source surface
 
 The selected [Soda settings pages](sodaspaces-plan.md#settings-pages-and-os-selection)
