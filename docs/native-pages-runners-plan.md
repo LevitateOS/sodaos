@@ -75,7 +75,7 @@ verified. Record source removal and each installed removal separately.
 
 ## 7. Close documentation and the bounded completion record
 
-Update current guides to name native **Runners** at `/?soda-view=runners`. Remove
+Update current guides to name native **Runners** at `/admin?soda-view=runners`. Remove
 fallback wording only for actually retired targets. Update the handoff in place
 with the candidate, affected targets, checks, remaining limits and permissions;
 keep detailed execution receipts in history rather than extending the plan.

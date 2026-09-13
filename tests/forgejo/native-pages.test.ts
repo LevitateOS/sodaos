@@ -14,7 +14,7 @@ const origin = 'http://localhost:3300';
 // Prepare current canonical preview assets first. Without a Soda backend, the
 // native host must show stable connection failure; the separate connection journey
 // supplies real Soda/OAuth proof.
-test('native Forgejo hosts all four bounded Soda views', {
+test('non-admin Forgejo hosts Spaces views and denies admin Soda hosts', {
   skip: process.env.SODA_FORGEJO_NATIVE_PAGES !== '1',
   timeout: 120000,
 }, async t => {
@@ -51,10 +51,19 @@ test('native Forgejo hosts all four bounded Soda views', {
 
   const views = [
     {query: '?soda-view=spaces', title: 'Spaces', destination: '/-/soda/spaces', repository: ''},
-    {query: '?soda-view=tailnet', title: 'Tailnet', destination: '/-/soda/settings/tailnet', repository: ''},
-    {query: '?soda-view=runners', title: 'Runners', destination: '/-/soda/settings/runners', repository: ''},
     {query: '?soda-view=repository-spaces&repository_id=9223372036854775807', title: 'Repository Spaces settings', destination: '/-/soda/repositories/9223372036854775807/settings/spaces', repository: '9223372036854775807'},
   ];
+  // Runners and Tailnet render on the admin host, which this non-admin fixture
+  // cannot render: Forgejo gates /admin on site administration, so no Soda
+  // mount or private metadata may appear there regardless of the selector.
+  for (const query of ['?soda-view=runners', '?soda-view=tailnet', '?soda-view=runners&soda-view=runners']) {
+    await t.test(`admin gate denies ${query} without site administration`, async () => {
+      const response = await page.goto(origin + '/admin' + query);
+      assert.equal(response?.status(), 403, 'the existing admin route denies this native actor');
+      assert.equal(await page.locator('#soda-native-content,soda-runners,soda-tailnet').count(), 0);
+      // Ordinary signed-page drawer behavior still belongs to the native footer.
+    });
+  }
   for (const view of views) for (const width of [1440, 390]) {
     await t.test(`${view.title} at ${width}px`, async () => {
       await page.setViewportSize({width, height: 1000});
@@ -102,7 +111,8 @@ test('native Forgejo hosts all four bounded Soda views', {
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#soda-notification-preview').isVisible(), false);
 
-  for (const query of ['?soda-view=unknown', '?soda-view=spaces&soda-view=runners']) {
+  // Legacy dashboard Runners/Tailnet queries render the ordinary dashboard now.
+  for (const query of ['?soda-view=unknown', '?soda-view=spaces&soda-view=runners', '?soda-view=runners', '?soda-view=tailnet', '?soda-view=runners&repository_id=1']) {
     const response = await page.goto(origin + '/' + query);
     assert(response);
     assert.equal(await page.locator('#soda-native-content').count(), 0);
@@ -111,7 +121,7 @@ test('native Forgejo hosts all four bounded Soda views', {
     assert.equal(body, baseline, 'unchanged native dashboard HTML, independent of responsive Vue rendering');
   }
   for (const query of [
-    '?soda-view=spaces&repository_id=1', '?soda-view=tailnet&repository_id=1', '?soda-view=repository-spaces',
+    '?soda-view=spaces&repository_id=1', '?soda-view=repository-spaces',
     '?soda-view=repository-spaces&repository_id=01', '?soda-view=repository-spaces&repository_id=0',
     '?soda-view=repository-spaces&repository_id=1&repository_id=2',
     '?soda-view=repository-spaces&repository_id=9223372036854775808',
@@ -146,8 +156,8 @@ test('native login returns guests to Soda views and native logout still works', 
   const browser = await chromium.launch({channel: 'chrome', headless: true, chromiumSandbox: true});
   t.after(() => browser.close());
   const page = await browser.newPage();
-  for (const query of ['?soda-view=spaces', '?soda-view=runners', '?soda-view=tailnet', '?soda-view=repository-spaces&repository_id=1']) {
-    await page.goto(origin + '/' + query);
+  for (const destination of ['/?soda-view=spaces', '/admin?soda-view=runners', '/admin?soda-view=tailnet', '/?soda-view=repository-spaces&repository_id=1']) {
+    await page.goto(origin + destination);
     assert.equal(await page.locator('#soda-native-content').count(), 0);
     assert.equal(await page.locator('#soda-settings-link').count(), 0);
   }
@@ -164,10 +174,17 @@ test('native login returns guests to Soda views and native logout still works', 
   await page.locator('form[action="/user/login"] button.ui.primary').click();
   await page.waitForURL(origin + destination);
   await page.locator('#soda-native-content').getByRole('button', {name: 'Retry connection'}).waitFor();
-  for (const query of ['?soda-view=runners', '?soda-view=tailnet', '?soda-view=repository-spaces&repository_id=1']) {
+  for (const query of ['?soda-view=repository-spaces&repository_id=1']) {
     await page.goto(`${origin}/user/login?redirect_to=${encodeURIComponent('/' + query)}`);
     assert.equal(page.url(), origin + '/' + query);
     assert.equal(await page.locator('#soda-native-content').count(), 1);
+  }
+  // The non-admin login cannot render the admin host: the redirect lands but
+  // mounts nothing.
+  for (const query of ['?soda-view=runners', '?soda-view=tailnet']) {
+    await page.goto(`${origin}/user/login?redirect_to=${encodeURIComponent('/admin' + query)}`);
+    assert.equal(page.url(), origin + '/admin' + query);
+    assert.equal(await page.locator('#soda-native-content').count(), 0);
   }
   // Native account forms use Go's cross-origin request protection, not hidden
   // CSRF fields. The upstream logout route is outside that middleware; retain
@@ -177,6 +194,9 @@ test('native login returns guests to Soda views and native logout still works', 
     maxRedirects: 0,
   });
   assert.equal(denied.status(), 403);
+  // Return from the denied admin host before exercising the signed page's
+  // coordinated logout; that host correctly has no Soda page mount.
+  await page.goto(origin + destination);
   await page.reload();
   assert.equal(await page.locator('#soda-native-content').count(), 1);
   const profile = page.locator('#navbar details').filter({has: page.locator('a[data-url="/user/logout"]')});

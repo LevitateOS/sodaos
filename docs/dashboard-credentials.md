@@ -84,7 +84,7 @@ changed, no probe is committed, and a v9 CHECK under a stale v10 marker is refus
 Missing/wrong-key, newer-schema and incomplete-schema refusal remain required.
 
 `/settings/tailnet` and `destination=tailnet` bind only the fixed
-`/?soda-view=tailnet` return, including named callback failures. The native Lit
+`/admin?soda-view=tailnet` return, including named callback failures. The native Lit
 registration/navigation now has Stage-3 source and emitted-component checks; actual
 native-page acceptance remains pending in the handoff.
 The SQLite migration is independent of the helper opt-in flag. Existing targets

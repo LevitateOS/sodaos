@@ -61,8 +61,14 @@ Focused commands prepare their own assets:
   HTML, authentication or provider and cannot be selected alongside a native page
   origin. Conditional page/layout journeys are executed by the commands below, not silently counted as covered here.
 - `bun run test:pages` — uncached Go producers followed by all four real HTML/CSP
-  browser consumers (Spaces, operator runners, Tailnet and repository settings). Missing or
-  empty fixture output fails before Chromium. `test:spaces-page` is a compatibility
+  browser consumers (Spaces, operator runners, Tailnet and repository settings).
+  Runners/Tailnet now require an explicitly authorized admin-eligible local
+  fixture account. The producer checks that role before creating its OAuth app
+  and refuses the former nonadmin fixture; it never promotes an account. The
+  separately opt-in `SODA_FORGEJO_NATIVE_PAGES=1` preview tests retain nonadmin
+  Spaces/denied-admin-host coverage, not positive admin-page acceptance. Use the
+  [handoff](implementation-status.md) for fixture custody and permissions.
+  Missing or empty fixture output fails before Chromium. `test:spaces-page` is a compatibility
   alias for this expanded group. Run directories are printed and retained on failure.
 - `bun run test:layout` — the integrated drawer layout fixture.
 - `bun run test:forgejo` — Forgejo source tests plus local Lit runtime/settings-link.

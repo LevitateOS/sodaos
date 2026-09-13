@@ -392,8 +392,8 @@ following placement in the unified interface:
 | --- | --- |
 | Repository settings → Sodaspaces | Project OS selection before Create; existing project/profile/status, access summary and links to the real Spaces/drawer controls. Preserve current operation-specific project authority. |
 | Repository settings → AI automation | Issue resolver and PR review/fix configuration, user-defined CLI commands and documented variables, eligible execution image, setup/tests, event policy, secret references, timeout and fix-round bound. Native repository/workflow/secret permissions govern writes. |
-| Global Runners (`/?soda-view=runners`) | Operator-only local runner registration/service controls, configured slots, listener state and verified execution support. Repository owners do not administer host runners. |
-| Planned global Tailnet (`/?soda-view=tailnet`) and project Network panel | Operator-only host/enrollment configuration; current environment administration controls that project's managed connection. UI/lifecycle and implementation are owned by the [Tailnet plan](tailnet-integration-plan.md), not implemented by this table. |
+| Global Runners (`/admin?soda-view=runners`) | Operator-only local runner registration/service controls, configured slots, listener state and verified execution support. Repository owners do not administer host runners. |
+| Planned global Tailnet (`/admin?soda-view=tailnet`) and project Network panel | Operator-only host/enrollment configuration; current environment administration controls that project's managed connection. UI/lifecycle and implementation are owned by the [Tailnet plan](tailnet-integration-plan.md), not implemented by this table. |
 | Existing repository settings → Actions | Keep Forgejo's native runner visibility/registration scope, secrets and variables pages. These do not become local host-capacity controls. |
 
 **Sodaspaces page:** use a single labelled **Project OS** dropdown containing the

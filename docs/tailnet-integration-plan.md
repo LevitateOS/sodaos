@@ -121,8 +121,9 @@ manifests/build inputs when implementation selects them.
 
 ### Global Tailnet page
 
-Add operator-only **Tailnet** beside Runners, rendered at the proposed native
-`/?soda-view=tailnet` destination. Extend the existing fixed bookmark bridge,
+Add operator-only **Tailnet** beside Runners, rendered at the native
+`/admin?soda-view=tailnet` destination inside the real administration layout.
+Extend the existing fixed bookmark bridge,
 OAuth return and native-page registry through the page owner. A raw rendering URL
 is not a universal signed-out entry. Keep native Forgejo navigation/sign-out.
 

@@ -9,8 +9,8 @@ export interface RunnerInput {
   target: string; architecture: 'x86_64' | 'aarch64'; revision: string;
   origin: string; ca_file: string; ssh_config: string; ssh_host: string;
   operator_id: string; denied_id: string; runner_id: string; preserved_ids: string[];
-  // Read-only retained-target observations may declare their actual native roles.
-  // Mutation/provider scenarios retain the independent cross-role fixture gate.
+  // Legacy list-only declarations remain accepted only when both actors can
+  // render the current admin host. No native role is granted by this input.
   native_admins?: {operator: boolean; denied: boolean};
   registration?: {uuid: string; token_file: string; labels: string; scope: 'system'};
   provider?: {token_file: string; repository_id: string; repository_path: string; workflow: string; commit: string; observation: string; hold_seconds: number; run_id?: number};
@@ -42,7 +42,7 @@ export function runnerInput(value: unknown, permission: string, target: string |
     assert(phase === 'list', 'Actual retained roles are scoped to read-only list proof');
     const roles = object(v.native_admins);
     assert.deepEqual(Object.keys(roles).sort(), ['denied','operator']);
-    assert(typeof roles.operator === 'boolean' && typeof roles.denied === 'boolean');
+    assert(roles.operator === true && roles.denied === true, 'Both actors need native admin eligibility for the Runners host');
     result.native_admins = {operator:roles.operator,denied:roles.denied};
   }
   if (phase === 'register') {

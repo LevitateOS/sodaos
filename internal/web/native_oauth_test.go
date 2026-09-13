@@ -51,7 +51,7 @@ func TestNativeOAuthFailuresStayInFixedHostWithoutNewSession(t *testing.T) {
 				}
 				response := httptest.NewRecorder()
 				s.ServeHTTP(response, request)
-				if response.Code != 303 || response.Header().Get("Location") != s.Config.ForgejoURL+"/?soda-view="+destination+"&soda-connect=failed" || len(response.Result().Cookies()) != 0 {
+				if response.Code != 303 || response.Header().Get("Location") != s.Config.ForgejoURL+"/admin?soda-view="+destination+"&soda-connect=failed" || len(response.Result().Cookies()) != 0 {
 					t.Fatal("unsafe failure destination or session", response.Code)
 				}
 				if _, err := s.Store.Session(t.Context(), "session-alice"); err != nil {

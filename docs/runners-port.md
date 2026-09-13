@@ -21,19 +21,20 @@ This does not remove project GitHub CLI tools or Forgejo's native repository imp
 
 Soda's local runner capacity and service controls belong to the operator-only
 **Runners** destination. The source mounts the Lit component
-at `/?soda-view=runners` within Forgejo's native dashboard through its documented
+at `/admin?soda-view=runners` inside Forgejo's real administration layout through its documented
 template customization, while keeping Soda's protected `/-/soda/api/` endpoints.
-The old Go URL is a fixed bookmark bridge, not a separate page owner. It is not a Forgejo administrator page, a
+The old Go URL is a fixed bookmark bridge, not a separate page owner. It is not a native Forgejo admin backend feature, a
 repository drawer, or a revival of the removed standalone dashboard. The
 [settings plan](sodaspaces-plan.md#settings-pages-and-os-selection) owns its
 placement.
 
 Only the stable Forgejo user ID recorded as `operator_id` during Soda setup may
-read the page, inspect capacity, or mutate a runner. A Forgejo site, organization,
-or repository administrator does not gain that appliance authority. Conversely,
-the configured Soda operator need not be a Forgejo site administrator to inspect
-and control existing local services. Provider registration can still require a
-separate authorized provider administrator and credential.
+read protected runner data, inspect capacity, or mutate a runner. A Forgejo site,
+organization, or repository administrator does not gain that appliance authority.
+The browser host additionally requires native admin-page eligibility under the
+[native page contract](forgejo-soda-pages-plan.md#automatic-connection); Soda's
+protected APIs do not substitute that role for the configured operator identity.
+Provider registration still requires a separately authorized provider credential.
 
 Keep native repository/user/organization/administrator **Actions → Runners**,
 secrets, variables, workflows, jobs, and results with Forgejo. Soda owns only this appliance's runner

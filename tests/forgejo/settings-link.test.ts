@@ -21,13 +21,17 @@ async function navigationFixture(page: Page, prefix: string, context: NativeCont
     const pathname = new URL(route.request().url()).pathname;
     if (pathname === new URL(target).pathname) {
       const hostClass = context.nativeHost === false ? 'page-content' : 'page-content soda-page soda-native-page';
-      const content = context.view ? `<main class="${hostClass}"><div id="soda-native-content" data-view="${context.view}" data-actor="${context.actor || '1'}"></div></main>` : '<main>Native content</main>';
+      const mount = `<div id="soda-native-content" data-view="${context.view}" data-actor="${context.actor || '1'}"></div>`;
+      const content = context.admin && context.nativeHost !== false
+        ? `<div role="main" class="soda-admin">${context.view ? mount : 'Native content'}</div>`
+        : context.view ? `<main class="${hostClass}">${mount}</main>` : '<main>Native content</main>';
       await route.fulfill({contentType: 'text/html', body: `<!doctype html><link rel="icon" href="data:,">
         <nav id="navbar"><a href="${prefix}/explore/repos">Explore</a>
           <a id="soda-spaces-link" class="item" href="${prefix}${signed ? '/?soda-view=spaces' : '/-/soda/spaces'}">Spaces</a>
           ${signed ? `<span id="soda-settings-link" hidden data-actor="1" data-sub-url="${prefix}"></span>` : ''}
         </nav>
         ${signed && context.admin ? `<div class="flex-container-nav"><div class="ui fluid vertical menu">
+          <a class="active item" href="${prefix}/admin">Dashboard</a>
           <div class="header item">Soda</div>
           <a id="soda-runners-link" class="item" href="${prefix}/-/soda/settings/runners">Runners</a>
           <a id="soda-tailnet-link" class="item" href="${prefix}/-/soda/settings/tailnet">Tailnet</a></div></div>` : ''}
@@ -74,7 +78,7 @@ test('settings stay in native administration and do not depend on a Soda session
         window.dispatchEvent(new Event('soda-session-retired'));
       });
       assert.equal(await page.locator('#soda-admin-settings').count(), 0, 'no separate content toolbar');
-      assert.equal(await page.locator('.flex-container-nav > .ui.vertical.menu > a').count(), context.admin ? 2 : 0);
+      assert.equal(await page.locator('.flex-container-nav > .ui.vertical.menu > a').count(), context.admin ? 3 : 0);
       if (context.admin) {
         await page.locator('#soda-runners-link').focus();
         await page.keyboard.press('Tab');
@@ -88,16 +92,22 @@ test('settings stay in native administration and do not depend on a Soda session
   const noJS = await browser.newContext({javaScriptEnabled: false});
   const page = await noJS.newPage();
   await navigationFixture(page, '', {target: '/admin', view: '', admin: true}, 'expired');
-  assert.equal(await page.locator('.flex-container-nav > .ui.vertical.menu > a').count(), 2, 'sidebar entries work without JavaScript');
+  assert.equal(await page.locator('.flex-container-nav > .ui.vertical.menu > a').count(), 3, 'sidebar entries work without JavaScript');
   await noJS.close();
 });
 
-test('global navigation marks only validated matching Spaces, never operator settings', {skip: process.env.SODA_LIT_BROWSER !== '1'}, async t => {
+test('global navigation marks only validated matching entries', {skip: process.env.SODA_LIT_BROWSER !== '1'}, async t => {
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
-  const cases: readonly (NativeContext & {current?: boolean})[] = [
+  const cases: readonly (NativeContext & {current?: boolean | 'Runners' | 'Tailnet'})[] = [
     {target: '/?soda-view=spaces', view: 'spaces', current: true},
     {target: '/?soda-view=runners', view: 'runners'},
     {target: '/?soda-view=tailnet', view: 'tailnet'},
+    {target: '/admin?soda-view=runners', view: 'runners', admin: true, current: 'Runners'},
+    {target: '/admin?soda-view=tailnet', view: 'tailnet', admin: true, current: 'Tailnet'},
+    {target: '/admin?soda-view=runners', view: 'runners', admin: true, actor: '2'},
+    {target: '/admin?soda-view=runners', view: 'runners', admin: true, nativeHost: false},
+    {target: '/admin?soda-view=tailnet&soda-view=tailnet', view: '', admin: true},
+    {target: '/admin?soda-view=unknown', view: 'unknown', admin: true},
     {target: '/?soda-view=tailnet&repository_id=1', view: ''},
     {target: '/?soda-view=repository-spaces&repository_id=7', view: 'repository-spaces'},
     {target: '/', view: ''},
@@ -113,10 +123,25 @@ test('global navigation marks only validated matching Spaces, never operator set
       const page = await browser.newPage();
       await navigationFixture(page, prefix, context, 'expired');
       await assertCurrentSpaces(page, context.current === true);
-      assert.equal(await page.getByRole('link', {name: /^(Runners|Tailnet)$/}).count(), 0);
+      // The administration sidebar exists only for signed admins. A validated
+      // matching mount marks exactly its own entry; anything else marks none.
+      for (const name of ['Runners', 'Tailnet'] as const) {
+        const link = page.locator('.flex-container-nav > .ui.vertical.menu').getByRole('link', {name, exact: true});
+        assert.equal(await link.count(), context.admin === true ? 1 : 0);
+        if (context.admin === true) {
+          const marked = context.current === name;
+          assert.equal(await link.evaluate(element => element.classList.contains('active')), marked);
+          assert.equal(await link.getAttribute('aria-current'), marked ? 'page' : null);
+        }
+      }
+      if (context.admin) {
+        const active = page.locator('.flex-container-nav > .ui.vertical.menu > a.active');
+        assert.equal(await active.count(), 1, 'exactly one sidebar destination is current');
+        assert.equal(await active.innerText(), typeof context.current === 'string' ? context.current : 'Dashboard');
+      }
       assert.equal(await page.locator('#draft').inputValue(), 'unsaved');
       assert.equal(await page.getByRole('link', {name: 'Spaces', exact: true}).getAttribute('href'), prefix + '/?soda-view=spaces');
-      assert.equal(await page.locator('#navbar [aria-current="page"]').count(), context.current ? 1 : 0);
+      assert.equal(await page.locator('#navbar [aria-current="page"]').count(), context.current === true ? 1 : 0);
       await page.close();
     }
   }

@@ -10,6 +10,43 @@ import (
 )
 
 func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
+	// Reviewed Soda presentation branch around dashboard.tmpl's pristine native
+	// content. Any branch edit, including a presentation-epoch bump, must update
+	// these exact boundaries; the pristine remainder keeps its hash below.
+	adminDashboardBranchHead := `{{/* Soda admin-host presentation for Runners/Tailnet inside the real
+     administration layout. With no recognized Soda selector, the native admin
+     dashboard below remains unchanged. The selector chooses presentation only;
+     native operations and Soda API authority are unchanged. Unknown/duplicate
+     selectors mount no controls. */}}
+{{$sodaView := ""}}
+{{if and .IsSigned (eq (len (ctx.Context.FormStrings "repository_id")) 0)}}
+  {{$requested := ctx.Context.FormString "soda-view"}}
+  {{if and (eq (len (ctx.Context.FormStrings "soda-view")) 1) (or (eq $requested "runners") (eq $requested "tailnet"))}}
+    {{$sodaView = $requested}}
+  {{end}}
+{{end}}
+{{if $sodaView}}
+  {{$title := "Runners"}}
+  {{$description := "Manage local runner capacity and listeners."}}
+  {{if eq $sodaView "tailnet"}}
+    {{$title = ctx.Locale.Tr "soda.tailnet_title"}}
+    {{$description = "Manage appliance Tailnet and project enrollment policy."}}
+  {{end}}
+  {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin dashboard" "formPage" true)}}
+  <div class="admin-setting-content soda-page-container">
+    {{template "custom/soda/page_intro" dict "TitleID" "soda-admin-title" "Eyebrow" "Forgejo administration" "Title" $title "Description" $description "Class" "soda-page-intro--compact"}}
+    <link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-13.admin-host-1">
+    {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-13.admin-host-1">{{end}}
+    <div data-appliance-label="{{ctx.Locale.Tr "soda.tailnet_appliance"}}" data-enrollment-label="{{ctx.Locale.Tr "soda.tailnet_projects"}}" id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="" data-document-title="{{$title}} - {{AppDisplayName}}">
+      <noscript><p>JavaScript is required for Soda controls. <a href="{{AppSubUrl}}/admin">Return to administration</a></p></noscript>
+    </div>
+    <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-13.admin-host-1"></script>
+  </div>
+  {{template "admin/layout_footer" .}}
+{{else}}
+`
+	adminDashboardBranchTail := `{{end}}
+`
 	tests := []struct {
 		name string
 		kind string
@@ -37,6 +74,12 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
 				t.Fatalf("%s lost exact Forgejo version, GPL attribution, or embedded-source provenance", tt.name)
 			}
 			restored := strings.TrimPrefix(readForgejoTemplateForUpstreamParity(t, "admin", tt.name), provenance)
+			if tt.name == "dashboard.tmpl" {
+				if !strings.HasPrefix(restored, adminDashboardBranchHead) || !strings.HasSuffix(restored, adminDashboardBranchTail) {
+					t.Fatalf("%s lost its reviewed Soda branch boundaries", tt.name)
+				}
+				restored = strings.TrimSuffix(strings.TrimPrefix(restored, adminDashboardBranchHead), adminDashboardBranchTail)
+			}
 			if tt.name == "user/new.tmpl" {
 				restored = strings.Replace(restored, ` "artwork" "admin-new-account-papercraft.png"`, "", 1)
 			}

@@ -70,7 +70,7 @@ export async function exerciseRunners(operator: Page, denied: Page, request: Run
     evidence.stage='handed-off native pages';
     for (const [page,actor] of [[operator,input.operator_id],[denied,input.denied_id]] as const) {
       const url=new URL(page.url());
-      assert(url.origin === input.origin && url.pathname === '/' && url.search === '?soda-view=runners' && !url.hash, 'Native Runners page handoff required');
+      assert(url.origin === input.origin && url.pathname === '/admin' && url.search === '?soda-view=runners' && !url.hash, 'Native Runners page handoff required');
       assert(await page.locator('#soda-native-content[data-view="runners"]').getAttribute('data-actor') === actor, 'Original native actor mismatch');
     }
     const view=operator.locator('soda-runners');

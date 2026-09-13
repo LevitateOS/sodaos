@@ -263,7 +263,7 @@ Host Tailnet enrollment by itself does not route the project subnet. Port-forwar
 ## 5. Operator services and state
 
 Cockpit initially binds loopback 9090; use an operator SSH tunnel unless private native access is deliberately configured. Its PAM policy permits only root. Tailnet and local Runners management belong to the configured
-Soda operator at `/?soda-view=tailnet` and `/?soda-view=runners`. Tailnet delivery follows
+Soda operator at `/admin?soda-view=tailnet` and `/admin?soda-view=runners`. Tailnet delivery follows
 [its plan](tailnet-integration-plan.md#stage-6--affected-retained-delivery-then-cockpit-retirement);
 installed runner fallback removal follows the
 [combined retirement gate](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation). The dashboard runs as native service UID/GID 2000 with no host capabilities and reaches only the restricted project helper socket; secret files are root:soda 0640, the database directory soda-owned 0700. The helper is root and exposes only fixed project operations over that Unix socket, never a public control listener.

@@ -1,6 +1,37 @@
 {{/* Adapted from Forgejo 15.0.7 templates/admin/dashboard.tmpl, GPL-3.0-or-later.
 Upstream: https://codeberg.org/forgejo/forgejo
 Embedded source SHA-256: 66be2bd90fad0aa90981e9283c614c69d574a6fb883f1d1be9616e0db11a0f97 */}}
+{{/* Soda admin-host presentation for Runners/Tailnet inside the real
+     administration layout. With no recognized Soda selector, the native admin
+     dashboard below remains unchanged. The selector chooses presentation only;
+     native operations and Soda API authority are unchanged. Unknown/duplicate
+     selectors mount no controls. */}}
+{{$sodaView := ""}}
+{{if and .IsSigned (eq (len (ctx.Context.FormStrings "repository_id")) 0)}}
+  {{$requested := ctx.Context.FormString "soda-view"}}
+  {{if and (eq (len (ctx.Context.FormStrings "soda-view")) 1) (or (eq $requested "runners") (eq $requested "tailnet"))}}
+    {{$sodaView = $requested}}
+  {{end}}
+{{end}}
+{{if $sodaView}}
+  {{$title := "Runners"}}
+  {{$description := "Manage local runner capacity and listeners."}}
+  {{if eq $sodaView "tailnet"}}
+    {{$title = ctx.Locale.Tr "soda.tailnet_title"}}
+    {{$description = "Manage appliance Tailnet and project enrollment policy."}}
+  {{end}}
+  {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin dashboard" "formPage" true)}}
+  <div class="admin-setting-content soda-page-container">
+    {{template "custom/soda/page_intro" dict "TitleID" "soda-admin-title" "Eyebrow" "Forgejo administration" "Title" $title "Description" $description "Class" "soda-page-intro--compact"}}
+    <link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-13.admin-host-1">
+    {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-13.admin-host-1">{{end}}
+    <div data-appliance-label="{{ctx.Locale.Tr "soda.tailnet_appliance"}}" data-enrollment-label="{{ctx.Locale.Tr "soda.tailnet_projects"}}" id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="" data-document-title="{{$title}} - {{AppDisplayName}}">
+      <noscript><p>JavaScript is required for Soda controls. <a href="{{AppSubUrl}}/admin">Return to administration</a></p></noscript>
+    </div>
+    <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-13.admin-host-1"></script>
+  </div>
+  {{template "admin/layout_footer" .}}
+{{else}}
 {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin dashboard")}}
 	<div class="admin-setting-content soda-admin-details soda-admin-details--dashboard">
 		{{if .NeedUpdate}}
@@ -40,3 +71,4 @@ Embedded source SHA-256: 66be2bd90fad0aa90981e9283c614c69d574a6fb883f1d1be9616e0
 		</div>
 	</div>
 {{template "admin/layout_footer" .}}
+{{end}}

@@ -160,7 +160,7 @@ test('runner branch authenticates distinct contexts and consumes one exact permi
       return {context(){return index === 0 ? context : deniedContext;},
         async goto(url:string){visits.push(url);},
         locator(){return {async waitFor(){},async isVisible(){return false;},async getAttribute(){return 'epoch';}};},
-        async evaluate(){return {id:scenario === 'wrong-cookie' ? '1' : String(index+1),provider_id:String(index+1),operator:index === 0,admin:scenario === 'wrong-role' ? true : index === 1};}};
+        async evaluate(){return {id:scenario === 'wrong-cookie' ? '1' : String(index+1),provider_id:String(index+1),operator:index === 0,admin:scenario !== 'wrong-role'};}};
     }
     const page=actorPage(0), denied=actorPage(1);
     const scope={assert,context,page,origin:new URL('https://fixture.invalid'),presentationVersion:'epoch',
@@ -183,7 +183,7 @@ test('runner branch authenticates distinct contexts and consumes one exact permi
     else {await assert.rejects(async()=>await attempt); assert(!scope.runnerConfirmed);}
     assert.equal(scope.accessWrite,null); assert.equal(closed,1);
     assert.equal(invoked,scenario === 'wrong-cookie' || scenario === 'wrong-role' ? 0 : 1);
-    assert(visits.every(url=>url === 'https://fixture.invalid/?soda-view=runners'));
+    assert(visits.every(url=>url === 'https://fixture.invalid/admin?soda-view=runners'));
   }
 });
 

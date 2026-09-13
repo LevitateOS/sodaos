@@ -32,13 +32,16 @@ and [Cockpit tunnel](10-cockpit.md). Finish
 [operator setup](../20-Deploy/25-operator-setup.md) for browser endpoints. Keep
 provider public ingress closed and the console available.
 
-## Use the dashboard Tailnet page
+## Use the native Tailnet page
 
 The source candidate places the entry under **Site administration → Soda → Tailnet**,
 not the global top bar. The fixed bookmark `/-/soda/settings/tailnet` also works
 without first entering Spaces or logging in to Soda. Native administration visibility
 does not grant management access: the configured Soda operator remains required.
-The protected page uses Forgejo's native dashboard host. It has not yet replaced the installed Cockpit fallback
+The page renders in Forgejo's native administration layout, so native site-admin
+eligibility is also required, including for direct bookmarks. See the
+[native page contract](../../forgejo-soda-pages-plan.md#automatic-connection).
+It has not yet replaced the installed Cockpit fallback
 on retained development targets; [the handoff](../../implementation-status.md)
 records delivery and acceptance separately.
 

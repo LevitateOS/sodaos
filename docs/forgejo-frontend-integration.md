@@ -26,7 +26,7 @@ acceptance are in the [handoff](implementation-status.md). Open in drawer has lo
 coverage and no deployment claim. Modal/backdrop and pre-reattachment descriptions
 below are historical, not current behavior to preserve. The six new feature plans
 extend this same boundary. The later [native page integration plan](forgejo-soda-pages-plan.md)
-renders Soda page bodies within Forgejo's own dashboard and real native shell.
+renders Soda page bodies within Forgejo's existing dashboard/admin hosts and real native shells.
 The three earlier views have the recorded native evidence below; Tailnet now has
 source integration and component checks, with native-page acceptance still pending. Steps 1–4 include connection/logout, normal navigation and
 old-URL bookmark bridges; their Go shells are removed. Historical Go HTML placement
@@ -44,8 +44,9 @@ global operator-only Sodarunners destination. The current local
 [`repo/settings/navbar.tmpl`](../appliance/forgejo/templates/repo/settings/navbar.tmpl)
 already preserves native Actions runners/secrets/variables links. Add Soda links
 through the versioned customization mechanism without replacing those workflows.
-The four current source views use Forgejo's existing dashboard handler and the same
-protected Soda namespace/API/Lit boundary. A template link grants no authority.
+The four current source views use the fixed hosts in the
+[native page contract](forgejo-soda-pages-plan.md#native-page-host-and-ownership)
+and the same protected Soda namespace/API/Lit boundary. A template link grants no authority.
 Repository settings keeps its stable-ID native link and native gates; repository
 AI settings remains unimplemented. The shared connection/logout contract uses the
 [credential owner's current schema](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return);

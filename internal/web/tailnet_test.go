@@ -385,7 +385,7 @@ func TestTailnetFixedBookmarkAndOAuthReturn(t *testing.T) {
 	s := apiTestServer(t)
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, httptest.NewRequest("GET", config.SodaPath+"/settings/tailnet", nil))
-	if w.Code != 303 || !strings.Contains(w.Header().Get("Location"), "redirect_to=%2F%3Fsoda-view%3Dtailnet") {
+	if w.Code != 303 || !strings.Contains(w.Header().Get("Location"), "redirect_to=%2Fadmin%3Fsoda-view%3Dtailnet") {
 		t.Fatal(w.Code, w.Header().Get("Location"))
 	}
 	for _, query := range []string{"destination=tailnet&repository_id=7", "destination=tailnet&destination=runners", "destination=tailnet&return_to=https://evil.test"} {
@@ -402,7 +402,7 @@ func TestTailnetFixedBookmarkAndOAuthReturn(t *testing.T) {
 		t.Fatal(w.Code, e)
 	}
 	a, e := s.Store.ConsumeOAuth(t.Context(), location.Query().Get("state"), "")
-	if e != nil || a.SettingsReturn != "tailnet" || a.ExpectedUserID != 1 || s.nativeOAuthReturn(a.OAuthLogin) != s.Config.ForgejoURL+"/?soda-view=tailnet" {
+	if e != nil || a.SettingsReturn != "tailnet" || a.ExpectedUserID != 1 || s.nativeOAuthReturn(a.OAuthLogin) != s.Config.ForgejoURL+"/admin?soda-view=tailnet" {
 		t.Fatal(a, e)
 	}
 }

@@ -79,14 +79,14 @@ async function tailnetPage(t: TestContext, operator = true) {
     }
     if (componentOnly) {
       // Explicit component fixture, never a fallback or substitute for native HTML.
-      if (path === '/') return route.fulfill({contentType: 'text/html', body: `<!doctype html><meta name="viewport" content="width=device-width"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda-settings.css"><link rel="stylesheet" href="/assets/soda-tailnet.css"><div id="soda-native-content" class="soda-settings soda-tailnet-settings" data-actor="${actor}" data-view="tailnet" data-document-title="Tailnet component fixture"></div><script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>`});
+      if (path === '/admin') return route.fulfill({contentType: 'text/html', body: `<!doctype html><meta name="viewport" content="width=device-width"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda-settings.css"><link rel="stylesheet" href="/assets/soda-tailnet.css"><div id="soda-native-content" class="soda-settings soda-tailnet-settings" data-actor="${actor}" data-view="tailnet" data-document-title="Tailnet component fixture"></div><script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>`});
       const source = files['public' + path]; assert(source, 'Unmapped component asset');
       const file = source.startsWith('@build/forgejo-js/') ? '.artifacts/forgejo-js/' + source.split('/').at(-1) : source;
       return route.fulfill({path: new URL('../../' + file, import.meta.url).pathname});
     }
     return route.continue(); // Native mode never replaces HTML/CSP/chrome/assets/login.
   });
-  await page.goto(origin + '/?soda-view=tailnet');
+  await page.goto(origin + '/admin?soda-view=tailnet');
   await page.locator('soda-tailnet').waitFor();
   if (operator) await page.getByRole('heading', {name: 'Automatic project access', exact: true}).waitFor();
   else await page.getByText('The original Soda operator is unavailable.', {exact: false}).waitFor();
@@ -122,6 +122,8 @@ test('native Tailnet host retains native chrome, scopes, theme and narrow keyboa
   assert.equal(await page.locator('#sodaspaces-root').count(), 0);
   assert(await page.locator('#navbar').isVisible()); assert((await page.title()).startsWith('Tailnet - '));
   assert.equal(await page.getByRole('link', {name: 'Tailnet', exact: true}).count(), 1);
+  assert.equal(await page.locator('.flex-container-nav a.active').count(), 1);
+  assert.equal(await page.locator('#soda-tailnet-link').getAttribute('aria-current'), 'page');
   for (const theme of ['soda-light', 'soda-dark']) for (const width of [390, 1440]) {
     await page.setViewportSize({width, height: 1000});
     await page.evaluate(theme => document.documentElement.setAttribute('data-theme', theme), theme);

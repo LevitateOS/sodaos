@@ -172,6 +172,25 @@ func TestNativeConnectionFixture(t *testing.T) {
 	server.Config.ErrorLog = log.New(io.Discard, "", 0)
 	server.StartTLS()
 	defer server.Close()
+	// Check the existing account before creating an OAuth app. The admin-host
+	// move makes the former non-admin fixture ineligible; never promote it here.
+	userRequest, _ := http.NewRequest("GET", upstream.String()+"/api/v1/user", nil)
+	userRequest.SetBasicAuth("soda-screenshot", string(match[1]))
+	userResponse, err := (&http.Client{Timeout: 10 * time.Second}).Do(userRequest)
+	if err != nil {
+		t.Fatal("fixture identity request failed")
+	}
+	defer userResponse.Body.Close()
+	var actor struct {
+		ID      int64 `json:"id"`
+		IsAdmin bool  `json:"is_admin"`
+	}
+	if userResponse.StatusCode != 200 || json.NewDecoder(userResponse.Body).Decode(&actor) != nil || actor.ID <= 0 {
+		t.Fatal("fixture identity unavailable")
+	}
+	if !actor.IsAdmin {
+		t.Fatal("native Runners/Tailnet consumers require an authorized admin-eligible fixture; account changes need separate approval")
+	}
 	input, _ := json.Marshal(map[string]any{"name": "Soda connection fixture " + filepath.Base(dir), "redirect_uris": []string{server.URL + config.SodaPath + "/oauth/callback"}, "confidential_client": true})
 	req, _ := http.NewRequest("POST", upstream.String()+"/api/v1/user/applications/oauth2", bytes.NewReader(input))
 	req.SetBasicAuth("soda-screenshot", string(match[1]))
@@ -205,23 +224,6 @@ func TestNativeConnectionFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	userRequest, _ := http.NewRequest("GET", upstream.String()+"/api/v1/user", nil)
-	userRequest.SetBasicAuth("soda-screenshot", string(match[1]))
-	userResponse, err := (&http.Client{Timeout: 10 * time.Second}).Do(userRequest)
-	if err != nil {
-		t.Fatal("fixture identity request failed")
-	}
-	defer userResponse.Body.Close()
-	var actor struct {
-		ID      int64 `json:"id"`
-		IsAdmin bool  `json:"is_admin"`
-	}
-	if userResponse.StatusCode != 200 || json.NewDecoder(userResponse.Body).Decode(&actor) != nil || actor.ID <= 0 {
-		t.Fatal("fixture identity unavailable")
-	}
-	if actor.IsAdmin {
-		t.Fatal("native operator-without-Forgejo-admin fixture must remain non-admin")
-	}
 	soda = New(config.Config{OperatorID: actor.ID, ForgejoURL: server.URL, ForgejoInternalURL: upstream.String(), OAuthClientID: app.ClientID, OAuthSecretFile: secretFile}, db)
 	soda.Host = &host.Client{HTTP: &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		w := httptest.NewRecorder()

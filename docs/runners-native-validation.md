@@ -46,16 +46,16 @@ no standalone CLI. Preserve these driver contracts:
    bytes with the existing installed-artifact verifier, not the caller's revision
    string alone.
 2. Supply the two already connected native Runners pages, matching `operator_id`
-   and `denied_id`. Its own actor fixture must establish an operator **without**
-   site-admin rights and a site administrator **without** Soda operator authority.
-   That remains the default and is mandatory for effectful phases. A retained
-   `list`-only observation can instead supply `native_admins` with exact boolean
-   `operator`/`denied` expectations. The driver still reads and checks both native
-   and Soda identities/roles freshly, and records their actual facts; it never
-   treats site administration as Soda authority. Other phases reject this field.
-   This is an explicitly labelled retained read case, not a replacement for the
-   independent cross-role native proof.
-   The module requires the native `/?soda-view=runners` mount and original actor;
+   and `denied_id`. Both must be site administrators to render the admin host;
+   only the first may have Soda operator authority. The driver freshly checks
+   both identities and these distinct Soda roles. Legacy `list`-only
+   `native_admins` declarations are accepted only with both values `true`;
+   other phases still reject that field. Earlier nonadmin browser fixtures
+   cannot exercise this host and must use their historical driver revision.
+   Backend tests separately retain nonadmin-operator authorization coverage;
+   current browser proof must not claim that rendering case. Fixture account
+   changes require separate approval, never automatic promotion by the driver.
+   The module requires the native `/admin?soda-view=runners` mount and original actor;
    it refuses the old standalone page and cannot manufacture the missing page body.
    The current adapter is for the root-mounted origin used by the existing runner
    caller; a different `AppSubUrl` needs the page owner's explicit caller port.
@@ -238,7 +238,7 @@ record, not in source or a new readiness database:
 | --- | --- |
 | Candidate | Full revision, architecture, passing check/export receipt, manifest and actual delivered-byte verifier receipt. |
 | Target | Actual hostname, origin, CA, SSH host-key pin/config, private browser home, existing versus newly approved fixture and affected activation components. |
-| Actors | Effectful fixtures require a nonadmin Soda operator and nonoperator site administrator; list-only input may declare actual roles through `native_admins`. Root/Cockpit is separate. Record stable IDs and restricted login-input paths, never passwords. |
+| Actors | Both native pages require site administrators, exactly one with Soda operator authority. Legacy list-only `native_admins` declarations must agree. Root/Cockpit is separate. Record stable IDs and restricted login-input paths, never passwords; do not change retained accounts implicitly. |
 | Provider | Already approved system runner record: native provider numeric ID/inspection URL and UUID, unique label, exact repository ID/path, workflow commit/file, provider actor/PAT scope and restricted token files. Local ID is not provider ID. |
 | Preservation | Every existing local runner ID/account/state and relevant project/root/terminal baseline; required quiescence and fresh backup scope. Unknown/unsupported inventory stops activation. |
 | Disposable resources | Exact local runner ID, provider record, unique observation per job, hold duration and exact run IDs returned by dispatch. No unrelated capacity may share the fixture label. |

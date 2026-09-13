@@ -338,7 +338,7 @@ try {
       for (const [actorPage,index] of [[page,0],[deniedPage,1]] as const) {
         stage='runner native authentication '+index;
         await nativeLogin(actorPage,index);
-        await actorPage.goto(origin.origin+'/?soda-view=runners');
+        await actorPage.goto(origin.origin+'/admin?soda-view=runners');
         await Promise.race([
           actorPage.locator('soda-runners').waitFor({state:'attached'}),
           actorPage.locator('#authorize-app').waitFor({state:'visible'}),
@@ -365,10 +365,9 @@ try {
           return {id:s.user.id,provider_id:m.id,operator:s.soda_operator,admin:m.is_admin};
         },user.id);
         assert(identity.id === user.id && identity.provider_id === user.id);
-        const expectedAdmin = runnerRequest.native_admins
-          ? (index === 0 ? runnerRequest.native_admins.operator : runnerRequest.native_admins.denied)
-          : index === 1;
-        assert(identity.operator === (index === 0) && identity.admin === expectedAdmin, 'Declared independent Soda/native authorities not established');
+        // Both actors must pass Forgejo's /admin rendering gate. Only the first
+        // may have Soda operator authority; a site admin alone must be denied.
+        assert(identity.operator === (index === 0) && identity.admin === true, 'Independent Soda authority and native admin eligibility not established');
         (result.runner_authorities ||= []).push(identity);
       }
       assert(context !== deniedContext && page.context() !== deniedPage.context());

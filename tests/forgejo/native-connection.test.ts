@@ -72,6 +72,10 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
     await page.goto(origin + '/-/soda' + legacy);
     await page.locator('#soda-native-content > ' + (view === 'runners' ? 'soda-runners' : view.startsWith('repository-spaces') ? 'soda-project-controls' : 'soda-spaces')).waitFor();
     if (view === 'runners') {
+      assert.equal(await page.locator('main,[role=main]').count(), 1);
+      assert.equal(await page.locator('#sodaspaces-root').count(), 0);
+      assert.equal(await page.locator('.flex-container-nav a.active').count(), 1);
+      assert.equal(await page.locator('#soda-runners-link').getAttribute('aria-current'), 'page');
       await page.waitForFunction(() => {const field = document.querySelector<HTMLInputElement>('soda-runners input[name=id]'); return field && !field.matches(':disabled');});
       assert.equal(await page.getByRole('link', {name: 'Forgejo Actions administration'}).getAttribute('href'), origin + '/admin/actions/runners');
       await page.getByLabel('Registration token', {exact: true}).fill('synthetic-ui-only-token');
@@ -92,7 +96,7 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
       assert.equal(await page.locator('#navbar').count(), 1);
     }
     await page.setViewportSize({width: 1440, height: 900});
-    assert.equal(page.url(), origin + '/?soda-view=' + view, 'bookmark did not reach fixed native host');
+    assert.equal(page.url(), origin + (view === 'runners' ? '/admin' : '/') + '?soda-view=' + view, 'bookmark did not reach fixed native host');
     assert((await context.cookies()).find(c => c.name === cookie.name)?.value === cookie.value, 'valid session rotated on entry');
   }
   // Full-page workspace remains a single mount below the actual native header.
@@ -176,7 +180,7 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
     });
     assert.deepEqual(cached, [0, 0, 0], 'Legacy module URLs were not actually cached');
   }
-  await graphPage.goto(origin + '/?soda-view=runners');
+  await graphPage.goto(origin + '/admin?soda-view=runners');
   await graphPage.getByLabel('Registration token', {exact: true}).waitFor();
   const modules = await graphPage.evaluate(() => performance.getEntriesByType('resource')
     .filter(entry => entry.name.includes('/assets/') && new URL(entry.name).pathname.endsWith('.js'))
@@ -195,7 +199,7 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
     await graphPage.getByLabel('Registration token', {exact: true}).waitFor();
     assert.equal(await graphPage.locator('soda-runners').count(), 1);
     await graphPage.context().close();
-    await page.goto(origin + '/?soda-view=runners');
+    await page.goto(origin + '/admin?soda-view=runners');
     await page.getByLabel('Registration token', {exact: true}).waitFor();
   }
   // No request routing here: Playwright interception disables BFCache in its
@@ -398,7 +402,7 @@ test('real Forgejo consent, reuse, repeat connection and both partial logout out
       t.diagnostic('Predecessor Back performed a network reload into the current owner; old pagehide retirement was observed separately, not BFCache restoration');
     }
     assert.deepEqual(mutations, [], 'History replayed an old mutation');
-    await oldPage.goto(origin + '/?soda-view=runners');
+    await oldPage.goto(origin + '/admin?soda-view=runners');
     await oldPage.locator('#soda-native-content > soda-runners').waitFor();
     assert.equal(await oldPage.locator('soda-spaces').count(), 0);
     assert.deepEqual(oldErrors, [], 'Predecessor execution raised browser errors');

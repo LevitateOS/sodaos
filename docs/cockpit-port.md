@@ -1,7 +1,7 @@
 # Operator Cockpit source port
 
 All Soda custom pages are retired in the source candidate, including Tailnet and
-Runners. Their Forgejo owners are `/?soda-view=tailnet` and `/?soda-view=runners`.
+Runners. Their Forgejo owners are `/admin?soda-view=tailnet` and `/admin?soda-view=runners`.
 The custom workspace/build and unused React/PatternFly/Zustand dependencies are
 removed, including the top-level `cockpit/` directory. Its attribution and upstream
 provenance now live in [`assets/branding/cockpit/provenance/`](../assets/branding/cockpit/provenance/README.md),

@@ -101,7 +101,7 @@ export async function exerciseRunnerContention(operator: Page, input: RunnerInpu
     const after=await readRunnerState(input,before); evidence.after=after;
     receipt.result=verifyRunnerContention(input,before,after);
     evidence.stage='native return and reload without replay';
-    await operator.goto(input.origin+'/?soda-view=runners');
+    await operator.goto(input.origin+'/admin?soda-view=runners');
     await operator.locator('#soda-native-content[data-actor="'+input.operator_id+'"]').waitFor();
     await operator.reload();
     await operator.locator('#soda-native-content[data-actor="'+input.operator_id+'"]').waitFor();

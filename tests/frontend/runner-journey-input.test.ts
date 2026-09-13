@@ -26,12 +26,12 @@ test('runner installed phases are separate opt-ins with no implicit mutation or 
   for (const phase of ['reboot','cleanup','provider-remove','all']) assert.throws(()=>runnerInput({...base(),phase},'--allow-runner-'+phase,'runner-fixture'));
 });
 
-test('actual native role expectations are explicit and read-only, never a weaker mutation fixture', () => {
-  const native_admins = {operator:true,denied:false};
+test('legacy list role declarations cannot bypass the native admin host gate', () => {
+  const native_admins = {operator:true,denied:true};
   const input = {...base(),native_admins};
   assert.deepEqual(runnerInput(input,'--allow-runner-list','runner-fixture'),input);
   assert.equal(runnerInput(base(),'--allow-runner-list','runner-fixture').native_admins,undefined);
-  for (const roles of [null,{},[true,false],{operator:true},{operator:1,denied:false},{operator:true,denied:'false'},{...native_admins,token:'not-allowed'}]) {
+  for (const roles of [null,{},[true,false],{operator:true},{operator:1,denied:false},{operator:true,denied:'false'},{operator:false,denied:true},{operator:true,denied:false},{operator:false,denied:false},{...native_admins,token:'not-allowed'}]) {
     assert.throws(()=>runnerInput({...base(),native_admins:roles},'--allow-runner-list','runner-fixture'));
   }
   for (const phase of ['register','start','stop','restart','remove','dispatch','job','contention','departure']) {

@@ -33,7 +33,11 @@ Historical lane links resolve here. Their original text is available with
   connection flow; protected APIs still require the configured Soda operator.
   Forgejo site-administrator status is not substituted for that authority.
   Spaces uses native active-link styling and `aria-current="page"` only for its
-  matching validated native content host and actor, not a URL hint.
+  matching validated native content host and actor, not a URL hint. Runners
+  and Tailnet follow the same rule for their Soda sidebar entries through the
+  shared settings-link module: a validated matching admin mount plus the original
+  actor replaces the native Dashboard cue with the current Soda entry; anything
+  else leaves native cues unchanged and marks no Soda sidebar entry.
 - Opening a Soda view reuses a valid matching Soda session. When connection is
   needed on a controlled initial entry, it starts the normal Forgejo OAuth flow
   automatically and returns to the selected view. First authorization can still
@@ -76,20 +80,32 @@ owns the supported-integration and no-fork requirements.
 
 ## 3. Native page host and ownership
 
-Use **one query-selected presentation of Forgejo's existing global dashboard**.
+Use **bounded query-selected presentations of Forgejo's existing dashboard and
+administration hosts**, with one fixed host per view.
 
 | Soda view | Native destination | Content owner |
 | --- | --- | --- |
 | Spaces | `/?soda-view=spaces` | Shared `SodaSpaces` component in full-page mode |
-| Runners | `/?soda-view=runners` | Runner Lit component |
-| Tailnet | `/?soda-view=tailnet` | Operator Tailnet Lit component; native-page acceptance pending |
+| Runners | `/admin?soda-view=runners` | Runner Lit component inside the real administration layout |
+| Tailnet | `/admin?soda-view=tailnet` | Operator Tailnet Lit component inside the real administration layout; native-page acceptance pending |
 | Repository Spaces settings | `/?soda-view=repository-spaces&repository_id=123` | Shared project controls, authorized for that stable repository ID |
+
+Runners and Tailnet use the existing `/admin` route and its native
+`admin/layout_head` shell (including the Soda sidebar entries, native alert
+and `admin/layout_footer`) with a bounded `soda-view` presentation branch in
+the already-overridden `admin/dashboard.tmpl`. This reuses the upstream
+handlers, admin gates and shell partials by reference; no new Forgejo route,
+no navbar copy and no fork. The dashboard host no longer admits those two
+selectors: legacy `/?soda-view=runners|tailnet` queries render the ordinary
+dashboard with no Soda controls. Each admin view suppresses the repository
+drawer through the shared footer selector and mounts exactly one
+`#soda-native-content` owner, mirroring the dashboard-host lifetime rules.
 
 Tailnet is now admitted by source through the [Tailnet plan](tailnet-integration-plan.md).
 Its fixed bookmark/OAuth return, administrator settings navigation, mount/title,
-selector validation and native fixture consumer share these owners. The stopped local
-Forgejo fixture blocks actual native-page acceptance; emitted-component tests are not
-a substitute. There is no generic return URL or second login coordinator. Future
+selector validation and native fixture consumer share these owners. Actual native-page acceptance requires an admin-eligible fixture for these two
+views, following the [fixture prerequisites](typescript.md#local-source-checks);
+emitted-component tests are not a substitute. There is no generic return URL or second login coordinator. Future
 project Network controls reuse the existing authorized project settings/workspace owner.
 
 **Entry constraint found in the real browser:** a raw root query does not force
@@ -129,8 +145,9 @@ Native CSRF remains native; Soda APIs retain their separate CSRF, origin, actor,
 grant and operation-specific checks. A template's signed-user ID is a consistency
 input, not authentication for Soda's backend.
 
-The existing dashboard handler still performs its normal feed/organization reads.
-It also supplies the initial Dashboard document title. Set the final Spaces,
+The existing handlers still perform their normal reads (feed/organizations for
+the global dashboard, status for administration) and supply the initial Dashboard
+document title. Set the final Spaces,
 Runners, Tailnet or repository title in the already-required entry module before mounting;
 the initial/no-JavaScript title remains a documented limit of this candidate.
 Do not copy the global `base/head` template just to change that title. Show a useful
@@ -161,11 +178,16 @@ application router, user store or general authentication framework.
 
 Administration entry links do not depend on a Soda login. They use the fixed
 `/-/soda/settings/runners` and `/-/soda/settings/tailnet` bridges under `AppSubUrl`,
-which remain valid direct bookmarks too. Native admin-page eligibility controls
-where the links appear, not Soda authorization: another Forgejo administrator can
-see them but cannot read or manage operator settings without the configured Soda
-operator identity. An operator without current native admin-page eligibility can
-still use a direct bookmark; this navigation change does not change backend roles.
+which remain valid direct bookmarks too. Those bridges redirect through native
+login to the admin host (`/admin?soda-view=runners|tailnet`). Rendering there
+requires native admin-page eligibility, because Forgejo gates the whole `/admin`
+route on site administration: an operator without current admin-page eligibility
+cannot render these views even by direct bookmark. This retires the earlier
+bookmark carve-out deliberately, so placement under Site administration and its
+gate agree. Soda authorization is unchanged and independent: another Forgejo
+administrator can see the shell but cannot read or manage operator settings
+without the configured Soda operator identity, and every protected API still
+enforces the original actor, CSRF, scope and current-session checks.
 Keep the global signed-actor/sub-URL marker and coordinated logout initialization;
 removing operator discovery must not silently remove native-menu sign-out handling.
 
@@ -266,10 +288,10 @@ guides, not synthetic operation peers.
 
 | Boundary | Required behavior |
 | --- | --- |
-| Native host | Actual Forgejo HTML/header/footer, native account gates, CSP and assets; one main landmark and workspace mount. Suppress only the selected full page's drawer; retain ordinary dashboard/footer behavior. Invalid repository locators expose no controls/private metadata. |
+| Native host | Actual Forgejo HTML/header/footer, native account gates, CSP and assets; one landmark and one workspace mount per selected view. Dashboard views keep one `<main>`; admin views reuse the layout's single `role="main"` with no second `<main>`. Suppress only the selected full page's drawer on either host; retain ordinary dashboard/footer and native admin-dashboard behavior. Invalid repository locators and unknown/duplicate selectors expose no controls/private metadata. |
 | Connection/logout | First/repeat consent, decline/missing scopes, actor mismatch, concurrent attempts, pending/completed callback cancellation and both partial logout outcomes. Preserve native drafts and existing matching sessions. |
 | Page/drawer lifetime | Full Spaces → repository drawer → full Spaces preserves exact selection under the [native terminal lifetime](terminal-integration.md) and independently named End. Real Back/BFCache revalidates the original actor; stale/duplicate owners and late responses ignoring abort cannot revive departed work or replay mutations. |
-| Navigation/bookmarks | Native navigation and fixed legacy entry bridges agree; signed-in/out bookmarks preserve expected actor and repository bindings. Current-page cues follow the validated native host, not unknown/duplicate selectors, unrelated routes or mismatched actors. Operator-link retirement and normal native links/drafts remain intact. No arbitrary return URLs, second login harness or automatic lifecycle effects. |
+| Navigation/bookmarks | Native navigation and fixed entry bridges agree on one host per view (`/` for Spaces, `/admin` for Runners/Tailnet); signed-in/out bookmarks preserve expected actor and repository bindings. Current-page cues follow the validated native host, not unknown/duplicate selectors, unrelated routes or mismatched actors. Legacy dashboard Runners/Tailnet queries render the ordinary dashboard. Operator-link retirement and normal native links/drafts remain intact. No arbitrary return URLs, second login harness or automatic lifecycle effects. |
 | Assets/upgrade | Changed entries and transitive imports respect the actual configured cache policy. Distinguish fresh-browser checks, predecessor asset revalidation and a genuinely open predecessor document/backend transition. Preserve the final CSP, staging and notices contracts. |
 | Presentation | Native dark/light themes, narrow/wide layout, scroll/focus/keyboard/profile-menu behavior and unsaved forms remain usable. Use the existing screenshot guide; rendered/synthetic terminal content is not native editor/process proof. |
 

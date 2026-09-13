@@ -68,7 +68,7 @@ export async function capturePageFixture(page: Page, name: string, landmark: str
   assert(info.isDirectory() && (info.mode & 0o077) === 0, 'Capture parent must be private');
   const url = new URL(page.url());
   assert(url.origin === process.env.SODA_PAGE_ORIGIN && url.protocol === 'https:' && url.hostname === '127.0.0.1', 'Only the selected local native fixture may be captured');
-  assert(url.pathname === '/' && [...url.searchParams.keys()].every(key => ['soda-view', 'repository_id'].includes(key)), 'Do not capture login, consent or credential URLs');
+  assert((url.pathname === '/' || url.pathname === '/admin') && [...url.searchParams.keys()].every(key => ['soda-view', 'repository_id'].includes(key)), 'Do not capture login, consent or credential URLs');
   const out = path.join(directory, name);
   await mkdir(out, {mode: 0o700}); // Exclusive; retain earlier captures/failures.
   await page.locator(landmark).first().waitFor({state: 'visible'});

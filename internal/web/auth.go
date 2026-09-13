@@ -229,6 +229,10 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 }
 
 // Only persisted transaction fields select these fixed native rendering views.
+// Spaces views stay on the dashboard host. Runners and Tailnet render inside
+// Forgejo's real administration layout, so their fixed destinations address the
+// admin host and require native admin-page eligibility; protected Soda APIs
+// still require the configured Soda operator independently.
 func (s *Server) nativeOAuthReturn(login store.OAuthLogin) string {
 	view := ""
 	if login.RepositorySettingsReturn {
@@ -242,6 +246,9 @@ func (s *Server) nativeOAuthReturn(login store.OAuthLogin) string {
 		return ""
 	}
 	destination := s.Config.ForgejoURL + "/?soda-view=" + view
+	if view == "runners" || view == "tailnet" {
+		destination = s.Config.ForgejoURL + "/admin?soda-view=" + view
+	}
 	if login.RepositorySettingsReturn {
 		destination += "&repository_id=" + strconv.FormatInt(login.RepositoryID, 10)
 	}

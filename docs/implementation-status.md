@@ -387,16 +387,23 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-The user rejected the separate administrative-content toolbar and specified the
-existing left `.flex-container-nav` menu. Source now puts Runners/Tailnet in its
-native vertical menu and removes `#soda-admin-settings`. The exact Forgejo 15.0.7
-navbar is preserved apart from the bounded Soda addition; canonical staging includes
-that override. Rendered placement/gate, upstream-parity, payload, TypeScript/Lit
-and browser checks passed; see the [correction receipt](implementation-history.md#administrator-sidebar-placement-correction).
-No browser runtime, auth behavior or entry destination changed, so the existing
-module epoch is retained. The user subsequently approved and received the
-[sidebar correction on the fresh VM](implementation-history.md#administrator-sidebar-correction-delivery),
-including its one required Forgejo restart. Two exact template hashes, native left
-menu placement/keyboard/entry/read/logout, consistent backups and preservation
-checks passed. The full visual/theme/mobile matrix is not claimed. This work is
-not pushed; no older target, provider or project mutation occurred.
+Runners/Tailnet now render inside the existing `/admin` shell in source, with
+fixed bookmark/OAuth returns and bounded selectors. The reviewed candidate keeps
+one content owner, preserves the ordinary drawer on rejected selectors and marks
+only the matching Soda sidebar entry instead of also highlighting Dashboard.
+The paired presentation epoch is `2026-09-13.admin-host-1`. The
+[native page contract](forgejo-soda-pages-plan.md) owns the resulting admin rendering
+gate; protected Soda operator authority remains independent.
+
+Affected Go packages, strict TypeScript/Lit, emitted assets, the frontend suite
+(252 passed, 7 explicit skips), and focused navigation/connection/cache browser
+checks (11 passed) passed locally. The [source review receipt](implementation-history.md#runnerstailnet-admin-shell-host-move-source-only)
+records fixes and exact commands. Native admin-page acceptance remains pending:
+the former nonadmin fixture is ineligible, and no retained account, service or
+fixture was changed to run it. Installed callers and current fixture prerequisites
+now reflect that boundary, without granting roles automatically.
+
+This source candidate is not delivered or pushed. The last fresh-VM delivery
+remains the [sidebar correction](implementation-history.md#administrator-sidebar-correction-delivery)
+recorded above, not this host move. Older targets, providers, projects and all
+existing backups/evidence are unchanged.

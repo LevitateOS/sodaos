@@ -65,14 +65,14 @@ async function runnersPage(t: TestContext, mode = 'html') {
       return;
     }
     if (componentOnly) {
-      if (pathname === '/') return route.fulfill({contentType:'text/html', body:`<!doctype html><meta name="viewport" content="width=device-width"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda-settings.css"><nav id="navbar"><a href="#" class="link-action" data-url="/user/logout">Native logout fixture</a></nav><div id="soda-settings-link" data-actor="${actor}" data-sub-url=""></div><div id="soda-native-content" class="soda-settings soda-runner-settings" data-actor="${actor}" data-view="runners" data-document-title="Runners component fixture"></div><script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>`});
+      if (pathname === '/admin') return route.fulfill({contentType:'text/html', body:`<!doctype html><meta name="viewport" content="width=device-width"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda-settings.css"><nav id="navbar"><a href="#" class="link-action" data-url="/user/logout">Native logout fixture</a></nav><div id="soda-settings-link" data-actor="${actor}" data-sub-url=""></div><div id="soda-native-content" class="soda-settings soda-runner-settings" data-actor="${actor}" data-view="runners" data-document-title="Runners component fixture"></div><script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>`});
       const source = files['public' + pathname]; assert(source, 'Unmapped component asset');
       const file = source.startsWith('@build/forgejo-js/') ? '.artifacts/forgejo-js/' + source.split('/').at(-1) : source;
       return route.fulfill({path:new URL('../../' + file, import.meta.url).pathname});
     }
     await route.continue();
   });
-  await page.goto(origin + '/?soda-view=runners');
+  await page.goto(origin + '/admin?soda-view=runners');
   if (mode === 'html') await page.getByText('No local runners registered.').waitFor();
   t.after(() => assert.deepEqual(errors, []));
   return {page, state, mutations};

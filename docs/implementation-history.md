@@ -9835,3 +9835,50 @@ preserved, not promoted to proof of this merged candidate. R1–R7 remain open a
 recorded. Removing upstream ignore rules exposed pre-existing `cockpit/dist` and
 `cockpit/node_modules` leftovers locally; these were left untracked and untouched,
 not included in the merge or cleaned up.
+
+## Runners/Tailnet admin-shell host move (source only)
+
+Runners and Tailnet now render inside Forgejo's real administration layout on
+the existing `/admin` route (`/admin?soda-view=runners|tailnet`) instead of the
+dashboard host. No new Forgejo route, no navbar copy and no fork: a bounded
+selector branch in the already-overridden `admin/dashboard.tmpl` reuses
+`admin/layout_head`, the Soda sidebar entries, the native alert and
+`admin/layout_footer` by reference, with strict single-selector and no
+`repository_id` validation mirroring the dashboard host. The dashboard host now
+admits only Spaces views; legacy dashboard Runners/Tailnet queries render the
+ordinary dashboard. Entry bridges (`/-/soda/settings/*`), OAuth
+`destination=` values and the `SettingsReturn` transaction fields are unchanged;
+only the fixed render destinations moved (`internal/web/auth.go`). Rendering an
+admin view now requires native admin-page eligibility (Forgejo gates `/admin`),
+which deliberately retires the earlier operator-without-admin bookmark
+carve-out; protected Soda APIs still require the configured Soda operator
+independently. Each admin view suppresses the repository drawer through the
+shared footer selector and marks its own sidebar entry via the settings-link
+module on a validated matching mount plus the original actor. The presentation
+epoch advanced to `2026-09-13.admin-host-1` across header/footer/host templates.
+
+Pre-commit review corrected rejected-selector drawer suppression, scoped sidebar
+marking to the actual admin host and removed the competing native Dashboard cue,
+restored the unrelated `admin/config.tmpl` upstream-parity check, and included the
+new host in the module/cache-epoch test. It also repaired stale native-connection
+URLs and logout expectations. The native connection fixture checks admin eligibility
+before creating its OAuth app; installed runner callers require two native admins
+with distinct Soda operator roles. Nonadmin operator backend authority is unchanged,
+but the former nonadmin browser fixture cannot render these settings. The separate
+nonadmin preview tests retain Spaces and explicit admin-denial coverage. No account
+promotion or fixture replacement was performed.
+
+Review checks passed on arm64 macOS with Go 1.27.1 and pinned Bun 1.4.2:
+`GOTOOLCHAIN=local GOWORK=off CGO_ENABLED=0 go test -mod=readonly ./scripts ./internal/web`,
+`bun run typecheck`, `bun run build:forgejo`, `bun run test:frontend:prepared`
+(252 passed, 7 explicit native/layout/pipe skips), and
+`SODA_LIT_BROWSER=1 bun test --timeout 120000 tests/forgejo/lit-build.test.ts tests/forgejo/settings-link.test.ts tests/forgejo/connection.test.ts`
+(11 passed). The first focused browser run exposed the omitted admin template in
+the cache test; it passed after correction. Chromium and loopback tests worked in
+this review environment; the initial implementation's sandbox restrictions did not
+apply here. `git diff --check` passed. These are source/emitted-component checks,
+not actual Forgejo admin-page, installed or native-architecture acceptance.
+`test:pages`, the nonadmin native-preview opt-in and installed journeys were not run;
+admin-eligible fixture selection/maintenance requires its own authorization.
+No native build, installation, service/VM lifecycle, provider operation, delivery
+or push was performed.
