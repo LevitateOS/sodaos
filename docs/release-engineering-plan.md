@@ -2,9 +2,9 @@
 
 ## Status and decisions
 
-**Stage-1 review recorded; the first Stage-2 local host-content build slice is
-implemented in source. Image-build and native boot/upgrade acceptance remain to
-record.** The
+**Stage-1 review recorded; the first Stage-2 host-content slice is implemented and
+built/inspected on native x86_64 (`f390aa6`). This is not yet an installable release;
+native boot/upgrade acceptance remains pending.** The
 owner selected GHCR distribution and a CoreOS-aligned Soda release train with an
 independent emergency lane. This guide owns the release engineering workstream and
 its status: build engineering, release management, distribution and appliance updates.
@@ -392,8 +392,10 @@ credential-bearing appliance into an image or rebase retained fixtures as a shor
   questions, trust/channel details and package/configuration migration findings.
 - [x] Stage 2 first source slice: pinned host base, noninteractive source-snapshot
   builder, image-time package recipe, vendor-path binaries/units and packaging tests.
-- [ ] Stage 2 completion: actual image-build receipt, reproducible RPM inputs, bound
-  app images/customization, full release metadata and trust fixtures.
+- [x] Stage 2 first local image build: native x86_64 image/export, actual package/layout
+  inspection and existing OCI verifier passed; [receipt](implementation-history.md#first-local-host-content-image-build).
+- [ ] Stage 2 completion: reproducible RPM inputs, bound app images/customization,
+  full release metadata and trust fixtures; resolve the recorded tmpfiles lint warning.
 - [ ] Stages 3–7: not started.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
@@ -413,8 +415,15 @@ free in the checkout filesystem, readable KVM and local rootless Podman 5.8.2. T
 is resource availability, not dedicated capacity or native VM qualification. The
 shell's default Go is 1.27.0; this slice explicitly uses pinned Go 1.26.7.
 
-**Next:** execute/inspect the local host-content build, then finish app binding and
-release inputs. Obtain applicable fixture/trust grants before native appliance proof.
+**Built:** `.artifacts/host-image/verified-f390aa6/host.oci` is an unsigned,
+host-content-only candidate. The [receipt](implementation-history.md#first-local-host-content-image-build)
+records its exact identity, local checks, two corrected build failures and retained
+attempts. Bootc lint reports 12 passed, one skipped and one warning for package-created
+`/var/lib/forgejo-runner` and `/var/lib/udisks2` directories; no warning-free or
+first-boot claim is made.
+
+**Next:** finish app binding/customization and release inputs, and resolve the native
+package-directory warning. Obtain applicable fixture/trust grants before appliance proof.
 The Cockpit error still needs installed-version/caller confirmation. No retained
 target, registry, workflow, signing key or update client has been changed. Independent
 Tailnet tasks remain with their own workstream; this plan does not absorb their list.

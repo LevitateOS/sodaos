@@ -72,8 +72,12 @@ pipeline, with this machine proposed as the initial timer/one-shot builder pendi
 inspection. [The trigger section](release-engineering-plan.md#automated-trigger-and-initial-local-builder)
 owns scheduling, frozen inputs, protected promotion and failure/catch-up behavior.
 The owner subsequently approved the first local implementation slice: the plan now
-records source for the noninteractive host-content builder, vendor layout and focused
-tests. The existing installer remains unchanged; no deployable release is claimed.
+records the noninteractive host-content builder, vendor layout and focused tests.
+Its [first native x86_64 build receipt](implementation-history.md#first-local-host-content-image-build)
+now records `f390aa6` built/exported and checked with the existing OCI verifier plus
+a read-only package/layout inspection. The tmpfiles lint warning and missing full
+appliance payload remain explicit. The existing installer is unchanged; no deployable
+release or native boot/upgrade proof is claimed.
 No timer or unattended pipeline has been installed or enabled.
 This research selection grants no publication/automatic CI, signing/trust change,
 service/VM lifecycle or retained-appliance migration. No installed state changed.

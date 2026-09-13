@@ -14,6 +14,82 @@ not claims that those outputs are still retained.
 
 ---
 
+## First local host-content image build
+
+The owner approved the first release-engineering implementation slice. Source
+`157167e` adds `tools/soda-host-image`, the pinned FCOS host lock and image recipe,
+public vendor-context preparation and a compile-time `soda_host_image` layout.
+The existing writable installer is unchanged. Host unit admission still accepts
+exactly one compiled path; Tailnet's fixed Forgejo helper follows the same layout.
+The source snapshot is a `git archive` of a clean commit, not a worktree or mutable
+checkout copy. No scheduler, production signing or update client is implemented.
+
+**Completed build: `f390aa6f1af967dbbcb99d17975b31ea133279c9`, native x86_64.**
+Command: `GOTOOLCHAIN=go1.26.7 go run ./tools/soda-host-image --arch x86_64
+--out "$PWD/.artifacts/host-image/verified-f390aa6" --build`.
+This ran local rootless Podman 5.8.2, with no remote engine. All seven Soda commands
+compiled with the vendor tag and passed ELF/platform inspection. Package installation
+ran inside the derived image, not on the host; 625 total RPM records are retained.
+Examples: bootc 1.16.7, rpm-ostree 2026.2, Podman 5.8.4, cockpit-ostree 225,
+forgejo-runner 12.13.2, nodejs22 22.23.1 and Tailscale 1.102.4. The base remains the
+locked CoreOS `44.20260817.3.2` architecture digest; RPM repository inputs are live,
+not a reproducible snapshot or incidental source-version upgrade.
+
+Artifact custody: `.artifacts/host-image/verified-f390aa6/` contains the frozen
+source archive/snapshot, context and hashed context inventory, `build.log`,
+`packages.txt`, `host.iid`, `inspect.cid`, `host.oci` and `result.json`.
+
+- Built image ID: `sha256:c9cf65928984a4af1deaaf9ca46cc2f45896318f50f2f3e198e961352a9a10f5`.
+- OCI archive: 1,383,974,400 bytes; SHA-256
+  `f7e53c499d47fe1ce41a96bcf9c6445957cf8ac6482ad8ef9531642c887cd5a1`.
+- Existing `nativebuild.InspectOCI` passed streamed blob/descriptor integrity,
+  platform, revision and source/base attribution checks against the actual export.
+- One networkless, read-only, capability-dropped inspection container checked
+  package presence, vendor paths/mode and absent runtime Soda credential/config
+  files. Exact CID `66806f12c74cb8e4d6ea63f0e49b951e74e8049713eeec90cd8be3492dd1e42f`
+  was subsequently observed **exited 0** and retained.
+- Bootc lint exited successfully: **12 checks passed, one skipped, one warning**.
+  The warning identifies `/var/lib/forgejo-runner` and `/var/lib/udisks2` without
+  matching tmpfiles entries. It remains to resolve through their native package/
+  service ownership before first-boot acceptance; no warning-free claim is made.
+
+Preserved earlier attempts:
+
+1. `.artifacts/host-image/first-157167e/`: package transaction succeeded, but bootc
+   rejected whitespace-only tab lines in the upstream Forgejo runner sysusers file.
+   `ef0e59b` removes only blank lines from that exact image file, preserving all
+   directives; an executed fixture regression covers the normalization.
+2. `.artifacts/host-image/second-ef0e59b/`: lint's tmpfiles resolver reached the host's
+   protected `/sys/kernel/security/ima` path during the rootless build. Tagged
+   upstream lint/tmpfiles source was inspected and retained there. A read-only
+   diagnostic with all capabilities dropped also refused access; a default-capability
+   rootless diagnostic with an empty `/sys` passed. `d85782d` adds only a build-step
+   tmpfs `/sys` mount, not privilege escalation, a shipped mount or a skipped check.
+3. `.artifacts/host-image/third-d85782d/`: first successful image/export with the same
+   lint warning. `f390aa6` then wired the existing full OCI inspector into the builder
+   and recorded the explicit base-digest label; the fresh final attempt above passed.
+
+All diagnostic/build/inspection containers, images and earlier outputs remain;
+no pruning, replacement, VM boot, retained-appliance changes or cleanup occurred.
+Zincati disable configuration and bootc timer masking affect candidate image content
+only. No signing keys, global trust, GHCR publication or provider actions occurred.
+
+Checks actually run: focused `internal/hostimage`, `tools/soda-host-image`,
+`internal/nativebuild`, `internal/host` and `internal/tailnet` Go tests using pinned
+Go 1.26.7; host/Tailnet tests in both default and vendor-tag layouts; race checks for
+host-image preparation and both runtime layouts; `go vet` for hostimage/tool/layout;
+existing Python host-package preflight test; `git diff --check`. The initial
+packaging test caught inherited private umask modes, corrected before the first
+image build. No browser-source changes required a frontend rebuild.
+
+This is **host-content build evidence, not an installable release**. App image
+binding/import, Forgejo customization/browser assets, full first-boot setup,
+configuration migration, reproducible RPM inputs, signing and native boot/upgrade/
+recovery remain separate work. No native aarch64 evidence is claimed. The owning
+[release plan](release-engineering-plan.md#10-workstream-status-and-next-action)
+tracks the next slice; its local invocation belongs in
+[native support](native-support.md#local-host-content-image-candidate).
+
 ## Spaces rendered reference review
 
 On 13 September 2026, compared all eight selected welcome-through-terminal/menu
