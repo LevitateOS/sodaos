@@ -29,13 +29,13 @@ artifacts already available or permission to publish them:
 | --- | --- | --- |
 | SodaOS ISO | Primary download for physical USB installation and manual VM installation | Previous required-key media exists; replacement password-only/payload/setup source is under local validation, with rebuilt media and full fresh-install proof deferred |
 | SodaOS QCOW2 | Recommended second download: a prepared VM disk booting into the same first-time operator setup | No preinstalled Soda product image or producer exists; the exact image-production and first-boot recipe still needs design |
-| SodaOS host OCI | Optional delivery architecture for a versioned host OS; not required for the current CoreOS approach | Not produced; no bootc migration or whole-host OCI update path is selected |
+| SodaOS host OCI | Preferred feasibility target for the [selected release engineering plan](release-engineering-plan.md) through GHCR | Not produced; native build/update/signature mechanism and any bootc migration remain unselected |
 | Sealed Soda payload | Matching native programs, configuration and application/project OCI archives needed to install Soda | Existing native bundle contract; replacement ISO recipe includes a matching snapshot for pre-removal copying. QCOW2 inclusion remains future work |
 
 The target user-facing downloads are ISO and QCOW2, containing the matching Soda
-payload, with release/architecture identity and verifiable checksums. The artifact
-distribution/signing contract still needs definition; existing checksums are not a
-Soda release signature. An ISO is bootable installation media;
+payload, with release/architecture identity and verifiable checksums. The [release engineering plan](release-engineering-plan.md) owns GHCR distribution and
+mandatory production signing; exact trust and consumer mechanisms still need
+validation. Existing checksums are not a Soda release signature. An ISO is bootable installation media;
 QCOW2 is a virtual disk, not a complete VM definition. Generic media must contain no
 operator credentials or initialized personal app state. Establish the password,
 per-machine identity/host keys and remaining configuration for each new installation;
@@ -53,8 +53,9 @@ marketplace apps.
 
 OCI means image packaging, not inherently a whole-host updater. Application OCI
 images remain ordinary components of the Soda payload and may be distributed through
-that payload without a separately operated registry. A specially built host OCI is
-an optional different delivery choice. See [host and application update ownership](os-product-strategy.md#update-ownership).
+that payload without a separately operated registry. A derived host OCI is now the preferred target under the
+[release engineering plan](release-engineering-plan.md), subject to upstream feasibility
+and a separately approved migration. See [host and application update ownership](os-product-strategy.md#update-ownership).
 
 The immediate [installer correction](coreos-installer-plan.md) removes the public-key
 prompt from USB/VM disk installation and uses the native root password. Publishing a

@@ -41,6 +41,17 @@ new `spaces-test` Forgejo user/private repository and one additional project to
 finish native input/re-entry, preserving this first project. That follow-up is not
 yet granted. No publishing, cleanup, OS update or VM-hold extension occurred.
 
+## Release engineering
+
+The owner selected GHCR hosting and a CoreOS-stable-aligned Soda release train,
+with staged Soda changes, qualification, mandatory signing, progressive availability
+and independent emergency releases. The [release engineering plan](release-engineering-plan.md)
+owns its decisions, stages and task status. A derived host image is the preferred
+feasibility target; no build/update/signature mechanism or bootc migration has been
+validated or implemented. Next is Stage-1 upstream/source feasibility research.
+This planning selection grants no publication/automatic CI, signing/trust change,
+service/VM lifecycle or retained-appliance migration. No installed state changed.
+
 ## Active work — Tailnet
 
 The owner has selected the [mechanism removals](refactoring-plan.md#selected-mechanism-removals)

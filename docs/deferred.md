@@ -38,8 +38,12 @@ The later [manual-install decision](coreos-installer-plan.md#manual-install-deci
 selects a root-password USB/VM installation with no key prompt, pre-write console
 correction/restart and a usable continuation. [Media delivery](installation.md#publication-direction)
 records payload inclusion and a recommended prepared QCOW2 as remaining work;
-a host OCI/bootc migration remains optional and unselected. Documenting these does
-not authorize disk writes, publication or a new release/update platform. The
+the later [release engineering decision](release-engineering-plan.md) selects a
+CoreOS-aligned release train, GHCR hosting and emergency releases, with a derived
+host OCI as the preferred feasibility target. The exact mechanism/bootc migration
+is not selected. This bounded release work is no longer deferred; general fleet
+orchestration remains outside it. Planning does not authorize disk writes,
+publication, automatic CI or retained-appliance migration. The
 [Services marketplace](services-and-ai-plan.md) can use GitHub-hosted public recipes;
 it does not require a central credential service. Catalog delivery and app-upgrade
 mechanisms still need their bounded design, without reopening general recovery.

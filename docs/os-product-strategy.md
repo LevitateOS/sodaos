@@ -156,11 +156,13 @@ data under /var is shared across deployments. Soda should build on that separati
 while explicitly handling the compatibility of its applications and persistent data.
 A previous host deployment is not a snapshot of later database or project writes.
 
-Product media still requires the remaining delivery work, including
-authenticity, signer/key custody where applicable, supported architectures, licensing,
-security updates and failure recovery. This proposal does not select bootc, a new
-image builder, an independent release service or the predecessor's reserved Updates
-platform. The current upstream-based installation path remains in effect.
+Product media still requires authenticity, signer/key custody, supported
+architectures, licensing, security updates and failure recovery. The later selected
+[release engineering plan](release-engineering-plan.md) owns GHCR distribution, signed
+CoreOS-aligned releases and an emergency lane. Its preferred derived-host-image
+mechanism still requires feasibility proof; bootc and a custom update server are
+not selected. The current installation path remains in effect, and the predecessor's
+reserved Updates platform remains separate.
 
 ## Update ownership
 
@@ -182,8 +184,8 @@ policy was applied in this discussion.
 
 | Scope | Owner and remaining Soda responsibility |
 | --- | --- |
-| CoreOS host and layered system packages | Reuse native rpm-ostree/Zincati; Soda must account for supported package compatibility and an explicit host reboot policy |
-| Soda's own programs, app containers, configuration and schemas | Coordinated Soda release delivery remains to design; a CoreOS update does not deliver all Soda changes |
+| CoreOS host and layered system packages | Reuse supported native deployment mechanisms; the selected release plan must resolve Zincati ownership so upstream activation cannot bypass Soda qualification |
+| Soda's own programs, app containers, configuration and schemas | The selected release engineering plan coordinates tested combinations and migrations; a CoreOS update alone does not deliver Soda changes |
 | Marketplace apps such as Vaultwarden and Homepage | The [Services plan](services-and-ai-plan.md#install-retry-and-persistent-lifecycle) owns reviewed recipes and installed versions; app upgrades are separate from host updates and catalog refreshes |
 
 After a host reboot, native systemd/Quadlet services start the instances configured
@@ -191,20 +193,23 @@ for boot. This is startup of installed versions, not an app-image upgrade. App
 database migration, compatibility and backups cannot be delegated to Zincati, and
 rolling back a container image alone does not restore its changed database.
 
-**A Soda host OCI is optional.** OCI is a packaging/distribution format, QCOW2 a
-virtual-disk format, and ISO installation media. A bootable host OCI can carry OS
+**A derived Soda host OCI is now the preferred target for feasibility validation**
+under the [release engineering plan](release-engineering-plan.md), not an implemented
+migration. OCI is a packaging/distribution format, QCOW2 a virtual-disk format,
+and ISO installation media. A bootable host OCI can carry OS
 content, unlike an ordinary application image. [bootc](https://bootc.dev/bootc/)
 specializes in installing/updating such OS images; it is not the only way to use
 OCI on CoreOS. [rpm-ostree also supports OCI-based OS transport and upgrades](https://coreos.github.io/rpm-ostree/container/).
 Do not turn “Soda has no host OCI update path” into “CoreOS cannot use OCI,” or make
 a bootc migration a prerequisite for the manual installer or Services marketplace.
 The exact selected OS/version, trust and native behavior would need review before
-changing transport. Existing application OCI archives remain independent of that
-optional host-image decision.
+changing transport. Existing application OCI archives remain separate artifacts,
+with the selected release record binding their compatible versions.
 
-These upstream references were consulted for the discussion; they do not add
-native validation results, a custom updater, a central marketplace service or the
-predecessor's separately reserved Updates platform to the implementation scope.
+The [release engineering plan](release-engineering-plan.md) now owns the selected
+CoreOS-aligned train, emergency releases, GHCR hosting, trust, qualification and
+activation design. These upstream references do not establish native validation or
+select a central marketplace service or the predecessor's reserved Updates platform.
 
 ## Priority and effort comparison
 
@@ -365,8 +370,9 @@ process memory and tmux sessions are not promised to survive a host restart.
 
 Host, Soda/Forgejo application, and mutable Project OS maintenance have distinct
 contracts. Existing projects continue to use [bounded same-root delivery](project-os.md#deliver-required-additions-without-replacing-roots).
-Broad application orchestration/rollback remains a later scope decision coordinated
-with the separately reserved Updates work, not imported from the predecessor.
+Coordinated appliance release activation and compatibility-aware recovery now belong
+to the [release engineering plan](release-engineering-plan.md). General application rollback
+remains outside it; nothing is imported from the predecessor's reserved Updates work.
 
 ## 5. Complete backup and tested recovery
 

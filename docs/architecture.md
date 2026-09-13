@@ -246,8 +246,11 @@ registration authority, scheduling and results; Soda owns local capacity, not a 
 
 [Deferred scope](deferred.md) excludes managed private-resource branches/selectors,
 merge automation, generalized reconciliation/recovery/identity remapping, project
-archival/deletion and a new release/update platform. Deferral does not remove ordinary
-authorization, validation, error handling or persistence requirements.
+archival/deletion and general fleet orchestration. The separately selected
+[release engineering plan](release-engineering-plan.md) owns signed CoreOS-aligned
+Soda releases through GHCR and an emergency lane; its native mechanism remains to
+validate. Deferral does not remove ordinary authorization, validation, error handling
+or persistence requirements.
 
 [Native validation](native-validation.md) owns product journeys. Outside
 [support tools](native-support.md) supply transport/artifacts/evidence, not copied
