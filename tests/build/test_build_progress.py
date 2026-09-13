@@ -127,6 +127,26 @@ else:
                         process.communicate(timeout=8)
 
 
+class ProductionOwnership(unittest.TestCase):
+    def test_both_layouts_delegate_instead_of_copying_component_recipes(self):
+        shell = (ROOT / 'scripts/build-native.sh').read_text()
+        host = (ROOT / 'tools/soda-host-image/complete.go').read_text()
+        legacy = (ROOT / 'tools/soda-host-image/legacy.go').read_text()
+        for duplicate in ('scripts/build-forgejo.ts', 'scripts/fetch-tea.py', 'appliance/tailnet.Containerfile'):
+            self.assertNotIn(duplicate, shell)
+            self.assertNotIn(duplicate, host)
+            self.assertNotIn(duplicate, legacy)
+        self.assertIn('--legacy-native', shell)
+        self.assertEqual(host.count('producer.Assets()'), 1)
+        self.assertEqual(host.count('producer.Images('), 1)
+        self.assertEqual(legacy.count('p.Assets()'), 1)
+        self.assertEqual(legacy.count('p.Images('), 1)
+        # Timing is shared too, rather than a second Go clock/log format.
+        bridge = (ROOT / 'internal/nativebuild/progress.go').read_text()
+        self.assertIn('scripts/build_progress.py', bridge)
+        self.assertNotIn('time.Now()', bridge)
+
+
 class CompleteBuild(unittest.TestCase):
     def setUp(self):
         spec = importlib.util.spec_from_file_location('timed_installer_fixture', ROOT / 'scripts/build-installer.py')
@@ -147,8 +167,13 @@ class CompleteBuild(unittest.TestCase):
             self.assertIn('SODA_BUILD_START_NS', kwargs['env'])
             if failure:
                 raise subprocess.CalledProcessError(failure, command)
-        def iso(options):
+            verifier = root / '.artifacts/native/x86_64/tools/soda-artifacts'
+            verifier.parent.mkdir(parents=True)
+            verifier.write_bytes(b'\x7fELFfresh-producer-fixture')
+            verifier.chmod(0o755)
+        def iso(options, native_verifier=None):
             order.append('iso')
+            self.assertEqual(native_verifier, b'\x7fELFfresh-producer-fixture' if full else None)
             self.assertEqual(options.bundle_source, str(root / '.artifacts/native/x86_64' if full else root / 'existing-payload'))
             self.module.progress.next('ISO / Fixture verification')
             if iso_failure:
@@ -167,6 +192,27 @@ class CompleteBuild(unittest.TestCase):
         self.assertIn('DONE     ISO phase', log)
         self.assertIn('Application OCI archives', output)
         self.assertEqual(output.count('SUCCESS'), 1)
+
+    def test_produced_verifier_is_snapshot_not_untrusted_bundle_execution(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            verifier = root / '.artifacts/native/x86_64/tools/soda-artifacts'
+            verifier.parent.mkdir(parents=True)
+            verifier.write_bytes(b'\x7fELFbefore')
+            verifier.chmod(0o755)
+            with patch.object(self.module, 'ROOT', root):
+                snapshot = self.module.produced_verifier('x86_64')
+                verifier.write_bytes(b'\x7fELFafter')
+                self.assertEqual(snapshot, b'\x7fELFbefore')
+                verifier.chmod(0o777)
+                with self.assertRaises(ValueError):
+                    self.module.produced_verifier('x86_64')
+                verifier.chmod(0o755)
+                retained = verifier.with_name('retained')
+                verifier.rename(retained)
+                verifier.symlink_to(retained)
+                with self.assertRaises(ValueError):
+                    self.module.produced_verifier('x86_64')
 
     def test_failed_native_build_never_starts_iso(self):
         with tempfile.TemporaryDirectory() as directory:

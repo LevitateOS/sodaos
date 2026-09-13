@@ -93,9 +93,14 @@ Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist w
 
 ## Build timing and progress implementation plan
 
-**Status: implemented in source; local checks passed.** Requested and implemented on 13 September 2026. A full native build with these checkpoints has not run. This section
-owns progress/timing for the local source-to-ISO build. Existing build recipes and
-[ISO generation](coreos-installer.md) continue to own artifact production.
+**Status: source consolidation implemented; local checks passed.** The timing work
+from `2166333` is retained and now also used by the canonical Go release-image
+builder. `internal/nativebuild/production.go` owns the shared program, asset and
+application-image production steps; `build-native.sh` is the legacy writable-layout
+admission/sealing adapter, not another copy of those recipes. This section owns
+progress/timing for both callers. Containerfiles, locks, staging and
+[ISO generation](coreos-installer.md) still own their content contracts.
+Full native build/installation evidence is separate from these source checks.
 
 ### Run the timed build
 
@@ -123,11 +128,15 @@ The native payload remains at `.artifacts/native/x86_64`.
 `.artifacts/native/ARCH.timing.log`. The existing standalone `build-installer.py`
 command uses `--bundle-source` and reports an ISO-only total. `--build-native` and
 `--bundle-source` are mutually exclusive; the shell entrypoint selects the former.
-The independent host-image candidate remains under its own command.
+The release-image command is `tools/soda-host-image --build --complete`; its invocation
+is documented in [native support](native-support.md#local-host-content-image-candidate).
+It calls the same Go producer and emits `<attempt>/timing.log` plus a separate
+`build.log`. It does not call the legacy assembler or build an ISO.
 
-The shared Python standard-library helper supplies monotonic timestamps and plain
-progress records. A small shell adapter leaves commands in their original shell,
-preserving `errexit` and captured stdout. A subprocess group forwards Ctrl-C/TERM
+The existing Python standard-library helper supplies monotonic timestamps, plain
+progress records and summaries. Small shell and Go adapters call that same helper;
+there is no second clock or log format. The shell retains `errexit`, and captured
+image IDs/tool versions remain separate from progress stderr. A subprocess group forwards Ctrl-C/TERM
 to the active build and descendants, allowing five seconds for shutdown before
 forcing a timed-out group to stop. No monitoring service or dependency was added.
 
@@ -148,10 +157,10 @@ and the final summary must identify the other retained artifacts as well.
 
 | Entry point | Outputs |
 | --- | --- |
-| `build-native.sh` | Soda executable/support tools, compiled browser assets, staged configuration/branding, upstream Tea and terminal assets, five OCI archives (Project OS, dashboard, Forgejo, Caddy, Tailnet), and the sealed native payload with inventories/checksums. Forgejo/Caddy archives come from upstream images. |
+| `build-native.sh` | Legacy admission/lock and sealing around `soda-host-image --legacy-native`. The common Go producer emits programs/support tools, browser/terminal/Tea assets, staged files and five OCI archives. Legacy Forgejo/Caddy remain upstream images. |
 | `build-installer.py` | Installer console and verifier, verified upstream ISO, on-media bundle snapshot, intermediate remastered ISO, final `soda.iso`, configuration, readback evidence and media metadata/checksums. |
 | `build-iso.sh` | Runs both existing phases and reports their retained outputs and timings. The name describes the requested final target; it does not imply that only an ISO was produced. |
-| Separate `soda-host-image --build [--complete …]` | Host OCI archive and inspection records; complete mode additionally assembles application archives and payload metadata. This is a separate candidate path, not called by either script above. |
+| `soda-host-image --build [--complete …]` | Canonical release-image assembly using that same producer: vendor-tagged programs, immutable Forgejo presentation, host OCI archive, application archives, payload/candidate records and wall timings. No legacy assembly, ISO, signing or publication is implied. |
 
 The final timing summary lists the sealed native payload, its application-image
 archives, the final ISO and the timing log. Give native production its own subtotal,
@@ -189,10 +198,11 @@ output are sufficient for this pass; no background monitoring process is require
 
 ### 1. Connect the existing build entrypoints
 
-- Add a thin `scripts/build-iso.sh` entrypoint that calls `build-native.sh`, then
-  `build-installer.py` with the resulting sealed native stage as `--bundle-source`.
-  Preserve their existing command order, checks and exit behavior; do not copy
-  their build logic into the wrapper.
+- `scripts/build-iso.sh` calls `build-installer.py --build-native`, which invokes
+  the legacy adapter once and hands its sealed stage to the media assembler.
+  The adapter calls the canonical Go producer with `--legacy-native`; it owns no
+  duplicate application/asset/image build recipes. Preserve admission, locking,
+  checks and failure behavior, rather than hiding duplicate implementations in a wrapper.
 - Accept the architecture, fresh ISO output path and the ISO builder's existing
   tool/signing inputs, plus its optional private network keyfile. Validate required
   inputs before expensive work. Record the source revision once and ensure the
@@ -200,9 +210,16 @@ output are sufficient for this pass; no background monitoring process is require
 - Start the total clock at invocation, before preflight. End it only after the ISO
   builder completes its existing readback, integrity checks and final checksums.
   Installer success means a verified build artifact, not boot/install acceptance.
-- Keep both underlying commands independently usable with their own totals. The
-  separate `soda-host-image --complete` candidate is not part of this ISO recipe;
-  connecting that candidate would be a different release-engineering change.
+- Keep image and media outputs independently usable with their own totals. The
+  current ISO still installs the legacy writable layout, not the immutable host
+  candidate. Replacing that backend and retiring the legacy assembly requires the
+  [native installation/update qualification](release-engineering-plan.md#milestone-3--native-update-and-recovery).
+  The target ISO consumes the same release digests as updates; do not claim that
+  cutover merely because common production has been consolidated.
+- In a combined legacy native/ISO invocation, snapshot and reuse the verifier just
+  built by that invocation instead of compiling it twice. Standalone media given an
+  external `--bundle-source` still compiles its verifier from trusted source; never
+  execute an input bundle's program to establish that bundle's trust.
 - Respect the native builder's current fresh-output requirement. If its output
   already exists, explain the conflicting path and stop. Do not delete artifacts,
   create worktrees or clear caches as a timing convenience.
@@ -212,7 +229,8 @@ output are sufficient for this pass; no background monitoring process is require
 - Measure elapsed real time with a monotonic clock, including child execution,
   downloads and waits. Use Python's standard-library monotonic clock in the ISO
   builder and a small clock function using the already-required Python interpreter
-  for shell checkpoint timestamps. Add no dependency or separately compiled tool.
+  for shell and Go checkpoint timestamps. Add no timing dependency or separately
+  compiled timing tool; the artifact producer is compiled for its existing Go work.
 - The outer entrypoint owns the run start. Pass that clock origin to child scripts
   so their messages show the same running total. Standalone invocations initialize
   their own origin. Keep section start times separate from the total start.
@@ -222,51 +240,54 @@ output are sufficient for this pass; no background monitoring process is require
   versions remain unchanged. Use plain lines that remain readable in a terminal
   and redirected output; do not require color or cursor manipulation.
 - Retain the same progress lines in `<ISO-output-name>.timing.log` beside the ISO attempt,
-  outside the sealed native payload and ISO contents. Flush checkpoints as they
+  or `<release-attempt>/timing.log` for release-image builds. Neither belongs in the
+  sealed payload, image or ISO. Flush checkpoints as they
   happen so a failed attempt still has its earlier timings. Preflight failures
   before output creation remain visible in the terminal. This is a timing log,
   not a new capture of secret-bearing command output.
 
 ### 3. Section inventory and timing boundaries
 
-This inventory was checked against both entrypoints, their staging/metadata helpers,
-the three local Containerfiles, and the ISO download, snapshot, remaster and readback
-helpers on 13 September 2026. Preserve the source order below. Each row is a named
-start/end checkpoint; “each” expands into an individually named interval in the
-existing loop. The wrapper reports native/ISO phase durations and the overall total.
+The shared producer, not a second build graph in documentation, owns execution
+order. Each significant operation gets a named start/end checkpoint; repeated
+program/image work names the actual component. The media wrapper additionally
+reports native/ISO phase durations and the overall total.
 
-**Native payload — [build-native.sh](../scripts/build-native.sh)**
+**Shared production — [production.go](../internal/nativebuild/production.go)**
 
-| Order | Terminal section | Work included / source boundary |
-| --- | --- | --- |
-| N01 | Check native build prerequisites | Architecture, Go/Bun, source revision/cleanliness, output-parent validation, nonblocking build lock, fresh output directories. |
-| N02 | Compile support tool: each tool | Separate `go build` intervals for `soda-artifacts` and `soda-acceptance`; includes any dependency fetching done by Go. |
-| N03 | Compile Soda program: each program | Existing `cmd/*` loop, with the actual program name; includes any dependency fetching done by Go. |
-| N04 | Verify Go dependencies | `go mod verify`. |
-| N05 | Install frontend dependencies | `bun install --frozen-lockfile`, including resolution/download/cache work. |
-| N06 | Build frontend assets | `build-forgejo.ts`: shared Lit runtime and Soda Forgejo, Spaces, Runners and Tailnet browser modules, inventory validation and output writes. |
-| N07 | Fetch upstream Tea binary | `fetch-tea.py`: download, checksum/architecture/license checks and staging. |
-| N08 | Pull and resolve Rocky base | Native-platform pull, image ID and registry digest resolution. |
-| N09 | Build image: Project OS, then dashboard | One interval per `podman build`; see the included package/tool work below. |
-| N10 | Export image: Project OS, then dashboard | One `podman save` interval immediately after each image build, following the existing loop order. |
-| N11 | Resolve and pull Tailnet base | Read/validate companion inputs and pull its selected base image. |
-| N12 | Build Tailnet companion image | Download/check upstream Tailscale archive inside the image build, extract binaries and assemble image. |
-| N13 | Export Tailnet companion image | Save the companion OCI archive. |
-| N14 | Pull image: Forgejo, then Caddy | Separate native-platform pulls using service references; record each image ID. |
-| N15 | Export image: Forgejo, then Caddy | One OCI export immediately after each pull, following the existing loop order. |
-| N16 | Fetch terminal assets | `fetch-terminal.py`: xterm/fit distributions, checksum checks and selected-file extraction. |
-| N17 | Prepare Forgejo translations | `forgejo-locales.py`: obtain/verify the native catalog and merge Soda keys. |
-| N18 | Stage appliance files | `stage.py`: Soda binaries, services/configuration, Cockpit branding/icons/fonts, Forgejo templates/assets/locale, terminal-asset verification and public file modes. |
-| N19 | Collect build inputs and tool versions | Beginning of `native-build-info.py`: manifests/licenses/notices, install script and builder tool versions. |
-| N20 | Inspect built image: each image | Metadata helper's existing loop over base, Project OS, dashboard, Forgejo, Caddy and Tailnet; include digest inspection, applicable RPM inventories and CLI version probes. |
-| N21 | Finish build metadata | Write `native-build.json` after image observations complete. |
-| N22 | Confirm unchanged source | Final revision and working-tree check before sealing. |
-| N23 | Seal native payload | `soda-artifacts seal`: file inventory, ELF checks, five OCI archive inspections, input consistency and checksum generation. |
+| Section | Work included / source boundary |
+| --- | --- |
+| Compile each program | One pinned `go build` and ELF/mode verification per command. Vendor uses `soda_host_image` and archive-safe VCS mode; legacy uses its existing writable layout. |
+| Check frontend toolchain; verify Go dependencies | Manifest-owned Bun version and `go mod verify`. |
+| Install dependencies; build frontend assets | Frozen Bun install, `build-forgejo.ts`, selected browser modules/inventory/output writes. |
+| Fetch terminal assets; prepare Forgejo translations; fetch Tea | Existing checksum/license/architecture/staging owners, each timed individually. |
+| Stage appliance files | `stage.py`: programs, services, configuration, branding, templates/assets/locale and public modes. This precedes both layouts' image builds. |
+| Pull and resolve Rocky base | Same selected base for dashboard/Project OS, platform/digest resolution and provenance recording. |
+| Build then export/verify each image | Dashboard, Project OS, Forgejo, proxy and Tailnet in producer order. Each export immediately verifies OCI bytes, platform, config identity and applicable revision. |
+| Forgejo layout-specific assembly | Vendor builds immutable presentation into the image; legacy exports upstream Forgejo for its writable installation paths. |
+| Proxy naming | Same upstream component; `caddy.oci` remains the legacy bundle filename and `proxy.oci` the release filename. |
 
-N03 currently builds `soda-dashboard`, `soda-forgejo-tailnet`, `soda-host`,
-`soda-image-import`, `soda-runner-launch`, `soda-runners`, `soda-setup` and
-`soda-tailnet`. Derive displayed names from the existing loop so future programs
-are automatically covered; this list must not become another build manifest.
+Command names come from `SodaCommands`, not another maintained list. Support tools
+remain outside runtime `cmd/` admission.
+
+**Legacy-only assembly — [build-native.sh](../scripts/build-native.sh)**
+
+Admission/toolchain/clean-source checks, checkout lock and fresh producer output;
+compile the shared Go producer; produce the legacy components; collect/inspect
+native inputs using `native-build-info.py`; confirm unchanged source; seal the
+payload. For a combined ISO build, snapshot the just-produced verifier for reuse.
+Each boundary remains timed. Existing outputs and the producer executable are
+retained rather than overwritten or cleared.
+
+**Release-only assembly — [soda-host-image](../tools/soda-host-image/main.go)**
+
+Admission; freeze committed source with `git archive`; prepare host context;
+compile vendor programs once; lock host package inputs; common asset/image
+production and immutable Forgejo assembly/inspection; embed payload metadata and
+bound-image selections; inventory context; pull locked CoreOS; build, inspect,
+export and verify the host; write the detached candidate record. Vendor programs
+are copied into the app staging input, not compiled again. Read-only content/ELF/
+OCI checks are artifact inspection, not installed qualification.
 
 The Project OS image interval includes Rocky package installation, the signed GitHub
 CLI RPM, podman-compose, the upstream mise binary, copying Tea and Soda runtime files,
@@ -283,7 +304,7 @@ for timing. Tea and Tailscale are downloaded binaries, not source compilations.
 | I01 | Check ISO build prerequisites | Native architecture, unchanged source, tool versions, selected ISO inputs, canonical output validation and fresh directories. The outer preflight catches obvious missing inputs earlier; retain the builder's own checks. |
 | I02 | Verify installer Go dependencies | `go mod verify`. |
 | I03 | Compile installer console | Build `appliance/installer` into the on-media `soda-install`. |
-| I04 | Compile ISO artifact verifier | Build `tools/soda-artifacts` using the existing ISO recipe; this currently repeats a native-phase build and remains visible as separate work. |
+| I04 | Reuse or compile ISO artifact verifier | Combined native/ISO builds reuse the freshly produced, owned verifier snapshot. Standalone ISO builds compile from trusted source, never from the supplied bundle. |
 | I05 | Download and verify CoreOS ISO | `fetch-coreos-iso`: input validation, ISO download/checksum, signature download/verification and verified-input record. This is one combined interval around the existing command. |
 | I06 | Generate destination configuration | Load public provisioning configuration and convert it with Butane. |
 | I07 | Snapshot native bundle onto media payload | `snapshot_bundle`: the existing `bundle` command verifies/copies/seals the admitted payload; hash its resulting manifest. This includes real archive copying and verification, not just passing a path. |
@@ -320,9 +341,12 @@ for timing. Tea and Tailscale are downloaded binaries, not source compilations.
   overhead may make the overall total slightly larger than the two phase subtotals.
 - The build includes its existing artifact checks. `check-native.sh` is a separate
   source/packaging test workflow, not currently called by either build script.
-  Installing builder prerequisites, VM boot/install tests, publication and the
-  separate immutable host-image candidate are also outside this measured recipe.
-  Say this in the summary so “build completed” does not imply those actions ran.
+  Installing builder prerequisites, VM boot/install qualification and publication
+  remain outside artifact-build totals. The release-image command now has its own
+  measured total; it is not part of the legacy ISO total. Qualification/publication
+  must have distinct outer phase totals when the M4 pipeline is connected, without
+  giving secret-bearing workers access to build-supplied timing code. Say which
+  phases actually ran so “build completed” does not imply qualification or delivery.
 - During implementation, reconcile every external command and potentially expensive
   copy/hash loop against this inventory. Each belongs to a named timing interval;
   combined intervals disclose their included work rather than claiming timings we

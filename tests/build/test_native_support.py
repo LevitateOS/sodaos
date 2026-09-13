@@ -85,10 +85,14 @@ class OutsideContracts(unittest.TestCase):
             self.assertTrue((ROOT / 'tools' / name / 'main.go').is_file())
             self.assertFalse((ROOT / 'cmd' / name).exists())
         build = (ROOT / 'scripts/build-native.sh').read_text()
-        self.assertIn('podman save --format oci-archive', build)
-        self.assertIn('--iidfile', build)
+        producer = (ROOT / 'internal/nativebuild/production.go').read_text()
+        self.assertIn('--legacy-native', build)
+        self.assertIn('"save", "--format=oci-archive"', producer)
+        self.assertIn('--iidfile', producer)
         self.assertIn('flock -n', build)
+        self.assertNotIn('podman build', build)
         self.assertNotIn('podman push', build)
+        self.assertNotIn('"push"', producer)
 
     def test_installer_verifies_before_copy_and_retains_first_install_guard(self):
         source = (ROOT / 'scripts/install-native.sh').read_text()

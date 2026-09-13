@@ -75,16 +75,23 @@ the [architecture record](architecture.md#username-blocking-proposal-and-underst
 owns that correction. No custom build was authorized, and the stock-executable
 boundary remains. No admission code or installed configuration has changed.
 
-## ISO build timing and progress
+## Shared build production, timing and legacy ISO
 
-Implemented in source: `scripts/build-iso.sh` connects the existing native payload
-and ISO recipes. Named checkpoints report section durations, native/ISO subtotals
-and total elapsed time, with retained timing logs and failure/cancellation outcomes.
-The [owning guide](installation.md#build-timing-and-progress-implementation-plan)
-records the command, complete section inventory, outputs and local checks.
-Eleven focused timing/wrapper tests and the affected ISO/metadata/staging fixtures
-passed. Optional real-xorriso/Caddy tests were skipped. No complete native build,
-VM operation, deployment or publication was performed for this change.
+The owner explicitly requested consolidation after the release builder bypassed
+`2166333`'s timed native/ISO flow. Source implementation is complete: one Go producer
+owns common program compilation, assets/staging and application images; both layout
+assemblers use it and the existing Python timing/reporting/supervision helper.
+`build-native.sh` retains legacy admission/locking/metadata/sealing, not duplicate
+component recipes. Combined native/ISO builds snapshot/reuse their just-built verifier;
+standalone ISO builds still compile trusted source instead of executing received code.
+The [timing owner](installation.md#build-timing-and-progress-implementation-plan)
+and [release owner](release-engineering-plan.md#milestone-4--automated-release-builder)
+record the current commands, output distinction and legacy retirement boundary.
+Go/race/vet and the focused production, CLI, timing, ISO and staging fixtures pass;
+[history](implementation-history.md#shared-build-production-and-timing-consolidation)
+records scope. This is not an image-based installer cutover, unattended pipeline,
+complete rebuilt image/ISO or boot/install acceptance. No registry/key/fixture/service
+or installed-appliance state was changed by the source consolidation.
 
 ## Maintenance-commitment audit
 
@@ -307,7 +314,9 @@ Tailnet work.
   global host policy, appliance installation/migration, service/VM lifecycle or cleanup
   is authorized by this commissioning. Off-machine recovery custody and untrusted-job
   isolation remain unproved. The [owning plan](release-engineering-plan.md#10-workstream-status-and-next-action)
-  tracks completion independently of other workstreams.
+  tracks completion independently of other workstreams. The owner subsequently
+  explicitly approved the shared-build/timing source consolidation; that local work
+  does not advance GHCR commissioning or authorize an installer/backend cutover.
 - **Tailnet:** the user explicitly selected Stage 4 source implementation and local
   tests, and then explicitly requested source completion rather than another blocker
   handoff. The source candidate is prepared; further source fixes/tests need no new

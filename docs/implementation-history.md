@@ -51,6 +51,70 @@ in `.artifacts/forgejo-deploy-a6a86c2-PREPARED/`; guest backups under
 covers this delivery only: no further restart, enrollment, cleanup or hold
 extension follows.
 
+## Shared build production and timing consolidation
+
+The owner explicitly approved consolidation after identifying that the GHCR host-image
+builder bypassed `2166333`'s timed native/ISO path. This work preserves that commit's
+clock, log format, summaries, shell adapter, ISO checkpoints and process-group
+supervisor rather than introducing a replacement timing system or a task scheduler.
+
+**Source changes:**
+
+- `internal/nativebuild/production.go` is the single concrete program/asset/app-image
+  producer. Both callers use its compilation, pinned toolchain checks, frozen Bun
+  install, browser/terminal/locales/Tea/staging sequence, base resolution, app build
+  and verified OCI export. Existing Containerfiles, manifests and `stage.py` still
+  own content. The legacy shell and vendor assembler no longer carry independent
+  copies of those command sequences.
+- `tools/soda-host-image` remains the canonical image producer; `--legacy-native` is
+  its explicit compatibility mode for `build-native.sh`. Mixed legacy/release flags
+  refuse before production. The legacy shell retains native/clean-source admission,
+  checkout lock, fresh outputs, metadata inspection and sealing. It compiles and
+  retains the producer outside the sealed payload, then runs it directly so native
+  subprocess exit codes are not flattened by `go run`.
+- Layout differences remain real: vendor runtime programs use `soda_host_image` and
+  archive-safe VCS metadata; legacy programs retain writable paths. Vendor Forgejo
+  packages immutable presentation; legacy Forgejo remains upstream with writable
+  presentation. `proxy.oci`/`caddy.oci` remain their respective established names.
+  This is one production implementation with explicit assembly differences, not a
+  claim that the two historical installation layouts are byte-interchangeable.
+- `internal/nativebuild/progress.go` calls the original Python timing helper for
+  clocks, records and summaries. The Go entrypoint execs its existing supervisor;
+  the native shell is already supervised. Parent origins/logs are inherited, child
+  summaries suppressed, failure/interrupt statuses retained, and captured IDs stay
+  separate from progress stderr. The selected Go executable is resolved from the
+  running pinned toolchain, not merely put into a child PATH after lookup.
+- Release checkpoints cover source archive/context preparation, each program,
+  package locks, common assets/images, Forgejo presentation, host assembly/build/
+  inspection/export and final OCI/hash/candidate recording. Timings are outside
+  the shipped payload. They are artifact-build totals, not qualification, signing,
+  registry or installation evidence.
+- Combined legacy native/ISO builds snapshot the verifier just built by that
+  invocation and reuse those exact bytes, removing the repeated verifier build.
+  Standalone ISO still compiles from trusted source: it does not execute an input
+  bundle's verifier to establish trust. The handoff rejects linked/writable/non-ELF
+  tool inputs and is not exposed as an arbitrary verifier CLI flag.
+
+**Checks actually run:** Go tests/race/vet for `internal/nativebuild`,
+`internal/hostimage`, `internal/appliancerelease` and `tools/soda-host-image`;
+13 timing/ownership/combined-handoff fixtures; 19 ISO fixtures (both public/private
+media and fresh-verifier/standalone cases); seven Spaces staging, five avatar
+fixtures (two optional skips), six Tea, eight native-support, six project-runtime
+and two Tailnet checks; shell syntax and diff checks. New Go production doubles
+exercise both layouts, exactly-once component/asset production, occupied-output
+refusal without replay, failure stopping later images, wrong toolchain/base/lock/
+layout/platform/revision rejection, native ELF verification and support-tool
+admission. Go timing tests cover shared parent totals, failed exit codes, cancellation,
+occupied log preservation and pinned compiler selection. These are source/process/
+packaging fixtures, not native image/ISO rebuild or installed acceptance.
+
+Logs remain under `.artifacts/build-consolidation/source-checks/`. No GHCR upload,
+key/credential change, service/timer activation, VM operation or appliance mutation
+was performed. Existing images, failed attempts, protected release state and the
+legacy installer remain retained. The owning release plan keeps the retirement gate:
+image-based installation and updates must consume the same qualified release digests;
+that backend/native proof is still M3, and unattended orchestration remains M4.
+
 ## GHCR namespace and signing bootstrap
 
 The owner confirmed control of `LevitateOS`, selected the **current `gh` account**

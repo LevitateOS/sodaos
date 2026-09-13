@@ -17,8 +17,8 @@ class ProjectRuntimeContracts(unittest.TestCase):
         self.assertIn('org.soda.profile="rocky-headless"', recipe)
         self.assertIn('org.soda.interface="headless"', recipe)
         self.assertIn('RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2"', recipe)
-        build = (ROOT / 'scripts/build-native.sh').read_text()
-        self.assertIn('--label "org.opencontainers.image.revision=$revision"', build)
+        build = (ROOT / 'internal/nativebuild/production.go').read_text()
+        self.assertIn('"--label=org.opencontainers.image.revision="+p.Revision', build.replace(' ', ''))
         self.assertNotIn('fedora-kde', recipe)
 
     def test_service_uses_local_engine_and_activation_fd(self):

@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/nativebuild"
@@ -269,22 +268,4 @@ func Inventory(context string) error {
 		return err
 	}
 	return nativebuild.WriteNew(filepath.Join(filepath.Dir(context), "context-inventory.json"), append(data, '\n'), 0600)
-}
-
-func Commands(source string) ([]string, error) {
-	entries, err := os.ReadDir(filepath.Join(source, "cmd"))
-	if err != nil {
-		return nil, err
-	}
-	var result []string
-	for _, e := range entries {
-		if e.IsDir() {
-			result = append(result, e.Name())
-		}
-	}
-	sort.Strings(result)
-	if len(result) == 0 {
-		return nil, errors.New("missing Soda commands")
-	}
-	return result, nil
 }

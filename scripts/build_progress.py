@@ -158,3 +158,5 @@ if __name__ == '__main__':
         emit(args[0], args[1], int(args[2]) if len(args) > 2 else None)
     elif action == 'finish':
         finish(args[0], int(args[1]))
+    elif action == 'create-log':
+        create_log(Path(args[0]))

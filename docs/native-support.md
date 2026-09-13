@@ -75,7 +75,11 @@ The first installer verifies before copying writable prefixes, validates the RFC
 The [release engineering plan](release-engineering-plan.md) owns this new image
 path; the existing writable installer and sealed application bundle remain unchanged.
 `tools/soda-host-image` is a noninteractive local build tool, never an installed
-appliance helper or update scheduler.
+appliance helper or update scheduler. It is also the canonical Go component
+producer: the preserved `build-native.sh` adapter invokes its explicit
+`--legacy-native` layout before legacy metadata/sealing. Do not mix that compatibility
+flag with host build/complete/repository flags or treat its output as a host candidate.
+Both callers use `internal/nativebuild/production.go`, not duplicated command recipes.
 
 ```sh
 # Run from the canonical checkout after committing the candidate source.
@@ -90,6 +94,11 @@ context and compiles/inspects native binaries. It requires a clean checkout and
 matching-native Linux/Go 1.26.7. `git archive` freezes the revision in the new ignored
 attempt; it does not create a worktree, switch branches or touch another agent's
 uncommitted work. Source archive, context inventory and private build log remain.
+The [existing timing owner](installation.md#build-timing-and-progress-implementation-plan)
+now supplies named sections, total wall time and failure/cancellation summaries to
+this command too. `timing.log` contains progress only; `build.log` retains native
+command diagnostics. The same Python supervisor handles the invocation's process
+group; no service/timer is installed. A supplied parent timing origin/log is reused.
 
 With `--build`, it pulls the architecture-specific digest in
 `appliance/locks/coreos-host.json`, builds using local Podman (never a remote engine),

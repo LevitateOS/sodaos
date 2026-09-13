@@ -47,9 +47,18 @@ below. Audit completion does not mean the findings have been fixed.
 
 **MC2 separately authorized and implemented:** Tea source compilation has been removed from both build paths and replaced with verified upstream 0.16.0 binaries for both target architectures. The [CLI guide](project-clis.md#source-and-packaging) owns the resulting packaging and validation status. This does not approve the other recommendations.
 
+**MC4 subsequently authorized and implemented at source scope:** the owner explicitly
+requested consolidation after identifying the uninstrumented release builder beside
+`2166333`'s timed native/ISO path. Common program, asset and app-image production now
+has one Go implementation; both layouts reuse the original timing owner. The legacy
+writable assembler remains explicit, not silently interchangeable with a host image.
+The [release owner](release-engineering-plan.md#milestone-4--automated-release-builder)
+records the image-installation retirement boundary and remaining native qualification.
+This does not approve the other audit recommendations.
+
 The audit is the findings owner; this plan remains the decision/order owner.
-No remediation code, retained-target operation, custom Forgejo build or deployment
-was performed by this audit. Existing independent workstream decisions and the
+No retained-target operation, custom upstream Forgejo build or deployment was
+performed by this audit or the source consolidation. Existing independent workstream decisions and the
 approved D1–D13 history below are preserved.
 
 ## Requested full upstream-ownership audit — source review complete

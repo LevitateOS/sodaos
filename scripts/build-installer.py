@@ -201,7 +201,24 @@ def tool(path):
     return path.resolve()
 
 
-def build(args):
+def produced_verifier(arch):
+    """Snapshot only this invocation's freshly built tool, never an input bundle's executable."""
+    path = ROOT / '.artifacts/native' / arch / 'tools/soda-artifacts'
+    if path.resolve() != path:
+        raise ValueError('canonical freshly produced verifier required')
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, 'rb') as source:
+        info = os.fstat(source.fileno())
+        if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                or info.st_mode & 0o022 or not info.st_mode & 0o111):
+            raise ValueError('owned non-writable native verifier required')
+        data = source.read()
+    if not data.startswith(b'\x7fELF'):
+        raise ValueError('native verifier is not ELF')
+    return data
+
+
+def build(args, native_verifier=None):
     progress.next('ISO / Check build prerequisites')
     if platform.system() != 'Linux' or platform.machine() != args.arch:
         raise ValueError('matching native Linux required')
@@ -246,10 +263,18 @@ def build(args):
     subprocess.run(['go', 'build', '-trimpath', '-buildvcs=true', '-ldflags=-s -w',
                     '-o', str(payload / filename), './appliance/installer'],
                    cwd=ROOT, env=env, check=True)
-    progress.next('ISO / Compile artifact verifier')
-    subprocess.run(['go', 'build', '-trimpath', '-buildvcs=true',
-                    '-o', str(out / 'soda-artifacts'), './tools/soda-artifacts'],
-                   cwd=ROOT, env=env, check=True)
+    if native_verifier is None:
+        # Standalone media accepts an external bundle: never execute its verifier
+        # to establish its own trust. Compile this small tool from trusted source.
+        progress.next('ISO / Compile artifact verifier')
+        subprocess.run(['go', 'build', '-trimpath', '-buildvcs=true',
+                        '-o', str(out / 'soda-artifacts'), './tools/soda-artifacts'],
+                       cwd=ROOT, env=env, check=True)
+    else:
+        progress.next('ISO / Reuse freshly built artifact verifier')
+        with (out / 'soda-artifacts').open('xb') as dest:
+            dest.write(native_verifier)
+            os.fchmod(dest.fileno(), 0o755)
     progress.next('ISO / Download and verify CoreOS ISO')
     subprocess.run([str(out / 'soda-artifacts'), 'fetch-coreos-iso', '--arch', args.arch,
                     '--lock', str(lock), '--keyring', str(Path(args.keyring).absolute()),
@@ -646,17 +671,20 @@ def main():
         target = 'Soda artifacts + ISO' if args.build_native else 'Soda ISO (existing native payload)'
         emit('BUILD', f'{target} · {args.arch} · revision {revision} · cache state unknown')
         progress.end()
+        native_verifier = None
         if args.build_native:
             with progress.section('Native phase'):
                 subprocess.run(['bash', str(ROOT / 'scripts/build-native.sh'), args.arch], cwd=ROOT,
                                env=dict(os.environ, SODA_BUILD_CHILD='1'), check=True)
+                with progress.section('Native / Snapshot produced verifier for ISO'):
+                    native_verifier = produced_verifier(args.arch)
             phase_started = None
             args.bundle_source = str(ROOT / '.artifacts/native' / args.arch)
             emit('OUTPUT', 'Native payload: ' + args.bundle_source)
             emit('OUTPUT', 'Application OCI archives: ' + str(Path(args.bundle_source) / 'images'))
         phase_started = clock()
         emit('START', 'ISO phase')
-        build(args)
+        build(args, native_verifier=native_verifier)
         emit('DONE', 'ISO phase', phase_started)
         phase_started = None
         emit('OUTPUT', 'ISO: ' + str(Path(args.out) / 'soda.iso'))

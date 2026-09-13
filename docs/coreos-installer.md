@@ -21,8 +21,10 @@ the Soda payload and the recommended QCOW2 download.
 
 ## Owners and prerequisites
 
-- `scripts/build-installer.py` builds the native Go console and artifact verifier,
-  fetches/verifies the selected upstream ISO, converts public Butane configuration
+- `scripts/build-installer.py` builds the native Go console and uses an owned artifact
+  verifier: a snapshot from the just-completed native phase in combined builds, or
+  a fresh trusted-source compilation for standalone media. It never executes a
+  verifier obtained from an externally supplied bundle. It fetches/verifies the selected upstream ISO, converts public Butane configuration
   and adds the console with xorriso's imported boot-equipment replay before stock
   `coreos-installer iso customize --live-ignition`. It compares upstream file hashes,
   boot references, volume identity and native kernel-argument/Ignition readback.
@@ -111,6 +113,11 @@ Prepare the sealed native Soda stage or exported bundle for that same revision a
 architecture first. The media builder uses the existing bundle verifier/exporter
 to snapshot it into ordinary ISO files, then extracts and verifies the final ISO's
 bundle again. It does not rebuild or execute the received bundle's programs.
+The [timed combined command](installation.md#run-the-timed-build) reuses the verifier
+built by its own native phase, avoiding duplicate compilation; that trusted in-process
+handoff is not available as a user-supplied verifier flag. The immutable release-image
+installation backend is still M3 work; sharing component production does not change
+this media's legacy writable-layout installation behavior.
 Observed tool versions and supplied executable hashes are recorded, not invented
 locks. An auditable matching-native tool-container wrapper is allowed; its recorded
 hash is the wrapper's, so retain its exact image digest/identity as well.

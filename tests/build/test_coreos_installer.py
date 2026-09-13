@@ -240,7 +240,7 @@ class MediaConfiguration(unittest.TestCase):
 
     def test_build_pipeline_uses_only_live_customization_and_retains_outputs(self):
         # Commands are doubles: this proves the caller wiring, never ISO validity.
-        for private_network in (False, True):
+        for private_network, reuse_verifier in ((False, False), (True, False), (False, True), (True, True)):
             with tempfile.TemporaryDirectory() as directory:
                 root = Path(directory).resolve()
                 for name in ('scripts/render-provisioning.py', 'appliance/provisioning/base.json',
@@ -332,7 +332,13 @@ class MediaConfiguration(unittest.TestCase):
                         self.fail(f'unexpected effect {argv}')
                     return subprocess.CompletedProcess(argv, 0)
                 with patch.object(self.module, 'ROOT', root), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.subprocess, 'run', side_effect=run), patch.object(self.module.subprocess, 'check_output', side_effect=check_output), patch.object(self.module, 'verify_remaster', return_value={'SyntheticFixtureOnly': True}) as inspect_iso, patch.object(self.module, 'brand_boot_files', return_value={}), patch('sys.stdout', new_callable=io.StringIO), patch('sys.stderr', new_callable=io.StringIO) as progress_output:
-                    self.module.build(args)
+                    native_verifier = b'\x7fELFfresh-native-verifier' if reuse_verifier else None
+                    self.module.build(args, native_verifier=native_verifier)
+                    verifier_builds = [c for c in calls if c[:2] == ['go', 'build'] and c[-1] == './tools/soda-artifacts']
+                    self.assertEqual(len(verifier_builds), 0 if reuse_verifier else 1)
+                    if reuse_verifier:
+                        self.assertEqual((Path(args.out) / 'soda-artifacts').read_bytes(), native_verifier)
+                        self.assertIn('Reuse freshly built artifact verifier', progress_output.getvalue())
                     self.assertEqual('START    ISO / Prepare private network configuration' in progress_output.getvalue(), private_network)
                     self.assertEqual('START    ISO / Verify private network readback' in progress_output.getvalue(), private_network)
                     self.assertNotIn('synthetic-network', progress_output.getvalue())

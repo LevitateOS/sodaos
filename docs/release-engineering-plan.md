@@ -720,6 +720,24 @@ bootc/cache enforcement, remain distinct pending evidence. See the
 
 ### Milestone 4 — automated release builder
 
+**Shared production prerequisite implemented in source.** At the owner's explicit
+request, overlapping component production was consolidated before further GHCR
+commissioning. `internal/nativebuild/production.go` is the single implementation of
+program compilation, assets/staging and app image production. The canonical Go
+image builder and the preserved legacy native adapter select their actual layout;
+there is no generic task graph or second copy of those recipes. The existing
+[timing owner](installation.md#build-timing-and-progress-implementation-plan) now
+covers both, including failure/cancellation and shared parent totals. This is not
+an enabled scheduler or completion of items 18–22.
+
+**Installation retirement boundary.** Target installer media and updates consume
+one qualified immutable release's exact digests, without another app build. Today's
+ISO still installs the writable layout. Do not relabel that payload as an immutable
+release or force a cutover to satisfy a build refactor. Retire the compatibility
+assembly only after M3's image-based installation, persistence, update and recovery
+proof. A combined legacy native/ISO build already reuses its freshly produced
+verifier; standalone media never executes a received bundle's verifier as authority.
+
 **18. [ ] Finalize this machine's builder operating contract.**
 
 - Deliverable: complete the initial resource inspection with agreed CPU/RAM/disk
@@ -854,7 +872,9 @@ The [six milestones above](#9-implementation-stages-and-exits) are the single ta
 list for this workstream. **Milestone 1 is complete for the x86_64 local candidate
 at `45ac843`; milestone 2 has real protected keys and authenticated immutable GHCR
 round trips, with public visibility/anonymous and channel commissioning pending. Milestones 3–6 remain pending.** This consolidation changes execution granularity,
-not production gates or effect permissions.
+not production gates or effect permissions. The owner subsequently selected the
+shared-production consolidation described under M4; that source prerequisite is
+implemented without claiming native installation or unattended-pipeline completion.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
 digest-pinned logically bound core appliance images and native keyed-Sigstore
@@ -886,7 +906,14 @@ image choices refuse, and changing the companion image within an existing run is
 not an admitted hot upgrade. RPM bytes are not mirrored; aarch64 has no transaction
 lock/native proof. Metadata has no qualified upgrade edges.
 
-**Next within milestone 2: the owner sets the eight new GHCR packages to Public.**
+**Current source consolidation:** the shared Go producer and existing timing helper
+now serve both layouts; duplicated application build commands have been removed
+from the legacy shell and image assembler. Source/fixture checks are recorded in
+[history](implementation-history.md#shared-build-production-and-timing-consolidation).
+No GHCR writes, key changes or appliance operations occurred in this refactor.
+
+**Pending milestone 2 commissioning, not part of the source refactor:** the owner
+sets the eight new GHCR packages to Public.
 The [real commissioning receipt](implementation-history.md#ghcr-namespace-and-signing-bootstrap)
 records root-protected keys, the selected existing `gh` account, eight immutable
 signed uploads and authenticated native signature/digest round trips. GitHub currently
