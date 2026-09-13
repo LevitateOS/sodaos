@@ -18,6 +18,9 @@ from pathlib import Path
 def build(arch):
     if platform.system() != 'Linux' or platform.machine() != arch:
         raise SystemExit('matching-native Linux required')
+    go = shutil.which('go')
+    if go is None:
+        raise SystemExit('native Go executable required')
     root = Path(__file__).resolve().parents[1]
     lock = tomllib.loads((root / 'project-os/locks/tea-source.toml').read_text())
     output = root / '.artifacts/native' / arch / 'project-tools'
@@ -42,7 +45,9 @@ def build(arch):
         # argument values are invalid. Keep readonly mode on the build command,
         # while preserving upstream's own version/SDK linker flags.
         env.pop('GOFLAGS', None)
-        subprocess.run(['make', 'BUILDMODE=-buildvcs=false -mod=readonly', 'build'], cwd=sources[0], env=env, check=True)
+        # Tea 0.15.1 rewrites PATH in its Makefile. Use its upstream GO override
+        # so the caller-selected toolchain cannot become a different /bin/go.
+        subprocess.run(['make', 'GO=' + go, 'BUILDMODE=-buildvcs=false -mod=readonly', 'build'], cwd=sources[0], env=env, check=True)
         (output / 'bin').mkdir()
         binary = output / 'bin/tea'
         shutil.copy2(sources[0] / 'tea', binary)

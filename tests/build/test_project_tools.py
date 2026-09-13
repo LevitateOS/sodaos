@@ -23,6 +23,9 @@ class ProjectTools(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('project_tools_fixture', copied)
         self.module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.module)
+        selected_go = patch.object(self.module.shutil, 'which', return_value='/fixture/pinned/bin/go')
+        selected_go.start()
+        self.addCleanup(selected_go.stop)
         lock = self.root / 'project-os/locks'
         lock.mkdir(parents=True)
         (lock / 'tea-source.toml').write_text('version = "0.15.1"\nsource_archive = "tea.tar.gz"\n')
@@ -46,6 +49,13 @@ class ProjectTools(unittest.TestCase):
                 run.assert_not_called()
                 self.assertFalse((self.root / '.artifacts/native').exists())
 
+    def test_missing_go_precedes_mutation(self):
+        with patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.shutil, 'which', return_value=None), patch.object(self.module.subprocess, 'run') as run:
+            with self.assertRaisesRegex(SystemExit, 'Go executable required'):
+                self.module.build('x86_64')
+            run.assert_not_called()
+            self.assertFalse((self.root / '.artifacts/native').exists())
+
     def test_native_build_inputs_and_project_only_outputs(self):
         calls = []
 
@@ -66,7 +76,7 @@ class ProjectTools(unittest.TestCase):
         self.assertEqual((output / 'bin/tea').stat().st_mode & 0o777, 0o755)
         self.assertEqual((output / 'licenses/tea/LICENSE').read_text(), 'fixture license\n')
         self.assertEqual(calls[0], [str(self.root / 'scripts/fetch-tea-source.sh')])
-        self.assertEqual(calls[1], ['make', 'BUILDMODE=-buildvcs=false -mod=readonly', 'build'])
+        self.assertEqual(calls[1], ['make', 'GO=/fixture/pinned/bin/go', 'BUILDMODE=-buildvcs=false -mod=readonly', 'build'])
         self.assertEqual(calls[2], [str(output / 'bin/tea'), '--version'])
         self.assertFalse((self.root / '.artifacts/native/x86_64/rootfs').exists())
 
