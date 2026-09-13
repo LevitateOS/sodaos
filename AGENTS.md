@@ -2,6 +2,14 @@
 
 ## Working style
 
+- Prioritize engineering correctness over agreement. Challenge flawed assumptions
+  and technically weaker proposals directly, including the owner's; explain the
+  concrete tradeoff and recommend the stronger option. Pushback alone is not new
+  technical evidence. When changing a recommendation, identify the evidence,
+  corrected reasoning, requirement or priority that changed it. State uncertainty;
+  do not invent certainty or disagreement. Respect explicit owner decisions within
+  approval, but do not recast a chosen tradeoff as the technically stronger option.
+
 - Never put the owner's personal name or other identifying information in source,
   tests, fixtures, example accounts, generated resource names or documentation.
   Use neutral synthetic identities such as `soda-tester`. Do not derive fixture
