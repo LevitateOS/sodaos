@@ -1,7 +1,7 @@
 # Native support tools
 
 Implemented outside artifact/VM/SSH/evidence tools with **partial native evidence**.
-See the [handoff](implementation-status.md) for exact build/check revisions and
+See the [development handoff](development-handoff.md) for retained build/check revisions and
 limits; suite participation does not prove every remote/VM/install path. The
 historical plan/audit are retired from active docs; their follow-up notes remain
 in the [historical audit reference](#historical-audit-reference), not a second active work queue.
@@ -36,8 +36,10 @@ Reuse and licensing are recorded in [native support notices](native-support-noti
 ## Effects and permissions
 
 This section owns command effects, not an approval queue. Apply the
-[execution policy](../AGENTS.md#permissions-and-preservation) and [current grants](implementation-status.md#current-permissions)
-to those effects; already-approved local work does not need a new grant per command.
+[execution policy](../AGENTS.md#permissions-and-preservation) and the applicable grants:
+[release commissioning](implementation-status.md#current-permissions) or
+[development targets](development-handoff.md#current-permissions). Already-approved
+local work does not need a new grant per command.
 
 - `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Its selected check determines browser, native and provider effects.
 - `native`: one remote `prepare`, `build`, `check` or `bundle` phase. No automatic next phase. Preparation clones the canonical repository into a new private checkout; it never copies laptop binaries/dependencies/state.
@@ -409,7 +411,7 @@ claim stays unverified. This is not a second product readiness gate.
 | Host/operator | Secret/TLS modes, socket/DNAT and enforcing-state checks exist; execute current listener/permission/byte checks, root/non-root Cockpit sessions, interactive/quiet console and native branding. Tailnet mutations and Forgejo runner lifecycle/jobs/removal require separate grants. |
 | Reporting/architecture | Keep invocation/exit/evidence/cleanup/artifact outcomes distinct, including missing/failed/not-reached scopes. Native remote dispatcher/transfer/fixture coverage and independent aarch64 results remain incomplete; no inferred full support acceptance. |
 
-Current results and retained evidence belong to the [handoff](implementation-status.md),
+Current results and retained evidence belong to the [development handoff](development-handoff.md),
 not the audit's old worktree mappings. Product reachability, Git/shared tools,
 workloads/persistence and browser integration stay with [native validation](native-validation.md).
 [Licensing](licensing.md) owns input/package/license/source-delivery obligations.

@@ -12,7 +12,7 @@ correct all along.
 
 This is a revision-bound supplement to the [ownership audit](upstream-ownership-audit.md),
 not another backlog. The [refactoring plan](refactoring-plan.md) owns implementation
-decisions and ordering; the [handoff](implementation-status.md) owns actual checks
+decisions and ordering; the [handoff](development-handoff.md) owns actual checks
 and delivery. No deletion described here was implemented during these reviews.
 The request to record them does not select every recommendation for implementation.
 

@@ -139,7 +139,7 @@ Basic persistence across normal project stop/start and host reboot stays in scop
 
 A simpler scope still needs real native evidence: shared installation identity and
 permissions, direct-IP reachability, nested workloads/persistence and operator/project
-separation. Bounded x86_64 results are in the [handoff](implementation-status.md), not
+separation. Bounded x86_64 results are in the [handoff](development-handoff.md), not
 universal/final-product proof. No host fallback is implemented or selected without a
 concrete nested-runtime blocker and a decision.
 

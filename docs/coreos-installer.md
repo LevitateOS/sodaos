@@ -1,7 +1,7 @@
 # CoreOS installation media
 
 Implementation of the [installer plan](coreos-installer-plan.md); see the
-[handoff](implementation-status.md) for actual media-generation evidence.
+[handoff](development-handoff.md) for actual media-generation evidence.
 A native x86_64 ISO is built and has bounded diskless BIOS/UEFI boot proof, with
 the console on media.
 **ISO generation/inspection is not boot or fresh-appliance acceptance.** Anaconda
@@ -339,4 +339,4 @@ guard. Network-editor open/return and cancellation also have bounded native proo
 Static networking, confirmed disk writes, first boot/reboot/continuation and complete
 operator setup still require explicit fresh-target/disk approval and native proof. Native aarch64
 is independent; cross-compilation or metadata are not installed evidence. See the
-[handoff](implementation-status.md) for actual checks and unrelated packaging failures.
+[handoff](development-handoff.md) for actual checks and unrelated packaging failures.

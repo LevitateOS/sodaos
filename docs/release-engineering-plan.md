@@ -76,7 +76,8 @@ or CI job environments is not implied by updating the host.
 | [Credentials](dashboard-credentials.md) | Schema compatibility, consistent secret/database preservation |
 | [Project OS](project-os.md) | Persistent roots and separately selected project maintenance |
 | [Services](services-and-ai-plan.md) | Marketplace recipe and app lifecycle |
-| [Handoff](implementation-status.md) | Retained targets, active grants and shared state |
+| [Implementation status](implementation-status.md) | Single-run replacement progress, release custody and active grants |
+| [Development handoff](development-handoff.md) | Other retained targets and their separate scoped grants |
 
 Out of scope: importing the predecessor updater, a new kernel/package manager,
 public appliance ingress, fleet command execution, telemetry by default, arbitrary

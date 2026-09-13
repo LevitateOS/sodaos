@@ -232,7 +232,7 @@ contracts and research evidence—not a backlog or current progress report. Stat
 about code below describe the reviewed revisions, not necessarily today's source.
 The [refactoring plan](refactoring-plan.md#7-audit-remediation-implementation-plan)
 exclusively owns remediation steps, decisions, priorities and current source status;
-the [handoff](implementation-status.md) owns execution and delivery evidence.
+the [handoff](development-handoff.md) owns execution and delivery evidence.
 Do not maintain parallel completion flags or implementation checklists here.
 
 The later [three-pass overengineering review](overengineering-review.md) records
@@ -609,7 +609,7 @@ compatibility. Failed page retrievals were not treated as missing features.
 
 No product refactor, native/provider action or deployment is performed by this
 audit. Installer source checks and their actual results remain in the separate
-[handoff](implementation-status.md). The x86 media build and full install remain
+[handoff](development-handoff.md). The x86 media build and full install remain
 deferred. Findings outside the installer need their own bounded implementation,
 regression checks and any required paired native delivery before being called fixed.
 

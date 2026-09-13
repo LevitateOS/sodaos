@@ -41,7 +41,7 @@ independent named-End cleanup, and was delivered to both approved preserved targ
 Native browser/BFCache and retained account-access checks passed. Selected CLI/provider,
 physical-keyboard and broader native/aarch64 acceptance remain unrun; this is not
 whole-product acceptance.
-See the [current handoff](implementation-status.md) for exact checks, failed
+See the [current handoff](development-handoff.md) for exact checks, failed
 iterations and remaining proof, and [checker resolution](../tools/lit-check/README.md)
 for the analysis-only compiler boundary and known event-parameter gap. Dated research
 observations below remain historical, not current gate status.
@@ -54,7 +54,7 @@ Then inspect the current owners and the relevant product contracts before editin
 | Document | Authority |
 | --- | --- |
 | [Architecture](architecture.md) and [Sodaspaces plan](sodaspaces-plan.md) | Product scope, upstream boundaries and overall order |
-| [Current handoff](implementation-status.md) | What actually ran, on which source/target, and remaining proof |
+| [Current handoff](development-handoff.md) | What actually ran, on which source/target, and remaining proof |
 | [Lit implementation plan](lit-migration-plan.md) | Completed feature contracts and remaining steps 6a–6c |
 | This guide | Cleanup rationale, token/checker/composition work and acceptance criteria |
 | [Lit authoring](lit.md) and [TypeScript development](typescript.md) | Runtime, compiler, dependency, build and authoring conventions |

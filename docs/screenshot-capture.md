@@ -10,7 +10,7 @@ Adapted from `soda-os`'s handbook capture rules, not its old page list or releas
 this computer at localhost:3300, in `sodaos-local-forgejo` with named volume
 `soda-pages-0f1d2b1-data`. It is separate from the Mac fixture. Its own restricted
 credential input is retained at the path in the
-[current handoff](implementation-status.md#retained-fixtures-and-evidence).
+[current handoff](development-handoff.md#retained-fixtures-and-evidence).
 Historical worktree paths are not current credential locations. No manual
 screenshot profile was created on this builder; the page harness's private browser
 state is not a replacement manual-login profile. Use the leading handoff for exact

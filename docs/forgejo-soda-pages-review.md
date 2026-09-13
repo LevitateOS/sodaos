@@ -5,7 +5,7 @@ not an active completion checklist. “Changes required”, “remaining” and 
 exits below describe the reviewed revisions; they do not reopen resolved findings
 or prescribe the same run sequence for later changes.
 
-Use the [current handoff](implementation-status.md) for installed state/evidence,
+Use the [current handoff](development-handoff.md) for installed state/evidence,
 the [native page contracts](forgejo-soda-pages-plan.md) for required behavior and
 the [combined plan](native-pages-runners-plan.md) for remaining coordination.
 The original findings and check results below are retained as historical evidence.
@@ -25,7 +25,7 @@ pages. Exact terminal/retention/Return/End and uncertain-write assertions use th
 existing synthetic operation peers, not native project processes. Focused Go
 template, TypeScript/Lit, Forgejo/frontend, fresh web/store race, Cockpit and
 payload/staging/orchestrator checks passed. See the leading
-[implementation handoff](implementation-status.md) and
+[implementation handoff](development-handoff.md) and
 `.artifacts/pages-review-fixes/` for complete receipts, retained failed attempts
 and the local preview reload. The wider coverage gaps below remain open; no
 step-5 exit or step-6 delivery is claimed.

@@ -10,7 +10,7 @@ gaps. [Terminal](terminal-integration.md), [development](development-environment
 
 The earlier “unbuilt/unvalidated” description is obsolete. There are native builds
 and bounded x86_64 account, shared-tool, nested-workload and persistence results;
-[the handoff](implementation-status.md) owns their exact bytes/targets. Managed tmux
+[the handoff](development-handoff.md) owns their exact bytes/targets. Managed tmux
 is implemented with bounded isolated reload/cleanup proof; broader native safety/UX,
 key-free browser onboarding and the combined Git workflow remain incomplete.
 This baseline is documentation, not a new build, installed inventory or acceptance.
@@ -624,7 +624,7 @@ An exact isolated-root recipe was executed for `22d8591` delivery on
 `soda-native-spaces-658f2af`, after the user explicitly waived backups for that
 target. It admitted the original CIDs/files, verified the native tmux RPM signature
 and dependency transaction, and updated only tmux and the two Soda-owned files.
-See the [handoff](implementation-status.md) for retained recipes, failed attempts
+See the [handoff](development-handoff.md) for retained recipes, failed attempts
 and bounded browser continuity/cleanup evidence. This exception is not a general
 backup waiver, fleet-maintenance tool or permission for another root/target.
 

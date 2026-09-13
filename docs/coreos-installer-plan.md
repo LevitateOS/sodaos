@@ -14,7 +14,7 @@ file; and successful disk installation still hands off to SSH-based setup. Earli
 VM tests booted an upstream CoreOS QCOW2 with private Ignition inputs already
 containing the operator key/password hash, then delivered Soda over SSH. Those
 tests exercised running Soda components, not this manual installation journey.
-See [recorded VM setup](local-testing.md) and the [handoff](implementation-status.md).
+See [recorded VM setup](local-testing.md) and the [handoff](development-handoff.md).
 
 The replacement flow is network → disk → hostname → root password/confirmation →
 project subnet → review → explicit erase/install → reboot → local operator login
@@ -289,7 +289,7 @@ an offline appliance. Embedding/caching those dependencies is separate work.
    clipboard injection nor preloaded operator keys substitute for those journeys.
 4. Record actual native x86_64 and aarch64 results independently; source tests,
    cross-compilation or ISO generation are not installed proof. Update the
-   [handoff](implementation-status.md) with exact inputs and remaining gaps.
+   [handoff](development-handoff.md) with exact inputs and remaining gaps.
 
 ## Research references
 

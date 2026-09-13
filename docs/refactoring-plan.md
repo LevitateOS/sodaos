@@ -3,7 +3,7 @@
 **This is the single maintenance implementation plan:** actions, order, decisions,
 exit criteria and current source status live here. The
 [upstream ownership audit](upstream-ownership-audit.md) owns findings and research;
-[the handoff](implementation-status.md) owns actual execution/delivery evidence.
+[the handoff](development-handoff.md) owns actual execution/delivery evidence.
 Do not create a second backlog in the audit or repeat completed work under a new label.
 
 The original planning review used `c20abc3` on 10 September 2026. A–D and the selected
@@ -153,7 +153,7 @@ The [Sodaspaces plan](sodaspaces-plan.md) still owns feature order. This documen
 maintenance recommendations, not another product roadmap. The [architecture](architecture.md),
 [Project OS](project-os.md), [frontend improvement guide](frontend-improvement-plan.md),
 [installer plan](coreos-installer-plan.md) and [deferred scope](deferred.md) retain
-their responsibilities. Actual execution belongs in the [handoff](implementation-status.md).
+their responsibilities. Actual execution belongs in the [handoff](development-handoff.md).
 
 ## 1. Upstream-first review
 
@@ -507,7 +507,7 @@ different claims.
 
 The audit owns [research evidence and limits](upstream-ownership-audit.md#evidence-and-limits),
 including [the earlier review's provenance](upstream-ownership-audit.md#earlier-upstream-review-provenance).
-The handoff owns [actual implementation checks](implementation-status.md).
+The handoff owns [actual implementation checks](development-handoff.md).
 Research artifacts are optional evidence, never build prerequisites or acceptance.
 
 ## 7. Audit remediation implementation plan

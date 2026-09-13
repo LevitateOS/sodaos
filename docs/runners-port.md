@@ -4,7 +4,7 @@ This guide owns Soda's runner capacity, authority, operation, secret-handling an
 compatibility requirements. The [native page guide](forgejo-soda-pages-plan.md)
 owns shared entry/navigation/OAuth/logout; the [combined completion plan](native-pages-runners-plan.md)
 alone owns coordination and Cockpit retirement. Installed state and grants remain
-in the [shared handoff](implementation-status.md); current Forgejo integration fixes
+in the [shared handoff](development-handoff.md); current Forgejo integration fixes
 are tracked in the [extension status](forgejo-extension-status.md).
 
 <a id="implementation-lane-boundary"></a>

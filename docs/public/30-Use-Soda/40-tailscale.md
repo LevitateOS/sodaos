@@ -42,7 +42,7 @@ The page renders in Forgejo's native administration layout, so native site-admin
 eligibility is also required, including for direct bookmarks. See the
 [native page contract](../../forgejo-soda-pages-plan.md#automatic-connection).
 It has not yet replaced the installed Cockpit fallback
-on retained development targets; [the handoff](../../implementation-status.md)
+on retained development targets; [the handoff](../../development-handoff.md)
 records delivery and acceptance separately.
 
 For a reachable, paired deployment, open **Tailnet → Appliance**, select **Sign in**,

@@ -14,7 +14,7 @@ Requirements stay with their owners:
   scenarios and observations, using the existing shared browser driver.
 - [Installation](installation.md#retained-sodaspaces-cutover): affected-component
   maintenance, consuming the credential, project and terminal contracts.
-- [Current handoff](implementation-status.md): installed state, outstanding work
+- [Current handoff](development-handoff.md): installed state, outstanding work
   and active/consumed grants. [History](implementation-history.md) retains receipts.
 - [AGENTS.md](../AGENTS.md): working method and execution/preservation policy.
 

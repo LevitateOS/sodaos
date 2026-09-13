@@ -27,7 +27,8 @@ The [native page integration guide](forgejo-soda-pages-plan.md) owns the dashboa
 hosts, fixed bookmark bridges, shared connection and coordinated logout. Forgejo
 supplies its actual header, profile menu and native authentication; Lit supplies
 Soda's management/workspace views. Installed revisions, delivery and acceptance
-status belong only to the [current handoff](implementation-status.md).
+status belong to the [development handoff](development-handoff.md); the
+[single-run release status](implementation-status.md) tracks the build replacement.
 
 The [Lit implementation sequence](lit-migration-plan.md) retains the shared page/
 drawer workspace and native terminal acceptance obligations. The

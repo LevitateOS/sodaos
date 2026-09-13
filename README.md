@@ -12,7 +12,7 @@ Native Forgejo Tailnet/Runners and stock-only branded Cockpit are the source can
 The handoff records installed revisions, schemas, preserved roots and which
 targets still retain the Cockpit Runners fallback. Bounded native x86_64 first-product
 proof is accepted, not final product, fresh-install or aarch64 acceptance. See
-[current work](docs/sodaspaces-plan.md), [handoff/evidence](docs/implementation-status.md)
+[Sodaspaces scope](docs/sodaspaces-plan.md), [development handoff/evidence](docs/development-handoff.md)
 and [local access](docs/local-testing.md). This is not a ready-to-deploy release.
 
 ## System
@@ -55,7 +55,8 @@ routing are separate configuration—not inferred from an old port or hostname.
 | Cockpit branding and outside tooling | `assets/branding/cockpit/`, `tools/`, [Cockpit](docs/cockpit-port.md), [runners](docs/runners-port.md), [native support](docs/native-support.md) |
 | Branding and reuse | `assets/`, [attribution](docs/predecessor-reuse.md), [console](docs/console-welcome.md), [branding review](docs/branding-review.md), [capture rules](docs/screenshot-capture.md) |
 | Public handbook | [Release-day handbook](docs/public/10-Start-here/10-index.md), [authoring/sync](docs/public/README.md), [editorial review](docs/public-docs-review.md); intended product documentation, not current acceptance |
-| Evidence and coding guidance | [Current handoff](docs/implementation-status.md), [local test host](docs/local-testing.md), [AGENTS.md](AGENTS.md) |
+| Active build/release replacement | [Implementation status](docs/implementation-status.md), [single-run implementation plan](docs/release-engineering-plan.md#single-run-build-replacement-implementation) |
+| Retained evidence and coding guidance | [Development handoff](docs/development-handoff.md), [local test host](docs/local-testing.md), [AGENTS.md](AGENTS.md) |
 
 Native x86_64 and aarch64 are independent targets. Builds/tests, installation,
 restart, routing, provider mutations and destructive cleanup need their applicable

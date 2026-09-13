@@ -71,7 +71,7 @@ Focused commands prepare their own assets:
   and refuses the former nonadmin fixture; it never promotes an account. The
   separately opt-in `SODA_FORGEJO_NATIVE_PAGES=1` preview tests retain nonadmin
   Spaces/denied-admin-host coverage, not positive admin-page acceptance. Use the
-  [handoff](implementation-status.md) for fixture custody and permissions.
+  [handoff](development-handoff.md) for fixture custody and permissions.
   Missing or empty fixture output fails before Chromium. `test:spaces-page` is a compatibility
   alias for this expanded group. Run directories are printed and retained on failure.
 - `bun run test:layout` — the integrated drawer layout fixture.

@@ -34,7 +34,7 @@ native evidence do not establish graphical/session or automation behavior.
 **Revised design specification, not full implementation/acceptance or deployment
 permission.** This replaces the earlier grid-first proposal and interactive mockup.
 The user requested this redesign after researching existing multi-terminal/agent tools.
-The [leading plan](sodaspaces-plan.md) owns scope; the [handoff](implementation-status.md)
+The [leading plan](sodaspaces-plan.md) owns scope; the [handoff](development-handoff.md)
 owns execution evidence. The [Lit implementation plan](lit-migration-plan.md) now owns
 the detailed source sequence for this page and its companion drawer. Steps 1–5 are
 locally implemented: Lit controls, ID-keyed sessions/collection, authenticated

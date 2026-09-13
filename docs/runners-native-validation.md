@@ -3,7 +3,7 @@
 This guide owns runner test inputs, per-effect gates, native observations and
 installed scenarios. [Runner contracts](runners-port.md) own product behavior;
 the [combined plan](native-pages-runners-plan.md) owns coordination/retirement.
-Use the [current handoff](implementation-status.md) for installed state, active
+Use the [current handoff](development-handoff.md) for installed state, active
 permissions and evidence, not historical fixture approvals as defaults.
 
 ## Owners and entrypoints
@@ -245,7 +245,7 @@ record, not in source or a new readiness database:
 | Allowed cases | List/registration/job/lifecycle, 20-second lock hold and cancelled waiter, reboot, local Remove and provider cleanup separately. Each grant names its actual effects, not an `all` flag. |
 | Failure handling | Retain evidence/partial state; stop automatic writes. Name the person who may approve further observation or corrective actions. No automatic retry, old-snapshot restore or cleanup. |
 
-Past selections and consumed grants are recorded in the [handoff](implementation-status.md)
+Past selections and consumed grants are recorded in the [handoff](development-handoff.md)
 and linked history. They are not defaults for these case inputs.
 
 ### A. Registration and successful trusted job
@@ -430,4 +430,4 @@ Python checks. Focused cases are `tests/frontend/runner-journey-input.test.ts` a
 and owned filesystem fixtures; workflow bodies receive syntax checks, not provider
 execution. Do not add a second installed readiness gate or relabel these as real
 browser/root/provider acceptance. Exact executed checks live in the
-[handoff](implementation-status.md).
+[handoff](development-handoff.md).

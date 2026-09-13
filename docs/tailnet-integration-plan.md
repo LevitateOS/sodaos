@@ -64,7 +64,7 @@ Requirements remain with their owners:
 | [Cockpit](cockpit-port.md) | Retained stock administration/security configuration |
 | [Runner combined plan](native-pages-runners-plan.md) | Separate runner retirement; this work neither reopens step 5 nor grants runner removal |
 | [Installation](installation.md#retained-sodaspaces-cutover), [native support](native-support.md#build-and-artifact-contract) | Maintenance and exact-revision build/check/export |
-| [Handoff](implementation-status.md), [AGENTS.md](../AGENTS.md) | Actual state, grants, preservation and reporting |
+| [Handoff](development-handoff.md), [AGENTS.md](../AGENTS.md) | Actual state, grants, preservation and reporting |
 
 No public ingress/Funnel, Tailscale SSH replacement, automatic ACL synchronization,
 project deletion, idle-stop policy, Runner OS work, general network controller or
@@ -560,7 +560,7 @@ there is no reason to create a provider interface hierarchy or new task queue.
 
 #### Remaining native proof proposal
 
-The [fresh access fixture](implementation-status.md#fresh-tailnet-access-fixture)
+The [fresh access fixture](development-handoff.md#fresh-tailnet-access-fixture)
 now supplies an isolated native x86_64 installation, not project/provider permission.
 The proposed project/companion/provider actions below still need their applicable
 grants; do not recreate the fixture merely to repeat provisioning. Before execution, bind its exact name,

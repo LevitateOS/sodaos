@@ -4,7 +4,7 @@ Use Soda-branded stock Cockpit to administer the host. [Tailnet](40-tailscale.md
 and [Runners](50-ci-runners.md) belong to the native Forgejo dashboard, not custom
 Cockpit pages. The source candidate is not yet delivered to retained development
 targets; their installed fallbacks remain as recorded in the
-[handoff](../../implementation-status.md).
+[handoff](../../development-handoff.md).
 
 ## Connect as the operator
 

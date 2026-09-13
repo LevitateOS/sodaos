@@ -24,13 +24,15 @@
   copying rules or appending exceptions. The documentation map below identifies owners.
 - Report changes, checks actually run and remaining limitations concisely. Update
   the owning workstream's status in place for substantial changes; keep independent
-  agents' task lists separate. `docs/implementation-status.md` retains shared target
-  state and permissions and links separate workstream statuses. Detailed receipts
+  agents' task lists separate. `docs/implementation-status.md` tracks the selected
+  single-run build/release replacement; `docs/development-handoff.md` retains other
+  workstreams' target state and scoped permissions. Detailed receipts
   belong in history, not additional rules here.
 
 ## Permissions and preservation
 
-- Current grants belong to the user's task and the [handoff](docs/implementation-status.md#current-permissions).
+- Current grants belong to the user's task and its handoff: [release work](docs/implementation-status.md#current-permissions)
+  or [retained development targets](docs/development-handoff.md#current-permissions).
   Appliance installation, service/VM lifecycle, real provider registration/jobs,
   publishing/automatic CI, network/trust changes and cleanup require applicable
   target/action approval. A command, input file or old approval is not a new grant.
@@ -96,4 +98,4 @@ Service/image source in `appliance/services/` and `project-os/` establishes topo
 | Build, deployment and native tools | [Installation](docs/installation.md), [native validation](docs/native-validation.md), [support-tool effects](docs/native-support.md) |
 | Browser screenshots | [Capture and fixture login](docs/screenshot-capture.md); use `scripts/screenshot.ts`. |
 | Refactoring | [Upstream-first review](docs/refactoring-plan.md#1-upstream-first-review) |
-| Retained state and active grants | [Current handoff](docs/implementation-status.md); [local testing](docs/local-testing.md) owns access paths, not another state/approval record. |
+| Retained state and active grants | [Release implementation](docs/implementation-status.md), [development handoff](docs/development-handoff.md); [local testing](docs/local-testing.md) owns access paths, not another state/approval record. |

@@ -9,7 +9,7 @@ follow-up implementation order and progress, independently of the Tailnet workst
 
 Use stock Forgejo's frontend throughout; Soda adds the **Sodaspaces** repository
 **button and side drawer**, not a new repository tab. See the [short plan](sodaspaces-plan.md)
-and [handoff](implementation-status.md). The read-only hook/drawer/context caller
+and [handoff](development-handoff.md). The read-only hook/drawer/context caller
 is authored, alongside Go/proxy/config/cookie and backend actor/return handling.
 The isolated x86_64 authenticated native-page → Soda browser journey now passes,
 including real tab/BFCache transitions. Native x86_64 stage/export checks and a
@@ -22,7 +22,7 @@ remain in the handoff, not a general release/installation acceptance.
 **Current workspace:** the selected non-modal aside preserves native Forgejo pages.
 The shared Lit workspace now supports multiple managed terminals, finite native
 reattachment and page/drawer navigation; source/native evidence and remaining CLI
-acceptance are in the [handoff](implementation-status.md). Open in drawer has local
+acceptance are in the [handoff](development-handoff.md). Open in drawer has local
 coverage and no deployment claim. Modal/backdrop and pre-reattachment descriptions
 below are historical, not current behavior to preserve. The six new feature plans
 extend this same boundary. The later [native page integration plan](forgejo-soda-pages-plan.md)

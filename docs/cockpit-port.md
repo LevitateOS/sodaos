@@ -8,7 +8,7 @@ provenance now live in [`assets/branding/cockpit/provenance/`](../assets/brandin
 not an app or staging input. Active branding remains in `assets/branding/cockpit/`;
 native service/security configuration and installed checks remain in their owners.
 Both installed fallbacks remain on the retained targets in the
-[handoff](implementation-status.md). Source removal is not installed retirement.
+[handoff](development-handoff.md). Source removal is not installed retirement.
 
 ## Selected Tailnet move and stock administration
 
@@ -16,7 +16,7 @@ The user selected the [Tailnet implementation plan](tailnet-integration-plan.md)
 native dashboard host controls and automatic project enrollment, followed by
 retirement of the last Soda Cockpit extension. Dashboard host controls, project
 runtime/UI and the stock-only source candidate are implemented. The
-[x86_64 candidate is built/exported](implementation-status.md#latest-built-source-candidate);
+[x86_64 candidate is built/exported](development-handoff.md#latest-built-source-candidate);
 the [fresh VM access receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke)
 now includes native root/stock administration and logout checks. Full visual/theme/
 keyboard acceptance and authorized retained-target delivery/removal remain pending.

@@ -123,7 +123,7 @@ to rewrite all customization before shipping a bounded fix.
   Check current changes and coordinate overlapping edits before touching them;
   preserve the other agent's additions rather than restoring an older file.
 
-[The shared handoff](implementation-status.md) retains target custody, installed
+[The shared handoff](development-handoff.md) retains target custody, installed
 state and permissions. Refer there before any retained-target action; do not copy
 its fixture inventories or another workstream's grants into this queue. The current
 assignment does not authorize deployment, service/VM lifecycle, real provider work,

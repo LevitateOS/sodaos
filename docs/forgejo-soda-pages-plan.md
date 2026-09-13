@@ -16,7 +16,7 @@ The [combined plan](native-pages-runners-plan.md) owns the delivered native-page
 Runners coordination and runner retirement. The separately selected
 [Tailnet plan](tailnet-integration-plan.md) owns its host/project feature and Cockpit
 retirement, reusing the shared page contracts here. Installed state and permissions
-belong to the [handoff](implementation-status.md).
+belong to the [handoff](development-handoff.md).
 Earlier implementation steps, editor reservations and intermediate results remain
 in Git and [execution history](implementation-history.md), not a second work queue.
 

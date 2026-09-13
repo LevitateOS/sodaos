@@ -1,8 +1,9 @@
 # Implementation history
 
 Archived execution record through `3a2f394`, preserved from the former handoff.
-Use the [current status](implementation-status.md) for installed state, active
-permissions and remaining work; this archive is not required reading for ordinary tasks.
+Use the [release implementation status](implementation-status.md) for the single-run
+replacement, or the [development handoff](development-handoff.md) for other installed
+state and scoped permissions. This archive is not required reading for ordinary tasks.
 
 **Historical evidence, not current instructions.** Each entry describes its own
 revision and execution scope. Statements such as “approved”, “pending”, “next” or

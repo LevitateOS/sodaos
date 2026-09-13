@@ -1,8 +1,10 @@
 # Native build and installation
 
 This guide owns installation and affected-component maintenance procedures.
-Use the [handoff](implementation-status.md) for installed state and active grants,
-and [local testing](local-testing.md) for recorded access paths.
+Use the [development handoff](development-handoff.md) for retained installed state
+and its scoped grants; [release implementation](implementation-status.md) tracks the
+single-run replacement and release commissioning. Use
+[local testing](local-testing.md) for recorded access paths.
 
 [Sodaspaces](sodaspaces-plan.md) owns product scope; the [credential guide](dashboard-credentials.md)
 owns credential/schema contracts. These procedures use production callers.
@@ -14,7 +16,7 @@ not through a required hosting URL; see the handoff for generation evidence.
 Bounded diskless BIOS/UEFI boot checks passed; fresh-disk validation remains unrun.
 A prepared Soda QCOW2 is a recommended future download; its producer remains
 unimplemented. See
-[handoff](implementation-status.md) for actual native build/check limits. The recipes
+[handoff](development-handoff.md) for actual native build/check limits. The recipes
 below use sealed bundles and private provisioning. The separately built installer
 ISO carries an installable bundle in the replacement source recipe; it does not
 contain a configured Soda appliance. No Soda host OCI or preinstalled
@@ -64,7 +66,7 @@ prompt from USB/VM disk installation and uses the native root password. Publishi
 usable image also requires the complete first-boot, access and application setup
 journey. Historical tests used upstream CoreOS QCOW2 plus private Ignition and SSH
 installation; they are runtime evidence, not proof of a public Soda QCOW2 or manual
-ISO installation. See [recorded VM setup](local-testing.md) and the [handoff](implementation-status.md).
+ISO installation. See [recorded VM setup](local-testing.md) and the [handoff](development-handoff.md).
 
 Keep the following commands as **component/fixture recipes**, distinct from the
 manual media journey. Source documentation does not authorize builds, new
@@ -418,7 +420,7 @@ a prior binary is not assumed compatible with the new schema.
 
 ### Retained Sodaspaces cutover
 This section owns affected-component maintenance, not first-install replay or a
-fixed historical v3→v5 recipe. Consult the [handoff](implementation-status.md) for
+fixed historical v3→v5 recipe. Consult the [handoff](development-handoff.md) for
 actual installed versions/grants and [AGENTS.md](../AGENTS.md#permissions-and-preservation)
 for execution policy. Assess only the change's real compatibility and interruption
 effects; do not assume an old target inventory or replay completed maintenance.

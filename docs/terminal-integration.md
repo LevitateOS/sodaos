@@ -2,7 +2,7 @@
 
 The [selected mechanism removals](refactoring-plan.md#selected-mechanism-removals)
 replace browser-owned shell lifetime with native ownership, exact native lookup and
-a disposable current browser cache. The [handoff](implementation-status.md) owns
+a disposable current browser cache. The [handoff](development-handoff.md) owns
 native delivery and target state/permissions; the fresh paired upgrade had no
 projects or managed shells. Its access checks do not establish terminal lifetime,
 creation, attachment or recovery behavior. [History](implementation-history.md) owns
@@ -299,5 +299,5 @@ output and credentials must not enter evidence.
 Existing build/stage/install owners retain exact payloads, renderer locks, attribution
 and licenses. Coordinated helper/program/browser delivery still requires the selected
 target/action grant. Current local checks, historical native receipts and remaining
-installed/CLI work are recorded separately in the [handoff](implementation-status.md)
+installed/CLI work are recorded separately in the [handoff](development-handoff.md)
 and [history](implementation-history.md); none authorizes a retained-root conversion.

@@ -46,4 +46,4 @@ The active source port now has concrete callers under `tools/`, adapted helpers/
 
 ## Evidence boundary
 
-The work copied/adapted source and inspected upstream configuration/release metadata. No dependency resolution, source archive/client binary downloads, builds, renderer/browser checks, native service mutation, account/provider registration or screenshots ran. Focused tests are authored, not passed. Follow [implementation status](implementation-status.md) and [later native validation](native-validation.md) before making any installed capability claim.
+The work copied/adapted source and inspected upstream configuration/release metadata. No dependency resolution, source archive/client binary downloads, builds, renderer/browser checks, native service mutation, account/provider registration or screenshots ran. Focused tests are authored, not passed. Follow [development handoff](development-handoff.md) and [later native validation](native-validation.md) before making any installed capability claim.

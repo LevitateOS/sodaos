@@ -1,7 +1,7 @@
 # Native validation
 
 Installed state, accepted evidence and remaining gaps belong to the
-[current handoff](implementation-status.md); this guide owns validation contracts,
+[current handoff](development-handoff.md); this guide owns validation contracts,
 not a second progress or permission record.
 
 This is the product validation guide, not another roadmap. Features own their
@@ -209,7 +209,7 @@ permission does not authorize six sessions, shared Stop, fault injection or CLI 
 ## Read-only Sodaspaces browser probe
 
 `tests/installed/sodaspaces.ts` is opt-in. The real isolated local journey passed;
-exact revisions, failures and scope are in the [handoff](implementation-status.md).
+exact revisions, failures and scope are in the [handoff](development-handoff.md).
 The exported-payload run at `ee8091a` also passed step 3's bounded x86_64 delivery
 checks. This is not installed appliance, project-runtime or release acceptance.
 It uses stock 15.0.7, the candidate's served CSS/JS, real native forms and OAuth,
@@ -349,7 +349,7 @@ Native repository/user creation needs its selected scope before this scenario.
 The first installed run confirmed native login, private repository selection and
 one Create, then refused Join because the fixture's Forgejo `operator` collides with
 an unassociated native system account. Do not repurpose that account or replay work
-to repair an observer. The [current handoff](implementation-status.md#spaces-first-use-journey)
+to repair an observer. The [current handoff](development-handoff.md#spaces-first-use-journey)
 owns the preserved project and pending fixture-actor decision. No native usable-input
 or reattachment pass follows from that partial result.
 

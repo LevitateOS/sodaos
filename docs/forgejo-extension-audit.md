@@ -221,4 +221,4 @@ visual/accessibility audit, full frontend/typecheck suite, deployment, real cred
 use, fixture lifecycle or cleanup was performed. The admission defect was unfixed
 at this audit baseline; its current remediation state belongs in the
 [Forgejo extension status](forgejo-extension-status.md). Retained-target permissions
-remain with the [shared handoff](implementation-status.md#current-permissions).
+remain with the [shared handoff](development-handoff.md#current-permissions).

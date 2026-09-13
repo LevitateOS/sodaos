@@ -23,7 +23,7 @@ from step 2 remains; no retained-target upgrade follows from local page checks.
 ## Tailnet credentials and schema-v10 return
 
 **Current credential contract; native delivery scope is recorded in the
-[handoff](implementation-status.md#fresh-tailnet-access-fixture).** The paired fresh-VM
+[handoff](development-handoff.md#fresh-tailnet-access-fixture).** The paired fresh-VM
 upgrade had no saved policy/credential inputs; it does not establish old-state
 conversion or real enrollment proof.
 The [Tailnet plan](tailnet-integration-plan.md) owns host-only credential, policy and
@@ -293,7 +293,7 @@ a simultaneous Spaces/operator-settings return. Legacy projects keep unknown
 creation metadata; existing memberships and pending runner returns retain their
 original values. This changes no grant key, OAuth client or provider authority.
 
-The incoming `a741c65` [handoff](implementation-status.md) records local populated-v7
+The incoming `a741c65` [handoff](development-handoff.md) records local populated-v7
 preservation, profile immutability and transaction-bound return checks. They were
 not rerun during this merge. Pre-v8 binaries reject the newer schema; do not lower
 the version marker or discard later data to attempt rollback. Delivery still needs

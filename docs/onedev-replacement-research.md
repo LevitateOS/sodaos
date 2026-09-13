@@ -6,7 +6,7 @@
 
 **Finding, not an adoption recommendation:** OneDev genuinely supports native Java/JVM application plugins; it does not provide a native Go plugin API. That capability does not resolve the user's objection to operating the Java environment. The source findings and conditional integration options below are retained for reference.
 
-Current product requirements remain with [Architecture](architecture.md), [Project OS](project-os.md), [native pages](forgejo-soda-pages-plan.md), [Runners](runners-port.md), and [Services/AI](services-and-ai-plan.md). This report evaluates those requirements; it does not silently change them. Installed state and permissions remain in the [handoff](implementation-status.md).
+Current product requirements remain with [Architecture](architecture.md), [Project OS](project-os.md), [native pages](forgejo-soda-pages-plan.md), [Runners](runners-port.md), and [Services/AI](services-and-ai-plan.md). This report evaluates those requirements; it does not silently change them. Installed state and permissions remain in the [handoff](development-handoff.md).
 
 ## 1. What was actually researched
 
@@ -329,7 +329,7 @@ At the baseline, `appliance/forgejo/templates/` contains **253 tracked templates
 
 ## 12. Conditional integration outline — not active work
 
-These options apply only if the [forge decision](architecture.md#forge-selection) is reopened. They are not a current task list or execution approval. The [handoff](implementation-status.md#current-permissions) continues to govern fixture, host and provider effects.
+These options apply only if the [forge decision](architecture.md#forge-selection) is reopened. They are not a current task list or execution approval. The [handoff](development-handoff.md#current-permissions) continues to govern fixture, host and provider effects.
 
 ### First: prove the native plugin boundary
 

@@ -768,4 +768,4 @@ step 5.
 
 See [credential/migration constraints](dashboard-credentials.md),
 [current plan](sodaspaces-plan.md), [frontend integration](forgejo-frontend-integration.md)
-and [handoff](implementation-status.md) for current scope and performed checks.
+and [handoff](development-handoff.md) for current scope and performed checks.

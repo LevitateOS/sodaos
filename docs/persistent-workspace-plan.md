@@ -18,7 +18,7 @@ decisions and the recommended investigation order.
 This request authorizes documentation. It does not start source implementation,
 tests/builds, fixture writes, provider operations, deployment or cleanup. Future
 execution follows the applicable session instructions and the
-[current permissions](implementation-status.md#current-permissions); work already
+[current permissions](development-handoff.md#current-permissions); work already
 covered by a future grant should proceed without repeated handoffs.
 
 ## 1. Problem, evidence and scope
@@ -392,7 +392,7 @@ a second owner or adopt a new actor. Do not force a blanket browser reload durin
 ordinary navigation to conceal incompatible assets.
 
 Before installed work, consult the live task grant and
-[Spaces first-use handoff](implementation-status.md#spaces-first-use-journey).
+[Spaces first-use handoff](development-handoff.md#spaces-first-use-journey).
 That handoff records the current actor/fixture limitations and preference for local
 synthetic frontend work; it does not establish an available terminal-ready fixture.
 Do not copy its mutable hold deadlines or assume old target approvals are renewed.

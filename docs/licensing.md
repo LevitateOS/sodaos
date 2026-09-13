@@ -85,7 +85,7 @@ catalog. This is source/fixture packaging, not final shipped-image license closu
 Research evidence remains in `.artifacts/research/u01-d5b5065/` and
 `.artifacts/research/u01-8727233/`, with provenance, license texts, hash comparisons
 and retained failures. Earlier source-preparation evidence is historical only.
-The [handoff](implementation-status.md) records exactly what ran. No notices have
+The [handoff](development-handoff.md) records exactly what ran. No notices have
 been newly packaged or installed by moving these notes.
 
 ## Lit runtime

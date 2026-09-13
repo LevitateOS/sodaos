@@ -6,7 +6,7 @@ Cockpit runner retirement. The separately selected [Tailnet plan](tailnet-integr
 owns host/project networking and the last Soda Cockpit extension's retirement;
 unrelated Project OS/services/CLI work is not absorbed into either.
 Installed revisions, acceptance gaps and active grants belong to the
-[current handoff](implementation-status.md), with receipts in [history](implementation-history.md).
+[current handoff](development-handoff.md), with receipts in [history](implementation-history.md).
 
 Provide one **Sodaspaces button beside Forgejo's repository actions**, opening a
 **right-side shared-environment drawer**, plus global **Spaces** navigation and a
@@ -145,7 +145,7 @@ pending.** This workstream owns the bounded
 Spaces first-use redesign, separately from Tailnet, Forgejo-wide redesign and the
 broader Project OS/Services/AI roadmap. The current request is to document the plan;
 no application code, installed service or project state is changed by this work.
-Execution permissions remain in the [current handoff](implementation-status.md#current-permissions).
+Execution permissions remain in the [current handoff](development-handoff.md#current-permissions).
 
 ### Outcome and completion boundary
 
@@ -1613,7 +1613,7 @@ fixture mutations.
   against the exact stock Forgejo version before accepting an upgrade.
 - Run authorized Go/race, JavaScript/browser, Cockpit, build-fixture and staged-
   payload checks through their actual callers. Record revision, scope and failures
-  in the [handoff](implementation-status.md); source passes are not installed proof.
+  in the [handoff](development-handoff.md); source passes are not installed proof.
 
 **Exit:** exact-candidate native-page and access evidence for this slice: real
 reservation/provisioning, each user's explicit key/join, original own login, public
@@ -1826,4 +1826,4 @@ only historical **U08** has user-accepted bounded native project-runtime proof.
 Step 5 also passed bounded Sodaspaces access execution; none is final-product or
 aarch64 acceptance. Retained console,
 operator/provider, licensing, native-support and independent aarch64 obligations
-remain in the [handoff](implementation-status.md), not another expanded UI roadmap.
+remain in the [handoff](development-handoff.md), not another expanded UI roadmap.

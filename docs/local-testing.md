@@ -3,7 +3,7 @@
 This guide owns recorded access paths for the fresh Tailnet VM and `soda-test`,
 and the retained instance's wrapper effects.
 Installed versions, active grants and preservation results have one home in the
-[current handoff](implementation-status.md); historical access receipts are in
+[current handoff](development-handoff.md); historical access receipts are in
 [implementation history](implementation-history.md). None of the addresses below
 is a fresh liveness observation.
 
@@ -48,7 +48,7 @@ request boundaries. Screenshot evidence uses the existing
 The separately created **`soda-native-tailnet-bb3a13c`** has its own ports and
 credentials. Do not use `scripts/test-vm.sh` for this instance. Its installed source,
 correction, current hold deadline and permissions belong in the
-[current handoff](implementation-status.md#fresh-tailnet-access-fixture).
+[current handoff](development-handoff.md#fresh-tailnet-access-fixture).
 
 Set `SODA_BUILDER_SSH` locally to the existing builder SSH destination (user and
 host, or an SSH configuration alias). Keep identifying connection details in private
@@ -79,7 +79,7 @@ then select `spaces-test/spaces-review` → **Terminal 1**. Its private password
 is also available on this Mac at
 `~/Projects/sodaos/.artifacts/spaces-live-repair-20260913/password` (0600).
 Current fixture state and permissions belong to the
-[handoff](implementation-status.md#current-permissions).
+[handoff](development-handoff.md#current-permissions).
 
 Paths are relative to `~/Projects/sodaos`. Open password files privately; never
 print them in tool output/chat/logs. Dashboard authentication uses Forgejo, not a
@@ -87,7 +87,7 @@ third password. From the native profile menu, choose **Site administration**, th
 **Soda → Runners / Tailnet**. Direct entry bookmarks are
 `https://localhost:24454/-/soda/settings/runners` and
 `https://localhost:24454/-/soda/settings/tailnet`; they do not require visiting
-Spaces first. See the [handoff](implementation-status.md#fresh-tailnet-access-fixture)
+Spaces first. See the [handoff](development-handoff.md#fresh-tailnet-access-fixture)
 for installed state.
 
 The public CA is `.artifacts/tailnet-vm-bb3a13c/tls/ca.pem`, SHA-256
