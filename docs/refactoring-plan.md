@@ -47,14 +47,16 @@ below. Audit completion does not mean the findings have been fixed.
 
 **MC2 separately authorized and implemented:** Tea source compilation has been removed from both build paths and replaced with verified upstream 0.16.0 binaries for both target architectures. The [CLI guide](project-clis.md#source-and-packaging) owns the resulting packaging and validation status. This does not approve the other recommendations.
 
-**MC4 subsequently authorized and implemented at source scope:** the owner explicitly
-requested consolidation after identifying the uninstrumented release builder beside
-`2166333`'s timed native/ISO path. Common program, asset and app-image production now
-has one Go implementation; both layouts reuse the original timing owner. The legacy
-writable assembler remains explicit, not silently interchangeable with a host image.
-The [release owner](release-engineering-plan.md#milestone-4--automated-release-builder)
-records the image-installation retirement boundary and remaining native qualification.
-This does not approve the other audit recommendations.
+**MC4 extraction implemented, then rejected as sufficient simplification:** `d054a60`
+shared component commands and timing but retained two assemblers and grew production
+orchestration. The owner requested a complete one-lane design and implementation plan.
+The [release owner](release-engineering-plan.md#single-run-build-replacement-implementation)
+now specifies B1–B6: one Go execution owner, the same immutable install/update candidate,
+media as a consumer, connected protected qualification/delivery, then deletion of the
+competing producers. Compare production code/call graphs against `830ca94` and current
+source, separately from tests/docs; shared functions alone do not satisfy the exit.
+This is the selected replacement plan, not completed implementation or approval of
+other audit recommendations.
 
 The audit is the findings owner; this plan remains the decision/order owner.
 No retained-target operation, custom upstream Forgejo build or deployment was

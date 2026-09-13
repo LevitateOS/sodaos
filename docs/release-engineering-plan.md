@@ -7,8 +7,9 @@ The complete host/app payload is exported; bootc lint passes with 13 checks and 
 skip, and all 391 immutable Forgejo files plus embedded runtime archives are verified.
 [Receipt](implementation-history.md#complete-local-appliance-candidate).
 Six milestones carry the work through automated production operation; the 28 detailed
-items are acceptance criteria, not separate execution/approval rounds. **This remains
-unpublished, not an installable or boot/upgrade-qualified release.** Milestone 2 now
+items are acceptance criteria, not separate execution/approval rounds. **The original
+local exports remain unsigned; signed copies were staged in internal GHCR packages.
+Neither is an install/boot/upgrade-qualified release.** Milestone 2 now
 has source tooling and native filesystem Sigstore proof, including synthetic-key
 signing of that exact host, all five apps and its release document. Root-protected real keys and eight GHCR namespaces are now provisioned using the
 owner-selected current `gh` account. Authenticated native signature/digest round trips
@@ -21,10 +22,17 @@ Appliance updates are part of this workstream, not a separate platform. The owne
 approved the first source/upstream investigation; its
 [receipt and recommendation](release-engineering-feasibility.md) propose derived
 FCOS with bootc's OSTree backend and logically bound core app images for proof.
-This is not a validated migration or production mechanism. The work does not
-authorize registry publication, automatic CI, signing-key
-creation, trust changes, appliance migration, service/VM lifecycle or cleanup.
-Consult the [handoff](implementation-status.md#current-permissions) before native work.
+This is not a validated migration or production mechanism. Exact action grants,
+including the bounded candidate commissioning already performed, belong to the
+[handoff](implementation-status.md#current-permissions), not to a command or plan.
+
+**Current implementation direction:** the owner rejected the `d054a60` extraction
+as insufficient: it retained two assemblers and increased production orchestration.
+The requested replacement is [one source-to-release run](#single-run-release-build-contract),
+including installer media consuming the same host/application candidate as updates.
+The [ordered implementation packages](#single-run-build-replacement-implementation)
+below replace that transitional design. This pass specifies the implementation;
+it does not claim the replacement exists or grant external/lifecycle effects.
 The predecessor repository and its reserved Updates platform remain separate.
 
 Selected product decisions:
@@ -164,10 +172,11 @@ make the page stop reporting an error.
 
 ## 3. Release identity and GHCR layout
 
-Select the GHCR organization/repository names before publication; none is assumed
-available. Public pull is the recommended appliance default so installation does
-not require a personal GitHub token. Confirm visibility, licensing, bandwidth,
-retention and anonymous-client behavior before adopting it.
+The selected GHCR namespaces and observed commissioning scope are recorded under
+[selected custody](#implemented-trusted-delivery-contract). Public pull is the
+appliance target so installation does not require a personal GitHub token. Finish
+visibility, licensing, bandwidth, retention and anonymous-client commissioning;
+namespace creation alone is not public delivery proof.
 
 Use immutable digests for host images, application images and release metadata.
 Human-readable release tags are conveniences, not execution authority. Suggested
@@ -233,7 +242,8 @@ The worker never installs an image, imports into Podman, changes host policy or 
 key role. Candidate, preview and stable each have a separate channel key role and
 repository (`PREFIX-channel-NAME`); roles cannot share keys. The other repositories
 are the M1 `PREFIX-{host,dashboard,forgejo,proxy,project-os,tailnet}` plus `PREFIX-release`.
-These are intended names, not reserved GHCR resources. Each native policy requires
+The six images, release and candidate-channel namespaces have been staged; preview
+and stable namespaces are not implicitly provisioned by this build rewrite. Each native policy requires
 `sigstoreSigned`, explicit `exactRepository` identity and the configured public keys.
 Repository-scoped `use-sigstore-attachments` is enabled in generated worker config.
 The proposed appliance policy preserves unrelated vendor rules and refuses existing
@@ -335,6 +345,109 @@ worker service, timer or appliance activation has been installed/enabled.
 
 ## 5. Normal and emergency release process
 
+### Single-run release build contract
+
+**Target, not current behavior:** one reviewed Go entrypoint, `tools/soda-build`
+(compiled as `soda-build`), owns the source-to-release invocation. It replaces the
+native-bundle and host-image producers; it must not wrap both. Normal and emergency
+triggers provide different admitted inputs to the same fixed sequence. There is no
+legacy/vendor build switch, host-content-only release mode, task graph, plugin
+system or custom scheduler. Development leaf tools may remain, but do not produce
+another kind of SodaOS release.
+
+Proposed public interface (not executable today):
+
+```sh
+soda-build --arch x86_64 --out "$PWD/.artifacts/releases/UNIQUE-RUN"
+soda-build --arch x86_64 --out "$PWD/.artifacts/releases/UNIQUE-RUN" --publish candidate
+```
+
+Both requests build and qualify the same complete candidate and ISO. Omitting
+`--publish` prevents remote publication; it does **not** skip signing/native tests
+and call the result a qualified release. Full runs require precommissioned signer
+and exact qualification resources; preflight refuses missing authority/resources
+before expensive work. Source/unit fixtures are still independently runnable, with
+honest local-test scope, not a second release lane. No `--skip-tests`, arbitrary
+resume-at-phase or success-on-partial-output switch is part of the release interface.
+The invocation starts from clean canonical committed source; freeze with `git archive`,
+never create a worktree or move the checkout automatically.
+
+| Phase | Work and exact handoff | Completion evidence |
+| --- | --- | --- |
+| P1 Admit and freeze | Resolve approved source/base/architecture, package and tool inputs, source identity and baseline releases; reserve one release identity through the protected owner; check disk/tool/fixture/signing/publication prerequisites. | Frozen input record and source snapshot; no mutable ref resolution later in the run. |
+| P2 Dependencies and source checks | Frozen Bun install, Go dependency verification, Go/unit/static/type checks that do not need generated browser assets. | Source results tied to the snapshot; missing fixture prerequisites are not silently skipped qualification. |
+| P3 Programs, assets and prepared tests | Compile shipping programs, media console and necessary tools once; produce browser/locale/branding/terminal/Tea assets; run browser/product source checks against those exact generated assets. | Program/asset identities and prepared-test receipts; tests do not invoke another asset build. |
+| P4 Application images | Produce or explicitly reuse the five selected application images; verify native platform, content, source provenance and immutable identities. | Five verified images plus their existing payload identity fields. |
+| P5 Host image | Assemble the image-owned filesystem directly, bind core apps, include retained-runtime archives, add host packages to pinned CoreOS, build the host. | One bootable-host OCI candidate; no intermediate writable installer payload. |
+| P6 Candidate verification | ELF/OCI/content/inventory/Quadlet/bootc checks; freeze host and application identities. | Existing payload/candidate record extended only for required new provenance; no qualified upgrade edges inferred. |
+| P7 Candidate signing | Protected owner independently admits exact artifact digests after static checks; native signer authenticates those bytes for installation/signature testing. | Native signatures; artifact authenticity is not preview/stable approval. |
+| P8 Installer assembly | A media-only leaf consumes the signed candidate, prebuilt console/tools, public trust/bootstrap inputs and selected live media. No Go/app compilation or second OS assembly occurs here. | ISO, candidate/install descriptor, readback evidence and ISO checksum. |
+| P9 Native qualification | Install the actual ISO; test first boot, applicable baseline-to-candidate updates, state preservation, maintenance activation and recovery under exact fixture grants. | Protected qualification results bound to candidate digests and ISO checksum. |
+| P10 Finalize release | Create final release metadata binding candidate, media checksum/location, compatibility and P9 evidence; sign it using existing authority. | Signed final release document; host, app and ISO bytes unchanged since testing. |
+| P11 Deliver and select | When authorized, upload immutable artifacts/media, verify anonymous delivery and signatures/checksums, then publish the signed channel selection last. | Delivery receipts and existing durable publication ledger; local runs finish qualified-but-unpublished. |
+
+**No signing/qualification cycle.** The ISO contains signed candidate identities and
+integrity-controlled bootstrap trust, not a report that depends on booting that ISO.
+The final signed release document adds the resulting ISO checksum and qualification
+report afterward. Candidate artifact signing has a narrower admission gate than
+channel promotion. A build-supplied `passed` file cannot issue either permission.
+Trust bootstrap remains independent of the artifact/channel it verifies; the signed
+final record authenticates the downloaded ISO before its first privileged use.
+
+**Installation output.** The derived host image is both the first-install and update
+artifact. The desired general ISO contains the content needed to install that exact
+candidate without a registry dependency during disk installation/first boot; marketplace
+and provider networking are not part of that offline claim. Prove the selected native
+bootc path for host plus bound/retained images before implementing an adapter. Reuse
+stock live-media boot and upstream customization tools; `coreos-installer` media
+customization is not evidence that its existing offline disk installer can install a
+derived OCI host. No fallback to stock CoreOS plus `install-native.sh` is permitted
+inside the new run. The [installer owner](coreos-installer-plan.md#image-based-replacement-contract)
+owns disk/UI/bootstrap and media constraints. A concrete upstream limitation requires
+an explicit product decision, not another hidden build lane.
+
+**One run, not one privilege domain.** A reviewed, protected controller launches
+unprivileged production, confined native qualification and fixed signing/publishing
+operations with separate credentials/authority. Neither candidate build code nor
+build-supplied tests run as the controller/signer. Preserve existing exact-digest
+permits and ledgers; no generic sudo command or build-controlled timing/helper code
+runs with signing credentials. Ordinary successful release signing is noninteractive.
+
+**Reuse without a second build system.** Reuse upstream Go/Bun/Podman caches. Explicitly
+selected previously qualified component digests may be reused only after native
+signature/identity verification and provenance admission. A reused component retains
+its actual producing revision; do not relabel it with the current release revision.
+Current Soda-built image inspections expect the current producing revision;
+verified reuse needs a deliberate owning-model/caller change, not relaxed checks. Do not introduce a guessed file
+fingerprint graph or treat a cache hit as qualification. Changed dependency/base
+inputs invalidate affected selections; compatibility tests still cover the complete
+chosen set. Report verified-digest reuse separately from unknown compiler/layer-cache
+state. "Build once" concerns shipping artifacts, not necessary test-binary compilation.
+
+**Outputs and reporting.** One new `.artifacts/releases/RUN/` contains `inputs/`,
+`work/`, `artifacts/`, `evidence/`, `release/` and `logs/`. Compile in the frozen source's
+expected build-relative paths where existing leaf recipes require them; these remain
+intermediate work, not another public payload. Reuse existing payload/candidate and
+release models instead of an independent orchestration manifest. Keys, registry auth,
+protected permits and durable authority ledgers stay outside public artifacts. Emit
+one final scoped outcome: qualified local, published channel, failed, cancelled or
+held for uncertain effects. Timings/logging are owned by [installation](installation.md#build-timing-and-progress-implementation-plan).
+
+**Distribution and architecture.** Keep the already selected GHCR repository/key
+boundaries during this rewrite; no package deletion or naming migration is implied.
+GitHub Releases on `LevitateOS/sodaos` is the proposed ordinary ISO download destination,
+with ISO digest/size/location authenticated by the final signed release document.
+It requires a separate commissioning/publication grant. Stage uploads before making
+an offer; require a release/architecture policy before exposing stable-labelled media.
+There is no atomic transaction across GHCR and GitHub Releases: uncertain results
+hold selection and are observed, not blindly replayed. Preview-to-stable promotion
+reuses the final release, ISO and images; a later promotion invocation is not another
+build. Start with native x86_64. The same run contract applies on native aarch64 when
+its package lock/worker are qualified; both-architecture publication requires matching
+release identity and all advertised receipts, not emulation. QCOW2 is not in the first
+replacement: no producer exists, and it must later consume this same release rather
+than introduce another assembler.
+
 ### Normal train
 
 1. Collect ready Soda changes with focused tests and explicit migrations; unfinished
@@ -346,8 +459,10 @@ worker service, timer or appliance activation has been installed/enabled.
 4. Qualify it using the matrix below. If a Soda feature blocks the new base, omit it
    or use the last compatible Soda version; a base incompatibility remains a real
    blocker requiring triage, not permission to publish a known-broken combination.
-5. Sign and publish exact approved artifacts, promote to preview, then stable after
-   bounded observation and explicit release-owner approval initially.
+5. Use protected candidate artifact signatures for native qualification as specified
+   by the single-run contract; finalize/sign the release and publish/promote only
+   after its qualification gate. Stable follows bounded observation and explicit
+   release-owner approval initially.
 6. Record supported upgrade paths, release notes, interruptions and known limitations.
 
 ### Automated trigger and initial local builder
@@ -381,9 +496,10 @@ Use a native **systemd timer plus a one-shot job**:
   candidate/result record. Repeated polls must not rebuild or republish the same
   candidate, race an emergency release, or silently change frozen inputs. New Soda
   changes after admission wait for the next candidate or explicit emergency trigger.
-- Build and test those frozen inputs, then sign and publish the exact passing
-  artifacts. Do not rebuild after testing. Restrict signing/promotion to a separate
-  protected execution step; ordinary build scripts and test workloads must not have
+- Execute the [single-run phase sequence](#single-run-release-build-contract),
+  including protected artifact signing before native qualification and final release
+  authority afterward. Do not rebuild after testing. Ordinary build scripts and
+  test workloads must not have
   signing keys or publication credentials. A local scheduler does not make a checked
   out branch trusted release code automatically.
 - Preserve failed/interrupted runs and emit sanitized status and failure notification.
@@ -403,7 +519,7 @@ The scheduler must not mutate this canonical checkout or include another agent's
 uncommitted work. Build from the recorded committed revision in an approved isolated
 source snapshot, not a new Git worktree or an automatically checked-out branch here.
 
-The same entrypoints should move to a dedicated builder or scheduled GitHub Actions
+The same entrypoint should move to a dedicated builder or scheduled GitHub Actions
 without redesign. Initially choose one scheduler/promotion owner. A custom central
 update service, fleet telemetry and inbound remote execution remain unnecessary.
 Appliance-side download/activation policy is separate: automatic publication does
@@ -524,8 +640,10 @@ checks actually performed; do not claim exhaustive supported upgrade coverage.
 Execute **six consolidated milestones**, not 28 separate implementation rounds.
 The detailed criteria retain their numbers for traceability and evidence. Finish an
 approved milestone without repeated handoffs; independent source work can overlap.
-Requirements remain in sections 1–8. Historical Stage 1/2 meant feasibility/initial
-local production, not these milestone numbers.
+Requirements remain in sections 1–8. The single-run replacement packages below
+supply implementation order across those same acceptance criteria; they are not
+six additional release milestones or six new approval rounds. Historical Stage 1/2
+meant feasibility/initial local production, not these milestone numbers.
 
 | Milestone | Acceptance criteria | Execution boundary |
 | --- | --- | --- |
@@ -540,6 +658,236 @@ Reuse valid evidence rather than rerun earlier criteria for documentation change
 A checked box supports only its stated scope; production promotion cannot bypass
 applicable checks. The effect boundaries above are real grants, not automatic
 permissions conferred by completing source work or reaching a numbered criterion.
+
+### Single-run build replacement implementation
+
+**Status: planned; no replacement code, fixture, worker or publication commissioned
+by this plan.** `d054a60`/`fde23d0` remain a transitional extraction with scoped tests,
+not acceptance of the requested single-run architecture. Execute B1–B6 in order;
+source tasks may proceed together where their contracts do not depend on unfinished
+native proof. Do not expand the existing 28-item release checklist into separate
+approval handoffs. The [run contract](#single-run-release-build-contract) owns phase
+semantics; feature guides own the linked installation/timing/security details.
+
+| Package | Existing release criteria served | Deliverable / exit |
+| --- | --- | --- |
+| B1 Contract and native-install feasibility | 1–7, 9, 11–13, 18, 25 | Reviewed dataflow, smallest file-removal map, selected upstream install/media invocation and explicit effect/resource requests. |
+| B2 Replace artifact execution | 2–7, 18–20 | One Go entrypoint/clock/process owner; image-owned artifact construction and prepared tests; no writable staging translation. |
+| B3 Make media consume the candidate | 11, 13, 25 | Installer and updater consume identical host/app digests; media assembly does not compile or build components. |
+| B4 Connect native qualification | 8, 11–17, 23–24 | One command tests its actual ISO and image against approved baselines, preserving state and binding evidence to bytes. |
+| B5 Connect protected finalization/delivery | 8–10, 19–20, 22, 25–26 | Unattended candidate signing, final release/media authority, delivery observation and channel-last selection. |
+| B6 Retire old producers and commission automation | 18–23, 26–28 | Old competing build paths removed, real full-run receipt, then authorized timer/normal/emergency operation. |
+
+#### B1. Fix the contracts before moving code
+
+1. Audit the current paths and record their actual runtime call graph, generated
+   files, trust boundaries, external effects and code size. Use `830ca94` (before
+   the rejected extraction) and current source as comparison baselines. Count all
+   production build/timing/orchestration code, including helpers moved or renamed;
+   report tests/docs separately. Do not satisfy the budget by deleting verifiers.
+2. Confirm the selected bootc version (currently 1.16.7), CoreOS live/host inputs,
+   CoreOS Installer media support and actual Soda installer calls. Specify native
+   host import/install, bound-image availability, retained-image import, SELinux,
+   bootloader and per-machine setup dataflow. Test local transport primitives where
+   authorized; obtain a narrowly scoped native disk/VM grant for installation proof.
+3. Resolve media limits up front: current ISO level-1 per-file capacity, 256 KiB
+   Ignition embed area, preserved primary names/boot metadata, archive/blob sizes,
+   disk-space reserve and offline first-boot content. Do not assume an OCI reference
+   works as an existing `coreos-installer install --offline` input. No implicit
+   image-format upgrade, custom boot backend, new registry server or insecure flag.
+4. Define the smallest extensions to `appliancerelease.Payload`/candidate and
+   `releasedelivery.Release`: per-component provenance for verified reuse, media
+   hash/size/location, pre-install candidate identity and post-test qualification.
+   Specify format/version compatibility and strict refusal of unknown or incomplete
+   records; preserve validation of retained old formats where their callers need it.
+   Distinguish declared runtime/schema capability from proved upgrade edges in the
+   final signed release. The current payload rejects nonempty `UpgradeFrom`; do not
+   fill that embedded field after testing and thereby rebuild the qualified host.
+5. Record the controller/build/qualification/signer identities, protected baseline
+   and test-suite selection, exact initial x86_64 resource budget and public-only
+   output boundary. A source checkout or sudo-capable developer UID is not isolation.
+
+**Exit:** one concrete native installation/media contract with no unresolved assumption
+hidden in an adapter; file/LOC baseline; input/output/model decisions; exact resource
+requests. If upstream cannot satisfy the required installation path, stop for that
+specific product decision before implementing an alternative. Do not require unrelated
+ARM build proof to complete x86_64 source/mechanism work.
+
+#### B2. Implement one artifact execution owner
+
+1. Replace `tools/soda-host-image`'s orchestration with `tools/soda-build`; reuse the
+   existing `internal/nativebuild`/`internal/hostimage` primitives rather than add a
+   parallel framework/package hierarchy. A fixed `Build(ctx, request)` sequence and
+   concrete phase functions are sufficient; remove the `Production` API where it
+   exists only to support two layouts. No runtime-discovered task dependencies.
+2. Implement P1–P6, with one native monotonic clock and one process/cancellation
+   owner. Preserve the timing owner's output/exit contract without the Go/Python
+   bridge. Validate dependencies/resources before work; public artifact commands
+   never inherit signing credentials. Preserve fresh-output and frozen-source checks.
+3. Compile shipping/runtime programs, installer console and required tools once;
+   feed generated browser assets to existing `:prepared` suites. Adapt `check-source`
+   and packaging-test callers so the full run does not invoke another build. Go test
+   binaries remain distinct instrumentation, not duplicated shipping artifacts.
+4. Replace `stage.py`'s writable-rootfs-to-vendor transformation with direct vendor
+   destinations. Keep `forgejo-payload.json`, canonical assets, Containerfiles and
+   locks authoritative; do not copy their inventories into the controller. Leaf
+   asset scripts may remain if they neither own phases nor initiate another build.
+5. Wire all five app images and the host into one candidate. Keep selected upstream
+   images/binaries upstream; no Forgejo/CoreOS source rebuild or incidental tool
+   upgrade. Admit explicit reused signed digests with their own producing revision;
+   build other selections normally and record cache state honestly.
+
+**Tests:** both architectures' source admission; real native ELF inspection for the
+selected worker; once-only shipping compilation/asset/image call counts; prepared
+browser-test inputs; complete/incomplete candidate parsing; changed source/base/lock
+and reused-component provenance; no legacy paths in the host; wrong image IDs/platforms;
+command failure/cancellation descendants and original status; occupied outputs; disk
+or log-write failure; no credential in commands/logs; no signing/publication on build
+failure. Use process doubles first, then one authorized fresh native candidate build.
+**Exit:** one complete unsigned candidate with actual phase timings; this intermediate
+implementation receipt is not the normal command's final qualified-release outcome.
+
+#### B3. Replace the installer handoff, not just its wrapper
+
+1. Turn `scripts/build-installer.py` into media-only assembly (rename to
+   `assemble-installer.py` if retained). Remove its native-build invocation, Go
+   compilation, source revision selection and independent timing/supervision. Its
+   only product input is the admitted signed candidate plus prebuilt media tools.
+2. Update `appliance/installer` / `internal/installer` to the B1-selected native image
+   installation operation. Preserve password-only input, disk identity/revalidation,
+   erase confirmation, correction/cancellation, private-file handling, no replay after
+   an attempted write and explicit post-write outcome. Keep first-machine setup
+   separate from immutable software; no credentials/database/project state in media.
+3. Replace bundled `install-native.sh`/extension-layering continuation with the exact
+   host/app candidate handoff. Check signatures/identities before privileged use;
+   confirm all bound/retained content survives media removal and first boot. Wire the
+   native updater to those same identities, not a separate application installer.
+4. Preserve upstream boot equipment and existing ISO readback verifiers. Include the
+   candidate installation descriptor, console and required content as ordinary media
+   files, not a large Ignition executable payload. Keep private-network media separate
+   and nonpublishable as general media. Do not embed final qualification metadata and
+   rebuild the ISO after testing it.
+
+**Tests:** media assembly invokes no compiler/image builder; incoming candidate/path/
+architecture/signature substitutions refuse; artifact bytes match before/after
+packaging; contents/ownership/modes/boot metadata/Ignition readback; oversized inputs;
+wrong/in-use/hot-changed disk; cancellation/password/secret handling; partial writes
+never replay. Under the exact fixture grant, install the actual ISO and remove media,
+boot the same host digest, start its bound apps and import retained images offline.
+**Exit:** first-install and update artifact identities demonstrably agree; old writable
+bundle is absent from new media. ISO generation alone does not close this package.
+
+#### B4. Make qualification part of the run
+
+1. Connect P7–P9 to reviewed protected test drivers in `internal/acceptance` and
+   `tests/installed`, adapting their exact artifact/media handoffs. Baseline releases
+   and fixture identities are admitted inputs; do not
+   discover/reuse an arbitrary retained VM or build a hidden second baseline inside
+   the candidate run. Source tests cannot manufacture protected qualification evidence.
+2. Execute the [qualification matrix](#8-qualification-matrix): the actual ISO's
+   first boot/operator flow, supported baseline-to-candidate updates, maintenance
+   ownership, populated database/project preservation, compatibility-aware recovery,
+   signature/cache enforcement, missing content and interrupted operations.
+3. Record artifact/ISO/test-driver identities, native architecture, declared baseline,
+   scope and result. First-release absence of supported upgrade edges must be explicit;
+   never infer an upgrade path from a successful clean install. Bootstrap may use a
+   separately admitted baseline fixture, but the `native-install-upgrade-recovery`
+   class still requires actual upgrade/recovery tests, not just an empty advertised
+   edge list. Compare immutable digests and ISO hash before/after all tests; runtime
+   writes belong only to fixtures.
+4. Feed only protected successful evidence into final release admission. Failures,
+   unavailable required tests and ambiguous fixture state stop the run and preserve
+   evidence. Signer/qualification credentials and provider operations remain separate.
+
+**Exit:** a real single-invocation native receipt covering the advertised release
+scope, plus focused negative/failure receipts. No tests silently rebuilt a shipping
+artifact or weakened verification. Aarch64 uses the identical implementation on a
+native worker, with its own lock/resources/receipt when separately selected.
+
+#### B5. Finalize, publish and promote the tested bytes
+
+1. Reuse `internal/releasedelivery` and its protected worker protocol for P7 and
+   P10–P11. Extend strict document validation only for the B1-admitted provenance/
+   media fields; test both retained-format handling and new-format consumers.
+2. Freeze the final release document after qualification; sign it without modifying
+   the ISO/host/apps. Verify media against that signed record through independently
+   bootstrapped trust. An artifact signature permits testing/authentication, not
+   stable selection; local-only evidence still cannot enter preview/stable.
+3. Under exact grants, commission proposed GitHub Release ISO uploads alongside GHCR
+   immutable image/signature delivery. A draft/staging upload must not become a stable
+   download advertisement before its gate. Candidate media must be a prerelease,
+   not GitHub's Latest release; stable metadata changes follow the stable gate, not
+   an asset replacement. Independently verify anonymous retrieval, digest/size and
+   signed binding; keep private per-machine media out of publication.
+4. Move the channel only after every advertised artifact/architecture/media output
+   passes. Preserve current ledger/high-water/freshness/withdrawal semantics and the
+   single publisher. Record uncertain GitHub Release effects as held intent too;
+   observe existing resources before any retry, never reset a ledger or re-upload to
+   repair a readback failure. Later stable promotion reuses this same final release.
+
+**Tests:** synthetic/native local signing before live effects; artifact/channel role
+confusion, wrong signer/repository, tampering, expired/replayed offers, wrong media
+checksum and missing architecture; interrupted image/media upload and final tag
+movement; duplicate observation; denied credentials; failed qualification sends no
+promotion permit; changed bytes after qualification refuse; successful local runs
+perform no remote publication. **Exit:** authorized candidate-only real round trips,
+including ISO delivery, with no rebuild between qualification and publication.
+
+#### B6. Delete competing producers and commission the one entrypoint
+
+1. Remove `build-native.sh`, `build-iso.sh`, `build-progress.sh`, `build_progress.py`,
+   the Go/Python progress bridge, `--legacy-native`, host-content-only release modes
+   and old `tools/soda-host-image` orchestration after their replacement exits pass.
+   Remove the old native metadata/staging build path where superseded. Do not retain
+   successful compatibility wrappers indefinitely: deprecated commands either migrate
+   to the one supported interface during cutover or explicitly stop with guidance.
+2. Rewire `scripts/check-native.sh`, `scripts/check-source.sh`,
+   `internal/acceptance/remote_executor.py`, `package.json`, AGENTS commands and
+   support recipes to consume the new candidate/ISO without rebuilding.
+   Retain existing legacy artifact verification and authorized maintenance consumers
+   that are not producers; source retirement does not delete retained bundles,
+   installations, credentials, fixtures or the predecessor repository.
+3. Review the actual call graph and production LOC against B1. One run must not shell
+   out to an old builder, create a writable Soda payload or maintain two phase lists.
+   Shipping artifact build counts, wall timings and input-to-install/update digest
+   equality are acceptance receipts. Overall production build orchestration must
+   shrink; moving it to helpers or dropping verification is not a reduction.
+4. Only after full local/native delivery proof and exact host/action approval,
+   install the one systemd timer/one-shot invocation, protected credentials/limits,
+   notification destination and durable candidate admission. Normal and emergency
+   triggers call this same binary; long observation holds reuse release/ledger state,
+   not a generic workflow-resume engine or another artifact build.
+5. Execute authorized no-change/duplicate/catch-up/failure/notification drills, then
+   candidate/preview operation and separately authorized stable/initial-appliance
+   deployment. Routine signing and permitted promotion require no human attendance;
+   uncertain publication or unsafe recovery still stops for explicit reconciliation.
+
+**Exit:** the full-run receipt and source graph show one producer and one installation/
+update artifact identity; old release producers are gone. Then close only the existing
+milestone criteria supported by actual commissioned evidence. The live upstream train,
+second architecture and retained-appliance migration keep their own outstanding exits.
+
+#### Implementation effects and remaining approvals
+
+This plan itself changes documentation only. Source/unit/process-double work and
+applicable local builds use the latest task grant. Before real effects, consult the
+[current handoff](implementation-status.md#current-permissions), not this list as a grant:
+
+- Exact disposable native VM/disk, baseline, network boundary, resource budget,
+  installation/reboot/recovery actions and hold/evidence lifetime for B1/B3/B4.
+- Protected controller/build/qualification identities and fixed privileged worker
+  installation/update, including credential custody and off-machine recovery.
+- Actual GHCR candidate commissioning within its current grant; separately approve
+  GitHub Release/media visibility and writes, broader channels or trust changes.
+- Timer installation/unattended execution, notification destination and promotion
+  policy; actual appliance targets/activation and migration remain separate grants.
+- Cleanup only of exact authorized resources. Failed attempts and uncertain writes
+  are retained by default; no pruning, root recreation or fixture replacement.
+
+These are concrete commissioning boundaries, not per-release signing prompts or
+permission requests for every implementation package. No numeric VM/storage/SLA
+budget is invented here. If an output cannot be qualified with available grants,
+report its exact blocked gate while completing independent approved source work.
 
 ### Milestone 1 — complete appliance candidate
 
@@ -720,23 +1068,15 @@ bootc/cache enforcement, remain distinct pending evidence. See the
 
 ### Milestone 4 — automated release builder
 
-**Shared production prerequisite implemented in source.** At the owner's explicit
-request, overlapping component production was consolidated before further GHCR
-commissioning. `internal/nativebuild/production.go` is the single implementation of
-program compilation, assets/staging and app image production. The canonical Go
-image builder and the preserved legacy native adapter select their actual layout;
-there is no generic task graph or second copy of those recipes. The existing
-[timing owner](installation.md#build-timing-and-progress-implementation-plan) now
-covers both, including failure/cancellation and shared parent totals. This is not
-an enabled scheduler or completion of items 18–22.
-
-**Installation retirement boundary.** Target installer media and updates consume
-one qualified immutable release's exact digests, without another app build. Today's
-ISO still installs the writable layout. Do not relabel that payload as an immutable
-release or force a cutover to satisfy a build refactor. Retire the compatibility
-assembly only after M3's image-based installation, persistence, update and recovery
-proof. A combined legacy native/ISO build already reuses its freshly produced
-verifier; standalone media never executes a received bundle's verifier as authority.
+**Transitional extraction, not target acceptance.** `d054a60` shared component
+recipes and retained `2166333` timing behavior, but kept two assemblers and added
+orchestration. The owner requested its replacement, not more adapters around it.
+[The single-run implementation packages](#single-run-build-replacement-implementation)
+now own execution order across M1–M5. Items 18–22 remain open; no timer or full
+source-to-qualified-ISO-to-publication invocation has been proved. Native installation
+and recovery remain the retirement gate, not a reason to keep producing writable
+bundles in the new command. Old installed state and historical artifacts remain
+preserved after source-producer retirement.
 
 **18. [ ] Finalize this machine's builder operating contract.**
 
@@ -808,8 +1148,10 @@ verifier; standalone media never executes a received bundle's verifier as author
 
 **25. [ ] Align installation media with the release train.**
 
-- Deliverable: ISO delivery linked to the same signed release and trust bootstrap;
-  include QCOW2 when its separately owned producer is implemented and advertised.
+- Deliverable: ISO installs the same signed host/app candidate consumed by updates,
+  with qualified trust/bootstrap and no writable-bundle assembly. QCOW2, if later
+  implemented and advertised, is another consumer of that candidate, not a second
+  source build or separately assembled OS.
   Keep media provenance/architecture identity and first-boot credentials correct.
 - Check: the advertised download installs the qualified release and can consume its
   next update without private builder transfer. A missing QCOW2 producer is an explicit
@@ -860,8 +1202,9 @@ cannot silently count as accepted full target support. An x86_64-only production
 milestone may ship independently, but full two-architecture workstream completion
 still requires the aarch64 evidence in step 23.
 
-Offline import, broader fleet cohorts/telemetry and moving the builder to other
-hosting are follow-ups, not prerequisites for the core online automated train.
+Offline update import, broader fleet cohorts/telemetry and moving the builder to
+other hosting are follow-ups, not prerequisites for the core online automated train.
+This does not defer the single-run ISO's required installation/first-boot content.
 General fleet orchestration and arbitrary application-data rollback remain out of
 scope. Completion does not grant future destructive maintenance, cleanup or changes
 to the predecessor's separately reserved Updates platform.
@@ -872,9 +1215,10 @@ The [six milestones above](#9-implementation-stages-and-exits) are the single ta
 list for this workstream. **Milestone 1 is complete for the x86_64 local candidate
 at `45ac843`; milestone 2 has real protected keys and authenticated immutable GHCR
 round trips, with public visibility/anonymous and channel commissioning pending. Milestones 3–6 remain pending.** This consolidation changes execution granularity,
-not production gates or effect permissions. The owner subsequently selected the
-shared-production consolidation described under M4; that source prerequisite is
-implemented without claiming native installation or unattended-pipeline completion.
+not production gates or effect permissions. The owner subsequently rejected the
+shared-production extraction as the final design and requested a full single-run
+replacement. Its B1–B6 implementation packages map to these existing criteria; none
+is marked complete by this documentation pass.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
 digest-pinned logically bound core appliance images and native keyed-Sigstore
@@ -906,11 +1250,13 @@ image choices refuse, and changing the companion image within an existing run is
 not an admitted hot upgrade. RPM bytes are not mirrored; aarch64 has no transaction
 lock/native proof. Metadata has no qualified upgrade edges.
 
-**Current source consolidation:** the shared Go producer and existing timing helper
-now serve both layouts; duplicated application build commands have been removed
-from the legacy shell and image assembler. Source/fixture checks are recorded in
-[history](implementation-history.md#shared-build-production-and-timing-consolidation).
-No GHCR writes, key changes or appliance operations occurred in this refactor.
+**Next action: B1, not another build-lane extraction.** Validate the concrete native
+image-install/media contract, artifact/evidence dataflow and deletion/LOC baseline,
+then implement the single Go run in B2–B6. The requested [full plan](#single-run-build-replacement-implementation)
+is now recorded. No replacement code or native commissioning was performed for it.
+The [transitional extraction receipt](implementation-history.md#shared-build-production-and-timing-consolidation)
+remains valid only for its source tests and host-context preparation, not acceptance
+of the desired build architecture. No GHCR/key/appliance changes followed this plan.
 
 **Pending milestone 2 commissioning, not part of the source refactor:** the owner
 sets the eight new GHCR packages to Public.

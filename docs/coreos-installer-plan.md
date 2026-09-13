@@ -139,12 +139,48 @@ media. Soda's later RPM setup remains network-assisted, not an offline appliance
 runs with Butane at build time; the live Go adapter adds only bounded private fields
 because the selected live OS does not provide Python/Butane.
 
+## Image-based replacement contract
+
+The owner requested the [single-run release build](release-engineering-plan.md#single-run-release-build-contract).
+Its B1/B3 implementation replaces the writable-bundle installation backend; the
+sections below remain the current legacy implementation reference until qualified
+cutover, not a requirement to preserve that backend in the new lane.
+
+- Media consumes an already built, signed host/application candidate and prebuilt
+  console/tools. No component compilation, mutable image selection, separate OS
+  assembly, post-install RPM layering or bundled `install-native.sh` occurs in the
+  target first-install path. Install and update use identical host/app digests.
+- Select and inspect the exact upstream bootc installation/local-content mechanism
+  before coding. Keep stock live boot and supported media customization; the current
+  `coreos-installer install --offline` contract is not assumed to accept a derived
+  OCI host. Do not import the predecessor installer or invent a boot backend.
+- General ISO installation/first boot must have the required host, bound-app and
+  retained-runtime content without a registry dependency. Check native transport,
+  signature policy, storage lifetime and media-removal behavior in an authorized
+  fixture; provider/marketplace connectivity is outside this offline claim.
+- Preserve the current input/confirmation contract: password-only operator access,
+  disk identity/in-use checks and last-moment revalidation, exact erase confirmation,
+  hidden secret-file handling, correction/cancellation before writes, no automatic
+  replay after an attempted write, no implicit reboot or provider enrollment.
+- Machine identity, host keys, subnet/configuration and first-operator/application
+  setup remain per-installation work. Image-owned software replaces the old extension/
+  bundle continuation, not those security responsibilities or retained-state guards.
+- Put the console/candidate content in normal media files, not oversized Ignition.
+  Prove current per-file ISO limits, primary-name/boot-equipment preservation, SELinux,
+  signature/bootstrap integrity and available disk space. Private network media
+  remains private. Keep final post-test qualification outside the ISO so publication
+  does not rebuild tested bytes.
+- Exit is actual ISO installation, media removal and first boot of the selected
+  digest, followed by its supported next update and preservation/recovery proof.
+  Generating/readback-checking an ISO is not this acceptance. Source retirement
+  does not authorize migration or cleanup of any retained machine.
+
 ## Decision and boundary
 
-Use the upstream Fedora CoreOS live ISO and stock `coreos-installer`, not
-Anaconda, Kickstart or the predecessor's bootc installer. Add a small Soda-owned
-installation interface; do not patch the upstream installer. The implemented first candidate is a console interface,
-not an existing CoreOS form or a selected graphical framework. Preserve canonical artwork and the unchanged legacy repository.
+**Current legacy implementation, retiring:** upstream Fedora CoreOS live ISO and
+stock `coreos-installer`, not Anaconda, Kickstart or the predecessor's installer.
+The small Soda-owned interface is a console, not an existing CoreOS form or a selected
+graphical framework. Preserve canonical artwork and the separate predecessor repository.
 
 This plan and its source candidate are not built/booted media evidence or permission to
 write disks, start new fixtures, publish images or reinstall retained appliances.

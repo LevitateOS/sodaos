@@ -72,8 +72,11 @@ The first installer verifies before copying writable prefixes, validates the RFC
 
 ## Local host-content image candidate
 
-The [release engineering plan](release-engineering-plan.md) owns this new image
-path; the existing writable installer and sealed application bundle remain unchanged.
+The [release engineering plan](release-engineering-plan.md#single-run-build-replacement-implementation)
+owns the replacement of this transitional image path and the writable-bundle builder
+with one source-to-release command. The new command is not implemented yet; the
+following describes existing tools/effects, not the target build interface. The
+current writable installer and sealed bundle remain usable pending native cutover.
 `tools/soda-host-image` is a noninteractive local build tool, never an installed
 appliance helper or update scheduler. It is also the canonical Go component
 producer: the preserved `build-native.sh` adapter invokes its explicit

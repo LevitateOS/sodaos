@@ -29,11 +29,13 @@ artifacts already available or permission to publish them:
 | --- | --- | --- |
 | SodaOS ISO | Primary download for physical USB installation and manual VM installation | Previous required-key media exists; replacement password-only/payload/setup source is under local validation, with rebuilt media and full fresh-install proof deferred |
 | SodaOS QCOW2 | Recommended second download: a prepared VM disk booting into the same first-time operator setup | No preinstalled Soda product image or producer exists; the exact image-production and first-boot recipe still needs design |
-| SodaOS host OCI | Preferred feasibility target for the [selected release engineering plan](release-engineering-plan.md) through GHCR | Not produced; native build/update/signature mechanism and any bootc migration remain unselected |
+| SodaOS host OCI | Shared installation/update artifact in the [single-run replacement](release-engineering-plan.md#single-run-release-build-contract) | Complete x86_64 local candidate produced; signed copies staged in internal GHCR packages. Native installation/update/recovery remains unqualified. |
 | Sealed Soda payload | Matching native programs, configuration and application/project OCI archives needed to install Soda | Existing native bundle contract; replacement ISO recipe includes a matching snapshot for pre-removal copying. QCOW2 inclusion remains future work |
 
-The target user-facing downloads are ISO and QCOW2, containing the matching Soda
-payload, with release/architecture identity and verifiable checksums. The [release engineering plan](release-engineering-plan.md) owns GHCR distribution and
+The selected replacement produces an ISO consuming the same host/application
+candidate as updates, not another writable payload. QCOW2 remains a future consumer
+of that same release, not a second build implementation. The older bundled-ISO
+commands below remain current operational references until validated cutover. The [release engineering plan](release-engineering-plan.md) owns GHCR distribution and
 mandatory production signing; exact trust and consumer mechanisms still need
 validation. Existing checksums are not a Soda release signature. An ISO is bootable installation media;
 QCOW2 is a virtual disk, not a complete VM definition. Generic media must contain no
@@ -93,19 +95,22 @@ Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist w
 
 ## Build timing and progress implementation plan
 
-**Status: source consolidation implemented; local checks passed.** The timing work
-from `2166333` is retained and now also used by the canonical Go release-image
-builder. `internal/nativebuild/production.go` owns the shared program, asset and
-application-image production steps; `build-native.sh` is the legacy writable-layout
-admission/sealing adapter, not another copy of those recipes. This section owns
-progress/timing for both callers. Containerfiles, locks, staging and
-[ISO generation](coreos-installer.md) still own their content contracts.
+**Target contract; current implementation is transitional.** The owner rejected
+`d054a60`'s extraction as final architecture and requested the
+[single-run replacement](release-engineering-plan.md#single-run-build-replacement-implementation).
+This section owns timing/reporting behavior to preserve from `2166333`, not its
+Python/shell implementation. The new Go controller owns the only run clock and
+process supervision. Existing invocation/output details below describe the retiring
+implementation until B6 cutover; they are not instructions to keep two assemblers.
 Actual native x86_64 host-context preparation at `d054a60` also passed through the
 new shared compiler/timing bridge; see the [receipt](implementation-history.md#shared-build-production-and-timing-consolidation).
 It did not build application/host images or an ISO. Full native build/installation
 evidence remains separate.
 
 ### Run the timed build
+
+**Current commands, not the new interface.** The proposed `soda-build` command and
+its full-run contract are specified in the release plan; it is not implemented yet.
 
 With the [native builder prerequisites](#1-prepare-the-native-builder), committed
 source, existing `.artifacts` parent and a fresh native output location:
@@ -199,57 +204,37 @@ A checkpoint is a progress message, not a saved execution state or resume featur
 No estimated percentage or ETA is needed. Start/end messages and the normal tool
 output are sufficient for this pass; no background monitoring process is required.
 
-### 1. Connect the existing build entrypoints
+### Timing and failure contract for the replacement
 
-- `scripts/build-iso.sh` calls `build-installer.py --build-native`, which invokes
-  the legacy adapter once and hands its sealed stage to the media assembler.
-  The adapter calls the canonical Go producer with `--legacy-native`; it owns no
-  duplicate application/asset/image build recipes. Preserve admission, locking,
-  checks and failure behavior, rather than hiding duplicate implementations in a wrapper.
-- Accept the architecture, fresh ISO output path and the ISO builder's existing
-  tool/signing inputs, plus its optional private network keyfile. Validate required
-  inputs before expensive work. Record the source revision once and ensure the
-  same revision reaches both phases.
-- Start the total clock at invocation, before preflight. End it only after the ISO
-  builder completes its existing readback, integrity checks and final checksums.
-  Installer success means a verified build artifact, not boot/install acceptance.
-- Keep image and media outputs independently usable with their own totals. The
-  current ISO still installs the legacy writable layout, not the immutable host
-  candidate. Replacing that backend and retiring the legacy assembly requires the
-  [native installation/update qualification](release-engineering-plan.md#milestone-3--native-update-and-recovery).
-  The target ISO consumes the same release digests as updates; do not claim that
-  cutover merely because common production has been consolidated.
-- In a combined legacy native/ISO invocation, snapshot and reuse the verifier just
-  built by that invocation instead of compiling it twice. Standalone media given an
-  external `--bundle-source` still compiles its verifier from trusted source; never
-  execute an input bundle's program to establish that bundle's trust.
-- Respect the native builder's current fresh-output requirement. If its output
-  already exists, explain the conflicting path and stop. Do not delete artifacts,
-  create worktrees or clear caches as a timing convenience.
+- One Go controller uses native monotonic elapsed time, starting before preflight
+  and ending after the last requested phase. No Go-to-Python clock subprocess,
+  nested coordinator, duplicate supervisor or timing daemon. Preserve the familiar
+  plain `START`, `DONE`, `FAILED`, `CANCELLED` records and `HH:MM:SS` durations.
+- Measure each significant section and phase, including copies/hashes, downloads,
+  waits, media readback, native qualification and requested publication. Total and
+  phase intervals are measured independently, not summed from overlapping children.
+  The [release owner](release-engineering-plan.md#single-run-release-build-contract)
+  defines phases and qualified/published/held outcomes; timing never changes authority.
+- Progress goes to stderr and a restricted progress-only log under the run's `logs/`.
+  Captured image IDs and native tool stdout remain intact. Flush before/after each
+  section. Retain redacted tool diagnostics separately; no credentials, raw private
+  provisioning, passphrases or private network contents enter progress or evidence.
+- Preserve the original failed exit status, identify the active failed section,
+  stop later phases and retain completed timings. Interrupt/termination stops and
+  reaps owned descendants; timeouts fail rather than extending themselves. Emit one
+  final outcome only, with retained paths. Uncertain publication is held, not retried.
+- Fresh output guards remain. Never clear artifacts/caches or create a worktree for
+  timing convenience. Record architecture/revision and explicit digest reuse; label
+  unmeasured cache state unknown. No fabricated cold-cache benchmark or ETA.
+- Port the existing timing/capture/cancellation assertions to Go; use controlled
+  clocks and short process doubles, not exact real-time expectations. Cover failed
+  preflight, child/grandchild cancellation, log failure, occupied paths and secret
+  suppression. Confirm logs are excluded from immutable image/media payloads.
+- Finally record one real native full-run receipt through installation/recovery and
+  authorized delivery, with phase and total timings. Source tests, host-context
+  preparation and media generation remain separately scoped evidence until then.
 
-### 2. Add small timing functions to the current scripts
-
-- Measure elapsed real time with a monotonic clock, including child execution,
-  downloads and waits. Use Python's standard-library monotonic clock in the ISO
-  builder and a small clock function using the already-required Python interpreter
-  for shell and Go checkpoint timestamps. Add no timing dependency or separately
-  compiled timing tool; the artifact producer is compiled for its existing Go work.
-- The outer entrypoint owns the run start. Pass that clock origin to child scripts
-  so their messages show the same running total. Standalone invocations initialize
-  their own origin. Keep section start times separate from the total start.
-- Format durations consistently as `HH:MM:SS`, including builds exceeding one hour.
-  A host clock correction must not produce negative or shortened durations.
-- Write progress to stderr so captured stdout values such as image IDs and tool
-  versions remain unchanged. Use plain lines that remain readable in a terminal
-  and redirected output; do not require color or cursor manipulation.
-- Retain the same progress lines in `<ISO-output-name>.timing.log` beside the ISO attempt,
-  or `<release-attempt>/timing.log` for release-image builds. Neither belongs in the
-  sealed payload, image or ISO. Flush checkpoints as they
-  happen so a failed attempt still has its earlier timings. Preflight failures
-  before output creation remain visible in the terminal. This is a timing log,
-  not a new capture of secret-bearing command output.
-
-### 3. Section inventory and timing boundaries
+### Current implementation inventory (retiring)
 
 The shared producer, not a second build graph in documentation, owns execution
 order. Each significant operation gets a named start/end checkpoint; repeated
@@ -325,76 +310,10 @@ for timing. Tea and Tailscale are downloaded binaries, not source compilations.
 | I19 | Confirm unchanged source | Final source check before writing the completed media record. |
 | I20 | Write final metadata and checksums | Hash completed outputs, write `media-build.json` and `SHA256SUMS`. Includes the existing repeated hashing of large files; total timing must continue through it. |
 
-**Total and coverage rules**
-
-- The outer flow is preflight → native payload → existing sealed-stage handoff →
-  ISO production → outcome. Include child startup, copying, downloads, inspections
-  and final hashing in total elapsed time. No separate bundle export is needed:
-  the ISO builder already snapshots the supplied sealed stage.
-- Keep an active section around every significant operation, including quiet
-  subprocesses. Add the listed boundaries inside `native-build-info.py`, `remaster`
-  and `verify_bundle_readback` instead of leaving those helpers as opaque waits.
-  Helpers retain their current return values, captured stdout and error behavior.
-- At completion, print a compact chronological section-duration summary, then native
-  subtotal, ISO subtotal and overall total. On failure, mark the last section failed
-  or cancelled and omit later sections that never ran. Repeated images/programs
-  appear by name. Optional network checkpoints appear only when selected.
-- Nested durations overlap. Measure each subtotal and the total independently;
-  never add phase durations to their child-section durations. Lightweight wrapper
-  overhead may make the overall total slightly larger than the two phase subtotals.
-- The build includes its existing artifact checks. `check-native.sh` is a separate
-  source/packaging test workflow, not currently called by either build script.
-  Installing builder prerequisites, VM boot/install qualification and publication
-  remain outside artifact-build totals. The release-image command now has its own
-  measured total; it is not part of the legacy ISO total. Qualification/publication
-  must have distinct outer phase totals when the M4 pipeline is connected, without
-  giving secret-bearing workers access to build-supplied timing code. Say which
-  phases actually ran so “build completed” does not imply qualification or delivery.
-- During implementation, reconcile every external command and potentially expensive
-  copy/hash loop against this inventory. Each belongs to a named timing interval;
-  combined intervals disclose their included work rather than claiming timings we
-  did not measure. This is a review checklist, not a runtime scheduler or a new
-  machine-readable copy of the build graph.
-
-### 4. Report failure and interruption accurately
-
-- On failure, print `FAILED`, the active section, its elapsed time, the total elapsed
-  time and the retained log/output location when available. Preserve the underlying
-  nonzero exit status and stop before later sections.
-- On Ctrl-C or termination, stop the active build process using normal signal
-  handling and print `CANCELLED` with elapsed times. Do not emit success or leave
-  the child build running. Preserve existing command timeouts and treat expiry as
-  a failed section, rather than changing deadlines to obtain a timing result.
-- Avoid duplicate top-level summaries when a child fails. The child identifies the
-  precise failed section; the outer command supplies the one final run outcome.
-- Completed section lines remain completed if a later section fails. Never label
-  unfinished outputs as a usable ISO, automatically retry a mutation, or remove
-  the retained attempt as recovery.
-
-### 5. Verify the behavior and document the command
-
-- Add focused local tests with controlled clocks and short command doubles:
-  successful ordering/totals; a failed child stopping later phases and preserving
-  its exit code; standalone versus nested timing; an interrupt stopping the child;
-  output capture remaining intact; and the optional network section being absent
-  when unused. Do not rely on long sleeps or exact real execution durations.
-- Check that timing logs remain outside sealed artifacts and that existing bundle
-  and ISO fixture checks still pass. Test messages use synthetic inputs and never
-  include private network data or credentials.
-- Document the complete command and show its resulting terminal summary. Run one
-  native source-to-ISO attempt on an authorized matching builder to verify real
-  progress delivery, timings and artifact checks. Keep this distinct from local
-  fixture proof and from boot/install testing.
-- Record architecture, revision and whether dependency/image caches were available.
-  A fresh artifact build may still reuse caches: label unmeasured cache state as
-  unknown, and do not call it a cold-cache benchmark. This plan does not add cache
-  cleanup, a dedicated benchmark environment or automatic CI/publication.
-
-**Completion:** one invocation runs the existing source-to-ISO recipe; the terminal
-identifies every significant active section, reports its duration on completion,
-and prints the measured total on success, failure or handled interruption. Timing
-logs survive failures, and the artifact-production/security contracts still pass
-their affected checks.
+The inventory above describes the retiring callers, not another implementation
+checklist. Their historical native/ISO and image-build totals do not include a
+connected qualification/publication run. The replacement's completion criteria
+are the timing contract above and the owning release plan's B1–B6 exits.
 
 ## 2. Provision the upstream host
 

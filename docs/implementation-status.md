@@ -317,8 +317,12 @@ Tailnet work.
   is authorized by this commissioning. Off-machine recovery custody and untrusted-job
   isolation remain unproved. The [owning plan](release-engineering-plan.md#10-workstream-status-and-next-action)
   tracks completion independently of other workstreams. The owner subsequently
-  explicitly approved the shared-build/timing source consolidation; that local work
-  does not advance GHCR commissioning or authorize an installer/backend cutover.
+  explicitly approved the shared-build/timing source consolidation, then rejected
+  it as sufficient simplification and requested a full single-run replacement plan.
+  The [owning implementation order](release-engineering-plan.md#single-run-build-replacement-implementation)
+  is now documented; no replacement code or effects were performed for that planning
+  pass. This does not advance GHCR commissioning, authorize native installer cutover
+  or grant GitHub Release/ISO publication or unattended-worker installation.
 - **Tailnet:** the user explicitly selected Stage 4 source implementation and local
   tests, and then explicitly requested source completion rather than another blocker
   handoff. The source candidate is prepared; further source fixes/tests need no new

@@ -16,8 +16,15 @@ source changes do not change that ISO. Native x86_64 media build and the complet
 fresh-disk journey are deferred until the x86_64 machine is available again.
 See the [concrete change plan](coreos-installer-plan.md#manual-install-decision--10-september-2026)
 for local-password provisioning, subsequent SSH enrollment and required validation,
-and the [publication direction](installation.md#publication-direction) for including
-the Soda payload and the recommended QCOW2 download.
+and the [publication direction](installation.md#publication-direction) for current
+and planned deliverables.
+
+**Next architecture, not implemented:** the [single-run replacement plan](release-engineering-plan.md#single-run-build-replacement-implementation)
+replaces the writable-bundle backend with media consuming the same signed host/app
+candidate as updates. The [installer contract](coreos-installer-plan.md#image-based-replacement-contract)
+owns its native mechanism/qualification gate. The operational details below describe
+the retiring implementation; the proposed media-only assembler will not compile
+programs or invoke another artifact builder.
 
 ## Owners and prerequisites
 
