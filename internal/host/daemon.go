@@ -82,6 +82,9 @@ type Daemon struct {
 	Runners        *runners.Operations
 	Config         Config
 	Exec           Executor
+	// tailnetEnabledCheck stubs the Off pre-check in tests. Production leaves
+	// it nil so StartTailnet uses the real policy owner with native identity.
+	tailnetEnabledCheck func(ctx context.Context, project, cid string) (bool, error)
 	admissionOnce  sync.Once
 	admission      chan struct{}
 	terminalMu     sync.Mutex

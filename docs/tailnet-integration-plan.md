@@ -336,6 +336,16 @@ can explicitly retry after observation. Unexpected daemon exit may restart under
 systemd's existing bounded restart policy, using a fresh ephemeral identity.
 There is no durable attempt prohibition or automatic HTTP POST retry.
 
+Preparation ordering (source-implemented, local checks only): a resolvable
+container whose saved policy is definitively Off or missing returns a clean
+no-op before companion-specific runtime readiness, so Off projects never wait
+on run validation. Malformed configured policy fails safely as unavailable,
+distinct from missing. Enabled failures carry fixed stage labels (project
+runtime, policy, companion startup/status, enrollment) with sanitized typed
+causes; credentials, auth URLs, raw provider responses and native inspection
+output never enter errors or logs. Native acceptance of these paths on an
+authorized fixture remains pending.
+
 The host's normal Tailscale reconnect and control-plane behavior remains native.
 External root CLI changes are not prevented by a Soda UI lock: use field-specific
 preference updates, preserve unrelated fields and observe the resulting state.
