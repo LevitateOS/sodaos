@@ -31,7 +31,9 @@ colors remain owned by Cockpit.
 
 Older kit SVG backgrounds, wordmarks, favicon proofs and noninteractive previews
 remain preserved source/provenance, not active staging inputs or current screenshots.
-No ignored `cockpit/dist` content is staged.
+No retired workspace output is staged. The top-level `cockpit/` directory is
+removed; [`provenance/`](provenance/README.md) preserves its upstream inputs and
+licenses without making them active branding/build inputs.
 
 ## Checks and limits
 
@@ -39,5 +41,6 @@ No ignored `cockpit/dist` content is staged.
 CSS/fonts/native theme tokens in a deliberately small browser styling fixture.
 Temporary-filesystem staging tests check canonical icon/font bytes and reject stale
 custom-page output. These are not native Cockpit HTML, login/PAM, keyboard/error,
-mobile or visual parity acceptance. The authored stock operator journey and actual
-installed login/shell/ordinary pages still need their authorized native checks.
+mobile or visual parity acceptance. The [fresh VM receipt](../../../docs/implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke)
+separately records native root login, stock administration and logout; wider
+visual/theme/keyboard acceptance remains pending.

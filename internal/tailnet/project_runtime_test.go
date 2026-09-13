@@ -111,7 +111,7 @@ func TestProjectRuntimeEnableCASAndNoImplicitRetarget(t *testing.T) {
 		t.Fatal("cancelled policy admitted")
 	}
 }
-func TestProjectHasNodeUsesCurrentStateNotReleaseOrMissingFields(t *testing.T) {
+func TestProjectHasNodeUsesCurrentStateAndOptionalNodeKey(t *testing.T) {
 	for _, tc := range []struct {
 		body          string
 		node, invalid bool
@@ -122,14 +122,33 @@ func TestProjectHasNodeUsesCurrentStateNotReleaseOrMissingFields(t *testing.T) {
 		{`{"BackendState":"NeedsLogin","HaveNodeKey":true}`, true, false},
 		{`{"BackendState":"Running","HaveNodeKey":false}`, false, true},
 		{`{"BackendState":"Unknown","HaveNodeKey":false}`, false, true},
-		{`{"BackendState":"NeedsLogin"}`, false, true},
+		{`{"BackendState":"NeedsLogin"}`, false, false},
+		{`{"BackendState":"Running"}`, false, true},
+		{`{"HaveNodeKey":false}`, false, true},
 		{`{"BackendState":"NeedsLogin","HaveNodeKey":null}`, false, true},
+		{`{"BackendState":"NeedsLogin","HaveNodeKey":"false"}`, false, true},
+		{`{"BackendState":"NeedsLogin","HaveNodeKey":0}`, false, true},
+		{`{"BackendState":"NeedsLogin","haveNodeKey":false}`, false, true},
 		{`{"BackendState":"NeedsLogin","HaveNodeKey":false,"HaveNodeKey":true}`, false, true},
 		{`null`, false, true},
 	} {
 		node, e := ProjectHasNode([]byte(tc.body))
 		if node != tc.node || (e != nil) != tc.invalid {
 			t.Fatal(tc.body, node, e)
+		}
+	}
+}
+
+func TestProjectStatusFreshDaemonOmitsFalseNodeKey(t *testing.T) {
+	data := []byte(`{"Version":"1.102.4","BackendState":"NeedsLogin"}`)
+	state, ips, dns, err := ProjectStatus(data, nil, RunBinding{})
+	if err != nil || state != "needs-login" || len(ips) != 0 || dns != "" {
+		t.Fatal("fresh project status", state, err)
+	}
+	for _, value := range []string{"null", `"false"`, "0"} {
+		data := []byte(`{"Version":"1.102.4","BackendState":"NeedsLogin","HaveNodeKey":` + value + `}`)
+		if _, _, _, err := ProjectStatus(data, nil, RunBinding{}); !errors.Is(err, ErrUnavailable) {
+			t.Fatal("malformed optional node key accepted", value, err)
 		}
 	}
 }

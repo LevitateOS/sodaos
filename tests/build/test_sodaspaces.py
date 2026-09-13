@@ -152,6 +152,9 @@ class SodaspacesPackaging(unittest.TestCase):
             stage = build / 'rootfs'
             self.assertFalse((stage / 'usr/local/share/cockpit/soda-runners').exists())
             self.assertFalse((stage / 'usr/local/share/cockpit').exists())
+            self.assertFalse((stage / 'etc/cockpit/users.override.json').exists())
+            self.assertFalse((stage / 'etc/cockpit/users.override.json').is_symlink())
+            self.assertIn('uid = 0', (stage / 'etc/pam.d/cockpit').read_text())
             brand = stage / 'etc/cockpit/branding'
             self.assertEqual((brand / 'soda-symbol-brutalist.svg').read_bytes(), (ROOT / 'assets/branding/source/soda-symbol-brutalist.svg').read_bytes())
             self.assertTrue((brand / 'fonts/barlow-condensed/LICENSE').is_file())
@@ -165,6 +168,10 @@ class SodaspacesPackaging(unittest.TestCase):
             self.assertFalse((brand / 'login-background-light.svg').exists())
             self.assertFalse((brand / 'soda-symbol.svg').exists())
             self.assertFalse((stage / 'usr/local/lib/soda/github-actions-runner').exists())
+            logo = stage / 'usr/local/share/soda/fastfetch/sodaos.txt'
+            self.assertEqual(logo.read_bytes(), (ROOT / 'assets/branding/terminal/sodaos.txt').read_bytes())
+            self.assertIn('/usr/local/share/soda/fastfetch/sodaos.txt', (stage / 'etc/fastfetch/config.jsonc').read_text())
+            self.assertFalse((stage / 'usr/share').exists())
             for asset in (stage / PREFIX.removeprefix('rootfs/') / 'public/assets').rglob('*'):
                 self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
             for name in FILES:
@@ -202,6 +209,10 @@ class SodaspacesPackaging(unittest.TestCase):
             for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
                 (stage / (name + '.iid')).write_text('sha256:' + '1' * 64)
             def synthetic_output(args):
+                if '--entrypoint=/usr/local/bin/tailscale' in args:
+                    return json.dumps({'short': json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']})
+                if '--entrypoint=/usr/local/bin/tailscaled' in args:
+                    return json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']
                 return '[]' if '{{json .RepoDigests}}' in args else 'synthetic metadata; no commands run'
             with patch.dict(module['collect'].__globals__, output=synthetic_output), patch('platform.system', return_value='Linux'), patch('platform.machine', return_value='x86_64'):
                 module['collect'](root, 'x86_64', '1' * 40)

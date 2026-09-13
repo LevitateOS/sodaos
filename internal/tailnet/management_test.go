@@ -64,6 +64,53 @@ func TestTailnetHostProjectionAndPassiveReads(t *testing.T) {
 		}
 	}
 }
+func TestTailnetFreshDaemonOmitsFalseNodeKey(t *testing.T) {
+	for _, field := range []string{"", `,"HaveNodeKey":false`} {
+		t.Run(field, func(t *testing.T) {
+			m := managementFixture(t)
+			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
+				if r.Method != "GET" {
+					t.Fatal("fresh observation dispatched a mutation")
+				}
+				switch r.URL.Path {
+				case "/localapi/v0/status":
+					return managementResponse(200, `{"Version":"1.102.4-t3caf7d9e7-g084ee3b64","BackendState":"NeedsLogin","Self":{"ID":"","DNSName":"","TailscaleIPs":null},"Peer":null`+field+`}`), nil
+				case "/localapi/v0/prefs":
+					return managementResponse(200, `{"WantRunning":false,"ExitNodeID":"","ExitNodeIP":"","ExitNodeAllowLANAccess":false,"AdvertiseRoutes":null}`), nil
+				}
+				t.Fatal("unexpected native request")
+				return nil, ErrUnavailable
+			})
+			v, err := m.Settings(t.Context())
+			if err != nil || v.Validate() != nil || v.HostUnavailable || v.Host == nil {
+				t.Fatal("fresh daemon unavailable", err)
+			}
+			if v.Host.State != "NeedsLogin" || v.Host.HaveNodeKey || v.Host.Preferences.WantRunning || len(v.Host.Addresses) != 0 {
+				t.Fatal("fresh daemon represented as enrolled")
+			}
+		})
+	}
+}
+
+func TestTailnetHostNodeKeyOptionalButStrict(t *testing.T) {
+	for _, field := range []string{"", `"HaveNodeKey":null,`, `"HaveNodeKey":"false",`, `"HaveNodeKey":0,`, `"haveNodeKey":true,`} {
+		t.Run(field, func(t *testing.T) {
+			m := managementFixture(t)
+			original := m.local.Transport
+			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
+				if r.URL.Path == "/localapi/v0/status" {
+					return managementResponse(200, strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true,`, field, 1)), nil
+				}
+				return original.RoundTrip(r)
+			})
+			v, err := m.Settings(t.Context())
+			if err != nil || !v.HostUnavailable || v.Host != nil {
+				t.Fatal("running without a valid true node key was accepted", err)
+			}
+		})
+	}
+}
+
 func TestTailnetHostUnavailableIsNotDisconnected(t *testing.T) {
 	for _, kind := range []string{"state", "prefs", "oversize", "null", "duplicate"} {
 		t.Run(kind, func(t *testing.T) {

@@ -1,8 +1,11 @@
 # CI runners
 
-Register local Forgejo execution capacity through **Runners** in Forgejo's native
-navigation (`/?soda-view=runners`) while Forgejo owns workflows, scheduling and results.
-Sign in to Forgejo first. Only the configured Soda operator can manage local capacity.
+Register local Forgejo execution capacity through **Site administration → Soda →
+Runners**, while Forgejo owns workflows, scheduling and results. The fixed bookmark
+is `/-/soda/settings/runners`; it also works without first entering Spaces or logging
+in to Soda. The administration entry is visible to native Forgejo administrators,
+but only the configured Soda operator can manage local capacity. Navigation delivery
+is recorded in [the handoff](../../implementation-status.md).
 
 Each local runner has one job slot, a noninteractive unprivileged Linux runtime
 account and persistent working state. It is not a developer workspace. Jobs run

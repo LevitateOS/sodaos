@@ -14,16 +14,22 @@ export async function loginOperator(page: Page, origin: string, password: string
   await page.locator('#login-password-input').fill(password);
   await page.locator('#login-button').click();
   await page.getByRole('link', {name: 'Overview', exact: true}).waitFor();
-  assert.equal(await page.getByRole('link', {name: 'Accounts', exact: true}).count(), 0);
+  await page.getByRole('link', {name: 'Accounts', exact: true}).waitFor();
 }
 
 export async function openOperatorPackage(page: Page, label: string, name: string) {
-  await page.getByRole('link', {name: label, exact: true}).click();
-  await page.waitForFunction(suffix => [...document.querySelectorAll('iframe')].some(frame => frame.src && new URL(frame.src).pathname.endsWith(suffix)), `/${name}/index.html`);
-  const frame = page.frames().find(candidate => candidate.url() && new URL(candidate.url()).pathname.endsWith(`/${name}/index.html`));
+  const suffix = `/${name}/index.html`;
+  const matches = (candidate: import('playwright').Frame) => candidate.url() !== '' && new URL(candidate.url()).pathname.endsWith(suffix);
+  const existing = page.frames().find(matches);
+  // iframe.src can be assigned while Playwright still sees about:blank. Wait
+  // for the actual native frame navigation, or reuse its already loaded frame.
+  const navigation = existing ? Promise.resolve(existing) : page.waitForEvent('framenavigated', {predicate: matches});
+  const [, frame] = await Promise.all([page.getByRole('link', {name: label, exact: true}).click(), navigation]);
   assert(frame, 'Native Cockpit package frame not found');
-  // Cockpit 366 Overview's h1 is the hostname, not the navigation label.
-  await frame.getByRole('heading', {level: 1}).first().waitFor();
+  // Overview's h1 is the hostname. Addons have different native layouts (Files
+  // has no h1); their callers assert page-specific readiness instead.
+  await frame.locator('body').waitFor();
+  if (name === 'system') await frame.getByRole('heading', {level: 1}).first().waitFor();
   return frame;
 }
 
@@ -125,8 +131,34 @@ try {
   assert(Object.values(summary).every(Number.isInteger));
   console.log('Root CLI capacity, ordinary systemd/journal access and retired runner navigation checked. Native Runners and provider jobs use their separate journey.');
   assert.equal(await stock.evaluate(async script => await window.cockpit.spawn(['python3', '-c', script], { err: 'message' }), originProbe), before.origins, 'Core browser origins changed during stock read-only observations');
+  // Native host administration. Opening pages must not create containers, edit
+  // accounts/files/policy or collect/upload a diagnostic report.
+  for (const [label, packageName] of [
+    ['Podman containers', 'podman'], ['File browser', 'files'],
+    ['SELinux', 'selinux'], ['Diagnostic reports', 'sosreport'], ['Accounts', 'users'],
+  ] as const) {
+    stage = 'native administration page: ' + label;
+    const frame = await openOperatorPackage(page, label, packageName);
+    if (packageName === 'podman') {
+      // Podman also renders names in collapsed details; observe visible rows.
+      for (const name of ['soda-forgejo', 'soda-dashboard', 'soda-proxy']) {
+        await frame.getByText(name, {exact: true}).filter({visible: true}).first().waitFor();
+      }
+    }
+    if (packageName === 'files') await frame.getByRole('button', {name: 'Upload', exact: true}).waitFor();
+    if (packageName === 'selinux') {
+      await frame.getByRole('heading', {name: 'SELinux policy', exact: true}).waitFor();
+      assert(await frame.locator('input[type=checkbox]').first().isChecked(), 'native SELinux policy is not enforcing');
+    }
+    if (packageName === 'sosreport') await frame.getByRole('button', {name: 'Run report', exact: true}).waitFor();
+    if (packageName === 'users') await frame.getByRole('heading', {name: 'Accounts', exact: true}).waitFor();
+    console.log('Native administration page opened: ' + label + '. No management write requested.');
+  }
   stage = 'Cockpit sign-out';
-  await stock.evaluate(() => window.cockpit.logout(true));
+  // An iframe's logout() leaves the outer shell on its Reconnect screen.
+  // Exercise the actual stock shell action, including its login navigation.
+  await page.getByRole('button', {name: 'Session', exact: true}).click();
+  await page.getByRole('menuitem', {name: 'Log out', exact: true}).click();
   await page.locator('#login-user-input').waitFor({ state: 'visible' });
   assert(!interrupted);
 } catch (error) {

@@ -15,6 +15,14 @@ def output(args):
     return subprocess.check_output(args, text=True).strip()
 
 
+def require_tailnet_release(clis, version):
+    cli = json.loads(clis['/usr/local/bin/tailscale'])
+    daemon = clis['/usr/local/bin/tailscaled'].splitlines()
+    if (not isinstance(cli, dict) or cli.get('short') != version or not daemon
+            or daemon[0].split('-', 1)[0] != version):
+        raise ValueError('Tailnet image binaries differ from locked release')
+
+
 def collect(root, arch, revision):
     if platform.system() != 'Linux' or platform.machine() != arch:
         raise ValueError('matching-native Linux required')
@@ -65,6 +73,8 @@ def collect(root, arch, revision):
         if name == 'tailnet':
             # Version-only, read-only and networkless: no daemon or enrollment.
             images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, *flags]) for binary, flags in (('/usr/local/bin/tailscale', ('version', '--json')), ('/usr/local/bin/tailscaled', ('--version',)))}
+            version = json.loads((root / 'appliance/locks/tailscale-image.json').read_text())['version']
+            require_tailnet_release(images[name]['CLIs'], version)
         if name == 'project-os':
             images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, flag]) for binary, flag in (('/usr/local/bin/tea', '--version'), ('/usr/bin/gh', '--version'), ('/usr/bin/tmux', '-V'))}
     with (inputs / 'native-build.json').open('x') as f:

@@ -397,7 +397,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "79804a001a9d8c83ea55772896735bc0e7cb0b71779b85eafc3bc1b0b9ab82fe",
+      "beforeRoleHash": "dd4bc36d0a5aff6191d8b307172d62172fe8364cec28bb20ee8038b58143c621",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "admin/config_settings.tmpl",
@@ -414,7 +414,7 @@
         "admin/user/view.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
+      "presentationReview": "Add native-admin-gated Soda Runners/Tailnet entry links in the existing administration content layout; retain the native navbar, alerts and forms without a new handler or navbar copy."
     },
     {
       "template": "admin/notice.tmpl",
@@ -855,8 +855,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0c05e0e7cf4d3d54ba5725ecc25d92eb392072e0a5c4fe4b8b4e284dab486cfe",
-      "presentationReview": "Merge Tailnet's localized navigation label with the stable Spaces current-page marker; retain native gates and guest-theme context.",
+      "beforeRoleHash": "39458f4d06e309607ea30a4d3e9def652b893d72c2714b47ba92ee40db73f68e",
+      "presentationReview": "Keep global Spaces and the exact signed actor/sub-URL logout marker; operator settings links belong in native administration, not dynamic global navigation.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
       ],
@@ -891,8 +891,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "eb0e3a40e9522d6f4689af42e7b24972a387b238cb05fe871f176e29095567ad",
-      "presentationReview": "Retain Tailnet runtime entry/drawer suppression and the newer repository-switcher script, preserving notification, repository and signed-in gates.",
+      "beforeRoleHash": "51be1c6193e60c7a89b8592329c002f09b59bc272d835ecf1f007b26a2d105e7",
+      "presentationReview": "Merge administration navigation and mechanism-removal module graphs under one new epoch; preserve coordinated logout, notification, drawer suppression and repository-switcher gates.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -920,12 +920,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "53063db35fb35e0d076e164a74e82d65b7af740f416b31e910862f6d3b71808d",
+      "beforeRoleHash": "81063ca9132198dd1cc5d573c68c5e507aeec4eede8eb81decf060023a628e7b",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Retain the Tailnet runtime epoch with current upstream stylesheet versions, including compact notifications and the repository-only switcher; native context and scripts retained."
+      "presentationReview": "Advance the paired module-graph epoch for merged administration navigation and mechanism removals; keep all other styling hooks unchanged."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -7815,10 +7815,10 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "4bdca0cc21a3f1c9a4f7c20f3fd589f0c034b1a216e08055469e330051eafe4d",
+      "beforeRoleHash": "b287ba660a5d26c21321c1f8dbffe5ca2908b06d4202923c71f92da160612e95",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Merge bounded Tailnet selector, localized labels and lazy assets with the redesigned ordinary dashboard; preserve native account/context and repository-ID gates."
+      "presentationReview": "Advance the matching native-page graph epoch; preserve all selector/actor gates and existing content hosts."
     },
     {
       "template": "user/dashboard/issues.tmpl",

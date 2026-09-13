@@ -1,10 +1,50 @@
 # Local test host and retained access
 
-This guide owns recorded access paths and wrapper effects for `soda-test`.
+This guide owns recorded access paths for the fresh Tailnet VM and `soda-test`,
+and the retained instance's wrapper effects.
 Installed versions, active grants and preservation results have one home in the
 [current handoff](implementation-status.md); historical access receipts are in
 [implementation history](implementation-history.md). None of the addresses below
 is a fresh liveness observation.
+
+## Fresh Tailnet VM access
+
+The separately created **`soda-native-tailnet-bb3a13c`** has its own ports and
+credentials. Do not use `scripts/test-vm.sh` for this instance. Its installed source,
+correction, current hold deadline and permissions belong in the
+[current handoff](implementation-status.md#fresh-tailnet-access-fixture).
+
+From the laptop, keep this tunnel running while using the browser:
+
+```sh
+ssh -N -o ExitOnForwardFailure=yes \
+  -L 24454:127.0.0.1:24454 \
+  -L 29094:127.0.0.1:29094 vince@192.168.2.253
+```
+
+| Service | Origin | Username | Private password file on builder |
+| --- | --- | --- | --- |
+| Dashboard / Forgejo | `https://localhost:24454/` | `operator` | `.artifacts/tailnet-vm-bb3a13c/forgejo-operator-password` |
+| Cockpit | `https://localhost:29094/` | `root` | `.artifacts/tailnet-vm-bb3a13c/root-password` |
+
+Paths are relative to `~/Projects/sodaos`. Open password files privately; never
+print them in tool output/chat/logs. Dashboard authentication uses Forgejo, not a
+third password. From the native profile menu, choose **Site administration**, then
+**Soda → Runners / Tailnet**. Direct entry bookmarks are
+`https://localhost:24454/-/soda/settings/runners` and
+`https://localhost:24454/-/soda/settings/tailnet`; they do not require visiting
+Spaces first. See the [handoff](implementation-status.md#fresh-tailnet-access-fixture)
+for installed state.
+
+The public CA is `.artifacts/tailnet-vm-bb3a13c/tls/ca.pem`, SHA-256
+`97b20d81c0678708c198547937ba48d999618c7580511350f6afd39c3a108064`.
+Retrieve it over trusted SSH and explicitly trust only this public certificate in
+the selected isolated test browser/profile before login. No laptop/global trust
+was installed; the CA's private key is not a client input. Keep the exact localhost
+origins for TLS/OAuth. Management SSH is pinned builder loopback port `22234`;
+`23034` is the loopback-only native Forgejo bootstrap/diagnostic forward, not the
+configured dashboard origin. Native root and Forgejo/OAuth/browser access passed
+in the [fresh VM receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke).
 
 ## Target and state to preserve
 

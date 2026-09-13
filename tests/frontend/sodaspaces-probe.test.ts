@@ -23,14 +23,17 @@ test('operator package handoff waits for the real rendered heading before native
   const source=await Bun.file(new URL('../installed/operator.ts',import.meta.url)).text();
   const from=source.indexOf('export async function openOperatorPackage('), to=source.indexOf('if (import.meta.main)',from);
   assert(from >= 0 && to > from);
-  let ready: (()=>void) | undefined;
+  let ready: (()=>void) | undefined, bodyReady: (()=>void) | undefined, headingRequested=false;
+  const body=new Promise<void>(resolve=>{bodyReady=resolve;});
   const heading=new Promise<void>(resolve=>{ready=resolve;});
   const frame={url:()=> 'https://fixture.invalid/cockpit/@localhost/system/index.html',
-    getByRole:(role: string, options: {level: number})=>{assert.equal(role,'heading'); assert.equal(options.level,1); return {first:()=>({waitFor:()=>heading})};}};
-  const page={getByRole:()=>({click:async()=>{}}), waitForFunction:async()=>{}, frames:()=>[frame]};
+    locator:(selector: string)=>{assert.equal(selector,'body'); return {waitFor:()=>body};},
+    getByRole:(role: string, options: {level: number})=>{headingRequested=true; assert.equal(role,'heading'); assert.equal(options.level,1); return {first:()=>({waitFor:()=>heading})};}};
+  const page={getByRole:()=>({click:async()=>{}}), frames:()=>[frame]};
   const attempt=runInNewContext(source.slice(from,to).replace('export async','async')+'\nopenOperatorPackage(page,"Overview","system")',{assert,page,URL});
   let returned=false; const completed=Promise.resolve(attempt).then(value=>{returned=true; return value;});
-  await new Promise(resolve=>setTimeout(resolve,0)); assert(!returned); assert(ready); ready();
+  await new Promise(resolve=>setTimeout(resolve,0)); assert(!returned); assert(!headingRequested); assert(bodyReady); bodyReady();
+  await new Promise(resolve=>setTimeout(resolve,0)); assert(!returned); assert(headingRequested); assert(ready); ready();
   assert.equal(await completed,frame);
 });
 

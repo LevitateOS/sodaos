@@ -22,7 +22,8 @@ fastfetch --config assets/branding/terminal/fastfetch.jsonc --logo assets/brandi
 ```
 
 The native image staging script installs the logo at
-`/usr/share/soda/fastfetch/sodaos.txt`, the preset at `/etc/fastfetch/config.jsonc`,
+`/usr/local/share/soda/fastfetch/sodaos.txt` (CoreOS's writable prefix), the preset
+at `/etc/fastfetch/config.jsonc`,
 and plain text at `/etc/motd`. Fastfetch's normal user-config precedence remains;
 this change does not install the fastfetch executable, alter a developer's own
 configuration, or add fastfetch calls to SSH command/SCP/SFTP streams.

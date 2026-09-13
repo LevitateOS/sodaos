@@ -14,6 +14,365 @@ not claims that those outputs are still retained.
 
 ---
 
+## Administrator navigation delivery to fresh VM
+
+The user explicitly approved applying `6c76af924303daeda190b946aac3fc6303fcffb4`
+to `soda-native-tailnet-bb3a13c`, including the brief Forgejo restart. Evidence:
+`.artifacts/admin-settings-delivery-YvHBWD/`. The existing hold was still valid;
+no VM start/extension or older-target contact occurred.
+
+A clean-source browser build and comparison with the sealed `bb3a13c` base selected
+**24 public files / 189,309 bytes**: five changed templates and nineteen changed
+emitted graph modules. No other source asset, image, package, helper or configuration
+was selected. Trusted SSH verified the effective `/data` mount, native config/SQLite
+paths and active service inventory; no established Forgejo HTTP/Git connections
+were present at preflight or immediately before the approved stop.
+
+Every affected occupant had to match its original base hash and expected regular,
+single-link, `1000:1000`, 0644 metadata with nonsymlinked ancestors. Transferred
+script/manifest/archive hashes were compared before execution. Restricted guest
+`/var/lib/soda-candidate-bb3a13c/forgejo-nav-6c76af9/backup/` retains the affected
+public files with ACLs/xattrs/SELinux labels, configuration/key inputs and a
+consistent Forgejo SQLite backup taken with its writer stopped. Public files were
+published with exclusive temporaries, original ownership/modes/xattrs, fsync and
+atomic rename. Only the existing Forgejo service was stopped/started once; nothing
+was restored from an older database, and no setup or OAuth application bootstrap
+was replayed. Final checks verified all 24 new hashes/metadata and 0600 backups.
+
+**Native browser passed:** an isolated browser trusted only the fixture's public
+CA and signed in through native Forgejo as the existing operator. Soda session and
+both protected settings APIs still returned **401**. The native profile-menu
+**Site administration** link led to visible **Soda → Runners / Tailnet** entries,
+with **zero OAuth starts** and no prior Spaces visit. Global navigation contained
+neither settings link. Explicit Runners entry then used the normal existing OAuth
+flow and returned authorized HTTP 200; Tailnet entry reused that matching session
+and returned 200. No registration, lifecycle, enrollment or policy mutation was
+requested. Native coordinated logout returned Soda to 401 and retired only this
+browser login, confirming the retained logout import works on installed pages.
+
+Before/after and final observations preserved boot identity, all three application
+image IDs, dashboard/proxy container IDs/PIDs/start times, configuration hashes,
+helper hash, schema v10, the original one Forgejo user, zero repositories and zero
+project records. Only the approved Forgejo container incarnation changed under its
+native Quadlet lifecycle. SELinux remained enforcing; both browser origins returned
+trusted HTTPS 200. Existing user sessions were not invalidated globally.
+
+The first read-only observer used unsupported Podman template field `.Id`; its
+failure happened before transfer or mutation. `.ID` corrected the observer, with
+the failed output retained; no deployment was replayed to fix it. Native proof here
+is bounded navigation/authentication/read/logout, not all page visuals, nonoperator
+installed-account coverage or the project/provider runtime matrix. This is a recorded
+public UI correction atop the existing base/helper/Cockpit updates, not a new full
+sealed bundle or image. No credentials, older retained targets or unrelated
+workloads were changed. Nothing pushed.
+
+## Operator settings navigation move
+
+The user reported that Runners/Tailnet appeared only after connecting to Soda,
+then clarified that these operator functions belong in administrator settings,
+not the global top bar. The earlier session-dependent visibility design was the
+cause; public global links were not selected or installed.
+
+Source now renders a **Soda** section in the existing native administrator layout,
+with fixed Runners/Tailnet bookmark entries. It preserves upstream `admin/navbar`,
+alerts and forms without copying the navbar, adding a handler or fabricating admin
+context inside the dashboard. Native signed/admin flags govern this section's
+visibility; the protected APIs still require Soda's configured operator, not merely
+Forgejo administrator status. Entry pages and OAuth returns remain with their
+existing owners. No new identity service or public operator inventory was added.
+
+The header module no longer fetches `/api/session`, creates settings links or hides
+links during session retirement. It retains Spaces' validated native current-page
+cue and explicitly imports the coordinated logout owner. The signed-actor/sub-URL
+marker is preserved. Paired HTML entries and the complete module import graph use
+`2026-09-13.admin-settings-1`; five changed template inventory hashes have explicit
+reviews, and the exact admin addition is bounded by upstream-parity checks.
+
+**Checks:** all `scripts` Go race tests passed; focused web race checks passed for
+both fixed entry guards, operator denial, mutation admission and OAuth return/error
+handling. TypeScript/Lit, browser asset generation and the Forgejo suite passed:
+**43 pass, 29 explicit skips**. Emitted tests cover no-session/nonoperator/mismatched/
+expired Soda states, native admin/nonadmin/guest placement, no JavaScript, no passive
+session/OAuth requests, prefixes, retirement events and Spaces current-page cues.
+The actual Go template renders are separate from those synthetic browser fixtures.
+The initial combined Go run completed `scripts` but timed out while running the
+whole web package; its log is preserved, not claimed as a full web-package pass.
+
+Evidence: `.artifacts/admin-settings-navigation-8ykFIV/`. This was source-only:
+no target contact, UI installation, Forgejo restart, provider action or project
+mutation occurred. Native installed navigation/visual acceptance and a new full
+bundle build are not claimed. The live fixture still has its previous Forgejo UI;
+public-payload delivery and the required template-activation restart need the
+applicable target/action grant. Nothing pushed.
+
+## Native Cockpit administration additions
+
+The user selected the revised baseline and requested continuation. Work applied
+only to `soda-native-tailnet-bb3a13c` and source; the conditional VM, crash-capture
+and recording roles were not selected. Evidence:
+`.artifacts/cockpit-admin-additions-lwhgJX/`.
+
+**Native transaction:** fresh read-only inventory found zero projects and the
+three original running appliance containers. Native rpm-ostree `2026.2` help and
+transaction preview established additive live activation support and no installed
+package version changes. Restricted backup
+`/var/lib/soda-candidate-bb3a13c/cockpit-admin-additions/config-before.tar` preserves
+Cockpit configuration/certificates, PAM and socket configuration with metadata.
+The exact old Accounts override was hash-checked and moved to
+`users.override.before.json` in that same private backup directory.
+
+`rpm-ostree install -y --apply-live` added the four selected native packages and
+their dependencies: **42 additions, no RPM replacements/removals**. Actual resolved
+versions were `cockpit-podman-130-1.fc44`, `cockpit-files-43-1.fc44`, and
+`cockpit-{selinux,sosreport}-367-1.fc44`; the earlier published package-webpage
+listings were research, not installer pins. No forced replacement, deployment
+reset or reboot was used. The next-boot deployment retains the same package requests.
+
+**Native checks passed:** a fresh trusted browser/root login displayed Accounts
+and opened Podman containers, File browser, SELinux, Diagnostic reports and Accounts,
+then used native Session → Log out. Podman displayed all three appliance containers
+and its native Unix API backend was active. SELinux policy remained enforcing;
+File browser's Upload and Diagnostic reports' Run report controls loaded without
+being activated. The existing stock Overview/native socket/CLI/Services/Logs checks
+also passed. Separate native PAM account checks admitted root and explicitly denied
+existing non-root `nobody`; no account was created or password changed.
+
+Before/after observations preserved the boot ID, all original container IDs/image
+IDs/running states, zero project records and the `3cb7408` helper hash. Native
+container start times precede maintenance. App services remained active and both
+endpoints returned trusted HTTPS 200. No global Cockpit/dashboard restart, report
+collection/upload, container mutation, policy write, Tailnet enrollment or provider
+job was requested. Existing user sessions were not forcibly refreshed.
+
+**Source:** provisioning and first-install package preflight require the four
+addons. The obsolete Accounts override is removed from source/staging and the new
+bundle allowlist, while root-only PAM is unchanged. The operator journey observes
+visible Podman rows, native addon-specific readiness and actual frame navigation
+instead of treating an assigned iframe `src` as committed navigation.
+
+Nineteen installer/provisioning tests, seven source staging fixtures, nativebuild
+Go race tests, strict TypeScript/Lit and installer shell syntax passed. The updated
+actual-stage Accounts assertion is authored; no new native bundle/media build is
+claimed. The original bundle/private Ignition and previous receipts remain intact.
+Preserved failed observers include hidden duplicate Podman name matches, the File
+browser's absent h1, SELinux/report label assumptions and an iframe navigation race;
+these were fixed in the test rather than by changing the native pages. An interrupted
+source-check attempt was retained and completed in a fresh log; no installation was
+replayed to repair observers. No older retained target, private credential, network/
+trust configuration or unrelated runtime was changed, and nothing was pushed.
+
+## Cockpit administration recommendation review
+
+The user rejected the prior blanket exclusion of Podman and requested a complete
+reconsideration. The recommendation had conflated project workflow ownership with
+root host administration; no installed package/navigation change had implemented
+that list. The [owning guide](cockpit-port.md#page-recommendations) now withdraws it
+and distinguishes the root-administration baseline, role-dependent extensions,
+current policy and unvalidated installation details.
+
+Evidence: `.artifacts/cockpit-admin-review-9R2s2j/`. Review reused the fresh VM's
+existing manifest inventory without contacting it. Local architecture, project
+state/lifecycle and actual Quadlet/project unit callers were read. Public upstream
+Cockpit application documentation and Fedora 44 metadata were retrieved for
+Podman (`123-1.fc44`), Files (`39-1.fc44`), SELinux and reports (`360.1-1.fc44`). These
+are observed package listings, not new source pins, a resolved installation
+transaction or proof on the appliance's current deployment.
+
+Podman tag 123 `Containers.jsx`, `PodActions.jsx`, `util.tsx`, `rest.ts`, client and
+Quadlet detector were examined: recognized systemd-owned start/stop/restart calls
+use `systemctl`, and host system/user sockets are selected explicitly. The previous
+implication that a Podman GUI necessarily bypasses Quadlet lifecycle was not sound.
+Project-local nested engines and Soda's additional records remain separate; that
+is an ownership distinction, not justification for withholding host administration.
+
+The revised baseline proposes Podman, Files, SELinux and manual Diagnostic Reports,
+and recommends exposing Accounts for host administration rather than confusing it
+with Forgejo/project accounts. Existing Accounts hiding remains unchanged. VMs,
+crash capture and recording are tied to actual host roles/backend configuration or
+retention/privacy choices, not excluded merely because they give root control.
+CoreOS updates retain the native OSTree owner. No packages, navigation, services,
+providers, private inputs or runtime state changed; no native addon compatibility
+or UI acceptance is claimed. Documentation links/history preservation were checked.
+
+## Native OS metadata repair and Cockpit workspace retirement
+
+The user reported the fresh VM's `rpm-ostree-countme.service` failure, requested
+its repair, asked for Cockpit page recommendations and removal of the obsolete
+project directory. Scope remained `soda-native-tailnet-bb3a13c` and local source;
+older retained VMs/projects and native Cockpit package selection were untouched.
+Evidence: `.artifacts/cockpit-metadata-fix-Ace3yt/`.
+
+**Cause and repair:** the sparse Soda `/etc/os-release` replaced, rather than
+inherited, the native document. Missing `VERSION_ID` produced `fedora-` and
+`updates-released-f` metalinks and HTTP 404. The selected native `/usr/etc/os-release`
+provides `../usr/lib/os-release`, so no hardcoded version, custom updater or boot
+rewrite service was needed. The exact old regular root-owned override was checked
+against its source SHA-256, backed up under guest
+`/var/lib/soda-candidate-bb3a13c/os-release-repair/`, rechecked and atomically replaced
+with that native link. The observed vendor file was also preserved in the backup.
+
+One actual retry of the existing Count Me unit succeeded: Fedora Linux 44 user
+agent, `updates-released-f44` and `fedora-44` requests, **2/2 successful**, native
+`Result=success`, exit status 0. Inactive/dead afterward is normal for this oneshot.
+The unit/timer was not disabled, no reset-failed hid the result, and old journal
+entries remain. Both browser endpoints still returned trusted HTTPS 200; no
+Cockpit/dashboard restart or user-session termination was needed for this repair.
+
+**Source prevention:** shared live/destination provisioning no longer writes
+`/etc/os-release` or vendor metadata. It retains the canonical icon and presentation
+branding; the OS identity field truthfully names Fedora/CoreOS. The old sparse
+asset remains explicitly retired provenance, not an input. The
+[installer guide](coreos-installer.md#sodaos-branding) owns the corrected contract.
+This source change does not rebuild media or rewrite retained private Ignition,
+sealed bundles or older installed machines.
+
+**Directory retirement:** nine tracked upstream input/license/provenance files
+moved from `cockpit/vendor/` to `assets/branding/cockpit/provenance/`. They are not
+compiled or staged. Ignored `dist` and dependency-link entries moved to
+`.artifacts/cockpit-metadata-fix-Ace3yt/retired-workspace/`; the empty top-level
+`cockpit/` was removed. An inventory verified all 122 original entry modes, file
+hashes and link text without following dependency links. The provenance README
+was then clarified, with its original retained separately. Obsolete ignore entries
+were removed. Canonical branding, source licenses, generated historical bundles,
+native CLIs/services and installed Cockpit pages remain preserved.
+
+**Checks:** 18 installer/provisioning tests, seven temporary-filesystem staging
+fixtures, two Cockpit branding tests, strict TypeScript/Lit, native Butane strict
+conversion, link/history preservation and whitespace checks passed. Converted
+public provisioning contains the icon and no OS metadata overwrite. An initial
+actual-stage test invocation without `SODA_STAGE` was refused before tests; the
+proper source staging fixtures were then selected, not reported as native bundle
+validation. A root `countme --help` probe was refused by its native unprivileged-user
+guard; the real unit ran under its unchanged native identity. Failures are retained.
+
+[Page recommendations](cockpit-port.md#page-recommendations) are based on the native
+manifest inventory; no additional pages, packages, hidden navigation or authority
+changes were applied. No Tailscale enrollment, provider runner/job, project mutation,
+reboot, network/trust reconfiguration or push occurred.
+
+## Fresh Tailnet VM installation and access smoke
+
+The user explicitly approved a **separate x86_64 test VM and installation for
+browser access**, leaving older retained targets/projects untouched. On
+2026-09-12, `soda-native-tailnet-bb3a13c` was created with a fresh 64-GiB overlay,
+NVRAM, pinned host/operator keys and private passwords. It uses the already
+verified read-only CoreOS `44.20260817.3.2` base, native KVM, four CPUs and 8 GiB RAM.
+The owned support-tool hold ends approximately **2026-09-13 22:37 UTC**, retaining
+disk/NVRAM/private inputs afterward. No old VM, fixture mount or ARM target changed.
+
+Custody/evidence: `.artifacts/tailnet-vm-bb3a13c/`. Browser origins, usernames,
+password-file paths and public test CA belong in
+[local testing](local-testing.md#fresh-tailnet-vm-access). All listeners are builder
+loopback; there is no new public endpoint, host route/firewall change or automatic
+client trust installation. Dedicated test-browser homes trust only the new public CA.
+
+**Installation:** the unchanged sealed `bb3a13c` export was verified locally and
+transferred through pinned SSH with manifest/verifier integrity checks. Native
+extension layering and its activation reboot succeeded; observed Tailscale is
+`1.102.4`, Cockpit system/bridge `367-1.fc44`, and Cockpit ws `366-1.fc44`. The first
+installer, native Forgejo administrator/token bootstrap, `soda-setup` and private
+certificate activation completed. Forgejo's native asynchronous installation
+returned HTTP 200; an older observer expected a redirect. Native authenticated
+identity confirmed installation, so setup was not replayed to repair that observer.
+
+**Actual first-boot defect and narrow correction:** Tailscale 1.102.4's
+`ipnstate.Status.HaveNodeKey` is `json:",omitempty"`. The fresh native daemon omitted
+false, while Soda required the field and showed host observation unavailable.
+`3cb7408` now accepts that upstream omission as false for host/project observation,
+retaining rejection of malformed/null values, case aliases and a Running host
+without a true node key. Fresh-daemon and malformed-value regressions passed with
+`go test -race ./internal/tailnet ./internal/host ./internal/web` on Go 1.26.7.
+
+Only the native `soda-host` binary from clean `3cb7408` was subsequently replaced on
+this fresh VM. SHA-256:
+`7ac2ad662e509db6b272c304d5004715a0b58823833c01cdf8b31e302aa0d686`.
+The previous verified helper remains at guest
+`/var/lib/soda-candidate-bb3a13c/helper-3cb7408/soda-host.before`.
+Stopping its socket also stopped the requiring dashboard unit; the failed browser
+observation was retained and that existing service was started, without setup replay
+or database restoration. Base images/configuration/install marker remain unchanged.
+The full installed verifier **passed before this helper correction**; this receipt
+is not an unchanged-bundle verification afterward or a resealed `3cb7408` bundle.
+The final observation checks the new helper hash and all three original service
+image IDs separately, plus schema v10, zero projects, six active service/socket
+units, enforcing SELinux and no custom Cockpit packages.
+
+**Native browser checks passed:** real Forgejo `operator` login, native OAuth
+consent/return, Tailnet HTTP 200 with `host_unavailable:false`, `NeedsLogin` and
+unconfigured project enrollment, and actual Spaces mount. Stock Cockpit root login,
+Overview, native SELinux transition/socket/Tailscale prefs/runner CLI reads,
+Services/Logs and stock Session → Log out passed. The initial test's iframe
+`cockpit.logout(true)` left the outer shell on Reconnect; fresh navigation confirmed
+logout. The owned test now uses the real stock menu and reaches the login form.
+Strict TypeScript/Lit and native `tests/installed/operator.sh` checks passed.
+
+`receipt.json`, `final-native-02.json`, `helper-build-info.txt`, `SHA256SUMS`, the
+support-tool observations and numbered browser/source logs retain exact scopes.
+Also retained: a pre-transfer flag typo, nonexistent custom-element selector and
+read-only final-observer table/digest-format mistakes; no mutation was replayed to
+repair them. No real Tailscale enrollment, provider runner/job, project creation,
+retained fallback removal, push or cleanup occurred. Full visual/keyboard/theme,
+project namespace/DNS/lifecycle and intended-client connectivity proof remain unrun.
+
+## Tailnet x86_64 native build and export
+
+The user explicitly ordered the native x86_64 build. The builder is native x86_64
+Linux with Go 1.26.7, Bun 1.4.2, Podman 5.8.2 and Python 3.12.14. The canonical
+checkout stayed the development owner. Its occupied `.artifacts/native/x86_64`
+was not moved, cleared or reused: each attempt used a fresh private build-only
+local clone of its exact commit, without Git worktrees or copied private inputs.
+The original build-info checksum still matched afterward. No retained appliance,
+project, Forgejo fixture or ARM machine was contacted or changed.
+
+Two real packaging failures were retained and corrected in source:
+
+1. `.artifacts/tailnet-native-dd53664-5yh4Zl/`: `dd53664` built application/image
+   outputs but Docker Hub returned `manifest unknown` for Tailscale `v1.102.4`.
+   GHCR also lacked the tag. The published minor image's read-only/networkless
+   version probe reported `1.102.3`, so it was not silently substituted. The exact
+   `1.102.4` release and official binary archives exist. `c514425` now builds the
+   companion using upstream's immutable Alpine base and SHA-256-locked release
+   archives, extracting only the CLI/daemon and retaining the upstream license.
+   No new launcher or change to the selected Tailscale version was introduced. Metadata requires
+   both binary versions to match the lock. Archive/base pins belong in the lock,
+   not this receipt; the AMD64 download matched its recorded upstream checksum.
+2. `.artifacts/tailnet-native-c514425-I0FLec/`: the corrected companion built and
+   both binaries reported `1.102.4`, but sealing rejected `rootfs/etc/fastfetch`.
+   Inspection also found the upstream terminal logo staged into immutable
+   `/usr/share`, outside the installer's writable-prefix delivery. `bb3a13c` moves
+   that delivery/preset reference to `/usr/local/share`, admits only the explicit
+   public config and requires both branding files. Artwork is unchanged; unknown
+   config and undelivered paths remain rejected. The failed stage was not patched
+   or resealed under a different revision.
+
+**Successful candidate:** `bb3a13c6a421a7dbaa3ebc39c1ffd6cf168c734b`.
+Build/evidence: `.artifacts/tailnet-native-bb3a13c-Y7Qdcn/`.
+Export: `.artifacts/tailnet-native-bb3a13c-Y7Qdcn/export/x86_64/`.
+`build-info.json` SHA-256:
+`70f426557fe142c400d1571ecd00305e2f81281264e659b5c9cf3a6720263492`.
+
+The full native build/seal completed. Stage verification, **11 tests against the
+actual staged rootfs**, export and verification with the exported verifier passed.
+The inventory has 571 entries and five OCI archives: project-os, dashboard, Forgejo,
+Caddy and Tailnet. It has no custom Cockpit package. Both companion version probes
+reported `1.102.4`; they were read-only/networkless CLI observations, not a daemon,
+namespace, enrollment or provider operation. The export totals 756,092,219 file bytes.
+
+Source-fix checks passed: 143 Python build tests (two optional skips), two independent
+Cockpit branding tests, nativebuild race tests, seven focused staging fixtures,
+terminal artwork regeneration check and shell/whitespace checks. The original failed
+build logs and corrected check logs remain in their respective attempt directories.
+No automatic cleanup, rebase/amend, push, publication or installation followed.
+
+`check-native.sh` was not invoked: its mandatory native Forgejo page fixture remains
+unavailable and the owner declined repair. Artifact verification and selected source/
+staging checks do not replace that aggregate gate. Stage-5 installed scenario,
+actual namespace/TUN/LocalAPI/DNS isolation, lifecycle, enrollment, intended-client
+connectivity and native dashboard/Cockpit visual acceptance remain pending on a
+separately selected compatible Soda target. ARM remains only the owner's ephemeral
+Forgejo frontend test bed. Retained v9 data, roots, credentials, host enrollment,
+runner state and installed custom Cockpit fallbacks remain unchanged.
+
 ## Tailnet rebase consistency repair
 
 The user reported possible conflicts after pulling. Inspection found clean `8c3c594`,
@@ -9377,3 +9736,30 @@ no product tests were rerun, and none is reinterpreted as cleanup/native proof. 
 source behavior, permissions, retained state, fixtures, services or provider state
 changed. The handoff and workstream status now point to the unresolved findings
 rather than presenting all audit opportunities as completed.
+
+## Merge administration delivery with mechanism-removal source
+
+Merged `origin/main` at `f92e112` into `f6abc0a`, preserving both histories. Resolved
+six conflicted files: three entry templates, presentation inventory, Tailnet status
+guide and project-runtime tests. Both module graphs share the new
+`2026-09-13.admin-settings-mechanism-1` epoch. The merged native parser accepts the
+upstream omitted-false `HaveNodeKey` field; project-node tests retain unknown-state,
+malformed/null/type/alias refusal and no release-number veto. The incoming image
+check now uses the build lock instead of the retired runtime version constant.
+The stock-Cockpit test double now waits for body readiness before Overview's heading.
+
+Local checks passed: Go `internal/tailnet`, `internal/host`, `internal/web`,
+`internal/runners`, `internal/nativebuild`, `cmd/soda-host`; selected script/template
+checks; strict TypeScript/Lit and emitted build; 252 frontend tests (7 skips),
+12 Forgejo/presentation/branding tests, and 30 selected Python build/packaging tests
+(3 skips). Nativebuild and Python destination checks initially rejected macOS's
+`/var` temporary-directory alias; rerunning with the same directory's canonical
+`/private/var` path passed without relaxing product symlink checks. Logs are under
+`.artifacts/merge-f6abc0a-f92e112/`. Conflict-marker and whitespace scans passed.
+
+No native build, installation, service/VM lifecycle, provider operation or push was
+performed. Incoming native receipts and corrected ARM frontend-only scope are
+preserved, not promoted to proof of this merged candidate. R1–R7 remain open as
+recorded. Removing upstream ignore rules exposed pre-existing `cockpit/dist` and
+`cockpit/node_modules` leftovers locally; these were left untracked and untouched,
+not included in the merge or cleaned up.

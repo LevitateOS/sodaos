@@ -81,6 +81,13 @@ scripts/build-native.sh x86_64
 
 Use a clean exact-revision checkout with fresh `.artifacts/native/x86_64` output; another attempt requires a fresh checkout, not global artifact removal. The build serializes that checkout, forces matching-native Go/local Podman, builds application commands and separate support tools, builds the Go API/OAuth dashboard command in the same command loop, builds native Forgejo/Lit assets and stages stock Cockpit branding, builds Tea, and builds the Rocky project/dashboard images once from those outputs. There is no standalone Soda frontend or custom Cockpit build. It resolves Forgejo/Caddy and the reviewed Tailscale companion lock for the selected platform, saves all five archives explicitly as OCI, records public native dependency/package/CLI metadata, stages the core configuration, inspects ELF/OCI identity and seals the payload. Read-only, network-disabled image-inspection containers are part of this build recipe, not project lifecycles. No publication, install, VM or product test follows automatically.
 
+The companion is built with `appliance/tailnet.Containerfile`: the immutable
+upstream `tailscale/alpine-base` plus official release archives pinned by SHA-256 in
+`appliance/locks/tailscale-image.json`. Only the native CLI/daemon are extracted; the
+helper invokes them directly, not `containerboot`. Build metadata refuses a CLI or
+daemon version differing from the lock. This preserves the selected release when
+upstream has published its binaries but not a matching container tag.
+
 Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist with the built `tools/soda-artifacts bundle` command as shown in [support recipes](native-support.md#build-and-artifact-contract); do not transfer the entire build tree.
 
 ## 2. Provision the upstream host
@@ -222,6 +229,30 @@ effects; do not assume an old target inventory or replay completed maintenance.
    plus later writes. Restoration requires a compatible matching set and a
    later-write preservation decision under the credential contract; never lower a
    schema marker or replay a mutation to fix an observer.
+
+### Cockpit addon maintenance
+
+The [Cockpit guide](cockpit-port.md#selected-root-administration-baseline) owns the
+selected page/package baseline. On an authorized existing appliance, use its native
+rpm-ostree transaction, not the first installer or application setup again. Inspect
+pending deployments and actual workloads, preserve affected configuration (including
+PAM, certificates and any navigation override), and preview the package delta.
+
+For a purely additive transaction, the selected native rpm-ostree may support
+`install --apply-live`: it records the next-boot deployment and adds files to the
+running system without a reboot. The [fresh fixture receipt](implementation-history.md#native-cockpit-administration-additions)
+exercises that native path. Do not add `--allow-replacement`, force file replacement,
+reset a deployment or reboot as an unreviewed fallback. If replacements/removals or
+an activation interruption are required, assess the concrete transaction and its
+authorization/preservation scope first. Fresh provisioning retains its explicit
+extension-activation reboot; live maintenance is not an implicit bootstrap change.
+
+Verify installed versions, unchanged workloads/boot identity when claiming no
+interruption, native page loading and the root-only PAM boundary. Refresh the
+operator's login to discover new manifests; avoid restarting Cockpit globally merely
+to repair a cached navigation observer. Report generation/upload, policy changes,
+container mutations and optional VM/recording/crash-capture setup are separate
+operations, not consequences of installing their administration interface.
 
 ## 4. Establish real project reachability
 

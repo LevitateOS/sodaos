@@ -20,6 +20,7 @@ func fixtureBundle(t *testing.T) string {
 		"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container",
 		"rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/etc/systemd/system/soda-project@.service", "rootfs/etc/systemd/system/soda-tailnet@.service", "inputs/tailscale-image.json",
 		"rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host",
+		"rootfs/etc/fastfetch/config.jsonc", "rootfs/usr/local/share/soda/fastfetch/sodaos.txt",
 		"rootfs/var/lib/soda/forgejo/gitea/public/assets/img/logo.svg",
 		"inputs/package.json", "inputs/lit-check-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
 	}
@@ -99,6 +100,34 @@ func fixtureBundle(t *testing.T) string {
 	}
 	return root
 }
+func TestBundleDoesNotShipAccountsHidingOverride(t *testing.T) {
+	if allowedPayload("rootfs/etc/cockpit/users.override.json") {
+		t.Fatal("retired Accounts navigation override admitted")
+	}
+}
+
+func TestTerminalBrandingUsesOnlyDeliveredPublicPaths(t *testing.T) {
+	for _, name := range []string{"rootfs/etc/fastfetch", "rootfs/etc/fastfetch/config.jsonc", "rootfs/usr/local/share/soda/fastfetch/sodaos.txt"} {
+		if !allowedPayload(name) {
+			t.Fatal("public terminal branding refused", name)
+		}
+	}
+	for _, name := range []string{"rootfs/etc/fastfetch/unknown.jsonc", "rootfs/usr/share/soda/fastfetch/sodaos.txt"} {
+		if allowedPayload(name) {
+			t.Fatal("unreviewed/undelivered path admitted", name)
+		}
+	}
+	for _, name := range []string{"rootfs/etc/fastfetch/config.jsonc", "rootfs/usr/local/share/soda/fastfetch/sodaos.txt"} {
+		root := fixtureBundle(t)
+		if e := os.Remove(filepath.Join(root, name)); e != nil {
+			t.Fatal(e)
+		}
+		if _, e := tree(root); e == nil {
+			t.Fatal("missing terminal branding accepted", name)
+		}
+	}
+}
+
 func TestBundleAllowlistIntegrityAndNoOverwrite(t *testing.T) {
 	source := fixtureBundle(t)
 	if err := os.WriteFile(filepath.Join(source, "private-operator-key"), []byte("synthetic excluded data"), 0600); err != nil {

@@ -37,7 +37,6 @@ configs = {
     '90-soda-routing.conf': '/etc/sysctl.d/90-soda-routing.conf',
     'cockpit.pam': '/etc/pam.d/cockpit',
     'cockpit.conf': '/etc/cockpit/cockpit.conf',
-    'users.override.json': '/etc/cockpit/users.override.json',
     'cockpit.socket.conf': '/etc/systemd/system/cockpit.socket.d/10-soda.conf',
     'proxy.Caddyfile': '/etc/soda/proxy.Caddyfile',
     'console-welcome.sh': '/etc/profile.d/soda-console-welcome.sh',
@@ -107,7 +106,7 @@ for name, origin in payload.items():
         parent.chmod(0o755)
 # MOTD is plain text; fastfetch alone interprets the logo's color placeholders.
 copy(source / 'assets/branding/terminal/motd.txt', '/etc/motd', 0o644)
-copy(source / 'assets/branding/terminal/sodaos.txt', '/usr/share/soda/fastfetch/sodaos.txt', 0o644)
+copy(source / 'assets/branding/terminal/sodaos.txt', '/usr/local/share/soda/fastfetch/sodaos.txt', 0o644)
 copy(source / 'assets/branding/terminal/fastfetch.jsonc', '/etc/fastfetch/config.jsonc', 0o644)
 copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
 copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)

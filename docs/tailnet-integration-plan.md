@@ -1,9 +1,14 @@
 # Tailnet in the native dashboard — implementation plan
 
 **Status: stages 1–2 complete; Stage 3 UI source and emitted-component parity checks
-implemented, with actual native-page acceptance pending. The user declined local
-fixture repair and deferred configured-device validation to the intended ARM device.
-Project runtime source is implemented; native proof, installed delivery and retirement remain pending.** The user requested native dashboard ownership
+implemented. Stage-4 runtime/UI and stock-only Cockpit core source have landed;
+[mechanism-removal follow-through](refactoring-plan.md#removal-reconciliation-follow-up)
+remains incomplete. A fresh x86_64 installation passed native dashboard/OAuth/Tailnet
+read and stock Cockpit access smoke before this merge; those receipts do not validate
+the merged mechanism-removal candidate. Full native-page parity, project/provider
+proof and retained-target installed retirement remain pending. The user declined
+local fixture repair and clarified that ARM is only an ephemeral Forgejo frontend
+test bed, not a compatible Soda/Tailnet/Cockpit validation target.** The user requested native dashboard ownership
 of host and project Tailnet configuration, automatic enrollment without a login per
 project, and eventual stock Cockpit administration without Soda extension pages.
 This document owns that feature's implementation order and acceptance criteria.
@@ -42,7 +47,8 @@ Recommended first-release decisions from the brainstorm:
 - “Stock Cockpit” means no Soda extension pages, with branding aligned to the current
   Soda design under the [Cockpit owner's contract](cockpit-port.md#selected-tailnet-move-and-stock-administration).
   Preserve upstream administration, root-only PAM/SELinux transition, private socket
-  access and the Accounts navigation policy. Resetting security/access is separate scope.
+  access and the [current administration-page policy](cockpit-port.md#selected-root-administration-baseline).
+  Resetting security/access is separate scope.
 
 Requirements remain with their owners:
 
@@ -543,8 +549,10 @@ there is no reason to create a provider interface hierarchy or new task queue.
 
 #### Remaining native proof proposal
 
-No target or action below is authorized yet. Use one **new isolated native x86_64
-fixture**, not either retained appliance. Before execution, bind its exact name,
+The [fresh access fixture](implementation-status.md#fresh-tailnet-access-fixture)
+now supplies an isolated native x86_64 installation, not project/provider permission.
+The proposed project/companion/provider actions below still need their applicable
+grants; do not recreate the fixture merely to repeat provisioning. Before execution, bind its exact name,
 base/candidate, package/image identities, two newly created project IDs/roots,
 client route and preservation inventory in the existing support/installed inputs.
 Refuse occupied names/state. No sibling-architecture gate or retained-root retrofit.
@@ -614,9 +622,11 @@ dispatch and light/dark narrow/wide keyboard use. Go notification/timeout parity
 existing Cockpit tests also passed. The actual native-page consumer is wired into the
 existing fixture, not replaced with handwritten native HTML: its run failed because
 `sodaos-local-forgejo` is stopped. The subsequently approved start failed because its
-source bind mounts point into a deleted worktree. The user declined regeneration and
-identified the ARM device as the intended configured-device validation target. No
-exact ARM target/action is authorized; no further fixture repair/start is selected.
+source bind mounts point into a deleted worktree. The user declined regeneration.
+The subsequent ARM discussion was misinterpreted as selecting a Soda appliance;
+the owner clarified that it is only an ephemeral Forgejo frontend test bed. Such
+frontend checks do not establish native Soda backend/runtime or stock Cockpit proof.
+No device action or further fixture repair/start is authorized by that clarification.
 Source-only follow-up fixed unsent enrollment-draft loss on admission/default writes
 and passed focused emitted-component, authorization and readback checks. The
 container/data volume have not been replaced or restored. See the [receipt](implementation-history.md#tailnet-stage-3--native-ui-source-and-bounded-parity)
@@ -703,6 +713,15 @@ independence, with no browser login needed for configured project starts. Option
 reusable-key support remains out until equivalent containment/rotation is accepted.
 
 ### Stage 5 — native candidate and isolated proof
+
+The [x86_64 build/export receipt](implementation-history.md#tailnet-x86_64-native-build-and-export)
+now records a sealed candidate, artifact verification and actual staging checks.
+The aggregate native-page/source gate remains unrun; no installed acceptance is
+inferred from the build. A separately approved
+[fresh VM receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke)
+now establishes actual installation, dashboard login/OAuth/Tailnet reads and stock
+Cockpit root administration/logout, with a narrowly recorded first-boot helper
+correction. It does not establish the project/provider/security/connectivity matrix.
 
 Build/check/export a clean candidate under the existing native contract. Reuse
 `TestNativeConnectionFixture`, the page consumers, and the installed

@@ -76,14 +76,30 @@ for image in project-os dashboard; do
   # Image IDs, not mutable :dev lookups; the installer restores core-owned tags.
   podman save --format oci-archive -o "$out/images/$image.oci" "$(<"$out/$image.iid")"
 done
-for image in forgejo caddy tailnet; do
+# The selected patch release has public binaries but no published container tag.
+# Reuse upstream's immutable Alpine base and checksum-locked release binaries.
+readarray -t tailnet_inputs < <(python3 - "$oci_arch" <<'PY'
+import json, re, sys
+v = json.load(open('appliance/locks/tailscale-image.json'))
+assert re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', v['version'])
+assert re.fullmatch(r'docker.io/tailscale/alpine-base@sha256:[0-9a-f]{64}', v['base'])
+assert re.fullmatch(r'[0-9a-f]{64}', v['sha256'][sys.argv[1]])
+print(v['base']); print(v['version']); print(v['sha256'][sys.argv[1]])
+PY
+)
+[[ ${#tailnet_inputs[@]} == 3 ]]
+podman pull --quiet --platform "linux/$oci_arch" "${tailnet_inputs[0]}" > "$out/tailnet-base.iid"
+podman build --pull=never --platform "linux/$oci_arch" \
+  --build-arg "BASE_IMAGE=${tailnet_inputs[0]}" --build-arg "TAILSCALE_VERSION=${tailnet_inputs[1]}" \
+  --build-arg "TARGETARCH=$oci_arch" --build-arg "ARCHIVE_SHA256=${tailnet_inputs[2]}" \
+  --label "org.opencontainers.image.revision=$revision" \
+  --label 'org.opencontainers.image.source=https://github.com/LevitateOS/sodaos' \
+  --iidfile "$out/tailnet.iid" -f appliance/tailnet.Containerfile .
+podman save --format oci-archive -o "$out/images/tailnet.oci" "$(<"$out/tailnet.iid")"
+for image in forgejo caddy; do
   unit=appliance/services/forgejo.container
   [[ "$image" != caddy ]] || unit=appliance/services/soda-proxy.container
-  if [[ "$image" == tailnet ]]; then
-    reference=$(python3 -c 'import json; print(json.load(open("appliance/locks/tailscale-image.json"))["reference"])')
-  else
-    reference=$(awk -F= '$1=="Image" {print $2}' "$unit")
-  fi
+  reference=$(awk -F= '$1=="Image" {print $2}' "$unit")
   id=$(podman pull --quiet --platform "linux/$oci_arch" "$reference")
   printf '%s\n' "$id" > "$out/$image.iid"
   podman save --format oci-archive -o "$out/images/$image.oci" "$id"

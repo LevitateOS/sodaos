@@ -31,10 +31,12 @@ Neither retained old terminal runtimes nor Tailnet state were converted or clean
 
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
 place; the Stage-4 runtime/UI and stock-only Cockpit source candidate is implemented.
-Actual native-page parity, native lifecycle/security/connectivity acceptance and
-installed delivery/removal remain pending.
-The user declined local fixture repair, deferred configured-device validation to the
-intended ARM device and selected further device-independent source work.** The [Tailnet implementation plan](tailnet-integration-plan.md)
+A separately approved fresh x86_64 VM now passes native dashboard/OAuth/Tailnet
+read and stock Cockpit access smoke. Full native-page parity, project lifecycle/
+security/connectivity acceptance and retained-target delivery/removal remain pending.
+The user declined local fixture repair and selected further device-independent
+source work. The owner clarified that Soda is not currently compatible with the ARM
+machine: it is only an ephemeral Forgejo frontend test bed, not a Soda appliance.** The [Tailnet implementation plan](tailnet-integration-plan.md)
 owns the feature: native dashboard host controls, automatic ephemeral project
 connections and eventual retirement of Soda's remaining Cockpit presentation.
 
@@ -79,7 +81,9 @@ now has native run/stop supervision, restricted run/key state, companion occupan
 and incarnation checks, resolver binding/recovery checks, explicit managed Create,
 Network controls, own-account SSH projection and compact Spaces summaries wired.
 Fresh-install source selects the companion image and opts into management; old
-configuration remains opt-out. No native image/install or provider action was run.
+configuration remains opt-out. The x86_64 candidate is built/exported and installed
+on the fresh access fixture below, with the first-boot helper correction `3cb7408`.
+No enrollment or provider job was run; older retained targets remain unchanged.
 
 **Stock-only Cockpit candidate:** custom Tailnet presentation and its workspace,
 build and unused dependencies are removed. Canonical current-design branding is
@@ -97,17 +101,18 @@ unchanged. These checks are not native acceptance.
 
 ### Next step
 
-Select and authorize the intended native candidate/target/actions for the
-[Stage-5 proof](tailnet-integration-plan.md#stage-5--native-candidate-and-isolated-proof),
-including the candidate-bound Tailnet installed scenario and actual stock branding.
-Source implementation is no longer waiting for local fixture repair.
-[Stage-3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
-is still unproven, not replaced by component-shell tests. The user declined repairing
-the broken local fixture and identified the ARM device as the intended target for
-configured-device validation. Its exact identity, current installed configuration
-and approved checks/delivery effects must be established before contact; no ARM
-action or deployment was granted. Do not make local fixture repair a prerequisite
-for unrelated source work. Cockpit Tailnet stays installed fallback on retained targets;
+Keep Forgejo frontend validation separate from native Soda acceptance. The ARM
+machine is an ephemeral Forgejo frontend test bed only; do not request a Soda
+installation inventory, deploy Soda, or expect project/Tailnet/Cockpit runtime there.
+Any selected frontend checks establish only their actual presentation scope, not
+backend authorization, enrollment or installed appliance acceptance.
+
+The [Stage-5 native proof](tailnet-integration-plan.md#stage-5--native-candidate-and-isolated-proof)
+now has `soda-native-tailnet-bb3a13c` for the approved fresh installation and access
+smoke, not blanket project/provider lifecycle permission. Native runtime proof is
+not a prerequisite for independent frontend/source work. [Stage-3 native-page parity](tailnet-integration-plan.md#stage-3--native-host-tailnet-ui-and-parity)
+remains pending beyond the native login/OAuth/read checks actually run. The declined
+local fixture repair remains declined. Cockpit Tailnet stays installed fallback on older retained targets;
 source retirement does not authorize or imply its removal there.
 
 The earlier authorized local start failed because template and preview-asset mounts
@@ -118,9 +123,9 @@ The separate [native proof proposal](tailnet-integration-plan.md#remaining-nativ
 requires a specifically authorized isolated fixture and exact inputs/actions. It
 covers namespace/TUN/LocalAPI isolation, DNS ownership/recovery, systemd stop/restart
 ordering and, in a separately approved phase, real enrollment/connectivity. No
-fixture, credential, provider action or maintenance window is currently selected.
-Source/UI completion does not authorize that execution, deployment or native
-configuration changes.
+credential, provider action or project lifecycle scenario is currently selected.
+The fresh-VM access grant below does not authorize the remaining enrollment,
+namespace/DNS/lifecycle matrix or changes to older retained targets.
 
 ## Forge decision — retain Forgejo
 
@@ -152,11 +157,41 @@ Tailnet work.
   source-work grant.
   Stage-3 native-page/device acceptance remains deferred. The user
   previously approved starting exact `sodaos-local-forgejo`; that attempt failed.
-  The user then declined source-mount repair and chose device-independent work,
-  deferring configured-device validation to the intended ARM device. No further local
-  repair/start, ARM contact or deployment is authorized. Stage 1/2 grants are complete.
-  No enrollment, networking/capability changes,
-  other fixture lifecycle, deployment or installed Tailnet removal is authorized.
+  The user then declined source-mount repair and chose device-independent work.
+  The owner clarified that ARM is only an ephemeral Forgejo frontend test bed, not
+  a currently compatible Soda target. The earlier request for a Soda inventory on
+  ARM was based on a mistaken assumption, not an outstanding prerequisite or grant.
+  No further local fixture repair/start, ARM contact or retained-target deployment is authorized.
+  Stage 1/2 grants are complete.
+  No enrollment, project networking/capability changes, other fixture lifecycle,
+  retained-target deployment or installed Tailnet removal is authorized.
+- **Fresh Tailnet access VM:** the user approved a separate x86_64 VM and installation
+  for dashboard/Cockpit access. `soda-native-tailnet-bb3a13c` was provisioned with its
+  own disk/NVRAM/host and operator keys/passwords, extension-activation reboot,
+  native Forgejo/Soda bootstrap and loopback-only browser tunnels. The source-fixed
+  helper and required dashboard service restoration were applied only there, with
+  the old helper retained. The owned 24-hour hold ends approximately
+  **2026-09-13 22:37 UTC**; disks/inputs remain afterward. This does not authorize
+  real Tailscale enrollment, provider jobs, global client trust changes, cleanup,
+  another start after the hold, or maintenance of older retained targets.
+- **Metadata repair / source workspace retirement:** the user requested the Count Me
+  fix on the fresh Tailnet VM and removal of the obsolete project `cockpit/`
+  directory. The exact OS override was backed up, the native link restored and
+  Count Me retried once successfully. The source directory was retired by relocating
+  provenance and archiving ignored outputs, not deleting their contents. This grant
+  is complete; no other target repair, package removal or cleanup is implied.
+- **Native Cockpit additions:** the user approved the revised baseline on the fresh
+  Tailnet VM and requested continuation. Four native addons and their additive
+  dependencies were installed/live-activated, the exact Accounts hiding override
+  was preserved outside the active configuration, and native access/PAM checks
+  completed. No reboot was needed. This does not select the conditional VM,
+  kernel-dump or recording roles, authorize report collection/upload or changes to
+  projects/policy/accounts, extend the VM hold, or affect older retained targets.
+- **Forgejo administrator navigation:** the user explicitly approved delivery of
+  `6c76af9` to the fresh VM and its brief Forgejo restart. The 24-file public delta,
+  restricted backups, single Forgejo service restart and native entry/read/logout
+  checks are complete. No other service/VM lifecycle, provider operation, cleanup
+  or repeat restart is granted by that completed action.
 - **Runners:** approved step-6 source retirement/build/check is complete. No installed
   removal or further retained-target cutover/lifecycle grant remains from that work
   or the completed step-5 delivery.
@@ -168,11 +203,65 @@ Tailnet work.
   failed attempts and later writes. Commands, input files and old receipts are not
   new permission.
 
+## Fresh Tailnet access fixture
+
+**`soda-native-tailnet-bb3a13c`**, custody `.artifacts/tailnet-vm-bb3a13c/`, is the
+new x86_64 access fixture. Base installation is the sealed `bb3a13c` export;
+`soda-host` was corrected from clean source `3cb7408`. The original bundle
+and install marker are unchanged: this is an explicitly recorded helper correction,
+not a newly sealed full bundle. Schema v10, zero projects, original base service
+image IDs, six active service/socket units and enforcing SELinux were observed.
+
+Native Forgejo operator login, actual OAuth consent/return, Tailnet `NeedsLogin`
+with unconfigured enrollment, Spaces mount, root Cockpit/stock Overview, native
+socket/CLI/Services/Logs access and stock menu logout passed. No custom Cockpit
+package is installed. Full visual/keyboard/theme and project/provider proof remain
+pending. Access/password-file/public-CA paths belong in
+[local testing](local-testing.md#fresh-tailnet-vm-access); failures, hashes and the
+precise limited verification scope are in the
+[fresh VM receipt](implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke).
+
+The subsequent [OS metadata repair](implementation-history.md#native-os-metadata-repair-and-cockpit-workspace-retirement)
+restored `/etc/os-release` to the vendor link after preserving the exact bad
+Soda override. Count Me now reads Fedora 44 metadata and completed both native
+requests successfully; its timer and historical logs remain. Provisioning source
+no longer overrides OS metadata. The top-level `cockpit/` directory is gone;
+tracked provenance is retained under `assets/branding/cockpit/provenance/`, and
+ignored outputs/dependency links are archived under
+`.artifacts/cockpit-metadata-fix-Ace3yt/retired-workspace/`.
+
+The [native administration additions](implementation-history.md#native-cockpit-administration-additions)
+are now installed on this fixture: Podman 130, Files 43, SELinux and Diagnostic
+Reports 367; Accounts is visible. rpm-ostree added 42 packages with no RPM
+replacements/removals and applied them live. Boot ID, all three appliance container
+IDs/images/running states, zero project records and the corrected helper hash were
+preserved. Root login, all addon pages and logout passed; native PAM admits root
+and denies existing non-root `nobody`, with SELinux still enforcing. Config/PAM/TLS
+backup and the old override remain under guest
+`/var/lib/soda-candidate-bb3a13c/cockpit-admin-additions/`.
+Evidence: `.artifacts/cockpit-admin-additions-lwhgJX/`. Existing browser sessions
+need logout/login to refresh cached navigation; no global Cockpit restart was used.
+The pending native deployment also carries the additions for next boot. Source
+provisioning/preflight now requires the addons and no longer stages Accounts
+hiding; the original sealed bundle/old private Ignition remain unchanged.
+
+The [administrator navigation delivery](implementation-history.md#administrator-navigation-delivery-to-fresh-vm)
+subsequently applied the exact `6c76af9` public UI delta: five templates and nineteen
+changed emitted modules, with epoch `2026-09-13.admin-settings-1`. Only Forgejo was
+restarted, retaining its image; dashboard/proxy runtime identities and configuration,
+helper, schema, user/repository identities and project records were unchanged.
+A fresh native operator login found **Site administration → Soda → Runners/Tailnet**
+while Soda still returned 401; both explicit entries then passed authorized reads
+and coordinated logout. Neither link appears in global navigation. No new native
+bundle/image is implied. Guest backups, including the consistent stopped-writer
+Forgejo database snapshot, remain under
+`/var/lib/soda-candidate-bb3a13c/forgejo-nav-6c76af9/backup/`.
+
 ## Installed state
 
 **Native pages/Runners combined-plan step 5 is complete on both retained targets.**
 There is no outstanding step-5 deployment or exec-record blocker. No Tailnet change
-or installed Cockpit retirement has been delivered.
+or installed Cockpit retirement has been delivered to these older retained targets.
 
 | Target | Installed affected components | Schema | Preserved projects / membership checks |
 | --- | --- | --- | --- |
@@ -198,27 +287,38 @@ Later source/documentation commits are not installed builds.
 
 ## Latest built source candidate
 
-**`dc38af94c0b6a0eba7db5c06a8a71bcb6828c414`** retired only Cockpit's Runners
-presentation. Native runner services/CLI/backend and Tailnet's Cockpit payload remain.
-Focused checks and a fresh native x86_64 build/check/export/independent verification
-passed. Revised installed contention coverage is authored, not executed on an appliance.
+**`bb3a13c6a421a7dbaa3ebc39c1ffd6cf168c734b`**, native x86_64, now includes the
+Tailnet runtime/UI and stock-only Cockpit candidate. Build/seal, stage verification,
+11 actual-staging tests, export and verification with the exported verifier passed.
+Five OCI archives and 571 inventory entries are sealed; no custom Cockpit package
+is included. Both companion binaries reported the selected Tailscale `1.102.4` in
+networkless, read-only version probes—not daemon/enrollment tests.
 
-Export: `.artifacts/step6-source/export/x86_64/`.
+Export: `.artifacts/tailnet-native-bb3a13c-Y7Qdcn/export/x86_64/`.
 `build-info.json` SHA-256:
+`70f426557fe142c400d1571ecd00305e2f81281264e659b5c9cf3a6720263492`.
+The [native build receipt](implementation-history.md#tailnet-x86_64-native-build-and-export)
+records two preserved failed attempts and the packaging fixes. The aggregate
+`check-native.sh` was not run: its mandatory native-page fixture remains unavailable
+and repair declined. Source checks, artifact verification and staging tests do not
+replace that gate or installed runtime/security/connectivity/visual acceptance.
+
+The older Runners-only `dc38af94c0b6a0eba7db5c06a8a71bcb6828c414` export remains at
+`.artifacts/step6-source/export/x86_64/`, with recorded `build-info.json` SHA-256
 `8ca9ef5b170742f1804750f2071d62227982606abaddb111d029597d750e4a40`.
-The offline packaging comparison removed 40 old runner entries (38 files), with
-Tailnet byte-identical. It is not an actual installed occupant inventory; older
-hashed assets remain on targets. See the
-[step-6 receipt](implementation-history.md#step-6--source-retirement-parity-review)
-for checks, skips and exact scope. No Tailnet native bundle build supersedes it.
+Its [step-6 receipt](implementation-history.md#step-6--source-retirement-parity-review)
+and all older retained targets/fallbacks remain unchanged. The fresh access VM uses
+the latest bundle plus the explicitly recorded `3cb7408` helper correction above;
+that correction is not included in this unchanged sealed export.
 
 ## Remaining work
 
 1. **Active — Tailnet:** validate the integrated source candidate with the separately
    authorized native proof above, then minimal paired delivery and actual-occupant
    removal rehearsal/approval. Namespace/DNS/stop/restart/enrollment/client outcomes
-   and actual current-design stock Cockpit remain unaccepted, not proved by synthetic
-   tests. Source retirement is prepared; installed retirement is not done.
+   remain unaccepted. Stock Cockpit native access/logout passed on the fresh VM;
+   full visual/theme/keyboard acceptance remains pending. Source retirement is
+   complete; older retained-target installed retirement is not done.
 2. **Separate — installed Runners retirement:** source retirement is complete, but
    actual-occupant inventory, target-specific removal rehearsal and explicit
    per-target delivery approval remain. The [combined plan](native-pages-runners-plan.md#6-retire-only-the-cockpit-runner-presentation)
@@ -274,11 +374,17 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-Merged upstream `e7760d4` into the Tailnet work at `13d31aa`, retaining both histories.
-Resolved shared navigation/templates/cache epoch and documentation without dropping
-the redesign, incoming session checks or Tailnet source work. The [merge receipt](implementation-history.md#tailnet-and-forgejo-source-merge)
-records strict TypeScript/Lit, 53 source/browser tests (24 opt-in skips) and race-enabled
-Go checks, including nativebuild/template source contracts. Evidence:
-`.artifacts/merge-tailnet-forgejo-TSGPpY/`. No fixture repair/start, ARM/device contact,
-provider action, deployment, push or cleanup occurred. Stage 4 remains in progress;
-this source merge neither activates automation nor supplies native acceptance.
+The user clarified that operator-only Runners/Tailnet entries belong in administrator
+settings, not global navigation. Source now renders them in the existing native
+Forgejo administration layout without a Soda-session discovery request. Spaces and
+the shared signed-actor/logout owner remain in the header; protected entry/API
+operator checks are unchanged. Epoch `2026-09-13.admin-settings-1` covers the paired
+module graph. Template, emitted browser, TypeScript/Lit and affected web authorization
+checks passed; see the [source receipt](implementation-history.md#operator-settings-navigation-move).
+The user then approved delivery and the required Forgejo restart on the fresh VM.
+The [installed receipt](implementation-history.md#administrator-navigation-delivery-to-fresh-vm)
+records the exact 24-file delta, backups and successful native no-Soda-session
+navigation, protected reads and logout. Only the Forgejo runtime incarnation changed;
+all application images, other core runtimes and retained data/configuration checks
+were preserved. No older target, project/provider mutation or full native rebuild
+was involved. Nothing pushed.

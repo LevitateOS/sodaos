@@ -9,7 +9,7 @@ import (
 
 func TestPageEntryGuards(t *testing.T) {
 	for _, page := range []struct{ path string }{
-		{"/spaces"}, {"/settings/runners"}, {"/repositories/7/settings/spaces"},
+		{"/spaces"}, {"/settings/runners"}, {"/settings/tailnet"}, {"/repositories/7/settings/spaces"},
 	} {
 		t.Run(page.path, func(t *testing.T) {
 			s := apiTestServer(t)

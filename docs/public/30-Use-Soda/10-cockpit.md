@@ -38,14 +38,21 @@ Do not open public administration ports as a connection shortcut.
 | Services and Logs | Native service state and journal diagnostics |
 | Storage | Disks, filesystems, mounts and free space |
 | Networking | Native interfaces and available firewall controls |
+| Podman containers | Host containers, images, volumes and native container diagnostics |
+| File browser | Host file inspection, transfer and deliberate maintenance |
+| SELinux | Policy status and access-denial investigation |
+| Diagnostic reports | Manually collect support information; review private contents before sharing |
+| Accounts | Native host Linux accounts, passwords and keys |
+| Software updates | Native CoreOS/rpm-ostree deployments and updates |
 | Terminal | Privileged host administration as the operator |
 
 The operator terminal is a host shell. It is not the developer's browser workspace
 terminal. Development accounts, repositories and environment joins belong in
 [the Soda dashboard](05-dashboard.md); there are no Cockpit Projects, People or
-Soda Updates workflows to use for those tasks. The stock Accounts navigation is
-hidden; this does not remove native account tools or turn visibility into an
-authorization boundary.
+Soda Updates workflows to use for those tasks. Accounts manages the host, not
+Forgejo identities or accounts inside projects. Podman on the host does not
+automatically manage the separate engines inside projects. Native root remains
+the only eligible Cockpit account, regardless of which navigation entries are visible.
 
 ## Operate deliberately
 
