@@ -95,6 +95,7 @@ Service/image source in `appliance/services/` and `project-os/` establishes topo
 | Forgejo customization and UI | [Customization contract](docs/forgejo-frontend-integration.md), [Lit](docs/lit.md), [TypeScript and test prerequisites](docs/typescript.md) |
 | Project runtime and access | [Project OS](docs/project-os.md), [terminals](docs/terminal-integration.md), [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md) |
 | Cockpit and Tailnet | [Tailnet implementation](docs/tailnet-integration-plan.md), [Cockpit](docs/cockpit-port.md), [operator setup](docs/operator-setup.md) |
+| Active build/release replacement | [Six replacement milestones and later commissioning](docs/release-engineering-plan.md#single-run-build-replacement-implementation), [current status](docs/implementation-status.md) |
 | Build, deployment and native tools | [Installation](docs/installation.md), [native validation](docs/native-validation.md), [support-tool effects](docs/native-support.md) |
 | Browser screenshots | [Capture and fixture login](docs/screenshot-capture.md); use `scripts/screenshot.ts`. |
 | Refactoring | [Upstream-first review](docs/refactoring-plan.md#1-upstream-first-review) |

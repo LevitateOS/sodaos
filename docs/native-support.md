@@ -1,6 +1,12 @@
 # Native support tools
 
-Implemented outside artifact/VM/SSH/evidence tools with **partial native evidence**.
+**Build priority: the [six single-run replacement milestones](release-engineering-plan.md#single-run-build-replacement-implementation).**
+Reuse these verifiers/transports/drivers in that lane; do not finish public delivery
+or a second legacy producer first. B6 rewires build/check/remote/media handoffs after
+native proof; operational service commissioning follows. No new outside orchestration
+framework is selected.
+
+Existing artifact/VM/SSH/evidence tools have **partial native evidence**.
 See the [development handoff](development-handoff.md) for retained build/check revisions and
 limits; suite participation does not prove every remote/VM/install path. The
 historical plan/audit are retired from active docs; their follow-up notes remain
@@ -24,7 +30,7 @@ helper, flag, commit or report grants execution permission.
 
 | Interface | Owner / implementation boundary |
 | --- | --- |
-| `build-native.sh ARCH`, `check-native.sh ARCH`, `stage.py --arch ARCH` | Production build/stage remain authoritative. Support adds fresh-output locking, OCI archives, resolved image IDs, public input metadata and sealing. No standalone Soda UI payload remains. |
+| `build-native.sh ARCH`, `check-native.sh ARCH`, `stage.py --arch ARCH` | Current retiring producer/check contracts, not the target release interface. B2 replaces production and B6 rewires callers; preserve existing verification and maintenance readers. |
 | Containerfile `BASE_IMAGE` argument | The build pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
 | `install-native.sh /absolute/bundle/ARCH PRIVATE_SUBNET` | Existing first-install interface. Support adds verified archives, preflight before delivery, existing core tag restoration and a retained partial-install marker. No setup/OAuth/migration implementation is copied. |
 | `render-provisioning.py` | Public `appliance/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
@@ -55,6 +61,9 @@ The existing build now pulls the unchanged selected Forgejo/Caddy references for
 
 ## Build and artifact contract
 
+**Existing writable-bundle interface, retiring at B6.** These are operational
+references, not an implementation phase to complete before the single-run command.
+
 Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, occupied output or simultaneous build is refused; there is no automatic removal of earlier artifacts. `GOTOOLCHAIN=local` prevents implicit toolchain installation.
 
 ```sh
@@ -79,9 +88,9 @@ owns the replacement of this transitional image path and the writable-bundle bui
 with one source-to-release command. The new command is not implemented yet; the
 following describes existing tools/effects, not the target build interface. The
 current writable installer and sealed bundle remain usable pending native cutover.
-`tools/soda-host-image` is a noninteractive local build tool, never an installed
-appliance helper or update scheduler. It is also the canonical Go component
-producer: the preserved `build-native.sh` adapter invokes its explicit
+`tools/soda-host-image` is the existing noninteractive local builder, never an installed
+appliance helper or update scheduler. Its shared producer and two assemblers are
+being replaced, not expanded: the current `build-native.sh` adapter invokes its explicit
 `--legacy-native` layout before legacy metadata/sealing. Do not mix that compatibility
 flag with host build/complete/repository flags or treat its output as a host candidate.
 Both callers use `internal/nativebuild/production.go`, not duplicated command recipes.

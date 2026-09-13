@@ -37,12 +37,12 @@ platform or authorize native actions. Existing selected work keeps its current s
 The later [manual-install decision](coreos-installer-plan.md#manual-install-decision--10-september-2026)
 selects a root-password USB/VM installation with no key prompt, pre-write console
 correction/restart and a usable continuation. [Media delivery](installation.md#publication-direction)
-records payload inclusion and a recommended prepared QCOW2 as remaining work;
-the later [release engineering decision](release-engineering-plan.md) selects a
-CoreOS-aligned release train, GHCR hosting and emergency releases, with a derived
-host OCI as the preferred feasibility target. The exact mechanism/bootc migration
-is not selected. This bounded release work is no longer deferred; general fleet
-orchestration remains outside it. Planning does not authorize disk writes,
+now selects an ISO consuming the same immutable candidate as updates; QCOW2 remains
+an optional unimplemented later consumer. The [release engineering plan](release-engineering-plan.md#single-run-build-replacement-implementation)
+prioritizes the six single-run replacement milestones before public commissioning,
+unattended scheduling, production readiness and launch. Derived FCOS/bootc is the
+selected direction; exact native installation and migration remain unqualified.
+This replacement is active, not deferred; general fleet orchestration remains outside it. Planning does not authorize disk writes,
 publication, automatic CI or retained-appliance migration. The
 [Services marketplace](services-and-ai-plan.md) can use GitHub-hosted public recipes;
 it does not require a central credential service. Catalog delivery and app-upgrade

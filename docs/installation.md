@@ -1,6 +1,10 @@
 # Native build and installation
 
-This guide owns installation and affected-component maintenance procedures.
+This guide owns installation, build timing and affected-component maintenance.
+**Implement the [single-run replacement milestones](release-engineering-plan.md#single-run-build-replacement-implementation)
+first.** Public delivery, unattended scheduling, production readiness and migration
+follow B6. The existing writable/ISO recipes below remain operational references
+until native cutover, not a second build lane to complete or publish beforehand.
 Use the [development handoff](development-handoff.md) for retained installed state
 and its scoped grants; [release implementation](implementation-status.md) tracks the
 single-run replacement and release commissioning. Use
@@ -17,60 +21,42 @@ Bounded diskless BIOS/UEFI boot checks passed; fresh-disk validation remains unr
 A prepared Soda QCOW2 is a recommended future download; its producer remains
 unimplemented. See
 [handoff](development-handoff.md) for actual native build/check limits. The recipes
-below use sealed bundles and private provisioning. The separately built installer
-ISO carries an installable bundle in the replacement source recipe; it does not
-contain a configured Soda appliance. No Soda host OCI or preinstalled
-QCOW2 is supplied. Do not replay first-install as a service upgrade.
+below describe the retiring sealed-bundle/private-provisioning path. Its bundled ISO
+source does not contain a configured appliance or install the derived host candidate.
+The new lane will install that candidate directly and reuse its identity for updates.
+No preinstalled QCOW2 is supplied. Do not replay first-install as a service upgrade.
 
 ## Publication direction
 
-The 10 September 2026 discussion records the following delivery direction, not
-artifacts already available or permission to publish them:
+First produce and qualify the replacement locally; public download/service
+commissioning follows B6 using those same artifacts, not another build recipe.
 
-| Artifact | Intended role | Current state |
+| Artifact | Role in the replacement | Current state |
 | --- | --- | --- |
-| SodaOS ISO | Primary download for physical USB installation and manual VM installation | Previous required-key media exists; replacement password-only/payload/setup source is under local validation, with rebuilt media and full fresh-install proof deferred |
-| SodaOS QCOW2 | Recommended second download: a prepared VM disk booting into the same first-time operator setup | No preinstalled Soda product image or producer exists; the exact image-production and first-boot recipe still needs design |
-| SodaOS host OCI | Shared installation/update artifact in the [single-run replacement](release-engineering-plan.md#single-run-release-build-contract) | Complete x86_64 local candidate produced; signed copies staged in internal GHCR packages. Native installation/update/recovery remains unqualified. |
-| Sealed Soda payload | Matching native programs, configuration and application/project OCI archives needed to install Soda | Existing native bundle contract; replacement ISO recipe includes a matching snapshot for pre-removal copying. QCOW2 inclusion remains future work |
+| Host and five application OCI images | One immutable candidate shared by installation and updates | Existing local x86_64 candidate and signed Internal GHCR snapshots are reusable foundations, not single-run or install/update proof |
+| SodaOS ISO | Media-only consumer of the signed candidate and prebuilt console/tools; offline installation/first-boot content | Image-based handoff unimplemented; older required-key media has bounded boot evidence and password-only writable-bundle source exists |
+| Final signed release metadata | Binds tested host/app/ISO identities, compatibility and protected evidence without rebuilding | Delivery primitives exist; integration into the run remains B5 |
+| Sealed writable Soda bundle | Retiring product of the old producer, not an output of the replacement | Preserve existing artifacts/maintenance readers; remove competing production at B6 |
+| SodaOS QCOW2 | Optional later consumer of the same candidate | No producer or distributable product; not a prerequisite for this replacement |
 
-The selected replacement produces an ISO consuming the same host/application
-candidate as updates, not another writable payload. QCOW2 remains a future consumer
-of that same release, not a second build implementation. The older bundled-ISO
-commands below remain current operational references until validated cutover. The [release engineering plan](release-engineering-plan.md) owns GHCR distribution and
-mandatory production signing; exact trust and consumer mechanisms still need
-validation. Existing checksums are not a Soda release signature. An ISO is bootable installation media;
-QCOW2 is a virtual disk, not a complete VM definition. Generic media must contain no
-operator credentials or initialized personal app state. Establish the password,
-per-machine identity/host keys and remaining configuration for each new installation;
-do not distribute a copy of a retained test appliance.
+The [release owner](release-engineering-plan.md#after-the-replacement-operational-commissioning)
+owns subsequent public GHCR/ISO commissioning, trust and promotion. Checksums alone
+are not Soda release signatures. Generic images/media contain no credentials,
+initialized databases or cloned test-appliance state; establish passwords, host keys
+and machine configuration per installation. Private-network media is not public media.
 
-Payload inclusion must reuse the production build, inventory, verifier and native
-installation contracts. The ISO must preserve the verified payload on the selected
-destination for installed-host continuation before asking the user to remove media;
-the replacement source implements that handoff for native validation. The QCOW2
-producer must deliver the same release and first-boot behavior without cloning
-credential-bearing fixture state. No manual builder-bundle transfer should remain
-in the normal product-media journey. Including application images does not remove
-the current network requirement for host RPM dependencies or provide offline
-marketplace apps.
+The [installer contract](coreos-installer-plan.md#image-based-replacement-contract)
+owns the native disk/bootstrap handoff. Preserve the selected password-only text flow,
+but replace bundle copying and client-side RPM installation with the signed candidate.
+The old path remains network-assisted; only actual replacement native evidence can
+establish its offline installation/first-boot claim. Marketplace networking is separate.
+Historical upstream QCOW2/private-Ignition runtime tests are not image-based ISO proof.
 
-OCI means image packaging, not inherently a whole-host updater. Application OCI
-images remain ordinary components of the Soda payload and may be distributed through
-that payload without a separately operated registry. A derived host OCI is now the preferred target under the
-[release engineering plan](release-engineering-plan.md), subject to upstream feasibility
-and a separately approved migration. See [host and application update ownership](os-product-strategy.md#update-ownership).
-
-The immediate [installer correction](coreos-installer-plan.md) removes the public-key
-prompt from USB/VM disk installation and uses the native root password. Publishing a
-usable image also requires the complete first-boot, access and application setup
-journey. Historical tests used upstream CoreOS QCOW2 plus private Ignition and SSH
-installation; they are runtime evidence, not proof of a public Soda QCOW2 or manual
-ISO installation. See [recorded VM setup](local-testing.md) and the [handoff](development-handoff.md).
-
-Keep the following commands as **component/fixture recipes**, distinct from the
-manual media journey. Source documentation does not authorize builds, new
-fixtures, destination disk writes, uploads, retained-target changes or publication.
+The following commands describe **current retiring component/fixture recipes**.
+They remain usable under existing contracts until qualified cutover; do not expand
+or publish them as a prerequisite for the single-run rewrite. The proposed
+`soda-build` interface is documented in the release plan and is not implemented yet.
+No documentation grants disk writes, new fixture lifecycle, uploads or migration.
 
 ## 1. Prepare the native builder
 
@@ -104,6 +90,8 @@ This section owns timing/reporting behavior to preserve from `2166333`, not its
 Python/shell implementation. The new Go controller owns the only run clock and
 process supervision. Existing invocation/output details below describe the retiring
 implementation until B6 cutover; they are not instructions to keep two assemblers.
+B6's full-run timing receipt is native and local through signed final metadata;
+public delivery and timer commissioning follow afterward, not as retirement gates.
 Actual native x86_64 host-context preparation at `d054a60` also passed through the
 new shared compiler/timing bridge; see the [receipt](implementation-history.md#shared-build-production-and-timing-consolidation).
 It did not build application/host images or an ISO. Full native build/installation
@@ -232,8 +220,9 @@ output are sufficient for this pass; no background monitoring process is require
   clocks and short process doubles, not exact real-time expectations. Cover failed
   preflight, child/grandchild cancellation, log failure, occupied paths and secret
   suppression. Confirm logs are excluded from immutable image/media payloads.
-- Finally record one real native full-run receipt through installation/recovery and
-  authorized delivery, with phase and total timings. Source tests, host-context
+- Finally record one real native local full-run receipt through installation/recovery
+  and signed final metadata, with phase and total timings. Record actual publication
+  timing separately when its downstream commissioning is selected. Source tests, host-context
   preparation and media generation remain separately scoped evidence until then.
 
 ### Current implementation inventory (retiring)

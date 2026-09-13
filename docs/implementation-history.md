@@ -445,7 +445,7 @@ This is **host-content build evidence, not an installable release**. App image
 binding/import, Forgejo customization/browser assets, full first-boot setup,
 configuration migration, reproducible RPM inputs, signing and native boot/upgrade/
 recovery remain separate work. No native aarch64 evidence is claimed. The owning
-[release plan](release-engineering-plan.md#10-workstream-status-and-next-action)
+[release plan](release-engineering-plan.md#workstream-status-and-next-action)
 tracks the next slice; its local invocation belongs in
 [native support](native-support.md#local-host-content-image-candidate).
 

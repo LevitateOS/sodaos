@@ -45,6 +45,11 @@ routing are separate configuration—not inferred from an old port or hostname.
 
 ## Source and guides
 
+**Current build/release priority:** finish the six single-run replacement milestones
+in the [implementation plan](docs/release-engineering-plan.md#single-run-build-replacement-implementation),
+then commission public delivery, unattended scheduling and production launch. Existing
+candidate/signing evidence is reusable groundwork, not completion of that rewrite.
+
 | Area | Source / documentation |
 | --- | --- |
 | Product decisions and remaining work | [Architecture](docs/architecture.md), [Sodaspaces plan](docs/sodaspaces-plan.md), [deferred scope](docs/deferred.md) |

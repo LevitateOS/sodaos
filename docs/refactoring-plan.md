@@ -1,7 +1,11 @@
 # Upstream-first refactoring review and implementation plan
 
-**This is the single maintenance implementation plan:** actions, order, decisions,
-exit criteria and current source status live here. The
+**Current build priority: finish the [single-run replacement](release-engineering-plan.md#single-run-build-replacement-implementation)
+through B1–B6 before release-service commissioning.** That owner defines the active
+build milestones; completing the maintenance recommendations below is not a prerequisite.
+
+This is the maintenance-refactoring owner for other selected actions, decisions,
+exit criteria and source status. The
 [upstream ownership audit](upstream-ownership-audit.md) owns findings and research;
 [the handoff](development-handoff.md) owns actual execution/delivery evidence.
 Do not create a second backlog in the audit or repeat completed work under a new label.
@@ -33,14 +37,10 @@ below. Audit completion does not mean the findings have been fixed.
    (MC6), whether installer boot-menu branding earns its cost (MC3), and whether
    optional notification/switcher/avatar enhancements are worth retaining. A
    rejected feature is not permission to remove retained user data or credentials.
-3. Consolidate actual common build production (MC4), with the current writable
-   installer and unqualified immutable candidate clearly distinguished. Define a
-   retirement boundary; do not force an unproved image/layout cutover or introduce
-   a generic build framework.
-4. Complete already identified native follow-through under its existing owner:
+3. Complete already identified native follow-through under its existing owner:
    R3 exact completed-resource retirement and R6 semantic-runtime validation review.
    Their actual source and native checks remain outstanding.
-5. Keep conditional investigations bounded: a native Tailscale UI handoff must
+4. Keep conditional investigations bounded: a native Tailscale UI handoff must
    work for the real operator before replacing Soda controls. Support tooling,
    package-lock policy and the analyzer toolchain do not justify new infrastructure
    or removing necessary verification solely to shrink the codebase.
@@ -51,9 +51,11 @@ below. Audit completion does not mean the findings have been fixed.
 shared component commands and timing but retained two assemblers and grew production
 orchestration. The owner requested a complete one-lane design and implementation plan.
 The [release owner](release-engineering-plan.md#single-run-build-replacement-implementation)
-now specifies B1–B6: one Go execution owner, the same immutable install/update candidate,
-media as a consumer, connected protected qualification/delivery, then deletion of the
-competing producers. Compare production code/call graphs against `830ca94` and current
+now owns B1–B6 as the six active replacement milestones, not another extraction or
+later phase of public release commissioning: one Go execution owner, the same
+immutable install/update candidate, media as a consumer, connected local protected
+qualification/signing/delivery tests, then deletion of the competing producers.
+Timers, public delivery commissioning, readiness and launch follow B6. Compare production code/call graphs against `830ca94` and current
 source, separately from tests/docs; shared functions alone do not satisfy the exit.
 This is the selected replacement plan, not completed implementation or approval of
 other audit recommendations.

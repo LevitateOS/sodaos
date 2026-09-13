@@ -8,8 +8,10 @@ ordinary Linux accounts, Git, mise, SSH and native workloads inside lasting proj
 
 This records the user's requested product direction and recommended investments.
 It is a strategy document, not implementation acceptance or a new execution grant.
-The [Sodaspaces plan](sodaspaces-plan.md) still owns immediate coding order; the
-[deferred guide](deferred.md) still distinguishes proposed work from selected features.
+The current build/release priority is the [single-run replacement](release-engineering-plan.md#single-run-build-replacement-implementation),
+completed before unattended scheduling, production readiness or launch. The
+[Sodaspaces plan](sodaspaces-plan.md) owns its independent feature work; the
+[deferred guide](deferred.md) distinguishes proposed investments from selected work.
 The host strategy here is separate from the [Project OS foundation](project-os.md),
 currently implemented on Rocky and selected for Fedora/headless/KDE variants.
 Those profiles retain the same account, tools, services, persistence and maintenance
@@ -159,10 +161,11 @@ A previous host deployment is not a snapshot of later database or project writes
 Product media still requires authenticity, signer/key custody, supported
 architectures, licensing, security updates and failure recovery. The later selected
 [release engineering plan](release-engineering-plan.md) owns GHCR distribution, signed
-CoreOS-aligned releases and an emergency lane. Its preferred derived-host-image
-mechanism still requires feasibility proof; bootc and a custom update server are
-not selected. The current installation path remains in effect, and the predecessor's
-reserved Updates platform remains separate.
+CoreOS-aligned releases and an emergency lane. The selected build replacement uses
+a derived FCOS/bootc candidate for both installation and updates; its exact native
+install/offline-content path is B1's proof, not an already qualified migration.
+A custom update server is not selected. Preserve current installer usability until
+native cutover; the predecessor's reserved Updates platform remains separate.
 
 ## Update ownership
 
@@ -193,17 +196,17 @@ for boot. This is startup of installed versions, not an app-image upgrade. App
 database migration, compatibility and backups cannot be delegated to Zincati, and
 rolling back a container image alone does not restore its changed database.
 
-**A derived Soda host OCI is now the preferred target for feasibility validation**
+**A derived Soda host OCI is the selected single-run installation/update target**
 under the [release engineering plan](release-engineering-plan.md), not an implemented
-migration. OCI is a packaging/distribution format, QCOW2 a virtual-disk format,
+migration or completed build-lane replacement. OCI is a packaging/distribution format, QCOW2 a virtual-disk format,
 and ISO installation media. A bootable host OCI can carry OS
 content, unlike an ordinary application image. [bootc](https://bootc.dev/bootc/)
 specializes in installing/updating such OS images; it is not the only way to use
 OCI on CoreOS. [rpm-ostree also supports OCI-based OS transport and upgrades](https://coreos.github.io/rpm-ostree/container/).
-Do not turn “Soda has no host OCI update path” into “CoreOS cannot use OCI,” or make
-a bootc migration a prerequisite for the manual installer or Services marketplace.
-The exact selected OS/version, trust and native behavior would need review before
-changing transport. Existing application OCI archives remain separate artifacts,
+Do not turn “Soda has no qualified host OCI update path” into “CoreOS cannot use OCI.”
+The replacement installer now consumes the selected image directly, after exact
+OS/version, trust and native mechanism proof. Migrating existing appliances is later
+work, not a prerequisite for building that installer or the Services marketplace. Existing application OCI archives remain separate artifacts,
 with the selected release record binding their compatible versions.
 
 The [release engineering plan](release-engineering-plan.md) now owns the selected
@@ -212,6 +215,10 @@ activation design. These upstream references do not establish native validation 
 select a central marketplace service or the predecessor's reserved Updates platform.
 
 ## Priority and effort comparison
+
+These earlier product-investment comparisons are not the active build roadmap.
+B1–B6 takes priority for the selected release work; none of these features is a
+prerequisite for replacing the lane.
 
 These are planning estimates from source inspection, not measured completion times
 or delivery promises. Confidence is low until native feasibility is checked.
@@ -436,24 +443,16 @@ host filesystem does not make writable application data immutable.
 
 ## Recommended implementation sequence
 
-1. Continue the selected resumable-terminal/onboarding/Git work under the leading
-   plan. Deliver the existing console hook and real operator/client journeys.
-2. Select the bounded read-only health report as the first additional host slice.
-   It can run independently of unresolved web-page composition.
-3. Once resource scope is selected, add verified native runner limits, then project limits after actual cgroup
-   placement proof. Start with operator configuration and observable enforcement;
-   do not gate it on a new dashboard or an elaborate quota UI.
-4. Productize private-access diagnosis alongside the existing networking work.
-   Add the small native reboot-window/status slice when maintenance scope is chosen.
-5. Reopen the bounded backup/cold-restore scope as the first substantial storage
-   investment, with its consistency, target and credential-recovery decisions.
-6. Use that operational experience to settle the longer-term first-boot storage,
-   boot-artifact and compatible fallback design. Secure boot/encryption and broader
-   update orchestration need their own concrete design and target scope.
+For the selected build/release work, follow the [six replacement milestones](release-engineering-plan.md#single-run-build-replacement-implementation)
+now: native mechanism, one Go controller, candidate-consuming ISO, native qualification,
+protected signing/delivery integration, then removal of the old lanes. Public service
+commissioning, unattended scheduling and production launch follow that working lane.
 
-Keep candidate features in this document until selected into the leading plan with
-their source owners, failure behavior and acceptance journey. Do not turn this table
-into a second release gate or use it to postpone already selected product work.
+The broader health, capacity, private-access diagnosis, backup and storage investments
+above remain recommendations for separate selection. Existing independently approved
+feature work keeps its owner and grants, but none supplies a competing prerequisite
+sequence for this replacement. Native recovery required by the release contract is
+not deferred into a speculative general backup/storage platform.
 
 ## Features that do not earn priority merely by looking like an OS
 

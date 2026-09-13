@@ -1,30 +1,25 @@
 # CoreOS installation media
 
-Implementation of the [installer plan](coreos-installer-plan.md); see the
-[handoff](development-handoff.md) for actual media-generation evidence.
-A native x86_64 ISO is built and has bounded diskless BIOS/UEFI boot proof, with
-the console on media.
-**ISO generation/inspection is not boot or fresh-appliance acceptance.** Anaconda
-and Kickstart are not used. No upstream installer patches or OS filesystem
-replacements are introduced. Legacy source and canonical artwork remain unchanged.
+**Active implementation: the [single-run replacement](release-engineering-plan.md#single-run-build-replacement-implementation),
+not another release of the writable-bundle installer.** B1 proves the native image
+install path, B2 builds the candidate/tools, B3 makes media consume them, B4 qualifies
+installation/update/recovery and B6 retires the old producers. The
+[installer contract](coreos-installer-plan.md#image-based-replacement-contract) owns
+its disk/bootstrap requirements. Public ISO delivery and scheduling follow B6.
 
-**Replacement source; rebuilt media still pending:** the USB/VM installer now asks
-for a root password and confirmation with **no public-key prompt**, with correction,
-Back and pre-write restart controls. Separate commands provide local key enrollment
-and private browser setup. The previously delivered ISO still requires a key; these
-source changes do not change that ISO. Native x86_64 media build and the complete
-fresh-disk journey are deferred until the x86_64 machine is available again.
-See the [concrete change plan](coreos-installer-plan.md#manual-install-decision--10-september-2026)
-for local-password provisioning, subsequent SSH enrollment and required validation,
-and the [publication direction](installation.md#publication-direction) for current
-and planned deliverables.
+The replacement is not implemented yet. The operational commands below describe
+the current retiring source and remain available until native cutover; they are
+not instructions to build a second release lane. The new media assembler will not
+compile programs, invoke a native builder or install stock CoreOS plus a Soda bundle.
 
-**Next architecture, not implemented:** the [single-run replacement plan](release-engineering-plan.md#single-run-build-replacement-implementation)
-replaces the writable-bundle backend with media consuming the same signed host/app
-candidate as updates. The [installer contract](coreos-installer-plan.md#image-based-replacement-contract)
-owns its native mechanism/qualification gate. The operational details below describe
-the retiring implementation; the proposed media-only assembler will not compile
-programs or invoke another artifact builder.
+**Reusable current evidence:** previous required-key media has bounded diskless
+BIOS/UEFI boot proof. Current source has password-only input, correction/Back/pre-write
+restart, key enrollment/private setup and bundle continuation, but not the new image
+backend. These are not the new ISO's fresh-disk acceptance. Preserve the
+[password-only interaction](coreos-installer-plan.md#manual-install-decision--10-september-2026)
+and canonical artwork; no Anaconda/Kickstart or predecessor installer is selected.
+[Development custody](development-handoff.md) records historical media evidence;
+[replacement status](implementation-status.md) owns current work and grants.
 
 ## Owners and prerequisites
 
@@ -122,9 +117,10 @@ to snapshot it into ordinary ISO files, then extracts and verifies the final ISO
 bundle again. It does not rebuild or execute the received bundle's programs.
 The [timed combined command](installation.md#run-the-timed-build) reuses the verifier
 built by its own native phase, avoiding duplicate compilation; that trusted in-process
-handoff is not available as a user-supplied verifier flag. The immutable release-image
-installation backend is still M3 work; sharing component production does not change
-this media's legacy writable-layout installation behavior.
+handoff is not available as a user-supplied verifier flag. Replacing this writable
+backend is active milestone B3, after B1 mechanism proof and B2 candidate production;
+public delivery commissioning is not a prerequisite. These current commands do not
+implement that replacement.
 Observed tool versions and supplied executable hashes are recorded, not invented
 locks. An auditable matching-native tool-container wrapper is allowed; its recorded
 hash is the wrapper's, so retain its exact image digest/identity as well.

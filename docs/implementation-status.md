@@ -1,187 +1,118 @@
-# Implementation status — single-run build and release
+# Implementation status — single-run replacement
 
-This handoff is exclusively about replacing SodaOS's two build lanes with **one
-source-to-qualified-release run**, producing the same immutable host/application
-candidate for installation and updates. The [release engineering plan](release-engineering-plan.md#single-run-build-replacement-implementation)
-owns implementation order, contracts, tests and acceptance criteria; this file tracks
-current progress, blockers, custody and permissions, not a second task list.
+**Current priority: replace the two build lanes first.** One Go command must build
+and qualify one immutable host/application candidate used by both installation and
+updates, then the old producers must be removed. Unattended scheduling, production
+readiness and launch follow that replacement; they are not prerequisites for it.
 
-Unrelated workstream and development-fixture records were moved intact in scope to
-[the retained development handoff](development-handoff.md). They are not active tasks
-in this implementation and are not implicitly available as qualification fixtures.
+The [release engineering plan](release-engineering-plan.md#single-run-build-replacement-implementation)
+owns these six milestones and their detailed contracts/tests. B1–B6 identify the
+milestones themselves, not a subordinate checklist beneath the old release roadmap.
+Other workstream/fixture records stay in the [development handoff](development-handoff.md),
+not this implementation queue.
 
 ## Current position
 
-**Full replacement planned; implementation has not started.** The plan is committed
-at `f2f3a63`. No replacement controller, image-based installer, connected native
-qualification or unattended publisher has been implemented by that planning pass.
+**Planned; replacement implementation has not started. All six milestones are open.**
+The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
+the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
+host-context preparation remain evidence, not completion of the replacement.
 
-The existing `d054a60` extraction shared component commands but retained both
-assemblers and grew production orchestration. The owner rejected it as sufficient
-simplification. Its source tests and `fde23d0` host-context preparation receipt remain
-valid only for their stated scope; they do not satisfy the new lane's acceptance.
-
-Current production still splits into:
-
-- Native writable bundle → stock CoreOS installer ISO.
-- Derived immutable host/application candidate → separate release-delivery tooling.
-
-The replacement must remove that split, not put another wrapper around it.
+Current production still splits into writable native bundle → stock CoreOS ISO,
+and derived host/app candidate → separate release-delivery tooling. The replacement
+must remove this split, not wrap it. The former milestone labels marking the local
+candidate complete and delivery next no longer describe the active execution order.
 
 ## Milestones
 
-These are the six release milestones from the [owning plan](release-engineering-plan.md#9-implementation-stages-and-exits).
-The summaries below report their scope and current exit; detailed requirements and
-checks remain in that plan. Earlier scoped evidence is retained, not reset by the
-rewrite, and does not imply the new single-run implementation is complete.
+### 1. Verify the native installation contract — B1
 
-### 1. Complete appliance candidate
+**Not started — next work.** Verify the selected bootc/media/offline-content mechanism
+against exact upstream versions and Soda callers. Fix artifact/evidence/privilege
+handoffs, native fixture requests and the removal/production-LOC baseline before
+adding an adapter. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
 
-**Status: complete for the existing local x86_64 candidate only.** Criteria 1–7.
+### 2. Implement one Go build controller — B2
 
-- Covers the derived CoreOS host, five application images, immutable Forgejo
-  presentation, image-owned packages/defaults, retained project-image storage and
-  complete digest/provenance records.
-- Local exit passed at `45ac843`: a complete host/app candidate built and inspected
-  from frozen source. Installation, update and recovery were not proved.
-- The replacement still has to produce this complete artifact set through one
-  controller without writable staging or duplicate component builds.
+**Not started.** One controller owns frozen inputs, direct timing/cancellation,
+shipping compilation/assets, prepared tests, app images, direct vendor host assembly
+and candidate verification. No second producer or writable staging translation.
+[Implementation and exit](release-engineering-plan.md#milestone-2--implement-one-go-build-controller).
 
-[Detailed acceptance](release-engineering-plan.md#milestone-1--complete-appliance-candidate).
+### 3. Make the ISO consume the candidate — B3
 
-### 2. Trusted delivery
+**Not started.** Media-only assembly takes the exact signed host/app candidate and
+prebuilt tools. Prove actual ISO installation, media removal and first boot with the
+same digests used by updates; preserve the password-only wizard and disk safeguards.
+[Implementation and exit](release-engineering-plan.md#milestone-3--make-the-iso-consume-the-candidate).
 
-**Status: partially implemented; commissioning incomplete.** Criteria 8–10.
+### 4. Connect native qualification — B4
 
-- Covers artifact/release/channel verification, protected automated signing,
-  repository-scoped authority, replay/freshness protection and channel-last publication.
-- Source/local native proof and authenticated immutable GHCR round trips passed.
-  Public/anonymous delivery, completed promotion commissioning, protected worker
-  isolation and recovery custody remain outstanding.
-- Exit: intended clients can verify the exact published release without developer
-  credentials; interrupted, duplicate, stale and withdrawn offers behave safely.
+**Not started.** Reviewed drivers test the actual ISO and admitted update/recovery
+baselines, populated-state preservation, signatures/cache and maintenance ownership.
+Evidence binds exact bytes; required tests cannot be skipped or rebuild the candidate.
+[Implementation and exit](release-engineering-plan.md#milestone-4--connect-native-qualification).
 
-[Detailed acceptance](release-engineering-plan.md#milestone-2--trusted-delivery).
+### 5. Integrate protected signing and delivery — B5
 
-### 3. Native update and recovery
+**Not started.** Connect existing native signing/verification and publisher interfaces
+to the run, with separate protected authority, final ISO/evidence binding and channel
+last. Native local signing and failure tests establish integration; public GHCR/ISO
+commissioning is not a gate before deleting the old builders.
+[Implementation and exit](release-engineering-plan.md#milestone-5--integrate-protected-signing-and-delivery).
 
-**Status: pending.** Criteria 11–17.
+### 6. Retire old lanes and prove the replacement — B6
 
-- Covers the native update caller and exact isolated fixture; actual ISO installation
-  and first boot; same-base and new-base upgrades; populated-state preservation;
-  interruption, boot failure and compatibility-aware recovery.
-- Includes one maintenance/update owner, activation policy, useful operator status
-  and resolution of the installed Cockpit update incompatibility.
-- Exit: native install/update/recovery evidence for the exact candidate, with later
-  writes preserved and no independent updater bypassing Soda qualification.
+**Not started.** After native installer/qualification proof, remove the competing
+producers, adapters and timing bridge; update every build/media/check caller. Prove
+one complete native local run through signed final metadata, unchanged tested bytes
+and smaller production orchestration. No timer or production launch is part of this
+milestone. [Implementation and exit](release-engineering-plan.md#milestone-6--retire-old-lanes-and-prove-the-replacement).
 
-[Detailed acceptance](release-engineering-plan.md#milestone-3--native-update-and-recovery).
+## Immediate prerequisites and next action
 
-### 4. Automated release builder
+Start B1's exact native mechanism/caller and deletion-baseline review. Compare
+production orchestration against `830ca94` and current source, separately from tests/docs.
+The old writable installer stays usable until its replacement passes native proof.
 
-**Status: pending; the shared-producer extraction does not satisfy it.** Criteria 18–22.
+- Actual disk/VM installation, reboot and recovery need an exact native fixture,
+  baseline, resource budget and lifecycle grant. Existing fixtures are not implicit
+  release fixtures. Complete independent approved source work while such gates wait.
+- Signing/qualification must remain protected from arbitrary build code. Use reviewed
+  existing tools and isolated fixture trust for local mechanism tests; synthetic/local
+  evidence does not grant production authority. Real worker changes need their grant.
+- Do not wait for public package visibility, ISO publishing, timer installation,
+  automatic stable promotion, native aarch64 or retained-appliance migration to begin
+  or complete the independently scoped replacement work.
 
-- Covers the isolated builder/resource contract, CoreOS stable polling and frozen
-  candidate admission, the single Go source-to-release run, direct timing/cancellation,
-  protected qualification/signing, delivery and normal/emergency serialization.
-- Includes deletion of competing producers and a demonstrable reduction in production
-  orchestration, followed by authorized timer/one-shot and progressive-promotion setup.
-- Exit: the same reviewed command completes the qualified pipeline; commissioned
-  normal operation needs no person to build, sign or publish each release. Failed or
-  uncertain gates stop downstream effects and notify the owner.
+## Reusable foundations — not completed replacement milestones
 
-[Detailed acceptance](release-engineering-plan.md#milestone-4--automated-release-builder).
-
-### 5. Production readiness
-
-**Status: pending.** Criteria 23–26.
-
-- Covers native qualification for every advertised architecture/upgrade path,
-  rehearsed writable-install migration, and distributable ISO media consuming the
-  exact signed host/application candidate used by updates.
-- Includes signing rotation/recovery, builder-loss recovery, emergency/withdrawal and
-  interrupted-publication drills, retained artifact availability and operations ownership.
-- Exit: advertised downloads, supported starting states and operating procedures have
-  actual matching evidence. x86_64 may progress independently; full two-architecture
-  completion still requires native aarch64 proof. QCOW2 is not an implemented product.
-
-[Detailed acceptance](release-engineering-plan.md#milestone-5--production-readiness).
-
-### 6. Production launch
-
-**Status: pending; no production launch authorized by candidate commissioning.** Criteria 27–28.
-
-- Covers progressive publication/deployment of the first qualified production release
-  to exact approved appliances, with observation and maintenance-controlled activation.
-- Then demonstrates an actual new CoreOS stable event flowing through approved Soda
-  changes, build, native qualification, signing, publication and promotion automatically,
-  plus an independently triggered emergency release through the same pipeline.
-- Exit: approved appliances consume the tested release according to policy, preservation
-  and failure/withdrawal behavior hold, and ongoing release ownership is established.
-  A synthetic trigger or GHCR upload alone is not completion.
-
-[Detailed acceptance](release-engineering-plan.md#milestone-6--production-launch).
-
-## Replacement execution order
-
-B1–B6 below are the ordered implementation packages that deliver those milestones,
-not another set of milestones or additional approval rounds.
-
-| Package | Status | Next exit |
-| --- | --- | --- |
-| B1 — Contracts and native-install feasibility | Not started | Verify the selected upstream image-install/offline-content path; record exact dataflow, file-removal/production-LOC baseline and qualification resource requests. |
-| B2 — One artifact execution owner | Not started | One Go controller, direct timing/cancellation, programs/assets/images produced once and direct image-owned staging. |
-| B3 — Installer consumes the candidate | Not started | Actual ISO installation and first boot of the same host/app digests used by updates; no writable bundle or compilation in media assembly. |
-| B4 — Connected native qualification | Not started | Protected evidence from the actual ISO and approved update/recovery baselines, without rebuilding tested artifacts. |
-| B5 — Protected finalization and delivery | Not started | Automated candidate signing, final signed release/media binding, verified immutable delivery and channel selection last. |
-| B6 — Retire old producers and commission automation | Not started | Competing producers removed, smaller production orchestration, full-run receipt, then separately authorized unattended operation. |
-
-**Next action: B1.** Confirm the native bootc installation/media mechanism and exact
-Soda callers before implementing an adapter. Record the deletion/LOC baseline against
-`830ca94` and current source. Resolve concrete fixture/effect requirements without
-blocking independent approved source work on unrelated architecture or provider gates.
-
-## Existing foundations and evidence
-
-These are reusable inputs, not completion of the replacement:
-
-- **Complete local x86_64 candidate:** `45ac843` produced the host/app payload, 391
-  verified immutable Forgejo files, a locked 625-RPM inventory and bootc lint with
-  13 passed/one skipped/no warnings. [Receipt](implementation-history.md#complete-local-appliance-candidate).
-  This did not prove installation, update, persistence or recovery.
-- **Trusted-delivery implementation:** strict release/channel models, native
-  Sigstore verification, role-scoped permits and durable publication/high-water
-  handling have source/local native proof. [Receipt](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof).
-- **Real signing/GHCR bootstrap:** eight immutable packages and signatures were
-  staged with authenticated native digest/signature round trips. Last observed
-  visibility is **Internal**, not Public; no mutable candidate channel was selected.
-  [Receipt](implementation-history.md#ghcr-namespace-and-signing-bootstrap).
-- **Transitional build extraction:** focused Go/race/vet, timing, CLI, ISO and staging
-  tests passed. Native x86_64 host-context preparation compiled/ELF-checked eight
-  vendor programs once with working timings; it did not build images or an ISO.
+- `45ac843`: complete local native x86_64 host/app candidate, 391 immutable Forgejo
+  files, locked 625-RPM inventory and bootc lint 13 passed/one skipped/no warnings.
+  [Receipt](implementation-history.md#complete-local-appliance-candidate). No install/
+  update/recovery acceptance is implied.
+- Existing trusted-delivery models, native Sigstore, exact permits and durable
+  publication/high-water handling have source/local native proof.
+  [Receipt](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof).
+- Real protected keys/eight immutable GHCR packages have authenticated native
+  signature/digest round trips; visibility was last observed Internal and no mutable
+  candidate channel was selected. [Receipt](implementation-history.md#ghcr-namespace-and-signing-bootstrap).
+- Transitional build tests and native x86_64 host-context preparation compiled/
+  ELF-checked eight programs once with working timings, not images or an ISO.
   [Receipt](implementation-history.md#shared-build-production-and-timing-consolidation).
 
-No complete source → signed candidate → ISO → native install/update/recovery → final
-release → publication run has passed. No distributable SodaOS QCOW2 is produced.
+## After B6 — separate commissioning
 
-## Open qualification and commissioning gates
+The [downstream operations plan](release-engineering-plan.md#after-the-replacement-operational-commissioning)
+then resumes public GHCR/ISO delivery, isolated unattended scheduling, supported
+architecture/migration readiness, operational recovery drills and progressive launch.
+None is marked complete by replacement source or local qualification.
 
-- Native image-based installation/offline app-content handoff, signature/cache
-  enforcement, maintenance-controlled updates, persistence and recovery remain
-  unqualified. Exact native fixture/disk/baseline and lifecycle grants are needed.
-- GHCR anonymous/public acceptance remains pending the owner's one-time Public
-  visibility change for the eight new packages. Observe retained state before any
-  further writes. The staged sequence-1 candidate expired at
-  `2026-09-14T18:00:29Z`; do not publish it or reset state. Fresh higher-sequence
-  admission/permits are required for a new offer.
-- Off-machine signing recovery and isolation from untrusted build jobs remain
-  unproved. Root-only files plus a sudo-capable builder account are not that isolation.
-- GitHub Releases ISO delivery is proposed, not commissioned or authorized by the
-  GHCR grant. Preview/stable promotion and unattended worker/timer activation also
-  retain their separate commissioning boundaries.
-- Native aarch64 still needs its own host-package lock, worker and qualification;
-  x86_64 evidence does not cover it. It is not an unrelated prerequisite for B1's
-  x86_64 work. Writable-install migration remains separately qualified/authorized.
+Pending custody facts: package Public visibility/anonymous proof remain outstanding;
+the sequence-1 candidate expired at `2026-09-14T18:00:29Z` and requires fresh higher
+sequence/permits, never reset state. Off-machine recovery and untrusted-job isolation
+remain unproved. Native aarch64 needs its own lock/worker/proof; GitHub Releases ISO
+publication and retained-install migration are separately authorized work.
 
 ## Retained release state
 
@@ -228,8 +159,7 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-All six release milestones are now explicit here, with scope, current status and
-completion summaries linked to their owning acceptance criteria. B1–B6 remain the
-replacement implementation order. Unrelated workstream/fixture records stay in their
-separate handoff. No production source, build output, key, registry package, VM,
-service or appliance state changed.
+The implementation docs now make B1–B6 the active six replacement milestones and
+place service commissioning/readiness/launch after B6. Existing evidence remains
+reusable, not a misleading completion marker. This is documentation only; no source
+implementation, build, signing, publication or native lifecycle action was performed.

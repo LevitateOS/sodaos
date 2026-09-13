@@ -1,8 +1,10 @@
 # Release engineering — first feasibility review
 
-This is a source/public-upstream research receipt for Stage 1 of the
-[release engineering plan](release-engineering-plan.md), not native acceptance or
-an execution grant. Source was inspected at `8ffc0e1`; no retained appliance was
+This is the historical first source/public-upstream research receipt, not the
+current implementation sequence or a completed milestone of the replacement.
+The [active release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
+now prioritizes B1–B6: replace the build lane before operational commissioning.
+Reuse this research where valid; it is not native acceptance or an execution grant. Source was inspected at `8ffc0e1`; no retained appliance was
 contacted. Public research inputs, failed URL attempts and source URLs are retained
 under `.artifacts/release-engineering-research/` (`sources.tsv` and `SHA256SUMS`).
 The plan owns requirements and current task status; this receipt records findings.
