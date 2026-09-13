@@ -94,7 +94,7 @@ func (d *Daemon) podman(ctx context.Context, in []byte, args ...string) ([]byte,
 	return d.Exec.Run(ctx, in, "/usr/bin/podman", args...)
 }
 
-// Keep buffered operations globally serialized, but let cancelled waiters leave.
+// Keep mutations globally serialized, but let cancelled waiters leave.
 // Lazy initialization keeps Daemon struct literals usable without a constructor.
 // This gate is independent of terminal streams and runner file locks.
 func (d *Daemon) acquireAdmission(ctx context.Context) error {
@@ -144,9 +144,13 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// already-running native commands retain their existing context handling.
 		return ctx.Err()
 	}
-	// Create owns its gate inside the native provisioning phase: a managed
-	// reservation may wait for policy admission without blocking unrelated projects.
-	if r.URL.Path != "/create" {
+	if ctx.Err() != nil {
+		http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
+		return
+	}
+	// Read-only observations may overlap mutations and report transitional state.
+	// Create owns the same writer gate inside its native provisioning phase.
+	if r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys" || r.URL.Path == "/account" {
 		if err := d.acquireAdmission(ctx); err != nil {
 			http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
 			return
@@ -214,38 +218,8 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(out)
 }
 func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
-	if !projectID.MatchString(in.ID) || in.Owner <= 0 || in.Profile == nil || in.Profile.Validate() != nil || (in.Tailnet != nil && in.Tailnet.Validate() != nil) {
+	if !projectID.MatchString(in.ID) || in.Owner <= 0 || in.Profile == nil || in.Profile.Validate() != nil {
 		return Environment{}, errors.New("invalid creation identity")
-	}
-	if in.Tailnet != nil && in.Tailnet.Enabled && (d.Tailnet == nil || d.Config.TailnetImage == "") {
-		return Environment{}, tailnet.ErrUnsupported
-	}
-	if in.Tailnet != nil && in.Tailnet.Enabled {
-		var original string
-		err := d.Tailnet.ProvisionProject(ctx, in.ID, *in.Tailnet, func() (string, error) {
-			if e := d.acquireAdmission(ctx); e != nil {
-				return "", e
-			}
-			defer func() { <-d.admission }()
-			if e := d.createContainer(ctx, in); e != nil {
-				return "", e
-			}
-			var e error
-			original, e = d.projectContainer(ctx, in.ID, false)
-			return original, e
-		})
-		if err != nil {
-			return Environment{}, err
-		}
-		if err = d.acquireAdmission(ctx); err != nil {
-			return Environment{}, err
-		}
-		defer func() { <-d.admission }()
-		current, e := d.projectContainer(ctx, in.ID, false)
-		if e != nil || current != original {
-			return Environment{}, tailnet.ErrConflict
-		}
-		return d.startCreated(ctx, in)
 	}
 	if err := d.acquireAdmission(ctx); err != nil {
 		return Environment{}, err

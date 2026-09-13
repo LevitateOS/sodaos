@@ -1,29 +1,23 @@
 package tailnet
 
-import (
-	"slices"
-	"strings"
-)
+import "slices"
 
 // ProjectStatus discards raw health/authentication/peer/private-pref fields. The
 // trusted native caller supplies the binding, not the browser. Connected means a
 // current node observation; it is not client routing or application authentication.
 func ProjectStatus(data, preferences []byte, binding RunBinding) (string, []string, string, error) {
 	var s struct {
-		Version, BackendState string
-		HaveNodeKey           bool
-		CurrentTailnet        *struct{ Name string }
-		Self                  *struct {
+		BackendState   string
+		HaveNodeKey    bool
+		CurrentTailnet *struct{ Name string }
+		Self           *struct {
 			ID, DNSName        string
 			TailscaleIPs, Tags []string
 			Online, Expired    bool
 		}
 	}
-	if len(data) > responseLimit || nativeObject(data, &s, "Version", "BackendState", "HaveNodeKey") != nil {
+	if len(data) > responseLimit || nativeObject(data, &s, "BackendState", "HaveNodeKey") != nil {
 		return "", nil, "", ErrUnavailable
-	}
-	if strings.SplitN(s.Version, "-", 2)[0] != ManagementCLIRelease {
-		return "", nil, "", ErrUnsupported
 	}
 	switch s.BackendState {
 	case "NeedsLogin":
@@ -61,27 +55,26 @@ func ProjectStatus(data, preferences []byte, binding RunBinding) (string, []stri
 	}
 	return "connected", peer.Addresses, peer.DNSName, nil
 }
-func ProjectCLIRelease(data []byte) error {
-	var v struct {
-		Short string `json:"short"`
-	}
-	if nativeObject(data, &v, "short") != nil {
-		return ErrUnavailable
-	}
-	if v.Short != ManagementCLIRelease {
-		return ErrUnsupported
-	}
-	return nil
-}
 
-// CheckDaemonRelease permits the pre-login state without claiming enrollment.
-func CheckDaemonRelease(data []byte) error {
-	var v struct{ Version string }
-	if len(data) > responseLimit || nativeObject(data, &v, "Version") != nil {
-		return ErrUnavailable
+// ProjectHasNode admits a concrete pre-login observation, not a release number.
+// An existing key (including approval/reauthentication states) must not be replaced
+// by another enrollment. Missing or unfamiliar state is unavailable, not absence.
+func ProjectHasNode(data []byte) (bool, error) {
+	var v struct {
+		BackendState string
+		HaveNodeKey  bool
 	}
-	if strings.SplitN(v.Version, "-", 2)[0] != ManagementCLIRelease {
-		return ErrUnsupported
+	if len(data) > responseLimit || nativeObject(data, &v, "BackendState", "HaveNodeKey") != nil {
+		return false, ErrUnavailable
 	}
-	return nil
+	switch v.BackendState {
+	case "NoState", "NeedsLogin", "NeedsMachineAuth", "Stopped", "Starting":
+	case "Running":
+		if !v.HaveNodeKey {
+			return false, ErrUnavailable
+		}
+	default:
+		return false, ErrUnavailable
+	}
+	return v.HaveNodeKey, nil
 }

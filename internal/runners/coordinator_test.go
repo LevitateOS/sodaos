@@ -21,7 +21,9 @@ var testAdministrator = linuxhost.PKExecIdentity{Username: "root", UID: 0}
 
 type fakeLocal struct{ views []RunnerView }
 
-func (local fakeLocal) List(context.Context) ([]RunnerView, error) { return local.views, nil }
+func (local fakeLocal) List(context.Context) (Inventory, error) {
+	return Inventory{Runners: local.views, Unavailable: []string{}}, nil
+}
 
 type fakeLifecycle struct {
 	action string
@@ -94,13 +96,13 @@ func TestCoordinatorUsesOnlyTheConfiguredOrBundledForgejoEndpoint(t *testing.T) 
 
 func TestCoordinatorReportsExactLocalListenerAndCapacityCounts(t *testing.T) {
 	views := []RunnerView{
-		{Descriptor: Descriptor{ID: "one"}, Capacity: 1, Service: ServiceState{Active: "active", Sub: "running"}},
-		{Descriptor: Descriptor{ID: "two"}, Capacity: 1, Service: ServiceState{Active: "failed", Sub: "failed"}},
+		{Descriptor: Descriptor{ID: "one"}, Version: "fixture", Capacity: 1, Service: &ServiceState{Active: "active", Sub: "running"}},
+		{Descriptor: Descriptor{ID: "two"}, Version: "fixture", Capacity: 1, Service: &ServiceState{Active: "failed", Sub: "failed"}},
 	}
 	coordinator := Coordinator{ForgejoPublicURL: "https://forgejo.fixture", Authorizer: fakeAuthorizer{}, Local: fakeLocal{views: views}}
 	response, err := coordinator.Execute(t.Context(), testAdministrator, "list", strings.NewReader(`{}`))
 	require.NoError(t, err)
-	require.Equal(t, ListResponse{ForgejoURL: "https://forgejo.fixture", Runners: views, RunnerCount: 2, ActiveListeners: 1, TotalCapacity: 2}, response)
+	require.Equal(t, ListResponse{Inventory: Inventory{Runners: views, Unavailable: []string{}}, Complete: true, ForgejoURL: "https://forgejo.fixture", RunnerCount: 2, ActiveListeners: 1, TotalCapacity: 2}, response)
 }
 
 func TestCoordinatorRetainsStrictRequestDecoding(t *testing.T) {

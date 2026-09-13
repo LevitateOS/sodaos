@@ -1,7 +1,6 @@
 """Tailnet build inputs/version checks; no image, daemon or provider operations."""
 import json
 from pathlib import Path
-import re
 import runpy
 import unittest
 
@@ -11,9 +10,8 @@ ROOT = Path(__file__).resolve().parents[2]
 class TailnetImage(unittest.TestCase):
     def test_locked_upstream_base_and_release_checksums(self):
         lock = json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())
-        version = re.search(r'ManagementCLIRelease = "([^"]+)"', (ROOT / 'internal/tailnet/management.go').read_text())
-        self.assertIsNotNone(version)
-        self.assertEqual(lock['version'], version.group(1))
+        # Build pins remain authoritative; live management has no release-number veto.
+        self.assertRegex(lock['version'], r'^[0-9]+\.[0-9]+\.[0-9]+$')
         self.assertRegex(lock['base'], r'^docker.io/tailscale/alpine-base@sha256:[0-9a-f]{64}$')
         self.assertEqual(set(lock['sha256']), {'amd64', 'arm64'})
         for digest in lock['sha256'].values():
@@ -25,6 +23,7 @@ class TailnetImage(unittest.TestCase):
         self.assertIn('COPY appliance/licenses/tailscale-LICENSE /usr/share/licenses/tailscale/LICENSE', recipe)
         self.assertIn('Copyright (c) 2020 Tailscale Inc & contributors.', (ROOT / 'appliance/licenses/tailscale-LICENSE').read_text())
         build = (ROOT / 'scripts/build-native.sh').read_text()
+        self.assertIn('--build-arg "TAILSCALE_VERSION=${tailnet_inputs[1]}"', build)
         self.assertIn('--build-arg "ARCHIVE_SHA256=${tailnet_inputs[2]}"', build)
         self.assertIn('-f appliance/tailnet.Containerfile', build)
 

@@ -62,16 +62,10 @@ test('integrated drawer source: measured cells, themes, compact/native focus and
       const object = (value: unknown): Record<string, unknown> => {if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('Invalid fixture frame'); return value as Record<string, unknown>;};
       const nativeFetch = window.fetch;
       const fixtureFetch = async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).endsWith('/terminal-sessions') && init?.method === 'POST') return Response.json({id: 'a'.repeat(32)}, {status: 201});
         const metadata = window.fixtureMetadata;
         if (!String(url).includes('/terminal-sessions/') || !metadata) return nativeFetch(url, init);
-        if (init?.method === 'POST') {
-          const body = object(JSON.parse(typeof init.body === 'string' ? init.body : '{}'));
-          if (!['hide', 'return', 'retain'].includes(String(body.action))) throw Error('Unapproved fixture lifetime action');
-          window.fixtureActions.push(String(body.action));
-          if (body.action === 'return') metadata.retain_until = 0;
-          else if (body.action === 'retain' || !metadata.retain_until) metadata.retain_until = Math.min(metadata.hard_until, Math.floor(Date.now() / 1000) + (body.seconds === 7200 ? 7200 : 1800));
-          metadata.effective_until = metadata.retain_until || metadata.hard_until;
-        }
+        if (init?.method === 'POST') throw Error('Unapproved fixture native action');
         return Response.json({terminal: metadata});
       };
       Object.defineProperty(window, 'fetch', {value: fixtureFetch});
@@ -84,10 +78,9 @@ test('integrated drawer source: measured cells, themes, compact/native focus and
         send(data: string) {
           const frame = object(JSON.parse(data)); window.fixtureFrames.push(frame);
           if (frame.action !== 'create') return;
-          if (typeof frame.request_id !== 'string') throw Error('Missing fixture correlation');
+          if (frame.id !== 'a'.repeat(32)) throw Error('Missing issued fixture locator');
           const now = Math.floor(Date.now() / 1000);
-          window.fixtureMetadata = {id: 'a'.repeat(32), request_id: frame.request_id, environment_id: 'p0123456789abcdef01234567', repository_id: '7', user_id: '1', login: 'fixture', name: typeof frame.name === 'string' ? frame.name : '', created_at: now, hard_until: now + 43200, retain_until: 0, effective_until: now + 43200, ready: true, attached: true, state: 'ready'};
-          this.onmessage?.({data: JSON.stringify({type: 'session', id: 'a'.repeat(32), request_id: frame.request_id, attachment_id: 'c'.repeat(32)})});
+          window.fixtureMetadata = {id: frame.id, environment_id: 'p0123456789abcdef01234567', repository_id: '7', user_id: '1', login: 'fixture', name: typeof frame.name === 'string' ? frame.name : '', created_at: now, ready: true, attached: true, state: 'ready'};
           this.onmessage?.({data: '{"type":"ready"}'}); this.onmessage?.({data: JSON.stringify({type: 'output', data: btoa('Renderer fixture only; no native shell\r\n$ ')})});
         }
         close() {window.fixtureClosedCount++; this.readyState = 3; this.onclose?.();}
@@ -106,7 +99,7 @@ test('integrated drawer source: measured cells, themes, compact/native focus and
         hideFont: getComputedStyle(document.querySelector('#sodaspaces-close')!).fontFamily};
     });
     assert.equal(presentation.background, presentation.canvas);
-    assert.equal(presentation.scheme, theme); assert.match(presentation.font, /Barlow/); assert.match(presentation.hideFont, /Barlow/);
+    assert.equal(presentation.scheme, theme); assert.match(presentation.font, /Barlow/); assert.match(presentation.hideFont, /IBM Plex Mono/);
     assert.equal(presentation.nativeBackground, 'rgba(0, 0, 0, 0)', 'island tokens must not activate full-page styling');
     assert.doesNotMatch(presentation.nativeFont, /Barlow/);
     const metrics = await drawer.evaluate(node => ({width: node.getBoundingClientRect().width, left: node.getBoundingClientRect().left, overflow: node.scrollWidth > node.clientWidth, compact: document.body.classList.contains('sodaspaces-compact')}));
@@ -163,11 +156,11 @@ test('integrated drawer source: measured cells, themes, compact/native focus and
       await page.getByRole('button', {name: 'Cancel', exact: true}).click(); matrix.push({viewport: width, theme, running: state, ...metrics});
     }
     await page.screenshot({path: path.join(out, `${width}-${theme}-${state ? 'running' : 'stopped'}.png`)});
-    await page.locator('#sodaspaces-close').click(); if (state) await page.waitForFunction(() => window.fixtureActions.includes('hide'));
-    await page.locator('#sodaspaces-button').click(); if (state) await page.waitForFunction(() => window.fixtureActions.includes('return'));
+    await page.locator('#sodaspaces-close').click();
+    await page.locator('#sodaspaces-button').click();
     assert.equal(await page.locator('soda-terminal').count(), state ? 1 : 0); assert.equal(await page.evaluate(() => window.fixtureClosedCount), 0);
     assert.equal(await page.evaluate(() => window.fixtureSocketCount), state ? 1 : 0);
-    assert.deepEqual(await page.evaluate(() => window.fixtureActions), state ? ['hide', 'return'] : []);
+    assert.deepEqual(await page.evaluate(() => window.fixtureActions), []);
     if (metrics.compact) {await page.reload(); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor({state: 'attached'}); assert(await drawer.isHidden()); assert.equal(await page.getByRole('button', {name: 'Forge', exact: true}).getAttribute('aria-pressed'), 'true'); assert.equal(await page.evaluate(() => window.fixtureSocketCount), 0);}
     await page.close();
   }

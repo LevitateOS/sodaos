@@ -13,11 +13,11 @@ import (
 )
 
 const admissionBody = `{"id":"p0123456789abcdef01234567"}`
+const admissionMutation = `{"project":"p0123456789abcdef01234567","action":"start"}`
 
 type delayedAdmissionExec struct {
-	entered chan struct{}
-	release chan struct{}
-	calls   atomic.Int32
+	entered, release chan struct{}
+	calls            atomic.Int32
 }
 
 func (e *delayedAdmissionExec) Run(context.Context, []byte, string, ...string) ([]byte, error) {
@@ -56,25 +56,12 @@ func (r *admissionBodyReader) Read(p []byte) (int, error) {
 func TestCancelledAdmissionLeavesWithoutDecodeOrExecution(t *testing.T) {
 	for _, mode := range []string{"cancel", "deadline"} {
 		t.Run(mode, func(t *testing.T) {
-			executor := &delayedAdmissionExec{entered: make(chan struct{}), release: make(chan struct{})}
+			executor := &noExec{}
 			d := &Daemon{Exec: executor}
-			firstDone, waiterDone := make(chan struct{}), make(chan struct{})
-			var release sync.Once
-			t.Cleanup(func() {
-				release.Do(func() { close(executor.release) })
-				for _, done := range []chan struct{}{firstDone, waiterDone} {
-					select {
-					case <-done:
-					case <-time.After(2 * time.Second):
-						t.Error("handler leaked")
-					}
-				}
-			})
-			go func() {
-				defer close(firstDone)
-				d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/inspect", strings.NewReader(admissionBody)))
-			}()
-			<-executor.entered
+			if err := d.acquireAdmission(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { <-d.admission }()
 			ctx, cancel := context.WithCancel(t.Context())
 			if mode == "deadline" {
 				cancel()
@@ -82,106 +69,126 @@ func TestCancelledAdmissionLeavesWithoutDecodeOrExecution(t *testing.T) {
 			}
 			defer cancel()
 			entered := &admissionContext{Context: ctx, entered: make(chan struct{})}
-			body := &admissionBodyReader{Reader: strings.NewReader(admissionBody)}
-			response := httptest.NewRecorder()
+			body := &admissionBodyReader{Reader: strings.NewReader(admissionMutation)}
+			response, done := httptest.NewRecorder(), make(chan struct{})
 			go func() {
-				defer close(waiterDone)
-				d.ServeHTTP(response, httptest.NewRequest("POST", "/inspect", body).WithContext(entered))
+				defer close(done)
+				d.ServeHTTP(response, httptest.NewRequest("POST", "/lifecycle", body).WithContext(entered))
 			}()
 			<-entered.entered
 			if mode == "cancel" {
 				cancel()
 			}
 			select {
-			case <-waiterDone:
+			case <-done:
 			case <-time.After(2 * time.Second):
-				t.Fatal("cancelled waiter remained behind the active operation")
+				t.Fatal("cancelled waiter retained admission")
 			}
-			if response.Code != 408 || body.reads.Load() != 0 || executor.calls.Load() != 1 {
-				t.Fatal("cancelled operation decoded or dispatched", response.Code, body.reads.Load(), executor.calls.Load())
-			}
-			release.Do(func() { close(executor.release) })
-			<-firstDone
-			// The cancelled waiter did not consume/leak admission for later work.
-			d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/inspect", strings.NewReader(admissionBody)))
-			if executor.calls.Load() != 2 {
-				t.Fatal("admission not reusable")
+			if response.Code != 408 || body.reads.Load() != 0 || executor.called {
+				t.Fatal("cancelled mutation decoded/dispatched", response.Code)
 			}
 		})
 	}
 }
 
-func TestAdmissionRemainsGloballySerialized(t *testing.T) {
+func TestMutationAdmissionRemainsSerialized(t *testing.T) {
 	executor := &delayedAdmissionExec{entered: make(chan struct{}), release: make(chan struct{})}
 	d := &Daemon{Exec: executor}
 	var release sync.Once
 	defer release.Do(func() { close(executor.release) })
 	var workers sync.WaitGroup
 	for range 12 {
-		workers.Add(1)
-		go func() {
-			defer workers.Done()
-			d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/inspect", strings.NewReader(admissionBody)))
-		}()
+		workers.Go(func() {
+			d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/lifecycle", strings.NewReader(admissionMutation)))
+		})
 	}
 	<-executor.entered
 	time.Sleep(50 * time.Millisecond)
 	if executor.calls.Load() != 1 {
-		t.Error("buffered native operations overlapped")
+		t.Error("mutations overlapped")
 	}
 	release.Do(func() { close(executor.release) })
 	workers.Wait()
 	if executor.calls.Load() != 12 {
-		t.Fatal("queued work lost")
+		t.Fatal("queued mutation lost")
+	}
+}
+
+func TestReadOnlyObservationsDoNotWaitForMutationAdmission(t *testing.T) {
+	for _, path := range []string{"/inspect", "/profile", "/os", "/connection"} {
+		t.Run(path, func(t *testing.T) {
+			d := &Daemon{Exec: &noExec{}}
+			if err := d.acquireAdmission(t.Context()); err != nil {
+				t.Fatal(err)
+			}
+			defer func() { <-d.admission }()
+			body := admissionBody
+			if path == "/profile" {
+				body = `{}`
+			}
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", path, strings.NewReader(body)))
+			}()
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+				t.Fatal("observation blocked on writer")
+			}
+		})
 	}
 }
 
 func TestCancelledContextCannotWinAvailableAdmission(t *testing.T) {
-	executor := &noExec{}
-	d := &Daemon{Exec: executor}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	// Both the gate and Done can be ready. Every selection must still refuse.
-	for range 100 {
-		w := httptest.NewRecorder()
-		d.ServeHTTP(w, httptest.NewRequest("POST", "/inspect", strings.NewReader(admissionBody)).WithContext(ctx))
-		if w.Code != 408 || executor.called {
-			t.Fatal("cancelled request won admission", w.Code)
+	for _, path := range []string{"/inspect", "/lifecycle"} {
+		executor := &noExec{}
+		d := &Daemon{Exec: executor}
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		for range 100 {
+			w := httptest.NewRecorder()
+			d.ServeHTTP(w, httptest.NewRequest("POST", path, strings.NewReader(admissionBody)).WithContext(ctx))
+			if w.Code != 408 || executor.called {
+				t.Fatal("cancelled request dispatched", w.Code)
+			}
 		}
 	}
 }
 
 func TestCancellationDuringDecodeCannotDispatch(t *testing.T) {
-	executor := &noExec{}
-	d := &Daemon{Exec: executor}
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-	body := &admissionBodyReader{Reader: strings.NewReader(admissionBody), cancel: cancel}
-	w := httptest.NewRecorder()
-	d.ServeHTTP(w, httptest.NewRequest("POST", "/inspect", body).WithContext(ctx))
-	if w.Code != 500 || body.reads.Load() == 0 || executor.called {
-		t.Fatal("cancelled decode reached executor", w.Code)
-	}
-	// Failure after admission also releases the gate.
-	d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/inspect", strings.NewReader(admissionBody)))
-	if !executor.called {
-		t.Fatal("admission leaked after decode")
+	for _, path := range []string{"/inspect", "/lifecycle"} {
+		executor := &noExec{}
+		d := &Daemon{Exec: executor}
+		ctx, cancel := context.WithCancel(t.Context())
+		input := admissionBody
+		if path == "/lifecycle" {
+			input = admissionMutation
+		}
+		body := &admissionBodyReader{Reader: strings.NewReader(input), cancel: cancel}
+		w := httptest.NewRecorder()
+		d.ServeHTTP(w, httptest.NewRequest("POST", path, body).WithContext(ctx))
+		if w.Code != 500 || body.reads.Load() == 0 || executor.called {
+			t.Fatal("cancelled decode dispatched", w.Code)
+		}
+		if err := d.acquireAdmission(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		<-d.admission
 	}
 }
 
 func TestInvalidRequestReleasesAdmission(t *testing.T) {
-	for _, request := range []struct{ path, body string }{
-		{"/inspect", `{`}, {"/inspect", `{"id":"bad"}`}, {"/unknown", `{}`},
-	} {
+	for _, request := range []struct{ path, body string }{{"/inspect", `{`}, {"/inspect", `{"id":"bad"}`}, {"/lifecycle", `{`}, {"/unknown", `{}`}} {
 		executor := &noExec{}
 		d := &Daemon{Exec: executor}
 		d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", request.path, strings.NewReader(request.body)))
 		if executor.called {
-			t.Fatal("invalid request reached executor")
+			t.Fatal("invalid request executed")
 		}
-		d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/inspect", strings.NewReader(admissionBody)))
-		if !executor.called {
-			t.Fatal("invalid request leaked admission")
+		if err := d.acquireAdmission(t.Context()); err != nil {
+			t.Fatal(err)
 		}
+		<-d.admission
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
@@ -37,6 +38,16 @@ func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int3
 	s.Config.OperatorID = 999
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nativeCalls.Add(1)
+		if r.URL.Path == "/terminal" {
+			c, err := websocket.Accept(w, r, nil)
+			if err != nil {
+				return
+			}
+			defer c.CloseNow()
+			_, _, _ = c.Read(r.Context())
+			_ = c.Write(r.Context(), websocket.MessageText, []byte(`{"type":"metadata","terminals":[]}`))
+			return
+		}
 		var input host.Create
 		_ = json.NewDecoder(r.Body).Decode(&input)
 		_ = json.NewEncoder(w).Encode(host.Environment{ID: input.ID, Running: true})
@@ -89,6 +100,9 @@ func TestSpacesDeniedUnavailableAndDegradedOwnMembership(t *testing.T) {
 				if status == 0 {
 					expectedNative++
 				} // Optional authorized Tailnet observation.
+				if status == 0 && member {
+					expectedNative++
+				} // Actual native terminal inventory.
 				if len(result.Items) != 1 || native.Load() != expectedNative {
 					t.Fatal("legitimate observation missing")
 				}

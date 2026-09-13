@@ -97,15 +97,22 @@ func (s *Server) apiRunners(w http.ResponseWriter, r *http.Request, v store.Sess
 		jsonResponse(w, 200, runners.MutationResponse{OK: true})
 		return
 	}
-	views, err := s.Host.RunnersList(ctx)
-	if err != nil || views == nil || len(views) > 64 {
+	inventory, err := s.Host.RunnersList(ctx)
+	if err != nil || inventory.Runners == nil || inventory.Unavailable == nil || len(inventory.Runners)+len(inventory.Unavailable) > 64 {
 		jsonError(w, 503, "runners_unavailable", "Local runner inventory is unavailable; no empty or provider-available state was inferred.")
 		return
 	}
-	result := runners.ListResponse{ForgejoURL: s.Config.ForgejoURL, Runners: views, RunnerCount: len(views), TotalCapacity: len(views) * runners.RunnerCapacity}
-	for i := range result.Runners {
-		row := &result.Runners[i]
-		if runners.ValidateID(row.ID) != nil || row.Capacity != runners.RunnerCapacity {
+	seen := map[string]bool{}
+	for _, id := range inventory.Unavailable {
+		if runners.ValidateID(id) != nil || seen[id] {
+			jsonError(w, 503, "runners_unavailable", "Invalid unavailable runner locator.")
+			return
+		}
+		seen[id] = true
+	}
+	for i := range inventory.Runners {
+		row := &inventory.Runners[i]
+		if runners.ValidateID(row.ID) != nil || seen[row.ID] || row.Capacity != runners.RunnerCapacity {
 			jsonError(w, 503, "runners_unavailable", "Invalid local runner observation.")
 			return
 		}
@@ -113,12 +120,10 @@ func (s *Server) apiRunners(w http.ResponseWriter, r *http.Request, v store.Sess
 			jsonError(w, 503, "runners_unavailable", "Invalid local runner provider.")
 			return
 		}
+		seen[row.ID] = true
 		row.RegistrationURL = s.Config.ForgejoURL
-		if row.Service.Active == "active" && row.Service.Sub == "running" {
-			result.ActiveListeners++
-		}
 	}
-	jsonResponse(w, 200, result)
+	jsonResponse(w, 200, inventory.Response(s.Config.ForgejoURL))
 }
 func (s *Server) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store.Session) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
@@ -138,15 +143,22 @@ func (s *Server) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store
 		jsonError(w, 404, "not_found", "Runner operation not found.")
 		return
 	}
-	var in struct {
-		ConfirmID string `json:"confirm_id"`
-	}
-	if !decodeAPIObject(w, r, &in) {
-		return
-	}
-	if in.ConfirmID != id {
-		jsonError(w, 400, "confirmation_required", "Confirm the exact runner ID and operation effects.")
-		return
+	if action == "remove" {
+		var in struct {
+			ConfirmID string `json:"confirm_id"`
+		}
+		if !decodeAPIObject(w, r, &in) {
+			return
+		}
+		if in.ConfirmID != id {
+			jsonError(w, 400, "confirmation_required", "Confirm the exact runner ID and destructive effects.")
+			return
+		}
+	} else {
+		var in runners.EmptyRequest
+		if !decodeAPIObject(w, r, &in) {
+			return
+		}
 	}
 	// Recheck after decoding and confirmation, immediately before dispatch.
 	cookie, err := requestCookie(r, sessionCookie)

@@ -51,11 +51,8 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				terminalCtx, endTerminal := context.WithCancel(t.Context())
-				defer endTerminal()
 				peerCtx, endPeer := context.WithCancel(t.Context())
 				defer endPeer()
-				s.terminals = map[string]*browserTerminal{"retained": {terminalBinding: terminalBinding{session: bob, project: store.Project{ID: project}}, cancel: endTerminal}}
 				s.terminalPeers = map[*http.Request]*terminalPeer{r: {contextID: bob.ContextID, project: project, cancel: endPeer}}
 				nativeCalls := 0
 				s.Host.HTTP = &http.Client{Transport: roundTrip(func(req *http.Request) (*http.Response, error) {
@@ -80,7 +77,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 						if req.URL.Path != "/lifecycle" || in["action"] != operation {
 							t.Error("lifecycle action changed")
 						}
-						if operation == "stop" && (!s.terminalStopping[project] || terminalCtx.Err() == nil || peerCtx.Err() == nil) {
+						if operation == "stop" && (!s.terminalStopping[project] || peerCtx.Err() == nil) {
 							t.Error("admitted Stop lost terminal coordination")
 						}
 						_ = json.NewEncoder(w).Encode(host.LifecycleState{Environment: host.Environment{ID: project, Running: operation == "start"}, BootEnabled: operation == "start"})
@@ -191,7 +188,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 					t.Errorf("admission: status=%d want=%d provider=%d native=%d body=%s", w.Code, want, providerCalls, nativeCalls, w.Body.String())
 				}
 				shouldEnd := operation == "stop" && change == "unchanged"
-				if (terminalCtx.Err() != nil) != shouldEnd || (peerCtx.Err() != nil) != shouldEnd || s.terminalStopping[project] {
+				if (peerCtx.Err() != nil) != shouldEnd || s.terminalStopping[project] {
 					t.Error("denied mutation disturbed terminals or leaked Stop admission")
 				}
 				if operation == "join" && change != "store" {

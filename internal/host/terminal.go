@@ -19,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/coder/websocket"
 	"github.com/levitateos/sodaos/internal/strictjson"
@@ -29,7 +31,7 @@ import (
 //go:embed project_terminal.py
 var projectTerminal string
 
-const terminalFrameLimit = 32768
+const terminalFrameLimit = 131072 // bounded 64-row metadata; IO payload bounds remain smaller
 const terminalLimit = 64
 
 // TerminalRequest is private root:soda helper input. The web layer must resolve
@@ -42,25 +44,67 @@ type TerminalRequest struct {
 	Identity int64  `json:"identity"`
 	Cols     int    `json:"cols"`
 	Rows     int    `json:"rows"`
-	Expires  int64  `json:"expires"`
+	Expires  int64  `json:"expires"` // request/attachment deadline, never shell lifetime
+	Name     string `json:"name"`
+	Scope    string `json:"scope"` // opaque creation-context digest, never browser authority
+}
+
+type TerminalState struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt int64  `json:"created_at"`
+	Ready     bool   `json:"ready"`
+	Attached  bool   `json:"attached"`
+	State     string `json:"state"`
 }
 
 type TerminalFrame struct {
-	Type   string `json:"type"`
-	Data   string `json:"data,omitempty"`
-	Cols   int    `json:"cols,omitempty"`
-	Rows   int    `json:"rows,omitempty"`
-	Reason string `json:"reason,omitempty"`
+	Type      string           `json:"type"`
+	Data      string           `json:"data,omitempty"`
+	Cols      int              `json:"cols,omitempty"`
+	Rows      int              `json:"rows,omitempty"`
+	Reason    string           `json:"reason,omitempty"`
+	Terminals *[]TerminalState `json:"terminals,omitempty"`
+}
+
+func ValidTerminalName(name string) bool {
+	if !utf8.ValidString(name) || utf8.RuneCountInString(name) > 80 {
+		return false
+	}
+	for _, c := range name {
+		if unicode.IsControl(c) || unicode.Is(unicode.Cf, c) {
+			return false
+		}
+	}
+	return true
 }
 
 func terminalDimensions(cols, rows int) bool {
 	return cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300
 }
 func (in TerminalRequest) valid(now time.Time) bool {
-	return (in.Action == "create" || in.Action == "attach") && terminalID.MatchString(in.ID) && projectID.MatchString(in.Project) && loginName.MatchString(in.Login) && in.Login != "root" && in.Identity > 0 && terminalDimensions(in.Cols, in.Rows) && in.Expires > now.Unix() && in.Expires <= now.Add(12*time.Hour).Unix()
+	if !projectID.MatchString(in.Project) || !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 || in.Expires <= now.Unix() || in.Expires > now.Add(12*time.Hour).Unix() || !ValidTerminalName(in.Name) {
+		return false
+	}
+	if (in.Action == "reserve" || in.Action == "create") != (len(in.Scope) == 64 && containerID.MatchString(in.Scope)) || (in.Action != "reserve" && in.Action != "create" && in.Scope != "") {
+		return false
+	}
+	if in.Action == "list" {
+		return in.ID == "" && in.Cols == 0 && in.Rows == 0 && in.Name == ""
+	}
+	if !terminalID.MatchString(in.ID) {
+		return false
+	}
+	switch in.Action {
+	case "reserve", "create", "attach":
+		return terminalDimensions(in.Cols, in.Rows) && (in.Action != "attach" || in.Name == "")
+	case "inspect", "end", "rename":
+		return in.Cols == 0 && in.Rows == 0 && (in.Action == "rename" || in.Name == "")
+	}
+	return false
 }
 func (f TerminalFrame) inputValid() bool {
-	if f.Reason != "" {
+	if f.Reason != "" || f.Terminals != nil {
 		return false
 	}
 	switch f.Type {
@@ -75,10 +119,25 @@ func (f TerminalFrame) inputValid() bool {
 	return false
 }
 func (f TerminalFrame) outputValid() bool {
-	if f.Cols != 0 || f.Rows != 0 {
+	if f.Cols != 0 || f.Rows != 0 || (f.Type != "metadata" && f.Terminals != nil) {
 		return false
 	}
 	switch f.Type {
+	case "metadata":
+		if f.Data != "" || f.Reason != "" || f.Terminals == nil || len(*f.Terminals) > terminalLimit {
+			return false
+		}
+		seen := make(map[string]bool)
+		for _, item := range *f.Terminals {
+			if !terminalID.MatchString(item.ID) || seen[item.ID] || !ValidTerminalName(item.Name) || item.CreatedAt <= 0 || item.CreatedAt > 9007199254740991 || item.Ready != (item.State == "ready") || (item.Attached && !item.Ready) {
+				return false
+			}
+			if item.State != "ready" && item.State != "opening" && item.State != "ending" && item.State != "ended" {
+				return false
+			}
+			seen[item.ID] = true
+		}
+		return true
 	case "ready":
 		return f.Data == "" && f.Reason == ""
 	case "output":
@@ -115,7 +174,7 @@ func (Native) terminal(container string, in TerminalRequest) (terminalProcess, e
 	if !containerID.MatchString(container) || !in.valid(time.Now()) || seconds < 1 {
 		return nil, errors.New("invalid terminal target")
 	}
-	cmd := exec.Command("/usr/bin/podman", "--remote=false", "exec", "--interactive", container, "/usr/bin/python3", "-I", "-c", projectTerminal, in.Action, in.ID, in.Login, strconv.FormatInt(in.Identity, 10), strconv.Itoa(in.Cols), strconv.Itoa(in.Rows), strconv.FormatInt(seconds, 10), fmt.Sprintf("%x", sha256.Sum256([]byte(projectTerminal))))
+	cmd := exec.Command("/usr/bin/podman", "--remote=false", "exec", "--interactive", container, "/usr/bin/python3", "-I", "-c", projectTerminal, in.Action, in.ID, in.Login, strconv.FormatInt(in.Identity, 10), strconv.Itoa(in.Cols), strconv.Itoa(in.Rows), strconv.FormatInt(seconds, 10), fmt.Sprintf("%x", sha256.Sum256([]byte(projectTerminal))), in.Name, in.Scope)
 	// Terminal bytes never enter stderr diagnostics, journal or command-error text.
 	cmd.Stderr = io.Discard
 	input, err := cmd.StdinPipe()
@@ -167,8 +226,8 @@ func (p *nativeTerminal) Output() (TerminalFrame, error) {
 func (p *nativeTerminal) Close() {
 	p.once.Do(func() {
 		// Closing stdin requests launcher EOF. If conmon does not propagate it, the
-		// independent project-local heartbeat lease still expires. Killing this CLI is
-		// NOT reported as confirmation that its container login process exited.
+		// project-local attachment heartbeat still expires. Neither closing this CLI
+		// nor detaching its PTY ends the independently supervised tmux server.
 		_ = p.stdin.Close()
 		select {
 		case <-p.done:
@@ -248,7 +307,7 @@ func (d *Daemon) CloseTerminals() {
 }
 func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 	// This handler is private to the existing filesystem-authorized Unix socket.
-	// Browser Origin/cookie/CSRF authorization belongs to a separate future web route.
+	// Browser Origin/cookie/CSRF authorization belongs to the web route.
 	if r.Method != "GET" || r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "" || len(r.Header.Values("Origin")) != 0 {
 		http.Error(w, "invalid private terminal request", 400)
 		return
@@ -314,8 +373,8 @@ func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	defer close(stopped)
-	// Only the authenticated backend supplies heartbeat controls. Ordinary data
-	// does not renew the project-local lease after its Soda session is invalidated.
+	// Only the authenticated backend supplies attached-access heartbeats. This
+	// bounds the PTY bridge after logout, not the systemd-owned shell's lifetime.
 	incoming := make(chan error, 1)
 	go func() {
 		for {
@@ -358,7 +417,7 @@ func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 		if err = writeTerminal(ctx, conn, f); err != nil {
 			return
 		}
-		if f.Type == "closed" {
+		if f.Type == "closed" || f.Type == "metadata" {
 			return
 		}
 	}

@@ -139,7 +139,7 @@ test('preservation compares actual baseline hashes and rejects missing or change
   const input=runnerInput(base(),'--allow-runner-list','runner-fixture');
   const snapshot: RunnerState={target:input.target,architecture:input.architecture,proof:null,boot_id:'11111111-1111-4111-8111-111111111111',processes:{baseline:[]},prior_survivors:[],packages:['runner fixture','systemd fixture'],
     states:{baseline:{present:true,uid:1001,tree:{sha256:'a'.repeat(64)}}},
-    inventory:{runners:[{id:'baseline',provider:'forgejo',registration_url:input.origin,account:'soda-runner-baseline',architecture:'x86-64',version:'fixture',capacity:1,service:{load:'loaded',active:'inactive',sub:'dead',enabled:'disabled'}}],forgejo_url:input.origin,runner_count:1,total_capacity:1,active_listeners:0}};
+    inventory:{complete:true,unavailable:[],runners:[{id:'baseline',provider:'forgejo',registration_url:input.origin,account:'soda-runner-baseline',architecture:'x86-64',version:'fixture',capacity:1,service:{load:'loaded',active:'inactive',sub:'dead',enabled:'disabled'}}],forgejo_url:input.origin,runner_count:1,total_capacity:1,active_listeners:0}};
   preserveRunnerBaseline(input,snapshot,structuredClone(snapshot));
   const changed=structuredClone(snapshot); changed.states.baseline={present:true,uid:1002};
   assert.throws(()=>preserveRunnerBaseline(input,snapshot,changed));

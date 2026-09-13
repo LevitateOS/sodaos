@@ -51,10 +51,10 @@ func (d *Daemon) runnerHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(body)
 }
 
-func (c *Client) RunnersList(ctx context.Context) ([]runners.RunnerView, error) {
-	var views []runners.RunnerView
-	err := c.call(ctx, "/runners/list", runners.EmptyRequest{}, &views)
-	return views, err
+func (c *Client) RunnersList(ctx context.Context) (runners.Inventory, error) {
+	var inventory runners.Inventory
+	err := c.call(ctx, "/runners/list", runners.EmptyRequest{}, &inventory)
+	return inventory, err
 }
 func (c *Client) RunnerCreate(ctx context.Context, in runners.CreateRequest) error {
 	var result runners.MutationResponse

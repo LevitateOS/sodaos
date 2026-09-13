@@ -23,9 +23,6 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-// ManagementCLIRelease is the reviewed management protocol baseline, not an
-// installer upgrade instruction. Other releases fail closed until reviewed.
-const ManagementCLIRelease = "1.102.4"
 const hostSocket = "/var/run/tailscale/tailscaled.sock"
 const responseLimit = 65536
 
@@ -156,7 +153,6 @@ type nativeStatus struct {
 		Name            string
 		MagicDNSEnabled bool
 	}
-	Version      string
 	BackendState string
 	HaveNodeKey  bool
 	AuthURL      string
@@ -232,11 +228,8 @@ func (m *Management) observe(ctx context.Context) (HostView, string, error) {
 	var s nativeStatus
 	var p nativePrefs
 	b, err := m.request(ctx, "GET", "status", nil)
-	if err != nil || nativeObject(b, &s, "Version", "BackendState", "HaveNodeKey") != nil || s.BackendState == "" || len(s.Peer) > 128 || len(s.Health) > 128 {
+	if err != nil || nativeObject(b, &s, "BackendState", "HaveNodeKey") != nil || s.BackendState == "" || len(s.Peer) > 128 || len(s.Health) > 128 {
 		return HostView{}, "", ErrUnavailable
-	}
-	if strings.SplitN(s.Version, "-", 2)[0] != ManagementCLIRelease {
-		return HostView{}, "", ErrUnsupported
 	}
 	switch s.BackendState {
 	case "NoState", "InUseOtherUser", "NeedsLogin", "NeedsMachineAuth", "Stopped", "Starting", "Running":
@@ -354,11 +347,6 @@ func (m *Management) HostAction(ctx context.Context, r HostRequest) (HostResult,
 	if err = ctx.Err(); err != nil {
 		return HostResult{}, ErrUnconfirmed
 	}
-	if r.Action == "exit-node" || r.Action == "advertise-exit-node" || r.Action == "refresh-forgejo" || (r.Action == "signin" && !before.HaveNodeKey) {
-		if err = m.verifyCLI(ctx); err != nil {
-			return HostResult{}, err
-		}
-	}
 	selectedExitNodeID := ""
 	switch r.Action {
 	case "signin":
@@ -466,19 +454,6 @@ func boolString(b bool) string {
 		return "true"
 	}
 	return "false"
-}
-func (m *Management) verifyCLI(ctx context.Context) error {
-	data, err := m.command(ctx, DefaultCLI, "version", "--json")
-	if err != nil {
-		return ErrUnavailable
-	}
-	var version struct {
-		Short string `json:"short"`
-	}
-	if nativeObject(data, &version, "short") != nil || version.Short != ManagementCLIRelease {
-		return ErrUnsupported
-	}
-	return nil
 }
 func (m *Management) run(ctx context.Context, args ...string) error {
 	_, e := m.command(ctx, DefaultCLI, append([]string{"--socket=" + hostSocket}, args...)...)

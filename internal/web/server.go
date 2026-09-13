@@ -22,8 +22,6 @@ type Server struct {
 	mux              *http.ServeMux
 	providerLocks    providerLocks
 	terminalMu       sync.Mutex
-	terminals        map[string]*browserTerminal
-	terminalReceipts map[string]terminalReceipt
 	spacesSlots      chan struct{}
 	terminalPeers    map[*http.Request]*terminalPeer
 	terminalStopping map[string]bool

@@ -1,6 +1,7 @@
 import {signOut, connectionSuppressed} from '../spaces/soda-connection.js';
 import {LitElement, html} from 'lit';
-import {id, object, readSodaJSON, sessionResponse} from '../spaces/sodaspaces-api.js';
+import {id, readSodaJSON} from '../spaces/sodaspaces-api.js';
+import type {Session} from '../spaces/sodaspaces-api.js';
 import {decodeRunnerResponse} from './soda-runner-response.js';
 import type {LifecycleAction, ListResponse, Runner} from './soda-runner-types.js';
 
@@ -29,6 +30,11 @@ class SodaRunners extends LitElement {
   declare private blocked: boolean;
   declare private pending: {id: string; action: LifecycleAction} | null;
   private actor = '';
+  private csrf = '';
+  configure(actor: string, session: Session) {
+    if (this.actor || !id(actor) || session.user.id !== actor) throw Error('Invalid original runner actor');
+    this.actor = actor; this.csrf = session.csrf_token;
+  }
   // One controller is both the current document/element lifetime and its request
   // generation. An abort is not proof that a dispatched native effect stopped.
   private lifetime: AbortController | null = null;
@@ -58,7 +64,6 @@ class SodaRunners extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    if (!this.actor) this.actor = this.dataset.actor || '';
     window.addEventListener('beforeunload', this.beforeDeparture);
     window.addEventListener('pagehide', this.pageHidden);
     window.addEventListener('soda-session-retired', this.pageHidden);
@@ -101,7 +106,7 @@ class SodaRunners extends LitElement {
     this.message = 'Refresh authorization before managing runners.';
   }
   private resume() {
-    if (this.lifetime || !this.isConnected || connectionSuppressed()) return;
+    if (!this.actor || this.lifetime || !this.isConnected || connectionSuppressed()) return;
     this.lifetime = new AbortController();
     this.clearToken(); // Also discard a password restored by browser form history.
     void this.refresh();
@@ -114,35 +119,13 @@ class SodaRunners extends LitElement {
     this.stale = true;
     this.blocked = true;
   }
-  private async session(lifetime: AbortController, requireOperator: boolean) {
-    this.requireCurrent(lifetime);
-    try {
-      if (!id(this.actor)) throw Error('Invalid original actor');
-      const response = await fetch('/-/soda/api/session', {
-        credentials: 'same-origin', cache: 'no-store', redirect: 'error',
-        headers: {'X-Soda-Expected-User-ID': this.actor},
-        signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(15000)]),
-      });
-      this.requireCurrent(lifetime);
-      if (!response.ok) {await response.body?.cancel(); throw Error('Session unavailable');}
-      const raw = await readSodaJSON(response);
-      this.requireCurrent(lifetime);
-      const session = sessionResponse(raw, location.origin);
-      if (session.user.id !== this.actor || (requireOperator && object(raw).soda_operator !== true)) throw Error('Original operator unavailable');
-      return session;
-    } catch (error) {
-      if (this.current(lifetime)) this.authorizationLost();
-      throw error;
-    }
-  }
   private async request(lifetime: AbortController, path: string, body?: string): Promise<unknown> {
     try {
-      const session = await this.session(lifetime, true);
       this.requireCurrent(lifetime);
       if (body !== undefined) this.operation = {kind: 'runner', sent: true};
       const pending = fetch('/-/soda/api/settings/runners' + path, {
         method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
-        headers: {'X-Soda-Expected-User-ID': this.actor, ...(body === undefined ? {} : {'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf_token})},
+        headers: {'X-Soda-Expected-User-ID': this.actor, ...(body === undefined ? {} : {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrf})},
         ...(body === undefined ? {} : {body}),
         signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(190000)]),
       });
@@ -250,7 +233,7 @@ class SodaRunners extends LitElement {
     this.confirmationTrigger = event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null;
     this.pending = {id: runner, action};
     await this.updateComplete;
-    if (this.current(lifetime) && this.pending?.id === runner && this.pending.action === action) this.querySelector<HTMLInputElement>('input[name=confirm_id]')?.focus();
+    if (this.current(lifetime) && this.pending?.id === runner && this.pending.action === action) this.querySelector<HTMLElement>(action === 'remove' ? 'input[name=confirm_id]' : '[data-runner-cancel]')?.focus();
   }
   private async cancelConfirmation() {
     const lifetime = this.lifetime, trigger = this.confirmationTrigger;
@@ -266,12 +249,12 @@ class SodaRunners extends LitElement {
     event.preventDefault();
     if (!(event.currentTarget instanceof HTMLFormElement) || !this.pending) return;
     const {id: runner, action} = this.pending;
-    if (new FormData(event.currentTarget).get('confirm_id') !== runner) {
+    if (action === 'remove' && new FormData(event.currentTarget).get('confirm_id') !== runner) {
       this.notice = 'Type the exact runner ID to confirm.';
       this.querySelector<HTMLInputElement>('input[name=confirm_id]')?.focus();
       return;
     }
-    void this.mutate(`/${runner}/${action}`, JSON.stringify({confirm_id: runner}));
+    void this.mutate(`/${runner}/${action}`, JSON.stringify(action === 'remove' ? {confirm_id: runner} : {}));
   }
   private async logout() {
     if (this.busy || !this.current(this.lifetime)) return;
@@ -283,8 +266,8 @@ class SodaRunners extends LitElement {
     return html`
       <article class="settings-runner">
         <div class="settings-runner-heading"><h3>${row.id}</h3><span>Forgejo</span></div>
-        <p class="settings-help">${row.account} · ${row.architecture} · ${row.version}</p>
-        <p>Service: ${row.service.load} / ${row.service.active} / ${row.service.sub}. Boot policy: ${row.service.enabled}. ${row.capacity} configured slot.</p>
+        <p class="settings-help">${row.account} · ${row.architecture} · ${row.version || 'Client version unavailable'}</p>
+        <p>${row.service ? html`Service: ${row.service.load} / ${row.service.active} / ${row.service.sub}. Boot policy: ${row.service.enabled}.` : 'Service and boot policy unavailable.'} ${row.capacity} configured slot.</p>
         <p><a href=${location.origin} aria-label=${`Open ${row.id} in Forgejo`}>Open in Forgejo</a></p>
         <div class="settings-actions">
           ${(['start', 'stop', 'restart', 'remove'] as const).map(action => html`
@@ -297,14 +280,16 @@ class SodaRunners extends LitElement {
     if (!this.rows) return '';
     return html`
       <section aria-label="Local runner inventory">
-        <h2>${this.stale ? 'Stale observations' : 'Local capacity'}</h2>
+        <h2>${this.stale ? 'Stale observations' : this.rows.complete ? 'Local capacity' : 'Partial local observations'}</h2>
+        ${!this.rows.complete ? html`<p>Inventory is incomplete. Counts are known observations, not complete or available capacity.</p>` : ''}
         <dl class="settings-capacity">
-          <div><dt>Local runners</dt><dd>${this.rows.runner_count}</dd></div>
-          <div><dt>Listening services</dt><dd>${this.rows.active_listeners}</dd></div>
-          <div><dt>Configured slots</dt><dd>${this.rows.total_capacity}</dd></div>
+          <div><dt>Observed runners</dt><dd>${this.rows.runner_count}</dd></div>
+          <div><dt>Known listening services</dt><dd>${this.rows.active_listeners}</dd></div>
+          <div><dt>Known configured slots</dt><dd>${this.rows.total_capacity}</dd></div>
         </dl>
         <p class="settings-help">Configured slots are not available job slots. Labels are not recorded in local descriptors; inspect them in the provider.</p>
-        ${this.rows.runners.length === 0 ? html`<p>No local runners registered.</p>` : this.rows.runners.map(row => this.runnerView(row, disabled))}
+        ${this.rows.complete && this.rows.runners.length === 0 ? html`<p>No local runners registered.</p>` : this.rows.runners.map(row => this.runnerView(row, disabled))}
+        ${this.rows.unavailable.map(id => html`<p>${id}: descriptor unavailable. No account or provider details inferred; inspect this exact target separately.</p>`)}
       </section>`;
   }
   private registrationView(disabled: boolean) {
@@ -343,8 +328,8 @@ class SodaRunners extends LitElement {
         <section class="settings-confirmation" aria-label="Confirm runner operation">
           <h2>${this.pending.action} ${this.pending.id}</h2><p>${effects[this.pending.action]}</p>
           <form @submit=${(event: SubmitEvent) => this.confirm(event)} @keydown=${(event: KeyboardEvent) => this.confirmationKey(event)}>
-            <label>Exact runner ID<input name="confirm_id" autocomplete="off" required></label>
-            <div class="settings-actions"><button ?disabled=${disabled}>Confirm ${this.pending.action}</button><button type="button" @click=${() => void this.cancelConfirmation()}>Cancel</button></div>
+            ${this.pending.action === 'remove' ? html`<label>Exact runner ID<input name="confirm_id" autocomplete="off" required></label>` : ''}
+            <div class="settings-actions"><button type="button" data-runner-cancel @click=${() => void this.cancelConfirmation()}>Cancel</button><button ?disabled=${disabled}>Confirm ${this.pending.action}</button></div>
           </form>
         </section>` : ''}
       <section aria-labelledby="runner-provider-title">
@@ -357,10 +342,9 @@ class SodaRunners extends LitElement {
   }
 }
 customElements.define('soda-runners', SodaRunners);
-export function mountRunnersPage(root: HTMLElement, actor: string) {
-  if (!id(actor)) throw Error('Invalid runner actor');
-  const view = document.createElement('soda-runners');
-  view.dataset.actor = actor;
+export function mountRunnersPage(root: HTMLElement, actor: string, session: Session) {
+  const view = new SodaRunners();
+  view.configure(actor, session);
   root.replaceChildren(view);
   return {dispose() {view.remove();}};
 }

@@ -77,11 +77,7 @@ func TestProjectKeyUsesSelectedSDKAndExactPolicy(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	var c credential
-	if m.policy.read(root, "credential-"+p.Credential+".json", &c) != nil {
-		t.Fatal("credential read")
-	}
-	key, e := m.projectKey(t.Context(), p, c)
+	key, e := m.projectKey(t.Context(), p, p.Credential)
 	if e != nil || key != "tskey-auth-synthetic-only" || calls.Load() != 1 {
 		t.Fatal("key creation failed", e)
 	}
@@ -175,61 +171,44 @@ func runFixture(t *testing.T) (*Management, RunTarget, *atomic.Int32, string) {
 	}
 	return m, target, calls, dir
 }
-func TestRunEnrollmentHasOneAttemptAndNoSavedSecrets(t *testing.T) {
+func TestRunEnrollmentSerializesConsumersWithoutJournal(t *testing.T) {
 	m, target, calls, dir := runFixture(t)
-	if phase, e := m.RunAttempt(t.Context(), target); e != nil || phase != "none" || calls.Load() != 0 {
-		t.Fatal(phase, e)
-	}
-	var consumed atomic.Int32
+	var consumed, active atomic.Int32
 	consume := func(ctx context.Context, key string) error {
 		if key != "tskey-auth-synthetic-only" {
 			t.Error("wrong single-use input")
 		}
+		if active.Add(1) != 1 {
+			t.Error("concurrent key consumers")
+		}
+		defer active.Add(-1)
+		time.Sleep(time.Millisecond)
 		consumed.Add(1)
 		return nil
 	}
+	// These are separate explicit requests. Actual-node reuse belongs to the
+	// native runtime caller; the provider layer serializes without a run ledger.
 	validate := func(context.Context) error { return nil }
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Go(func() {
 			e := m.EnrollRun(t.Context(), target, validate, consume)
-			if e != nil && !errors.Is(e, ErrConflict) {
+			if e != nil {
 				t.Error(e)
 			}
 		})
 	}
 	wg.Wait()
-	if calls.Load() != 1 || consumed.Load() != 1 {
-		t.Fatal("duplicate key or consumption")
-	}
-	if phase, e := m.RunAttempt(t.Context(), target); e != nil || phase != "submitted" || calls.Load() != 1 {
-		t.Fatal(phase, e)
+	if calls.Load() != 8 || consumed.Load() != 8 {
+		t.Fatal("explicit requests lost")
 	}
 	files, _ := filepath.Glob(filepath.Join(dir, "soda-tailnet", "attempt-*"))
-	if len(files) != 1 {
-		t.Fatal("missing attempt")
+	if len(files) != 0 {
+		t.Fatal("attempt journal created")
 	}
-	b, _ := os.ReadFile(files[0])
-	if strings.Contains(string(b), "tskey") || strings.Contains(string(b), "bearer") || !strings.Contains(string(b), "submitted") {
-		t.Fatal("unsafe attempt projection")
-	}
-	// Loss of the same-run journal is not new-runtime admission.
-	if os.Remove(files[0]) != nil {
-		t.Fatal("fixture removal")
-	}
-	if phase, e := m.RunAttempt(t.Context(), target); e != nil || phase != "unconfirmed" || calls.Load() != 1 {
-		t.Fatal(phase, e)
-	}
-	if e := m.EnrollRun(t.Context(), target, validate, consume); !errors.Is(e, ErrConflict) {
-		t.Fatal(e)
-	}
-	// A genuinely new incarnation is a separate attempt/device.
-	target.Run = strings.Repeat("e", 64)
-	if e := m.EnrollRun(t.Context(), target, validate, consume); e != nil {
-		t.Fatal(e)
-	}
-	if calls.Load() != 2 || consumed.Load() != 2 {
-		t.Fatal("new incarnation not admitted")
+	b, e := os.ReadFile(filepath.Join(dir, "soda-tailnet", "project-"+target.Project+".json"))
+	if e != nil || strings.Contains(string(b), "active_run") || strings.Contains(string(b), "tskey") || strings.Contains(string(b), "bearer") {
+		t.Fatal("attempt or secret saved in project policy", e)
 	}
 }
 func TestRunEnrollmentSerializesPolicyAndCancelsWaitingOff(t *testing.T) {
@@ -272,7 +251,7 @@ func TestRunEnrollmentSerializesPolicyAndCancelsWaitingOff(t *testing.T) {
 }
 
 func TestRunEnrollmentFencesBindingIdentityAndUncertainty(t *testing.T) {
-	for _, mode := range []string{"replaced cid", "invalid incarnation", "binding replaced", "admission closed", "provider failure", "changed during key", "consume failure", "fsync"} {
+	for _, mode := range []string{"replaced cid", "invalid incarnation", "binding replaced", "admission closed", "provider failure", "changed during key", "consume failure"} {
 		t.Run(mode, func(t *testing.T) {
 			m, target, calls, _ := runFixture(t)
 			consumed := 0
@@ -296,8 +275,6 @@ func TestRunEnrollmentFencesBindingIdentityAndUncertainty(t *testing.T) {
 				}
 			case "provider failure":
 				m.keyHTTP = managementRoundTrip(func(*http.Request) (*http.Response, error) { calls.Add(1); return nil, io.ErrUnexpectedEOF })
-			case "fsync":
-				m.policy.syncDir = func(*os.File) error { return io.ErrUnexpectedEOF }
 			}
 			validate := func(context.Context) error {
 				checks++
@@ -320,11 +297,9 @@ func TestRunEnrollmentFencesBindingIdentityAndUncertainty(t *testing.T) {
 			if mode != "consume failure" && consumed != 0 {
 				t.Fatal("unsafe consumption")
 			}
-			if mode == "provider failure" || mode == "changed during key" || mode == "consume failure" || mode == "fsync" {
-				before := calls.Load()
-				m.policy.syncDir = nil
-				if e = m.EnrollRun(t.Context(), target, validate, consume); e == nil || calls.Load() != before {
-					t.Fatal("uncertain attempt replayed")
+			if mode == "provider failure" || mode == "changed during key" || mode == "consume failure" {
+				if calls.Load() != 1 {
+					t.Fatal("operation retried automatically")
 				}
 			} else if calls.Load() != 0 {
 				t.Fatal("provider work before admission")

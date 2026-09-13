@@ -1,6 +1,7 @@
 import {LitElement, html} from 'lit';
 import {connectionSuppressed} from '../spaces/soda-connection.js';
-import {id, object, readSodaJSON, sessionResponse} from '../spaces/sodaspaces-api.js';
+import {id, readSodaJSON} from '../spaces/sodaspaces-api.js';
+import type {Session} from '../spaces/sodaspaces-api.js';
 import {settingsView, hostResult, enrollmentResult} from './soda-tailnet-response.js';
 import type {Settings} from './soda-tailnet-response.js';
 
@@ -13,6 +14,11 @@ const unknownOutcome = 'Operation unconfirmed. It may have completed. Observe na
 
 class SodaTailnet extends LitElement {
   private actor = '';
+  private csrf = '';
+  configure(actor: string, session: Session) {
+    if (this.actor || !id(actor) || session.user.id !== actor) throw Error('Invalid original Tailnet actor');
+    this.actor = actor; this.csrf = session.csrf_token;
+  }
   private apiBase = '';
   private lifetime: AbortController | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
@@ -49,10 +55,7 @@ class SodaTailnet extends LitElement {
   protected createRenderRoot() {return this;}
   connectedCallback() {
     super.connectedCallback();
-    if (!this.actor) {
-      this.actor = this.dataset.actor || '';
-      this.apiBase = (document.getElementById('soda-settings-link')?.dataset.subUrl || '') + '/-/soda';
-    }
+    this.apiBase = (document.getElementById('soda-settings-link')?.dataset.subUrl || '') + '/-/soda';
     window.addEventListener('pagehide', this.hiddenPage);
     window.addEventListener('pageshow', this.shownPage);
     window.addEventListener('soda-session-retired', this.hiddenPage);
@@ -86,7 +89,7 @@ class SodaTailnet extends LitElement {
     this.requestUpdate();
   }
   private resume() {
-    if (this.lifetime || !this.isConnected || connectionSuppressed()) return;
+    if (!this.actor || this.lifetime || !this.isConnected || connectionSuppressed()) return;
     this.clearSecrets();
     this.lifetime = new AbortController();
     this.timer = setInterval(() => {
@@ -102,28 +105,13 @@ class SodaTailnet extends LitElement {
     this.clearSecrets(); this.settings = null; this.pending = null; this.trigger = null; this.blocked = true; this.stale = true;
     this.requestUpdate();
   }
-  private async session(lifetime: AbortController) {
-    this.requireCurrent(lifetime);
-    try {
-      if (!id(this.actor)) throw Error('Invalid original actor');
-      const response = await fetch(this.apiBase + '/api/session', {credentials: 'same-origin', cache: 'no-store', redirect: 'error',
-        headers: {'X-Soda-Expected-User-ID': this.actor}, signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(15000)])});
-      this.requireCurrent(lifetime);
-      if (!response.ok) {await response.body?.cancel(); throw Error('Operator unavailable');}
-      const raw = await readSodaJSON(response), session = sessionResponse(raw, location.origin);
-      this.requireCurrent(lifetime);
-      if (session.user.id !== this.actor || object(raw).soda_operator !== true) throw Error('Operator changed');
-      return session;
-    } catch (error) {if (this.current(lifetime)) this.loseAuthorization(); throw error;}
-  }
   private async request(lifetime: AbortController, scope?: Scope, body?: string): Promise<unknown> {
     try {
-      const session = await this.session(lifetime);
       this.requireCurrent(lifetime);
       if (body !== undefined) this.sent = true;
       const pending = fetch(this.apiBase + '/api/settings/tailnet' + (scope ? '/' + scope : ''), {
         method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer',
-        headers: {'X-Soda-Expected-User-ID': this.actor, ...(body === undefined ? {} : {'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf_token})},
+        headers: {'X-Soda-Expected-User-ID': this.actor, ...(body === undefined ? {} : {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrf})},
         ...(body === undefined ? {} : {body}), signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(30000)]),
       });
       body = undefined;
@@ -134,8 +122,6 @@ class SodaTailnet extends LitElement {
         await response.body?.cancel(); throw new TailnetRequestError(response.status);
       }
       const result = await readSodaJSON(response);
-      this.requireCurrent(lifetime);
-      await this.session(lifetime); // A late response must not publish for a retired operator.
       this.requireCurrent(lifetime);
       return result;
     } finally {body = undefined;}
@@ -346,8 +332,8 @@ class SodaTailnet extends LitElement {
   }
 }
 customElements.define('soda-tailnet', SodaTailnet);
-export function mountTailnetPage(root: HTMLElement, actor: string) {
-  const page = document.createElement('soda-tailnet'); page.dataset.actor = actor;
+export function mountTailnetPage(root: HTMLElement, actor: string, session: Session) {
+  const page = new SodaTailnet(); page.configure(actor, session);
   page.dataset.applianceLabel = root.dataset.applianceLabel || 'Appliance';
   page.dataset.enrollmentLabel = root.dataset.enrollmentLabel || 'Automatic project access';
   root.append(page);

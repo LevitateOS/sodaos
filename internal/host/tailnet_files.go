@@ -14,7 +14,7 @@ import (
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-// Every ancestor is appliance-owned; shifted root can access only the three
+// Every ancestor is appliance-owned; shifted root can access only the two
 // explicit companion mounts, never this directory, its lock or the host policy.
 // Existing unsafe paths are refused, not chmod/chown/recreated as a repair.
 type runFiles struct {
@@ -115,7 +115,7 @@ func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 	if e != nil {
 		return nil, tailnet.ErrUnavailable
 	}
-	for _, path := range []string{"state", "control", "input"} {
+	for _, path := range []string{"control", "input"} {
 		if fresh {
 			if e = root.Mkdir(path, 0700); e == nil {
 				e = root.Chown(path, int(run.UID), int(run.GID))
@@ -171,6 +171,28 @@ func retireRunKey(root *os.Root, file *os.File) error {
 		return tailnet.ErrUnconfirmed
 	}
 	return nil
+}
+
+// Called only under the runtime lock after observing no outstanding native exec.
+// This retires the exact completed consumer's input, not arbitrary retained files.
+func retirePendingRunKey(root *os.Root, run projectRun) error {
+	before, e := root.Lstat("input/key")
+	if errors.Is(e, os.ErrNotExist) {
+		return nil
+	}
+	if e != nil || !runtimeFile(before, run.UID, run.GID, 0600) || before.Size() > 1024 {
+		return tailnet.ErrUnconfirmed
+	}
+	file, e := root.OpenFile("input/key", os.O_WRONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
+	if e != nil {
+		return tailnet.ErrUnconfirmed
+	}
+	defer file.Close()
+	info, e := file.Stat()
+	if e != nil || !os.SameFile(before, info) || !runtimeFile(info, run.UID, run.GID, 0600) || info.Size() > 1024 {
+		return tailnet.ErrUnconfirmed
+	}
+	return retireRunKey(root, file)
 }
 
 func writeCompanionID(root *os.Root, id string) error {

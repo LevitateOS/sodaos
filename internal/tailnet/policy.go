@@ -10,7 +10,6 @@ import (
 	"io"
 	"os"
 	"slices"
-	"strings"
 	"syscall"
 
 	"github.com/levitateos/sodaos/internal/filelock"
@@ -27,15 +26,15 @@ type policyStore struct {
 	syncDir func(*os.File) error
 }
 type enrollmentPolicy struct {
-	Version       int      `json:"version"`
-	Revision      string   `json:"revision"`
-	Binding       string   `json:"binding"`
-	Tailnet       string   `json:"tailnet"`
-	Tags          []string `json:"tags"`
-	Preauthorized bool     `json:"preauthorized"`
-	Admission     bool     `json:"admission"`
-	Default       bool     `json:"default"`
-	Credential    string   `json:"credential"`
+	Version       int        `json:"version"`
+	Revision      string     `json:"revision"`
+	Binding       string     `json:"binding"`
+	Tailnet       string     `json:"tailnet"`
+	Tags          []string   `json:"tags"`
+	Preauthorized bool       `json:"preauthorized"`
+	Admission     bool       `json:"admission"`
+	Default       bool       `json:"default"`
+	Credential    credential `json:"credential"`
 }
 type credential struct {
 	ClientID string `json:"client_id"`
@@ -48,7 +47,6 @@ type projectPolicy struct {
 	Container string `json:"container"`
 	Binding   string `json:"binding"`
 	Enabled   bool   `json:"enabled"`
-	ActiveRun string `json:"active_run,omitempty"`
 }
 
 func newRevision() string { b := make([]byte, 16); _, _ = rand.Read(b); return hex.EncodeToString(b) }
@@ -169,9 +167,6 @@ func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) 
 	// Refuse special/relinked occupants before atomic publication. Only host root
 	// can alter this directory; noncooperating root writers aren't a CAS guarantee.
 	if st, e := root.Lstat(name); e == nil {
-		if strings.HasPrefix(name, "credential-") {
-			return ErrConflict
-		}
 		if !owned(st, p.uid, false) {
 			return ErrUnavailable
 		}
@@ -218,14 +213,10 @@ func (p *policyStore) load(root *os.Root) (enrollmentPolicy, error) {
 		return v, err
 	}
 	probe := EnrollmentRequest{Action: "save", Revision: v.Revision, Tailnet: v.Tailnet, Tags: v.Tags, Preauthorized: &v.Preauthorized}
-	var c credential
-	if v.Version != 1 || !revisionPattern.MatchString(v.Revision) || !revisionPattern.MatchString(v.Binding) || !revisionPattern.MatchString(v.Credential) || (v.Default && !v.Admission) {
+	if v.Version != 2 || !revisionPattern.MatchString(v.Revision) || !revisionPattern.MatchString(v.Binding) || (v.Default && !v.Admission) {
 		return v, ErrUnavailable
 	}
-	if p.read(root, "credential-"+v.Credential+".json", &c) != nil {
-		return v, ErrUnavailable
-	}
-	probe.ClientID, probe.ClientSecret = c.ClientID, c.Secret
+	probe.ClientID, probe.ClientSecret = v.Credential.ClientID, v.Credential.Secret
 	if probe.Validate() != nil {
 		return v, ErrUnavailable
 	}
@@ -307,17 +298,14 @@ func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check fun
 		if err = ctx.Err(); err != nil {
 			return EnrollmentResult{}, ErrUnconfirmed
 		}
-		ref := newRevision()
-		// Immutable, root-only credentials: old inputs remain in custody on rotation.
-		if err = p.publish(root, lock, "credential-"+ref+".json", credential{r.ClientID, r.ClientSecret}); err != nil {
-			return EnrollmentResult{}, err
-		}
 		if r.Action == "save" {
 			v.Binding = newRevision()
 			v.Default = false
 			v.Admission = true
 		}
-		v.Version, v.Tailnet, v.Tags, v.Preauthorized, v.Credential = 1, r.Tailnet, slices.Clone(r.Tags), *r.Preauthorized, ref
+		// Policy and credential are one restricted atomic publication. No archive,
+		// provider revocation or automatic conversion of retained v1 files.
+		v.Version, v.Tailnet, v.Tags, v.Preauthorized, v.Credential = 2, r.Tailnet, slices.Clone(r.Tags), *r.Preauthorized, credential{r.ClientID, r.ClientSecret}
 	case "default":
 		if v.Revision == "0" {
 			return EnrollmentResult{}, ErrConflict
@@ -352,7 +340,7 @@ func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPo
 	if e != nil {
 		return v, e
 	}
-	if loaded.Version != 1 || !revisionPattern.MatchString(loaded.Revision) || (loaded.Binding != "" && !revisionPattern.MatchString(loaded.Binding)) || (loaded.Enabled && loaded.Binding == "") || (loaded.ActiveRun != "" && !containerPattern.MatchString(loaded.ActiveRun)) {
+	if loaded.Version != 1 || !revisionPattern.MatchString(loaded.Revision) || (loaded.Binding != "" && !revisionPattern.MatchString(loaded.Binding)) || (loaded.Enabled && loaded.Binding == "") {
 		return v, ErrUnavailable
 	}
 	if loaded.Project != project || loaded.Container != cid {

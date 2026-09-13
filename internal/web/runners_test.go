@@ -39,7 +39,10 @@ func runnerWebFixture(t *testing.T, native http.HandlerFunc) *Server {
 }
 func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 	calls := 0
-	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; fmt.Fprint(w, `[]`) })
+	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		fmt.Fprint(w, `{"runners":[],"unavailable":[]}`)
+	})
 	for _, path := range []string{"/api/settings/runners", "/api/settings/runners/one/remove"} {
 		method := "GET"
 		if strings.HasSuffix(path, "remove") {
@@ -64,7 +67,7 @@ func TestRunnerAPIRejectsUnsupportedProviders(t *testing.T) {
 			calls := 0
 			s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
 				calls++
-				_ = json.NewEncoder(w).Encode([]runners.RunnerView{{Descriptor: runners.Descriptor{ID: "legacy", Provider: provider, Account: "soda-runner-legacy"}, Capacity: 1}})
+				_ = json.NewEncoder(w).Encode(runners.Inventory{Runners: []runners.RunnerView{{Descriptor: runners.Descriptor{ID: "legacy", Provider: provider, Account: "soda-runner-legacy"}, Capacity: 1}}, Unavailable: []string{}})
 			})
 			input, err := json.Marshal(runners.CreateRequest{ID: "one", Provider: provider, RegistrationURL: "https://external.example.test/repo", RegistrationID: "33834eef-e758-48c4-a676-1745426747aa", Labels: "soda:host", RegistrationToken: "synthetic-input"})
 			if err != nil {
@@ -133,11 +136,11 @@ func TestRunnerLifecycleConfirmationActorAndCSRF(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; fmt.Fprint(w, `{"ok":true}`) })
 	for _, action := range []string{"start", "stop", "restart", "remove"} {
-		for _, confirmation := range []string{"", "other", "one"} {
+		for _, body := range []string{`{}`, `{"confirm_id":""}`, `{"confirm_id":"other"}`, `{"confirm_id":"one"}`, `{"unit":"sshd"}`} {
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners/one/"+action, fmt.Sprintf(`{"confirm_id":%q}`, confirmation), "alice"))
+			s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners/one/"+action, body, "alice"))
 			want := 400
-			if confirmation == "one" {
+			if action == "remove" && body == `{"confirm_id":"one"}` || action != "remove" && body == `{}` {
 				want = 200
 			}
 			if w.Code != want {
@@ -148,13 +151,19 @@ func TestRunnerLifecycleConfirmationActorAndCSRF(t *testing.T) {
 	if calls != 4 {
 		t.Fatal(calls)
 	}
-	for _, header := range []string{"X-Soda-Expected-User-ID", "X-CSRF-Token", "Origin"} {
-		r := apiTestRequest("POST", "/api/settings/runners/one/remove", `{"confirm_id":"one"}`, "alice")
-		r.Header.Del(header)
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
-		if w.Code < 400 || calls != 4 {
-			t.Fatal(header, w.Code, calls)
+	for _, action := range []string{"start", "stop", "restart", "remove"} {
+		for _, header := range []string{"X-Soda-Expected-User-ID", "X-CSRF-Token", "Origin"} {
+			body := `{}`
+			if action == "remove" {
+				body = `{"confirm_id":"one"}`
+			}
+			r := apiTestRequest("POST", "/api/settings/runners/one/"+action, body, "alice")
+			r.Header.Del(header)
+			w := httptest.NewRecorder()
+			s.ServeHTTP(w, r)
+			if w.Code < 400 || calls != 4 {
+				t.Fatal(action, header, w.Code, calls)
+			}
 		}
 	}
 }
@@ -165,7 +174,7 @@ func TestRunnerListPublicOriginAndUnavailableNotEmpty(t *testing.T) {
 			w.WriteHeader(503)
 			return
 		}
-		_ = json.NewEncoder(w).Encode([]runners.RunnerView{{Descriptor: runners.Descriptor{ID: "legacy", Provider: runners.ProviderForgejo, RegistrationURL: "http://internal-only:3000", Account: "soda-runner-legacy", Architecture: "x86-64"}, Version: "runner", Capacity: 1, Service: runners.ServiceState{Active: "active", Sub: "running", Enabled: "enabled"}}})
+		_ = json.NewEncoder(w).Encode(runners.Inventory{Runners: []runners.RunnerView{{Descriptor: runners.Descriptor{ID: "legacy", Provider: runners.ProviderForgejo, RegistrationURL: "http://internal-only:3000", Account: "soda-runner-legacy", Architecture: "x86-64"}, Version: "runner", Capacity: 1, Service: &runners.ServiceState{Load: "loaded", Active: "active", Sub: "running", Enabled: "enabled"}}}, Unavailable: []string{}})
 	})
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
@@ -179,6 +188,28 @@ func TestRunnerListPublicOriginAndUnavailableNotEmpty(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }
+func TestRunnerPartialInventoryKeepsValidatedRowsAndQualifiesCounts(t *testing.T) {
+	inventory := runners.Inventory{Runners: []runners.RunnerView{{Descriptor: runners.Descriptor{ID: "one", Provider: runners.ProviderForgejo, Account: "soda-runner-one"}, Capacity: 1}}, Unavailable: []string{"two"}}
+	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(inventory) })
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+	var result runners.ListResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != 200 || result.Complete || result.RunnerCount != 1 || result.TotalCapacity != 1 || result.ActiveListeners != 0 || len(result.Unavailable) != 1 || result.Runners[0].Service != nil {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	for _, unavailable := range [][]string{{"one"}, {"../two"}, {"two", "two"}} {
+		inventory.Unavailable = unavailable
+		w = httptest.NewRecorder()
+		s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+		if w.Code != 503 {
+			t.Fatal(w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestRunnerAuthorizationLogoutDuringProviderCheck(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; fmt.Fprint(w, `[]`) })

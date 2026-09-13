@@ -6,7 +6,7 @@ import {object} from './sodaspaces-input';
 import type {MatrixInput, MatrixProject} from './sodaspaces-matrix-input';
 import {newManagedTerminal, terminalMenu} from './sodaspaces-controls';
 import {terminalID} from '../../frontend/spaces/sodaspaces-api';
-export interface MatrixSession {name: string; environment: string; id: string; request: string; attachment: string; actor: string}
+export interface MatrixSession {name: string; environment: string; id: string; actor: string}
 export interface MatrixFacts {pid: number; start: string; login: string; marker: string; tty: boolean; term: string}
 export interface MatrixEvidence {
   stage?: string;
@@ -19,10 +19,10 @@ export interface MatrixNative {
   cli?(page: Page, sessions: readonly (MatrixSession & {facts?: MatrixFacts})[]): Promise<unknown>;
 }
 export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, actorIndex: number,
-  permit: (session: MatrixSession, action: 'hide' | 'return' | 'end') => void,
+  permit: (target: Omit<MatrixSession, 'id'> & {id?: string}, action: 'reserve' | 'end') => void,
   native: MatrixNative, evidence: MatrixEvidence, otherPage: () => Promise<Page>) {
   const actor = request.actors[actorIndex]; assert(actor);
-  const sessions: MatrixSession[] = [], pending: {name: string; environment: string; request?: string}[] = [];
+  const sessions: MatrixSession[] = [], pending: {name: string; environment: string; id?: string}[] = [];
   let protocolFailure = false;
   const receive = (ws: WebSocket) => {
     const url = new URL(ws.url());
@@ -30,7 +30,7 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
     const environment = url.pathname.split('/')[5];
     if (!environment || url.origin !== new URL(page.url()).origin.replace('https:', 'wss:') || url.search || url.hash ||
       url.pathname !== `/-/soda/api/environments/${environment}/terminal` || !request.projects.some(project => project.environment === environment)) {protocolFailure = true; return;}
-    let opening: {action: string; id?: string; request?: string} | undefined;
+    let opening: {action: string; id: string} | undefined;
     ws.on('framesent', ({payload}) => {
       try {
         const frame = object(JSON.parse(String(payload)));
@@ -39,25 +39,20 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
         const project = request.projects.find(project => project.environment === environment); assert(project);
         assert.equal(frame.repository_id, project.repository_id);
         if (frame.action === 'create') {
-          const draft = pending.find(item => item.environment === environment && item.request === undefined);
-          assert(draft && terminalID(frame.request_id) && frame.id === undefined);
-          draft.request = frame.request_id; opening = {action: 'create', request: frame.request_id};
+          const draft = pending.find(item => item.environment === environment && item.id === undefined);
+          assert(draft && terminalID(frame.id) && frame.request_id === undefined && !sessions.some(session => session.id === frame.id));
+          draft.id = frame.id; opening = {action: 'create', id: frame.id};
+          // Record the issued locator before any native acknowledgement.
+          const session = {name: draft.name, environment, id: frame.id, actor}; sessions.push(session); evidence.sessions.push({...session});
         } else {assert(terminalID(frame.id) && sessions.some(session => session.id === frame.id && session.environment === environment)); opening = {action: 'attach', id: frame.id};}
       } catch {protocolFailure = true;}
     });
     ws.on('framereceived', ({payload}) => {
       try {
-        const frame = object(JSON.parse(String(payload))); if (frame.type !== 'session') return;
-        assert(Object.keys(frame).sort().join(',') === 'attachment_id,id,request_id,type');
-        assert(opening && terminalID(frame.id) && terminalID(frame.request_id) && terminalID(frame.attachment_id));
+        const frame = object(JSON.parse(String(payload))); if (frame.type !== 'ready') return;
+        assert(Object.keys(frame).join(',') === 'type' && opening && sessions.some(session => session.id === opening?.id));
         if (opening.action === 'create') {
-          const draft = pending.find(item => item.request === opening?.request); assert(draft && opening.request === frame.request_id);
-          assert(!sessions.some(session => session.id === frame.id));
-          const session = {name: draft.name, environment, id: frame.id, request: frame.request_id, attachment: frame.attachment_id, actor};
-          sessions.push(session); evidence.sessions.push({...session}); pending.splice(pending.indexOf(draft), 1);
-        } else {
-          const session = sessions.find(session => session.id === opening?.id); assert(session && session.id === frame.id && session.request === frame.request_id);
-          assert.notEqual(session.attachment, frame.attachment_id); session.attachment = frame.attachment_id;
+          const draft = pending.find(item => item.id === opening?.id); assert(draft); pending.splice(pending.indexOf(draft), 1);
         }
         opening = undefined;
       } catch {protocolFailure = true;}
@@ -82,6 +77,7 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
       const name = `matrix-${actorIndex}-${sessions.length}-${crypto.randomUUID().slice(0, 8)}`;
       pending.push({name, environment: project.environment});
       evidence.stage = 'create ' + sessions.length;
+      permit({name, environment: project.environment, actor}, 'reserve');
       await newManagedTerminal(page, project.repository_path.slice(1), name, project.environment);
       assert(!protocolFailure && pending.length === 0);
       const session = sessions.at(-1); assert(session);
@@ -91,7 +87,7 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
       const record = evidence.sessions.find(record => record.id === session.id); assert(record); record.facts = facts;
       await native.inspect(project, actorIndex, session, facts, false);
     }
-    assert.equal(sessions.length, 6); assert.equal(new Set(sessions.map(session => session.request)).size, 6);
+    assert.equal(sessions.length, 6); assert.equal(new Set(sessions.map(session => session.id)).size, 6);
     evidence.stage = 'contending writer';
     const contender = await otherPage();
     try {
@@ -120,11 +116,9 @@ export async function exerciseWorkspaceMatrix(page: Page, request: MatrixInput, 
     await page.getByLabel('Pane actions', {exact: true}).first().click(); await page.getByRole('button', {name: 'Consolidate panes', exact: true}).click();
     for (const handle of [...hosts, ...screens]) assert(await handle.evaluate(node => node.isConnected));
     evidence.same_document = true;
-    evidence.stage = 'hide and return';
+    evidence.stage = 'hide and show without native actions';
     const first = sessions[0]; assert(first); await select(first);
-    const lifetimeResponse = () => page.waitForResponse(response => new URL(response.url()).pathname === `/-/soda/api/environments/${first.environment}/terminal-sessions/${first.id}` && response.request().method() === 'POST');
-    permit(first, 'hide'); const hidden = lifetimeResponse(); await terminalMenu(page, 'Hide session'); assert.equal((await hidden).status(), 200);
-    await select(first); permit(first, 'return'); const returned = lifetimeResponse(); await terminalMenu(page, 'Continue working'); assert.equal((await returned).status(), 200);
+    await terminalMenu(page, 'Hide session'); await select(first);
     // Document replacement is attachment loss, not End or six new shells.
     evidence.stage = 'exact reload';
     await page.reload(); await page.locator('#sodaspaces-data[aria-busy=false]').waitFor();

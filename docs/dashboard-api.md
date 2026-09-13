@@ -58,7 +58,7 @@ to redirect, and no content or authority is embedded in the bridge.
 
 Forgejo's actual document supplies the native actor and chrome. The existing Lit
 components use protected APIs for inventory and operations, with expected-actor,
-CSRF/origin, scope and fresh-session checks. Spaces retains its per-row degraded
+CSRF/origin, scope and server-side current-session checks. Spaces retains its per-row degraded
 observation rules and logout-winning publication; the redirect is not authorization.
 Native page CSP and assets belong to Forgejo's documented template integration;
 its [upstream support limits](forgejo-frontend-integration.md#shared-presentation-components)
@@ -72,7 +72,7 @@ intents fail. No caller URL, historical `return_path`, additional consent or OAu
 client change is used. See [credential preservation](dashboard-credentials.md#schema-v6-spaces-return).
 
 The page and drawer mount the same Lit workspace and flat terminal-owner layer:
-explicit create/exact attach, Rename, Hide, Continue/Keep and confirmed End.
+explicit reserve/Create/exact attach, Rename, presentation-only Hide and confirmed End.
 Versioned, actor-scoped session storage holds at most 64 locators, no names,
 transcripts or credentials. Legacy exact IDs require fresh metadata; legacy pending
 is never guessed. Unknown cleanup preserves the locator; only acknowledged cleanup
@@ -153,13 +153,21 @@ accepted. The protected JSON routes are:
 
 - `GET /api/settings/runners`: bounded local inventory, configured slots/listeners;
   not provider online/busy/available capacity. Forgejo links use the configured
-  public origin. Unavailable reads are errors, not empty inventory.
+  public origin. Returns `runners`, `unavailable` (validated IDs of unreadable
+  descriptors), `complete`, `runner_count`, `active_listeners`, `total_capacity` and
+  `forgejo_url`. A readable row has nullable `service` and an empty `version` when
+  those observations are unavailable. `complete` is true only with no unavailable
+  descriptors and known service/version on every row. Counts describe validated
+  rows/known listeners/slots; partial counts are not complete or available capacity.
+  Whole-read failures remain errors, not empty inventory.
 - `POST /api/settings/runners`: existing strict runner registration fields;
   `provider` must be `forgejo`; other values are rejected before native dispatch.
   Forgejo's internal URL is server-selected. Requires an explicitly supplied native
   registration token. No provider record is borrowed or silently reset.
-- `POST /api/settings/runners/{id}/{start|stop|restart|remove}`: body
-  `{"confirm_id":"exact-id"}`. Fixed native lifecycle and partial effects follow
+- `POST /api/settings/runners/{id}/{start|stop|restart}`: strict `{}`; target and
+  action are in the route. No typed-ID field is accepted for these routine actions.
+- `POST /api/settings/runners/{id}/remove`: strict `{"confirm_id":"exact-id"}`.
+  Fixed native lifecycle, named-target/impact confirmation and partial effects follow
   the [runner guide](runners-port.md).
 
 Every read/mutation checks configured operator ID, fresh acting-user identity and
@@ -171,12 +179,13 @@ passed, not provider/native acceptance; Cockpit remains installed.
 
 ## Tailnet backend
 
-**Stage-2 backend and Stage-3 UI source; native-page acceptance, project runtime and
-installed proof remain pending.**
+**Host/project backend and UI source are implemented; native-page acceptance,
+project-runtime native proof and installed delivery remain pending.**
 The [Tailnet owner](tailnet-integration-plan.md) owns lifecycle and acceptance.
 The optional native host configuration field `tailnet_management` defaults false;
-only an explicitly enabled helper constructs the management backend. No setup,
-service or retained configuration enables it in this slice. Paths below are under
+only an explicitly enabled helper constructs the management backend. Fresh-install
+source selects it with an immutable companion image; retained configurations are
+not changed by source work. Paths below are under
 `/-/soda`. Models and bounds live in
 [`management_types.go`](../internal/tailnet/management_types.go), with narrow helper
 response validation before browser publication.
@@ -211,8 +220,9 @@ node are accepted. Host addresses/online state are not reachability receipts.
 Every host POST requires `action` and the observed opaque 64-hex `revision`, covering
 native identity/state and preferences. Soda mutations share the native policy lock;
 this is not transactional exclusion of unrelated direct Tailscale/Cockpit writers.
-The adapter checks the reviewed daemon release, and the matching CLI release before
-CLI-dependent effects; the baseline belongs in `ManagementCLIRelease` in source.
+The adapter validates the concrete bounded native fields and fixed operations,
+not an exact CLI/daemon release string. Build/image versions remain selected by
+their manifests; accepting a response is not compatibility proof for a new release.
 
 | Action | Additional fields / effect |
 | --- | --- |
@@ -247,8 +257,9 @@ unconfigured state. Every enrollment POST requires `action` and `revision`:
   credential, auth key or device. Token acceptance is not network/tag enrollment
   verification. No redirects or automatic authentication retry are allowed.
 - `save` checks the credential then publishes a new binding/revision. `rotate`
-  requires the existing exact Tailnet/tags/preauthorization, preserves its binding
-  and retains previous credential files. Neither retargets project records nor
+  requires the existing exact Tailnet/tags/preauthorization and preserves its binding.
+  Both atomically publish one restricted active credential/policy configuration,
+  without automatic credential archival. Neither retargets project records nor
   revokes enrolled devices.
 - `disable` takes no credential/policy fields and closes future admission/default,
   without changing project policies or disconnecting/deleting devices.
@@ -277,8 +288,8 @@ logout. Without runtime, enable/retry remain unsupported and Off remains a saved
 `disconnect-unconfirmed` intent.
 
 Results distinguish `saved`, `outcome`, observed `state`, the original binding, an
-available binding/network selection and bounded `ips`/`dns_name`. Only matched native
-version/network/tags/preferences may report connected. Startup failure, queued work,
+available binding/network selection and bounded `addresses`/`dns_name`. Only matched
+native network/tags/preferences and a valid current node may report connected. Startup failure, queued work,
 stopped/Off intent and failed readback are distinct from connected or disconnected
 proof. Missing/unsafe state is not recreated to resolve a conflict; ambiguous
 publication or enrollment is never rolled back or automatically replayed.
@@ -286,16 +297,22 @@ publication or enrollment is never rolled back or automatically replayed.
 Create optionally takes `tailnet:{enabled:false}` or an explicit enabled selection
 with exact reviewed `revision` and `binding` from the repository options endpoint.
 Omission is always Off. Current human repository ownership and the session are
-rechecked after preflight, before reservation/dispatch. Native policy reservation
-precedes stopped-container creation and CID binding precedes startup. Provisioning
-failure retains the reservation; network failure does not change project `ready`.
+rechecked after preflight, before reservation/dispatch. Persistent project provisioning
+and recording `ready` complete before the normal exact-project network operation;
+there is no second Tailnet reservation. Its binding check still refuses a changed
+network. A managed Create returns the normal 201 environment plus `tailnet_outcome`
+(`queued` or `unconfirmed`); Off/omitted selection has no network outcome or operation.
+Network failure leaves the successfully provisioned project ready and requires an
+explicit Network retry, never another Create. Authority is rechecked before network
+dispatch and response publication; loss of authority may hide the response but does
+not undo provisioning. Actual provisioning failure retains the original reservation.
 Spaces summaries use helper-only read-only `/tailnet/policy`, not per-row daemon
 exec. Authorized project members can observe Network metadata; only current
 administrators/operators can change it. SSH projection uses the existing original
 Linux login and host fingerprint, never another account or Tailscale SSH.
 
 Errors retain the normal JSON envelope: 400 malformed, 401 context loss, 403 missing
-authority, 409 changed revision/native identity, 422 unsupported operation/version,
+authority, 409 changed revision/native identity, 422 unsupported operation/runtime,
 503 unavailable helper/configuration/observation, 502 unknown native outcome. Native
 and provider diagnostic bodies are never copied into errors. Existing LAN/SSH
 endpoints and legacy omission behavior are unchanged. Run-incarnation admission,
@@ -332,9 +349,10 @@ Normal session, CSRF, grant and operation-specific authorization checks still ap
 
 `GET /api/session` alone may omit the header to inspect the current Soda identity
 and CSRF token. If supplied there, the header is still checked. The native-page
-caller must compare its signed-in stable ID with that session and the fresh
-`GET /api/forgejo/me` result, not silently substitute the bootstrap identity when
-they differ. Explicit Soda logout also uses the expected **Soda** actor and CSRF;
+caller binds the matching native actor and CSRF once under the
+[bootstrap-bound operation contract](forgejo-soda-pages-plan.md#bootstrap-bound-operations).
+Actual protected endpoints own fresh provider authorization; the browser does not
+reproduce it with per-operation session/`forgejo/me` probes or adopt newer credentials. Explicit Soda logout also uses the expected **Soda** actor and CSRF;
 it does not sign out Forgejo or Linux. The retained connection probe checks its
 supplied fixture username against bootstrap before using the actor ID.
 
@@ -349,93 +367,78 @@ bare `?`), subprotocol bearer value or cross-origin upgrade. Require a valid Sod
 session, exact configured HTTPS Origin and compatible fetch metadata; own membership
 and provisioned state are checked before upgrade. No operator/site-admin/owner bypass.
 
-The first text frame (within 5 seconds, at most 4096 bytes, strict JSON) is:
+### One-use allocation before Create
+
+`POST /api/environments/{id}/terminal-sessions` accepts strict JSON
+`{"cols":80,"rows":24,"name":"Build"}` under ordinary expected-actor/CSRF/Origin,
+original own membership and fresh repository authority. Rows are 2–300 and columns
+2–500. Name is optional, at most 80 Unicode code points without control/format
+characters; it is metadata, never a command or native target.
+
+A successful allocation returns HTTP **201** `{"id":"32 lowercase hex characters"}`.
+It starts no shell. A two-minute native reservation binds this ID, original account,
+dimensions and creating context. The browser saves/publishes the ID before sending
+Create. Native consumption shares the lock with End: a late helper call cannot
+recreate an ended locator, including across web restart. Consumed/expired/changed
+permissions cannot authorize another Create. Unused allocations are bounded and
+expire; they are not permanent uncertainty slots or running-shell inventory.
+
+The first socket text frame (within five seconds, at most 4096 bytes, strict JSON) is:
 
 ```json
-{"action":"create","request_id":"0123456789abcdef0123456789abcdef","expected_user_id":"1","repository_id":"7","csrf_token":"session CSRF value","cols":80,"rows":24}
+{"action":"create","id":"0123456789abcdef0123456789abcdef","expected_user_id":"1","repository_id":"7","csrf_token":"original session CSRF","cols":80,"rows":24,"name":"Build"}
 ```
 
-Exact existing attachment uses `"action":"attach","id":"32 lowercase hex characters"`
-instead; attach forbids `request_id` and a nonempty name, create forbids `id` and
-requires a fresh random 32-lowercase-hex `request_id`. Optional create `name` is at
-most 80 Unicode code points, without control/format characters; it is metadata,
-never shell input or a native tmux target. Duplicate correlations in the same context
-are refused while a reservation or receipt exists, even across projects. This is not
-idempotent creation or a retry service. Missing/expired/other-context IDs create nothing.
-Rows are 2–300, columns 2–500. Verify actor, association and the same Origin/CSRF check
-used by JSON mutations, then fresh acting-provider identity, actual user/repository
-consent and repository visibility. Degraded reads cannot launch. Only the stored
-original membership login reaches the helper. Post-upgrade authorization failure
-closes with sanitized 1008 status, not provider errors or credentials.
+Exact attachment uses `"action":"attach"` and the existing `id`, without a nonempty
+name or a reservation. Both paths verify actor, association, Origin/CSRF and fresh
+acting-provider identity/consent/visibility. Only the original stored membership
+login reaches the helper. Degraded reads cannot launch. There is no `request_id`,
+idempotent Create or missing-target replacement. Post-upgrade refusal is sanitized.
 
-Then accept only text JSON `input` with base64 `data` (1–16384 decoded bytes), `resize`
-with bounded rows/columns, with no extra fields. Browser heartbeats and socket End
-controls are forbidden. First return `session` with `id`, original `request_id` and
-this writer's random `attachment_id`, then `ready`, `output` (base64, at most 4096 decoded bytes) and sanitized
-`closed`/`reason` frames. Total frames are limited to 32768 bytes; queues/write waits
-are bounded. No command, environment, UID, host address or Podman flags select launch.
+After admission accept only strict text `input` (1–16384 decoded base64 bytes) and
+bounded `resize`. Browser heartbeat/End controls are forbidden. Return type-only
+`ready`, then bounded `output` (at most 4096 decoded bytes) and sanitized `closed`.
+There is no `session`/`attachment_id` frame. Browser frame size remains 32768 bytes;
+queues/write waits are bounded. No caller-selected command, UID, environment, socket
+or Podman flags select native launch.
 
-An ID-keyed registry retains each original context/token, actor, project/repository,
-Linux login, creation/hard deadline and owner. Multiple same-project sessions are
-independent, with one writer per ID; 64 slots globally including detached/cleanup-
-unconfirmed slots, no eviction. The project-wide pre-upgrade writer refusal is gone;
-exact-ID writer admission happens after the bounded authenticated first frame. Pending transports are
-separately bounded at 128. Lifetime ownership is independent of the socket. Every
-15 seconds recheck current local session/membership and fresh acting-user repository
-authority before renewing the 60-second native safety lease. Original session expiry
-and a 12-hour native maximum remain hard limits. Logout/rotation/Stop/shutdown cancel
-pending and live attachments/owners, serialized with reservation/admission. Stop
-cancels every ID and pending transport of that project, across contexts. Provider and
-native IO run outside the registry lock, with cancellable owners and binding rechecks. No transcript,
-input replay, implicit join/start, cross-context adoption or global Linux/SSH revocation.
+Pending transports/short operations are bounded at 128. Exact-ID in-flight and
+native writer exclusion never evict another writer. Every 15 seconds, attached IO
+rechecks current session/membership and fresh provider authority, with bounded native
+client heartbeat. Session expiry and the 12-hour attachment limit close access only.
+Logout, rotation and web/helper shutdown detach; they do not End native work. Stop
+closes project admission and peers before its native lifecycle action. IO occurs
+outside the web peer lock with cancellation and post-IO session checks. The
+[native lifetime/capacity contract](terminal-integration.md#managed-terminal-implementation-and-proof-limits)
+is independent of browser custody.
 
 ### Exact session metadata, actions and creation outcomes
 
-`GET /api/environments/{id}/terminal-sessions/{terminalID}` requires fresh repository
-authority and the original own account/context/token. No query parameters or ID aliases.
-It returns `{"terminal":null}` for an unknown/unauthorized ID, or a `terminal` object:
-`id`, `request_id`, `environment_id`, `repository_id`, `user_id`, `login`, `name`,
-`created_at`, `hard_until`, `retain_until`, `effective_until`, `ready`, `attached`,
-`state`. Times are Unix seconds. `retain_until:0` means deliberately active;
-`effective_until` is the earlier retention/hard deadline, never zero. States are
-`opening`, `ready`, `ending`, `unconfirmed`, or receipt-only `ended`.
+`GET /api/environments/{id}/terminal-sessions/{terminalID}` freshly authorizes the
+request and observes the original native account's exact ID. No query/ID aliases.
+Fresh sign-ins for that same account may discover its work; a locator is never
+authority. Denied requests do not disclose metadata or masquerade as absence.
 
-`GET /api/environments/{id}/terminal-attempts/{requestID}` uses the same authority
-and response. It finds only that exact correlated attempt, never the newest session.
-**Null/absent records are unknown**, not proof of cleanup or of no native effect.
-IDs/correlations/attachment generations are locators, not credentials.
+Return `{"terminal":null}` only after confirmed native absence/empty cgroup, or a
+bound `terminal` with `id`, `environment_id`, `repository_id`, `user_id`, `login`,
+`name`, `created_at` (Unix seconds), `ready`, `attached`, `state`. States are `opening`,
+`ready`, `ending` or `ended`; a live unused permission observes `opening`, not absence.
+No retention/hard deadlines, request namespace or cleanup receipts are exposed.
 
-`POST` on the exact session path uses normal expected-actor/Origin/CSRF and strict JSON:
+Exact-path POST accepts only `{"action":"end"}` or
+`{"action":"rename","name":"…"}` and returns the same native observation shape.
+End confirms native cleanup before returning absence; already confirmed absence is
+idempotent. Rename sets/clears bounded display-only metadata. Neither operation
+Creates. Retired lifetime/generation fields refuse. Unknown/unavailable outcomes
+return HTTP **503** `terminal_unavailable`: nothing was retried or replaced. A later
+explicit inspect/action may recover; unavailability is not an absence proof or a
+permanent client admission flag.
 
-- `{"action":"end"}` acknowledges `{"ending":true}`; read that ID afterwards.
-- `{"action":"rename","name":"…"}` sets/clears bounded runtime-only metadata.
-- `{"action":"retain","seconds":1800}` or `7200` explicitly sets finite retention,
-  capped by the original hard/authentication deadline.
-- `{"action":"hide","attachment_id":"…"}` sets 30 minutes **only if unset**.
-- `{"action":"return","attachment_id":"…"}` clears retention only for that current
-  attached writer. Detached Return remains finite (30 minutes); it may omit the
-  generation, but cannot activate a successor writer. A stale supplied generation
-  is refused. Hide never replaces a shorter or longer existing deadline.
-
-A writer generation comes from that socket's `session` frame, not a metadata GET.
-Generation mismatch returns `409 attachment_changed`, missing target actions 404,
-and ending/expired/unconfirmed targets 409. No mutation creates a replacement.
-Disconnect sets 30 minutes only if unset. Input/output, automatic attach and polling
-never renew abandonment. Effective deadlines are admission/renewal limits, not a
-promise that asynchronous native cleanup finishes at that exact instant.
-
-Native acknowledgement alone releases a live slot and may retain an authorized
-`ended` receipt: at most 128, five minutes, capped by original authentication.
-A full receipt bound never evicts another receipt; the released ID can therefore be
-unknown. Expired/absent receipts or backend restart are not cleanup proof. Unconfirmed
-native dispatch/cleanup keeps its slot reserved. There is no durable history,
-reconciliation, restart adoption or automatic replay.
-
-The old `/terminal-session` endpoint returns **410**, requiring a fresh page; it
-never chooses an ID. Old uncorrelated `pending` browser locators remain uncertain.
-New callers persist `pending:<request_id>` before creation and an exact ID afterwards;
-End acknowledgement alone does not erase the locator. Coordinated future backend/
-asset delivery is required; no live rollout occurred here.
+The old `/terminal-session` stub returns **410**; `/terminal-attempts/{requestID}` is
+removed. Current browser storage accepts exact IDs only and is disposable. Cache
+loss never creates/ends work; native inventory provides discovery. Coordinated future
+helper/program/browser delivery requires separate target scope; retained old runtime
+records are not transparently converted.
 
 ### Bounded Spaces collection
 
@@ -444,8 +447,8 @@ only Soda associations, authorizes each before exposing names/rows or inspecting
 helper, and returns `{"items":[…],"complete":true|false}`. Each item has `environment`
 (the existing association DTO, not a live copy of Forgejo names/permissions), original
 `login`, `environment_administrator`, `authority_unavailable`, `native_unavailable`,
-nullable `observed`, and `terminals` for this original context/account only. Ended
-receipts are not history in this collection. Denied nonmembers have no placeholder
+nullable `observed`, and native `terminals` for the original own account. Completed
+sessions and unused allocations are not history/running work in this collection. Denied nonmembers have no placeholder
 or disclosed count. Existing members retain degraded own observations, but degraded
 authority exposes neither elevated controls nor session metadata; it cannot launch.
 Configured operator observation is not a terminal-authority bypass.
@@ -453,13 +456,14 @@ Configured operator observation is not a terminal-authority bypass.
 Bounds: four concurrent collection requests; sequential provider/helper calls per
 request; an eight-second inspection budget and two seconds per row (existing failed-
 grant-refresh cleanup can add up to five seconds). Scan at most 128 associations with
-one bounded overflow detection row; publish at most 32 rows and 64 KiB JSON. Stored
+one bounded overflow detection row; publish at most 32 rows, 64 native terminals
+overall and 64 KiB JSON. Stored
 text is bounded before loading (ID/IP 128 bytes, name 1024, repository 2048); oversized
 rows fail unavailable, not silently truncated. Limits/native/authority unavailability
 produce `complete:false` or 503, never a falsely complete empty catalog. There is no
 pagination/cursor or total private count; other associations remain reachable through
-their authorized repository drawer. Collection reads never create, attach or renew
-sessions; expired owners remain subject to their normal cleanup.
+their authorized repository drawer. Collection reads never create, attach, renew or collect sessions. Failed native
+terminal listing sets `complete:false`, never a complete empty terminal inventory.
 
 See the [component contract](terminal-integration.md) and handoff for installed
 `22d8591` versus this local source evidence. Actual concurrent native/CLI proof,

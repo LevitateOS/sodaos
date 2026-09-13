@@ -63,17 +63,38 @@ type ServiceState struct {
 
 type RunnerView struct {
 	Descriptor
-	Version  string       `json:"version"`
-	Capacity int          `json:"capacity"`
-	Service  ServiceState `json:"service"`
+	Version  string        `json:"version"`
+	Capacity int           `json:"capacity"`
+	Service  *ServiceState `json:"service"`
+}
+
+// Unavailable holds only validated directory IDs, never unsafe descriptors or diagnostics.
+// A readable descriptor may still have an unknown service (nil) or version (empty).
+type Inventory struct {
+	Runners     []RunnerView `json:"runners"`
+	Unavailable []string     `json:"unavailable"`
 }
 
 type ListResponse struct {
-	ForgejoURL      string       `json:"forgejo_url,omitempty"`
-	Runners         []RunnerView `json:"runners"`
-	RunnerCount     int          `json:"runner_count"`
-	ActiveListeners int          `json:"active_listeners"`
-	TotalCapacity   int          `json:"total_capacity"`
+	Inventory
+	ForgejoURL      string `json:"forgejo_url,omitempty"`
+	Complete        bool   `json:"complete"`
+	RunnerCount     int    `json:"runner_count"`
+	ActiveListeners int    `json:"active_listeners"`
+	TotalCapacity   int    `json:"total_capacity"`
+}
+
+func (inventory Inventory) Response(origin string) ListResponse {
+	result := ListResponse{Inventory: inventory, ForgejoURL: origin, Complete: len(inventory.Unavailable) == 0, RunnerCount: len(inventory.Runners), TotalCapacity: len(inventory.Runners) * RunnerCapacity}
+	for _, row := range inventory.Runners {
+		if row.Service == nil || row.Version == "" {
+			result.Complete = false
+		}
+		if row.Service != nil && row.Service.Active == "active" && row.Service.Sub == "running" {
+			result.ActiveListeners++
+		}
+	}
+	return result
 }
 
 type MutationResponse struct {

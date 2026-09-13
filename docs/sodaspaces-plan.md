@@ -174,12 +174,11 @@ preview port is selected.
   environment visibly identified and do not retarget a running shell merely because
   the left pane navigated to another repository. Native routes remain native, not an
   iframe, scraped page or new SPA navigation layer.
-- **Bounded retention, not permanent detached shells.** Preserve implemented
-  30-minute detached retention, explicit two-hour Keep/Return, original authentication
-  and the 12-hour hard cap. A background browser tab is not automatically detached.
-  Layout/view changes and automatic restoration cannot renew abandonment. Show actual
-  effective deadlines; uncertain requests do not promise a grace period. Keep native
-  safety leases, 64 global slots including uncertainty, bounded IO and no replay.
+- **Native shell lifetime, authorized attachment lifetime.** Follow the owning
+  [terminal contract](terminal-integration.md#managed-terminal-implementation-and-proof-limits).
+  Browser closure/logout does not End native work. Abandoned shells consume native
+  capacity; access remains bounded and authorized. No retention/Keep/Return, permanent
+  uncertain slots or automatic Create replay.
 - **Separate Hide, End terminal and Stop environment.** End affects that terminal;
   Stop is the existing authorized shared-impact operation. No automatic container
   stop on browser inactivity, loss of focus or drawer closure. Explicit Soda logout
@@ -194,9 +193,9 @@ preview port is selected.
 xterm and the existing authenticated Soda/native-helper boundary. Soda owns browser
 tabs and access policy; project-local tmux owns the live shell, terminal screen and
 bounded history. No separate web-terminal server, replacement frontend or custom
-terminal emulator. The source is implemented and isolated `22d8591` has bounded
-browser continuity/cleanup proof. Broader native safety/UX and other delivery remain
-pending; see the handoff rather than treating this decision as an unstarted port.
+terminal emulator. Earlier isolated native evidence belongs to its recorded
+implementation. The selected native-lifetime revision is source work, not current
+native acceptance or delivery; see the handoff.
 
 The decisive comparison is attach-only behavior. Reviewed shpool **v0.11.4** has no
 require-existing option in its CLI or attach protocol; its server can create a new
@@ -208,20 +207,18 @@ See the [source comparison and native contract](terminal-integration.md#selected
 including tmux's scrollback trade-off and remaining package/runtime checks.
 
 Use **one private foreground tmux server/session per managed browser terminal**, as
-its original project account, with project-local systemd/cgroup supervision and an
-independent safety-lease owner. This gives End/expiry a concrete process boundary,
-without touching another terminal or ordinary SSH/tmux. Simply replacing today's
-login-shell command with a daemonizing tmux client is not sufficient. Browser tabs
+its original project account, with project-local systemd/cgroup supervision and
+bounded preparation. End targets that concrete boundary, not another terminal or
+ordinary SSH/tmux. The [native contract](terminal-integration.md#bounded-native-ownership)
+owns startup, socket validation, attachment-only expiry and normal empty-server exit. Browser tabs
 remain the primary UI; hide tmux's status bar by default, retain native copy-mode/
 splits and do not force ordinary SSH logins into a Soda-managed session.
 
-The **existing single-session source is the starting point**, not the next task to
-reimplement. Keep explicit create versus exact attach, finite retention, independent
-native supervision, same-target Refresh preservation and cleanup reservations. The
-Lit ports retained that wire/lifetime; the subsequent ID-keyed registry now removes
-the per-context/project singleton in source, with local double-based coverage. Multiple IDs must keep the same original binding,
-Stop/logout gates and one-writer checks, with correlated uncertain creation rather
-than selecting the newest session. No missing/ended/expired target creates a shell.
+Reuse the implemented transport/renderer, native identity checks and one-writer
+exclusion. The selected [allocation/lookup contract](dashboard-api.md#one-use-allocation-before-create)
+uses one server-issued ID and native one-use permission, not request-ID correlation,
+web lifetime custody or cleanup receipts. Native inventory supports recovery across
+web restart. Missing/ended/expired targets never create replacement shells.
 
 The remaining real shell/editor/build/history/network and cleanup/failure proof is
 required for the new feature's acceptance and separately approved delivery. Independent
@@ -521,7 +518,7 @@ remain intact. Feature guides own detailed checks rather than competing roadmaps
    input control, usable Lock/unlock and preservation of the independent user manager.
    Preserve exact session identity across navigation and both
    surfaces; terminal End, desktop-session end, project Stop and AI Cancel have
-   different scopes. Keep existing terminal leases/logout semantics intact.
+   different scopes. Follow the separate [personal-terminal access/lifetime contract](terminal-integration.md).
 5. Implement marketplace and AI features through their existing owners and the
    explicit first candidates in their guide: global operator-managed catalog apps
    and repository-opt-in trusted-contributor runs. A changed scope revises the
@@ -602,12 +599,12 @@ remain intact. Feature guides own detailed checks rather than competing roadmaps
 - Continue [Lit step 6a](lit-migration-plan.md#6a--observed-unread-and-lifecycle-attention) over the existing
   stable owners and original bindings. Keep unread observation bounded and current;
   do not infer semantic agent states or renew lifetime on focus/output.
-- Preserve step 5's v2 migration, measured 56-column/12-row split viability, shared
+- Follow the [current disposable layout contract](terminal-integration.md#current-workspace-layout-and-continuity), measured 56-column/12-row split viability, shared
   projections and document-local compact visibility. Its journey source ports and
   local fixtures are complete; actual installed execution still requires exact scope.
   Native form drafts/selection and terminal renderer/socket identity must survive.
 - Keep actual unread/lifecycle attention in step 6, not fake filters during layout.
-  Preserve original bindings, finite lifetime, confirmed HTTP End/cleanup and unknown
+  Preserve original bindings, native lifetime, confirmed HTTP End/cleanup and unknown
   outcomes. Native safety failures and actual Codex CLI/Claude Code/Pi suitability
   remain acceptance obligations; ordinary SSH is the comparison, not browser proof.
 - Distinguish local source checks, exact native build/export, approved fixture
@@ -899,9 +896,9 @@ schema change, frontend build, component library or upstream executable is plann
    Missing/invalid repository context, a malformed signed actor or unsupported
    placement means no active mount, not guessed endpoints. Anonymous context remains
    valid for explicit sign-in. Do not alter `base/head_script` or native `window.config`.
-3. On explicit open, bootstrap `GET /-/soda/api/session`. Compare its user ID to the
-   signed native-page ID, then check fresh `/-/soda/api/forgejo/me` with
-   `X-Soda-Expected-User-ID`. Only matching page/session/provider IDs unlock reads.
+3. Follow the [bootstrap-bound operation contract](forgejo-soda-pages-plan.md#bootstrap-bound-operations)
+   on explicit open. Compare the bootstrap actor with the native page; protected
+   reads and writes enforce actual provider authority, not duplicate browser probes.
    Anonymous/mismatched pages get explicit sign-in/re-authentication, never the
    bootstrap actor silently substituted for the page actor. Login links carry only
    the validated repository ID and, when signed in, expected native user ID.
@@ -1065,13 +1062,12 @@ of native operations and legitimate Soda records.
 
 #### Submission and result handling
 
-- Require an explicit action, a non-stale native document and matching page/session/
-  fresh-provider IDs before submission. Recheck the current session/provider on the
-  action path; after any asynchronous read, confirm the same active context before
-  dispatch. Send the expected actor and in-memory CSRF token on protected JSON writes.
-  The server still owns operation-specific authority; a client precheck is not
-  authorization or atomic native-session verification. Keep existing-member joins
-  idempotent with their original login and preserve degraded own-access API behavior.
+- Require an explicit action and a non-stale command owner. Follow the
+  [bootstrap-bound operation contract](forgejo-soda-pages-plan.md#bootstrap-bound-operations):
+  send the original actor/CSRF, retain active-context checks after asynchronous work,
+  and let actual endpoints enforce current session/provider/native authority. Keep
+  existing-member joins idempotent with their original login and preserve degraded
+  own-access reads.
 - Reuse fixed same-origin paths, redirect rejection, no-store, bounded streamed JSON
   and field/association validation for the additional reads and write results. Render
   text/values, not response HTML. Keep development keys separate from Forgejo Git keys;
@@ -1091,8 +1087,14 @@ of native operations and legitimate Soda records.
   repository reservation/detail or own connection as applicable, without polling.
   A missing membership after helper/persistence failure is not proof that no Linux
   account was created, nor permission to retry/repair. Keep unresolved native outcomes
-  explicit and direct them to operator inspection; no durable jobs, browser operation
-  journal, automatic compensation or generalized recovery subsystem.
+  explicit, without a permanent browser `uncertain` admission flag or cross-project
+  restoration veto. An independently valid explicit action remains available after
+  inspection; Refresh does not confirm the earlier write. Each key Apply consumes
+  its preview and requires another current revision for a later Apply. Failed Create
+  hides that action until the repository reservation is read again; the server still
+  refuses another Create over retained state. In-flight duplicate suppression and
+  stale-page/actor retirement remain. No durable jobs, browser operation journal,
+  automatic compensation or generalized recovery subsystem.
 
 **Exit:** handler/UI tests cover current owner/non-owner/org/admin boundaries,
 rename/transfer and access loss between read and submit, malformed/large stable IDs,

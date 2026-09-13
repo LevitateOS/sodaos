@@ -15,6 +15,20 @@ The canonical `~/Projects/sodaos` checkout on `main` contains the new visual sys
 
 ## Active work — Tailnet
 
+The owner has selected the [mechanism removals](refactoring-plan.md#selected-mechanism-removals)
+for source/local implementation, including the documented policy tradeoffs. That
+workstream owns D1–D13 progress; retained targets and native permissions below are
+unchanged. The first source slice removes enrollment attempt journals, uses
+activation-owned memory node identity, stores one active credential/policy, removes
+release-number vetoes, and applies networking after successful project provisioning.
+Old Tailnet configuration conversion remains separately authorized maintenance.
+The [D1–D13 workstream](refactoring-plan.md#selected-mechanism-removals) records landed
+core source changes and local checks, **not exhaustive removal completion**. The
+[59e4da3 reconciliation](refactoring-plan.md#removal-reconciliation-follow-up) found
+missed project-network guidance, absent completed-companion resource retirement and
+remaining ancillary removals/candidates. Native/installed acceptance is not claimed.
+Neither retained old terminal runtimes nor Tailnet state were converted or cleaned.
+
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
 place; the Stage-4 runtime/UI and stock-only Cockpit source candidate is implemented.
 A separately approved fresh x86_64 VM now passes native dashboard/OAuth/Tailnet
@@ -35,9 +49,9 @@ The [stage-1 design](tailnet-integration-plan.md#stage-1-design-decisions) selec
   managed Tailnet. Only single-use ephemeral keys reach the companion; reusable
   credentials stay on the host. The original host-CLI/socket shortcut cannot assume
   write authority across the shifted user namespace.
-- Run-scoped native state intended to preserve identity across daemon-only restarts,
-  with explicit logout when ending project access. Namespace, DNS and systemd
-  behavior still require native proof.
+- Activation-owned in-memory ephemeral node state, with bounded logout at every
+  companion stop. Restart may change addresses/approval and interrupt connections.
+  Namespace, DNS and systemd behavior still require native proof.
 
 **Local evidence:** `eed1c2c` records the design and investigation. Upstream OAuth
 and synthetic capability tests, four v2 SDK cases, three temporary-filesystem DNS
@@ -132,7 +146,11 @@ Tailnet work.
 [AGENTS.md](../AGENTS.md#permissions-and-preservation) owns execution policy.
 
 - **Authorized:** routine local source implementation, builds and tests for selected
-  work, including existing local fixtures within their approved scope.
+  work, including existing local fixtures within their approved scope. The owner
+  explicitly approved D1–D13 mechanism removals and their documented behavior changes;
+  [the refactoring plan](refactoring-plan.md#selected-mechanism-removals)
+  owns that source work. This does not grant retained-state conversion/cleanup,
+  provider requests, fixture/service lifecycle, native delivery or publishing.
 - **Tailnet:** the user explicitly selected Stage 4 source implementation and local
   tests, and then explicitly requested source completion rather than another blocker
   handoff. The source candidate is prepared; further source fixes/tests need no new

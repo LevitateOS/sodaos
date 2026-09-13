@@ -1,14 +1,14 @@
 import {test} from 'bun:test';
 import assert from 'node:assert/strict';
-import {emptyLayout, putEntry, selectTab, hideTab, forgetEntry, focusedPane, parseLayout, serializeLayout, migrateLayout, splitPane, moveTab, resizeSplit, consolidate, projectLayout, panes} from '../../frontend/spaces/sodaspaces-layout';
+import {emptyLayout, putEntry, selectTab, hideTab, forgetEntry, focusedPane, parseLayout, serializeLayout, splitPane, moveTab, resizeSplit, consolidate, projectLayout, panes} from '../../frontend/spaces/sodaspaces-layout';
 import type {WorkspaceLayout, LayoutEntry} from '../../frontend/spaces/sodaspaces-layout';
 const key = (n: number) => n.toString(16).padStart(8, '0') + '-0000-0000-0000-000000000000';
 const env = 'p' + '1'.repeat(24), terminal = 'a'.repeat(32), request = 'b'.repeat(32);
-const entry: LayoutEntry = {key: key(2), environmentId: env, locator: {kind: 'pending', requestId: request}};
+const entry: LayoutEntry = {key: key(2), environmentId: env, locator: {kind: 'existing', id: terminal}};
 const original = () => selectTab(putEntry(emptyLayout(key(1)), entry), entry.key);
 
 test('locator promotion preserves owner, pane and selection; serialized state contains no effects', () => {
-  const layout = original(), before = structuredClone(layout);
+  const layout = selectTab(putEntry(emptyLayout(key(1)), {...entry, locator: {kind: 'new'}}), entry.key), before = structuredClone(layout);
   const promoted = putEntry(layout, {...entry, locator: {kind: 'existing', id: terminal}});
   assert.deepEqual(layout, before); assert.equal(promoted.entries[0]?.key, entry.key);
   assert.equal(promoted.tree, layout.tree); assert.equal(focusedPane(promoted).selected, entry.key);
@@ -26,17 +26,12 @@ test('Hide retains locator, only confirmed Forget removes it; unsent New cannot 
   assert.deepEqual(saved.entries, layout.entries); assert.equal(focusedPane(saved).selected, entry.key);
   assert.equal(draft.entries.length, 2);
 });
-test('v1 migration preserves stored order, hidden and pending work, without newest selection', () => {
-  const v1 = {version: 1, entries: [{environmentId: env, requestId: request}, {environmentId: env, id: terminal, hidden: true}, {environmentId: env, id: 'c'.repeat(32)}]};
-  let n = 0; const layout = migrateLayout(JSON.stringify(v1), () => key(++n));
-  assert.deepEqual(layout.entries.map(e => e.locator.kind), ['pending', 'existing', 'existing']);
-  assert.deepEqual(focusedPane(layout).tabs, [key(2), key(4)]);
-  assert.equal(focusedPane(layout).selected, key(2)); assert.equal(layout.entries.length, 3);
-  assert.throws(() => migrateLayout(JSON.stringify({...v1, entries: [...v1.entries, v1.entries[0]]}), () => key(++n)));
-  assert.throws(() => migrateLayout(JSON.stringify({version: 1, entries: [{environmentId: env, id: 'pending'}]}), () => key(++n)));
+test('only the current disposable format is accepted; no pending-attempt migration', () => {
+  for (const version of [1, 2, 4]) assert.throws(() => parseLayout(JSON.stringify({...original(), version})));
+  assert.throws(() => parseLayout(JSON.stringify({...original(), entries: [{...entry, locator: {kind: 'pending', requestId: request}}]})));
 });
 for (const [name, change] of Object.entries<(layout: WorkspaceLayout) => unknown>({
-  version: l => ({...l, version: 3}),
+  version: l => ({...l, version: 4}),
   'extra state': l => ({...l, transcript: 'private'}),
   'unknown owner': l => ({...l, tree: {...focusedPane(l), tabs: [key(99)]}}),
   'duplicate tab': l => ({...l, tree: {...focusedPane(l), tabs: [entry.key, entry.key]}}),
@@ -61,7 +56,7 @@ test('split/move/reorder/consolidate retain locators and collapse only emptied s
   assert.equal(split.entries, initial.entries);
   const moved = moveTab(split, entry.key, key(3));
   assert.equal(moved.tree.kind, 'pane'); assert.equal(moved.tree.key, key(3));
-  const second = {...entry, key: key(5), locator: {kind: 'existing' as const, id: terminal}};
+  const second = {...entry, key: key(5), locator: {kind: 'existing' as const, id: request}};
   const again = splitPane(selectTab(putEntry(moved, second), second.key), key(3), 'below', key(6), key(7));
   const two = moveTab(again, second.key, key(6)); assert.equal(panes(two.tree).length, 2);
   const combined = consolidate(two); assert.deepEqual(focusedPane(combined).tabs, [second.key, entry.key]);
@@ -88,7 +83,6 @@ test('capacity, byte and tree bounds refuse rather than truncate unknown locator
   assert.equal(parseLayout(serializeLayout(layout)).entries.length, 64);
   assert.throws(() => putEntry(layout, {...entry, key: key(66)}));
   assert.throws(() => parseLayout(' '.repeat(32769)));
-  assert.throws(() => migrateLayout(' '.repeat(16385), () => key(1)));
   let tree = layout.tree;
   for (let n = 0; n < 64; n++) tree = {kind: 'split', key: key(100 + 2 * n), axis: 'right', ratio: 0.5, first: tree, second: {kind: 'pane', key: key(101 + 2 * n), tabs: [], selected: null}};
   assert.throws(() => parseLayout(JSON.stringify({...layout, tree})));

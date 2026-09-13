@@ -18,7 +18,7 @@ func (f runnerCommandFunc) Run(ctx context.Context, command Command) (CommandRes
 	return f(ctx, command)
 }
 
-func TestListRefusesIncompleteNativeObservations(t *testing.T) {
+func TestListPreservesValidatedDescriptorsWithUnavailableObservations(t *testing.T) {
 	const complete = "LoadState=loaded\nActiveState=active\nSubState=running\nUnitFileState=enabled\n"
 	type observation struct {
 		name, service, version string
@@ -61,15 +61,21 @@ func TestListRefusesIncompleteNativeObservations(t *testing.T) {
 					return CommandResult{}, errors.New("unexpected mutation")
 				}
 			})
-			views, err := native.List(t.Context())
+			inventory, err := native.List(t.Context())
+			require.NoError(t, err)
+			require.Len(t, inventory.Runners, 1)
+			require.Empty(t, inventory.Unavailable)
+			require.Equal(t, tc.name == "complete", inventory.Response("").Complete)
+			view := inventory.Runners[0]
 			if tc.name == "complete" {
-				require.NoError(t, err)
-				require.Len(t, views, 1)
-				require.Equal(t, "forgejo-runner fixture", views[0].Version)
-				require.Equal(t, ServiceState{Load: "loaded", Active: "active", Sub: "running", Enabled: "enabled"}, views[0].Service)
+				require.Equal(t, "forgejo-runner fixture", view.Version)
+				require.Equal(t, &ServiceState{Load: "loaded", Active: "active", Sub: "running", Enabled: "enabled"}, view.Service)
+			} else if strings.Contains(tc.name, "version") {
+				require.Empty(t, view.Version)
+				require.NotNil(t, view.Service)
 			} else {
-				require.Error(t, err)
-				require.Nil(t, views, "unavailable is not an empty or partial inventory")
+				require.Nil(t, view.Service)
+				require.NotEmpty(t, view.Version)
 			}
 			after, err := os.ReadFile(native.descriptorPath("one"))
 			require.NoError(t, err)
@@ -78,7 +84,7 @@ func TestListRefusesIncompleteNativeObservations(t *testing.T) {
 	}
 }
 
-func TestInvalidDescriptorMakesWholeInventoryUnavailableWithoutRewrites(t *testing.T) {
+func TestInvalidDescriptorIsReportedWithoutAuthorityOrRewrites(t *testing.T) {
 	const descriptor = `{"id":"one","provider":"forgejo","registration_url":"http://old-internal:3000","account":"soda-runner-one","architecture":"x86-64"}`
 	for _, bad := range []string{"missing", "directory", "malformed", "unknown field", "duplicate field", "trailing object", "wrong account", "wrong id", "unsupported provider"} {
 		t.Run(bad, func(t *testing.T) {
@@ -109,9 +115,10 @@ func TestInvalidDescriptorMakesWholeInventoryUnavailableWithoutRewrites(t *testi
 			}
 			commands := &recordingCommandRunner{}
 			native.Runner = commands
-			views, err := native.List(t.Context())
-			require.Error(t, err)
-			require.Nil(t, views)
+			inventory, err := native.List(t.Context())
+			require.NoError(t, err)
+			require.Empty(t, inventory.Runners)
+			require.Equal(t, []string{"one"}, inventory.Unavailable)
 			require.Empty(t, commands.commands)
 			for _, action := range []func(context.Context, string) error{native.Start, native.Stop, native.Restart, native.Remove} {
 				require.Error(t, action(t.Context(), "one"))
@@ -131,23 +138,28 @@ func TestInvalidDescriptorMakesWholeInventoryUnavailableWithoutRewrites(t *testi
 	}
 }
 
-func TestListDoesNotPublishEarlierRowsWhenAnotherRunnerIsUnreadable(t *testing.T) {
+func TestListPublishesIndependentRowsWhenAnotherRunnerIsUnreadable(t *testing.T) {
 	native, _, prepared := runnerFixture(t)
 	require.NoError(t, native.recordRunner(prepared.account, forgejoRequest()))
 	// The first sorted row is fully readable; the next is a retained partial
 	// directory without a descriptor, as can remain after failed creation.
 	require.NoError(t, os.MkdirAll(native.statePath("two"), 0700))
-	views, err := native.List(t.Context())
-	require.Error(t, err)
-	require.Nil(t, views)
+	inventory, err := native.List(t.Context())
+	require.NoError(t, err)
+	require.Len(t, inventory.Runners, 1)
+	require.Equal(t, "one", inventory.Runners[0].ID)
+	require.Equal(t, []string{"two"}, inventory.Unavailable)
 	coordinator := Coordinator{Authorizer: fakeAuthorizer{}, Local: native}
 	result, err := coordinator.Execute(t.Context(), testAdministrator, "list", strings.NewReader(`{}`))
-	require.Error(t, err)
-	require.Equal(t, ListResponse{}, result)
+	require.NoError(t, err)
+	summary := result.(ListResponse)
+	require.False(t, summary.Complete)
+	require.Equal(t, 1, summary.RunnerCount)
+	require.Equal(t, 1, summary.TotalCapacity)
 	operations := Operations{Local: native, Lifecycle: native}
 	result, err = operations.Execute(t.Context(), "list", strings.NewReader(`{}`))
-	require.Error(t, err)
-	require.Nil(t, result)
+	require.NoError(t, err)
+	require.Equal(t, inventory, result)
 }
 
 func TestLegacyDescriptorReadsDoNotRewriteStateOrCredentials(t *testing.T) {
@@ -158,10 +170,10 @@ func TestLegacyDescriptorReadsDoNotRewriteStateOrCredentials(t *testing.T) {
 	for _, file := range []string{"forgejo-token", "forgejo-runner.yml", "work-data"} {
 		require.NoError(t, os.WriteFile(filepath.Join(prepared.state, file), []byte("synthetic preserved "+file), 0600))
 	}
-	views, err := native.List(t.Context())
+	inventory, err := native.List(t.Context())
 	require.NoError(t, err)
-	require.Len(t, views, 1)
-	require.Equal(t, "http://old-internal:3000", views[0].RegistrationURL)
+	require.Len(t, inventory.Runners, 1)
+	require.Equal(t, "http://old-internal:3000", inventory.Runners[0].RegistrationURL)
 	_, err = native.Launch("one")
 	require.NoError(t, err)
 	after, err := os.ReadFile(native.descriptorPath("one"))

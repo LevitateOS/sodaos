@@ -11,8 +11,8 @@ import (
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
-// Terminal is a private helper stream. No automatic heartbeat/reconnect: the
-// authenticated web owner must recheck its session/membership before each renewal.
+// Terminal is a private helper stream. Only an authorized attachment sends
+// heartbeats; no web owner renews the native shell's lifetime.
 type Terminal struct{ conn *websocket.Conn }
 
 func (c *Client) OpenTerminal(ctx context.Context, in TerminalRequest) (*Terminal, error) {
@@ -53,3 +53,27 @@ func (t *Terminal) Receive(ctx context.Context) (TerminalFrame, error) {
 	return f, nil
 }
 func (t *Terminal) Close() { _ = t.conn.CloseNow() }
+
+// TerminalStates performs one bounded operation over the existing private wire.
+// A missing/unavailable reply is not absence and never triggers Create or End.
+func (c *Client) TerminalStates(ctx context.Context, in TerminalRequest) ([]TerminalState, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	in.Expires = time.Now().Add(30 * time.Second).Unix()
+	if in.Action == "attach" {
+		return nil, errors.New("not a terminal observation")
+	}
+	t, err := c.OpenTerminal(ctx, in)
+	if err != nil {
+		return nil, err
+	}
+	defer t.Close()
+	f, err := t.Receive(ctx)
+	if err != nil || f.Type != "metadata" || f.Terminals == nil {
+		return nil, errors.New("native terminal outcome unavailable")
+	}
+	if in.Action != "list" && (len(*f.Terminals) > 1 || len(*f.Terminals) == 1 && (*f.Terminals)[0].ID != in.ID) {
+		return nil, errors.New("native terminal target changed")
+	}
+	return *f.Terminals, nil
+}

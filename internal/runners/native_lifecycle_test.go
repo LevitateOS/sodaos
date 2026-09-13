@@ -59,8 +59,9 @@ func TestForgejoRegistrationRetainsStateWhenListenerFailsToStart(t *testing.T) {
 	require.ErrorContains(t, err, "registered and retained")
 	require.Empty(t, commands.deletedAccounts)
 	require.FileExists(t, filepath.Join(prepared.state, "forgejo-token"))
-	views, err := native.List(t.Context())
+	inventory, err := native.List(t.Context())
 	require.NoError(t, err)
+	views := inventory.Runners
 	require.Len(t, views, 1)
 	require.Equal(t, "forgejo-runner fixture", views[0].Version)
 	require.Equal(t, "inactive", views[0].Service.Active)
@@ -120,8 +121,10 @@ func TestUnsupportedProvidersNeverDispatchOrRewriteRetainedState(t *testing.T) {
 			require.NoError(t, err)
 			state := filepath.Join(native.statePath("one"), "retained-input")
 			require.NoError(t, os.WriteFile(state, []byte("preserve fixture state"), 0600))
-			_, err = native.List(t.Context())
-			require.ErrorContains(t, err, "unsupported provider")
+			inventory, err := native.List(t.Context())
+			require.NoError(t, err)
+			require.Empty(t, inventory.Runners)
+			require.Equal(t, []string{"one"}, inventory.Unavailable)
 			_, err = native.Launch("one")
 			require.ErrorContains(t, err, "unsupported provider")
 			for _, action := range []func(context.Context, string) error{native.Start, native.Stop, native.Restart, native.Remove} {

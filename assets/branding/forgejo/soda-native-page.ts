@@ -20,7 +20,7 @@ if (mount && mount.dataset.sodaEntryMounted !== 'true') {
       else if (owner?.canRestore) {
         // The old controls are irrevocably retired. Dispose their listeners and
         // measurements, then validate the original actor before mounting anew.
-        // Runners owns its own restore; uncertain project writes stay retired.
+        // Runners owns its own restore; in-flight project writes stay retired.
         owner.dispose(); owner = undefined; mounted = false; busy = false;
         void connect(false, true);
       }
@@ -33,30 +33,31 @@ if (mount && mount.dataset.sodaEntryMounted !== 'true') {
       const isCurrent = () => generation === current && mount.isConnected;
       render(html`<p role="status">Connecting to Soda…</p>`, mount);
       try {
-        if (!await connectPage(actor, view, repositoryId || '', isCurrent, retry, restoring) || !isCurrent()) return;
+        const session = await connectPage(actor, view, repositoryId || '', isCurrent, retry, restoring);
+        if (!session || !isCurrent()) return;
         if (view === 'spaces') {
           const {mountSpacesPage} = await import('../../../frontend/spaces/sodaspaces-page.js');
           if (generation !== current || !mount.isConnected) return;
           render(html``, mount);
-          owner = mountSpacesPage(mount, actor);
+          owner = mountSpacesPage(mount, actor, session);
         } else if (view === 'runners') {
           const {mountRunnersPage} = await import('../../../frontend/runners/soda-runners-page.js');
           if (generation !== current || !mount.isConnected) return;
           mount.classList.add('soda-settings', 'soda-runner-settings');
           render(html``, mount);
-          mountRunnersPage(mount, actor);
+          mountRunnersPage(mount, actor, session);
         } else if (view === 'tailnet') {
           const {mountTailnetPage} = await import('../../../frontend/tailnet/soda-tailnet-page.js');
           if (!isCurrent()) return;
           mount.classList.add('soda-settings', 'soda-tailnet-settings');
           render(html``, mount);
-          mountTailnetPage(mount, actor);
+          mountTailnetPage(mount, actor, session);
         } else if (view === 'repository-spaces') {
           const {mountRepositorySpaces} = await import('../../../frontend/spaces/soda-repository-spaces.js');
           if (generation !== current || !mount.isConnected) return;
           mount.classList.add('soda-settings');
           render(html``, mount);
-          owner = mountRepositorySpaces(mount, actor, repositoryId || '');
+          owner = mountRepositorySpaces(mount, actor, repositoryId || '', session);
         }
         mounted = true;
       } catch {

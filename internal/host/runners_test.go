@@ -16,11 +16,11 @@ type runnerDouble struct {
 	fail  bool
 }
 
-func (f *runnerDouble) List(context.Context) ([]runners.RunnerView, error) {
+func (f *runnerDouble) List(context.Context) (runners.Inventory, error) {
 	if err := f.action("list"); err != nil {
-		return nil, err
+		return runners.Inventory{}, err
 	}
-	return []runners.RunnerView{}, nil
+	return runners.Inventory{Runners: []runners.RunnerView{}, Unavailable: []string{}}, nil
 }
 func (f *runnerDouble) Create(_ context.Context, in runners.CreateRequest) error {
 	return f.action("create:" + in.ID)

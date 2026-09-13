@@ -17,7 +17,7 @@ import (
 )
 
 func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
-	for _, kind := range []string{"legacy", "off", "managed", "stale", "closed", "transfer", "native-failure"} {
+	for _, kind := range []string{"legacy", "off", "managed", "stale", "closed", "transfer", "native-failure", "network-failure", "binding-changed", "transfer-after-create"} {
 		t.Run(kind, func(t *testing.T) {
 			owner := 1
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +27,10 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 					fmt.Fprintf(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":%d,"login":"alice"}}`, owner)
 				}
 			})
-			options, creates := 0, 0
+			if kind == "transfer-after-create" {
+				s.Config.OperatorID = 99
+			}
+			options, creates, networks := 0, 0, 0
 			s.Host.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
 				if r.URL.Path == "/profile" {
 					return profileTestResponse(), nil
@@ -51,20 +54,29 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 					if json.NewDecoder(r.Body).Decode(&in) != nil {
 						t.Fatal("invalid helper creation")
 					}
-					if kind == "legacy" {
-						if in.Tailnet != nil {
-							t.Fatal("legacy default changed")
-						}
-					} else if kind == "off" {
-						if in.Tailnet == nil || in.Tailnet.Enabled {
-							t.Fatal("explicit Off changed")
-						}
-					} else if in.Tailnet == nil || !in.Tailnet.Enabled || in.Tailnet.Binding != strings.Repeat("b", 32) || in.Tailnet.Revision != strings.Repeat("a", 32) {
-						t.Fatal("reviewed selection lost")
-					}
 					value = host.Environment{ID: in.ID, Running: true, IP: "10.89.0.2", Profile: in.Profile}
 					if kind == "native-failure" {
 						status = 500
+					}
+					if kind == "transfer-after-create" {
+						owner = 2
+					}
+				case "/tailnet/project":
+					networks++
+					var in tailnet.ProjectRequest
+					if json.NewDecoder(r.Body).Decode(&in) != nil || in.Action != "enable" || in.Revision != "0" || in.Binding != strings.Repeat("b", 32) || in.ConfirmID != in.Project {
+						t.Fatal("reviewed selection lost")
+					}
+					p, e := s.Store.Project(t.Context(), in.Project)
+					if e != nil || !p.Ready || creates != 1 {
+						t.Fatal("network blocked project provisioning", e)
+					}
+					value = tailnet.ProjectView{Project: in.Project, Saved: true, Enabled: true, Revision: strings.Repeat("c", 32), Binding: in.Binding, State: "unconfirmed", Outcome: "queued"}
+					if kind == "network-failure" {
+						status = 502
+					}
+					if kind == "binding-changed" {
+						status = 409
 					}
 				default:
 					t.Fatal("unexpected helper operation", r.URL.Path)
@@ -86,8 +98,12 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 				if w.Code < 400 || creates != 0 || e == nil {
 					t.Fatal("preflight failure reserved/created", kind, w.Code, creates, e)
 				}
+			case "transfer-after-create":
+				if (w.Code != 403 && w.Code != 503) || creates != 1 || networks != 0 || e != nil || !project.Ready {
+					t.Fatal("lost authority enrolled or lost provisioned project", w.Code, e)
+				}
 			case "native-failure":
-				if w.Code != 502 || creates != 1 || e != nil || project.Ready {
+				if w.Code != 502 || creates != 1 || networks != 0 || e != nil || project.Ready {
 					t.Fatal("failed reservation lost", w.Code, creates, e)
 				}
 			default:
@@ -101,6 +117,20 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 			}
 			if options != expected {
 				t.Fatal("implicit policy lookup", options)
+			}
+			wantNetwork := kind == "managed" || kind == "network-failure" || kind == "binding-changed"
+			if (networks == 1) != wantNetwork {
+				t.Fatal("implicit or missing enrollment", networks)
+			}
+			if kind == "network-failure" || kind == "binding-changed" {
+				if !strings.Contains(w.Body.String(), `"tailnet_outcome":"unconfirmed"`) {
+					t.Fatal("network failure concealed")
+				}
+				again := httptest.NewRecorder()
+				s.ServeHTTP(again, apiTestRequest("POST", "/api/environments", body, "alice"))
+				if again.Code != 409 || creates != 1 || networks != 1 {
+					t.Fatal("network failure recreated project")
+				}
 			}
 		})
 	}

@@ -46,6 +46,7 @@ export async function readRunnerState(input: RunnerInput, prior?: {boot_id: stri
   const value = object(JSON.parse(child.stdout.toString()));
   assert(value.target === input.target && value.architecture === input.architecture, 'Native target/architecture mismatch');
   const inventory = decodeRunnerResponse('list',value.inventory);
+  assert(inventory.complete, 'Partial inventory is useful to operators, not a complete retained-state baseline');
   assert(inventory.forgejo_url === input.origin, 'Configured browser origin differs from declared target');
   const states = object(value.states), confinement = object(value.confinement);
   assert.deepEqual(Object.keys(states).sort(), [input.runner_id,...input.preserved_ids].sort());
@@ -70,7 +71,7 @@ export async function readRunnerState(input: RunnerInput, prior?: {boot_id: stri
     const rows=processList(rawProcesses[id]);
     assert(rows.every(row=>row.uid === object(states[id]).uid),'Process outside declared runner identity');
     const runner=inventory.runners.find(row=>row.id === id);
-    if(runner?.service.active === 'active') assert(rows.length > 0,'Running listener without process observation');
+    if(runner?.service?.active === 'active') assert(rows.length > 0,'Running listener without process observation');
     processes[id]=rows;
   }
   const prior_survivors=processList(value.prior_survivors);
@@ -106,7 +107,7 @@ export function verifyRunnerOperation(input: RunnerInput, before: RunnerState, a
     assert(!current && object(after.states[input.runner_id]).present === false, 'Local account/state removal not confirmed');
     return;
   }
-  assert(current && current.capacity === 1 && current.account === 'soda-runner-'+input.runner_id);
+  assert(current && current.service && current.capacity === 1 && current.account === 'soda-runner-'+input.runner_id);
   const retained=object(after.states[input.runner_id]);
   assert(retained.present === true, 'Native account/state unavailable');
   if (input.phase !== 'register') {
@@ -129,13 +130,14 @@ export function verifyRunnerContention(input: RunnerInput, before: RunnerState, 
     if(!unchanged) verifyRunnerOperation({...input,phase:'restart'},before,after);
     return unchanged ? 'cancelled-before-observed-effect' : 'restart-observed-response-unconfirmed';
   }
-  const row=after.inventory.runners.find(r=>r.id === input.runner_id); assert(row);
+  const row=after.inventory.runners.find(r=>r.id === input.runner_id); assert(row?.service);
   assert(row.service.active === 'active' || row.service.active === 'inactive');
   verifyRunnerOperation({...input,phase:row.service.active === 'active' ? 'restart' : 'stop'},before,after);
   return row.service.active === 'active' ? 'restart-last' : 'stop-last';
 }
 
 export function preserveRunnerBaseline(input: RunnerInput, before: RunnerState, after: RunnerState) {
+  assert(before.inventory.complete && after.inventory.complete, 'Retained-state preservation requires complete observations');
   assert(after.target === before.target && after.target === input.target && after.architecture === before.architecture && after.architecture === input.architecture, 'Preservation target changed');
   assert.equal(after.boot_id,before.boot_id,'Unexpected reboot during runner phase');
   assert.deepEqual(after.packages,before.packages, 'Installed runner/systemd versions changed');

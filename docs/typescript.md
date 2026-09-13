@@ -56,7 +56,8 @@ independently gated and are not enabled by the aggregate.
 Focused commands prepare their own assets:
 
 - `bun run test:frontend` — frontend unit/browser tests, including explicitly labelled
-  Tailnet emitted-component fixtures (`SODA_TAILNET_COMPONENT=1`). These use no native
+  Runners/Tailnet emitted-component fixtures (`SODA_RUNNERS_COMPONENT=1`,
+  `SODA_TAILNET_COMPONENT=1`). These use no native
   HTML, authentication or provider and cannot be selected alongside a native page
   origin. Conditional page/layout journeys are executed by the commands below, not silently counted as covered here.
 - `bun run test:pages` — uncached Go producers followed by all four real HTML/CSP

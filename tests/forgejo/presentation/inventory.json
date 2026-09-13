@@ -917,8 +917,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f5672b67482130a63bc337ae77c86977aa9831948cb5f9eb7b95fc0dedb7594c",
-      "presentationReview": "Advance the paired module-graph epoch; preserve coordinated logout, notification and drawer owners.",
+      "beforeRoleHash": "51be1c6193e60c7a89b8592329c002f09b59bc272d835ecf1f007b26a2d105e7",
+      "presentationReview": "Merge administration navigation and mechanism-removal module graphs under one new epoch; preserve coordinated logout, notification, drawer suppression and repository-switcher gates.",
       "upstreamCallers": [
         "base/footer.tmpl"
       ],
@@ -946,12 +946,12 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e268e99b8ea3f19f3d7557a39d59d34837c2b97bca3892ce227c67ab9761e8e5",
+      "beforeRoleHash": "81063ca9132198dd1cc5d573c68c5e507aeec4eede8eb81decf060023a628e7b",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Advance the paired module-graph presentation epoch for the administration navigation move; keep all other styling hooks unchanged."
+      "presentationReview": "Advance the paired module-graph epoch for merged administration navigation and mechanism removals; keep all other styling hooks unchanged."
     },
     {
       "template": "custom/soda/empty_content.tmpl",
@@ -7841,7 +7841,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "0d9440822f7ad6005e88fa159b2069ef80ebefa30180083b2d6352b3c4380e22",
+      "beforeRoleHash": "b287ba660a5d26c21321c1f8dbffe5ca2908b06d4202923c71f92da160612e95",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Advance the matching native-page graph epoch; preserve all selector/actor gates and existing content hosts."

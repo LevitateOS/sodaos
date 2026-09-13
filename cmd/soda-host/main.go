@@ -17,10 +17,22 @@ import (
 	"time"
 )
 
+var errTailnetPreparation = errors.New("Tailnet preparation unconfirmed; observe and explicitly retry")
+
+func exitStatus(err error) int {
+	if err == nil {
+		return 0
+	}
+	if errors.Is(err, errTailnetPreparation) {
+		return 78
+	}
+	return 1
+}
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		os.Exit(exitStatus(err))
 	}
 }
 func run() error {
@@ -51,7 +63,7 @@ func run() error {
 		}
 		cid, e := d.StartTailnet(phase, *project)
 		if e != nil {
-			return e
+			return errors.Join(errTailnetPreparation, e)
 		}
 		cancel()
 		return d.WaitTailnet(ctx, cid)

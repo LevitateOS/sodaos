@@ -1,12 +1,14 @@
 # Tailnet in the native dashboard — implementation plan
 
 **Status: stages 1–2 complete; Stage 3 UI source and emitted-component parity checks
-implemented. Stage-4 runtime/UI and stock-only Cockpit source are implemented;
-a fresh x86_64 installation now passes native dashboard/OAuth/Tailnet read and
-stock Cockpit access smoke. Full native-page parity, project/provider proof and
-retained-target installed retirement remain pending. The user declined local fixture repair and clarified that the ARM
-machine is only an ephemeral Forgejo frontend test bed: Soda is not currently
-compatible there. It is not the target for native Soda/Tailnet/Cockpit validation.** The user requested native dashboard ownership
+implemented. Stage-4 runtime/UI and stock-only Cockpit core source have landed;
+[mechanism-removal follow-through](refactoring-plan.md#removal-reconciliation-follow-up)
+remains incomplete. A fresh x86_64 installation passed native dashboard/OAuth/Tailnet
+read and stock Cockpit access smoke before this merge; those receipts do not validate
+the merged mechanism-removal candidate. Full native-page parity, project/provider
+proof and retained-target installed retirement remain pending. The user declined
+local fixture repair and clarified that ARM is only an ephemeral Forgejo frontend
+test bed, not a compatible Soda/Tailnet/Cockpit validation target.** The user requested native dashboard ownership
 of host and project Tailnet configuration, automatic enrollment without a login per
 project, and eventual stock Cockpit administration without Soda extension pages.
 This document owns that feature's implementation order and acceptance criteria.
@@ -231,6 +233,8 @@ browser reload or polling side effect.
   alone is not authority to inspect Tailnet addresses, peers or credential status.
   Copy-connection remains own-membership-only. Add focused transfer/rename/denial tests.
 - Reuse expected-actor, Origin/CSRF, strict bounded JSON and current-session admission.
+  The [page guide](forgejo-soda-pages-plan.md#bootstrap-bound-operations) owns browser
+  bootstrap reuse; actual guarded operations replace browser session pre/postflights.
   Fixed helper operations resolve original project/container identity server-side;
   no caller-selected socket, namespace, PID, UID, unit, executable or host flag.
   Connection/lifecycle actions resolve tags from the saved enrollment binding.
@@ -250,9 +254,9 @@ of web ownership, native wheel/SSH rights and Tailnet grants is introduced.
 | --- | --- |
 | Host device identity and preferences | Existing native `tailscaled` persistent state; never clone, reset or move it into the dashboard/project database |
 | Enrollment secret | Restricted root-only host storage, outside all project mounts and browser-readable config; one canonical owner, no duplicate saved secret in SQLite or environment variables |
-| Global enrollment/default policy | Small versioned root-owned configuration with an opaque binding/revision, allowed tags and safe credential reference; dashboard receives only a sanitized projection |
+| Global enrollment/default policy | One versioned root-owned active configuration with opaque binding/revision, tags and its credential; dashboard receives only a sanitized projection. Storage/conversion is owned by [credentials](dashboard-credentials.md#tailnet-credentials-and-schema-v10-return). |
 | Per-project Tailnet setting | Root-owned, versioned policy keyed by validated project ID and original native identity; canonical source for boot/native startup, not a duplicate desired-state flag in the Soda DB |
-| Active project node, socket and command attempt | Exact run-owned runtime state and native supervision, separate from the persistent project root; bind to the current container/network-namespace incarnation |
+| Active project node and socket | In-memory node identity per daemon activation; exact-run socket/input ownership and native supervision, separate from the persistent project root. No command-attempt journal. |
 | Soda sessions and repository associations | Existing store remains authoritative; Tailnet does not become another identity database |
 
 Prefer extending `internal/tailnet` with concrete Go operations and the existing
@@ -309,7 +313,7 @@ state is added. Inspect actual unit dependencies and test these transitions:
 
 | Event | Required effect |
 | --- | --- |
-| Explicit Create with managed access | Bind the reviewed enrollment policy to the new reservation/native identity; provision once. Project creation and Tailnet outcome are separate results. |
+| Explicit Create with managed access | Preflight the reviewed choice, provision once and record readiness, then apply that binding through the ordinary exact-project policy operation. Network failure cannot strand provisioning or permit another Create. |
 | Explicit Start, enabled host boot, native failure restart | Start the same container; initiate one bounded enrollment for its new runtime incarnation if policy permits, without a Forgejo browser session. |
 | Already connected, refresh, focus, visibility or repeated Start | Observe/reuse the existing node; never mint another key or force reauthentication. |
 | Enable while running | One explicit enrollment; reject duplicate/concurrent attempts for the same incarnation. |
@@ -317,15 +321,19 @@ state is added. Inspect actual unit dependencies and test these transitions:
 | Crash/abrupt disappearance | Native supervisor ties the daemon to the original namespace/process identity. Report unconfirmed provider removal; Tailscale may expire the offline device later. |
 | Failed enrollment or failed readback | Retain the project, policy and outcome evidence; report network failure/unconfirmed state. Do not recreate or roll back the project. |
 | New credentials or host login/logout | No implicit logout, migration or reauthentication of existing project nodes. Project enrollment policy is separate from host identity. |
-| Dashboard/helper restart, or project daemon restart within the same live project | Re-observe the actual owned runtime. Preserve/reuse its available ephemeral state; lost or ambiguous enrollment state does not authorize another key automatically. No network lifetime is tied to the dashboard process. |
+| Dashboard/helper restart | Re-observe the owned native runtime; networking is not owned by the dashboard/helper server process. |
+| Companion daemon restart | New activation, new in-memory ephemeral identity. Addresses may change, connections may break and device approval may be needed again. Do not parse parent stop jobs to preserve an old node. |
 
 Soda-issued operations need cancellable serialization and incarnation/revision checks
 across enable/disable/Start/Stop/rotation. Preserve the existing helper admission and
 terminal/runner paths; do not hold its global project gate while waiting for a human
 login or a provider network round trip. Tie bounded work to native supervision and
-retain enough safe attempt state to inspect an uncertain result before another key
-is minted. Automatic enrollment on a *new* runtime is intended; automatically
-replaying an uncertain attempt in the *same* runtime is not.
+observe the actual node and unfinished native execs before another key is minted.
+Existing nodes are reused, not forcibly logged in again. Preparation/enrollment
+failure exits with status 78, excluded from automatic systemd restart; the user
+can explicitly retry after observation. Unexpected daemon exit may restart under
+systemd's existing bounded restart policy, using a fresh ephemeral identity.
+There is no durable attempt prohibition or automatic HTTP POST retry.
 
 The host's normal Tailscale reconnect and control-plane behavior remains native.
 External root CLI changes are not prevented by a Soda UI lock: use field-specific
@@ -406,7 +414,7 @@ the journal. Upstream daemon diagnostics can contain auth URLs. Emit only saniti
 helper outcome/health projections; do not change the existing host daemon's logging
 or treat suppressed log uploads alone as stdout redaction.
 
-Only new, exact-run control/state directories are mounted into the companion.
+Only exact-run control and one-use input directories are mounted into the companion.
 Their mapped ownership is derived from verified project mappings; never apply
 recursive `:U` chown or mount a project root. A root-only host ancestor prevents
 ordinary host access. Keep the companion's small writable runtime root for native
@@ -430,8 +438,9 @@ helper instead. Upstream's older exported client is deprecated; its internal OAu
 resolver is not an importable integration API. The concrete sequence is:
 
 1. Admit the saved binding/revision and exact project incarnation under its owning
-   lock; record the attempt before any provider call. Read the restricted host
-   client ID/secret only in that helper.
+   lock. Observe/reuse an existing node and exclude unfinished native execs before
+   another enrollment. Read the restricted host client ID/secret only in that helper;
+   do not write an attempt journal or a permanent run marker.
 2. Use upstream `clientcredentials.Config` with the operation context, bounded
    HTTP transport, fixed token endpoint, `auth_keys` scope and selected `tags`
    parameter. The v2 SDK's convenience OAuth wrapper uses a background token
@@ -441,8 +450,10 @@ resolver is not an importable integration API. The concrete sequence is:
    empty or `-`), non-reusable, ephemeral, the exact tags, short key expiry and the
    separately chosen preauthorization bit. This prevents a replacement credential
    from silently selecting its own different Tailnet. Check returned key metadata;
-   missing/mismatched capabilities or an uncertain response do not authorize another
-   key or local enrollment. Do not add automatic POST retries.
+   missing/mismatched capabilities or an uncertain response do not authorize local
+   consumption or automatic replay. A later bounded explicit retry is permitted
+   after native observation; another unused short-lived key is an accepted cost.
+   Do not add automatic POST retries.
 4. Publish only that single-use key to a new restrictive file in the companion's
    exact-run input directory. Invoke its fixed upstream CLI as container UID 0
    through host-owned Podman exec, targeting its own fixed socket and using `file:`
@@ -497,18 +508,19 @@ Prove normal/public DNS, MagicDNS, nested-workload behavior, conflicting owners 
 stop/crash recovery. If the selected profile cannot meet that contract, report it
 unsupported rather than claim SOCKS-only or IP-only behavior is full integration.
 
-**Ephemeral state:** use a native state file in a restricted host `/run` directory
-bound to the project incarnation. The key makes the device ephemeral; diskless
-`--state=mem:` is not required. This preserves the node across a companion-daemon
-restart during the same project run. A new project run uses a fresh directory/node,
-not an old retained copy. A missing/ambiguous state file in the same run requires
-inspection or explicit retry, never another automatic key.
+**Ephemeral state:** use upstream `--state=mem:` for one node identity per companion
+daemon activation. Restart may change addresses, interrupt connections and require
+provider approval again. Do not maintain a node-state volume or promise same-run
+identity continuity. The companion's writable root still holds native DNS backup;
+control/input files and current-run metadata still bind exact native ownership.
+They are not enrollment attempt history or a reason to refuse all future key requests.
 
-Unlike `mem:`, this file-backed mode does not set upstream's `LoginEphemeral` flag
-that triggers best-effort shutdown logout. The native stop path must explicitly
-attempt logout when ending project access; stopping a daemon alone only makes the
-provider device offline. Do not logout merely to restart the companion within the
-same project run. Native logout failure and eventual provider expiry stay distinct.
+`mem:` sets upstream's `LoginEphemeral` flag for best-effort shutdown logout. The
+native stop path also explicitly attempts bounded logout on every activation end,
+including companion restart. DNS restoration and exact resource ownership remain
+necessary; memory node state does not prove either. Native logout failure and
+provider expiry stay distinct. No retained files or companions are converted or
+removed merely by changing this source.
 
 **Systemd lifetime:** keep `soda-project@` as the only project running/boot owner.
 Its start-post hook queues the exact companion unit with `--no-block`; it must not
@@ -520,12 +532,11 @@ just Type=simple's early active indication. Provider work remains in the compani
 unit's fixed native phase, outside the helper's global gate.
 
 Stop ordering must end the companion before the project's network disappears.
-Logout is for Off or the end of the project run, not a same-run daemon restart;
-use saved policy and the actual owning systemd stop job, not `ActiveState` alone
-(which may still be active while an ordered stop is queued). Preserve per-run state
-on daemon failure/restart, inspect incomplete attempts, and do not mint twice from
-unit restart hooks. Exact stop-job detection and failure-restart ordering are
-native proof items, not established by reading the unit manual. No `Upholds=` loop,
+Always attempt bounded logout when stopping the owned companion; there is no
+parent-job parser or restart-reason protocol. Reuse an existing live node on repeated
+Start. A failed preparation/enrollment requires explicit retry; automatic restart
+is reserved for an activated daemon's subsequent failure. Reverse stop ordering,
+DNS restoration and fresh-identity restart behavior need native proof. No `Upholds=` loop,
 browser polling mutation or scan/re-enrollment of every project.
 
 **Testable implementation seams:** concrete Go operations for host
@@ -549,8 +560,8 @@ Refuse occupied names/state. No sibling-architecture gate or retained-root retro
 | Phase | Exact proposed effects and assertions |
 | --- | --- |
 | A — no provider credentials | Approved fixture provisioning/start, two disposable projects and their companion units; TUN/NET_ADMIN only in the specified companion profile. Prove actual UID/net namespace ownership, private PID/mount/IPC boundaries, denied project-root access using synthetic canaries, host-root LocalAPI admission versus companion-local admission, fixed binaries/CIDs and no host engine exposure. |
-| A — native runtime lifecycle | On those fixtures only: project Start/Stop, same-run companion restart/failure, project failure restart, duplicate Start and Off. Validate queued systemd stop jobs, reverse stop ordering, changed namespace/PID rejection and retained state. No auth key/device may be created. Resolver mount ownership and safe failure behavior are observed without claiming registered networking. |
-| B — separately approved real enrollment | A restricted client-ID/secret input for one explicitly named Tailnet/tag policy, approved client/peer endpoints and approval/Lock policy. At most four single-use keys/devices: initial A and B, then A after one clean project restart and one project failure restart. No hidden test device, same-run daemon-restart enrollment or retry after an uncertain key outcome. |
+| A — native runtime lifecycle | On those fixtures only: project Start/Stop, same-run companion restart/failure, project failure restart, duplicate Start and Off. Validate reverse stop ordering, changed namespace/PID rejection and activation-owned memory state. No auth key/device may be created. Resolver mount ownership and safe failure behavior are observed without claiming registered networking. |
+| B — separately approved real enrollment | A restricted client-ID/secret input for one explicitly named Tailnet/tag policy, approved client/peer endpoints and approval/Lock policy. Select an explicit bounded key/device budget covering initial A/B, companion/project restarts and a failed-request recovery. No hidden test device or unbudgeted retries. New keys are expected after a daemon restart; an extra unused key after an uncertain response is possible. |
 | B — connectivity and isolation | Ordinary project SSH/PTY/SCP/SFTP plus one project service, intended outbound Tailnet traffic, public DNS/MagicDNS and permitted/denied policy paths. Preserve ordinary LAN/terminal paths. Verify A/B independent identities, actual tags, approval/signature states, and unchanged appliance identity/preferences. Do not enable Tailscale SSH, exit-node/subnet advertisement or route acceptance. |
 | B — ending access | Explicit logout/stop of those exact project nodes, one Disable with no subsequent re-enable, bounded failure handling and fresh readback. Record confirmed logout versus uncertain removal/delayed expiry. Preserve project roots, credentials and attempt evidence. |
 
@@ -573,8 +584,8 @@ One native policy lock serializes cooperating writers without entering the proje
 lifecycle gate; no raw preference, state or credential proxy was added.
 
 The root helper's optional `tailnet_management` configuration defaults false.
-Host LocalAPI and CLI-dependent effects check the reviewed release recorded in
-`ManagementCLIRelease`. Root-only credential checking uses pinned upstream
+Host LocalAPI and CLI-dependent effects validate their bounded concrete interfaces,
+not a release-number allowlist. Root-only credential checking uses pinned upstream
 `clientcredentials` with bounded fixed-endpoint transport; it creates no auth key or
 device. The Tailscale key-creation SDK/runtime remains Stage 4, not a synthetic
 success path in this slice. Enabling managed defaults or project enable/retry refuses;
@@ -650,10 +661,10 @@ light/dark/narrow/wide presentation and the existing connection/logout contracts
 
 **Device-independent runtime/UI source candidate implemented; native acceptance remains pending.**
 The first source slice adds the selected v2 SDK key call with fixed endpoint,
-operation-owned OAuth, bounded/validated responses and no POST replay. A durable
-project-run marker and sanitized attempt journal precede provider work; matching
-same-run attempts (including lost journals) cannot automatically mint another key.
-Passive attempt observation and cancellable policy serialization are source-tested.
+operation-owned OAuth, bounded/validated responses and no POST replay. Enrollment
+uses native observation and cancellable policy/runtime serialization, with no durable
+attempt marker or journal. Failed preparation/enrollment is excluded from automatic
+unit restart and permits bounded explicit retry after observation.
 Native process identity checks cover boot/PID start, shifted mappings and non-host
 user/network namespaces; the fixed companion argument recipe is authored and tested,
 not an executed companion or installed compatibility claim.
@@ -661,15 +672,18 @@ not an executed companion or installed compatibility claim.
 The candidate now wires root-only `soda-host` run/stop phases, `soda-tailnet@`,
 nonblocking project start/boot activation, restricted per-run state/control/key input,
 exact companion CID/recipe/incarnation checks, bounded CLI consumption and native exec
-completion observations. Same-run daemon restart requires retained identity; uncertain
-attempts never mint again. Resolver checks bind the original project inode; the
+completion observations. Each daemon activation uses an in-memory identity;
+existing live nodes are reused, while an explicit recovery may issue another key. Resolver checks bind the original project inode; the
 upstream daemon owns backup/restore, with conflicting/uncertain state refused rather
-than overwritten by a Soda repair path. Parent stop/restart and explicit Off request
-logout; daemon-only restart preserves identity. Native ordering/recovery is unproven.
+than overwritten by a Soda repair path. Every companion stop attempts logout; no parent
+stop-job parsing or daemon-only identity preservation remains. Native ordering,
+DNS recovery and memory-state behavior are unproven.
 
-Explicit managed Create reserves the reviewed binding/revision before creation and
-binds the original CID before startup; legacy omission remains Off. Policy admission
-waits outside the unrelated project gate. Shared project Network controls, authorized
+Explicit managed Create preflights the reviewed binding/revision, completes project
+provisioning and records readiness, then applies networking with the normal
+exact-project policy operation. Failure there returns a separate network outcome;
+legacy omission remains Off. There is no Tailnet reservation or policy-lock-held
+creation callback. Policy admission stays outside the project writer gate. Shared project Network controls, authorized
 own-account SSH metadata, compact saved-policy Spaces summaries and the reviewed
 operator default are wired. Reads never enqueue enrollment. Configured runtime is
 separate from verified enrollment; the latter is not inferred from a credential check.
@@ -685,7 +699,8 @@ Create/Start/Stop/native boot paths and the shared project Network panel; extend
 connection metadata without changing existing LAN/SSH behavior or account authority.
 A global default must be reviewed in the Create request and recorded once by the
 native policy owner; missing legacy fields remain Off. Provisioning failures retain
-the original reservation and do not leave an unbound auto-enrollment task.
+the original project reservation. Network failure does not invalidate successful
+provisioning and must never be repaired by creating the project again.
 
 Extend Stage 3's operator setup/rotation form with runtime-backed default enablement
 and project summary/actions. Support the
@@ -791,9 +806,9 @@ and each installed removal separately in the handoff/history.
 | Authorization | Configured operator/nonoperator site admin; current owner/org owner, member, unrelated/public-repository reader; rename/transfer, missing scopes, stale session and expected-actor mismatch. No unauthorized native read or dispatch. |
 | Migration/state | Fresh/current v9 migration, pending OAuth/context/grant preservation, malformed/newer/incomplete schema; root policy missing versus corrupt; stale revisions; retained projects Off; no source-bundle/private-input contamination. |
 | Host parity | Existing enrolled identity survives UI/delivery/reboot when approved; initial sign-in and expired reauthentication; drafts/poll races, exit-node/advertisement failures, explicit Forgejo refresh, no passive mutations; disruptive host actions and alternative access. |
-| Enrollment credentials | Correct/wrong/revoked credential, unsupported version, invalid tag/scope, approval/Tailnet Lock requirement, rotation and network-replacement refusal. No reusable secret in project state/env/argv, API responses or captured output. Credential check creates no node. |
+| Enrollment credentials | Correct/wrong/revoked credential, unsupported native response shape, invalid tag/scope, approval/Tailnet Lock requirement, atomic active-credential rotation and network-replacement refusal. No reusable secret in project state/env/argv, API responses or captured output. Credential check creates no node. |
 | Project lifecycle | New enabled/Off/legacy Create; enable stopped/running; Start/Stop and approved host boot/failure restart; current-incarnation deduplication; two concurrent projects; disable during enrollment; unrelated project's process/policy/credentials unchanged. |
-| Partial/cancelled outcomes | Cancel before admission; timeout after key creation/registration/connection; response/readback/publication failure; tab departure/logout; no second key/node or automatic mutation replay. Explicit inspection/retry and retained reservation/state. |
+| Partial/cancelled outcomes | Cancel before admission; timeout after key creation/registration/connection; response/readback/publication failure; tab departure/logout; no automatic mutation replay or concurrent key consumer. Existing-node reuse, bounded explicit retry, possible extra unused key, and preserved project reservation/state. |
 | Confinement | Original CID/PID-start/namespace and socket binding, changed/unexpected occupant, project-root tampering, inaccessible host enrollment secret/control socket, namespace-scoped device/capabilities, no host network/engine exposure or unapproved routes. |
 | Real connectivity | From an intended authorized client: ordinary own-account SSH/PTY/SCP/SFTP and representative project HTTP/database service; intended outbound Tailnet access and DNS; permitted/denied Tailnet policy paths; existing LAN/terminal paths preserved. No Tailscale SSH substitution. |
 | Ephemeral aftermath | Observed native logout versus delayed crash expiry, exact provider device identity, no old-node resurrection/reuse across root copies; next start auto-enrolls, addresses shown freshly. No promise of free/unlimited ephemeral device usage. |

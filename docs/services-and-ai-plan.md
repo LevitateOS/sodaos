@@ -442,14 +442,12 @@ replays its initial prompt. A terminal's output alone cannot report semantic age
 states such as "review passed" or "waiting for approval"; use explicit validated
 process signals where available.
 
-**Current gap:** personal browser terminals are bound to an existing project
-account and the creating Soda sign-in context; logout ends them. The current API
-only enumerates those personal terminals and cannot launch an unattended agent.
-An automatic event can happen with no browser open, so its process owner must be
-the authorized automation run. A permitted browser viewer attaches independently.
-The implementation needs a bounded run/terminal integration and current native
-repository authorization for discovery/view/control; do not fabricate a human
-login session or remove existing personal-terminal logout/lease protections.
+**Current gap:** the [personal-terminal contract](terminal-integration.md) binds
+native work to the original project account and authorizes browser attachments.
+That inventory is not an unattended-agent API. An automatic event needs its own
+authorized automation-run owner and independent viewers, not a fabricated personal
+sign-in. Implement the bounded run/terminal integration and current native repository
+authorization for discovery/view/control without copying personal lifetime policy.
 
 Keep view controls separate from job controls. Hide/navigation disconnects the
 view without cancelling the job. Cancel ends the explicitly selected automation

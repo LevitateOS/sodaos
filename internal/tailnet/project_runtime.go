@@ -26,54 +26,6 @@ func (s ProjectSelection) Validate() error {
 	return nil
 }
 
-// ProvisionProject records reviewed admission before native creation and binds it
-// to the returned full CID before systemd can start it. Failures retain both the
-// reservation and any container; there is no cleanup, recreation or retry here.
-// The callback only creates a stopped container. It must not start/enroll it.
-func (m *Management) ProvisionProject(ctx context.Context, project string, selection ProjectSelection, create func() (string, error)) error {
-	if !ValidProject(project) || selection.Validate() != nil || !selection.Enabled || create == nil {
-		return ErrInvalid
-	}
-	if !m.policy.runtime {
-		return ErrUnsupported
-	}
-	root, lock, e := m.policy.lock(ctx, false)
-	if e != nil {
-		return ErrUnavailable
-	}
-	defer root.Close()
-	defer lock.Close()
-	p, e := m.policy.load(root)
-	if e != nil {
-		return e
-	}
-	if !p.Admission || p.Binding != selection.Binding || p.Revision != selection.Revision {
-		return ErrConflict
-	}
-	name := "reservation-" + project + ".json"
-	for _, path := range []string{name, "project-" + project + ".json"} {
-		if _, e = root.Lstat(path); !errors.Is(e, os.ErrNotExist) {
-			return ErrConflict
-		}
-	}
-	if e = m.policy.publish(root, lock, name, struct {
-		Version   int              `json:"version"`
-		Project   string           `json:"project"`
-		Selection ProjectSelection `json:"selection"`
-	}{1, project, selection}); e != nil {
-		return e
-	}
-	if ctx.Err() != nil {
-		return ErrUnconfirmed
-	}
-	cid, e := create()
-	if e != nil || !containerPattern.MatchString(cid) {
-		return ErrUnconfirmed
-	}
-	v := projectPolicy{Version: 1, Revision: newRevision(), Project: project, Container: cid, Binding: p.Binding, Enabled: true}
-	return m.policy.publish(root, lock, "project-"+project+".json", v)
-}
-
 // RunBinding is a native-only public-metadata projection, not a credential or a
 // browser-selected target. Existing connected nodes keep their saved binding when
 // global admission closes; only new key issuance needs Admission=true.

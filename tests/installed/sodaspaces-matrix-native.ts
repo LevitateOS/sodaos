@@ -60,14 +60,15 @@ print(json.dumps(dict(login=pwd.getpwuid(os.getuid()).pw_name,start=p.rsplit(') 
 export function observeMatrixShell(page: Page) {
   const buffers = new Map<string, string>(), sizes = new Map<string, {bytes: number; chunks: number}>();
   const decoders = new Map<string, TextDecoder>(), owners = new Map<string, WebSocket>();
-  const handlers = new Map<WebSocket, (event: {payload: string | Buffer}) => void>();
+  const handlers = new Map<WebSocket, {sent: (event: {payload: string | Buffer}) => void; receive: (event: {payload: string | Buffer}) => void}>();
   const observe = (socket: WebSocket) => {
     if (!new URL(socket.url()).pathname.endsWith('/terminal')) return;
     let id = '';
+    const sent = ({payload}: {payload: string | Buffer}) => {try {const frame = object(JSON.parse(String(payload))); if ((frame.action === 'create' || frame.action === 'attach') && terminalID(frame.id)) id = frame.id;} catch { /* scenario validates framing */ }};
     const receive = ({payload}: {payload: string | Buffer}) => {
       try {
         const frame = object(JSON.parse(String(payload)));
-        if (frame.type === 'session' && terminalID(frame.id)) {id = frame.id; owners.set(id, socket); decoders.set(id, new TextDecoder());}
+        if (frame.type === 'ready' && id) {owners.set(id, socket); decoders.set(id, new TextDecoder());}
         if (frame.type === 'output' && id && owners.get(id) === socket && typeof frame.data === 'string') {
           const bytes = Buffer.from(frame.data, 'base64'), size = sizes.get(id) || {bytes: 0, chunks: 0};
           buffers.set(id, ((buffers.get(id) || '') + (decoders.get(id)?.decode(bytes, {stream: true}) || '')).slice(-16384));
@@ -75,7 +76,7 @@ export function observeMatrixShell(page: Page) {
         }
       } catch { /* Framing assertions belong to the scenario's exact wire observer. */ }
     };
-    handlers.set(socket, receive); socket.on('framereceived', receive);
+    handlers.set(socket, {sent, receive}); socket.on('framesent', sent); socket.on('framereceived', receive);
   };
   page.on('websocket', observe);
   return {
@@ -103,6 +104,6 @@ export function observeMatrixShell(page: Page) {
       } while (Date.now() < deadline);
       throw Error('Native output facts not confirmed');
     },
-    dispose() {page.off('websocket', observe); for (const [socket, receive] of handlers) socket.off('framereceived', receive); buffers.clear(); sizes.clear(); decoders.clear(); owners.clear();},
+    dispose() {page.off('websocket', observe); for (const [socket, callbacks] of handlers) {socket.off('framesent', callbacks.sent); socket.off('framereceived', callbacks.receive);} buffers.clear(); sizes.clear(); decoders.clear(); owners.clear();},
   };
 }

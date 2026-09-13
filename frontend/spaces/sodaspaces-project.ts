@@ -15,6 +15,7 @@ export interface ProjectContext {
   repositoryId: string;
   page?: boolean;
   settings?: boolean;
+  session?: Session | undefined;
 }
 const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
 const views = ['environment', 'access', 'network'] as const;
@@ -87,9 +88,6 @@ export class SodaProjectControls extends LitElement {
       state: true
     }, stale: {
       state: true
-    },
-    uncertain: {
-      state: true
     }, connectVisible: {
       state: true
     }, canCreate: {
@@ -133,7 +131,6 @@ export class SodaProjectControls extends LitElement {
   } | undefined;
   declare private busy: boolean;
   declare private stale: boolean;
-  declare private uncertain: boolean;
   declare private connectVisible: boolean;
   declare private canCreate: boolean;
   declare private selected: View;
@@ -147,7 +144,7 @@ export class SodaProjectControls extends LitElement {
   private epoch = 0;
   private disposed = false;
   private mutationPending = false;
-  get canRestore() { return !this.mutationPending && !this.uncertain; }
+  get canRestore() { return !this.mutationPending; }
   constructor() {
     super();
     this.network = this.networkOptions = undefined;
@@ -160,7 +157,7 @@ export class SodaProjectControls extends LitElement {
     this.status = 'Refresh to inspect your shared environment.';
     this.outcome = this.repository = this.repositoryURL = this.draft = '';
     this.session = this.environment = this.detail = this.saved = this.keyPreview = this.lifecycle = this.connection = this.profileKeys = undefined;
-    this.busy = this.stale = this.uncertain = this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
+    this.busy = this.stale = this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
     this.connectVisible = true;
     this.selected = 'environment';
     this.useSavedKeys = false;
@@ -171,9 +168,9 @@ export class SodaProjectControls extends LitElement {
   configure(context: ProjectContext) {
     if (this.binding || this.disposed)
       throw Error('Project binding is immutable');
-    this.binding = {
-      ...context
-    };
+    this.binding = {...context};
+    check(!context.session || context.session.user.id === context.expectedUserId);
+    this.session = context.session;
     window.addEventListener('soda-session-retired', () => this.invalidate(), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal
@@ -190,7 +187,7 @@ export class SodaProjectControls extends LitElement {
     this.dispose();
   }
   private get blocked() {
-    return this.busy || this.stale || this.uncertain || this.disposed;
+    return this.busy || this.stale || this.disposed;
   }
   private get running() {
     return this.detail?.environment.provisioned === true && !this.detail.native_unavailable && this.detail.observed?.running === true;
@@ -216,9 +213,9 @@ export class SodaProjectControls extends LitElement {
       this.querySelector<HTMLElement>('[data-view="' + target + '"]')?.focus();
   }
   // Busy is checked synchronously, not only via Lit's eventually updated disabled attribute.
-  private command(event: Event, action: () => void | Promise<void>, allowUncertain = false) {
+  private command(event: Event, action: () => void | Promise<void>) {
     const button = event.currentTarget;
-    if (!(button instanceof HTMLButtonElement) || button.disabled || button.closest('[hidden], [inert]') || this.busy || this.stale || this.disposed || (this.uncertain && !allowUncertain))
+    if (!(button instanceof HTMLButtonElement) || button.disabled || button.closest('[hidden], [inert]') || this.blocked)
       return;
     void action();
   }
@@ -261,12 +258,12 @@ export class SodaProjectControls extends LitElement {
         if (this.busy || this.stale || this.disposed)
           event.preventDefault();
       },
-      refresh: event => this.command(event, () => this.refresh(), true),
+      refresh: event => this.command(event, () => this.refresh()),
       reload: event => {
         if (!this.disposed && event.currentTarget instanceof HTMLElement && !event.currentTarget.closest('[hidden], [inert]'))
           window.location.reload();
       },
-      logout: event => this.command(event, () => signOut(this.session?.user.id || ''), true),
+      logout: event => this.command(event, () => signOut(this.session?.user.id || '')),
       create: event => this.command(event, () => this.mutate('/api/environments', {
         repository_id: this.binding?.repositoryId, profile_id: this.selectedProfile,
         tailnet: this.networkEnabled && this.networkOptions?.available ? {enabled: true, revision: this.networkOptions.revision, binding: this.networkOptions.binding} : {enabled: false}
@@ -347,17 +344,18 @@ export class SodaProjectControls extends LitElement {
   invalidate() {
     ++this.epoch;
     this.stale = true;
+    this.busy = false;
     this.readController?.abort();
     this.reset();
     this.session = undefined;
     this.repository = '';
     this.connectVisible = false;
-    this.status = this.canRestore ? 'Page context changed. Reload the full repository page; no action was replayed or undone.' : 'Outcome unconfirmed. Ask the operator to inspect; do not repeat, recreate or repair. No action was replayed.';
+    this.status = 'Page context changed. Reload the full repository page; no action was replayed or undone. A dispatched operation may still have completed.';
   }
   private async api(path: string, method = 'GET', body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     const headers: Record<string, string> = {};
     const actor = this.binding?.expectedUserId;
-    if (path !== '/api/session' && actor)
+    if (actor)
       headers['X-Soda-Expected-User-ID'] = actor;
     if (method !== 'GET') {
       if (!this.session)
@@ -374,6 +372,7 @@ export class SodaProjectControls extends LitElement {
       } : {})
     });
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) this.invalidate();
       let code: string | undefined;
       try {
         const error = object(object(await readSodaJSON(response)).error);
@@ -395,23 +394,19 @@ export class SodaProjectControls extends LitElement {
     this.reset();
     const control = this.readController = new AbortController(), timeout = window.setTimeout(() => control.abort(), 15000);
     this.busy = true;
-    this.session = undefined;
     this.connectVisible = false;
     this.status = 'Checking your account and environment…';
     try {
-      const found = sessionResponse(await this.api('/api/session', 'GET', undefined, control.signal), location.origin);
+      const found = this.session || sessionResponse(await this.api('/api/session', 'GET', undefined, control.signal), location.origin);
       if (!this.active(n))
         return;
-      this.session = found;
       if (!expectedUserId || found.user.id !== expectedUserId) {
+        this.invalidate();
         this.connectVisible = true;
         this.status = 'Soda and native page identities differ. Sign out of Soda or reload and connect explicitly.';
         return;
       }
-      const provider = object(await this.api('/api/forgejo/me', 'GET', undefined, control.signal));
-      if (!this.active(n))
-        return;
-      check(provider.id === expectedUserId);
+      this.session = found;
       const collection = object(await this.api('/api/environments?repository_id=' + repositoryId, 'GET', undefined, control.signal)), repository = object(collection.repository);
       if (!this.active(n))
         return;
@@ -514,31 +509,27 @@ export class SodaProjectControls extends LitElement {
     }
   }
   private async mutate(path: string, body: Record<string, unknown>, message: string, method = 'POST') {
-    if (this.busy || this.stale || this.disposed || this.uncertain || !this.session)
+    if (this.blocked || !this.session)
       return;
     const n = this.epoch;
     this.busy = true;
-    this.outcome = 'Checking current authorization…';
+    this.outcome = 'Sending the explicit operation with the original page identity…';
     let dispatched = false;
     const controller = new AbortController(), timeout = window.setTimeout(() => controller.abort(), 255000);
     try {
-      const current = sessionResponse(await this.api('/api/session', 'GET', undefined, controller.signal), location.origin);
-      if (!this.active(n))
-        return;
-      check(current.user.id === this.session.user.id && current.csrf_token === this.session.csrf_token && current.forgejo_url === location.origin);
-      check(current.user.id === this.binding?.expectedUserId);
-      const provider = object(await this.api('/api/forgejo/me', 'GET', undefined, controller.signal));
-      if (!this.active(n))
-        return;
-      check(provider.id === this.binding?.expectedUserId);
       dispatched = true;
       this.mutationPending = true;
       this.outcome = 'Request dispatched. Closing does not cancel or undo native work.';
       const raw = await this.api(path, method, body, controller.signal), result = raw === null ? null : object(raw);
       if (!this.active(n))
         return;
-      if (path === '/api/environments')
+      if (path === '/api/environments') {
         check(result && projectId(result.id) && result.repository_id === this.binding?.repositoryId && result.provisioned === true && creationProfile(result.profile).id === body.profile_id);
+        if (object(body.tailnet).enabled === true) {
+          check(result.tailnet_outcome === 'queued' || result.tailnet_outcome === 'unconfirmed');
+          message = result.tailnet_outcome === 'queued' ? 'Project created. Network policy saved; enrollment queued.' : 'Project created. Network setup unconfirmed; inspect Network and explicitly retry there. Do not recreate the project.';
+        }
+      }
       else if (path.endsWith('/join'))
         check(typeof result?.login === 'string' && /^[a-z][a-z0-9_-]{0,30}$/.test(result.login) && result.login !== 'root');
       else if (path.endsWith('/lifecycle'))
@@ -572,16 +563,18 @@ export class SodaProjectControls extends LitElement {
       if (!this.active(n))
         return;
       const e = error instanceof SodaRequestError ? error : new SodaRequestError(0);
-      this.uncertain = dispatched && !rejected.has(e.status);
+      const uncertain = dispatched && !rejected.has(e.status);
+      if (uncertain && path === '/api/environments') this.canCreate = false;
       this.mutationPending = false;
       const reasons: Record<string, string> = {
         profile_unavailable: 'Installed Project OS unavailable. No reservation was created; refresh before another explicit action.', unsupported_linux_login: 'Your Forgejo username is not supported as a Linux login. No automatic rename is performed.', invalid_public_key: 'Provide one public SSH key without options or private key material.', saved_keys_changed: 'Saved keys changed. Review them again before Apply.', owner_required: 'Only the current human repository owner can create this environment.', not_provisioned: 'Provisioning is incomplete. Ask the operator to inspect; do not recreate it.'
       };
       const reason = reasons[e.code || ''];
-      this.outcome = !this.uncertain && reason ? reason : this.uncertain ? 'Outcome unconfirmed. Ask the operator to inspect; do not repeat, recreate or repair. Refresh reads state only.' : 'Request rejected. Refresh and review current state before another explicit action.';
+      this.outcome = !uncertain && reason ? reason : uncertain ? 'Outcome unconfirmed. Refresh the target before another explicit action; this does not confirm the earlier write. Never recreate a reserved project.' : 'Request rejected. Refresh and review current state before another explicit action.';
     }
     finally {
       window.clearTimeout(timeout);
+      this.mutationPending = false;
       if (this.active(n))
         this.busy = false;
     }
@@ -705,8 +698,10 @@ export class SodaProjectControls extends LitElement {
       this.outcome = 'Explicitly confirm removal of the last managed key.';
       return;
     }
+    const preview = this.keyPreview;
+    this.keyPreview = undefined; this.emptyConfirmed = false;
     return this.mutate(`/api/environments/${this.environment.id}/access-keys`, {
-      revision: this.keyPreview.revision, saved_fingerprints: this.keyPreview.saved_fingerprints, confirm_empty: !this.keyPreview.saved_fingerprints.length
+      revision: preview.revision, saved_fingerprints: preview.saved_fingerprints, confirm_empty: !preview.saved_fingerprints.length
     }, 'Managed SSH key file updated for this project. Verify new-key login and old-key refusal from your SSH client. Existing sessions and browser access are not revoked.');
   }
   dispose() {

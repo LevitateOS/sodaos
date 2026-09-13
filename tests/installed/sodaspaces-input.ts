@@ -11,6 +11,16 @@ export function object(value: unknown): Record<string, unknown> {
   assert(value && typeof value === 'object' && !Array.isArray(value), 'Expected an object');
   return value as Record<string, unknown>;
 }
+// A single approved terminal name/target; only measured, bounded geometry varies.
+export function matchesTerminalReservation(text: string | undefined, name: string): boolean {
+  if (!text || text.length > 1024) return false;
+  try {
+    const v = object(JSON.parse(text));
+    return Object.keys(v).sort().join(',') === 'cols,name,rows' && v.name === name &&
+      typeof v.cols === 'number' && Number.isInteger(v.cols) && v.cols >= 2 && v.cols <= 500 &&
+      typeof v.rows === 'number' && Number.isInteger(v.rows) && v.rows >= 2 && v.rows <= 300;
+  } catch {return false;}
+}
 export const validID = (value: unknown): value is string => typeof value === 'string' && /^[1-9][0-9]{0,18}$/.test(value) &&
   (value.length < 19 || value <= '9223372036854775807');
 export function journeyInput(value: unknown, accessMode: boolean, terminalMode = false): JourneyInput {

@@ -238,20 +238,43 @@ func TestTailnetResolverRequiresOriginalInodeAndNoConflictingManager(t *testing.
 		t.Fatal("different resolver inode accepted")
 	}
 }
-func TestTailnetParentJobDistinguishesOrderedStopAndDaemonRestart(t *testing.T) {
-	unit := "soda-project@" + fileRun().Target.Project + ".service"
-	for _, kind := range []string{"stop", "restart", "start", "reload"} {
-		queued, e := parentStopQueued([]byte("17 "+unit+" "+kind+" waiting\n"), unit)
-		if e != nil || queued != (kind == "stop" || kind == "restart") {
-			t.Fatal(kind, queued, e)
-		}
+func TestTailnetCompletedKeyInputCanBeRetiredForExplicitRetry(t *testing.T) {
+	base := runtimeTestRoot(t)
+	run := fileRun()
+	if run.UID == 0 {
+		run.UID, run.GID = 100000, 100000
 	}
-	if queued, e := parentStopQueued(nil, unit); e != nil || queued {
-		t.Fatal("daemon-only restart became logout", e)
+	f, e := openRuntimeProjectOwned(t.Context(), base, run.Target.Project, uint32(os.Geteuid()), uint32(os.Getegid()))
+	if e != nil {
+		t.Fatal(e)
 	}
-	for _, text := range []string{"17 other.service stop waiting", "17 " + unit + " bogus waiting", "17 " + unit + " stop waiting\n18 " + unit + " stop running", "garbage"} {
-		if _, e := parentStopQueued([]byte(text), unit); e == nil {
-			t.Fatal("ambiguous parent job accepted", text)
-		}
+	defer f.Close()
+	root, e := f.prepare(run, true)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer root.Close()
+	if _, e = root.Lstat("state"); !errors.Is(e, os.ErrNotExist) {
+		t.Fatal("node identity directory created")
+	}
+	key, e := writeRunKey(root, run, "tskey-auth-synthetic-completed-input")
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer key.Close()
+	if e = retirePendingRunKey(root, run); e != nil {
+		t.Fatal(e)
+	}
+	if info, e := key.Stat(); e != nil || info.Size() != 0 {
+		t.Fatal("old input not scrubbed", e)
+	}
+	if e = retirePendingRunKey(root, run); e != nil {
+		t.Fatal("absent input became a permanent retry veto", e)
+	}
+	if e = root.Symlink("../companion-id", "input/key"); e != nil {
+		t.Fatal(e)
+	}
+	if e = retirePendingRunKey(root, run); e == nil {
+		t.Fatal("substituted input accepted")
 	}
 }

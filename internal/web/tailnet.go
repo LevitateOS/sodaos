@@ -40,7 +40,7 @@ func tailnetError(w http.ResponseWriter, err error) {
 	case errors.Is(err, tailnet.ErrConflict):
 		jsonError(w, 409, "tailnet_changed", "Policy, host or original project identity changed. Review before acting.")
 	case errors.Is(err, tailnet.ErrUnsupported):
-		jsonError(w, 422, "tailnet_unsupported", "This Tailnet operation or native version is unsupported. No requested operation was dispatched.")
+		jsonError(w, 422, "tailnet_unsupported", "This Tailnet operation or required runtime capability is unsupported. No requested operation was dispatched.")
 	case errors.Is(err, tailnet.ErrUnavailable):
 		jsonError(w, 503, "tailnet_unavailable", "Tailnet management or its observation is unavailable. No empty or disconnected state was inferred.")
 	default:

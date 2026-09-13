@@ -270,22 +270,20 @@ Forgejo navbar merely because the user is browsing native pages.
 
 ## 6. Lifetime, errors and destructive actions
 
-The [terminal contract](terminal-integration.md) remains authoritative: original
-sign-in/account binding; one writer; normal 30-minute detached retention; explicit
-Keep for two hours; original authentication and 12-hour hard maximum always win.
-Output, polling, pings and automatic reattachment do not renew abandonment.
+The [terminal contract](terminal-integration.md) owns native lifetime, bounded
+attachment authority, one-writer exclusion, allocation, lookup and capacity. Design
+sheets do not preserve the superseded browser retention/lease/receipt requirements.
 
 | Action/state | Exact design behavior |
 | --- | --- |
-| Switch tab/pane/project; maximize | Keep all open sessions alive within their existing authority/lifetime; no detached countdown merely for tab selection |
-| Hide tab (`×`) | Tooltip/accessibility name **Hide NAME — kept until TIME**; remove view, request finite retention; retain row. If request is unconfirmed, show that, not a promised deadline |
-| Page navigation/reload | Restore bounded UI locators/layout and attach exact surviving IDs. Show retained deadline and **Continue working** per session; no input replay or automatic Return |
-| Keep for two hours | Explicit request in session menu; display actual capped deadline only after confirmation |
-| Connection lost | Retain bounded display, disable input, show known expiry with observation age, **Reconnect existing**. No queued keys or silently launched replacement |
+| Switch tab/pane/project; maximize | Preserve live owners; presentation is not native lifecycle |
+| Hide tab (`×`) | **Hide NAME** removes the view, not the native work; no lifetime request |
+| Page navigation/reload | Restore current UI locators/layout and inspect/attach exact surviving IDs; no input replay or new shells |
+| Connection lost | Retain bounded display, disable input, show observation age and **Reconnect existing**; no queued keys or silent replacement |
 | Attached elsewhere | No writable terminal/retained transcript from another window; ask to detach there. No force takeover |
 | End terminal… | Confirm full project/name/account and process loss. Submit End; show **Ending…** until actual native outcome. No transient message race or socket-close success assumption |
-| Ended / expired | Clear live controls; explicit **New terminal** creates a new ID. No “Undo”, “Resume” or restart masquerading as continuity |
-| Creation/cleanup unconfirmed | Keep the capacity-reserving row; input/attach/automatic retry disabled. Explain operator inspection. No repair, replacement or freeing a slot based on a closed socket |
+| Native ended / absent | Clear live controls; explicit **New terminal** creates a new ID. No “Undo”, “Resume” or restart masquerading as continuity |
+| Creation/cleanup unconfirmed | Keep the exact locator and scoped notice; explicit native inspection may recover. No automatic Create/End replay or permanent browser admission lock |
 | Capacity reached | Refuse new creation without evicting anyone. Let the user review their own sessions and explicitly End one; do not expose other users' metadata or retry in a loop |
 | Required native support missing/refused | Report the refusal and operator next step. No install-on-Open, fallback PTY or project replacement |
 | Authorization lost / Soda logout | Cancel affected access and clear private renderers/locators. Whole-context loss affects all its sessions; project denial is not another project's stop |
@@ -296,10 +294,9 @@ this terminal and processes in its managed session. Unsaved in-process work will
 lost. Files and independently managed services remain.” Default focus is **Cancel**.
 No guessing whether an editor is dirty and no generic red `×` that sometimes means End.
 
-Session menu: Rename; Move to pane; Keep for two hours; Continue working when eligible;
-Hide; divider; End terminal…. Pane menu: Split right/below; Maximize/Restore;
+Session menu: Rename; Move to pane; Hide; divider; End terminal…. Pane menu: Split right/below; Maximize/Restore;
 Consolidate panes. Project menu: Open repository; Project details. Separate ownership,
-not one huge menu. Bulk Keep/End, floating windows and stacked-pane mode are not part
+not one huge menu. Bulk End, floating windows and stacked-pane mode are not part
 of this first design; they can be reconsidered after core interactions work.
 
 ## 7. Mobile, compact drawer and accessibility
@@ -349,17 +346,15 @@ Preserve the implemented transaction-bound **fixed Spaces OAuth return**, actor/
 PKCE, encrypted grants, context rotation/logout and fresh repository authorization.
 A native-only sign-out is not atomic Soda/SSH logout; styling never proves identity.
 
-The backend now implements a bounded ID-keyed registry with immutable original
-bindings; the historical `{context, project}` singleton is superseded. Preserve
-that actual concurrency owner and the current 64 global slots including
-uncertain sessions, one private native guard/tmux server per ID, Stop's project gate
-and context-wide cancellation. No native multiplexer/backend replacement is selected.
+Use the [native terminal inventory and ownership contract](terminal-integration.md#managed-terminal-implementation-and-proof-limits),
+not a second workspace registry. Preserve original account binding, one writer,
+Stop admission and cancellation of stale access; layout does not own native work.
 
 One bounded authorized environment/session collection serves page and drawer. Filter
 before disclosing rows/counts; keep degraded observation distinct from launch authority.
 Bound provider/helper fan-out and distinguish unavailable enumeration from empty data.
 Do not copy provider roles or scan arbitrary project processes. Session labels/signals
-are bounded Soda metadata within the original session lifetime, not durable jobs.
+are bounded native-runtime metadata, not durable jobs.
 
 Store only bounded per-window session locators, order, pane ratios/selection and
 sidebar preference. No credentials, transcripts, queued keys or cross-window layout

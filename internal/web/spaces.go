@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/host"
@@ -59,6 +58,7 @@ func (s *Server) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Sessi
 		jsonError(w, 401, "unauthenticated", "Sign in again.")
 		return
 	}
+	terminalCount := 0
 	for _, p := range projects {
 		if ctx.Err() != nil || len(response.Items) >= 32 {
 			response.Complete = false
@@ -95,17 +95,18 @@ func (s *Server) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Sessi
 			response.Complete = false
 		}
 		if reader.repositoryVisible && !reader.authorityUnavailable && reader.login != "" && s.terminalCurrent(check, cookie.Value, v, p, reader.login) {
-			s.terminalMu.Lock()
-			for _, entry := range s.terminals {
-				if entry.matches(v, p, reader.login, cookie.Value) {
-					if !entry.live() {
-						entry.cancel()
-					}
-					row.Terminals = append(row.Terminals, entry.view())
-				}
+			items, err := s.terminalOperation(request, v, p, reader.login, cookie.Value, host.TerminalRequest{Action: "list"})
+			if err != nil {
+				response.Complete = false
 			}
-			s.terminalMu.Unlock()
-			sort.Slice(row.Terminals, func(i, j int) bool { return row.Terminals[i].ID < row.Terminals[j].ID })
+			for _, item := range items {
+				if terminalCount >= 64 {
+					response.Complete = false
+					break
+				}
+				row.Terminals = append(row.Terminals, terminalDTO(item, v, p, reader.login))
+				terminalCount++
+			}
 		}
 		if p.Ready && !reader.authorityUnavailable && (reader.login != "" || reader.administrator) {
 			// Optional, bounded read. Networking cannot redefine project readiness or

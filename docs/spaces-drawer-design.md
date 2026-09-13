@@ -158,11 +158,11 @@ There is no independently synchronized drawer session list or second backend own
   creation still requires an explicit project/account review and action.
 - A newly created tab joins the selected session's original group (or the initial
   group if none exists). It opens no other shell, environment, account or worktree.
-- **× = Hide this tab**, with the same effective-retention tooltip and uncertainty
-  handling as the full page. End is an explicitly named menu action with confirmation.
+- **× = Hide this tab**, a presentation-only change under the same
+  [terminal contract](terminal-integration.md) as the full page. End is an explicitly named menu action with confirmation.
 - Hiding removes that tab from the working set, including its original pane. If a
   group becomes empty, the normal full-page empty-pane rule applies. The session can
-  remain discoverable as kept; removal from a view is not process cleanup.
+  remain discoverable through native inventory; removal from a view is not process cleanup.
 - Pane splits, drag-reordering across groups and arrangement happen in full Spaces.
   The drawer's first design deliberately has no recursive split controls or second
   layout editor. **Open in Spaces** is the visible way to arrange these same sessions.
@@ -228,10 +228,10 @@ That is useful cross-project work, not an account mismatch or a warning conditio
 | --- | --- | --- |
 | Open/reopen Sodaspaces | Restore this window's drawer and selected surviving session | Original targets; no implicit new terminal or automatic project start |
 | Select terminal / open Sessions / view project details | Only the right-hand view or focused tab | Native form/scroll and existing sessions |
-| Open in Spaces | Normal same-origin navigation to `/-/soda/spaces`; focus selected session in its saved pane | Exact session IDs, groups, labels and server deadlines; no fresh shells |
+| Open in Spaces | Normal same-origin navigation to `/-/soda/spaces`; focus selected session in its saved pane | Exact session IDs and desired arrangement; no fresh shells |
 | Open in drawer from Spaces | Resolve the selected terminal's repository by stable ID, then navigate to its current native page with `#sodaspaces` | Same saved working set/selected session; existing attachment restoration; no creation or lifetime extension |
 | Browser Back from Spaces | Native page history and authorized drawer restoration | Existing surviving session identity; no arbitrary `return_to` URL or promised draft resurrection |
-| Hide workspace | Restore full-width native page; retain this document's owned working-set sessions within finite limits | Files/projects and discoverable surviving sessions; no End or Stop |
+| Hide workspace | Restore full-width native page; preserve this document's live views without native lifecycle requests | Files/projects and discoverable surviving sessions; no End or Stop |
 | Compact Forge/Terminal switch | Change which surface is visible in the same document | Native draft/scroll, open state and sessions; **not** Hide workspace |
 
 **Open in Spaces is navigation, not an in-place maximize.** Keep native unsaved-form
@@ -241,12 +241,9 @@ click may open another browser tab, but that tab must show Attached elsewhere fo
 existing writers rather than stealing them. Users can keep working at half width
 without ever visiting the full-page destination.
 
-Hide applies finite retention only to this document's owned attachments—not every
-session in the sign-in or another window. Existing explicit shorter/longer deadlines
-and authentication limits still govern; display actual results per session. An
-unconfirmed request is not a promised 30-minute grace. Reopening does not silently
-Return all hidden terminals; a deliberate session selection/Continue acts on that
-eligible session. Retain exact uncertain outcomes without replay or automatic repair.
+Hide/show is presentation-only. The [terminal contract](terminal-integration.md)
+owns native lifetime and bounded access; Keep/Return/deadline controls are retired.
+Retain exact uncertain outcomes without automatic replay or repair.
 
 ## 7. Environment and access remain available, not in the way
 
@@ -262,7 +259,7 @@ Required keyless Join/Git credential work remains unfinished, not hidden behind 
 success. Stop stays in the named Environment view with shared-impact confirmation;
 it is never next to `+`, tab close or Hide. Errors stay associated with their project.
 
-The drawer session menu retains Rename, Keep, eligible Continue, Hide and End. End
+The drawer session menu retains Rename, Hide and End. End
 confirmation names project/session/original account, distinguishes process loss from
 persistent files, and waits for actual confirmed/uncertain native cleanup metadata.
 There is no destructive all-sessions close, task cleanup or native-process scanner.

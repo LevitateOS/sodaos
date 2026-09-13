@@ -146,12 +146,17 @@ separate unimplemented work and must not appear because a label was entered.
 
 Current local listing reads the descriptors, systemd `LoadState`, `ActiveState`,
 `SubState` and `UnitFileState`, and the installed client version. It reports the
-number of descriptors, active/running listener units, and one configured slot per
-descriptor. It does **not** query provider online/offline or busy state, queued or
-running jobs, available slots, labels, job history, machine load, or disk use. One
-unreadable/ambiguous descriptor, missing or ambiguous required unit observation,
-or unavailable/blank client version makes the whole list fail;
-the UI must report status as unavailable rather than render an empty inventory.
+known validated descriptors, observed active/running listener units, and one
+configured slot per readable descriptor. It does **not** query provider online/offline
+or busy state, queued/running jobs, available slots, labels, history, load or disk use.
+An unreadable/ambiguous descriptor is reported by its validated local ID without
+projecting its unsafe account/provider fields. Other readable rows remain usable.
+Missing/ambiguous service properties are unknown, not stopped/disabled; an unavailable
+client version does not discard its descriptors. Query the shared installed version
+once per list. Counts in a partial observation are qualified known counts, not a
+complete capacity claim. A failed root-directory/lock/transport read is still an
+error, not complete empty inventory. The [API guide](dashboard-api.md#operator-runner-settings)
+owns the nullable fields, unavailable locators and completeness projection.
 
 ## Required web and native authority path
 
@@ -187,8 +192,9 @@ operation timeout, shared native lock, configured Forgejo origins, and sanitized
 errors. For Forgejo creation, overwrite any browser value with the configured
 internal Forgejo origin before the root call; expose only the configured browser
 origin in links. Only `provider=forgejo` is accepted. Reject every other provider
-before native dispatch; a saved unsupported provider makes inventory unavailable
-rather than being omitted or interpreted as Forgejo.
+before native dispatch; a saved unsupported provider makes that exact descriptor
+unavailable, without being silently omitted, interpreted as Forgejo or suppressing
+independent validated rows. Lifecycle/Remove still revalidate the exact descriptor.
 
 The CLI and native page reach the same state; retained pre-retirement Cockpit
 clients also use that unchanged native owner. The native lock covers
@@ -203,9 +209,9 @@ specific uncertain outcome, not a fabricated previous state.
 | --- | --- | --- |
 | List / Refresh | Reads local descriptors, client versions, and exact systemd state; performs no provider query. | Show configured slots and listener state as local observations. Do not call a running listener online, idle, or provider-available. Preserve the previous view only as visibly stale if refresh fails. |
 | Register Forgejo | Writes the provider-issued UUID/token and host labels into the runner's private state, records a local descriptor, enables and starts the listener. The provider record must already exist. | Explain that an authorized Forgejo administrator creates the **system** runner record and supplies its UUID/token. Do not grant site-admin rights, use Soda's setup token, or silently create/reset provider registration. Re-read local state after the operation. |
-| Start | `systemctl enable --now` for the validated existing unit. | State that the listener starts now **and at host boot**. Do not create, repair, upgrade, or re-register it. Re-read actual state. |
-| Stop | `systemctl disable --now` for the validated existing unit. | State that the listener is disabled for host boot and any active local job may be interrupted. Provider job outcome is not locally known. Re-read actual state. |
-| Restart | Enables the unit, then restarts it. | Warn that it can interrupt a job and that it leaves boot start enabled, even if the listener was previously stopped. Do not call it a provider reconnect guarantee. |
+| Start | `systemctl enable --now` for the validated existing unit. | Name the target without typed-ID entry; state that the listener starts now **and at host boot**. Do not create, repair, upgrade, or re-register it. Re-read actual state. |
+| Stop | `systemctl disable --now` for the validated existing unit. | Use named-target/shared-impact confirmation, not typed-ID entry. State that the listener is disabled for host boot and any active local job may be interrupted. Provider job outcome is not locally known. Re-read actual state. |
+| Restart | Enables the unit, then restarts it. | Use named-target/shared-impact confirmation, not typed-ID entry. Warn that it can interrupt a job and that it leaves boot start enabled, even if the listener was previously stopped. Do not call it a provider reconnect guarantee. |
 | Remove | Stops/disables the unit, deletes the Linux account, then recursively removes that runner's local state directory. | Require the exact runner ID and a destructive warning covering provider credentials, work files, dependencies, and uncommitted job changes. Provider registration/history remain. Report partial outcomes: unconfirmed stop permits no account/state removal; failed account deletion leaves state; failed state deletion occurs after account removal. No rollback or automatic provider cleanup. |
 
 Creation also has partial states. Failure before retention normally attempts to
@@ -275,17 +281,18 @@ select them for delivery or permit replacing project roots.
 ## Browser behavior
 
 Shared page entry, session bootstrap, coordinated logout and native history are
-owned by the page integration guide. The runner component additionally preserves:
+owned by the [page integration guide](forgejo-soda-pages-plan.md#bootstrap-bound-operations).
+The runner component additionally preserves:
 
 - Provider links built only from the configured public Forgejo origin. A local
   runner ID is not a provider runner ID; do not invent deep links or expose stored
   internal registration URLs. Provider administration links do not grant authority.
-- Exact-ID confirmations, clear boot-policy/destructive effects, field guidance and
+- Proportional named-target confirmations (typed exact ID for **Remove only**), clear boot-policy/destructive effects, field guidance and
   local-state uncertainty. Keep Refresh/provider inspection usable as safe next
   actions; do not equate configured listeners with available provider job slots.
 - Request-generation retirement on departure/disconnect. Clear unsent credentials
   on pagehide, logout or authorization loss. BFCache return discards confirmations,
-  revalidates the original actor/session and refreshes before mutation. Late responses,
+  refreshes through actual guarded reads while retaining the original actor/CSRF. Late responses,
   including those ignoring abort, cannot revive an earlier request generation.
 - Dispatched-operation uncertainty: cancelling a browser fetch does not prove native
   cancellation. Do not replay an operation or clear uncertainty merely on remount.
@@ -296,8 +303,9 @@ Local runner tests own API admission before decode/native reads and again after
 decoding before mutation dispatch, including logout, user/context/CSRF drift,
 storage failure and cancellation. They also own strict requests, secret/public-origin
 projection, unsupported providers, cross-process serialization and cancellation-before-dispatch,
-whole-list failure and staged Remove/creation failures. Preserve legacy data and the
-retained consumers' response/confirmation behavior.
+partial inventory plus whole-read failure and staged Remove/creation failures.
+Preserve retained data, and port consumers to the selected response/confirmation
+contract rather than treating historical input files as new operational permission.
 The existing Go and native-page browser tests remain with those production owners;
 use the [source-check guide](typescript.md#local-source-checks) for commands.
 

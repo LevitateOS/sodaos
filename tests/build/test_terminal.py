@@ -1,7 +1,8 @@
 """Local PTY supervision and fixed launcher contracts; no appliance or host users.
 
 Process tests replace only launch_attach with an unprivileged, clean test shell.
-They prove real local PTY lifetime, NOT project credential dropping/native Podman.
+They prove local attachment-client PTY behavior, NOT tmux lifetime, systemd,
+project credential dropping or native Podman.
 """
 import base64
 import importlib.util
@@ -43,7 +44,7 @@ class TerminalProtocol(unittest.TestCase):
         a = types.SimpleNamespace(pw_name='alice', pw_uid=1001, pw_gid=1001,
                                   pw_dir='/home/alice', pw_shell='/bin/bash')
         calls = []
-        with patch.multiple(terminal.os,
+        with patch.multiple(terminal.os, create=True,
                             initgroups=lambda *v: calls.append(('groups', v)),
                             setresgid=lambda *v: calls.append(('gid', v)),
                             setresuid=lambda *v: calls.append(('uid', v)),
@@ -94,7 +95,7 @@ class TerminalProtocol(unittest.TestCase):
     def test_unprivileged_entrypoint_never_launches(self):
         if os.geteuid() == 0:
             self.skipTest('this check requires the unprivileged development user')
-        p = subprocess.run([sys.executable, '-I', str(SOURCE), 'create', 'a'*32, 'alice', '2', '80', '24', '30', '0'*64], capture_output=True, timeout=5)
+        p = subprocess.run([sys.executable, '-I', str(SOURCE), 'create', 'a'*32, 'alice', '2', '80', '24', '30', '0'*64, '', 'b'*64], capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 1)
         self.assertEqual(json.loads(p.stdout), {'type': 'closed', 'reason': 'launch_failed'})
         self.assertEqual(p.stderr, b'')
@@ -113,13 +114,16 @@ class ManagedTerminalBoundary(unittest.TestCase):
         self.account = types.SimpleNamespace(pw_name='alice', pw_uid=1001, pw_gid=1002,
                                             pw_dir='/home/alice', pw_shell='/bin/bash')
         data = {'account': terminal.account_binding(self.account), 'identity': 2, 'cols': 80,
-                'rows': 24, 'deadline': time.monotonic()+120}
+                'rows': 24, 'created_at': int(time.time())}
         for name, value in {'binding': json.dumps(data), 'ready': json.dumps({'pid': 42, 'socket': [1, 2]}),
-                            'lease': str(time.monotonic()+60), 'writer': ''}.items():
+                            'name': json.dumps('Build'), 'writer': ''}.items():
             p = self.directory/name; p.write_text(value); p.chmod(0o600)
         opened, inspected = os.open, os.fstat
+        self.paths = {}
         def open_root(path, flags, *args, **kwargs):
-            return opened(self.root if path == '/' else path, flags, *args, **kwargs)
+            fd = opened(self.root if path == '/' else path, flags, *args, **kwargs)
+            self.paths[fd] = self.root if path == '/' else self.paths.get(kwargs.get('dir_fd'), Path('/')) / path
+            return fd
         def root_owner(fd):
             fields = list(inspected(fd)); fields[4] = 0
             return os.stat_result(fields)
@@ -138,15 +142,18 @@ class ManagedTerminalBoundary(unittest.TestCase):
             commands.assert_not_called()
             with self.assertRaises(ValueError): terminal.attach_terminal(self.identifier, self.account, 3, 80, 24, 60)
             with self.assertRaises(FileNotFoundError): terminal.attach_terminal('b'*32, self.account, 2, 80, 24, 60)
-            (self.directory/'lease').write_text('0')
-            with self.assertRaises(ValueError): terminal.attach_terminal(self.identifier, self.account, 2, 80, 24, 60)
             self.assertEqual(attach.call_count, 1)
 
-    def test_nonfinite_lease_refuses(self):
-        for value in ('nan', 'inf', '-inf'):
-            (self.directory/'lease').write_text(value)
-            with (self.directory/'lease').open() as f:
-                with self.assertRaises(ValueError): terminal.lease_value(f.fileno())
+    def test_binding_and_creation_permission_are_strict_not_lifetime_leases(self):
+        original = json.loads((self.directory/'binding').read_text())
+        for change in ({'created_at': True}, {'created_at': -1}, {'deadline': 9999999}, {'cols': 1}, {'identity': 0}, {'account': ['alice']}):
+            (self.directory/'binding').write_text(json.dumps({**original, **change}))
+            with (self.directory/'binding').open() as f:
+                with patch.object(terminal, 'read_record', return_value=json.loads(f.read())):
+                    with self.assertRaises(ValueError): terminal.binding(0)
+        for value in ({'expires': True, 'scope': 'a'*64}, {'expires': 1, 'scope': 'bad'}, {'expires': 1, 'scope': 'a'*64, 'lease': 1}):
+            with patch.object(terminal, 'read_record', return_value=value):
+                with self.assertRaises(ValueError): terminal.reservation(0)
 
     def test_writer_lock_and_socket_replacement_refuse(self):
         with (self.directory/'writer').open('r+') as writer:
@@ -177,7 +184,7 @@ class ManagedTerminalBoundary(unittest.TestCase):
         (group/'cgroup.events').write_text('populated 1\nfrozen 0\n')
         self.assertFalse(terminal.cgroup_empty(self.identifier))
         with patch.object(terminal, 'service_state', return_value='inactive'):
-            with self.assertRaises(ValueError): terminal.stop_service(self.identifier)
+            with self.assertRaises(ValueError): terminal.stop_service(self.identifier, self.account)
         (group/'cgroup.events').write_text('populated 0\nfrozen 0\n')
         self.assertTrue(terminal.cgroup_empty(self.identifier))
         (group/'cgroup.events').unlink(); group.rmdir()
@@ -189,7 +196,7 @@ class ManagedTerminalBoundary(unittest.TestCase):
         def stat_command(args, **kwargs):
             fd = kwargs['pass_fds'][0]
             self.assertEqual(args, ['/usr/bin/stat', '-f', '-c', '%T', '/proc/self/fd/' + str(fd)])
-            path = Path(os.readlink('/proc/self/fd/' + str(fd)))
+            path = self.paths[fd]
             return types.SimpleNamespace(stdout=b'sysfs\n' if path.name in ('sys', 'fs') else b'cgroup2fs\n')
         commands = patch.object(terminal.subprocess, 'run', side_effect=stat_command)
         readonly = patch.object(terminal.os, 'fstatvfs', return_value=types.SimpleNamespace(f_flag=os.ST_RDONLY))
@@ -202,7 +209,7 @@ class ManagedTerminalBoundary(unittest.TestCase):
         inspected = terminal.os.fstat
         def mapped_owner(fd):
             fields = list(inspected(fd))
-            if Path(os.readlink('/proc/self/fd/' + str(fd))).name in ('sys', 'fs'):
+            if self.paths[fd].name in ('sys', 'fs'):
                 fields[4] = 65534
             return os.stat_result(fields)
         with patch.object(terminal.os, 'fstat', side_effect=mapped_owner):
@@ -218,14 +225,143 @@ class ManagedTerminalBoundary(unittest.TestCase):
 
     def test_occupied_creation_and_missing_program_never_start_service(self):
         with patch.object(terminal.subprocess, 'run') as run:
-            with self.assertRaises(FileNotFoundError): terminal.own_terminal(self.identifier, self.account, 2, 80, 24, 60, '0'*64)
+            with self.assertRaises(FileNotFoundError): terminal.reserve_terminal(self.identifier, self.account, 2, 80, 24, '', '0'*64, 'b'*64)
             run.assert_not_called()
             program = self.root/'usr/libexec/soda/project-terminal'; program.parent.mkdir(parents=True)
             program.write_bytes(SOURCE.read_bytes()); program.chmod(0o644)
             digest = terminal.hashlib.sha256(program.read_bytes()).hexdigest()
-            with self.assertRaises(FileExistsError): terminal.own_terminal(self.identifier, self.account, 2, 80, 24, 60, digest)
+            with self.assertRaises(FileExistsError): terminal.reserve_terminal(self.identifier, self.account, 2, 80, 24, '', digest, 'b'*64)
             self.assertEqual(run.call_count, 2)  # terminfo observations only
             self.assertTrue(all(c.args[0][0] == '/usr/bin/infocmp' for c in run.call_args_list))
+
+    def test_reservation_publishes_only_bounded_native_permission_without_starting(self):
+        program = self.root/'usr/libexec/soda/project-terminal'; program.parent.mkdir(parents=True)
+        program.write_bytes(SOURCE.read_bytes()); program.chmod(0o644)
+        digest = terminal.hashlib.sha256(program.read_bytes()).hexdigest()
+        identifier = 'c'*32
+        with patch.object(terminal, 'collect_finished', return_value=0), \
+             patch.object(terminal, 'terminal_directories', return_value=[self.identifier]), \
+             patch.object(terminal, 'service_state', return_value='inactive'), \
+             patch.object(terminal, 'cgroup_empty', return_value=True), \
+             patch.object(terminal.os, 'chown'), patch.object(terminal.subprocess, 'run') as run:
+            value = terminal.reserve_terminal(identifier, self.account, 2, 80, 24, 'Build', digest, 'b'*64)
+            self.assertEqual((value['id'], value['state'], value['ready']), (identifier, 'opening', False))
+            self.assertEqual(run.call_count, 2)
+            self.assertTrue(all(c.args[0][0] == '/usr/bin/infocmp' for c in run.call_args_list))
+            permit = json.loads((self.directory.parent/identifier/'reservation').read_text())
+            self.assertEqual(permit['scope'], 'b'*64)
+            self.assertLessEqual(permit['expires'], time.time()+120)
+
+    def test_collection_never_converts_an_unknown_retained_binding(self):
+        # A nonempty old layout is not an interrupted empty file, even if no
+        # other runtime files or native process remain.
+        original = (self.directory/'binding').read_text()
+        with patch.object(terminal, 'terminal_directories', return_value=[self.identifier]), \
+             patch.object(terminal, 'binding', side_effect=ValueError('old layout')), \
+             patch.object(terminal.os, 'listdir', return_value=['binding']), \
+             patch.object(terminal, 'service_state', return_value='inactive'), \
+             patch.object(terminal, 'cgroup_empty', return_value=True), \
+             patch.object(terminal.os, 'unlink') as remove:
+            with self.assertRaises(ValueError): terminal.collect_finished()
+            remove.assert_not_called()
+        self.assertEqual((self.directory/'binding').read_text(), original)
+
+    def test_native_metadata_preserves_binding_and_observes_writer_without_mutation(self):
+        with patch.object(terminal, 'service_state', return_value='active'), \
+             patch.object(terminal, 'socket_identity', return_value=[1, 2]), \
+             patch.object(terminal, 'remove_owned_files') as cleanup:
+            value = terminal.terminal_status(self.identifier, self.account, 2)
+            self.assertEqual(set(value), {'id', 'name', 'created_at', 'ready', 'attached', 'state'})
+            self.assertEqual((value['id'], value['state'], value['attached']), (self.identifier, 'ready', False))
+            with (self.directory/'writer').open('r+') as writer:
+                terminal.fcntl.flock(writer, terminal.fcntl.LOCK_EX)
+                self.assertTrue(terminal.terminal_status(self.identifier, self.account, 2)['attached'])
+            with self.assertRaises(ValueError): terminal.terminal_status(self.identifier, self.account, 3)
+            cleanup.assert_not_called()
+
+    def test_absence_requires_unit_and_cgroup_observation(self):
+        with patch.object(terminal, 'service_state', return_value='inactive'), \
+             patch.object(terminal, 'cgroup_empty', return_value=True) as empty:
+            self.assertIsNone(terminal.terminal_status('b'*32, self.account, 2))
+            empty.return_value = False
+            with self.assertRaises(ValueError): terminal.terminal_status('b'*32, self.account, 2)
+        with patch.object(terminal, 'service_state', side_effect=ValueError('unavailable')):
+            with self.assertRaises(ValueError): terminal.terminal_status('b'*32, self.account, 2)
+
+    def permit(self, expires=None, scope='b'*64):
+        value = {'expires': int(time.time())+120 if expires is None else expires, 'scope': scope}
+        path = self.directory/'reservation'; path.write_text(json.dumps(value)); path.chmod(0o600)
+
+    def test_create_consumes_native_permission_before_systemd_and_never_replays(self):
+        self.permit()
+        def start(args, **kwargs):
+            self.assertFalse((self.directory/'reservation').exists())
+            self.assertIn('--service-type=exec', args)
+            self.assertIn('--property=User=alice', args)
+            self.assertIn('--property=KillMode=control-group', args)
+            self.assertIn('--property=Restart=no', args)
+            self.assertIn('--property=ExecStartPost=+/usr/bin/python3 -I ' + terminal.PROGRAM + ' prepare ' + self.identifier, args)
+            self.assertNotIn('RuntimeMaxSec', ' '.join(args)); self.assertNotIn('Watchdog', ' '.join(args))
+            self.assertEqual(kwargs['timeout'], 15)
+        with patch.object(terminal, 'collect_finished', return_value=0), \
+             patch.object(terminal, 'service_state', return_value='inactive'), \
+             patch.object(terminal, 'terminal_status', return_value={'state': 'ready'}), \
+             patch.object(terminal.subprocess, 'run', side_effect=start) as run:
+            self.assertEqual(terminal.create_terminal(self.identifier, self.account, 2, 80, 24, 'Build', 'b'*64), {'state': 'ready'})
+            with self.assertRaises(ValueError): terminal.create_terminal(self.identifier, self.account, 2, 80, 24, 'Build', 'b'*64)
+            self.assertEqual(run.call_count, 1)
+
+    def test_expired_changed_or_ended_reservations_never_create(self):
+        with patch.object(terminal.subprocess, 'run') as run:
+            for expires, scope, cols in [(1, 'b'*64, 80), (int(time.time())+120, 'c'*64, 80), (int(time.time())+120, 'b'*64, 81)]:
+                self.permit(expires)
+                with self.assertRaises(ValueError): terminal.create_terminal(self.identifier, self.account, 2, cols, 24, '', scope)
+            (self.directory/'reservation').unlink()
+            with self.assertRaises(ValueError): terminal.create_terminal(self.identifier, self.account, 2, 80, 24, '', 'b'*64)
+            with self.assertRaises(FileNotFoundError): terminal.create_terminal('b'*32, self.account, 2, 80, 24, '', 'b'*64)
+            run.assert_not_called()
+
+    def test_pending_allocations_do_not_consume_native_work_capacity_or_appear_as_shells(self):
+        self.permit()
+        with patch.object(terminal, 'terminal_directories', return_value=[self.identifier]), \
+             patch.object(terminal, 'service_state', return_value='inactive'), \
+             patch.object(terminal, 'cgroup_empty', return_value=True), \
+             patch.object(terminal, 'remove_owned_files') as cleanup:
+            self.assertEqual(terminal.collect_finished(), 0); cleanup.assert_not_called()
+            self.assertEqual(terminal.terminal_status(self.identifier, self.account, 2)['state'], 'opening')
+            self.assertEqual(terminal.control_terminal('list', '', self.account, 2, 0, 0, '', '', ''), [])
+            self.permit(1)
+            self.assertEqual(terminal.terminal_status(self.identifier, self.account, 2)['state'], 'ended')
+            self.assertEqual(terminal.collect_finished(), 0); cleanup.assert_called_once()
+
+    def test_preparation_seals_socket_and_restores_normal_tmux_empty_exit(self):
+        (self.directory/'ready').unlink()
+        parent = self.root/'groups'; group = parent/('soda-terminal-' + self.identifier + '.service'); group.mkdir(parents=True)
+        (group/'cgroup.procs').write_text(str(os.getpid())+'\n')
+        fd = os.open(parent, os.O_RDONLY | os.O_DIRECTORY)
+        with patch.object(terminal, 'cgroup_parent', return_value=fd), \
+             patch.object(terminal, 'account_for', return_value=self.account), \
+             patch.object(terminal, 'socket_identity', return_value=[1, 2]), \
+             patch.object(terminal.os.path, 'exists', return_value=False), \
+             patch.object(terminal.os, 'chown') as chown, patch.object(terminal.os, 'chmod') as chmod, \
+             patch.object(terminal, 'tmux_control') as control, patch.dict(os.environ, {'MAINPID': '42'}):
+            self.assertEqual(terminal.prepare(self.identifier), 0)
+            self.assertEqual(control.call_args.args[-5:], (';', 'set-option', '-s', 'exit-empty', 'on'))
+            self.assertIn('new-session', control.call_args.args)
+            self.assertEqual(chown.call_args.args[1:], (0, 0)); self.assertEqual(chmod.call_args.args[1], 0o711)
+            self.assertEqual(json.loads((self.directory/'ready').read_text()), {'pid': 42, 'socket': [1, 2]})
+
+    def test_native_unit_attestation_refuses_foreign_user_or_supervision(self):
+        fields = dict(LoadState='loaded', ActiveState='active', Description='Soda terminal '+self.identifier,
+                      FragmentPath='/run/systemd/transient/soda-terminal-'+self.identifier+'.service', DropInPaths='',
+                      Type='exec', User='alice', KillMode='control-group', Restart='no', SendSIGKILL='yes',
+                      TimeoutStopUSec='3s', StandardInput='null', StandardOutput='null', StandardError='null')
+        def result(values): return types.SimpleNamespace(returncode=0, stdout=''.join(k+'='+v+'\n' for k,v in values.items()).encode())
+        with patch.object(terminal.subprocess, 'run', return_value=result(fields)) as run:
+            self.assertEqual(terminal.service_state(self.identifier, self.account), 'active')
+            for change in ({'User':'root'}, {'DropInPaths':'foreign.conf'}, {'KillMode':'process'}, {'Restart':'always'}, {'Type':'notify'}, {'FragmentPath':'foreign'}):
+                run.return_value = result({**fields, **change})
+                with self.assertRaises(ValueError): terminal.service_state(self.identifier, self.account)
 
     def test_control_commands_are_attach_only_and_clean_user_scoped(self):
         with patch.object(terminal.subprocess, 'run') as run:
@@ -239,6 +375,7 @@ class ManagedTerminalBoundary(unittest.TestCase):
         self.assertNotIn(b'pipe-pane', terminal.TMUX_CONFIG)
 
 
+@unittest.skipUnless(hasattr(os, 'pipe2'), 'Linux attachment bridge requires pipe2; no native compatibility shim')
 class LocalTerminalProcess(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -274,7 +411,7 @@ while True:
         harness = '''import importlib.util,os,signal,sys,types
 from pathlib import Path
 s=importlib.util.spec_from_file_location('terminal',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
-m.LEASE_SECONDS=float(sys.argv[3])
+m.HEARTBEAT_SECONDS=float(sys.argv[3])
 if sys.argv[5]=='ignored':
  signal.signal(signal.SIGINT,signal.SIG_IGN)
  signal.signal(signal.SIGQUIT,signal.SIG_IGN)
@@ -372,7 +509,7 @@ sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synt
     def exercise_pty_resize_interrupt_and_eof(self, ignored_signals):
         p = self.start(ignored_signals=ignored_signals)
         self.input(p, b'printf "__TTY__%s\\n" "$(tty)"\n')
-        self.output_until(p, b'__TTY__/dev/pts/')
+        self.output_until(p, b'__TTY__/dev/')
         self.send(p, {'type': 'resize', 'cols': 103, 'rows': 37})
         self.input(p, b'printf "__SIZE__%s\\n" "$(stty size)"\n')
         self.output_until(p, b'__SIZE__37 103')
@@ -389,7 +526,7 @@ sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synt
         p.stdin.close()
         self.closed(p, 'disconnected')
 
-    def test_lost_heartbeat_ends_only_owned_login(self):
+    def test_lost_heartbeat_ends_only_fixture_attachment_client(self):
         unrelated = subprocess.Popen(['/bin/sleep', '30'])
         self.processes.append(unrelated)
         p = self.start(lease=0.4)
@@ -421,7 +558,7 @@ sys.exit(m.run_terminal(types.SimpleNamespace(pw_dir=sys.argv[2]),80,24,10,'synt
         self.closed(p, 'launch_failed')
         self.assertEqual(p.returncode, 1)
 
-    def test_bad_frame_ends_shell_without_echoing_payload(self):
+    def test_bad_frame_ends_attachment_client_without_echoing_payload(self):
         p = self.start()
         self.send(p, {'type': 'SYNTHETIC_PRIVATE_ERROR'})
         self.closed(p, 'stream_failed')

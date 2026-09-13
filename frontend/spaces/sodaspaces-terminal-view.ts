@@ -7,7 +7,6 @@ export interface TerminalPresentation {
   readonly disabled: boolean;
   readonly canConnect: boolean;
   readonly canEnd: boolean;
-  readonly canReturn: boolean;
   readonly connectLabel: string;
   readonly login: string;
   readonly project: string;
@@ -22,8 +21,6 @@ export interface TerminalCommands {
   readonly end: () => void;
   readonly confirmEnd: () => void;
   readonly cancelEnd: () => void;
-  readonly return: () => void;
-  readonly keep: () => void;
   readonly project: () => void;
   readonly rename: () => void;
   readonly hide: () => void;
@@ -35,10 +32,6 @@ function actions(view: TerminalPresentation, commands: TerminalCommands): Templa
       @click=${commands.connect}>${view.connectLabel}</button>
     <button type="button" class="ui basic button" data-action="end" ?disabled=${!view.canEnd}
       @click=${commands.end}>End terminal…</button>
-    <button type="button" class="ui basic button" ?disabled=${!view.canReturn}
-      @click=${commands.return}>Continue working</button>
-    <button type="button" class="ui basic button" ?disabled=${!view.canEnd}
-      @click=${commands.keep}>Keep for two hours</button>
   `;
 }
 function confirmation(view: TerminalPresentation, commands: TerminalCommands): TemplateResult {

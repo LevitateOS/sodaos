@@ -79,7 +79,7 @@ func TestTailnetCompanionRecipeKeepsSecretsAndUnrelatedNamespacesOutside(t *test
 		t.Fatal(e)
 	}
 	joined := strings.Join(args, " ")
-	for _, want := range []string{"--userns=container:" + run.Target.Container, "--network=container:" + run.Target.Container, "--pid=private", "--ipc=private", "--uts=private", "--cgroupns=private", "--cap-drop=ALL", "--cap-add=NET_ADMIN", "--device=/dev/net/tun", "--no-hosts", "--log-driver=none", "--pull=never", image, "--entrypoint=/usr/local/bin/tailscaled", "--state=/var/lib/tailscale/tailscaled.state", "--no-logs-no-support"} {
+	for _, want := range []string{"--userns=container:" + run.Target.Container, "--network=container:" + run.Target.Container, "--pid=private", "--ipc=private", "--uts=private", "--cgroupns=private", "--cap-drop=ALL", "--cap-add=NET_ADMIN", "--device=/dev/net/tun", "--no-hosts", "--log-driver=none", "--pull=never", image, "--entrypoint=/usr/local/bin/tailscaled", "--state=mem:", "--no-logs-no-support"} {
 		if !strings.Contains(joined, want) {
 			t.Fatal("missing fixed recipe argument", want)
 		}
@@ -98,7 +98,7 @@ func TestTailnetCompanionRecipeKeepsSecretsAndUnrelatedNamespacesOutside(t *test
 			}
 		}
 	}
-	if count != 3 {
+	if count != 2 {
 		t.Fatal("unexpected mount count")
 	}
 	for _, bad := range []string{"latest", "docker.io/tailscale/tailscale:latest", "sha256:bad", "--privileged"} {

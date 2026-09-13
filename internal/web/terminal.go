@@ -62,7 +62,8 @@ func (s *Server) apiTerminal(w http.ResponseWriter, r *http.Request) {
 	if s.terminalPeers == nil {
 		s.terminalPeers = make(map[*http.Request]*terminalPeer)
 	}
-	s.terminalPeers[r] = &terminalPeer{cookie.Value, v.ContextID, p.ID, cancel}
+	peer := &terminalPeer{token: cookie.Value, contextID: v.ContextID, project: p.ID, cancel: cancel}
+	s.terminalPeers[r] = peer
 	s.terminalWG.Add(1)
 	s.terminalMu.Unlock()
 	defer s.terminalWG.Done()
@@ -84,7 +85,6 @@ func (s *Server) apiTerminal(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Action         string `json:"action"`
 		ID             string `json:"id"`
-		RequestID      string `json:"request_id"`
 		Name           string `json:"name"`
 		ExpectedUserID string `json:"expected_user_id"`
 		RepositoryID   string `json:"repository_id"`
@@ -100,7 +100,7 @@ func (s *Server) apiTerminal(w http.ResponseWriter, r *http.Request) {
 	repo, validRepo := positiveID(in.RepositoryID)
 	authorized := r.Clone(ctx)
 	authorized.Header.Set("X-CSRF-Token", in.CSRF)
-	validAction := (in.Action == "create" && in.ID == "" && browserTerminalID.MatchString(in.RequestID) && validTerminalName(in.Name)) || (in.Action == "attach" && browserTerminalID.MatchString(in.ID) && in.RequestID == "" && in.Name == "")
+	validAction := browserTerminalID.MatchString(in.ID) && ((in.Action == "create" && validTerminalName(in.Name)) || (in.Action == "attach" && in.Name == ""))
 	if !validActor || actor != v.User.ID || !validRepo || repo != p.RepositoryID || !s.validAPIMutation(authorized, v.CSRF) || in.Cols < 2 || in.Cols > 500 || in.Rows < 2 || in.Rows > 300 || !validAction {
 		refuse()
 		return
@@ -112,89 +112,36 @@ func (s *Server) apiTerminal(w http.ResponseWriter, r *http.Request) {
 		refuse()
 		return
 	}
-	attachment := &terminalAttachment{id: newTerminalID()}
 	s.terminalMu.Lock()
-	entry := s.terminals[in.ID]
 	if s.terminalClosed || s.terminalStopping[p.ID] || ctx.Err() != nil || !s.terminalCurrent(ctx, cookie.Value, v, p, login) {
 		s.terminalMu.Unlock()
 		refuse()
 		return
 	}
-	if in.Action == "create" {
-		s.expireTerminalReceipts()
-		duplicate := false
-		for _, e := range s.terminals {
-			duplicate = duplicate || (e.session.ContextID == v.ContextID && e.requestID == in.RequestID)
-		}
-		for _, e := range s.terminalReceipts {
-			duplicate = duplicate || (e.binding.session.ContextID == v.ContextID && e.view.RequestID == in.RequestID)
-		}
-		if duplicate || len(s.terminals) >= 64 {
+	for _, other := range s.terminalPeers {
+		if other != peer && other.project == p.ID && other.id == in.ID {
 			s.terminalMu.Unlock()
 			refuse()
 			return
 		}
-		id := newTerminalID()
-		_, receiptExists := s.terminalReceipts[id]
-		if s.terminals[id] != nil || receiptExists {
-			s.terminalMu.Unlock()
-			refuse()
-			return
-		}
-		now := time.Now()
-		hard := minTime(time.Unix(v.Expires, 0), now.Add(12*time.Hour))
-		ownerCtx, ownerCancel := context.WithDeadline(context.Background(), hard)
-		entry = &browserTerminal{terminalBinding: terminalBinding{cookie.Value, v, p, login, now, hard}, cancel: ownerCancel, ctx: ownerCtx, id: id, requestID: in.RequestID, name: in.Name, ready: make(chan struct{}), attachment: attachment, lastAttachment: attachment.id}
-		if s.terminals == nil {
-			s.terminals = make(map[string]*browserTerminal)
-		}
-		s.terminals[entry.id] = entry
-		// Reservation/admission is atomic with Stop/logout. Native IO is cancellable
-		// outside the global lock. Even an uncertain dispatch retains its exact slot.
-		s.terminalWG.Add(1)
-		go s.ownBrowserTerminal(authorized.Clone(ownerCtx), entry, in.Cols, in.Rows)
-	} else {
-		if entry == nil || !entry.matches(v, p, login, cookie.Value) || !entry.live() || entry.attachment != nil {
-			s.terminalMu.Unlock()
-			refuse()
-			return
-		}
-		entry.attachment = attachment
-		entry.lastAttachment = attachment.id
 	}
+	peer.id = in.ID // bounded in-flight/writer exclusion, not retained shell custody
 	s.terminalMu.Unlock()
-	endAttachment := context.AfterFunc(entry.ctx, cancel)
-	defer endAttachment()
-	defer func() {
-		s.terminalMu.Lock()
-		if entry.attachment == attachment {
-			entry.attachment = nil
-			if entry.retainUntil.IsZero() {
-				entry.retain(1800)
-			}
+	if in.Action == "create" {
+		items, err := s.Host.TerminalStates(ctx, host.TerminalRequest{Action: "create", ID: in.ID, Project: p.ID, Login: login, Identity: v.User.ID, Cols: in.Cols, Rows: in.Rows, Name: in.Name, Scope: terminalCreationScope(v)})
+		if err != nil || len(items) != 1 || !items[0].Ready {
+			refuse()
+			return
 		}
-		s.terminalMu.Unlock()
-	}()
-	message, _ := json.Marshal(map[string]string{"type": "session", "id": entry.id, "request_id": entry.requestID, "attachment_id": attachment.id})
-	write, finish := context.WithTimeout(ctx, 5*time.Second)
-	err = conn.Write(write, websocket.MessageText, message)
-	finish()
-	if err != nil {
-		return
-	}
-	select {
-	case <-entry.ready:
-	case <-ctx.Done():
-		return
 	}
 	s.terminalMu.Lock()
-	live := s.terminals[entry.id] == entry && entry.started && entry.live() && entry.attachment == attachment && ctx.Err() == nil && s.terminalCurrent(ctx, cookie.Value, v, p, login)
+	live := ctx.Err() == nil && !s.terminalClosed && !s.terminalStopping[p.ID] && s.terminalCurrent(ctx, cookie.Value, v, p, login)
 	s.terminalMu.Unlock()
 	if !live {
 		refuse()
 		return
 	}
-	native, err := s.Host.OpenTerminal(ctx, host.TerminalRequest{Action: "attach", ID: entry.id, Project: p.ID, Login: login, Identity: v.User.ID, Cols: in.Cols, Rows: in.Rows, Expires: entry.hardUntil.Unix()})
+	native, err := s.Host.OpenTerminal(ctx, host.TerminalRequest{Action: "attach", ID: in.ID, Project: p.ID, Login: login, Identity: v.User.ID, Cols: in.Cols, Rows: in.Rows, Expires: min(v.Expires, time.Now().Add(12*time.Hour).Unix())})
 	if err != nil {
 		refuse()
 		return
@@ -228,18 +175,13 @@ func (s *Server) apiTerminal(w http.ResponseWriter, r *http.Request) {
 		for {
 			select {
 			case frame := <-controls:
-				s.terminalMu.Lock()
-				live := entry.live() && entry.attachment == attachment && ctx.Err() == nil
-				s.terminalMu.Unlock()
-				if !live || native.Send(ctx, frame) != nil {
+				if ctx.Err() != nil || native.Send(ctx, frame) != nil {
 					return
 				}
 			case <-tick.C:
 				check, done := context.WithTimeout(ctx, 5*time.Second)
-				live := conn.Ping(check) == nil && s.terminalCurrent(check, cookie.Value, v, p, login)
-				s.terminalMu.Lock()
-				live = live && entry.live() && entry.attachment == attachment
-				s.terminalMu.Unlock()
+				_, authorityErr := s.visibleRepository(authorized.WithContext(check), v, p.RepositoryID)
+				live := authorityErr == nil && conn.Ping(check) == nil && s.terminalCurrent(check, cookie.Value, v, p, login)
 				var err error
 				if live {
 					err = native.Send(check, host.TerminalFrame{Type: "heartbeat"})
@@ -255,7 +197,7 @@ func (s *Server) apiTerminal(w http.ResponseWriter, r *http.Request) {
 	}()
 	for {
 		frame, err := native.Receive(ctx)
-		if err != nil {
+		if err != nil || frame.Type == "metadata" {
 			return
 		}
 		body, _ := json.Marshal(frame)

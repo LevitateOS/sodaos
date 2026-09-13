@@ -89,12 +89,12 @@ test('measured native/terminal minimums clamp actual widths without forcing a br
   assert(1024 * (1 - narrow.actual / 100) >= 480);
   assert.equal(workspaceWidths(1600, 532, 50).actual, 50);
 });
-test('compact visibility is document-local and never Hide, Return or dispose', async t => {
-  let hidden = 0, returned = 0, disposed = 0; const visible: boolean[] = [];
-  const f = await fixture(t, {width: 390, saved: {repositoryId: '7', open: true, width: 55}, mount: () => ({refresh() {}, setVisible(value) {visible.push(value);}, retain() {hidden++;}, returnToWork() {returned++;}, dispose() {disposed++;}})});
+test('compact visibility is document-local and never disposes live owners', async t => {
+  let disposed = 0; const visible: boolean[] = [];
+  const f = await fixture(t, {width: 390, saved: {repositoryId: '7', open: true, width: 55}, mount: () => ({refresh() {}, setVisible(value) {visible.push(value);}, dispose() {disposed++;}})});
   assert.equal(f.$('drawer').getAttribute('aria-hidden'), 'true');
   const controls = f.$('surfaces').querySelectorAll('button'); controls[1]?.click(); controls[0]?.click();
-  assert.deepEqual([hidden, returned, disposed], [0, 0, 0]); assert(visible.includes(true));
+  assert.equal(disposed, 0); assert(visible.includes(true));
   const stored = JSON.parse(f.w.sessionStorage.getItem('soda-workspace:1') || '{}'); assert.deepEqual(stored, {repositoryId: '7', open: true, width: 55});
   f.w.dispatchEvent(new f.w.PageTransitionEvent('pageshow', {persisted: true})); assert.equal(f.$('drawer').getAttribute('aria-hidden'), 'true');
 });

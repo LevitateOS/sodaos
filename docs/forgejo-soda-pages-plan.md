@@ -169,6 +169,29 @@ still use a direct bookmark; this navigation change does not change backend role
 Keep the global signed-actor/sub-URL marker and coordinated logout initialization;
 removing operator discovery must not silently remove native-menu sign-out handling.
 
+### Bootstrap-bound operations
+
+Pass the entry's validated actor/CSRF context directly to the mounted command owners
+in memory. A standalone native drawer bootstraps its workspace once and passes that
+same context to project/terminal children. Do not store credentials in DOM attributes,
+layout/storage, logs or screenshots, or add a browser authentication service.
+
+An owner sends its original actor and CSRF with actual protected operations. It does
+not fetch `/api/session` or `/api/forgejo/me` as a per-operation preflight/postflight,
+nor adopt newer credentials on refresh. Every real endpoint still enforces current
+session, expected actor, CSRF/Origin and feature/provider/native authority, including
+its post-IO checks. A stale click may send an HTTP request; it must cause **no
+unauthorized native effects**. Treat an authorization refusal as retirement/reconnect,
+not a reason to acquire new credentials and replay. Initial connection and the
+separate coordinated logout transaction retain their real bootstrap reads.
+
+Pagehide/logout and request-generation checks still retire late callbacks and scrub
+private fields. History restoration follows the existing fresh-owner entry rules;
+no surviving command owner replaces its original credential binding. Abort after
+dispatch is not native cancellation. Project uncertainty is scoped feedback under
+[the project submission contract](sodaspaces-plan.md#submission-and-result-handling),
+not a permanent cross-project restoration veto.
+
 ### One normal sign-out action
 
 Intercept only the native navbar's exact sign-out activation, synchronously in
@@ -245,7 +268,7 @@ guides, not synthetic operation peers.
 | --- | --- |
 | Native host | Actual Forgejo HTML/header/footer, native account gates, CSP and assets; one main landmark and workspace mount. Suppress only the selected full page's drawer; retain ordinary dashboard/footer behavior. Invalid repository locators expose no controls/private metadata. |
 | Connection/logout | First/repeat consent, decline/missing scopes, actor mismatch, concurrent attempts, pending/completed callback cancellation and both partial logout outcomes. Preserve native drafts and existing matching sessions. |
-| Page/drawer lifetime | Full Spaces → repository drawer → full Spaces preserves exact session selection, finite retention/Return and independently named End. Real Back/BFCache revalidates the original actor; stale/duplicate owners and late responses ignoring abort cannot revive departed work or replay mutations. |
+| Page/drawer lifetime | Full Spaces → repository drawer → full Spaces preserves exact selection under the [native terminal lifetime](terminal-integration.md) and independently named End. Real Back/BFCache revalidates the original actor; stale/duplicate owners and late responses ignoring abort cannot revive departed work or replay mutations. |
 | Navigation/bookmarks | Native navigation and fixed legacy entry bridges agree; signed-in/out bookmarks preserve expected actor and repository bindings. Current-page cues follow the validated native host, not unknown/duplicate selectors, unrelated routes or mismatched actors. Operator-link retirement and normal native links/drafts remain intact. No arbitrary return URLs, second login harness or automatic lifecycle effects. |
 | Assets/upgrade | Changed entries and transitive imports respect the actual configured cache policy. Distinguish fresh-browser checks, predecessor asset revalidation and a genuinely open predecessor document/backend transition. Preserve the final CSP, staging and notices contracts. |
 | Presentation | Native dark/light themes, narrow/wide layout, scroll/focus/keyboard/profile-menu behavior and unsaved forms remain usable. Use the existing screenshot guide; rendered/synthetic terminal content is not native editor/process proof. |

@@ -17,7 +17,7 @@ function snapshot(present=true, stopped=false, start='42'): RunnerState {
     boot_id:'11111111-1111-4111-8111-111111111111',prior_survivors:[],processes:{one:present && !stopped ? [{pid:1234,uid:123,start}] : []},
     states:{one:present ? {present:true,uid:123,gid:124,home:'/var/lib/soda/runners/one/state',shell:'/usr/sbin/nologin',
       registration:{descriptor:{sha256:'d'.repeat(64)},token:{sha256:'a'.repeat(64)},configuration:{sha256:'c'.repeat(64)}},tree:{sha256:'b'.repeat(64)}} : {present:false}},
-    inventory:{forgejo_url:'https://fixture.invalid',runner_count:present ? 1 : 0,total_capacity:present ? 1 : 0,active_listeners:present && !stopped ? 1 : 0,
+    inventory:{complete:true,unavailable:[],forgejo_url:'https://fixture.invalid',runner_count:present ? 1 : 0,total_capacity:present ? 1 : 0,active_listeners:present && !stopped ? 1 : 0,
       runners:present ? [{id:'one',provider:'forgejo',registration_url:'https://fixture.invalid',account:'soda-runner-one',architecture:'x86-64',version:'fixture',capacity:1,
         service:{load:'loaded',active:stopped ? 'inactive' : 'active',sub:stopped ? 'dead' : 'running',enabled:stopped ? 'disabled' : 'enabled'}}] : []}};
 }
@@ -47,6 +47,8 @@ test('all installed operation postconditions require the exact native lifecycle 
     const before=snapshot(phase !== 'register',phase === 'start');
     const after=snapshot(phase !== 'remove',phase === 'stop','43');
     verifyRunnerOperation(input(phase),before,after);
+    const incomplete=structuredClone(after); incomplete.inventory.complete=false;
+    assert.throws(()=>verifyRunnerOperation(input(phase),before,incomplete));
     const wrongTarget=structuredClone(after); wrongTarget.target='other';
     assert.throws(()=>verifyRunnerOperation(input(phase),before,wrongTarget));
     const changedPackages=structuredClone(after); changedPackages.packages=['changed','systemd fixture'];
@@ -56,10 +58,10 @@ test('all installed operation postconditions require the exact native lifecycle 
       assert.throws(()=>verifyRunnerOperation(input(phase),before,partial));
       assert.throws(()=>verifyRunnerOperation(input(phase),before,before));
     } else {
-      const unknown=structuredClone(after), row=unknown.inventory.runners[0]; assert(row);
+      const unknown=structuredClone(after), row=unknown.inventory.runners[0]; assert(row?.service);
       row.service.active='activating';
       assert.throws(()=>verifyRunnerOperation(input(phase),before,unknown));
-      const boot=structuredClone(after), bootRow=boot.inventory.runners[0]; assert(bootRow);
+      const boot=structuredClone(after), bootRow=boot.inventory.runners[0]; assert(bootRow?.service);
       bootRow.service.enabled=phase === 'stop' ? 'enabled' : 'disabled';
       assert.throws(()=>verifyRunnerOperation(input(phase),before,boot));
     }
