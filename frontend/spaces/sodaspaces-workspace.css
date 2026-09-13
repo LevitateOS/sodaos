@@ -4,7 +4,7 @@
 .soda-spaces-page-mount { min-height: 0; min-width: 0; }
 .soda-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; clip-path: inset(50%); white-space: nowrap; }
 .soda-native-page:has([data-view="spaces"]) { padding: 0; margin: 0; min-height: 0; }
-.soda-native-page:has([data-view="spaces"]) > .soda-page-container { max-width: none; width: 100%; padding: 0; margin: 0; }
+.soda-native-page:has([data-view="spaces"]) > .soda-page-container { max-width: none; width: 100% !important; padding: 0; margin: 0; }
 .soda-native-page:has([data-view="spaces"]) .soda-page-intro { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip-path: inset(50%); }
 .soda-workspace { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; font: var(--soda-font-workspace); color: var(--soda-page-text); }
 .soda-workspace [hidden] { display: none !important; }
@@ -86,25 +86,67 @@
 .soda-workspace.is-compact .ui.button, .soda-workspace.is-compact summary, .soda-workspace.is-compact .soda-workspace-toolbar > a { min-height: var(--soda-control-height) !important; }
 .soda-workspace.is-compact .soda-workspace-tabs .ui.button { height: var(--soda-control-height) !important; }
 
-/* First-use is an in-page projection, never a second terminal owner. */
-.soda-workspace.is-setup { overflow-y: auto; }
-.soda-setup-heading, .soda-setup-panel, .soda-setup-change,
-.soda-workspace.is-setup .soda-workspace-body { box-sizing: border-box; width: min(680px, calc(100% - 2 * var(--soda-panel-inset))); margin-inline: auto; flex: 0 0 auto; }
-.soda-setup-heading { padding-block: var(--soda-panel-inset); }
-.soda-setup-heading h1 { margin: 0; font: var(--soda-font-heading); }
-.soda-setup-panel, .soda-workspace.is-setup .soda-workspace-body { border: 1px solid var(--soda-page-edge); padding: var(--soda-panel-inset); background: var(--soda-page-surface); margin-bottom: var(--soda-panel-inset); }
-.soda-workspace.is-setup .soda-workspace-body { display: block; overflow: visible; }
+/* The frame and terminal owners remain mounted across setup and working views. */
+.soda-workspace-frame { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.soda-workspace[data-workspace-kind=page] { background: var(--soda-page-canvas); }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { padding: var(--soda-space-6) var(--soda-space-8); gap: var(--soda-space-3); min-height: 112px; }
+.soda-workspace[data-workspace-kind=page] .soda-selected-project strong { font: var(--soda-font-title); }
+.soda-workspace[data-workspace-kind=page] .soda-selected-project small { font: var(--soda-font-meta); color: var(--soda-page-muted); margin-top: var(--soda-space-2); }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar > .ui.button { min-height: var(--soda-control-height) !important; padding-inline: var(--soda-space-4) !important; border-color: var(--soda-page-edge); }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar .soda-menu > div { right: 0; left: auto; }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-navigation { padding: var(--soda-space-6) var(--soda-space-4); }
+.soda-projects-heading { display: flex; align-items: center; min-height: var(--soda-control-height); margin-bottom: var(--soda-space-6); }
+.soda-projects-heading h2, .soda-workspace .soda-projects-heading .ui.button { margin: 0; font: var(--soda-font-heading) !important; text-transform: none; letter-spacing: normal; }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-canvas { margin: var(--soda-space-6); border: 1px solid var(--soda-page-edge); }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-canvas:has(.soda-first-terminal) { border-color: transparent; }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-body.is-navigating { grid-template-rows: auto minmax(0, 1fr); }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-body.is-navigating .soda-workspace-work { display: flex; grid-row: 1; }
+.soda-workspace[data-workspace-kind=page] .soda-workspace-body.is-navigating .soda-workspace-navigation { grid-row: 2; }
+
+/* Setup uses a wide, stable frame and a narrower reading/form measure. Short
+   screens scroll the setup; working screens reserve height for the terminal. */
+.soda-workspace.is-setup { overflow-y: auto; box-sizing: border-box; padding: var(--soda-space-8) var(--soda-spaces-page-inset); font: var(--soda-font-body); }
+.soda-setup-heading, .soda-workspace.is-setup .soda-workspace-frame { box-sizing: border-box; width: 100%; max-width: var(--soda-spaces-setup-width); margin-inline: auto; }
+.soda-setup-heading { flex-shrink: 0; padding-bottom: var(--soda-space-8); }
+.soda-setup-heading h1 { margin: 0 0 var(--soda-space-3); font: var(--soda-font-title); }
+.soda-setup-heading p { margin: 0; color: var(--soda-page-muted); }
+.soda-workspace.is-setup .soda-workspace-frame { flex: 1 0 auto; min-height: 560px; border: 1px solid var(--soda-page-edge); background: var(--soda-page-surface); }
+.soda-setup-panel { display: flex; flex: 1; justify-content: center; align-items: center; padding: var(--soda-spaces-panel-inset); }
+.soda-setup-form, .soda-setup-change, .soda-workspace.is-setup .soda-workspace-management { box-sizing: border-box; width: 100%; max-width: var(--soda-spaces-form-width); margin-inline: auto; }
+.soda-setup-welcome { width: 100%; max-width: 560px; text-align: center; }
+.soda-setup-panel h2, .soda-project-journey h2, .soda-first-terminal h2 { margin: 0 0 var(--soda-space-6); font: var(--soda-font-title); }
+.soda-setup-panel p, .soda-project-journey p { margin: 0 0 var(--soda-space-4); color: var(--soda-page-muted); }
+.soda-setup-welcome > .ui.button { margin-block: var(--soda-space-4) var(--soda-space-6); }
+.soda-workspace.is-setup .soda-workspace-body { display: flex; overflow: visible; }
+.soda-workspace.is-setup .soda-workspace-work { flex: 1; justify-content: center; padding: var(--soda-spaces-panel-inset); }
 .soda-workspace.is-setup :is(.soda-workspace-work, .soda-workspace-management, .soda-workspace-management > div, soda-project-controls) { height: auto; overflow: visible; }
-.soda-setup-panel :is(h2, p), .soda-project-journey :is(h2, p) { margin: 0 0 var(--soda-space-3); }
-.soda-setup-panel :is(input[type=search], select), .soda-project-journey select { box-sizing: border-box; display: block; width: 100%; min-height: 44px; margin-block: var(--soda-space-2); padding: var(--soda-space-2); font: inherit; }
+.soda-workspace.is-setup .soda-workspace-management { flex: 0 0 auto; }
+.soda-setup-change { display: flex; flex-wrap: wrap; gap: var(--soda-space-3); margin-bottom: var(--soda-space-8); }
+.soda-setup-panel :is(input[type=search], select), .soda-project-journey select { box-sizing: border-box; display: block; width: 100%; min-height: var(--soda-control-height); margin-block: var(--soda-space-2); padding: var(--soda-space-3); font: inherit; }
 .soda-project-journey label { display: block; }
-.soda-setup-panel :is(fieldset, form) { margin-block: var(--soda-space-3); min-width: 0; border: 0; padding: 0; }
-.soda-repository-choice { display: flex; align-items: center; gap: var(--soda-space-2); border: 1px solid var(--soda-page-edge); padding: var(--soda-space-2); margin-block: var(--soda-space-1); overflow-wrap: anywhere; min-height: 44px; cursor: pointer; }
+.soda-setup-panel :is(fieldset, form) { margin-block: var(--soda-space-6); min-width: 0; border: 0; padding: 0; }
+.soda-repository-choice { display: flex; align-items: center; gap: var(--soda-space-3); border: 1px solid var(--soda-page-edge); padding: var(--soda-space-3); margin-block: var(--soda-space-2); overflow-wrap: anywhere; min-height: var(--soda-control-height); cursor: pointer; }
 .soda-repository-choice:has(input:checked) { background: var(--soda-page-hover); border-color: var(--soda-page-focus); }
 .soda-repository-choice small, .soda-selected-project small { display: block; font: var(--soda-font-caption); }
-.soda-setup-actions, .soda-setup-change, .soda-setup-panel nav { display: flex; flex-wrap: wrap; gap: var(--soda-space-2); align-items: center; }
-.soda-setup-footer { margin-top: var(--soda-panel-inset) !important; font: var(--soda-font-caption); }
-.soda-setup-panel :is(.ui.button, input), .soda-project-journey .ui.button, .soda-setup-change .ui.button { min-height: 44px !important; }
+.soda-setup-actions, .soda-setup-panel nav { display: flex; flex-wrap: wrap; gap: var(--soda-space-3); align-items: center; }
+.soda-setup-actions { justify-content: space-between; padding-top: var(--soda-space-6); border-top: 1px solid var(--soda-page-edge); }
+.soda-workspace .soda-setup-footer { margin: 0; padding: var(--soda-space-6) var(--soda-spaces-panel-inset); border-top: 1px solid var(--soda-page-edge); color: var(--soda-page-muted); font: var(--soda-font-meta); text-align: center; }
+.soda-workspace :is(.soda-setup-panel, .soda-project-journey, .soda-setup-change, .soda-first-terminal) .ui.button { min-height: var(--soda-control-height) !important; padding: var(--soda-space-3) var(--soda-space-6) !important; }
+.soda-workspace .soda-setup-panel .ui.button:not(.primary) { border-color: var(--soda-page-edge); }
+.soda-workspace[data-workspace-kind=page] .soda-project-journey { box-sizing: border-box; justify-content: center; align-items: center; gap: var(--soda-space-4); max-width: var(--soda-spaces-form-width); min-height: 100%; height: auto; margin-inline: auto; padding: var(--soda-spaces-panel-inset); text-align: center; font: var(--soda-font-body); }
+.soda-workspace.is-setup .soda-project-journey { align-items: stretch; min-height: 0; padding: 0; text-align: left; }
+.soda-workspace.is-setup .soda-project-journey :is(h2, p) { margin-bottom: 0; }
+.soda-workspace.is-setup .soda-project-journey > .ui.button { align-self: flex-end; }
+.soda-workspace.is-setup .soda-project-journey > .ui.button:not(.primary) { align-self: flex-start; }
+.soda-workspace[data-workspace-kind=page] .soda-first-terminal { font: var(--soda-font-body); gap: var(--soda-space-4); }
+.soda-first-terminal p { max-width: 520px; color: var(--soda-page-muted); }
+@media (max-width: 800px) {
+  .soda-workspace.is-setup { padding-block: var(--soda-space-6); }
+  .soda-workspace.is-setup .soda-workspace-frame { min-height: 480px; }
+  .soda-workspace[data-workspace-kind=page] .soda-workspace-toolbar { padding: var(--soda-space-4); min-height: 88px; }
+  .soda-workspace[data-workspace-kind=page] .soda-workspace-canvas { margin: var(--soda-space-3); }
+  .soda-workspace[data-workspace-kind=page] .soda-workspace-navigation { padding: var(--soda-space-4); }
+}
 .soda-workspace-toolbar { flex-wrap: wrap; }
 .soda-selected-project { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .soda-selected-project strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -117,7 +159,7 @@
 .soda-journey-icon { display: inline-block; flex: 0 0 auto; width: 20px; height: 20px; background: currentColor; }
 .soda-repository-icon { mask: url('soda/forgejo/icons/repo-19.14.0.svg') center / contain no-repeat; }
 .soda-terminal-icon { width: 40px; height: 40px; margin-bottom: var(--soda-space-4); mask: url('soda/forgejo/icons/terminal-19.14.0.svg') center / contain no-repeat; }
-.soda-workspace.is-compact[data-workspace-kind=page] .soda-selected-project { flex: 1 1 calc(100% - 100px); }
+.soda-workspace.is-compact[data-workspace-kind=page] .soda-selected-project { flex: 1 1 calc(100% - 128px); order: -1; }
 .soda-selected-project small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .soda-workspace .ui.button.soda-project-select[aria-pressed=true] { background: var(--soda-page-hover); color: var(--soda-page-text); border-color: transparent; border-inline-start-color: var(--soda-button-primary-bg); }
 .soda-project-status { display: block; padding: 0 var(--soda-space-2) var(--soda-space-2); }

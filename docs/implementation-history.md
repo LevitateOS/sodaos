@@ -14,6 +14,32 @@ not claims that those outputs are still retained.
 
 ---
 
+## Spaces visual layout foundation
+
+On 13 September 2026, rebuilt the two page compositions in the canonical checkout:
+a wide centered setup frame with inset content and footer, and a full-width working
+workspace with sidebar alongside the project header and terminal. The ordinary
+native container's enforced width is explicitly overridden only for Spaces. Shared
+Soda style tokens, drawer density, terminal ownership and runtime actions remain in
+place. The [visual guide](spaces-design.md#page-compositions) owns the dimensions;
+[workstream status](sodaspaces-plan.md#first-use-journey-implementation-plan) owns remaining polish.
+
+Local checks passed: `bun run build:forgejo`, `bun run typecheck`, and 61 tests in
+`workspace.test.ts`, `drawer-layout.test.ts` (with `SODA_DRAWER_LAYOUT=1`), and
+`presentation/workspace-tokens.test.ts`. The first-use fixture includes the shared
+native container/button CSS and checks frame width/alignment, form measure, reachable
+setup footer, terminal height and sidebar/header alignment at 1440, 800, 640 and
+390px in both themes. Existing cases cover retained terminal owners through setup,
+resizing, split/move/maximize, navigation and re-entry. Chromium required execution
+outside the filesystem sandbox; the initial sandbox launch failed before tests.
+
+The repository screenshot owner captured 48 synthetic component states in
+[the local layout gallery](../.artifacts/spaces-layout-final/index.html), with per-image
+scope receipts. Desktop/mobile captures were visually reviewed. This is local source
+and component evidence, not native Forgejo HTML, appliance delivery, a real working
+project or user visual acceptance. Detailed state copy, icons, status and menus
+remain subsequent redesign passes. No native resources or services were changed.
+
 ## Spaces native delivery and account collision
 
 The owner approved the proposed native target/repository selection, matching

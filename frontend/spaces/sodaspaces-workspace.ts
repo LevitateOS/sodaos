@@ -319,29 +319,17 @@ export class SodaSpaces extends LitElement {
     }
   };
   protected render() {
-    const blocked = this.stale || !this.available, connect = this.binding?.kind === 'page' ? 'destination=spaces' : 'repository_id=' + this.binding?.repositoryId;
+    const blocked = this.stale || !this.available;
     const navigation = this.view === 'sessions' || (!this.compact && this.layout.sidebar !== null);
     return html`<section id="sodaspaces-data" data-workspace-kind=${this.binding?.kind || ''} class=${'soda-workspace ' + (this.compact ? 'is-compact' : 'is-wide') + (this.setupScreen ? ' is-setup' : '')} aria-busy=${this.busy ? 'true' : 'false'} @keydown=${(e: KeyboardEvent) => this.workspaceKey(e)}>
-      ${this.setupScreen ? this.renderSetup() : ''}
-      <header class="soda-workspace-toolbar" ?hidden=${this.setupScreen}>
-        <button class="ui button" data-workspace="sessions" ?disabled=${blocked} @click=${() => this.showSessions()}>${this.binding?.kind === 'page' ? 'Projects' : 'Sessions'}</button>
-        ${this.binding?.kind === 'page' ? html`<div class="soda-selected-project"><strong>${this.selectedSpace ? this.projectName(this.selectedSpace) : 'Spaces'}</strong><small>${this.selectedSpace ? this.selectedSpace.authority_unavailable || this.selectedSpace.native_unavailable ? 'Status unavailable' : this.selectedSpace.observed?.running ? 'Running' : 'Stopped' : ''}</small></div>` : ''}
-        <button class=${this.binding?.kind === 'page' ? 'ui primary button' : 'ui button'} data-environment-id=${this.selectedSpace?.environment.id || ''} data-terminal-name=${this.defaultTerminalName(this.selectedSpace)} aria-label="New terminal" title="New terminal" ?hidden=${this.firstTerminal || (this.binding?.kind === 'page' && (!this.selectedSpace?.login || this.selectedSpace.observed?.running !== true))} ?disabled=${blocked || this.creating || (this.binding?.kind === 'page' && (!this.selectedSpace?.environment.provisioned || this.selectedSpace.authority_unavailable || this.selectedSpace.native_unavailable))} @click=${() => this.newTerminal()}>${this.binding?.kind === 'page' ? 'New terminal' : '＋'}</button>
-        ${this.binding?.kind === 'page' ? html`<button class="ui button" ?disabled=${blocked || !this.selectedSpace} @click=${() => this.showManagement(this.project)}>Project settings</button>` : ''}
-        ${this.view !== 'terminal' ? html`<button class="ui button" @click=${() => this.back()}>${this.binding?.kind === 'page' ? 'Back to workspace' : 'Back to terminal'}</button>` : ''}
-        ${renderMenu('Workspace options', '⋯', html`
-          <button class="ui button" ?disabled=${this.busy || this.stale} @click=${() => this.refresh()}>Refresh Spaces</button>
-          ${this.binding?.kind === 'page' ? html`<button class="ui button" ?disabled=${blocked || this.openingDrawer || !this.selected} @click=${() => this.openInDrawer()}>Open in drawer</button>` : ''}
-          ${this.binding?.kind === 'page' ? html`<button class="ui button" @click=${() => this.toggleSidebar()}>Toggle sidebar</button>` : ''}
-          ${this.binding?.kind === 'native' ? html`<button class="ui button" ?disabled=${blocked} @click=${() => this.showManagement(this.binding?.kind === 'native' ? this.binding.repositoryId : '')}>Repository environment / access</button>` : ''}
-        `)}
-        ${this.binding?.kind === 'native' ? html`<a href="/?soda-view=spaces" aria-label="Open in Spaces" title="Open in Spaces">↗</a>` : ''}
-        <a ?hidden=${this.available && !this.stale} href=${'/-/soda/login?' + connect + (this.binding?.expectedUserId ? '&expected_user_id=' + this.binding.expectedUserId : '')}>Connect to Soda</a>
-      </header>
+      ${this.setupScreen ? html`<div class="soda-setup-heading"><h1>Spaces</h1><p>Your projects and terminals, together.</p></div>` : ''}
+      ${this.binding?.kind === 'native' ? this.renderToolbar() : ''}
       <p id="sodaspaces-status" role="status" ?hidden=${!this.status}>${this.status}</p><p role="status" ?hidden=${!this.storageNotice}>${this.storageNotice}</p>
       ${this.binding?.kind === 'native' && this.view !== 'terminal' && !this.stale ? html`<div class="soda-drawer-projection-tabs" style=${`height:${this.tabHeight}px`}>${this.paneChrome(focusedPane(this.layout), {
         x: 0, y: 0, width: this.workspaceWidth, height: this.tabHeight
       }, true)}</div>` : ''}
+      <div class="soda-workspace-frame">
+      ${this.setupScreen ? this.renderSetup() : ''}
       <div ?hidden=${this.setupScreen && this.setup !== 'configure'} class=${'soda-workspace-body' + (this.view === 'sessions' ? ' is-navigating' : '')} style=${!this.setupScreen && !this.compact && this.layout.sidebar !== null && this.view !== 'sessions' ? `grid-template-columns:${this.layout.sidebar}px 6px minmax(0,1fr)` : 'grid-template-columns:minmax(0,1fr)'}>
         <nav class="soda-workspace-navigation" aria-label=${this.binding?.kind === 'page' ? 'Projects and terminals' : 'Projects and sessions'} ?hidden=${this.setupScreen || !navigation || this.stale} @keydown=${(e: KeyboardEvent) => {
         if (e.key === 'Escape' && this.view === 'sessions') {
@@ -350,6 +338,7 @@ export class SodaSpaces extends LitElement {
           this.back();
         }
       }}>
+          ${this.binding?.kind === 'page' ? html`<div class="soda-projects-heading">${!this.compact && this.view !== 'sessions' ? html`<button class="ui button" @click=${() => this.showSessions()}>Projects</button>` : html`<h2>Projects</h2>`}</div>` : ''}
           <label ?hidden=${this.binding?.kind === 'page' && this.spaces.length < 2 && !this.spaces.some(s => s.terminals.length)}>Find a terminal <input type="search" .value=${this.search} @input=${(e: Event) => {
         if (e.target instanceof HTMLInputElement)
           this.search = e.target.value;
@@ -373,6 +362,8 @@ export class SodaSpaces extends LitElement {
         </nav>
         <div class="soda-sidebar-divider" role="separator" tabindex="0" aria-label="Resize project sidebar" aria-orientation="vertical" aria-valuemin="220" aria-valuemax="360" aria-valuenow=${this.layout.sidebar || 256} ?hidden=${this.setupScreen || this.compact || this.layout.sidebar === null || this.view === 'sessions'} @pointerdown=${(e: PointerEvent) => this.capture(e)} @pointermove=${(e: PointerEvent) => this.resizeSidebar(e)} @pointerup=${(e: PointerEvent) => this.releasePointer(e)} @keydown=${(e: KeyboardEvent) => this.sidebarKey(e)}></div>
         <div class="soda-workspace-work">
+          ${this.binding?.kind === 'page' ? this.renderToolbar() : ''}
+          ${this.setup === 'configure' ? html`<div class="soda-setup-change"><button class="ui button" ?disabled=${this.stale || !this.canRestore} @click=${() => {if (!this.stale && this.canRestore) {this.setup = 'repositories'; this.focusSetup();}}}>Change repository</button><button class="ui button" ?disabled=${this.stale || !this.canRestore} @click=${() => this.cancelSetup()}>Cancel setup</button></div>` : ''}
           <div class="soda-workspace-canvas" ?hidden=${this.view !== 'terminal' || this.stale}>
             <span class="soda-cell-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
             ${this.firstTerminal ? html`<div class="soda-first-terminal"><span class="soda-journey-icon soda-terminal-icon" aria-hidden="true"></span><h2>Open your first terminal</h2><p>Your account is ready in ${this.selectedSpace ? this.projectName(this.selectedSpace) : ''}. Open a browser terminal to start working.</p><button class="ui primary button" data-environment-id=${this.selectedSpace?.environment.id || ''} data-terminal-name=${this.defaultTerminalName(this.selectedSpace)} ?disabled=${blocked || this.creating} @click=${() => this.newTerminal()}>New terminal</button><p>Project account: ${this.selectedSpace?.login}</p></div>` : ''}
@@ -383,7 +374,8 @@ export class SodaSpaces extends LitElement {
           <div class="soda-workspace-management" ?hidden=${this.view !== 'project' || this.stale}></div>
         </div>
       </div>
-      ${this.setup === 'configure' ? html`<div class="soda-setup-change"><p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p></div>` : ''}
+      ${this.setupScreen ? html`<p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p>` : ''}
+      </div>
       ${this.creation ? this.creationForm(this.creation) : ''}
       ${this.editing ? renderRename(this.editing.name, this.slots.find(s => s.key === this.editing?.key)?.binding.projectName || '', !validName(this.editing.name) || this.renaming.has(this.editing.key) || this.stale, name => {
         if (this.editing)
@@ -400,19 +392,34 @@ export class SodaSpaces extends LitElement {
       }) : ''}
     </section>`;
   }
+  private renderToolbar() {
+    const blocked = this.stale || !this.available, connect = this.binding?.kind === 'page' ? 'destination=spaces' : 'repository_id=' + this.binding?.repositoryId;
+    return html`<header class="soda-workspace-toolbar" ?hidden=${this.setupScreen}>
+        <button class="ui button" data-workspace="sessions" ?hidden=${this.binding?.kind === 'page' && !this.compact && this.layout.sidebar !== null && this.view !== 'sessions'} ?disabled=${blocked} @click=${() => this.showSessions()}>${this.binding?.kind === 'page' ? 'Projects' : 'Sessions'}</button>
+        ${this.binding?.kind === 'page' ? html`<div class="soda-selected-project"><strong>${this.selectedSpace ? this.projectName(this.selectedSpace) : 'Spaces'}</strong><small>${this.selectedSpace ? this.selectedSpace.authority_unavailable || this.selectedSpace.native_unavailable ? 'Status unavailable' : this.selectedSpace.observed?.running ? 'Running' : 'Stopped' : ''}</small></div>` : ''}
+        <button class=${this.binding?.kind === 'page' ? 'ui primary button' : 'ui button'} data-environment-id=${this.selectedSpace?.environment.id || ''} data-terminal-name=${this.defaultTerminalName(this.selectedSpace)} aria-label="New terminal" title="New terminal" ?hidden=${this.firstTerminal || (this.binding?.kind === 'page' && (!this.selectedSpace?.login || this.selectedSpace.observed?.running !== true))} ?disabled=${blocked || this.creating || (this.binding?.kind === 'page' && (!this.selectedSpace?.environment.provisioned || this.selectedSpace.authority_unavailable || this.selectedSpace.native_unavailable))} @click=${() => this.newTerminal()}>${this.binding?.kind === 'page' ? 'New terminal' : '＋'}</button>
+        ${this.binding?.kind === 'page' ? html`<button class="ui button" ?disabled=${blocked || !this.selectedSpace} @click=${() => this.showManagement(this.project)}>Project settings</button>` : ''}
+        ${this.view !== 'terminal' ? html`<button class="ui button" @click=${() => this.back()}>${this.binding?.kind === 'page' ? 'Back to workspace' : 'Back to terminal'}</button>` : ''}
+        ${renderMenu('Workspace options', '⋯', html`
+          <button class="ui button" ?disabled=${this.busy || this.stale} @click=${() => this.refresh()}>Refresh Spaces</button>
+          ${this.binding?.kind === 'page' ? html`<button class="ui button" ?disabled=${blocked || this.openingDrawer || !this.selected} @click=${() => this.openInDrawer()}>Open in drawer</button>` : ''}
+          ${this.binding?.kind === 'page' ? html`<button class="ui button" @click=${() => this.toggleSidebar()}>Toggle sidebar</button>` : ''}
+          ${this.binding?.kind === 'native' ? html`<button class="ui button" ?disabled=${blocked} @click=${() => this.showManagement(this.binding?.kind === 'native' ? this.binding.repositoryId : '')}>Repository environment / access</button>` : ''}
+        `)}
+        ${this.binding?.kind === 'native' ? html`<a href="/?soda-view=spaces" aria-label="Open in Spaces" title="Open in Spaces">↗</a>` : ''}
+        <a ?hidden=${this.available && !this.stale} href=${'/-/soda/login?' + connect + (this.binding?.expectedUserId ? '&expected_user_id=' + this.binding.expectedUserId : '')}>Connect to Soda</a>
+      </header>`;
+  }
   private renderSetup() {
     const blocked = this.stale || !this.canRestore;
     const sub = document.querySelector<HTMLElement>('#soda-settings-link')?.dataset.subUrl || '';
     const prefix = /^(\/[^/\\?#\s]+)*$/u.test(sub) && !sub.split('/').some(part => part === '.' || part === '..') ? sub : '';
-    return html`<div class="soda-setup-heading"><h1>Spaces</h1><p>Your projects and terminals, together.</p></div>
-      <div class="soda-setup-panel" ?hidden=${this.setup === 'configure'}>
+    return html`<div class="soda-setup-panel" ?hidden=${this.setup === 'configure'}><div class=${this.setup === 'repositories' ? 'soda-setup-form' : 'soda-setup-welcome'}>
         ${this.setup === 'repositories' ? renderRepositoryPicker({query: this.repositoryQuery, result: this.repositoryResult, selected: this.repositoryChoice, busy: this.repositoryBusy, error: this.repositoryError, blocked, createURL: prefix + '/repo/create'}, {
           query: value => {this.repositoryQuery = value; this.repositoryChoice = ''; this.repositoryResult = undefined; this.repositoryError = ''; this.repositoryRequest?.abort(); this.repositoryRequest = undefined; this.repositoryBusy = false;},
           search: page => {void this.searchRepositories(page);}, select: value => {this.repositoryChoice = value;}, back: () => this.cancelSetup(), continue: () => this.configureProject()
         }) : this.available && this.complete ? html`<h2 tabindex="-1">Create your first project</h2><p>A shared development system, connected to your repository. Open terminals and work together, right in your browser.</p><button class="ui primary button" ?disabled=${blocked} @click=${() => this.beginSetup()}>Create project</button><p><a href="https://github.com/levitateos/sodaos/blob/main/docs/public/30-Use-Soda/20-projects-and-workspaces.md" target="_blank" rel="noopener noreferrer">How Spaces works</a></p>` : html`<h2>${this.busy ? 'Loading projects…' : 'Could not load projects'}</h2><p>Only confirmed inventory can show whether you have projects.</p>${this.stale ? html`<button class="ui button" @click=${() => window.location.reload()}>Reload Spaces</button>` : html`<button class="ui button" ?disabled=${this.busy || blocked} @click=${() => this.refresh()}>Retry projects</button>`}`}
-        <p class="soda-setup-footer">Choose a repository → Create a project → Open a terminal</p>
-      </div>
-      ${this.setup === 'configure' ? html`<div class="soda-setup-change"><button class="ui button" ?disabled=${blocked} @click=${() => {if (!blocked) {this.setup = 'repositories'; this.focusSetup();}}}>Change repository</button><button class="ui button" ?disabled=${blocked} @click=${() => this.cancelSetup()}>Cancel setup</button></div>` : ''}`;
+      </div></div>`;
   }
   private focusSetup() {
     void this.updateComplete.then(() => {

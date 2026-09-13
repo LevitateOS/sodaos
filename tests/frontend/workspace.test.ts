@@ -21,7 +21,7 @@ before(async () => {
     const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
     if (source) {const file = source.startsWith('@build/forgejo-js/') ? path.join(root, '.artifacts/forgejo-js', path.basename(source)) : source.startsWith('@build/terminal-assets/') ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source)) : path.join(root, source); return new Response(Bun.file(file), {headers: {'Content-Type': /\.m?js$/.test(source) ? 'text/javascript' : source.endsWith('.css') ? 'text/css' : source.endsWith('.svg') ? 'image/svg+xml' : 'application/octet-stream'}});}
     if (url.pathname !== '/') return new Response(null, {status: 404});
-    return new Response('<!doctype html><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
+    return new Response('<!doctype html><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>', {headers: {'Content-Type': 'text/html'}});
   }});
   browser = await chromium.launch({headless: true, chromiumSandbox: true});
 });
@@ -31,6 +31,14 @@ async function fixture(t: TestContext, mode: 'native' | 'page' = 'page', beforeM
   page.setDefaultTimeout(5000); page.on('pageerror', e => errors.push(e.message));
   t.after(async () => {await page.close(); assert.deepEqual(errors, []);});
   await page.goto(server.url.href); await page.waitForFunction(() => !!window.createWorkspaceFixture);
+  if (firstUse) await page.evaluate(() => {
+    // Exercise native container/button CSS precedence without claiming native HTML.
+    const mount = document.querySelector('main');
+    if (!mount) throw Error('Missing fixture mount');
+    const shell = document.createElement('div'), container = document.createElement('div');
+    shell.className = 'soda-page soda-native-page'; container.className = 'soda-page-container';
+    mount.dataset.view = 'spaces'; mount.before(shell); shell.append(container); container.append(mount);
+  });
   if (beforeMount) await page.evaluate(beforeMount);
   await page.evaluate(async ({mode, firstUse}) => {window.workspaceFixture = window.createWorkspaceFixture(mode, firstUse); await window.workspaceFixture.api.ready;}, {mode, firstUse});
   return page;
@@ -453,8 +461,23 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
   await page.getByRole('heading', {name: 'Create your first project'}).waitFor();
   assert.equal(await page.locator('.soda-workspace-navigation:visible').count(), 0);
   assert.equal(await page.getByRole('button', {name: 'New terminal', exact: true}).count(), 0);
+  await page.evaluate(() => document.fonts.ready);
+  const setupBounds = await page.locator('.soda-workspace-frame').boundingBox();
+  assert(setupBounds);
+  assert(setupBounds.width >= width * (width >= 1440 ? .85 : .89), 'setup frame is trapped inside native content width');
+  assert(Math.abs(setupBounds.x - (width - setupBounds.width) / 2) <= 1, 'setup frame is not centered');
+  const welcome = await page.locator('.soda-setup-welcome').boundingBox();
+  assert(welcome && welcome.width <= 560 && welcome.x > setupBounds.x, 'welcome lacks a focused reading measure');
   await captureSpacesComponent(page, `welcome-${theme}-${width}`);
   await chooseFirstRepository(page, `${theme}-${width}`);
+  const configureBounds = await page.locator('.soda-workspace-frame').boundingBox();
+  assert(configureBounds && configureBounds.x === setupBounds.x && configureBounds.width === setupBounds.width, 'configuration changed the outer frame');
+  const form = await page.locator('.soda-project-journey').boundingBox();
+  assert(form && form.width <= 720 && form.width < configureBounds.width, 'configuration needs an inset form measure');
+  // Scrollable setup must keep its footer/actions reachable on a short viewport.
+  await page.locator('.soda-setup-footer').scrollIntoViewIfNeeded();
+  assert(await page.locator('.soda-setup-footer').isVisible());
+  await page.locator('.soda-workspace').evaluate(node => node.scrollTop = 0);
   await captureSpacesComponent(page, `configure-${theme}-${width}`);
   assert.equal(await page.getByRole('checkbox').count(), 0, 'unavailable Tailnet must stay out of setup');
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
@@ -474,6 +497,23 @@ for (const theme of ['light', 'dark']) for (const width of [1440, 800, 640, 390]
   await page.keyboard.type('spaces-ready');
   await page.waitForFunction(() => document.querySelector('.xterm-rows')?.textContent?.includes('spaces-ready'));
   assert(await page.locator('.soda-workspace').evaluate(node => node.scrollWidth <= node.clientWidth), 'page overflow');
+  const geometry = await page.locator('.soda-workspace').evaluate(node => {
+    const box = (selector: string) => {
+      const element = node.querySelector(selector); if (!element) throw Error(selector);
+      return element.getBoundingClientRect().toJSON() as {x: number; y: number; width: number; height: number; bottom: number; right: number};
+    };
+    return {workspace: node.getBoundingClientRect().toJSON() as {bottom: number; height: number},
+      header: box('.soda-workspace-toolbar'), canvas: box('.soda-workspace-canvas'),
+      nav: box('.soda-workspace-navigation'), compact: node.classList.contains('is-compact'), overflow: node.scrollHeight > node.clientHeight};
+  });
+  assert(!geometry.overflow, 'working workspace must not scroll outside its terminal');
+  assert(geometry.canvas.height > geometry.workspace.height * .65, 'chrome consumes too much terminal height');
+  assert(geometry.workspace.bottom - geometry.canvas.bottom <= 26, 'terminal leaves unused space below it');
+  if (!geometry.compact) {
+    assert(geometry.header.x >= geometry.nav.right, 'project header overlaps the sidebar');
+    assert(Math.abs(geometry.header.y - geometry.nav.y) <= 1, 'sidebar must start alongside the project header');
+    assert(geometry.nav.bottom >= geometry.canvas.bottom, 'sidebar must extend alongside the terminal');
+  }
   await captureSpacesComponent(page, `working-${theme}-${width}`);
   const before = await page.evaluate(() => {
     const f = window.workspaceFixture;

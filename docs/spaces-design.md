@@ -64,7 +64,7 @@ screenshots of installed Soda.
 
 ## First-use journey — selected 13 September 2026
 
-**Design selected; implementation pending.** The user selected the focused welcome
+**Design selected; current presentation requires visual redesign.** The user selected the focused welcome
 concept and walked through repository selection, configuration, creation, joining,
 first terminal and working workspace. The [journey implementation plan](sodaspaces-plan.md#first-use-journey-implementation-plan)
 owns execution order and status. This section owns the resulting presentation.
@@ -90,6 +90,29 @@ The first three setup states replace content inside that panel. They are views i
 the existing native Spaces page, not new application origins or modal overlays.
 Back/Change preserve nonsecret selections during the active flow and never mutate
 resources. Ordinary reload re-reads authorized state; it never replays submission.
+
+### Page compositions
+
+The layout foundation uses the following dimensions, expressed through existing
+Soda font, color, spacing and control roles. Spaces-specific width/inset roles live
+with the shared definitions in `assets/branding/forgejo/components.css`.
+
+| Role | Centered setup | Working workspace |
+| --- | --- | --- |
+| Width | Outer frame up to 1240px, centered; fluid 16–48px page inset | Full native page width; bypass the ordinary 1120px content container |
+| Reading measure | Welcome up to 560px; repository/configuration forms up to 720px | Project identity in the main header; terminal uses the remaining width |
+| Vertical composition | Title/subtitle above one outlined frame; centered content and separated orientation footer; scroll on short screens | Sidebar starts beside the project header and extends to the workspace bottom; canvas fills remaining height |
+| Heading scale | Soda title role, fluid 28–40px; 16px body and 14px supporting text | Same project title role; 22px sidebar heading; existing dense terminal chrome |
+| Spacing and rules | 32px title/frame separation, fluid 24–64px frame inset, 1px border | 112px desktop header, 24px canvas inset; compact header/content use 16px/12px insets |
+| Action hierarchy | Red primary with 44px minimum target; outlined secondary actions and quiet navigation/help | Red New terminal, outlined Project settings; contextual controls keep their dense sizing |
+
+The frame, project-controls hosts and terminal owners remain mounted when setup is
+entered or cancelled. Page layout rules do not change the native drawer density.
+The existing 256px default sidebar and 220–360px user resize range remain intact;
+compact presentation still follows measured terminal viability. On compact widths,
+project identity leads the header and controls wrap without horizontal overflow.
+Detailed state copy, icons, status treatment and contextual-menu polish remain
+separate visual passes against the selected references.
 
 ### State sequence
 
@@ -206,11 +229,26 @@ is sufficient when those local files are unavailable in another checkout.
 | Configure project | [04-configure-project.png](../.artifacts/design/spaces-empty-state/04-configure-project.png) |
 | Created / Join | [05-project-created-join.png](../.artifacts/design/spaces-empty-state/05-project-created-join.png) |
 | Joined / first terminal | [06-open-first-terminal.png](../.artifacts/design/spaces-empty-state/06-open-first-terminal.png) |
+| Working terminal, new reference | [07-working-terminal.png](../.artifacts/design/spaces-empty-state/07-working-terminal.png) |
+| Terminal menu open, new detail | [08-terminal-menu.png](../.artifacts/design/spaces-empty-state/08-terminal-menu.png) |
+| Pane menu open, new detail | [09-pane-menu.png](../.artifacts/design/spaces-empty-state/09-pane-menu.png) |
 
 The alternate empty-sidebar concept (`02-projects-sidebar.png`) was not selected.
-Creating/Opening and the final populated workspace are specified here; they do not
-yet have newly generated journey mockups. Older layout sheets remain supporting
-references for terminal geometry, subject to this selected control hierarchy.
+The [local journey gallery](../.artifacts/design/spaces-empty-state/journey-gallery.html)
+shows the five selected references plus the new working view and two menu details.
+The working view preserves the previous screen's project/sidebar geometry, moves
+New terminal to the header and fills the main area with a single terminal. A tab
+ellipsis exposes Rename, Move to pane when applicable, Hide and separated End;
+the Pane menu exposes applicable split/layout actions. Only one menu is open in
+each detail. These new images are review references, not an implementation or
+acceptance receipt. Their [prompt set](../.artifacts/design/spaces-empty-state/07-09-working-terminal-prompts.md)
+records the built-in imagegen inputs.
+
+Creating/Opening remain specified transient states without separate image references.
+Older layout sheets remain supporting references for multi-terminal geometry,
+subject to this selected control hierarchy. Browser reviews must compare the actual
+composition, scale, spacing and emphasis with these references, not only check for
+the presence of their labels and buttons.
 
 ## 1. Design decisions
 

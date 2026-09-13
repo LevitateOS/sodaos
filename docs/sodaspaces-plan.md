@@ -558,6 +558,9 @@ and deployment each keep their own status.
 | Item | State |
 | --- | --- |
 | Agreed journey, desktop hierarchy and five selected mockups | Recorded in the design owner |
+| Visual redesign reference completion | Working-terminal reference and separate terminal/pane menu details generated; [full local gallery](../.artifacts/design/spaces-empty-state/journey-gallery.html) available for review |
+| Visual redesign layout foundation | Centered setup frame and full-height workspace implemented locally; [composition contract](spaces-design.md#page-compositions) and [local receipt](implementation-history.md#spaces-visual-layout-foundation) |
+| Current presentation acceptance | Layout foundation rebuilt; detailed screen and contextual-control polish and user visual acceptance remain pending |
 | Plan and reconciliation of conflicting full-page design requirements | Authored; documentation only |
 | File-level implementation guide, steps 1–15 under J1–J5 | Authored with per-step checks and separate local/native/delivery exits |
 | J1–J4 source implementation, steps 1–12 | Implemented through existing Go/Lit/project/terminal owners |
