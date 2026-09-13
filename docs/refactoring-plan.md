@@ -24,13 +24,17 @@ grants native execution or deployment permission.
 
 ## Selected mechanism removals
 
-**Status: D1–D13 source implementation and local checks complete; native validation/delivery remain separate.**
+**Status: core D1–D13 changes landed, but removal follow-through is incomplete.**
+The source reconciliation below identifies missed D4/D5 presentation/resource work
+and ancillary removals. Native validation/delivery remain separate.
 
 The owner approved implementing D1–D13 from the
 [Spaces/Runners/Tailnet deletion audit](mechanism-deletion-audit.md), including the
 stated product-policy tradeoffs. That audit covers all 28 slices at `7bd8f3b`;
-it remains historical research, not an implementation receipt. This selection
-supersedes the earlier preservation recommendations for those mechanisms below.
+its original recommendations remain historical. Its current
+[28-slice reconciliation](mechanism-deletion-audit.md#all-28-slices--individual-disposition)
+checks source at `59e4da3` without treating every slice as a deletion or as complete.
+This selection supersedes the earlier preservation recommendations for those mechanisms below.
 There is no line-count target; the audit's estimate is not a promised reduction.
 
 Work starts from `8bd0af4` in the canonical checkout. Source implementation and
@@ -39,7 +43,7 @@ service operations, provider requests, installation and publishing are not.
 
 | Coherent change | Status |
 | --- | --- |
-| D4–D8: Tailnet enrollment recovery, activation lifetime, independent Create, active credential storage and concrete interface checks | Implemented; focused Go, emitted Create/epoch, strict TS/Lit and presentation inventory checks passed. [Receipt](implementation-history.md#mechanism-removals--tailnet-and-helper-reads). Native proof/conversion remain separate. |
+| D4–D8: Tailnet enrollment recovery, activation lifetime, independent Create, active credential storage and concrete interface checks | Core runtime deletions implemented; D4/D5 follow-through remains incomplete (R2/R3 below). Focused Go, emitted Create/epoch, strict TS/Lit and inventory checks passed within their [recorded scope](implementation-history.md#mechanism-removals--tailnet-and-helper-reads); they did not establish exhaustive removal closure. Native proof/conversion remain separate. |
 | D1–D2: native-owned terminal lifetime and exact lookup; D9: current-only disposable workspace cache | Implemented; native one-use allocation shares Create/End locking, no web owner/receipt registry, native inventory and v3 cache. Go/race, Python boundary doubles, emitted browser/geometry and strict TS/Lit checks passed. [Receipt](implementation-history.md#mechanism-removals--native-terminals-and-disposable-layout). No native proof/conversion. |
 | D3/D10: scoped uncertainty and bootstrap-only browser session acquisition | Implemented with owning requirements and caller/test ports. Entry passes original actor/CSRF to command owners; actual APIs refuse stale requests. Scoped outcome notices and current key previews replace sticky uncertainty fencing. [Receipt](implementation-history.md#mechanism-removals--browser-admission-and-partial-runner-observations). |
 | D11–D12: partial runner inventory and routine confirmations | Implemented with owning requirements and caller/test ports. Independent readable rows survive unavailable observations; qualified counts/nullable service cross helper/API/CLI/UI boundaries. Routine HTTP actions use `{}`; Remove retains typed exact-ID confirmation. [Receipt](implementation-history.md#mechanism-removals--browser-admission-and-partial-runner-observations). |
@@ -54,6 +58,35 @@ distinguish this ledger from the audit's inspection pools.
 
 Native replacement behavior remains unproved until separately authorized native
 validation; no retained target or fixture was changed by this work.
+
+### Removal reconciliation follow-up
+
+Reconciled against production source and callers at **`59e4da3`**, not just commit
+messages or absent symbol names. The [28-row record](mechanism-deletion-audit.md#all-28-slices--individual-disposition)
+accounts for each original slice. This ledger owns the remaining actions; it does
+not reopen deliberately retained functionality or authorize native cleanup.
+
+**Three concrete misses/incomplete portions (R1–R3); four unresolved conditional
+simplifications (R4–R7).** The latter were review candidates, not unconditional
+removal instructions. Keeping a necessary boundary does not settle every narrower
+candidate inside it. No production changes were made during this reconciliation.
+
+| ID | Disposition and current evidence | Remaining action / retained boundary |
+| --- | --- | --- |
+| R1 | **Missed removal, slice 13.** [`EnrollmentVerified`](../internal/tailnet/management_types.go) is never produced true, remains in `EnrollmentView.Validate`, and is required false by the [browser decoder](../frontend/tailnet/soda-tailnet-response.ts). The API guide and Tailnet test fixture still require it. | Remove the dead field with its actual API/decoder/fixture contract. Retain credential-check versus device-enrollment distinction without inventing an always-false signal. |
+| R2 | **Missed presentation port, D4/D5 and slices 7/19/28.** [`renderNetwork`](../frontend/spaces/sodaspaces-network.ts) still says retries “never repeat an uncertain key request” and a lost identity “requires a new project run.” That contradicts `EnrollRun` explicit retry and `--state=mem:` activation lifetime. Workspace capacity copy still attributes its bound to uncertain-locator custody. | Align emitted guidance/tests with [Tailnet recovery/lifetime](tailnet-integration-plan.md) and the current [terminal/cache contract](terminal-integration.md). Do not change the valid working-set bound merely to remove stale wording. |
+| R3 | **Incomplete D5 resource follow-through, slices 16–18/28.** [`StartTailnet`/`stopTailnetRun`](../internal/host/tailnet_companion.go) stop an old companion and create the next run, but never remove the completed old container. [`runFiles.prepare`](../internal/host/tailnet_files.go) creates per-run control/input directories; no completed-run directory retirement exists. `/run` disappears on host reboot, but Podman stopped containers/writable roots are not thereby retired. Memory node identity is implemented; completed-resource retirement is not. | Define/test retirement of exact newly owned completed resources after DNS/exec/native-ownership checks. Current-run records and DNS backup are not redundant identity archives. Preserve old/unknown retained state; source cleanup behavior and permission to execute cleanup on a real target are separate. No pruning, root recreation or provider-deletion claim. |
+| R4 | **Unresolved conditional simplification, slice 20.** [`Coordinator.mutate`](../internal/runners/coordinator.go) and [`Operations.mutate`](../internal/runners/operations.go) still duplicate decode/ID validation/lifecycle dispatch. Actual callers remain `cmd/soda-runners` and `cmd/soda-host`. | Consolidate only the identical mutation dispatch if it reduces code. Keep CLI administrator admission, configured registration URL and public inventory projection distinct from socket authority/raw inventory; do not introduce an invoker framework. No final consolidation or measured keep decision was made. |
+| R5 | **Unresolved conditional strictness, slice 14.** [`projectKey`](../internal/tailnet/enrollment.go) still requires ordered tag equality and narrow local-clock creation/expiry windows. | Assess tag-set equivalence and which clock checks enforce the requested key lifetime versus unnecessarily reject native responses. Retain bounded transport, single dispatch, explicit capabilities and no secret leakage. Raw required-field/boolean checks before typed SDK decoding are deliberately retained: missing `reusable` must not become an accepted false zero value. This is not approval to drop all parsing or accept reusable keys. |
+| R6 | **Conditional narrowing not completed, slices 3/16.** [`validateCompanionRecord`](../internal/host/tailnet_companion.go) still compares the complete create recipe (already allowing two argv[0] spellings). [`service_state`](../internal/host/project_terminal.py) still requires empty drop-ins and exact property strings such as `TimeoutStopUSec=3s`. | Retain these checks for now where they establish identity, namespace/mount isolation, original account and bounded cgroup cleanup. A narrower semantic comparison needs an explicit property-to-protection mapping and affected refusal tests. No claim that irrelevant spelling/drop-in checks were removed or proved necessary. |
+| R7 | **Unresolved conditional in-process duplication, slices 11/26.** `projectKey` rebuilds and validates an `EnrollmentRequest` after `policy.load` already validated the same locked policy/credential; [`apiSpaces`](../internal/web/spaces.go) calls `terminalCurrent` immediately before [`terminalOperation`](../internal/web/terminal_sessions.go), which checks it again before native IO and after IO. | Review those specific duplicate sites rather than abolishing boundary validation. Retain actual operation admission/post-IO authority and browser/socket/provider/filesystem decoders. No consolidation or demonstrated necessity for each duplicate was recorded. |
+
+The old “D1–D13 complete” wording overstated end-to-end source closure: core runtime
+changes and passing selected checks did not cover R2/R3 or all smaller audit findings.
+“28 slices reviewed” also never meant “28 mechanisms deleted.” The measured **−504
+implementation lines** remains correct; this reconciliation changes completion
+accounting, not code or the previous tests' scope. See the
+[reconciliation receipt](implementation-history.md#removal-findings-reconciled-against-source).
 
 ## Decision
 

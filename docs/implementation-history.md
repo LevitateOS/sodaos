@@ -9338,3 +9338,42 @@ that estimate or a new quota. Native lifetime/allocation/lookup and partial-inve
 representation required more replacement code than the preliminary sizing allowed;
 the audited pools were inspection footprints, not deletion ledgers. No padding,
 unrelated cleanup or test/document deletion was counted toward the result.
+
+## Removal findings reconciled against source
+
+At the user's request, reconciled every original removal finding and all 28 slices
+against the clean `59e4da3` source tree. This was a documentation-only correction,
+not a second independent review, more product implementation or native acceptance.
+The existing [audit table](mechanism-deletion-audit.md#all-28-slices--individual-disposition)
+now distinguishes removed/replaced policies, intentionally retained mechanisms and
+partial/open items. Actions live only in the
+[owning plan's R1–R7 ledger](refactoring-plan.md#removal-reconciliation-follow-up).
+
+The earlier blanket source-completion claim was too broad. Three concrete misses
+remain: the always-false enrollment field; UI guidance still describing retired
+retry/identity policies; and no completed-old-companion/container/run-directory
+retirement path. Four conditional candidates also lack final implementation/closure:
+runner mutation dispatch duplication, provider tag/clock strictness, exact native
+recipe/unit comparisons, and specific repeated in-process checks. These are not
+seven newly invented subsystem deletions. In particular, the missing UI/resource
+follow-through prevents treating D4/D5 as fully closed despite their core runtime
+changes. The earlier LOC measurement remains valid for that source revision.
+
+Inspection traced native terminal reserve/Create/End/lookup and attachment bounds;
+Tailnet policy/key transport/activation/files/stop; persistent Create followed by
+network application; actual entry/session callers; runner native/helper/API/browser
+inventory and confirmations; collection/admission; retained membership/credential
+boundaries and relevant test assertions. Retired-name searches were checked against
+replacement call paths: attachment heartbeats, native creation permissions,
+current-run ownership records, real login/logout requests and operation-local
+single-POST guards are not the retired lifetime/journal mechanisms. The code has no
+old-companion removal path; this is not a claim that a real target was inspected or
+that retained resources may be removed now.
+
+New checks passed: all 28 ordered source-result rows, all seven owning follow-up
+references, 22 local links/anchors, documentation-only diff and whitespace. Previous
+Go/race, Python and emitted-browser receipts retain their stated scopes and skips;
+no product tests were rerun, and none is reinterpreted as cleanup/native proof. No
+source behavior, permissions, retained state, fixtures, services or provider state
+changed. The handoff and workstream status now point to the unresolved findings
+rather than presenting all audit opportunities as completed.
