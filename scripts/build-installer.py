@@ -17,6 +17,12 @@ import re
 import stat
 import struct
 import subprocess
+import signal
+import sys
+
+from build_progress import Progress, clock, create_log, emit, exit_code, finish, origin, supervise
+
+progress = Progress()
 
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER_VERSION = 'coreos-installer 0.26.0'
@@ -110,12 +116,14 @@ def snapshot_bundle(verifier, source, destination, arch, revision):
 
 
 def verify_bundle_readback(xorriso, iso, out, verifier, arch, revision, expected_digest):
+    progress.next('ISO / Extract bundle from completed ISO')
     readback = out / 'bundle-readback'
     readback.mkdir(mode=0o700)
     destination = readback / arch
     subprocess.run([str(xorriso), '-osirrox', 'on', '-indev', str(iso), '-extract',
                     '/soda/bundle/' + arch, str(destination)], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    progress.next('ISO / Verify extracted bundle')
     if sha256(destination / 'SHA256SUMS') != expected_digest:
         raise ValueError('on-media bundle manifest differs from sealed snapshot')
     subprocess.run([str(verifier), 'verify', '--source', str(destination), '--arch', arch,
@@ -194,11 +202,14 @@ def tool(path):
 
 
 def build(args):
+    progress.next('ISO / Check build prerequisites')
     if platform.system() != 'Linux' or platform.machine() != args.arch:
         raise ValueError('matching native Linux required')
     if output(['git', 'status', '--porcelain', '--untracked-files=normal']):
         raise ValueError('clean exact-revision source required')
     revision = output(['git', 'rev-parse', 'HEAD'])
+    if revision != os.environ.get('SODA_BUILD_REVISION', revision):
+        raise ValueError('source revision differs from native build')
     butane, installer = tool(args.butane), tool(args.coreos_installer)
     installer_version = output([str(installer), '--version'])
     if installer_version != INSTALLER_VERSION:
@@ -229,29 +240,36 @@ def build(args):
     out.mkdir(mode=0o700)  # exclusive; never clear previous attempts
     payload = out / 'payload'
     payload.mkdir()
+    progress.next('ISO / Verify installer Go dependencies')
     subprocess.run(['go', 'mod', 'verify'], cwd=ROOT, env=env, check=True)
+    progress.next('ISO / Compile installer console')
     subprocess.run(['go', 'build', '-trimpath', '-buildvcs=true', '-ldflags=-s -w',
                     '-o', str(payload / filename), './appliance/installer'],
                    cwd=ROOT, env=env, check=True)
+    progress.next('ISO / Compile artifact verifier')
     subprocess.run(['go', 'build', '-trimpath', '-buildvcs=true',
                     '-o', str(out / 'soda-artifacts'), './tools/soda-artifacts'],
                    cwd=ROOT, env=env, check=True)
+    progress.next('ISO / Download and verify CoreOS ISO')
     subprocess.run([str(out / 'soda-artifacts'), 'fetch-coreos-iso', '--arch', args.arch,
                     '--lock', str(lock), '--keyring', str(Path(args.keyring).absolute()),
                     '--signer', args.signer, '--out', str(out / 'upstream')], check=True)
     # Reuse the production public bootstrap; all per-machine fields are collected
     # privately on the live host, never embedded in general-purpose output.
+    progress.next('ISO / Generate destination configuration')
     import importlib.util
     spec = importlib.util.spec_from_file_location('soda_provisioning', ROOT / 'scripts/render-provisioning.py')
     provisioning = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(provisioning)
     destination = convert(butane, provisioning.public_config(), out / 'destination.ign')
+    progress.next('ISO / Snapshot native bundle onto media payload')
     bundle = payload / 'bundle' / args.arch
     bundle_digest = snapshot_bundle(out / 'soda-artifacts', args.bundle_source, bundle,
                                     args.arch, revision)
     media = {'Architecture': args.arch, 'Release': selected['Release'],
              'InstallerVersion': installer_version, 'Revision': revision,
              'BundleSHA256': bundle_digest}
+    progress.next('ISO / Prepare console payload and live configuration')
     artwork = (ROOT / 'assets/branding/terminal/sodaos.txt').read_text()
     for marker in ('$1', '$2', '$3'):
         artwork = artwork.replace(marker, '')
@@ -266,14 +284,17 @@ def build(args):
     customize = [str(installer), 'iso', 'customize', '--live-ignition', str(out / 'live.ign')]
     network = None
     if args.network_keyfile:
+        progress.next('ISO / Prepare private network configuration')
         network = snapshot_network(Path(args.network_keyfile), out)
         customize += ['--network-keyfile', str(network)]
+    progress.next('ISO / Customize ISO')
     subprocess.run(customize + ['--output', str(out / 'soda.iso'),
                                str(out / 'with-console.iso')], check=True,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     verify_bundle_readback(xorriso, out / 'soda.iso', out, out / 'soda-artifacts',
                            args.arch, revision, bundle_digest)
     if network:
+        progress.next('ISO / Verify private network readback')
         extracted = out / 'network-readback'
         extracted.mkdir(mode=0o700)
         subprocess.run([str(installer), 'iso', 'network', 'extract', '--directory',
@@ -284,19 +305,24 @@ def build(args):
     # Read back the exact public live configuration. Optional private networking
     # is separately verified above. No destination-device/config, insecure kargs,
     # initramfs rebuild or OS source patch occurs.
+    progress.next('ISO / Verify embedded live configuration')
     embedded = subprocess.check_output([str(installer), 'iso', 'ignition', 'show',
                                        str(out / 'soda.iso')], timeout=60,
                                       stderr=subprocess.DEVNULL)
     verify_embedded(embedded, json.loads((out / 'live.ign').read_bytes()))
+    progress.next('ISO / Verify ISO files and boot structure')
     preservation = verify_remaster(xorriso, out / 'upstream/coreos.iso', out / 'soda.iso', payload)
+    progress.next('ISO / Verify live kernel arguments')
     before = output([str(installer), 'iso', 'kargs', 'show', str(out / 'upstream/coreos.iso')])
     after = output([str(installer), 'iso', 'kargs', 'show', str(out / 'soda.iso')])
     if before != after:
         raise ValueError('upstream live kernel arguments changed')
     preservation['LiveKernelArguments'] = before
     (out / 'iso-inspection.json').write_text(json.dumps(preservation, indent=2) + '\n')
+    progress.next('ISO / Confirm unchanged source')
     if output(['git', 'rev-parse', 'HEAD']) != revision or output(['git', 'status', '--porcelain', '--untracked-files=normal']):
         raise ValueError('source changed during media build; output is not sealed')
+    progress.next('ISO / Write final metadata and checksums')
     record = dict(media, ConsoleISOPath='/soda/soda-install',
                   BundleISOPath='/soda/bundle/' + args.arch,
                   ConsoleSHA256=sha256(payload / filename),
@@ -312,6 +338,7 @@ def build(args):
         (out / 'soda.iso', out / 'live.ign', out / 'destination.ign', payload / filename,
          bundle / 'SHA256SUMS', bundle / 'build-info.json',
          out / 'media-build.json', out / 'iso-inspection.json')))
+    progress.end()
     print(f'Media built, not booted or installed: {out}')
     if network:
         print('PRIVATE PER-MACHINE ISO: contains network configuration; do not publish or distribute as general media.')
@@ -373,10 +400,12 @@ def brand_boot_files(xorriso, upstream, directory):
 def remaster(xorriso, upstream, payload, destination, log):
     if destination.exists() or destination.is_symlink():
         raise FileExistsError('refusing occupied ISO output')
+    progress.next('ISO / Prepare boot-menu files')
     branded = brand_boot_files(xorriso, upstream, destination.parent / 'boot-branding')
     menu_args = []
     for name, path in branded.items():
         menu_args.extend(['-map', str(path), name, '-chown', '0', name, '--', '-chgrp', '0', name, '--'])
+    progress.next('ISO / Write remastered ISO')
     with log.open('xb') as capture:
         # Replay the imported BIOS/EFI hybrid boot equipment, not a guessed
         # mkisofs command. Add /soda, replace bounded display labels and remove
@@ -586,17 +615,104 @@ def main():
     p.add_argument('--coreos-installer', required=True)
     p.add_argument('--keyring', required=True)
     p.add_argument('--signer', required=True)
-    p.add_argument('--bundle-source', required=True,
+    p.add_argument('--build-native', action='store_true', help='first build the native payload in this checkout')
+    p.add_argument('--bundle-source',
                    help='absolute canonical sealed native stage or exported bundle')
     p.add_argument('--xorriso', default='/usr/bin/xorriso')
     p.add_argument('--network-keyfile', help='optional private NetworkManager keyfile for pre-Ignition/static networking; makes the ISO private')
     p.add_argument('--out', required=True)
-    args = p.parse_args()
     try:
+        args = p.parse_args()
+        if args.build_native == bool(args.bundle_source):
+            p.error('select --build-native or --bundle-source, not both')
+    except SystemExit as error:
+        if error.code:
+            finish('Soda build', error.code)
+        return error.code
+    origin()
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(143))
+    code = 0
+    phase_started = None
+    try:
+        progress.next('Build / Check requested inputs')
+        try:
+            preflight(args)
+        except (ValueError, FileExistsError) as error:
+            emit("ERROR", str(error))
+            raise
+        create_log(Path(args.out).with_name(Path(args.out).name + '.timing.log'))
+        revision = output(['git', 'rev-parse', 'HEAD'])
+        os.environ['SODA_BUILD_REVISION'] = revision
+        target = 'Soda artifacts + ISO' if args.build_native else 'Soda ISO (existing native payload)'
+        emit('BUILD', f'{target} · {args.arch} · revision {revision} · cache state unknown')
+        progress.end()
+        if args.build_native:
+            with progress.section('Native phase'):
+                subprocess.run(['bash', str(ROOT / 'scripts/build-native.sh'), args.arch], cwd=ROOT,
+                               env=dict(os.environ, SODA_BUILD_CHILD='1'), check=True)
+            phase_started = None
+            args.bundle_source = str(ROOT / '.artifacts/native' / args.arch)
+            emit('OUTPUT', 'Native payload: ' + args.bundle_source)
+            emit('OUTPUT', 'Application OCI archives: ' + str(Path(args.bundle_source) / 'images'))
+        phase_started = clock()
+        emit('START', 'ISO phase')
         build(args)
-    except (ValueError, OSError, subprocess.SubprocessError) as err:
-        p.exit(1, f'Media build failed ({type(err).__name__}); retained outputs are not boot/install proof.\n')
+        emit('DONE', 'ISO phase', phase_started)
+        phase_started = None
+        emit('OUTPUT', 'ISO: ' + str(Path(args.out) / 'soda.iso'))
+        emit('SCOPE', 'Build and artifact verification only; source tests, boot/install and publication were not run')
+    except BaseException as error:
+        code = exit_code(error)
+        progress.end(code)
+        if phase_started is not None:
+            emit('CANCELLED' if code in (130, 143) else 'FAILED', 'ISO phase', phase_started)
+        if not isinstance(error, (KeyboardInterrupt, SystemExit)):
+            # Do not expose subprocess argv or private media inputs in diagnostics.
+            print(f'Build failed ({type(error).__name__}); retain outputs and inspect the failed section.', file=sys.stderr)
+    finally:
+        finish('Soda artifacts + ISO' if args.build_native else 'Soda ISO', code)
+    return code
+
+
+def preflight(args):
+    """Catch missing inputs before starting the expensive native phase."""
+    if platform.system() != 'Linux' or platform.machine() != args.arch:
+        raise ValueError('matching native Linux required')
+    if output(['git', 'status', '--porcelain', '--untracked-files=normal']):
+        raise ValueError('clean exact-revision source required')
+    for name in ('butane', 'coreos_installer', 'xorriso'):
+        tool(getattr(args, name))
+    if output([str(tool(args.coreos_installer)), '--version']) != INSTALLER_VERSION:
+        raise ValueError('selected CoreOS Installer 0.26.0 required')
+    if not Path(args.keyring).is_file() or not re.fullmatch('(?:[0-9A-Fa-f]{40}|[0-9A-Fa-f]{64})', args.signer):
+        raise ValueError('existing signing keyring and fingerprint required')
+    if args.network_keyfile:
+        network = Path(args.network_keyfile)
+        if not network.is_absolute() or network.is_symlink() or not network.is_file() or network.stat().st_mode & 0o077:
+            raise ValueError('private regular network keyfile required')
+    out = Path(args.out)
+    if (not out.is_absolute() or not out.is_relative_to(ROOT / '.artifacts')
+            or out.parent.resolve() != out.parent or not out.parent.is_dir()):
+        raise ValueError('new absolute output below a real existing .artifacts parent required')
+    for parent in (out.parent, *out.parent.parents):
+        st = parent.stat()
+        if st.st_uid != os.getuid() or st.st_mode & 0o022:
+            raise ValueError('output ancestry must be owned and not writable by others')
+        if parent == ROOT:
+            break
+    if out.exists() or out.is_symlink():
+        raise FileExistsError('ISO output already exists: ' + str(out))
+    log = out.with_name(out.name + '.timing.log')
+    if not os.environ.get('SODA_BUILD_TIMING_LOG') and (log.exists() or log.is_symlink()):
+        raise FileExistsError('timing log already exists: ' + str(log))
+    native = ROOT / '.artifacts/native' / args.arch
+    if args.build_native and (native.exists() or native.is_symlink()):
+        raise FileExistsError('native output already exists: ' + str(native))
+    if args.bundle_source and not Path(args.bundle_source).is_dir():
+        raise ValueError('existing sealed bundle required')
 
 
 if __name__ == '__main__':
-    main()
+    if os.environ.get('SODA_BUILD_SUPERVISED') != '1' and '--help' not in sys.argv:
+        raise SystemExit(supervise([sys.executable, __file__, *sys.argv[1:]]))
+    raise SystemExit(main())

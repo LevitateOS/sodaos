@@ -17,6 +17,9 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 
+import sys
+sys.path.insert(0, str(ROOT / "scripts"))
+
 
 def load(name, path):
     spec = importlib.util.spec_from_file_location(name, ROOT / path)
@@ -237,106 +240,117 @@ class MediaConfiguration(unittest.TestCase):
 
     def test_build_pipeline_uses_only_live_customization_and_retains_outputs(self):
         # Commands are doubles: this proves the caller wiring, never ISO validity.
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory).resolve()
-            for name in ('scripts/render-provisioning.py', 'appliance/provisioning/base.json',
-                         'appliance/locks/coreos-iso.json', 'appliance/installer/load-console.sh',
-                         'assets/branding/terminal/sodaos.txt',
-                         'assets/branding/source/soda-symbol.svg', 'LICENSE', 'NOTICE'):
-                dest = root / name
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(ROOT / name, dest)
-            (root / '.artifacts').mkdir()
-            bundle_source = root / 'sealed/x86_64'
-            bundle_source.mkdir(parents=True)
-            for name in ('butane', 'coreos-installer', 'xorriso'):
-                tool = root / name
-                tool.write_text('fixture tool, not executable code')
-                tool.chmod(0o755)
-            args = SimpleNamespace(arch='x86_64', butane=str(root / 'butane'),
-                coreos_installer=str(root / 'coreos-installer'), keyring=str(root / 'trusted.gpg'),
-                signer='A' * 40, xorriso=str(root / 'xorriso'),
-                bundle_source=str(bundle_source), out=str(root / '.artifacts/media'),
-                network_keyfile=None)
-            calls = []
-            def check_output(argv, **kwargs):
-                if argv[:3] == ['git', 'rev-parse', 'HEAD']:
-                    return ('a' * 40).encode()
-                if argv[:2] == ['git', 'status']:
-                    return b''
-                if argv[:3] == ['go', 'env', 'GOVERSION']:
-                    return b'go1.26.7'
-                if argv[-1] == '-version':
-                    return b'xorriso fixture'
-                if argv[1:4] == ['iso', 'kargs', 'show']:
-                    return b'fixture stock live kargs'
-                if argv[-1] == '--version':
-                    return b'coreos-installer 0.26.0' if 'coreos-installer' in argv[0] else b'butane fixture'
-                if argv[1:4] == ['iso', 'ignition', 'show']:
-                    raw = (Path(args.out) / 'live.ign').read_bytes()
-                    resource = {'compression': 'gzip', 'source': 'data:;base64,' + base64.b64encode(gzip.compress(raw)).decode()}
-                    return json.dumps({'ignition': {'version': '3.3.0', 'config': {'merge': [resource]}}}).encode()
-                self.fail(f'unexpected observation {argv}')
-            def run(argv, **kwargs):
-                calls.append(argv)
-                if argv == ['go', 'mod', 'verify']:
-                    pass
-                elif argv[:2] == ['go', 'build']:
-                    Path(argv[argv.index('-o') + 1]).write_bytes(b'synthetic-build-output')
-                elif argv[1] == 'bundle':
-                    dest = Path(argv[argv.index('--out') + 1])
-                    dest.mkdir()
-                    (dest / 'build-info.json').write_text(json.dumps({
-                        'Revision': 'a' * 40, 'Architecture': 'x86_64'}))
-                    (dest / 'SHA256SUMS').write_text('0' * 64 + '  build-info.json\n')
-                elif argv[1] == 'verify':
-                    pass
-                elif argv[1] == 'fetch-coreos-iso':
-                    dest = Path(argv[argv.index('--out') + 1])
-                    dest.mkdir()
-                    (dest / 'coreos.iso').write_bytes(b'synthetic-upstream-iso')
-                elif argv[0] == args.butane:
-                    config = json.loads(kwargs['input'])
-                    config.pop('variant')
-                    config.pop('version')
-                    config['ignition'] = {'version': '3.5.0'}
-                    return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(config).encode())
-                elif argv[0] == args.xorriso and argv[1:3] == ['-osirrox', 'on']:
-                    shutil.copytree(Path(args.out) / 'payload/bundle/x86_64', Path(argv[-1]),
-                        symlinks=True)
-                elif argv[0] == args.xorriso:
-                    self.assertEqual(argv[argv.index('-boot_image') + 1:argv.index('-boot_image') + 3], ['any', 'replay'])
-                    self.assertIn('/coreos/miniso.dat', argv)
-                    Path(argv[argv.index('-outdev') + 1]).write_bytes(b'synthetic-remastered-iso')
-                elif argv[1:3] == ['iso', 'customize']:
-                    self.assertEqual(kwargs['stdout'], subprocess.DEVNULL)
-                    self.assertEqual(kwargs['stderr'], subprocess.DEVNULL)
-                    self.assertIn('--live-ignition', argv)
-                    self.assertEqual(argv[-1], str(Path(args.out) / 'with-console.iso'))
-                    self.assertNotIn('--dest-device', argv)
-                    self.assertNotIn('--dest-ignition', argv)
-                    self.assertNotIn('--force', argv)
-                    Path(argv[argv.index('--output') + 1]).write_bytes(b'synthetic-customized-iso')
-                else:
-                    self.fail(f'unexpected effect {argv}')
-                return subprocess.CompletedProcess(argv, 0)
-            with patch.object(self.module, 'ROOT', root), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.subprocess, 'run', side_effect=run), patch.object(self.module.subprocess, 'check_output', side_effect=check_output), patch.object(self.module, 'verify_remaster', return_value={'SyntheticFixtureOnly': True}) as inspect_iso, patch.object(self.module, 'brand_boot_files', return_value={}), patch('sys.stdout', new_callable=io.StringIO):
-                self.module.build(args)
-                inspect_iso.assert_called_once_with(root / 'xorriso', Path(args.out) / 'upstream/coreos.iso',
-                                                   Path(args.out) / 'soda.iso', Path(args.out) / 'payload')
-                count = len(calls)
-                with self.assertRaises(FileExistsError):
+        for private_network in (False, True):
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory).resolve()
+                for name in ('scripts/render-provisioning.py', 'appliance/provisioning/base.json',
+                             'appliance/locks/coreos-iso.json', 'appliance/installer/load-console.sh',
+                             'assets/branding/terminal/sodaos.txt',
+                             'assets/branding/source/soda-symbol.svg', 'LICENSE', 'NOTICE'):
+                    dest = root / name
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(ROOT / name, dest)
+                (root / '.artifacts').mkdir()
+                bundle_source = root / 'sealed/x86_64'
+                bundle_source.mkdir(parents=True)
+                for name in ('butane', 'coreos-installer', 'xorriso'):
+                    tool = root / name
+                    tool.write_text('fixture tool, not executable code')
+                    tool.chmod(0o755)
+                args = SimpleNamespace(arch='x86_64', butane=str(root / 'butane'),
+                    coreos_installer=str(root / 'coreos-installer'), keyring=str(root / 'trusted.gpg'),
+                    signer='A' * 40, xorriso=str(root / 'xorriso'),
+                    bundle_source=str(bundle_source), out=str(root / '.artifacts/media'),
+                    network_keyfile=None)
+                if private_network:
+                    network_input = root / 'fixture.nmconnection'
+                    network_input.write_text('[connection]\nid=synthetic-network\n')
+                    network_input.chmod(0o600)
+                    args.network_keyfile = str(network_input)
+                calls = []
+                def check_output(argv, **kwargs):
+                    if argv[:3] == ['git', 'rev-parse', 'HEAD']:
+                        return ('a' * 40).encode()
+                    if argv[:2] == ['git', 'status']:
+                        return b''
+                    if argv[:3] == ['go', 'env', 'GOVERSION']:
+                        return b'go1.26.7'
+                    if argv[-1] == '-version':
+                        return b'xorriso fixture'
+                    if argv[1:4] == ['iso', 'kargs', 'show']:
+                        return b'fixture stock live kargs'
+                    if argv[-1] == '--version':
+                        return b'coreos-installer 0.26.0' if 'coreos-installer' in argv[0] else b'butane fixture'
+                    if argv[1:4] == ['iso', 'ignition', 'show']:
+                        raw = (Path(args.out) / 'live.ign').read_bytes()
+                        resource = {'compression': 'gzip', 'source': 'data:;base64,' + base64.b64encode(gzip.compress(raw)).decode()}
+                        return json.dumps({'ignition': {'version': '3.3.0', 'config': {'merge': [resource]}}}).encode()
+                    self.fail(f'unexpected observation {argv}')
+                def run(argv, **kwargs):
+                    calls.append(argv)
+                    if argv == ['go', 'mod', 'verify']:
+                        pass
+                    elif argv[:2] == ['go', 'build']:
+                        Path(argv[argv.index('-o') + 1]).write_bytes(b'synthetic-build-output')
+                    elif argv[1] == 'bundle':
+                        dest = Path(argv[argv.index('--out') + 1])
+                        dest.mkdir()
+                        (dest / 'build-info.json').write_text(json.dumps({
+                            'Revision': 'a' * 40, 'Architecture': 'x86_64'}))
+                        (dest / 'SHA256SUMS').write_text('0' * 64 + '  build-info.json\n')
+                    elif argv[1] == 'verify':
+                        pass
+                    elif argv[1] == 'fetch-coreos-iso':
+                        dest = Path(argv[argv.index('--out') + 1])
+                        dest.mkdir()
+                        (dest / 'coreos.iso').write_bytes(b'synthetic-upstream-iso')
+                    elif argv[0] == args.butane:
+                        config = json.loads(kwargs['input'])
+                        config.pop('variant')
+                        config.pop('version')
+                        config['ignition'] = {'version': '3.5.0'}
+                        return subprocess.CompletedProcess(argv, 0, stdout=json.dumps(config).encode())
+                    elif argv[0] == args.xorriso and argv[1:3] == ['-osirrox', 'on']:
+                        shutil.copytree(Path(args.out) / 'payload/bundle/x86_64', Path(argv[-1]),
+                            symlinks=True)
+                    elif argv[0] == args.xorriso:
+                        self.assertEqual(argv[argv.index('-boot_image') + 1:argv.index('-boot_image') + 3], ['any', 'replay'])
+                        self.assertIn('/coreos/miniso.dat', argv)
+                        Path(argv[argv.index('-outdev') + 1]).write_bytes(b'synthetic-remastered-iso')
+                    elif argv[1:4] == ['iso', 'network', 'extract']:
+                        shutil.copy2(Path(args.out) / 'soda-installer.nmconnection', Path(argv[argv.index('--directory') + 1]) / 'soda-installer.nmconnection')
+                    elif argv[1:3] == ['iso', 'customize']:
+                        self.assertEqual(kwargs['stdout'], subprocess.DEVNULL)
+                        self.assertEqual(kwargs['stderr'], subprocess.DEVNULL)
+                        self.assertIn('--live-ignition', argv)
+                        self.assertEqual(argv[-1], str(Path(args.out) / 'with-console.iso'))
+                        self.assertNotIn('--dest-device', argv)
+                        self.assertNotIn('--dest-ignition', argv)
+                        self.assertNotIn('--force', argv)
+                        Path(argv[argv.index('--output') + 1]).write_bytes(b'synthetic-customized-iso')
+                    else:
+                        self.fail(f'unexpected effect {argv}')
+                    return subprocess.CompletedProcess(argv, 0)
+                with patch.object(self.module, 'ROOT', root), patch.object(self.module.platform, 'machine', return_value='x86_64'), patch.object(self.module.platform, 'system', return_value='Linux'), patch.object(self.module.subprocess, 'run', side_effect=run), patch.object(self.module.subprocess, 'check_output', side_effect=check_output), patch.object(self.module, 'verify_remaster', return_value={'SyntheticFixtureOnly': True}) as inspect_iso, patch.object(self.module, 'brand_boot_files', return_value={}), patch('sys.stdout', new_callable=io.StringIO), patch('sys.stderr', new_callable=io.StringIO) as progress_output:
                     self.module.build(args)
-                self.assertEqual(len(calls), count)
-            record = json.loads((Path(args.out) / 'media-build.json').read_text())
-            self.assertFalse(record['PrivateMedia'])
-            self.assertEqual(record['Revision'], 'a' * 40)
-            self.assertEqual(record['ConsoleISOPath'], '/soda/soda-install')
-            self.assertEqual(record['BundleISOPath'], '/soda/bundle/x86_64')
-            self.assertRegex(record['BundleSHA256'], '^[0-9a-f]{64}$')
-            self.assertNotIn('PayloadURL', record)
-            self.assertTrue((Path(args.out) / 'SHA256SUMS').exists())
-            self.assertFalse(any('install' in argv or 'reboot' in argv for argv in calls))
+                    self.assertEqual('START    ISO / Prepare private network configuration' in progress_output.getvalue(), private_network)
+                    self.assertEqual('START    ISO / Verify private network readback' in progress_output.getvalue(), private_network)
+                    self.assertNotIn('synthetic-network', progress_output.getvalue())
+                    inspect_iso.assert_called_once_with(root / 'xorriso', Path(args.out) / 'upstream/coreos.iso',
+                                                       Path(args.out) / 'soda.iso', Path(args.out) / 'payload')
+                    count = len(calls)
+                    with self.assertRaises(FileExistsError):
+                        self.module.build(args)
+                    self.assertEqual(len(calls), count)
+                record = json.loads((Path(args.out) / 'media-build.json').read_text())
+                self.assertEqual(record['PrivateMedia'], private_network)
+                self.assertEqual(record['Revision'], 'a' * 40)
+                self.assertEqual(record['ConsoleISOPath'], '/soda/soda-install')
+                self.assertEqual(record['BundleISOPath'], '/soda/bundle/x86_64')
+                self.assertRegex(record['BundleSHA256'], '^[0-9a-f]{64}$')
+                self.assertNotIn('PayloadURL', record)
+                self.assertTrue((Path(args.out) / 'SHA256SUMS').exists())
+                self.assertFalse(any('install' in argv or 'reboot' in argv for argv in calls))
 
     def test_boot_branding_preserves_offsets_and_native_commands(self):
         for name, data in (

@@ -91,6 +91,284 @@ upstream has published its binaries but not a matching container tag.
 
 Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist with the built `tools/soda-artifacts bundle` command as shown in [support recipes](native-support.md#build-and-artifact-contract); do not transfer the entire build tree.
 
+## Build timing and progress implementation plan
+
+**Status: implemented in source; local checks passed.** Requested and implemented on 13 September 2026. A full native build with these checkpoints has not run. This section
+owns progress/timing for the local source-to-ISO build. Existing build recipes and
+[ISO generation](coreos-installer.md) continue to own artifact production.
+
+### Run the timed build
+
+With the [native builder prerequisites](#1-prepare-the-native-builder), committed
+source, existing `.artifacts` parent and a fresh native output location:
+
+```sh
+bash scripts/build-iso.sh --arch x86_64 \
+  --butane /absolute/path/to/butane \
+  --coreos-installer /absolute/path/to/coreos-installer \
+  --xorriso /usr/bin/xorriso \
+  --keyring /absolute/path/to/fedora-signing-keyring.gpg \
+  --signer FEDORA_SIGNER_FINGERPRINT \
+  --out "$PWD/.artifacts/iso-x86_64-attempt"
+```
+
+Substitute the actual trusted tools/keyring/fingerprint from the existing
+[ISO recipe](coreos-installer.md). The output and timing log must be new: the example
+produces `iso-x86_64-attempt/soda.iso` and the sibling
+`iso-x86_64-attempt.timing.log`. Logs are mode 0600, contain only progress records,
+and remain outside sealed payloads. Existing outputs are never cleared or replaced.
+The native payload remains at `.artifacts/native/x86_64`.
+
+`build-native.sh ARCH` also reports checkpoints when run alone, with its log at
+`.artifacts/native/ARCH.timing.log`. The existing standalone `build-installer.py`
+command uses `--bundle-source` and reports an ISO-only total. `--build-native` and
+`--bundle-source` are mutually exclusive; the shell entrypoint selects the former.
+The independent host-image candidate remains under its own command.
+
+The shared Python standard-library helper supplies monotonic timestamps and plain
+progress records. A small shell adapter leaves commands in their original shell,
+preserving `errexit` and captured stdout. A subprocess group forwards Ctrl-C/TERM
+to the active build and descendants, allowing five seconds for shutdown before
+forcing a timed-out group to stop. No monitoring service or dependency was added.
+
+**Local validation:** 11 timing/wrapper tests passed, including both interrupt
+signals, descendant shutdown, failure exit codes, existing-output preservation,
+standalone timing and native-to-ISO handoff. Existing ISO fixtures passed for both
+public and private-network paths (19 tests, one optional real-xorriso test skipped);
+metadata/activation tests passed (5 tests, two optional Caddy tests skipped), as did
+Tailnet image checks (2) and Spaces staging checks (7). Shell syntax, Python compile
+and diff checks passed. Mac staging tests used the real `/private/tmp` parent rather
+than the system's symlinked temporary path. These are local fixtures/process tests,
+not a new native image/ISO build or boot/install receipt.
+
+### Outputs covered by the build
+
+The ISO is the final output of this selected path, not its only product. Progress
+and the final summary must identify the other retained artifacts as well.
+
+| Entry point | Outputs |
+| --- | --- |
+| `build-native.sh` | Soda executable/support tools, compiled browser assets, staged configuration/branding, upstream Tea and terminal assets, five OCI archives (Project OS, dashboard, Forgejo, Caddy, Tailnet), and the sealed native payload with inventories/checksums. Forgejo/Caddy archives come from upstream images. |
+| `build-installer.py` | Installer console and verifier, verified upstream ISO, on-media bundle snapshot, intermediate remastered ISO, final `soda.iso`, configuration, readback evidence and media metadata/checksums. |
+| `build-iso.sh` | Runs both existing phases and reports their retained outputs and timings. The name describes the requested final target; it does not imply that only an ISO was produced. |
+| Separate `soda-host-image --build [--complete …]` | Host OCI archive and inspection records; complete mode additionally assembles application archives and payload metadata. This is a separate candidate path, not called by either script above. |
+
+The final timing summary lists the sealed native payload, its application-image
+archives, the final ISO and the timing log. Give native production its own subtotal,
+so the cost of producing these independently useful artifacts remains visible.
+
+### Intended terminal experience
+
+Print a flushed message before each section starts, and another when it finishes.
+Every completion line includes that section's elapsed wall time and the elapsed
+build total. Name the actual component during repeated work, such as Project OS,
+dashboard, Forgejo or Caddy. Keep normal command output available under the existing
+logging rules; do not print raw command arguments or expose currently suppressed
+private provisioning/network input.
+
+Illustrative output only; these are not measured build times:
+
+```text
+BUILD   Soda ISO · x86_64 · revision abc1234
+START   Native / Compile Soda programs
+DONE    Native / Compile Soda programs       section 00:01:12 · total 00:01:20
+START   Native / Fetch upstream Tea binary
+DONE    Native / Fetch upstream Tea binary   section 00:00:04 · total 00:01:24
+START   Native / Build Project OS image
+DONE    Native / Build Project OS image      section 00:03:18 · total 00:04:42
+...
+START   ISO / Verify final image
+DONE    ISO / Verify final image             section 00:00:38 · total 00:09:51
+SUCCESS Soda ISO ready                      total 00:09:51
+OUTPUT  <attempt>/soda.iso
+```
+
+A checkpoint is a progress message, not a saved execution state or resume feature.
+No estimated percentage or ETA is needed. Start/end messages and the normal tool
+output are sufficient for this pass; no background monitoring process is required.
+
+### 1. Connect the existing build entrypoints
+
+- Add a thin `scripts/build-iso.sh` entrypoint that calls `build-native.sh`, then
+  `build-installer.py` with the resulting sealed native stage as `--bundle-source`.
+  Preserve their existing command order, checks and exit behavior; do not copy
+  their build logic into the wrapper.
+- Accept the architecture, fresh ISO output path and the ISO builder's existing
+  tool/signing inputs, plus its optional private network keyfile. Validate required
+  inputs before expensive work. Record the source revision once and ensure the
+  same revision reaches both phases.
+- Start the total clock at invocation, before preflight. End it only after the ISO
+  builder completes its existing readback, integrity checks and final checksums.
+  Installer success means a verified build artifact, not boot/install acceptance.
+- Keep both underlying commands independently usable with their own totals. The
+  separate `soda-host-image --complete` candidate is not part of this ISO recipe;
+  connecting that candidate would be a different release-engineering change.
+- Respect the native builder's current fresh-output requirement. If its output
+  already exists, explain the conflicting path and stop. Do not delete artifacts,
+  create worktrees or clear caches as a timing convenience.
+
+### 2. Add small timing functions to the current scripts
+
+- Measure elapsed real time with a monotonic clock, including child execution,
+  downloads and waits. Use Python's standard-library monotonic clock in the ISO
+  builder and a small clock function using the already-required Python interpreter
+  for shell checkpoint timestamps. Add no dependency or separately compiled tool.
+- The outer entrypoint owns the run start. Pass that clock origin to child scripts
+  so their messages show the same running total. Standalone invocations initialize
+  their own origin. Keep section start times separate from the total start.
+- Format durations consistently as `HH:MM:SS`, including builds exceeding one hour.
+  A host clock correction must not produce negative or shortened durations.
+- Write progress to stderr so captured stdout values such as image IDs and tool
+  versions remain unchanged. Use plain lines that remain readable in a terminal
+  and redirected output; do not require color or cursor manipulation.
+- Retain the same progress lines in `<ISO-output-name>.timing.log` beside the ISO attempt,
+  outside the sealed native payload and ISO contents. Flush checkpoints as they
+  happen so a failed attempt still has its earlier timings. Preflight failures
+  before output creation remain visible in the terminal. This is a timing log,
+  not a new capture of secret-bearing command output.
+
+### 3. Section inventory and timing boundaries
+
+This inventory was checked against both entrypoints, their staging/metadata helpers,
+the three local Containerfiles, and the ISO download, snapshot, remaster and readback
+helpers on 13 September 2026. Preserve the source order below. Each row is a named
+start/end checkpoint; “each” expands into an individually named interval in the
+existing loop. The wrapper reports native/ISO phase durations and the overall total.
+
+**Native payload — [build-native.sh](../scripts/build-native.sh)**
+
+| Order | Terminal section | Work included / source boundary |
+| --- | --- | --- |
+| N01 | Check native build prerequisites | Architecture, Go/Bun, source revision/cleanliness, output-parent validation, nonblocking build lock, fresh output directories. |
+| N02 | Compile support tool: each tool | Separate `go build` intervals for `soda-artifacts` and `soda-acceptance`; includes any dependency fetching done by Go. |
+| N03 | Compile Soda program: each program | Existing `cmd/*` loop, with the actual program name; includes any dependency fetching done by Go. |
+| N04 | Verify Go dependencies | `go mod verify`. |
+| N05 | Install frontend dependencies | `bun install --frozen-lockfile`, including resolution/download/cache work. |
+| N06 | Build frontend assets | `build-forgejo.ts`: shared Lit runtime and Soda Forgejo, Spaces, Runners and Tailnet browser modules, inventory validation and output writes. |
+| N07 | Fetch upstream Tea binary | `fetch-tea.py`: download, checksum/architecture/license checks and staging. |
+| N08 | Pull and resolve Rocky base | Native-platform pull, image ID and registry digest resolution. |
+| N09 | Build image: Project OS, then dashboard | One interval per `podman build`; see the included package/tool work below. |
+| N10 | Export image: Project OS, then dashboard | One `podman save` interval immediately after each image build, following the existing loop order. |
+| N11 | Resolve and pull Tailnet base | Read/validate companion inputs and pull its selected base image. |
+| N12 | Build Tailnet companion image | Download/check upstream Tailscale archive inside the image build, extract binaries and assemble image. |
+| N13 | Export Tailnet companion image | Save the companion OCI archive. |
+| N14 | Pull image: Forgejo, then Caddy | Separate native-platform pulls using service references; record each image ID. |
+| N15 | Export image: Forgejo, then Caddy | One OCI export immediately after each pull, following the existing loop order. |
+| N16 | Fetch terminal assets | `fetch-terminal.py`: xterm/fit distributions, checksum checks and selected-file extraction. |
+| N17 | Prepare Forgejo translations | `forgejo-locales.py`: obtain/verify the native catalog and merge Soda keys. |
+| N18 | Stage appliance files | `stage.py`: Soda binaries, services/configuration, Cockpit branding/icons/fonts, Forgejo templates/assets/locale, terminal-asset verification and public file modes. |
+| N19 | Collect build inputs and tool versions | Beginning of `native-build-info.py`: manifests/licenses/notices, install script and builder tool versions. |
+| N20 | Inspect built image: each image | Metadata helper's existing loop over base, Project OS, dashboard, Forgejo, Caddy and Tailnet; include digest inspection, applicable RPM inventories and CLI version probes. |
+| N21 | Finish build metadata | Write `native-build.json` after image observations complete. |
+| N22 | Confirm unchanged source | Final revision and working-tree check before sealing. |
+| N23 | Seal native payload | `soda-artifacts seal`: file inventory, ELF checks, five OCI archive inspections, input consistency and checksum generation. |
+
+N03 currently builds `soda-dashboard`, `soda-forgejo-tailnet`, `soda-host`,
+`soda-image-import`, `soda-runner-launch`, `soda-runners`, `soda-setup` and
+`soda-tailnet`. Derive displayed names from the existing loop so future programs
+are automatically covered; this list must not become another build manifest.
+
+The Project OS image interval includes Rocky package installation, the signed GitHub
+CLI RPM, podman-compose, the upstream mise binary, copying Tea and Soda runtime files,
+and final OS/service preparation. Dashboard includes CA-package installation and
+copying its binary. Keep Podman's normal step output visible within these intervals.
+These are whole-image durations, not separate measured package-install durations;
+do not parse/reimplement Podman's build steps or change Containerfile layers just
+for timing. Tea and Tailscale are downloaded binaries, not source compilations.
+
+**ISO production — [build-installer.py](../scripts/build-installer.py)**
+
+| Order | Terminal section | Work included / source boundary |
+| --- | --- | --- |
+| I01 | Check ISO build prerequisites | Native architecture, unchanged source, tool versions, selected ISO inputs, canonical output validation and fresh directories. The outer preflight catches obvious missing inputs earlier; retain the builder's own checks. |
+| I02 | Verify installer Go dependencies | `go mod verify`. |
+| I03 | Compile installer console | Build `appliance/installer` into the on-media `soda-install`. |
+| I04 | Compile ISO artifact verifier | Build `tools/soda-artifacts` using the existing ISO recipe; this currently repeats a native-phase build and remains visible as separate work. |
+| I05 | Download and verify CoreOS ISO | `fetch-coreos-iso`: input validation, ISO download/checksum, signature download/verification and verified-input record. This is one combined interval around the existing command. |
+| I06 | Generate destination configuration | Load public provisioning configuration and convert it with Butane. |
+| I07 | Snapshot native bundle onto media payload | `snapshot_bundle`: the existing `bundle` command verifies/copies/seals the admitted payload; hash its resulting manifest. This includes real archive copying and verification, not just passing a path. |
+| I08 | Prepare console payload and live configuration | Artwork, licenses, modes, console hash, live configuration generation and the second Butane conversion. |
+| I09 | Prepare boot-menu files | Inside `remaster`: inspect upstream ISO entries, read and brand available EFI/BIOS configuration. BIOS-specific work is absent on aarch64. |
+| I10 | Write remastered ISO | The `xorriso` invocation in `remaster`, including payload mapping and boot-equipment replay; preserve its existing `remaster.log`. |
+| I11 | Prepare private network configuration, if supplied | `snapshot_network`: validate and copy the private input; never show its contents. |
+| I12 | Customize ISO | `coreos-installer iso customize` embeds live Ignition and optional networking. |
+| I13 | Extract bundle from completed ISO | The extraction command in `verify_bundle_readback`. |
+| I14 | Verify extracted bundle | Manifest comparison and `soda-artifacts verify` in the same helper. |
+| I15 | Verify private network readback, if supplied | Extract and compare the optional network configuration. |
+| I16 | Verify embedded live configuration | Show embedded Ignition through captured output and compare it with the generated configuration. |
+| I17 | Verify ISO files and boot structure | `verify_remaster`: file inventories, ownership/modes/links, boot metadata, preservation hashes and payload hashes. No separate timer per file. |
+| I18 | Verify live kernel arguments | Compare upstream/final kernel arguments and write the ISO inspection record. |
+| I19 | Confirm unchanged source | Final source check before writing the completed media record. |
+| I20 | Write final metadata and checksums | Hash completed outputs, write `media-build.json` and `SHA256SUMS`. Includes the existing repeated hashing of large files; total timing must continue through it. |
+
+**Total and coverage rules**
+
+- The outer flow is preflight → native payload → existing sealed-stage handoff →
+  ISO production → outcome. Include child startup, copying, downloads, inspections
+  and final hashing in total elapsed time. No separate bundle export is needed:
+  the ISO builder already snapshots the supplied sealed stage.
+- Keep an active section around every significant operation, including quiet
+  subprocesses. Add the listed boundaries inside `native-build-info.py`, `remaster`
+  and `verify_bundle_readback` instead of leaving those helpers as opaque waits.
+  Helpers retain their current return values, captured stdout and error behavior.
+- At completion, print a compact chronological section-duration summary, then native
+  subtotal, ISO subtotal and overall total. On failure, mark the last section failed
+  or cancelled and omit later sections that never ran. Repeated images/programs
+  appear by name. Optional network checkpoints appear only when selected.
+- Nested durations overlap. Measure each subtotal and the total independently;
+  never add phase durations to their child-section durations. Lightweight wrapper
+  overhead may make the overall total slightly larger than the two phase subtotals.
+- The build includes its existing artifact checks. `check-native.sh` is a separate
+  source/packaging test workflow, not currently called by either build script.
+  Installing builder prerequisites, VM boot/install tests, publication and the
+  separate immutable host-image candidate are also outside this measured recipe.
+  Say this in the summary so “build completed” does not imply those actions ran.
+- During implementation, reconcile every external command and potentially expensive
+  copy/hash loop against this inventory. Each belongs to a named timing interval;
+  combined intervals disclose their included work rather than claiming timings we
+  did not measure. This is a review checklist, not a runtime scheduler or a new
+  machine-readable copy of the build graph.
+
+### 4. Report failure and interruption accurately
+
+- On failure, print `FAILED`, the active section, its elapsed time, the total elapsed
+  time and the retained log/output location when available. Preserve the underlying
+  nonzero exit status and stop before later sections.
+- On Ctrl-C or termination, stop the active build process using normal signal
+  handling and print `CANCELLED` with elapsed times. Do not emit success or leave
+  the child build running. Preserve existing command timeouts and treat expiry as
+  a failed section, rather than changing deadlines to obtain a timing result.
+- Avoid duplicate top-level summaries when a child fails. The child identifies the
+  precise failed section; the outer command supplies the one final run outcome.
+- Completed section lines remain completed if a later section fails. Never label
+  unfinished outputs as a usable ISO, automatically retry a mutation, or remove
+  the retained attempt as recovery.
+
+### 5. Verify the behavior and document the command
+
+- Add focused local tests with controlled clocks and short command doubles:
+  successful ordering/totals; a failed child stopping later phases and preserving
+  its exit code; standalone versus nested timing; an interrupt stopping the child;
+  output capture remaining intact; and the optional network section being absent
+  when unused. Do not rely on long sleeps or exact real execution durations.
+- Check that timing logs remain outside sealed artifacts and that existing bundle
+  and ISO fixture checks still pass. Test messages use synthetic inputs and never
+  include private network data or credentials.
+- Document the complete command and show its resulting terminal summary. Run one
+  native source-to-ISO attempt on an authorized matching builder to verify real
+  progress delivery, timings and artifact checks. Keep this distinct from local
+  fixture proof and from boot/install testing.
+- Record architecture, revision and whether dependency/image caches were available.
+  A fresh artifact build may still reuse caches: label unmeasured cache state as
+  unknown, and do not call it a cold-cache benchmark. This plan does not add cache
+  cleanup, a dedicated benchmark environment or automatic CI/publication.
+
+**Completion:** one invocation runs the existing source-to-ISO recipe; the terminal
+identifies every significant active section, reports its duration on completion,
+and prints the measured total on success, failure or handled interruption. Timing
+logs survive failures, and the artifact-production/security contracts still pass
+their affected checks.
+
 ## 2. Provision the upstream host
 
 Candidate: Fedora CoreOS stable 44.20260817.3.2. Use its upstream installer/image matching the target architecture and native install instructions. Do not add a separate Soda distribution/release pipeline.

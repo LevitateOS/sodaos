@@ -6,6 +6,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 
+import sys
+sys.path.insert(0, str(ROOT / "scripts"))
+
 
 class TailnetImage(unittest.TestCase):
     def test_locked_upstream_base_and_release_checksums(self):

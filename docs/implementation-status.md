@@ -75,6 +75,17 @@ the [architecture record](architecture.md#username-blocking-proposal-and-underst
 owns that correction. No custom build was authorized, and the stock-executable
 boundary remains. No admission code or installed configuration has changed.
 
+## ISO build timing and progress
+
+Implemented in source: `scripts/build-iso.sh` connects the existing native payload
+and ISO recipes. Named checkpoints report section durations, native/ISO subtotals
+and total elapsed time, with retained timing logs and failure/cancellation outcomes.
+The [owning guide](installation.md#build-timing-and-progress-implementation-plan)
+records the command, complete section inventory, outputs and local checks.
+Eleven focused timing/wrapper tests and the affected ISO/metadata/staging fixtures
+passed. Optional real-xorriso/Caddy tests were skipped. No complete native build,
+VM operation, deployment or publication was performed for this change.
+
 ## Maintenance-commitment audit
 
 The owner requested a repository-wide audit of disproportionate maintenance

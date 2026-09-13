@@ -14,6 +14,9 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
+
+import sys
+sys.path.insert(0, str(ROOT / "scripts"))
 FILES = ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
          'public/assets/sodaspaces.css', 'public/assets/sodaspaces.js',
          'public/assets/sodaspaces-terminal.js', 'public/assets/sodaspaces-terminal.css',

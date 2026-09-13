@@ -24,6 +24,9 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 
+import sys
+sys.path.insert(0, str(ROOT / "scripts"))
+
 
 class AvatarActivation(unittest.TestCase):
     def test_first_activation_derives_provider_from_forgejo_origin(self):

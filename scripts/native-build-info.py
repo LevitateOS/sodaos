@@ -5,8 +5,14 @@ import json
 import platform
 import re
 import shutil
+import signal
+import sys
 import subprocess
 from pathlib import Path
+
+from build_progress import Progress, exit_code
+
+progress = Progress()
 
 
 def output(args):
@@ -24,6 +30,7 @@ def require_tailnet_release(clis, version):
 
 
 def collect(root, arch, revision):
+    progress.next('Native / Collect build inputs and tool versions')
     if platform.system() != 'Linux' or platform.machine() != arch:
         raise ValueError('matching-native Linux required')
     if not re.fullmatch('[0-9a-f]{40}', revision):
@@ -58,6 +65,7 @@ def collect(root, arch, revision):
     }.items()}
     images = {}
     for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
+        progress.next('Native / Inspect built image: ' + name)
         image = (stage / (name + '.iid')).read_text().strip()
         if not re.fullmatch('(?:sha256:)?[0-9a-f]{64}', image):
             raise ValueError('invalid resolved image ID')
@@ -77,9 +85,11 @@ def collect(root, arch, revision):
             require_tailnet_release(images[name]['CLIs'], version)
         if name == 'project-os':
             images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, flag]) for binary, flag in (('/usr/local/bin/tea', '--version'), ('/usr/bin/gh', '--version'), ('/usr/bin/tmux', '-V'))}
+    progress.next('Native / Finish build metadata')
     with (inputs / 'native-build.json').open('x') as f:
         json.dump({'Revision': revision, 'Architecture': arch, 'Tools': tools, 'Images': images}, f, indent=2)
         f.write('\n')
+    progress.end()
 
 
 if __name__ == '__main__':
@@ -87,4 +97,9 @@ if __name__ == '__main__':
     p.add_argument('--arch', choices=('x86_64', 'aarch64'), required=True)
     p.add_argument('--revision', required=True)
     args = p.parse_args()
-    collect(Path(__file__).resolve().parents[1], args.arch, args.revision)
+    signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(143))
+    try:
+        collect(Path(__file__).resolve().parents[1], args.arch, args.revision)
+    except BaseException as error:
+        progress.end(exit_code(error))
+        raise
