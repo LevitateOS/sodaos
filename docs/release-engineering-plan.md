@@ -2,8 +2,9 @@
 
 ## Status and decisions
 
-**Stage-1 review recorded; the first Stage-2 host-content slice is implemented and
-built/inspected on native x86_64 (`f390aa6`). This is not yet an installable release;
+**Deployment step 1 is complete: feasibility review and the first host-content
+slice built/inspected on native x86_64 (`f390aa6`). Steps 2–28 below carry the work
+through production deployment and automated operation. This is not yet an installable release;
 native boot/upgrade acceptance remains pending.** The
 owner selected GHCR distribution and a CoreOS-aligned Soda release train with an
 independent emergency lane. This guide owns the release engineering workstream and
@@ -361,42 +362,316 @@ checks actually performed; do not claim exhaustive supported upgrade coverage.
 
 ## 9. Implementation stages and exits
 
-Each stage is a coherent work package, not permission to execute native effects.
+This is the ordered **release engineering deployment checklist**, from the existing
+local image to an operational automated release train. It replaces the earlier
+coarse stage table. Requirements remain in sections 1–8; these steps identify the
+implementation work and evidence, not another set of policies. References to the
+old Stage 1/2 in historical receipts mean feasibility/initial local production.
 
-| Stage | Work | Exit |
-| --- | --- | --- |
-| 1 — feasibility and decisions | Audit actual layout, selected upstream versions, image build/consumer/signing support, Zincati ownership and Cockpit error | Concrete mechanism decision, source references, unresolved limits and exact isolated proof proposal; no speculative adapter |
-| 2 — local candidate production | Noninteractive, CI-reusable host recipe and build/test entrypoints, pinned apps/release record, verifier, provenance and trust fixtures; inspect proposed local builder | Reproducible-input local candidate and negative verification tests; builder/resource assessment; no publication or enabled scheduler |
-| 3 — isolated native upgrade | Authorized fixture with synthetic persistent state; initial release, next release, interruption and recovery cases | Actual activation/preservation/recovery receipts on the selected architecture |
-| 4 — release delivery and pipeline automation | Separately authorized GHCR/signing setup, local timer/one-shot trigger, frozen-input pipeline, protected initial manual promotion and consumer discovery | Signed round trip; duplicate poll, offline catch-up, failed/interrupted run and emergency-trigger tests; incomplete-publication refusal; retention/rotation and notifications; automatic production promotion still disabled |
-| 5 — maintenance and automatic promotion | Native status, explicit activation, then download/window policy; qualify automated preview-to-stable promotion with separate activation policy | Effective policy, failed-gate promotion refusal, observation gates and bounded progressive rollout proved; enable unattended production only with explicit approval |
-| 6 — migration and production readiness | Existing-install migration, matching ISO/QCOW2 linkage where available, emergency drill and release ownership | Explicit supported starting states, architecture evidence, operational response targets and approved first production release |
-| 7 — subsequent improvements | Offline import, optional broader fleet cohorts and alternate builder hosting | Separate bounded acceptance; not prerequisites for the core automated release pipeline |
+Work in this order by default. Independent source work may overlap, but production
+promotion cannot bypass the relevant checks. Reuse valid evidence rather than rerun
+every earlier step for a documentation-only change. Each checked box supports only
+its stated scope. A planned native, trust, service or publication action still needs
+its applicable target/action approval; this checklist does not grant those effects.
 
-Migration must inspect and preserve each target's current origin, layered packages,
-writable payloads, config/data and later writes. Do not replay first-install, clone a
-credential-bearing appliance into an image or rebase retained fixtures as a shortcut.
+### Phase A — complete the local appliance candidate
+
+**1. [x] Establish the mechanism and first host-content build.**
+
+- Deliverable: reviewed FCOS/bootc direction, pinned base, frozen-source builder,
+  image-time packages and vendor-layout binaries/units.
+- Completed evidence: `f390aa6` x86_64 build, package/layout inspection and OCI verifier;
+  [receipt](implementation-history.md#first-local-host-content-image-build).
+- This does not complete the appliance payload, signing or native boot proof.
+
+**2. [ ] Bind the fixed appliance application images. — NEXT**
+
+- Deliverable: immutable Forgejo, dashboard and proxy image references in vendor
+  Quadlets, using bootc's bound-image mechanism and service-scoped image storage.
+- Check: generated host/app references agree; no mutable `:dev` selection; matching
+  app content is available before activation. Native offline-after-staging proof
+  follows in step 14. Do not globally attach bootc storage to all Podman workloads.
+
+**3. [ ] Package the matching Forgejo presentation.**
+
+- Deliverable: canonical templates, native locale, browser modules, branding/fonts
+  and notices in immutable release-owned content, with the actual Forgejo caller
+  wired to it. Reuse the existing payload manifest/build, not a copied asset list.
+- Check: emitted browser graph/epoch matches backend contracts, native customization
+  paths and SELinux/mount expectations; no release content depends on copying over
+  a live Forgejo data tree. Run affected frontend/packaging checks.
+
+**4. [ ] Separate image defaults from machine state and persistent project images.**
+
+- Deliverable: explicit ownership for app selection, `/etc/soda` settings/secrets,
+  runtime paths and retained image storage. Preserve project roots and keep their
+  required layers independent of bootc's image garbage collection. Audit companion
+  image lifetime and saved image-ID callers through their current owners.
+- Check: a new host release selects its intended app versions without replacing
+  credentials/configuration; project image references remain valid across host
+  release changes. No real Tailnet/provider job is triggered by validation.
+
+**5. [ ] Finish the host package/build contract.**
+
+- Deliverable: resolve the recorded Forgejo-runner/udisks2 tmpfiles warning through
+  native package/service ownership; capture and pin the resolved RPM inputs and
+  repository provenance needed to rebuild the candidate, including retention/access.
+- Check: base/package inventory is intentional, build lint outcomes are accounted
+  for, and repeating frozen inputs cannot silently resolve newer RPMs. Do not claim
+  byte-reproducible image output unless that property is separately demonstrated.
+
+**6. [ ] Define and emit the complete release record.**
+
+- Deliverable: version/release ID, architecture-specific host/app digests, source
+  revision, provenance/inventory, supported upgrade edges, migration requirements
+  and release notes, following sections 3–4. Select actual GHCR repository names
+  and the approved Soda staging-ref convention; do not create them implicitly.
+- Check: complete-or-error parsing and architecture selection; unknown/incomplete
+  inputs fail safely. Inventory and app references have one authority, not multiple
+  independently maintained release manifests.
+
+**7. [ ] Build and inspect the complete local candidate.**
+
+- Deliverable: a noninteractive complete host/app build from a clean frozen revision,
+  with public-only artifacts and scoped local evidence.
+- Check: package/binary/image identities, presentation and runtime wiring, file
+  permissions, no machine secrets/state and all affected source tests. This is the
+  first complete candidate, still not a native acceptance or production release.
+
+### Phase B — establish trusted distribution
+
+**8. [ ] Implement trust and channel verification with local fixtures.**
+
+- Deliverable: select the native-supported production signing scheme, signer/key
+  custody and bootstrap/rotation design; implement signed channel/release binding,
+  freshness and replay/downgrade behavior from section 4. Use synthetic trust inputs
+  until actual key/identity creation is explicitly authorized.
+- Check: unsigned, wrong-signer, wrong-repository, tampered, stale/replayed and
+  preview-as-stable substitutions refuse. Test missing architecture/artifact and
+  intentional recovery separately; a digest signature alone is not channel approval.
+
+**9. [ ] Provision the exact GHCR and signing resources.**
+
+- Deliverable, after explicit approval: selected namespaces/visibility, least-privilege
+  publication identity, protected signing authority and reviewed retention/access.
+  Public appliance pulls should not require a developer's personal token.
+- Check: ordinary build/test execution cannot read signing/publication credentials;
+  credentials do not enter source, images, command arguments or evidence. Record
+  actual production trust bootstrap and recovery custody before shipping it.
+
+**10. [ ] Implement protected publication and commissioning promotion.**
+
+- Deliverable: publish immutable tested artifacts and signature attachments first,
+  verify their availability, then publish the complete signed channel selection.
+  Initially require an explicit promotion approval; do not rebuild on promotion.
+- Check: signed GHCR round trip, anonymous public pull if selected, interrupted
+  upload/promotion, duplicate invocation and withdrawn offer. A failure leaves the
+  prior valid channel usable. Include exact per-architecture completeness checks.
+
+### Phase C — prove installation, update and recovery
+
+**11. [ ] Implement the native update admission and activation caller.**
+
+- Deliverable: a small fixed-operation Go caller around native bootc discovery,
+  verification/staging/status/activation, with one maintenance owner. Use the
+  signed approved digest rather than re-resolving a tag after confirmation.
+- Check: source tests for authority, fixed targets, compatibility, disk/maintenance
+  conflicts, cancellation and partial outcomes. No arbitrary image URL, executable
+  or root-command interface; no migration/reboot on a read-only status request.
+
+**12. [ ] Prepare one authorized isolated native fixture.**
+
+- Deliverable: exact x86_64 VM/disk/hold, console access, trust and registry/test
+  inputs, synthetic persistent state and declared failure scenarios. Reuse the
+  existing fixture driver and product checks. Preserve all retained appliances.
+- Check: fresh target is isolated, credentials are fixture-owned, recovery access
+  works independently of Soda/Tailnet, and lifecycle effects fit the actual grant.
+  This is not permission to reuse an expired VM or recreate an occupied root.
+
+**13. [ ] Prove fresh installation and first boot.**
+
+- Deliverable: connect the complete image to the owning first-install/setup flow,
+  with per-machine identity/secrets and native package/service defaults.
+- Check: install on the authorized disk, reach console/Cockpit/Forgejo/Soda, exercise
+  existing protected product reads and a specifically authorized synthetic project
+  journey; preserve private-only access and enforcing SELinux. No generic image may
+  contain preinitialized operator credentials or personal application state.
+
+**14. [ ] Prove same-base and new-base upgrades.**
+
+- Deliverable: A → B with Soda changes on one qualified CoreOS base, and a separate
+  base-change case once a second exact base is qualified. Include populated data and
+  a retained project; verify declared schema/configuration migrations.
+- Check: download-only does not activate prematurely; explicit activation uses the
+  exact staged release; matching app images work without registry access after boot;
+  settings, keys, data and project identity remain intact. One case is not evidence
+  for the other, and bootc process success alone is not application health.
+
+**15. [ ] Prove failure and compatibility-aware recovery.**
+
+- Deliverable: interruption/recovery cases from sections 7–8 using the same fixture,
+  including disk shortage, network loss, invalid artifacts, interrupted migration,
+  failed app startup and a boot-failure case covered by its exact grant.
+- Check: console recovery, accurate partial-state reporting, safe resumption and
+  native boot fallback where app/schema compatibility permits it. Preserve a later
+  database write across fallback; demonstrate refusal/forward repair where downgrade
+  is unsafe. Do not simulate successful rollback by restoring an older database.
+
+**16. [ ] Prove the single update owner and maintenance policy.**
+
+- Deliverable: effective Zincati/bootc scheduling ownership, automatic download and
+  configured activation windows, bounded deferral, interruption notice and separately
+  selected urgent-security policy. Do not assume active terminals or CI jobs are idle.
+- Check: upstream CoreOS cannot bypass Soda qualification; a generic reboot does not
+  unexpectedly activate download-only state; concurrent native/root maintenance is
+  detected or clearly reported. No second scheduler races activation.
+
+**17. [ ] Finish operator status and resolve the Cockpit compatibility defect.**
+
+- Deliverable: CLI/console and supported operator UI showing installed/base/offered
+  versions, verification/staging state, expected disruption, failures and recovery.
+  Confirm the reported OSTree remote error against the installed package/caller and
+  choose a supported fix or honest unsupported-control presentation.
+- Check: stock administration remains usable; update controls enforce root/operator
+  authority and never offer an independent incompatible update path. Do not invent
+  an OSTree remote or replace the whole Cockpit page to hide the error.
+
+### Phase D — deploy the release pipeline on the builder
+
+**18. [ ] Finalize this machine's builder operating contract.**
+
+- Deliverable: complete the initial resource inspection with agreed CPU/RAM/disk
+  limits, build/test isolation, native VM budget, uptime expectation, notification
+  destination, staging-ref policy and retained-output capacity. Select an alternative
+  builder only if the local host cannot meet the agreed requirements.
+- Check: builds cannot mutate the canonical working tree, other workloads or retained
+  fixtures; native test authority is confined to exact allocated resources; ordinary
+  build workers cannot reach signing/promotion secrets. Readable KVM is not this proof.
+
+**19. [ ] Implement the CoreOS trigger and candidate admission.**
+
+- Deliverable: one-shot metadata poller, candidate identity/result record and native
+  serialization, feeding the same noninteractive commands already proved locally.
+  Freeze the selected base and approved Soda revision; unfinished work stays out.
+- Check: no-change polls, duplicate events, changed staging head, malformed metadata,
+  network failures, interrupted runs and missed releases after downtime. Do not select
+  an invalid direct upgrade merely because multiple upstream releases were missed.
+
+**20. [ ] Connect the full normal and emergency pipeline.**
+
+- Deliverable: detect/admit → build → tests/native qualification → protected signing
+  → publish → preview, with explicit initial stable promotion. The emergency entry
+  uses the same pipeline and serialization without waiting for the CoreOS trigger.
+- Check: failures stop downstream effects and notify the owner; uncertain publication
+  is observed rather than blindly replayed; normal/emergency races cannot publish
+  conflicting channels. Candidate provenance identifies exactly what was tested.
+
+**21. [ ] Install and commission the local timer/one-shot service.**
+
+- Deliverable, after host/service and automatic-execution approval: deploy the reviewed
+  timer/job, state/log directories and resource/security settings on this machine.
+  Start with promotion held for explicit review; do not grant arbitrary future code
+  unrestricted root access through the scheduler.
+- Check: scheduled and catch-up ticks, real notification delivery, reboot/downtime
+  recovery and preserved failure evidence. The job must not enroll providers, expand
+  its fixture budget or clean retained resources automatically.
+
+**22. [ ] Qualify unattended progressive promotion.**
+
+- Deliverable: defined preview/observation gates and promotion policy, then enable
+  automatic normal preview-to-stable promotion under explicit production approval.
+- Check: a passing candidate advances with no human running release commands; a bad,
+  incomplete or unobserved candidate does not advance. Confirm notification and
+  withdrawal behavior. Without fleet telemetry, use explicit controlled preview
+  evidence rather than interpreting downloads as fleet health.
+
+### Phase E — production delivery and operational acceptance
+
+**23. [ ] Qualify each supported architecture and upgrade path.**
+
+- Deliverable: native receipts and actual image availability for x86_64 and aarch64,
+  with an explicit supported-starting-release matrix and intermediate upgrades.
+- Check: each advertised architecture passes its applicable install/update/recovery
+  contract. x86_64 can progress independently; do not advertise missing ARM support
+  or call emulation native evidence. Overall two-architecture completion remains
+  pending until both have their own receipts.
+
+**24. [ ] Implement and rehearse existing-install migration.**
+
+- Deliverable: migration from the documented writable Soda installation to the
+  image-owned layout, including exact old units/overrides, RPM layering, app/companion
+  references, schema/configuration and update/trust ownership.
+- Check: rehearse representative starting states in isolation with consistent
+  backups and later writes preserved. Refuse unknown conflicts; do not blindly reset
+  layered packages, remove whole directories or replay first-install. Actual retained
+  targets still require their own migration approval and fresh inventories.
+
+**25. [ ] Align installation media with the release train.**
+
+- Deliverable: ISO delivery linked to the same signed release and trust bootstrap;
+  include QCOW2 when its separately owned producer is implemented and advertised.
+  Keep media provenance/architecture identity and first-boot credentials correct.
+- Check: the advertised download installs the qualified release and can consume its
+  next update without private builder transfer. A missing QCOW2 producer is an explicit
+  unsupported artifact, not a reason to claim that it exists or block ISO-only delivery.
+
+**26. [ ] Complete security and release operations drills.**
+
+- Deliverable: assigned release/security owner, numeric response/qualification and
+  observation targets, signing rotation/revocation recovery, artifact retention,
+  builder failure recovery and incident/withdrawal runbooks.
+- Check: execute a bounded emergency release, interrupted-publication recovery and
+  trust-rotation test on authorized resources. Confirm old supported intermediates
+  remain available and later writes survive the selected recovery path. A runbook
+  alone is not a successful operational drill.
+
+**27. [ ] Publish and deploy the first production release progressively.**
+
+- Deliverable, after exact release/target approval: promote the signed qualified
+  release, offer it to the approved initial appliance group and activate according
+  to their policy. Expand availability only after the declared observation gates.
+- Check: intended client verifies/downloads/activates the exact release, operator
+  access and product checks pass, and preservation/migration observations match the
+  approved scope. Publication to GHCR is not installed-fleet acceptance.
+
+**28. [ ] Demonstrate the ongoing automated release train and close the workstream.**
+
+- Deliverable: one normal upstream-triggered release using approved staged Soda
+  changes completes build/test/sign/publish/promotion without manual release commands,
+  plus an independent emergency-triggered release through the same pipeline.
+- Check: approved appliances receive and activate according to policy; failed-gate
+  and withdrawal paths remain effective; operations ownership and supported scope
+  are documented. A synthetic trigger can commission the mechanics, but completion
+  of the live normal train requires an actual new upstream release event. Reuse the
+  preceding emergency drill if it meets this exact scope; do not replay mutations
+  solely to create a second receipt.
+
+### Definition of done and follow-ups
+
+**Done means steps 1–28 have evidence for the advertised deployment scope:** a new
+CoreOS stable release automatically produces a qualified, signed Soda release from
+approved staged changes, publishes/promotes through GHCR, and reaches appliances
+under explicit maintenance policy. Emergency releases work independently. Trust,
+preservation, recovery and an accountable operational owner are part of completion.
+Known unsupported architectures, starting states or media must stay explicit; they
+cannot silently count as accepted full target support. An x86_64-only production
+milestone may ship independently, but full two-architecture workstream completion
+still requires the aarch64 evidence in step 23.
+
+Offline import, broader fleet cohorts/telemetry and moving the builder to other
+hosting are follow-ups, not prerequisites for the core online automated train.
+General fleet orchestration and arbitrary application-data rollback remain out of
+scope. Completion does not grant future destructive maintenance, cleanup or changes
+to the predecessor's separately reserved Updates platform.
 
 ## 10. Workstream status and next action
 
-- [x] Agree normal CoreOS-aligned train and emergency lane.
-- [x] Select GHCR for OCI distribution and mandatory production signing.
-- [x] Record target architecture, preservation boundaries and staged implementation.
-- [x] Clarify automated normal/emergency pipeline and proposed local timer/one-shot
-  builder, with noninteractive reusable commands and separate execution grants.
-- [ ] Inspect local builder and select staging ref, schedule, resource/isolation limits,
-  notification destination and signing/promotion boundary before unattended setup.
-- [x] Stage 1 source/upstream review: exact base/package metadata, caller/layout
-  audit, bootc/rpm-ostree comparison, signature options and bounded proof proposal.
-- [ ] Stage 1 closure: accept the recommended proof mechanism; resolve native/client
-  questions, trust/channel details and package/configuration migration findings.
-- [x] Stage 2 first source slice: pinned host base, noninteractive source-snapshot
-  builder, image-time package recipe, vendor-path binaries/units and packaging tests.
-- [x] Stage 2 first local image build: native x86_64 image/export, actual package/layout
-  inspection and existing OCI verifier passed; [receipt](implementation-history.md#first-local-host-content-image-build).
-- [ ] Stage 2 completion: reproducible RPM inputs, bound app images/customization,
-  full release metadata and trust fixtures; resolve the recorded tmpfiles lint warning.
-- [ ] Stages 3–7: not started.
+The [ordered checklist above](#9-implementation-stages-and-exits) is the single task
+list for this workstream. **Step 1 is complete at its stated local-build scope;
+steps 2–28 remain pending.** Earlier feasibility/open-mechanism questions are now
+assigned to concrete payload, trust, native and migration steps rather than a
+second parallel Stage-1 closure list. No execution permissions changed when the
+coarse stages were expanded into this deployment sequence.
 
 **Recommendation:** prove derived FCOS using bootc's existing OSTree backend,
 digest-pinned logically bound core appliance images and native keyed-Sigstore
@@ -422,8 +697,10 @@ attempts. Bootc lint reports 12 passed, one skipped and one warning for package-
 `/var/lib/forgejo-runner` and `/var/lib/udisks2` directories; no warning-free or
 first-boot claim is made.
 
-**Next:** finish app binding/customization and release inputs, and resolve the native
-package-directory warning. Obtain applicable fixture/trust grants before appliance proof.
+**Next: step 2 — bind the fixed core application images**, then steps 3–7 complete
+the local appliance payload and package/release inputs. The checklist carries the
+remaining trust, native proof, scheduler deployment and production rollout in order.
+Obtain applicable fixture/trust grants before appliance proof.
 The Cockpit error still needs installed-version/caller confirmation. No retained
 target, registry, workflow, signing key or update client has been changed. Independent
 Tailnet tasks remain with their own workstream; this plan does not absorb their list.

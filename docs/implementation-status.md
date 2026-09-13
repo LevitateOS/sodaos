@@ -65,7 +65,7 @@ owns its decisions, stages and task status. The owner approved Stage-1 source/up
 research; its [first receipt](release-engineering-feasibility.md) recommends proving
 derived FCOS with bootc's OSTree backend, bound core app images and native signature
 policy. Current writable payload placement and client-side layering require explicit
-migration. No build/update/signature mechanism or bootc migration has native proof.
+migration. No native boot/update/signature enforcement or bootc migration has proof.
 The plan records the proposed local/native next steps and remaining decisions.
 The owner's automation clarification now explicitly selects an automated release
 pipeline, with this machine proposed as the initial timer/one-shot builder pending
@@ -78,8 +78,14 @@ now records `f390aa6` built/exported and checked with the existing OCI verifier 
 a read-only package/layout inspection. The tmpfiles lint warning and missing full
 appliance payload remain explicit. The existing installer is unchanged; no deployable
 release or native boot/upgrade proof is claimed.
+The owner requested a complete deployment sequence. The plan's
+[28-step checklist](release-engineering-plan.md#9-implementation-stages-and-exits)
+is now the single release-engineering task list through complete payload, trusted
+GHCR delivery, native recovery proof, local automation and production operation.
+Step 1 is complete at local-build scope; step 2 (core application image binding) is
+next. This documentation expansion grants no additional execution effects.
 No timer or unattended pipeline has been installed or enabled.
-This research selection grants no publication/automatic CI, signing/trust change,
+The current selection grants no publication/automatic CI, signing/trust change,
 service/VM lifecycle or retained-appliance migration. No installed state changed.
 
 ## Active work — Tailnet
