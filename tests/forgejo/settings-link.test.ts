@@ -27,9 +27,10 @@ async function navigationFixture(page: Page, prefix: string, context: NativeCont
           <a id="soda-spaces-link" class="item" href="${prefix}${signed ? '/?soda-view=spaces' : '/-/soda/spaces'}">Spaces</a>
           ${signed ? `<span id="soda-settings-link" hidden data-actor="1" data-sub-url="${prefix}"></span>` : ''}
         </nav>
-        ${signed && context.admin ? `<nav id="soda-admin-settings" aria-label="Soda administration">
+        ${signed && context.admin ? `<div class="flex-container-nav"><div class="ui fluid vertical menu">
+          <div class="header item">Soda</div>
           <a id="soda-runners-link" class="item" href="${prefix}/-/soda/settings/runners">Runners</a>
-          <a id="soda-tailnet-link" class="item" href="${prefix}/-/soda/settings/tailnet">Tailnet</a></nav>` : ''}
+          <a id="soda-tailnet-link" class="item" href="${prefix}/-/soda/settings/tailnet">Tailnet</a></div></div>` : ''}
         ${content}<input id="draft" value="unsaved"><script type="module" src="${prefix}/assets/soda/forgejo/soda-settings-link.js"></script>`});
       return;
     }
@@ -63,7 +64,7 @@ test('settings stay in native administration and do not depend on a Soda session
       const checkPassive = await navigationFixture(page, '/forge', {target: '/admin', view: '', ...context}, mode);
       for (const name of ['Runners', 'Tailnet']) {
         assert.equal(await page.locator('#navbar').getByRole('link', {name, exact: true}).count(), 0);
-        const link = page.locator('#soda-admin-settings').getByRole('link', {name, exact: true});
+        const link = page.locator('.flex-container-nav > .ui.vertical.menu').getByRole('link', {name, exact: true});
         assert.equal(await link.count(), context.admin ? 1 : 0);
         if (context.admin) assert.equal(await link.getAttribute('href'), '/forge/-/soda/settings/' + name.toLowerCase());
       }
@@ -72,7 +73,13 @@ test('settings stay in native administration and do not depend on a Soda session
         window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true}));
         window.dispatchEvent(new Event('soda-session-retired'));
       });
-      assert.equal(await page.locator('#soda-admin-settings a').count(), context.admin ? 2 : 0);
+      assert.equal(await page.locator('#soda-admin-settings').count(), 0, 'no separate content toolbar');
+      assert.equal(await page.locator('.flex-container-nav > .ui.vertical.menu > a').count(), context.admin ? 2 : 0);
+      if (context.admin) {
+        await page.locator('#soda-runners-link').focus();
+        await page.keyboard.press('Tab');
+        assert(await page.locator('#soda-tailnet-link').evaluate(link => document.activeElement === link));
+      }
       assert.equal(await page.locator('#draft').inputValue(), 'unsaved');
       checkPassive();
       await page.close();
@@ -81,7 +88,7 @@ test('settings stay in native administration and do not depend on a Soda session
   const noJS = await browser.newContext({javaScriptEnabled: false});
   const page = await noJS.newPage();
   await navigationFixture(page, '', {target: '/admin', view: '', admin: true}, 'expired');
-  assert.equal(await page.locator('#soda-admin-settings a').count(), 2, 'admin entries work without JavaScript');
+  assert.equal(await page.locator('.flex-container-nav > .ui.vertical.menu > a').count(), 2, 'sidebar entries work without JavaScript');
   await noJS.close();
 });
 

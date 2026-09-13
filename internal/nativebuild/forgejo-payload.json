@@ -117,6 +117,7 @@
   "templates/admin/emails/list.tmpl": "appliance/forgejo/templates/admin/emails/list.tmpl",
   "templates/admin/hook_new.tmpl": "appliance/forgejo/templates/admin/hook_new.tmpl",
   "templates/admin/layout_head.tmpl": "appliance/forgejo/templates/admin/layout_head.tmpl",
+  "templates/admin/navbar.tmpl": "appliance/forgejo/templates/admin/navbar.tmpl",
   "templates/admin/notice.tmpl": "appliance/forgejo/templates/admin/notice.tmpl",
   "templates/admin/queue.tmpl": "appliance/forgejo/templates/admin/queue.tmpl",
   "templates/admin/queue_manage.tmpl": "appliance/forgejo/templates/admin/queue_manage.tmpl",

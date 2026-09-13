@@ -14,6 +14,36 @@ not claims that those outputs are still retained.
 
 ---
 
+## Administrator sidebar placement correction
+
+The user correctly rejected the content toolbar as inconsistent with Forgejo's
+existing left administration menu. Source removes `#soda-admin-settings` from
+`admin/layout_head.tmpl` and adds ordinary Runners/Tailnet entries under a Soda
+header in `.flex-container-nav > .ui.vertical.menu`.
+
+The new `admin/navbar.tmpl` override retains the exact inspected Forgejo 15.0.7
+source (SHA-256 `b0298e1f0850ce38bea744ea6a65a16853820b27ce52208cb93737a5c1bd71ac`)
+apart from that addition and its GPL provenance. The native menu has no dedicated
+extension hook; a bounded override is preferable here to an incoherent second
+navigation area or a client-side relocation. Native Actions runners and every
+upstream menu/gate remain intact. Canonical payload/inventory now include the
+navbar override. No browser runtime changed, so no module-graph epoch bump is needed.
+
+Go template tests render the actual layout and navbar for signed/admin combinations,
+require settings links inside the native sidebar and reject the old toolbar.
+An exact restoration hash checks the entire native navbar; browser fixtures check
+its direct menu selectors, keyboard order, no-JavaScript visibility and unchanged
+passive session behavior. `scripts` and `nativebuild` Go race checks, four payload
+tests, TypeScript/Lit and Forgejo browser/source checks passed (**43 pass, 29 explicit
+skips**). The first test attempt proposed an unavailable HTML-parser dependency;
+that approach was removed instead of changing module dependencies, and its failure
+log is retained. Tests use the pinned native markup boundaries and browser DOM.
+
+Evidence: `.artifacts/admin-sidebar-correction-AUHyHc/`. Source-only: no target
+contact, repeat Forgejo restart, data mutation or installed visual acceptance.
+The previous delivery receipt remains true for its scope; it does not prove this
+corrected placement is installed. This correction has not been pushed.
+
 ## Administrator navigation delivery to fresh VM
 
 The user explicitly approved applying `6c76af924303daeda190b946aac3fc6303fcffb4`

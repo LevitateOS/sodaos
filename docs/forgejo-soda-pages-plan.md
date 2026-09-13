@@ -23,8 +23,10 @@ Historical lane links resolve here. Their original text is available with
   password, account settings and Forgejo administration continue to use native
   Forgejo pages and handlers.
 - The global native navigation retains **Spaces**. **Runners** and **Tailnet**
-  belong in the **Soda** section of Forgejo's administration area, not the top bar.
-  The existing native admin layout renders those fixed entry links for signed-in
+  belong in the **Soda** section of Forgejo's existing left administration menu
+  (`.flex-container-nav > .ui.vertical.menu`), not the global top bar or a separate
+  toolbar above administrative content. The native `admin/navbar` customization
+  preserves all upstream entries and adds ordinary menu links for signed-in
   Forgejo administrators, including before a Soda session exists and without
   JavaScript. It does not discover an operator, probe a Soda session or begin OAuth
   merely to display navigation. Entering either destination uses the existing

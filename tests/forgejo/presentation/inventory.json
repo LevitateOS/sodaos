@@ -397,7 +397,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "dd4bc36d0a5aff6191d8b307172d62172fe8364cec28bb20ee8038b58143c621",
+      "beforeRoleHash": "79804a001a9d8c83ea55772896735bc0e7cb0b71779b85eafc3bc1b0b9ab82fe",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "admin/config_settings.tmpl",
@@ -414,7 +414,33 @@
         "admin/user/view.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Add native-admin-gated Soda Runners/Tailnet entry links in the existing administration content layout; retain the native navbar, alerts and forms without a new handler or navbar copy."
+      "presentationReview": "Remove the separate Soda content toolbar; administrator navigation belongs in the existing native sidebar. Preserve native layout/navbar/alert composition."
+    },
+    {
+      "template": "admin/navbar.tmpl",
+      "composition": "operations",
+      "owner": "admin",
+      "callers": [
+        "admin/layout_head.tmpl"
+      ],
+      "nativeCalls": [],
+      "roles": [],
+      "states": [
+        "light",
+        "dark",
+        "narrow",
+        "long-content",
+        "permission-gated"
+      ],
+      "verification": {
+        "source": "exact Forgejo 15.0.7 restoration and rendered sidebar ancestry checks",
+        "native": "not yet delivered",
+        "requiredStates": "native visual acceptance pending"
+      },
+      "beforeRoleHash": "cf5f50e37ce367f575ec8b180d87dfbd268e7938de77a4829c56f8e53c9b026b",
+      "presentationReview": "Preserve exact native 15.0.7 administration menu and append a signed/admin-gated Soda header with ordinary Runners/Tailnet menu entries; no separate toolbar.",
+      "upstreamCallers": [],
+      "entryPoint": "shared partial"
     },
     {
       "template": "admin/notice.tmpl",

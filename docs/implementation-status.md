@@ -356,17 +356,14 @@ reorganization does not authorize cleanup or re-execution.
 
 ## Latest local change
 
-The user clarified that operator-only Runners/Tailnet entries belong in administrator
-settings, not global navigation. Source now renders them in the existing native
-Forgejo administration layout without a Soda-session discovery request. Spaces and
-the shared signed-actor/logout owner remain in the header; protected entry/API
-operator checks are unchanged. Epoch `2026-09-13.admin-settings-1` covers the paired
-module graph. Template, emitted browser, TypeScript/Lit and affected web authorization
-checks passed; see the [source receipt](implementation-history.md#operator-settings-navigation-move).
-The user then approved delivery and the required Forgejo restart on the fresh VM.
-The [installed receipt](implementation-history.md#administrator-navigation-delivery-to-fresh-vm)
-records the exact 24-file delta, backups and successful native no-Soda-session
-navigation, protected reads and logout. Only the Forgejo runtime incarnation changed;
-all application images, other core runtimes and retained data/configuration checks
-were preserved. No older target, project/provider mutation or full native rebuild
-was involved. Nothing pushed.
+The user rejected the separate administrative-content toolbar and specified the
+existing left `.flex-container-nav` menu. Source now puts Runners/Tailnet in its
+native vertical menu and removes `#soda-admin-settings`. The exact Forgejo 15.0.7
+navbar is preserved apart from the bounded Soda addition; canonical staging includes
+that override. Rendered placement/gate, upstream-parity, payload, TypeScript/Lit
+and browser checks passed; see the [correction receipt](implementation-history.md#administrator-sidebar-placement-correction).
+No browser runtime, auth behavior or entry destination changed, so the existing
+module epoch is retained. This correction is **source-only and not pushed**: the
+fresh VM still has the preceding [delivered content toolbar](implementation-history.md#administrator-navigation-delivery-to-fresh-vm).
+No target contact or repeat restart was performed; that earlier delivery grant is
+complete. Native sidebar visual acceptance and delivery remain unclaimed.
