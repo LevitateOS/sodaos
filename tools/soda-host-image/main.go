@@ -142,7 +142,7 @@ func run() error {
 		return err
 	}
 	iid := filepath.Join(*out, "host.iid")
-	if err = execute(contextDir, "podman", "--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/"+platform, "--build-arg=BASE_IMAGE="+pinned, "--label=org.opencontainers.image.revision="+revision, "--label=org.opencontainers.image.base.name="+pinned, "--label=org.opencontainers.image.version="+base.Release+".soda-"+revision[:12], "--iidfile", iid, "--file", "Containerfile", "."); err != nil {
+	if err = execute(contextDir, "podman", "--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/"+platform, "--build-arg=BASE_IMAGE="+pinned, "--label=org.opencontainers.image.revision="+revision, "--label=org.opencontainers.image.base.name="+pinned, "--label=org.opencontainers.image.base.digest="+strings.SplitN(pinned, "@", 2)[1], "--label=org.opencontainers.image.version="+base.Release+".soda-"+revision[:12], "--iidfile", iid, "--file", "Containerfile", "."); err != nil {
 		return err
 	}
 	data, err := os.ReadFile(iid)
@@ -185,6 +185,13 @@ func run() error {
 	}
 	if err = execute(contextDir, "podman", "--remote=false", "save", "--format=oci-archive", "--output", filepath.Join(*out, "host.oci"), id); err != nil {
 		return err
+	}
+	archiveImage, err := nativebuild.InspectOCI(filepath.Join(*out, "host.oci"), *arch, revision)
+	if err != nil {
+		return err
+	}
+	if archiveImage.Config != id || archiveImage.BaseName != pinned || archiveImage.BaseDigest != strings.SplitN(pinned, "@", 2)[1] {
+		return errors.New("exported OCI differs from built image/base")
 	}
 	hash, err := nativebuild.HashFile(filepath.Join(*out, "host.oci"))
 	if err != nil {
