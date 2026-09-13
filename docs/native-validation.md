@@ -394,14 +394,16 @@ inherit the old single-terminal approval. The original restricted base input,
 `terminal_actions: ["create", "end"]`, clean exact revision, target environment
 variable, CA/browser trust and real OAuth/BFCache prerequisites still apply.
 No installs, Join, Stop/Start, key changes, credential seeding, fault injection or
-unrelated cleanup are admitted. Every lifetime POST is consumed once against the
-original actor/path/body; UI helpers do not authorize or call mutation APIs.
+unrelated cleanup are admitted. Every reservation/End POST is consumed once against
+its original actor/path/name or exact End body. Reservation geometry may vary only
+within the actual terminal bounds. UI helpers do not authorize or call mutation APIs.
 
 The extra restricted JSON's closed shape is owned by
 [`sodaspaces-matrix-input.ts`](../tests/installed/sodaspaces-matrix-input.ts):
 
 - `target`, `revision` equal the base input; `actors` equal its two IDs in order;
-  `sessions_per_actor: 6`; `actions: ["create", "attach", "hide", "return", "end"]`.
+  `sessions_per_actor: 6`; `actions: ["create", "attach", "end"]`.
+  Hide/show is presentation-only; the retired lifetime action list does not validate.
   This means **twelve** new managed sessions total, six concurrently per actor,
   followed by explicitly named End. Failed runs preserve outstanding exact IDs;
   no catch/finally block ends remote sessions or repairs native state.
@@ -494,7 +496,7 @@ product test, not browser proof or permission to open a shell. Build the matchin
 `internal/host` test binary into a new ignored artifact path; invoke only that test on
 the explicitly approved fixture with `SODA_NATIVE_VALIDATE` equal to its hostname and
 `SODA_TERMINAL_NATIVE_INPUT` naming a private absolute JSON file. Input fields are
-`target`, `project`, exact `container_id`, `terminal_protocol:"managed-tmux-v1"`,
+`target`, `project`, exact `container_id`, `terminal_protocol:"native-owned-tmux-v2"`,
 and exactly two `accounts`, each with `login`, stable `identity`,
 expected native `uid`, `gid`, `home`, numeric supplementary `groups`, and `admin`.
 Obtain these expected values independently; do not infer them from terminal output.
@@ -506,12 +508,12 @@ keys. It opens existing-account shells, checks identity/home/groups/TTY, resize,
 Ctrl-C, real/effective/saved credentials, shared-profile settings and current sudo
 permissions; it refuses a mismatched marker/actor without repair. It creates managed
 project-systemd/tmux sessions, detaches/re-attaches the same shell PID/start identity
-and in-memory variable, then explicitly Ends the owner and independently checks
+and in-memory variable, then explicitly Ends the native unit and independently checks
 process disappearance. Required packages/managed program must already be delivered
-under separate scope; the probe installs nothing. Further cases cover **owner** transport
-EOF, a real 60-second silent lease and SIGKILL of only a test-owned child helper;
-independent exec observations must confirm the login, foreground job and launcher
-are gone. The internal child-mode environment flag is used only by that parent test,
+under separate scope; the probe installs nothing. Further cases cover attachment
+EOF, a real 60-second silent heartbeat and SIGKILL of only a test-owned child helper.
+Independent exec observations must confirm unchanged login/job/server start identities
+and released writer access, then explicit End must remove those exact processes. The internal child-mode environment flag is used only by that parent test,
 not a standalone invocation or installed-service control. Native shell/sudo bookkeeping may write normal history/
 audit state; no transcripts or credentials are captured. Keep inputs, marker and
 result; an occupied run refuses replay. `terminal-proof.json` records only this scope.
@@ -522,7 +524,8 @@ held own-key SSH/process-preservation observations. It does not validate this ma
 tmux revision. That proof closes only its original native boundary, not the later
 public browser/OAuth/proxy journey or installed delivery. Further executions still
 need their exact target/action scope; compiling a test or setting opt-in variables
-is not permission to open shells, kill helpers or change services.
+is not permission to open shells, kill helpers or change services. The v2 source
+probe is authored, not executed evidence; old v1 private inputs refuse before effects.
 
 ## Read-only installed observations
 

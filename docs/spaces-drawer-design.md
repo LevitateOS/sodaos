@@ -228,10 +228,10 @@ That is useful cross-project work, not an account mismatch or a warning conditio
 | --- | --- | --- |
 | Open/reopen Sodaspaces | Restore this window's drawer and selected surviving session | Original targets; no implicit new terminal or automatic project start |
 | Select terminal / open Sessions / view project details | Only the right-hand view or focused tab | Native form/scroll and existing sessions |
-| Open in Spaces | Normal same-origin navigation to `/-/soda/spaces`; focus selected session in its saved pane | Exact session IDs, groups, labels and server deadlines; no fresh shells |
+| Open in Spaces | Normal same-origin navigation to `/-/soda/spaces`; focus selected session in its saved pane | Exact session IDs and desired arrangement; no fresh shells |
 | Open in drawer from Spaces | Resolve the selected terminal's repository by stable ID, then navigate to its current native page with `#sodaspaces` | Same saved working set/selected session; existing attachment restoration; no creation or lifetime extension |
 | Browser Back from Spaces | Native page history and authorized drawer restoration | Existing surviving session identity; no arbitrary `return_to` URL or promised draft resurrection |
-| Hide workspace | Restore full-width native page; retain this document's owned working-set sessions within finite limits | Files/projects and discoverable surviving sessions; no End or Stop |
+| Hide workspace | Restore full-width native page; preserve this document's live views without native lifecycle requests | Files/projects and discoverable surviving sessions; no End or Stop |
 | Compact Forge/Terminal switch | Change which surface is visible in the same document | Native draft/scroll, open state and sessions; **not** Hide workspace |
 
 **Open in Spaces is navigation, not an in-place maximize.** Keep native unsaved-form
@@ -241,12 +241,9 @@ click may open another browser tab, but that tab must show Attached elsewhere fo
 existing writers rather than stealing them. Users can keep working at half width
 without ever visiting the full-page destination.
 
-Hide applies finite retention only to this document's owned attachments—not every
-session in the sign-in or another window. Existing explicit shorter/longer deadlines
-and authentication limits still govern; display actual results per session. An
-unconfirmed request is not a promised 30-minute grace. Reopening does not silently
-Return all hidden terminals; a deliberate session selection/Continue acts on that
-eligible session. Retain exact uncertain outcomes without replay or automatic repair.
+Hide/show is presentation-only. The [terminal contract](terminal-integration.md)
+owns native lifetime and bounded access; Keep/Return/deadline controls are retired.
+Retain exact uncertain outcomes without automatic replay or repair.
 
 ## 7. Environment and access remain available, not in the way
 
@@ -262,7 +259,7 @@ Required keyless Join/Git credential work remains unfinished, not hidden behind 
 success. Stop stays in the named Environment view with shared-impact confirmation;
 it is never next to `+`, tab close or Hide. Errors stay associated with their project.
 
-The drawer session menu retains Rename, Keep, eligible Continue, Hide and End. End
+The drawer session menu retains Rename, Hide and End. End
 confirmation names project/session/original account, distinguishes process loss from
 persistent files, and waits for actual confirmed/uncertain native cleanup metadata.
 There is no destructive all-sessions close, task cleanup or native-process scanner.

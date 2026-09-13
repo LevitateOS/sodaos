@@ -6,8 +6,8 @@ export const projectA = 'p' + '1'.repeat(24), projectB = 'p' + '2'.repeat(24);
 export function installWorkspaceModel(actor = '1', repository?: {id: string; owner: string; name: string}) {
   const root = document.querySelector<HTMLElement>('main, .page-content'); if (!root) throw Error('Missing workspace mount');
   const now = Math.floor(Date.now() / 1000);
-  const metadata = (id: string, environment: string, repository: string, name: string): TerminalMetadata => ({id, request_id: id, environment_id: environment, repository_id: repository, user_id: actor, login: 'alice', name,
-    created_at: now, hard_until: now + 43200, retain_until: 0, effective_until: now + 43200, ready: true, attached: false, state: 'ready'});
+  const metadata = (id: string, environment: string, repository: string, name: string): TerminalMetadata => ({id, environment_id: environment, repository_id: repository, user_id: actor, login: 'alice', name,
+    created_at: now, ready: true, attached: false, state: 'ready'});
   const spaces: Space[] = [{id: projectA, repository: '7', name: 'Alpha'}, {id: projectB, repository: '8', name: 'Beta'}].map(p => ({environment: {id: p.id, repository_id: p.repository, owner_id: '1', name: p.name, repository: 'alice/' + p.name, provisioned: true}, login: 'alice', environment_administrator: true, authority_unavailable: false, native_unavailable: false, observed: {id: p.id, running: true}, terminals: []}));
   const alpha = spaces[0], beta = spaces[1]; if (!alpha || !beta) throw Error('Missing fixture projects');
   alpha.terminals.push(metadata('a'.repeat(32), projectA, '7', 'Build'), metadata('b'.repeat(32), projectA, '7', 'Edit'));
@@ -17,38 +17,39 @@ export function installWorkspaceModel(actor = '1', repository?: {id: string; own
     alpha.environment.repository = repository.owner + '/' + repository.name;
     for (const terminal of alpha.terminals) terminal.repository_id = repository.id;
     for (const space of spaces) for (const terminal of space.terminals) {
-      const saved = sessionStorage.getItem('fixture-terminal:' + terminal.id)?.split(':');
-      if (saved && saved.length === 2 && /^\d+$/.test(saved[0] || '')) {
-        terminal.retain_until = Number(saved[0]); terminal.effective_until = terminal.retain_until || terminal.hard_until;
-        if (saved[1] === 'ended') terminal.state = 'ended';
-        if (saved[1] === 'ending') terminal.state = 'ending';
-      }
+      const saved = sessionStorage.getItem('fixture-terminal:' + terminal.id);
+      if (saved === 'ended' || saved === 'ending') {terminal.state = saved; terminal.ready = false;}
     }
   }
   const calls: {path: string; method: string; body: Record<string, unknown> | null}[] = [], sockets: Socket[] = [];
-  let user = actor, complete = true, status = 200, unknownEnd = false;
+  let user = actor, complete = true, status = 200, unknownEnd = false, serial = 0;
+  const reservations = new Set<string>();
   let pause: Promise<void> | undefined;
   const nativeFetch = window.fetch.bind(window);
   Object.defineProperty(window, 'fetch', {configurable: true, value: async (input: RequestInfo | URL, init?: RequestInit) => {
     if (!String(input).includes('/-/soda/api/')) return nativeFetch(input, init);
     const path = String(input), method = init?.method || 'GET', body = typeof init?.body === 'string' ? object(JSON.parse(init.body)) : null;
     calls.push({path, method, body}); await pause;
-    if (status !== 200) return new Response(null, {status});
+    if (status !== 200 || user !== actor) return new Response(null, {status: user !== actor ? 403 : status});
     if (path.endsWith('/api/session')) return Response.json({user: {id: user, login: 'alice'}, csrf_token: 'synthetic-only', forgejo_url: location.origin});
-    if (path.endsWith('/api/spaces')) return Response.json({items: spaces, complete});
+    if (path.endsWith('/api/spaces')) return Response.json({items: spaces.map(space => ({...space, terminals: space.terminals.filter(t => t.state !== 'ended')})), complete});
     if (path.endsWith('/api/forgejo/me')) return Response.json({id: user});
     if (path.endsWith('/api/me/development-keys')) return Response.json({items: []});
     const space = spaces.find(p => path.includes(p.environment.id) || path.endsWith('repository_id=' + p.environment.repository_id));
     if (!space) return new Response(null, {status: 404});
-    if (path.includes('/terminal-sessions/') || path.includes('/terminal-attempts/')) {
-      const id = path.split('/').at(-1), terminal = space.terminals.find(t => t.id === id || t.request_id === id);
+    if (path.endsWith('/terminal-sessions') && method === 'POST') {
+      const id = (++serial).toString(16).padStart(32, '0'); reservations.add(id); return Response.json({id}, {status: 201});
+    }
+    if (path.includes('/terminal-sessions/')) {
+      const id = path.split('/').at(-1), terminal = space.terminals.find(t => t.id === id);
       if (terminal && body) {
         if (body.action === 'rename' && typeof body.name === 'string') terminal.name = body.name;
-        if (body.action === 'end') {terminal.state = unknownEnd ? 'ending' : 'ended'; terminal.ready = terminal.attached = false; if (repository) sessionStorage.setItem('fixture-terminal:' + terminal.id, terminal.retain_until + ':' + terminal.state); return Response.json({ending: true});}
-        if (body.action === 'retain' || body.action === 'hide') terminal.retain_until = now + (body.seconds === 7200 ? 7200 : 1800);
-        if (body.action === 'return') terminal.retain_until = 0;
-        terminal.effective_until = terminal.retain_until || terminal.hard_until;
-        if (repository) sessionStorage.setItem('fixture-terminal:' + terminal.id, terminal.retain_until + ':' + terminal.state);
+        if (body.action === 'end') {
+          if (unknownEnd) return new Response(null, {status: 503});
+          terminal.state = 'ended'; terminal.ready = terminal.attached = false;
+          for (const socket of sockets) socket.end(terminal.id);
+          if (repository) sessionStorage.setItem('fixture-terminal:' + terminal.id, terminal.state);
+        }
       }
       return Response.json({terminal: terminal || null});
     }
@@ -67,16 +68,19 @@ export function installWorkspaceModel(actor = '1', repository?: {id: string; own
       if (frame.action !== 'attach' && frame.action !== 'create') return;
       const space = spaces.find(p => String(this.url).includes(p.environment.id)); if (!space) throw Error('Unknown fixture project');
       let terminal = space.terminals.find(t => t.id === frame.id);
-      if (frame.action === 'create') {terminal = metadata(sockets.length.toString(16).padStart(32, '0'), space.environment.id, space.environment.repository_id, typeof frame.name === 'string' ? frame.name : ''); terminal.request_id = String(frame.request_id); space.terminals.push(terminal);}
+      if (frame.action === 'create') {
+        if (typeof frame.id !== 'string' || !reservations.delete(frame.id) || terminal) throw Error('Unreserved/reused fixture creation');
+        terminal = metadata(frame.id, space.environment.id, space.environment.repository_id, typeof frame.name === 'string' ? frame.name : ''); space.terminals.push(terminal);
+      }
       if (!terminal) throw Error('Fixture has no exact terminal');
       terminal.attached = true;
       this.attachment = terminal;
-      this.onmessage?.({data: JSON.stringify({type: 'session', id: terminal.id, request_id: terminal.request_id, attachment_id: sockets.length.toString(16).padStart(32, '0')})});
       this.onmessage?.({data: JSON.stringify({type: 'ready'})});
     }
+    end(id: string) {if (this.attachment?.id === id) this.close();}
     close() {
       this.closed++; this.readyState = 3;
-      // Closing detaches this writer; it neither Ends nor changes retention.
+      // Closing detaches this writer; it never Ends native work.
       if (this.attachment) this.attachment.attached = false;
       this.attachment = undefined;
       this.onclose?.();

@@ -6,13 +6,13 @@ export interface LayoutEntry {key: string; environmentId: string; locator: Termi
 export interface Pane {kind: 'pane'; key: string; tabs: string[]; selected: string | null}
 export interface Split {kind: 'split'; key: string; axis: 'right' | 'below'; ratio: number; first: PaneTree; second: PaneTree}
 export type PaneTree = Pane | Split;
-export interface WorkspaceLayout {version: 2; entries: LayoutEntry[]; tree: PaneTree; focused: string; sidebar: number | null}
+export interface WorkspaceLayout {version: 3; entries: LayoutEntry[]; tree: PaneTree; focused: string; sidebar: number | null}
 const localKey = (v: unknown): v is string => typeof v === 'string' && /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(v);
 const size = (text: string) => new TextEncoder().encode(text).length;
 export const layoutLimit = 64;
 export function emptyLayout(key: string): WorkspaceLayout {
   check(localKey(key));
-  return {version: 2, entries: [], tree: {kind: 'pane', key, tabs: [], selected: null}, focused: key, sidebar: 256};
+  return {version: 3, entries: [], tree: {kind: 'pane', key, tabs: [], selected: null}, focused: key, sidebar: 256};
 }
 export function panes(tree: PaneTree): Pane[] {return tree.kind === 'pane' ? [tree] : [...panes(tree.first), ...panes(tree.second)];}
 export function paneFor(tree: PaneTree, key: string) {return panes(tree).find(pane => pane.tabs.includes(key));}
@@ -46,16 +46,15 @@ export function putEntry(layout: WorkspaceLayout, entry: LayoutEntry): Workspace
   check(!prior || prior.environmentId === entry.environmentId);
   if (entry.locator.kind !== 'new') {
     const locator = entry.locator;
-    check(terminalID(locator.kind === 'existing' ? locator.id : locator.requestId));
+    check(terminalID(locator.id));
     check(!layout.entries.some(item => item.key !== entry.key && sameLocator(item.locator, locator)));
     if (prior?.locator.kind === 'existing') check(sameLocator(prior.locator, locator));
-    if (prior?.locator.kind === 'pending' && locator.kind === 'pending') check(sameLocator(prior.locator, locator));
   } else check(!prior || prior.locator.kind === 'new');
   check(prior || layout.entries.length < layoutLimit);
   return {...layout, entries: prior ? layout.entries.map(item => item === prior ? entry : item) : [...layout.entries, entry]};
 }
 export function sameLocator(a: TerminalLocator, b: TerminalLocator) {
-  return a.kind === 'existing' && b.kind === 'existing' ? a.id === b.id : a.kind === 'pending' && b.kind === 'pending' ? a.requestId === b.requestId : false;
+  return a.kind === 'existing' && b.kind === 'existing' && a.id === b.id;
 }
 
 export function splitPane(layout: WorkspaceLayout, paneKey: string, axis: Split['axis'], emptyKey: string, splitKey: string): WorkspaceLayout {
@@ -115,20 +114,19 @@ export function projectLayout(layout: WorkspaceLayout, area: Area, minimum: (pan
   place(layout.tree, area); return output;
 }
 
-// Closed-shape, depth/node/byte-bounded parser. Never "repair" untrusted storage by
-// silently dropping a locator, selecting a newest session, or overwriting its bytes.
+// One bounded disposable format. The caller resets obsolete/corrupt layouts;
+// parsing/restoration never creates, ends or guesses a native terminal.
 export function parseLayout(text: string): WorkspaceLayout {
   check(size(text) <= 32768); const value = object(JSON.parse(text));
-  check(Object.keys(value).sort().join(',') === 'entries,focused,sidebar,tree,version' && value.version === 2);
+  check(Object.keys(value).sort().join(',') === 'entries,focused,sidebar,tree,version' && value.version === 3);
   check(Array.isArray(value.entries) && value.entries.length <= layoutLimit);
   const keys = new Set<string>(), locators = new Set<string>();
   const entries: LayoutEntry[] = value.entries.map((raw: unknown) => {
     const item = object(raw); check(Object.keys(item).sort().join(',') === 'environmentId,key,locator');
     check(localKey(item.key) && !keys.has(item.key) && projectId(item.environmentId)); keys.add(item.key);
-    const rawLocator = object(item.locator); let locator: TerminalLocator;
-    if (rawLocator.kind === 'existing') {check(Object.keys(rawLocator).sort().join(',') === 'id,kind' && terminalID(rawLocator.id)); locator = {kind: 'existing', id: rawLocator.id};}
-    else {check(rawLocator.kind === 'pending' && Object.keys(rawLocator).sort().join(',') === 'kind,requestId' && terminalID(rawLocator.requestId)); locator = {kind: 'pending', requestId: rawLocator.requestId};}
-    const identity = locator.kind === 'existing' ? 'id:' + locator.id : 'request:' + locator.requestId;
+    const rawLocator = object(item.locator);
+    check(rawLocator.kind === 'existing' && Object.keys(rawLocator).sort().join(',') === 'id,kind' && terminalID(rawLocator.id));
+    const locator: TerminalLocator = {kind: 'existing', id: rawLocator.id}, identity = locator.id;
     check(!locators.has(identity)); locators.add(identity);
     return {key: item.key, environmentId: item.environmentId, locator};
   });
@@ -150,28 +148,11 @@ export function parseLayout(text: string): WorkspaceLayout {
   const tree = readTree(value.tree, 1);
   check(typeof value.focused === 'string' && panes(tree).some(pane => pane.key === value.focused));
   check(value.sidebar === null || typeof value.sidebar === 'number' && Number.isFinite(value.sidebar) && value.sidebar >= 220 && value.sidebar <= 360);
-  return {version: 2, entries, tree, focused: value.focused, sidebar: value.sidebar};
+  return {version: 3, entries, tree, focused: value.focused, sidebar: value.sidebar};
 }
 export function serializeLayout(layout: WorkspaceLayout): string {
   // An unsent draft has no native locator. Keep live drafts, not reload commands.
   let saved = layout;
   for (const entry of layout.entries) if (entry.locator.kind === 'new') saved = forgetEntry(saved, entry.key);
   const text = JSON.stringify(saved); parseLayout(text); return text;
-}
-export function migrateLayout(text: string, key: () => string): WorkspaceLayout {
-  check(text.length <= 16384); const value = object(JSON.parse(text));
-  check(Object.keys(value).sort().join(',') === 'entries,version' && value.version === 1 && Array.isArray(value.entries) && value.entries.length <= layoutLimit);
-  let layout = emptyLayout(key()); let selected: string | undefined;
-  for (const raw of value.entries) {
-    const item = object(raw);
-    check(Object.keys(item).every(k => ['environmentId', 'id', 'requestId', 'hidden'].includes(k)) && projectId(item.environmentId));
-    check(item.hidden === undefined || typeof item.hidden === 'boolean');
-    check(terminalID(item.id) && item.requestId === undefined || terminalID(item.requestId) && item.id === undefined);
-    const owner = key(), locator: TerminalLocator = typeof item.id === 'string' ? {kind: 'existing', id: item.id} : {kind: 'pending', requestId: String(item.requestId)};
-    layout = putEntry(layout, {key: owner, environmentId: item.environmentId, locator});
-    if (!item.hidden) {layout = selectTab(layout, owner); selected ||= owner;}
-  }
-  if (selected) layout = selectTab(layout, selected);
-  // Validate generated keys and collisions as well as imported fields.
-  return parseLayout(serializeLayout(layout));
 }

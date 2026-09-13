@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -12,45 +11,13 @@ import (
 	"github.com/coder/websocket"
 )
 
-func resumeMetadata(t *testing.T, s *Server, origin string) map[string]any {
-	t.Helper()
-	w := httptest.NewRecorder()
-	r := apiTestRequest("GET", "/api/environments/"+webTerminalProject+"/terminal-attempts/0123456789abcdef0123456789abcdef", "", "alice")
-	r.Header.Set("Origin", origin)
-	s.ServeHTTP(w, r)
-	if w.Code != 200 {
-		t.Fatalf("metadata status %d", w.Code)
-	}
-	var body struct {
-		Terminal map[string]any `json:"terminal"`
-	}
-	if json.Unmarshal(w.Body.Bytes(), &body) != nil {
-		t.Fatal("invalid metadata")
-	}
-	return body.Terminal
-}
-func resumeAction(t *testing.T, s *Server, origin, id, action string, seconds int) int {
-	t.Helper()
-	input := map[string]any{"action": action, "seconds": seconds}
-	s.terminalMu.Lock()
-	if entry := s.terminals[id]; entry != nil && entry.attachment != nil && action == "return" {
-		input["attachment_id"] = entry.attachment.id
-	}
-	s.terminalMu.Unlock()
-	body, _ := json.Marshal(input)
-	w := httptest.NewRecorder()
-	r := apiTestRequest("POST", "/api/environments/"+webTerminalProject+"/terminal-sessions/"+id, string(body), "alice")
-	r.Header.Set("Origin", origin)
-	s.ServeHTTP(w, r)
-	return w.Code
-}
-func waitDetached(t *testing.T, s *Server, origin string) map[string]any {
+func waitDetached(t *testing.T, s *Server, origin, id string) *terminalView {
 	t.Helper()
 	until := time.Now().Add(2 * time.Second)
 	for time.Now().Before(until) {
-		m := resumeMetadata(t, s, origin)
-		if m != nil && m["attached"] == false {
-			return m
+		v := exactMetadata(t, s, origin, webTerminalProject, id)
+		if v != nil && !v.Attached {
+			return v
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -58,121 +25,76 @@ func waitDetached(t *testing.T, s *Server, origin string) map[string]any {
 	return nil
 }
 func attachAuth(id string) []byte {
-	var in map[string]any
-	_ = json.Unmarshal([]byte(terminalAuth), &in)
-	in["action"] = "attach"
-	delete(in, "request_id")
-	in["id"] = id
-	body, _ := json.Marshal(in)
-	return body
+	return []byte(strings.Replace(strings.Replace(terminalAuth, `"create"`, `"attach"`, 1), reservedTerminalID, id, 1))
 }
-func TestTerminalDetachReattachesWithoutCreationOrDeadlineRenewal(t *testing.T) {
-	s, srv, calls, closed := terminalWebFixture(t, 0)
+func attachManaged(t *testing.T, srv *httptest.Server, id string) *websocket.Conn {
+	t.Helper()
 	c, _, err := terminalDial(t, srv, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	terminalReady(t, c)
-	m := resumeMetadata(t, s, srv.URL)
-	id := m["id"].(string)
-	c.CloseNow()
-	select {
-	case <-closed:
-	case <-time.After(2 * time.Second):
-		t.Fatal("attachment not closed")
-	}
-	m = waitDetached(t, s, srv.URL)
-	deadline := m["retain_until"]
-	if deadline.(float64) <= float64(time.Now().Unix()) {
-		t.Fatal("no detached retention")
-	}
-	select {
-	case <-closed:
-		t.Fatal("browser departure ended native owner")
-	case <-time.After(20 * time.Millisecond):
-	}
-	c, _, err = terminalDial(t, srv, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.CloseNow()
+	t.Cleanup(func() { c.CloseNow() })
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
-	if c.Write(ctx, websocket.MessageText, attachAuth(id)) != nil {
-		t.Fatal("attach failed")
+	_ = c.Write(ctx, websocket.MessageText, attachAuth(id))
+	_, b, err := c.Read(ctx)
+	if err != nil || string(b) != `{"type":"ready"}` {
+		t.Fatal("attach", err, string(b))
 	}
-	for i := 0; i < 2; i++ {
-		if _, _, err = c.Read(ctx); err != nil {
-			t.Fatal("reattach failed", err)
-		}
-	}
-	m = resumeMetadata(t, s, srv.URL)
-	if m["id"] != id || m["retain_until"] != deadline || calls.Load() != 3 {
-		t.Fatal("reattach replaced session or renewed abandonment")
-	}
-	if resumeAction(t, s, srv.URL, id, "return", 0) != 200 || resumeMetadata(t, s, srv.URL)["retain_until"] != float64(0) {
-		t.Fatal("deliberate return did not activate")
-	}
-	if resumeAction(t, s, srv.URL, id, "retain", 7200) != 200 {
-		t.Fatal("finite away failed")
-	}
-	if got := resumeMetadata(t, s, srv.URL)["retain_until"].(float64); got < float64(time.Now().Add(119*time.Minute).Unix()) || got > float64(time.Now().Add(121*time.Minute).Unix()) {
-		t.Fatal("not finite away")
-	}
-	if resumeAction(t, s, srv.URL, id, "end", 0) != 200 {
-		t.Fatal("End failed")
-	}
-	if _, _, err = c.Read(ctx); err == nil {
-		t.Fatal("End retained attachment")
-	}
-	if calls.Load() != 3 {
-		t.Fatal("End created a native session")
-	}
+	return c
 }
-func TestTerminalMissingAttachAndLifetimeActionsCreateNothing(t *testing.T) {
-	s, srv, calls, _ := terminalWebFixture(t, 0)
-	id := strings.Repeat("f", 32)
-	if resumeMetadata(t, s, srv.URL) != nil {
-		t.Fatal("unexpected terminal")
+
+func TestTerminalDetachDoesNotOwnNativeLifetime(t *testing.T) {
+	s, srv, native, _ := terminalWebFixture(t, 0)
+	c, id := openManaged(t, s, srv, webTerminalProject)
+	created := exactMetadata(t, s, srv.URL, webTerminalProject, id).CreatedAt
+	c.CloseNow()
+	detached := waitDetached(t, s, srv.URL, id)
+	if detached.State != "ready" || !detached.Ready || native.count("end") != 0 {
+		t.Fatal("browser departure ended native work")
 	}
-	for _, action := range []string{"end", "return"} {
-		if resumeAction(t, s, srv.URL, id, action, 0) != 404 {
-			t.Fatal("absent action not refused")
-		}
+	c = attachManaged(t, srv, id)
+	if v := exactMetadata(t, s, srv.URL, webTerminalProject, id); v.CreatedAt != created || !v.Attached || native.count("create") != 1 {
+		t.Fatal("attachment replaced native session")
 	}
-	if resumeAction(t, s, srv.URL, id, "retain", 1800) != 404 {
-		t.Fatal("absent retention accepted")
+	if exactAction(t, s, srv.URL, webTerminalProject, id, map[string]any{"action": "end"}) != 200 {
+		t.Fatal("End")
 	}
-	c, _, err := terminalDial(t, srv, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.CloseNow()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
-	_ = c.Write(ctx, websocket.MessageText, attachAuth(id))
-	if _, _, err = c.Read(ctx); err == nil {
-		t.Fatal("missing attach accepted")
-	}
-	if calls.Load() != 0 {
-		t.Fatal("missing target reached native")
+	if _, _, err := c.Read(ctx); err == nil {
+		t.Fatal("End retained attachment")
 	}
 }
-func TestTerminalIdentifierDoesNotGrantAnotherSodaContextAccess(t *testing.T) {
-	s, srv, calls, _ := terminalWebFixture(t, 0)
-	c, _, err := terminalDial(t, srv, "")
-	if err != nil {
-		t.Fatal(err)
+
+func TestTerminalNativeLookupSurvivesWebRestart(t *testing.T) {
+	s, srv, native, _ := terminalWebFixture(t, 0)
+	_, id := openManaged(t, s, srv, webTerminalProject)
+	s.CloseTerminals()
+	next := New(s.Config, s.Store)
+	next.Host, next.Forgejo = s.Host, s.Forgejo
+	nextServer := httptest.NewTLSServer(next)
+	next.Config.ForgejoURL = nextServer.URL
+	t.Cleanup(nextServer.Close)
+	t.Cleanup(next.CloseTerminals)
+	waitDetached(t, next, nextServer.URL, id)
+	attachManaged(t, nextServer, id)
+	if native.count("create") != 1 || native.count("end") != 0 {
+		t.Fatal("web restart destroyed or recreated work")
 	}
-	terminalReady(t, c)
-	id := resumeMetadata(t, s, srv.URL)["id"].(string)
+	refusedTerminal(t, nextServer, strings.Replace(terminalAuth, reservedTerminalID, id, 1))
+}
+
+func TestTerminalFreshAuthorizedContextMayReattachButLocatorIsNotAuthority(t *testing.T) {
+	s, srv, native, _ := terminalWebFixture(t, 0)
+	c, id := openManaged(t, s, srv, webTerminalProject)
 	c.CloseNow()
-	waitDetached(t, s, srv.URL)
+	waitDetached(t, s, srv.URL, id)
 	grant, err := s.Store.Grant(t.Context(), "session-alice", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Store.CreateGrantedSession(t.Context(), "other-context", 1, "other-csrf", grant); err != nil {
+	if err := s.Store.CreateGrantedSession(t.Context(), "other-context", 1, "other-csrf", grant); err != nil {
 		t.Fatal(err)
 	}
 	c, _, err = websocket.Dial(t.Context(), "wss"+strings.TrimPrefix(srv.URL, "https")+"/-/soda/api/environments/"+webTerminalProject+"/terminal", &websocket.DialOptions{HTTPClient: srv.Client(), HTTPHeader: http.Header{"Origin": {srv.URL}, "Cookie": {"__Secure-sodaspaces-session=other-context"}}})
@@ -183,97 +105,100 @@ func TestTerminalIdentifierDoesNotGrantAnotherSodaContextAccess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 	_ = c.Write(ctx, websocket.MessageText, []byte(strings.ReplaceAll(string(attachAuth(id)), "csrf-alice", "other-csrf")))
-	if _, _, err = c.Read(ctx); err == nil {
-		t.Fatal("cross-context adoption")
+	if _, _, err := c.Read(ctx); err != nil {
+		t.Fatal("fresh authorized attachment refused", err)
 	}
-	if calls.Load() != 2 {
-		t.Fatal("cross-context request reached helper")
+	if native.count("create") != 1 {
+		t.Fatal("fresh context recreated shell")
 	}
+	w := terminalAPI(t, s, srv.URL, "GET", "/api/environments/"+webTerminalProject+"/terminal-sessions/"+id, nil)
+	if w.Code != 200 {
+		t.Fatal("original authorized actor lost lookup")
+	}
+	// A stale CSRF/actor or missing native membership is still refused upstream.
+	refusedTerminal(t, srv, strings.Replace(string(attachAuth(id)), "csrf-alice", "wrong", 1))
 }
-func TestTerminalExpiredRetentionCannotBeExtendedOrReattached(t *testing.T) {
-	s, srv, calls, _ := terminalWebFixture(t, 0)
-	c, _, err := terminalDial(t, srv, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	terminalReady(t, c)
-	id := resumeMetadata(t, s, srv.URL)["id"].(string)
+
+func TestTerminalUnavailableObservationDoesNotBecomeAbsenceOrPermanentCustody(t *testing.T) {
+	s, srv, native, _ := terminalWebFixture(t, 0)
+	c, id := openManaged(t, s, srv, webTerminalProject)
 	c.CloseNow()
-	waitDetached(t, s, srv.URL)
-	s.terminalMu.Lock()
-	for _, entry := range s.terminals {
-		entry.retainUntil = time.Now().Add(-time.Second)
+	waitDetached(t, s, srv.URL, id)
+	native.mu.Lock()
+	native.fail["inspect"] = true
+	native.mu.Unlock()
+	path := "/api/environments/" + webTerminalProject + "/terminal-sessions/" + id
+	if terminalAPI(t, s, srv.URL, "GET", path, nil).Code != 503 {
+		t.Fatal("unavailable became absence")
 	}
-	s.terminalMu.Unlock()
-	if resumeAction(t, s, srv.URL, id, "return", 0) != 409 {
-		t.Fatal("expired session revived")
+	native.mu.Lock()
+	delete(native.fail, "inspect")
+	native.fail["end"] = true
+	native.mu.Unlock()
+	if exactAction(t, s, srv.URL, webTerminalProject, id, map[string]any{"action": "end"}) != 503 {
+		t.Fatal("unconfirmed End reported success")
 	}
-	until := time.Now().Add(2 * time.Second)
-	for resumeMetadata(t, s, srv.URL)["state"] != "ended" && time.Now().Before(until) {
-		time.Sleep(5 * time.Millisecond)
+	if exactMetadata(t, s, srv.URL, webTerminalProject, id).State != "ready" {
+		t.Fatal("outcome notice overrode native observation")
 	}
-	if resumeMetadata(t, s, srv.URL)["state"] != "ended" || calls.Load() != 2 {
-		t.Fatal("expiry did not confirm exact cleanup")
+	native.mu.Lock()
+	delete(native.fail, "end")
+	native.mu.Unlock()
+	if exactAction(t, s, srv.URL, webTerminalProject, id, map[string]any{"action": "end"}) != 200 || exactMetadata(t, s, srv.URL, webTerminalProject, id) != nil {
+		t.Fatal("explicit exact retry could not recover")
 	}
-}
-func TestTerminalUnconfirmedCleanupKeepsSlotAndRefusesReplacement(t *testing.T) {
-	s, srv, calls, _ := terminalWebFixture(t, 0, "cleanup_unconfirmed")
-	c, _, err := terminalDial(t, srv, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	terminalReady(t, c)
-	id := resumeMetadata(t, s, srv.URL)["id"].(string)
-	if resumeAction(t, s, srv.URL, id, "end", 0) != 200 {
-		t.Fatal("End failed")
-	}
-	c.CloseNow()
-	until := time.Now().Add(2 * time.Second)
-	for time.Now().Before(until) {
-		m := resumeMetadata(t, s, srv.URL)
-		if m != nil && m["state"] == "unconfirmed" {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	m := resumeMetadata(t, s, srv.URL)
-	if m == nil || m["state"] != "unconfirmed" || m["id"] != id {
-		t.Fatal("uncertain cleanup freed slot")
-	}
-	c, _, err = terminalDial(t, srv, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.CloseNow()
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	defer cancel()
-	_ = c.Write(ctx, websocket.MessageText, []byte(terminalAuth))
-	if _, _, err = c.Read(ctx); err == nil || calls.Load() != 2 {
-		t.Fatal("unconfirmed terminal replaced")
+	_, other := openManaged(t, s, srv, webTerminalProject)
+	if other == id || native.count("create") != 2 {
+		t.Fatal("new explicit work reused old ID")
 	}
 }
 
-func TestTerminalStopGateAndExplicitCreateContract(t *testing.T) {
-	for _, body := range []string{strings.Replace(terminalAuth, `"action":"create",`, "", 1), strings.Replace(terminalAuth, `"action":"create"`, `"action":"create","id":"`+strings.Repeat("a", 32)+`"`, 1), terminalAuth} {
-		t.Run(body, func(t *testing.T) {
-			s, srv, calls, _ := terminalWebFixture(t, 0)
-			s.terminalMu.Lock()
-			s.terminalStopping = map[string]bool{webTerminalProject: true}
-			s.terminalMu.Unlock()
-			c, response, err := terminalDial(t, srv, "")
-			if err != nil {
-				if response != nil && response.StatusCode == 409 && calls.Load() == 0 {
-					return
-				}
-				t.Fatal(err)
-			}
-			defer c.CloseNow()
-			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-			defer cancel()
-			_ = c.Write(ctx, websocket.MessageText, []byte(body))
-			if _, _, err = c.Read(ctx); err == nil || calls.Load() != 0 {
-				t.Fatal("invalid or Stop-racing creation reached helper")
-			}
-		})
+func TestTerminalLostCreateReplyRecoversThroughIssuedNativeID(t *testing.T) {
+	s, srv, native, _ := terminalWebFixture(t, 0)
+	native.mu.Lock()
+	native.fail["create"] = true
+	native.mu.Unlock()
+	refusedTerminal(t, srv, terminalAuth)
+	if exactMetadata(t, s, srv.URL, webTerminalProject, reservedTerminalID) == nil {
+		t.Fatal("lost native creation not discoverable")
 	}
+	refusedTerminal(t, srv, terminalAuth)
+	attachManaged(t, srv, reservedTerminalID)
+	if native.count("create") != 1 {
+		t.Fatal("lost acknowledgement replayed Create")
+	}
+}
+
+func TestTerminalStopGateAndPendingTransportBound(t *testing.T) {
+	s, srv, native, _ := terminalWebFixture(t, 0)
+	s.terminalMu.Lock()
+	s.terminalStopping = map[string]bool{webTerminalProject: true}
+	s.terminalMu.Unlock()
+	if terminalAPI(t, s, srv.URL, "POST", "/api/environments/"+webTerminalProject+"/terminal-sessions", map[string]any{"cols": 80, "rows": 24}).Code != 503 {
+		t.Fatal("Stop admitted reservation")
+	}
+	c, response, err := terminalDial(t, srv, "")
+	if c != nil {
+		c.CloseNow()
+	}
+	if err == nil || response.StatusCode != 409 || native.Load() != 0 {
+		t.Fatal("Stop admitted stream")
+	}
+	s.terminalMu.Lock()
+	clear(s.terminalStopping)
+	s.terminalPeers = make(map[*http.Request]*terminalPeer)
+	for i := 0; i < 128; i++ {
+		s.terminalPeers[new(http.Request)] = &terminalPeer{cancel: func() {}}
+	}
+	s.terminalMu.Unlock()
+	c, response, err = terminalDial(t, srv, "")
+	if c != nil {
+		c.CloseNow()
+	}
+	if err == nil || response.StatusCode != 409 || native.Load() != 0 {
+		t.Fatal("pending transport bound bypassed")
+	}
+	s.terminalMu.Lock()
+	clear(s.terminalPeers)
+	s.terminalMu.Unlock()
 }

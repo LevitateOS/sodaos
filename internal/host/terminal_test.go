@@ -213,9 +213,8 @@ func TestTerminalShutdownClosesHijackedStreams(t *testing.T) {
 	if _, err = stream.Receive(ctx); err != nil {
 		t.Fatal(err)
 	}
-	// Shutdown must close existing terminal ownership even while an unrelated
-	// management operation holds admission. This is not an attachment-only
-	// detach or a promise that managed sessions survive service maintenance.
+	// Shutdown closes attached-access streams even while an unrelated mutation
+	// holds admission. The native tmux unit has no connection-owned lifetime.
 	if err := d.acquireAdmission(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +240,7 @@ func TestTerminalShutdownClosesHijackedStreams(t *testing.T) {
 		t.Fatal("shutdown dispatched another native start")
 	}
 }
-func TestTerminalCloseWaitsForNativeReceipt(t *testing.T) {
+func TestTerminalCloseWaitsForAttachmentExit(t *testing.T) {
 	_, c, f := terminalFixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

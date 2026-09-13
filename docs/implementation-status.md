@@ -22,6 +22,10 @@ unchanged. The first source slice removes enrollment attempt journals, uses
 activation-owned memory node identity, stores one active credential/policy, removes
 release-number vetoes, and applies networking after successful project provisioning.
 Old Tailnet configuration conversion remains separately authorized maintenance.
+The next source slice replaces terminal lifetime owners/receipts with native units,
+one-use allocation/exact lookup and current disposable layout; local checks are
+recorded in the [workstream](refactoring-plan.md#selected-mechanism-removals).
+Neither retained old terminal runtimes nor Tailnet state were converted or cleaned.
 
 **Stages 1–2 are complete. Stage 3 UI source and emitted-component checks are in
 place; the Stage-4 runtime/UI and stock-only Cockpit source candidate is implemented.

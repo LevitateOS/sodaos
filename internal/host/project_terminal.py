@@ -10,7 +10,6 @@ import errno
 import fcntl
 import json
 import hashlib
-import math
 import socket
 import subprocess
 import os
@@ -23,10 +22,11 @@ import struct
 import sys
 import termios
 import time
+import unicodedata
 
 FRAME_LIMIT = 32768
 QUEUE_LIMIT = 262144
-LEASE_SECONDS = 60
+HEARTBEAT_SECONDS = 60
 
 
 def dimensions(cols, rows):
@@ -185,7 +185,7 @@ def run_terminal(account, cols, rows, seconds, path):
             attaching = True
             attach_deadline = time.monotonic() + 5
             deadline = time.monotonic() + seconds
-            lease = time.monotonic() + LEASE_SECONDS
+            lease = time.monotonic() + HEARTBEAT_SECONDS
             while not stopped:
                 now = time.monotonic()
                 if now >= min(deadline, lease):
@@ -221,7 +221,7 @@ def run_terminal(account, cols, rows, seconds, path):
                             stopped = True
                             break
                         if kind == 'heartbeat':
-                            lease = time.monotonic() + LEASE_SECONDS
+                            lease = time.monotonic() + HEARTBEAT_SECONDS
                         elif kind == 'resize':
                             set_size(master, *value)
                         elif len(to_pty) + len(value) <= QUEUE_LIMIT:
@@ -277,9 +277,9 @@ def run_terminal(account, cols, rows, seconds, path):
     return 0 if status is not None and reason not in ('launch_failed', 'stream_failed') else 1
 
 
-# The owner pipe is independent of every attachment PTY. Systemd owns the guard,
-# foreground tmux server and descendants; a frozen/dead guard is bounded by its
-# watchdog/start timeout as well as the short owner lease. No restart/adoption.
+# Systemd owns the foreground tmux server and its descendants. Its bounded
+# ExecStartPost prepares the socket/session; no browser-owned lifetime supervisor.
+# Only an attached PTY has a heartbeat timeout. Losing it never ends the server.
 TERMINALS = '/run/soda-terminals'
 PROGRAM = '/usr/libexec/soda/project-terminal'
 TMUX_CONFIG = b'''set -g status off
@@ -352,27 +352,38 @@ def account_binding(account):
 
 def binding(directory, account=None, identity=None):
     record = read_record(directory, 'binding')
-    if set(record) != {'account', 'identity', 'cols', 'rows', 'deadline'}:
+    if not isinstance(record, dict) or set(record) != {'account', 'identity', 'cols', 'rows', 'created_at'}:
         raise ValueError('terminal binding')
+    a = record['account']
+    if (not isinstance(a, list) or len(a) != 5 or not isinstance(a[0], str) or
+            not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}', a[0]) or a[0] == 'root' or
+            type(a[1]) is not int or a[1] <= 0 or type(a[2]) is not int or a[2] < 0 or
+            not all(isinstance(v, str) and os.path.isabs(v) for v in a[3:]) or
+            type(record['identity']) is not int or record['identity'] <= 0 or
+            not dimensions(record['cols'], record['rows']) or
+            type(record['created_at']) is not int or not 0 < record['created_at'] <= 9007199254740991):
+        raise ValueError('terminal binding values')
     if account is not None and (record['identity'] != identity or record['account'] != account_binding(account)):
         raise ValueError('terminal account changed')
     return record
 
 
-def lease_value(fd, renew=False):
-    fcntl.flock(fd, fcntl.LOCK_EX if renew else fcntl.LOCK_SH)
+def valid_name(value):
+    return isinstance(value, str) and len(value) <= 80 and all(unicodedata.category(c) not in ('Cc', 'Cf') for c in value)
+
+
+def write_name(directory, name):
+    if not valid_name(name):
+        raise ValueError('terminal name')
+    # A prior interrupted rename may have left only this exact private staging
+    # file. Readers/writers share the parent lock; never overwrite unknown files.
     try:
-        if renew:
-            raw = str(time.monotonic() + LEASE_SECONDS).encode('ascii')
-            if os.pwrite(fd, raw, 0) != len(raw):
-                raise OSError('short lease write')
-            os.ftruncate(fd, len(raw))
-        value = float(os.pread(fd, 64, 0))
-        if not math.isfinite(value):
-            raise ValueError('invalid lease')
-        return value
-    finally:
-        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(root_file(directory, 'name.next'))
+        os.unlink('name.next', dir_fd=directory)
+    except FileNotFoundError:
+        pass
+    new_file(directory, 'name.next', line(name))
+    os.replace('name.next', 'name', src_dir_fd=directory, dst_dir_fd=directory)
 
 
 def tmux_control(account, path, *args):
@@ -392,15 +403,6 @@ def socket_identity(path, account, pid):
     if server != pid or uid != account.pw_uid:
         raise ValueError('wrong tmux server')
     return [info.st_dev, info.st_ino]
-
-
-def notify(message):
-    address = os.environ['NOTIFY_SOCKET']
-    if address.startswith('@'):
-        address = '\0' + address[1:]
-    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as peer:
-        peer.settimeout(1)
-        peer.sendto(message.encode('ascii'), address)
 
 
 def cgroup_directory(identifier):
@@ -454,7 +456,7 @@ def cgroup_empty(identifier):
         os.close(directory)
 
 
-def guard(identifier):
+def prepare(identifier):
     path = terminal_path(identifier)
     parent = cgroup_parent()
     try:
@@ -469,31 +471,27 @@ def guard(identifier):
         fd = os.open('cgroup.procs', os.O_RDONLY | os.O_NOFOLLOW, dir_fd=group)
         try:
             if str(os.getpid()) not in os.read(fd, 16384).decode('ascii').splitlines():
-                raise ValueError('guard outside owned cgroup')
+                raise ValueError('preparation outside owned cgroup')
         finally:
             os.close(fd)
     finally:
         os.close(group)
     directory = root_directory(path)
-    lease = root_file(directory, 'lease')
     record = binding(directory)
     account = account_for(record['account'][0], record['identity'])
     binding(directory, account, record['identity'])
     sock = path + '/screen/socket'
-    child = subprocess.Popen(['/usr/bin/tmux', '-D', '-S', sock, '-f', path + '/tmux.conf'],
-                             preexec_fn=lambda: become_user(account), env=user_environment(account),
-                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, start_new_session=True)
-    # Do not reap/signal arbitrary PIDs. Systemd cleans the entire owned cgroup on
-    # every guard exit, including failed startup, normal session exit and SIGKILL.
+    pid = int(os.environ['MAINPID'])  # supplied by systemd, never by the browser
+    if pid <= 0:
+        raise ValueError('missing main process')
     until = time.monotonic() + 5
     while True:
-        if child.poll() is not None or time.monotonic() >= until:
+        if time.monotonic() >= until:
             raise ValueError('tmux startup failed')
         try:
             if os.path.exists(sock + '.lock'):
                 raise FileNotFoundError('startup lock')
-            socket_identity(sock, account, child.pid)
+            socket_identity(sock, account, pid)
             break
         except (FileNotFoundError, ConnectionRefusedError):
             time.sleep(0.02)
@@ -501,23 +499,20 @@ def guard(identifier):
     # connect but cannot replace this socket with another context/personal server.
     os.chown(path + '/screen', 0, 0, follow_symlinks=False)
     os.chmod(path + '/screen', 0o711, follow_symlinks=False)
-    inode = socket_identity(sock, account, child.pid)
+    inode = socket_identity(sock, account, pid)
+    # -D starts empty and disables exit-empty. Restore normal empty-server exit
+    # AFTER new-session, in the same native command queue (also supported by 3.2a).
     tmux_control(account, sock, 'new-session', '-d', '-s', 'soda', '-x', str(record['cols']),
-                 '-y', str(record['rows']), '-c', account.pw_dir)
-    new_file(directory, 'ready', line({'pid': child.pid, 'socket': inode}))
-    notify('READY=1')
-    while child.poll() is None:
-        if time.monotonic() >= min(record['deadline'], lease_value(lease)):
-            return 1
-        tmux_control(account, sock, 'has-session', '-t', '=soda')
-        notify('WATCHDOG=1')
-        time.sleep(1)
-    return 1
+                 '-y', str(record['rows']), '-c', account.pw_dir,
+                 ';', 'set-option', '-s', 'exit-empty', 'on')
+    new_file(directory, 'ready', line({'pid': pid, 'socket': inode}))
+    os.close(directory)
+    return 0
 
 
-def service_state(identifier):
+def service_state(identifier, account=None):
     unit = 'soda-terminal-' + identifier + '.service'
-    properties = 'LoadState,ActiveState,Description,FragmentPath,DropInPaths,Type,User,KillMode,Restart,SendSIGKILL,WatchdogUSec,TimeoutStopUSec,StandardInput,StandardOutput,StandardError'
+    properties = 'LoadState,ActiveState,Description,FragmentPath,DropInPaths,Type,User,KillMode,Restart,SendSIGKILL,TimeoutStopUSec,StandardInput,StandardOutput,StandardError'
     result = subprocess.run(['/usr/bin/systemctl', 'show', unit, '--property=' + properties],
                             check=False, timeout=3, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     if len(result.stdout) > 4096:
@@ -529,49 +524,59 @@ def service_state(identifier):
             fields.get('FragmentPath') != '/run/systemd/transient/' + unit):
         raise ValueError('not the owned terminal unit')
     if fields['LoadState'] != 'not-found':
-        selected = {'DropInPaths': '', 'Type': 'notify', 'User': 'root', 'KillMode': 'control-group',
-                    'Restart': 'no', 'SendSIGKILL': 'yes', 'WatchdogUSec': '10s', 'TimeoutStopUSec': '3s',
+        if account is None:
+            raise ValueError('terminal unit occupied')
+        selected = {'DropInPaths': '', 'Type': 'exec', 'User': account.pw_name, 'KillMode': 'control-group',
+                    'Restart': 'no', 'SendSIGKILL': 'yes', 'TimeoutStopUSec': '3s',
                     'StandardInput': 'null', 'StandardOutput': 'null', 'StandardError': 'null'}
         if any(fields[k] != value for k, value in selected.items()):
             raise ValueError('terminal supervision changed')
     return fields.get('ActiveState')
 
 
-def stop_service(identifier):
-    state = service_state(identifier)
+def stop_service(identifier, account):
+    state = service_state(identifier, account)
     if state not in ('inactive', 'failed'):
         subprocess.run(['/usr/bin/systemctl', 'stop', 'soda-terminal-' + identifier + '.service'],
                        check=True, timeout=8, stdin=subprocess.DEVNULL,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    if service_state(identifier) not in ('inactive', 'failed') or not cgroup_empty(identifier):
+    if service_state(identifier, account) not in ('inactive', 'failed') or not cgroup_empty(identifier):
         raise ValueError('terminal cleanup unconfirmed')
 
 
 def remove_owned_files(path, directory, account):
     # Only exact run-owned files after unit shutdown, never recursive tree removal.
     names = set(os.listdir(directory))
-    if names - {'binding', 'lease', 'writer', 'tmux.conf', 'ready', 'screen'}:
+    if names - {'binding', 'reservation', 'name', 'name.next', 'writer', 'tmux.conf', 'ready', 'screen'}:
         raise ValueError('unexpected terminal files')
-    screen = root_directory(path + '/screen')
-    try:
-        for name in os.listdir(screen):
-            info = os.stat(name, dir_fd=screen, follow_symlinks=False)
-            if name != 'socket' or not stat.S_ISSOCK(info.st_mode) or info.st_uid != account.pw_uid:
-                raise ValueError('unexpected terminal socket')
-            os.unlink(name, dir_fd=screen)
-    finally:
-        os.close(screen)
+    if 'screen' in names:
+        screen = os.open('screen', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+        try:
+            info = os.fstat(screen)
+            # Failed startup may precede the root seal. The parent is held and
+            # the unit/cgroup is already empty; accept only its original account.
+            if info.st_uid not in (0, account.pw_uid) or info.st_mode & 0o022:
+                raise ValueError('unexpected terminal screen')
+            for name in os.listdir(screen):
+                info = os.stat(name, dir_fd=screen, follow_symlinks=False)
+                expected = name == 'socket' and stat.S_ISSOCK(info.st_mode) or name == 'socket.lock' and stat.S_ISREG(info.st_mode)
+                if not expected or info.st_uid != account.pw_uid or info.st_nlink != 1:
+                    raise ValueError('unexpected terminal socket')
+                os.unlink(name, dir_fd=screen)
+        finally:
+            os.close(screen)
     for name in names - {'screen'}:
         info = os.stat(name, dir_fd=directory, follow_symlinks=False)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1:
             raise ValueError('unexpected terminal file')
     for name in names - {'screen'}:
         os.unlink(name, dir_fd=directory)
-    os.rmdir('screen', dir_fd=directory)
+    if 'screen' in names:
+        os.rmdir('screen', dir_fd=directory)
     os.rmdir(path)
 
 
-def own_terminal(identifier, account, identity, cols, rows, seconds, source_hash):
+def reserve_terminal(identifier, account, identity, cols, rows, name, source_hash, scope):
     # Missing/older project support refuses, never installs itself on Open.
     parent = root_directory('/usr/libexec/soda')
     program = os.open('project-terminal', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
@@ -588,142 +593,280 @@ def own_terminal(identifier, account, identity, cols, rows, seconds, source_hash
         subprocess.run(['/usr/bin/infocmp', term], check=True, timeout=2,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     path = terminal_path(identifier)
+    # Refuse occupied locators before retiring any completed runtime files.
+    # The caller holds the native parent lock across preparation/admission.
     parent = root_directory(TERMINALS)
     try:
-        fcntl.flock(parent, fcntl.LOCK_EX)
-        if len(os.listdir(parent)) >= 64:
-            raise ValueError('native terminal capacity')
-        os.mkdir(identifier, 0o711, dir_fd=parent)  # occupied paths always refuse
+        try:
+            os.stat(identifier, dir_fd=parent, follow_symlinks=False)
+        except FileNotFoundError:
+            pass
+        else:
+            raise FileExistsError('terminal identifier occupied')
+        if service_state(identifier) != 'inactive' or not cgroup_empty(identifier):
+            raise ValueError('terminal unit occupied')
+        collect_finished()
+        if len(terminal_directories()) >= 128:
+            raise ValueError('native reservation capacity')
+        os.mkdir(identifier, 0o711, dir_fd=parent)
     finally:
         os.close(parent)
     directory = root_directory(path)
     os.fchmod(directory, 0o711)
-    # A failed partial preparation is retained for inspection, not adopted/retried.
     record = {'account': account_binding(account), 'identity': identity, 'cols': cols, 'rows': rows,
-              'deadline': time.monotonic() + seconds}
+              'created_at': int(time.time())}
     new_file(directory, 'binding', line(record))
-    new_file(directory, 'lease', b'0')
+    new_file(directory, 'reservation', line({'expires': int(time.time()) + 120, 'scope': scope}))
+    write_name(directory, name)
     new_file(directory, 'writer', b'')
     new_file(directory, 'tmux.conf', TMUX_CONFIG, 0o644)
     os.mkdir('screen', 0o700, dir_fd=directory)
     os.chown(path + '/screen', account.pw_uid, account.pw_gid)
-    lease = root_file(directory, 'lease', True)
-    lease_value(lease, True)
-    reason = 'launch_failed'
-    stopped = False
+    os.close(directory)
+    return terminal_status(identifier, account, identity)
 
-    def stop(_sig, _frame):
-        nonlocal stopped
-        stopped = True
 
-    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
-        signal.signal(sig, stop)
+def reservation(directory):
     try:
-        # No static/overridden unit is admitted; systemd-run itself refuses an
-        # occupied name. All unit settings/command/paths are product constants.
-        if service_state(identifier) != 'inactive':
-            raise ValueError('terminal unit occupied')
-        subprocess.run(['/usr/bin/systemd-run', '--quiet', '--collect',
-                        '--unit=soda-terminal-' + identifier, '--description=Soda terminal ' + identifier,
-                        '--service-type=notify', '--property=NotifyAccess=main', '--property=User=root',
-                        '--slice=system.slice',
-                        '--property=KillMode=control-group', '--property=SendSIGKILL=yes',
-                        '--property=Restart=no', '--property=TimeoutStartSec=10s',
-                        '--property=TimeoutStopSec=3s', '--property=TimeoutAbortSec=3s', '--property=WatchdogSec=10s',
-                        '--property=RuntimeMaxSec=43200s', '--property=UMask=0077', '--property=LimitCORE=0',
-                        '--property=StandardInput=null', '--property=StandardOutput=null',
-                        '--property=StandardError=null', '/usr/bin/python3', '-I', PROGRAM, 'guard', identifier],
-                       check=True, timeout=15, stdin=subprocess.DEVNULL,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        ready = read_record(directory, 'ready')
-        socket_identity(path + '/screen/socket', account, ready['pid'])
-        os.write(1, line({'type': 'ready'}))
-        reason = 'disconnected'
-        incoming = bytearray()
-        while not stopped:
-            if time.monotonic() >= min(record['deadline'], lease_value(lease)):
-                reason = 'expired'
-                break
-            if service_state(identifier) != 'active':
-                reason = 'exited'
-                break
-            readable, _, _ = select.select([0], [], [], 1)
-            if not readable:
-                continue
-            data = os.read(0, 4096)
-            if not data:
-                break
-            incoming.extend(data)
-            while b'\n' in incoming:
-                raw, _, tail = incoming.partition(b'\n')
-                incoming = bytearray(tail)
-                kind, _ = decode_frame(raw)
-                if kind == 'close':
-                    stopped = True
-                    break
-                if kind != 'heartbeat':
-                    raise ValueError('owner control only')
-                lease_value(lease, True)
-            if len(incoming) > FRAME_LIMIT:
-                raise ValueError('owner frame size')
-    except (OSError, ValueError, subprocess.SubprocessError):
-        pass
+        value = read_record(directory, 'reservation')
+    except FileNotFoundError:
+        return None
+    if (not isinstance(value, dict) or set(value) != {'expires', 'scope'} or
+            type(value['expires']) is not int or value['expires'] <= 0 or
+            not isinstance(value['scope'], str) or not re.fullmatch(r'[0-9a-f]{64}', value['scope'])):
+        raise ValueError('invalid creation reservation')
+    return value
+
+
+def create_terminal(identifier, account, identity, cols, rows, name, scope):
+    path = terminal_path(identifier)
+    directory = root_directory(path)  # no creation on a missing/ended locator
+    try:
+        record = binding(directory, account, identity)
+        permit = reservation(directory)
+        if permit is None or permit['expires'] <= time.time() or permit['scope'] != scope or (cols, rows) != (record['cols'], record['rows']):
+            raise ValueError('creation reservation expired, consumed or changed')
+        if collect_finished() >= 64:
+            raise ValueError('native terminal capacity')
+        # Same native lock as End: a late Create cannot run after End removed its
+        # one-use permission, even across web/helper restarts or a lost reply.
+        os.unlink('reservation', dir_fd=directory)
+        write_name(directory, name)
     finally:
-        try:
-            stop_service(identifier)
-            remove_owned_files(path, directory, account)
-        except (OSError, ValueError, subprocess.SubprocessError):
-            reason = 'cleanup_unconfirmed'
-        os.close(lease)
         os.close(directory)
-    os.set_blocking(1, False)
-    try:
-        os.write(1, line({'type': 'closed', 'reason': reason}))
-    except OSError:
-        pass
-    return 0 if reason in ('disconnected', 'expired', 'exited') else 1
+    if service_state(identifier) != 'inactive':
+        raise ValueError('terminal unit occupied')
+    subprocess.run(['/usr/bin/systemd-run', '--quiet', '--collect',
+                    '--unit=soda-terminal-' + identifier, '--description=Soda terminal ' + identifier,
+                    '--service-type=exec', '--property=User=' + account.pw_name,
+                    '--property=Group=' + str(account.pw_gid), '--property=WorkingDirectory=' + account.pw_dir,
+                    '--slice=system.slice', '--property=KillMode=control-group', '--property=SendSIGKILL=yes',
+                    '--property=Restart=no', '--property=TimeoutStartSec=10s', '--property=TimeoutStopSec=3s',
+                    '--property=UMask=0077', '--property=LimitCORE=0', '--property=StandardInput=null',
+                    '--property=StandardOutput=null', '--property=StandardError=null',
+                    '--property=ExecStartPost=+/usr/bin/python3 -I ' + PROGRAM + ' prepare ' + identifier,
+                    *['--setenv=' + key + '=' + value for key, value in user_environment(account).items()],
+                    '/usr/bin/tmux', '-D', '-S', path + '/screen/socket', '-f', path + '/tmux.conf'],
+                   check=True, timeout=15, stdin=subprocess.DEVNULL,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # No owner stream or lifetime timer. systemd's start job includes the bounded
+    # privileged preparation hook; it cleans the cgroup if that hook fails.
+    return terminal_status(identifier, account, identity)
 
 
 def attach_terminal(identifier, account, identity, cols, rows, seconds):
     path = terminal_path(identifier)
     directory = root_directory(path)
     writer = root_file(directory, 'writer', True)
-    lease = root_file(directory, 'lease')
     try:
         fcntl.flock(writer, fcntl.LOCK_EX | fcntl.LOCK_NB)  # never evict a writer
-        record = binding(directory, account, identity)
-        if time.monotonic() >= min(record['deadline'], lease_value(lease)):
-            raise ValueError('terminal expired')
+        binding(directory, account, identity)
         screen = root_directory(path + '/screen')
         os.close(screen)
         ready = read_record(directory, 'ready')
         sock = path + '/screen/socket'
-        if service_state(identifier) != 'active' or socket_identity(sock, account, ready['pid']) != ready['socket']:
+        if service_state(identifier, account) != 'active' or socket_identity(sock, account, ready['pid']) != ready['socket']:
             raise ValueError('terminal absent')
         return run_terminal(account, cols, rows, seconds, sock)
     finally:
-        os.close(lease)
         os.close(writer)
         os.close(directory)
 
 
+def terminal_status(identifier, account, identity):
+    path = terminal_path(identifier)
+    try:
+        directory = root_directory(path)
+    except FileNotFoundError:
+        if service_state(identifier) not in ('inactive', 'failed') or not cgroup_empty(identifier):
+            raise ValueError('unidentified native terminal')
+        return None  # observed absence, not an expired web receipt
+    try:
+        record = binding(directory, account, identity)
+        state = service_state(identifier, account)
+        attached = False
+        permit = reservation(directory)
+        if state in ('inactive', 'failed'):
+            if not cgroup_empty(identifier):
+                raise ValueError('terminal cleanup unconfirmed')
+            state = 'opening' if permit is not None and permit['expires'] > time.time() else 'ended'
+        elif permit is not None:
+            raise ValueError('unconsumed reservation has a native unit')
+        elif state == 'active':
+            ready = read_record(directory, 'ready')
+            screen = root_directory(path + '/screen')
+            os.close(screen)
+            if socket_identity(path + '/screen/socket', account, ready['pid']) != ready['socket']:
+                raise ValueError('terminal socket changed')
+            writer = root_file(directory, 'writer', True)
+            try:
+                try:
+                    fcntl.flock(writer, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    attached = True
+            finally:
+                os.close(writer)
+            state = 'ready'
+        elif state in ('activating', 'deactivating'):
+            state = 'opening' if state == 'activating' else 'ending'
+        else:
+            raise ValueError('terminal state unavailable')
+        name = read_record(directory, 'name')
+        if not valid_name(name):
+            raise ValueError('terminal name')
+        return {'id': identifier, 'name': name, 'created_at': record['created_at'],
+                'ready': state == 'ready', 'attached': attached, 'state': state}
+    finally:
+        os.close(directory)
+
+
+def terminal_directories():
+    identifiers = sorted(os.listdir(TERMINALS))
+    if len(identifiers) > 128:
+        raise ValueError('native terminal inventory bound')
+    for identifier in identifiers:
+        terminal_path(identifier)
+    return identifiers
+
+
+def collect_finished():
+    # Create, not a passive read, retires exact completed runtime files. Capacity
+    # counts native units; a lost browser acknowledgement cannot reserve it forever.
+    active = 0
+    for identifier in terminal_directories():
+        path = terminal_path(identifier)
+        directory = root_directory(path)
+        try:
+            try:
+                record = binding(directory)
+            except (FileNotFoundError, ValueError):
+                # A crash before the initial binding write cannot have launched
+                # a unit. Confirm native absence and retire only that exact stub;
+                # older/unknown metadata layouts are not converted or discarded.
+                names = set(os.listdir(directory))
+                if names - {'binding'} or service_state(identifier) != 'inactive' or not cgroup_empty(identifier):
+                    raise
+                if 'binding' in names:
+                    fd = root_file(directory, 'binding')
+                    try:
+                        if os.read(fd, 1):
+                            raise ValueError('unknown terminal binding')
+                    finally:
+                        os.close(fd)
+                    os.unlink('binding', dir_fd=directory)
+                os.rmdir(path)
+                continue
+            login, uid, gid, home, shell = record['account']
+            account = pwd.struct_passwd((login, '', uid, gid, '', home, shell))
+            if service_state(identifier, account) in ('inactive', 'failed') and cgroup_empty(identifier):
+                permit = reservation(directory)
+                if permit is None or permit['expires'] <= time.time():
+                    remove_owned_files(path, directory, account)
+            else:
+                active += 1
+        finally:
+            os.close(directory)
+    return active
+
+
+def control_terminal(action, identifier, account, identity, cols, rows, name, source_hash, scope):
+    parent = root_directory(TERMINALS)
+    try:
+        fcntl.flock(parent, fcntl.LOCK_SH if action in ('list', 'inspect') else fcntl.LOCK_EX)
+        if action == 'reserve':
+            value = reserve_terminal(identifier, account, identity, cols, rows, name, source_hash, scope)
+        elif action == 'create':
+            value = create_terminal(identifier, account, identity, cols, rows, name, scope)
+        elif action == 'list':
+            values = []
+            for identifier in terminal_directories():
+                directory = root_directory(terminal_path(identifier))
+                try:
+                    record = binding(directory)
+                    pending = reservation(directory)
+                finally:
+                    os.close(directory)
+                if pending is None and record['identity'] == identity and record['account'] == account_binding(account):
+                    value = terminal_status(identifier, account, identity)
+                    if value is not None and value['state'] != 'ended':
+                        values.append(value)
+            return values
+        elif action == 'inspect':
+            value = terminal_status(identifier, account, identity)
+        else:
+            try:
+                directory = root_directory(terminal_path(identifier))
+            except FileNotFoundError:
+                if action == 'end' and terminal_status(identifier, account, identity) is None:
+                    return []
+                raise
+            try:
+                binding(directory, account, identity)
+                if action == 'end':
+                    stop_service(identifier, account)
+                    remove_owned_files(terminal_path(identifier), directory, account)
+                    return []
+                if action != 'rename':
+                    raise ValueError('terminal action')
+                write_name(directory, name)
+            finally:
+                os.close(directory)
+            value = terminal_status(identifier, account, identity)
+        return [] if value is None else [value]
+    finally:
+        os.close(parent)
+
+
 def main():
     try:
-        if len(sys.argv) == 3 and sys.argv[1] == 'guard':
-            return guard(sys.argv[2])
-        if len(sys.argv) != 9:
+        if len(sys.argv) == 3 and sys.argv[1] == 'prepare':
+            return prepare(sys.argv[2])
+        if len(sys.argv) != 11:
             raise ValueError('arguments')
-        action, identifier, login, identity, cols, rows, seconds, source_hash = sys.argv[1:]
-        terminal_path(identifier)
+        action, identifier, login, identity, cols, rows, seconds, source_hash, name, scope = sys.argv[1:]
         identity, cols, rows, seconds = int(identity), int(cols), int(rows), int(seconds)
-        if action not in ('create', 'attach') or not dimensions(cols, rows) or not 1 <= seconds <= 43200:
+        if action not in ('reserve', 'create', 'attach', 'inspect', 'list', 'end', 'rename') or not 1 <= seconds <= 43200:
             raise ValueError('terminal bounds')
+        if action != 'list':
+            terminal_path(identifier)
+        elif identifier:
+            raise ValueError('list target')
+        if action in ('reserve', 'create', 'attach') and not dimensions(cols, rows) or not valid_name(name):
+            raise ValueError('terminal arguments')
+        if action in ('reserve', 'create'):
+            if not re.fullmatch(r'[0-9a-f]{64}', scope):
+                raise ValueError('creation scope')
+        elif scope:
+            raise ValueError('unexpected creation scope')
         signal.alarm(5)
         account = account_for(login, identity)
         signal.alarm(0)
-        if action == 'create':
-            return own_terminal(identifier, account, identity, cols, rows, seconds, source_hash)
-        return attach_terminal(identifier, account, identity, cols, rows, seconds)
+        if action == 'attach':
+            return attach_terminal(identifier, account, identity, cols, rows, seconds)
+        signal.alarm(min(seconds, 30))
+        values = control_terminal(action, identifier, account, identity, cols, rows, name, source_hash, scope)
+        os.write(1, line({'type': 'metadata', 'terminals': values}))
+        return 0
     except (OSError, ValueError, KeyError, subprocess.SubprocessError):
         # No exception details, argv or terminal bytes in diagnostics.
         os.write(1, line({'type': 'closed', 'reason': 'launch_failed'}))

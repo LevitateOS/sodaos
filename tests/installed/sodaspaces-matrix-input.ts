@@ -6,7 +6,7 @@ export interface MatrixProject {environment: string; repository_id: string; repo
 export interface CLIScenario {tool: 'codex' | 'claude' | 'pi'; version: string; prompt_file: string; expected_text: string; ready_text: string; minimum_output_bytes: number}
 export interface MatrixInput {
   target: string; revision: string; actors: [string, string]; sessions_per_actor: 6;
-  actions: ['create', 'attach', 'hide', 'return', 'end']; ssh_config: string;
+  actions: ['create', 'attach', 'end']; ssh_config: string;
   projects: [MatrixProject, MatrixProject]; cli: CLIScenario[];
   provider_use: 'none' | 'browser-and-ssh-for-declared-clis';
   cli_effects: string[];
@@ -17,7 +17,7 @@ export function matrixInput(value: unknown, base: JourneyInput): MatrixInput {
   assert.equal(input.target, base.target); assert.equal(input.revision, base.revision);
   assert.deepEqual(input.actors, base.users.map(user => user.id));
   assert.equal(input.sessions_per_actor, 6);
-  assert.deepEqual(input.actions, ['create', 'attach', 'hide', 'return', 'end']);
+  assert.deepEqual(input.actions, ['create', 'attach', 'end']);
   assert(typeof input.ssh_config === 'string' && input.ssh_config.startsWith('/'));
   assert(Array.isArray(input.projects) && input.projects.length === 2);
   const projects = input.projects.map((value): MatrixProject => {
@@ -51,6 +51,6 @@ export function matrixInput(value: unknown, base: JourneyInput): MatrixInput {
   });
   assert.equal(new Set(cli.map(item => item.tool)).size, cli.length);
   return {target: base.target, revision: base.revision, actors: [base.users[0].id, base.users[1].id], sessions_per_actor: 6,
-    actions: ['create', 'attach', 'hide', 'return', 'end'], ssh_config: input.ssh_config, projects: [first, second], cli,
+    actions: ['create', 'attach', 'end'], ssh_config: input.ssh_config, projects: [first, second], cli,
     provider_use: cli.length ? 'browser-and-ssh-for-declared-clis' : 'none', cli_effects};
 }

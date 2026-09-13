@@ -106,21 +106,19 @@ export function keyPreviewResponse(value: unknown, login: string): KeyPreview {
 export const terminalID = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{32}$/.test(value);
 export interface TerminalIdentity {expectedUserId: string; repositoryId: string; environmentId: string; login: string}
 export interface TerminalMetadata {
-  id: string; request_id: string; environment_id: string; repository_id: string; user_id: string; login: string; name: string;
-  created_at: number; hard_until: number; retain_until: number; effective_until: number;
-  ready: boolean; attached: boolean; state: 'opening' | 'ready' | 'ending' | 'unconfirmed' | 'ended';
+  id: string; environment_id: string; repository_id: string; user_id: string; login: string; name: string;
+  created_at: number;
+  ready: boolean; attached: boolean; state: 'opening' | 'ready' | 'ending' | 'ended';
 }
 export function terminalMetadata(value: unknown, binding: TerminalIdentity): TerminalMetadata {
   const data = object(value);
-  check(terminalID(data.id) && terminalID(data.request_id) && data.environment_id === binding.environmentId && data.repository_id === binding.repositoryId && data.user_id === binding.expectedUserId && data.login === binding.login);
+  check(terminalID(data.id) && data.environment_id === binding.environmentId && data.repository_id === binding.repositoryId && data.user_id === binding.expectedUserId && data.login === binding.login);
   check(typeof data.name === 'string' && Array.from(data.name).length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(data.name));
-  const timestamp = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
-  check(timestamp(data.created_at) && timestamp(data.hard_until) && timestamp(data.retain_until) && timestamp(data.effective_until));
-  check(data.created_at > 0 && data.hard_until >= data.created_at && data.hard_until <= data.created_at + 43200 && (data.retain_until === 0 || data.retain_until <= data.hard_until) && data.effective_until === (data.retain_until || data.hard_until));
-  check(typeof data.ready === 'boolean' && typeof data.attached === 'boolean' && (data.state === 'opening' || data.state === 'ready' || data.state === 'ending' || data.state === 'unconfirmed' || data.state === 'ended'));
-  check(data.state === 'ready' || !data.ready); check(!['ending', 'unconfirmed', 'ended'].includes(data.state) || !data.attached);
-  return {id: data.id, request_id: data.request_id, environment_id: binding.environmentId, repository_id: binding.repositoryId, user_id: binding.expectedUserId, login: binding.login, name: data.name,
-    created_at: data.created_at, hard_until: data.hard_until, retain_until: data.retain_until, effective_until: data.effective_until, ready: data.ready, attached: data.attached, state: data.state};
+  check(typeof data.created_at === 'number' && Number.isSafeInteger(data.created_at) && data.created_at > 0);
+  check(typeof data.ready === 'boolean' && typeof data.attached === 'boolean' && (data.state === 'opening' || data.state === 'ready' || data.state === 'ending' || data.state === 'ended'));
+  check(data.ready === (data.state === 'ready') && (!data.attached || data.ready));
+  return {id: data.id, environment_id: binding.environmentId, repository_id: binding.repositoryId, user_id: binding.expectedUserId, login: binding.login, name: data.name,
+    created_at: data.created_at, ready: data.ready, attached: data.attached, state: data.state};
 }
 export function terminalResponse(value: unknown, binding: TerminalIdentity): TerminalMetadata | null {
   const data = object(value); return data.terminal === null ? null : terminalMetadata(data.terminal, binding);

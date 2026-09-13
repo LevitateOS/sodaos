@@ -2,16 +2,16 @@ import {mountTerminal} from '../../../frontend/spaces/sodaspaces-terminal.js';
 import type {TerminalLocator} from '../../../frontend/spaces/sodaspaces-terminal.js';
 import type {ITerminalOptions, ITerminalInitOnlyOptions} from '@xterm/xterm';
 export const environmentID = 'p0123456789abcdef01234567';
-interface Existing {id: string; login: string; repository_id: string; request_id?: string; state?: string; retain_until?: number; attached?: boolean}
+interface Existing {id: string; login: string; repository_id: string; name?: string; state?: string; attached?: boolean}
 export interface TerminalFixtureOptions {existing?: Existing; locator?: TerminalLocator; slow?: boolean; user?: string; login?: string; responseStatus?: number}
 interface Call {url: string; method: string; body?: string; credentials?: RequestCredentials; redirect?: RequestRedirect; headers: Record<string, string>}
 function createFixture(options: TerminalFixtureOptions = {}) {
   const root = document.getElementById('mount'); if (!root) throw Error('Missing fixture mount');
   const calls: Call[] = [], sockets: FakeSocket[] = [], terms: Terminal[] = [];
   let existing: Existing | null = options.existing || null, before = 0, fitCalls = 0, observed = 0, disconnected = 0;
-  const created = Math.floor(Date.now()/1000), hard = created + 43200;
-  const metadata = () => existing ? {...existing, request_id: existing.request_id || 'b'.repeat(32), environment_id: environmentID, user_id: '1', name: '', created_at: created, hard_until: hard,
-    retain_until: existing.retain_until || 0, effective_until: existing.retain_until || hard, ready: !existing.state || existing.state === 'ready', attached: (!existing.state || existing.state === 'ready') && (existing.attached === true || sockets.some(socket => socket.readyState === 1)), state: existing.state || 'ready'} : null;
+  const created = Math.floor(Date.now()/1000);
+  const metadata = () => existing ? {...existing, environment_id: environmentID, user_id: '1', name: existing.name || '', created_at: created,
+    ready: !existing.state || existing.state === 'ready', attached: (!existing.state || existing.state === 'ready') && (existing.attached === true || sockets.some(socket => socket.readyState === 1)), state: existing.state || 'ready'} : null;
   // Observe actual browser geometry while recording external-resource ownership.
   const NativeObserver = ResizeObserver;
   class ObservedResize extends NativeObserver {
@@ -32,13 +32,13 @@ function createFixture(options: TerminalFixtureOptions = {}) {
       ...(typeof init?.body === 'string' ? {body: init.body} : {}), ...(init?.credentials ? {credentials: init.credentials} : {}), ...(init?.redirect ? {redirect: init.redirect} : {})};
     calls.push(call);
     const override = await reply?.(call); if (override) return override;
-    if (options.responseStatus) return new Response(null, {status: options.responseStatus});
-    if (call.url.includes('/terminal-sessions/') || call.url.includes('/terminal-attempts/')) {
+    if (options.responseStatus || options.user && options.user !== '1' || options.login && options.login !== 'original-alice') return new Response(null, {status: options.responseStatus || 403});
+    if (call.url.endsWith('/terminal-sessions') && call.method === 'POST') return Response.json({id: 'a'.repeat(32)}, {status: 201});
+    if (call.url.includes('/terminal-sessions/')) {
       if (call.method === 'POST') {
         const input: unknown = JSON.parse(call.body || '{}');
         if (!input || typeof input !== 'object' || !('action' in input)) throw Error('Missing action');
-        if (input.action === 'end') {if (existing) existing = {...existing, state: 'ended'}; return Response.json({ending: true});}
-        if (existing) existing = {...existing, retain_until: input.action === 'return' ? 0 : Math.floor(Date.now()/1000) + 7200};
+        if (input.action === 'end') {existing = null; for (const peer of sockets) if (peer.readyState === 1) peer.close();}
       }
       return Response.json({terminal: metadata()});
     }
@@ -55,16 +55,12 @@ function createFixture(options: TerminalFixtureOptions = {}) {
       const frame: unknown = JSON.parse(body);
       if (!frame || typeof frame !== 'object' || Array.isArray(frame)) throw Error('Invalid outgoing frame');
       this.sent.push({...frame});
+      if ('action' in frame && frame.action === 'create' && 'id' in frame && typeof frame.id === 'string')
+        existing = {id: frame.id, login: 'original-alice', repository_id: '7'};
     }
     close() {this.closed++; this.readyState = 3; this.onclose?.();}
     open() {this.readyState = 1; if (!this.onopen) throw Error('Missing handler'); this.onopen();}
     message(value: unknown) {
-      if (value && typeof value === 'object' && 'type' in value && value.type === 'session' && 'id' in value && typeof value.id === 'string') {
-        const request = this.sent[0]?.request_id;
-        const request_id = typeof request === 'string' ? request : existing?.request_id || 'b'.repeat(32);
-        existing = {id: value.id, login: 'original-alice', repository_id: '7', request_id};
-        value = {...value, request_id, attachment_id: sockets.length.toString(16).padStart(32, '0')};
-      }
       this.raw(JSON.stringify(value));
     }
     raw(data: string) {if (!this.onmessage) throw Error('Missing handler'); this.onmessage({data});}
@@ -84,7 +80,7 @@ function createFixture(options: TerminalFixtureOptions = {}) {
     focus() {this.textarea.focus();} dispose() {this.disposed++;}
     write(bytes: string | Uint8Array, done?: () => void) {this.writes.push(bytes); if (!options.slow) done?.();}
   }
-  const binding = {expectedUserId: '1', repositoryId: '7', environmentId: environmentID, login: 'original-alice'};
+  const binding = {expectedUserId: '1', csrfToken: 'synthetic-csrf', repositoryId: '7', environmentId: environmentID, login: 'original-alice'};
   const api = mountTerminal(root, binding, options.locator || {kind: 'new'}, async () => {
     await rendererWait;
     return {Terminal, FitAddon: class {fit() {fitCalls++;} activate() {} dispose() {}}};
@@ -94,7 +90,7 @@ function createFixture(options: TerminalFixtureOptions = {}) {
   const term = () => {const result = terms.at(-1); if (!result) throw Error('Missing renderer'); return result;};
   return {api, root, calls, sockets, terms, button, socket, term, before: () => before, fits: () => fitCalls, observers: () => ({observed, disconnected}),
     setReply(value: typeof reply) {reply = value;}, waitRenderer(value: Promise<void>) {rendererWait = value;},
-    ready() {const peer = socket(); peer.open(); peer.message({type: 'session', id: 'a'.repeat(32)}); peer.message({type: 'ready'}); return api.ready;},
+    ready() {const peer = socket(); peer.open(); peer.message({type: 'ready'}); return api.ready;},
     writes: () => calls.filter(call => call.method !== 'GET'),
     locator: () => locators.at(-1), locators,
     // Exercise the exported JavaScript boundary with invalid, untyped callers.

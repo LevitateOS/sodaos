@@ -60,7 +60,7 @@ for (const failure of ['unavailable', 'unsafe-path', 'wrong-repository', 'storag
     if (failure === 'unavailable') window.workspaceFixture.setStatus(503);
     else if (failure === 'storage') {
       const save = Storage.prototype.setItem;
-      Storage.prototype.setItem = function(key, value) {if (key.startsWith('soda-spaces:v2:')) throw Error('Synthetic storage failure'); save.call(this, key, value);};
+      Storage.prototype.setItem = function(key, value) {if (key.startsWith('soda-spaces:v3:')) throw Error('Synthetic storage failure'); save.call(this, key, value);};
     } else {
       const fetch = window.fetch;
       Object.defineProperty(window, 'fetch', {configurable: true, value: async (input: RequestInfo | URL, init?: RequestInit) => String(input).includes('/api/environments?')
@@ -113,10 +113,9 @@ for (const mode of ['native', 'page'] as const) test(`${mode}: three exact sessi
   assert.equal(await page.locator('.xterm').count(), 3);
   assert.deepEqual(await page.evaluate(() => ({sockets: window.workspaceFixture.sockets.length, closed: window.workspaceFixture.sockets.map(s => s.closed), actions: window.workspaceFixture.sockets.map(s => s.sent[0]?.action), writes: window.workspaceFixture.calls.filter(c => c.method !== 'GET').length})), {sockets: 3, closed: [0, 0, 0], actions: ['attach', 'attach', 'attach'], writes: 0});
   assert.equal(await page.locator('#native-draft').inputValue(), 'unsaved');
-  await page.evaluate(() => window.workspaceFixture.api.retain());
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.body?.action === 'hide').length), 3);
-  await page.evaluate(() => window.workspaceFixture.api.returnToWork());
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.body?.action === 'return').length), 1);
+  await page.evaluate(() => {const f = window.workspaceFixture; f.api.setVisible(false); f.api.setVisible(true);});
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.path.endsWith('/api/session')).length), 1);
 });
 test('observed unread coalesces noisy hidden output, survives refresh, and clears only deliberate viewing', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh());
@@ -152,8 +151,8 @@ test('attention has stable authorized counts/order and exact navigation without 
   const page = await fixture(t); await page.evaluate(() => {
     const f = window.workspaceFixture, a = f.spaces[0]?.terminals[0], b = f.spaces[0]?.terminals[1], c = f.spaces[1]?.terminals[0];
     if (!a || !b || !c) throw Error('missing metadata');
-    a.effective_until = a.hard_until = Math.floor(Date.now() / 1000) + 240;
-    b.state = 'unconfirmed'; b.ready = false;
+    a.attached = true;
+    b.state = 'ending'; b.ready = false;
     c.state = 'ending'; c.ready = false;
     return f.api.refresh();
   });
@@ -164,8 +163,8 @@ test('attention has stable authorized counts/order and exact navigation without 
   await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).waitFor();
   await page.getByRole('button', {name: 'Sessions', exact: true}).click(); await page.getByRole('button', {name: 'Next attention', exact: true}).click();
   await page.getByRole('tab', {name: 'Edit · alice/Alpha', exact: true}).waitFor();
-  await page.getByText('Native cleanup is pending or unconfirmed.', {exact: false}).waitFor();
-  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
+  await page.getByText('Native transition is still in progress.', {exact: false}).waitFor();
+  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   await page.getByRole('button', {name: 'Sessions', exact: true}).click();
   await page.evaluate(() => {const b = window.workspaceFixture.spaces[1]; if (b) {b.authority_unavailable = true; b.environment_administrator = false; b.terminals = []; b.login = ''; } return window.workspaceFixture.api.refresh();});
   await page.getByRole('button', {name: 'Attention (2)', exact: true}).waitFor();
@@ -174,7 +173,7 @@ test('attention has stable authorized counts/order and exact navigation without 
   assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.flatMap(s => s.sent).filter(f => f.action === 'create').length), 0);
 });
-test('expired/stale metadata and late transport generations cannot claim cleanup or replay unread', async t => {
+test('stale metadata and late transport generations cannot claim cleanup or replay unread', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
   const peer = await page.evaluateHandle(() => window.workspaceFixture.sockets[0]);
   await page.evaluate(() => window.workspaceFixture.sockets[0]?.onmessage?.({data: JSON.stringify({type: 'closed', reason: 'unavailable'})}));
@@ -183,14 +182,14 @@ test('expired/stale metadata and late transport generations cannot claim cleanup
   await peer.evaluate(socket => socket?.onmessage?.({data: JSON.stringify({type: 'output', data: btoa('late')})}));
   assert.equal(await page.locator('.soda-unread').count(), 0);
   await page.getByRole('button', {name: 'Attention (1)', exact: true}).waitFor();
-  assert.match(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || ''), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
+  assert.match(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
 });
 
-test('explicit New chooser creates once with name and correlated locator, not singleton storage', async t => {
+test('explicit New chooser reserves one named locator before creating, not singleton storage', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh());
   await create(page, 'Named build');
-  const result = await page.evaluate(() => ({frames: window.workspaceFixture.sockets.flatMap(s => s.sent.filter(f => f.action === 'create')), saved: sessionStorage.getItem('soda-spaces:v2:1'), legacy: sessionStorage.getItem('soda-terminal:1:p' + '1'.repeat(24))}));
-  assert.equal(result.frames.length, 1); assert.equal(result.frames[0]?.name, 'Named build'); assert.match(String(result.frames[0]?.request_id), /^[a-f0-9]{32}$/); assert.equal(result.legacy, null); assert(result.saved); assert(!result.saved.includes('synthetic-only'));
+  const result = await page.evaluate(() => ({frames: window.workspaceFixture.sockets.flatMap(s => s.sent.filter(f => f.action === 'create')), saved: sessionStorage.getItem('soda-spaces:v3:1'), legacy: sessionStorage.getItem('soda-terminal:1:p' + '1'.repeat(24))}));
+  assert.equal(result.frames.length, 1); assert.equal(result.frames[0]?.name, 'Named build'); assert.match(String(result.frames[0]?.id), /^[a-f0-9]{32}$/); assert(!('request_id' in (result.frames[0] || {}))); assert.equal(result.legacy, null); assert(result.saved); assert(!result.saved.includes('synthetic-only'));
 });
 test('End confirmation defaults Cancel and unknown cleanup preserves exact locator', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
@@ -201,8 +200,8 @@ test('End confirmation defaults Cancel and unknown cleanup preserves exact locat
   await page.keyboard.press('Escape'); assert.equal(await page.getByRole('dialog').count(), 0);
   await page.evaluate(() => window.workspaceFixture.setUnknownEnd()); await action(page, 'End terminal…');
   await page.getByRole('button', {name: 'End terminal', exact: true}).click();
-  await page.getByText('End is pending or unconfirmed.', {exact: false}).waitFor();
-  assert.match(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || ''), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
+  await page.getByText('End was not confirmed.', {exact: false}).waitFor();
+  assert.match(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''), /aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/);
 });
 test('changed actor invalidates siblings and clears private navigation observations', async t => {
   const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
@@ -272,40 +271,39 @@ test('legacy pending and unknown IDs never select/create a session', async t => 
   assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0); assert.equal(await page.locator('soda-terminal').count(), 0);
   assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-terminal:1:p' + '1'.repeat(24))), 'pending');
 });
-test('v1 hidden/unavailable records migrate without attachment; explicit navigation reuses their key', async t => {
+test('obsolete caches are ignored; native inventory still permits deliberate discovery', async t => {
   const page = await fixture(t);
-  const original = await page.evaluate(() => {const text = JSON.stringify({version: 1, entries: [{environmentId: 'p' + '1'.repeat(24), id: 'a'.repeat(32), hidden: true}, {environmentId: 'p' + '2'.repeat(24), requestId: 'd'.repeat(32), hidden: true}]}); sessionStorage.setItem('soda-spaces:v1:1', text); window.workspaceFixture.spaces.pop(); window.workspaceFixture.setComplete(false); return text;});
+  const original = await page.evaluate(() => {const text = JSON.stringify({version: 1, entries: [{environmentId: 'p' + '1'.repeat(24), id: 'a'.repeat(32)}, {requestId: 'd'.repeat(32)}]}); sessionStorage.setItem('soda-spaces:v1:1', text); sessionStorage.setItem('soda-spaces:v2:1', text); return text;});
   await page.evaluate(() => window.workspaceFixture.api.refresh());
-  const raw = await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1')); assert(raw); const saved = parseLayout(raw);
-  assert.equal(saved.entries.length, 2); assert.equal(focusedPane(saved).selected, null); assert.equal(await page.locator('soda-terminal').count(), 0);
-  assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0); assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v1:1')), original);
-  await page.evaluate(() => window.workspaceFixture.api.refresh()); assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1')), raw);
-  await openSession(page, 'Build'); const selected = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || ''));
-  assert.equal(focusedPane(selected).selected, saved.entries[0]?.key); assert.equal(selected.entries.length, 2);
+  assert.equal(await page.locator('soda-terminal').count(), 0); assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
+  await openSession(page, 'Build'); const saved = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''));
+  assert.equal(saved.entries.length, 1); assert.equal(saved.entries[0]?.locator.kind, 'existing');
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v1:1')), original); assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1')), original);
 });
-test('pending promotion keeps its owner key and native navigation restores exact saved selection', async t => {
-  const page = await fixture(t);
-  await page.evaluate(() => sessionStorage.setItem('soda-spaces:v1:1', JSON.stringify({version: 1, entries: [{environmentId: 'p' + '1'.repeat(24), requestId: 'a'.repeat(32)}, {environmentId: 'p' + '1'.repeat(24), id: 'b'.repeat(32)}]})));
-  await page.evaluate(() => window.workspaceFixture.api.refresh()); await page.locator('.is-connected').waitFor();
-  const saved = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || ''));
-  assert.equal(saved.entries[0]?.locator.kind, 'existing'); assert.equal(await page.locator('.soda-workspace-terminal').getAttribute('id'), 'soda-owner-' + saved.entries[0]?.key);
-  await openSession(page, 'Edit'); const chosen = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || '')); assert.equal(focusedPane(chosen).selected, saved.entries[1]?.key);
+test('current arrangement restores the exact selected ID and owner key, never a replacement', async t => {
+  const page = await fixture(t); await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await openSession(page, 'Build'); await openSession(page, 'Edit');
+  const saved = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''));
+  const selected = focusedPane(saved).selected; assert(selected);
   await page.reload(); await page.waitForFunction(() => !!window.createWorkspaceFixture);
   await page.evaluate(async () => {window.workspaceFixture = window.createWorkspaceFixture('native'); await window.workspaceFixture.api.ready; await window.workspaceFixture.api.refresh();}); await page.locator('.is-connected').waitFor();
-  assert.equal(await page.locator('.soda-workspace-terminal').getAttribute('id'), 'soda-owner-' + saved.entries[1]?.key);
+  assert.equal(await page.locator('.soda-workspace-terminal').getAttribute('id'), 'soda-owner-' + selected);
   assert.deepEqual(await page.evaluate(() => window.workspaceFixture.sockets.map(s => s.sent[0]?.id)), ['b'.repeat(32)]);
-  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.body?.action === 'return').length), 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
 });
-for (const raw of ['{', JSON.stringify({version: 3}), ' '.repeat(32769)]) test('invalid v2 preserves bytes without v1 fallback: ' + raw.length, async t => {
-  const page = await fixture(t); await page.evaluate(raw => {sessionStorage.setItem('soda-spaces:v2:1', raw); sessionStorage.setItem('soda-spaces:v1:1', JSON.stringify({version: 1, entries: [{environmentId: 'p' + '1'.repeat(24), id: 'a'.repeat(32)}]}));}, raw);
-  await page.evaluate(() => window.workspaceFixture.api.refresh()); assert.equal(await page.locator('soda-terminal').count(), 0); await create(page);
-  assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1')), raw); assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
+for (const raw of ['{', JSON.stringify({version: 2}), ' '.repeat(32769)]) test('corrupt/obsolete current cache resets without native effects: ' + raw.length, async t => {
+  const page = await fixture(t); await page.evaluate(raw => sessionStorage.setItem('soda-spaces:v3:1', raw), raw);
+  await page.evaluate(() => window.workspaceFixture.api.refresh()); assert.equal(await page.locator('soda-terminal').count(), 0);
+  const empty = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || '')); assert.equal(empty.entries.length, 0);
+  assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter(c => c.method !== 'GET').length), 0);
+  await create(page); const saved = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''));
+  assert.equal(saved.entries.length, 1); assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1);
 });
-test('failed v2 write preserves v1 and live terminals', async t => {
+test('storage write failure does not disable the live workspace', async t => {
   const page = await fixture(t);
-  const raw = await page.evaluate(() => {const raw = JSON.stringify({version: 1, entries: [{environmentId: 'p' + '1'.repeat(24), id: 'a'.repeat(32)}]}); sessionStorage.setItem('soda-spaces:v1:1', raw); const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key, value) {if (key.startsWith('soda-spaces:v2:')) throw new DOMException('Quota exceeded', 'QuotaExceededError'); write.call(this, key, value);}; return raw;});
-  await page.evaluate(() => window.workspaceFixture.api.refresh()); await page.locator('.is-connected').waitFor();
-  assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v1:1')), raw); assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1')), null);
+  await page.evaluate(() => {const write = Storage.prototype.setItem; Storage.prototype.setItem = function(key, value) {if (key.startsWith('soda-spaces:v3:')) throw new DOMException('Quota exceeded', 'QuotaExceededError'); write.call(this, key, value);};});
+  await page.evaluate(() => window.workspaceFixture.api.refresh()); await openSession(page, 'Build');
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1')), null);
   await page.evaluate(() => window.workspaceFixture.api.refresh()); assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 1); await page.getByText('Live workspace remains usable', {exact: false}).waitFor();
 });
 test('real xterm owners survive pane moves, keyboard divider, maximize, compact and consolidation without effects', async t => {
@@ -324,14 +322,14 @@ test('real xterm owners survive pane moves, keyboard divider, maximize, compact 
   assert.equal(await page.locator('.soda-workspace-tabs .soda-unread').count(), 0);
   await page.waitForFunction(() => window.workspaceFixture.sockets.every(s => {const resize = s.sent.filter(f => f.type === 'resize').at(-1); return Number(resize?.cols) >= 56 && Number(resize?.rows) >= 12;}));
   await page.getByRole('separator', {name: 'Resize panes', exact: true}).press('ArrowLeft');
-  const stored = await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1'));
+  const stored = await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1'));
   await paneAction(page, 'Maximize pane'); assert.equal(await page.locator('.soda-pane-chrome').count(), 1);
   await paneAction(page, 'Restore panes'); assert.equal(await page.locator('.soda-pane-chrome').count(), 2);
   await page.setViewportSize({width: 720, height: 900}); await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 1);
-  assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1')), stored);
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1')), stored);
   await page.getByLabel('Focused pane', {exact: true}).selectOption({label: 'Pane 1'});
   await page.getByRole('group', {name: 'Pane 1', exact: true}).waitFor();
-  const compactSelection = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || ''));
+  const compactSelection = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''));
   assert.deepEqual(compactSelection.tree, parseLayout(stored || '').tree);
   assert.equal(compactSelection.sidebar, parseLayout(stored || '').sidebar);
   await page.setViewportSize({width: 1920, height: 1440}); await page.waitForFunction(() => document.querySelectorAll('.soda-pane-chrome').length === 2);
@@ -347,10 +345,10 @@ test('sidebar bounds, tab overflow, pointer reorder and edge split preserve owne
   const sidebar = page.getByRole('separator', {name: 'Resize project sidebar', exact: true});
   await sidebar.press('End'); assert.equal(await sidebar.getAttribute('aria-valuenow'), '360');
   const box = await sidebar.boundingBox(); assert(box); await page.mouse.move(box.x + 3, box.y + 80); await page.mouse.down(); await page.mouse.move(230, box.y + 80); await page.mouse.up();
-  const layout = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || ''));
+  const layout = parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || ''));
   assert(layout.sidebar !== null && layout.sidebar >= 220 && layout.sidebar < 360);
   await page.getByLabel('Workspace options', {exact: true}).click(); await page.getByRole('button', {name: 'Toggle sidebar', exact: true}).click();
-  assert.equal(parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v2:1') || '')).sidebar, null);
+  assert.equal(parseLayout(await page.evaluate(() => sessionStorage.getItem('soda-spaces:v3:1') || '')).sidebar, null);
   await page.keyboard.press('Escape'); await page.getByLabel('Open tabs', {exact: true}).click(); await page.getByLabel('Find an open tab', {exact: true}).fill('Build');
   assert.equal(await page.locator('.soda-tab-overflow button:visible').count(), 1); await page.locator('.soda-tab-overflow button:visible').click();
   assert.equal(await page.getByRole('tab', {name: 'Build · alice/Alpha', exact: true}).getAttribute('aria-selected'), 'true');

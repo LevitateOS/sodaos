@@ -198,7 +198,8 @@ effects; do not assume an old target inventory or replay completed maintenance.
 2. Before replacing active management writers or stopping shared services, close
    their affected admission paths and drain actual pending writers. Replacing a file
    does not stop an old process. Follow the [terminal shutdown contract](terminal-integration.md#managed-terminal-implementation-and-proof-limits)
-   for managed-session quiescence and the [runner compatibility contract](runners-port.md#paired-artifact-compatibility)
+   for the actual deployed representation (old guard-owned sessions are not silently
+   converted to native ownership) and the [runner compatibility contract](runners-port.md#paired-artifact-compatibility)
    for shared CLI/web writers; do not silently stop ordinary workloads or jobs.
 3. Take appropriate fresh consistent backups of affected state and matching
    config/key/artifact/unit/custom-file inputs. The [credential migration contract](dashboard-credentials.md#controlled-existing-state-rehearsal-before-live-deployment)

@@ -891,7 +891,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e84aa7ae8be7321fcea7fe819ade3f84f0a38b7bc16564309b1d8e4de4cc1d31",
+      "beforeRoleHash": "507233bd73d9f6ac01ab09a4b98516943b9eba0eeb5fd3962bfe7b0c5b0482b2",
       "presentationReview": "Retain Tailnet runtime entry/drawer suppression and the newer repository-switcher script, preserving notification, repository and signed-in gates.",
       "upstreamCallers": [
         "base/footer.tmpl"
@@ -920,7 +920,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "6fbfdbe5ccd5ab648d06eabd0075b9ae5291d572ac8b1945b7cdcc97fed19e6d",
+      "beforeRoleHash": "de6edc77af6cf4df2b020c6b214b441b62d441532c96fb5c9007ca8201caf64c",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -7815,7 +7815,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "b12b97bad071da8cda52d073254144c34d423f3ec10d63becb0d40f4277410a4",
+      "beforeRoleHash": "caf1178b86bec015c56e27ec3b36beb008a3c42644df56ae7fc0e076cdd99bf7",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Merge bounded Tailnet selector, localized labels and lazy assets with the redesigned ordinary dashboard; preserve native account/context and repository-ID gates."

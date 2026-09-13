@@ -7,7 +7,7 @@ import {renderMenu, renderSessionTab, renderProjectNavigation, renderRename, ren
 import {mountProjectControls} from './sodaspaces-project.js';
 import {mountTerminal} from './sodaspaces-terminal.js';
 import type {TerminalContext, TerminalLocator} from './sodaspaces-terminal.js';
-import {emptyLayout, focusedPane, paneFor, selectTab, hideTab, putEntry, forgetEntry, sameLocator, parseLayout, migrateLayout, serializeLayout, layoutLimit, panes, splitPane, moveTab, resizeSplit, consolidate, projectLayout} from './sodaspaces-layout.js';
+import {emptyLayout, focusedPane, paneFor, selectTab, hideTab, putEntry, forgetEntry, sameLocator, parseLayout, serializeLayout, layoutLimit, panes, splitPane, moveTab, resizeSplit, consolidate, projectLayout} from './sodaspaces-layout.js';
 import type {WorkspaceLayout, LayoutEntry, Pane, Split, Area, Minimum, DividerArea} from './sodaspaces-layout.js';
 import {check, id, object, readSodaJSON, sessionResponse, spacesResponse, terminalResponse, terminalMetadata, terminalID} from './sodaspaces-api.js';
 import type {Space, TerminalMetadata} from './sodaspaces-api.js';
@@ -155,7 +155,7 @@ export class SodaSpaces extends LitElement {
   private disposed = false;
   private restored = false;
   private storageLoaded = false;
-  private storageWritable = true;
+  private session: ReturnType<typeof sessionResponse> | undefined;
   private available = false;
   private surfaceVisible = true;
   private storageKey = '';
@@ -222,7 +222,7 @@ export class SodaSpaces extends LitElement {
       ...context
     };
     this.factory = factory;
-    this.storageKey = 'soda-spaces:v2:' + context.expectedUserId;
+    this.storageKey = 'soda-spaces:v3:' + context.expectedUserId;
     window.addEventListener('soda-session-retired', () => this.invalidate(), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal
@@ -240,7 +240,7 @@ export class SodaSpaces extends LitElement {
       signal: this.lifetime.signal
     });
     // One mounted-workspace timer, never a navbar poller. GET refresh uses the
-    // existing bounded/cancellable caller, and cannot Return or create work.
+    // existing bounded/cancellable caller, and cannot create work.
     this.attentionTimer = window.setInterval(() => {
       if (this.stale || this.disposed)
         return;
@@ -457,11 +457,7 @@ export class SodaSpaces extends LitElement {
       return [];
     const entries = this.layout.entries.filter(e => e.environmentId === space.environment.id), seen = new Set<string>();
     const rows = space.terminals.map(metadata => {
-      const entry = entries.find(e => sameLocator(e.locator, {
-        kind: 'existing', id: metadata.id
-      }) || sameLocator(e.locator, {
-        kind: 'pending', requestId: metadata.request_id
-      }));
+      const entry = entries.find(e => sameLocator(e.locator, {kind: 'existing', id: metadata.id}));
       if (entry)
         seen.add(entry.key);
       const observed = this.slots.find(s => s.key === entry?.key)?.metadata || metadata;
@@ -488,9 +484,8 @@ export class SodaSpaces extends LitElement {
     const shown = this.attentionOnly ? rows.filter(row => this.rowAttention(space, row)) : rows;
     return renderProjectNavigation(this.projectName(space), (space.authority_unavailable || space.native_unavailable ? 'Status unavailable' : space.observed?.running ? 'Running' : 'Stopped') + (space.tailnet_state ? ' · Tailnet policy: ' + space.tailnet_state : ''), shown.map(row => ({
       key: row.key, name: this.rowName(row), unread: !!this.slots.find(slot => slot.key === row.key)?.unread, attention: this.rowAttention(space, row),
-      description: row.metadata?.retain_until ? 'Kept until ' + new Date(row.metadata.effective_until * 1000).toLocaleTimeString()
-        : row.metadata && row.metadata.state !== 'ready' ? row.metadata.state
-          : row.entry && !paneFor(this.layout.tree, row.entry.key) ? 'Hidden; review current lifetime' : row.entry ? 'In this window' : '',
+      description: row.metadata && row.metadata.state !== 'ready' ? row.metadata.state
+        : row.entry && !paneFor(this.layout.tree, row.entry.key) ? 'Hidden' : row.entry ? 'In this window' : '',
       disabled: this.stale || !this.available || !space.login || space.authority_unavailable,
       select: () => {
         if (row.entry)
@@ -690,13 +685,8 @@ export class SodaSpaces extends LitElement {
       'X-Soda-Expected-User-ID': actor
     };
     if (body) {
-      const current = sessionResponse(await this.api('/api/session', undefined, signal), location.origin);
-      if (current.user.id !== actor) {
-        this.invalidate();
-        throw Error('Soda actor changed');
-      }
-      check(!this.stale && !this.disposed && !signal?.aborted);
-      headers['X-CSRF-Token'] = current.csrf_token;
+      check(this.session?.user.id === actor);
+      headers['X-CSRF-Token'] = this.session.csrf_token;
       headers['Content-Type'] = 'application/json';
     }
     const response = await fetch('/-/soda' + path, {
@@ -724,14 +714,17 @@ export class SodaSpaces extends LitElement {
     const request = this.request = new AbortController();
     const timer = window.setTimeout(() => request.abort(), 15000);
     try {
-      const session = sessionResponse(await this.api('/api/session', undefined, request.signal), location.origin);
-      if (!this.live(n))
-        return;
-      if (session.user.id !== this.binding.expectedUserId) {
-        this.invalidate();
-        return;
+      if (!this.session) {
+        const session = sessionResponse(await this.api('/api/session', undefined, request.signal), location.origin);
+        if (!this.live(n))
+          return;
+        if (session.user.id !== this.binding.expectedUserId) {
+          this.invalidate();
+          return;
+        }
+        this.session = session;
       }
-      const collection = spacesResponse(await this.api('/api/spaces', undefined, request.signal), session.user.id);
+      const collection = spacesResponse(await this.api('/api/spaces', undefined, request.signal), this.binding.expectedUserId);
       if (!this.live(n))
         return;
       this.spaces = collection.items;
@@ -788,19 +781,15 @@ export class SodaSpaces extends LitElement {
       const current = sessionStorage.getItem(this.storageKey);
       if (current !== null)
         this.layout = parseLayout(current);
-      else {
-        const legacy = sessionStorage.getItem('soda-spaces:v1:' + this.binding?.expectedUserId);
-        if (legacy !== null)
-          this.layout = migrateLayout(legacy, () => crypto.randomUUID());
-      }
     }
     catch {
-      this.storageWritable = false;
-      this.storageNotice = 'Stored workspace is invalid, obsolete or inaccessible. No locators were guessed or overwritten.';
+      this.layout = emptyLayout(crypto.randomUUID());
+      this.storageNotice = 'Stored layout was reset. Native terminals remain discoverable; no work was created or ended.';
+      this.persist();
     }
   }
   private persist() {
-    if (!this.storageWritable || !this.storageLoaded || this.stale || this.disposed)
+    if (!this.storageLoaded || this.stale || this.disposed)
       return false;
     try {
       sessionStorage.setItem(this.storageKey, serializeLayout(this.layout));
@@ -849,35 +838,6 @@ export class SodaSpaces extends LitElement {
     }
   }
   private async restoreLocators(n: number, signal: AbortSignal) {
-    if (this.storageWritable)
-      for (const space of this.spaces) {
-        if (!this.live(n) || signal.aborted)
-          return;
-        try {
-          const legacy = sessionStorage.getItem(`soda-terminal:${this.binding?.expectedUserId}:${space.environment.id}`);
-          if (legacy === 'pending' || legacy?.startsWith('pending:'))
-            this.storageNotice = 'An older creation outcome remains unconfirmed. Its locator was preserved; no session was guessed or creation retried.';
-          if (!terminalID(legacy) || this.layout.entries.some(e => sameLocator(e.locator, {
-            kind: 'existing', id: legacy
-          })) || this.layout.entries.length >= layoutLimit || space.authority_unavailable || !space.login)
-            continue;
-          const metadata = terminalResponse(await this.api(`/api/environments/${space.environment.id}/terminal-sessions/${legacy}`, undefined, signal), this.identity(space));
-          if (!this.live(n) || signal.aborted)
-            return;
-          if (metadata?.id !== legacy || metadata.state === 'ended')
-            continue;
-          const entry: LayoutEntry = {
-            key: crypto.randomUUID(), environmentId: space.environment.id, locator: {
-              kind: 'existing', id: legacy
-            }
-          };
-          this.layout = putEntry(this.layout, entry);
-          if (!this.selected)
-            this.layout = selectTab(this.layout, entry.key);
-        }
-        catch { /* Optional legacy import cannot replace known working-set locators. */
-        }
-      }
     await this.updateComplete;
     this.measure();
     await this.updateComplete;
@@ -901,7 +861,7 @@ export class SodaSpaces extends LitElement {
     const slot = this.slots.find(s => s.key === key), entry = this.layout.entries.find(e => e.key === key);
     if (entry)
       this.spaces = this.spaces.map(space => space.environment.id !== entry.environmentId ? space : {
-        ...space, terminals: space.terminals.filter(metadata => !(entry.locator.kind === 'existing' && metadata.id === entry.locator.id || entry.locator.kind === 'pending' && metadata.request_id === entry.locator.requestId))
+        ...space, terminals: space.terminals.filter(metadata => !(entry.locator.kind === 'existing' && metadata.id === entry.locator.id))
       });
     this.layout = forgetEntry(this.layout, key);
     this.slots = this.slots.filter(s => s.key !== key);
@@ -947,8 +907,9 @@ export class SodaSpaces extends LitElement {
     }
   }
   private identity(space: Space): TerminalContext {
+    check(this.session);
     return {
-      expectedUserId: this.binding?.expectedUserId || '', repositoryId: space.environment.repository_id, environmentId: space.environment.id, login: space.login, projectName: this.projectName(space)
+      csrfToken: this.session.csrf_token, expectedUserId: this.binding?.expectedUserId || '', repositoryId: space.environment.repository_id, environmentId: space.environment.id, login: space.login, projectName: this.projectName(space)
     };
   }
   private async addSlot(space: Space, entry: LayoutEntry, metadata?: TerminalMetadata): Promise<Slot | undefined> {
@@ -986,17 +947,9 @@ export class SodaSpaces extends LitElement {
         this.confirmedEnd(key);
         return;
       }
-      let locator: TerminalLocator;
-      if (typeof value === 'string' && value.startsWith('pending:') && terminalID(value.slice(8)))
-        locator = {
-          kind: 'pending', requestId: value.slice(8)
-        };
-      else if (terminalID(value))
-        locator = {
-          kind: 'existing', id: value
-        };
-      else
+      if (!terminalID(value))
         return;
+      const locator: TerminalLocator = {kind: 'existing', id: value};
       try {
         this.layout = putEntry(this.layout, {
           key, environmentId: binding.environmentId, locator
@@ -1015,7 +968,7 @@ export class SodaSpaces extends LitElement {
       try {
         const note = terminalObservation(event.detail), locator = this.locator(slot);
         if (!note || note.generation < (slot.observation?.generation || 0) ||
-          locator.kind === 'existing' && note.id !== locator.id || locator.kind === 'pending' && note.requestId !== locator.requestId)
+          locator.kind === 'existing' && note.id !== locator.id)
           return;
         if (note.kind === 'output') {
           if (!this.visibleSlot(slot) && !slot.unread) {
@@ -1220,11 +1173,9 @@ export class SodaSpaces extends LitElement {
       });
     }
   }
-  private async hideSlot(slot: Slot) {
-    if (this.stale || this.disposed)
-      return;
-    this.arrange(hideTab(this.layout, slot.key));
-    await slot.terminal.retain();
+  private hideSlot(slot: Slot) {
+    if (!this.stale && !this.disposed)
+      this.arrange(hideTab(this.layout, slot.key));
   }
   private async createTerminal() {
     const draft = this.creation;
@@ -1263,11 +1214,7 @@ export class SodaSpaces extends LitElement {
     if (this.stale || this.disposed || !this.activeSurface || !this.available || space.authority_unavailable)
       return;
     try {
-      let entry = this.layout.entries.find(e => sameLocator(e.locator, {
-        kind: 'existing', id: metadata.id
-      }) || sameLocator(e.locator, {
-        kind: 'pending', requestId: metadata.request_id
-      }));
+      let entry = this.layout.entries.find(e => sameLocator(e.locator, {kind: 'existing', id: metadata.id}));
       if (entry)
         check(entry.environmentId === space.environment.id);
       else {
@@ -1351,16 +1298,8 @@ export class SodaSpaces extends LitElement {
   setVisible(visible: boolean) {
     this.surfaceVisible = visible;
     this.display();
-  }
-  async retain() {
-    await Promise.all(this.slots.map(s => s.terminal.retain()));
-  }
-  async returnToWork() {
-    if (!this.restored)
-      await this.refresh();
-    const slot = this.slots.find(s => s.key === this.selected);
-    if (!this.stale && this.surfaceVisible && this.view === 'terminal' && !this.closest('[hidden]') && slot?.metadata?.retain_until && (slot.metadata.state === 'ready' || slot.metadata.state === 'opening'))
-      await slot.terminal.returnToWork();
+    if (visible && !this.restored)
+      void this.refresh();
   }
   invalidate() {
     if (this.stale)
@@ -1406,7 +1345,7 @@ export function mountSodaspaces(root: HTMLElement, context: WorkspaceContext, fa
   root.append(box);
   return {
     get canRestore() { return box.canRestore; },
-    markViewed: () => box.markViewed(), setVisible: (visible: boolean) => box.setVisible(visible), refresh: () => box.refresh(), invalidate: () => box.invalidate(), retain: () => box.retain(), returnToWork: () => box.returnToWork(), get ready() {
+    markViewed: () => box.markViewed(), setVisible: (visible: boolean) => box.setVisible(visible), refresh: () => box.refresh(), invalidate: () => box.invalidate(), get ready() {
       return box.updateComplete;
     }, dispose: () => box.dispose()
   };

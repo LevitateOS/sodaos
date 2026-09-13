@@ -74,7 +74,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	}
 	err = strictjson.Decode(f, &request)
 	f.Close()
-	if err != nil || request.Protocol != "managed-tmux-v1" || !containerID.MatchString(request.Container) || request.Target != hostname || os.Getenv("SODA_NATIVE_VALIDATE") != hostname || !projectID.MatchString(request.Project) || len(request.Accounts) != 2 {
+	if err != nil || request.Protocol != "native-owned-tmux-v2" || !containerID.MatchString(request.Container) || request.Target != hostname || os.Getenv("SODA_NATIVE_VALIDATE") != hostname || !projectID.MatchString(request.Project) || len(request.Accounts) != 2 {
 		t.Fatal("native target/account scope mismatch")
 	}
 	seen := map[int64]bool{}
@@ -130,17 +130,19 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		}
 		return hex.EncodeToString(value[:])
 	}
-	openManaged := func(client *Client, in TerminalRequest) (*Terminal, *Terminal) {
-		in.Action = "create"
-		owner, err := client.OpenTerminal(ctx, in)
-		if err != nil {
-			t.Fatal("managed owner unavailable")
+	openManaged := func(client *Client, in TerminalRequest) *Terminal {
+		in.Action = "reserve"
+		in.Scope = newID() + newID()
+		if items, err := client.TerminalStates(ctx, in); err != nil || len(items) != 1 || items[0].State != "opening" {
+			t.Fatal("native allocation unavailable")
 		}
-		t.Cleanup(owner.Close)
-		if f, err := owner.Receive(ctx); err != nil || f.Type != "ready" {
+		t.Log("issued native locator", in.ID) // Never credentials/transcript; retained before Create.
+		in.Action = "create"
+		if items, err := client.TerminalStates(ctx, in); err != nil || len(items) != 1 || !items[0].Ready {
 			t.Fatal("managed creation unconfirmed")
 		}
 		in.Action = "attach"
+		in.Scope = ""
 		stream, err := client.OpenTerminal(ctx, in)
 		if err != nil {
 			t.Fatal("managed attach unavailable")
@@ -149,7 +151,17 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		if f, err := stream.Receive(ctx); err != nil || f.Type != "ready" {
 			t.Fatal("managed attachment unconfirmed")
 		}
-		return owner, stream
+		return stream
+	}
+	endManaged := func(in TerminalRequest) {
+		in.Action = "end"
+		in.Scope = ""
+		in.Cols = 0
+		in.Rows = 0
+		in.Expires = time.Now().Add(30 * time.Second).Unix()
+		if items, err := c.TerminalStates(ctx, in); err != nil || len(items) != 0 {
+			t.Fatal("native End unconfirmed; not retried")
+		}
 	}
 
 	// Output stays in bounded memory and is never attached to a test failure/log.
@@ -177,7 +189,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		return nil
 	}
 	// A genuine marker/actor mismatch must refuse without changing the account.
-	wrong := TerminalRequest{Action: "create", ID: newID(), Project: request.Project, Login: request.Accounts[0].Login, Identity: request.Accounts[1].Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
+	wrong := TerminalRequest{Action: "reserve", Scope: strings.Repeat("0", 64), ID: newID(), Project: request.Project, Login: request.Accounts[0].Login, Identity: request.Accounts[1].Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
 	denied, err := c.OpenTerminal(ctx, wrong)
 	if err != nil {
 		t.Fatal("native refusal transport unavailable")
@@ -190,7 +202,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	results := []map[string]any{}
 	for _, a := range request.Accounts {
 		in := TerminalRequest{ID: newID(), Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
-		owner, stream := openManaged(c, in)
+		stream := openManaged(c, in)
 		t.Log("checking native account facts", a.Identity)
 		command(stream, `/usr/bin/python3 -c 'import os,json,shutil; print("__SODA_FACTS__"+json.dumps({"uid":os.getuid(),"gid":os.getgid(),"resuid":os.getresuid(),"resgid":os.getresgid(),"groups":os.getgroups(),"home":os.environ.get("HOME"),"cwd":os.getcwd(),"tty":os.isatty(0),"pid":os.getppid(),"shell":os.environ.get("SHELL"),"mise":shutil.which("mise"),"podman":shutil.which("podman"),"mise_data":os.environ.get("MISE_DATA_DIR"),"mise_config":os.environ.get("MISE_GLOBAL_CONFIG_FILE"),"container_host":os.environ.get("CONTAINER_HOST")} ))'`)
 		value := waitText(stream, regexp.MustCompile(`(?m)^__SODA_FACTS__(\{[^\r\n]+\})\r?$`))
@@ -262,24 +274,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		if resumed[1] != strconv.Itoa(actual.PID) || observe() != start {
 			t.Fatal("reattach replaced shell state")
 		}
-		if err = owner.Send(ctx, TerminalFrame{Type: "close"}); err != nil {
-			t.Fatal("native End failed")
-		}
-		closeCtx, closeCancel := context.WithTimeout(ctx, 20*time.Second)
-		for {
-			frame, e := owner.Receive(closeCtx)
-			if e != nil {
-				closeCancel()
-				t.Fatal("native teardown receipt missing")
-			}
-			if frame.Type == "closed" {
-				if frame.Reason != "disconnected" {
-					t.Fatal("native teardown unconfirmed")
-				}
-				break
-			}
-		}
-		closeCancel()
+		endManaged(in)
 		stream.Close()
 		// Independent native process observation. PID is from the verified own shell,
 		// never a browser-supplied kill target. This probe never sends a PID signal.
@@ -298,11 +293,11 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		}
 		results = append(results, map[string]any{"login": a.Login, "identity": a.Identity, "native_account_tty_resize_interrupt": true, "same_shell_start_and_memory_after_reattach": true, "ended_attach_refused": true, "sudo_boundary": true, "login_exit_observed": true})
 	}
-	// Exercise real remote teardown, not just a closed WebSocket or dead host CLI.
-	// Foreground jobs and login PIDs are read back through an independent exec.
-	teardown := []map[string]any{}
-	for i, mode := range []string{"transport-eof", "silent-lease", "helper-killed"} {
-		t.Log("checking native teardown", mode)
+	// Attachment loss must preserve native work. Verify exact process start
+	// identities independently before explicit End; a dead client is not proof.
+	losses := []map[string]any{}
+	for i, mode := range []string{"transport-eof", "silent-heartbeat", "helper-killed"} {
+		t.Log("checking native continuity", mode)
 		client := c
 		var child *exec.Cmd
 		if mode == "helper-killed" {
@@ -340,25 +335,34 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 			client = NewClient(childSocket)
 		}
 		a := request.Accounts[i%2]
-		owner, stream := openManaged(client, TerminalRequest{ID: newID(), Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()})
+		in := TerminalRequest{ID: newID(), Project: request.Project, Login: a.Login, Identity: a.Identity, Cols: 80, Rows: 24, Expires: time.Now().Add(90 * time.Second).Unix()}
+		stream := openManaged(client, in)
 		command(stream, `printf '__SODA_LOGIN__%s\n' "$$"`)
 		login := waitText(stream, regexp.MustCompile(`(?m)^__SODA_LOGIN__([1-9][0-9]*)$`))[1]
 		command(stream, `/usr/bin/python3 -u -c 'import os,time,pathlib; parent=pathlib.Path("/proc/"+str(os.getppid())+"/stat").read_text().rsplit(")",1)[1].split()[1]; print("__SODA_JOB__"+str(os.getpid())+":"+parent); time.sleep(180)'`)
 		owned := waitText(stream, regexp.MustCompile(`(?m)^__SODA_JOB__([1-9][0-9]*):([1-9][0-9]*)$`))
 		job, launcher := owned[1], owned[2]
+		observeStarts := func() string {
+			out, err := (Native{}).Run(ctx, nil, "/usr/bin/podman", "--remote=false", "exec", cid, "/usr/bin/python3", "-I", "-c", `import pathlib,sys; print(':'.join(pathlib.Path('/proc/'+p+'/stat').read_text().rsplit(')',1)[1].split()[19] for p in sys.argv[1:]))`, login, job, launcher)
+			if err != nil {
+				t.Fatal("independent process continuity unavailable")
+			}
+			return strings.TrimSpace(string(out))
+		}
+		starts := observeStarts()
 		started := time.Now()
 		switch mode {
 		case "transport-eof":
-			owner.Close()
-		case "silent-lease":
+			stream.Close()
+		case "silent-heartbeat":
 			for {
-				frame, err := owner.Receive(ctx)
+				frame, err := stream.Receive(ctx)
 				if err != nil {
-					t.Fatal("lease teardown receipt unavailable")
+					t.Fatal("attachment expiry unavailable")
 				}
 				if frame.Type == "closed" {
 					if frame.Reason != "expired" {
-						t.Fatal("lease teardown reason mismatch")
+						t.Fatal("attachment expiry reason mismatch")
 					}
 					break
 				}
@@ -369,26 +373,36 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 			}
 			_ = child.Wait()
 		}
-		until := started.Add(75 * time.Second)
+		stream.Close()
+		until := time.Now().Add(75 * time.Second)
 		for {
-			out, err := (Native{}).Run(ctx, nil, "/usr/bin/podman", "--remote=false", "exec", cid, "/usr/bin/python3", "-I", "-c", `import os,sys; print(int(any(os.path.exists('/proc/'+p) for p in sys.argv[1:])))`, login, job, launcher)
-			if err != nil {
-				t.Fatal("independent teardown observation failed")
+			check := in
+			check.Action = "inspect"
+			check.Cols = 0
+			check.Rows = 0
+			check.Expires = time.Now().Add(30 * time.Second).Unix()
+			items, err := c.TerminalStates(ctx, check)
+			if err != nil || len(items) != 1 || !items[0].Ready || observeStarts() != starts {
+				t.Fatal("attachment loss changed native work")
 			}
-			if strings.TrimSpace(string(out)) == "0" {
+			if !items[0].Attached {
 				break
 			}
 			if time.Now().After(until) {
-				t.Fatal("owned login/foreground job survived native deadline")
+				t.Fatal("attachment client did not release writer")
 			}
 			time.Sleep(time.Second)
 		}
-		stream.Close()
-		teardown = append(teardown, map[string]any{"mode": mode, "login_exit_observed": true, "foreground_exit_observed": true, "launcher_exit_observed": true, "elapsed_seconds": time.Since(started).Seconds()})
+		endManaged(in)
+		out, err := (Native{}).Run(ctx, nil, "/usr/bin/podman", "--remote=false", "exec", cid, "/usr/bin/python3", "-I", "-c", `import os,sys; print(int(any(os.path.exists('/proc/'+p) for p in sys.argv[1:])))`, login, job, launcher)
+		if err != nil || strings.TrimSpace(string(out)) != "0" {
+			t.Fatal("independent exact End cleanup unavailable")
+		}
+		losses = append(losses, map[string]any{"mode": mode, "native_start_identities_preserved": true, "writer_released": true, "explicit_end_cleanup_observed": true, "elapsed_seconds": time.Since(started).Seconds()})
 	}
 	// Independent SSH/workload preservation and browser integration are not
 	// fabricated by this private-helper test; observe them separately.
-	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "identity_mismatch_refused": true, "teardown": teardown, "scope": "managed tmux: account/TTY/profile/same-shell reattach/End/owner EOF/lease/helper-loss; not browser/editor/unrelated-service preservation"}, "", "  ")
+	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "identity_mismatch_refused": true, "attachment_loss": losses, "scope": "native-owned tmux: account/TTY/profile/same-shell reattach/attachment EOF/heartbeat/helper-loss continuity and explicit End; not browser/editor/unrelated-service preservation"}, "", "  ")
 	output, err := os.OpenFile(filepath.Join(dir, "terminal-proof.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		t.Fatal("native evidence finalization failed")

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import {loadRunnerInput, exerciseRunners, type RunnerEvidence} from './runners.ts';
 import {chromium, type Page, type BrowserContext, type Dialog, type WebSocket} from 'playwright';
-import {journeyInput, managementInput, object} from './sodaspaces-input.ts';
+import {matchesTerminalReservation, journeyInput, managementInput, object} from './sodaspaces-input.ts';
 import type {ManagementEvidence} from './sodaspaces-management.ts';
 import {projectView, newManagedTerminal, terminalMenu} from './sodaspaces-controls.ts';
 import {matrixInput} from './sodaspaces-matrix-input.ts';
@@ -163,7 +163,7 @@ try {
   let environmentReads = 0;
   let authorizations = 0;
   const writes = new Set(['/user/login', '/user/logout', '/login/oauth/grant', '/-/soda/api/session/logout']);
-  let accessWrite: {actor: string; path: string; body: string; method?: string; page?: Page} | null = null; // One exact expected request, consumed before transmission.
+  let accessWrite: {actor: string; path: string; body: string; reservationName?: string; method?: string; page?: Page} | null = null; // One exact expected request, consumed before transmission.
   async function guardedPage(pageContext: BrowserContext = context) {
     const p = await pageContext.newPage();
     p.on('close', () => {accessWrite=null;});
@@ -182,7 +182,8 @@ try {
           header('x-soda-logout') === '1' && input.users.some(user => user.id === header('x-soda-expected-user-id')) &&
           (request.method === 'GET' || (request.method === 'POST' && request.postData === '{}' && /^[A-Za-z0-9_-]{43}$/.test(header('x-csrf-token') || '')));
         const expectedAccess = !interrupted && !refusedRequest && accessWrite && (!accessWrite.page || accessWrite.page === p) && url.origin === origin.origin && !url.search &&
-          request.method === (accessWrite.method || 'POST') && url.pathname === accessWrite.path && request.postData === accessWrite.body &&
+          request.method === (accessWrite.method || 'POST') && url.pathname === accessWrite.path &&
+          (accessWrite.reservationName === undefined ? request.postData === accessWrite.body : matchesTerminalReservation(request.postData, accessWrite.reservationName)) &&
           Object.entries(request.headers || {}).some(([name, value]) => name.toLowerCase() === 'x-soda-expected-user-id' && value === accessWrite?.actor);
         if (expectedAccess) accessWrite = null;
         const denied = url.origin !== origin.origin ||
@@ -717,11 +718,14 @@ try {
       const active = () => {assert(!interrupted && !refusedRequest);};
       try {
         await exerciseWorkspaceMatrix(page, matrixRequest, index, (session, action) => {
-          active(); assert(!accessWrite && session.actor === user.id && terminalID(session.id));
-          assert(matrixRequest.actions.includes(action) && matrixRequest.projects.some(project => project.environment === session.environment));
-          assert(outcome.sessions.some(owned => owned.id === session.id && owned.environment === session.environment));
-          accessWrite = {actor: user.id, path: `/-/soda/api/environments/${session.environment}/terminal-sessions/${session.id}`,
-            body: JSON.stringify({action, ...(action === 'end' ? {} : {attachment_id: session.attachment})})};
+          active(); assert(!accessWrite && session.actor === user.id);
+          assert(matrixRequest.actions.includes(action === 'reserve' ? 'create' : action) && matrixRequest.projects.some(project => project.environment === session.environment));
+          if (action === 'reserve') {
+            accessWrite = {actor: user.id, path: `/-/soda/api/environments/${session.environment}/terminal-sessions`, body: '', reservationName: session.name};
+          } else {
+            assert(terminalID(session.id) && outcome.sessions.some(owned => owned.id === session.id && owned.environment === session.environment));
+            accessWrite = {actor: user.id, path: `/-/soda/api/environments/${session.environment}/terminal-sessions/${session.id}`, body: JSON.stringify({action})};
+          }
         }, {
           shell: async (_page, session, initialize) => {active(); return observer.shell(session, initialize);},
           inspect: async (project, actor, session, facts, ended) => {active(); await inspectMatrixProcess(matrixRequest, project, actor, session, facts, ended);},
@@ -752,12 +756,12 @@ try {
         assert(!url.search);
         sockets++;
         ws.on('close', () => { closed = true; });
+        ws.on('framesent', ({payload}) => {const frame = object(JSON.parse(String(payload))); if (frame.action === 'create') {assert(!target && url.pathname === `/-/soda/api/environments/${environment}/terminal` && terminalID(frame.id)); target = {environment, id: frame.id};}});
         ws.on('framereceived', ({payload}) => {
           // Inspect only a bounded transient buffer for our own structured facts.
           // Never retain terminal transcript, authentication frames or input.
           try {
             const frame = object(JSON.parse(typeof payload === 'string' ? payload : payload.toString()));
-            if (frame.type === 'session') {assert(!target && url.pathname === `/-/soda/api/environments/${environment}/terminal` && terminalID(frame.id)); target = {environment, id: frame.id}; return;}
             if (frame.type !== 'output' || typeof frame.data !== 'string') return;
             wire = (wire + Buffer.from(frame.data, 'base64').toString('utf8')).slice(-16384);
             const normalized = wire.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').replaceAll('\r', '');
@@ -776,7 +780,8 @@ try {
       };
       page.on('websocket', observe);
       stage = `terminal user ${index}: explicit real shell`;
-      assert(input.terminal_actions?.includes('create'));
+      assert(input.terminal_actions?.includes('create') && !accessWrite);
+      accessWrite = {actor:user.id, path:`/-/soda/api/environments/${environment}/terminal-sessions`, body:'', reservationName:marker};
       await newManagedTerminal(page, input.repository_path.slice(1), marker, environment);
       const code = "import os,pwd,json; print(" + JSON.stringify(marker + ':') + "+json.dumps(dict(login=pwd.getpwuid(os.getuid()).pw_name,uid=os.getuid(),gid=os.getgid(),groups=os.getgroups(),home=os.environ['HOME'],cwd=os.getcwd(),tty=os.isatty(0),shell_pid=os.getppid(),shell_start=open('/proc/%d/stat'%os.getppid()).read().split()[21])))";
       const command = "python3 -c '" + code.replaceAll("'", "'\\''") + "'";
@@ -805,7 +810,7 @@ try {
       permitTerminalEnd(user.id, endingTarget.environment, endingTarget.id);
       const ended = page.waitForResponse(r => new URL(r.url()).pathname === `/-/soda/api/environments/${endingTarget.environment}/terminal-sessions/${endingTarget.id}` && r.request().method() === 'POST');
       await page.getByRole('dialog', {name: 'End terminal confirmation', exact: true}).getByRole('button', {name: 'End terminal', exact: true}).click();
-      const endResponse = await ended; assert.equal(endResponse.status(), 200); assert.equal(object(await endResponse.json()).ending, true);
+      const endResponse = await ended; assert.equal(endResponse.status(), 200); const native = object(await endResponse.json()).terminal; assert(native === null || object(native).state === 'ended');
       result[`terminal_${index}_locator`] = target; // Locator only, not native cleanup proof.
       const closeDeadline = Date.now() + 10000;
       while (!closed && Date.now() < closeDeadline) await new Promise(resolve => setTimeout(resolve, 100));

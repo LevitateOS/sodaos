@@ -7,7 +7,7 @@ export function workspaceWidths(viewport: number, terminalMinimum: number, desir
   const minimum = Math.max(35, terminalMinimum / Math.max(1, viewport) * 100), maximum = Math.min(65, (viewport - 480) / Math.max(1, viewport) * 100);
   return {compact: minimum > maximum, minimum, maximum, actual: Math.max(minimum, Math.min(maximum, desired))};
 }
-export interface DrawerContent {readonly ready?: Promise<unknown>; refresh(): void | Promise<void>; dispose(): void; markViewed?(): void; setVisible?(visible: boolean): void; retain?(): void | Promise<void> | undefined; returnToWork?(): void | Promise<void> | undefined}
+export interface DrawerContent {readonly ready?: Promise<unknown>; refresh(): void | Promise<void>; dispose(): void; markViewed?(): void; setVisible?(visible: boolean): void}
 export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, context: Extract<WorkspaceContext, {kind: 'native'}>) => DrawerContent) {
   const roots = doc.querySelectorAll<HTMLElement>('#sodaspaces-root'), rows = doc.querySelectorAll('.repo-header .repo-buttons');
   if (roots.length !== 1 || rows.length > 1) return;
@@ -91,12 +91,12 @@ export function mountDrawer(doc: Document, mountContent?: (root: HTMLElement, co
       const focus = () => {
         if (departed || generation !== epoch || drawer.hidden || compact && surface !== 'terminal') return;
         if (doc.activeElement !== button && doc.activeElement !== close && doc.activeElement !== doc.body && !content.contains(doc.activeElement)) return;
-        void controller?.returnToWork?.(); controller?.markViewed?.(); (content.querySelector<HTMLElement>('[role=tab][aria-selected=true]') || close).focus();
+        controller?.markViewed?.(); (content.querySelector<HTMLElement>('[role=tab][aria-selected=true]') || close).focus();
       };
       if (mounted || controller?.ready) void Promise.resolve(mounted).then(() => controller?.ready).then(focus).catch(() => {if (!departed && generation === epoch && !drawer.hidden) {release(); content.textContent = 'Workspace could not render. Reload; no action was replayed.';}}); else focus();
     }
   };
-  const hide = () => {void controller?.retain?.(); drawer.hidden = true; doc.body.classList.remove('sodaspaces-open'); size(); button.setAttribute('aria-expanded', 'false'); persist(); button.focus();};
+  const hide = () => {drawer.hidden = true; doc.body.classList.remove('sodaspaces-open'); size(); button.setAttribute('aria-expanded', 'false'); persist(); button.focus();};
   const release = () => {++generation; loading = undefined; controller?.dispose(); controller = undefined; content.replaceChildren();};
   button.addEventListener('click', () => {if (drawer.hidden) show(true); else if (!departed) {surface = 'terminal'; size(); controller?.markViewed?.();}}, options); close.addEventListener('click', hide, options);
   forge.addEventListener('click', () => {surface = 'forge'; size(); if (nativeFocus?.isConnected && !nativeFocus.inert) nativeFocus.focus({preventScroll: true});}, options);

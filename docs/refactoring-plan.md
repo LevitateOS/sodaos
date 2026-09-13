@@ -40,8 +40,8 @@ service operations, provider requests, installation and publishing are not.
 | Coherent change | Status |
 | --- | --- |
 | D4–D8: Tailnet enrollment recovery, activation lifetime, independent Create, active credential storage and concrete interface checks | Implemented; focused Go, emitted Create/epoch, strict TS/Lit and presentation inventory checks passed. [Receipt](implementation-history.md#mechanism-removals--tailnet-and-helper-reads). Native proof/conversion remain separate. |
-| D1–D2: native-owned terminal lifetime and exact lookup; D9: current-only disposable workspace cache | Pending |
-| D3/D10: scoped uncertainty and bootstrap-only browser session acquisition | Pending |
+| D1–D2: native-owned terminal lifetime and exact lookup; D9: current-only disposable workspace cache | Implemented; native one-use allocation shares Create/End locking, no web owner/receipt registry, native inventory and v3 cache. Go/race, Python boundary doubles, emitted browser/geometry and strict TS/Lit checks passed. [Receipt](implementation-history.md#mechanism-removals--native-terminals-and-disposable-layout). No native proof/conversion. |
+| D3/D10: scoped uncertainty and bootstrap-only browser session acquisition | In progress: terminal/workspace bootstrap binding implemented; project/Runners/Tailnet callers and D3 remain pending. |
 | D11–D12: partial runner inventory and routine confirmations | Pending |
 | D13: concurrent bounded helper reads | Implemented; four fixed read-only routes bypass mutation admission; cancellation/writer-serialization checks passed. |
 

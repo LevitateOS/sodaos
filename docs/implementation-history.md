@@ -9197,3 +9197,60 @@ installation, publishing or retained-state conversion/cleanup occurred. Version-
 Tailnet policy/reference files and retired run-marker fields require separately
 authorized conversion; they are not silently rewritten or deleted. Remaining
 mechanism work is tracked only in the refactoring plan.
+
+## Mechanism removals — native terminals and disposable layout
+
+Continued from `3aa7ddb` in the canonical checkout: D1–D2/D9 and the terminal/workspace
+part of D10. Native systemd/tmux now owns shell lifetime; a short preparation hook
+replaces the root lifetime guard. It restores `exit-empty on` after `new-session`
+in the same tmux command queue. Root account/socket/cgroup checks and bounded
+attachment IO remain. Browser loss/logout/web-helper restart detach access, not
+native work; explicit End and project Stop retain their separate native scope.
+
+The single server-issued ID is allocated before Create, saved before transport and
+backed by a two-minute native one-use permission. Review found that a web-only permit
+could allow a paused helper Create to arrive after End or an absence read. Allocation
+and consumption therefore live with the native record under the same Create/End
+lock. Exact native inspection/inventory replaces web registry/receipt custody;
+consumed/expired/ended permissions cannot create again. A delayed-dial-versus-End
+regression covers that ordering. Actual work is bounded per project, unused
+allocations expire, and unknown retained layouts refuse rather than being converted.
+
+Removed request-ID/pending namespaces, owner transports, Keep/Return, retention
+and deadline attention. The browser uses its original bootstrap CSRF for actual
+operations. V3 layout is current-only/disposable; invalid cache resets without
+native effects, and native inventory supplies discovery. Owning API/terminal/layout,
+design and maintenance guides were updated, with duplicated old policies replaced
+by owner links. Native/installed probes were ported, not run; the private native
+probe now requires `native-owned-tmux-v2` and refuses old protocol inputs.
+
+Passed local checks on Go 1.27.1 / Darwin arm64 and pinned Bun 1.4.2:
+
+- Full `internal/host` and `internal/web` Go tests with local toolchain, readonly
+  modules and CGO disabled; focused `Terminal|Spaces|Admission` tests with `-race`
+  and CGO enabled also passed.
+- Python terminal suite: 21 protocol/temporary-filesystem/command-double checks
+  passed; 11 Linux attachment-process tests explicitly skipped because Darwin lacks
+  `os.pipe2`. No compatibility shim or native PTY claim was substituted.
+- `bun run build:forgejo`; 166 selected emitted-terminal/workspace/matrix, control,
+  build/epoch and presentation-inventory checks; 31 additional API/native-adapter
+  checks; strict TypeScript/Lit and the analyzer's positive/negative fixtures.
+- The opt-in **local synthetic** drawer geometry test passed its 20 width/theme/state
+  cases with real locked xterm. Its old Barlow-control expectation was corrected to
+  the existing canonical IBM Plex Mono control role; product styling was unchanged.
+- Go formatting and `git diff --check`. Changed-guide local-link scanning found one
+  unchanged predecessor-source link in the refactoring guide, not a new broken link.
+
+Earlier fixture failures were ported from the retired fields/actions and native-list
+contract; synthetic matrix reservation admission now checks the exact selected name
+and bounded measured geometry rather than guessing 80×24. Template changes are
+cache-epoch-only (`2026-09-13.mechanism-removal-2`) with reviewed normalized hashes.
+Logs: `.artifacts/mechanism-removal-8bd0af4/`; the existing drawer driver retained its
+screenshots under `.artifacts/spaces-step5-f28f86e/layout-1789265217517/`.
+
+No appliance/provider/job, service/VM lifecycle, fixture repair, installation,
+publishing, retained-state conversion or cleanup occurred. Native systemd/tmux
+normal-exit, startup/failure/capacity and continuity/security acceptance remain
+unproved. Retained guard-era work may still terminate on its owner's restart;
+it is not silently adopted by this candidate. D3, remaining D10 and D11–D12 remain
+in the owning workstream; no whole-change LOC saving is claimed yet.
