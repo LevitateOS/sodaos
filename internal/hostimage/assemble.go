@@ -230,7 +230,7 @@ func assembleMedia(ctx context.Context, p nativebuild.Production, r Request, loc
 	if err != nil {
 		return result, err
 	}
-	if err = signMediaInput(ctx, authority, trust, document, "dir", r.RepositoryPrefix+"-media", digest, filepath.Join(root, "input-signature")); err != nil {
+	if err = signMediaInput(ctx, authority, trust, document, "oci", r.RepositoryPrefix+"-media", digest, filepath.Join(root, "input-signature")); err != nil {
 		return result, err
 	}
 	for path, want := range inventory {
