@@ -24,8 +24,10 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-const hostSocket = "/var/run/tailscale/tailscaled.sock"
-const responseLimit = 65536
+const (
+	hostSocket    = "/var/run/tailscale/tailscaled.sock"
+	responseLimit = 65536
+)
 
 type Management struct {
 	policy   policyStore
@@ -101,6 +103,7 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	}
 	return b.buffer.Write(p)
 }
+
 func managementCommand(ctx context.Context, path string, args ...string) ([]byte, error) {
 	return RunNative(ctx, path, args...)
 }
@@ -119,6 +122,7 @@ func RunNative(ctx context.Context, path string, args ...string) ([]byte, error)
 	}
 	return out.buffer.Bytes(), nil
 }
+
 func (m *Management) request(ctx context.Context, method, path string, value any) ([]byte, error) {
 	var body []byte
 	if value != nil {
@@ -183,6 +187,7 @@ func addresses(v []string) ([]string, error) {
 	}
 	return out, nil
 }
+
 func peerView(p nativePeer) (Peer, error) {
 	if len(p.ID) > 128 || strings.ContainsAny(p.ID, "\r\n\x00") {
 		return Peer{}, ErrUnavailable
@@ -198,6 +203,7 @@ func peerView(p nativePeer) (Peer, error) {
 	ip, e := addresses(p.TailscaleIPs)
 	return Peer{p.ID, name, ip, p.Online, p.ExitNodeOption, p.Expired}, e
 }
+
 func nativeObject(data []byte, out any, required ...string) error {
 	var fields map[string]json.RawMessage
 	if strictjson.Decode(bytes.NewReader(data), &fields) != nil || fields == nil {
@@ -225,6 +231,7 @@ func nativeObject(data []byte, out any, required ...string) error {
 	}
 	return nil
 }
+
 func (m *Management) observe(ctx context.Context) (HostView, string, error) {
 	var s nativeStatus
 	var p nativePrefs
@@ -298,6 +305,7 @@ func (m *Management) observe(ctx context.Context) (HostView, string, error) {
 	}
 	return view, s.AuthURL, nil
 }
+
 func authenticationURL(raw string) string {
 	if len(raw) > 2048 {
 		return ""
@@ -308,6 +316,7 @@ func authenticationURL(raw string) string {
 	}
 	return u.String()
 }
+
 func (m *Management) Settings(ctx context.Context) (SettingsView, error) {
 	enrollment, err := m.policy.enrollment(ctx)
 	if err != nil {
@@ -322,18 +331,17 @@ func (m *Management) Settings(ctx context.Context) (SettingsView, error) {
 	}
 	return result, nil
 }
+
 func (m *Management) HostAction(ctx context.Context, r HostRequest) (HostResult, error) {
 	if r.Validate() != nil {
 		return HostResult{}, ErrInvalid
 	}
-	root, lock, err := m.policy.lock(ctx, r.Action != "authentication")
-	// Authentication observation doesn't initialize native policy storage.
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	unlock, err := m.lockPolicy(ctx, r.Action != "authentication")
+	if err != nil {
 		return HostResult{}, err
 	}
-	if root != nil {
-		defer root.Close()
-		defer lock.Close()
+	if unlock != nil {
+		defer unlock()
 	}
 	before, auth, err := m.observe(ctx)
 	if err != nil {
@@ -348,63 +356,122 @@ func (m *Management) HostAction(ctx context.Context, r HostRequest) (HostResult,
 	if err = ctx.Err(); err != nil {
 		return HostResult{}, ErrUnconfirmed
 	}
-	selectedExitNodeID := ""
+	selectedExitNodeID, err := m.executeHostAction(ctx, r, before)
+	if errors.Is(err, ErrConflict) {
+		return HostResult{}, ErrConflict
+	}
+	return m.readbackHostAction(ctx, r, selectedExitNodeID, err)
+}
+
+func (m *Management) lockPolicy(ctx context.Context, write bool) (func(), error) {
+	root, lock, err := m.policy.lock(ctx, write)
+	// Authentication observation doesn't initialize native policy storage.
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	if root == nil {
+		return nil, nil
+	}
+	return func() {
+		root.Close()
+		lock.Close()
+	}, nil
+}
+
+func (m *Management) executeHostAction(ctx context.Context, r HostRequest, before HostView) (string, error) {
 	switch r.Action {
 	case "signin":
-		if before.HaveNodeKey {
-			_, err = m.request(ctx, "PATCH", "prefs", map[string]bool{"WantRunning": true, "WantRunningSet": true})
-			if err == nil && (before.State == "NeedsLogin" || before.Expired) {
-				_, err = m.request(ctx, "POST", "login-interactive", nil)
-			}
-		} else {
-			var data []byte
-			wait, cancel := context.WithTimeout(ctx, 8*time.Second)
-			data, err = m.command(wait, DefaultCLI, "--socket="+hostSocket, "up", "--json", "--timeout=5s")
-			cancel()
-			// Decode complete bounded notifications; never emit native Error text.
-			if err == nil {
-				d := json.NewDecoder(bytes.NewReader(data))
-				for {
-					var message struct {
-						AuthURL string
-						Error   string
-					}
-					e := d.Decode(&message)
-					if e == io.EOF {
-						break
-					}
-					if e != nil || message.Error != "" {
-						err = ErrUnconfirmed
-						break
-					}
-				}
-			}
-		}
+		return "", m.executeSignin(ctx, before)
 	case "logout":
-		_, err = m.request(ctx, "POST", "logout", nil)
+		return "", m.executeLogout(ctx)
 	case "exit-node":
-		if *r.ExitNode != "" {
-			available := false
-			for _, peer := range before.Peers {
-				if peer.ExitNode && peer.Online && !peer.Expired {
-					for _, ip := range peer.Addresses {
-						if ip == *r.ExitNode {
-							available = true
-							selectedExitNodeID = peer.ID
-						}
-					}
+		return m.executeExitNode(ctx, r, before)
+	case "advertise-exit-node":
+		return "", m.executeAdvertiseExitNode(ctx, r)
+	case "refresh-forgejo":
+		return "", m.executeRefreshForgejo(ctx)
+	default:
+		return "", nil
+	}
+}
+
+func (m *Management) executeSignin(ctx context.Context, before HostView) error {
+	if before.HaveNodeKey {
+		_, err := m.request(ctx, "PATCH", "prefs", map[string]bool{"WantRunning": true, "WantRunningSet": true})
+		if err == nil && (before.State == "NeedsLogin" || before.Expired) {
+			_, err = m.request(ctx, "POST", "login-interactive", nil)
+		}
+		return err
+	}
+	wait, cancel := context.WithTimeout(ctx, 8*time.Second)
+	data, err := m.command(wait, DefaultCLI, "--socket="+hostSocket, "up", "--json", "--timeout=5s")
+	cancel()
+	if err != nil {
+		return err
+	}
+	return decodeUpNotifications(data)
+}
+
+// Decode complete bounded notifications; never emit native Error text.
+func decodeUpNotifications(data []byte) error {
+	d := json.NewDecoder(bytes.NewReader(data))
+	for {
+		var message struct {
+			AuthURL string
+			Error   string
+		}
+		e := d.Decode(&message)
+		if e == io.EOF {
+			break
+		}
+		if e != nil || message.Error != "" {
+			return ErrUnconfirmed
+		}
+	}
+	return nil
+}
+
+func (m *Management) executeLogout(ctx context.Context) error {
+	_, err := m.request(ctx, "POST", "logout", nil)
+	return err
+}
+
+func findAvailableExitNode(peers []Peer, targetIP string) (string, bool) {
+	for _, peer := range peers {
+		if peer.ExitNode && peer.Online && !peer.Expired {
+			for _, ip := range peer.Addresses {
+				if ip == targetIP {
+					return peer.ID, true
 				}
 			}
-			if !available {
-				return HostResult{}, ErrConflict
-			}
 		}
-		err = m.run(ctx, "set", "--exit-node="+*r.ExitNode, "--exit-node-allow-lan-access="+boolString(*r.AllowLAN))
-	case "advertise-exit-node":
-		err = m.run(ctx, "set", "--advertise-exit-node="+boolString(*r.Advertise))
-	case "refresh-forgejo":
-		_, err = m.command(ctx, installlayout.Libexec+"/soda-forgejo-tailnet")
 	}
+	return "", false
+}
+
+func (m *Management) executeExitNode(ctx context.Context, r HostRequest, before HostView) (string, error) {
+	selectedExitNodeID := ""
+	if *r.ExitNode != "" {
+		peerID, ok := findAvailableExitNode(before.Peers, *r.ExitNode)
+		if !ok {
+			return "", ErrConflict
+		}
+		selectedExitNodeID = peerID
+	}
+	err := m.run(ctx, "set", "--exit-node="+*r.ExitNode, "--exit-node-allow-lan-access="+boolString(*r.AllowLAN))
+	return selectedExitNodeID, err
+}
+
+func (m *Management) executeAdvertiseExitNode(ctx context.Context, r HostRequest) error {
+	return m.run(ctx, "set", "--advertise-exit-node="+boolString(*r.Advertise))
+}
+
+func (m *Management) executeRefreshForgejo(ctx context.Context) error {
+	_, err := m.command(ctx, installlayout.Libexec+"/soda-forgejo-tailnet")
+	return err
+}
+
+func (m *Management) readbackHostAction(ctx context.Context, r HostRequest, selectedExitNodeID string, actionErr error) (HostResult, error) {
 	result := HostResult{Outcome: "confirmed"}
 	after, auth, readErr := m.observe(ctx)
 	if readErr != nil {
@@ -412,34 +479,12 @@ func (m *Management) HostAction(ctx context.Context, r HostRequest) (HostResult,
 	} else {
 		result.Host = &after
 	}
-	if err != nil {
+	if actionErr != nil {
 		result.Outcome = "unconfirmed"
 	}
-	if readErr == nil && err == nil {
-		switch r.Action {
-		case "signin":
-			if !after.Preferences.WantRunning {
-				result.Outcome = "unconfirmed"
-			}
-		case "logout":
-			if after.State != "NeedsLogin" {
-				result.Outcome = "unconfirmed"
-			}
-		case "exit-node":
-			// Native resolveExitNodeIPLocked upgrades the selected IP to its
-			// stable ID and clears ExitNodeIP. Accept either native form; an
-			// empty requested IP must clear both, never match a retained ID.
-			matched := after.Preferences.ExitNodeID == selectedExitNodeID && after.Preferences.ExitNodeIP == ""
-			if *r.ExitNode != "" && after.Preferences.ExitNodeIP == *r.ExitNode {
-				matched = true
-			}
-			if !matched || after.Preferences.AllowLAN != *r.AllowLAN {
-				result.Outcome = "unconfirmed"
-			}
-		case "advertise-exit-node":
-			if after.Preferences.AdvertiseExitNode != *r.Advertise {
-				result.Outcome = "unconfirmed"
-			}
+	if readErr == nil && actionErr == nil {
+		if !verifyHostActionOutcome(r, after, selectedExitNodeID) {
+			result.Outcome = "unconfirmed"
 		}
 	}
 	if r.Action == "signin" && readErr == nil {
@@ -450,16 +495,45 @@ func (m *Management) HostAction(ctx context.Context, r HostRequest) (HostResult,
 	}
 	return result, nil
 }
+
+func verifyHostActionOutcome(r HostRequest, after HostView, selectedExitNodeID string) bool {
+	switch r.Action {
+	case "signin":
+		return after.Preferences.WantRunning
+	case "logout":
+		return after.State == "NeedsLogin"
+	case "exit-node":
+		return verifyExitNode(r, after, selectedExitNodeID)
+	case "advertise-exit-node":
+		return after.Preferences.AdvertiseExitNode == *r.Advertise
+	default:
+		return true
+	}
+}
+
+func verifyExitNode(r HostRequest, after HostView, selectedExitNodeID string) bool {
+	// Native resolveExitNodeIPLocked upgrades the selected IP to its
+	// stable ID and clears ExitNodeIP. Accept either native form; an
+	// empty requested IP must clear both, never match a retained ID.
+	matched := after.Preferences.ExitNodeID == selectedExitNodeID && after.Preferences.ExitNodeIP == ""
+	if *r.ExitNode != "" && after.Preferences.ExitNodeIP == *r.ExitNode {
+		matched = true
+	}
+	return matched && after.Preferences.AllowLAN == *r.AllowLAN
+}
+
 func boolString(b bool) string {
 	if b {
 		return "true"
 	}
 	return "false"
 }
+
 func (m *Management) run(ctx context.Context, args ...string) error {
 	_, e := m.command(ctx, DefaultCLI, append([]string{"--socket=" + hostSocket}, args...)...)
 	return e
 }
+
 func (m *Management) checkCredential(ctx context.Context, r EnrollmentRequest) error {
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, m.provider)
 	c := clientcredentials.Config{ClientID: r.ClientID, ClientSecret: r.ClientSecret, TokenURL: "https://api.tailscale.com/api/v2/oauth/token", Scopes: []string{"auth_keys"}, EndpointParams: url.Values{"tags": {strings.Join(r.Tags, " ")}}, AuthStyle: oauth2.AuthStyleInHeader}
@@ -470,13 +544,16 @@ func (m *Management) checkCredential(ctx context.Context, r EnrollmentRequest) e
 	token.AccessToken = ""
 	return nil
 }
+
 func (m *Management) Enrollment(ctx context.Context, r EnrollmentRequest) (EnrollmentResult, error) {
 	return m.policy.update(ctx, r, m.checkCredential)
 }
+
 func (m *Management) Options(ctx context.Context) (ProjectOptions, error) {
 	v, e := m.policy.enrollment(ctx)
 	return ProjectOptions{Revision: v.Revision, Binding: v.Binding, Tailnet: v.Tailnet, Available: v.RuntimeSupported && v.Configured && v.Admission, Default: v.RuntimeSupported && v.Admission && v.Default}, e
 }
+
 func (m *Management) Project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
 	return m.policy.project(ctx, r, cid)
 }
