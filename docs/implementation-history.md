@@ -15,6 +15,77 @@ not claims that those outputs are still retained.
 
 ---
 
+## B3 native bootstrap and builder admission
+
+B3 selected after `ea0dc92`. Working tree initially clean. Evidence:
+`.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/`. This work established concrete
+upstream inputs and the download authentication mechanism; it did **not** implement
+media assembly, generate a Soda ISO, boot a VM or write an installation disk.
+
+- Selected FCOS config `682c839aabbc01564f1605bb41687a7511180031` uses native
+  `coreos-livepxe-rootfs`: curl → `rdcore stream-hash` → bsdtar. OSBuild's inspected
+  live stage generates SHA-256 hashes for 2 MiB rootfs chunks and appends them to the
+  initramfs as `etc/coreos-live-want-rootfs`. The verifier withholds each chunk until
+  verified; service failure isolates to the native emergency target. The final
+  independently authenticated ISO anchors this chain. Upstream curl's intentional
+  lack of TLS certificate checking is not lack of content authentication and does
+  not authorize CoreOS Installer `--insecure` or unverified Ignition.
+- Native **six-case** gate test used the actual B2 candidate's
+  `/usr/lib/dracut/modules.d/50rdcore/rdcore` (CoreOS Installer bootinfra 0.26.0-2.fc44)
+  in rootless read-only/networkless containers, 2 CPUs / 2 GiB / 128 PIDs. A synthetic
+  24-byte stream with 8-byte chunks passed; changed first/second chunks, truncated,
+  extra and missing inputs failed. Only verified prefixes were emitted (0, 8, 16 or
+  24 bytes). No downloaded execution, network boot or 2 GiB-rootfs performance was
+  tested. Final results: `native-round3/result.json`.
+- Assembler discovery recorded multi-architecture index
+  `sha256:4266162f3c768ef2f88b88ded9a84a481f12000a12a5507eda10292f51ef5e52`.
+  The selected **amd64 manifest** is
+  `sha256:f010dce4d350c1588762bbd5b69d27e14dabe859043489c587dc4d429c067daf`,
+  config `sha256:d8c7ab121b11782ac0b190362e407094d2dadc98e6a96d8854081b40040cb764`,
+  source `53330beeb45bb0a6f51987fc8df243e8a62d62bd`. Raw manifest hash and native
+  inspected config match. Source is three commits ahead of the base producer;
+  changed paths are `renovate.json`, `src/cmd-build` and `src/konflux-rpm-lockfile`.
+  Copied native `cmd-import`, `cmd-osbuild` and `runvm-osbuild` exactly match the
+  already-reviewed `fa114018` files. This is not a Soda base/toolchain upgrade.
+- Native builder inspection: OSBuild/OSBuild-OSTree **191-1.fc44**, Installer
+  **0.26.0-3.fc44**, OSTree **2026.4**, rpm-ostree **2026.2**, supermin **5.3.5**,
+  QEMU **10.2.2**, Podman **5.8.4**, skopeo **1.22.2**, Python **3.14.7**, dracut
+  **108**. Exact NEVRAs and five native execution-file hashes are in
+  `assembler-admission.log`; source/file bindings in `checks.json`.
+- The temporary native OSBuild Python buildroot extracts Python from `BUILDER_IMG`.
+  Pinning that argument to this same builder avoids mutable tool lookup or a second
+  RPM transaction; this helper is not another shipping host/app build. Upstream
+  owns the disk manifests, osmet packing and filesystem operations. Packaging starts
+  helper VMs; read-only tool inspection does not grant that execution.
+- Native candidate CLI help confirms minimal extraction precedes customization,
+  `--live-ignition` is distinct from auto-installing `--dest-*`, and network keyfiles
+  apply before live Ignition. Minimal extraction removes `coreos.liveiso`; the old
+  `/run/media/iso`-dependent console loader cannot be carried over unchanged. These
+  are handoff findings, not boot/readback proof.
+
+Preserved failures: first RPM queries used two nonexistent builder package names
+(and stopped before hashing); a probe guessed `/usr/bin/rdcore` in the builder,
+where bootinfra is absent. The correct binary is in the actual candidate's dracut
+module. A read-only fixture mount initially hit SELinux isolation; only subsequent
+probe containers used `label=disable`, with a single public synthetic hash file
+mounted read-only. No host policy or file label changed. The second stream observer
+incorrectly expected 16 bytes for trailing input; all 24 original bytes are valid
+and only the appended bytes must be withheld. The third observer corrected that
+expectation; original inputs/logs/CIDs remain. No mutation was replayed to repair an
+observer and no disk/VM/lifecycle fixture was used.
+
+Native fixture proposal is recorded **pending**, not granted, in the owning
+[implementation status](implementation-status.md#b3-native-fixture-request--pending).
+Observations informing its proposed bounds: CPUs 0–15 available; approximately
+50 GiB RAM available, 501 GiB checkout-filesystem free and 39 GiB `/var/tmp` free;
+KVM/FUSE readable/writable. Selected loopback ports 19843–19846 had no listener.
+These are observations, not reservations. Native OVMF code/vars sizes are
+3,653,632 / 540,672 bytes; SHA256s
+`2981261a5991538ef2c9026a85aae2806fcd59712f76d45fbf7699a8208d1966` /
+`5d2ac383371b408398accee7ec27c8c09ea5b74a0de0ceea6513388b15be5d1e`.
+No candidate, prebuilt tool, protected signing state, retained VM, service, project,
+credential or database changed. No shipping source changed; B3 remains incomplete.
+
 ## B2 Go controller and native candidate
 
 Implemented in `42cba33`, pinned-toolchain correction `9837d3e`, and existing drawer

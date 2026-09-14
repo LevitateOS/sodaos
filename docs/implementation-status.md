@@ -16,13 +16,14 @@ not this implementation queue.
 **B1 source review identifies a native FCOS packaging/update route; not yet native-
 proved.** Assembler/OSBuild can consume the candidate for live/osmet packaging, and
 Zincati 0.0.32 supports OCI through rpm-ostree. A client-trust contract decision,
-matching builder capsule admission and exact native proof remain. Bootc filesystem
+native builder execution and exact installed proof remain. Bootc filesystem
 installation stays withdrawn. The owner now selects a
 [minimal network-install ISO](coreos-installer-plan.md#selected-media--minimal-network-install),
 not self-contained offline media; native download/bootstrap and size proof are still
 outstanding. **B2 is complete at its source-to-candidate scope:** the Go controller
-produced and verified native x86_64 candidate `4c62f68` in one run. B3–B6 have not
-started. B1's media/installed proof remains separate from this unsigned candidate.
+produced and verified native x86_64 candidate `4c62f68` in one run. B3 is in progress: native bootstrap authentication
+and executable builder inputs have been reviewed; VM packaging/install proof awaits
+its exact fixture grant. B4–B6 have not started. B1's media/installed proof remains separate from this unsigned candidate.
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -63,7 +64,13 @@ P3 exited 130, retained diagnostics and emitted no candidate. [Receipt](implemen
 
 ### 3. Make the ISO consume the candidate — B3
 
-**Not started.** Media-only assembly takes the exact signed host/app candidate and
+**In progress — native bootstrap/tool admission; assembly and installed proof open.**
+The native rootfs streaming verifier passed valid/corrupt/truncated/extra/missing-input
+checks. The exact x86_64 Assembler manifest and its live stage/tools are identified;
+no custom boot downloader is needed. No candidate ISO or installation has run.
+[Receipt](implementation-history.md#b3-native-bootstrap-and-builder-admission) and
+[pending fixture request](#b3-native-fixture-request--pending).
+Media-only assembly takes the exact signed host/app candidate and
 prebuilt tools. Prove minimal ISO size, authenticated network installation, media
 removal and first boot with the same digests used by updates; preserve the
 password-only wizard and disk safeguards.
@@ -117,14 +124,15 @@ admission, expiry/high-water and withdrawal semantics; no equivalence or permiss
 to weaken the existing contract is assumed. Do not implement a second client updater
 or publish an unsigned graph as a silent replacement for those checks.
 
-**Native proof prerequisites:** admit an exact Assembler container digest with the
-matching OSBuild/live-stage/tool versions; the reviewed source commit alone is not
-that executable pin. Then scope its supermin build VM and a fresh x86_64 install
-fixture. Required proof includes unchanged OCI input/installed digest, native osmet
-reconstruction after download, minimal ISO size and network-failure behavior, private
-Ignition/SELinux/boot, media removal and local availability of all five application images. The existing candidate needs versioned storage/
-import changes; it is not already a suitable complete fixture. No new VM request or
-lifecycle approval is inferred from the withdrawn experiment.
+**Native proof prerequisites:** B3 identified and inspected the exact x86_64
+Assembler manifest, OSBuild/live stage and tools. Its native streaming verifier
+passed scoped tests; the [installer owner](coreos-installer-plan.md#b3-native-download-authentication-handoff)
+records that handoff. The pending request below scopes its helper VMs and fresh
+installation targets; read-only inspection did not authorize them. Required proof
+includes unchanged OCI input/installed digest, native osmet reconstruction after
+download, minimal ISO size, network failures, private Ignition, enforcing SELinux,
+media removal and all-five local image availability. B2 implements v2 storage/import;
+B3 still must replace the legacy media/console continuation and prove its runtime.
 
 - Actual disk/VM installation, reboot and recovery need an exact native fixture,
   baseline, resource budget and lifecycle grant. Existing fixtures are not implicit
@@ -135,6 +143,62 @@ lifecycle approval is inferred from the withdrawn experiment.
 - Do not wait for public package visibility, ISO publishing, timer installation,
   automatic stable promotion, native aarch64 or retained-appliance migration to begin
   or complete the independently scoped replacement work.
+
+### B3 native fixture request — pending
+
+**Request only, not an existing grant.** The owner selected B3 source/local work;
+installation requires the following exact additional scope. This does not revive
+the withdrawn bootc experiment or extend retained grants.
+
+- **Targets:** new directories only under
+  `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/native/`, with
+  `package-{01,02,03}` and `install-{01,02,03}` attempts. Container/VM names
+  `soda-b3-package-ea0dc92-{01,02,03}` and `soda-b3-install-ea0dc92-{01,02,03}`;
+  no retained appliance, existing disk, project or database may be attached.
+- **Packaging:** up to three fresh upstream Assembler imports/live packaging runs,
+  using x86_64 manifest
+  `quay.io/coreos-assembler/coreos-assembler@sha256:f010dce4d350c1588762bbd5b69d27e14dabe859043489c587dc4d429c067daf`
+  and FCOS config `682c839aabbc01564f1605bb41687a7511180031`. Native `cosa import
+  --skip-prune`/OSBuild only; no bootc, Soda partition manifest or shipping rebuild.
+  Upstream's temporary Python buildroot takes Python from that same pinned builder
+  via `BUILDER_IMG`, not a mutable image or new RPM resolution.
+- **Packaging privileges:** rootless Podman with upstream-required namespace
+  `--privileged`, container-only `label=disable`, `/dev/kvm` and `/dev/fuse`. Mount
+  only the new work/cache/tmp roots and admitted inputs; do not mount the real
+  `/var/tmp`, home, signing custody, container storage or host block disks. No sudo,
+  host SELinux/firewall/trust change, registry auth/key exposure or global cleanup.
+  Upstream's helper VM uses its native permissive build environment; installed
+  candidate acceptance still requires enforcing SELinux.
+- **Inputs:** start with B2 candidate `4c62f68` (host manifest
+  `sha256:ac3071fcfb95bbb3a28b487d7b6ab74ba4038016a48f709bcf2ebc6850b9cd49`)
+  for packaging proof. Permit up to two replacement candidates from committed B3
+  source produced by the one Go controller against the unchanged locked x86_64 FCOS
+  base. Record exact candidate, tool and media hashes and local fixture-signature
+  admission before each VM use; never modify admitted bytes in place. No externally
+  supplied candidate or architecture/base substitution falls within this request.
+- **Resources:** one active VM at a time, CPU affinity 0–3 / at most four vCPUs,
+  up to 16 GiB RAM; up to three new 64 GiB sparse installation disks, fresh copies
+  of native OVMF variables, and upstream packaging's fresh 50 GiB cache / 10 GiB
+  supermin roots. Stop at four hours of native execution or 200 GiB aggregate new
+  allocated disk usage. These are proposed experiment bounds, not product budgets.
+- **Installation actions:** start fresh UEFI x86_64 guests, enter fixture-only
+  root passwords through the virtual keyboard, explicitly confirm erasure of only
+  their named blank disks, detach the ISO, reboot and verify first boot, native
+  deployment identity, SELinux and all-five local content/app startup. Exercise
+  missing/bad/interrupted downloads, cancellation/no write replay and partial-write
+  refusal within those attempts. Never re-erase an attempted disk to repair a test.
+  This grants no physical USB proof, retained migration, update/recovery baseline or
+  real provider registration/job.
+- **Network/access:** QEMU user-mode NAT, a loopback-only content fixture on
+  `127.0.0.1:19843`, optional loopback VNC/SSH forwards on `19844–19846`, and private
+  QMP sockets under each attempt. No bridge/tap/firewall/global CA/DNS changes or
+  public hosting. HTTP fixture content is public candidate/tool data authenticated
+  by native bootstrap hashes; no passwords, tokens or keys in served roots.
+  Fixture-only signing keys/private inputs stay restricted and outside exports.
+- **Lifecycle/preservation:** allow start, interruption, media removal, reboot and
+  owned-process shutdown of these exact new targets, including upstream helper VMs
+  and the fixture listener. Retain failed/successful disks, CIDs, inputs and redacted
+  logs. No `--rm`, `--replace`, pruning, reset/recreation or retained-state cleanup.
 
 ### Withdrawn native experiment
 
@@ -195,6 +259,7 @@ custody, not a fresh filesystem/registry observation:
 
 | Resource | Custody |
 | --- | --- |
+| B3 source/native read-only bootstrap probes | `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/`; no `native/` VM targets created |
 | B2 native candidate, failures and cancellation | `.artifacts/releases/b2-{42cba33,9837d3e,4c62f68,cancel-4c62f68}-*/`; exact paths in the B2 receipt |
 | B2 controller binaries/checks | `.artifacts/controllers/b2-*`, `.artifacts/build-controller/controller-3fe7f18-yIS3y0/` |
 | Complete M1 candidate | `.artifacts/host-image/complete-45ac843/` |
@@ -216,7 +281,9 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 - **Source/local work:** routine implementation, builds and tests for selected work
   remain authorized within their existing scope. The shared-build/timing extraction
-  was explicitly approved; the owner selected B1 and has now selected B2 implementation.
+  was explicitly approved; the owner selected B1, B2 and now B3 implementation. B3
+  source/local preparation is selected; its specific VM/disk/listener request above
+  remains pending.
   B1's source/upstream audit, local tests and bounded rootless read-only image
   inspections are recorded; B2's initial change is direct vendor asset staging. This
   does not add a VM/disk, protected worker, publication or commissioning grant.
@@ -239,11 +306,11 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-B2's controller completed native x86_64 P1–P6, including all prepared suites and the
-six-archive candidate. Native cancellation and earlier failures retained diagnostics;
-no partial run reported release success. Bootc production was removed, historical
-readers retained. [Checks, failures, identities and size receipt](implementation-history.md#b2-go-controller-and-native-candidate).
-Selected production is **12,235 lines**, +503 from the direct-staging slice; this is
-not a net simplification claim. B6 still owes old-lane retirement and reduced total
-orchestration. No media, installation/update, signing, publication or retained-state
-mutation occurred.
+B3 identified the exact native builder/capsule and proved the selected rdcore
+stream-authentication primitive, without a custom downloader. It also identified why
+the old ISO-mounted console loader cannot be reused on minimal network media.
+[Receipt, including failed observers](implementation-history.md#b3-native-bootstrap-and-builder-admission).
+No shipping source changed; production remains **12,235 lines**. No ISO was assembled,
+VM started, disk installed, signature/publication commissioned or retained appliance
+mutated. The [specific native fixture request](#b3-native-fixture-request--pending)
+is pending; B3 is not complete.

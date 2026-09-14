@@ -71,7 +71,8 @@ not a GHCR 2 GB limit. Do not invent a smaller numerical target before measuring
   downloads remain required. This is not a claim of a network-independent appliance.
 
 This changes the media/download requirement, not the native ownership or client-trust
-contract. Minimal candidate media, download integrity and actual size remain unproved.
+contract. The native streaming authentication gate has scoped B3 proof; actual candidate media,
+network boot, installed behavior and sizes remain unproved.
 
 ### B1 native mechanism review — reopened
 
@@ -150,14 +151,23 @@ and the rootfs authentication handoff still need verification.
   tests are still required; candidate archive inspection does not establish them. Preserve existing
   projects and later writes; image import is not permission to replace workloads.
 
-Before native execution, admit the exact Assembler container digest and its OSBuild/
-live-stage/tool inputs, not only the source commit; record resource/effect bounds for
+B3's executable review now selects the x86_64 Assembler manifest
+`sha256:f010dce4d350c1588762bbd5b69d27e14dabe859043489c587dc4d429c067daf`
+from `quay.io/coreos-assembler/coreos-assembler`, revision
+`53330beeb45bb0a6f51987fc8df243e8a62d62bd`. Its inspected OSBuild 191 live stage
+owns the stream-hash generation described below. This is executable/input evidence,
+not proof of successful Soda packaging. The native probe remains subject to
+[exact fixture approval](implementation-status.md#b3-native-fixture-request--pending).
+
+Before VM execution, record resource/effect bounds for
 its supermin build VM and a separate fresh installation target. Prove reconstructed
 raw checksums, installed OCI digest/origin, untouched shipping content, native boot/
 Ignition/SELinux, minimal-media size/download integrity, media removal and local
 image availability after installation. Preserve original
-Soda tool/readback guards while adapting them to upstream-generated media. No builder
-image was pulled, media generated or VM started in this source review.
+Soda tool/readback guards while adapting them to upstream-generated media. B3 pulled and inspected the pinned builder rootlessly without KVM/devices. No media
+was generated and no VM started. Detailed versions, source comparison, successful
+native stream tests and failed observers belong in the
+[B3 receipt](implementation-history.md#b3-native-bootstrap-and-builder-admission).
 
 The [update and authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
 identify a remaining client-trust decision. Do not claim this packaging route also
@@ -169,6 +179,34 @@ separate-boot/Ignition mismatch is evidence against treating the simple bootc di
 path as a drop-in FCOS installer. It does not establish that FCOS lacks a supported
 solution, nor qualify the withdrawn workaround. Existing signature/tamper, media
 readback and no-replay requirements remain; this correction does not weaken them.
+
+### B3 native download authentication handoff
+
+The inspected OSBuild `org.osbuild.coreos.live-artifacts.mono` stage writes SHA-256
+hashes of **2 MiB chunks** of the completed live rootfs into
+`/etc/coreos-live-want-rootfs` in the initramfs. FCOS's selected live boot service
+uses `curl → rdcore stream-hash → bsdtar`; rdcore buffers and verifies each chunk
+**before releasing it to the extractor**. Missing, changed, truncated or extra input
+fails, and the boot service isolates to the native emergency target. Its executable
+passed scoped native valid/corrupt/truncated/extra/missing-stream tests in B3.
+
+The trust chain is independently authenticated final ISO → included initramfs hash
+list → authenticated downloaded rootfs chunks. A version stamp or a hash supplied
+by the download server is not a substitute. Preserve this native mechanism; no Soda
+boot downloader or extra GPG adapter is needed. Upstream curl deliberately does not
+rely on TLS certificate validation here; the authenticated chunk list is the content
+authority. This is not permission to pass CoreOS Installer `--insecure`, disable
+Ignition verification, carry credentials in URLs or accept unsigned media.
+
+Native minimal extraction must precede customization. Extraction removes
+`coreos.liveiso` and can insert `coreos.live.rootfs_url`; it does not leave the old
+`/run/media/iso` mount contract intact. Therefore the existing mounted-ISO console
+loader cannot be reused unchanged. Use native Ignition's verified file acquisition
+for an exact prebuilt console, or otherwise prove an upstream-supported placement;
+never rebuild the host/tools during media assembly. The final media identity must
+bind that tool and its source, not just the rootfs. Pre-live networking, extraction/
+customization readback, interrupted downloads and actual boot remain native checks,
+not conclusions from the streaming primitive test.
 
 ### Implementation responsibilities
 
