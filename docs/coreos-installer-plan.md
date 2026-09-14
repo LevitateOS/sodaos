@@ -208,15 +208,32 @@ rely on TLS certificate validation here; the authenticated chunk list is the con
 authority. This is not permission to pass CoreOS Installer `--insecure`, disable
 Ignition verification, carry credentials in URLs or accept unsigned media.
 
-Native minimal extraction must precede customization. Extraction removes
-`coreos.liveiso` and can insert `coreos.live.rootfs_url`; it does not leave the old
-`/run/media/iso` mount contract intact. Therefore the existing mounted-ISO console
-loader cannot be reused unchanged. Use native Ignition's verified file acquisition
-for an exact prebuilt console, or otherwise prove an upstream-supported placement;
-never rebuild the host/tools during media assembly. The final media identity must
-bind that tool and its source, not just the rootfs. Pre-live networking, extraction/
-customization readback, interrupted downloads and actual boot remain native checks,
-not conclusions from the streaming primitive test.
+Extract a **clean minimal ISO**, then perform one native customization carrying
+both the exact rootfs URL and live Ignition. Supplying the URL during extraction
+already changes kernel arguments; subsequent `iso customize` refuses that input
+without force. Preserve the failed probe, rather than forcing or resetting old media.
+Minimal extraction removes `coreos.liveiso`; the old mounted-ISO loader is not used.
+
+The Go controller now links the once-compiled installer into the candidate at
+`/usr/libexec/soda/soda-install`, checks its equality with the prebuilt tool and emits
+public live/destination Ignition using pinned native Butane. The same authenticated
+rootfs supplies this console: **no separate executable download or loader is needed**.
+Live Ignition starts only the bounded tty1 wizard and masks appliance workloads in
+the temporary live OS. Candidate media binds the console/payload hashes and expected
+host manifest. The wizard verifies all five local archives, retains the existing
+password/disk/revalidation/no-replay guards, and invokes unchanged CoreOS Installer
+with native osmet. No writable bundle copy, package transaction or continuation is
+part of the candidate install. Historical media format 0 remains supported separately.
+The destination uses native Ignition for private machine configuration and root
+password, keeping ordinary SSH key-only. Installed setup/enrollment uses the same
+vendor console; no key transcription or private developer key is introduced.
+
+Native probes reached the live environment with the 160 MB ISO and matching rootfs;
+missing, corrupted and truncated downloads entered upstream emergency mode without
+running the live probe. This establishes network/bootstrap scope, not installation.
+`rpm-ostree status` is not a valid live identity observer here: the live EROFS root
+has no installed `/boot/loader`. Installed deployment/origin, console operation,
+media removal and all-five first-boot availability still require their native proof.
 
 ### Implementation responsibilities
 

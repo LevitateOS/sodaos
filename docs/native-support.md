@@ -113,7 +113,10 @@ packages/bootable-container labels are not a Soda bootc integration.
 
 Outputs occupy `inputs/`, `work/`, `artifacts/`, `evidence/`, `release/` and `logs/`.
 `artifacts/` contains the six OCI archives (five under `images/`), tool binaries and
-hashes, payload/candidate identities and frozen app provenance. Native Go owns timing
+hashes, payload/candidate identities and frozen app provenance. The once-compiled
+installer is also embedded in the host; native checks bind it to the exported tool.
+Pinned Butane produces `destination.ign` and `live.ign` for candidate-derived media.
+These are public build inputs, not authenticated ISO/install authority. Native Go owns timing
 and cancellation, using the existing pinned process-group owner plus controller
 subreaping. No raw argv/environment is copied into progress or evidence. Tool logs
 are restricted; failed outputs and inspection CIDs remain, without pruning.

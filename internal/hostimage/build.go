@@ -166,6 +166,10 @@ func build(r Request, progress *nativebuild.BuildProgress, execute nativebuild.B
 	if err = p.Dependencies(); err != nil {
 		return
 	}
+	mediaTooling, e := admitMediaTools(snapshot, filepath.Join(r.Out, "evidence"), r.Arch, p)
+	if e != nil {
+		return result, e
+	}
 	if err = next("P3 / Compile shipping programs and prepared tools"); err != nil {
 		return
 	}
@@ -186,6 +190,11 @@ func build(r Request, progress *nativebuild.BuildProgress, execute nativebuild.B
 		if err = p.Compile(tool.name, tool.pkg, filepath.Join(tools, tool.name)); err != nil {
 			return
 		}
+	}
+	// The same prebuilt console serves live installation and installed setup.
+	// Native live packaging carries it in the authenticated candidate rootfs.
+	if err = os.Link(filepath.Join(tools, "soda-installer"), filepath.Join(contextDir, "rootfs/usr/libexec/soda/soda-install")); err != nil {
+		return
 	}
 	toolFiles := map[string]nativebuild.File{}
 	entries, e := os.ReadDir(tools)
@@ -221,6 +230,12 @@ func build(r Request, progress *nativebuild.BuildProgress, execute nativebuild.B
 		return
 	}
 	if err = buildHost(contextDir, artifacts, r.Arch, revision, r.RepositoryPrefix, base, p, progress.Phase); err != nil {
+		return
+	}
+	if err = p.Next("P6 / Prepare candidate live Ignition"); err != nil {
+		return
+	}
+	if err = prepareMediaInputs(snapshot, artifacts, mediaTooling, p); err != nil {
 		return
 	}
 	result = Result{revision, r.Arch, filepath.Join(artifacts, "candidate.json"), "P1-P6 verified unsigned candidate; not a qualified release"}

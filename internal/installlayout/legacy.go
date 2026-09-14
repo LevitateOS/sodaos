@@ -6,5 +6,6 @@
 package installlayout
 
 const Libexec = "/usr/local/libexec/soda"
+const Sbin = "/usr/local/sbin"
 const ProjectUnit = "/etc/systemd/system/soda-project@.service"
 const Release = ""

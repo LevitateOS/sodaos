@@ -15,6 +15,64 @@ not claims that those outputs are still retained.
 
 ---
 
+## B3 minimal media, network boot and candidate console
+
+Replacement candidate `0959f5cd2bb7c7151710dc43de155043a70dcb94` completed the matching
+Go controller's P1–P6 in **5m28s**, with ordinary caches and CPU affinity 0–3. Its
+manifest is `sha256:f00462566b86dec2627b677dc535f0579e2c03a23a3033802cc9ef39e9ed2780`,
+archive SHA256 `07cfb12eb2a798cbff1dfd98bd5f03706cde72effc3e5ca5381800046b590e26`.
+Exact controller/release paths are retained in `native/package-04/replacement-paths.txt`.
+This consumes the first of two approved replacement builds. The explicit unqualified
+boundary still exits 2; no signatures/publication or installation follow implicitly.
+
+`native/package-05` admitted that candidate with isolated fixture signatures and
+completed upstream Assembler/OSBuild live packaging. The merged-bin fix passed native
+BIOS boot-data assembly. Non-fatal output ownership warnings are retained; artifacts
+were emitted successfully. Sizes: full intermediate ISO **2,044,723,200 bytes**,
+minimal ISO **160,432,128 bytes**, matching rootfs **1,884,586,496 bytes**. Extracted
+rootfs bytes compare identical to the packaged output; their SHA256 is
+`86c8e0035c6c57d2453435f4190d7d268738af96e54430aa6d1ee3033716100d`.
+The full ISO is an internal packaging input, not the selected shipping asset.
+
+`native/install-01` remained **diskless**. Fixture-signed customized minimal media
+booted via native UEFI/KVM, four CPUs/12 GiB, using only the loopback content fixture.
+Native rootfs acquisition completed; live Ignition ran. The read-only probe's
+`rpm-ostree status` then failed because this live EROFS environment has no installed
+`/boot/loader`; it is not an installed-deployment identity observer. Separate boots
+of the same authenticated media with HTTP 404, first-chunk corruption and premature
+EOF all reached native emergency mode without executing the live probe. Recorded
+refusals include `hash mismatch at offset 0` and `premature end ... offset 2097152`.
+The valid rootfs service reported a 1.7G peak and 9.580s wall time; these are scoped
+cached loopback observations, not resource guarantees or installed qualification.
+The QMP-controlled guests and exact fixture listener were stopped; logs and firmware
+variables remain. No installation disk, provider job or real credential was used.
+
+Other retained failures: adding the rootfs URL during minimal extraction makes
+subsequent customization refuse an already-customized ISO. A fresh extraction
+without the URL followed by one customization with URL and Ignition passed. Initial
+QMP startup exceeded the Unix pathname limit; a relative socket under the same private
+fixture directory fixed it without a new resource root or overwrite. The legacy
+Butane wrapper's version query auto-removed its own read-only/networkless tool
+container; subsequent conversion uses the exact image directly with a retained CID,
+not that wrapper. Its image and version are now in `appliance/locks/installer-tools.json`.
+
+The following source change embeds the already-compiled console in the immutable
+host, avoiding a second executable download. P6 checks its hash and emits native
+Butane-converted destination/live Ignition. Candidate media format 2 verifies the
+console, payload and all five archives, uses unchanged password/disk/revalidation/
+no-replay guards and CoreOS Installer/osmet, and skips the retiring writable bundle
+copy/package continuation. Native Ignition supplies private subnet/hostname/root
+password and key-only ordinary SSH. Installed setup and enrollment select vendor
+paths; legacy builds retain their old paths/format. Default and vendor installer
+checks, focused host-image checks, race checks and strict Butane conversion passed.
+The vendor setup test initially hardcoded legacy paths; it now checks the selected
+layout while retaining credential/transcript and mutation-count assertions.
+
+Production grows **321 lines to 12,559**, not a simplification claim. The second
+replacement build and native installer/media-removal/first-boot proof remain pending.
+The protected full media/qualification/delivery phases are not connected; no complete
+B3 or qualified release is claimed by these source and live-bootstrap checks.
+
 ## B3 native disk assembly and merged-bin correction
 
 After the clarified extension was approved (`e8a8d53`), `native/package-04` used a

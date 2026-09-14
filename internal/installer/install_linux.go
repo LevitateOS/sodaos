@@ -15,12 +15,13 @@ import (
 	"syscall"
 	"unicode/utf8"
 
+	"github.com/levitateos/sodaos/internal/installlayout"
 	"github.com/levitateos/sodaos/internal/nativebuild"
 	"golang.org/x/sys/unix"
 )
 
 const dataDir = "/usr/local/share/soda-installer"
-const installerBinary = "/usr/local/libexec/soda/soda-install"
+const installerBinary = installlayout.Libexec + "/soda-install"
 const diskAttemptMarker = "/run/soda-installer-disk-started"
 
 var (
@@ -30,12 +31,14 @@ var (
 )
 
 type mediaIdentity struct {
+	Format                                            int
 	Architecture, Release, InstallerVersion, Revision string
 	BundleSHA256                                      string
+	HostManifest, PayloadSHA256, ConsoleSHA256        string
 }
 
 func (m mediaIdentity) validate(imageVersion, arch string) error {
-	if m.Architecture != arch || m.Release == "" || m.Release != imageVersion || !nativebuild.Revision(m.Revision) || !nativebuild.Digest(m.BundleSHA256) {
+	if m.Architecture != arch || m.Release == "" || m.Release != imageVersion || !nativebuild.Revision(m.Revision) || !m.validContent() {
 		return errors.New("media release, architecture, or included-payload mismatch")
 	}
 	return nil
@@ -288,20 +291,31 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	if err != nil {
 		return err
 	}
-	destination, err := Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
+	var destination []byte
+	if media.Format == 2 {
+		factory, readErr := readRegular("/usr/share/soda/defaults/host.example.json", 16384)
+		if readErr != nil {
+			return readErr
+		}
+		destination, err = candidateDestination(template, factory, choices)
+	} else {
+		destination, err = Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
+	}
 	choices.passwordHash = ""
 	if err != nil {
 		return err
 	}
 	// Deliver this media's already trusted executable for explicit post-boot
 	// continuation. No remote runtime lookup or executable from the untrusted bundle.
-	binary, err := readRegular(installerBinary, 64<<20)
-	if err != nil {
-		return err
-	}
-	destination, err = addContinuation(destination, binary)
-	if err != nil {
-		return err
+	if media.Format == 0 {
+		binary, err := readRegular(installerBinary, 64<<20)
+		if err != nil {
+			return err
+		}
+		destination, err = addContinuation(destination, binary)
+		if err != nil {
+			return err
+		}
 	}
 	work, err := os.MkdirTemp("/run", "soda-installer-")
 	if err != nil {
@@ -321,6 +335,14 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	}, command)
 	if err != nil {
 		return err
+	}
+	if media.Format == 2 {
+		c.print("SodaOS disk installation completed with all five application archives local.")
+		c.print("Remove installation media and reboot explicitly; log in locally as root with your password.")
+		c.print("Native startup imports the included images before starting their services. No reboot was performed.")
+		c.print("For key-only SSH access, run locally after reboot: %s enroll-key", candidateInstallerBinary)
+		c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
+		return nil
 	}
 	if err := copyInstalledPayload(ctx, choices.disk, media, payloadBytes, command); err != nil {
 		return err

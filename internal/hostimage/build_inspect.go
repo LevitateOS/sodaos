@@ -52,6 +52,14 @@ func inspectComplete(context, out, id string, capture nativebuild.BuildCapture) 
 			return errors.New("host archive content differs from payload")
 		}
 	}
+	consoleHash, err := nativebuild.HashFile(filepath.Join(out, "tools/soda-installer"))
+	if err != nil {
+		return err
+	}
+	console, err := run("installer-inspect", "/usr/bin/sha256sum", "/usr/libexec/soda/soda-install")
+	if err != nil || console != consoleHash+"  /usr/libexec/soda/soda-install" {
+		return errors.New("image installer differs from prebuilt tool")
+	}
 	generated, err := run("quadlet-inspect", "/usr/lib/systemd/system-generators/podman-system-generator", "--dryrun")
 	if err != nil {
 		return err

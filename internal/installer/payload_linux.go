@@ -35,6 +35,9 @@ type payloadReceipt struct {
 }
 
 func payloadRequirement(media mediaIdentity) (uint64, error) {
+	if media.Format == 2 {
+		return candidateRequirement(media, "/")
+	}
 	var stat unix.Statfs_t
 	if err := unix.Statfs("/run/media/iso", &stat); err != nil || uint64(stat.Type) != uint64(unix.ISOFS_SUPER_MAGIC) || stat.Flags&unix.ST_RDONLY == 0 {
 		return 0, errors.New("read-only ISO installation media required")

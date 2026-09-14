@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/levitateos/sodaos/internal/installlayout"
 	"net/netip"
 	"net/url"
 	"os"
@@ -176,10 +177,10 @@ func configurePrivateInstall(ctx context.Context, c console, run commandRunner, 
 	if err := writeSetupFile(filepath.Join(root, "setup-started"), []byte(origin+"\n")); err != nil {
 		return errors.New("cannot reserve operator setup; no OAuth request made")
 	}
-	if _, err := run(ctx, "/usr/local/sbin/soda-setup", []string{"--forgejo-url", origin, "--token-file", tokenPath, "--out", filepath.Join(root, "dashboard.json")}, nil); err != nil {
+	if _, err := run(ctx, installlayout.Sbin+"/soda-setup", []string{"--forgejo-url", origin, "--token-file", tokenPath, "--out", filepath.Join(root, "dashboard.json")}, nil); err != nil {
 		return errors.New("operator setup failed; preserve private inputs and inspect native Forgejo applications before retrying. " + failureSummary(err))
 	}
-	if _, err := run(ctx, "/usr/local/sbin/soda-activate", []string{"--bind-ip", selected.Address, "--local-tls"}, nil); err != nil {
+	if _, err := run(ctx, installlayout.Sbin+"/soda-activate", []string{"--bind-ip", selected.Address, "--local-tls"}, nil); err != nil {
 		return errors.New("private activation failed; preserve the existing configuration for inspection. " + failureSummary(err))
 	}
 	return configuredAccess(ctx, c, root, caPath, run)

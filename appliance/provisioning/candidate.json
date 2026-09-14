@@ -1,0 +1,24 @@
+{
+  "variant": "fcos",
+  "version": "1.6.0",
+  "storage": {
+    "files": [
+      {
+        "path": "/etc/soda/installed",
+        "mode": 384,
+        "contents": {"inline": "immutable-candidate\n"}
+      },
+      {
+        "path": "/etc/ssh/sshd_config.d/20-soda-key-only.conf",
+        "mode": 420,
+        "contents": {"inline": "PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin prohibit-password\n"}
+      }
+    ]
+  },
+  "systemd": {
+    "units": [
+      {"name": "soda-host.socket", "enabled": true},
+      {"name": "cockpit.socket", "enabled": true}
+    ]
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "Butane": "quay.io/coreos/butane@sha256:591977b04eafbe8d162e62228a3e2cd700b26a46df9b6892f0e4c16f960814cb",
+  "Version": "Butane v2.27.0",
+  "Architecture": "x86_64"
+}
