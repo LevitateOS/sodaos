@@ -289,18 +289,20 @@ qualified end-to-end release or the command's final success outcome.
 
 ### Milestone 3 — make the ISO consume the candidate
 
-**B3; in progress.** Native candidate-derived media, authenticated download and
-exact installed identity now have scoped fixture proof. Production media-only
-assembly/readback still needs implementation; B4/B5 connect protected qualification
-and finalization. See the
+**B3 production path implemented and native installation verified.** The controller
+produced current-layout media; exact installed identity, local images and media-free
+first boot passed. An observer-only null-field correction was rechecked without
+rebuilding those bytes; the original nonzero controller exit remains recorded in the
+[receipt](implementation-history.md#b3-production-media-and-current-layout-installation).
+B4/B5 connect protected qualification and finalization. See the
 [bootstrap handoff](coreos-installer-plan.md#b3-native-download-authentication-handoff),
 [packaging findings](coreos-installer-plan.md#source-backed-packaging-route)
-and [approved native extension](implementation-status.md#b3-packaging-extension--approved).
+and [current execution authority](implementation-status.md#current-permissions).
 Replace the candidate handoff, not the native FCOS disk/boot engine.
 
-1. Convert `scripts/build-installer.py` to media-only assembly; rename it to
-   `assemble-installer.py` if retained. Remove native-build invocation, Go compilation,
-   source selection and independent supervision/timing. Inputs are the signed
+1. Keep media-only assembly in `internal/hostimage` under the Go controller; retire
+   `scripts/build-installer.py` rather than making it another new producer. No second
+   native build, Go compilation, source selection or supervision. Inputs are the signed
    candidate, prebuilt console/tools and public trust/bootstrap. B1's recommended
    native Assembler/OSBuild packaging generates candidate-derived live media; do not
    silently keep a stock-image osmet payload while appending a different host OCI.
@@ -430,17 +432,22 @@ No old artifact is deleted as a source-retirement shortcut. Only now move on to
 
 ## Single-run release build contract
 
-The entrypoint is `tools/soda-build`, compiled as `soda-build`. P1–P6 is implemented;
-B3–B5 will connect the remaining phases. Until then the CLI exits 2 after its verified
-unsigned candidate, not success for an unfinished release. The intended full interface
-below includes publication, which is not yet accepted by the CLI:
+The entrypoint is `tools/soda-build`, compiled as `soda-build`. P1–P8 is implemented;
+B4/B5 connect qualification and finalization. The current CLI requires an explicit
+rootfs base URL and restricted local media authority configuration. It exits 2 after
+verified media, not success for an unfinished release:
 
 ```sh
-soda-build --arch x86_64 --out "$PWD/.artifacts/releases/UNIQUE-RUN"
-soda-build --arch x86_64 --out "$PWD/.artifacts/releases/UNIQUE-RUN" --publish candidate
+soda-build --arch x86_64 --out "$PWD/.artifacts/releases/UNIQUE-RUN" \
+  --rootfs-base-url https://example.invalid/releases/UNIQUE-RUN \
+  --media-authority /restricted/media-authority.json
 ```
 
-Both requests use one artifact recipe and qualification path. No `--legacy-native`,
+The intended final interface also accepts `--publish candidate`; publication is not
+currently accepted by the CLI. Local fixture authority is not a protected untrusted-job
+signing boundary or permission to use real release custody.
+
+Local and publishing requests use one artifact recipe and qualification path. No `--legacy-native`,
 partial-host release mode, `--skip-tests`, arbitrary resume-at-phase or false success
 on partial output. Omitting publication yields a scoped qualified local result, not
 an unsigned/untested result called a release. Exact signer/fixture prerequisites are
@@ -599,12 +606,13 @@ security contracts survive the build replacement.
   `local-only` evidence cannot enter preview/stable, which require protected
   `native-install-upgrade-recovery` evidence. A build's `passed` JSON grants nothing.
   Metadata changes require new serials; promotion reuses the final document.
-- **Channels:** bind name, strictly increasing sequence, issued/expiry times and exact
+- **Delivery-tool channels (not Zincati client admission):** bind name, strictly increasing sequence, issued/expiry times and exact
   per-architecture release references, or explicit withdrawal. Bootstrap `NotBefore`,
   minimum sequence and freshness limits remain: offer age 60 seconds–7 days, clock
   tolerance at most 300 seconds. Credible authenticated time is required; backward/
   out-of-range time fails closed. Refresh with a higher sequence, not rebuilt images.
-  Expiry/withdrawal stops new uptake, not installed workloads or database state.
+  Expiry/withdrawal stops this delivery tool's new fetches, not native Zincati uptake,
+  installed workloads or database state; see the [selected native contract](#b1-native-update-and-authority-findings).
 - **High-water state:** preserve highest trust epoch, channel sequence/digest and
   observed release serial/digest per architecture. Reject older serials, same-serial
   forks, same-sequence substitution and trust rollback; identical fresh observation

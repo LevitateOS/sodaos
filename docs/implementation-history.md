@@ -15,6 +15,85 @@ not claims that those outputs are still retained.
 
 ---
 
+## B3 production media and current-layout installation
+
+Under the owner's standing approval for all seven pre-B4 tasks, the current path
+was simplified, integrated and natively installed. **Ready to start B4**, not a
+qualified release or public commissioning. The active [status](implementation-status.md)
+and [native update contract](release-engineering-plan.md#b1-native-update-and-authority-findings)
+own the next work and changed client trust semantics.
+
+Source: `425b863` removes historical payload/storage/import branches and obsolete
+fixtures; `165064c` connects P7/P8 to the existing Go controller and pinned upstream
+Assembler/OSBuild. Native corrections: `e8387e6` uses native missing-only pull policy
+for the exact cached Assembler manifest (remote lookup returned manifest unknown);
+`2621058` uses OCI document signing transport; `33ea3f5` removes a missed archive-only
+host assertion. No failed output became a resumed build. Runs 01–03 retain their
+original failure/cancellation records under `.artifacts/b3-completion/`.
+
+Run 04, source `33ea3f58d1542c0896c42b5565801138b530cd6e`, produced its candidate and
+media through the controller. Source/frontend checks, once-built programs/assets,
+five app builds, native host verification and fixture signature admission ran in
+that command. **21m34s, exit 1**: generation completed, but the final observer compared
+upstream's explicit optional `null` fields against omitted fields as different.
+`5c237e4` corrects that semantic comparison without ignoring non-null differences.
+The corrected Go verifier and native installer readback passed against the existing
+ISO/rootfs, followed by independent fixture media signature admission. **No candidate
+or packaging replay/rebuild repaired the observer; no fresh all-green CLI exit is
+claimed.** The observed media record is `run-04-readback/media.json`, not an invented
+successful `build.json`. B6's final single-run qualified-release proof remains future.
+
+Outputs are under `.artifacts/releases/b3-media-33ea3f5-20260914T135430Z/artifacts/media/`.
+The readback/first-boot receipts bind:
+
+- Host OCI: `sha256:a59f6ab5f04454bfd47719d6df4c4fe12ec68d9b45b8d1e0c35f4e7936002305`.
+- Payload: `60fc3f9a376f149aba7d4db23ad6d2dedf96ca392b0304b4255503002d1f7b67`.
+- ISO: **160,432,128 bytes**, SHA256
+  `83323b763c2251a80fef416fed6e82688e34403c3ff90593b7a8f781a3889463`.
+- Rootfs/download body: **1,802,472,960 bytes**, SHA256
+  `ff2de889a4e7b213f5ab0b4478ed2ba93dc8cc2640993b409d31c146adb20626`.
+  This is **88,116,224 bytes smaller** than the earlier tested rootfs, with the ISO
+  unchanged in size. Network protocol overhead was not measured.
+- Actual OSBuild and booted deployment:
+  `14562f57ff027906592b9d6e2d21b4d3b36f386f86396a74b8891b789727ef07`.
+  Assembler's earlier import identity `264f56a9cce948c8943f761a0fd0e897dad2ff8238b00030d62f550881bddea5`
+  remains labelled separately, not substituted for installed identity or OCI digest.
+
+The fresh `install-01` x86_64 KVM fixture used four CPUs/12 GiB and a blank 64 GiB
+qcow2. QMP observed **zero target writes before ERASE**. The password-only wizard
+completed CoreOS installation; the read-only ISO was actually removed, the server
+stopped, and a new no-media/no-listener first boot succeeded. Local root password
+login worked. Independent checks matched the complete payload, host digest, actual
+OSBuild commit, all **49 embedded file hashes** and all **five exact Podman IDs**.
+Image import succeeded; Forgejo ran; the host socket listened. Dashboard/proxy were
+correctly inactive before activation. SELinux was enforcing; SSH password and
+keyboard-interactive authentication were disabled. Existing unaffected cancellation,
+interruption and download-corruption proof was reused, not relabelled as this run.
+
+Installed filesystem observation: **6,255,333,376 bytes used**; stopped qcow2 allocation
+**6,416,642,048 bytes**. Live QEMU VmHWM **12,569,100 KiB**; first-boot QEMU VmHWM
+**4,098,300 KiB**, including QEMU overhead. These are separate observations, not
+minimum-RAM/disk qualification. The VM and loopback server are stopped. The installed
+disk remains under `install-01/private/`; unrelated state and real release custody
+were not changed. The old copied ISO was not replaced.
+
+Checks: focused Go race and `soda_host_image` suites (`source-race.log`,
+`source-vendor.log`); the full controller's source/prepared frontend checks; corrected
+hostimage race tests (`readback-source-race.log`); native readback, independent fixture
+admission and first-boot assertions. `source-accounting.json` separates source costs:
+simplification **−70 production/−276 test lines**; total pre-B4 source work
+**+437 production/−219 test lines**, production inventory **13,255**. Missing media
+integration adds code; this is not B6's orchestration-reduction claim.
+
+Local fixture signatures do not establish adversarial untrusted-job isolation or
+final release authority. B4 update/recovery/populated-state qualification, B5 protected
+finalization and B6 producer retirement remain unfinished. ARM, physical hardware,
+public hosting, key-enrollment/activation journeys and minimum hardware are outside
+this proof. The ISO's explicit local hash-named rootfs URL is now stopped, not a
+public download endpoint.
+
+---
+
 ## B3 shared-layer packaging correction
 
 The owner requested fixing the measured duplication before advancing. Starting from
@@ -56,7 +135,7 @@ read-only container help probe and all old media/disks remain retained.
 
 Physical production accounting is **12,559 → 12,818 (+259)** including new shared
 staging/content-reader files; tests/support add 611 lines. This is a content-size fix,
-not B6's net orchestration reduction. A [new exact native extension](implementation-status.md#b3-deduplication-verification--pending)
+not B6's net orchestration reduction. A [new exact native extension](https://github.com/LevitateOS/sodaos/blob/f9bf317/docs/implementation-status.md#b3-deduplication-verification--pending)
 is pending; no consumed slot or publication/cleanup permission was renewed. The
 separate in-progress `AGENTS.md` edit was preserved, not included in this change.
 

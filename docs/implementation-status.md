@@ -1,476 +1,163 @@
 # Implementation status — single-run replacement
 
-**Current priority: replace the two build lanes first.** One Go command must build
-and qualify one immutable host/application candidate used by both installation and
-updates, then the old producers must be removed. Unattended scheduling, production
-readiness and launch follow that replacement; they are not prerequisites for it.
-
-The [release engineering plan](release-engineering-plan.md#single-run-build-replacement-implementation)
-owns these six milestones and their detailed contracts/tests. B1–B6 identify the
-milestones themselves, not a subordinate checklist beneath the old release roadmap.
-Other workstream/fixture records stay in the [development handoff](development-handoff.md),
-not this implementation queue.
+**Keep the original B1–B6 plan.** Finish the current source-to-media path, then start
+B4 native qualification. Do not substitute an optimization programme or experimental
+artifact preservation for that work. The [release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
+owns the milestone contracts; [history](implementation-history.md) owns detailed
+receipts and superseded grants. Other workstreams remain in the [development handoff](development-handoff.md).
 
 ## Current position
 
-**Current standing approval:** the owner authorized all seven pre-B4 tasks and
-necessary local execution without routine handoffs. This supersedes the consumed-slot
-hold and pending deduplication proposal below. Complete source simplification,
-production media integration, native installation verification and the native update
-contract; do not begin B4 qualification or public commissioning in this scope.
-Use fresh local build/media outputs and disposable installation targets; keep one
-active VM, affinity 0–3 and at most four vCPUs/16 GiB. Diagnose and correct failures
-without requesting another routine attempt. Measure resource use; do not enlarge
-retention or build preservation machinery by default. Protect real credentials and
-unrelated state. No public publishing, provider jobs or unrelated appliance mutation
-is needed for this work. Historical experiments need no current compatibility reader.
-
-Progress: removing historical payload support first. The selected update contract is
-native rpm-ostree/Zincati, as defined by the release guide; final signatures and
-protected publishing remain, but a parallel custom client updater is not required.
-
-**Native candidate-derived installation is now fixture-proved; update/trust proof
-remains open.** Assembler/OSBuild produced minimal network media; CoreOS Installer/
-Ignition installed candidate `9577645`. After media removal, the booted OCI digest
-matched exactly, SELinux was enforcing and all five archives/Podman images were local
-without external network access. Bootc installation stays withdrawn.
-**B2 is complete at its source-to-candidate scope. B3 remains in progress:** the
-160,432,128-byte ISO and native install have scoped evidence, but the production
-media-only assembler/readback checks are not implemented. B4–B6 have not started.
-All approved packaging, replacement-candidate and installation target slots have
-been used; fixtures are stopped and retained. [Receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write).
-The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
-the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
-host-context preparation remain evidence, not completion of the replacement.
-
-Current production still splits into writable native bundle → stock CoreOS ISO,
-and derived host/app candidate → separate release-delivery tooling. The replacement
-must remove this split, not wrap it. The former milestone labels marking the local
-candidate complete and delivery next no longer describe the active execution order.
+- B2's source-to-candidate controller was natively proved. Earlier B3 fixtures proved
+  candidate-derived installation, media removal, exact-candidate first boot, five local
+  application images, SELinux and interruption/cancellation boundaries.
+- `425b863` removes obsolete payload readers/storage selectors and their compatibility
+  tests: **334 net lines removed** across code/tests/docs. There is one current shared
+  OCI layout; the format marker rejects old input rather than selecting old readers.
+  Across the pre-B4 source work, production is **+437 lines**, tests **−219**;
+  necessary media integration adds code. The fixed production inventory is now
+  **13,255 lines**. This does not satisfy B6's eventual orchestration reduction.
+- `165064c` connects media assembly/readback to the Go controller. Subsequent fixes
+  use the exact cached Assembler digest through native pull policy, the correct OCI
+  document signing transport, and remove the obsolete archive-only host preflight.
+- **The seven pre-B4 tasks are complete; ready to start B4.** Production-controller
+  candidate/media source `33ea3f5` installed and booted without media or a download
+  listener. All five exact Podman images, all 49 embedded file hashes, enforcing
+  SELinux and SSH restrictions passed. Evidence: `.artifacts/b3-completion/` and
+  [the receipt](implementation-history.md#b3-production-media-and-current-layout-installation).
+- The controller run took **21m34s and exited 1** at a false Ignition readback refusal:
+  native serialization adds optional `null` fields. `5c237e4` corrects that observer;
+  its race tests and independent readback passed against the **unchanged** media.
+  No candidate, packaging or disk mutation was replayed to repair observation. This
+  is not a claim of a fresh all-green CLI run or B6's qualified-release proof.
+- Native rpm-ostree/Zincati trust and maintenance are selected under the owner's
+  standing approval. The [owning contract](release-engineering-plan.md#b1-native-update-and-authority-findings)
+  explicitly describes the removed custom client-channel semantics.
 
 ## Milestones
 
 ### 1. Verify the native installation contract — B1
 
-**Native installation fixture proved; update proof and authority choice outstanding.**
-Recommend the locked FCOS producer's OCI import → native metal/live/osmet path,
-unchanged CoreOS Installer/Ignition, and Zincati/rpm-ostree OCI updates. The stock
-Fedora graph does not qualify Soda images; native graph trust is not equivalent to
-Soda's existing signed-channel client checks. The initial **2,508 → 2,879**
-orchestration baseline remains recorded; B2 deltas are reported separately. No
-native media/install/update proof ran in the B1 source review. [Implementation and exit](release-engineering-plan.md#milestone-1--verify-the-native-installation-contract).
+Installation handoff is established: unchanged host OCI → Assembler/OSBuild →
+CoreOS Installer/Ignition. Bootc installation is not selected. Local application
+content is part of the candidate. Native update trust/maintenance is selected;
+actual update and recovery qualification belongs to B4, not another B1 restart.
 
 ### 2. Implement one Go build controller — B2
 
-**Complete — native x86_64 P1–P6 run verified.** `tools/soda-build`
-owns clean-source admission/archive, frozen app inputs, dependencies, once-only
-programs/tools/assets, prepared tests, five app images and FCOS host verification.
-Native Go timing and the existing Go process-group owner replace the Python bridge
-in this path. Payload v2 embeds all five images for ordinary Podman; no bootc
-installation/update/storage/lint path or Zincati disabling remains in new candidates.
-The old host-image command is legacy-only, not a competing host producer. Its
-required writable installer lane remains for B6 retirement after native proof.
-The new CLI does not claim release success: it exits 2 after the unsigned candidate
-until B3–B5 connect media, qualification and protected finalization. The observed run
-took **00:06:29 with ordinary caches**, with eleven shipping program/tool compilations,
-all five embedded archive hashes and native image/Quadlet checks. Native SIGINT at
-P3 exited 130, retained diagnostics and emitted no candidate. [Receipt](implementation-history.md#b2-go-controller-and-native-candidate).
-[Implementation and exit](release-engineering-plan.md#milestone-2--implement-one-go-build-controller).
+Source-to-candidate execution is implemented and tested: clean source/input freeze,
+once-only programs/assets/images, direct staging, verification, timing and cancellation.
+The media extension uses the same controller and unchanged candidate; no second
+shipping-program build or competing new producer is introduced.
 
 ### 3. Make the ISO consume the candidate — B3
 
-**In progress — native media/install proved; production media-only assembler open.**
-The final approved replacement `9577645` passed P1–P6 in 5m30s. Package 06 produced
-candidate-derived media: **160,432,128-byte ISO + 1,890,589,184-byte rootfs**, or
-2,051,021,312 content bytes combined. Fixture signatures authenticated media before
-use; native chunk hashes authenticated the network download. Install-01 covered
-missing/corrupt/truncated download refusal with the earlier candidate. Install-02
-proved password-only installation, zero target writes before erase (including cancel/
-restart), media removal and exact installed identity/all-five local content. Install-03
-was interrupted after writing began: it reported partial state, did not retry/reboot,
-and target writes remained unchanged afterward. Explicit same-boot re-invocation
-refusal remains source-tested, not independently exercised in that guest.
-All six packaging targets, both replacement builds and installation targets 01–03
-are consumed. Previous candidates and successful/partial disks remain unchanged;
-no full B3 or qualified-release completion is claimed.
-The owner requested fixing the measured duplicate before moving on. **V3 source
-now embeds a standard shared OCI layout**, retaining all five exact images and strict
-v1/v2 readers. Native Skopeo filesystem tests reduced application packaging from
-685,604,864 to **597,854,296 bytes (87,750,568 fewer)** with unchanged manifests/configs.
-Producer, native hash readback, importer and installer are wired in source; wrong/
-missing blobs, references, platform/source, paths and import failures have
-focused tests. This is not yet a rebuilt rootfs size or v3 installed proof. Stay on
-this B3 correction until its [pending exact fixture extension](#b3-deduplication-verification--pending)
-can verify native import, new media and installation. No broader optimization claim
-or move to B4 is implied. The earlier full tree/inode
-inspection found no extra whole-system/app-set copy: the deployment and
-OSTree repository share 3.11 GB of logical file data through identical inodes. Another
-180.3 MB of repository-only logical data remains unclassified, not promised savings
-or permission to prune.
-[Size receipt](implementation-history.md#b3-rootfs-size-and-duplication-audit).
-[Receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write),
-[original approval](#b3-native-fixture-scope--approved) and
-[approved narrow extension](#b3-packaging-extension--approved).
-Media-only assembly takes the exact signed host/app candidate and
-prebuilt tools. Prove minimal ISO size, authenticated network installation, media
-removal and first boot with the same digests used by updates; preserve the
-password-only wizard and disk safeguards.
-[Implementation and exit](release-engineering-plan.md#milestone-3--make-the-iso-consume-the-candidate).
+**Production path implemented and native installation verified.**
+P7 uses existing local Sigstore primitives for candidate/input admission. P8 invokes
+pinned Assembler/OSBuild in fresh disposable scratch, extracts clean minimal media,
+applies URL/live Ignition once and reads back Ignition, kernel arguments and the
+native rootfs chunk binding from the actual ISO. `artifacts/media/media.json` binds
+candidate/tool identities, ISO/rootfs sizes/hashes and the exact rootfs URL.
+
+The once-compiled console and all five application images remain in the candidate.
+CoreOS Installer/Ignition own disk installation and provisioning; the existing
+password-only interaction, disk identity/revalidation and no-replay safeguards remain.
+The Assembler import checksum is labelled separately from the actual booted OSTree
+commit. Neither is substituted for the OCI image digest.
+
+The controller-produced media passed independent fixture signature admission,
+installation to its blank 64 GiB disk, actual ISO removal and no-media/no-listener
+first boot. Host OCI identity and the actual OSBuild/booted deployment agree; image
+import and expected service/security states passed. Earlier unchanged cancellation,
+interruption and corrupt-download evidence remains scoped to its original tests.
+
+Measured ISO: **160,432,128 bytes**; rootfs/download body: **1,802,472,960 bytes**,
+**88,116,224 bytes smaller** than the earlier tested rootfs. This is an actual
+rebuilt-media comparison, not a prediction from archive sizes. The receipt records
+RAM and installed-disk observations separately; it does not claim minimum hardware.
+
+Local fixture signing demonstrates the mechanism, **not adversarial untrusted-job
+isolation or final release authority**. Real credentials are not used. The CLI retains
+exit 2 after media because qualification/final protected release evidence are absent.
+A fixture download URL is not a distribution-ready public installer.
 
 ### 4. Connect native qualification — B4
 
-**Not started.** Reviewed drivers test the actual ISO and admitted update/recovery
-baselines, populated-state preservation, signatures/cache and maintenance ownership.
-Evidence binds exact bytes; required tests cannot be skipped or rebuild the candidate.
-[Implementation and exit](release-engineering-plan.md#milestone-4--connect-native-qualification).
+**Not started.** Test actual installation, native updates/recovery, signatures,
+offline content, maintenance and populated-state preservation against unchanged
+candidate bytes. Connect protected qualification/evidence using the selected native
+update contract. Do not recreate the former custom client updater.
 
 ### 5. Integrate protected signing and delivery — B5
 
-**Not started.** Connect existing native signing/verification and publisher interfaces
-to the run, with separate protected authority, final ISO/evidence binding and channel
-last. Native local signing and failure tests establish integration; public GHCR/ISO
-commissioning is not a gate before deleting the old builders.
-[Implementation and exit](release-engineering-plan.md#milestone-5--integrate-protected-signing-and-delivery).
+**Not started.** Connect protected authority to final candidate/ISO/evidence bindings
+and existing delivery primitives. Test failure handling and channel-last publication
+interfaces locally. B3 fixture signatures do not count as this completion.
 
 ### 6. Retire old lanes and prove the replacement — B6
 
-**Not started.** After native installer/qualification proof, remove the competing
-producers, adapters and timing bridge; update every build/media/check caller. Prove
-one complete native local run through signed final metadata, unchanged tested bytes
-and smaller production orchestration. No timer or production launch is part of this
-milestone. [Implementation and exit](release-engineering-plan.md#milestone-6--retire-old-lanes-and-prove-the-replacement).
+**Not started.** Delete competing producers and obsolete adapters, rewire callers,
+and demonstrate a complete native qualified-but-unpublished run with intact
+verification and smaller production orchestration. Remove obsolete code when its
+actual caller is replaced; do not invent compatibility to keep experiments usable.
 
 ## Immediate prerequisites and next action
 
-The owner selected completion of B2 and confirmed no bootc use. The controller and
-ordinary-Podman candidate path are implemented and native-checked. Continue B1/B3
-candidate-derived minimal media, keeping installed proof separate. Neither
-source checks nor an unsigned candidate authorize appliance installation or delivery.
+Start B4 native qualification using the selected rpm-ostree/Zincati contract and
+unchanged-candidate evidence. Do not reopen completed B3 work as a preservation,
+compression or general audit programme. A new build must have fresh committed
+source/controller/output; a read-only observer correction is not a reason to replay
+successful production or disk effects. Public hosting, ARM and minimum-hardware
+qualification remain separate work.
 
-The [installation findings](coreos-installer-plan.md#source-backed-packaging-route)
-and [native update/authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
-now identify concrete upstream calls and boundaries, not a custom disk/updater design.
-
-**Selected media:** minimize ISO size and download installation content using native
-FCOS where possible. Apply the [owning media contract](coreos-installer-plan.md#selected-media--minimal-network-install);
-do not retain the full/offline ISO requirement or assume GHCR must serve every file.
-Reuse the native minimal extraction, DHCP bootstrap and authenticated rootfs binding
-already exercised; broader network modes are not implied by that fixture.
-
-**Decision needed:** adopt native Zincati graph/image trust and maintenance as the
-appliance update contract, or retain all existing client-side signed-channel checks.
-Recommend the native model for minimum FCOS deviation, with protected qualification/
-publication and signed final release evidence. This changes role-scoped channel
-admission, expiry/high-water and withdrawal semantics; no equivalence or permission
-to weaken the existing contract is assumed. Do not implement a second client updater
-or publish an unsigned graph as a silent replacement for those checks.
-
-**Native proof prerequisites:** B3 identified and inspected the exact x86_64
-Assembler manifest, OSBuild/live stage and tools. Its native streaming verifier
-passed scoped tests; the [installer owner](coreos-installer-plan.md#b3-native-download-authentication-handoff)
-records that handoff. The approved scope below covers its helper VMs and fresh
-installation targets; its first three packaging targets are consumed and the
-extension below has now been consumed. The native fixture proved exact installed
-digest, osmet reconstruction, minimal media, DHCP bootstrap/download refusals,
-private provisioning, enforcing SELinux, media removal and all-five local content.
-Next implement the production media-only assembler and its admission/readback
-checks; B4/B5 connect these operations and protected qualification/finalization to
-the fixed Go sequence. Another candidate/packaging/install run
-requires a new exact grant; unused time does not renew consumed target slots.
-
-- Actual disk/VM installation, reboot and recovery need an exact native fixture,
-  baseline, resource budget and lifecycle grant. Existing fixtures are not implicit
-  release fixtures. Complete independent approved source work while such gates wait.
-- Signing/qualification must remain protected from arbitrary build code. Use reviewed
-  existing tools and isolated fixture trust for local mechanism tests; synthetic/local
-  evidence does not grant production authority. Real worker changes need their grant.
-- Do not wait for public package visibility, ISO publishing, timer installation,
-  automatic stable promotion, native aarch64 or retained-appliance migration to begin
-  or complete the independently scoped replacement work.
-
-### B3 native fixture scope — approved
-
-**Owner approved the exact `5efed3e` request.** The following scope now authorizes
-B3's named native fixtures and actions. It does not revive the withdrawn bootc
-experiment or extend retained targets' grants. Packaging and installation targets
-01–03 are now used and stopped; install-01 was diskless, install-02 contains the
-successful installation, and install-03 contains partial writes. Upstream scratch housekeeping conflicted
-with the original no-pruning/preservation restriction. The owner subsequently
-approved the [narrow extension](#b3-packaging-extension--approved).
-
-- **Targets:** new directories only under
-  `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/native/`, with
-  `package-{01,02,03}` and `install-{01,02,03}` attempts. Container/VM names
-  `soda-b3-package-ea0dc92-{01,02,03}` and `soda-b3-install-ea0dc92-{01,02,03}`;
-  no retained appliance, existing disk, project or database may be attached.
-- **Packaging:** up to three fresh upstream Assembler imports/live packaging runs,
-  using x86_64 manifest
-  `quay.io/coreos-assembler/coreos-assembler@sha256:f010dce4d350c1588762bbd5b69d27e14dabe859043489c587dc4d429c067daf`
-  and FCOS config `682c839aabbc01564f1605bb41687a7511180031`. Native `cosa import
-  --skip-prune`/OSBuild only; no bootc, Soda partition manifest or shipping rebuild.
-  Upstream's temporary Python buildroot takes Python from that same pinned builder
-  via `BUILDER_IMG`, not a mutable image or new RPM resolution.
-- **Packaging privileges:** rootless Podman with upstream-required namespace
-  `--privileged`, container-only `label=disable`, `/dev/kvm` and `/dev/fuse`. Mount
-  only the new work/cache/tmp roots and admitted inputs; do not mount the real
-  `/var/tmp`, home, signing custody, container storage or host block disks. No sudo,
-  host SELinux/firewall/trust change, registry auth/key exposure or global cleanup.
-  Upstream's helper VM uses its native permissive build environment; installed
-  candidate acceptance still requires enforcing SELinux.
-- **Inputs:** start with B2 candidate `4c62f68` (host manifest
-  `sha256:ac3071fcfb95bbb3a28b487d7b6ab74ba4038016a48f709bcf2ebc6850b9cd49`)
-  for packaging proof. Permit up to two replacement candidates from committed B3
-  source produced by the one Go controller against the unchanged locked x86_64 FCOS
-  base. Record exact candidate, tool and media hashes and local fixture-signature
-  admission before each VM use; never modify admitted bytes in place. No externally
-  supplied candidate or architecture/base substitution falls within this request.
-- **Resources:** one active VM at a time, CPU affinity 0–3 / at most four vCPUs,
-  up to 16 GiB RAM; up to three new 64 GiB sparse installation disks, fresh copies
-  of native OVMF variables, and upstream packaging's fresh 50 GiB cache / 10 GiB
-  supermin roots. Stop at four hours of native execution or 200 GiB aggregate new
-  allocated disk usage. These are approved experiment bounds, not product budgets.
-- **Installation actions:** start fresh UEFI x86_64 guests, enter fixture-only
-  root passwords through the virtual keyboard, explicitly confirm erasure of only
-  their named blank disks, detach the ISO, reboot and verify first boot, native
-  deployment identity, SELinux and all-five local content/app startup. Exercise
-  missing/bad/interrupted downloads, cancellation/no write replay and partial-write
-  refusal within those attempts. Never re-erase an attempted disk to repair a test.
-  This grants no physical USB proof, retained migration, update/recovery baseline or
-  real provider registration/job.
-- **Network/access:** QEMU user-mode NAT, a loopback-only content fixture on
-  `127.0.0.1:19843`, optional loopback VNC/SSH forwards on `19844–19846`, and private
-  QMP sockets under each attempt. No bridge/tap/firewall/global CA/DNS changes or
-  public hosting. HTTP fixture content is public candidate/tool data authenticated
-  by native bootstrap hashes; no passwords, tokens or keys in served roots.
-  Fixture-only signing keys/private inputs stay restricted and outside exports.
-- **Lifecycle/preservation:** allow start, interruption, media removal, reboot and
-  owned-process shutdown of these exact new targets, including upstream helper VMs
-  and the fixture listener. Retain failed/successful disks, CIDs, inputs and redacted
-  logs. No `--rm`, `--replace`, pruning, reset/recreation or retained-state cleanup.
-
-### B3 packaging extension — approved
-
-**Owner approved continuation after the plain-language scope clarification.**
-This adds exactly `native/package-{04,05,06}` under the
-same B3 evidence root and containers `soda-b3-package-ea0dc92-{04,05,06}`, allowing
-three further fresh imports/live packaging attempts. Do not reuse or restart the
-failed workspaces. Installation targets 01–03 and replacement-candidate allowance
-remain unchanged; no additional install disk, candidate, base or architecture is
-authorized.
-
-- Keep the approved pinned Assembler; use its metadata-only `USER 0` Python-source
-  wrapper with identical rootfs layers. Place the admitted archive in the new
-  workspace's `/srv` share before helper use.
-- Permit **only upstream automatic housekeeping inside each new packaging workspace
-  and fresh helper VM**: guest-local empty-cache `podman system prune --all --force
-  --filter until=72h`, cache discard/trim, and normal deletion of generated temporary
-  helper roots/initrds/build scratch on exit. Record the prelude and results. Preserve
-  original inputs, signatures, CIDs, cache disks, failure consoles and produced media;
-  installation disks remain fully preserved. This is not permission for manual
-  pruning, old-cache reuse, host-store cleanup or retained-target mutation.
-- Keep CPU affinity 0–3 (`taskset`, since the user cgroup lacks cpuset delegation),
-  four-CPU quota, at most 16 GiB RAM/one active VM and the original **aggregate**
-  four-hour/200 GiB bounds. No reset: conservatively charge **1,747 seconds** through
-  the hold (including gaps), leaving **12,653 seconds**. The new evidence tree's
-  conservative allocated-block count was **35,930,062,848 bytes** at that check.
-- All other original network, input, secret, lifecycle and publication restrictions
-  remain. No host trust/SELinux/cgroup delegation change is requested.
-
-**Consumed and stopped:** packages 04–06 and both replacement candidates have run.
-Conservatively charging every continuation gap through final VM shutdown gives
-**10,448 seconds used / 3,952 seconds unused**. Known experiment/output roots occupy
-186,165,846,016 allocated bytes; adding the full sizes of both candidates and their
-app images (overcounting shared layers) gives 196,377,820,421 bytes, below 200 GiB.
-Shared compiler-cache growth and whole-host peak were not measured. These are fixture
-observations, not product budgets or authority for further targets or cleanup.
-
-This recommends retaining upstream scratch ownership rather than maintaining a
-Soda fork merely to suppress empty-cache housekeeping. It does not retroactively
-authorize the already observed housekeeping or count failed packaging as B3 proof.
-
-### B3 deduplication verification — pending
-
-**Not approved yet.** Source/local deduplication work is approved by the owner's
-request; consumed candidate/packaging/installation slots are not renewed by it.
-To finish native verification without overwriting any retained output, request:
-
-- **Up to one import-only probe** (recommended early diagnostic, not an extra
-  qualification gate): fresh `native/import-01` under the existing B3 evidence
-  root, container `soda-b3-import-ea0dc92-01`. Use the retained `9577645` host's exact
-  Podman 5.8.4 and newly compiled trusted fixture driver, with independently admitted
-  v3 layout/metadata derived from the retained app exports. Rootless privileged
-  container namespace, container-only `label=disable`, no network, at most four CPUs/
-  4 GiB RAM; only fresh private test storage/scratch and read-only public inputs.
-  Ordinary native Podman with isolated VFS root/runroot may be used for the probe;
-  no additional production image store, application/workload startup, real credential,
-  host store or KVM mount. Retain the CID/store/results; allow upstream temporary
-  scratch cleanup, not manual pruning or retained-state changes.
-- **One replacement candidate:** clean committed deduplication source through its
-  matching single Go controller, unchanged locked x86_64 FCOS base. Fresh outputs
-  `.artifacts/releases/b3-layout-v3-*` and `.artifacts/controllers/b3-layout-v3-*`;
-  no reuse of a failed output, skip-tests option or after-admission rebuild.
-- **One packaging and one installation target:** fresh `native/package-07` and
-  `native/install-04`; names `soda-b3-package-ea0dc92-07` and
-  `soda-b3-install-ea0dc92-04`. Same pinned Assembler/config and rootfs-identical root
-  wrapper, same shared `/srv` handoff and approved upstream scratch lifecycle. One
-  fresh 64 GiB sparse disk/OVMF variables; permit explicit erase only of that blank
-  disk, media removal/reboot, exact booted digest, SELinux and five local-image checks.
-  Preserve successful/failed disk, consistent pre-first-boot copy, inputs and logs.
-- **Bounds:** retain affinity 0–3, at most four vCPUs/16 GiB and one active VM. Keep
-  the original four-hour execution total: **3,952 seconds remain**, no reset. Raise
-  aggregate allocated-storage allowance from **200 to 280 GiB** to retain old state
-  alongside the new probe/candidate/cache/media/disk. Previous package-06 and
-  install-02 alone occupy approximately 45.4 and 16.2 GB; deletion is not assumed.
-- All other [original restrictions](#b3-native-fixture-scope--approved) remain:
-  fixture-only trust/admission, loopback download/access, no host trust/network/
-  delegation change, production credentials, publication, provider jobs, migration,
-  update/recovery baseline, old-workspace restart or re-erasure. Stop if a target
-  fails; this requests no automatic extra attempt. The copied ISO under
-  `/home/libvirt/images/` remains unchanged and still points to the stopped fixture.
-
-### Withdrawn native experiment
-
-The `6a360d3` proposal for bootc filesystem installation with Soda-owned partitioning
-and up to three VM/disk attempts is withdrawn, not awaiting approval. No proposed
-VM/disk was created or installation performed. The original request remains in Git
-and the [historical receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline),
-not as a current grant. A new fixture request must follow the corrected mechanism
-review and describe only the native path it actually needs to prove.
-
-## Reusable foundations — not completed replacement milestones
-
-- Reopened B1 source evidence: `.artifacts/single-run-b1/fcos-bf4b4fa-SbnzJa/` contains
-  39 pinned upstream files, resolved commits, public source hashes and scoped contract
-  checks. [Receipt](implementation-history.md#b1-fcos-native-handoff-source-findings).
-  No Assembler image, media build, native installation or update was executed.
-- Earlier B1 evidence: `.artifacts/single-run-b1/e4f485a-KUmwaG/` contains commit-pinned bootc
-  source, native public configuration/help, both retained rootless inspection CIDs,
-  original failed lookups, artifact sizes, exact LOC inventories and passing focused
-  Go tests. [Receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline).
-
-- `4c62f68`: native x86_64 Go-controller candidate, all five ordinary-Podman archives,
-  391 Forgejo files, 625 RPMs and prepared suites checked in the P1–P6 run. Unsigned;
-  no media/install/update qualification. [Receipt](implementation-history.md#b2-go-controller-and-native-candidate).
-- `45ac843`: complete local native x86_64 host/app candidate, 391 immutable Forgejo
-  files, locked 625-RPM inventory and bootc lint 13 passed/one skipped/no warnings.
-  [Receipt](implementation-history.md#complete-local-appliance-candidate). No install/
-  update/recovery acceptance is implied. Its bootc-bound storage and disabled Zincati
-  are historical choices removed from new production, not replacement requirements. No
-  runtime policy is changed or existing artifact relabelled by this correction.
-- Existing trusted-delivery models, native Sigstore, exact permits and durable
-  publication/high-water handling have source/local native proof.
-  [Receipt](implementation-history.md#trusted-delivery-source-and-native-filesystem-proof).
-- Real protected keys/eight immutable GHCR packages have authenticated native
-  signature/digest round trips; visibility was last observed Internal and no mutable
-  candidate channel was selected. [Receipt](implementation-history.md#ghcr-namespace-and-signing-bootstrap).
-- Transitional build tests and native x86_64 host-context preparation compiled/
-  ELF-checked eight programs once with working timings, not images or an ISO.
-  [Receipt](implementation-history.md#shared-build-production-and-timing-consolidation).
-
-## After B6 — separate commissioning
-
-The [downstream operations plan](release-engineering-plan.md#after-the-replacement-operational-commissioning)
-then resumes public GHCR/ISO delivery, isolated unattended scheduling, supported
-architecture/migration readiness, operational recovery drills and progressive launch.
-None is marked complete by replacement source or local qualification.
-
-Pending custody facts: package Public visibility/anonymous proof remain outstanding;
-the sequence-1 candidate expired at `2026-09-14T18:00:29Z` and requires fresh higher
-sequence/permits, never reset state. Off-machine recovery and untrusted-job isolation
-remain unproved. Native aarch64 needs its own lock/worker/proof; GitHub Releases ISO
-publication and retained-install migration are separately authorized work.
-
-## Retained release state
-
-Preserve these inputs, failed attempts and later writes; this is last recorded
-custody, not a fresh filesystem/registry observation:
-
-| Resource | Custody |
-| --- | --- |
-| B3 bootstrap, packaging and installation | `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/`; package-01 created/inactive, 02–06 exited; install-01 diskless, install-02 successful disk plus pre-first-boot copy, install-03 partial disk. VMs/listeners stopped; CIDs, admitted inputs, fixture trust, caches, media, private inputs and consoles retained. Upstream temporary helper roots are not retained. |
-| B3 replacement candidates/controllers | `.artifacts/releases/b3-{layout-0959f5c,console-9577645}-*/` and `.artifacts/controllers/b3-{layout-R57ol0,console-C7n7GT}/`; both approved replacement slots consumed. |
-| B2 native candidate, failures and cancellation | `.artifacts/releases/b2-{42cba33,9837d3e,4c62f68,cancel-4c62f68}-*/`; exact paths in the B2 receipt |
-| B2 controller binaries/checks | `.artifacts/controllers/b2-*`, `.artifacts/build-controller/controller-3fe7f18-yIS3y0/` |
-| Complete M1 candidate | `.artifacts/host-image/complete-45ac843/` |
-| Earlier image attempts and evidence | `.artifacts/host-image/` |
-| Delivery source/native proof and bootstrap receipts | `.artifacts/release-delivery/`, including `commission-e8323d5/` |
-| Transitional source checks/preparation | `.artifacts/build-consolidation/`, including `prepared-d054a60/` |
-| Protected signing/publication authority | `/var/lib/soda-release`: reviewed worker, source identity, encrypted role keys, passphrases/signer files, registry auth, trust, permits, inputs, ledgers, attempts and local encrypted-key backup |
-| Public bootstrap trust | `appliance/keys/release-trust.json`; not installed into global host policy |
-
-Do not recreate signing state, regenerate keys, replay bootstrap uploads, prune
-artifacts or restore an older ledger/database to repair an observer. The preexisting
-GHCR `soda-os` package is unrelated and untouched. No retained appliance has been
-migrated to the new release mechanism.
+The public rootfs base URL is an explicit build input. GitHub Release assets can serve
+hash-named ISO/rootfs files; this local work neither publishes them nor requires an
+operated download service. Installed offline content means the required content is
+local after the authenticated network installation, not that the minimal ISO is a
+complete offline installer.
 
 ## Current permissions
 
-[AGENTS.md](../AGENTS.md#permissions-and-preservation) owns execution policy. Current
-grants belong to the user's task and exact target/action, not this plan's commands.
+The owner gave **standing approval for all seven pre-B4 tasks and necessary local
+execution without routine handoffs**, including source simplification, media
+integration, native installation verification and selection of the native update
+contract. This supersedes the prior consumed-slot hold/pending deduplication proposal.
 
-- **Source/local work:** routine implementation, builds and tests for selected work
-  remain authorized within their existing scope. The shared-build/timing extraction
-  was explicitly approved; the owner selected B1, B2 and now B3 implementation. B3
-  source/local preparation and the original exact VM/disk/listener scope above were
-  approved. The owner also requested fixing shared-layer duplication before advancing;
-  that source/local work is in progress, with new native verification authority
-  [pending separately](#b3-deduplication-verification--pending).
-  The owner previously approved the [narrow packaging extension](#b3-packaging-extension--approved)
-  after clarification; no broader artifact-folder cleanup is authorized.
-  B1's source/upstream audit, local tests and bounded rootless read-only image
-  inspections are recorded; B2's initial change was direct vendor asset staging. B3's
-  additional grant is limited to the named fixtures above; it adds no real protected
-  worker, publication or commissioning authority.
-  The current correction restores the FCOS-native baseline and withdraws the bootc
-  filesystem experiment; it does not authorize another installation path.
-- **Bounded real delivery:** the owner confirmed `LevitateOS`, selected current
-  GitHub identity `veighnsche` and approved protected signing setup plus public
-  `ghcr.io/levitateos/sodaos-*` namespace/signature commissioning and the **candidate
-  channel only**. Preserve the existing protected authority and completed attempts;
-  this is not approval to reinitialize them. Routine signing is to be automated,
-  not a per-release human ceremony.
-- **Not granted by that commissioning or this documentation change:** GitHub
-  Release/ISO publication, preview/stable promotion, automatic CI or unattended
-  worker/timer installation, global trust/network changes, appliance installation/
-  migration, VM/service lifecycle, provider registration/jobs or cleanup. Obtain
-  applicable exact target/action authority before these effects.
-- Retained development targets have their own [handoff and scoped grants](development-handoff.md#current-permissions).
-  None becomes a release qualification fixture because it already exists. Historical
-  receipts, time-bounded holds and restricted input files are not renewed permission.
+- Use fresh local candidate/media outputs and disposable VM/disk targets. Diagnosing
+  failures and making another corrected attempt does not require another routine
+  approval. Keep one active VM, affinity 0–3, at most four vCPUs and 16 GiB RAM.
+- Measure resources; do not make blanket preservation or a 280 GiB retention increase
+  the default. Upstream temporary/helper cleanup and disposable test-container
+  lifecycle are permitted. Any cleanup must identify exact task-owned resources and
+  protect credentials, unrelated work and explicitly protected state.
+- Local fixture signing, loopback content serving, blank-disk installation, media
+  removal/reboot and first-boot checks are within scope. Real provider jobs, public
+  publishing, unrelated appliance mutation and M4 update/recovery execution are not
+  needed to reach this stopping point.
+- Existing real delivery authority remains candidate-channel-only within its original
+  commissioning scope. It is not permission to replay bootstrap effects, reset keys/
+  ledgers or publish preview/stable. This task uses no real signing/registry credentials.
+- Stop for a concrete safety issue or an unresolved external blocker, not a routine
+  milestone handoff. Report readiness only when the stated B3 checks actually pass.
 
-## Latest change
+## Retained release state
 
-Approved B3 native work admitted the unchanged B2 candidate with fixture-only native
-signatures and proved exact OCI import twice. Two helper VMs ran; live packaging
-failed on the Python source's user, then its VM-invisible archive path. The cgroup
-startup failure, failed signature-document fixture and successful corrections remain
-in the [receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts).
-Upstream ran an unanticipated empty-cache prune (0 bytes reclaimed) and removed
-helper scratch, contrary to the original restriction. After clarification, the owner
-approved the [scope correction and new targets](#b3-packaging-extension--approved);
-execution resumes without resetting the original aggregate resource limits.
-Attempt 04 then reached native disk assembly but failed bootloader installation:
-Soda's context replaced `/usr/sbin → bin`, hiding the existing GRUB tool. The focused
-Go-tested source fix stages wrappers in `/usr/bin` and adds a native layout gate
-(**12,238 production lines**, +3). That replacement (`0959f5c`) passed its full P1–P6
-run and native packaging/minimal network boot. The subsequent Go handoff adds 321
-production lines (**12,559 total**): embedded once-built console, pinned Butane public
-Ignition output, strict candidate/archive verification and native provisioning using
-the unchanged disk safeguards. Source/default/vendor/race checks and strict profile
-conversion passed. [Current receipt](implementation-history.md#b3-minimal-media-network-boot-and-candidate-console).
-The final replacement then passed native packaging, installation/media removal,
-exact booted digest, enforcing SELinux and all-five local-content checks. Partial-write
-interruption stopped without automatic replay; the failed disk is retained. The shared
-review's stale writable-continuation sentence is corrected in source and covered by
-PTY/default/vendor/race tests; the tested candidate itself is unchanged. Production
-at that receipt was **12,559 lines**. [Final fixture receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write).
-No real signing-custody change, publication or retained-appliance mutation occurred.
-The subsequent approved deduplication correction now has v3 source and native
-filesystem-layout proof, not a new installed candidate. Its native verification
-[extension is pending](#b3-deduplication-verification--pending); source/race/vendor/vet
-checks passed and the measured application-layout reduction is 87,750,568 bytes.
-Current production is **12,818 lines (+259)**, not net orchestration reduction.
-[Correction receipt](implementation-history.md#b3-shared-layer-packaging-correction).
-B3 still needs the production media-only assembler/readback implementation after
-this correction is qualified; B4/B5 then connect protected qualification/finalization.
-The fixture helpers are not a second production command or a completed pipeline.
+Real protected custody remains `/var/lib/soda-release` (worker, encrypted keys,
+registry authentication, trust, permits, ledgers and backup). Public bootstrap trust
+is `appliance/keys/release-trust.json`. Do not reset/replay either. Unrelated development
+state and grants remain in the [development handoff](development-handoff.md#current-permissions).
+
+Earlier B2/B3 experiments and receipts remain where recorded in history; they do not
+require current compatibility code. The completed current-layout disk is stopped at
+`.artifacts/b3-completion/install-01/private/disk.qcow2`; its server is stopped too.
+The original copied ISO at
+`/home/libvirt/images/sodaos-9577645-x86_64-network.iso` is unchanged and points to the
+stopped old fixture URL. It is not the new production-controller output.
+
+## After B6 — separate commissioning
+
+Public ISO/GHCR delivery, unattended scheduling, real trust installation, additional
+architectures, migration and launch remain downstream work. Package visibility,
+anonymous delivery, off-machine recovery and untrusted-job isolation are not proved
+by current local fixtures. Historical channel sequences/permits must not be replayed
+or reset; future authorized publication needs fresh applicable authority.

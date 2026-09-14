@@ -115,7 +115,7 @@ one admitted host OCI archive (including required application archives)
 ```
 
 Native fixtures now prove unchanged OCI import, live packaging and installation
-with the exact booted OCI digest. This is not yet a runnable Soda release command. It changes the earlier stock-ISO-remaster-only assumption: adding a
+with the exact booted OCI digest. The production controller now includes this media path; [native installation and current-layout first boot passed](implementation-history.md#b3-production-media-and-current-layout-installation). It changes the earlier stock-ISO-remaster-only assumption: adding a
 Soda OCI tar to an unchanged Fedora live ISO does not change the stock disk image
 that `--offline` reconstructs. Media generation is an upstream packaging consumer
 of the already-built candidate, not a second compilation of Soda or the OS. The
@@ -173,7 +173,7 @@ packages 04–06; package 04 then exposed the separately fixed merged-bin overla
 Assembler's supermin prelude also prunes its guest-local cache and removes temporary
 helper roots on exit, including failed commands. `cosa import --skip-prune` does not
 suppress those separate actions. Do not run the helper without applicable authority
-for its full scratch lifecycle. The [approved fixture extension](implementation-status.md#b3-packaging-extension--approved)
+for its full scratch lifecycle. The [current standing approval](implementation-status.md#current-permissions)
 owns that permission, not a Soda patch to the native disk manifests.
 
 Before VM execution, record resource/effect bounds for
@@ -255,7 +255,7 @@ protected source-to-qualified-release run.
 | Owner | Required change in the replacement |
 | --- | --- |
 | `tools/soda-build` and existing Go build packages | Build the candidate and media programs once; own timing, cancellation, source identity and exact handoff |
-| `scripts/build-installer.py` | Become media-only assembly (rename to `assemble-installer.py` if retained); remove native-build invocation, Go compilation and independent supervision |
+| `internal/hostimage` | Invoke upstream media-only assembly from the existing Go controller; the old `scripts/build-installer.py` lane is retiring, not another new producer |
 | `appliance/installer`, `internal/installer` | Preserve CoreOS Installer/Ignition ownership and the text/disk/secret guards; change candidate handoff only after B1 proves the supported path |
 | Public provisioning/branding owners | Reuse public bootstrap and canonical artwork; separate live from destination inputs and bounded private additions |
 | Existing media/native test drivers | Verify actual media readback and native installation/update/recovery; consume prebuilt artifacts, never another production build |
@@ -357,8 +357,9 @@ are not prerequisites for this selected keyboard-only installation.
 
 ## Qualification and source retirement
 
-B3/B4 use exact authorized native fixture/disk/baseline inputs. Preserve existing
-local tests and add image-handoff cases: wrong candidate/architecture/signature,
+B3/B4 use exact authorized native fixture/disk/baseline inputs. Retain applicable
+checks, remove obsolete fixtures and reuse unaffected evidence. Test the changed
+handoff and its actual failures/boundaries: wrong candidate/architecture/signature,
 oversized/missing content, disk changes/in-use disks, private input/Back/restart,
 command failure, incomplete setup, no unintended auto-install and no write replay.
 Media readback checks content/permissions/boot identity and confirms no component
