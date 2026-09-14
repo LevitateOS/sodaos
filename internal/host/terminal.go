@@ -371,25 +371,15 @@ func (d *Daemon) CloseTerminals() {
 	d.terminalWG.Wait()
 }
 
-func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
-	// This handler is private to the existing filesystem-authorized Unix socket.
-	// Browser Origin/cookie/CSRF authorization belongs to the web route.
-	if r.Method != "GET" || r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "" || len(r.Header.Values("Origin")) != 0 {
-		http.Error(w, "invalid private terminal request", 400)
-		return
-	}
-	executor, ok := d.Exec.(terminalExecutor)
-	if !ok {
-		http.Error(w, "terminal unavailable", http.StatusServiceUnavailable)
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Hour)
-	defer cancel()
+func validPrivateTerminalRequest(r *http.Request) bool {
+	return r.Method == "GET" && r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == "" && len(r.Header.Values("Origin")) == 0
+}
+
+func (d *Daemon) registerTerminal(r *http.Request, cancel context.CancelFunc) (func(), bool) {
 	d.terminalMu.Lock()
 	if d.terminalClosed || len(d.terminals) >= 2*terminalLimit {
 		d.terminalMu.Unlock()
-		http.Error(w, "terminal unavailable", http.StatusServiceUnavailable)
-		return
+		return nil, false
 	}
 	if d.terminals == nil {
 		d.terminals = make(map[*http.Request]context.CancelFunc)
@@ -397,84 +387,73 @@ func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 	d.terminals[r] = cancel
 	d.terminalWG.Add(1)
 	d.terminalMu.Unlock()
-	defer d.terminalWG.Done()
-	defer func() { d.terminalMu.Lock(); delete(d.terminals, r); d.terminalMu.Unlock() }()
-	conn, err := websocket.Accept(w, r, nil)
-	if err != nil {
-		return
+
+	cleanup := func() {
+		d.terminalWG.Done()
+		d.terminalMu.Lock()
+		delete(d.terminals, r)
+		d.terminalMu.Unlock()
 	}
-	defer conn.CloseNow()
-	conn.SetReadLimit(terminalFrameLimit)
+	return cleanup, true
+}
+
+func readTerminalRequest(ctx context.Context, conn *websocket.Conn) (TerminalRequest, bool) {
 	first, firstCancel := context.WithTimeout(ctx, 5*time.Second)
 	kind, body, err := conn.Read(first)
 	firstCancel()
 	var in TerminalRequest
 	if err != nil || kind != websocket.MessageText || len(body) > 4096 || strictjson.Decode(bytes.NewReader(body), &in) != nil || !in.valid(time.Now()) {
-		return
+		return TerminalRequest{}, false
 	}
-	ctx, expiryCancel := context.WithDeadline(ctx, time.Unix(in.Expires, 0))
-	defer expiryCancel()
+	return in, true
+}
+
+func (d *Daemon) launchTerminal(ctx context.Context, executor terminalExecutor, conn *websocket.Conn, in TerminalRequest) (terminalProcess, bool) {
 	inspectCtx, inspectCancel := context.WithTimeout(ctx, 10*time.Second)
 	id, err := d.terminalContainer(inspectCtx, in.Project)
 	inspectCancel()
 	if err != nil {
 		writeTerminal(ctx, conn, TerminalFrame{Type: "closed", Reason: "launch_failed"})
-		return
+		return nil, false
 	}
 	if ctx.Err() != nil {
-		return
+		return nil, false
 	}
 	p, err := executor.terminal(id, in)
 	if err != nil {
 		writeTerminal(ctx, conn, TerminalFrame{Type: "closed", Reason: "launch_failed"})
-		return
+		return nil, false
 	}
-	defer p.Close()
-	stopped := make(chan struct{})
-	go func() {
-		select {
-		case <-ctx.Done():
+	return p, true
+}
+
+func pumpIncomingTerminal(ctx context.Context, conn *websocket.Conn, p terminalProcess, incoming chan<- error) {
+	for {
+		kind, body, err := conn.Read(ctx)
+		if err != nil {
+			incoming <- err
+			return
+		}
+		var f TerminalFrame
+		if kind != websocket.MessageText || strictjson.Decode(bytes.NewReader(body), &f) != nil || !f.inputValid() {
+			incoming <- errors.New("invalid control")
 			p.Close()
-		case <-stopped:
+			return
 		}
-	}()
-	defer close(stopped)
-	// Only the authenticated backend supplies attached-access heartbeats. This
-	// bounds the PTY bridge after logout, not the systemd-owned shell's lifetime.
-	incoming := make(chan error, 1)
-	go func() {
-		for {
-			kind, body, err := conn.Read(ctx)
-			if err != nil {
-				incoming <- err
-				return
-			}
-			var f TerminalFrame
-			if kind != websocket.MessageText || strictjson.Decode(bytes.NewReader(body), &f) != nil || !f.inputValid() {
-				incoming <- errors.New("invalid control")
-				p.Close()
-				return
-			}
-			if err = p.Input(f); err != nil {
-				incoming <- err
-				p.Close()
-				return
-			}
-			if f.Type == "close" {
-				// Let the launcher report teardown before closing its stdout.
-				// No further input/heartbeats are accepted; its lease stays bounded.
-				return
-			}
-		}
-	}()
-	// A disconnect must also stop a blocked native output read.
-	go func() {
-		select {
-		case <-incoming:
+		if err = p.Input(f); err != nil {
+			incoming <- err
 			p.Close()
-		case <-stopped:
+			return
 		}
-	}()
+		if f.Type == "close" {
+			// Let the launcher report teardown before closing its stdout.
+			// No further input/heartbeats are accepted; its lease stays bounded.
+			return
+		}
+	}
+}
+
+func pumpOutgoingTerminal(ctx context.Context, conn *websocket.Conn, p terminalProcess) {
 	for {
 		f, err := p.Output()
 		if err != nil {
@@ -487,6 +466,79 @@ func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func pumpTerminalIO(ctx context.Context, conn *websocket.Conn, p terminalProcess) {
+	stopped := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			p.Close()
+		case <-stopped:
+		}
+	}()
+	defer close(stopped)
+
+	// Only the authenticated backend supplies attached-access heartbeats. This
+	// bounds the PTY bridge after logout, not the systemd-owned shell's lifetime.
+	incoming := make(chan error, 1)
+	go pumpIncomingTerminal(ctx, conn, p, incoming)
+
+	// A disconnect must also stop a blocked native output read.
+	go func() {
+		select {
+		case <-incoming:
+			p.Close()
+		case <-stopped:
+		}
+	}()
+
+	pumpOutgoingTerminal(ctx, conn, p)
+}
+
+func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
+	// This handler is private to the existing filesystem-authorized Unix socket.
+	// Browser Origin/cookie/CSRF authorization belongs to the web route.
+	if !validPrivateTerminalRequest(r) {
+		http.Error(w, "invalid private terminal request", 400)
+		return
+	}
+	executor, ok := d.Exec.(terminalExecutor)
+	if !ok {
+		http.Error(w, "terminal unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Hour)
+	defer cancel()
+
+	cleanup, ok := d.registerTerminal(r, cancel)
+	if !ok {
+		http.Error(w, "terminal unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	defer cleanup()
+
+	conn, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.CloseNow()
+	conn.SetReadLimit(terminalFrameLimit)
+
+	in, ok := readTerminalRequest(ctx, conn)
+	if !ok {
+		return
+	}
+	ctx, expiryCancel := context.WithDeadline(ctx, time.Unix(in.Expires, 0))
+	defer expiryCancel()
+
+	p, ok := d.launchTerminal(ctx, executor, conn, in)
+	if !ok {
+		return
+	}
+	defer p.Close()
+
+	pumpTerminalIO(ctx, conn, p)
 }
 
 func writeTerminal(ctx context.Context, c *websocket.Conn, f TerminalFrame) error {
