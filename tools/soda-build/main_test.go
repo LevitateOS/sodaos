@@ -47,6 +47,18 @@ func TestDevelopmentWorkerInputsAndCompletion(t *testing.T) {
 	}
 }
 
+func TestFastMediaWorkerSelection(t *testing.T) {
+	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
+	r := hostimage.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "media", MediaCompression: "fast", RootfsBaseURL: "https://example.invalid"}
+	w, err := buildWorker(c, r)
+	require.NoError(t, err)
+	require.Contains(t, strings.Join(w.Arguments, " "), "--media-compression fast")
+	r.Development = false
+	r.Target = ""
+	_, err = buildWorker(c, r)
+	require.Error(t, err)
+}
+
 func TestWorkerResultBindsTargetAndCandidate(t *testing.T) {
 	source := t.TempDir()
 	out := filepath.Join(source, ".artifacts/releases/isolated/test")
@@ -57,7 +69,7 @@ func TestWorkerResultBindsTargetAndCandidate(t *testing.T) {
 	require.NoError(t, err)
 	r := hostimage.Request{Source: source, Out: out, Revision: strings.Repeat("a", 40), Arch: "x86_64", Development: true, Target: "candidate"}
 	original := hostimage.Result{Revision: r.Revision, Architecture: r.Arch, Candidate: workerSource + "/.artifacts/releases/isolated/test/artifacts/candidate.json", CandidateSHA256: hash, Purpose: "development", RequestedTarget: "candidate", CompletedTarget: "candidate"}
-	for _, mode := range []string{"valid", "media", "purpose", "requested", "completed", "hash"} {
+	for _, mode := range []string{"valid", "media", "purpose", "requested", "completed", "hash", "compression"} {
 		result := original
 		switch mode {
 		case "media":
@@ -68,6 +80,8 @@ func TestWorkerResultBindsTargetAndCandidate(t *testing.T) {
 			result.RequestedTarget = "release"
 		case "completed":
 			result.CompletedTarget = "media"
+		case "compression":
+			result.MediaCompression = "fast"
 		case "hash":
 			result.CandidateSHA256 = strings.Repeat("b", 64)
 		}

@@ -26,6 +26,7 @@ func recordBuildResult(p nativebuild.Production, r Request) (result Result, err 
 		return
 	}
 	if r.WantsMedia() {
+		result.MediaCompression = r.MediaCompression
 		result.Media = filepath.Join(p.Out, "media/media.json")
 		result.CompletedTarget = "media"
 		result.Scope = "P1-P8 candidate-derived media; not a qualified release"

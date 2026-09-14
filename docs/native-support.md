@@ -93,9 +93,10 @@ restricted `--worker-config`; it does not install accounts, grant sudo or create
 worker policy. Account/helper installation requires applicable task approval.
 The measured development-candidate path took **5m30s warm / 8m29s cold** on the selected
 four-CPU x86_64 worker; [receipts](implementation-history.md#fast-development-candidate-production)
-state that scope. There is no `--media-compression fast` flag; the
-[owning plan](fast-development-build-plan.md#implementation-order) records the upstream
-input constraint and unresolved decision.
+state that scope. The optional `--media-compression fast` flag applies only to
+`--development --target media`: it changes the development host's compression metadata
+to EROFS/LZMA level 1, not production defaults. See the
+[owning plan](fast-development-build-plan.md#implementation-order) for current measurements.
 
 The configuration names `Executable`, canonical `Source`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
@@ -161,7 +162,10 @@ P7 authenticates the
 candidate and packaging inputs using existing Sigstore primitives. P8 invokes pinned
 Assembler/OSBuild in fresh disposable scratch, extracts minimal media, customizes
 it once, and reads back Ignition, kernel arguments and native rootfs chunk hashes.
-`artifacts/media/media.json` binds the ISO/rootfs sizes, hashes, URL and candidate.
+`artifacts/media/media.json` binds the ISO/rootfs sizes, hashes, URL, candidate and
+actual rootfs filesystem/options. `image-config.json` is checked against the built
+host and included in the authenticated packaging inventory. Media builds also record
+`logs/media-events.jsonl`: upstream log-arrival windows, not exact CPU profiles.
 The Assembler import checksum is labelled separately from installed identity.
 Native Go owns timing
 and cancellation, using the existing pinned process-group owner plus controller

@@ -35,8 +35,8 @@ cold caches. Do not run another full media build merely to reproduce these timin
 
 ## Selected first interface
 
-Implemented flags; candidate-only production is natively verified. The media target
-retains the existing packaging path; this workstream did not run new media:
+Implemented flags; candidate-only production is natively verified. F3 media validation
+is now in progress under the owner's metadata-variant approval:
 
 ```text
 soda-build --development --target candidate [existing worker/arch/output options]
@@ -47,7 +47,9 @@ soda-build --development --target media [existing options plus media inputs]
   before media-only work. It retains all five application images, current payload
   format, shipping programs/assets, and current source/static candidate checks.
 - `media` uses that same producer and the existing native packaging path for
-  installer development. Initially its compression/settings match production.
+  installer development. Defaults match production. `--media-compression fast` selects
+  a distinct development host whose upstream EROFS setting uses LZMA level 1 instead
+  of level 6; filesystem, fragments and 1 MiB cluster size stay unchanged.
 - Neither target installs, runs qualification VMs, publishes or admits final release
   signing. Candidate production can still run its existing native inspection
   containers; it must not launch the media helper VM.
@@ -128,29 +130,27 @@ identify the measured cause before adding optimizations. F1/F2 do not depend on 
 
 ### F3 — Optional faster installer-development media
 
-**Not implemented — the specified comparison needs a contract decision.** Read-only
+**Implementation and bounded native comparison in progress; decision approved.** Read-only
 inspection of the selected Assembler image and actual Soda invocation disproved the
 plan's assumption that `live-rootfs-fsoptions` is an external packaging override. Its
 live-artifact stage reads that field from `usr/share/coreos-assembler/image.json`
 **inside the candidate deployment**; `cosa buildextend-live` exposes no compression
 argument. Changing `config/build-args.conf` does not override that read.
 
-Changing candidate metadata would produce a different host digest; keeping exactly
-the same candidate would require customizing the packaging integration. Neither is
-the planned same-candidate/upstream-direct comparison. No compression benchmark,
-substage instrumentation, fast flag, media build or boot is claimed. The selected
-source/inspection receipts are in [history](implementation-history.md#fast-development-candidate-production).
+The owner explicitly allowed distinct **development-only candidate metadata** for
+this comparison. Build default and fast media from the same committed source and
+recipes, with compression metadata as the only intentional content difference; bind
+each run's distinct host/payload/media identities rather than claiming equal bytes.
+Production defaults and qualification are unchanged. Do not fork Assembler.
 
-**Recommended decision:** permit a distinct development candidate whose only intended
-content difference is compression metadata, while keeping production unchanged.
-That needs an explicit plan adjustment before execution; alternatively defer until
-upstream supports a per-media setting. Do not fork Assembler to satisfy this optional
-optimization. The remaining proposed work, after resolving that constraint, is:
-
-Add narrow timing around the existing native packing, EROFS and ISO stages. Benchmark
-one supported lower-compression setting against the current LZMA level 6 using the
-same admitted candidate content and unchanged CPU/memory bounds. Prefer upstream
-`live-rootfs-fsoptions`; no Assembler fork or custom disk/ISO implementation.
+The selected fast value is `-zlzma,level=1 -Efragments -C1048576 --quiet`, replacing
+only level 6 in the reviewed upstream EROFS defaults. The flag is refused outside
+`--development --target media`. Native host readback binds `image-config.json` to
+the staged metadata; signed packaging inventory and media results record the exact
+filesystem/options. `logs/media-events.jsonl` timestamps existing upstream osmet,
+rootfs and ISO messages without modifying upstream stages. These are **log-arrival
+windows**, not CPU profiles: rootfs includes CPIO/hashing and osmet includes checksum
+verification. Retain the original phase timers and report this measurement limit.
 
 If worthwhile, expose a development-only `--media-compression fast` setting while
 keeping the production default unchanged. Record the exact setting and resulting
@@ -168,7 +168,7 @@ OSBuild cache integration and application feature switches are not prerequisites
 ## Completion and limits
 
 Track F1–F3 here; keep B1–B6 progress in its existing owner. F1/F2 are delivered;
-F3 remains unresolved, so the entire plan is **not** claimed complete. Do not silently resume M4 while this is the active priority.
+F3 validation is in progress, so the entire plan is **not yet** claimed complete. Do not silently resume M4 while this is the active priority.
 M4 fixtures, real custody and unrelated work stay untouched; experimental retention
 is not a reason to add compatibility code. The status/grant owner records any later
 approval for specific execution effects. Only the scoped receipts above support

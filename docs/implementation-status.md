@@ -13,10 +13,9 @@ receipts and superseded grants. Other workstreams remain in the [development han
 - **Fast-development F1/F2 delivered:** `bb17280` adds explicit development
   candidate/media targets through the existing isolated producer. Native candidate
   runs passed in **8m29s cold / 5m30s warm**, with all five apps/checks and no media
-  authority, packaging or VM. Focused race/vet checks passed. F3 is **not implemented**:
-  selected upstream compression metadata lives inside the host candidate, contrary
-  to the plan's external-override assumption; its owning plan records the required
-  decision. [F1–F3 status](fast-development-build-plan.md#implementation-order) remains
+  authority, packaging or VM. Focused race/vet checks passed. F3 is now approved/in progress:
+  the owner allowed a distinct development candidate with changed compression metadata;
+  production settings remain unchanged. The owning plan records the bounded comparison. [F1–F3 status](fast-development-build-plan.md#implementation-order) remains
   separate from B1–B6. M4 fixtures and real release custody remain untouched.
 - B2's source-to-candidate controller was natively proved. Earlier B3 fixtures proved
   candidate-derived installation, media removal, exact-candidate first boot, five local
@@ -168,10 +167,10 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-Use the delivered candidate-only target for host/application iteration. Resolve the
-[optional F3 compression decision](fast-development-build-plan.md#implementation-order)
-before further media optimization: distinct development candidate metadata or defer
-pending upstream per-media support. F1/F2 have completed; do not rerun them just to
+Use the delivered candidate-only target for host/application iteration. Finish the
+[approved F3 comparison](fast-development-build-plan.md#implementation-order) using
+distinct development compression metadata, unchanged production defaults and native
+readback/boot evidence. F1/F2 have completed; do not rerun them just to
 make a newer documentation revision appear in a receipt. M4's P9/B build/update/recovery
 work stays paused. Public hosting, ARM and minimum-hardware qualification remain
 separate work.
@@ -186,8 +185,9 @@ complete offline installer.
 
 **Current task: implement `docs/fast-development-build-plan.md`.** The owner's latest
 request authorizes its source work and bounded local verification, superseding its
-planning-only status. F1/F2 execution is complete; F3's different-candidate comparison
-is not covered by the unchanged-candidate plan and awaits the recorded decision.
+planning-only status. F1/F2 execution is complete. The owner's subsequent “allowed”
+approves F3 with distinct development-only compression metadata; the previous
+unchanged-candidate comparison constraint is superseded for this benchmark only.
 The source-read correction granted the existing build identity read-only ACLs on
 13 current-commit loose Git objects, not private/untracked inputs; exact paths remain
 in `.artifacts/fast-development/source-read-access.txt`. Scope: reuse the existing isolated build identity/tools/caches;
@@ -198,7 +198,9 @@ install a separately named admitted development controller/test helper under
 effects. Do not replace the M4 controller/configuration or touch its qualifier disks.
 
 Run the necessary native candidate timing and at most one successful baseline/fast
-packaging comparison against unchanged candidate bytes, retaining failures. Use
+packaging comparison using default/fast development candidates from the same source,
+retaining each candidate's unchanged bytes throughout its packaging/boot checks and
+retaining failures. Use
 fixture-only media signing and a task-local rootfs listener/diskless boot observation
 if needed to validate the selected compression; no installation or real provider
 activity. Preserve one active VM, CPUs 0–3, at most four vCPUs/16 GiB. Stop only exact

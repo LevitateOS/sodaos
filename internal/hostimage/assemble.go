@@ -41,6 +41,7 @@ type Media struct {
 	AssemblerImportCommit, RootfsURL                                          string
 	ISO, Rootfs                                                               MediaFile
 	Tools                                                                     mediaLock
+	CompressionMode, RootfsFilesystem, RootfsOptions                          string
 }
 
 func mediaBaseURL(value string) error {
@@ -180,6 +181,13 @@ func assembleMedia(ctx context.Context, p nativebuild.Production, r Request, loc
 	if err != nil || hash != candidate.HostArchiveSHA256 {
 		return result, errors.New("media candidate archive mismatch")
 	}
+	filesystem, fsoptions, err := rootfsSettings(artifacts)
+	if err != nil {
+		return result, err
+	}
+	if r.MediaCompression == "fast" && (filesystem != "erofs" || fsoptions != fastRootfsOptions) {
+		return result, errors.New("fast media metadata differs from selected setting")
+	}
 	if err = next("P7 / Authenticate packaging inputs"); err != nil {
 		return result, err
 	}
@@ -213,7 +221,7 @@ func assembleMedia(ctx context.Context, p nativebuild.Production, r Request, loc
 			return result, err
 		}
 	}
-	for _, path := range []string{filepath.Join(root, "assembler-root.oci"), filepath.Join(root, "config.tar"), filepath.Join(artifacts, "live.ign"), filepath.Join(artifacts, "destination.ign"), filepath.Join(artifacts, "candidate.json"), filepath.Join(artifacts, "payload.json")} {
+	for _, path := range []string{filepath.Join(root, "assembler-root.oci"), filepath.Join(root, "config.tar"), filepath.Join(artifacts, "live.ign"), filepath.Join(artifacts, "destination.ign"), filepath.Join(artifacts, "candidate.json"), filepath.Join(artifacts, "payload.json"), filepath.Join(artifacts, "image-config.json")} {
 		h, e := nativebuild.HashFile(path)
 		if e != nil {
 			return result, e
@@ -372,7 +380,7 @@ func assembleMedia(ctx context.Context, p nativebuild.Production, r Request, loc
 	if err != nil {
 		return result, err
 	}
-	result = Media{Scope: "candidate-derived media; native qualification and final protected release signing pending", Revision: p.Revision, Architecture: p.Arch, HostManifest: candidate.Host.Manifest, PayloadSHA256: candidate.PayloadSHA256, ConsoleSHA256: console, AssemblerImportCommit: meta.OSTreeCommit, RootfsURL: rootfsURL, ISO: iso, Rootfs: rf, Tools: lock}
+	result = Media{Scope: "candidate-derived media; native qualification and final protected release signing pending", Revision: p.Revision, Architecture: p.Arch, HostManifest: candidate.Host.Manifest, PayloadSHA256: candidate.PayloadSHA256, ConsoleSHA256: console, AssemblerImportCommit: meta.OSTreeCommit, RootfsURL: rootfsURL, ISO: iso, Rootfs: rf, Tools: lock, CompressionMode: r.MediaCompression, RootfsFilesystem: filesystem, RootfsOptions: fsoptions}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return result, err

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/acceptance"
 	"github.com/levitateos/sodaos/internal/appliancerelease"
@@ -23,13 +24,14 @@ import (
 type Request struct {
 	Source, Out, Arch, RepositoryPrefix, Revision, RootfsBaseURL, MediaAuthority string
 	Development                                                                  bool
-	Target                                                                       string
+	Target, MediaCompression                                                     string
 }
 type Result struct {
 	Revision, Architecture, Candidate, CandidateSHA256, HostManifest, PayloadSHA256, Scope string
 	Media                                                                                  string `json:",omitempty"`
 	Purpose, RequestedTarget, CompletedTarget                                              string
 	Checks                                                                                 []string
+	MediaCompression                                                                       string `json:",omitempty"`
 }
 
 // ValidateTarget rejects implicit partial production and irrelevant media inputs.
@@ -41,6 +43,9 @@ func (r Request) ValidateTarget() error {
 		}
 	} else if r.Target != "" {
 		return errors.New("--target requires --development")
+	}
+	if r.MediaCompression != "" && (!r.Development || r.Target != "media" || r.MediaCompression != "fast") {
+		return errors.New("--media-compression accepts only fast with --development --target media")
 	}
 	if !r.WantsMedia() {
 		if r.RootfsBaseURL != "" || r.MediaAuthority != "" {
@@ -82,7 +87,15 @@ func Build(ctx context.Context, r Request, progress *nativebuild.BuildProgress) 
 			return nil, e
 		}
 		log = f
-		return f.Close, nil
+		if !r.WantsMedia() {
+			return f.Close, nil
+		}
+		events, e := os.OpenFile(filepath.Join(filepath.Dir(path), "media-events.jsonl"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if e != nil {
+			return nil, errors.Join(e, f.Close())
+		}
+		log = &mediaEventWriter{log: f, events: events, start: time.Now()}
+		return func() error { return errors.Join(f.Close(), events.Close()) }, nil
 	})
 }
 
@@ -190,7 +203,8 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 	if err = execute(snapshot, "podman", "--remote=false", "pull", "--platform=linux/"+platform, pinned); err != nil {
 		return
 	}
-	// The upstream image metadata remains upstream-owned; change only the origin.
+	// Preserve upstream metadata except the selected Soda origin/install mechanism
+	// and an explicitly requested development-only compression variant.
 	metadata, e := capture(snapshot, "podman", "--remote=false", "run", "--cidfile", filepath.Join(r.Out, "evidence/base-config.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--entrypoint=/usr/bin/cat", pinned, "/usr/share/coreos-assembler/image.json")
 	if e != nil {
 		return result, e
@@ -204,6 +218,9 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 	}
 	imageConfig["container-imgref"], _ = json.Marshal("ostree-image-signed:docker://" + r.RepositoryPrefix + "-host:candidate")
 	imageConfig["bootc-install-to-fs"] = json.RawMessage("false")
+	if err = setMediaCompression(imageConfig, r.MediaCompression); err != nil {
+		return
+	}
 	imageData, e := json.MarshalIndent(imageConfig, "", "  ")
 	if e != nil {
 		return result, e

@@ -63,6 +63,13 @@ func buildHost(context, out, arch, revision, prefix string, base Base, p nativeb
 	if err = nativebuild.WriteNew(filepath.Join(out, "packages.txt"), []byte(packages+"\n"), 0600); err != nil {
 		return err
 	}
+	imageConfig, err := p.Capture(context, "podman", "--remote=false", "run", "--cidfile", filepath.Join(out, "image-config-inspect.cid"), "--network=none", "--read-only", "--cap-drop=all", "--entrypoint=/usr/bin/cat", id, "/"+imageConfigPath)
+	if err != nil {
+		return err
+	}
+	if err = recordImageConfig(context, out, imageConfig); err != nil {
+		return err
+	}
 	if err = inspectComplete(context, out, id, p.Capture); err != nil {
 		return err
 	}

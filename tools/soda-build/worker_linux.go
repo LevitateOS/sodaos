@@ -137,6 +137,9 @@ func buildWorker(c workerConfig, r hostimage.Request) (acceptance.Worker, error)
 	if r.Development {
 		w.Arguments = append(w.Arguments, "--development", "--target", r.Target)
 	}
+	if r.MediaCompression != "" {
+		w.Arguments = append(w.Arguments, "--media-compression", r.MediaCompression)
+	}
 	if r.WantsMedia() {
 		w.ReadOnly = append(w.ReadOnly, c.MediaAuthorityDirectory+":/run/soda-media-authority")
 		w.Arguments = append(w.Arguments, "--rootfs-base-url", r.RootfsBaseURL, "--media-authority", "/run/soda-media-authority/config.json")
@@ -154,7 +157,7 @@ func validateWorkerResult(r hostimage.Request, result *hostimage.Result) error {
 	if r.WantsMedia() {
 		media, completed = filepath.Join(out, "artifacts/media/media.json"), "media"
 	}
-	if result.Revision != r.Revision || result.Architecture != r.Arch || result.Candidate != filepath.Join(out, "artifacts/candidate.json") || result.Media != media || result.Purpose != r.Purpose() || result.RequestedTarget != r.RequestedTarget() || result.CompletedTarget != completed {
+	if result.Revision != r.Revision || result.Architecture != r.Arch || result.Candidate != filepath.Join(out, "artifacts/candidate.json") || result.Media != media || result.Purpose != r.Purpose() || result.RequestedTarget != r.RequestedTarget() || result.CompletedTarget != completed || result.MediaCompression != r.MediaCompression {
 		return errors.New("worker result does not match this run")
 	}
 	candidate := filepath.Join(r.Out, "artifacts/candidate.json")
