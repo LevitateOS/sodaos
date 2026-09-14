@@ -15,6 +15,77 @@ not claims that those outputs are still retained.
 
 ---
 
+## Fast development media compression
+
+After the F3 input-contract finding below, the owner explicitly allowed a distinct
+**development-only** host compression metadata variant. `0fd8def` implements
+`--media-compression fast` only with `--development --target media`, using the same
+producer and upstream packager. It changes only the reviewed EROFS LZMA level 6
+setting to level 1; production defaults, filesystem, fragments and 1 MiB clusters
+remain unchanged. No Assembler fork, component omission or alternate producer was
+introduced. **F3 completed**, not M4 or release qualification.
+
+One sequential native x86_64 pair ran from clean
+`0fd8defc6b17b7b62c2f256ecd1dee52d942e9a6` through its matching root-admitted controller
+and the existing isolated build worker. Outputs are
+`.artifacts/releases/isolated/dev-media-{default,fast}-01/`. Each run had fresh native
+packaging scratch and the same four-CPU/CPU-0–3/16-GiB bounds, with only one helper VM
+active. Resolved upstream app inputs and exported tools matched between runs. The
+host image configuration differed only in `live-rootfs-fsoptions`; separate host,
+payload and media identities remain distinct, not claimed byte-reproducible.
+
+| Measurement | Default | Fast |
+| --- | ---: | ---: |
+| Controller wall time, exit 0 | 21m24s | 18m35s |
+| P8 native packaging | 14m59s | 12m03s |
+| Observed rootfs window | 414.25s | 223.19s |
+| Observed osmet windows (512 / 4096) | 86.77s / 85.24s | 92.72s / 88.10s |
+| ISO bytes | 160,432,128 | 160,432,128 |
+| Rootfs bytes | 1,803,103,744 | 1,854,429,184 |
+
+The fast worker clock was 18m34s; its outer controller rounded to 18m35s. Overall
+saving was **2m49s (about 13%)**, with **2m56s less packaging**. The rootfs download
+increased by **51,325,440 bytes (2.85%)**; the ideal added transfer time at 100 Mbit/s
+is about 4.1s, not measured Internet performance. ISO size stayed equal, not its hash.
+This single controlled pair is not a universal performance guarantee.
+
+`logs/media-events.jsonl` records arrival times of existing upstream messages, not
+CPU profiles or patched stage clocks. The rootfs window includes CPIO/hashing;
+osmet includes checksum/readback. An unpaired replayed `Packing successful!` at the
+end of the upstream stage report was excluded from interval pairing. Original events
+remain intact. Native logs confirm the actual EROFS options used, including level 1
+for fast media. Both complete paths passed source/prepared suites, all-five-app and
+host checks, local fixture signing/admission, native import identity, ISO Ignition/
+kargs readback and rootfs chunk verification. The extra host configuration readback
+and signed `image-config.json` inventory bind the selected options to built content.
+
+Fast media binds host
+`sha256:c55fd86ffc584f87b5dcd464cb95c172fd217ba28c1cf7ec3419a778c3111001`,
+ISO `391c7b25837b696eb59c3a58f5ca463de1770674cf1ae8e5ec4f57f44eb6d9b7`, and
+rootfs `092fecf5dc0f1a8170e6075de448b7ad3d61cad07c16aa2dfa9618788bc650f6`.
+An admitted task helper then booted that unchanged ISO under native KVM, four vCPUs /
+12 GiB inside the same 16-GiB worker ceiling. The guest had **no installation target**:
+only read-only ISO/firmware plus fresh writable EFI variables. It reached the reviewed
+Soda welcome framebuffer in **23.22s**, with two zero-body HEAD requests and one GET
+of exactly **1,854,429,184 bytes in 5.66s** over the local QEMU host route. ISO/rootfs
+hashes were unchanged afterward. No key/password enrollment, disk installation,
+update, rollback or minimum-resource qualification occurred. QMP quit/process wait
+and loopback server close completed before success; task units were absent afterward.
+
+Task receipts are under `.artifacts/fast-development/`: `f3-comparison.json`,
+`media-{default,fast}-01{,-result,-image-config}.json`, timing/events/command logs and
+exit files, `f3-effects.txt`, `boot-media.sha256`, `boot-fast-01-result.json`,
+`boot-fast-01-blocks.json`, `boot-fast-01-welcome.png` and native serial/stopped records.
+The build role's `dev-media-boot-fast-01/` retains the original diskless-boot outputs.
+The loopback rootfs listener at port 19947 is stopped; those local fixture ISO URLs
+are not public distribution endpoints. The current task controller/profile refresh
+is recorded separately in `controller-current.json`, not relabelled native evidence.
+
+Focused race tests/vet for `internal/hostimage` and `tools/soda-build`, actual CLI
+admission/refusal checks, both full native media paths and the diskless boot passed.
+All existing verification remains; no real release keys, protected M4 disks, native
+update fixture, public service or host trust/network policy changed. M4 stays paused.
+
 ## Fast development candidate production
 
 The owner paused M4, requested the side plan (`e76d23c`), then approved its

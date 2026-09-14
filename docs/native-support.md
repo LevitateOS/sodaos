@@ -95,8 +95,10 @@ The measured development-candidate path took **5m30s warm / 8m29s cold** on the 
 four-CPU x86_64 worker; [receipts](implementation-history.md#fast-development-candidate-production)
 state that scope. The optional `--media-compression fast` flag applies only to
 `--development --target media`: it changes the development host's compression metadata
-to EROFS/LZMA level 1, not production defaults. See the
-[owning plan](fast-development-build-plan.md#implementation-order) for current measurements.
+to EROFS/LZMA level 1, not production defaults. The bounded comparison reduced media
+build time from **21m24s to 18m35s**, with a **2.85% larger rootfs** and unchanged ISO
+size. Native readback and a diskless fast-media boot passed; see the
+[owning plan](fast-development-build-plan.md#implementation-order) for scope/measurements.
 
 The configuration names `Executable`, canonical `Source`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
@@ -116,6 +118,9 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --arch x86_64 --out /OUTPUT_PARENT/ANOTHER_UNIQUE --development --target media \
   --rootfs-base-url http://FIXTURE_ADDRESS:PORT
+
+# For faster installer iteration, add --media-compression fast to the media command.
+# This selects a distinct development host/ISO, not production qualification.
 ```
 
 Substitute the operator-admitted absolute paths and explicit URL. Omitting both

@@ -13,9 +13,10 @@ receipts and superseded grants. Other workstreams remain in the [development han
 - **Fast-development F1/F2 delivered:** `bb17280` adds explicit development
   candidate/media targets through the existing isolated producer. Native candidate
   runs passed in **8m29s cold / 5m30s warm**, with all five apps/checks and no media
-  authority, packaging or VM. Focused race/vet checks passed. F3 is now approved/in progress:
-  the owner allowed a distinct development candidate with changed compression metadata;
-  production settings remain unchanged. The owning plan records the bounded comparison. [F1–F3 status](fast-development-build-plan.md#implementation-order) remains
+  authority, packaging or VM. Focused race/vet checks passed. F3 is also complete (`0fd8def`):
+  default/fast media took **21m24s / 18m35s**, with fast packaging saving **2m56s**
+  for a **2.85% larger rootfs**. Native readback and a diskless fast-media welcome boot
+  passed; task workers, VM and listener stopped. Production settings remain unchanged. [F1–F3 status](fast-development-build-plan.md#implementation-order) remains
   separate from B1–B6. M4 fixtures and real release custody remain untouched.
 - B2's source-to-candidate controller was natively proved. Earlier B3 fixtures proved
   candidate-derived installation, media removal, exact-candidate first boot, five local
@@ -167,11 +168,10 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-Use the delivered candidate-only target for host/application iteration. Finish the
-[approved F3 comparison](fast-development-build-plan.md#implementation-order) using
-distinct development compression metadata, unchanged production defaults and native
-readback/boot evidence. F1/F2 have completed; do not rerun them just to
-make a newer documentation revision appear in a receipt. M4's P9/B build/update/recovery
+The [fast-development side plan](fast-development-build-plan.md#implementation-order)
+is complete within its scoped checks. Use candidate-only production for host/application
+iteration and optional fast media for installer development. Do not repeat completed
+builds merely to put a documentation revision into a receipt. M4's P9/B build/update/recovery
 work stays paused. Public hosting, ARM and minimum-hardware qualification remain
 separate work.
 
@@ -185,8 +185,9 @@ complete offline installer.
 
 **Current task: implement `docs/fast-development-build-plan.md`.** The owner's latest
 request authorizes its source work and bounded local verification, superseding its
-planning-only status. F1/F2 execution is complete. The owner's subsequent “allowed”
-approves F3 with distinct development-only compression metadata; the previous
+planning-only status. F1–F3 execution is complete; no benchmark/VM is left running.
+The owner's subsequent “allowed” approved F3 with distinct development-only compression
+metadata; the previous
 unchanged-candidate comparison constraint is superseded for this benchmark only.
 The source-read correction granted the existing build identity read-only ACLs on
 13 current-commit loose Git objects, not private/untracked inputs; exact paths remain

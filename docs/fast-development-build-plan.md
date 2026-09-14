@@ -35,8 +35,8 @@ cold caches. Do not run another full media build merely to reproduce these timin
 
 ## Selected first interface
 
-Implemented flags; candidate-only production is natively verified. F3 media validation
-is now in progress under the owner's metadata-variant approval:
+Implemented flags; candidate-only production, default/fast media readback and a
+native diskless fast-media boot are verified within the scope below:
 
 ```text
 soda-build --development --target candidate [existing worker/arch/output options]
@@ -130,7 +130,7 @@ identify the measured cause before adding optimizations. F1/F2 do not depend on 
 
 ### F3 — Optional faster installer-development media
 
-**Implementation and bounded native comparison in progress; decision approved.** Read-only
+**Complete — `0fd8def`; both native media runs and fast-media diskless boot passed.** Read-only
 inspection of the selected Assembler image and actual Soda invocation disproved the
 plan's assumption that `live-rootfs-fsoptions` is an external packaging override. Its
 live-artifact stage reads that field from `usr/share/coreos-assembler/image.json`
@@ -152,12 +152,29 @@ rootfs and ISO messages without modifying upstream stages. These are **log-arriv
 windows**, not CPU profiles: rootfs includes CPIO/hashing and osmet includes checksum
 verification. Retain the original phase timers and report this measurement limit.
 
-If worthwhile, expose a development-only `--media-compression fast` setting while
-keeping the production default unchanged. Record the exact setting and resulting
-media hashes. Measure packaging time **and** ISO/rootfs size, download cost and
-relevant native readback/boot behavior. Faster packaging can mean a larger download;
-compression can also change installation-media identity and cannot reuse another
-media image's qualification receipt.
+The bounded comparison demonstrated a useful saving; the development-only flag is
+retained. Both runs used the same committed source, resolved app inputs, exported
+tools, resource bounds and fresh packaging workspaces. The host image configuration
+differed only in `live-rootfs-fsoptions`; each distinct candidate/media identity is
+recorded separately. This is not a byte-reproducibility claim for separate builds.
+
+| Measurement | Default (LZMA 6) | Fast (LZMA 1) |
+| --- | ---: | ---: |
+| Controller wall time | 21m24s | 18m35s |
+| P8 packaging | 14m59s | 12m03s |
+| Observed rootfs window | 414.25s | 223.19s |
+| Minimal ISO bytes | 160,432,128 | 160,432,128 |
+| Rootfs bytes | 1,803,103,744 | 1,854,429,184 |
+
+Fast saved **2m49s overall / 2m56s packaging**, at **51,325,440 additional download
+bytes (+2.85%)**. At 100 Mbit/s that difference alone is about 4.1s in an ideal
+transfer, not a measured Internet result. Both native packaging/readback paths passed.
+The fast ISO then booted disklessly under KVM to the reviewed Soda welcome in 23.22s;
+its local rootfs GET transferred exactly 1,854,429,184 bytes in 5.66s. ISO/rootfs hashes
+were unchanged, with no installation target, enrollment or disk installation.
+The VM and loopback listener stopped. [History](implementation-history.md#fast-development-media-compression)
+owns exact receipts and measurement limitations. This is not installed, update,
+recovery, production-release or minimum-resource qualification.
 
 A packaging comparison is not a resume/promote facility for a failed release run.
 Use existing packaging/test entry points with fresh outputs, not another permanent
@@ -168,7 +185,8 @@ OSBuild cache integration and application feature switches are not prerequisites
 ## Completion and limits
 
 Track F1–F3 here; keep B1–B6 progress in its existing owner. F1/F2 are delivered;
-F3 validation is in progress, so the entire plan is **not yet** claimed complete. Do not silently resume M4 while this is the active priority.
+F3 is also complete within its bounded development-media scope. No automatic M4
+resumption follows; it remains paused until the owner changes priority.
 M4 fixtures, real custody and unrelated work stay untouched; experimental retention
 is not a reason to add compatibility code. The status/grant owner records any later
 approval for specific execution effects. Only the scoped receipts above support
