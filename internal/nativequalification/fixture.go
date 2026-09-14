@@ -122,7 +122,7 @@ func newFixture(ctx context.Context, c Config, a, b Artifact, media hostimage.Me
 	if _, err = f.run(ctx, "registry-pull", "podman", "--remote=false", "pull", c.RegistryImage); err != nil {
 		return f, err
 	}
-	cid, err := f.run(ctx, "registry-start", "podman", "--remote=false", "run", "--detach", "--pull=never", "--name", "soda-p9-registry-"+filepath.Base(c.Work), "--publish", "127.0.0.1:19500:5000", c.RegistryImage)
+	cid, err := f.run(ctx, "registry-start", "podman", "--remote=false", "run", "--detach", "--pull=never", "--name", "soda-p9-registry-"+filepath.Base(c.Work), "--network=host", "--env", "REGISTRY_HTTP_ADDR=127.0.0.1:19500", c.RegistryImage)
 	if err != nil {
 		return f, err
 	}
