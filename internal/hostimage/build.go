@@ -173,6 +173,9 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 	if err = p.Dependencies(); err != nil {
 		return
 	}
+	if err = p.Next("P2 / Verify native media tooling"); err != nil {
+		return
+	}
 	mediaTooling, e := admitMediaTools(snapshot, filepath.Join(r.Out, "evidence"), r.Arch, p)
 	if e != nil {
 		return result, e

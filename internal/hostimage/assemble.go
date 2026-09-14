@@ -95,7 +95,7 @@ func prepareAssembler(p nativebuild.Production, root string) (mediaLock, error) 
 	if err = os.WriteFile(argsFile, []byte(strings.Join(lines, "\n")), 0644); err != nil {
 		return lock, err
 	}
-	if err = run("podman", "--remote=false", "pull", lock.Assembler); err != nil {
+	if err = run("podman", "--remote=false", "pull", "--policy=missing", lock.Assembler); err != nil {
 		return lock, err
 	}
 	if err = nativebuild.WriteNew(filepath.Join(root, "Containerfile"), []byte("FROM "+lock.Assembler+"\nUSER 0\n"), 0644); err != nil {
