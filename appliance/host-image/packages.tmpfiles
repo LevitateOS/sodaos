@@ -2,3 +2,6 @@
 # recreation rather than depend on image /var content surviving deployment.
 d /var/lib/forgejo-runner 0755 forgejo-runner forgejo-runner -
 d /var/lib/udisks2 0700 root root -
+# rpm-ostree fetches as an unprivileged identity. Only the shared runtime parent
+# is traversable; Podman keeps its storage and credential children private.
+d /run/containers 0755 root root -
