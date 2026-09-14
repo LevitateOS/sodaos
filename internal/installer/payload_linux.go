@@ -438,24 +438,79 @@ func recheckInstalledRoot(ctx context.Context, selected Disk, root installedRoot
 	return recheckInstalledRootFromJSON(data, selected, root, mountpoint, sequence)
 }
 
-func recheckInstalledRootFromJSON(data []byte, selected Disk, root installedRoot, mountpoint, sequence string) error {
+func parseInstalledDiskInventory(data []byte) (installedBlockDevice, error) {
 	var tree struct {
 		Devices []installedBlockDevice `json:"blockdevices"`
 	}
 	if json.Unmarshal(data, &tree) != nil || len(tree.Devices) != 1 {
-		return errors.New("ambiguous installed disk inventory after mount")
+		return installedBlockDevice{}, errors.New("ambiguous installed disk inventory after mount")
 	}
-	disk := tree.Devices[0]
-	if disk.Name != selected.Device.Name || disk.KName != selected.Device.KName || disk.Type != "disk" || disk.Size != selected.Device.Size || disk.Model != selected.Device.Model || disk.Serial != selected.Device.Serial || disk.WWN != selected.Device.WWN || disk.MajorMinor != selected.Device.MajorMinor || disk.ReadOnly || !validInstalledDevice(disk.Name, disk.KName, disk.MajorMinor) {
+	return tree.Devices[0], nil
+}
+
+func sameInstalledDiskMetadata(disk installedBlockDevice, dev BlockDevice) bool {
+	if disk.Name != dev.Name || disk.KName != dev.KName || disk.Type != "disk" || disk.Size != dev.Size {
+		return false
+	}
+	return disk.MajorMinor == dev.MajorMinor
+}
+
+func sameInstalledDiskIdentity(disk installedBlockDevice, dev BlockDevice) bool {
+	if disk.Model != dev.Model || disk.Serial != dev.Serial || disk.WWN != dev.WWN {
+		return false
+	}
+	return !disk.ReadOnly && validInstalledDevice(disk.Name, disk.KName, disk.MajorMinor)
+}
+
+func sameInstalledDevice(disk installedBlockDevice, dev BlockDevice) bool {
+	return sameInstalledDiskMetadata(disk, dev) && sameInstalledDiskIdentity(disk, dev)
+}
+
+func verifyInstalledDiskIdentity(disk installedBlockDevice, selected Disk, sequence string) error {
+	if !sameInstalledDevice(disk, selected.Device) {
 		return errors.New("installed disk identity changed while mounting its root")
 	}
 	if sequence != selected.Sequence {
 		return errors.New("installed disk kernel identity changed while mounting its root")
 	}
+	return nil
+}
+
+func verifyInstalledPartitionShape(child installedBlockDevice, diskName string) error {
+	if child.Type != "part" || child.PKName != diskName || len(child.Children) != 0 {
+		return errors.New("installed disk partition inventory changed while root was mounted")
+	}
+	if child.ReadOnly || !validInstalledDevice(child.Name, child.KName, child.MajorMinor) {
+		return errors.New("installed disk partition inventory changed while root was mounted")
+	}
+	return nil
+}
+
+func sameMountedRootAttributes(child installedBlockDevice, root installedRoot, diskName string) bool {
+	if child.MajorMinor != root.MajorMinor || child.KName != child.Name || child.PKName != diskName {
+		return false
+	}
+	return child.Type == "part" && !child.ReadOnly && child.FSType == "xfs"
+}
+
+func verifyMountedRootPartition(child installedBlockDevice, root installedRoot, diskName, mountpoint string) error {
+	if !sameMountedRootAttributes(child, root, diskName) {
+		return errors.New("mounted CoreOS root identity changed")
+	}
+	if child.Label != "root" || child.PartLabel != "root" || child.UUID == "" || child.PartUUID == "" {
+		return errors.New("mounted CoreOS root identity changed")
+	}
+	if len(child.Children) != 0 || !onlyMountedAt(child.Mountpoints, mountpoint) {
+		return errors.New("mounted CoreOS root identity changed")
+	}
+	return nil
+}
+
+func verifyInstalledPartitions(disk installedBlockDevice, root installedRoot, mountpoint string) error {
 	matches := 0
 	for _, child := range disk.Children {
-		if child.Type != "part" || child.PKName != disk.Name || !validInstalledDevice(child.Name, child.KName, child.MajorMinor) || child.ReadOnly || len(child.Children) != 0 {
-			return errors.New("installed disk partition inventory changed while root was mounted")
+		if err := verifyInstalledPartitionShape(child, disk.Name); err != nil {
+			return err
 		}
 		if child.Name != root.Device {
 			if mounted(child.Mountpoints) {
@@ -464,14 +519,25 @@ func recheckInstalledRootFromJSON(data []byte, selected Disk, root installedRoot
 			continue
 		}
 		matches++
-		if child.MajorMinor != root.MajorMinor || child.KName != child.Name || child.PKName != disk.Name || child.Type != "part" || child.ReadOnly || child.FSType != "xfs" || child.Label != "root" || child.PartLabel != "root" || child.UUID == "" || child.PartUUID == "" || len(child.Children) != 0 || !onlyMountedAt(child.Mountpoints, mountpoint) {
-			return errors.New("mounted CoreOS root identity changed")
+		if err := verifyMountedRootPartition(child, root, disk.Name, mountpoint); err != nil {
+			return err
 		}
 	}
 	if matches != 1 {
 		return errors.New("mounted CoreOS root disappeared or became ambiguous")
 	}
 	return nil
+}
+
+func recheckInstalledRootFromJSON(data []byte, selected Disk, root installedRoot, mountpoint, sequence string) error {
+	disk, err := parseInstalledDiskInventory(data)
+	if err != nil {
+		return err
+	}
+	if err := verifyInstalledDiskIdentity(disk, selected, sequence); err != nil {
+		return err
+	}
+	return verifyInstalledPartitions(disk, root, mountpoint)
 }
 
 func onlyMountedAt(points []*string, expected string) bool {
