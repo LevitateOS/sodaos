@@ -143,6 +143,19 @@ func Dispatch(ctx context.Context, c Config, candidate, revision, custody string
 	if err = os.Chmod(filepath.Join(input, "config.json"), 0444); err != nil {
 		return err
 	}
+	// Root custody stays private; its mounted public input subtree must remain
+	// traversable by the qualifier even when the controller uses umask 077.
+	if err = filepath.WalkDir(input, func(p string, d os.DirEntry, e error) error {
+		if e != nil {
+			return e
+		}
+		if d.IsDir() {
+			return os.Chmod(p, 0755)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 	if err = writeNewJSON(filepath.Join(custody, "admission.json"), map[string]any{"driver_sha256": driver, "baseline": a.Candidate, "candidate": b.Candidate, "files": files, "baseline_disk_sha256": sum}); err != nil {
 		return err
 	}
