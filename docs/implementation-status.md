@@ -13,17 +13,16 @@ not this implementation queue.
 
 ## Current position
 
-**B1 source review identifies a native FCOS packaging/update route; not yet native-
-proved.** Assembler/OSBuild can consume the candidate for live/osmet packaging, and
-Zincati 0.0.32 supports OCI through rpm-ostree. A client-trust contract decision,
-native builder execution and exact installed proof remain. Bootc filesystem
-installation stays withdrawn. The owner now selects a
-[minimal network-install ISO](coreos-installer-plan.md#selected-media--minimal-network-install),
-not self-contained offline media; native download/bootstrap and size proof are still
-outstanding. **B2 is complete at its source-to-candidate scope:** the Go controller
-produced and verified native x86_64 candidate `4c62f68` in one run. B3 is in progress: native bootstrap authentication
-and executable builder inputs have been reviewed; VM packaging/install proof awaits
-execution under its newly approved exact fixture grant. B4–B6 have not started. B1's media/installed proof remains separate from this unsigned candidate.
+**Native candidate-derived installation is now fixture-proved; update/trust proof
+remains open.** Assembler/OSBuild produced minimal network media; CoreOS Installer/
+Ignition installed candidate `9577645`. After media removal, the booted OCI digest
+matched exactly, SELinux was enforcing and all five archives/Podman images were local
+without external network access. Bootc installation stays withdrawn.
+**B2 is complete at its source-to-candidate scope. B3 remains in progress:** the
+160,432,128-byte ISO and native install have scoped evidence, but the production
+media-only assembler/readback checks are not implemented. B4–B6 have not started.
+All approved packaging, replacement-candidate and installation target slots have
+been used; fixtures are stopped and retained. [Receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write).
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -37,7 +36,7 @@ candidate complete and delivery next no longer describe the active execution ord
 
 ### 1. Verify the native installation contract — B1
 
-**Source-backed route found; native proof and update-authority choice outstanding.**
+**Native installation fixture proved; update proof and authority choice outstanding.**
 Recommend the locked FCOS producer's OCI import → native metal/live/osmet path,
 unchanged CoreOS Installer/Ignition, and Zincati/rpm-ostree OCI updates. The stock
 Fedora graph does not qualify Soda images; native graph trust is not equivalent to
@@ -64,19 +63,21 @@ P3 exited 130, retained diagnostics and emitted no candidate. [Receipt](implemen
 
 ### 3. Make the ISO consume the candidate — B3
 
-**In progress — minimal media and authenticated network boot; installer proof open.**
-The streaming verifier passed its scoped integrity checks. Two native imports retained
-exact candidate bytes and reached upstream helper VMs, but failed before producing
-media. The first three packaging targets are consumed; the owner approved three
-fresh targets and the clarified upstream scratch lifecycle after reviewing the hold.
-Attempt 04 exposed a `/usr/sbin` overlay bug. Replacement candidate `0959f5c` passed
-the controller in 5m28s; attempt 05 packaged it successfully. Native extraction yielded
-160,432,128-byte minimal media plus the exact 1,884,586,496-byte rootfs. One live boot
-and missing/corrupt/truncated download refusals ran in diskless fixture install-01.
-The Go controller/installer now implement the embedded prebuilt-console handoff and
-native candidate provisioning. The second/final replacement build is next; no disk
-has been installed. Previous candidates remain unchanged.
-[Receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts),
+**In progress — native media/install proved; production media-only assembler open.**
+The final approved replacement `9577645` passed P1–P6 in 5m30s. Package 06 produced
+candidate-derived media: **160,432,128-byte ISO + 1,890,589,184-byte rootfs**, or
+2,051,021,312 content bytes combined. Fixture signatures authenticated media before
+use; native chunk hashes authenticated the network download. Install-01 covered
+missing/corrupt/truncated download refusal with the earlier candidate. Install-02
+proved password-only installation, zero target writes before erase (including cancel/
+restart), media removal and exact installed identity/all-five local content. Install-03
+was interrupted after writing began: it reported partial state, did not retry/reboot,
+and target writes remained unchanged afterward. Explicit same-boot re-invocation
+refusal remains source-tested, not independently exercised in that guest.
+All six packaging targets, both replacement builds and installation targets 01–03
+are consumed. Previous candidates and successful/partial disks remain unchanged;
+no full B3 or qualified-release completion is claimed.
+[Receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write),
 [original approval](#b3-native-fixture-scope--approved) and
 [approved narrow extension](#b3-packaging-extension--approved).
 Media-only assembly takes the exact signed host/app candidate and
@@ -115,15 +116,15 @@ ordinary-Podman candidate path are implemented and native-checked. Continue B1/B
 candidate-derived minimal media, keeping installed proof separate. Neither
 source checks nor an unsigned candidate authorize appliance installation or delivery.
 
-The [installation findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+The [installation findings](coreos-installer-plan.md#source-backed-packaging-route)
 and [native update/authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
 now identify concrete upstream calls and boundaries, not a custom disk/updater design.
 
 **Selected media:** minimize ISO size and download installation content using native
 FCOS where possible. Apply the [owning media contract](coreos-installer-plan.md#selected-media--minimal-network-install);
 do not retain the full/offline ISO requirement or assume GHCR must serve every file.
-B1 must verify native minimal extraction, pre-live networking and authenticated
-rootfs/bootstrap binding before implementing that handoff.
+Reuse the native minimal extraction, DHCP bootstrap and authenticated rootfs binding
+already exercised; broader network modes are not implied by that fixture.
 
 **Decision needed:** adopt native Zincati graph/image trust and maintenance as the
 appliance update contract, or retain all existing client-side signed-channel checks.
@@ -138,11 +139,13 @@ Assembler manifest, OSBuild/live stage and tools. Its native streaming verifier
 passed scoped tests; the [installer owner](coreos-installer-plan.md#b3-native-download-authentication-handoff)
 records that handoff. The approved scope below covers its helper VMs and fresh
 installation targets; its first three packaging targets are consumed and the
-extension below is now approved. Required proof
-includes unchanged OCI input/installed digest, native osmet reconstruction after
-download, minimal ISO size, network failures, private Ignition, enforcing SELinux,
-media removal and all-five local image availability. B2 implements v2 storage/import;
-B3 still must replace the legacy media/console continuation and prove its runtime.
+extension below has now been consumed. The native fixture proved exact installed
+digest, osmet reconstruction, minimal media, DHCP bootstrap/download refusals,
+private provisioning, enforcing SELinux, media removal and all-five local content.
+Next implement the production media-only assembler and its admission/readback
+checks; B4/B5 connect these operations and protected qualification/finalization to
+the fixed Go sequence. Another candidate/packaging/install run
+requires a new exact grant; unused time does not renew consumed target slots.
 
 - Actual disk/VM installation, reboot and recovery need an exact native fixture,
   baseline, resource budget and lifecycle grant. Existing fixtures are not implicit
@@ -158,8 +161,9 @@ B3 still must replace the legacy media/console continuation and prove its runtim
 
 **Owner approved the exact `5efed3e` request.** The following scope now authorizes
 B3's named native fixtures and actions. It does not revive the withdrawn bootc
-experiment or extend retained targets' grants. Targets 01–03 were used; no
-installation target/listener was created. Upstream scratch housekeeping conflicted
+experiment or extend retained targets' grants. Packaging and installation targets
+01–03 are now used and stopped; install-01 was diskless, install-02 contains the
+successful installation, and install-03 contains partial writes. Upstream scratch housekeeping conflicted
 with the original no-pruning/preservation restriction. The owner subsequently
 approved the [narrow extension](#b3-packaging-extension--approved).
 
@@ -241,6 +245,14 @@ authorized.
 - All other original network, input, secret, lifecycle and publication restrictions
   remain. No host trust/SELinux/cgroup delegation change is requested.
 
+**Consumed and stopped:** packages 04–06 and both replacement candidates have run.
+Conservatively charging every continuation gap through final VM shutdown gives
+**10,448 seconds used / 3,952 seconds unused**. Known experiment/output roots occupy
+186,165,846,016 allocated bytes; adding the full sizes of both candidates and their
+app images (overcounting shared layers) gives 196,377,820,421 bytes, below 200 GiB.
+Shared compiler-cache growth and whole-host peak were not measured. These are fixture
+observations, not product budgets or authority for further targets or cleanup.
+
 This recommends retaining upstream scratch ownership rather than maintaining a
 Soda fork merely to suppress empty-cache housekeeping. It does not retroactively
 authorize the already observed housekeeping or count failed packaging as B3 proof.
@@ -304,7 +316,8 @@ custody, not a fresh filesystem/registry observation:
 
 | Resource | Custody |
 | --- | --- |
-| B3 bootstrap and native packaging failures | `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/`; `native/package-01` created/not running, 02–03 exited; CIDs, admitted inputs, fixture trust, caches and consoles retained. Upstream removed temporary helper roots; no installation targets created. |
+| B3 bootstrap, packaging and installation | `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/`; package-01 created/inactive, 02–06 exited; install-01 diskless, install-02 successful disk plus pre-first-boot copy, install-03 partial disk. VMs/listeners stopped; CIDs, admitted inputs, fixture trust, caches, media, private inputs and consoles retained. Upstream temporary helper roots are not retained. |
+| B3 replacement candidates/controllers | `.artifacts/releases/b3-{layout-0959f5c,console-9577645}-*/` and `.artifacts/controllers/b3-{layout-R57ol0,console-C7n7GT}/`; both approved replacement slots consumed. |
 | B2 native candidate, failures and cancellation | `.artifacts/releases/b2-{42cba33,9837d3e,4c62f68,cancel-4c62f68}-*/`; exact paths in the B2 receipt |
 | B2 controller binaries/checks | `.artifacts/controllers/b2-*`, `.artifacts/build-controller/controller-3fe7f18-yIS3y0/` |
 | Complete M1 candidate | `.artifacts/host-image/complete-45ac843/` |
@@ -371,5 +384,13 @@ production lines (**12,559 total**): embedded once-built console, pinned Butane 
 Ignition output, strict candidate/archive verification and native provisioning using
 the unchanged disk safeguards. Source/default/vendor/race checks and strict profile
 conversion passed. [Current receipt](implementation-history.md#b3-minimal-media-network-boot-and-candidate-console).
-No installation/media-removal/installed-first-boot proof, real signing-custody change,
-publication or retained-appliance mutation has occurred. B3 remains incomplete.
+The final replacement then passed native packaging, installation/media removal,
+exact booted digest, enforcing SELinux and all-five local-content checks. Partial-write
+interruption stopped without automatic replay; the failed disk is retained. The shared
+review's stale writable-continuation sentence is corrected in source and covered by
+PTY/default/vendor/race tests; the tested candidate itself is unchanged. Production
+remains **12,559 lines**. [Final fixture receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write).
+No real signing-custody change, publication or retained-appliance mutation occurred.
+B3 still needs the production media-only assembler/readback implementation; B4/B5
+then connect protected qualification and finalization. The fixture helpers are not a
+second production command or a completed single-run pipeline.

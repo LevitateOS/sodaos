@@ -72,12 +72,12 @@ Local-only or synthetic evidence never authorizes a production channel.
 
 ### Milestone 1 — verify the native installation contract
 
-**B1 source review now identifies a native FCOS route; native proof and a client-trust
-choice remain open.** The locked Fedora build uses OCI import and native Assembler/
+**B1's native installation route has scoped fixture proof; update proof and a
+client-trust choice remain open.** The locked Fedora build uses OCI import and native Assembler/
 OSBuild metal/live packaging; Zincati 0.0.32 supports OCI updates through rpm-ostree.
-The [installer findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+The [installer findings](coreos-installer-plan.md#source-backed-packaging-route)
 and [update/authority findings](#b1-native-update-and-authority-findings) distinguish
-this evidence from unrun native qualification. Bootc filesystem installation stays
+installation evidence from outstanding update/recovery qualification. Bootc filesystem installation stays
 withdrawn. Reuse the existing caller/LOC baseline; source observations do not mark
 B1 complete.
 
@@ -202,7 +202,7 @@ installation or automatic-update configuration is authorized by this recommendat
 If the additional existing client checks must all remain, their integration needs a
 supported upstream solution or an explicitly approved deviation before implementation.
 
-The [native installation proposal](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+The [native installation route](coreos-installer-plan.md#source-backed-packaging-route)
 can provide locally available host/application bytes after network installation,
 without bootc. It does not by itself
 resolve this update-authority choice. Public commissioning remains after B6; this is
@@ -291,10 +291,12 @@ qualified end-to-end release or the command's final success outcome.
 
 ### Milestone 3 — make the ISO consume the candidate
 
-**B3; in progress.** Native download authentication and exact candidate import have
-scoped proof; live packaging failed and installed proof remains open. See the
+**B3; in progress.** Native candidate-derived media, authenticated download and
+exact installed identity now have scoped fixture proof. Production media-only
+assembly/readback still needs implementation; B4/B5 connect protected qualification
+and finalization. See the
 [bootstrap handoff](coreos-installer-plan.md#b3-native-download-authentication-handoff),
-[packaging findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+[packaging findings](coreos-installer-plan.md#source-backed-packaging-route)
 and [approved native extension](implementation-status.md#b3-packaging-extension--approved).
 Replace the candidate handoff, not the native FCOS disk/boot engine.
 
@@ -747,18 +749,11 @@ this does not defer the replacement's required local content after the
 
 ## Workstream status and next action
 
-**Next: continue selected B2 controller work while resolving B1's native-client trust
-choice and admitting the matching upstream build capsule.** Direct vendor staging is
-implemented; do not claim P5/P6 or native installation proof from that change. Source identifies
-Assembler/OSBuild/osmet and Zincati/rpm-ostree OCI mechanisms, not a Soda partitioner
-or updater. The bootc filesystem experiment remains withdrawn. No native candidate-
-media build, disk installation or update was run in this review. None of the
-replacement milestones is complete. The old local candidate at `45ac843`,
-native trusted-delivery source and protected bootstrap, and `d054a60`/`fde23d0`
-transitional tests remain evidence to reuse. They do not mark milestones of the
-replacement complete. The [status](implementation-status.md) records exact artifacts,
-blockers and grants; [feasibility research](release-engineering-feasibility.md) is
-historical source evidence, not a selected deployment or prerequisite to rerun.
+The [owning status](implementation-status.md) records B1–B6 completion, exact artifacts,
+next work and current grants. Reuse its source/candidate/native fixture receipts;
+do not infer full qualification from a successful component or installation test.
+[Feasibility research](release-engineering-feasibility.md) is historical source
+evidence, not a selected deployment or prerequisite to rerun.
 
 Current installer usability is preserved until B3/B4's native proof permits source
 cutover. This is not permission to keep producing writable bundles in the new run.

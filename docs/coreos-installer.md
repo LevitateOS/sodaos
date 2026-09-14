@@ -9,21 +9,23 @@ installation/update/recovery and B6 retires the old producers. The
 [installer contract](coreos-installer-plan.md#image-based-replacement-contract) owns
 its disk/bootstrap requirements. Public ISO delivery and scheduling follow B6.
 
-The replacement is not implemented yet. The operational commands below describe
-the current retiring source and remain available until native cutover; they are
-not instructions to build a second release lane. The new media assembler will not
-compile Soda programs, invoke the old component builder or install stock CoreOS plus
-a Soda bundle. B1's [source-backed packaging proposal](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+The complete replacement is not connected yet. The operational commands below
+describe the retiring source and remain available until native cutover; they are
+not instructions to build a second release lane. Candidate media does not compile
+Soda programs, invoke the old component builder or install stock CoreOS plus a Soda
+bundle. The [native packaging route](coreos-installer-plan.md#source-backed-packaging-route)
 uses native Assembler/OSBuild to generate candidate-derived live/osmet media from the
 already-built host, rather than merely appending its OCI archive to a stock ISO.
 The owner now selects [minimal network-install media](coreos-installer-plan.md#selected-media--minimal-network-install):
 small boot media with installation content downloaded, not a self-contained full ISO.
-That packaging, network bootstrap and actual size have not yet been proved here.
+The [B3 native fixture](implementation-history.md#b3-native-candidate-installation-and-interrupted-write)
+proved a 160 MB ISO, authenticated network boot and exact-candidate installation/
+media removal. This is not yet a connected protected release command.
 
 **Reusable current evidence:** previous required-key media has bounded diskless
 BIOS/UEFI boot proof. Current source has password-only input, correction/Back/pre-write
-restart, key enrollment/private setup and bundle continuation, but not the new image
-backend. These are not the new ISO's fresh-disk acceptance. Preserve the
+restart, key enrollment/private setup and legacy bundle continuation alongside the
+new candidate backend. Historical writable-media checks are not its fresh-disk acceptance. Preserve the
 [password-only interaction](coreos-installer-plan.md#manual-install-decision--10-september-2026)
 and canonical artwork; no Anaconda/Kickstart or predecessor installer is selected.
 [Development custody](development-handoff.md) records historical media evidence;

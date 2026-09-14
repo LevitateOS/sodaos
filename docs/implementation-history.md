@@ -15,6 +15,105 @@ not claims that those outputs are still retained.
 
 ---
 
+## B3 native candidate installation and interrupted write
+
+Final approved replacement `9577645742048ba3948f84dabee871c0963492ba` passed the
+matching Go controller's P1–P6 in **5m30s**, retaining the intentional exit-2
+unqualified boundary. Output: `.artifacts/releases/b3-console-9577645-20260914T094946Z/`;
+controller: `.artifacts/controllers/b3-console-C7n7GT/`. This consumed the second/final
+replacement slot. Host manifest:
+`sha256:f7a4edc5942f28130fc175416902a24e9d27a4809937c3429ca19743e75d0a4a`;
+archive SHA256 `2436be88b8ac0c07eb458c308df8cc4a5c828106e673bf312287095b202d48c7`;
+payload SHA256 `8979f43dbb77db87f2a703de356c6a6f504528a756819a2ed8b7d03e1893c4ce`.
+
+`native/package-06` authenticated the unchanged candidate and pinned tool inputs
+with isolated filesystem fixture signatures, then completed upstream Assembler/
+OSBuild live packaging. Clean minimal extraction followed by one native URL/Ignition
+customization produced **160,432,128-byte ISO + 1,890,589,184-byte rootfs**. Combined
+content is **2,051,021,312 bytes**, excluding HTTP overhead/retries; only the rootfs
+is downloaded during this boot. The full ISO remains an internal packaging input.
+Media signatures were independently verified before each installation VM use; the
+native initramfs chunk list authenticates the executable download. This is fixture
+trust, not production custody, publishing or protected-worker isolation proof.
+
+`native/install-02` used the actual embedded console and a fresh 64 GiB sparse disk,
+serial `soda-b3-disk-02`. The password-only wizard verified the payload, allowed
+pre-write cancellation/restart, reviewed the exact disk and required its explicit
+ERASE confirmation. QMP target write counters were **zero** before cancellation,
+after cancellation and before erase. Password screenshots contain only prompts.
+CoreOS Installer/osmet completed the disk installation without a writable bundle,
+package continuation, rebase or automatic reboot.
+
+The read-only ISO was detached. The initial QMP eject observer incorrectly used a
+block backend name as a qdev ID and was refused; the observed qdev path plus explicit
+read-only media removal succeeded. QMP readback showed no inserted media. The VM was
+stopped, a restricted consistent pre-first-boot disk/firmware copy retained, and the
+same installed disk booted with **no ISO device, no content listener and restricted
+user-mode networking**. Native Ignition applied hostname/subnet/root access. Local
+password login succeeded. Installed observations:
+
+- Exactly one booted deployment, version `44.20260817.3.2.soda-957764574204`, native
+  OSTree checksum `043275b423110ebbd6adb4d71c2013b83c122a78728576551d92a1cbceaa6295`,
+  matching OSBuild's actual deployment. Assembler's earlier preflight import recorded
+  `a8612d1d46f2021df03c585e99551b285870314ddf2fa9bfa8bcb051149af283`; those separate
+  import checksums differ. `native/final-checks/lineage.json` binds both rather than
+  assuming equality; this fixture does not diagnose their difference.
+- `container-image-reference-digest` equals the admitted host manifest above;
+  origin is `ostree-image-signed:docker://ghcr.io/levitateos/sodaos-host:candidate`.
+  The native OSTree checksum is not substituted for the OCI digest.
+- SELinux **Enforcing**; `sshd -T` reports `passwordauthentication no`,
+  `kbdinteractiveauthentication no`, `permitrootlogin prohibit-password`.
+- All five `/usr/share/soda/images/*.oci` SHA256s and all five ordinary Podman config
+  IDs match the admitted payload. Import succeeded; Forgejo ran and the host socket
+  listened. Dashboard/proxy remained inactive behind `/etc/soda/activated`, as
+  expected before operator setup. No provider registration/job or all-services-running
+  claim is made. Full native enrollment/browser setup remains outside this receipt.
+- Four vCPUs, affinity 0–3, 12 GiB configured RAM. Installed QEMU high-water RSS was
+  4,266,836 KiB at observation; guest `/var` filesystem used 6,343,225,344 bytes.
+  These are scoped fixture measurements, not minimum product requirements.
+
+`native/install-03` independently admitted the same media, used another fresh 64 GiB
+disk (`soda-b3-disk-03`), and required its own explicit erase. A QMP observer sent
+virtual Ctrl-C after **40,960 target bytes** had been written. The console reported
+interruption/possibly partial state with raw diagnostics suppressed and no retry or
+reboot. Writes settled at **3,960,832 bytes** and remained unchanged through the
+later hold observation. The partial disk was not booted, reset or re-erased. Explicit
+same-boot binary re-invocation was not exercised: tty2 required login and the public
+live profile supplied no inspection login. The existing marker-refusal tests remain
+source evidence; do not label them installed re-invocation proof. Live QEMU high-water
+RSS was 4,697,188 KiB with four CPUs/12 GiB; this is not a measured minimum RAM limit.
+
+All owned VMs/listeners were stopped. Package-01 remains created/inactive; 02–06
+exited. Inputs, signatures, CIDs, caches, media, successful/preboot/partial disks,
+restricted fixture passwords and consoles are retained. All six packaging targets,
+both replacement builds and install targets 01–03 are consumed (01 was diskless).
+Conservatively charging every continuation gap through final shutdown gives
+**10,448 seconds used / 3,952 seconds unused**. Known fixture/output roots occupy
+186,165,846,016 allocated bytes. Adding full candidate/app image sizes, overcounting
+shared image layers, gives 196,377,820,421 bytes against the 214,748,364,800-byte grant.
+Shared compiler-cache growth and whole-host peak were not measured. Resource custody
+is in `native/final-checks/resources-and-custody.json`; no artifact deletion is implied.
+
+A stale shared review sentence still prescribed writable continuation in the tested
+candidate; its completion screen correctly described native first boot. The source
+now directs both formats to their completion screen, with a PTY assertion. Default,
+actual `soda_host_image`-tag and race installer suites passed; an earlier unused
+`soda_vendor` tag merely reran default layout, and its log is retained separately.
+The corrected text was **not rebuilt into the retained candidate**. Production stays
+**12,559 physical lines**. No shipping candidate changed after tests/admission.
+
+Final scoped checks passed 101 local documentation links and verified
+`native/FINAL-SHA256SUMS` for 126 public diagnostic files; private inputs, key material,
+image/cache blobs and disks are excluded from that manifest.
+
+The native route and installation fixture now have evidence, not merely source
+predictions. **B3 remains incomplete:** the production media-only assembler and its
+admission/readback checks still need implementation. The ignored fixture helpers are
+not that producer. B4/B5 connect protected qualification/finalization to the Go run.
+B4–B6 and the native-update/client-trust decision
+remain open. The real public trust hash is unchanged; no production signing custody,
+registry/channel, retained appliance, host trust/network or publishing was changed.
+
 ## B3 minimal media, network boot and candidate console
 
 Replacement candidate `0959f5cd2bb7c7151710dc43de155043a70dcb94` completed the matching
@@ -399,7 +498,7 @@ non-bootc installation and owns disk/boot/Ignition setup. Native live packaging 
 metal/metal4k dependencies and Installer's osmet reconstruction. The locked live-root
 configuration uses EROFS; historical descriptions of squashfs are not a new format pin.
 
-The [installer findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
+The [installer findings](coreos-installer-plan.md#source-backed-packaging-route)
 recommend candidate-derived native live/osmet media, not an unchanged stock ISO plus
 an OCI tar or a Soda partitioner. Assembler copies an OCI archive input unchanged;
 its disabled containers-storage optimization documents a deployed-digest mismatch

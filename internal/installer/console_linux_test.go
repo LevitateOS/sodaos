@@ -276,6 +276,9 @@ func TestDiskChoicesCorrectInvalidInputWithoutPublicKey(t *testing.T) {
 	if strings.Contains(transcript, password) {
 		t.Fatal("password leaked into a later prompt or transcript")
 	}
+	if !strings.Contains(transcript, "follow the completion screen for media removal and next steps") || strings.Contains(transcript, "Soda continuation are still required") {
+		t.Fatal("shared review must not prescribe the retiring writable continuation")
+	}
 	if strings.Contains(strings.ToLower(transcript), "public key") || strings.Contains(strings.ToLower(transcript), "fingerprint") {
 		t.Fatal("manual disk flow asked for an SSH key")
 	}

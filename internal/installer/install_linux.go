@@ -571,7 +571,7 @@ func collectDiskInstallChoices(ctx context.Context, c console, run commandRunner
 			c.print("Operator access: local native root password")
 			c.print("Included Soda payload: %.1f MiB verified", float64(payloadBytes)/(1<<20))
 			c.print("Network settings will be copied to the installed system.")
-			c.print("An activation reboot and Soda continuation are still required.")
+			c.print("After writing, follow the completion screen for media removal and next steps.")
 			phrase := "ERASE " + result.disk.Device.Name
 			for {
 				answer, err := c.ask("Type exactly " + phrase + ", back, restart, or cancel")

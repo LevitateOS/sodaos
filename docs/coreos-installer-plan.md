@@ -71,12 +71,16 @@ not a GHCR 2 GB limit. Do not invent a smaller numerical target before measuring
   downloads remain required. This is not a claim of a network-independent appliance.
 
 This changes the media/download requirement, not the native ownership or client-trust
-contract. The native streaming authentication gate has scoped B3 proof; actual candidate media,
-network boot, installed behavior and sizes remain unproved.
+contract. B3 now has scoped candidate-media, authenticated DHCP network boot,
+installation/media-removal and exact first-boot evidence; the
+[native fixture receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write)
+records sizes, resources and limitations. Protected production phase integration and
+broader qualification remain outstanding.
 
 ### B1 native mechanism review — reopened
 
-**No replacement install transport/backend is yet proved.** The owner clarified
+**Native candidate-derived installation is fixture-proved; B1 update/trust work
+remains open.** The owner clarified
 that minimum deviation from mature FCOS installation/updating takes priority over
 the earlier bootc bound-image recommendation. The `bootc to-filesystem` proposal,
 Soda-managed `sfdisk`/`mkfs` layout, hand-written first-boot marker/BLS handling and
@@ -86,13 +90,14 @@ No such adapter was implemented or disk installation performed.
 
 Current Soda source in `internal/installer/install_linux.go` invokes **CoreOS
 Installer 0.26.0** with `install --offline --ignition-file ... --copy-network` after
-its disk/confirmation guards. Public Butane/Ignition owns provisioning; the existing
-extension unit requests packages through rpm-ostree. This is the actual baseline,
-not proof that the stock offline image contains Soda's derived host/application set.
+its disk/confirmation guards. Public Butane/Ignition owns provisioning. The retiring
+profile requests packages through an rpm-ostree extension unit; the candidate profile
+uses image-owned software without that continuation. Merely appending an OCI archive
+to stock media does not change the host/application set its osmet reconstructs.
 Preserve the native installation owner while replacing the separate software
 producer/continuation, rather than replacing disk installation to suit its output.
 
-#### Source-backed packaging route — native proof outstanding
+#### Source-backed packaging route
 
 The locked FCOS `44.20260817.3.2` build metadata records **OCI import by CoreOS
 Assembler**, at commit `fa114018875a04c3df39dca17ab57274764bf563`, using FCOS config
@@ -109,15 +114,15 @@ one admitted host OCI archive (including required application archives)
   → native installed OSTree deployment with the candidate's OCI update identity
 ```
 
-Native probes now preserve the admitted OCI bytes through import, but live packaging
-and installed acceptance remain unproved. This is not a runnable Soda release command. It changes the earlier stock-ISO-remaster-only assumption: adding a
+Native fixtures now prove unchanged OCI import, live packaging and installation
+with the exact booted OCI digest. This is not yet a runnable Soda release command. It changes the earlier stock-ISO-remaster-only assumption: adding a
 Soda OCI tar to an unchanged Fedora live ISO does not change the stock disk image
 that `--offline` reconstructs. Media generation is an upstream packaging consumer
 of the already-built candidate, not a second compilation of Soda or the OS. The
 owner's minimal-network target changes distribution of that content, not its identity.
-The disk writer's `--offline` flag would describe use of already-downloaded osmet,
-not an offline installation session. Native minimal extraction/customization order
-and the rootfs authentication handoff still need verification.
+The disk writer's `--offline` flag describes use of already-downloaded osmet,
+not an offline installation session. Native minimal extraction/customization and
+rootfs authentication have scoped fixture proof; preserve that order and boundary.
 
 - [Assembler import](https://github.com/coreos/coreos-assembler/blob/fa114018875a04c3df39dca17ab57274764bf563/src/cmd-import)
   copies an `oci-archive:` input unchanged and records its manifest/archive identity.
@@ -147,37 +152,41 @@ and the rootfs authentication handoff still need verification.
   and systemd ordering. This uses the signed host as their integrity boundary and
   avoids bootc-bound storage. B2 now implements [payload v2 and all-five import](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership),
   with embedded archive identities checked in the native host candidate. Strict v1
-  readers retain the historical meanings. Real installed load/identity/service-order
-  tests are still required; candidate archive inspection does not establish them. Preserve existing
+  readers retain the historical meanings. B3 verified installed archive hashes, five
+  local Podman IDs and successful import before Forgejo startup without external
+  networking. Full configured-appliance qualification remains separate. Preserve existing
   projects and later writes; image import is not permission to replace workloads.
 
 B3's executable review now selects the x86_64 Assembler manifest
 `sha256:f010dce4d350c1588762bbd5b69d27e14dabe859043489c587dc4d429c067daf`
 from `quay.io/coreos-assembler/coreos-assembler`, revision
 `53330beeb45bb0a6f51987fc8df243e8a62d62bd`. Its inspected OSBuild 191 live stage
-owns the stream-hash generation described below. This is executable/input evidence,
-not proof of successful Soda packaging. Native import/helper-VM attempts exposed two
+owns the stream-hash generation described below. Native packaging subsequently
+succeeded with this pinned toolchain. Initial import/helper-VM attempts exposed two
 actual caller requirements: the temporary Python source must select root (the pinned
 Assembler defaults to `builder`), and local archives used inside supermin must live
 under its shared `/srv`, not a container-only `/inputs` mount. A metadata-only `USER 0`
 wrapper retains the pinned builder's identical rootfs layers; it changes no shipping
-candidate bytes or tool packages. Its corrected VM handoff remains unproved.
+candidate bytes or tool packages. The corrected shared-path handoff passed in
+packages 04–06; package 04 then exposed the separately fixed merged-bin overlay bug.
 
 Assembler's supermin prelude also prunes its guest-local cache and removes temporary
 helper roots on exit, including failed commands. `cosa import --skip-prune` does not
 suppress those separate actions. Do not run the helper without applicable authority
 for its full scratch lifecycle. The [approved fixture extension](implementation-status.md#b3-packaging-extension--approved)
-own that permission, not a Soda patch to the native disk manifests.
+owns that permission, not a Soda patch to the native disk manifests.
 
 Before VM execution, record resource/effect bounds for
 its supermin build VM and a separate fresh installation target. Prove reconstructed
 raw checksums, installed OCI digest/origin, untouched shipping content, native boot/
 Ignition/SELinux, minimal-media size/download integrity, media removal and local
 image availability after installation. Preserve original
-Soda tool/readback guards while adapting them to upstream-generated media. No media
-or installation proof exists. The [initial bootstrap receipt](implementation-history.md#b3-native-bootstrap-and-builder-admission)
-records read-only inspection; the [packaging receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts)
-records the subsequent helper VMs, failures and preservation limitation.
+Soda tool/readback guards while adapting them to upstream-generated media. The
+[native installation receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write)
+records the successful exact-candidate fixture and interrupted-write limits. The
+[initial bootstrap receipt](implementation-history.md#b3-native-bootstrap-and-builder-admission)
+and [initial packaging failures](implementation-history.md#b3-native-import-and-stopped-packaging-attempts)
+remain historical evidence, including the preservation limitation.
 
 The [update and authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
 identify a remaining client-trust decision. Do not claim this packaging route also
@@ -230,10 +239,16 @@ vendor console; no key transcription or private developer key is introduced.
 
 Native probes reached the live environment with the 160 MB ISO and matching rootfs;
 missing, corrupted and truncated downloads entered upstream emergency mode without
-running the live probe. This establishes network/bootstrap scope, not installation.
-`rpm-ostree status` is not a valid live identity observer here: the live EROFS root
-has no installed `/boot/loader`. Installed deployment/origin, console operation,
-media removal and all-five first-boot availability still require their native proof.
+running the live probe. `rpm-ostree status` is not a valid live identity observer here:
+the live EROFS root has no installed `/boot/loader`. The subsequent final-candidate
+fixture ran the embedded console, installed through native osmet, removed media and
+verified exact booted deployment/origin, enforcing SELinux and all-five local content.
+Cancellation before writing left the disk untouched; interruption during writing
+reported partial state and did not automatically replay. Explicit same-boot
+re-invocation refusal remains source-tested, not independently exercised in the guest.
+See the [scoped receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write);
+these checks do not establish update/recovery, physical USB, minimum RAM or a complete
+protected source-to-qualified-release run.
 
 ### Implementation responsibilities
 
@@ -367,12 +382,12 @@ migration follow B6 under their own grants.
 
 ## Current source status
 
-Existing source has password-only fields, correctable input, pre-write restart,
-separate key enrollment/private browser setup, ordinary on-media console packaging
-and writable bundle continuation. It does **not** implement image-based installation
-or the media-only build handoff. Earlier built required-key media has bounded diskless
-BIOS/UEFI proof, not this replacement's fresh-disk acceptance. No producer exists for
-a preinstalled SodaOS QCOW2.
+Source supports the candidate's embedded prebuilt console/native image installation
+alongside the retiring writable path. The fixed Go run still stops before protected
+media assembly/qualification. The [current status](implementation-status.md#3-make-the-iso-consume-the-candidate--b3)
+and [native receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write)
+distinguish implemented code, exact tested candidate and outstanding integration.
+No producer exists for a preinstalled SodaOS QCOW2.
 
 The [implementation status](implementation-status.md) tracks B1–B6 and current release
 grants. [Development custody](development-handoff.md) retains earlier media/fixture
