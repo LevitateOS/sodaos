@@ -48,6 +48,33 @@ image representation; do not remove required apps, fork native disk ownership or
 rebuild already admitted media in place. Production source and tested bytes remain
 unchanged. Hosting-limit compliance alone does not establish optimization.
 
+The owner's follow-up concerned **whole-system/payload duplication**, not just shared
+layers. A subsequent read-only structural audit enumerated all **98,906 directory
+entries / 9,717 directory inodes** and obtained native metadata for every **41,147
+unique regular inode**. Evidence:
+`.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/structure-audit-b7f4d57-uPhTt0/`;
+14 audit files are hashed, and native `fsck.erofs` reported no errors.
+
+- One deployment and one physical set of five application archives; no nested host
+  OCI archive, second full writable bundle or prepopulated container store was found.
+  The inherited `/usr/lib/bootc/storage` symlink is not a populated second store.
+- Counting every regular pathname gives **6,673,362,500 logical bytes**; counting
+  each regular inode once gives **3,506,317,366**. In particular, **3,110,528,887 bytes**
+  are shared by the deployed tree and OSTree repository through the same inodes.
+  Those two visible trees are not two physical copies of the whole installation.
+- The boot and `/usr` initramfs have distinct inodes but share all **128,806,912 mapped
+  physical bytes** observed by the extent tool. Their 356,727-byte logical fragment
+  tails were not attributed separately. A full stream-hash probe timed out and is
+  not counted as equality evidence; no audit process remained running afterward.
+- **180,330,030 logical bytes** belong to repository-only objects, not another whole
+  deployed system. Their purpose/reachability still needs classification before any
+  optimization proposal; this is not measured download savings or permission to prune.
+
+This rules out the suspected extra whole-system/app-set copy at the inspected
+structural level. It does not establish complete content deduplication or package
+necessity. The separately proved 87.7 MB repeated image layer remains a real issue.
+No retained candidate/media bytes, VM or production source were changed.
+
 ## B3 native candidate installation and interrupted write
 
 Final approved replacement `9577645742048ba3948f84dabee871c0963492ba` passed the

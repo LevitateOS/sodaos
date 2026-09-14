@@ -81,7 +81,11 @@ A subsequent read-only size audit found an identical **87,693,174-byte OCI layer
 in both dashboard and project-os archives, occupying separate EROFS extents. Native
 LZMA compression/deduplication is enabled, but the download is **not established as
 optimized**. Audit shared-layer packaging before freezing the production media
-representation; retain every required image and native verification.
+representation; retain every required image and native verification. Full tree/inode
+inspection subsequently found no extra whole-system/app-set copy: the deployment and
+OSTree repository share 3.11 GB of logical file data through identical inodes. Another
+180.3 MB of repository-only logical data remains unclassified, not promised savings
+or permission to prune.
 [Size receipt](implementation-history.md#b3-rootfs-size-and-duplication-audit).
 [Receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write),
 [original approval](#b3-native-fixture-scope--approved) and
