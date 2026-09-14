@@ -343,8 +343,10 @@ phase order: artifact authentication still precedes privileged installation.
 
 ### Milestone 4 — connect native qualification
 
-**B4; implementation and bounded execution in progress, not complete.** Connect **P9** to the existing controller after P7
-candidate/input admission and P8 media assembly. Use reviewed `internal/acceptance`
+**B4 incomplete; premature orchestration removed.** The final runtime contract is
+still to connect **P9** after P7 candidate admission and P8 media assembly. Reconnect
+it only after the native integration prerequisites are demonstrated through scoped
+development checks; retained failed-run artifacts are not qualified releases. Use reviewed `internal/acceptance`
 and applicable `tests/installed` drivers, not another framework or build-supplied
 `passed` assertion. Execution authority is recorded in
 [implementation status](implementation-status.md#current-permissions).

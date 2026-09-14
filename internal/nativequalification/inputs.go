@@ -1,60 +1,17 @@
-// Package nativequalification owns the fixed local P9 install/update/recovery
-// scenario. It does not build images, publish releases or provide an update client.
+// Package nativequalification provides artifact admission and fixed guest-state
+// checks. It does not build images, orchestrate releases or provide an update client.
 package nativequalification
 
 import (
-	"encoding/json"
 	"errors"
-	"github.com/levitateos/sodaos/internal/acceptance"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/levitateos/sodaos/internal/appliancerelease"
 	"github.com/levitateos/sodaos/internal/hostimage"
 	"github.com/levitateos/sodaos/internal/nativebuild"
 	rd "github.com/levitateos/sodaos/internal/releasedelivery"
 )
-
-// Config is separately admitted operator input, never a build artifact. It names
-// only the disposable target and fixture authority selected for this scenario.
-type Config struct {
-	Executable, Work, Baseline, BaselineDisk, BaselineDiskSHA256      string
-	BaselineVariables, BaselineKey, BaselineKnownHosts, BaselineState string
-	QEMU, Firmware, Variables, RegistryImage                          string
-}
-
-// LoadConfig is admission before production, so missing fixture prerequisites do
-// not consume a build. The root-owned selection is held by the parent, not JSON
-// emitted by the producer.
-func LoadConfig(path string) (Config, error) {
-	var c Config
-	if os.Geteuid() != 0 {
-		return c, errors.New("protected configuration admission required")
-	}
-	if err := rd.PrivateFile(path); err != nil {
-		return c, err
-	}
-	if err := rd.ReadJSON(path, &c); err != nil {
-		return c, err
-	}
-	if err := acceptance.TrustedExecutable(c.Executable); err != nil {
-		return c, err
-	}
-	if !nativebuild.Digest(c.BaselineDiskSHA256) || !strings.HasPrefix(c.RegistryImage, "docker.io/library/registry@sha256:") || !nativebuild.Digest(strings.TrimPrefix(c.RegistryImage, "docker.io/library/registry@sha256:")) {
-		return c, errors.New("baseline hash and pinned upstream registry required")
-	}
-	for _, p := range []string{c.Baseline, c.BaselineDisk, c.BaselineVariables, c.BaselineKey, c.BaselineKnownHosts, c.BaselineState, c.QEMU, c.Firmware, c.Variables} {
-		resolved, err := filepath.EvalSymlinks(p)
-		if err != nil || !filepath.IsAbs(p) || resolved != p || strings.ContainsAny(p, ":,\n\r\t %") {
-			return c, errors.New("existing exact qualification input paths required")
-		}
-	}
-	if err := nativebuild.PrivateDestination(c.Work); err != nil {
-		return c, err
-	}
-	return c, nil
-}
 
 type Artifact struct {
 	Candidate rd.Candidate
@@ -147,12 +104,4 @@ func SameBaseScenario(a, b Artifact) error {
 		return errors.New("distinct same-base x86_64 candidates with matching schema/repository required")
 	}
 	return nil
-}
-
-func writeNewJSON(path string, v any) error {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	return nativebuild.WriteNew(path, append(b, '\n'), 0600)
 }

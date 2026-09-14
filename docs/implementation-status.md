@@ -145,21 +145,30 @@ read-only producer check now declare it; the prepared A fixture received the exa
 non-overlapping operator correction. Its successful native project creation followed
 that correction, without replaying account/repository/OAuth setup or restoring data.
 
-The resumed implementation now connects a fixed protected P9 driver to production
-controller dispatch: independent root-held artifact snapshots, a verified disposable
-copy of populated A, native B installation, upstream registry/Sigstore fixtures,
-Zincati maintenance/offline activation, and native rollback/state comparisons.
-Source race tests and vet pass for the affected qualification/controller packages;
-these are authored checks, not native scenario evidence. Development remains separate,
-and production still cannot report release success before B5.
+**M4 remains incomplete; premature orchestration removed at the owner's request.**
+Removed the end-to-end driver, registry/graph/fault servers, synthetic receipt gate,
+root snapshot dispatcher and production CLI coupling. Artifact admission, shared
+acceptance isolation/VM primitives and fixed guest-state/content checks remain.
+Production stops incomplete after P1–P8; development targets remain available.
 
-**No B build, update, recovery or complete P9 qualification has run yet.** Native
-groundwork receipts remain under `.artifacts/b4-qualification/`; `project-map.log`
-and protected `workers/soda-qualifier/baseline-02/evidence-map01/` record populated A.
-Both task clones and all tested worker VMs are stopped. The original seed remains
-unchanged. The image correction is source-checked, not yet built/installed in B.
-Upstream `fcos.upgrade.basic` remains unsuitable:
-it uses unverified rebase and synthesizes a different commit.
+Two retained production attempts completed P1–P8 in 21m41s and 22m03s before P9
+failed (`production-03.log` and `production-04.log` under
+`.artifacts/b4-qualification/`). The latter verified B installation/media-free boot
+and populated A, but did not qualify update/recovery. Registry networking required
+a loopback-only correction. Native inspection found `/run/containers` mode 0700
+blocking the unprivileged fetch user; the pending tmpfiles correction is retained.
+FCOS also binds a separate policy into rpm-ostreed: changing ordinary Podman policy
+did not configure native update trust. A diagnostic copy unexpectedly staged
+wrong-signed B under that stock policy and remains stopped as failure evidence.
+The corrected policy probe rejected missing signatures, not yet a demonstrated
+wrong-key rejection; attachment lookup remains unresolved.
+
+All artifacts, diagnostic copies and installed historical helpers are retained,
+not adopted as a resume path or current controller. The original seed and populated
+`baseline-02` remain untouched by these attempts. No successful signed update,
+maintenance/offline activation, later-write rollback or complete P9 receipt exists.
+Upstream `fcos.upgrade.basic` remains unsuitable: it uses unverified rebase and
+synthesizes a different commit.
 
 ### 5. Integrate protected signing and delivery — B5
 
@@ -176,11 +185,13 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-Complete protected P9 integration and the production-default B build/install, signed
-native update/refusals, maintenance/offline activation and state-preserving rollback.
-Reuse the populated stopped `baseline-02` fixture without reseeding; preserve failed
-targets and original seed. The completed fast-development side path is not production
-qualification. Public hosting, ARM and minimum-hardware qualification remain separate.
+Removal is the current task; do not launch another production run as part of it.
+Subsequent M4 development should resolve the native policy/attachment path using
+retained artifacts and scoped non-qualifying checks before reconnecting orchestration.
+The required final qualification scope is unchanged in the
+[B4 contract](release-engineering-plan.md#milestone-4--connect-native-qualification).
+Preserve failed targets and the original seed; development evidence is not release
+qualification. Public hosting, ARM and minimum-hardware work remain separate.
 
 The public rootfs base URL is an explicit media input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
@@ -190,9 +201,12 @@ complete offline installer.
 
 ## Current permissions
 
-**Current task: implement `docs/fast-development-build-plan.md`.** The owner's latest
-request authorizes its source work and bounded local verification, superseding its
-planning-only status. F1–F3 execution is complete; no benchmark/VM is left running.
+**Current task: remove unjustified M4 implementation.** Source removal and focused
+local checks only in this task; no builds, VM/service lifecycle, artifact deletion,
+new orchestration or release qualification. Existing preservation boundaries remain.
+
+**Retained fast-development scope:** F1–F3 execution is complete; no benchmark/VM is
+left running.
 The owner's subsequent “allowed” approved F3 with distinct development-only compression
 metadata; the previous
 unchanged-candidate comparison constraint is superseded for this benchmark only.
@@ -215,8 +229,9 @@ activity. Preserve one active VM, CPUs 0–3, at most four vCPUs/16 GiB. Stop on
 task helpers/containers/listeners; no pruning, retained-state deletion, host trust or
 network policy changes, real release authority, publication or increased resources.
 
-**Current B4 approval — execution resumed:** the owner explicitly requested resuming
-M4 and then instructed “do it.” The earlier “Now do M4 completely” scope below applies.
+**Retained B4 approval — production execution stopped:** the earlier M4 grant below
+records target/action bounds, not a direction to continue the rejected execution
+strategy. The owner's latest instruction is removal.
 Read-only inspection confirms the populated `baseline-02` disk is standalone, not
 dirty/corrupt, with its private SSH/key/NVRAM inputs present; no QEMU was running.
 No reseeding, baseline reset, production key use or broader effect is added.
