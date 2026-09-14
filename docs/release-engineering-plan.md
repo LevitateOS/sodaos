@@ -295,7 +295,7 @@ qualified end-to-end release or the command's final success outcome.
 scoped proof; live packaging failed and installed proof remains open. See the
 [bootstrap handoff](coreos-installer-plan.md#b3-native-download-authentication-handoff),
 [packaging findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
-and [current native hold/extension](implementation-status.md#b3-packaging-extension--pending).
+and [approved native extension](implementation-status.md#b3-packaging-extension--approved).
 Replace the candidate handoff, not the native FCOS disk/boot engine.
 
 1. Convert `scripts/build-installer.py` to media-only assembly; rename it to

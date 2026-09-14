@@ -21,7 +21,7 @@ The owner approved `5efed3e`'s exact B3 fixture request; `26f4fda` recorded it b
 execution. Canonical source was clean. Evidence remains under
 `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/native/`. **No ISO or installation
 proof was produced.** All three named packaging targets are consumed and further
-native execution is held for the [specific extension](implementation-status.md#b3-packaging-extension--pending).
+native execution is held for the [specific extension at the hold](https://github.com/LevitateOS/sodaos/blob/04252a3/docs/implementation-status.md#b3-packaging-extension--pending).
 
 - `package-01`: native P-256 fixture signing and authenticated local copy verified
   the B2 host manifest `sha256:ac3071fcfb95bbb3a28b487d7b6ab74ba4038016a48f709bcf2ebc6850b9cd49`

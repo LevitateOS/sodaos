@@ -64,14 +64,14 @@ P3 exited 130, retained diagnostics and emitted no candidate. [Receipt](implemen
 
 ### 3. Make the ISO consume the candidate — B3
 
-**In progress — native import verified; packaging held, no ISO/install proof.**
+**In progress — native import verified; packaging extension approved, no ISO/install proof.**
 The streaming verifier passed its scoped integrity checks. Two native imports retained
 exact candidate bytes and reached upstream helper VMs, but failed before producing
-media. All three approved packaging targets are consumed; an unexpected upstream
-scratch-prune/cleanup step also requires a scope correction before further execution.
+media. The first three packaging targets are consumed; the owner approved three
+fresh targets and the clarified upstream scratch lifecycle after reviewing the hold.
 [Receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts),
 [original approval](#b3-native-fixture-scope--approved) and
-[pending narrow extension](#b3-packaging-extension--pending).
+[approved narrow extension](#b3-packaging-extension--approved).
 Media-only assembly takes the exact signed host/app candidate and
 prebuilt tools. Prove minimal ISO size, authenticated network installation, media
 removal and first boot with the same digests used by updates; preserve the
@@ -130,8 +130,8 @@ or publish an unsigned graph as a silent replacement for those checks.
 Assembler manifest, OSBuild/live stage and tools. Its native streaming verifier
 passed scoped tests; the [installer owner](coreos-installer-plan.md#b3-native-download-authentication-handoff)
 records that handoff. The approved scope below covers its helper VMs and fresh
-installation targets; its three packaging targets are now consumed and held pending
-the extension below. Required proof
+installation targets; its first three packaging targets are consumed and the
+extension below is now approved. Required proof
 includes unchanged OCI input/installed digest, native osmet reconstruction after
 download, minimal ISO size, network failures, private Ignition, enforcing SELinux,
 media removal and all-five local image availability. B2 implements v2 storage/import;
@@ -151,10 +151,10 @@ B3 still must replace the legacy media/console continuation and prove its runtim
 
 **Owner approved the exact `5efed3e` request.** The following scope now authorizes
 B3's named native fixtures and actions. It does not revive the withdrawn bootc
-experiment or extend retained targets' grants. **Packaging is now held:** targets
-01–03 were used; no installation target/listener was created. Upstream scratch
-housekeeping conflicted with the no-pruning/preservation restriction. See the
-[pending extension](#b3-packaging-extension--pending); it is not a new grant.
+experiment or extend retained targets' grants. Targets 01–03 were used; no
+installation target/listener was created. Upstream scratch housekeeping conflicted
+with the original no-pruning/preservation restriction. The owner subsequently
+approved the [narrow extension](#b3-packaging-extension--approved).
 
 - **Targets:** new directories only under
   `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/native/`, with
@@ -206,14 +206,15 @@ housekeeping conflicted with the no-pruning/preservation restriction. See the
   and the fixture listener. Retain failed/successful disks, CIDs, inputs and redacted
   logs. No `--rm`, `--replace`, pruning, reset/recreation or retained-state cleanup.
 
-### B3 packaging extension — pending
+### B3 packaging extension — approved
 
-**Request only.** Approval would add exactly `native/package-{04,05,06}` under the
+**Owner approved continuation after the plain-language scope clarification.**
+This adds exactly `native/package-{04,05,06}` under the
 same B3 evidence root and containers `soda-b3-package-ea0dc92-{04,05,06}`, allowing
 three further fresh imports/live packaging attempts. Do not reuse or restart the
 failed workspaces. Installation targets 01–03 and replacement-candidate allowance
 remain unchanged; no additional install disk, candidate, base or architecture is
-requested.
+authorized.
 
 - Keep the approved pinned Assembler; use its metadata-only `USER 0` Python-source
   wrapper with identical rootfs layers. Place the admitted archive in the new
@@ -320,8 +321,8 @@ grants belong to the user's task and exact target/action, not this plan's comman
   remain authorized within their existing scope. The shared-build/timing extraction
   was explicitly approved; the owner selected B1, B2 and now B3 implementation. B3
   source/local preparation and the original exact VM/disk/listener scope above were
-  approved. Packaging is now [held pending the narrow extension](#b3-packaging-extension--pending),
-  not implicitly renewed by that approval.
+  approved. The owner subsequently approved the [narrow packaging extension](#b3-packaging-extension--approved)
+  after clarification; no broader artifact-folder cleanup is authorized.
   B1's source/upstream audit, local tests and bounded rootless read-only image
   inspections are recorded; B2's initial change was direct vendor asset staging. B3's
   additional grant is limited to the named fixtures above; it adds no real protected
@@ -351,8 +352,9 @@ failed on the Python source's user, then its VM-invisible archive path. The cgro
 startup failure, failed signature-document fixture and successful corrections remain
 in the [receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts).
 Upstream ran an unanticipated empty-cache prune (0 bytes reclaimed) and removed
-helper scratch, contrary to the original restriction; native execution is held for
-the [scope correction and new targets](#b3-packaging-extension--pending).
+helper scratch, contrary to the original restriction. After clarification, the owner
+approved the [scope correction and new targets](#b3-packaging-extension--approved);
+execution resumes without resetting the original aggregate resource limits.
 No shipping source changed; production remains **12,235 lines**. No ISO, installation,
 media-removal/first-boot proof, real signing-custody change, publication or retained
 appliance mutation occurred. B3 is not complete.

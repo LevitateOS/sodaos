@@ -166,7 +166,7 @@ candidate bytes or tool packages. Its corrected VM handoff remains unproved.
 Assembler's supermin prelude also prunes its guest-local cache and removes temporary
 helper roots on exit, including failed commands. `cosa import --skip-prune` does not
 suppress those separate actions. Do not run the helper without applicable authority
-for its full scratch lifecycle. The [current fixture scope and hold](implementation-status.md#b3-native-fixture-scope--approved)
+for its full scratch lifecycle. The [approved fixture extension](implementation-status.md#b3-packaging-extension--approved)
 own that permission, not a Soda patch to the native disk manifests.
 
 Before VM execution, record resource/effect bounds for
