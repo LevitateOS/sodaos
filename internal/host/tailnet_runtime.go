@@ -34,84 +34,116 @@ type processIdentity struct {
 	UID, GID                   uint32
 }
 
+func parseStatFields(pid int, data []byte) ([]string, error) {
+	if len(data) > 8192 {
+		return nil, tailnet.ErrUnavailable
+	}
+	end := strings.LastIndexByte(string(data), ')')
+	first := strings.IndexByte(string(data), ' ')
+	if end < 0 || first < 0 || string(data[:first]) != strconv.Itoa(pid) {
+		return nil, tailnet.ErrUnavailable
+	}
+	fields := strings.Fields(string(data[end+1:]))
+	if len(fields) < 20 || fields[0] == "Z" || fields[0] == "X" {
+		return nil, tailnet.ErrUnavailable
+	}
+	return fields, nil
+}
+
+func parseProcessStartTime(pid int, read func(string) ([]byte, error)) (string, error) {
+	data, err := read("/proc/" + strconv.Itoa(pid) + "/stat")
+	if err != nil {
+		return "", tailnet.ErrUnavailable
+	}
+	fields, err := parseStatFields(pid, data)
+	if err != nil {
+		return "", err
+	}
+	n, err := strconv.ParseUint(fields[19], 10, 64)
+	if err != nil || n == 0 || strconv.FormatUint(n, 10) != fields[19] {
+		return "", tailnet.ErrUnavailable
+	}
+	return fields[19], nil
+}
+
+func readProcessIDMap(base, name string, read func(string) ([]byte, error)) (uint32, error) {
+	b, err := read(base + "/" + name)
+	if err != nil || len(b) > 4096 {
+		return 0, tailnet.ErrUnavailable
+	}
+	f := strings.Fields(string(b))
+	if len(f) != 3 || !terminalIDMap([]string{strings.Join(f, ":")}) {
+		return 0, tailnet.ErrUnsupported
+	}
+	n, _ := strconv.ParseUint(f[1], 10, 32)
+	return uint32(n), nil
+}
+
+func parseNamespaceLink(name, v string) (string, error) {
+	prefix := name + ":["
+	if !strings.HasPrefix(v, prefix) || !strings.HasSuffix(v, "]") {
+		return "", tailnet.ErrUnavailable
+	}
+	s := strings.TrimSuffix(strings.TrimPrefix(v, prefix), "]")
+	n, err := strconv.ParseUint(s, 10, 64)
+	if err != nil || n == 0 || strconv.FormatUint(n, 10) != s {
+		return "", tailnet.ErrUnavailable
+	}
+	return v, nil
+}
+
+func readProcessNamespace(base, name string, link func(string) (string, error)) (string, error) {
+	v, err := link(base + "/ns/" + name)
+	if err != nil {
+		return "", tailnet.ErrUnavailable
+	}
+	if _, err = parseNamespaceLink(name, v); err != nil {
+		return "", err
+	}
+	host, err := link("/proc/1/ns/" + name)
+	if err != nil || host == v {
+		return "", tailnet.ErrUnsupported
+	}
+	return v, nil
+}
+
+func readSystemBootID(read func(string) ([]byte, error)) (string, error) {
+	boot, err := read("/proc/sys/kernel/random/boot_id")
+	s := strings.TrimSpace(string(boot))
+	if err != nil || len(s) != 36 || strings.Count(s, "-") != 4 {
+		return "", tailnet.ErrUnavailable
+	}
+	compact := strings.ReplaceAll(s, "-", "")
+	if _, err = hex.DecodeString(compact); err != nil || len(compact) != 32 {
+		return "", tailnet.ErrUnavailable
+	}
+	return s, nil
+}
+
 func processRunIdentity(pid int, read func(string) ([]byte, error), link func(string) (string, error)) (processIdentity, error) {
 	var out processIdentity
 	if pid <= 1 {
 		return out, tailnet.ErrConflict
 	}
+	var err error
+	if out.Start, err = parseProcessStartTime(pid, read); err != nil {
+		return out, err
+	}
 	base := "/proc/" + strconv.Itoa(pid)
-	data, e := read(base + "/stat")
-	if e != nil || len(data) > 8192 {
-		return out, tailnet.ErrUnavailable
+	if out.UID, err = readProcessIDMap(base, "uid_map", read); err != nil {
+		return out, err
 	}
-	// comm may contain spaces/parentheses. The final ')' terminates field 2;
-	// starttime is field 22, offset 19 after it. Require the expected PID too.
-	end := strings.LastIndexByte(string(data), ')')
-	first := strings.IndexByte(string(data), ' ')
-	if end < 0 || first < 0 || string(data[:first]) != strconv.Itoa(pid) {
-		return out, tailnet.ErrUnavailable
+	if out.GID, err = readProcessIDMap(base, "gid_map", read); err != nil {
+		return out, err
 	}
-	fields := strings.Fields(string(data[end+1:]))
-	if len(fields) < 20 || fields[0] == "Z" || fields[0] == "X" {
-		return out, tailnet.ErrUnavailable
+	if out.UserNS, err = readProcessNamespace(base, "user", link); err != nil {
+		return out, err
 	}
-	n, e := strconv.ParseUint(fields[19], 10, 64)
-	if e != nil || n == 0 || strconv.FormatUint(n, 10) != fields[19] {
-		return out, tailnet.ErrUnavailable
+	if out.NetNS, err = readProcessNamespace(base, "net", link); err != nil {
+		return out, err
 	}
-	out.Start = fields[19]
-	mapping := func(name string) (uint32, error) {
-		b, e := read(base + "/" + name)
-		if e != nil || len(b) > 4096 {
-			return 0, tailnet.ErrUnavailable
-		}
-		f := strings.Fields(string(b))
-		if len(f) != 3 || !terminalIDMap([]string{strings.Join(f, ":")}) {
-			return 0, tailnet.ErrUnsupported
-		}
-		n, _ := strconv.ParseUint(f[1], 10, 32)
-		return uint32(n), nil
-	}
-	if out.UID, e = mapping("uid_map"); e != nil {
-		return out, e
-	}
-	if out.GID, e = mapping("gid_map"); e != nil {
-		return out, e
-	}
-	namespace := func(name string) (string, error) {
-		v, e := link(base + "/ns/" + name)
-		prefix := name + ":["
-		if e != nil || !strings.HasPrefix(v, prefix) || !strings.HasSuffix(v, "]") {
-			return "", tailnet.ErrUnavailable
-		}
-		s := strings.TrimSuffix(strings.TrimPrefix(v, prefix), "]")
-		n, e := strconv.ParseUint(s, 10, 64)
-		if e != nil || n == 0 || strconv.FormatUint(n, 10) != s {
-			return "", tailnet.ErrUnavailable
-		}
-		host, e := link("/proc/1/ns/" + name)
-		if e != nil || host == v {
-			return "", tailnet.ErrUnsupported
-		}
-		return v, nil
-	}
-	if out.UserNS, e = namespace("user"); e != nil {
-		return out, e
-	}
-	if out.NetNS, e = namespace("net"); e != nil {
-		return out, e
-	}
-	boot, e := read("/proc/sys/kernel/random/boot_id")
-	s := strings.TrimSpace(string(boot))
-	if e != nil || len(s) != 36 || strings.Count(s, "-") != 4 {
-		return out, tailnet.ErrUnavailable
-	}
-	compact := strings.ReplaceAll(s, "-", "")
-	if _, e = hex.DecodeString(compact); e != nil || len(compact) != 32 {
-		return out, tailnet.ErrUnavailable
-	}
-	out.Boot = s
-	return out, nil
+	out.Boot, err = readSystemBootID(read)
+	return out, err
 }
 
 func (d *Daemon) projectRun(ctx context.Context, id string) (projectRun, error) {
@@ -181,7 +213,8 @@ func companionCreateArgs(run projectRun, image string) ([]string, error) {
 		return nil, tailnet.ErrInvalid
 	}
 	base := filepath.Join("/run/soda-tailnet", run.Target.Project, run.Target.Run)
-	args := []string{"--remote=false", "create", "--name", "soda-tailnet-" + run.Target.Project + "-" + run.Target.Run,
+	args := []string{
+		"--remote=false", "create", "--name", "soda-tailnet-" + run.Target.Project + "-" + run.Target.Run,
 		"--label", "org.soda.tailnet.project=" + run.Target.Project, "--label", "org.soda.tailnet.run=" + run.Target.Run,
 		"--label", "org.soda.tailnet.parent=" + run.Target.Container,
 		"--userns=container:" + run.Target.Container, "--network=container:" + run.Target.Container,
@@ -191,7 +224,8 @@ func companionCreateArgs(run projectRun, image string) ([]string, error) {
 		"--volume", base + "/control:/run/tailscale:rw",
 		"--volume", base + "/input:/run/soda-enrollment:ro",
 		"--entrypoint=/usr/local/bin/tailscaled", image,
-		"--state=mem:", "--socket=/run/tailscale/tailscaled.sock", "--tun=tailscale0", "--no-logs-no-support"}
+		"--state=mem:", "--socket=/run/tailscale/tailscaled.sock", "--tun=tailscale0", "--no-logs-no-support",
+	}
 	return args, nil
 }
 
