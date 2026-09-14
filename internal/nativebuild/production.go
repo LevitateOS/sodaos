@@ -13,8 +13,10 @@ import (
 	"strings"
 )
 
-type BuildExec func(string, string, ...string) error
-type BuildCapture func(string, string, ...string) (string, error)
+type (
+	BuildExec    func(string, string, ...string) error
+	BuildCapture func(string, string, ...string) (string, error)
+)
 
 type Production struct {
 	Source, Native, Out, Arch, Revision string
@@ -33,6 +35,7 @@ func (p Production) step(label string) error {
 	}
 	return nil
 }
+
 func (p Production) validate() error {
 	if _, e := OCIArchitecture(p.Arch); e != nil {
 		return e
@@ -84,7 +87,7 @@ func (p Production) Compile(name, pkg, dest string) error {
 	if e := p.Execute(p.Source, "go", args...); e != nil {
 		return e
 	}
-	if e := os.Chmod(dest, 0755); e != nil {
+	if e := os.Chmod(dest, 0o755); e != nil {
 		return e
 	}
 	return inspectELF(dest, p.Arch)
@@ -179,7 +182,7 @@ func (p Production) Images(forgejoContext string) (map[string]ProducedImage, err
 		return nil, errors.New("explicit Forgejo layout required")
 	}
 	archives := filepath.Join(p.Out, "images")
-	if e := os.Mkdir(archives, 0755); e != nil {
+	if e := os.Mkdir(archives, 0o755); e != nil {
 		return nil, e
 	}
 	inputs := p.inputs
@@ -198,7 +201,7 @@ func (p Production) Images(forgejoContext string) (map[string]ProducedImage, err
 				return "", "", errors.New("invalid frozen image input")
 			}
 			if iidName != "" {
-				if e := WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(input.Config+"\n"), 0600); e != nil {
+				if e := WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(input.Config+"\n"), 0o600); e != nil {
 					return "", "", e
 				}
 			}
@@ -250,7 +253,7 @@ func (p *Production) ResolveInputs() error {
 		}
 		pinned := repo + "@" + digest
 		if iidName != "" {
-			if e = WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(id+"\n"), 0600); e != nil {
+			if e = WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(id+"\n"), 0o600); e != nil {
 				return "", "", e
 			}
 		}
@@ -260,7 +263,7 @@ func (p *Production) ResolveInputs() error {
 			return "", "", e
 		}
 		// This private, fresh production attempt owns this growing provenance record.
-		if e = os.WriteFile(filepath.Join(p.Out, "app-inputs.json"), append(b, '\n'), 0600); e != nil {
+		if e = os.WriteFile(filepath.Join(p.Out, "app-inputs.json"), append(b, '\n'), 0o600); e != nil {
 			return "", "", e
 		}
 		return id, pinned, nil
@@ -302,6 +305,7 @@ func (p *Production) ResolveInputs() error {
 	p.inputs = inputs
 	return nil
 }
+
 func (p Production) buildImage(name, dir, file, pinned string, args ...string) (string, error) {
 	platform, _ := OCIArchitecture(p.Arch)
 	if e := p.step("Build image: " + name); e != nil {
@@ -324,121 +328,174 @@ func (p Production) buildImage(name, dir, file, pinned string, args ...string) (
 	}
 	return id, nil
 }
-func (p Production) exportImages(forgejoContext, archives string, pull func(string, string, string) (string, string, error), build func(string, string, string, string, ...string) (string, error)) (map[string]ProducedImage, error) {
-	platform, _ := OCIArchitecture(p.Arch)
-	result := map[string]ProducedImage{}
-	export := func(name, id, revision string) error {
-		if e := p.step("Export and verify image: " + name); e != nil {
-			return e
-		}
-		file := filepath.Join(archives, name+".oci")
-		if e := p.Execute(p.Source, "podman", "--remote=false", "save", "--format=oci-archive", "--output", file, id); e != nil {
-			return e
-		}
-		im, e := InspectOCI(file, p.Arch, revision)
-		if e != nil {
-			return e
-		}
-		if im.Config != id {
-			return errors.New("app archive/config mismatch")
-		}
-		hash, e := HashFile(file)
-		if e != nil {
-			return e
-		}
-		result[name] = ProducedImage{im, hash}
-		return nil
+
+func (p Production) exportImageArchive(archives, name, id, revision string) (ProducedImage, error) {
+	if err := p.step("Export and verify image: " + name); err != nil {
+		return ProducedImage{}, err
 	}
-	rocky, e := recipeBase(filepath.Join(p.Source, "project-os/Containerfile"))
-	if e != nil {
-		return nil, e
+	file := filepath.Join(archives, name+".oci")
+	if err := p.Execute(p.Source, "podman", "--remote=false", "save", "--format=oci-archive", "--output", file, id); err != nil {
+		return ProducedImage{}, err
 	}
-	dashboard, e := recipeBase(filepath.Join(p.Source, "appliance/dashboard.Containerfile"))
-	if e != nil {
-		return nil, e
+	im, err := InspectOCI(file, p.Arch, revision)
+	if err != nil {
+		return ProducedImage{}, err
+	}
+	if im.Config != id {
+		return ProducedImage{}, errors.New("app archive/config mismatch")
+	}
+	hash, err := HashFile(file)
+	if err != nil {
+		return ProducedImage{}, err
+	}
+	return ProducedImage{im, hash}, nil
+}
+
+func (p Production) resolveRockyBase(pull func(string, string, string) (string, string, error)) (string, string, error) {
+	rocky, err := recipeBase(filepath.Join(p.Source, "project-os/Containerfile"))
+	if err != nil {
+		return "", "", err
+	}
+	dashboard, err := recipeBase(filepath.Join(p.Source, "appliance/dashboard.Containerfile"))
+	if err != nil {
+		return "", "", err
 	}
 	if rocky != dashboard {
-		return nil, errors.New("dashboard and Project OS base owners disagree")
+		return "", "", errors.New("dashboard and Project OS base owners disagree")
 	}
-	_, rocky, e = pull("Rocky base", rocky, "base")
-	if e != nil {
-		return nil, e
+	_, pinned, err := pull("Rocky base", rocky, "base")
+	if err != nil {
+		return "", "", err
 	}
-	nativeRel, e := filepath.Rel(p.Source, p.Native)
-	if e != nil || strings.HasPrefix(nativeRel, "..") {
-		return nil, errors.New("native assets must be inside source context")
+	nativeRel, err := filepath.Rel(p.Source, p.Native)
+	if err != nil || strings.HasPrefix(nativeRel, "..") {
+		return "", "", errors.New("native assets must be inside source context")
 	}
+	return pinned, nativeRel, nil
+}
+
+func (p Production) exportAppImages(
+	nativeRel, rocky string,
+	build func(string, string, string, string, ...string) (string, error),
+	export func(string, string, string) error,
+) error {
 	for _, name := range []string{"dashboard", "project-os"} {
 		file := "appliance/dashboard.Containerfile"
 		if name == "project-os" {
 			file = "project-os/Containerfile"
 		}
-		id, e := build(name, p.Source, file, rocky, "--build-arg=ARTIFACT_DIR="+filepath.ToSlash(nativeRel))
-		if e != nil {
-			return nil, e
+		id, err := build(name, p.Source, file, rocky, "--build-arg=ARTIFACT_DIR="+filepath.ToSlash(nativeRel))
+		if err != nil {
+			return err
 		}
-		if e = export(name, id, p.Revision); e != nil {
-			return nil, e
+		if err = export(name, id, p.Revision); err != nil {
+			return err
 		}
 	}
-	forgejo, e := unitImage(filepath.Join(p.Source, "appliance/services/forgejo.container"))
-	if e != nil {
-		return nil, e
+	return nil
+}
+
+func (p Production) exportForgejoImage(
+	forgejoContext string,
+	pull func(string, string, string) (string, string, error),
+	build func(string, string, string, string, ...string) (string, error),
+	export func(string, string, string) error,
+) error {
+	forgejo, err := unitImage(filepath.Join(p.Source, "appliance/services/forgejo.container"))
+	if err != nil {
+		return err
 	}
 	iid := "forgejo"
 	if p.Vendor {
 		iid = "forgejo-base"
 	}
-	id, pinned, e := pull("Forgejo", forgejo, iid)
-	if e != nil {
-		return nil, e
+	id, pinned, err := pull("Forgejo", forgejo, iid)
+	if err != nil {
+		return err
 	}
 	revision := ""
 	if p.Vendor {
-		id, e = build("forgejo", forgejoContext, "Containerfile", pinned)
-		if e != nil {
-			return nil, e
+		id, err = build("forgejo", forgejoContext, "Containerfile", pinned)
+		if err != nil {
+			return err
 		}
 		revision = p.Revision
 	}
-	if e = export("forgejo", id, revision); e != nil {
-		return nil, e
-	}
-	proxy, e := unitImage(filepath.Join(p.Source, "appliance/services/soda-proxy.container"))
-	if e != nil {
-		return nil, e
+	return export("forgejo", id, revision)
+}
+
+func (p Production) exportProxyImage(
+	pull func(string, string, string) (string, string, error),
+	export func(string, string, string) error,
+) error {
+	proxy, err := unitImage(filepath.Join(p.Source, "appliance/services/soda-proxy.container"))
+	if err != nil {
+		return err
 	}
 	name := "caddy"
 	if p.Vendor {
 		name = "proxy"
 	}
-	id, _, e = pull("Proxy", proxy, name)
-	if e != nil {
-		return nil, e
+	id, _, err := pull("Proxy", proxy, name)
+	if err != nil {
+		return err
 	}
-	if e = export(name, id, ""); e != nil {
-		return nil, e
-	}
+	return export(name, id, "")
+}
+
+func (p Production) exportTailnetImage(
+	platform string,
+	pull func(string, string, string) (string, string, error),
+	build func(string, string, string, string, ...string) (string, error),
+	export func(string, string, string) error,
+) error {
 	var tail struct {
 		Version, Base string
 		SHA256        map[string]string
 	}
-	if e = ReadJSON(filepath.Join(p.Source, "appliance/locks/tailscale-image.json"), &tail); e != nil {
-		return nil, e
+	if err := ReadJSON(filepath.Join(p.Source, "appliance/locks/tailscale-image.json"), &tail); err != nil {
+		return err
 	}
 	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(tail.Version) || !regexp.MustCompile(`^docker.io/tailscale/alpine-base@sha256:[0-9a-f]{64}$`).MatchString(tail.Base) || !Digest(tail.SHA256[platform]) {
-		return nil, errors.New("invalid locked Tailscale input")
+		return errors.New("invalid locked Tailscale input")
 	}
-	_, pinned, e = pull("Tailnet base", tail.Base, "tailnet-base")
-	if e != nil {
-		return nil, e
+	_, pinned, err := pull("Tailnet base", tail.Base, "tailnet-base")
+	if err != nil {
+		return err
 	}
-	id, e = build("tailnet", p.Source, "appliance/tailnet.Containerfile", pinned, "--build-arg=TAILSCALE_VERSION="+tail.Version, "--build-arg=TARGETARCH="+platform, "--build-arg=ARCHIVE_SHA256="+tail.SHA256[platform])
-	if e != nil {
-		return nil, e
+	id, err := build("tailnet", p.Source, "appliance/tailnet.Containerfile", pinned, "--build-arg=TAILSCALE_VERSION="+tail.Version, "--build-arg=TARGETARCH="+platform, "--build-arg=ARCHIVE_SHA256="+tail.SHA256[platform])
+	if err != nil {
+		return err
 	}
-	if e = export("tailnet", id, p.Revision); e != nil {
-		return nil, e
+	return export("tailnet", id, p.Revision)
+}
+
+func (p Production) exportImages(forgejoContext, archives string, pull func(string, string, string) (string, string, error), build func(string, string, string, string, ...string) (string, error)) (map[string]ProducedImage, error) {
+	platform, _ := OCIArchitecture(p.Arch)
+	result := map[string]ProducedImage{}
+	export := func(name, id, revision string) error {
+		produced, err := p.exportImageArchive(archives, name, id, revision)
+		if err != nil {
+			return err
+		}
+		result[name] = produced
+		return nil
+	}
+	rocky, nativeRel, err := p.resolveRockyBase(pull)
+	if err != nil {
+		return nil, err
+	}
+	if err = p.exportAppImages(nativeRel, rocky, build, export); err != nil {
+		return nil, err
+	}
+	if err = p.exportForgejoImage(forgejoContext, pull, build, export); err != nil {
+		return nil, err
+	}
+	if err = p.exportProxyImage(pull, export); err != nil {
+		return nil, err
+	}
+	if err = p.exportTailnetImage(platform, pull, build, export); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
