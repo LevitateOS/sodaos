@@ -1,5 +1,34 @@
 # Working on SodaOS
 
+## Unreleased: optimize for simplicity
+
+Build as if nobody is using the product. Experimental data and build artifacts are
+not worth permanent code complexity. Older plans to retain experiments do not
+justify keeping obsolete implementations alive.
+
+- **One current implementation.** Replace obsolete code, formats, callers and test
+  fixtures together. Do not add legacy readers, compatibility branches, migrations
+  or version negotiation for unreleased experiments unless the owner explicitly
+  requires them. A format identifier can reject old input without supporting it.
+- **Solve the requested problem, not a larger imagined one.** Implement the current
+  working path first. Add other paths only for demonstrated failures, actual callers
+  or explicit requirements. Briefly note useful unresolved concerns; do not build
+  speculative recovery, fallback or prevention subsystems around them.
+- **Removal should remove code.** A removal or simplification request is not a reason
+  to add compatibility scaffolding or a subsystem that checks the removed feature
+  never returns. Count moved/new equivalents when assessing complexity. If the
+  solution grows instead of simplifying, reconsider it before expanding the patch.
+  Do not weaken necessary verification or merely compress code to improve LOC totals.
+- **Use mature upstream implementations directly.** Check the selected version and
+  actual Soda caller before adding an adapter or declaring a limitation. Do not
+  recreate an upstream service, protocol or state machine for an optional feature;
+  drop or defer the feature when its maintenance cost outweighs its value.
+- **Time and tokens are engineering constraints.** Choose the smallest sufficient
+  investigation, patch and check. Reuse evidence and test drivers. Do not turn a
+  narrow request into a broad audit, test framework, documentation project or new
+  orchestration layer. Once the requested behavior is sufficiently demonstrated,
+  stop; report remaining limitations concisely rather than chasing hypothetical ones.
+
 ## Working style
 
 - Prioritize engineering correctness over agreement. Challenge flawed assumptions
@@ -25,9 +54,6 @@
   receipt supports its stated scope, not a prescribed sequence. Reuse valid evidence;
   ground required checks in current contracts, source behavior or an explicit user
   decision. Label optional diagnostic/review choices as recommendations.
-- Prefer upstream mechanisms and direct, concrete code over duplicated authority,
-  speculative frameworks or new orchestration. Check the selected upstream version
-  and actual Soda caller before adding an adapter or declaring a limitation.
 - Update requirements in their owning guide; link to them elsewhere instead of
   copying rules or appending exceptions. The documentation map below identifies owners.
 - Report changes, checks actually run and remaining limitations concisely. Update
@@ -44,12 +70,15 @@
   Appliance installation, service/VM lifecycle, real provider registration/jobs,
   publishing/automatic CI, network/trust changes and cleanup require applicable
   target/action approval. A command, input file or old approval is not a new grant.
-- Before affecting retained state, consult the target's latest handoff and current
-  approval. Preserve roots, credentials, fixtures, evidence and later writes. Take
-  appropriate consistent backups for authorized maintenance; never blindly restore
-  an older database over later writes or replay a mutation to repair an observer.
-- Clean up only explicitly authorized, exact resources. Do not use `--rm`, `--replace`,
-  pruning or root recreation as repair shortcuts for persistent projects.
+- Artifact retention is not a compatibility requirement. Experimental roots, fixtures
+  and evidence may be retired rather than supported by current code. This does not
+  itself authorize deletion: consult the target's current approval, and clean up only
+  authorized, exact resources. Do not use `--rm`, `--replace`, pruning or root recreation
+  as shortcuts against unrelated or explicitly protected state.
+- Protect credentials, unrelated work and any state the owner explicitly requires
+  keeping. Take consistent backups when that protection requires them; do not create
+  a preservation programme for disposable experiments. Never blindly restore an old
+  database over protected later writes or replay a mutation to repair an observer.
 - Use restricted secret-file inputs. Never expose credentials in source, argv, logs,
   screenshots or evidence, or request a developer's private SSH key for onboarding.
   Full container inspection and provisioning outputs can contain secrets.
@@ -62,8 +91,10 @@
 - Use Go for backend/setup/privileged integration. The [TypeScript guide](docs/typescript.md)
   owns JS-family language, strict typing, Bun workspace and asset-porting conventions.
   Versions belong in source manifests/locks; avoid incidental upgrades.
-- Add focused behavior, failure and authorization tests with changes. Keep callers,
-  generated browser assets and staging wired together; reuse existing test drivers.
+- Test the changed working path, demonstrated failures and relevant authorization or
+  destructive-operation boundaries. Do not invent exhaustive hypothetical test matrices
+  or new harnesses where existing tests suffice. Keep callers, generated browser assets
+  and staging wired together.
 - Generated outputs belong in ignored `.artifacts/`; private inputs stay untracked.
   Preserve canonical `assets/`, attribution and licenses. Leave the separate
   predecessor repository and its Updates platform outside this work.
