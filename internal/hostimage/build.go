@@ -100,215 +100,310 @@ func Build(ctx context.Context, r Request, progress *nativebuild.BuildProgress) 
 	})
 }
 
-func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, execute nativebuild.BuildExec, capture nativebuild.BuildCapture, openLog func(string) (func() error, error)) (result Result, err error) {
-	if err = r.ValidateTarget(); err != nil {
-		return result, err
+func verifyCheckoutSource(requestedSource string, capture nativebuild.BuildCapture) (string, error) {
+	source, err := capture(requestedSource, "git", "rev-parse", "--show-toplevel")
+	if err != nil {
+		return "", err
 	}
-	next := progress.Phase
-	if err = next("P1 / Admit and freeze inputs"); err != nil {
-		return result, err
+	if source != requestedSource || !filepath.IsAbs(source) {
+		return "", errors.New("canonical checkout root required")
 	}
-	if err = nativebuild.RequireNative(r.Arch); err != nil {
-		return result, err
+	info, err := os.Lstat(filepath.Join(source, ".git"))
+	if err != nil || !info.IsDir() {
+		return "", errors.New("canonical checkout required; no worktree")
 	}
-	if runtime.Version() != "go1.26.7" {
-		return result, errors.New("pinned Go 1.26.7 required")
-	}
-	if !appliancerelease.ValidRepositoryPrefix(r.RepositoryPrefix) {
-		return result, errors.New("explicit intended repository prefix required")
-	}
-	source, e := capture(r.Source, "git", "rev-parse", "--show-toplevel")
-	if e != nil {
-		return result, e
-	}
-	if source != r.Source || !filepath.IsAbs(source) {
-		return result, errors.New("canonical checkout root required")
-	}
-	info, e := os.Lstat(filepath.Join(source, ".git"))
-	if e != nil || !info.IsDir() {
-		return result, errors.New("canonical checkout required; no worktree")
-	}
-	status, e := capture(source, "git", "status", "--porcelain", "--untracked-files=normal")
-	if e != nil {
-		return result, e
+	return source, nil
+}
+
+func verifyCommittedRevision(source, requestedRevision string, capture nativebuild.BuildCapture) (string, error) {
+	status, err := capture(source, "git", "status", "--porcelain", "--untracked-files=normal")
+	if err != nil {
+		return "", err
 	}
 	if status != "" {
-		return result, errors.New("clean committed source required")
+		return "", errors.New("clean committed source required")
 	}
-	revision, e := capture(source, "git", "rev-parse", "HEAD")
-	if e != nil || !nativebuild.Revision(revision) {
-		return result, errors.New("exact committed revision required")
+	revision, err := capture(source, "git", "rev-parse", "HEAD")
+	if err != nil || !nativebuild.Revision(revision) {
+		return "", errors.New("exact committed revision required")
 	}
-	goVersion, e := capture(source, "go", "env", "GOVERSION")
-	if e != nil {
-		return result, e
+	if requestedRevision != "" && requestedRevision != revision {
+		return "", errors.New("controller/source revision mismatch")
+	}
+	return revision, nil
+}
+
+func verifyCompiler(source string, capture nativebuild.BuildCapture) error {
+	if runtime.Version() != "go1.26.7" {
+		return errors.New("pinned Go 1.26.7 required")
+	}
+	goVersion, err := capture(source, "go", "env", "GOVERSION")
+	if err != nil {
+		return err
 	}
 	if goVersion != runtime.Version() {
-		return result, errors.New("pinned Go compiler unavailable")
+		return errors.New("pinned Go compiler unavailable")
 	}
-	if r.Revision != "" && r.Revision != revision {
-		return result, errors.New("controller/source revision mismatch")
+	return nil
+}
+
+func admitBuildOutput(out, source string, wantsMedia bool, authority string) error {
+	if !filepath.IsAbs(out) || !strings.HasPrefix(filepath.Clean(out), filepath.Join(source, ".artifacts/releases")+string(os.PathSeparator)) {
+		return errors.New("fresh output must be below .artifacts/releases; parent must exist")
 	}
-	if !filepath.IsAbs(r.Out) || !strings.HasPrefix(filepath.Clean(r.Out), filepath.Join(source, ".artifacts/releases")+string(os.PathSeparator)) {
-		return result, errors.New("fresh output must be below .artifacts/releases; parent must exist")
-	}
-	if r.WantsMedia() {
-		if err = releasedelivery.PrivateFile(r.MediaAuthority); err != nil {
-			return result, errors.New("restricted media authority file required")
+	if wantsMedia {
+		if err := releasedelivery.PrivateFile(authority); err != nil {
+			return errors.New("restricted media authority file required")
 		}
 	}
-	if err = nativebuild.FreshDirectory(r.Out); err != nil {
-		return result, err
+	return nativebuild.FreshDirectory(out)
+}
+
+func admitBuildInputs(r Request, capture nativebuild.BuildCapture) (string, error) {
+	if err := r.ValidateTarget(); err != nil {
+		return "", err
 	}
+	if err := nativebuild.RequireNative(r.Arch); err != nil {
+		return "", err
+	}
+	if !appliancerelease.ValidRepositoryPrefix(r.RepositoryPrefix) {
+		return "", errors.New("explicit intended repository prefix required")
+	}
+	source, err := verifyCheckoutSource(r.Source, capture)
+	if err != nil {
+		return "", err
+	}
+	if err = verifyCompiler(source, capture); err != nil {
+		return "", err
+	}
+	revision, err := verifyCommittedRevision(source, r.Revision, capture)
+	if err != nil {
+		return "", err
+	}
+	return revision, admitBuildOutput(r.Out, source, r.WantsMedia(), r.MediaAuthority)
+}
+
+func initBuildDirectories(out string) error {
 	for _, dir := range []string{"inputs", "work", "artifacts", "evidence", "release", "logs"} {
-		if err = os.Mkdir(filepath.Join(r.Out, dir), 0o700); err != nil {
-			return result, err
+		if err := os.Mkdir(filepath.Join(out, dir), 0o700); err != nil {
+			return err
 		}
 	}
-	if err = progress.CreateLog(filepath.Join(r.Out, "logs/timing.log")); err != nil {
-		return result, err
+	return nil
+}
+
+func extractBuildSnapshot(source, out, revision string, execute nativebuild.BuildExec) (string, error) {
+	snapshot := filepath.Join(out, "work/source")
+	if err := os.Mkdir(snapshot, 0o700); err != nil {
+		return "", err
 	}
-	closeLog, e := openLog(filepath.Join(r.Out, "logs/build.log"))
-	if e != nil {
-		return result, e
+	archive := filepath.Join(out, "inputs/source.tar")
+	if err := execute(source, "git", "archive", "--format=tar", "--output", archive, revision); err != nil {
+		return "", err
 	}
-	defer func() { err = errors.Join(err, closeLog()) }()
-	snapshot := filepath.Join(r.Out, "work/source")
-	if err = os.Mkdir(snapshot, 0o700); err != nil {
-		return result, err
+	if err := execute(snapshot, "tar", "--extract", "--file", archive, "--no-same-owner"); err != nil {
+		return "", err
 	}
-	archive := filepath.Join(r.Out, "inputs/source.tar")
-	if err = execute(source, "git", "archive", "--format=tar", "--output", archive, revision); err != nil {
-		return result, err
+	return snapshot, nil
+}
+
+func setupBuildWorkspace(r Request, revision string, progress *nativebuild.BuildProgress, openLog func(string) (func() error, error), execute nativebuild.BuildExec) (string, func() error, error) {
+	if err := initBuildDirectories(r.Out); err != nil {
+		return "", nil, err
 	}
-	if err = execute(snapshot, "tar", "--extract", "--file", archive, "--no-same-owner"); err != nil {
-		return result, err
+	if err := progress.CreateLog(filepath.Join(r.Out, "logs/timing.log")); err != nil {
+		return "", nil, err
 	}
-	contextDir := filepath.Join(r.Out, "work/host-context")
-	base, e := Prepare(snapshot, contextDir, r.Arch, revision)
-	if e != nil {
-		return result, e
+	closeLog, err := openLog(filepath.Join(r.Out, "logs/build.log"))
+	if err != nil {
+		return "", nil, err
 	}
-	artifacts := filepath.Join(r.Out, "artifacts")
-	p := nativebuild.Production{Source: snapshot, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
-	// Refuse an unavailable native package transaction before production work.
-	packageHash, e := LockHostPackages(snapshot, contextDir, r.Arch, base)
-	if e != nil {
-		return result, e
+	snapshot, err := extractBuildSnapshot(r.Source, r.Out, revision, execute)
+	if err != nil {
+		_ = closeLog()
+		return "", nil, err
 	}
-	if err = p.ResolveInputs(); err != nil {
-		return result, err
+	return snapshot, closeLog, nil
+}
+
+func freezeBaseImageConfig(snapshot, out, contextDir, arch, prefix, compression string, base Base, execute nativebuild.BuildExec, capture nativebuild.BuildCapture) error {
+	platform, _ := nativebuild.OCIArchitecture(arch)
+	pinned := base.Images[arch]
+	if err := execute(snapshot, "podman", "--remote=false", "pull", "--platform=linux/"+platform, pinned); err != nil {
+		return err
 	}
-	platform, _ := nativebuild.OCIArchitecture(r.Arch)
-	pinned := base.Images[r.Arch]
-	if err = execute(snapshot, "podman", "--remote=false", "pull", "--platform=linux/"+platform, pinned); err != nil {
-		return result, err
-	}
-	// Preserve upstream metadata except the selected Soda origin/install mechanism
-	// and an explicitly requested development-only compression variant.
-	metadata, e := capture(snapshot, "podman", "--remote=false", "run", "--cidfile", filepath.Join(r.Out, "evidence/base-config.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--entrypoint=/usr/bin/cat", pinned, "/usr/share/coreos-assembler/image.json")
-	if e != nil {
-		return result, e
+	metadata, err := capture(snapshot, "podman", "--remote=false", "run", "--cidfile", filepath.Join(out, "evidence/base-config.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--entrypoint=/usr/bin/cat", pinned, "/usr/share/coreos-assembler/image.json")
+	if err != nil {
+		return err
 	}
 	var imageConfig map[string]json.RawMessage
 	if err = json.Unmarshal([]byte(metadata), &imageConfig); err != nil {
-		return result, err
+		return err
 	}
 	if len(imageConfig) == 0 {
-		return result, errors.New("missing upstream image configuration")
+		return errors.New("missing upstream image configuration")
 	}
-	imageConfig["container-imgref"], _ = json.Marshal("ostree-image-signed:docker://" + r.RepositoryPrefix + "-host:candidate")
+	imageConfig["container-imgref"], _ = json.Marshal("ostree-image-signed:docker://" + prefix + "-host:candidate")
 	imageConfig["bootc-install-to-fs"] = json.RawMessage("false")
-	if err = setMediaCompression(imageConfig, r.MediaCompression); err != nil {
-		return result, err
+	if err = setMediaCompression(imageConfig, compression); err != nil {
+		return err
 	}
-	imageData, e := json.MarshalIndent(imageConfig, "", "  ")
-	if e != nil {
-		return result, e
+	imageData, err := json.MarshalIndent(imageConfig, "", "  ")
+	if err != nil {
+		return err
 	}
-	if err = ownedWrite(filepath.Join(contextDir, "rootfs/usr/share/coreos-assembler/image.json"), append(imageData, '\n'), 0o644); err != nil {
-		return result, err
+	return ownedWrite(filepath.Join(contextDir, "rootfs/usr/share/coreos-assembler/image.json"), append(imageData, '\n'), 0o644)
+}
+
+func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression string, p nativebuild.Production, execute nativebuild.BuildExec, capture nativebuild.BuildCapture) (string, Base, string, error) {
+	contextDir := filepath.Join(out, "work/host-context")
+	base, err := Prepare(snapshot, contextDir, arch, revision)
+	if err != nil {
+		return "", base, "", err
+	}
+	packageHash, err := LockHostPackages(snapshot, contextDir, arch, base)
+	if err != nil {
+		return "", base, "", err
+	}
+	if err = p.ResolveInputs(); err != nil {
+		return "", base, "", err
+	}
+	return contextDir, base, packageHash, freezeBaseImageConfig(snapshot, out, contextDir, arch, prefix, compression, base, execute, capture)
+}
+
+func prepareBuildProduction(p nativebuild.Production, r Request, snapshot, revision string, execute nativebuild.BuildExec, capture nativebuild.BuildCapture, next func(string) error) (string, Base, string, mediaTools, mediaLock, error) {
+	contextDir, base, packageHash, err := prepareBuildHostContext(snapshot, r.Out, r.Arch, revision, r.RepositoryPrefix, r.MediaCompression, p, execute, capture)
+	if err != nil {
+		return "", base, "", mediaTools{}, mediaLock{}, err
 	}
 	if err = next("P2 / Verify and install frozen dependencies"); err != nil {
-		return result, err
+		return "", base, "", mediaTools{}, mediaLock{}, err
 	}
 	if err = p.Dependencies(); err != nil {
-		return result, err
+		return "", base, "", mediaTools{}, mediaLock{}, err
 	}
-	mediaTooling, assembler, e := prepareBuildMedia(p, r)
-	if e != nil {
-		return result, e
-	}
-	if err = next("P3 / Compile shipping programs and prepared tools"); err != nil {
-		return result, err
-	}
-	names, e := nativebuild.SodaCommands(snapshot)
-	if e != nil {
-		return result, e
+	tooling, assembler, err := prepareBuildMedia(p, r)
+	return contextDir, base, packageHash, tooling, assembler, err
+}
+
+func compileSodaCommands(p nativebuild.Production, snapshot, contextDir string) error {
+	names, err := nativebuild.SodaCommands(snapshot)
+	if err != nil {
+		return err
 	}
 	for _, name := range names {
 		if err = p.Compile(name, "./cmd/"+name, filepath.Join(contextDir, "rootfs/usr/libexec/soda", name)); err != nil {
-			return result, err
+			return err
 		}
 	}
-	tools := filepath.Join(artifacts, "tools")
-	if err = os.Mkdir(tools, 0o755); err != nil {
-		return result, err
-	}
-	for _, tool := range []struct{ name, pkg string }{{"soda-installer", "./appliance/installer"}, {"soda-artifacts", "./tools/soda-artifacts"}, {"soda-acceptance", "./tools/soda-acceptance"}} {
-		if err = p.Compile(tool.name, tool.pkg, filepath.Join(tools, tool.name)); err != nil {
-			return result, err
-		}
-	}
-	// The same prebuilt console serves live installation and installed setup.
-	// Native live packaging carries it in the authenticated candidate rootfs.
-	if err = os.Link(filepath.Join(tools, "soda-installer"), filepath.Join(contextDir, "rootfs/usr/libexec/soda/soda-install")); err != nil {
-		return result, err
-	}
+	return nil
+}
+
+func recordToolFiles(tools, revision, arch, artifacts string) error {
 	toolFiles := map[string]nativebuild.File{}
-	entries, e := os.ReadDir(tools)
-	if e != nil {
-		return result, e
+	entries, err := os.ReadDir(tools)
+	if err != nil {
+		return err
 	}
 	for _, entry := range entries {
-		hash, e := nativebuild.HashFile(filepath.Join(tools, entry.Name()))
-		if e != nil {
-			return result, e
+		hash, err := nativebuild.HashFile(filepath.Join(tools, entry.Name()))
+		if err != nil {
+			return err
 		}
 		toolFiles[entry.Name()] = nativebuild.File{SHA256: hash, Mode: 0o755}
 	}
-	toolData, e := json.MarshalIndent(struct {
+	toolData, err := json.MarshalIndent(struct {
 		Revision, Architecture string
 		Files                  map[string]nativebuild.File
-	}{revision, r.Arch, toolFiles}, "", "  ")
-	if e != nil {
-		return result, e
+	}{revision, arch, toolFiles}, "", "  ")
+	if err != nil {
+		return err
 	}
-	if err = nativebuild.WriteNew(filepath.Join(artifacts, "tools.json"), append(toolData, '\n'), 0o600); err != nil {
-		return result, err
+	return nativebuild.WriteNew(filepath.Join(artifacts, "tools.json"), append(toolData, '\n'), 0o600)
+}
+
+func compileShippingTools(p nativebuild.Production, snapshot, contextDir, artifacts, revision, arch string) error {
+	if err := compileSodaCommands(p, snapshot, contextDir); err != nil {
+		return err
 	}
-	// This concrete sequence prepares assets/tests, builds five images once and
-	// assembles their fixed references/archives directly into the host context.
-	if _, err = completeCandidate(snapshot, contextDir, artifacts, r.Arch, revision, r.RepositoryPrefix, base, packageHash, p, progress.Phase); err != nil {
-		return result, err
+	tools := filepath.Join(artifacts, "tools")
+	if err := os.Mkdir(tools, 0o755); err != nil {
+		return err
 	}
-	if err = next("P5 / Build FCOS host candidate"); err != nil {
-		return result, err
+	for _, tool := range []struct{ name, pkg string }{
+		{"soda-installer", "./appliance/installer"},
+		{"soda-artifacts", "./tools/soda-artifacts"},
+		{"soda-acceptance", "./tools/soda-acceptance"},
+	} {
+		if err := p.Compile(tool.name, tool.pkg, filepath.Join(tools, tool.name)); err != nil {
+			return err
+		}
 	}
-	if err = Inventory(contextDir); err != nil {
-		return result, err
+	if err := os.Link(filepath.Join(tools, "soda-installer"), filepath.Join(contextDir, "rootfs/usr/libexec/soda/soda-install")); err != nil {
+		return err
 	}
-	if err = buildHost(contextDir, artifacts, r.Arch, revision, r.RepositoryPrefix, base, p, progress.Phase); err != nil {
-		return result, err
+	return recordToolFiles(tools, revision, arch, artifacts)
+}
+
+func buildHostCandidate(snapshot, contextDir, artifacts, arch, revision, prefix string, base Base, packageHash string, p nativebuild.Production, next func(string) error) error {
+	if _, err := completeCandidate(snapshot, contextDir, artifacts, arch, revision, prefix, base, packageHash, p, next); err != nil {
+		return err
 	}
-	if err = finishBuildMedia(ctx, p, r, mediaTooling, assembler, next); err != nil {
-		return result, err
+	if err := next("P5 / Build FCOS host candidate"); err != nil {
+		return err
 	}
-	result, err = recordBuildResult(p, r)
+	if err := Inventory(contextDir); err != nil {
+		return err
+	}
+	return buildHost(contextDir, artifacts, arch, revision, prefix, base, p, next)
+}
+
+func executeBuildProduction(ctx context.Context, p nativebuild.Production, r Request, snapshot, contextDir, artifacts, revision string, base Base, packageHash string, mediaTooling mediaTools, assembler mediaLock, phase func(string) error) (Result, error) {
+	if err := phase("P3 / Compile shipping programs and prepared tools"); err != nil {
+		return Result{}, err
+	}
+	if err := compileShippingTools(p, snapshot, contextDir, artifacts, revision, r.Arch); err != nil {
+		return Result{}, err
+	}
+	if err := buildHostCandidate(snapshot, contextDir, artifacts, r.Arch, revision, r.RepositoryPrefix, base, packageHash, p, phase); err != nil {
+		return Result{}, err
+	}
+	if err := finishBuildMedia(ctx, p, r, mediaTooling, assembler, phase); err != nil {
+		return Result{}, err
+	}
+	return recordBuildResult(p, r)
+}
+
+func finalizeBuild(progress *nativebuild.BuildProgress, result Result, err error) (Result, error) {
 	if err == nil {
 		err = errors.Join(progress.End(nil), progress.EndPhase(nil))
 	}
 	return result, err
+}
+
+func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, execute nativebuild.BuildExec, capture nativebuild.BuildCapture, openLog func(string) (func() error, error)) (result Result, err error) {
+	revision, err := admitBuildInputs(r, capture)
+	if err != nil {
+		return result, err
+	}
+	if err = progress.Phase("P1 / Admit and freeze inputs"); err != nil {
+		return result, err
+	}
+	snapshot, closeLog, err := setupBuildWorkspace(r, revision, progress, openLog, execute)
+	if err != nil {
+		return result, err
+	}
+	defer func() { err = errors.Join(err, closeLog()) }()
+
+	artifacts := filepath.Join(r.Out, "artifacts")
+	p := nativebuild.Production{Source: snapshot, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
+
+	contextDir, base, packageHash, mediaTooling, assembler, err := prepareBuildProduction(p, r, snapshot, revision, execute, capture, progress.Phase)
+	if err != nil {
+		return result, err
+	}
+	res, err := executeBuildProduction(ctx, p, r, snapshot, contextDir, artifacts, revision, base, packageHash, mediaTooling, assembler, progress.Phase)
+	return finalizeBuild(progress, res, err)
 }
 
 // Only the build's tool/cache environment is inherited. In particular, provider,
