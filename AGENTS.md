@@ -23,11 +23,21 @@ justify keeping obsolete implementations alive.
   actual Soda caller before adding an adapter or declaring a limitation. Do not
   recreate an upstream service, protocol or state machine for an optional feature;
   drop or defer the feature when its maintenance cost outweighs its value.
-- **Time and tokens are engineering constraints.** Choose the smallest sufficient
-  investigation, patch and check. Reuse evidence and test drivers. Do not turn a
-  narrow request into a broad audit, test framework, documentation project or new
-  orchestration layer. Once the requested behavior is sufficiently demonstrated,
-  stop; report remaining limitations concisely rather than chasing hypothetical ones.
+- **The owner's limited weekly token budget is a hard engineering constraint.**
+  Before costly investigation, implementation or execution, identify the unresolved
+  fact, the evidence the action will produce, and the cheapest sufficient way to
+  obtain it. Reuse evidence, artifacts and test drivers. Prove critical native
+  integration assumptions before building orchestration around them. Do not turn a
+  narrow request into a broad audit, test framework or documentation project.
+  Reconsider the approach when failures invalidate its assumptions; do not merely
+  keep patching the chosen plan. Stop once sufficient evidence exists, and keep
+  reasoning, polling and reporting concise.
+- **Separate development experiments from final qualification.** A failed release
+  run must not be relabeled successful or resumed as a qualified release, but its
+  retained artifacts can support authorized, explicitly non-qualifying development
+  checks. Driver-only debugging does not inherently require rebuilding shipping
+  bytes. Use the smallest applicable development target; run full production
+  qualification when its prerequisites are demonstrated, not as the default debug loop.
 
 ## Working style
 
@@ -38,6 +48,16 @@ justify keeping obsolete implementations alive.
   corrected reasoning, requirement or priority that changed it. State uncertainty;
   do not invent certainty or disagreement. Respect explicit owner decisions within
   approval, but do not recast a chosen tradeoff as the technically stronger option.
+
+- **Learn from the M4 execution failure.** The agent wrote roughly 1,500 lines of
+  qualification orchestration before validating critical native boundaries, then
+  repeated approximately 22-minute production builds while those boundaries were
+  unresolved. Passing tests and compliance with a self-selected plan did not justify
+  that sequencing or expense. Review necessity and cost independently of correctness.
+  Broad task approval does not approve every implementation choice. Own the actual
+  decision and its rationale; do not substitute agreement for reassessment or frame
+  the owner's status questions as technical pushback. Reassess from available
+  evidence without waiting for the owner to notice waste.
 
 - Never put the owner's personal name or other identifying information in source,
   tests, fixtures, example accounts, generated resource names or documentation.
