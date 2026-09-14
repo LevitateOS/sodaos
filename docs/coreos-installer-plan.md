@@ -109,8 +109,8 @@ one admitted host OCI archive (including required application archives)
   → native installed OSTree deployment with the candidate's OCI update identity
 ```
 
-This is a source-backed recommendation, not a runnable Soda command or native
-acceptance. It changes the earlier stock-ISO-remaster-only assumption: adding a
+Native probes now preserve the admitted OCI bytes through import, but live packaging
+and installed acceptance remain unproved. This is not a runnable Soda release command. It changes the earlier stock-ISO-remaster-only assumption: adding a
 Soda OCI tar to an unchanged Fedora live ISO does not change the stock disk image
 that `--offline` reconstructs. Media generation is an upstream packaging consumer
 of the already-built candidate, not a second compilation of Soda or the OS. The
@@ -156,18 +156,28 @@ B3's executable review now selects the x86_64 Assembler manifest
 from `quay.io/coreos-assembler/coreos-assembler`, revision
 `53330beeb45bb0a6f51987fc8df243e8a62d62bd`. Its inspected OSBuild 191 live stage
 owns the stream-hash generation described below. This is executable/input evidence,
-not proof of successful Soda packaging. The native probe remains subject to
-[exact fixture approval](implementation-status.md#b3-native-fixture-scope--approved).
+not proof of successful Soda packaging. Native import/helper-VM attempts exposed two
+actual caller requirements: the temporary Python source must select root (the pinned
+Assembler defaults to `builder`), and local archives used inside supermin must live
+under its shared `/srv`, not a container-only `/inputs` mount. A metadata-only `USER 0`
+wrapper retains the pinned builder's identical rootfs layers; it changes no shipping
+candidate bytes or tool packages. Its corrected VM handoff remains unproved.
+
+Assembler's supermin prelude also prunes its guest-local cache and removes temporary
+helper roots on exit, including failed commands. `cosa import --skip-prune` does not
+suppress those separate actions. Do not run the helper without applicable authority
+for its full scratch lifecycle. The [current fixture scope and hold](implementation-status.md#b3-native-fixture-scope--approved)
+own that permission, not a Soda patch to the native disk manifests.
 
 Before VM execution, record resource/effect bounds for
 its supermin build VM and a separate fresh installation target. Prove reconstructed
 raw checksums, installed OCI digest/origin, untouched shipping content, native boot/
 Ignition/SELinux, minimal-media size/download integrity, media removal and local
 image availability after installation. Preserve original
-Soda tool/readback guards while adapting them to upstream-generated media. B3 pulled and inspected the pinned builder rootlessly without KVM/devices. No media
-was generated and no VM started. Detailed versions, source comparison, successful
-native stream tests and failed observers belong in the
-[B3 receipt](implementation-history.md#b3-native-bootstrap-and-builder-admission).
+Soda tool/readback guards while adapting them to upstream-generated media. No media
+or installation proof exists. The [initial bootstrap receipt](implementation-history.md#b3-native-bootstrap-and-builder-admission)
+records read-only inspection; the [packaging receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts)
+records the subsequent helper VMs, failures and preservation limitation.
 
 The [update and authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
 identify a remaining client-trust decision. Do not claim this packaging route also

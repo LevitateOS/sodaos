@@ -64,12 +64,14 @@ P3 exited 130, retained diagnostics and emitted no candidate. [Receipt](implemen
 
 ### 3. Make the ISO consume the candidate — B3
 
-**In progress — native bootstrap/tool admission; assembly and installed proof open.**
-The native rootfs streaming verifier passed valid/corrupt/truncated/extra/missing-input
-checks. The exact x86_64 Assembler manifest and its live stage/tools are identified;
-no custom boot downloader is needed. No candidate ISO or installation has run.
-[Receipt](implementation-history.md#b3-native-bootstrap-and-builder-admission) and
-[approved fixture scope](#b3-native-fixture-scope--approved).
+**In progress — native import verified; packaging held, no ISO/install proof.**
+The streaming verifier passed its scoped integrity checks. Two native imports retained
+exact candidate bytes and reached upstream helper VMs, but failed before producing
+media. All three approved packaging targets are consumed; an unexpected upstream
+scratch-prune/cleanup step also requires a scope correction before further execution.
+[Receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts),
+[original approval](#b3-native-fixture-scope--approved) and
+[pending narrow extension](#b3-packaging-extension--pending).
 Media-only assembly takes the exact signed host/app candidate and
 prebuilt tools. Prove minimal ISO size, authenticated network installation, media
 removal and first boot with the same digests used by updates; preserve the
@@ -128,7 +130,8 @@ or publish an unsigned graph as a silent replacement for those checks.
 Assembler manifest, OSBuild/live stage and tools. Its native streaming verifier
 passed scoped tests; the [installer owner](coreos-installer-plan.md#b3-native-download-authentication-handoff)
 records that handoff. The approved scope below covers its helper VMs and fresh
-installation targets; read-only inspection did not authorize them. Required proof
+installation targets; its three packaging targets are now consumed and held pending
+the extension below. Required proof
 includes unchanged OCI input/installed digest, native osmet reconstruction after
 download, minimal ISO size, network failures, private Ignition, enforcing SELinux,
 media removal and all-five local image availability. B2 implements v2 storage/import;
@@ -148,7 +151,10 @@ B3 still must replace the legacy media/console continuation and prove its runtim
 
 **Owner approved the exact `5efed3e` request.** The following scope now authorizes
 B3's named native fixtures and actions. It does not revive the withdrawn bootc
-experiment or extend retained targets' grants.
+experiment or extend retained targets' grants. **Packaging is now held:** targets
+01–03 were used; no installation target/listener was created. Upstream scratch
+housekeeping conflicted with the no-pruning/preservation restriction. See the
+[pending extension](#b3-packaging-extension--pending); it is not a new grant.
 
 - **Targets:** new directories only under
   `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/native/`, with
@@ -199,6 +205,37 @@ experiment or extend retained targets' grants.
   owned-process shutdown of these exact new targets, including upstream helper VMs
   and the fixture listener. Retain failed/successful disks, CIDs, inputs and redacted
   logs. No `--rm`, `--replace`, pruning, reset/recreation or retained-state cleanup.
+
+### B3 packaging extension — pending
+
+**Request only.** Approval would add exactly `native/package-{04,05,06}` under the
+same B3 evidence root and containers `soda-b3-package-ea0dc92-{04,05,06}`, allowing
+three further fresh imports/live packaging attempts. Do not reuse or restart the
+failed workspaces. Installation targets 01–03 and replacement-candidate allowance
+remain unchanged; no additional install disk, candidate, base or architecture is
+requested.
+
+- Keep the approved pinned Assembler; use its metadata-only `USER 0` Python-source
+  wrapper with identical rootfs layers. Place the admitted archive in the new
+  workspace's `/srv` share before helper use.
+- Permit **only upstream automatic housekeeping inside each new packaging workspace
+  and fresh helper VM**: guest-local empty-cache `podman system prune --all --force
+  --filter until=72h`, cache discard/trim, and normal deletion of generated temporary
+  helper roots/initrds/build scratch on exit. Record the prelude and results. Preserve
+  original inputs, signatures, CIDs, cache disks, failure consoles and produced media;
+  installation disks remain fully preserved. This is not permission for manual
+  pruning, old-cache reuse, host-store cleanup or retained-target mutation.
+- Keep CPU affinity 0–3 (`taskset`, since the user cgroup lacks cpuset delegation),
+  four-CPU quota, at most 16 GiB RAM/one active VM and the original **aggregate**
+  four-hour/200 GiB bounds. No reset: conservatively charge **1,747 seconds** through
+  the hold (including gaps), leaving **12,653 seconds**. The new evidence tree's
+  conservative allocated-block count was **35,930,062,848 bytes** at that check.
+- All other original network, input, secret, lifecycle and publication restrictions
+  remain. No host trust/SELinux/cgroup delegation change is requested.
+
+This recommends retaining upstream scratch ownership rather than maintaining a
+Soda fork merely to suppress empty-cache housekeeping. It does not retroactively
+authorize the already observed housekeeping or count failed packaging as B3 proof.
 
 ### Withdrawn native experiment
 
@@ -259,7 +296,7 @@ custody, not a fresh filesystem/registry observation:
 
 | Resource | Custody |
 | --- | --- |
-| B3 source/native read-only bootstrap probes | `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/`; no `native/` VM targets created |
+| B3 bootstrap and native packaging failures | `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/`; `native/package-01` created/not running, 02–03 exited; CIDs, admitted inputs, fixture trust, caches and consoles retained. Upstream removed temporary helper roots; no installation targets created. |
 | B2 native candidate, failures and cancellation | `.artifacts/releases/b2-{42cba33,9837d3e,4c62f68,cancel-4c62f68}-*/`; exact paths in the B2 receipt |
 | B2 controller binaries/checks | `.artifacts/controllers/b2-*`, `.artifacts/build-controller/controller-3fe7f18-yIS3y0/` |
 | Complete M1 candidate | `.artifacts/host-image/complete-45ac843/` |
@@ -282,7 +319,9 @@ grants belong to the user's task and exact target/action, not this plan's comman
 - **Source/local work:** routine implementation, builds and tests for selected work
   remain authorized within their existing scope. The shared-build/timing extraction
   was explicitly approved; the owner selected B1, B2 and now B3 implementation. B3
-  source/local preparation and the exact VM/disk/listener scope above are approved.
+  source/local preparation and the original exact VM/disk/listener scope above were
+  approved. Packaging is now [held pending the narrow extension](#b3-packaging-extension--pending),
+  not implicitly renewed by that approval.
   B1's source/upstream audit, local tests and bounded rootless read-only image
   inspections are recorded; B2's initial change was direct vendor asset staging. B3's
   additional grant is limited to the named fixtures above; it adds no real protected
@@ -306,12 +345,14 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-B3 identified the exact native builder/capsule and proved the selected rdcore
-stream-authentication primitive, without a custom downloader. It also identified why
-the old ISO-mounted console loader cannot be reused on minimal network media.
-[Receipt, including failed observers](implementation-history.md#b3-native-bootstrap-and-builder-admission).
-No shipping source changed; production remains **12,235 lines**. No ISO was assembled,
-VM started, disk installed, signature/publication commissioned or retained appliance
-mutated in that review. The owner has now approved the
-[specific native fixture scope](#b3-native-fixture-scope--approved); execution begins
-with the unchanged B2 candidate. B3 is not complete.
+Approved B3 native work admitted the unchanged B2 candidate with fixture-only native
+signatures and proved exact OCI import twice. Two helper VMs ran; live packaging
+failed on the Python source's user, then its VM-invisible archive path. The cgroup
+startup failure, failed signature-document fixture and successful corrections remain
+in the [receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts).
+Upstream ran an unanticipated empty-cache prune (0 bytes reclaimed) and removed
+helper scratch, contrary to the original restriction; native execution is held for
+the [scope correction and new targets](#b3-packaging-extension--pending).
+No shipping source changed; production remains **12,235 lines**. No ISO, installation,
+media-removal/first-boot proof, real signing-custody change, publication or retained
+appliance mutation occurred. B3 is not complete.

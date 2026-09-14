@@ -15,6 +15,79 @@ not claims that those outputs are still retained.
 
 ---
 
+## B3 native import and stopped packaging attempts
+
+The owner approved `5efed3e`'s exact B3 fixture request; `26f4fda` recorded it before
+execution. Canonical source was clean. Evidence remains under
+`.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/native/`. **No ISO or installation
+proof was produced.** All three named packaging targets are consumed and further
+native execution is held for the [specific extension](implementation-status.md#b3-packaging-extension--pending).
+
+- `package-01`: native P-256 fixture signing and authenticated local copy verified
+  the B2 host manifest `sha256:ac3071fcfb95bbb3a28b487d7b6ab74ba4038016a48f709bcf2ebc6850b9cd49`
+  and archive SHA256 `e5604ebada037cf2933f0935f8bd7d13bc03fad43a1d70ff2a4040da4a0586dc`.
+  Fixture keys are restricted, separate from real custody and absent from container
+  mounts. No registry transport/publication was allowed by the fixture signer.
+  Podman startup exited 126 because the user cgroup delegates CPU/memory/PIDs but
+  not cpuset. Attempting to unset cpuset through `podman update` had no effect;
+  the original created container remains, never booted or replaced.
+- `package-02`: used native `taskset` affinity 0–3 plus four-CPU/16 GiB container
+  limits, without host delegation changes. `cosa import --skip-prune` preserved
+  the exact archive and OCI manifest and recorded native OSTree checksum
+  `7f43750a94a4457aee481503b482130c067868a349c74d95965c959ad21a1d12`.
+  The helper VM booted with four CPUs/12 GiB. Its temporary Python stage failed:
+  `tar: /python-tarball.tar: Cannot open: Permission denied` (exit 2). Assembler's
+  default image user is `builder`; the actual upstream extraction caller assumes
+  root. This was not a shipping program rebuild or installed candidate failure.
+- `package-03`: a two-line `FROM <pinned Assembler>` / `USER 0` metadata-only wrapper
+  exported successfully; native parent/wrapper rootfs layer lists compare equal.
+  No tool package or shipping bytes changed. A generic fixture input document was
+  initially refused as a strict Release (`unknown field "AssemblerManifest"`);
+  the failed document/snapshot/log remain. The fresh v2 document uses the existing
+  filesystem-only generic artifact-signature fixture scope, not a qualified release
+  or an application deployment, and native signing/verification passed before use.
+  Candidate signature verification and unchanged archive hashes were rechecked.
+  Import again preserved identities, but the helper's build exited 125:
+  `lstat /inputs: no such file or directory`. `/inputs` is an outer-container mount;
+  upstream shares `/srv` and the config into supermin, not arbitrary outer mounts.
+  The next fresh input handoff must place the admitted tool archive under `/srv`.
+  That correction has not been executed.
+
+**Preservation/permission discrepancy:** both helper consoles show upstream
+`podman system prune --all --force --filter until=72h`, with **0B reclaimed**, against
+new guest-local stores on their fresh cache disks. No host/home/container-storage,
+credential or retained-appliance mount existed. Nevertheless this command conflicted
+with the explicit no-pruning restriction and should have been found before execution.
+Upstream also removed its ephemeral supermin roots/initrds after the failed command;
+those scratch roots are not retained. Caches, inputs, signatures, CIDs, failed command
+files and full helper consoles remain. No manual cleanup or replay repaired the
+failures. The earlier progress statement that the Python failure preceded VM execution
+was wrong: it preceded media generation, not helper boot. The retained consoles
+establish that correction. Future scope must explicitly cover the native helper's
+scratch lifecycle rather than silently overriding preservation or forking disk logic.
+
+`native/attempts.json` checks all three exact archive hashes, inactive container
+states, both imports, native `use-bootc-install=false`, intended Soda candidate origin,
+four-CPU helpers, zero reclaimed bytes, wrapper layer equality, restricted private
+key modes and unchanged real public trust. Imported-image warnings about non-OSTree
+compatible paths remain in the logs; there is no installed acceptance. Native checksum
+and intended origin are not proof of the booted OCI digest.
+
+At the hold, the conservative allocated-block count was **35,930,062,848 bytes**;
+**1,747 seconds** were charged from first native startup through the hold, including
+preparation gaps, leaving **12,653 seconds** of the original four-hour allowance.
+Limits are not reset by the extension request. Container 01 remains created/not
+running; 02–03 exited. No installation directories/disks, content listener, ISO,
+provider action, real signing-custody change, registry write or retained-appliance
+mutation occurred. No replacement candidate was built. Shipping production remains
+**12,235 physical lines**; only fixture diagnostics and owning documentation changed.
+B3 assembly, installer integration and installation/media-removal/first-boot proof
+remain incomplete. Scoped checks passed **82 local documentation links**, all 15 bind
+mounts restricted to their fresh attempt, and unchanged real delivery grants/public
+trust. `native/SHA256SUMS` binds 52 public diagnostic files; private key material and
+cache/image blobs are excluded. Broad source suites were not rerun for documentation
+and ignored fixture diagnostics.
+
 ## B3 native bootstrap and builder admission
 
 B3 selected after `ea0dc92`. Working tree initially clean. Evidence:
