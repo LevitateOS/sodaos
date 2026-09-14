@@ -1,8 +1,8 @@
 # Implementation status — single-run replacement
 
-**Active priority: fast development builds; M4 is paused, not complete.** The owner
-explicitly requested the [new side-path implementation plan](fast-development-build-plan.md)
-to reduce iteration time before continuing qualification. It owns F1–F3; the original
+**Active priority: resume and complete M4.** The owner explicitly requested resumption
+of the remaining production qualification work after the completed
+[fast-development side path](fast-development-build-plan.md). M4 is not complete. It owns F1–F3; the original
 B1–B6 milestones below are retained, not renumbered or replaced. The
 [release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
 owns production contracts; [history](implementation-history.md) owns detailed
@@ -93,8 +93,8 @@ A fixture download URL is not a distribution-ready public installer.
 
 ### 4. Connect native qualification — B4
 
-**Paused at the owner's request while fast development builds take priority.** The
-prior M4 approval and completed groundwork remain recorded below; M4 is not complete. The
+**Resumed under the owner's explicit “do it” instruction.** The prior M4 approval
+and completed groundwork remain in force; M4 is not complete. The
 [owning B4 contract](release-engineering-plan.md#milestone-4--connect-native-qualification)
 selects P9 installation, same-base x86_64 A → B update and compatible native recovery.
 A is the verified current-layout `33ea3f5` artifact; B is the next necessary clean
@@ -145,6 +145,14 @@ read-only producer check now declare it; the prepared A fixture received the exa
 non-overlapping operator correction. Its successful native project creation followed
 that correction, without replaying account/repository/OAuth setup or restoring data.
 
+The resumed implementation now connects a fixed protected P9 driver to production
+controller dispatch: independent root-held artifact snapshots, a verified disposable
+copy of populated A, native B installation, upstream registry/Sigstore fixtures,
+Zincati maintenance/offline activation, and native rollback/state comparisons.
+Source race tests and vet pass for the affected qualification/controller packages;
+these are authored checks, not native scenario evidence. Development remains separate,
+and production still cannot report release success before B5.
+
 **No B build, update, recovery or complete P9 qualification has run yet.** Native
 groundwork receipts remain under `.artifacts/b4-qualification/`; `project-map.log`
 and protected `workers/soda-qualifier/baseline-02/evidence-map01/` record populated A.
@@ -168,12 +176,11 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-The [fast-development side plan](fast-development-build-plan.md#implementation-order)
-is complete within its scoped checks. Use candidate-only production for host/application
-iteration and optional fast media for installer development. Do not repeat completed
-builds merely to put a documentation revision into a receipt. M4's P9/B build/update/recovery
-work stays paused. Public hosting, ARM and minimum-hardware qualification remain
-separate work.
+Complete protected P9 integration and the production-default B build/install, signed
+native update/refusals, maintenance/offline activation and state-preserving rollback.
+Reuse the populated stopped `baseline-02` fixture without reseeding; preserve failed
+targets and original seed. The completed fast-development side path is not production
+qualification. Public hosting, ARM and minimum-hardware qualification remain separate.
 
 The public rootfs base URL is an explicit media input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
@@ -208,10 +215,11 @@ activity. Preserve one active VM, CPUs 0–3, at most four vCPUs/16 GiB. Stop on
 task helpers/containers/listeners; no pruning, retained-state deletion, host trust or
 network policy changes, real release authority, publication or increased resources.
 
-**Retained B4 approval — execution paused:** the earlier “Now do M4 completely”
-authorized the bounded scope below. Those target/action grants remain recorded for
-resuming that work; they are not a blanket grant for development benchmarks or a
-reason to continue M4 despite the priority change.
+**Current B4 approval — execution resumed:** the owner explicitly requested resuming
+M4 and then instructed “do it.” The earlier “Now do M4 completely” scope below applies.
+Read-only inspection confirms the populated `baseline-02` disk is standalone, not
+dirty/corrupt, with its private SSH/key/NVRAM inputs present; no QEMU was running.
+No reseeding, baseline reset, production key use or broader effect is added.
 
 **Retained B4 execution scope:**
 

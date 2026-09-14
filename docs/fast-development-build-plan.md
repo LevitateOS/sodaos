@@ -2,9 +2,9 @@
 
 ## Priority and approval
 
-**Active priority: shorten the development feedback loop. M4 is paused, not complete.**
-The owner explicitly requested this side workstream before further qualification
-work and has now requested implementation of this plan. Current bounded execution
+**F1–F3 complete within their scoped checks; active priority has returned to M4.**
+The owner requested and approved this side workstream, then explicitly requested
+resuming production qualification. Development success does not complete M4. Current bounded execution
 grants and retained state remain in
 [implementation status](implementation-status.md#current-permissions).
 
@@ -185,8 +185,8 @@ OSBuild cache integration and application feature switches are not prerequisites
 ## Completion and limits
 
 Track F1–F3 here; keep B1–B6 progress in its existing owner. F1/F2 are delivered;
-F3 is also complete within its bounded development-media scope. No automatic M4
-resumption follows; it remains paused until the owner changes priority.
+F3 is also complete within its bounded development-media scope. The owner subsequently
+explicitly resumed M4; its progress and grants remain in the status owner.
 M4 fixtures, real custody and unrelated work stay untouched; experimental retention
 is not a reason to add compatibility code. The status/grant owner records any later
 approval for specific execution effects. Only the scoped receipts above support

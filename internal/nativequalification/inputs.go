@@ -5,8 +5,10 @@ package nativequalification
 import (
 	"encoding/json"
 	"errors"
+	"github.com/levitateos/sodaos/internal/acceptance"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/levitateos/sodaos/internal/appliancerelease"
 	"github.com/levitateos/sodaos/internal/hostimage"
@@ -17,8 +19,41 @@ import (
 // Config is separately admitted operator input, never a build artifact. It names
 // only the disposable target and fixture authority selected for this scenario.
 type Config struct {
-	Work, Baseline, BaselineDisk, BaselineDiskSHA256, BaselinePassword string
-	QEMU, Firmware, Variables, RegistryImage, Authority                string
+	Executable, Work, Baseline, BaselineDisk, BaselineDiskSHA256      string
+	BaselineVariables, BaselineKey, BaselineKnownHosts, BaselineState string
+	QEMU, Firmware, Variables, RegistryImage                          string
+}
+
+// LoadConfig is admission before production, so missing fixture prerequisites do
+// not consume a build. The root-owned selection is held by the parent, not JSON
+// emitted by the producer.
+func LoadConfig(path string) (Config, error) {
+	var c Config
+	if os.Geteuid() != 0 {
+		return c, errors.New("protected configuration admission required")
+	}
+	if err := rd.PrivateFile(path); err != nil {
+		return c, err
+	}
+	if err := rd.ReadJSON(path, &c); err != nil {
+		return c, err
+	}
+	if err := acceptance.TrustedExecutable(c.Executable); err != nil {
+		return c, err
+	}
+	if !nativebuild.Digest(c.BaselineDiskSHA256) || !strings.HasPrefix(c.RegistryImage, "docker.io/library/registry@sha256:") || !nativebuild.Digest(strings.TrimPrefix(c.RegistryImage, "docker.io/library/registry@sha256:")) {
+		return c, errors.New("baseline hash and pinned upstream registry required")
+	}
+	for _, p := range []string{c.Baseline, c.BaselineDisk, c.BaselineVariables, c.BaselineKey, c.BaselineKnownHosts, c.BaselineState, c.QEMU, c.Firmware, c.Variables} {
+		resolved, err := filepath.EvalSymlinks(p)
+		if err != nil || !filepath.IsAbs(p) || resolved != p || strings.ContainsAny(p, ":,\n\r\t %") {
+			return c, errors.New("existing exact qualification input paths required")
+		}
+	}
+	if err := nativebuild.PrivateDestination(c.Work); err != nil {
+		return c, err
+	}
+	return c, nil
 }
 
 type Artifact struct {

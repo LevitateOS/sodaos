@@ -62,6 +62,13 @@ func GuestState(ctx context.Context, action, expectedPayload string) (map[string
 	if err != nil || hostname != fixtureLogin || payload.ID != expectedPayload {
 		return nil, errors.New("qualification guest identity mismatch")
 	}
+	if action == "content" {
+		files, size, e := appliancerelease.VerifyContent(payload, appliancerelease.ImagesPath)
+		if e != nil {
+			return nil, e
+		}
+		return map[string]any{"files": files, "bytes": size}, nil
+	}
 	if action != "seed" && action != "later" && action != "snapshot" {
 		return nil, errors.New("fixed state action required")
 	}

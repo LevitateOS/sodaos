@@ -2,8 +2,9 @@
 
 ## Priority and current state
 
-**Immediate priority is the owner's [fast-development-build side plan](fast-development-build-plan.md).**
-M4 is paused while that plan targets shorter iteration through the same producer.
+**Immediate priority is completing M4, resumed by the owner.** The
+[fast-development side plan](fast-development-build-plan.md) is complete within its
+scoped development checks and does not substitute for production qualification.
 B1–B6 remain the release replacement milestones, not launch work; the side plan
 neither qualifies development output nor creates a competing release recipe.
 Complete the six replacement milestones below before unattended scheduling,
@@ -342,7 +343,7 @@ phase order: artifact authentication still precedes privileged installation.
 
 ### Milestone 4 — connect native qualification
 
-**B4; execution not started.** Connect **P9** to the existing controller after P7
+**B4; implementation and bounded execution in progress, not complete.** Connect **P9** to the existing controller after P7
 candidate/input admission and P8 media assembly. Use reviewed `internal/acceptance`
 and applicable `tests/installed` drivers, not another framework or build-supplied
 `passed` assertion. Execution authority is recorded in
