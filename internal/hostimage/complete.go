@@ -141,13 +141,13 @@ func StagePresentation(forgejoContext, context string) (string, error) {
 	return hashBytes(data), nil
 }
 
-// Complete binds all callers to one v2 payload and ordinary Podman storage.
-func Complete(source, context, archives string, p appliancerelease.Payload) error {
+// Complete binds all callers to one v3 payload and ordinary Podman storage.
+func Complete(source, context, archives string, p appliancerelease.Payload, run nativebuild.BuildExec) error {
 	if err := p.Validate(); err != nil {
 		return err
 	}
-	if p.Format != 2 {
-		return errors.New("new candidates require the ordinary-Podman v2 payload")
+	if p.Format != 3 {
+		return errors.New("new candidates require the shared-layout v3 payload")
 	}
 	root := filepath.Join(context, "rootfs")
 	for _, name := range []string{"forgejo", "dashboard", "proxy"} {
@@ -217,24 +217,8 @@ func Complete(source, context, archives string, p appliancerelease.Payload) erro
 	if err = ownedWrite(project, body, 0644); err != nil {
 		return err
 	}
-	for _, name := range appliancerelease.Names {
-		archive := filepath.Join(archives, name+".oci")
-		got, err := nativebuild.HashFile(archive)
-		if err != nil || got != p.Images[name].ArchiveSHA256 {
-			return fmt.Errorf("%s archive changed before staging", name)
-		}
-		// A hard link keeps the immutable input identity without a second multi-GB
-		// copy. Both paths live in this fresh attempt; neither is mutable runtime data.
-		dest := filepath.Join(root, "usr/share/soda/images", name+".oci")
-		if err = os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-			return err
-		}
-		if err = os.Link(archive, dest); err != nil {
-			return err
-		}
-		if err = os.Chmod(dest, 0644); err != nil {
-			return err
-		}
+	if err = stageImages(archives, filepath.Join(root, "usr/share/soda/images"), p, run); err != nil {
+		return err
 	}
 	// The complete payload is the sole resolved-image/defaults owner. Leave only
 	// a pointer in the earlier host-content build marker, not stale scope data.

@@ -337,7 +337,7 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 		return err
 	}
 	if media.Format == 2 {
-		c.print("SodaOS disk installation completed with all five application archives local.")
+		c.print("SodaOS disk installation completed with all five application images local.")
 		c.print("Remove installation media and reboot explicitly; log in locally as root with your password.")
 		c.print("Native startup imports the included images before starting their services. No reboot was performed.")
 		c.print("For key-only SSH access, run locally after reboot: %s enroll-key", candidateInstallerBinary)

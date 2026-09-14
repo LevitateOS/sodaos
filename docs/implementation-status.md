@@ -77,12 +77,17 @@ refusal remains source-tested, not independently exercised in that guest.
 All six packaging targets, both replacement builds and installation targets 01–03
 are consumed. Previous candidates and successful/partial disks remain unchanged;
 no full B3 or qualified-release completion is claimed.
-A subsequent read-only size audit found an identical **87,693,174-byte OCI layer**
-in both dashboard and project-os archives, occupying separate EROFS extents. Native
-LZMA compression/deduplication is enabled, but the download is **not established as
-optimized**. Audit shared-layer packaging before freezing the production media
-representation; retain every required image and native verification. Full tree/inode
-inspection subsequently found no extra whole-system/app-set copy: the deployment and
+The owner requested fixing the measured duplicate before moving on. **V3 source
+now embeds a standard shared OCI layout**, retaining all five exact images and strict
+v1/v2 readers. Native Skopeo filesystem tests reduced application packaging from
+685,604,864 to **597,854,296 bytes (87,750,568 fewer)** with unchanged manifests/configs.
+Producer, native hash readback, importer and installer are wired in source; wrong/
+missing blobs, references, platform/source, paths and import failures have
+focused tests. This is not yet a rebuilt rootfs size or v3 installed proof. Stay on
+this B3 correction until its [pending exact fixture extension](#b3-deduplication-verification--pending)
+can verify native import, new media and installation. No broader optimization claim
+or move to B4 is implied. The earlier full tree/inode
+inspection found no extra whole-system/app-set copy: the deployment and
 OSTree repository share 3.11 GB of logical file data through identical inodes. Another
 180.3 MB of repository-only logical data remains unclassified, not promised savings
 or permission to prune.
@@ -267,6 +272,46 @@ This recommends retaining upstream scratch ownership rather than maintaining a
 Soda fork merely to suppress empty-cache housekeeping. It does not retroactively
 authorize the already observed housekeeping or count failed packaging as B3 proof.
 
+### B3 deduplication verification — pending
+
+**Not approved yet.** Source/local deduplication work is approved by the owner's
+request; consumed candidate/packaging/installation slots are not renewed by it.
+To finish native verification without overwriting any retained output, request:
+
+- **Up to one import-only probe** (recommended early diagnostic, not an extra
+  qualification gate): fresh `native/import-01` under the existing B3 evidence
+  root, container `soda-b3-import-ea0dc92-01`. Use the retained `9577645` host's exact
+  Podman 5.8.4 and newly compiled trusted fixture driver, with independently admitted
+  v3 layout/metadata derived from the retained app exports. Rootless privileged
+  container namespace, container-only `label=disable`, no network, at most four CPUs/
+  4 GiB RAM; only fresh private test storage/scratch and read-only public inputs.
+  Ordinary native Podman with isolated VFS root/runroot may be used for the probe;
+  no additional production image store, application/workload startup, real credential,
+  host store or KVM mount. Retain the CID/store/results; allow upstream temporary
+  scratch cleanup, not manual pruning or retained-state changes.
+- **One replacement candidate:** clean committed deduplication source through its
+  matching single Go controller, unchanged locked x86_64 FCOS base. Fresh outputs
+  `.artifacts/releases/b3-layout-v3-*` and `.artifacts/controllers/b3-layout-v3-*`;
+  no reuse of a failed output, skip-tests option or after-admission rebuild.
+- **One packaging and one installation target:** fresh `native/package-07` and
+  `native/install-04`; names `soda-b3-package-ea0dc92-07` and
+  `soda-b3-install-ea0dc92-04`. Same pinned Assembler/config and rootfs-identical root
+  wrapper, same shared `/srv` handoff and approved upstream scratch lifecycle. One
+  fresh 64 GiB sparse disk/OVMF variables; permit explicit erase only of that blank
+  disk, media removal/reboot, exact booted digest, SELinux and five local-image checks.
+  Preserve successful/failed disk, consistent pre-first-boot copy, inputs and logs.
+- **Bounds:** retain affinity 0–3, at most four vCPUs/16 GiB and one active VM. Keep
+  the original four-hour execution total: **3,952 seconds remain**, no reset. Raise
+  aggregate allocated-storage allowance from **200 to 280 GiB** to retain old state
+  alongside the new probe/candidate/cache/media/disk. Previous package-06 and
+  install-02 alone occupy approximately 45.4 and 16.2 GB; deletion is not assumed.
+- All other [original restrictions](#b3-native-fixture-scope--approved) remain:
+  fixture-only trust/admission, loopback download/access, no host trust/network/
+  delegation change, production credentials, publication, provider jobs, migration,
+  update/recovery baseline, old-workspace restart or re-erasure. Stop if a target
+  fails; this requests no automatic extra attempt. The copied ISO under
+  `/home/libvirt/images/` remains unchanged and still points to the stopped fixture.
+
 ### Withdrawn native experiment
 
 The `6a360d3` proposal for bootc filesystem installation with Soda-owned partitioning
@@ -351,7 +396,10 @@ grants belong to the user's task and exact target/action, not this plan's comman
   remain authorized within their existing scope. The shared-build/timing extraction
   was explicitly approved; the owner selected B1, B2 and now B3 implementation. B3
   source/local preparation and the original exact VM/disk/listener scope above were
-  approved. The owner subsequently approved the [narrow packaging extension](#b3-packaging-extension--approved)
+  approved. The owner also requested fixing shared-layer duplication before advancing;
+  that source/local work is in progress, with new native verification authority
+  [pending separately](#b3-deduplication-verification--pending).
+  The owner previously approved the [narrow packaging extension](#b3-packaging-extension--approved)
   after clarification; no broader artifact-folder cleanup is authorized.
   B1's source/upstream audit, local tests and bounded rootless read-only image
   inspections are recorded; B2's initial change was direct vendor asset staging. B3's
@@ -399,8 +447,14 @@ exact booted digest, enforcing SELinux and all-five local-content checks. Partia
 interruption stopped without automatic replay; the failed disk is retained. The shared
 review's stale writable-continuation sentence is corrected in source and covered by
 PTY/default/vendor/race tests; the tested candidate itself is unchanged. Production
-remains **12,559 lines**. [Final fixture receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write).
+at that receipt was **12,559 lines**. [Final fixture receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write).
 No real signing-custody change, publication or retained-appliance mutation occurred.
-B3 still needs the production media-only assembler/readback implementation; B4/B5
-then connect protected qualification and finalization. The fixture helpers are not a
-second production command or a completed single-run pipeline.
+The subsequent approved deduplication correction now has v3 source and native
+filesystem-layout proof, not a new installed candidate. Its native verification
+[extension is pending](#b3-deduplication-verification--pending); source/race/vendor/vet
+checks passed and the measured application-layout reduction is 87,750,568 bytes.
+Current production is **12,818 lines (+259)**, not net orchestration reduction.
+[Correction receipt](implementation-history.md#b3-shared-layer-packaging-correction).
+B3 still needs the production media-only assembler/readback implementation after
+this correction is qualified; B4/B5 then connect protected qualification/finalization.
+The fixture helpers are not a second production command or a completed pipeline.

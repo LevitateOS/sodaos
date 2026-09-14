@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/appliancerelease"
@@ -35,21 +36,30 @@ func inspectComplete(context, out, id string, capture nativebuild.BuildCapture) 
 	if err = p.Validate(); err != nil {
 		return err
 	}
-	var archivePaths []string
-	for _, name := range appliancerelease.Names {
-		archivePaths = append(archivePaths, appliancerelease.ImagesPath+"/"+name+".oci")
+	files, _, err := appliancerelease.VerifyContent(p, filepath.Join(context, "rootfs", appliancerelease.ImagesPath))
+	if err != nil {
+		return err
 	}
-	sums, err := run("archive-inspect", "/usr/bin/sha256sum", archivePaths...)
+	var paths []string
+	for name := range files {
+		paths = append(paths, name)
+	}
+	slices.Sort(paths)
+	var installedPaths []string
+	for _, name := range paths {
+		installedPaths = append(installedPaths, appliancerelease.ImagesPath+"/"+name)
+	}
+	sums, err := run("content-inspect", "/usr/bin/sha256sum", installedPaths...)
 	if err != nil {
 		return err
 	}
 	lines := strings.Split(sums, "\n")
-	if len(lines) != len(appliancerelease.Names) {
-		return errors.New("incomplete embedded archive inventory")
+	if len(lines) != len(paths) {
+		return errors.New("incomplete embedded content inventory")
 	}
-	for i, name := range appliancerelease.Names {
-		if lines[i] != p.Images[name].ArchiveSHA256+"  "+archivePaths[i] {
-			return errors.New("host archive content differs from payload")
+	for i, name := range paths {
+		if lines[i] != files[name]+"  "+installedPaths[i] {
+			return errors.New("host content differs from payload")
 		}
 	}
 	consoleHash, err := nativebuild.HashFile(filepath.Join(out, "tools/soda-installer"))

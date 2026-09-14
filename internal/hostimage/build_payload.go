@@ -14,7 +14,7 @@ import (
 // completeCandidate is image-layout assembly, not a second component producer.
 // The legacy installer uses the same Production methods with its explicit layout.
 func completeCandidate(source, context, out, arch, revision, prefix string, base Base, packageHash string, producer nativebuild.Production, phase func(string) error) (appliancerelease.Payload, error) {
-	p := appliancerelease.Payload{Format: 2, ID: base.Release + ".soda-" + revision[:12], Revision: revision, Architecture: arch, CoreOS: base.Release, Base: base.Images[arch], RepositoryPrefix: prefix, Schema: store.SchemaVersion(), Images: map[string]appliancerelease.Image{}, UpgradeFrom: []string{}}
+	p := appliancerelease.Payload{Format: 3, ID: base.Release + ".soda-" + revision[:12], Revision: revision, Architecture: arch, CoreOS: base.Release, Base: base.Images[arch], RepositoryPrefix: prefix, Schema: store.SchemaVersion(), Images: map[string]appliancerelease.Image{}, UpgradeFrom: []string{}}
 	var err error
 	if err = producer.Next("Verify admitted host package transaction"); err != nil {
 		return p, err
@@ -93,7 +93,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	if err = p.Validate(); err != nil {
 		return p, err
 	}
-	if err = Complete(source, context, filepath.Join(out, "images"), p); err != nil {
+	if err = Complete(source, context, filepath.Join(out, "images"), p, producer.Execute); err != nil {
 		return p, err
 	}
 	record, err := json.MarshalIndent(p, "", "  ")

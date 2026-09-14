@@ -1,10 +1,7 @@
 package appliancerelease
 
 import (
-	"archive/tar"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
@@ -12,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/testoci"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,33 +55,8 @@ func TestPayloadValidation(t *testing.T) {
 // replacement verifier or an actual Podman engine/provider.
 func writeArchive(t *testing.T, path string, p Payload) Image {
 	t.Helper()
-	blobs := map[string][]byte{}
-	desc := func(data []byte, media string) map[string]any {
-		h := sha256.Sum256(data)
-		s := hex.EncodeToString(h[:])
-		blobs["blobs/sha256/"+s] = data
-		return map[string]any{"mediaType": media, "digest": "sha256:" + s, "size": len(data)}
-	}
-	cfg, _ := json.Marshal(map[string]any{"os": "linux", "architecture": "amd64", "rootfs": map[string]any{"type": "layers", "diff_ids": []string{}}, "config": map[string]any{"Labels": map[string]string{"org.opencontainers.image.revision": p.Revision, "org.opencontainers.image.source": "https://github.com/LevitateOS/sodaos", "org.opencontainers.image.base.name": p.Base, "org.opencontainers.image.base.digest": "sha256:" + strings.Repeat("b", 64)}}})
-	cd := desc(cfg, "application/vnd.oci.image.config.v1+json")
-	manifest, _ := json.Marshal(map[string]any{"schemaVersion": 2, "mediaType": "application/vnd.oci.image.manifest.v1+json", "config": cd, "layers": []any{}})
-	md := desc(manifest, "application/vnd.oci.image.manifest.v1+json")
-	index, _ := json.Marshal(map[string]any{"schemaVersion": 2, "manifests": []any{md}})
-	blobs["index.json"] = index
-	blobs["oci-layout"] = []byte(`{"imageLayoutVersion":"1.0.0"}`)
-	f, e := os.Create(path)
-	require.NoError(t, e)
-	tw := tar.NewWriter(f)
-	for n, b := range blobs {
-		require.NoError(t, tw.WriteHeader(&tar.Header{Name: n, Mode: 0644, Size: int64(len(b))}))
-		_, e = tw.Write(b)
-		require.NoError(t, e)
-	}
-	require.NoError(t, tw.Close())
-	require.NoError(t, f.Close())
-	hash, e := nativebuild.HashFile(path)
-	require.NoError(t, e)
-	return Image{Config: cd["digest"].(string), Manifest: md["digest"].(string), ArchiveSHA256: hash, Storage: "retained"}
+	im := testoci.Archive(t, path, "amd64", p.Revision)
+	return Image{Config: im.Config, Manifest: im.Manifest, ArchiveSHA256: im.ArchiveSHA256, Storage: "retained"}
 }
 
 type statusError int

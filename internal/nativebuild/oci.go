@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path"
 	"strings"
@@ -18,10 +19,11 @@ import (
 
 type Image struct{ Manifest, Config, Architecture, Revision, Source, BaseName, BaseDigest string }
 type descriptor struct {
-	Digest    string   `json:"digest"`
-	Size      int64    `json:"size"`
-	MediaType string   `json:"mediaType"`
-	URLs      []string `json:"urls,omitempty"`
+	Digest      string            `json:"digest"`
+	Size        int64             `json:"size"`
+	MediaType   string            `json:"mediaType"`
+	URLs        []string          `json:"urls,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 type blob struct {
 	hash string
@@ -93,44 +95,72 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 		if n != "index.json" && n != "oci-layout" && !(strings.HasPrefix(n, "blobs/sha256/") && Digest(strings.TrimPrefix(n, "blobs/sha256/"))) {
 			return Image{}, errors.New("not an OCI archive")
 		}
-		hash := sha256.New()
-		var data bytes.Buffer
-		var w io.Writer = hash
-		if h.Size <= 4<<20 {
-			w = io.MultiWriter(hash, &data)
-		}
-		size, err := io.Copy(w, tr)
-		if err != nil {
+		if err := readOCIBlob(entries, n, h.Size, tr, &jsonBytes); err != nil {
 			return Image{}, err
 		}
-		sum := hex.EncodeToString(hash.Sum(nil))
-		if strings.HasPrefix(n, "blobs/") && n != "blobs/sha256/"+sum {
-			return Image{}, errors.New("OCI blob checksum mismatch")
-		}
-		body := data.Bytes()
-		if !json.Valid(body) {
-			body = nil
-		}
-		jsonBytes += len(body)
-		if jsonBytes > 32<<20 {
-			return Image{}, errors.New("OCI JSON metadata limit exceeded")
-		}
-		entries[n] = blob{sum, size, body}
 	}
+	index, err := readOCIIndex(entries)
+	if err != nil {
+		return Image{}, err
+	}
+	if len(index) != 1 || index[0].MediaType != "application/vnd.oci.image.manifest.v1+json" {
+		return Image{}, errors.New("single-platform OCI index required")
+	}
+	return inspectOCIImage(entries, index[0], want, revision, nil)
+}
+
+func readOCIBlob(entries map[string]blob, name string, length int64, r io.Reader, jsonBytes *int) error {
+	if length < 0 || length == math.MaxInt64 {
+		return errors.New("invalid OCI blob size")
+	}
+	hash := sha256.New()
+	var data bytes.Buffer
+	var w io.Writer = hash
+	if length <= 4<<20 {
+		w = io.MultiWriter(hash, &data)
+	}
+	size, err := io.Copy(w, io.LimitReader(r, length+1))
+	if err != nil {
+		return err
+	}
+	if size != length {
+		return errors.New("OCI blob size changed")
+	}
+	sum := hex.EncodeToString(hash.Sum(nil))
+	if strings.HasPrefix(name, "blobs/") && name != "blobs/sha256/"+sum {
+		return errors.New("OCI blob checksum mismatch")
+	}
+	body := data.Bytes()
+	if !json.Valid(body) {
+		body = nil
+	}
+	*jsonBytes += len(body)
+	if *jsonBytes > 32<<20 {
+		return errors.New("OCI JSON metadata limit exceeded")
+	}
+	entries[name] = blob{sum, size, body}
+	return nil
+}
+
+func readOCIIndex(entries map[string]blob) ([]descriptor, error) {
 	var layout struct {
 		Version string `json:"imageLayoutVersion"`
 	}
 	if json.Unmarshal(entries["oci-layout"].data, &layout) != nil || layout.Version != "1.0.0" {
-		return Image{}, errors.New("missing OCI layout")
+		return nil, errors.New("missing OCI layout")
 	}
 	var index struct {
 		SchemaVersion int          `json:"schemaVersion"`
 		MediaType     string       `json:"mediaType"`
 		Manifests     []descriptor `json:"manifests"`
 	}
-	if json.Unmarshal(entries["index.json"].data, &index) != nil || index.SchemaVersion != 2 || (index.MediaType != "" && index.MediaType != "application/vnd.oci.image.index.v1+json") || len(index.Manifests) != 1 || index.Manifests[0].MediaType != "application/vnd.oci.image.manifest.v1+json" {
-		return Image{}, errors.New("single-platform OCI index required")
+	if json.Unmarshal(entries["index.json"].data, &index) != nil || index.SchemaVersion != 2 || (index.MediaType != "" && index.MediaType != "application/vnd.oci.image.index.v1+json") {
+		return nil, errors.New("valid OCI index required")
 	}
+	return index.Manifests, nil
+}
+
+func inspectOCIImage(entries map[string]blob, image descriptor, want, revision string, load func(string) error) (Image, error) {
 	get := func(d descriptor) (blob, error) {
 		if d.Size < 0 || len(d.URLs) != 0 {
 			return blob{}, errors.New("local bounded OCI descriptor required")
@@ -138,13 +168,19 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 		if !strings.HasPrefix(d.Digest, "sha256:") || !Digest(strings.TrimPrefix(d.Digest, "sha256:")) {
 			return blob{}, errors.New("invalid OCI digest")
 		}
-		b, ok := entries["blobs/sha256/"+strings.TrimPrefix(d.Digest, "sha256:")]
+		name := "blobs/sha256/" + strings.TrimPrefix(d.Digest, "sha256:")
+		if load != nil {
+			if err := load(name); err != nil {
+				return blob{}, err
+			}
+		}
+		b, ok := entries[name]
 		if !ok || b.size != d.Size {
 			return blob{}, errors.New("missing or wrong-size OCI blob")
 		}
 		return b, nil
 	}
-	m, err := get(index.Manifests[0])
+	m, err := get(image)
 	if err != nil {
 		return Image{}, err
 	}
@@ -212,5 +248,5 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 	if revision != "" && (labels["org.opencontainers.image.source"] != "https://github.com/LevitateOS/sodaos" || labels["org.opencontainers.image.base.name"] == "" || !strings.HasPrefix(labels["org.opencontainers.image.base.digest"], "sha256:") || !Digest(strings.TrimPrefix(labels["org.opencontainers.image.base.digest"], "sha256:"))) {
 		return Image{}, errors.New("Soda image lacks source/base attribution")
 	}
-	return Image{index.Manifests[0].Digest, manifest.Config.Digest, cfg.Arch, rev, labels["org.opencontainers.image.source"], labels["org.opencontainers.image.base.name"], labels["org.opencontainers.image.base.digest"]}, nil
+	return Image{image.Digest, manifest.Config.Digest, cfg.Arch, rev, labels["org.opencontainers.image.source"], labels["org.opencontainers.image.base.name"], labels["org.opencontainers.image.base.digest"]}, nil
 }

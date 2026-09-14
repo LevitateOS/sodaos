@@ -9,6 +9,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/appliancerelease"
 	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/testoci"
 	"github.com/stretchr/testify/require"
 )
 
@@ -68,13 +69,31 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 	}
 	presentation, err := StagePresentation(forgejo, context)
 	require.NoError(t, err)
-	p := appliancerelease.Payload{Format: 2, ID: base.Release + ".soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: base.Release, Base: base.Images["x86_64"], RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: presentation, HostPackagesSHA256: strings.Repeat("b", 64), Images: map[string]appliancerelease.Image{}}
+	p := appliancerelease.Payload{Format: 3, ID: base.Release + ".soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: base.Release, Base: base.Images["x86_64"], RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: presentation, HostPackagesSHA256: strings.Repeat("b", 64), Images: map[string]appliancerelease.Image{}}
 	for _, name := range appliancerelease.Names {
 		storage := "podman"
-		require.NoError(t, ownedWrite(filepath.Join(archives, name+".oci"), []byte("archive fixture"), 0644))
-		p.Images[name] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + name + "@sha256:" + strings.Repeat("c", 64), Manifest: "sha256:" + strings.Repeat("c", 64), Config: "sha256:" + strings.Repeat("d", 64), ArchiveSHA256: hashBytes([]byte("archive fixture")), Storage: storage}
+		im := testoci.Archive(t, filepath.Join(archives, name+".oci"), "amd64", p.Revision)
+		p.Images[name] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + name + "@" + im.Manifest, Manifest: im.Manifest, Config: im.Config, ArchiveSHA256: im.ArchiveSHA256, Storage: storage}
 	}
-	require.NoError(t, Complete(source, context, archives, p))
+	copies := 0
+	run := func(dir, cmd string, args ...string) error {
+		require.Equal(t, archives, dir)
+		require.Equal(t, "skopeo", cmd)
+		name := appliancerelease.Names[copies]
+		dest := filepath.Join(context, "rootfs/usr/share/soda/images")
+		require.Equal(t, []string{"copy", "--preserve-digests", "--dest-oci-accept-uncompressed-layers", "oci-archive:" + filepath.Join(archives, name+".oci"), "oci:" + dest + ":" + p.Images[name].Config}, args)
+		testoci.Add(t, filepath.Join(archives, name+".oci"), dest)
+		copies++
+		return nil
+	}
+	require.NoError(t, Complete(source, context, archives, p, run))
+	require.Equal(t, 5, copies)
+	layout := filepath.Join(context, "rootfs/usr/share/soda/images")
+	files, _, err := appliancerelease.VerifyContent(p, layout)
+	require.NoError(t, err)
+	require.Len(t, files, 13) // five configs/manifests, one shared layer, index and layout
+	require.Error(t, stageImages(archives, layout, p, run))
+	require.Equal(t, 5, copies, "occupied layout must refuse before another copy")
 	read := func(path string) string {
 		t.Helper()
 		b, e := os.ReadFile(filepath.Join(context, "rootfs", path))
@@ -90,7 +109,8 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 	}
 	require.NoDirExists(t, filepath.Join(context, "rootfs/usr/lib/bootc/bound-images.d"))
 	for _, name := range appliancerelease.Names {
-		require.FileExists(t, filepath.Join(context, "rootfs/usr/share/soda/images", name+".oci"))
+		require.NoFileExists(t, filepath.Join(context, "rootfs/usr/share/soda/images", name+".oci"))
+		require.FileExists(t, filepath.Join(archives, name+".oci"))
 	}
 	require.Contains(t, read("usr/lib/systemd/system/soda-project@.service"), "Requires=soda-image-import.service")
 	require.NoDirExists(t, filepath.Join(context, "rootfs/usr/lib/systemd/system/soda-project@.service.d"))

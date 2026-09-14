@@ -62,6 +62,34 @@ func testRelease(t *testing.T, tr Trust) Release {
 	require.NoError(t, e)
 	return r
 }
+func TestSharedLayoutPayloadKeepsDeliveryArchiveBindings(t *testing.T) {
+	tr := testTrust(t)
+	r := testRelease(t, tr)
+	var p appliancerelease.Payload
+	var c Candidate
+	require.NoError(t, decode(r.Payload, &p))
+	require.NoError(t, decode(r.Candidate, &c))
+	p.Format = 3
+	for name, image := range p.Images {
+		image.Storage = "podman"
+		p.Images[name] = image
+	}
+	var err error
+	r.Payload, err = marshal(p)
+	require.NoError(t, err)
+	// A format change cannot reuse an earlier candidate/payload binding.
+	_, _, err = r.Validate(tr)
+	require.Error(t, err)
+	c.PayloadSHA256 = strings.TrimPrefix(Hash(r.Payload), "sha256:")
+	r.Candidate, err = marshal(c)
+	require.NoError(t, err)
+	_, _, err = r.Validate(tr)
+	require.NoError(t, err)
+	for _, image := range p.Images {
+		require.Equal(t, strings.Repeat("1", 64), image.ArchiveSHA256)
+	}
+}
+
 func testChannel(tr Trust, name string) Channel {
 	now := time.Now().Unix()
 	return Channel{Format: 1, Name: name, Sequence: 1, Issued: now - 30, Expires: now + 600, Releases: map[string]string{"x86_64": tr.Prefix + "-release@" + Hash([]byte("release"))}}

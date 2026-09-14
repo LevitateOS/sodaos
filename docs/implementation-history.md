@@ -15,6 +15,51 @@ not claims that those outputs are still retained.
 
 ---
 
+## B3 shared-layer packaging correction
+
+The owner requested fixing the measured duplication before advancing. Starting from
+`f7705c0`, source now embeds the standard shared OCI directory using native Skopeo,
+not five overlapping tar files. [Representation and retained-reader semantics](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership)
+belong to the release guide. This does not build a replacement candidate or complete
+native installation qualification.
+
+Evidence: `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/shared-layout-b7f4d57-aQqEF2/`.
+Native Skopeo **1.22.2** staged the retained `9577645` application's original exports
+through the production staging function, preserving every manifest/config digest.
+The final shared layout has **49 files / 597,854,296 bytes**, versus **685,604,864
+archive bytes: 87,750,568 fewer bytes**. The repeated 87,693,174-byte blob occurs once;
+the remaining reduction is archive/metadata representation overhead. Original
+export hashes remained unchanged. The source helper also passed a native synthetic
+uncompressed-layer check using `--dest-oci-accept-uncompressed-layers` together with
+`--preserve-digests`. This is filesystem packaging evidence, **not measured EROFS,
+network-download, RAM or installed-disk savings**.
+
+Production reuses the existing OCI manifest/config/layer verifier for directory
+inputs, checks native host hash readback and all local image content before importing,
+and retains no-workload-lifecycle/import-refusal behavior. It does not add a cache,
+scheduler, deduplication monitor, custom layer format or disk/update mechanism.
+Go/race tests passed for nativebuild, appliancerelease, hostimage, installer,
+releasedelivery, host, image-import and the build CLI; matching `soda_host_image`
+installer/host/import tests and focused vet passed. Tests cover identity/corruption,
+source/platform/path refusal, native copy/readback failures, native import failure/
+no-replay and the unchanged delivery export-hash binding. `internal/testoci` is test
+support, absent from the shipping commands' dependency graph.
+
+Retained failed native filesystem test: synthetic tar headers initially requested
+root ownership during unprivileged Skopeo extraction (`chown ... operation not
+permitted`). The inert fixture now supplies directory headers/current process file
+ownership, as native exports do; no production privilege or verification workaround
+was added. `native-copy-scoped.log` and its `result.json` are the final passing receipt;
+preceding probes and failures remain. Native Podman import, candidate/ISO generation,
+VMs, listeners and installation were **not** run for this correction. The earlier
+read-only container help probe and all old media/disks remain retained.
+
+Physical production accounting is **12,559 → 12,818 (+259)** including new shared
+staging/content-reader files; tests/support add 611 lines. This is a content-size fix,
+not B6's net orchestration reduction. A [new exact native extension](implementation-status.md#b3-deduplication-verification--pending)
+is pending; no consumed slot or publication/cleanup permission was renewed. The
+separate in-progress `AGENTS.md` edit was preserved, not included in this change.
+
 ## B3 rootfs size and duplication audit
 
 After the owner questioned optimization, a read-only audit of the retained `9577645`

@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,7 +25,7 @@ func (m mediaIdentity) validContent() bool {
 }
 
 // The authenticated minimal ISO anchors native stream verification before live
-// Ignition runs. Verify its expected Soda payload and all local archives, not an
+// Ignition runs. Verify its expected Soda payload and all local image content, not an
 // ISO mount or rpm-ostree status (the live EROFS root is not a booted deployment).
 func candidateRequirement(m mediaIdentity, root string) (uint64, error) {
 	if m.Format != 2 || m.validate(m.Release, architecture()) != nil || m.InstallerVersion != "coreos-installer 0.26.0" {
@@ -42,23 +41,11 @@ func candidateRequirement(m mediaIdentity, root string) (uint64, error) {
 		return 0, errors.New("live candidate payload differs from authenticated media")
 	}
 	p, err := appliancerelease.Load(payload)
-	if err != nil || p.Format != 2 || p.Revision != m.Revision || p.Architecture != m.Architecture || p.CoreOS != m.Release {
+	if err != nil || (p.Format != 2 && p.Format != 3) || p.Revision != m.Revision || p.Architecture != m.Architecture || p.CoreOS != m.Release {
 		return 0, errors.New("live candidate release mismatch")
 	}
-	var total uint64
-	for _, name := range appliancerelease.Names {
-		path := filepath.Join(root, appliancerelease.ImagesPath, name+".oci")
-		st, err := os.Lstat(path)
-		if err != nil || !st.Mode().IsRegular() || st.Size() <= 0 || uint64(st.Size()) > ^uint64(0)-total {
-			return 0, errors.New("invalid local application archive")
-		}
-		hash, err := nativebuild.HashFile(path)
-		if err != nil || hash != p.Images[name].ArchiveSHA256 {
-			return 0, errors.New("local application archive differs from candidate")
-		}
-		total += uint64(st.Size())
-	}
-	return total, nil
+	_, total, err := appliancerelease.VerifyContent(p, filepath.Join(root, appliancerelease.ImagesPath))
+	return total, err
 }
 
 func candidateDestination(template, factory []byte, choices diskInstallChoices) ([]byte, error) {

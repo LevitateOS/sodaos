@@ -138,7 +138,7 @@ bootc interfaces. The authority and byte-identity boundaries remain requirements
 | --- | --- |
 | Frozen inputs → producer | Approved commit/base/tool/package and explicit component selections; public-only source snapshot. No privileged signer credentials or implicit selected VM. |
 | Producer → protected admission | Existing exact payload/candidate bytes plus OCI identities and hashed provenance. Treat outputs as untrusted until independently checked and copied into protected fresh snapshots. Never execute candidate-supplied tests as authority. |
-| Component provenance | Record actual producing revision/upstream reference for each selection without a second image inventory or relabelling reused images. Payload v2 now requires ordinary-Podman storage for all five roles; strict v1 readers retain the historical bound/retained meanings. Neither version supplies native qualification. |
+| Component provenance | Record actual producing revision/upstream reference for each selection without a second image inventory or relabelling reused images. Payload v2/v3 requires ordinary-Podman storage for all five roles; strict v1 readers retain the historical bound/retained meanings. Neither version supplies native qualification. |
 | Candidate → media | Recommended native handoff: admitted OCI archive → Assembler import → upstream metal/live packaging → minimal ISO plus downloadable matching live content/osmet. Bind OCI/deployment identity and raw/media/download hashes; prove bootstrap authentication and local Podman availability after download. Version the media binding after native proof. |
 | Media → live installer | Independently trusted media/tool bytes and verified content before privileged use. CoreOS Installer owns disk installation; Ignition owns first-boot provisioning. Prove native signature/cache behavior, not just file presence. |
 | Live installer → installed state | Preserve native FCOS disk/boot/provisioning ownership. Prove how the same immutable host/app set is installed and updated with required content available after media removal. Do not manufacture that capability with Soda partitioning or a second writable software producer. |
@@ -514,23 +514,35 @@ and the predecessor Updates platform remain out of scope.
 
 ### Local candidate content and machine-state ownership
 
-B2 emits **payload format 2** through `internal/hostimage`. Format 1 remains strictly
-readable for retained experiments: its three bound roles and two retained roles are
-not silently reinterpreted. No retained image or appliance was migrated.
+New source emits **payload format 3** through `internal/hostimage`. Format 1 retains
+its three bound/two retained roles; format 2 retains all five embedded archive hashes
+and ordinary-Podman storage. Neither retained format is silently reinterpreted or
+migrated. The [status](implementation-status.md) distinguishes source/native-filesystem
+checks from a newly built and installed candidate.
 
 - `/usr/share/soda/release.json` binds all five exact app images, source/base, schema
-  and content hashes. V2 requires `Storage: podman` for every role and embeds all
-  five exact archives under `/usr/share/soda/images` in the host candidate.
-- Fixed-input root-only `soda-image-import` verifies/imports these archives into
-  ordinary Podman storage. Historical v1 imports only its two retained roles. The
-  importer does not start, replace or delete images/containers. Core Quadlets require
+  and content hashes. V3 requires `Storage: podman` and embeds one standard OCI layout
+  at `/usr/share/soda/images`. Its index references are immutable config IDs; shared
+  layer blobs occur once. Skopeo copies the already-built exports with preserved
+  manifest/config/blob digests, including valid uncompressed layers. No image rebuild
+  or custom archive/registry protocol is introduced.
+- Individual export archives remain delivery/provenance inputs outside the host.
+  `ArchiveSHA256` retains their exact hashes; in v3 it is not a claim that those tar
+  archives are embedded. Runtime admission instead verifies the exact OCI image set,
+  platform/source, local descriptor sizes/digests and all referenced blob bytes.
+  Duplicate/changed references, external URLs and linked/special image files refuse. This preserves verification rather than dropping image data.
+- Fixed-input root-only `soda-image-import` verifies the entire v3 layout before any
+  import, then uses explicit local `podman pull oci:...` references for missing exact
+  config IDs and verifies their presence afterward. This is local file transport,
+  not a registry fetch or an additional Podman store. V1/V2 retain native archive
+  loading. The importer does not start, replace or delete images/containers. Core Quadlets require
   the import service, use exact config identities and `Pull=never`, without additional
   image stores. Host updates do not select Project OS/companion workload lifecycle.
 - The host uses native OSTree container finalization and preserves Zincati. No bootc
   lint, parser workaround, timer masking or bound-store generation remains in this
-  producer. Candidate-derived media, native origin/deployment identity, all-image
-  availability at installation completion and update/recovery still need their native
-  B1/B3/B4 proof; archive inspection is not installation acceptance.
+  producer. V2 has scoped native installation proof; the v3 representation still
+  requires a fresh matching candidate/media/import/install check. Update/recovery
+  remains B1/B4 work; filesystem layout verification is not installation acceptance.
 - Vendor defaults apply to new creation. `/etc/soda/host.json` remains machine-owned;
   conflicting saved image selections refuse explicit migration rather than being
   rewritten. Existing root/profile IDs remain authoritative. Companion admission

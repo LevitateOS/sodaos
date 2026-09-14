@@ -10,6 +10,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/appliancerelease"
 	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/testoci"
 	"github.com/stretchr/testify/require"
 )
 
@@ -71,6 +72,43 @@ func TestCandidateMediaRequiresEveryExactLocalArchive(t *testing.T) {
 	require.NoError(t, os.Symlink(filepath.Join(images, "proxy.oci"), filepath.Join(images, "tailnet.oci")))
 	_, e = candidateRequirement(m, root)
 	require.Error(t, e)
+}
+
+func TestCandidateSharedLayoutAuthenticatesAllImagesWithoutArchives(t *testing.T) {
+	root := t.TempDir()
+	rev, hash := strings.Repeat("a", 40), strings.Repeat("b", 64)
+	p := appliancerelease.Payload{Format: 3, CoreOS: "44.20260817.3.2", ID: "44.20260817.3.2.soda-" + rev[:12], Revision: rev, Architecture: architecture(), Base: "quay.io/fedora/fedora-coreos@sha256:" + hash, Schema: 10, RepositoryPrefix: "ghcr.io/example/sodaos", PresentationSHA256: hash, HostPackagesSHA256: hash, Images: map[string]appliancerelease.Image{}}
+	images := filepath.Join(root, appliancerelease.ImagesPath)
+	arch, err := nativebuild.OCIArchitecture(p.Architecture)
+	require.NoError(t, err)
+	for _, name := range appliancerelease.Names {
+		archive := filepath.Join(t.TempDir(), name+".oci")
+		im := testoci.Archive(t, archive, arch, rev)
+		testoci.Add(t, archive, images)
+		p.Images[name] = appliancerelease.Image{Storage: "podman", Config: im.Config, Manifest: im.Manifest, ArchiveSHA256: im.ArchiveSHA256, Reference: p.RepositoryPrefix + "-" + name + "@" + im.Manifest}
+	}
+	raw, err := json.Marshal(p)
+	require.NoError(t, err)
+	path := filepath.Join(root, appliancerelease.Path)
+	require.NoError(t, os.WriteFile(path, raw, 0644))
+	payloadHash, err := nativebuild.HashFile(path)
+	require.NoError(t, err)
+	console := filepath.Join(root, candidateInstallerBinary)
+	require.NoError(t, os.MkdirAll(filepath.Dir(console), 0755))
+	require.NoError(t, os.WriteFile(console, []byte("prebuilt fixture"), 0755))
+	consoleHash, err := nativebuild.HashFile(console)
+	require.NoError(t, err)
+	m := mediaIdentity{Format: 2, Architecture: p.Architecture, Release: p.CoreOS, Revision: rev, InstallerVersion: "coreos-installer 0.26.0", HostManifest: "sha256:" + hash, PayloadSHA256: payloadHash, ConsoleSHA256: consoleHash}
+	_, uniqueBytes, err := appliancerelease.VerifyContent(p, images)
+	require.NoError(t, err)
+	size, err := candidateRequirement(m, root)
+	require.NoError(t, err)
+	require.Equal(t, uniqueBytes, size)
+	_, err = CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}`), m.HostManifest, consoleHash)
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(filepath.Join(images, "blobs/sha256", strings.TrimPrefix(p.Images["tailnet"].Config, "sha256:"))))
+	_, err = candidateRequirement(m, root)
+	require.Error(t, err)
 }
 
 func TestCandidateDestinationKeepsPasswordOnlyNativeProvisioning(t *testing.T) {

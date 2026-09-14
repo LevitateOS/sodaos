@@ -21,6 +21,8 @@ func TestPayloadVersionsKeepStorageMeaning(t *testing.T) {
 	p.Format = 1
 	require.Error(t, p.Validate())
 	p.Format = 3
+	require.NoError(t, p.Validate())
+	p.Format = 4
 	require.Error(t, p.Validate())
 }
 func TestV2ImportsAllFiveExactImagesWithoutLifecycle(t *testing.T) {
