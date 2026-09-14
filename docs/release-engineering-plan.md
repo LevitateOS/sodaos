@@ -2,8 +2,11 @@
 
 ## Priority and current state
 
-**The active work is replacing the build lane, not launching the release service.**
-Implement the six replacement milestones below before unattended scheduling,
+**Immediate priority is the owner's [fast-development-build side plan](fast-development-build-plan.md).**
+M4 is paused while that plan targets shorter iteration through the same producer.
+B1–B6 remain the release replacement milestones, not launch work; the side plan
+neither qualifies development output nor creates a competing release recipe.
+Complete the six replacement milestones below before unattended scheduling,
 production-readiness commissioning or launch. The previous complete-candidate →
 trusted-delivery → native-update → automated-builder roadmap put the rewrite too
 late. It is no longer the execution order. Its former milestone numbers and 28-item
@@ -17,8 +20,9 @@ meet that requirement.
 
 Existing host/app candidates, native Sigstore tooling and signed GHCR bootstrap are
 reusable foundations, not completed milestones of this replacement. None of the
-six replacement milestones is complete. [Implementation status](implementation-status.md)
-owns current progress, retained release custody and grants; [history](implementation-history.md)
+six replacement milestones should be inferred complete from those foundations alone.
+[Implementation status](implementation-status.md) owns actual progress, the active
+priority, retained release custody and grants; [history](implementation-history.md)
 owns receipts. The predecessor repository and its Updates platform remain separate.
 
 ## Minimum-deviation FCOS contract
@@ -49,8 +53,9 @@ OS installation/update stack, restore a second build lane or weaken verification
 
 ## Single-run build replacement implementation
 
-**Only these six milestones define the current execution order.** B1–B6 are stable
-identifiers for these milestones, not six subordinate tasks beneath another roadmap.
+**These six milestones define the release replacement order.** The owner's
+[development-time side path](fast-development-build-plan.md) currently takes priority
+before resuming M4. B1–B6 are stable identifiers, not renumbered beneath that plan.
 Finish approved work without repeated milestone handoffs; ask only for a concrete
 missing target/action grant or unresolved product decision. Independent source work
 can proceed while an exact native-effect gate is blocked.
@@ -476,15 +481,11 @@ No old artifact is deleted as a source-retirement shortcut. Only now move on to
 ## Single-run release build contract
 
 The entrypoint is `tools/soda-build`, compiled as `soda-build`. P1–P8 is implemented;
-B4/B5 connect qualification and finalization. The current CLI requires an explicit
-rootfs base URL and restricted local media authority configuration. It exits 2 after
-verified media, not success for an unfinished release:
-
-```sh
-soda-build --arch x86_64 --out "$PWD/.artifacts/releases/UNIQUE-RUN" \
-  --rootfs-base-url https://example.invalid/releases/UNIQUE-RUN \
-  --media-authority /restricted/media-authority.json
-```
+B4/B5 connect qualification and finalization. [Native support](native-support.md#local-host-content-image-candidate)
+owns current invocation and worker-configuration requirements. The current CLI exits
+2 after verified media, not success for an unfinished release. The development
+purpose/target interface is [planned separately](fast-development-build-plan.md#selected-first-interface),
+not yet available.
 
 The intended final interface also accepts `--publish candidate`; publication is not
 currently accepted by the CLI. Local fixture authority is not a protected untrusted-job
@@ -496,6 +497,11 @@ on partial output. Omitting publication yields a scoped qualified local result, 
 an unsigned/untested result called a release. Exact signer/fixture prerequisites are
 checked before expensive work. During implementation, leaf/source checks remain
 independently runnable and scoped; they are not another release product.
+
+The planned [development targets](fast-development-build-plan.md#selected-first-interface)
+may deliberately stop the same producer earlier and succeed **only for that explicit
+development task**. They do not shorten this production contract, confer release
+qualification or allow development receipts to substitute for protected evidence.
 
 | Phase | Work and handoff |
 | --- | --- |
@@ -546,6 +552,7 @@ environments do not automatically adopt new images with a host update.
 | Owner | Responsibility |
 | --- | --- |
 | This plan | Replacement milestones, release identity/trust/qualification and later commissioning order |
+| [Fast development builds](fast-development-build-plan.md) | Development targets, feedback-time work and its separate F1–F3 implementation order |
 | [Implementation status](implementation-status.md) | Current replacement progress, retained release state and exact grants |
 | [Installation](installation.md), [installer](coreos-installer-plan.md) | Media, first-machine setup, timing and retained-install maintenance procedures |
 | [Native support](native-support.md), manifests/locks | Existing tool effects, inputs and verification |

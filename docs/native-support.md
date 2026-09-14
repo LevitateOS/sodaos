@@ -85,6 +85,9 @@ The first installer verifies before copying writable prefixes, validates the RFC
 
 `tools/soda-build` owns the fixed P1–P8 candidate/media sequence under the
 [release contract](release-engineering-plan.md#single-run-release-build-contract).
+The owner has prioritized a [fast-development target plan](fast-development-build-plan.md)
+before further M4 work. Those flags are **planned, not implemented**; the invocation
+below still describes the current controller.
 Build from committed canonical source with the pinned Go/Bun/native prerequisites.
 The public entry point now requires an operator-admitted, root-owned executable and
 restricted `--worker-config`; it does not install accounts, grant sudo or create a

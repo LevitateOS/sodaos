@@ -1,13 +1,19 @@
 # Implementation status — single-run replacement
 
-**Keep the original B1–B6 plan.** B3 implementation and native installation are
-verified, with the controller-completion caveat below; B4 native qualification is next. Do not substitute an optimization programme or experimental
-artifact preservation for that work. The [release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
-owns the milestone contracts; [history](implementation-history.md) owns detailed
+**Active priority: fast development builds; M4 is paused, not complete.** The owner
+explicitly requested the [new side-path implementation plan](fast-development-build-plan.md)
+to reduce iteration time before continuing qualification. It owns F1–F3; the original
+B1–B6 milestones below are retained, not renumbered or replaced. The
+[release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
+owns production contracts; [history](implementation-history.md) owns detailed
 receipts and superseded grants. Other workstreams remain in the [development handoff](development-handoff.md).
 
 ## Current position
 
+- **Priority change / planning only:** the fast-development plan selects candidate-only
+  production through the shared Go implementation first, with optional faster media
+  later. No development-target flags have been implemented or benchmarked yet. This
+  planning change ran no builds/VMs and changed no retained state or worker policy.
 - B2's source-to-candidate controller was natively proved. Earlier B3 fixtures proved
   candidate-derived installation, media removal, exact-candidate first boot, five local
   application images, SELinux and interruption/cancellation boundaries.
@@ -83,7 +89,8 @@ A fixture download URL is not a distribution-ready public installer.
 
 ### 4. Connect native qualification — B4
 
-**In progress under the owner's approval to complete M4.** The
+**Paused at the owner's request while fast development builds take priority.** The
+prior M4 approval and completed groundwork remain recorded below; M4 is not complete. The
 [owning B4 contract](release-engineering-plan.md#milestone-4--connect-native-qualification)
 selects P9 installation, same-base x86_64 A → B update and compatible native recovery.
 A is the verified current-layout `33ea3f5` artifact; B is the next necessary clean
@@ -157,11 +164,12 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-Implement P9 using existing drivers and run the approved selected scenario,
-exercising controller completion during the necessary B build. Admit baseline bytes
-and establish the build/qualification authority boundary before native test effects. Do not
-reopen B3 as a preservation, compression or general audit programme. Public hosting,
-ARM and minimum-hardware qualification remain separate work.
+Follow [F1/F2 of the fast-development plan](fast-development-build-plan.md#implementation-order):
+implement and measure the explicit candidate-only development target before optional
+media tuning. The current request is for the plan, not an execution run. M4's pending
+P9/B build/update/recovery work stays paused; do not use it as a prerequisite for the
+first development-time saving. Public hosting, ARM and minimum-hardware qualification
+remain separate work.
 
 The public rootfs base URL is an explicit build input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
@@ -171,11 +179,18 @@ complete offline installer.
 
 ## Current permissions
 
-**Current task: complete M4.** The owner's subsequent “Now do M4 completely”
-approves the bounded B4 implementation and local execution scope below. It supersedes
-the plan-only hold, not the restrictions on real custody or public commissioning.
+**Current task: plan the fast-development side path first.** The latest request
+changes priority and authorizes documentation/planning. It does not itself authorize
+new benchmark runs, worker/helper installation, VM lifecycle, cleanup, increased
+resources or trust changes. The [side plan](fast-development-build-plan.md) defines
+proposed implementation, not an already implemented/qualified build mode.
 
-**Approved B4 execution scope:**
+**Retained B4 approval — execution paused:** the earlier “Now do M4 completely”
+authorized the bounded scope below. Those target/action grants remain recorded for
+resuming that work; they are not a blanket grant for development benchmarks or a
+reason to continue M4 despite the priority change.
+
+**Retained B4 execution scope:**
 
 - Fresh task-owned outputs/targets under `.artifacts/b4-qualification/`, using a
   verified copy of the stopped B3 disk, not mutating the retained seed or adopting an
