@@ -177,6 +177,21 @@ All 10 functions restructured with structural moves only; zero gaming, all helpe
 - [x] (`31bd722`) `internal/web/environments_api.go:111` apiCreateEnvironment (36 → 8): input validation, prechecks, reconfirmation, provisioning, tailnet helpers.
 - [x] (`65e3542`) `internal/web/spaces.go:33` apiSpaces (40 → 7): domain-aligned helpers for authority resolution, native inspection, terminal inventory, tailnet check, session verification.
 
+## Complexity top-10 batch 3 (restructure program)
+
+All 10 functions restructured with structural moves only; zero gaming, all helpers and entrypoints strictly below 10 ($\le 9$):
+
+- [x] (`d97a53e`) `internal/installer/payload_linux.go:232` copyInstalledPayloadWith (36 → 6): modular stat, tar entry validation, whiteout, payload copy, and error reporting helpers.
+- [x] (`e01c2aa`) `internal/host/terminal.go:126` (TerminalFrame).outputValid (36 → 7): split into modular UTF-8 decode, control byte filter, escape sequence parser, and frame content validation helpers.
+- [x] (`38cf95c`) `internal/installer/payload_linux.go:441` recheckInstalledRootFromJSON (35 → 3): unmarshaling, root path validation, manifest record comparison, and payload inventory verification helpers.
+- [x] (`b2106ee`) `internal/host/terminal.go:374` (*Daemon).terminalHandler (35 → 7): admission, handshake, launch, and bidirectional I/O pump helpers.
+- [x] (`b8785aa`) `internal/host/management.go:91` (*Daemon).lifecycle (35 → 9): modular systemd unit inspection, transition dispatch, and outcome verification helpers.
+- [x] (`4fa2f2c`) `internal/acceptance/vm.go:124` LaunchVM (35 → 9): modular base configuration, fixture setup, format resolution, and workspace preparation helpers.
+- [x] (`28e7ca9`) `internal/web/auth.go:136` (*Server).callback (34 → 4): validation, token exchange, session completion, and redirect dispatch helpers.
+- [x] (`f5eadee`) `internal/host/tailnet_runtime.go:37` processRunIdentity (34 → 7): modular stat, ID map resolution, namespace admission, and boot ID helpers.
+- [x] (`0a0513d`) `internal/nativebuild/production.go:327` (Production).exportImages (33 → 7): modular Rocky base resolution, app images, Forgejo image, proxy image, and tailnet image export helpers.
+- [x] (`5f46f60`) `internal/tailnet/policy.go:246` (*policyStore).update (32 → 7): modular request validation, credential check, lock/load, rotate/save mutation, default/disable toggling, and atomic publication helpers.
+
 ## Open verification items
 
 - [ ] Grep git history for credential shapes (L1.14 covered the working tree
