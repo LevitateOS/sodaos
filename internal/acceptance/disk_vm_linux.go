@@ -39,7 +39,7 @@ func LaunchDiskVM(ctx context.Context, c VMConfig, disk, variables, iso string, 
 		return nil, errors.New("fresh unoccupied QMP socket required")
 	}
 	st, err := os.Lstat(disk)
-	if err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0222 == 0 {
+	if err != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o222 == 0 {
 		return nil, errors.New("disposable writable disk required")
 	}
 	for _, path := range []string{disk, variables, c.Firmware, c.QEMU} {
@@ -51,12 +51,14 @@ func LaunchDiskVM(ctx context.Context, c VMConfig, disk, variables, iso string, 
 			return nil, err
 		}
 	}
-	args := []string{"-name", c.Name, "-machine", "q35,accel=kvm", "-cpu", "host", "-smp", "4", "-m", "12288", "-nodefaults", "-no-user-config", "-vga", "std", "-display", "none", "-monitor", "none", "-serial", "stdio",
+	args := []string{
+		"-name", c.Name, "-machine", "q35,accel=kvm", "-cpu", "host", "-smp", "4", "-m", "12288", "-nodefaults", "-no-user-config", "-vga", "std", "-display", "none", "-monitor", "none", "-serial", "stdio",
 		"-drive", "if=pflash,format=raw,readonly=on,file=" + c.Firmware, "-drive", "if=pflash,format=raw,file=" + variables,
 		"-drive", "if=none,id=target-disk,format=qcow2,file=" + disk,
 		"-device", "virtio-blk-pci,drive=target-disk,serial=soda-qualification",
 		"-nic", "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:" + strconv.Itoa(c.SSH.Port) + "-:22",
-		"-qmp", "unix:" + filepath.Join(c.Work, "qmp.sock") + ",server=on,wait=off"}
+		"-qmp", "unix:" + filepath.Join(c.Work, "qmp.sock") + ",server=on,wait=off",
+	}
 	if iso != "" {
 		if !filepath.IsAbs(iso) || strings.ContainsAny(iso, ",\n\r") {
 			return nil, errors.New("safe ISO path required")

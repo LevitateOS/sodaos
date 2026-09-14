@@ -20,8 +20,12 @@ Methodology reference lives outside this repo
 
 ## Fix checklist — cheap and selected
 
-- [ ] Add pre-commit hooks (L1.9 Slop, confirmed: no
-  `.pre-commit-config.yaml`, no `.husky`). Formatter + `go vet` + secret scan.
+- [x] Pre-commit hooks (L1.9 was Slop: no `.pre-commit-config.yaml`, no
+  `.husky`). `.githooks/pre-commit` now gates staged changes only: `git diff
+  --check`, credential shapes (`tskey-*`, private-key blocks, `AKIA*`),
+  `gofmt -l`, complexity below 10 on staged production Go
+  (`scripts/check-complexity.sh`), `go vet` on staged packages. Clone setup:
+  `git config core.hooksPath .githooks` (local, not committed).
 - [ ] Rename `tskey-`-prefixed dummy values to a shape no scanner treats as a
   Tailscale key: `internal/tailnet/management_validation.go:18`,
   `internal/tailnet/policy_test.go:23,68`. L1.14's 9 hits were all read and are
@@ -78,6 +82,51 @@ Methodology reference lives outside this repo
   review site + 4 low-precision candidates.
 - [ ] L1.19 enumerated 7,384 decision points across 346 files; exercised share
   unmeasured (needs exec).
+
+## Go quality gates (`.githooks/pre-commit`, staged scope only)
+
+Hook checks, in order: `git diff --check`, credential shapes, `gofmt -l`,
+complexity below 10 on staged production Go, gofumpt, staticcheck
+(GOOS=linux), `go vet`. Whole-repo scripts below are red-but-ratcheting: the
+hook blocks new violations in staged files; legacy backlogs do not block
+unrelated commits. Mechanical-only commits that restage legacy-violating files
+(e.g. the gofumpt reformat) go through with `--no-verify` and a note.
+
+- [ ] Complexity: `scripts/check-complexity.sh` via pinned `go tool gocyclo`
+  (v0.6.0). Whole repo: 223 prod violations (88 at 20+). Top:
+  `tools/soda-acceptance/main.go:35` (86), `internal/web/terminal.go:16` (86),
+  `internal/hostimage/assemble.go:144` (72).
+- [x] gofumpt: `scripts/check-gofumpt.sh` via pinned `go tool gofumpt`
+  (v0.9.1), zero tolerance. First measurement undercounted (24) through a
+  `tee | head` SIGPIPE truncation; true backlog is ~185 files. 22 files
+  reformatted (format-only, linux build passes); no mass reformat of the rest
+  without an explicit decision — the hook ratchets staged files instead.
+- [ ] staticcheck: `scripts/check-staticcheck.sh` (pinned v0.8.1, must analyze
+  GOOS=linux or installer files drop out; the script builds the tool for the
+  host first — passing GOOS=linux to `go tool` builds an unexecutable binary).
+  Whole repo: 48 findings, gate exits 1.
+
+## staticcheck backlog (48) — fix order
+
+- [ ] Bulk mechanical (one commit): 21 × ST1005 capitalized error strings,
+  12 × ST1013 numeric HTTP codes (use `http.Status*` constants).
+- [ ] Judged separately: 8 × SA1019 deprecated APIs (`runtime.GOROOT`,
+  `tar.TypeRegA`, own `AdminTokenFile` markers in tests).
+- [ ] Removal candidates (each matches an L1.12 unreferenced def — two
+  independent instruments agree): `companionName`
+  (`internal/host/tailnet_companion.go:32`), `writeNewJSON`
+  (`internal/nativequalification/inputs.go:117`), `buildCapture`
+  (`tools/soda-host-image/legacy.go:11`).
+- [ ] Dead store (real, benign): `install_linux.go:236` (`err = errRestart`
+  is clobbered by line 197's `:=` before any read; retry works via loop
+  fall-through, the flag misleads). One-line removal.
+- [ ] Not a bug (staticcheck false positive, close-read): the `break` at
+  `console_linux.go:248` exits the switch onto line 259's loop break, and the
+  `openEditor` flag correctly skips the next ask (lines 194–195, 202) into the
+  `case "edit"` nmtui path. Needs a `//lint:ignore SA4011,S1023` with this
+  reason when the gate approaches green, not a restructure.
+- [ ] Test-file nits (lowest priority): S1007 regexp raw string
+  (`terminal_native_test.go:32`), ST1013 in `client_test.go:25`.
 
 ## Open verification items
 

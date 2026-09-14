@@ -35,7 +35,7 @@ func CreateEvidence(path string, secrets [][]byte) (*Evidence, error) {
 	if parent != filepath.Clean(filepath.Dir(path)) {
 		return nil, errors.New("evidence parent must not contain symlinks")
 	}
-	if err = os.Mkdir(path, 0700); err != nil {
+	if err = os.Mkdir(path, 0o700); err != nil {
 		return nil, err
 	}
 	root, err := os.OpenRoot(path)
@@ -75,7 +75,7 @@ func (e *Evidence) open(name string) (*os.File, error) {
 		current := ""
 		for _, part := range strings.Split(dir, string(filepath.Separator)) {
 			current = filepath.Join(current, part)
-			if err := e.root.Mkdir(current, 0700); err != nil && !errors.Is(err, os.ErrExist) {
+			if err := e.root.Mkdir(current, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
 				return nil, err
 			}
 			st, err := e.root.Lstat(current)
@@ -87,12 +87,13 @@ func (e *Evidence) open(name string) (*os.File, error) {
 			}
 		}
 	}
-	f, err := e.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := e.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return nil, err
 	}
 	return f, nil
 }
+
 func (e *Evidence) Write(name string, data []byte) error {
 	w, err := e.Writer(name)
 	if err != nil {
@@ -267,6 +268,7 @@ func redactURLs(s string) string {
 		return u.String()
 	})
 }
+
 func (e *Evidence) RedactError(err error) error {
 	if err == nil {
 		return nil
@@ -304,6 +306,7 @@ func (w *redactingWriter) Write(p []byte) (int, error) {
 	w.err = w.flush(false)
 	return len(p), w.err
 }
+
 func (w *redactingWriter) flush(final bool) error {
 	max := 1
 	for _, s := range w.secrets {
@@ -340,6 +343,7 @@ func (w *redactingWriter) flush(final bool) error {
 	}
 	return nil
 }
+
 func (w *redactingWriter) Close() error {
 	if w.closed {
 		return w.err
@@ -357,7 +361,7 @@ func PrivateFile(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !st.Mode().IsRegular() || st.Mode().Perm()&0077 != 0 || st.Size() > 1<<20 {
+	if !st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0 || st.Size() > 1<<20 {
 		return nil, fmt.Errorf("restricted regular input required: %s", filepath.Base(path))
 	}
 	return os.ReadFile(path)

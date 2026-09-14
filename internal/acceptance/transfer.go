@@ -58,6 +58,7 @@ subprocess.run([str(p/'tools/soda-artifacts'),'verify','--source',str(p),'--arch
 	result.Err = errors.Join(result.Err, <-finished)
 	return result, evidenceErr
 }
+
 func streamBundle(w io.Writer, source string, inv nativebuild.Inventory) error {
 	tw := tar.NewWriter(w)
 	root, err := os.OpenRoot(source)

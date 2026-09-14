@@ -104,6 +104,7 @@ func (c VMConfig) preflight(e *Evidence) error {
 	}
 	return listener.Close()
 }
+
 func disjointVMWork(work string, e *Evidence) error {
 	if e == nil {
 		return errors.New("private evidence required")
@@ -145,7 +146,7 @@ func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 	if err != nil {
 		return nil, err
 	}
-	if baseStat.Mode().Perm()&0222 != 0 {
+	if baseStat.Mode().Perm()&0o222 != 0 {
 		return nil, errors.New("verified base must be read-only; fetch a fresh cache, never chmod a live base")
 	}
 	if !regexp.MustCompile(`^(?:[A-F0-9]{40}|[A-F0-9]{64})$`).MatchString(base.Signer) {
@@ -203,7 +204,7 @@ func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = nativebuild.WriteNew(filepath.Join(c.Work, "vars.fd"), vars, 0600); err != nil {
+	if err = nativebuild.WriteNew(filepath.Join(c.Work, "vars.fd"), vars, 0o600); err != nil {
 		return nil, err
 	}
 	v := &VM{config: c, evidence: e, waitSSH: true}
@@ -212,16 +213,20 @@ func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 	}
 	return v, nil
 }
+
 func (c VMConfig) args() []string {
 	machine := "q35"
 	if c.Architecture == "aarch64" {
 		machine = "virt"
 	}
-	return []string{"-name", c.Name, "-machine", machine + ",accel=kvm", "-cpu", "host", "-smp", "4", "-m", "8192", "-display", "none", "-monitor", "none", "-serial", "stdio",
+	return []string{
+		"-name", c.Name, "-machine", machine + ",accel=kvm", "-cpu", "host", "-smp", "4", "-m", "8192", "-display", "none", "-monitor", "none", "-serial", "stdio",
 		"-drive", "if=pflash,format=raw,readonly=on,file=" + c.Firmware, "-drive", "if=pflash,format=raw,file=" + filepath.Join(c.Work, "vars.fd"),
 		"-drive", "if=virtio,format=qcow2,file=" + filepath.Join(c.Work, "disk.qcow2"), "-fw_cfg", "name=opt/com.coreos/config,file=" + c.Ignition,
-		"-nic", "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:" + strconv.Itoa(c.SSH.Port) + "-:22", "-qmp", "unix:" + filepath.Join(c.Work, "qmp.sock") + ",server=on,wait=off"}
+		"-nic", "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:" + strconv.Itoa(c.SSH.Port) + "-:22", "-qmp", "unix:" + filepath.Join(c.Work, "qmp.sock") + ",server=on,wait=off",
+	}
 }
+
 func (v *VM) start(ctx context.Context) error {
 	v.attempt++
 	label := fmt.Sprintf("boot-%d", v.attempt)
@@ -288,6 +293,7 @@ func (v *VM) Restart(ctx context.Context) error {
 	}
 	return v.start(ctx)
 }
+
 func (v *VM) powerDown(ctx context.Context) error {
 	if v.process == nil {
 		return nil
@@ -306,6 +312,7 @@ func (v *VM) powerDown(ctx context.Context) error {
 	}
 	return v.closeOutputs()
 }
+
 func (v *VM) closeOutputs() error {
 	var err error
 	for _, w := range v.outputs {
@@ -314,6 +321,7 @@ func (v *VM) closeOutputs() error {
 	v.outputs = nil
 	return err
 }
+
 func (v *VM) Wait(ctx context.Context) error {
 	select {
 	case <-ctx.Done():

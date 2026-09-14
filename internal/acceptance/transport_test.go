@@ -31,14 +31,15 @@ func TestLiteralRemoteArguments(t *testing.T) {
 		t.Fatalf("arguments changed: %q", out)
 	}
 }
+
 func TestPinnedSSHOptionsAndNativeRequestBinding(t *testing.T) {
 	dir := t.TempDir()
 	key := filepath.Join(dir, "key")
 	hosts := filepath.Join(dir, "known_hosts")
-	if err := os.WriteFile(key, []byte("synthetic identity, not used for authentication"), 0600); err != nil {
+	if err := os.WriteFile(key, []byte("synthetic identity, not used for authentication"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(hosts, []byte("synthetic pin, not used for authentication"), 0600); err != nil {
+	if err := os.WriteFile(hosts, []byte("synthetic pin, not used for authentication"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	r := Remote{User: "root", Host: "127.0.0.1", Port: 22222, Key: key, KnownHosts: hosts}
@@ -57,7 +58,7 @@ func TestPinnedSSHOptionsAndNativeRequestBinding(t *testing.T) {
 	}
 	request := filepath.Join(dir, "request.json")
 	raw, _ := json.Marshal(RemoteRequest{Revision: strings.Repeat("a", 40), Architecture: "x86_64", Target: "builder", Work: "/private/fresh", Phase: "prepare"})
-	if err = os.WriteFile(request, raw, 0600); err != nil {
+	if err = os.WriteFile(request, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = r.NativePhase(request, strings.Repeat("b", 40), "x86_64", "builder"); err == nil {
@@ -66,13 +67,14 @@ func TestPinnedSSHOptionsAndNativeRequestBinding(t *testing.T) {
 	if _, err = r.NativePhase(request, strings.Repeat("a", 40), "x86_64", "other"); err == nil {
 		t.Fatal("accepted wrong target")
 	}
-	if err = os.Chmod(key, 0644); err != nil {
+	if err = os.Chmod(key, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = r.Args(); err == nil {
 		t.Fatal("accepted exposed private identity")
 	}
 }
+
 func TestFixtureTrustIsKnownBeforeBoot(t *testing.T) {
 	_, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -89,7 +91,7 @@ func TestFixtureTrustIsKnownBeforeBoot(t *testing.T) {
 	}
 	dir := t.TempDir()
 	hosts := filepath.Join(dir, "known_hosts")
-	if err = os.WriteFile(hosts, []byte(knownhosts.Line([]string{"[127.0.0.1]:22222"}, signer.PublicKey())+"\n"), 0600); err != nil {
+	if err = os.WriteFile(hosts, []byte(knownhosts.Line([]string{"[127.0.0.1]:22222"}, signer.PublicKey())+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	input := filepath.Join(dir, "instance.ign")
@@ -99,7 +101,7 @@ func TestFixtureTrustIsKnownBeforeBoot(t *testing.T) {
 		map[string]any{"path": "/etc/ssh/ssh_host_ed25519_key", "contents": contents},
 	}}}
 	body, _ := json.Marshal(config)
-	if err = os.WriteFile(input, body, 0600); err != nil {
+	if err = os.WriteFile(input, body, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	r := Remote{User: "root", Host: "127.0.0.1", Port: 22222, KnownHosts: hosts}
@@ -128,7 +130,7 @@ func TestFixtureTrustIsKnownBeforeBoot(t *testing.T) {
 	contents["source"] = "data:;base64," + base64.StdEncoding.EncodeToString(compressed.Bytes())
 	contents["compression"] = "gzip"
 	body, _ = json.Marshal(config)
-	if err = os.WriteFile(input, body, 0600); err != nil {
+	if err = os.WriteFile(input, body, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	r.Port = 22222
@@ -168,6 +170,7 @@ func TestFixtureTrustIsKnownBeforeBoot(t *testing.T) {
 		t.Fatal("accepted decompression overflow")
 	}
 }
+
 func TestVMArgumentsRetainDiskAndNativeIsolation(t *testing.T) {
 	for _, arch := range []string{"x86_64", "aarch64"} {
 		c := VMConfig{Name: "soda-native-fixture", Architecture: arch, Work: "/private/owned", Ignition: "/private/input.ign", Firmware: "/firmware/code", SSH: Remote{Port: 22222}}
@@ -182,6 +185,7 @@ func TestVMArgumentsRetainDiskAndNativeIsolation(t *testing.T) {
 		}
 	}
 }
+
 func TestProcessCancellationBeforeStart(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -189,6 +193,7 @@ func TestProcessCancellationBeforeStart(t *testing.T) {
 		t.Fatal("started after cancellation")
 	}
 }
+
 func TestOwnedProcessWaitAndCleanup(t *testing.T) {
 	if err := ownedGroupsSupported(); err != nil {
 		t.Skip(err)

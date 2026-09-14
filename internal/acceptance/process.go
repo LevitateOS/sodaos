@@ -75,6 +75,7 @@ func StartCommand(ctx context.Context, cmd *exec.Cmd) (*Process, error) {
 	}()
 	return p, nil
 }
+
 func (p *Process) Wait(ctx context.Context) error {
 	select {
 	case <-p.done:
@@ -96,6 +97,7 @@ func (p *Process) signal(sig syscall.Signal) error {
 	}
 	return err
 }
+
 func (p *Process) Stop() error {
 	p.once.Do(func() {
 		if err := p.signal(syscall.SIGTERM); err != nil {

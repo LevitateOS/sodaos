@@ -23,7 +23,7 @@ func TestOwnedChildFixture(t *testing.T) {
 	path := os.Getenv("SODA_OWNED_CHILD_PID")
 	if mode == "descendant" {
 		signal.Ignore(syscall.SIGTERM)
-		if err := os.WriteFile(path, []byte(strconv.Itoa(os.Getpid())), 0600); err != nil {
+		if err := os.WriteFile(path, []byte(strconv.Itoa(os.Getpid())), 0o600); err != nil {
 			os.Exit(71)
 		}
 		for {

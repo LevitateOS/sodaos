@@ -145,5 +145,5 @@ func Handoff(out, arch, revision string, records []string) error {
 		}
 	}
 	text.WriteString("\nP07/P08 redirect to core U08/U20. P09/P10 remain not selected. A command completing, a hash matching or a version printing proves only that observation. Retained paths and provider cleanup must be reviewed alongside the cited logs; missing cleanup is not inferred successful. Failed/cancelled/evidence-failed observations remain failures. This report performs no tests, retries, provider mutations or publication.\n")
-	return nativebuild.WriteNew(out, []byte(text.String()), 0600)
+	return nativebuild.WriteNew(out, []byte(text.String()), 0o600)
 }

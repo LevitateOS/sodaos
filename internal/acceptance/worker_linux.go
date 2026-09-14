@@ -38,7 +38,8 @@ func (w Worker) arguments() ([]string, error) {
 	if err := TrustedExecutable(w.Executable); err != nil {
 		return nil, err
 	}
-	args := []string{"--quiet", "--wait", "--pipe", "--collect", "--service-type=exec", "--unit=" + w.Name,
+	args := []string{
+		"--quiet", "--wait", "--pipe", "--collect", "--service-type=exec", "--unit=" + w.Name,
 		"--property=User=" + w.User, "--property=Group=" + w.User,
 		"--property=WorkingDirectory=" + w.Directory,
 		"--property=ProtectHome=tmpfs", "--property=ProtectSystem=strict",
@@ -46,7 +47,8 @@ func (w Worker) arguments() ([]string, error) {
 		"--property=Delegate=yes", "--property=CPUQuota=400%", "--property=MemoryMax=16G",
 		"--property=CPUAffinity=0 1 2 3", "--property=KillMode=control-group",
 		"--property=TimeoutStopSec=20s", "--property=UMask=0077",
-		"--property=InaccessiblePaths=-/var/lib/soda-release -/root"}
+		"--property=InaccessiblePaths=-/var/lib/soda-release -/root",
+	}
 	for _, binding := range []struct {
 		property string
 		paths    []string
@@ -86,10 +88,10 @@ func TrustedExecutable(path string) error {
 			return err
 		}
 		s, ok := st.Sys().(*syscall.Stat_t)
-		if !ok || s.Uid != 0 || st.Mode().Perm()&0022 != 0 || st.Mode()&os.ModeSymlink != 0 {
+		if !ok || s.Uid != 0 || st.Mode().Perm()&0o022 != 0 || st.Mode()&os.ModeSymlink != 0 {
 			return errors.New("worker executable and parents must be root-owned and not group/world writable")
 		}
-		if p == path && (!st.Mode().IsRegular() || st.Mode().Perm()&0111 == 0) {
+		if p == path && (!st.Mode().IsRegular() || st.Mode().Perm()&0o111 == 0) {
 			return errors.New("admitted regular executable required")
 		}
 		if p == "/" {

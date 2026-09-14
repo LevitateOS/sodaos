@@ -20,6 +20,7 @@ func TestMalformedQMPIsNotReadiness(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
 func TestCancelledQMPCannotDial(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -27,6 +28,7 @@ func TestCancelledQMPCannotDial(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
 func TestBadVMPreflightCreatesNoDisk(t *testing.T) {
 	e := fixtureEvidence(t)
 	work := filepath.Join(t.TempDir(), "new-work")
@@ -38,11 +40,12 @@ func TestBadVMPreflightCreatesNoDisk(t *testing.T) {
 		t.Fatal("created VM state before preflight")
 	}
 }
+
 func TestRemoteUnknownPhaseFailsBeforeSSH(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "request.json")
 	revision := strings.Repeat("a", 40)
 	raw, _ := json.Marshal(RemoteRequest{Revision: revision, Architecture: "x86_64", Target: "fixture", Work: "/new/work", Phase: "publish"})
-	if err := os.WriteFile(path, raw, 0600); err != nil {
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	// No identity/pins are supplied: local request validation must win first.

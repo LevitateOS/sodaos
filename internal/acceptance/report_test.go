@@ -24,7 +24,7 @@ func TestHandoffPreservesMissingAndFailedScopes(t *testing.T) {
 		t.Fatal(err)
 	}
 	parent := t.TempDir()
-	if err := os.Chmod(parent, 0700); err != nil {
+	if err := os.Chmod(parent, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	out := filepath.Join(parent, "handoff.md")
@@ -44,7 +44,7 @@ func TestHandoffPreservesMissingAndFailedScopes(t *testing.T) {
 	if err = Handoff(filepath.Join(parent, "wrong.md"), "aarch64", revision, []string{record}); err == nil {
 		t.Fatal("mixed sibling evidence")
 	}
-	if err = os.WriteFile(filepath.Join(e.Path(), "check.stdout"), []byte("changed"), 0600); err != nil {
+	if err = os.WriteFile(filepath.Join(e.Path(), "check.stdout"), []byte("changed"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err = Handoff(filepath.Join(parent, "changed.md"), "x86_64", revision, []string{record}); err == nil {

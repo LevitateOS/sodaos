@@ -120,11 +120,12 @@ func (r Remote) Args() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !st.Mode().IsRegular() || st.Mode().Perm()&0022 != 0 || st.Size() == 0 {
+	if !st.Mode().IsRegular() || st.Mode().Perm()&0o022 != 0 || st.Size() == 0 {
 		return nil, errors.New("trusted regular known_hosts required")
 	}
 	return []string{"-F", "/dev/null", "-T", "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=yes", "-o", "GlobalKnownHostsFile=/dev/null", "-o", "UserKnownHostsFile=" + r.KnownHosts, "-o", "ConnectTimeout=10", "-o", "ServerAliveInterval=15", "-o", "ServerAliveCountMax=2", "-i", r.Key, "-p", strconv.Itoa(r.Port), r.User + "@" + r.Host}, nil
 }
+
 func (r Remote) Command(args []string, input io.Reader) (Command, error) {
 	base, err := r.Args()
 	if err != nil {
@@ -140,6 +141,7 @@ func (r Remote) Command(args []string, input io.Reader) (Command, error) {
 	bounded := append([]string{"timeout", "--signal=TERM", "--kill-after=10s", strconv.FormatFloat(duration.Seconds(), 'f', 3, 64) + "s"}, args...)
 	return Command{Name: "ssh", Args: append(base, Quote(bounded)), Stdin: input}, nil
 }
+
 func (r Remote) WaitReady(ctx context.Context) error {
 	if _, err := exec.LookPath("ssh"); err != nil {
 		return err

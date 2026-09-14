@@ -70,15 +70,15 @@ func TestFinalizationDoesNotPublishFailedOrOccupiedAttempts(t *testing.T) {
 			e := fixtureEvidence(t, []byte("synthetic-private-marker"))
 			switch mode {
 			case "pending-collision":
-				if err := e.root.Mkdir("observation.pending.json", 0700); err != nil {
+				if err := e.root.Mkdir("observation.pending.json", 0o700); err != nil {
 					t.Fatal(err)
 				}
 			case "leak":
-				if err := e.root.WriteFile("unredacted", []byte("synthetic-private-marker"), 0600); err != nil {
+				if err := e.root.WriteFile("unredacted", []byte("synthetic-private-marker"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			case "final-collision":
-				if err := e.root.WriteFile("observation.json", []byte("earlier bytes"), 0600); err != nil {
+				if err := e.root.WriteFile("observation.json", []byte("earlier bytes"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -110,10 +110,10 @@ func TestEvidenceScansRetainOpenDirectoryAfterRename(t *testing.T) {
 	if err := os.Rename(old, old+"-retained"); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(old, 0700); err != nil {
+	if err := os.Mkdir(old, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(old, "safe"), []byte("synthetic-secret"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(old, "safe"), []byte("synthetic-secret"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.CheckSecrets(); err != nil {
@@ -140,7 +140,7 @@ func TestHandoffShowsCleanupAndRejectsPendingRecord(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
-	if err := os.Chmod(dir, 0700); err != nil {
+	if err := os.Chmod(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := Handoff(filepath.Join(dir, "pending.md"), "x86_64", rev, []string{filepath.Join(e.Path(), "observation.pending.json")}); err == nil {

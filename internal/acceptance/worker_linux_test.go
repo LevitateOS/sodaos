@@ -34,7 +34,7 @@ func TestWorkerUsesSeparateIdentityAndNativeServiceCustody(t *testing.T) {
 func TestWorkerRefusesUntrustedExecutable(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "driver")
-	require.NoError(t, os.WriteFile(file, []byte("#!/bin/false\n"), 0755))
+	require.NoError(t, os.WriteFile(file, []byte("#!/bin/false\n"), 0o755))
 	require.Error(t, TrustedExecutable(file))
 	require.Error(t, TrustedExecutable("relative"))
 	link := filepath.Join(dir, "link")

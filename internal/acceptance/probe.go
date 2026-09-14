@@ -24,7 +24,7 @@ func (r Remote) ProbeSSHKey(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !st.Mode().IsRegular() || st.Mode().Perm()&0022 != 0 {
+	if !st.Mode().IsRegular() || st.Mode().Perm()&0o022 != 0 {
 		return "", errors.New("trusted regular known_hosts required")
 	}
 	verify, err := knownhosts.New(r.KnownHosts)
