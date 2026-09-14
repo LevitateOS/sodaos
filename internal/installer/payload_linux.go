@@ -118,32 +118,54 @@ func discoverInstalledRoot(ctx context.Context, selected Disk, run commandRunner
 	return installedRootFromJSON(data, selected, sequence, checkInstalledHolders)
 }
 
-func installedRootFromJSON(data []byte, selected Disk, sequence string, holders func(string) error) (installedRoot, error) {
+func parseInitialInstalledDisk(data []byte) (installedBlockDevice, error) {
 	var tree struct {
 		Devices []installedBlockDevice `json:"blockdevices"`
 	}
 	if json.Unmarshal(data, &tree) != nil || len(tree.Devices) != 1 {
-		return installedRoot{}, errors.New("ambiguous installed disk inventory")
+		return installedBlockDevice{}, errors.New("ambiguous installed disk inventory")
 	}
-	disk := tree.Devices[0]
-	if disk.Name != selected.Device.Name || disk.KName != selected.Device.KName || disk.Type != "disk" || disk.Size != selected.Device.Size || disk.Model != selected.Device.Model || disk.Serial != selected.Device.Serial || disk.WWN != selected.Device.WWN || disk.MajorMinor != selected.Device.MajorMinor || disk.ReadOnly || !validInstalledDevice(disk.Name, disk.KName, disk.MajorMinor) {
-		return installedRoot{}, errors.New("installed disk identity changed")
+	return tree.Devices[0], nil
+}
+
+func verifyInitialInstalledDisk(disk installedBlockDevice, selected Disk, sequence string, holders func(string) error) error {
+	if !sameInstalledDevice(disk, selected.Device) {
+		return errors.New("installed disk identity changed")
 	}
 	if sequence != selected.Sequence {
-		return installedRoot{}, errors.New("installed disk kernel identity changed")
+		return errors.New("installed disk kernel identity changed")
 	}
-	if err := holders(disk.Name); err != nil {
-		return installedRoot{}, err
+	return holders(disk.Name)
+}
+
+func validInitialPartition(child installedBlockDevice, diskName string) bool {
+	if child.Type != "part" || child.PKName != diskName || len(child.Children) != 0 {
+		return false
 	}
+	return validInstalledDevice(child.Name, child.KName, child.MajorMinor) && !child.ReadOnly && !mounted(child.Mountpoints)
+}
+
+func isCoreOSRootPartition(child installedBlockDevice) bool {
+	return child.FSType == "xfs" && child.Label == "root" && child.PartLabel == "root"
+}
+
+func validCoreOSRootPartition(root installedBlockDevice) bool {
+	if root.ReadOnly || root.UUID == "" || root.PartUUID == "" || len(root.Children) != 0 {
+		return false
+	}
+	return !mounted(root.Mountpoints)
+}
+
+func findInstalledRootPartition(disk installedBlockDevice, holders func(string) error) (installedRoot, error) {
 	var roots []installedBlockDevice
 	for _, child := range disk.Children {
-		if child.Type != "part" || child.PKName != disk.Name || !validInstalledDevice(child.Name, child.KName, child.MajorMinor) || child.ReadOnly || mounted(child.Mountpoints) || len(child.Children) != 0 {
+		if !validInitialPartition(child, disk.Name) {
 			return installedRoot{}, errors.New("unsupported installed disk partition inventory")
 		}
 		if err := holders(child.Name); err != nil {
 			return installedRoot{}, err
 		}
-		if child.FSType == "xfs" && child.Label == "root" && child.PartLabel == "root" {
+		if isCoreOSRootPartition(child) {
 			roots = append(roots, child)
 		}
 	}
@@ -151,10 +173,21 @@ func installedRootFromJSON(data []byte, selected Disk, sequence string, holders 
 		return installedRoot{}, errors.New("exact installed CoreOS root partition required")
 	}
 	root := roots[0]
-	if root.ReadOnly || root.UUID == "" || root.PartUUID == "" || len(root.Children) != 0 || mounted(root.Mountpoints) {
+	if !validCoreOSRootPartition(root) {
 		return installedRoot{}, errors.New("installed CoreOS root is unavailable")
 	}
 	return installedRoot{Device: root.Name, MajorMinor: root.MajorMinor}, nil
+}
+
+func installedRootFromJSON(data []byte, selected Disk, sequence string, holders func(string) error) (installedRoot, error) {
+	disk, err := parseInitialInstalledDisk(data)
+	if err != nil {
+		return installedRoot{}, err
+	}
+	if err := verifyInitialInstalledDisk(disk, selected, sequence, holders); err != nil {
+		return installedRoot{}, err
+	}
+	return findInstalledRootPartition(disk, holders)
 }
 
 func validInstalledDevice(name, kname, majorMinor string) bool {
