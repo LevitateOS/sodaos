@@ -162,6 +162,21 @@ estimates from branch counts, not gocyclo reruns on split code.
   splitting moves branches); `StartTailnet` (49, linear pipeline, extraction
   scatters ordering).
 
+## Complexity top-10 batch 2 (restructure program)
+
+All 10 functions restructured with structural moves only; zero gaming, all helpers and entrypoints strictly below 10 ($\le 9$):
+
+- [x] (`56cfed8`) `tools/soda-release/main.go:39` run (40 → 2): per-operation executor table + argument parser.
+- [x] (`8db45ca`) `internal/nativebuild/oci.go:19` inspectOCIImage (36 → 5): manifest verification, index architecture matching, config extraction.
+- [x] (`d4b2e45`) `internal/nativebuild/installed.go:42` verifyInstalled (38 → 4): input validation, bundle inventory, binary checks, system requirements.
+- [x] (`c910117`) `internal/installer/enrollment_keys.go:132` appendEnrollmentKeyWithWriter (48 → 8): key generation, file read/stat, formatting, atomic file writing.
+- [x] (`f0e7991`) `internal/host/tailnet.go:21` tailnetHandler (40 → 7): modular HTTP action dispatchers and request parser.
+- [x] (`ee83ed4`) `internal/host/daemon.go:19` ServeHTTP (38 → 8): request routing, modular route dispatchers, health checks.
+- [x] (`222ddc5`) `internal/web/login_cancel.go:14` cancelLogin (36 → 6): preflight validation, token resolution, and cancellation execution helpers.
+- [x] (`be0b144`) `internal/web/repositories.go:37` apiRepositories (36 → 9): query validation, repository choices resolution, session verifier.
+- [x] (`31bd722`) `internal/web/environments_api.go:111` apiCreateEnvironment (36 → 8): input validation, prechecks, reconfirmation, provisioning, tailnet helpers.
+- [x] (`65e3542`) `internal/web/spaces.go:33` apiSpaces (40 → 7): domain-aligned helpers for authority resolution, native inspection, terminal inventory, tailnet check, session verification.
+
 ## Open verification items
 
 - [ ] Grep git history for credential shapes (L1.14 covered the working tree
