@@ -157,7 +157,7 @@ from `quay.io/coreos-assembler/coreos-assembler`, revision
 `53330beeb45bb0a6f51987fc8df243e8a62d62bd`. Its inspected OSBuild 191 live stage
 owns the stream-hash generation described below. This is executable/input evidence,
 not proof of successful Soda packaging. The native probe remains subject to
-[exact fixture approval](implementation-status.md#b3-native-fixture-request--pending).
+[exact fixture approval](implementation-status.md#b3-native-fixture-scope--approved).
 
 Before VM execution, record resource/effect bounds for
 its supermin build VM and a separate fresh installation target. Prove reconstructed

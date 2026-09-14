@@ -23,7 +23,7 @@ not self-contained offline media; native download/bootstrap and size proof are s
 outstanding. **B2 is complete at its source-to-candidate scope:** the Go controller
 produced and verified native x86_64 candidate `4c62f68` in one run. B3 is in progress: native bootstrap authentication
 and executable builder inputs have been reviewed; VM packaging/install proof awaits
-its exact fixture grant. B4–B6 have not started. B1's media/installed proof remains separate from this unsigned candidate.
+execution under its newly approved exact fixture grant. B4–B6 have not started. B1's media/installed proof remains separate from this unsigned candidate.
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -69,7 +69,7 @@ The native rootfs streaming verifier passed valid/corrupt/truncated/extra/missin
 checks. The exact x86_64 Assembler manifest and its live stage/tools are identified;
 no custom boot downloader is needed. No candidate ISO or installation has run.
 [Receipt](implementation-history.md#b3-native-bootstrap-and-builder-admission) and
-[pending fixture request](#b3-native-fixture-request--pending).
+[approved fixture scope](#b3-native-fixture-scope--approved).
 Media-only assembly takes the exact signed host/app candidate and
 prebuilt tools. Prove minimal ISO size, authenticated network installation, media
 removal and first boot with the same digests used by updates; preserve the
@@ -127,7 +127,7 @@ or publish an unsigned graph as a silent replacement for those checks.
 **Native proof prerequisites:** B3 identified and inspected the exact x86_64
 Assembler manifest, OSBuild/live stage and tools. Its native streaming verifier
 passed scoped tests; the [installer owner](coreos-installer-plan.md#b3-native-download-authentication-handoff)
-records that handoff. The pending request below scopes its helper VMs and fresh
+records that handoff. The approved scope below covers its helper VMs and fresh
 installation targets; read-only inspection did not authorize them. Required proof
 includes unchanged OCI input/installed digest, native osmet reconstruction after
 download, minimal ISO size, network failures, private Ignition, enforcing SELinux,
@@ -144,11 +144,11 @@ B3 still must replace the legacy media/console continuation and prove its runtim
   automatic stable promotion, native aarch64 or retained-appliance migration to begin
   or complete the independently scoped replacement work.
 
-### B3 native fixture request — pending
+### B3 native fixture scope — approved
 
-**Request only, not an existing grant.** The owner selected B3 source/local work;
-installation requires the following exact additional scope. This does not revive
-the withdrawn bootc experiment or extend retained grants.
+**Owner approved the exact `5efed3e` request.** The following scope now authorizes
+B3's named native fixtures and actions. It does not revive the withdrawn bootc
+experiment or extend retained targets' grants.
 
 - **Targets:** new directories only under
   `.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/native/`, with
@@ -180,7 +180,7 @@ the withdrawn bootc experiment or extend retained grants.
   up to 16 GiB RAM; up to three new 64 GiB sparse installation disks, fresh copies
   of native OVMF variables, and upstream packaging's fresh 50 GiB cache / 10 GiB
   supermin roots. Stop at four hours of native execution or 200 GiB aggregate new
-  allocated disk usage. These are proposed experiment bounds, not product budgets.
+  allocated disk usage. These are approved experiment bounds, not product budgets.
 - **Installation actions:** start fresh UEFI x86_64 guests, enter fixture-only
   root passwords through the virtual keyboard, explicitly confirm erasure of only
   their named blank disks, detach the ISO, reboot and verify first boot, native
@@ -282,11 +282,11 @@ grants belong to the user's task and exact target/action, not this plan's comman
 - **Source/local work:** routine implementation, builds and tests for selected work
   remain authorized within their existing scope. The shared-build/timing extraction
   was explicitly approved; the owner selected B1, B2 and now B3 implementation. B3
-  source/local preparation is selected; its specific VM/disk/listener request above
-  remains pending.
+  source/local preparation and the exact VM/disk/listener scope above are approved.
   B1's source/upstream audit, local tests and bounded rootless read-only image
-  inspections are recorded; B2's initial change is direct vendor asset staging. This
-  does not add a VM/disk, protected worker, publication or commissioning grant.
+  inspections are recorded; B2's initial change was direct vendor asset staging. B3's
+  additional grant is limited to the named fixtures above; it adds no real protected
+  worker, publication or commissioning authority.
   The current correction restores the FCOS-native baseline and withdraws the bootc
   filesystem experiment; it does not authorize another installation path.
 - **Bounded real delivery:** the owner confirmed `LevitateOS`, selected current
@@ -312,5 +312,6 @@ the old ISO-mounted console loader cannot be reused on minimal network media.
 [Receipt, including failed observers](implementation-history.md#b3-native-bootstrap-and-builder-admission).
 No shipping source changed; production remains **12,235 lines**. No ISO was assembled,
 VM started, disk installed, signature/publication commissioned or retained appliance
-mutated. The [specific native fixture request](#b3-native-fixture-request--pending)
-is pending; B3 is not complete.
+mutated in that review. The owner has now approved the
+[specific native fixture scope](#b3-native-fixture-scope--approved); execution begins
+with the unchanged B2 candidate. B3 is not complete.

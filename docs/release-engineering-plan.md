@@ -294,7 +294,7 @@ qualified end-to-end release or the command's final success outcome.
 **B3; in progress.** Native download authentication and executable builder inputs
 are reviewed; media assembly and installed proof remain open. See the
 [bootstrap handoff](coreos-installer-plan.md#b3-native-download-authentication-handoff)
-and [pending native fixture scope](implementation-status.md#b3-native-fixture-request--pending).
+and [approved native fixture scope](implementation-status.md#b3-native-fixture-scope--approved).
 Replace the candidate handoff, not the native FCOS disk/boot engine.
 
 1. Convert `scripts/build-installer.py` to media-only assembly; rename it to

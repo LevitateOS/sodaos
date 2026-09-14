@@ -75,7 +75,7 @@ expectation; original inputs/logs/CIDs remain. No mutation was replayed to repai
 observer and no disk/VM/lifecycle fixture was used.
 
 Native fixture proposal is recorded **pending**, not granted, in the owning
-[implementation status](implementation-status.md#b3-native-fixture-request--pending).
+[implementation status at the request](https://github.com/LevitateOS/sodaos/blob/5efed3e/docs/implementation-status.md#b3-native-fixture-request--pending).
 Observations informing its proposed bounds: CPUs 0–15 available; approximately
 50 GiB RAM available, 501 GiB checkout-filesystem free and 39 GiB `/var/tmp` free;
 KVM/FUSE readable/writable. Selected loopback ports 19843–19846 had no listener.
