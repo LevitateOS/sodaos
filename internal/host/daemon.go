@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -141,104 +142,174 @@ func (d *Daemon) acquireAdmission(ctx context.Context) error {
 	}
 }
 
-func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+var errNotFound = errors.New("not found")
+
+func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
 	if strings.HasPrefix(r.URL.Path, "/tailnet/") {
 		d.tailnetHandler(w, r)
-		return
+		return true
 	}
 	if strings.HasPrefix(r.URL.Path, "/runners/") {
 		d.runnerHandler(w, r)
-		return
+		return true
 	}
 	if r.URL.Path == "/terminal" {
 		d.terminalHandler(w, r)
-		return
+		return true
 	}
-	if (r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys" || r.URL.Path == "/profile" || r.URL.Path == "/create" || r.URL.Path == "/os") && (r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "") {
-		http.Error(w, "invalid native operation path", 400)
-		return
+	return false
+}
+
+func hasNativeCleanPath(r *http.Request) bool {
+	switch r.URL.Path {
+	case "/lifecycle", "/access-keys", "/profile", "/create", "/os":
+		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
+	default:
+		return true
+	}
+}
+
+func validateNativeOperationRequest(r *http.Request) int {
+	if !hasNativeCleanPath(r) {
+		return http.StatusBadRequest
 	}
 	if r.Method != "POST" {
-		http.Error(w, "POST required", http.StatusMethodNotAllowed)
-		return
+		return http.StatusMethodNotAllowed
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
-	defer cancel()
-	r.Body = http.MaxBytesReader(w, r.Body, 65536)
-	decode := func(v any) error {
-		if err := strictjson.Decode(r.Body, v); err != nil {
+	return 0
+}
+
+func nativeRequestErrorMessage(code int) string {
+	if code == http.StatusBadRequest {
+		return "invalid native operation path"
+	}
+	return "POST required"
+}
+
+func isAdmittedMutationPath(path string) bool {
+	return path == "/lifecycle" || path == "/access-keys" || path == "/account"
+}
+
+func makeBodyDecoder(body io.Reader, ctx context.Context) func(any) error {
+	return func(v any) error {
+		if err := strictjson.Decode(body, v); err != nil {
 			return err
 		}
 		// A body read can outlive admission. Refuse cancellation before dispatch;
 		// already-running native commands retain their existing context handling.
 		return ctx.Err()
 	}
+}
+
+func (d *Daemon) dispatchProfile(ctx context.Context, decode func(any) error) (any, error) {
+	var in struct{}
+	if err := decode(&in); err != nil {
+		return nil, err
+	}
+	return d.resolveProfile(ctx)
+}
+
+func (d *Daemon) dispatchCreate(ctx context.Context, decode func(any) error) (any, error) {
+	var in Create
+	if err := decode(&in); err != nil {
+		return nil, err
+	}
+	if !projectID.MatchString(in.ID) || in.Owner <= 0 {
+		return nil, errors.New("invalid project identity")
+	}
+	return d.create(ctx, in)
+}
+
+func (d *Daemon) dispatchCreateTargeted(ctx context.Context, path string, decode func(any) error) (any, error) {
+	var in Create
+	if err := decode(&in); err != nil {
+		return nil, err
+	}
+	switch path {
+	case "/inspect":
+		out, _, err := d.inspect(ctx, in.ID)
+		return out, err
+	case "/os":
+		return d.observeOS(ctx, in.ID)
+	case "/connection":
+		return d.connection(ctx, in.ID)
+	default:
+		return nil, errNotFound
+	}
+}
+
+func (d *Daemon) dispatchMutation(ctx context.Context, path string, decode func(any) error) (any, error) {
+	switch path {
+	case "/lifecycle":
+		var in Lifecycle
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.lifecycle(ctx, in)
+	case "/access-keys":
+		var in AccessKeys
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.accessKeys(ctx, in)
+	case "/account":
+		var in Account
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		err := d.account(ctx, in)
+		return map[string]bool{"ok": err == nil}, nil
+	default:
+		return nil, errNotFound
+	}
+}
+
+func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func(any) error) (any, error) {
+	switch path {
+	case "/profile":
+		return d.dispatchProfile(ctx, decode)
+	case "/create":
+		return d.dispatchCreate(ctx, decode)
+	case "/inspect", "/os", "/connection":
+		return d.dispatchCreateTargeted(ctx, path, decode)
+	case "/lifecycle", "/access-keys", "/account":
+		return d.dispatchMutation(ctx, path, decode)
+	default:
+		return nil, errNotFound
+	}
+}
+
+func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if d.routeSubsystem(w, r) {
+		return
+	}
+	if code := validateNativeOperationRequest(r); code != 0 {
+		http.Error(w, nativeRequestErrorMessage(code), code)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
+	defer cancel()
+	r.Body = http.MaxBytesReader(w, r.Body, 65536)
+	decode := makeBodyDecoder(r.Body, ctx)
 	if ctx.Err() != nil {
 		http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
 		return
 	}
 	// Read-only observations may overlap mutations and report transitional state.
 	// Create owns the same writer gate inside its native provisioning phase.
-	if r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys" || r.URL.Path == "/account" {
+	if isAdmittedMutationPath(r.URL.Path) {
 		if err := d.acquireAdmission(ctx); err != nil {
 			http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
 			return
 		}
 		defer func() { <-d.admission }()
 	}
-	var out any
-	var err error
-	switch r.URL.Path {
-	case "/profile":
-		var in struct{}
-		if err = decode(&in); err == nil {
-			out, err = d.resolveProfile(ctx)
-		}
-	case "/create":
-		var in Create
-		if err = decode(&in); err == nil {
-			if !projectID.MatchString(in.ID) || in.Owner <= 0 {
-				err = errors.New("invalid project identity")
-			} else {
-				out, err = d.create(ctx, in)
-			}
-		}
-	case "/inspect":
-		var in Create
-		if err = decode(&in); err == nil {
-			out, _, err = d.inspect(ctx, in.ID)
-		}
-	case "/os":
-		var in Create
-		if err = decode(&in); err == nil {
-			out, err = d.observeOS(ctx, in.ID)
-		}
-	case "/connection":
-		var in Create
-		if err = decode(&in); err == nil {
-			out, err = d.connection(ctx, in.ID)
-		}
-	case "/lifecycle":
-		var in Lifecycle
-		if err = decode(&in); err == nil {
-			out, err = d.lifecycle(ctx, in)
-		}
-	case "/access-keys":
-		var in AccessKeys
-		if err = decode(&in); err == nil {
-			out, err = d.accessKeys(ctx, in)
-		}
-	case "/account":
-		var in Account
-		if err = decode(&in); err == nil {
-			err = d.account(ctx, in)
-		}
-		out = map[string]bool{"ok": err == nil}
-	default:
-		http.NotFound(w, r)
-		return
-	}
+	out, err := d.dispatchOperation(ctx, r.URL.Path, decode)
 	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
 		slog.Error("project native operation failed", "operation", r.URL.Path, "error", err)
 		http.Error(w, "native operation failed; inspect operator journal", 500)
 		return
