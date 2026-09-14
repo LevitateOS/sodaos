@@ -138,7 +138,7 @@ bootc interfaces. The authority and byte-identity boundaries remain requirements
 | --- | --- |
 | Frozen inputs → producer | Approved commit/base/tool/package and explicit component selections; public-only source snapshot. No privileged signer credentials or implicit selected VM. |
 | Producer → protected admission | Existing exact payload/candidate bytes plus OCI identities and hashed provenance. Treat outputs as untrusted until independently checked and copied into protected fresh snapshots. Never execute candidate-supplied tests as authority. |
-| Component provenance | Record actual producing revision/upstream reference for each selection without a second image inventory or relabelling reused images. Current payload v1 requires three bootc-bound roles; ordinary-Podman storage therefore needs an explicit versioned payload/caller change, not silently reinterpreted v1 fields. Retain strict historical readers. |
+| Component provenance | Record actual producing revision/upstream reference for each selection without a second image inventory or relabelling reused images. Payload v2 now requires ordinary-Podman storage for all five roles; strict v1 readers retain the historical bound/retained meanings. Neither version supplies native qualification. |
 | Candidate → media | Recommended native handoff: admitted OCI archive → Assembler import → upstream metal/live packaging → minimal ISO plus downloadable matching live content/osmet. Bind OCI/deployment identity and raw/media/download hashes; prove bootstrap authentication and local Podman availability after download. Version the media binding after native proof. |
 | Media → live installer | Independently trusted media/tool bytes and verified content before privileged use. CoreOS Installer owns disk installation; Ignition owns first-boot provisioning. Prove native signature/cache behavior, not just file presence. |
 | Live installer → installed state | Preserve native FCOS disk/boot/provisioning ownership. Prove how the same immutable host/app set is installed and updated with required content available after media removal. Do not manufacture that capability with Soda partitioning or a second writable software producer. |
@@ -253,8 +253,9 @@ media leaf, test driver or another renamed package.
 
 ### Milestone 2 — implement one Go build controller
 
-**B2; controller implemented, native candidate validation in progress.** The single
-P1–P6 Go owner builds ordinary-Podman v2 candidates; no bootc candidate path remains. [Status and remaining work](implementation-status.md#2-implement-one-go-build-controller--b2).
+**B2 complete at the source-to-candidate scope.** The single P1–P6 Go owner produced
+and verified the native x86_64 ordinary-Podman v2 candidate. No bootc candidate path
+remains; this is not B1/B3/B4 installed proof or a qualified release. [Status and remaining work](implementation-status.md#2-implement-one-go-build-controller--b2).
 Replace execution ownership, not just command duplication.
 
 1. Replace `tools/soda-host-image` orchestration with `tools/soda-build`, reusing
@@ -506,22 +507,23 @@ and the predecessor Updates platform remain out of scope.
 
 ### Local candidate content and machine-state ownership
 
-The following records describe the **existing experimental candidate**, not a
-requirement to retain bootc in the replacement. Preserve its artifacts/readers and
-machine-state safety. B1 must revisit bootc-dependent source in `internal/hostimage`,
-`appliance/host.Containerfile` and generated Quadlets, including additional storage
-and disabled Zincati. Do not enable a competing updater in that experiment, migrate
-it or remove working source as part of this documentation correction.
+B2 emits **payload format 2** through `internal/hostimage`. Format 1 remains strictly
+readable for retained experiments: its three bound roles and two retained roles are
+not silently reinterpreted. No retained image or appliance was migrated.
 
-- `/usr/share/soda/release.json` binds the five exact app images, source/base, schema
-  and content hashes. Core Forgejo/dashboard/proxy Quadlets alone use
-  `/usr/lib/bootc/bound-images.d` and caller-scoped additional storage at
-  `/usr/lib/bootc/storage`. Preserve OCI manifest identities through transport;
-  do not globally attach bootc storage to ordinary Podman workloads.
-- Project OS/Tailnet archives under `/usr/share/soda/images` are verified/imported
-  by fixed-input root-only `soda-image-import` into ordinary retained Podman storage.
-  It does not start, replace or delete images/containers. Required project/companion
-  backing layers remain outside bootc GC. Host updates do not select their lifecycle.
+- `/usr/share/soda/release.json` binds all five exact app images, source/base, schema
+  and content hashes. V2 requires `Storage: podman` for every role and embeds all
+  five exact archives under `/usr/share/soda/images` in the host candidate.
+- Fixed-input root-only `soda-image-import` verifies/imports these archives into
+  ordinary Podman storage. Historical v1 imports only its two retained roles. The
+  importer does not start, replace or delete images/containers. Core Quadlets require
+  the import service, use exact config identities and `Pull=never`, without additional
+  image stores. Host updates do not select Project OS/companion workload lifecycle.
+- The host uses native OSTree container finalization and preserves Zincati. No bootc
+  lint, parser workaround, timer masking or bound-store generation remains in this
+  producer. Candidate-derived media, native origin/deployment identity, all-image
+  availability at installation completion and update/recovery still need their native
+  B1/B3/B4 proof; archive inspection is not installation acceptance.
 - Vendor defaults apply to new creation. `/etc/soda/host.json` remains machine-owned;
   conflicting saved image selections refuse explicit migration rather than being
   rewritten. Existing root/profile IDs remain authoritative. Companion admission

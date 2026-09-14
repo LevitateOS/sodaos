@@ -15,6 +15,103 @@ not claims that those outputs are still retained.
 
 ---
 
+## B2 Go controller and native candidate
+
+Implemented in `42cba33`, pinned-toolchain correction `9837d3e`, and existing drawer
+observer correction `4c62f68`. This closes B2's source-to-candidate scope, not B1's
+native installation contract or the B3–B6 replacement release.
+
+- `tools/soda-build` → `internal/hostimage.Build` owns fixed P1–P6 execution: canonical
+  clean-source/VCS admission and `git archive`, frozen app/base/package inputs, pinned
+  dependencies, once-only shipping programs/tools/assets, prepared suites, five app
+  selections and native host assembly/verification. No task graph or Python timing/
+  supervision bridge in this path. The old host command now accepts legacy-native
+  only; its host-only/context/complete orchestration was removed, not wrapped.
+- Payload v2 embeds all five exact app archives for ordinary Podman; strict v1 readers
+  preserve retained meanings. Core Quadlets require import and use config identities
+  with `Pull=never`, without additional stores. Native OSTree container finalization
+  replaced bootc lint/parser/timer handling; Zincati is no longer disabled. Runtime
+  binaries are hard-linked into the shared app context, not copied through a writable
+  stage. Tools have separate source/architecture/hash records for later consumers.
+- New Go timing uses monotonic section/phase/total clocks. Execution reuses the Linux
+  pinned process-group owner, with controller subreaping and original CLI signal exits.
+  Inherited provider/signing inputs are excluded from build children; raw argv and
+  environment are not emitted by the controller. This is not untrusted-job isolation.
+
+### Native P1–P6 receipt
+
+Source `4c62f689bf4135ad228a9a107276e5cce440c042`, x86_64, output
+`.artifacts/releases/b2-4c62f68-20260914T013441Z/`; controller and console receipt at
+`.artifacts/controllers/b2-4c62f68-3MYw5k/`. **00:06:29 with ordinary existing caches**;
+not a cold-build benchmark. Eleven shipping program/tool compilations occurred once
+(eight runtime programs, installer console, artifact verifier and acceptance driver).
+Frontend assets and each app selection were produced once in this run. Upstream proxy
+was selected/exported without a pointless rebuild.
+
+The run passed full Go source tests, TypeScript/Lit, prepared frontend **296 passed /
+7 skipped**, Forgejo **44 passed / 29 skipped**, drawer layout **1 passed**, Python
+build fixtures **168 run / 2 skipped**, plus native image/presentation/package checks.
+The omitted browser journeys retain their explicit fixture/installed opt-ins; these
+counts do not imply their execution. Native host inspection checked 625 RPMs, all five
+embedded archive hashes, payload equality and generated local-storage Quadlets; the
+Forgejo image's immutable presentation and upstream binary were also inspected.
+
+- Host manifest: `sha256:ac3071fcfb95bbb3a28b487d7b6ab74ba4038016a48f709bcf2ebc6850b9cd49`.
+- Host archive SHA256: `e5604ebada037cf2933f0935f8bd7d13bc03fad43a1d70ff2a4040da4a0586dc`.
+- Payload SHA256: `fef6b20a427e8313537206f18997505c591608fe2d7649736f7bbe0d4bdfe714`.
+- Host archive **2,072,990,720 bytes**. Separate dashboard **98,875,392**, Project OS
+  **392,873,984**, Forgejo **86,474,752**, proxy **23,338,496**, Tailnet **84,042,240**.
+  These are OCI archive sizes, not minimal ISO/rootfs/download measurements. The host
+  archive exceeds the selected ISO asset ceiling; no GitHub Release hosting inference
+  or GHCR-wide size limit follows.
+
+P6 completed, then the CLI deliberately exited **2** with “no qualified release”:
+B3–B5 media/qualification/protected finalization are not connected. No failed or
+unsigned partial pipeline reported release success. No signing/publishing, media,
+VM/disk installation, update/recovery, provider job or retained-state migration ran.
+
+### Failure, cancellation and source checks
+
+Preserved earlier attempts, without edits/replay:
+
+- `.artifacts/releases/b2-42cba33-20260914T010407Z/`, controller
+  `.artifacts/controllers/b2-42cba33-HTEW4e/`: stopped in P2. A `-trimpath` controller
+  has no embedded GOROOT; constructing `bin/go` was wrong. `9837d3e` uses upstream
+  exact `GOTOOLCHAIN` selection plus compiler-version admission, not ambient Go 1.27
+  or a new compiler locator framework. New native runs verified this correction.
+- `.artifacts/releases/b2-9837d3e-20260914T010946Z/`, controller
+  `.artifacts/controllers/b2-9837d3e-UeFPHt/`: stopped in prepared frontend checks.
+  Drawer tests still expected superseded “Outcome unconfirmed” copy and a hidden
+  Create element where denied rendering now omits it. `4c62f68` updated observers to
+  current text and no accessible Create action; replay/credential/privacy assertions
+  remain. Focused drawer tests **47 passed** before the next clean-source native run.
+- `.artifacts/releases/b2-cancel-4c62f68-20260914T014858Z/`: native SIGINT at P3's
+  TypeScript/Lit transition exited **130**, recorded CANCELLED after **00:02:06**,
+  retained diagnostics, and emitted no candidate or later image phases. This is the
+  observed cancellation scope, not adversarial daemon/isolation acceptance.
+
+Additional evidence `.artifacts/build-controller/controller-3fe7f18-yIS3y0/` includes
+full/local Go, focused race/vet (including final runs), admission/exit/environment,
+phase timing, v1/v2 import/storage, staging and existing resistant process-group
+checks. An isolated controller subreaper test also passed under race: leader-first
+exit terminates and reaps its orphaned group descendant (`ESRCH`, not a zombie).
+The first combined source-check invocation timed out after Go completed;
+its partial Python log is not counted. The subsequent aggregate Python run exposed
+one stale manifest assertion missing the already-selected Runners component flag;
+corrected against `package.json`, then all 168 Python tests passed. Failed logs remain.
+
+### Responsibility-size accounting
+
+Physical lines, fixed B1 inventory plus new/moved equivalents; no docs/tests counted
+as production. Selected production **11,732 → 12,235 (+503)** from `3fe7f18`:
+assembly/orchestration **2,903 → 3,382**, recipes **160 → 151**, artifact verification
+**1,556 → 1,567**, native acceptance **1,769 → 1,791**; asset leaves **335**, runtime
+**3,483** and protected delivery **1,526** unchanged. Colocated tests **5,208 → 5,450**, including the later test-only subreaper case.
+The receipt keeps the current inventory and original baseline; moved helpers are
+included. This is **not a net simplification claim**. B6 still must retire the retained
+writable/media producer and demonstrate reduced production responsibility without
+removing verification. No artifact/fixture/credential/ledger cleanup occurred.
+
 ## B2 direct vendor staging
 
 The owner selected B2 after `6aafb1c`. This first implementation removes the

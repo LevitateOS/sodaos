@@ -127,82 +127,13 @@ Only x86_64 currently has the locked host package transaction; no ARM lock is in
 The old tool now accepts **only `--legacy-native`** for the retiring writable installer.
 It cannot produce a competing host candidate. The old shell/media producer is retained
 until B3/B4 native proof permits B6 retirement; it is not a replacement release mode.
-The superseded experiments below describe retained historical evidence, not commands
-to run with current source.
-
-```sh
-# Historical invocation, no longer accepted by current source:
-# soda-host-image --arch x86_64 --out FRESH-ATTEMPT --build
-```
-
-Without `--build`, the command only snapshots committed source, prepares the public
-context and compiles/inspects native binaries. It requires a clean checkout and
-matching-native Linux/Go 1.26.7. `git archive` freezes the revision in the new ignored
-attempt; it does not create a worktree, switch branches or touch another agent's
-uncommitted work. Source archive, context inventory and private build log remain.
-The [existing timing owner](installation.md#build-timing-and-progress-implementation-plan)
-now supplies named sections, total wall time and failure/cancellation summaries to
-this command too. `timing.log` contains progress only; `build.log` retains native
-command diagnostics. The same Python supervisor handles the invocation's process
-group; no service/timer is installed. A supplied parent timing origin/log is reused.
-
-With `--build`, it pulls the architecture-specific digest in
-`appliance/locks/coreos-host.json`, builds using local Podman (never a remote engine),
-then runs one networkless read-only package/layout inspection container and exports
-`host.oci`. `host.iid`, `inspect.cid`, `packages.txt` and `result.json` identify the
-image, retained inspection container, installed package inventory and archive hash.
-Build/intermediate/failed outputs are retained; no pruning or automatic cleanup is
-performed. These are build effects, not VM/installed-appliance lifecycle effects.
-No signing keys, scheduler, GHCR publication or global trust changes are involved.
-
-The `soda_host_image` Go build tag selects fixed vendor helper/unit locations, while
-ordinary builds retain the existing writable paths. `appliance/host.Containerfile`
-installs the package list extracted from the current provisioning owner and records
-resolved RPMs. The base is digest-pinned; live Fedora/Tailscale repositories are not
-snapshotted, so this is **not a reproducible-RPM or production-release claim**.
-
-Without `--complete`, this remains **host-content-only**: binaries, vendor units/
-Quadlets and basic native configuration, retaining legacy/dev app references.
-It does not deliver the application payload or complete first-boot setup.
-
-**Existing experiment, not the selected replacement install/update architecture.**
-The [FCOS contract](release-engineering-plan.md#minimum-deviation-fcos-contract)
-reopens B1; these retained tool recipes do not select bootc or authorize its withdrawn
-filesystem/partitioning test. Preserve their source/evidence without treating their
-storage layout or disabled Zincati as replacement requirements.
-
-For the complete local candidate, add an explicit **intended** repository prefix:
-
-```sh
-# Historical invocation, no longer accepted by current source:
-# soda-host-image --arch x86_64 --out FRESH-ATTEMPT --build --complete \
-#   --repository-prefix ghcr.io/OWNER/PREFIX
-```
-
-Replace `OWNER/PREFIX` with lowercase intended names; this does not reserve or create
-GHCR resources. `--complete` requires `--build`, the workspace-pinned Bun and the
-ordinary native asset/project-tool prerequisites. It reuses the existing recipes,
-Forgejo payload manifest, browser/locales/terminal builders and `stage.py` inside the
-frozen snapshot. App bases resolve once and are built by digest with `--pull=never`.
-The host transaction requires `appliance/locks/host-packages-ARCH.json`; currently
-only x86_64 has the qualified NEVRA/inventory input. No ARM lock is synthesized.
-
-Additional effects: public dependency downloads, local app builds and OCI exports,
-read-only/networkless Forgejo binary/presentation inspection and native host Quadlet
-`--dryrun` generation. Exact inspection containers/CIDs and intermediates remain.
-No application service, provider, VM or retained project is started. Output includes
-`images/{dashboard,forgejo,proxy,project-os,tailnet}.oci`, `app-inputs.json`, immutable
-presentation hashes, `payload.json`, `candidate.json`, `generated-quadlets.txt`,
-`host.oci` and the final `result.json`. Only retained-runtime archives are embedded
-in the host; three bound app references require later digest-preserving publication.
-A failed attempt is not complete merely because some archives or payload.json exist.
-
-The [release plan](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership)
-owns defaults, persistent image storage and metadata. Complete candidates are still
-unsigned/unpublished, with no native first-install/update/recovery acceptance or
-qualified upgrade edges. Do not deploy either mode as an installable Soda release.
-Zincati updates are disabled and bootc's automatic timer masked only inside these
-candidate images, not on the builder or retained appliances.
+The [superseded experimental recipes](https://github.com/LevitateOS/sodaos/blob/3fe7f18/docs/native-support.md#local-host-content-image-candidate)
+remain historical evidence, not current commands or authority to mutate retained
+images. Their artifacts/CIDs, readers, source history and custody are preserved.
+The [release owner](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership)
+defines v2 storage, defaults and machine-state preservation. The base/RPM inventory
+is locked, not mirrored or byte-reproducible. No installed-release claim follows
+from local image inspection or ordinary build-cache reuse.
 
 ## Trusted release-delivery worker
 

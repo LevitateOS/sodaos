@@ -20,10 +20,9 @@ matching builder capsule admission and exact native proof remain. Bootc filesyst
 installation stays withdrawn. The owner now selects a
 [minimal network-install ISO](coreos-installer-plan.md#selected-media--minimal-network-install),
 not self-contained offline media; native download/bootstrap and size proof are still
-outstanding. The owner has selected B2 implementation; direct vendor staging is now
-implemented, and the P1–P6 Go controller is now implemented. B2 native candidate
-validation is in progress; B3–B6 have not started. B1's media/installed proof remains
-separate from this source-to-candidate implementation.
+outstanding. **B2 is complete at its source-to-candidate scope:** the Go controller
+produced and verified native x86_64 candidate `4c62f68` in one run. B3–B6 have not
+started. B1's media/installed proof remains separate from this unsigned candidate.
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -47,7 +46,7 @@ native media/install/update proof ran in the B1 source review. [Implementation a
 
 ### 2. Implement one Go build controller — B2
 
-**Implemented controller; native candidate run being checked.** `tools/soda-build`
+**Complete — native x86_64 P1–P6 run verified.** `tools/soda-build`
 owns clean-source admission/archive, frozen app inputs, dependencies, once-only
 programs/tools/assets, prepared tests, five app images and FCOS host verification.
 Native Go timing and the existing Go process-group owner replace the Python bridge
@@ -56,7 +55,10 @@ installation/update/storage/lint path or Zincati disabling remains in new candid
 The old host-image command is legacy-only, not a competing host producer. Its
 required writable installer lane remains for B6 retirement after native proof.
 The new CLI does not claim release success: it exits 2 after the unsigned candidate
-until B3–B5 connect media, qualification and protected finalization.
+until B3–B5 connect media, qualification and protected finalization. The observed run
+took **00:06:29 with ordinary caches**, with eleven shipping program/tool compilations,
+all five embedded archive hashes and native image/Quadlet checks. Native SIGINT at
+P3 exited 130, retained diagnostics and emitted no candidate. [Receipt](implementation-history.md#b2-go-controller-and-native-candidate).
 [Implementation and exit](release-engineering-plan.md#milestone-2--implement-one-go-build-controller).
 
 ### 3. Make the ISO consume the candidate — B3
@@ -93,8 +95,8 @@ milestone. [Implementation and exit](release-engineering-plan.md#milestone-6--re
 ## Immediate prerequisites and next action
 
 The owner selected completion of B2 and confirmed no bootc use. The controller and
-ordinary-Podman candidate path are now implemented; run and record the matching
-native candidate checks. Keep B1/B3 media and installed proof separate. Neither
+ordinary-Podman candidate path are implemented and native-checked. Continue B1/B3
+candidate-derived minimal media, keeping installed proof separate. Neither
 source checks nor an unsigned candidate authorize appliance installation or delivery.
 
 The [installation findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
@@ -154,11 +156,14 @@ review and describe only the native path it actually needs to prove.
   original failed lookups, artifact sizes, exact LOC inventories and passing focused
   Go tests. [Receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline).
 
+- `4c62f68`: native x86_64 Go-controller candidate, all five ordinary-Podman archives,
+  391 Forgejo files, 625 RPMs and prepared suites checked in the P1–P6 run. Unsigned;
+  no media/install/update qualification. [Receipt](implementation-history.md#b2-go-controller-and-native-candidate).
 - `45ac843`: complete local native x86_64 host/app candidate, 391 immutable Forgejo
   files, locked 625-RPM inventory and bootc lint 13 passed/one skipped/no warnings.
   [Receipt](implementation-history.md#complete-local-appliance-candidate). No install/
   update/recovery acceptance is implied. Its bootc-bound storage and disabled Zincati
-  are experimental source choices to revisit, not replacement requirements. No
+  are historical choices removed from new production, not replacement requirements. No
   runtime policy is changed or existing artifact relabelled by this correction.
 - Existing trusted-delivery models, native Sigstore, exact permits and durable
   publication/high-water handling have source/local native proof.
@@ -190,6 +195,8 @@ custody, not a fresh filesystem/registry observation:
 
 | Resource | Custody |
 | --- | --- |
+| B2 native candidate, failures and cancellation | `.artifacts/releases/b2-{42cba33,9837d3e,4c62f68,cancel-4c62f68}-*/`; exact paths in the B2 receipt |
+| B2 controller binaries/checks | `.artifacts/controllers/b2-*`, `.artifacts/build-controller/controller-3fe7f18-yIS3y0/` |
 | Complete M1 candidate | `.artifacts/host-image/complete-45ac843/` |
 | Earlier image attempts and evidence | `.artifacts/host-image/` |
 | Delivery source/native proof and bootstrap receipts | `.artifacts/release-delivery/`, including `commission-e8323d5/` |
@@ -211,7 +218,7 @@ grants belong to the user's task and exact target/action, not this plan's comman
   remain authorized within their existing scope. The shared-build/timing extraction
   was explicitly approved; the owner selected B1 and has now selected B2 implementation.
   B1's source/upstream audit, local tests and bounded rootless read-only image
-  inspections are recorded; B2 now includes its Go controller, ordinary-Podman candidate builds and local checks. This
+  inspections are recorded; B2's initial change is direct vendor asset staging. This
   does not add a VM/disk, protected worker, publication or commissioning grant.
   The current correction restores the FCOS-native baseline and withdraws the bootc
   filesystem experiment; it does not authorize another installation path.
@@ -232,11 +239,11 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-Implemented the fixed Go candidate controller, native timing/process ownership,
-frozen app inputs, once-only prepared work and v2 ordinary-Podman payloads. Removed
-the competing host orchestration and bootc candidate path, retaining historical
-readers and the required legacy installer. Full Go tests and focused race/vet passed;
-the aggregate Python fixture exposed a stale assertion missing the already-selected
-Runners prepared-suite flag, corrected against its owning workspace manifest.
-Native candidate validation is next. No installation, publication or new lifecycle
-grant is implied; B3–B5 release completion remains unimplemented.
+B2's controller completed native x86_64 P1–P6, including all prepared suites and the
+six-archive candidate. Native cancellation and earlier failures retained diagnostics;
+no partial run reported release success. Bootc production was removed, historical
+readers retained. [Checks, failures, identities and size receipt](implementation-history.md#b2-go-controller-and-native-candidate).
+Selected production is **12,235 lines**, +503 from the direct-staging slice; this is
+not a net simplification claim. B6 still owes old-lane retirement and reduced total
+orchestration. No media, installation/update, signing, publication or retained-state
+mutation occurred.

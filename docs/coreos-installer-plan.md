@@ -144,10 +144,10 @@ and the rootfs authentication handoff still need verification.
 - **Locally available apps after download:** recommend embedding all five exact application archives in the
   immutable host and importing into ordinary Podman storage through native commands
   and systemd ordering. This uses the signed host as their integrity boundary and
-  avoids bootc-bound storage. The current importer embeds/loads only Project OS and
-  Tailnet; current v1 validation requires the other three to be bound. Versioned
-  metadata/caller changes and real load/identity/service-order tests are required;
-  the retained candidate is not already proof of this proposal. Preserve existing
+  avoids bootc-bound storage. B2 now implements [payload v2 and all-five import](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership),
+  with embedded archive identities checked in the native host candidate. Strict v1
+  readers retain the historical meanings. Real installed load/identity/service-order
+  tests are still required; candidate archive inspection does not establish them. Preserve existing
   projects and later writes; image import is not permission to replace workloads.
 
 Before native execution, admit the exact Assembler container digest and its OSBuild/
