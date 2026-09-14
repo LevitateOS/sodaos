@@ -182,12 +182,12 @@ func Prepare(source, out, arch, revision string) (Base, error) {
 			return b, err
 		}
 	}
-	for from, to := range map[string]string{"appliance/bin/soda-console-welcome": "usr/libexec/soda/soda-console-welcome", "appliance/bin/soda-activate": "usr/sbin/soda-activate"} {
+	for from, to := range map[string]string{"appliance/bin/soda-console-welcome": "usr/libexec/soda/soda-console-welcome", "appliance/bin/soda-activate": "usr/bin/soda-activate"} {
 		if err = copyFile(from, "rootfs/"+to, 0755, true); err != nil {
 			return b, err
 		}
 	}
-	for name, target := range map[string]string{"usr/bin/soda-tailnet": "../libexec/soda/soda-tailnet", "usr/sbin/soda-setup": "../libexec/soda/soda-setup"} {
+	for name, target := range map[string]string{"usr/bin/soda-tailnet": "../libexec/soda/soda-tailnet", "usr/bin/soda-setup": "../libexec/soda/soda-setup"} {
 		dest := filepath.Join(out, "rootfs", name)
 		if err = os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
 			return b, err

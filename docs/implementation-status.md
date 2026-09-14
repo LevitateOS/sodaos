@@ -64,11 +64,14 @@ P3 exited 130, retained diagnostics and emitted no candidate. [Receipt](implemen
 
 ### 3. Make the ISO consume the candidate — B3
 
-**In progress — native import verified; packaging extension approved, no ISO/install proof.**
+**In progress — native disk assembly reached; candidate layout fix, no ISO/install proof.**
 The streaming verifier passed its scoped integrity checks. Two native imports retained
 exact candidate bytes and reached upstream helper VMs, but failed before producing
 media. The first three packaging targets are consumed; the owner approved three
 fresh targets and the clarified upstream scratch lifecycle after reviewing the hold.
+Attempt 04 reached OSBuild disk assembly and exposed a candidate `/usr/sbin` overlay
+bug. The source fix preserves Fedora's symlink; a fresh matching-controller candidate
+is next, within the two-replacement allowance. The old candidate stays unchanged.
 [Receipt](implementation-history.md#b3-native-import-and-stopped-packaging-attempts),
 [original approval](#b3-native-fixture-scope--approved) and
 [approved narrow extension](#b3-packaging-extension--approved).
@@ -355,6 +358,10 @@ Upstream ran an unanticipated empty-cache prune (0 bytes reclaimed) and removed
 helper scratch, contrary to the original restriction. After clarification, the owner
 approved the [scope correction and new targets](#b3-packaging-extension--approved);
 execution resumes without resetting the original aggregate resource limits.
-No shipping source changed; production remains **12,235 lines**. No ISO, installation,
-media-removal/first-boot proof, real signing-custody change, publication or retained
-appliance mutation occurred. B3 is not complete.
+Attempt 04 then reached native disk assembly but failed bootloader installation:
+Soda's context replaced `/usr/sbin → bin`, hiding the existing GRUB tool. The focused
+Go-tested source fix stages wrappers in `/usr/bin` and adds a native layout gate
+(**12,238 production lines**, +3). A fresh single-controller replacement is required;
+no old candidate is patched in place. No ISO, installation, media-removal/first-boot
+proof, real signing-custody change, publication or retained-appliance mutation has
+occurred. B3 is not complete.

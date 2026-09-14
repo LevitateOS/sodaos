@@ -15,6 +15,29 @@ not claims that those outputs are still retained.
 
 ---
 
+## B3 native disk assembly and merged-bin correction
+
+After the clarified extension was approved (`e8a8d53`), `native/package-04` used a
+fresh signed-input admission and copied the metadata-only Python-source archive into
+upstream's shared `/srv/tmp`. Both earlier tool handoff failures were passed without
+changing shipping input bytes. Native OSBuild reached disk creation/deployment and
+then failed bootupd's BIOS setup: `Failed to find "/usr/sbin/grub2-install"`.
+
+The unchanged B2 candidate's `/usr/sbin` is a directory containing only Soda's
+`soda-activate` and `soda-setup`; the pinned base resolves it to `bin`. The candidate
+still contains executable `/usr/bin/grub2-install`. `Prepare` had emitted a real
+`rootfs/usr/sbin` directory, which the image `COPY` used to replace Fedora's symlink.
+The source fix emits those two wrappers under `/usr/bin` instead, preserving native
+`/usr/sbin` callers through the upstream symlink. No custom boot provisioning or GRUB
+installation workaround is added. Preparation tests assert no `/usr/sbin` overlay,
+correct executable mode and setup symlink on both target contexts. The native P6
+inspection now requires `/usr/sbin → bin` and accessible GRUB/Soda entrypoints.
+
+`go test ./internal/hostimage` passed with the pinned Go. Production grows three
+physical lines to **12,238**. Attempt 04 and the old candidate remain unchanged; a
+fresh matching-VCS controller run will consume one of the two approved replacement
+candidates. This is a candidate correctness fix, not media/install qualification.
+
 ## B3 native import and stopped packaging attempts
 
 The owner approved `5efed3e`'s exact B3 fixture request; `26f4fda` recorded it before

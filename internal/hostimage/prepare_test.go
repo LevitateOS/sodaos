@@ -36,10 +36,10 @@ func TestPrepareVendorContextFromActualOwners(t *testing.T) {
 			require.Contains(t, read("rootfs/etc/profile.d/soda-console-welcome.sh"), "/usr/libexec/soda/soda-console-welcome")
 			require.Contains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "Image=localhost/soda-dashboard:dev") // Explicitly not yet bound app delivery.
 			require.NoFileExists(t, filepath.Join(out, "rootfs/etc/zincati/config.d/90-soda-image.toml"))
-			for _, path := range []string{"rootfs/var", "rootfs/usr/local", "rootfs/etc/soda", "rootfs/etc/systemd/system", "rootfs/etc/containers/systemd"} {
+			for _, path := range []string{"rootfs/var", "rootfs/usr/sbin", "rootfs/usr/local", "rootfs/etc/soda", "rootfs/etc/systemd/system", "rootfs/etc/containers/systemd"} {
 				require.NoDirExists(t, filepath.Join(out, path))
 			}
-			for _, path := range []string{"rootfs/usr/libexec/soda/soda-console-welcome", "rootfs/usr/sbin/soda-activate"} {
+			for _, path := range []string{"rootfs/usr/libexec/soda/soda-console-welcome", "rootfs/usr/bin/soda-activate"} {
 				info, e := os.Stat(filepath.Join(out, path))
 				require.NoError(t, e)
 				require.Equal(t, os.FileMode(0755), info.Mode().Perm())
@@ -47,6 +47,9 @@ func TestPrepareVendorContextFromActualOwners(t *testing.T) {
 			target, e := os.Readlink(filepath.Join(out, "rootfs/usr/bin/soda-tailnet"))
 			require.NoError(t, e)
 			require.Equal(t, "../libexec/soda/soda-tailnet", target)
+			target, e = os.Readlink(filepath.Join(out, "rootfs/usr/bin/soda-setup"))
+			require.NoError(t, e)
+			require.Equal(t, "../libexec/soda/soda-setup", target)
 			packages := read("packages.list")
 			original, e := os.ReadFile(filepath.Join(source, "appliance/provisioning/base.json"))
 			require.NoError(t, e)

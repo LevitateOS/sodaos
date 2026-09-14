@@ -37,6 +37,9 @@ func buildHost(context, out, arch, revision, prefix string, base Base, p nativeb
 		return errors.New("built host identity/platform mismatch")
 	}
 	packages, err := p.Capture(context, "podman", "--remote=false", "run", "--cidfile", filepath.Join(out, "inspect.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--entrypoint=/bin/sh", id, "-ec", `test "$(stat -c %a /usr/libexec/soda/soda-host)" = 755
+ test -L /usr/sbin
+ test "$(readlink /usr/sbin)" = bin
+ for name in grub2-install soda-setup soda-activate; do test -x /usr/sbin/$name; done
  test -f /usr/lib/systemd/system/soda-project@.service
  test -f /usr/share/containers/systemd/forgejo.container
  test ! -e /usr/local/libexec/soda/soda-host
