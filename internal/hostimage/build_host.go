@@ -42,6 +42,7 @@ func buildHost(context, out, arch, revision, prefix string, base Base, p nativeb
  for name in grub2-install soda-setup soda-activate; do test -x /usr/sbin/$name; done
  test -f /usr/lib/systemd/system/soda-project@.service
  test -f /usr/share/containers/systemd/forgejo.container
+ for file in /etc/subuid /etc/subgid; do test "$(cat "$file")" = 'containers:1000000:268435456'; done
  test ! -e /usr/local/libexec/soda/soda-host
  test ! -e /etc/soda/host.json
  test ! -e /etc/soda/dashboard.json

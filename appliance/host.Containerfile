@@ -19,7 +19,12 @@ RUN curl --fail --show-error --location "$(cat /run/soda-build/tailscale-repo.ur
 COPY rootfs/ /
 # Native rpm-ostree container finalization. Keep Fedora's update ownership;
 # no alternative installer/updater or additional application image store.
-RUN ostree container commit
+# Rootful Podman allocates each project's --userns=auto range from this pool.
+# The pinned base has empty mapping files; reject changed defaults for review.
+RUN test ! -s /etc/subuid && test ! -s /etc/subgid && \
+    printf 'containers:1000000:268435456\n' > /etc/subuid && \
+    cp /etc/subuid /etc/subgid && \
+    ostree container commit
 
 ARG PAYLOAD_SCOPE=host-content-only
 LABEL org.opencontainers.image.title="SodaOS appliance candidate" \

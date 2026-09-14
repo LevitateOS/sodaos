@@ -58,6 +58,13 @@ policy. No privileged parent, host PID/network namespace, appliance engine socke
 or arbitrary host mount was introduced. Storage uses fuse-overlayfs and inner
 workload cgroups remain disabled.
 
+The appliance must provide Podman's `containers:1000000:268435456` pool in both
+subordinate UID/GID files before creating projects with `--userns=auto:size=262144`.
+The immutable host image supplies this default; its build rejects unexpected base
+mapping files rather than overwrite another allocation. Native `/etc` merging owns
+updates. Operator allocations must not overlap this pool; changing an existing
+mapping requires target-specific approval, not project recreation.
+
 The first real Compose image pull/build succeeded, but its default nested bridge
 failed at startup with `netavark: Netlink error: Operation not permitted`. Native
 inspection confirmed the project owns its network namespace but lacks NET_ADMIN.

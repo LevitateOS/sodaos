@@ -130,7 +130,10 @@ func TestCandidateUsesOnlyNativeOSTreeFinalization(t *testing.T) {
 	require.NoError(t, err)
 	require.NotContains(t, string(b), "bootc")
 	require.NotContains(t, string(b), "RUN sed")
-	require.Contains(t, string(b), "RUN ostree container commit")
+	require.Contains(t, string(b), "&& \\\n    ostree container commit")
+	require.Contains(t, string(b), "test ! -s /etc/subuid && test ! -s /etc/subgid")
+	require.Contains(t, string(b), "printf 'containers:1000000:268435456\\n' > /etc/subuid")
+	require.Contains(t, string(b), "cp /etc/subuid /etc/subgid")
 }
 
 func TestRecipeDoesNotInstallOrPublishOnBuilder(t *testing.T) {

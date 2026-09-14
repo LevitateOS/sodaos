@@ -53,7 +53,8 @@ func LaunchDiskVM(ctx context.Context, c VMConfig, disk, variables, iso string, 
 	}
 	args := []string{"-name", c.Name, "-machine", "q35,accel=kvm", "-cpu", "host", "-smp", "4", "-m", "12288", "-nodefaults", "-no-user-config", "-vga", "std", "-display", "none", "-monitor", "none", "-serial", "stdio",
 		"-drive", "if=pflash,format=raw,readonly=on,file=" + c.Firmware, "-drive", "if=pflash,format=raw,file=" + variables,
-		"-drive", "if=virtio,format=qcow2,file=" + disk + ",serial=soda-qualification",
+		"-drive", "if=none,id=target-disk,format=qcow2,file=" + disk,
+		"-device", "virtio-blk-pci,drive=target-disk,serial=soda-qualification",
 		"-nic", "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:" + strconv.Itoa(c.SSH.Port) + "-:22",
 		"-qmp", "unix:" + filepath.Join(c.Work, "qmp.sock") + ",server=on,wait=off"}
 	if iso != "" {

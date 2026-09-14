@@ -115,9 +115,31 @@ reports the **same** Assembler source revision and Installer 0.26.0. This is a r
 input-availability correction, not an incidental source/tool-version upgrade.
 The build CLI now dispatches through an admitted root-owned worker configuration;
 archive admission and disk-VM/console support are being connected to P9 using existing
-acceptance/delivery primitives. **No B4 VM, B build, update, recovery or complete P9
-qualification has run yet.** Native groundwork receipts remain under
-`.artifacts/b4-qualification/`. Upstream `fcos.upgrade.basic` remains unsuitable:
+acceptance/delivery primitives. A verified independent clone has now booted under
+`soda-qualifier`: reviewed console prompt matching gated password entry; fixture-only
+SSH enrollment completed; native rpm-ostree observations matched A's exact host
+manifest and deployed commit. The VM/service stopped successfully and the original
+seed hash remained unchanged. The first QEMU launch refused a misplaced device
+property before boot (clone hash unchanged); a later public-host-key observation was
+corrected without replaying enrollment or regenerating keys. Original failures and
+protected observations remain retained.
+
+A second fresh clone now has native local Forgejo/Soda setup, synthetic operator and
+repository, an A-generation Git commit, an actual native Soda project and project
+filesystem data. Its protected snapshot binds schema 10, the exact project container,
+creation profile, repository commit, settings, machine identity and public-key hashes.
+Project creation exposed an actual image-lane omission: the `containers` subordinate
+ID pool existed only in the old installer script. The immutable host recipe and
+read-only producer check now declare it; the prepared A fixture received the exact
+non-overlapping operator correction. Its successful native project creation followed
+that correction, without replaying account/repository/OAuth setup or restoring data.
+
+**No B build, update, recovery or complete P9 qualification has run yet.** Native
+groundwork receipts remain under `.artifacts/b4-qualification/`; `project-map.log`
+and protected `workers/soda-qualifier/baseline-02/evidence-map01/` record populated A.
+Both task clones and all tested worker VMs are stopped. The original seed remains
+unchanged. The image correction is source-checked, not yet built/installed in B.
+Upstream `fcos.upgrade.basic` remains unsuitable:
 it uses unverified rebase and synthesizes a different commit.
 
 ### 5. Integrate protected signing and delivery — B5

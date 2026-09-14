@@ -13,6 +13,7 @@ import (
 )
 
 // ConsoleRegion identifies a reviewed prompt in the fixed qualification display.
+// Y=-1 searches the fixed 16-pixel console rows (boot banners change length).
 // Matching happens before input, particularly before sending a private password.
 // This is not OCR or an alternate installer state machine: the installer still
 // owns validation, transitions and disk writes. A changed display fails closed.
@@ -52,12 +53,20 @@ func (q QMPClient) WaitConsole(ctx context.Context, path string, r ConsoleRegion
 		if err != nil || closeErr != nil {
 			return errors.Join(err, closeErr)
 		}
-		digest, err := ConsoleRegionHash(frame, r)
-		if err != nil {
-			return err
+		start, end, step := r.Y, r.Y, 1
+		if r.Y == -1 {
+			start, end, step = 0, frame.Bounds().Max.Y-r.Height, 16
 		}
-		if digest == r.SHA256 {
-			return nil
+		for y := start; y <= end; y += step {
+			region := r
+			region.Y = y
+			digest, err := ConsoleRegionHash(frame, region)
+			if err != nil {
+				return err
+			}
+			if digest == r.SHA256 {
+				return nil
+			}
 		}
 		select {
 		case <-ctx.Done():
