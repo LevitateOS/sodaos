@@ -123,35 +123,90 @@ func (f TerminalFrame) inputValid() bool {
 	return false
 }
 
+func validOutputShape(f TerminalFrame) bool {
+	if f.Cols != 0 || f.Rows != 0 {
+		return false
+	}
+	return f.Type == "metadata" || f.Terminals == nil
+}
+
+func validTerminalState(state string) bool {
+	switch state {
+	case "ready", "opening", "ending", "ended":
+		return true
+	default:
+		return false
+	}
+}
+
+func validTerminalItemFlags(ready, attached bool, state string) bool {
+	if ready != (state == "ready") {
+		return false
+	}
+	return !attached || ready
+}
+
+func validTerminalItem(item TerminalState, seen map[string]bool) bool {
+	if !terminalID.MatchString(item.ID) || seen[item.ID] || !ValidTerminalName(item.Name) {
+		return false
+	}
+	if item.CreatedAt <= 0 || item.CreatedAt > 9007199254740991 {
+		return false
+	}
+	return validTerminalItemFlags(item.Ready, item.Attached, item.State) && validTerminalState(item.State)
+}
+
+func validMetadataOutput(f TerminalFrame) bool {
+	if f.Data != "" || f.Reason != "" || f.Terminals == nil || len(*f.Terminals) > terminalLimit {
+		return false
+	}
+	seen := make(map[string]bool)
+	for _, item := range *f.Terminals {
+		if !validTerminalItem(item, seen) {
+			return false
+		}
+		seen[item.ID] = true
+	}
+	return true
+}
+
+func validOutputData(f TerminalFrame) bool {
+	if f.Reason != "" {
+		return false
+	}
+	data, err := base64.StdEncoding.Strict().DecodeString(f.Data)
+	return err == nil && len(data) > 0 && len(data) <= 4096
+}
+
+func validClosedReason(reason string) bool {
+	switch reason {
+	case "disconnected", "expired", "exited", "launch_failed", "stream_failed", "cleanup_unconfirmed":
+		return true
+	default:
+		return false
+	}
+}
+
+func validClosedOutput(f TerminalFrame) bool {
+	return f.Data == "" && validClosedReason(f.Reason)
+}
+
 func (f TerminalFrame) outputValid() bool {
-	if f.Cols != 0 || f.Rows != 0 || (f.Type != "metadata" && f.Terminals != nil) {
+	if !validOutputShape(f) {
 		return false
 	}
 	switch f.Type {
 	case "metadata":
-		if f.Data != "" || f.Reason != "" || f.Terminals == nil || len(*f.Terminals) > terminalLimit {
-			return false
-		}
-		seen := make(map[string]bool)
-		for _, item := range *f.Terminals {
-			if !terminalID.MatchString(item.ID) || seen[item.ID] || !ValidTerminalName(item.Name) || item.CreatedAt <= 0 || item.CreatedAt > 9007199254740991 || item.Ready != (item.State == "ready") || (item.Attached && !item.Ready) {
-				return false
-			}
-			if item.State != "ready" && item.State != "opening" && item.State != "ending" && item.State != "ended" {
-				return false
-			}
-			seen[item.ID] = true
-		}
-		return true
+		return validMetadataOutput(f)
 	case "ready":
 		return f.Data == "" && f.Reason == ""
 	case "output":
-		data, err := base64.StdEncoding.Strict().DecodeString(f.Data)
-		return err == nil && len(data) > 0 && len(data) <= 4096 && f.Reason == ""
+		return validOutputData(f)
 	case "closed":
-		return f.Data == "" && (f.Reason == "disconnected" || f.Reason == "expired" || f.Reason == "exited" || f.Reason == "launch_failed" || f.Reason == "stream_failed" || f.Reason == "cleanup_unconfirmed")
+		return validClosedOutput(f)
+	default:
+		return false
 	}
-	return false
 }
 
 // Streaming commands have a separate concrete boundary from buffered mutations.
