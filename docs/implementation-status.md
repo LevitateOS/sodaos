@@ -77,6 +77,12 @@ refusal remains source-tested, not independently exercised in that guest.
 All six packaging targets, both replacement builds and installation targets 01–03
 are consumed. Previous candidates and successful/partial disks remain unchanged;
 no full B3 or qualified-release completion is claimed.
+A subsequent read-only size audit found an identical **87,693,174-byte OCI layer**
+in both dashboard and project-os archives, occupying separate EROFS extents. Native
+LZMA compression/deduplication is enabled, but the download is **not established as
+optimized**. Audit shared-layer packaging before freezing the production media
+representation; retain every required image and native verification.
+[Size receipt](implementation-history.md#b3-rootfs-size-and-duplication-audit).
 [Receipt](implementation-history.md#b3-native-candidate-installation-and-interrupted-write),
 [original approval](#b3-native-fixture-scope--approved) and
 [approved narrow extension](#b3-packaging-extension--approved).

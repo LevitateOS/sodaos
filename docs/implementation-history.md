@@ -15,6 +15,39 @@ not claims that those outputs are still retained.
 
 ---
 
+## B3 rootfs size and duplication audit
+
+After the owner questioned optimization, a read-only audit of the retained `9577645`
+rootfs found concrete duplication. Evidence:
+`.artifacts/installer-candidate/b3-ea0dc92-OaDOUt/size-audit-30160e0-OD01Hh/`.
+No VM, rebuild, mount, server or artifact mutation was performed.
+
+- The 1,890,589,184-byte CPIO contains one **1,836,576,768-byte EROFS filesystem**,
+  **26,883,265-byte metal osmet** and **27,127,800-byte metal4k osmet**, plus tiny
+  headers/stamp/padding. It does not contain two complete raw installation disks.
+- Native packaging used `-zlzma,level=6 -Efragments -C1048576 --quiet`. The actual
+  EROFS superblock reports LZMA, fragments and dedupe. Its app archive inodes have
+  two hard links: counting names is not a physical-duplication measurement.
+- The five separate OCI archives total **685,604,864 bytes**. Dashboard and project-os
+  both contain layer `sha256:530d6b37ba46a527ac6dfd8fa14e3b44a6abd963d7ba147d3751a1650febf4b6`,
+  **87,693,174 bytes**. Both actual blob streams were hashed and matched, not merely
+  compared by manifest names.
+- EROFS extent inspection of those blob ranges found **zero shared physical bytes**
+  between their two copies. Extents touching the respective ranges occupy 86,753,280
+  and 87,003,136 bytes, including boundary compression blocks. Thus existing filesystem
+  compression/deduplication did not eliminate this archive-level duplication.
+  Those figures are not an exact predicted saving for a different export format.
+
+Eleven audit files are hashed in its `SHA256SUMS`. The general EROFS statistics count
+paths/shared storage differently from physical image bytes; they are not another
+physical footprint total. This was a bounded container/layer/extent audit, not a full
+unnecessary-package/file-duplication audit or compression benchmark. The rootfs is a
+working baseline, **not a demonstrated optimized release**. Evaluate the selected
+upstream tools' shared-layer export/import mechanisms before changing the embedded
+image representation; do not remove required apps, fork native disk ownership or
+rebuild already admitted media in place. Production source and tested bytes remain
+unchanged. Hosting-limit compliance alone does not establish optimization.
+
 ## B3 native candidate installation and interrupted write
 
 Final approved replacement `9577645742048ba3948f84dabee871c0963492ba` passed the
