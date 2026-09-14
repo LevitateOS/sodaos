@@ -121,65 +121,84 @@ func disjointVMWork(work string, e *Evidence) error {
 	return nil
 }
 
-func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
-	if c.DiskGiB == 0 {
-		c.DiskGiB = 64
-	}
-	if err := c.preflight(e); err != nil {
-		return nil, err
-	}
-	var base nativebuild.VerifiedBase
-	if err := nativebuild.ReadJSON(c.BaseReceipt, &base); err != nil {
-		return nil, err
-	}
-	l, img, err := nativebuild.ReadCoreOS(c.CoreOSLock, c.Architecture)
-	if err != nil {
-		return nil, err
-	}
-	if base.Architecture != c.Architecture || base.Release != l.Release || base.SHA256 != img.UncompressedSHA256 {
-		return nil, errors.New("base does not match selected CoreOS input")
-	}
+func verifyBaseReceiptPathAndMode(base nativebuild.VerifiedBase) error {
 	if !filepath.IsAbs(base.Path) || strings.ContainsAny(base.Path, ",\n\r") {
-		return nil, errors.New("unsafe base path")
+		return errors.New("unsafe base path")
 	}
 	baseStat, err := os.Lstat(base.Path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if baseStat.Mode().Perm()&0o222 != 0 {
-		return nil, errors.New("verified base must be read-only; fetch a fresh cache, never chmod a live base")
+		return errors.New("verified base must be read-only; fetch a fresh cache, never chmod a live base")
+	}
+	return nil
+}
+
+func verifyLaunchBaseIdentity(base nativebuild.VerifiedBase, arch string, lock nativebuild.CoreOSLock, img nativebuild.CoreOSImage) error {
+	if base.Architecture != arch || base.Release != lock.Release || base.SHA256 != img.UncompressedSHA256 {
+		return errors.New("base does not match selected CoreOS input")
+	}
+	return nil
+}
+
+func verifyLaunchBaseImage(c VMConfig) (nativebuild.VerifiedBase, error) {
+	var base nativebuild.VerifiedBase
+	if err := nativebuild.ReadJSON(c.BaseReceipt, &base); err != nil {
+		return base, err
+	}
+	l, img, err := nativebuild.ReadCoreOS(c.CoreOSLock, c.Architecture)
+	if err != nil {
+		return base, err
+	}
+	if err = verifyLaunchBaseIdentity(base, c.Architecture, l, img); err != nil {
+		return base, err
+	}
+	if err = verifyBaseReceiptPathAndMode(base); err != nil {
+		return base, err
 	}
 	if !regexp.MustCompile(`^(?:[A-F0-9]{40}|[A-F0-9]{64})$`).MatchString(base.Signer) {
-		return nil, errors.New("verified base receipt lacks selected signer")
+		return base, errors.New("verified base receipt lacks selected signer")
 	}
 	sum, err := nativebuild.HashFile(base.Path)
 	if err != nil || sum != base.SHA256 {
-		return nil, errors.Join(err, errors.New("base checksum mismatch"))
+		return base, errors.Join(err, errors.New("base checksum mismatch"))
 	}
+	return base, nil
+}
+
+func publishLaunchFixture(c VMConfig, e *Evidence, base nativebuild.VerifiedBase) error {
 	firmwareHash, err := nativebuild.HashFile(c.Firmware)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	varsHash, err := nativebuild.HashFile(c.Variables)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	description := struct{ Name, Architecture, BaseSHA256, Release, FirmwareSHA256, VariablesSHA256, Work string }{c.Name, c.Architecture, base.SHA256, base.Release, firmwareHash, varsHash, c.Work}
-	if err = e.WriteJSON("fixture.json", description); err != nil {
-		return nil, err
-	}
-	version, err := Execute(ctx, e, "qemu-version", Command{Name: c.QEMU, Args: []string{"--version"}})
+	description := struct {
+		Name, Architecture, BaseSHA256, Release, FirmwareSHA256, VariablesSHA256, Work string
+	}{c.Name, c.Architecture, base.SHA256, base.Release, firmwareHash, varsHash, c.Work}
+	return e.WriteJSON("fixture.json", description)
+}
+
+func verifyQEMUCommands(ctx context.Context, e *Evidence, qemu string) error {
+	version, err := Execute(ctx, e, "qemu-version", Command{Name: qemu, Args: []string{"--version"}})
 	if err != nil || version.Err != nil {
-		return nil, errors.Join(err, version.Err)
+		return errors.Join(err, version.Err)
 	}
 	version, err = Execute(ctx, e, "qemu-img-version", Command{Name: "qemu-img", Args: []string{"--version"}})
 	if err != nil || version.Err != nil {
-		return nil, errors.Join(err, version.Err)
+		return errors.Join(err, version.Err)
 	}
+	return nil
+}
+
+func verifyBaseImageFormat(ctx context.Context, e *Evidence, basePath string, diskGiB int) error {
 	// qemu-img obtains its normal image locks; never request unsafe -U access.
-	r, err := Execute(ctx, e, "base-info", Command{Name: "qemu-img", Args: []string{"info", "--output=json", base.Path}})
+	r, err := Execute(ctx, e, "base-info", Command{Name: "qemu-img", Args: []string{"info", "--output=json", basePath}})
 	if err != nil || r.Err != nil {
-		return nil, errors.Join(err, r.Err)
+		return errors.Join(err, r.Err)
 	}
 	var info struct {
 		Format  string `json:"format"`
@@ -187,24 +206,51 @@ func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 		Size    int64  `json:"virtual-size"`
 	}
 	if err = json.Unmarshal(r.Stdout, &info); err != nil {
-		return nil, err
+		return err
 	}
-	if info.Format != "qcow2" || info.Backing != "" || info.Size <= 0 || info.Size > int64(c.DiskGiB)<<30 {
-		return nil, errors.New("standalone qcow2 base required")
+	if info.Format != "qcow2" || info.Backing != "" || info.Size <= 0 || info.Size > int64(diskGiB)<<30 {
+		return errors.New("standalone qcow2 base required")
 	}
-	if err = nativebuild.FreshDirectory(c.Work); err != nil {
-		return nil, err
+	return nil
+}
+
+func prepareVMWorkDirectory(ctx context.Context, e *Evidence, c VMConfig, basePath string) error {
+	if err := nativebuild.FreshDirectory(c.Work); err != nil {
+		return err
 	}
 	disk := filepath.Join(c.Work, "disk.qcow2")
-	r, err = Execute(ctx, e, "disk-create", Command{Name: "qemu-img", Args: []string{"create", "-f", "qcow2", "-F", "qcow2", "-b", base.Path, disk, strconv.Itoa(c.DiskGiB) + "G"}})
+	r, err := Execute(ctx, e, "disk-create", Command{Name: "qemu-img", Args: []string{"create", "-f", "qcow2", "-F", "qcow2", "-b", basePath, disk, strconv.Itoa(c.DiskGiB) + "G"}})
 	if err != nil || r.Err != nil {
-		return nil, errors.Join(err, r.Err)
+		return errors.Join(err, r.Err)
 	}
 	vars, err := os.ReadFile(c.Variables)
 	if err != nil {
+		return err
+	}
+	return nativebuild.WriteNew(filepath.Join(c.Work, "vars.fd"), vars, 0o600)
+}
+
+func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
+	if c.DiskGiB == 0 {
+		c.DiskGiB = 64
+	}
+	if err := c.preflight(e); err != nil {
 		return nil, err
 	}
-	if err = nativebuild.WriteNew(filepath.Join(c.Work, "vars.fd"), vars, 0o600); err != nil {
+	base, err := verifyLaunchBaseImage(c)
+	if err != nil {
+		return nil, err
+	}
+	if err = publishLaunchFixture(c, e, base); err != nil {
+		return nil, err
+	}
+	if err = verifyQEMUCommands(ctx, e, c.QEMU); err != nil {
+		return nil, err
+	}
+	if err = verifyBaseImageFormat(ctx, e, base.Path, c.DiskGiB); err != nil {
+		return nil, err
+	}
+	if err = prepareVMWorkDirectory(ctx, e, c, base.Path); err != nil {
 		return nil, err
 	}
 	v := &VM{config: c, evidence: e, waitSSH: true}
