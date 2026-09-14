@@ -28,6 +28,8 @@ type VMConfig struct {
 type VM struct {
 	config   VMConfig
 	process  *Process
+	bootArgs []string
+	waitSSH  bool
 	qmp      QMPClient
 	outputs  []io.WriteCloser
 	evidence *Evidence
@@ -54,14 +56,8 @@ func (c VMConfig) preflight(e *Evidence) error {
 	if len(filepath.Join(c.Work, "qmp.sock")) > 100 {
 		return errors.New("select a shorter private work directory for QMP")
 	}
-	for _, pair := range [][2]string{{c.Work, e.Path()}, {e.Path(), c.Work}} {
-		r, err := filepath.Rel(pair[0], pair[1])
-		if err != nil {
-			return err
-		}
-		if r == "." || (!strings.HasPrefix(r, ".."+string(filepath.Separator)) && r != "..") {
-			return errors.New("VM work and evidence must be disjoint")
-		}
+	if err := disjointVMWork(c.Work, e); err != nil {
+		return err
 	}
 	if c.SSH.Host != "127.0.0.1" || c.SSH.User != "root" {
 		return errors.New("CoreOS fixture SSH must be root on loopback")
@@ -108,6 +104,22 @@ func (c VMConfig) preflight(e *Evidence) error {
 	}
 	return listener.Close()
 }
+func disjointVMWork(work string, e *Evidence) error {
+	if e == nil {
+		return errors.New("private evidence required")
+	}
+	for _, pair := range [][2]string{{work, e.Path()}, {e.Path(), work}} {
+		r, err := filepath.Rel(pair[0], pair[1])
+		if err != nil {
+			return err
+		}
+		if r == "." || (!strings.HasPrefix(r, ".."+string(filepath.Separator)) && r != "..") {
+			return errors.New("VM work and evidence must be disjoint")
+		}
+	}
+	return nil
+}
+
 func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 	if c.DiskGiB == 0 {
 		c.DiskGiB = 64
@@ -194,7 +206,7 @@ func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 	if err = nativebuild.WriteNew(filepath.Join(c.Work, "vars.fd"), vars, 0600); err != nil {
 		return nil, err
 	}
-	v := &VM{config: c, evidence: e}
+	v := &VM{config: c, evidence: e, waitSSH: true}
 	if err = v.start(ctx); err != nil {
 		return v, errors.Join(err, v.Close())
 	}
@@ -223,7 +235,11 @@ func (v *VM) start(ctx context.Context) error {
 		return err
 	}
 	v.outputs = append(v.outputs, stderr)
-	v.process, err = StartProcess(ctx, Command{Name: v.config.QEMU, Args: v.config.args()}, out, stderr)
+	args := v.bootArgs
+	if args == nil {
+		args = v.config.args()
+	}
+	v.process, err = StartProcess(ctx, Command{Name: v.config.QEMU, Args: args}, out, stderr)
 	if err != nil {
 		return err
 	}
@@ -242,6 +258,9 @@ func (v *VM) start(ctx context.Context) error {
 			return ready.Err()
 		case <-time.After(200 * time.Millisecond):
 		}
+	}
+	if !v.waitSSH {
+		return nil
 	}
 	sshCtx, stop := context.WithTimeout(ctx, 10*time.Minute)
 	defer stop()

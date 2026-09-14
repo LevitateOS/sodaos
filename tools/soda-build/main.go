@@ -40,10 +40,22 @@ func run() (err error) {
 	out := flag.String("out", "", "fresh absolute output below .artifacts/releases (parent must exist)")
 	prefix := flag.String("repository-prefix", "ghcr.io/levitateos/sodaos", "intended immutable image repositories; no publication")
 	rootfs := flag.String("rootfs-base-url", "", "public base URL for the exact hash-named rootfs file")
-	authority := flag.String("media-authority", "", "restricted JSON naming Trust and Keys; never copied into build inputs")
+	authority := flag.String("media-authority", "", "worker-local fixture authority; not release custody")
+	workerConfigPath := flag.String("worker-config", "", "root-owned configuration for isolated worker dispatch")
+	workerBuild := flag.Bool("worker-build", false, "internal build stage; requires the isolated build identity")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
+	}
+	if *workerBuild {
+		if *workerConfigPath != "" {
+			return errors.New("build stage cannot select qualification authority")
+		}
+		if err := buildWorkerIdentity(); err != nil {
+			return err
+		}
+	} else if *workerConfigPath == "" || *authority != "" {
+		return errors.New("root-owned --worker-config required; media authority belongs to the isolated worker")
 	}
 	ctx, cancel := context.WithCancelCause(context.Background())
 	defer cancel(nil)
@@ -58,8 +70,11 @@ func run() (err error) {
 		}
 	}()
 	// No inherited child mode, false summary or unrelated installed-test activation.
-	for _, key := range []string{"SODA_BUILD_START_NS", "SODA_BUILD_TIMING_LOG", "SODA_BUILD_CHILD"} {
+	for _, key := range []string{"SODA_BUILD_TIMING_LOG", "SODA_BUILD_CHILD"} {
 		os.Unsetenv(key)
+	}
+	if !*workerBuild {
+		os.Unsetenv("SODA_BUILD_START_NS")
 	}
 	progress, e := nativebuild.NewBuildProgress("", "Soda release build")
 	if e != nil {
@@ -88,10 +103,18 @@ func run() (err error) {
 		return errors.New("controller needs build VCS metadata; compile tools/soda-build from the committed checkout")
 	}
 	r := hostimage.Request{Source: source, Out: *out, Arch: *arch, RepositoryPrefix: *prefix, Revision: revision, RootfsBaseURL: *rootfs, MediaAuthority: *authority}
-	result, e := hostimage.Build(ctx, r, progress)
+	if *workerBuild {
+		_, e := hostimage.Build(ctx, r, progress)
+		return e // stage completion only; the trusted parent owns qualification
+	}
+	config, e := loadWorkerConfig(*workerConfigPath, source, *out)
 	if e != nil {
 		return e
 	}
-	fmt.Fprintln(os.Stderr, "MEDIA", result.Media, "(verified candidate-derived media; not a qualified release)")
+	result, e := runBuildWorker(ctx, config, r, progress)
+	if e != nil {
+		return e
+	}
+	fmt.Fprintln(os.Stderr, "MEDIA", result.Media, "(isolated producer output; native qualification is still required)")
 	return incomplete{}
 }

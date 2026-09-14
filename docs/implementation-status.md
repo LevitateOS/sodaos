@@ -100,13 +100,25 @@ standalone B3 replay is required solely to replace the recorded nonzero exit.
 
 Execution groundwork: the stopped standalone A disk and its current-layout native
 receipt were checked without mutation; disk/receipt hashes are recorded under
-`.artifacts/b4-qualification/admission/baseline.json`. No B4 VM, update, recovery,
-worker-account installation or P9 implementation has run yet. The pinned Assembler's
-`kola run-upgrade` was checked against its actual source: `fcos.upgrade.basic` uses
-an unverified archive rebase and synthesizes another OSTree commit. It cannot be
-substituted for this scope's signed, unchanged-candidate qualification. Existing Go
-acceptance primitives remain available, but the fixed P9 scenario and protected
-worker dispatch still need implementation.
+`.artifacts/b4-qualification/admission/baseline.json`. The two separate non-login
+worker accounts now exist, without sudo/service grants. Native service checks passed
+for exact non-root UIDs, read-only input/write refusal, builder refusal to read the
+qualifier's private custody marker, and cancellation of the exact running service.
+The dispatcher uses systemd's service/cgroup boundary; anonymous output pipes retain
+log-file ownership in the controller. An isolated build-worker preflight passed
+pinned Go/Bun, the canonical source view and rootless Podman checks.
+
+Quay no longer serves the former Assembler manifest, and native Skopeo refused a
+preserving transfer from the administrator's cached store. The selected available
+replacement in `media-tools.json` was pulled under the isolated build identity: it
+reports the **same** Assembler source revision and Installer 0.26.0. This is a required
+input-availability correction, not an incidental source/tool-version upgrade.
+The build CLI now dispatches through an admitted root-owned worker configuration;
+archive admission and disk-VM/console support are being connected to P9 using existing
+acceptance/delivery primitives. **No B4 VM, B build, update, recovery or complete P9
+qualification has run yet.** Native groundwork receipts remain under
+`.artifacts/b4-qualification/`. Upstream `fcos.upgrade.basic` remains unsuitable:
+it uses unverified rebase and synthesizes a different commit.
 
 ### 5. Integrate protected signing and delivery — B5
 

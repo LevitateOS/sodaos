@@ -54,6 +54,17 @@ func Prepare(t Trust, candidate string, q Qualification, out string) (string, er
 	if release.Provenance["packages.txt"] != "sha256:"+p.HostPackagesSHA256 || release.Provenance["presentation.json"] != "sha256:"+p.PresentationSHA256 {
 		return "", ErrRefused
 	}
+	if _, e = VerifyCandidateImages(root, candidate, p, c); e != nil {
+		return "", e
+	}
+	return WriteDocument(out, release)
+}
+
+// VerifyCandidateImages is the shared native archive/identity check used by
+// qualification admission and release preparation. The caller validates payload
+// and candidate metadata first; observed archive hashes can bind later evidence.
+func VerifyCandidateImages(root *os.Root, candidate string, p appliancerelease.Payload, c Candidate) (map[string]string, error) {
+	files := map[string]string{}
 	inputs := map[string]appliancerelease.Image{"host": {Config: c.Host.Config, Manifest: c.Host.Manifest, ArchiveSHA256: c.HostArchiveSHA256}}
 	for n, im := range p.Images {
 		inputs[n] = im
@@ -65,7 +76,7 @@ func Prepare(t Trust, candidate string, q Qualification, out string) (string, er
 		}
 		hash, e := nativebuild.HashAt(root, path)
 		if e != nil || hash != inputs[n].ArchiveSHA256 {
-			return "", errorAt(n + " archive")
+			return nil, errorAt(n + " archive")
 		}
 		rev := p.Revision
 		if n == "proxy" {
@@ -73,10 +84,11 @@ func Prepare(t Trust, candidate string, q Qualification, out string) (string, er
 		}
 		im, e := nativebuild.InspectOCI(filepath.Join(candidate, path), p.Architecture, rev)
 		if e != nil || im.Manifest != inputs[n].Manifest || im.Config != inputs[n].Config {
-			return "", errorAt(n + " identity")
+			return nil, errorAt(n + " identity")
 		}
+		files[path] = hash
 	}
-	return WriteDocument(out, release)
+	return files, nil
 }
 
 func ReferenceForDocument(t Trust, kind, digest string) (string, error) {

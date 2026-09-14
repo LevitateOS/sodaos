@@ -85,25 +85,31 @@ The first installer verifies before copying writable prefixes, validates the RFC
 
 `tools/soda-build` owns the fixed P1–P8 candidate/media sequence under the
 [release contract](release-engineering-plan.md#single-run-release-build-contract).
-Build from committed canonical source with the pinned Go/Bun/native prerequisites:
+Build from committed canonical source with the pinned Go/Bun/native prerequisites.
+The public entry point now requires an operator-admitted, root-owned executable and
+restricted `--worker-config`; it does not install accounts, grant sudo or create a
+worker policy. Account/helper installation requires applicable task approval.
 
-```sh
-mkdir -p .artifacts/controllers .artifacts/releases
-mkdir .artifacts/controllers/UNIQUE
-GOTOOLCHAIN=go1.26.7 go build -trimpath \
-  -o .artifacts/controllers/UNIQUE/soda-build ./tools/soda-build
-.artifacts/controllers/UNIQUE/soda-build --arch x86_64 \
-  --out "$PWD/.artifacts/releases/UNIQUE" \
-  --rootfs-base-url http://10.0.2.2:19843 \
-  --media-authority /path/to/private/media-authority.json
-```
+The configuration names `Executable`, canonical `Source`, an existing private
+`OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
+`MediaAuthorityDirectory`. `OutputParent`, `BuildHome` and `Runtime` belong to
+`soda-build-worker`; tools provide `go/bin/go` and `bin/bun`. The executable and its
+parents are root-owned and not group/world writable, and its bytes must equal the
+running dispatcher. The internal `--worker-build` stage refuses other identities.
 
-The authority file is restricted JSON with `Trust` (public trust-file path) and
-`Keys` containing `Key` and `Passphrase` file paths, as used by the existing release
-signer. It is not copied into the source snapshot or child environment. Local runs
-use isolated fixture keys, never real release credentials. This exercises signature
-admission, not adversarial build-job isolation or final release approval; protected
-worker integration remains B4/B5. The public URL is explicit and receives a
+The operator runs the admitted executable as root with `--worker-config PATH`,
+`--arch x86_64`, a fresh `--out OUTPUT_PARENT/UNIQUE`, and the explicit
+`--rootfs-base-url URL`. Source commands run only inside the separate systemd worker:
+read-only source/tools, selected writable output/cache/runtime binds, CPUs 0–3,
+a four-CPU quota, 16 GiB ceiling, and no operator-home or real-release-custody access.
+
+`MediaAuthorityDirectory/config.json` is restricted JSON with `Trust` and `Keys`
+(`Key`, `Passphrase`), using worker-visible paths below `/run/soda-media-authority/`.
+It and the fixture key inputs belong to the build worker but are bound read-only.
+They are not copied into frozen source or command environment. This authority is
+**fixture-only**: production release keys must never be supplied to the build worker.
+Native identity/custody boundary checks have passed; the complete P9 scenario and
+final release approval remain unfinished B4/B5 work. The public URL is explicit and receives a
 hash-named rootfs file. A local URL does not make the ISO distribution-ready.
 
 The controller's VCS revision must match the clean checkout. Each output is fresh;
