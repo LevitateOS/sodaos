@@ -83,7 +83,7 @@ A fixture download URL is not a distribution-ready public installer.
 
 ### 4. Connect native qualification — B4
 
-**Scope revised; implementation/native execution not started.** The
+**In progress under the owner's approval to complete M4.** The
 [owning B4 contract](release-engineering-plan.md#milestone-4--connect-native-qualification)
 selects P9 installation, same-base x86_64 A → B update and compatible native recovery.
 A is the verified current-layout `33ea3f5` artifact; B is the next necessary clean
@@ -113,11 +113,9 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-The bounded B4 contract is now recorded in the owning guide. Before native execution,
-obtain a B4-scoped grant identifying the disposable targets and qualification/trust
-identities described below. Do not infer it from the completed pre-B4 grant or this
-plan-edit request. Then implement P9 using existing drivers and run the selected
-scenario, exercising controller completion during the necessary B build. Do not
+Implement P9 using existing drivers and run the approved selected scenario,
+exercising controller completion during the necessary B build. Admit baseline bytes
+and establish the build/qualification authority boundary before native test effects. Do not
 reopen B3 as a preservation, compression or general audit programme. Public hosting,
 ARM and minimum-hardware qualification remain separate work.
 
@@ -129,16 +127,15 @@ complete offline installer.
 
 ## Current permissions
 
-**Current task: plan revision only.** No B4 native build, installation, update,
-rollback, trust/network change or qualification-worker installation is authorized by
-this revision. The earlier standing grant covered the seven pre-B4 tasks through
-readiness; it superseded the consumed-slot proposal but does not silently commission B4.
+**Current task: complete M4.** The owner's subsequent “Now do M4 completely”
+approves the bounded B4 implementation and local execution scope below. It supersedes
+the plan-only hold, not the restrictions on real custody or public commissioning.
 
-**Proposed B4 execution scope, pending approval:**
+**Approved B4 execution scope:**
 
 - Fresh task-owned outputs/targets under `.artifacts/b4-qualification/`, using a
   verified copy of the stopped B3 disk, not mutating the retained seed or adopting an
-  unrelated VM. Record exact run paths before effects. Carry forward the proposed
+  unrelated VM. Record exact run paths before effects. Carry forward the
   one-active-VM, affinity 0–3, four-vCPU/16-GiB ceiling; measure storage rather than
   reserve a preservation-driven expansion.
 - Native build/package and disposable VM/disk lifecycle for the selected P9 scenario,
@@ -148,12 +145,13 @@ readiness; it superseded the consumed-slot proposal but does not silently commis
 - Fixture-only signing authority, local OCI content and HTTPS graph serving, with
   endpoint routing/CA/policy changes confined to the disposable guests. No public
   publication, host-wide DNS/firewall/trust changes or use of real release credentials.
-- Name and approve the separate build/qualification identities and evidence custody
-  before installing workers or granting host privileges. Same-user fixture signatures
+- Use separate `soda-build-worker` and `soda-qualifier` identities and protected
+  evidence custody. Check for conflicting existing accounts before creating them;
+  record exact worker/run paths and privileges before effects. Same-user fixture signatures
   are not proof of that boundary. Use existing protected primitives; do not reset
   `/var/lib/soda-release` to make a local test work.
 - Specify permitted task-container/helper cleanup and exact disposable resources.
-  This planning approval authorizes no artifact deletion or unrelated cleanup.
+  No unrelated cleanup or deletion of retained baseline artifacts is authorized.
 
 Existing real delivery authority remains candidate-channel-only within its original
 commissioning scope; no bootstrap replay, key/ledger reset or preview/stable publishing
