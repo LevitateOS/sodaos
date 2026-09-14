@@ -98,6 +98,16 @@ alone cannot satisfy protected qualification. B5 retains final release authority
 The next B build must exercise corrected media readback and result reporting; no
 standalone B3 replay is required solely to replace the recorded nonzero exit.
 
+Execution groundwork: the stopped standalone A disk and its current-layout native
+receipt were checked without mutation; disk/receipt hashes are recorded under
+`.artifacts/b4-qualification/admission/baseline.json`. No B4 VM, update, recovery,
+worker-account installation or P9 implementation has run yet. The pinned Assembler's
+`kola run-upgrade` was checked against its actual source: `fcos.upgrade.basic` uses
+an unverified archive rebase and synthesizes another OSTree commit. It cannot be
+substituted for this scope's signed, unchanged-candidate qualification. Existing Go
+acceptance primitives remain available, but the fixed P9 scenario and protected
+worker dispatch still need implementation.
+
 ### 5. Integrate protected signing and delivery — B5
 
 **Not started.** Connect protected authority to final candidate/ISO/evidence bindings
