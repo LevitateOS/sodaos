@@ -47,7 +47,6 @@ func buildHost(context, out, arch, revision, prefix string, base Base, p nativeb
  test ! -e /etc/soda/dashboard.json
  test ! -e /etc/zincati/config.d/90-soda-image.toml
  test ! -e /usr/lib/bootc/bound-images.d/forgejo.container
- for name in dashboard forgejo proxy project-os tailnet; do test -s /usr/share/soda/images/$name.oci; done
  rpm -q rpm-ostree zincati ignition cockpit-ostree tailscale >/dev/null
  cat /usr/share/soda/host-image/packages.txt`)
 	if err != nil {
