@@ -229,7 +229,14 @@ func copyInstalledPayload(ctx context.Context, selected Disk, media mediaIdentit
 	return copyInstalledPayloadWith(ctx, selected, media, measured, run, ops)
 }
 
-func copyInstalledPayloadWith(ctx context.Context, selected Disk, media mediaIdentity, measured uint64, run commandRunner, ops payloadCopyOps) (result error) {
+type installedPayloadTarget struct {
+	stateroot   string
+	physicalVar string
+	state       string
+	started     payloadReceipt
+}
+
+func verifyMediaPayloadRequirement(ctx context.Context, ops payloadCopyOps, media mediaIdentity, measured uint64) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -237,59 +244,74 @@ func copyInstalledPayloadWith(ctx context.Context, selected Disk, media mediaIde
 	if err != nil || current != measured {
 		return errors.New("verified media payload changed after disk installation")
 	}
+	return ctx.Err()
+}
+
+func discoverAndMountRoot(ctx context.Context, ops payloadCopyOps, selected Disk, run commandRunner) (installedRoot, string, func() error, error) {
 	if err := ctx.Err(); err != nil {
-		return err
+		return installedRoot{}, "", nil, err
 	}
 	root, err := ops.discover(ctx, selected, run)
 	if err != nil {
-		return err
+		return installedRoot{}, "", nil, err
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return installedRoot{}, "", nil, err
 	}
 	mountpoint, cleanup, err := ops.mount(root)
 	if err != nil {
-		return err
+		return installedRoot{}, "", nil, err
 	}
-	state := ""
-	completion := ""
-	defer func() {
-		if result != nil && completion != "" {
-			result = errors.Join(result, invalidatePayloadCompletion(completion, state, mountpoint))
-			completion = ""
-		}
-		cleanupErr := cleanup()
-		if cleanupErr != nil && completion != "" {
-			cleanupErr = errors.Join(cleanupErr, invalidatePayloadCompletion(completion, state, mountpoint))
-		}
-		result = errors.Join(result, cleanupErr)
-	}()
-	if err := ops.recheck(ctx, selected, root, mountpoint, run); err != nil {
-		return err
-	}
+	return root, mountpoint, cleanup, nil
+}
+
+func prepareInstalledPayloadState(ctx context.Context, ops payloadCopyOps, mountpoint string, media mediaIdentity, measured uint64) (installedPayloadTarget, error) {
+	var target installedPayloadTarget
 	if err := ctx.Err(); err != nil {
-		return err
+		return target, err
 	}
 	stateroot, physicalVar, err := ops.physicalVar(mountpoint)
 	if err != nil {
-		return err
+		return target, err
 	}
 	available, err := ops.available(physicalVar)
 	if err != nil || measured > ^uint64(0)-payloadFreeReserve || available < measured+payloadFreeReserve {
-		return errors.New("installed CoreOS root lacks payload space plus required reserve; disk layout was not changed")
+		return target, errors.New("installed CoreOS root lacks payload space plus required reserve; disk layout was not changed")
 	}
-	state, err = ops.prepare(physicalVar)
+	state, err := ops.prepare(physicalVar)
 	if err != nil {
-		return err
+		return target, err
 	}
-	started := payloadReceipt{Schema: payloadReceiptSchema, Release: media.Release,
-		Architecture: media.Architecture, Revision: media.Revision,
-		BundleSHA256: media.BundleSHA256, Bytes: measured}
+	started := payloadReceipt{
+		Schema:       payloadReceiptSchema,
+		Release:      media.Release,
+		Architecture: media.Architecture,
+		Revision:     media.Revision,
+		BundleSHA256: media.BundleSHA256,
+		Bytes:        measured,
+	}
 	if err := writePayloadReceipt(filepath.Join(state, "media-copy-started.json"), started); err != nil {
-		return err
+		return target, err
 	}
-	bundle := filepath.Join(state, "bundle", media.Architecture)
-	if err := os.Mkdir(filepath.Dir(bundle), 0700); err != nil {
+	target = installedPayloadTarget{
+		stateroot:   stateroot,
+		physicalVar: physicalVar,
+		state:       state,
+		started:     started,
+	}
+	return target, nil
+}
+
+func copyAndVerifyBundle(
+	ctx context.Context,
+	ops payloadCopyOps,
+	target installedPayloadTarget,
+	media mediaIdentity,
+	run commandRunner,
+	mountpoint string,
+) error {
+	bundle := filepath.Join(target.state, "bundle", media.Architecture)
+	if err := os.Mkdir(filepath.Dir(bundle), 0o700); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
@@ -301,21 +323,28 @@ func copyInstalledPayloadWith(ctx context.Context, selected Disk, media mediaIde
 	if _, err := ops.verify(bundle, media.BundleSHA256, media.Architecture); err != nil {
 		return errors.New("installed payload verification failed; partial state was preserved")
 	}
-	if err := ops.label(ctx, stateroot, state, run); err != nil {
+	if err := ops.label(ctx, target.stateroot, target.state, run); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if err := syncDirectories(bundle, filepath.Dir(bundle), state, filepath.Dir(state), physicalVar, stateroot); err != nil {
+	if err := syncDirectories(bundle, filepath.Dir(bundle), target.state, filepath.Dir(target.state), target.physicalVar, target.stateroot); err != nil {
 		return err
 	}
 	if err := ops.sync(mountpoint); err != nil {
 		return errors.New("cannot persist installed payload data")
 	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
+	return ctx.Err()
+}
+
+func publishPayloadCompletion(
+	ctx context.Context,
+	ops payloadCopyOps,
+	mountpoint, state string,
+	started payloadReceipt,
+	completion *string,
+) error {
 	ready := filepath.Join(state, "media-copy-ready.json")
 	if err := writePayloadReceipt(ready, started); err != nil {
 		return err
@@ -329,11 +358,12 @@ func copyInstalledPayloadWith(ctx context.Context, selected Disk, media mediaIde
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	completion = filepath.Join(state, "media-copy.json")
-	if err := os.Rename(ready, completion); err != nil {
-		completion = ""
+	completed := filepath.Join(state, "media-copy.json")
+	if err := os.Rename(ready, completed); err != nil {
+		*completion = ""
 		return errors.New("cannot publish installed payload completion")
 	}
+	*completion = completed
 	if err := syncDirectories(state); err != nil {
 		return err
 	}
@@ -341,6 +371,45 @@ func copyInstalledPayloadWith(ctx context.Context, selected Disk, media mediaIde
 		return errors.New("cannot persist installed payload completion")
 	}
 	return nil
+}
+
+func finalizeInstalledPayload(result error, completion, state, mountpoint string, cleanup func() error) error {
+	if result != nil && completion != "" {
+		result = errors.Join(result, invalidatePayloadCompletion(completion, state, mountpoint))
+		completion = ""
+	}
+	cleanupErr := cleanup()
+	if cleanupErr != nil && completion != "" {
+		cleanupErr = errors.Join(cleanupErr, invalidatePayloadCompletion(completion, state, mountpoint))
+	}
+	return errors.Join(result, cleanupErr)
+}
+
+func copyInstalledPayloadWith(ctx context.Context, selected Disk, media mediaIdentity, measured uint64, run commandRunner, ops payloadCopyOps) (result error) {
+	if err := verifyMediaPayloadRequirement(ctx, ops, media, measured); err != nil {
+		return err
+	}
+	root, mountpoint, cleanup, err := discoverAndMountRoot(ctx, ops, selected, run)
+	if err != nil {
+		return err
+	}
+	state := ""
+	completion := ""
+	defer func() {
+		result = finalizeInstalledPayload(result, completion, state, mountpoint, cleanup)
+	}()
+	if err := ops.recheck(ctx, selected, root, mountpoint, run); err != nil {
+		return err
+	}
+	target, err := prepareInstalledPayloadState(ctx, ops, mountpoint, media, measured)
+	if err != nil {
+		return err
+	}
+	state = target.state
+	if err := copyAndVerifyBundle(ctx, ops, target, media, run, mountpoint); err != nil {
+		return err
+	}
+	return publishPayloadCompletion(ctx, ops, mountpoint, state, target.started, &completion)
 }
 
 func invalidatePayloadCompletion(completion, state, mountpoint string) error {
@@ -471,7 +540,7 @@ func coreOSPhysicalVar(root string) (string, string, error) {
 	for _, path := range []string{root, filepath.Join(root, "ostree"), filepath.Join(root, "ostree/repo"), deploy, stateroot, physicalVar} {
 		info, err := os.Lstat(path)
 		stat, ok := infoSys(info)
-		if err != nil || !ok || !info.IsDir() || info.Mode().Perm()&0022 != 0 || stat.Uid != 0 {
+		if err != nil || !ok || !info.IsDir() || info.Mode().Perm()&0o022 != 0 || stat.Uid != 0 {
 			return "", "", errors.New("real protected installed OSTree /var required")
 		}
 	}
@@ -482,17 +551,17 @@ func preparePayloadState(physicalVar string) (string, error) {
 	lib := filepath.Join(physicalVar, "lib")
 	info, err := os.Lstat(lib)
 	if errors.Is(err, os.ErrNotExist) {
-		if err = os.Mkdir(lib, 0755); err != nil {
+		if err = os.Mkdir(lib, 0o755); err != nil {
 			return "", errors.New("cannot create installed /var/lib")
 		}
 		info, err = os.Lstat(lib)
 	}
 	stat, ok := infoSys(info)
-	if err != nil || !ok || !info.IsDir() || info.Mode().Perm()&0022 != 0 || stat.Uid != 0 {
+	if err != nil || !ok || !info.IsDir() || info.Mode().Perm()&0o022 != 0 || stat.Uid != 0 {
 		return "", errors.New("real protected installed /var/lib required")
 	}
 	state := filepath.Join(lib, "soda-installer")
-	if err := os.Mkdir(state, 0700); err != nil {
+	if err := os.Mkdir(state, 0o700); err != nil {
 		return "", errors.New("installed payload state already exists or cannot be created")
 	}
 	return state, nil
@@ -511,7 +580,7 @@ func writePayloadReceipt(path string, receipt payloadReceipt) error {
 	if err != nil {
 		return err
 	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {
 		return err
 	}
@@ -569,7 +638,7 @@ func installedPayloadAtWith(root, arch, release string, verify func(string, stri
 	}
 	receiptPath := filepath.Join(root, "media-copy.json")
 	info, err := os.Lstat(receiptPath)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
 		return "", "", "", errors.New("private regular installer media-copy receipt required")
 	}
 	data, err := readRegular(receiptPath, 4096)
