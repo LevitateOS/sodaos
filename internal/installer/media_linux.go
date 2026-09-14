@@ -17,7 +17,7 @@ import (
 // compilation, disk selection, private input or reboot is performed here.
 func CandidateLiveConfig(payload, destination []byte, manifest, consoleSHA256 string) ([]byte, error) {
 	var p appliancerelease.Payload
-	if json.Unmarshal(payload, &p) != nil || p.Validate() != nil || (p.Format != 2 && p.Format != 3) {
+	if json.Unmarshal(payload, &p) != nil || p.Validate() != nil {
 		return nil, errors.New("complete ordinary-Podman candidate required")
 	}
 	var dest struct {

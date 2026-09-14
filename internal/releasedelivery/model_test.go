@@ -36,15 +36,11 @@ func testTrust(t *testing.T) Trust {
 	return tr
 }
 func testRelease(t *testing.T, tr Trust) Release {
-	p := appliancerelease.Payload{Format: 1, CoreOS: "44.20260817.3.2", Revision: strings.Repeat("a", 40), Architecture: "x86_64", Schema: 10, RepositoryPrefix: tr.Prefix, Base: "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("b", 64), PresentationSHA256: strings.Repeat("c", 64), HostPackagesSHA256: strings.Repeat("d", 64), Images: map[string]appliancerelease.Image{}}
+	p := appliancerelease.Payload{Format: 3, CoreOS: "44.20260817.3.2", Revision: strings.Repeat("a", 40), Architecture: "x86_64", Schema: 10, RepositoryPrefix: tr.Prefix, Base: "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("b", 64), PresentationSHA256: strings.Repeat("c", 64), HostPackagesSHA256: strings.Repeat("d", 64), Images: map[string]appliancerelease.Image{}}
 	p.ID = p.CoreOS + ".soda-" + p.Revision[:12]
 	for i, n := range appliancerelease.Names {
-		s := "bound"
-		if n == "project-os" || n == "tailnet" {
-			s = "retained"
-		}
 		d := Hash([]byte(n))
-		p.Images[n] = appliancerelease.Image{Reference: tr.Prefix + "-" + n + "@" + d, Manifest: d, Config: Hash([]byte{byte(i)}), ArchiveSHA256: strings.Repeat("1", 64), Storage: s}
+		p.Images[n] = appliancerelease.Image{Reference: tr.Prefix + "-" + n + "@" + d, Manifest: d, Config: Hash([]byte{byte(i)}), ArchiveSHA256: strings.Repeat("1", 64)}
 	}
 	pb, e := marshal(p)
 	require.NoError(t, e)
@@ -69,15 +65,11 @@ func TestSharedLayoutPayloadKeepsDeliveryArchiveBindings(t *testing.T) {
 	var c Candidate
 	require.NoError(t, decode(r.Payload, &p))
 	require.NoError(t, decode(r.Candidate, &c))
-	p.Format = 3
-	for name, image := range p.Images {
-		image.Storage = "podman"
-		p.Images[name] = image
-	}
+	p.Schema++
 	var err error
 	r.Payload, err = marshal(p)
 	require.NoError(t, err)
-	// A format change cannot reuse an earlier candidate/payload binding.
+	// Changed payloads cannot reuse an earlier candidate binding.
 	_, _, err = r.Validate(tr)
 	require.Error(t, err)
 	c.PayloadSHA256 = strings.TrimPrefix(Hash(r.Payload), "sha256:")

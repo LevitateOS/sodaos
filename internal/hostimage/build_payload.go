@@ -69,7 +69,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 		return p, err
 	}
 	for name, im := range images {
-		p.Images[name] = appliancerelease.Image{Reference: prefix + "-" + name + "@" + im.Manifest, Manifest: im.Manifest, Config: im.Config, ArchiveSHA256: im.ArchiveSHA256, Storage: "podman"}
+		p.Images[name] = appliancerelease.Image{Reference: prefix + "-" + name + "@" + im.Manifest, Manifest: im.Manifest, Config: im.Config, ArchiveSHA256: im.ArchiveSHA256}
 	}
 	if err = producer.Next("Inspect immutable Forgejo presentation"); err != nil {
 		return p, err

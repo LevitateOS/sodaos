@@ -185,27 +185,25 @@ retains exact inputs and the limits of this review.
   installed `container-image-reference-digest` equals the admitted manifest; an
   OSTree commit checksum is not an interchangeable OCI digest. No after-test rebuild.
 
-**Unresolved owner decision — native client trust versus the existing custom signed-
-channel contract.** Zincati consumes HTTP graph JSON, not `releasedelivery.Channel`.
-Its native graph hints plus signed image policy/downgrade checks do not implement
-Soda's separate candidate/preview/stable metadata signatures, expiry/high-water floors,
-withdrawal or qualification-record admission. Artifact signatures alone still do not
-prove channel approval. A static graph must not be called equivalent verification.
+**Selected contract — native client trust and maintenance.** Under the owner's
+standing approval to finish pre-B4 work and prioritize upstream simplicity, use
+Zincati's HTTPS graph and rpm-ostree's signed OCI image policy, exact-digest deployment,
+downgrade checks and native finalization/maintenance. Qualification and protected
+graph publication determine which edges are offered. Do not build a second updater.
 
-For the minimum-deviation priority, recommend native Zincati/rpm-ostree client trust
-and maintenance, with protected qualification/publication of the graph and native
-image signatures, rather than a second Soda client updater. This would **change**
-those client-side release-admission requirements; it is not an automatic simplification
-with identical security properties. Keep signed final media/release evidence and
-protected publishing custody. No such contract change, graph publication, trust
-installation or automatic-update configuration is authorized by this recommendation.
-If the additional existing client checks must all remain, their integration needs a
-supported upstream solution or an explicitly approved deviation before implementation.
+This deliberately does **not** preserve the experimental `releasedelivery.Channel`
+client contract: separate channel-role signatures, document expiry/high-water floors,
+withdrawal records and qualification-document admission are not enforced by Zincati.
+Removing an edge stops future graph offers; it does not cancel an existing staged
+update or promise rollback. HTTPS graph trust and image signatures are not equivalent
+to those removed client checks. Keep signed final release/media/evidence bindings and
+protected publishing custody. B4 must prove this native update path against a local
+qualified baseline; graph publication, real trust installation and automatic public
+updates remain commissioning work, not a side effect of this contract selection.
 
 The [native installation route](coreos-installer-plan.md#source-backed-packaging-route)
 can provide locally available host/application bytes after network installation,
-without bootc. It does not by itself
-resolve this update-authority choice. Public commissioning remains after B6; this is
+without bootc. Installation proof alone does not qualify native updates. Public commissioning remains after B6; this is
 a source/interface decision, not a demand to launch a service before replacement.
 
 #### B1 removal and size baseline
@@ -514,33 +512,32 @@ and the predecessor Updates platform remain out of scope.
 
 ### Local candidate content and machine-state ownership
 
-New source emits **payload format 3** through `internal/hostimage`. Format 1 retains
-its three bound/two retained roles; format 2 retains all five embedded archive hashes
-and ordinary-Podman storage. Neither retained format is silently reinterpreted or
-migrated. The [status](implementation-status.md) distinguishes source/native-filesystem
-checks from a newly built and installed candidate.
+There is one current payload representation: a standard shared OCI layout. The
+format identifier rejects obsolete experimental input; there are no legacy readers,
+storage selectors or migrations. The [status](implementation-status.md) distinguishes
+source/native-filesystem checks from a newly built and installed candidate.
 
 - `/usr/share/soda/release.json` binds all five exact app images, source/base, schema
-  and content hashes. V3 requires `Storage: podman` and embeds one standard OCI layout
+  and content hashes. The host embeds one standard OCI layout
   at `/usr/share/soda/images`. Its index references are immutable config IDs; shared
   layer blobs occur once. Skopeo copies the already-built exports with preserved
   manifest/config/blob digests, including valid uncompressed layers. No image rebuild
   or custom archive/registry protocol is introduced.
 - Individual export archives remain delivery/provenance inputs outside the host.
-  `ArchiveSHA256` retains their exact hashes; in v3 it is not a claim that those tar
+  `ArchiveSHA256` retains their exact hashes; it is not a claim that those tar
   archives are embedded. Runtime admission instead verifies the exact OCI image set,
   platform/source, local descriptor sizes/digests and all referenced blob bytes.
   Duplicate/changed references, external URLs and linked/special image files refuse. This preserves verification rather than dropping image data.
-- Fixed-input root-only `soda-image-import` verifies the entire v3 layout before any
+- Fixed-input root-only `soda-image-import` verifies the entire layout before any
   import, then uses explicit local `podman pull oci:...` references for missing exact
   config IDs and verifies their presence afterward. This is local file transport,
-  not a registry fetch or an additional Podman store. V1/V2 retain native archive
-  loading. The importer does not start, replace or delete images/containers. Core Quadlets require
+  not a registry fetch or an additional Podman store. The importer does not start,
+  replace or delete images/containers. Core Quadlets require
   the import service, use exact config identities and `Pull=never`, without additional
   image stores. Host updates do not select Project OS/companion workload lifecycle.
 - The host uses native OSTree container finalization and preserves Zincati. No bootc
   lint, parser workaround, timer masking or bound-store generation remains in this
-  producer. V2 has scoped native installation proof; the v3 representation still
+  producer. The previous archive representation has installation proof; shared blobs still
   requires a fresh matching candidate/media/import/install check. Update/recovery
   remains B1/B4 work; filesystem layout verification is not installation acceptance.
 - Vendor defaults apply to new creation. `/etc/soda/host.json` remains machine-owned;

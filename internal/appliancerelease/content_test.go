@@ -15,13 +15,11 @@ import (
 func sharedFixture(t *testing.T) (Payload, string) {
 	t.Helper()
 	p := fixture()
-	p.Format = 3
 	root := t.TempDir()
 	layout := filepath.Join(root, "layout")
 	for _, name := range Names {
 		archive := filepath.Join(root, name+".oci")
 		im := writeArchive(t, archive, p)
-		im.Storage = "podman"
 		im.Reference = p.RepositoryPrefix + "-" + name + "@" + im.Manifest
 		p.Images[name] = im
 		testoci.Add(t, archive, layout)
@@ -37,7 +35,7 @@ func TestV3ImportsExactLocalReferencesWithoutLifecycle(t *testing.T) {
 		require.Positive(t, size)
 		present := map[string]bool{}
 		queries, pulls := 0, 0
-		err = ImportRetained(t.Context(), p, root, func(_ context.Context, cmd string, args ...string) error {
+		err = ImportImages(t.Context(), p, root, func(_ context.Context, cmd string, args ...string) error {
 			require.Equal(t, "/usr/bin/podman", cmd)
 			require.Equal(t, "--remote=false", args[0])
 			switch args[1] {
@@ -90,7 +88,7 @@ func TestV3RefusesWholeLayoutBeforeAnyImport(t *testing.T) {
 				p.Format = 2
 			}
 			calls := 0
-			err := ImportRetained(t.Context(), p, root, func(context.Context, string, ...string) error { calls++; return nil })
+			err := ImportImages(t.Context(), p, root, func(context.Context, string, ...string) error { calls++; return nil })
 			require.Error(t, err)
 			require.Zero(t, calls)
 		})
@@ -106,7 +104,7 @@ func TestV3NativeFailuresRemainUnconfirmedWithoutReplay(t *testing.T) {
 				cancel()
 			}
 			queries, pulls := 0, 0
-			err := ImportRetained(ctx, p, root, func(_ context.Context, _ string, args ...string) error {
+			err := ImportImages(ctx, p, root, func(_ context.Context, _ string, args ...string) error {
 				if args[1] == "image" {
 					queries++
 					if kind == "observation" {

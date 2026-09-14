@@ -14,66 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCandidateMediaRequiresEveryExactLocalArchive(t *testing.T) {
-	root := t.TempDir()
-	rev := strings.Repeat("a", 40)
-	hash := strings.Repeat("b", 64)
-	p := appliancerelease.Payload{Format: 2, CoreOS: "44.20260817.3.2", ID: "44.20260817.3.2.soda-" + rev[:12], Revision: rev, Architecture: architecture(), Base: "quay.io/fedora/fedora-coreos@sha256:" + hash, Schema: 10, RepositoryPrefix: "ghcr.io/example/sodaos", PresentationSHA256: hash, HostPackagesSHA256: hash, Images: map[string]appliancerelease.Image{}}
-	images := filepath.Join(root, appliancerelease.ImagesPath)
-	require.NoError(t, os.MkdirAll(images, 0755))
-	for _, name := range appliancerelease.Names {
-		path := filepath.Join(images, name+".oci")
-		require.NoError(t, os.WriteFile(path, []byte(name), 0644))
-		h, e := nativebuild.HashFile(path)
-		require.NoError(t, e)
-		p.Images[name] = appliancerelease.Image{Storage: "podman", Config: "sha256:" + hash, Manifest: "sha256:" + hash, ArchiveSHA256: h, Reference: p.RepositoryPrefix + "-" + name + "@sha256:" + hash}
-	}
-	raw, e := json.Marshal(p)
-	require.NoError(t, e)
-	path := filepath.Join(root, appliancerelease.Path)
-	require.NoError(t, os.WriteFile(path, raw, 0644))
-	h, e := nativebuild.HashFile(path)
-	require.NoError(t, e)
-	console := filepath.Join(root, candidateInstallerBinary)
-	require.NoError(t, os.MkdirAll(filepath.Dir(console), 0755))
-	require.NoError(t, os.WriteFile(console, []byte("prebuilt fixture"), 0755))
-	consoleHash, e := nativebuild.HashFile(console)
-	require.NoError(t, e)
-	m := mediaIdentity{Format: 2, Architecture: architecture(), Release: p.CoreOS, Revision: rev, InstallerVersion: "coreos-installer 0.26.0", HostManifest: "sha256:" + hash, PayloadSHA256: h, ConsoleSHA256: consoleHash}
-	size, e := candidateRequirement(m, root)
-	require.NoError(t, e)
-	require.Positive(t, size)
-	live, e := CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}`), m.HostManifest, consoleHash)
-	require.NoError(t, e)
-	require.Contains(t, string(live), "ExecStart="+candidateInstallerBinary+" disk")
-	require.NotContains(t, string(live), "/run/media/iso")
-	require.NotContains(t, string(live), "http")
-	require.NotContains(t, string(live), "--dest-device")
-	_, e = CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"},"passwd":{}}`), m.HostManifest, consoleHash)
-	require.Error(t, e)
-	_, e = CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"}}`), "latest", consoleHash)
-	require.Error(t, e)
-	for _, mutate := range []func(*mediaIdentity){func(m *mediaIdentity) { m.Format = 1 }, func(m *mediaIdentity) { m.BundleSHA256 = hash }, func(m *mediaIdentity) { m.HostManifest = "latest" }, func(m *mediaIdentity) { m.Revision = strings.Repeat("c", 40) }, func(m *mediaIdentity) { m.PayloadSHA256 = hash }, func(m *mediaIdentity) { m.ConsoleSHA256 = hash }} {
-		bad := m
-		mutate(&bad)
-		_, e = candidateRequirement(bad, root)
-		require.Error(t, e)
-	}
-	for _, name := range appliancerelease.Names {
-		path := filepath.Join(images, name+".oci")
-		require.NoError(t, os.WriteFile(path, []byte("changed"), 0644))
-		_, e = candidateRequirement(m, root)
-		require.Error(t, e)
-		require.NoError(t, os.WriteFile(path, []byte(name), 0644))
-	}
-	require.NoError(t, os.Remove(filepath.Join(images, "tailnet.oci")))
-	_, e = candidateRequirement(m, root)
-	require.Error(t, e)
-	require.NoError(t, os.Symlink(filepath.Join(images, "proxy.oci"), filepath.Join(images, "tailnet.oci")))
-	_, e = candidateRequirement(m, root)
-	require.Error(t, e)
-}
-
 func TestCandidateSharedLayoutAuthenticatesAllImagesWithoutArchives(t *testing.T) {
 	root := t.TempDir()
 	rev, hash := strings.Repeat("a", 40), strings.Repeat("b", 64)
@@ -85,7 +25,7 @@ func TestCandidateSharedLayoutAuthenticatesAllImagesWithoutArchives(t *testing.T
 		archive := filepath.Join(t.TempDir(), name+".oci")
 		im := testoci.Archive(t, archive, arch, rev)
 		testoci.Add(t, archive, images)
-		p.Images[name] = appliancerelease.Image{Storage: "podman", Config: im.Config, Manifest: im.Manifest, ArchiveSHA256: im.ArchiveSHA256, Reference: p.RepositoryPrefix + "-" + name + "@" + im.Manifest}
+		p.Images[name] = appliancerelease.Image{Config: im.Config, Manifest: im.Manifest, ArchiveSHA256: im.ArchiveSHA256, Reference: p.RepositoryPrefix + "-" + name + "@" + im.Manifest}
 	}
 	raw, err := json.Marshal(p)
 	require.NoError(t, err)
@@ -104,8 +44,22 @@ func TestCandidateSharedLayoutAuthenticatesAllImagesWithoutArchives(t *testing.T
 	size, err := candidateRequirement(m, root)
 	require.NoError(t, err)
 	require.Equal(t, uniqueBytes, size)
-	_, err = CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}`), m.HostManifest, consoleHash)
+	live, err := CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}`), m.HostManifest, consoleHash)
 	require.NoError(t, err)
+	require.Contains(t, string(live), "ExecStart="+candidateInstallerBinary+" disk")
+	for _, forbidden := range []string{"/run/media/iso", "http", "--dest-device"} {
+		require.NotContains(t, string(live), forbidden)
+	}
+	for _, mutate := range []func(*mediaIdentity){func(m *mediaIdentity) { m.Format = 1 }, func(m *mediaIdentity) { m.BundleSHA256 = hash }, func(m *mediaIdentity) { m.HostManifest = "latest" }, func(m *mediaIdentity) { m.Revision = strings.Repeat("c", 40) }, func(m *mediaIdentity) { m.PayloadSHA256 = hash }, func(m *mediaIdentity) { m.ConsoleSHA256 = hash }} {
+		bad := m
+		mutate(&bad)
+		_, err = candidateRequirement(bad, root)
+		require.Error(t, err)
+	}
+	_, err = CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"},"passwd":{}}`), m.HostManifest, consoleHash)
+	require.Error(t, err)
+	_, err = CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"}}`), "latest", consoleHash)
+	require.Error(t, err)
 	require.NoError(t, os.Remove(filepath.Join(images, "blobs/sha256", strings.TrimPrefix(p.Images["tailnet"].Config, "sha256:"))))
 	_, err = candidateRequirement(m, root)
 	require.Error(t, err)

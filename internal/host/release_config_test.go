@@ -13,16 +13,12 @@ import (
 )
 
 func TestImageDefaultsAreImmutableAndNeverRewriteMachineConfig(t *testing.T) {
-	p := appliancerelease.Payload{Format: 1, ID: "44.20260817.3.2.soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: "44.20260817.3.2", Base: "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("b", 64), RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: strings.Repeat("c", 64), HostPackagesSHA256: strings.Repeat("d", 64), Images: map[string]appliancerelease.Image{}}
+	p := appliancerelease.Payload{Format: 3, ID: "44.20260817.3.2.soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: "44.20260817.3.2", Base: "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("b", 64), RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: strings.Repeat("c", 64), HostPackagesSHA256: strings.Repeat("d", 64), Images: map[string]appliancerelease.Image{}}
 	if runtime.GOARCH == "arm64" {
 		p.Architecture = "aarch64"
 	}
 	for _, n := range appliancerelease.Names {
-		s := "bound"
-		if n == "project-os" || n == "tailnet" {
-			s = "retained"
-		}
-		p.Images[n] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + n + "@sha256:" + strings.Repeat("e", 64), Manifest: "sha256:" + strings.Repeat("e", 64), Config: "sha256:" + strings.Repeat("f", 64), ArchiveSHA256: strings.Repeat("1", 64), Storage: s}
+		p.Images[n] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + n + "@sha256:" + strings.Repeat("e", 64), Manifest: "sha256:" + strings.Repeat("e", 64), Config: "sha256:" + strings.Repeat("f", 64), ArchiveSHA256: strings.Repeat("1", 64)}
 	}
 	root := t.TempDir()
 	release := filepath.Join(root, "release.json")

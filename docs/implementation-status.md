@@ -13,6 +13,22 @@ not this implementation queue.
 
 ## Current position
 
+**Current standing approval:** the owner authorized all seven pre-B4 tasks and
+necessary local execution without routine handoffs. This supersedes the consumed-slot
+hold and pending deduplication proposal below. Complete source simplification,
+production media integration, native installation verification and the native update
+contract; do not begin B4 qualification or public commissioning in this scope.
+Use fresh local build/media outputs and disposable installation targets; keep one
+active VM, affinity 0–3 and at most four vCPUs/16 GiB. Diagnose and correct failures
+without requesting another routine attempt. Measure resource use; do not enlarge
+retention or build preservation machinery by default. Protect real credentials and
+unrelated state. No public publishing, provider jobs or unrelated appliance mutation
+is needed for this work. Historical experiments need no current compatibility reader.
+
+Progress: removing historical payload support first. The selected update contract is
+native rpm-ostree/Zincati, as defined by the release guide; final signatures and
+protected publishing remain, but a parallel custom client updater is not required.
+
 **Native candidate-derived installation is now fixture-proved; update/trust proof
 remains open.** Assembler/OSBuild produced minimal network media; CoreOS Installer/
 Ignition installed candidate `9577645`. After media removal, the booted OCI digest

@@ -41,7 +41,7 @@ func candidateRequirement(m mediaIdentity, root string) (uint64, error) {
 		return 0, errors.New("live candidate payload differs from authenticated media")
 	}
 	p, err := appliancerelease.Load(payload)
-	if err != nil || (p.Format != 2 && p.Format != 3) || p.Revision != m.Revision || p.Architecture != m.Architecture || p.CoreOS != m.Release {
+	if err != nil || p.Revision != m.Revision || p.Architecture != m.Architecture || p.CoreOS != m.Release {
 		return 0, errors.New("live candidate release mismatch")
 	}
 	_, total, err := appliancerelease.VerifyContent(p, filepath.Join(root, appliancerelease.ImagesPath))

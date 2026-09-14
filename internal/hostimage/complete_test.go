@@ -71,9 +71,8 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 	require.NoError(t, err)
 	p := appliancerelease.Payload{Format: 3, ID: base.Release + ".soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: base.Release, Base: base.Images["x86_64"], RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: presentation, HostPackagesSHA256: strings.Repeat("b", 64), Images: map[string]appliancerelease.Image{}}
 	for _, name := range appliancerelease.Names {
-		storage := "podman"
 		im := testoci.Archive(t, filepath.Join(archives, name+".oci"), "amd64", p.Revision)
-		p.Images[name] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + name + "@" + im.Manifest, Manifest: im.Manifest, Config: im.Config, ArchiveSHA256: im.ArchiveSHA256, Storage: storage}
+		p.Images[name] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + name + "@" + im.Manifest, Manifest: im.Manifest, Config: im.Config, ArchiveSHA256: im.ArchiveSHA256}
 	}
 	copies := 0
 	run := func(dir, cmd string, args ...string) error {

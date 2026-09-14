@@ -150,7 +150,7 @@ rootfs authentication have scoped fixture proof; preserve that order and boundar
 - **Locally available apps after download:** embed all five exact images in the
   immutable host and import into ordinary Podman through native commands/systemd
   ordering. The [payload owner](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership)
-  defines v3's deduplicated standard OCI layout and strict retained v1/v2 readers.
+  defines the single shared OCI layout; obsolete payload readers are removed.
   The signed host remains the integrity boundary; no bootc-bound storage is selected.
   The retained v2 B3 fixture verified installed archive hashes, five
   local Podman IDs and successful import before Forgejo startup without external
@@ -189,8 +189,8 @@ and [initial packaging failures](implementation-history.md#b3-native-import-and-
 remain historical evidence, including the preservation limitation.
 
 The [update and authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
-identify a remaining client-trust decision. Do not claim this packaging route also
-implements the existing signed-channel admission contract.
+define the selected native client-trust contract. This packaging route does not
+implement the former custom signed-channel client admission contract.
 
 The [earlier B1 receipt](implementation-history.md#b1-native-installation-contract-and-removal-baseline)
 retains useful version/config/source observations, archive sizing and tests. Its
@@ -229,8 +229,7 @@ public live/destination Ignition using pinned native Butane. The same authentica
 rootfs supplies this console: **no separate executable download or loader is needed**.
 Live Ignition starts only the bounded tty1 wizard and masks appliance workloads in
 the temporary live OS. Candidate media binds the console/payload hashes and expected
-host manifest. The wizard verifies all five images' local content (v2 archives or
-v3 shared OCI layout), retains the existing
+host manifest. The wizard verifies all five images in the shared OCI layout and retains the existing
 password/disk/revalidation/no-replay guards, and invokes unchanged CoreOS Installer
 with native osmet. No writable bundle copy, package transaction or continuation is
 part of the candidate install. Historical media format 0 remains supported separately.

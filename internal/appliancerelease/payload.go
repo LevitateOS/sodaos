@@ -21,8 +21,7 @@ type Image struct {
 	Reference     string
 	Config        string
 	Manifest      string
-	ArchiveSHA256 string // Original export; embedded archive in v1/v2, export provenance in v3.
-	Storage       string // v1: historical bound/retained; v2/v3: ordinary Podman
+	ArchiveSHA256 string // Detached export provenance; the host embeds shared OCI blobs.
 }
 
 type Payload struct {
@@ -42,7 +41,7 @@ type Payload struct {
 }
 
 func (p Payload) Validate() error {
-	if (p.Format != 1 && p.Format != 2 && p.Format != 3) || !nativebuild.Revision(p.Revision) || p.ID != p.CoreOS+".soda-"+p.Revision[:12] || !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(p.CoreOS) {
+	if p.Format != 3 || !nativebuild.Revision(p.Revision) || p.ID != p.CoreOS+".soda-"+p.Revision[:12] || !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(p.CoreOS) {
 		return errors.New("invalid appliance payload identity")
 	}
 	if _, err := nativebuild.OCIArchitecture(p.Architecture); err != nil {
@@ -60,14 +59,7 @@ func (p Payload) Validate() error {
 	}
 	for _, name := range Names {
 		im, ok := p.Images[name]
-		want := "bound"
-		if name == "project-os" || name == "tailnet" {
-			want = "retained"
-		}
-		if p.Format >= 2 {
-			want = "podman"
-		}
-		if !ok || im.Storage != want || !digest(im.Config) || !digest(im.Manifest) || !nativebuild.Digest(im.ArchiveSHA256) || im.Reference != p.RepositoryPrefix+"-"+name+"@"+im.Manifest {
+		if !ok || !digest(im.Config) || !digest(im.Manifest) || !nativebuild.Digest(im.ArchiveSHA256) || im.Reference != p.RepositoryPrefix+"-"+name+"@"+im.Manifest {
 			return fmt.Errorf("invalid %s image binding", name)
 		}
 	}

@@ -1,17 +1,14 @@
 package hostimage
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/appliancerelease"
-	"github.com/levitateos/sodaos/internal/nativebuild"
 	"github.com/levitateos/sodaos/internal/testoci"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +21,7 @@ func stagingImages(t *testing.T) (appliancerelease.Payload, string) {
 	p := appliancerelease.Payload{Format: 3, ID: "44.20260817.3.2.soda-" + rev[:12], Revision: rev, Architecture: "x86_64", CoreOS: "44.20260817.3.2", Base: "quay.io/fedora/fedora-coreos@sha256:" + hash, RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: hash, HostPackagesSHA256: hash, Images: map[string]appliancerelease.Image{}}
 	for _, name := range appliancerelease.Names {
 		im := testoci.Archive(t, filepath.Join(root, name+".oci"), "amd64", rev)
-		p.Images[name] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + name + "@" + im.Manifest, Config: im.Config, Manifest: im.Manifest, ArchiveSHA256: im.ArchiveSHA256, Storage: "podman"}
+		p.Images[name] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + name + "@" + im.Manifest, Config: im.Config, Manifest: im.Manifest, ArchiveSHA256: im.ArchiveSHA256}
 	}
 	return p, root
 }
@@ -114,57 +111,4 @@ func TestNativeHostReadbackChecksEverySharedBlob(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Opt-in filesystem-only proof against admitted existing application exports.
-// This neither builds a candidate nor starts/imports an application or VM.
-func TestNativeSharedLayoutRetainedExports(t *testing.T) {
-	output, artifacts := os.Getenv("SODA_LAYOUT_NATIVE_OUT"), os.Getenv("SODA_LAYOUT_NATIVE_INPUT")
-	if output == "" && artifacts == "" {
-		t.Skip("set fresh SODA_LAYOUT_NATIVE_OUT and retained SODA_LAYOUT_NATIVE_INPUT")
-	}
-	require.True(t, filepath.IsAbs(output) && filepath.IsAbs(artifacts))
-	require.NoError(t, os.Mkdir(output, 0700))
-	p, err := appliancerelease.Load(filepath.Join(artifacts, "payload.json"))
-	require.NoError(t, err)
-	require.Equal(t, 2, p.Format)
-	p.Format = 3
-	run := func(dir, cmd string, args ...string) error {
-		c := exec.CommandContext(context.Background(), cmd, args...)
-		c.Dir = dir
-		b, e := c.CombinedOutput()
-		if e != nil {
-			return errors.New(string(b))
-		}
-		return nil
-	}
-	version, err := exec.Command("skopeo", "--version").Output()
-	require.NoError(t, err)
-	require.Contains(t, string(version), "skopeo version 1.22.2")
-	layout := filepath.Join(output, "layout")
-	require.NoError(t, stageImages(filepath.Join(artifacts, "images"), layout, p, run))
-	files, total, err := appliancerelease.VerifyContent(p, layout)
-	require.NoError(t, err)
-	var archives uint64
-	for _, name := range appliancerelease.Names {
-		original := filepath.Join(artifacts, "images", name+".oci")
-		st, err := os.Stat(original)
-		require.NoError(t, err)
-		archives += uint64(st.Size())
-		hash, err := nativebuild.HashFile(original)
-		require.NoError(t, err)
-		require.Equal(t, p.Images[name].ArchiveSHA256, hash)
-		reference := "oci:" + layout + ":" + p.Images[name].Config
-		raw, err := exec.Command("skopeo", "inspect", "--raw", reference).Output()
-		require.NoError(t, err)
-		require.Equal(t, p.Images[name].Manifest, "sha256:"+hashBytes(raw))
-	}
-	require.Less(t, total, archives)
-	// Native OCI export must also preserve valid uncompressed layer manifests,
-	// rather than letting Skopeo silently select a different representation.
-	tiny, tinyArchives := stagingImages(t)
-	require.NoError(t, stageImages(tinyArchives, filepath.Join(output, "uncompressed-layout"), tiny, run))
-	result, err := json.MarshalIndent(map[string]any{"input_revision": p.Revision, "payload_format": 3, "archives_bytes": archives, "layout_bytes": total, "reduction_bytes": archives - total, "unique_files": len(files), "native_tool": strings.TrimSpace(string(version)), "candidate_rebuilt": false, "native_import_or_install": false}, "", "  ")
-	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(output, "result.json"), append(result, '\n'), 0644))
 }
