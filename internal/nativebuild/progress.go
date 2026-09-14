@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -41,10 +40,12 @@ func NewBuildProgress(source, title string) (*BuildProgress, error) {
 	}
 	return p, nil
 }
+
 func duration(d time.Duration) string {
 	s := max(int64(d/time.Second), 0)
 	return fmt.Sprintf("%02d:%02d:%02d", s/3600, s/60%60, s%60)
 }
+
 func (p *BuildProgress) emit(kind, text string) error {
 	line := fmt.Sprintf("%-8s %s\n", kind, text)
 	_, err := io.WriteString(p.Stderr, line)
@@ -58,17 +59,19 @@ func (p *BuildProgress) emit(kind, text string) error {
 	}
 	return err
 }
+
 func (p *BuildProgress) CreateLog(path string) error {
 	if inherited := os.Getenv("SODA_BUILD_TIMING_LOG"); inherited != "" && os.Getenv("SODA_BUILD_CHILD") == "1" {
 		p.path = inherited
 		return nil
 	}
-	if err := WriteNew(path, nil, 0600); err != nil {
+	if err := WriteNew(path, nil, 0o600); err != nil {
 		return err
 	}
 	p.path = path
 	return p.emit("LOG", path)
 }
+
 func (p *BuildProgress) Phase(label string) error {
 	if p.finished || strings.ContainsAny(label, "\r\n") {
 		return errors.New("invalid progress transition")
@@ -79,6 +82,7 @@ func (p *BuildProgress) Phase(label string) error {
 	p.phase, p.phaseStarted = label, p.Now()
 	return p.emit("START", label)
 }
+
 func (p *BuildProgress) EndPhase(err error) error {
 	if p.phase == "" {
 		return nil
@@ -94,6 +98,7 @@ func (p *BuildProgress) EndPhase(err error) error {
 	p.phase = ""
 	return p.emit(kind, label+" | phase "+duration(p.Now()-p.phaseStarted)+" | total "+duration(p.Now()-p.origin))
 }
+
 func (p *BuildProgress) Next(label string) error {
 	if p.finished || strings.ContainsAny(label, "\r\n") {
 		return errors.New("invalid progress transition")
@@ -104,6 +109,7 @@ func (p *BuildProgress) Next(label string) error {
 	p.label, p.started = label, p.Now()
 	return p.emit("START", label)
 }
+
 func (p *BuildProgress) End(err error) error {
 	if p.label == "" {
 		return nil
@@ -120,6 +126,7 @@ func (p *BuildProgress) End(err error) error {
 	now := p.Now()
 	return p.emit(kind, label+" | section "+duration(now-p.started)+" | total "+duration(now-p.origin))
 }
+
 func (p *BuildProgress) Finish(err error) error {
 	if p.finished {
 		return nil
@@ -151,6 +158,7 @@ func (p *BuildProgress) Finish(err error) error {
 	}
 	return errors.Join(end, p.emit(kind, p.title+" | total "+duration(p.Now()-p.origin)+fmt.Sprintf(" | exit %d", code)))
 }
+
 func BuildExitCode(err error) int {
 	if err == nil {
 		return 0
@@ -180,11 +188,21 @@ type BuildExecution struct {
 	Output  io.Writer // optional public command output; captures remain isolated
 }
 
-func (b BuildExecution) command(dir, name string, args ...string) *exec.Cmd {
-	executable := name
-	if name == "go" && runtime.GOROOT() != "" {
-		executable = filepath.Join(runtime.GOROOT(), "bin", "go")
+// resolveBuildTool resolves a build tool at run time. The GOTOOLCHAIN pin in
+// the command environment forces the exact compiler version; PATH decides
+// which installation provides it. A build-time GOROOT would answer a run-time
+// question with a stale path once the binary moves machines.
+func resolveBuildTool(name string) string {
+	if name == "go" {
+		if path, err := exec.LookPath("go"); err == nil {
+			return path
+		}
 	}
+	return name
+}
+
+func (b BuildExecution) command(dir, name string, args ...string) *exec.Cmd {
+	executable := resolveBuildTool(name)
 	cmd := exec.CommandContext(b.Context, executable, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOTOOLCHAIN="+runtime.Version(), "GOWORK=off", "GOFLAGS=-mod=readonly", "CGO_ENABLED=0")
@@ -194,6 +212,7 @@ func (b BuildExecution) command(dir, name string, args ...string) *exec.Cmd {
 	fmt.Fprintf(b.Log, "\n$ %s %s\n", name, strings.Join(args, " "))
 	return cmd
 }
+
 func (b BuildExecution) Execute(dir, name string, args ...string) error {
 	cmd := b.command(dir, name, args...)
 	cmd.Stdout = b.Log
@@ -205,6 +224,7 @@ func (b BuildExecution) Execute(dir, name string, args ...string) error {
 	}
 	return nil
 }
+
 func (b BuildExecution) Capture(dir, name string, args ...string) (string, error) {
 	data, e := b.command(dir, name, args...).Output()
 	if e != nil {

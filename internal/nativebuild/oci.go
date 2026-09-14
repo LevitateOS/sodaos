@@ -86,7 +86,7 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 			}
 			continue
 		}
-		if h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeRegA {
+		if h.Typeflag != tar.TypeReg {
 			return Image{}, errors.New("non-regular OCI entry")
 		}
 		if _, ok := entries[n]; ok {

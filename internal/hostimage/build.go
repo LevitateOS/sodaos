@@ -63,6 +63,7 @@ func (r Request) Purpose() string {
 	}
 	return "production"
 }
+
 func (r Request) RequestedTarget() string {
 	if r.Development {
 		return r.Target
@@ -82,7 +83,7 @@ func Build(ctx context.Context, r Request, progress *nativebuild.BuildProgress) 
 		return err
 	}
 	return build(ctx, r, progress, execute, capture, func(path string) (func() error, error) {
-		f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if e != nil {
 			return nil, e
 		}
@@ -90,7 +91,7 @@ func Build(ctx context.Context, r Request, progress *nativebuild.BuildProgress) 
 		if !r.WantsMedia() {
 			return f.Close, nil
 		}
-		events, e := os.OpenFile(filepath.Join(filepath.Dir(path), "media-events.jsonl"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		events, e := os.OpenFile(filepath.Join(filepath.Dir(path), "media-events.jsonl"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if e != nil {
 			return nil, errors.Join(e, f.Close())
 		}
@@ -101,14 +102,14 @@ func Build(ctx context.Context, r Request, progress *nativebuild.BuildProgress) 
 
 func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, execute nativebuild.BuildExec, capture nativebuild.BuildCapture, openLog func(string) (func() error, error)) (result Result, err error) {
 	if err = r.ValidateTarget(); err != nil {
-		return
+		return result, err
 	}
 	next := progress.Phase
 	if err = next("P1 / Admit and freeze inputs"); err != nil {
-		return
+		return result, err
 	}
 	if err = nativebuild.RequireNative(r.Arch); err != nil {
-		return
+		return result, err
 	}
 	if runtime.Version() != "go1.26.7" {
 		return result, errors.New("pinned Go 1.26.7 required")
@@ -157,15 +158,15 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 		}
 	}
 	if err = nativebuild.FreshDirectory(r.Out); err != nil {
-		return
+		return result, err
 	}
 	for _, dir := range []string{"inputs", "work", "artifacts", "evidence", "release", "logs"} {
-		if err = os.Mkdir(filepath.Join(r.Out, dir), 0700); err != nil {
-			return
+		if err = os.Mkdir(filepath.Join(r.Out, dir), 0o700); err != nil {
+			return result, err
 		}
 	}
 	if err = progress.CreateLog(filepath.Join(r.Out, "logs/timing.log")); err != nil {
-		return
+		return result, err
 	}
 	closeLog, e := openLog(filepath.Join(r.Out, "logs/build.log"))
 	if e != nil {
@@ -173,15 +174,15 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 	}
 	defer func() { err = errors.Join(err, closeLog()) }()
 	snapshot := filepath.Join(r.Out, "work/source")
-	if err = os.Mkdir(snapshot, 0700); err != nil {
-		return
+	if err = os.Mkdir(snapshot, 0o700); err != nil {
+		return result, err
 	}
 	archive := filepath.Join(r.Out, "inputs/source.tar")
 	if err = execute(source, "git", "archive", "--format=tar", "--output", archive, revision); err != nil {
-		return
+		return result, err
 	}
 	if err = execute(snapshot, "tar", "--extract", "--file", archive, "--no-same-owner"); err != nil {
-		return
+		return result, err
 	}
 	contextDir := filepath.Join(r.Out, "work/host-context")
 	base, e := Prepare(snapshot, contextDir, r.Arch, revision)
@@ -196,12 +197,12 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 		return result, e
 	}
 	if err = p.ResolveInputs(); err != nil {
-		return
+		return result, err
 	}
 	platform, _ := nativebuild.OCIArchitecture(r.Arch)
 	pinned := base.Images[r.Arch]
 	if err = execute(snapshot, "podman", "--remote=false", "pull", "--platform=linux/"+platform, pinned); err != nil {
-		return
+		return result, err
 	}
 	// Preserve upstream metadata except the selected Soda origin/install mechanism
 	// and an explicitly requested development-only compression variant.
@@ -211,7 +212,7 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 	}
 	var imageConfig map[string]json.RawMessage
 	if err = json.Unmarshal([]byte(metadata), &imageConfig); err != nil {
-		return
+		return result, err
 	}
 	if len(imageConfig) == 0 {
 		return result, errors.New("missing upstream image configuration")
@@ -219,27 +220,27 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 	imageConfig["container-imgref"], _ = json.Marshal("ostree-image-signed:docker://" + r.RepositoryPrefix + "-host:candidate")
 	imageConfig["bootc-install-to-fs"] = json.RawMessage("false")
 	if err = setMediaCompression(imageConfig, r.MediaCompression); err != nil {
-		return
+		return result, err
 	}
 	imageData, e := json.MarshalIndent(imageConfig, "", "  ")
 	if e != nil {
 		return result, e
 	}
-	if err = ownedWrite(filepath.Join(contextDir, "rootfs/usr/share/coreos-assembler/image.json"), append(imageData, '\n'), 0644); err != nil {
-		return
+	if err = ownedWrite(filepath.Join(contextDir, "rootfs/usr/share/coreos-assembler/image.json"), append(imageData, '\n'), 0o644); err != nil {
+		return result, err
 	}
 	if err = next("P2 / Verify and install frozen dependencies"); err != nil {
-		return
+		return result, err
 	}
 	if err = p.Dependencies(); err != nil {
-		return
+		return result, err
 	}
 	mediaTooling, assembler, e := prepareBuildMedia(p, r)
 	if e != nil {
 		return result, e
 	}
 	if err = next("P3 / Compile shipping programs and prepared tools"); err != nil {
-		return
+		return result, err
 	}
 	names, e := nativebuild.SodaCommands(snapshot)
 	if e != nil {
@@ -247,22 +248,22 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 	}
 	for _, name := range names {
 		if err = p.Compile(name, "./cmd/"+name, filepath.Join(contextDir, "rootfs/usr/libexec/soda", name)); err != nil {
-			return
+			return result, err
 		}
 	}
 	tools := filepath.Join(artifacts, "tools")
-	if err = os.Mkdir(tools, 0755); err != nil {
-		return
+	if err = os.Mkdir(tools, 0o755); err != nil {
+		return result, err
 	}
 	for _, tool := range []struct{ name, pkg string }{{"soda-installer", "./appliance/installer"}, {"soda-artifacts", "./tools/soda-artifacts"}, {"soda-acceptance", "./tools/soda-acceptance"}} {
 		if err = p.Compile(tool.name, tool.pkg, filepath.Join(tools, tool.name)); err != nil {
-			return
+			return result, err
 		}
 	}
 	// The same prebuilt console serves live installation and installed setup.
 	// Native live packaging carries it in the authenticated candidate rootfs.
 	if err = os.Link(filepath.Join(tools, "soda-installer"), filepath.Join(contextDir, "rootfs/usr/libexec/soda/soda-install")); err != nil {
-		return
+		return result, err
 	}
 	toolFiles := map[string]nativebuild.File{}
 	entries, e := os.ReadDir(tools)
@@ -274,7 +275,7 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 		if e != nil {
 			return result, e
 		}
-		toolFiles[entry.Name()] = nativebuild.File{SHA256: hash, Mode: 0755}
+		toolFiles[entry.Name()] = nativebuild.File{SHA256: hash, Mode: 0o755}
 	}
 	toolData, e := json.MarshalIndent(struct {
 		Revision, Architecture string
@@ -283,31 +284,31 @@ func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, 
 	if e != nil {
 		return result, e
 	}
-	if err = nativebuild.WriteNew(filepath.Join(artifacts, "tools.json"), append(toolData, '\n'), 0600); err != nil {
-		return
+	if err = nativebuild.WriteNew(filepath.Join(artifacts, "tools.json"), append(toolData, '\n'), 0o600); err != nil {
+		return result, err
 	}
 	// This concrete sequence prepares assets/tests, builds five images once and
 	// assembles their fixed references/archives directly into the host context.
 	if _, err = completeCandidate(snapshot, contextDir, artifacts, r.Arch, revision, r.RepositoryPrefix, base, packageHash, p, progress.Phase); err != nil {
-		return
+		return result, err
 	}
 	if err = next("P5 / Build FCOS host candidate"); err != nil {
-		return
+		return result, err
 	}
 	if err = Inventory(contextDir); err != nil {
-		return
+		return result, err
 	}
 	if err = buildHost(contextDir, artifacts, r.Arch, revision, r.RepositoryPrefix, base, p, progress.Phase); err != nil {
-		return
+		return result, err
 	}
 	if err = finishBuildMedia(ctx, p, r, mediaTooling, assembler, next); err != nil {
-		return
+		return result, err
 	}
 	result, err = recordBuildResult(p, r)
 	if err == nil {
 		err = errors.Join(progress.End(nil), progress.EndPhase(nil))
 	}
-	return
+	return result, err
 }
 
 // Only the build's tool/cache environment is inherited. In particular, provider,
@@ -323,10 +324,22 @@ func buildEnvironment() []string {
 	// upstream toolchain selection, not a relative bin/go or the ambient version.
 	return append(env, "GOTOOLCHAIN="+runtime.Version(), "GOWORK=off", "GOFLAGS=-mod=readonly", "CGO_ENABLED=0")
 }
-func runBuildCommand(ctx context.Context, log, output io.Writer, dir, name string, args ...string) (string, error) {
-	if name == "go" && runtime.GOROOT() != "" {
-		name = filepath.Join(runtime.GOROOT(), "bin/go")
+
+// resolveBuildTool resolves a build tool at run time. The GOTOOLCHAIN pin in
+// buildEnvironment forces the exact compiler version; PATH decides which
+// installation provides it. A build-time GOROOT would answer a run-time
+// question with a stale path once the binary moves machines.
+func resolveBuildTool(name string) string {
+	if name == "go" {
+		if path, err := exec.LookPath("go"); err == nil {
+			return path
+		}
 	}
+	return name
+}
+
+func runBuildCommand(ctx context.Context, log, output io.Writer, dir, name string, args ...string) (string, error) {
+	name = resolveBuildTool(name)
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	cmd.Env = buildEnvironment()
@@ -358,7 +371,7 @@ func preparedChecks(p nativebuild.Production) error {
 		filepath.Join(p.Source, ".artifacts/forgejo-js"):              filepath.Join(p.Native, "forgejo-js"),
 		filepath.Join(p.Source, ".artifacts/browser-terminal/vendor"): filepath.Join(p.Native, "terminal-assets"),
 	} {
-		if err := os.MkdirAll(filepath.Dir(link), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 			return err
 		}
 		if err := os.Symlink(target, link); err != nil {

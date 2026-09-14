@@ -111,9 +111,13 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
 - [x] Bulk mechanical: 21 × ST1005 lowercased, 12 × ST1013 `http.Status*`
   constants (verified no test asserts the old strings; the one match,
   `command_test.go:54`, reads the untouched CLI guidance in `command.go:23`).
-- [ ] Judged separately: 8 × SA1019 deprecated APIs (`runtime.GOROOT`,
-  `tar.TypeRegA`, own `AdminTokenFile` markers in tests). Whole-repo
-  staticcheck is now exactly these 8.
+- [x] SA1019 production set fixed: `tar.TypeRegA` → `TypeReg` (identical
+  value, no behavior change); 6 × `runtime.GOROOT()` replaced with a
+  run-time `exec.LookPath("go")` resolver in `hostimage/build.go` and
+  `nativebuild/progress.go` (GOTOOLCHAIN pin retained, so the version
+  guarantee survives; PATH decides the installation). The pinned-compiler
+  test now asserts LookPath resolution. Whole-repo staticcheck is exactly
+  the 2 intentional own-`AdminTokenFile` markers in tests — left standing.
 - [x] Removals (each matched an L1.12 unreferenced def — two instruments
   agreed; grep confirmed single occurrence): `companionName`, `writeNewJSON`
   (+ its orphaned `encoding/json` import), `buildCapture` alias.
