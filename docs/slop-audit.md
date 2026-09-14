@@ -131,6 +131,37 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
   reason (false positive, not a bug).
 - [x] Test-file nits: S1007 raw regexp, ST1013 in `client_test.go:25`.
 
+## Complexity top-10 triage (workflow audit, 10 auditors + synthesis)
+
+Verdict: **0 REMOVE, 8 RESTRUCTURE, 2 KEEP**. No separable obsolete or
+callerless capability found — the complexity is load-bearing, so there is no
+deletion program here, only a restructure program. Savings below are auditor
+estimates from branch counts, not gocyclo reruns on split code.
+
+- [x] (`6be9fe1`) `tools/soda-acceptance/main.go:35` run (86 → 7): 5 per-action executors
+  (exec/native, probe-ssh, transfer, vm) + shared validate/setup/finalize.
+- [x] (`936bc7e`) `internal/hostimage/assemble.go:144` assembleMedia (72 → 9): 9 phase
+  extracts (authority, candidate, fast-compression gate, P7 sign+inventory,
+  P8 cosa build, meta verify, installer pin, readback, seal).
+- [x] (`8008eb7`) `internal/nativequalification/state.go:50` GuestState (70 → 7): guards /
+  bootstrap / config-client / repo-setup / mutate / observation. Note: host-side
+  P9 SSH driver does not exist yet (B4 unstarted).
+- [x] (`ada6d06`) `internal/installer/install_linux.go:357` collectDiskInstallChoices
+  (63 → 5): per-step extracts (network/disk/hostname/password/subnet+review) +
+  one shared navigation-input helper.
+- [x] (`a1946de`) `internal/hostimage/build.go:102` build (63 → 5): admitBuildInputs /
+  freezeBaseImageConfig / compileShippingTools; build() stays as sequencer.
+- [x] (`f218c4a`) `internal/installer/enrollment_linux.go:154` armEnrollment (59 → 5):
+  guardExistingEnrollmentState / publishEnrollmentState /
+  waitEnrollmentResult + named enrollmentSession cleanup type.
+- [x] (`d79a0ea`) `internal/releasedelivery/publish.go:96` Publish (57 → 9): guard-ledger /
+  observe-only / signed-admission / immutable-commit / promotion / finalize.
+- [x] (`4c296be`) `internal/tailnet/management.go:325` HostAction (50 → 9): per-action
+  executors + verifiers; dispatcher at 9.
+- [x] KEEP with reason: `apiTerminal` (86, order-dependent trust dispatch,
+  splitting moves branches); `StartTailnet` (49, linear pipeline, extraction
+  scatters ordering).
+
 ## Open verification items
 
 - [ ] Grep git history for credential shapes (L1.14 covered the working tree
