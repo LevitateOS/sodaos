@@ -15,13 +15,26 @@ if ! git diff --cached --check --; then
   fail=1
 fi
 
-# 2. Credential-shaped strings in staged additions. Covers the shapes L1.14
-# tripped on before: Tailscale-style keys, private-key blocks, AWS key IDs.
-# Synthetic fixtures must not wear real credential shapes; rename them.
-additions=$(git diff --cached -U0 --diff-filter=ACM -- . ':(exclude)*_test.go' | grep '^+' | grep -v '^+++' || true)
-if printf '%s\n' "$additions" | grep -nE 'tskey-|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}' >/dev/null; then
-  printf 'pre-commit: credential-shaped string in staged additions (tskey-*, private-key block, AKIA*).\n'
-  printf '%s\n' "$additions" | grep -nE 'tskey-|BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}' | head -n 10
+# 2. Credential-shaped strings in staged additions. tskey-* is the Tailscale
+# shape production legitimately validates (credentialPattern, authKeyPattern),
+# so fixtures must wear it to exercise the real path; those sites carry an
+# explicit `slop-audit-allow` marker with the reason. Test trees are out of
+# scope for the staged hook (whole-tree L1.14 scans still cover them).
+# Private-key blocks and AWS key IDs are never allowlisted: no legitimate
+# site needs them.
+cred_hits=$(git diff --cached -U0 --diff-filter=ACM -- . | awk '
+/^\+\+\+ / { file = substr($0, 7); sub(/^b\//, "", file); next }
+/^@@ / { split($0, h, /\+/); split(h[2], n, /[, ]/); line = n[1] - 1; next }
+/^\+/ && !/^\+\+\+/ {
+  line++
+  body = substr($0, 2)
+  skip = (file ~ /_test\.go$/ || file ~ /\.test\.ts$/ || file ~ /^tests\//)
+  if (!skip && body ~ /tskey-/ && body !~ /slop-audit-allow/) print file":"line": tskey-shaped value without allow marker"
+  if (body ~ /BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}/) print file":"line": private-key block or AWS key ID"
+  next }
+' || true)
+if [ -n "$cred_hits" ]; then
+  printf 'pre-commit: credential-shaped string in staged additions:\n%s\n' "$cred_hits" | head -n 10
   fail=1
 fi
 

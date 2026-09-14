@@ -26,11 +26,15 @@ Methodology reference lives outside this repo
   `gofmt -l`, complexity below 10 on staged production Go
   (`scripts/check-complexity.sh`), `go vet` on staged packages. Clone setup:
   `git config core.hooksPath .githooks` (local, not committed).
-- [ ] Rename `tskey-`-prefixed dummy values to a shape no scanner treats as a
-  Tailscale key: `internal/tailnet/management_validation.go:18`,
-  `internal/tailnet/policy_test.go:23,68`. L1.14's 9 hits were all read and are
-  false positives (`synthetic-*` fixtures, the Tailscale `TokenURL` constant in
-  `internal/tailnet/enrollment.go:93`); zero confirmed credentials.
+- [x] `tskey-` fixtures kept by design (decision A1): the prefix is the
+  production validation shape (`credentialPattern`, `authKeyPattern`), so
+  dummies must wear it to exercise the real path — renaming them would untest
+  the validator. Instead the hook allowlists: `slop-audit-allow` markers on
+  the 4 production sites, path exclusion for `*_test.go` / `*.test.ts` /
+  `tests/`. Private-key blocks and `AKIA*` are never allowlisted. All four
+  hook paths probed (block unmarked, silent marked, AKIA always blocked,
+  tskey-in-tests silent). L1.14's 9 hits were all read and are false
+  positives; zero confirmed credentials.
 
 ## Fix checklist — needs localization before code changes
 

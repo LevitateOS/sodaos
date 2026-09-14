@@ -20,7 +20,7 @@ import (
 
 const projectKeyLifetime = 5 * time.Minute
 
-var authKeyPattern = regexp.MustCompile(`^tskey-auth-[A-Za-z0-9_-]{8,512}$`)
+var authKeyPattern = regexp.MustCompile(`^tskey-auth-[A-Za-z0-9_-]{8,512}$`) // slop-audit-allow: production validation pattern for real Tailscale-shaped auth keys
 
 // RunTarget is resolved by the host's native incarnation validator, never decoded
 // from a browser request. Run hashes boot, process and user/network namespace IDs.

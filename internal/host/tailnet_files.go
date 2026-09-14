@@ -142,7 +142,7 @@ func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 // The single-use key never enters argv, environment, a pipe, journal or project
 // filesystem. Removal is allowed only after native exec completion is observed.
 func writeRunKey(root *os.Root, run projectRun, key string) (*os.File, error) {
-	if !strings.HasPrefix(key, "tskey-auth-") || len(key) > 1024 || strings.ContainsAny(key, "\r\n\x00") {
+	if !strings.HasPrefix(key, "tskey-auth-") || len(key) > 1024 || strings.ContainsAny(key, "\r\n\x00") { // slop-audit-allow: production shape check for real Tailscale-shaped auth keys
 		return nil, tailnet.ErrInvalid
 	}
 	file, e := root.OpenFile("input/key", os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)

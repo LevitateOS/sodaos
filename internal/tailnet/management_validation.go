@@ -15,7 +15,7 @@ func (v EnrollmentView) Validate() error {
 	if !revisionPattern.MatchString(v.Revision) || !revisionPattern.MatchString(v.Binding) || !v.CredentialChecked {
 		return ErrUnavailable
 	}
-	probe := EnrollmentRequest{Action: "save", Revision: v.Revision, Tailnet: v.Tailnet, Tags: v.Tags, Preauthorized: &v.Preauthorized, ClientID: "validation", ClientSecret: "tskey-client-validation-only"}
+	probe := EnrollmentRequest{Action: "save", Revision: v.Revision, Tailnet: v.Tailnet, Tags: v.Tags, Preauthorized: &v.Preauthorized, ClientID: "validation", ClientSecret: "tskey-client-validation-only"} // slop-audit-allow: synthetic probe that must pass credentialPattern to exercise the real validation path
 	if probe.Validate() != nil {
 		return ErrUnavailable
 	}
