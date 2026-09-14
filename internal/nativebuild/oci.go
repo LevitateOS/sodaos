@@ -163,93 +163,152 @@ func readOCIIndex(entries map[string]blob) ([]descriptor, error) {
 	return index.Manifests, nil
 }
 
-func inspectOCIImage(entries map[string]blob, image descriptor, want, revision string, load func(string) error) (Image, error) {
-	get := func(d descriptor) (blob, error) {
-		if d.Size < 0 || len(d.URLs) != 0 {
-			return blob{}, errors.New("local bounded OCI descriptor required")
-		}
-		if !strings.HasPrefix(d.Digest, "sha256:") || !Digest(strings.TrimPrefix(d.Digest, "sha256:")) {
-			return blob{}, errors.New("invalid OCI digest")
-		}
-		name := "blobs/sha256/" + strings.TrimPrefix(d.Digest, "sha256:")
-		if load != nil {
-			if err := load(name); err != nil {
-				return blob{}, err
-			}
-		}
-		b, ok := entries[name]
-		if !ok || b.size != d.Size {
-			return blob{}, errors.New("missing or wrong-size OCI blob")
-		}
-		return b, nil
+type ociManifest struct {
+	SchemaVersion int          `json:"schemaVersion"`
+	MediaType     string       `json:"mediaType"`
+	Config        descriptor   `json:"config"`
+	Layers        []descriptor `json:"layers"`
+}
+
+type ociConfig struct {
+	OS     string `json:"os"`
+	Arch   string `json:"architecture"`
+	RootFS struct {
+		Type    string   `json:"type"`
+		DiffIDs []string `json:"diff_ids"`
+	} `json:"rootfs"`
+	Config struct {
+		Labels map[string]string `json:"Labels"`
+	} `json:"config"`
+}
+
+func fetchOCIBlob(entries map[string]blob, d descriptor, load func(string) error) (blob, error) {
+	if d.Size < 0 || len(d.URLs) != 0 {
+		return blob{}, errors.New("local bounded OCI descriptor required")
 	}
-	m, err := get(image)
-	if err != nil {
-		return Image{}, err
+	hexDigest := strings.TrimPrefix(d.Digest, "sha256:")
+	if !strings.HasPrefix(d.Digest, "sha256:") || !Digest(hexDigest) {
+		return blob{}, errors.New("invalid OCI digest")
 	}
-	var manifest struct {
-		SchemaVersion int          `json:"schemaVersion"`
-		MediaType     string       `json:"mediaType"`
-		Config        descriptor   `json:"config"`
-		Layers        []descriptor `json:"layers"`
+	name := "blobs/sha256/" + hexDigest
+	if load != nil {
+		if err := load(name); err != nil {
+			return blob{}, err
+		}
 	}
-	if err = json.Unmarshal(m.data, &manifest); err != nil {
-		return Image{}, err
+	b, ok := entries[name]
+	if !ok || b.size != d.Size {
+		return blob{}, errors.New("missing or wrong-size OCI blob")
+	}
+	return b, nil
+}
+
+func parseOCIManifest(data []byte) (ociManifest, error) {
+	var manifest ociManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return ociManifest{}, err
 	}
 	if manifest.SchemaVersion != 2 || (manifest.MediaType != "" && manifest.MediaType != "application/vnd.oci.image.manifest.v1+json") || manifest.Config.MediaType != "application/vnd.oci.image.config.v1+json" {
-		return Image{}, errors.New("invalid OCI image manifest")
+		return ociManifest{}, errors.New("invalid OCI image manifest")
 	}
-	for _, layer := range manifest.Layers {
+	return manifest, nil
+}
+
+func validateOCILayers(entries map[string]blob, layers []descriptor, load func(string) error) error {
+	for _, layer := range layers {
 		switch layer.MediaType {
 		case "application/vnd.oci.image.layer.v1.tar", "application/vnd.oci.image.layer.v1.tar+gzip", "application/vnd.oci.image.layer.v1.tar+zstd":
 		default:
-			return Image{}, errors.New("unsupported OCI layer media type")
+			return errors.New("unsupported OCI layer media type")
 		}
-		if _, err = get(layer); err != nil {
-			return Image{}, err
+		if _, err := fetchOCIBlob(entries, layer, load); err != nil {
+			return err
 		}
 	}
-	config, err := get(manifest.Config)
-	if err != nil {
+	return nil
+}
+
+func validateOCIRootFS(diffIDs []string, layers []descriptor) error {
+	if len(diffIDs) != len(layers) {
+		return errors.New("OCI rootfs/layer count mismatch")
+	}
+	for i, id := range diffIDs {
+		hexDigest := strings.TrimPrefix(id, "sha256:")
+		if !strings.HasPrefix(id, "sha256:") || !Digest(hexDigest) {
+			return errors.New("invalid OCI diff ID")
+		}
+		if layers[i].MediaType == "application/vnd.oci.image.layer.v1.tar" && id != layers[i].Digest {
+			return errors.New("uncompressed OCI layer identity mismatch")
+		}
+	}
+	return nil
+}
+
+func validateOCIAttribution(labels map[string]string, wantRevision string) error {
+	rev := labels["org.opencontainers.image.revision"]
+	if wantRevision != "" && rev != wantRevision {
+		return errors.New("OCI source revision mismatch")
+	}
+	if wantRevision == "" {
+		return nil
+	}
+	baseDigest := strings.TrimPrefix(labels["org.opencontainers.image.base.digest"], "sha256:")
+	if labels["org.opencontainers.image.source"] != "https://github.com/LevitateOS/sodaos" ||
+		labels["org.opencontainers.image.base.name"] == "" ||
+		!strings.HasPrefix(labels["org.opencontainers.image.base.digest"], "sha256:") ||
+		!Digest(baseDigest) {
+		return errors.New("soda image lacks source/base attribution")
+	}
+	return nil
+}
+
+func inspectOCIConfig(configBlob blob, layers []descriptor, want, revision string, imageDigest, configDigest string) (Image, error) {
+	var cfg ociConfig
+	if err := json.Unmarshal(configBlob.data, &cfg); err != nil {
 		return Image{}, err
 	}
-	var cfg struct {
-		OS     string `json:"os"`
-		Arch   string `json:"architecture"`
-		RootFS struct {
-			Type    string   `json:"type"`
-			DiffIDs []string `json:"diff_ids"`
-		} `json:"rootfs"`
-		Config struct {
-			Labels map[string]string `json:"Labels"`
-		} `json:"config"`
-	}
-	if err = json.Unmarshal(config.data, &cfg); err != nil {
-		return Image{}, err
-	}
-	if cfg.RootFS.Type != "layers" || len(cfg.RootFS.DiffIDs) != len(manifest.Layers) {
+	if cfg.RootFS.Type != "layers" {
 		return Image{}, errors.New("OCI rootfs/layer count mismatch")
 	}
-	for i, id := range cfg.RootFS.DiffIDs {
-		if !strings.HasPrefix(id, "sha256:") || !Digest(strings.TrimPrefix(id, "sha256:")) {
-			return Image{}, errors.New("invalid OCI diff ID")
-		}
-		if manifest.Layers[i].MediaType == "application/vnd.oci.image.layer.v1.tar" && id != manifest.Layers[i].Digest {
-			return Image{}, errors.New("uncompressed OCI layer identity mismatch")
-		}
+	if err := validateOCIRootFS(cfg.RootFS.DiffIDs, layers); err != nil {
+		return Image{}, err
 	}
 	// Compressed layer contents are not extracted here. Their blob identities
 	// are checked; native import remains the proof of decompression/rootfs use.
 	if cfg.OS != "linux" || cfg.Arch != want {
 		return Image{}, fmt.Errorf("OCI must be linux/%s", want)
 	}
-	rev := cfg.Config.Labels["org.opencontainers.image.revision"]
-	if revision != "" && rev != revision {
-		return Image{}, errors.New("OCI source revision mismatch")
-	}
 	labels := cfg.Config.Labels
-	if revision != "" && (labels["org.opencontainers.image.source"] != "https://github.com/LevitateOS/sodaos" || labels["org.opencontainers.image.base.name"] == "" || !strings.HasPrefix(labels["org.opencontainers.image.base.digest"], "sha256:") || !Digest(strings.TrimPrefix(labels["org.opencontainers.image.base.digest"], "sha256:"))) {
-		return Image{}, errors.New("soda image lacks source/base attribution")
+	if err := validateOCIAttribution(labels, revision); err != nil {
+		return Image{}, err
 	}
-	return Image{image.Digest, manifest.Config.Digest, cfg.Arch, rev, labels["org.opencontainers.image.source"], labels["org.opencontainers.image.base.name"], labels["org.opencontainers.image.base.digest"]}, nil
+	rev := labels["org.opencontainers.image.revision"]
+	return Image{
+		Manifest:     imageDigest,
+		Config:       configDigest,
+		Architecture: cfg.Arch,
+		Revision:     rev,
+		Source:       labels["org.opencontainers.image.source"],
+		BaseName:     labels["org.opencontainers.image.base.name"],
+		BaseDigest:   labels["org.opencontainers.image.base.digest"],
+	}, nil
+}
+
+func inspectOCIImage(entries map[string]blob, image descriptor, want, revision string, load func(string) error) (Image, error) {
+	m, err := fetchOCIBlob(entries, image, load)
+	if err != nil {
+		return Image{}, err
+	}
+	manifest, err := parseOCIManifest(m.data)
+	if err != nil {
+		return Image{}, err
+	}
+	if err := validateOCILayers(entries, manifest.Layers, load); err != nil {
+		return Image{}, err
+	}
+	configBlob, err := fetchOCIBlob(entries, manifest.Config, load)
+	if err != nil {
+		return Image{}, err
+	}
+	return inspectOCIConfig(configBlob, manifest.Layers, want, revision, image.Digest, manifest.Config.Digest)
 }
