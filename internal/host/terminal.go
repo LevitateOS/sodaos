@@ -31,8 +31,10 @@ import (
 //go:embed project_terminal.py
 var projectTerminal string
 
-const terminalFrameLimit = 131072 // bounded 64-row metadata; IO payload bounds remain smaller
-const terminalLimit = 64
+const (
+	terminalFrameLimit = 131072 // bounded 64-row metadata; IO payload bounds remain smaller
+	terminalLimit      = 64
+)
 
 // TerminalRequest is private root:soda helper input. The web layer must resolve
 // membership/login and authorize the real actor before using this operation.
@@ -82,6 +84,7 @@ func ValidTerminalName(name string) bool {
 func terminalDimensions(cols, rows int) bool {
 	return cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300
 }
+
 func (in TerminalRequest) valid(now time.Time) bool {
 	if !projectID.MatchString(in.Project) || !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 || in.Expires <= now.Unix() || in.Expires > now.Add(12*time.Hour).Unix() || !ValidTerminalName(in.Name) {
 		return false
@@ -103,6 +106,7 @@ func (in TerminalRequest) valid(now time.Time) bool {
 	}
 	return false
 }
+
 func (f TerminalFrame) inputValid() bool {
 	if f.Reason != "" || f.Terminals != nil {
 		return false
@@ -118,6 +122,7 @@ func (f TerminalFrame) inputValid() bool {
 	}
 	return false
 }
+
 func (f TerminalFrame) outputValid() bool {
 	if f.Cols != 0 || f.Rows != 0 || (f.Type != "metadata" && f.Terminals != nil) {
 		return false
@@ -199,6 +204,7 @@ func (Native) terminal(container string, in TerminalRequest) (terminalProcess, e
 	go func() { _ = cmd.Wait(); close(p.done) }()
 	return p, nil
 }
+
 func (p *nativeTerminal) Input(f TerminalFrame) error {
 	if !f.inputValid() {
 		return errors.New("invalid terminal control")
@@ -213,6 +219,7 @@ func (p *nativeTerminal) Input(f TerminalFrame) error {
 	_, err = p.stdin.Write(append(body, '\n'))
 	return err
 }
+
 func (p *nativeTerminal) Output() (TerminalFrame, error) {
 	var f TerminalFrame
 	if !p.scanner.Scan() {
@@ -223,6 +230,7 @@ func (p *nativeTerminal) Output() (TerminalFrame, error) {
 	}
 	return f, nil
 }
+
 func (p *nativeTerminal) Close() {
 	p.once.Do(func() {
 		// Closing stdin requests launcher EOF. If conmon does not propagate it, the
@@ -238,8 +246,10 @@ func (p *nativeTerminal) Close() {
 	})
 }
 
-var containerID = regexp.MustCompile(`^[0-9a-f]{64}$`)
-var terminalID = regexp.MustCompile(`^[0-9a-f]{32}$`)
+var (
+	containerID = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	terminalID  = regexp.MustCompile(`^[0-9a-f]{32}$`)
+)
 
 const terminalInspect = `{"id":{{json .ID}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"privileged":{{json .HostConfig.Privileged}},"userns":{{json .HostConfig.UsernsMode}},"mappings":{{json .HostConfig.IDMappings}}}`
 
@@ -305,6 +315,7 @@ func (d *Daemon) CloseTerminals() {
 	d.terminalMu.Unlock()
 	d.terminalWG.Wait()
 }
+
 func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 	// This handler is private to the existing filesystem-authorized Unix socket.
 	// Browser Origin/cookie/CSRF authorization belongs to the web route.
@@ -314,7 +325,7 @@ func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	executor, ok := d.Exec.(terminalExecutor)
 	if !ok {
-		http.Error(w, "terminal unavailable", 503)
+		http.Error(w, "terminal unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Hour)
@@ -322,7 +333,7 @@ func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 	d.terminalMu.Lock()
 	if d.terminalClosed || len(d.terminals) >= 2*terminalLimit {
 		d.terminalMu.Unlock()
-		http.Error(w, "terminal unavailable", 503)
+		http.Error(w, "terminal unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	if d.terminals == nil {
@@ -422,6 +433,7 @@ func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
 func writeTerminal(ctx context.Context, c *websocket.Conn, f TerminalFrame) error {
 	body, err := json.Marshal(f)
 	if err != nil {

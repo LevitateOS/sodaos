@@ -3,7 +3,6 @@
 package nativequalification
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -112,12 +111,4 @@ func SameBaseScenario(a, b Artifact) error {
 		return errors.New("distinct same-base x86_64 candidates with matching schema/repository required")
 	}
 	return nil
-}
-
-func writeNewJSON(path string, v any) error {
-	b, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	return nativebuild.WriteNew(path, append(b, '\n'), 0600)
 }

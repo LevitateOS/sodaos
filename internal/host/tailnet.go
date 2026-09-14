@@ -29,7 +29,7 @@ func (d *Daemon) tailnetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if d.Tailnet == nil {
-		http.Error(w, "Tailnet management disabled", 503)
+		http.Error(w, "Tailnet management disabled", http.StatusServiceUnavailable)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
@@ -118,12 +118,13 @@ func (d *Daemon) tailnetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := json.Marshal(out)
 	if err != nil || len(data) > 65536 {
-		http.Error(w, "Tailnet response unavailable", 502)
+		http.Error(w, "Tailnet response unavailable", http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
 }
+
 func (c *Client) tailnetCall(ctx context.Context, path string, in, out any) error {
 	err := c.call(ctx, "/tailnet/"+path, in, out)
 	var native nativeHTTPError
@@ -144,6 +145,7 @@ func (c *Client) tailnetCall(ctx context.Context, path string, in, out any) erro
 	}
 	return nil
 }
+
 func (c *Client) TailnetSettings(ctx context.Context) (tailnet.SettingsView, error) {
 	var out tailnet.SettingsView
 	err := c.tailnetCall(ctx, "settings", struct{}{}, &out)
@@ -152,6 +154,7 @@ func (c *Client) TailnetSettings(ctx context.Context) (tailnet.SettingsView, err
 	}
 	return out, err
 }
+
 func (c *Client) TailnetHost(ctx context.Context, in tailnet.HostRequest) (tailnet.HostResult, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.HostResult{}, err
@@ -163,6 +166,7 @@ func (c *Client) TailnetHost(ctx context.Context, in tailnet.HostRequest) (tailn
 	}
 	return out, err
 }
+
 func (c *Client) TailnetEnrollment(ctx context.Context, in tailnet.EnrollmentRequest) (tailnet.EnrollmentResult, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.EnrollmentResult{}, err
@@ -191,6 +195,7 @@ func (c *Client) TailnetEnrollment(ctx context.Context, in tailnet.EnrollmentReq
 	}
 	return out, err
 }
+
 func (c *Client) TailnetOptions(ctx context.Context) (tailnet.ProjectOptions, error) {
 	var out tailnet.ProjectOptions
 	err := c.tailnetCall(ctx, "options", struct{}{}, &out)
@@ -217,6 +222,7 @@ func (c *Client) TailnetPolicy(ctx context.Context, project string) (tailnet.Pro
 	}
 	return out, e
 }
+
 func (c *Client) TailnetProject(ctx context.Context, in tailnet.ProjectRequest) (tailnet.ProjectView, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.ProjectView{}, err

@@ -15,9 +15,9 @@ import (
 const DefaultCLI = "/usr/bin/tailscale"
 
 var (
-	ErrUnavailable         = errors.New("Tailscale status is unavailable")
-	ErrNotEnrolled         = errors.New("Tailscale is not enrolled")
-	ErrIPv4Unavailable     = errors.New("Tailscale did not report an IPv4 address")
+	ErrUnavailable         = errors.New("tailscale status is unavailable")
+	ErrNotEnrolled         = errors.New("tailscale is not enrolled")
+	ErrIPv4Unavailable     = errors.New("tailscale did not report an IPv4 address")
 	ErrInvalidMagicDNSName = errors.New("invalid Tailscale MagicDNS identity")
 )
 
@@ -112,7 +112,7 @@ func parseStatus(contents []byte) (Status, error) {
 		return Status{}, fmt.Errorf("parse Tailscale status: %w", err)
 	}
 	if document.BackendState == "" {
-		return Status{}, errors.New("Tailscale status did not include a backend state")
+		return Status{}, errors.New("tailscale status did not include a backend state")
 	}
 	status := Status{BackendState: document.BackendState, MagicDNSEnabled: document.CurrentTailnet.MagicDNSEnabled, Expired: document.Self.Expired, AuthPending: document.AuthURL != ""}
 	if document.Self.DNSName != "" {

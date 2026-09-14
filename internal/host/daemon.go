@@ -6,14 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/appliancerelease"
-	"github.com/levitateos/sodaos/internal/installlayout"
-	"github.com/levitateos/sodaos/internal/nativebuild"
-	"github.com/levitateos/sodaos/internal/projectos"
-	"github.com/levitateos/sodaos/internal/runners"
-	"github.com/levitateos/sodaos/internal/strictjson"
-	"github.com/levitateos/sodaos/internal/tailnet"
-	"golang.org/x/crypto/ssh"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -24,12 +16,23 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/appliancerelease"
+	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/projectos"
+	"github.com/levitateos/sodaos/internal/runners"
+	"github.com/levitateos/sodaos/internal/strictjson"
+	"github.com/levitateos/sodaos/internal/tailnet"
+	"golang.org/x/crypto/ssh"
 )
 
-var projectID = regexp.MustCompile(`^p[0-9a-f]{24}$`)
-var loginName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
-var imageID = regexp.MustCompile(`^(?:sha256:)?[0-9a-f]{64}$`)
-var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
+var (
+	projectID   = regexp.MustCompile(`^p[0-9a-f]{24}$`)
+	loginName   = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
+	imageID     = regexp.MustCompile(`^(?:sha256:)?[0-9a-f]{64}$`)
+	networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
+)
 
 type Config struct {
 	TailnetManagement bool   `json:"tailnet_management,omitempty"`
@@ -156,7 +159,7 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != "POST" {
-		http.Error(w, "POST required", 405)
+		http.Error(w, "POST required", http.StatusMethodNotAllowed)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
@@ -243,6 +246,7 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
 }
+
 func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	if !projectID.MatchString(in.ID) || in.Owner <= 0 || in.Profile == nil || in.Profile.Validate() != nil {
 		return Environment{}, errors.New("invalid creation identity")
@@ -256,6 +260,7 @@ func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	}
 	return d.startCreated(ctx, in)
 }
+
 func (d *Daemon) createContainer(ctx context.Context, in Create) error {
 	profile, err := d.resolveProfile(ctx)
 	if err != nil {
@@ -279,6 +284,7 @@ func (d *Daemon) createContainer(ctx context.Context, in Create) error {
 	_, err = d.podman(ctx, nil, args...)
 	return err
 }
+
 func (d *Daemon) startCreated(ctx context.Context, in Create) (Environment, error) {
 	name := "soda-" + in.ID
 	if _, err := d.Exec.Run(ctx, nil, "/usr/bin/systemctl", "enable", "--now", "soda-project@"+in.ID+".service"); err != nil {
@@ -305,6 +311,7 @@ func (d *Daemon) startCreated(ctx context.Context, in Create) (Environment, erro
 	}
 	return env, nil
 }
+
 func (d *Daemon) inspect(ctx context.Context, id string) (Environment, int64, error) {
 	env := Environment{ID: id}
 	if !projectID.MatchString(id) {

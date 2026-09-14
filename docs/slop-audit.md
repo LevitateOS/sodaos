@@ -108,25 +108,20 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
 
 ## staticcheck backlog (48) — fix order
 
-- [ ] Bulk mechanical (one commit): 21 × ST1005 capitalized error strings,
-  12 × ST1013 numeric HTTP codes (use `http.Status*` constants).
+- [x] Bulk mechanical: 21 × ST1005 lowercased, 12 × ST1013 `http.Status*`
+  constants (verified no test asserts the old strings; the one match,
+  `command_test.go:54`, reads the untouched CLI guidance in `command.go:23`).
 - [ ] Judged separately: 8 × SA1019 deprecated APIs (`runtime.GOROOT`,
-  `tar.TypeRegA`, own `AdminTokenFile` markers in tests).
-- [ ] Removal candidates (each matches an L1.12 unreferenced def — two
-  independent instruments agree): `companionName`
-  (`internal/host/tailnet_companion.go:32`), `writeNewJSON`
-  (`internal/nativequalification/inputs.go:117`), `buildCapture`
-  (`tools/soda-host-image/legacy.go:11`).
-- [ ] Dead store (real, benign): `install_linux.go:236` (`err = errRestart`
-  is clobbered by line 197's `:=` before any read; retry works via loop
-  fall-through, the flag misleads). One-line removal.
-- [ ] Not a bug (staticcheck false positive, close-read): the `break` at
-  `console_linux.go:248` exits the switch onto line 259's loop break, and the
-  `openEditor` flag correctly skips the next ask (lines 194–195, 202) into the
-  `case "edit"` nmtui path. Needs a `//lint:ignore SA4011,S1023` with this
-  reason when the gate approaches green, not a restructure.
-- [ ] Test-file nits (lowest priority): S1007 regexp raw string
-  (`terminal_native_test.go:32`), ST1013 in `client_test.go:25`.
+  `tar.TypeRegA`, own `AdminTokenFile` markers in tests). Whole-repo
+  staticcheck is now exactly these 8.
+- [x] Removals (each matched an L1.12 unreferenced def — two instruments
+  agreed; grep confirmed single occurrence): `companionName`, `writeNewJSON`
+  (+ its orphaned `encoding/json` import), `buildCapture` alias.
+- [x] Dead store: `install_linux.go:236` replaced with a comment (retry works
+  via outer-loop fall-through).
+- [x] `console_linux.go:248`: `//lint:ignore SA4011,S1023` with the close-read
+  reason (false positive, not a bug).
+- [x] Test-file nits: S1007 raw regexp, ST1013 in `client_test.go:25`.
 
 ## Open verification items
 

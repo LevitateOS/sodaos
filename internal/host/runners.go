@@ -29,7 +29,7 @@ func (d *Daemon) runnerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if d.Runners == nil {
-		http.Error(w, "runner integration unavailable", 503)
+		http.Error(w, "runner integration unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
@@ -39,12 +39,12 @@ func (d *Daemon) runnerHandler(w http.ResponseWriter, r *http.Request) {
 	result, err := d.Runners.Execute(ctx, action, http.MaxBytesReader(w, r.Body, 65536))
 	if err != nil {
 		// Neither provider diagnostics nor registration input enters the journal/body.
-		http.Error(w, "runner operation unconfirmed; inspect local and provider state before retrying", 502)
+		http.Error(w, "runner operation unconfirmed; inspect local and provider state before retrying", http.StatusBadGateway)
 		return
 	}
 	body, err := json.Marshal(result)
 	if err != nil || len(body) > 65536 {
-		http.Error(w, "runner response unavailable", 502)
+		http.Error(w, "runner response unavailable", http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -56,6 +56,7 @@ func (c *Client) RunnersList(ctx context.Context) (runners.Inventory, error) {
 	err := c.call(ctx, "/runners/list", runners.EmptyRequest{}, &inventory)
 	return inventory, err
 }
+
 func (c *Client) RunnerCreate(ctx context.Context, in runners.CreateRequest) error {
 	var result runners.MutationResponse
 	err := c.call(ctx, "/runners/create", in, &result)
@@ -64,6 +65,7 @@ func (c *Client) RunnerCreate(ctx context.Context, in runners.CreateRequest) err
 	}
 	return err
 }
+
 func (c *Client) RunnerAction(ctx context.Context, action string, in runners.RunnerRequest) error {
 	switch action {
 	case "start", "stop", "restart", "remove":

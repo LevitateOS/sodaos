@@ -5,9 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/runners"
-	"github.com/levitateos/sodaos/internal/tailnet"
 	"net"
 	"net/http"
 	"os"
@@ -15,9 +12,13 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/runners"
+	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-var errTailnetPreparation = errors.New("Tailnet preparation unconfirmed; observe and explicitly retry")
+var errTailnetPreparation = errors.New("tailnet preparation unconfirmed; observe and explicitly retry")
 
 func exitStatus(err error) int {
 	if err == nil {
@@ -35,6 +36,7 @@ func main() {
 		os.Exit(exitStatus(err))
 	}
 }
+
 func run() error {
 	path := flag.String("config", "/etc/soda/host.json", "operator-owned runtime configuration")
 	action := flag.String("tailnet-action", "", "fixed native companion phase: run or stop")

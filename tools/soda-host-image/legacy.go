@@ -8,14 +8,12 @@ import (
 	"github.com/levitateos/sodaos/internal/nativebuild"
 )
 
-type buildCapture = nativebuild.BuildCapture
-
 // Compatibility assembly only. The shell retains its clean-checkout lock,
 // inventory/seal and ISO handoff. No common compilation/asset/image command is
 // independently maintained there, and this profile cannot emit a host candidate.
 func legacyNative(source, out, arch, revision string, execution nativebuild.BuildExecution, next func(string) error) error {
 	for _, name := range []string{"bin", "tools"} {
-		if e := os.Mkdir(filepath.Join(out, name), 0755); e != nil {
+		if e := os.Mkdir(filepath.Join(out, name), 0o755); e != nil {
 			return e
 		}
 	}

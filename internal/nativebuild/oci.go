@@ -17,14 +17,17 @@ import (
 	"strings"
 )
 
-type Image struct{ Manifest, Config, Architecture, Revision, Source, BaseName, BaseDigest string }
-type descriptor struct {
-	Digest      string            `json:"digest"`
-	Size        int64             `json:"size"`
-	MediaType   string            `json:"mediaType"`
-	URLs        []string          `json:"urls,omitempty"`
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
+type (
+	Image      struct{ Manifest, Config, Architecture, Revision, Source, BaseName, BaseDigest string }
+	descriptor struct {
+		Digest      string            `json:"digest"`
+		Size        int64             `json:"size"`
+		MediaType   string            `json:"mediaType"`
+		URLs        []string          `json:"urls,omitempty"`
+		Annotations map[string]string `json:"annotations,omitempty"`
+	}
+)
+
 type blob struct {
 	hash string
 	size int64
@@ -246,7 +249,7 @@ func inspectOCIImage(entries map[string]blob, image descriptor, want, revision s
 	}
 	labels := cfg.Config.Labels
 	if revision != "" && (labels["org.opencontainers.image.source"] != "https://github.com/LevitateOS/sodaos" || labels["org.opencontainers.image.base.name"] == "" || !strings.HasPrefix(labels["org.opencontainers.image.base.digest"], "sha256:") || !Digest(strings.TrimPrefix(labels["org.opencontainers.image.base.digest"], "sha256:"))) {
-		return Image{}, errors.New("Soda image lacks source/base attribution")
+		return Image{}, errors.New("soda image lacks source/base attribution")
 	}
 	return Image{image.Digest, manifest.Config.Digest, cfg.Arch, rev, labels["org.opencontainers.image.source"], labels["org.opencontainers.image.base.name"], labels["org.opencontainers.image.base.digest"]}, nil
 }

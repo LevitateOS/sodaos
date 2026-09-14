@@ -10,9 +10,9 @@ import (
 
 var (
 	ErrInvalid        = errors.New("invalid Tailnet request")
-	ErrConflict       = errors.New("Tailnet revision or identity changed")
-	ErrUnsupported    = errors.New("Tailnet runtime is not supported")
-	ErrUnconfirmed    = errors.New("Tailnet outcome is unconfirmed")
+	ErrConflict       = errors.New("tailnet revision or identity changed")
+	ErrUnsupported    = errors.New("tailnet runtime is not supported")
+	ErrUnconfirmed    = errors.New("tailnet outcome is unconfirmed")
 	revisionPattern   = regexp.MustCompile(`^[0-9a-f]{32}$`)
 	projectPattern    = regexp.MustCompile(`^p[0-9a-f]{24}$`)
 	containerPattern  = regexp.MustCompile(`^[0-9a-f]{64}$`)

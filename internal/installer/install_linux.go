@@ -20,9 +20,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const dataDir = "/usr/local/share/soda-installer"
-const installerBinary = installlayout.Libexec + "/soda-install"
-const diskAttemptMarker = "/run/soda-installer-disk-started"
+const (
+	dataDir           = "/usr/local/share/soda-installer"
+	installerBinary   = installlayout.Libexec + "/soda-install"
+	diskAttemptMarker = "/run/soda-installer-disk-started"
+)
 
 var (
 	errBack    = errors.New("back requested")
@@ -86,7 +88,7 @@ func Run(ctx context.Context, action string) error {
 	}
 	// One local caller, including when different consoles are active. Lock file is
 	// not a success marker and is never removed to pretend a partial attempt is new.
-	lock, err := os.OpenFile("/run/soda-installer.lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	lock, err := os.OpenFile("/run/soda-installer.lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
 	if err != nil {
 		return errors.New("cannot open installer lock")
 	}
@@ -233,7 +235,7 @@ func retryDiskInstall(ctx context.Context, c console, marker string, attempt fun
 			}
 			switch strings.ToLower(choice) {
 			case "restart":
-				err = errRestart
+				// Retry via the outer loop; err is re-read from the marker above.
 			case "quit", "cancel":
 				return errors.New("cancelled; no disk installation started")
 			default:
@@ -324,14 +326,14 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	// Private inputs remain in this boot's tmpfs, including on failure. No logs
 	// contain them; no cleanup touches unrelated or retained evidence.
 	ignition := filepath.Join(work, "destination.ign")
-	if err := nativebuild.WriteNew(ignition, destination, 0600); err != nil {
+	if err := nativebuild.WriteNew(ignition, destination, 0o600); err != nil {
 		return err
 	}
 	c.page("Installing CoreOS")
 	c.print("Writing the confirmed disk. Do not disconnect it.")
 	c.print("Raw diagnostics are suppressed to protect provisioning inputs.")
 	err = executeDisk(ctx, choices.disk, ignition, func() ([]Disk, error) { return scanDisks(ctx, command) }, func() error {
-		return nativebuild.WriteNew(marker, []byte(choices.disk.Device.Name+"\n"), 0600)
+		return nativebuild.WriteNew(marker, []byte(choices.disk.Device.Name+"\n"), 0o600)
 	}, command)
 	if err != nil {
 		return err

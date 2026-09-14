@@ -8,11 +8,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/forgejo"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/forgejo"
 )
 
 func main() {
@@ -21,6 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 }
+
 func run() error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("run through the operator's native root access")
@@ -59,17 +61,17 @@ func setup(external, internal, tokenPath, out string) error {
 		return err
 	}
 	if !u.Admin {
-		return fmt.Errorf("Forgejo operator token is not a site administrator")
+		return fmt.Errorf("forgejo operator token is not a site administrator")
 	}
 	a, err := client.Application(ctx, token, (config.Config{ForgejoURL: strings.TrimRight(external, "/")}).OAuthCallbackURL())
 	if err != nil {
 		return err
 	}
 	if a.ClientID == "" || a.Secret == "" {
-		return fmt.Errorf("Forgejo returned an incomplete OAuth application")
+		return fmt.Errorf("forgejo returned an incomplete OAuth application")
 	}
 	dir := filepath.Dir(out)
-	if err = os.MkdirAll(dir, 0700); err != nil {
+	if err = os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	secretPath := filepath.Join(dir, "oauth-secret")
@@ -77,7 +79,7 @@ func setup(external, internal, tokenPath, out string) error {
 	key := make([]byte, 32)
 	rand.Read(key)
 	for path, value := range map[string]string{secretPath: a.Secret, keyPath: base64.StdEncoding.EncodeToString(key)} {
-		f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if e != nil {
 			return fmt.Errorf("OAuth application created, but credential write failed; inspect Forgejo applications before retrying: %w", e)
 		}
@@ -91,7 +93,7 @@ func setup(external, internal, tokenPath, out string) error {
 		}
 	}
 	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(external, "/"), ForgejoInternalURL: strings.TrimRight(internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: a.ClientID, OAuthSecretFile: secretPath, GrantKeyFile: keyPath, OperatorID: u.ID}
-	f, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := os.OpenFile(out, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}

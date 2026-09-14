@@ -17,8 +17,10 @@ import (
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-const runtimeRoot = "/run/soda-tailnet"
-const companionInspect = `{"id":{{json .ID}},"image":{{json .Image}},"command":{{json .Config.CreateCommand}},"running":{{json .State.Running}},"pid":{{json .State.Pid}},"started":{{json .State.StartedAt}},"execs":{{json .ExecIDs}}}`
+const (
+	runtimeRoot      = "/run/soda-tailnet"
+	companionInspect = `{"id":{{json .ID}},"image":{{json .Image}},"command":{{json .Config.CreateCommand}},"running":{{json .State.Running}},"pid":{{json .State.Pid}},"started":{{json .State.StartedAt}},"execs":{{json .ExecIDs}}}`
+)
 
 type companion struct {
 	ID, Image string
@@ -29,9 +31,6 @@ type companion struct {
 	Execs     []string
 }
 
-func companionName(run projectRun) string {
-	return "soda-tailnet-" + run.Target.Project + "-" + run.Target.Run
-}
 func (d *Daemon) runtimeCommand(ctx context.Context, command string, args ...string) ([]byte, error) {
 	// The ordinary host executor predates secret-bearing native protocols. Never
 	// collect its stderr for the companion, and never return native error text.
@@ -44,9 +43,11 @@ func (d *Daemon) runtimeCommand(ctx context.Context, command string, args ...str
 	}
 	return b, nil
 }
+
 func (d *Daemon) runtimePodman(ctx context.Context, args ...string) ([]byte, error) {
 	return d.runtimeCommand(ctx, "/usr/bin/podman", append([]string{"--remote=false"}, args...)...)
 }
+
 func (d *Daemon) inspectCompanion(ctx context.Context, run projectRun) (companion, error) {
 	var out companion
 	id, e := readCompanionID(runtimeRoot, run, 0, 0)
@@ -68,6 +69,7 @@ func (d *Daemon) inspectCompanion(ctx context.Context, run projectRun) (companio
 	}
 	return out, nil
 }
+
 func validateCompanionRecord(out companion, run projectRun, image, id string) error {
 	args, e := companionCreateArgs(run, image)
 	if e != nil {
@@ -110,6 +112,7 @@ func companionResolver(run projectRun, pid int, stat func(string) (os.FileInfo, 
 	}
 	return nil
 }
+
 func (d *Daemon) companionCLI(ctx context.Context, run projectRun, args ...string) ([]byte, error) {
 	if len(args) == 0 {
 		return nil, tailnet.ErrInvalid
@@ -136,6 +139,7 @@ func (d *Daemon) companionCLI(ctx context.Context, run projectRun, args ...strin
 	}
 	return b, nil
 }
+
 func (f *runFiles) current() (projectRun, error) {
 	var run projectRun
 	file, e := f.root.OpenFile("current.json", os.O_RDONLY|syscall.O_NOFOLLOW, 0)
@@ -144,7 +148,7 @@ func (f *runFiles) current() (projectRun, error) {
 	}
 	defer file.Close()
 	info, e := file.Stat()
-	if e != nil || !runtimeFile(info, f.uid, f.gid, 0600) || info.Size() > 8192 {
+	if e != nil || !runtimeFile(info, f.uid, f.gid, 0o600) || info.Size() > 8192 {
 		return run, tailnet.ErrUnavailable
 	}
 	if strictjson.Decode(file, &run) != nil {
@@ -157,13 +161,14 @@ func (f *runFiles) current() (projectRun, error) {
 	}
 	return run, nil
 }
+
 func (f *runFiles) saveCurrent(run projectRun) error {
 	name := "current-" + run.Target.Run + ".json"
 	b, e := json.Marshal(run)
 	if e != nil {
 		return tailnet.ErrUnavailable
 	}
-	file, e := f.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	file, e := f.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
 		return tailnet.ErrConflict
 	}
@@ -184,6 +189,7 @@ func (f *runFiles) saveCurrent(run projectRun) error {
 	}
 	return nil
 }
+
 func (d *Daemon) consumeRunKey(ctx context.Context, run projectRun, root *os.Root, key string) error {
 	file, e := writeRunKey(root, run, key)
 	if e != nil {
@@ -433,6 +439,7 @@ func (d *Daemon) StopTailnet(ctx context.Context, id string) error {
 	}
 	return d.stopTailnetRun(ctx, run)
 }
+
 func (d *Daemon) stopTailnetRun(ctx context.Context, run projectRun) error {
 	id := run.Target.Project
 	cid, e := d.projectContainer(ctx, id, false)

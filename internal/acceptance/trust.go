@@ -92,7 +92,7 @@ func VerifyFixtureTrust(path, name string, r Remote) error {
 			return errors.New("invalid per-instance host key")
 		}
 		if err = callback(host, address, signer.PublicKey()); err != nil {
-			return errors.New("Ignition host key does not match pinned management trust")
+			return errors.New("ignition host key does not match pinned management trust")
 		}
 		matched = true
 	}

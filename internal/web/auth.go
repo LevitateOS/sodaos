@@ -45,6 +45,7 @@ func requestCookie(r *http.Request, name string) (*http.Cookie, error) {
 func (s *Server) cookie(w http.ResponseWriter, name, value string, seconds int) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: config.SodaPath + "/", MaxAge: seconds, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
 }
+
 func (s *Server) authRoutes() {
 	s.mux.HandleFunc("/api/login/cancel", s.cancelLogin)
 	s.mux.HandleFunc("GET /login", s.login)
@@ -129,8 +130,9 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	s.cookie(w, oauthCookie, state, 600)
 	scopes := "read:user read:repository read:organization"
 	q := url.Values{"client_id": {s.Config.OAuthClientID}, "redirect_uri": {s.Config.OAuthCallbackURL()}, "response_type": {"code"}, "scope": {scopes}, "state": {state}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"}}
-	http.Redirect(w, r, s.Config.ForgejoURL+"/login/oauth/authorize?"+q.Encode(), 302)
+	http.Redirect(w, r, s.Config.ForgejoURL+"/login/oauth/authorize?"+q.Encode(), http.StatusFound)
 }
+
 func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
@@ -280,7 +282,7 @@ func (s *Server) nativePageEntry(w http.ResponseWriter, r *http.Request, login s
 		return
 	}
 	if config.BaseURL(s.Config.ForgejoURL) != nil || !strings.HasPrefix(s.Config.ForgejoURL, "https://") {
-		http.Error(w, "Native origin unavailable.", 503)
+		http.Error(w, "Native origin unavailable.", http.StatusServiceUnavailable)
 		return
 	}
 	if _, err := requestCookie(r, sessionCookie); err != nil && !errors.Is(err, http.ErrNoCookie) {

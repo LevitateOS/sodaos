@@ -47,6 +47,7 @@ type commandExit struct {
 func (e *commandExit) Error() string {
 	return fmt.Sprintf("%s failed (exit %d, interrupted %t); raw diagnostics suppressed", e.name, e.code, e.interrupted)
 }
+
 func failureSummary(err error) string {
 	var result *commandExit
 	if errors.As(err, &result) {
@@ -77,10 +78,12 @@ func (c console) page(title string) {
 	c.print(title)
 	c.print("")
 }
+
 func (c console) ask(prompt string) (string, error) {
 	fmt.Fprint(c.tty, prompt+": ")
 	return c.line()
 }
+
 func (c console) line() (string, error) {
 	var data []byte
 	var b [1]byte
@@ -115,6 +118,7 @@ func (c console) line() (string, error) {
 	}
 	return "", errors.New("input exceeds limit")
 }
+
 func (c console) secret(prompt string) (string, error) {
 	fd := int(c.tty.Fd())
 	state, err := unix.IoctlGetTermios(fd, unix.TCGETS)
@@ -245,6 +249,7 @@ func (c console) networkWith(ctx context.Context, run commandRunner) error {
 				return nil
 			case "edit":
 				openEditor = true
+				//lint:ignore SA4011,S1023 the break exits the switch onto the loop break below; the flag routes the next outer iteration into the nmtui path.
 				break
 			case "back":
 				return errBack

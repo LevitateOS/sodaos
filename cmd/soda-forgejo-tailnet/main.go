@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/forgejo"
-	"github.com/levitateos/sodaos/internal/tailnet"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/forgejo"
+	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
 func main() {
@@ -18,6 +19,7 @@ func main() {
 		os.Exit(1)
 	}
 }
+
 func run() error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("host operator required")
@@ -50,6 +52,7 @@ func run() error {
 	fmt.Println("Forgejo SSH address refreshed; configured browser/OAuth origins preserved.")
 	return nil
 }
+
 func publishedState(data []byte, ip string) (string, bool, error) {
 	var items []struct {
 		Config     struct{ Env []string }
@@ -71,7 +74,7 @@ func publishedState(data []byte, ip string) (string, bool, error) {
 		}
 	}
 	if !exposed {
-		return "", false, fmt.Errorf("Forgejo Git SSH is not bound to Tailnet IP %s:2222; configure the intended private native listener before refreshing its advertised address", ip)
+		return "", false, fmt.Errorf("forgejo Git SSH is not bound to Tailnet IP %s:2222; configure the intended private native listener before refreshing its advertised address", ip)
 	}
 	for _, value := range items[0].Config.Env {
 		if strings.HasPrefix(value, "FORGEJO__server__SSH_DOMAIN=") {

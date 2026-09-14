@@ -18,9 +18,9 @@ func (e *HTTPError) Error() string {
 }
 
 var (
-	ErrUnavailable      = errors.New("Forgejo could not be reached")
+	ErrUnavailable      = errors.New("forgejo could not be reached")
 	ErrInvalidResponse  = errors.New("invalid Forgejo response")
-	ErrResponseTooLarge = errors.New("Forgejo response exceeds the supported size")
+	ErrResponseTooLarge = errors.New("forgejo response exceeds the supported size")
 )
 
 func transportError(ctx context.Context) error {

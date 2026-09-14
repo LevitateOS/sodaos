@@ -24,7 +24,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 		return p, fmt.Errorf("admitted package inventory changed: %v", err)
 	}
 	native := producer.Native
-	if err = os.MkdirAll(filepath.Join(native, "bin"), 0755); err != nil {
+	if err = os.MkdirAll(filepath.Join(native, "bin"), 0o755); err != nil {
 		return p, err
 	}
 	commands, err := nativebuild.SodaCommands(source)
@@ -38,7 +38,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 		}
 	}
 	forgejoContext := filepath.Join(out, "forgejo-context")
-	if err = os.Mkdir(forgejoContext, 0700); err != nil {
+	if err = os.Mkdir(forgejoContext, 0o700); err != nil {
 		return p, err
 	}
 	if err = producer.Assets(context, forgejoContext); err != nil {
@@ -55,7 +55,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	if err != nil {
 		return p, err
 	}
-	if err = nativebuild.WriteNew(filepath.Join(forgejoContext, "Containerfile"), recipe, 0644); err != nil {
+	if err = nativebuild.WriteNew(filepath.Join(forgejoContext, "Containerfile"), recipe, 0o644); err != nil {
 		return p, err
 	}
 	if err = preparedChecks(producer); err != nil {
@@ -82,9 +82,9 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
  test -s "$GITEA_CUSTOM/public/assets/soda/forgejo/soda-native-page.js"
  /usr/local/bin/gitea --version`)
 	if err != nil {
-		return p, fmt.Errorf("Forgejo payload image inspection failed: %w", err)
+		return p, fmt.Errorf("forgejo payload image inspection failed: %w", err)
 	}
-	if err = nativebuild.WriteNew(filepath.Join(out, "forgejo-inspection.txt"), []byte(result+"\n"), 0600); err != nil {
+	if err = nativebuild.WriteNew(filepath.Join(out, "forgejo-inspection.txt"), []byte(result+"\n"), 0o600); err != nil {
 		return p, err
 	}
 	if err = producer.Next("Assemble host payload and ordinary Podman image references"); err != nil {
@@ -100,6 +100,6 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	if err != nil {
 		return p, err
 	}
-	err = nativebuild.WriteNew(filepath.Join(out, "payload.json"), append(record, '\n'), 0600)
+	err = nativebuild.WriteNew(filepath.Join(out, "payload.json"), append(record, '\n'), 0o600)
 	return p, err
 }

@@ -27,9 +27,11 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-const fixtureState = "/var/lib/soda-qualification"
-const fixtureLogin = "soda-tester"
-const fixtureProject = "p000000000000000000000001"
+const (
+	fixtureState   = "/var/lib/soda-qualification"
+	fixtureLogin   = "soda-tester"
+	fixtureProject = "p000000000000000000000001"
+)
 
 func checkStateSchema(ctx context.Context, path string) error {
 	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
@@ -67,7 +69,7 @@ func GuestState(ctx context.Context, action, expectedPayload string) (map[string
 	}
 	credential := filepath.Join(fixtureState, "forgejo-password")
 	if action == "seed" {
-		if err = os.Mkdir(fixtureState, 0700); err != nil {
+		if err = os.Mkdir(fixtureState, 0o700); err != nil {
 			return nil, err
 		}
 		if err = configureFixtureForgejo(ctx); err != nil {
@@ -84,7 +86,7 @@ func GuestState(ctx context.Context, action, expectedPayload string) (map[string
 		if len(match) != 2 || len(match[1]) < 12 {
 			return nil, errors.New("native random password output unavailable; do not replay account creation")
 		}
-		if err = nativebuild.WriteNew(credential, match[1], 0600); err != nil {
+		if err = nativebuild.WriteNew(credential, match[1], 0o600); err != nil {
 			return nil, err
 		}
 		if err = configureFixtureSoda(ctx); err != nil {
@@ -239,7 +241,7 @@ func GuestState(ctx context.Context, action, expectedPayload string) (map[string
 		return nil, errors.New("schema differs; native downgrade/observation refused")
 	}
 	if err = observedDB.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil || integrity != "ok" {
-		return nil, errors.New("Soda database integrity failed")
+		return nil, errors.New("soda database integrity failed")
 	}
 	var observedUser store.User
 	if err = observedDB.QueryRowContext(ctx, "SELECT id,login,name FROM users WHERE id=?", user.ID).Scan(&observedUser.ID, &observedUser.Login, &observedUser.Name); err != nil {

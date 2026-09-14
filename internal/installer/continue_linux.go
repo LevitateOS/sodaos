@@ -43,9 +43,9 @@ if [ "$(id -u)" = 0 ] && [ -t 1 ]; then
 fi
 `),
 	} {
-		mode := 0644
+		mode := 0o644
 		if path == "/var/usrlocal/libexec/soda/soda-install" {
-			mode = 0755
+			mode = 0o755
 		}
 		for _, existing := range files {
 			var f struct {
@@ -110,7 +110,7 @@ func protectedBundle(path string) error {
 			return err
 		}
 		sys, ok := st.Sys().(*syscall.Stat_t)
-		if !ok || sys.Uid != 0 || !st.IsDir() || st.Mode().Perm()&0022 != 0 {
+		if !ok || sys.Uid != 0 || !st.IsDir() || st.Mode().Perm()&0o022 != 0 {
 			return errors.New("bundle and ancestors must be real root-owned directories not writable by others")
 		}
 		if current == "/" {
@@ -129,7 +129,7 @@ func protectedBundle(path string) error {
 		if !ok || sys.Uid != 0 {
 			return errors.New("bundle entries must be root-owned")
 		}
-		if st.Mode()&os.ModeSymlink == 0 && st.Mode().Perm()&0022 != 0 {
+		if st.Mode()&os.ModeSymlink == 0 && st.Mode().Perm()&0o022 != 0 {
 			return errors.New("bundle entries must not be writable by others")
 		}
 		return nil
@@ -206,21 +206,21 @@ func continueInstall(ctx context.Context, c console, run commandRunner) error {
 		return err
 	}
 	if answer != "INSTALL SODA" {
-		return errors.New("Soda installation cancelled")
+		return errors.New("soda installation cancelled")
 	}
 	if err := freshAppliance(); err != nil {
 		return err
 	}
 	// The native script also checks actual installed RPMs, routes, containers and
 	// identities. This marker additionally prevents replay if it fails early.
-	if err := os.Mkdir("/var/lib/soda-installer", 0700); err != nil && !errors.Is(err, os.ErrExist) {
+	if err := os.Mkdir("/var/lib/soda-installer", 0o700); err != nil && !errors.Is(err, os.ErrExist) {
 		return err
 	}
 	st, err := os.Lstat("/var/lib/soda-installer")
-	if err != nil || !st.IsDir() || st.Mode().Perm() != 0700 {
+	if err != nil || !st.IsDir() || st.Mode().Perm() != 0o700 {
 		return errors.New("private continuation state directory required")
 	}
-	if err := nativebuild.WriteNew("/var/lib/soda-installer/continue-started", []byte(inventory.Revision+"\n"), 0600); err != nil {
+	if err := nativebuild.WriteNew("/var/lib/soda-installer/continue-started", []byte(inventory.Revision+"\n"), 0o600); err != nil {
 		return err
 	}
 	if _, err := run(ctx, "bash", []string{filepath.Join(bundle, "install-native.sh"), bundle, subnet}, nil); err != nil {
