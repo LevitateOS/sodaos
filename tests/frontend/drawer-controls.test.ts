@@ -211,7 +211,7 @@ test('network startup uncertainty is not shown as connected and never replays on
   const page = await fixture(t, {tailnetAvailable: true}); await refresh(page); await click(page, 'Network');
   await page.evaluate(() => window.drawerFixture.setReply(async call => call.url.endsWith('/tailnet') && call.method === 'POST' ? Response.json({error: {code: 'tailnet_unconfirmed', message: 'private diagnostic'}}, {status: 502}) : null));
   await page.getByRole('checkbox', {name: /I confirm changing network access/}).check(); await click(page, 'Use managed network');
-  await page.getByText(/Outcome unconfirmed/).waitFor();
+  await page.getByText('We couldn’t confirm that this change finished. Refresh status to check the result before trying again.', {exact: true}).waitFor();
   assert.equal(await page.getByText('private diagnostic', {exact: true}).count(), 0);
   await refresh(page); assert.equal((await writes(page)).length, 1);
   assert.equal(await page.getByRole('textbox', {name: 'Tailnet SSH command', exact: true}).count(), 0);
@@ -275,12 +275,12 @@ test('an unconfirmed key apply requires another target preview, not permanent pa
     return call.method === 'POST' ? new Response(null, {status:502}) : Response.json({login:'alice',revision:'b'.repeat(64),installed_fingerprints:[],saved_fingerprints:[]});
   }));
   await click(page, 'Apply reviewed saved keys to this project');
-  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  assert.match(await page.locator('[data-control=result]').innerText(), /We couldn’t confirm that this change finished/);
   assert(await page.evaluate(() => window.drawerFixture.api.canRestore));
   assert.equal(await page.getByRole('button', {name:'Apply reviewed saved keys to this project',exact:true}).count(), 0);
   await click(page, 'Review this project’s SSH keys');
   assert.equal((await writes(page)).length, 1);
-  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  assert.match(await page.locator('[data-control=result]').innerText(), /We couldn’t confirm that this change finished/);
 });
 test('own Forgejo key selection is explicit and does not install or silently save a profile key', async t => {
   const page = await fixture(t, {saved: []}); await refresh(page);
@@ -332,7 +332,7 @@ test('unconfirmed Create keeps its notice without a permanent lock or another re
   assert(await page.evaluate(() => window.drawerFixture.api.canRestore));
   await refresh(page);
   assert.equal(await page.getByRole('button', {name:'Create environment', exact:true}).count(), 0);
-  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  assert.match(await page.locator('[data-control=result]').innerText(), /Project creation could not be confirmed/);
   assert.match(await page.locator('main').innerText(), /Provisioning incomplete/);
   assert.equal((await writes(page)).length, 1);
   await click(page, 'Sign out'); assert((await writes(page)).some(call => call.url.endsWith('/api/session/logout')));
@@ -358,7 +358,7 @@ for (const kind of ['HTML', 'oversized', '401', '403'] as const) test(`${kind} r
   const page = await fixture(t);
   await page.evaluate(kind => window.drawerFixture.setReply(async () => kind === 'HTML' ? new Response('<html>login</html>', {headers: {'Content-Type': 'text/html'}}) : kind === 'oversized' ? Response.json({padding: 'x'.repeat(65537)}) : new Response(null, {status: Number(kind)})), kind);
   await refresh(page);
-  assert.equal(await page.locator('[data-control=create]').getAttribute('hidden'), ''); assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
+  assert.equal(await page.getByRole('button', {name: 'Create environment', exact: true}).count(), 0); assert.equal(await page.evaluate(() => window.drawerFixture.terminals.length), 0);
 });
 test('repeated project refresh never acquires terminal ownership', async t => {
   const page = await fixture(t); await refresh(page); await refresh(page);
@@ -381,11 +381,11 @@ test('closing during initial bootstrap cannot publish controls or dispatch a mut
 test('unknown key-save response cannot claim a confirmed key', async t => {
   const page = await fixture(t); await refresh(page); await click(page, 'Access');
   await page.locator('textarea').fill('ssh-ed25519 YWJj'); await click(page, 'Save public key');
-  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  assert.match(await page.locator('[data-control=result]').innerText(), /We couldn’t confirm that this change finished/);
   assert(await page.evaluate(() => window.drawerFixture.api.canRestore));
   assert(!await page.getByRole('button', {name: 'Save public key', exact:true}).isDisabled());
   await refresh(page);
-  assert.match(await page.locator('[data-control=result]').innerText(), /Outcome unconfirmed/);
+  assert.match(await page.locator('[data-control=result]').innerText(), /We couldn’t confirm that this change finished/);
 });
 test('hidden create and lifecycle actions cannot dispatch through their handlers', async t => {
   const page = await fixture(t, {admin: false}); await refresh(page);
