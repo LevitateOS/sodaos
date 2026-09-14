@@ -17,18 +17,9 @@ RUN curl --fail --show-error --location "$(cat /run/soda-build/tailscale-repo.ur
     fi
 
 COPY rootfs/ /
-# forgejo-runner-12.13.2-1.fc44 ships whitespace-only tab lines that bootc
-# 1.16.7's sysusers parser rejects. Drop only blank lines, preserving every
-# account field and directive. The original package remains in build evidence.
-RUN sed -i '/^[[:space:]]*$/d' /usr/lib/sysusers.d/forgejo-runner.conf
-# Do not enable a competing automatic updater in the candidate. These changes
-# affect only the built image, never the builder's services or trust configuration.
-# Lint resolves tmpfiles paths, including /sys entries. Give this rootless build
-# step an empty /sys rather than the host's protected IMA filesystem. This is a
-# build-only mount, not a shipped mount or a skipped lint/privileged build.
-RUN --mount=type=tmpfs,target=/sys systemctl mask bootc-fetch-apply-updates.timer && \
-    ostree container commit && \
-    bootc container lint
+# Native rpm-ostree container finalization. Keep Fedora's update ownership;
+# no alternative installer/updater or additional application image store.
+RUN ostree container commit
 
 ARG PAYLOAD_SCOPE=host-content-only
 LABEL org.opencontainers.image.title="SodaOS appliance candidate" \

@@ -20,6 +20,9 @@ func legacyNative(source, out, arch, revision string, execution nativebuild.Buil
 		}
 	}
 	p := nativebuild.Production{Source: source, Native: out, Out: out, Arch: arch, Revision: revision, Execute: execution.Execute, Capture: execution.Capture, Next: next}
+	if e := p.Dependencies(); e != nil {
+		return e
+	}
 	for _, name := range []string{"soda-artifacts", "soda-acceptance"} {
 		if e := p.Compile(name, "./tools/"+name, filepath.Join(out, "tools", name)); e != nil {
 			return e
@@ -35,6 +38,9 @@ func legacyNative(source, out, arch, revision string, execution nativebuild.Buil
 		}
 	}
 	if e = p.Assets("", ""); e != nil {
+		return e
+	}
+	if e = p.ResolveInputs(); e != nil {
 		return e
 	}
 	if _, e = p.Images(""); e != nil {

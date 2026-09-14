@@ -54,7 +54,7 @@ class TerminalAssets(unittest.TestCase):
             self.assertNotIn('build:forgejo', scripts[f'test:{group}:prepared'])
         self.assertEqual(scripts['test:spaces-page'], 'bun run test:pages')
         self.assertEqual(scripts['test:pages:prepared'], 'bun scripts/test-spaces-page.ts')
-        self.assertEqual(scripts['test:frontend:prepared'], 'SODA_TAILNET_COMPONENT=1 bun test tests/frontend/*.test.ts')
+        self.assertEqual(scripts['test:frontend:prepared'], 'SODA_RUNNERS_COMPONENT=1 SODA_TAILNET_COMPONENT=1 bun test tests/frontend/*.test.ts')
         self.assertEqual(scripts['test:layout:prepared'], 'SODA_DRAWER_LAYOUT=1 bun test --timeout 90000 tests/frontend/drawer-layout.test.ts')
         self.assertEqual(scripts['test:forgejo:prepared'], 'SODA_LIT_BROWSER=1 bun test --timeout 120000 tests/forgejo/*.test.ts tests/forgejo/presentation/*.test.ts')
         self.assertTrue(scripts['test:lit'].startswith('bun run build:forgejo && SODA_LIT_BROWSER=1 bun test '))

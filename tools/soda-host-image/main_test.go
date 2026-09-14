@@ -18,7 +18,7 @@ func TestBuildCLIChild(t *testing.T) {
 	os.Args = append([]string{os.Args[0]}, args...)
 	main()
 }
-func TestBuildCLIRejectsMixedLayoutsWithFailureTiming(t *testing.T) {
+func TestLegacyCLIRejectsAllRetiredHostModes(t *testing.T) {
 	for _, args := range [][]string{
 		{"--legacy-native", "--build"},
 		{"--legacy-native", "--complete"},
@@ -37,7 +37,7 @@ func TestBuildCLIRejectsMixedLayoutsWithFailureTiming(t *testing.T) {
 		}
 		cmd.Env = append(env, "SODA_BUILD_SUPERVISED=1", "SODA_BUILD_CLI_TEST=1", "SODA_BUILD_CLI_ARGS="+strings.Join(args, "\n"))
 		b, e := cmd.CombinedOutput()
-		if e == nil || !strings.Contains(string(b), "FAILED") || strings.Contains(string(b), "SUCCESS") {
+		if e == nil || !strings.Contains(string(b), "flag provided but not defined") || strings.Contains(string(b), "SUCCESS") {
 			t.Fatalf("%v: %v\n%s", args, e, b)
 		}
 		if _, e = os.Stat(out); !os.IsNotExist(e) {

@@ -1,5 +1,5 @@
 [Unit]
-Description=Import release-owned project and Tailnet images into retained Podman storage
+Description=Import release-owned images into ordinary Podman storage
 After=systemd-tmpfiles-setup.service
 Before=soda-host.service
 

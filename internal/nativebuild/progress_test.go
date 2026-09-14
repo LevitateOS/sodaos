@@ -3,12 +3,14 @@ package nativebuild
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func progressFixture(t *testing.T) (*BuildProgress, string, *bytes.Buffer) {
@@ -32,7 +34,7 @@ func progressFixture(t *testing.T) (*BuildProgress, string, *bytes.Buffer) {
 	}
 	return p, path, &output
 }
-func TestGoProductionUsesExistingTimingOwner(t *testing.T) {
+func TestGoProductionUsesNativeTimingOwner(t *testing.T) {
 	p, path, output := progressFixture(t)
 	if e := p.Next("Build fixture"); e != nil {
 		t.Fatal(e)
@@ -73,6 +75,38 @@ func TestGoProductionUsesExistingTimingOwner(t *testing.T) {
 		t.Fatal(st, e)
 	}
 }
+func TestNativePhaseClockAndFailedOutput(t *testing.T) {
+	var output bytes.Buffer
+	now := time.Duration(0)
+	p := &BuildProgress{title: "fixture", Now: func() time.Duration { return now }, Stderr: &output}
+	if err := p.Phase("P3"); err != nil {
+		t.Fatal(err)
+	}
+	now = 2 * time.Second
+	if err := p.Next("Compile once"); err != nil {
+		t.Fatal(err)
+	}
+	now = 5 * time.Second
+	if err := p.Phase("P4"); err != nil {
+		t.Fatal(err)
+	}
+	now = 9 * time.Second
+	if err := p.Finish(errors.New("failure")); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Finish(nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, text := range []string{"section 00:00:03", "P3 | phase 00:00:05", "P4 | phase 00:00:04", "exit 1"} {
+		if !strings.Contains(output.String(), text) {
+			t.Fatal(output.String())
+		}
+	}
+	if strings.Contains(output.String(), "SUCCESS") || strings.Count(output.String(), "exit 1") != 1 {
+		t.Fatal(output.String())
+	}
+}
+
 func TestGoProgressRetainsOccupiedLog(t *testing.T) {
 	p, path, _ := progressFixture(t)
 	t.Setenv("SODA_BUILD_TIMING_LOG", "")

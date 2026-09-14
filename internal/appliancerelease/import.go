@@ -10,22 +10,30 @@ import (
 	"github.com/levitateos/sodaos/internal/nativebuild"
 )
 
-// ImportRetained adds only the two release-owned creation/companion images to
-// ordinary Podman storage. Never point persistent projects at bootc's GC-owned
-// additional store. No container/project/service is started, replaced or removed.
+// ImportRetained loads release-owned images into ordinary Podman storage. The
+// historical v1 reader loads its two retained roles; v2 loads all five images.
+// No container/project/service is started, replaced or removed.
 // run is the existing concrete native command boundary, injectable for tests.
 func ImportRetained(ctx context.Context, p Payload, images string, run func(context.Context, string, ...string) error) error {
 	if err := p.Validate(); err != nil {
 		return err
 	}
-	for _, name := range []string{"project-os", "tailnet"} {
+	names := []string{"project-os", "tailnet"}
+	if p.Format == 2 {
+		names = Names
+	}
+	for _, name := range names {
 		im := p.Images[name]
 		archive := filepath.Join(images, name+".oci")
 		hash, err := nativebuild.HashFile(archive)
 		if err != nil || hash != im.ArchiveSHA256 {
 			return fmt.Errorf("%s archive integrity unavailable", name)
 		}
-		observed, err := nativebuild.InspectOCI(archive, p.Architecture, p.Revision)
+		revision := p.Revision
+		if name == "proxy" {
+			revision = "" // Unmodified upstream image, never relabel its provenance.
+		}
+		observed, err := nativebuild.InspectOCI(archive, p.Architecture, revision)
 		if err != nil || observed.Config != im.Config || observed.Manifest != im.Manifest {
 			return fmt.Errorf("%s archive identity mismatch", name)
 		}

@@ -83,24 +83,56 @@ The first installer verifies before copying writable prefixes, validates the RFC
 
 ## Local host-content image candidate
 
-The [release engineering plan](release-engineering-plan.md#single-run-build-replacement-implementation)
-owns the replacement of this transitional image path and the writable-bundle builder
-with one source-to-release command. The new command is not implemented yet; the
-following describes existing tools/effects, not the target build interface. The
-current writable installer and sealed bundle remain usable pending native cutover.
-`tools/soda-host-image` is the existing noninteractive local builder, never an installed
-appliance helper or update scheduler. Its shared producer and two assemblers are
-being replaced, not expanded: the current `build-native.sh` adapter invokes its explicit
-`--legacy-native` layout before legacy metadata/sealing. Do not mix that compatibility
-flag with host build/complete/repository flags or treat its output as a host candidate.
-Both callers use `internal/nativebuild/production.go`, not duplicated command recipes.
+`tools/soda-build` now owns the fixed P1–P6 candidate sequence under the
+[release contract](release-engineering-plan.md#single-run-release-build-contract).
+Build from committed canonical source with the pinned Go/Bun/native prerequisites:
 
 ```sh
-# Run from the canonical checkout after committing the candidate source.
-# The fresh attempt's parent must exist; never clear/reuse an earlier attempt.
-mkdir -p .artifacts/host-image
-GOTOOLCHAIN=go1.26.7 go run ./tools/soda-host-image \
-  --arch x86_64 --out "$PWD/.artifacts/host-image/UNIQUE-ATTEMPT" --build
+mkdir -p .artifacts/controllers .artifacts/releases
+mkdir .artifacts/controllers/UNIQUE
+GOTOOLCHAIN=go1.26.7 go build -trimpath \
+  -o .artifacts/controllers/UNIQUE/soda-build ./tools/soda-build
+.artifacts/controllers/UNIQUE/soda-build --arch x86_64 \
+  --out "$PWD/.artifacts/releases/UNIQUE"
+```
+
+The controller's VCS revision must match the clean checkout. Each output is fresh;
+there is no worktree, partial-host mode, resume or skip-tests flag. The intended
+repository prefix defaults to `ghcr.io/levitateos/sodaos`; changing it does not create
+or publish repositories. Source and app inputs freeze before compilation. Prepared
+source/browser suites use the emitted assets; native page/provider journeys still
+belong to their separately authorized qualification drivers.
+
+P1–P6 builds runtime programs, the installer console and support tools once; stages
+vendor assets directly; builds/exports five apps and the native FCOS host; then
+checks ELF/OCI identities, RPM inventory, embedded archives and native Quadlet output.
+All five archives use ordinary Podman storage through payload v2. Strict v1 readers
+remain for historical artifacts. No bootc installer, update engine, bound storage,
+lint or sysusers workaround is used, and Zincati is not disabled. Fedora's inherited
+packages/bootable-container labels are not a Soda bootc integration.
+
+Outputs occupy `inputs/`, `work/`, `artifacts/`, `evidence/`, `release/` and `logs/`.
+`artifacts/` contains the six OCI archives (five under `images/`), tool binaries and
+hashes, payload/candidate identities and frozen app provenance. Native Go owns timing
+and cancellation, using the existing pinned process-group owner plus controller
+subreaping. No raw argv/environment is copied into progress or evidence. Tool logs
+are restricted; failed outputs and inspection CIDs remain, without pruning.
+
+**Current completion boundary:** the CLI exits **2** after a verified unsigned
+candidate because B3–B5 media/qualification/protected finalization are not connected.
+It does not report a qualified release. Earlier failures stop immediately. These
+build/inspection effects do not authorize installation, publishing or migration.
+Only x86_64 currently has the locked host package transaction; no ARM lock is invented.
+
+The old tool now accepts **only `--legacy-native`** for the retiring writable installer.
+It cannot produce a competing host candidate. The old shell/media producer is retained
+until B3/B4 native proof permits B6 retirement; it is not a replacement release mode.
+The superseded experiments below describe retained historical evidence, not commands
+to run with current source.
+
+```sh
+# Historical invocation, no longer accepted by current source:
+# soda-host-image --arch x86_64 --out FRESH-ATTEMPT --build
 ```
 
 Without `--build`, the command only snapshots committed source, prepares the public
@@ -142,9 +174,9 @@ storage layout or disabled Zincati as replacement requirements.
 For the complete local candidate, add an explicit **intended** repository prefix:
 
 ```sh
-GOTOOLCHAIN=go1.26.7 go run ./tools/soda-host-image \
-  --arch x86_64 --out "$PWD/.artifacts/host-image/UNIQUE-COMPLETE-ATTEMPT" \
-  --build --complete --repository-prefix ghcr.io/OWNER/PREFIX
+# Historical invocation, no longer accepted by current source:
+# soda-host-image --arch x86_64 --out FRESH-ATTEMPT --build --complete \
+#   --repository-prefix ghcr.io/OWNER/PREFIX
 ```
 
 Replace `OWNER/PREFIX` with lowercase intended names; this does not reserve or create

@@ -3,7 +3,6 @@ package hostimage
 import (
 	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -36,7 +35,7 @@ func TestPrepareVendorContextFromActualOwners(t *testing.T) {
 			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-tailnet@.service"), "/usr/libexec/soda/soda-host --tailnet-action=run")
 			require.Contains(t, read("rootfs/etc/profile.d/soda-console-welcome.sh"), "/usr/libexec/soda/soda-console-welcome")
 			require.Contains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "Image=localhost/soda-dashboard:dev") // Explicitly not yet bound app delivery.
-			require.Contains(t, read("rootfs/etc/zincati/config.d/90-soda-image.toml"), "enabled = false")
+			require.NoFileExists(t, filepath.Join(out, "rootfs/etc/zincati/config.d/90-soda-image.toml"))
 			for _, path := range []string{"rootfs/var", "rootfs/usr/local", "rootfs/etc/soda", "rootfs/etc/systemd/system", "rootfs/etc/containers/systemd"} {
 				require.NoDirExists(t, filepath.Join(out, path))
 			}
@@ -123,32 +122,19 @@ func TestBaseLockAndUnsafeOutputRefusal(t *testing.T) {
 	require.NoDirExists(t, out)
 }
 
-func TestSysusersWhitespaceFixPreservesAccountDirectives(t *testing.T) {
+func TestCandidateUsesOnlyNativeOSTreeFinalization(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(sourceRoot(t), "appliance/host.Containerfile"))
 	require.NoError(t, err)
-	var command string
-	for _, line := range strings.Split(string(b), "\n") {
-		if strings.HasPrefix(line, "RUN sed ") {
-			command = strings.TrimPrefix(line, "RUN ")
-		}
-	}
-	require.NotEmpty(t, command)
-	file := filepath.Join(t.TempDir(), "forgejo-runner.conf")
-	account := `u       forgejo-runner  -       "Forgejo-Runner System User"    /var/lib/forgejo-runner     /bin/bash`
-	require.NoError(t, os.WriteFile(file, []byte("\t\n# comment\n \t\n"+account+"\n"), 0644))
-	command = strings.ReplaceAll(command, "/usr/lib/sysusers.d/forgejo-runner.conf", `"$1"`)
-	output, err := exec.Command("/bin/sh", "-ec", command, "sysusers-fixture", file).CombinedOutput()
-	require.NoError(t, err, string(output))
-	actual, err := os.ReadFile(file)
-	require.NoError(t, err)
-	require.Equal(t, "# comment\n"+account+"\n", string(actual))
+	require.NotContains(t, string(b), "bootc")
+	require.NotContains(t, string(b), "RUN sed")
+	require.Contains(t, string(b), "RUN ostree container commit")
 }
 
 func TestRecipeDoesNotInstallOrPublishOnBuilder(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(sourceRoot(t), "appliance/host.Containerfile"))
 	require.NoError(t, err)
 	recipe := string(b)
-	for _, required := range []string{"ARG BASE_IMAGE\nFROM ${BASE_IMAGE}", "rpm-ostree install $(cat /run/soda-build/packages.list)", "ostree container commit", "bootc container lint", "systemctl mask bootc-fetch-apply-updates.timer", "--mount=type=tmpfs,target=/sys", "host-content-only"} {
+	for _, required := range []string{"ARG BASE_IMAGE\nFROM ${BASE_IMAGE}", "rpm-ostree install $(cat /run/soda-build/packages.list)", "ostree container commit", "host-content-only"} {
 		require.Contains(t, recipe, required)
 	}
 	for _, bad := range []string{"FROM quay.io/fedora/fedora-coreos:stable", "COPY . ", "install-native.sh", "podman push", "systemctl enable", "tailscale up"} {

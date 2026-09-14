@@ -107,6 +107,12 @@ func TestProductionBothLayoutsUseOneAssetAndImageSequence(t *testing.T) {
 				host = filepath.Join(p.Out, "context")
 				forgejo = filepath.Join(p.Out, "forgejo-context")
 			}
+			if e := p.Dependencies(); e != nil {
+				t.Fatal(e)
+			}
+			if e := p.ResolveInputs(); e != nil {
+				t.Fatal(e)
+			}
 			if e := p.Assets(host, forgejo); e != nil {
 				t.Fatal(e)
 			}
@@ -168,6 +174,9 @@ func TestProductionFailureStopsBeforeLaterImages(t *testing.T) {
 		}
 		return execute(dir, name, args...)
 	}
+	if e := p.ResolveInputs(); e != nil {
+		t.Fatal(e)
+	}
 	if _, e := p.Images("forgejo-context"); !errors.Is(e, sentinel) {
 		t.Fatal(e)
 	}
@@ -187,7 +196,7 @@ func TestProductionRefusesWrongToolchainInputsAndLayout(t *testing.T) {
 			switch mode {
 			case "bun":
 				p.Capture = func(string, string, ...string) (string, error) { return "different", nil }
-				if e := p.Assets(filepath.Join(p.Out, "context"), filepath.Join(p.Out, "forgejo-context")); e == nil {
+				if e := p.Dependencies(); e == nil {
 					t.Fatal("wrong Bun accepted")
 				}
 				return

@@ -141,11 +141,13 @@ func StagePresentation(forgejoContext, context string) (string, error) {
 	return hashBytes(data), nil
 }
 
-// Complete binds native app callers to the same immutable payload metadata and
-// packages the two persistent-runtime image archives outside bootc's GC store.
+// Complete binds all callers to one v2 payload and ordinary Podman storage.
 func Complete(source, context, archives string, p appliancerelease.Payload) error {
 	if err := p.Validate(); err != nil {
 		return err
+	}
+	if p.Format != 2 {
+		return errors.New("new candidates require the ordinary-Podman v2 payload")
 	}
 	root := filepath.Join(context, "rootfs")
 	for _, name := range []string{"forgejo", "dashboard", "proxy"} {
@@ -154,18 +156,11 @@ func Complete(source, context, archives string, p appliancerelease.Payload) erro
 		if err != nil {
 			return err
 		}
-		body, err := BoundQuadlet(string(original), p.Images[name].Reference)
+		body, err := LocalQuadlet(string(original), p.Images[name].Config)
 		if err != nil {
 			return err
 		}
 		if err = ownedWrite(filepath.Join(root, "usr/share/containers/systemd", unit), []byte(body), 0644); err != nil {
-			return err
-		}
-		link := filepath.Join(root, "usr/lib/bootc/bound-images.d", unit)
-		if err = os.MkdirAll(filepath.Dir(link), 0755); err != nil {
-			return err
-		}
-		if err = os.Symlink("/usr/share/containers/systemd/"+unit, link); err != nil {
 			return err
 		}
 	}
@@ -222,7 +217,7 @@ func Complete(source, context, archives string, p appliancerelease.Payload) erro
 	if err = ownedWrite(project, body, 0644); err != nil {
 		return err
 	}
-	for _, name := range []string{"project-os", "tailnet"} {
+	for _, name := range appliancerelease.Names {
 		archive := filepath.Join(archives, name+".oci")
 		got, err := nativebuild.HashFile(archive)
 		if err != nil || got != p.Images[name].ArchiveSHA256 {
@@ -265,15 +260,18 @@ func Complete(source, context, archives string, p appliancerelease.Payload) erro
 	})
 }
 
-func BoundQuadlet(body, reference string) (string, error) {
+func LocalQuadlet(body, reference string) (string, error) {
 	lines := strings.Split(body, "\n")
-	image, container := 0, 0
+	image, container, unit := 0, 0, 0
 	var out []string
 	for _, line := range lines {
 		switch {
+		case line == "[Unit]":
+			unit++
+			out = append(out, line, "Requires=soda-image-import.service", "After=soda-image-import.service")
 		case line == "[Container]":
 			container++
-			out = append(out, line, "GlobalArgs=--storage-opt=additionalimagestore=/usr/lib/bootc/storage", "Pull=never")
+			out = append(out, line, "Pull=never")
 		case strings.HasPrefix(line, "Image="):
 			image++
 			out = append(out, "Image="+reference)
@@ -284,7 +282,7 @@ func BoundQuadlet(body, reference string) (string, error) {
 			out = append(out, line)
 		}
 	}
-	if image != 1 || container != 1 {
+	if image != 1 || container != 1 || unit != 1 {
 		return "", errors.New("one fixed Quadlet container/image required")
 	}
 	return strings.Join(out, "\n"), nil

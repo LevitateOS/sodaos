@@ -24,6 +24,7 @@ type Production struct {
 	Execute BuildExec
 	Capture BuildCapture
 	Next    func(string) error
+	inputs  []ResolvedInput // admitted once; disk provenance is not execution authority
 }
 
 func (p Production) step(label string) error {
@@ -103,6 +104,14 @@ func (p Production) Assets(hostContext, forgejoContext string) error {
 	} else if hostContext != "" || forgejoContext != "" {
 		return errors.New("legacy assets cannot use vendor destinations")
 	}
+	return p.assetSteps(stage)
+}
+
+// Dependencies is run before any production compilation.
+func (p Production) Dependencies() error {
+	if e := p.validate(); e != nil {
+		return e
+	}
 	if e := p.step("Check frontend toolchain"); e != nil {
 		return e
 	}
@@ -119,12 +128,23 @@ func (p Production) Assets(hostContext, forgejoContext string) error {
 	if e != nil || "bun@"+bun != workspace.PackageManager {
 		return errors.New("workspace-pinned Bun required")
 	}
+	if e = p.step("Verify Go dependencies"); e != nil {
+		return e
+	}
+	if e = p.Execute(p.Source, "go", "mod", "verify"); e != nil {
+		return e
+	}
+	if e = p.step("Install frontend dependencies"); e != nil {
+		return e
+	}
+	return p.Execute(p.Source, "bun", "install", "--frozen-lockfile")
+}
+
+func (p Production) assetSteps(stage []string) error {
 	steps := []struct {
 		label string
 		args  []string
 	}{
-		{"Verify Go dependencies", []string{"go", "mod", "verify"}},
-		{"Install frontend dependencies", []string{"bun", "install", "--frozen-lockfile"}},
 		{"Build frontend assets", []string{"bun", "scripts/build-forgejo.ts", "--out", filepath.Join(p.Native, "forgejo-js")}},
 		{"Fetch terminal assets", []string{"python3", "scripts/fetch-terminal.py", "--out", filepath.Join(p.Native, "terminal-assets")}},
 		{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
@@ -158,12 +178,53 @@ func (p Production) Images(forgejoContext string) (map[string]ProducedImage, err
 	if p.Vendor != (forgejoContext != "") {
 		return nil, errors.New("explicit Forgejo layout required")
 	}
-	platform, _ := OCIArchitecture(p.Arch)
 	archives := filepath.Join(p.Out, "images")
 	if e := os.Mkdir(archives, 0755); e != nil {
 		return nil, e
 	}
-	var inputs []struct{ Requested, Reference, Config string }
+	inputs := p.inputs
+	if len(inputs) != 4 {
+		return nil, errors.New("image inputs must be frozen before production")
+	}
+	pull := func(label, ref, iidName string) (string, string, error) {
+		if e := p.step("Select frozen " + label); e != nil {
+			return "", "", e
+		}
+		for _, input := range inputs {
+			if input.Requested != ref {
+				continue
+			}
+			if !Digest(strings.TrimPrefix(input.Config, "sha256:")) || !strings.Contains(input.Reference, "@sha256:") {
+				return "", "", errors.New("invalid frozen image input")
+			}
+			if iidName != "" {
+				if e := WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(input.Config+"\n"), 0600); e != nil {
+					return "", "", e
+				}
+			}
+			return input.Config, input.Reference, nil
+		}
+		return "", "", errors.New("image source was not frozen before production")
+	}
+	build := func(name, dir, file, pinned string, args ...string) (string, error) {
+		return p.buildImage(name, dir, file, pinned, args...)
+	}
+	return p.exportImages(forgejoContext, archives, pull, build)
+}
+
+// ResolveInputs records the actual upstream manifests once, before shipping work.
+// This is the existing app-inputs owner, not a reuse planner or another inventory.
+type ResolvedInput struct{ Requested, Reference, Config string }
+
+func (p *Production) ResolveInputs() error {
+	if e := p.validate(); e != nil {
+		return e
+	}
+	if _, e := os.Lstat(filepath.Join(p.Out, "app-inputs.json")); !os.IsNotExist(e) {
+		return errors.New("occupied image input record")
+	}
+	platform, _ := OCIArchitecture(p.Arch)
+	var inputs []ResolvedInput
 	pull := func(label, ref, iidName string) (string, string, error) {
 		if e := p.step("Pull and resolve " + label); e != nil {
 			return "", "", e
@@ -193,7 +254,7 @@ func (p Production) Images(forgejoContext string) (map[string]ProducedImage, err
 				return "", "", e
 			}
 		}
-		inputs = append(inputs, struct{ Requested, Reference, Config string }{ref, pinned, id})
+		inputs = append(inputs, ResolvedInput{ref, pinned, id})
 		b, e := json.MarshalIndent(inputs, "", "  ")
 		if e != nil {
 			return "", "", e
@@ -204,27 +265,67 @@ func (p Production) Images(forgejoContext string) (map[string]ProducedImage, err
 		}
 		return id, pinned, nil
 	}
-	build := func(name, dir, file, pinned string, args ...string) (string, error) {
-		if e := p.step("Build image: " + name); e != nil {
-			return "", e
-		}
-		iid := filepath.Join(p.Out, name+".iid")
-		cmd := []string{"--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/" + platform, "--build-arg=BASE_IMAGE=" + pinned, "--label=org.opencontainers.image.revision=" + p.Revision, "--label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos", "--label=org.opencontainers.image.base.name=" + pinned, "--label=org.opencontainers.image.base.digest=" + strings.SplitN(pinned, "@", 2)[1], "--iidfile", iid, "--file", file}
-		cmd = append(cmd, args...)
-		cmd = append(cmd, ".")
-		if e := p.Execute(dir, "podman", cmd...); e != nil {
-			return "", e
-		}
-		b, e := os.ReadFile(iid)
-		if e != nil {
-			return "", e
-		}
-		id := strings.TrimSpace(string(b))
-		if !strings.HasPrefix(id, "sha256:") || !Digest(strings.TrimPrefix(id, "sha256:")) {
-			return "", errors.New("invalid built image ID")
-		}
-		return id, nil
+	rocky, e := recipeBase(filepath.Join(p.Source, "project-os/Containerfile"))
+	if e != nil {
+		return e
 	}
+	dashboard, e := recipeBase(filepath.Join(p.Source, "appliance/dashboard.Containerfile"))
+	if e != nil {
+		return e
+	}
+	if rocky != dashboard {
+		return errors.New("dashboard and Project OS base owners disagree")
+	}
+	forgejo, e := unitImage(filepath.Join(p.Source, "appliance/services/forgejo.container"))
+	if e != nil {
+		return e
+	}
+	proxy, e := unitImage(filepath.Join(p.Source, "appliance/services/soda-proxy.container"))
+	if e != nil {
+		return e
+	}
+	var tail struct {
+		Version, Base string
+		SHA256        map[string]string
+	}
+	if e = ReadJSON(filepath.Join(p.Source, "appliance/locks/tailscale-image.json"), &tail); e != nil {
+		return e
+	}
+	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(tail.Version) || !regexp.MustCompile(`^docker.io/tailscale/alpine-base@sha256:[0-9a-f]{64}$`).MatchString(tail.Base) || !Digest(tail.SHA256[platform]) {
+		return errors.New("invalid locked Tailnet input")
+	}
+	for _, ref := range []string{rocky, forgejo, proxy, tail.Base} {
+		if _, _, e = pull(ref, ref, ""); e != nil {
+			return e
+		}
+	}
+	p.inputs = inputs
+	return nil
+}
+func (p Production) buildImage(name, dir, file, pinned string, args ...string) (string, error) {
+	platform, _ := OCIArchitecture(p.Arch)
+	if e := p.step("Build image: " + name); e != nil {
+		return "", e
+	}
+	iid := filepath.Join(p.Out, name+".iid")
+	cmd := []string{"--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/" + platform, "--build-arg=BASE_IMAGE=" + pinned, "--label=org.opencontainers.image.revision=" + p.Revision, "--label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos", "--label=org.opencontainers.image.base.name=" + pinned, "--label=org.opencontainers.image.base.digest=" + strings.SplitN(pinned, "@", 2)[1], "--iidfile", iid, "--file", file}
+	cmd = append(cmd, args...)
+	cmd = append(cmd, ".")
+	if e := p.Execute(dir, "podman", cmd...); e != nil {
+		return "", e
+	}
+	b, e := os.ReadFile(iid)
+	if e != nil {
+		return "", e
+	}
+	id := strings.TrimSpace(string(b))
+	if !strings.HasPrefix(id, "sha256:") || !Digest(strings.TrimPrefix(id, "sha256:")) {
+		return "", errors.New("invalid built image ID")
+	}
+	return id, nil
+}
+func (p Production) exportImages(forgejoContext, archives string, pull func(string, string, string) (string, string, error), build func(string, string, string, string, ...string) (string, error)) (map[string]ProducedImage, error) {
+	platform, _ := OCIArchitecture(p.Arch)
 	result := map[string]ProducedImage{}
 	export := func(name, id, revision string) error {
 		if e := p.step("Export and verify image: " + name); e != nil {

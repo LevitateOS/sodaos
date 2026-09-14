@@ -197,8 +197,7 @@ func Prepare(source, out, arch, revision string) (Base, error) {
 		}
 	}
 	for name, text := range map[string]string{
-		"etc/cockpit/disallowed-users":            "",
-		"etc/zincati/config.d/90-soda-image.toml": "[updates]\nenabled = false\n",
+		"etc/cockpit/disallowed-users": "",
 	} {
 		if err = write("rootfs/"+name, []byte(text), 0644); err != nil {
 			return b, err

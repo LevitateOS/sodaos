@@ -22,7 +22,7 @@ type Image struct {
 	Config        string
 	Manifest      string
 	ArchiveSHA256 string
-	Storage       string // bound (bootc) or retained (ordinary Podman storage)
+	Storage       string // v1: historical bound/retained; v2: ordinary Podman
 }
 
 type Payload struct {
@@ -42,7 +42,7 @@ type Payload struct {
 }
 
 func (p Payload) Validate() error {
-	if p.Format != 1 || !nativebuild.Revision(p.Revision) || p.ID != p.CoreOS+".soda-"+p.Revision[:12] || !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(p.CoreOS) {
+	if (p.Format != 1 && p.Format != 2) || !nativebuild.Revision(p.Revision) || p.ID != p.CoreOS+".soda-"+p.Revision[:12] || !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(p.CoreOS) {
 		return errors.New("invalid appliance payload identity")
 	}
 	if _, err := nativebuild.OCIArchitecture(p.Architecture); err != nil {
@@ -63,6 +63,9 @@ func (p Payload) Validate() error {
 		want := "bound"
 		if name == "project-os" || name == "tailnet" {
 			want = "retained"
+		}
+		if p.Format == 2 {
+			want = "podman"
 		}
 		if !ok || im.Storage != want || !digest(im.Config) || !digest(im.Manifest) || !nativebuild.Digest(im.ArchiveSHA256) || im.Reference != p.RepositoryPrefix+"-"+name+"@"+im.Manifest {
 			return fmt.Errorf("invalid %s image binding", name)

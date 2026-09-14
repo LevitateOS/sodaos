@@ -26,18 +26,24 @@ type Process struct {
 }
 
 func StartProcess(ctx context.Context, c Command, out, stderr io.Writer) (*Process, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	if err := ownedGroupsSupported(); err != nil {
-		return nil, err
-	}
 	cmd := exec.Command(c.Name, c.Args...)
 	cmd.Dir = c.Dir
 	cmd.Env = append(os.Environ(), c.Env...)
 	cmd.Stdin = c.Stdin
 	cmd.Stdout = out
 	cmd.Stderr = stderr
+	return StartCommand(ctx, cmd)
+}
+
+// StartCommand gives an explicitly configured native command the same pinned
+// process-group ownership used by qualification. It never changes its environment.
+func StartCommand(ctx context.Context, cmd *exec.Cmd) (*Process, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := ownedGroupsSupported(); err != nil {
+		return nil, err
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.WaitDelay = 2 * time.Second
 	if err := cmd.Start(); err != nil {
@@ -63,6 +69,7 @@ func StartProcess(ctx context.Context, c Command, out, stderr io.Writer) (*Proce
 		// kernel wait. Stop can still time out and report incomplete cleanup.
 		p.cleanupErr = errors.Join(observed, cleanup)
 		p.waitErr = cmd.Wait()
+		p.cleanupErr = errors.Join(p.cleanupErr, reapOwnedChildren(cmd.Process.Pid))
 		p.err = errors.Join(p.cleanupErr, p.waitErr)
 		close(p.done)
 	}()

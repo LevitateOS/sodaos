@@ -21,8 +21,9 @@ installation stays withdrawn. The owner now selects a
 [minimal network-install ISO](coreos-installer-plan.md#selected-media--minimal-network-install),
 not self-contained offline media; native download/bootstrap and size proof are still
 outstanding. The owner has selected B2 implementation; direct vendor staging is now
-implemented, but the replacement controller is not. All six milestones remain open;
-B2 is in progress and B3–B6 have not started.
+implemented, and the P1–P6 Go controller is now implemented. B2 native candidate
+validation is in progress; B3–B6 have not started. B1's media/installed proof remains
+separate from this source-to-candidate implementation.
 The `d054a60` shared-command extraction retained two assemblers and grew orchestration;
 the owner rejected it as sufficient simplification. Its scoped tests and `fde23d0`
 host-context preparation remain evidence, not completion of the replacement.
@@ -46,13 +47,16 @@ native media/install/update proof ran in the B1 source review. [Implementation a
 
 ### 2. Implement one Go build controller — B2
 
-**In progress — direct vendor staging implemented, controller still outstanding.**
-The asset leaf writes directly to the host and Forgejo contexts; the host producer
-no longer builds an unused writable root or copies its public trees into vendor
-paths. Verification and the required legacy installer remain. No new producer or
-`soda-build` stub was added. Frozen-input execution ownership, prepared tests, native
-Go timing/cancellation and the B1-supported P5/P6 candidate remain to implement.
-This scoped change is not B2 completion or native candidate evidence.
+**Implemented controller; native candidate run being checked.** `tools/soda-build`
+owns clean-source admission/archive, frozen app inputs, dependencies, once-only
+programs/tools/assets, prepared tests, five app images and FCOS host verification.
+Native Go timing and the existing Go process-group owner replace the Python bridge
+in this path. Payload v2 embeds all five images for ordinary Podman; no bootc
+installation/update/storage/lint path or Zincati disabling remains in new candidates.
+The old host-image command is legacy-only, not a competing host producer. Its
+required writable installer lane remains for B6 retirement after native proof.
+The new CLI does not claim release success: it exits 2 after the unsigned candidate
+until B3–B5 connect media, qualification and protected finalization.
 [Implementation and exit](release-engineering-plan.md#milestone-2--implement-one-go-build-controller).
 
 ### 3. Make the ISO consume the candidate — B3
@@ -88,10 +92,10 @@ milestone. [Implementation and exit](release-engineering-plan.md#milestone-6--re
 
 ## Immediate prerequisites and next action
 
-The owner selected B2. Continue its independent controller work, but do not promote
-the existing bootc experiment into the replacement or claim full P1–P6 completion
-before the B1 host/storage handoff is established. The direct staging change removes
-one translation, not either remaining assembler or the Go/Python timing bridge.
+The owner selected completion of B2 and confirmed no bootc use. The controller and
+ordinary-Podman candidate path are now implemented; run and record the matching
+native candidate checks. Keep B1/B3 media and installed proof separate. Neither
+source checks nor an unsigned candidate authorize appliance installation or delivery.
 
 The [installation findings](coreos-installer-plan.md#source-backed-packaging-route--native-proof-outstanding)
 and [native update/authority findings](release-engineering-plan.md#b1-native-update-and-authority-findings)
@@ -207,7 +211,7 @@ grants belong to the user's task and exact target/action, not this plan's comman
   remain authorized within their existing scope. The shared-build/timing extraction
   was explicitly approved; the owner selected B1 and has now selected B2 implementation.
   B1's source/upstream audit, local tests and bounded rootless read-only image
-  inspections are recorded; B2's initial change is direct vendor asset staging. This
+  inspections are recorded; B2 now includes its Go controller, ordinary-Podman candidate builds and local checks. This
   does not add a VM/disk, protected worker, publication or commissioning grant.
   The current correction restores the FCOS-native baseline and withdraws the bootc
   filesystem experiment; it does not authorize another installation path.
@@ -228,11 +232,11 @@ grants belong to the user's task and exact target/action, not this plan's comman
 
 ## Latest change
 
-Implemented and tested direct vendor staging in the existing producer, without
-changing its experimental storage/update semantics. Removed the writable-stage
-translation and retained public-byte/mode/identity checks; legacy installation stays
-usable. Go/race/vet, the existing staging/progress/payload/ISO fixtures and independent
-branding checks passed. [Receipt](implementation-history.md#b2-direct-vendor-staging).
-The scoped production change is **+24 lines**, not a claimed orchestration-size win.
-No image build, native installation, publication or new lifecycle grant occurred.
-B2 remains incomplete; the old assemblers and timing bridge are still present.
+Implemented the fixed Go candidate controller, native timing/process ownership,
+frozen app inputs, once-only prepared work and v2 ordinary-Podman payloads. Removed
+the competing host orchestration and bootc candidate path, retaining historical
+readers and the required legacy installer. Full Go tests and focused race/vet passed;
+the aggregate Python fixture exposed a stale assertion missing the already-selected
+Runners prepared-suite flag, corrected against its owning workspace manifest.
+Native candidate validation is next. No installation, publication or new lifecycle
+grant is implied; B3–B5 release completion remains unimplemented.

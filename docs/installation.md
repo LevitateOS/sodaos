@@ -103,8 +103,10 @@ evidence remains separate.
 
 ### Run the timed build
 
-**Current commands, not the new interface.** The proposed `soda-build` command and
-its full-run contract are specified in the release plan; it is not implemented yet.
+**Retiring commands below, not the new interface.** `soda-build` now implements
+P1–P6; [current invocation/effects](native-support.md#local-host-content-image-candidate)
+include its unsigned-candidate boundary. The full release contract remains in the
+release plan; media/qualification/signing are not yet connected.
 
 With the [native builder prerequisites](#1-prepare-the-native-builder), committed
 source, existing `.artifacts` parent and a fresh native output location:
@@ -135,9 +137,10 @@ is documented in [native support](native-support.md#local-host-content-image-can
 It calls the same Go producer and emits `<attempt>/timing.log` plus a separate
 `build.log`. It does not call the legacy assembler or build an ISO.
 
-The existing Python standard-library helper supplies monotonic timestamps, plain
-progress records and summaries. Small shell and Go adapters call that same helper;
-there is no second clock or log format. The shell retains `errexit`, and captured
+The retiring shell/media lane retains its Python timing helper. Go progress now uses
+a native monotonic clock, with compatible inherited timing only for the legacy child.
+The new controller invokes no Python clock/supervisor; it reuses the existing Go
+process-group owner and has its own single run clock and final outcome. The shell retains `errexit`, and captured
 image IDs/tool versions remain separate from progress stderr. A subprocess group forwards Ctrl-C/TERM
 to the active build and descendants, allowing five seconds for shutdown before
 forcing a timed-out group to stop. No monitoring service or dependency was added.

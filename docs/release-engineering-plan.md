@@ -253,8 +253,8 @@ media leaf, test driver or another renamed package.
 
 ### Milestone 2 — implement one Go build controller
 
-**B2; in progress.** Direct vendor asset staging is implemented; the one controller
-and native candidate exit are not. [Status and remaining work](implementation-status.md#2-implement-one-go-build-controller--b2).
+**B2; controller implemented, native candidate validation in progress.** The single
+P1–P6 Go owner builds ordinary-Podman v2 candidates; no bootc candidate path remains. [Status and remaining work](implementation-status.md#2-implement-one-go-build-controller--b2).
 Replace execution ownership, not just command duplication.
 
 1. Replace `tools/soda-host-image` orchestration with `tools/soda-build`, reusing
@@ -424,7 +424,10 @@ No old artifact is deleted as a source-retirement shortcut. Only now move on to
 
 ## Single-run release build contract
 
-The proposed entrypoint is `tools/soda-build`, compiled as `soda-build` (not implemented):
+The entrypoint is `tools/soda-build`, compiled as `soda-build`. P1–P6 is implemented;
+B3–B5 will connect the remaining phases. Until then the CLI exits 2 after its verified
+unsigned candidate, not success for an unfinished release. The intended full interface
+below includes publication, which is not yet accepted by the CLI:
 
 ```sh
 soda-build --arch x86_64 --out "$PWD/.artifacts/releases/UNIQUE-RUN"

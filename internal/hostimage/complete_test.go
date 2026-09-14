@@ -68,13 +68,10 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 	}
 	presentation, err := StagePresentation(forgejo, context)
 	require.NoError(t, err)
-	p := appliancerelease.Payload{Format: 1, ID: base.Release + ".soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: base.Release, Base: base.Images["x86_64"], RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: presentation, HostPackagesSHA256: strings.Repeat("b", 64), Images: map[string]appliancerelease.Image{}}
+	p := appliancerelease.Payload{Format: 2, ID: base.Release + ".soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: base.Release, Base: base.Images["x86_64"], RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: presentation, HostPackagesSHA256: strings.Repeat("b", 64), Images: map[string]appliancerelease.Image{}}
 	for _, name := range appliancerelease.Names {
-		storage := "bound"
-		if name == "project-os" || name == "tailnet" {
-			storage = "retained"
-			require.NoError(t, ownedWrite(filepath.Join(archives, name+".oci"), []byte("archive fixture"), 0644))
-		}
+		storage := "podman"
+		require.NoError(t, ownedWrite(filepath.Join(archives, name+".oci"), []byte("archive fixture"), 0644))
 		p.Images[name] = appliancerelease.Image{Reference: p.RepositoryPrefix + "-" + name + "@sha256:" + strings.Repeat("c", 64), Manifest: "sha256:" + strings.Repeat("c", 64), Config: "sha256:" + strings.Repeat("d", 64), ArchiveSHA256: hashBytes([]byte("archive fixture")), Storage: storage}
 	}
 	require.NoError(t, Complete(source, context, archives, p))
@@ -86,21 +83,20 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 	}
 	for name, unit := range map[string]string{"forgejo": "forgejo.container", "dashboard": "soda-dashboard.container", "proxy": "soda-proxy.container"} {
 		body := read("usr/share/containers/systemd/" + unit)
-		require.Contains(t, body, "Image="+p.Images[name].Reference)
+		require.Contains(t, body, "Image="+p.Images[name].Config)
 		require.Equal(t, 1, strings.Count(body, "Pull=never"))
-		require.Contains(t, body, "GlobalArgs=--storage-opt=additionalimagestore=/usr/lib/bootc/storage")
-		link, e := os.Readlink(filepath.Join(context, "rootfs/usr/lib/bootc/bound-images.d", unit))
-		require.NoError(t, e)
-		require.Equal(t, "/usr/share/containers/systemd/"+unit, link)
+		require.NotContains(t, body, "additionalimagestore")
+		require.Contains(t, body, "Requires=soda-image-import.service")
 	}
-	files, e := os.ReadDir(filepath.Join(context, "rootfs/usr/lib/bootc/bound-images.d"))
-	require.NoError(t, e)
-	require.Len(t, files, 3)
+	require.NoDirExists(t, filepath.Join(context, "rootfs/usr/lib/bootc/bound-images.d"))
+	for _, name := range appliancerelease.Names {
+		require.FileExists(t, filepath.Join(context, "rootfs/usr/share/soda/images", name+".oci"))
+	}
 	require.Contains(t, read("usr/lib/systemd/system/soda-project@.service"), "Requires=soda-image-import.service")
 	require.NoDirExists(t, filepath.Join(context, "rootfs/usr/lib/systemd/system/soda-project@.service.d"))
 	require.Contains(t, read("usr/lib/systemd/system/soda-image-import.service"), "ExecStart=/usr/libexec/soda/soda-image-import")
 	for _, path := range []string{"etc/containers/storage.conf", "var", "etc/soda/host.json", "etc/soda/dashboard.json"} {
-		_, e = os.Lstat(filepath.Join(context, "rootfs", path))
+		_, e := os.Lstat(filepath.Join(context, "rootfs", path))
 		require.True(t, os.IsNotExist(e), path)
 	}
 	var example map[string]any
@@ -145,7 +141,7 @@ func TestPublicStageAndQuadletRefuseAmbiguity(t *testing.T) {
 	_, err := publicFiles(source)
 	require.ErrorContains(t, err, "symlink/special")
 	for _, body := range []string{"[Container]\n", "[Container]\nImage=a\nImage=b\n", "[Container]\nImage=a\nGlobalArgs=--root=/other"} {
-		_, err = BoundQuadlet(body, "ghcr.io/example/image@sha256:"+strings.Repeat("a", 64))
+		_, err = LocalQuadlet(body, "ghcr.io/example/image@sha256:"+strings.Repeat("a", 64))
 		require.Error(t, err)
 	}
 }

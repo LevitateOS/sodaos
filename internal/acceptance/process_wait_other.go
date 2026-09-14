@@ -9,4 +9,5 @@ import "errors"
 func ownedGroupsSupported() error {
 	return errors.New("safe owned process execution requires Linux non-reaping wait support")
 }
-func waitOwnedExit(pid int) error { return ownedGroupsSupported() }
+func waitOwnedExit(pid int) error     { return ownedGroupsSupported() }
+func reapOwnedChildren(pid int) error { return ownedGroupsSupported() }

@@ -1,4 +1,4 @@
-package main
+package hostimage
 
 import (
 	"encoding/json"
@@ -7,22 +7,21 @@ import (
 	"path/filepath"
 
 	"github.com/levitateos/sodaos/internal/appliancerelease"
-	"github.com/levitateos/sodaos/internal/hostimage"
 	"github.com/levitateos/sodaos/internal/nativebuild"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 // completeCandidate is image-layout assembly, not a second component producer.
 // The legacy installer uses the same Production methods with its explicit layout.
-func completeCandidate(source, context, out, arch, revision, prefix string, base hostimage.Base, producer nativebuild.Production) (appliancerelease.Payload, error) {
-	p := appliancerelease.Payload{Format: 1, ID: base.Release + ".soda-" + revision[:12], Revision: revision, Architecture: arch, CoreOS: base.Release, Base: base.Images[arch], RepositoryPrefix: prefix, Schema: store.SchemaVersion(), Images: map[string]appliancerelease.Image{}, UpgradeFrom: []string{}}
+func completeCandidate(source, context, out, arch, revision, prefix string, base Base, packageHash string, producer nativebuild.Production, phase func(string) error) (appliancerelease.Payload, error) {
+	p := appliancerelease.Payload{Format: 2, ID: base.Release + ".soda-" + revision[:12], Revision: revision, Architecture: arch, CoreOS: base.Release, Base: base.Images[arch], RepositoryPrefix: prefix, Schema: store.SchemaVersion(), Images: map[string]appliancerelease.Image{}, UpgradeFrom: []string{}}
 	var err error
-	if err = producer.Next("Lock host package transaction"); err != nil {
+	if err = producer.Next("Verify admitted host package transaction"); err != nil {
 		return p, err
 	}
-	p.HostPackagesSHA256, err = hostimage.LockHostPackages(source, context, arch, base)
-	if err != nil {
-		return p, err
+	p.HostPackagesSHA256, err = nativebuild.HashFile(filepath.Join(context, "packages.expected"))
+	if err != nil || p.HostPackagesSHA256 != packageHash {
+		return p, fmt.Errorf("admitted package inventory changed: %v", err)
 	}
 	native := producer.Native
 	if err = os.MkdirAll(filepath.Join(native, "bin"), 0755); err != nil {
@@ -34,11 +33,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	}
 	// Reuse the already compiled vendor binaries; never compile again for assets.
 	for _, name := range commands {
-		b, err := os.ReadFile(filepath.Join(context, "rootfs/usr/libexec/soda", name))
-		if err != nil {
-			return p, err
-		}
-		if err = nativebuild.WriteNew(filepath.Join(native, "bin", name), b, 0755); err != nil {
+		if err = os.Link(filepath.Join(context, "rootfs/usr/libexec/soda", name), filepath.Join(native, "bin", name)); err != nil {
 			return p, err
 		}
 	}
@@ -52,7 +47,7 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	if err = producer.Next("Verify immutable Forgejo presentation"); err != nil {
 		return p, err
 	}
-	p.PresentationSHA256, err = hostimage.StagePresentation(forgejoContext, context)
+	p.PresentationSHA256, err = StagePresentation(forgejoContext, context)
 	if err != nil {
 		return p, err
 	}
@@ -63,16 +58,18 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	if err = nativebuild.WriteNew(filepath.Join(forgejoContext, "Containerfile"), recipe, 0644); err != nil {
 		return p, err
 	}
+	if err = preparedChecks(producer); err != nil {
+		return p, err
+	}
+	if err = phase("P4 / Build application images"); err != nil {
+		return p, err
+	}
 	images, err := producer.Images(forgejoContext)
 	if err != nil {
 		return p, err
 	}
 	for name, im := range images {
-		storage := "bound"
-		if name == "project-os" || name == "tailnet" {
-			storage = "retained"
-		}
-		p.Images[name] = appliancerelease.Image{Reference: prefix + "-" + name + "@" + im.Manifest, Manifest: im.Manifest, Config: im.Config, ArchiveSHA256: im.ArchiveSHA256, Storage: storage}
+		p.Images[name] = appliancerelease.Image{Reference: prefix + "-" + name + "@" + im.Manifest, Manifest: im.Manifest, Config: im.Config, ArchiveSHA256: im.ArchiveSHA256, Storage: "podman"}
 	}
 	if err = producer.Next("Inspect immutable Forgejo presentation"); err != nil {
 		return p, err
@@ -90,13 +87,13 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	if err = nativebuild.WriteNew(filepath.Join(out, "forgejo-inspection.txt"), []byte(result+"\n"), 0600); err != nil {
 		return p, err
 	}
-	if err = producer.Next("Assemble host payload and bound image references"); err != nil {
+	if err = producer.Next("Assemble host payload and ordinary Podman image references"); err != nil {
 		return p, err
 	}
 	if err = p.Validate(); err != nil {
 		return p, err
 	}
-	if err = hostimage.Complete(source, context, filepath.Join(out, "images"), p); err != nil {
+	if err = Complete(source, context, filepath.Join(out, "images"), p); err != nil {
 		return p, err
 	}
 	record, err := json.MarshalIndent(p, "", "  ")

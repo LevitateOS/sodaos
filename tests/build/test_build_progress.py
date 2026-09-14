@@ -130,7 +130,7 @@ else:
 class ProductionOwnership(unittest.TestCase):
     def test_both_layouts_delegate_instead_of_copying_component_recipes(self):
         shell = (ROOT / 'scripts/build-native.sh').read_text()
-        host = (ROOT / 'tools/soda-host-image/complete.go').read_text()
+        host = (ROOT / 'internal/hostimage/build_payload.go').read_text()
         legacy = (ROOT / 'tools/soda-host-image/legacy.go').read_text()
         for duplicate in ('scripts/build-forgejo.ts', 'scripts/fetch-tea.py', 'appliance/tailnet.Containerfile'):
             self.assertNotIn(duplicate, shell)
@@ -142,10 +142,12 @@ class ProductionOwnership(unittest.TestCase):
         self.assertEqual(host.count('producer.Images('), 1)
         self.assertEqual(legacy.count('p.Assets("", "")'), 1)
         self.assertEqual(legacy.count('p.Images('), 1)
-        # Timing is shared too, rather than a second Go clock/log format.
-        bridge = (ROOT / 'internal/nativebuild/progress.go').read_text()
-        self.assertIn('scripts/build_progress.py', bridge)
-        self.assertNotIn('time.Now()', bridge)
+        # The native owner no longer executes Python clock/reporting helpers.
+        progress = (ROOT / 'internal/nativebuild/progress.go').read_text()
+        self.assertNotIn('scripts/build_progress.py', progress)
+        controller = (ROOT / 'internal/hostimage/build.go').read_text()
+        self.assertIn('acceptance.StartCommand(ctx, cmd)', controller)
+        self.assertNotIn('BuildExecution', controller)
 
 
 class CompleteBuild(unittest.TestCase):
