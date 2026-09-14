@@ -52,7 +52,7 @@ type projectPolicy struct {
 func newRevision() string { b := make([]byte, 16); _, _ = rand.Read(b); return hex.EncodeToString(b) }
 func owned(info os.FileInfo, uid uint32, directory bool) bool {
 	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || stat.Uid != uid || info.Mode().Perm()&0077 != 0 {
+	if !ok || stat.Uid != uid || info.Mode().Perm()&0o077 != 0 {
 		return false
 	}
 	if directory {
@@ -60,6 +60,7 @@ func owned(info os.FileInfo, uid uint32, directory bool) bool {
 	}
 	return info.Mode().IsRegular() && stat.Nlink == 1 && info.Size() <= 65536
 }
+
 func policyParent() (*os.Root, error) {
 	if os.Geteuid() != 0 {
 		return nil, ErrUnavailable
@@ -70,7 +71,7 @@ func policyParent() (*os.Root, error) {
 	}
 	for _, name := range []string{"var", "lib"} {
 		info, e := root.Lstat(name)
-		if e != nil || !info.IsDir() || info.Mode().Perm()&0022 != 0 {
+		if e != nil || !info.IsDir() || info.Mode().Perm()&0o022 != 0 {
 			root.Close()
 			return nil, ErrUnavailable
 		}
@@ -88,6 +89,7 @@ func policyParent() (*os.Root, error) {
 	}
 	return root, nil
 }
+
 func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File, error) {
 	parent, err := p.parent()
 	if err != nil {
@@ -99,7 +101,7 @@ func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File
 		if e := ctx.Err(); e != nil {
 			return nil, nil, e
 		}
-		err = parent.Mkdir("soda-tailnet", 0700)
+		err = parent.Mkdir("soda-tailnet", 0o700)
 		if err != nil && !errors.Is(err, os.ErrExist) {
 			return nil, nil, ErrUnavailable
 		}
@@ -144,6 +146,7 @@ func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File
 	}
 	return root, lock, nil
 }
+
 func (p *policyStore) read(root *os.Root, name string, out any) error {
 	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if errors.Is(err, os.ErrNotExist) {
@@ -163,6 +166,7 @@ func (p *policyStore) read(root *os.Root, name string, out any) error {
 	}
 	return nil
 }
+
 func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) error {
 	// Refuse special/relinked occupants before atomic publication. Only host root
 	// can alter this directory; noncooperating root writers aren't a CAS guarantee.
@@ -178,7 +182,7 @@ func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) 
 		return ErrInvalid
 	}
 	temp := "pending-" + newRevision()
-	f, err := root.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := root.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return ErrUnconfirmed
 	}
@@ -203,6 +207,7 @@ func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) 
 	}
 	return nil
 }
+
 func (p *policyStore) load(root *os.Root) (enrollmentPolicy, error) {
 	var v enrollmentPolicy
 	err := p.read(root, "policy.json", &v)
@@ -222,14 +227,17 @@ func (p *policyStore) load(root *os.Root) (enrollmentPolicy, error) {
 	}
 	return v, nil
 }
+
 func (v enrollmentPolicy) view() EnrollmentView {
 	return EnrollmentView{Revision: v.Revision, Binding: v.Binding, Tailnet: v.Tailnet, Tags: slices.Clone(v.Tags), Configured: v.Revision != "0", Admission: v.Admission, Default: v.Default, Preauthorized: v.Preauthorized, CredentialChecked: v.Revision != "0", RuntimeSupported: false}
 }
+
 func (p *policyStore) view(v enrollmentPolicy) EnrollmentView {
 	out := v.view()
 	out.RuntimeSupported = p.runtime
 	return out
 }
+
 func (p *policyStore) enrollment(ctx context.Context) (EnrollmentView, error) {
 	root, lock, err := p.lock(ctx, false)
 	if errors.Is(err, os.ErrNotExist) {
@@ -243,83 +251,138 @@ func (p *policyStore) enrollment(ctx context.Context) (EnrollmentView, error) {
 	v, err := p.load(root)
 	return p.view(v), err
 }
-func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (EnrollmentResult, error) {
+
+func validateUpdateRequest(r EnrollmentRequest, runtime bool) error {
 	if r.Validate() != nil {
-		return EnrollmentResult{}, ErrInvalid
+		return ErrInvalid
 	}
-	if r.Action == "default" && *r.Default && !p.runtime {
-		return EnrollmentResult{}, ErrUnsupported
+	if r.Action == "default" && *r.Default && !runtime {
+		return ErrUnsupported
+	}
+	return nil
+}
+
+func (p *policyStore) checkEnrollment(ctx context.Context, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (EnrollmentResult, error) {
+	before, err := p.enrollment(ctx)
+	if err != nil {
+		return EnrollmentResult{}, err
+	}
+	if before.Revision != r.Revision {
+		return EnrollmentResult{}, ErrConflict
+	}
+	if err = check(ctx, r); err != nil {
+		return EnrollmentResult{}, err
+	}
+	after, err := p.enrollment(ctx)
+	if err != nil {
+		return EnrollmentResult{}, err
+	}
+	if after.Revision != before.Revision {
+		return EnrollmentResult{}, ErrConflict
+	}
+	return EnrollmentResult{Outcome: "confirmed", CredentialChecked: true, Enrollment: after}, nil
+}
+
+func (p *policyStore) lockAndLoad(ctx context.Context, r EnrollmentRequest) (*os.Root, *os.File, enrollmentPolicy, error) {
+	root, lock, err := p.lock(ctx, r.Action == "save")
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil, enrollmentPolicy{}, ErrConflict
+	}
+	if err != nil {
+		return nil, nil, enrollmentPolicy{}, err
+	}
+	v, err := p.load(root)
+	if err != nil {
+		root.Close()
+		lock.Close()
+		return nil, nil, enrollmentPolicy{}, err
+	}
+	if v.Revision != r.Revision {
+		root.Close()
+		lock.Close()
+		return nil, nil, enrollmentPolicy{}, ErrConflict
+	}
+	return root, lock, v, nil
+}
+
+func canRotateEnrollment(v enrollmentPolicy, r EnrollmentRequest) bool {
+	if v.Revision == "0" || v.Tailnet != r.Tailnet || !slices.Equal(v.Tags, r.Tags) || v.Preauthorized != *r.Preauthorized {
+		return false
+	}
+	return true
+}
+
+func applySaveOrRotate(ctx context.Context, v enrollmentPolicy, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (enrollmentPolicy, error) {
+	if r.Action == "rotate" && !canRotateEnrollment(v, r) {
+		return enrollmentPolicy{}, ErrConflict
+	}
+	if err := check(ctx, r); err != nil {
+		return enrollmentPolicy{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return enrollmentPolicy{}, ErrUnconfirmed
+	}
+	if r.Action == "save" {
+		v.Binding = newRevision()
+		v.Default = false
+		v.Admission = true
+	}
+	// Policy and credential are one restricted atomic publication. No archive,
+	// provider revocation or automatic conversion of retained v1 files.
+	v.Version, v.Tailnet, v.Tags, v.Preauthorized, v.Credential = 2, r.Tailnet, slices.Clone(r.Tags), *r.Preauthorized, credential{r.ClientID, r.ClientSecret}
+	return v, nil
+}
+
+func applyDefault(v enrollmentPolicy, r EnrollmentRequest) (enrollmentPolicy, error) {
+	if v.Revision == "0" {
+		return enrollmentPolicy{}, ErrConflict
+	}
+	if *r.Default && !v.Admission {
+		return enrollmentPolicy{}, ErrConflict
+	}
+	v.Default = *r.Default
+	return v, nil
+}
+
+func applyDisable(v enrollmentPolicy) (enrollmentPolicy, error) {
+	if v.Revision == "0" {
+		return enrollmentPolicy{}, ErrConflict
+	}
+	v.Admission = false
+	v.Default = false
+	return v, nil
+}
+
+func applyPolicyMutation(ctx context.Context, v enrollmentPolicy, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (enrollmentPolicy, error) {
+	switch r.Action {
+	case "save", "rotate":
+		return applySaveOrRotate(ctx, v, r, check)
+	case "default":
+		return applyDefault(v, r)
+	case "disable":
+		return applyDisable(v)
+	default:
+		return v, nil
+	}
+}
+
+func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (EnrollmentResult, error) {
+	if err := validateUpdateRequest(r, p.runtime); err != nil {
+		return EnrollmentResult{}, err
 	}
 	// A pure credential check must not create directories, files or device keys.
 	if r.Action == "check" {
-		before, err := p.enrollment(ctx)
-		if err != nil {
-			return EnrollmentResult{}, err
-		}
-		if before.Revision != r.Revision {
-			return EnrollmentResult{}, ErrConflict
-		}
-		if err = check(ctx, r); err != nil {
-			return EnrollmentResult{}, err
-		}
-		after, err := p.enrollment(ctx)
-		if err != nil {
-			return EnrollmentResult{}, err
-		}
-		if after.Revision != before.Revision {
-			return EnrollmentResult{}, ErrConflict
-		}
-		return EnrollmentResult{Outcome: "confirmed", CredentialChecked: true, Enrollment: after}, nil
+		return p.checkEnrollment(ctx, r, check)
 	}
-	root, lock, err := p.lock(ctx, r.Action == "save")
-	if errors.Is(err, os.ErrNotExist) {
-		return EnrollmentResult{}, ErrConflict
-	}
+	root, lock, v, err := p.lockAndLoad(ctx, r)
 	if err != nil {
 		return EnrollmentResult{}, err
 	}
 	defer root.Close()
 	defer lock.Close()
-	v, err := p.load(root)
+	v, err = applyPolicyMutation(ctx, v, r, check)
 	if err != nil {
 		return EnrollmentResult{}, err
-	}
-	if v.Revision != r.Revision {
-		return EnrollmentResult{}, ErrConflict
-	}
-	switch r.Action {
-	case "save", "rotate":
-		if r.Action == "rotate" && (v.Revision == "0" || v.Tailnet != r.Tailnet || !slices.Equal(v.Tags, r.Tags) || v.Preauthorized != *r.Preauthorized) {
-			return EnrollmentResult{}, ErrConflict
-		}
-		if err = check(ctx, r); err != nil {
-			return EnrollmentResult{}, err
-		}
-		if err = ctx.Err(); err != nil {
-			return EnrollmentResult{}, ErrUnconfirmed
-		}
-		if r.Action == "save" {
-			v.Binding = newRevision()
-			v.Default = false
-			v.Admission = true
-		}
-		// Policy and credential are one restricted atomic publication. No archive,
-		// provider revocation or automatic conversion of retained v1 files.
-		v.Version, v.Tailnet, v.Tags, v.Preauthorized, v.Credential = 2, r.Tailnet, slices.Clone(r.Tags), *r.Preauthorized, credential{r.ClientID, r.ClientSecret}
-	case "default":
-		if v.Revision == "0" {
-			return EnrollmentResult{}, ErrConflict
-		}
-		if *r.Default && !v.Admission {
-			return EnrollmentResult{}, ErrConflict
-		}
-		v.Default = *r.Default
-	case "disable":
-		if v.Revision == "0" {
-			return EnrollmentResult{}, ErrConflict
-		}
-		v.Admission = false
-		v.Default = false
 	}
 	if ctx.Err() != nil {
 		return EnrollmentResult{}, ErrUnconfirmed
@@ -330,6 +393,7 @@ func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check fun
 	}
 	return EnrollmentResult{Outcome: "confirmed", Saved: true, CredentialChecked: v.view().CredentialChecked, Enrollment: p.view(v)}, nil
 }
+
 func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPolicy, error) {
 	v := projectPolicy{Project: project, Container: cid, Revision: "0"}
 	var loaded projectPolicy
@@ -348,6 +412,7 @@ func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPo
 	}
 	return loaded, nil
 }
+
 func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
 	if r.Validate() != nil || !containerPattern.MatchString(cid) {
 		return ProjectView{}, ErrInvalid
