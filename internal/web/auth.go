@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -133,25 +134,33 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, s.Config.ForgejoURL+"/login/oauth/authorize?"+q.Encode(), http.StatusFound)
 }
 
-func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
+func validCallbackState(state string, c *http.Cookie) bool {
+	if state == "" || len(state) > 128 || c == nil {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(state), []byte(c.Value)) == 1
+}
+
+func validateCallbackRequest(r *http.Request) (url.Values, string, error) {
 	if len(r.URL.RawQuery) > 8192 {
-		s.callbackError(w, r, "Invalid sign-in response.", 400)
-		return
+		return nil, "", errors.New("Invalid sign-in response.")
 	}
 	query, queryErr := url.ParseQuery(r.URL.RawQuery)
 	c, err := requestCookie(r, oauthCookie)
 	state := query.Get("state")
-	if queryErr != nil || len(query["state"]) != 1 || len(query["code"]) > 1 || len(query.Get("code")) > 4096 ||
-		err != nil || state == "" || len(state) > 128 || subtle.ConstantTimeCompare([]byte(state), []byte(c.Value)) != 1 {
-		s.callbackError(w, r, "Invalid sign-in state; sign in again.", 400)
-		return
+	if queryErr != nil || len(query["state"]) != 1 || len(query["code"]) > 1 || len(query.Get("code")) > 4096 {
+		return nil, "", errors.New("Invalid sign-in state; sign in again.")
 	}
+	if err != nil || !validCallbackState(state, c) {
+		return nil, "", errors.New("Invalid sign-in state; sign in again.")
+	}
+	return query, state, nil
+}
+
+func (s *Server) consumeOAuthState(r *http.Request, state string) (store.OAuthAttempt, error) {
 	old, oldErr := requestCookie(r, sessionCookie)
 	if oldErr != nil && !errors.Is(oldErr, http.ErrNoCookie) {
-		s.callbackError(w, r, "Ambiguous Soda session; sign in again.", 400)
-		return
+		return store.OAuthAttempt{}, errors.New("Ambiguous Soda session; sign in again.")
 	}
 	var oldSession string
 	if oldErr == nil {
@@ -164,59 +173,100 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	s.terminalMu.Unlock()
 	if err != nil {
-		s.callbackError(w, r, "Sign-in expired or was already used.", 400)
-		return
+		return store.OAuthAttempt{}, errors.New("Sign-in expired or was already used.")
 	}
-	fail := func(message string, status int) {
-		s.loginFailure(w, r, login.OAuthLogin, message, status)
-	}
-	code := query.Get("code")
+	return login, nil
+}
+
+type verifiedOAuthUser struct {
+	grant  forgejo.TokenResponse
+	user   forgejo.User
+	scopes string
+}
+
+func (s *Server) exchangeOAuthGrant(ctx context.Context, code, verifier string) (forgejo.TokenResponse, string, int, string) {
 	if code == "" {
-		fail("Forgejo did not authorize sign-in.", 400)
-		return
+		return forgejo.TokenResponse{}, "", 400, "Forgejo did not authorize sign-in."
 	}
 	secret, err := config.Secret(s.Config.OAuthSecretFile)
 	if err != nil {
-		fail("Sign-in is not configured.", 503)
-		return
+		return forgejo.TokenResponse{}, "", 503, "Sign-in is not configured."
 	}
-	grant, err := s.Forgejo.ExchangeGrant(r.Context(), s.Config.OAuthClientID, secret, code, s.Config.OAuthCallbackURL(), login.Verifier)
+	grant, err := s.Forgejo.ExchangeGrant(ctx, s.Config.OAuthClientID, secret, code, s.Config.OAuthCallbackURL(), verifier)
 	if err != nil {
-		fail("Forgejo sign-in failed.", 502)
-		return
+		return forgejo.TokenResponse{}, "", 502, "Forgejo sign-in failed."
 	}
-	u, err := s.Forgejo.Current(r.Context(), grant.Access)
+	return grant, secret, 0, ""
+}
+
+func (s *Server) identifyOAuthUser(ctx context.Context, token string, expectedUserID int64) (forgejo.User, int, string) {
+	u, err := s.Forgejo.Current(ctx, token)
 	if err != nil || u.ID <= 0 {
-		fail("Could not identify this Forgejo user.", 502)
-		return
+		return forgejo.User{}, 502, "Could not identify this Forgejo user."
 	}
-	if login.ExpectedUserID != 0 && u.ID != login.ExpectedUserID {
-		fail("Forgejo account changed; reload the repository and sign in again.", http.StatusForbidden)
-		return
+	if expectedUserID != 0 && u.ID != expectedUserID {
+		return forgejo.User{}, http.StatusForbidden, "Forgejo account changed; reload the repository and sign in again."
 	}
-	scopes, err := s.Forgejo.GrantScopes(r.Context(), s.Config.OAuthClientID, secret, grant.Access, u.ID)
+	return u, 0, ""
+}
+
+func (s *Server) verifyNativeOAuthScopes(login store.OAuthLogin, scopes string) bool {
+	if s.nativeOAuthReturn(login) == "" {
+		return true
+	}
+	return forgejo.HasScope(scopes, "read:user") &&
+		forgejo.HasScope(scopes, "read:repository") &&
+		forgejo.HasScope(scopes, "read:organization")
+}
+
+func (s *Server) exchangeOAuthUserAndScopes(
+	ctx context.Context,
+	code string,
+	login store.OAuthAttempt,
+) (verifiedOAuthUser, int, string) {
+	grant, secret, status, msg := s.exchangeOAuthGrant(ctx, code, login.Verifier)
+	if status != 0 {
+		return verifiedOAuthUser{}, status, msg
+	}
+	u, status, msg := s.identifyOAuthUser(ctx, grant.Access, login.ExpectedUserID)
+	if status != 0 {
+		return verifiedOAuthUser{}, status, msg
+	}
+	scopes, err := s.Forgejo.GrantScopes(ctx, s.Config.OAuthClientID, secret, grant.Access, u.ID)
 	if err != nil {
-		fail("Could not verify Forgejo consent.", 502)
-		return
+		return verifiedOAuthUser{}, 502, "Could not verify Forgejo consent."
 	}
-	if s.nativeOAuthReturn(login.OAuthLogin) != "" && (!forgejo.HasScope(scopes, "read:user") || !forgejo.HasScope(scopes, "read:repository") || !forgejo.HasScope(scopes, "read:organization")) {
-		fail("Forgejo consent is missing required scopes.", http.StatusForbidden)
-		return
+	if !s.verifyNativeOAuthScopes(login.OAuthLogin, scopes) {
+		return verifiedOAuthUser{}, http.StatusForbidden, "Forgejo consent is missing required scopes."
 	}
-	// Only the consumed transaction selects the repository. Caller callback
-	// parameters, cached names and provider-supplied URLs are not destinations.
-	var repository *forgejo.Repository
-	if !login.RepositorySettingsReturn && login.RepositoryID != 0 && forgejo.HasScope(scopes, "read:repository") {
-		if repo, err := s.Forgejo.RepositoryByID(r.Context(), grant.Access, login.RepositoryID); err == nil {
-			repository = &repo
-		}
+	return verifiedOAuthUser{grant: grant, user: u, scopes: scopes}, 0, ""
+}
+
+func (s *Server) resolveOAuthReturnRepository(ctx context.Context, login store.OAuthAttempt, token string, scopes string) *forgejo.Repository {
+	if login.RepositorySettingsReturn || login.RepositoryID == 0 || !forgejo.HasScope(scopes, "read:repository") {
+		return nil
 	}
+	repo, err := s.Forgejo.RepositoryByID(ctx, token, login.RepositoryID)
+	if err != nil {
+		return nil
+	}
+	return &repo
+}
+
+func (s *Server) completeOAuthSession(
+	w http.ResponseWriter,
+	r *http.Request,
+	login store.OAuthAttempt,
+	auth verifiedOAuthUser,
+	repo *forgejo.Repository,
+) {
 	value, csrf := token(), token()
-	if err = s.Store.FinishOAuth(r.Context(), login, store.User{ID: u.ID, Login: u.Login, Name: u.Name}, value, csrf, store.Grant{Access: grant.Access, Refresh: grant.Refresh, Scopes: scopes, Expires: grant.ExpiresAt}); err != nil {
+	err := s.Store.FinishOAuth(r.Context(), login, store.User{ID: auth.user.ID, Login: auth.user.Login, Name: auth.user.Name}, value, csrf, store.Grant{Access: auth.grant.Access, Refresh: auth.grant.Refresh, Scopes: auth.scopes, Expires: auth.grant.ExpiresAt})
+	if err != nil {
 		if errors.Is(err, store.ErrLoginContext) {
-			fail("Sign-in cancelled, expired or superseded; reload and start again.", 409)
+			s.loginFailure(w, r, login.OAuthLogin, "Sign-in cancelled, expired or superseded; reload and start again.", 409)
 		} else {
-			fail("Could not create session.", 500)
+			s.loginFailure(w, r, login.OAuthLogin, "Could not create session.", 500)
 		}
 		return
 	}
@@ -227,7 +277,29 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, destination, http.StatusSeeOther)
 		return
 	}
-	s.forgejoReturn(w, r, repository)
+	s.forgejoReturn(w, r, repo)
+}
+
+func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	query, state, err := validateCallbackRequest(r)
+	if err != nil {
+		s.callbackError(w, r, err.Error(), 400)
+		return
+	}
+	login, err := s.consumeOAuthState(r, state)
+	if err != nil {
+		s.callbackError(w, r, err.Error(), 400)
+		return
+	}
+	auth, status, msg := s.exchangeOAuthUserAndScopes(r.Context(), query.Get("code"), login)
+	if status != 0 {
+		s.loginFailure(w, r, login.OAuthLogin, msg, status)
+		return
+	}
+	repo := s.resolveOAuthReturnRepository(r.Context(), login, auth.grant.Access, auth.scopes)
+	s.completeOAuthSession(w, r, login, auth, repo)
 }
 
 // Only persisted transaction fields select these fixed native rendering views.
