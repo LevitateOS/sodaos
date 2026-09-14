@@ -138,11 +138,11 @@ bootc interfaces. The authority and byte-identity boundaries remain requirements
 | --- | --- |
 | Frozen inputs → producer | Approved commit/base/tool/package and explicit component selections; public-only source snapshot. No privileged signer credentials or implicit selected VM. |
 | Producer → protected admission | Existing exact payload/candidate bytes plus OCI identities and hashed provenance. Treat outputs as untrusted until independently checked and copied into protected fresh snapshots. Never execute candidate-supplied tests as authority. |
-| Component provenance | Record actual producing revision/upstream reference for each selection without a second image inventory or relabelling reused images. Payload v2/v3 requires ordinary-Podman storage for all five roles; strict v1 readers retain the historical bound/retained meanings. Neither version supplies native qualification. |
+| Component provenance | Record actual producing revision/upstream reference for each selection without a second image inventory or relabelling reused images. One current shared OCI layout supplies all five ordinary-Podman images; reject obsolete payload formats. Content identity alone does not supply native qualification. |
 | Candidate → media | Recommended native handoff: admitted OCI archive → Assembler import → upstream metal/live packaging → minimal ISO plus downloadable matching live content/osmet. Bind OCI/deployment identity and raw/media/download hashes; prove bootstrap authentication and local Podman availability after download. Version the media binding after native proof. |
 | Media → live installer | Independently trusted media/tool bytes and verified content before privileged use. CoreOS Installer owns disk installation; Ignition owns first-boot provisioning. Prove native signature/cache behavior, not just file presence. |
 | Live installer → installed state | Preserve native FCOS disk/boot/provisioning ownership. Prove how the same immutable host/app set is installed and updated with required content available after media removal. Do not manufacture that capability with Soda partitioning or a second writable software producer. |
-| Qualification → final release | Bind ISO and downloadable installation-content names/hashes/sizes/locations, exact proved starting releases and protected evidence without altering tested content. Choose minimal strict schema changes after B1's handoff review, not a preselected v2 transport design. Existing embedded `UpgradeFrom` remains unchanged; preserve retained-format verification without upgrading its claimed scope. |
+| Qualification → final release | Bind ISO and downloadable installation-content names/hashes/sizes/locations, exact proved starting releases and protected evidence without altering tested content. Choose minimal strict schema changes after B1's handoff review, not a preselected v2 transport design. Existing embedded `UpgradeFrom` remains unchanged; record the tested baseline externally without adding historical-format readers or upgrading the artifact's claimed scope. |
 | Protected finalization → optional publisher | Exact-digest permit, final signed document and evidence; existing ledgers/observation semantics. No arbitrary commands, fixture credentials or authority from build-reported success. |
 
 Controller, builder, native qualification and signer are distinct authorities. A
@@ -337,42 +337,85 @@ phase order: artifact authentication still precedes privileged installation.
 
 ### Milestone 4 — connect native qualification
 
-**B4; not started.** Make qualification consume this run's actual artifacts.
+**B4; execution not started.** Connect **P9** to the existing controller after P7
+candidate/input admission and P8 media assembly. Use reviewed `internal/acceptance`
+and applicable `tests/installed` drivers, not another framework or build-supplied
+`passed` assertion. Execution authority is recorded in
+[implementation status](implementation-status.md#current-permissions).
 
-1. Connect P7–P9 to reviewed `internal/acceptance` and `tests/installed` drivers, not a
-   new framework or build-supplied `passed` assertion. Baseline/test-driver/fixture
-   identities are admitted inputs. Do not adopt an arbitrary retained VM or build
-   an unrecorded second baseline inside the candidate run.
-2. Use the B1-verified rpm-ostree/Zincati mechanisms and supported configuration or
-   extension points for deployment and reboot ownership. Add Go integration only for
-   demonstrated Soda-specific admission/compatibility needs that upstream does not
-   own; no parallel updater, downloader, activation state machine or reboot scheduler.
-   Verify exact identities, authority, space and honest native partial-state reporting.
-   No root command/image-URL interface or mutation from read-only status.
-3. Exercise actual ISO first boot, same-base Soda updates, separately qualified
-   base-change updates, populated databases and retained projects. Verify offline
-   availability after staging, machine settings/keys/identity and declared migrations.
-   A single base/update case cannot qualify all supported starting states.
-4. Exercise invalid signatures and cache contents, missing content/network loss,
-   disk shortage, concurrent maintenance, interrupted staging/activation/migration,
-   failed apps and authorized boot failure. Test native fallback with compatible
-   application/schema state and preservation of later writes; unsafe downgrade must
-   refuse or require compatible forward repair, not restore an old database.
-5. Verify one effective native update/maintenance owner and the actual supported
-   staging/finalization/reboot semantics; do not impose bootc's download-only behavior
-   on rpm-ostree. Resolve Soda qualification with the upstream update source/graph and
-   maintenance controls, not by automatically disabling Zincati and substituting Soda
-   scheduling. Preserve recovery console/operator access and accurate status.
-   Diagnose the Cockpit origin defect against the actual caller;
-   never add a fake remote or weaken signatures to hide it.
+**Selected first qualification path — x86_64, same base, compatible schema:**
 
-**Checks/exit:** protected native evidence binds candidate/ISO hashes, architecture,
-reviewed test-driver and baseline. Compare shipping bytes before/after tests. Missing
-required tests, ambiguous fixture state or failed gates stop final admission.
-Bootstrap fixtures may prove an update mechanism without promising a retained-install
-migration; the `native-install-upgrade-recovery` class still requires actual update/
-recovery evidence. Synthetic trust proves only its stated local scope. Wider advertised
-architectures, migrations and operational policy commissioning follow the replacement.
+1. **Admit baseline A and candidate B.** A is the current-layout B3 artifact from
+   `33ea3f5`, host manifest
+   `sha256:a59f6ab5f04454bfd47719d6df4c4fe12ec68d9b45b8d1e0c35f4e7936002305`,
+   with its [native installation receipt](implementation-history.md#b3-production-media-and-current-layout-installation).
+   After execution approval, verify that receipt and make a fresh isolated clone of
+   its stopped installation disk; record disk and driver identities before mutation.
+   The retained disk is a test seed, not an already update-qualified release or a
+   compatibility obligation. B is the next necessary clean, committed controller
+   build on the same locked FCOS base and compatible application schema. Freeze its
+   exact identity before testing; no second baseline producer or after-test rebuild.
+2. **Install and populate.** Test B's actual ISO installation and media-free first
+   boot through P9. Reuse A's B3 installation, disk-boundary and bootstrap evidence
+   only where unchanged; do not repeat its entire matrix. Populate the A clone with
+   synthetic Forgejo/Soda records, a repository and project data using existing
+   local drivers. Record database-level assertions, repository/data hashes, machine
+   identity, settings and key fingerprints without disclosing secrets. Baseline
+   setup must not register real providers or require external jobs.
+3. **Exercise the native offer and trust path.** Use the
+   [selected rpm-ostree/Zincati contract](#b1-native-update-and-authority-findings):
+   a fixture HTTPS Cincinnati graph containing the actual booted A identity and an
+   exact A → B edge, plus signed OCI content at the intended repository identity.
+   Scope fixture endpoint/CA configuration to the disposable guests. Prove valid
+   signature uptake and rejection of wrong-signer or tampered content through native
+   image policy, without insecure transport/policy fallback or fake graph membership.
+   The graph is HTTPS-authenticated; it does not acquire the removed custom channel
+   signature, expiry or high-water guarantees. Do not use `soda-release fetch` as an
+   alternate client updater.
+4. **Stage, maintain and update.** Observe Zincati's native staging, locked
+   finalization and periodic maintenance behavior: outside the window, no premature
+   finalization/reboot; in the window, exact B activation and reboot. Verify A remains
+   usable if required content is missing or staging download is interrupted; repeat
+   only the affected native operation once the fixture fault is removed. After full
+   staging, remove content-server access while retaining the graph/control access
+   needed by Zincati; prove activation and all five local images need no further
+   payload download. After reboot, check B's OCI and actual deployment identities,
+   image import, application health, SELinux, SSH policy and populated-state
+   assertions. Windows control timing, not workload idleness or process survival.
+5. **Recover without losing later writes.** Create additional committed application
+   and project data on B. Establish A/B application/schema compatibility before
+   attempting operator-initiated native rpm-ostree rollback to A on the disposable
+   target. Withhold automatic re-offer through the fixture graph, not a
+   second reboot owner. Verify recovered host/app identities, console access, health
+   and preservation of both earlier and later writes in shared `/var`. No database
+   restore or migration replay repairs an observer. If the actual schema cannot
+   support this path, stop the rollback scenario and explicitly select/test compatible
+   native forward repair instead; an unsafe downgrade is not a recovery pass.
+
+**Evidence and authority:** P9's admitted driver must collect observations outside
+candidate control, with evidence custody separate from the untrusted build and test
+workload. Check artifact hashes independently before and after testing; bind A/B OCI
+manifests and actual deployment commits separately, ISO/rootfs/payload/tool hashes,
+architecture, driver revision, fixture setup, graph/trust inputs and populated-state
+assertions. Use existing admission/evidence primitives. Same-user self-signing or a
+restricted key file alone does not establish this separation. Fixture keys may prove
+native signature enforcement locally; they do not authorize real release channels.
+B4's protected qualification evidence is required before that evidence class can pass;
+B5 still owns final release signing/publishing custody and final bindings.
+
+**Checks/exit:** installation, A → B update, native maintenance, staged offline
+content, signature/content refusal and compatible recovery/preservation must pass
+against unchanged B bytes. Missing checks, ambiguous state or failed gates block
+qualification. Exercise the corrected B3 readback/result path during B's necessary
+build, not a separate rebuild solely for a green B3 exit. The old observer failure
+remains recorded; B6 still requires the complete qualified single-run receipt.
+
+This first scope does not qualify base changes, schema migrations, automatic boot-
+failure fallback, arbitrary supported starting states, physical hardware or ARM.
+Add cases for actual failures or newly claimed support, not a speculative matrix.
+The known Cockpit origin defect must be diagnosed against its actual caller before
+claiming that UI path; it must not be hidden by a fake remote or weaker signatures,
+while native CLI/console qualification need not wait on an unrelated UI repair.
 
 ### Milestone 5 — integrate protected signing and delivery
 
@@ -382,7 +425,7 @@ service before replacing its builder.
 1. Reuse `internal/releasedelivery` and the reviewed protected worker protocol for
    P7 and P10–P11. Keep separate build, qualification and signing/publishing authority,
    exact-digest permits and durable ledgers. Extend strict metadata only for B1's
-   required provenance/media fields; test new and retained-format consumers.
+   required provenance/media fields; update current consumers and their fixtures together.
 2. Artifact signing after static admission authenticates the candidate for native
    tests. After qualification, sign the final release binding ISO hash/size/location
    and evidence, without changing host/app/ISO bytes. Bootstrap trust is independent
@@ -654,7 +697,10 @@ isolation or a reason to finish public commissioning before B1–B6.
 ## Native qualification, activation and preservation
 
 The replacement must prove a real native path, not merely source/ISO packaging checks.
-Reuse existing drivers and feature contracts, with exact fixture/action grants.
+The [B4 scope](#milestone-4--connect-native-qualification) owns the selected first
+scenario and required checks. The table below describes evidence needed when claiming
+wider support; it is not another mandatory B4 test matrix. Reuse existing drivers and
+feature contracts, with exact fixture/action grants.
 
 | Area | Evidence for claimed support |
 | --- | --- |

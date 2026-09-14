@@ -1,7 +1,7 @@
 # Implementation status — single-run replacement
 
-**Keep the original B1–B6 plan.** Finish the current source-to-media path, then start
-B4 native qualification. Do not substitute an optimization programme or experimental
+**Keep the original B1–B6 plan.** B3 implementation and native installation are
+verified, with the controller-completion caveat below; B4 native qualification is next. Do not substitute an optimization programme or experimental
 artifact preservation for that work. The [release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
 owns the milestone contracts; [history](implementation-history.md) owns detailed
 receipts and superseded grants. Other workstreams remain in the [development handoff](development-handoff.md).
@@ -20,7 +20,7 @@ receipts and superseded grants. Other workstreams remain in the [development han
 - `165064c` connects media assembly/readback to the Go controller. Subsequent fixes
   use the exact cached Assembler digest through native pull policy, the correct OCI
   document signing transport, and remove the obsolete archive-only host preflight.
-- **The seven pre-B4 tasks are complete; ready to start B4.** Production-controller
+- **Pre-B4 implementation and native installation verified; ready to plan B4 execution.** Production-controller
   candidate/media source `33ea3f5` installed and booted without media or a download
   listener. All five exact Podman images, all 49 embedded file hashes, enforcing
   SELinux and SSH restrictions passed. Evidence: `.artifacts/b3-completion/` and
@@ -83,10 +83,20 @@ A fixture download URL is not a distribution-ready public installer.
 
 ### 4. Connect native qualification — B4
 
-**Not started.** Test actual installation, native updates/recovery, signatures,
-offline content, maintenance and populated-state preservation against unchanged
-candidate bytes. Connect protected qualification/evidence using the selected native
-update contract. Do not recreate the former custom client updater.
+**Scope revised; implementation/native execution not started.** The
+[owning B4 contract](release-engineering-plan.md#milestone-4--connect-native-qualification)
+selects P9 installation, same-base x86_64 A → B update and compatible native recovery.
+A is the verified current-layout `33ea3f5` artifact; B is the next necessary clean
+controller build. The existing stopped disk may seed a fresh isolated test clone only
+after receipt/identity verification and execution approval.
+
+Required evidence covers native signatures, HTTPS graph offers, maintenance,
+staged offline content, populated-state preservation including later writes, and
+independent byte/evidence custody. Base changes, schema migrations and automatic
+boot-failure recovery are not claimed by that first scenario. Local fixture signing
+alone cannot satisfy protected qualification. B5 retains final release authority.
+The next B build must exercise corrected media readback and result reporting; no
+standalone B3 replay is required solely to replace the recorded nonzero exit.
 
 ### 5. Integrate protected signing and delivery — B5
 
@@ -103,12 +113,13 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-Start B4 native qualification using the selected rpm-ostree/Zincati contract and
-unchanged-candidate evidence. Do not reopen completed B3 work as a preservation,
-compression or general audit programme. A new build must have fresh committed
-source/controller/output; a read-only observer correction is not a reason to replay
-successful production or disk effects. Public hosting, ARM and minimum-hardware
-qualification remain separate work.
+The bounded B4 contract is now recorded in the owning guide. Before native execution,
+obtain a B4-scoped grant identifying the disposable targets and qualification/trust
+identities described below. Do not infer it from the completed pre-B4 grant or this
+plan-edit request. Then implement P9 using existing drivers and run the selected
+scenario, exercising controller completion during the necessary B build. Do not
+reopen B3 as a preservation, compression or general audit programme. Public hosting,
+ARM and minimum-hardware qualification remain separate work.
 
 The public rootfs base URL is an explicit build input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
@@ -118,27 +129,35 @@ complete offline installer.
 
 ## Current permissions
 
-The owner gave **standing approval for all seven pre-B4 tasks and necessary local
-execution without routine handoffs**, including source simplification, media
-integration, native installation verification and selection of the native update
-contract. This supersedes the prior consumed-slot hold/pending deduplication proposal.
+**Current task: plan revision only.** No B4 native build, installation, update,
+rollback, trust/network change or qualification-worker installation is authorized by
+this revision. The earlier standing grant covered the seven pre-B4 tasks through
+readiness; it superseded the consumed-slot proposal but does not silently commission B4.
 
-- Use fresh local candidate/media outputs and disposable VM/disk targets. Diagnosing
-  failures and making another corrected attempt does not require another routine
-  approval. Keep one active VM, affinity 0–3, at most four vCPUs and 16 GiB RAM.
-- Measure resources; do not make blanket preservation or a 280 GiB retention increase
-  the default. Upstream temporary/helper cleanup and disposable test-container
-  lifecycle are permitted. Any cleanup must identify exact task-owned resources and
-  protect credentials, unrelated work and explicitly protected state.
-- Local fixture signing, loopback content serving, blank-disk installation, media
-  removal/reboot and first-boot checks are within scope. Real provider jobs, public
-  publishing, unrelated appliance mutation and M4 update/recovery execution are not
-  needed to reach this stopping point.
-- Existing real delivery authority remains candidate-channel-only within its original
-  commissioning scope. It is not permission to replay bootstrap effects, reset keys/
-  ledgers or publish preview/stable. This task uses no real signing/registry credentials.
-- Stop for a concrete safety issue or an unresolved external blocker, not a routine
-  milestone handoff. Report readiness only when the stated B3 checks actually pass.
+**Proposed B4 execution scope, pending approval:**
+
+- Fresh task-owned outputs/targets under `.artifacts/b4-qualification/`, using a
+  verified copy of the stopped B3 disk, not mutating the retained seed or adopting an
+  unrelated VM. Record exact run paths before effects. Carry forward the proposed
+  one-active-VM, affinity 0–3, four-vCPU/16-GiB ceiling; measure storage rather than
+  reserve a preservation-driven expansion.
+- Native build/package and disposable VM/disk lifecycle for the selected P9 scenario,
+  including installation, reboot, synthetic data writes, controlled content-download
+  interruption and native rollback. No real provider registration/jobs or restoration
+  of an older database over later writes.
+- Fixture-only signing authority, local OCI content and HTTPS graph serving, with
+  endpoint routing/CA/policy changes confined to the disposable guests. No public
+  publication, host-wide DNS/firewall/trust changes or use of real release credentials.
+- Name and approve the separate build/qualification identities and evidence custody
+  before installing workers or granting host privileges. Same-user fixture signatures
+  are not proof of that boundary. Use existing protected primitives; do not reset
+  `/var/lib/soda-release` to make a local test work.
+- Specify permitted task-container/helper cleanup and exact disposable resources.
+  This planning approval authorizes no artifact deletion or unrelated cleanup.
+
+Existing real delivery authority remains candidate-channel-only within its original
+commissioning scope; no bootstrap replay, key/ledger reset or preview/stable publishing
+is added. Historical B3 grants and execution receipts remain in history.
 
 ## Retained release state
 
