@@ -326,7 +326,7 @@ func assembleMedia(ctx context.Context, p nativebuild.Production, r Request, loc
 	}
 	// iso customize wraps the supplied fragment in a merge source. Require the
 	// exact public fragment to survive native readback (checked below).
-	if err = verifyLiveIgnition([]byte(ignition), expected); err != nil {
+	if err = VerifyLiveIgnition([]byte(ignition), expected); err != nil {
 		return result, err
 	}
 	kargs, err := native("/usr/bin/coreos-installer", "iso", "kargs", "show", "/out/media/installer.iso")
@@ -354,7 +354,7 @@ func assembleMedia(ctx context.Context, p nativebuild.Production, r Request, loc
 	if err != nil {
 		return result, err
 	}
-	if err = verifyRootfsChunks(filepath.Join(mediaDir, rootfsName), string(chunks)); err != nil {
+	if err = VerifyRootfsChunks(filepath.Join(mediaDir, rootfsName), string(chunks)); err != nil {
 		return result, err
 	}
 	iso, err := mediaFile(filepath.Join(mediaDir, "installer.iso"))
@@ -381,7 +381,9 @@ func assembleMedia(ctx context.Context, p nativebuild.Production, r Request, loc
 	return result, err
 }
 
-func verifyLiveIgnition(data, expected []byte) error {
+// VerifyLiveIgnition checks the native customization readback against the exact
+// fragment supplied by this build. Ignition's serializer emits absent optionals as null.
+func VerifyLiveIgnition(data, expected []byte) error {
 	var wrapper struct {
 		Ignition struct {
 			Config struct {
@@ -410,10 +412,31 @@ func verifyLiveIgnition(data, expected []byte) error {
 		return err
 	}
 	var got, want any
-	if json.Unmarshal(raw, &got) != nil || json.Unmarshal(expected, &want) != nil || !reflect.DeepEqual(got, want) {
+	if json.Unmarshal(raw, &got) != nil || json.Unmarshal(expected, &want) != nil {
+		return errors.New("invalid Ignition readback")
+	}
+	omitNullFields(got)
+	omitNullFields(want)
+	if !reflect.DeepEqual(got, want) {
 		return errors.New("embedded live Ignition differs")
 	}
 	return nil
+}
+func omitNullFields(value any) {
+	switch v := value.(type) {
+	case map[string]any:
+		for key, child := range v {
+			if child == nil {
+				delete(v, key)
+			} else {
+				omitNullFields(child)
+			}
+		}
+	case []any:
+		for _, child := range v {
+			omitNullFields(child)
+		}
+	}
 }
 func mediaFile(path string) (MediaFile, error) {
 	st, err := os.Stat(path)
@@ -423,7 +446,9 @@ func mediaFile(path string) (MediaFile, error) {
 	h, err := nativebuild.HashFile(path)
 	return MediaFile{Path: filepath.Base(path), SHA256: h, Bytes: st.Size()}, err
 }
-func verifyRootfsChunks(path, text string) error {
+
+// VerifyRootfsChunks checks the bootstrap's native chunk list against the download.
+func VerifyRootfsChunks(path, text string) error {
 	if !strings.HasPrefix(text, "stream-hash sha256 2097152\n") {
 		return errors.New("unexpected native rootfs hash format")
 	}
