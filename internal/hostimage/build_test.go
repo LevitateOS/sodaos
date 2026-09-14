@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +43,10 @@ func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 				r.Revision = strings.Repeat("b", 40)
 			}
 			capture := func(_, name string, args ...string) (string, error) {
+				if name == "go" {
+					require.Equal(t, []string{"env", "GOVERSION"}, args)
+					return runtime.Version(), nil
+				}
 				require.Equal(t, "git", name)
 				switch strings.Join(args, " ") {
 				case "rev-parse --show-toplevel":

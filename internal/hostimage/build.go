@@ -79,6 +79,13 @@ func build(r Request, progress *nativebuild.BuildProgress, execute nativebuild.B
 	if e != nil || !nativebuild.Revision(revision) {
 		return result, errors.New("exact committed revision required")
 	}
+	goVersion, e := capture(source, "go", "env", "GOVERSION")
+	if e != nil {
+		return result, e
+	}
+	if goVersion != runtime.Version() {
+		return result, errors.New("pinned Go compiler unavailable")
+	}
 	if r.Revision != "" && r.Revision != revision {
 		return result, errors.New("controller/source revision mismatch")
 	}
@@ -234,10 +241,12 @@ func buildEnvironment() []string {
 			env = append(env, key+"="+value)
 		}
 	}
-	return append(env, "GOTOOLCHAIN=local", "GOWORK=off", "GOFLAGS=-mod=readonly", "CGO_ENABLED=0", "PATH="+filepath.Join(runtime.GOROOT(), "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// A -trimpath controller can have no embedded GOROOT. Use Go's pinned
+	// upstream toolchain selection, not a relative bin/go or the ambient version.
+	return append(env, "GOTOOLCHAIN="+runtime.Version(), "GOWORK=off", "GOFLAGS=-mod=readonly", "CGO_ENABLED=0")
 }
 func runBuildCommand(ctx context.Context, log, output io.Writer, dir, name string, args ...string) (string, error) {
-	if name == "go" {
+	if name == "go" && runtime.GOROOT() != "" {
 		name = filepath.Join(runtime.GOROOT(), "bin/go")
 	}
 	cmd := exec.Command(name, args...)

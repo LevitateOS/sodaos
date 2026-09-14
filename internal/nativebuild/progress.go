@@ -182,12 +182,12 @@ type BuildExecution struct {
 
 func (b BuildExecution) command(dir, name string, args ...string) *exec.Cmd {
 	executable := name
-	if name == "go" {
+	if name == "go" && runtime.GOROOT() != "" {
 		executable = filepath.Join(runtime.GOROOT(), "bin", "go")
 	}
 	cmd := exec.CommandContext(b.Context, executable, args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOWORK=off", "GOFLAGS=-mod=readonly", "CGO_ENABLED=0", "PATH="+filepath.Join(runtime.GOROOT(), "bin")+string(os.PathListSeparator)+os.Getenv("PATH"))
+	cmd.Env = append(os.Environ(), "GOTOOLCHAIN="+runtime.Version(), "GOWORK=off", "GOFLAGS=-mod=readonly", "CGO_ENABLED=0")
 	cmd.Stderr = b.Log
 	// Build arguments are public; raw provider/provisioning outputs do not enter
 	// this producer. Keep tool logs separate from the progress-only timing log.
