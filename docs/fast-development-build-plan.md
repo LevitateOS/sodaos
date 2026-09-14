@@ -35,7 +35,8 @@ cold caches. Do not run another full media build merely to reproduce these timin
 
 ## Selected first interface
 
-Implemented flags (native timing validation pending):
+Implemented flags; candidate-only production is natively verified. The media target
+retains the existing packaging path; this workstream did not run new media:
 
 ```text
 soda-build --development --target candidate [existing worker/arch/output options]
@@ -76,7 +77,8 @@ must be qualified and delivered unchanged; no post-test production rebuild.
 
 ### F1 — Deliver candidate-only development production
 
-**Implemented; focused Go checks passed.** The vertical change uses the existing Go owner:
+**Complete — `bb17280`, focused race/vet checks and native candidate runs passed.**
+The vertical change uses the existing Go owner:
 
 1. Add explicit purpose/target parsing and validation in `tools/soda-build` and
    `internal/hostimage.Request`; reject conflicting or unknown combinations early.
@@ -102,9 +104,16 @@ required for artifact builds; dirty-tree packaging is not part of this increment
 
 ### F2 — Prove the time saving and make it usable
 
-**In progress; native run pending.** Under the recorded exact build/helper scope, run one
-necessary warm x86_64 development-candidate build through the real CLI and worker.
-Do not require an unrelated ARM build, native install, M4 update test or public service.
+**Complete — cold worker 8m29s; warm worker 5m30s, both exit 0.** Runs
+`dev-candidate-03` and `dev-candidate-04` used the same clean `bb17280` source/controller
+through the actual x86_64 CLI/worker. All five apps and all candidate checks remained;
+there was no media workspace, Ignition generation, packaging, signing or VM. The
+worker configuration omitted media authority entirely. The warm result meets the
+historical roughly six-minute reference; it is not a timing guarantee for other hosts.
+
+[History](implementation-history.md#fast-development-candidate-production) owns exact
+receipts, cache state and setup refusals. The selected native work did not require an
+ARM build, installation, M4 update test or public service.
 
 Retain the existing timing/result logs and report wall time, cache state, emitted
 host/all-five image identities and checks. Confirm normal target success, no media
@@ -119,7 +128,25 @@ identify the measured cause before adding optimizations. F1/F2 do not depend on 
 
 ### F3 — Optional faster installer-development media
 
-**Pending F2; selected for the bounded installer-iteration comparison.**
+**Not implemented — the specified comparison needs a contract decision.** Read-only
+inspection of the selected Assembler image and actual Soda invocation disproved the
+plan's assumption that `live-rootfs-fsoptions` is an external packaging override. Its
+live-artifact stage reads that field from `usr/share/coreos-assembler/image.json`
+**inside the candidate deployment**; `cosa buildextend-live` exposes no compression
+argument. Changing `config/build-args.conf` does not override that read.
+
+Changing candidate metadata would produce a different host digest; keeping exactly
+the same candidate would require customizing the packaging integration. Neither is
+the planned same-candidate/upstream-direct comparison. No compression benchmark,
+substage instrumentation, fast flag, media build or boot is claimed. The selected
+source/inspection receipts are in [history](implementation-history.md#fast-development-candidate-production).
+
+**Recommended decision:** permit a distinct development candidate whose only intended
+content difference is compression metadata, while keeping production unchanged.
+That needs an explicit plan adjustment before execution; alternatively defer until
+upstream supports a per-media setting. Do not fork Assembler to satisfy this optional
+optimization. The remaining proposed work, after resolving that constraint, is:
+
 Add narrow timing around the existing native packing, EROFS and ISO stages. Benchmark
 one supported lower-compression setting against the current LZMA level 6 using the
 same admitted candidate content and unchanged CPU/memory bounds. Prefer upstream
@@ -140,9 +167,9 @@ OSBuild cache integration and application feature switches are not prerequisites
 
 ## Completion and limits
 
-Track F1–F3 here; keep B1–B6 progress in its existing owner. Deliver F1/F2 before
-expanding this side path. Do not silently resume M4 while this is the active priority.
+Track F1–F3 here; keep B1–B6 progress in its existing owner. F1/F2 are delivered;
+F3 remains unresolved, so the entire plan is **not** claimed complete. Do not silently resume M4 while this is the active priority.
 M4 fixtures, real custody and unrelated work stay untouched; experimental retention
 is not a reason to add compatibility code. The status/grant owner records any later
-approval for specific execution effects. Source implementation is now underway;
-completion claims require the scoped receipts above.
+approval for specific execution effects. Only the scoped receipts above support
+completion; development success is not production or installed qualification.

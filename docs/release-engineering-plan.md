@@ -482,7 +482,7 @@ No old artifact is deleted as a source-retirement shortcut. Only now move on to
 
 The entrypoint is `tools/soda-build`, compiled as `soda-build`. P1–P8 is implemented;
 B4/B5 connect qualification and finalization. [Native support](native-support.md#local-host-content-image-candidate)
-owns current invocation and worker-configuration requirements. The current CLI exits
+owns current invocation and worker-configuration requirements. The default production CLI exits
 2 after verified media, not success for an unfinished release. The development
 purpose/target interface is [owned separately](fast-development-build-plan.md#selected-first-interface)
 and succeeds only for its explicit unqualified development boundary.

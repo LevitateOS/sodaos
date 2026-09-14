@@ -91,6 +91,11 @@ Build from committed canonical source with the pinned Go/Bun/native prerequisite
 The public entry point now requires an operator-admitted, root-owned executable and
 restricted `--worker-config`; it does not install accounts, grant sudo or create a
 worker policy. Account/helper installation requires applicable task approval.
+The measured development-candidate path took **5m30s warm / 8m29s cold** on the selected
+four-CPU x86_64 worker; [receipts](implementation-history.md#fast-development-candidate-production)
+state that scope. There is no `--media-compression fast` flag; the
+[owning plan](fast-development-build-plan.md#implementation-order) records the upstream
+input constraint and unresolved decision.
 
 The configuration names `Executable`, canonical `Source`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
@@ -129,7 +134,10 @@ Native identity/custody boundary checks have passed; the complete P9 scenario an
 final release approval remain unfinished B4/B5 work. The public URL is explicit and receives a
 hash-named rootfs file. A local URL does not make the ISO distribution-ready.
 
-The controller's VCS revision must match the clean checkout. Each output is fresh;
+The controller's VCS revision must match the clean checkout. The admitted source and
+its committed Git objects must be readable by the isolated build identity; private
+untracked inputs are not source inputs and must not be made accessible to fix that.
+Each output is fresh;
 there is no worktree, partial-host mode, resume or skip-tests flag. The intended
 repository prefix defaults to `ghcr.io/levitateos/sodaos`; changing it does not create
 or publish repositories. Source and app inputs freeze before compilation. Prepared
@@ -148,7 +156,8 @@ Outputs occupy `inputs/`, `work/`, `artifacts/`, `evidence/`, `release/` and `lo
 `artifacts/` contains the six OCI archives (five under `images/`), tool binaries and
 hashes, payload/candidate identities and frozen app provenance. The once-compiled
 installer is also embedded in the host; native checks bind it to the exported tool.
-Pinned Butane produces public `destination.ign` and `live.ign`. P7 authenticates the
+For media requests, pinned Butane produces public `destination.ign` and `live.ign`.
+P7 authenticates the
 candidate and packaging inputs using existing Sigstore primitives. P8 invokes pinned
 Assembler/OSBuild in fresh disposable scratch, extracts minimal media, customizes
 it once, and reads back Ignition, kernel arguments and native rootfs chunk hashes.

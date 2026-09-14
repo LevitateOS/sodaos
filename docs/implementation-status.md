@@ -10,11 +10,14 @@ receipts and superseded grants. Other workstreams remain in the [development han
 
 ## Current position
 
-- **Fast-development implementation approved and active:** F1 adds explicit development
-  candidate/media targets through the existing isolated producer. Focused Go tests
-  pass; F2 native timing and the bounded F3 compression comparison are pending.
-  [F1–F3 status](fast-development-build-plan.md#implementation-order) stays separate
-  from B1–B6. M4 fixtures and real release custody remain untouched.
+- **Fast-development F1/F2 delivered:** `bb17280` adds explicit development
+  candidate/media targets through the existing isolated producer. Native candidate
+  runs passed in **8m29s cold / 5m30s warm**, with all five apps/checks and no media
+  authority, packaging or VM. Focused race/vet checks passed. F3 is **not implemented**:
+  selected upstream compression metadata lives inside the host candidate, contrary
+  to the plan's external-override assumption; its owning plan records the required
+  decision. [F1–F3 status](fast-development-build-plan.md#implementation-order) remains
+  separate from B1–B6. M4 fixtures and real release custody remain untouched.
 - B2's source-to-candidate controller was natively proved. Earlier B3 fixtures proved
   candidate-derived installation, media removal, exact-candidate first boot, five local
   application images, SELinux and interruption/cancellation boundaries.
@@ -165,14 +168,15 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-Follow [F1/F2 of the fast-development plan](fast-development-build-plan.md#implementation-order):
-implement and measure the explicit candidate-only development target before optional
-media tuning. The owner has now requested implementation of that plan. M4's pending
-P9/B build/update/recovery work stays paused; do not use it as a prerequisite for the
-first development-time saving. Public hosting, ARM and minimum-hardware qualification
-remain separate work.
+Use the delivered candidate-only target for host/application iteration. Resolve the
+[optional F3 compression decision](fast-development-build-plan.md#implementation-order)
+before further media optimization: distinct development candidate metadata or defer
+pending upstream per-media support. F1/F2 have completed; do not rerun them just to
+make a newer documentation revision appear in a receipt. M4's P9/B build/update/recovery
+work stays paused. Public hosting, ARM and minimum-hardware qualification remain
+separate work.
 
-The public rootfs base URL is an explicit build input. GitHub Release assets can serve
+The public rootfs base URL is an explicit media input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
 operated download service. Installed offline content means the required content is
 local after the authenticated network installation, not that the minimal ISO is a
@@ -182,7 +186,11 @@ complete offline installer.
 
 **Current task: implement `docs/fast-development-build-plan.md`.** The owner's latest
 request authorizes its source work and bounded local verification, superseding its
-planning-only status. Scope: reuse the existing isolated build identity/tools/caches;
+planning-only status. F1/F2 execution is complete; F3's different-candidate comparison
+is not covered by the unchanged-candidate plan and awaits the recorded decision.
+The source-read correction granted the existing build identity read-only ACLs on
+13 current-commit loose Git objects, not private/untracked inputs; exact paths remain
+in `.artifacts/fast-development/source-read-access.txt`. Scope: reuse the existing isolated build identity/tools/caches;
 install a separately named admitted development controller/test helper under
 `/usr/local/libexec/soda-qualification/`; write task receipts/configuration under
 `.artifacts/fast-development/` and fresh candidate/media outputs beneath the existing

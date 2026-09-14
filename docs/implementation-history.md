@@ -15,6 +15,85 @@ not claims that those outputs are still retained.
 
 ---
 
+## Fast development candidate production
+
+The owner paused M4, requested the side plan (`e76d23c`), then approved its
+implementation. `bb17280` added explicit development candidate/media boundaries to
+the same Go producer, without feature omissions, skip-tests, resume, another artifact
+format or a privileged build fallback. F1/F2 completed; **F3 did not**.
+
+Native x86_64 runs used the exact clean `bb17280` source/controller, existing
+`soda-build-worker` tools/cache/runtime, CPUs 0–3/four CPUs/16 GiB, and fresh outputs
+under `.artifacts/releases/isolated/`:
+
+| Output | Cache state | Result |
+| --- | --- | --- |
+| `dev-candidate-03` | First full candidate for this worker; Go/Bun build caches initially absent, app build layers cold | **8m29s, exit 0** |
+| `dev-candidate-04` | Reused the worker caches populated by 03; same source/recipes and resolved upstream app inputs | **5m30s, exit 0** |
+
+The warm phase times were P1 10s, P2 under 1s, P3 4m29s, P4 21s, P5 4s, P6 23s
+(rounded section clocks). Both runs compiled eleven programs/tools once, produced
+all five application images, and passed Go, TypeScript/Lit, prepared frontend,
+Forgejo/layout/source suites plus ELF/OCI/RPM/shared-layout/Quadlet checks. Native host
+inspection also verified the new immutable subordinate-ID defaults. This was not an
+installed project or M4 A→B test.
+
+`candidate-worker.json` deliberately omitted `MediaAuthorityDirectory`. Observations
+confirmed no media result path, workspace, live Ignition or media artifact directory.
+No packager/helper VM, signer, listener or installation ran. The historical 21m34s
+B3 media run is a scope comparison, not a newly controlled same-source speedup
+experiment. Cold/warm candidate identities differ; no byte-reproducibility claim is
+made for separate builds.
+
+The warm candidate binds:
+
+- Host: `sha256:d3a979a764acea73dead865ca5bce9472459c6ea99c711c3fe1957654fa2d08f`.
+- Candidate JSON SHA256: `a15fd87150320bb5b0dc678e479bf92e15e5d440612f5894feac5226068f1a34`.
+- Payload SHA256: `01f17a1de13cc788e9181642d65bc6891650baee447d6405d2cb0134462ea2f0`.
+
+Original `evidence/build.json`, artifacts and timing logs stay in each output.
+`.artifacts/fast-development/candidate-{03,04}-{result,candidate,payload}.json`,
+`candidate-{03,04}-timing.log`, command logs/exit files and `f2-effects.txt` retain
+public identity/measurement copies and exact helper scope. No release authority is
+conferred by these producer receipts. The operator profile is
+`.artifacts/fast-development/candidate-worker.json`; its admitted current helper
+hash/revision is recorded in `controller-current.json`. Later documentation-only
+controller refreshes are not additional native build evidence.
+
+Setup failures remain truthful: run 01 refused the non-private configuration parent
+before dispatch; only the new task directory was changed to 0700. Run 02 refused an
+unreadable public committed Git object before production. Read-only ACLs were granted
+only to `soda-build-worker` for the 13 selected current-HEAD loose objects listed in
+`source-read-access.txt`; no private input or qualifier/custody permission changed.
+A copied-result observer corrected `images` to the actual `Images` JSON field without
+replaying production. Exact worker units were absent after completion; no task QEMU
+process remained. Existing worker lifecycle/cancellation evidence was reused because
+the execution owner was unchanged; focused race tests also exercised current process
+custody. No new native cancellation run is claimed.
+
+F3 preflight inspected the **selected** Assembler
+`sha256:0099fd839a5d899b2b8b5fb1a0699646ec3683843cc84fdc002e42633cdebbc3`
+via read-only, network-disabled containers in the existing worker boundary. An initial
+outside-namespace read refused traversal to the worker home; it was not bypassed by
+loosening home permissions. The successful observations are
+`selected-live-stage-02.py` (SHA256
+`a7c7016c0851e6734eeef3d37fe1d97fa5219465790e2a90eb6af5c6ec9bd29f`) and
+`selected-cmd-osbuild-02` (SHA256
+`1c42bf4e6ab6b35bd998d13176769b1308b8674225d0dec26695aefa5de93fd1`).
+The stage reads `live-rootfs-fsoptions` from the candidate deployment's own
+`usr/share/coreos-assembler/image.json`; the actual `cosa buildextend-live` caller has
+no compression option. Changing build arguments alone cannot select another setting.
+The original plan incorrectly assumed an external override. A different host metadata
+variant or packaging customization would change its comparison contract. No fork,
+benchmark, fast flag, new media/readback/boot or substage timing was substituted for
+that missing decision. The [owning plan](fast-development-build-plan.md#implementation-order)
+records the recommended development-only adjustment; production remains unchanged.
+
+Focused `go test -race` for `internal/hostimage`, `tools/soda-build` and
+`internal/acceptance`, focused vet, and the real candidate's full prepared/source
+checks passed. M4 qualification, real custody, retained disks and public delivery
+were untouched.
+
 ## B3 production media and current-layout installation
 
 Under the owner's standing approval for all seven pre-B4 tasks, the current path
