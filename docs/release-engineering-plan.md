@@ -484,8 +484,8 @@ The entrypoint is `tools/soda-build`, compiled as `soda-build`. P1–P8 is imple
 B4/B5 connect qualification and finalization. [Native support](native-support.md#local-host-content-image-candidate)
 owns current invocation and worker-configuration requirements. The current CLI exits
 2 after verified media, not success for an unfinished release. The development
-purpose/target interface is [planned separately](fast-development-build-plan.md#selected-first-interface),
-not yet available.
+purpose/target interface is [owned separately](fast-development-build-plan.md#selected-first-interface)
+and succeeds only for its explicit unqualified development boundary.
 
 The intended final interface also accepts `--publish candidate`; publication is not
 currently accepted by the CLI. Local fixture authority is not a protected untrusted-job
@@ -498,7 +498,7 @@ an unsigned/untested result called a release. Exact signer/fixture prerequisites
 checked before expensive work. During implementation, leaf/source checks remain
 independently runnable and scoped; they are not another release product.
 
-The planned [development targets](fast-development-build-plan.md#selected-first-interface)
+The explicit [development targets](fast-development-build-plan.md#selected-first-interface)
 may deliberately stop the same producer earlier and succeed **only for that explicit
 development task**. They do not shorten this production contract, confer release
 qualification or allow development receipts to substitute for protected evidence.

@@ -40,7 +40,7 @@ func buildWorkerIdentity() error {
 	return nil
 }
 
-func loadWorkerConfig(path, source, out string) (workerConfig, error) {
+func loadWorkerConfig(path string, r hostimage.Request) (workerConfig, error) {
 	var c workerConfig
 	if os.Geteuid() != 0 {
 		return c, errors.New("run the admitted controller as root; source commands run only as soda-build-worker")
@@ -51,7 +51,7 @@ func loadWorkerConfig(path, source, out string) (workerConfig, error) {
 	if err := rd.ReadJSON(path, &c); err != nil {
 		return c, err
 	}
-	if c.Source != source || filepath.Dir(out) != c.OutputParent || !strings.HasPrefix(c.OutputParent, filepath.Join(source, ".artifacts/releases")+"/") {
+	if c.Source != r.Source || filepath.Dir(r.Out) != c.OutputParent || !strings.HasPrefix(c.OutputParent, filepath.Join(r.Source, ".artifacts/releases")+"/") {
 		return c, errors.New("worker source/output differs from approved task paths")
 	}
 	if err := acceptance.TrustedExecutable(c.Executable); err != nil {
@@ -69,7 +69,11 @@ func loadWorkerConfig(path, source, out string) (workerConfig, error) {
 	if err != nil || a != b {
 		return c, errors.New("dispatcher differs from admitted worker executable")
 	}
-	for _, p := range []string{c.Source, c.OutputParent, c.BuildHome, c.Runtime, c.Tools, c.MediaAuthorityDirectory} {
+	paths := []string{c.Source, c.OutputParent, c.BuildHome, c.Runtime, c.Tools}
+	if r.WantsMedia() {
+		paths = append(paths, c.MediaAuthorityDirectory)
+	}
+	for _, p := range paths {
 		if !filepath.IsAbs(p) || filepath.Clean(p) != p || strings.ContainsAny(p, ":\n\r\t %") {
 			return c, errors.New("explicit safe worker path required")
 		}
@@ -86,36 +90,81 @@ func loadWorkerConfig(path, source, out string) (workerConfig, error) {
 // source view, caches and output parent are bound into that namespace.
 func runBuildWorker(ctx context.Context, c workerConfig, r hostimage.Request, p *nativebuild.BuildProgress) (hostimage.Result, error) {
 	var result hostimage.Result
-	if err := p.Phase("P1-P8 / Isolated source-to-media worker"); err != nil {
+	boundary := "P1-P8 / Isolated source-to-media worker"
+	if !r.WantsMedia() {
+		boundary = "P1-P6 / Isolated development candidate worker"
+	}
+	if err := p.Phase(boundary); err != nil {
 		return result, err
+	}
+	w, err := buildWorker(c, r)
+	if err != nil {
+		return result, err
+	}
+	if err = w.Run(ctx, os.Stderr, os.Stderr); err != nil {
+		return result, err
+	}
+	// Producer output is not qualification authority. P9 independently admits it.
+	if err = rd.ReadJSON(filepath.Join(r.Out, "evidence/build.json"), &result); err != nil {
+		return result, err
+	}
+	if err = validateWorkerResult(r, &result); err != nil {
+		return result, err
+	}
+	return result, errors.Join(p.End(nil), p.EndPhase(nil))
+}
+
+func buildWorker(c workerConfig, r hostimage.Request) (acceptance.Worker, error) {
+	var w acceptance.Worker
+	if err := r.ValidateTarget(); err != nil {
+		return w, err
 	}
 	rel, err := filepath.Rel(c.Source, r.Out)
 	if err != nil {
-		return result, err
+		return w, err
 	}
 	out := filepath.Join(workerSource, rel)
 	parentRel, err := filepath.Rel(c.Source, c.OutputParent)
 	if err != nil {
-		return result, err
+		return w, err
 	}
 	name := "soda-build-" + filepath.Base(r.Out)
-	w := acceptance.Worker{Name: name, User: "soda-build-worker", Executable: c.Executable, Directory: workerSource,
-		ReadOnly:    []string{c.Source + ":" + workerSource, c.Tools + ":" + workerTools, c.MediaAuthorityDirectory + ":/run/soda-media-authority"},
+	w = acceptance.Worker{Name: name, User: "soda-build-worker", Executable: c.Executable, Directory: workerSource,
+		ReadOnly:    []string{c.Source + ":" + workerSource, c.Tools + ":" + workerTools},
 		Writable:    []string{c.OutputParent + ":" + filepath.Join(workerSource, parentRel), c.BuildHome + ":" + workerHome, c.Runtime + ":" + workerRuntime},
 		Environment: []string{"HOME=" + workerHome, "PATH=" + workerTools + "/go/bin:" + workerTools + "/bin:/usr/sbin:/usr/bin:/sbin:/bin", "XDG_RUNTIME_DIR=" + workerRuntime, "GOTOOLCHAIN=go1.26.7", "GOCACHE=" + workerHome + "/go-build", "GOMODCACHE=" + workerHome + "/go-mod", "BUN_INSTALL_CACHE_DIR=" + workerHome + "/bun-cache", "PLAYWRIGHT_BROWSERS_PATH=" + workerHome + "/browsers", "SODA_BUILD_START_NS=" + os.Getenv("SODA_BUILD_START_NS")},
-		Arguments:   []string{"--worker-build", "--arch", r.Arch, "--out", out, "--repository-prefix", r.RepositoryPrefix, "--rootfs-base-url", r.RootfsBaseURL, "--media-authority", "/run/soda-media-authority/config.json"}}
-	if err = w.Run(ctx, os.Stderr, os.Stderr); err != nil {
-		return result, err
+		Arguments:   []string{"--worker-build", "--arch", r.Arch, "--out", out, "--repository-prefix", r.RepositoryPrefix}}
+	if r.Development {
+		w.Arguments = append(w.Arguments, "--development", "--target", r.Target)
 	}
-	// This is a producer result, not qualification authority. P9 must independently
-	// admit/snapshot the candidate rather than trusting this success document.
-	if err = rd.ReadJSON(filepath.Join(r.Out, "evidence/build.json"), &result); err != nil {
-		return result, err
+	if r.WantsMedia() {
+		w.ReadOnly = append(w.ReadOnly, c.MediaAuthorityDirectory+":/run/soda-media-authority")
+		w.Arguments = append(w.Arguments, "--rootfs-base-url", r.RootfsBaseURL, "--media-authority", "/run/soda-media-authority/config.json")
 	}
-	if result.Revision != r.Revision || result.Architecture != r.Arch || result.Candidate != filepath.Join(out, "artifacts/candidate.json") || result.Media != filepath.Join(out, "artifacts/media/media.json") {
-		return result, errors.New("worker result does not match this run")
+	return w, nil
+}
+
+func validateWorkerResult(r hostimage.Request, result *hostimage.Result) error {
+	rel, err := filepath.Rel(r.Source, r.Out)
+	if err != nil {
+		return err
 	}
-	result.Candidate = filepath.Join(r.Out, "artifacts/candidate.json")
-	result.Media = filepath.Join(r.Out, "artifacts/media/media.json")
-	return result, errors.Join(p.End(nil), p.EndPhase(nil))
+	out := filepath.Join(workerSource, rel)
+	media, completed := "", "candidate"
+	if r.WantsMedia() {
+		media, completed = filepath.Join(out, "artifacts/media/media.json"), "media"
+	}
+	if result.Revision != r.Revision || result.Architecture != r.Arch || result.Candidate != filepath.Join(out, "artifacts/candidate.json") || result.Media != media || result.Purpose != r.Purpose() || result.RequestedTarget != r.RequestedTarget() || result.CompletedTarget != completed {
+		return errors.New("worker result does not match this run")
+	}
+	candidate := filepath.Join(r.Out, "artifacts/candidate.json")
+	hash, err := nativebuild.HashFile(candidate)
+	if err != nil || hash != result.CandidateSHA256 {
+		return errors.New("worker candidate receipt differs")
+	}
+	result.Candidate = candidate
+	if media != "" {
+		result.Media = filepath.Join(r.Out, "artifacts/media/media.json")
+	}
+	return nil
 }

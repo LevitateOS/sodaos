@@ -5,7 +5,41 @@ import (
 	"path/filepath"
 
 	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/releasedelivery"
 )
+
+// Called only after the fixed candidate checks and requested media checks succeed.
+// The candidate hash binds all five app identities through its payload hash; this
+// producer receipt is never protected qualification evidence.
+func recordBuildResult(p nativebuild.Production, r Request) (result Result, err error) {
+	result = Result{Revision: p.Revision, Architecture: p.Arch,
+		Candidate: filepath.Join(p.Out, "candidate.json"), Purpose: r.Purpose(),
+		RequestedTarget: r.RequestedTarget(), CompletedTarget: "candidate",
+		Scope:  "P1-P6 verified candidate; not a qualified release",
+		Checks: []string{"Go source tests", "TypeScript and Lit checks", "Prepared frontend tests", "Prepared Forgejo tests", "Prepared layout tests", "Build/source fixtures", "ELF architecture", "Application OCI identities", "Host identity, RPM inventory, shared layout and Quadlets", "Host OCI export"}}
+	var candidate releasedelivery.Candidate
+	if err = nativebuild.ReadJSON(result.Candidate, &candidate); err != nil {
+		return
+	}
+	result.HostManifest, result.PayloadSHA256 = candidate.Host.Manifest, candidate.PayloadSHA256
+	if result.CandidateSHA256, err = nativebuild.HashFile(result.Candidate); err != nil {
+		return
+	}
+	if r.WantsMedia() {
+		result.Media = filepath.Join(p.Out, "media/media.json")
+		result.CompletedTarget = "media"
+		result.Scope = "P1-P8 candidate-derived media; not a qualified release"
+		result.Checks = append(result.Checks, "Authenticated packaging inputs", "Native media identity, Ignition, kernel arguments and rootfs chunks")
+	}
+	if r.Development {
+		result.Scope = "development-only; not release-qualified"
+	}
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err == nil {
+		err = nativebuild.WriteNew(filepath.Join(r.Out, "evidence/build.json"), append(data, '\n'), 0600)
+	}
+	return
+}
 
 // The final host manifest cannot be embedded in itself. This detached local
 // receipt binds that manifest to the exact embedded payload bytes. It is NOT a

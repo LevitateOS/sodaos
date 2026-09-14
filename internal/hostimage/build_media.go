@@ -1,6 +1,7 @@
 package hostimage
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -12,6 +13,34 @@ import (
 )
 
 type mediaTools struct{ Butane, Version, Architecture string }
+
+func prepareBuildMedia(p nativebuild.Production, r Request) (tools mediaTools, lock mediaLock, err error) {
+	if !r.WantsMedia() {
+		return
+	}
+	if err = p.Next("P2 / Verify native media tooling"); err != nil {
+		return
+	}
+	tools, err = admitMediaTools(p.Source, filepath.Join(r.Out, "evidence"), r.Arch, p)
+	if err == nil {
+		lock, err = prepareAssembler(p, filepath.Join(r.Out, "work/media"))
+	}
+	return
+}
+
+func finishBuildMedia(ctx context.Context, p nativebuild.Production, r Request, tools mediaTools, lock mediaLock, next func(string) error) error {
+	if !r.WantsMedia() {
+		return nil
+	}
+	if err := p.Next("P6 / Prepare candidate live Ignition"); err != nil {
+		return err
+	}
+	if err := prepareMediaInputs(p.Source, p.Out, tools, p); err != nil {
+		return err
+	}
+	_, err := assembleMedia(ctx, p, r, lock, next)
+	return err
+}
 
 func admitMediaTools(source, evidence, arch string, p nativebuild.Production) (mediaTools, error) {
 	var tools mediaTools

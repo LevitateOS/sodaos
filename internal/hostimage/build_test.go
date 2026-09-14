@@ -3,6 +3,7 @@ package hostimage
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/releasedelivery"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,7 +34,9 @@ func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 				require.NoError(t, os.Rename(filepath.Join(source, ".git"), filepath.Join(source, "retained-git")))
 				require.NoError(t, os.WriteFile(filepath.Join(source, ".git"), []byte("gitdir: elsewhere"), 0600))
 			}
-			r := Request{Source: source, Out: out, Arch: "x86_64", RepositoryPrefix: "ghcr.io/example/sodaos"}
+			authority := filepath.Join(source, "fixture-authority.json")
+			require.NoError(t, os.WriteFile(authority, []byte("{}"), 0600))
+			r := Request{Source: source, Out: out, Arch: "x86_64", RepositoryPrefix: "ghcr.io/example/sodaos", RootfsBaseURL: "https://example.invalid", MediaAuthority: authority}
 			if mode == "outside" {
 				r.Out = filepath.Join(source, "outside")
 			}
@@ -75,6 +79,77 @@ func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 		})
 	}
 }
+func TestDevelopmentTargetAdmission(t *testing.T) {
+	for _, tc := range []struct {
+		r     Request
+		valid bool
+	}{
+		{Request{RootfsBaseURL: "https://example.invalid"}, true},
+		{Request{Development: true, Target: "candidate"}, true},
+		{Request{Development: true, Target: "media", RootfsBaseURL: "https://example.invalid"}, true},
+		{Request{}, false},
+		{Request{Development: true}, false},
+		{Request{Target: "candidate"}, false},
+		{Request{Target: "media", RootfsBaseURL: "https://example.invalid"}, false},
+		{Request{Development: true, Target: "release"}, false},
+		{Request{Development: true, Target: "candidate", RootfsBaseURL: "https://example.invalid"}, false},
+		{Request{Development: true, Target: "candidate", MediaAuthority: "/private/unused"}, false},
+		{Request{Development: true, Target: "media"}, false},
+	} {
+		if tc.valid {
+			require.NoError(t, tc.r.ValidateTarget())
+		} else {
+			require.Error(t, tc.r.ValidateTarget())
+		}
+	}
+}
+
+func TestCandidateBoundaryDoesNotAdmitOrDispatchMedia(t *testing.T) {
+	root := t.TempDir()
+	r := Request{Development: true, Target: "candidate", Out: root}
+	p := nativebuild.Production{Source: filepath.Join(root, "absent-source"), Out: filepath.Join(root, "artifacts"), Arch: "x86_64", Revision: strings.Repeat("a", 40),
+		Next:    func(string) error { t.Fatal("candidate dispatched media progress"); return nil },
+		Execute: func(string, string, ...string) error { t.Fatal("candidate dispatched media command"); return nil },
+		Capture: func(string, string, ...string) (string, error) {
+			t.Fatal("candidate dispatched media capture")
+			return "", nil
+		}}
+	tools, lock, err := prepareBuildMedia(p, r)
+	require.NoError(t, err)
+	require.NoError(t, finishBuildMedia(t.Context(), p, r, tools, lock, p.Next))
+	require.NoDirExists(t, filepath.Join(root, "work/media"))
+	require.NoDirExists(t, p.Out)
+	// A successful fixed candidate path records only its own checks/identities.
+	require.NoError(t, os.Mkdir(p.Out, 0700))
+	require.NoError(t, os.Mkdir(filepath.Join(root, "evidence"), 0700))
+	candidate := releasedelivery.Candidate{Host: nativebuild.Image{Manifest: "sha256:" + strings.Repeat("b", 64)}, PayloadSHA256: strings.Repeat("c", 64)}
+	data, err := json.Marshal(candidate)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(p.Out, "candidate.json"), data, 0600))
+	result, err := recordBuildResult(p, r)
+	require.NoError(t, err)
+	require.Equal(t, "development", result.Purpose)
+	require.Equal(t, "candidate", result.RequestedTarget)
+	require.Equal(t, "candidate", result.CompletedTarget)
+	require.Empty(t, result.Media)
+	require.Equal(t, hashBytes(data), result.CandidateSHA256)
+	require.Equal(t, candidate.Host.Manifest, result.HostManifest)
+	require.Equal(t, candidate.PayloadSHA256, result.PayloadSHA256)
+	require.Contains(t, result.Checks, "Prepared Forgejo tests")
+	require.NotContains(t, strings.Join(result.Checks, " "), "media")
+	require.Equal(t, "development-only; not release-qualified", result.Scope)
+}
+
+func TestMediaBoundaryStillStopsOnFailure(t *testing.T) {
+	sentinel := errors.New("media prerequisite failed")
+	p := nativebuild.Production{Next: func(string) error { return sentinel }}
+	for _, r := range []Request{{}, {Development: true, Target: "media"}} {
+		_, _, err := prepareBuildMedia(p, r)
+		require.ErrorIs(t, err, sentinel)
+		require.ErrorIs(t, finishBuildMedia(t.Context(), p, r, mediaTools{}, mediaLock{}, p.Next), sentinel)
+	}
+}
+
 func TestPreparedChecksUseExistingOutputsAndStopOnFailure(t *testing.T) {
 	root := t.TempDir()
 	var calls []string

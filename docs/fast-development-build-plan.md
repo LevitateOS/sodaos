@@ -4,9 +4,9 @@
 
 **Active priority: shorten the development feedback loop. M4 is paused, not complete.**
 The owner explicitly requested this side workstream before further qualification
-work. This request approves the plan and priority change; it does not itself start
-builds, packaging benchmarks, installations or VM work. Current grants and retained
-state remain in [implementation status](implementation-status.md#current-permissions).
+work and has now requested implementation of this plan. Current bounded execution
+grants and retained state remain in
+[implementation status](implementation-status.md#current-permissions).
 
 This guide owns the development-build targets and their implementation order.
 The [release contract](release-engineering-plan.md#single-run-release-build-contract)
@@ -35,7 +35,7 @@ cold caches. Do not run another full media build merely to reproduce these timin
 
 ## Selected first interface
 
-Proposed flags, **not implemented commands**:
+Implemented flags (native timing validation pending):
 
 ```text
 soda-build --development --target candidate [existing worker/arch/output options]
@@ -76,7 +76,7 @@ must be qualified and delivered unchanged; no post-test production rebuild.
 
 ### F1 — Deliver candidate-only development production
 
-**Not started.** Make the smallest vertical change through the existing Go owner:
+**Implemented; focused Go checks passed.** The vertical change uses the existing Go owner:
 
 1. Add explicit purpose/target parsing and validation in `tools/soda-build` and
    `internal/hostimage.Request`; reject conflicting or unknown combinations early.
@@ -102,7 +102,7 @@ required for artifact builds; dirty-tree packaging is not part of this increment
 
 ### F2 — Prove the time saving and make it usable
 
-**Not started; follows F1.** Under applicable exact build/helper approval, run one
+**In progress; native run pending.** Under the recorded exact build/helper scope, run one
 necessary warm x86_64 development-candidate build through the real CLI and worker.
 Do not require an unrelated ARM build, native install, M4 update test or public service.
 
@@ -119,7 +119,7 @@ identify the measured cause before adding optimizations. F1/F2 do not depend on 
 
 ### F3 — Optional faster installer-development media
 
-**Deferred until F1/F2 deliver the first saving and installer iteration needs it.**
+**Pending F2; selected for the bounded installer-iteration comparison.**
 Add narrow timing around the existing native packing, EROFS and ISO stages. Benchmark
 one supported lower-compression setting against the current LZMA level 6 using the
 same admitted candidate content and unchanged CPU/memory bounds. Prefer upstream
@@ -144,5 +144,5 @@ Track F1–F3 here; keep B1–B6 progress in its existing owner. Deliver F1/F2 b
 expanding this side path. Do not silently resume M4 while this is the active priority.
 M4 fixtures, real custody and unrelated work stay untouched; experimental retention
 is not a reason to add compatibility code. The status/grant owner records any later
-approval for specific execution effects. No source implementation or native run was
-performed to create this plan.
+approval for specific execution effects. Source implementation is now underway;
+completion claims require the scoped receipts above.

@@ -10,10 +10,11 @@ receipts and superseded grants. Other workstreams remain in the [development han
 
 ## Current position
 
-- **Priority change / planning only:** the fast-development plan selects candidate-only
-  production through the shared Go implementation first, with optional faster media
-  later. No development-target flags have been implemented or benchmarked yet. This
-  planning change ran no builds/VMs and changed no retained state or worker policy.
+- **Fast-development implementation approved and active:** F1 adds explicit development
+  candidate/media targets through the existing isolated producer. Focused Go tests
+  pass; F2 native timing and the bounded F3 compression comparison are pending.
+  [F1–F3 status](fast-development-build-plan.md#implementation-order) stays separate
+  from B1–B6. M4 fixtures and real release custody remain untouched.
 - B2's source-to-candidate controller was natively proved. Earlier B3 fixtures proved
   candidate-derived installation, media removal, exact-candidate first boot, five local
   application images, SELinux and interruption/cancellation boundaries.
@@ -166,7 +167,7 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 Follow [F1/F2 of the fast-development plan](fast-development-build-plan.md#implementation-order):
 implement and measure the explicit candidate-only development target before optional
-media tuning. The current request is for the plan, not an execution run. M4's pending
+media tuning. The owner has now requested implementation of that plan. M4's pending
 P9/B build/update/recovery work stays paused; do not use it as a prerequisite for the
 first development-time saving. Public hosting, ARM and minimum-hardware qualification
 remain separate work.
@@ -179,11 +180,22 @@ complete offline installer.
 
 ## Current permissions
 
-**Current task: plan the fast-development side path first.** The latest request
-changes priority and authorizes documentation/planning. It does not itself authorize
-new benchmark runs, worker/helper installation, VM lifecycle, cleanup, increased
-resources or trust changes. The [side plan](fast-development-build-plan.md) defines
-proposed implementation, not an already implemented/qualified build mode.
+**Current task: implement `docs/fast-development-build-plan.md`.** The owner's latest
+request authorizes its source work and bounded local verification, superseding its
+planning-only status. Scope: reuse the existing isolated build identity/tools/caches;
+install a separately named admitted development controller/test helper under
+`/usr/local/libexec/soda-qualification/`; write task receipts/configuration under
+`.artifacts/fast-development/` and fresh candidate/media outputs beneath the existing
+`.artifacts/releases/isolated/` parent. Record exact helper hashes/run names before
+effects. Do not replace the M4 controller/configuration or touch its qualifier disks.
+
+Run the necessary native candidate timing and at most one successful baseline/fast
+packaging comparison against unchanged candidate bytes, retaining failures. Use
+fixture-only media signing and a task-local rootfs listener/diskless boot observation
+if needed to validate the selected compression; no installation or real provider
+activity. Preserve one active VM, CPUs 0–3, at most four vCPUs/16 GiB. Stop only exact
+task helpers/containers/listeners; no pruning, retained-state deletion, host trust or
+network policy changes, real release authority, publication or increased resources.
 
 **Retained B4 approval — execution paused:** the earlier “Now do M4 completely”
 authorized the bounded scope below. Those target/action grants remain recorded for

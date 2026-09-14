@@ -36,6 +36,8 @@ func main() {
 	}
 }
 func run() (err error) {
+	development := flag.Bool("development", false, "explicit development-only run; never release-qualified")
+	target := flag.String("target", "", "development boundary: candidate or media (requires --development)")
 	arch := flag.String("arch", "", "matching native x86_64 or aarch64")
 	out := flag.String("out", "", "fresh absolute output below .artifacts/releases (parent must exist)")
 	prefix := flag.String("repository-prefix", "ghcr.io/levitateos/sodaos", "intended immutable image repositories; no publication")
@@ -46,6 +48,10 @@ func run() (err error) {
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
+	}
+	r := hostimage.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target}
+	if err := r.ValidateTarget(); err != nil {
+		return err
 	}
 	if *workerBuild {
 		if *workerConfigPath != "" {
@@ -76,7 +82,11 @@ func run() (err error) {
 	if !*workerBuild {
 		os.Unsetenv("SODA_BUILD_START_NS")
 	}
-	progress, e := nativebuild.NewBuildProgress("", "Soda release build")
+	title := "Soda release build"
+	if r.Development {
+		title = "Soda development " + r.Target + " (not release-qualified)"
+	}
+	progress, e := nativebuild.NewBuildProgress("", title)
 	if e != nil {
 		return e
 	}
@@ -102,12 +112,12 @@ func run() (err error) {
 	if !nativebuild.Revision(revision) {
 		return errors.New("controller needs build VCS metadata; compile tools/soda-build from the committed checkout")
 	}
-	r := hostimage.Request{Source: source, Out: *out, Arch: *arch, RepositoryPrefix: *prefix, Revision: revision, RootfsBaseURL: *rootfs, MediaAuthority: *authority}
+	r.Source, r.Revision = source, revision
 	if *workerBuild {
 		_, e := hostimage.Build(ctx, r, progress)
 		return e // stage completion only; the trusted parent owns qualification
 	}
-	config, e := loadWorkerConfig(*workerConfigPath, source, *out)
+	config, e := loadWorkerConfig(*workerConfigPath, r)
 	if e != nil {
 		return e
 	}
@@ -115,6 +125,17 @@ func run() (err error) {
 	if e != nil {
 		return e
 	}
-	fmt.Fprintln(os.Stderr, "MEDIA", result.Media, "(isolated producer output; native qualification is still required)")
+	fmt.Fprintln(os.Stderr, "CANDIDATE", result.Candidate)
+	if result.Media != "" {
+		fmt.Fprintln(os.Stderr, "MEDIA", result.Media)
+	}
+	fmt.Fprintln(os.Stderr, result.Scope)
+	return completion(r)
+}
+
+func completion(r hostimage.Request) error {
+	if r.Development {
+		return nil // success for the explicit target, never release qualification
+	}
 	return incomplete{}
 }

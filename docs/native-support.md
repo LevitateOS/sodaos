@@ -83,11 +83,10 @@ The first installer verifies before copying writable prefixes, validates the RFC
 
 ## Local host-content image candidate
 
-`tools/soda-build` owns the fixed P1–P8 candidate/media sequence under the
+`tools/soda-build` owns the shared candidate/media sequence under the
 [release contract](release-engineering-plan.md#single-run-release-build-contract).
-The owner has prioritized a [fast-development target plan](fast-development-build-plan.md)
-before further M4 work. Those flags are **planned, not implemented**; the invocation
-below still describes the current controller.
+Explicit [development targets](fast-development-build-plan.md#selected-first-interface)
+stop this same producer at the requested boundary; they never qualify a release.
 Build from committed canonical source with the pinned Go/Bun/native prerequisites.
 The public entry point now requires an operator-admitted, root-owned executable and
 restricted `--worker-config`; it does not install accounts, grant sudo or create a
@@ -95,14 +94,29 @@ worker policy. Account/helper installation requires applicable task approval.
 
 The configuration names `Executable`, canonical `Source`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
-`MediaAuthorityDirectory`. `OutputParent`, `BuildHome` and `Runtime` belong to
+`MediaAuthorityDirectory` (needed only for media). `OutputParent`, `BuildHome` and `Runtime` belong to
 `soda-build-worker`; tools provide `go/bin/go` and `bin/bun`. The executable and its
 parents are root-owned and not group/world writable, and its bytes must equal the
 running dispatcher. The internal `--worker-build` stage refuses other identities.
 
-The operator runs the admitted executable as root with `--worker-config PATH`,
-`--arch x86_64`, a fresh `--out OUTPUT_PARENT/UNIQUE`, and the explicit
-`--rootfs-base-url URL`. Source commands run only inside the separate systemd worker:
+The operator runs the admitted executable as root from the canonical checkout:
+
+```sh
+# Candidate-only development: no rootfs URL or media authority needed/mounted.
+sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
+  --arch x86_64 --out /OUTPUT_PARENT/UNIQUE --development --target candidate
+
+# Installer development: same candidate producer, then authenticated native media.
+sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
+  --arch x86_64 --out /OUTPUT_PARENT/ANOTHER_UNIQUE --development --target media \
+  --rootfs-base-url http://FIXTURE_ADDRESS:PORT
+```
+
+Substitute the operator-admitted absolute paths and explicit URL. Omitting both
+`--development` and `--target` requests the production path, which still ends
+incomplete at P8. Target flags require development mode; candidate mode refuses
+media-only inputs. Development cannot select publication/final signing.
+Source commands run only inside the separate systemd worker:
 read-only source/tools, selected writable output/cache/runtime binds, CPUs 0–3,
 a four-CPU quota, 16 GiB ceiling, and no operator-home or real-release-custody access.
 
@@ -146,8 +160,16 @@ subreaping. No raw argv/environment is copied into progress or evidence. Tool lo
 are restricted. Packaging owns disposable containers/helper scratch; it does not
 prune unrelated stores or modify retained appliances.
 
-**Current completion boundary:** the CLI exits **2** after verified candidate-derived
-media because B4/B5 qualification and final protected release evidence are not connected.
+`evidence/build.json` records purpose, requested/completed target, candidate hash
+(binding its payload and all application identities), host/payload identities and
+completed checks. Candidate-only output has no media path, live Ignition or packaging
+workspace. All current candidate checks and all five images remain; media-only tools
+and signing inputs are not required for that target.
+
+**Current completion boundary:** explicit development targets exit **0** on success
+with `development-only; not release-qualified`. Failures/cancellation remain nonzero.
+The default production CLI exits **2** after verified candidate-derived media because
+B4/B5 qualification and final protected release evidence are not connected.
 It does not report a qualified release. Earlier failures stop immediately. These
 build/inspection effects do not authorize installation, publishing or migration.
 Only x86_64 currently has the locked host package transaction; no ARM lock is invented.
