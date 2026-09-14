@@ -1,0 +1,6 @@
+{
+  "Assembler": "quay.io/coreos-assembler/coreos-assembler@sha256:f010dce4d350c1588762bbd5b69d27e14dabe859043489c587dc4d429c067daf",
+  "Config": "682c839aabbc01564f1605bb41687a7511180031",
+  "Architecture": "x86_64",
+  "Installer": "coreos-installer 0.26.0"
+}

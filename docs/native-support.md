@@ -83,7 +83,7 @@ The first installer verifies before copying writable prefixes, validates the RFC
 
 ## Local host-content image candidate
 
-`tools/soda-build` now owns the fixed P1–P6 candidate sequence under the
+`tools/soda-build` owns the fixed P1–P8 candidate/media sequence under the
 [release contract](release-engineering-plan.md#single-run-release-build-contract).
 Build from committed canonical source with the pinned Go/Bun/native prerequisites:
 
@@ -93,8 +93,18 @@ mkdir .artifacts/controllers/UNIQUE
 GOTOOLCHAIN=go1.26.7 go build -trimpath \
   -o .artifacts/controllers/UNIQUE/soda-build ./tools/soda-build
 .artifacts/controllers/UNIQUE/soda-build --arch x86_64 \
-  --out "$PWD/.artifacts/releases/UNIQUE"
+  --out "$PWD/.artifacts/releases/UNIQUE" \
+  --rootfs-base-url http://10.0.2.2:19843 \
+  --media-authority /path/to/private/media-authority.json
 ```
+
+The authority file is restricted JSON with `Trust` (public trust-file path) and
+`Keys` containing `Key` and `Passphrase` file paths, as used by the existing release
+signer. It is not copied into the source snapshot or child environment. Local runs
+use isolated fixture keys, never real release credentials. This exercises signature
+admission, not adversarial build-job isolation or final release approval; protected
+worker integration remains B4/B5. The public URL is explicit and receives a
+hash-named rootfs file. A local URL does not make the ISO distribution-ready.
 
 The controller's VCS revision must match the clean checkout. Each output is fresh;
 there is no worktree, partial-host mode, resume or skip-tests flag. The intended
@@ -105,9 +115,9 @@ belong to their separately authorized qualification drivers.
 
 P1–P6 builds runtime programs, the installer console and support tools once; stages
 vendor assets directly; builds/exports five apps and the native FCOS host; then
-checks ELF/OCI identities, RPM inventory, embedded archives and native Quadlet output.
-All five archives use ordinary Podman storage through payload v2. Strict v1 readers
-remain for historical artifacts. No bootc installer, update engine, bound storage,
+checks ELF/OCI identities, RPM inventory, embedded shared blobs and native Quadlets.
+All five images use ordinary Podman through one shared OCI layout. Obsolete payload
+readers and storage selectors are removed. No bootc installer, update engine, bound storage,
 lint or sysusers workaround is used, and Zincati is not disabled. Fedora's inherited
 packages/bootable-container labels are not a Soda bootc integration.
 
@@ -115,14 +125,20 @@ Outputs occupy `inputs/`, `work/`, `artifacts/`, `evidence/`, `release/` and `lo
 `artifacts/` contains the six OCI archives (five under `images/`), tool binaries and
 hashes, payload/candidate identities and frozen app provenance. The once-compiled
 installer is also embedded in the host; native checks bind it to the exported tool.
-Pinned Butane produces `destination.ign` and `live.ign` for candidate-derived media.
-These are public build inputs, not authenticated ISO/install authority. Native Go owns timing
+Pinned Butane produces public `destination.ign` and `live.ign`. P7 authenticates the
+candidate and packaging inputs using existing Sigstore primitives. P8 invokes pinned
+Assembler/OSBuild in fresh disposable scratch, extracts minimal media, customizes
+it once, and reads back Ignition, kernel arguments and native rootfs chunk hashes.
+`artifacts/media/media.json` binds the ISO/rootfs sizes, hashes, URL and candidate.
+The Assembler import checksum is labelled separately from installed identity.
+Native Go owns timing
 and cancellation, using the existing pinned process-group owner plus controller
 subreaping. No raw argv/environment is copied into progress or evidence. Tool logs
-are restricted; failed outputs and inspection CIDs remain, without pruning.
+are restricted. Packaging owns disposable containers/helper scratch; it does not
+prune unrelated stores or modify retained appliances.
 
-**Current completion boundary:** the CLI exits **2** after a verified unsigned
-candidate because B3–B5 media/qualification/protected finalization are not connected.
+**Current completion boundary:** the CLI exits **2** after verified candidate-derived
+media because B4/B5 qualification and final protected release evidence are not connected.
 It does not report a qualified release. Earlier failures stop immediately. These
 build/inspection effects do not authorize installation, publishing or migration.
 Only x86_64 currently has the locked host package transaction; no ARM lock is invented.
@@ -132,9 +148,9 @@ It cannot produce a competing host candidate. The old shell/media producer is re
 until B3/B4 native proof permits B6 retirement; it is not a replacement release mode.
 The [superseded experimental recipes](https://github.com/LevitateOS/sodaos/blob/3fe7f18/docs/native-support.md#local-host-content-image-candidate)
 remain historical evidence, not current commands or authority to mutate retained
-images. Their artifacts/CIDs, readers, source history and custody are preserved.
+images. Source history remains available; old experiments do not require current readers.
 The [release owner](release-engineering-plan.md#local-candidate-content-and-machine-state-ownership)
-defines v2 storage, defaults and machine-state preservation. The base/RPM inventory
+defines current storage, defaults and machine-state ownership. The base/RPM inventory
 is locked, not mirrored or byte-reproducible. No installed-release claim follows
 from local image inspection or ordinary build-cache reuse.
 

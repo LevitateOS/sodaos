@@ -80,7 +80,7 @@ func (t Trust) Validate() error {
 	return nil
 }
 func (t Trust) Role(repository string) (string, error) {
-	for _, n := range append([]string{"host", "release"}, appliancerelease.Names...) {
+	for _, n := range append([]string{"host", "release", "media"}, appliancerelease.Names...) {
 		if repository == t.Prefix+"-"+n {
 			return "artifact", nil
 		}

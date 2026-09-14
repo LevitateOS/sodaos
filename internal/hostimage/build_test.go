@@ -63,7 +63,7 @@ func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 				return "", nil
 			}
 			p := &nativebuild.BuildProgress{Now: func() time.Duration { return time.Second }, Stderr: io.Discard}
-			_, err := build(r, p, func(string, string, ...string) error { t.Fatal("refused input dispatched production"); return nil }, capture, func(string) (func() error, error) { t.Fatal("refused input opened logs"); return nil, nil })
+			_, err := build(t.Context(), r, p, func(string, string, ...string) error { t.Fatal("refused input dispatched production"); return nil }, capture, func(string) (func() error, error) { t.Fatal("refused input opened logs"); return nil, nil })
 			require.Error(t, err)
 			if mode == "occupied" {
 				data, e := os.ReadFile(filepath.Join(out, "retain"))

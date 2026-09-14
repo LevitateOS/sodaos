@@ -1,5 +1,5 @@
-// soda-build owns the source-to-candidate sequence. B3–B5 will connect its
-// unchanged outputs to media, qualification and protected finalization.
+// soda-build owns source-to-media production. B4/B5 connect native qualification
+// and protected final release evidence; media output is not a qualified release.
 package main
 
 import (
@@ -26,7 +26,7 @@ func (e interrupted) ExitCode() int { return int(e) }
 type incomplete struct{}
 
 func (incomplete) Error() string {
-	return "P1-P6 candidate verified; B3-B5 media/qualification/signing are not connected; no qualified release"
+	return "P1-P8 media verified; B4-B5 qualification/final signing are not connected; no qualified release"
 }
 func (incomplete) ExitCode() int { return 2 }
 func main() {
@@ -39,6 +39,8 @@ func run() (err error) {
 	arch := flag.String("arch", "", "matching native x86_64 or aarch64")
 	out := flag.String("out", "", "fresh absolute output below .artifacts/releases (parent must exist)")
 	prefix := flag.String("repository-prefix", "ghcr.io/levitateos/sodaos", "intended immutable image repositories; no publication")
+	rootfs := flag.String("rootfs-base-url", "", "public base URL for the exact hash-named rootfs file")
+	authority := flag.String("media-authority", "", "restricted JSON naming Trust and Keys; never copied into build inputs")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return errors.New("unexpected positional arguments")
@@ -85,11 +87,11 @@ func run() (err error) {
 	if !nativebuild.Revision(revision) {
 		return errors.New("controller needs build VCS metadata; compile tools/soda-build from the committed checkout")
 	}
-	r := hostimage.Request{Source: source, Out: *out, Arch: *arch, RepositoryPrefix: *prefix, Revision: revision}
+	r := hostimage.Request{Source: source, Out: *out, Arch: *arch, RepositoryPrefix: *prefix, Revision: revision, RootfsBaseURL: *rootfs, MediaAuthority: *authority}
 	result, e := hostimage.Build(ctx, r, progress)
 	if e != nil {
 		return e
 	}
-	fmt.Fprintln(os.Stderr, "CANDIDATE", result.Candidate, "(verified unsigned intermediate; not a release)")
+	fmt.Fprintln(os.Stderr, "MEDIA", result.Media, "(verified candidate-derived media; not a qualified release)")
 	return incomplete{}
 }

@@ -22,7 +22,7 @@ func recordCandidate(out, prefix string, host nativebuild.Image, archiveHash str
 	}{
 		1, host, prefix + "-host@" + host.Manifest, archiveHash, payloadHash,
 		"No upgrade or writable-install migration is qualified. Conflicting saved image selections are refused; machine settings/secrets require explicit first-install setup.",
-		"Complete unsigned local appliance payload only. All app archives are embedded for ordinary Podman import; repository names are intended, not provisioned. No production, native boot, signature or recovery acceptance.",
+		"Complete unsigned local appliance payload only. All app content is embedded in one shared OCI layout for ordinary Podman import; repository names are intended, not provisioned. No production, native boot, signature or recovery acceptance.",
 	}
 	b, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {

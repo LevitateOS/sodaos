@@ -16,11 +16,12 @@ import (
 	"github.com/levitateos/sodaos/internal/acceptance"
 	"github.com/levitateos/sodaos/internal/appliancerelease"
 	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/releasedelivery"
 )
 
-// Request describes one fresh P1–P6 build, never installation or publication.
-type Request struct{ Source, Out, Arch, RepositoryPrefix, Revision string }
-type Result struct{ Revision, Architecture, Candidate, Scope string }
+// Request describes one fresh source-to-media run, never installation or publication.
+type Request struct{ Source, Out, Arch, RepositoryPrefix, Revision, RootfsBaseURL, MediaAuthority string }
+type Result struct{ Revision, Architecture, Candidate, Media, Scope string }
 
 // Build is the single candidate execution owner. Qualification and protected
 // delivery consume its unchanged bytes; this result is not a qualified release.
@@ -33,7 +34,7 @@ func Build(ctx context.Context, r Request, progress *nativebuild.BuildProgress) 
 		_, err := runBuildCommand(ctx, log, os.Stdout, dir, name, args...)
 		return err
 	}
-	return build(r, progress, execute, capture, func(path string) (func() error, error) {
+	return build(ctx, r, progress, execute, capture, func(path string) (func() error, error) {
 		f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 		if e != nil {
 			return nil, e
@@ -43,7 +44,7 @@ func Build(ctx context.Context, r Request, progress *nativebuild.BuildProgress) 
 	})
 }
 
-func build(r Request, progress *nativebuild.BuildProgress, execute nativebuild.BuildExec, capture nativebuild.BuildCapture, openLog func(string) (func() error, error)) (result Result, err error) {
+func build(ctx context.Context, r Request, progress *nativebuild.BuildProgress, execute nativebuild.BuildExec, capture nativebuild.BuildCapture, openLog func(string) (func() error, error)) (result Result, err error) {
 	next := progress.Phase
 	if err = next("P1 / Admit and freeze inputs"); err != nil {
 		return
@@ -91,6 +92,12 @@ func build(r Request, progress *nativebuild.BuildProgress, execute nativebuild.B
 	}
 	if !filepath.IsAbs(r.Out) || !strings.HasPrefix(filepath.Clean(r.Out), filepath.Join(source, ".artifacts/releases")+string(os.PathSeparator)) {
 		return result, errors.New("fresh output must be below .artifacts/releases; parent must exist")
+	}
+	if err = mediaBaseURL(r.RootfsBaseURL); err != nil {
+		return
+	}
+	if err = releasedelivery.PrivateFile(r.MediaAuthority); err != nil {
+		return result, errors.New("restricted media authority file required")
 	}
 	if err = nativebuild.FreshDirectory(r.Out); err != nil {
 		return
@@ -170,6 +177,10 @@ func build(r Request, progress *nativebuild.BuildProgress, execute nativebuild.B
 	if e != nil {
 		return result, e
 	}
+	assembler, e := prepareAssembler(p, filepath.Join(r.Out, "work/media"))
+	if e != nil {
+		return result, e
+	}
 	if err = next("P3 / Compile shipping programs and prepared tools"); err != nil {
 		return
 	}
@@ -238,7 +249,10 @@ func build(r Request, progress *nativebuild.BuildProgress, execute nativebuild.B
 	if err = prepareMediaInputs(snapshot, artifacts, mediaTooling, p); err != nil {
 		return
 	}
-	result = Result{revision, r.Arch, filepath.Join(artifacts, "candidate.json"), "P1-P6 verified unsigned candidate; not a qualified release"}
+	if _, err = assembleMedia(ctx, p, r, assembler, next); err != nil {
+		return
+	}
+	result = Result{Revision: revision, Architecture: r.Arch, Candidate: filepath.Join(artifacts, "candidate.json"), Media: filepath.Join(artifacts, "media/media.json"), Scope: "P1-P8 candidate-derived media; not a qualified release"}
 	data, _ := json.MarshalIndent(result, "", "  ")
 	err = nativebuild.WriteNew(filepath.Join(r.Out, "evidence/build.json"), append(data, '\n'), 0600)
 	if err == nil {
