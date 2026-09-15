@@ -23,9 +23,10 @@ if [ -z "${files:-}" ]; then
 fi
 # shellcheck disable=SC2086
 out=$("${ruff_cmd[@]}" check --select C901 --output-format=concise $files || true)
-if [ -n "$out" ]; then
-  printf '%s\n' "$out"
-  count=$(printf '%s\n' "$out" | grep -c 'C901' || true)
+violations=$(printf '%s\n' "$out" | grep 'C901' || true)
+if [ -n "$violations" ]; then
+  printf '%s\n' "$violations"
+  count=$(printf '%s\n' "$violations" | grep -c 'C901' || true)
   printf 'Complexity gate failed: %s shipping function(s) at cyclomatic complexity 10 or above.\n' "$count"
   exit 1
 fi

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Seal public build inputs around the core-owned stage, never instance state."""
+
 import argparse
 import json
 import platform
@@ -8,8 +9,6 @@ import shutil
 import signal
 import sys
 import subprocess
-from pathlib import Path
-
 from pathlib import Path
 
 
@@ -40,8 +39,7 @@ def output(args):
 def require_tailnet_release(clis, version):
     cli = json.loads(clis['/usr/local/bin/tailscale'])
     daemon = clis['/usr/local/bin/tailscaled'].splitlines()
-    if (not isinstance(cli, dict) or cli.get('short') != version or not daemon
-            or daemon[0].split('-', 1)[0] != version):
+    if not isinstance(cli, dict) or cli.get('short') != version or not daemon or daemon[0].split('-', 1)[0] != version:
         raise ValueError('Tailnet image binaries differ from locked release')
 
 
@@ -55,7 +53,8 @@ def collect(root, arch, revision):
     inputs = stage / 'inputs'
     inputs.mkdir()
     for source, name in (
-        ('go.mod', 'go.mod'), ('go.sum', 'go.sum'),
+        ('go.mod', 'go.mod'),
+        ('go.sum', 'go.sum'),
         ('project-os/locks/tea-binary.toml', 'tea-binary.toml'),
         ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
         ('appliance/locks/tailscale-image.json', 'tailscale-image.json'),
@@ -74,11 +73,16 @@ def collect(root, arch, revision):
     shutil.copyfile(root / 'LICENSE', notices / 'soda-LICENSE')
     shutil.copyfile(root / 'NOTICE', notices / 'soda-NOTICE')
     shutil.copyfile(root / 'appliance/licenses/avatar-dependencies.txt', notices / 'avatar-dependencies.txt')
-    tools = {name: output(command) for name, command in {
-        'go': ['go', 'version'],
-        'bun': ['bun', '--version'], 'podman': ['podman', '--version'],
-        'python': ['python3', '--version'], 'kernel': ['uname', '-r'],
-    }.items()}
+    tools = {
+        name: output(command)
+        for name, command in {
+            'go': ['go', 'version'],
+            'bun': ['bun', '--version'],
+            'podman': ['podman', '--version'],
+            'python': ['python3', '--version'],
+            'kernel': ['uname', '-r'],
+        }.items()
+    }
     images = {}
     for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
         progress.next('Native / Inspect built image: ' + name)
@@ -88,19 +92,53 @@ def collect(root, arch, revision):
         images[name] = {
             'ID': image,
             'RegistryDigest': output(['podman', 'image', 'inspect', '--format', '{{.Digest}}', image]),
-            'RepositoryDigests': json.loads(output(['podman', 'image', 'inspect', '--format', '{{json .RepoDigests}}', image])),
+            'RepositoryDigests': json.loads(
+                output(['podman', 'image', 'inspect', '--format', '{{json .RepoDigests}}', image])
+            ),
         }
         if name in ('project-os', 'dashboard'):
             # A fresh read-only build-inspection container, never a Soda project.
             # No application entrypoint, network, persistent mount or provider use.
-            images[name]['RPMs'] = sorted(output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=/usr/bin/rpm', image, '-qa', '--qf', '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n']).splitlines())
+            images[name]['RPMs'] = sorted(
+                output(
+                    [
+                        'podman',
+                        'run',
+                        '--rm',
+                        '--read-only',
+                        '--network=none',
+                        '--entrypoint=/usr/bin/rpm',
+                        image,
+                        '-qa',
+                        '--qf',
+                        '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n',
+                    ]
+                ).splitlines()
+            )
         if name == 'tailnet':
             # Version-only, read-only and networkless: no daemon or enrollment.
-            images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, *flags]) for binary, flags in (('/usr/local/bin/tailscale', ('version', '--json')), ('/usr/local/bin/tailscaled', ('--version',)))}
+            images[name]['CLIs'] = {
+                binary: output(
+                    ['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, *flags]
+                )
+                for binary, flags in (
+                    ('/usr/local/bin/tailscale', ('version', '--json')),
+                    ('/usr/local/bin/tailscaled', ('--version',)),
+                )
+            }
             version = json.loads((root / 'appliance/locks/tailscale-image.json').read_text())['version']
             require_tailnet_release(images[name]['CLIs'], version)
         if name == 'project-os':
-            images[name]['CLIs'] = {binary: output(['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, flag]) for binary, flag in (('/usr/local/bin/tea', '--version'), ('/usr/bin/gh', '--version'), ('/usr/bin/tmux', '-V'))}
+            images[name]['CLIs'] = {
+                binary: output(
+                    ['podman', 'run', '--rm', '--read-only', '--network=none', '--entrypoint=' + binary, image, flag]
+                )
+                for binary, flag in (
+                    ('/usr/local/bin/tea', '--version'),
+                    ('/usr/bin/gh', '--version'),
+                    ('/usr/bin/tmux', '-V'),
+                )
+            }
     progress.next('Native / Finish build metadata')
     with (inputs / 'native-build.json').open('x') as f:
         json.dump({'Revision': revision, 'Architecture': arch, 'Tools': tools, 'Images': images}, f, indent=2)

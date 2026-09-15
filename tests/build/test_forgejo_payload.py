@@ -1,4 +1,5 @@
 """Exact presentation payload and locked locale build tests; no network/install."""
+
 import hashlib
 import io
 import json
@@ -15,15 +16,19 @@ ROOT = Path(__file__).resolve().parents[2]
 class ForgejoPayload(unittest.TestCase):
     def test_exact_sources_template_closure_and_notices(self):
         files = json.loads((ROOT / 'internal/nativebuild/forgejo-payload.json').read_text())
-        templates = {'templates/' + p.relative_to(ROOT / 'appliance/forgejo/templates').as_posix()
-                     for p in (ROOT / 'appliance/forgejo/templates').rglob('*.tmpl')}
+        templates = {
+            'templates/' + p.relative_to(ROOT / 'appliance/forgejo/templates').as_posix()
+            for p in (ROOT / 'appliance/forgejo/templates').rglob('*.tmpl')
+        }
         self.assertEqual(templates, {name for name in files if name.startswith('templates/')})
         for dest, source in files.items():
             self.assertNotIn('..', Path(dest).parts)
             self.assertFalse(Path(dest).is_absolute())
             self.assertNotIn('..', Path(source).parts)
             if source.startswith('@build/'):
-                self.assertTrue(source.startswith(('@build/terminal-assets/', '@build/forgejo-locales/', '@build/forgejo-js/')))
+                self.assertTrue(
+                    source.startswith(('@build/terminal-assets/', '@build/forgejo-locales/', '@build/forgejo-js/'))
+                )
                 continue
             p = ROOT / source
             self.assertTrue(p.is_file(), source)
@@ -59,7 +64,9 @@ class ForgejoPayload(unittest.TestCase):
         self.assertFalse((ROOT / 'internal/web/templates/runners.html').exists())
         self.assertFalse((ROOT / 'internal/web/templates/repository-spaces.html').exists())
         self.assertEqual(files['public/assets/soda-runner-response.js'], '@build/forgejo-js/soda-runner-response.js')
-        self.assertEqual(files['public/assets/soda/forgejo/soda-settings-link.js'], '@build/forgejo-js/soda-settings-link.js')
+        self.assertEqual(
+            files['public/assets/soda/forgejo/soda-settings-link.js'], '@build/forgejo-js/soda-settings-link.js'
+        )
         self.assertNotIn('window.config', page)
         self.assertNotIn('registration_token', page)
         self.assertNotIn('iframe', page)
@@ -69,11 +76,27 @@ class ForgejoPayload(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             lock = root / 'lock.json'
-            lock.write_text(json.dumps({'url': 'https://codeberg.org/forgejo/forgejo/raw/tag/v15.0.7/options/locale/locale_en-US.ini', 'sha256': hashlib.sha256(native).hexdigest()}))
+            lock.write_text(
+                json.dumps(
+                    {
+                        'url': 'https://codeberg.org/forgejo/forgejo/raw/tag/v15.0.7/options/locale/locale_en-US.ini',
+                        'sha256': hashlib.sha256(native).hexdigest(),
+                    }
+                )
+            )
             output = root / 'locale.ini'
-            args = ['forgejo-locales.py', '--lock', str(lock), '--additions', str(ROOT / 'appliance/forgejo/i18n/en-US.ini'), '--out', str(output)]
+            args = [
+                'forgejo-locales.py',
+                '--lock',
+                str(lock),
+                '--additions',
+                str(ROOT / 'appliance/forgejo/i18n/en-US.ini'),
+                '--out',
+                str(output),
+            ]
             with patch('sys.argv', args), patch('urllib.request.urlopen', return_value=io.BytesIO(b'incorrect')):
-                with self.assertRaises(SystemExit): runpy.run_path(str(ROOT / 'scripts/forgejo-locales.py'), run_name='__main__')
+                with self.assertRaises(SystemExit):
+                    runpy.run_path(str(ROOT / 'scripts/forgejo-locales.py'), run_name='__main__')
             self.assertFalse(output.exists())
             with patch('sys.argv', args), patch('urllib.request.urlopen', return_value=io.BytesIO(native)):
                 runpy.run_path(str(ROOT / 'scripts/forgejo-locales.py'), run_name='__main__')

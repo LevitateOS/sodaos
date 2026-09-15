@@ -1,4 +1,5 @@
 """Source contracts for reproduced native project service/secret failures."""
+
 import configparser
 from pathlib import Path
 import unittest

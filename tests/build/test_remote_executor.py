@@ -1,4 +1,5 @@
 """Synthetic dispatcher tests: no real Git, build, SSH, VM or provider command."""
+
 import importlib.util
 import io
 import json
@@ -21,7 +22,9 @@ class RemoteExecutorTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.work = Path(self.temp.name) / 'run'
-        self.request = dict(Revision=REVISION, Architecture='x86_64', Target='synthetic-builder', Work=str(self.work), Phase='prepare')
+        self.request = dict(
+            Revision=REVISION, Architecture='x86_64', Target='synthetic-builder', Work=str(self.work), Phase='prepare'
+        )
         self.calls = []
 
     def run_command(self, command, **kwargs):
@@ -35,13 +38,15 @@ class RemoteExecutorTests(unittest.TestCase):
 
     def invoke(self, phase, **changes):
         request = dict(self.request, Phase=phase, **changes)
-        with patch.object(executor.sys, 'stdin', types.SimpleNamespace(buffer=io.BytesIO(json.dumps(request).encode()))), \
-             patch.object(executor.sys, 'stdout', io.StringIO()), \
-             patch.object(executor.platform, 'system', return_value='Linux'), \
-             patch.object(executor.platform, 'machine', return_value='x86_64'), \
-             patch.object(executor.platform, 'node', return_value='synthetic-builder'), \
-             patch.object(executor.subprocess, 'run', side_effect=self.run_command), \
-             patch.object(executor.subprocess, 'check_output', side_effect=self.output):
+        with (
+            patch.object(executor.sys, 'stdin', types.SimpleNamespace(buffer=io.BytesIO(json.dumps(request).encode()))),
+            patch.object(executor.sys, 'stdout', io.StringIO()),
+            patch.object(executor.platform, 'system', return_value='Linux'),
+            patch.object(executor.platform, 'machine', return_value='x86_64'),
+            patch.object(executor.platform, 'node', return_value='synthetic-builder'),
+            patch.object(executor.subprocess, 'run', side_effect=self.run_command),
+            patch.object(executor.subprocess, 'check_output', side_effect=self.output),
+        ):
             executor.main()
 
     def test_explicit_phase_order_without_automatic_work(self):
@@ -68,7 +73,12 @@ class RemoteExecutorTests(unittest.TestCase):
         self.assertFalse(any('build-native.sh' in part for call in self.calls for part in call))
 
     def test_unknown_phase_target_arch_and_revision_fail_before_creation(self):
-        for phase, changes in [('install', {}), ('prepare', {'Target': 'other'}), ('prepare', {'Architecture': 'aarch64'}), ('prepare', {'Revision': 'main'})]:
+        for phase, changes in [
+            ('install', {}),
+            ('prepare', {'Target': 'other'}),
+            ('prepare', {'Architecture': 'aarch64'}),
+            ('prepare', {'Revision': 'main'}),
+        ]:
             with self.subTest(phase=phase, changes=changes):
                 with self.assertRaises(ValueError):
                     self.invoke(phase, **changes)
@@ -97,7 +107,9 @@ class RemoteExecutorTests(unittest.TestCase):
             self.invoke('check')
         with self.assertRaises(ValueError):
             self.invoke('build', Revision='b' * 40)
-        self.output = lambda command, **kwargs: (REVISION + '\n').encode() if command[1] == 'rev-parse' else b' M source.go\n'
+        self.output = lambda command, **kwargs: (
+            (REVISION + '\n').encode() if command[1] == 'rev-parse' else b' M source.go\n'
+        )
         with self.assertRaises(ValueError):
             self.invoke('build')
         self.assertEqual(len(self.calls), before)

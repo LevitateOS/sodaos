@@ -2,6 +2,7 @@
 
 Never creates host accounts or accesses appliance/project paths.
 """
+
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 import fcntl
 import hashlib
@@ -40,11 +41,13 @@ class ProjectKeys(unittest.TestCase):
         patch.object(keys, 'account_for', return_value=object()).start()
         patch.object(keys, 'directory', side_effect=lambda _: os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)).start()
         original = os.fstat
+
         def root_metadata(fd):
             info = original(fd)
             fields = {name: getattr(info, name) for name in dir(info) if name.startswith('st_')}
             fields.update(st_uid=0, st_gid=0)
             return types.SimpleNamespace(**fields)
+
         patch.object(keys.os, 'fstat', side_effect=root_metadata).start()
 
     def request(self, apply=False, revision='', values=None):
@@ -63,26 +66,41 @@ class ProjectKeys(unittest.TestCase):
 
     def test_changed_revision_never_writes(self):
         before = self.file.read_bytes()
-        with self.assertRaises(ValueError): keys.update(self.request(True, '0' * 64))
+        with self.assertRaises(ValueError):
+            keys.update(self.request(True, '0' * 64))
         self.assertEqual(self.file.read_bytes(), before)
 
     def test_unmanaged_content_symlink_hardlink_and_mode_refused(self):
-        for content in [b'# operator annotation\nssh-ed25519 YWJj\n', b'command="id" ssh-ed25519 YWJj\n', b'ssh-ed25519 YWJj', b'\xff\n']:
+        for content in [
+            b'# operator annotation\nssh-ed25519 YWJj\n',
+            b'command="id" ssh-ed25519 YWJj\n',
+            b'ssh-ed25519 YWJj',
+            b'\xff\n',
+        ]:
             self.file.write_bytes(content)
-            with self.assertRaises(ValueError): keys.update(self.request())
+            with self.assertRaises(ValueError):
+                keys.update(self.request())
             self.assertEqual(self.file.read_bytes(), content)
-        self.file.unlink(); self.file.symlink_to(self.other)
-        with self.assertRaises(OSError): keys.update(self.request())
-        self.file.unlink(); os.link(self.other, self.file)
-        with self.assertRaises(ValueError): keys.update(self.request())
-        self.file.unlink(); self.file.write_bytes(b'ssh-ed25519 YWJj\n'); self.file.chmod(0o666)
-        with self.assertRaises(ValueError): keys.update(self.request())
+        self.file.unlink()
+        self.file.symlink_to(self.other)
+        with self.assertRaises(OSError):
+            keys.update(self.request())
+        self.file.unlink()
+        os.link(self.other, self.file)
+        with self.assertRaises(ValueError):
+            keys.update(self.request())
+        self.file.unlink()
+        self.file.write_bytes(b'ssh-ed25519 YWJj\n')
+        self.file.chmod(0o666)
+        with self.assertRaises(ValueError):
+            keys.update(self.request())
         self.assertEqual(self.other.read_bytes(), b'preserve')
 
     def test_replace_failure_preserves_original_and_cleans_only_owned_temp(self):
         before = keys.update(self.request())
         with patch.object(keys.os, 'replace', side_effect=OSError('fixture')):
-            with self.assertRaises(OSError): keys.update(self.request(True, before['revision']))
+            with self.assertRaises(OSError):
+                keys.update(self.request(True, before['revision']))
         self.assertEqual(self.file.read_bytes(), b'ssh-ed25519 YWJj\n')
         self.assertEqual(sorted(p.name for p in self.root.iterdir()), ['alice', 'bob'])
 
@@ -91,19 +109,22 @@ class ProjectKeys(unittest.TestCase):
         native_sync, native_replace = os.fsync, os.replace
         events = []
         desired = b'ssh-ed25519 ZGVm\n'
+
         def sync(fd):
             if keys.stat.S_ISREG(os.fstat(fd).st_mode):
-                pending, = self.root.glob('.soda-keys-*')
+                (pending,) = self.root.glob('.soda-keys-*')
                 self.assertEqual(pending.read_bytes(), desired)
                 self.assertEqual(pending.stat().st_mode & 0o777, 0o644)
                 events.append('file sync')
             else:
                 events.append('directory sync')
             native_sync(fd)
+
         def publish(*args, **kwargs):
             self.assertEqual(events, ['file sync'])
             events.append('publish')
             native_replace(*args, **kwargs)
+
         with patch.object(keys.os, 'fsync', side_effect=sync), patch.object(keys.os, 'replace', side_effect=publish):
             keys.update(self.request(True, revision, ['ssh-ed25519 ZGVm']))
         self.assertEqual(events, ['file sync', 'publish', 'directory sync'])
@@ -124,12 +145,14 @@ class ProjectKeys(unittest.TestCase):
         # Pipes are event barriers; no timing sleeps or real host accounts.
         context = multiprocessing.get_context('fork')
         parent, child = context.Pipe()
+
         def worker():
             parent.close()
             try:
                 operation(child)
             finally:
                 child.close()
+
         process = context.Process(target=worker)
         process.start()
         child.close()
@@ -157,15 +180,19 @@ class ProjectKeys(unittest.TestCase):
 
     def test_apply_excludes_other_soda_and_native_writers_through_publication(self):
         revision = keys.update(self.request())['revision']
+
         def soda_writer(pipe):
             native_replace = os.replace
+
             def published(*args, **kwargs):
                 native_replace(*args, **kwargs)
                 pipe.send('published, still locked')
                 pipe.recv()
+
             with patch.object(keys.os, 'replace', side_effect=published):
                 result = keys.update(self.request(True, revision, ['ssh-ed25519 ZGVm']))
             pipe.send(result['keys'])
+
         with self.writer_process(soda_writer) as pipe:
             self.assertTrue(pipe.poll(5))
             self.assertEqual(pipe.recv(), 'published, still locked')
@@ -192,6 +219,7 @@ class ProjectKeys(unittest.TestCase):
                 later = original if edit == 'same-bytes replacement' else b'ssh-ed25519 ZGVm\n'
                 if edit == 'append':
                     later = original + later
+
                 def native_writer(pipe):
                     fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
                     try:
@@ -209,6 +237,7 @@ class ProjectKeys(unittest.TestCase):
                     finally:
                         os.close(fd)
                     pipe.send('finished')
+
                 with self.writer_process(native_writer) as pipe:
                     self.assertTrue(pipe.poll(5))
                     self.assertEqual(pipe.recv(), 'locked')
@@ -231,20 +260,24 @@ class ProjectKeys(unittest.TestCase):
         # Deliberately demonstrate the limitation, NOT universal CAS/safety proof.
         # This test-owned process has owner write access, analogous to project root.
         revision = keys.update(self.request())['revision']
+
         def ignores_lock(pipe):
             pipe.send('ready')
             pipe.recv()
             self.file.write_bytes(b'')  # Native revocation ignores the directory lock.
             pipe.send('revoked')
+
         native_replace = os.replace
         with self.writer_process(ignores_lock) as pipe:
             self.assertTrue(pipe.poll(5))
             self.assertEqual(pipe.recv(), 'ready')
+
             def race_after_last_check(*args, **kwargs):
                 pipe.send('write after final check')
                 self.assertTrue(pipe.poll(5))
                 self.assertEqual(pipe.recv(), 'revoked')
                 native_replace(*args, **kwargs)
+
             with patch.object(keys.os, 'replace', side_effect=race_after_last_check):
                 keys.update(self.request(True, revision, ['ssh-ed25519 YWJj']))
         self.assertEqual(self.file.read_bytes(), b'ssh-ed25519 YWJj\n')
@@ -253,10 +286,12 @@ class ProjectKeys(unittest.TestCase):
         revision = keys.update(self.request())['revision']
         before = self.file.stat()
         native_sync = os.fsync
+
         def change_metadata(fd):
             native_sync(fd)
             if keys.stat.S_ISREG(os.fstat(fd).st_mode):
                 os.utime(self.file, ns=(before.st_atime_ns, before.st_mtime_ns + 1))
+
         with patch.object(keys.os, 'fsync', side_effect=change_metadata):
             with self.assertRaisesRegex(ValueError, 'during update'):
                 keys.update(self.request(True, revision))
@@ -269,32 +304,44 @@ class ProjectKeys(unittest.TestCase):
                 self.file.write_bytes(b'ssh-ed25519 YWJj\n')
                 revision = keys.update(self.request())['revision']
                 native_open, native_sync, native_read = os.fdopen, os.fsync, keys.read_keys
+
                 @contextmanager
                 def opened(fd, mode):
                     with native_open(fd, mode) as stream:
+
                         def write(data):
                             if failure == 'write':
                                 stream.write(data[:1])
                                 raise OSError('synthetic partial write')
                             return stream.write(data)
+
                         def flush():
                             if failure == 'flush':
                                 raise OSError('synthetic flush failure')
                             stream.flush()
+
                         yield types.SimpleNamespace(write=write, flush=flush, fileno=stream.fileno)
+
                 def sync(fd):
                     regular = keys.stat.S_ISREG(os.fstat(fd).st_mode)
                     if (failure == 'file sync' and regular) or (failure == 'directory sync' and not regular):
                         raise OSError('synthetic sync failure')
                     native_sync(fd)
+
                 reads = 0
+
                 def read(*args):
                     nonlocal reads
                     reads += 1
                     if failure == 'verification' and reads == 3:
                         raise OSError('synthetic post-publication read failure')
                     return native_read(*args)
-                with patch.object(keys.os, 'fdopen', side_effect=opened), patch.object(keys.os, 'fsync', side_effect=sync), patch.object(keys, 'read_keys', side_effect=read):
+
+                with (
+                    patch.object(keys.os, 'fdopen', side_effect=opened),
+                    patch.object(keys.os, 'fsync', side_effect=sync),
+                    patch.object(keys, 'read_keys', side_effect=read),
+                ):
                     with self.assertRaises(OSError):
                         keys.update(self.request(True, revision, ['ssh-ed25519 ZGVm']))
                 published = failure in ('directory sync', 'verification')
@@ -304,6 +351,7 @@ class ProjectKeys(unittest.TestCase):
 
     def test_later_cooperating_write_survives_uncertain_publication(self):
         revision = keys.update(self.request())['revision']
+
         def native_writer(pipe):
             fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
             try:
@@ -315,15 +363,18 @@ class ProjectKeys(unittest.TestCase):
             finally:
                 os.close(fd)
             pipe.send('later revocation')
+
         with self.writer_process(native_writer) as pipe:
             self.assertTrue(pipe.poll(5))
             self.assertEqual(pipe.recv(), 'ready')
             native_sync = os.fsync
+
             def fail_after_publish(fd):
                 if keys.stat.S_ISDIR(os.fstat(fd).st_mode):
                     pipe.send('wait for lock release')
                     raise OSError('uncertain directory sync')
                 native_sync(fd)
+
             with patch.object(keys.os, 'fsync', side_effect=fail_after_publish):
                 with self.assertRaises(OSError):
                     keys.update(self.request(True, revision, ['ssh-ed25519 ZGVm']))
@@ -334,7 +385,10 @@ class ProjectKeys(unittest.TestCase):
 
     def test_cleanup_failure_releases_lock_and_keeps_evidence(self):
         revision = keys.update(self.request())['revision']
-        with patch.object(keys.os, 'replace', side_effect=OSError('publish refused')), patch.object(keys.os, 'unlink', side_effect=OSError('cleanup refused')):
+        with (
+            patch.object(keys.os, 'replace', side_effect=OSError('publish refused')),
+            patch.object(keys.os, 'unlink', side_effect=OSError('cleanup refused')),
+        ):
             with self.assertRaises(OSError):
                 keys.update(self.request(True, revision))
         self.assertEqual(len(list(self.root.glob('.soda-keys-*'))), 1)
@@ -345,12 +399,18 @@ class ProjectKeys(unittest.TestCase):
         for error in (BlockingIOError('private input'), ValueError('private input'), OSError('private input')):
             with self.subTest(error=type(error).__name__):
                 stdout, stderr = io.StringIO(), io.StringIO()
-                with patch.object(keys.sys, 'stdin', types.SimpleNamespace(buffer=io.BytesIO(b'{}'))), patch.object(keys, 'update', side_effect=error), redirect_stdout(stdout), redirect_stderr(stderr):
+                with (
+                    patch.object(keys.sys, 'stdin', types.SimpleNamespace(buffer=io.BytesIO(b'{}'))),
+                    patch.object(keys, 'update', side_effect=error),
+                    redirect_stdout(stdout),
+                    redirect_stderr(stderr),
+                ):
                     self.assertEqual(keys.key_main(), 1)
                 self.assertEqual(stdout.getvalue(), '')
                 self.assertEqual(stderr.getvalue(), 'native key operation not confirmed\n')
 
     def test_account_refusal_precedes_file_access(self):
         with patch.object(keys, 'account_for', side_effect=ValueError('mismatch')):
-            with self.assertRaises(ValueError): keys.update(self.request())
+            with self.assertRaises(ValueError):
+                keys.update(self.request())
         self.assertEqual(self.file.read_bytes(), b'ssh-ed25519 YWJj\n')

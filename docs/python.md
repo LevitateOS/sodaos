@@ -21,7 +21,7 @@ TypeScript ownership remains in [the TypeScript guide](typescript.md#formatting-
 `.githooks/pre-commit` runs those three on staged `.py` files after the TypeScript
 checks. Formatting and lint apply to staged tests as well; complexity does not.
 
-First measurement (Ruff 0.16.6): 42 of 45 tracked files fail formatting; 127
-correctness findings, all in `tests/` and `scripts/` (shipping `internal/` is
-clean); 8 shipping functions at cyclomatic 10+. No mass rewrite — the hook
-ratchets staged files instead.
+First measurement (Ruff 0.16.6): 42 of 45 tracked files failed formatting; 127
+correctness findings, all in `tests/` and `scripts/` (shipping `internal/` was
+already clean); 8 shipping functions at cyclomatic 10+. The tree now formats,
+lints, and stays below complexity 10; later edits are ratcheted by the hook.

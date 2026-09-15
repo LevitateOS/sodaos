@@ -1,4 +1,5 @@
 """Binary staging checks with local fixtures; no compilation or CLI execution."""
+
 import hashlib
 import importlib.util
 import io
@@ -37,7 +38,10 @@ class ProjectTools(unittest.TestCase):
 
     def test_each_architecture_stages_exact_upstream_bytes_and_license(self):
         for arch, body in self.binaries.items():
-            with self.subTest(arch=arch), patch.object(self.module.urllib.request, 'urlopen', return_value=io.BytesIO(body)) as download:
+            with (
+                self.subTest(arch=arch),
+                patch.object(self.module.urllib.request, 'urlopen', return_value=io.BytesIO(body)) as download,
+            ):
                 out = self.out / arch
                 self.module.fetch(arch, out)
                 download.assert_called_once()

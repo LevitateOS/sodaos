@@ -4,6 +4,7 @@
 Native JSON catalogs remain untouched. Custom INI catalogs replace native files;
 this command therefore requires the complete extracted native catalog as input.
 """
+
 import argparse
 import configparser
 import hashlib
@@ -14,10 +15,13 @@ from pathlib import Path
 
 def merge(native: str, additions: str) -> str:
     def parse(text):
-        ini = configparser.ConfigParser(interpolation=None, strict=True, delimiters=('=',), comment_prefixes=('#', ';'), empty_lines_in_values=False)
+        ini = configparser.ConfigParser(
+            interpolation=None, strict=True, delimiters=('=',), comment_prefixes=('#', ';'), empty_lines_in_values=False
+        )
         ini.optionxform = str
         ini.read_string(text)
         return ini
+
     base, extra = parse(native), parse(additions)
     if not base.has_section('common') or not base.has_section('settings'):
         raise ValueError('Expected a complete native Forgejo English catalog')

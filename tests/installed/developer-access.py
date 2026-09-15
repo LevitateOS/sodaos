@@ -6,6 +6,7 @@ public host key. Private authentication keys stay on this client. Retains only
 new run-owned probe directories; no lifecycle actions or automatic cleanup.
 Historical U08 fixed-name invocation remains in Git, not a second access scenario.
 """
+
 import hashlib
 import ipaddress
 import json
@@ -64,10 +65,18 @@ def main():
 
     output = root / ('sodaspaces-access-' + uuid.uuid4().hex)
     output.mkdir(mode=0o700)
-    results = {'revision': request['revision'], 'target': request['target'], 'project': identifier,
-               'client': platform.node(), 'client_arch': platform.machine(),
-               'transport': 'direct project IP' if ssh_config == '/dev/null' else 'explicit SSH configuration; not direct-route proof',
-               'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), 'users': []}
+    results = {
+        'revision': request['revision'],
+        'target': request['target'],
+        'project': identifier,
+        'client': platform.node(),
+        'client_arch': platform.machine(),
+        'transport': 'direct project IP'
+        if ssh_config == '/dev/null'
+        else 'explicit SSH configuration; not direct-route proof',
+        'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'users': [],
+    }
 
     def execute(args, data=None):
         return subprocess.run(args, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
@@ -91,16 +100,42 @@ def main():
             native = connection['connection']
             assert native['environment']['id'] == identifier and native['environment']['running'] is True
             ip = str(ipaddress.IPv4Address(native['environment']['ip']))
-            assert ipaddress.IPv4Address(ip) in subnet and ip not in (str(subnet.network_address), str(subnet.broadcast_address))
+            assert ipaddress.IPv4Address(ip) in subnet and ip not in (
+                str(subnet.network_address),
+                str(subnet.broadcast_address),
+            )
             assert native['host_key'].strip() == public and native['fingerprint'] == fingerprint
             endpoints.append(ip)
             known = output / (login + '-known-hosts')
             known.write_text(ip + ' ' + public + '\n')
-            options = ['-F', ssh_config, '-o', 'ControlMaster=no', '-o', 'ControlPath=none',
-                       '-o', 'IdentityAgent=none', '-o', 'PreferredAuthentications=publickey',
-                       '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
-                       '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'IdentitiesOnly=yes',
-                       '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known), '-i', user['key_file']]
+            options = [
+                '-F',
+                ssh_config,
+                '-o',
+                'ControlMaster=no',
+                '-o',
+                'ControlPath=none',
+                '-o',
+                'IdentityAgent=none',
+                '-o',
+                'PreferredAuthentications=publickey',
+                '-o',
+                'ForwardAgent=no',
+                '-o',
+                'ClearAllForwardings=yes',
+                '-o',
+                'BatchMode=yes',
+                '-o',
+                'ConnectTimeout=10',
+                '-o',
+                'IdentitiesOnly=yes',
+                '-o',
+                'StrictHostKeyChecking=yes',
+                '-o',
+                'UserKnownHostsFile=' + str(known),
+                '-i',
+                user['key_file'],
+            ]
             ssh = ['ssh', *options]
             target = login + '@' + ip
             identity = checked(ssh + [target, 'id -un; id -u; printf "%s\\n" "$HOME"']).decode().splitlines()
@@ -113,7 +148,9 @@ def main():
             if user['administrator']:
                 assert privilege.returncode == 0 and privilege.stdout.strip() == b'0'
             else:
-                assert privilege.returncode == 1 and any(s in privilege.stderr for s in [b'password is required', b'not allowed', b'not in the sudoers'])
+                assert privilege.returncode == 1 and any(
+                    s in privilege.stderr for s in [b'password is required', b'not allowed', b'not in the sudoers']
+                )
             destination = '/home/' + login + '/' + output.name
             checked(ssh + [target, 'umask 077; mkdir ' + destination])
             received = output / (login + '-scp')
@@ -127,21 +164,69 @@ def main():
                 assert not any(c in s for c in '\r\n')
                 return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
-            batch = 'put ' + quote(source) + ' ' + destination + '/sftp\nget ' + destination + '/sftp ' + quote(sftp_copy) + '\n'
+            batch = (
+                'put '
+                + quote(source)
+                + ' '
+                + destination
+                + '/sftp\nget '
+                + destination
+                + '/sftp '
+                + quote(sftp_copy)
+                + '\n'
+            )
             checked(['sftp', *options, '-b', '-', target], batch.encode())
             assert sftp_copy.read_bytes() == payload
-            results['users'].append({'id': user['id'], 'login': login, 'ip': ip, 'project_administrator': user['administrator'],
-                                     'direct_ssh': ssh_config == '/dev/null', 'ssh_authentication': True, 'interactive_pty': True, 'scp_roundtrip': True, 'sftp_roundtrip': True,
-                                     'probe_directory': destination})
+            results['users'].append(
+                {
+                    'id': user['id'],
+                    'login': login,
+                    'ip': ip,
+                    'project_administrator': user['administrator'],
+                    'direct_ssh': ssh_config == '/dev/null',
+                    'ssh_authentication': True,
+                    'interactive_pty': True,
+                    'scp_roundtrip': True,
+                    'sftp_roundtrip': True,
+                    'probe_directory': destination,
+                }
+            )
         assert endpoints[0] == endpoints[1]
         # Same host key and reachable endpoint: require public-key denial, not a transport failure.
         first, second = request['users']
-        denied = execute(['ssh', '-F', ssh_config, '-o', 'ControlMaster=no', '-o', 'ControlPath=none',
-                          '-o', 'IdentityAgent=none', '-o', 'PreferredAuthentications=publickey',
-                          '-o', 'ForwardAgent=no', '-o', 'ClearAllForwardings=yes',
-                          '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'IdentitiesOnly=yes',
-                          '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile=' + str(known),
-                          '-i', first['key_file'], second['login'] + '@' + endpoints[1], 'true'])
+        denied = execute(
+            [
+                'ssh',
+                '-F',
+                ssh_config,
+                '-o',
+                'ControlMaster=no',
+                '-o',
+                'ControlPath=none',
+                '-o',
+                'IdentityAgent=none',
+                '-o',
+                'PreferredAuthentications=publickey',
+                '-o',
+                'ForwardAgent=no',
+                '-o',
+                'ClearAllForwardings=yes',
+                '-o',
+                'BatchMode=yes',
+                '-o',
+                'ConnectTimeout=10',
+                '-o',
+                'IdentitiesOnly=yes',
+                '-o',
+                'StrictHostKeyChecking=yes',
+                '-o',
+                'UserKnownHostsFile=' + str(known),
+                '-i',
+                first['key_file'],
+                second['login'] + '@' + endpoints[1],
+                'true',
+            ]
+        )
         assert denied.returncode == 255 and b'Permission denied (publickey' in denied.stderr
         results['cross_user_key'] = 'public-key authentication denied'
         results['outcome'] = 'passed-scoped-access'
@@ -158,5 +243,8 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as failure:
-        print('Developer access incomplete; retained probe state; failure type: ' + type(failure).__name__, file=sys.stderr)
+        print(
+            'Developer access incomplete; retained probe state; failure type: ' + type(failure).__name__,
+            file=sys.stderr,
+        )
         sys.exit(1)

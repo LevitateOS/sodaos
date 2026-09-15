@@ -1,4 +1,5 @@
 """Exercise the actual read-only RPM preflights without running an installer."""
+
 import os
 from pathlib import Path
 import subprocess
@@ -13,7 +14,15 @@ class HostPackages(unittest.TestCase):
         for source in ['scripts/install-native.sh', 'tests/installed/host.sh']:
             lines = [line for line in (ROOT / source).read_text().splitlines() if line.startswith('rpm -q ')]
             self.assertEqual(len(lines), 2)
-            for missing, expected in [('', 0), ('nodejs', 1), ('cockpit-ws', 1), ('libicu', 0), ('openssl-libs', 0), ('krb5-libs', 0), ('zlib', 0)]:
+            for missing, expected in [
+                ('', 0),
+                ('nodejs', 1),
+                ('cockpit-ws', 1),
+                ('libicu', 0),
+                ('openssl-libs', 0),
+                ('krb5-libs', 0),
+                ('zlib', 0),
+            ]:
                 with self.subTest(source=source, missing=missing), tempfile.TemporaryDirectory() as name:
                     fake = Path(name) / 'rpm'
                     fake.write_text('''#!/bin/sh
@@ -29,9 +38,12 @@ for package do
 done
 ''')
                     fake.chmod(0o755)
-                    result = subprocess.run(['/bin/sh', '-ec', '\n'.join(lines)],
-                                            env={**os.environ, 'PATH':name, 'MISSING':missing},
-                                            capture_output=True, timeout=5)
+                    result = subprocess.run(
+                        ['/bin/sh', '-ec', '\n'.join(lines)],
+                        env={**os.environ, 'PATH': name, 'MISSING': missing},
+                        capture_output=True,
+                        timeout=5,
+                    )
                     self.assertEqual(result.returncode, expected, result.stderr)
 
 

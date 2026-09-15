@@ -1,4 +1,5 @@
 """A missing welcome hook must not pass the quiet noninteractive check."""
+
 import os
 from pathlib import Path
 import subprocess
@@ -19,8 +20,7 @@ class OperatorProbe(unittest.TestCase):
                 if content is not None:
                     hook.write_text(content)
                 command = probe.replace('/etc/profile.d/soda-console-welcome.sh', str(hook)) + '\n' + assertion
-                result = subprocess.run(['bash', '-ec', command], env=os.environ,
-                                        capture_output=True, timeout=5)
+                result = subprocess.run(['bash', '-ec', command], env=os.environ, capture_output=True, timeout=5)
                 self.assertEqual(result.returncode == 0, success)
 
 

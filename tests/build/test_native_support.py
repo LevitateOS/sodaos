@@ -1,4 +1,5 @@
 """Authored source/fixture checks, not native target or media evidence."""
+
 import importlib.util
 import json
 from pathlib import Path
@@ -38,7 +39,10 @@ class Provisioning(unittest.TestCase):
             self.assertEqual([u['name'] for u in data['passwd']['users']], ['root'])
             self.assertEqual('systemd' in data, profile == 'extensions')
             self.assertEqual(dest.stat().st_mode & 0o777, 0o600)
-            self.assertEqual(next(f['contents']['inline'] for f in data['storage']['files'] if f['path'] == '/etc/hostname'), 'soda-native-fixture\n')
+            self.assertEqual(
+                next(f['contents']['inline'] for f in data['storage']['files'] if f['path'] == '/etc/hostname'),
+                'soda-native-fixture\n',
+            )
             with self.assertRaises(FileExistsError):
                 self.module.render(self.public, self.password, dest)
 
@@ -104,18 +108,40 @@ class OutsideContracts(unittest.TestCase):
     def test_https_origin_refuses_credentials_and_downgrades(self):
         module = load('https_fixture', 'tests/installed/service-https.py')
         import argparse
+
         self.assertEqual(module.origin('https://example.test:443'), 'https://example.test:443/')
-        for value in ('http://example.test', 'https://user:secret@example.test', 'https://example.test/?code=x', 'https://example.test/path', 'https://example.test:0'):
+        for value in (
+            'http://example.test',
+            'https://user:secret@example.test',
+            'https://example.test/?code=x',
+            'https://example.test/path',
+            'https://example.test:0',
+        ):
             with self.assertRaises(argparse.ArgumentTypeError):
                 module.origin(value)
 
     def test_remote_dispatch_has_no_runtime_or_publication_phases(self):
         module = load('remote_fixture', 'internal/acceptance/remote_executor.py')
         import io
-        request = {'Revision': 'a' * 40, 'Architecture': 'x86_64', 'Target': 'builder', 'Work': '/new/private', 'Phase': 'publish'}
+
+        request = {
+            'Revision': 'a' * 40,
+            'Architecture': 'x86_64',
+            'Target': 'builder',
+            'Work': '/new/private',
+            'Phase': 'publish',
+        }
+
         class Input:
             buffer = io.BytesIO(json.dumps(request).encode())
-        with patch.object(module.sys, 'stdin', Input()), patch.object(module.platform, 'system', return_value='Linux'), patch.object(module.platform, 'machine', return_value='x86_64'), patch.object(module.platform, 'node', return_value='builder'), patch.object(module.subprocess, 'run') as run:
+
+        with (
+            patch.object(module.sys, 'stdin', Input()),
+            patch.object(module.platform, 'system', return_value='Linux'),
+            patch.object(module.platform, 'machine', return_value='x86_64'),
+            patch.object(module.platform, 'node', return_value='builder'),
+            patch.object(module.subprocess, 'run') as run,
+        ):
             with self.assertRaises(ValueError):
                 module.main()
             run.assert_not_called()

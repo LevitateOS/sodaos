@@ -5,6 +5,7 @@ Transport supplies this file on stdin to python3 -I - TARGET ID [...]. Output is
 selected public facts and aggregate private-tree hashes, never credentials/paths
 inside work trees. Hashes are bounded observations, not quiesced state backups.
 """
+
 import fcntl
 import hashlib
 import json
@@ -25,8 +26,7 @@ ID = re.compile(r'[a-z][a-z0-9-]{0,15}')
 
 
 def command(args, body=None):
-    result = subprocess.run(args, input=body, stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL, timeout=15)
+    result = subprocess.run(args, input=body, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=15)
     if result.returncode or len(result.stdout) > 65536:
         raise RuntimeError('native observation unavailable')
     return result.stdout.decode('utf-8')
@@ -44,8 +44,17 @@ def tree_digest(root):
         if count > 20000 or time.monotonic() > deadline:
             raise RuntimeError('state observation bound exceeded')
         before = os.stat(name, dir_fd=parent, follow_symlinks=False)
-        digest.update(json.dumps([relative, before.st_uid, before.st_gid,
-                                  before.st_mode, before.st_size if stat.S_ISREG(before.st_mode) else 0]).encode())
+        digest.update(
+            json.dumps(
+                [
+                    relative,
+                    before.st_uid,
+                    before.st_gid,
+                    before.st_mode,
+                    before.st_size if stat.S_ISREG(before.st_mode) else 0,
+                ]
+            ).encode()
+        )
         if stat.S_ISLNK(before.st_mode):
             digest.update(os.fsencode(os.readlink(name, dir_fd=parent)))
             return
@@ -75,10 +84,15 @@ def tree_digest(root):
                         raise RuntimeError('state observation bound exceeded')
                     digest.update(block)
                 after = os.fstat(fd)
-                if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+                if (opened.st_size, opened.st_mtime_ns, opened.st_ctime_ns) != (
+                    after.st_size,
+                    after.st_mtime_ns,
+                    after.st_ctime_ns,
+                ):
                     raise RuntimeError('state file changed during observation')
         finally:
             os.close(fd)
+
     parent = os.open(root.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         visit(parent, root.name, '.')
@@ -104,21 +118,32 @@ def runner_state(identifier, root=ROOT, account=pwd.getpwnam):
     if person is None:
         raise RuntimeError('state remains without account')
     state = directory / 'state'
-    protected = [('state', state, 0o700, True),
-                 ('token', state / 'forgejo-token', 0o600, False),
-                 ('configuration', state / 'forgejo-runner.yml', 0o600, False)]
+    protected = [
+        ('state', state, 0o700, True),
+        ('token', state / 'forgejo-token', 0o600, False),
+        ('configuration', state / 'forgejo-runner.yml', 0o600, False),
+    ]
     registration = {'descriptor': tree_digest(directory / 'descriptor.json')}
     for label, item, mode, folder in protected:
         metadata = item.lstat()
-        if (stat.S_IMODE(metadata.st_mode) != mode
-                or metadata.st_uid != person.pw_uid or metadata.st_gid != person.pw_gid
-                or not (stat.S_ISDIR(metadata.st_mode) if folder else stat.S_ISREG(metadata.st_mode))):
+        if (
+            stat.S_IMODE(metadata.st_mode) != mode
+            or metadata.st_uid != person.pw_uid
+            or metadata.st_gid != person.pw_gid
+            or not (stat.S_ISDIR(metadata.st_mode) if folder else stat.S_ISREG(metadata.st_mode))
+        ):
             raise RuntimeError('runner private state ownership/mode differs')
         if not folder:
             registration[label] = tree_digest(item)
-    return {'present': True, 'uid': person.pw_uid, 'gid': person.pw_gid,
-            'home': person.pw_dir, 'shell': person.pw_shell,
-            'registration': registration, 'tree': tree_digest(directory)}
+    return {
+        'present': True,
+        'uid': person.pw_uid,
+        'gid': person.pw_gid,
+        'home': person.pw_dir,
+        'shell': person.pw_shell,
+        'registration': registration,
+        'tree': tree_digest(directory),
+    }
 
 
 def job_proof(identifier, observation, root=ROOT, account=pwd.getpwnam):
@@ -139,32 +164,48 @@ def job_proof(identifier, observation, root=ROOT, account=pwd.getpwnam):
             return None
         with os.fdopen(fd) as stream:
             metadata = os.fstat(stream.fileno())
-            if not stat.S_ISREG(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o600 or metadata.st_uid != person.pw_uid:
+            if (
+                not stat.S_ISREG(metadata.st_mode)
+                or stat.S_IMODE(metadata.st_mode) != 0o600
+                or metadata.st_uid != person.pw_uid
+            ):
                 raise RuntimeError('job proof ownership/mode differs')
             text = stream.read(4097)
             if len(text) > 4096:
                 raise RuntimeError('job proof exceeds bound')
     finally:
         os.close(parent)
+
     def unique_fields(pairs):
         fields = dict(pairs)
         if len(fields) != len(pairs):
             raise RuntimeError('ambiguous job proof')
         return fields
+
     record = json.loads(text, object_pairs_hook=unique_fields)
-    if (not isinstance(record, dict) or set(record) != {'observation', 'account', 'uid', 'pid', 'start', 'steps'}
-            or record['observation'] != observation or record['account'] != person.pw_name
-            or type(record['uid']) is not int or record['uid'] != person.pw_uid
-            or type(record['pid']) is not int or record['pid'] <= 0
-            or not isinstance(record['start'], str) or not re.fullmatch(r'[0-9]+', record['start'])
-            or type(record['steps']) is not int or record['steps'] not in (1, 2)):
+    if (
+        not isinstance(record, dict)
+        or set(record) != {'observation', 'account', 'uid', 'pid', 'start', 'steps'}
+        or record['observation'] != observation
+        or record['account'] != person.pw_name
+        or type(record['uid']) is not int
+        or record['uid'] != person.pw_uid
+        or type(record['pid']) is not int
+        or record['pid'] <= 0
+        or not isinstance(record['start'], str)
+        or not re.fullmatch(r'[0-9]+', record['start'])
+        or type(record['steps']) is not int
+        or record['steps'] not in (1, 2)
+    ):
         raise RuntimeError('job proof does not match fixture')
     process = Path('/proc') / str(record['pid'])
     try:
         expected = {key: record[key] for key in ('pid', 'uid', 'start')}
         alive = process_identity(record['pid']) == expected
-        if alive and not any(('soda-runner@' + identifier + '.service') in line.split(':', 2)[-1].split('/')
-                             for line in (process / 'cgroup').read_text().splitlines()):
+        if alive and not any(
+            ('soda-runner@' + identifier + '.service') in line.split(':', 2)[-1].split('/')
+            for line in (process / 'cgroup').read_text().splitlines()
+        ):
             raise RuntimeError('job process outside runner unit')
         alive = alive and process_identity(record['pid']) == expected
     except FileNotFoundError:
@@ -200,8 +241,12 @@ def unit_processes(identifier, group, uid, root=Path('/sys/fs/cgroup'), proc=Pat
     if not group:
         return []
     parts = group.split('/')[1:]
-    if (not group.startswith('/') or not parts or any(part in ('', '.', '..') for part in parts)
-            or parts[-1] != 'soda-runner@' + identifier + '.service'):
+    if (
+        not group.startswith('/')
+        or not parts
+        or any(part in ('', '.', '..') for part in parts)
+        or parts[-1] != 'soda-runner@' + identifier + '.service'
+    ):
         raise RuntimeError('unexpected runner cgroup')
     directory = root.joinpath(*parts)
     # All ancestors are native cgroup directories, not arbitrary workload paths.
@@ -214,8 +259,10 @@ def unit_processes(identifier, group, uid, root=Path('/sys/fs/cgroup'), proc=Pat
     def membership():
         pids = set()
         count = 0
+
         def failed_walk(_error):
             raise RuntimeError('cgroup traversal unavailable')
+
         for parent, children, files in os.walk(directory, followlinks=False, onerror=failed_walk):
             count += 1
             if count > 256 or any((Path(parent) / child).is_symlink() for child in children):
@@ -269,10 +316,14 @@ def main(argv):
     if len(argv) < 2:
         raise ValueError('target and exact runner IDs required')
     target, *ids = argv
-    if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,252}', target)
-            or os.environ.get('SODA_NATIVE_VALIDATE') != target
-            or socket.gethostname() != target or os.getuid() != 0 or os.geteuid() != 0
-            or platform.system() != 'Linux'):
+    if (
+        not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,252}', target)
+        or os.environ.get('SODA_NATIVE_VALIDATE') != target
+        or socket.gethostname() != target
+        or os.getuid() != 0
+        or os.geteuid() != 0
+        or platform.system() != 'Linux'
+    ):
         raise ValueError('explicit native root target required')
     if len(ids) > 65 or len(set(ids)) != len(ids) or not all(ID.fullmatch(i) for i in ids):
         raise ValueError('exact distinct runner IDs required')
@@ -300,7 +351,7 @@ def main(argv):
             except BlockingIOError:
                 if time.monotonic() >= deadline:
                     raise RuntimeError('runner management is busy')
-                time.sleep(.025)
+                time.sleep(0.025)
         states = {i: runner_state(i) for i in ids}
         proof = job_proof(ids[0], observation) if observation else None
         # Only fixed confinement properties, never Environment, credentials or logs.
@@ -309,12 +360,20 @@ def main(argv):
         properties = 'User,Group,NoNewPrivileges,CapabilityBoundingSet,ProtectSystem,ReadWritePaths,ControlGroup,KillMode,ProtectControlGroups,Delegate'
         for identifier in ids:
             if not states[identifier]['present']:
-                if command(['systemctl', 'show', '--value', '--property=ControlGroup',
-                            'soda-runner@' + identifier + '.service']).strip():
+                if command(
+                    [
+                        'systemctl',
+                        'show',
+                        '--value',
+                        '--property=ControlGroup',
+                        'soda-runner@' + identifier + '.service',
+                    ]
+                ).strip():
                     raise RuntimeError('cgroup remains without runner account/state')
             if states[identifier]['present']:
-                text = command(['systemctl', 'show', '--all', '--property=' + properties,
-                                'soda-runner@' + identifier + '.service'])
+                text = command(
+                    ['systemctl', 'show', '--all', '--property=' + properties, 'soda-runner@' + identifier + '.service']
+                )
                 pairs = [line.split('=', 1) for line in text.splitlines()]
                 fields = dict(pairs)
                 if len(pairs) != len(fields) or set(fields) != set(properties.split(',')):
@@ -322,11 +381,17 @@ def main(argv):
                 group = fields.pop('ControlGroup')
                 processes[identifier] = unit_processes(identifier, group, states[identifier]['uid'])
                 # Retain only whether the expected effective boundary was observed.
-                confinement[identifier] = (fields == {
-                    'User': 'soda-runner-' + identifier, 'Group': 'soda-runners',
-                    'NoNewPrivileges': 'yes', 'CapabilityBoundingSet': '',
-                    'ProtectSystem': 'strict', 'ReadWritePaths': str(ROOT / identifier / 'state'),
-                    'KillMode': 'mixed', 'ProtectControlGroups': 'yes', 'Delegate': 'no'})
+                confinement[identifier] = fields == {
+                    'User': 'soda-runner-' + identifier,
+                    'Group': 'soda-runners',
+                    'NoNewPrivileges': 'yes',
+                    'CapabilityBoundingSet': '',
+                    'ProtectSystem': 'strict',
+                    'ReadWritePaths': str(ROOT / identifier / 'state'),
+                    'KillMode': 'mixed',
+                    'ProtectControlGroups': 'yes',
+                    'Delegate': 'no',
+                }
     finally:
         os.close(lock)
     after = json.loads(command([CLI, 'list'], b'{}\n'))
@@ -337,12 +402,24 @@ def main(argv):
         row['registration_url'] = after['forgejo_url']
     if survivors != prior_survivors(prior):
         raise RuntimeError('prior processes changed during observation')
-    versions = command(['rpm', '-q', '--qf', '%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}\n',
-                        'forgejo-runner', 'systemd'])
-    print(json.dumps({'target': target, 'architecture': platform.machine(), 'inventory': after,
-                      'states': states, 'confinement': confinement, 'packages': versions.splitlines(), 'job_proof': proof,
-                      'boot_id': boot, 'processes': processes, 'prior_survivors': survivors,
-                      'consistency': 'bounded observation, not a quiesced backup'}))
+    versions = command(['rpm', '-q', '--qf', '%{NAME} %{VERSION}-%{RELEASE}.%{ARCH}\n', 'forgejo-runner', 'systemd'])
+    print(
+        json.dumps(
+            {
+                'target': target,
+                'architecture': platform.machine(),
+                'inventory': after,
+                'states': states,
+                'confinement': confinement,
+                'packages': versions.splitlines(),
+                'job_proof': proof,
+                'boot_id': boot,
+                'processes': processes,
+                'prior_survivors': survivors,
+                'consistency': 'bounded observation, not a quiesced backup',
+            }
+        )
+    )
 
 
 if __name__ == '__main__':

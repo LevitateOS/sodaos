@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """P06: real PAM account gate, not authentication or session-context proof."""
+
 import ctypes
 import ctypes.util
 import os
@@ -24,7 +25,12 @@ class Conversation(ctypes.Structure):
     _fields_ = [('conv', CONV), ('appdata_ptr', ctypes.c_void_p)]
 
 
-pam.pam_start.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.POINTER(Conversation), ctypes.POINTER(ctypes.c_void_p)]
+pam.pam_start.argtypes = [
+    ctypes.c_char_p,
+    ctypes.c_char_p,
+    ctypes.POINTER(Conversation),
+    ctypes.POINTER(ctypes.c_void_p),
+]
 pam.pam_acct_mgmt.argtypes = [ctypes.c_void_p, ctypes.c_int]
 pam.pam_end.argtypes = [ctypes.c_void_p, ctypes.c_int]
 for username, allowed in [('root', True), ('nobody', False)]:
@@ -40,4 +46,6 @@ for username, allowed in [('root', True), ('nobody', False)]:
             assert code in (6, 7), 'expected explicit PAM permission/auth denial, not lookup/transport/expiry failure'
     finally:
         assert pam.pam_end(handle, code) == 0
-print('Native Cockpit account phase admits root and denies existing non-root nobody. No password authentication/session claim.')
+print(
+    'Native Cockpit account phase admits root and denies existing non-root nobody. No password authentication/session claim.'
+)

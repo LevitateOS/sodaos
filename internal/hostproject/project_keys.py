@@ -3,6 +3,7 @@
 The host preloads the fixed project_terminal module in memory; no user command,
 account creation, privilege/group change, home write or process termination here.
 """
+
 import fcntl
 import hashlib
 import json
@@ -37,7 +38,11 @@ def canonical_lines(raw):
         raise ValueError('not a managed key file')
     text = raw.decode('ascii')
     keys = text[:-1].split('\n')
-    if len(keys) > 32 or len(set(keys)) != len(keys) or any(not re.fullmatch(r'(ssh-[\w-]+|ecdsa-[\w-]+|sk-[\w@.-]+) [A-Za-z0-9+/=]+', key) for key in keys):
+    if (
+        len(keys) > 32
+        or len(set(keys)) != len(keys)
+        or any(not re.fullmatch(r'(ssh-[\w-]+|ecdsa-[\w-]+|sk-[\w@.-]+) [A-Za-z0-9+/=]+', key) for key in keys)
+    ):
         raise ValueError('not a managed key file')
     return keys
 
@@ -46,7 +51,13 @@ def read_keys(fd, login):
     key = os.open(login, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=fd)
     try:
         info = os.fstat(key)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_gid != 0 or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o644:
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or info.st_uid != 0
+            or info.st_gid != 0
+            or info.st_nlink != 1
+            or stat.S_IMODE(info.st_mode) != 0o644
+        ):
             raise ValueError('unsafe managed key file')
         raw = os.read(key, 65537)
         return raw, canonical_lines(raw), info
@@ -54,18 +65,26 @@ def read_keys(fd, login):
         os.close(key)
 
 
-def update(data):
+def key_operation(data):
     if os.geteuid() != 0:
         raise ValueError('project-local root required')
-    if set(data) != {'login', 'identity', 'apply', 'revision', 'keys'} or type(data['apply']) is not bool or type(data['identity']) is not int:
+    if (
+        set(data) != {'login', 'identity', 'apply', 'revision', 'keys'}
+        or type(data['apply']) is not bool
+        or type(data['identity']) is not int
+    ):
         raise ValueError('invalid key operation')
-    login = data['login']
     keys = data['keys']
     if not isinstance(keys, list) or any(not isinstance(k, str) for k in keys):
         raise ValueError('invalid keys')
     desired = ('\n'.join(keys) + ('\n' if keys else '')).encode('ascii')
     if canonical_lines(desired) != keys:
         raise ValueError('invalid keys')
+    return data['login'], keys, desired
+
+
+def update(data):
+    login, keys, desired = key_operation(data)
     fd = directory(('etc', 'ssh', 'authorized_keys'))
     pending = None
     try:
@@ -113,6 +132,7 @@ def update(data):
 
 def key_main():
     try:
+
         def unique(pairs):
             result = {}
             for key, value in pairs:
@@ -120,6 +140,7 @@ def key_main():
                     raise ValueError('duplicate field')
                 result[key] = value
             return result
+
         data = json.loads(sys.stdin.buffer.read(65537), object_pairs_hook=unique)
         result = update(data)
         print(json.dumps(result, separators=(',', ':')))

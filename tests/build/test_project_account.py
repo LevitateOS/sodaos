@@ -2,6 +2,7 @@
 
 Only fresh test-owned directories are used; never creates Linux host accounts.
 """
+
 import fcntl
 import importlib.machinery
 import importlib.util
@@ -36,10 +37,12 @@ class ProjectAccount(unittest.TestCase):
         patch.object(account.pwd, 'getpwnam', side_effect=self.lookup).start()
         patch.object(account.subprocess, 'run', side_effect=self.run_command).start()
         native_fstat, native_lstat = os.fstat, Path.lstat
+
         def root_owner(info):
             fields = {name: getattr(info, name) for name in dir(info) if name.startswith('st_')}
             fields.update(st_uid=0, st_gid=0)
             return types.SimpleNamespace(**fields)
+
         patch.object(account.os, 'fstat', side_effect=lambda fd: root_owner(native_fstat(fd))).start()
         patch.object(Path, 'lstat', lambda path: root_owner(native_lstat(path))).start()
 
@@ -152,24 +155,31 @@ class ProjectAccount(unittest.TestCase):
     def test_real_key_writer_lock_blocks_new_account_before_effects(self):
         # Reuse the loaded production program, not another simulated key writer.
         from test_project_keys import keys as key_program
+
         account.provision(self.request(['ssh-ed25519 YWJj']))
         before_commands = list(self.commands)
-        patch.object(key_program, 'directory', side_effect=lambda _: os.open(self.keys, os.O_RDONLY | os.O_DIRECTORY)).start()
+        patch.object(
+            key_program, 'directory', side_effect=lambda _: os.open(self.keys, os.O_RDONLY | os.O_DIRECTORY)
+        ).start()
         patch.object(key_program, 'account_for', return_value=object()).start()
         request = {'login': 'alice', 'identity': 1, 'apply': False, 'revision': '', 'keys': []}
         revision = key_program.update(request)['revision']
         request.update(apply=True, revision=revision)
         parent, child = multiprocessing.get_context('fork').Pipe()
+
         def writer():
             parent.close()
+
             def validate(*_):
                 child.send('key writer admitted')
                 child.recv()
                 return object()
+
             with patch.object(key_program, 'account_for', side_effect=validate):
                 key_program.update(request)
             child.send('finished')
             child.close()
+
         process = multiprocessing.get_context('fork').Process(target=writer)
         process.start()
         child.close()
@@ -201,6 +211,7 @@ class ProjectAccount(unittest.TestCase):
     def test_lock_covers_file_durability_and_account_commands(self):
         native_sync = os.fsync
         events = []
+
         def assert_locked():
             fd = os.open(self.keys, os.O_RDONLY | os.O_DIRECTORY)
             try:
@@ -208,21 +219,29 @@ class ProjectAccount(unittest.TestCase):
                     fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             finally:
                 os.close(fd)
+
         def run(args, **options):
             assert_locked()
             return self.run_command(args, **options)
+
         def sync(fd):
             assert_locked()
             info = os.fstat(fd)
             if account.stat.S_ISREG(info.st_mode):
                 expected = ((self.markers / 'alice', b'1'), (self.keys / 'alice', b'ssh-ed25519 YWJj\n'))
-                path, content = next((p, value) for p, value in expected if p.exists() and p.stat().st_ino == info.st_ino)
+                path, content = next(
+                    (p, value) for p, value in expected if p.exists() and p.stat().st_ino == info.st_ino
+                )
                 self.assertEqual(path.read_bytes(), content)
                 events.append(path)
             else:
                 events.append(self.markers if info.st_ino == self.markers.stat().st_ino else self.keys)
             native_sync(fd)
-        with patch.object(account.os, 'fsync', side_effect=sync), patch.object(account.subprocess, 'run', side_effect=run):
+
+        with (
+            patch.object(account.os, 'fsync', side_effect=sync),
+            patch.object(account.subprocess, 'run', side_effect=run),
+        ):
             account.provision(self.request(['ssh-ed25519 YWJj'], True))
         self.assertEqual(events, [self.markers / 'alice', self.markers, self.keys / 'alice', self.keys])
         self.assertEqual(self.commands[-1][0], 'usermod')
