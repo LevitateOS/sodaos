@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -309,21 +311,67 @@ func TestRunningPhaseShowsLiveElapsed(t *testing.T) {
 
 func writeWorkerJSON(t *testing.T, runtimeDir string) string {
 	t.Helper()
+	tools := t.TempDir()
 	path := t.TempDir() + "/worker.json"
-	raw := `{"OutputParent": "/out", "Runtime": "` + runtimeDir + `"}`
+	raw := `{"OutputParent": "/out", "Runtime": "` + runtimeDir + `", "Tools": "` + tools + `"}`
 	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return path
 }
 
+// stubProbeExec answers every environment probe positively.
+func stubProbeExec(t *testing.T) {
+	t.Helper()
+	real := execRunner
+	execRunner = func(name string, args ...string) (string, error) {
+		switch name {
+		case "stat":
+			return "system_u:object_r:var_lib_t:s0\n", nil
+		case "/usr/bin/git":
+			return "/run/soda-build-source\n", nil
+		default:
+			return "", nil
+		}
+	}
+	t.Cleanup(func() { execRunner = real })
+}
+
+func prepareOpts(config string) options {
+	return options{arch: "x86_64", mode: "candidate", out: "/out/fresh-01", workerConfig: config, repoPrefix: "x"}
+}
+
+// chdirRepoRoot runs a probe test from the checkout root, where go.mod lives.
+func chdirRepoRoot(t *testing.T) {
+	t.Helper()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate test file")
+	}
+	root := filepath.Dir(filepath.Dir(filepath.Dir(file)))
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
 func TestPrepareRuntimeClearsIdleState(t *testing.T) {
+	chdirRepoRoot(t)
+	stubProbeExec(t)
 	runtimeDir := t.TempDir()
 	if err := os.WriteFile(runtimeDir+"/stale.lock", []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	quiet := func() (string, error) { return "", nil }
-	if err := prepareRuntime(writeWorkerJSON(t, runtimeDir), quiet); err != nil {
+	if err := prepareRuntime(prepareOpts(writeWorkerJSON(t, runtimeDir)), quiet); err != nil {
 		t.Fatal(err)
 	}
 	entries, err := os.ReadDir(runtimeDir)
@@ -336,17 +384,20 @@ func TestPrepareRuntimeClearsIdleState(t *testing.T) {
 }
 
 func TestPrepareRuntimeRefusesConcurrentBuild(t *testing.T) {
+	chdirRepoRoot(t)
+	stubProbeExec(t)
 	runtimeDir := t.TempDir()
 	busy := func() (string, error) { return "soda-build-manual-01.service loaded active running\n", nil }
-	err := prepareRuntime(writeWorkerJSON(t, runtimeDir), busy)
+	err := prepareRuntime(prepareOpts(writeWorkerJSON(t, runtimeDir)), busy)
 	if err == nil || !strings.Contains(err.Error(), "already running") {
 		t.Fatalf("concurrent build not refused, got: %v", err)
 	}
 }
 
 func TestPrepareRuntimeNamesSetupDrift(t *testing.T) {
+	stubProbeExec(t)
 	quiet := func() (string, error) { return "", nil }
-	if err := prepareRuntime(t.TempDir()+"/absent.json", quiet); err == nil ||
+	if err := prepareRuntime(prepareOpts(t.TempDir()+"/absent.json"), quiet); err == nil ||
 		!strings.Contains(err.Error(), "setup script") {
 		t.Fatalf("missing config unexplained, got: %v", err)
 	}
@@ -360,8 +411,64 @@ func TestPrepareRuntimeNamesSetupDrift(t *testing.T) {
 	if err := bad.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := prepareRuntime(bad.Name(), quiet); err == nil {
+	if err := prepareRuntime(prepareOpts(bad.Name()), quiet); err == nil {
 		t.Fatal("invalid worker config accepted")
+	}
+}
+
+func TestControllerToolchainMismatchNamed(t *testing.T) {
+	chdirRepoRoot(t)
+	stubProbeExec(t)
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
+	o.controller = self // test binary: never the pinned toolchain
+	quiet := func() (string, error) { return "", nil }
+	err = prepareRuntime(o, quiet)
+	if err == nil || !strings.Contains(err.Error(), "rebuild with the pinned toolchain") {
+		t.Fatalf("toolchain downgrade not named, got: %v", err)
+	}
+}
+
+func TestModuleCacheLabelRefused(t *testing.T) {
+	chdirRepoRoot(t)
+	real := execRunner
+	execRunner = func(name string, args ...string) (string, error) {
+		if name == "stat" {
+			return "unconfined_u:object_r:cache_home_t:s0\n", nil
+		}
+		return "", nil
+	}
+	t.Cleanup(func() { execRunner = real })
+	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
+	quiet := func() (string, error) { return "", nil }
+	err := prepareRuntime(o, quiet)
+	if err == nil || !strings.Contains(err.Error(), "module-cache label") {
+		t.Fatalf("foreign label not refused, got: %v", err)
+	}
+}
+
+func TestSetpgidDenialExplained(t *testing.T) {
+	chdirRepoRoot(t)
+	real := execRunner
+	execRunner = func(name string, args ...string) (string, error) {
+		switch name {
+		case "stat":
+			return "system_u:object_r:var_lib_t:s0\n", nil
+		case "/usr/bin/git":
+			return "/run/soda-build-source\n", nil
+		default:
+			return "", errors.New("exit status 1")
+		}
+	}
+	t.Cleanup(func() { execRunner = real })
+	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
+	quiet := func() (string, error) { return "", nil }
+	err := prepareRuntime(o, quiet)
+	if err == nil || !strings.Contains(err.Error(), "SELinux module") {
+		t.Fatalf("setpgid denial unexplained, got: %v", err)
 	}
 }
 

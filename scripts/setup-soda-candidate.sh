@@ -30,13 +30,23 @@ fail() { printf 'setup-soda-candidate: %s\n' "$*" >&2; exit 1; }
 command -v go bun podman skopeo python3 >/dev/null || fail "pinned go, bun, podman, skopeo and python3 required"
 id soda-build-worker >/dev/null 2>&1 || fail "soda-build-worker user missing"
 [ -n "$(git status --porcelain --untracked-files=no)" ] && fail "commit or stash tracked changes first; the controller refuses dirty source"
-export GOTOOLCHAIN=local
+PINNED="$(grep '^go ' go.mod | awk '{print $2}')"
+[ -n "$PINNED" ] || fail "go.mod pins no Go version"
+# The worker requires the exact upstream pinned toolchain. Anything else
+# fails admission: the local toolchain may be newer, and Red Hat rebuilds
+# poison runtime.Version. Toolchain switching downloads it once; the exact
+# stamp is verified before anything is admitted.
+export GOTOOLCHAIN="go$PINNED"
+go version >/dev/null || fail "cannot fetch Go $PINNED"
+PINNED_GOROOT="$(go env GOROOT)"
+WANT="go version go$PINNED linux/amd64"
 
 echo "-- build tools from committed source"
 BINDIR="$(mktemp -d)"
 trap 'rm -rf "$BINDIR"' EXIT
 go build -o "$BINDIR/soda-build" ./tools/soda-build
 go build -o "$BINDIR/soda-candidate" ./tools/soda-candidate
+[ "$(go version "$BINDIR/soda-build")" = "$WANT" ] || fail "controller stamp is not Go $PINNED; refusing to admit it"
 
 echo "-- install wrapper and admitted controller"
 sudo install -m 0755 "$BINDIR/soda-candidate" "$WRAPPER"
@@ -50,15 +60,35 @@ echo "-- worker directories"
 sudo mkdir -p "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME" "$TOOLS/bin" "$AUTHORITY"
 # Self-contained tools: the worker runs under ProtectHome=tmpfs and
 # ProtectSystem=strict, so symlinks into /usr/local or $HOME would dangle.
-# Copy the full GOROOT tree (a bare go binary cannot find its stdlib) and
-# the single-file bun binary; the worker bind-mounts only this directory.
+# Copy the full pinned GOROOT tree (a bare go binary cannot find its stdlib)
+# and the single-file bun binary; the worker bind-mounts only this directory.
+# Module-cache copies carry foreign SELinux labels, so relabel afterwards.
 sudo rm -rf "$TOOLS/go" "$TOOLS/bin/bun"
-sudo cp -a "$(go env GOROOT)" "$TOOLS/go"
+sudo cp -a "$PINNED_GOROOT" "$TOOLS/go"
 sudo cp "$(command -v bun)" "$TOOLS/bin/bun"
 sudo chown -R root:root "$TOOLS"
+command -v restorecon >/dev/null && sudo restorecon -R "$TOOLS"
+sudo find "$TOOLS/go" -type d -exec chmod 0755 {} +
 sudo chown soda-build-worker:soda-build-worker "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME"
 sudo chmod 0755 "$TOOLS" "$TOOLS/bin"
 sudo chmod 0700 "$AUTHORITY"
+echo "-- verify tools as the worker user"
+[ "$(sudo -u soda-build-worker env GOTOOLCHAIN=local HOME="$BUILD_HOME" "$TOOLS/go/bin/go" version)" = "$WANT" ] || fail "provisioned Go is not $PINNED or not worker-runnable"
+sudo -u soda-build-worker "$TOOLS/bin/bun" --version >/dev/null || fail "provisioned bun is not worker-runnable"
+
+echo "-- worker process-group policy (one self-only setpgid rule)"
+if ! sudo semodule -l 2>/dev/null | grep -qx "soda-build-setpgid"; then
+  command -v checkmodule semodule_package semodule >/dev/null || fail "policycoreutils tooling required for the worker SELinux module"
+  checkmodule -M -m -o "$BINDIR/soda-build-setpgid.mod" scripts/selinux/soda-build-setpgid.te
+  semodule_package -o "$BINDIR/soda-build-setpgid.pp" -m "$BINDIR/soda-build-setpgid.mod"
+  sudo semodule -i "$BINDIR/soda-build-setpgid.pp"
+fi
+
+echo "-- worker git ownership exception"
+if [ ! -f /etc/gitconfig ] || ! grep -qF "directory = /run/soda-build-source" /etc/gitconfig; then
+  printf '# Soda build worker: the isolated worker sees the canonical checkout\n# only at /run/soda-build-source, owned by the operator. Mark it expected.\n[safe]\n\tdirectory = /run/soda-build-source\n' | sudo tee -a /etc/gitconfig >/dev/null
+  sudo chmod 0644 /etc/gitconfig
+fi
 
 echo "-- restricted worker config"
 sudo python3 - "$WORKER_JSON" <<EOF

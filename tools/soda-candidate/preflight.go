@@ -4,6 +4,7 @@
 package main
 
 import (
+	"debug/buildinfo"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,6 +43,7 @@ func suggestOut() string {
 type workerPaths struct {
 	OutputParent string
 	Runtime      string
+	Tools        string
 }
 
 func readWorkerPaths(path string) (workerPaths, error) {
@@ -70,12 +72,114 @@ func listRunningBuildUnits() (string, error) {
 	return string(out), nil
 }
 
+// execRunner runs host commands for environment probes; tests stub it.
+var execRunner = func(name string, args ...string) (string, error) {
+	out, err := exec.Command(name, args...).Output()
+	return string(out), err
+}
+
+// pinnedGoVersion reads the toolchain pin from the checkout manifest.
+func pinnedGoVersion() (string, error) {
+	raw, err := os.ReadFile("go.mod")
+	if err != nil {
+		return "", errors.New("run soda-candidate from the checkout root (~/Projects/sodaos)")
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		if v, ok := strings.CutPrefix(line, "go "); ok {
+			if f, _, _ := strings.Cut(strings.TrimSpace(v), " "); f != "" {
+				return f, nil
+			}
+		}
+	}
+	return "", errors.New("go.mod pins no Go version")
+}
+
+// controllerGoVersion reports the toolchain that built a binary, which is
+// what the worker compares. `go version` output matches this string.
+func controllerGoVersion(path string) (string, error) {
+	bi, err := buildinfo.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("cannot read controller build stamp: %w", err)
+	}
+	return bi.GoVersion, nil
+}
+
+// toolsGoContext reports the SELinux type of the provisioned Go so a
+// module-cache copy (foreign cache_home_t label, unexecutable in the
+// worker) is caught here instead of dying at dispatch.
+func toolsGoContext(toolsDir string) (string, error) {
+	out, err := execRunner("stat", "-c", "%C", filepath.Join(toolsDir, "go", "bin", "go"))
+	if err != nil {
+		return "", fmt.Errorf("cannot inspect provisioned Go: %w", err)
+	}
+	parts := strings.Split(strings.TrimSpace(out), ":")
+	if len(parts) != 4 {
+		return "", fmt.Errorf("unexpected SELinux context %q", strings.TrimSpace(out))
+	}
+	return parts[2], nil
+}
+
+// probeWorkerSetpgid forks inside the worker sandbox and takes ownership of
+// the child's process group, exactly like every worker child spawn. A stale
+// or missing SELinux rule fails here in milliseconds instead of mid-build.
+func probeWorkerSetpgid() error {
+	unit := fmt.Sprintf("soda-candidate-probe-%d", time.Now().UnixNano())
+	script := "import os\n" +
+		"pid = os.fork()\n" +
+		"if pid == 0:\n" +
+		"    os.setpgrp()\n" +
+		"    os._exit(0)\n" +
+		"_, status = os.waitpid(pid, 0)\n" +
+		"raise SystemExit(os.waitstatus_to_exitcode(status))\n"
+	out, err := execRunner("/usr/bin/systemd-run",
+		"--wait", "--pipe", "--service-type=exec", "--unit="+unit,
+		"--property=User=soda-build-worker", "--property=Group=soda-build-worker",
+		"--property=WorkingDirectory=/tmp",
+		"--property=ProtectHome=tmpfs", "--property=ProtectSystem=strict",
+		"--property=PrivateTmp=yes", "--property=PrivateMounts=yes",
+		"/usr/bin/python3", "-c", script)
+	if err != nil {
+		return fmt.Errorf("worker process groups denied (install the setup SELinux module): %v\n%s", err, out)
+	}
+	return nil
+}
+
+// checkWorkerEnvironment verifies the machine facts each debug round so far
+// has uncovered, every one of which used to die inside the build instead.
+func checkWorkerEnvironment(o options, wp workerPaths) error {
+	pin, err := pinnedGoVersion()
+	if err != nil {
+		return err
+	}
+	if o.controller != "" {
+		got, err := controllerGoVersion(o.controller)
+		if err != nil {
+			return err
+		}
+		if got != "go"+pin {
+			return fmt.Errorf("controller reports %s, want go%s: rebuild with the pinned toolchain and re-admit", got, pin)
+		}
+	}
+	label, err := toolsGoContext(wp.Tools)
+	if err != nil {
+		return err
+	}
+	if label == "cache_home_t" {
+		return errors.New("provisioned Go carries a module-cache label; restorecon the tools tree or rerun the setup script")
+	}
+	out, err := execRunner("/usr/bin/git", "config", "--system", "--get-all", "safe.directory")
+	if err != nil || !strings.Contains(out, "/run/soda-build-source") {
+		return errors.New("system git lacks the worker source exception; rerun the setup script")
+	}
+	return probeWorkerSetpgid()
+}
+
 // prepareRuntime refuses a concurrent build and clears leftover session
 // state. The runtime directory is per-attempt by definition: container
 // runtime locks from a killed run must not poison the next one. Build caches
 // live elsewhere and are never touched.
-func prepareRuntime(workerConfigPath string, listUnits func() (string, error)) error {
-	wp, err := readWorkerPaths(workerConfigPath)
+func prepareRuntime(o options, listUnits func() (string, error)) error {
+	wp, err := readWorkerPaths(o.workerConfig)
 	if err != nil {
 		return err
 	}
@@ -86,7 +190,10 @@ func prepareRuntime(workerConfigPath string, listUnits func() (string, error)) e
 	if err := refuseConcurrentBuild(listUnits); err != nil {
 		return err
 	}
-	return clearRuntimeDir(wp.Runtime)
+	if err := clearRuntimeDir(wp.Runtime); err != nil {
+		return err
+	}
+	return checkWorkerEnvironment(o, wp)
 }
 
 func refuseConcurrentBuild(listUnits func() (string, error)) error {

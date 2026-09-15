@@ -243,7 +243,7 @@ func preseedRuntime(o options) error {
 	if o.workerConfig == "" {
 		return nil
 	}
-	return prepareRuntime(o.workerConfig, listRunningBuildUnits)
+	return prepareRuntime(o, listRunningBuildUnits)
 }
 
 func resolveOptions(args []string, stdin, stderr *os.File) (options, error) {
@@ -278,7 +278,7 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 	if err := preflight(o); err != nil {
 		return err
 	}
-	if err := prepareRuntime(o.workerConfig, listRunningBuildUnits); err != nil {
+	if err := prepareRuntime(o, listRunningBuildUnits); err != nil {
 		return err
 	}
 	stop, err := maybeServeFixture(o)
