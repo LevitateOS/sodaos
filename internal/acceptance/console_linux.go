@@ -22,6 +22,38 @@ type ConsoleRegion struct {
 	SHA256              string
 }
 
+func decodeConsolePNG(path string) (image.Image, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	frame, _, err := image.Decode(f)
+	return frame, errors.Join(err, f.Close())
+}
+
+func consoleRowRange(frame image.Image, r ConsoleRegion) (start, end, step int) {
+	if r.Y == -1 {
+		return 0, frame.Bounds().Max.Y - r.Height, 16
+	}
+	return r.Y, r.Y, 1
+}
+
+func consoleRegionMatches(frame image.Image, r ConsoleRegion) (bool, error) {
+	start, end, step := consoleRowRange(frame, r)
+	for y := start; y <= end; y += step {
+		region := r
+		region.Y = y
+		digest, err := ConsoleRegionHash(frame, region)
+		if err != nil {
+			return false, err
+		}
+		if digest == r.SHA256 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func ConsoleRegionHash(frame image.Image, r ConsoleRegion) (string, error) {
 	rect := image.Rect(r.X, r.Y, r.X+r.Width, r.Y+r.Height)
 	if r.Width <= 0 || r.Height <= 0 || !rect.In(frame.Bounds()) {
@@ -44,29 +76,16 @@ func (q QMPClient) WaitConsole(ctx context.Context, path string, r ConsoleRegion
 		if err := q.Execute(ctx, "screendump", "console-prompt", map[string]any{"filename": path, "format": "png"}, nil); err != nil {
 			return err
 		}
-		f, err := os.Open(path)
+		frame, err := decodeConsolePNG(path)
 		if err != nil {
 			return err
 		}
-		frame, _, err := image.Decode(f)
-		closeErr := f.Close()
-		if err != nil || closeErr != nil {
-			return errors.Join(err, closeErr)
+		matched, err := consoleRegionMatches(frame, r)
+		if err != nil {
+			return err
 		}
-		start, end, step := r.Y, r.Y, 1
-		if r.Y == -1 {
-			start, end, step = 0, frame.Bounds().Max.Y-r.Height, 16
-		}
-		for y := start; y <= end; y += step {
-			region := r
-			region.Y = y
-			digest, err := ConsoleRegionHash(frame, region)
-			if err != nil {
-				return err
-			}
-			if digest == r.SHA256 {
-				return nil
-			}
+		if matched {
+			return nil
 		}
 		select {
 		case <-ctx.Done():
@@ -76,32 +95,51 @@ func (q QMPClient) WaitConsole(ctx context.Context, path string, r ConsoleRegion
 	}
 }
 
+var (
+	consolePlainKeys   = map[rune]string{'\n': "ret", ' ': "spc", '-': "minus", '.': "dot", '/': "slash", '=': "equal", ',': "comma", ';': "semicolon", '\'': "apostrophe", '[': "bracket_left", ']': "bracket_right", '\\': "backslash"}
+	consoleShiftedKeys = map[rune]string{'_': "minus", ':': "semicolon", '"': "apostrophe", '>': "dot", '<': "comma", '|': "backslash", '(': "9", ')': "0", '*': "8", '$': "4", '&': "7", '!': "1", '?': "slash", '{': "bracket_left", '}': "bracket_right", '+': "equal", '#': "3", '@': "2", '%': "5", '^': "6", '~': "grave"}
+)
+
+func isConsoleAlphanumeric(ch rune) bool {
+	return ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9'
+}
+
+func consoleKey(ch rune) (key string, shift bool, err error) {
+	key = string(ch)
+	shift = unicode.IsUpper(ch)
+	if shift {
+		key = string(unicode.ToLower(ch))
+	}
+	if v, ok := consolePlainKeys[ch]; ok {
+		return v, shift, nil
+	}
+	if v, ok := consoleShiftedKeys[ch]; ok {
+		return v, true, nil
+	}
+	if !isConsoleAlphanumeric(ch) {
+		return "", false, errors.New("unsupported console character")
+	}
+	return key, shift, nil
+}
+
+func consoleKeySequence(key string, shift bool) []map[string]string {
+	keys := []map[string]string{}
+	if shift {
+		keys = append(keys, map[string]string{"type": "qcode", "data": "shift"})
+	}
+	return append(keys, map[string]string{"type": "qcode", "data": key})
+}
+
 // TypeConsole sends private input only through the owned QMP socket. Neither the
 // input nor individual key events may be logged as evidence. Call WaitConsole
 // first when terminal echo or the active prompt matters.
 func (q QMPClient) TypeConsole(ctx context.Context, text string) error {
 	for _, ch := range text {
-		key := string(ch)
-		shift := unicode.IsUpper(ch)
-		if shift {
-			key = string(unicode.ToLower(ch))
+		key, shift, err := consoleKey(ch)
+		if err != nil {
+			return err
 		}
-		plain := map[rune]string{'\n': "ret", ' ': "spc", '-': "minus", '.': "dot", '/': "slash", '=': "equal", ',': "comma", ';': "semicolon", '\'': "apostrophe", '[': "bracket_left", ']': "bracket_right", '\\': "backslash"}
-		shifted := map[rune]string{'_': "minus", ':': "semicolon", '"': "apostrophe", '>': "dot", '<': "comma", '|': "backslash", '(': "9", ')': "0", '*': "8", '$': "4", '&': "7", '!': "1", '?': "slash", '{': "bracket_left", '}': "bracket_right", '+': "equal", '#': "3", '@': "2", '%': "5", '^': "6", '~': "grave"}
-		if v, ok := plain[ch]; ok {
-			key = v
-		} else if v, ok := shifted[ch]; ok {
-			key = v
-			shift = true
-		} else if !(ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9') {
-			return errors.New("unsupported console character")
-		}
-		keys := []map[string]string{}
-		if shift {
-			keys = append(keys, map[string]string{"type": "qcode", "data": "shift"})
-		}
-		keys = append(keys, map[string]string{"type": "qcode", "data": key})
-		if err := q.Execute(ctx, "send-key", "console-input", map[string]any{"keys": keys, "hold-time": 10}, nil); err != nil {
+		if err := q.Execute(ctx, "send-key", "console-input", map[string]any{"keys": consoleKeySequence(key, shift), "hold-time": 10}, nil); err != nil {
 			return errors.New("console input failed")
 		}
 		select {

@@ -302,34 +302,35 @@ func (c VMConfig) args() []string {
 	}
 }
 
-func (v *VM) start(ctx context.Context) error {
-	v.attempt++
+func qemuBootArgs(bootArgs, fallback []string) []string {
+	if bootArgs == nil {
+		return fallback
+	}
+	return bootArgs
+}
+
+func (v *VM) openBootLogs() (io.WriteCloser, io.WriteCloser, error) {
 	label := fmt.Sprintf("boot-%d", v.attempt)
 	out, err := v.evidence.Writer(label + ".serial")
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	v.outputs = append(v.outputs, out)
 	stderr, err := v.evidence.Writer(label + ".stderr")
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	v.outputs = append(v.outputs, stderr)
-	args := v.bootArgs
-	if args == nil {
-		args = v.config.args()
-	}
-	v.process, err = StartProcess(ctx, Command{Name: v.config.QEMU, Args: args}, out, stderr)
-	if err != nil {
-		return err
-	}
-	v.qmp = QMPClient{Socket: filepath.Join(v.config.Work, "qmp.sock")}
+	return out, stderr, nil
+}
+
+func (v *VM) waitQEMUReady(ctx context.Context) error {
 	ready, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	for {
 		var status map[string]any
-		if err = v.qmp.Execute(ready, "query-status", "status", nil, &status); err == nil {
-			break
+		if err := v.qmp.Execute(ready, "query-status", "status", nil, &status); err == nil {
+			return nil
 		}
 		select {
 		case <-v.process.Done():
@@ -339,26 +340,52 @@ func (v *VM) start(ctx context.Context) error {
 		case <-time.After(200 * time.Millisecond):
 		}
 	}
+}
+
+func cancelWhenDone(ctx context.Context, done <-chan struct{}, cancel context.CancelFunc) {
+	go func() {
+		select {
+		case <-done:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+}
+
+func qemuExitDuringSSH(ctx context.Context, process *Process, err error) error {
+	select {
+	case <-process.Done():
+		return errors.Join(errors.New("QEMU exited during SSH readiness"), process.Wait(ctx), err)
+	default:
+		return err
+	}
+}
+
+func (v *VM) waitGuestSSH(ctx context.Context) error {
 	if !v.waitSSH {
 		return nil
 	}
 	sshCtx, stop := context.WithTimeout(ctx, 10*time.Minute)
 	defer stop()
-	process := v.process
-	go func() {
-		select {
-		case <-process.Done():
-			stop()
-		case <-sshCtx.Done():
-		}
-	}()
-	err = v.config.SSH.WaitReady(sshCtx)
-	select {
-	case <-v.process.Done():
-		return errors.Join(errors.New("QEMU exited during SSH readiness"), v.process.Wait(ctx), err)
-	default:
+	cancelWhenDone(sshCtx, v.process.Done(), stop)
+	return qemuExitDuringSSH(ctx, v.process, v.config.SSH.WaitReady(sshCtx))
+}
+
+func (v *VM) start(ctx context.Context) error {
+	v.attempt++
+	out, stderr, err := v.openBootLogs()
+	if err != nil {
 		return err
 	}
+	v.process, err = StartProcess(ctx, Command{Name: v.config.QEMU, Args: qemuBootArgs(v.bootArgs, v.config.args())}, out, stderr)
+	if err != nil {
+		return err
+	}
+	v.qmp = QMPClient{Socket: filepath.Join(v.config.Work, "qmp.sock")}
+	if err = v.waitQEMUReady(ctx); err != nil {
+		return err
+	}
+	return v.waitGuestSSH(ctx)
 }
 
 // Restart reuses exactly this instance's disk and NVRAM. No data is removed.

@@ -66,26 +66,44 @@ func (e *Evidence) Writer(name string) (io.WriteCloser, error) {
 	return &redactingWriter{out: f, secrets: e.secrets}, nil
 }
 
+func validEvidenceName(name string) bool {
+	return filepath.IsLocal(name) && filepath.Clean(name) == name && name != "."
+}
+
+func (e *Evidence) mkdirEvidenceParent(current string) error {
+	if err := e.root.Mkdir(current, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
+		return err
+	}
+	st, err := e.root.Lstat(current)
+	if err != nil {
+		return err
+	}
+	if !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		return errors.New("unsafe evidence parent")
+	}
+	return nil
+}
+
+func (e *Evidence) ensureEvidenceParents(dir string) error {
+	if dir == "." {
+		return nil
+	}
+	current := ""
+	for _, part := range strings.Split(dir, string(filepath.Separator)) {
+		current = filepath.Join(current, part)
+		if err := e.mkdirEvidenceParent(current); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *Evidence) open(name string) (*os.File, error) {
-	if !filepath.IsLocal(name) || filepath.Clean(name) != name || name == "." {
+	if !validEvidenceName(name) {
 		return nil, errors.New("invalid evidence name")
 	}
-	dir := filepath.Dir(name)
-	if dir != "." {
-		current := ""
-		for _, part := range strings.Split(dir, string(filepath.Separator)) {
-			current = filepath.Join(current, part)
-			if err := e.root.Mkdir(current, 0o700); err != nil && !errors.Is(err, os.ErrExist) {
-				return nil, err
-			}
-			st, err := e.root.Lstat(current)
-			if err != nil {
-				return nil, err
-			}
-			if !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
-				return nil, errors.New("unsafe evidence parent")
-			}
-		}
+	if err := e.ensureEvidenceParents(filepath.Dir(name)); err != nil {
+		return nil, err
 	}
 	f, err := e.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
@@ -194,59 +212,84 @@ func (e *Evidence) PublishObservation(o Observation) error {
 	return e.root.Link("observation.pending.json", "observation.json")
 }
 
-// CheckSecrets is defense in depth, not a claim that unknown secrets are absent.
-func (e *Evidence) CheckSecrets() error {
-	return fs.WalkDir(e.root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+func longestSecret(secrets [][]byte) int {
+	max := 1
+	for _, s := range secrets {
+		if len(s) > max {
+			max = len(s)
 		}
-		if d.IsDir() {
+	}
+	return max
+}
+
+func secretOverlapsBlock(block []byte, secrets [][]byte) bool {
+	for _, s := range secrets {
+		if bytes.Contains(block, s) {
+			return true
+		}
+	}
+	return false
+}
+
+func retainSecretOverlap(block []byte, max int) []byte {
+	if len(block) >= max {
+		return bytes.Clone(block[len(block)-max+1:])
+	}
+	return bytes.Clone(block)
+}
+
+func scanEvidenceBytes(f *os.File, secrets [][]byte) error {
+	max := longestSecret(secrets)
+	tail := []byte{}
+	buf := make([]byte, 32768)
+	for {
+		n, rerr := f.Read(buf)
+		block := append(tail, buf[:n]...)
+		if secretOverlapsBlock(block, secrets) {
+			return errors.New("secret reached evidence")
+		}
+		tail = retainSecretOverlap(block, max)
+		if rerr == io.EOF {
 			return nil
 		}
-		if !d.Type().IsRegular() {
-			return errors.New("unexpected non-regular evidence entry")
+		if rerr != nil {
+			return rerr
 		}
-		f, err := e.root.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		st, err := f.Stat()
-		if err != nil {
-			return err
-		}
-		if !st.Mode().IsRegular() {
-			return errors.New("evidence entry changed to a special file")
-		}
-		max := 1
-		for _, s := range e.secrets {
-			if len(s) > max {
-				max = len(s)
-			}
-		}
-		tail := []byte{}
-		buf := make([]byte, 32768)
-		for {
-			n, rerr := f.Read(buf)
-			block := append(tail, buf[:n]...)
-			for _, s := range e.secrets {
-				if bytes.Contains(block, s) {
-					return errors.New("secret reached evidence")
-				}
-			}
-			if len(block) >= max {
-				tail = bytes.Clone(block[len(block)-max+1:])
-			} else {
-				tail = bytes.Clone(block)
-			}
-			if rerr == io.EOF {
-				return nil
-			}
-			if rerr != nil {
-				return rerr
-			}
-		}
-	})
+	}
+}
+
+func (e *Evidence) scanRegularEvidence(path string) error {
+	f, err := e.root.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if !st.Mode().IsRegular() {
+		return errors.New("evidence entry changed to a special file")
+	}
+	return scanEvidenceBytes(f, e.secrets)
+}
+
+func (e *Evidence) scanEvidencePath(path string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+	if d.IsDir() {
+		return nil
+	}
+	if !d.Type().IsRegular() {
+		return errors.New("unexpected non-regular evidence entry")
+	}
+	return e.scanRegularEvidence(path)
+}
+
+// CheckSecrets is defense in depth, not a claim that unknown secrets are absent.
+func (e *Evidence) CheckSecrets() error {
+	return fs.WalkDir(e.root.FS(), ".", e.scanEvidencePath)
 }
 
 type safeError struct {
@@ -317,41 +360,50 @@ func (w *redactingWriter) Write(p []byte) (int, error) {
 	return len(p), w.err
 }
 
-func (w *redactingWriter) flush(final bool) error {
-	max := 1
-	for _, s := range w.secrets {
-		if len(s) > max {
-			max = len(s)
+func matchingSecretLen(pending []byte, secrets [][]byte) int {
+	match := 0
+	for _, s := range secrets {
+		if len(s) > match && bytes.HasPrefix(pending, s) {
+			match = len(s)
 		}
 	}
+	return match
+}
+
+func redactPendingSecrets(pending []byte, secrets [][]byte, final bool) ([]byte, []byte) {
+	max := longestSecret(secrets)
 	var out bytes.Buffer
-	for len(w.pending) > 0 && (final || len(w.pending) >= max) {
-		match := 0
-		for _, s := range w.secrets {
-			if len(s) > match && bytes.HasPrefix(w.pending, s) {
-				match = len(s)
-			}
-		}
-		if match > 0 {
+	for len(pending) > 0 && (final || len(pending) >= max) {
+		if match := matchingSecretLen(pending, secrets); match > 0 {
 			out.WriteString("[REDACTED]")
-			w.pending = w.pending[match:]
-		} else {
-			out.WriteByte(w.pending[0])
-			w.pending = w.pending[1:]
+			pending = pending[match:]
+			continue
 		}
+		out.WriteByte(pending[0])
+		pending = pending[1:]
 	}
-	w.urlPending = append(w.urlPending, out.Bytes()...)
-	end := bytes.LastIndexByte(w.urlPending, '\n') + 1
+	return out.Bytes(), pending
+}
+
+func urlRedactionEnd(pending []byte, final bool) int {
 	if final {
-		end = len(w.urlPending)
+		return len(pending)
 	}
-	if end > 0 {
-		safe := redactURLs(string(w.urlPending[:end]))
-		w.urlPending = bytes.Clone(w.urlPending[end:])
-		_, err := io.WriteString(w.out, safe)
-		return err
+	return bytes.LastIndexByte(pending, '\n') + 1
+}
+
+func (w *redactingWriter) flush(final bool) error {
+	out, rest := redactPendingSecrets(w.pending, w.secrets, final)
+	w.pending = rest
+	w.urlPending = append(w.urlPending, out...)
+	end := urlRedactionEnd(w.urlPending, final)
+	if end == 0 {
+		return nil
 	}
-	return nil
+	safe := redactURLs(string(w.urlPending[:end]))
+	w.urlPending = bytes.Clone(w.urlPending[end:])
+	_, err := io.WriteString(w.out, safe)
+	return err
 }
 
 func (w *redactingWriter) Close() error {
