@@ -50,10 +50,6 @@ func (s *Service) podman(ctx context.Context, in []byte, args ...string) ([]byte
 	return s.Exec.Run(ctx, in, "/usr/bin/podman", args...)
 }
 
-func (s *Service) terminalContainer(ctx context.Context, id string) (string, error) {
-	return s.projectContainer(ctx, id, true)
-}
-
 // Native lifecycle may inspect stopped containers, never missing/replacement ones.
 func terminalIsolation(v terminalInspection, id string) bool {
 	if !containerID.MatchString(v.ID) || v.Project != id || v.Privileged || v.Userns != "private" {
@@ -158,7 +154,7 @@ func readTerminalRequest(ctx context.Context, conn *websocket.Conn) (TerminalReq
 
 func (s *Service) launch(ctx context.Context, launcher attachLauncher, conn *websocket.Conn, in TerminalRequest) (Process, bool) {
 	inspectCtx, inspectCancel := context.WithTimeout(ctx, 10*time.Second)
-	id, err := s.terminalContainer(inspectCtx, in.Project)
+	id, err := s.projectContainer(inspectCtx, in.Project, true)
 	inspectCancel()
 	if err != nil {
 		Write(ctx, conn, TerminalFrame{Type: "closed", Reason: "launch_failed"})

@@ -152,7 +152,7 @@ func NewDaemon(c Config) *Daemon {
 	d := &Daemon{
 		Config:   c,
 		Exec:     native,
-		Project:  NewProject(native, c),
+		Project:  projectRuntime(native, c),
 		Terminal: &terminal.Service{Exec: native},
 		Runners:  &runners.Operations{Local: runnerNative, Lifecycle: runnerNative},
 	}
@@ -175,7 +175,7 @@ func NewCompanionDaemon(c Config) *Daemon {
 	return &Daemon{
 		Config:  c,
 		Exec:    native,
-		Project: NewProject(native, c),
+		Project: projectRuntime(native, c),
 		Tailnet: control,
 		Companion: &tailnetexec.Companion{
 			Exec:    native,
@@ -267,7 +267,7 @@ func (d *Daemon) dispatchProfile(ctx context.Context, decode func(any) error) (a
 	if err := decode(&in); err != nil {
 		return nil, err
 	}
-	return d.resolveProfile(ctx)
+	return d.Project.ResolveProfile(ctx)
 }
 
 func (d *Daemon) dispatchCreate(ctx context.Context, decode func(any) error) (any, error) {
@@ -278,7 +278,15 @@ func (d *Daemon) dispatchCreate(ctx context.Context, decode func(any) error) (an
 	if !project.ValidID(in.ID) || in.Owner <= 0 {
 		return nil, errors.New("invalid project identity")
 	}
-	return d.create(ctx, in)
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	// Create is not on the shared mutation gate; it owns writer admission here.
+	if err := d.acquireAdmission(ctx); err != nil {
+		return nil, err
+	}
+	defer func() { <-d.admission }()
+	return d.Project.Create(ctx, in)
 }
 
 func (d *Daemon) dispatchCreateTargeted(ctx context.Context, path string, decode func(any) error) (any, error) {
@@ -288,12 +296,12 @@ func (d *Daemon) dispatchCreateTargeted(ctx context.Context, path string, decode
 	}
 	switch path {
 	case "/inspect":
-		out, _, err := d.inspect(ctx, in.ID)
+		out, _, err := d.Project.Inspect(ctx, in.ID)
 		return out, err
 	case "/os":
-		return d.observeOS(ctx, in.ID)
+		return d.Project.ObserveOS(ctx, in.ID)
 	case "/connection":
-		return d.connection(ctx, in.ID)
+		return d.Project.Connection(ctx, in.ID)
 	default:
 		return nil, errNotFound
 	}
@@ -306,19 +314,19 @@ func (d *Daemon) dispatchMutation(ctx context.Context, path string, decode func(
 		if err := decode(&in); err != nil {
 			return nil, err
 		}
-		return d.lifecycle(ctx, in)
+		return d.Project.Lifecycle(ctx, in)
 	case "/access-keys":
 		var in project.AccessKeys
 		if err := decode(&in); err != nil {
 			return nil, err
 		}
-		return d.accessKeys(ctx, in)
+		return d.Project.AccessKeys(ctx, in)
 	case "/account":
 		var in project.Account
 		if err := decode(&in); err != nil {
 			return nil, err
 		}
-		err := d.account(ctx, in)
+		err := d.Project.Account(ctx, in)
 		return map[string]bool{"ok": err == nil}, nil
 	default:
 		return nil, errNotFound

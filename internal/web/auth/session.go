@@ -71,7 +71,7 @@ func (s *Service) constrainAPIBody(w http.ResponseWriter, r *http.Request, sessi
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		return true
 	}
-	if !s.validAPIMutation(r, session.CSRF) {
+	if !s.ValidAPIMutation(r, session.CSRF) {
 		JSONError(w, http.StatusForbidden, "invalid_csrf", "Request origin or CSRF token is invalid.")
 		return false
 	}
@@ -117,10 +117,6 @@ func (s *Service) RequireCurrentSession(ctx context.Context, token string, origi
 		return store.ErrGrantUnavailable
 	}
 	return nil
-}
-
-func (s *Service) validAPIMutation(r *http.Request, csrf string) bool {
-	return s.ValidAPIMutation(r, csrf)
 }
 
 // ValidAPIMutation checks Origin/CSRF for browser mutations against the Forgejo origin.

@@ -77,15 +77,8 @@ func executeTailnetEnrollment(ctx context.Context, m *tailnet.Control, body io.R
 	return m.Enrollment(ctx, in)
 }
 
-func (d *Daemon) runProjectTailnetAction(ctx context.Context, in tailnet.ProjectRequest, cid, action string) (any, error) {
-	if action == "policy" {
-		return d.Tailnet.Project(ctx, in, cid)
-	}
-	return d.observeProjectTailnet(ctx, in, cid)
-}
-
 func (d *Daemon) verifyProjectContainerUnchanged(ctx context.Context, project, cid string) error {
-	after, err := d.projectContainer(ctx, project, false)
+	after, err := d.Project.ProjectContainer(ctx, project, false)
 	if err != nil || after != cid {
 		return tailnet.ErrUnconfirmed
 	}
@@ -106,13 +99,21 @@ func (d *Daemon) executeTailnetProjectOrPolicy(ctx context.Context, action strin
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
-	cid, err := d.projectContainer(ctx, in.Project, false)
+	cid, err := d.Project.ProjectContainer(ctx, in.Project, false)
 	if err != nil {
 		return nil, err
 	}
-	out, err := d.runProjectTailnetAction(ctx, in, cid, action)
-	if err != nil {
-		return nil, err
+	var (
+		out   any
+		opErr error
+	)
+	if action == "policy" {
+		out, opErr = d.Tailnet.Project(ctx, in, cid)
+	} else {
+		out, opErr = d.Companion.ObserveProjectTailnet(ctx, in, cid)
+	}
+	if opErr != nil {
+		return nil, opErr
 	}
 	if err := d.verifyProjectContainerUnchanged(ctx, in.Project, cid); err != nil {
 		return nil, err

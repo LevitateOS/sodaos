@@ -43,25 +43,25 @@ func TestConnectionReadsOnlyFixedPublicKey(t *testing.T) {
 	}
 	exec := &connectionExec{t: t, key: ssh.MarshalAuthorizedKey(key), running: true}
 	daemon := testDaemon(exec, Config{Network: "soda", Subnet: "10.89.0.0/24"})
-	result, err := daemon.connection(context.Background(), "p0123456789abcdef01234567")
+	result, err := daemon.Project.Connection(context.Background(), "p0123456789abcdef01234567")
 	if err != nil || result.Fingerprint != ssh.FingerprintSHA256(key) || exec.calls != 2 {
 		t.Fatal("public host key not returned", err)
 	}
 	exec.calls = 0
 	exec.running = false
-	result, err = daemon.connection(context.Background(), "p0123456789abcdef01234567")
+	result, err = daemon.Project.Connection(context.Background(), "p0123456789abcdef01234567")
 	if err != nil || result.HostKey != "" || exec.calls != 1 {
 		t.Fatal("stopped container entered", err)
 	}
 	exec.calls = 0
-	if _, err = daemon.connection(context.Background(), "../../other"); err == nil || exec.calls != 0 {
+	if _, err = daemon.Project.Connection(context.Background(), "../../other"); err == nil || exec.calls != 0 {
 		t.Fatal("invalid target executed")
 	}
 }
 func TestConnectionRejectsMalformedKey(t *testing.T) {
 	exec := &connectionExec{t: t, key: []byte("not a public key"), running: true}
 	daemon := testDaemon(exec, Config{Network: "soda", Subnet: "10.89.0.0/24"})
-	if _, err := daemon.connection(context.Background(), "p0123456789abcdef01234567"); err == nil {
+	if _, err := daemon.Project.Connection(context.Background(), "p0123456789abcdef01234567"); err == nil {
 		t.Fatal("invalid host key accepted")
 	}
 }

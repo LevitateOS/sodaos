@@ -61,7 +61,11 @@ func (s *API) TerminalLock() *sync.Mutex { return &s.terminalMu }
 
 // CancelTerminals cancels matching peers; callers must hold TerminalLock.
 func (s *API) CancelTerminals(contextID, token string) {
-	s.cancelTerminals(contextID, token)
+	for _, peer := range s.TerminalPeers {
+		if (contextID != "" && peer.ContextID == contextID) || (token != "" && peer.Token == token) {
+			peer.Cancel()
+		}
+	}
 }
 
 func (s *API) pageRoutes() {

@@ -146,7 +146,7 @@ func validHandshakeAction(id, action, name string) bool {
 	if !BrowserTerminalID.MatchString(id) {
 		return false
 	}
-	return (action == "create" && validTerminalName(name)) || (action == "attach" && name == "")
+	return (action == "create" && host.ValidTerminalName(name)) || (action == "attach" && name == "")
 }
 
 func validHandshakeActorAndRepo(in terminalHandshake, userID, repoID int64) bool {

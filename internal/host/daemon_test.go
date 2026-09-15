@@ -32,7 +32,7 @@ func TestCreateUsesFixedNamespacedRuntimeCapabilities(t *testing.T) {
 	id := "p123456789012345678901234"
 	profile := testProfile()
 	encoded, _ := json.Marshal(profile)
-	if _, err := d.create(context.Background(), project.Create{ID: id, Owner: 2, Profile: &profile}); err == nil {
+	if _, err := d.Project.Create(context.Background(), project.Create{ID: id, Owner: 2, Profile: &profile}); err == nil {
 		t.Fatal("failed native creation reported success")
 	}
 	want := []string{"create", "--name", "soda-" + id, "--label", "org.soda.project=" + id,
@@ -53,14 +53,14 @@ func (n *noExec) Run(context.Context, []byte, string, ...string) ([]byte, error)
 func TestInvalidProjectNeverExecutes(t *testing.T) {
 	n := &noExec{}
 	d := testDaemon(n, Config{})
-	if _, _, err := d.inspect(context.Background(), "../../other"); err == nil || n.called {
+	if _, _, err := d.Project.Inspect(context.Background(), "../../other"); err == nil || n.called {
 		t.Fatal("untrusted project reached executor")
 	}
 }
 func TestInvalidAccountNeverExecutes(t *testing.T) {
 	n := &noExec{}
 	d := testDaemon(n, Config{})
-	if err := d.account(context.Background(), project.Account{Login: "root;id", Identity: 1, Keys: []string{"x"}}); err == nil || n.called {
+	if err := d.Project.Account(context.Background(), project.Account{Login: "root;id", Identity: 1, Keys: []string{"x"}}); err == nil || n.called {
 		t.Fatal("untrusted account reached executor")
 	}
 }

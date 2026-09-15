@@ -75,7 +75,7 @@ func resolveCancelLoginCookie(w http.ResponseWriter, r *http.Request) (string, s
 }
 
 func (s *Service) validateCancelLoginPOST(w http.ResponseWriter, r *http.Request, csrf string) bool {
-	if !s.validAPIMutation(r, csrf) || r.Header.Get("Content-Type") != "application/json" {
+	if !s.ValidAPIMutation(r, csrf) || r.Header.Get("Content-Type") != "application/json" {
 		JSONError(w, 403, "invalid_csrf", "Request origin or CSRF token is invalid.")
 		return false
 	}

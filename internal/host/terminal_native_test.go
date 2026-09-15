@@ -122,7 +122,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	c := NewClient(socket)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	cid, err := d.terminalContainer(ctx, request.Project)
+	cid, err := d.Project.ProjectContainer(ctx, request.Project, true)
 	if err != nil || cid != request.Container {
 		t.Fatal("native project binding unavailable")
 	}

@@ -175,7 +175,7 @@ func TestTerminalIdentityAndIsolationRefusal(t *testing.T) {
 				v[field] = "host"
 			}
 			f.inspect, _ = json.Marshal(v)
-			if _, err := s.terminalContainer(context.Background(), terminalInput().Project); err == nil {
+			if _, err := s.projectContainer(context.Background(), terminalInput().Project, true); err == nil {
 				t.Fatal("unsafe target accepted")
 			}
 			if f.starts != 0 {

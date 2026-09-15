@@ -26,7 +26,7 @@ func TestLifecycleRefusesOtherPackagingLayout(t *testing.T) {
 		return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":"p0123456789abcdef01234567","owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64))), nil
 	})
 	d := testDaemon(exec, Config{})
-	if _, err := d.lifecycle(t.Context(), project.Lifecycle{Project: "p0123456789abcdef01234567", Action: "stop"}); err == nil {
+	if _, err := d.Project.Lifecycle(t.Context(), project.Lifecycle{Project: "p0123456789abcdef01234567", Action: "stop"}); err == nil {
 		t.Fatal("other packaging layout accepted")
 	}
 }

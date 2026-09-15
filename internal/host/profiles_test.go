@@ -61,7 +61,7 @@ func TestNativeCreationProfileIsObservedNotInferredFromDefault(t *testing.T) {
 			}
 			observation, _ := json.Marshal([]any{map[string]any{"Image": image, "Config": map[string]any{"Labels": labels}, "State": map[string]bool{"Running": false}}})
 			d := testDaemon(profileInspection{observation}, Config{Image: "never-read-this-default"})
-			env, _, err := d.inspect(t.Context(), "p0123456789abcdef01234567")
+			env, _, err := d.Project.Inspect(t.Context(), "p0123456789abcdef01234567")
 			switch kind {
 			case "legacy":
 				if err != nil || env.Profile != nil {
@@ -100,7 +100,7 @@ func TestOnlyCompleteNativeInstalledProfileAndNoTagCreation(t *testing.T) {
 			}
 			e := &profileExec{raw: testImage(installed)}
 			d := testDaemon(e, Config{Image: "configured-image"})
-			result, err := d.resolveProfile(t.Context())
+			result, err := d.Project.ResolveProfile(t.Context())
 			if kind == "valid" || kind == "changed image" {
 				if err != nil || result != installed {
 					t.Fatal(result, err)
@@ -110,7 +110,7 @@ func TestOnlyCompleteNativeInstalledProfileAndNoTagCreation(t *testing.T) {
 			}
 			e.calls = 0
 			if kind != "valid" {
-				if _, err := d.create(t.Context(), project.Create{ID: "p0123456789abcdef01234567", Owner: 1, Profile: &p}); err == nil || e.calls != 1 {
+				if _, err := d.Project.Create(t.Context(), project.Create{ID: "p0123456789abcdef01234567", Owner: 1, Profile: &p}); err == nil || e.calls != 1 {
 					t.Fatal("preflight reached mutations", e.calls, err)
 				}
 			}
@@ -118,7 +118,7 @@ func TestOnlyCompleteNativeInstalledProfileAndNoTagCreation(t *testing.T) {
 	}
 	n := &noExec{}
 	d := testDaemon(n, Config{})
-	if _, err := d.create(t.Context(), project.Create{ID: "p0123456789abcdef01234567", Owner: 1}); err == nil || n.called {
+	if _, err := d.Project.Create(t.Context(), project.Create{ID: "p0123456789abcdef01234567", Owner: 1}); err == nil || n.called {
 		t.Fatal("missing profile reached native executor")
 	}
 }

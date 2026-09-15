@@ -59,14 +59,14 @@ func runTailnetAction(path, action, project string) error {
 	if action == "stop" {
 		bounded, done := context.WithTimeout(phase, 30*time.Second)
 		defer done()
-		return d.StopTailnet(bounded, project)
+		return d.Companion.StopTailnet(bounded, project)
 	}
-	cid, e := d.StartTailnet(phase, project)
+	cid, e := d.Companion.StartTailnet(phase, project)
 	if e != nil {
 		return errors.Join(errTailnetPreparation, e)
 	}
 	cancel()
-	return d.WaitTailnet(ctx, cid)
+	return d.Companion.WaitTailnet(ctx, cid)
 }
 
 func serveHostSocket(c host.Config) error {

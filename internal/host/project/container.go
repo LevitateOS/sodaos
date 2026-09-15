@@ -26,10 +26,6 @@ type projectInspection struct {
 	} `json:"mappings"`
 }
 
-func (r *Runtime) TerminalContainer(ctx context.Context, id string) (string, error) {
-	return r.ProjectContainer(ctx, id, true)
-}
-
 // Native lifecycle may inspect stopped containers, never missing/replacement ones.
 func projectIsolation(v projectInspection, id string) bool {
 	if !domain.ValidContainerID(v.ID) || v.Project != id || v.Privileged || v.Userns != "private" {

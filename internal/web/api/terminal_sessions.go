@@ -39,17 +39,6 @@ func terminalDTO(item host.TerminalState, v store.Session, p store.Project, logi
 	return TerminalView{item, p.ID, strconv.FormatInt(p.RepositoryID, 10), strconv.FormatInt(v.User.ID, 10), login}
 }
 
-func validTerminalName(name string) bool { return host.ValidTerminalName(name) }
-
-// Every map access is under terminalMu. No provider/native IO runs under it.
-func (s *API) cancelTerminals(contextID, token string) {
-	for _, peer := range s.TerminalPeers {
-		if (contextID != "" && peer.ContextID == contextID) || (token != "" && peer.Token == token) {
-			peer.Cancel()
-		}
-	}
-}
-
 func (s *API) CloseTerminals() {
 	s.terminalMu.Lock()
 	s.terminalClosed = true
@@ -115,7 +104,7 @@ func (s *API) terminalAccount(w http.ResponseWriter, r *http.Request, v store.Se
 }
 
 func validTerminalGeometry(cols, rows int, name string) bool {
-	return cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300 && validTerminalName(name)
+	return cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300 && host.ValidTerminalName(name)
 }
 
 func reservedTerminal(items []host.TerminalState, id string, err error) bool {
@@ -211,7 +200,7 @@ func validTerminalSessionMutation(action terminalSessionMutation) bool {
 	case "end":
 		return action.Name == nil
 	case "rename":
-		return action.Name != nil && validTerminalName(*action.Name)
+		return action.Name != nil && host.ValidTerminalName(*action.Name)
 	default:
 		return false
 	}

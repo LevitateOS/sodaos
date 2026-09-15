@@ -93,7 +93,7 @@ func (r *Runtime) AccessKeys(ctx context.Context, in domain.AccessKeys) (domain.
 	if err != nil {
 		return out, err
 	}
-	cid, err := r.TerminalContainer(ctx, in.Project)
+	cid, err := r.ProjectContainer(ctx, in.Project, true)
 	if err != nil {
 		return out, err
 	}
