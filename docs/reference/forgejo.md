@@ -18,8 +18,13 @@ template hooks; use targeted overrides only when necessary.
 
 ## Shared presentation components
 
-Spaces mounts Lit components into Forgejo's real document. Native Forgejo retains
-header, profile menu, forms, routing, notifications and beforeunload behavior.
+Spaces mounts Lit components into Forgejo's real document for the native drawer
+and dashboard/admin Soda views. The persistent workspace host is a dedicated Soda
+HTML document that frames native Forgejo same-origin; it does not replace Forgejo
+handlers, cookies or chrome. Native Forgejo retains header, profile menu, forms,
+routing, notifications and beforeunload behavior inside that frame.
+
+Framed Forgejo documents must not mount a nested Spaces drawer.
 
 Responsive workspace rules:
 

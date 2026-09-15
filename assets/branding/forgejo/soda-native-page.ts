@@ -156,6 +156,7 @@ function bindNativePageLifetime(page: NativePage): void {
 }
 
 function startNativePage(): void {
+  if (window.frameElement) return;
   const mount = document.getElementById('soda-native-content');
   if (!mount || mount.dataset.sodaEntryMounted === 'true') return;
   const {documentTitle, actor, view, repositoryId} = mount.dataset;

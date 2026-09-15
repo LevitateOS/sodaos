@@ -11,7 +11,7 @@ import (
 
 func TestPageEntryGuards(t *testing.T) {
 	for _, page := range []struct{ path string }{
-		{"/spaces"}, {"/settings/runners"}, {"/settings/tailnet"}, {"/repositories/7/settings/spaces"},
+		{"/spaces"}, {"/workspace"}, {"/settings/runners"}, {"/settings/tailnet"}, {"/repositories/7/settings/spaces"},
 	} {
 		t.Run(page.path, func(t *testing.T) {
 			s := apiTestServer(t)
@@ -43,6 +43,8 @@ func TestPageEntryGuards(t *testing.T) {
 					case "missing store":
 						r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
 						s.Store = nil
+						s.API.Store = nil
+						s.Auth.Store = nil
 					}
 					w := httptest.NewRecorder()
 					s.ServeHTTP(w, r)

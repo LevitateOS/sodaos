@@ -44,6 +44,10 @@ dashboard clutter.
 └─────────────────────────────┴──────────────────────────────┘
 ```
 
+On native Forgejo documents this remains a right-half drawer. The persistent
+Soda HTML host uses the same two surfaces with Forgejo in a same-origin iframe
+on the left and the workspace on the right.
+
 - Two useful surfaces, not a modal.
 - Preserve native forms, routing and focus on the Forgejo side.
 - Drawer flattening and This-page filters must not destroy the full-page layout

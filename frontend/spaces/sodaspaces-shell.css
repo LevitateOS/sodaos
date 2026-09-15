@@ -1,0 +1,27 @@
+/* Persistent Soda HTML host: Forgejo stays in the child frame. */
+html,
+body.soda-workspace-shell {
+  height: 100%;
+  margin: 0;
+}
+body.soda-workspace-shell {
+  display: flex;
+  min-height: 100%;
+  background: var(--soda-page-canvas);
+  color: var(--soda-page-text);
+  font: var(--soda-font-body);
+}
+#soda-forgejo-frame {
+  flex: 1 1 50%;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: var(--soda-page-surface);
+}
+#soda-workspace-root {
+  flex: 1 1 50%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}

@@ -24,6 +24,19 @@ func (s *Service) sessionRoutes() {
 	s.forgejoRoutes()
 }
 
+// BrowserSession reads the Soda adapter session for an HTML document. Callers
+// map errors onto page policy; this does not write a JSON API body.
+func (s *Service) BrowserSession(r *http.Request) (store.Session, error) {
+	cookie, err := RequestCookie(r, SessionCookie)
+	if err != nil {
+		return store.Session{}, err
+	}
+	if s.Store == nil {
+		return store.Session{}, errors.New("store unavailable")
+	}
+	return s.Store.Session(r.Context(), cookie.Value)
+}
+
 func (s *Service) loadAPISession(w http.ResponseWriter, r *http.Request) (store.Session, bool) {
 	cookie, err := RequestCookie(r, SessionCookie)
 	if err != nil || cookie.Value == "" {

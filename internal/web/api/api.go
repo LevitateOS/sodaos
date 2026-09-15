@@ -70,5 +70,6 @@ func (s *API) CancelTerminals(contextID, token string) {
 
 func (s *API) pageRoutes() {
 	s.mux.HandleFunc("GET /spaces", s.spacesPage)
+	s.mux.HandleFunc("GET /workspace", s.workspacePage)
 	s.mux.HandleFunc("GET /repositories/{repositoryID}/settings/spaces", s.repositorySpacesPage)
 }

@@ -503,6 +503,8 @@ export function mountDrawer(
   doc: Document,
   mountContent?: (root: HTMLElement, context: NativeWorkspace) => DrawerContent
 ) {
+  const win = doc.defaultView;
+  if (win?.frameElement) return;
   const found = drawerRoots(doc);
   if (!found) return;
   const data = admitDrawerDataset(found.root);

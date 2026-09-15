@@ -1,18 +1,27 @@
 # Spaces
 
-**Spaces** (Sodaspaces) is the Soda workspace experience inside Forgejo's native
-frontend: a repository environment entry, shared management views and a drawer that
-keeps forge browsing and project work available together.
+**Spaces** (Sodaspaces) is the Soda workspace experience beside native Forgejo:
+a repository environment entry, shared management views and terminals that stay
+available while forge pages navigate.
 
-There is no standalone Soda frontend. Forgejo supplies header, profile menu and
-authentication. Lit supplies Soda's management and workspace views under the
-configured Forgejo origin at `/-/soda/`.
+The persistent outer document is a dedicated Soda HTML shell at `/-/soda/workspace`.
+Native Forgejo pages load in a same-origin iframe. That is not a second Soda
+frontend and not a Forgejo replacement: Forgejo still owns header, profile menu,
+forms, routing and authentication inside the frame.
+
+Until workspace-entry routing is selected, the existing dashboard Spaces view
+(`/?soda-view=spaces`) and the native drawer remain the signed-in browsing path.
+`/-/soda/spaces` stays a bookmark bridge to that dashboard view.
+
+There is no separate-origin Soda UI. Lit supplies Soda's management and workspace
+views under the configured Forgejo origin at `/-/soda/`.
 
 ## Product surface
 
 | Surface | Purpose |
 | --- | --- |
 | Spaces page | Bounded listing and navigation for environments the actor may use |
+| Workspace host | Dedicated Soda HTML document at `/-/soda/workspace` with a same-origin Forgejo iframe |
 | Repository Spaces settings | Create and inspect the environment for that repository |
 | Environment drawer | Management controls and managed terminals beside native forge content |
 | Operator Runners settings | Local CI capacity (Soda operator only) |

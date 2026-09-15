@@ -72,6 +72,10 @@ Bookmark handlers redirect only to fixed native views. Private collection and
 operation authority stay in protected APIs. Page loads and redirects never register
 a runner, create a terminal or change project lifecycle state.
 
+The persistent workspace outer document is the Soda HTML shell at
+`/-/soda/workspace`. It may frame same-origin Forgejo; it does not embed
+credentials or select a separate-origin trust model.
+
 ## Host helper
 
 The root:soda Unix-socket helper exposes fixed operations, not arbitrary commands,

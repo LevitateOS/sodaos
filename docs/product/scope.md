@@ -22,7 +22,8 @@ validation or error handling.
 - Public Internet application hosting as a Soda product surface
 - Domain ownership or preprovisioned per-app public certificates as a prerequisite
   for trying Soda or using baseline services
-- A second standalone Soda web frontend
+- A second standalone Soda web frontend (the same-origin workspace shell that
+  frames Forgejo is not this)
 - A downstream Forgejo fork for convenience features
 - Predecessor host developer accounts, Cockpit Projects, managed checkouts or the
   predecessor Updates platform
