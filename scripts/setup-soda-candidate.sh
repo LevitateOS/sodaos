@@ -60,9 +60,8 @@ WANT_WRAPPER="$(readlink -f "$WRAPPER")"
 echo "-- worker directories"
 sudo mkdir -p "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME" "$TOOLS/bin" "$AUTHORITY"
 # The pinned GOROOT installs at a fixed host path instead of the bound
-# tools dir: Go 1.26 refuses a toolchain reached through a bind mount
-# (synthesized "permission denied", no failing syscall, no audit trail),
-# and /usr/local stays readable under ProtectSystem=strict. The
+# tools dir so it carries lib_t and stays executable for the worker
+# domain, and /usr/local stays readable under ProtectSystem=strict. The
 # single-file bun binary tolerates the bind, so it stays in $TOOLS.
 sudo rm -rf "$TOOLS/go" "$PINNED_GO" "$TOOLS/bin/bun"
 sudo cp -a "$PINNED_GOROOT" "$PINNED_GO"
@@ -113,13 +112,23 @@ sudo find "$TMPW" -type d -exec chmod 0755 {} +
 sudo rm -rf "$TMPW"
 sudo chown -R soda-build-worker:soda-build-worker "$BUILD_HOME"
 
-echo "-- worker process-group policy (one self-only setpgid rule)"
-if ! sudo semodule -l 2>/dev/null | grep -qx "soda-build-setpgid"; then
-  command -v checkmodule semodule_package semodule >/dev/null || fail "policycoreutils tooling required for the worker SELinux module"
-  checkmodule -M -m -o "$BINDIR/soda-build-setpgid.mod" scripts/selinux/soda-build-setpgid.te
-  semodule_package -o "$BINDIR/soda-build-setpgid.pp" -m "$BINDIR/soda-build-setpgid.mod"
-  sudo semodule -i "$BINDIR/soda-build-setpgid.pp"
+echo "-- worker SELinux policy (process groups plus Go cache mapping)"
+command -v checkmodule semodule_package semodule >/dev/null || fail "policycoreutils tooling required for the worker SELinux module"
+sudo semodule -r soda-build-setpgid 2>/dev/null || true
+checkmodule -M -m -o "$BINDIR/soda-build-worker.mod" scripts/selinux/soda-build-worker.te
+semodule_package -o "$BINDIR/soda-build-worker.pp" -m "$BINDIR/soda-build-worker.mod"
+sudo semodule -i "$BINDIR/soda-build-worker.pp"
+# Go runs as init_t in the worker and mmaps its cache files; the default
+# var_lib_t home withholds map, so the Go state dirs carry a dedicated
+# type. Podman storage, the runtime dir and frontend caches keep theirs.
+sudo mkdir -p "$BUILD_HOME/go-build" "$BUILD_HOME/go-mod" "$BUILD_HOME/.config"
+if command -v semanage >/dev/null; then
+  for d in go-build go-mod .config; do
+    sudo semanage fcontext -a -t soda_build_cache_t "$BUILD_HOME/$d(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t soda_build_cache_t "$BUILD_HOME/$d(/.*)?"
+  done
 fi
+command -v restorecon >/dev/null && sudo restorecon -R "$BUILD_HOME/go-build" "$BUILD_HOME/go-mod" "$BUILD_HOME/.config"
+sudo stat -c %C "$BUILD_HOME/go-build" | grep -q ":soda_build_cache_t:" || fail "worker Go cache is not soda_build_cache_t; the sandboxed worker could not map it"
 
 echo "-- worker git ownership exception"
 if [ ! -f /etc/gitconfig ] || ! grep -qF "directory = /run/soda-build-source" /etc/gitconfig; then

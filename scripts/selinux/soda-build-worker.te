@@ -1,0 +1,23 @@
+module soda-build-worker 1.0;
+
+require {
+	type init_t;
+	class process setpgid;
+	class file { create open read write getattr setattr lock append unlink rename map };
+	class dir { create open read write getattr setattr search add_name remove_name rmdir };
+}
+
+# The isolated build worker runs Go as an init_t systemd transient unit:
+# lib_t toolchain executables transition out of the service domain, while
+# bun, python and tar stay put. Go mmaps build-cache export data and
+# telemetry counters, and targeted policy withholds map on the default
+# var_lib_t worker home, so every package load fails with a synthesized
+# "could not import ... (permission denied)" and no failing open syscall.
+# A dedicated cache type grants init_t exactly its Go state dirs. Podman
+# storage, the runtime dir and the frontend caches keep their types so the
+# container stack and offline module warming are undisturbed.
+type soda_build_cache_t;
+
+allow init_t self:process setpgid;
+allow init_t soda_build_cache_t:file { create open read write getattr setattr lock append unlink rename map };
+allow init_t soda_build_cache_t:dir { create open read write getattr setattr search add_name remove_name rmdir };

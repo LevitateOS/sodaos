@@ -12,6 +12,8 @@ func TestFailureHintMatchesKnownSignatures(t *testing.T) {
 		want   string
 	}{
 		{"open /run/go/src/a.go: permission denied", "setup-soda-candidate.sh"},
+		{"internal/strictjson/decode.go:5:2: could not import bytes (permission denied)", "map its build cache"},
+		{"go failed; retain attempt and inspect build.log: exit status 1", "setup-soda-candidate.sh"},
 		{"GOPROXY list is not the empty string", "setup-soda-candidate.sh"},
 		{"go: module lookup disabled by GOPROXY=off", "setup-soda-candidate.sh"},
 		{"worker unit is already present or could not be checked", "wait for it"},

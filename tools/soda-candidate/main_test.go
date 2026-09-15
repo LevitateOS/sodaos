@@ -393,6 +393,9 @@ func stubProbeExec(t *testing.T) {
 	execRunner = func(name string, args ...string) (string, error) {
 		switch name {
 		case "stat":
+			if len(args) > 0 && args[len(args)-1] == workerGoCache {
+				return "system_u:object_r:soda_build_cache_t:s0", nil
+			}
 			return "system_u:object_r:lib_t:s0\n", nil
 		case "/usr/bin/git":
 			return "/run/soda-build-source\n", nil
@@ -516,12 +519,36 @@ func TestModuleCacheLabelRefused(t *testing.T) {
 	}
 }
 
+func TestWorkerCacheLabelRefused(t *testing.T) {
+	chdirRepoRoot(t)
+	real := execRunner
+	execRunner = func(name string, args ...string) (string, error) {
+		if name == "stat" {
+			if len(args) > 0 && args[len(args)-1] == workerGoCache {
+				return "unconfined_u:object_r:var_lib_t:s0", nil
+			}
+			return "system_u:object_r:lib_t:s0", nil
+		}
+		return "", nil
+	}
+	t.Cleanup(func() { execRunner = real })
+	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
+	quiet := func() (string, error) { return "", nil }
+	err := prepareRuntime(o, quiet)
+	if err == nil || !strings.Contains(err.Error(), "want soda_build_cache_t") {
+		t.Fatalf("foreign cache label not refused, got: %v", err)
+	}
+}
+
 func TestSetpgidDenialExplained(t *testing.T) {
 	chdirRepoRoot(t)
 	real := execRunner
 	execRunner = func(name string, args ...string) (string, error) {
 		switch name {
 		case "stat":
+			if len(args) > 0 && args[len(args)-1] == workerGoCache {
+				return "system_u:object_r:soda_build_cache_t:s0", nil
+			}
 			return "system_u:object_r:lib_t:s0\n", nil
 		case "/usr/bin/git":
 			return "/run/soda-build-source\n", nil

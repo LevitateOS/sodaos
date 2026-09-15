@@ -29,8 +29,8 @@ const (
 	workerRuntime = "/run/soda-build-worker"
 	workerTools   = "/run/soda-build-tools"
 	// pinnedGoRoot is the fixed host GOROOT provisioned by
-	// setup-soda-candidate.sh. Go 1.26 refuses a toolchain reached
-	// through a bind mount, so it cannot live under workerTools.
+	// setup-soda-candidate.sh. It carries lib_t there so the worker
+	// domain can execute it, so it cannot live under workerTools.
 	pinnedGoRoot = "/usr/local/lib/soda/pinned-go"
 )
 

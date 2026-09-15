@@ -23,6 +23,14 @@ var hintCatalog = []struct {
 	fix       string
 }{
 	{
+		"could not import",
+		"Go cannot map its build cache under the worker domain; rerun bash scripts/setup-soda-candidate.sh from the repo root.",
+	},
+	{
+		"go failed",
+		"Go cannot run in the worker sandbox (often cache mapping); rerun bash scripts/setup-soda-candidate.sh from the repo root.",
+	},
+	{
 		"permission denied",
 		"A provisioned file, label, or directory blocks the worker; rerun bash scripts/setup-soda-candidate.sh from the repo root.",
 	},

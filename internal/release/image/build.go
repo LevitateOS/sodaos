@@ -170,7 +170,14 @@ func Build(ctx context.Context, r Request, progress *build.BuildProgress) (Resul
 		return func() error { return errors.Join(f.Close(), events.Close()) }, nil
 	})
 	if err != nil {
-		progress.NoteReason(ring.reason())
+		// Tool failures on stdout (go test) never reach the recall ring,
+		// which only sees stderr. Fall back to the failing command's own
+		// error line so the wrapper hint still names the broken tool.
+		if reason := ring.reason(); reason != "" {
+			progress.NoteReason(reason)
+		} else if line, _, _ := strings.Cut(strings.TrimSpace(err.Error()), "\n"); line != "" {
+			progress.NoteReason(line)
+		}
 	}
 	return res, err
 }

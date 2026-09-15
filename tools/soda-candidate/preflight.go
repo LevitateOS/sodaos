@@ -108,18 +108,32 @@ func controllerGoVersion(path string) (string, error) {
 // setup-soda-candidate.sh; mirrors tools/soda-build pinnedGoRoot.
 const pinnedGoRoot = "/usr/local/lib/soda/pinned-go"
 
-// toolsGoContext reports the SELinux type of the provisioned Go so a
-// mislabeled toolchain is caught here instead of dying at dispatch.
-func toolsGoContext() (string, error) {
-	out, err := execRunner("stat", "-c", "%C", filepath.Join(pinnedGoRoot, "bin", "go"))
+// workerGoCache is the setup-labeled Go build cache the worker maps;
+// mirrors the BUILD_HOME/go-build directory in setup-soda-candidate.sh.
+const workerGoCache = "/var/lib/soda-candidate-home/go-build"
+
+// selinuxType reports the SELinux type of one path so a mislabeled
+// provisioned file is caught here instead of dying at dispatch.
+func selinuxType(path string) (string, error) {
+	out, err := execRunner("stat", "-c", "%C", path)
 	if err != nil {
-		return "", fmt.Errorf("cannot inspect provisioned Go: %w", err)
+		return "", err
 	}
 	parts := strings.Split(strings.TrimSpace(out), ":")
 	if len(parts) != 4 {
 		return "", fmt.Errorf("unexpected SELinux context %q", strings.TrimSpace(out))
 	}
 	return parts[2], nil
+}
+
+// toolsGoContext reports the SELinux type of the provisioned Go so a
+// mislabeled toolchain is caught here instead of dying at dispatch.
+func toolsGoContext() (string, error) {
+	label, err := selinuxType(filepath.Join(pinnedGoRoot, "bin", "go"))
+	if err != nil {
+		return "", fmt.Errorf("cannot inspect provisioned Go: %w", err)
+	}
+	return label, nil
 }
 
 // probeWorkerSetpgid forks inside the worker sandbox and takes ownership of
@@ -169,6 +183,12 @@ func checkWorkerEnvironment(o options, wp workerPaths) error {
 	}
 	if label != "lib_t" {
 		return fmt.Errorf("provisioned Go carries label %q, want lib_t; rerun bash scripts/setup-soda-candidate.sh from the repo root", label)
+	}
+	if label, err = selinuxType(workerGoCache); err != nil {
+		return fmt.Errorf("cannot inspect worker Go cache: %w", err)
+	}
+	if label != "soda_build_cache_t" {
+		return fmt.Errorf("worker Go cache carries label %q, want soda_build_cache_t; rerun bash scripts/setup-soda-candidate.sh from the repo root", label)
 	}
 	out, err := execRunner("/usr/bin/git", "config", "--system", "--get-all", "safe.directory")
 	if err != nil || !strings.Contains(out, "/run/soda-build-source") {
