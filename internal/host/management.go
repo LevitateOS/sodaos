@@ -199,9 +199,48 @@ func (d *Daemon) lifecycle(ctx context.Context, in Lifecycle) (LifecycleState, e
 	return result, verifyLifecycleOutcome(in.Action, result)
 }
 
+func validAccessKeysRequest(in AccessKeys) bool {
+	if !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 {
+		return false
+	}
+	if in.Apply {
+		return keyRevision.MatchString(in.Revision)
+	}
+	return in.Revision == "" && len(in.Keys) == 0
+}
+
+func (d *Daemon) previewAccessKeys(ctx context.Context, in AccessKeys) error {
+	if !in.Apply {
+		return nil
+	}
+	preview := in
+	preview.Apply = false
+	preview.Keys = nil
+	preview.Revision = ""
+	observed, e := d.accessKeys(ctx, preview)
+	if e != nil || observed.Revision != in.Revision {
+		return errors.New("native keys changed or are not managed canonical keys")
+	}
+	return nil
+}
+
+func decodeAccessKeyState(data []byte) (AccessKeyState, error) {
+	var out AccessKeyState
+	if len(data) > 65536 {
+		return out, errors.New("native key operation not confirmed")
+	}
+	if json.Unmarshal(data, &out) != nil || !keyRevision.MatchString(out.Revision) || out.Keys == nil {
+		return out, errors.New("invalid native key observation")
+	}
+	if _, err := canonicalKeys(out.Keys); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
 func (d *Daemon) accessKeys(ctx context.Context, in AccessKeys) (AccessKeyState, error) {
 	var out AccessKeyState
-	if !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 || (in.Apply && !keyRevision.MatchString(in.Revision)) || (!in.Apply && (in.Revision != "" || len(in.Keys) != 0)) {
+	if !validAccessKeysRequest(in) {
 		return out, errors.New("invalid own-account key operation")
 	}
 	keys, err := canonicalKeys(in.Keys)
@@ -212,28 +251,19 @@ func (d *Daemon) accessKeys(ctx context.Context, in AccessKeys) (AccessKeyState,
 	if err != nil {
 		return out, err
 	}
+	if err = d.previewAccessKeys(ctx, in); err != nil {
+		return out, err
+	}
 	// Load the existing fixed identity validator as an in-memory Python module.
 	// No project file installation/import search, new image or duplicated validator.
 	program := "import sys,types\nm=types.ModuleType('project_terminal')\nexec(" + strconv.Quote(projectTerminal) + ",m.__dict__)\nsys.modules['project_terminal']=m\n" + projectKeys
-	if in.Apply {
-		preview := in
-		preview.Apply = false
-		preview.Keys = nil
-		preview.Revision = ""
-		observed, e := d.accessKeys(ctx, preview)
-		if e != nil || observed.Revision != in.Revision {
-			return out, errors.New("native keys changed or are not managed canonical keys")
-		}
-	}
 	body, _ := json.Marshal(map[string]any{"login": in.Login, "identity": in.Identity, "apply": in.Apply, "revision": in.Revision, "keys": keys})
 	data, err := d.podman(ctx, body, "--remote=false", "exec", "--interactive", cid, "/usr/bin/python3", "-I", "-c", program)
-	if err != nil || len(data) > 65536 {
+	if err != nil {
 		return out, errors.New("native key operation not confirmed")
 	}
-	if json.Unmarshal(data, &out) != nil || !keyRevision.MatchString(out.Revision) || out.Keys == nil {
-		return out, errors.New("invalid native key observation")
-	}
-	if _, err = canonicalKeys(out.Keys); err != nil {
+	out, err = decodeAccessKeyState(data)
+	if err != nil {
 		return out, err
 	}
 	if in.Apply && strings.Join(out.Keys, "\n") != strings.Join(keys, "\n") {
