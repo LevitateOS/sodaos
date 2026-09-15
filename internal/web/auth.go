@@ -195,16 +195,16 @@ func validCallbackState(state string, c *http.Cookie) bool {
 
 func validateCallbackRequest(r *http.Request) (url.Values, string, error) {
 	if len(r.URL.RawQuery) > 8192 {
-		return nil, "", errors.New("Invalid sign-in response.")
+		return nil, "", errors.New("invalid sign-in response")
 	}
 	query, queryErr := url.ParseQuery(r.URL.RawQuery)
 	c, err := requestCookie(r, oauthCookie)
 	state := query.Get("state")
 	if queryErr != nil || len(query["state"]) != 1 || len(query["code"]) > 1 || len(query.Get("code")) > 4096 {
-		return nil, "", errors.New("Invalid sign-in state; sign in again.")
+		return nil, "", errors.New("invalid sign-in state; sign in again")
 	}
 	if err != nil || !validCallbackState(state, c) {
-		return nil, "", errors.New("Invalid sign-in state; sign in again.")
+		return nil, "", errors.New("invalid sign-in state; sign in again")
 	}
 	return query, state, nil
 }
@@ -212,7 +212,7 @@ func validateCallbackRequest(r *http.Request) (url.Values, string, error) {
 func (s *Server) consumeOAuthState(r *http.Request, state string) (store.OAuthAttempt, error) {
 	old, oldErr := requestCookie(r, sessionCookie)
 	if oldErr != nil && !errors.Is(oldErr, http.ErrNoCookie) {
-		return store.OAuthAttempt{}, errors.New("Ambiguous Soda session; sign in again.")
+		return store.OAuthAttempt{}, errors.New("ambiguous Soda session; sign in again")
 	}
 	var oldSession string
 	if oldErr == nil {
@@ -225,7 +225,7 @@ func (s *Server) consumeOAuthState(r *http.Request, state string) (store.OAuthAt
 	}
 	s.terminalMu.Unlock()
 	if err != nil {
-		return store.OAuthAttempt{}, errors.New("Sign-in expired or was already used.")
+		return store.OAuthAttempt{}, errors.New("sign-in expired or was already used")
 	}
 	return login, nil
 }

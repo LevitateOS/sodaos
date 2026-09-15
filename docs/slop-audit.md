@@ -91,7 +91,8 @@ Methodology reference lives outside this repo
 
 Hook checks, in order: `git diff --check`, credential shapes, `gofmt -l`,
 complexity below 10 on staged production Go, gofumpt, staticcheck
-(GOOS=linux), `go vet`. Whole-repo scripts below are red-but-ratcheting: the
+(GOOS=linux), `go vet` (GOOS=linux, matching staticcheck so Darwin
+checkouts can analyze linux-only installer types). Whole-repo scripts below are red-but-ratcheting: the
 hook blocks new violations in staged files; legacy backlogs do not block
 unrelated commits. Mechanical-only commits that restage legacy-violating files
 (e.g. the gofumpt reformat) go through with `--no-verify` and a note.
@@ -99,8 +100,8 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
 - [x] Complexity: `scripts/check-complexity.sh` via pinned `go tool gocyclo`
   (v0.6.0). Whole-repo production Go is strictly below 10 (`gocyclo -over 9`
   empty) as of `6e20148`. Peak dropped from 125/86 through batches 1–6 and the
-  later package-grouped restructures. Darwin `go vet` still fails on linux-only
-  `commandRunner`; those commits used `--no-verify` after `GOOS=linux go test -c`.
+  later package-grouped restructures. Pre-commit `go vet` uses `GOOS=linux` so
+  Darwin checkouts no longer fail on linux-only `commandRunner`.
 - [x] gofumpt: `scripts/check-gofumpt.sh` via pinned `go tool gofumpt`
   (v0.9.1), zero tolerance. First measurement undercounted (24) through a
   `tee | head` SIGPIPE truncation; true backlog is ~185 files. 22 files

@@ -83,7 +83,7 @@ fi
 if [ -n "$gofiles" ]; then
   vetpkgs=$(printf '%s\n' "$gofiles" | xargs -n1 dirname | sort -u | sed 's|^|./|;s|$|/|' || true)
   # shellcheck disable=SC2086
-  if ! go vet -mod=readonly $vetpkgs; then
+  if ! GOOS=linux go vet -mod=readonly $vetpkgs; then
     printf 'pre-commit: go vet failed on staged packages.\n'
     fail=1
   fi

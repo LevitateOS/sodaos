@@ -259,6 +259,7 @@ func TestNativeConnectionFixture(t *testing.T) {
 		if err := os.WriteFile(keyPath, []byte(base64.StdEncoding.EncodeToString(key)), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		//lint:ignore SA1019 predecessor JSON still carries the unused admin-token path
 		cfg := config.Config{Listen: address, OperatorID: actor.ID, ForgejoURL: server.URL, ForgejoInternalURL: upstream.String(), OAuthClientID: app.ClientID, OAuthSecretFile: secretFile, GrantKeyFile: keyPath, Database: filepath.Join(dir, "predecessor.db"), HostSocket: filepath.Join(dir, "absent-native-helper.sock"), AdminTokenFile: filepath.Join(dir, "unused-admin-token")}
 		body, _ := json.Marshal(cfg)
 		configPath := filepath.Join(dir, "predecessor-config.json")
