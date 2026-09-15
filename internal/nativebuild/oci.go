@@ -34,26 +34,105 @@ type blob struct {
 	data []byte
 }
 
-func InspectOCI(file, arch, revision string) (Image, error) {
+func openOCIArchive(file, arch, revision string) (string, *os.File, error) {
 	want, err := OCIArchitecture(arch)
 	if err != nil {
-		return Image{}, err
+		return "", nil, err
 	}
 	if revision != "" && !Revision(revision) {
-		return Image{}, errors.New("full source revision required")
+		return "", nil, errors.New("full source revision required")
 	}
 	st, err := os.Lstat(file)
 	if err != nil {
-		return Image{}, err
+		return "", nil, err
 	}
 	if !st.Mode().IsRegular() {
-		return Image{}, errors.New("OCI archive must be regular")
+		return "", nil, errors.New("OCI archive must be regular")
 	}
 	f, err := os.Open(file)
 	if err != nil {
-		return Image{}, err
+		return "", nil, err
 	}
-	defer f.Close()
+	return want, f, nil
+}
+
+func checkTarEntryName(n string, typeflag byte) (bool, error) {
+	if n == "." && typeflag == tar.TypeDir {
+		return true, nil
+	}
+	if path.IsAbs(n) || n == ".." || strings.HasPrefix(n, "../") {
+		return false, errors.New("unsafe OCI path")
+	}
+	return false, nil
+}
+
+func checkTarDirectory(n string, typeflag byte) (bool, error) {
+	if typeflag != tar.TypeDir {
+		return false, nil
+	}
+	if n != "blobs" && n != "blobs/sha256" {
+		return false, errors.New("unexpected OCI directory")
+	}
+	return true, nil
+}
+
+func isValidOCIRegularEntry(n string) bool {
+	if n == "index.json" || n == "oci-layout" {
+		return true
+	}
+	return strings.HasPrefix(n, "blobs/sha256/") && Digest(strings.TrimPrefix(n, "blobs/sha256/"))
+}
+
+func recordTarEntry(seen map[string]bool, n string) error {
+	if seen[n] {
+		return errors.New("duplicate OCI entry")
+	}
+	seen[n] = true
+	if len(seen) > 100000 {
+		return errors.New("too many OCI entries")
+	}
+	return nil
+}
+
+func readArchiveBlobEntry(entries map[string]blob, n string, h *tar.Header, tr io.Reader, jsonBytes *int) error {
+	if h.Typeflag != tar.TypeReg {
+		return errors.New("non-regular OCI entry")
+	}
+	if _, ok := entries[n]; ok {
+		return errors.New("duplicate OCI entry")
+	}
+	if len(entries) > 100000 {
+		return errors.New("too many OCI entries")
+	}
+	if !isValidOCIRegularEntry(n) {
+		return errors.New("not an OCI archive")
+	}
+	return readOCIBlob(entries, n, h.Size, tr, jsonBytes)
+}
+
+func processArchiveTarHeader(h *tar.Header, tr io.Reader, entries map[string]blob, seen map[string]bool, jsonBytes *int) error {
+	n := path.Clean(h.Name)
+	skip, err := checkTarEntryName(n, h.Typeflag)
+	if err != nil {
+		return err
+	}
+	if skip {
+		return nil
+	}
+	if err := recordTarEntry(seen, n); err != nil {
+		return err
+	}
+	isDir, err := checkTarDirectory(n, h.Typeflag)
+	if err != nil {
+		return err
+	}
+	if isDir {
+		return nil
+	}
+	return readArchiveBlobEntry(entries, n, h, tr, jsonBytes)
+}
+
+func readOCIArchiveEntries(f io.Reader) (map[string]blob, error) {
 	tr := tar.NewReader(f)
 	entries := map[string]blob{}
 	seen := map[string]bool{}
@@ -64,44 +143,16 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 			break
 		}
 		if err != nil {
-			return Image{}, err
+			return nil, err
 		}
-		n := path.Clean(h.Name)
-		if n == "." && h.Typeflag == tar.TypeDir {
-			continue
-		}
-		if path.IsAbs(n) || n == ".." || strings.HasPrefix(n, "../") {
-			return Image{}, errors.New("unsafe OCI path")
-		}
-		if seen[n] {
-			return Image{}, errors.New("duplicate OCI entry")
-		}
-		seen[n] = true
-		if len(seen) > 100000 {
-			return Image{}, errors.New("too many OCI entries")
-		}
-		if h.Typeflag == tar.TypeDir {
-			if n != "blobs" && n != "blobs/sha256" {
-				return Image{}, errors.New("unexpected OCI directory")
-			}
-			continue
-		}
-		if h.Typeflag != tar.TypeReg {
-			return Image{}, errors.New("non-regular OCI entry")
-		}
-		if _, ok := entries[n]; ok {
-			return Image{}, errors.New("duplicate OCI entry")
-		}
-		if len(entries) > 100000 {
-			return Image{}, errors.New("too many OCI entries")
-		}
-		if n != "index.json" && n != "oci-layout" && !(strings.HasPrefix(n, "blobs/sha256/") && Digest(strings.TrimPrefix(n, "blobs/sha256/"))) {
-			return Image{}, errors.New("not an OCI archive")
-		}
-		if err := readOCIBlob(entries, n, h.Size, tr, &jsonBytes); err != nil {
-			return Image{}, err
+		if err := processArchiveTarHeader(h, tr, entries, seen, &jsonBytes); err != nil {
+			return nil, err
 		}
 	}
+	return entries, nil
+}
+
+func inspectArchiveIndex(entries map[string]blob, want, revision string) (Image, error) {
 	index, err := readOCIIndex(entries)
 	if err != nil {
 		return Image{}, err
@@ -110,6 +161,20 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 		return Image{}, errors.New("single-platform OCI index required")
 	}
 	return inspectOCIImage(entries, index[0], want, revision, nil)
+}
+
+func InspectOCI(file, arch, revision string) (Image, error) {
+	want, f, err := openOCIArchive(file, arch, revision)
+	if err != nil {
+		return Image{}, err
+	}
+	defer f.Close()
+
+	entries, err := readOCIArchiveEntries(f)
+	if err != nil {
+		return Image{}, err
+	}
+	return inspectArchiveIndex(entries, want, revision)
 }
 
 func readOCIBlob(entries map[string]blob, name string, length int64, r io.Reader, jsonBytes *int) error {
