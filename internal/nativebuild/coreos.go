@@ -18,17 +18,20 @@ import (
 	"time"
 )
 
-type CoreOSImage struct{ URL, SignatureURL, SHA256, UncompressedSHA256 string }
-type CoreOSLock struct {
-	MetadataURL, Release string
-	Architectures        map[string]CoreOSImage
-}
+type (
+	CoreOSImage struct{ URL, SignatureURL, SHA256, UncompressedSHA256 string }
+	CoreOSLock  struct {
+		MetadataURL, Release string
+		Architectures        map[string]CoreOSImage
+	}
+)
 type VerifiedBase struct{ Path, SHA256, Architecture, Release, Signer string }
 
 func httpsURL(raw string) bool {
 	u, err := url.Parse(raw)
 	return err == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && !strings.Contains(raw, "#")
 }
+
 func ReadCoreOS(lock, arch string) (CoreOSLock, CoreOSImage, error) {
 	var l CoreOSLock
 	if _, err := OCIArchitecture(arch); err != nil {
@@ -46,51 +49,41 @@ func ReadCoreOS(lock, arch string) (CoreOSLock, CoreOSImage, error) {
 
 // FetchCoreOS uses an explicitly supplied trusted keyring and signer. It does
 // not download/import trust roots or permit an unsigned-image fallback.
-func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (VerifiedBase, error) {
-	var result VerifiedBase
+func admitCoreOSFetch(arch, signer, keyring string) error {
 	if err := RequireNative(arch); err != nil {
-		return result, err
-	}
-	l, img, err := ReadCoreOS(lock, arch)
-	if err != nil {
-		return result, err
+		return err
 	}
 	if !regexp.MustCompile(`^(?:[A-Fa-f0-9]{40}|[A-Fa-f0-9]{64})$`).MatchString(signer) {
-		return result, errors.New("full trusted signer fingerprint required")
+		return errors.New("full trusted signer fingerprint required")
 	}
-	if _, err = HashFile(keyring); err != nil {
-		return result, err
-	}
-	keyring, err = filepath.Abs(keyring)
-	if err != nil {
-		return result, err
+	if _, err := HashFile(keyring); err != nil {
+		return err
 	}
 	for _, name := range []string{"gpgv", "xz"} {
-		if _, err = exec.LookPath(name); err != nil {
-			return result, err
+		if _, err := exec.LookPath(name); err != nil {
+			return err
 		}
 	}
-	if err = FreshDirectory(out); err != nil {
-		return result, err
-	}
-	archive := filepath.Join(out, "coreos.qcow2.xz")
-	sig := archive + ".sig"
-	if err = download(ctx, img.URL, archive, 8<<30); err != nil {
-		return result, err
+	return nil
+}
+
+func downloadVerifiedArchive(ctx context.Context, img CoreOSImage, archive, sig, keyring, signer, out string) error {
+	if err := download(ctx, img.URL, archive, 8<<30); err != nil {
+		return err
 	}
 	if sum, e := HashFile(archive); e != nil || sum != img.SHA256 {
-		return result, errors.Join(e, errors.New("compressed CoreOS checksum mismatch"))
+		return errors.Join(e, errors.New("compressed CoreOS checksum mismatch"))
 	}
-	if err = download(ctx, img.SignatureURL, sig, 1<<20); err != nil {
-		return result, err
+	if err := download(ctx, img.SignatureURL, sig, 1<<20); err != nil {
+		return err
 	}
-	if err = verifyCoreOSSignature(ctx, archive, sig, keyring, signer, out); err != nil {
-		return result, err
-	}
-	dest := filepath.Join(out, "coreos.qcow2")
-	f, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	return verifyCoreOSSignature(ctx, archive, sig, keyring, signer, out)
+}
+
+func decompressCoreOS(ctx context.Context, archive, dest, uncompressed string) error {
+	f, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
-		return result, err
+		return err
 	}
 	hash := sha256.New()
 	decompressCtx, decompressCancel := context.WithTimeout(ctx, 30*time.Minute)
@@ -100,12 +93,37 @@ func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (
 	cmd.WaitDelay = 2 * time.Second
 	err = errors.Join(cmd.Run(), f.Close())
 	if err != nil {
-		return result, errors.New("CoreOS decompression failed")
+		return errors.New("CoreOS decompression failed")
 	}
-	if hex.EncodeToString(hash.Sum(nil)) != img.UncompressedSHA256 {
-		return result, errors.New("uncompressed CoreOS checksum mismatch")
+	if hex.EncodeToString(hash.Sum(nil)) != uncompressed {
+		return errors.New("uncompressed CoreOS checksum mismatch")
 	}
-	if err = os.Chmod(dest, 0444); err != nil {
+	return os.Chmod(dest, 0o444)
+}
+
+func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (VerifiedBase, error) {
+	var result VerifiedBase
+	if err := admitCoreOSFetch(arch, signer, keyring); err != nil {
+		return result, err
+	}
+	l, img, err := ReadCoreOS(lock, arch)
+	if err != nil {
+		return result, err
+	}
+	keyring, err = filepath.Abs(keyring)
+	if err != nil {
+		return result, err
+	}
+	if err = FreshDirectory(out); err != nil {
+		return result, err
+	}
+	archive := filepath.Join(out, "coreos.qcow2.xz")
+	sig := archive + ".sig"
+	if err = downloadVerifiedArchive(ctx, img, archive, sig, keyring, signer, out); err != nil {
+		return result, err
+	}
+	dest := filepath.Join(out, "coreos.qcow2")
+	if err = decompressCoreOS(ctx, archive, dest, img.UncompressedSHA256); err != nil {
 		return result, err
 	}
 	result = VerifiedBase{dest, img.UncompressedSHA256, arch, l.Release, strings.ToUpper(signer)}
@@ -113,12 +131,13 @@ func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (
 	if err != nil {
 		return result, err
 	}
-	err = WriteNew(filepath.Join(out, "verified-base.json"), append(data, '\n'), 0600)
+	err = WriteNew(filepath.Join(out, "verified-base.json"), append(data, '\n'), 0o600)
 	return result, err
 }
+
 func verifyCoreOSSignature(ctx context.Context, image, sig, keyring, signer, out string) error {
 	home := filepath.Join(out, "gnupg")
-	if err := os.Mkdir(home, 0700); err != nil {
+	if err := os.Mkdir(home, 0o700); err != nil {
 		return err
 	}
 	phase, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -167,6 +186,7 @@ func (w *limitWriter) Write(p []byte) (int, error) {
 	w.remaining -= int64(n)
 	return n, err
 }
+
 func coreOSClient(transport http.RoundTripper) *http.Client {
 	return &http.Client{Transport: transport, Timeout: 30 * time.Minute, CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) > 5 || !httpsURL(req.URL.String()) {
@@ -196,7 +216,7 @@ func downloadHTTP(ctx context.Context, client *http.Client, source, dest string,
 	if resp.StatusCode != 200 {
 		return errors.New("CoreOS download HTTP failure")
 	}
-	f, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
