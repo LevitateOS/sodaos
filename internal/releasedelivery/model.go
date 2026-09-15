@@ -251,22 +251,37 @@ func EmptyState() Highwater {
 	return Highwater{Format: 1, Channels: map[string]Seen{}, Serials: map[string]uint64{}, Releases: map[string]string{}}
 }
 
-func (s Highwater) Validate() error {
-	if s.Format != 1 || s.Channels == nil || s.Serials == nil || s.Releases == nil || len(s.Channels) > 3 || len(s.Serials) > 2 || len(s.Releases) != len(s.Serials) || s.CheckedAt < 0 {
-		return ErrRefused
-	}
+func validHighwaterMaps(s Highwater) bool {
+	return s.Channels != nil && s.Serials != nil && s.Releases != nil && len(s.Channels) <= 3 && len(s.Serials) <= 2 && len(s.Releases) == len(s.Serials)
+}
+
+func validHighwaterChannels(s Highwater) bool {
 	for c, v := range s.Channels {
 		if !channel(c) || v.Sequence == 0 || !Digest(v.Digest) || v.Issued <= 0 {
-			return ErrRefused
+			return false
 		}
 	}
+	return true
+}
+
+func validHighwaterSerials(s Highwater) bool {
 	for a, n := range s.Serials {
 		if _, e := nativebuild.OCIArchitecture(a); e != nil || n == 0 {
-			return ErrRefused
+			return false
 		}
 		if !Digest(s.Releases[a]) {
-			return ErrRefused
+			return false
 		}
+	}
+	return true
+}
+
+func (s Highwater) Validate() error {
+	if s.Format != 1 || !validHighwaterMaps(s) || s.CheckedAt < 0 {
+		return ErrRefused
+	}
+	if !validHighwaterChannels(s) || !validHighwaterSerials(s) {
+		return ErrRefused
 	}
 	return nil
 }
