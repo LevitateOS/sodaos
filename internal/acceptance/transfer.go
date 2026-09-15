@@ -12,21 +12,21 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 // Only a verified allowlisted bundle is streamed, never a checkout/.artifacts
 // tree. The remote creates an exclusive private directory before extraction.
 // This delivers bytes; it does not invoke the installer or activate services.
 func (r Remote) TransferBundle(ctx context.Context, e *Evidence, source, dest, arch, revision, target string) (Result, error) {
-	inv, err := nativebuild.Verify(source, arch, revision)
+	inv, err := build.Verify(source, arch, revision)
 	if err != nil {
 		return Result{Err: err}, nil
 	}
 	if !filepath.IsAbs(dest) || filepath.Base(dest) != arch || strings.ContainsAny(dest, "\r\n") {
 		return Result{Err: errors.New("absolute new remote ARCH directory required")}, nil
 	}
-	manifestHash, err := nativebuild.HashFile(filepath.Join(source, "build-info.json"))
+	manifestHash, err := build.HashFile(filepath.Join(source, "build-info.json"))
 	if err != nil {
 		return Result{Err: err}, nil
 	}
@@ -70,7 +70,7 @@ func admitBundleLink(root *os.Root, name, target string) error {
 	return nil
 }
 
-func admitBundleEntry(root *os.Root, name string, st os.FileInfo, inv nativebuild.Inventory) (string, error) {
+func admitBundleEntry(root *os.Root, name string, st os.FileInfo, inv build.Inventory) (string, error) {
 	entry, ok := inv.Files[name]
 	if !ok {
 		if !st.Mode().IsRegular() {
@@ -90,7 +90,7 @@ func admitBundleEntry(root *os.Root, name string, st os.FileInfo, inv nativebuil
 	return entry.Link, nil
 }
 
-func copyBundleRegular(tw *tar.Writer, root *os.Root, name string, inv nativebuild.Inventory) error {
+func copyBundleRegular(tw *tar.Writer, root *os.Root, name string, inv build.Inventory) error {
 	f, err := root.Open(name)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func copyBundleRegular(tw *tar.Writer, root *os.Root, name string, inv nativebui
 	return errors.Join(err, f.Close())
 }
 
-func streamBundleEntry(tw *tar.Writer, root *os.Root, name string, inv nativebuild.Inventory) error {
+func streamBundleEntry(tw *tar.Writer, root *os.Root, name string, inv build.Inventory) error {
 	st, err := root.Lstat(name)
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func streamBundleEntry(tw *tar.Writer, root *os.Root, name string, inv nativebui
 	return nil
 }
 
-func streamBundle(w io.Writer, source string, inv nativebuild.Inventory) error {
+func streamBundle(w io.Writer, source string, inv build.Inventory) error {
 	tw := tar.NewWriter(w)
 	root, err := os.OpenRoot(source)
 	if err != nil {

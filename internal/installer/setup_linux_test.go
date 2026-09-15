@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/platform"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -106,7 +106,7 @@ func TestPrivateSetupKeepsCredentialOutOfCommandsAndTranscript(t *testing.T) {
 					return nil, nil
 				}
 				mutations++
-				if name == installlayout.Sbin+"/soda-setup" {
+				if name == platform.Sbin+"/soda-setup" {
 					if len(args) != 6 || args[0] != "--forgejo-url" || args[1] != "https://192.168.1.5" || args[2] != "--token-file" || args[4] != "--out" {
 						t.Errorf("unexpected setup arguments: %v", args)
 						return nil, io.ErrUnexpectedEOF
@@ -119,7 +119,7 @@ func TestPrivateSetupKeepsCredentialOutOfCommandsAndTranscript(t *testing.T) {
 					config, _ := json.Marshal(map[string]string{"forgejo_url": args[1]})
 					return nil, os.WriteFile(args[5], config, 0600)
 				}
-				if name != installlayout.Sbin+"/soda-activate" || strings.Join(args, " ") != "--bind-ip 192.168.1.5 --local-tls" {
+				if name != platform.Sbin+"/soda-activate" || strings.Join(args, " ") != "--bind-ip 192.168.1.5 --local-tls" {
 					t.Errorf("unexpected activation: %s %v", name, args)
 				}
 				return nil, os.WriteFile(filepath.Join(root, "proxy.env"), []byte("SODA_TLS=internal\n"), 0600)

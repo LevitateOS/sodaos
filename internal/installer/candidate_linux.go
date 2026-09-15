@@ -7,18 +7,18 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/appliancerelease"
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
+	"github.com/levitateos/sodaos/internal/release/deliver"
 )
 
 const candidateInstallerBinary = "/usr/libexec/soda/soda-install"
 
 func (m mediaIdentity) validFormat0() bool {
-	return nativebuild.Digest(m.BundleSHA256) && m.HostManifest == "" && m.PayloadSHA256 == "" && m.ConsoleSHA256 == ""
+	return build.Digest(m.BundleSHA256) && m.HostManifest == "" && m.PayloadSHA256 == "" && m.ConsoleSHA256 == ""
 }
 
 func (m mediaIdentity) validFormat2() bool {
-	return m.BundleSHA256 == "" && strings.HasPrefix(m.HostManifest, "sha256:") && nativebuild.Digest(strings.TrimPrefix(m.HostManifest, "sha256:")) && nativebuild.Digest(m.PayloadSHA256) && nativebuild.Digest(m.ConsoleSHA256)
+	return m.BundleSHA256 == "" && strings.HasPrefix(m.HostManifest, "sha256:") && build.Digest(strings.TrimPrefix(m.HostManifest, "sha256:")) && build.Digest(m.PayloadSHA256) && build.Digest(m.ConsoleSHA256)
 }
 
 func (m mediaIdentity) validContent() bool {
@@ -43,17 +43,17 @@ func candidateIdentityMatches(m mediaIdentity) error {
 }
 
 func candidateFileMatches(path, want, mismatch string) error {
-	hash, err := nativebuild.HashFile(path)
+	hash, err := build.HashFile(path)
 	if err != nil || hash != want {
 		return errors.New(mismatch)
 	}
 	return nil
 }
 
-func candidateReleaseMatches(m mediaIdentity, payload string) (appliancerelease.Payload, error) {
-	p, err := appliancerelease.Load(payload)
+func candidateReleaseMatches(m mediaIdentity, payload string) (deliver.Payload, error) {
+	p, err := deliver.Load(payload)
 	if err != nil || p.Revision != m.Revision || p.Architecture != m.Architecture || p.CoreOS != m.Release {
-		return appliancerelease.Payload{}, errors.New("live candidate release mismatch")
+		return deliver.Payload{}, errors.New("live candidate release mismatch")
 	}
 	return p, nil
 }
@@ -65,7 +65,7 @@ func candidateRequirement(m mediaIdentity, root string) (uint64, error) {
 	if err := candidateFileMatches(filepath.Join(root, candidateInstallerBinary), m.ConsoleSHA256, "candidate installer differs from prebuilt tool"); err != nil {
 		return 0, err
 	}
-	payload := filepath.Join(root, appliancerelease.Path)
+	payload := filepath.Join(root, deliver.Path)
 	if err := candidateFileMatches(payload, m.PayloadSHA256, "live candidate payload differs from authenticated media"); err != nil {
 		return 0, err
 	}
@@ -73,7 +73,7 @@ func candidateRequirement(m mediaIdentity, root string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	_, total, err := appliancerelease.VerifyContent(p, filepath.Join(root, appliancerelease.ImagesPath))
+	_, total, err := deliver.VerifyContent(p, filepath.Join(root, deliver.ImagesPath))
 	return total, err
 }
 

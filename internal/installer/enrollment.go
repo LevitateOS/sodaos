@@ -3,7 +3,7 @@ package installer
 import (
 	"errors"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/platform"
 	"io"
 	"net/netip"
 	"strings"
@@ -15,7 +15,7 @@ const enrollmentSocketUnit = "soda-key-enrollment.socket"
 const enrollmentTemplateUnit = "soda-key-enrollment@.service"
 const enrollmentUnitDirectory = "/run/systemd/system"
 const enrollmentPort = "22222"
-const enrollmentBinary = installlayout.Libexec + "/soda-install"
+const enrollmentBinary = platform.Libexec + "/soda-install"
 const enrollmentSocket = enrollmentDir + "/receive.sock"
 const enrollmentConfigPath = enrollmentDir + "/sshd_config"
 const enrollmentKeyLimit = 16384

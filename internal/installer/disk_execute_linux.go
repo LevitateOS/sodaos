@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 func installDisk(ctx context.Context, c console) error {
@@ -132,7 +132,7 @@ func printDiskComplete(c console, media mediaIdentity) {
 
 func collectDiskAttempt(ctx context.Context, c console) (mediaIdentity, diskInstallChoices, uint64, error) {
 	var media mediaIdentity
-	if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
+	if err := build.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
 		return media, diskInstallChoices{}, 0, errors.New("missing media identity")
 	}
 	payloadBytes, err := payloadRequirement(media)
@@ -149,7 +149,7 @@ func writeAttemptIgnition(destination []byte) (string, error) {
 		return "", err
 	}
 	ignition := filepath.Join(work, "destination.ign")
-	if err := nativebuild.WriteNew(ignition, destination, 0o600); err != nil {
+	if err := build.WriteNew(ignition, destination, 0o600); err != nil {
 		return "", err
 	}
 	return ignition, nil
@@ -212,7 +212,7 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 
 func executeAttemptDisk(ctx context.Context, disk Disk, ignition, marker string) error {
 	return executeDisk(ctx, disk, ignition, func() ([]Disk, error) { return scanDisks(ctx, command) }, func() error {
-		return nativebuild.WriteNew(marker, []byte(disk.Device.Name+"\n"), 0o600)
+		return build.WriteNew(marker, []byte(disk.Device.Name+"\n"), 0o600)
 	}, command)
 }
 

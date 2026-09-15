@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 func TestStreamBundleVerifiesChangingBytesAndLinks(t *testing.T) {
@@ -28,11 +28,11 @@ func TestStreamBundleVerifiesChangingBytesAndLinks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			hash, err := nativebuild.HashFile(path)
+			hash, err := build.HashFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			inv := nativebuild.Inventory{Files: map[string]nativebuild.File{"inputs/go.mod": {SHA256: hash, Mode: uint32(st.Mode().Perm())}}}
+			inv := build.Inventory{Files: map[string]build.File{"inputs/go.mod": {SHA256: hash, Mode: uint32(st.Mode().Perm())}}}
 			if mode == "changed" {
 				if err := os.WriteFile(path, []byte("changed bytes"), st.Mode().Perm()); err != nil {
 					t.Fatal(err)

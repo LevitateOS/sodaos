@@ -12,8 +12,8 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/acceptance"
-	"github.com/levitateos/sodaos/internal/hostimage"
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
+	"github.com/levitateos/sodaos/internal/release/image"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )
@@ -21,7 +21,7 @@ import (
 func TestDevelopmentWorkerInputsAndCompletion(t *testing.T) {
 	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
 	for _, target := range []string{"candidate", "media", ""} {
-		r := hostimage.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: target != "", Target: target}
+		r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: target != "", Target: target}
 		if r.WantsMedia() {
 			r.RootfsBaseURL = "https://example.invalid"
 		}
@@ -38,7 +38,7 @@ func TestDevelopmentWorkerInputsAndCompletion(t *testing.T) {
 		}
 		if target == "" {
 			require.NotContains(t, w.Arguments, "--development")
-			require.Equal(t, 2, nativebuild.BuildExitCode(incomplete{}))
+			require.Equal(t, 2, build.BuildExitCode(incomplete{}))
 		} else {
 			require.Contains(t, w.Arguments, "--development")
 			require.Contains(t, w.Arguments, target)
@@ -48,7 +48,7 @@ func TestDevelopmentWorkerInputsAndCompletion(t *testing.T) {
 
 func TestFastMediaWorkerSelection(t *testing.T) {
 	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
-	r := hostimage.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "media", MediaCompression: "fast", RootfsBaseURL: "https://example.invalid"}
+	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "media", MediaCompression: "fast", RootfsBaseURL: "https://example.invalid"}
 	w, err := buildWorker(c, r)
 	require.NoError(t, err)
 	require.Contains(t, strings.Join(w.Arguments, " "), "--media-compression fast")
@@ -64,10 +64,10 @@ func TestWorkerResultBindsTargetAndCandidate(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(out, "artifacts"), 0o700))
 	candidate := filepath.Join(out, "artifacts/candidate.json")
 	require.NoError(t, os.WriteFile(candidate, []byte("fixture"), 0o600))
-	hash, err := nativebuild.HashFile(candidate)
+	hash, err := build.HashFile(candidate)
 	require.NoError(t, err)
-	r := hostimage.Request{Source: source, Out: out, Revision: strings.Repeat("a", 40), Arch: "x86_64", Development: true, Target: "candidate"}
-	original := hostimage.Result{Revision: r.Revision, Architecture: r.Arch, Candidate: workerSource + "/.artifacts/releases/isolated/test/artifacts/candidate.json", CandidateSHA256: hash, Purpose: "development", RequestedTarget: "candidate", CompletedTarget: "candidate"}
+	r := image.Request{Source: source, Out: out, Revision: strings.Repeat("a", 40), Arch: "x86_64", Development: true, Target: "candidate"}
+	original := image.Result{Revision: r.Revision, Architecture: r.Arch, Candidate: workerSource + "/.artifacts/releases/isolated/test/artifacts/candidate.json", CandidateSHA256: hash, Purpose: "development", RequestedTarget: "candidate", CompletedTarget: "candidate"}
 	for _, mode := range []string{"valid", "media", "purpose", "requested", "completed", "hash", "compression"} {
 		result := original
 		switch mode {

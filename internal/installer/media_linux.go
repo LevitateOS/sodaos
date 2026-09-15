@@ -8,7 +8,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/appliancerelease"
+	"github.com/levitateos/sodaos/internal/release/deliver"
 )
 
 // CandidateLiveConfig is a media-only leaf. Its protected caller authenticates
@@ -16,7 +16,7 @@ import (
 // is in the same native, stream-verified rootfs: no separate executable download,
 // compilation, disk selection, private input or reboot is performed here.
 func CandidateLiveConfig(payload, destination []byte, manifest, consoleSHA256 string) ([]byte, error) {
-	var p appliancerelease.Payload
+	var p deliver.Payload
 	if json.Unmarshal(payload, &p) != nil || p.Validate() != nil {
 		return nil, errors.New("complete ordinary-Podman candidate required")
 	}
@@ -37,7 +37,7 @@ func CandidateLiveConfig(payload, destination []byte, manifest, consoleSHA256 st
 		return nil, err
 	}
 	inline := func(path string, contents []byte) map[string]any {
-		return map[string]any{"path": path, "mode": 0644, "contents": map[string]string{"source": "data:;base64," + base64.StdEncoding.EncodeToString(contents)}}
+		return map[string]any{"path": path, "mode": 0o644, "contents": map[string]string{"source": "data:;base64," + base64.StdEncoding.EncodeToString(contents)}}
 	}
 	// Ignition writes the native physical /var path, not through /usr/local.
 	const liveData = "/var/usrlocal/share/soda-installer"

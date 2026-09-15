@@ -14,11 +14,10 @@ import (
 	"runtime/debug"
 	"syscall"
 
-	"github.com/levitateos/sodaos/internal/hostimage"
-	"github.com/levitateos/sodaos/internal/nativebuild"
-	"github.com/levitateos/sodaos/internal/nativefinalization"
-	"github.com/levitateos/sodaos/internal/nativequalification"
-	rd "github.com/levitateos/sodaos/internal/releasedelivery"
+	"github.com/levitateos/sodaos/internal/release/build"
+	"github.com/levitateos/sodaos/internal/release/deliver"
+	"github.com/levitateos/sodaos/internal/release/image"
+	"github.com/levitateos/sodaos/internal/release/qualify"
 	"golang.org/x/sys/unix"
 )
 
@@ -36,7 +35,7 @@ func (incomplete) Error() string {
 func (incomplete) ExitCode() int { return 2 }
 
 type buildFlags struct {
-	Request             hostimage.Request
+	Request             image.Request
 	WorkerBuild         bool
 	WorkerConfig        string
 	QualificationConfig string
@@ -67,7 +66,7 @@ func parseBuildFlags() (buildFlags, error) {
 	if flag.NArg() != 0 {
 		return f, errors.New("unexpected positional arguments")
 	}
-	f.Request = hostimage.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression}
+	f.Request = image.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression}
 	f.WorkerBuild, f.WorkerConfig = *build, *configPath
 	f.QualificationConfig, f.SigningConfig = *qualificationConfig, *signingConfig
 	f.WorkerQualify = *workerQualify
@@ -131,12 +130,12 @@ func sanitizeBuildEnv(workerBuild bool) {
 	}
 }
 
-func startBuildProgress(r hostimage.Request) (*nativebuild.BuildProgress, error) {
+func startBuildProgress(r image.Request) (*build.BuildProgress, error) {
 	title := "Soda release build"
 	if r.Development {
 		title = "Soda development " + r.Target + " (not release-qualified)"
 	}
-	return nativebuild.NewBuildProgress("", title)
+	return build.NewBuildProgress("", title)
 }
 
 func controllerRevision() (string, error) {
@@ -151,13 +150,13 @@ func controllerRevision() (string, error) {
 			}
 		}
 	}
-	if !nativebuild.Revision(revision) {
+	if !build.Revision(revision) {
 		return "", errors.New("controller needs build VCS metadata; compile tools/soda-build from the committed checkout")
 	}
 	return revision, nil
 }
 
-func bindBuildSource(r *hostimage.Request) error {
+func bindBuildSource(r *image.Request) error {
 	if e := unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0); e != nil {
 		return e
 	}
@@ -177,14 +176,14 @@ func runGuestAction(ctx context.Context, action, expectedPayload string) error {
 	if action != "snapshot" && action != "later" && action != "content" {
 		return errors.New("guest reseeding refused")
 	}
-	state, err := nativequalification.GuestState(ctx, action, expectedPayload)
+	state, err := qualify.GuestState(ctx, action, expectedPayload)
 	if err != nil {
 		return err
 	}
 	return json.NewEncoder(os.Stdout).Encode(state)
 }
 
-func printBuildArtifacts(result hostimage.Result) {
+func printBuildArtifacts(result image.Result) {
 	fmt.Fprintln(os.Stderr, "CANDIDATE", result.Candidate)
 	if result.Media != "" {
 		fmt.Fprintln(os.Stderr, "MEDIA", result.Media)
@@ -192,26 +191,26 @@ func printBuildArtifacts(result hostimage.Result) {
 	fmt.Fprintln(os.Stderr, result.Scope)
 }
 
-func runProtectedQualification(ctx context.Context, progress *nativebuild.BuildProgress, result hostimage.Result, r hostimage.Request, qualification nativequalification.Config) (string, error) {
+func runProtectedQualification(ctx context.Context, progress *build.BuildProgress, result image.Result, r image.Request, qualification qualify.Config) (string, error) {
 	if err := progress.Phase("P9 / Protected native install-update-recovery"); err != nil {
 		return "", err
 	}
 	custody := filepath.Join(r.Source, ".artifacts/b4-qualification/controller-runs", filepath.Base(r.Out))
-	if err := nativequalification.Dispatch(ctx, qualification, filepath.Dir(result.Candidate), r.Revision, custody, os.Stderr); err != nil {
+	if err := qualify.Dispatch(ctx, qualification, filepath.Dir(result.Candidate), r.Revision, custody, os.Stderr); err != nil {
 		return "", err
 	}
 	return custody, errors.Join(progress.End(nil), progress.EndPhase(nil))
 }
 
-func loadSigning(path string, development bool) (nativefinalization.Config, error) {
-	var signing nativefinalization.Config
+func loadSigning(path string, development bool) (deliver.Config, error) {
+	var signing deliver.Config
 	if development || path == "" {
 		return signing, nil
 	}
-	return nativefinalization.LoadConfig(path)
+	return deliver.LoadConfig(path)
 }
 
-func runProtectedFinalization(ctx context.Context, progress *nativebuild.BuildProgress, result hostimage.Result, custody string, signing nativefinalization.Config) error {
+func runProtectedFinalization(ctx context.Context, progress *build.BuildProgress, result image.Result, custody string, signing deliver.Config) error {
 	if signing.Trust == "" {
 		return incomplete{}
 	}
@@ -223,7 +222,7 @@ func runProtectedFinalization(ctx context.Context, progress *nativebuild.BuildPr
 	}
 	evidence := filepath.Join(custody, "evidence/qualification.json")
 	out := filepath.Join(custody, "final")
-	ref, err := nativefinalization.Finalize(ctx, rd.Native{Home: out}, signing, filepath.Dir(result.Candidate), result.Media, evidence, out)
+	ref, err := deliver.Finalize(ctx, deliver.Native{Home: out}, signing, filepath.Dir(result.Candidate), result.Media, evidence, out)
 	if err != nil {
 		return err
 	}
@@ -231,7 +230,7 @@ func runProtectedFinalization(ctx context.Context, progress *nativebuild.BuildPr
 	return errors.Join(progress.End(nil), progress.EndPhase(nil))
 }
 
-func reportBuildResult(ctx context.Context, progress *nativebuild.BuildProgress, result hostimage.Result, r hostimage.Request, qualification nativequalification.Config, signing nativefinalization.Config) error {
+func reportBuildResult(ctx context.Context, progress *build.BuildProgress, result image.Result, r image.Request, qualification qualify.Config, signing deliver.Config) error {
 	printBuildArtifacts(result)
 	if r.Development {
 		return nil
@@ -243,12 +242,12 @@ func reportBuildResult(ctx context.Context, progress *nativebuild.BuildProgress,
 	return runProtectedFinalization(ctx, progress, result, custody, signing)
 }
 
-func loadQualification(path string, configExecutable string, development bool) (nativequalification.Config, error) {
-	var qualification nativequalification.Config
+func loadQualification(path string, configExecutable string, development bool) (qualify.Config, error) {
+	var qualification qualify.Config
 	if development {
 		return qualification, nil
 	}
-	qualification, err := nativequalification.LoadConfig(path)
+	qualification, err := qualify.LoadConfig(path)
 	if err != nil {
 		return qualification, err
 	}
@@ -258,7 +257,7 @@ func loadQualification(path string, configExecutable string, development bool) (
 	return qualification, nil
 }
 
-func runParentBuild(ctx context.Context, workerConfigPath, qualificationConfig, signingConfig string, r hostimage.Request, progress *nativebuild.BuildProgress) error {
+func runParentBuild(ctx context.Context, workerConfigPath, qualificationConfig, signingConfig string, r image.Request, progress *build.BuildProgress) error {
 	config, err := loadWorkerConfig(workerConfigPath, r)
 	if err != nil {
 		return err
@@ -293,7 +292,7 @@ func run() (err error) {
 		return runGuestAction(ctx, f.GuestAction, f.ExpectedPayload)
 	}
 	if f.WorkerQualify {
-		return nativequalification.Run(ctx, f.QualificationConfig)
+		return qualify.Run(ctx, f.QualificationConfig)
 	}
 	sanitizeBuildEnv(f.WorkerBuild)
 	progress, e := startBuildProgress(f.Request)
@@ -305,7 +304,7 @@ func run() (err error) {
 		return e
 	}
 	if f.WorkerBuild {
-		_, e := hostimage.Build(ctx, f.Request, progress)
+		_, e := image.Build(ctx, f.Request, progress)
 		return e // stage completion only; the trusted parent owns qualification
 	}
 	return runParentBuild(ctx, f.WorkerConfig, f.QualificationConfig, f.SigningConfig, f.Request, progress)
@@ -314,6 +313,6 @@ func run() (err error) {
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(nativebuild.BuildExitCode(err))
+		os.Exit(build.BuildExitCode(err))
 	}
 }

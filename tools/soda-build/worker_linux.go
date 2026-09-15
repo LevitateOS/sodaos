@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/acceptance"
-	"github.com/levitateos/sodaos/internal/hostimage"
-	"github.com/levitateos/sodaos/internal/nativebuild"
-	rd "github.com/levitateos/sodaos/internal/releasedelivery"
+	"github.com/levitateos/sodaos/internal/release/build"
+	"github.com/levitateos/sodaos/internal/release/deliver"
+	"github.com/levitateos/sodaos/internal/release/image"
 )
 
 // workerConfig is installed by the operator, not emitted by a build. Paths name
@@ -42,7 +42,7 @@ func buildWorkerIdentity() error {
 	return nil
 }
 
-func validWorkerTaskPaths(c workerConfig, r hostimage.Request) bool {
+func validWorkerTaskPaths(c workerConfig, r image.Request) bool {
 	return c.Source == r.Source && filepath.Dir(r.Out) == c.OutputParent && strings.HasPrefix(c.OutputParent, filepath.Join(r.Source, ".artifacts/releases")+"/")
 }
 
@@ -51,11 +51,11 @@ func workerExecutableMatches(path string) error {
 	if err != nil {
 		return err
 	}
-	a, err := nativebuild.HashFile(self)
+	a, err := build.HashFile(self)
 	if err != nil {
 		return err
 	}
-	b, err := nativebuild.HashFile(path)
+	b, err := build.HashFile(path)
 	if err != nil || a != b {
 		return errors.New("dispatcher differs from admitted worker executable")
 	}
@@ -73,7 +73,7 @@ func validWorkerPath(p string) error {
 	return nil
 }
 
-func admitLoadedWorkerConfig(c workerConfig, r hostimage.Request) error {
+func admitLoadedWorkerConfig(c workerConfig, r image.Request) error {
 	if !validWorkerTaskPaths(c, r) {
 		return errors.New("worker source/output differs from approved task paths")
 	}
@@ -83,7 +83,7 @@ func admitLoadedWorkerConfig(c workerConfig, r hostimage.Request) error {
 	return workerExecutableMatches(c.Executable)
 }
 
-func workerConfigPaths(c workerConfig, r hostimage.Request) []string {
+func workerConfigPaths(c workerConfig, r image.Request) []string {
 	paths := []string{c.Source, c.OutputParent, c.BuildHome, c.Runtime, c.Tools}
 	if r.WantsMedia() {
 		paths = append(paths, c.MediaAuthorityDirectory)
@@ -91,15 +91,15 @@ func workerConfigPaths(c workerConfig, r hostimage.Request) []string {
 	return paths
 }
 
-func loadWorkerConfig(path string, r hostimage.Request) (workerConfig, error) {
+func loadWorkerConfig(path string, r image.Request) (workerConfig, error) {
 	var c workerConfig
 	if os.Geteuid() != 0 {
 		return c, errors.New("run the admitted controller as root; source commands run only as soda-build-worker")
 	}
-	if err := rd.PrivateFile(path); err != nil {
+	if err := deliver.PrivateFile(path); err != nil {
 		return c, errors.New("root-owned restricted worker configuration required")
 	}
-	if err := rd.ReadJSON(path, &c); err != nil {
+	if err := deliver.ReadJSON(path, &c); err != nil {
 		return c, err
 	}
 	if err := admitLoadedWorkerConfig(c, r); err != nil {
@@ -116,8 +116,8 @@ func loadWorkerConfig(path string, r hostimage.Request) (workerConfig, error) {
 // runBuildWorker delegates the existing producer, never another recipe. The
 // service cannot see operator homes or real release custody; only its selected
 // source view, caches and output parent are bound into that namespace.
-func runBuildWorker(ctx context.Context, c workerConfig, r hostimage.Request, p *nativebuild.BuildProgress) (hostimage.Result, error) {
-	var result hostimage.Result
+func runBuildWorker(ctx context.Context, c workerConfig, r image.Request, p *build.BuildProgress) (image.Result, error) {
+	var result image.Result
 	boundary := "P1-P8 / Isolated source-to-media worker"
 	if !r.WantsMedia() {
 		boundary = "P1-P6 / Isolated development candidate worker"
@@ -133,7 +133,7 @@ func runBuildWorker(ctx context.Context, c workerConfig, r hostimage.Request, p 
 		return result, err
 	}
 	// Producer output is not qualification authority. P9 independently admits it.
-	if err = rd.ReadJSON(filepath.Join(r.Out, "evidence/build.json"), &result); err != nil {
+	if err = deliver.ReadJSON(filepath.Join(r.Out, "evidence/build.json"), &result); err != nil {
 		return result, err
 	}
 	if err = validateWorkerResult(r, &result); err != nil {
@@ -142,7 +142,7 @@ func runBuildWorker(ctx context.Context, c workerConfig, r hostimage.Request, p 
 	return result, errors.Join(p.End(nil), p.EndPhase(nil))
 }
 
-func buildWorker(c workerConfig, r hostimage.Request) (acceptance.Worker, error) {
+func buildWorker(c workerConfig, r image.Request) (acceptance.Worker, error) {
 	var w acceptance.Worker
 	if err := r.ValidateTarget(); err != nil {
 		return w, err
@@ -177,11 +177,11 @@ func buildWorker(c workerConfig, r hostimage.Request) (acceptance.Worker, error)
 	return w, nil
 }
 
-func workerResultMatches(r hostimage.Request, result *hostimage.Result, out, media, completed string) bool {
+func workerResultMatches(r image.Request, result *image.Result, out, media, completed string) bool {
 	return result.Revision == r.Revision && result.Architecture == r.Arch && result.Candidate == filepath.Join(out, "artifacts/candidate.json") && result.Media == media && result.Purpose == r.Purpose() && result.RequestedTarget == r.RequestedTarget() && result.CompletedTarget == completed && result.MediaCompression == r.MediaCompression
 }
 
-func validateWorkerResult(r hostimage.Request, result *hostimage.Result) error {
+func validateWorkerResult(r image.Request, result *image.Result) error {
 	rel, err := filepath.Rel(r.Source, r.Out)
 	if err != nil {
 		return err
@@ -195,7 +195,7 @@ func validateWorkerResult(r hostimage.Request, result *hostimage.Result) error {
 		return errors.New("worker result does not match this run")
 	}
 	candidate := filepath.Join(r.Out, "artifacts/candidate.json")
-	hash, err := nativebuild.HashFile(candidate)
+	hash, err := build.HashFile(candidate)
 	if err != nil || hash != result.CandidateSHA256 {
 		return errors.New("worker candidate receipt differs")
 	}

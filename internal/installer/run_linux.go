@@ -7,14 +7,14 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/levitateos/sodaos/internal/installlayout"
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/platform"
+	"github.com/levitateos/sodaos/internal/release/build"
 	"golang.org/x/sys/unix"
 )
 
 const (
 	dataDir           = "/usr/local/share/soda-installer"
-	installerBinary   = installlayout.Libexec + "/soda-install"
+	installerBinary   = platform.Libexec + "/soda-install"
 	diskAttemptMarker = "/run/soda-installer-disk-started"
 )
 
@@ -32,7 +32,7 @@ type mediaIdentity struct {
 }
 
 func (m mediaIdentity) validate(imageVersion, arch string) error {
-	if m.Architecture != arch || m.Release == "" || m.Release != imageVersion || !nativebuild.Revision(m.Revision) || !m.validContent() {
+	if m.Architecture != arch || m.Release == "" || m.Release != imageVersion || !build.Revision(m.Revision) || !m.validContent() {
 		return errors.New("media release, architecture, or included-payload mismatch")
 	}
 	return nil

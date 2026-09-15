@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 func validateDiskVMSocketAndPort(work string, port int) error {
@@ -23,7 +23,7 @@ func validateDiskVMSocketAndPort(work string, port int) error {
 }
 
 func validateDiskVMConfig(c VMConfig, e *Evidence) error {
-	if c.Architecture != "x86_64" || nativebuild.RequireNative(c.Architecture) != nil {
+	if c.Architecture != "x86_64" || build.RequireNative(c.Architecture) != nil {
 		return errors.New("native x86_64 qualification required")
 	}
 	if !strings.HasPrefix(c.Name, "soda-native-") || c.Work == "" || disjointVMWork(c.Work, e) != nil {
@@ -55,7 +55,7 @@ func validateDiskVMPaths(c VMConfig, disk, variables string) error {
 
 func recordDiskVMInputs(paths []string, e *Evidence) error {
 	for _, path := range paths {
-		sum, err := nativebuild.HashFile(path)
+		sum, err := build.HashFile(path)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func recordAndAppendDiskVMISO(args []string, iso string, e *Evidence) ([]string,
 	if !filepath.IsAbs(iso) || strings.ContainsAny(iso, ",\n\r") {
 		return nil, errors.New("safe ISO path required")
 	}
-	sum, err := nativebuild.HashFile(iso)
+	sum, err := build.HashFile(iso)
 	if err != nil {
 		return nil, err
 	}

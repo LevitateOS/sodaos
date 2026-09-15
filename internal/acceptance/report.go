@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 // ValidOwner labels an observation; it never grants execution permission.
@@ -47,7 +47,7 @@ func (e *Evidence) Hashes() (map[string]string, error) {
 		if !d.Type().IsRegular() {
 			return errors.New("unexpected evidence entry")
 		}
-		sum, err := nativebuild.HashAt(e.root, path)
+		sum, err := build.HashAt(e.root, path)
 		if err != nil {
 			return err
 		}
@@ -61,7 +61,7 @@ func (e *Evidence) Hashes() (map[string]string, error) {
 // one open directory, even if its pathname is renamed during the read.
 func observationArtifactsValid(o Observation) error {
 	for name, sum := range o.Artifacts {
-		if name == "" || !nativebuild.Digest(sum) {
+		if name == "" || !build.Digest(sum) {
 			return errors.New("invalid public artifact reference")
 		}
 	}
@@ -73,7 +73,7 @@ func observationFilesMatch(root *os.Root, o Observation) error {
 		if !filepath.IsLocal(name) || filepath.Clean(name) != name || name == "." {
 			return errors.New("unsafe observation reference")
 		}
-		actual, err := nativebuild.HashAt(root, name)
+		actual, err := build.HashAt(root, name)
 		if err != nil || actual != sum {
 			return errors.New("observation bytes changed")
 		}
@@ -88,7 +88,7 @@ func readObservation(file string) (Observation, string, error) {
 		return o, "", err
 	}
 	defer root.Close()
-	digest, err := nativebuild.ReadJSONAt(root, filepath.Base(file), &o)
+	digest, err := build.ReadJSONAt(root, filepath.Base(file), &o)
 	if err != nil {
 		return o, "", err
 	}
@@ -134,13 +134,13 @@ func appendMissingOwners(text *strings.Builder, seen map[string]bool) {
 // Handoff cites exact observations and explicitly leaves missing scopes open.
 // It can complete without core product evidence and never certifies readiness.
 func Handoff(out, arch, revision string, records []string) error {
-	if err := nativebuild.PrivateDestination(out); err != nil {
+	if err := build.PrivateDestination(out); err != nil {
 		return err
 	}
-	if _, err := nativebuild.OCIArchitecture(arch); err != nil {
+	if _, err := build.OCIArchitecture(arch); err != nil {
 		return err
 	}
-	if !nativebuild.Revision(revision) {
+	if !build.Revision(revision) {
 		return errors.New("full candidate revision required")
 	}
 	var text strings.Builder
@@ -170,5 +170,5 @@ func Handoff(out, arch, revision string, records []string) error {
 	}
 	appendMissingOwners(&text, seen)
 	text.WriteString("\nP07/P08 redirect to core U08/U20. P09/P10 remain not selected. A command completing, a hash matching or a version printing proves only that observation. Retained paths and provider cleanup must be reviewed alongside the cited logs; missing cleanup is not inferred successful. Failed/cancelled/evidence-failed observations remain failures. This report performs no tests, retries, provider mutations or publication.\n")
-	return nativebuild.WriteNew(out, []byte(text.String()), 0o600)
+	return build.WriteNew(out, []byte(text.String()), 0o600)
 }

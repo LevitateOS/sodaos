@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 	"golang.org/x/sys/unix"
 )
 
@@ -41,7 +41,7 @@ func payloadRequirement(media mediaIdentity) (uint64, error) {
 }
 
 func validMediaPayloadIdentity(media mediaIdentity) bool {
-	return media.Architecture == architecture() && media.Release != "" && media.InstallerVersion == "coreos-installer 0.26.0" && nativebuild.Revision(media.Revision) && nativebuild.Digest(media.BundleSHA256)
+	return media.Architecture == architecture() && media.Release != "" && media.InstallerVersion == "coreos-installer 0.26.0" && build.Revision(media.Revision) && build.Digest(media.BundleSHA256)
 }
 
 func addPayloadSize(total uint64, info os.FileInfo) (uint64, error) {
@@ -73,7 +73,7 @@ func (a *payloadSizeAcc) walk(_ string, entry fs.DirEntry, walkErr error) error 
 	return err
 }
 
-func payloadRequirementAt(source string, media mediaIdentity, verify func(string, string, string) (nativebuild.Inventory, error)) (uint64, error) {
+func payloadRequirementAt(source string, media mediaIdentity, verify func(string, string, string) (build.Inventory, error)) (uint64, error) {
 	if !validMediaPayloadIdentity(media) {
 		return 0, errors.New("incomplete or mismatched media payload identity")
 	}
@@ -101,7 +101,7 @@ func installedPayload() (bundle, digest, revision string, err error) {
 	return installedPayloadAt(installedPayloadRoot, architecture(), release, verifyTrustedBundle)
 }
 
-func installedPayloadAt(root, arch, release string, verify func(string, string, string) (nativebuild.Inventory, error)) (bundle, digest, revision string, err error) {
+func installedPayloadAt(root, arch, release string, verify func(string, string, string) (build.Inventory, error)) (bundle, digest, revision string, err error) {
 	return installedPayloadAtWith(root, arch, release, verify, protectedBundle)
 }
 
@@ -124,7 +124,7 @@ func decodePayloadReceipt(data []byte, arch, release string) (payloadReceipt, er
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		return receipt, errors.New("completed installer media-copy receipt required")
 	}
-	if receipt.Schema != payloadReceiptSchema || receipt.Architecture != arch || receipt.Release != release || receipt.Bytes == 0 || !nativebuild.Digest(receipt.BundleSHA256) || !nativebuild.Revision(receipt.Revision) {
+	if receipt.Schema != payloadReceiptSchema || receipt.Architecture != arch || receipt.Release != release || receipt.Bytes == 0 || !build.Digest(receipt.BundleSHA256) || !build.Revision(receipt.Revision) {
 		return receipt, errors.New("invalid installer media-copy receipt")
 	}
 	return receipt, nil
@@ -144,7 +144,7 @@ func readMediaCopyReceipt(root, arch, release string) (payloadReceipt, error) {
 	return decodePayloadReceipt(data, arch, release)
 }
 
-func installedPayloadAtWith(root, arch, release string, verify func(string, string, string) (nativebuild.Inventory, error), protect func(string) error) (bundle, digest, revision string, err error) {
+func installedPayloadAtWith(root, arch, release string, verify func(string, string, string) (build.Inventory, error), protect func(string) error) (bundle, digest, revision string, err error) {
 	if err := protect(root); err != nil {
 		return "", "", "", errors.New("protected installed payload state required")
 	}

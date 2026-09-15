@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/platform"
 )
 
 const localCAPath = "/var/lib/soda/proxy/caddy/pki/authorities/local/root.crt"
@@ -196,10 +196,10 @@ func executeSetupAndActivation(ctx context.Context, run commandRunner, root, tem
 	if err := writeSetupFile(filepath.Join(root, "setup-started"), []byte(origin+"\n")); err != nil {
 		return errors.New("cannot reserve operator setup; no OAuth request made")
 	}
-	if _, err := run(ctx, installlayout.Sbin+"/soda-setup", []string{"--forgejo-url", origin, "--token-file", tokenPath, "--out", filepath.Join(root, "dashboard.json")}, nil); err != nil {
+	if _, err := run(ctx, platform.Sbin+"/soda-setup", []string{"--forgejo-url", origin, "--token-file", tokenPath, "--out", filepath.Join(root, "dashboard.json")}, nil); err != nil {
 		return errors.New("operator setup failed; preserve private inputs and inspect native Forgejo applications before retrying. " + failureSummary(err))
 	}
-	if _, err := run(ctx, installlayout.Sbin+"/soda-activate", []string{"--bind-ip", selected.Address, "--local-tls"}, nil); err != nil {
+	if _, err := run(ctx, platform.Sbin+"/soda-activate", []string{"--bind-ip", selected.Address, "--local-tls"}, nil); err != nil {
 		return errors.New("private activation failed; preserve the existing configuration for inspection. " + failureSummary(err))
 	}
 	return nil

@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 type VMConfig struct {
@@ -39,7 +39,7 @@ type VM struct {
 }
 
 func validateVMConfigIdentity(c VMConfig) error {
-	if err := nativebuild.RequireNative(c.Architecture); err != nil {
+	if err := build.RequireNative(c.Architecture); err != nil {
 		return err
 	}
 	if c.DiskGiB < 1 || c.DiskGiB > 1024 {
@@ -150,7 +150,7 @@ func disjointVMWork(work string, e *Evidence) error {
 	return nil
 }
 
-func verifyBaseReceiptPathAndMode(base nativebuild.VerifiedBase) error {
+func verifyBaseReceiptPathAndMode(base build.VerifiedBase) error {
 	if !filepath.IsAbs(base.Path) || strings.ContainsAny(base.Path, ",\n\r") {
 		return errors.New("unsafe base path")
 	}
@@ -164,19 +164,19 @@ func verifyBaseReceiptPathAndMode(base nativebuild.VerifiedBase) error {
 	return nil
 }
 
-func verifyLaunchBaseIdentity(base nativebuild.VerifiedBase, arch string, lock nativebuild.CoreOSLock, img nativebuild.CoreOSImage) error {
+func verifyLaunchBaseIdentity(base build.VerifiedBase, arch string, lock build.CoreOSLock, img build.CoreOSImage) error {
 	if base.Architecture != arch || base.Release != lock.Release || base.SHA256 != img.UncompressedSHA256 {
 		return errors.New("base does not match selected CoreOS input")
 	}
 	return nil
 }
 
-func verifyLaunchBaseImage(c VMConfig) (nativebuild.VerifiedBase, error) {
-	var base nativebuild.VerifiedBase
-	if err := nativebuild.ReadJSON(c.BaseReceipt, &base); err != nil {
+func verifyLaunchBaseImage(c VMConfig) (build.VerifiedBase, error) {
+	var base build.VerifiedBase
+	if err := build.ReadJSON(c.BaseReceipt, &base); err != nil {
 		return base, err
 	}
-	l, img, err := nativebuild.ReadCoreOS(c.CoreOSLock, c.Architecture)
+	l, img, err := build.ReadCoreOS(c.CoreOSLock, c.Architecture)
 	if err != nil {
 		return base, err
 	}
@@ -189,19 +189,19 @@ func verifyLaunchBaseImage(c VMConfig) (nativebuild.VerifiedBase, error) {
 	if !regexp.MustCompile(`^(?:[A-F0-9]{40}|[A-F0-9]{64})$`).MatchString(base.Signer) {
 		return base, errors.New("verified base receipt lacks selected signer")
 	}
-	sum, err := nativebuild.HashFile(base.Path)
+	sum, err := build.HashFile(base.Path)
 	if err != nil || sum != base.SHA256 {
 		return base, errors.Join(err, errors.New("base checksum mismatch"))
 	}
 	return base, nil
 }
 
-func publishLaunchFixture(c VMConfig, e *Evidence, base nativebuild.VerifiedBase) error {
-	firmwareHash, err := nativebuild.HashFile(c.Firmware)
+func publishLaunchFixture(c VMConfig, e *Evidence, base build.VerifiedBase) error {
+	firmwareHash, err := build.HashFile(c.Firmware)
 	if err != nil {
 		return err
 	}
-	varsHash, err := nativebuild.HashFile(c.Variables)
+	varsHash, err := build.HashFile(c.Variables)
 	if err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ func verifyBaseImageFormat(ctx context.Context, e *Evidence, basePath string, di
 }
 
 func prepareVMWorkDirectory(ctx context.Context, e *Evidence, c VMConfig, basePath string) error {
-	if err := nativebuild.FreshDirectory(c.Work); err != nil {
+	if err := build.FreshDirectory(c.Work); err != nil {
 		return err
 	}
 	disk := filepath.Join(c.Work, "disk.qcow2")
@@ -256,7 +256,7 @@ func prepareVMWorkDirectory(ctx context.Context, e *Evidence, c VMConfig, basePa
 	if err != nil {
 		return err
 	}
-	return nativebuild.WriteNew(filepath.Join(c.Work, "vars.fd"), vars, 0o600)
+	return build.WriteNew(filepath.Join(c.Work, "vars.fd"), vars, 0o600)
 }
 
 func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {

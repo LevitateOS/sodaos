@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 //go:embed remote_executor.py
@@ -21,7 +21,7 @@ func (r Remote) NativePhase(requestFile, revision, arch, target string) (Command
 		return Command{}, err
 	}
 	var request RemoteRequest
-	if err = nativebuild.ReadJSON(requestFile, &request); err != nil {
+	if err = build.ReadJSON(requestFile, &request); err != nil {
 		return Command{}, err
 	}
 	if request.Revision != revision || request.Architecture != arch || request.Target != target {

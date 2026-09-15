@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 func liveISOFromCmdline(data []byte) bool {
@@ -22,7 +22,7 @@ func liveISOFromCmdline(data []byte) bool {
 
 func admitLiveInstaller(values map[string]string) error {
 	var media mediaIdentity
-	if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
+	if err := build.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
 		return errors.New("missing media identity")
 	}
 	// Selected CoreOS reports the Fedora major in VERSION_ID (44), and

@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/acceptance"
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 type paths []string
@@ -56,10 +56,10 @@ type runOptions struct {
 }
 
 func validateCommonOptions(opts runOptions) error {
-	if !nativebuild.Revision(opts.revision) || !targetPattern.MatchString(opts.target) || opts.timeout <= 0 || opts.timeout > 24*time.Hour {
+	if !build.Revision(opts.revision) || !targetPattern.MatchString(opts.target) || opts.timeout <= 0 || opts.timeout > 24*time.Hour {
 		return errors.New("revision, non-secret target and bounded timeout required")
 	}
-	if _, err := nativebuild.OCIArchitecture(opts.arch); err != nil {
+	if _, err := build.OCIArchitecture(opts.arch); err != nil {
 		return err
 	}
 	if !acceptance.ValidOwner(opts.owner) {
@@ -218,7 +218,7 @@ func readSecretFiles(files []string) ([][]byte, error) {
 
 func loadVMSecrets(configPath, arch, target string) (acceptance.VMConfig, [][]byte, error) {
 	var vmConfig acceptance.VMConfig
-	if err := nativebuild.ReadJSON(configPath, &vmConfig); err != nil {
+	if err := build.ReadJSON(configPath, &vmConfig); err != nil {
 		return vmConfig, nil, err
 	}
 	if vmConfig.Architecture != arch || vmConfig.Name != target {
@@ -263,7 +263,7 @@ func initObservation(opts runOptions) (acceptance.Observation, acceptance.Remote
 		Artifacts:             map[string]string{},
 	}
 	for _, file := range opts.artifactFiles {
-		sum, err := nativebuild.HashFile(file)
+		sum, err := build.HashFile(file)
 		if err != nil {
 			return o, acceptance.Remote{}, err
 		}
@@ -271,7 +271,7 @@ func initObservation(opts runOptions) (acceptance.Observation, acceptance.Remote
 	}
 	var remote acceptance.Remote
 	if opts.remoteFile != "" {
-		if err := nativebuild.ReadJSON(opts.remoteFile, &remote); err != nil {
+		if err := build.ReadJSON(opts.remoteFile, &remote); err != nil {
 			return o, acceptance.Remote{}, err
 		}
 		remote.Timeout = opts.timeout
@@ -294,7 +294,7 @@ func executeExecOrNative(phase context.Context, e *acceptance.Evidence, action s
 		c, opErr = remote.NativePhase(request, revision, arch, target)
 		if opErr == nil {
 			var req acceptance.RemoteRequest
-			opErr = nativebuild.ReadJSON(request, &req)
+			opErr = build.ReadJSON(request, &req)
 			o.Invocation = []string{"embedded native executor", req.Phase, req.Revision, req.Architecture, req.Target, req.Work}
 			o.Action = "native-" + req.Phase
 		}

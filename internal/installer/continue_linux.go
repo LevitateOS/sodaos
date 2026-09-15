@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 func appendContinuationFile(files []json.RawMessage, path string, content []byte, mode int) ([]json.RawMessage, error) {
@@ -151,54 +151,54 @@ func protectedBundle(path string) error {
 	return filepath.WalkDir(path, protectedBundleEntry)
 }
 
-func verifyTrustedBundle(bundle, digest, arch string) (nativebuild.Inventory, error) {
-	var inventory nativebuild.Inventory
-	if !nativebuild.Digest(digest) {
+func verifyTrustedBundle(bundle, digest, arch string) (build.Inventory, error) {
+	var inventory build.Inventory
+	if !build.Digest(digest) {
 		return inventory, errors.New("independently trusted SHA256SUMS SHA-256 required")
 	}
 	if err := protectedBundle(bundle); err != nil {
 		return inventory, err
 	}
-	actual, err := nativebuild.HashFile(filepath.Join(bundle, "SHA256SUMS"))
+	actual, err := build.HashFile(filepath.Join(bundle, "SHA256SUMS"))
 	if err != nil || actual != digest {
 		return inventory, errors.New("bundle does not match the independently trusted checksum")
 	}
-	if err := nativebuild.ReadJSON(filepath.Join(bundle, "build-info.json"), &inventory); err != nil {
+	if err := build.ReadJSON(filepath.Join(bundle, "build-info.json"), &inventory); err != nil {
 		return inventory, errors.New("cannot read bundle inventory")
 	}
-	if inventory.Architecture != arch || !nativebuild.Revision(inventory.Revision) {
+	if inventory.Architecture != arch || !build.Revision(inventory.Revision) {
 		return inventory, errors.New("bundle architecture/revision mismatch")
 	}
-	return nativebuild.Verify(bundle, arch, inventory.Revision)
+	return build.Verify(bundle, arch, inventory.Revision)
 }
 
-func verifyContinueBundle(ctx context.Context, c console, run commandRunner) (nativebuild.Inventory, string, error) {
+func verifyContinueBundle(ctx context.Context, c console, run commandRunner) (build.Inventory, string, error) {
 	data, err := run(ctx, "rpm-ostree", []string{"status", "--json"}, nil)
 	if err != nil {
-		return nativebuild.Inventory{}, "", err
+		return build.Inventory{}, "", err
 	}
 	if err := extensionsBooted(data); err != nil {
-		return nativebuild.Inventory{}, "", err
+		return build.Inventory{}, "", err
 	}
 	bundle, digest, revision, err := installedPayload()
 	if err != nil {
-		return nativebuild.Inventory{}, "", err
+		return build.Inventory{}, "", err
 	}
 	if filepath.Base(bundle) != architecture() {
-		return nativebuild.Inventory{}, "", errors.New("bundle directory must name the native architecture")
+		return build.Inventory{}, "", errors.New("bundle directory must name the native architecture")
 	}
 	c.print("Verifying the bundle with this already trusted installer; no bundle program has been executed.")
 	inventory, err := verifyTrustedBundle(bundle, digest, architecture())
 	if err != nil {
-		return nativebuild.Inventory{}, "", errors.New("bundle verification refused; check trusted identity, ownership, architecture and matching source inventory")
+		return build.Inventory{}, "", errors.New("bundle verification refused; check trusted identity, ownership, architecture and matching source inventory")
 	}
 	if inventory.Revision != revision {
-		return nativebuild.Inventory{}, "", errors.New("installed payload revision does not match its completed media-copy receipt")
+		return build.Inventory{}, "", errors.New("installed payload revision does not match its completed media-copy receipt")
 	}
 	return inventory, bundle, nil
 }
 
-func confirmContinueSubnet(ctx context.Context, c console, run commandRunner, inventory nativebuild.Inventory) (string, error) {
+func confirmContinueSubnet(ctx context.Context, c console, run commandRunner, inventory build.Inventory) (string, error) {
 	data, err := readRegular("/etc/soda-installer/project-subnet", 128)
 	if err != nil {
 		return "", err
@@ -233,7 +233,7 @@ func executeContinueInstall(ctx context.Context, c console, run commandRunner, b
 	if err != nil || !st.IsDir() || st.Mode().Perm() != 0o700 {
 		return errors.New("private continuation state directory required")
 	}
-	if err := nativebuild.WriteNew("/var/lib/soda-installer/continue-started", []byte(revision+"\n"), 0o600); err != nil {
+	if err := build.WriteNew("/var/lib/soda-installer/continue-started", []byte(revision+"\n"), 0o600); err != nil {
 		return err
 	}
 	if _, err := run(ctx, "bash", []string{filepath.Join(bundle, "install-native.sh"), bundle, subnet}, nil); err != nil {

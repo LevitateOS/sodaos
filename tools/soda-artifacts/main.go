@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 func main() {
@@ -51,7 +51,7 @@ func parseArtifactFlags(args []string) (string, artifactFlags, error) {
 }
 
 func inspectArtifactOCI(source, arch, revision string) error {
-	image, err := nativebuild.InspectOCI(source, arch, revision)
+	image, err := build.InspectOCI(source, arch, revision)
 	if err != nil {
 		return err
 	}
@@ -70,10 +70,10 @@ func openPrivateButane(source string) (*os.File, error) {
 }
 
 func convertButane(ctx context.Context, source, out, arch string) error {
-	if err := nativebuild.RequireNative(arch); err != nil {
+	if err := build.RequireNative(arch); err != nil {
 		return err
 	}
-	if err := nativebuild.PrivateDestination(out); err != nil {
+	if err := build.PrivateDestination(out); err != nil {
 		return err
 	}
 	if _, err := exec.LookPath("butane"); err != nil {
@@ -103,10 +103,10 @@ func convertButane(ctx context.Context, source, out, arch string) error {
 func runCoreOSArtifact(ctx context.Context, action string, f artifactFlags) error {
 	switch action {
 	case "fetch-coreos":
-		_, err := nativebuild.FetchCoreOS(ctx, f.lock, f.arch, f.keyring, f.signer, f.out)
+		_, err := build.FetchCoreOS(ctx, f.lock, f.arch, f.keyring, f.signer, f.out)
 		return err
 	case "fetch-coreos-iso":
-		_, err := nativebuild.FetchCoreOSISO(ctx, f.lock, f.arch, f.keyring, f.signer, f.out)
+		_, err := build.FetchCoreOSISO(ctx, f.lock, f.arch, f.keyring, f.signer, f.out)
 		return err
 	default:
 		return errors.New("unknown artifact action; use fetch-coreos-iso for upstream ISO inputs; QCOW2 media delivery is not selected")
@@ -118,17 +118,17 @@ func runArtifactAction(ctx context.Context, action string, f artifactFlags) erro
 	case "inspect-oci":
 		return inspectArtifactOCI(f.source, f.arch, f.revision)
 	case "seal":
-		return nativebuild.Seal(f.source, f.arch, f.revision)
+		return build.Seal(f.source, f.arch, f.revision)
 	case "verify":
-		_, err := nativebuild.Verify(f.source, f.arch, f.revision)
+		_, err := build.Verify(f.source, f.arch, f.revision)
 		return err
 	case "verify-installed":
-		return nativebuild.VerifyInstalled(ctx, f.source, f.arch, f.revision)
+		return build.VerifyInstalled(ctx, f.source, f.arch, f.revision)
 	case "bundle":
-		if err := nativebuild.RequireNative(f.arch); err != nil {
+		if err := build.RequireNative(f.arch); err != nil {
 			return err
 		}
-		return nativebuild.Bundle(f.source, f.out, f.arch, f.revision)
+		return build.Bundle(f.source, f.out, f.arch, f.revision)
 	case "convert-butane":
 		return convertButane(ctx, f.source, f.out, f.arch)
 	default:

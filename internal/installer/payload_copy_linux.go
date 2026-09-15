@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 	"golang.org/x/sys/unix"
 )
 
@@ -21,7 +21,7 @@ type payloadCopyOps struct {
 	prepare     func(string) (string, error)
 	available   func(string) (uint64, error)
 	bundle      func(string, string, string, string) error
-	verify      func(string, string, string) (nativebuild.Inventory, error)
+	verify      func(string, string, string) (build.Inventory, error)
 	label       func(context.Context, string, string, commandRunner) error
 	sync        func(string) error
 	requirement func(string, mediaIdentity) (uint64, error)
@@ -42,7 +42,7 @@ func copyInstalledPayload(ctx context.Context, selected Disk, media mediaIdentit
 			}
 			return stat.Bavail * uint64(stat.Bsize), nil
 		},
-		bundle: nativebuild.Bundle,
+		bundle: build.Bundle,
 		verify: verifyTrustedBundle,
 		label: func(ctx context.Context, stateroot, state string, run commandRunner) error {
 			// /var/lib can legitimately be absent until first boot. Relabel the

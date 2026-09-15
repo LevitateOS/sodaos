@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
-	"github.com/levitateos/sodaos/internal/releasedelivery"
+	"github.com/levitateos/sodaos/internal/release/build"
+	"github.com/levitateos/sodaos/internal/release/deliver"
 )
 
 type releaseFlags struct {
@@ -69,17 +69,17 @@ func validateOperationFlags(flags *flag.FlagSet, operation, out string) error {
 	return nil
 }
 
-func loadReleaseTrust(path string) (releasedelivery.Trust, error) {
-	var trust releasedelivery.Trust
-	if releasedelivery.ReadJSON(path, &trust) != nil || trust.Validate() != nil {
+func loadReleaseTrust(path string) (deliver.Trust, error) {
+	var trust deliver.Trust
+	if deliver.ReadJSON(path, &trust) != nil || trust.Validate() != nil {
 		return trust, errors.New("public release trust configuration refused")
 	}
 	return trust, nil
 }
 
-func parseReleaseArgs(args []string) (releaseFlags, releasedelivery.Trust, error) {
+func parseReleaseArgs(args []string) (releaseFlags, deliver.Trust, error) {
 	if len(args) < 2 {
-		return releaseFlags{}, releasedelivery.Trust{}, errors.New("operation required: prepare, channel, policy, init-state, init-ledger, sign, publish, fetch")
+		return releaseFlags{}, deliver.Trust{}, errors.New("operation required: prepare, channel, policy, init-state, init-ledger, sign, publish, fetch")
 	}
 	op := args[1]
 	flags := flag.NewFlagSet(op, flag.ContinueOnError)
@@ -100,10 +100,10 @@ func parseReleaseArgs(args []string) (releaseFlags, releasedelivery.Trust, error
 	base := flags.String("base-policy", "", "public existing policy to preserve; otherwise emit standalone reject-default policy")
 	observe := flags.Bool("observe", false, "observe an uncertain/completed publication, never replay registry writes")
 	if err := flags.Parse(args[2:]); err != nil {
-		return releaseFlags{}, releasedelivery.Trust{}, err
+		return releaseFlags{}, deliver.Trust{}, err
 	}
 	if err := validateOperationFlags(flags, op, *out); err != nil {
-		return releaseFlags{}, releasedelivery.Trust{}, err
+		return releaseFlags{}, deliver.Trust{}, err
 	}
 	trust, err := loadReleaseTrust(*trustFile)
 	if err != nil {
@@ -130,16 +130,16 @@ func parseReleaseArgs(args []string) (releaseFlags, releasedelivery.Trust, error
 	}, trust, nil
 }
 
-func runPrepare(trust releasedelivery.Trust, qualificationFile, input, media, out string) error {
-	var q releasedelivery.Qualification
-	if err := releasedelivery.ReadJSON(qualificationFile, &q); err != nil {
+func runPrepare(trust deliver.Trust, qualificationFile, input, media, out string) error {
+	var q deliver.Qualification
+	if err := deliver.ReadJSON(qualificationFile, &q); err != nil {
 		return err
 	}
-	digest, err := releasedelivery.Prepare(trust, input, media, q, out)
+	digest, err := deliver.Prepare(trust, input, media, q, out)
 	if err != nil {
 		return err
 	}
-	ref, err := releasedelivery.ReferenceForDocument(trust, "release", digest)
+	ref, err := deliver.ReferenceForDocument(trust, "release", digest)
 	if err != nil {
 		return err
 	}
@@ -147,21 +147,21 @@ func runPrepare(trust releasedelivery.Trust, qualificationFile, input, media, ou
 	return nil
 }
 
-func runChannel(trust releasedelivery.Trust, inputFile, out string) error {
-	var c releasedelivery.Channel
-	if err := releasedelivery.ReadJSON(inputFile, &c); err != nil {
+func runChannel(trust deliver.Trust, inputFile, out string) error {
+	var c deliver.Channel
+	if err := deliver.ReadJSON(inputFile, &c); err != nil {
 		return err
 	}
 	// Validate shape/freshness before emitting; publication additionally verifies
 	// every release/artifact and compares the previous approved channel.
-	if _, err := releasedelivery.AdmitChannel(trust, releasedelivery.EmptyState(), c, "sha256:0000000000000000000000000000000000000000000000000000000000000000", c.Name, time.Now()); err != nil {
+	if _, err := deliver.AdmitChannel(trust, deliver.EmptyState(), c, "sha256:0000000000000000000000000000000000000000000000000000000000000000", c.Name, time.Now()); err != nil {
 		return err
 	}
-	digest, err := releasedelivery.WriteDocument(out, c)
+	digest, err := deliver.WriteDocument(out, c)
 	if err != nil {
 		return err
 	}
-	ref, err := releasedelivery.ReferenceForDocument(trust, c.Name, digest)
+	ref, err := deliver.ReferenceForDocument(trust, c.Name, digest)
 	if err != nil {
 		return err
 	}
@@ -169,83 +169,83 @@ func runChannel(trust releasedelivery.Trust, inputFile, out string) error {
 	return nil
 }
 
-func runPolicy(trust releasedelivery.Trust, baseFile, out string) error {
+func runPolicy(trust deliver.Trust, baseFile, out string) error {
 	data := []byte(`{"default":[{"type":"reject"}]}`)
 	if baseFile != "" {
 		var err error
-		data, err = releasedelivery.ReadFile(baseFile, 1<<20)
+		data, err = deliver.ReadFile(baseFile, 1<<20)
 		if err != nil {
 			return err
 		}
 	}
-	proposed, err := releasedelivery.MergePolicy(trust, data)
+	proposed, err := deliver.MergePolicy(trust, data)
 	if err != nil {
 		return err
 	}
-	if err = nativebuild.FreshDirectory(out); err != nil {
+	if err = build.FreshDirectory(out); err != nil {
 		return err
 	}
-	if err = nativebuild.WriteNew(filepath.Join(out, "policy.json"), proposed, 0o600); err != nil {
+	if err = build.WriteNew(filepath.Join(out, "policy.json"), proposed, 0o600); err != nil {
 		return err
 	}
-	if err = releasedelivery.WriteRegistryConfig(out, trust); err != nil {
+	if err = deliver.WriteRegistryConfig(out, trust); err != nil {
 		return err
 	}
 	fmt.Println("Proposed public policy only; no host trust changed:", out)
 	return nil
 }
 
-func loadPermit(permitFile string) (releasedelivery.Permit, error) {
-	if releasedelivery.PrivateFile(permitFile) != nil {
-		return releasedelivery.Permit{}, errors.New("restricted protected-worker permit required")
+func loadPermit(permitFile string) (deliver.Permit, error) {
+	if deliver.PrivateFile(permitFile) != nil {
+		return deliver.Permit{}, errors.New("restricted protected-worker permit required")
 	}
-	var permit releasedelivery.Permit
-	if releasedelivery.ReadJSON(permitFile, &permit) != nil {
-		return releasedelivery.Permit{}, errors.New("protected-worker permit refused")
+	var permit deliver.Permit
+	if deliver.ReadJSON(permitFile, &permit) != nil {
+		return deliver.Permit{}, errors.New("protected-worker permit refused")
 	}
 	return permit, nil
 }
 
-func runSign(ctx context.Context, native releasedelivery.Native, trust releasedelivery.Trust, permit releasedelivery.Permit, signerFile, transport, input, out string) error {
-	if releasedelivery.PrivateFile(signerFile) != nil {
+func runSign(ctx context.Context, native deliver.Native, trust deliver.Trust, permit deliver.Permit, signerFile, transport, input, out string) error {
+	if deliver.PrivateFile(signerFile) != nil {
 		return errors.New("restricted signer configuration required")
 	}
-	var keys releasedelivery.SecretFiles
-	if releasedelivery.ReadJSON(signerFile, &keys) != nil {
+	var keys deliver.SecretFiles
+	if deliver.ReadJSON(signerFile, &keys) != nil {
 		return errors.New("restricted signer configuration refused")
 	}
-	if err := releasedelivery.Sign(ctx, native, trust, permit, transport, input, out, keys); err != nil {
+	if err := deliver.Sign(ctx, native, trust, permit, transport, input, out, keys); err != nil {
 		return err
 	}
 	fmt.Println("Receipt:", filepath.Join(out, "receipt.json"))
 	return nil
 }
 
-func runPublish(ctx context.Context, native releasedelivery.Native, trust releasedelivery.Trust, permit releasedelivery.Permit, input, auth, ledger, out string, observe bool) error {
-	if err := releasedelivery.Publish(ctx, native, trust, permit, input, auth, ledger, out, observe); err != nil {
+func runPublish(ctx context.Context, native deliver.Native, trust deliver.Trust, permit deliver.Permit, input, auth, ledger, out string, observe bool) error {
+	if err := deliver.Publish(ctx, native, trust, permit, input, auth, ledger, out, observe); err != nil {
 		return err
 	}
 	fmt.Println("Receipt:", filepath.Join(out, "receipt.json"))
 	return nil
 }
 
-func runFetch(ctx context.Context, native releasedelivery.Native, trust releasedelivery.Trust, name, arch, state, out string) error {
-	if err := releasedelivery.CheckNative(ctx, native); err != nil {
+func runFetch(ctx context.Context, native deliver.Native, trust deliver.Trust, name, arch, state, out string) error {
+	if err := deliver.CheckNative(ctx, native); err != nil {
 		return err
 	}
-	if err := releasedelivery.Fetch(ctx, native, trust, name, arch, state, out, time.Now()); err != nil {
+	if err := deliver.Fetch(ctx, native, trust, name, arch, state, out, time.Now()); err != nil {
 		return err
 	}
 	fmt.Println("Verified download only; no installation:", filepath.Join(out, "verified.json"))
 	return nil
 }
 
-func executeSignOrPublish(ctx context.Context, native releasedelivery.Native, trust releasedelivery.Trust, rf releaseFlags) error {
+func executeSignOrPublish(ctx context.Context, native deliver.Native, trust deliver.Trust, rf releaseFlags) error {
 	permit, err := loadPermit(rf.permitFile)
 	if err != nil {
 		return err
 	}
-	if err = releasedelivery.CheckNative(ctx, native); err != nil {
+	if err = deliver.CheckNative(ctx, native); err != nil {
 		return err
 	}
 	if rf.operation == "sign" {
@@ -254,8 +254,8 @@ func executeSignOrPublish(ctx context.Context, native releasedelivery.Native, tr
 	return runPublish(ctx, native, trust, permit, rf.input, rf.auth, rf.ledger, rf.out, rf.observe)
 }
 
-func executeReleaseOperation(ctx context.Context, rf releaseFlags, trust releasedelivery.Trust) error {
-	native := releasedelivery.Native{Home: rf.out}
+func executeReleaseOperation(ctx context.Context, rf releaseFlags, trust deliver.Trust) error {
+	native := deliver.Native{Home: rf.out}
 	switch rf.operation {
 	case "prepare":
 		return runPrepare(trust, rf.qualification, rf.input, rf.media, rf.out)
@@ -264,9 +264,9 @@ func executeReleaseOperation(ctx context.Context, rf releaseFlags, trust release
 	case "policy":
 		return runPolicy(trust, rf.base, rf.out)
 	case "init-state":
-		return releasedelivery.InitState(rf.out, trust)
+		return deliver.InitState(rf.out, trust)
 	case "init-ledger":
-		return releasedelivery.InitLedger(rf.out, trust, rf.repo)
+		return deliver.InitLedger(rf.out, trust, rf.repo)
 	case "sign", "publish":
 		return executeSignOrPublish(ctx, native, trust, rf)
 	case "fetch":

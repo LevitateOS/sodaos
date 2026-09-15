@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 func payloadMedia() mediaIdentity {
@@ -21,8 +21,8 @@ func payloadMedia() mediaIdentity {
 	}
 }
 
-func payloadInventory(media mediaIdentity) nativebuild.Inventory {
-	return nativebuild.Inventory{Revision: media.Revision, Architecture: media.Architecture}
+func payloadInventory(media mediaIdentity) build.Inventory {
+	return build.Inventory{Revision: media.Revision, Architecture: media.Architecture}
 }
 
 func TestPayloadRequirementMeasuresVerifiedRegularBytes(t *testing.T) {
@@ -40,7 +40,7 @@ func TestPayloadRequirementMeasuresVerifiedRegularBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	media := payloadMedia()
-	verify := func(path, digest, arch string) (nativebuild.Inventory, error) {
+	verify := func(path, digest, arch string) (build.Inventory, error) {
 		if path != root || digest != media.BundleSHA256 || arch != media.Architecture {
 			t.Fatal("wrong verification identity")
 		}
@@ -164,7 +164,7 @@ func payloadCopyFixture(t *testing.T) (Disk, mediaIdentity, uint64, string, payl
 			}
 			return os.Mkdir(destination, 0700)
 		},
-		verify: func(string, string, string) (nativebuild.Inventory, error) {
+		verify: func(string, string, string) (build.Inventory, error) {
 			events = append(events, "verify")
 			return payloadInventory(media), nil
 		},
