@@ -158,9 +158,8 @@ estimates from branch counts, not gocyclo reruns on split code.
   observe-only / signed-admission / immutable-commit / promotion / finalize.
 - [x] (`4c296be`) `internal/tailnet/management.go:325` HostAction (50 → 9): per-action
   executors + verifiers; dispatcher at 9.
-- [x] KEEP with reason: `apiTerminal` (86, order-dependent trust dispatch,
-  splitting moves branches); `StartTailnet` (49, linear pipeline, extraction
-  scatters ordering).
+- [x] Initial exemptions: `apiTerminal` (86) and `StartTailnet` (49) were
+  initially kept in Batch 1, then completely eliminated with zero exemptions in Batch 4 below.
 
 ## Complexity top-10 batch 2 (restructure program)
 
@@ -191,6 +190,21 @@ All 10 functions restructured with structural moves only; zero gaming, all helpe
 - [x] (`f5eadee`) `internal/host/tailnet_runtime.go:37` processRunIdentity (34 → 7): modular stat, ID map resolution, namespace admission, and boot ID helpers.
 - [x] (`0a0513d`) `internal/nativebuild/production.go:327` (Production).exportImages (33 → 7): modular Rocky base resolution, app images, Forgejo image, proxy image, and tailnet image export helpers.
 - [x] (`5f46f60`) `internal/tailnet/policy.go:246` (*policyStore).update (32 → 7): modular request validation, credential check, lock/load, rotate/save mutation, default/disable toggling, and atomic publication helpers.
+
+## Complexity top-10 batch 4 (zero exemptions)
+
+All 10 functions restructured with structural moves only; zero gaming, all helpers and entrypoints strictly below 10 ($\le 9$). Eliminated all legacy exemptions:
+
+- [x] (`dbd57cb`) `internal/web/terminal.go:16` (*Server).apiTerminal (86 → 8): monolithic WebSocket handler split into 23 focused helpers covering headers, auth, peer lookup, workspace admission, PTY launch, pump, and cleanup; previous exemption eliminated.
+- [x] (`a7d3700`) `internal/host/tailnet_companion.go:250` (*Daemon).StartTailnet (49 → 8): linear pipeline decomposed into policy verification, admission, runtime state, container launch, enrollment, and finalize helpers; previous exemption eliminated.
+- [x] (`bed7134`) `internal/installer/payload_linux.go:121` installedRootFromJSON (32 → 3): unmarshaling, disk identity validation, partition discovery, and payload root verification helpers.
+- [x] (`d282dd4`) `internal/nativebuild/oci.go:37` InspectOCI (31 → 3): archive opening, entry name validation, directory validation, regular entry check, blob reading, tar header processing, entry inventory, and index inspection helpers.
+- [x] (`5721ec9`) `internal/installer/setup_linux.go:82` configurePrivateInstall (31 → 8): preexisting install check, address querying, address prompting, token verification/prompting, IP assignment recheck, and activation execution helpers.
+- [x] (`8c3330a`) `internal/installer/enrollment_linux.go:468` ServeEnrollment (31 → 3): environment validation, broker listener setup, connection acceptance, deadline configuration, key reading, status reporting, key commit, and serving loop helpers.
+- [x] (`7af7575`) `internal/tailnet/policy.go:416` (*policyStore).project (30 → 6): request validation, policy lock/load, binding mismatch check, binding validation, project mutation, initial state resolution, and view projection helpers.
+- [x] (`1187b70`) `internal/hostimage/prepare.go:104` Prepare (30 → 6): preparedWriter state encapsulating file copying, base files creation, rootfs file map, symlink/extras staging, rootfs staging, build record emission, and base inputs loading.
+- [x] (`73e73e6`) `internal/tailnet/management.go:235` (*Management).observe (29 → 8): native status fetching, native prefs fetching, backend state validation, host preferences population, self peer application, peer list sorting, and host revision digest helpers.
+- [x] (`d5af8ee`) `internal/releasedelivery/model.go:217` AdmitChannel (29 → 7): release reference validation, channel releases validation, channel identity validation, timing/freshness check, progression verification, and highwater state advancement helpers.
 
 ## Open verification items
 
