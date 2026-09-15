@@ -168,6 +168,30 @@ func TestPreparedChecksUseExistingOutputsAndStopOnFailure(t *testing.T) {
 	require.Equal(t, filepath.Join(p.Native, "forgejo-js"), target)
 	require.NotContains(t, strings.Join(calls, "\n"), "build:forgejo")
 }
+func TestRecallLogReasonSkipsMarkers(t *testing.T) {
+	ring := newRecallLog()
+	_, err := ring.Write([]byte("\nCOMMAND go\n"))
+	require.NoError(t, err)
+	_, err = ring.Write([]byte("go: first trouble\n$ go mod verify\n"))
+	require.NoError(t, err)
+	_, err = ring.Write([]byte("go: last word: permission denied"))
+	require.NoError(t, err)
+	require.Equal(t, "go: last word: permission denied", ring.reason())
+}
+
+func TestRecallLogAttachFlushesAdmission(t *testing.T) {
+	ring := newRecallLog()
+	_, err := ring.Write([]byte("early voice\n"))
+	require.NoError(t, err)
+	var file bytes.Buffer
+	ring.attach(&file)
+	_, err = ring.Write([]byte("later voice\n"))
+	require.NoError(t, err)
+	require.Contains(t, file.String(), "early voice\nlater voice\n")
+	empty := newRecallLog()
+	require.Equal(t, "", empty.reason())
+}
+
 func TestBuildCommandCaptureEnvironmentAndFailure(t *testing.T) {
 	t.Setenv("SODA_RELEASE_NATIVE_OUT", "private-signing-sentinel")
 	t.Setenv("SODA_FORGEJO_NATIVE_PAGES", "private-fixture-sentinel")

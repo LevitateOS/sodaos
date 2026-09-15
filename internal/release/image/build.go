@@ -83,10 +83,69 @@ func (r Request) RequestedTarget() string {
 	return "release"
 }
 
+// recallLog keeps the last lines of every build command in memory and
+// forwards everything to the build log once it opens. Admission commands
+// run before the log file exists; without the ring their voice would be
+// lost and failures would surface as a bare exit status.
+type recallLog struct {
+	lines []string
+	frag  string
+	file  io.Writer
+}
+
+func newRecallLog() *recallLog {
+	return &recallLog{}
+}
+
+func (l *recallLog) Write(p []byte) (int, error) {
+	parts := strings.Split(l.frag+string(p), "\n")
+	l.frag = parts[len(parts)-1]
+	l.lines = append(l.lines, parts[:len(parts)-1]...)
+	if len(l.lines) > 20 {
+		l.lines = l.lines[len(l.lines)-20:]
+	}
+	if l.file != nil {
+		return l.file.Write(p)
+	}
+	return len(p), nil
+}
+
+// attach connects the build log file. Buffered admission output is flushed
+// first so the file holds the whole attempt from the first command.
+func (l *recallLog) attach(w io.Writer) {
+	for _, line := range l.lines {
+		fmt.Fprintln(w, line)
+	}
+	l.file = w
+}
+
+// reason returns the last tool error line: the likeliest one-line cause.
+// Command markers and secret-adjacent shell echoes never qualify.
+func (l *recallLog) reason() string {
+	if line := qualifyReason(l.frag); line != "" {
+		return line
+	}
+	for i := len(l.lines) - 1; i >= 0; i-- {
+		if line := qualifyReason(l.lines[i]); line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
+func qualifyReason(line string) string {
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, "COMMAND ") || strings.HasPrefix(line, "$ ") {
+		return ""
+	}
+	return line
+}
+
 // Build is the single candidate execution owner. Qualification and protected
 // delivery consume its unchanged bytes; this result is not a qualified release.
 func Build(ctx context.Context, r Request, progress *build.BuildProgress) (Result, error) {
-	var log io.Writer = io.Discard
+	ring := newRecallLog()
+	var log io.Writer = ring
 	capture := func(dir, name string, args ...string) (string, error) {
 		return runBuildCommand(ctx, log, nil, dir, name, args...)
 	}
@@ -94,12 +153,12 @@ func Build(ctx context.Context, r Request, progress *build.BuildProgress) (Resul
 		_, err := runBuildCommand(ctx, log, os.Stdout, dir, name, args...)
 		return err
 	}
-	return runBuild(ctx, r, progress, execute, capture, func(path string) (func() error, error) {
+	res, err := runBuild(ctx, r, progress, execute, capture, func(path string) (func() error, error) {
 		f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if e != nil {
 			return nil, e
 		}
-		log = f
+		ring.attach(f)
 		if !r.WantsMedia() {
 			return f.Close, nil
 		}
@@ -107,9 +166,13 @@ func Build(ctx context.Context, r Request, progress *build.BuildProgress) (Resul
 		if e != nil {
 			return nil, errors.Join(e, f.Close())
 		}
-		log = &mediaEventWriter{log: f, events: events, start: time.Now()}
+		ring.attach(&mediaEventWriter{log: f, events: events, start: time.Now()})
 		return func() error { return errors.Join(f.Close(), events.Close()) }, nil
 	})
+	if err != nil {
+		progress.NoteReason(ring.reason())
+	}
+	return res, err
 }
 
 func verifyCheckoutSource(requestedSource string, capture build.BuildCapture) (string, error) {
@@ -469,7 +532,10 @@ func runBuildCommand(ctx context.Context, log, output io.Writer, dir, name strin
 	if ctx.Err() != nil {
 		err = errors.Join(context.Cause(ctx), process.Stop(), err)
 	}
-	return strings.TrimSpace(data.String()), err
+	if err != nil {
+		return strings.TrimSpace(data.String()), fmt.Errorf("%s failed; retain attempt and inspect build.log: %w", filepath.Base(name), err)
+	}
+	return strings.TrimSpace(data.String()), nil
 }
 
 func preparedChecks(p build.Production) error {

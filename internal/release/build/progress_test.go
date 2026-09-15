@@ -109,6 +109,55 @@ func TestNativePhaseClockAndFailedOutput(t *testing.T) {
 	}
 }
 
+func TestNoteReasonAttachesToFailedOutput(t *testing.T) {
+	var output bytes.Buffer
+	now := time.Duration(0)
+	p := &BuildProgress{title: "fixture", Now: func() time.Duration { return now }, Stderr: &output}
+	if err := p.Phase("P1"); err != nil {
+		t.Fatal(err)
+	}
+	p.NoteReason("open /run/go/src/a.go: permission denied")
+	now = time.Second
+	if err := p.Finish(errors.New("failure")); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	if !strings.Contains(text, "FAILED   P1 | phase 00:00:01 | total 00:00:01 | reason open /run/go/src/a.go: permission denied") {
+		t.Fatal(text)
+	}
+}
+
+func TestNoteReasonSanitizedAndScoped(t *testing.T) {
+	var output bytes.Buffer
+	p := &BuildProgress{title: "fixture", Now: func() time.Duration { return 0 }, Stderr: &output}
+	p.NoteReason("")
+	p.NoteReason("   ")
+	if p.reason != "" {
+		t.Fatal("empty reason kept")
+	}
+	p.NoteReason("a | b\nsecond")
+	if p.reason != "a / b" {
+		t.Fatal(p.reason)
+	}
+	p.NoteReason(strings.Repeat("x", 400))
+	if len([]rune(p.reason)) != 300 {
+		t.Fatal(len(p.reason))
+	}
+	if err := p.Phase("P1"); err != nil {
+		t.Fatal(err)
+	}
+	if p.reason != "" {
+		t.Fatal("reason survives new phase")
+	}
+	p.NoteReason("stale")
+	if err := p.Next("step"); err != nil {
+		t.Fatal(err)
+	}
+	if p.reason != "" {
+		t.Fatal("reason survives new section")
+	}
+}
+
 func TestGoProgressRetainsOccupiedLog(t *testing.T) {
 	p, path, _ := progressFixture(t)
 	t.Setenv("SODA_BUILD_TIMING_LOG", "")

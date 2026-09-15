@@ -24,6 +24,32 @@ type BuildProgress struct {
 	finished           bool
 	phase              string
 	phaseStarted       time.Duration
+	reason             string
+}
+
+// NoteReason records the one-line cause attached to the next FAILED phase
+// or section. It carries tool stderr only, never argv or environment:
+// callers pass the failing command's own error line. Empty reasons are
+// ignored; Phase and Next clear it so a later failure cannot inherit it.
+func (p *BuildProgress) NoteReason(s string) {
+	if i := strings.IndexAny(s, "\r\n"); i >= 0 {
+		s = s[:i]
+	}
+	s = strings.ReplaceAll(strings.TrimSpace(s), "|", "/")
+	if r := []rune(s); len(r) > 300 {
+		s = string(r[:300])
+	}
+	if s == "" {
+		return
+	}
+	p.reason = s
+}
+
+func failedText(label, reason string) string {
+	if reason == "" {
+		return label
+	}
+	return label + " | reason " + reason
 }
 
 func NewBuildProgress(source, title string) (*BuildProgress, error) {
@@ -80,6 +106,7 @@ func (p *BuildProgress) Phase(label string) error {
 		return err
 	}
 	p.phase, p.phaseStarted = label, p.Now()
+	p.reason = ""
 	return p.emit("START", label)
 }
 
@@ -96,7 +123,11 @@ func (p *BuildProgress) EndPhase(err error) error {
 	}
 	label := p.phase
 	p.phase = ""
-	return p.emit(kind, label+" | phase "+duration(p.Now()-p.phaseStarted)+" | total "+duration(p.Now()-p.origin))
+	text := label + " | phase " + duration(p.Now()-p.phaseStarted) + " | total " + duration(p.Now()-p.origin)
+	if kind == "FAILED" {
+		text = failedText(text, p.reason)
+	}
+	return p.emit(kind, text)
 }
 
 func (p *BuildProgress) Next(label string) error {
@@ -107,6 +138,7 @@ func (p *BuildProgress) Next(label string) error {
 		return err
 	}
 	p.label, p.started = label, p.Now()
+	p.reason = ""
 	return p.emit("START", label)
 }
 
@@ -124,7 +156,11 @@ func (p *BuildProgress) End(err error) error {
 	label := p.label
 	p.label = ""
 	now := p.Now()
-	return p.emit(kind, label+" | section "+duration(now-p.started)+" | total "+duration(now-p.origin))
+	text := label + " | section " + duration(now-p.started) + " | total " + duration(now-p.origin)
+	if kind == "FAILED" {
+		text = failedText(text, p.reason)
+	}
+	return p.emit(kind, text)
 }
 
 func (p *BuildProgress) writeSectionSummary() error {
