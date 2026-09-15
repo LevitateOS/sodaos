@@ -1,0 +1,2 @@
+# Pinned Ruff for format, lint, and McCabe complexity. Not a runtime dependency.
+ruff==0.16.6

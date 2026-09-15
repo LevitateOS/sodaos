@@ -1,0 +1,18 @@
+# Python tool config only. This repository is not a Python package.
+# Pin matches requirements-ruff.txt.
+
+[tool.ruff]
+required-version = "==0.16.6"
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+# Default Ruff correctness set (pycodestyle runtime errors + pyflakes).
+# McCabe C901 is the dedicated complexity gate, not this lint pass.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 9
+
+[tool.ruff.format]
+quote-style = "preserve"

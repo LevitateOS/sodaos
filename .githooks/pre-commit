@@ -109,6 +109,36 @@ if [ -n "$tsfiles" ]; then
   fi
 fi
 
+# 11. Ruff format on staged Python (zero tolerance; whole-tree backlog is not
+# blocking). Darwin-safe: no GOOS.
+pyfiles=$(printf '%s\n' "$staged" | grep '\.py$' || true)
+if [ -n "$pyfiles" ]; then
+  # shellcheck disable=SC2086
+  if ! bash scripts/check-ruff-format.sh $pyfiles; then
+    printf 'pre-commit: ruff format gate failed on staged Python (run ruff format).\n'
+    fail=1
+  fi
+fi
+
+# 12. Cyclomatic complexity below 10 on staged shipping Python.
+prodpyfiles=$(printf '%s\n' "$pyfiles" | grep -E '^(internal|cmd|appliance|project-os)/' | grep -v '_test\.py$' || true)
+if [ -n "$prodpyfiles" ]; then
+  # shellcheck disable=SC2086
+  if ! bash scripts/check-py-complexity.sh $prodpyfiles; then
+    printf 'pre-commit: Python complexity gate failed on staged shipping files.\n'
+    fail=1
+  fi
+fi
+
+# 13. Ruff correctness on staged Python (complexity is the previous step).
+if [ -n "$pyfiles" ]; then
+  # shellcheck disable=SC2086
+  if ! bash scripts/check-ruff.sh $pyfiles; then
+    printf 'pre-commit: ruff failed on staged Python.\n'
+    fail=1
+  fi
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf 'pre-commit gate failed. Fix the findings or bypass with --no-verify.\n'
   exit 1
