@@ -108,7 +108,8 @@ justify keeping obsolete implementations alive.
 
 ## Code and tooling
 
-- Use Go for backend/setup/privileged integration. The [TypeScript guide](docs/typescript.md)
+- Use Go for backend/setup/privileged integration. The [Go ownership guide](docs/go.md)
+  owns package placement, SQL locality and house style. The [TypeScript guide](docs/typescript.md)
   owns JS-family language, strict typing, Bun workspace and asset-porting conventions.
   Versions belong in source manifests/locks; avoid incidental upgrades.
 - Test the changed working path, demonstrated failures and relevant authorization or
@@ -150,6 +151,7 @@ Service/image source in `appliance/services/` and `project-os/` establishes topo
 
 | Area | Guide |
 | --- | --- |
+| Go package ownership and style | [Go ownership](docs/go.md) |
 | Product scope and ownership | [Architecture](docs/architecture.md), [Sodaspaces](docs/sodaspaces-plan.md), [deferred work](docs/deferred.md) |
 | Native pages and Runners | [Active combined plan](docs/native-pages-runners-plan.md), [page integration](docs/forgejo-soda-pages-plan.md), [runner contracts](docs/runners-port.md) |
 | Forgejo extension implementation | [Dedicated status and order](docs/forgejo-extension-status.md), [source audit](docs/forgejo-extension-audit.md) |
