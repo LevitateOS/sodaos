@@ -63,13 +63,24 @@ sudo mkdir -p "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME" "$TOOLS/bin" "$AUTHORITY
 # Copy the full pinned GOROOT tree (a bare go binary cannot find its stdlib)
 # and the single-file bun binary; the worker bind-mounts only this directory.
 # Module-cache copies carry foreign SELinux labels, so relabel afterwards.
+# The isolated worker runs as a systemd service: it is denied execute on
+# var_lib_t, so the provisioned executables need bin_t to run at all.
 sudo rm -rf "$TOOLS/go" "$TOOLS/bin/bun"
 sudo cp -a "$PINNED_GOROOT" "$TOOLS/go"
 sudo cp "$(command -v bun)" "$TOOLS/bin/bun"
 sudo chown -R root:root "$TOOLS"
+if command -v semanage >/dev/null; then
+  sudo semanage fcontext -a -t bin_t "$TOOLS(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t bin_t "$TOOLS(/.*)?"
+fi
 command -v restorecon >/dev/null && sudo restorecon -R "$TOOLS"
 sudo find "$TOOLS/go" -type d -exec chmod 0755 {} +
 sudo chown soda-build-worker:soda-build-worker "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME"
+# The service worker is denied file creation on user_home_t, so the output
+# parent inside the checkout needs var_lib_t to take build output.
+if command -v semanage >/dev/null; then
+  sudo semanage fcontext -a -t var_lib_t "$OUTPUT_PARENT(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t var_lib_t "$OUTPUT_PARENT(/.*)?"
+fi
+command -v restorecon >/dev/null && sudo restorecon -R "$OUTPUT_PARENT"
 sudo chmod 0755 "$TOOLS" "$TOOLS/bin"
 sudo chmod 0700 "$AUTHORITY"
 echo "-- verify tools as the worker user"
@@ -139,6 +150,10 @@ EOF
   sudo install -m 0600 "$TMPD/config.json" "$AUTHORITY/config.json"
   sudo chmod 0700 "$AUTHORITY"
 fi
+# The isolated worker admits only caller-owned 0600 files in a 0700
+# directory, so the fixture authority it reads belongs to the worker.
+# worker.json stays root-owned: the root parent admits that one.
+sudo chown soda-build-worker:soda-build-worker "$AUTHORITY" "$AUTHORITY/trust.json" "$AUTHORITY/artifact.private" "$AUTHORITY/passphrase" "$AUTHORITY/config.json"
 
 sudo mkdir -p "$ROOTFS_DIR"
 sudo chown "$USER" "$ROOTFS_DIR"
