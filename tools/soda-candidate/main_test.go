@@ -237,6 +237,64 @@ func TestRunningPhaseShowsLiveElapsed(t *testing.T) {
 	}
 }
 
+func writeWorkerJSON(t *testing.T, runtimeDir string) string {
+	t.Helper()
+	path := t.TempDir() + "/worker.json"
+	raw := `{"OutputParent": "/out", "Runtime": "` + runtimeDir + `"}`
+	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func TestPrepareRuntimeClearsIdleState(t *testing.T) {
+	runtimeDir := t.TempDir()
+	if err := os.WriteFile(runtimeDir+"/stale.lock", []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	quiet := func() (string, error) { return "", nil }
+	if err := prepareRuntime(writeWorkerJSON(t, runtimeDir), quiet); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(runtimeDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("stale runtime state survived: %v", entries)
+	}
+}
+
+func TestPrepareRuntimeRefusesConcurrentBuild(t *testing.T) {
+	runtimeDir := t.TempDir()
+	busy := func() (string, error) { return "soda-build-manual-01.service loaded active running\n", nil }
+	err := prepareRuntime(writeWorkerJSON(t, runtimeDir), busy)
+	if err == nil || !strings.Contains(err.Error(), "already running") {
+		t.Fatalf("concurrent build not refused, got: %v", err)
+	}
+}
+
+func TestPrepareRuntimeNamesSetupDrift(t *testing.T) {
+	quiet := func() (string, error) { return "", nil }
+	if err := prepareRuntime(t.TempDir()+"/absent.json", quiet); err == nil ||
+		!strings.Contains(err.Error(), "setup script") {
+		t.Fatalf("missing config unexplained, got: %v", err)
+	}
+	bad, err := os.CreateTemp(t.TempDir(), "worker*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bad.WriteString("{nope"); err != nil {
+		t.Fatal(err)
+	}
+	if err := bad.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := prepareRuntime(bad.Name(), quiet); err == nil {
+		t.Fatal("invalid worker config accepted")
+	}
+}
+
 func TestPreflightRefusesOutsideCheckout(t *testing.T) {
 	cwd, err := os.Getwd()
 	if err != nil {

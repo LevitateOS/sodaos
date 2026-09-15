@@ -17,7 +17,6 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -176,54 +175,6 @@ func preflight(o options) error {
 	return nil
 }
 
-// validOutLeaf mirrors the worker admission rule: the output leaf becomes
-// the worker unit name, which allows lowercase letters, digits, and dashes.
-func validOutLeaf(leaf string) bool {
-	if len(leaf) < 1 || len(leaf) > 48 {
-		return false
-	}
-	for _, r := range leaf {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-// suggestOut names a timestamped leaf below the isolated releases parent.
-// Lowercase by worker rule; uppercase timestamps are refused at dispatch.
-func suggestOut() string {
-	cwd, _ := os.Getwd()
-	leaf := time.Now().UTC().Format("20060102t150405z")
-	return filepath.Join(cwd, ".artifacts", "releases", "isolated", leaf)
-}
-
-// controllerArgs translates answers into the admitted flags.
-func controllerArgs(o options) []string {
-	args := []string{"--worker-config", o.workerConfig, "--arch", o.arch, "--out", o.out,
-		"--repository-prefix", o.repoPrefix}
-	if o.mode == "production" {
-		args = append(args, "--qualification-config", o.qualConfig)
-		if o.signConfig != "" {
-			args = append(args, "--signing-config", o.signConfig)
-		}
-		return args
-	}
-	target := o.mode
-	if target == "" {
-		target = "media"
-	}
-	args = append(args, "--development", "--target", target)
-	if o.compression != "" {
-		args = append(args, "--media-compression", o.compression)
-	}
-	if o.mode == "media" {
-		args = append(args, "--rootfs-base-url", o.rootfsURL)
-	}
-	return args
-}
-
 // monotonicNS shares the CLOCK_MONOTONIC epoch the controller totals use.
 func monotonicNS() (int64, error) {
 	var ts unix.Timespec
@@ -242,6 +193,14 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 	if err != nil {
 		return err
 	}
+	// Fail fast on a preseeded config before asking anything; the second
+	// call below covers a path typed on the screen. Both are cheap and
+	// idempotent: refuse a running worker, then drop idle session state.
+	if o.workerConfig != "" {
+		if err := prepareRuntime(o.workerConfig, listRunningBuildUnits); err != nil {
+			return err
+		}
+	}
 	interactive := isTerminal(stdin) && isTerminal(stderr) && !o.nonInteractive
 	if interactive {
 		p := newPrompter(bufio.NewReader(stdin), stderr)
@@ -255,6 +214,9 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 		return err
 	}
 	if err := preflight(o); err != nil {
+		return err
+	}
+	if err := prepareRuntime(o.workerConfig, listRunningBuildUnits); err != nil {
 		return err
 	}
 	ns, err := monotonicNS()
