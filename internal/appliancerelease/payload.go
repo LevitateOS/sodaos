@@ -12,8 +12,10 @@ import (
 	"github.com/levitateos/sodaos/internal/nativebuild"
 )
 
-const Path = "/usr/share/soda/release.json"
-const ImagesPath = "/usr/share/soda/images"
+const (
+	Path       = "/usr/share/soda/release.json"
+	ImagesPath = "/usr/share/soda/images"
+)
 
 var Names = []string{"dashboard", "forgejo", "proxy", "project-os", "tailnet"}
 
@@ -40,20 +42,16 @@ type Payload struct {
 	UpgradeFrom []string
 }
 
-func (p Payload) Validate() error {
-	if p.Format != 3 || !nativebuild.Revision(p.Revision) || p.ID != p.CoreOS+".soda-"+p.Revision[:12] || !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(p.CoreOS) {
-		return errors.New("invalid appliance payload identity")
-	}
-	if _, err := nativebuild.OCIArchitecture(p.Architecture); err != nil {
-		return err
-	}
-	if !ValidRepositoryPrefix(p.RepositoryPrefix) {
-		return errors.New("explicit GHCR repository prefix required")
-	}
+func (p Payload) validIdentity() bool {
+	return p.Format == 3 && nativebuild.Revision(p.Revision) && p.ID == p.CoreOS+".soda-"+p.Revision[:12] && regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(p.CoreOS)
+}
+
+func (p Payload) validBase() bool {
 	const basePrefix = "quay.io/fedora/fedora-coreos@sha256:"
-	if !strings.HasPrefix(p.Base, basePrefix) || !nativebuild.Digest(strings.TrimPrefix(p.Base, basePrefix)) || p.Schema < 1 || !nativebuild.Digest(p.PresentationSHA256) || !nativebuild.Digest(p.HostPackagesSHA256) {
-		return errors.New("incomplete appliance payload")
-	}
+	return strings.HasPrefix(p.Base, basePrefix) && nativebuild.Digest(strings.TrimPrefix(p.Base, basePrefix)) && p.Schema >= 1 && nativebuild.Digest(p.PresentationSHA256) && nativebuild.Digest(p.HostPackagesSHA256)
+}
+
+func (p Payload) validImages() error {
 	if len(p.Images) != len(Names) {
 		return errors.New("complete image set required")
 	}
@@ -63,6 +61,25 @@ func (p Payload) Validate() error {
 			return fmt.Errorf("invalid %s image binding", name)
 		}
 	}
+	return nil
+}
+
+func (p Payload) Validate() error {
+	if !p.validIdentity() {
+		return errors.New("invalid appliance payload identity")
+	}
+	if _, err := nativebuild.OCIArchitecture(p.Architecture); err != nil {
+		return err
+	}
+	if !ValidRepositoryPrefix(p.RepositoryPrefix) {
+		return errors.New("explicit GHCR repository prefix required")
+	}
+	if !p.validBase() {
+		return errors.New("incomplete appliance payload")
+	}
+	if err := p.validImages(); err != nil {
+		return err
+	}
 	// Native admission is not implemented in this milestone. Do not publish a
 	// guessed compatibility promise simply because schemas happen to match.
 	if len(p.UpgradeFrom) != 0 {
@@ -70,12 +87,15 @@ func (p Payload) Validate() error {
 	}
 	return nil
 }
+
 func ValidRepositoryPrefix(s string) bool {
 	return len(s) < 200 && regexp.MustCompile(`^ghcr\.io/[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9._-]*$`).MatchString(s)
 }
+
 func digest(s string) bool {
 	return strings.HasPrefix(s, "sha256:") && nativebuild.Digest(strings.TrimPrefix(s, "sha256:"))
 }
+
 func Load(path string) (Payload, error) {
 	var p Payload
 	if err := nativebuild.ReadJSON(path, &p); err != nil {
