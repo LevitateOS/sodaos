@@ -89,6 +89,36 @@ if [ -n "$gofiles" ]; then
   fi
 fi
 
+# 8. Prettier on staged TypeScript (zero tolerance; whole-tree backlog is not
+# blocking). Darwin-safe: no GOOS, uses the Bun-locked prettier binary.
+tsfiles=$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx)$' || true)
+if [ -n "$tsfiles" ]; then
+  # shellcheck disable=SC2086
+  if ! bash scripts/check-prettier.sh $tsfiles; then
+    printf 'pre-commit: prettier gate failed on staged TypeScript (run prettier --write).\n'
+    fail=1
+  fi
+fi
+
+# 9. Cyclomatic complexity below 10 on staged production TypeScript.
+prodtsfiles=$(printf '%s\n' "$tsfiles" | grep -v -E '(^tests/|^docs/|/fixtures/|/testdata/|\.test\.ts$)' || true)
+if [ -n "$prodtsfiles" ]; then
+  # shellcheck disable=SC2086
+  if ! bash scripts/check-ts-complexity.sh $prodtsfiles; then
+    printf 'pre-commit: TypeScript complexity gate failed on staged production files.\n'
+    fail=1
+  fi
+fi
+
+# 10. Oxlint correctness on staged TypeScript (complexity is the previous step).
+if [ -n "$tsfiles" ]; then
+  # shellcheck disable=SC2086
+  if ! bash scripts/check-oxlint.sh $tsfiles; then
+    printf 'pre-commit: oxlint failed on staged TypeScript.\n'
+    fail=1
+  fi
+fi
+
 if [ "$fail" -ne 0 ]; then
   printf 'pre-commit gate failed. Fix the findings or bypass with --no-verify.\n'
   exit 1

@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "complexity": ["error", { "max": 9 }],
+    "no-control-regex": "off",
+    "no-useless-escape": "off"
+  },
+  "ignorePatterns": [
+    "node_modules/**",
+    ".artifacts/**",
+    ".local/**"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "**/*.test.ts",
+        "tests/**",
+        "**/fixtures/**",
+        "**/testdata/**"
+      ],
+      "rules": {
+        "complexity": "off"
+      }
+    }
+  ]
+}

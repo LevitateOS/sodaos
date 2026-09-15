@@ -11,6 +11,9 @@
     "build": "bun run build:forgejo",
     "typecheck": "bun --bun node_modules/typescript/bin/tsc -p tsconfig.json && bun --bun node_modules/typescript/bin/tsc -p tsconfig.browser.json && bun --bun node_modules/typescript/bin/tsc -p tsconfig.tests.json && bun --bun node_modules/typescript/bin/tsc -p tools/lit-check/tsconfig.json && bun run check:lit && bun run test:lit-check",
     "check:source": "bash scripts/check-source.sh",
+    "check:prettier": "bash scripts/check-prettier.sh",
+    "check:oxlint": "bash scripts/check-oxlint.sh",
+    "check:ts-complexity": "bash scripts/check-ts-complexity.sh",
     "check:lit": "bun scripts/check-lit.ts",
     "test:lit-check": "bun scripts/check-lit.ts --fixtures",
     "test": "bun run build:forgejo && bun run test:frontend:prepared && bun run test:pages:prepared && bun run test:layout:prepared && bun run test:forgejo:prepared",
@@ -33,11 +36,13 @@
     "@types/bun": "1.4.2",
     "@types/jsdom": "30.0.0",
     "@types/node": "24.10.1",
-    "jsdom": "30.0.1",
-    "playwright": "1.63.0",
-    "typescript": "7.0.2",
+    "@xterm/addon-fit": "0.11.0",
     "@xterm/xterm": "6.0.0",
-    "@xterm/addon-fit": "0.11.0"
+    "jsdom": "30.0.1",
+    "oxlint": "1.81.0",
+    "playwright": "1.63.0",
+    "prettier": "3.6.2",
+    "typescript": "7.0.2"
   },
   "dependencies": {
     "lit": "3.3.3"

@@ -142,6 +142,24 @@ assertions, exclusive/private filesystem checks, raw HTTP request paths, termina
 input and explicit closure of borrowed Chromium file descriptors. Those supported APIs execute in
 Bun and remain strictly typed; they do not introduce a Node process requirement.
 
+## Formatting, linting, and complexity
+
+Pinned `prettier` (3.6.2) and `oxlint` (1.81.0) in the root lock are the TypeScript
+analogues of gofumpt and of staticcheck plus gocyclo. They do not replace
+`bun run typecheck`. Do not add ESLint, Biome, or a second formatter on top of this
+pair. Whole-tree scripts live beside the Go gates; the pre-commit hook is
+staged-only so an existing backlog cannot block unrelated commits. Go quality-gate
+ownership and the Go threshold remain in [the slop audit](slop-audit.md#go-quality-gates-githookspre-commit-staged-scope-only).
+
+| Command | Scope |
+| --- | --- |
+| `bash scripts/check-prettier.sh` (`bun run check:prettier`) | Zero-tolerance format on the given `.ts`/`.tsx` paths, or every tracked TypeScript file. Fix with `bunx prettier --write <files>`. |
+| `bash scripts/check-oxlint.sh` (`bun run check:oxlint`) | Correctness lint (oxlint `correctness`, without duplicating `tsc`). Complexity is excluded here. |
+| `bash scripts/check-ts-complexity.sh` (`bun run check:ts-complexity`) | Production TypeScript only (not `tests/`, `docs/`, `*.test.ts`, fixtures, or testdata). Cyclomatic complexity strictly below 10, matching production Go (`gocyclo -over 9` / oxlint `complexity` max 9). |
+
+`.githooks/pre-commit` runs those three on staged `.ts`/`.tsx` files after the Go
+checks. Formatting applies to staged tests as well; complexity does not.
+
 ## Compiler boundaries
 
 All configurations extend `tsconfig.base.json`: strict checking, checked indexed
