@@ -232,60 +232,96 @@ func nativeObject(data []byte, out any, required ...string) error {
 	return nil
 }
 
-func (m *Management) observe(ctx context.Context) (HostView, string, error) {
-	var s nativeStatus
-	var p nativePrefs
-	b, err := m.request(ctx, "GET", "status", nil)
-	if err != nil || nativeObject(b, &s, "BackendState", "HaveNodeKey") != nil || s.BackendState == "" || len(s.Peer) > 128 || len(s.Health) > 128 {
-		return HostView{}, "", ErrUnavailable
-	}
+func validateNativeBackendState(s nativeStatus) error {
 	switch s.BackendState {
-	case "NoState", "InUseOtherUser", "NeedsLogin", "NeedsMachineAuth", "Stopped", "Starting", "Running":
+	case "NoState", "InUseOtherUser", "NeedsLogin", "NeedsMachineAuth", "Stopped", "Starting":
+		return nil
+	case "Running":
+		if !s.HaveNodeKey || s.Self == nil || s.Self.ID == "" || len(s.Self.TailscaleIPs) == 0 {
+			return ErrUnavailable
+		}
+		return nil
 	default:
-		return HostView{}, "", ErrUnavailable
+		return ErrUnavailable
 	}
-	if s.BackendState == "Running" && (!s.HaveNodeKey || s.Self == nil || s.Self.ID == "" || len(s.Self.TailscaleIPs) == 0) {
-		return HostView{}, "", ErrUnavailable
+}
+
+func (m *Management) fetchNativeStatus(ctx context.Context) (nativeStatus, error) {
+	var s nativeStatus
+	b, err := m.request(ctx, "GET", "status", nil)
+	if err != nil || nativeObject(b, &s, "BackendState", "HaveNodeKey") != nil {
+		return nativeStatus{}, ErrUnavailable
 	}
-	b, err = m.request(ctx, "GET", "prefs", nil)
-	if err != nil || nativeObject(b, &p, "WantRunning", "ExitNodeID", "ExitNodeIP", "ExitNodeAllowLANAccess", "AdvertiseRoutes") != nil || len(p.AdvertiseRoutes) > 128 || len(p.ExitNodeID) > 128 {
-		return HostView{}, "", ErrUnavailable
+	if s.BackendState == "" || len(s.Peer) > 128 || len(s.Health) > 128 {
+		return nativeStatus{}, ErrUnavailable
+	}
+	if err := validateNativeBackendState(s); err != nil {
+		return nativeStatus{}, err
+	}
+	return s, nil
+}
+
+func (m *Management) fetchNativePrefs(ctx context.Context) (nativePrefs, error) {
+	var p nativePrefs
+	b, err := m.request(ctx, "GET", "prefs", nil)
+	if err != nil || nativeObject(b, &p, "WantRunning", "ExitNodeID", "ExitNodeIP", "ExitNodeAllowLANAccess", "AdvertiseRoutes") != nil {
+		return nativePrefs{}, ErrUnavailable
+	}
+	if len(p.AdvertiseRoutes) > 128 || len(p.ExitNodeID) > 128 {
+		return nativePrefs{}, ErrUnavailable
 	}
 	if p.ExitNodeIP != "" {
-		if _, e := netip.ParseAddr(p.ExitNodeIP); e != nil {
-			return HostView{}, "", ErrUnavailable
+		if _, err := netip.ParseAddr(p.ExitNodeIP); err != nil {
+			return nativePrefs{}, ErrUnavailable
 		}
 	}
-	view := HostView{State: s.BackendState, HaveNodeKey: s.HaveNodeKey, Peers: []Peer{}, Addresses: []string{}, HealthIssues: len(s.Health), Preferences: HostPreferences{WantRunning: p.WantRunning, ExitNodeID: p.ExitNodeID, ExitNodeIP: p.ExitNodeIP, AllowLAN: p.ExitNodeAllowLANAccess}}
-	if s.CurrentTailnet != nil {
-		view.Tailnet = s.CurrentTailnet.Name
-		view.MagicDNSEnabled = s.CurrentTailnet.MagicDNSEnabled
+	return p, nil
+}
+
+func populateHostPreferences(p nativePrefs) (HostPreferences, error) {
+	prefs := HostPreferences{
+		WantRunning: p.WantRunning,
+		ExitNodeID:  p.ExitNodeID,
+		ExitNodeIP:  p.ExitNodeIP,
+		AllowLAN:    p.ExitNodeAllowLANAccess,
 	}
 	for _, route := range p.AdvertiseRoutes {
-		if _, e := netip.ParsePrefix(route); e != nil {
-			return HostView{}, "", ErrUnavailable
+		if _, err := netip.ParsePrefix(route); err != nil {
+			return HostPreferences{}, ErrUnavailable
 		}
 		if route == "0.0.0.0/0" || route == "::/0" {
-			view.Preferences.AdvertiseExitNode = true
+			prefs.AdvertiseExitNode = true
 		}
 	}
-	if s.Self != nil {
-		self, e := peerView(*s.Self)
-		if e != nil {
-			return HostView{}, "", e
-		}
-		view.DNSName, view.Addresses, view.Expired = self.DNSName, self.Addresses, self.Expired
+	return prefs, nil
+}
+
+func applySelfPeer(view *HostView, self *nativePeer) error {
+	if self == nil {
+		return nil
 	}
-	for _, p := range s.Peer {
-		peer, e := peerView(p)
-		if e != nil {
-			return HostView{}, "", e
-		}
-		view.Peers = append(view.Peers, peer)
+	p, err := peerView(*self)
+	if err != nil {
+		return err
 	}
-	sort.Slice(view.Peers, func(i, j int) bool { return view.Peers[i].ID < view.Peers[j].ID })
-	// Revision covers the host's identity/state/preferences, not volatile peer or
-	// health polling. Native CLI writers remain outside Soda's advisory lock.
+	view.DNSName, view.Addresses, view.Expired = p.DNSName, p.Addresses, p.Expired
+	return nil
+}
+
+func populatePeers(peers map[string]nativePeer) ([]Peer, error) {
+	out := make([]Peer, 0, len(peers))
+	for _, p := range peers {
+		peer, err := peerView(p)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, peer)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out, nil
+}
+
+func computeHostRevision(s nativeStatus, view HostView, p nativePrefs) string {
 	selfID := ""
 	if s.Self != nil {
 		selfID = s.Self.ID
@@ -299,7 +335,44 @@ func (m *Management) observe(ctx context.Context) (HostView, string, error) {
 		Prefs                nativePrefs
 	}{s.BackendState, s.HaveNodeKey, view.Expired, view.DNSName, selfID, view.Addresses, p})
 	digest := sha256.Sum256(revision)
-	view.Revision = hex.EncodeToString(digest[:])
+	return hex.EncodeToString(digest[:])
+}
+
+func (m *Management) observe(ctx context.Context) (HostView, string, error) {
+	s, err := m.fetchNativeStatus(ctx)
+	if err != nil {
+		return HostView{}, "", err
+	}
+	p, err := m.fetchNativePrefs(ctx)
+	if err != nil {
+		return HostView{}, "", err
+	}
+	prefs, err := populateHostPreferences(p)
+	if err != nil {
+		return HostView{}, "", err
+	}
+	view := HostView{
+		State:        s.BackendState,
+		HaveNodeKey:  s.HaveNodeKey,
+		Peers:        []Peer{},
+		Addresses:    []string{},
+		HealthIssues: len(s.Health),
+		Preferences:  prefs,
+	}
+	if s.CurrentTailnet != nil {
+		view.Tailnet = s.CurrentTailnet.Name
+		view.MagicDNSEnabled = s.CurrentTailnet.MagicDNSEnabled
+	}
+	if err := applySelfPeer(&view, s.Self); err != nil {
+		return HostView{}, "", err
+	}
+	view.Peers, err = populatePeers(s.Peer)
+	if err != nil {
+		return HostView{}, "", err
+	}
+	// Revision covers the host's identity/state/preferences, not volatile peer or
+	// health polling. Native CLI writers remain outside Soda's advisory lock.
+	view.Revision = computeHostRevision(s, view, p)
 	if view.Validate() != nil {
 		return HostView{}, "", ErrUnavailable
 	}
