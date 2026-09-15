@@ -219,6 +219,86 @@ func (p Production) Images(forgejoContext string) (map[string]ProducedImage, err
 // This is the existing app-inputs owner, not a reuse planner or another inventory.
 type ResolvedInput struct{ Requested, Reference, Config string }
 
+func parseImageRepo(ref string) string {
+	repo := strings.SplitN(ref, "@", 2)[0]
+	if colon := strings.LastIndex(repo, ":"); colon > strings.LastIndex(repo, "/") {
+		repo = repo[:colon]
+	}
+	return repo
+}
+
+func (p *Production) admitResolvedInputRecord(inputs []ResolvedInput) error {
+	b, e := json.MarshalIndent(inputs, "", "  ")
+	if e != nil {
+		return e
+	}
+	// This private, fresh production attempt owns this growing provenance record.
+	return os.WriteFile(filepath.Join(p.Out, "app-inputs.json"), append(b, '\n'), 0o600)
+}
+
+func (p *Production) pullResolvedInput(label, ref, iidName, platform string, inputs *[]ResolvedInput) (string, string, error) {
+	if e := p.step("Pull and resolve " + label); e != nil {
+		return "", "", e
+	}
+	id, e := p.Capture(p.Source, "podman", "--remote=false", "pull", "--quiet", "--platform=linux/"+platform, ref)
+	if e != nil {
+		return "", "", e
+	}
+	if !Digest(strings.TrimPrefix(id, "sha256:")) {
+		return "", "", errors.New("invalid pulled image ID")
+	}
+	id = "sha256:" + strings.TrimPrefix(id, "sha256:")
+	digest, e := p.Capture(p.Source, "podman", "--remote=false", "image", "inspect", "--format", "{{.Digest}}", id)
+	if e != nil {
+		return "", "", e
+	}
+	if !strings.HasPrefix(digest, "sha256:") || !Digest(strings.TrimPrefix(digest, "sha256:")) {
+		return "", "", errors.New("invalid registry digest")
+	}
+	pinned := parseImageRepo(ref) + "@" + digest
+	if iidName != "" {
+		if e = WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(id+"\n"), 0o600); e != nil {
+			return "", "", e
+		}
+	}
+	*inputs = append(*inputs, ResolvedInput{ref, pinned, id})
+	return id, pinned, p.admitResolvedInputRecord(*inputs)
+}
+
+func (p *Production) recipeImageRefs() (rocky, forgejo, proxy string, err error) {
+	rocky, err = recipeBase(filepath.Join(p.Source, "project-os/Containerfile"))
+	if err != nil {
+		return "", "", "", err
+	}
+	dashboard, err := recipeBase(filepath.Join(p.Source, "appliance/dashboard.Containerfile"))
+	if err != nil {
+		return "", "", "", err
+	}
+	if rocky != dashboard {
+		return "", "", "", errors.New("dashboard and Project OS base owners disagree")
+	}
+	forgejo, err = unitImage(filepath.Join(p.Source, "appliance/services/forgejo.container"))
+	if err != nil {
+		return "", "", "", err
+	}
+	proxy, err = unitImage(filepath.Join(p.Source, "appliance/services/soda-proxy.container"))
+	return rocky, forgejo, proxy, err
+}
+
+func (p *Production) lockedTailnetBase(platform string) (string, error) {
+	var tail struct {
+		Version, Base string
+		SHA256        map[string]string
+	}
+	if e := ReadJSON(filepath.Join(p.Source, "appliance/locks/tailscale-image.json"), &tail); e != nil {
+		return "", e
+	}
+	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(tail.Version) || !regexp.MustCompile(`^docker.io/tailscale/alpine-base@sha256:[0-9a-f]{64}$`).MatchString(tail.Base) || !Digest(tail.SHA256[platform]) {
+		return "", errors.New("invalid locked Tailnet input")
+	}
+	return tail.Base, nil
+}
+
 func (p *Production) ResolveInputs() error {
 	if e := p.validate(); e != nil {
 		return e
@@ -227,78 +307,17 @@ func (p *Production) ResolveInputs() error {
 		return errors.New("occupied image input record")
 	}
 	platform, _ := OCIArchitecture(p.Arch)
+	rocky, forgejo, proxy, e := p.recipeImageRefs()
+	if e != nil {
+		return e
+	}
+	tailBase, e := p.lockedTailnetBase(platform)
+	if e != nil {
+		return e
+	}
 	var inputs []ResolvedInput
-	pull := func(label, ref, iidName string) (string, string, error) {
-		if e := p.step("Pull and resolve " + label); e != nil {
-			return "", "", e
-		}
-		id, e := p.Capture(p.Source, "podman", "--remote=false", "pull", "--quiet", "--platform=linux/"+platform, ref)
-		if e != nil {
-			return "", "", e
-		}
-		if !Digest(strings.TrimPrefix(id, "sha256:")) {
-			return "", "", errors.New("invalid pulled image ID")
-		}
-		id = "sha256:" + strings.TrimPrefix(id, "sha256:")
-		digest, e := p.Capture(p.Source, "podman", "--remote=false", "image", "inspect", "--format", "{{.Digest}}", id)
-		if e != nil {
-			return "", "", e
-		}
-		if !strings.HasPrefix(digest, "sha256:") || !Digest(strings.TrimPrefix(digest, "sha256:")) {
-			return "", "", errors.New("invalid registry digest")
-		}
-		repo := strings.SplitN(ref, "@", 2)[0]
-		if colon := strings.LastIndex(repo, ":"); colon > strings.LastIndex(repo, "/") {
-			repo = repo[:colon]
-		}
-		pinned := repo + "@" + digest
-		if iidName != "" {
-			if e = WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(id+"\n"), 0o600); e != nil {
-				return "", "", e
-			}
-		}
-		inputs = append(inputs, ResolvedInput{ref, pinned, id})
-		b, e := json.MarshalIndent(inputs, "", "  ")
-		if e != nil {
-			return "", "", e
-		}
-		// This private, fresh production attempt owns this growing provenance record.
-		if e = os.WriteFile(filepath.Join(p.Out, "app-inputs.json"), append(b, '\n'), 0o600); e != nil {
-			return "", "", e
-		}
-		return id, pinned, nil
-	}
-	rocky, e := recipeBase(filepath.Join(p.Source, "project-os/Containerfile"))
-	if e != nil {
-		return e
-	}
-	dashboard, e := recipeBase(filepath.Join(p.Source, "appliance/dashboard.Containerfile"))
-	if e != nil {
-		return e
-	}
-	if rocky != dashboard {
-		return errors.New("dashboard and Project OS base owners disagree")
-	}
-	forgejo, e := unitImage(filepath.Join(p.Source, "appliance/services/forgejo.container"))
-	if e != nil {
-		return e
-	}
-	proxy, e := unitImage(filepath.Join(p.Source, "appliance/services/soda-proxy.container"))
-	if e != nil {
-		return e
-	}
-	var tail struct {
-		Version, Base string
-		SHA256        map[string]string
-	}
-	if e = ReadJSON(filepath.Join(p.Source, "appliance/locks/tailscale-image.json"), &tail); e != nil {
-		return e
-	}
-	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(tail.Version) || !regexp.MustCompile(`^docker.io/tailscale/alpine-base@sha256:[0-9a-f]{64}$`).MatchString(tail.Base) || !Digest(tail.SHA256[platform]) {
-		return errors.New("invalid locked Tailnet input")
-	}
-	for _, ref := range []string{rocky, forgejo, proxy, tail.Base} {
-		if _, _, e = pull(ref, ref, ""); e != nil {
+	for _, ref := range []string{rocky, forgejo, proxy, tailBase} {
+		if _, _, e = p.pullResolvedInput(ref, ref, "", platform, &inputs); e != nil {
 			return e
 		}
 	}
