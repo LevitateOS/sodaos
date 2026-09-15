@@ -41,6 +41,7 @@ type options struct {
 	mode           string
 	compression    string
 	rootfsURL      string
+	rootfsDir      string
 	repoPrefix     string
 	qualConfig     string
 	signConfig     string
@@ -61,6 +62,7 @@ func parseOptions(args []string) (options, error) {
 	fs.StringVar(&o.mode, "mode", "", "candidate, media, or production (asked when empty)")
 	fs.StringVar(&o.compression, "media-compression", "", "fast: development media only")
 	fs.StringVar(&o.rootfsURL, "rootfs-base-url", "", "public base URL for the hash-named rootfs file")
+	fs.StringVar(&o.rootfsDir, "rootfs-dir", fixtureRootfsDir, "pickup folder served for loopback development media")
 	fs.StringVar(&o.repoPrefix, "repository-prefix", "ghcr.io/levitateos/sodaos", "intended image repositories; no publication")
 	fs.StringVar(&o.qualConfig, "qualification-config", "", "production qualification configuration")
 	fs.StringVar(&o.signConfig, "signing-config", "", "production final signing configuration")
@@ -219,6 +221,19 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 	if err := prepareRuntime(o.workerConfig, listRunningBuildUnits); err != nil {
 		return err
 	}
+	// Loopback development media serves itself: the installer needs a live
+	// pickup address, and the operator should never hand-run a file server.
+	if fixtureWanted(o.mode, o.rootfsURL) {
+		addr, err := fixtureAddr(o.rootfsURL)
+		if err != nil {
+			return err
+		}
+		stop, _, err := serveFixture(addr, o.rootfsDir)
+		if err != nil {
+			return err
+		}
+		defer stop()
+	}
 	ns, err := monotonicNS()
 	if err != nil {
 		return err
@@ -291,6 +306,17 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 	}
 	if code != 0 {
 		return exitError{code: code}
+	}
+	// File the built image where the installer was told to fetch it, so the
+	// run ends with a bootable ISO and a served rootfs, not homework.
+	if fixtureWanted(o.mode, o.rootfsURL) {
+		name, err := copyBuiltRootfs(o.out, o.rootfsDir)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(stderr, "soda-candidate: serving "+name+" from "+strings.TrimSuffix(o.rootfsURL, "/")+"/"+name); err != nil {
+			return err
+		}
 	}
 	return nil
 }

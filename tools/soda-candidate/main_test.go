@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -216,6 +218,74 @@ func TestAskOutRejectsThenAccepts(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Absolute path required.") {
 		t.Fatalf("rejection unexplained:\n%s", out.String())
+	}
+}
+
+func TestFixtureWanted(t *testing.T) {
+	for _, u := range []string{"http://127.0.0.1:8080", "http://localhost:8080", "http://[::1]:8080"} {
+		if !fixtureWanted("media", u) {
+			t.Fatalf("loopback media not self-served: %s", u)
+		}
+	}
+	if fixtureWanted("media", "https://example.invalid/rootfs") {
+		t.Fatal("public URL must stay operator-managed")
+	}
+	if fixtureWanted("candidate", "http://127.0.0.1:8080") {
+		t.Fatal("candidate needs no pickup server")
+	}
+	if fixtureWanted("production", "http://127.0.0.1:8080") {
+		t.Fatal("production must stay operator-managed")
+	}
+	if fixtureWanted("media", "://bogus") {
+		t.Fatal("unparseable URL accepted")
+	}
+}
+
+func TestFixtureAddr(t *testing.T) {
+	addr, err := fixtureAddr("http://localhost:8080")
+	if err != nil || addr != "127.0.0.1:8080" {
+		t.Fatalf("addr = %q, %v", addr, err)
+	}
+	if _, err := fixtureAddr("http://127.0.0.1/"); err == nil {
+		t.Fatal("portless URL accepted")
+	}
+}
+
+func TestServeAndFileRootfs(t *testing.T) {
+	serveDir := t.TempDir()
+	stop, listen, err := serveFixture("127.0.0.1:0", serveDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	out := t.TempDir()
+	media := filepath.Join(out, "artifacts", "media")
+	if err := os.MkdirAll(media, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(media, "a-rootfs.img"), []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	name, err := copyBuiltRootfs(out, serveDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "a-rootfs.img" {
+		t.Fatalf("filed %q", name)
+	}
+	resp, err := http.Get("http://" + listen + "/" + name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "payload" {
+		t.Fatalf("served %q", body)
 	}
 }
 

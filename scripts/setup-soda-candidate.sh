@@ -114,13 +114,10 @@ sudo mkdir -p "$ROOTFS_DIR"
 sudo chown "$USER" "$ROOTFS_DIR"
 
 cat <<EOF
--- ready. The rootfs URL defaults to $ROOTFS_URL in the TUI.
-Next, from $PWD:
-  1. python3 -m http.server 8080 --directory $ROOTFS_DIR &
-  2. sudo soda-candidate   (press go; the pickup address is prefilled)
-  3. cp <out>/artifacts/media/*-rootfs.img $ROOTFS_DIR/
-     so the installer can download the built system image.
-Or pass everything as flags:
+-- ready. One command from $PWD:
+  sudo soda-candidate   (press go)
+The wrapper serves $ROOTFS_DIR on $ROOTFS_URL itself during the build and
+files the built rootfs image there afterwards. Flags still pre-seed answers:
   sudo soda-candidate --controller $ADMITTED --worker-config $WORKER_JSON \\
     --out $OUTPUT_PARENT/manual-01 --rootfs-base-url $ROOTFS_URL
 EOF

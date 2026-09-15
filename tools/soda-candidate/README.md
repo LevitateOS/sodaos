@@ -52,9 +52,11 @@ soda-candidate --non-interactive --mode candidate \
 The ISO is only the boot menu. The rootfs is the actual operating system
 disk image (gigabytes), which the installer downloads during installation.
 The URL is the pickup address where the installer is told to fetch it. For
-local builds the setup script creates `/var/lib/soda-rootfs` and the TUI
-prefills `http://127.0.0.1:8080`; after the build, copy the produced
-`*-rootfs.img` into that folder and serve it. There is nothing to look up.
+local builds there is nothing to look up and nothing to hand-run: the setup
+script creates `/var/lib/soda-rootfs`, the TUI prefills
+`http://127.0.0.1:8080`, the wrapper serves that folder during the build,
+and files the produced `*-rootfs.img` there afterwards. A busy port means
+you already serve it yourself; any non-loopback address stays fully yours.
 
 ## Never
 
