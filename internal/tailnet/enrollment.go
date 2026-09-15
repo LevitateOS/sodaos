@@ -103,28 +103,40 @@ func (t *keyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	return res, nil
 }
 
-func (m *Management) projectKey(ctx context.Context, p enrollmentPolicy, c credential) (string, error) {
-	req := EnrollmentRequest{Action: "save", Revision: p.Revision, Tailnet: p.Tailnet, Tags: p.Tags, Preauthorized: &p.Preauthorized, ClientID: c.ClientID, ClientSecret: c.Secret}
-	if req.Validate() != nil {
-		return "", ErrUnavailable
-	}
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-	tokenCtx := context.WithValue(ctx, oauth2.HTTPClient, m.provider)
+func tokenFromEnrollment(ctx context.Context, provider *http.Client, p enrollmentPolicy, c credential) (*oauth2.Token, error) {
+	tokenCtx := context.WithValue(ctx, oauth2.HTTPClient, provider)
 	cfg := clientcredentials.Config{ClientID: c.ClientID, ClientSecret: c.Secret, TokenURL: "https://api.tailscale.com/api/v2/oauth/token", Scopes: []string{"auth_keys"}, EndpointParams: url.Values{"tags": {strings.Join(p.Tags, " ")}}, AuthStyle: oauth2.AuthStyleInHeader}
 	token, e := cfg.Token(tokenCtx)
-	cfg.ClientSecret = ""
-	c.Secret = ""
-	req.ClientSecret = ""
 	if e != nil || token == nil || token.AccessToken == "" || strings.ContainsAny(token.AccessToken, "\r\n\x00") || !strings.EqualFold(token.TokenType, "Bearer") || !token.Expiry.After(time.Now()) {
-		return "", ErrUnconfirmed
+		return nil, ErrUnconfirmed
 	}
+	return token, nil
+}
+
+func validAuthKeyIdentity(key *ts.Key) bool {
+	return key != nil && authKeyPattern.MatchString(key.Key) && key.ID != "" && len(key.ID) <= 128 && !key.Invalid && key.Revoked.IsZero()
+}
+
+func validAuthKeyCapabilities(key *ts.Key, tags []string, preauthorized bool) bool {
+	caps := key.Capabilities.Devices.Create
+	return !caps.Reusable && caps.Ephemeral && caps.Preauthorized == preauthorized && slices.Equal(caps.Tags, tags)
+}
+
+func validAuthKeyLifetime(key *ts.Key, before time.Time) bool {
+	return !key.Created.Before(before.Add(-time.Minute)) && !key.Created.After(time.Now().Add(time.Minute)) && key.Expires.After(time.Now()) && !key.Expires.After(before.Add(projectKeyLifetime+time.Minute))
+}
+
+func validCreatedAuthKey(key *ts.Key, tags []string, preauthorized bool, before time.Time) bool {
+	return validAuthKeyIdentity(key) && validAuthKeyCapabilities(key, tags, preauthorized) && validAuthKeyLifetime(key, before)
+}
+
+func (m *Management) createProjectAuthKey(ctx context.Context, p enrollmentPolicy, token string) (string, error) {
 	base := m.keyHTTP
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	transport := &keyTransport{base: base, path: "/api/v2/tailnet/" + p.Tailnet + "/keys", token: token.AccessToken}
-	defer func() { token.AccessToken = ""; transport.token = "" }()
+	transport := &keyTransport{base: base, path: "/api/v2/tailnet/" + p.Tailnet + "/keys", token: token}
+	defer func() { transport.token = "" }()
 	client := ts.Client{Tailnet: p.Tailnet, HTTP: &http.Client{Timeout: 10 * time.Second, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return ErrUnconfirmed }}}
 	in := ts.CreateKeyRequest{ExpirySeconds: int64(projectKeyLifetime / time.Second), Description: "Soda ephemeral project run"}
 	in.Capabilities.Devices.Create.Ephemeral = true
@@ -132,17 +144,32 @@ func (m *Management) projectKey(ctx context.Context, p enrollmentPolicy, c crede
 	in.Capabilities.Devices.Create.Preauthorized = p.Preauthorized
 	before := time.Now()
 	key, e := client.Keys().CreateAuthKey(ctx, in)
-	if e != nil || key == nil {
-		return "", ErrUnconfirmed
-	}
-	caps := key.Capabilities.Devices.Create
-	if !authKeyPattern.MatchString(key.Key) || key.ID == "" || len(key.ID) > 128 || key.Invalid || !key.Revoked.IsZero() || caps.Reusable || !caps.Ephemeral || caps.Preauthorized != p.Preauthorized || !slices.Equal(caps.Tags, p.Tags) || key.Created.Before(before.Add(-time.Minute)) || key.Created.After(time.Now().Add(time.Minute)) || !key.Expires.After(time.Now()) || key.Expires.After(before.Add(projectKeyLifetime+time.Minute)) {
-		key.Key = ""
+	if e != nil || !validCreatedAuthKey(key, p.Tags, p.Preauthorized, before) {
+		if key != nil {
+			key.Key = ""
+		}
 		return "", ErrUnconfirmed
 	}
 	value := key.Key
 	key.Key = ""
 	return value, nil
+}
+
+func (m *Management) projectKey(ctx context.Context, p enrollmentPolicy, c credential) (string, error) {
+	req := EnrollmentRequest{Action: "save", Revision: p.Revision, Tailnet: p.Tailnet, Tags: p.Tags, Preauthorized: &p.Preauthorized, ClientID: c.ClientID, ClientSecret: c.Secret}
+	if req.Validate() != nil {
+		return "", ErrUnavailable
+	}
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	token, e := tokenFromEnrollment(ctx, m.provider, p, c)
+	c.Secret = ""
+	req.ClientSecret = ""
+	if e != nil {
+		return "", e
+	}
+	defer func() { token.AccessToken = "" }()
+	return m.createProjectAuthKey(ctx, p, token.AccessToken)
 }
 
 // EnrollRun is a root-native operation, not an HTTP credential/key endpoint.
