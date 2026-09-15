@@ -46,6 +46,7 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	}
 	return b.Buffer.Write(p)
 }
+
 func CheckNative(ctx context.Context, r Runner) error {
 	var versions map[string]string
 	if e := json.Unmarshal(toolLock, &versions); e != nil {
@@ -57,6 +58,7 @@ func CheckNative(ctx context.Context, r Runner) error {
 	}
 	return nil
 }
+
 func PrivateFile(path string) error {
 	if !filepath.IsAbs(path) {
 		return ErrRefused
@@ -66,7 +68,7 @@ func PrivateFile(path string) error {
 		return ErrRefused
 	}
 	st, e := os.Lstat(path)
-	if e != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0077 != 0 || st.Size() > 1<<20 {
+	if e != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0 || st.Size() > 1<<20 {
 		return ErrRefused
 	}
 	stat, ok := st.Sys().(*syscall.Stat_t)
@@ -74,17 +76,18 @@ func PrivateFile(path string) error {
 		return ErrRefused
 	}
 	parent, e := os.Stat(filepath.Dir(path))
-	if e != nil || parent.Mode().Perm()&0077 != 0 {
+	if e != nil || parent.Mode().Perm()&0o077 != 0 {
 		return ErrRefused
 	}
 	return nil
 }
+
 func writeJSON(path string, v any) error {
 	b, e := marshal(v)
 	if e != nil {
 		return e
 	}
-	return nativebuild.WriteNew(path, b, 0600)
+	return nativebuild.WriteNew(path, b, 0o600)
 }
 
 type requirement struct {
@@ -104,6 +107,7 @@ func (t Trust) requirement(repo string) (requirement, error) {
 	}
 	return requirement{Type: "sigstoreSigned", KeyDatas: keys, SignedIdentity: map[string]string{"type": "exactRepository", "dockerRepository": repo}}, nil
 }
+
 func policyFor(t Trust, repo, transport, scope string) (any, error) {
 	req, e := t.requirement(repo)
 	if e != nil {
@@ -111,6 +115,7 @@ func policyFor(t Trust, repo, transport, scope string) (any, error) {
 	}
 	return map[string]any{"default": []requirement{{Type: "reject"}}, "transports": map[string]any{transport: map[string]any{scope: []requirement{req}}}}, nil
 }
+
 func localPolicy(transport, path string) any {
 	return map[string]any{"default": []requirement{{Type: "reject"}}, "transports": map[string]any{transport: map[string]any{path: []requirement{{Type: "insecureAcceptAnything"}}}}}
 }
@@ -154,6 +159,7 @@ func MergePolicy(t Trust, original []byte) ([]byte, error) {
 	}
 	return marshal(p)
 }
+
 func WriteRegistryConfig(out string, t Trust) error {
 	if e := t.Validate(); e != nil {
 		return e
@@ -161,9 +167,10 @@ func WriteRegistryConfig(out string, t Trust) error {
 	_, e := registryConfig(out, t)
 	return e
 }
+
 func registryConfig(out string, t Trust) (string, error) {
 	dir := filepath.Join(out, "registries.d")
-	if e := os.Mkdir(dir, 0700); e != nil {
+	if e := os.Mkdir(dir, 0o700); e != nil {
 		return "", e
 	}
 	// JSON is valid YAML; quote exact repository scopes rather than registry-wide
@@ -232,30 +239,36 @@ type SecretFiles struct{ Key, Passphrase string }
 
 // Sign admits a protected exact permit and signs a private snapshot only after
 // checking its manifest. No candidate script runs with signing credentials.
-func Sign(ctx context.Context, r Runner, t Trust, p Permit, transport, input, out string, key SecretFiles) error {
+func admitSignInputs(t Trust, p Permit, input string, key SecretFiles) error {
 	if t.Validate() != nil || p.Validate(t, nowUTC()) != nil || PrivateFile(key.Key) != nil || PrivateFile(key.Passphrase) != nil || !filepath.IsAbs(input) {
 		return ErrRefused
 	}
+	return nil
+}
+
+func snapshotSignSource(ctx context.Context, r Runner, transport, input, out string) (string, error) {
 	if transport != "oci" && transport != "oci-archive" && transport != "dir" {
-		return ErrRefused
+		return "", ErrRefused
 	}
 	if e := nativebuild.FreshDirectory(out); e != nil {
-		return e
+		return "", e
 	}
 	policy := filepath.Join(out, "snapshot-policy.json")
 	if e := writeJSON(policy, localPolicy(transport, input)); e != nil {
-		return e
+		return "", e
 	}
 	snapshot := filepath.Join(out, "snapshot")
 	if _, e := r.Run(ctx, "--command-timeout=10m", "--policy", policy, "copy", "--preserve-digests", "--remove-signatures", transport+":"+input, "dir:"+snapshot); e != nil {
-		return e
+		return "", e
 	}
+	return snapshot, nil
+}
+
+func admitSignedPayload(t Trust, p Permit, snapshot string) error {
 	mb, e := ReadFile(filepath.Join(snapshot, "manifest.json"), 1<<20)
 	if e != nil || Hash(mb) != p.Digest {
 		return ErrRefused
 	}
-	// Channels are structurally validated before signature creation; qualification
-	// and role authorization are additionally bound by the protected permit digest.
 	role, _ := t.Role(p.Repository)
 	if channel(role) {
 		var c Channel
@@ -275,17 +288,35 @@ func Sign(ctx context.Context, r Runner, t Trust, p Permit, transport, input, ou
 			return e
 		}
 	}
-	policy = filepath.Join(out, "sign-policy.json")
-	if e = writeJSON(policy, localPolicy("dir", snapshot)); e != nil {
+	return nil
+}
+
+func emitSignedDirectory(ctx context.Context, r Runner, t Trust, p Permit, snapshot, out string, key SecretFiles) error {
+	policy := filepath.Join(out, "sign-policy.json")
+	if e := writeJSON(policy, localPolicy("dir", snapshot)); e != nil {
 		return e
 	}
 	signed := filepath.Join(out, "signed")
 	ref := p.Repository + "@" + p.Digest
-	if _, e = r.Run(ctx, "--command-timeout=10m", "--policy", policy, "copy", "--preserve-digests", "--sign-by-sigstore-private-key", key.Key, "--sign-passphrase-file", key.Passphrase, "--sign-identity", ref, "dir:"+snapshot, "dir:"+signed); e != nil {
+	if _, e := r.Run(ctx, "--command-timeout=10m", "--policy", policy, "copy", "--preserve-digests", "--sign-by-sigstore-private-key", key.Key, "--sign-passphrase-file", key.Passphrase, "--sign-identity", ref, "dir:"+snapshot, "dir:"+signed); e != nil {
 		return e
 	}
-	if e = VerifyCopy(ctx, r, t, ref, "dir:"+signed, filepath.Join(out, "check")); e != nil {
+	if e := VerifyCopy(ctx, r, t, ref, "dir:"+signed, filepath.Join(out, "check")); e != nil {
 		return e
 	}
 	return writeJSON(filepath.Join(out, "receipt.json"), map[string]string{"Reference": ref, "Scope": "native-signed local directory; not published or boot-qualified"})
+}
+
+func Sign(ctx context.Context, r Runner, t Trust, p Permit, transport, input, out string, key SecretFiles) error {
+	if e := admitSignInputs(t, p, input, key); e != nil {
+		return e
+	}
+	snapshot, e := snapshotSignSource(ctx, r, transport, input, out)
+	if e != nil {
+		return e
+	}
+	if e = admitSignedPayload(t, p, snapshot); e != nil {
+		return e
+	}
+	return emitSignedDirectory(ctx, r, t, p, snapshot, out, key)
 }
