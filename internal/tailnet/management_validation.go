@@ -2,12 +2,27 @@ package tailnet
 
 import "strings"
 
+func validEnrollmentIdentity(v EnrollmentView) bool {
+	if !validRevision(v.Revision) || v.Tags == nil || v.EnrollmentVerified {
+		return false
+	}
+	return !v.Default || (v.Configured && v.Admission)
+}
+
+func emptyEnrollmentBinding(v EnrollmentView) bool {
+	return v.Revision == "0" && v.Binding == "" && v.Tailnet == "" && len(v.Tags) == 0
+}
+
+func idleEnrollmentFlags(v EnrollmentView) bool {
+	return !v.Admission && !v.CredentialChecked && !v.Preauthorized
+}
+
 func (v EnrollmentView) Validate() error {
-	if !validRevision(v.Revision) || v.Tags == nil || v.EnrollmentVerified || (v.Default && (!v.Configured || !v.Admission)) {
+	if !validEnrollmentIdentity(v) {
 		return ErrUnavailable
 	}
 	if !v.Configured {
-		if v.Revision != "0" || v.Binding != "" || v.Tailnet != "" || len(v.Tags) != 0 || v.Admission || v.CredentialChecked || v.Preauthorized {
+		if !emptyEnrollmentBinding(v) || !idleEnrollmentFlags(v) {
 			return ErrUnavailable
 		}
 		return nil
