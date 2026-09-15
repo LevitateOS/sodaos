@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,6 +36,38 @@ type Application struct {
 
 func New(base string) *Client {
 	return &Client{Base: strings.TrimRight(base, "/"), HTTP: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+}
+
+func transportError(ctx context.Context) error {
+	// Preserve cancellation without exposing http.Client's token-bearing URL errors.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return ErrUnavailable
+}
+
+func decodeResponse(body io.Reader, limit int64, out any) error {
+	// Read one extra byte: LimitReader alone can accept a valid JSON prefix of
+	// an oversized response. Bound the entire representation before decoding.
+	data, err := io.ReadAll(io.LimitReader(body, limit+1))
+	if err != nil {
+		return ErrUnavailable
+	}
+	if int64(len(data)) > limit {
+		return ErrResponseTooLarge
+	}
+	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
+		return ErrInvalidResponse
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	if err := decoder.Decode(out); err != nil {
+		return ErrInvalidResponse
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return ErrInvalidResponse
+	}
+	return nil
 }
 
 func (c *Client) request(ctx context.Context, method, path, token string, in, out any) error {
