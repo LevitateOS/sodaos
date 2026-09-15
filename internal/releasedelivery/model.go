@@ -21,8 +21,10 @@ import (
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
-var ErrUnavailable = errors.New("release transport unavailable; preserve attempt and observe before retrying publication")
-var ErrRefused = errors.New("release authority or completeness refused")
+var (
+	ErrUnavailable = errors.New("release transport unavailable; preserve attempt and observe before retrying publication")
+	ErrRefused     = errors.New("release authority or completeness refused")
+)
 
 func Hash(b []byte) string { h := sha256.Sum256(b); return "sha256:" + hex.EncodeToString(h[:]) }
 func Digest(s string) bool {
@@ -79,6 +81,7 @@ func (t Trust) Validate() error {
 	}
 	return nil
 }
+
 func (t Trust) Role(repository string) (string, error) {
 	for _, n := range append([]string{"host", "release", "media"}, appliancerelease.Names...) {
 		if repository == t.Prefix+"-"+n {
@@ -92,6 +95,7 @@ func (t Trust) Role(repository string) (string, error) {
 	}
 	return "", ErrRefused
 }
+
 func (t Trust) Reference(ref string) (string, string, error) {
 	repo, d, ok := strings.Cut(ref, "@")
 	if !ok || !Digest(d) {
@@ -154,6 +158,7 @@ func (r Release) Validate(t Trust) (appliancerelease.Payload, Candidate, error) 
 	}
 	return p, c, nil
 }
+
 func (r Release) References(t Trust) ([]string, error) {
 	p, c, e := r.Validate(t)
 	if e != nil {
@@ -191,6 +196,7 @@ type Highwater struct {
 func EmptyState() Highwater {
 	return Highwater{Format: 1, Channels: map[string]Seen{}, Serials: map[string]uint64{}, Releases: map[string]string{}}
 }
+
 func (s Highwater) Validate() error {
 	if s.Format != 1 || s.Channels == nil || s.Serials == nil || s.Releases == nil || len(s.Channels) > 3 || len(s.Serials) > 2 || len(s.Releases) != len(s.Serials) || s.CheckedAt < 0 {
 		return ErrRefused
@@ -211,42 +217,101 @@ func (s Highwater) Validate() error {
 	return nil
 }
 
+func validateReleaseReference(t Trust, arch, ref string) error {
+	if _, err := nativebuild.OCIArchitecture(arch); err != nil {
+		return ErrRefused
+	}
+	repo, role, err := t.Reference(ref)
+	if err != nil || role != "artifact" || repo != t.Prefix+"-release" {
+		return ErrRefused
+	}
+	return nil
+}
+
+func validateChannelReleases(t Trust, c Channel) error {
+	if c.Withdrawn {
+		if len(c.Releases) != 0 {
+			return ErrRefused
+		}
+		return nil
+	}
+	if len(c.Releases) < 1 || len(c.Releases) > 2 {
+		return ErrRefused
+	}
+	for a, ref := range c.Releases {
+		if err := validateReleaseReference(t, a, ref); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateChannelIdentity(t Trust, c Channel, digest, wanted string) error {
+	if t.Validate() != nil || !channel(wanted) || !Digest(digest) {
+		return ErrRefused
+	}
+	if c.Format != 1 || c.Name != wanted || c.Sequence < t.MinimumSequence[wanted] {
+		return ErrRefused
+	}
+	return nil
+}
+
+func validateChannelTiming(t Trust, s Highwater, c Channel, now time.Time) error {
+	nowUnix := now.Unix()
+	if nowUnix < t.NotBefore || nowUnix < s.CheckedAt-t.ClockSkewSeconds {
+		return ErrRefused
+	}
+	if c.Issued < t.NotBefore || c.Issued > nowUnix+t.ClockSkewSeconds {
+		return ErrRefused
+	}
+	if c.Expires <= nowUnix || c.Expires <= c.Issued || c.Expires-c.Issued > t.MaxAgeSeconds {
+		return ErrRefused
+	}
+	return nil
+}
+
+func validateChannelProgression(old Seen, c Channel, digest string) error {
+	if c.Sequence < old.Sequence || c.Issued < old.Issued {
+		return ErrRefused
+	}
+	if c.Sequence == old.Sequence && digest != old.Digest {
+		return ErrRefused
+	}
+	return nil
+}
+
+func advanceHighwaterChannel(s Highwater, epoch uint64, wanted, digest string, seq uint64, issued, nowUnix int64) Highwater {
+	b, _ := json.Marshal(s)
+	var next Highwater
+	_ = json.Unmarshal(b, &next)
+	next.TrustEpoch = epoch
+	next.CheckedAt = max(s.CheckedAt, nowUnix)
+	next.Channels[wanted] = Seen{Sequence: seq, Digest: digest, Issued: issued}
+	return next
+}
+
 // AdmitChannel is pure. Persist its result as soon as the signed channel is
 // validated, even when a later artifact is unavailable. Equal, unexpired offers
 // permit safe observation retries; same-sequence substitutions never do.
 func AdmitChannel(t Trust, s Highwater, c Channel, digest, wanted string, now time.Time) (Highwater, error) {
-	if t.Validate() != nil || s.Validate() != nil || !channel(wanted) || !Digest(digest) || c.Format != 1 || c.Name != wanted || c.Sequence < t.MinimumSequence[wanted] || s.TrustEpoch > t.Epoch || now.Unix() < t.NotBefore || now.Unix() < s.CheckedAt-t.ClockSkewSeconds || c.Issued < t.NotBefore || c.Issued > now.Unix()+t.ClockSkewSeconds || c.Expires <= now.Unix() || c.Expires <= c.Issued || c.Expires-c.Issued > t.MaxAgeSeconds {
+	if s.Validate() != nil || s.TrustEpoch > t.Epoch {
 		return s, ErrRefused
 	}
-	if c.Withdrawn {
-		if len(c.Releases) != 0 {
-			return s, ErrRefused
-		}
-	} else if len(c.Releases) < 1 || len(c.Releases) > 2 {
-		return s, ErrRefused
+	if err := validateChannelIdentity(t, c, digest, wanted); err != nil {
+		return s, err
 	}
-	for a, ref := range c.Releases {
-		if _, e := nativebuild.OCIArchitecture(a); e != nil {
-			return s, ErrRefused
-		}
-		repo, role, e := t.Reference(ref)
-		if e != nil || role != "artifact" || repo != t.Prefix+"-release" {
-			return s, ErrRefused
-		}
+	if err := validateChannelTiming(t, s, c, now); err != nil {
+		return s, err
 	}
-	old := s.Channels[wanted]
-	if c.Sequence < old.Sequence || c.Issued < old.Issued || (c.Sequence == old.Sequence && digest != old.Digest) {
-		return s, ErrRefused
+	if err := validateChannelReleases(t, c); err != nil {
+		return s, err
 	}
-	// Deep copy: a rejected later release cannot accidentally modify caller state.
-	b, _ := json.Marshal(s)
-	var next Highwater
-	_ = json.Unmarshal(b, &next)
-	next.TrustEpoch = t.Epoch
-	next.CheckedAt = max(s.CheckedAt, now.Unix())
-	next.Channels[wanted] = Seen{c.Sequence, digest, c.Issued}
-	return next, nil
+	if err := validateChannelProgression(s.Channels[wanted], c, digest); err != nil {
+		return s, err
+	}
+	return advanceHighwaterChannel(s, t.Epoch, wanted, digest, c.Sequence, c.Issued, now.Unix()), nil
 }
+
 func AdmitRelease(t Trust, s Highwater, c Channel, arch, ref string, r Release) (Highwater, error) {
 	p, _, e := r.Validate(t)
 	if e != nil || s.Validate() != nil || !channel(c.Name) || c.Format != 1 || c.Withdrawn || c.Releases[arch] != ref || p.Architecture != arch || (c.Name != "candidate" && r.Qualification != "native-install-upgrade-recovery") {
@@ -281,6 +346,7 @@ func (p Permit) Validate(t Trust, now time.Time) error {
 	}
 	return nil
 }
+
 func marshal(v any) ([]byte, error) {
 	b, e := json.MarshalIndent(v, "", "  ")
 	return append(b, '\n'), e
