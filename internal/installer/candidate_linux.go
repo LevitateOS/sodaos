@@ -48,15 +48,69 @@ func candidateRequirement(m mediaIdentity, root string) (uint64, error) {
 	return total, err
 }
 
-func candidateDestination(template, factory []byte, choices diskInstallChoices) ([]byte, error) {
-	var defaults map[string]any
-	if json.Unmarshal(factory, &defaults) != nil || len(defaults) != 4 || defaults["subnet"] != "" || defaults["tailnet_management"] != false {
-		return nil, errors.New("invalid native machine defaults")
-	}
+func validMachineDefaultShape(defaults map[string]any) bool {
+	return len(defaults) == 4 && defaults["subnet"] == "" && defaults["tailnet_management"] == false
+}
+
+func validMachineNetworkDefaults(defaults map[string]any) bool {
 	for _, key := range []string{"network", "bridge"} {
 		if value, ok := defaults[key].(string); !ok || value == "" {
-			return nil, errors.New("missing native machine network defaults")
+			return false
 		}
+	}
+	return true
+}
+
+func rewriteCandidateHostFile(files []map[string]any, machine []byte) error {
+	for _, file := range files {
+		if file["path"] == "/etc/soda/host.json" {
+			return errors.New("machine configuration collision")
+		}
+		if file["path"] == "/etc/soda-installer/project-subnet" {
+			file["path"] = "/etc/soda/host.json"
+			file["contents"] = map[string]string{"source": "data:;base64," + base64.StdEncoding.EncodeToString(machine)}
+		}
+	}
+	return nil
+}
+
+func unmarshalDestinationFiles(destination []byte) (map[string]json.RawMessage, map[string]json.RawMessage, []map[string]any, error) {
+	var config map[string]json.RawMessage
+	if err := json.Unmarshal(destination, &config); err != nil {
+		return nil, nil, nil, err
+	}
+	var storage map[string]json.RawMessage
+	if err := json.Unmarshal(config["storage"], &storage); err != nil {
+		return nil, nil, nil, err
+	}
+	var files []map[string]any
+	if err := json.Unmarshal(storage["files"], &files); err != nil {
+		return nil, nil, nil, err
+	}
+	return config, storage, files, nil
+}
+
+func marshalDestinationStorage(config, storage map[string]json.RawMessage, files []map[string]any) ([]byte, error) {
+	encoded, err := json.Marshal(files)
+	if err != nil {
+		return nil, err
+	}
+	storage["files"] = encoded
+	encoded, err = json.Marshal(storage)
+	if err != nil {
+		return nil, err
+	}
+	config["storage"] = encoded
+	return json.Marshal(config)
+}
+
+func candidateDestination(template, factory []byte, choices diskInstallChoices) ([]byte, error) {
+	var defaults map[string]any
+	if json.Unmarshal(factory, &defaults) != nil || !validMachineDefaultShape(defaults) {
+		return nil, errors.New("invalid native machine defaults")
+	}
+	if !validMachineNetworkDefaults(defaults) {
+		return nil, errors.New("missing native machine network defaults")
 	}
 	defaults["subnet"] = choices.subnet
 	machine, err := json.Marshal(defaults)
@@ -67,34 +121,12 @@ func candidateDestination(template, factory []byte, choices diskInstallChoices) 
 	if err != nil {
 		return nil, err
 	}
-	var config map[string]json.RawMessage
-	if err = json.Unmarshal(destination, &config); err != nil {
-		return nil, err
-	}
-	var storage map[string]json.RawMessage
-	if err = json.Unmarshal(config["storage"], &storage); err != nil {
-		return nil, err
-	}
-	var files []map[string]any
-	if err = json.Unmarshal(storage["files"], &files); err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		if file["path"] == "/etc/soda/host.json" {
-			return nil, errors.New("machine configuration collision")
-		}
-		if file["path"] == "/etc/soda-installer/project-subnet" {
-			file["path"] = "/etc/soda/host.json"
-			file["contents"] = map[string]string{"source": "data:;base64," + base64.StdEncoding.EncodeToString(machine)}
-		}
-	}
-	storage["files"], err = json.Marshal(files)
+	config, storage, files, err := unmarshalDestinationFiles(destination)
 	if err != nil {
 		return nil, err
 	}
-	config["storage"], err = json.Marshal(storage)
-	if err != nil {
+	if err = rewriteCandidateHostFile(files, machine); err != nil {
 		return nil, err
 	}
-	return json.Marshal(config)
+	return marshalDestinationStorage(config, storage, files)
 }
