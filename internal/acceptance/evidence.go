@@ -105,59 +105,69 @@ func (e *Evidence) Write(name string, data []byte) error {
 
 // WriteJSON sanitizes string values before encoding. Raw log redaction must
 // never rewrite encoded JSON (URL escaping can otherwise destroy its syntax).
-func (e *Evidence) WriteJSON(name string, value any) error {
+func (e *Evidence) scrubJSON(v any) (any, error) {
+	switch v := v.(type) {
+	case string:
+		return e.RedactString(v), nil
+	case []any:
+		for i := range v {
+			item, err := e.scrubJSON(v[i])
+			if err != nil {
+				return nil, err
+			}
+			v[i] = item
+		}
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for k, item := range v {
+			key := e.RedactString(k)
+			if _, exists := out[key]; exists {
+				return nil, errors.New("redacted JSON key collision")
+			}
+			scrubbed, err := e.scrubJSON(item)
+			if err != nil {
+				return nil, err
+			}
+			out[key] = scrubbed
+		}
+		return out, nil
+	}
+	return v, nil
+}
+
+func (e *Evidence) encodeScrubbedJSON(value any) ([]byte, error) {
 	data, err := json.Marshal(value)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(data) > evidenceLimit {
-		return errors.New("structured evidence limit exceeded")
+		return nil, errors.New("structured evidence limit exceeded")
 	}
 	var decoded any
 	d := json.NewDecoder(bytes.NewReader(data))
 	d.UseNumber()
 	if err = d.Decode(&decoded); err != nil {
-		return err
+		return nil, err
 	}
-	var scrub func(any) (any, error)
-	scrub = func(v any) (any, error) {
-		switch v := v.(type) {
-		case string:
-			return e.RedactString(v), nil
-		case []any:
-			for i := range v {
-				v[i], err = scrub(v[i])
-				if err != nil {
-					return nil, err
-				}
-			}
-		case map[string]any:
-			out := make(map[string]any, len(v))
-			for k, item := range v {
-				key := e.RedactString(k)
-				if _, exists := out[key]; exists {
-					return nil, errors.New("redacted JSON key collision")
-				}
-				out[key], err = scrub(item)
-				if err != nil {
-					return nil, err
-				}
-			}
-			return out, nil
-		}
-		return v, nil
-	}
-	decoded, err = scrub(decoded)
+	decoded, err = e.scrubJSON(decoded)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	data, err = json.MarshalIndent(decoded, "", "  ")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	data = append(data, '\n')
 	if len(data) > evidenceLimit {
-		return errors.New("structured evidence limit exceeded")
+		return nil, errors.New("structured evidence limit exceeded")
+	}
+	return data, nil
+}
+
+func (e *Evidence) WriteJSON(name string, value any) error {
+	data, err := e.encodeScrubbedJSON(value)
+	if err != nil {
+		return err
 	}
 	for _, secret := range e.secrets {
 		if bytes.Contains(data, secret) {
