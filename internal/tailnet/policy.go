@@ -413,71 +413,104 @@ func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPo
 	return loaded, nil
 }
 
-func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
+func validateProjectRequest(r ProjectRequest, cid string, runtime bool) error {
 	if r.Validate() != nil || !containerPattern.MatchString(cid) {
-		return ProjectView{}, ErrInvalid
+		return ErrInvalid
 	}
-	// Without the separately configured native consumer, intent cannot enable effects.
-	if !p.runtime && (r.Action == "enable" || r.Action == "retry") {
-		return ProjectView{}, ErrUnsupported
+	if !runtime && (r.Action == "enable" || r.Action == "retry") {
+		return ErrUnsupported
 	}
+	return nil
+}
+
+func (p *policyStore) lockAndLoadProject(ctx context.Context, r ProjectRequest, cid string) (*os.Root, *os.File, projectPolicy, error) {
 	root, lock, err := p.lock(ctx, r.Action != "inspect")
 	v := projectPolicy{Project: r.Project, Container: cid, Revision: "0"}
-	if !errors.Is(err, os.ErrNotExist) {
-		if err != nil {
-			return ProjectView{}, err
-		}
-		defer root.Close()
-		defer lock.Close()
-		v, err = p.loadProject(root, r.Project, cid)
-		if err != nil {
-			return ProjectView{}, err
-		}
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil, v, nil
 	}
-	if r.Action != "inspect" {
-		if v.Revision != r.Revision {
-			return ProjectView{}, ErrConflict
-		}
-		if ctx.Err() != nil {
-			return ProjectView{}, ErrUnconfirmed
-		}
-		if r.Action == "enable" || r.Action == "retry" {
-			policy, e := p.load(root)
-			if e != nil {
-				return ProjectView{}, e
-			}
-			if !policy.Admission || policy.Binding != r.Binding || (r.Action == "retry" && (!v.Enabled || v.Binding != r.Binding)) {
-				return ProjectView{}, ErrConflict
-			}
-			// Changing networks is not implicit migration of an existing node.
-			if v.Binding != "" && v.Binding != r.Binding {
-				return ProjectView{}, ErrConflict
-			}
-			v.Binding = r.Binding
-		}
-		v.Enabled = r.Action != "disable"
-		v.Version = 1
-		v.Revision = newRevision()
-		if err = p.publish(root, lock, "project-"+r.Project+".json", v); err != nil {
-			return ProjectView{}, err
-		}
+	if err != nil {
+		return nil, nil, v, err
 	}
-	state := "runtime-unsupported" // Policy Off does not prove a current connection is gone.
+	v, err = p.loadProject(root, r.Project, cid)
+	if err != nil {
+		root.Close()
+		lock.Close()
+		return nil, nil, v, err
+	}
+	return root, lock, v, nil
+}
+
+func bindingMismatch(v projectPolicy, r ProjectRequest) bool {
+	if r.Action == "retry" && (!v.Enabled || v.Binding != r.Binding) {
+		return true
+	}
+	return v.Binding != "" && v.Binding != r.Binding
+}
+
+func (p *policyStore) validateProjectBinding(root *os.Root, v projectPolicy, r ProjectRequest) error {
+	policy, err := p.load(root)
+	if err != nil {
+		return err
+	}
+	if !policy.Admission || policy.Binding != r.Binding || bindingMismatch(v, r) {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (p *policyStore) mutateProject(root *os.Root, lock *os.File, v projectPolicy, r ProjectRequest, ctx context.Context) (projectPolicy, error) {
+	if v.Revision != r.Revision {
+		return v, ErrConflict
+	}
+	if ctx.Err() != nil {
+		return v, ErrUnconfirmed
+	}
+	if r.Action == "enable" || r.Action == "retry" {
+		if err := p.validateProjectBinding(root, v, r); err != nil {
+			return v, err
+		}
+		v.Binding = r.Binding
+	}
+	v.Enabled = r.Action != "disable"
+	v.Version = 1
+	v.Revision = newRevision()
+	if err := p.publish(root, lock, "project-"+r.Project+".json", v); err != nil {
+		return v, err
+	}
+	return v, nil
+}
+
+func initialProjectStateAndOutcome(action string, runtime bool) (string, string) {
+	state := "runtime-unsupported"
 	outcome := "observed"
-	if r.Action == "disable" {
+	if action == "disable" {
 		outcome = "disconnect-unconfirmed"
-	} // No companion observer yet.
-	if p.runtime {
+	}
+	if runtime {
 		state = "unconfirmed"
-		if r.Action != "inspect" {
+		if action != "inspect" {
 			outcome = "runtime-unconfirmed"
 		}
 	}
-	result := ProjectView{Saved: r.Action != "inspect", Project: r.Project, Revision: v.Revision, Binding: v.Binding, Enabled: v.Enabled, State: state, Outcome: outcome}
+	return state, outcome
+}
+
+func (p *policyStore) buildProjectView(root *os.Root, v projectPolicy, r ProjectRequest) (ProjectView, error) {
+	state, outcome := initialProjectStateAndOutcome(r.Action, p.runtime)
+	result := ProjectView{
+		Saved:    r.Action != "inspect",
+		Project:  r.Project,
+		Revision: v.Revision,
+		Binding:  v.Binding,
+		Enabled:  v.Enabled,
+		State:    state,
+		Outcome:  outcome,
+	}
 	if p.runtime && root != nil {
-		policy, e := p.load(root)
-		if e != nil {
-			return ProjectView{}, e
+		policy, err := p.load(root)
+		if err != nil {
+			return ProjectView{}, err
 		}
 		if policy.Admission {
 			result.AvailableBinding = policy.Binding
@@ -485,4 +518,25 @@ func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string)
 		}
 	}
 	return result, nil
+}
+
+func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
+	if err := validateProjectRequest(r, cid, p.runtime); err != nil {
+		return ProjectView{}, err
+	}
+	root, lock, v, err := p.lockAndLoadProject(ctx, r, cid)
+	if err != nil {
+		return ProjectView{}, err
+	}
+	if root != nil {
+		defer root.Close()
+		defer lock.Close()
+	}
+	if r.Action != "inspect" {
+		v, err = p.mutateProject(root, lock, v, r, ctx)
+		if err != nil {
+			return ProjectView{}, err
+		}
+	}
+	return p.buildProjectView(root, v, r)
 }
