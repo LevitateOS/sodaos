@@ -46,34 +46,56 @@ type Trust struct {
 	MinimumSequence  map[string]uint64
 }
 
+func validTrustTiming(t Trust) bool {
+	return t.NotBefore > 0 && t.MaxAgeSeconds >= 60 && t.MaxAgeSeconds <= 7*86400 && t.ClockSkewSeconds >= 0 && t.ClockSkewSeconds <= 300
+}
+
+func validTrustEnvelope(t Trust) bool {
+	return t.Format == 1 && appliancerelease.ValidRepositoryPrefix(t.Prefix) && t.Epoch != 0 && len(t.Keys) == 4 && len(t.MinimumSequence) == 3 && validTrustTiming(t)
+}
+
+func parseTrustPublicKey(key string) ([]byte, error) {
+	block, rest := pem.Decode([]byte(key))
+	if block == nil || block.Type != "PUBLIC KEY" || len(bytes.TrimSpace(rest)) != 0 {
+		return nil, ErrRefused
+	}
+	pub, e := x509.ParsePKIXPublicKey(block.Bytes)
+	if e != nil {
+		return nil, ErrRefused
+	}
+	ec, ok := pub.(*ecdsa.PublicKey)
+	if !ok || ec.Curve != elliptic.P256() {
+		return nil, errors.New("native P-256 Sigstore public key required")
+	}
+	return block.Bytes, nil
+}
+
+func admitTrustRoleKeys(keys []string, seen map[string]bool) error {
+	if len(keys) < 1 || len(keys) > 4 {
+		return ErrRefused
+	}
+	for _, key := range keys {
+		der, err := parseTrustPublicKey(key)
+		if err != nil {
+			return err
+		}
+		fingerprint := Hash(der)
+		if seen[fingerprint] {
+			return errors.New("signer roles must not share keys")
+		}
+		seen[fingerprint] = true
+	}
+	return nil
+}
+
 func (t Trust) Validate() error {
-	if t.Format != 1 || !appliancerelease.ValidRepositoryPrefix(t.Prefix) || t.Epoch == 0 || t.NotBefore <= 0 || t.MaxAgeSeconds < 60 || t.MaxAgeSeconds > 7*86400 || t.ClockSkewSeconds < 0 || t.ClockSkewSeconds > 300 || len(t.Keys) != 4 || len(t.MinimumSequence) != 3 {
+	if !validTrustEnvelope(t) {
 		return ErrRefused
 	}
 	seen := map[string]bool{}
 	for _, role := range []string{"artifact", "candidate", "preview", "stable"} {
-		keys := t.Keys[role]
-		if len(keys) < 1 || len(keys) > 4 {
-			return ErrRefused
-		}
-		for _, key := range keys {
-			block, rest := pem.Decode([]byte(key))
-			if block == nil || block.Type != "PUBLIC KEY" || len(bytes.TrimSpace(rest)) != 0 {
-				return ErrRefused
-			}
-			pub, e := x509.ParsePKIXPublicKey(block.Bytes)
-			if e != nil {
-				return ErrRefused
-			}
-			ec, ok := pub.(*ecdsa.PublicKey)
-			if !ok || ec.Curve != elliptic.P256() {
-				return errors.New("native P-256 Sigstore public key required")
-			}
-			fingerprint := Hash(block.Bytes)
-			if seen[fingerprint] {
-				return errors.New("signer roles must not share keys")
-			}
-			seen[fingerprint] = true
+		if err := admitTrustRoleKeys(t.Keys[role], seen); err != nil {
+			return err
 		}
 		if role != "artifact" && t.MinimumSequence[role] == 0 {
 			return ErrRefused
