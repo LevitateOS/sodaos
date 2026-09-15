@@ -64,29 +64,40 @@ func ReadArtifact(root string) (Artifact, error) {
 	return a, nil
 }
 
+func mediaBindingMatches(m hostimage.Media, a Artifact) bool {
+	return m.Revision == a.Payload.Revision && m.Architecture == a.Payload.Architecture && m.HostManifest == a.Candidate.Host.Manifest && m.PayloadSHA256 == a.Candidate.PayloadSHA256
+}
+
+func verifyMediaFile(root string, file hostimage.MediaFile) error {
+	if file.Path == "" || filepath.Base(file.Path) != file.Path {
+		return errors.New("local media basename required")
+	}
+	path := filepath.Join(root, "media", file.Path)
+	st, err := os.Lstat(path)
+	if err != nil || !st.Mode().IsRegular() || st.Size() != file.Bytes {
+		return errors.New("media file/size differs")
+	}
+	sum, err := nativebuild.HashFile(path)
+	if err != nil || sum != file.SHA256 {
+		return errors.New("media digest differs")
+	}
+	return nil
+}
+
 func ReadMedia(root string, a Artifact) (hostimage.Media, error) {
 	var m hostimage.Media
 	if err := rd.ReadJSON(filepath.Join(root, "media/media.json"), &m); err != nil {
 		return m, err
 	}
-	if m.Revision != a.Payload.Revision || m.Architecture != a.Payload.Architecture || m.HostManifest != a.Candidate.Host.Manifest || m.PayloadSHA256 != a.Candidate.PayloadSHA256 {
+	if !mediaBindingMatches(m, a) {
 		return m, errors.New("media candidate binding differs")
 	}
 	if m.ISO.Bytes <= 0 || m.ISO.Bytes >= 2_000_000_000 {
 		return m, errors.New("minimal installer size contract exceeded")
 	}
 	for _, file := range []hostimage.MediaFile{m.ISO, m.Rootfs} {
-		if file.Path == "" || filepath.Base(file.Path) != file.Path {
-			return m, errors.New("local media basename required")
-		}
-		path := filepath.Join(root, "media", file.Path)
-		st, err := os.Lstat(path)
-		if err != nil || !st.Mode().IsRegular() || st.Size() != file.Bytes {
-			return m, errors.New("media file/size differs")
-		}
-		sum, err := nativebuild.HashFile(path)
-		if err != nil || sum != file.SHA256 {
-			return m, errors.New("media digest differs")
+		if err := verifyMediaFile(root, file); err != nil {
+			return m, err
 		}
 	}
 	console, err := nativebuild.HashFile(filepath.Join(root, "tools/soda-installer"))
