@@ -117,8 +117,10 @@ func clearRuntimeDir(dir string) error {
 
 // controllerArgs translates answers into the admitted flags.
 func controllerArgs(o options) []string {
-	args := []string{"--worker-config", o.workerConfig, "--arch", o.arch, "--out", o.out,
-		"--repository-prefix", o.repoPrefix}
+	args := []string{
+		"--worker-config", o.workerConfig, "--arch", o.arch, "--out", o.out,
+		"--repository-prefix", o.repoPrefix,
+	}
 	if o.mode == "production" {
 		args = append(args, "--qualification-config", o.qualConfig)
 		if o.signConfig != "" {
