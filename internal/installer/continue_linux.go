@@ -157,62 +157,60 @@ func verifyTrustedBundle(bundle, digest, arch string) (nativebuild.Inventory, er
 	return nativebuild.Verify(bundle, arch, inventory.Revision)
 }
 
-func continueInstall(ctx context.Context, c console, run commandRunner) error {
-	if err := freshAppliance(); err != nil {
-		return err
-	}
-	c.print("SodaOS — install the included components")
-	c.print("This step installs Soda onto the existing host. It does not repartition the disk or reboot automatically.")
-	if _, err := os.Stat("/var/lib/soda/extensions-requested"); err != nil {
-		return errors.New("extensions are not confirmed: inspect systemctl status soda-extensions and its journal; do not reinstall the host")
-	}
+func verifyContinueBundle(ctx context.Context, c console, run commandRunner) (nativebuild.Inventory, string, error) {
 	data, err := run(ctx, "rpm-ostree", []string{"status", "--json"}, nil)
 	if err != nil {
-		return err
+		return nativebuild.Inventory{}, "", err
 	}
 	if err := extensionsBooted(data); err != nil {
-		return err
+		return nativebuild.Inventory{}, "", err
 	}
 	bundle, digest, revision, err := installedPayload()
 	if err != nil {
-		return err
+		return nativebuild.Inventory{}, "", err
 	}
 	if filepath.Base(bundle) != architecture() {
-		return errors.New("bundle directory must name the native architecture")
+		return nativebuild.Inventory{}, "", errors.New("bundle directory must name the native architecture")
 	}
 	c.print("Verifying the bundle with this already trusted installer; no bundle program has been executed.")
 	inventory, err := verifyTrustedBundle(bundle, digest, architecture())
 	if err != nil {
-		return errors.New("bundle verification refused; check trusted identity, ownership, architecture and matching source inventory")
+		return nativebuild.Inventory{}, "", errors.New("bundle verification refused; check trusted identity, ownership, architecture and matching source inventory")
 	}
 	if inventory.Revision != revision {
-		return errors.New("installed payload revision does not match its completed media-copy receipt")
+		return nativebuild.Inventory{}, "", errors.New("installed payload revision does not match its completed media-copy receipt")
 	}
-	data, err = readRegular("/etc/soda-installer/project-subnet", 128)
+	return inventory, bundle, nil
+}
+
+func confirmContinueSubnet(ctx context.Context, c console, run commandRunner, inventory nativebuild.Inventory) (string, error) {
+	data, err := readRegular("/etc/soda-installer/project-subnet", 128)
 	if err != nil {
-		return err
+		return "", err
 	}
 	subnet := strings.TrimSpace(string(data))
 	observed, err := routes(ctx, run)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := ProjectSubnet(subnet, observed); err != nil {
-		return err
+		return "", err
 	}
 	c.print("Install Soda revision %s for %s using project subnet %s. This installs files/images and starts private/loopback services; it does not complete Forgejo/OAuth/TLS setup.", inventory.Revision, architecture(), subnet)
 	answer, err := c.ask("Type INSTALL SODA to proceed")
 	if err != nil {
-		return err
+		return "", err
 	}
 	if answer != "INSTALL SODA" {
-		return errors.New("soda installation cancelled")
+		return "", errors.New("soda installation cancelled")
 	}
+	return subnet, nil
+}
+
+func executeContinueInstall(ctx context.Context, c console, run commandRunner, bundle, subnet, revision string) error {
 	if err := freshAppliance(); err != nil {
 		return err
 	}
-	// The native script also checks actual installed RPMs, routes, containers and
-	// identities. This marker additionally prevents replay if it fails early.
 	if err := os.Mkdir("/var/lib/soda-installer", 0o700); err != nil && !errors.Is(err, os.ErrExist) {
 		return err
 	}
@@ -220,7 +218,7 @@ func continueInstall(ctx context.Context, c console, run commandRunner) error {
 	if err != nil || !st.IsDir() || st.Mode().Perm() != 0o700 {
 		return errors.New("private continuation state directory required")
 	}
-	if err := nativebuild.WriteNew("/var/lib/soda-installer/continue-started", []byte(inventory.Revision+"\n"), 0o600); err != nil {
+	if err := nativebuild.WriteNew("/var/lib/soda-installer/continue-started", []byte(revision+"\n"), 0o600); err != nil {
 		return err
 	}
 	if _, err := run(ctx, "bash", []string{filepath.Join(bundle, "install-native.sh"), bundle, subnet}, nil); err != nil {
@@ -232,4 +230,24 @@ func continueInstall(ctx context.Context, c console, run commandRunner) error {
 	c.print("Cockpit remains loopback-first; direct project SSH still needs client routing.")
 	c.print("Guide: https://github.com/LevitateOS/sodaos/blob/main/docs/operator-setup.md")
 	return nil
+}
+
+func continueInstall(ctx context.Context, c console, run commandRunner) error {
+	if err := freshAppliance(); err != nil {
+		return err
+	}
+	c.print("SodaOS — install the included components")
+	c.print("This step installs Soda onto the existing host. It does not repartition the disk or reboot automatically.")
+	if _, err := os.Stat("/var/lib/soda/extensions-requested"); err != nil {
+		return errors.New("extensions are not confirmed: inspect systemctl status soda-extensions and its journal; do not reinstall the host")
+	}
+	inventory, bundle, err := verifyContinueBundle(ctx, c, run)
+	if err != nil {
+		return err
+	}
+	subnet, err := confirmContinueSubnet(ctx, c, run, inventory)
+	if err != nil {
+		return err
+	}
+	return executeContinueInstall(ctx, c, run, bundle, subnet, inventory.Revision)
 }
