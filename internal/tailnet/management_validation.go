@@ -22,18 +22,26 @@ func (v EnrollmentView) Validate() error {
 	return nil
 }
 
-func (v HostView) Validate() error {
-	if (v.Tailnet != "" && !networkPattern.MatchString(v.Tailnet)) || (v.Tailnet == "" && (v.MagicDNSEnabled || v.State == "Running")) {
-		return ErrUnavailable
+func validHostTailnet(v HostView) bool {
+	if v.Tailnet != "" {
+		return networkPattern.MatchString(v.Tailnet)
 	}
-	if !containerPattern.MatchString(v.Revision) || v.Addresses == nil || v.Peers == nil || len(v.Peers) > 128 || v.HealthIssues < 0 || v.HealthIssues > 128 {
-		return ErrUnavailable
-	}
-	switch v.State {
+	return !v.MagicDNSEnabled && v.State != "Running"
+}
+
+func validHostInventory(v HostView) bool {
+	return containerPattern.MatchString(v.Revision) && v.Addresses != nil && v.Peers != nil && len(v.Peers) <= 128 && v.HealthIssues >= 0 && v.HealthIssues <= 128
+}
+
+func validHostBackendState(state string) bool {
+	switch state {
 	case "NoState", "InUseOtherUser", "NeedsLogin", "NeedsMachineAuth", "Stopped", "Starting", "Running":
-	default:
-		return ErrUnavailable
+		return true
 	}
+	return false
+}
+
+func validHostPeers(v HostView) error {
 	if _, e := peerView(nativePeer{DNSName: v.DNSName, TailscaleIPs: v.Addresses}); e != nil {
 		return e
 	}
@@ -47,6 +55,10 @@ func (v HostView) Validate() error {
 			return e
 		}
 	}
+	return nil
+}
+
+func validHostExitNode(v HostView) error {
 	if len(v.Preferences.ExitNodeID) > 128 || strings.ContainsAny(v.Preferences.ExitNodeID, "\r\n\x00") {
 		return ErrUnavailable
 	}
@@ -56,6 +68,16 @@ func (v HostView) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (v HostView) Validate() error {
+	if !validHostTailnet(v) || !validHostInventory(v) || !validHostBackendState(v.State) {
+		return ErrUnavailable
+	}
+	if e := validHostPeers(v); e != nil {
+		return e
+	}
+	return validHostExitNode(v)
 }
 
 func (v SettingsView) Validate() error {
