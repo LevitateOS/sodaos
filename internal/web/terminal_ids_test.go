@@ -56,7 +56,7 @@ func reserveTerminal(t *testing.T, s *Server, origin, project string) string {
 	var result struct {
 		ID string `json:"id"`
 	}
-	if w.Code != 201 || json.Unmarshal(w.Body.Bytes(), &result) != nil || !browserTerminalID.MatchString(result.ID) {
+	if w.Code != 201 || json.Unmarshal(w.Body.Bytes(), &result) != nil || !BrowserTerminalID.MatchString(result.ID) {
 		t.Fatalf("reservation %d %s", w.Code, w.Body.String())
 	}
 	return result.ID

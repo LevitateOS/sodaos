@@ -1,3 +1,5 @@
+// Package nativebuild owns shared native build primitives (OCI, CoreOS inputs,
+// production steps). It is not qualification orchestration, signing or install UX.
 package nativebuild
 
 // The two installation layouts share these concrete production steps, not two

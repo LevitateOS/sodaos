@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -53,7 +52,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 				}
 				peerCtx, endPeer := context.WithCancel(t.Context())
 				defer endPeer()
-				s.terminalPeers = map[*http.Request]*terminalPeer{r: {contextID: bob.ContextID, project: project, cancel: endPeer}}
+				s.App.TerminalPeers = map[*http.Request]*terminalPeer{r: {ContextID: bob.ContextID, Project: project, Cancel: endPeer}}
 				nativeCalls := 0
 				s.Host.HTTP = &http.Client{Transport: roundTrip(func(req *http.Request) (*http.Response, error) {
 					nativeCalls++
@@ -77,7 +76,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 						if req.URL.Path != "/lifecycle" || in["action"] != operation {
 							t.Error("lifecycle action changed")
 						}
-						if operation == "stop" && (!s.terminalStopping[project] || peerCtx.Err() == nil) {
+						if operation == "stop" && (!s.App.TerminalStopping[project] || peerCtx.Err() == nil) {
 							t.Error("admitted Stop lost terminal coordination")
 						}
 						_ = json.NewEncoder(w).Encode(host.LifecycleState{Environment: host.Environment{ID: project, Running: operation == "start"}, BootEnabled: operation == "start"})
@@ -188,7 +187,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 					t.Errorf("admission: status=%d want=%d provider=%d native=%d body=%s", w.Code, want, providerCalls, nativeCalls, w.Body.String())
 				}
 				shouldEnd := operation == "stop" && change == "unchanged"
-				if (peerCtx.Err() != nil) != shouldEnd || s.terminalStopping[project] {
+				if (peerCtx.Err() != nil) != shouldEnd || s.App.TerminalStopping[project] {
 					t.Error("denied mutation disturbed terminals or leaked Stop admission")
 				}
 				if operation == "join" && change != "store" {
@@ -197,7 +196,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 						if err != nil || login != "current-login" {
 							t.Error("confirmed Join did not record original login", err)
 						}
-					} else if !errors.Is(err, sql.ErrNoRows) {
+					} else if !errors.Is(err, store.ErrNotFound) {
 						t.Error("denied Join recorded membership", err)
 					}
 				}

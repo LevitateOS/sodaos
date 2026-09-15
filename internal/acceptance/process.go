@@ -1,3 +1,5 @@
+// Package acceptance drives outside support checks against VMs and evidence. It
+// is not appliance runtime code and does not own product HTTP or SQLite.
 // Process-group ownership adapted from soda-os bc1d3e0. No PID-file adoption.
 package acceptance
 

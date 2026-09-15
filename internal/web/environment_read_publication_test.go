@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -62,7 +61,7 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 						s.ServeHTTP(logout, apiTestRequest(http.MethodPost, "/api/session/logout", `{}`, "alice"))
 						require.Equal(t, http.StatusNoContent, logout.Code)
 						_, err := s.Store.Session(t.Context(), "session-alice")
-						require.ErrorIs(t, err, sql.ErrNoRows)
+						require.ErrorIs(t, err, store.ErrNotFound)
 					case "user", "context", "csrf":
 						require.NoError(t, s.Store.DeleteSession(t.Context(), "session-alice"))
 						uid, csrf := original.User.ID, original.CSRF

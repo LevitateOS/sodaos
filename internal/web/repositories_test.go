@@ -167,16 +167,16 @@ func TestRepositoryPickerQueryAndAdmission(t *testing.T) {
 			t.Fatal(query, w.Code, w.Body.String())
 		}
 	}
-	for range cap(s.repositorySlots) {
-		s.repositorySlots <- struct{}{}
+	for range cap(s.App.RepositorySlots) {
+		s.App.RepositorySlots <- struct{}{}
 	}
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, apiTestRequest("GET", "/api/repositories?q=&page=1", "", "alice"))
 	if w.Code != 503 {
 		t.Fatal(w.Code)
 	}
-	for range cap(s.repositorySlots) {
-		<-s.repositorySlots
+	for range cap(s.App.RepositorySlots) {
+		<-s.App.RepositorySlots
 	}
 	r := apiTestRequest("GET", "/api/repositories?q=&page=1", "", "alice")
 	r.Header.Set("X-Soda-Expected-User-ID", "2")

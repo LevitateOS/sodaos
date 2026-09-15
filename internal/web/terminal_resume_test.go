@@ -72,7 +72,8 @@ func TestTerminalNativeLookupSurvivesWebRestart(t *testing.T) {
 	_, id := openManaged(t, s, srv, webTerminalProject)
 	s.CloseTerminals()
 	next := New(s.Config, s.Store)
-	next.Host, next.Forgejo = s.Host, s.Forgejo
+	next.SetHost(s.Host)
+	next.SetForgejo(s.Forgejo)
 	nextServer := httptest.NewTLSServer(next)
 	next.Config.ForgejoURL = nextServer.URL
 	t.Cleanup(nextServer.Close)
@@ -171,9 +172,9 @@ func TestTerminalLostCreateReplyRecoversThroughIssuedNativeID(t *testing.T) {
 
 func TestTerminalStopGateAndPendingTransportBound(t *testing.T) {
 	s, srv, native, _ := terminalWebFixture(t, 0)
-	s.terminalMu.Lock()
-	s.terminalStopping = map[string]bool{webTerminalProject: true}
-	s.terminalMu.Unlock()
+	s.App.TerminalLock().Lock()
+	s.App.TerminalStopping = map[string]bool{webTerminalProject: true}
+	s.App.TerminalLock().Unlock()
 	if terminalAPI(t, s, srv.URL, "POST", "/api/environments/"+webTerminalProject+"/terminal-sessions", map[string]any{"cols": 80, "rows": 24}).Code != 503 {
 		t.Fatal("Stop admitted reservation")
 	}
@@ -184,13 +185,13 @@ func TestTerminalStopGateAndPendingTransportBound(t *testing.T) {
 	if err == nil || response.StatusCode != 409 || native.Load() != 0 {
 		t.Fatal("Stop admitted stream")
 	}
-	s.terminalMu.Lock()
-	clear(s.terminalStopping)
-	s.terminalPeers = make(map[*http.Request]*terminalPeer)
+	s.App.TerminalLock().Lock()
+	clear(s.App.TerminalStopping)
+	s.App.TerminalPeers = make(map[*http.Request]*terminalPeer)
 	for i := 0; i < 128; i++ {
-		s.terminalPeers[new(http.Request)] = &terminalPeer{cancel: func() {}}
+		s.App.TerminalPeers[new(http.Request)] = &terminalPeer{Cancel: func() {}}
 	}
-	s.terminalMu.Unlock()
+	s.App.TerminalLock().Unlock()
 	c, response, err = terminalDial(t, srv, "")
 	if c != nil {
 		c.CloseNow()
@@ -198,7 +199,7 @@ func TestTerminalStopGateAndPendingTransportBound(t *testing.T) {
 	if err == nil || response.StatusCode != 409 || native.Load() != 0 {
 		t.Fatal("pending transport bound bypassed")
 	}
-	s.terminalMu.Lock()
-	clear(s.terminalPeers)
-	s.terminalMu.Unlock()
+	s.App.TerminalLock().Lock()
+	clear(s.App.TerminalPeers)
+	s.App.TerminalLock().Unlock()
 }

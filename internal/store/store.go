@@ -1,3 +1,5 @@
+// Package store owns the appliance SQLite schema and row operations. It is not
+// an HTTP API, host runtime or generic SQL escape hatch for other packages.
 package store
 
 import (
@@ -16,6 +18,10 @@ import (
 	"github.com/levitateos/sodaos/internal/projectos"
 	_ "modernc.org/sqlite"
 )
+
+// ErrNotFound is returned when a looked-up row is absent. Prefer this sentinel
+// over importing database/sql solely for sql.ErrNoRows.
+var ErrNotFound = sql.ErrNoRows
 
 type Store struct {
 	db     *sql.DB

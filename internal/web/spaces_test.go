@@ -121,7 +121,7 @@ func TestSpacesProviderIdentityDenialIsNotCompleteEmpty(t *testing.T) {
 	s, _, native := spacesFixture(t, 0, false)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(403) }))
 	defer provider.Close()
-	s.Forgejo = forgejo.New(provider.URL)
+	s.SetForgejo(forgejo.New(provider.URL))
 	result := readSpaces(t, s)
 	if result.Complete || len(result.Items) != 0 || native.Load() != 0 {
 		t.Fatal("unavailable actor authority disguised as a complete empty collection")
@@ -164,14 +164,14 @@ func TestSpacesResponseByteLimitAndOversizedStoreLabel(t *testing.T) {
 }
 func TestSpacesAdmissionActorAndQueryBounds(t *testing.T) {
 	s, provider, native := spacesFixture(t, 0, true)
-	for range cap(s.spacesSlots) {
-		s.spacesSlots <- struct{}{}
+	for range cap(s.App.SpacesSlots) {
+		s.App.SpacesSlots <- struct{}{}
 	}
 	if terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces", nil).Code != 503 {
 		t.Fatal("request gate")
 	}
-	for range cap(s.spacesSlots) {
-		<-s.spacesSlots
+	for range cap(s.App.SpacesSlots) {
+		<-s.App.SpacesSlots
 	}
 	for _, query := range []string{"?", "?repository_id=7", "?after=1"} {
 		if terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces"+query, nil).Code != 400 {

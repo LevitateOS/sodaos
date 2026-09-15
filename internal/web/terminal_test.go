@@ -91,7 +91,7 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 	// Transport tests start after a native reservation; endpoint coverage below
 	// also exercises the actual server-issued allocation path.
 	initial := webTerminalProject + "/" + reservedTerminalID
-	calls.reservations[initial] = nativeCreationPermit{terminalCreationScope(v), time.Now().Add(time.Minute)}
+	calls.reservations[initial] = nativeCreationPermit{TerminalCreationScope(v), time.Now().Add(time.Minute)}
 	calls.rows[initial] = host.TerminalState{ID: reservedTerminalID, CreatedAt: time.Now().Unix(), State: "opening"}
 	closed := make(chan struct{}, 64)
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -404,7 +404,7 @@ func TestBrowserTerminalLogoutDuringFreshAuthorityNeverSpawns(t *testing.T) {
 	}))
 	defer provider.Close()
 	defer close(release)
-	s.Forgejo = forgejo.New(provider.URL)
+	s.SetForgejo(forgejo.New(provider.URL))
 	c, _, err := terminalDial(t, srv, "")
 	if err != nil {
 		t.Fatal(err)

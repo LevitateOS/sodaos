@@ -123,7 +123,7 @@ func TestConcurrentRefreshAndLogout(t *testing.T) {
 
 func TestLegacyAPIRequiresReauthentication(t *testing.T) {
 	s := apiTestServer(t)
-	s.Forgejo = forgejo.New("http://127.0.0.1:1")
+	s.SetForgejo(forgejo.New("http://127.0.0.1:1"))
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, apiTestRequest("GET", "/api/forgejo/me", "", "alice"))
 	if w.Code != 401 {

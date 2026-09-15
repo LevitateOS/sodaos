@@ -1,7 +1,6 @@
 package web
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,7 +85,7 @@ func TestBrowserOnlyJoinAndExplicitSavedSSHChoice(t *testing.T) {
 				if w.Code != 200 || calls != 1 {
 					t.Fatal("join replayed account")
 				}
-			} else if !errors.Is(err, sql.ErrNoRows) {
+			} else if !errors.Is(err, store.ErrNotFound) {
 				t.Fatal("unconfirmed membership recorded", err)
 			}
 			if tc.status == 400 && calls != 0 {

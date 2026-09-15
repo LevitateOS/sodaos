@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -83,7 +82,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	if w := post("bob"); w.Code != 502 || nativeCalls != 1 {
 		t.Fatal("account-only join must reach native provisioning and report its failure", w.Code)
 	}
-	if _, err = db.MemberLogin(ctx, id, 2); !errors.Is(err, sql.ErrNoRows) {
+	if _, err = db.MemberLogin(ctx, id, 2); !errors.Is(err, store.ErrNotFound) {
 		t.Fatal("failed account-only join recorded membership", err)
 	}
 	expectedKeys = 1
@@ -96,7 +95,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 	if w := post("bob"); w.Code != 502 {
 		t.Fatal(w.Code)
 	}
-	if _, err = db.MemberLogin(ctx, id, 2); !errors.Is(err, sql.ErrNoRows) {
+	if _, err = db.MemberLogin(ctx, id, 2); !errors.Is(err, store.ErrNotFound) {
 		t.Fatal("failed native join recorded membership", err)
 	}
 	reject = false

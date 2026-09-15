@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -34,16 +33,11 @@ const (
 )
 
 func checkStateSchema(ctx context.Context, path string) error {
-	db, err := sql.Open("sqlite", "file:"+path+"?mode=ro")
+	s, err := store.OpenObserve(ctx, path)
 	if err != nil {
-		return err
-	}
-	defer db.Close()
-	var count, minimum, maximum int
-	if err = db.QueryRowContext(ctx, "SELECT count(*),min(version),max(version) FROM schema_version").Scan(&count, &minimum, &maximum); err != nil || count != 1 || minimum != store.SchemaVersion() || maximum != minimum {
 		return errors.New("existing schema differs; fixture migration refused")
 	}
-	return nil
+	return s.Close()
 }
 
 func validGuestAction(action string) bool {
@@ -296,30 +290,35 @@ func mutateFixtureState(ctx context.Context, client forgejoClient, cfg guestConf
 }
 
 func observeDatabase(ctx context.Context, dbPath string, userID int64) (store.User, map[string]any, error) {
-	// Observers open the existing database read-only, and never run migrations.
-	observedDB, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro")
+	observed, err := store.OpenObserve(ctx, dbPath)
+	if err != nil {
+		return store.User{}, nil, errors.New("schema differs; native downgrade/observation refused")
+	}
+	defer observed.Close()
+	if err = observed.IntegrityCheck(ctx); err != nil {
+		return store.User{}, nil, err
+	}
+	observedUser, err := observed.User(ctx, userID)
 	if err != nil {
 		return store.User{}, nil, err
 	}
-	defer observedDB.Close()
-	var schema int
-	var integrity string
-	if err = observedDB.QueryRowContext(ctx, "SELECT version FROM schema_version").Scan(&schema); err != nil || schema != store.SchemaVersion() {
-		return store.User{}, nil, errors.New("schema differs; native downgrade/observation refused")
-	}
-	if err = observedDB.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil || integrity != "ok" {
-		return store.User{}, nil, errors.New("soda database integrity failed")
-	}
-	var observedUser store.User
-	if err = observedDB.QueryRowContext(ctx, "SELECT id,login,name FROM users WHERE id=?", userID).Scan(&observedUser.ID, &observedUser.Login, &observedUser.Name); err != nil {
+	p, err := observed.Project(ctx, fixtureProject)
+	if err != nil {
 		return store.User{}, nil, err
 	}
-	var name, repository, ip, creationProfile string
-	var owner, repositoryID, ready int64
-	if err = observedDB.QueryRowContext(ctx, "SELECT name,repository_id,owner_id,repository,ip,ready,creation_profile FROM projects WHERE id=?", fixtureProject).Scan(&name, &repositoryID, &owner, &repository, &ip, &ready, &creationProfile); err != nil {
-		return store.User{}, nil, err
+	ready := 0
+	if p.Ready {
+		ready = 1
 	}
-	project := map[string]any{"id": fixtureProject, "name": name, "repository_id": repositoryID, "owner": owner, "repository": repository, "ip": ip, "ready": ready, "creation_profile": creationProfile}
+	creationProfile := ""
+	if p.Profile != nil {
+		raw, err := json.Marshal(p.Profile)
+		if err != nil {
+			return store.User{}, nil, err
+		}
+		creationProfile = string(raw)
+	}
+	project := map[string]any{"id": fixtureProject, "name": p.Name, "repository_id": p.RepositoryID, "owner": p.OwnerID, "repository": p.Repository, "ip": p.IP, "ready": ready, "creation_profile": creationProfile}
 	return observedUser, project, nil
 }
 

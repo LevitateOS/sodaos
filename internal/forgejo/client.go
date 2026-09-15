@@ -1,3 +1,5 @@
+// Package forgejo is the HTTP client for Forgejo's supported APIs. It does not
+// access Forgejo's database or copy upstream business rules into Soda.
 package forgejo
 
 import (

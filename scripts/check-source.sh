@@ -5,6 +5,7 @@ cd "$(dirname "$0")/.."
 export GOWORK=off GOFLAGS=-mod=readonly CGO_ENABLED=0 GOTOOLCHAIN=local
 go mod verify
 go test -mod=readonly ./...
+bash scripts/check-sql-locality.sh
 bun run typecheck
 bun run test
 python3 -m unittest discover -s tests/build

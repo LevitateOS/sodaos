@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -117,7 +116,7 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 			if calls.Load() != 0 {
 				t.Fatal("denial reached helper")
 			}
-			if _, err := s.Store.MemberLogin(t.Context(), id, 2); !errors.Is(err, sql.ErrNoRows) {
+			if _, err := s.Store.MemberLogin(t.Context(), id, 2); !errors.Is(err, store.ErrNotFound) {
 				t.Fatal("denial wrote membership", err)
 			}
 		})

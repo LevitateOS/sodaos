@@ -28,7 +28,7 @@ func runnerWebFixture(t *testing.T, native http.HandlerFunc) *Server {
 	})
 	peer := httptest.NewServer(native)
 	t.Cleanup(peer.Close)
-	s.Host = &host.Client{HTTP: peer.Client()}
+	s.SetHost(&host.Client{HTTP: peer.Client()})
 	transport := peer.Client().Transport
 	s.Host.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
 		r.URL.Scheme = "http"

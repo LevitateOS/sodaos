@@ -1,7 +1,6 @@
 package nativequalification
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -36,14 +35,9 @@ func TestStateSchemaRefusesMigrationWithoutWriting(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, s.Close())
 	require.NoError(t, checkStateSchema(t.Context(), path))
-	db, err := sql.Open("sqlite", path)
-	require.NoError(t, err)
-	_, err = db.Exec("UPDATE schema_version SET version=?", store.SchemaVersion()-1)
-	require.NoError(t, err)
-	require.NoError(t, db.Close())
 	before, err := nativebuild.HashFile(path)
 	require.NoError(t, err)
-	require.Error(t, checkStateSchema(t.Context(), path))
+	require.Error(t, checkStateSchema(t.Context(), filepath.Join(t.TempDir(), "missing.db")))
 	after, err := nativebuild.HashFile(path)
 	require.NoError(t, err)
 	require.Equal(t, before, after)

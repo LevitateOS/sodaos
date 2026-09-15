@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -313,15 +312,7 @@ func TestNativeConnectionFixture(t *testing.T) {
 				return nil, fmt.Errorf("predecessor exited unsuccessfully")
 			}
 			readVersion := func() (int, error) {
-				u := url.URL{Scheme: "file", Path: cfg.Database, RawQuery: "mode=ro"}
-				observed, err := sql.Open("sqlite", u.String())
-				if err != nil {
-					return 0, err
-				}
-				defer observed.Close()
-				var version int
-				err = observed.QueryRow("SELECT version FROM schema_version").Scan(&version)
-				return version, err
+				return store.ReadSchemaVersion(t.Context(), cfg.Database)
 			}
 			before, err := readVersion()
 			if err != nil || before != 6 {

@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -87,7 +86,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	for _, uid := range []int64{1, 2} {
-		if _, err := s.Store.MemberLogin(context.Background(), id, uid); !errors.Is(err, sql.ErrNoRows) {
+		if _, err := s.Store.MemberLogin(context.Background(), id, uid); !errors.Is(err, store.ErrNotFound) {
 			t.Fatal("implicit join", err)
 		}
 	}
@@ -104,7 +103,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 	if w := perform("POST", "/api/environments/"+id+"/join", `{}`, "bob"); w.Code != 502 {
 		t.Fatal(w.Code)
 	}
-	if _, err := s.Store.MemberLogin(context.Background(), id, 2); !errors.Is(err, sql.ErrNoRows) {
+	if _, err := s.Store.MemberLogin(context.Background(), id, 2); !errors.Is(err, store.ErrNotFound) {
 		t.Fatal("failed native join recorded", err)
 	}
 	rejectAccount = false

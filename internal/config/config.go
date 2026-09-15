@@ -1,3 +1,5 @@
+// Package config loads and validates dashboard and related operator JSON. It is
+// not a secret store, schema migrator or runtime daemon.
 package config
 
 import (
