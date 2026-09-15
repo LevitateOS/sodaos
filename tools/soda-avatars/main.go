@@ -15,12 +15,14 @@ import (
 	"github.com/levitateos/sodaos/internal/avatar"
 )
 
-type card struct{ Label, File string }
-type section struct {
-	ID, Title string
-	Size      int
-	Cards     []card
-}
+type (
+	card    struct{ Label, File string }
+	section struct {
+		ID, Title string
+		Size      int
+		Cards     []card
+	}
+)
 type sheet struct{ Sections []section }
 
 func main() {
@@ -30,6 +32,147 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println(name)
+}
+
+func avatarBaseline(definition struct {
+	Components map[string]struct{ Variants map[string]json.RawMessage }
+	Colors     map[string]struct{ Values []string }
+},
+) func() map[string]any {
+	return func() map[string]any {
+		return map[string]any{
+			"seed": "soda-robot-v1:00000000000000000000000000000000", "size": 128,
+			"headVariant": []string{"wide"}, "faceVariant": []string{"rounded"},
+			"eyesVariant": []string{"ovals"}, "mouthVariant": []string{"smile"},
+			"earcapsVariant": []string{"round"}, "accessoryVariant": []string{"plain"},
+			"backgroundColor": []string{definition.Colors["background"].Values[0]},
+			"accentColor":     []string{definition.Colors["accent"].Values[0]},
+		}
+	}
+}
+
+func writeAvatarSVG(dir, name, svg string) error {
+	return os.WriteFile(filepath.Join(dir, "svg", name+".svg"), []byte(svg), 0o644)
+}
+
+func variantSection(s *dicebear.Style, definition struct {
+	Components map[string]struct{ Variants map[string]json.RawMessage }
+	Colors     map[string]struct{ Values []string }
+}, dir, name string, baseline func() map[string]any,
+) (section, error) {
+	part := section{ID: name, Title: name, Size: 128}
+	keys := []string{}
+	for key := range definition.Components[name].Variants {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		opts := baseline()
+		opts[name+"Variant"] = []string{key}
+		a, err := dicebear.NewAvatar(s, opts)
+		if err != nil {
+			return part, err
+		}
+		file := name + "-" + key
+		if err := writeAvatarSVG(dir, file, a.SVG()); err != nil {
+			return part, err
+		}
+		part.Cards = append(part.Cards, card{key, "svg/" + file + ".svg"})
+	}
+	return part, nil
+}
+
+func colorSection(s *dicebear.Style, definition struct {
+	Components map[string]struct{ Variants map[string]json.RawMessage }
+	Colors     map[string]struct{ Values []string }
+}, dir string, baseline func() map[string]any,
+) (section, error) {
+	colors := section{ID: "colors", Title: "Every background / accent pair", Size: 128}
+	for i, bg := range definition.Colors["background"].Values {
+		for j, accent := range definition.Colors["accent"].Values {
+			opts := baseline()
+			opts["backgroundColor"], opts["accentColor"] = []string{bg}, []string{accent}
+			a, err := dicebear.NewAvatar(s, opts)
+			if err != nil {
+				return colors, err
+			}
+			file := fmt.Sprintf("palette-%d-%d", i, j)
+			if err := writeAvatarSVG(dir, file, a.SVG()); err != nil {
+				return colors, err
+			}
+			colors.Cards = append(colors.Cards, card{bg + " / " + accent, "svg/" + file + ".svg"})
+		}
+	}
+	return colors, nil
+}
+
+func robotSamples(dir string) ([]card, error) {
+	samples := []card{}
+	for i := range 100 {
+		hash := fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("soda-avatar-preview-%03d", i))))
+		svg, err := avatar.Render(hash, 128)
+		if err != nil {
+			return nil, err
+		}
+		file := fmt.Sprintf("robot-%03d", i)
+		if err := writeAvatarSVG(dir, file, svg); err != nil {
+			return nil, err
+		}
+		samples = append(samples, card{fmt.Sprintf("%03d", i), "svg/" + file + ".svg"})
+	}
+	return samples, nil
+}
+
+func writeAvatarIndex(dir string, data sheet) error {
+	f, err := os.Create(filepath.Join(dir, "index.html"))
+	if err != nil {
+		return err
+	}
+	if err := template.Must(template.New("sheet").Parse(page)).Execute(f, data); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+func catalogAvatarSheet(s *dicebear.Style, definition struct {
+	Components map[string]struct{ Variants map[string]json.RawMessage }
+	Colors     map[string]struct{ Values []string }
+}, dir string,
+) (sheet, error) {
+	baseline := avatarBaseline(definition)
+	data := sheet{}
+	for _, name := range []string{"head", "face", "eyes", "mouth", "earcaps", "accessory"} {
+		part, err := variantSection(s, definition, dir, name, baseline)
+		if err != nil {
+			return data, err
+		}
+		data.Sections = append(data.Sections, part)
+	}
+	colors, err := colorSection(s, definition, dir, baseline)
+	if err != nil {
+		return data, err
+	}
+	data.Sections = append(data.Sections, colors)
+	samples, err := robotSamples(dir)
+	if err != nil {
+		return data, err
+	}
+	for _, size := range []int{128, 64, 32, 24} {
+		data.Sections = append(data.Sections, section{fmt.Sprintf("grid-%d", size), fmt.Sprintf("100 stable robots · %dpx", size), size, samples})
+	}
+	return data, nil
+}
+
+func prepareAvatarWorkspace(parent string) (string, error) {
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return "", err
+	}
+	dir, err := os.MkdirTemp(parent, "preview-")
+	if err != nil {
+		return "", err
+	}
+	return dir, os.Mkdir(filepath.Join(dir, "svg"), 0o755)
 }
 
 func generate(parent string) (string, error) {
@@ -47,96 +190,15 @@ func generate(parent string) (string, error) {
 	if err := json.Unmarshal([]byte(avatar.Definition()), &definition); err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return "", err
-	}
-	dir, err := os.MkdirTemp(parent, "preview-")
+	dir, err := prepareAvatarWorkspace(parent)
 	if err != nil {
 		return "", err
 	}
-	if err := os.Mkdir(filepath.Join(dir, "svg"), 0o755); err != nil {
-		return "", err
-	}
-	write := func(name, svg string) error {
-		return os.WriteFile(filepath.Join(dir, "svg", name+".svg"), []byte(svg), 0o644)
-	}
-	// Explicit baseline isolates each catalog choice. These are inspection inputs,
-	// not another definition of the production variant pools or palette.
-	baseline := func() map[string]any {
-		return map[string]any{
-			"seed": "soda-robot-v1:00000000000000000000000000000000", "size": 128,
-			"headVariant": []string{"wide"}, "faceVariant": []string{"rounded"},
-			"eyesVariant": []string{"ovals"}, "mouthVariant": []string{"smile"},
-			"earcapsVariant": []string{"round"}, "accessoryVariant": []string{"plain"},
-			"backgroundColor": []string{definition.Colors["background"].Values[0]},
-			"accentColor":     []string{definition.Colors["accent"].Values[0]},
-		}
-	}
-	data := sheet{}
-	for _, name := range []string{"head", "face", "eyes", "mouth", "earcaps", "accessory"} {
-		part := section{ID: name, Title: name, Size: 128}
-		keys := []string{}
-		for key := range definition.Components[name].Variants {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		for _, key := range keys {
-			opts := baseline()
-			opts[name+"Variant"] = []string{key}
-			a, err := dicebear.NewAvatar(s, opts)
-			if err != nil {
-				return "", err
-			}
-			file := name + "-" + key
-			if err := write(file, a.SVG()); err != nil {
-				return "", err
-			}
-			part.Cards = append(part.Cards, card{key, "svg/" + file + ".svg"})
-		}
-		data.Sections = append(data.Sections, part)
-	}
-	colors := section{ID: "colors", Title: "Every background / accent pair", Size: 128}
-	for i, bg := range definition.Colors["background"].Values {
-		for j, accent := range definition.Colors["accent"].Values {
-			opts := baseline()
-			opts["backgroundColor"], opts["accentColor"] = []string{bg}, []string{accent}
-			a, err := dicebear.NewAvatar(s, opts)
-			if err != nil {
-				return "", err
-			}
-			file := fmt.Sprintf("palette-%d-%d", i, j)
-			if err := write(file, a.SVG()); err != nil {
-				return "", err
-			}
-			colors.Cards = append(colors.Cards, card{bg + " / " + accent, "svg/" + file + ".svg"})
-		}
-	}
-	data.Sections = append(data.Sections, colors)
-	samples := []card{}
-	for i := range 100 {
-		hash := fmt.Sprintf("%x", md5.Sum([]byte(fmt.Sprintf("soda-avatar-preview-%03d", i))))
-		svg, err := avatar.Render(hash, 128)
-		if err != nil {
-			return "", err
-		}
-		file := fmt.Sprintf("robot-%03d", i)
-		if err := write(file, svg); err != nil {
-			return "", err
-		}
-		samples = append(samples, card{fmt.Sprintf("%03d", i), "svg/" + file + ".svg"})
-	}
-	for _, size := range []int{128, 64, 32, 24} {
-		data.Sections = append(data.Sections, section{fmt.Sprintf("grid-%d", size), fmt.Sprintf("100 stable robots · %dpx", size), size, samples})
-	}
-	f, err := os.Create(filepath.Join(dir, "index.html"))
+	data, err := catalogAvatarSheet(s, definition, dir)
 	if err != nil {
 		return "", err
 	}
-	if err := template.Must(template.New("sheet").Parse(page)).Execute(f, data); err != nil {
-		f.Close()
-		return "", err
-	}
-	if err := f.Close(); err != nil {
+	if err := writeAvatarIndex(dir, data); err != nil {
 		return "", err
 	}
 	return filepath.Abs(filepath.Join(dir, "index.html"))
