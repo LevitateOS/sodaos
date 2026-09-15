@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestPageEntryGuards(t *testing.T) {
@@ -21,10 +23,10 @@ func TestPageEntryGuards(t *testing.T) {
 					status := 303
 					switch mode {
 					case "expired":
-						r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "expired"})
+						r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "expired"})
 					case "duplicate cookie":
-						r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
-						r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
+						r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
+						r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
 						status = 400
 					case "query":
 						r.URL.RawQuery = "actor=2"
@@ -39,7 +41,7 @@ func TestPageEntryGuards(t *testing.T) {
 						s.Config.ForgejoURL = "https://forgejo.example.test/?bad=1"
 						status = 503
 					case "missing store":
-						r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
+						r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
 						s.Store = nil
 					}
 					w := httptest.NewRecorder()

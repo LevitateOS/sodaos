@@ -1,16 +1,16 @@
-package webapp
+package api
 
 import (
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 func (s *API) checkLifecycleEnvironment(w http.ResponseWriter, r *http.Request) (store.Project, bool) {
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		webauth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
+		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
 		return store.Project{}, false
 	}
 	p, ok := s.loadEnvironment(w, r)
@@ -18,7 +18,7 @@ func (s *API) checkLifecycleEnvironment(w http.ResponseWriter, r *http.Request) 
 		return store.Project{}, false
 	}
 	if !p.Ready {
-		webauth.JSONError(w, 409, "not_provisioned", "Provisioning is incomplete; do not repair or recreate it.")
+		auth.JSONError(w, 409, "not_provisioned", "Provisioning is incomplete; do not repair or recreate it.")
 		return store.Project{}, false
 	}
 	return p, true
@@ -31,11 +31,11 @@ type lifecycleRequest struct {
 
 func decodeLifecycleRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
 	var in lifecycleRequest
-	if !webauth.DecodeAPIObject(w, r, &in) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return "", false
 	}
 	if (in.Action != "start" && in.Action != "stop") || (in.Action == "stop" && !in.ConfirmStop) || (in.Action == "start" && in.ConfirmStop) {
-		webauth.JSONError(w, 400, "invalid_action", "Choose Start or explicitly confirm Stop for everyone.")
+		auth.JSONError(w, 400, "invalid_action", "Choose Start or explicitly confirm Stop for everyone.")
 		return "", false
 	}
 	return in.Action, true
@@ -47,25 +47,25 @@ func (s *API) authorizeLifecycleOperator(w http.ResponseWriter, r *http.Request,
 	}
 	access, err := s.visibleRepository(r, v, repositoryID)
 	if err != nil {
-		webauth.ProviderError(w, err)
+		auth.ProviderError(w, err)
 		return false
 	}
 	allowed, err := s.environmentAdministrator(r, access)
 	if err != nil {
-		webauth.ProviderError(w, err)
+		auth.ProviderError(w, err)
 		return false
 	}
 	if !allowed {
-		webauth.JSONError(w, 403, "administrator_required", "Only the current project administrator or Soda operator can start/stop it.")
+		auth.JSONError(w, 403, "administrator_required", "Only the current project administrator or Soda operator can start/stop it.")
 		return false
 	}
 	return true
 }
 
 func (s *API) checkLifecycleSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
-	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
 	if err != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
-		webauth.JSONError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
+		auth.JSONError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
 		return false
 	}
 	return true
@@ -78,7 +78,7 @@ func (s *API) acquireLifecycleStop(w http.ResponseWriter, projectID string) (fun
 	}
 	if s.TerminalStopping[projectID] {
 		s.terminalMu.Unlock()
-		webauth.JSONError(w, 409, "stop_pending", "A Stop is already pending; inspect its outcome.")
+		auth.JSONError(w, 409, "stop_pending", "A Stop is already pending; inspect its outcome.")
 		return nil, false
 	}
 	s.TerminalStopping[projectID] = true
@@ -136,10 +136,10 @@ func (s *API) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Sessi
 	} else if _, ok := s.authorizeEnvironmentRead(w, r, v, p); !ok {
 		return
 	}
-	result, err := s.Host.Lifecycle(r.Context(), host.Lifecycle{Project: p.ID, Action: action})
+	result, err := s.Host.Lifecycle(r.Context(), project.Lifecycle{Project: p.ID, Action: action})
 	if err != nil {
-		webauth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Refresh or ask the operator to inspect; do not repeat or repair blindly.")
+		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Refresh or ask the operator to inspect; do not repeat or repair blindly.")
 		return
 	}
-	webauth.JSONResponse(w, 200, result)
+	auth.JSONResponse(w, 200, result)
 }

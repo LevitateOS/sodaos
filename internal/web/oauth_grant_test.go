@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
@@ -37,8 +39,8 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 	state := location.Query().Get("state")
 	callback := func() *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", "/-/soda/oauth/callback?"+url.Values{"state": {state}, "code": {"test-code"}, "return_to": {"https://untrusted.invalid"}}.Encode(), nil)
-		r.AddCookie(&http.Cookie{Name: oauthCookie, Value: state})
-		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
+		r.AddCookie(&http.Cookie{Name: auth.OAuthCookie, Value: state})
+		r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		return w
@@ -49,7 +51,7 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 	}
 	var session *http.Cookie
 	for _, cookie := range result.Result().Cookies() {
-		if cookie.Name == sessionCookie {
+		if cookie.Name == auth.SessionCookie {
 			session = cookie
 		}
 	}

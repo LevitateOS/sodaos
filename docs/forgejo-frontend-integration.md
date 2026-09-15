@@ -44,7 +44,7 @@ that plan; this is not a completed iframe port or a new native acceptance receip
 
 ## Image-owned presentation
 
-The complete local appliance candidate reuses `internal/nativebuild/forgejo-payload.json`
+The complete local appliance candidate reuses `internal/release/build/forgejo-payload.json`
 and the existing browser/locales/terminal/staging owners; it has no second asset list.
 `appliance/forgejo.Containerfile` puts that exact public tree at
 `/usr/share/soda/forgejo`, root-owned with read-only files. Both upstream custom-path
@@ -391,7 +391,7 @@ Further source facts informing the [implementation sequence](sodaspaces-plan.md)
   the application's identity during that update. Use the application's actual
   owner/native settings for the planned callback transition, not a blind API PATCH.
   No OAuth application or credential was changed during inspection.
-- `internal/nativebuild/bundle.go` now admits only the two Soda template paths and
+- `internal/release/build/bundle.go` now admits only the two Soda template paths and
   required ancestors, and requires both hooks/assets with readable modes. It does
   not admit arbitrary templates or Forgejo data. First-install preflight now refuses
   occupied hook/asset destinations before writes, including symlinks/special files;

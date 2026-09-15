@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -55,7 +55,7 @@ func TestBrowserOnlyJoinAndExplicitSavedSSHChoice(t *testing.T) {
 			calls := 0
 			s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 				calls++
-				var in host.Account
+				var in project.Account
 				if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 					t.Fatal(err)
 				}

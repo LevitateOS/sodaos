@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
 import { basename, dirname, posix, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import payload from '../internal/nativebuild/forgejo-payload.json';
+import payload from '../internal/release/build/forgejo-payload.json';
 
 const root = resolve(import.meta.dir, '..');
 // One reviewed presentation epoch covers the whole module graph, not just the

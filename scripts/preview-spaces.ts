@@ -2,7 +2,7 @@
 import {watch, type FSWatcher} from 'node:fs';
 import {resolve, basename} from 'node:path';
 import {parseArgs} from 'node:util';
-import payload from '../internal/nativebuild/forgejo-payload.json';
+import payload from '../internal/release/build/forgejo-payload.json';
 import {buildForgejoAssets, buildForgejoModule} from './build-forgejo.ts';
 import {scenarioModel, scenarios, type Scenario, type Model} from './fixtures/spaces-scenarios.ts';
 import {object} from '../frontend/spaces/sodaspaces-api.ts';

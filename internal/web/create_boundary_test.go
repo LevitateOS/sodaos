@@ -13,7 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestStableCreateRejectsLegacyAndInvalidIDsBeforeProvider(t *testing.T) {
@@ -28,10 +29,10 @@ func TestStableCreateRejectsLegacyAndInvalidIDsBeforeProvider(t *testing.T) {
 			t.Fatal(body, w.Code)
 		}
 	}
-	for _, header := range []string{"Origin", "X-CSRF-Token", expectedUserHeader} {
+	for _, header := range []string{"Origin", "X-CSRF-Token", auth.ExpectedUserHeader} {
 		r := apiTestRequest("POST", "/api/environments", `{"repository_id":"7"}`, "alice")
 		value := "wrong"
-		if header == expectedUserHeader {
+		if header == auth.ExpectedUserHeader {
 			value = "2"
 		}
 		r.Header.Set(header, value)
@@ -104,7 +105,7 @@ func TestCreateReservationSurvivesConcurrentAndUncertainResults(t *testing.T) {
 				if r.URL.Path != "/create" {
 					t.Error("implicit join or unexpected operation", r.URL.Path)
 				}
-				var input host.Create
+				var input project.Create
 				if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 					t.Error(err)
 				}

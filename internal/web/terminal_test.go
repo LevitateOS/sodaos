@@ -17,7 +17,10 @@ import (
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/api"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 const webTerminalProject = "p0123456789abcdef01234567"
@@ -91,18 +94,18 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 	// Transport tests start after a native reservation; endpoint coverage below
 	// also exercises the actual server-issued allocation path.
 	initial := webTerminalProject + "/" + reservedTerminalID
-	calls.reservations[initial] = nativeCreationPermit{TerminalCreationScope(v), time.Now().Add(time.Minute)}
+	calls.reservations[initial] = nativeCreationPermit{api.TerminalCreationScope(v), time.Now().Add(time.Minute)}
 	calls.rows[initial] = host.TerminalState{ID: reservedTerminalID, CreatedAt: time.Now().Unix(), State: "opening"}
 	closed := make(chan struct{}, 64)
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/inspect" {
-			var in host.Create
+			var in project.Create
 			_ = json.NewDecoder(r.Body).Decode(&in)
-			_ = json.NewEncoder(w).Encode(host.Environment{ID: in.ID, Running: true})
+			_ = json.NewEncoder(w).Encode(project.Environment{ID: in.ID, Running: true})
 			return
 		}
 		if r.URL.Path == "/lifecycle" {
-			var in host.Lifecycle
+			var in project.Lifecycle
 			_ = json.NewDecoder(r.Body).Decode(&in)
 			fmt.Fprintf(w, `{"environment":{"id":%q,"running":false},"boot_enabled":false}`, in.Project)
 			return
@@ -375,8 +378,8 @@ func TestBrowserTerminalRotationAndActiveShutdown(t *testing.T) {
 					t.Fatal(err)
 				}
 				r := httptest.NewRequest("GET", config.SodaPath+"/oauth/callback?state=terminal-state", nil)
-				r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
-				r.AddCookie(&http.Cookie{Name: oauthCookie, Value: "terminal-state"})
+				r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
+				r.AddCookie(&http.Cookie{Name: auth.OAuthCookie, Value: "terminal-state"})
 				w := httptest.NewRecorder()
 				s.ServeHTTP(w, r)
 				if w.Code != 400 {

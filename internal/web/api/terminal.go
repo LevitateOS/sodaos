@@ -1,11 +1,11 @@
-package webapp
+package api
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"strings"
 	"time"
@@ -42,11 +42,11 @@ func checkTerminalRequestHeaders(w http.ResponseWriter, r *http.Request, forgejo
 	w.Header().Set("Cache-Control", "no-store")
 	if r.Method != "GET" {
 		w.Header().Set("Allow", "GET")
-		webauth.JSONError(w, 405, "method_not_allowed", "WebSocket GET required.")
+		auth.JSONError(w, 405, "method_not_allowed", "WebSocket GET required.")
 		return false
 	}
 	if !validTerminalOrigin(r, forgejoURL) || !validSecFetchHeaders(r) {
-		webauth.JSONError(w, 403, "invalid_origin", "Same-origin terminal required.")
+		auth.JSONError(w, 403, "invalid_origin", "Same-origin terminal required.")
 		return false
 	}
 	return true
@@ -64,14 +64,14 @@ func validMemberLogin(p store.Project, login string, err error) bool {
 }
 
 func (s *API) authenticateTerminalSession(w http.ResponseWriter, r *http.Request) (terminalSessionAuth, bool) {
-	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
 	if err != nil || cookie.Value == "" || s.Store == nil {
-		webauth.JSONError(w, 401, "unauthenticated", "Sign in through Forgejo.")
+		auth.JSONError(w, 401, "unauthenticated", "Sign in through Forgejo.")
 		return terminalSessionAuth{}, false
 	}
 	v, err := s.Store.Session(r.Context(), cookie.Value)
 	if err != nil {
-		webauth.JSONError(w, 401, "unauthenticated", "Sign in through Forgejo.")
+		auth.JSONError(w, 401, "unauthenticated", "Sign in through Forgejo.")
 		return terminalSessionAuth{}, false
 	}
 	p, ok := s.loadEnvironment(w, r)
@@ -80,25 +80,25 @@ func (s *API) authenticateTerminalSession(w http.ResponseWriter, r *http.Request
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
 	if !validMemberLogin(p, login, err) {
-		webauth.JSONError(w, 403, "membership_required", "An existing provisioned account is required.")
+		auth.JSONError(w, 403, "membership_required", "An existing provisioned account is required.")
 		return terminalSessionAuth{}, false
 	}
 	return terminalSessionAuth{cookie: cookie.Value, session: v, project: p, login: login}, true
 }
 
-func (s *API) registerTerminalPeer(r *http.Request, auth terminalSessionAuth, cancel context.CancelFunc) (*TerminalPeer, bool) {
+func (s *API) registerTerminalPeer(r *http.Request, identity terminalSessionAuth, cancel context.CancelFunc) (*TerminalPeer, bool) {
 	s.terminalMu.Lock()
 	defer s.terminalMu.Unlock()
-	if s.terminalClosed || s.TerminalStopping[auth.project.ID] || len(s.TerminalPeers) >= 128 {
+	if s.terminalClosed || s.TerminalStopping[identity.project.ID] || len(s.TerminalPeers) >= 128 {
 		return nil, false
 	}
 	if s.TerminalPeers == nil {
 		s.TerminalPeers = make(map[*http.Request]*TerminalPeer)
 	}
 	peer := &TerminalPeer{
-		Token:     auth.cookie,
-		ContextID: auth.session.ContextID,
-		Project:   auth.project.ID,
+		Token:     identity.cookie,
+		ContextID: identity.session.ContextID,
+		Project:   identity.project.ID,
 		Cancel:    cancel,
 	}
 	s.TerminalPeers[r] = peer
@@ -150,23 +150,23 @@ func validHandshakeAction(id, action, name string) bool {
 }
 
 func validHandshakeActorAndRepo(in terminalHandshake, userID, repoID int64) bool {
-	actor, validActor := webauth.PositiveID(in.ExpectedUserID)
-	repo, validRepo := webauth.PositiveID(in.RepositoryID)
+	actor, validActor := auth.PositiveID(in.ExpectedUserID)
+	repo, validRepo := auth.PositiveID(in.RepositoryID)
 	return validActor && actor == userID && validRepo && repo == repoID
 }
 
-func (s *API) validateTerminalHandshake(ctx context.Context, r *http.Request, auth terminalSessionAuth, in terminalHandshake) (*http.Request, bool) {
-	if !validHandshakeDimensions(in.Cols, in.Rows) || !validHandshakeAction(in.ID, in.Action, in.Name) || !validHandshakeActorAndRepo(in, auth.session.User.ID, auth.project.RepositoryID) {
+func (s *API) validateTerminalHandshake(ctx context.Context, r *http.Request, identity terminalSessionAuth, in terminalHandshake) (*http.Request, bool) {
+	if !validHandshakeDimensions(in.Cols, in.Rows) || !validHandshakeAction(in.ID, in.Action, in.Name) || !validHandshakeActorAndRepo(in, identity.session.User.ID, identity.project.RepositoryID) {
 		return nil, false
 	}
 	authorized := r.Clone(ctx)
 	authorized.Header.Set("X-CSRF-Token", in.CSRF)
-	if !s.Auth.ValidAPIMutation(authorized, auth.session.CSRF) {
+	if !s.Auth.ValidAPIMutation(authorized, identity.session.CSRF) {
 		return nil, false
 	}
 	check, checked := context.WithTimeout(ctx, 15*time.Second)
 	defer checked()
-	if _, err := s.visibleRepository(authorized.WithContext(check), auth.session, auth.project.RepositoryID); err != nil {
+	if _, err := s.visibleRepository(authorized.WithContext(check), identity.session, identity.project.RepositoryID); err != nil {
 		return nil, false
 	}
 	return authorized, true
@@ -181,62 +181,62 @@ func peerIDInUse(peers map[*http.Request]*TerminalPeer, current *TerminalPeer, p
 	return false
 }
 
-func (s *API) claimTerminalPeer(ctx context.Context, peer *TerminalPeer, auth terminalSessionAuth, terminalID string) bool {
+func (s *API) claimTerminalPeer(ctx context.Context, peer *TerminalPeer, identity terminalSessionAuth, terminalID string) bool {
 	s.terminalMu.Lock()
 	defer s.terminalMu.Unlock()
-	if s.terminalClosed || s.TerminalStopping[auth.project.ID] || ctx.Err() != nil || !s.terminalCurrent(ctx, auth.cookie, auth.session, auth.project, auth.login) {
+	if s.terminalClosed || s.TerminalStopping[identity.project.ID] || ctx.Err() != nil || !s.terminalCurrent(ctx, identity.cookie, identity.session, identity.project, identity.login) {
 		return false
 	}
-	if peerIDInUse(s.TerminalPeers, peer, auth.project.ID, terminalID) {
+	if peerIDInUse(s.TerminalPeers, peer, identity.project.ID, terminalID) {
 		return false
 	}
 	peer.ID = terminalID
 	return true
 }
 
-func (s *API) prepareTerminalPeer(ctx context.Context, r *http.Request, auth terminalSessionAuth, in terminalHandshake, peer *TerminalPeer) (*http.Request, bool) {
-	authorized, ok := s.validateTerminalHandshake(ctx, r, auth, in)
-	if !ok || !s.claimTerminalPeer(ctx, peer, auth, in.ID) {
+func (s *API) prepareTerminalPeer(ctx context.Context, r *http.Request, identity terminalSessionAuth, in terminalHandshake, peer *TerminalPeer) (*http.Request, bool) {
+	authorized, ok := s.validateTerminalHandshake(ctx, r, identity, in)
+	if !ok || !s.claimTerminalPeer(ctx, peer, identity, in.ID) {
 		return nil, false
 	}
 	return authorized, true
 }
 
-func (s *API) createHostTerminal(ctx context.Context, auth terminalSessionAuth, in terminalHandshake) bool {
+func (s *API) createHostTerminal(ctx context.Context, identity terminalSessionAuth, in terminalHandshake) bool {
 	items, err := s.Host.TerminalStates(ctx, host.TerminalRequest{
 		Action:   "create",
 		ID:       in.ID,
-		Project:  auth.project.ID,
-		Login:    auth.login,
-		Identity: auth.session.User.ID,
+		Project:  identity.project.ID,
+		Login:    identity.login,
+		Identity: identity.session.User.ID,
 		Cols:     in.Cols,
 		Rows:     in.Rows,
 		Name:     in.Name,
-		Scope:    TerminalCreationScope(auth.session),
+		Scope:    TerminalCreationScope(identity.session),
 	})
 	return err == nil && len(items) == 1 && items[0].Ready
 }
 
-func (s *API) isTerminalLive(ctx context.Context, auth terminalSessionAuth) bool {
+func (s *API) isTerminalLive(ctx context.Context, identity terminalSessionAuth) bool {
 	s.terminalMu.Lock()
 	defer s.terminalMu.Unlock()
-	return ctx.Err() == nil && !s.terminalClosed && !s.TerminalStopping[auth.project.ID] && s.terminalCurrent(ctx, auth.cookie, auth.session, auth.project, auth.login)
+	return ctx.Err() == nil && !s.terminalClosed && !s.TerminalStopping[identity.project.ID] && s.terminalCurrent(ctx, identity.cookie, identity.session, identity.project, identity.login)
 }
 
-func (s *API) openHostTerminal(ctx context.Context, auth terminalSessionAuth, in terminalHandshake) (*host.Terminal, error) {
-	if in.Action == "create" && !s.createHostTerminal(ctx, auth, in) {
+func (s *API) openHostTerminal(ctx context.Context, identity terminalSessionAuth, in terminalHandshake) (*host.Terminal, error) {
+	if in.Action == "create" && !s.createHostTerminal(ctx, identity, in) {
 		return nil, errors.New("terminal create failed")
 	}
-	if !s.isTerminalLive(ctx, auth) {
+	if !s.isTerminalLive(ctx, identity) {
 		return nil, errors.New("terminal no longer live")
 	}
-	expires := min(auth.session.Expires, time.Now().Add(12*time.Hour).Unix())
+	expires := min(identity.session.Expires, time.Now().Add(12*time.Hour).Unix())
 	return s.Host.OpenTerminal(ctx, host.TerminalRequest{
 		Action:   "attach",
 		ID:       in.ID,
-		Project:  auth.project.ID,
-		Login:    auth.login,
-		Identity: auth.session.User.ID,
+		Project:  identity.project.ID,
+		Login:    identity.login,
+		Identity: identity.session.User.ID,
 		Cols:     in.Cols,
 		Rows:     in.Rows,
 		Expires:  expires,
@@ -266,18 +266,18 @@ func pumpBrowserControls(ctx context.Context, cancel context.CancelFunc, conn *w
 	}
 }
 
-func (s *API) checkTerminalHeartbeat(ctx context.Context, conn *websocket.Conn, native *host.Terminal, authorized *http.Request, auth terminalSessionAuth) bool {
+func (s *API) checkTerminalHeartbeat(ctx context.Context, conn *websocket.Conn, native *host.Terminal, authorized *http.Request, identity terminalSessionAuth) bool {
 	check, done := context.WithTimeout(ctx, 5*time.Second)
 	defer done()
-	_, authorityErr := s.visibleRepository(authorized.WithContext(check), auth.session, auth.project.RepositoryID)
-	live := authorityErr == nil && conn.Ping(check) == nil && s.terminalCurrent(check, auth.cookie, auth.session, auth.project, auth.login)
+	_, authorityErr := s.visibleRepository(authorized.WithContext(check), identity.session, identity.project.RepositoryID)
+	live := authorityErr == nil && conn.Ping(check) == nil && s.terminalCurrent(check, identity.cookie, identity.session, identity.project, identity.login)
 	if !live {
 		return false
 	}
 	return native.Send(check, host.TerminalFrame{Type: "heartbeat"}) == nil
 }
 
-func (s *API) pumpNativeControls(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, native *host.Terminal, controls <-chan host.TerminalFrame, authorized *http.Request, auth terminalSessionAuth) {
+func (s *API) pumpNativeControls(ctx context.Context, cancel context.CancelFunc, conn *websocket.Conn, native *host.Terminal, controls <-chan host.TerminalFrame, authorized *http.Request, identity terminalSessionAuth) {
 	defer cancel()
 	tick := time.NewTicker(15 * time.Second)
 	defer tick.Stop()
@@ -288,7 +288,7 @@ func (s *API) pumpNativeControls(ctx context.Context, cancel context.CancelFunc,
 				return
 			}
 		case <-tick.C:
-			if !s.checkTerminalHeartbeat(ctx, conn, native, authorized, auth) {
+			if !s.checkTerminalHeartbeat(ctx, conn, native, authorized, identity) {
 				return
 			}
 		case <-ctx.Done():
@@ -317,16 +317,16 @@ func (s *API) apiTerminal(w http.ResponseWriter, r *http.Request) {
 	if !checkTerminalRequestHeaders(w, r, s.Config.ForgejoURL) {
 		return
 	}
-	auth, ok := s.authenticateTerminalSession(w, r)
+	identity, ok := s.authenticateTerminalSession(w, r)
 	if !ok {
 		return
 	}
-	ctx, cancel := context.WithDeadline(r.Context(), time.Unix(auth.session.Expires, 0))
+	ctx, cancel := context.WithDeadline(r.Context(), time.Unix(identity.session.Expires, 0))
 	defer cancel()
 
-	peer, ok := s.registerTerminalPeer(r, auth, cancel)
+	peer, ok := s.registerTerminalPeer(r, identity, cancel)
 	if !ok {
-		webauth.JSONError(w, 409, "terminal_unavailable", "Terminal transport unavailable.")
+		auth.JSONError(w, 409, "terminal_unavailable", "Terminal transport unavailable.")
 		return
 	}
 	defer s.unregisterTerminalPeer(r)
@@ -345,12 +345,12 @@ func (s *API) apiTerminal(w http.ResponseWriter, r *http.Request) {
 		refuseTerminal(conn)
 		return
 	}
-	authorized, ok := s.prepareTerminalPeer(ctx, r, auth, in, peer)
+	authorized, ok := s.prepareTerminalPeer(ctx, r, identity, in, peer)
 	if !ok {
 		refuseTerminal(conn)
 		return
 	}
-	native, err := s.openHostTerminal(ctx, auth, in)
+	native, err := s.openHostTerminal(ctx, identity, in)
 	if err != nil {
 		refuseTerminal(conn)
 		return
@@ -361,6 +361,6 @@ func (s *API) apiTerminal(w http.ResponseWriter, r *http.Request) {
 
 	controls := make(chan host.TerminalFrame, 1)
 	go pumpBrowserControls(ctx, cancel, conn, controls)
-	go s.pumpNativeControls(ctx, cancel, conn, native, controls, authorized, auth)
+	go s.pumpNativeControls(ctx, cancel, conn, native, controls, authorized, identity)
 	pumpNativeToBrowser(ctx, conn, native)
 }

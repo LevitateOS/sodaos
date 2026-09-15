@@ -1,4 +1,4 @@
-package webapp
+package api
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -77,7 +77,7 @@ func (s *API) terminalCurrent(ctx context.Context, token string, original store.
 
 func rejectTerminalQuery(w http.ResponseWriter, r *http.Request) bool {
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		webauth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
+		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
 		return true
 	}
 	return false
@@ -97,18 +97,18 @@ func (s *API) terminalAccount(w http.ResponseWriter, r *http.Request, v store.Se
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
 	if !terminalMemberReady(p, login, err) {
-		webauth.JSONError(w, 403, "membership_required", "An existing account is required.")
+		auth.JSONError(w, 403, "membership_required", "An existing account is required.")
 		return p, "", "", false
 	}
 	check, done := context.WithTimeout(r.Context(), 10*time.Second)
 	defer done()
 	if _, err = s.visibleRepository(r.WithContext(check), v, p.RepositoryID); err != nil {
-		webauth.ProviderError(w, err)
+		auth.ProviderError(w, err)
 		return p, "", "", false
 	}
-	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
 	if err != nil {
-		webauth.JSONError(w, 401, "unauthenticated", "Sign in again.")
+		auth.JSONError(w, 401, "unauthenticated", "Sign in again.")
 		return p, "", "", false
 	}
 	return p, login, cookie.Value, true
@@ -128,11 +128,11 @@ func (s *API) apiReserveTerminal(w http.ResponseWriter, r *http.Request, v store
 		Rows int    `json:"rows"`
 		Name string `json:"name"`
 	}
-	if !webauth.DecodeAPIObject(w, r, &in) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	if !validTerminalGeometry(in.Cols, in.Rows, in.Name) {
-		webauth.JSONError(w, 400, "invalid_request", "Choose bounded terminal dimensions and name.")
+		auth.JSONError(w, 400, "invalid_request", "Choose bounded terminal dimensions and name.")
 		return
 	}
 	p, login, token, ok := s.terminalAccount(w, r, v)
@@ -142,10 +142,10 @@ func (s *API) apiReserveTerminal(w http.ResponseWriter, r *http.Request, v store
 	id := newTerminalID()
 	items, err := s.terminalOperation(r, v, p, login, token, host.TerminalRequest{Action: "reserve", ID: id, Cols: in.Cols, Rows: in.Rows, Name: in.Name, Scope: TerminalCreationScope(v)})
 	if !reservedTerminal(items, id, err) {
-		webauth.JSONError(w, 503, "terminal_unavailable", "Terminal reservation unavailable; no shell creation was requested.")
+		auth.JSONError(w, 503, "terminal_unavailable", "Terminal reservation unavailable; no shell creation was requested.")
 		return
 	}
-	webauth.JSONResponse(w, 201, map[string]string{"id": id})
+	auth.JSONResponse(w, 201, map[string]string{"id": id})
 }
 
 func terminalReadAction(action string) bool {
@@ -196,7 +196,7 @@ func (s *API) terminalOperation(r *http.Request, v store.Session, p store.Projec
 }
 
 func terminalMetadata(w http.ResponseWriter, view *TerminalView) {
-	webauth.JSONResponse(w, 200, struct {
+	auth.JSONResponse(w, 200, struct {
 		Terminal *TerminalView `json:"terminal"`
 	}{view})
 }
@@ -222,11 +222,11 @@ func parseTerminalSessionAction(w http.ResponseWriter, r *http.Request, in *host
 		return true
 	}
 	var action terminalSessionMutation
-	if !webauth.DecodeAPIObject(w, r, &action) {
+	if !auth.DecodeAPIObject(w, r, &action) {
 		return false
 	}
 	if !validTerminalSessionMutation(action) {
-		webauth.JSONError(w, 400, "invalid_action", "Choose End or Rename for this exact terminal.")
+		auth.JSONError(w, 400, "invalid_action", "Choose End or Rename for this exact terminal.")
 		return false
 	}
 	in.Action = action.Action
@@ -239,7 +239,7 @@ func parseTerminalSessionAction(w http.ResponseWriter, r *http.Request, in *host
 func (s *API) apiTerminalSession(w http.ResponseWriter, r *http.Request, v store.Session) {
 	id := r.PathValue("terminalID")
 	if !BrowserTerminalID.MatchString(id) {
-		webauth.JSONError(w, 400, "invalid_request", "Provide an exact terminal ID.")
+		auth.JSONError(w, 400, "invalid_request", "Provide an exact terminal ID.")
 		return
 	}
 	in := host.TerminalRequest{Action: "inspect", ID: id}
@@ -252,7 +252,7 @@ func (s *API) apiTerminalSession(w http.ResponseWriter, r *http.Request, v store
 	}
 	items, err := s.terminalOperation(r, v, p, login, token, in)
 	if err != nil {
-		webauth.JSONError(w, 503, "terminal_unavailable", "The exact native outcome is unavailable. Nothing was retried or replaced.")
+		auth.JSONError(w, 503, "terminal_unavailable", "The exact native outcome is unavailable. Nothing was retried or replaced.")
 		return
 	}
 	if len(items) == 0 {

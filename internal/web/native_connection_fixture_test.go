@@ -26,7 +26,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/release/build"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -97,7 +97,7 @@ func TestNativeConnectionFixture(t *testing.T) {
 		if err != nil || fmt.Sprintf("%x", sha256.Sum256(data)) != os.Getenv("SODA_CONNECTION_PREDECESSOR_MANIFEST_SHA256") {
 			t.Fatal("predecessor manifest binding failed")
 		}
-		var inventory nativebuild.Inventory
+		var inventory build.Inventory
 		if json.Unmarshal(data, &inventory) != nil || inventory.Revision == "" || inventory.Revision != os.Getenv("SODA_CONNECTION_PREDECESSOR_REVISION") {
 			t.Fatal("predecessor revision binding failed")
 		}

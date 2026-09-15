@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/levitateos/sodaos/internal/web/api"
 )
 
-func waitDetached(t *testing.T, s *Server, origin, id string) *terminalView {
+func waitDetached(t *testing.T, s *Server, origin, id string) *api.TerminalView {
 	t.Helper()
 	until := time.Now().Add(2 * time.Second)
 	for time.Now().Before(until) {
@@ -187,9 +188,9 @@ func TestTerminalStopGateAndPendingTransportBound(t *testing.T) {
 	}
 	s.App.TerminalLock().Lock()
 	clear(s.App.TerminalStopping)
-	s.App.TerminalPeers = make(map[*http.Request]*terminalPeer)
+	s.App.TerminalPeers = make(map[*http.Request]*api.TerminalPeer)
 	for i := 0; i < 128; i++ {
-		s.App.TerminalPeers[new(http.Request)] = &terminalPeer{Cancel: func() {}}
+		s.App.TerminalPeers[new(http.Request)] = &api.TerminalPeer{Cancel: func() {}}
 	}
 	s.App.TerminalLock().Unlock()
 	c, response, err = terminalDial(t, srv, "")

@@ -1,6 +1,6 @@
-// Package webauth owns OAuth, session, provider grants and me-key proxies for
+// Package auth owns OAuth, session, provider grants and me-key proxies for
 // native Forgejo pages. It is not the product environment or terminal API.
-package webauth
+package auth
 
 import (
 	"net/http"

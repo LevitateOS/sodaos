@@ -105,8 +105,8 @@ B1 complete.
    No Soda-owned disk-layout/boot-provisioning substitute, temporary registry server
    or insecure install flag. A native interface alone does not justify taking over
    upstream orchestration.
-4. Define the minimal additions to `appliancerelease.Payload`/candidate and
-   `releasedelivery.Release`: component producing provenance, install descriptor,
+4. Define the minimal additions to `deliver.Payload`/candidate and
+   `deliver.Release`: component producing provenance, install descriptor,
    ISO hash/size/location and protected qualification. Preserve required retained
    format readers; reject unknown/incomplete inputs. Declared runtime capability and
    proved upgrade edges are different. The current payload rejects nonempty
@@ -198,7 +198,7 @@ Zincati's HTTPS graph and rpm-ostree's signed OCI image policy, exact-digest dep
 downgrade checks and native finalization/maintenance. Qualification and protected
 graph publication determine which edges are offered. Do not build a second updater.
 
-This deliberately does **not** preserve the experimental `releasedelivery.Channel`
+This deliberately does **not** preserve the experimental `deliver.Channel`
 client contract: separate channel-role signatures, document expiry/high-water floors,
 withdrawal records and qualification-document admission are not enforced by Zincati.
 Removing an edge stops future graph offers; it does not cancel an existing staged
@@ -238,7 +238,7 @@ simplification. These are explicit selected areas, not total repository LOC.
   partial host modes and old `tools/soda-host-image` entrypoint; replace with the one
   controller rather than retain success wrappers around them.
 - **Remove overlapping supervision:** `build_progress.py`, `build-progress.sh` and
-  `internal/nativebuild/progress.go`'s Python bridge. Port necessary process/timing
+  `internal/release/build/progress.go`'s Python bridge. Port necessary process/timing
   checks to the native Go owner, not another helper clock.
 - **Collapse assembly:** the dual-layout `Production` contract, writable staging and
   subsequent `StagePresentation`/`Complete` translation; retain canonical manifests,
@@ -264,7 +264,7 @@ remains; this is not B1/B3/B4 installed proof or a qualified release. [Status an
 Replace execution ownership, not just command duplication.
 
 1. Replace `tools/soda-host-image` orchestration with `tools/soda-build`, reusing
-   `internal/nativebuild` and `internal/hostimage` primitives. A fixed
+   `internal/release/build` and `internal/release/image` primitives. A fixed
    `Build(ctx, request)` sequence and concrete functions suffice. Remove abstractions
    that exist only to support two assemblers; no task graph, plugin/controller
    framework, custom cache database or listener service.
@@ -434,7 +434,7 @@ while native CLI/console qualification need not wait on an unrelated UI repair.
 service before replacing its builder. Release metadata now embeds exact media.json
 bindings; soda-build admits `--signing-config` for P10 and optional channel-last P11.
 
-1. Reuse `internal/releasedelivery` and the reviewed protected worker protocol for
+1. Reuse `internal/release/deliver` and the reviewed protected worker protocol for
    P7 and P10–P11. Keep separate build, qualification and signing/publishing authority,
    exact-digest permits and durable ledgers. Extend strict metadata only for B1's
    required provenance/media fields; update current consumers and their fixtures together.
@@ -640,8 +640,8 @@ the rewrite; namespace consolidation and a stable discovery domain are not prere
 
 ### Implemented trusted-delivery contract
 
-Reuse `internal/releasedelivery`, `tools/soda-release` and
-`internal/releasedelivery/tools.json`; [native support](native-support.md#trusted-release-delivery-worker)
+Reuse `internal/release/deliver`, `tools/soda-release` and
+`internal/release/deliver/tools.json`; [native support](native-support.md#trusted-release-delivery-worker)
 owns current invocations. These workers do not install/import images, change global
 policy or reboot. Their OCI channel documents are not an upstream FCOS update graph;
 B1 must establish the supported native consumer integration rather than install a

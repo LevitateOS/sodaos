@@ -1,9 +1,9 @@
-package webapp
+package api
 
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/forgejo"
@@ -43,7 +43,7 @@ func (s *API) providerActor(ctx context.Context, grant store.Grant, v store.Sess
 		return actor, err
 	}
 	if actor.ID != v.User.ID {
-		return actor, webauth.ErrProviderIdentity
+		return actor, auth.ErrProviderIdentity
 	}
 	if actor.Login == "" {
 		return actor, forgejo.ErrInvalidResponse
@@ -58,7 +58,7 @@ func (s *API) visibleRepository(r *http.Request, v store.Session, id int64) (rep
 		return access, err
 	}
 	if !repositoryConsentOK(grant) {
-		return access, webauth.ErrRepositoryConsent
+		return access, auth.ErrRepositoryConsent
 	}
 	actor, err := s.providerActor(r.Context(), grant, v)
 	if err != nil {
@@ -127,9 +127,9 @@ func (s *API) readEnvironmentAuthority(r *http.Request, v store.Session, p store
 func (s *API) authorizeEnvironmentRead(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) (environmentReader, bool) {
 	reader, err := s.readEnvironmentAuthority(r, v, p)
 	if errors.Is(err, errEnvironmentReadStore) {
-		webauth.JSONError(w, 503, "store_unavailable", "Could not read membership.")
+		auth.JSONError(w, 503, "store_unavailable", "Could not read membership.")
 	} else if err != nil {
-		webauth.ProviderError(w, err)
+		auth.ProviderError(w, err)
 	}
 	return reader, err == nil
 }

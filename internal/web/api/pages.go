@@ -1,7 +1,7 @@
-package webapp
+package api
 
 import (
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/store"
@@ -19,7 +19,7 @@ func (s *API) tailnetPage(w http.ResponseWriter, r *http.Request) {
 	s.Auth.NativePageEntry(w, r, store.OAuthLogin{SettingsReturn: "tailnet"})
 }
 func (s *API) repositorySpacesPage(w http.ResponseWriter, r *http.Request) {
-	id, ok := webauth.PositiveID(r.PathValue("repositoryID"))
+	id, ok := auth.PositiveID(r.PathValue("repositoryID"))
 	if !ok {
 		w.Header().Set("Cache-Control", "private, no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")

@@ -112,6 +112,13 @@ justify keeping obsolete implementations alive.
   owns package placement, SQL locality and house style. The [TypeScript guide](docs/typescript.md)
   owns JS-family language, strict typing, Bun workspace and asset-porting conventions.
   Versions belong in source manifests/locks; avoid incidental upgrades.
+- Do not reshape the Go package topology: `internal/` hierarchy, ownership
+  boundaries and dependency direction are owned by [Go ownership](docs/go.md)
+  and enforced by `internal/archcheck` (`go test ./internal/archcheck/`).
+  Never recreate a retired package name, add a forwarding/alias package
+  between internal packages, duplicate a domain DTO, or add a cross-boundary
+  import the arch test forbids. If a change genuinely needs new ownership,
+  update the owning guide and the arch test in the same patch.
 - Test the changed working path, demonstrated failures and relevant authorization or
   destructive-operation boundaries. Do not invent exhaustive hypothetical test matrices
   or new harnesses where existing tests suffice. Keep callers, generated browser assets

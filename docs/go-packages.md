@@ -61,7 +61,7 @@ OS boundaries use Go file selection, never scattered `runtime.GOOS` checks:
 `process.go` + `process_linux.go` + `process_other.go`
 
 The shared contract lives in the neutral file. Build-tag variants that
-select packaging contracts (`installlayout`'s `legacy.go`/`vendor.go`)
+select packaging contracts (`platform`'s `legacy.go`/`vendor.go`)
 follow the same rule.
 
 ## Tests mirror production
@@ -74,8 +74,10 @@ infrastructure lives in `test_helpers_test.go`, never in a vague
 honest names are allowed: `boundaries_test.go` for architecture-boundary
 tests, and one package-contract test (e.g. `installer_test.go`) when it
 genuinely covers the package's combined surface. Facade integration tests
-(e.g. `web/*_test.go` exercising the server) stay with the facade and use
-explicit aliases, not duplicated helpers.
+(e.g. `web/*_test.go` exercising the server) stay with the facade and
+reference the owning packages (`api.*`, `auth.*`) directly — forwarding
+aliases between internal packages are banned and `internal/archcheck`
+fails if `web/aliases.go` returns.
 
 ## Interfaces and errors
 
@@ -89,12 +91,45 @@ in-tree `errors.Is` caller. Libraries never log; long-lived processes use
 
 ## Package boundaries
 
-`internal/*` stays flat. No `internal/models`, `internal/services`,
+Top-level `internal/` names are major Soda concepts (`project`, `host`,
+`web`, `release`, `tailnet`, `runners`, `store`, `forgejo`, `installer`,
+plus small primitives). Subpackages express genuine subordinate
+boundaries only: privilege execution under `host/` (`host/project`,
+`host/terminal`, `host/tailnet`), HTTP transport under `web/`
+(`web/api`, `web/auth`), release construction under `release/`
+(`release/build`, `release/image`, `release/qualify`,
+`release/deliver`). No `internal/models`, `internal/services`,
 `internal/utils` or other horizontal dumping grounds; no micro-packages;
-no splitting `tailnet` / `runners` / `store`. Moving files inside a
-package is cheap; moving symbols between packages changes architecture —
-do it only when ownership is clearly wrong, keep the new ownership
-explainable in one sentence, and avoid cycles.
+no splitting `tailnet` / `runners` / `store`; no resurrecting retired
+names (`projectos`, `linuxhost`, `installlayout`, `webapp`, `webauth`,
+`nativebuild`, `nativequalification`, `nativefinalization`,
+`releasedelivery`, `appliancerelease`, top-level `hostproject` /
+`hostterminal` / `hosttailnet`).
+
+Dependencies run one way, from orchestration toward capabilities:
+
+```text
+binaries (cmd/, tools/)
+  ↓
+transport (web, host daemon mux)
+  ↓
+domain orchestration and policy (project, tailnet, runners, store, web/api)
+  ↓
+privileged execution and release construction (host/*, installer, release/*)
+  ↓
+external adapters and primitives (forgejo, filelock, strictjson, platform)
+```
+
+Domain types are defined once in the owning package and referenced
+directly — never duplicated as parallel DTOs, never translated field by
+field, never re-exported through aliases. Each side of a privilege
+boundary validates its own inputs against the domain validators
+(`project.Valid*`); duplicated validation logic anywhere else is a smell.
+Moving files inside a package is cheap; moving symbols between packages
+changes architecture — do it only when ownership is clearly wrong, keep
+the new ownership explainable in one sentence, and avoid cycles.
+`internal/archcheck` mechanically enforces the retired names and the
+banned edges above.
 
 ## When NOT to create a file
 

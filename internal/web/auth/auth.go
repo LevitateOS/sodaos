@@ -1,4 +1,4 @@
-package webauth
+package auth
 
 import (
 	"context"

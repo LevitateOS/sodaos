@@ -244,7 +244,7 @@ order. Each significant operation gets a named start/end checkpoint; repeated
 program/image work names the actual component. The media wrapper additionally
 reports native/ISO phase durations and the overall total.
 
-**Shared production — [production.go](../internal/nativebuild/production.go)**
+**Shared production — [production.go](../internal/release/build/production.go)**
 
 | Section | Work included / source boundary |
 | --- | --- |
@@ -384,7 +384,7 @@ and explicit offline mode are not silently overridden by activation.
 ### Sodaspaces customization delivery
 
 The earlier merge's partial-payload hold is replaced in source by
-`internal/nativebuild/forgejo-payload.json`: an exact source/destination inventory
+`internal/release/build/forgejo-payload.json`: an exact source/destination inventory
 shared by staging and the embedded Go verifier. It includes all 229 selected template
 overrides, shared presentation assets/fonts/notices, the mounted Sodaspaces content/
 terminal and five locked renderer/CSS/MIT-notice files, beneath

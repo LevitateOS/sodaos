@@ -82,7 +82,7 @@ explicit operator/native workflow; moving the host page does not advertise route
 | `internal/host/daemon.go`, `management.go`, `appliance/services/soda-project@.service` | The helper owns fixed native operations and cancellable admission; systemd owns Create/Start/Stop/boot and failure restart of the existing container. A browser-only enrollment hook would miss boot/native starts. |
 | `project-os/Containerfile`, `project-os/rootfs/`, project creation flags | Tailscale is not installed in the project image. Existing projects have their own network/user namespaces; selected new profiles include namespace-scoped NET_ADMIN but no explicit `/dev/net/tun` grant. Retained roots are not interchangeable with today's profile. |
 | `internal/store/migrations.go` | Stage 2 appends schema v10 for Tailnet OAuth returns, with local preservation/refusal tests. Installed targets remain v9; see the credential owner for migration/backup scope. |
-| `cockpit/`, root `package.json`, `scripts/stage.py`, `internal/nativebuild/bundle.go`, installed operator tests | Tailnet still owns the remaining Cockpit workspace/build dependencies and a required bundle page. Eventual removal must update actual callers/inventories, not just delete its directory. |
+| `cockpit/`, root `package.json`, `scripts/stage.py`, `internal/release/build/bundle.go`, installed operator tests | Tailnet still owns the remaining Cockpit workspace/build dependencies and a required bundle page. Eventual removal must update actual callers/inventories, not just delete its directory. |
 
 Public research from the preceding brainstorm is retained in
 `.artifacts/tailnet-enrollment-TDPVW1/`. It is upstream research, not installed proof:

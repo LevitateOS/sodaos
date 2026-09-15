@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/api"
 )
 
 // Real routed handlers and store; transport doubles never execute native commands.
@@ -21,30 +22,30 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 		for _, change := range []string{"unchanged", "logout", "user", "context", "csrf", "store", "cancel", "provider-denied", "provider-unavailable"} {
 			t.Run(operation+"/"+change, func(t *testing.T) {
 				s, _ := managementWebFixture(t)
-				project := webTerminalProject
+				projectID := webTerminalProject
 				path, body := "/lifecycle", `{"action":"`+operation+`"}`
 				if operation == "stop" {
 					body = `{"action":"stop","confirm_stop":true}`
 				}
 				if operation == "join" {
-					// A fresh project has no membership to short-circuit provisioning.
-					project = "pabcdef0123456789abcdef01"
-					if err := s.Store.CreateProject(t.Context(), store.Project{ID: project, RepositoryID: 8, OwnerID: 1}); err != nil {
+					// A fresh projectID has no membership to short-circuit provisioning.
+					projectID = "pabcdef0123456789abcdef01"
+					if err := s.Store.CreateProject(t.Context(), store.Project{ID: projectID, RepositoryID: 8, OwnerID: 1}); err != nil {
 						t.Fatal(err)
 					}
-					if err := s.Store.MarkReady(t.Context(), project, "10.89.0.3"); err != nil {
+					if err := s.Store.MarkReady(t.Context(), projectID, "10.89.0.3"); err != nil {
 						t.Fatal(err)
 					}
 					path, body = "/join", `{"ssh_keys":"none"}`
 				} else if operation == "apply" {
 					path, body = "/access-keys", `{"revision":"`+strings.Repeat("a", 64)+`","saved_fingerprints":[],"confirm_empty":true}`
 				}
-				r := apiTestRequest("POST", "/api/environments/"+project+path, body, "alice")
+				r := apiTestRequest("POST", "/api/environments/"+projectID+path, body, "alice")
 				ctx, cancel := context.WithCancel(r.Context())
 				defer cancel()
 				r = r.WithContext(ctx)
 
-				// Another actor's terminals in the target project must survive a
+				// Another actor's terminals in the target projectID must survive a
 				// denied Stop, even when real Alice logout correctly ends Alice access.
 				bob, err := s.Store.Session(t.Context(), "session-bob")
 				if err != nil {
@@ -52,12 +53,12 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 				}
 				peerCtx, endPeer := context.WithCancel(t.Context())
 				defer endPeer()
-				s.App.TerminalPeers = map[*http.Request]*terminalPeer{r: {ContextID: bob.ContextID, Project: project, Cancel: endPeer}}
+				s.App.TerminalPeers = map[*http.Request]*api.TerminalPeer{r: {ContextID: bob.ContextID, Project: projectID, Cancel: endPeer}}
 				nativeCalls := 0
 				s.Host.HTTP = &http.Client{Transport: roundTrip(func(req *http.Request) (*http.Response, error) {
 					nativeCalls++
 					var in map[string]any
-					if err := json.NewDecoder(req.Body).Decode(&in); err != nil || in["project"] != project {
+					if err := json.NewDecoder(req.Body).Decode(&in); err != nil || in["project"] != projectID {
 						t.Error("untrusted native target", err)
 					}
 					w := httptest.NewRecorder()
@@ -76,10 +77,10 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 						if req.URL.Path != "/lifecycle" || in["action"] != operation {
 							t.Error("lifecycle action changed")
 						}
-						if operation == "stop" && (!s.App.TerminalStopping[project] || peerCtx.Err() == nil) {
+						if operation == "stop" && (!s.App.TerminalStopping[projectID] || peerCtx.Err() == nil) {
 							t.Error("admitted Stop lost terminal coordination")
 						}
-						_ = json.NewEncoder(w).Encode(host.LifecycleState{Environment: host.Environment{ID: project, Running: operation == "start"}, BootEnabled: operation == "start"})
+						_ = json.NewEncoder(w).Encode(project.LifecycleState{Environment: project.Environment{ID: projectID, Running: operation == "start"}, BootEnabled: operation == "start"})
 					}
 					return w.Result(), nil
 				})}
@@ -187,11 +188,11 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 					t.Errorf("admission: status=%d want=%d provider=%d native=%d body=%s", w.Code, want, providerCalls, nativeCalls, w.Body.String())
 				}
 				shouldEnd := operation == "stop" && change == "unchanged"
-				if (peerCtx.Err() != nil) != shouldEnd || s.App.TerminalStopping[project] {
+				if (peerCtx.Err() != nil) != shouldEnd || s.App.TerminalStopping[projectID] {
 					t.Error("denied mutation disturbed terminals or leaked Stop admission")
 				}
 				if operation == "join" && change != "store" {
-					login, err := s.Store.MemberLogin(t.Context(), project, 1)
+					login, err := s.Store.MemberLogin(t.Context(), projectID, 1)
 					if change == "unchanged" {
 						if err != nil || login != "current-login" {
 							t.Error("confirmed Join did not record original login", err)

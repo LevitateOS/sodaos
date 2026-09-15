@@ -11,9 +11,10 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
@@ -50,11 +51,11 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 					}
 				case "/create":
 					creates++
-					var in host.Create
+					var in project.Create
 					if json.NewDecoder(r.Body).Decode(&in) != nil {
 						t.Fatal("invalid helper creation")
 					}
-					value = host.Environment{ID: in.ID, Running: true, IP: "10.89.0.2", Profile: in.Profile}
+					value = project.Environment{ID: in.ID, Running: true, IP: "10.89.0.2", Profile: in.Profile}
 					if kind == "native-failure" {
 						status = 500
 					}
@@ -69,7 +70,7 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 					}
 					p, e := s.Store.Project(t.Context(), in.Project)
 					if e != nil || !p.Ready || creates != 1 {
-						t.Fatal("network blocked project provisioning", e)
+						t.Fatal("network blocked stored provisioning", e)
 					}
 					value = tailnet.ProjectView{Project: in.Project, Saved: true, Enabled: true, Revision: strings.Repeat("c", 32), Binding: in.Binding, State: "unconfirmed", Outcome: "queued"}
 					if kind == "network-failure" {
@@ -92,22 +93,22 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, apiTestRequest("POST", "/api/environments", body, "alice"))
-			project, e := s.Store.ProjectByRepository(t.Context(), 7)
+			stored, e := s.Store.ProjectByRepository(t.Context(), 7)
 			switch kind {
 			case "stale", "closed", "transfer":
 				if w.Code < 400 || creates != 0 || e == nil {
 					t.Fatal("preflight failure reserved/created", kind, w.Code, creates, e)
 				}
 			case "transfer-after-create":
-				if (w.Code != 403 && w.Code != 503) || creates != 1 || networks != 0 || e != nil || !project.Ready {
-					t.Fatal("lost authority enrolled or lost provisioned project", w.Code, e)
+				if (w.Code != 403 && w.Code != 503) || creates != 1 || networks != 0 || e != nil || !stored.Ready {
+					t.Fatal("lost authority enrolled or lost provisioned stored", w.Code, e)
 				}
 			case "native-failure":
-				if w.Code != 502 || creates != 1 || networks != 0 || e != nil || project.Ready {
+				if w.Code != 502 || creates != 1 || networks != 0 || e != nil || stored.Ready {
 					t.Fatal("failed reservation lost", w.Code, creates, e)
 				}
 			default:
-				if w.Code != 201 || creates != 1 || e != nil || !project.Ready {
+				if w.Code != 201 || creates != 1 || e != nil || !stored.Ready {
 					t.Fatal("creation failed", kind, w.Code, creates, e)
 				}
 			}
@@ -129,7 +130,7 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 				again := httptest.NewRecorder()
 				s.ServeHTTP(again, apiTestRequest("POST", "/api/environments", body, "alice"))
 				if again.Code != 409 || creates != 1 || networks != 1 {
-					t.Fatal("network failure recreated project")
+					t.Fatal("network failure recreated stored")
 				}
 			}
 		})
@@ -217,7 +218,7 @@ func TestTailnetEnrollmentNeverEchoesInputAndRejectsEndpointOverride(t *testing.
 		}
 		json.NewEncoder(w).Encode(tailnet.EnrollmentResult{Outcome: "confirmed", CredentialChecked: true, Enrollment: tailnetOffSettings().Enrollment})
 	})
-	body := `{"action":"check","revision":"0","tailnet":"soda.example.test","tags":["tag:soda-project"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-synthetic-credential"}`
+	body := `{"action":"check","revision":"0","tailnet":"soda.example.test","tags":["tag:soda-stored"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-synthetic-credential"}`
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", body, "alice"))
 	if w.Code != 200 || calls != 1 || strings.Contains(w.Body.String(), "synthetic-credential") || w.Header().Get("Cache-Control") != "no-store" {
@@ -241,7 +242,7 @@ func TestTailnetContextChangeSuppressesReadsAndDispatch(t *testing.T) {
 			})
 			// Use the request's actual fixture session, not a guessed cookie name/value.
 			request := apiTestRequest("GET", "/api/settings/tailnet", "", "alice")
-			cookie, _ := requestCookie(request, sessionCookie)
+			cookie, _ := auth.RequestCookie(request, auth.SessionCookie)
 			if phase == "provider" {
 				s.Forgejo.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
 					v, e := s.Store.Session(t.Context(), cookie.Value)
@@ -325,7 +326,7 @@ func TestTailnetProjectPrivacyAndCurrentOwnership(t *testing.T) {
 				var in tailnet.ProjectRequest
 				json.NewDecoder(r.Body).Decode(&in)
 				if in.Project != id {
-					t.Error("wrong project")
+					t.Error("wrong stored")
 				}
 				outcome := "observed"
 				if in.Action == "disable" {
@@ -402,7 +403,7 @@ func TestTailnetFixedBookmarkAndOAuthReturn(t *testing.T) {
 		t.Fatal(w.Code, e)
 	}
 	a, e := s.Store.ConsumeOAuth(t.Context(), location.Query().Get("state"), "")
-	if e != nil || a.SettingsReturn != "tailnet" || a.ExpectedUserID != 1 || s.nativeOAuthReturn(a.OAuthLogin) != s.Config.ForgejoURL+"/admin?soda-view=tailnet" {
+	if e != nil || a.SettingsReturn != "tailnet" || a.ExpectedUserID != 1 || s.Auth.NativeOAuthReturn(a.OAuthLogin) != s.Config.ForgejoURL+"/admin?soda-view=tailnet" {
 		t.Fatal(a, e)
 	}
 }

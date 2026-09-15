@@ -97,7 +97,7 @@ func TestConcurrentRefreshAndLogout(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, err := s.userGrant(apiTestRequest("GET", "/api/forgejo/me", "", "alice"), session)
+			_, err := s.Auth.UserGrant(apiTestRequest("GET", "/api/forgejo/me", "", "alice"), session)
 			results <- err
 		}()
 	}

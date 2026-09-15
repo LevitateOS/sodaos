@@ -13,6 +13,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -38,10 +39,10 @@ func apiTestServer(t *testing.T) *Server {
 func apiTestRequest(method, path, body, login string) *http.Request {
 	r := httptest.NewRequest(method, config.SodaPath+path, strings.NewReader(body))
 	if login != "" {
-		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-" + login})
+		r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-" + login})
 	}
 	if id := map[string]string{"alice": "1", "bob": "2"}[login]; id != "" {
-		r.Header.Set(expectedUserHeader, id)
+		r.Header.Set(auth.ExpectedUserHeader, id)
 	}
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Origin", "https://forgejo.example.test")
@@ -98,7 +99,7 @@ func TestAPIProtectsEveryMutationMethod(t *testing.T) {
 			t.Run(method+invalid, func(t *testing.T) {
 				s := apiTestServer(t)
 				called := false
-				s.mux.HandleFunc("/api/test-write", s.apiProtected(func(w http.ResponseWriter, r *http.Request, _ store.Session) {
+				s.mux.HandleFunc("/api/test-write", s.Auth.Protected(func(w http.ResponseWriter, r *http.Request, _ store.Session) {
 					called = true
 					w.WriteHeader(204)
 				}, method))
@@ -153,7 +154,7 @@ func TestAPIPreferencesAreLocalAndUserScoped(t *testing.T) {
 		}
 	}
 	w = httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("PATCH", "/api/me/preferences", `{"display_name":"`+strings.Repeat("x", apiBodyLimit)+`"}`, "alice"))
+	s.ServeHTTP(w, apiTestRequest("PATCH", "/api/me/preferences", `{"display_name":"`+strings.Repeat("x", auth.APIBodyLimit)+`"}`, "alice"))
 	if w.Code != 413 {
 		t.Fatal(w.Code)
 	}

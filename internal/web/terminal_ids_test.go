@@ -15,6 +15,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/api"
 )
 
 func terminalAPI(t *testing.T, s *Server, origin, method, path string, body any) *httptest.ResponseRecorder {
@@ -33,14 +34,14 @@ func terminalAPI(t *testing.T, s *Server, origin, method, path string, body any)
 	s.ServeHTTP(w, r)
 	return w
 }
-func exactMetadata(t *testing.T, s *Server, origin, project, id string) *terminalView {
+func exactMetadata(t *testing.T, s *Server, origin, project, id string) *api.TerminalView {
 	t.Helper()
 	w := terminalAPI(t, s, origin, "GET", "/api/environments/"+project+"/terminal-sessions/"+id, nil)
 	if w.Code != 200 {
 		t.Fatalf("metadata %d %s", w.Code, w.Body.String())
 	}
 	var out struct {
-		Terminal *terminalView `json:"terminal"`
+		Terminal *api.TerminalView `json:"terminal"`
 	}
 	if json.Unmarshal(w.Body.Bytes(), &out) != nil {
 		t.Fatal("metadata")
@@ -56,7 +57,7 @@ func reserveTerminal(t *testing.T, s *Server, origin, project string) string {
 	var result struct {
 		ID string `json:"id"`
 	}
-	if w.Code != 201 || json.Unmarshal(w.Body.Bytes(), &result) != nil || !BrowserTerminalID.MatchString(result.ID) {
+	if w.Code != 201 || json.Unmarshal(w.Body.Bytes(), &result) != nil || !api.BrowserTerminalID.MatchString(result.ID) {
 		t.Fatalf("reservation %d %s", w.Code, w.Body.String())
 	}
 	return result.ID
@@ -161,7 +162,7 @@ func TestTerminalIDsIndependentEndAndCollection(t *testing.T) {
 		t.Fatal("name not observed natively")
 	}
 	w := terminalAPI(t, s, srv.URL, "GET", "/api/spaces", nil)
-	var result spacesView
+	var result api.SpacesView
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
 		t.Fatal("collection", w.Code)
 	}

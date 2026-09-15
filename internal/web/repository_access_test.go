@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -126,7 +126,7 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 func TestRepositoryLookupAndJoinRecheckNativeAccess(t *testing.T) {
 	allowed := true
 	var lookups, accounts atomic.Int32
-	var last host.Account
+	var last project.Account
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/user":

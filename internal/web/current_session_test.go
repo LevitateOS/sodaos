@@ -30,7 +30,7 @@ func TestRequireCurrentSessionComparesIdentityContextAndCSRF(t *testing.T) {
 			case "display":
 				v.User.Login, v.User.Name = "old-login", "old-name"
 			}
-			err := s.requireCurrentSession(t.Context(), "session-alice", v)
+			err := s.Auth.RequireCurrentSession(t.Context(), "session-alice", v)
 			wantOK := field == "unchanged" || field == "display"
 			if (err == nil) != wantOK {
 				t.Fatal("incorrect current-session decision", field, err)
@@ -39,19 +39,19 @@ func TestRequireCurrentSessionComparesIdentityContextAndCSRF(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := s.requireCurrentSession(ctx, "session-alice", original); !errors.Is(err, context.Canceled) {
+	if err := s.Auth.RequireCurrentSession(ctx, "session-alice", original); !errors.Is(err, context.Canceled) {
 		t.Fatal("cancellation ignored", err)
 	}
 	if err := s.Store.DeleteSession(t.Context(), "session-alice"); err != nil {
 		t.Fatal(err)
 	}
-	if s.requireCurrentSession(t.Context(), "session-alice", original) == nil {
+	if s.Auth.RequireCurrentSession(t.Context(), "session-alice", original) == nil {
 		t.Fatal("cached session survived logout")
 	}
 	if err := s.Store.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if s.requireCurrentSession(t.Context(), "session-alice", original) == nil {
+	if s.Auth.RequireCurrentSession(t.Context(), "session-alice", original) == nil {
 		t.Fatal("unavailable store accepted")
 	}
 }

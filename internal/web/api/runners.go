@@ -1,9 +1,9 @@
-package webapp
+package api
 
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"time"
 
@@ -25,16 +25,16 @@ func (s *API) operatorAuthorization(r *http.Request, v store.Session) error {
 		return err
 	}
 	if !forgejo.HasScope(grant.Scopes, "read:user") {
-		return webauth.ErrRepositoryConsent
+		return auth.ErrRepositoryConsent
 	}
 	actor, err := s.Forgejo.Current(r.Context(), grant.Access)
 	if err != nil {
 		return err
 	}
 	if actor.ID != v.User.ID {
-		return webauth.ErrProviderIdentity
+		return auth.ErrProviderIdentity
 	}
-	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
 	if err != nil {
 		return store.ErrGrantUnavailable
 	}
@@ -47,9 +47,9 @@ func (s *API) operatorAuthorization(r *http.Request, v store.Session) error {
 func (s *API) authorizeOperator(w http.ResponseWriter, r *http.Request, v store.Session) bool {
 	if err := s.operatorAuthorization(r, v); err != nil {
 		if errors.Is(err, errOperatorRequired) {
-			webauth.JSONError(w, 403, "operator_required", "Only the configured Soda operator can manage this appliance.")
+			auth.JSONError(w, 403, "operator_required", "Only the configured Soda operator can manage this appliance.")
 		} else {
-			webauth.ProviderError(w, err)
+			auth.ProviderError(w, err)
 		}
 		return false
 	}
@@ -64,19 +64,19 @@ func (s *API) runnerRoutes() {
 
 func (s *API) createRunner(w http.ResponseWriter, r *http.Request, v store.Session, ctx context.Context) {
 	var in runners.CreateRequest
-	if !webauth.DecodeAPIObject(w, r, &in) {
+	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	if in.Provider == runners.ProviderForgejo {
 		in.RegistrationURL = s.Config.ForgejoInternalURL
 	}
 	if in.Validate() != nil {
-		webauth.JSONError(w, 400, "invalid_runner", "Check the runner ID, provider, registration ID, labels and token.")
+		auth.JSONError(w, 400, "invalid_runner", "Check the runner ID, provider, registration ID, labels and token.")
 		return
 	}
-	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
 	if err != nil || s.Auth.RequireCurrentSession(ctx, cookie.Value, v) != nil {
-		webauth.ProviderError(w, store.ErrGrantUnavailable)
+		auth.ProviderError(w, store.ErrGrantUnavailable)
 		return
 	}
 	err = s.Host.RunnerCreate(ctx, in)
@@ -85,13 +85,13 @@ func (s *API) createRunner(w http.ResponseWriter, r *http.Request, v store.Sessi
 		runnerUnconfirmed(w)
 		return
 	}
-	webauth.JSONResponse(w, 200, runners.MutationResponse{OK: true})
+	auth.JSONResponse(w, 200, runners.MutationResponse{OK: true})
 }
 
 func admitUnavailableRunners(w http.ResponseWriter, ids []string, seen map[string]bool) bool {
 	for _, id := range ids {
 		if runners.ValidateID(id) != nil || seen[id] {
-			webauth.JSONError(w, 503, "runners_unavailable", "Invalid unavailable runner locator.")
+			auth.JSONError(w, 503, "runners_unavailable", "Invalid unavailable runner locator.")
 			return false
 		}
 		seen[id] = true
@@ -103,11 +103,11 @@ func admitObservedRunners(w http.ResponseWriter, inventory *runners.Inventory, s
 	for i := range inventory.Runners {
 		row := &inventory.Runners[i]
 		if runners.ValidateID(row.ID) != nil || seen[row.ID] || row.Capacity != runners.RunnerCapacity {
-			webauth.JSONError(w, 503, "runners_unavailable", "Invalid local runner observation.")
+			auth.JSONError(w, 503, "runners_unavailable", "Invalid local runner observation.")
 			return false
 		}
 		if row.Provider != runners.ProviderForgejo {
-			webauth.JSONError(w, 503, "runners_unavailable", "Invalid local runner provider.")
+			auth.JSONError(w, 503, "runners_unavailable", "Invalid local runner provider.")
 			return false
 		}
 		seen[row.ID] = true
@@ -118,7 +118,7 @@ func admitObservedRunners(w http.ResponseWriter, inventory *runners.Inventory, s
 
 func admitRunnerInventory(w http.ResponseWriter, inventory *runners.Inventory, forgejoURL string) bool {
 	if inventory.Runners == nil || inventory.Unavailable == nil || len(inventory.Runners)+len(inventory.Unavailable) > 64 {
-		webauth.JSONError(w, 503, "runners_unavailable", "Local runner inventory is unavailable; no empty or provider-available state was inferred.")
+		auth.JSONError(w, 503, "runners_unavailable", "Local runner inventory is unavailable; no empty or provider-available state was inferred.")
 		return false
 	}
 	seen := map[string]bool{}
@@ -133,7 +133,7 @@ func (s *API) apiRunners(w http.ResponseWriter, r *http.Request, v store.Session
 		return
 	}
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		webauth.JSONError(w, 400, "invalid_query", "Runner operations do not accept query parameters.")
+		auth.JSONError(w, 400, "invalid_query", "Runner operations do not accept query parameters.")
 		return
 	}
 	if r.Method == http.MethodPost {
@@ -142,13 +142,13 @@ func (s *API) apiRunners(w http.ResponseWriter, r *http.Request, v store.Session
 	}
 	inventory, err := s.Host.RunnersList(ctx)
 	if err != nil {
-		webauth.JSONError(w, 503, "runners_unavailable", "Local runner inventory is unavailable; no empty or provider-available state was inferred.")
+		auth.JSONError(w, 503, "runners_unavailable", "Local runner inventory is unavailable; no empty or provider-available state was inferred.")
 		return
 	}
 	if !admitRunnerInventory(w, &inventory, s.Config.ForgejoURL) {
 		return
 	}
-	webauth.JSONResponse(w, 200, inventory.Response(s.Config.ForgejoURL))
+	auth.JSONResponse(w, 200, inventory.Response(s.Config.ForgejoURL))
 }
 
 func runnerActionLocator(r *http.Request) bool {
@@ -164,27 +164,27 @@ func confirmRunnerAction(w http.ResponseWriter, r *http.Request, id, action stri
 		var in struct {
 			ConfirmID string `json:"confirm_id"`
 		}
-		if !webauth.DecodeAPIObject(w, r, &in) {
+		if !auth.DecodeAPIObject(w, r, &in) {
 			return false
 		}
 		if in.ConfirmID != id {
-			webauth.JSONError(w, 400, "confirmation_required", "Confirm the exact runner ID and destructive effects.")
+			auth.JSONError(w, 400, "confirmation_required", "Confirm the exact runner ID and destructive effects.")
 			return false
 		}
 		return true
 	}
 	var in runners.EmptyRequest
-	return webauth.DecodeAPIObject(w, r, &in)
+	return auth.DecodeAPIObject(w, r, &in)
 }
 
 func parseRunnerAction(w http.ResponseWriter, r *http.Request) (string, string, bool) {
 	id, action := r.PathValue("runner"), r.PathValue("action")
 	if !runnerActionLocator(r) {
-		webauth.JSONError(w, 400, "invalid_runner", "Invalid runner operation.")
+		auth.JSONError(w, 400, "invalid_runner", "Invalid runner operation.")
 		return "", "", false
 	}
 	if !knownRunnerAction(action) {
-		webauth.JSONError(w, 404, "not_found", "Runner operation not found.")
+		auth.JSONError(w, 404, "not_found", "Runner operation not found.")
 		return "", "", false
 	}
 	if !confirmRunnerAction(w, r, id, action) {
@@ -205,18 +205,18 @@ func (s *API) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store.Se
 		return
 	}
 	// Recheck after decoding and confirmation, immediately before dispatch.
-	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
 	if err != nil || s.Auth.RequireCurrentSession(ctx, cookie.Value, v) != nil {
-		webauth.ProviderError(w, store.ErrGrantUnavailable)
+		auth.ProviderError(w, store.ErrGrantUnavailable)
 		return
 	}
 	if s.Host.RunnerAction(ctx, action, runners.RunnerRequest{ID: id}) != nil {
 		runnerUnconfirmed(w)
 		return
 	}
-	webauth.JSONResponse(w, 200, runners.MutationResponse{OK: true})
+	auth.JSONResponse(w, 200, runners.MutationResponse{OK: true})
 }
 
 func runnerUnconfirmed(w http.ResponseWriter) {
-	webauth.JSONError(w, 502, "runner_unconfirmed", "Operation unconfirmed. Local account, files or listener may have changed; provider registration may remain. Refresh and inspect native provider state before retrying. No automatic rollback or retry occurred.")
+	auth.JSONError(w, 502, "runner_unconfirmed", "Operation unconfirmed. Local account, files or listener may have changed; provider registration may remain. Refresh and inspect native provider state before retrying. No automatic rollback or retry occurred.")
 }

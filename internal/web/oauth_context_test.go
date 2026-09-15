@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestOAuthLoginBindsBoundedContextToPKCEState(t *testing.T) {
@@ -113,7 +114,7 @@ func TestOAuthRepositoryReturnUsesOnlyStoredIDsAndActingGrant(t *testing.T) {
 			for _, c := range start.Result().Cookies() {
 				callback.AddCookie(c)
 			}
-			callback.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
+			callback.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, callback)
 			if w.Code != 303 || w.Header().Get("Location") != s.Config.ForgejoURL+tc.wantPath || calls != tc.wantCalls || w.Header().Get("Referrer-Policy") != "no-referrer" {
@@ -121,7 +122,7 @@ func TestOAuthRepositoryReturnUsesOnlyStoredIDsAndActingGrant(t *testing.T) {
 			}
 			var session string
 			for _, c := range w.Result().Cookies() {
-				if c.Name == sessionCookie {
+				if c.Name == auth.SessionCookie {
 					session = c.Value
 				}
 			}
@@ -165,14 +166,14 @@ func TestOAuthExpectedUserMismatchPreservesExistingSodaState(t *testing.T) {
 	for _, c := range start.Result().Cookies() {
 		r.AddCookie(c)
 	}
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
+	r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != 403 || calls != 2 || w.Header().Get("Location") != "" {
 		t.Fatal(w.Code, calls, w.Body.String())
 	}
 	for _, c := range w.Result().Cookies() {
-		if c.Name == sessionCookie {
+		if c.Name == auth.SessionCookie {
 			t.Fatal("mismatch replaced browser session")
 		}
 	}
@@ -205,7 +206,7 @@ func TestOAuthRejectsMalformedCallbackBeforeProviderCalls(t *testing.T) {
 		"state=missing&code=x",
 	} {
 		r := httptest.NewRequest("GET", config.SodaPath+"/oauth/callback?"+query, nil)
-		r.AddCookie(&http.Cookie{Name: oauthCookie, Value: "missing"})
+		r.AddCookie(&http.Cookie{Name: auth.OAuthCookie, Value: "missing"})
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
 		if w.Code != 400 || w.Header().Get("Location") != "" {

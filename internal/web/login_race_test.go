@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestLogoutCancelsClaimedOAuthBeforeAndAfterCallbackCommit(t *testing.T) {
@@ -94,7 +96,7 @@ func TestLogoutCancelsClaimedOAuthBeforeAndAfterCallbackCommit(t *testing.T) {
 				t.Fatal("cancelled callback wrote cookies", callbackResult.Code)
 			}
 			for _, c := range callbackResult.Result().Cookies() {
-				if c.Name != sessionCookie || c.Value == "" {
+				if c.Name != auth.SessionCookie || c.Value == "" {
 					continue
 				}
 				// Simulate applying a late successful callback's cookie AFTER logout.
@@ -143,7 +145,7 @@ func (b *pausedLogoutBody) Close() error { return nil }
 
 func TestLoginRejectsStaleAndAmbiguousCookiesWithoutAnonymousFallback(t *testing.T) {
 	s := apiTestServer(t)
-	for _, cookie := range []string{sessionCookie + "=expired", oauthCookie + "=expired", sessionCookie + "=session-alice; " + sessionCookie + "=session-bob"} {
+	for _, cookie := range []string{auth.SessionCookie + "=expired", auth.OAuthCookie + "=expired", auth.SessionCookie + "=session-alice; " + auth.SessionCookie + "=session-bob"} {
 		r := apiTestRequest("GET", "/login", "", "")
 		r.Header.Set("Cookie", cookie)
 		w := httptest.NewRecorder()

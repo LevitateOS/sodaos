@@ -9,6 +9,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestSodaNamespaceDoesNotAliasNativeOrLegacyPaths(t *testing.T) {
@@ -23,7 +24,7 @@ func TestSodaNamespaceDoesNotAliasNativeOrLegacyPaths(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			for _, method := range []string{"GET", "POST"} {
 				r := httptest.NewRequest(method, target, nil)
-				r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
+				r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
 				w := httptest.NewRecorder()
 				s.ServeHTTP(w, r)
 				if w.Code != 404 || w.Header().Get("Location") != "" {
@@ -46,9 +47,9 @@ func TestSodaOnlyAcceptsOneScopedSessionCookie(t *testing.T) {
 	s := apiTestServer(t)
 	for _, cookies := range []string{
 		"soda_session=session-alice", "i_like_gitea=session-alice",
-		sessionCookie + "=session-alice; " + sessionCookie + "=session-bob",
-		sessionCookie + "=session-alice; " + sessionCookie + "=session-alice",
-		sessionCookie + "=", sessionCookie + "=" + strings.Repeat("a", 129),
+		auth.SessionCookie + "=session-alice; " + auth.SessionCookie + "=session-bob",
+		auth.SessionCookie + "=session-alice; " + auth.SessionCookie + "=session-alice",
+		auth.SessionCookie + "=", auth.SessionCookie + "=" + strings.Repeat("a", 129),
 	} {
 		r := httptest.NewRequest("GET", config.SodaPath+"/api/session", nil)
 		r.Header.Set("Cookie", cookies)
@@ -77,7 +78,7 @@ func TestSodaLoginAndLogoutUseScopedSecureCookies(t *testing.T) {
 		t.Fatal("incorrect callback route", w.Code, err)
 	}
 	cookies := w.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].Name != oauthCookie || cookies[0].MaxAge != 600 {
+	if len(cookies) != 1 || cookies[0].Name != auth.OAuthCookie || cookies[0].MaxAge != 600 {
 		t.Fatal("incorrect OAuth cookie")
 	}
 	for _, cookie := range cookies {
@@ -99,7 +100,7 @@ func TestSodaLoginAndLogoutUseScopedSecureCookies(t *testing.T) {
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, apiTestRequest("POST", "/api/session/logout", "{}", "alice"))
 	cookies = w.Result().Cookies()
-	if w.Code != 204 || len(cookies) != 2 || cookies[0].Name != sessionCookie || cookies[0].MaxAge != -1 || cookies[0].Path != config.SodaPath+"/" || cookies[0].Domain != "" || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
+	if w.Code != 204 || len(cookies) != 2 || cookies[0].Name != auth.SessionCookie || cookies[0].MaxAge != -1 || cookies[0].Path != config.SodaPath+"/" || cookies[0].Domain != "" || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteLaxMode {
 		t.Fatal("logout did not expire only the scoped Soda cookie")
 	}
 }
@@ -107,8 +108,8 @@ func TestSodaLoginAndLogoutUseScopedSecureCookies(t *testing.T) {
 func TestOAuthRejectsLegacyAndDuplicateCookiesBeforeExchange(t *testing.T) {
 	for _, cookies := range []string{
 		"soda_oauth=pending", "i_like_gitea=pending",
-		oauthCookie + "=pending; " + oauthCookie + "=pending",
-		oauthCookie + "=pending; " + sessionCookie + "=session-alice; " + sessionCookie + "=session-bob",
+		auth.OAuthCookie + "=pending; " + auth.OAuthCookie + "=pending",
+		auth.OAuthCookie + "=pending; " + auth.SessionCookie + "=session-alice; " + auth.SessionCookie + "=session-bob",
 	} {
 		s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 			t.Error("invalid cookies reached provider")

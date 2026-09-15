@@ -1,5 +1,5 @@
 // Package web wires the dashboard HTTP root: namespace gates, health, avatars
-// and registration of webauth/webapp. It does not own OAuth or product handlers.
+// and registration of webauth/api. It does not own OAuth or product handlers.
 package web
 
 import (
@@ -13,8 +13,8 @@ import (
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
-	"github.com/levitateos/sodaos/internal/webapp"
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/api"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 // Server is the dashboard HTTP facade. Handlers live in Auth and App.
@@ -23,8 +23,8 @@ type Server struct {
 	Store   *store.Store
 	Forgejo *forgejo.Client
 	Host    *host.Client
-	Auth    *webauth.Service
-	App     *webapp.API
+	Auth    *auth.Service
+	App     *api.API
 	mux     *http.ServeMux
 }
 
@@ -36,8 +36,8 @@ func New(c config.Config, db *store.Store) *Server {
 		Config: c, Store: db, Forgejo: client, Host: hostClient,
 		mux: http.NewServeMux(),
 	}
-	s.Auth = webauth.New(&s.Config, db, client)
-	s.App = webapp.New(&s.Config, db, client, hostClient, s.Auth)
+	s.Auth = auth.New(&s.Config, db, client)
+	s.App = api.New(&s.Config, db, client, hostClient, s.Auth)
 	s.Auth.SessionEndGate = s.App.TerminalLock()
 	s.Auth.CancelTerminals = s.App.CancelTerminals
 
@@ -51,7 +51,7 @@ func New(c config.Config, db *store.Store) *Server {
 	s.Auth.Register(s.mux)
 	s.App.Register(s.mux)
 	notFound := func(w http.ResponseWriter, r *http.Request) {
-		webauth.JSONError(w, http.StatusNotFound, "not_found", "API route not found.")
+		auth.JSONError(w, http.StatusNotFound, "not_found", "API route not found.")
 	}
 	s.mux.HandleFunc("/api", notFound)
 	s.mux.HandleFunc("/api/", notFound)
@@ -126,7 +126,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Reject encoded aliases and canonicalization instead of redirecting API
 	// requests (especially mutations) into another route or the native frontend.
 	if !canonicalSodaPath(r.URL) {
-		webauth.JSONError(w, http.StatusNotFound, "not_found", "Soda route not found.")
+		auth.JSONError(w, http.StatusNotFound, "not_found", "Soda route not found.")
 		return
 	}
 	mounted := r.Clone(r.Context())

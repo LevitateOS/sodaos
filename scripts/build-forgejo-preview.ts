@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {mkdir, readdir, unlink} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
 import {parseArgs} from 'node:util';
-import payload from '../internal/nativebuild/forgejo-payload.json';
+import payload from '../internal/release/build/forgejo-payload.json';
 import {buildForgejoAssets} from './build-forgejo.ts';
 
 const root = resolve(import.meta.dir, '..');

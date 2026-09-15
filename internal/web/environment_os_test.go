@@ -2,7 +2,7 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +25,7 @@ func TestOSObservationUsesExistingReadAuthorityAndLogoutWins(t *testing.T) {
 		if r.Method != "POST" || r.URL.Path != "/os" {
 			t.Error("unexpected native operation", r.Method, r.URL.Path)
 		}
-		var in host.Create
+		var in project.Create
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.ID != id {
 			t.Error("wrong native target", err)
 		}
@@ -34,7 +34,7 @@ func TestOSObservationUsesExistingReadAuthorityAndLogoutWins(t *testing.T) {
 				t.Error(err)
 			}
 		}
-		out := host.OSObservation{Environment: host.Environment{ID: id, Running: true, Image: "sha256:" + strings.Repeat("a", 64)}, Release: &host.OSRelease{ID: "rocky", Version: "9.7", Name: "Rocky Linux 9.7"}}
+		out := project.OSObservation{Environment: project.Environment{ID: id, Running: true, Image: "sha256:" + strings.Repeat("a", 64)}, Release: &project.OSRelease{ID: "rocky", Version: "9.7", Name: "Rocky Linux 9.7"}}
 		switch invalid {
 		case "target":
 			out.Environment.ID = "paaaaaaaaaaaaaaaaaaaaaaaa"

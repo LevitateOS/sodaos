@@ -1,26 +1,27 @@
-package webapp
+package api
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 type SpaceView struct {
-	TailnetState         string            `json:"tailnet_state,omitempty"`
-	Environment          EnvironmentView   `json:"environment"`
-	Login                string            `json:"login"`
-	Administrator        bool              `json:"environment_administrator"`
-	AuthorityUnavailable bool              `json:"authority_unavailable"`
-	NativeUnavailable    bool              `json:"native_unavailable"`
-	Observed             *host.Environment `json:"observed"`
-	Terminals            []TerminalView    `json:"terminals"`
+	TailnetState         string               `json:"tailnet_state,omitempty"`
+	Environment          EnvironmentView      `json:"environment"`
+	Login                string               `json:"login"`
+	Administrator        bool                 `json:"environment_administrator"`
+	AuthorityUnavailable bool                 `json:"authority_unavailable"`
+	NativeUnavailable    bool                 `json:"native_unavailable"`
+	Observed             *project.Environment `json:"observed"`
+	Terminals            []TerminalView       `json:"terminals"`
 }
 
 type SpacesView struct {
@@ -183,11 +184,11 @@ func (s *API) verifySpacesSession(w http.ResponseWriter, ctx context.Context, co
 	current, err := s.Store.Session(ctx, cookieValue)
 	s.terminalMu.Unlock()
 	if ctx.Err() != nil {
-		webauth.JSONError(w, 503, "spaces_unavailable", "Spaces inspection exhausted its time budget; no complete result is available.")
+		auth.JSONError(w, 503, "spaces_unavailable", "Spaces inspection exhausted its time budget; no complete result is available.")
 		return false
 	}
 	if err != nil || current.ContextID != v.ContextID || current.User.ID != v.User.ID || current.CSRF != v.CSRF {
-		webauth.JSONError(w, 401, "unauthenticated", "Session ended.")
+		auth.JSONError(w, 401, "unauthenticated", "Session ended.")
 		return false
 	}
 	return true
@@ -199,31 +200,31 @@ func (s *API) verifySpacesSession(w http.ResponseWriter, ctx context.Context, co
 // unbounded fan-out or denial placeholders. Limits are incomplete, not empty truth.
 func (s *API) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		webauth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
+		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
 		return
 	}
 	select {
 	case s.SpacesSlots <- struct{}{}:
 		defer func() { <-s.SpacesSlots }()
 	default:
-		webauth.JSONError(w, 503, "spaces_unavailable", "Spaces inspection is busy; no complete result is available.")
+		auth.JSONError(w, 503, "spaces_unavailable", "Spaces inspection is busy; no complete result is available.")
 		return
 	}
 	ctx, done := context.WithTimeout(r.Context(), 8*time.Second)
 	defer done()
 	projects, err := s.Store.SpaceProjects(ctx)
 	if err != nil {
-		webauth.JSONError(w, 503, "spaces_unavailable", "Could not enumerate Soda associations.")
+		auth.JSONError(w, 503, "spaces_unavailable", "Could not enumerate Soda associations.")
 		return
 	}
-	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
 	if err != nil {
-		webauth.JSONError(w, 401, "unauthenticated", "Sign in again.")
+		auth.JSONError(w, 401, "unauthenticated", "Sign in again.")
 		return
 	}
 	response := s.inspectSpaces(r, ctx, cookie.Value, v, projects)
 	if !s.verifySpacesSession(w, ctx, cookie.Value, v) {
 		return
 	}
-	webauth.JSONResponse(w, 200, response)
+	auth.JSONResponse(w, 200, response)
 }

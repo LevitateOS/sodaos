@@ -1,6 +1,6 @@
-// Package webapp serves product HTTP and WebSocket APIs for environments,
+// Package api serves product HTTP and WebSocket APIs for environments,
 // spaces, terminals, runners and Tailnet settings. It is not the OAuth owner.
-package webapp
+package api
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 // API owns product handlers and the browser terminal peer registry.
@@ -20,7 +20,7 @@ type API struct {
 	Store   *store.Store
 	Forgejo *forgejo.Client
 	Host    *host.Client
-	Auth    *webauth.Service
+	Auth    *auth.Service
 
 	mux              *http.ServeMux
 	terminalMu       sync.Mutex
@@ -40,7 +40,7 @@ type TerminalPeer struct {
 
 // New constructs the product API. Auth must already exist; web wires the
 // session-end bridge onto Auth after construction.
-func New(cfg *config.Config, db *store.Store, client *forgejo.Client, hostClient *host.Client, auth *webauth.Service) *API {
+func New(cfg *config.Config, db *store.Store, client *forgejo.Client, hostClient *host.Client, auth *auth.Service) *API {
 	return &API{
 		Config: cfg, Store: db, Forgejo: client, Host: hostClient, Auth: auth,
 		SpacesSlots: make(chan struct{}, 4), RepositorySlots: make(chan struct{}, 4),

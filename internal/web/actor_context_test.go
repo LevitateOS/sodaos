@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestExpectedActorGuardsReadsAndEveryMutationMethod(t *testing.T) {
@@ -35,14 +36,14 @@ func TestExpectedActorGuardsReadsAndEveryMutationMethod(t *testing.T) {
 		} {
 			t.Run(method+"/"+tc.name, func(t *testing.T) {
 				called := false
-				handler := s.apiProtected(func(w http.ResponseWriter, r *http.Request, _ store.Session) {
+				handler := s.Auth.Protected(func(w http.ResponseWriter, r *http.Request, _ store.Session) {
 					called = true
 					w.WriteHeader(204)
 				}, method)
 				r := apiTestRequest(method, "/api/actor-probe?expected_user_id=1", "{}", "alice")
-				r.Header.Del(expectedUserHeader)
+				r.Header.Del(auth.ExpectedUserHeader)
 				for _, value := range tc.values {
-					r.Header.Add(expectedUserHeader, value)
+					r.Header.Add(auth.ExpectedUserHeader, value)
 				}
 				w := httptest.NewRecorder()
 				handler(w, r)
@@ -57,7 +58,7 @@ func TestExpectedActorGuardsReadsAndEveryMutationMethod(t *testing.T) {
 func TestBootstrapDoesNotAuthorizeAStalePage(t *testing.T) {
 	s := apiTestServer(t)
 	r := apiTestRequest("GET", "/api/session", "", "alice")
-	r.Header.Del(expectedUserHeader)
+	r.Header.Del(auth.ExpectedUserHeader)
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"id":"1"`) {
@@ -68,7 +69,7 @@ func TestBootstrapDoesNotAuthorizeAStalePage(t *testing.T) {
 	// CSRF cannot silently mutate the new user's preferences.
 	r = apiTestRequest("PATCH", "/api/me/preferences", `{"display_name":"wrong actor"}`, "alice")
 	r.Header.Del("Cookie")
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-bob"})
+	r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-bob"})
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != 403 || !strings.Contains(w.Body.String(), `"code":"identity_mismatch"`) {
@@ -83,7 +84,7 @@ func TestBootstrapDoesNotAuthorizeAStalePage(t *testing.T) {
 	// The optional bootstrap guard also rejects mismatches rather than exposing
 	// the new actor/CSRF as if they matched the calling page.
 	r = apiTestRequest("GET", "/api/session", "", "bob")
-	r.Header.Set(expectedUserHeader, "1")
+	r.Header.Set(auth.ExpectedUserHeader, "1")
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != 403 || strings.Contains(w.Body.String(), "csrf-bob") {
@@ -99,7 +100,7 @@ func TestActorHintIsNeitherAuthenticationNorProviderIdentity(t *testing.T) {
 		fmt.Fprint(w, `{"id":2,"login":"bob"}`)
 	})
 	r := apiTestRequest("GET", "/api/forgejo/me", "", "")
-	r.Header.Set(expectedUserHeader, "1")
+	r.Header.Set(auth.ExpectedUserHeader, "1")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != 401 || !strings.Contains(w.Body.String(), `"code":"unauthenticated"`) {

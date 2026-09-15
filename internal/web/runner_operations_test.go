@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/runners"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,12 +53,12 @@ func TestEveryRunnerAPIRejectsInvalidAuthorityBeforeDecodeOrNative(t *testing.T)
 				case "missing cookie":
 					request.Header.Del("Cookie")
 				case "duplicate cookie":
-					request.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-bob"})
+					request.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-bob"})
 				case "wrong actor":
-					request.Header.Set(expectedUserHeader, "2")
+					request.Header.Set(auth.ExpectedUserHeader, "2")
 					status = 403
 				case "missing actor":
-					request.Header.Del(expectedUserHeader)
+					request.Header.Del(auth.ExpectedUserHeader)
 					status = 400
 				case "missing scope", "expired grant":
 					grant, err := s.Store.Grant(t.Context(), "session-alice", 1)
@@ -160,7 +161,7 @@ func TestRunnerMutationRequestBoundaries(t *testing.T) {
 				case "unit", "account", "path", "command":
 					body = strings.TrimSuffix(body, "}") + fmt.Sprintf(",%q:%q}", invalid, "synthetic-runner-secret")
 				case "oversized":
-					body = `{"unexpected":"` + strings.Repeat("x", apiBodyLimit) + `"}`
+					body = `{"unexpected":"` + strings.Repeat("x", auth.APIBodyLimit) + `"}`
 					status = 413
 				}
 				request := apiTestRequest(method, path, body, "alice")

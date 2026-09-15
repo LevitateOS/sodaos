@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/projectos"
+	"github.com/levitateos/sodaos/internal/project"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,8 +13,8 @@ import (
 	"testing"
 )
 
-func testCreationProfile() projectos.Profile {
-	return projectos.Profile{ID: projectos.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: runtime.GOARCH, Image: "sha256:" + strings.Repeat("a", 64), Revision: strings.Repeat("b", 40)}
+func testCreationProfile() project.Profile {
+	return project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: runtime.GOARCH, Image: "sha256:" + strings.Repeat("a", 64), Revision: strings.Repeat("b", 40)}
 }
 func profileTestResponse() *http.Response {
 	raw, _ := json.Marshal(testCreationProfile())

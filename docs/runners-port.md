@@ -129,7 +129,7 @@ Forgejo runner contract and its actual behavior.
 | Shared OAuth/session persistence | Existing `internal/web` and `internal/store` owners; see the page and credential guides |
 | Root bridge and native runner state | `internal/host/runners.go`, `cmd/soda-host`, `cmd/soda-runners`, `internal/runners/` |
 | Native-page and installed-test response protocol | `frontend/runners/soda-runner-types.d.ts`, `frontend/runners/soda-runner-response.ts` |
-| Packaging | `internal/nativebuild/forgejo-payload.json`, `scripts/build-forgejo.ts`, `scripts/stage.py` |
+| Packaging | `internal/release/build/forgejo-payload.json`, `scripts/build-forgejo.ts`, `scripts/stage.py` |
 
 The root CLI path requires real/effective root, rejects non-root original
 `PKEXEC_UID` and verifies the native root account before operations. The separate

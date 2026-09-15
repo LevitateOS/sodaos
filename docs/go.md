@@ -1,102 +1,125 @@
 # Go ownership
 
 Navigate as **package + concern file**. A package owns one job you can say in
-one sentence. Types are wiring facades or domain owners—not dumping grounds for
-unrelated product domains. Flat `internal/*` stays. Appliance entrypoints live in
-`cmd/`; support tools live in `tools/`. This guide owns Go package placement and
-house style. Product/security boundaries remain in [architecture](architecture.md).
+one sentence. `internal/` is a shallow domain hierarchy: top-level names are
+major Soda concepts (`project`, `host`, `web`, `release`, `tailnet`,
+`runners`, `store`, `forgejo`, `installer`); subpackages are genuine
+subordinate boundaries (`host/project`, `web/api`, `release/deliver`).
+Appliance entrypoints live in `cmd/`; support tools live in `tools/`. This
+guide owns Go package placement and house style. Product/security boundaries
+remain in [architecture](architecture.md).
 
 ## Muscle memory
 
 | If you are adding… | It goes in… |
 | --- | --- |
-| OAuth / login / session / provider / me keys | `webauth` |
-| Product HTTP/WS (environments, spaces, terminal, lifecycle, runners, tailnet settings, pages) | `webapp` |
-| Mux root, namespace gate, `web.New` wiring only | `web` |
-| Wire DTOs + Unix client + thin daemon mux/admission | `host` |
-| Privileged project env (create/inspect/lifecycle/keys/profiles/runners/os) | `hostproject` |
-| Privileged terminal attach | `hostterminal` |
-| Tailnet companion container runtime | `hosttailnet` |
+| Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
+| OAuth / login / session / provider / me keys | `web/auth` |
+| Product HTTP/WS (environments, spaces, terminal, lifecycle, runners, tailnet settings, pages) | `web/api` |
+| Dashboard mux root, namespace gate, `web.New` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
+| Unix client + thin daemon mux/admission | `host` (`client.go`, `daemon.go`; decode straight into `project` types — no translators) |
+| Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `host/project` (package `hostproject`; executes on `project` types) |
+| Privileged terminal attach | `host/terminal` (package `hostterminal`) |
+| Tailnet companion container runtime | `host/tailnet` (package `hosttailnet`) |
 | Install phase on Linux | `installer/<phase>_linux.go` |
+| Build-time installed path consts | `platform` (`legacy.go` / `vendor.go` build-tag pair) |
+| Runner composition + native operator identity | `runners` (`operator.go`) |
+| Release build primitives / image assembly / qualification / delivery | `release/build`, `release/image`, `release/qualify`, `release/deliver` |
 | Domain policy / Forgejo client / SQLite | `tailnet` / `forgejo` / `store` |
 
 Hard size rule: prefer production files under 400 LOC; do not grow a production
 `.go` file past 500 LOC—split by noun or phase instead.
 
-`cmd/soda-dashboard` imports only `web`. `cmd/soda-host` imports only `host`.
-Facades construct `webauth`/`webapp` and `hostproject`/`hostterminal`/`hosttailnet`.
+`cmd/soda-dashboard` enters through `web` (plus `config`/`store`/`avatar`
+for process startup only). `cmd/soda-host` enters through `host`
+(plus `tailnet`). `web.Server` constructs `auth`/`api`; `host.Daemon`
+wires the three executors. These are the only facades; do not add
+forwarding packages, type aliases between internal packages, or
+compatibility shims for moved code.
 
 ## Placement decision tree
 
 1. SQL / schema / row mapping → `store`
-2. Build / image / qualify / deliver / accept → matching release package
-   (`nativebuild`, `hostimage`, `nativequalification`, `releasedelivery`,
-   `acceptance`, …) — never `web`/`host`
-3. Tiny reusable primitive → its own small package (`strictjson`, `filelock`, …)
-4. External product HTTP client → `forgejo`
-5. Domain policy / wire types (no session, no root socket) → domain package
-6. Privileged project / terminal / companion → `hostproject` / `hostterminal` /
-   `hosttailnet` (wire through thin `host.Daemon`)
-7. OAuth / session → `webauth`; product HTTP → `webapp` (wire through thin `web`)
-8. Still ambiguous → rules in the domain package; HTTP admits and calls;
-   privileged packages execute and confirm. Do not invent a fourth package.
+2. Project identity / lifecycle / key / OS types or validation → `project`
+   (one canonical definition referenced by HTTP, host, executors, store,
+   qualify — never a parallel DTO)
+3. Build / image / qualify / deliver → the matching `release/` subpackage —
+   never `web`/`host`
+4. Outside VM/evidence checks → `acceptance` (release support harness)
+5. Tiny reusable primitive → its own small package (`strictjson`, `filelock`, …)
+6. External product HTTP client → `forgejo`
+7. Domain policy / wire types (no session, no root socket) → domain package
+8. Privileged project / terminal / companion → `host/project` /
+   `host/terminal` / `host/tailnet` (wire through thin `host.Daemon`)
+9. OAuth / session → `web/auth`; product HTTP → `web/api` (wire through
+   thin `web.Server`)
+10. Still ambiguous → rules in the domain package; HTTP admits and calls;
+    privileged packages execute and confirm. Do not invent a fourth package.
 
-**Naming.** Package = durable owner. Filename = concrete product concern
-(`lifecycle.go`, `enrollment.go`, `control.go`). Ban new `helpers.go`,
-`utils.go`, or vague `management.go`. Matching concern names across layers
-(`terminal.go`, `runners.go`, `lifecycle.go`) are intentional.
+**Naming.** Package = durable owner; directory = privilege/subsystem
+boundary. Executor subpackages keep the `host` prefix (`hostproject`,
+`hostterminal`, `hosttailnet`) to distinguish them from domain twins
+(`project`, `tailnet`) — the hierarchy under `host/` already states the
+privilege boundary. Filename = concrete product concern (`lifecycle.go`,
+`enrollment.go`, `control.go`). Ban new `helpers.go`, `utils.go`, or vague
+`management.go`. Matching concern names across layers (`terminal.go`,
+`runners.go`, `lifecycle.go`) are intentional. Never resurrect a retired
+package name (`projectos`, `linuxhost`, `installlayout`, `webapp`,
+`webauth`, `nativebuild`, `nativequalification`, `nativefinalization`,
+`releasedelivery`, `appliancerelease`, top-level `hostproject` /
+`hostterminal` / `hosttailnet`) — `internal/archcheck` fails the build if
+they return.
 
 ## Ownership map
 
 | Package | Owns | Does not own | Look here first |
 | --- | --- | --- | --- |
 | `acceptance` | Outside support VM/evidence checks | Product HTTP, SQLite, install UX | `tools/soda-acceptance` |
-| `appliancerelease` | Immutable payload metadata | Signing, upgrade client | `payload.go` |
+| `archcheck` | Package-topology boundary tests | Product behavior | `arch_test.go` |
 | `avatar` | Robot SVG render | Identity lookup | `avatar.go` |
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
 | `forgejo` | Forgejo HTTP API client | Forgejo DB, upstream rules | `client.go` |
-| `host` | Client, DTOs, thin Daemon mux/admission | Project/terminal/companion guts | `client.go`, `daemon.go` |
-| `hostproject` | Privileged project env ops | Terminal PTY, companion | `lifecycle.go`, create/inspect |
-| `hostterminal` | Privileged terminal attach | Project create | `terminal.go` |
-| `hosttailnet` | Companion container runtime | Tailnet policy (`tailnet`) | `companion.go` |
-| `hostimage` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
+| `host` | Unix client + thin Daemon mux/admission | Project/terminal/companion guts | `client.go`, `daemon.go`, `project.go` |
+| `host/project` | Privileged project env execution | HTTP admission, Tailnet policy, terminal attach | `create.go`, `lifecycle.go` |
+| `host/terminal` | Privileged terminal attach | Project create | `service.go`, `types.go` |
+| `host/tailnet` | Companion container runtime | Tailnet policy (`tailnet`) | `companion.go`, `runtime.go` |
 | `installer` | Console-to-CoreOS install adapter | Host daemon, SQLite | phase `*_linux.go` files |
-| `installlayout` | Build-time installed path consts | Scratch `/run` paths | `legacy.go` / `vendor.go` |
-| `linuxhost` | Operator Linux identity boundary | Runner lifecycle | `operator.go` |
-| `nativebuild` | Shared build primitives | Qualify/sign/install UX | `production.go`, `oci.go` |
-| `nativefinalization` | Protected final signing connection | Build execution | `finalize.go` |
-| `nativequalification` | Artifact admission + guest state | Image build, update client | `inputs.go`, `state.go` |
-| `projectos` | Creation profile identity | Image registry/runtime | `profile.go` |
-| `releasedelivery` | Sigstore/release binding | Building images | `model.go`, `publish.go` |
-| `runners` | Local CI runner composition | Forgejo Actions UI | `model.go`, `native.go` |
+| `platform` | Build-time installed path consts | Scratch `/run` paths | `legacy.go` / `vendor.go` |
+| `project` | Canonical project domain: profile, lifecycle/key/OS types, validation | I/O, HTTP, privileged execution | `types.go`, `profile.go`, `project.go` |
+| `release` | Release-construction overview only | Any build/qualify/publish logic | `doc.go` |
+| `release/build` | Shared build primitives | Qualify/sign/install UX | `production.go`, `oci.go` |
+| `release/deliver` | Payload model, signing, publication | Building images | `payload.go`, `publish.go`, `finalize.go` |
+| `release/image` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
+| `release/qualify` | Artifact admission + guest state | Image build, update client | `inputs.go`, `state.go` |
+| `runners` | Local CI runner composition + operator identity | Forgejo Actions UI | `model.go`, `native.go`, `operator.go` |
 | `store` | SQLite schema + row ops | HTTP, host execute | `store.go`, `migrations.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
 | `testoci` | Inert OCI test fixtures | Production images | `fixture.go` |
 | `web` | HTTP root mux + wiring only | Business handlers | `server.go` |
-| `webauth` | OAuth/session/provider/login | Environment/terminal APIs | `auth.go`, `provider.go` |
-| `webapp` | Product API + settings + terminal WS | OAuth state machine | concern files |
+| `web/api` | Product API + settings + terminal WS | OAuth state machine | concern files |
+| `web/auth` | OAuth/session/provider/login | Environment/terminal APIs | `service.go`, `provider.go` |
 
 ## Cross-cut owners
 
 | Concern | Meaning / policy | Privileged execute | HTTP |
 | --- | --- | --- | --- |
-| Tailnet | `tailnet` | `hosttailnet` | `webapp` (+ thin `host` daemon routes) |
-| Terminal | access/lifetime in `webapp` + store | `hostterminal` | `webapp` |
-| Runners | `runners` | `hostproject` / runner cmds | `webapp` |
-| Lifecycle | project unit semantics in `hostproject` | `hostproject` | `webapp` |
+| Project | `project` (types + validation) | `host/project` | `web/api` (+ thin `host` daemon routes) |
+| Tailnet | `tailnet` | `host/tailnet` | `web/api` (+ thin `host` daemon routes) |
+| Terminal | access/lifetime in `web/api` + store | `host/terminal` | `web/api` |
+| Runners | `runners` incl. `operator.go` | runner cmds via `host` daemon routes | `web/api` |
 
 ## Release debug map
 
 | Symptom | Open first | Then |
 | --- | --- | --- |
-| Image/candidate will not build | `nativebuild`, `tools/soda-build` | `hostimage` |
-| Media/assemble wrong | `hostimage` | `installer` phases |
-| Guest/fixture will not qualify | `nativequalification` | `acceptance` |
-| Sign/publish | `releasedelivery`, `nativefinalization` | `tools/soda-release` |
+| Image/candidate will not build | `release/build`, `tools/soda-build` | `release/image` |
+| Media/assemble wrong | `release/image` | `installer` phases |
+| Guest/fixture will not qualify | `release/qualify` | `acceptance` |
+| Sign/publish | `release/deliver` | `tools/soda-release` |
 
-Do not casually start in `nativequalification` for a build failure.
+Do not casually start in `release/qualify` for a build failure.
 
 ## `scripts/` Go tests
 
@@ -139,9 +162,9 @@ library root. Own them with Forgejo UI docs; do not treat them as `internal/`.
 
 ## Explicit non-goals
 
-Hexagonal/ports-everywhere, ORM/sqlc mandate, `internal/appliance` vs
-`internal/release` directory churn, interface DI graphs, repository wrappers
-around `*Store`, micro-packages (`pages`, `forgejo_keys`, `hostd`), splitting
+Hexagonal/ports-everywhere, ORM/sqlc mandate, re-litigating the `release/`,
+`host/`, `web/` hierarchies, interface DI graphs, repository wrappers around
+`*Store`, micro-packages (`pages`, `forgejo_keys`, `hostd`), splitting
 `tailnet`/`runners`/`store`, dual shims for old god method sets, and rewriting
 `scripts/` into `internal/`.
 
@@ -150,3 +173,11 @@ around `*Store`, micro-packages (`pages`, `forgejo_keys`, `hostd`), splitting
 `scripts/check-sql-locality.sh` fails when sources outside `internal/store`
 import `database/sql`, call `sql.Open`, or embed SQL verb literals. It runs from
 `bun run check:source`.
+
+`internal/archcheck` fails when a retired package name returns, when
+`web/aliases.go` is recreated, or when production code crosses a banned
+ownership edge (transport reaching executors or release, release reaching
+transport or the daemon, executors reaching up or out, leaves reaching up,
+the dashboard binary reaching the daemon directly). Run it with
+`go test ./internal/archcheck/`; keep its rules in sync with the tables
+above whenever ownership genuinely moves.

@@ -10,12 +10,13 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func cancellationRequest(method, state, csrf string) *http.Request {
 	r := apiTestRequest(method, "/api/login/cancel", "{}", "")
 	r.Header.Set("X-Soda-Logout", "1")
-	r.Header.Set(expectedUserHeader, "1")
+	r.Header.Set(auth.ExpectedUserHeader, "1")
 	r.Header.Set("Sec-Fetch-Site", "same-origin")
 	r.Header.Set("Origin", "https://forgejo.example.test")
 	r.Header.Set("Content-Type", "application/json")
@@ -23,7 +24,7 @@ func cancellationRequest(method, state, csrf string) *http.Request {
 		r.Header.Set("X-CSRF-Token", csrf)
 	}
 	if state != "" {
-		r.AddCookie(&http.Cookie{Name: oauthCookie, Value: state})
+		r.AddCookie(&http.Cookie{Name: auth.OAuthCookie, Value: state})
 	}
 	return r
 }
@@ -95,11 +96,11 @@ func TestCancellationRefusesRotationForeignActorAndInvalidRequests(t *testing.T)
 		case "csrf":
 			r.Header.Set("X-CSRF-Token", "wrong")
 		case "duplicate cookie":
-			r.AddCookie(&http.Cookie{Name: oauthCookie, Value: "pending"})
+			r.AddCookie(&http.Cookie{Name: auth.OAuthCookie, Value: "pending"})
 		case "duplicate actor":
-			r.Header.Add(expectedUserHeader, "1")
+			r.Header.Add(auth.ExpectedUserHeader, "1")
 		case "actor":
-			r.Header.Set(expectedUserHeader, "2")
+			r.Header.Set(auth.ExpectedUserHeader, "2")
 		case "body":
 			r.Body = http.NoBody
 		case "query":
@@ -107,7 +108,7 @@ func TestCancellationRefusesRotationForeignActorAndInvalidRequests(t *testing.T)
 		case "header":
 			r.Header.Del("X-Soda-Logout")
 		case "foreign session":
-			r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-bob"})
+			r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-bob"})
 		}
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)
@@ -153,17 +154,17 @@ func TestCancellationBootstrapRefusesAmbiguousSessionsAndCrossOrigin(t *testing.
 		r := cancellationRequest("GET", "", "")
 		switch mode {
 		case "duplicate session":
-			r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-alice"})
-			r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-bob"})
+			r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-alice"})
+			r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-bob"})
 		case "duplicate OAuth":
-			r.AddCookie(&http.Cookie{Name: oauthCookie, Value: "one"})
-			r.AddCookie(&http.Cookie{Name: oauthCookie, Value: "two"})
+			r.AddCookie(&http.Cookie{Name: auth.OAuthCookie, Value: "one"})
+			r.AddCookie(&http.Cookie{Name: auth.OAuthCookie, Value: "two"})
 		case "cross origin":
 			r.Header.Set("Origin", "https://elsewhere.test")
 		case "missing metadata":
 			r.Header.Del("Sec-Fetch-Site")
 		case "missing actor":
-			r.Header.Del(expectedUserHeader)
+			r.Header.Del(auth.ExpectedUserHeader)
 		}
 		w := httptest.NewRecorder()
 		s.ServeHTTP(w, r)

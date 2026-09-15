@@ -208,13 +208,13 @@ from local image inspection or ordinary build-cache reuse.
 The [release plan](release-engineering-plan.md#implemented-trusted-delivery-contract)
 owns authority, protocol and custody. `tools/soda-release` is a noninteractive worker
 CLI; it does not run build code, install a policy/image, import Podman state or reboot.
-It uses the locked native skopeo from `internal/releasedelivery/tools.json` and the
+It uses the locked native skopeo from `internal/release/deliver/tools.json` and the
 existing M1 OCI verifier. No new Go cryptographic signing implementation or registry
 server is introduced. Run source checks/builds with the repository-pinned Go.
 
 All operations require `--trust PUBLIC-TRUST.json` and an absolute `--out`. Trust is
 public but integrity-controlled; it is not build-supplied authority. The exact JSON
-types are in [`internal/releasedelivery/model.go`](../internal/releasedelivery/model.go).
+types are in [`internal/release/deliver/model.go`](../internal/release/deliver/model.go).
 Native subprocesses do not inherit ambient credentials/proxy/user configuration.
 Public anonymous GHCR access is the implemented commissioning target; private pulls
 or an ambient authenticated proxy are not silently substituted.
@@ -254,7 +254,7 @@ contract. Explicit fault reconciliation is not ordinary per-release manual signi
 Source/process-double checks:
 
 ```sh
-GOTOOLCHAIN=go1.26.7 go test -race ./internal/releasedelivery ./tools/soda-release
+GOTOOLCHAIN=go1.26.7 go test -race ./internal/release/deliver ./tools/soda-release
 ```
 
 Native **filesystem-only** Sigstore proof, using fresh synthetic keys and no network
@@ -263,7 +263,7 @@ transport, registry, daemon, fixture lifecycle or global trust changes:
 ```sh
 mkdir -p .artifacts/release-delivery
 SODA_RELEASE_NATIVE_OUT="$PWD/.artifacts/release-delivery/UNIQUE-NATIVE-PROOF" \
-  GOTOOLCHAIN=go1.26.7 go test ./internal/releasedelivery \
+  GOTOOLCHAIN=go1.26.7 go test ./internal/release/deliver \
   -run '^TestNativeSigstoreDirectoryRoundTrip$' -count=1 -v
 ```
 
@@ -428,7 +428,7 @@ Each new private evidence root has bounded, streaming-redacted captures. Structu
 
 Missing/failed/cancelled/evidence-failed scopes remain visible. Records from a different source/architecture or changed retained files are refused. Product observations retain their original owner labels (including historical U08/U20), not an independent support certification. No sibling/media/product qualification gate is introduced.
 
-Authored coverage lives in `internal/acceptance/*_test.go`, `internal/nativebuild/*_test.go`,
+Authored coverage lives in `internal/acceptance/*_test.go`, `internal/release/build/*_test.go`,
 `tests/build/test_native_support.py` and production/packaging/browser tests. Execution
 is revision-scoped in the handoff. Native builds/checks/VM/provider work still need
 applicable action/target permission.

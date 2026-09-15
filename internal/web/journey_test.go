@@ -11,8 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 type roundTrip func(*http.Request) (*http.Response, error)
@@ -55,7 +56,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 			return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"id":"p0123456789abcdef01234567","ip":"10.89.0.2","running":true}`)), Header: make(http.Header)}, nil
 		}
 		nativeCalls++
-		var account host.Account
+		var account project.Account
 		if e := json.NewDecoder(r.Body).Decode(&account); e != nil {
 			t.Fatal(e)
 		}
@@ -73,8 +74,8 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r.Header.Set("Origin", server.Config.ForgejoURL)
 		r.Header.Set("X-CSRF-Token", "csrf-"+login)
-		r.Header.Set(expectedUserHeader, map[string]string{"alice": "1", "bob": "2"}[login])
-		r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-" + login})
+		r.Header.Set(auth.ExpectedUserHeader, map[string]string{"alice": "1", "bob": "2"}[login])
+		r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-" + login})
 		w := httptest.NewRecorder()
 		server.ServeHTTP(w, r)
 		return w
@@ -110,8 +111,8 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		}
 	}
 	r := httptest.NewRequest("GET", "/-/soda/api/environments/"+id, nil)
-	r.AddCookie(&http.Cookie{Name: sessionCookie, Value: "session-bob"})
-	r.Header.Set(expectedUserHeader, "2")
+	r.AddCookie(&http.Cookie{Name: auth.SessionCookie, Value: "session-bob"})
+	r.Header.Set(auth.ExpectedUserHeader, "2")
 	w := httptest.NewRecorder()
 	server.ServeHTTP(w, r)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"login":"bob"`) {

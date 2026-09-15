@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -37,7 +37,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 		case "/profile":
 			json.NewEncoder(w).Encode(testCreationProfile())
 		case "/create":
-			var input host.Create
+			var input project.Create
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 				t.Error(err)
 			}
@@ -45,10 +45,10 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 				t.Error("caller selected owner")
 			}
 			id = input.ID
-			json.NewEncoder(w).Encode(host.Environment{ID: id, IP: "10.89.0.2", Running: true, Profile: input.Profile})
+			json.NewEncoder(w).Encode(project.Environment{ID: id, IP: "10.89.0.2", Running: true, Profile: input.Profile})
 		case "/account":
 			accountCalls++
-			var input host.Account
+			var input project.Account
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 				t.Error(err)
 			}
@@ -137,8 +137,8 @@ func TestIncompleteEnvironmentStillInspected(t *testing.T) {
 		Environment struct {
 			Provisioned bool `json:"provisioned"`
 		} `json:"environment"`
-		NativeUnavailable bool              `json:"native_unavailable"`
-		Observed          *host.Environment `json:"observed"`
+		NativeUnavailable bool                 `json:"native_unavailable"`
+		Observed          *project.Environment `json:"observed"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)

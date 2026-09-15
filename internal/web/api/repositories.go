@@ -1,9 +1,9 @@
-package webapp
+package api
 
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/webauth"
+	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -67,14 +67,14 @@ func (s *API) authorizeRepositorySearch(ctx context.Context, r *http.Request, v 
 		return store.Grant{}, forgejo.User{}, err
 	}
 	if !forgejo.HasScope(grant.Scopes, "read:user") || !forgejo.HasScope(grant.Scopes, "read:repository") {
-		return store.Grant{}, forgejo.User{}, webauth.ErrRepositoryConsent
+		return store.Grant{}, forgejo.User{}, auth.ErrRepositoryConsent
 	}
 	actor, err := s.Forgejo.Current(ctx, grant.Access)
 	if err != nil {
 		return store.Grant{}, forgejo.User{}, err
 	}
 	if actor.ID != v.User.ID || actor.Login == "" {
-		return store.Grant{}, forgejo.User{}, webauth.ErrProviderIdentity
+		return store.Grant{}, forgejo.User{}, auth.ErrProviderIdentity
 	}
 	return grant, actor, nil
 }
@@ -83,7 +83,7 @@ func isValidRepositoryIdentity(repo forgejo.Repository, actorID int64) (bool, er
 	if repo.Owner.ID != actorID {
 		return false, nil
 	}
-	if !webauth.ValidRepositoryPart(repo.Owner.Login) || !webauth.ValidRepositoryPart(repo.Name) {
+	if !auth.ValidRepositoryPart(repo.Owner.Login) || !auth.ValidRepositoryPart(repo.Name) {
 		return false, forgejo.ErrInvalidResponse
 	}
 	return true, nil
@@ -133,7 +133,7 @@ func (s *API) verifyRepositorySession(ctx context.Context, r *http.Request, v st
 	if ctx.Err() != nil {
 		return false
 	}
-	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
 	if err != nil || s.Auth.RequireCurrentSession(ctx, cookie.Value, v) != nil {
 		return false
 	}
@@ -142,17 +142,17 @@ func (s *API) verifyRepositorySession(ctx context.Context, r *http.Request, v st
 
 func handleRepositoryChoicesError(w http.ResponseWriter, err error) {
 	if errors.Is(err, errStoreReservation) {
-		webauth.JSONError(w, 503, "store_unavailable", "Could not inspect repository reservation.")
+		auth.JSONError(w, 503, "store_unavailable", "Could not inspect repository reservation.")
 	} else {
-		webauth.ProviderError(w, err)
+		auth.ProviderError(w, err)
 	}
 }
 
 func handleRepositorySessionFailure(w http.ResponseWriter, ctx context.Context) {
 	if ctx.Err() != nil {
-		webauth.JSONError(w, 503, "repositories_unavailable", "Repository search exceeded its time budget.")
+		auth.JSONError(w, 503, "repositories_unavailable", "Repository search exceeded its time budget.")
 	} else {
-		webauth.JSONError(w, 401, "unauthenticated", "Soda context changed.")
+		auth.JSONError(w, 401, "unauthenticated", "Soda context changed.")
 	}
 }
 
@@ -161,14 +161,14 @@ func handleRepositorySessionFailure(w http.ResponseWriter, ctx context.Context) 
 func (s *API) apiRepositories(w http.ResponseWriter, r *http.Request, v store.Session) {
 	query, page, ok := parseRepositoryQuery(r.URL.RawQuery)
 	if !ok {
-		webauth.JSONError(w, 400, "invalid_query", "Provide q and one bounded page.")
+		auth.JSONError(w, 400, "invalid_query", "Provide q and one bounded page.")
 		return
 	}
 	select {
 	case s.RepositorySlots <- struct{}{}:
 		defer func() { <-s.RepositorySlots }()
 	default:
-		webauth.JSONError(w, 503, "repositories_unavailable", "Repository search is busy.")
+		auth.JSONError(w, 503, "repositories_unavailable", "Repository search is busy.")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
@@ -176,12 +176,12 @@ func (s *API) apiRepositories(w http.ResponseWriter, r *http.Request, v store.Se
 	r = r.WithContext(ctx)
 	grant, actor, err := s.authorizeRepositorySearch(ctx, r, v)
 	if err != nil {
-		webauth.ProviderError(w, err)
+		auth.ProviderError(w, err)
 		return
 	}
 	repos, err := s.Forgejo.SearchOwnedRepositories(ctx, grant.Access, actor.ID, query, page)
 	if err != nil {
-		webauth.ProviderError(w, err)
+		auth.ProviderError(w, err)
 		return
 	}
 	items, err := s.collectRepositoryChoices(ctx, grant.Access, repos, actor.ID)
@@ -193,7 +193,7 @@ func (s *API) apiRepositories(w http.ResponseWriter, r *http.Request, v store.Se
 		handleRepositorySessionFailure(w, ctx)
 		return
 	}
-	webauth.JSONResponse(w, 200, struct {
+	auth.JSONResponse(w, 200, struct {
 		Items   []repositoryChoice `json:"items"`
 		Page    int                `json:"page"`
 		More    bool               `json:"more"`

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestOAuthCallbackIgnoresCallerDestination(t *testing.T) {
@@ -27,7 +28,7 @@ func TestOAuthCallbackIgnoresCallerDestination(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := httptest.NewRequest("GET", "/-/soda/oauth/callback?state=pending&code=test-code&return_to=https://evil.example/", nil)
-	r.AddCookie(&http.Cookie{Name: oauthCookie, Value: "pending"})
+	r.AddCookie(&http.Cookie{Name: auth.OAuthCookie, Value: "pending"})
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != 303 || w.Header().Get("Location") != s.Config.ForgejoURL+"/" {

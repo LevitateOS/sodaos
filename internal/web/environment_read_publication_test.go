@@ -8,8 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -37,7 +38,7 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 				if read.operator {
 					s.Config.OperatorID = 1
 				}
-				project, err := s.Store.Project(t.Context(), webTerminalProject)
+				stored, err := s.Store.Project(t.Context(), webTerminalProject)
 				require.NoError(t, err)
 				members, err := s.Store.Members(t.Context(), webTerminalProject)
 				require.NoError(t, err)
@@ -127,17 +128,17 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 						wantPath = "/connection"
 					}
 					require.Equal(t, wantPath, r.URL.Path, "read must not mutate native state")
-					var input host.Create
+					var input project.Create
 					require.NoError(t, json.NewDecoder(r.Body).Decode(&input))
-					require.Equal(t, host.Create{ID: webTerminalProject}, input)
+					require.Equal(t, project.Create{ID: webTerminalProject}, input)
 					changeSession(r.URL.Path)
 					if read.nativeUnavailable {
 						return nil, errors.New("synthetic-private-helper-error")
 					}
 					w := httptest.NewRecorder()
-					observed := host.Environment{ID: webTerminalProject, IP: "10.89.0.2", Running: true}
+					observed := project.Environment{ID: webTerminalProject, IP: "10.89.0.2", Running: true}
 					if read.suffix == "/connection" {
-						require.NoError(t, json.NewEncoder(w).Encode(host.Connection{Environment: observed, HostKey: "public-fixture", Fingerprint: "SHA256:fixture"}))
+						require.NoError(t, json.NewEncoder(w).Encode(project.Connection{Environment: observed, HostKey: "public-fixture", Fingerprint: "SHA256:fixture"}))
 					} else {
 						require.NoError(t, json.NewEncoder(w).Encode(observed))
 					}
@@ -174,31 +175,31 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 				require.Equal(t, wantStatus, w.Code, w.Body.String())
 				if change == "unchanged" {
 					var result struct {
-						Environment          environmentView   `json:"environment"`
-						Observed             *host.Environment `json:"observed"`
-						Administrator        bool              `json:"environment_administrator"`
-						AuthorityUnavailable bool              `json:"authority_unavailable"`
-						NativeUnavailable    bool              `json:"native_unavailable"`
-						Login                string            `json:"login"`
+						Environment          api.EnvironmentView  `json:"environment"`
+						Observed             *project.Environment `json:"observed"`
+						Administrator        bool                 `json:"environment_administrator"`
+						AuthorityUnavailable bool                 `json:"authority_unavailable"`
+						NativeUnavailable    bool                 `json:"native_unavailable"`
+						Login                string               `json:"login"`
 						Items                []struct {
 							UserID string `json:"user_id"`
 							Login  string `json:"login"`
 						} `json:"items"`
-						Connection      host.Connection `json:"connection"`
-						RoutingVerified bool            `json:"routing_verified"`
+						Connection      project.Connection `json:"connection"`
+						RoutingVerified bool               `json:"routing_verified"`
 					}
 					require.NoError(t, json.Unmarshal(w.Body.Bytes(), &result))
 					require.Equal(t, read.providerUnavailable, result.AuthorityUnavailable)
 					switch read.suffix {
 					case "":
-						require.Equal(t, environmentDTO(project), result.Environment)
+						require.Equal(t, api.EnvironmentDTO(stored), result.Environment)
 						require.Equal(t, "original-alice", result.Login)
 						require.Equal(t, !read.providerUnavailable, result.Administrator)
 						require.Equal(t, read.nativeUnavailable, result.NativeUnavailable)
 						if read.nativeUnavailable {
 							require.Nil(t, result.Observed)
 						} else {
-							require.Equal(t, &host.Environment{ID: webTerminalProject, IP: "10.89.0.2", Running: true}, result.Observed)
+							require.Equal(t, &project.Environment{ID: webTerminalProject, IP: "10.89.0.2", Running: true}, result.Observed)
 						}
 					case "/members":
 						if read.providerUnavailable {
@@ -228,7 +229,7 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 				if change != "store" {
 					retained, err := s.Store.Project(t.Context(), webTerminalProject)
 					require.NoError(t, err)
-					require.Equal(t, project, retained)
+					require.Equal(t, stored, retained)
 					retainedMembers, err := s.Store.Members(t.Context(), webTerminalProject)
 					require.NoError(t, err)
 					require.Equal(t, members, retainedMembers)

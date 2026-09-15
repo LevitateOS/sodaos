@@ -14,8 +14,10 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/levitateos/sodaos/internal/forgejo"
-	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/web/api"
+	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int32, *atomic.Int32) {
@@ -48,9 +50,9 @@ func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int3
 			_ = c.Write(r.Context(), websocket.MessageText, []byte(`{"type":"metadata","terminals":[]}`))
 			return
 		}
-		var input host.Create
+		var input project.Create
 		_ = json.NewDecoder(r.Body).Decode(&input)
-		_ = json.NewEncoder(w).Encode(host.Environment{ID: input.ID, Running: true})
+		_ = json.NewEncoder(w).Encode(project.Environment{ID: input.ID, Running: true})
 	}))
 	t.Cleanup(helper.Close)
 	s.Host.HTTP = &http.Client{Transport: &http.Transport{DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
@@ -69,10 +71,10 @@ func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int3
 	}
 	return s, providerCalls, nativeCalls
 }
-func readSpaces(t *testing.T, s *Server) spacesView {
+func readSpaces(t *testing.T, s *Server) api.SpacesView {
 	t.Helper()
 	w := terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces", nil)
-	var result spacesView
+	var result api.SpacesView
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
 		t.Fatal("collection", w.Code, w.Body.String())
 	}
@@ -179,7 +181,7 @@ func TestSpacesAdmissionActorAndQueryBounds(t *testing.T) {
 		}
 	}
 	r := apiTestRequest("GET", "/api/spaces", "", "alice")
-	r.Header.Set(expectedUserHeader, "2")
+	r.Header.Set(auth.ExpectedUserHeader, "2")
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, r)
 	if w.Code != 403 || provider.Load() != 0 || native.Load() != 0 {
