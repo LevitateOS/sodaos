@@ -98,6 +98,43 @@ func runtimeFile(info os.FileInfo, uid, gid uint32, mode os.FileMode) bool {
 	return ok && info.Mode().IsRegular() && info.Mode().Perm() == mode && s.Uid == uid && s.Gid == gid && s.Nlink == 1
 }
 func (f *runFiles) Close() { f.lock.Close(); f.root.Close() }
+func ownedRunDir(info os.FileInfo, uid, gid uint32) bool {
+	s, ok := info.Sys().(*syscall.Stat_t)
+	return ok && info.IsDir() && info.Mode().Perm() == 0o700 && s.Uid == uid && s.Gid == gid
+}
+
+func prepareRunSubdir(root *os.Root, path string, run projectRun, fresh bool) error {
+	if fresh {
+		e := root.Mkdir(path, 0o700)
+		if e == nil {
+			e = root.Chown(path, int(run.UID), int(run.GID))
+		}
+		if e != nil {
+			return tailnet.ErrUnavailable
+		}
+	}
+	info, e := root.Lstat(path)
+	if e != nil {
+		return tailnet.ErrUnavailable
+	}
+	if !ownedRunDir(info, run.UID, run.GID) {
+		return tailnet.ErrUnavailable
+	}
+	return nil
+}
+
+func (f *runFiles) openPreparedRoot(name string) (*os.Root, error) {
+	info, e := f.root.Lstat(name)
+	if e != nil || !rootDirectory(info, f.uid) {
+		return nil, tailnet.ErrUnavailable
+	}
+	root, e := f.root.OpenRoot(name)
+	if e != nil {
+		return nil, tailnet.ErrUnavailable
+	}
+	return root, nil
+}
+
 func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 	name := run.Target.Run
 	if !containerID.MatchString(name) || run.UID == 0 || run.GID == 0 {
@@ -109,33 +146,14 @@ func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 			return nil, tailnet.ErrConflict
 		}
 	}
-	info, e := f.root.Lstat(name)
-	if e != nil || !rootDirectory(info, f.uid) {
-		return nil, tailnet.ErrUnavailable
-	}
-	root, e := f.root.OpenRoot(name)
+	root, e := f.openPreparedRoot(name)
 	if e != nil {
-		return nil, tailnet.ErrUnavailable
+		return nil, e
 	}
 	for _, path := range []string{"control", "input"} {
-		if fresh {
-			if e = root.Mkdir(path, 0o700); e == nil {
-				e = root.Chown(path, int(run.UID), int(run.GID))
-			}
-			if e != nil {
-				root.Close()
-				return nil, tailnet.ErrUnavailable
-			}
-		}
-		info, e = root.Lstat(path)
-		if e != nil {
+		if e = prepareRunSubdir(root, path, run, fresh); e != nil {
 			root.Close()
-			return nil, tailnet.ErrUnavailable
-		}
-		s, ok := info.Sys().(*syscall.Stat_t)
-		if !ok || !info.IsDir() || info.Mode().Perm() != 0o700 || s.Uid != run.UID || s.Gid != run.GID {
-			root.Close()
-			return nil, tailnet.ErrUnavailable
+			return nil, e
 		}
 	}
 	return root, nil
