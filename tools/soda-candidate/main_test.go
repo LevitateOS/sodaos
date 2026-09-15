@@ -309,6 +309,72 @@ func TestRunningPhaseShowsLiveElapsed(t *testing.T) {
 	}
 }
 
+func TestFailedRunPrintsWhyPanelWithHostPaths(t *testing.T) {
+	for _, tty := range []bool{true, false} {
+		var b bytes.Buffer
+		r := newRenderer(&b, tty, 80)
+		r.SetOutDir("/home/op/sodaos/.artifacts/releases/isolated/run-01")
+		for _, line := range []string{
+			"START P3 / Compile shipping programs",
+			"LOG /run/soda-build-source/.artifacts/releases/isolated/run-01/logs/timing.log",
+			"FAILED Compile soda-dashboard | section 00:00:00 | total 00:00:00 | reason open /run/go/src/a.go: permission denied",
+			"FAILED P3 / Compile shipping programs | phase 00:00:00 | total 00:00:00",
+		} {
+			if err := r.feed(line); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := r.finish(1); err != nil {
+			t.Fatal(err)
+		}
+		got := b.String()
+		for _, want := range []string{
+			"why: Compile soda-dashboard",
+			"cause: open /run/go/src/a.go: permission denied",
+			"log: /home/op/sodaos/.artifacts/releases/isolated/run-01/logs/build.log",
+		} {
+			if !strings.Contains(got, want) {
+				t.Fatalf("tty=%v panel misses %q:\n%s", tty, want, got)
+			}
+		}
+		if strings.Contains(got, "/run/soda-build-source/.artifacts/releases/isolated/run-01/logs/timing.log") {
+			t.Fatalf("tty=%v panel leaks sandbox path:\n%s", tty, got)
+		}
+	}
+}
+
+func TestFailedRunWithoutReasonFallsBackToLog(t *testing.T) {
+	var b bytes.Buffer
+	r := newRenderer(&b, false, 80)
+	r.SetOutDir("/out/run-02")
+	if err := r.feed("FAILED P1 / Admit | phase 00:00:01 | total 00:00:01"); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.finish(1); err != nil {
+		t.Fatal(err)
+	}
+	got := b.String()
+	if !strings.Contains(got, "why: P1 / Admit") || !strings.Contains(got, "cause: see the build log") {
+		t.Fatalf("fallback panel missing:\n%s", got)
+	}
+}
+
+func TestHostArtifactPathLeavesForeignPathsAlone(t *testing.T) {
+	out := "/home/op/sodaos/.artifacts/releases/isolated/run-01"
+	if got := hostArtifactPath(out, "/run/soda-build-source/.artifacts/releases/isolated/run-01/artifacts/candidate.json"); got != "/home/op/sodaos/.artifacts/releases/isolated/run-01/artifacts/candidate.json" {
+		t.Fatalf("not translated: %q", got)
+	}
+	for _, tc := range []struct{ out, sandbox string }{
+		{"", "/run/soda-build-source/x"},
+		{out, "/somewhere/else/media.json"},
+		{out, "relative/path.json"},
+	} {
+		if got := hostArtifactPath(tc.out, tc.sandbox); got != tc.sandbox {
+			t.Fatalf("changed foreign path: %q", got)
+		}
+	}
+}
+
 func writeWorkerJSON(t *testing.T, runtimeDir string) string {
 	t.Helper()
 	tools := t.TempDir()

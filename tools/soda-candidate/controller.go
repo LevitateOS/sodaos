@@ -68,6 +68,7 @@ func startControllerRun(o options, stdin, stdout, stderr *os.File) (*controllerR
 	}
 	tty := isTerminal(stderr) && !o.nonInteractive
 	view := newRenderer(stderr, tty, termWidth(stderr))
+	view.SetOutDir(o.out)
 	if err := view.note("soda-candidate: " + describe(o)); err != nil {
 		return nil, err
 	}

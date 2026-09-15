@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ type event struct {
 	phaseDur string
 	totalDur string
 	path     string
+	reason   string
 }
 
 // parseEvent splits a controller line into START, DONE, FAILED, CANCELLED,
@@ -66,7 +68,26 @@ func applyDurationPart(e *event, p string) {
 		e.phaseDur = d
 	} else if d, ok := strings.CutPrefix(p, "total "); ok {
 		e.totalDur = d
+	} else if r, ok := strings.CutPrefix(p, "reason "); ok {
+		e.reason = r
 	}
+}
+
+// hostArtifactPath maps a worker sandbox path back onto this run's host
+// output directory by matching the run directory name. The worker never
+// knows host paths, so the wrapper translates: everything from the run
+// directory name onward is re-rooted onto the host output directory.
+// Anything else passes through unchanged.
+func hostArtifactPath(outDir, sandbox string) string {
+	base := filepath.Base(outDir)
+	if outDir == "" || base == "" || base == "/" || base == "." {
+		return sandbox
+	}
+	i := strings.LastIndex(sandbox, base)
+	if i < 0 {
+		return sandbox
+	}
+	return filepath.Join(outDir, strings.TrimPrefix(sandbox[i+len(base):], "/"))
 }
 
 func parseArtifactEvent(kind, rest string) (event, bool) {
@@ -91,17 +112,28 @@ var spinner = []rune{'|', '/', '-', '\\'}
 // timestamped passthrough when output is piped. Redraws truncate to the
 // terminal width so cursor math stays exact.
 type renderer struct {
-	mu     sync.Mutex
-	w      io.Writer
-	tty    bool
-	width  int
-	start  time.Time
-	phases []phase
-	log    []string
-	arts   []string
-	drawn  int
-	ticker *time.Ticker
-	stop   chan struct{}
+	mu           sync.Mutex
+	w            io.Writer
+	tty          bool
+	width        int
+	start        time.Time
+	phases       []phase
+	log          []string
+	arts         []string
+	drawn        int
+	ticker       *time.Ticker
+	stop         chan struct{}
+	outDir       string
+	failedLabel  string
+	failedReason string
+}
+
+// SetOutDir tells the renderer where this run writes on the host, so
+// sandbox paths translate and the failure panel can name the build log.
+func (r *renderer) SetOutDir(outDir string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.outDir = outDir
 }
 
 const logViewport = 8
@@ -127,11 +159,24 @@ func (r *renderer) feed(line string) error {
 	case "DONE", "FAILED", "CANCELLED":
 		state := map[string]string{"DONE": "ok", "FAILED": "fail", "CANCELLED": "stop"}[e.kind]
 		r.closePhase(e.label, state, e.phaseDur)
+		// The first FAILED line is the most specific one: inner steps
+		// fail before their parents, so it names the root cause.
+		if e.kind == "FAILED" && r.failedLabel == "" {
+			r.failedLabel, r.failedReason = e.label, e.reason
+		}
 	case "CANDIDATE", "MEDIA", "FINAL", "LOG":
-		r.arts = append(r.arts, e.kind+" "+e.path)
+		r.arts = append(r.arts, e.kind+" "+hostArtifactPath(r.outDir, e.path))
 	}
 	if !r.tty {
-		_, err := fmt.Fprintf(r.w, "[%s] %s\n", wallSince(r.start), line)
+		shown := line
+		switch e.kind {
+		case "CANDIDATE", "MEDIA", "FINAL", "LOG":
+			// Piped output is a working log: host paths only.
+			if t := hostArtifactPath(r.outDir, e.path); t != e.path {
+				shown = e.kind + " " + t
+			}
+		}
+		_, err := fmt.Fprintf(r.w, "[%s] %s\n", wallSince(r.start), shown)
 		return err
 	}
 	return r.draw()
@@ -272,6 +317,26 @@ func (r *renderer) finish(code int) error {
 		}
 	}
 	_, err := fmt.Fprintf(r.w, "soda-candidate: finished in %s with exit %d%s\n", wallSince(r.start), code, exitMeaning(code))
+	if err == nil && code != 0 && r.failedLabel != "" {
+		err = r.printWhyPanelLocked()
+	}
+	return err
+}
+
+// printWhyPanelLocked names the root-cause step, its reason, and the host
+// build log. It runs for terminals and pipes alike, after the closing
+// summary, so the cause is the last thing the operator sees.
+func (r *renderer) printWhyPanelLocked() error {
+	cause := r.failedReason
+	if cause == "" {
+		cause = "see the build log"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "  why: %s\n  cause: %s\n", r.failedLabel, cause)
+	if r.outDir != "" {
+		fmt.Fprintf(&b, "  log: %s\n", filepath.Join(r.outDir, "logs/build.log"))
+	}
+	_, err := io.WriteString(r.w, b.String())
 	return err
 }
 
