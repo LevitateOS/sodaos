@@ -97,10 +97,9 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
 (e.g. the gofumpt reformat) go through with `--no-verify` and a note.
 
 - [x] Complexity: `scripts/check-complexity.sh` via pinned `go tool gocyclo`
-  (v0.6.0). Whole-repo production Go is strictly below 10 (`gocyclo -over 9`
-  empty) as of `6e20148`. Peak dropped from 125/86 through batches 1–6 and the
-  later package-grouped restructures. Pre-commit `go vet` uses `GOOS=linux` so
-  Darwin checkouts no longer fail on linux-only `commandRunner`.
+  (v0.6.0). Shipping Go is `internal/`, `cmd/`, `appliance/`, `project-os/`
+  (not `tools/`, `scripts/`, `tests/`, or `*_test.go`). TypeScript cyclo is
+  browser payload only (`frontend/`, `assets/branding/`).
 - [x] gofumpt: `scripts/check-gofumpt.sh` via pinned `go tool gofumpt`
   (v0.9.1), zero tolerance. First measurement undercounted (24) through a
   `tee | head` SIGPIPE truncation; true backlog is ~185 files. 22 files

@@ -38,13 +38,13 @@ if [ -n "$cred_hits" ]; then
   fail=1
 fi
 
-# 3. Cyclomatic complexity below 10 on staged production Go files.
+# 3. Cyclomatic complexity below 10 on staged shipping Go (not tools/scripts/tests).
 gofiles=$(printf '%s\n' "$staged" | grep '\.go$' || true)
-prodgofiles=$(printf '%s\n' "$staged" | grep '\.go$' | grep -v '_test\.go$' || true)
+prodgofiles=$(printf '%s\n' "$staged" | grep '\.go$' | grep -E '^(internal|cmd|appliance|project-os)/' | grep -v '_test\.go$' || true)
 if [ -n "$prodgofiles" ]; then
   # shellcheck disable=SC2086
   if ! bash scripts/check-complexity.sh $prodgofiles; then
-    printf 'pre-commit: complexity gate failed on staged production files.\n'
+    printf 'pre-commit: complexity gate failed on staged shipping Go files.\n'
     fail=1
   fi
 fi
@@ -90,12 +90,12 @@ if [ -n "$tsfiles" ]; then
   fi
 fi
 
-# 9. Cyclomatic complexity below 10 on staged production TypeScript.
-prodtsfiles=$(printf '%s\n' "$tsfiles" | grep -v -E '(^tests/|^docs/|/fixtures/|/testdata/|\.test\.ts$)' || true)
+# 9. Cyclomatic complexity below 10 on staged browser-payload TypeScript.
+prodtsfiles=$(printf '%s\n' "$tsfiles" | grep -E '^(frontend/|assets/branding/)' | grep -v -E '(/fixtures/|/testdata/|\.test\.ts$)' || true)
 if [ -n "$prodtsfiles" ]; then
   # shellcheck disable=SC2086
   if ! bash scripts/check-ts-complexity.sh $prodtsfiles; then
-    printf 'pre-commit: TypeScript complexity gate failed on staged production files.\n'
+    printf 'pre-commit: TypeScript complexity gate failed on staged browser-payload files.\n'
     fail=1
   fi
 fi

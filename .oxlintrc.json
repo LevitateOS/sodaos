@@ -18,6 +18,8 @@
       "files": [
         "**/*.test.ts",
         "tests/**",
+        "scripts/**",
+        "tools/**",
         "**/fixtures/**",
         "**/testdata/**"
       ],

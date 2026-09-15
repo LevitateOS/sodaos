@@ -156,10 +156,11 @@ ownership and the Go threshold remain in [the slop audit](slop-audit.md#go-quali
 | --- | --- |
 | `bash scripts/check-oxfmt.sh` (`bun run check:oxfmt`) | Zero-tolerance format on the given `.ts`/`.tsx` paths, or every tracked TypeScript file. Fix with `bunx oxfmt --write <files>`. |
 | `bash scripts/check-oxlint.sh` (`bun run check:oxlint`) | Correctness lint (oxlint `correctness`, `--format=agent`, without duplicating `tsc`). Complexity is excluded here. |
-| `bash scripts/check-ts-complexity.sh` (`bun run check:ts-complexity`) | Production TypeScript only (not `tests/`, `docs/`, `*.test.ts`, fixtures, or testdata). Cyclomatic complexity strictly below 10, matching production Go (`gocyclo -over 9` / oxlint `complexity` max 9). |
+| `bash scripts/check-ts-complexity.sh` (`bun run check:ts-complexity`) | Browser payload only (`frontend/`, `assets/branding/`). Cyclomatic complexity strictly below 10, matching shipping Go (`gocyclo -over 9` / oxlint `complexity` max 9). `scripts/` and `tools/` are out of scope. |
 
 `.githooks/pre-commit` runs those three on staged `.ts`/`.tsx` files after the Go
-checks. Formatting applies to staged tests as well; complexity does not.
+checks. Formatting applies to staged tests as well; complexity does not (and does
+not apply to `scripts/` or `tools/`).
 
 ## Compiler boundaries
 
