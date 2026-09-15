@@ -82,38 +82,68 @@ type HostRequest struct {
 	Advertise *bool   `json:"advertise,omitempty"`
 }
 
+func hasExtraHostFields(r HostRequest) bool {
+	return r.ExitNode != nil || r.AllowLAN != nil || r.Advertise != nil
+}
+
+func validateHostSigninAction(r HostRequest) error {
+	if r.Confirm != "" || hasExtraHostFields(r) {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateHostConfirmedAction(r HostRequest) error {
+	if r.Confirm != r.Action || hasExtraHostFields(r) {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateHostExitNode(exitNode *string, allowLAN *bool) error {
+	if *exitNode == "" {
+		if *allowLAN {
+			return ErrInvalid
+		}
+		return nil
+	}
+	a, err := netip.ParseAddr(*exitNode)
+	if err != nil || a.String() != *exitNode || !a.IsGlobalUnicast() {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateHostExitNodeAction(r HostRequest) error {
+	if r.Confirm != r.Action || r.ExitNode == nil || r.AllowLAN == nil || r.Advertise != nil {
+		return ErrInvalid
+	}
+	return validateHostExitNode(r.ExitNode, r.AllowLAN)
+}
+
+func validateHostAdvertiseAction(r HostRequest) error {
+	if r.Confirm != r.Action || r.Advertise == nil || r.ExitNode != nil || r.AllowLAN != nil {
+		return ErrInvalid
+	}
+	return nil
+}
+
 func (r HostRequest) Validate() error {
 	if !containerPattern.MatchString(r.Revision) {
 		return ErrInvalid
 	}
 	switch r.Action {
 	case "signin", "authentication":
-		if r.Confirm != "" || r.ExitNode != nil || r.AllowLAN != nil || r.Advertise != nil {
-			return ErrInvalid
-		}
+		return validateHostSigninAction(r)
 	case "logout", "refresh-forgejo":
-		if r.Confirm != r.Action || r.ExitNode != nil || r.AllowLAN != nil || r.Advertise != nil {
-			return ErrInvalid
-		}
+		return validateHostConfirmedAction(r)
 	case "exit-node":
-		if r.Confirm != r.Action || r.ExitNode == nil || r.AllowLAN == nil || r.Advertise != nil {
-			return ErrInvalid
-		}
-		if *r.ExitNode == "" {
-			if *r.AllowLAN {
-				return ErrInvalid
-			}
-		} else if a, e := netip.ParseAddr(*r.ExitNode); e != nil || a.String() != *r.ExitNode || !a.IsGlobalUnicast() {
-			return ErrInvalid
-		}
+		return validateHostExitNodeAction(r)
 	case "advertise-exit-node":
-		if r.Confirm != r.Action || r.Advertise == nil || r.ExitNode != nil || r.AllowLAN != nil {
-			return ErrInvalid
-		}
+		return validateHostAdvertiseAction(r)
 	default:
 		return ErrInvalid
 	}
-	return nil
 }
 
 type HostResult struct {
