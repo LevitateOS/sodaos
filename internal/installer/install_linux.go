@@ -20,9 +20,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const dataDir = "/usr/local/share/soda-installer"
-const installerBinary = installlayout.Libexec + "/soda-install"
-const diskAttemptMarker = "/run/soda-installer-disk-started"
+const (
+	dataDir           = "/usr/local/share/soda-installer"
+	installerBinary   = installlayout.Libexec + "/soda-install"
+	diskAttemptMarker = "/run/soda-installer-disk-started"
+)
 
 var (
 	errBack    = errors.New("back requested")
@@ -56,23 +58,59 @@ func architecture() string {
 
 // Run requires a controlling terminal. The live service starts disk review;
 // installed-host continuation is explicitly operator-started.
+func runEnrollmentAction(ctx context.Context, action string) (bool, error) {
+	switch action {
+	case "enrollment-serve":
+		if err := coreOSHost(false); err != nil {
+			return true, err
+		}
+		return true, ServeEnrollment(ctx)
+	case "enrollment-receive":
+		if err := coreOSHost(false); err != nil {
+			return true, err
+		}
+		return true, ReceiveEnrollment(ctx)
+	}
+	return false, nil
+}
+
+func lockInstaller() (*os.File, error) {
+	lock, err := os.OpenFile("/run/soda-installer.lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, errors.New("cannot open installer lock")
+	}
+	if err := unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
+		lock.Close()
+		return nil, errors.New("another installer is active")
+	}
+	return lock, nil
+}
+
+func runLockedInstall(ctx context.Context, c console, action string) error {
+	switch action {
+	case "continue":
+		return continueInstall(ctx, c, command)
+	case "configure":
+		return configureInstall(ctx, c, command)
+	case "enroll-key":
+		return armEnrollment(ctx, c, command)
+	default:
+		return installDisk(ctx, c)
+	}
+}
+
+func validInstallAction(action string) bool {
+	return action == "disk" || action == "continue" || action == "configure" || action == "enroll-key"
+}
+
 func Run(ctx context.Context, action string) error {
 	if os.Geteuid() != 0 || runtime.GOOS != "linux" {
 		return errors.New("native CoreOS root required")
 	}
-	switch action {
-	case "enrollment-serve":
-		if err := coreOSHost(false); err != nil {
-			return err
-		}
-		return ServeEnrollment(ctx)
-	case "enrollment-receive":
-		if err := coreOSHost(false); err != nil {
-			return err
-		}
-		return ReceiveEnrollment(ctx)
+	if handled, err := runEnrollmentAction(ctx, action); handled {
+		return err
 	}
-	if action != "disk" && action != "continue" && action != "configure" && action != "enroll-key" {
+	if !validInstallAction(action) {
 		return errors.New("usage: soda-install disk|continue|configure|enroll-key")
 	}
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
@@ -86,25 +124,47 @@ func Run(ctx context.Context, action string) error {
 	}
 	// One local caller, including when different consoles are active. Lock file is
 	// not a success marker and is never removed to pretend a partial attempt is new.
-	lock, err := os.OpenFile("/run/soda-installer.lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	lock, err := lockInstaller()
 	if err != nil {
-		return errors.New("cannot open installer lock")
+		return err
 	}
 	defer lock.Close()
-	if err := unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
-		return errors.New("another installer is active")
-	}
 	defer unix.Flock(int(lock.Fd()), unix.LOCK_UN)
-	switch action {
-	case "continue":
-		return continueInstall(ctx, c, command)
-	case "configure":
-		return configureInstall(ctx, c, command)
-	case "enroll-key":
-		return armEnrollment(ctx, c, command)
-	default:
-		return installDisk(ctx, c)
+	return runLockedInstall(ctx, c, action)
+}
+
+func liveISOFromCmdline(data []byte) bool {
+	for _, arg := range strings.Fields(string(data)) {
+		if arg == "coreos.liveiso" || strings.HasPrefix(arg, "coreos.liveiso=") || strings.HasPrefix(arg, "coreos.live.rootfs_url=") {
+			return true
+		}
 	}
+	return false
+}
+
+func admitLiveInstaller(values map[string]string) error {
+	var media mediaIdentity
+	if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
+		return errors.New("missing media identity")
+	}
+	// Selected CoreOS reports the Fedora major in VERSION_ID (44), and
+	// the exact image release in IMAGE_VERSION (44.20260817.3.2).
+	if err := media.validate(values["IMAGE_VERSION"], architecture()); err != nil {
+		return err
+	}
+	observed, err := command(context.Background(), "coreos-installer", []string{"--version"}, nil)
+	if err != nil || strings.TrimSpace(string(observed)) != media.InstallerVersion {
+		return errors.New("unreviewed CoreOS Installer version")
+	}
+	return nil
+}
+
+func selinuxEnforcing() error {
+	enforcing, err := os.ReadFile("/sys/fs/selinux/enforce")
+	if err != nil || strings.TrimSpace(string(enforcing)) != "1" {
+		return errors.New("SELinux must remain enforcing")
+	}
+	return nil
 }
 
 func coreOSHost(live bool) error {
@@ -121,35 +181,15 @@ func coreOSHost(live bool) error {
 	if err != nil {
 		return err
 	}
-	isLive := false
-	for _, arg := range strings.Fields(string(cmdline)) {
-		if arg == "coreos.liveiso" || strings.HasPrefix(arg, "coreos.liveiso=") || strings.HasPrefix(arg, "coreos.live.rootfs_url=") {
-			isLive = true
-		}
-	}
-	if live != isLive {
+	if live != liveISOFromCmdline(cmdline) {
 		return errors.New("disk action requires the live ISO; continuation requires the installed host")
 	}
 	if live {
-		var media mediaIdentity
-		if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
-			return errors.New("missing media identity")
-		}
-		// Selected CoreOS reports the Fedora major in VERSION_ID (44), and
-		// the exact image release in IMAGE_VERSION (44.20260817.3.2).
-		if err := media.validate(values["IMAGE_VERSION"], architecture()); err != nil {
+		if err := admitLiveInstaller(values); err != nil {
 			return err
 		}
-		observed, err := command(context.Background(), "coreos-installer", []string{"--version"}, nil)
-		if err != nil || strings.TrimSpace(string(observed)) != media.InstallerVersion {
-			return errors.New("unreviewed CoreOS Installer version")
-		}
 	}
-	enforcing, err := os.ReadFile("/sys/fs/selinux/enforce")
-	if err != nil || strings.TrimSpace(string(enforcing)) != "1" {
-		return errors.New("SELinux must remain enforcing")
-	}
-	return nil
+	return selinuxEnforcing()
 }
 
 func osRelease(data []byte) map[string]string {
@@ -192,6 +232,40 @@ func installDiskAt(ctx context.Context, c console, marker string) error {
 	})
 }
 
+func askRestartOrQuit(c console) (restart bool, err error) {
+	c.page("Installation cancelled before disk writing")
+	c.print("No disk installation was started.")
+	c.print("Restart reuses this already loaded installer executable.")
+	for {
+		choice, askErr := c.ask("Type restart or quit")
+		if askErr != nil {
+			return false, askErr
+		}
+		switch strings.ToLower(choice) {
+		case "restart":
+			return true, nil
+		case "quit", "cancel":
+			return false, errors.New("cancelled; no disk installation started")
+		default:
+			c.print("Choose restart or quit.")
+		}
+	}
+}
+
+func afterFailedDiskAttempt(c console, marker string, err error, interrupted bool) (retry bool, out error) {
+	started, markerErr := diskInstallationStarted(marker)
+	if markerErr != nil {
+		return false, markerErr
+	}
+	if started || (!errors.Is(err, errRestart) && !errors.Is(err, errCancel) && !interrupted) {
+		return false, err
+	}
+	if errors.Is(err, errRestart) {
+		return true, nil
+	}
+	return askRestartOrQuit(c)
+}
+
 func retryDiskInstall(ctx context.Context, c console, marker string, attempt func(context.Context, console) error) error {
 	for {
 		started, err := diskInstallationStarted(marker)
@@ -201,7 +275,6 @@ func retryDiskInstall(ctx context.Context, c console, marker string, attempt fun
 		if started {
 			return errors.New("disk installation was already attempted this boot; inspect the result, do not replay")
 		}
-
 		attemptCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT)
 		err = attempt(attemptCtx, console{tty: c.tty, ctx: attemptCtx})
 		interrupted := ctx.Err() == nil && (attemptCtx.Err() != nil || errors.Is(err, context.Canceled))
@@ -209,38 +282,9 @@ func retryDiskInstall(ctx context.Context, c console, marker string, attempt fun
 		if err == nil {
 			return nil
 		}
-		started, markerErr := diskInstallationStarted(marker)
-		if markerErr != nil {
-			return markerErr
-		}
-		if started {
+		retry, err := afterFailedDiskAttempt(c, marker, err, interrupted)
+		if err != nil || !retry {
 			return err
-		}
-		if errors.Is(err, errRestart) {
-			continue
-		}
-		if !errors.Is(err, errCancel) && !interrupted {
-			return err
-		}
-
-		c.page("Installation cancelled before disk writing")
-		c.print("No disk installation was started.")
-		c.print("Restart reuses this already loaded installer executable.")
-		for {
-			choice, askErr := c.ask("Type restart or quit")
-			if askErr != nil {
-				return askErr
-			}
-			switch strings.ToLower(choice) {
-			case "restart":
-				err = errRestart
-			case "quit", "cancel":
-				return errors.New("cancelled; no disk installation started")
-			default:
-				c.print("Choose restart or quit.")
-				continue
-			}
-			break
 		}
 	}
 }
@@ -264,26 +308,94 @@ type diskInstallChoices struct {
 	subnet       string
 }
 
-func installDiskAttempt(ctx context.Context, c console, marker string) error {
+func destinationForMedia(media mediaIdentity, template []byte, choices diskInstallChoices) ([]byte, error) {
+	if media.Format == 2 {
+		factory, err := readRegular("/usr/share/soda/defaults/host.example.json", 16384)
+		if err != nil {
+			return nil, err
+		}
+		return candidateDestination(template, factory, choices)
+	}
+	return Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
+}
+
+func attachContinuation(media mediaIdentity, destination []byte) ([]byte, error) {
+	if media.Format != 0 {
+		return destination, nil
+	}
+	binary, err := readRegular(installerBinary, 64<<20)
+	if err != nil {
+		return nil, err
+	}
+	return addContinuation(destination, binary)
+}
+
+func printDiskComplete(c console, media mediaIdentity) {
+	if media.Format == 2 {
+		c.print("SodaOS disk installation completed with all five application images local.")
+		c.print("Remove installation media and reboot explicitly; log in locally as root with your password.")
+		c.print("Native startup imports the included images before starting their services. No reboot was performed.")
+		c.print("For key-only SSH access, run locally after reboot: %s enroll-key", candidateInstallerBinary)
+		c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
+		return
+	}
+	c.print("CoreOS disk installation completed; Soda setup is not complete.")
+	c.print("Remove installation media and reboot explicitly.")
+	c.print("On the installed system run: sudo %s continue", installerBinary)
+	c.print("No reboot was performed.")
+}
+
+func collectDiskAttempt(ctx context.Context, c console) (mediaIdentity, diskInstallChoices, uint64, error) {
+	var media mediaIdentity
+	if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
+		return media, diskInstallChoices{}, 0, errors.New("missing media identity")
+	}
+	payloadBytes, err := payloadRequirement(media)
+	if err != nil {
+		return media, diskInstallChoices{}, 0, err
+	}
+	choices, err := collectDiskInstallChoices(ctx, c, command, scanDisks, payloadBytes)
+	return media, choices, payloadBytes, err
+}
+
+func writeAttemptIgnition(destination []byte) (string, error) {
+	work, err := os.MkdirTemp("/run", "soda-installer-")
+	if err != nil {
+		return "", err
+	}
+	ignition := filepath.Join(work, "destination.ign")
+	if err := nativebuild.WriteNew(ignition, destination, 0o600); err != nil {
+		return "", err
+	}
+	return ignition, nil
+}
+
+func beginDiskAttempt(c console) error {
 	welcome, err := readRegular("/etc/motd", 16384)
 	if err != nil {
 		return errors.New("cannot read installer welcome text")
 	}
 	c.print("\x1b[0m\x1b[2J\x1b[H%s", string(welcome))
 	c.print("Press Enter to begin. Ctrl-C cancels safely before disk writing.")
-	if _, err := c.line(); err != nil {
-		return err
-	}
+	_, err = c.line()
+	return err
+}
 
-	var media mediaIdentity
-	if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
-		return errors.New("missing media identity")
+func finishDiskAttempt(ctx context.Context, c console, disk Disk, media mediaIdentity, payloadBytes uint64) error {
+	if media.Format != 2 {
+		if err := copyInstalledPayload(ctx, disk, media, payloadBytes, command); err != nil {
+			return err
+		}
 	}
-	payloadBytes, err := payloadRequirement(media)
-	if err != nil {
+	printDiskComplete(c, media)
+	return nil
+}
+
+func installDiskAttempt(ctx context.Context, c console, marker string) error {
+	if err := beginDiskAttempt(c); err != nil {
 		return err
 	}
-	choices, err := collectDiskInstallChoices(ctx, c, command, scanDisks, payloadBytes)
+	media, choices, payloadBytes, err := collectDiskAttempt(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -291,311 +403,327 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	if err != nil {
 		return err
 	}
-	var destination []byte
-	if media.Format == 2 {
-		factory, readErr := readRegular("/usr/share/soda/defaults/host.example.json", 16384)
-		if readErr != nil {
-			return readErr
-		}
-		destination, err = candidateDestination(template, factory, choices)
-	} else {
-		destination, err = Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
-	}
+	destination, err := destinationForMedia(media, template, choices)
 	choices.passwordHash = ""
 	if err != nil {
 		return err
 	}
-	// Deliver this media's already trusted executable for explicit post-boot
-	// continuation. No remote runtime lookup or executable from the untrusted bundle.
-	if media.Format == 0 {
-		binary, err := readRegular(installerBinary, 64<<20)
-		if err != nil {
-			return err
-		}
-		destination, err = addContinuation(destination, binary)
-		if err != nil {
-			return err
-		}
-	}
-	work, err := os.MkdirTemp("/run", "soda-installer-")
+	destination, err = attachContinuation(media, destination)
 	if err != nil {
 		return err
 	}
-	// Private inputs remain in this boot's tmpfs, including on failure. No logs
-	// contain them; no cleanup touches unrelated or retained evidence.
-	ignition := filepath.Join(work, "destination.ign")
-	if err := nativebuild.WriteNew(ignition, destination, 0600); err != nil {
+	ignition, err := writeAttemptIgnition(destination)
+	if err != nil {
 		return err
 	}
 	c.page("Installing CoreOS")
 	c.print("Writing the confirmed disk. Do not disconnect it.")
 	c.print("Raw diagnostics are suppressed to protect provisioning inputs.")
-	err = executeDisk(ctx, choices.disk, ignition, func() ([]Disk, error) { return scanDisks(ctx, command) }, func() error {
-		return nativebuild.WriteNew(marker, []byte(choices.disk.Device.Name+"\n"), 0600)
-	}, command)
-	if err != nil {
+	if err := executeAttemptDisk(ctx, choices.disk, ignition, marker); err != nil {
 		return err
 	}
-	if media.Format == 2 {
-		c.print("SodaOS disk installation completed with all five application images local.")
-		c.print("Remove installation media and reboot explicitly; log in locally as root with your password.")
-		c.print("Native startup imports the included images before starting their services. No reboot was performed.")
-		c.print("For key-only SSH access, run locally after reboot: %s enroll-key", candidateInstallerBinary)
-		c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
+	return finishDiskAttempt(ctx, c, choices.disk, media, payloadBytes)
+}
+
+func executeAttemptDisk(ctx context.Context, disk Disk, ignition, marker string) error {
+	return executeDisk(ctx, disk, ignition, func() ([]Disk, error) { return scanDisks(ctx, command) }, func() error {
+		return nativebuild.WriteNew(marker, []byte(disk.Device.Name+"\n"), 0o600)
+	}, command)
+}
+
+func checkNav(value string) error {
+	switch strings.ToLower(value) {
+	case "back":
+		return errBack
+	case "restart":
+		return errRestart
+	case "cancel":
+		return errCancel
+	default:
 		return nil
 	}
-	if err := copyInstalledPayload(ctx, choices.disk, media, payloadBytes, command); err != nil {
+}
+
+func askNav(c console, prompt string) (string, error) {
+	val, err := c.ask(prompt)
+	if err != nil {
+		return "", err
+	}
+	if navErr := checkNav(val); navErr != nil {
+		return "", navErr
+	}
+	return val, nil
+}
+
+func askSecretNav(c console, prompt string) (string, error) {
+	val, err := c.secret(prompt)
+	if err != nil {
+		return "", err
+	}
+	if navErr := checkNav(val); navErr != nil {
+		return "", navErr
+	}
+	return val, nil
+}
+
+func stepNetwork(ctx context.Context, c console, run commandRunner) error {
+	err := c.networkWith(ctx, run)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, errBack), errors.Is(err, errCancel):
+		return errCancel
+	default:
 		return err
 	}
-	c.print("CoreOS disk installation completed; Soda setup is not complete.")
-	c.print("Remove installation media and reboot explicitly.")
-	c.print("On the installed system run: sudo %s continue", installerBinary)
-	c.print("No reboot was performed.")
-	return nil
+}
+
+func handleDiskInspectFailure(c console) error {
+	c.page("Step 2 of 5 — Installation disk")
+	c.print("Could not inspect disks. No disk installation started.")
+	_, err := askNav(c, "Type retry, back, restart, or cancel")
+	return err
+}
+
+func printDiskList(c console, disks []Disk, feedback string) {
+	c.page("Step 2 of 5 — Installation disk")
+	if feedback != "" {
+		c.print("%s", feedback)
+		c.print("")
+	}
+	for i, disk := range disks {
+		c.print("%d. %s", i+1, diskSummary(disk.Device))
+		for _, child := range disk.Device.Children {
+			c.print("   %q: %.1f GiB, filesystem %q", child.Name, float64(child.Size)/(1<<30), child.FSType)
+		}
+		if disk.Blocked != "" {
+			c.print("   Unavailable: %s", disk.Blocked)
+		}
+	}
+}
+
+func selectDisk(disks []Disk, selected string) (Disk, string, bool) {
+	index, err := strconv.Atoi(selected)
+	if err != nil || index < 1 || index > len(disks) {
+		return Disk{}, "Choose an available disk number.", false
+	}
+	disk := disks[index-1]
+	if disk.Blocked != "" {
+		return Disk{}, "That disk is unavailable; choose another disk.", false
+	}
+	return disk, "", true
+}
+
+func stepDisk(ctx context.Context, c console, run commandRunner, inspect func(context.Context, commandRunner) ([]Disk, error)) (Disk, error) {
+	feedback := ""
+	for {
+		disks, err := inspect(ctx, run)
+		if err != nil {
+			if navErr := handleDiskInspectFailure(c); navErr != nil {
+				return Disk{}, navErr
+			}
+			continue
+		}
+		printDiskList(c, disks, feedback)
+		feedback = ""
+		selected, err := askNav(c, "Disk number, back, restart, or cancel")
+		if err != nil {
+			return Disk{}, err
+		}
+		disk, errFeedback, ok := selectDisk(disks, selected)
+		if !ok {
+			feedback = errFeedback
+			continue
+		}
+		return disk, nil
+	}
+}
+
+func stepHostname(c console, selectedDisk Disk, currentHostname string) (string, error) {
+	feedback := ""
+	for {
+		c.page("Step 3 of 5 — Hostname")
+		if feedback != "" {
+			c.print("%s", feedback)
+			c.print("")
+			feedback = ""
+		}
+		c.print("Selected disk: %s", diskSummary(selectedDisk.Device))
+		hostnameDefault := currentHostname
+		if hostnameDefault == "" {
+			hostnameDefault = "soda"
+		}
+		value, err := askNav(c, "Hostname ["+hostnameDefault+"], back, restart, or cancel")
+		if err != nil {
+			return "", err
+		}
+		if value == "" {
+			value = hostnameDefault
+		}
+		if !Hostname(value) {
+			feedback = "Use lowercase letters, digits, dots, and interior hyphens."
+			continue
+		}
+		return value, nil
+	}
+}
+
+func validPassword(password, confirmation string) bool {
+	return utf8.ValidString(password) && utf8.RuneCountInString(password) >= 12 && password == confirmation
+}
+
+func hashPassword(ctx context.Context, run commandRunner, password string) (string, error) {
+	hash, err := run(ctx, "openssl", []string{"passwd", "-6", "-stdin"}, strings.NewReader(password+"\n"))
+	if err != nil {
+		return "", errors.New("password hashing failed")
+	}
+	return strings.TrimSpace(string(hash)), nil
+}
+
+func stepPassword(ctx context.Context, c console, run commandRunner) (string, error) {
+	feedback := ""
+	for {
+		c.page("Step 4 of 5 — Native operator password")
+		if feedback != "" {
+			c.print("%s", feedback)
+			c.print("")
+			feedback = ""
+		}
+		c.print("This password is for local root login after reboot.")
+		c.print("It does not enable ordinary root-password SSH.")
+		c.print("Type back, restart, or cancel in a password field to navigate.")
+		password, err := askSecretNav(c, "Password (at least 12 characters)")
+		if err != nil {
+			return "", err
+		}
+		confirmation, err := askSecretNav(c, "Confirm password")
+		if err != nil {
+			return "", err
+		}
+		if !validPassword(password, confirmation) {
+			feedback = "Passwords must match and contain at least 12 characters."
+			continue
+		}
+		return hashPassword(ctx, run, password)
+	}
+}
+
+func stepSubnet(ctx context.Context, c console, run commandRunner, currentSubnet string) (string, error) {
+	feedback := ""
+	for {
+		c.page("Step 5 of 5 — Project network and review")
+		if feedback != "" {
+			c.print("%s", feedback)
+			c.print("")
+			feedback = ""
+		}
+		c.print("Developer client routing is configured separately.")
+		subnetDefault := currentSubnet
+		if subnetDefault == "" {
+			subnetDefault = "10.89.0.0/24"
+		}
+		subnet, err := askNav(c, "Private project IPv4 subnet ["+subnetDefault+"], back, restart, or cancel")
+		if err != nil {
+			return "", err
+		}
+		if subnet == "" {
+			subnet = subnetDefault
+		}
+		observedRoutes, routeErr := routes(ctx, run)
+		if routeErr != nil {
+			feedback = "Could not inspect current IPv4 routes. Correct networking or retry."
+			continue
+		}
+		if err := ProjectSubnet(subnet, observedRoutes); err != nil {
+			feedback = "Invalid subnet: " + err.Error()
+			continue
+		}
+		return subnet, nil
+	}
+}
+
+func printFinalReview(c console, choices diskInstallChoices, payloadBytes uint64) {
+	c.page("Final review")
+	c.print("ERASE ALL DATA on:")
+	c.print("  %s", diskSummary(choices.disk.Device))
+	c.print("Hostname: %s", choices.hostname)
+	c.print("Project subnet: %s", choices.subnet)
+	c.print("Operator access: local native root password")
+	c.print("Included Soda payload: %.1f MiB verified", float64(payloadBytes)/(1<<20))
+	c.print("Network settings will be copied to the installed system.")
+	c.print("After writing, follow the completion screen for media removal and next steps.")
+}
+
+func confirmFinalReview(c console, diskName string) error {
+	phrase := "ERASE " + diskName
+	for {
+		answer, err := askNav(c, "Type exactly "+phrase+", back, restart, or cancel")
+		if err != nil {
+			return err
+		}
+		if answer == phrase {
+			return nil
+		}
+		c.print("Confirmation did not match. No disk writing started.")
+	}
+}
+
+func stepSubnetAndReview(ctx context.Context, c console, run commandRunner, choices *diskInstallChoices, payloadBytes uint64) error {
+	for {
+		subnet, err := stepSubnet(ctx, c, run, choices.subnet)
+		if err != nil {
+			return err
+		}
+		choices.subnet = subnet
+		printFinalReview(c, *choices, payloadBytes)
+		err = confirmFinalReview(c, choices.disk.Device.Name)
+		if errors.Is(err, errBack) {
+			continue
+		}
+		return err
+	}
+}
+
+func dispatchInstallStep(ctx context.Context, c console, run commandRunner, inspect func(context.Context, commandRunner) ([]Disk, error), payloadBytes uint64, step int, result *diskInstallChoices) error {
+	switch step {
+	case 0:
+		return stepNetwork(ctx, c, run)
+	case 1:
+		var err error
+		result.disk, err = stepDisk(ctx, c, run, inspect)
+		return err
+	case 2:
+		var err error
+		result.hostname, err = stepHostname(c, result.disk, result.hostname)
+		return err
+	case 3:
+		var err error
+		result.passwordHash, err = stepPassword(ctx, c, run)
+		return err
+	case 4:
+		err := stepSubnetAndReview(ctx, c, run, result, payloadBytes)
+		if err != nil {
+			result.passwordHash = ""
+		}
+		return err
+	default:
+		return nil
+	}
 }
 
 func collectDiskInstallChoices(ctx context.Context, c console, run commandRunner, inspect func(context.Context, commandRunner) ([]Disk, error), payloadBytes uint64) (diskInstallChoices, error) {
 	var result diskInstallChoices
 	step := 0
-	feedback := ""
 	for {
-		switch step {
-		case 0:
-			err := c.networkWith(ctx, run)
-			switch {
-			case err == nil:
-				step++
-			case errors.Is(err, errBack), errors.Is(err, errCancel):
-				return result, errCancel
-			default:
-				return result, err
-			}
-		case 1:
-			disks, err := inspect(ctx, run)
-			if err != nil {
-				c.page("Step 2 of 5 — Installation disk")
-				c.print("Could not inspect disks. No disk installation started.")
-				choice, askErr := c.ask("Type retry, back, restart, or cancel")
-				if askErr != nil {
-					return result, askErr
-				}
-				switch strings.ToLower(choice) {
-				case "retry":
-					continue
-				case "back":
-					step--
-					continue
-				case "restart":
-					return result, errRestart
-				case "cancel":
-					return result, errCancel
-				default:
-					feedback = "Choose retry, back, restart, or cancel."
-					continue
-				}
-			}
-			c.page("Step 2 of 5 — Installation disk")
-			if feedback != "" {
-				c.print("%s", feedback)
-				c.print("")
-				feedback = ""
-			}
-			for i, disk := range disks {
-				c.print("%d. %s", i+1, diskSummary(disk.Device))
-				for _, child := range disk.Device.Children {
-					c.print("   %q: %.1f GiB, filesystem %q", child.Name, float64(child.Size)/(1<<30), child.FSType)
-				}
-				if disk.Blocked != "" {
-					c.print("   Unavailable: %s", disk.Blocked)
-				}
-			}
-			selected, err := c.ask("Disk number, back, restart, or cancel")
-			if err != nil {
-				return result, err
-			}
-			switch strings.ToLower(selected) {
-			case "back":
-				step--
-				continue
-			case "restart":
-				return result, errRestart
-			case "cancel":
-				return result, errCancel
-			}
-			index, err := strconv.Atoi(selected)
-			if err != nil || index < 1 || index > len(disks) {
-				feedback = "Choose an available disk number."
-				continue
-			}
-			if disks[index-1].Blocked != "" {
-				feedback = "That disk is unavailable; choose another disk."
-				continue
-			}
-			result.disk = disks[index-1]
+		err := dispatchInstallStep(ctx, c, run, inspect, payloadBytes, step, &result)
+		if errors.Is(err, errBack) {
+			step--
+		} else if err != nil {
+			return result, err
+		} else if step == 4 {
+			return result, nil
+		} else {
 			step++
-		case 2:
-			c.page("Step 3 of 5 — Hostname")
-			if feedback != "" {
-				c.print("%s", feedback)
-				c.print("")
-				feedback = ""
-			}
-			c.print("Selected disk: %s", diskSummary(result.disk.Device))
-			hostnameDefault := result.hostname
-			if hostnameDefault == "" {
-				hostnameDefault = "soda"
-			}
-			value, err := c.ask("Hostname [" + hostnameDefault + "], back, restart, or cancel")
-			if err != nil {
-				return result, err
-			}
-			switch strings.ToLower(value) {
-			case "back":
-				step--
-				continue
-			case "restart":
-				return result, errRestart
-			case "cancel":
-				return result, errCancel
-			}
-			if value == "" {
-				value = hostnameDefault
-			}
-			if !Hostname(value) {
-				feedback = "Use lowercase letters, digits, dots, and interior hyphens."
-				continue
-			}
-			result.hostname = value
-			step++
-		case 3:
-			c.page("Step 4 of 5 — Native operator password")
-			if feedback != "" {
-				c.print("%s", feedback)
-				c.print("")
-				feedback = ""
-			}
-			c.print("This password is for local root login after reboot.")
-			c.print("It does not enable ordinary root-password SSH.")
-			c.print("Type back, restart, or cancel in a password field to navigate.")
-			password, err := c.secret("Password (at least 12 characters)")
-			if err != nil {
-				return result, err
-			}
-			switch password {
-			case "back":
-				password = ""
-				step--
-				continue
-			case "restart":
-				password = ""
-				return result, errRestart
-			case "cancel":
-				password = ""
-				return result, errCancel
-			}
-			confirmation, err := c.secret("Confirm password")
-			if err != nil {
-				password = ""
-				return result, err
-			}
-			switch confirmation {
-			case "back":
-				password, confirmation = "", ""
-				step--
-				continue
-			case "restart":
-				password, confirmation = "", ""
-				return result, errRestart
-			case "cancel":
-				password, confirmation = "", ""
-				return result, errCancel
-			}
-			if !utf8.ValidString(password) || utf8.RuneCountInString(password) < 12 || password != confirmation {
-				password, confirmation = "", ""
-				feedback = "Passwords must match and contain at least 12 characters."
-				continue
-			}
-			hash, hashErr := run(ctx, "openssl", []string{"passwd", "-6", "-stdin"}, strings.NewReader(password+"\n"))
-			password, confirmation = "", ""
-			if hashErr != nil {
-				return result, errors.New("password hashing failed")
-			}
-			result.passwordHash = strings.TrimSpace(string(hash))
-			step++
-		case 4:
-			c.page("Step 5 of 5 — Project network and review")
-			if feedback != "" {
-				c.print("%s", feedback)
-				c.print("")
-				feedback = ""
-			}
-			c.print("Developer client routing is configured separately.")
-			subnetDefault := result.subnet
-			if subnetDefault == "" {
-				subnetDefault = "10.89.0.0/24"
-			}
-			subnet, err := c.ask("Private project IPv4 subnet [" + subnetDefault + "], back, restart, or cancel")
-			if err != nil {
-				return result, err
-			}
-			switch strings.ToLower(subnet) {
-			case "back":
-				result.passwordHash = ""
-				step--
-				continue
-			case "restart":
-				result.passwordHash = ""
-				return result, errRestart
-			case "cancel":
-				result.passwordHash = ""
-				return result, errCancel
-			}
-			if subnet == "" {
-				subnet = subnetDefault
-			}
-			observedRoutes, routeErr := routes(ctx, run)
-			if routeErr != nil {
-				feedback = "Could not inspect current IPv4 routes. Correct networking or retry."
-				continue
-			}
-			if err := ProjectSubnet(subnet, observedRoutes); err != nil {
-				feedback = "Invalid subnet: " + err.Error()
-				continue
-			}
-			result.subnet = subnet
-			c.page("Final review")
-			c.print("ERASE ALL DATA on:")
-			c.print("  %s", diskSummary(result.disk.Device))
-			c.print("Hostname: %s", result.hostname)
-			c.print("Project subnet: %s", result.subnet)
-			c.print("Operator access: local native root password")
-			c.print("Included Soda payload: %.1f MiB verified", float64(payloadBytes)/(1<<20))
-			c.print("Network settings will be copied to the installed system.")
-			c.print("After writing, follow the completion screen for media removal and next steps.")
-			phrase := "ERASE " + result.disk.Device.Name
-			for {
-				answer, err := c.ask("Type exactly " + phrase + ", back, restart, or cancel")
-				if err != nil {
-					return result, err
-				}
-				switch strings.ToLower(answer) {
-				case "back":
-					step = 4
-				case "restart":
-					result.passwordHash = ""
-					return result, errRestart
-				case "cancel":
-					result.passwordHash = ""
-					return result, errCancel
-				default:
-					if answer == phrase {
-						return result, nil
-					}
-					c.print("Confirmation did not match. No disk writing started.")
-					continue
-				}
-				break
-			}
 		}
 	}
 }

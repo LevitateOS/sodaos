@@ -35,6 +35,7 @@ func (c *Client) OpenTerminal(ctx context.Context, in TerminalRequest) (*Termina
 	}
 	return &Terminal{conn: conn}, nil
 }
+
 func (t *Terminal) Send(ctx context.Context, f TerminalFrame) error {
 	if !f.inputValid() {
 		return errors.New("invalid terminal control")
@@ -44,6 +45,7 @@ func (t *Terminal) Send(ctx context.Context, f TerminalFrame) error {
 	}
 	return nil
 }
+
 func (t *Terminal) Receive(ctx context.Context) (TerminalFrame, error) {
 	kind, body, err := t.conn.Read(ctx)
 	var f TerminalFrame
@@ -56,6 +58,20 @@ func (t *Terminal) Close() { _ = t.conn.CloseNow() }
 
 // TerminalStates performs one bounded operation over the existing private wire.
 // A missing/unavailable reply is not absence and never triggers Create or End.
+func terminalMetadata(f TerminalFrame, err error) ([]TerminalState, error) {
+	if err != nil || f.Type != "metadata" || f.Terminals == nil {
+		return nil, errors.New("native terminal outcome unavailable")
+	}
+	return *f.Terminals, nil
+}
+
+func terminalTargetUnchanged(in TerminalRequest, items []TerminalState) bool {
+	if in.Action == "list" {
+		return true
+	}
+	return len(items) == 0 || (len(items) == 1 && items[0].ID == in.ID)
+}
+
 func (c *Client) TerminalStates(ctx context.Context, in TerminalRequest) ([]TerminalState, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -68,12 +84,12 @@ func (c *Client) TerminalStates(ctx context.Context, in TerminalRequest) ([]Term
 		return nil, err
 	}
 	defer t.Close()
-	f, err := t.Receive(ctx)
-	if err != nil || f.Type != "metadata" || f.Terminals == nil {
-		return nil, errors.New("native terminal outcome unavailable")
+	items, err := terminalMetadata(t.Receive(ctx))
+	if err != nil {
+		return nil, err
 	}
-	if in.Action != "list" && (len(*f.Terminals) > 1 || len(*f.Terminals) == 1 && (*f.Terminals)[0].ID != in.ID) {
+	if !terminalTargetUnchanged(in, items) {
 		return nil, errors.New("native terminal target changed")
 	}
-	return *f.Terminals, nil
+	return items, nil
 }

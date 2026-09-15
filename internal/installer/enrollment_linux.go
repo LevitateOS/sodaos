@@ -98,6 +98,29 @@ func enrollmentWrite(directory, name, value string) error {
 	return os.Link(f.Name(), filepath.Join(directory, name))
 }
 
+func enrollmentWindowRemaining(until int64, parseErr, clockErr error, now int64) (time.Duration, error) {
+	if parseErr != nil || clockErr != nil || until <= now || until-now > 300 {
+		return 0, errors.New("enrollment window expired")
+	}
+	return time.Duration(until-now) * time.Second, nil
+}
+
+func parseArmedEnrollment(data []byte) (enrollmentAddress, int64, error) {
+	fields := strings.Fields(string(data))
+	if len(fields) != 3 {
+		return enrollmentAddress{}, 0, errors.New("invalid enrollment arm state")
+	}
+	selected := enrollmentAddress{fields[0], fields[1]}
+	if _, err := enrollmentPrivateAddress(selected.ip); err != nil {
+		return selected, 0, err
+	}
+	until, err := strconv.ParseInt(fields[2], 10, 64)
+	if err != nil {
+		return selected, 0, errors.New("enrollment window expired")
+	}
+	return selected, until, nil
+}
+
 func enrollmentState() (enrollmentAddress, time.Duration, error) {
 	var selected enrollmentAddress
 	fd, err := unix.Open(enrollmentDir, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
@@ -112,21 +135,27 @@ func enrollmentState() (enrollmentAddress, time.Duration, error) {
 	if err != nil {
 		return selected, 0, err
 	}
-	fields := strings.Fields(string(data))
-	if len(fields) != 3 {
-		return selected, 0, errors.New("invalid enrollment arm state")
-	}
-	selected = enrollmentAddress{fields[0], fields[1]}
-	if _, err := enrollmentPrivateAddress(selected.ip); err != nil {
+	selected, until, err := parseArmedEnrollment(data)
+	if err != nil {
 		return selected, 0, err
 	}
-	until, err := strconv.ParseInt(fields[2], 10, 64)
 	now, clockErr := enrollmentBootSeconds()
-	if err != nil || clockErr != nil || until <= now || until-now > 300 {
-		return selected, 0, errors.New("enrollment window expired")
-	}
-	return selected, time.Duration(until-now) * time.Second, nil
+	remaining, err := enrollmentWindowRemaining(until, nil, clockErr, now)
+	return selected, remaining, err
 }
+
+func parseEnrollmentChoice(value string, n int) (int, error) {
+	if strings.EqualFold(value, "back") || strings.EqualFold(value, "cancel") {
+		return 0, errors.New("key enrollment cancelled")
+	}
+	index, err := strconv.Atoi(value)
+	if err != nil || index < 1 || index > n {
+		return 0, errEnrollmentChoice
+	}
+	return index, nil
+}
+
+var errEnrollmentChoice = errors.New("enter a listed enrollment address")
 
 func selectEnrollmentAddress(c console, addresses []enrollmentAddress) (enrollmentAddress, error) {
 	if len(addresses) == 0 {
@@ -140,44 +169,34 @@ func selectEnrollmentAddress(c console, addresses []enrollmentAddress) (enrollme
 		if err != nil {
 			return enrollmentAddress{}, err
 		}
-		if strings.EqualFold(value, "back") || strings.EqualFold(value, "cancel") {
-			return enrollmentAddress{}, errors.New("key enrollment cancelled")
+		index, err := parseEnrollmentChoice(value, len(addresses))
+		if errors.Is(err, errEnrollmentChoice) {
+			c.print("Enter a number from 1 to %d, or back/cancel.", len(addresses))
+			continue
 		}
-		index, err := strconv.Atoi(value)
-		if err == nil && index >= 1 && index <= len(addresses) {
-			return addresses[index-1], nil
+		if err != nil {
+			return enrollmentAddress{}, err
 		}
-		c.print("Enter a number from 1 to %d, or back/cancel.", len(addresses))
+		return addresses[index-1], nil
 	}
 }
 
-func armEnrollment(ctx context.Context, c console, run commandRunner) (result error) {
-	if err := enrollmentLocalConsole(c.tty); err != nil {
-		return err
-	}
-	if _, err := enrollmentRootHome(); err != nil {
-		return err
-	}
-	addresses, err := enrollmentAddresses()
-	if err != nil || len(addresses) == 0 {
-		return errors.New("no active private IPv4 address: configure the host network and an actual laptop route before key enrollment")
-	}
-	c.print("Import one laptop public key using the native root password. Choose the host address your laptop can actually reach; an interface address alone does not prove a client route.")
-	selected, err := selectEnrollmentAddress(c, addresses)
-	if err != nil {
-		return err
-	}
+func inspectHostFingerprint(ctx context.Context, run commandRunner) (string, error) {
 	// Derive the public host fingerprint from the actual existing private host
 	// key via native ssh-keygen; do not trust a possibly stale .pub companion.
 	public, err := run(ctx, "/usr/bin/ssh-keygen", []string{"-y", "-f", "/etc/ssh/ssh_host_ed25519_key"}, nil)
 	if err != nil {
-		return errors.New("native Ed25519 SSH host key unavailable; no enrollment window opened")
+		return "", errors.New("native Ed25519 SSH host key unavailable; no enrollment window opened")
 	}
 	key, _, _, _, err := ssh.ParseAuthorizedKey(public)
 	if err != nil || key.Type() != ssh.KeyAlgoED25519 {
-		return errors.New("cannot inspect native SSH host identity")
+		return "", errors.New("cannot inspect native SSH host identity")
 	}
-	c.print("Native host fingerprint: %s", ssh.FingerprintSHA256(key))
+	return ssh.FingerprintSHA256(key), nil
+}
+
+func confirmEnrollmentIntent(c console, selected enrollmentAddress, fingerprint string) error {
+	c.print("Native host fingerprint: %s", fingerprint)
 	c.print("A temporary password-only key-import connection will listen on %s:%s for at most five minutes. It uses OpenSSH's native password verification; additional PAM policies are not inherited. Ordinary SSH policy is unchanged. Press Enter or Ctrl-C to close it early.", selected.ip, enrollmentPort)
 	answer, err := c.ask("Type ARM KEY IMPORT to open this window")
 	if err != nil {
@@ -189,9 +208,36 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 	if !enrollmentLiveAddress(selected) {
 		return errors.New("selected interface address changed; no window opened")
 	}
-	if err := ctx.Err(); err != nil {
-		return err
+	return nil
+}
+
+func selectEnrollmentTarget(ctx context.Context, c console, run commandRunner) (enrollmentAddress, error) {
+	if err := enrollmentLocalConsole(c.tty); err != nil {
+		return enrollmentAddress{}, err
 	}
+	if _, err := enrollmentRootHome(); err != nil {
+		return enrollmentAddress{}, err
+	}
+	addresses, err := enrollmentAddresses()
+	if err != nil || len(addresses) == 0 {
+		return enrollmentAddress{}, errors.New("no active private IPv4 address: configure the host network and an actual laptop route before key enrollment")
+	}
+	c.print("Import one laptop public key using the native root password. Choose the host address your laptop can actually reach; an interface address alone does not prove a client route.")
+	selected, err := selectEnrollmentAddress(c, addresses)
+	if err != nil {
+		return enrollmentAddress{}, err
+	}
+	fingerprint, err := inspectHostFingerprint(ctx, run)
+	if err != nil {
+		return enrollmentAddress{}, err
+	}
+	if err = confirmEnrollmentIntent(c, selected, fingerprint); err != nil {
+		return enrollmentAddress{}, err
+	}
+	return selected, ctx.Err()
+}
+
+func guardExistingEnrollmentState(ctx context.Context, run commandRunner) error {
 	// An existing unit or state is never replaced or adopted. No reopen after a
 	// crash is inferred; runtime expiry/reboot bounds abandoned attempts.
 	for _, name := range []string{enrollmentUnit, enrollmentSocketUnit} {
@@ -207,55 +253,77 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 	if inspectErr != nil || strings.TrimSpace(string(templates)) != "" {
 		return errors.New("existing enrollment service template must be preserved; no replacement")
 	}
-	if err := os.Mkdir(enrollmentDir, 0700); err != nil {
+	if err := os.Mkdir(enrollmentDir, 0o700); err != nil {
 		return errors.New("enrollment state already exists or cannot be reserved; no replacement")
 	}
-	started := false
-	var publishedUnits []string
-	defer func() {
-		stopped := !started
-		if started {
-			cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			// Stopping the socket first waits for its BindsTo/After connection
-			// instances. Only these exact owned names are stopped, never a glob.
-			_, socketErr := run(cleanup, "systemctl", []string{"stop", enrollmentSocketUnit}, nil)
-			_, stopErr := run(cleanup, "systemctl", []string{"stop", enrollmentUnit}, nil)
-			if stopErr == nil {
-				stopped = true
-			} else {
-				// --collect may already have unloaded a successful unit. Confirm
-				// both manager absence and cgroup removal before treating that
-				// stop error as an already completed close.
-				load, inspectErr := run(cleanup, "systemctl", []string{"show", "--property=LoadState", "--value", enrollmentUnit}, nil)
-				_, groupErr := os.Lstat("/sys/fs/cgroup/system.slice/" + enrollmentUnit)
-				stopped = inspectErr == nil && strings.TrimSpace(string(load)) == "not-found" && errors.Is(groupErr, os.ErrNotExist)
-			}
-			stopped = stopped && socketErr == nil
-			if !stopped {
-				result = errors.New("enrollment close could not be confirmed; the five-minute native service limit still applies; preserve this attempt and inspect locally")
-			}
+	return nil
+}
+
+type enrollmentSession struct {
+	run            commandRunner
+	started        bool
+	publishedUnits []string
+}
+
+func (s *enrollmentSession) stopUnits() (bool, error) {
+	if !s.started {
+		return true, nil
+	}
+	cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	// Stopping the socket first waits for its BindsTo/After connection
+	// instances. Only these exact owned names are stopped, never a glob.
+	_, socketErr := s.run(cleanup, "systemctl", []string{"stop", enrollmentSocketUnit}, nil)
+	_, stopErr := s.run(cleanup, "systemctl", []string{"stop", enrollmentUnit}, nil)
+	stopped := stopErr == nil
+	if !stopped {
+		// --collect may already have unloaded a successful unit. Confirm
+		// both manager absence and cgroup removal before treating that
+		// stop error as an already completed close.
+		load, inspectErr := s.run(cleanup, "systemctl", []string{"show", "--property=LoadState", "--value", enrollmentUnit}, nil)
+		_, groupErr := os.Lstat("/sys/fs/cgroup/system.slice/" + enrollmentUnit)
+		stopped = inspectErr == nil && strings.TrimSpace(string(load)) == "not-found" && errors.Is(groupErr, os.ErrNotExist)
+	}
+	stopped = stopped && socketErr == nil
+	if !stopped {
+		return false, errors.New("enrollment close could not be confirmed; the five-minute native service limit still applies; preserve this attempt and inspect locally")
+	}
+	return true, nil
+}
+
+func (s *enrollmentSession) cleanupUnits() error {
+	var result error
+	for _, name := range s.publishedUnits {
+		if err := os.Remove(filepath.Join(enrollmentUnitDirectory, name)); err != nil {
+			result = errors.New("owned enrollment unit cleanup failed; inspect locally before reopening")
 		}
-		if stopped {
-			for _, name := range publishedUnits {
-				if err := os.Remove(filepath.Join(enrollmentUnitDirectory, name)); err != nil {
-					result = errors.New("owned enrollment unit cleanup failed; inspect locally before reopening")
-				}
-			}
-			if len(publishedUnits) > 0 {
-				cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				if _, err := run(cleanup, "systemctl", []string{"daemon-reload"}, nil); err != nil {
-					result = errors.New("owned enrollment unit removal could not be reloaded; inspect locally before reopening")
-				}
-			}
-			// Exact run-owned files only. Never remove another tree or stale evidence.
-			for _, name := range []string{"armed", "sshd_config", "receive.sock", "ready", "result"} {
-				_ = os.Remove(filepath.Join(enrollmentDir, name))
-			}
-			_ = os.Remove(enrollmentDir)
+	}
+	if len(s.publishedUnits) > 0 {
+		cleanup, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if _, err := s.run(cleanup, "systemctl", []string{"daemon-reload"}, nil); err != nil {
+			result = errors.New("owned enrollment unit removal could not be reloaded; inspect locally before reopening")
 		}
-	}()
+	}
+	// Exact run-owned files only. Never remove another tree or stale evidence.
+	for _, name := range []string{"armed", "sshd_config", "receive.sock", "ready", "result"} {
+		_ = os.Remove(filepath.Join(enrollmentDir, name))
+	}
+	_ = os.Remove(enrollmentDir)
+	return result
+}
+
+func (s *enrollmentSession) close() error {
+	stopped, err := s.stopUnits()
+	if stopped {
+		if cleanErr := s.cleanupUnits(); cleanErr != nil {
+			return cleanErr
+		}
+	}
+	return err
+}
+
+func writeEnrollmentConfig(ctx context.Context, run commandRunner, selected enrollmentAddress) error {
 	now, err := enrollmentBootSeconds()
 	if err != nil {
 		return err
@@ -269,6 +337,10 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 	if _, err := run(ctx, "/usr/sbin/sshd", []string{"-t", "-f", enrollmentConfigPath}, nil); err != nil {
 		return errors.New("native SSH configuration check failed; no listener opened")
 	}
+	return nil
+}
+
+func publishEnrollmentUnits(ctx context.Context, session *enrollmentSession, ip string) error {
 	unitDirectory, err := unix.Open(enrollmentUnitDirectory, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return errors.New("native runtime unit directory unavailable")
@@ -277,7 +349,7 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 	if err := enrollmentSafeDirectory(unitDirectory, 0); err != nil {
 		return err
 	}
-	socketConfig, err := enrollmentSocketUnitConfig(selected.ip)
+	socketConfig, err := enrollmentSocketUnitConfig(ip)
 	if err != nil {
 		return err
 	}
@@ -285,34 +357,101 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 		if err := enrollmentWrite(enrollmentUnitDirectory, unit.name, unit.contents); err != nil {
 			return errors.New("runtime enrollment unit already exists or cannot be published; no replacement")
 		}
-		publishedUnits = append(publishedUnits, unit.name)
+		session.publishedUnits = append(session.publishedUnits, unit.name)
 	}
-	if _, err := run(ctx, "systemctl", []string{"daemon-reload"}, nil); err != nil {
+	if _, err := session.run(ctx, "systemctl", []string{"daemon-reload"}, nil); err != nil {
 		return errors.New("native enrollment units could not be loaded")
 	}
+	return nil
+}
+
+func startEnrollmentService(ctx context.Context, session *enrollmentSession) error {
 	// Mark before starting: a lost systemd-run reply is not permission to leave
 	// a possibly started window running without the cleanup attempt.
-	started = true
-	if _, err := run(ctx, "systemd-run", enrollmentStartArgs(), nil); err != nil {
+	session.started = true
+	if _, err := session.run(ctx, "systemd-run", enrollmentStartArgs(), nil); err != nil {
 		return errors.New("temporary enrollment service could not start")
 	}
+	return nil
+}
+
+func publishEnrollmentState(ctx context.Context, session *enrollmentSession, selected enrollmentAddress) error {
+	if err := writeEnrollmentConfig(ctx, session.run, selected); err != nil {
+		return err
+	}
+	if err := publishEnrollmentUnits(ctx, session, selected.ip); err != nil {
+		return err
+	}
+	return startEnrollmentService(ctx, session)
+}
+
+func checkEnrollmentResult(c console, ip string) (bool, error) {
+	data, err := readRegular(enrollmentDir+"/result", 128)
+	if err != nil {
+		return false, nil
+	}
+	if string(data) == "uncertain\n" {
+		return true, errEnrollmentWriteUncertain
+	}
+	if string(data) != "imported\n" {
+		return true, errors.New("key import failed; preserve existing access and inspect locally")
+	}
+	c.print("Public key installed. The import window is closing. Verify a NEW ordinary key-only SSH login from the laptop before continuing.")
+	c.print("Use the laptop private-key path matching the public .pub file you imported:")
+	c.print("ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ControlMaster=no -o ControlPath=none root@%s", ip)
+	return true, nil
+}
+
+func notifyEnrollmentReady(c console, selected enrollmentAddress, ready *bool) {
+	if !*ready {
+		if _, err := os.Lstat(enrollmentDir + "/ready"); err == nil {
+			*ready = true
+			laptop, _ := enrollmentClientCommand(selected.ip)
+			c.print("On the laptop, check the host fingerprint above, then run (adjust only your PUBLIC .pub file path):\n%s", laptop)
+			c.print("Waiting for one public key. Press Enter to cancel; do not close this console while importing.")
+		}
+	}
+}
+
+func pollConsoleCancel(c console, cancelConsole console) error {
+	// A short poll keeps cancellation responsive without abandoning a reader
+	// goroutine that could consume a subsequent wizard answer.
+	events := []unix.PollFd{{Fd: int32(c.tty.Fd()), Events: unix.POLLIN}}
+	if _, err := unix.Poll(events, 200); err != nil && err != unix.EINTR {
+		return err
+	}
+	if events[0].Revents&(unix.POLLHUP|unix.POLLERR|unix.POLLNVAL) != 0 {
+		return errors.New("local console disconnected; closing enrollment")
+	}
+	if events[0].Revents&unix.POLLIN != 0 {
+		_, _ = cancelConsole.line()
+		return errors.New("key enrollment cancelled locally")
+	}
+	return nil
+}
+
+func checkEnrollmentServiceActive(ctx context.Context, run commandRunner) error {
+	state, err := run(ctx, "systemctl", []string{"show", "--property=ActiveState", "--value", enrollmentUnit}, nil)
+	active := strings.TrimSpace(string(state))
+	if err != nil || (active != "active" && active != "activating") {
+		// The receipt may have appeared since the start of this loop.
+		if _, err := os.Lstat(enrollmentDir + "/result"); err == nil {
+			return nil
+		}
+		return errors.New("enrollment service closed without a receipt; a key may have been imported; verify native access locally before trying another import")
+	}
+	return nil
+}
+
+func waitEnrollmentResult(ctx context.Context, c console, run commandRunner, selected enrollmentAddress) error {
 	waitCtx, cancel := context.WithTimeout(ctx, 300*time.Second)
 	defer cancel()
 	cancelConsole := console{tty: c.tty, ctx: waitCtx}
 	ready := false
 	lastStateCheck := time.Time{}
 	for {
-		if data, err := readRegular(enrollmentDir+"/result", 128); err == nil {
-			if string(data) == "uncertain\n" {
-				return errEnrollmentWriteUncertain
-			}
-			if string(data) != "imported\n" {
-				return errors.New("key import failed; preserve existing access and inspect locally")
-			}
-			c.print("Public key installed. The import window is closing. Verify a NEW ordinary key-only SSH login from the laptop before continuing.")
-			c.print("Use the laptop private-key path matching the public .pub file you imported:")
-			c.print("ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ControlMaster=no -o ControlPath=none root@%s", selected.ip)
-			return nil
+		if done, err := checkEnrollmentResult(c, selected.ip); done {
+			return err
 		}
 		if err := waitCtx.Err(); err != nil {
 			return errors.New("key enrollment closed without confirmed import")
@@ -320,75 +459,75 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 		if _, _, err := enrollmentState(); err != nil {
 			return errors.New("key enrollment window expired; closing it now")
 		}
-		if !ready {
-			if _, err := os.Lstat(enrollmentDir + "/ready"); err == nil {
-				ready = true
-				laptop, _ := enrollmentClientCommand(selected.ip)
-				c.print("On the laptop, check the host fingerprint above, then run (adjust only your PUBLIC .pub file path):\n%s", laptop)
-				c.print("Waiting for one public key. Press Enter to cancel; do not close this console while importing.")
-			}
-		}
-		// A short poll keeps cancellation responsive without abandoning a reader
-		// goroutine that could consume a subsequent wizard answer.
-		events := []unix.PollFd{{Fd: int32(c.tty.Fd()), Events: unix.POLLIN}}
-		if _, err := unix.Poll(events, 200); err != nil && err != unix.EINTR {
+		notifyEnrollmentReady(c, selected, &ready)
+		if err := pollConsoleCancel(c, cancelConsole); err != nil {
 			return err
 		}
-		if events[0].Revents&(unix.POLLHUP|unix.POLLERR|unix.POLLNVAL) != 0 {
-			return errors.New("local console disconnected; closing enrollment")
-		}
-		if events[0].Revents&unix.POLLIN != 0 {
-			_, _ = cancelConsole.line()
-			return errors.New("key enrollment cancelled locally")
-		}
-		// Detect failures after binding too. A missing receipt is not proof that
-		// no key write occurred; never retry a potentially completed append.
 		if time.Since(lastStateCheck) >= time.Second {
 			lastStateCheck = time.Now()
-			state, err := run(waitCtx, "systemctl", []string{"show", "--property=ActiveState", "--value", enrollmentUnit}, nil)
-			active := strings.TrimSpace(string(state))
-			if err != nil || (active != "active" && active != "activating") {
-				// The receipt may have appeared since the start of this loop.
-				if _, err := os.Lstat(enrollmentDir + "/result"); err == nil {
-					continue
-				}
-				return errors.New("enrollment service closed without a receipt; a key may have been imported; verify native access locally before trying another import")
+			if err := checkEnrollmentServiceActive(waitCtx, run); err != nil {
+				return err
 			}
 		}
 	}
 }
 
-// ServeEnrollment is an internal fixed systemd service action, not an arming
-// entrypoint. Run dispatches it without requesting a terminal, after root and
-// installed-CoreOS checks. The cgroup check prevents accidental direct execution.
-func ServeEnrollment(ctx context.Context) error {
+func armEnrollment(ctx context.Context, c console, run commandRunner) (result error) {
+	selected, err := selectEnrollmentTarget(ctx, c, run)
+	if err != nil {
+		return err
+	}
+	if err = guardExistingEnrollmentState(ctx, run); err != nil {
+		return err
+	}
+	session := enrollmentSession{run: run}
+	defer func() {
+		if closeErr := session.close(); closeErr != nil {
+			result = closeErr
+		}
+	}()
+	if err = publishEnrollmentState(ctx, &session, selected); err != nil {
+		return err
+	}
+	return waitEnrollmentResult(ctx, c, run, selected)
+}
+
+func validateEnrollmentServerEnvironment() (time.Duration, error) {
 	group, err := os.ReadFile("/proc/self/cgroup")
 	if err != nil || strings.TrimSpace(string(group)) != "0::/system.slice/"+enrollmentUnit {
-		return errors.New("enrollment server requires its fixed native transient service")
+		return 0, errors.New("enrollment server requires its fixed native transient service")
 	}
 	selected, remaining, err := enrollmentState()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if !enrollmentLiveAddress(selected) {
-		return errors.New("selected private address is no longer live")
+		return 0, errors.New("selected private address is no longer live")
 	}
-	phase, cancel := context.WithTimeout(ctx, remaining)
-	defer cancel()
+	return remaining, nil
+}
+
+func startEnrollmentBroker(phase context.Context) (*net.UnixListener, error) {
 	broker, err := net.ListenUnix("unix", &net.UnixAddr{Name: enrollmentSocket, Net: "unix"})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer broker.Close()
-	if err := os.Chmod(enrollmentSocket, 0600); err != nil {
-		return err
+	if err := os.Chmod(enrollmentSocket, 0o600); err != nil {
+		broker.Close()
+		return nil, err
 	}
 	if _, err := command(phase, "systemctl", []string{"start", enrollmentSocketUnit}, nil); err != nil {
-		return errors.New("native key-import socket could not start")
+		broker.Close()
+		return nil, errors.New("native key-import socket could not start")
 	}
 	if err := enrollmentWrite(enrollmentDir, "ready", "ready\n"); err != nil {
-		return err
+		broker.Close()
+		return nil, err
 	}
+	return broker, nil
+}
+
+func acceptEnrollmentRequests(phase context.Context, broker *net.UnixListener) <-chan *net.UnixConn {
 	requests := make(chan *net.UnixConn)
 	go func() {
 		for {
@@ -404,8 +543,71 @@ func ServeEnrollment(ctx context.Context) error {
 			}
 		}
 	}()
-	// CLOCK_BOOTTIME state also expires across suspend, unlike Go's ordinary
-	// monotonic timers. A resumed machine cannot extend an old arm window.
+	return requests
+}
+
+func setEnrollmentConnectionDeadline(phase context.Context, connection *net.UnixConn) {
+	deadline := time.Now().Add(15 * time.Second)
+	if window, ok := phase.Deadline(); ok && window.Before(deadline) {
+		deadline = window
+	}
+	connection.SetDeadline(deadline)
+}
+
+func readEnrollmentKeyFromConnection(phase context.Context, connection *net.UnixConn) (string, bool, error) {
+	setEnrollmentConnectionDeadline(phase, connection)
+	unit, err := enrollmentConnectionUnit(connection)
+	if err != nil || !enrollmentReceiverUnit(unit) {
+		connection.Close()
+		return "", false, nil
+	}
+	key, err := enrollmentPublicKey(connection)
+	if err != nil {
+		io.WriteString(connection, "refused\n")
+		connection.Close()
+		return "", false, nil
+	}
+	if phase.Err() != nil {
+		connection.Close()
+		return "", false, phase.Err()
+	}
+	if _, _, err := enrollmentState(); err != nil {
+		connection.Close()
+		return "", false, err
+	}
+	return key, true, nil
+}
+
+func enrollmentCommitStatus(err error) string {
+	if err == nil {
+		return "imported\n"
+	}
+	if errors.Is(err, errEnrollmentWriteUncertain) {
+		return "uncertain\n"
+	}
+	return "failed\n"
+}
+
+func commitEnrollmentKey(phase context.Context, connection *net.UnixConn, key string) error {
+	home, err := enrollmentRootHome()
+	if err == nil {
+		err = appendEnrollmentKey(phase, home, key, 0)
+	}
+	if err == nil {
+		if _, labelErr := command(phase, "/usr/sbin/restorecon", []string{"--", home + "/.ssh", home + "/.ssh/authorized_keys"}, nil); labelErr != nil {
+			err = errEnrollmentWriteUncertain
+		}
+	}
+	status := enrollmentCommitStatus(err)
+	if writeErr := enrollmentWrite(enrollmentDir, "result", status); writeErr != nil {
+		err = writeErr
+	}
+	io.WriteString(connection, status)
+	connection.Close()
+	return err
+}
+
+func serveEnrollmentLoop(phase context.Context, broker *net.UnixListener, requests <-chan *net.UnixConn) error {
 	clockCheck := time.NewTicker(time.Second)
 	defer clockCheck.Stop()
 	for {
@@ -417,61 +619,38 @@ func ServeEnrollment(ctx context.Context) error {
 				return err
 			}
 		case connection := <-requests:
-			// The receiver has already authenticated as root through stock sshd. The
-			// local broker also checks kernel peer credentials and accepts one bounded
-			// key only. No user-selected path/account/command reaches this writer.
-			deadline := time.Now().Add(15 * time.Second)
-			if window, ok := phase.Deadline(); ok && window.Before(deadline) {
-				deadline = window
-			}
-			connection.SetDeadline(deadline)
-			if unit, err := enrollmentConnectionUnit(connection); err != nil || !enrollmentReceiverUnit(unit) {
-				connection.Close()
-				continue
-			}
-			key, err := enrollmentPublicKey(connection)
+			key, accepted, err := readEnrollmentKeyFromConnection(phase, connection)
 			if err != nil {
-				io.WriteString(connection, "refused\n")
-				connection.Close()
-				continue
-			}
-			if phase.Err() != nil {
-				connection.Close()
-				return phase.Err()
-			}
-			if _, _, err := enrollmentState(); err != nil {
-				connection.Close()
 				return err
 			}
-			// One validated import consumes the broker immediately. On service
-			// exit, native BindsTo/After ordering closes the TCP socket and
-			// all connection service cgroups, including sshd session children.
+			if !accepted {
+				continue
+			}
 			broker.Close()
-			home, err := enrollmentRootHome()
-			if err == nil {
-				err = appendEnrollmentKey(phase, home, key, 0)
-			}
-			if err == nil {
-				if _, labelErr := command(phase, "/usr/sbin/restorecon", []string{"--", home + "/.ssh", home + "/.ssh/authorized_keys"}, nil); labelErr != nil {
-					err = errEnrollmentWriteUncertain
-				}
-			}
-			// A valid commit attempt consumes the window even on an uncertain write or
-			// labeling failure. Never retry a possible completed append automatically.
-			status := "failed\n"
-			if err == nil {
-				status = "imported\n"
-			} else if errors.Is(err, errEnrollmentWriteUncertain) {
-				status = "uncertain\n"
-			}
-			if writeErr := enrollmentWrite(enrollmentDir, "result", status); writeErr != nil {
-				err = writeErr
-			}
-			io.WriteString(connection, status)
-			connection.Close()
-			return err
+			return commitEnrollmentKey(phase, connection, key)
 		}
 	}
+}
+
+// ServeEnrollment is an internal fixed systemd service action, not an arming
+// entrypoint. Run dispatches it without requesting a terminal, after root and
+// installed-CoreOS checks. The cgroup check prevents accidental direct execution.
+func ServeEnrollment(ctx context.Context) error {
+	remaining, err := validateEnrollmentServerEnvironment()
+	if err != nil {
+		return err
+	}
+	phase, cancel := context.WithTimeout(ctx, remaining)
+	defer cancel()
+
+	broker, err := startEnrollmentBroker(phase)
+	if err != nil {
+		return err
+	}
+	defer broker.Close()
+
+	requests := acceptEnrollmentRequests(phase, broker)
+	return serveEnrollmentLoop(phase, broker, requests)
 }
 
 // Kernel credentials and the peer's native service cgroup distinguish the fixed
@@ -498,22 +677,62 @@ func enrollmentConnectionUnit(connection *net.UnixConn) (string, error) {
 	return enrollmentPeerUnit(string(group))
 }
 
-// ReceiveEnrollment is the sole ForceCommand. Client commands/subsystems are
-// refused, not interpreted. It never handles the native password or a private key.
-func ReceiveEnrollment(ctx context.Context) error {
+func admitReceiveEnrollment() (time.Duration, error) {
 	if os.Geteuid() != 0 || os.Getenv("SSH_ORIGINAL_COMMAND") != "" || os.Getenv("SSH_TTY") != "" {
-		return errors.New("only public-key stdin enrollment is allowed")
+		return 0, errors.New("only public-key stdin enrollment is allowed")
 	}
 	selected, remaining, err := enrollmentState()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	fields := strings.Fields(os.Getenv("SSH_CONNECTION"))
 	if len(fields) != 4 || fields[2] != selected.ip || fields[3] != enrollmentPort {
-		return errors.New("dedicated key-import SSH connection required")
+		return 0, errors.New("dedicated key-import SSH connection required")
 	}
 	if remaining > 30*time.Second {
 		remaining = 30 * time.Second
+	}
+	return remaining, nil
+}
+
+func confirmEnrollmentImport(result []byte, err error) error {
+	if err == nil && string(result) == "uncertain\n" {
+		return errEnrollmentWriteUncertain
+	}
+	if err != nil || string(result) != "imported\n" {
+		return errors.New("key import was not confirmed; inspect the local console before retrying")
+	}
+	return nil
+}
+
+func submitEnrollmentKey(ctx context.Context, key string) error {
+	connection, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: enrollmentSocket, Net: "unix"})
+	if err != nil {
+		return errors.New("key-import window is closed")
+	}
+	defer connection.Close()
+	if deadline, ok := ctx.Deadline(); ok {
+		connection.SetDeadline(deadline)
+	}
+	if unit, err := enrollmentConnectionUnit(connection); err != nil || unit != enrollmentUnit {
+		return errors.New("dedicated enrollment broker required")
+	}
+	if _, err := io.WriteString(connection, key+"\n"); err != nil {
+		return err
+	}
+	if err := connection.CloseWrite(); err != nil {
+		return err
+	}
+	result, err := io.ReadAll(io.LimitReader(connection, 129))
+	return confirmEnrollmentImport(result, err)
+}
+
+// ReceiveEnrollment is the sole ForceCommand. Client commands/subsystems are
+// refused, not interpreted. It never handles the native password or a private key.
+func ReceiveEnrollment(ctx context.Context) error {
+	remaining, err := admitReceiveEnrollment()
+	if err != nil {
+		return err
 	}
 	phase, cancel := context.WithTimeout(ctx, remaining)
 	defer cancel()
@@ -525,28 +744,8 @@ func ReceiveEnrollment(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	connection, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: enrollmentSocket, Net: "unix"})
-	if err != nil {
-		return errors.New("key-import window is closed")
-	}
-	defer connection.Close()
-	deadline, _ := phase.Deadline()
-	connection.SetDeadline(deadline)
-	if unit, err := enrollmentConnectionUnit(connection); err != nil || unit != enrollmentUnit {
-		return errors.New("dedicated enrollment broker required")
-	}
-	if _, err := io.WriteString(connection, key+"\n"); err != nil {
+	if err := submitEnrollmentKey(phase, key); err != nil {
 		return err
-	}
-	if err := connection.CloseWrite(); err != nil {
-		return err
-	}
-	result, err := io.ReadAll(io.LimitReader(connection, 129))
-	if err == nil && string(result) == "uncertain\n" {
-		return errEnrollmentWriteUncertain
-	}
-	if err != nil || string(result) != "imported\n" {
-		return errors.New("key import was not confirmed; inspect the local console before retrying")
 	}
 	fmt.Fprintln(os.Stdout, "Public key imported. Verify a fresh ordinary key-only SSH login.")
 	return nil

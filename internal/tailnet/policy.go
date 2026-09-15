@@ -50,9 +50,10 @@ type projectPolicy struct {
 }
 
 func newRevision() string { b := make([]byte, 16); _, _ = rand.Read(b); return hex.EncodeToString(b) }
+
 func owned(info os.FileInfo, uid uint32, directory bool) bool {
 	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || stat.Uid != uid || info.Mode().Perm()&0077 != 0 {
+	if !ok || stat.Uid != uid || info.Mode().Perm()&0o077 != 0 {
 		return false
 	}
 	if directory {
@@ -60,6 +61,23 @@ func owned(info os.FileInfo, uid uint32, directory bool) bool {
 	}
 	return info.Mode().IsRegular() && stat.Nlink == 1 && info.Size() <= 65536
 }
+
+func openOwnedLibDir(root *os.Root, name string) (*os.Root, error) {
+	info, e := root.Lstat(name)
+	if e != nil || !info.IsDir() || info.Mode().Perm()&0o022 != 0 {
+		return nil, ErrUnavailable
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || st.Uid != 0 {
+		return nil, ErrUnavailable
+	}
+	next, e := root.OpenRoot(name)
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	return next, nil
+}
+
 func policyParent() (*os.Root, error) {
 	if os.Geteuid() != 0 {
 		return nil, ErrUnavailable
@@ -69,17 +87,7 @@ func policyParent() (*os.Root, error) {
 		return nil, ErrUnavailable
 	}
 	for _, name := range []string{"var", "lib"} {
-		info, e := root.Lstat(name)
-		if e != nil || !info.IsDir() || info.Mode().Perm()&0022 != 0 {
-			root.Close()
-			return nil, ErrUnavailable
-		}
-		st, ok := info.Sys().(*syscall.Stat_t)
-		if !ok || st.Uid != 0 {
-			root.Close()
-			return nil, ErrUnavailable
-		}
-		next, e := root.OpenRoot(name)
+		next, e := openOwnedLibDir(root, name)
 		root.Close()
 		if e != nil {
 			return nil, ErrUnavailable
@@ -88,47 +96,50 @@ func policyParent() (*os.Root, error) {
 	}
 	return root, nil
 }
-func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File, error) {
-	parent, err := p.parent()
-	if err != nil {
-		return nil, nil, ErrUnavailable
+
+func createPolicyDir(ctx context.Context, parent *os.Root) error {
+	if e := ctx.Err(); e != nil {
+		return e
 	}
-	defer parent.Close()
+	err := parent.Mkdir("soda-tailnet", 0o700)
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		return ErrUnavailable
+	}
+	directory, e := parent.Open(".")
+	if e != nil {
+		return ErrUnconfirmed
+	}
+	e = directory.Sync()
+	directory.Close()
+	if e != nil {
+		return ErrUnconfirmed
+	}
+	return nil
+}
+
+func (p *policyStore) ensurePolicyDir(ctx context.Context, parent *os.Root, create bool) (os.FileInfo, error) {
 	info, err := parent.Lstat("soda-tailnet")
 	if errors.Is(err, os.ErrNotExist) && create {
-		if e := ctx.Err(); e != nil {
-			return nil, nil, e
-		}
-		err = parent.Mkdir("soda-tailnet", 0700)
-		if err != nil && !errors.Is(err, os.ErrExist) {
-			return nil, nil, ErrUnavailable
-		}
-		directory, e := parent.Open(".")
-		if e != nil {
-			return nil, nil, ErrUnconfirmed
-		}
-		e = directory.Sync()
-		directory.Close()
-		if e != nil {
-			return nil, nil, ErrUnconfirmed
+		if e := createPolicyDir(ctx, parent); e != nil {
+			return nil, e
 		}
 		info, err = parent.Lstat("soda-tailnet")
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil, os.ErrNotExist
+		return nil, os.ErrNotExist
 	}
 	if err != nil || !owned(info, p.uid, true) {
-		return nil, nil, ErrUnavailable
+		return nil, ErrUnavailable
 	}
-	root, err := parent.OpenRoot("soda-tailnet")
-	if err != nil {
-		return nil, nil, ErrUnavailable
-	}
+	return info, nil
+}
+
+func acquirePolicyLock(ctx context.Context, root *os.Root, uid uint32) (*os.File, error) {
 	lock, err := root.Open(".")
 	if err == nil {
 		var st os.FileInfo
 		st, err = lock.Stat()
-		if err == nil && !owned(st, p.uid, true) {
+		if err == nil && !owned(st, uid, true) {
 			err = ErrUnavailable
 		}
 	}
@@ -139,11 +150,32 @@ func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File
 		if lock != nil {
 			lock.Close()
 		}
-		root.Close()
+		return nil, ErrUnavailable
+	}
+	return lock, nil
+}
+
+func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File, error) {
+	parent, err := p.parent()
+	if err != nil {
 		return nil, nil, ErrUnavailable
+	}
+	defer parent.Close()
+	if _, err = p.ensurePolicyDir(ctx, parent, create); err != nil {
+		return nil, nil, err
+	}
+	root, err := parent.OpenRoot("soda-tailnet")
+	if err != nil {
+		return nil, nil, ErrUnavailable
+	}
+	lock, err := acquirePolicyLock(ctx, root, p.uid)
+	if err != nil {
+		root.Close()
+		return nil, nil, err
 	}
 	return root, lock, nil
 }
+
 func (p *policyStore) read(root *os.Root, name string, out any) error {
 	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if errors.Is(err, os.ErrNotExist) {
@@ -163,22 +195,24 @@ func (p *policyStore) read(root *os.Root, name string, out any) error {
 	}
 	return nil
 }
-func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) error {
-	// Refuse special/relinked occupants before atomic publication. Only host root
-	// can alter this directory; noncooperating root writers aren't a CAS guarantee.
-	if st, e := root.Lstat(name); e == nil {
-		if !owned(st, p.uid, false) {
+
+func refuseUnownedPolicy(root *os.Root, name string, uid uint32) error {
+	st, e := root.Lstat(name)
+	if e == nil {
+		if !owned(st, uid, false) {
 			return ErrUnavailable
 		}
-	} else if !errors.Is(e, os.ErrNotExist) {
+		return nil
+	}
+	if !errors.Is(e, os.ErrNotExist) {
 		return ErrUnavailable
 	}
-	b, err := json.Marshal(v)
-	if err != nil || len(b) > 65536 {
-		return ErrInvalid
-	}
+	return nil
+}
+
+func writePolicyFile(root *os.Root, name string, b []byte) error {
 	temp := "pending-" + newRevision()
-	f, err := root.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := root.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return ErrUnconfirmed
 	}
@@ -193,16 +227,35 @@ func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) 
 	if root.Rename(temp, name) != nil {
 		return ErrUnconfirmed
 	}
+	return nil
+}
+
+func (p *policyStore) syncPolicy(lock *os.File) error {
 	if p.syncDir != nil {
-		err = p.syncDir(lock)
-	} else {
-		err = lock.Sync()
+		return p.syncDir(lock)
 	}
-	if err != nil {
+	return lock.Sync()
+}
+
+func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) error {
+	// Refuse special/relinked occupants before atomic publication. Only host root
+	// can alter this directory; noncooperating root writers aren't a CAS guarantee.
+	if err := refuseUnownedPolicy(root, name, p.uid); err != nil {
+		return err
+	}
+	b, err := json.Marshal(v)
+	if err != nil || len(b) > 65536 {
+		return ErrInvalid
+	}
+	if err = writePolicyFile(root, name, b); err != nil {
+		return err
+	}
+	if err = p.syncPolicy(lock); err != nil {
 		return ErrUnconfirmed
 	}
 	return nil
 }
+
 func (p *policyStore) load(root *os.Root) (enrollmentPolicy, error) {
 	var v enrollmentPolicy
 	err := p.read(root, "policy.json", &v)
@@ -222,14 +275,17 @@ func (p *policyStore) load(root *os.Root) (enrollmentPolicy, error) {
 	}
 	return v, nil
 }
+
 func (v enrollmentPolicy) view() EnrollmentView {
 	return EnrollmentView{Revision: v.Revision, Binding: v.Binding, Tailnet: v.Tailnet, Tags: slices.Clone(v.Tags), Configured: v.Revision != "0", Admission: v.Admission, Default: v.Default, Preauthorized: v.Preauthorized, CredentialChecked: v.Revision != "0", RuntimeSupported: false}
 }
+
 func (p *policyStore) view(v enrollmentPolicy) EnrollmentView {
 	out := v.view()
 	out.RuntimeSupported = p.runtime
 	return out
 }
+
 func (p *policyStore) enrollment(ctx context.Context) (EnrollmentView, error) {
 	root, lock, err := p.lock(ctx, false)
 	if errors.Is(err, os.ErrNotExist) {
@@ -243,83 +299,138 @@ func (p *policyStore) enrollment(ctx context.Context) (EnrollmentView, error) {
 	v, err := p.load(root)
 	return p.view(v), err
 }
-func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (EnrollmentResult, error) {
+
+func validateUpdateRequest(r EnrollmentRequest, runtime bool) error {
 	if r.Validate() != nil {
-		return EnrollmentResult{}, ErrInvalid
+		return ErrInvalid
 	}
-	if r.Action == "default" && *r.Default && !p.runtime {
-		return EnrollmentResult{}, ErrUnsupported
+	if r.Action == "default" && *r.Default && !runtime {
+		return ErrUnsupported
+	}
+	return nil
+}
+
+func (p *policyStore) checkEnrollment(ctx context.Context, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (EnrollmentResult, error) {
+	before, err := p.enrollment(ctx)
+	if err != nil {
+		return EnrollmentResult{}, err
+	}
+	if before.Revision != r.Revision {
+		return EnrollmentResult{}, ErrConflict
+	}
+	if err = check(ctx, r); err != nil {
+		return EnrollmentResult{}, err
+	}
+	after, err := p.enrollment(ctx)
+	if err != nil {
+		return EnrollmentResult{}, err
+	}
+	if after.Revision != before.Revision {
+		return EnrollmentResult{}, ErrConflict
+	}
+	return EnrollmentResult{Outcome: "confirmed", CredentialChecked: true, Enrollment: after}, nil
+}
+
+func (p *policyStore) lockAndLoad(ctx context.Context, r EnrollmentRequest) (*os.Root, *os.File, enrollmentPolicy, error) {
+	root, lock, err := p.lock(ctx, r.Action == "save")
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil, enrollmentPolicy{}, ErrConflict
+	}
+	if err != nil {
+		return nil, nil, enrollmentPolicy{}, err
+	}
+	v, err := p.load(root)
+	if err != nil {
+		root.Close()
+		lock.Close()
+		return nil, nil, enrollmentPolicy{}, err
+	}
+	if v.Revision != r.Revision {
+		root.Close()
+		lock.Close()
+		return nil, nil, enrollmentPolicy{}, ErrConflict
+	}
+	return root, lock, v, nil
+}
+
+func canRotateEnrollment(v enrollmentPolicy, r EnrollmentRequest) bool {
+	if v.Revision == "0" || v.Tailnet != r.Tailnet || !slices.Equal(v.Tags, r.Tags) || v.Preauthorized != *r.Preauthorized {
+		return false
+	}
+	return true
+}
+
+func applySaveOrRotate(ctx context.Context, v enrollmentPolicy, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (enrollmentPolicy, error) {
+	if r.Action == "rotate" && !canRotateEnrollment(v, r) {
+		return enrollmentPolicy{}, ErrConflict
+	}
+	if err := check(ctx, r); err != nil {
+		return enrollmentPolicy{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return enrollmentPolicy{}, ErrUnconfirmed
+	}
+	if r.Action == "save" {
+		v.Binding = newRevision()
+		v.Default = false
+		v.Admission = true
+	}
+	// Policy and credential are one restricted atomic publication. No archive,
+	// provider revocation or automatic conversion of retained v1 files.
+	v.Version, v.Tailnet, v.Tags, v.Preauthorized, v.Credential = 2, r.Tailnet, slices.Clone(r.Tags), *r.Preauthorized, credential{r.ClientID, r.ClientSecret}
+	return v, nil
+}
+
+func applyDefault(v enrollmentPolicy, r EnrollmentRequest) (enrollmentPolicy, error) {
+	if v.Revision == "0" {
+		return enrollmentPolicy{}, ErrConflict
+	}
+	if *r.Default && !v.Admission {
+		return enrollmentPolicy{}, ErrConflict
+	}
+	v.Default = *r.Default
+	return v, nil
+}
+
+func applyDisable(v enrollmentPolicy) (enrollmentPolicy, error) {
+	if v.Revision == "0" {
+		return enrollmentPolicy{}, ErrConflict
+	}
+	v.Admission = false
+	v.Default = false
+	return v, nil
+}
+
+func applyPolicyMutation(ctx context.Context, v enrollmentPolicy, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (enrollmentPolicy, error) {
+	switch r.Action {
+	case "save", "rotate":
+		return applySaveOrRotate(ctx, v, r, check)
+	case "default":
+		return applyDefault(v, r)
+	case "disable":
+		return applyDisable(v)
+	default:
+		return v, nil
+	}
+}
+
+func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check func(context.Context, EnrollmentRequest) error) (EnrollmentResult, error) {
+	if err := validateUpdateRequest(r, p.runtime); err != nil {
+		return EnrollmentResult{}, err
 	}
 	// A pure credential check must not create directories, files or device keys.
 	if r.Action == "check" {
-		before, err := p.enrollment(ctx)
-		if err != nil {
-			return EnrollmentResult{}, err
-		}
-		if before.Revision != r.Revision {
-			return EnrollmentResult{}, ErrConflict
-		}
-		if err = check(ctx, r); err != nil {
-			return EnrollmentResult{}, err
-		}
-		after, err := p.enrollment(ctx)
-		if err != nil {
-			return EnrollmentResult{}, err
-		}
-		if after.Revision != before.Revision {
-			return EnrollmentResult{}, ErrConflict
-		}
-		return EnrollmentResult{Outcome: "confirmed", CredentialChecked: true, Enrollment: after}, nil
+		return p.checkEnrollment(ctx, r, check)
 	}
-	root, lock, err := p.lock(ctx, r.Action == "save")
-	if errors.Is(err, os.ErrNotExist) {
-		return EnrollmentResult{}, ErrConflict
-	}
+	root, lock, v, err := p.lockAndLoad(ctx, r)
 	if err != nil {
 		return EnrollmentResult{}, err
 	}
 	defer root.Close()
 	defer lock.Close()
-	v, err := p.load(root)
+	v, err = applyPolicyMutation(ctx, v, r, check)
 	if err != nil {
 		return EnrollmentResult{}, err
-	}
-	if v.Revision != r.Revision {
-		return EnrollmentResult{}, ErrConflict
-	}
-	switch r.Action {
-	case "save", "rotate":
-		if r.Action == "rotate" && (v.Revision == "0" || v.Tailnet != r.Tailnet || !slices.Equal(v.Tags, r.Tags) || v.Preauthorized != *r.Preauthorized) {
-			return EnrollmentResult{}, ErrConflict
-		}
-		if err = check(ctx, r); err != nil {
-			return EnrollmentResult{}, err
-		}
-		if err = ctx.Err(); err != nil {
-			return EnrollmentResult{}, ErrUnconfirmed
-		}
-		if r.Action == "save" {
-			v.Binding = newRevision()
-			v.Default = false
-			v.Admission = true
-		}
-		// Policy and credential are one restricted atomic publication. No archive,
-		// provider revocation or automatic conversion of retained v1 files.
-		v.Version, v.Tailnet, v.Tags, v.Preauthorized, v.Credential = 2, r.Tailnet, slices.Clone(r.Tags), *r.Preauthorized, credential{r.ClientID, r.ClientSecret}
-	case "default":
-		if v.Revision == "0" {
-			return EnrollmentResult{}, ErrConflict
-		}
-		if *r.Default && !v.Admission {
-			return EnrollmentResult{}, ErrConflict
-		}
-		v.Default = *r.Default
-	case "disable":
-		if v.Revision == "0" {
-			return EnrollmentResult{}, ErrConflict
-		}
-		v.Admission = false
-		v.Default = false
 	}
 	if ctx.Err() != nil {
 		return EnrollmentResult{}, ErrUnconfirmed
@@ -330,6 +441,11 @@ func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check fun
 	}
 	return EnrollmentResult{Outcome: "confirmed", Saved: true, CredentialChecked: v.view().CredentialChecked, Enrollment: p.view(v)}, nil
 }
+
+func validLoadedProject(loaded projectPolicy) bool {
+	return loaded.Version == 1 && revisionPattern.MatchString(loaded.Revision) && (loaded.Binding == "" || revisionPattern.MatchString(loaded.Binding)) && (!loaded.Enabled || loaded.Binding != "")
+}
+
 func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPolicy, error) {
 	v := projectPolicy{Project: project, Container: cid, Revision: "0"}
 	var loaded projectPolicy
@@ -340,7 +456,7 @@ func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPo
 	if e != nil {
 		return v, e
 	}
-	if loaded.Version != 1 || !revisionPattern.MatchString(loaded.Revision) || (loaded.Binding != "" && !revisionPattern.MatchString(loaded.Binding)) || (loaded.Enabled && loaded.Binding == "") {
+	if !validLoadedProject(loaded) {
 		return v, ErrUnavailable
 	}
 	if loaded.Project != project || loaded.Container != cid {
@@ -348,71 +464,105 @@ func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPo
 	}
 	return loaded, nil
 }
-func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
+
+func validateProjectRequest(r ProjectRequest, cid string, runtime bool) error {
 	if r.Validate() != nil || !containerPattern.MatchString(cid) {
-		return ProjectView{}, ErrInvalid
+		return ErrInvalid
 	}
-	// Without the separately configured native consumer, intent cannot enable effects.
-	if !p.runtime && (r.Action == "enable" || r.Action == "retry") {
-		return ProjectView{}, ErrUnsupported
+	if !runtime && (r.Action == "enable" || r.Action == "retry") {
+		return ErrUnsupported
 	}
+	return nil
+}
+
+func (p *policyStore) lockAndLoadProject(ctx context.Context, r ProjectRequest, cid string) (*os.Root, *os.File, projectPolicy, error) {
 	root, lock, err := p.lock(ctx, r.Action != "inspect")
 	v := projectPolicy{Project: r.Project, Container: cid, Revision: "0"}
-	if !errors.Is(err, os.ErrNotExist) {
-		if err != nil {
-			return ProjectView{}, err
-		}
-		defer root.Close()
-		defer lock.Close()
-		v, err = p.loadProject(root, r.Project, cid)
-		if err != nil {
-			return ProjectView{}, err
-		}
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil, v, nil
 	}
-	if r.Action != "inspect" {
-		if v.Revision != r.Revision {
-			return ProjectView{}, ErrConflict
-		}
-		if ctx.Err() != nil {
-			return ProjectView{}, ErrUnconfirmed
-		}
-		if r.Action == "enable" || r.Action == "retry" {
-			policy, e := p.load(root)
-			if e != nil {
-				return ProjectView{}, e
-			}
-			if !policy.Admission || policy.Binding != r.Binding || (r.Action == "retry" && (!v.Enabled || v.Binding != r.Binding)) {
-				return ProjectView{}, ErrConflict
-			}
-			// Changing networks is not implicit migration of an existing node.
-			if v.Binding != "" && v.Binding != r.Binding {
-				return ProjectView{}, ErrConflict
-			}
-			v.Binding = r.Binding
-		}
-		v.Enabled = r.Action != "disable"
-		v.Version = 1
-		v.Revision = newRevision()
-		if err = p.publish(root, lock, "project-"+r.Project+".json", v); err != nil {
-			return ProjectView{}, err
-		}
+	if err != nil {
+		return nil, nil, v, err
 	}
-	state := "runtime-unsupported" // Policy Off does not prove a current connection is gone.
+	v, err = p.loadProject(root, r.Project, cid)
+	if err != nil {
+		root.Close()
+		lock.Close()
+		return nil, nil, v, err
+	}
+	return root, lock, v, nil
+}
+
+func bindingMismatch(v projectPolicy, r ProjectRequest) bool {
+	if r.Action == "retry" && (!v.Enabled || v.Binding != r.Binding) {
+		return true
+	}
+	return v.Binding != "" && v.Binding != r.Binding
+}
+
+func (p *policyStore) validateProjectBinding(root *os.Root, v projectPolicy, r ProjectRequest) error {
+	policy, err := p.load(root)
+	if err != nil {
+		return err
+	}
+	if !policy.Admission || policy.Binding != r.Binding || bindingMismatch(v, r) {
+		return ErrConflict
+	}
+	return nil
+}
+
+func (p *policyStore) mutateProject(root *os.Root, lock *os.File, v projectPolicy, r ProjectRequest, ctx context.Context) (projectPolicy, error) {
+	if v.Revision != r.Revision {
+		return v, ErrConflict
+	}
+	if ctx.Err() != nil {
+		return v, ErrUnconfirmed
+	}
+	if r.Action == "enable" || r.Action == "retry" {
+		if err := p.validateProjectBinding(root, v, r); err != nil {
+			return v, err
+		}
+		v.Binding = r.Binding
+	}
+	v.Enabled = r.Action != "disable"
+	v.Version = 1
+	v.Revision = newRevision()
+	if err := p.publish(root, lock, "project-"+r.Project+".json", v); err != nil {
+		return v, err
+	}
+	return v, nil
+}
+
+func initialProjectStateAndOutcome(action string, runtime bool) (string, string) {
+	state := "runtime-unsupported"
 	outcome := "observed"
-	if r.Action == "disable" {
+	if action == "disable" {
 		outcome = "disconnect-unconfirmed"
-	} // No companion observer yet.
-	if p.runtime {
+	}
+	if runtime {
 		state = "unconfirmed"
-		if r.Action != "inspect" {
+		if action != "inspect" {
 			outcome = "runtime-unconfirmed"
 		}
 	}
-	result := ProjectView{Saved: r.Action != "inspect", Project: r.Project, Revision: v.Revision, Binding: v.Binding, Enabled: v.Enabled, State: state, Outcome: outcome}
+	return state, outcome
+}
+
+func (p *policyStore) buildProjectView(root *os.Root, v projectPolicy, r ProjectRequest) (ProjectView, error) {
+	state, outcome := initialProjectStateAndOutcome(r.Action, p.runtime)
+	result := ProjectView{
+		Saved:    r.Action != "inspect",
+		Project:  r.Project,
+		Revision: v.Revision,
+		Binding:  v.Binding,
+		Enabled:  v.Enabled,
+		State:    state,
+		Outcome:  outcome,
+	}
 	if p.runtime && root != nil {
-		policy, e := p.load(root)
-		if e != nil {
-			return ProjectView{}, e
+		policy, err := p.load(root)
+		if err != nil {
+			return ProjectView{}, err
 		}
 		if policy.Admission {
 			result.AvailableBinding = policy.Binding
@@ -420,4 +570,25 @@ func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string)
 		}
 	}
 	return result, nil
+}
+
+func (p *policyStore) project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
+	if err := validateProjectRequest(r, cid, p.runtime); err != nil {
+		return ProjectView{}, err
+	}
+	root, lock, v, err := p.lockAndLoadProject(ctx, r, cid)
+	if err != nil {
+		return ProjectView{}, err
+	}
+	if root != nil {
+		defer root.Close()
+		defer lock.Close()
+	}
+	if r.Action != "inspect" {
+		v, err = p.mutateProject(root, lock, v, r, ctx)
+		if err != nil {
+			return ProjectView{}, err
+		}
+	}
+	return p.buildProjectView(root, v, r)
 }

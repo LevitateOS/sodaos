@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -13,117 +14,181 @@ import (
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-// The root:soda socket admits the service, not human operators. Web owns fresh
-// human authority. Tailnet never takes the unrelated global project gate.
-func (d *Daemon) tailnetHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
+func validateTailnetRequest(r *http.Request) (string, int) {
 	if r.Method != "POST" || r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "" {
-		http.Error(w, "invalid Tailnet operation", 400)
-		return
+		return "", http.StatusBadRequest
 	}
 	action := strings.TrimPrefix(r.URL.Path, "/tailnet/")
 	switch action {
 	case "settings", "host", "enrollment", "options", "project", "policy":
+		return action, 0
 	default:
-		http.NotFound(w, r)
-		return
+		return "", http.StatusNotFound
 	}
-	if d.Tailnet == nil {
-		http.Error(w, "Tailnet management disabled", 503)
-		return
+}
+
+func decodeTailnetBody(body io.Reader, out any) error {
+	if strictjson.Decode(body, out) != nil {
+		return tailnet.ErrInvalid
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
-	defer cancel()
-	body := http.MaxBytesReader(w, r.Body, 65536)
-	decode := func(out any) error {
-		if strictjson.Decode(body, out) != nil {
-			return tailnet.ErrInvalid
-		}
-		return nil
+	return nil
+}
+
+func executeTailnetQuery(ctx context.Context, m *tailnet.Management, action string, body io.Reader) (any, error) {
+	var in struct{}
+	if err := decodeTailnetBody(body, &in); err != nil {
+		return nil, err
 	}
-	var out any
-	var err error
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if action == "settings" {
+		return m.Settings(ctx)
+	}
+	return m.Options(ctx)
+}
+
+func executeTailnetHost(ctx context.Context, m *tailnet.Management, body io.Reader) (any, error) {
+	var in tailnet.HostRequest
+	if err := decodeTailnetBody(body, &in); err != nil {
+		return nil, err
+	}
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	return m.HostAction(ctx, in)
+}
+
+func executeTailnetEnrollment(ctx context.Context, m *tailnet.Management, body io.Reader) (any, error) {
+	var in tailnet.EnrollmentRequest
+	if err := decodeTailnetBody(body, &in); err != nil {
+		return nil, err
+	}
+	defer func() { in.ClientSecret = "" }()
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	return m.Enrollment(ctx, in)
+}
+
+func (d *Daemon) runProjectTailnetAction(ctx context.Context, in tailnet.ProjectRequest, cid, action string) (any, error) {
+	if action == "policy" {
+		return d.Tailnet.Project(ctx, in, cid)
+	}
+	return d.observeProjectTailnet(ctx, in, cid)
+}
+
+func (d *Daemon) verifyProjectContainerUnchanged(ctx context.Context, project, cid string) error {
+	after, err := d.projectContainer(ctx, project, false)
+	if err != nil || after != cid {
+		return tailnet.ErrUnconfirmed
+	}
+	return nil
+}
+
+func (d *Daemon) executeTailnetProjectOrPolicy(ctx context.Context, action string, body io.Reader) (any, error) {
+	var in tailnet.ProjectRequest
+	if err := decodeTailnetBody(body, &in); err != nil {
+		return nil, err
+	}
+	if err := in.Validate(); err != nil {
+		return nil, err
+	}
+	if action == "policy" && in.Action != "inspect" {
+		return nil, tailnet.ErrInvalid
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	cid, err := d.projectContainer(ctx, in.Project, false)
+	if err != nil {
+		return nil, err
+	}
+	out, err := d.runProjectTailnetAction(ctx, in, cid, action)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.verifyProjectContainerUnchanged(ctx, in.Project, cid); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (d *Daemon) dispatchTailnetAction(ctx context.Context, action string, body io.Reader) (any, error) {
 	switch action {
 	case "settings", "options":
-		var in struct{}
-		err = decode(&in)
-		if err == nil && ctx.Err() == nil {
-			if action == "settings" {
-				out, err = d.Tailnet.Settings(ctx)
-			} else {
-				out, err = d.Tailnet.Options(ctx)
-			}
-		}
+		return executeTailnetQuery(ctx, d.Tailnet, action, body)
 	case "host":
-		var in tailnet.HostRequest
-		if err = decode(&in); err == nil {
-			err = in.Validate()
-		}
-		if err == nil && ctx.Err() == nil {
-			out, err = d.Tailnet.HostAction(ctx, in)
-		}
+		return executeTailnetHost(ctx, d.Tailnet, body)
 	case "enrollment":
-		var in tailnet.EnrollmentRequest
-		if err = decode(&in); err == nil {
-			err = in.Validate()
-		}
-		if err == nil && ctx.Err() == nil {
-			out, err = d.Tailnet.Enrollment(ctx, in)
-		}
-		in.ClientSecret = ""
+		return executeTailnetEnrollment(ctx, d.Tailnet, body)
 	case "project", "policy":
-		var in tailnet.ProjectRequest
-		if err = decode(&in); err == nil {
-			err = in.Validate()
-		}
-		if err == nil && ctx.Err() == nil {
-			if action == "policy" && in.Action != "inspect" {
-				err = tailnet.ErrInvalid
-				break
-			}
-			// Reuse the original project/user-mapping validator. No request CID, UID,
-			// namespace, arbitrary socket or developer-controlled binary is admitted.
-			var cid string
-			cid, err = d.projectContainer(ctx, in.Project, false)
-			if err == nil {
-				if action == "policy" {
-					out, err = d.Tailnet.Project(ctx, in, cid)
-				} else {
-					out, err = d.observeProjectTailnet(ctx, in, cid)
-				}
-				if err == nil {
-					after, e := d.projectContainer(ctx, in.Project, false)
-					if e != nil || after != cid {
-						err = tailnet.ErrUnconfirmed
-					}
-				}
-			}
-		}
+		return d.executeTailnetProjectOrPolicy(ctx, action, body)
+	default:
+		return nil, tailnet.ErrInvalid
 	}
-	if err != nil || ctx.Err() != nil || out == nil {
-		status := 502
-		switch {
-		case errors.Is(err, tailnet.ErrInvalid):
-			status = 400
-		case errors.Is(err, tailnet.ErrConflict):
-			status = 409
-		case errors.Is(err, tailnet.ErrUnsupported):
-			status = 422
-		case errors.Is(err, tailnet.ErrUnavailable):
-			status = 503
-		}
-		// Input and provider/native error text must never enter journal or response.
-		http.Error(w, "Tailnet operation unavailable or unconfirmed; observe before retrying", status)
-		return
+}
+
+func tailnetErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, tailnet.ErrInvalid):
+		return 400
+	case errors.Is(err, tailnet.ErrConflict):
+		return 409
+	case errors.Is(err, tailnet.ErrUnsupported):
+		return 422
+	case errors.Is(err, tailnet.ErrUnavailable):
+		return 503
+	default:
+		return 502
 	}
+}
+
+func writeTailnetResponse(w http.ResponseWriter, out any) {
 	data, err := json.Marshal(out)
 	if err != nil || len(data) > 65536 {
-		http.Error(w, "Tailnet response unavailable", 502)
+		http.Error(w, "Tailnet response unavailable", http.StatusBadGateway)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(data)
 }
+
+// The root:soda socket admits the service, not human operators. Web owns fresh
+// human authority. Tailnet never takes the unrelated global project gate.
+func (d *Daemon) tailnetHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	action, code := validateTailnetRequest(r)
+	if code != 0 {
+		if code == http.StatusNotFound {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "invalid Tailnet operation", code)
+		}
+		return
+	}
+	if d.Tailnet == nil {
+		http.Error(w, "Tailnet management disabled", http.StatusServiceUnavailable)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	body := http.MaxBytesReader(w, r.Body, 65536)
+	out, err := d.dispatchTailnetAction(ctx, action, body)
+	if err != nil || ctx.Err() != nil || out == nil {
+		// Input and provider/native error text must never enter journal or response.
+		http.Error(w, "Tailnet operation unavailable or unconfirmed; observe before retrying", tailnetErrorStatus(err))
+		return
+	}
+	writeTailnetResponse(w, out)
+}
+
 func (c *Client) tailnetCall(ctx context.Context, path string, in, out any) error {
 	err := c.call(ctx, "/tailnet/"+path, in, out)
 	var native nativeHTTPError
@@ -144,6 +209,7 @@ func (c *Client) tailnetCall(ctx context.Context, path string, in, out any) erro
 	}
 	return nil
 }
+
 func (c *Client) TailnetSettings(ctx context.Context) (tailnet.SettingsView, error) {
 	var out tailnet.SettingsView
 	err := c.tailnetCall(ctx, "settings", struct{}{}, &out)
@@ -152,6 +218,7 @@ func (c *Client) TailnetSettings(ctx context.Context) (tailnet.SettingsView, err
 	}
 	return out, err
 }
+
 func (c *Client) TailnetHost(ctx context.Context, in tailnet.HostRequest) (tailnet.HostResult, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.HostResult{}, err
@@ -163,34 +230,62 @@ func (c *Client) TailnetHost(ctx context.Context, in tailnet.HostRequest) (tailn
 	}
 	return out, err
 }
+
+func admitEnrollmentSave(out tailnet.EnrollmentResult, in tailnet.EnrollmentRequest) error {
+	if out.Saved != (in.Action != "check") {
+		return tailnet.ErrUnavailable
+	}
+	if out.Saved && (out.Enrollment.Revision == in.Revision || !out.Enrollment.Configured) {
+		return tailnet.ErrUnavailable
+	}
+	if !out.Saved && (!out.CredentialChecked || out.Enrollment.Revision != in.Revision) {
+		return tailnet.ErrUnavailable
+	}
+	return nil
+}
+
+func admitEnrollmentSaveRotate(out tailnet.EnrollmentResult, in tailnet.EnrollmentRequest) error {
+	if out.Enrollment.Tailnet != in.Tailnet || !slices.Equal(out.Enrollment.Tags, in.Tags) || out.Enrollment.Preauthorized != *in.Preauthorized {
+		return tailnet.ErrUnavailable
+	}
+	return nil
+}
+
+func admitEnrollmentAction(out tailnet.EnrollmentResult, in tailnet.EnrollmentRequest) error {
+	switch in.Action {
+	case "save", "rotate":
+		return admitEnrollmentSaveRotate(out, in)
+	case "disable":
+		if out.Enrollment.Admission || out.Enrollment.Default {
+			return tailnet.ErrUnavailable
+		}
+	case "default":
+		if out.Enrollment.Default != *in.Default {
+			return tailnet.ErrUnavailable
+		}
+	}
+	return nil
+}
+
 func (c *Client) TailnetEnrollment(ctx context.Context, in tailnet.EnrollmentRequest) (tailnet.EnrollmentResult, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.EnrollmentResult{}, err
 	}
 	var out tailnet.EnrollmentResult
 	err := c.tailnetCall(ctx, "enrollment", in, &out)
-	if err == nil {
-		err = out.Validate()
-		if out.Saved != (in.Action != "check") || (out.Saved && (out.Enrollment.Revision == in.Revision || !out.Enrollment.Configured)) || (!out.Saved && (!out.CredentialChecked || out.Enrollment.Revision != in.Revision)) {
-			err = tailnet.ErrUnavailable
-		}
-		switch in.Action {
-		case "save", "rotate":
-			if out.Enrollment.Tailnet != in.Tailnet || !slices.Equal(out.Enrollment.Tags, in.Tags) || out.Enrollment.Preauthorized != *in.Preauthorized {
-				err = tailnet.ErrUnavailable
-			}
-		case "disable":
-			if out.Enrollment.Admission || out.Enrollment.Default {
-				err = tailnet.ErrUnavailable
-			}
-		case "default":
-			if out.Enrollment.Default != *in.Default {
-				err = tailnet.ErrUnavailable
-			}
-		}
+	if err != nil {
+		return out, err
+	}
+	err = out.Validate()
+	if e := admitEnrollmentSave(out, in); e != nil {
+		err = e
+	}
+	if e := admitEnrollmentAction(out, in); e != nil {
+		err = e
 	}
 	return out, err
 }
+
 func (c *Client) TailnetOptions(ctx context.Context) (tailnet.ProjectOptions, error) {
 	var out tailnet.ProjectOptions
 	err := c.tailnetCall(ctx, "options", struct{}{}, &out)
@@ -217,6 +312,20 @@ func (c *Client) TailnetPolicy(ctx context.Context, project string) (tailnet.Pro
 	}
 	return out, e
 }
+
+func tailnetProjectConfirmed(in tailnet.ProjectRequest, out tailnet.ProjectView) bool {
+	if out.Project != in.Project || out.Saved != (in.Action != "inspect") {
+		return false
+	}
+	if !out.Saved {
+		return true
+	}
+	if out.Revision == in.Revision || out.Enabled != (in.Action != "disable") {
+		return false
+	}
+	return in.Action == "disable" || out.Binding == in.Binding
+}
+
 func (c *Client) TailnetProject(ctx context.Context, in tailnet.ProjectRequest) (tailnet.ProjectView, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.ProjectView{}, err
@@ -225,7 +334,7 @@ func (c *Client) TailnetProject(ctx context.Context, in tailnet.ProjectRequest) 
 	err := c.tailnetCall(ctx, "project", in, &out)
 	if err == nil {
 		err = out.Validate()
-		if out.Project != in.Project || out.Saved != (in.Action != "inspect") || (out.Saved && (out.Revision == in.Revision || out.Enabled != (in.Action != "disable") || (in.Action != "disable" && out.Binding != in.Binding))) {
+		if !tailnetProjectConfirmed(in, out) {
 			err = tailnet.ErrUnavailable
 		}
 	}

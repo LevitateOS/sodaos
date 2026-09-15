@@ -29,7 +29,7 @@ import (
 // bracketed-paste mode writes CSI + carriage return before command output; PTY
 // bytes are not already a rendered screen. Keep raw terminal bytes out of logs.
 func terminalProbeText(value string) string {
-	value = regexp.MustCompile("\\x1b\\[[0-?]*[ -/]*[@-~]").ReplaceAllString(value, "")
+	value = regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]`).ReplaceAllString(value, "")
 	return strings.ReplaceAll(value, "\r", "\n")
 }
 
@@ -65,7 +65,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	}
 	hostname, _ := os.Hostname()
 	info, err := os.Lstat(input)
-	if err != nil || !filepath.IsAbs(input) || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || info.Size() > 8192 || os.Geteuid() != 0 {
+	if err != nil || !filepath.IsAbs(input) || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 || info.Size() > 8192 || os.Geteuid() != 0 {
 		t.Fatal("invalid private native input or execution identity")
 	}
 	f, err := os.Open(input)
@@ -86,10 +86,10 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	}
 	dir := filepath.Dir(input)
 	parent, err := os.Lstat(dir)
-	if err != nil || !parent.IsDir() || parent.Mode().Perm()&0077 != 0 {
+	if err != nil || !parent.IsDir() || parent.Mode().Perm()&0o077 != 0 {
 		t.Fatal("native input parent must be private")
 	}
-	marker, err := os.OpenFile(filepath.Join(dir, "terminal-proof-started"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	marker, err := os.OpenFile(filepath.Join(dir, "terminal-proof-started"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		t.Fatal("occupied native proof; do not replay")
 	}
@@ -102,7 +102,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal("native socket unavailable")
 	}
-	if err = os.Chmod(socket, 0600); err != nil {
+	if err = os.Chmod(socket, 0o600); err != nil {
 		listener.Close()
 		t.Fatal("native socket protection failed")
 	}
@@ -302,12 +302,12 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		var child *exec.Cmd
 		if mode == "helper-killed" {
 			childDir := filepath.Join(dir, "loss")
-			if err := os.Mkdir(childDir, 0700); err != nil {
+			if err := os.Mkdir(childDir, 0o700); err != nil {
 				t.Fatal("occupied child proof")
 			}
 			body, _ := json.Marshal(request)
 			childInput := filepath.Join(childDir, "request.json")
-			if err := os.WriteFile(childInput, body, 0600); err != nil {
+			if err := os.WriteFile(childInput, body, 0o600); err != nil {
 				t.Fatal("child input unavailable")
 			}
 			child = exec.Command(os.Args[0], "-test.run", "^TestInstalledTerminalBoundary$", "-test.timeout=3m")
@@ -403,7 +403,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	// Independent SSH/workload preservation and browser integration are not
 	// fabricated by this private-helper test; observe them separately.
 	result, _ := json.MarshalIndent(map[string]any{"target": hostname, "project": request.Project, "accounts": results, "identity_mismatch_refused": true, "attachment_loss": losses, "scope": "native-owned tmux: account/TTY/profile/same-shell reattach/attachment EOF/heartbeat/helper-loss continuity and explicit End; not browser/editor/unrelated-service preservation"}, "", "  ")
-	output, err := os.OpenFile(filepath.Join(dir, "terminal-proof.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	output, err := os.OpenFile(filepath.Join(dir, "terminal-proof.json"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		t.Fatal("native evidence finalization failed")
 	}

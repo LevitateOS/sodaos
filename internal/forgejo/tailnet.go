@@ -12,15 +12,8 @@ var endpointName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.:-]*$`)
 
 // UpdateSSHDomain changes only the native Git SSH advertisement, preserving
 // explicit browser/OAuth origins and every unrelated Forgejo setting.
-func UpdateSSHDomain(path, endpoint string) (bool, error) {
-	if !endpointName.MatchString(endpoint) {
-		return false, fmt.Errorf("invalid native Tailnet endpoint")
-	}
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return false, err
-	}
-	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+func rewriteSSHDomain(content, endpoint string) string {
+	lines := strings.Split(strings.TrimRight(content, "\n"), "\n")
 	key := "FORGEJO__server__SSH_DOMAIN="
 	value := key + endpoint
 	found := false
@@ -38,23 +31,38 @@ func UpdateSSHDomain(path, endpoint string) (bool, error) {
 	if !found {
 		out = append(out, value)
 	}
-	updated := strings.Join(out, "\n") + "\n"
-	if updated == string(b) {
-		return false, nil
-	}
+	return strings.Join(out, "\n") + "\n"
+}
+
+func writeForgejoEnv(path, updated string) error {
 	f, err := os.CreateTemp(filepath.Dir(path), ".forgejo-env-")
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer os.Remove(f.Name())
-	if err = f.Chmod(0600); err == nil {
+	if err = f.Chmod(0o600); err == nil {
 		_, err = f.WriteString(updated)
 	}
 	if e := f.Close(); err == nil {
 		err = e
 	}
 	if err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), path)
+}
+
+func UpdateSSHDomain(path, endpoint string) (bool, error) {
+	if !endpointName.MatchString(endpoint) {
+		return false, fmt.Errorf("invalid native Tailnet endpoint")
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
 		return false, err
 	}
-	return true, os.Rename(f.Name(), path)
+	updated := rewriteSSHDomain(string(b), endpoint)
+	if updated == string(b) {
+		return false, nil
+	}
+	return true, writeForgejoEnv(path, updated)
 }

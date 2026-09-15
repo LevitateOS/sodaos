@@ -46,6 +46,7 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	}
 	return b.Buffer.Write(p)
 }
+
 func CheckNative(ctx context.Context, r Runner) error {
 	var versions map[string]string
 	if e := json.Unmarshal(toolLock, &versions); e != nil {
@@ -57,6 +58,23 @@ func CheckNative(ctx context.Context, r Runner) error {
 	}
 	return nil
 }
+
+func ownedPrivateRegular(path string) error {
+	st, e := os.Lstat(path)
+	if e != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0 || st.Size() > 1<<20 {
+		return ErrRefused
+	}
+	stat, ok := st.Sys().(*syscall.Stat_t)
+	if !ok || int(stat.Uid) != os.Geteuid() {
+		return ErrRefused
+	}
+	parent, e := os.Stat(filepath.Dir(path))
+	if e != nil || parent.Mode().Perm()&0o077 != 0 {
+		return ErrRefused
+	}
+	return nil
+}
+
 func PrivateFile(path string) error {
 	if !filepath.IsAbs(path) {
 		return ErrRefused
@@ -65,26 +83,15 @@ func PrivateFile(path string) error {
 	if e != nil || resolved != path {
 		return ErrRefused
 	}
-	st, e := os.Lstat(path)
-	if e != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0077 != 0 || st.Size() > 1<<20 {
-		return ErrRefused
-	}
-	stat, ok := st.Sys().(*syscall.Stat_t)
-	if !ok || int(stat.Uid) != os.Geteuid() {
-		return ErrRefused
-	}
-	parent, e := os.Stat(filepath.Dir(path))
-	if e != nil || parent.Mode().Perm()&0077 != 0 {
-		return ErrRefused
-	}
-	return nil
+	return ownedPrivateRegular(path)
 }
+
 func writeJSON(path string, v any) error {
 	b, e := marshal(v)
 	if e != nil {
 		return e
 	}
-	return nativebuild.WriteNew(path, b, 0600)
+	return nativebuild.WriteNew(path, b, 0o600)
 }
 
 type requirement struct {
@@ -104,6 +111,7 @@ func (t Trust) requirement(repo string) (requirement, error) {
 	}
 	return requirement{Type: "sigstoreSigned", KeyDatas: keys, SignedIdentity: map[string]string{"type": "exactRepository", "dockerRepository": repo}}, nil
 }
+
 func policyFor(t Trust, repo, transport, scope string) (any, error) {
 	req, e := t.requirement(repo)
 	if e != nil {
@@ -111,6 +119,7 @@ func policyFor(t Trust, repo, transport, scope string) (any, error) {
 	}
 	return map[string]any{"default": []requirement{{Type: "reject"}}, "transports": map[string]any{transport: map[string]any{scope: []requirement{req}}}}, nil
 }
+
 func localPolicy(transport, path string) any {
 	return map[string]any{"default": []requirement{{Type: "reject"}}, "transports": map[string]any{transport: map[string]any{path: []requirement{{Type: "insecureAcceptAnything"}}}}}
 }
@@ -118,6 +127,35 @@ func localPolicy(transport, path string) any {
 // MergePolicy emits a proposed policy, never installs it. Unrelated Fedora/vendor
 // scopes are preserved. Existing more-specific Soda overrides must be reviewed,
 // not silently allowed to bypass the new rule.
+func sodaTrustRepos(t Trust) []string {
+	repos := []string{t.Prefix + "-host", t.Prefix + "-release"}
+	for _, n := range appliancerelease.Names {
+		repos = append(repos, t.Prefix+"-"+n)
+	}
+	for _, c := range []string{"candidate", "preview", "stable"} {
+		repos = append(repos, t.Prefix+"-channel-"+c)
+	}
+	return repos
+}
+
+func sodaOverrideExists(existing, repo string) bool {
+	return existing == repo || strings.HasPrefix(existing, repo+":") || strings.HasPrefix(existing, repo+"@") || strings.HasPrefix(existing, repo+"/")
+}
+
+func applySodaTrust(t Trust, docker map[string]json.RawMessage) error {
+	for _, repo := range sodaTrustRepos(t) {
+		for existing := range docker {
+			if sodaOverrideExists(existing, repo) {
+				return errors.New("existing Soda trust override requires explicit review")
+			}
+		}
+		req, _ := t.requirement(repo)
+		raw, _ := json.Marshal([]requirement{req})
+		docker[repo] = raw
+	}
+	return nil
+}
+
 func MergePolicy(t Trust, original []byte) ([]byte, error) {
 	if e := t.Validate(); e != nil {
 		return nil, e
@@ -135,25 +173,12 @@ func MergePolicy(t Trust, original []byte) ([]byte, error) {
 	if p.Transports["docker"] == nil {
 		p.Transports["docker"] = map[string]json.RawMessage{}
 	}
-	repos := []string{t.Prefix + "-host", t.Prefix + "-release"}
-	for _, n := range appliancerelease.Names {
-		repos = append(repos, t.Prefix+"-"+n)
-	}
-	for _, c := range []string{"candidate", "preview", "stable"} {
-		repos = append(repos, t.Prefix+"-channel-"+c)
-	}
-	for _, repo := range repos {
-		for existing := range p.Transports["docker"] {
-			if existing == repo || strings.HasPrefix(existing, repo+":") || strings.HasPrefix(existing, repo+"@") || strings.HasPrefix(existing, repo+"/") {
-				return nil, errors.New("existing Soda trust override requires explicit review")
-			}
-		}
-		req, _ := t.requirement(repo)
-		raw, _ := json.Marshal([]requirement{req})
-		p.Transports["docker"][repo] = raw
+	if e := applySodaTrust(t, p.Transports["docker"]); e != nil {
+		return nil, e
 	}
 	return marshal(p)
 }
+
 func WriteRegistryConfig(out string, t Trust) error {
 	if e := t.Validate(); e != nil {
 		return e
@@ -161,9 +186,10 @@ func WriteRegistryConfig(out string, t Trust) error {
 	_, e := registryConfig(out, t)
 	return e
 }
+
 func registryConfig(out string, t Trust) (string, error) {
 	dir := filepath.Join(out, "registries.d")
-	if e := os.Mkdir(dir, 0700); e != nil {
+	if e := os.Mkdir(dir, 0o700); e != nil {
 		return "", e
 	}
 	// JSON is valid YAML; quote exact repository scopes rather than registry-wide
@@ -180,6 +206,27 @@ func registryConfig(out string, t Trust) (string, error) {
 
 // VerifyCopy is deliberately a fresh native copy, never a Podman-cache existence
 // assertion or an inspect-only request (neither proves signature enforcement).
+func admitVerifySource(ref, source, repo string) (transport, scope string, err error) {
+	transport, scope, ok := strings.Cut(source, ":")
+	if !ok {
+		return "", "", ErrRefused
+	}
+	switch transport {
+	case "docker":
+		if source != "docker://"+ref {
+			return "", "", ErrRefused
+		}
+		return transport, repo, nil
+	case "dir":
+		if !filepath.IsAbs(scope) {
+			return "", "", ErrRefused
+		}
+		return transport, scope, nil
+	default:
+		return "", "", ErrRefused
+	}
+}
+
 func VerifyCopy(ctx context.Context, r Runner, t Trust, ref, source, out string) error {
 	repo, _, e := t.Reference(ref)
 	if e != nil {
@@ -189,22 +236,9 @@ func VerifyCopy(ctx context.Context, r Runner, t Trust, ref, source, out string)
 	if e = nativebuild.FreshDirectory(out); e != nil {
 		return e
 	}
-	transport, scope, ok := strings.Cut(source, ":")
-	if !ok {
-		return ErrRefused
-	}
-	switch transport {
-	case "docker":
-		if source != "docker://"+ref {
-			return ErrRefused
-		}
-		scope = repo
-	case "dir":
-		if !filepath.IsAbs(scope) {
-			return ErrRefused
-		}
-	default:
-		return ErrRefused
+	transport, scope, e := admitVerifySource(ref, source, repo)
+	if e != nil {
+		return e
 	}
 	p, e := policyFor(t, repo, transport, scope)
 	if e != nil {
@@ -221,6 +255,10 @@ func VerifyCopy(ctx context.Context, r Runner, t Trust, ref, source, out string)
 	if _, e = r.Run(ctx, "--command-timeout=10m", "--policy", pp, "--registries.d", registry, "copy", "--preserve-digests", "--src-no-creds", source, "dir:"+filepath.Join(out, "image")); e != nil {
 		return e
 	}
+	return verifyCopiedManifest(out, digest)
+}
+
+func verifyCopiedManifest(out, digest string) error {
 	b, e := ReadFile(filepath.Join(out, "image/manifest.json"), 1<<20)
 	if e != nil || Hash(b) != digest {
 		return ErrRefused
@@ -232,30 +270,36 @@ type SecretFiles struct{ Key, Passphrase string }
 
 // Sign admits a protected exact permit and signs a private snapshot only after
 // checking its manifest. No candidate script runs with signing credentials.
-func Sign(ctx context.Context, r Runner, t Trust, p Permit, transport, input, out string, key SecretFiles) error {
+func admitSignInputs(t Trust, p Permit, input string, key SecretFiles) error {
 	if t.Validate() != nil || p.Validate(t, nowUTC()) != nil || PrivateFile(key.Key) != nil || PrivateFile(key.Passphrase) != nil || !filepath.IsAbs(input) {
 		return ErrRefused
 	}
+	return nil
+}
+
+func snapshotSignSource(ctx context.Context, r Runner, transport, input, out string) (string, error) {
 	if transport != "oci" && transport != "oci-archive" && transport != "dir" {
-		return ErrRefused
+		return "", ErrRefused
 	}
 	if e := nativebuild.FreshDirectory(out); e != nil {
-		return e
+		return "", e
 	}
 	policy := filepath.Join(out, "snapshot-policy.json")
 	if e := writeJSON(policy, localPolicy(transport, input)); e != nil {
-		return e
+		return "", e
 	}
 	snapshot := filepath.Join(out, "snapshot")
 	if _, e := r.Run(ctx, "--command-timeout=10m", "--policy", policy, "copy", "--preserve-digests", "--remove-signatures", transport+":"+input, "dir:"+snapshot); e != nil {
-		return e
+		return "", e
 	}
+	return snapshot, nil
+}
+
+func admitSignedPayload(t Trust, p Permit, snapshot string) error {
 	mb, e := ReadFile(filepath.Join(snapshot, "manifest.json"), 1<<20)
 	if e != nil || Hash(mb) != p.Digest {
 		return ErrRefused
 	}
-	// Channels are structurally validated before signature creation; qualification
-	// and role authorization are additionally bound by the protected permit digest.
 	role, _ := t.Role(p.Repository)
 	if channel(role) {
 		var c Channel
@@ -275,17 +319,35 @@ func Sign(ctx context.Context, r Runner, t Trust, p Permit, transport, input, ou
 			return e
 		}
 	}
-	policy = filepath.Join(out, "sign-policy.json")
-	if e = writeJSON(policy, localPolicy("dir", snapshot)); e != nil {
+	return nil
+}
+
+func emitSignedDirectory(ctx context.Context, r Runner, t Trust, p Permit, snapshot, out string, key SecretFiles) error {
+	policy := filepath.Join(out, "sign-policy.json")
+	if e := writeJSON(policy, localPolicy("dir", snapshot)); e != nil {
 		return e
 	}
 	signed := filepath.Join(out, "signed")
 	ref := p.Repository + "@" + p.Digest
-	if _, e = r.Run(ctx, "--command-timeout=10m", "--policy", policy, "copy", "--preserve-digests", "--sign-by-sigstore-private-key", key.Key, "--sign-passphrase-file", key.Passphrase, "--sign-identity", ref, "dir:"+snapshot, "dir:"+signed); e != nil {
+	if _, e := r.Run(ctx, "--command-timeout=10m", "--policy", policy, "copy", "--preserve-digests", "--sign-by-sigstore-private-key", key.Key, "--sign-passphrase-file", key.Passphrase, "--sign-identity", ref, "dir:"+snapshot, "dir:"+signed); e != nil {
 		return e
 	}
-	if e = VerifyCopy(ctx, r, t, ref, "dir:"+signed, filepath.Join(out, "check")); e != nil {
+	if e := VerifyCopy(ctx, r, t, ref, "dir:"+signed, filepath.Join(out, "check")); e != nil {
 		return e
 	}
 	return writeJSON(filepath.Join(out, "receipt.json"), map[string]string{"Reference": ref, "Scope": "native-signed local directory; not published or boot-qualified"})
+}
+
+func Sign(ctx context.Context, r Runner, t Trust, p Permit, transport, input, out string, key SecretFiles) error {
+	if e := admitSignInputs(t, p, input, key); e != nil {
+		return e
+	}
+	snapshot, e := snapshotSignSource(ctx, r, transport, input, out)
+	if e != nil {
+		return e
+	}
+	if e = admitSignedPayload(t, p, snapshot); e != nil {
+		return e
+	}
+	return emitSignedDirectory(ctx, r, t, p, snapshot, out, key)
 }

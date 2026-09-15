@@ -47,7 +47,7 @@ func TestNativeConnectionFixture(t *testing.T) {
 	if !filepath.IsAbs(dir) {
 		t.Fatal("absolute fresh fixture directory required")
 	}
-	if err := os.Mkdir(dir, 0700); err != nil {
+	if err := os.Mkdir(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	credential, err := os.ReadFile(filepath.Join(root, ".local/screenshot-fixture/create-output.txt"))
@@ -66,7 +66,7 @@ func TestNativeConnectionFixture(t *testing.T) {
 	preview := exec.Command("bun", "scripts/build-forgejo-preview.ts", "--out", filepath.Join(dir, "branding"))
 	preview.Dir = root
 	prepared, prepareErr := preview.CombinedOutput()
-	if err := os.WriteFile(filepath.Join(dir, "preview.log"), prepared, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "preview.log"), prepared, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if prepareErr != nil {
@@ -138,7 +138,7 @@ func TestNativeConnectionFixture(t *testing.T) {
 			if predecessorBinary != "" && string(backend) == "candidate" {
 				transitionOnce.Do(func() { migrated, transitionErr = transition() })
 				if transitionErr != nil {
-					http.Error(w, "fixture backend transition failed", 503)
+					http.Error(w, "fixture backend transition failed", http.StatusServiceUnavailable)
 					return
 				}
 				migrated.ServeHTTP(w, r)
@@ -209,14 +209,14 @@ func TestNativeConnectionFixture(t *testing.T) {
 		t.Fatal("native fixture application creation failed", res.StatusCode)
 	}
 	secretFile := filepath.Join(dir, "oauth-secret")
-	if err := os.WriteFile(secretFile, []byte(app.Secret), 0600); err != nil {
+	if err := os.WriteFile(secretFile, []byte(app.Secret), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "grant-key"), key, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "grant-key"), key, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	db, err := store.OpenEncrypted(filepath.Join(dir, "soda.db"), key)
@@ -256,16 +256,17 @@ func TestNativeConnectionFixture(t *testing.T) {
 		oldProxy = httputil.NewSingleHostReverseProxy(oldURL)
 		oldProxy.ErrorLog = log.New(io.Discard, "", 0)
 		keyPath := filepath.Join(dir, "predecessor-grant-key")
-		if err := os.WriteFile(keyPath, []byte(base64.StdEncoding.EncodeToString(key)), 0600); err != nil {
+		if err := os.WriteFile(keyPath, []byte(base64.StdEncoding.EncodeToString(key)), 0o600); err != nil {
 			t.Fatal(err)
 		}
+		//lint:ignore SA1019 predecessor JSON still carries the unused admin-token path
 		cfg := config.Config{Listen: address, OperatorID: actor.ID, ForgejoURL: server.URL, ForgejoInternalURL: upstream.String(), OAuthClientID: app.ClientID, OAuthSecretFile: secretFile, GrantKeyFile: keyPath, Database: filepath.Join(dir, "predecessor.db"), HostSocket: filepath.Join(dir, "absent-native-helper.sock"), AdminTokenFile: filepath.Join(dir, "unused-admin-token")}
 		body, _ := json.Marshal(cfg)
 		configPath := filepath.Join(dir, "predecessor-config.json")
-		if err := os.WriteFile(configPath, body, 0600); err != nil {
+		if err := os.WriteFile(configPath, body, 0o600); err != nil {
 			t.Fatal(err)
 		}
-		output, err := os.OpenFile(filepath.Join(dir, "predecessor.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		output, err := os.OpenFile(filepath.Join(dir, "predecessor.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -336,7 +337,7 @@ func TestNativeConnectionFixture(t *testing.T) {
 				return nil, fmt.Errorf("current backend did not migrate to schema v10")
 			}
 			receipt, _ := json.Marshal(map[string]any{"before": before, "after": after, "same_database": true, "prior_exit_confirmed": true, "scope": "fresh synthetic fixture grants, not retained appliance data"})
-			if err := os.WriteFile(filepath.Join(dir, "backend-transition.json"), receipt, 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, "backend-transition.json"), receipt, 0o600); err != nil {
 				return nil, err
 			}
 			current := New(cfg, upgraded)
@@ -345,14 +346,14 @@ func TestNativeConnectionFixture(t *testing.T) {
 		}
 	}
 	receipt, _ := json.Marshal(map[string]any{"origin": server.URL, "native_origin": upstream.String(), "oauth_application_id": app.ID, "client_id": app.ClientID})
-	if err := os.WriteFile(filepath.Join(dir, "fixture.json"), receipt, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "fixture.json"), receipt, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cmd := exec.Command("bun", "test", "--timeout", "120000", "tests/forgejo/native-connection.test.ts")
 	cmd.Dir = root
 	spki := sha256.Sum256(server.Certificate().RawSubjectPublicKeyInfo)
 	cmd.Env = append(os.Environ(), "SODA_CONNECTION_ORIGIN="+server.URL, "SODA_PAGE_STATE="+filepath.Join(dir, "browser-state.json"), "SODA_CONNECTION_SPKI="+base64.StdEncoding.EncodeToString(spki[:]))
-	logFile, err := os.OpenFile(filepath.Join(dir, "browser.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	logFile, err := os.OpenFile(filepath.Join(dir, "browser.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

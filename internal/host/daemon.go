@@ -6,14 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/appliancerelease"
-	"github.com/levitateos/sodaos/internal/installlayout"
-	"github.com/levitateos/sodaos/internal/nativebuild"
-	"github.com/levitateos/sodaos/internal/projectos"
-	"github.com/levitateos/sodaos/internal/runners"
-	"github.com/levitateos/sodaos/internal/strictjson"
-	"github.com/levitateos/sodaos/internal/tailnet"
-	"golang.org/x/crypto/ssh"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -24,12 +17,23 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/appliancerelease"
+	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/projectos"
+	"github.com/levitateos/sodaos/internal/runners"
+	"github.com/levitateos/sodaos/internal/strictjson"
+	"github.com/levitateos/sodaos/internal/tailnet"
+	"golang.org/x/crypto/ssh"
 )
 
-var projectID = regexp.MustCompile(`^p[0-9a-f]{24}$`)
-var loginName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
-var imageID = regexp.MustCompile(`^(?:sha256:)?[0-9a-f]{64}$`)
-var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
+var (
+	projectID   = regexp.MustCompile(`^p[0-9a-f]{24}$`)
+	loginName   = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
+	imageID     = regexp.MustCompile(`^(?:sha256:)?[0-9a-f]{64}$`)
+	networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
+)
 
 type Config struct {
 	TailnetManagement bool   `json:"tailnet_management,omitempty"`
@@ -44,6 +48,51 @@ func LoadConfig(path string) (Config, error) {
 	return loadConfig(path, installlayout.Release)
 }
 
+func applyReleaseImages(c *Config, releasePath string) error {
+	if releasePath == "" {
+		return nil
+	}
+	p, err := appliancerelease.Load(releasePath)
+	if err != nil || nativebuild.RequireNative(p.Architecture) != nil {
+		return errors.New("immutable appliance image defaults unavailable")
+	}
+	// Never silently replace an operator's saved image choice. New installs
+	// omit these fields; a conflicting old install needs explicit migration.
+	project, companion := p.Images["project-os"].Config, p.Images["tailnet"].Config
+	if (c.Image != "" && c.Image != project) || (c.TailnetImage != "" && c.TailnetImage != companion) {
+		return errors.New("saved image selection conflicts with appliance release; explicit migration required")
+	}
+	c.Image = project
+	if c.TailnetManagement {
+		c.TailnetImage = companion
+	}
+	return nil
+}
+
+func validTailnetImage(c Config) bool {
+	if c.TailnetImage == "" {
+		return true
+	}
+	return c.TailnetManagement && strings.HasPrefix(c.TailnetImage, "sha256:") && imageID.MatchString(c.TailnetImage)
+}
+
+func validNetworkNames(c Config) bool {
+	return c.Image != "" && !strings.HasPrefix(c.Image, "-") && networkName.MatchString(c.Network) && networkName.MatchString(c.Bridge)
+}
+
+func validateRuntimeConfig(c Config) error {
+	if _, err := netip.ParsePrefix(c.Subnet); err != nil {
+		return err
+	}
+	if !validTailnetImage(c) {
+		return errors.New("invalid immutable Tailnet companion configuration")
+	}
+	if !validNetworkNames(c) {
+		return errors.New("invalid native runtime configuration")
+	}
+	return nil
+}
+
 func loadConfig(path, releasePath string) (Config, error) {
 	var c Config
 	b, err := os.ReadFile(path)
@@ -55,30 +104,11 @@ func loadConfig(path, releasePath string) (Config, error) {
 	if err = d.Decode(&c); err != nil {
 		return c, err
 	}
-	if releasePath != "" {
-		p, err := appliancerelease.Load(releasePath)
-		if err != nil || nativebuild.RequireNative(p.Architecture) != nil {
-			return c, errors.New("immutable appliance image defaults unavailable")
-		}
-		// Never silently replace an operator's saved image choice. New installs
-		// omit these fields; a conflicting old install needs explicit migration.
-		project, companion := p.Images["project-os"].Config, p.Images["tailnet"].Config
-		if (c.Image != "" && c.Image != project) || (c.TailnetImage != "" && c.TailnetImage != companion) {
-			return c, errors.New("saved image selection conflicts with appliance release; explicit migration required")
-		}
-		c.Image = project
-		if c.TailnetManagement {
-			c.TailnetImage = companion
-		}
-	}
-	if _, err = netip.ParsePrefix(c.Subnet); err != nil {
+	if err = applyReleaseImages(&c, releasePath); err != nil {
 		return c, err
 	}
-	if c.TailnetImage != "" && (!c.TailnetManagement || !strings.HasPrefix(c.TailnetImage, "sha256:") || !imageID.MatchString(c.TailnetImage)) {
-		return c, errors.New("invalid immutable Tailnet companion configuration")
-	}
-	if c.Image == "" || strings.HasPrefix(c.Image, "-") || !networkName.MatchString(c.Network) || !networkName.MatchString(c.Bridge) {
-		return c, errors.New("invalid native runtime configuration")
+	if err = validateRuntimeConfig(c); err != nil {
+		return c, err
 	}
 	return c, nil
 }
@@ -138,104 +168,174 @@ func (d *Daemon) acquireAdmission(ctx context.Context) error {
 	}
 }
 
-func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+var errNotFound = errors.New("not found")
+
+func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
 	if strings.HasPrefix(r.URL.Path, "/tailnet/") {
 		d.tailnetHandler(w, r)
-		return
+		return true
 	}
 	if strings.HasPrefix(r.URL.Path, "/runners/") {
 		d.runnerHandler(w, r)
-		return
+		return true
 	}
 	if r.URL.Path == "/terminal" {
 		d.terminalHandler(w, r)
-		return
+		return true
 	}
-	if (r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys" || r.URL.Path == "/profile" || r.URL.Path == "/create" || r.URL.Path == "/os") && (r.URL.RawQuery != "" || r.URL.ForceQuery || r.URL.RawPath != "") {
-		http.Error(w, "invalid native operation path", 400)
-		return
+	return false
+}
+
+func hasNativeCleanPath(r *http.Request) bool {
+	switch r.URL.Path {
+	case "/lifecycle", "/access-keys", "/profile", "/create", "/os":
+		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
+	default:
+		return true
+	}
+}
+
+func validateNativeOperationRequest(r *http.Request) int {
+	if !hasNativeCleanPath(r) {
+		return http.StatusBadRequest
 	}
 	if r.Method != "POST" {
-		http.Error(w, "POST required", 405)
-		return
+		return http.StatusMethodNotAllowed
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
-	defer cancel()
-	r.Body = http.MaxBytesReader(w, r.Body, 65536)
-	decode := func(v any) error {
-		if err := strictjson.Decode(r.Body, v); err != nil {
+	return 0
+}
+
+func nativeRequestErrorMessage(code int) string {
+	if code == http.StatusBadRequest {
+		return "invalid native operation path"
+	}
+	return "POST required"
+}
+
+func isAdmittedMutationPath(path string) bool {
+	return path == "/lifecycle" || path == "/access-keys" || path == "/account"
+}
+
+func makeBodyDecoder(body io.Reader, ctx context.Context) func(any) error {
+	return func(v any) error {
+		if err := strictjson.Decode(body, v); err != nil {
 			return err
 		}
 		// A body read can outlive admission. Refuse cancellation before dispatch;
 		// already-running native commands retain their existing context handling.
 		return ctx.Err()
 	}
+}
+
+func (d *Daemon) dispatchProfile(ctx context.Context, decode func(any) error) (any, error) {
+	var in struct{}
+	if err := decode(&in); err != nil {
+		return nil, err
+	}
+	return d.resolveProfile(ctx)
+}
+
+func (d *Daemon) dispatchCreate(ctx context.Context, decode func(any) error) (any, error) {
+	var in Create
+	if err := decode(&in); err != nil {
+		return nil, err
+	}
+	if !projectID.MatchString(in.ID) || in.Owner <= 0 {
+		return nil, errors.New("invalid project identity")
+	}
+	return d.create(ctx, in)
+}
+
+func (d *Daemon) dispatchCreateTargeted(ctx context.Context, path string, decode func(any) error) (any, error) {
+	var in Create
+	if err := decode(&in); err != nil {
+		return nil, err
+	}
+	switch path {
+	case "/inspect":
+		out, _, err := d.inspect(ctx, in.ID)
+		return out, err
+	case "/os":
+		return d.observeOS(ctx, in.ID)
+	case "/connection":
+		return d.connection(ctx, in.ID)
+	default:
+		return nil, errNotFound
+	}
+}
+
+func (d *Daemon) dispatchMutation(ctx context.Context, path string, decode func(any) error) (any, error) {
+	switch path {
+	case "/lifecycle":
+		var in Lifecycle
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.lifecycle(ctx, in)
+	case "/access-keys":
+		var in AccessKeys
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.accessKeys(ctx, in)
+	case "/account":
+		var in Account
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		err := d.account(ctx, in)
+		return map[string]bool{"ok": err == nil}, nil
+	default:
+		return nil, errNotFound
+	}
+}
+
+func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func(any) error) (any, error) {
+	switch path {
+	case "/profile":
+		return d.dispatchProfile(ctx, decode)
+	case "/create":
+		return d.dispatchCreate(ctx, decode)
+	case "/inspect", "/os", "/connection":
+		return d.dispatchCreateTargeted(ctx, path, decode)
+	case "/lifecycle", "/access-keys", "/account":
+		return d.dispatchMutation(ctx, path, decode)
+	default:
+		return nil, errNotFound
+	}
+}
+
+func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if d.routeSubsystem(w, r) {
+		return
+	}
+	if code := validateNativeOperationRequest(r); code != 0 {
+		http.Error(w, nativeRequestErrorMessage(code), code)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
+	defer cancel()
+	r.Body = http.MaxBytesReader(w, r.Body, 65536)
+	decode := makeBodyDecoder(r.Body, ctx)
 	if ctx.Err() != nil {
 		http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
 		return
 	}
 	// Read-only observations may overlap mutations and report transitional state.
 	// Create owns the same writer gate inside its native provisioning phase.
-	if r.URL.Path == "/lifecycle" || r.URL.Path == "/access-keys" || r.URL.Path == "/account" {
+	if isAdmittedMutationPath(r.URL.Path) {
 		if err := d.acquireAdmission(ctx); err != nil {
 			http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)
 			return
 		}
 		defer func() { <-d.admission }()
 	}
-	var out any
-	var err error
-	switch r.URL.Path {
-	case "/profile":
-		var in struct{}
-		if err = decode(&in); err == nil {
-			out, err = d.resolveProfile(ctx)
-		}
-	case "/create":
-		var in Create
-		if err = decode(&in); err == nil {
-			if !projectID.MatchString(in.ID) || in.Owner <= 0 {
-				err = errors.New("invalid project identity")
-			} else {
-				out, err = d.create(ctx, in)
-			}
-		}
-	case "/inspect":
-		var in Create
-		if err = decode(&in); err == nil {
-			out, _, err = d.inspect(ctx, in.ID)
-		}
-	case "/os":
-		var in Create
-		if err = decode(&in); err == nil {
-			out, err = d.observeOS(ctx, in.ID)
-		}
-	case "/connection":
-		var in Create
-		if err = decode(&in); err == nil {
-			out, err = d.connection(ctx, in.ID)
-		}
-	case "/lifecycle":
-		var in Lifecycle
-		if err = decode(&in); err == nil {
-			out, err = d.lifecycle(ctx, in)
-		}
-	case "/access-keys":
-		var in AccessKeys
-		if err = decode(&in); err == nil {
-			out, err = d.accessKeys(ctx, in)
-		}
-	case "/account":
-		var in Account
-		if err = decode(&in); err == nil {
-			err = d.account(ctx, in)
-		}
-		out = map[string]bool{"ok": err == nil}
-	default:
-		http.NotFound(w, r)
-		return
-	}
+	out, err := d.dispatchOperation(ctx, r.URL.Path, decode)
 	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
 		slog.Error("project native operation failed", "operation", r.URL.Path, "error", err)
 		http.Error(w, "native operation failed; inspect operator journal", 500)
 		return
@@ -243,6 +343,7 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
 }
+
 func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	if !projectID.MatchString(in.ID) || in.Owner <= 0 || in.Profile == nil || in.Profile.Validate() != nil {
 		return Environment{}, errors.New("invalid creation identity")
@@ -256,6 +357,7 @@ func (d *Daemon) create(ctx context.Context, in Create) (Environment, error) {
 	}
 	return d.startCreated(ctx, in)
 }
+
 func (d *Daemon) createContainer(ctx context.Context, in Create) error {
 	profile, err := d.resolveProfile(ctx)
 	if err != nil {
@@ -279,22 +381,113 @@ func (d *Daemon) createContainer(ctx context.Context, in Create) error {
 	_, err = d.podman(ctx, nil, args...)
 	return err
 }
+
+type inspectItem struct {
+	Image           string
+	Config          struct{ Labels map[string]string }
+	State           struct{ Running bool }
+	NetworkSettings struct {
+		Networks map[string]struct{ IPAddress string }
+	}
+}
+
+func applyCreationProfile(env *Environment, item inspectItem) error {
+	raw := item.Config.Labels["org.soda.creation-profile"]
+	if raw == "" {
+		return nil
+	}
+	p, decodeErr := projectos.Decode(raw)
+	image := item.Image
+	if !strings.HasPrefix(image, "sha256:") {
+		image = "sha256:" + image
+	}
+	if decodeErr != nil || p.ID != item.Config.Labels["org.soda.profile"] || p.Image != image {
+		return errors.New("native creation profile mismatch")
+	}
+	env.Profile = p
+	return nil
+}
+
+func admitProjectIP(env *Environment, network, subnet string, networks map[string]struct{ IPAddress string }) error {
+	env.IP = networks[network].IPAddress
+	if env.IP == "" {
+		return nil
+	}
+	ip, err := netip.ParseAddr(env.IP)
+	if err != nil {
+		return err
+	}
+	prefix, _ := netip.ParsePrefix(subnet)
+	if !prefix.Contains(ip) {
+		return errors.New("project IP outside configured network")
+	}
+	return nil
+}
+
+func inspectOwner(item inspectItem, id string) (int64, error) {
+	if item.Config.Labels["org.soda.project"] != id {
+		return 0, errors.New("container is not owned by this project")
+	}
+	owner, err := strconv.ParseInt(item.Config.Labels["org.soda.owner"], 10, 64)
+	if err != nil || owner <= 0 {
+		return 0, errors.New("invalid native project owner")
+	}
+	return owner, nil
+}
+
+func (d *Daemon) inspect(ctx context.Context, id string) (Environment, int64, error) {
+	env := Environment{ID: id}
+	if !projectID.MatchString(id) {
+		return env, 0, errors.New("invalid project id")
+	}
+	out, err := d.podman(ctx, nil, "inspect", "soda-"+id)
+	if err != nil {
+		return env, 0, err
+	}
+	var items []inspectItem
+	if err = json.Unmarshal(out, &items); err != nil || len(items) != 1 {
+		return env, 0, errors.New("invalid native inspection")
+	}
+	item := items[0]
+	if imageID.MatchString(item.Image) {
+		env.Image = "sha256:" + strings.TrimPrefix(item.Image, "sha256:")
+	}
+	owner, err := inspectOwner(item, id)
+	if err != nil {
+		return env, 0, err
+	}
+	if err = applyCreationProfile(&env, item); err != nil {
+		return env, 0, err
+	}
+	env.Running = item.State.Running
+	if err = admitProjectIP(&env, d.Config.Network, d.Config.Subnet, item.NetworkSettings.Networks); err != nil {
+		return env, 0, err
+	}
+	return env, owner, nil
+}
+
+func waitProjectReady(ctx context.Context, d *Daemon, name string) error {
+	tick := time.NewTicker(time.Second)
+	defer tick.Stop()
+	for {
+		if _, err := d.podman(ctx, nil, "exec", name, "/usr/bin/test", "-f", "/run/soda-project-ready"); err == nil {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-tick.C:
+		}
+	}
+}
+
 func (d *Daemon) startCreated(ctx context.Context, in Create) (Environment, error) {
 	name := "soda-" + in.ID
 	if _, err := d.Exec.Run(ctx, nil, "/usr/bin/systemctl", "enable", "--now", "soda-project@"+in.ID+".service"); err != nil {
 		return Environment{}, err
 	}
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
-	for {
-		if _, err := d.podman(ctx, nil, "exec", name, "/usr/bin/test", "-f", "/run/soda-project-ready"); err == nil {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return Environment{}, ctx.Err()
-		case <-tick.C:
-		}
+	if err := waitProjectReady(ctx, d, name); err != nil {
+		return Environment{}, err
 	}
 	env, _, err := d.inspect(ctx, in.ID)
 	if err != nil {
@@ -305,61 +498,51 @@ func (d *Daemon) startCreated(ctx context.Context, in Create) (Environment, erro
 	}
 	return env, nil
 }
-func (d *Daemon) inspect(ctx context.Context, id string) (Environment, int64, error) {
-	env := Environment{ID: id}
-	if !projectID.MatchString(id) {
-		return env, 0, errors.New("invalid project id")
+
+func canonicalizeAccountKeys(values []string) ([]string, error) {
+	keys := []string{}
+	for _, value := range values {
+		key, _, options, rest, err := ssh.ParseAuthorizedKey([]byte(value))
+		if err != nil || len(options) != 0 || len(bytes.TrimSpace(rest)) != 0 {
+			return nil, errors.New("invalid public key")
+		}
+		keys = append(keys, string(ssh.MarshalAuthorizedKey(key)))
 	}
-	out, err := d.podman(ctx, nil, "inspect", "soda-"+id)
+	return keys, nil
+}
+
+func confirmAccount(out []byte, in Account) error {
+	var result struct {
+		Login    string `json:"login"`
+		Identity int64  `json:"identity"`
+	}
+	if len(out) > 4096 || strictjson.Decode(bytes.NewReader(out), &result) != nil || result.Login != in.Login || result.Identity != in.Identity {
+		return errors.New("native account identity was not confirmed")
+	}
+	return nil
+}
+
+func (d *Daemon) account(ctx context.Context, in Account) error {
+	if !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 || len(in.Keys) > 32 {
+		return errors.New("invalid project account")
+	}
+	env, owner, err := d.inspect(ctx, in.Project)
 	if err != nil {
-		return env, 0, err
+		return err
 	}
-	var items []struct {
-		Image           string
-		Config          struct{ Labels map[string]string }
-		State           struct{ Running bool }
-		NetworkSettings struct {
-			Networks map[string]struct{ IPAddress string }
-		}
+	if !env.Running {
+		return errors.New("project is stopped")
 	}
-	if err = json.Unmarshal(out, &items); err != nil || len(items) != 1 {
-		return env, 0, errors.New("invalid native inspection")
+	keys, err := canonicalizeAccountKeys(in.Keys)
+	if err != nil {
+		return err
 	}
-	item := items[0]
-	if imageID.MatchString(item.Image) {
-		env.Image = "sha256:" + strings.TrimPrefix(item.Image, "sha256:")
+	body, _ := json.Marshal(map[string]any{"login": in.Login, "identity": in.Identity, "admin": in.Identity == owner, "keys": keys})
+	out, err := d.podman(ctx, body, "exec", "--interactive", "soda-"+in.Project, "/usr/libexec/soda/project-account")
+	if err != nil {
+		return err
 	}
-	if item.Config.Labels["org.soda.project"] != id {
-		return env, 0, errors.New("container is not owned by this project")
-	}
-	owner, err := strconv.ParseInt(item.Config.Labels["org.soda.owner"], 10, 64)
-	if err != nil || owner <= 0 {
-		return env, 0, errors.New("invalid native project owner")
-	}
-	if raw := item.Config.Labels["org.soda.creation-profile"]; raw != "" {
-		p, decodeErr := projectos.Decode(raw)
-		image := item.Image
-		if !strings.HasPrefix(image, "sha256:") {
-			image = "sha256:" + image
-		}
-		if decodeErr != nil || p.ID != item.Config.Labels["org.soda.profile"] || p.Image != image {
-			return env, 0, errors.New("native creation profile mismatch")
-		}
-		env.Profile = p
-	}
-	env.Running = item.State.Running
-	env.IP = item.NetworkSettings.Networks[d.Config.Network].IPAddress
-	if env.IP != "" {
-		ip, err := netip.ParseAddr(env.IP)
-		if err != nil {
-			return env, 0, err
-		}
-		prefix, _ := netip.ParsePrefix(d.Config.Subnet)
-		if !prefix.Contains(ip) {
-			return env, 0, errors.New("project IP outside configured network")
-		}
-	}
-	return env, owner, nil
+	return confirmAccount(out, in)
 }
 
 // Only the fixed public Ed25519 host key is readable. No caller path or full
@@ -384,38 +567,4 @@ func (d *Daemon) connection(ctx context.Context, id string) (Connection, error) 
 	result.HostKey = string(ssh.MarshalAuthorizedKey(key))
 	result.Fingerprint = ssh.FingerprintSHA256(key)
 	return result, nil
-}
-
-func (d *Daemon) account(ctx context.Context, in Account) error {
-	if !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 || len(in.Keys) > 32 {
-		return errors.New("invalid project account")
-	}
-	env, owner, err := d.inspect(ctx, in.Project)
-	if err != nil {
-		return err
-	}
-	if !env.Running {
-		return errors.New("project is stopped")
-	}
-	keys := []string{}
-	for _, value := range in.Keys {
-		key, _, options, rest, err := ssh.ParseAuthorizedKey([]byte(value))
-		if err != nil || len(options) != 0 || len(bytes.TrimSpace(rest)) != 0 {
-			return errors.New("invalid public key")
-		}
-		keys = append(keys, string(ssh.MarshalAuthorizedKey(key)))
-	}
-	body, _ := json.Marshal(map[string]any{"login": in.Login, "identity": in.Identity, "admin": in.Identity == owner, "keys": keys})
-	out, err := d.podman(ctx, body, "exec", "--interactive", "soda-"+in.Project, "/usr/libexec/soda/project-account")
-	if err != nil {
-		return err
-	}
-	var result struct {
-		Login    string `json:"login"`
-		Identity int64  `json:"identity"`
-	}
-	if len(out) > 4096 || strictjson.Decode(bytes.NewReader(out), &result) != nil || result.Login != in.Login || result.Identity != in.Identity {
-		return errors.New("native account identity was not confirmed")
-	}
-	return nil
 }

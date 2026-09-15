@@ -29,9 +29,10 @@ func grantedTestServer(t *testing.T, upstream http.HandlerFunc) *Server {
 	provider := httptest.NewServer(upstream)
 	t.Cleanup(provider.Close)
 	secretPath := filepath.Join(dir, "oauth-secret")
-	if err = os.WriteFile(secretPath, []byte("test-client-secret"), 0600); err != nil {
+	if err = os.WriteFile(secretPath, []byte("test-client-secret"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	//lint:ignore SA1019 fixture proves New ignores the obsolete admin-token path
 	s := New(config.Config{ForgejoURL: "https://forgejo.example.test", ForgejoInternalURL: provider.URL, OAuthClientID: "client", OAuthSecretFile: secretPath, OperatorID: 1, AdminTokenFile: "/must-not-read-bootstrap-token"}, db)
 	for i, login := range []string{"alice", "bob"} {
 		uid := int64(i + 1)
@@ -45,6 +46,7 @@ func grantedTestServer(t *testing.T, upstream http.HandlerFunc) *Server {
 	}
 	return s
 }
+
 func TestActingUserDenialNeverUsesBootstrap(t *testing.T) {
 	var calls atomic.Int32
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +63,7 @@ func TestActingUserDenialNeverUsesBootstrap(t *testing.T) {
 		t.Fatalf("unexpected denial %d %s", w.Code, w.Body.String())
 	}
 }
+
 func TestConcurrentRefreshAndLogout(t *testing.T) {
 	var calls atomic.Int32
 	entered := make(chan struct{})
@@ -117,6 +120,7 @@ func TestConcurrentRefreshAndLogout(t *testing.T) {
 		t.Fatal("session resurrected")
 	}
 }
+
 func TestLegacyAPIRequiresReauthentication(t *testing.T) {
 	s := apiTestServer(t)
 	s.Forgejo = forgejo.New("http://127.0.0.1:1")

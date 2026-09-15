@@ -15,21 +15,43 @@ var errRunnerUnconfirmed = errors.New("native runner result unconfirmed")
 
 // The systemd root:soda socket ACL is this native service's caller boundary.
 // Human operator authorization remains in web; the root CLI keeps its own gate.
+func validRunnerHTTP(r *http.Request) bool {
+	return r.Method == http.MethodPost && r.URL.RawPath == "" && r.URL.RawQuery == "" && !r.URL.ForceQuery
+}
+
+func runnerActionName(path string) (string, bool) {
+	action := strings.TrimPrefix(path, "/runners/")
+	switch action {
+	case "list", "create", "start", "stop", "restart", "remove":
+		return action, true
+	default:
+		return "", false
+	}
+}
+
+func writeRunnerResult(w http.ResponseWriter, result any) {
+	body, err := json.Marshal(result)
+	if err != nil || len(body) > 65536 {
+		http.Error(w, "runner response unavailable", http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(body)
+}
+
 func (d *Daemon) runnerHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	action := strings.TrimPrefix(r.URL.Path, "/runners/")
-	if r.Method != http.MethodPost || r.URL.RawPath != "" || r.URL.RawQuery != "" || r.URL.ForceQuery {
+	action, ok := runnerActionName(r.URL.Path)
+	if !validRunnerHTTP(r) {
 		http.Error(w, "invalid runner operation", http.StatusBadRequest)
 		return
 	}
-	switch action {
-	case "list", "create", "start", "stop", "restart", "remove":
-	default:
+	if !ok {
 		http.NotFound(w, r)
 		return
 	}
 	if d.Runners == nil {
-		http.Error(w, "runner integration unavailable", 503)
+		http.Error(w, "runner integration unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
@@ -39,16 +61,10 @@ func (d *Daemon) runnerHandler(w http.ResponseWriter, r *http.Request) {
 	result, err := d.Runners.Execute(ctx, action, http.MaxBytesReader(w, r.Body, 65536))
 	if err != nil {
 		// Neither provider diagnostics nor registration input enters the journal/body.
-		http.Error(w, "runner operation unconfirmed; inspect local and provider state before retrying", 502)
+		http.Error(w, "runner operation unconfirmed; inspect local and provider state before retrying", http.StatusBadGateway)
 		return
 	}
-	body, err := json.Marshal(result)
-	if err != nil || len(body) > 65536 {
-		http.Error(w, "runner response unavailable", 502)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(body)
+	writeRunnerResult(w, result)
 }
 
 func (c *Client) RunnersList(ctx context.Context) (runners.Inventory, error) {
@@ -56,6 +72,7 @@ func (c *Client) RunnersList(ctx context.Context) (runners.Inventory, error) {
 	err := c.call(ctx, "/runners/list", runners.EmptyRequest{}, &inventory)
 	return inventory, err
 }
+
 func (c *Client) RunnerCreate(ctx context.Context, in runners.CreateRequest) error {
 	var result runners.MutationResponse
 	err := c.call(ctx, "/runners/create", in, &result)
@@ -64,6 +81,7 @@ func (c *Client) RunnerCreate(ctx context.Context, in runners.CreateRequest) err
 	}
 	return err
 }
+
 func (c *Client) RunnerAction(ctx context.Context, action string, in runners.RunnerRequest) error {
 	switch action {
 	case "start", "stop", "restart", "remove":

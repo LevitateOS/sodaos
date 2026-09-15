@@ -17,8 +17,10 @@ import (
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-const runtimeRoot = "/run/soda-tailnet"
-const companionInspect = `{"id":{{json .ID}},"image":{{json .Image}},"command":{{json .Config.CreateCommand}},"running":{{json .State.Running}},"pid":{{json .State.Pid}},"started":{{json .State.StartedAt}},"execs":{{json .ExecIDs}}}`
+const (
+	runtimeRoot      = "/run/soda-tailnet"
+	companionInspect = `{"id":{{json .ID}},"image":{{json .Image}},"command":{{json .Config.CreateCommand}},"running":{{json .State.Running}},"pid":{{json .State.Pid}},"started":{{json .State.StartedAt}},"execs":{{json .ExecIDs}}}`
+)
 
 type companion struct {
 	ID, Image string
@@ -29,9 +31,6 @@ type companion struct {
 	Execs     []string
 }
 
-func companionName(run projectRun) string {
-	return "soda-tailnet-" + run.Target.Project + "-" + run.Target.Run
-}
 func (d *Daemon) runtimeCommand(ctx context.Context, command string, args ...string) ([]byte, error) {
 	// The ordinary host executor predates secret-bearing native protocols. Never
 	// collect its stderr for the companion, and never return native error text.
@@ -44,9 +43,64 @@ func (d *Daemon) runtimeCommand(ctx context.Context, command string, args ...str
 	}
 	return b, nil
 }
+
 func (d *Daemon) runtimePodman(ctx context.Context, args ...string) ([]byte, error) {
 	return d.runtimeCommand(ctx, "/usr/bin/podman", append([]string{"--remote=false"}, args...)...)
 }
+
+func companionIdentityMatches(out companion, run projectRun, image, id string) bool {
+	return containerID.MatchString(id) && out.ID == id && strings.TrimPrefix(out.Image, "sha256:") == strings.TrimPrefix(image, "sha256:")
+}
+
+func companionCommandMatches(out companion, args []string) bool {
+	return len(out.Command) == len(args)+1 && (out.Command[0] == "/usr/bin/podman" || out.Command[0] == "podman") && slices.Equal(out.Command[1:], args)
+}
+
+func companionExecsValid(execs []string) error {
+	if len(execs) > 16 {
+		return tailnet.ErrUnavailable
+	}
+	for _, id := range execs {
+		if !containerID.MatchString(id) {
+			return tailnet.ErrUnavailable
+		}
+	}
+	return nil
+}
+
+func validateCompanionRecord(out companion, run projectRun, image, id string) error {
+	args, e := companionCreateArgs(run, image)
+	if e != nil {
+		return e
+	}
+	if !companionIdentityMatches(out, run, image, id) {
+		return tailnet.ErrConflict
+	}
+	if out.Running {
+		started, e := time.Parse(time.RFC3339Nano, out.Started)
+		if e != nil || started.IsZero() || out.PID <= 1 {
+			return tailnet.ErrConflict
+		}
+	}
+	// CreateCommand is retained by Podman. Admit exactly our immutable recipe,
+	// allowing only the native argv[0] spelling, never labels/name alone.
+	if !companionCommandMatches(out, args) {
+		return tailnet.ErrConflict
+	}
+	return companionExecsValid(out.Execs)
+}
+
+func matchCompanionNamespaces(out companion, run projectRun) error {
+	if !out.Running {
+		return nil
+	}
+	identity, e := processRunIdentity(out.PID, os.ReadFile, os.Readlink)
+	if e != nil || identity.UserNS != run.UserNS || identity.NetNS != run.NetNS || identity.UID != run.UID || identity.GID != run.GID {
+		return tailnet.ErrConflict
+	}
+	return nil
+}
+
 func (d *Daemon) inspectCompanion(ctx context.Context, run projectRun) (companion, error) {
 	var out companion
 	id, e := readCompanionID(runtimeRoot, run, 0, 0)
@@ -60,42 +114,10 @@ func (d *Daemon) inspectCompanion(ctx context.Context, run projectRun) (companio
 	if e = validateCompanionRecord(out, run, d.Config.TailnetImage, id); e != nil {
 		return out, e
 	}
-	if out.Running {
-		identity, e := processRunIdentity(out.PID, os.ReadFile, os.Readlink)
-		if e != nil || identity.UserNS != run.UserNS || identity.NetNS != run.NetNS || identity.UID != run.UID || identity.GID != run.GID {
-			return out, tailnet.ErrConflict
-		}
+	if e = matchCompanionNamespaces(out, run); e != nil {
+		return out, e
 	}
 	return out, nil
-}
-func validateCompanionRecord(out companion, run projectRun, image, id string) error {
-	args, e := companionCreateArgs(run, image)
-	if e != nil {
-		return e
-	}
-	if !containerID.MatchString(id) || out.ID != id || strings.TrimPrefix(out.Image, "sha256:") != strings.TrimPrefix(image, "sha256:") {
-		return tailnet.ErrConflict
-	}
-	if out.Running {
-		started, e := time.Parse(time.RFC3339Nano, out.Started)
-		if e != nil || started.IsZero() || out.PID <= 1 {
-			return tailnet.ErrConflict
-		}
-	}
-	// CreateCommand is retained by Podman. Admit exactly our immutable recipe,
-	// allowing only the native argv[0] spelling, never labels/name alone.
-	if len(out.Command) != len(args)+1 || (out.Command[0] != "/usr/bin/podman" && out.Command[0] != "podman") || !slices.Equal(out.Command[1:], args) {
-		return tailnet.ErrConflict
-	}
-	if len(out.Execs) > 16 {
-		return tailnet.ErrUnavailable
-	}
-	for _, id := range out.Execs {
-		if !containerID.MatchString(id) {
-			return tailnet.ErrUnavailable
-		}
-	}
-	return nil
 }
 
 // Podman's generated ResolvConfPath is absent before first start and does not
@@ -110,6 +132,11 @@ func companionResolver(run projectRun, pid int, stat func(string) (os.FileInfo, 
 	}
 	return nil
 }
+
+func companionStillRunning(before, after companion, err, other error) bool {
+	return err == nil && other == nil && after.ID == before.ID && after.PID == before.PID && after.Started == before.Started && after.Running
+}
+
 func (d *Daemon) companionCLI(ctx context.Context, run projectRun, args ...string) ([]byte, error) {
 	if len(args) == 0 {
 		return nil, tailnet.ErrInvalid
@@ -126,7 +153,7 @@ func (d *Daemon) companionCLI(ctx context.Context, run projectRun, args ...strin
 	command := []string{"exec", "--user=0:0", c.ID, "/usr/local/bin/tailscale", "--socket=/run/tailscale/tailscaled.sock"}
 	b, e := d.runtimePodman(ctx, append(command, args...)...)
 	after, other := d.inspectCompanion(ctx, run)
-	if e != nil || other != nil || after.ID != c.ID || after.PID != c.PID || after.Started != c.Started || !after.Running {
+	if !companionStillRunning(c, after, e, other) {
 		return nil, tailnet.ErrUnconfirmed
 	}
 	if args[0] != "logout" {
@@ -136,6 +163,7 @@ func (d *Daemon) companionCLI(ctx context.Context, run projectRun, args ...strin
 	}
 	return b, nil
 }
+
 func (f *runFiles) current() (projectRun, error) {
 	var run projectRun
 	file, e := f.root.OpenFile("current.json", os.O_RDONLY|syscall.O_NOFOLLOW, 0)
@@ -144,7 +172,7 @@ func (f *runFiles) current() (projectRun, error) {
 	}
 	defer file.Close()
 	info, e := file.Stat()
-	if e != nil || !runtimeFile(info, f.uid, f.gid, 0600) || info.Size() > 8192 {
+	if e != nil || !runtimeFile(info, f.uid, f.gid, 0o600) || info.Size() > 8192 {
 		return run, tailnet.ErrUnavailable
 	}
 	if strictjson.Decode(file, &run) != nil {
@@ -157,13 +185,14 @@ func (f *runFiles) current() (projectRun, error) {
 	}
 	return run, nil
 }
+
 func (f *runFiles) saveCurrent(run projectRun) error {
 	name := "current-" + run.Target.Run + ".json"
 	b, e := json.Marshal(run)
 	if e != nil {
 		return tailnet.ErrUnavailable
 	}
-	file, e := f.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	file, e := f.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
 		return tailnet.ErrConflict
 	}
@@ -184,6 +213,7 @@ func (f *runFiles) saveCurrent(run projectRun) error {
 	}
 	return nil
 }
+
 func (d *Daemon) consumeRunKey(ctx context.Context, run projectRun, root *os.Root, key string) error {
 	file, e := writeRunKey(root, run, key)
 	if e != nil {
@@ -239,11 +269,9 @@ func preparationError(stage string, e error) error {
 	return fmt.Errorf("%s: %w", stage, e)
 }
 
-// StartTailnet prepares one exact run. Only systemd/native explicit activation
-// calls it; HTTP reads and browser focus never enter this path.
-func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
+func (d *Daemon) shouldStartTailnet(ctx context.Context, id string) (bool, error) {
 	if d.Tailnet == nil || d.Config.TailnetImage == "" {
-		return "", nil
+		return false, nil
 	}
 	// Off/unconfigured policy is a clean no-op before companion-specific
 	// runtime readiness. A resolvable container with definitively disabled or
@@ -253,12 +281,16 @@ func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
 	if cid, cidErr := d.projectContainer(ctx, id, false); cidErr == nil {
 		enabled, pErr := d.projectTailnetEnabled(ctx, id, cid)
 		if pErr != nil {
-			return "", preparationError("Tailnet policy unconfirmed", pErr)
+			return false, preparationError("Tailnet policy unconfirmed", pErr)
 		}
 		if !enabled {
-			return "", nil
+			return false, nil
 		}
 	}
+	return true, nil
+}
+
+func (d *Daemon) waitProjectRuntime(ctx context.Context, id string) (projectRun, error) {
 	var run projectRun
 	readyParent, cancelParent := context.WithTimeout(ctx, 10*time.Second)
 	parentTick := time.NewTicker(100 * time.Millisecond)
@@ -268,84 +300,135 @@ func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
 	for {
 		run, e = d.projectRun(readyParent, id)
 		if e == nil {
-			break
+			return run, nil
 		}
 		select {
 		case <-readyParent.Done():
-			return "", preparationError("project runtime not ready", e)
+			return projectRun{}, preparationError("project runtime not ready", e)
 		case <-parentTick.C:
 		}
 	}
-	binding, e := d.Tailnet.RunBinding(ctx, run.Target)
-	if e != nil {
-		return "", preparationError("Tailnet policy unconfirmed", e)
+}
+
+func (d *Daemon) admitTailnetRun(ctx context.Context, id string) (projectRun, tailnet.RunBinding, error) {
+	run, err := d.waitProjectRuntime(ctx, id)
+	if err != nil {
+		return projectRun{}, tailnet.RunBinding{}, err
 	}
-	if !binding.Enabled {
-		return "", nil
+	binding, err := d.Tailnet.RunBinding(ctx, run.Target)
+	if err != nil {
+		return projectRun{}, tailnet.RunBinding{}, preparationError("Tailnet policy unconfirmed", err)
 	}
-	f, e := openRuntimeProject(ctx, runtimeRoot, id)
-	if e != nil {
-		return "", preparationError("companion runtime unconfirmed", e)
+	return run, binding, nil
+}
+
+func isCompanionRunFresh(currentErr error, previous, run projectRun) bool {
+	if errors.Is(currentErr, os.ErrNotExist) {
+		return true
 	}
-	defer f.Close()
-	previous, e := f.current()
-	fresh := errors.Is(e, os.ErrNotExist) || (e == nil && previous.Target.Run != run.Target.Run)
-	if e != nil && !errors.Is(e, os.ErrNotExist) {
-		return "", preparationError("companion runtime unconfirmed", e)
+	return currentErr == nil && previous.Target.Run != run.Target.Run
+}
+
+func (d *Daemon) retirePreviousCompanion(ctx context.Context, id string, run, previous projectRun) error {
+	if previous.Target.Run == "" {
+		return nil
 	}
+	if previous.Target.Project != id || previous.Target.Container != run.Target.Container {
+		return preparationError("project runtime changed", tailnet.ErrConflict)
+	}
+	if err := d.stopTailnetRun(ctx, previous); err != nil {
+		return preparationError("companion stop unconfirmed", err)
+	}
+	return nil
+}
+
+func (d *Daemon) reconcilePreviousRun(ctx context.Context, id string, run, previous projectRun, currentErr error) (bool, error) {
+	if currentErr != nil && !errors.Is(currentErr, os.ErrNotExist) {
+		return false, preparationError("companion runtime unconfirmed", currentErr)
+	}
+	fresh := isCompanionRunFresh(currentErr, previous, run)
 	if !fresh && previous != run {
-		return "", preparationError("project runtime changed", tailnet.ErrConflict)
+		return false, preparationError("project runtime changed", tailnet.ErrConflict)
 	}
-	if fresh && previous.Target.Run != "" {
-		if previous.Target.Project != id || previous.Target.Container != run.Target.Container {
-			return "", preparationError("project runtime changed", tailnet.ErrConflict)
-		}
-		if e = d.stopTailnetRun(ctx, previous); e != nil {
-			return "", preparationError("companion stop unconfirmed", e)
-		}
-	}
-	if e = validateRunResolver(run, os.ReadFile, os.Stat, fresh); e != nil {
-		return "", preparationError("project runtime not ready", e)
-	}
-	root, e := f.prepare(run, fresh)
-	if e != nil {
-		return "", preparationError("companion runtime unconfirmed", e)
-	}
-	defer root.Close()
 	if fresh {
-		if e = f.saveCurrent(run); e != nil {
-			return "", preparationError("companion runtime unconfirmed", e)
-		}
-		if e = d.recheckProjectRun(ctx, run); e != nil {
-			return "", preparationError("project runtime changed", e)
-		}
-		args, e := companionCreateArgs(run, d.Config.TailnetImage)
-		if e != nil {
-			return "", preparationError("companion runtime unconfirmed", e)
-		}
-		created, e := d.runtimeCommand(ctx, "/usr/bin/podman", args...)
-		if e != nil {
-			return "", preparationError("companion startup unconfirmed", e)
-		}
-		id := strings.TrimSpace(string(created))
-		if e = writeCompanionID(root, id); e != nil {
-			return "", preparationError("companion runtime unconfirmed", e)
+		if err := d.retirePreviousCompanion(ctx, id, run, previous); err != nil {
+			return false, err
 		}
 	}
-	c, e := d.inspectCompanion(ctx, run)
-	if e != nil {
-		return "", preparationError("companion startup unconfirmed", e)
+	return fresh, nil
+}
+
+func (d *Daemon) prepareCompanionState(ctx context.Context, id string, run projectRun) (*runFiles, *os.Root, bool, error) {
+	f, err := openRuntimeProject(ctx, runtimeRoot, id)
+	if err != nil {
+		return nil, nil, false, preparationError("companion runtime unconfirmed", err)
+	}
+	previous, currentErr := f.current()
+	fresh, err := d.reconcilePreviousRun(ctx, id, run, previous, currentErr)
+	if err != nil {
+		f.Close()
+		return nil, nil, false, err
+	}
+	if err := validateRunResolver(run, os.ReadFile, os.Stat, fresh); err != nil {
+		f.Close()
+		return nil, nil, false, preparationError("project runtime not ready", err)
+	}
+	root, err := f.prepare(run, fresh)
+	if err != nil {
+		f.Close()
+		return nil, nil, false, preparationError("companion runtime unconfirmed", err)
+	}
+	return f, root, fresh, nil
+}
+
+func (d *Daemon) createFreshCompanion(ctx context.Context, f *runFiles, root *os.Root, run projectRun) error {
+	if err := f.saveCurrent(run); err != nil {
+		return preparationError("companion runtime unconfirmed", err)
+	}
+	if err := d.recheckProjectRun(ctx, run); err != nil {
+		return preparationError("project runtime changed", err)
+	}
+	args, err := companionCreateArgs(run, d.Config.TailnetImage)
+	if err != nil {
+		return preparationError("companion runtime unconfirmed", err)
+	}
+	created, err := d.runtimeCommand(ctx, "/usr/bin/podman", args...)
+	if err != nil {
+		return preparationError("companion startup unconfirmed", err)
+	}
+	id := strings.TrimSpace(string(created))
+	if err := writeCompanionID(root, id); err != nil {
+		return preparationError("companion runtime unconfirmed", err)
+	}
+	return nil
+}
+
+func (d *Daemon) startCompanionIfStopped(ctx context.Context, run projectRun) error {
+	c, err := d.inspectCompanion(ctx, run)
+	if err != nil {
+		return preparationError("companion startup unconfirmed", err)
 	}
 	if !c.Running {
-		if e = d.recheckProjectRun(ctx, run); e != nil {
-			return "", preparationError("project runtime changed", e)
+		if err := d.recheckProjectRun(ctx, run); err != nil {
+			return preparationError("project runtime changed", err)
 		}
-		if _, e = d.runtimePodman(ctx, "start", c.ID); e != nil {
-			return "", preparationError("companion startup unconfirmed", e)
+		if _, err := d.runtimePodman(ctx, "start", c.ID); err != nil {
+			return preparationError("companion startup unconfirmed", err)
 		}
 	}
-	// Status reads are bounded readiness observation, never login polling.
-	var hasNode bool
+	return nil
+}
+
+func (d *Daemon) activateCompanionContainer(ctx context.Context, f *runFiles, root *os.Root, run projectRun, fresh bool) error {
+	if fresh {
+		if err := d.createFreshCompanion(ctx, f, root, run); err != nil {
+			return err
+		}
+	}
+	return d.startCompanionIfStopped(ctx, run)
+}
+
+func (d *Daemon) waitCompanionNode(ctx context.Context, run projectRun) (bool, error) {
 	ready, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 	tick := time.NewTicker(100 * time.Millisecond)
@@ -353,41 +436,83 @@ func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
 	for {
 		b, other := d.companionCLI(ready, run, "status", "--json", "--peers=false")
 		if other == nil {
-			hasNode, e = tailnet.ProjectHasNode(b)
-			if e != nil {
-				return "", preparationError("companion status unavailable", e)
+			hasNode, err := tailnet.ProjectHasNode(b)
+			if err != nil {
+				return false, preparationError("companion status unavailable", err)
 			}
-			break
+			return hasNode, nil
 		}
 		select {
 		case <-ready.Done():
-			return "", preparationError("companion status unavailable", tailnet.ErrUnavailable)
+			return false, preparationError("companion status unavailable", tailnet.ErrUnavailable)
 		case <-tick.C:
 		}
 	}
-	if !hasNode && binding.Admission {
-		// The runtime lock excludes other Soda activations. A prior cancelled
-		// observer is not proof the native CLI has stopped consuming its input.
-		c, e = d.inspectCompanion(ctx, run)
-		if e != nil || len(c.Execs) != 0 {
-			return "", preparationError("enrollment unconfirmed", tailnet.ErrUnconfirmed)
-		}
-		if e = retirePendingRunKey(root, run); e != nil {
-			return "", preparationError("enrollment unconfirmed", e)
-		}
-		e = d.Tailnet.EnrollRun(ctx, run.Target, func(c context.Context) error { return d.recheckProjectRun(c, run) }, func(c context.Context, key string) error { return d.consumeRunKey(c, run, root, key) })
-		if e != nil {
-			return "", preparationError("enrollment unconfirmed", e)
-		}
+}
+
+func (d *Daemon) enrollCompanion(ctx context.Context, run projectRun, root *os.Root) error {
+	c, err := d.inspectCompanion(ctx, run)
+	if err != nil || len(c.Execs) != 0 {
+		return preparationError("enrollment unconfirmed", tailnet.ErrUnconfirmed)
 	}
-	if e = d.recheckProjectRun(ctx, run); e != nil {
-		return "", preparationError("project runtime changed", e)
+	if err := retirePendingRunKey(root, run); err != nil {
+		return preparationError("enrollment unconfirmed", err)
 	}
-	c, e = d.inspectCompanion(ctx, run)
-	if e != nil {
-		return "", preparationError("companion runtime unconfirmed", e)
+	recheck := func(c context.Context) error { return d.recheckProjectRun(c, run) }
+	consume := func(c context.Context, key string) error { return d.consumeRunKey(c, run, root, key) }
+	if err := d.Tailnet.EnrollRun(ctx, run.Target, recheck, consume); err != nil {
+		return preparationError("enrollment unconfirmed", err)
+	}
+	return nil
+}
+
+func (d *Daemon) ensureCompanionEnrolled(ctx context.Context, run projectRun, root *os.Root, admission bool) error {
+	hasNode, err := d.waitCompanionNode(ctx, run)
+	if err != nil {
+		return err
+	}
+	if hasNode || !admission {
+		return nil
+	}
+	return d.enrollCompanion(ctx, run, root)
+}
+
+func (d *Daemon) finalizeCompanionRun(ctx context.Context, run projectRun) (string, error) {
+	if err := d.recheckProjectRun(ctx, run); err != nil {
+		return "", preparationError("project runtime changed", err)
+	}
+	c, err := d.inspectCompanion(ctx, run)
+	if err != nil {
+		return "", preparationError("companion runtime unconfirmed", err)
 	}
 	return c.ID, nil
+}
+
+// StartTailnet prepares one exact run. Only systemd/native explicit activation
+// calls it; HTTP reads and browser focus never enter this path.
+func (d *Daemon) StartTailnet(ctx context.Context, id string) (string, error) {
+	start, err := d.shouldStartTailnet(ctx, id)
+	if err != nil || !start {
+		return "", err
+	}
+	run, binding, err := d.admitTailnetRun(ctx, id)
+	if err != nil || !binding.Enabled {
+		return "", err
+	}
+	f, root, fresh, err := d.prepareCompanionState(ctx, id, run)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	defer root.Close()
+
+	if err := d.activateCompanionContainer(ctx, f, root, run, fresh); err != nil {
+		return "", err
+	}
+	if err := d.ensureCompanionEnrolled(ctx, run, root, binding.Admission); err != nil {
+		return "", err
+	}
+	return d.finalizeCompanionRun(ctx, run)
 }
 
 // WaitTailnet delegates lifetime to native Podman/systemd, not a reenrollment
@@ -433,6 +558,19 @@ func (d *Daemon) StopTailnet(ctx context.Context, id string) error {
 	}
 	return d.stopTailnetRun(ctx, run)
 }
+
+func confirmStoppedResolver(ctx context.Context, d *Daemon, run projectRun) error {
+	current, runErr := d.projectRun(ctx, run.Target.Project)
+	if runErr != nil || current != run {
+		return nil
+	}
+	resolver, e := os.ReadFile(run.Resolver)
+	if e != nil || len(resolver) > 16384 || strings.Contains(strings.ToLower(string(resolver)), "tailscale") {
+		return tailnet.ErrUnconfirmed
+	}
+	return nil
+}
+
 func (d *Daemon) stopTailnetRun(ctx context.Context, run projectRun) error {
 	id := run.Target.Project
 	cid, e := d.projectContainer(ctx, id, false)
@@ -446,28 +584,93 @@ func (d *Daemon) stopTailnetRun(ctx context.Context, run projectRun) error {
 	if !c.Running {
 		return nil
 	}
-	// Every activation ends its identity. Native mem: shutdown also attempts
-	// logout; neither a successful stop nor key expiry proves provider deletion.
-	result := error(nil)
-	logout, done := context.WithTimeout(ctx, 5*time.Second)
-	if _, e = d.companionCLI(logout, run, "logout"); e != nil {
-		result = tailnet.ErrUnconfirmed
-	}
-	done()
-	if _, e = d.runtimePodman(ctx, "stop", "--time=8", c.ID); e != nil {
-		return tailnet.ErrUnconfirmed
-	}
+	result := d.logoutAndStopCompanion(ctx, run, c.ID)
 	after, e := d.inspectCompanion(ctx, run)
 	if e != nil || after.ID != c.ID || after.Running {
 		return tailnet.ErrUnconfirmed
 	}
-	if current, runErr := d.projectRun(ctx, id); runErr == nil && current == run {
-		resolver, e := os.ReadFile(run.Resolver)
-		if e != nil || len(resolver) > 16384 || strings.Contains(strings.ToLower(string(resolver)), "tailscale") {
-			return tailnet.ErrUnconfirmed
-		}
+	if e = confirmStoppedResolver(ctx, d, run); e != nil {
+		return e
 	}
 	return result
+}
+
+func (d *Daemon) logoutAndStopCompanion(ctx context.Context, run projectRun, id string) error {
+	logout, done := context.WithTimeout(ctx, 5*time.Second)
+	_, logoutErr := d.companionCLI(logout, run, "logout")
+	done()
+	if _, e := d.runtimePodman(ctx, "stop", "--time=8", id); e != nil {
+		return tailnet.ErrUnconfirmed
+	}
+	if logoutErr != nil {
+		return tailnet.ErrUnconfirmed
+	}
+	return nil
+}
+
+func (d *Daemon) queueProjectTailnetDisable(ctx context.Context, project string, view *tailnet.ProjectView) {
+	// Queue cancellation first. Also handle an owned orphan whose unit is already
+	// inactive: stopping an inactive systemd unit does not execute ExecStop.
+	if _, e := d.runtimeCommand(ctx, "/usr/bin/systemctl", "stop", "--no-block", "soda-tailnet@"+project+".service"); e == nil {
+		view.Outcome = "queued"
+	}
+	stop, done := context.WithTimeout(ctx, 15*time.Second)
+	if e := d.StopTailnet(stop, project); e != nil {
+		view.Outcome = "runtime-unconfirmed"
+	}
+	done()
+}
+
+func (d *Daemon) markStoppedProject(ctx context.Context, project string, view *tailnet.ProjectView) {
+	// Distinguish a confirmed stopped parent from failed runtime observation.
+	env, _, other := d.inspect(ctx, project)
+	if other == nil && !env.Running {
+		view.State = "stopped"
+	}
+}
+
+func (d *Daemon) queueProjectTailnetStart(ctx context.Context, in tailnet.ProjectRequest, view *tailnet.ProjectView) bool {
+	if in.Action == "inspect" || !view.Enabled {
+		return true
+	}
+	args := []string{"start", "--no-block", "soda-tailnet@" + in.Project + ".service"}
+	if _, e := d.runtimeCommand(ctx, "/usr/bin/systemctl", args...); e != nil {
+		return false
+	}
+	view.Outcome = "queued"
+	return true
+}
+
+func applyCompanionIdleState(view *tailnet.ProjectView, running bool) bool {
+	if running {
+		return view.Enabled
+	}
+	if !view.Enabled {
+		view.State = "off"
+	}
+	return false // Off intent is not confirmed disconnection.
+}
+
+func (d *Daemon) observeCompanionStatus(ctx context.Context, run projectRun, view *tailnet.ProjectView) {
+	binding, e := d.Tailnet.RunBinding(ctx, run.Target)
+	if e != nil {
+		return
+	}
+	b, e := d.companionCLI(ctx, run, "status", "--json", "--peers=false")
+	if e != nil {
+		return
+	}
+	prefs, e := d.companionCLI(ctx, run, "debug", "prefs")
+	if e != nil {
+		return
+	}
+	state, addresses, dns, e := tailnet.ProjectStatus(b, prefs, binding)
+	if e != nil || d.recheckProjectRun(ctx, run) != nil {
+		return
+	}
+	view.State = state
+	view.Addresses = addresses
+	view.DNSName = dns
 }
 
 func (d *Daemon) observeProjectTailnet(ctx context.Context, in tailnet.ProjectRequest, cid string) (tailnet.ProjectView, error) {
@@ -479,64 +682,20 @@ func (d *Daemon) observeProjectTailnet(ctx context.Context, in tailnet.ProjectRe
 		return view, nil
 	}
 	if in.Action == "disable" {
-		// Queue cancellation first. Also handle an owned orphan whose unit is already
-		// inactive: stopping an inactive systemd unit does not execute ExecStop.
-		if _, e = d.runtimeCommand(ctx, "/usr/bin/systemctl", "stop", "--no-block", "soda-tailnet@"+in.Project+".service"); e == nil {
-			view.Outcome = "queued"
-		}
-		stop, done := context.WithTimeout(ctx, 15*time.Second)
-		if e = d.StopTailnet(stop, in.Project); e != nil {
-			view.Outcome = "runtime-unconfirmed"
-		}
-		done()
+		d.queueProjectTailnetDisable(ctx, in.Project, &view)
 	}
 	run, e := d.projectRun(ctx, in.Project)
 	if e != nil {
-		// Distinguish a confirmed stopped parent from failed runtime observation.
-		env, _, other := d.inspect(ctx, in.Project)
-		if other == nil && !env.Running {
-			view.State = "stopped"
-		}
+		d.markStoppedProject(ctx, in.Project, &view)
 		return view, nil
 	}
-	if in.Action != "inspect" && view.Enabled {
-		args := []string{"start", "--no-block", "soda-tailnet@" + in.Project + ".service"}
-		if _, e = d.runtimeCommand(ctx, "/usr/bin/systemctl", args...); e != nil {
-			return view, nil
-		}
-		view.Outcome = "queued"
+	if !d.queueProjectTailnetStart(ctx, in, &view) {
+		return view, nil
 	}
 	c, e := d.inspectCompanion(ctx, run)
-	if e != nil {
+	if e != nil || !applyCompanionIdleState(&view, c.Running) {
 		return view, nil
 	}
-	if !c.Running {
-		if !view.Enabled {
-			view.State = "off"
-		}
-		return view, nil
-	}
-	if !view.Enabled {
-		return view, nil
-	} // Off intent is not confirmed disconnection.
-	binding, e := d.Tailnet.RunBinding(ctx, run.Target)
-	if e != nil {
-		return view, nil
-	}
-	b, e := d.companionCLI(ctx, run, "status", "--json", "--peers=false")
-	if e != nil {
-		return view, nil
-	}
-	prefs, e := d.companionCLI(ctx, run, "debug", "prefs")
-	if e != nil {
-		return view, nil
-	}
-	state, addresses, dns, e := tailnet.ProjectStatus(b, prefs, binding)
-	if e != nil || d.recheckProjectRun(ctx, run) != nil {
-		return view, nil
-	}
-	view.State = state
-	view.Addresses = addresses
-	view.DNSName = dns
+	d.observeCompanionStatus(ctx, run, &view)
 	return view, nil
 }

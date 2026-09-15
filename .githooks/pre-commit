@@ -1,0 +1,96 @@
+#!/bin/bash
+# Pre-commit gate: fast checks on staged changes only. Legacy violations in
+# untouched files never block a commit; new violations in staged files do.
+# Bypass with `git commit --no-verify` when the gate itself is at fault.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export GOWORK=off GOFLAGS=-mod=readonly CGO_ENABLED=0 GOTOOLCHAIN=local
+fail=0
+
+staged=$(git diff --cached --name-only --diff-filter=ACM || true)
+[ -z "$staged" ] && exit 0
+
+# 1. Whitespace errors (trailing whitespace, etc.) in staged lines.
+if ! git diff --cached --check --; then
+  fail=1
+fi
+
+# 2. Credential-shaped strings in staged additions. tskey-* is the Tailscale
+# shape production legitimately validates (credentialPattern, authKeyPattern),
+# so fixtures must wear it to exercise the real path; those sites carry an
+# explicit `slop-audit-allow` marker with the reason. Test trees are out of
+# scope for the staged hook (whole-tree L1.14 scans still cover them).
+# Private-key blocks and AWS key IDs are never allowlisted: no legitimate
+# site needs them.
+cred_hits=$(git diff --cached -U0 --diff-filter=ACM -- . | awk '
+/^\+\+\+ / { file = substr($0, 7); sub(/^b\//, "", file); next }
+/^@@ / { split($0, h, /\+/); split(h[2], n, /[, ]/); line = n[1] - 1; next }
+/^\+/ && !/^\+\+\+/ {
+  line++
+  body = substr($0, 2)
+  skip = (file ~ /_test\.go$/ || file ~ /\.test\.ts$/ || file ~ /^tests\// || file ~ /^\.githooks\// || file == "docs/slop-audit.md")
+  if (!skip && body ~ /tskey-/ && body !~ /slop-audit-allow/) print file":"line": tskey-shaped value without allow marker"
+  if (body ~ /BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}/) print file":"line": private-key block or AWS key ID"
+  next }
+' || true)
+if [ -n "$cred_hits" ]; then
+  printf 'pre-commit: credential-shaped string in staged additions:\n%s\n' "$cred_hits" | head -n 10
+  fail=1
+fi
+
+# 3. Go formatting on all staged Go files (production and tests alike).
+gofiles=$(printf '%s\n' "$staged" | grep '\.go$' || true)
+if [ -n "$gofiles" ]; then
+  # shellcheck disable=SC2086
+  unformatted=$(gofmt -l $gofiles || true)
+  if [ -n "$unformatted" ]; then
+    printf 'pre-commit: unformatted Go files (run gofmt -w):\n%s\n' "$unformatted"
+    fail=1
+  fi
+fi
+
+# 4. Cyclomatic complexity below 10 on staged production Go files.
+prodgofiles=$(printf '%s\n' "$staged" | grep '\.go$' | grep -v '_test\.go$' || true)
+if [ -n "$prodgofiles" ]; then
+  # shellcheck disable=SC2086
+  if ! bash scripts/check-complexity.sh $prodgofiles; then
+    printf 'pre-commit: complexity gate failed on staged production files.\n'
+    fail=1
+  fi
+fi
+
+# 5. gofumpt formatting on staged Go files (zero tolerance; the tree-wide
+# backlog is explicitly not blocking, only staged files are checked).
+if [ -n "$gofiles" ]; then
+  # shellcheck disable=SC2086
+  if ! bash scripts/check-gofumpt.sh $gofiles; then
+    printf 'pre-commit: gofumpt gate failed on staged files (run gofumpt -w).\n'
+    fail=1
+  fi
+fi
+
+# 6. staticcheck on packages containing staged Go files (linux build).
+if [ -n "$gofiles" ]; then
+  scpkgs=$(printf '%s\n' "$gofiles" | xargs -n1 dirname | sort -u | sed 's|^|./|;s|$|/|' || true)
+  # shellcheck disable=SC2086
+  if ! GOOS=linux bash scripts/check-staticcheck.sh $scpkgs; then
+    printf 'pre-commit: staticcheck failed on staged packages.\n'
+    fail=1
+  fi
+fi
+
+# 7. go vet on packages containing staged Go files.
+if [ -n "$gofiles" ]; then
+  vetpkgs=$(printf '%s\n' "$gofiles" | xargs -n1 dirname | sort -u | sed 's|^|./|;s|$|/|' || true)
+  # shellcheck disable=SC2086
+  if ! GOOS=linux go vet -mod=readonly $vetpkgs; then
+    printf 'pre-commit: go vet failed on staged packages.\n'
+    fail=1
+  fi
+fi
+
+if [ "$fail" -ne 0 ]; then
+  printf 'pre-commit gate failed. Fix the findings or bypass with --no-verify.\n'
+  exit 1
+fi
+printf 'pre-commit gate passed.\n'

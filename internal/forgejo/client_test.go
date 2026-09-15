@@ -21,8 +21,11 @@ func TestCurrent(t *testing.T) {
 		t.Fatalf("%+v %v", u, err)
 	}
 }
+
 func TestNoCredentialRedirect(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, "http://untrusted.invalid", 302) }))
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://untrusted.invalid", http.StatusFound)
+	}))
 	defer s.Close()
 	if _, err := New(s.URL).Current(context.Background(), "secret"); err == nil {
 		t.Fatal("redirect accepted")

@@ -42,32 +42,51 @@ func PublicKey(value string) (string, error) {
 	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))), nil
 }
 
-func ProjectSubnet(value string, routes []string) error {
-	subnet, err := netip.ParsePrefix(value)
-	if err != nil || !subnet.Addr().Is4() || subnet != subnet.Masked() {
-		return errors.New("canonical IPv4 project subnet required")
-	}
-	private := false
+func rfc1918Contains(subnet netip.Prefix) bool {
 	for _, raw := range []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"} {
 		p := netip.MustParsePrefix(raw)
 		if p.Bits() <= subnet.Bits() && p.Contains(subnet.Addr()) {
-			private = true
+			return true
 		}
 	}
-	if !private {
-		return errors.New("RFC1918 project subnet required")
+	return false
+}
+
+func canonicalPrivateIPv4(value string) (netip.Prefix, error) {
+	subnet, err := netip.ParsePrefix(value)
+	if err != nil || !subnet.Addr().Is4() || subnet != subnet.Masked() {
+		return netip.Prefix{}, errors.New("canonical IPv4 project subnet required")
+	}
+	if !rfc1918Contains(subnet) {
+		return netip.Prefix{}, errors.New("RFC1918 project subnet required")
+	}
+	return subnet, nil
+}
+
+func parseHostRoute(raw string) (netip.Prefix, error) {
+	p, err := netip.ParsePrefix(raw)
+	if err == nil {
+		return p, nil
+	}
+	addr, err := netip.ParseAddr(raw)
+	if err != nil {
+		return netip.Prefix{}, errors.New("cannot interpret current network route")
+	}
+	return netip.PrefixFrom(addr, addr.BitLen()), nil
+}
+
+func ProjectSubnet(value string, routes []string) error {
+	subnet, err := canonicalPrivateIPv4(value)
+	if err != nil {
+		return err
 	}
 	for _, raw := range routes {
 		if raw == "default" || raw == "" {
 			continue
 		}
-		p, e := netip.ParsePrefix(raw)
+		p, e := parseHostRoute(raw)
 		if e != nil {
-			if a, e := netip.ParseAddr(raw); e == nil {
-				p = netip.PrefixFrom(a, a.BitLen())
-			} else {
-				return errors.New("cannot interpret current network route")
-			}
+			return e
 		}
 		if p.Bits() != 0 && p.Overlaps(subnet) {
 			return errors.New("project subnet overlaps a current host route")
@@ -79,6 +98,50 @@ func ProjectSubnet(value string, routes []string) error {
 // Destination extends a public, strictly Butane-converted template. The builder
 // owns that template; this is not an arbitrary user-supplied Ignition interpreter.
 // Butane is not required on the live OS and private inputs never reach its logs.
+func validProvisioningInputs(hostname, passwordHash, subnet string) bool {
+	if !Hostname(hostname) || ProjectSubnet(subnet, nil) != nil {
+		return false
+	}
+	return regexp.MustCompile(`^\$6\$[./a-zA-Z0-9]{1,16}\$[./a-zA-Z0-9]{86}$`).MatchString(passwordHash)
+}
+
+func ignitionTemplateStorage(template []byte) (map[string]json.RawMessage, map[string]json.RawMessage, []json.RawMessage, error) {
+	var config map[string]json.RawMessage
+	if err := json.Unmarshal(template, &config); err != nil {
+		return nil, nil, nil, errors.New("invalid public destination template")
+	}
+	var ignition struct {
+		Version string `json:"version"`
+	}
+	if json.Unmarshal(config["ignition"], &ignition) != nil || ignition.Version != "3.5.0" {
+		return nil, nil, nil, errors.New("expected converted Ignition 3.5.0 template")
+	}
+	if _, exists := config["passwd"]; exists {
+		return nil, nil, nil, errors.New("public template must not contain accounts")
+	}
+	var storage map[string]json.RawMessage
+	if err := json.Unmarshal(config["storage"], &storage); err != nil || storage == nil {
+		return nil, nil, nil, errors.New("invalid public storage template")
+	}
+	var files []json.RawMessage
+	if err := json.Unmarshal(storage["files"], &files); err != nil {
+		return nil, nil, nil, errors.New("invalid public files template")
+	}
+	return config, storage, files, nil
+}
+
+func admitProvisioningFiles(files []json.RawMessage) error {
+	for _, file := range files {
+		var entry struct {
+			Path string `json:"path"`
+		}
+		if json.Unmarshal(file, &entry) != nil || entry.Path == "/etc/hostname" || entry.Path == "/etc/soda-installer/project-subnet" {
+			return errors.New("provisioning path collision")
+		}
+	}
+	return nil
+}
+
 func Destination(template []byte, hostname, key, passwordHash, subnet string) ([]byte, error) {
 	var normalized string
 	if key != "" {
@@ -88,40 +151,18 @@ func Destination(template []byte, hostname, key, passwordHash, subnet string) ([
 			return nil, err
 		}
 	}
-	if !Hostname(hostname) || ProjectSubnet(subnet, nil) != nil || !regexp.MustCompile(`^\$6\$[./a-zA-Z0-9]{1,16}\$[./a-zA-Z0-9]{86}$`).MatchString(passwordHash) {
+	if !validProvisioningInputs(hostname, passwordHash, subnet) {
 		return nil, errors.New("invalid private provisioning inputs")
 	}
-	var config map[string]json.RawMessage
-	if err := json.Unmarshal(template, &config); err != nil {
-		return nil, errors.New("invalid public destination template")
+	config, storage, files, err := ignitionTemplateStorage(template)
+	if err != nil {
+		return nil, err
 	}
-	var ignition struct {
-		Version string `json:"version"`
-	}
-	if json.Unmarshal(config["ignition"], &ignition) != nil || ignition.Version != "3.5.0" {
-		return nil, errors.New("expected converted Ignition 3.5.0 template")
-	}
-	if _, exists := config["passwd"]; exists {
-		return nil, errors.New("public template must not contain accounts")
-	}
-	var storage map[string]json.RawMessage
-	if err := json.Unmarshal(config["storage"], &storage); err != nil || storage == nil {
-		return nil, errors.New("invalid public storage template")
-	}
-	var files []json.RawMessage
-	if err := json.Unmarshal(storage["files"], &files); err != nil {
-		return nil, errors.New("invalid public files template")
-	}
-	for _, file := range files {
-		var entry struct {
-			Path string `json:"path"`
-		}
-		if json.Unmarshal(file, &entry) != nil || entry.Path == "/etc/hostname" || entry.Path == "/etc/soda-installer/project-subnet" {
-			return nil, errors.New("provisioning path collision")
-		}
+	if err = admitProvisioningFiles(files); err != nil {
+		return nil, err
 	}
 	for path, value := range map[string]string{"/etc/hostname": hostname + "\n", "/etc/soda-installer/project-subnet": subnet + "\n"} {
-		entry, _ := json.Marshal(map[string]interface{}{"path": path, "mode": 0600, "contents": map[string]string{"source": "data:;base64," + base64.StdEncoding.EncodeToString([]byte(value))}})
+		entry, _ := json.Marshal(map[string]interface{}{"path": path, "mode": 0o600, "contents": map[string]string{"source": "data:;base64," + base64.StdEncoding.EncodeToString([]byte(value))}})
 		files = append(files, entry)
 	}
 	storage["files"], _ = json.Marshal(files)

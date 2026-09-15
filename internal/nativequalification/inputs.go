@@ -19,7 +19,7 @@ type Artifact struct {
 	Files     map[string]string
 }
 
-func ReadArtifact(root string) (Artifact, error) {
+func loadArtifactMetadata(root string) (Artifact, error) {
 	var a Artifact
 	if !filepath.IsAbs(root) {
 		return a, errors.New("absolute artifact root required")
@@ -38,6 +38,25 @@ func ReadArtifact(root string) (Artifact, error) {
 	if err = a.Candidate.Validate(a.Payload, pb); err != nil {
 		return a, err
 	}
+	return a, nil
+}
+
+func hashArtifactSidecars(opened *os.Root, files map[string]string) error {
+	for _, path := range []string{"payload.json", "candidate.json"} {
+		sum, e := nativebuild.HashAt(opened, path)
+		if e != nil {
+			return e
+		}
+		files[path] = sum
+	}
+	return nil
+}
+
+func ReadArtifact(root string) (Artifact, error) {
+	a, err := loadArtifactMetadata(root)
+	if err != nil {
+		return a, err
+	}
 	opened, err := os.OpenRoot(root)
 	if err != nil {
 		return a, err
@@ -47,14 +66,30 @@ func ReadArtifact(root string) (Artifact, error) {
 	if err != nil {
 		return a, err
 	}
-	for _, path := range []string{"payload.json", "candidate.json"} {
-		sum, e := nativebuild.HashAt(opened, path)
-		if e != nil {
-			return a, e
-		}
-		a.Files[path] = sum
+	if err = hashArtifactSidecars(opened, a.Files); err != nil {
+		return a, err
 	}
 	return a, nil
+}
+
+func mediaBindingMatches(m hostimage.Media, a Artifact) bool {
+	return m.Revision == a.Payload.Revision && m.Architecture == a.Payload.Architecture && m.HostManifest == a.Candidate.Host.Manifest && m.PayloadSHA256 == a.Candidate.PayloadSHA256
+}
+
+func verifyMediaFile(root string, file hostimage.MediaFile) error {
+	if file.Path == "" || filepath.Base(file.Path) != file.Path {
+		return errors.New("local media basename required")
+	}
+	path := filepath.Join(root, "media", file.Path)
+	st, err := os.Lstat(path)
+	if err != nil || !st.Mode().IsRegular() || st.Size() != file.Bytes {
+		return errors.New("media file/size differs")
+	}
+	sum, err := nativebuild.HashFile(path)
+	if err != nil || sum != file.SHA256 {
+		return errors.New("media digest differs")
+	}
+	return nil
 }
 
 func ReadMedia(root string, a Artifact) (hostimage.Media, error) {
@@ -62,24 +97,15 @@ func ReadMedia(root string, a Artifact) (hostimage.Media, error) {
 	if err := rd.ReadJSON(filepath.Join(root, "media/media.json"), &m); err != nil {
 		return m, err
 	}
-	if m.Revision != a.Payload.Revision || m.Architecture != a.Payload.Architecture || m.HostManifest != a.Candidate.Host.Manifest || m.PayloadSHA256 != a.Candidate.PayloadSHA256 {
+	if !mediaBindingMatches(m, a) {
 		return m, errors.New("media candidate binding differs")
 	}
 	if m.ISO.Bytes <= 0 || m.ISO.Bytes >= 2_000_000_000 {
 		return m, errors.New("minimal installer size contract exceeded")
 	}
 	for _, file := range []hostimage.MediaFile{m.ISO, m.Rootfs} {
-		if file.Path == "" || filepath.Base(file.Path) != file.Path {
-			return m, errors.New("local media basename required")
-		}
-		path := filepath.Join(root, "media", file.Path)
-		st, err := os.Lstat(path)
-		if err != nil || !st.Mode().IsRegular() || st.Size() != file.Bytes {
-			return m, errors.New("media file/size differs")
-		}
-		sum, err := nativebuild.HashFile(path)
-		if err != nil || sum != file.SHA256 {
-			return m, errors.New("media digest differs")
+		if err := verifyMediaFile(root, file); err != nil {
+			return m, err
 		}
 	}
 	console, err := nativebuild.HashFile(filepath.Join(root, "tools/soda-installer"))

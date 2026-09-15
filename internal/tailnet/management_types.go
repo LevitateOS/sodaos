@@ -10,14 +10,14 @@ import (
 
 var (
 	ErrInvalid        = errors.New("invalid Tailnet request")
-	ErrConflict       = errors.New("Tailnet revision or identity changed")
-	ErrUnsupported    = errors.New("Tailnet runtime is not supported")
-	ErrUnconfirmed    = errors.New("Tailnet outcome is unconfirmed")
+	ErrConflict       = errors.New("tailnet revision or identity changed")
+	ErrUnsupported    = errors.New("tailnet runtime is not supported")
+	ErrUnconfirmed    = errors.New("tailnet outcome is unconfirmed")
 	revisionPattern   = regexp.MustCompile(`^[0-9a-f]{32}$`)
 	projectPattern    = regexp.MustCompile(`^p[0-9a-f]{24}$`)
 	containerPattern  = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	tagPattern        = regexp.MustCompile(`^tag:[a-zA-Z][a-zA-Z0-9-]{0,62}$`)
-	credentialPattern = regexp.MustCompile(`^tskey-client-[A-Za-z0-9_-]{8,512}$`)
+	credentialPattern = regexp.MustCompile(`^tskey-client-[A-Za-z0-9_-]{8,512}$`) // slop-audit-allow: production validation pattern for real Tailscale-shaped client secrets
 	clientPattern     = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
 	networkPattern    = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9.@_-]{0,252}$`)
 )
@@ -82,38 +82,68 @@ type HostRequest struct {
 	Advertise *bool   `json:"advertise,omitempty"`
 }
 
+func hasExtraHostFields(r HostRequest) bool {
+	return r.ExitNode != nil || r.AllowLAN != nil || r.Advertise != nil
+}
+
+func validateHostSigninAction(r HostRequest) error {
+	if r.Confirm != "" || hasExtraHostFields(r) {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateHostConfirmedAction(r HostRequest) error {
+	if r.Confirm != r.Action || hasExtraHostFields(r) {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateHostExitNode(exitNode *string, allowLAN *bool) error {
+	if *exitNode == "" {
+		if *allowLAN {
+			return ErrInvalid
+		}
+		return nil
+	}
+	a, err := netip.ParseAddr(*exitNode)
+	if err != nil || a.String() != *exitNode || !a.IsGlobalUnicast() {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateHostExitNodeAction(r HostRequest) error {
+	if r.Confirm != r.Action || r.ExitNode == nil || r.AllowLAN == nil || r.Advertise != nil {
+		return ErrInvalid
+	}
+	return validateHostExitNode(r.ExitNode, r.AllowLAN)
+}
+
+func validateHostAdvertiseAction(r HostRequest) error {
+	if r.Confirm != r.Action || r.Advertise == nil || r.ExitNode != nil || r.AllowLAN != nil {
+		return ErrInvalid
+	}
+	return nil
+}
+
 func (r HostRequest) Validate() error {
 	if !containerPattern.MatchString(r.Revision) {
 		return ErrInvalid
 	}
 	switch r.Action {
 	case "signin", "authentication":
-		if r.Confirm != "" || r.ExitNode != nil || r.AllowLAN != nil || r.Advertise != nil {
-			return ErrInvalid
-		}
+		return validateHostSigninAction(r)
 	case "logout", "refresh-forgejo":
-		if r.Confirm != r.Action || r.ExitNode != nil || r.AllowLAN != nil || r.Advertise != nil {
-			return ErrInvalid
-		}
+		return validateHostConfirmedAction(r)
 	case "exit-node":
-		if r.Confirm != r.Action || r.ExitNode == nil || r.AllowLAN == nil || r.Advertise != nil {
-			return ErrInvalid
-		}
-		if *r.ExitNode == "" {
-			if *r.AllowLAN {
-				return ErrInvalid
-			}
-		} else if a, e := netip.ParseAddr(*r.ExitNode); e != nil || a.String() != *r.ExitNode || !a.IsGlobalUnicast() {
-			return ErrInvalid
-		}
+		return validateHostExitNodeAction(r)
 	case "advertise-exit-node":
-		if r.Confirm != r.Action || r.Advertise == nil || r.ExitNode != nil || r.AllowLAN != nil {
-			return ErrInvalid
-		}
+		return validateHostAdvertiseAction(r)
 	default:
 		return ErrInvalid
 	}
-	return nil
 }
 
 type HostResult struct {
@@ -133,40 +163,61 @@ type EnrollmentRequest struct {
 	Default       *bool    `json:"default,omitempty"`
 }
 
+func validateEnrollmentTags(tags []string) error {
+	if len(tags) < 1 || len(tags) > 8 || !slices.IsSorted(tags) {
+		return ErrInvalid
+	}
+	for i, t := range tags {
+		if !tagPattern.MatchString(t) || (i > 0 && tags[i-1] == t) {
+			return ErrInvalid
+		}
+	}
+	return nil
+}
+
+func validateEnrollmentPolicy(tailnet string, tags []string, preauthorized *bool) error {
+	if !networkPattern.MatchString(tailnet) || strings.Contains(tailnet, "..") || preauthorized == nil {
+		return ErrInvalid
+	}
+	return validateEnrollmentTags(tags)
+}
+
+func validateEnrollmentMutation(r EnrollmentRequest) error {
+	if !clientPattern.MatchString(r.ClientID) || !credentialPattern.MatchString(r.ClientSecret) || r.Default != nil {
+		return ErrInvalid
+	}
+	return validateEnrollmentPolicy(r.Tailnet, r.Tags, r.Preauthorized)
+}
+
+func hasEnrollmentPayload(r EnrollmentRequest) bool {
+	return r.ClientID != "" || r.ClientSecret != "" || r.Tailnet != "" || r.Tags != nil || r.Preauthorized != nil
+}
+
+func validateEnrollmentToggle(r EnrollmentRequest) error {
+	if hasEnrollmentPayload(r) {
+		return ErrInvalid
+	}
+	if r.Action == "default" && r.Default == nil {
+		return ErrInvalid
+	}
+	if r.Action == "disable" && r.Default != nil {
+		return ErrInvalid
+	}
+	return nil
+}
+
 func (r EnrollmentRequest) Validate() error {
 	if !validRevision(r.Revision) {
 		return ErrInvalid
 	}
-	credentials := r.ClientID != "" || r.ClientSecret != ""
-	policy := r.Tailnet != "" || r.Tags != nil || r.Preauthorized != nil
 	switch r.Action {
 	case "save", "check", "rotate":
-		if !clientPattern.MatchString(r.ClientID) || !credentialPattern.MatchString(r.ClientSecret) || r.Default != nil {
-			return ErrInvalid
-		}
-		if !networkPattern.MatchString(r.Tailnet) || strings.Contains(r.Tailnet, "..") || len(r.Tags) < 1 || len(r.Tags) > 8 || r.Preauthorized == nil {
-			return ErrInvalid
-		}
-		if !slices.IsSorted(r.Tags) {
-			return ErrInvalid
-		}
-		for i, t := range r.Tags {
-			if !tagPattern.MatchString(t) || (i > 0 && r.Tags[i-1] == t) {
-				return ErrInvalid
-			}
-		}
-	case "default":
-		if credentials || policy || r.Default == nil {
-			return ErrInvalid
-		}
-	case "disable":
-		if credentials || policy || r.Default != nil {
-			return ErrInvalid
-		}
+		return validateEnrollmentMutation(r)
+	case "default", "disable":
+		return validateEnrollmentToggle(r)
 	default:
 		return ErrInvalid
 	}
-	return nil
 }
 
 type EnrollmentResult struct {
@@ -190,16 +241,7 @@ type ProjectRequest struct {
 	ConfirmID string `json:"confirm_id,omitempty"`
 }
 
-func (r ProjectRequest) Validate() error {
-	if !ValidProject(r.Project) {
-		return ErrInvalid
-	}
-	if r.Action == "inspect" {
-		if r.Revision != "" || r.Binding != "" || r.ConfirmID != "" {
-			return ErrInvalid
-		}
-		return nil
-	}
+func validateProjectMutation(r ProjectRequest) error {
 	if !validRevision(r.Revision) || r.ConfirmID != r.Project {
 		return ErrInvalid
 	}
@@ -216,6 +258,19 @@ func (r ProjectRequest) Validate() error {
 		return ErrInvalid
 	}
 	return nil
+}
+
+func (r ProjectRequest) Validate() error {
+	if !ValidProject(r.Project) {
+		return ErrInvalid
+	}
+	if r.Action == "inspect" {
+		if r.Revision != "" || r.Binding != "" || r.ConfirmID != "" {
+			return ErrInvalid
+		}
+		return nil
+	}
+	return validateProjectMutation(r)
 }
 
 type ProjectView struct {

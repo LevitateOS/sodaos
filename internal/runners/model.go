@@ -123,10 +123,10 @@ func validateRegistrationToken(token string) error {
 
 func (request CreateRequest) validateForgejo() error {
 	if err := validateForgejoURL(request.RegistrationURL); err != nil {
-		return fmt.Errorf("Forgejo URL: %w", err)
+		return fmt.Errorf("forgejo URL: %w", err)
 	}
 	if !forgejoUUIDPattern.MatchString(request.RegistrationID) {
-		return errors.New("Forgejo runner ID must be a lowercase UUID")
+		return errors.New("forgejo runner ID must be a lowercase UUID")
 	}
 	return requireLabels(request.Labels, forgejoLabelPattern, "Forgejo labels must use name:host syntax")
 }

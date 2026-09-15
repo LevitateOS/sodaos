@@ -39,7 +39,7 @@ func deviceNames(d BlockDevice) bool {
 	return regexp.MustCompile(`^/dev/[a-zA-Z0-9_-]+$`).MatchString(d.Name) && d.KName == d.Name && regexp.MustCompile(`^[0-9]+:[0-9]+$`).MatchString(d.MajorMinor)
 }
 
-func unused(d BlockDevice) string {
+func unusedInventory(d BlockDevice) string {
 	if !deviceNames(d) || d.Size == 0 || d.Mountpoints == nil {
 		return "incomplete or unsupported device inventory"
 	}
@@ -51,14 +51,22 @@ func unused(d BlockDevice) string {
 			return "mounted filesystem or active swap"
 		}
 	}
+	return unusedFSType(d)
+}
+
+func unusedFSType(d BlockDevice) string {
 	switch d.FSType {
 	case "iso9660", "udf":
 		return "installation/optical media"
 	case "", "ext2", "ext3", "ext4", "xfs", "vfat", "exfat", "ntfs", "swap":
 		// Ordinary single-device filesystems still require all use checks below.
+		return ""
 	default:
 		return "unrecognized, multi-device or encrypted storage requires separate operator handling"
 	}
+}
+
+func unusedChildren(d BlockDevice) string {
 	for _, child := range d.Children {
 		if child.Type != "part" {
 			return "active mapped/stacked device"
@@ -68,6 +76,13 @@ func unused(d BlockDevice) string {
 		}
 	}
 	return ""
+}
+
+func unused(d BlockDevice) string {
+	if reason := unusedInventory(d); reason != "" {
+		return reason
+	}
+	return unusedChildren(d)
 }
 
 func scanDisks(ctx context.Context, run commandRunner) ([]Disk, error) {

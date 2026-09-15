@@ -102,7 +102,7 @@ func (native *Native) requireAvailable(id string) error {
 	}
 	account, _ := AccountName(id)
 	if _, err := user.Lookup(account); err == nil {
-		return fmt.Errorf("Linux account %s already exists", account)
+		return fmt.Errorf("linux account %s already exists", account)
 	} else if _, ok := err.(user.UnknownUserError); !ok {
 		return fmt.Errorf("look up runner account: %w", err)
 	}

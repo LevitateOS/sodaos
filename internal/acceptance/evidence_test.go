@@ -20,6 +20,7 @@ func fixtureEvidence(t *testing.T, secrets ...[]byte) *Evidence {
 	t.Cleanup(func() { _ = e.Close() })
 	return e
 }
+
 func TestEvidenceSplitSecretsAndRedirectQueries(t *testing.T) {
 	e := fixtureEvidence(t, []byte("synthetic-password"))
 	w, err := e.Writer("out")
@@ -51,6 +52,7 @@ func TestEvidenceSplitSecretsAndRedirectQueries(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
 func TestEvidenceExclusiveAndConfined(t *testing.T) {
 	e := fixtureEvidence(t)
 	if err := e.Write("once", []byte("first")); err != nil {
@@ -71,14 +73,15 @@ func TestEvidenceExclusiveAndConfined(t *testing.T) {
 		t.Fatal("followed evidence symlink")
 	}
 	st, err := os.Stat(e.Path())
-	if err != nil || st.Mode().Perm() != 0700 {
+	if err != nil || st.Mode().Perm() != 0o700 {
 		t.Fatalf("private root: %v", err)
 	}
 	st, err = os.Stat(filepath.Join(e.Path(), "once"))
-	if err != nil || st.Mode().Perm() != 0600 {
+	if err != nil || st.Mode().Perm() != 0o600 {
 		t.Fatalf("private file: %v", err)
 	}
 }
+
 func TestRedactedErrorRetainsIdentity(t *testing.T) {
 	e := fixtureEvidence(t, []byte("synthetic-password"))
 	sentinel := errors.New("underlying")
@@ -87,6 +90,7 @@ func TestRedactedErrorRetainsIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
 func TestCommandAndEvidenceFailuresAreSeparate(t *testing.T) {
 	if err := ownedGroupsSupported(); err != nil {
 		t.Skip(err)
@@ -108,6 +112,7 @@ func TestCommandAndEvidenceFailuresAreSeparate(t *testing.T) {
 		t.Fatalf("evidence failure became an execution result: %#v %v", result, err)
 	}
 }
+
 func TestCancelledCommandIsNotDenialOrSuccess(t *testing.T) {
 	e := fixtureEvidence(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -117,6 +122,7 @@ func TestCancelledCommandIsNotDenialOrSuccess(t *testing.T) {
 		t.Fatalf("%#v %v", r, err)
 	}
 }
+
 func TestEvidenceOutputBound(t *testing.T) {
 	e := fixtureEvidence(t)
 	w, err := e.Writer("large")

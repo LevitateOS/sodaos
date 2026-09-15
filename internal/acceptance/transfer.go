@@ -58,6 +58,78 @@ subprocess.run([str(p/'tools/soda-artifacts'),'verify','--source',str(p),'--arch
 	result.Err = errors.Join(result.Err, <-finished)
 	return result, evidenceErr
 }
+
+func admitBundleLink(root *os.Root, name, target string) error {
+	if target == "" {
+		return nil
+	}
+	actual, err := root.Readlink(name)
+	if err != nil || actual != target {
+		return errors.New("payload link changed during transfer")
+	}
+	return nil
+}
+
+func admitBundleEntry(root *os.Root, name string, st os.FileInfo, inv nativebuild.Inventory) (string, error) {
+	entry, ok := inv.Files[name]
+	if !ok {
+		if !st.Mode().IsRegular() {
+			return "", errors.New("non-regular transfer metadata")
+		}
+		return "", nil
+	}
+	if entry.Directory != st.IsDir() || entry.Mode != uint32(st.Mode().Perm()) {
+		return "", errors.New("payload type/mode changed during transfer")
+	}
+	if err := admitBundleLink(root, name, entry.Link); err != nil {
+		return "", err
+	}
+	if entry.Link == "" && !entry.Directory && !st.Mode().IsRegular() {
+		return "", errors.New("payload became a special file")
+	}
+	return entry.Link, nil
+}
+
+func copyBundleRegular(tw *tar.Writer, root *os.Root, name string, inv nativebuild.Inventory) error {
+	f, err := root.Open(name)
+	if err != nil {
+		return err
+	}
+	hash := sha256.New()
+	_, err = io.Copy(io.MultiWriter(tw, hash), f)
+	if entry, ok := inv.Files[name]; ok && hex.EncodeToString(hash.Sum(nil)) != entry.SHA256 {
+		err = errors.Join(err, errors.New("payload changed during transfer"))
+	}
+	return errors.Join(err, f.Close())
+}
+
+func streamBundleEntry(tw *tar.Writer, root *os.Root, name string, inv nativebuild.Inventory) error {
+	st, err := root.Lstat(name)
+	if err != nil {
+		return err
+	}
+	target, err := admitBundleEntry(root, name, st, inv)
+	if err != nil {
+		return err
+	}
+	h, err := tar.FileInfoHeader(st, target)
+	if err != nil {
+		return err
+	}
+	h.Name = filepath.ToSlash(name)
+	h.Uid = 0
+	h.Gid = 0
+	h.Uname = ""
+	h.Gname = ""
+	if err = tw.WriteHeader(h); err != nil {
+		return err
+	}
+	if st.Mode().IsRegular() {
+		return copyBundleRegular(tw, root, name, inv)
+	}
+	return nil
+}
+
 func streamBundle(w io.Writer, source string, inv nativebuild.Inventory) error {
 	tw := tar.NewWriter(w)
 	root, err := os.OpenRoot(source)
@@ -72,53 +144,8 @@ func streamBundle(w io.Writer, source string, inv nativebuild.Inventory) error {
 	names = append(names, "build-info.json", "SHA256SUMS")
 	sort.Strings(names)
 	for _, name := range names {
-		st, err := root.Lstat(name)
-		if err != nil {
+		if err := streamBundleEntry(tw, root, name, inv); err != nil {
 			return err
-		}
-		target := ""
-		if entry, ok := inv.Files[name]; ok {
-			if entry.Directory != st.IsDir() || entry.Mode != uint32(st.Mode().Perm()) {
-				return errors.New("payload type/mode changed during transfer")
-			}
-			target = entry.Link
-			if target != "" {
-				actual, err := root.Readlink(name)
-				if err != nil || actual != target {
-					return errors.New("payload link changed during transfer")
-				}
-			} else if !entry.Directory && !st.Mode().IsRegular() {
-				return errors.New("payload became a special file")
-			}
-		} else if !st.Mode().IsRegular() {
-			return errors.New("non-regular transfer metadata")
-		}
-		h, err := tar.FileInfoHeader(st, target)
-		if err != nil {
-			return err
-		}
-		h.Name = filepath.ToSlash(name)
-		h.Uid = 0
-		h.Gid = 0
-		h.Uname = ""
-		h.Gname = ""
-		if err = tw.WriteHeader(h); err != nil {
-			return err
-		}
-		if st.Mode().IsRegular() {
-			f, err := root.Open(name)
-			if err != nil {
-				return err
-			}
-			hash := sha256.New()
-			_, err = io.Copy(io.MultiWriter(tw, hash), f)
-			if entry, ok := inv.Files[name]; ok && hex.EncodeToString(hash.Sum(nil)) != entry.SHA256 {
-				err = errors.Join(err, errors.New("payload changed during transfer"))
-			}
-			err = errors.Join(err, f.Close())
-			if err != nil {
-				return err
-			}
 		}
 	}
 	return tw.Close()

@@ -16,16 +16,16 @@ type mediaTools struct{ Butane, Version, Architecture string }
 
 func prepareBuildMedia(p nativebuild.Production, r Request) (tools mediaTools, lock mediaLock, err error) {
 	if !r.WantsMedia() {
-		return
+		return tools, lock, err
 	}
 	if err = p.Next("P2 / Verify native media tooling"); err != nil {
-		return
+		return tools, lock, err
 	}
 	tools, err = admitMediaTools(p.Source, filepath.Join(r.Out, "evidence"), r.Arch, p)
 	if err == nil {
 		lock, err = prepareAssembler(p, filepath.Join(r.Out, "work/media"))
 	}
-	return
+	return tools, lock, err
 }
 
 func finishBuildMedia(ctx context.Context, p nativebuild.Production, r Request, tools mediaTools, lock mediaLock, next func(string) error) error {
@@ -42,34 +42,45 @@ func finishBuildMedia(ctx context.Context, p nativebuild.Production, r Request, 
 	return err
 }
 
+func admitButaneLock(tools mediaTools, arch string) error {
+	const prefix = "quay.io/coreos/butane@sha256:"
+	if tools.Architecture != arch || !strings.HasPrefix(tools.Butane, prefix) || !nativebuild.Digest(strings.TrimPrefix(tools.Butane, prefix)) || !strings.HasPrefix(tools.Version, "Butane v") || strings.ContainsAny(tools.Version, "\r\n") {
+		return errors.New("unreviewed native media tool")
+	}
+	return nil
+}
+
+func verifyButaneImage(source, evidence, arch string, p nativebuild.Production, tools mediaTools) error {
+	if err := p.Execute(source, "podman", "--remote=false", "pull", tools.Butane); err != nil {
+		return err
+	}
+	platform, _ := nativebuild.OCIArchitecture(arch)
+	observed, err := p.Capture(source, "podman", "--remote=false", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", tools.Butane)
+	if err != nil {
+		return err
+	}
+	if observed != "linux/"+platform {
+		return errors.New("native Butane platform mismatch")
+	}
+	version, err := p.Capture(source, "podman", "--remote=false", "run", "--pull=never", "--cidfile", filepath.Join(evidence, "butane-version.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", tools.Butane, "--version")
+	if err != nil {
+		return err
+	}
+	if version != tools.Version {
+		return errors.New("native Butane version mismatch")
+	}
+	return nil
+}
+
 func admitMediaTools(source, evidence, arch string, p nativebuild.Production) (mediaTools, error) {
 	var tools mediaTools
 	if err := nativebuild.ReadJSON(filepath.Join(source, "appliance/locks/installer-tools.json"), &tools); err != nil {
 		return tools, err
 	}
-	const prefix = "quay.io/coreos/butane@sha256:"
-	if tools.Architecture != arch || !strings.HasPrefix(tools.Butane, prefix) || !nativebuild.Digest(strings.TrimPrefix(tools.Butane, prefix)) || !strings.HasPrefix(tools.Version, "Butane v") || strings.ContainsAny(tools.Version, "\r\n") {
-		return tools, errors.New("unreviewed native media tool")
-	}
-	if err := p.Execute(source, "podman", "--remote=false", "pull", tools.Butane); err != nil {
+	if err := admitButaneLock(tools, arch); err != nil {
 		return tools, err
 	}
-	platform, _ := nativebuild.OCIArchitecture(arch)
-	observed, err := p.Capture(source, "podman", "--remote=false", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", tools.Butane)
-	if err != nil {
-		return tools, err
-	}
-	if observed != "linux/"+platform {
-		return tools, errors.New("native Butane platform mismatch")
-	}
-	version, err := p.Capture(source, "podman", "--remote=false", "run", "--pull=never", "--cidfile", filepath.Join(evidence, "butane-version.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", tools.Butane, "--version")
-	if err != nil {
-		return tools, err
-	}
-	if version != tools.Version {
-		return tools, errors.New("native Butane version mismatch")
-	}
-	return tools, nil
+	return tools, verifyButaneImage(source, evidence, arch, p, tools)
 }
 
 // Generate the live handoff in the same source-to-candidate run, using the exact
@@ -96,8 +107,8 @@ func prepareMediaInputs(source, out string, tools mediaTools, p nativebuild.Prod
 	if err != nil {
 		return err
 	}
-	if err = nativebuild.WriteNew(filepath.Join(out, "destination.ign"), []byte(destination+"\n"), 0644); err != nil {
+	if err = nativebuild.WriteNew(filepath.Join(out, "destination.ign"), []byte(destination+"\n"), 0o644); err != nil {
 		return err
 	}
-	return nativebuild.WriteNew(filepath.Join(out, "live.ign"), append(live, '\n'), 0644)
+	return nativebuild.WriteNew(filepath.Join(out, "live.ign"), append(live, '\n'), 0o644)
 }

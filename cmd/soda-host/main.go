@@ -5,9 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/runners"
-	"github.com/levitateos/sodaos/internal/tailnet"
 	"net"
 	"net/http"
 	"os"
@@ -15,9 +12,13 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/runners"
+	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-var errTailnetPreparation = errors.New("Tailnet preparation unconfirmed; observe and explicitly retry")
+var errTailnetPreparation = errors.New("tailnet preparation unconfirmed; observe and explicitly retry")
 
 func exitStatus(err error) int {
 	if err == nil {
@@ -35,48 +36,43 @@ func main() {
 		os.Exit(exitStatus(err))
 	}
 }
-func run() error {
-	path := flag.String("config", "/etc/soda/host.json", "operator-owned runtime configuration")
-	action := flag.String("tailnet-action", "", "fixed native companion phase: run or stop")
-	project := flag.String("project", "", "exact native project ID for a companion phase")
-	flag.Parse()
-	if *action != "" {
-		if os.Geteuid() != 0 || !tailnet.ValidProject(*project) || (*action != "run" && *action != "stop") || flag.NArg() != 0 {
-			return tailnet.ErrInvalid
-		}
-		c, e := host.LoadConfig(*path)
-		if e != nil {
-			return tailnet.ErrUnavailable
-		}
-		if !c.TailnetManagement || c.TailnetImage == "" {
-			return nil
-		}
-		d := &host.Daemon{Config: c, Exec: host.Native{}, Tailnet: tailnet.NewProjectManagement()}
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-		defer stop()
-		phase, cancel := context.WithTimeout(ctx, 45*time.Second)
-		defer cancel()
-		if *action == "stop" {
-			bounded, done := context.WithTimeout(phase, 30*time.Second)
-			defer done()
-			return d.StopTailnet(bounded, *project)
-		}
-		cid, e := d.StartTailnet(phase, *project)
-		if e != nil {
-			return errors.Join(errTailnetPreparation, e)
-		}
-		cancel()
-		return d.WaitTailnet(ctx, cid)
-	}
-	if *project != "" || flag.NArg() != 0 {
+
+func validTailnetActionArgs(action, project string) bool {
+	return os.Geteuid() == 0 && tailnet.ValidProject(project) && (action == "run" || action == "stop") && flag.NArg() == 0
+}
+
+func runTailnetAction(path, action, project string) error {
+	if !validTailnetActionArgs(action, project) {
 		return tailnet.ErrInvalid
 	}
+	c, e := host.LoadConfig(path)
+	if e != nil {
+		return tailnet.ErrUnavailable
+	}
+	if !c.TailnetManagement || c.TailnetImage == "" {
+		return nil
+	}
+	d := &host.Daemon{Config: c, Exec: host.Native{}, Tailnet: tailnet.NewProjectManagement()}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+	phase, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	if action == "stop" {
+		bounded, done := context.WithTimeout(phase, 30*time.Second)
+		defer done()
+		return d.StopTailnet(bounded, project)
+	}
+	cid, e := d.StartTailnet(phase, project)
+	if e != nil {
+		return errors.Join(errTailnetPreparation, e)
+	}
+	cancel()
+	return d.WaitTailnet(ctx, cid)
+}
+
+func serveHostSocket(c host.Config) error {
 	if os.Geteuid() != 0 || os.Getenv("LISTEN_PID") != strconv.Itoa(os.Getpid()) || os.Getenv("LISTEN_FDS") != "1" {
 		return fmt.Errorf("requires root and the soda-host systemd Unix socket")
-	}
-	c, err := host.LoadConfig(*path)
-	if err != nil {
-		return err
 	}
 	f := os.NewFile(3, "soda-host.socket")
 	listener, err := net.FileListener(f)
@@ -99,7 +95,7 @@ func run() error {
 	done := make(chan struct{})
 	go func() {
 		<-ctx.Done()
-		daemon.CloseTerminals() // Includes hijacked streams, unlike HTTP Shutdown.
+		daemon.CloseTerminals()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = server.Shutdown(shutdown)
@@ -112,4 +108,22 @@ func run() error {
 		return nil
 	}
 	return err
+}
+
+func run() error {
+	path := flag.String("config", "/etc/soda/host.json", "operator-owned runtime configuration")
+	action := flag.String("tailnet-action", "", "fixed native companion phase: run or stop")
+	project := flag.String("project", "", "exact native project ID for a companion phase")
+	flag.Parse()
+	if *action != "" {
+		return runTailnetAction(*path, *action, *project)
+	}
+	if *project != "" || flag.NArg() != 0 {
+		return tailnet.ErrInvalid
+	}
+	c, err := host.LoadConfig(*path)
+	if err != nil {
+		return err
+	}
+	return serveHostSocket(c)
 }

@@ -12,30 +12,26 @@ import (
 	"github.com/levitateos/sodaos/internal/nativebuild"
 )
 
-func inspectComplete(context, out, id string, capture nativebuild.BuildCapture) error {
-	run := func(name, entry string, args ...string) (string, error) {
-		command := []string{"--remote=false", "run", "--cidfile", filepath.Join(out, name+".cid"), "--network=none", "--read-only", "--entrypoint=" + entry, id}
-		command = append(command, args...)
-		return capture(context, "podman", command...)
-	}
+func inspectCompletePayload(context, out, id string, run func(string, string, ...string) (string, error)) (appliancerelease.Payload, error) {
 	observed, err := run("payload-inspect", "/usr/bin/cat", appliancerelease.Path)
 	if err != nil {
-		return err
+		return appliancerelease.Payload{}, err
 	}
 	expected, err := os.ReadFile(filepath.Join(out, "payload.json"))
 	if err != nil {
-		return err
+		return appliancerelease.Payload{}, err
 	}
 	if observed != strings.TrimSpace(string(expected)) {
-		return errors.New("image payload metadata differs from candidate")
+		return appliancerelease.Payload{}, errors.New("image payload metadata differs from candidate")
 	}
 	var p appliancerelease.Payload
 	if err = json.Unmarshal(expected, &p); err != nil {
-		return err
+		return p, err
 	}
-	if err = p.Validate(); err != nil {
-		return err
-	}
+	return p, p.Validate()
+}
+
+func inspectCompleteContent(context, out string, p appliancerelease.Payload, run func(string, string, ...string) (string, error)) error {
 	files, _, err := appliancerelease.VerifyContent(p, filepath.Join(context, "rootfs", appliancerelease.ImagesPath))
 	if err != nil {
 		return err
@@ -62,19 +58,15 @@ func inspectComplete(context, out, id string, capture nativebuild.BuildCapture) 
 			return errors.New("host content differs from payload")
 		}
 	}
-	consoleHash, err := nativebuild.HashFile(filepath.Join(out, "tools/soda-installer"))
-	if err != nil {
-		return err
-	}
-	console, err := run("installer-inspect", "/usr/bin/sha256sum", "/usr/libexec/soda/soda-install")
-	if err != nil || console != consoleHash+"  /usr/libexec/soda/soda-install" {
-		return errors.New("image installer differs from prebuilt tool")
-	}
+	return nil
+}
+
+func inspectCompleteQuadlets(out string, p appliancerelease.Payload, run func(string, string, ...string) (string, error)) error {
 	generated, err := run("quadlet-inspect", "/usr/lib/systemd/system-generators/podman-system-generator", "--dryrun")
 	if err != nil {
 		return err
 	}
-	if err = os.WriteFile(filepath.Join(out, "generated-quadlets.txt"), []byte(generated+"\n"), 0600); err != nil {
+	if err = os.WriteFile(filepath.Join(out, "generated-quadlets.txt"), []byte(generated+"\n"), 0o600); err != nil {
 		return err
 	}
 	if strings.Contains(generated, "additionalimagestore") || !strings.Contains(generated, "soda-image-import.service") {
@@ -86,4 +78,28 @@ func inspectComplete(context, out, id string, capture nativebuild.BuildCapture) 
 		}
 	}
 	return nil
+}
+
+func inspectComplete(context, out, id string, capture nativebuild.BuildCapture) error {
+	run := func(name, entry string, args ...string) (string, error) {
+		command := []string{"--remote=false", "run", "--cidfile", filepath.Join(out, name+".cid"), "--network=none", "--read-only", "--entrypoint=" + entry, id}
+		command = append(command, args...)
+		return capture(context, "podman", command...)
+	}
+	p, err := inspectCompletePayload(context, out, id, run)
+	if err != nil {
+		return err
+	}
+	if err = inspectCompleteContent(context, out, p, run); err != nil {
+		return err
+	}
+	consoleHash, err := nativebuild.HashFile(filepath.Join(out, "tools/soda-installer"))
+	if err != nil {
+		return err
+	}
+	console, err := run("installer-inspect", "/usr/bin/sha256sum", "/usr/libexec/soda/soda-install")
+	if err != nil || console != consoleHash+"  /usr/libexec/soda/soda-install" {
+		return errors.New("image installer differs from prebuilt tool")
+	}
+	return inspectCompleteQuadlets(out, p, run)
 }

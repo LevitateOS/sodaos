@@ -25,45 +25,42 @@ type Worker struct {
 	Arguments                         []string
 }
 
-func (w Worker) arguments() ([]string, error) {
+func validWorkerIdentity(w Worker) error {
 	if !regexp.MustCompile(`^soda-(build|qualify)-[a-z0-9-]{1,48}$`).MatchString(w.Name) {
-		return nil, errors.New("exact task worker name required")
+		return errors.New("exact task worker name required")
 	}
 	if w.User != "soda-build-worker" && w.User != "soda-qualifier" {
-		return nil, errors.New("separate approved worker identity required")
+		return errors.New("separate approved worker identity required")
 	}
 	if !filepath.IsAbs(w.Directory) || strings.ContainsAny(w.Directory, "\n\r:") {
-		return nil, errors.New("absolute worker directory required")
+		return errors.New("absolute worker directory required")
 	}
-	if err := TrustedExecutable(w.Executable); err != nil {
-		return nil, err
-	}
-	args := []string{"--quiet", "--wait", "--pipe", "--collect", "--service-type=exec", "--unit=" + w.Name,
-		"--property=User=" + w.User, "--property=Group=" + w.User,
-		"--property=WorkingDirectory=" + w.Directory,
-		"--property=ProtectHome=tmpfs", "--property=ProtectSystem=strict",
-		"--property=PrivateTmp=yes", "--property=PrivateMounts=yes",
-		"--property=Delegate=yes", "--property=CPUQuota=400%", "--property=MemoryMax=16G",
-		"--property=CPUAffinity=0 1 2 3", "--property=KillMode=control-group",
-		"--property=TimeoutStopSec=20s", "--property=UMask=0077",
-		"--property=InaccessiblePaths=-/var/lib/soda-release -/root"}
-	for _, binding := range []struct {
-		property string
-		paths    []string
-	}{{"BindReadOnlyPaths", w.ReadOnly}, {"BindPaths", w.Writable}} {
-		for _, pair := range binding.paths {
-			parts := strings.Split(pair, ":")
-			if len(parts) != 2 || !filepath.IsAbs(parts[0]) || !filepath.IsAbs(parts[1]) || strings.ContainsAny(pair, "\n\r\t %") {
-				return nil, errors.New("explicit absolute worker bind pair required")
-			}
-			args = append(args, "--property="+binding.property+"="+pair)
+	return TrustedExecutable(w.Executable)
+}
+
+func appendBindPaths(args []string, property string, paths []string) ([]string, error) {
+	for _, pair := range paths {
+		parts := strings.Split(pair, ":")
+		if len(parts) != 2 || !filepath.IsAbs(parts[0]) || !filepath.IsAbs(parts[1]) || strings.ContainsAny(pair, "\n\r\t %") {
+			return nil, errors.New("explicit absolute worker bind pair required")
 		}
+		args = append(args, "--property="+property+"="+pair)
 	}
-	for _, env := range w.Environment {
+	return args, nil
+}
+
+func allowedWorkerEnvKey(key string) bool {
+	switch key {
+	case "HOME", "PATH", "XDG_RUNTIME_DIR", "GOTOOLCHAIN", "GOCACHE", "GOMODCACHE", "BUN_INSTALL_CACHE_DIR", "PLAYWRIGHT_BROWSERS_PATH", "SODA_BUILD_START_NS":
+		return true
+	}
+	return false
+}
+
+func appendWorkerEnv(args, environment []string) ([]string, error) {
+	for _, env := range environment {
 		key, _, ok := strings.Cut(env, "=")
-		switch key {
-		case "HOME", "PATH", "XDG_RUNTIME_DIR", "GOTOOLCHAIN", "GOCACHE", "GOMODCACHE", "BUN_INSTALL_CACHE_DIR", "PLAYWRIGHT_BROWSERS_PATH", "SODA_BUILD_START_NS":
-		default:
+		if !allowedWorkerEnvKey(key) {
 			return nil, errors.New("worker environment key refused")
 		}
 		if !ok || strings.ContainsAny(env, "\n\r\x00") {
@@ -71,11 +68,53 @@ func (w Worker) arguments() ([]string, error) {
 		}
 		args = append(args, "--setenv="+env)
 	}
+	return args, nil
+}
+
+func (w Worker) arguments() ([]string, error) {
+	if err := validWorkerIdentity(w); err != nil {
+		return nil, err
+	}
+	args := []string{
+		"--quiet", "--wait", "--pipe", "--collect", "--service-type=exec", "--unit=" + w.Name,
+		"--property=User=" + w.User, "--property=Group=" + w.User,
+		"--property=WorkingDirectory=" + w.Directory,
+		"--property=ProtectHome=tmpfs", "--property=ProtectSystem=strict",
+		"--property=PrivateTmp=yes", "--property=PrivateMounts=yes",
+		"--property=Delegate=yes", "--property=CPUQuota=400%", "--property=MemoryMax=16G",
+		"--property=CPUAffinity=0 1 2 3", "--property=KillMode=control-group",
+		"--property=TimeoutStopSec=20s", "--property=UMask=0077",
+		"--property=InaccessiblePaths=-/var/lib/soda-release -/root",
+	}
+	var err error
+	args, err = appendBindPaths(args, "BindReadOnlyPaths", w.ReadOnly)
+	if err != nil {
+		return nil, err
+	}
+	args, err = appendBindPaths(args, "BindPaths", w.Writable)
+	if err != nil {
+		return nil, err
+	}
+	args, err = appendWorkerEnv(args, w.Environment)
+	if err != nil {
+		return nil, err
+	}
 	return append(append(args, "--", w.Executable), w.Arguments...), nil
 }
 
 // TrustedExecutable refuses a builder-writable executable or parent, including
 // symlinks. A digest supplied by the builder is not an executable admission grant.
+func trustedPathMode(st os.FileInfo, path, current string) error {
+	s, ok := st.Sys().(*syscall.Stat_t)
+	if !ok || s.Uid != 0 || st.Mode().Perm()&0o022 != 0 || st.Mode()&os.ModeSymlink != 0 {
+		return errors.New("worker executable and parents must be root-owned and not group/world writable")
+	}
+	if current == path && (!st.Mode().IsRegular() || st.Mode().Perm()&0o111 == 0) {
+		return errors.New("admitted regular executable required")
+	}
+	return nil
+}
+
 func TrustedExecutable(path string) error {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 		return errors.New("absolute admitted executable required")
@@ -85,12 +124,8 @@ func TrustedExecutable(path string) error {
 		if err != nil {
 			return err
 		}
-		s, ok := st.Sys().(*syscall.Stat_t)
-		if !ok || s.Uid != 0 || st.Mode().Perm()&0022 != 0 || st.Mode()&os.ModeSymlink != 0 {
-			return errors.New("worker executable and parents must be root-owned and not group/world writable")
-		}
-		if p == path && (!st.Mode().IsRegular() || st.Mode().Perm()&0111 == 0) {
-			return errors.New("admitted regular executable required")
+		if err = trustedPathMode(st, path, p); err != nil {
+			return err
 		}
 		if p == "/" {
 			break

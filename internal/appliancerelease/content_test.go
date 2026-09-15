@@ -26,6 +26,7 @@ func sharedFixture(t *testing.T) (Payload, string) {
 	}
 	return p, layout
 }
+
 func TestV3ImportsExactLocalReferencesWithoutLifecycle(t *testing.T) {
 	for _, alreadyPresent := range []bool{false, true} {
 		p, root := sharedFixture(t)
@@ -68,13 +69,14 @@ func TestV3ImportsExactLocalReferencesWithoutLifecycle(t *testing.T) {
 		}
 	}
 }
+
 func TestV3RefusesWholeLayoutBeforeAnyImport(t *testing.T) {
 	for _, kind := range []string{"bad-last-config", "wrong-manifest", "relative-path", "transport-separator", "wrong-format"} {
 		t.Run(kind, func(t *testing.T) {
 			p, root := sharedFixture(t)
 			switch kind {
 			case "bad-last-config":
-				require.NoError(t, os.WriteFile(filepath.Join(root, "blobs/sha256", strings.TrimPrefix(p.Images[Names[len(Names)-1]].Config, "sha256:")), []byte("bad"), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(root, "blobs/sha256", strings.TrimPrefix(p.Images[Names[len(Names)-1]].Config, "sha256:")), []byte("bad"), 0o644))
 			case "wrong-manifest":
 				im := p.Images["dashboard"]
 				im.Manifest = "sha256:" + strings.Repeat("9", 64)
@@ -94,6 +96,7 @@ func TestV3RefusesWholeLayoutBeforeAnyImport(t *testing.T) {
 		})
 	}
 }
+
 func TestV3NativeFailuresRemainUnconfirmedWithoutReplay(t *testing.T) {
 	for _, kind := range []string{"observation", "pull", "postcheck", "cancelled"} {
 		t.Run(kind, func(t *testing.T) {

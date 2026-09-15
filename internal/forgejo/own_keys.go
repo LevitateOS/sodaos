@@ -15,6 +15,10 @@ type OwnPublicKey struct {
 	Type  string `json:"key_type"`
 }
 
+func validOwnPublicKey(key OwnPublicKey, actor int64, seen map[int64]bool) bool {
+	return key.ID > 0 && key.Owner.ID == actor && key.Type == "user" && key.Key != "" && len(key.Key) <= 16384 && len(key.Title) <= 800 && !seen[key.ID]
+}
+
 func (c *Client) OwnPublicKeys(ctx context.Context, token string, actor int64, page int) ([]OwnPublicKey, error) {
 	if actor <= 0 || page < 1 || page > 8 {
 		return nil, ErrInvalidResponse
@@ -28,7 +32,7 @@ func (c *Client) OwnPublicKeys(ctx context.Context, token string, actor int64, p
 	}
 	seen := map[int64]bool{}
 	for _, key := range keys {
-		if key.ID <= 0 || key.Owner.ID != actor || key.Type != "user" || key.Key == "" || len(key.Key) > 16384 || len(key.Title) > 800 || seen[key.ID] {
+		if !validOwnPublicKey(key, actor, seen) {
 			return nil, ErrInvalidResponse
 		}
 		seen[key.ID] = true

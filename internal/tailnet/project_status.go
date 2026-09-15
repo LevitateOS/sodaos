@@ -5,55 +5,111 @@ import "slices"
 // ProjectStatus discards raw health/authentication/peer/private-pref fields. The
 // trusted native caller supplies the binding, not the browser. Connected means a
 // current node observation; it is not client routing or application authentication.
-func ProjectStatus(data, preferences []byte, binding RunBinding) (string, []string, string, error) {
-	var s struct {
-		BackendState   string
-		HaveNodeKey    bool
-		CurrentTailnet *struct{ Name string }
-		Self           *struct {
-			ID, DNSName        string
-			TailscaleIPs, Tags []string
-			Online, Expired    bool
-		}
+type projectNativeStatus struct {
+	BackendState   string
+	HaveNodeKey    bool
+	CurrentTailnet *struct{ Name string }
+	Self           *struct {
+		ID, DNSName        string
+		TailscaleIPs, Tags []string
+		Online, Expired    bool
 	}
+}
+
+type projectNativePrefs struct {
+	WantRunning, CorpDNS, RouteAll, RunSSH bool
+	ExitNodeID, ExitNodeIP                 string
+	AdvertiseRoutes                        []string
+}
+
+func parseProjectStatus(data []byte) (projectNativeStatus, string, error) {
+	var s projectNativeStatus
 	if len(data) > responseLimit || nativeObject(data, &s, "BackendState", "HaveNodeKey") != nil {
-		return "", nil, "", ErrUnavailable
+		return s, "", ErrUnavailable
 	}
 	switch s.BackendState {
 	case "NeedsLogin":
-		return "needs-login", nil, "", nil
+		return s, "needs-login", nil
 	case "NeedsMachineAuth":
-		return "approval-required", nil, "", nil
+		return s, "approval-required", nil
 	case "Starting", "NoState", "Stopped":
-		return "pending", nil, "", nil
+		return s, "pending", nil
 	case "Running":
+		return s, "", nil
 	default:
-		return "unconfirmed", nil, "", nil
+		return s, "unconfirmed", nil
 	}
-	var p struct {
-		WantRunning, CorpDNS, RouteAll, RunSSH bool
-		ExitNodeID, ExitNodeIP                 string
-		AdvertiseRoutes                        []string
+}
+
+func invalidProjectPrefs(p projectNativePrefs) bool {
+	if !p.WantRunning || !p.CorpDNS || p.RouteAll || p.RunSSH {
+		return true
 	}
+	return p.ExitNodeID != "" || p.ExitNodeIP != "" || len(p.AdvertiseRoutes) != 0
+}
+
+func validateProjectPreferences(preferences []byte) error {
+	var p projectNativePrefs
 	if len(preferences) > responseLimit || nativeObject(preferences, &p, "WantRunning", "CorpDNS", "RouteAll", "RunSSH", "ExitNodeID", "ExitNodeIP", "AdvertiseRoutes") != nil {
-		return "", nil, "", ErrUnavailable
+		return ErrUnavailable
 	}
-	if !p.WantRunning || !p.CorpDNS || p.RouteAll || p.RunSSH || p.ExitNodeID != "" || p.ExitNodeIP != "" || len(p.AdvertiseRoutes) != 0 {
-		return "", nil, "", ErrConflict
+	if invalidProjectPrefs(p) {
+		return ErrConflict
 	}
-	if !binding.Enabled || s.CurrentTailnet == nil || s.CurrentTailnet.Name != binding.Tailnet || !s.HaveNodeKey || s.Self == nil || s.Self.ID == "" || !s.Self.Online || s.Self.Expired {
+	return nil
+}
+
+func matchProjectSelf(self *struct {
+	ID, DNSName        string
+	TailscaleIPs, Tags []string
+	Online, Expired    bool
+}, tags []string,
+) bool {
+	if self == nil || self.ID == "" || !self.Online || self.Expired {
+		return false
+	}
+	cloned := slices.Clone(self.Tags)
+	slices.Sort(cloned)
+	return slices.Equal(cloned, tags)
+}
+
+func matchProjectBinding(s projectNativeStatus, binding RunBinding) bool {
+	if !binding.Enabled || s.CurrentTailnet == nil || s.CurrentTailnet.Name != binding.Tailnet || !s.HaveNodeKey {
+		return false
+	}
+	return matchProjectSelf(s.Self, binding.Tags)
+}
+
+func resolveProjectPeer(dnsName string, ips []string) ([]string, string, error) {
+	peer, err := peerView(nativePeer{DNSName: dnsName, TailscaleIPs: ips})
+	if err != nil || len(peer.Addresses) == 0 {
+		return nil, "", ErrUnavailable
+	}
+	return peer.Addresses, peer.DNSName, nil
+}
+
+// ProjectStatus discards raw health/authentication/peer/private-pref fields. The
+// trusted native caller supplies the binding, not the browser. Connected means a
+// current node observation; it is not client routing or application authentication.
+func ProjectStatus(data, preferences []byte, binding RunBinding) (string, []string, string, error) {
+	s, outcome, err := parseProjectStatus(data)
+	if err != nil {
+		return "", nil, "", err
+	}
+	if outcome != "" {
+		return outcome, nil, "", nil
+	}
+	if err := validateProjectPreferences(preferences); err != nil {
+		return "", nil, "", err
+	}
+	if !matchProjectBinding(s, binding) {
 		return "unconfirmed", nil, "", nil
 	}
-	tags := slices.Clone(s.Self.Tags)
-	slices.Sort(tags)
-	if !slices.Equal(tags, binding.Tags) {
-		return "unconfirmed", nil, "", nil
+	addrs, dnsName, err := resolveProjectPeer(s.Self.DNSName, s.Self.TailscaleIPs)
+	if err != nil {
+		return "", nil, "", err
 	}
-	peer, e := peerView(nativePeer{DNSName: s.Self.DNSName, TailscaleIPs: s.Self.TailscaleIPs})
-	if e != nil || len(peer.Addresses) == 0 {
-		return "", nil, "", ErrUnavailable
-	}
-	return "connected", peer.Addresses, peer.DNSName, nil
+	return "connected", addrs, dnsName, nil
 }
 
 // ProjectHasNode admits a concrete pre-login observation, not a release number.

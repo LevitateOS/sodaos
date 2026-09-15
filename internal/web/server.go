@@ -70,14 +70,31 @@ func (s *Server) forgejoReturn(w http.ResponseWriter, r *http.Request, repo *for
 	http.Redirect(w, r, u.String(), http.StatusSeeOther)
 }
 
+func publicAvatarPath(p string) bool {
+	return p == strings.TrimSuffix(avatarPrefix, "/") || strings.HasPrefix(p, avatarPrefix)
+}
+
+func canonicalAvatarPath(u *url.URL) bool {
+	return path.Clean(u.Path) == u.Path && u.EscapedPath() == u.Path && !strings.Contains(u.Path, "\\")
+}
+
+func sodaPublicProbe(p string) bool {
+	return p == "/" || p == "/healthz"
+}
+
+func canonicalSodaPath(u *url.URL) bool {
+	return u.RawPath == "" && !strings.Contains(u.Path, "\\") &&
+		(u.Path == config.SodaPath+"/" || path.Clean(u.Path) == u.Path)
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "same-origin")
 	w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
 	// Public avatars retain their full namespaced path and never enter session
 	// routing. Refuse aliases before ServeMux can canonicalize them.
-	if r.URL.Path == strings.TrimSuffix(avatarPrefix, "/") || strings.HasPrefix(r.URL.Path, avatarPrefix) {
-		if path.Clean(r.URL.Path) != r.URL.Path || r.URL.EscapedPath() != r.URL.Path || strings.Contains(r.URL.Path, "\\") {
+	if publicAvatarPath(r.URL.Path) {
+		if !canonicalAvatarPath(r.URL) {
 			avatarError(w, r, http.StatusNotFound, "Avatar route not found.")
 			return
 		}
@@ -86,7 +103,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// Only the fixed namespace is public through Caddy. Root/health remain direct
 	// backend probes, not aliases for browser API or authentication routes.
-	if r.URL.Path == "/" || r.URL.Path == "/healthz" {
+	if sodaPublicProbe(r.URL.Path) {
 		if r.URL.RawPath != "" {
 			http.NotFound(w, r)
 			return
@@ -100,8 +117,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// Reject encoded aliases and canonicalization instead of redirecting API
 	// requests (especially mutations) into another route or the native frontend.
-	if r.URL.RawPath != "" || strings.Contains(r.URL.Path, "\\") ||
-		(r.URL.Path != config.SodaPath+"/" && path.Clean(r.URL.Path) != r.URL.Path) {
+	if !canonicalSodaPath(r.URL) {
 		jsonError(w, http.StatusNotFound, "not_found", "Soda route not found.")
 		return
 	}

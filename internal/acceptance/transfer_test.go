@@ -15,12 +15,12 @@ func TestStreamBundleVerifiesChangingBytesAndLinks(t *testing.T) {
 	for _, mode := range []string{"valid", "changed", "link"} {
 		t.Run(mode, func(t *testing.T) {
 			root := t.TempDir()
-			if err := os.Mkdir(filepath.Join(root, "inputs"), 0755); err != nil {
+			if err := os.Mkdir(filepath.Join(root, "inputs"), 0o755); err != nil {
 				t.Fatal(err)
 			}
 			path := filepath.Join(root, "inputs/go.mod")
 			for _, file := range []string{path, filepath.Join(root, "build-info.json"), filepath.Join(root, "SHA256SUMS")} {
-				if err := os.WriteFile(file, []byte("synthetic bytes; no executable"), 0644); err != nil {
+				if err := os.WriteFile(file, []byte("synthetic bytes; no executable"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -40,7 +40,7 @@ func TestStreamBundleVerifiesChangingBytesAndLinks(t *testing.T) {
 			}
 			if mode == "link" {
 				outside := filepath.Join(t.TempDir(), "outside")
-				if err := os.WriteFile(outside, []byte("not transport payload"), 0600); err != nil {
+				if err := os.WriteFile(outside, []byte("not transport payload"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				if err := os.Remove(path); err != nil {

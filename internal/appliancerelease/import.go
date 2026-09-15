@@ -9,6 +9,27 @@ import (
 
 // ImportImages verifies release content and imports missing exact images into
 // ordinary Podman. It never starts, replaces or deletes workloads.
+func importMissingImage(ctx context.Context, name string, im Image, images string, run func(context.Context, string, ...string) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	err := run(ctx, "/usr/bin/podman", "--remote=false", "image", "exists", im.Config)
+	if err == nil {
+		return nil
+	}
+	var exit interface{ ExitCode() int }
+	if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+		return fmt.Errorf("%s image observation failed", name)
+	}
+	if err = run(ctx, "/usr/bin/podman", "--remote=false", "pull", "--retry=0", "oci:"+images+":"+im.Config); err != nil {
+		return fmt.Errorf("%s image import unconfirmed", name)
+	}
+	if err = run(ctx, "/usr/bin/podman", "--remote=false", "image", "exists", im.Config); err != nil {
+		return fmt.Errorf("%s imported image unavailable", name)
+	}
+	return nil
+}
+
 func ImportImages(ctx context.Context, p Payload, images string, run func(context.Context, string, ...string) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -17,23 +38,8 @@ func ImportImages(ctx context.Context, p Payload, images string, run func(contex
 		return err
 	}
 	for _, name := range Names {
-		im := p.Images[name]
-		if err := ctx.Err(); err != nil {
+		if err := importMissingImage(ctx, name, p.Images[name], images, run); err != nil {
 			return err
-		}
-		err := run(ctx, "/usr/bin/podman", "--remote=false", "image", "exists", im.Config)
-		if err == nil {
-			continue
-		}
-		var exit interface{ ExitCode() int }
-		if !errors.As(err, &exit) || exit.ExitCode() != 1 {
-			return fmt.Errorf("%s image observation failed", name)
-		}
-		if err = run(ctx, "/usr/bin/podman", "--remote=false", "pull", "--retry=0", "oci:"+images+":"+im.Config); err != nil {
-			return fmt.Errorf("%s image import unconfirmed", name)
-		}
-		if err = run(ctx, "/usr/bin/podman", "--remote=false", "image", "exists", im.Config); err != nil {
-			return fmt.Errorf("%s imported image unavailable", name)
 		}
 	}
 	return nil
