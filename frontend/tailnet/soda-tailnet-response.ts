@@ -1,84 +1,259 @@
 import {check, object, projectId} from '../spaces/sodaspaces-api.js';
 
-const revision = (v: unknown, host = false): string => {check(typeof v === 'string' && (host ? /^[a-f0-9]{64}$/ : /^(?:0|[a-f0-9]{32})$/).test(v)); return v;};
-const text = (v: unknown, max = 253): string => {check(typeof v === 'string' && v.length <= max && !/[\x00-\x1f\x7f]/.test(v)); return v;};
-const bool = (v: unknown): boolean => {check(typeof v === 'boolean'); return v;};
-const list = (v: unknown, max: number): unknown[] => {check(Array.isArray(v) && v.length <= max); return v;};
+const revision = (v: unknown, host = false): string => {
+  check(typeof v === 'string' && (host ? /^[a-f0-9]{64}$/ : /^(?:0|[a-f0-9]{32})$/).test(v));
+  return v;
+};
+const text = (v: unknown, max = 253): string => {
+  check(typeof v === 'string' && v.length <= max && !/[\x00-\x1f\x7f]/.test(v));
+  return v;
+};
+const bool = (v: unknown): boolean => {
+  check(typeof v === 'boolean');
+  return v;
+};
+const list = (v: unknown, max: number): unknown[] => {
+  check(Array.isArray(v) && v.length <= max);
+  return v;
+};
 const address = (v: unknown): string => {
-  const s = text(v, 64); check(/^[a-f0-9:.]+$/.test(s));
-  if (s.includes(':')) {const url = new URL('http://[' + s + ']/'); check(url.hostname.startsWith('['));}
-  else check(/^(?:0|[1-9][0-9]{0,2})(?:\.(?:0|[1-9][0-9]{0,2})){3}$/.test(s) && s.split('.').every(part => Number(part) <= 255));
+  const s = text(v, 64);
+  check(/^[a-f0-9:.]+$/.test(s));
+  if (s.includes(':')) {
+    const url = new URL('http://[' + s + ']/');
+    check(url.hostname.startsWith('['));
+  } else
+    check(
+      /^(?:0|[1-9][0-9]{0,2})(?:\.(?:0|[1-9][0-9]{0,2})){3}$/.test(s) &&
+        s.split('.').every((part) => Number(part) <= 255)
+    );
   return s;
 };
-const dns = (v: unknown): string => {const s = text(v); check(s === '' || /^[a-z0-9.-]+$/i.test(s)); return s;};
-const tag = (v: unknown): string => {const s = text(v, 67); check(/^tag:[a-zA-Z][a-zA-Z0-9-]{0,62}$/.test(s)); return s;};
+const dns = (v: unknown): string => {
+  const s = text(v);
+  check(s === '' || /^[a-z0-9.-]+$/i.test(s));
+  return s;
+};
+const tag = (v: unknown): string => {
+  const s = text(v, 67);
+  check(/^tag:[a-zA-Z][a-zA-Z0-9-]{0,62}$/.test(s));
+  return s;
+};
 function peer(value: unknown) {
-  const v = object(value), id = text(v.id, 128); check(id !== '');
-  return {id, dns_name: dns(v.dns_name), addresses: list(v.addresses, 16).map(address), online: bool(v.online), exit_node: bool(v.exit_node), expired: bool(v.expired)};
+  const v = object(value),
+    id = text(v.id, 128);
+  check(id !== '');
+  return {
+    id,
+    dns_name: dns(v.dns_name),
+    addresses: list(v.addresses, 16).map(address),
+    online: bool(v.online),
+    exit_node: bool(v.exit_node),
+    expired: bool(v.expired),
+  };
+}
+function parseOptionalText(value: unknown, max = 253): string {
+  return value === undefined ? '' : text(value, max);
+}
+function parseOptionalAddresses(value: unknown): string[] {
+  return value === undefined ? [] : list(value, 16).map(address);
+}
+function parseOptionalDns(value: unknown): string {
+  return value === undefined ? '' : dns(value);
+}
+function parseSortedTags(value: unknown): string[] {
+  const tags = list(value, 8).map(tag);
+  check(tags.every((t, i) => i === 0 || t > (tags[i - 1] || '')));
+  return tags;
 }
 export function hostView(value: unknown) {
-  const v = object(value), p = object(v.preferences);
+  const v = object(value),
+    p = object(v.preferences);
   const state = text(v.state, 32);
-  check(['NoState', 'InUseOtherUser', 'NeedsLogin', 'NeedsMachineAuth', 'Stopped', 'Starting', 'Running'].includes(state));
-  check(Number.isSafeInteger(v.health_issues) && typeof v.health_issues === 'number' && v.health_issues >= 0 && v.health_issues <= 128);
-  const peers = list(v.peers, 128).map(peer); check(new Set(peers.map(p => p.id)).size === peers.length);
-  const result = {revision: revision(v.revision, true), state, tailnet: text(v.tailnet), magic_dns_enabled: bool(v.magic_dns_enabled),
-    have_node_key: bool(v.have_node_key), expired: bool(v.expired), dns_name: dns(v.dns_name), addresses: list(v.addresses, 16).map(address),
-    peers, health_issues: v.health_issues, preferences: {want_running: bool(p.want_running), exit_node_id: text(p.exit_node_id, 128),
-      exit_node_ip: p.exit_node_ip === '' ? '' : address(p.exit_node_ip), allow_lan: bool(p.allow_lan), advertise_exit_node: bool(p.advertise_exit_node)}};
+  check(
+    ['NoState', 'InUseOtherUser', 'NeedsLogin', 'NeedsMachineAuth', 'Stopped', 'Starting', 'Running'].includes(state)
+  );
+  check(
+    Number.isSafeInteger(v.health_issues) &&
+      typeof v.health_issues === 'number' &&
+      v.health_issues >= 0 &&
+      v.health_issues <= 128
+  );
+  const peers = list(v.peers, 128).map(peer);
+  check(new Set(peers.map((p) => p.id)).size === peers.length);
+  const result = {
+    revision: revision(v.revision, true),
+    state,
+    tailnet: text(v.tailnet),
+    magic_dns_enabled: bool(v.magic_dns_enabled),
+    have_node_key: bool(v.have_node_key),
+    expired: bool(v.expired),
+    dns_name: dns(v.dns_name),
+    addresses: list(v.addresses, 16).map(address),
+    peers,
+    health_issues: v.health_issues,
+    preferences: {
+      want_running: bool(p.want_running),
+      exit_node_id: text(p.exit_node_id, 128),
+      exit_node_ip: p.exit_node_ip === '' ? '' : address(p.exit_node_ip),
+      allow_lan: bool(p.allow_lan),
+      advertise_exit_node: bool(p.advertise_exit_node),
+    },
+  };
   check(state !== 'Running' || (result.have_node_key && result.addresses.length > 0 && result.tailnet !== ''));
   return result;
 }
 export type Host = ReturnType<typeof hostView>;
-export function enrollmentView(value: unknown) {
-  const v = object(value), tags = list(v.tags, 8).map(tag);
-  check(tags.every((t, i) => i === 0 || t > (tags[i - 1] || '')));
-  const result = {revision: revision(v.revision), binding: text(v.binding, 32), tailnet: text(v.tailnet), tags,
-    configured: bool(v.configured), admission: bool(v.admission), default: bool(v.default), preauthorized: bool(v.preauthorized),
-    credential_checked: bool(v.credential_checked), enrollment_verified: bool(v.enrollment_verified), runtime_supported: bool(v.runtime_supported)};
-  // Runtime configuration and token acceptance are not enrollment proof.
+function parseEnrollment(value: unknown) {
+  const v = object(value);
+  return {
+    revision: revision(v.revision),
+    binding: text(v.binding, 32),
+    tailnet: text(v.tailnet),
+    tags: parseSortedTags(v.tags),
+    configured: bool(v.configured),
+    admission: bool(v.admission),
+    default: bool(v.default),
+    preauthorized: bool(v.preauthorized),
+    credential_checked: bool(v.credential_checked),
+    enrollment_verified: bool(v.enrollment_verified),
+    runtime_supported: bool(v.runtime_supported),
+  };
+}
+function admitConfiguredEnrollment(result: Enrollment) {
+  check(
+    result.revision !== '0' &&
+      /^[a-f0-9]{32}$/.test(result.binding) &&
+      /^[a-z0-9][a-z0-9.@_-]{0,252}$/i.test(result.tailnet) &&
+      result.tags.length > 0 &&
+      result.credential_checked
+  );
+}
+function admitEmptyEnrollment(result: Enrollment) {
+  check(
+    result.revision === '0' &&
+      result.binding === '' &&
+      result.tailnet === '' &&
+      result.tags.length === 0 &&
+      !result.admission &&
+      !result.preauthorized &&
+      !result.credential_checked
+  );
+}
+function admitEnrollment(result: Enrollment) {
   check(!result.enrollment_verified && (!result.default || (result.configured && result.admission)));
-  if (result.configured) {
-    check(result.revision !== '0' && /^[a-f0-9]{32}$/.test(result.binding) && /^[a-z0-9][a-z0-9.@_-]{0,252}$/i.test(result.tailnet) && tags.length > 0 && result.credential_checked);
-  } else check(result.revision === '0' && result.binding === '' && result.tailnet === '' && tags.length === 0 && !result.admission && !result.preauthorized && !result.credential_checked);
+  if (result.configured) admitConfiguredEnrollment(result);
+  else admitEmptyEnrollment(result);
+}
+export function enrollmentView(value: unknown) {
+  const result = parseEnrollment(value);
+  // Runtime configuration and token acceptance are not enrollment proof.
+  admitEnrollment(result);
   return result;
 }
 export type Enrollment = ReturnType<typeof enrollmentView>;
 export function projectOptions(value: unknown) {
-  const v = object(value), result = {revision: revision(v.revision), binding: text(v.binding, 32), tailnet: text(v.tailnet), available: bool(v.available), default: bool(v.default)};
+  const v = object(value),
+    result = {
+      revision: revision(v.revision),
+      binding: text(v.binding, 32),
+      tailnet: text(v.tailnet),
+      available: bool(v.available),
+      default: bool(v.default),
+    };
   check(!result.default || result.available);
   if (result.revision === '0') check(!result.available && result.binding === '' && result.tailnet === '');
   else check(/^[a-f0-9]{32}$/.test(result.binding) && /^[a-z0-9][a-z0-9.@_-]{0,252}$/i.test(result.tailnet));
   return result;
 }
 export type ProjectOptions = ReturnType<typeof projectOptions>;
-export function projectView(value: unknown, project: string) {
+function parseProject(value: unknown, project: string) {
   const v = object(value);
   check(projectId(project) && v.project === project);
-  const result = {project, revision: revision(v.revision), binding: text(v.binding, 32), enabled: bool(v.enabled), saved: bool(v.saved), state: text(v.state, 32), outcome: text(v.outcome, 32),
-    available_binding: v.available_binding === undefined ? '' : text(v.available_binding, 32), available_network: v.available_network === undefined ? '' : text(v.available_network),
-    addresses: v.addresses === undefined ? [] : list(v.addresses, 16).map(address), dns_name: v.dns_name === undefined ? '' : dns(v.dns_name)};
+  return {
+    project,
+    revision: revision(v.revision),
+    binding: text(v.binding, 32),
+    enabled: bool(v.enabled),
+    saved: bool(v.saved),
+    state: text(v.state, 32),
+    outcome: text(v.outcome, 32),
+    available_binding: parseOptionalText(v.available_binding, 32),
+    available_network: parseOptionalText(v.available_network),
+    addresses: parseOptionalAddresses(v.addresses),
+    dns_name: parseOptionalDns(v.dns_name),
+  };
+}
+function admitProjectBinding(result: ProjectNetwork) {
   check(!result.binding || /^[a-f0-9]{32}$/.test(result.binding));
   check(!result.enabled || result.binding !== '');
-  check(result.available_binding ? /^[a-f0-9]{32}$/.test(result.available_binding) && /^[a-z0-9][a-z0-9.@_-]{0,252}$/i.test(result.available_network) : result.available_network === '');
-  check(result.saved ? result.revision !== '0' && ['queued', 'runtime-unconfirmed', 'disconnect-unconfirmed'].includes(result.outcome) : result.outcome === 'observed');
-  check(['runtime-unsupported', 'off', 'stopped', 'pending', 'needs-login', 'approval-required', 'unconfirmed', 'connected'].includes(result.state));
-  check(result.state === 'connected' ? result.enabled && result.addresses.length > 0 : result.addresses.length === 0 && !result.dns_name);
+}
+function admitProjectAvailability(result: ProjectNetwork) {
+  check(
+    result.available_binding
+      ? /^[a-f0-9]{32}$/.test(result.available_binding) &&
+          /^[a-z0-9][a-z0-9.@_-]{0,252}$/i.test(result.available_network)
+      : result.available_network === ''
+  );
+}
+function admitProjectSaved(result: ProjectNetwork) {
+  check(
+    result.saved
+      ? result.revision !== '0' && ['queued', 'runtime-unconfirmed', 'disconnect-unconfirmed'].includes(result.outcome)
+      : result.outcome === 'observed'
+  );
+}
+function admitProjectState(result: ProjectNetwork) {
+  check(
+    [
+      'runtime-unsupported',
+      'off',
+      'stopped',
+      'pending',
+      'needs-login',
+      'approval-required',
+      'unconfirmed',
+      'connected',
+    ].includes(result.state)
+  );
+  check(
+    result.state === 'connected'
+      ? result.enabled && result.addresses.length > 0
+      : result.addresses.length === 0 && !result.dns_name
+  );
+}
+function admitProject(result: ProjectNetwork) {
+  admitProjectBinding(result);
+  admitProjectAvailability(result);
+  admitProjectSaved(result);
+  admitProjectState(result);
+}
+export function projectView(value: unknown, project: string) {
+  const result = parseProject(value, project);
+  admitProject(result);
   return result;
 }
 export type ProjectNetwork = ReturnType<typeof projectView>;
 export function settingsView(value: unknown) {
-  const v = object(value), unavailable = bool(v.host_unavailable);
+  const v = object(value),
+    unavailable = bool(v.host_unavailable);
   check((v.host === null) === unavailable);
-  return {host: v.host === null ? null : hostView(v.host), host_unavailable: unavailable, enrollment: enrollmentView(v.enrollment)};
+  return {
+    host: v.host === null ? null : hostView(v.host),
+    host_unavailable: unavailable,
+    enrollment: enrollmentView(v.enrollment),
+  };
 }
 export type Settings = ReturnType<typeof settingsView>;
 export function authenticationURL(value: unknown): string {
   const s = text(value, 256);
-  check(/^https:\/\/login\.tailscale\.com\/a\/[A-Za-z0-9_-]{1,128}$/.test(s)); return s;
+  check(/^https:\/\/login\.tailscale\.com\/a\/[A-Za-z0-9_-]{1,128}$/.test(s));
+  return s;
 }
 export function hostResult(value: unknown, action: string) {
-  const v = object(value), outcome = text(v.outcome, 16), unavailable = bool(v.readback_unavailable);
+  const v = object(value),
+    outcome = text(v.outcome, 16),
+    unavailable = bool(v.readback_unavailable);
   check(['observed', 'pending', 'confirmed', 'unconfirmed'].includes(outcome) && (v.host === null) === unavailable);
   const authURL = v.auth_url === undefined ? '' : authenticationURL(v.auth_url);
   check(!authURL || ['signin', 'authentication'].includes(action));
@@ -86,7 +261,9 @@ export function hostResult(value: unknown, action: string) {
   return {outcome, host: v.host === null ? null : hostView(v.host), readback_unavailable: unavailable, authURL};
 }
 export function enrollmentResult(value: unknown, action: string, previous: string) {
-  const v = object(value), enrollment = enrollmentView(v.enrollment), saved = bool(v.saved);
+  const v = object(value),
+    enrollment = enrollmentView(v.enrollment),
+    saved = bool(v.saved);
   check(v.outcome === 'confirmed' && bool(v.credential_checked) && saved === (action !== 'check'));
   check(saved ? enrollment.configured && enrollment.revision !== previous : enrollment.revision === previous);
   return {saved, enrollment};
