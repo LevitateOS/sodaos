@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/hostterminal"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
@@ -106,7 +107,8 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		listener.Close()
 		t.Fatal("native socket protection failed")
 	}
-	d := &Daemon{Exec: Native{}}
+	d := testDaemonPtr(Native{}, Config{})
+	d.Terminal = &hostterminal.Service{Exec: Native{}}
 	server := &http.Server{Handler: d, ReadHeaderTimeout: 5 * time.Second}
 	go server.Serve(listener)
 	defer server.Close()

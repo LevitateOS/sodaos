@@ -29,7 +29,7 @@ const (
 	responseLimit = 65536
 )
 
-type Management struct {
+type Control struct {
 	policy   policyStore
 	local    *http.Client
 	provider *http.Client
@@ -37,21 +37,21 @@ type Management struct {
 	command  func(context.Context, string, ...string) ([]byte, error)
 }
 
-func NewManagement() *Management {
-	return &Management{policy: policyStore{parent: policyParent, uid: 0}, local: &http.Client{
+func NewControl() *Control {
+	return &Control{policy: policyStore{parent: policyParent, uid: 0}, local: &http.Client{
 		Timeout: 8 * time.Second,
 		Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, "unix", hostSocket)
 		}},
 		CheckRedirect: func(*http.Request, []*http.Request) error { return ErrUnavailable },
-	}, provider: &http.Client{Timeout: 10 * time.Second, Transport: boundedProviderTransport{http.DefaultTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return ErrUnavailable }}, command: managementCommand}
+	}, provider: &http.Client{Timeout: 10 * time.Second, Transport: boundedProviderTransport{http.DefaultTransport}, CheckRedirect: func(*http.Request, []*http.Request) error { return ErrUnavailable }}, command: controlCommand}
 }
 
-// NewProjectManagement is used only by the root runtime entrypoint/helper when
+// NewProjectControl is used only by the root runtime entrypoint/helper when
 // its immutable companion image is explicitly configured. No installed default
 // turns this on, and construction performs no provider or native operations.
-func NewProjectManagement() *Management {
-	m := NewManagement()
+func NewProjectControl() *Control {
+	m := NewControl()
 	m.policy.runtime = true
 	return m
 }
@@ -108,7 +108,7 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	return b.buffer.Write(p)
 }
 
-func managementCommand(ctx context.Context, path string, args ...string) ([]byte, error) {
+func controlCommand(ctx context.Context, path string, args ...string) ([]byte, error) {
 	return RunNative(ctx, path, args...)
 }
 
@@ -127,7 +127,7 @@ func RunNative(ctx context.Context, path string, args ...string) ([]byte, error)
 	return out.buffer.Bytes(), nil
 }
 
-func (m *Management) request(ctx context.Context, method, path string, value any) ([]byte, error) {
+func (m *Control) request(ctx context.Context, method, path string, value any) ([]byte, error) {
 	var body []byte
 	if value != nil {
 		body, _ = json.Marshal(value)
@@ -261,7 +261,7 @@ func validateNativeBackendState(s nativeStatus) error {
 	}
 }
 
-func (m *Management) fetchNativeStatus(ctx context.Context) (nativeStatus, error) {
+func (m *Control) fetchNativeStatus(ctx context.Context) (nativeStatus, error) {
 	var s nativeStatus
 	b, err := m.request(ctx, "GET", "status", nil)
 	if err != nil || nativeObject(b, &s, "BackendState", "HaveNodeKey") != nil {
@@ -276,7 +276,7 @@ func (m *Management) fetchNativeStatus(ctx context.Context) (nativeStatus, error
 	return s, nil
 }
 
-func (m *Management) fetchNativePrefs(ctx context.Context) (nativePrefs, error) {
+func (m *Control) fetchNativePrefs(ctx context.Context) (nativePrefs, error) {
 	var p nativePrefs
 	b, err := m.request(ctx, "GET", "prefs", nil)
 	if err != nil || nativeObject(b, &p, "WantRunning", "ExitNodeID", "ExitNodeIP", "ExitNodeAllowLANAccess", "AdvertiseRoutes") != nil {
@@ -353,7 +353,7 @@ func computeHostRevision(s nativeStatus, view HostView, p nativePrefs) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func (m *Management) observe(ctx context.Context) (HostView, string, error) {
+func (m *Control) observe(ctx context.Context) (HostView, string, error) {
 	s, err := m.fetchNativeStatus(ctx)
 	if err != nil {
 		return HostView{}, "", err
@@ -409,7 +409,7 @@ func authenticationURL(raw string) string {
 	return u.String()
 }
 
-func (m *Management) Settings(ctx context.Context) (SettingsView, error) {
+func (m *Control) Settings(ctx context.Context) (SettingsView, error) {
 	enrollment, err := m.policy.enrollment(ctx)
 	if err != nil {
 		return SettingsView{}, err
@@ -424,7 +424,7 @@ func (m *Management) Settings(ctx context.Context) (SettingsView, error) {
 	return result, nil
 }
 
-func (m *Management) HostAction(ctx context.Context, r HostRequest) (HostResult, error) {
+func (m *Control) HostAction(ctx context.Context, r HostRequest) (HostResult, error) {
 	if r.Validate() != nil {
 		return HostResult{}, ErrInvalid
 	}
@@ -455,7 +455,7 @@ func (m *Management) HostAction(ctx context.Context, r HostRequest) (HostResult,
 	return m.readbackHostAction(ctx, r, selectedExitNodeID, err)
 }
 
-func (m *Management) lockPolicy(ctx context.Context, write bool) (func(), error) {
+func (m *Control) lockPolicy(ctx context.Context, write bool) (func(), error) {
 	root, lock, err := m.policy.lock(ctx, write)
 	// Authentication observation doesn't initialize native policy storage.
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -470,7 +470,7 @@ func (m *Management) lockPolicy(ctx context.Context, write bool) (func(), error)
 	}, nil
 }
 
-func (m *Management) executeHostAction(ctx context.Context, r HostRequest, before HostView) (string, error) {
+func (m *Control) executeHostAction(ctx context.Context, r HostRequest, before HostView) (string, error) {
 	switch r.Action {
 	case "signin":
 		return "", m.executeSignin(ctx, before)
@@ -487,7 +487,7 @@ func (m *Management) executeHostAction(ctx context.Context, r HostRequest, befor
 	}
 }
 
-func (m *Management) executeSignin(ctx context.Context, before HostView) error {
+func (m *Control) executeSignin(ctx context.Context, before HostView) error {
 	if before.HaveNodeKey {
 		_, err := m.request(ctx, "PATCH", "prefs", map[string]bool{"WantRunning": true, "WantRunningSet": true})
 		if err == nil && (before.State == "NeedsLogin" || before.Expired) {
@@ -523,7 +523,7 @@ func decodeUpNotifications(data []byte) error {
 	return nil
 }
 
-func (m *Management) executeLogout(ctx context.Context) error {
+func (m *Control) executeLogout(ctx context.Context) error {
 	_, err := m.request(ctx, "POST", "logout", nil)
 	return err
 }
@@ -541,7 +541,7 @@ func findAvailableExitNode(peers []Peer, targetIP string) (string, bool) {
 	return "", false
 }
 
-func (m *Management) executeExitNode(ctx context.Context, r HostRequest, before HostView) (string, error) {
+func (m *Control) executeExitNode(ctx context.Context, r HostRequest, before HostView) (string, error) {
 	selectedExitNodeID := ""
 	if *r.ExitNode != "" {
 		peerID, ok := findAvailableExitNode(before.Peers, *r.ExitNode)
@@ -554,16 +554,16 @@ func (m *Management) executeExitNode(ctx context.Context, r HostRequest, before 
 	return selectedExitNodeID, err
 }
 
-func (m *Management) executeAdvertiseExitNode(ctx context.Context, r HostRequest) error {
+func (m *Control) executeAdvertiseExitNode(ctx context.Context, r HostRequest) error {
 	return m.run(ctx, "set", "--advertise-exit-node="+boolString(*r.Advertise))
 }
 
-func (m *Management) executeRefreshForgejo(ctx context.Context) error {
+func (m *Control) executeRefreshForgejo(ctx context.Context) error {
 	_, err := m.command(ctx, installlayout.Libexec+"/soda-forgejo-tailnet")
 	return err
 }
 
-func (m *Management) readbackHostAction(ctx context.Context, r HostRequest, selectedExitNodeID string, actionErr error) (HostResult, error) {
+func (m *Control) readbackHostAction(ctx context.Context, r HostRequest, selectedExitNodeID string, actionErr error) (HostResult, error) {
 	result := HostResult{Outcome: "confirmed"}
 	after, auth, readErr := m.observe(ctx)
 	if readErr != nil {
@@ -621,12 +621,12 @@ func boolString(b bool) string {
 	return "false"
 }
 
-func (m *Management) run(ctx context.Context, args ...string) error {
+func (m *Control) run(ctx context.Context, args ...string) error {
 	_, e := m.command(ctx, DefaultCLI, append([]string{"--socket=" + hostSocket}, args...)...)
 	return e
 }
 
-func (m *Management) checkCredential(ctx context.Context, r EnrollmentRequest) error {
+func (m *Control) checkCredential(ctx context.Context, r EnrollmentRequest) error {
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, m.provider)
 	c := clientcredentials.Config{ClientID: r.ClientID, ClientSecret: r.ClientSecret, TokenURL: "https://api.tailscale.com/api/v2/oauth/token", Scopes: []string{"auth_keys"}, EndpointParams: url.Values{"tags": {strings.Join(r.Tags, " ")}}, AuthStyle: oauth2.AuthStyleInHeader}
 	token, err := c.Token(ctx)
@@ -637,15 +637,15 @@ func (m *Management) checkCredential(ctx context.Context, r EnrollmentRequest) e
 	return nil
 }
 
-func (m *Management) Enrollment(ctx context.Context, r EnrollmentRequest) (EnrollmentResult, error) {
+func (m *Control) Enrollment(ctx context.Context, r EnrollmentRequest) (EnrollmentResult, error) {
 	return m.policy.update(ctx, r, m.checkCredential)
 }
 
-func (m *Management) Options(ctx context.Context) (ProjectOptions, error) {
+func (m *Control) Options(ctx context.Context) (ProjectOptions, error) {
 	v, e := m.policy.enrollment(ctx)
 	return ProjectOptions{Revision: v.Revision, Binding: v.Binding, Tailnet: v.Tailnet, Available: v.RuntimeSupported && v.Configured && v.Admission, Default: v.RuntimeSupported && v.Admission && v.Default}, e
 }
 
-func (m *Management) Project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
+func (m *Control) Project(ctx context.Context, r ProjectRequest, cid string) (ProjectView, error) {
 	return m.policy.project(ctx, r, cid)
 }

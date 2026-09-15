@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/levitateos/sodaos/internal/hostterminal"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
@@ -16,7 +17,7 @@ import (
 type Terminal struct{ conn *websocket.Conn }
 
 func (c *Client) OpenTerminal(ctx context.Context, in TerminalRequest) (*Terminal, error) {
-	if !in.valid(time.Now()) {
+	if !in.Valid(time.Now()) {
 		return nil, errors.New("invalid terminal request")
 	}
 	httpClient := *c.HTTP
@@ -27,7 +28,7 @@ func (c *Client) OpenTerminal(ctx context.Context, in TerminalRequest) (*Termina
 	if err != nil {
 		return nil, errors.New("native terminal unavailable")
 	}
-	conn.SetReadLimit(terminalFrameLimit)
+	conn.SetReadLimit(hostterminal.FrameLimit)
 	body, _ := json.Marshal(in)
 	if err = conn.Write(dialCtx, websocket.MessageText, body); err != nil {
 		conn.CloseNow()
@@ -37,10 +38,10 @@ func (c *Client) OpenTerminal(ctx context.Context, in TerminalRequest) (*Termina
 }
 
 func (t *Terminal) Send(ctx context.Context, f TerminalFrame) error {
-	if !f.inputValid() {
+	if !f.InputValid() {
 		return errors.New("invalid terminal control")
 	}
-	if err := writeTerminal(ctx, t.conn, f); err != nil {
+	if err := hostterminal.Write(ctx, t.conn, f); err != nil {
 		return errors.New("native terminal transport ended")
 	}
 	return nil
@@ -49,7 +50,7 @@ func (t *Terminal) Send(ctx context.Context, f TerminalFrame) error {
 func (t *Terminal) Receive(ctx context.Context) (TerminalFrame, error) {
 	kind, body, err := t.conn.Read(ctx)
 	var f TerminalFrame
-	if err != nil || kind != websocket.MessageText || strictjson.Decode(bytes.NewReader(body), &f) != nil || !f.outputValid() {
+	if err != nil || kind != websocket.MessageText || strictjson.Decode(bytes.NewReader(body), &f) != nil || !f.OutputValid() {
 		return f, errors.New("native terminal transport ended")
 	}
 	return f, nil

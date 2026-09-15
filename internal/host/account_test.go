@@ -25,7 +25,7 @@ func (e *accountExecutor) Run(_ context.Context, in []byte, command string, args
 }
 func TestNativeAccountOnlyAndInvalidIdentities(t *testing.T) {
 	exec := &accountExecutor{}
-	d := Daemon{Exec: exec, Config: Config{Network: "soda-projects", Subnet: "10.89.0.0/24"}}
+	d := testDaemon(exec, Config{Network: "soda-projects", Subnet: "10.89.0.0/24"})
 	in := Account{Project: "p0123456789abcdef01234567", Login: "bob", Identity: 2, Keys: []string{}}
 	if err := d.account(context.Background(), in); err != nil {
 		t.Fatal(err)
@@ -55,7 +55,7 @@ func TestNativeProjectAdministrationComesFromOwnerLabel(t *testing.T) {
 	}
 	for _, uid := range []int64{1, 2} {
 		exec := &accountExecutor{}
-		d := Daemon{Exec: exec, Config: Config{Network: "soda-projects", Subnet: "10.89.0.0/24"}}
+		d := testDaemon(exec, Config{Network: "soda-projects", Subnet: "10.89.0.0/24"})
 		err = d.account(context.Background(), Account{Project: "p0123456789abcdef01234567", Login: "alice", Identity: uid, Keys: []string{string(ssh.MarshalAuthorizedKey(key))}})
 		if err != nil {
 			t.Fatal(err)

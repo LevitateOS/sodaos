@@ -1,10 +1,13 @@
-package host
+package hosttailnet
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
 func TestCompanionResolverUsesActualInodeRatherThanGeneratedMetadata(t *testing.T) {
@@ -96,5 +99,22 @@ func TestCompanionRecordRequiresImmutableCIDRecipeAndRunningIncarnation(t *testi
 				t.Fatal("changed companion admitted")
 			}
 		})
+	}
+}
+
+func TestPreparationStagesPreserveTypedCauses(t *testing.T) {
+	for _, tc := range []struct {
+		stage string
+		cause error
+	}{
+		{"project runtime not ready", tailnet.ErrUnavailable},
+		{"Tailnet policy unconfirmed", tailnet.ErrConflict},
+		{"companion startup unconfirmed", tailnet.ErrUnconfirmed},
+		{"companion status unavailable", tailnet.ErrUnavailable},
+		{"enrollment unconfirmed", tailnet.ErrUnconfirmed},
+	} {
+		if e := preparationError(tc.stage, tc.cause); !errors.Is(e, tc.cause) || !strings.Contains(e.Error(), tc.stage) {
+			t.Fatal("stage lost its cause", tc.stage, e)
+		}
 	}
 }

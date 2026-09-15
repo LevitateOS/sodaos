@@ -30,8 +30,7 @@ func TestLifecycleUsesExistingUnitAndRetainsIdentity(t *testing.T) {
 				}
 				mutations := 0
 				id := "p0123456789abcdef01234567"
-				d := Daemon{Config: Config{Network: "soda-projects", Subnet: "10.89.0.0/24"}}
-				d.Exec = managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
+				exec := managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
 					joined := strings.Join(args, " ")
 					if cmd == "/usr/bin/systemctl" {
 						if args[0] == "show" {
@@ -63,6 +62,7 @@ func TestLifecycleUsesExistingUnitAndRetainsIdentity(t *testing.T) {
 					}
 					return []byte(fmt.Sprintf(`[{"Config":{"Labels":{"org.soda.project":%q,"org.soda.owner":"1"}},"State":{"Running":%t},"NetworkSettings":{"Networks":{}}}]`, id, running)), nil
 				})
+				d := testDaemon(exec, Config{Network: "soda-projects", Subnet: "10.89.0.0/24"})
 				state, err := d.lifecycle(t.Context(), Lifecycle{Project: id, Action: action})
 				if err != nil {
 					t.Fatal(err)
@@ -83,7 +83,7 @@ func TestLifecycleUsesExistingUnitAndRetainsIdentity(t *testing.T) {
 }
 func TestLifecycleRefusesUnexpectedUnitBeforeMutation(t *testing.T) {
 	for _, unit := range []string{"LoadState=not-found\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/other.service\nDropInPaths=\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/etc/systemd/system/override.conf\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/usr/lib/systemd/system/service.d/10-timeout-abort.conf /etc/systemd/system/override.conf\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/usr/lib/systemd/system/service.d/other.conf\nUnitFileState=enabled\n"} {
-		d := Daemon{Exec: managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
+		exec := managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
 			if cmd == "/usr/bin/systemctl" {
 				if args[0] != "show" {
 					t.Fatal("unexpected unit was mutated")
@@ -91,19 +91,21 @@ func TestLifecycleRefusesUnexpectedUnitBeforeMutation(t *testing.T) {
 				return []byte(strings.ReplaceAll(unit, "/etc/systemd/system/soda-project@.service", installlayout.ProjectUnit)), nil
 			}
 			return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":"p0123456789abcdef01234567","owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64))), nil
-		})}
+		})
+		d := testDaemon(exec, Config{})
 		if _, err := d.lifecycle(t.Context(), Lifecycle{Project: "p0123456789abcdef01234567", Action: "stop"}); err == nil {
 			t.Fatal("unexpected unit accepted")
 		}
 	}
 }
 
-func TestManagementRejectsCallerSelectedTargetsBeforeExec(t *testing.T) {
+func TestLifecycleRejectsCallerSelectedTargetsBeforeExec(t *testing.T) {
 	calls := 0
-	d := Daemon{Exec: managementExec(func(context.Context, []byte, string, ...string) ([]byte, error) {
+	exec := managementExec(func(context.Context, []byte, string, ...string) ([]byte, error) {
 		calls++
 		return nil, errors.New("unexpected")
-	})}
+	})
+	d := testDaemon(exec, Config{})
 	for _, in := range []Lifecycle{{Project: "/host", Action: "start"}, {Project: "p0123456789abcdef01234567", Action: "destroy"}} {
 		if _, err := d.lifecycle(t.Context(), in); err == nil {
 			t.Fatal("invalid lifecycle accepted")
@@ -126,7 +128,7 @@ func TestEmbeddedKeyProgramLoadsAndRefusesLocalUnprivilegedAccount(t *testing.T)
 	if err != nil {
 		t.Skip("Python unavailable")
 	}
-	d := Daemon{Exec: managementExec(func(_ context.Context, in []byte, cmd string, args ...string) ([]byte, error) {
+	hostExec := managementExec(func(_ context.Context, in []byte, cmd string, args ...string) ([]byte, error) {
 		if len(args) > 1 && args[1] == "inspect" {
 			return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":"p0123456789abcdef01234567","owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64))), nil
 		}
@@ -139,7 +141,8 @@ func TestEmbeddedKeyProgramLoadsAndRefusesLocalUnprivilegedAccount(t *testing.T)
 			t.Fatal("embedded program failed to load/refuse safely")
 		}
 		return nil, e
-	})}
+	})
+	d := testDaemon(hostExec, Config{})
 	if _, err := d.accessKeys(t.Context(), AccessKeys{Project: "p0123456789abcdef01234567", Login: "alice", Identity: 1}); err == nil {
 		t.Fatal("unprivileged native update accepted")
 	}
@@ -148,7 +151,7 @@ func TestEmbeddedKeyProgramLoadsAndRefusesLocalUnprivilegedAccount(t *testing.T)
 func TestKeyPreviewUsesExistingMarkerValidatorAndVerifiedContainer(t *testing.T) {
 	id := "p0123456789abcdef01234567"
 	calls := 0
-	d := Daemon{Exec: managementExec(func(_ context.Context, in []byte, cmd string, args ...string) ([]byte, error) {
+	hostExec := managementExec(func(_ context.Context, in []byte, cmd string, args ...string) ([]byte, error) {
 		calls++
 		if len(args) > 1 && args[1] == "inspect" {
 			return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":%q,"owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64), id)), nil
@@ -164,7 +167,8 @@ func TestKeyPreviewUsesExistingMarkerValidatorAndVerifiedContainer(t *testing.T)
 			t.Fatal("unexpected native key input")
 		}
 		return []byte(`{"revision":"` + strings.Repeat("a", 64) + `","keys":[]}`), nil
-	})}
+	})
+	d := testDaemon(hostExec, Config{})
 	if _, err := d.accessKeys(t.Context(), AccessKeys{Project: id, Login: "alice", Identity: 1}); err != nil {
 		t.Fatal(err)
 	}

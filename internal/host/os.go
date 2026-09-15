@@ -2,17 +2,12 @@ package host
 
 import (
 	"context"
-	_ "embed"
-	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
-
-//go:embed project_os.py
-var projectOSProgram string
 
 // OSRelease is an observation of the mutable root, never a creation profile.
 type OSRelease struct {
@@ -41,28 +36,6 @@ func validOSRelease(p OSRelease) bool {
 		}
 	}
 	return true
-}
-
-func (d *Daemon) observeOS(ctx context.Context, id string) (OSObservation, error) {
-	env, _, err := d.inspect(ctx, id)
-	result := OSObservation{Environment: env, Unavailable: true}
-	if err != nil {
-		return result, err
-	}
-	if !env.Running {
-		return result, nil
-	} // Never start a stopped root to inspect a file.
-	raw, err := d.podman(ctx, nil, "exec", "soda-"+id, "/usr/bin/python3", "-I", "-S", "-B", "-c", projectOSProgram)
-	if err != nil || len(raw) > 2048 {
-		return result, nil
-	}
-	var release OSRelease
-	if json.Unmarshal(raw, &release) != nil || !validOSRelease(release) {
-		return result, nil
-	}
-	result.Release = &release
-	result.Unavailable = false
-	return result, nil
 }
 
 func validOSEnvironment(env Environment) bool {

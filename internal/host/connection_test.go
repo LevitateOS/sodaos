@@ -42,7 +42,7 @@ func TestConnectionReadsOnlyFixedPublicKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	exec := &connectionExec{t: t, key: ssh.MarshalAuthorizedKey(key), running: true}
-	daemon := Daemon{Config: Config{Network: "soda", Subnet: "10.89.0.0/24"}, Exec: exec}
+	daemon := testDaemon(exec, Config{Network: "soda", Subnet: "10.89.0.0/24"})
 	result, err := daemon.connection(context.Background(), "p0123456789abcdef01234567")
 	if err != nil || result.Fingerprint != ssh.FingerprintSHA256(key) || exec.calls != 2 {
 		t.Fatal("public host key not returned", err)
@@ -60,7 +60,7 @@ func TestConnectionReadsOnlyFixedPublicKey(t *testing.T) {
 }
 func TestConnectionRejectsMalformedKey(t *testing.T) {
 	exec := &connectionExec{t: t, key: []byte("not a public key"), running: true}
-	daemon := Daemon{Config: Config{Network: "soda", Subnet: "10.89.0.0/24"}, Exec: exec}
+	daemon := testDaemon(exec, Config{Network: "soda", Subnet: "10.89.0.0/24"})
 	if _, err := daemon.connection(context.Background(), "p0123456789abcdef01234567"); err == nil {
 		t.Fatal("invalid host key accepted")
 	}

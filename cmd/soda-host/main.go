@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/runners"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
@@ -52,7 +51,7 @@ func runTailnetAction(path, action, project string) error {
 	if !c.TailnetManagement || c.TailnetImage == "" {
 		return nil
 	}
-	d := &host.Daemon{Config: c, Exec: host.Native{}, Tailnet: tailnet.NewProjectManagement()}
+	d := host.NewCompanionDaemon(c)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 	phase, cancel := context.WithTimeout(ctx, 45*time.Second)
@@ -81,14 +80,7 @@ func serveHostSocket(c host.Config) error {
 		return err
 	}
 	defer listener.Close()
-	runnerNative := runners.NewNative()
-	daemon := &host.Daemon{Config: c, Exec: host.Native{}, Runners: &runners.Operations{Local: runnerNative, Lifecycle: runnerNative}}
-	if c.TailnetManagement {
-		daemon.Tailnet = tailnet.NewManagement()
-		if c.TailnetImage != "" {
-			daemon.Tailnet = tailnet.NewProjectManagement()
-		}
-	}
+	daemon := host.NewDaemon(c)
 	server := &http.Server{Handler: daemon, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 20 * time.Second, MaxHeaderBytes: 8192}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()

@@ -34,7 +34,7 @@ func decodeTailnetBody(body io.Reader, out any) error {
 	return nil
 }
 
-func executeTailnetQuery(ctx context.Context, m *tailnet.Management, action string, body io.Reader) (any, error) {
+func executeTailnetQuery(ctx context.Context, m *tailnet.Control, action string, body io.Reader) (any, error) {
 	var in struct{}
 	if err := decodeTailnetBody(body, &in); err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func executeTailnetQuery(ctx context.Context, m *tailnet.Management, action stri
 	return m.Options(ctx)
 }
 
-func executeTailnetHost(ctx context.Context, m *tailnet.Management, body io.Reader) (any, error) {
+func executeTailnetHost(ctx context.Context, m *tailnet.Control, body io.Reader) (any, error) {
 	var in tailnet.HostRequest
 	if err := decodeTailnetBody(body, &in); err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func executeTailnetHost(ctx context.Context, m *tailnet.Management, body io.Read
 	return m.HostAction(ctx, in)
 }
 
-func executeTailnetEnrollment(ctx context.Context, m *tailnet.Management, body io.Reader) (any, error) {
+func executeTailnetEnrollment(ctx context.Context, m *tailnet.Control, body io.Reader) (any, error) {
 	var in tailnet.EnrollmentRequest
 	if err := decodeTailnetBody(body, &in); err != nil {
 		return nil, err

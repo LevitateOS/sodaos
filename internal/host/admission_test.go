@@ -57,7 +57,7 @@ func TestCancelledAdmissionLeavesWithoutDecodeOrExecution(t *testing.T) {
 	for _, mode := range []string{"cancel", "deadline"} {
 		t.Run(mode, func(t *testing.T) {
 			executor := &noExec{}
-			d := &Daemon{Exec: executor}
+			d := testDaemonPtr(executor, Config{})
 			if err := d.acquireAdmission(t.Context()); err != nil {
 				t.Fatal(err)
 			}
@@ -93,7 +93,7 @@ func TestCancelledAdmissionLeavesWithoutDecodeOrExecution(t *testing.T) {
 
 func TestMutationAdmissionRemainsSerialized(t *testing.T) {
 	executor := &delayedAdmissionExec{entered: make(chan struct{}), release: make(chan struct{})}
-	d := &Daemon{Exec: executor}
+	d := testDaemonPtr(executor, Config{})
 	var release sync.Once
 	defer release.Do(func() { close(executor.release) })
 	var workers sync.WaitGroup
@@ -117,7 +117,7 @@ func TestMutationAdmissionRemainsSerialized(t *testing.T) {
 func TestReadOnlyObservationsDoNotWaitForMutationAdmission(t *testing.T) {
 	for _, path := range []string{"/inspect", "/profile", "/os", "/connection"} {
 		t.Run(path, func(t *testing.T) {
-			d := &Daemon{Exec: &noExec{}}
+			d := testDaemonPtr(&noExec{}, Config{})
 			if err := d.acquireAdmission(t.Context()); err != nil {
 				t.Fatal(err)
 			}
@@ -143,7 +143,7 @@ func TestReadOnlyObservationsDoNotWaitForMutationAdmission(t *testing.T) {
 func TestCancelledContextCannotWinAvailableAdmission(t *testing.T) {
 	for _, path := range []string{"/inspect", "/lifecycle"} {
 		executor := &noExec{}
-		d := &Daemon{Exec: executor}
+		d := testDaemonPtr(executor, Config{})
 		ctx, cancel := context.WithCancel(t.Context())
 		cancel()
 		for range 100 {
@@ -159,7 +159,7 @@ func TestCancelledContextCannotWinAvailableAdmission(t *testing.T) {
 func TestCancellationDuringDecodeCannotDispatch(t *testing.T) {
 	for _, path := range []string{"/inspect", "/lifecycle"} {
 		executor := &noExec{}
-		d := &Daemon{Exec: executor}
+		d := testDaemonPtr(executor, Config{})
 		ctx, cancel := context.WithCancel(t.Context())
 		input := admissionBody
 		if path == "/lifecycle" {
@@ -181,7 +181,7 @@ func TestCancellationDuringDecodeCannotDispatch(t *testing.T) {
 func TestInvalidRequestReleasesAdmission(t *testing.T) {
 	for _, request := range []struct{ path, body string }{{"/inspect", `{`}, {"/inspect", `{"id":"bad"}`}, {"/lifecycle", `{`}, {"/unknown", `{}`}} {
 		executor := &noExec{}
-		d := &Daemon{Exec: executor}
+		d := testDaemonPtr(executor, Config{})
 		d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", request.path, strings.NewReader(request.body)))
 		if executor.called {
 			t.Fatal("invalid request executed")

@@ -26,7 +26,7 @@ func (c *captureCreate) Run(_ context.Context, _ []byte, executable string, args
 
 func TestCreateUsesFixedNamespacedRuntimeCapabilities(t *testing.T) {
 	commands := &captureCreate{}
-	d := Daemon{Exec: commands, Config: Config{Network: "soda-projects", Image: "localhost/soda-project-os:dev"}}
+	d := testDaemon(commands, Config{Network: "soda-projects", Image: "localhost/soda-project-os:dev"})
 	id := "p123456789012345678901234"
 	profile := testProfile()
 	encoded, _ := json.Marshal(profile)
@@ -50,14 +50,14 @@ func (n *noExec) Run(context.Context, []byte, string, ...string) ([]byte, error)
 }
 func TestInvalidProjectNeverExecutes(t *testing.T) {
 	n := &noExec{}
-	d := Daemon{Exec: n}
+	d := testDaemon(n, Config{})
 	if _, _, err := d.inspect(context.Background(), "../../other"); err == nil || n.called {
 		t.Fatal("untrusted project reached executor")
 	}
 }
 func TestInvalidAccountNeverExecutes(t *testing.T) {
 	n := &noExec{}
-	d := Daemon{Exec: n}
+	d := testDaemon(n, Config{})
 	if err := d.account(context.Background(), Account{Login: "root;id", Identity: 1, Keys: []string{"x"}}); err == nil || n.called {
 		t.Fatal("untrusted account reached executor")
 	}

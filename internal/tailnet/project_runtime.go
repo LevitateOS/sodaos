@@ -35,7 +35,7 @@ type RunBinding struct {
 	Tags               []string
 }
 
-func (m *Management) RunBinding(ctx context.Context, target RunTarget) (RunBinding, error) {
+func (m *Control) RunBinding(ctx context.Context, target RunTarget) (RunBinding, error) {
 	var out RunBinding
 	if !target.valid() {
 		return out, ErrInvalid

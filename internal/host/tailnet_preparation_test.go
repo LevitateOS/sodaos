@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/hosttailnet"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
@@ -15,25 +16,30 @@ const preparationTestProject = "p0123456789abcdef01234567"
 func preparationTestDaemon(t *testing.T, enabled func(context.Context, string, string) (bool, error), calls *int) *Daemon {
 	t.Helper()
 	cid := strings.Repeat("a", 64)
-	d := &Daemon{
-		Config:  Config{TailnetManagement: true, TailnetImage: "sha256:" + strings.Repeat("d", 64)},
-		Tailnet: tailnet.NewProjectManagement(),
-		Exec: managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
-			*calls++
-			if cmd != "/usr/bin/podman" {
-				return nil, errors.New("synthetic-secret-unexpected-command-tskey-auth-synthetic")
-			}
-			joined := strings.Join(args, " ")
-			// The lightweight project/container check succeeds so the Off
-			// pre-check resolves; the full run observation below always
-			// fails with secret-bearing native text that must never surface.
-			if strings.Contains(joined, "org.soda.project") && strings.HasSuffix(joined, "soda-"+preparationTestProject) {
-				return []byte(`{"id":` + `"` + cid + `"` + `,"running":true,"project":` + `"` + preparationTestProject + `"` + `,"owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`), nil
-			}
-			return nil, errors.New("synthetic-secret-podman-failure-tskey-auth-synthetic")
-		}),
+	exec := managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
+		*calls++
+		if cmd != "/usr/bin/podman" {
+			return nil, errors.New("synthetic-secret-unexpected-command-tskey-auth-synthetic")
+		}
+		joined := strings.Join(args, " ")
+		// The lightweight project/container check succeeds so the Off
+		// pre-check resolves; the full run observation below always
+		// fails with secret-bearing native text that must never surface.
+		if strings.Contains(joined, "org.soda.project") && strings.HasSuffix(joined, "soda-"+preparationTestProject) {
+			return []byte(`{"id":` + `"` + cid + `"` + `,"running":true,"project":` + `"` + preparationTestProject + `"` + `,"owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`), nil
+		}
+		return nil, errors.New("synthetic-secret-podman-failure-tskey-auth-synthetic")
+	})
+	image := "sha256:" + strings.Repeat("d", 64)
+	control := tailnet.NewProjectControl()
+	d := testDaemonPtr(exec, Config{TailnetManagement: true, TailnetImage: image})
+	d.Tailnet = control
+	d.Companion = &hosttailnet.Companion{
+		Exec:         exec,
+		Tailnet:      control,
+		Image:        image,
+		EnabledCheck: enabled,
 	}
-	d.tailnetEnabledCheck = enabled
 	return d
 }
 
@@ -83,22 +89,5 @@ func TestEnabledProjectRunFailureIdentifiesItsStage(t *testing.T) {
 	}
 	if calls < 2 {
 		t.Fatal("enabled path skipped runtime validation", calls)
-	}
-}
-
-func TestPreparationStagesPreserveTypedCauses(t *testing.T) {
-	for _, tc := range []struct {
-		stage string
-		cause error
-	}{
-		{"project runtime not ready", tailnet.ErrUnavailable},
-		{"Tailnet policy unconfirmed", tailnet.ErrConflict},
-		{"companion startup unconfirmed", tailnet.ErrUnconfirmed},
-		{"companion status unavailable", tailnet.ErrUnavailable},
-		{"enrollment unconfirmed", tailnet.ErrUnconfirmed},
-	} {
-		if e := preparationError(tc.stage, tc.cause); !errors.Is(e, tc.cause) || !strings.Contains(e.Error(), tc.stage) {
-			t.Fatal("stage lost its cause", tc.stage, e)
-		}
 	}
 }

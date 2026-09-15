@@ -18,7 +18,7 @@ import (
 type managementRoundTrip func(*http.Request) (*http.Response, error)
 
 func (f managementRoundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
-func managementResponse(status int, s string) *http.Response {
+func controlResponse(status int, s string) *http.Response {
 	return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader(s)), Header: make(http.Header)}
 }
 func nativeStatusFixture() string {
@@ -27,9 +27,9 @@ func nativeStatusFixture() string {
 func nativePrefsFixture() string {
 	return `{"WantRunning":true,"ExitNodeID":"","ExitNodeIP":"","ExitNodeAllowLANAccess":false,"AdvertiseRoutes":["10.8.0.0/16"],"Persist":{"PrivateNodeKey":"must-not-project"}}`
 }
-func managementFixture(t *testing.T) *Management {
+func controlFixture(t *testing.T) *Control {
 	t.Helper()
-	m := NewManagement()
+	m := NewControl()
 	p, _ := policyFixture(t)
 	m.policy = *p
 	m.command = func(context.Context, string, ...string) ([]byte, error) {
@@ -39,17 +39,17 @@ func managementFixture(t *testing.T) *Management {
 	m.local = &http.Client{Transport: managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 		switch r.URL.Path {
 		case "/localapi/v0/status":
-			return managementResponse(200, nativeStatusFixture()), nil
+			return controlResponse(200, nativeStatusFixture()), nil
 		case "/localapi/v0/prefs":
-			return managementResponse(200, nativePrefsFixture()), nil
+			return controlResponse(200, nativePrefsFixture()), nil
 		}
 		t.Error("unexpected LocalAPI request")
-		return managementResponse(500, ""), nil
+		return controlResponse(500, ""), nil
 	})}
 	return m
 }
 func TestTailnetHostProjectionAndPassiveReads(t *testing.T) {
-	m := managementFixture(t)
+	m := controlFixture(t)
 	for range 2 {
 		result, e := m.Settings(t.Context())
 		if e != nil || result.Validate() != nil || result.HostUnavailable {
@@ -69,16 +69,16 @@ func TestTailnetHostProjectionAndPassiveReads(t *testing.T) {
 func TestTailnetFreshDaemonOmitsFalseNodeKey(t *testing.T) {
 	for _, field := range []string{"", `,"HaveNodeKey":false`} {
 		t.Run(field, func(t *testing.T) {
-			m := managementFixture(t)
+			m := controlFixture(t)
 			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if r.Method != "GET" {
 					t.Fatal("fresh observation dispatched a mutation")
 				}
 				switch r.URL.Path {
 				case "/localapi/v0/status":
-					return managementResponse(200, `{"Version":"1.102.4-t3caf7d9e7-g084ee3b64","BackendState":"NeedsLogin","Self":{"ID":"","DNSName":"","TailscaleIPs":null},"Peer":null`+field+`}`), nil
+					return controlResponse(200, `{"Version":"1.102.4-t3caf7d9e7-g084ee3b64","BackendState":"NeedsLogin","Self":{"ID":"","DNSName":"","TailscaleIPs":null},"Peer":null`+field+`}`), nil
 				case "/localapi/v0/prefs":
-					return managementResponse(200, `{"WantRunning":false,"ExitNodeID":"","ExitNodeIP":"","ExitNodeAllowLANAccess":false,"AdvertiseRoutes":null}`), nil
+					return controlResponse(200, `{"WantRunning":false,"ExitNodeID":"","ExitNodeIP":"","ExitNodeAllowLANAccess":false,"AdvertiseRoutes":null}`), nil
 				}
 				t.Fatal("unexpected native request")
 				return nil, ErrUnavailable
@@ -97,11 +97,11 @@ func TestTailnetFreshDaemonOmitsFalseNodeKey(t *testing.T) {
 func TestTailnetHostNodeKeyOptionalButStrict(t *testing.T) {
 	for _, field := range []string{"", `"HaveNodeKey":null,`, `"HaveNodeKey":"false",`, `"HaveNodeKey":0,`, `"haveNodeKey":true,`} {
 		t.Run(field, func(t *testing.T) {
-			m := managementFixture(t)
+			m := controlFixture(t)
 			original := m.local.Transport
 			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if r.URL.Path == "/localapi/v0/status" {
-					return managementResponse(200, strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true,`, field, 1)), nil
+					return controlResponse(200, strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true,`, field, 1)), nil
 				}
 				return original.RoundTrip(r)
 			})
@@ -116,23 +116,23 @@ func TestTailnetHostNodeKeyOptionalButStrict(t *testing.T) {
 func TestTailnetHostUnavailableIsNotDisconnected(t *testing.T) {
 	for _, kind := range []string{"state", "prefs", "oversize", "null", "duplicate"} {
 		t.Run(kind, func(t *testing.T) {
-			m := managementFixture(t)
+			m := controlFixture(t)
 			original := m.local.Transport
 			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if r.URL.Path == "/localapi/v0/status" {
 					switch kind {
 					case "state":
-						return managementResponse(200, strings.Replace(nativeStatusFixture(), "Running", "UnknownState", 1)), nil
+						return controlResponse(200, strings.Replace(nativeStatusFixture(), "Running", "UnknownState", 1)), nil
 					case "oversize":
-						return managementResponse(200, nativeStatusFixture()+strings.Repeat(" ", 65536)), nil
+						return controlResponse(200, nativeStatusFixture()+strings.Repeat(" ", 65536)), nil
 					case "null":
-						return managementResponse(200, "null"), nil
+						return controlResponse(200, "null"), nil
 					case "duplicate":
-						return managementResponse(200, strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true`, `"HaveNodeKey":true,"HaveNodeKey":false`, 1)), nil
+						return controlResponse(200, strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true`, `"HaveNodeKey":true,"HaveNodeKey":false`, 1)), nil
 					}
 				}
 				if kind == "prefs" && r.URL.Path == "/localapi/v0/prefs" {
-					return managementResponse(200, `{}`), nil
+					return controlResponse(200, `{}`), nil
 				}
 				return original.RoundTrip(r)
 			})
@@ -144,14 +144,14 @@ func TestTailnetHostUnavailableIsNotDisconnected(t *testing.T) {
 	}
 }
 func TestTailnetHostReauthPreservesPrefsAndValidatesURL(t *testing.T) {
-	m := managementFixture(t)
+	m := controlFixture(t)
 	patches, logins := 0, 0
 	m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 		switch {
 		case r.URL.Path == "/localapi/v0/status":
-			return managementResponse(200, strings.Replace(nativeStatusFixture(), `"Running"`, `"NeedsLogin"`, 1)), nil
+			return controlResponse(200, strings.Replace(nativeStatusFixture(), `"Running"`, `"NeedsLogin"`, 1)), nil
 		case r.URL.Path == "/localapi/v0/prefs" && r.Method == "GET":
-			return managementResponse(200, nativePrefsFixture()), nil
+			return controlResponse(200, nativePrefsFixture()), nil
 		case r.URL.Path == "/localapi/v0/prefs" && r.Method == "PATCH":
 			patches++
 			b, _ := io.ReadAll(r.Body)
@@ -159,12 +159,12 @@ func TestTailnetHostReauthPreservesPrefsAndValidatesURL(t *testing.T) {
 			if json.Unmarshal(b, &fields) != nil || len(fields) != 2 || !fields["WantRunning"] || !fields["WantRunningSet"] {
 				t.Error("unrelated prefs rewritten")
 			}
-			return managementResponse(200, `{}`), nil
+			return controlResponse(200, `{}`), nil
 		case r.URL.Path == "/localapi/v0/login-interactive":
 			logins++
-			return managementResponse(204, ""), nil
+			return controlResponse(204, ""), nil
 		}
-		return managementResponse(500, ""), nil
+		return controlResponse(500, ""), nil
 	})
 	before, _, e := m.observe(t.Context())
 	if e != nil {
@@ -183,7 +183,7 @@ func TestTailnetHostReauthPreservesPrefsAndValidatesURL(t *testing.T) {
 func TestTailnetHostActionsConfirmAndSeparateFailedReadback(t *testing.T) {
 	for _, action := range []string{"advertise-exit-node", "refresh-forgejo"} {
 		t.Run(action, func(t *testing.T) {
-			m := managementFixture(t)
+			m := controlFixture(t)
 			before, _, e := m.observe(t.Context())
 			if e != nil {
 				t.Fatal(e)
@@ -226,11 +226,11 @@ func TestTailnetHostActionsConfirmAndSeparateFailedReadback(t *testing.T) {
 	}
 }
 func TestTailnetInitialLoginUsesBoundedUpNotReset(t *testing.T) {
-	m := managementFixture(t)
+	m := controlFixture(t)
 	base := m.local.Transport
 	m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 		if strings.HasSuffix(r.URL.Path, "/status") {
-			return managementResponse(200, strings.Replace(strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true`, `"HaveNodeKey":false`, 1), `"Running"`, `"NeedsLogin"`, 1)), nil
+			return controlResponse(200, strings.Replace(strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true`, `"HaveNodeKey":false`, 1), `"Running"`, `"NeedsLogin"`, 1)), nil
 		}
 		return base.RoundTrip(r)
 	})
@@ -255,7 +255,7 @@ func TestTailnetInitialLoginUsesBoundedUpNotReset(t *testing.T) {
 func TestTailnetCredentialCheckIsScopedBoundedAndNoRegistration(t *testing.T) {
 	for _, kind := range []string{"ok", "error", "oversized", "redirect", "cancelled"} {
 		t.Run(kind, func(t *testing.T) {
-			m := managementFixture(t)
+			m := controlFixture(t)
 			calls := 0
 			m.provider.Transport = boundedProviderTransport{managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 				calls++
@@ -273,18 +273,18 @@ func TestTailnetCredentialCheckIsScopedBoundedAndNoRegistration(t *testing.T) {
 				payload := `{"access_token":"synthetic-access","token_type":"Bearer","expires_in":3600}`
 				switch kind {
 				case "error":
-					return managementResponse(403, `{"error":"synthetic secret"}`), nil
+					return controlResponse(403, `{"error":"synthetic secret"}`), nil
 				case "redirect":
-					res := managementResponse(307, payload)
+					res := controlResponse(307, payload)
 					res.Header.Set("Location", "https://evil.test")
 					return res, nil
 				case "oversized":
-					return managementResponse(200, payload+strings.Repeat(" ", responseLimit)), nil
+					return controlResponse(200, payload+strings.Repeat(" ", responseLimit)), nil
 				case "cancelled":
 					<-r.Context().Done()
 					return nil, r.Context().Err()
 				}
-				return managementResponse(200, payload), nil
+				return controlResponse(200, payload), nil
 			})}
 			ctx, cancel := context.WithTimeout(t.Context(), 40*time.Millisecond)
 			defer cancel()
@@ -299,7 +299,7 @@ func TestTailnetCredentialCheckIsScopedBoundedAndNoRegistration(t *testing.T) {
 	}
 }
 func TestTailnetHostRevisionIncludesNativeIdentityWithoutReleaseVeto(t *testing.T) {
-	m := managementFixture(t)
+	m := controlFixture(t)
 	before, _, e := m.observe(t.Context())
 	if e != nil {
 		t.Fatal(e)
@@ -307,7 +307,7 @@ func TestTailnetHostRevisionIncludesNativeIdentityWithoutReleaseVeto(t *testing.
 	base := m.local.Transport
 	m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 		if strings.HasSuffix(r.URL.Path, "/status") {
-			return managementResponse(200, strings.Replace(strings.Replace(nativeStatusFixture(), `"ID":"self"`, `"ID":"replacement"`, 1), "1.102.4", "1.1.0", 1)), nil
+			return controlResponse(200, strings.Replace(strings.Replace(nativeStatusFixture(), `"ID":"self"`, `"ID":"replacement"`, 1), "1.102.4", "1.1.0", 1)), nil
 		}
 		return base.RoundTrip(r)
 	})
@@ -332,7 +332,7 @@ func TestTailnetHostRevisionIncludesNativeIdentityWithoutReleaseVeto(t *testing.
 func TestTailnetExitSelectionPreservesRoutesAndLogoutHidesAuthURL(t *testing.T) {
 	for _, action := range []string{"exit-node", "logout"} {
 		t.Run(action, func(t *testing.T) {
-			m := managementFixture(t)
+			m := controlFixture(t)
 			mutations := 0
 			changed := false
 			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
@@ -342,23 +342,23 @@ func TestTailnetExitSelectionPreservesRoutesAndLogoutHidesAuthURL(t *testing.T) 
 					if changed && action == "logout" {
 						status = strings.Replace(strings.Replace(status, `"Running"`, `"NeedsLogin"`, 1), `"HaveNodeKey":true`, `"HaveNodeKey":false`, 1)
 					}
-					return managementResponse(200, status), nil
+					return controlResponse(200, status), nil
 				case "/localapi/v0/prefs":
 					prefs := nativePrefsFixture()
 					if changed && action == "exit-node" {
 						prefs = strings.Replace(strings.Replace(prefs, `"ExitNodeID":""`, `"ExitNodeID":"peer"`, 1), `"ExitNodeAllowLANAccess":false`, `"ExitNodeAllowLANAccess":true`, 1)
 					}
-					return managementResponse(200, prefs), nil
+					return controlResponse(200, prefs), nil
 				case "/localapi/v0/logout":
 					if r.Method != "POST" || action != "logout" {
 						t.Error("unexpected logout")
 					}
 					mutations++
 					changed = true
-					return managementResponse(204, ""), nil
+					return controlResponse(204, ""), nil
 				}
 				t.Error("unexpected LocalAPI path")
-				return managementResponse(500, ""), nil
+				return controlResponse(500, ""), nil
 			})
 			m.command = func(ctx context.Context, path string, args ...string) ([]byte, error) {
 				if path == DefaultCLI && strings.Join(args, " ") == "version --json" {
@@ -392,13 +392,13 @@ func TestTailnetExitSelectionPreservesRoutesAndLogoutHidesAuthURL(t *testing.T) 
 func TestTailnetOfflineExitNodeAndUnconfirmedClear(t *testing.T) {
 	for _, mode := range []string{"offline", "clear-retained-id"} {
 		t.Run(mode, func(t *testing.T) {
-			m := managementFixture(t)
+			m := controlFixture(t)
 			calls := 0
 			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if strings.HasSuffix(r.URL.Path, "/status") {
-					return managementResponse(200, strings.Replace(nativeStatusFixture(), `"Online":true`, `"Online":false`, 1)), nil
+					return controlResponse(200, strings.Replace(nativeStatusFixture(), `"Online":true`, `"Online":false`, 1)), nil
 				}
-				return managementResponse(200, strings.Replace(nativePrefsFixture(), `"ExitNodeID":""`, `"ExitNodeID":"peer"`, 1)), nil
+				return controlResponse(200, strings.Replace(nativePrefsFixture(), `"ExitNodeID":""`, `"ExitNodeID":"peer"`, 1)), nil
 			})
 			m.command = func(ctx context.Context, path string, args ...string) ([]byte, error) {
 				if path == DefaultCLI && strings.Join(args, " ") == "version --json" {
@@ -433,12 +433,12 @@ func TestTailnetOfflineExitNodeAndUnconfirmedClear(t *testing.T) {
 func TestTailnetInitialLoginNotificationsAndTimeoutKeepNativeAuthentication(t *testing.T) {
 	for _, mode := range []string{"multiple notifications", "observer timeout", "malformed notification", "private diagnostic"} {
 		t.Run(mode, func(t *testing.T) {
-			m := managementFixture(t)
+			m := controlFixture(t)
 			base := m.local.Transport
 			m.local.Transport = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 				if strings.HasSuffix(r.URL.Path, "/status") {
 					status := strings.Replace(strings.Replace(nativeStatusFixture(), `"HaveNodeKey":true`, `"HaveNodeKey":false`, 1), `"Running"`, `"NeedsLogin"`, 1)
-					return managementResponse(200, status), nil
+					return controlResponse(200, status), nil
 				}
 				return base.RoundTrip(r)
 			})
@@ -488,7 +488,7 @@ func TestTailnetBoundedOutputChild(t *testing.T) {
 func TestTailnetCommandOutputBounds(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
-	_, e := managementCommand(ctx, os.Args[0], "-test.run=^TestTailnetBoundedOutputChild$", "--", "soda-tailnet-stdout-probe")
+	_, e := controlCommand(ctx, os.Args[0], "-test.run=^TestTailnetBoundedOutputChild$", "--", "soda-tailnet-stdout-probe")
 	if !errors.Is(e, ErrUnconfirmed) {
 		t.Fatal("oversized command output accepted", e)
 	}

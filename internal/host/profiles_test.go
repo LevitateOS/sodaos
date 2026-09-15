@@ -60,7 +60,7 @@ func TestNativeCreationProfileIsObservedNotInferredFromDefault(t *testing.T) {
 				labels["org.soda.creation-profile"] = "null"
 			}
 			observation, _ := json.Marshal([]any{map[string]any{"Image": image, "Config": map[string]any{"Labels": labels}, "State": map[string]bool{"Running": false}}})
-			d := Daemon{Exec: profileInspection{observation}, Config: Config{Image: "never-read-this-default"}}
+			d := testDaemon(profileInspection{observation}, Config{Image: "never-read-this-default"})
 			env, _, err := d.inspect(t.Context(), "p0123456789abcdef01234567")
 			switch kind {
 			case "legacy":
@@ -99,7 +99,7 @@ func TestOnlyCompleteNativeInstalledProfileAndNoTagCreation(t *testing.T) {
 				installed.Image = "sha256:" + strings.Repeat("c", 64)
 			}
 			e := &profileExec{raw: testImage(installed)}
-			d := Daemon{Exec: e, Config: Config{Image: "configured-image"}}
+			d := testDaemon(e, Config{Image: "configured-image"})
 			result, err := d.resolveProfile(t.Context())
 			if kind == "valid" || kind == "changed image" {
 				if err != nil || result != installed {
@@ -117,7 +117,7 @@ func TestOnlyCompleteNativeInstalledProfileAndNoTagCreation(t *testing.T) {
 		})
 	}
 	n := &noExec{}
-	d := Daemon{Exec: n}
+	d := testDaemon(n, Config{})
 	if _, err := d.create(t.Context(), Create{ID: "p0123456789abcdef01234567", Owner: 1}); err == nil || n.called {
 		t.Fatal("missing profile reached native executor")
 	}

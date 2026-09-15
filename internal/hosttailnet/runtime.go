@@ -1,10 +1,12 @@
-package host
+package hosttailnet
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -72,7 +74,7 @@ func readProcessIDMap(base, name string, read func(string) ([]byte, error)) (uin
 		return 0, tailnet.ErrUnavailable
 	}
 	f := strings.Fields(string(b))
-	if len(f) != 3 || !terminalIDMap([]string{strings.Join(f, ":")}) {
+	if len(f) != 3 || !idMap([]string{strings.Join(f, ":")}) {
 		return 0, tailnet.ErrUnsupported
 	}
 	n, _ := strconv.ParseUint(f[1], 10, 32)
@@ -162,8 +164,8 @@ func decodeProjectRunInspect(data []byte, cid string) (projectRunInspect, error)
 	return raw, nil
 }
 
-func (d *Daemon) confirmProjectRunIdentity(ctx context.Context, cid string, data []byte, pid int, identity processIdentity) error {
-	again, e := d.inspectProjectRun(ctx, cid)
+func (c *Companion) confirmProjectRunIdentity(ctx context.Context, cid string, data []byte, pid int, identity processIdentity) error {
+	again, e := c.inspectProjectRun(ctx, cid)
 	if e != nil || string(again) != string(data) {
 		return tailnet.ErrConflict
 	}
@@ -174,8 +176,8 @@ func (d *Daemon) confirmProjectRunIdentity(ctx context.Context, cid string, data
 	return nil
 }
 
-func (d *Daemon) inspectProjectRun(ctx context.Context, cid string) ([]byte, error) {
-	return d.podman(ctx, nil, "--remote=false", "inspect", "--format", tailnetRunInspect, cid)
+func (c *Companion) inspectProjectRun(ctx context.Context, cid string) ([]byte, error) {
+	return c.podman(ctx, nil, "--remote=false", "inspect", "--format", tailnetRunInspect, cid)
 }
 
 func assembleProjectRun(id, cid, resolver string, raw projectRunInspect, identity processIdentity) projectRun {
@@ -206,13 +208,13 @@ func admitProjectRunSnapshot(cid string, raw projectRunInspect) (string, process
 	return resolver, identity, nil
 }
 
-func (d *Daemon) projectRun(ctx context.Context, id string) (projectRun, error) {
+func (c *Companion) projectRun(ctx context.Context, id string) (projectRun, error) {
 	var out projectRun
-	cid, e := d.projectContainer(ctx, id, true)
+	cid, e := c.projectContainer(ctx, id, true)
 	if e != nil {
 		return out, tailnet.ErrUnavailable
 	}
-	data, e := d.inspectProjectRun(ctx, cid)
+	data, e := c.inspectProjectRun(ctx, cid)
 	if e != nil || len(data) > 4096 {
 		return out, tailnet.ErrUnavailable
 	}
@@ -224,10 +226,10 @@ func (d *Daemon) projectRun(ctx context.Context, id string) (projectRun, error) 
 	if e != nil {
 		return out, e
 	}
-	if e = d.confirmProjectRunIdentity(ctx, cid, data, raw.PID, identity); e != nil {
+	if e = c.confirmProjectRunIdentity(ctx, cid, data, raw.PID, identity); e != nil {
 		return out, e
 	}
-	current, e := d.projectContainer(ctx, id, true)
+	current, e := c.projectContainer(ctx, id, true)
 	if e != nil || current != cid {
 		return out, tailnet.ErrConflict
 	}
@@ -258,10 +260,82 @@ func companionCreateArgs(run projectRun, image string) ([]string, error) {
 	return args, nil
 }
 
-func (d *Daemon) recheckProjectRun(ctx context.Context, before projectRun) error {
-	after, e := d.projectRun(ctx, before.Target.Project)
+func (c *Companion) recheckProjectRun(ctx context.Context, before projectRun) error {
+	after, e := c.projectRun(ctx, before.Target.Project)
 	if e != nil || after != before {
 		return tailnet.ErrConflict
 	}
 	return nil
+}
+
+const projectInspectFormat = `{"id":{{json .ID}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"privileged":{{json .HostConfig.Privileged}},"userns":{{json .HostConfig.UsernsMode}},"mappings":{{json .HostConfig.IDMappings}}}`
+
+type projectInspection struct {
+	ID         string `json:"id"`
+	Running    bool   `json:"running"`
+	Project    string `json:"project"`
+	Owner      string `json:"owner"`
+	Privileged bool   `json:"privileged"`
+	Userns     string `json:"userns"`
+	Mappings   struct {
+		UIDMap []string `json:"UidMap"`
+		GIDMap []string `json:"GidMap"`
+	} `json:"mappings"`
+}
+
+func idMap(values []string) bool {
+	if len(values) != 1 {
+		return false
+	}
+	parts := strings.Split(values[0], ":")
+	if len(parts) != 3 || parts[0] != "0" || parts[2] != "262144" {
+		return false
+	}
+	base, err := strconv.ParseUint(parts[1], 10, 32)
+	return err == nil && strconv.FormatUint(base, 10) == parts[1] && base > 0 && base+262144 <= 4294967295
+}
+
+func projectIsolation(v projectInspection, id string) bool {
+	if !containerID.MatchString(v.ID) || v.Project != id || v.Privileged || v.Userns != "private" {
+		return false
+	}
+	return idMap(v.Mappings.UIDMap) && idMap(v.Mappings.GIDMap)
+}
+
+func (c *Companion) inspectProject(ctx context.Context, id string) (projectInspection, error) {
+	var v projectInspection
+	if !projectID.MatchString(id) {
+		return v, errors.New("invalid project")
+	}
+	data, err := c.podman(ctx, nil, "--remote=false", "inspect", "--format", projectInspectFormat, "soda-"+id)
+	if err != nil || len(data) > 4096 {
+		return v, errors.New("terminal inspection unavailable")
+	}
+	if err = strictjson.Decode(bytes.NewReader(data), &v); err != nil {
+		return v, errors.New("invalid terminal inspection")
+	}
+	owner, err := strconv.ParseInt(v.Owner, 10, 64)
+	if err != nil || owner <= 0 || !projectIsolation(v, id) {
+		return v, errors.New("terminal target not ready or isolated")
+	}
+	return v, nil
+}
+
+func (c *Companion) projectContainer(ctx context.Context, id string, requireRunning bool) (string, error) {
+	v, err := c.inspectProject(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if requireRunning && !v.Running {
+		return "", errors.New("terminal target not ready or isolated")
+	}
+	return v.ID, nil
+}
+
+func (c *Companion) projectRunning(ctx context.Context, id string) (bool, error) {
+	v, err := c.inspectProject(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	return v.Running, nil
 }

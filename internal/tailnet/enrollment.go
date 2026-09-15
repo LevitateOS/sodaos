@@ -130,7 +130,7 @@ func validCreatedAuthKey(key *ts.Key, tags []string, preauthorized bool, before 
 	return validAuthKeyIdentity(key) && validAuthKeyCapabilities(key, tags, preauthorized) && validAuthKeyLifetime(key, before)
 }
 
-func (m *Management) createProjectAuthKey(ctx context.Context, p enrollmentPolicy, token string) (string, error) {
+func (m *Control) createProjectAuthKey(ctx context.Context, p enrollmentPolicy, token string) (string, error) {
 	base := m.keyHTTP
 	if base == nil {
 		base = http.DefaultTransport
@@ -155,7 +155,7 @@ func (m *Management) createProjectAuthKey(ctx context.Context, p enrollmentPolic
 	return value, nil
 }
 
-func (m *Management) projectKey(ctx context.Context, p enrollmentPolicy, c credential) (string, error) {
+func (m *Control) projectKey(ctx context.Context, p enrollmentPolicy, c credential) (string, error) {
 	req := EnrollmentRequest{Action: "save", Revision: p.Revision, Tailnet: p.Tailnet, Tags: p.Tags, Preauthorized: &p.Preauthorized, ClientID: c.ClientID, ClientSecret: c.Secret}
 	if req.Validate() != nil {
 		return "", ErrUnavailable
@@ -212,7 +212,7 @@ func confirmEnrollSubmission(ctx context.Context, e error, validate func(context
 	return nil
 }
 
-func (m *Management) enrollLocked(ctx context.Context, root *os.Root, target RunTarget, validate func(context.Context) error, consume func(context.Context, string) error) error {
+func (m *Control) enrollLocked(ctx context.Context, root *os.Root, target RunTarget, validate func(context.Context) error, consume func(context.Context, string) error) error {
 	policy, e := m.policy.load(root)
 	if e != nil {
 		return e
@@ -233,7 +233,7 @@ func (m *Management) enrollLocked(ctx context.Context, root *os.Root, target Run
 	return confirmEnrollSubmission(ctx, e, validate) // Submission is not enrollment/approval/reachability confirmation.
 }
 
-func (m *Management) EnrollRun(ctx context.Context, target RunTarget, validate func(context.Context) error, consume func(context.Context, string) error) error {
+func (m *Control) EnrollRun(ctx context.Context, target RunTarget, validate func(context.Context) error, consume func(context.Context, string) error) error {
 	if !target.valid() || validate == nil || consume == nil {
 		return ErrInvalid
 	}

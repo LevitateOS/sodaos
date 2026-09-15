@@ -15,9 +15,9 @@ import (
 	"time"
 )
 
-func keyFixture(t *testing.T) (*Management, *atomic.Int32) {
+func keyFixture(t *testing.T) (*Control, *atomic.Int32) {
 	t.Helper()
-	m := managementFixture(t)
+	m := controlFixture(t)
 	calls := new(atomic.Int32)
 	m.provider = &http.Client{Transport: boundedProviderTransport{managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 		if _, ok := r.Context().Deadline(); !ok {
@@ -29,7 +29,7 @@ func keyFixture(t *testing.T) (*Management, *atomic.Int32) {
 		if r.Form.Get("client_secret") != "" {
 			t.Error("unexpected auth-style fallback")
 		}
-		return managementResponse(200, `{"access_token":"synthetic-bearer","token_type":"Bearer","expires_in":3600}`), nil
+		return controlResponse(200, `{"access_token":"synthetic-bearer","token_type":"Bearer","expires_in":3600}`), nil
 	})}}
 	m.keyHTTP = managementRoundTrip(func(r *http.Request) (*http.Response, error) {
 		calls.Add(1)
@@ -53,7 +53,7 @@ func keyFixture(t *testing.T) (*Management, *atomic.Int32) {
 		if json.NewDecoder(r.Body).Decode(&body) != nil || body.Capabilities.Devices.Create.Reusable || !body.Capabilities.Devices.Create.Ephemeral || body.Capabilities.Devices.Create.Preauthorized || strings.Join(body.Capabilities.Devices.Create.Tags, ",") != "tag:soda-project" || body.ExpirySeconds != 300 {
 			t.Error("wrong key capabilities")
 		}
-		return managementResponse(200, keyResponse()), nil
+		return controlResponse(200, keyResponse()), nil
 	})
 	return m, calls
 }
@@ -96,11 +96,11 @@ func TestProjectKeyRefusesUnsafeOrAmbiguousProviderResult(t *testing.T) {
 				body := keyResponse()
 				switch mode {
 				case "redirect":
-					res := managementResponse(307, "private provider text")
+					res := controlResponse(307, "private provider text")
 					res.Header.Set("Location", "https://other.example.test/")
 					return res, nil
 				case "error":
-					return managementResponse(403, `{"message":"private provider text"}`), nil
+					return controlResponse(403, `{"message":"private provider text"}`), nil
 				case "transport":
 					return nil, errors.New("private provider text")
 				case "oversize":
@@ -131,7 +131,7 @@ func TestProjectKeyRefusesUnsafeOrAmbiguousProviderResult(t *testing.T) {
 					b, _ := json.Marshal(v)
 					body = string(b)
 				}
-				return managementResponse(200, body), nil
+				return controlResponse(200, body), nil
 			})
 			in := enrollmentInput()
 			p := enrollmentPolicy{Revision: strings.Repeat("a", 32), Tailnet: in.Tailnet, Tags: in.Tags}
@@ -150,7 +150,7 @@ func TestProjectKeyRefusesUnsafeOrAmbiguousProviderResult(t *testing.T) {
 		})
 	}
 }
-func runFixture(t *testing.T) (*Management, RunTarget, *atomic.Int32, string) {
+func runFixture(t *testing.T) (*Control, RunTarget, *atomic.Int32, string) {
 	t.Helper()
 	m, calls := keyFixture(t)
 	p, dir := policyFixture(t)

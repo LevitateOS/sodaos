@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/levitateos/sodaos/internal/hosttailnet"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
@@ -30,7 +31,7 @@ func TestTailnetNativeDisabledAndStrictRouting(t *testing.T) {
 			t.Fatal(w.Code, calls)
 		}
 	}
-	d.Tailnet = tailnet.NewManagement()
+	d.Tailnet = tailnet.NewControl()
 	for _, tc := range []struct {
 		path, body string
 		status     int
@@ -54,13 +55,17 @@ func TestTailnetNativeDisabledAndStrictRouting(t *testing.T) {
 func TestTailnetNativeDoesNotTakeProjectGateOrEnableRuntime(t *testing.T) {
 	const id = "p0123456789abcdef01234567"
 	calls := 0
-	d := &Daemon{Tailnet: tailnet.NewManagement(), Exec: managementExec(func(ctx context.Context, in []byte, command string, args ...string) ([]byte, error) {
+	exec := managementExec(func(ctx context.Context, in []byte, command string, args ...string) ([]byte, error) {
 		calls++
 		if command != "/usr/bin/podman" || len(args) != 5 || args[1] != "inspect" {
 			t.Error("unexpected native call", command, args)
 		}
 		return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":%q,"owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64), id)), nil
-	})}
+	})
+	control := tailnet.NewControl()
+	d := testDaemonPtr(exec, Config{})
+	d.Tailnet = control
+	d.Companion = &hosttailnet.Companion{Exec: exec, Tailnet: control}
 	if e := d.acquireAdmission(t.Context()); e != nil {
 		t.Fatal(e)
 	}
@@ -83,9 +88,11 @@ func TestTailnetNativeDoesNotTakeProjectGateOrEnableRuntime(t *testing.T) {
 	}
 }
 func TestTailnetNativeRejectsProjectIsolationDrift(t *testing.T) {
-	d := &Daemon{Tailnet: tailnet.NewManagement(), Exec: managementExec(func(context.Context, []byte, string, ...string) ([]byte, error) {
+	exec := managementExec(func(context.Context, []byte, string, ...string) ([]byte, error) {
 		return []byte(`{"id":"bad","running":true,"project":"p0123456789abcdef01234567","owner":"1","privileged":true,"userns":"host"}`), nil
-	})}
+	})
+	d := testDaemonPtr(exec, Config{})
+	d.Tailnet = tailnet.NewControl()
 	body := `{"project":"p0123456789abcdef01234567","action":"enable","revision":"0","binding":"` + strings.Repeat("a", 32) + `","confirm_id":"p0123456789abcdef01234567"}`
 	w := httptest.NewRecorder()
 	d.ServeHTTP(w, httptest.NewRequest("POST", "/tailnet/project", strings.NewReader(body)))

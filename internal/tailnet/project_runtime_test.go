@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func runtimePolicy(t *testing.T) (*Management, EnrollmentView, string) {
+func runtimePolicy(t *testing.T) (*Control, EnrollmentView, string) {
 	t.Helper()
 	p, parent := policyFixture(t)
 	p.runtime = true
@@ -18,7 +18,7 @@ func runtimePolicy(t *testing.T) (*Management, EnrollmentView, string) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	return &Management{policy: *p}, saved.Enrollment, parent
+	return &Control{policy: *p}, saved.Enrollment, parent
 }
 func TestProjectRuntimeSelectionAndIndependentOriginalBindings(t *testing.T) {
 	m, policy, _ := runtimePolicy(t)
