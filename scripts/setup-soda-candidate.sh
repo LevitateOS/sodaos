@@ -74,6 +74,9 @@ if command -v semanage >/dev/null; then
 fi
 command -v restorecon >/dev/null && sudo restorecon -R "$TOOLS"
 sudo find "$TOOLS/go" -type d -exec chmod 0755 {} +
+# Module-cache toolchain files arrive owner-read-only; the worker compiles
+# against them, so every file must be world-readable too.
+sudo find "$TOOLS/go" -type f -exec chmod a+r {} +
 sudo chown soda-build-worker:soda-build-worker "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME"
 # The service worker is denied file creation on user_home_t, so the output
 # parent inside the checkout needs var_lib_t to take build output.
@@ -85,6 +88,7 @@ sudo chmod 0755 "$TOOLS" "$TOOLS/bin"
 sudo chmod 0700 "$AUTHORITY"
 echo "-- verify tools as the worker user"
 [ "$(sudo -u soda-build-worker env GOTOOLCHAIN=local HOME="$BUILD_HOME" "$TOOLS/go/bin/go" version)" = "$WANT" ] || fail "provisioned Go is not $PINNED or not worker-runnable"
+sudo -u soda-build-worker test -r "$TOOLS/go/src/net/textproto/header.go" || fail "provisioned GOROOT sources are not worker-readable"
 sudo -u soda-build-worker "$TOOLS/bin/bun" --version >/dev/null || fail "provisioned bun is not worker-runnable"
 
 echo "-- warm worker caches (the isolated worker has no network)"
