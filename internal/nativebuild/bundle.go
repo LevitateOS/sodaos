@@ -475,6 +475,59 @@ func Verify(root, arch, revision string) (Inventory, error) {
 }
 
 // Bundle copies only the sealed payload, not private state or the build tree.
+func mkdirBundleDirectories(destRoot *os.Root, files map[string]File) error {
+	for name, entry := range files {
+		if entry.Directory {
+			if err := destRoot.MkdirAll(name, 0o755); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func chmodBundleDirectories(destRoot *os.Root, files map[string]File) error {
+	for name, entry := range files {
+		if entry.Directory {
+			if err := destRoot.Chmod(name, os.FileMode(entry.Mode)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func copyBundleFiles(srcRoot, destRoot *os.Root, files map[string]File) error {
+	for name, entry := range files {
+		if entry.Directory {
+			continue
+		}
+		if err := destRoot.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+			return err
+		}
+		var err error
+		if entry.Link != "" {
+			err = destRoot.Symlink(entry.Link, name)
+		} else {
+			err = copyExclusive(srcRoot, destRoot, name, entry)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyBundleEntries(srcRoot, destRoot *os.Root, files map[string]File) error {
+	if err := mkdirBundleDirectories(destRoot, files); err != nil {
+		return err
+	}
+	if err := copyBundleFiles(srcRoot, destRoot, files); err != nil {
+		return err
+	}
+	return chmodBundleDirectories(destRoot, files)
+}
+
 func Bundle(source, dest, arch, revision string) error {
 	inv, err := Verify(source, arch, revision)
 	if err != nil {
@@ -493,37 +546,8 @@ func Bundle(source, dest, arch, revision string) error {
 		return err
 	}
 	defer destRoot.Close()
-	files := inv.Files
-	for name, entry := range files {
-		if entry.Directory {
-			if err = destRoot.MkdirAll(name, 0o755); err != nil {
-				return err
-			}
-		}
-	}
-	for name, entry := range files {
-		target := name
-		if entry.Directory {
-			continue
-		}
-		if err = destRoot.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			return err
-		}
-		if entry.Link != "" {
-			err = destRoot.Symlink(entry.Link, target)
-		} else {
-			err = copyExclusive(srcRoot, destRoot, name, entry)
-		}
-		if err != nil {
-			return err
-		}
-	}
-	for name, entry := range files {
-		if entry.Directory {
-			if err = destRoot.Chmod(name, os.FileMode(entry.Mode)); err != nil {
-				return err
-			}
-		}
+	if err = copyBundleEntries(srcRoot, destRoot, inv.Files); err != nil {
+		return err
 	}
 	data, err := json.MarshalIndent(inv, "", "  ")
 	if err != nil {
