@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/host/tailnet"
+	tailnetexec "github.com/levitateos/sodaos/internal/host/tailnet"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
@@ -65,7 +65,7 @@ func TestTailnetNativeDoesNotTakeProjectGateOrEnableRuntime(t *testing.T) {
 	control := tailnet.NewControl()
 	d := testDaemonPtr(exec, Config{})
 	d.Tailnet = control
-	d.Companion = &hosttailnet.Companion{Exec: exec, Tailnet: control}
+	d.Companion = &tailnetexec.Companion{Exec: exec, Tailnet: control}
 	if e := d.acquireAdmission(t.Context()); e != nil {
 		t.Fatal(e)
 	}

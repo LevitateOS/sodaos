@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/host/tailnet"
+	tailnetexec "github.com/levitateos/sodaos/internal/host/tailnet"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
@@ -34,7 +34,7 @@ func preparationTestDaemon(t *testing.T, enabled func(context.Context, string, s
 	control := tailnet.NewProjectControl()
 	d := testDaemonPtr(exec, Config{TailnetManagement: true, TailnetImage: image})
 	d.Tailnet = control
-	d.Companion = &hosttailnet.Companion{
+	d.Companion = &tailnetexec.Companion{
 		Exec:         exec,
 		Tailnet:      control,
 		Image:        image,

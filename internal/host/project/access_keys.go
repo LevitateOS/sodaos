@@ -1,4 +1,4 @@
-package hostproject
+package project
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/host/terminal"
-	"github.com/levitateos/sodaos/internal/project"
+	domain "github.com/levitateos/sodaos/internal/project"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -45,8 +45,8 @@ func canonicalKeys(values []string) ([]string, error) {
 	return out, nil
 }
 
-func validAccessKeysRequest(in project.AccessKeys) bool {
-	if !project.ValidLogin(in.Login) || in.Login == "root" || in.Identity <= 0 {
+func validAccessKeysRequest(in domain.AccessKeys) bool {
+	if !domain.ValidLogin(in.Login) || in.Login == "root" || in.Identity <= 0 {
 		return false
 	}
 	if in.Apply {
@@ -55,7 +55,7 @@ func validAccessKeysRequest(in project.AccessKeys) bool {
 	return in.Revision == "" && len(in.Keys) == 0
 }
 
-func (r *Runtime) previewAccessKeys(ctx context.Context, in project.AccessKeys) error {
+func (r *Runtime) previewAccessKeys(ctx context.Context, in domain.AccessKeys) error {
 	if !in.Apply {
 		return nil
 	}
@@ -70,8 +70,8 @@ func (r *Runtime) previewAccessKeys(ctx context.Context, in project.AccessKeys) 
 	return nil
 }
 
-func decodeAccessKeyState(data []byte) (project.AccessKeyState, error) {
-	var out project.AccessKeyState
+func decodeAccessKeyState(data []byte) (domain.AccessKeyState, error) {
+	var out domain.AccessKeyState
 	if len(data) > 65536 {
 		return out, errors.New("native key operation not confirmed")
 	}
@@ -84,8 +84,8 @@ func decodeAccessKeyState(data []byte) (project.AccessKeyState, error) {
 	return out, nil
 }
 
-func (r *Runtime) AccessKeys(ctx context.Context, in project.AccessKeys) (project.AccessKeyState, error) {
-	var out project.AccessKeyState
+func (r *Runtime) AccessKeys(ctx context.Context, in domain.AccessKeys) (domain.AccessKeyState, error) {
+	var out domain.AccessKeyState
 	if !validAccessKeysRequest(in) {
 		return out, errors.New("invalid own-account key operation")
 	}
@@ -102,7 +102,7 @@ func (r *Runtime) AccessKeys(ctx context.Context, in project.AccessKeys) (projec
 	}
 	// Load the existing fixed identity validator as an in-memory Python module.
 	// No project file installation/import search, new image or duplicated validator.
-	program := "import sys,types\nm=types.ModuleType('project_terminal')\nexec(" + strconv.Quote(hostterminal.ProjectTerminal) + ",m.__dict__)\nsys.modules['project_terminal']=m\n" + projectKeys
+	program := "import sys,types\nm=types.ModuleType('project_terminal')\nexec(" + strconv.Quote(terminal.ProjectTerminal) + ",m.__dict__)\nsys.modules['project_terminal']=m\n" + projectKeys
 	body, _ := json.Marshal(map[string]any{"login": in.Login, "identity": in.Identity, "apply": in.Apply, "revision": in.Revision, "keys": keys})
 	data, err := r.podman(ctx, body, "--remote=false", "exec", "--interactive", cid, "/usr/bin/python3", "-I", "-c", program)
 	if err != nil {

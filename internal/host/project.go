@@ -3,15 +3,15 @@ package host
 import (
 	"context"
 
-	"github.com/levitateos/sodaos/internal/host/project"
+	projectexec "github.com/levitateos/sodaos/internal/host/project"
 	"github.com/levitateos/sodaos/internal/project"
 )
 
 // NewProject builds the privileged project runtime from host executor and config.
-func NewProject(exec Executor, c Config) *hostproject.Runtime {
-	return &hostproject.Runtime{
+func NewProject(exec Executor, c Config) *projectexec.Runtime {
+	return &projectexec.Runtime{
 		Exec: exec,
-		Config: hostproject.Config{
+		Config: projectexec.Config{
 			Image:   c.Image,
 			Network: c.Network,
 			Subnet:  c.Subnet,
@@ -21,8 +21,7 @@ func NewProject(exec Executor, c Config) *hostproject.Runtime {
 }
 
 // The daemon decodes the Unix-socket wire directly into project domain types
-// and passes them to privileged execution unchanged. There is exactly one
-// type per concept; no translation layer remains here.
+// and passes them to privileged execution unchanged.
 
 func (d *Daemon) create(ctx context.Context, in project.Create) (project.Environment, error) {
 	if err := in.Validate(); err != nil {

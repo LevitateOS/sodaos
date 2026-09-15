@@ -28,7 +28,7 @@ func (c *Client) OpenTerminal(ctx context.Context, in TerminalRequest) (*Termina
 	if err != nil {
 		return nil, errors.New("native terminal unavailable")
 	}
-	conn.SetReadLimit(hostterminal.FrameLimit)
+	conn.SetReadLimit(terminal.FrameLimit)
 	body, _ := json.Marshal(in)
 	if err = conn.Write(dialCtx, websocket.MessageText, body); err != nil {
 		conn.CloseNow()
@@ -41,7 +41,7 @@ func (t *Terminal) Send(ctx context.Context, f TerminalFrame) error {
 	if !f.InputValid() {
 		return errors.New("invalid terminal control")
 	}
-	if err := hostterminal.Write(ctx, t.conn, f); err != nil {
+	if err := terminal.Write(ctx, t.conn, f); err != nil {
 		return errors.New("native terminal transport ended")
 	}
 	return nil

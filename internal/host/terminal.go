@@ -7,16 +7,19 @@ import (
 )
 
 type (
-	TerminalRequest = hostterminal.TerminalRequest
-	TerminalState   = hostterminal.TerminalState
-	TerminalFrame   = hostterminal.TerminalFrame
+	// Terminal wire types are defined in host/terminal and re-exported here so
+	// the Unix client surface stays in package host; web must not import the
+	// privileged terminal executor.
+	TerminalRequest = terminal.TerminalRequest
+	TerminalState   = terminal.TerminalState
+	TerminalFrame   = terminal.TerminalFrame
 )
 
-func ValidTerminalName(name string) bool { return hostterminal.ValidTerminalName(name) }
+func ValidTerminalName(name string) bool { return terminal.ValidTerminalName(name) }
 
-// Terminal implements hostterminal attach launching for the native executor.
-func (Native) Terminal(container string, in hostterminal.TerminalRequest) (hostterminal.Process, error) {
-	return hostterminal.AttachNative(container, in)
+// Terminal implements terminal attach launching for the native executor.
+func (Native) Terminal(container string, in terminal.TerminalRequest) (terminal.Process, error) {
+	return terminal.AttachNative(container, in)
 }
 
 func (d *Daemon) terminalHandler(w http.ResponseWriter, r *http.Request) {

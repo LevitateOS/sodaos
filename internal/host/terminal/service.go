@@ -1,6 +1,6 @@
-// Package hostterminal attaches privileged project terminals. It does not own
+// Package terminal attaches privileged project terminals. It does not own
 // HTTP admission or project create/lifecycle.
-package hostterminal
+package terminal
 
 import (
 	"bytes"

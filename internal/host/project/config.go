@@ -1,4 +1,4 @@
-package hostproject
+package project
 
 // Config holds the project-network image and bridge fields needed to create and
 // inspect environments. Tailnet companion settings stay on the host Daemon.

@@ -17,7 +17,7 @@ import (
 )
 
 // Host keeps a Client-facing integration check that terminal streams do not
-// hold the mutation admission gate (Service unit coverage lives in hostterminal).
+// hold the mutation admission gate (Service unit coverage lives in host/terminal).
 type terminalFake struct {
 	mu         sync.Mutex
 	calls      int
@@ -38,7 +38,7 @@ func (f *terminalFake) Run(_ context.Context, _ []byte, command string, args ...
 	}
 	return f.inspect, nil
 }
-func (f *terminalFake) Terminal(id string, in TerminalRequest) (hostterminal.Process, error) {
+func (f *terminalFake) Terminal(id string, in TerminalRequest) (terminal.Process, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.starts++
@@ -77,7 +77,7 @@ func terminalFixture(t *testing.T) (*Daemon, *Client, *terminalFake) {
 	p := &terminalFakeProcess{closed: make(chan struct{}), input: make(chan TerminalFrame, 4), output: make(chan TerminalFrame, 4)}
 	f := &terminalFake{inspect: []byte(`{"id":"` + strings.Repeat("a", 64) + `","project":"p0123456789abcdef01234567","owner":"2","running":true,"privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`), process: p}
 	d := testDaemonPtr(f, Config{})
-	d.Terminal = &hostterminal.Service{Exec: f}
+	d.Terminal = &terminal.Service{Exec: f}
 	dir, err := os.MkdirTemp("", "soda-term-")
 	if err != nil {
 		t.Fatal(err)

@@ -1,4 +1,4 @@
-package hostproject
+package project
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/platform"
-	"github.com/levitateos/sodaos/internal/project"
+	domain "github.com/levitateos/sodaos/internal/project"
 )
 
 func validLifecycleAction(action string) bool {
@@ -78,7 +78,7 @@ func (r *Runtime) applyLifecycleAction(ctx context.Context, action, unit string)
 	return nil
 }
 
-func verifyLifecycleOutcome(action string, result project.LifecycleState) error {
+func verifyLifecycleOutcome(action string, result domain.LifecycleState) error {
 	if action == "start" && (!result.Environment.Running || !result.BootEnabled) {
 		return errors.New("native lifecycle outcome unconfirmed")
 	}
@@ -88,8 +88,8 @@ func verifyLifecycleOutcome(action string, result project.LifecycleState) error 
 	return nil
 }
 
-func (r *Runtime) Lifecycle(ctx context.Context, in project.Lifecycle) (project.LifecycleState, error) {
-	var result project.LifecycleState
+func (r *Runtime) Lifecycle(ctx context.Context, in domain.Lifecycle) (domain.LifecycleState, error) {
+	var result domain.LifecycleState
 	if !validLifecycleAction(in.Action) {
 		return result, errors.New("invalid lifecycle operation")
 	}

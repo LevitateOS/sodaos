@@ -1,4 +1,4 @@
-package hostterminal
+package terminal
 
 import (
 	"encoding/base64"

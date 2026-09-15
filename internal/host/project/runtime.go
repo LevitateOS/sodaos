@@ -1,6 +1,6 @@
-// Package hostproject runs privileged project environment operations. It does
+// Package project runs privileged project environment operations. It does
 // not own HTTP admission, Tailnet policy, terminal attach or runner protocols.
-package hostproject
+package project
 
 import (
 	"context"

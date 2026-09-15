@@ -1,6 +1,6 @@
-// Package hosttailnet runs the Tailnet companion container for a project. It
-// does not own Tailnet policy (see package tailnet) or HTTP admission.
-package hosttailnet
+// Package tailnet runs the Tailnet companion container for a project. It
+// does not own Tailnet policy (domain package `tailnet`) or HTTP admission.
+package tailnet
 
 import (
 	"bytes"
@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/strictjson"
-	"github.com/levitateos/sodaos/internal/tailnet"
+	domain "github.com/levitateos/sodaos/internal/tailnet"
 )
 
 type Executor interface {
@@ -26,7 +26,7 @@ type Executor interface {
 
 type Companion struct {
 	Exec         Executor
-	Tailnet      *tailnet.Control
+	Tailnet      *domain.Control
 	Image        string // sha256:... companion image
 	EnabledCheck func(ctx context.Context, project, cid string) (bool, error)
 }
@@ -64,11 +64,11 @@ func (c *Companion) runtimeCommand(ctx context.Context, command string, args ...
 	// The ordinary host executor predates secret-bearing native protocols. Never
 	// collect its stderr for the companion, and never return native error text.
 	if isHostNative(c.Exec) {
-		return tailnet.RunNative(ctx, command, args...)
+		return domain.RunNative(ctx, command, args...)
 	}
 	b, e := c.Exec.Run(ctx, nil, command, args...)
 	if e != nil || len(b) > 65536 {
-		return nil, tailnet.ErrUnconfirmed
+		return nil, domain.ErrUnconfirmed
 	}
 	return b, nil
 }
@@ -87,11 +87,11 @@ func companionCommandMatches(out companion, args []string) bool {
 
 func companionExecsValid(execs []string) error {
 	if len(execs) > 16 {
-		return tailnet.ErrUnavailable
+		return domain.ErrUnavailable
 	}
 	for _, id := range execs {
 		if !containerID.MatchString(id) {
-			return tailnet.ErrUnavailable
+			return domain.ErrUnavailable
 		}
 	}
 	return nil
@@ -103,18 +103,18 @@ func validateCompanionRecord(out companion, run projectRun, image, id string) er
 		return e
 	}
 	if !companionIdentityMatches(out, run, image, id) {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	if out.Running {
 		started, e := time.Parse(time.RFC3339Nano, out.Started)
 		if e != nil || started.IsZero() || out.PID <= 1 {
-			return tailnet.ErrConflict
+			return domain.ErrConflict
 		}
 	}
 	// CreateCommand is retained by Podman. Admit exactly our immutable recipe,
 	// allowing only the native argv[0] spelling, never labels/name alone.
 	if !companionCommandMatches(out, args) {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	return companionExecsValid(out.Execs)
 }
@@ -125,7 +125,7 @@ func matchCompanionNamespaces(out companion, run projectRun) error {
 	}
 	identity, e := processRunIdentity(out.PID, os.ReadFile, os.Readlink)
 	if e != nil || identity.UserNS != run.UserNS || identity.NetNS != run.NetNS || identity.UID != run.UID || identity.GID != run.GID {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	return nil
 }
@@ -138,7 +138,7 @@ func (c *Companion) inspectCompanion(ctx context.Context, run projectRun) (compa
 	}
 	b, e := c.runtimePodman(ctx, "inspect", "--format", companionInspect, id)
 	if e != nil || strictjson.Decode(bytes.NewReader(b), &out) != nil {
-		return out, tailnet.ErrConflict
+		return out, domain.ErrConflict
 	}
 	if e = validateCompanionRecord(out, run, c.Image, id); e != nil {
 		return out, e
@@ -157,7 +157,7 @@ func companionResolver(run projectRun, pid int, stat func(string) (os.FileInfo, 
 	original, e := stat(run.Resolver)
 	actual, other := stat("/proc/" + strconv.Itoa(pid) + "/root/etc/resolv.conf")
 	if e != nil || other != nil || !original.Mode().IsRegular() || !os.SameFile(original, actual) {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	return nil
 }
@@ -168,11 +168,11 @@ func companionStillRunning(before, after companion, err, other error) bool {
 
 func (c *Companion) companionCLI(ctx context.Context, run projectRun, args ...string) ([]byte, error) {
 	if len(args) == 0 {
-		return nil, tailnet.ErrInvalid
+		return nil, domain.ErrInvalid
 	}
 	rec, e := c.inspectCompanion(ctx, run)
 	if e != nil || !rec.Running {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	if args[0] != "logout" {
 		if e = companionResolver(run, rec.PID, os.Stat); e != nil {
@@ -183,11 +183,11 @@ func (c *Companion) companionCLI(ctx context.Context, run projectRun, args ...st
 	b, e := c.runtimePodman(ctx, append(command, args...)...)
 	after, other := c.inspectCompanion(ctx, run)
 	if !companionStillRunning(rec, after, e, other) {
-		return nil, tailnet.ErrUnconfirmed
+		return nil, domain.ErrUnconfirmed
 	}
 	if args[0] != "logout" {
 		if e = companionResolver(run, after.PID, os.Stat); e != nil {
-			return nil, tailnet.ErrUnconfirmed
+			return nil, domain.ErrUnconfirmed
 		}
 	}
 	return b, nil
@@ -202,10 +202,10 @@ func (f *runFiles) current() (projectRun, error) {
 	defer file.Close()
 	info, e := file.Stat()
 	if e != nil || !runtimeFile(info, f.uid, f.gid, 0o600) || info.Size() > 8192 {
-		return run, tailnet.ErrUnavailable
+		return run, domain.ErrUnavailable
 	}
 	if strictjson.Decode(file, &run) != nil {
-		return run, tailnet.ErrUnavailable
+		return run, domain.ErrUnavailable
 	}
 	// The recipe validates all path-bearing identity fields. The caller separately
 	// checks this record's project, parent CID and native namespace incarnation.
@@ -219,26 +219,26 @@ func (f *runFiles) saveCurrent(run projectRun) error {
 	name := "current-" + run.Target.Run + ".json"
 	b, e := json.Marshal(run)
 	if e != nil {
-		return tailnet.ErrUnavailable
+		return domain.ErrUnavailable
 	}
 	file, e := f.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	defer file.Close()
 	if _, e = file.Write(b); e != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	if file.Sync() != nil || f.root.Rename(name, "current.json") != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	dir, e := f.root.Open(".")
 	if e != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	defer dir.Close()
 	if dir.Sync() != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	return nil
 }
@@ -260,13 +260,13 @@ func (c *Companion) consumeRunKey(ctx context.Context, run projectRun, root *os.
 		rec, other := c.inspectCompanion(finish, run)
 		if other == nil && len(rec.Execs) == 0 {
 			if retireRunKey(root, file) != nil {
-				return tailnet.ErrUnconfirmed
+				return domain.ErrUnconfirmed
 			}
 			return e
 		}
 		select {
 		case <-finish.Done():
-			return tailnet.ErrUnconfirmed
+			return domain.ErrUnconfirmed
 		case <-tick.C:
 		}
 	}
@@ -281,7 +281,7 @@ func (c *Companion) projectTailnetEnabled(ctx context.Context, project, cid stri
 	if c.EnabledCheck != nil {
 		return c.EnabledCheck(ctx, project, cid)
 	}
-	view, e := c.Tailnet.Project(ctx, tailnet.ProjectRequest{Project: project, Action: "inspect"}, cid)
+	view, e := c.Tailnet.Project(ctx, domain.ProjectRequest{Project: project, Action: "inspect"}, cid)
 	if e != nil {
 		return false, e
 	}
@@ -339,14 +339,14 @@ func (c *Companion) waitProjectRuntime(ctx context.Context, id string) (projectR
 	}
 }
 
-func (c *Companion) admitTailnetRun(ctx context.Context, id string) (projectRun, tailnet.RunBinding, error) {
+func (c *Companion) admitTailnetRun(ctx context.Context, id string) (projectRun, domain.RunBinding, error) {
 	run, err := c.waitProjectRuntime(ctx, id)
 	if err != nil {
-		return projectRun{}, tailnet.RunBinding{}, err
+		return projectRun{}, domain.RunBinding{}, err
 	}
 	binding, err := c.Tailnet.RunBinding(ctx, run.Target)
 	if err != nil {
-		return projectRun{}, tailnet.RunBinding{}, preparationError("Tailnet policy unconfirmed", err)
+		return projectRun{}, domain.RunBinding{}, preparationError("Tailnet policy unconfirmed", err)
 	}
 	return run, binding, nil
 }
@@ -363,7 +363,7 @@ func (c *Companion) retirePreviousCompanion(ctx context.Context, id string, run,
 		return nil
 	}
 	if previous.Target.Project != id || previous.Target.Container != run.Target.Container {
-		return preparationError("project runtime changed", tailnet.ErrConflict)
+		return preparationError("project runtime changed", domain.ErrConflict)
 	}
 	if err := c.stopTailnetRun(ctx, previous); err != nil {
 		return preparationError("companion stop unconfirmed", err)
@@ -377,7 +377,7 @@ func (c *Companion) reconcilePreviousRun(ctx context.Context, id string, run, pr
 	}
 	fresh := isCompanionRunFresh(currentErr, previous, run)
 	if !fresh && previous != run {
-		return false, preparationError("project runtime changed", tailnet.ErrConflict)
+		return false, preparationError("project runtime changed", domain.ErrConflict)
 	}
 	if fresh {
 		if err := c.retirePreviousCompanion(ctx, id, run, previous); err != nil {
@@ -465,7 +465,7 @@ func (c *Companion) waitCompanionNode(ctx context.Context, run projectRun) (bool
 	for {
 		b, other := c.companionCLI(ready, run, "status", "--json", "--peers=false")
 		if other == nil {
-			hasNode, err := tailnet.ProjectHasNode(b)
+			hasNode, err := domain.ProjectHasNode(b)
 			if err != nil {
 				return false, preparationError("companion status unavailable", err)
 			}
@@ -473,7 +473,7 @@ func (c *Companion) waitCompanionNode(ctx context.Context, run projectRun) (bool
 		}
 		select {
 		case <-ready.Done():
-			return false, preparationError("companion status unavailable", tailnet.ErrUnavailable)
+			return false, preparationError("companion status unavailable", domain.ErrUnavailable)
 		case <-tick.C:
 		}
 	}
@@ -482,7 +482,7 @@ func (c *Companion) waitCompanionNode(ctx context.Context, run projectRun) (bool
 func (c *Companion) enrollCompanion(ctx context.Context, run projectRun, root *os.Root) error {
 	rec, err := c.inspectCompanion(ctx, run)
 	if err != nil || len(rec.Execs) != 0 {
-		return preparationError("enrollment unconfirmed", tailnet.ErrUnconfirmed)
+		return preparationError("enrollment unconfirmed", domain.ErrUnconfirmed)
 	}
 	if err := retirePendingRunKey(root, run); err != nil {
 		return preparationError("enrollment unconfirmed", err)
@@ -551,26 +551,26 @@ func (c *Companion) WaitTailnet(ctx context.Context, cid string) error {
 		return nil
 	}
 	if !containerID.MatchString(cid) {
-		return tailnet.ErrInvalid
+		return domain.ErrInvalid
 	}
 	b, e := c.runtimePodman(ctx, "wait", "--condition=stopped", cid)
 	if ctx.Err() != nil {
 		return nil
 	}
 	if e != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	if strings.TrimSpace(string(b)) != "0" {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	// Unexpected successful daemon exit is also a supervision failure, not a reason
 	// to silently leave an enabled project without its daemon.
-	return tailnet.ErrUnavailable
+	return domain.ErrUnavailable
 }
 
 func (c *Companion) StopTailnet(ctx context.Context, id string) error {
 	if !projectID.MatchString(id) {
-		return tailnet.ErrInvalid
+		return domain.ErrInvalid
 	}
 	// The unit is conditioned on an existing runtime record; no scan or repair.
 	f, e := openRuntimeProject(ctx, runtimeRoot, id)
@@ -583,7 +583,7 @@ func (c *Companion) StopTailnet(ctx context.Context, id string) error {
 		return e
 	}
 	if run.Target.Project != id {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	return c.stopTailnetRun(ctx, run)
 }
@@ -595,7 +595,7 @@ func confirmStoppedResolver(ctx context.Context, c *Companion, run projectRun) e
 	}
 	resolver, e := os.ReadFile(run.Resolver)
 	if e != nil || len(resolver) > 16384 || strings.Contains(strings.ToLower(string(resolver)), "tailscale") {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	return nil
 }
@@ -604,7 +604,7 @@ func (c *Companion) stopTailnetRun(ctx context.Context, run projectRun) error {
 	id := run.Target.Project
 	cid, e := c.projectContainer(ctx, id, false)
 	if e != nil || cid != run.Target.Container {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	rec, e := c.inspectCompanion(ctx, run)
 	if e != nil {
@@ -616,7 +616,7 @@ func (c *Companion) stopTailnetRun(ctx context.Context, run projectRun) error {
 	result := c.logoutAndStopCompanion(ctx, run, rec.ID)
 	after, e := c.inspectCompanion(ctx, run)
 	if e != nil || after.ID != rec.ID || after.Running {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	if e = confirmStoppedResolver(ctx, c, run); e != nil {
 		return e
@@ -629,15 +629,15 @@ func (c *Companion) logoutAndStopCompanion(ctx context.Context, run projectRun, 
 	_, logoutErr := c.companionCLI(logout, run, "logout")
 	done()
 	if _, e := c.runtimePodman(ctx, "stop", "--time=8", id); e != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	if logoutErr != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	return nil
 }
 
-func (c *Companion) queueProjectTailnetDisable(ctx context.Context, project string, view *tailnet.ProjectView) {
+func (c *Companion) queueProjectTailnetDisable(ctx context.Context, project string, view *domain.ProjectView) {
 	// Queue cancellation first. Also handle an owned orphan whose unit is already
 	// inactive: stopping an inactive systemd unit does not execute ExecStop.
 	if _, e := c.runtimeCommand(ctx, "/usr/bin/systemctl", "stop", "--no-block", "soda-tailnet@"+project+".service"); e == nil {
@@ -650,7 +650,7 @@ func (c *Companion) queueProjectTailnetDisable(ctx context.Context, project stri
 	done()
 }
 
-func (c *Companion) markStoppedProject(ctx context.Context, project string, view *tailnet.ProjectView) {
+func (c *Companion) markStoppedProject(ctx context.Context, project string, view *domain.ProjectView) {
 	// Distinguish a confirmed stopped parent from failed runtime observation.
 	running, other := c.projectRunning(ctx, project)
 	if other == nil && !running {
@@ -658,7 +658,7 @@ func (c *Companion) markStoppedProject(ctx context.Context, project string, view
 	}
 }
 
-func (c *Companion) queueProjectTailnetStart(ctx context.Context, in tailnet.ProjectRequest, view *tailnet.ProjectView) bool {
+func (c *Companion) queueProjectTailnetStart(ctx context.Context, in domain.ProjectRequest, view *domain.ProjectView) bool {
 	if in.Action == "inspect" || !view.Enabled {
 		return true
 	}
@@ -670,7 +670,7 @@ func (c *Companion) queueProjectTailnetStart(ctx context.Context, in tailnet.Pro
 	return true
 }
 
-func applyCompanionIdleState(view *tailnet.ProjectView, running bool) bool {
+func applyCompanionIdleState(view *domain.ProjectView, running bool) bool {
 	if running {
 		return view.Enabled
 	}
@@ -680,7 +680,7 @@ func applyCompanionIdleState(view *tailnet.ProjectView, running bool) bool {
 	return false // Off intent is not confirmed disconnection.
 }
 
-func (c *Companion) observeCompanionStatus(ctx context.Context, run projectRun, view *tailnet.ProjectView) {
+func (c *Companion) observeCompanionStatus(ctx context.Context, run projectRun, view *domain.ProjectView) {
 	binding, e := c.Tailnet.RunBinding(ctx, run.Target)
 	if e != nil {
 		return
@@ -693,7 +693,7 @@ func (c *Companion) observeCompanionStatus(ctx context.Context, run projectRun, 
 	if e != nil {
 		return
 	}
-	state, addresses, dns, e := tailnet.ProjectStatus(b, prefs, binding)
+	state, addresses, dns, e := domain.ProjectStatus(b, prefs, binding)
 	if e != nil || c.recheckProjectRun(ctx, run) != nil {
 		return
 	}
@@ -702,7 +702,7 @@ func (c *Companion) observeCompanionStatus(ctx context.Context, run projectRun, 
 	view.DNSName = dns
 }
 
-func (c *Companion) ObserveProjectTailnet(ctx context.Context, in tailnet.ProjectRequest, cid string) (tailnet.ProjectView, error) {
+func (c *Companion) ObserveProjectTailnet(ctx context.Context, in domain.ProjectRequest, cid string) (domain.ProjectView, error) {
 	view, e := c.Tailnet.Project(ctx, in, cid)
 	if e != nil {
 		return view, e

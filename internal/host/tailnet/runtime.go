@@ -1,4 +1,4 @@
-package hosttailnet
+package tailnet
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/strictjson"
-	"github.com/levitateos/sodaos/internal/tailnet"
+	domain "github.com/levitateos/sodaos/internal/tailnet"
 )
 
 // This observation deliberately excludes Config.Env and other credential-bearing
@@ -22,7 +22,7 @@ import (
 const tailnetRunInspect = `{"id":{{json .ID}},"running":{{json .State.Running}},"pid":{{json .State.Pid}},"started":{{json .State.StartedAt}},"resolver":{{json .ResolvConfPath}}}`
 
 type projectRun struct {
-	Target   tailnet.RunTarget
+	Target   domain.RunTarget
 	PID      int
 	Started  string
 	UserNS   string
@@ -38,16 +38,16 @@ type processIdentity struct {
 
 func parseStatFields(pid int, data []byte) ([]string, error) {
 	if len(data) > 8192 {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	end := strings.LastIndexByte(string(data), ')')
 	first := strings.IndexByte(string(data), ' ')
 	if end < 0 || first < 0 || string(data[:first]) != strconv.Itoa(pid) {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	fields := strings.Fields(string(data[end+1:]))
 	if len(fields) < 20 || fields[0] == "Z" || fields[0] == "X" {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	return fields, nil
 }
@@ -55,7 +55,7 @@ func parseStatFields(pid int, data []byte) ([]string, error) {
 func parseProcessStartTime(pid int, read func(string) ([]byte, error)) (string, error) {
 	data, err := read("/proc/" + strconv.Itoa(pid) + "/stat")
 	if err != nil {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	fields, err := parseStatFields(pid, data)
 	if err != nil {
@@ -63,7 +63,7 @@ func parseProcessStartTime(pid int, read func(string) ([]byte, error)) (string, 
 	}
 	n, err := strconv.ParseUint(fields[19], 10, 64)
 	if err != nil || n == 0 || strconv.FormatUint(n, 10) != fields[19] {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	return fields[19], nil
 }
@@ -71,11 +71,11 @@ func parseProcessStartTime(pid int, read func(string) ([]byte, error)) (string, 
 func readProcessIDMap(base, name string, read func(string) ([]byte, error)) (uint32, error) {
 	b, err := read(base + "/" + name)
 	if err != nil || len(b) > 4096 {
-		return 0, tailnet.ErrUnavailable
+		return 0, domain.ErrUnavailable
 	}
 	f := strings.Fields(string(b))
 	if len(f) != 3 || !idMap([]string{strings.Join(f, ":")}) {
-		return 0, tailnet.ErrUnsupported
+		return 0, domain.ErrUnsupported
 	}
 	n, _ := strconv.ParseUint(f[1], 10, 32)
 	return uint32(n), nil
@@ -84,12 +84,12 @@ func readProcessIDMap(base, name string, read func(string) ([]byte, error)) (uin
 func parseNamespaceLink(name, v string) (string, error) {
 	prefix := name + ":["
 	if !strings.HasPrefix(v, prefix) || !strings.HasSuffix(v, "]") {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	s := strings.TrimSuffix(strings.TrimPrefix(v, prefix), "]")
 	n, err := strconv.ParseUint(s, 10, 64)
 	if err != nil || n == 0 || strconv.FormatUint(n, 10) != s {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	return v, nil
 }
@@ -97,14 +97,14 @@ func parseNamespaceLink(name, v string) (string, error) {
 func readProcessNamespace(base, name string, link func(string) (string, error)) (string, error) {
 	v, err := link(base + "/ns/" + name)
 	if err != nil {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	if _, err = parseNamespaceLink(name, v); err != nil {
 		return "", err
 	}
 	host, err := link("/proc/1/ns/" + name)
 	if err != nil || host == v {
-		return "", tailnet.ErrUnsupported
+		return "", domain.ErrUnsupported
 	}
 	return v, nil
 }
@@ -113,11 +113,11 @@ func readSystemBootID(read func(string) ([]byte, error)) (string, error) {
 	boot, err := read("/proc/sys/kernel/random/boot_id")
 	s := strings.TrimSpace(string(boot))
 	if err != nil || len(s) != 36 || strings.Count(s, "-") != 4 {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	compact := strings.ReplaceAll(s, "-", "")
 	if _, err = hex.DecodeString(compact); err != nil || len(compact) != 32 {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	return s, nil
 }
@@ -125,7 +125,7 @@ func readSystemBootID(read func(string) ([]byte, error)) (string, error) {
 func processRunIdentity(pid int, read func(string) ([]byte, error), link func(string) (string, error)) (processIdentity, error) {
 	var out processIdentity
 	if pid <= 1 {
-		return out, tailnet.ErrConflict
+		return out, domain.ErrConflict
 	}
 	var err error
 	if out.Start, err = parseProcessStartTime(pid, read); err != nil {
@@ -159,7 +159,7 @@ type projectRunInspect struct {
 func decodeProjectRunInspect(data []byte, cid string) (projectRunInspect, error) {
 	var raw projectRunInspect
 	if strictjson.Decode(strings.NewReader(string(data)), &raw) != nil || raw.ID != cid || !raw.Running || raw.PID <= 1 {
-		return raw, tailnet.ErrConflict
+		return raw, domain.ErrConflict
 	}
 	return raw, nil
 }
@@ -167,11 +167,11 @@ func decodeProjectRunInspect(data []byte, cid string) (projectRunInspect, error)
 func (c *Companion) confirmProjectRunIdentity(ctx context.Context, cid string, data []byte, pid int, identity processIdentity) error {
 	again, e := c.inspectProjectRun(ctx, cid)
 	if e != nil || string(again) != string(data) {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	second, e := processRunIdentity(pid, os.ReadFile, os.Readlink)
 	if e != nil || second != identity {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	return nil
 }
@@ -187,19 +187,19 @@ func assembleProjectRun(id, cid, resolver string, raw projectRunInspect, identit
 		Identity     processIdentity
 	}{cid, raw.Started, raw.PID, identity})
 	sum := sha256.Sum256(b)
-	return projectRun{Target: tailnet.RunTarget{Project: id, Container: cid, Run: hex.EncodeToString(sum[:])}, PID: raw.PID, Started: raw.Started, UserNS: identity.UserNS, NetNS: identity.NetNS, UID: identity.UID, GID: identity.GID, Resolver: resolver}
+	return projectRun{Target: domain.RunTarget{Project: id, Container: cid, Run: hex.EncodeToString(sum[:])}, PID: raw.PID, Started: raw.Started, UserNS: identity.UserNS, NetNS: identity.NetNS, UID: identity.UID, GID: identity.GID, Resolver: resolver}
 }
 
 func admitProjectRunSnapshot(cid string, raw projectRunInspect) (string, processIdentity, error) {
 	started, e := time.Parse(time.RFC3339Nano, raw.Started)
 	if e != nil || started.IsZero() {
-		return "", processIdentity{}, tailnet.ErrUnavailable
+		return "", processIdentity{}, domain.ErrUnavailable
 	}
 	// Only the selected native rootful storage resolver is considered. Custom
 	// resolver sources/storage layouts are unsupported, not a path-repair task.
 	resolver := "/var/lib/containers/storage/overlay-containers/" + cid + "/userdata/resolv.conf"
 	if raw.Resolver != resolver {
-		return "", processIdentity{}, tailnet.ErrUnsupported
+		return "", processIdentity{}, domain.ErrUnsupported
 	}
 	identity, e := processRunIdentity(raw.PID, os.ReadFile, os.Readlink)
 	if e != nil {
@@ -212,11 +212,11 @@ func (c *Companion) projectRun(ctx context.Context, id string) (projectRun, erro
 	var out projectRun
 	cid, e := c.projectContainer(ctx, id, true)
 	if e != nil {
-		return out, tailnet.ErrUnavailable
+		return out, domain.ErrUnavailable
 	}
 	data, e := c.inspectProjectRun(ctx, cid)
 	if e != nil || len(data) > 4096 {
-		return out, tailnet.ErrUnavailable
+		return out, domain.ErrUnavailable
 	}
 	raw, e := decodeProjectRunInspect(data, cid)
 	if e != nil {
@@ -231,7 +231,7 @@ func (c *Companion) projectRun(ctx context.Context, id string) (projectRun, erro
 	}
 	current, e := c.projectContainer(ctx, id, true)
 	if e != nil || current != cid {
-		return out, tailnet.ErrConflict
+		return out, domain.ErrConflict
 	}
 	return assembleProjectRun(id, cid, resolver, raw, identity), nil
 }
@@ -241,7 +241,7 @@ func (c *Companion) projectRun(ctx context.Context, id string) (projectRun, erro
 // Creating a recipe does not claim installed TUN, resolver or namespace proof.
 func companionCreateArgs(run projectRun, image string) ([]string, error) {
 	if !projectID.MatchString(run.Target.Project) || !containerID.MatchString(run.Target.Container) || !containerID.MatchString(run.Target.Run) || !strings.HasPrefix(image, "sha256:") || !imageID.MatchString(image) || run.UID == 0 || run.GID == 0 {
-		return nil, tailnet.ErrInvalid
+		return nil, domain.ErrInvalid
 	}
 	base := filepath.Join("/run/soda-tailnet", run.Target.Project, run.Target.Run)
 	args := []string{
@@ -263,7 +263,7 @@ func companionCreateArgs(run projectRun, image string) ([]string, error) {
 func (c *Companion) recheckProjectRun(ctx context.Context, before projectRun) error {
 	after, e := c.projectRun(ctx, before.Target.Project)
 	if e != nil || after != before {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	return nil
 }

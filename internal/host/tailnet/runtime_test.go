@@ -1,11 +1,11 @@
-package hosttailnet
+package tailnet
 
 import (
 	"errors"
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/tailnet"
+	domain "github.com/levitateos/sodaos/internal/tailnet"
 )
 
 func TestTailnetProcessIdentityRejectsHostNamespacesAndAmbiguousMappings(t *testing.T) {
@@ -72,7 +72,7 @@ func TestTailnetProcessIdentityRejectsHostNamespacesAndAmbiguousMappings(t *test
 	}
 }
 func TestTailnetCompanionRecipeKeepsSecretsAndUnrelatedNamespacesOutside(t *testing.T) {
-	run := projectRun{Target: tailnet.RunTarget{Project: "p" + strings.Repeat("a", 24), Container: strings.Repeat("b", 64), Run: strings.Repeat("c", 64)}, UID: 524288, GID: 524288}
+	run := projectRun{Target: domain.RunTarget{Project: "p" + strings.Repeat("a", 24), Container: strings.Repeat("b", 64), Run: strings.Repeat("c", 64)}, UID: 524288, GID: 524288}
 	image := "sha256:" + strings.Repeat("d", 64)
 	args, e := companionCreateArgs(run, image)
 	if e != nil {

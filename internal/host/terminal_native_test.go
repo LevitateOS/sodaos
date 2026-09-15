@@ -109,7 +109,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 		t.Fatal("native socket protection failed")
 	}
 	d := testDaemonPtr(Native{}, Config{})
-	d.Terminal = &hostterminal.Service{Exec: Native{}}
+	d.Terminal = &terminal.Service{Exec: Native{}}
 	server := &http.Server{Handler: d, ReadHeaderTimeout: 5 * time.Second}
 	go server.Serve(listener)
 	defer server.Close()

@@ -1,6 +1,6 @@
 // Package host is the privileged Unix client and thin Daemon facade: mux,
-// admission and wiring of hostproject/hostterminal/hosttailnet. It is not the
-// SQLite owner, browser OAuth surface or build/release controller.
+// admission and wiring of host/project, host/terminal and host/tailnet. It is
+// not the SQLite owner, browser OAuth surface or build/release controller.
 package host
 
 import (
@@ -20,8 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/host/project"
-	"github.com/levitateos/sodaos/internal/host/tailnet"
+	projectexec "github.com/levitateos/sodaos/internal/host/project"
+	tailnetexec "github.com/levitateos/sodaos/internal/host/tailnet"
 	"github.com/levitateos/sodaos/internal/host/terminal"
 	"github.com/levitateos/sodaos/internal/platform"
 	"github.com/levitateos/sodaos/internal/project"
@@ -57,13 +57,13 @@ func applyReleaseImages(c *Config, releasePath string) error {
 	}
 	// Never silently replace an operator's saved image choice. New installs
 	// omit these fields; a conflicting old install needs explicit migration.
-	project, companion := p.Images["project-os"].Config, p.Images["tailnet"].Config
-	if (c.Image != "" && c.Image != project) || (c.TailnetImage != "" && c.TailnetImage != companion) {
+	projectImage, companionImage := p.Images["project-os"].Config, p.Images["tailnet"].Config
+	if (c.Image != "" && c.Image != projectImage) || (c.TailnetImage != "" && c.TailnetImage != companionImage) {
 		return errors.New("saved image selection conflicts with appliance release; explicit migration required")
 	}
-	c.Image = project
+	c.Image = projectImage
 	if c.TailnetManagement {
-		c.TailnetImage = companion
+		c.TailnetImage = companionImage
 	}
 	return nil
 }
@@ -133,9 +133,9 @@ func (Native) Run(ctx context.Context, in []byte, command string, args ...string
 
 type Daemon struct {
 	Tailnet       *tailnet.Control
-	Companion     *hosttailnet.Companion
-	Terminal      *hostterminal.Service
-	Project       *hostproject.Runtime
+	Companion     *tailnetexec.Companion
+	Terminal      *terminal.Service
+	Project       *projectexec.Runtime
 	Runners       *runners.Operations
 	Config        Config
 	Exec          Executor
@@ -153,7 +153,7 @@ func NewDaemon(c Config) *Daemon {
 		Config:   c,
 		Exec:     native,
 		Project:  NewProject(native, c),
-		Terminal: &hostterminal.Service{Exec: native},
+		Terminal: &terminal.Service{Exec: native},
 		Runners:  &runners.Operations{Local: runnerNative, Lifecycle: runnerNative},
 	}
 	if !c.TailnetManagement {
@@ -164,7 +164,7 @@ func NewDaemon(c Config) *Daemon {
 	} else {
 		d.Tailnet = tailnet.NewControl()
 	}
-	d.Companion = &hosttailnet.Companion{Exec: native, Tailnet: d.Tailnet, Image: c.TailnetImage}
+	d.Companion = &tailnetexec.Companion{Exec: native, Tailnet: d.Tailnet, Image: c.TailnetImage}
 	return d
 }
 
@@ -177,7 +177,7 @@ func NewCompanionDaemon(c Config) *Daemon {
 		Exec:    native,
 		Project: NewProject(native, c),
 		Tailnet: control,
-		Companion: &hosttailnet.Companion{
+		Companion: &tailnetexec.Companion{
 			Exec:    native,
 			Tailnet: control,
 			Image:   c.TailnetImage,

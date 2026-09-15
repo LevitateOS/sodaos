@@ -1,4 +1,4 @@
-package hosttailnet
+package tailnet
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/tailnet"
+	domain "github.com/levitateos/sodaos/internal/tailnet"
 )
 
 func TestCompanionResolverUsesActualInodeRatherThanGeneratedMetadata(t *testing.T) {
@@ -107,11 +107,11 @@ func TestPreparationStagesPreserveTypedCauses(t *testing.T) {
 		stage string
 		cause error
 	}{
-		{"project runtime not ready", tailnet.ErrUnavailable},
-		{"Tailnet policy unconfirmed", tailnet.ErrConflict},
-		{"companion startup unconfirmed", tailnet.ErrUnconfirmed},
-		{"companion status unavailable", tailnet.ErrUnavailable},
-		{"enrollment unconfirmed", tailnet.ErrUnconfirmed},
+		{"project runtime not ready", domain.ErrUnavailable},
+		{"Tailnet policy unconfirmed", domain.ErrConflict},
+		{"companion startup unconfirmed", domain.ErrUnconfirmed},
+		{"companion status unavailable", domain.ErrUnavailable},
+		{"enrollment unconfirmed", domain.ErrUnconfirmed},
 	} {
 		if e := preparationError(tc.stage, tc.cause); !errors.Is(e, tc.cause) || !strings.Contains(e.Error(), tc.stage) {
 			t.Fatal("stage lost its cause", tc.stage, e)

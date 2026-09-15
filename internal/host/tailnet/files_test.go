@@ -1,4 +1,4 @@
-package hosttailnet
+package tailnet
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/tailnet"
+	domain "github.com/levitateos/sodaos/internal/tailnet"
 )
 
 func runtimeTestRoot(t *testing.T) string {
@@ -21,7 +21,7 @@ func runtimeTestRoot(t *testing.T) string {
 	return path
 }
 func fileRun() projectRun {
-	return projectRun{Target: tailnet.RunTarget{Project: "p" + strings.Repeat("a", 24), Container: strings.Repeat("b", 64), Run: strings.Repeat("c", 64)}, UID: uint32(os.Geteuid()), GID: uint32(os.Getegid()), PID: 77}
+	return projectRun{Target: domain.RunTarget{Project: "p" + strings.Repeat("a", 24), Container: strings.Repeat("b", 64), Run: strings.Repeat("c", 64)}, UID: uint32(os.Geteuid()), GID: uint32(os.Getegid()), PID: 77}
 }
 func TestTailnetRunFilesExclusiveSecretRetirementAndIndependentLocks(t *testing.T) {
 	base := runtimeTestRoot(t)
@@ -53,7 +53,7 @@ func TestTailnetRunFilesExclusiveSecretRetirementAndIndependentLocks(t *testing.
 		t.Fatal(e)
 	}
 	defer root.Close()
-	if _, e = f.prepare(run, true); !errors.Is(e, tailnet.ErrConflict) {
+	if _, e = f.prepare(run, true); !errors.Is(e, domain.ErrConflict) {
 		t.Fatal("run root recreated", e)
 	}
 	if e = f.saveCurrent(run); e != nil {
@@ -67,7 +67,7 @@ func TestTailnetRunFilesExclusiveSecretRetirementAndIndependentLocks(t *testing.
 	if e = writeCompanionID(root, cid); e != nil {
 		t.Fatal(e)
 	}
-	if e = writeCompanionID(root, strings.Repeat("f", 64)); !errors.Is(e, tailnet.ErrConflict) {
+	if e = writeCompanionID(root, strings.Repeat("f", 64)); !errors.Is(e, domain.ErrConflict) {
 		t.Fatal("companion identity replaced", e)
 	}
 	if observed, e := readCompanionID(base, run, uint32(os.Geteuid()), uint32(os.Getegid())); e != nil || observed != cid {
@@ -82,7 +82,7 @@ func TestTailnetRunFilesExclusiveSecretRetirementAndIndependentLocks(t *testing.
 	if e != nil || !runtimeFile(info, run.UID, run.GID, 0600) {
 		t.Fatal("unsafe key metadata", e)
 	}
-	if _, e = writeRunKey(root, run, "tskey-auth-synthetic-another"); !errors.Is(e, tailnet.ErrConflict) {
+	if _, e = writeRunKey(root, run, "tskey-auth-synthetic-another"); !errors.Is(e, domain.ErrConflict) {
 		t.Fatal("key replaced", e)
 	}
 	if e = retireRunKey(root, key); e != nil {
@@ -179,7 +179,7 @@ func TestTailnetRunFilesRefuseSymlinksModesAndChangedKeyInode(t *testing.T) {
 	if root.Rename("input/key", "input/retained") != nil || root.WriteFile("input/key", []byte("later write"), 0600) != nil {
 		t.Fatal("fixture")
 	}
-	if e = retireRunKey(root, key); !errors.Is(e, tailnet.ErrUnconfirmed) {
+	if e = retireRunKey(root, key); !errors.Is(e, domain.ErrUnconfirmed) {
 		t.Fatal("replaced input retired", e)
 	}
 	b, e := root.ReadFile("input/key")
@@ -218,7 +218,7 @@ func TestTailnetResolverRequiresOriginalInodeAndNoConflictingManager(t *testing.
 	}
 	contents = "nameserver 192.0.2.1\n"
 	devices = "tailscale0: 0 0\n"
-	if e = validateRunResolver(run, read, stat, true); !errors.Is(e, tailnet.ErrConflict) {
+	if e = validateRunResolver(run, read, stat, true); !errors.Is(e, domain.ErrConflict) {
 		t.Fatal("foreign TUN accepted", e)
 	}
 	if e = validateRunResolver(run, read, stat, false); e != nil {

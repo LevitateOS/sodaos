@@ -1,4 +1,4 @@
-package hosttailnet
+package tailnet
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"syscall"
 
 	"github.com/levitateos/sodaos/internal/filelock"
-	"github.com/levitateos/sodaos/internal/tailnet"
+	domain "github.com/levitateos/sodaos/internal/tailnet"
 )
 
 // Every ancestor is appliance-owned; shifted root can access only the two
@@ -35,16 +35,16 @@ func openRuntimeProject(ctx context.Context, base, project string) (*runFiles, e
 func openRuntimeRoot(base string, uid uint32) (*os.Root, error) {
 	info, e := os.Lstat(base)
 	if e != nil || !rootDirectory(info, uid) {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	root, e := os.OpenRoot(base)
 	if e != nil {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	opened, e := root.Stat(".")
 	if e != nil || !os.SameFile(info, opened) {
 		root.Close()
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	return root, nil
 }
@@ -53,14 +53,14 @@ func openRuntimeRoot(base string, uid uint32) (*os.Root, error) {
 func ensureRuntimeProjectDir(parent *os.Root, project string, uid uint32) error {
 	info, e := parent.Stat(".")
 	if e != nil || !rootDirectory(info, uid) {
-		return tailnet.ErrUnavailable
+		return domain.ErrUnavailable
 	}
 	if e = parent.Mkdir(project, 0o700); e != nil && !errors.Is(e, os.ErrExist) {
-		return tailnet.ErrUnavailable
+		return domain.ErrUnavailable
 	}
 	info, e = parent.Lstat(project)
 	if e != nil || !rootDirectory(info, uid) {
-		return tailnet.ErrUnavailable
+		return domain.ErrUnavailable
 	}
 	return nil
 }
@@ -68,12 +68,12 @@ func ensureRuntimeProjectDir(parent *os.Root, project string, uid uint32) error 
 func lockRuntimeProject(ctx context.Context, root *os.Root, uid, gid uint32) (*os.File, error) {
 	lock, e := root.OpenFile("lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	info, e := lock.Stat()
 	if e != nil || !runtimeFile(info, uid, gid, 0o600) {
 		lock.Close()
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	if e = filelock.Acquire(ctx, lock, syscall.LOCK_EX); e != nil {
 		lock.Close()
@@ -84,11 +84,11 @@ func lockRuntimeProject(ctx context.Context, root *os.Root, uid, gid uint32) (*o
 
 func openRuntimeProjectOwned(ctx context.Context, base, project string, uid, gid uint32) (*runFiles, error) {
 	if !projectID.MatchString(project) {
-		return nil, tailnet.ErrInvalid
+		return nil, domain.ErrInvalid
 	}
 	parent, e := openRuntimeRoot(base, uid)
 	if e != nil {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	defer parent.Close()
 	if e = ensureRuntimeProjectDir(parent, project, uid); e != nil {
@@ -96,7 +96,7 @@ func openRuntimeProjectOwned(ctx context.Context, base, project string, uid, gid
 	}
 	root, e := parent.OpenRoot(project)
 	if e != nil {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	lock, e := lockRuntimeProject(ctx, root, uid, gid)
 	if e != nil {
@@ -123,15 +123,15 @@ func prepareRunSubdir(root *os.Root, path string, run projectRun, fresh bool) er
 			e = root.Chown(path, int(run.UID), int(run.GID))
 		}
 		if e != nil {
-			return tailnet.ErrUnavailable
+			return domain.ErrUnavailable
 		}
 	}
 	info, e := root.Lstat(path)
 	if e != nil {
-		return tailnet.ErrUnavailable
+		return domain.ErrUnavailable
 	}
 	if !ownedRunDir(info, run.UID, run.GID) {
-		return tailnet.ErrUnavailable
+		return domain.ErrUnavailable
 	}
 	return nil
 }
@@ -139,11 +139,11 @@ func prepareRunSubdir(root *os.Root, path string, run projectRun, fresh bool) er
 func (f *runFiles) openPreparedRoot(name string) (*os.Root, error) {
 	info, e := f.root.Lstat(name)
 	if e != nil || !rootDirectory(info, f.uid) {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	root, e := f.root.OpenRoot(name)
 	if e != nil {
-		return nil, tailnet.ErrUnavailable
+		return nil, domain.ErrUnavailable
 	}
 	return root, nil
 }
@@ -151,12 +151,12 @@ func (f *runFiles) openPreparedRoot(name string) (*os.Root, error) {
 func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 	name := run.Target.Run
 	if !containerID.MatchString(name) || run.UID == 0 || run.GID == 0 {
-		return nil, tailnet.ErrInvalid
+		return nil, domain.ErrInvalid
 	}
 	if fresh {
 		// A pre-existing directory is an incomplete attempt, never an empty workspace.
 		if e := f.root.Mkdir(name, 0o700); e != nil {
-			return nil, tailnet.ErrConflict
+			return nil, domain.ErrConflict
 		}
 	}
 	root, e := f.openPreparedRoot(name)
@@ -176,13 +176,13 @@ func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 // filesystem. Removal is allowed only after native exec completion is observed.
 func writeRunKey(root *os.Root, run projectRun, key string) (*os.File, error) {
 	if !strings.HasPrefix(key, "tskey-auth-") || len(key) > 1024 || strings.ContainsAny(key, "\r\n\x00") { // slop-audit-allow: production shape check for real Tailscale-shaped auth keys
-		return nil, tailnet.ErrInvalid
+		return nil, domain.ErrInvalid
 	}
 	file, e := root.OpenFile("input/key", os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
-		return nil, tailnet.ErrConflict
+		return nil, domain.ErrConflict
 	}
-	fail := func() (*os.File, error) { file.Close(); return nil, tailnet.ErrUnconfirmed }
+	fail := func() (*os.File, error) { file.Close(); return nil, domain.ErrUnconfirmed }
 	if e = file.Chown(int(run.UID), int(run.GID)); e != nil {
 		return fail()
 	}
@@ -199,10 +199,10 @@ func retireRunKey(root *os.Root, file *os.File) error {
 	before, e := file.Stat()
 	after, other := root.Lstat("input/key")
 	if e != nil || other != nil || !os.SameFile(before, after) {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	if file.Truncate(0) != nil || file.Sync() != nil || root.Remove("input/key") != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	return nil
 }
@@ -219,16 +219,16 @@ func openPendingRunKey(root *os.Root, run projectRun) (*os.File, error) {
 		return nil, nil
 	}
 	if e != nil || !pendingRunKeyMatches(before, run) {
-		return nil, tailnet.ErrUnconfirmed
+		return nil, domain.ErrUnconfirmed
 	}
 	file, e := root.OpenFile("input/key", os.O_WRONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if e != nil {
-		return nil, tailnet.ErrUnconfirmed
+		return nil, domain.ErrUnconfirmed
 	}
 	info, e := file.Stat()
 	if e != nil || !os.SameFile(before, info) || !pendingRunKeyMatches(info, run) {
 		file.Close()
-		return nil, tailnet.ErrUnconfirmed
+		return nil, domain.ErrUnconfirmed
 	}
 	return file, nil
 }
@@ -244,26 +244,26 @@ func retirePendingRunKey(root *os.Root, run projectRun) error {
 
 func writeCompanionID(root *os.Root, id string) error {
 	if !containerID.MatchString(id) {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	file, e := root.OpenFile("companion-id", os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	defer file.Close()
 	if _, e = file.WriteString(id); e != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	if file.Sync() != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	dir, e := root.Open(".")
 	if e != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	defer dir.Close()
 	if dir.Sync() != nil {
-		return tailnet.ErrUnconfirmed
+		return domain.ErrUnconfirmed
 	}
 	return nil
 }
@@ -272,7 +272,7 @@ func companionAncestorsOwned(root *os.Root, run projectRun, uid uint32) error {
 	for _, path := range []string{".", run.Target.Project, filepath.Join(run.Target.Project, run.Target.Run)} {
 		info, e := root.Lstat(path)
 		if e != nil || !rootDirectory(info, uid) {
-			return tailnet.ErrUnavailable
+			return domain.ErrUnavailable
 		}
 	}
 	return nil
@@ -281,27 +281,27 @@ func companionAncestorsOwned(root *os.Root, run projectRun, uid uint32) error {
 func readCompanionIDFile(root *os.Root, path string, uid, gid uint32) (string, error) {
 	file, e := root.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
 	if e != nil {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	defer file.Close()
 	info, e := file.Stat()
 	if e != nil || !runtimeFile(info, uid, gid, 0o600) || info.Size() != 64 {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	b, e := io.ReadAll(io.LimitReader(file, 65))
 	if e != nil || !containerID.Match(b) {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	return string(b), nil
 }
 
 func readCompanionID(base string, run projectRun, uid, gid uint32) (string, error) {
 	if !projectID.MatchString(run.Target.Project) || !containerID.MatchString(run.Target.Run) {
-		return "", tailnet.ErrInvalid
+		return "", domain.ErrInvalid
 	}
 	root, e := openRuntimeRoot(base, uid)
 	if e != nil {
-		return "", tailnet.ErrUnavailable
+		return "", domain.ErrUnavailable
 	}
 	defer root.Close()
 	if e = companionAncestorsOwned(root, run, uid); e != nil {
@@ -324,11 +324,11 @@ func freshTailscaleConflict(devices string) bool {
 
 func validateResolverText(data []byte, fresh bool) error {
 	if len(data) > 16384 || len(data) == 0 {
-		return tailnet.ErrUnsupported
+		return domain.ErrUnsupported
 	}
 	text := strings.ToLower(string(data))
 	if strings.Contains(text, "systemd-resolved") || strings.Contains(text, "resolvconf") || (fresh && strings.Contains(text, "tailscale")) {
-		return tailnet.ErrUnsupported
+		return domain.ErrUnsupported
 	}
 	return nil
 }
@@ -336,15 +336,15 @@ func validateResolverText(data []byte, fresh bool) error {
 func validateResolverInode(run projectRun, stat func(string) (os.FileInfo, error)) error {
 	expected := filepath.Join("/var/lib/containers/storage/overlay-containers", run.Target.Container, "userdata/resolv.conf")
 	if run.Resolver != expected {
-		return tailnet.ErrUnsupported
+		return domain.ErrUnsupported
 	}
 	info, e := stat(expected)
 	if e != nil || !info.Mode().IsRegular() || info.Size() > 16384 {
-		return tailnet.ErrUnsupported
+		return domain.ErrUnsupported
 	}
 	actual, e := stat("/proc/" + strconv.Itoa(run.PID) + "/root/etc/resolv.conf")
 	if e != nil || !os.SameFile(info, actual) {
-		return tailnet.ErrUnsupported
+		return domain.ErrUnsupported
 	}
 	return nil
 }
@@ -356,17 +356,17 @@ func validateRunResolver(run projectRun, read func(string) ([]byte, error), stat
 	expected := filepath.Join("/var/lib/containers/storage/overlay-containers", run.Target.Container, "userdata/resolv.conf")
 	data, e := read(expected)
 	if e != nil {
-		return tailnet.ErrUnsupported
+		return domain.ErrUnsupported
 	}
 	if e = validateResolverText(data, fresh); e != nil {
 		return e
 	}
 	devices, e := read("/proc/" + strconv.Itoa(run.PID) + "/net/dev")
 	if e != nil || len(devices) > 65536 {
-		return tailnet.ErrUnavailable
+		return domain.ErrUnavailable
 	}
 	if fresh && freshTailscaleConflict(string(devices)) {
-		return tailnet.ErrConflict
+		return domain.ErrConflict
 	}
 	return nil
 }
