@@ -56,19 +56,32 @@ def main():
     if head != x['Revision'] or dirty:
         raise ValueError('checkout revision/content changed; use a fresh run')
     phase = x['Phase']
-    prerequisite = {'check': 'build.completed', 'bundle': 'check.completed'}.get(phase)
+    prerequisite = {'bundle': 'check.completed'}.get(phase)
     if prerequisite and not (work / prerequisite).is_file():
         raise ValueError('required earlier phase did not complete')
     with (work / (phase + '.started')).open('x') as f:
         json.dump(receipt, f)
     if phase == 'build':
-        command = ['bash', 'scripts/build-native.sh', x['Architecture']]
+        candidate = work / 'candidate'
+        if not candidate.is_dir() or not (candidate / 'payload.json').is_file() or not (candidate / 'candidate.json').is_file():
+            raise ValueError('build admits an existing soda-build candidate at work/candidate; legacy build-native is retired')
+        command = None
     elif phase == 'check':
-        command = ['bash', 'scripts/check-native.sh', x['Architecture']]
+        candidate = work / 'candidate'
+        if not (work / 'build.completed').is_file():
+            raise ValueError('required earlier phase did not complete')
+        if not candidate.is_dir():
+            raise ValueError('check requires work/candidate pointing at soda-build artifacts')
+        command = ['bash', 'scripts/check-native.sh', x['Architecture'], str(candidate)]
     elif phase == 'bundle':
         (work / 'bundle').mkdir(mode=0o700)
-        stage = checkout / '.artifacts' / 'native' / x['Architecture']
-        command = [str(stage / 'tools' / 'soda-artifacts'), 'bundle', '--source', str(stage), '--out', str(work / 'bundle' / x['Architecture']), '--arch', x['Architecture'], '--revision', x['Revision']]
+        candidate = work / 'candidate'
+        if not candidate.is_dir():
+            raise ValueError('bundle requires work/candidate soda-build artifacts')
+        tool = candidate / 'tools' / 'soda-artifacts'
+        if not tool.is_file():
+            raise ValueError('candidate tools/soda-artifacts required for bundle export')
+        command = [str(tool), 'bundle', '--source', str(candidate), '--out', str(work / 'bundle' / x['Architecture']), '--arch', x['Architecture'], '--revision', x['Revision']]
     else:
         command = None
     if command:

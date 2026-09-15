@@ -189,8 +189,8 @@ func BuildExitCode(err error) int {
 }
 
 // BuildExecution owns only local command IO/environment; it is not a job runner.
-// The entrypoint's existing build_progress.py supervisor owns process-group
-// cancellation. No command arguments are copied into timing records.
+// soda-build owns process-group cancellation. No command arguments are copied
+// into timing records.
 type BuildExecution struct {
 	Context context.Context
 	Log     io.Writer

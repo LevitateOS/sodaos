@@ -30,7 +30,8 @@ helper, flag, commit or report grants execution permission.
 
 | Interface | Owner / implementation boundary |
 | --- | --- |
-| `build-native.sh ARCH`, `check-native.sh ARCH`, `stage.py --arch ARCH` | Current retiring producer/check contracts, not the target release interface. B2 replaces production and B6 rewires callers; preserve existing verification and maintenance readers. |
+| `build-native.sh` / `build-iso.sh` / `soda-host-image` | **Removed at B6.** Use `tools/soda-build`. |
+| `check-native.sh ARCH CANDIDATE_DIR` | Verifies a soda-build candidate artifacts directory; does not build. Optional `SODA_STAGE` still runs retained packaging readers. |
 | Containerfile `BASE_IMAGE` argument | The build pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
 | `install-native.sh /absolute/bundle/ARCH PRIVATE_SUBNET` | Existing first-install interface. Support adds verified archives, preflight before delivery, existing core tag restoration and a retained partial-install marker. No setup/OAuth/migration implementation is copied. |
 | `render-provisioning.py` | Public `appliance/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
@@ -50,7 +51,7 @@ local work does not need a new grant per command.
 - `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Its selected check determines browser, native and provider effects.
 - `native`: one remote `prepare`, `build`, `check` or `bundle` phase. No automatic next phase. Preparation clones the canonical repository into a new private checkout; it never copies laptop binaries/dependencies/state.
 - `fetch-coreos`: downloads/verifies/decompresses a public QEMU base into a fresh private cache. No overwrite, key import, VM or installation.
-- `fetch-coreos-iso`: downloads/verifies the uncompressed upstream ISO selected by `appliance/locks/coreos-iso.json`, using the same trusted-key/signature boundary, into new `coreos.iso` and `verified-iso.json` outputs. It does not customize, boot, publish or install; `scripts/build-installer.py` is its concrete media caller.
+- `fetch-coreos-iso`: downloads/verifies the uncompressed upstream ISO selected by `appliance/locks/coreos-iso.json`, using the same trusted-key/signature boundary, into new `coreos.iso` and `verified-iso.json` outputs. It does not customize, boot, publish or install; soda-build media assembly is the concrete media caller.
 - `convert-butane`: runs strict native Butane conversion into a new restricted file. No boot or install.
 - `vm`: creates a new KVM overlay/NVRAM/process, boots to pinned SSH, then shuts down. `--restart` explicitly tests one restart of those same files. `--hold` keeps it available for separately authorized checks. The selected Ignition may install extensions: that requires installation permission as well as boot permission.
 - `transfer`: validates/streams only a sealed bundle into a new remote directory, checks the transferred verifier before executing it, and verifies the payload. It does **not** install.
@@ -61,21 +62,22 @@ The existing build now pulls the unchanged selected Forgejo/Caddy references for
 
 ## Build and artifact contract
 
-**Existing writable-bundle interface, retiring at B6.** These are operational
-references, not an implementation phase to complete before the single-run command.
+**Writable-bundle producers were removed at B6.** New production uses `soda-build` only.
+Retained `.artifacts/native/` trees may still be read by maintenance tools.
 
 Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, occupied output or simultaneous build is refused; there is no automatic removal of earlier artifacts. `GOTOOLCHAIN=local` prevents implicit toolchain installation.
 
 ```sh
-bash scripts/build-native.sh x86_64
-bash scripts/check-native.sh x86_64
-.artifacts/native/x86_64/tools/soda-artifacts bundle \
-  --source "$PWD/.artifacts/native/x86_64" \
+# After soda-build writes candidate artifacts:
+bash scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts
+# Optional export when the candidate (or a retained sealed stage) includes soda-artifacts:
+/ABS/PATH/TO/artifacts/tools/soda-artifacts bundle \
+  --source /ABS/PATH/TO/artifacts \
   --arch x86_64 --revision FULL_COMMIT_SHA \
   --out /absolute/new-export/x86_64
 ```
 
-The export's parent must already exist; the `ARCH` directory must not. A bundle contains `rootfs/`, five actual OCI archives (including the locked Tailnet companion), the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory. The payload contains native Forgejo templates/Lit assets and Soda's API/OAuth backend, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions.
+The export's parent must already exist; the `ARCH` directory must not. A legacy bundle contains `rootfs/`, five actual OCI archives (including the locked Tailnet companion), the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. soda-build candidates carry payload/candidate/OCI archives under `artifacts/` without a writable rootfs tree. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory when verifying a sealed legacy stage. The payload contains native Forgejo templates/Lit assets and Soda's API/OAuth backend, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions when `SODA_STAGE` points at a retained rootfs.
 
 `SHA256SUMS` identifies `build-info.json`, which identifies every delivered payload file. Establish that checksum through a trusted external channel **before executing any bundled program**, then verify the inventory. These are integrity records, not signatures or reproducible-build claims. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 
@@ -186,15 +188,13 @@ and signing inputs are not required for that target.
 
 **Current completion boundary:** explicit development targets exit **0** on success
 with `development-only; not release-qualified`. Failures/cancellation remain nonzero.
-The default production CLI exits **2** after verified candidate-derived media because
-B4/B5 qualification and final protected release evidence are not connected.
-It does not report a qualified release. Earlier failures stop immediately. These
-build/inspection effects do not authorize installation, publishing or migration.
+Production reaches P9 qualification and, with `--signing-config`, P10 signed final
+metadata; omitting signing still exits **2**. Channel/GHCR publication remains
+grant-scoped. Earlier failures stop immediately. These build/inspection effects do
+not authorize installation, publishing or migration.
 Only x86_64 currently has the locked host package transaction; no ARM lock is invented.
 
-The old tool now accepts **only `--legacy-native`** for the retiring writable installer.
-It cannot produce a competing host candidate. The old shell/media producer is retained
-until B3/B4 native proof permits B6 retirement; it is not a replacement release mode.
+The legacy `soda-host-image --legacy-native` / `build-native.sh` lane was removed at B6.
 The [superseded experimental recipes](https://github.com/LevitateOS/sodaos/blob/3fe7f18/docs/native-support.md#local-host-content-image-candidate)
 remain historical evidence, not current commands or authority to mutate retained
 images. Source history remains available; old experiments do not require current readers.

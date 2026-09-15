@@ -48,15 +48,24 @@ class RemoteExecutorTests(unittest.TestCase):
         self.invoke('prepare')
         self.assertEqual(len(self.calls), 2)
         self.assertFalse((self.work / 'build.started').exists())
+        (self.work / 'candidate').mkdir()
+        (self.work / 'candidate' / 'payload.json').write_text('{}')
+        (self.work / 'candidate' / 'candidate.json').write_text('{}')
+        (self.work / 'candidate' / 'tools').mkdir()
+        (self.work / 'candidate' / 'tools' / 'soda-artifacts').write_text('#!/bin/true\n')
+        (self.work / 'candidate' / 'tools' / 'soda-artifacts').chmod(0o755)
+        before = len(self.calls)
         self.invoke('build')
-        self.assertEqual(self.calls[-1], ['bash', 'scripts/build-native.sh', 'x86_64'])
+        self.assertEqual(len(self.calls), before, 'build admits candidate bytes; it does not run a producer')
         self.assertFalse((self.work / 'check.started').exists())
         self.invoke('check')
-        self.assertEqual(self.calls[-1], ['bash', 'scripts/check-native.sh', 'x86_64'])
+        self.assertEqual(self.calls[-1][:3], ['bash', 'scripts/check-native.sh', 'x86_64'])
+        self.assertTrue(str(self.calls[-1][3]).endswith('/candidate'))
         self.invoke('bundle')
         self.assertIn('--revision', self.calls[-1])
         self.assertTrue((self.work / 'bundle.completed').is_file())
         self.assertFalse(any('install-native.sh' in part for call in self.calls for part in call))
+        self.assertFalse(any('build-native.sh' in part for call in self.calls for part in call))
 
     def test_unknown_phase_target_arch_and_revision_fail_before_creation(self):
         for phase, changes in [('install', {}), ('prepare', {'Target': 'other'}), ('prepare', {'Architecture': 'aarch64'}), ('prepare', {'Revision': 'main'})]:
@@ -72,6 +81,9 @@ class RemoteExecutorTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             self.invoke('prepare')
         self.assertEqual(len(self.calls), before)
+        (self.work / 'candidate').mkdir()
+        (self.work / 'candidate' / 'payload.json').write_text('{}')
+        (self.work / 'candidate' / 'candidate.json').write_text('{}')
         self.invoke('build')
         before = len(self.calls)
         with self.assertRaises(FileExistsError):
@@ -91,12 +103,9 @@ class RemoteExecutorTests(unittest.TestCase):
         self.assertEqual(len(self.calls), before)
         self.assertFalse((self.work / 'build.started').exists())
 
-    def test_failed_build_retains_started_without_completion(self):
+    def test_build_without_candidate_retains_started_without_completion(self):
         self.invoke('prepare')
-        def fail(command, **kwargs):
-            raise subprocess.CalledProcessError(23, command)
-        self.run_command = fail
-        with self.assertRaises(subprocess.CalledProcessError):
+        with self.assertRaises(ValueError):
             self.invoke('build')
         self.assertTrue((self.work / 'build.started').is_file())
         self.assertFalse((self.work / 'build.completed').exists())

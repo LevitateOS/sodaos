@@ -1,8 +1,7 @@
 # Implementation status — single-run replacement
 
-**Active priority: B5 in progress after completed B4.** Protected native qualification
-passed; final protected signing is being connected through `--signing-config` and
-`internal/nativefinalization`.
+**Active priority: B6 source cutover after B5 local signing evidence.** Competing
+legacy producers are removed; soda-build is the single production lane.
 on production-09. F1–F3 remain separate development work. The original B1–B6
 milestones below are retained. The
 [release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
@@ -204,33 +203,28 @@ synthesizes a different commit.
 
 ### 5. Integrate protected signing and delivery — B5
 
-**In progress.** Release documents now embed exact `media.json` bytes (ISO/rootfs
-hash/size/location). `soda-release prepare` requires `--media`. After P9,
-`soda-build --signing-config` runs Prepare+Sign (P10) and optional channel-last
-Publish when auth/ledger/channel/channel-signer are admitted together. Without
-`--signing-config`, production still exits 2. Local fixture evidence
-`.artifacts/b5-finalization/local-signed-02/final.json` signed a media-bound
-release from retained candidate bytes with synthetic keys; fixture keys stay
-isolated from production custody. Public GHCR commissioning is not claimed.
+**Complete for local mechanism scope.** Release documents embed exact `media.json`
+bytes. `soda-build --signing-config` connects P10 (and optional channel-last P11).
+Local fixture evidence `.artifacts/b5-finalization/local-signed-02/final.json`
+signed a media-bound release from retained candidate bytes with synthetic keys.
+Production custody / GHCR commissioning remain separately granted.
 
 ### 6. Retire old lanes and prove the replacement — B6
 
-**Not started.** Delete competing producers and obsolete adapters, rewire callers,
-and demonstrate a complete native qualified-but-unpublished run with intact
-verification and smaller production orchestration. Remove obsolete code when its
-actual caller is replaced; do not invent compatibility to keep experiments usable.
+**Source cutover complete.** Removed competing producers (`build-native.sh`,
+`build-iso.sh`, `build-progress.sh`, `build_progress.py`, `build-installer.py`,
+`tools/soda-host-image`). Rewired `check-native.sh ARCH CANDIDATE_DIR`, remote
+executor build/check/bundle, AGENTS and support docs to soda-build candidates.
+Receipt: `.artifacts/b6-retirement/source-cutover-01.json`. Qualified-but-unpublished
+evidence remains composed from B4 production-09 + B5 local-signed-02 under B5 local
+scope; a single fresh production command with admitted `--signing-config` is still
+the stronger end-to-end receipt when granted. Operational commissioning follows.
 
 ## Immediate prerequisites and next action
 
-B5 wiring is in source: media-bound release metadata, protected finalization package,
-and soda-build P10 hook. Local fixture evidence
-`.artifacts/b5-finalization/local-signed-02/final.json` shows Prepare+Sign of a
-media-bound release document against retained `b3-media-33ea3f5` candidate bytes
-with synthetic keys (~5.5s); wrong-digest signing refused. That is mechanism
-evidence, not production custody or a protected P9→P10 production receipt. Next:
-admit a real `--signing-config` path for a fresh production run (or retained P9
-custody) without GHCR/channel movement unless separately granted. Public hosting,
-ARM and minimum-hardware work remain separate.
+B6 source cutover is in tree. Next: optional production `--signing-config` run for
+a single-command qualified-unpublished receipt, then operational commissioning.
+Public hosting, ARM and minimum-hardware work remain separate.
 
 The public rootfs base URL is an explicit media input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
@@ -240,12 +234,11 @@ complete offline installer.
 
 ## Current permissions
 
-**Current task: B5 in progress.** No new broad grant is added by this status update.
-Local fixture signing/finalization against retained or fresh candidates is in scope
-for development evidence. Real `/var/lib/soda-release` custody changes, GHCR writes
-and public channel movement still require their exact grants. Historical B4 execution
-bounds below remain the record of what was authorized for the completed qualification
-work.
+**Current task: B6 source cutover.** No new broad grant is added by this status update.
+Retained native stages and B4/B5 artifacts are not deleted. Real signing custody,
+GHCR writes and public channel movement still require their exact grants. Historical
+B4 execution bounds below remain the record of what was authorized for the completed
+qualification work.
 
 Next development target: `workers/soda-qualifier/update-probe-01`, copied from the
 stopped attachment probe. The separately admitted `probe-native-update-01` helper

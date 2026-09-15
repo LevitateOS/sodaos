@@ -133,8 +133,8 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `bun run test:pages` | Native-page fixture checks; requires the authorized local Forgejo fixture. |
 | `bun test tests/forgejo/cockpit-branding.test.ts` | Independent stock-Cockpit branding source/component checks. |
 | `bun run check:source` | Broad Go, TypeScript, browser and Python source checks. |
-| `bash scripts/build-native.sh ARCH` | Resolve/build/stage native artifacts; does not install or publish. |
-| `bash scripts/check-native.sh ARCH` | Native checks against a prepared matching-architecture stage. |
+| `bash scripts/check-native.sh ARCH CANDIDATE_DIR` | Verify a soda-build candidate artifacts directory; does not build, install or publish. |
+| `bash scripts/build-native.sh ARCH` | Removed at B6; use `tools/soda-build`. |
 
 `ARCH` is `x86_64` or `aarch64`. Read the deployment/support guides before using
 install/activation, provisioning, VM tools or `tests/installed/`; they can change

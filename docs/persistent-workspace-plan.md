@@ -354,7 +354,7 @@ because it exists. The chosen CLI navigation journey does not finish the indepen
 | Synthetic renderer lifecycle | [terminal.test.ts](../tests/frontend/terminal.test.ts) and its terminal fixture use a fake renderer and transport. They prove lifecycle logic; they do not establish real-xterm identity, screen behavior or native continuity. |
 | Native Forgejo integration | [native-pages.test.ts](../tests/forgejo/native-pages.test.ts), [native-connection.test.ts](../tests/forgejo/native-connection.test.ts), [test-spaces-page.ts](../scripts/test-spaces-page.ts) and `TestNativeConnectionFixture`. Real native documents/login plus the fixture's declared synthetic operation boundary. |
 | Browser asset packaging | [lit-build.test.ts](../tests/forgejo/lit-build.test.ts), canonical payload/nativebuild checks and emitted module graph. Complete bytes/imports/cache identity, not installed behavior. |
-| Matching-native candidate | Existing `build-native.sh ARCH` / `check-native.sh ARCH` prerequisites and artifact verification. Native preparation is not installed acceptance. |
+| Matching-native candidate | Existing `soda-build` / `check-native.sh ARCH CANDIDATE_DIR` prerequisites and artifact verification. Native preparation is not installed acceptance. |
 | Installed journey | [sodaspaces-workspace-journey.ts](../tests/installed/sodaspaces-workspace-journey.ts), shared installed controls and [sodaspaces-cli.ts](../tests/installed/sodaspaces-cli.ts), extended only for the authorized journey. Exact target/candidate browser and native effects. |
 
 Prepare browser assets once and use the affected suites; commands, prerequisites and

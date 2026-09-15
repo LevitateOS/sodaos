@@ -2,12 +2,11 @@
 
 ## Priority and current state
 
-**Immediate priority is B5 after completed B4.** The replacement is the active
-release-engineering track. B4 protected native qualification is complete; B5
-connects protected final signing/delivery. The
-[fast-development side plan](fast-development-build-plan.md) is complete within its
+**Immediate priority is post-B6 operational commissioning when B6 exits.** The
+replacement source cutover removes competing producers; B1–B6 are the active track.
+The [fast-development side plan](fast-development-build-plan.md) is complete within its
 scoped development checks and does not substitute for production qualification.
-B1–B4 of the release replacement are done; B5–B6 remain. That side plan
+B1–B5 of the release replacement are done; B6 retires old lanes. That side plan
 neither qualifies development output nor creates a competing release recipe.
 Complete the six replacement milestones below before unattended scheduling,
 production-readiness commissioning or launch. The previous complete-candidate →
@@ -461,7 +460,9 @@ fixture keys/credentials stay isolated and cannot become production authority.
 
 ### Milestone 6 — retire old lanes and prove the replacement
 
-**B6; not started.** Finish source cutover before building operational automation.
+**B6; source cutover complete.** Competing shell/Python producers and
+`soda-host-image` are removed; callers use `soda-build` and
+`check-native.sh ARCH CANDIDATE_DIR`. Operational commissioning follows.
 
 1. After B3/B4 native exits pass, remove `build-native.sh`, `build-iso.sh`, old
    `tools/soda-host-image` orchestration, `--legacy-native`, host-content-only release

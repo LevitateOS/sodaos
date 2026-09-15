@@ -10,7 +10,23 @@ import sys
 import subprocess
 from pathlib import Path
 
-from build_progress import Progress, exit_code
+from pathlib import Path
+
+
+class Progress:
+    def next(self, label):
+        print('PROGRESS', label, file=sys.stderr)
+
+    def done(self):
+        return None
+
+    def end(self, code=None):
+        return code
+
+
+def exit_code(error):
+    return getattr(error, 'returncode', 1) or 1
+
 
 progress = Progress()
 

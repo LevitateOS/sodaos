@@ -154,7 +154,8 @@ class AvatarPackaging(unittest.TestCase):
                              (ROOT / 'tools/lit-check/package.json').read_bytes())
             self.assertFalse((stage / 'inputs/github-runner-source.toml').exists())
             self.assertFalse((ROOT / 'cmd/soda-avatars').exists())
-            self.assertNotIn('soda-avatars', (ROOT / 'scripts/build-native.sh').read_text())
+            self.assertFalse((ROOT / 'scripts/build-native.sh').exists())
+            self.assertNotIn('soda-avatars', (ROOT / 'tools/soda-build/main.go').read_text())
 
 
 @unittest.skipUnless(os.environ.get('SODA_CADDY_BINARY'), 'set SODA_CADDY_BINARY for real loopback routing checks')

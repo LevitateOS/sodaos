@@ -84,14 +84,12 @@ class OutsideContracts(unittest.TestCase):
         for name in ('soda-artifacts', 'soda-acceptance'):
             self.assertTrue((ROOT / 'tools' / name / 'main.go').is_file())
             self.assertFalse((ROOT / 'cmd' / name).exists())
-        build = (ROOT / 'scripts/build-native.sh').read_text()
+        self.assertTrue((ROOT / 'tools' / 'soda-build' / 'main.go').is_file())
+        self.assertFalse((ROOT / 'scripts/build-native.sh').exists())
+        self.assertFalse((ROOT / 'tools/soda-host-image').exists())
         producer = (ROOT / 'internal/nativebuild/production.go').read_text()
-        self.assertIn('--legacy-native', build)
         self.assertIn('"save", "--format=oci-archive"', producer)
         self.assertIn('--iidfile', producer)
-        self.assertIn('flock -n', build)
-        self.assertNotIn('podman build', build)
-        self.assertNotIn('podman push', build)
         self.assertNotIn('"push"', producer)
 
     def test_installer_verifies_before_copy_and_retains_first_install_guard(self):

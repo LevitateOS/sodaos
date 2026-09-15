@@ -138,7 +138,7 @@ affected journey before claiming readiness. Do not treat a package list as runti
 
 ## Native source and build evidence
 
-Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, build with `scripts/build-native.sh x86_64`, then explicitly run `scripts/check-native.sh x86_64`. The latter runs the authored Go, TypeScript/UI and native staging checks; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.
+Follow [installation](installation.md) on the matching native x86_64 builder. Resolve/review the real Go dependency metadata, produce a candidate with admitted `soda-build`, then explicitly run `scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts`. The latter runs authored source checks against that candidate; it does not enroll, install or restart services. Dependency/compiler/test failures belong in their source, not suppressed flags.
 
 Record actual source revision, native OS/architecture/tool versions, commands, output and defects in an ordinary operator log or issue. Do not manufacture PASS lines or an acceptance schema. No CI workflow runs automatically.
 

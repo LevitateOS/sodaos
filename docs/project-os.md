@@ -173,7 +173,7 @@ image/edition used during packaging rather than representing a generic Fedora OC
 image as an installed upstream Server edition.
 
 The current build/install path also has one project-image slot:
-[`scripts/build-native.sh`](../scripts/build-native.sh) builds one `project-os`
+`tools/soda-build` builds one `project-os`
 artifact and requires its base reference to match the dashboard base;
 [`scripts/install-native.sh`](../scripts/install-native.sh) loads one
 `localhost/soda-project-os:dev` tag; and the host helper configuration contains one
@@ -639,7 +639,7 @@ Virtual kernel trees and runtime/socket/process state are not restorable workloa
 snapshots. See the handoff for the failed attempts, exact backups and observed scope;
 none permits automatic rollback over later writes or borrowing agent credentials.
 
-Keep `scripts/build-native.sh`, native build metadata, staging/verifier
+Keep `tools/soda-build`, native build metadata, staging/verifier
 and [installation](installation.md) as production owners. Do not use first-install
 or activation as upgrade tools. Project administrators own their ordinary native
 tool/service changes; required platform additions/security maintenance need deliberate

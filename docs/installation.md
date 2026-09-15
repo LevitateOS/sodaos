@@ -68,13 +68,16 @@ Use x86_64 first when access exists; repeat independently on aarch64 later. Inst
 
 Soda is a Go API/OAuth command with no embedded or external standalone UI. Both original Go/HTMX and React frontends are removed from source; the read-only Sodaspaces hook/drawer passed its isolated local browser journey, not an appliance install. The standalone React directory, lock, build and external asset payload are removed; all custom Cockpit frontend/workspace output is also retired; stock branding is staged independently. New bundles reject retired SPA payloads. Old installed bundles/evidence retain their original verifier and source revision. Dependency/build/deployment actions still require their applicable scope.
 
-Real Go dependency metadata was resolved during the first native x86_64 build and is now in `go.mod`/`go.sum`. For intentional dependency changes, run `go mod tidy` and review the resulting metadata. The root Bun lock records the remaining shared tools/Lit analysis workspace; unused custom Cockpit dependencies are removed. Then invoke:
+Real Go dependency metadata was resolved during the first native x86_64 build and is now in `go.mod`/`go.sum`. For intentional dependency changes, run `go mod tidy` and review the resulting metadata. The root Bun lock records the remaining shared tools/Lit analysis workspace; unused custom Cockpit dependencies are removed. Then invoke the admitted `soda-build` controller for a development candidate or
+production run as documented in [native support](native-support.md#local-host-content-image-candidate).
+The legacy `scripts/build-native.sh` / `soda-host-image --legacy-native` lane was
+removed at B6. Verify a produced candidate without rebuilding:
 
 ```sh
-scripts/build-native.sh x86_64
+bash scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts
 ```
 
-Use a clean exact-revision checkout with fresh `.artifacts/native/x86_64` output; another attempt requires a fresh checkout, not global artifact removal. The build serializes that checkout, forces matching-native Go/local Podman, builds application commands and separate support tools, builds the Go API/OAuth dashboard command in the same command loop, builds native Forgejo/Lit assets and stages stock Cockpit branding, fetches verified upstream Tea binaries, and builds the Rocky project/dashboard images once from those outputs. There is no standalone Soda frontend or custom Cockpit build. It resolves Forgejo/Caddy and the reviewed Tailscale companion lock for the selected platform, saves all five archives explicitly as OCI, records public native dependency/package/CLI metadata, stages the core configuration, inspects ELF/OCI identity and seals the payload. Read-only, network-disabled image-inspection containers are part of this build recipe, not project lifecycles. No publication, install, VM or product test follows automatically.
+Use a clean exact-revision checkout with a fresh soda-build output parent; another attempt requires a fresh output directory, not global artifact removal. soda-build freezes source, builds application/host archives once, and seals candidate/media identities. No publication, install, VM or product test follows automatically unless P9/P10 configs are admitted.
 
 The companion is built with `appliance/tailnet.Containerfile`: the immutable
 upstream `tailscale/alpine-base` plus official release archives pinned by SHA-256 in
@@ -83,7 +86,10 @@ helper invokes them directly, not `containerboot`. Build metadata refuses a CLI 
 daemon version differing from the lock. This preserves the selected release when
 upstream has published its binaries but not a matching container tag.
 
-Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist with the built `tools/soda-artifacts bundle` command as shown in [support recipes](native-support.md#build-and-artifact-contract); do not transfer the entire build tree.
+Run `scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts` separately against a
+soda-build candidate. Export with `tools/soda-artifacts bundle` when that tool is
+present in the candidate or a retained sealed stage, as shown in
+[support recipes](native-support.md#build-and-artifact-contract); do not transfer the entire build tree.
 
 ## Build timing and progress implementation plan
 
@@ -92,10 +98,9 @@ Run `scripts/check-native.sh x86_64` separately. Export the verified allowlist w
 [single-run replacement](release-engineering-plan.md#single-run-build-replacement-implementation).
 This section owns timing/reporting behavior to preserve from `2166333`, not its
 Python/shell implementation. The new Go controller owns the only run clock and
-process supervision. Existing invocation/output details below describe the retiring
-implementation until B6 cutover; they are not instructions to keep two assemblers.
-B6's full-run timing receipt is native and local through signed final metadata;
-public delivery and timer commissioning follow afterward, not as retirement gates.
+process supervision. Existing invocation/output details below describe the retired shell/Python
+implementation removed at B6; they are historical. The Go controller owns the only
+run clock and process supervision.
 Actual native x86_64 host-context preparation at `d054a60` also passed through the
 new shared compiler/timing bridge; see the [receipt](implementation-history.md#shared-build-production-and-timing-consolidation).
 It did not build application/host images or an ISO. Full native build/installation
