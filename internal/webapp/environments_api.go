@@ -1,16 +1,15 @@
-package web
+package webapp
 
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/hex"
 	"errors"
+	"github.com/levitateos/sodaos/internal/webauth"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
@@ -24,27 +23,27 @@ import (
 // restriction on Forgejo's own account names.
 var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
-func (s *Server) environmentRoutes() {
-	s.mux.HandleFunc("/api/repositories", s.apiProtected(s.apiRepositories, http.MethodGet))
-	s.mux.HandleFunc("/api/environments/{id}/os", s.apiProtected(s.apiEnvironmentOS, "GET"))
-	s.mux.HandleFunc("/api/repositories/{repositoryID}/profiles", s.apiProtected(s.apiProjectProfiles, "GET"))
-	s.mux.HandleFunc("/api/environments/{id}/lifecycle", s.apiProtected(s.apiLifecycle, "GET", "POST"))
-	s.mux.HandleFunc("/api/environments/{id}/access-keys", s.apiProtected(s.apiAccessKeys, "GET", "POST"))
+func (s *API) environmentRoutes() {
+	s.mux.HandleFunc("/api/repositories", s.Auth.Protected(s.apiRepositories, http.MethodGet))
+	s.mux.HandleFunc("/api/environments/{id}/os", s.Auth.Protected(s.apiEnvironmentOS, "GET"))
+	s.mux.HandleFunc("/api/repositories/{repositoryID}/profiles", s.Auth.Protected(s.apiProjectProfiles, "GET"))
+	s.mux.HandleFunc("/api/environments/{id}/lifecycle", s.Auth.Protected(s.apiLifecycle, "GET", "POST"))
+	s.mux.HandleFunc("/api/environments/{id}/access-keys", s.Auth.Protected(s.apiAccessKeys, "GET", "POST"))
 	s.mux.HandleFunc("/api/environments/{id}/terminal", s.apiTerminal)
-	s.mux.HandleFunc("/api/environments/{id}/terminal-session", s.apiProtected(func(w http.ResponseWriter, r *http.Request, _ store.Session) {
-		jsonError(w, 410, "terminal_client_obsolete", "Reload this page; terminal actions now require an exact ID.")
+	s.mux.HandleFunc("/api/environments/{id}/terminal-session", s.Auth.Protected(func(w http.ResponseWriter, r *http.Request, _ store.Session) {
+		webauth.JSONError(w, 410, "terminal_client_obsolete", "Reload this page; terminal actions now require an exact ID.")
 	}, http.MethodGet, http.MethodPost))
-	s.mux.HandleFunc("/api/environments/{id}/terminal-sessions/{terminalID}", s.apiProtected(s.apiTerminalSession, http.MethodGet, http.MethodPost))
-	s.mux.HandleFunc("/api/environments/{id}/terminal-sessions", s.apiProtected(s.apiReserveTerminal, http.MethodPost))
-	s.mux.HandleFunc("/api/spaces", s.apiProtected(s.apiSpaces, http.MethodGet))
-	s.mux.HandleFunc("/api/environments", s.apiProtected(s.apiEnvironments, "GET", "POST"))
-	s.mux.HandleFunc("/api/environments/{id}", s.apiProtected(s.apiEnvironment, "GET"))
-	s.mux.HandleFunc("/api/environments/{id}/join", s.apiProtected(s.apiJoinEnvironment, "POST"))
-	s.mux.HandleFunc("/api/environments/{id}/members", s.apiProtected(s.apiEnvironmentMembers, "GET"))
-	s.mux.HandleFunc("/api/environments/{id}/connection", s.apiProtected(s.apiConnection, "GET"))
+	s.mux.HandleFunc("/api/environments/{id}/terminal-sessions/{terminalID}", s.Auth.Protected(s.apiTerminalSession, http.MethodGet, http.MethodPost))
+	s.mux.HandleFunc("/api/environments/{id}/terminal-sessions", s.Auth.Protected(s.apiReserveTerminal, http.MethodPost))
+	s.mux.HandleFunc("/api/spaces", s.Auth.Protected(s.apiSpaces, http.MethodGet))
+	s.mux.HandleFunc("/api/environments", s.Auth.Protected(s.apiEnvironments, "GET", "POST"))
+	s.mux.HandleFunc("/api/environments/{id}", s.Auth.Protected(s.apiEnvironment, "GET"))
+	s.mux.HandleFunc("/api/environments/{id}/join", s.Auth.Protected(s.apiJoinEnvironment, "POST"))
+	s.mux.HandleFunc("/api/environments/{id}/members", s.Auth.Protected(s.apiEnvironmentMembers, "GET"))
+	s.mux.HandleFunc("/api/environments/{id}/connection", s.Auth.Protected(s.apiConnection, "GET"))
 }
 
-type environmentView struct {
+type EnvironmentView struct {
 	Profile      *projectos.Profile `json:"profile"`
 	ID           string             `json:"id"`
 	Name         string             `json:"name"`
@@ -61,47 +60,47 @@ type repositoryContextView struct {
 	Name    string `json:"name"`
 }
 
-func environmentDTO(p store.Project) environmentView {
-	return environmentView{p.Profile, p.ID, p.Name, strconv.FormatInt(p.RepositoryID, 10), p.Repository, strconv.FormatInt(p.OwnerID, 10), p.Ready}
+func EnvironmentDTO(p store.Project) EnvironmentView {
+	return EnvironmentView{p.Profile, p.ID, p.Name, strconv.FormatInt(p.RepositoryID, 10), p.Repository, strconv.FormatInt(p.OwnerID, 10), p.Ready}
 }
 
 func environmentListQuery(query url.Values, err error) (int64, bool) {
-	id, valid := positiveID(query.Get("repository_id"))
+	id, valid := webauth.PositiveID(query.Get("repository_id"))
 	return id, err == nil && len(query) == 1 && len(query["repository_id"]) == 1 && valid
 }
 
 func parseEnvironmentsListQuery(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	if len(r.URL.RawQuery) > 8192 {
-		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
+		webauth.JSONError(w, 400, "invalid_repository", "Provide one repository_id.")
 		return 0, false
 	}
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	id, ok := environmentListQuery(query, err)
 	if !ok {
-		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
+		webauth.JSONError(w, 400, "invalid_repository", "Provide one repository_id.")
 		return 0, false
 	}
 	return id, true
 }
 
-func listedEnvironments(p store.Project, absent bool) []environmentView {
-	items := []environmentView{}
+func listedEnvironments(p store.Project, absent bool) []EnvironmentView {
+	items := []EnvironmentView{}
 	if !absent {
-		items = append(items, environmentDTO(p))
+		items = append(items, EnvironmentDTO(p))
 	}
 	return items
 }
 
-func (s *Server) requireListedSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
-	cookie, cookieErr := requestCookie(r, sessionCookie)
-	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
-		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+func (s *API) requireListedSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
+	cookie, cookieErr := webauth.RequestCookie(r, webauth.SessionCookie)
+	if cookieErr != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		webauth.JSONError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
 		return false
 	}
 	return true
 }
 
-func (s *Server) apiEnvironments(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiEnvironments(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if r.Method == "POST" {
 		s.apiCreateEnvironment(w, r, v)
 		return
@@ -112,27 +111,28 @@ func (s *Server) apiEnvironments(w http.ResponseWriter, r *http.Request, v store
 	}
 	access, err := s.visibleRepository(r, v, id)
 	if err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 		return
 	}
 	p, err := s.Store.ProjectByRepository(r.Context(), id)
-	absent := errors.Is(err, sql.ErrNoRows)
+	absent := errors.Is(err, store.ErrNotFound)
 	if err != nil && !absent {
-		jsonError(w, 503, "store_unavailable", "Could not read environment.")
+		webauth.JSONError(w, 503, "store_unavailable", "Could not read environment.")
 		return
 	}
 	if !s.requireListedSession(w, r, v) {
 		return
 	}
-	jsonResponse(w, 200, struct {
-		Items      []environmentView     `json:"items"`
+	webauth.JSONResponse(w, 200, struct {
+		Items      []EnvironmentView     `json:"items"`
 		Repository repositoryContextView `json:"repository"`
 		CanCreate  bool                  `json:"can_create"`
 	}{Items: listedEnvironments(p, absent), Repository: repositoryContextView{strconv.FormatInt(id, 10), strconv.FormatInt(access.repository.Owner.ID, 10), access.repository.Owner.Login, access.repository.Name}, CanCreate: absent && access.repository.Owner.ID == v.User.ID})
 }
 
-func validRepositoryPart(value string) bool {
-	return value != "" && value != "." && value != ".." && len(value) <= 255 && !strings.ContainsAny(value, "/\\\x00\r\n")
+type apiError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
 
 type createEnvironmentInput struct {
@@ -151,20 +151,20 @@ var (
 
 func parseCreateEnvironmentInput(w http.ResponseWriter, r *http.Request) (*createEnvironmentInput, int64, bool) {
 	var input createEnvironmentInput
-	if !decodeAPIObject(w, r, &input) {
+	if !webauth.DecodeAPIObject(w, r, &input) {
 		return nil, 0, false
 	}
-	repoID, valid := positiveID(input.RepositoryID)
+	repoID, valid := webauth.PositiveID(input.RepositoryID)
 	if !valid || (input.ProfileID != "" && input.ProfileID != projectos.RockyHeadless) || (input.Tailnet != nil && input.Tailnet.Validate() != nil) {
-		jsonError(w, 400, "invalid_repository", "Provide a repository_id and a supported profile_id.")
+		webauth.JSONError(w, 400, "invalid_repository", "Provide a repository_id and a supported profile_id.")
 		return nil, 0, false
 	}
 	return &input, repoID, true
 }
 
-func (s *Server) checkRepositoryReservation(ctx context.Context, repoID int64) error {
+func (s *API) checkRepositoryReservation(ctx context.Context, repoID int64) error {
 	_, err := s.Store.ProjectByRepository(ctx, repoID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
@@ -173,28 +173,28 @@ func (s *Server) checkRepositoryReservation(ctx context.Context, repoID int64) e
 	return errReservationFailed
 }
 
-func (s *Server) precheckRepositoryAndReservation(w http.ResponseWriter, r *http.Request, v store.Session, repoID int64) bool {
+func (s *API) precheckRepositoryAndReservation(w http.ResponseWriter, r *http.Request, v store.Session, repoID int64) bool {
 	access, err := s.visibleRepository(r, v, repoID)
 	if err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 		return false
 	}
 	if access.repository.Owner.ID != access.actor.ID {
-		jsonError(w, 403, "owner_required", "Only the human repository owner can create its environment. Organization-owned environments are not supported.")
+		webauth.JSONError(w, 403, "owner_required", "Only the human repository owner can create its environment. Organization-owned environments are not supported.")
 		return false
 	}
 	if err := s.checkRepositoryReservation(r.Context(), repoID); err != nil {
 		if errors.Is(err, errReservationFailed) {
-			jsonError(w, 409, "reservation_failed", "Repository already has a reservation. Refresh; do not recreate it.")
+			webauth.JSONError(w, 409, "reservation_failed", "Repository already has a reservation. Refresh; do not recreate it.")
 		} else {
-			jsonError(w, 503, "store_unavailable", "Could not inspect reservation.")
+			webauth.JSONError(w, 503, "store_unavailable", "Could not inspect reservation.")
 		}
 		return false
 	}
 	return true
 }
 
-func (s *Server) checkTailnetPreflight(ctx context.Context, sel *tailnet.ProjectSelection) error {
+func (s *API) checkTailnetPreflight(ctx context.Context, sel *tailnet.ProjectSelection) error {
 	if sel == nil || !sel.Enabled {
 		return nil
 	}
@@ -211,7 +211,7 @@ func (s *Server) checkTailnetPreflight(ctx context.Context, sel *tailnet.Project
 	return nil
 }
 
-func (s *Server) resolveNativeProfile(ctx context.Context) (projectos.Profile, error) {
+func (s *API) resolveNativeProfile(ctx context.Context) (projectos.Profile, error) {
 	tctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	profile, err := s.Host.ResolveProfile(tctx)
@@ -221,10 +221,10 @@ func (s *Server) resolveNativeProfile(ctx context.Context) (projectos.Profile, e
 	return profile, nil
 }
 
-func (s *Server) precheckProfileAndTailnet(w http.ResponseWriter, ctx context.Context, sel *tailnet.ProjectSelection) (projectos.Profile, bool) {
+func (s *API) precheckProfileAndTailnet(w http.ResponseWriter, ctx context.Context, sel *tailnet.ProjectSelection) (projectos.Profile, bool) {
 	profile, err := s.resolveNativeProfile(ctx)
 	if err != nil {
-		jsonError(w, 422, "profile_unavailable", "The native installed Project OS is unavailable or incompatible. No reservation was created.")
+		webauth.JSONError(w, 422, "profile_unavailable", "The native installed Project OS is unavailable or incompatible. No reservation was created.")
 		return projectos.Profile{}, false
 	}
 	if err := s.checkTailnetPreflight(ctx, sel); err != nil {
@@ -234,8 +234,8 @@ func (s *Server) precheckProfileAndTailnet(w http.ResponseWriter, ctx context.Co
 	return profile, true
 }
 
-func (s *Server) verifyCurrentSessionMatch(r *http.Request, v store.Session) error {
-	cookie, err := requestCookie(r, sessionCookie)
+func (s *API) verifyCurrentSessionMatch(r *http.Request, v store.Session) error {
+	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
 	if err != nil {
 		return errSessionCookieMissing
 	}
@@ -246,49 +246,49 @@ func (s *Server) verifyCurrentSessionMatch(r *http.Request, v store.Session) err
 	return nil
 }
 
-func (s *Server) reconfirmRepositoryAndSession(w http.ResponseWriter, r *http.Request, v store.Session, repoID int64) (repositoryAccess, bool) {
+func (s *API) reconfirmRepositoryAndSession(w http.ResponseWriter, r *http.Request, v store.Session, repoID int64) (repositoryAccess, bool) {
 	access, err := s.visibleRepository(r, v, repoID)
 	if err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 		return repositoryAccess{}, false
 	}
 	if err := s.verifyCurrentSessionMatch(r, v); err != nil {
 		if errors.Is(err, errSessionCookieMissing) {
-			jsonError(w, 401, "unauthorized", "Reconnect to Soda.")
+			webauth.JSONError(w, 401, "unauthorized", "Reconnect to Soda.")
 		} else {
-			jsonError(w, 401, "unauthorized", "Soda context changed.")
+			webauth.JSONError(w, 401, "unauthorized", "Soda context changed.")
 		}
 		return repositoryAccess{}, false
 	}
 	if access.repository.Owner.ID != v.User.ID {
-		jsonError(w, 403, "owner_required", "Repository ownership changed.")
+		webauth.JSONError(w, 403, "owner_required", "Repository ownership changed.")
 		return repositoryAccess{}, false
 	}
 	return access, true
 }
 
-func (s *Server) provisionAndSaveProject(w http.ResponseWriter, ctx context.Context, p store.Project) (store.Project, bool) {
+func (s *API) provisionAndSaveProject(w http.ResponseWriter, ctx context.Context, p store.Project) (store.Project, bool) {
 	w.Header().Set("Location", config.SodaPath+"/api/environments/"+p.ID)
 	env, err := s.Host.Create(ctx, host.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile})
 	if err != nil {
-		jsonResponse(w, 502, struct {
+		webauth.JSONResponse(w, 502, struct {
 			Error       apiError        `json:"error"`
-			Environment environmentView `json:"environment"`
-		}{apiError{"provisioning_incomplete", "Reservation retained; native provisioning was not confirmed. Inspect this environment with the operator; do not recreate it."}, environmentDTO(p)})
+			Environment EnvironmentView `json:"environment"`
+		}{apiError{"provisioning_incomplete", "Reservation retained; native provisioning was not confirmed. Inspect this environment with the operator; do not recreate it."}, EnvironmentDTO(p)})
 		return p, false
 	}
 	if err = s.Store.MarkReady(ctx, p.ID, env.IP); err != nil {
-		jsonResponse(w, 503, struct {
+		webauth.JSONResponse(w, 503, struct {
 			Error       apiError        `json:"error"`
-			Environment environmentView `json:"environment"`
-		}{apiError{"result_not_saved", "Native provisioning returned, but its result was not saved. Inspect the retained environment; do not recreate it."}, environmentDTO(p)})
+			Environment EnvironmentView `json:"environment"`
+		}{apiError{"result_not_saved", "Native provisioning returned, but its result was not saved. Inspect the retained environment; do not recreate it."}, EnvironmentDTO(p)})
 		return p, false
 	}
 	p.Ready = true
 	return p, true
 }
 
-func (s *Server) applyCreatedEnvironmentTailnet(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, sel *tailnet.ProjectSelection) (string, bool) {
+func (s *API) applyCreatedEnvironmentTailnet(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, sel *tailnet.ProjectSelection) (string, bool) {
 	if sel == nil || !sel.Enabled {
 		return "", true
 	}
@@ -307,7 +307,7 @@ func (s *Server) applyCreatedEnvironmentTailnet(w http.ResponseWriter, r *http.R
 	return "unconfirmed", true
 }
 
-func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	input, repositoryID, ok := parseCreateEnvironmentInput(w, r)
 	if !ok {
 		return
@@ -328,7 +328,7 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 	rand.Read(bytes)
 	p := store.Project{Profile: &profile, ID: "p" + hex.EncodeToString(bytes), Name: repo.Name, RepositoryID: repo.ID, OwnerID: v.User.ID, Repository: repo.FullName}
 	if err := s.Store.CreateProject(r.Context(), p); err != nil {
-		jsonError(w, 409, "reservation_failed", "Repository may already have an environment reservation. Refresh its environment before retrying.")
+		webauth.JSONError(w, 409, "reservation_failed", "Repository may already have an environment reservation. Refresh its environment before retrying.")
 		return
 	}
 	p, ok = s.provisionAndSaveProject(w, r.Context(), p)
@@ -340,20 +340,20 @@ func (s *Server) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v 
 		return
 	}
 	result := struct {
-		environmentView
+		EnvironmentView
 		TailnetOutcome string `json:"tailnet_outcome,omitempty"`
-	}{environmentView: environmentDTO(p), TailnetOutcome: tailnetOutcome}
-	jsonResponse(w, 201, result)
+	}{EnvironmentView: EnvironmentDTO(p), TailnetOutcome: tailnetOutcome}
+	webauth.JSONResponse(w, 201, result)
 }
 
-func (s *Server) loadEnvironment(w http.ResponseWriter, r *http.Request) (store.Project, bool) {
+func (s *API) loadEnvironment(w http.ResponseWriter, r *http.Request) (store.Project, bool) {
 	p, err := s.Store.Project(r.Context(), r.PathValue("id"))
-	if errors.Is(err, sql.ErrNoRows) {
-		jsonError(w, 404, "not_found", "Environment not found.")
+	if errors.Is(err, store.ErrNotFound) {
+		webauth.JSONError(w, 404, "not_found", "Environment not found.")
 		return p, false
 	}
 	if err != nil {
-		jsonError(w, 503, "store_unavailable", "Could not read environment.")
+		webauth.JSONError(w, 503, "store_unavailable", "Could not read environment.")
 		return p, false
 	}
 	return p, true
@@ -373,7 +373,7 @@ func observedEnvironment(p store.Project, env host.Environment, nativeErr error)
 	return &env, nil
 }
 
-func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
 		return
@@ -389,21 +389,21 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 	if !s.requireListedSession(w, r, v) {
 		return
 	}
-	jsonResponse(w, 200, struct {
+	webauth.JSONResponse(w, 200, struct {
 		AuthorityUnavailable bool              `json:"authority_unavailable"`
-		Environment          environmentView   `json:"environment"`
+		Environment          EnvironmentView   `json:"environment"`
 		Observed             *host.Environment `json:"observed"`
 		NativeUnavailable    bool              `json:"native_unavailable"`
 		Login                string            `json:"login"`
 		Administrator        bool              `json:"environment_administrator"`
-	}{reader.authorityUnavailable, environmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
+	}{reader.authorityUnavailable, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
 }
 
 func validJoinSSHSelection(selection string) bool {
 	return selection == "" || selection == "saved" || selection == "none"
 }
 
-func (s *Server) joinPublicKeys(ctx context.Context, userID int64, selection string) ([]string, error) {
+func (s *API) joinPublicKeys(ctx context.Context, userID int64, selection string) ([]string, error) {
 	if selection == "none" {
 		return []string{}, nil
 	}
@@ -423,9 +423,9 @@ func (s *Server) joinPublicKeys(ctx context.Context, userID int64, selection str
 
 var errTooManyJoinKeys = errors.New("too many development keys")
 
-func (s *Server) persistEnvironmentJoin(ctx context.Context, r *http.Request, v store.Session, p store.Project, login string, public []string) error {
-	cookie, cookieErr := requestCookie(r, sessionCookie)
-	if cookieErr != nil || s.requireCurrentSession(ctx, cookie.Value, v) != nil {
+func (s *API) persistEnvironmentJoin(ctx context.Context, r *http.Request, v store.Session, p store.Project, login string, public []string) error {
+	cookie, cookieErr := webauth.RequestCookie(r, webauth.SessionCookie)
+	if cookieErr != nil || s.Auth.RequireCurrentSession(ctx, cookie.Value, v) != nil {
 		return errJoinUnauthorized
 	}
 	if err := s.Host.Join(ctx, host.Account{Project: p.ID, Login: login, Identity: v.User.ID, Keys: public}); err != nil {
@@ -443,59 +443,59 @@ var (
 	errJoinMembershipNotSaved = errors.New("join membership not saved")
 )
 
-func (s *Server) writeJoinLogin(w http.ResponseWriter, login string) {
-	jsonResponse(w, 200, struct {
+func (s *API) writeJoinLogin(w http.ResponseWriter, login string) {
+	webauth.JSONResponse(w, 200, struct {
 		Login string `json:"login"`
 	}{login})
 }
 
-func (s *Server) reportJoinPersist(w http.ResponseWriter, login string, err error) {
+func (s *API) reportJoinPersist(w http.ResponseWriter, login string, err error) {
 	switch err {
 	case errJoinUnauthorized:
-		jsonError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
+		webauth.JSONError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
 	case errJoinAccountIncomplete:
-		jsonError(w, 502, "account_incomplete", "Native account provisioning was not confirmed. Membership was not recorded; ask the operator to inspect the account.")
+		webauth.JSONError(w, 502, "account_incomplete", "Native account provisioning was not confirmed. Membership was not recorded; ask the operator to inspect the account.")
 	case errJoinMembershipNotSaved:
-		jsonError(w, 503, "membership_not_saved", "Native account provisioning returned but membership could not be saved. Ask the operator to inspect the retained account.")
+		webauth.JSONError(w, 503, "membership_not_saved", "Native account provisioning returned but membership could not be saved. Ask the operator to inspect the retained account.")
 	case nil:
 		s.writeJoinLogin(w, login)
 	}
 }
 
-func (s *Server) admitNewJoin(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, sshKeys string) (login string, public []string, ok bool) {
+func (s *API) admitNewJoin(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, sshKeys string) (login string, public []string, ok bool) {
 	access, err := s.visibleRepository(r, v, p.RepositoryID)
 	if err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 		return "", nil, false
 	}
 	if !p.Ready {
-		jsonError(w, 409, "not_provisioned", "Environment provisioning is incomplete.")
+		webauth.JSONError(w, 409, "not_provisioned", "Environment provisioning is incomplete.")
 		return "", nil, false
 	}
 	login = access.actor.Login
 	if !projectLogin.MatchString(login) || login == "root" {
-		jsonError(w, 422, "unsupported_linux_login", "Your Forgejo username is not supported as a project Linux account. No automatic rename is performed.")
+		webauth.JSONError(w, 422, "unsupported_linux_login", "Your Forgejo username is not supported as a project Linux account. No automatic rename is performed.")
 		return "", nil, false
 	}
 	// Empty legacy requests retain saved-key behavior. New browser callers can
 	// explicitly choose account-only provisioning even when saved SSH keys exist.
 	public, err = s.joinPublicKeys(r.Context(), v.User.ID, sshKeys)
 	if errors.Is(err, errTooManyJoinKeys) {
-		jsonError(w, 422, "too_many_keys", "Native onboarding supports at most 32 development keys.")
+		webauth.JSONError(w, 422, "too_many_keys", "Native onboarding supports at most 32 development keys.")
 		return "", nil, false
 	}
 	if err != nil {
-		jsonError(w, 503, "store_unavailable", "Could not read development keys.")
+		webauth.JSONError(w, 503, "store_unavailable", "Could not read development keys.")
 		return "", nil, false
 	}
 	return login, public, true
 }
 
-func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	var input struct {
 		SSHKeys string `json:"ssh_keys"`
 	}
-	if !decodeAPIObject(w, r, &input) {
+	if !webauth.DecodeAPIObject(w, r, &input) {
 		return
 	}
 	p, ok := s.loadEnvironment(w, r)
@@ -503,7 +503,7 @@ func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v st
 		return
 	}
 	if !validJoinSSHSelection(input.SSHKeys) {
-		jsonError(w, 400, "invalid_ssh_selection", "Select saved or none for optional external SSH keys.")
+		webauth.JSONError(w, 400, "invalid_ssh_selection", "Select saved or none for optional external SSH keys.")
 		return
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
@@ -511,8 +511,8 @@ func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v st
 		s.writeJoinLogin(w, login)
 		return
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		jsonError(w, 503, "store_unavailable", "Could not inspect membership.")
+	if !errors.Is(err, store.ErrNotFound) {
+		webauth.JSONError(w, 503, "store_unavailable", "Could not inspect membership.")
 		return
 	}
 	login, public, ok := s.admitNewJoin(w, r, v, p, input.SSHKeys)
@@ -523,7 +523,7 @@ func (s *Server) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v st
 	s.reportJoinPersist(w, login, s.persistEnvironmentJoin(r.Context(), r, v, p, login, public))
 }
 
-func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
 		return
@@ -540,7 +540,7 @@ func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v
 	if reader.administrator {
 		members, err := s.Store.Members(r.Context(), p.ID)
 		if err != nil {
-			jsonError(w, 503, "store_unavailable", "Could not list members.")
+			webauth.JSONError(w, 503, "store_unavailable", "Could not list members.")
 			return
 		}
 		for _, member := range members {
@@ -549,42 +549,42 @@ func (s *Server) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v
 	} else if reader.login != "" {
 		items = append(items, memberView{strconv.FormatInt(v.User.ID, 10), reader.login})
 	}
-	cookie, cookieErr := requestCookie(r, sessionCookie)
-	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
-		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+	cookie, cookieErr := webauth.RequestCookie(r, webauth.SessionCookie)
+	if cookieErr != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		webauth.JSONError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
 		return
 	}
-	jsonResponse(w, 200, struct {
+	webauth.JSONResponse(w, 200, struct {
 		Items                []memberView `json:"items"`
 		AuthorityUnavailable bool         `json:"authority_unavailable"`
 	}{items, reader.authorityUnavailable})
 }
 
-func (s *Server) apiConnection(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiConnection(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
 		return
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
-	if errors.Is(err, sql.ErrNoRows) {
-		jsonError(w, 403, "join_required", "Explicitly join this environment to obtain connection details.")
+	if errors.Is(err, store.ErrNotFound) {
+		webauth.JSONError(w, 403, "join_required", "Explicitly join this environment to obtain connection details.")
 		return
 	}
 	if err != nil {
-		jsonError(w, 503, "store_unavailable", "Could not read membership.")
+		webauth.JSONError(w, 503, "store_unavailable", "Could not read membership.")
 		return
 	}
 	connection, err := s.Host.Connection(r.Context(), p.ID)
 	if err != nil {
-		jsonError(w, 503, "native_unavailable", "Current address and public host key are unavailable; do not use a cached address as proof of access.")
+		webauth.JSONError(w, 503, "native_unavailable", "Current address and public host key are unavailable; do not use a cached address as proof of access.")
 		return
 	}
-	cookie, cookieErr := requestCookie(r, sessionCookie)
-	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
-		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+	cookie, cookieErr := webauth.RequestCookie(r, webauth.SessionCookie)
+	if cookieErr != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		webauth.JSONError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
 		return
 	}
-	jsonResponse(w, 200, struct {
+	webauth.JSONResponse(w, 200, struct {
 		Login           string          `json:"login"`
 		Connection      host.Connection `json:"connection"`
 		RoutingVerified bool            `json:"routing_verified"`

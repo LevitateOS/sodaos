@@ -1,4 +1,4 @@
-package web
+package webauth
 
 import (
 	"context"
@@ -25,14 +25,14 @@ func token() string {
 }
 
 const (
-	sessionCookie      = "__Secure-sodaspaces-session"
-	oauthCookie        = "__Secure-sodaspaces-oauth"
-	expectedUserHeader = "X-Soda-Expected-User-ID"
+	SessionCookie      = "__Secure-sodaspaces-session"
+	OAuthCookie        = "__Secure-sodaspaces-oauth"
+	ExpectedUserHeader = "X-Soda-Expected-User-ID"
 )
 
 // Ignore native Forgejo and legacy standalone Soda cookies. Duplicate names
 // cannot select an actor or OAuth transaction by header order.
-func requestCookie(r *http.Request, name string) (*http.Cookie, error) {
+func RequestCookie(r *http.Request, name string) (*http.Cookie, error) {
 	cookies := r.CookiesNamed(name)
 	if len(cookies) == 0 {
 		return nil, http.ErrNoCookie
@@ -43,11 +43,11 @@ func requestCookie(r *http.Request, name string) (*http.Cookie, error) {
 	return cookies[0], nil
 }
 
-func (s *Server) cookie(w http.ResponseWriter, name, value string, seconds int) {
+func (s *Service) cookie(w http.ResponseWriter, name, value string, seconds int) {
 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Path: config.SodaPath + "/", MaxAge: seconds, HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode})
 }
 
-func (s *Server) authRoutes() {
+func (s *Service) authRoutes() {
 	s.mux.HandleFunc("/api/login/cancel", s.cancelLogin)
 	s.mux.HandleFunc("GET /login", s.login)
 	s.mux.HandleFunc("GET /oauth/callback", s.callback)
@@ -55,7 +55,7 @@ func (s *Server) authRoutes() {
 
 // Native IDs have one bounded decimal representation; they are never usernames
 // or caller-selected privileges. Zero represents absence only in stored state.
-func positiveID(value string) (int64, bool) {
+func PositiveID(value string) (int64, bool) {
 	if len(value) == 0 || len(value) > 19 {
 		return 0, false
 	}
@@ -71,7 +71,7 @@ func oauthContextID(query url.Values, name string) (int64, bool) {
 	if len(values) != 1 {
 		return 0, false
 	}
-	return positiveID(values[0])
+	return PositiveID(values[0])
 }
 
 func loginQuery(r *http.Request) (url.Values, int, string) {
@@ -122,8 +122,8 @@ func loginSettingsReturn(destination string) string {
 }
 
 func readLoginCookies(r *http.Request) (session, previous string, status int, message string) {
-	for name, target := range map[string]*string{sessionCookie: &session, oauthCookie: &previous} {
-		c, err := requestCookie(r, name)
+	for name, target := range map[string]*string{SessionCookie: &session, OAuthCookie: &previous} {
+		c, err := RequestCookie(r, name)
 		if err == nil {
 			*target = c.Value
 		} else if !errors.Is(err, http.ErrNoCookie) {
@@ -133,11 +133,11 @@ func readLoginCookies(r *http.Request) (session, previous string, status int, me
 	return session, previous, 0, ""
 }
 
-func (s *Server) beginLoginAttempt(w http.ResponseWriter, r *http.Request, state string, login store.OAuthLogin, session, previous string) bool {
+func (s *Service) beginLoginAttempt(w http.ResponseWriter, r *http.Request, state string, login store.OAuthLogin, session, previous string) bool {
 	if err := s.Store.BeginOAuth(r.Context(), state, login, session, previous); err != nil {
 		if errors.Is(err, store.ErrLoginContext) {
-			s.cookie(w, sessionCookie, "", -1)
-			s.cookie(w, oauthCookie, "", -1)
+			s.cookie(w, SessionCookie, "", -1)
+			s.cookie(w, OAuthCookie, "", -1)
 			s.loginFailure(w, r, login, "Previous sign-in expired or ended; start sign-in again.", 409)
 		} else {
 			s.loginFailure(w, r, login, "Cannot begin sign-in.", 500)
@@ -147,15 +147,15 @@ func (s *Server) beginLoginAttempt(w http.ResponseWriter, r *http.Request, state
 	return true
 }
 
-func (s *Server) redirectLogin(w http.ResponseWriter, r *http.Request, state, verifier string) {
+func (s *Service) redirectLogin(w http.ResponseWriter, r *http.Request, state, verifier string) {
 	challenge := sha256.Sum256([]byte(verifier))
-	s.cookie(w, oauthCookie, state, 600)
+	s.cookie(w, OAuthCookie, state, 600)
 	scopes := "read:user read:repository read:organization"
 	q := url.Values{"client_id": {s.Config.OAuthClientID}, "redirect_uri": {s.Config.OAuthCallbackURL()}, "response_type": {"code"}, "scope": {scopes}, "state": {state}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"}}
 	http.Redirect(w, r, s.Config.ForgejoURL+"/login/oauth/authorize?"+q.Encode(), http.StatusFound)
 }
 
-func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+func (s *Service) login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	query, status, message := loginQuery(r)
@@ -198,7 +198,7 @@ func validateCallbackRequest(r *http.Request) (url.Values, string, error) {
 		return nil, "", errors.New("invalid sign-in response")
 	}
 	query, queryErr := url.ParseQuery(r.URL.RawQuery)
-	c, err := requestCookie(r, oauthCookie)
+	c, err := RequestCookie(r, OAuthCookie)
 	state := query.Get("state")
 	if queryErr != nil || len(query["state"]) != 1 || len(query["code"]) > 1 || len(query.Get("code")) > 4096 {
 		return nil, "", errors.New("invalid sign-in state; sign in again")
@@ -209,8 +209,8 @@ func validateCallbackRequest(r *http.Request) (url.Values, string, error) {
 	return query, state, nil
 }
 
-func (s *Server) consumeOAuthState(r *http.Request, state string) (store.OAuthAttempt, error) {
-	old, oldErr := requestCookie(r, sessionCookie)
+func (s *Service) consumeOAuthState(r *http.Request, state string) (store.OAuthAttempt, error) {
+	old, oldErr := RequestCookie(r, SessionCookie)
 	if oldErr != nil && !errors.Is(oldErr, http.ErrNoCookie) {
 		return store.OAuthAttempt{}, errors.New("ambiguous Soda session; sign in again")
 	}
@@ -218,12 +218,14 @@ func (s *Server) consumeOAuthState(r *http.Request, state string) (store.OAuthAt
 	if oldErr == nil {
 		oldSession = old.Value
 	}
-	s.terminalMu.Lock()
-	login, err := s.Store.ConsumeOAuth(r.Context(), state, oldSession)
-	if err == nil {
-		s.cancelTerminals("", oldSession)
-	}
-	s.terminalMu.Unlock()
+	var login store.OAuthAttempt
+	var err error
+	s.withSessionEndGate(func() {
+		login, err = s.Store.ConsumeOAuth(r.Context(), state, oldSession)
+		if err == nil {
+			s.cancelTerminals("", oldSession)
+		}
+	})
 	if err != nil {
 		return store.OAuthAttempt{}, errors.New("sign-in expired or was already used")
 	}
@@ -236,7 +238,7 @@ type verifiedOAuthUser struct {
 	scopes string
 }
 
-func (s *Server) exchangeOAuthGrant(ctx context.Context, code, verifier string) (forgejo.TokenResponse, string, int, string) {
+func (s *Service) exchangeOAuthGrant(ctx context.Context, code, verifier string) (forgejo.TokenResponse, string, int, string) {
 	if code == "" {
 		return forgejo.TokenResponse{}, "", 400, "Forgejo did not authorize sign-in."
 	}
@@ -251,7 +253,7 @@ func (s *Server) exchangeOAuthGrant(ctx context.Context, code, verifier string) 
 	return grant, secret, 0, ""
 }
 
-func (s *Server) identifyOAuthUser(ctx context.Context, token string, expectedUserID int64) (forgejo.User, int, string) {
+func (s *Service) identifyOAuthUser(ctx context.Context, token string, expectedUserID int64) (forgejo.User, int, string) {
 	u, err := s.Forgejo.Current(ctx, token)
 	if err != nil || u.ID <= 0 {
 		return forgejo.User{}, 502, "Could not identify this Forgejo user."
@@ -262,8 +264,8 @@ func (s *Server) identifyOAuthUser(ctx context.Context, token string, expectedUs
 	return u, 0, ""
 }
 
-func (s *Server) verifyNativeOAuthScopes(login store.OAuthLogin, scopes string) bool {
-	if s.nativeOAuthReturn(login) == "" {
+func (s *Service) verifyNativeOAuthScopes(login store.OAuthLogin, scopes string) bool {
+	if s.NativeOAuthReturn(login) == "" {
 		return true
 	}
 	return forgejo.HasScope(scopes, "read:user") &&
@@ -271,7 +273,7 @@ func (s *Server) verifyNativeOAuthScopes(login store.OAuthLogin, scopes string) 
 		forgejo.HasScope(scopes, "read:organization")
 }
 
-func (s *Server) exchangeOAuthUserAndScopes(
+func (s *Service) exchangeOAuthUserAndScopes(
 	ctx context.Context,
 	code string,
 	login store.OAuthAttempt,
@@ -294,7 +296,7 @@ func (s *Server) exchangeOAuthUserAndScopes(
 	return verifiedOAuthUser{grant: grant, user: u, scopes: scopes}, 0, ""
 }
 
-func (s *Server) resolveOAuthReturnRepository(ctx context.Context, login store.OAuthAttempt, token string, scopes string) *forgejo.Repository {
+func (s *Service) resolveOAuthReturnRepository(ctx context.Context, login store.OAuthAttempt, token string, scopes string) *forgejo.Repository {
 	if login.RepositorySettingsReturn || login.RepositoryID == 0 || !forgejo.HasScope(scopes, "read:repository") {
 		return nil
 	}
@@ -305,7 +307,7 @@ func (s *Server) resolveOAuthReturnRepository(ctx context.Context, login store.O
 	return &repo
 }
 
-func (s *Server) completeOAuthSession(
+func (s *Service) completeOAuthSession(
 	w http.ResponseWriter,
 	r *http.Request,
 	login store.OAuthAttempt,
@@ -324,15 +326,15 @@ func (s *Server) completeOAuthSession(
 	}
 	// Keep the short-lived OAuth cookie through callback completion so a logout
 	// that began anonymously can still resolve this context after Set-Cookie.
-	s.cookie(w, sessionCookie, value, int((12 * time.Hour).Seconds()))
-	if destination := s.nativeOAuthReturn(login.OAuthLogin); destination != "" {
+	s.cookie(w, SessionCookie, value, int((12 * time.Hour).Seconds()))
+	if destination := s.NativeOAuthReturn(login.OAuthLogin); destination != "" {
 		http.Redirect(w, r, destination, http.StatusSeeOther)
 		return
 	}
-	s.forgejoReturn(w, r, repo)
+	s.ForgejoReturn(w, r, repo)
 }
 
-func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
+func (s *Service) callback(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	query, state, err := validateCallbackRequest(r)
@@ -359,7 +361,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 // Forgejo's real administration layout, so their fixed destinations address the
 // admin host and require native admin-page eligibility; protected Soda APIs
 // still require the configured Soda operator independently.
-func (s *Server) nativeOAuthReturn(login store.OAuthLogin) string {
+func (s *Service) NativeOAuthReturn(login store.OAuthLogin) string {
 	view := ""
 	if login.RepositorySettingsReturn {
 		view = "repository-spaces"
@@ -381,7 +383,7 @@ func (s *Server) nativeOAuthReturn(login store.OAuthLogin) string {
 	return destination
 }
 
-func (s *Server) callbackError(w http.ResponseWriter, r *http.Request, message string, status int) {
+func (s *Service) callbackError(w http.ResponseWriter, r *http.Request, message string, status int) {
 	if strings.Contains(r.Header.Get("Accept"), "text/html") {
 		http.Redirect(w, r, s.Config.ForgejoURL+"/user/login?redirect_to="+url.QueryEscape("/?soda-view=spaces&soda-connect=failed"), http.StatusSeeOther)
 		return
@@ -389,8 +391,8 @@ func (s *Server) callbackError(w http.ResponseWriter, r *http.Request, message s
 	http.Error(w, message, status)
 }
 
-func (s *Server) loginFailure(w http.ResponseWriter, r *http.Request, login store.OAuthLogin, message string, status int) {
-	if destination := s.nativeOAuthReturn(login); destination != "" {
+func (s *Service) loginFailure(w http.ResponseWriter, r *http.Request, login store.OAuthLogin, message string, status int) {
+	if destination := s.NativeOAuthReturn(login); destination != "" {
 		http.Redirect(w, r, destination+"&soda-connect=failed", http.StatusSeeOther)
 		return
 	}
@@ -398,7 +400,7 @@ func (s *Server) loginFailure(w http.ResponseWriter, r *http.Request, login stor
 }
 
 // Fixed bookmark entry establishes the native actor before automatic connection.
-func (s *Server) nativePageEntry(w http.ResponseWriter, r *http.Request, login store.OAuthLogin) {
+func (s *Service) NativePageEntry(w http.ResponseWriter, r *http.Request, login store.OAuthLogin) {
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
@@ -409,10 +411,10 @@ func (s *Server) nativePageEntry(w http.ResponseWriter, r *http.Request, login s
 		http.Error(w, "Native origin unavailable.", http.StatusServiceUnavailable)
 		return
 	}
-	if _, err := requestCookie(r, sessionCookie); err != nil && !errors.Is(err, http.ErrNoCookie) {
+	if _, err := RequestCookie(r, SessionCookie); err != nil && !errors.Is(err, http.ErrNoCookie) {
 		http.Error(w, "Ambiguous Soda cookies.", 400)
 		return
 	}
-	destination := strings.TrimPrefix(s.nativeOAuthReturn(login), s.Config.ForgejoURL)
+	destination := strings.TrimPrefix(s.NativeOAuthReturn(login), s.Config.ForgejoURL)
 	http.Redirect(w, r, s.Config.ForgejoURL+"/user/login?redirect_to="+url.QueryEscape(destination), http.StatusSeeOther)
 }

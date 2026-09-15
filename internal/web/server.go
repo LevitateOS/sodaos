@@ -1,3 +1,5 @@
+// Package web wires the dashboard HTTP root: namespace gates, health, avatars
+// and registration of webauth/webapp. It does not own OAuth or product handlers.
 package web
 
 import (
@@ -5,33 +7,40 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"sync"
 
 	"github.com/levitateos/sodaos/internal/avatar"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
+	"github.com/levitateos/sodaos/internal/webapp"
+	"github.com/levitateos/sodaos/internal/webauth"
 )
 
+// Server is the dashboard HTTP facade. Handlers live in Auth and App.
 type Server struct {
-	Config           config.Config
-	Store            *store.Store
-	Forgejo          *forgejo.Client
-	Host             *host.Client
-	mux              *http.ServeMux
-	providerLocks    providerLocks
-	terminalMu       sync.Mutex
-	spacesSlots      chan struct{}
-	repositorySlots  chan struct{}
-	terminalPeers    map[*http.Request]*terminalPeer
-	terminalStopping map[string]bool
-	terminalClosed   bool
-	terminalWG       sync.WaitGroup
+	Config  config.Config
+	Store   *store.Store
+	Forgejo *forgejo.Client
+	Host    *host.Client
+	Auth    *webauth.Service
+	App     *webapp.API
+	mux     *http.ServeMux
 }
 
+// New constructs auth and product APIs and registers all dashboard routes.
 func New(c config.Config, db *store.Store) *Server {
-	s := &Server{Config: c, Store: db, Forgejo: forgejo.New(c.ForgejoInternalURL), Host: host.NewClient(c.HostSocket), mux: http.NewServeMux(), spacesSlots: make(chan struct{}, 4), repositorySlots: make(chan struct{}, 4)}
+	client := forgejo.New(c.ForgejoInternalURL)
+	hostClient := host.NewClient(c.HostSocket)
+	s := &Server{
+		Config: c, Store: db, Forgejo: client, Host: hostClient,
+		mux: http.NewServeMux(),
+	}
+	s.Auth = webauth.New(&s.Config, db, client)
+	s.App = webapp.New(&s.Config, db, client, hostClient, s.Auth)
+	s.Auth.SessionEndGate = s.App.TerminalLock()
+	s.Auth.CancelTerminals = s.App.CancelTerminals
+
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("ok\n"))
@@ -39,35 +48,34 @@ func New(c config.Config, db *store.Store) *Server {
 	s.mux.HandleFunc("GET /{$}", s.forgejoHome)
 	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
 	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
-	s.mux.HandleFunc("GET /spaces", s.spacesPage)
-	s.mux.HandleFunc("GET /repositories/{repositoryID}/settings/spaces", s.repositorySpacesPage)
-	s.authRoutes()
-	s.apiRoutes()
-	s.runnerRoutes()
-	s.tailnetRoutes()
+	s.Auth.Register(s.mux)
+	s.App.Register(s.mux)
+	notFound := func(w http.ResponseWriter, r *http.Request) {
+		webauth.JSONError(w, http.StatusNotFound, "not_found", "API route not found.")
+	}
+	s.mux.HandleFunc("/api", notFound)
+	s.mux.HandleFunc("/api/", notFound)
 	return s
 }
 
 func (s *Server) forgejoHome(w http.ResponseWriter, r *http.Request) {
-	s.forgejoReturn(w, r, nil)
+	s.Auth.ForgejoReturn(w, r, nil)
 }
 
-// Only a freshly resolved repository can select a path under the configured
-// native origin. Neither provider URLs nor caller return paths are accepted.
-// A redirect does not create or transfer a native Forgejo session.
-func (s *Server) forgejoReturn(w http.ResponseWriter, r *http.Request, repo *forgejo.Repository) {
-	w.Header().Set("Cache-Control", "no-store")
-	if config.BaseURL(s.Config.ForgejoURL) != nil || !strings.HasPrefix(s.Config.ForgejoURL, "https://") {
-		http.Error(w, "Native frontend is not configured.", http.StatusServiceUnavailable)
-		return
-	}
-	u, _ := url.Parse(s.Config.ForgejoURL)
-	u.Path, u.RawPath = "/", ""
-	if repo != nil && validRepositoryPart(repo.Owner.Login) && validRepositoryPart(repo.Name) {
-		u.Path += repo.Owner.Login + "/" + repo.Name
-		u.Fragment = "sodaspaces"
-	}
-	http.Redirect(w, r, u.String(), http.StatusSeeOther)
+// CloseTerminals shuts down browser terminal peers before process exit.
+func (s *Server) CloseTerminals() { s.App.CloseTerminals() }
+
+// SetForgejo replaces the Forgejo client on the facade and both services.
+func (s *Server) SetForgejo(client *forgejo.Client) {
+	s.Forgejo = client
+	s.Auth.Forgejo = client
+	s.App.Forgejo = client
+}
+
+// SetHost replaces the host client on the facade and product API.
+func (s *Server) SetHost(client *host.Client) {
+	s.Host = client
+	s.App.Host = client
 }
 
 func publicAvatarPath(p string) bool {
@@ -118,7 +126,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Reject encoded aliases and canonicalization instead of redirecting API
 	// requests (especially mutations) into another route or the native frontend.
 	if !canonicalSodaPath(r.URL) {
-		jsonError(w, http.StatusNotFound, "not_found", "Soda route not found.")
+		webauth.JSONError(w, http.StatusNotFound, "not_found", "Soda route not found.")
 		return
 	}
 	mounted := r.Clone(r.Context())

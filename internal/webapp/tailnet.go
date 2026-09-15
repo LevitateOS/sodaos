@@ -1,36 +1,36 @@
-package web
+package webapp
 
 import (
-	"database/sql"
 	"errors"
+	"github.com/levitateos/sodaos/internal/webauth"
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-func (s *Server) tailnetRoutes() {
+func (s *API) tailnetRoutes() {
 	s.mux.HandleFunc("GET /settings/tailnet", s.tailnetPage)
-	s.mux.HandleFunc("/api/settings/tailnet", s.apiProtected(s.apiTailnetSettings, http.MethodGet))
-	s.mux.HandleFunc("/api/settings/tailnet/host", s.apiProtected(s.apiTailnetHost, http.MethodPost))
-	s.mux.HandleFunc("/api/settings/tailnet/enrollment", s.apiProtected(s.apiTailnetEnrollment, http.MethodPost))
-	s.mux.HandleFunc("/api/repositories/{repositoryID}/tailnet-options", s.apiProtected(s.apiTailnetOptions, http.MethodGet))
-	s.mux.HandleFunc("/api/environments/{id}/tailnet", s.apiProtected(s.apiProjectTailnet, http.MethodGet, http.MethodPost))
+	s.mux.HandleFunc("/api/settings/tailnet", s.Auth.Protected(s.apiTailnetSettings, http.MethodGet))
+	s.mux.HandleFunc("/api/settings/tailnet/host", s.Auth.Protected(s.apiTailnetHost, http.MethodPost))
+	s.mux.HandleFunc("/api/settings/tailnet/enrollment", s.Auth.Protected(s.apiTailnetEnrollment, http.MethodPost))
+	s.mux.HandleFunc("/api/repositories/{repositoryID}/tailnet-options", s.Auth.Protected(s.apiTailnetOptions, http.MethodGet))
+	s.mux.HandleFunc("/api/environments/{id}/tailnet", s.Auth.Protected(s.apiProjectTailnet, http.MethodGet, http.MethodPost))
 }
 
 func tailnetQuery(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		jsonError(w, 400, "invalid_query", "Tailnet operations do not accept query parameters.")
+		webauth.JSONError(w, 400, "invalid_query", "Tailnet operations do not accept query parameters.")
 		return false
 	}
 	return true
 }
 
-func (s *Server) tailnetSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
-	cookie, err := requestCookie(r, sessionCookie)
-	if err != nil || r.Context().Err() != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
-		jsonError(w, 401, "unauthorized", "Soda context changed. Already-dispatched work may have completed; reconnect and observe before retrying.")
+func (s *API) tailnetSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
+	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
+	if err != nil || r.Context().Err() != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		webauth.JSONError(w, 401, "unauthorized", "Soda context changed. Already-dispatched work may have completed; reconnect and observe before retrying.")
 		return false
 	}
 	return true
@@ -39,19 +39,19 @@ func (s *Server) tailnetSession(w http.ResponseWriter, r *http.Request, v store.
 func tailnetError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, tailnet.ErrInvalid):
-		jsonError(w, 400, "invalid_tailnet", "Invalid Tailnet fields or confirmation.")
+		webauth.JSONError(w, 400, "invalid_tailnet", "Invalid Tailnet fields or confirmation.")
 	case errors.Is(err, tailnet.ErrConflict):
-		jsonError(w, 409, "tailnet_changed", "Policy, host or original project identity changed. Review before acting.")
+		webauth.JSONError(w, 409, "tailnet_changed", "Policy, host or original project identity changed. Review before acting.")
 	case errors.Is(err, tailnet.ErrUnsupported):
-		jsonError(w, 422, "tailnet_unsupported", "This Tailnet operation or required runtime capability is unsupported. No requested operation was dispatched.")
+		webauth.JSONError(w, 422, "tailnet_unsupported", "This Tailnet operation or required runtime capability is unsupported. No requested operation was dispatched.")
 	case errors.Is(err, tailnet.ErrUnavailable):
-		jsonError(w, 503, "tailnet_unavailable", "Tailnet management or its observation is unavailable. No empty or disconnected state was inferred.")
+		webauth.JSONError(w, 503, "tailnet_unavailable", "Tailnet management or its observation is unavailable. No empty or disconnected state was inferred.")
 	default:
-		jsonError(w, 502, "tailnet_unconfirmed", "Operation unconfirmed. Policy, credentials or native state may have changed. Observe before retrying; no automatic rollback or replay occurred.")
+		webauth.JSONError(w, 502, "tailnet_unconfirmed", "Operation unconfirmed. Policy, credentials or native state may have changed. Observe before retrying; no automatic rollback or replay occurred.")
 	}
 }
 
-func (s *Server) apiTailnetSettings(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiTailnetSettings(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) || !s.tailnetSession(w, r, v) {
 		return
 	}
@@ -63,15 +63,15 @@ func (s *Server) apiTailnetSettings(w http.ResponseWriter, r *http.Request, v st
 		tailnetError(w, err)
 		return
 	}
-	jsonResponse(w, 200, result)
+	webauth.JSONResponse(w, 200, result)
 }
 
-func (s *Server) apiTailnetHost(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiTailnetHost(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) {
 		return
 	}
 	var in tailnet.HostRequest
-	if !decodeAPIObject(w, r, &in) {
+	if !webauth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	if in.Validate() != nil {
@@ -89,16 +89,16 @@ func (s *Server) apiTailnetHost(w http.ResponseWriter, r *http.Request, v store.
 		tailnetError(w, err)
 		return
 	}
-	jsonResponse(w, 200, result)
+	webauth.JSONResponse(w, 200, result)
 }
 
-func (s *Server) apiTailnetEnrollment(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiTailnetEnrollment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) {
 		return
 	}
 	var in tailnet.EnrollmentRequest
 	defer func() { in.ClientSecret = "" }()
-	if !decodeAPIObject(w, r, &in) {
+	if !webauth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	if in.Validate() != nil {
@@ -117,25 +117,25 @@ func (s *Server) apiTailnetEnrollment(w http.ResponseWriter, r *http.Request, v 
 		tailnetError(w, err)
 		return
 	}
-	jsonResponse(w, 200, result)
+	webauth.JSONResponse(w, 200, result)
 }
 
-func (s *Server) apiTailnetOptions(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiTailnetOptions(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !tailnetQuery(w, r) {
 		return
 	}
-	id, ok := positiveID(r.PathValue("repositoryID"))
+	id, ok := webauth.PositiveID(r.PathValue("repositoryID"))
 	if !ok {
-		jsonError(w, 400, "invalid_repository", "Provide one canonical repository ID.")
+		webauth.JSONError(w, 400, "invalid_repository", "Provide one canonical repository ID.")
 		return
 	}
 	access, err := s.visibleRepository(r, v, id)
 	if err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 		return
 	}
 	if access.repository.Owner.ID != v.User.ID {
-		jsonError(w, 403, "owner_required", "Only the current human repository owner can select creation options.")
+		webauth.JSONError(w, 403, "owner_required", "Only the current human repository owner can select creation options.")
 		return
 	}
 	if !s.tailnetSession(w, r, v) {
@@ -149,16 +149,16 @@ func (s *Server) apiTailnetOptions(w http.ResponseWriter, r *http.Request, v sto
 		tailnetError(w, err)
 		return
 	}
-	jsonResponse(w, 200, result)
+	webauth.JSONResponse(w, 200, result)
 }
 
-func (s *Server) authorizeProjectTailnet(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
+func (s *API) authorizeProjectTailnet(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
 	if v.User.ID == s.Config.OperatorID {
 		return s.authorizeOperator(w, r, v)
 	}
 	access, err := s.visibleRepository(r, v, p.RepositoryID)
 	if err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 		return false
 	}
 	if r.Method == http.MethodGet {
@@ -166,18 +166,18 @@ func (s *Server) authorizeProjectTailnet(w http.ResponseWriter, r *http.Request,
 		if err == nil {
 			return true
 		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			jsonError(w, 503, "store_unavailable", "Membership could not be checked.")
+		if !errors.Is(err, store.ErrNotFound) {
+			webauth.JSONError(w, 503, "store_unavailable", "Membership could not be checked.")
 			return false
 		}
 	}
 	allowed, err := s.environmentAdministrator(r, access)
 	if err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 		return false
 	}
 	if !allowed {
-		jsonError(w, 403, "tailnet_access_denied", "Private network reads require current membership or administration; changes require current project administration.")
+		webauth.JSONError(w, 403, "tailnet_access_denied", "Private network reads require current membership or administration; changes require current project administration.")
 		return false
 	}
 	return true
@@ -194,7 +194,7 @@ func parseProjectTailnetMutation(w http.ResponseWriter, r *http.Request, in *tai
 		Binding   string `json:"binding,omitempty"`
 		ConfirmID string `json:"confirm_id"`
 	}
-	if !decodeAPIObject(w, r, &body) {
+	if !webauth.DecodeAPIObject(w, r, &body) {
 		return false
 	}
 	in.Action, in.Revision, in.Binding, in.ConfirmID = body.Action, body.Revision, body.Binding, body.ConfirmID
@@ -205,15 +205,15 @@ func parseProjectTailnetMutation(w http.ResponseWriter, r *http.Request, in *tai
 	return true
 }
 
-func (s *Server) admitProjectTailnetDispatch(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
+func (s *API) admitProjectTailnetDispatch(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
 	return s.authorizeProjectTailnet(w, r, v, p) && s.tailnetSession(w, r, v)
 }
 
-func (s *Server) confirmProjectTailnetDispatch(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
+func (s *API) confirmProjectTailnetDispatch(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
 	return s.tailnetSession(w, r, v) && s.authorizeProjectTailnet(w, r, v, p)
 }
 
-func (s *Server) admitProjectTailnetRequest(w http.ResponseWriter, r *http.Request, v store.Session) (store.Project, bool) {
+func (s *API) admitProjectTailnetRequest(w http.ResponseWriter, r *http.Request, v store.Session) (store.Project, bool) {
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
 		return p, false
@@ -222,13 +222,13 @@ func (s *Server) admitProjectTailnetRequest(w http.ResponseWriter, r *http.Reque
 		return p, false
 	}
 	if !p.Ready {
-		jsonError(w, 409, "not_provisioned", "Project provisioning is incomplete.")
+		webauth.JSONError(w, 409, "not_provisioned", "Project provisioning is incomplete.")
 		return p, false
 	}
 	return p, true
 }
 
-func (s *Server) apiProjectTailnet(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiProjectTailnet(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !tailnetQuery(w, r) {
 		return
 	}
@@ -251,5 +251,5 @@ func (s *Server) apiProjectTailnet(w http.ResponseWriter, r *http.Request, v sto
 		tailnetError(w, err)
 		return
 	}
-	jsonResponse(w, 200, result)
+	webauth.JSONResponse(w, 200, result)
 }

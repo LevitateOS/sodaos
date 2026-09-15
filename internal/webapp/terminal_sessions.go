@@ -1,4 +1,4 @@
-package web
+package webapp
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/levitateos/sodaos/internal/webauth"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -15,23 +16,18 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-var browserTerminalID = regexp.MustCompile(`^[0-9a-f]{32}$`)
+var BrowserTerminalID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 func newTerminalID() string { var b [16]byte; rand.Read(b[:]); return hex.EncodeToString(b[:]) }
 
-type terminalPeer struct {
-	token, contextID, project, id string
-	cancel                        context.CancelFunc
-}
-
 // Native reservation consumption is serialized with End and Create in the
 // project. A web restart or late helper dial cannot recreate an ended locator.
-func terminalCreationScope(v store.Session) string {
+func TerminalCreationScope(v store.Session) string {
 	sum := sha256.Sum256([]byte(v.ContextID + "\x00" + v.CSRF))
 	return hex.EncodeToString(sum[:])
 }
 
-type terminalView struct {
+type TerminalView struct {
 	host.TerminalState
 	EnvironmentID string `json:"environment_id"`
 	RepositoryID  string `json:"repository_id"`
@@ -39,32 +35,32 @@ type terminalView struct {
 	Login         string `json:"login"`
 }
 
-func terminalDTO(item host.TerminalState, v store.Session, p store.Project, login string) terminalView {
-	return terminalView{item, p.ID, strconv.FormatInt(p.RepositoryID, 10), strconv.FormatInt(v.User.ID, 10), login}
+func terminalDTO(item host.TerminalState, v store.Session, p store.Project, login string) TerminalView {
+	return TerminalView{item, p.ID, strconv.FormatInt(p.RepositoryID, 10), strconv.FormatInt(v.User.ID, 10), login}
 }
 
 func validTerminalName(name string) bool { return host.ValidTerminalName(name) }
 
 // Every map access is under terminalMu. No provider/native IO runs under it.
-func (s *Server) cancelTerminals(contextID, token string) {
-	for _, peer := range s.terminalPeers {
-		if (contextID != "" && peer.contextID == contextID) || (token != "" && peer.token == token) {
-			peer.cancel()
+func (s *API) cancelTerminals(contextID, token string) {
+	for _, peer := range s.TerminalPeers {
+		if (contextID != "" && peer.ContextID == contextID) || (token != "" && peer.Token == token) {
+			peer.Cancel()
 		}
 	}
 }
 
-func (s *Server) CloseTerminals() {
+func (s *API) CloseTerminals() {
 	s.terminalMu.Lock()
 	s.terminalClosed = true
-	for _, peer := range s.terminalPeers {
-		peer.cancel()
+	for _, peer := range s.TerminalPeers {
+		peer.Cancel()
 	}
 	s.terminalMu.Unlock()
 	s.terminalWG.Wait()
 }
 
-func (s *Server) terminalCurrent(ctx context.Context, token string, original store.Session, project store.Project, login string) bool {
+func (s *API) terminalCurrent(ctx context.Context, token string, original store.Session, project store.Project, login string) bool {
 	check, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	current, err := s.Store.Session(check, token)
@@ -81,7 +77,7 @@ func (s *Server) terminalCurrent(ctx context.Context, token string, original sto
 
 func rejectTerminalQuery(w http.ResponseWriter, r *http.Request) bool {
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		jsonError(w, 400, "invalid_request", "No query parameters are accepted.")
+		webauth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
 		return true
 	}
 	return false
@@ -91,7 +87,7 @@ func terminalMemberReady(p store.Project, login string, err error) bool {
 	return err == nil && p.Ready && login != "root" && projectLogin.MatchString(login)
 }
 
-func (s *Server) terminalAccount(w http.ResponseWriter, r *http.Request, v store.Session) (store.Project, string, string, bool) {
+func (s *API) terminalAccount(w http.ResponseWriter, r *http.Request, v store.Session) (store.Project, string, string, bool) {
 	if rejectTerminalQuery(w, r) {
 		return store.Project{}, "", "", false
 	}
@@ -101,18 +97,18 @@ func (s *Server) terminalAccount(w http.ResponseWriter, r *http.Request, v store
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
 	if !terminalMemberReady(p, login, err) {
-		jsonError(w, 403, "membership_required", "An existing account is required.")
+		webauth.JSONError(w, 403, "membership_required", "An existing account is required.")
 		return p, "", "", false
 	}
 	check, done := context.WithTimeout(r.Context(), 10*time.Second)
 	defer done()
 	if _, err = s.visibleRepository(r.WithContext(check), v, p.RepositoryID); err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 		return p, "", "", false
 	}
-	cookie, err := requestCookie(r, sessionCookie)
+	cookie, err := webauth.RequestCookie(r, webauth.SessionCookie)
 	if err != nil {
-		jsonError(w, 401, "unauthenticated", "Sign in again.")
+		webauth.JSONError(w, 401, "unauthenticated", "Sign in again.")
 		return p, "", "", false
 	}
 	return p, login, cookie.Value, true
@@ -126,17 +122,17 @@ func reservedTerminal(items []host.TerminalState, id string, err error) bool {
 	return err == nil && len(items) == 1 && items[0].ID == id
 }
 
-func (s *Server) apiReserveTerminal(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiReserveTerminal(w http.ResponseWriter, r *http.Request, v store.Session) {
 	var in struct {
 		Cols int    `json:"cols"`
 		Rows int    `json:"rows"`
 		Name string `json:"name"`
 	}
-	if !decodeAPIObject(w, r, &in) {
+	if !webauth.DecodeAPIObject(w, r, &in) {
 		return
 	}
 	if !validTerminalGeometry(in.Cols, in.Rows, in.Name) {
-		jsonError(w, 400, "invalid_request", "Choose bounded terminal dimensions and name.")
+		webauth.JSONError(w, 400, "invalid_request", "Choose bounded terminal dimensions and name.")
 		return
 	}
 	p, login, token, ok := s.terminalAccount(w, r, v)
@@ -144,35 +140,35 @@ func (s *Server) apiReserveTerminal(w http.ResponseWriter, r *http.Request, v st
 		return
 	}
 	id := newTerminalID()
-	items, err := s.terminalOperation(r, v, p, login, token, host.TerminalRequest{Action: "reserve", ID: id, Cols: in.Cols, Rows: in.Rows, Name: in.Name, Scope: terminalCreationScope(v)})
+	items, err := s.terminalOperation(r, v, p, login, token, host.TerminalRequest{Action: "reserve", ID: id, Cols: in.Cols, Rows: in.Rows, Name: in.Name, Scope: TerminalCreationScope(v)})
 	if !reservedTerminal(items, id, err) {
-		jsonError(w, 503, "terminal_unavailable", "Terminal reservation unavailable; no shell creation was requested.")
+		webauth.JSONError(w, 503, "terminal_unavailable", "Terminal reservation unavailable; no shell creation was requested.")
 		return
 	}
-	jsonResponse(w, 201, map[string]string{"id": id})
+	webauth.JSONResponse(w, 201, map[string]string{"id": id})
 }
 
 func terminalReadAction(action string) bool {
 	return action == "list" || action == "inspect"
 }
 
-func (s *Server) terminalOperationAdmitted(ctx context.Context, token string, v store.Session, p store.Project, login string, read bool) bool {
-	return !s.terminalClosed && (read || !s.terminalStopping[p.ID]) && len(s.terminalPeers) < 128 && s.terminalCurrent(ctx, token, v, p, login)
+func (s *API) terminalOperationAdmitted(ctx context.Context, token string, v store.Session, p store.Project, login string, read bool) bool {
+	return !s.terminalClosed && (read || !s.TerminalStopping[p.ID]) && len(s.TerminalPeers) < 128 && s.terminalCurrent(ctx, token, v, p, login)
 }
 
-func (s *Server) terminalStillAuthorized(ctx context.Context, token string, v store.Session, p store.Project, login string) bool {
+func (s *API) terminalStillAuthorized(ctx context.Context, token string, v store.Session, p store.Project, login string) bool {
 	return ctx.Err() == nil && !s.terminalClosed && s.terminalCurrent(ctx, token, v, p, login)
 }
 
-func (s *Server) dropTerminalPeer(r *http.Request) {
+func (s *API) dropTerminalPeer(r *http.Request) {
 	s.terminalMu.Lock()
-	delete(s.terminalPeers, r)
+	delete(s.TerminalPeers, r)
 	s.terminalMu.Unlock()
 }
 
 // Short native operations share logout/shutdown cancellation with attachments,
 // not their lifetime. Lookups remain possible after a browser/web restart.
-func (s *Server) terminalOperation(r *http.Request, v store.Session, p store.Project, login, token string, in host.TerminalRequest) ([]host.TerminalState, error) {
+func (s *API) terminalOperation(r *http.Request, v store.Session, p store.Project, login, token string, in host.TerminalRequest) ([]host.TerminalState, error) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	s.terminalMu.Lock()
@@ -180,10 +176,10 @@ func (s *Server) terminalOperation(r *http.Request, v store.Session, p store.Pro
 		s.terminalMu.Unlock()
 		return nil, errors.New("terminal operation unavailable")
 	}
-	if s.terminalPeers == nil {
-		s.terminalPeers = make(map[*http.Request]*terminalPeer)
+	if s.TerminalPeers == nil {
+		s.TerminalPeers = make(map[*http.Request]*TerminalPeer)
 	}
-	s.terminalPeers[r] = &terminalPeer{token: token, contextID: v.ContextID, project: p.ID, cancel: cancel}
+	s.TerminalPeers[r] = &TerminalPeer{Token: token, ContextID: v.ContextID, Project: p.ID, Cancel: cancel}
 	s.terminalWG.Add(1)
 	s.terminalMu.Unlock()
 	defer s.terminalWG.Done()
@@ -199,9 +195,9 @@ func (s *Server) terminalOperation(r *http.Request, v store.Session, p store.Pro
 	return items, err
 }
 
-func terminalMetadata(w http.ResponseWriter, view *terminalView) {
-	jsonResponse(w, 200, struct {
-		Terminal *terminalView `json:"terminal"`
+func terminalMetadata(w http.ResponseWriter, view *TerminalView) {
+	webauth.JSONResponse(w, 200, struct {
+		Terminal *TerminalView `json:"terminal"`
 	}{view})
 }
 
@@ -226,11 +222,11 @@ func parseTerminalSessionAction(w http.ResponseWriter, r *http.Request, in *host
 		return true
 	}
 	var action terminalSessionMutation
-	if !decodeAPIObject(w, r, &action) {
+	if !webauth.DecodeAPIObject(w, r, &action) {
 		return false
 	}
 	if !validTerminalSessionMutation(action) {
-		jsonError(w, 400, "invalid_action", "Choose End or Rename for this exact terminal.")
+		webauth.JSONError(w, 400, "invalid_action", "Choose End or Rename for this exact terminal.")
 		return false
 	}
 	in.Action = action.Action
@@ -240,10 +236,10 @@ func parseTerminalSessionAction(w http.ResponseWriter, r *http.Request, in *host
 	return true
 }
 
-func (s *Server) apiTerminalSession(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *API) apiTerminalSession(w http.ResponseWriter, r *http.Request, v store.Session) {
 	id := r.PathValue("terminalID")
-	if !browserTerminalID.MatchString(id) {
-		jsonError(w, 400, "invalid_request", "Provide an exact terminal ID.")
+	if !BrowserTerminalID.MatchString(id) {
+		webauth.JSONError(w, 400, "invalid_request", "Provide an exact terminal ID.")
 		return
 	}
 	in := host.TerminalRequest{Action: "inspect", ID: id}
@@ -256,7 +252,7 @@ func (s *Server) apiTerminalSession(w http.ResponseWriter, r *http.Request, v st
 	}
 	items, err := s.terminalOperation(r, v, p, login, token, in)
 	if err != nil {
-		jsonError(w, 503, "terminal_unavailable", "The exact native outcome is unavailable. Nothing was retried or replaced.")
+		webauth.JSONError(w, 503, "terminal_unavailable", "The exact native outcome is unavailable. Nothing was retried or replaced.")
 		return
 	}
 	if len(items) == 0 {

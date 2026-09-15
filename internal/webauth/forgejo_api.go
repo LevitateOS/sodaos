@@ -1,4 +1,4 @@
-package web
+package webauth
 
 import (
 	"net/http"
@@ -9,21 +9,21 @@ import (
 
 // Keep acting-identity inspection with the Soda session/access API. Forgejo's
 // collaboration, account editing and administration screens remain native.
-func (s *Server) forgejoRoutes() {
-	s.mux.HandleFunc("/api/forgejo/me", s.apiProvider(s.apiForgejoMe, "read:user", "GET"))
+func (s *Service) forgejoRoutes() {
+	s.mux.HandleFunc("/api/forgejo/me", s.Provider(s.apiForgejoMe, "read:user", "GET"))
 }
 
-func (s *Server) apiForgejoMe(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
+func (s *Service) apiForgejoMe(w http.ResponseWriter, r *http.Request, v store.Session, token string) {
 	user, err := s.Forgejo.Current(r.Context(), token)
 	if err != nil {
-		providerError(w, err)
+		ProviderError(w, err)
 		return
 	}
 	if user.ID != v.User.ID {
-		jsonError(w, 401, "provider_identity_mismatch", "Sign in again.")
+		JSONError(w, 401, "provider_identity_mismatch", "Sign in again.")
 		return
 	}
-	jsonResponse(w, 200, struct {
+	JSONResponse(w, 200, struct {
 		ID    string `json:"id"`
 		Login string `json:"login"`
 		Name  string `json:"full_name"`

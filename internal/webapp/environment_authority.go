@@ -1,9 +1,9 @@
-package web
+package webapp
 
 import (
 	"context"
-	"database/sql"
 	"errors"
+	"github.com/levitateos/sodaos/internal/webauth"
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/forgejo"
@@ -11,9 +11,7 @@ import (
 )
 
 var (
-	errRepositoryConsent = errors.New("repository and user consent required")
-	errProviderIdentity  = errors.New("provider identity differs from Soda session")
-	errRepositoryDenied  = errors.New("repository is not visible")
+	errRepositoryDenied = errors.New("repository is not visible")
 )
 
 // Request-local verified facts, never serialized or persisted as copied roles.
@@ -39,13 +37,13 @@ func hiddenRepositoryStatus(status int) bool {
 	return status == 403 || status == 404
 }
 
-func (s *Server) providerActor(ctx context.Context, grant store.Grant, v store.Session) (forgejo.User, error) {
+func (s *API) providerActor(ctx context.Context, grant store.Grant, v store.Session) (forgejo.User, error) {
 	actor, err := s.Forgejo.Current(ctx, grant.Access)
 	if err != nil {
 		return actor, err
 	}
 	if actor.ID != v.User.ID {
-		return actor, errProviderIdentity
+		return actor, webauth.ErrProviderIdentity
 	}
 	if actor.Login == "" {
 		return actor, forgejo.ErrInvalidResponse
@@ -53,14 +51,14 @@ func (s *Server) providerActor(ctx context.Context, grant store.Grant, v store.S
 	return actor, nil
 }
 
-func (s *Server) visibleRepository(r *http.Request, v store.Session, id int64) (repositoryAccess, error) {
+func (s *API) visibleRepository(r *http.Request, v store.Session, id int64) (repositoryAccess, error) {
 	var access repositoryAccess
-	grant, err := s.userGrant(r, v)
+	grant, err := s.Auth.UserGrant(r, v)
 	if err != nil {
 		return access, err
 	}
 	if !repositoryConsentOK(grant) {
-		return access, errRepositoryConsent
+		return access, webauth.ErrRepositoryConsent
 	}
 	actor, err := s.providerActor(r.Context(), grant, v)
 	if err != nil {
@@ -75,7 +73,7 @@ func (s *Server) visibleRepository(r *http.Request, v store.Session, id int64) (
 
 // Ownership consumes the already-verified repository/actor, avoiding a second
 // lookup or stale display login. Visibility alone never confers administration.
-func (s *Server) environmentAdministrator(r *http.Request, a repositoryAccess) (bool, error) {
+func (s *API) environmentAdministrator(r *http.Request, a repositoryAccess) (bool, error) {
 	if a.repository.Owner.ID == a.actor.ID {
 		return true, nil
 	}
@@ -100,11 +98,11 @@ type environmentReader struct {
 // New/nonmember readers fail before any metadata or native inspection is exposed.
 var errEnvironmentReadStore = errors.New("could not read membership")
 
-func (s *Server) readEnvironmentAuthority(r *http.Request, v store.Session, p store.Project) (environmentReader, error) {
+func (s *API) readEnvironmentAuthority(r *http.Request, v store.Session, p store.Project) (environmentReader, error) {
 	var reader environmentReader
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
 	member := err == nil
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return reader, errEnvironmentReadStore
 	}
 	reader.login = login
@@ -126,12 +124,12 @@ func (s *Server) readEnvironmentAuthority(r *http.Request, v store.Session, p st
 	return reader, nil
 }
 
-func (s *Server) authorizeEnvironmentRead(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) (environmentReader, bool) {
+func (s *API) authorizeEnvironmentRead(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) (environmentReader, bool) {
 	reader, err := s.readEnvironmentAuthority(r, v, p)
 	if errors.Is(err, errEnvironmentReadStore) {
-		jsonError(w, 503, "store_unavailable", "Could not read membership.")
+		webauth.JSONError(w, 503, "store_unavailable", "Could not read membership.")
 	} else if err != nil {
-		providerError(w, err)
+		webauth.ProviderError(w, err)
 	}
 	return reader, err == nil
 }

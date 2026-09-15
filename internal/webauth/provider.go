@@ -1,4 +1,4 @@
-package web
+package webauth
 
 import (
 	"context"
@@ -53,14 +53,14 @@ func (p *providerLocks) lock(ctx context.Context, uid int64) (func(), error) {
 	}
 }
 
-func (s *Server) discardGrantOr(ctx context.Context, session string, fallback error) error {
+func (s *Service) discardGrantOr(ctx context.Context, session string, fallback error) error {
 	if deleteErr := s.discardGrant(ctx, session); deleteErr != nil {
 		return deleteErr
 	}
 	return fallback
 }
 
-func (s *Server) refreshUserGrant(ctx context.Context, session string, uid int64, grant store.Grant) (store.Grant, error) {
+func (s *Service) refreshUserGrant(ctx context.Context, session string, uid int64, grant store.Grant) (store.Grant, error) {
 	secret, err := config.Secret(s.Config.OAuthSecretFile)
 	if err != nil {
 		return store.Grant{}, forgejo.ErrUnavailable
@@ -79,8 +79,8 @@ func (s *Server) refreshUserGrant(ctx context.Context, session string, uid int64
 	return grant, nil
 }
 
-func (s *Server) userGrant(r *http.Request, v store.Session) (store.Grant, error) {
-	cookie, err := requestCookie(r, sessionCookie)
+func (s *Service) UserGrant(r *http.Request, v store.Session) (store.Grant, error) {
+	cookie, err := RequestCookie(r, SessionCookie)
 	if err != nil {
 		return store.Grant{}, store.ErrGrantUnavailable
 	}
@@ -99,17 +99,17 @@ func (s *Server) userGrant(r *http.Request, v store.Session) (store.Grant, error
 	return s.refreshUserGrant(r.Context(), cookie.Value, v.User.ID, grant)
 }
 
-func (s *Server) discardGrant(ctx context.Context, session string) error {
+func (s *Service) discardGrant(ctx context.Context, session string) error {
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	return s.Store.DeleteGrant(cleanup, session)
 }
 
-func (s *Server) apiProvider(next func(http.ResponseWriter, *http.Request, store.Session, string), scope string, methods ...string) http.HandlerFunc {
-	return s.apiProtected(func(w http.ResponseWriter, r *http.Request, v store.Session) {
-		grant, err := s.userGrant(r, v)
+func (s *Service) Provider(next func(http.ResponseWriter, *http.Request, store.Session, string), scope string, methods ...string) http.HandlerFunc {
+	return s.Protected(func(w http.ResponseWriter, r *http.Request, v store.Session) {
+		grant, err := s.UserGrant(r, v)
 		if err != nil {
-			providerError(w, err)
+			ProviderError(w, err)
 			return
 		}
 		required := scope
@@ -117,7 +117,7 @@ func (s *Server) apiProvider(next func(http.ResponseWriter, *http.Request, store
 			required = strings.Replace(scope, "write:", "read:", 1)
 		}
 		if !forgejo.HasScope(grant.Scopes, required) {
-			jsonError(w, http.StatusForbidden, "consent_required", "Forgejo consent does not include this operation. Revoke the old Soda grant in native Applications settings, then sign in with the required consent.")
+			JSONError(w, http.StatusForbidden, "consent_required", "Forgejo consent does not include this operation. Revoke the old Soda grant in native Applications settings, then sign in with the required consent.")
 			return
 		}
 		next(w, r, v, grant.Access)
@@ -160,9 +160,9 @@ func providerHTTPStatus(native *forgejo.HTTPError) (int, string, string, bool) {
 
 func knownProviderError(err error) (int, string, string, bool) {
 	switch {
-	case errors.Is(err, errRepositoryConsent):
+	case errors.Is(err, ErrRepositoryConsent):
 		return 403, "consent_required", "Forgejo user and repository consent is required.", true
-	case errors.Is(err, errProviderIdentity):
+	case errors.Is(err, ErrProviderIdentity):
 		return 401, "provider_identity_mismatch", "Sign in again.", true
 	case errors.Is(err, forgejo.ErrResponseTooLarge):
 		return 413, "provider_response_too_large", "This object exceeds the dashboard's supported size. Use native Git or Forgejo for larger files.", true
@@ -176,10 +176,10 @@ func knownProviderError(err error) (int, string, string, bool) {
 	return providerHTTPStatus(native)
 }
 
-func providerError(w http.ResponseWriter, err error) {
+func ProviderError(w http.ResponseWriter, err error) {
 	if code, kind, msg, ok := knownProviderError(err); ok {
-		jsonError(w, code, kind, msg)
+		JSONError(w, code, kind, msg)
 		return
 	}
-	jsonError(w, 503, "provider_unavailable", "Forgejo could not complete this request. A write may have completed; inspect native state before retrying.")
+	JSONError(w, 503, "provider_unavailable", "Forgejo could not complete this request. A write may have completed; inspect native state before retrying.")
 }
