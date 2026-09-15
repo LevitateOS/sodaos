@@ -8,13 +8,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/installlayout"
 	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/levitateos/sodaos/internal/installlayout"
 )
 
 const localCAPath = "/var/lib/soda/proxy/caddy/pki/authorities/local/root.crt"
@@ -79,56 +80,64 @@ func configureInstall(ctx context.Context, c console, run commandRunner) error {
 	return configurePrivateInstall(ctx, c, run, "/etc/soda", "/run", localCAPath)
 }
 
-func configurePrivateInstall(ctx context.Context, c console, run commandRunner, root, temporary, caPath string) error {
+func checkPreexistingInstall(root string) (bool, error) {
 	if _, err := readRegular(filepath.Join(root, "installed"), 256); err != nil {
-		return errors.New("install the included Soda components before configuring browser access")
+		return false, errors.New("install the included Soda components before configuring browser access")
 	}
 	if _, err := os.Lstat(filepath.Join(root, "activated")); err == nil {
-		return configuredAccess(ctx, c, root, caPath, run)
+		return true, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return errors.New("cannot inspect existing activation")
+		return false, errors.New("cannot inspect existing activation")
 	}
 	for _, name := range []string{"dashboard.json", "setup-started"} {
 		if _, err := os.Lstat(filepath.Join(root, name)); !errors.Is(err, os.ErrNotExist) {
-			return errors.New("existing or partial operator setup requires inspection; do not create another OAuth application")
+			return false, errors.New("existing or partial operator setup requires inspection; do not create another OAuth application")
 		}
 	}
+	return false, nil
+}
+
+func querySetupAddresses(ctx context.Context, run commandRunner) ([]setupAddress, error) {
 	data, err := run(ctx, "ip", []string{"-json", "address", "show", "up"}, nil)
 	if err != nil {
-		return errors.New("cannot inspect network addresses")
+		return nil, errors.New("cannot inspect network addresses")
 	}
-	choices, err := setupAddresses(data)
-	if err != nil {
-		return err
-	}
+	return setupAddresses(data)
+}
+
+func promptSetupAddress(c console, choices []setupAddress) (setupAddress, error) {
 	c.page("Private browser setup")
 	c.print("Use this SSH terminal to paste the Forgejo token when asked; input will be hidden.")
 	c.print("Select the appliance address your laptop can reach. No domain is needed.")
 	for i, choice := range choices {
 		c.print("%d. %s on %q", i+1, choice.Address, choice.Interface)
 	}
-	var selected setupAddress
 	for {
 		answer, err := c.ask("Address number, or cancel")
 		if err != nil {
-			return err
+			return setupAddress{}, err
 		}
 		if answer == "cancel" {
-			return errors.New("browser setup cancelled")
+			return setupAddress{}, errors.New("browser setup cancelled")
 		}
 		i, err := strconv.Atoi(answer)
 		if err == nil && i > 0 && i <= len(choices) {
-			selected = choices[i-1]
-			break
+			return choices[i-1], nil
 		}
 		c.print("Choose one of the listed address numbers.")
 	}
-	origin, _ := privateSetupOrigin(selected.Address)
+}
+
+func validOperatorToken(token string) bool {
+	return token != "" && token == strings.TrimSpace(token) && !strings.ContainsAny(token, "\r\n\x00")
+}
+
+func promptOperatorToken(c console, address, origin string) (string, error) {
 	c.print("The final Soda address will be %s", origin)
 	c.print("Use a stable address or DHCP reservation. Changing it later needs explicit configuration maintenance.")
 	c.print("If you have no SSH key access yet, cancel and run %s enroll-key at the local console.", installerBinary)
 	c.print("From your laptop, connect with an SSH tunnel to the native Forgejo installer:")
-	c.print("ssh -L 33000:127.0.0.1:3000 root@%s", selected.Address)
+	c.print("ssh -L 33000:127.0.0.1:3000 root@%s", address)
 	c.print("Open http://localhost:33000 and complete Forgejo's own installation and administrator account setup.")
 	c.print("Keep its localhost browser URL for this bootstrap; activation below sets the final private URL.")
 	c.print("In Forgejo Settings > Applications, create the operator token described in the operator setup guide.")
@@ -136,35 +145,35 @@ func configurePrivateInstall(ctx context.Context, c console, run commandRunner, 
 	c.print("Caddy will issue local HTTPS certificates. You will explicitly trust its public root certificate on your laptop.")
 	answer, err := c.ask("When Forgejo setup is complete, type CONFIGURE SODA; anything else cancels")
 	if err != nil {
-		return err
+		return "", err
 	}
 	if answer != "CONFIGURE SODA" {
-		return errors.New("browser setup cancelled; no Soda configuration written")
+		return "", errors.New("browser setup cancelled; no Soda configuration written")
 	}
 	token, err := c.secret("Operator Forgejo token")
 	if err != nil {
-		return err
+		return "", err
 	}
-	if token == "" || token != strings.TrimSpace(token) || strings.ContainsAny(token, "\r\n\x00") {
-		return errors.New("operator token is empty or malformed")
+	if !validOperatorToken(token) {
+		return "", errors.New("operator token is empty or malformed")
 	}
-	// Recheck assignment before writing configuration, rather than silently choosing
-	// a different interface or stale address after a long browser setup.
-	data, err = run(ctx, "ip", []string{"-json", "address", "show", "up"}, nil)
+	return token, nil
+}
+
+func verifyAddressStillAssigned(ctx context.Context, run commandRunner, selected setupAddress) error {
+	current, err := querySetupAddresses(ctx, run)
 	if err != nil {
 		return errors.New("cannot recheck the selected address")
 	}
-	current, err := setupAddresses(data)
-	if err != nil {
-		return err
-	}
-	assigned := false
 	for _, choice := range current {
-		assigned = assigned || choice == selected
+		if choice == selected {
+			return nil
+		}
 	}
-	if !assigned {
-		return errors.New("selected network address changed; restart browser setup")
-	}
+	return errors.New("selected network address changed; restart browser setup")
+}
+
+func executeSetupAndActivation(ctx context.Context, run commandRunner, root, temporary, origin, token string, selected setupAddress) error {
 	work, err := os.MkdirTemp(temporary, "soda-setup-")
 	if err != nil {
 		return err
@@ -173,7 +182,6 @@ func configurePrivateInstall(ctx context.Context, c console, run commandRunner, 
 	if err := writeSetupFile(tokenPath, []byte(token+"\n")); err != nil {
 		return err
 	}
-	token = ""
 	if err := writeSetupFile(filepath.Join(root, "setup-started"), []byte(origin+"\n")); err != nil {
 		return errors.New("cannot reserve operator setup; no OAuth request made")
 	}
@@ -183,11 +191,41 @@ func configurePrivateInstall(ctx context.Context, c console, run commandRunner, 
 	if _, err := run(ctx, installlayout.Sbin+"/soda-activate", []string{"--bind-ip", selected.Address, "--local-tls"}, nil); err != nil {
 		return errors.New("private activation failed; preserve the existing configuration for inspection. " + failureSummary(err))
 	}
+	return nil
+}
+
+func configurePrivateInstall(ctx context.Context, c console, run commandRunner, root, temporary, caPath string) error {
+	activated, err := checkPreexistingInstall(root)
+	if err != nil {
+		return err
+	}
+	if activated {
+		return configuredAccess(ctx, c, root, caPath, run)
+	}
+	choices, err := querySetupAddresses(ctx, run)
+	if err != nil {
+		return err
+	}
+	selected, err := promptSetupAddress(c, choices)
+	if err != nil {
+		return err
+	}
+	origin, _ := privateSetupOrigin(selected.Address)
+	token, err := promptOperatorToken(c, selected.Address, origin)
+	if err != nil {
+		return err
+	}
+	if err := verifyAddressStillAssigned(ctx, run, selected); err != nil {
+		return err
+	}
+	if err := executeSetupAndActivation(ctx, run, root, temporary, origin, token, selected); err != nil {
+		return err
+	}
 	return configuredAccess(ctx, c, root, caPath, run)
 }
 
 func writeSetupFile(path string, data []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
