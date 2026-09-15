@@ -58,6 +58,10 @@ body.soda-workspace-shell.sodaspaces-compact #soda-workspace-root {
 body.soda-workspace-shell.sodaspaces-compact #soda-workspace-divider {
   display: none;
 }
+body.soda-workspace-shell [hidden],
+body.soda-workspace-shell [data-surface-hidden] {
+  display: none !important;
+}
 body.soda-workspace-shell #sodaspaces-surfaces {
   position: fixed;
 }

@@ -24,7 +24,8 @@ provider picker in onboarding.
 4. Creation, explicit Join and first terminal.
 5. Working workspace with management controls and sessions.
 
-Keep native Forgejo header inside the framed Forgejo document. Prefer one composition
+Keep native Forgejo header inside the framed Forgejo document. Login, consent, and
+callback leave that host and become the top-level document. Prefer one composition
 per step over dashboard clutter.
 
 ## Full-page workspace

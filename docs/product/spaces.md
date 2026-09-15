@@ -12,9 +12,11 @@ they do not use canonical Forgejo URLs as the top-level document.
 
 Signed-in browsing uses that workspace host. The navbar Spaces link and Spaces OAuth
 return go to `/-/soda/workspace`. Ordinary signed-in Forgejo documents wrap into it
-with admitted `to`. Login, OAuth, install, failed `soda-connect`, and remaining
-`soda-view` hosts (repository Spaces, Runners, Tailnet) stay top-level. Unsigned
-`/-/soda/spaces` stays a bookmark that establishes the native actor first.
+with admitted `to`. Login, OAuth authorize/grant, callback, install, failed
+`soda-connect`, and remaining `soda-view` hosts (repository Spaces, Runners, Tailnet)
+stay top-level. If the framed document lands on those, the shell replaces itself
+with that URL. Credential query never becomes `to`. Unsigned `/-/soda/spaces` stays
+a bookmark that establishes the native actor first.
 
 Forgejo owns navbar, profile, notifications, forms and routing inside the iframe.
 The Soda shell has no second header. Layout is two surfaces: framed Forgejo on the
@@ -51,16 +53,6 @@ permissions.
 
 UX composition details live in [Spaces UX](../design/spaces-ux.md).
 Wire contracts live in [Terminal](../reference/terminal.md) and [HTTP API](../reference/api.md).
-
-## Remaining workspace-host decisions
-
-Host, address bar, signed-in entry, chrome, and split layout are selected. Further
-host work happens in this order. Do not fold auth into chrome.
-
-1. **Prove that composition** in the browser and native fixtures.
-2. **Auth that may leave the shell.** Login, consent, and callback stay outside the
-   shell until this step selects otherwise.
-3. **Prove those auth flows** in the browser and native fixtures.
 
 ## Settings ownership
 

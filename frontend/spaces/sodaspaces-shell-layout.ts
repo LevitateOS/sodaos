@@ -17,12 +17,21 @@ function cellWidth(measure: HTMLElement) {
   return measure.getBoundingClientRect().width / 16 || 9;
 }
 
-function viewportWidth() {
-  return window.visualViewport?.width || window.innerWidth;
+function layoutWindow(layout: ShellLayout) {
+  return layout.body.ownerDocument.defaultView;
+}
+
+function viewportWidth(layout: ShellLayout) {
+  const win = layoutWindow(layout);
+  return win?.visualViewport?.width || win?.innerWidth || 0;
 }
 
 export function applyShellLayout(layout: ShellLayout) {
-  const geometry = workspaceWidths(viewportWidth(), Math.max(cellWidth(layout.measure) * 56 + 28, 0), layout.width);
+  const geometry = workspaceWidths(
+    viewportWidth(layout),
+    Math.max(cellWidth(layout.measure) * 56 + 28, 0),
+    layout.width
+  );
   layout.body.style.setProperty('--soda-space-width', geometry.actual + 'vw');
   layout.body.classList.toggle('sodaspaces-compact', geometry.compact);
   layout.switcher.hidden = !geometry.compact;
@@ -39,7 +48,11 @@ export function applyShellLayout(layout: ShellLayout) {
 }
 
 export function resizeShellWidth(layout: ShellLayout, desired: number) {
-  const geometry = workspaceWidths(viewportWidth(), Math.max(cellWidth(layout.measure) * 56 + 28, 0), layout.width);
+  const geometry = workspaceWidths(
+    viewportWidth(layout),
+    Math.max(cellWidth(layout.measure) * 56 + 28, 0),
+    layout.width
+  );
   if (geometry.compact) return;
   layout.width = Math.max(geometry.minimum, Math.min(geometry.maximum, desired));
   applyShellLayout(layout);
@@ -61,13 +74,16 @@ function onDividerKey(layout: ShellLayout, event: KeyboardEvent) {
 
 function onDividerPointer(layout: ShellLayout, event: PointerEvent) {
   if (!layout.divider.hasPointerCapture(event.pointerId)) return;
-  const viewport = viewportWidth();
+  const win = layoutWindow(layout);
+  if (!win) return;
+  const viewport = win.visualViewport?.width || win.innerWidth;
   resizeShellWidth(layout, ((viewport - event.clientX) / Math.max(1, viewport)) * 100);
 }
 
 export function bindWorkspaceShellLayout(doc: Document) {
   const layout = readShellLayout(doc);
-  if (!layout) return;
+  const win = doc.defaultView;
+  if (!layout || !win) return;
   const size = () => applyShellLayout(layout);
   layout.forge.addEventListener('click', () => {
     layout.surface = 'forge';
@@ -82,8 +98,8 @@ export function bindWorkspaceShellLayout(doc: Document) {
     if (event.button === 0) layout.divider.setPointerCapture(event.pointerId);
   });
   layout.divider.addEventListener('pointermove', (event) => onDividerPointer(layout, event));
-  window.addEventListener('resize', size);
-  window.visualViewport?.addEventListener('resize', size);
+  win.addEventListener('resize', size);
+  win.visualViewport?.addEventListener('resize', size);
   size();
 }
 

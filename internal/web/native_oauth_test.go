@@ -9,7 +9,12 @@ import (
 )
 
 func TestNativeOAuthFailuresStayInFixedHostWithoutNewSession(t *testing.T) {
-	for _, destination := range []string{"runners", "tailnet"} {
+	failedHost := map[string]string{
+		"runners": "/admin?soda-view=runners&soda-connect=failed",
+		"tailnet": "/admin?soda-view=tailnet&soda-connect=failed",
+		"spaces":  "/?soda-view=spaces&soda-connect=failed",
+	}
+	for _, destination := range []string{"runners", "tailnet", "spaces"} {
 		for _, mode := range []string{"declined", "missing scopes", "actor changed", "provider unavailable"} {
 			t.Run(destination+"/"+mode, func(t *testing.T) {
 				s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -51,8 +56,8 @@ func TestNativeOAuthFailuresStayInFixedHostWithoutNewSession(t *testing.T) {
 				}
 				response := httptest.NewRecorder()
 				s.ServeHTTP(response, request)
-				if response.Code != 303 || response.Header().Get("Location") != s.Config.ForgejoURL+"/admin?soda-view="+destination+"&soda-connect=failed" || len(response.Result().Cookies()) != 0 {
-					t.Fatal("unsafe failure destination or session", response.Code)
+				if response.Code != 303 || response.Header().Get("Location") != s.Config.ForgejoURL+failedHost[destination] || len(response.Result().Cookies()) != 0 {
+					t.Fatal("unsafe failure destination or session", response.Code, response.Header().Get("Location"))
 				}
 				if _, err := s.Store.Session(t.Context(), "session-alice"); err != nil {
 					t.Fatal("existing session discarded", err)

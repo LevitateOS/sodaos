@@ -21,7 +21,7 @@
 		</div>
 	</aside>
 </div>
-<script type="module" src="{{AppSubUrl}}/assets/sodaspaces.js?v=2026-09-15.workspace-split-1"></script>
+<script type="module" src="{{AppSubUrl}}/assets/sodaspaces.js?v=2026-09-15.workspace-auth-1"></script>
 {{if .Repository}}<script src="{{AssetUrlPrefix}}/soda/forgejo/repository-actions.js?v=4"></script>{{end}}
 {{end}}{{end}}
 {{if .IsSigned}}
@@ -36,8 +36,8 @@
 	<a class="soda-notification-preview-all" href="{{AppSubUrl}}/notifications">View all notifications</a>
 </div>
 <script src="{{AssetUrlPrefix}}/soda/forgejo/notification-preview.js?v=1"></script>
-<script type="module" src="{{AppSubUrl}}/assets/soda/forgejo/soda-settings-link.js?v=2026-09-15.workspace-split-1"></script>
-<script type="module" src="{{AppSubUrl}}/assets/soda/forgejo/soda-workspace-entry.js?v=2026-09-15.workspace-split-1"></script>
+<script type="module" src="{{AppSubUrl}}/assets/soda/forgejo/soda-settings-link.js?v=2026-09-15.workspace-auth-1"></script>
+<script type="module" src="{{AppSubUrl}}/assets/soda/forgejo/soda-workspace-entry.js?v=2026-09-15.workspace-auth-1"></script>
 {{end}}
 
 {{if and .IsSigned .Repository}}<script defer src="{{AssetUrlPrefix}}/soda/forgejo/repository-switcher.js?v=3-repository-only"></script>{{end}}

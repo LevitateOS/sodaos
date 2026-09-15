@@ -14,7 +14,7 @@ import (
 )
 
 // Must match appliance/forgejo/templates/custom/header.tmpl.
-const workspacePresentation = "2026-09-15.workspace-split-1"
+const workspacePresentation = "2026-09-15.workspace-auth-1"
 
 const workspaceShellCSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
@@ -69,7 +69,7 @@ func workspaceFrame(r *http.Request) (string, bool) {
 
 func admitWorkspaceFrame(raw string) (string, bool) {
 	u, ok := parseWorkspaceFrame(raw)
-	if !ok || sodaFramePath(u.Path) || credentialFrameQuery(u.Query()) {
+	if !ok || sodaFramePath(u.Path) || credentialFrameQuery(u.Query()) || outsideWorkspaceFrame(u) {
 		return "", false
 	}
 	frame := u.Path
@@ -110,6 +110,29 @@ func sodaFramePath(p string) bool {
 
 func credentialFrameQuery(q url.Values) bool {
 	return q.Has("code") || q.Has("state") || q.Has("access_token") || q.Has("id_token")
+}
+
+func outsideWorkspaceFrame(u *url.URL) bool {
+	if u.Query().Has("soda-connect") || sodaViewHost(u.Query()) {
+		return true
+	}
+	return loginConsentInstall(u.Path)
+}
+
+func sodaViewHost(q url.Values) bool {
+	views := q["soda-view"]
+	if len(views) != 1 {
+		return false
+	}
+	switch views[0] {
+	case "spaces", "repository-spaces", "runners", "tailnet":
+		return true
+	}
+	return false
+}
+
+func loginConsentInstall(p string) bool {
+	return strings.HasPrefix(p, "/user/login") || strings.HasPrefix(p, "/login/oauth") || p == "/install" || strings.HasPrefix(p, "/install/")
 }
 
 func (s *API) writeWorkspaceShell(w http.ResponseWriter, session store.Session, frame string) {
