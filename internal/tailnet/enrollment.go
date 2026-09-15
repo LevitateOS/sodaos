@@ -39,8 +39,49 @@ type keyTransport struct {
 	used        bool
 }
 
+func validKeyURL(u *url.URL, path string) bool {
+	return u.Scheme == "https" && u.Host == "api.tailscale.com" && u.User == nil && u.Path == path && u.RawQuery == "" && u.Fragment == "" && u.RawPath == ""
+}
+
+func validKeyRequest(t *keyTransport, r *http.Request) bool {
+	return !t.used && r.Context().Err() == nil && r.Method == "POST" && validKeyURL(r.URL, t.path)
+}
+
+func keyResponseBody(res *http.Response) ([]byte, error) {
+	if res == nil || res.Body == nil {
+		return nil, ErrUnconfirmed
+	}
+	if res.StatusCode != 200 {
+		res.Body.Close()
+		return nil, ErrUnconfirmed
+	}
+	defer res.Body.Close()
+	b, e := io.ReadAll(io.LimitReader(res.Body, responseLimit+1))
+	if e != nil || len(b) > responseLimit {
+		return nil, ErrUnconfirmed
+	}
+	return b, nil
+}
+
+func validKeyCreateCapabilities(b []byte) error {
+	var raw map[string]json.RawMessage
+	if nativeObject(b, &raw, "id", "key", "created", "expires", "capabilities") != nil {
+		return ErrUnconfirmed
+	}
+	var caps, devices, create map[string]json.RawMessage
+	if nativeObject(raw["capabilities"], &caps, "devices") != nil || nativeObject(caps["devices"], &devices, "create") != nil || nativeObject(devices["create"], &create, "reusable", "ephemeral", "tags", "preauthorized") != nil {
+		return ErrUnconfirmed
+	}
+	for _, k := range []string{"reusable", "ephemeral", "preauthorized"} {
+		if string(create[k]) != "true" && string(create[k]) != "false" {
+			return ErrUnconfirmed
+		}
+	}
+	return nil
+}
+
 func (t *keyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	if t.used || r.Context().Err() != nil || r.Method != "POST" || r.URL.Scheme != "https" || r.URL.Host != "api.tailscale.com" || r.URL.User != nil || r.URL.Path != t.path || r.URL.RawQuery != "" || r.URL.Fragment != "" || r.URL.RawPath != "" {
+	if !validKeyRequest(t, r) {
 		return nil, ErrInvalid
 	}
 	t.used = true
@@ -51,32 +92,12 @@ func (t *keyTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	if e != nil {
 		return nil, ErrUnconfirmed
 	}
-	if res == nil || res.Body == nil {
-		return nil, ErrUnconfirmed
+	b, e := keyResponseBody(res)
+	if e != nil {
+		return nil, e
 	}
-	if res.StatusCode != 200 {
-		res.Body.Close()
-		return nil, ErrUnconfirmed
-	}
-	// Reject duplicate/null/incomplete JSON before SDK decoding. Its response reader
-	// otherwise accepts zero values for missing capability bits (notably reusable).
-	defer res.Body.Close()
-	b, e := io.ReadAll(io.LimitReader(res.Body, responseLimit+1))
-	if e != nil || len(b) > responseLimit {
-		return nil, ErrUnconfirmed
-	}
-	var raw map[string]json.RawMessage
-	if nativeObject(b, &raw, "id", "key", "created", "expires", "capabilities") != nil {
-		return nil, ErrUnconfirmed
-	}
-	var caps, devices, create map[string]json.RawMessage
-	if nativeObject(raw["capabilities"], &caps, "devices") != nil || nativeObject(caps["devices"], &devices, "create") != nil || nativeObject(devices["create"], &create, "reusable", "ephemeral", "tags", "preauthorized") != nil {
-		return nil, ErrUnconfirmed
-	}
-	for _, k := range []string{"reusable", "ephemeral", "preauthorized"} {
-		if string(create[k]) != "true" && string(create[k]) != "false" {
-			return nil, ErrUnconfirmed
-		}
+	if e = validKeyCreateCapabilities(b); e != nil {
+		return nil, e
 	}
 	res.Body = io.NopCloser(strings.NewReader(string(b)))
 	return res, nil
