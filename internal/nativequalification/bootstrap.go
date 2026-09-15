@@ -29,10 +29,10 @@ func configureFixtureForgejo(ctx context.Context) error {
 	if strings.Contains(string(b), "FORGEJO__security__INSTALL_LOCK=") {
 		return errors.New("existing fixture installation policy requires inspection")
 	}
-	if err = os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+	if err = os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
 		return err
 	}
-	if err = os.WriteFile(path, append(b, []byte("\nFORGEJO__security__INSTALL_LOCK=true\n")...), 0600); err != nil {
+	if err = os.WriteFile(path, append(b, []byte("\nFORGEJO__security__INSTALL_LOCK=true\n")...), 0o600); err != nil {
 		return err
 	}
 	if err = exec.CommandContext(ctx, "systemctl", "restart", "forgejo.service").Run(); err != nil {
@@ -71,7 +71,7 @@ func configureFixtureSoda(ctx context.Context) error {
 		return errors.New("native local fixture token creation failed")
 	}
 	path := filepath.Join(fixtureState, "setup-token")
-	if err = nativebuild.WriteNew(path, []byte(strings.TrimSpace(string(token))), 0600); err != nil {
+	if err = nativebuild.WriteNew(path, []byte(strings.TrimSpace(string(token))), 0o600); err != nil {
 		return err
 	}
 	// Only the local disposable Forgejo is contacted; no external provider, real

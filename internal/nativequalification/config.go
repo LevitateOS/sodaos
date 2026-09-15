@@ -20,7 +20,33 @@ type Config struct {
 	QEMU, Firmware, Variables, RegistryImage                                            string
 }
 
-func LoadConfig(path string) (Config, error) {
+func pinnedRegistry(image string) bool {
+	return strings.HasPrefix(image, "docker.io/library/registry@sha256:") && nativebuild.Digest(strings.TrimPrefix(image, "docker.io/library/registry@sha256:"))
+}
+
+func exactQualificationPath(p string) bool {
+	resolved, err := filepath.EvalSymlinks(p)
+	return err == nil && filepath.IsAbs(p) && resolved == p && !strings.ContainsAny(p, ":,\n\r\t %")
+}
+
+func requireExactPaths(paths []string) error {
+	for _, p := range paths {
+		if !exactQualificationPath(p) {
+			return errors.New("existing exact qualification input paths required")
+		}
+	}
+	return nil
+}
+
+func requireBaselinePassword(path string) error {
+	password, err := os.ReadFile(path)
+	if err != nil || len(strings.TrimSpace(string(password))) == 0 {
+		return errors.New("baseline console credential unavailable")
+	}
+	return nil
+}
+
+func admitConfig(path string) (Config, error) {
 	var c Config
 	if os.Geteuid() != 0 {
 		return c, errors.New("protected qualification admission required")
@@ -37,18 +63,22 @@ func LoadConfig(path string) (Config, error) {
 	if err := acceptance.TrustedExecutable(c.Executable); err != nil {
 		return c, err
 	}
-	if !nativebuild.Digest(c.BaselineDiskSHA256) || !strings.HasPrefix(c.RegistryImage, "docker.io/library/registry@sha256:") || !nativebuild.Digest(strings.TrimPrefix(c.RegistryImage, "docker.io/library/registry@sha256:")) {
+	return c, nil
+}
+
+func LoadConfig(path string) (Config, error) {
+	c, err := admitConfig(path)
+	if err != nil {
+		return c, err
+	}
+	if !nativebuild.Digest(c.BaselineDiskSHA256) || !pinnedRegistry(c.RegistryImage) {
 		return c, errors.New("admitted baseline hash and pinned upstream registry required")
 	}
-	for _, p := range []string{c.Baseline, c.BaselineDisk, c.BaselineVariables, c.BaselineKey, c.BaselineKnownHosts, c.BaselineState, c.BaselinePassword, c.QEMU, c.Firmware, c.Variables} {
-		resolved, err := filepath.EvalSymlinks(p)
-		if err != nil || !filepath.IsAbs(p) || resolved != p || strings.ContainsAny(p, ":,\n\r\t %") {
-			return c, errors.New("existing exact qualification input paths required")
-		}
+	if err := requireExactPaths([]string{c.Baseline, c.BaselineDisk, c.BaselineVariables, c.BaselineKey, c.BaselineKnownHosts, c.BaselineState, c.BaselinePassword, c.QEMU, c.Firmware, c.Variables}); err != nil {
+		return c, err
 	}
-	password, err := os.ReadFile(c.BaselinePassword)
-	if err != nil || len(strings.TrimSpace(string(password))) == 0 {
-		return c, errors.New("baseline console credential unavailable")
+	if err := requireBaselinePassword(c.BaselinePassword); err != nil {
+		return c, err
 	}
 	if err := nativebuild.PrivateDestination(c.Work); err != nil {
 		return c, err
@@ -61,5 +91,5 @@ func writeNewJSON(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	return nativebuild.WriteNew(path, append(b, '\n'), 0600)
+	return nativebuild.WriteNew(path, append(b, '\n'), 0o600)
 }

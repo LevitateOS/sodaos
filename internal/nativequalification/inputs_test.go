@@ -52,11 +52,11 @@ func TestStateSchemaRefusesMigrationWithoutWriting(t *testing.T) {
 func TestInputMutationBlocksQualification(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "candidate.json")
-	require.NoError(t, os.WriteFile(path, []byte("admitted"), 0600))
+	require.NoError(t, os.WriteFile(path, []byte("admitted"), 0o600))
 	sum, err := nativebuild.HashFile(path)
 	require.NoError(t, err)
 	a := Artifact{Files: map[string]string{"candidate.json": sum}}
 	require.NoError(t, Unchanged(dir, a))
-	require.NoError(t, os.WriteFile(path, []byte("changed"), 0600))
+	require.NoError(t, os.WriteFile(path, []byte("changed"), 0o600))
 	require.Error(t, Unchanged(dir, a))
 }

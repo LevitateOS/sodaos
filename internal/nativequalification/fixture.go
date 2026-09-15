@@ -44,6 +44,7 @@ func (f *fixture) run(ctx context.Context, label, name string, args ...string) (
 	r, e := acceptance.Execute(ctx, f.e, fmt.Sprintf("fixture-%03d-%s", f.seq, label), acceptance.Command{Name: name, Args: args})
 	return r.Stdout, errors.Join(e, r.Err)
 }
+
 func (f *fixture) close() error {
 	var err error
 	for _, s := range []*http.Server{f.registry, f.graph, f.rootfs} {
@@ -94,11 +95,12 @@ func tlsFixture(dir string) error {
 	if err != nil {
 		return err
 	}
-	if err = nativebuild.WriteNew(filepath.Join(dir, "ca.crt"), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert}), 0600); err != nil {
+	if err = nativebuild.WriteNew(filepath.Join(dir, "ca.crt"), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert}), 0o600); err != nil {
 		return err
 	}
-	return nativebuild.WriteNew(filepath.Join(dir, "tls.key"), pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: priv}), 0600)
+	return nativebuild.WriteNew(filepath.Join(dir, "tls.key"), pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: priv}), 0o600)
 }
+
 func (f *fixture) serve(port int, handler http.Handler, tls bool) (*http.Server, error) {
 	listener, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
@@ -107,16 +109,148 @@ func (f *fixture) serve(port int, handler http.Handler, tls bool) (*http.Server,
 	s := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		if tls {
-			s.ServeTLS(listener, filepath.Join(f.work, "ca.crt"), filepath.Join(f.work, "tls.key"))
+			_ = s.ServeTLS(listener, filepath.Join(f.work, "ca.crt"), filepath.Join(f.work, "tls.key"))
 		} else {
-			s.Serve(listener)
+			_ = s.Serve(listener)
 		}
 	}()
 	return s, nil
 }
+
+func localRootfsURL(raw string) (*url.URL, error) {
+	rootfsURL, err := url.Parse(raw)
+	if err != nil || rootfsURL.Host != "10.0.2.2:19948" || rootfsURL.Scheme != "http" {
+		return nil, errors.New("selected local rootfs route required")
+	}
+	return rootfsURL, nil
+}
+
+func graphNode(a Artifact, age string) any {
+	return map[string]any{"version": a.Payload.ID, "payload": a.Candidate.HostReference, "metadata": map[string]string{"org.fedoraproject.coreos.scheme": "oci", "org.fedoraproject.coreos.releases.age_index": age}}
+}
+
+func (f *fixture) serveGraph(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/v1/graph" {
+		http.NotFound(w, r)
+		return
+	}
+	f.mu.Lock()
+	offer := f.offer
+	f.graphRequests++
+	request := f.graphRequests
+	f.mu.Unlock()
+	edges := [][2]int{}
+	if offer {
+		edges = append(edges, [2]int{0, 1})
+	}
+	graph := map[string]any{"nodes": []any{graphNode(f.a, "1"), graphNode(f.b, "2")}, "edges": edges}
+	if err := f.e.WriteJSON(fmt.Sprintf("graph-%03d.json", request), map[string]any{"request": r.URL.RequestURI(), "response": graph}); err != nil {
+		http.Error(w, "evidence unavailable", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(graph)
+}
+
+func (f *fixture) rootfsHandler(path, file string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != path {
+			http.NotFound(w, r)
+			return
+		}
+		http.ServeFile(w, r, file)
+	})
+}
+
+func prepareFixtureWork(work string) error {
+	for _, dir := range []string{"runtime", ".config/containers"} {
+		if err := os.MkdirAll(filepath.Join(work, dir), 0o700); err != nil {
+			return err
+		}
+	}
+	return nativebuild.WriteNew(filepath.Join(work, ".config/containers/containers.conf"), []byte("[engine]\ncgroup_manager = \"cgroupfs\"\nevents_logger = \"file\"\n"), 0o600)
+}
+
+func (f *fixture) startRegistry(ctx context.Context, c Config) error {
+	if !pinnedRegistry(c.RegistryImage) {
+		return errors.New("pinned upstream registry required")
+	}
+	if _, err := f.run(ctx, "registry-pull", "podman", "--remote=false", "pull", c.RegistryImage); err != nil {
+		return err
+	}
+	cid, err := f.run(ctx, "registry-start", "podman", "--remote=false", "run", "--detach", "--pull=never", "--name", "soda-p9-registry-"+filepath.Base(c.Work), "--network=host", "--env", "REGISTRY_HTTP_ADDR=127.0.0.1:19500", c.RegistryImage)
+	if err != nil {
+		return err
+	}
+	f.cid = strings.TrimSpace(string(cid))
+	endpoint, _ := url.Parse("http://127.0.0.1:19500")
+	proxy := httputil.NewSingleHostReverseProxy(endpoint)
+	f.registry, err = f.serve(19443, f.registryHandler(proxy), true)
+	return err
+}
+
+func (f *fixture) startServers(rootfs *url.URL, media hostimage.Media) error {
+	var err error
+	f.graph, err = f.serve(19444, http.HandlerFunc(f.serveGraph), true)
+	if err != nil {
+		return err
+	}
+	f.rootfs, err = f.serve(19948, f.rootfsHandler(rootfs.Path, filepath.Join("/run/soda-p9-input/candidate/media", media.Rootfs.Path)), false)
+	return err
+}
+
+func (f *fixture) startLocalServices(ctx context.Context, c Config, media hostimage.Media) error {
+	if err := f.startRegistry(ctx, c); err != nil {
+		return err
+	}
+	rootfsURL, err := localRootfsURL(media.RootfsURL)
+	if err != nil {
+		return err
+	}
+	return f.startServers(rootfsURL, media)
+}
+
+func writeFixturePassphrase(dir string) error {
+	pass := make([]byte, 32)
+	if _, err := rand.Read(pass); err != nil {
+		return err
+	}
+	return nativebuild.WriteNew(filepath.Join(dir, "passphrase"), []byte(fmt.Sprintf("%x", pass)), 0o600)
+}
+
+func (f *fixture) writeTrust(ctx context.Context, c Config) error {
+	for _, name := range []string{"correct", "wrong"} {
+		if _, err := f.run(ctx, "key-"+name, "skopeo", "generate-sigstore-key", "--output-prefix", filepath.Join(f.work, name), "--passphrase-file", filepath.Join(f.work, "passphrase")); err != nil {
+			return err
+		}
+	}
+	public, err := os.ReadFile(filepath.Join(f.work, "correct.pub"))
+	if err != nil {
+		return err
+	}
+	ca, err := os.ReadFile(filepath.Join(f.work, "ca.crt"))
+	if err != nil {
+		return err
+	}
+	return f.e.WriteJSON("fixture-trust.json", map[string]any{"repository": f.b.Candidate.HostReference, "registry_image": c.RegistryImage, "public_key": string(public), "ca": string(ca), "graph_url": "https://10.0.2.2:19444/v1/graph"})
+}
+
+func (f *fixture) writePublishPolicy() error {
+	// The publishing client uses the same native attachment mechanism as the guest.
+	cfg := "docker:\n  127.0.0.1:19500:\n    use-sigstore-attachments: true\n"
+	if err := os.Mkdir(filepath.Join(f.work, "registries.d"), 0o700); err != nil {
+		return err
+	}
+	if err := nativebuild.WriteNew(filepath.Join(f.work, "registries.d/fixture.yaml"), []byte(cfg), 0o600); err != nil {
+		return err
+	}
+	policy := map[string]any{"default": []any{map[string]string{"type": "reject"}}, "transports": map[string]any{"oci-archive": map[string]any{"/run/soda-p9-input/candidate/host.oci": []any{map[string]string{"type": "insecureAcceptAnything"}}}}}
+	return writeNewJSON(filepath.Join(f.work, "source-policy.json"), policy)
+}
+
 func newFixture(ctx context.Context, c Config, a, b Artifact, media hostimage.Media, e *acceptance.Evidence) (f *fixture, err error) {
 	f = &fixture{work: filepath.Join(c.Work, "fixture"), e: e, a: a, b: b}
-	if err = os.Mkdir(f.work, 0700); err != nil {
+	if err = os.Mkdir(f.work, 0o700); err != nil {
 		return nil, err
 	}
 	defer func() {
@@ -127,110 +261,21 @@ func newFixture(ctx context.Context, c Config, a, b Artifact, media hostimage.Me
 	if err = tlsFixture(f.work); err != nil {
 		return f, err
 	}
-	for _, dir := range []string{"runtime", ".config/containers"} {
-		if err = os.MkdirAll(filepath.Join(c.Work, dir), 0700); err != nil {
-			return f, err
-		}
-	}
-	if err = nativebuild.WriteNew(filepath.Join(c.Work, ".config/containers/containers.conf"), []byte("[engine]\ncgroup_manager = \"cgroupfs\"\nevents_logger = \"file\"\n"), 0600); err != nil {
+	if err = prepareFixtureWork(c.Work); err != nil {
 		return f, err
 	}
-	if !strings.HasPrefix(c.RegistryImage, "docker.io/library/registry@sha256:") || !nativebuild.Digest(strings.TrimPrefix(c.RegistryImage, "docker.io/library/registry@sha256:")) {
-		return f, errors.New("pinned upstream registry required")
-	}
-	if _, err = f.run(ctx, "registry-pull", "podman", "--remote=false", "pull", c.RegistryImage); err != nil {
+	if err = f.startLocalServices(ctx, c, media); err != nil {
 		return f, err
 	}
-	cid, err := f.run(ctx, "registry-start", "podman", "--remote=false", "run", "--detach", "--pull=never", "--name", "soda-p9-registry-"+filepath.Base(c.Work), "--network=host", "--env", "REGISTRY_HTTP_ADDR=127.0.0.1:19500", c.RegistryImage)
-	if err != nil {
+	if err = writeFixturePassphrase(f.work); err != nil {
 		return f, err
 	}
-	f.cid = strings.TrimSpace(string(cid))
-	endpoint, _ := url.Parse("http://127.0.0.1:19500")
-	proxy := httputil.NewSingleHostReverseProxy(endpoint)
-	f.registry, err = f.serve(19443, f.registryHandler(proxy), true)
-	if err != nil {
+	if err = f.writeTrust(ctx, c); err != nil {
 		return f, err
 	}
-	f.graph, err = f.serve(19444, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/graph" {
-			http.NotFound(w, r)
-			return
-		}
-		f.mu.Lock()
-		offer := f.offer
-		f.graphRequests++
-		request := f.graphRequests
-		f.mu.Unlock()
-		node := func(a Artifact, age string) any {
-			return map[string]any{"version": a.Payload.ID, "payload": a.Candidate.HostReference, "metadata": map[string]string{"org.fedoraproject.coreos.scheme": "oci", "org.fedoraproject.coreos.releases.age_index": age}}
-		}
-		edges := [][2]int{}
-		if offer {
-			edges = append(edges, [2]int{0, 1})
-		}
-		graph := map[string]any{"nodes": []any{node(a, "1"), node(b, "2")}, "edges": edges}
-		if err := e.WriteJSON(fmt.Sprintf("graph-%03d.json", request), map[string]any{"request": r.URL.RequestURI(), "response": graph}); err != nil {
-			http.Error(w, "evidence unavailable", 500)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(graph)
-	}), true)
-	if err != nil {
-		return f, err
-	}
-	rootfsURL, err := url.Parse(media.RootfsURL)
-	if err != nil || rootfsURL.Host != "10.0.2.2:19948" || rootfsURL.Scheme != "http" {
-		return f, errors.New("selected local rootfs route required")
-	}
-	f.rootfs, err = f.serve(19948, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != rootfsURL.Path {
-			http.NotFound(w, r)
-			return
-		}
-		http.ServeFile(w, r, filepath.Join("/run/soda-p9-input/candidate/media", media.Rootfs.Path))
-	}), false)
-	if err != nil {
-		return f, err
-	}
-	pass := make([]byte, 32)
-	if _, err = rand.Read(pass); err != nil {
-		return f, err
-	}
-	if err = nativebuild.WriteNew(filepath.Join(f.work, "passphrase"), []byte(fmt.Sprintf("%x", pass)), 0600); err != nil {
-		return f, err
-	}
-	for _, name := range []string{"correct", "wrong"} {
-		if _, err = f.run(ctx, "key-"+name, "skopeo", "generate-sigstore-key", "--output-prefix", filepath.Join(f.work, name), "--passphrase-file", filepath.Join(f.work, "passphrase")); err != nil {
-			return f, err
-		}
-	}
-	public, err := os.ReadFile(filepath.Join(f.work, "correct.pub"))
-	if err != nil {
-		return f, err
-	}
-	ca, err := os.ReadFile(filepath.Join(f.work, "ca.crt"))
-	if err != nil {
-		return f, err
-	}
-	if err = e.WriteJSON("fixture-trust.json", map[string]any{"repository": b.Candidate.HostReference, "registry_image": c.RegistryImage, "public_key": string(public), "ca": string(ca), "graph_url": "https://10.0.2.2:19444/v1/graph"}); err != nil {
-		return f, err
-	}
-	// The publishing client uses the same native attachment mechanism as the guest.
-	cfg := "docker:\n  127.0.0.1:19500:\n    use-sigstore-attachments: true\n"
-	if err = os.Mkdir(filepath.Join(f.work, "registries.d"), 0700); err != nil {
-		return f, err
-	}
-	if err = nativebuild.WriteNew(filepath.Join(f.work, "registries.d/fixture.yaml"), []byte(cfg), 0600); err != nil {
-		return f, err
-	}
-	policy := map[string]any{"default": []any{map[string]string{"type": "reject"}}, "transports": map[string]any{"oci-archive": map[string]any{"/run/soda-p9-input/candidate/host.oci": []any{map[string]string{"type": "insecureAcceptAnything"}}}}}
-	if err = writeNewJSON(filepath.Join(f.work, "source-policy.json"), policy); err != nil {
-		return f, err
-	}
-	return f, nil
+	return f, f.writePublishPolicy()
 }
+
 func (f *fixture) push(ctx context.Context, key string) error {
 	_, err := f.run(ctx, "sign-push-"+key, "skopeo", "--registries.d", filepath.Join(f.work, "registries.d"), "--policy", filepath.Join(f.work, "source-policy.json"), "copy", "--preserve-digests", "--dest-tls-verify=false", "--sign-by-sigstore-private-key", filepath.Join(f.work, key+".private"), "--sign-passphrase-file", filepath.Join(f.work, "passphrase"), "--sign-identity", f.b.Candidate.HostReference, "oci-archive:/run/soda-p9-input/candidate/host.oci", "docker://127.0.0.1:19500/levitateos/sodaos-host:candidate")
 	if err != nil {
