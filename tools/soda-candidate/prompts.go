@@ -19,6 +19,36 @@ type prompter struct {
 	out io.Writer
 }
 
+// fileExists is a variable so tests can stub the filesystem probe.
+var fileExists = func(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// fixtureRootfsURL is the default pickup address for the locally built
+// system image. The ISO is only the boot menu; the installer downloads the
+// big rootfs file from here. Local fixture scope only.
+const fixtureRootfsURL = "http://127.0.0.1:8080"
+
+// standardPaths are where setup-soda-candidate.sh puts its outputs.
+var standardControllerPaths = []string{"/usr/local/lib/soda/soda-build"}
+
+var standardWorkerConfigPaths = []string{"/var/lib/soda-candidate-authority/worker.json"}
+
+// defaultPath keeps a flag value, else offers the first standard path that
+// exists, else leaves the field empty for the operator.
+func defaultPath(current string, candidates ...string) string {
+	if current != "" {
+		return current
+	}
+	for _, c := range candidates {
+		if fileExists(c) {
+			return c
+		}
+	}
+	return ""
+}
+
 func newPrompter(stdin io.Reader, out io.Writer) *prompter {
 	return &prompter{in: bufio.NewReader(stdin), out: out}
 }
@@ -105,6 +135,14 @@ func overviewFields(p *prompter, o *options) []ovField {
 				return err
 			}
 			o.mode = []string{"candidate", "media", "production"}[sel]
+			// Keep the fixture pickup address from leaking into production,
+			// and restore it when coming back to development media.
+			if o.mode == "production" && o.rootfsURL == fixtureRootfsURL {
+				o.rootfsURL = ""
+			}
+			if o.mode == "media" && o.rootfsURL == "" {
+				o.rootfsURL = fixtureRootfsURL
+			}
 			return nil
 		}},
 		{"output", func() string { return o.out }, func() string { return outStatus(o.out) }, func() error {
@@ -221,9 +259,14 @@ func (p *prompter) overview(o *options, suggestOut func() string) error {
 	if o.mode == "" {
 		o.mode = "media"
 	}
+	if o.mode == "media" && o.rootfsURL == "" {
+		o.rootfsURL = fixtureRootfsURL
+	}
 	if o.out == "" {
 		o.out = suggestOut()
 	}
+	o.controller = defaultPath(o.controller, standardControllerPaths...)
+	o.workerConfig = defaultPath(o.workerConfig, standardWorkerConfigPaths...)
 	for {
 		fields := overviewFields(p, o)
 		if _, err := fmt.Fprintf(p.out, "\nsoda-candidate | %s | arch %s (this host)\n", modeLabel(o.mode), o.arch); err != nil {

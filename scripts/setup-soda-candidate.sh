@@ -10,6 +10,10 @@ cd "$(dirname "$0")/.."
 
 PREFIX="${SODA_REPOSITORY_PREFIX:-ghcr.io/levitateos/sodaos}"
 REFRESH="${SODA_REFRESH_AUTHORITY:-0}"
+# Pickup folder for the built system image. The ISO is only the boot menu;
+# the installer downloads the big rootfs file from the address below.
+ROOTFS_DIR="/var/lib/soda-rootfs"
+ROOTFS_URL="http://127.0.0.1:8080"
 ADMITTED="/usr/local/lib/soda/soda-build"
 WRAPPER="/usr/sbin/soda-candidate"
 OUTPUT_PARENT="$PWD/.artifacts/releases/isolated"
@@ -106,10 +110,17 @@ EOF
   sudo chmod 0700 "$AUTHORITY"
 fi
 
+sudo mkdir -p "$ROOTFS_DIR"
+sudo chown "$USER" "$ROOTFS_DIR"
+
 cat <<EOF
--- ready. Next, from $PWD:
-  mkdir -p /tmp/soda-rootfs && python3 -m http.server 8080 --directory /tmp/soda-rootfs &
+-- ready. The rootfs URL defaults to $ROOTFS_URL in the TUI.
+Next, from $PWD:
+  1. python3 -m http.server 8080 --directory $ROOTFS_DIR &
+  2. sudo soda-candidate   (press go; the pickup address is prefilled)
+  3. cp <out>/artifacts/media/*-rootfs.img $ROOTFS_DIR/
+     so the installer can download the built system image.
+Or pass everything as flags:
   sudo soda-candidate --controller $ADMITTED --worker-config $WORKER_JSON \\
-    --out $OUTPUT_PARENT/manual-01 --rootfs-base-url http://127.0.0.1:8080
-Or run bare \`sudo soda-candidate\` and answer the screen.
+    --out $OUTPUT_PARENT/manual-01 --rootfs-base-url $ROOTFS_URL
 EOF

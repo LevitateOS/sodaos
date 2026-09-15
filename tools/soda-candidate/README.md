@@ -47,6 +47,15 @@ soda-candidate --non-interactive --mode candidate \
 - `production`: protected qualification, optional final signing. Publication
   stays separately grant-scoped.
 
+## The rootfs URL, in one paragraph
+
+The ISO is only the boot menu. The rootfs is the actual operating system
+disk image (gigabytes), which the installer downloads during installation.
+The URL is the pickup address where the installer is told to fetch it. For
+local builds the setup script creates `/var/lib/soda-rootfs` and the TUI
+prefills `http://127.0.0.1:8080`; after the build, copy the produced
+`*-rootfs.img` into that folder and serve it. There is nothing to look up.
+
 ## Never
 
 Admit workers, sign payloads, publish images, or accept production keys as

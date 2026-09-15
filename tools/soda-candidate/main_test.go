@@ -123,13 +123,59 @@ func TestOverviewEditsField(t *testing.T) {
 
 func TestOverviewBlocksBadStartWithoutLosingAnswers(t *testing.T) {
 	o := validScriptedOptions(t.TempDir())
-	o.rootfsURL = "" // media cannot start without it
+	o.mode, o.rootfsURL = "production", "" // no qualification config either
 	_, screen := scriptedOverview(t, o, "go\nquit\n")
 	if !strings.Contains(screen, "Cannot start:") {
 		t.Fatalf("blocked start unexplained:\n%s", screen)
 	}
 	if !strings.Contains(screen, "aborted by operator") {
 		t.Fatalf("quit did not abort:\n%s", screen)
+	}
+}
+
+func TestOverviewPrefillsStandardPaths(t *testing.T) {
+	realExists := fileExists
+	fileExists = func(path string) bool {
+		return path == "/usr/local/lib/soda/soda-build" || path == "/var/lib/soda-candidate-authority/worker.json"
+	}
+	defer func() { fileExists = realExists }()
+	o := options{arch: "x86_64", mode: "media", out: t.TempDir() + "/fresh", rootfsURL: "http://fixture:8080"}
+	got, screen := scriptedOverview(t, o, "go\n")
+	if !strings.HasSuffix(screen, "<nil>") {
+		t.Fatalf("overview with standard paths refused to start:\n%s", screen)
+	}
+	if got.controller != "/usr/local/lib/soda/soda-build" {
+		t.Fatalf("controller not prefilled: %+v", got)
+	}
+	if got.workerConfig != "/var/lib/soda-candidate-authority/worker.json" {
+		t.Fatalf("worker config not prefilled: %+v", got)
+	}
+}
+
+func TestOverviewDefaultsFixtureRootfsURL(t *testing.T) {
+	o := options{arch: "x86_64", out: t.TempDir() + "/fresh", controller: "/a", workerConfig: "/b", repoPrefix: "x"}
+	got, _ := scriptedOverview(t, o, "quit\n")
+	if got.mode != "media" {
+		t.Fatalf("mode not defaulted to media: %+v", got)
+	}
+	if got.rootfsURL != fixtureRootfsURL {
+		t.Fatalf("fixture pickup address not defaulted: %+v", got)
+	}
+}
+
+func TestModeSwitchKeepsFixtureURLHonest(t *testing.T) {
+	base := options{arch: "x86_64", out: t.TempDir() + "/fresh", controller: "/a", workerConfig: "/b", repoPrefix: "x", qualConfig: "/q"}
+	media := base
+	media.mode, media.rootfsURL = "media", fixtureRootfsURL
+	got, _ := scriptedOverview(t, media, "1\n3\nquit\n")
+	if got.mode != "production" || got.rootfsURL != "" {
+		t.Fatalf("fixture URL leaked into production: %+v", got)
+	}
+	prod := base
+	prod.mode = "production"
+	got, _ = scriptedOverview(t, prod, "1\n2\nquit\n")
+	if got.mode != "media" || got.rootfsURL != fixtureRootfsURL {
+		t.Fatalf("fixture URL not restored for media: %+v", got)
 	}
 }
 
