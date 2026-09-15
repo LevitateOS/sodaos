@@ -185,7 +185,13 @@ func GuestState(ctx context.Context, action, expectedPayload string) (map[string
 		if err = api("POST", "/repos/"+fixtureLogin+"/p9-repository/contents/"+generation+".txt", map[string]any{"content": base64.StdEncoding.EncodeToString(content), "message": "Qualification generation " + generation, "branch": "main"}, nil); err != nil {
 			return nil, err
 		}
-		if err = db.UpsertUser(ctx, store.User{ID: user.ID, Login: fixtureLogin, Name: "Soda fixture generation " + generation}); err != nil {
+		if action == "seed" {
+			err = db.UpsertUser(ctx, store.User{ID: user.ID, Login: fixtureLogin, Name: "Soda fixture generation " + generation})
+		} else {
+			// Provider refresh deliberately preserves an existing profile name.
+			err = db.RenameProfile(ctx, user.ID, "Soda fixture generation "+generation)
+		}
+		if err != nil {
 			return nil, err
 		}
 		if action == "seed" {

@@ -2,7 +2,7 @@
 
 ## Priority and current state
 
-**Immediate priority is completing M4, resumed by the owner.** The
+**Immediate priority is completing B4, resumed by the owner.** The
 [fast-development side plan](fast-development-build-plan.md) is complete within its
 scoped development checks and does not substitute for production qualification.
 B1–B6 remain the release replacement milestones, not launch work; the side plan
@@ -343,10 +343,12 @@ phase order: artifact authentication still precedes privileged installation.
 
 ### Milestone 4 — connect native qualification
 
-**B4 incomplete; premature orchestration removed.** The final runtime contract is
-still to connect **P9** after P7 candidate admission and P8 media assembly. Reconnect
-it only after the native integration prerequisites are demonstrated through scoped
-development checks; retained failed-run artifacts are not qualified releases. Use reviewed `internal/acceptance`
+**B4 incomplete; integrated development driver passed; protected production receipt
+required.** The fixed
+**P9** path is reconnected after P7 candidate admission and P8 media assembly;
+`development-driver-02` passed against retained artifacts. A fresh production
+qualification run remains required. Retained failed-run artifacts are not qualified
+releases. Use reviewed `internal/acceptance`
 and applicable `tests/installed` drivers, not another framework or build-supplied
 `passed` assertion. Execution authority is recorded in
 [implementation status](implementation-status.md#current-permissions).
@@ -381,8 +383,10 @@ and applicable `tests/installed` drivers, not another framework or build-supplie
    signature, expiry or high-water guarantees. Do not use `soda-release fetch` as an
    alternate client updater.
 4. **Stage, maintain and update.** Observe Zincati's native staging, locked
-   finalization and periodic maintenance behavior: outside the window, no premature
-   finalization/reboot; in the window, exact B activation and reboot. Verify A remains
+   finalization and periodic maintenance behavior: select one window before staging;
+   outside it, no premature finalization/reboot; in it, exact B activation and reboot.
+   Observe the exact native libostree finalization lock. Keep the same Zincati agent
+   running between staging and activation; restarting it restages and needs metadata. Verify A remains
    usable if required content is missing or staging download is interrupted; repeat
    only the affected native operation once the fixture fault is removed. After full
    staging, remove content-server access while retaining the graph/control access

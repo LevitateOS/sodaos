@@ -1,5 +1,5 @@
-// soda-build owns source-to-media production. B4/B5 connect native qualification
-// and protected final release evidence; media output is not a qualified release.
+// soda-build owns source-to-native-qualification production. B5 final signing
+// remains disconnected; native qualification alone is not a qualified release.
 package main
 
 import (
@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"syscall"
 
@@ -28,7 +29,7 @@ func (e interrupted) ExitCode() int { return int(e) }
 type incomplete struct{}
 
 func (incomplete) Error() string {
-	return "P1-P8 media verified; B4-B5 qualification/final signing are not connected; no qualified release"
+	return "P9 native qualification passed; B5 final protected signing is not connected; no qualified release"
 }
 func (incomplete) ExitCode() int { return 2 }
 func main() {
@@ -48,6 +49,8 @@ func run() (err error) {
 	authority := flag.String("media-authority", "", "worker-local fixture authority; not release custody")
 	workerConfigPath := flag.String("worker-config", "", "root-owned configuration for isolated worker dispatch")
 	workerBuild := flag.Bool("worker-build", false, "internal build stage; requires the isolated build identity")
+	qualificationConfig := flag.String("qualification-config", "", "root-owned qualification configuration; required for production")
+	workerQualify := flag.Bool("worker-qualify", false, "internal protected native qualification worker")
 	guestAction := flag.String("qualification-state", "", "internal native guest observation/state action")
 	expectedPayload := flag.String("expected-payload", "", "internal exact guest payload identity")
 	flag.Parse()
@@ -76,12 +79,15 @@ func run() (err error) {
 		}
 		return json.NewEncoder(os.Stdout).Encode(state)
 	}
+	if *workerQualify {
+		return nativequalification.Run(ctx, *qualificationConfig)
+	}
 	r := hostimage.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression}
 	if err := r.ValidateTarget(); err != nil {
 		return err
 	}
 	if *workerBuild {
-		if *workerConfigPath != "" {
+		if *workerConfigPath != "" || *qualificationConfig != "" {
 			return errors.New("build stage cannot select qualification authority")
 		}
 		if err := buildWorkerIdentity(); err != nil {
@@ -89,6 +95,12 @@ func run() (err error) {
 		}
 	} else if *workerConfigPath == "" || *authority != "" {
 		return errors.New("root-owned --worker-config required; media authority belongs to the isolated worker")
+	}
+	if r.Development && *qualificationConfig != "" {
+		return errors.New("development build cannot request protected qualification")
+	}
+	if !r.Development && !*workerBuild && (*qualificationConfig == "" || r.Arch != "x86_64") {
+		return errors.New("production requires --qualification-config and the selected native x86_64 scenario")
 	}
 	// No inherited child mode, false summary or unrelated installed-test activation.
 	for _, key := range []string{"SODA_BUILD_TIMING_LOG", "SODA_BUILD_CHILD"} {
@@ -136,6 +148,16 @@ func run() (err error) {
 	if e != nil {
 		return e
 	}
+	var qualification nativequalification.Config
+	if !r.Development {
+		qualification, e = nativequalification.LoadConfig(*qualificationConfig)
+		if e != nil {
+			return e
+		}
+		if qualification.Executable != config.Executable {
+			return errors.New("qualification must use this admitted controller")
+		}
+	}
 	result, e := runBuildWorker(ctx, config, r, progress)
 	if e != nil {
 		return e
@@ -145,6 +167,18 @@ func run() (err error) {
 		fmt.Fprintln(os.Stderr, "MEDIA", result.Media)
 	}
 	fmt.Fprintln(os.Stderr, result.Scope)
+	if !r.Development {
+		if e = progress.Phase("P9 / Protected native install-update-recovery"); e != nil {
+			return e
+		}
+		e = nativequalification.Dispatch(ctx, qualification, filepath.Dir(result.Candidate), r.Revision, filepath.Join(r.Source, ".artifacts/b4-qualification/controller-runs", filepath.Base(r.Out)), os.Stderr)
+		if e != nil {
+			return e
+		}
+		if e = errors.Join(progress.End(nil), progress.EndPhase(nil)); e != nil {
+			return e
+		}
+	}
 	return completion(r)
 }
 
