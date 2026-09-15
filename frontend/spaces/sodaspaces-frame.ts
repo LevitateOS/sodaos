@@ -22,3 +22,39 @@ export function workspaceFrameLocator(raw: string): string | undefined {
   for (const key of url.searchParams.keys()) if (credentialQuery.has(key)) return;
   return url.pathname + url.search;
 }
+
+const nativeSodaHosts = new Set(['spaces', 'repository-spaces', 'runners', 'tailnet']);
+
+function pathAfterSubUrl(pathname: string, subUrl: string) {
+  if (subUrl && pathname !== subUrl && !pathname.startsWith(subUrl + '/')) return;
+  return (subUrl ? pathname.slice(subUrl.length) : pathname) || '/';
+}
+
+function nativeSodaView(url: URL) {
+  const values = url.searchParams.getAll('soda-view');
+  if (values.length !== 1) return '';
+  return values[0];
+}
+
+function keepWorkspaceEntry(url: URL, path: string) {
+  if (url.searchParams.has('soda-connect') || nativeSodaHosts.has(nativeSodaView(url))) return true;
+  return (
+    path.startsWith('/user/login') ||
+    path.startsWith('/login/oauth') ||
+    path === '/install' ||
+    path.startsWith('/install/')
+  );
+}
+
+export function workspaceEntryLocation(href: string, subUrl: string): string | undefined {
+  try {
+    const url = new URL(href);
+    const path = pathAfterSubUrl(url.pathname, subUrl);
+    if (!path || keepWorkspaceEntry(url, path)) return;
+    const to = workspaceFrameLocator(path + url.search);
+    if (to === undefined) return;
+    return (subUrl || '') + '/-/soda/workspace' + (to === '/' ? '' : '?to=' + encodeURIComponent(to));
+  } catch {
+    return;
+  }
+}

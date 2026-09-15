@@ -24,7 +24,9 @@ HTML document that frames native Forgejo same-origin; it does not replace Forgej
 handlers, cookies or chrome. Native Forgejo retains header, profile menu, forms,
 routing, notifications and beforeunload behavior inside that frame.
 
-Framed Forgejo documents must not mount a nested Spaces drawer.
+Framed Forgejo documents must not mount a nested Spaces drawer. Signed-in top-level
+Forgejo documents wrap into `/-/soda/workspace` except login/OAuth/install, failed
+`soda-connect`, and remaining `soda-view` settings hosts.
 
 Responsive workspace rules:
 

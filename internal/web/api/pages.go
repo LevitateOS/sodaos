@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -24,12 +25,21 @@ func (s *API) workspacePage(w http.ResponseWriter, r *http.Request) {
 	if s.serveWorkspaceShell(w, r, frame) {
 		return
 	}
-	entry := r.Clone(r.Context())
-	location := *r.URL
-	location.RawQuery = ""
-	location.ForceQuery = false
-	entry.URL = &location
-	s.Auth.NativePageEntry(w, entry, store.OAuthLogin{SpacesReturn: true})
+	startWorkspaceLogin(w, r, s.Config.ForgejoURL)
+}
+
+func startWorkspaceLogin(w http.ResponseWriter, r *http.Request, forgejoURL string) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	if config.BaseURL(forgejoURL) != nil || !strings.HasPrefix(forgejoURL, "https://") {
+		http.Error(w, "Native origin unavailable.", http.StatusServiceUnavailable)
+		return
+	}
+	if _, err := auth.RequestCookie(r, auth.SessionCookie); err != nil && !errors.Is(err, http.ErrNoCookie) {
+		http.Error(w, "Ambiguous Soda cookies.", 400)
+		return
+	}
+	http.Redirect(w, r, config.SodaPath+"/login?destination=spaces", http.StatusSeeOther)
 }
 
 func (s *API) serveWorkspaceShell(w http.ResponseWriter, r *http.Request, frame string) bool {

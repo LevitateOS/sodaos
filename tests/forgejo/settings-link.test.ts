@@ -27,7 +27,7 @@ async function navigationFixture(page: Page, prefix: string, context: NativeCont
         : context.view ? `<main class="${hostClass}">${mount}</main>` : '<main>Native content</main>';
       await route.fulfill({contentType: 'text/html', body: `<!doctype html><link rel="icon" href="data:,">
         <nav id="navbar"><a href="${prefix}/explore/repos">Explore</a>
-          <a id="soda-spaces-link" class="item" href="${prefix}${signed ? '/?soda-view=spaces' : '/-/soda/spaces'}">Spaces</a>
+          <a id="soda-spaces-link" class="item" href="${prefix}${signed ? '/-/soda/workspace' : '/-/soda/spaces'}">Spaces</a>
           ${signed ? `<span id="soda-settings-link" hidden data-actor="1" data-sub-url="${prefix}"></span>` : ''}
         </nav>
         ${signed && context.admin ? `<div class="flex-container-nav"><div class="ui fluid vertical menu">
@@ -140,7 +140,7 @@ test('global navigation marks only validated matching entries', {skip: process.e
         assert.equal(await active.innerText(), typeof context.current === 'string' ? context.current : 'Dashboard');
       }
       assert.equal(await page.locator('#draft').inputValue(), 'unsaved');
-      assert.equal(await page.getByRole('link', {name: 'Spaces', exact: true}).getAttribute('href'), prefix + '/?soda-view=spaces');
+      assert.equal(await page.getByRole('link', {name: 'Spaces', exact: true}).getAttribute('href'), prefix + '/-/soda/workspace');
       assert.equal(await page.locator('#navbar [aria-current="page"]').count(), context.current === true ? 1 : 0);
       await page.close();
     }

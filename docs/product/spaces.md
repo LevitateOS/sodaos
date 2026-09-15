@@ -10,9 +10,11 @@ workspace URL. Optional `?to=` names the framed Forgejo path (same origin, not
 `/-/soda/`, no credential query). Child navigations update `to` with `replaceState`;
 they do not use canonical Forgejo URLs as the top-level document.
 
-Until workspace-entry routing is selected, the existing dashboard Spaces view
-(`/?soda-view=spaces`) and the native drawer remain the signed-in browsing path.
-`/-/soda/spaces` stays a bookmark bridge to that dashboard view.
+Signed-in browsing uses that workspace host. The navbar Spaces link and Spaces OAuth
+return go to `/-/soda/workspace`. Ordinary signed-in Forgejo documents wrap into it
+with admitted `to`. Login, OAuth, install, failed `soda-connect`, and remaining
+`soda-view` hosts (repository Spaces, Runners, Tailnet) stay top-level. Unsigned
+`/-/soda/spaces` stays a bookmark that establishes the native actor first.
 
 There is no separate-origin Soda UI. Lit supplies Soda's management and workspace
 views under the configured Forgejo origin at `/-/soda/`.

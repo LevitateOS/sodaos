@@ -66,7 +66,7 @@ func TestOAuthRepositoryReturnUsesOnlyStoredIDsAndActingGrant(t *testing.T) {
 		{"escaped names", "repository_id=42&expected_user_id=1", "read:user read:repository", 200, `{"id":42,"name":"demo?#","full_name":"ignored","owner":{"id":1,"login":"alice"}}`, "/alice/demo%3F%23#sodaspaces", 4},
 		{"fixed repository settings", "destination=repository-spaces&repository_id=42&expected_user_id=1", "read:user read:repository read:organization", 0, "", "/?soda-view=repository-spaces&repository_id=42", 3},
 		{"fixed operator settings", "destination=runners&expected_user_id=1", "read:user read:repository read:organization", 0, "", "/admin?soda-view=runners", 3},
-		{"fixed Spaces", "destination=spaces&expected_user_id=1", "read:user read:repository read:organization", 0, "", "/?soda-view=spaces", 3},
+		{"fixed Spaces", "destination=spaces&expected_user_id=1", "read:user read:repository read:organization", 0, "", "/-/soda/workspace", 3},
 		{"no context", "", "read:user read:repository", 0, "", "/", 3},
 		{"insufficient actual consent", "repository_id=42&expected_user_id=1", "read:user", 0, "", "/", 3},
 		{"inaccessible", "repository_id=42&expected_user_id=1", "read:user read:repository", 404, `{}`, "/", 4},

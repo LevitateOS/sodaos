@@ -14,7 +14,7 @@ import (
 )
 
 // Must match appliance/forgejo/templates/custom/header.tmpl.
-const workspacePresentation = "2026-09-13.spaces-first-use-1"
+const workspacePresentation = "2026-09-15.workspace-entry-1"
 
 const workspaceShellCSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 

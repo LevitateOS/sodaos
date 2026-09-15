@@ -39,7 +39,7 @@ func TestSodaSettingsStayOutOfGlobalNavigation(t *testing.T) {
 					t.Fatal("operator settings in global navigation", forbidden)
 				}
 			}
-			if strings.Count(source, `id="soda-spaces-link"`) != 1 || !strings.Contains(source, map[bool]string{true: `/native/?soda-view=spaces`, false: `/native/-/soda/spaces`}[signed]) {
+			if strings.Count(source, `id="soda-spaces-link"`) != 1 || !strings.Contains(source, map[bool]string{true: `/native/-/soda/workspace`, false: `/native/-/soda/spaces`}[signed]) {
 				t.Fatal("lost native Spaces entry")
 			}
 		}

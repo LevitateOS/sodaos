@@ -84,7 +84,7 @@ test('native Spaces to drawer and back preserves exact sessions and named End', 
  assert.equal(await page.locator('soda-spaces').count(), 1);
  assert.equal(await page.evaluate(() => window.nativeWorkspaceModel.sockets.flatMap(s => s.sent).filter(f => f.action === 'attach').at(-1)?.id), 'a'.repeat(32));
  await page.getByRole('link', {name: 'Open in Spaces', exact: true}).click();
- await page.waitForURL(origin + '/?soda-view=spaces');
+ await page.waitForURL(origin + '/-/soda/workspace');
  await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').waitFor();
  assert.equal(await page.locator('soda-spaces').count(), 1);
  assert.equal(await page.evaluate(() => window.nativeWorkspaceModel.sockets.flatMap(s => s.sent).filter(f => f.action === 'attach').at(-1)?.id), 'a'.repeat(32));

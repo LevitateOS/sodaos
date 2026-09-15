@@ -1032,7 +1032,7 @@ export class SodaSpaces extends LitElement {
   }
   private renderSpacesLink() {
     if (this.binding?.kind !== 'native') return '';
-    return html`<a href="/?soda-view=spaces" aria-label="Open in Spaces" title="Open in Spaces">↗</a>`;
+    return html`<a href="/-/soda/workspace" aria-label="Open in Spaces" title="Open in Spaces">↗</a>`;
   }
   private toolbarConnectQuery() {
     const connect =

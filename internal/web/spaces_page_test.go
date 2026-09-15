@@ -34,7 +34,7 @@ func TestSpacesBookmarkEntry(t *testing.T) {
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, r)
 			body := w.Body.String()
-			if w.Code != 303 || calls != 0 || !strings.Contains(w.Header().Get("Location"), "redirect_to=%2F%3Fsoda-view%3Dspaces") {
+			if w.Code != 303 || calls != 0 || !strings.Contains(w.Header().Get("Location"), "redirect_to=%2F-%2Fsoda%2Fworkspace") {
 				t.Fatal(w.Code, w.Header(), calls)
 			}
 			for _, forbidden := range []string{"csrf-alice", "session-alice", "callback-access", "window.config", "/app/", "<iframe"} {
@@ -119,7 +119,7 @@ func TestWorkspaceFrameLocator(t *testing.T) {
 	r.Header.Del("Cookie")
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)
-	if w.Code != 303 || strings.Contains(w.Body.String(), "<iframe") {
-		t.Fatal("unauthenticated locator", w.Code, w.Body.String())
+	if w.Code != 303 || !strings.Contains(w.Header().Get("Location"), "/-/soda/login?destination=spaces") || strings.Contains(w.Body.String(), "<iframe") {
+		t.Fatal("unauthenticated locator", w.Code, w.Header().Get("Location"), w.Body.String())
 	}
 }
