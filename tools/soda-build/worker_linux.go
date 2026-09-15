@@ -23,10 +23,12 @@ type workerConfig struct {
 	BuildHome, Runtime, Tools, MediaAuthorityDirectory string
 }
 
-const workerSource = "/run/soda-build-source"
-const workerHome = "/var/lib/soda-build-worker"
-const workerRuntime = "/run/soda-build-worker"
-const workerTools = "/run/soda-build-tools"
+const (
+	workerSource  = "/run/soda-build-source"
+	workerHome    = "/var/lib/soda-build-worker"
+	workerRuntime = "/run/soda-build-worker"
+	workerTools   = "/run/soda-build-tools"
+)
 
 func buildWorkerIdentity() error {
 	u, err := user.Lookup("soda-build-worker")
@@ -40,6 +42,55 @@ func buildWorkerIdentity() error {
 	return nil
 }
 
+func validWorkerTaskPaths(c workerConfig, r hostimage.Request) bool {
+	return c.Source == r.Source && filepath.Dir(r.Out) == c.OutputParent && strings.HasPrefix(c.OutputParent, filepath.Join(r.Source, ".artifacts/releases")+"/")
+}
+
+func workerExecutableMatches(path string) error {
+	self, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	a, err := nativebuild.HashFile(self)
+	if err != nil {
+		return err
+	}
+	b, err := nativebuild.HashFile(path)
+	if err != nil || a != b {
+		return errors.New("dispatcher differs from admitted worker executable")
+	}
+	return nil
+}
+
+func validWorkerPath(p string) error {
+	if !filepath.IsAbs(p) || filepath.Clean(p) != p || strings.ContainsAny(p, ":\n\r\t %") {
+		return errors.New("explicit safe worker path required")
+	}
+	resolved, e := filepath.EvalSymlinks(p)
+	if e != nil || resolved != p {
+		return errors.New("worker paths must exist without symlink traversal")
+	}
+	return nil
+}
+
+func admitLoadedWorkerConfig(c workerConfig, r hostimage.Request) error {
+	if !validWorkerTaskPaths(c, r) {
+		return errors.New("worker source/output differs from approved task paths")
+	}
+	if err := acceptance.TrustedExecutable(c.Executable); err != nil {
+		return err
+	}
+	return workerExecutableMatches(c.Executable)
+}
+
+func workerConfigPaths(c workerConfig, r hostimage.Request) []string {
+	paths := []string{c.Source, c.OutputParent, c.BuildHome, c.Runtime, c.Tools}
+	if r.WantsMedia() {
+		paths = append(paths, c.MediaAuthorityDirectory)
+	}
+	return paths
+}
+
 func loadWorkerConfig(path string, r hostimage.Request) (workerConfig, error) {
 	var c workerConfig
 	if os.Geteuid() != 0 {
@@ -51,35 +102,12 @@ func loadWorkerConfig(path string, r hostimage.Request) (workerConfig, error) {
 	if err := rd.ReadJSON(path, &c); err != nil {
 		return c, err
 	}
-	if c.Source != r.Source || filepath.Dir(r.Out) != c.OutputParent || !strings.HasPrefix(c.OutputParent, filepath.Join(r.Source, ".artifacts/releases")+"/") {
-		return c, errors.New("worker source/output differs from approved task paths")
-	}
-	if err := acceptance.TrustedExecutable(c.Executable); err != nil {
+	if err := admitLoadedWorkerConfig(c, r); err != nil {
 		return c, err
 	}
-	self, err := os.Executable()
-	if err != nil {
-		return c, err
-	}
-	a, err := nativebuild.HashFile(self)
-	if err != nil {
-		return c, err
-	}
-	b, err := nativebuild.HashFile(c.Executable)
-	if err != nil || a != b {
-		return c, errors.New("dispatcher differs from admitted worker executable")
-	}
-	paths := []string{c.Source, c.OutputParent, c.BuildHome, c.Runtime, c.Tools}
-	if r.WantsMedia() {
-		paths = append(paths, c.MediaAuthorityDirectory)
-	}
-	for _, p := range paths {
-		if !filepath.IsAbs(p) || filepath.Clean(p) != p || strings.ContainsAny(p, ":\n\r\t %") {
-			return c, errors.New("explicit safe worker path required")
-		}
-		resolved, e := filepath.EvalSymlinks(p)
-		if e != nil || resolved != p {
-			return c, errors.New("worker paths must exist without symlink traversal")
+	for _, p := range workerConfigPaths(c, r) {
+		if err := validWorkerPath(p); err != nil {
+			return c, err
 		}
 	}
 	return c, nil
@@ -129,11 +157,13 @@ func buildWorker(c workerConfig, r hostimage.Request) (acceptance.Worker, error)
 		return w, err
 	}
 	name := "soda-build-" + filepath.Base(r.Out)
-	w = acceptance.Worker{Name: name, User: "soda-build-worker", Executable: c.Executable, Directory: workerSource,
+	w = acceptance.Worker{
+		Name: name, User: "soda-build-worker", Executable: c.Executable, Directory: workerSource,
 		ReadOnly:    []string{c.Source + ":" + workerSource, c.Tools + ":" + workerTools},
 		Writable:    []string{c.OutputParent + ":" + filepath.Join(workerSource, parentRel), c.BuildHome + ":" + workerHome, c.Runtime + ":" + workerRuntime},
 		Environment: []string{"HOME=" + workerHome, "PATH=" + workerTools + "/go/bin:" + workerTools + "/bin:/usr/sbin:/usr/bin:/sbin:/bin", "XDG_RUNTIME_DIR=" + workerRuntime, "GOTOOLCHAIN=go1.26.7", "GOCACHE=" + workerHome + "/go-build", "GOMODCACHE=" + workerHome + "/go-mod", "BUN_INSTALL_CACHE_DIR=" + workerHome + "/bun-cache", "PLAYWRIGHT_BROWSERS_PATH=" + workerHome + "/browsers", "SODA_BUILD_START_NS=" + os.Getenv("SODA_BUILD_START_NS")},
-		Arguments:   []string{"--worker-build", "--arch", r.Arch, "--out", out, "--repository-prefix", r.RepositoryPrefix}}
+		Arguments:   []string{"--worker-build", "--arch", r.Arch, "--out", out, "--repository-prefix", r.RepositoryPrefix},
+	}
 	if r.Development {
 		w.Arguments = append(w.Arguments, "--development", "--target", r.Target)
 	}
