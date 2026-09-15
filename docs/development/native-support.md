@@ -111,6 +111,16 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
 # This selects a distinct development host/ISO, not production qualification.
 ```
 
+`tools/soda-iso` wraps the same admitted controller: one overview screen
+shows every choice (mode, output with freshness status, controller, worker
+config, fixture URL, protected configs; arch stays pinned to the host),
+fields are edited by number with inline validation, and `go` starts only a
+runnable config. The run shows a live step table (spinner plus live elapsed
+per running phase, controller durations on completion; timestamped log
+fallback with `--non-interactive`). Flags only pre-seed answers. The wrapper
+never admits workers, signs, or publishes; production mode still needs the
+protected configs, and publication stays grant-scoped as below.
+
 Substitute the operator-admitted absolute paths and explicit URL. Omitting both
 `--development` and `--target` requests the production path, which still ends
 incomplete at P8. Target flags require development mode; candidate mode refuses
