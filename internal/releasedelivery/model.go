@@ -133,9 +133,20 @@ type Candidate struct {
 	HostReference, HostArchiveSHA256, PayloadSHA256, Migration, Notes string
 }
 
+func validCandidateHost(c Candidate, p appliancerelease.Payload, arch string) bool {
+	return c.HostReference == p.RepositoryPrefix+"-host@"+c.Host.Manifest && Digest(c.Host.Manifest) && Digest(c.Host.Config) && nativebuild.Digest(c.HostArchiveSHA256) && c.Host.Architecture == arch && c.Host.Revision == p.Revision && c.Host.BaseName == p.Base
+}
+
+func validCandidateProvenance(c Candidate, p appliancerelease.Payload, payload []byte) bool {
+	return c.Format == 1 && c.PayloadSHA256 == strings.TrimPrefix(Hash(payload), "sha256:") && c.Host.BaseDigest == strings.Split(p.Base, "@")[1] && c.Host.Source == "https://github.com/LevitateOS/sodaos" && c.Migration != "" && c.Notes != ""
+}
+
 func (c Candidate) Validate(p appliancerelease.Payload, payload []byte) error {
 	arch, e := nativebuild.OCIArchitecture(p.Architecture)
-	if e != nil || p.Validate() != nil || c.Format != 1 || c.PayloadSHA256 != strings.TrimPrefix(Hash(payload), "sha256:") || c.HostReference != p.RepositoryPrefix+"-host@"+c.Host.Manifest || !Digest(c.Host.Manifest) || !Digest(c.Host.Config) || !nativebuild.Digest(c.HostArchiveSHA256) || c.Host.Architecture != arch || c.Host.Revision != p.Revision || c.Host.BaseName != p.Base || c.Host.BaseDigest != strings.Split(p.Base, "@")[1] || c.Host.Source != "https://github.com/LevitateOS/sodaos" || c.Migration == "" || c.Notes == "" {
+	if e != nil || p.Validate() != nil {
+		return ErrRefused
+	}
+	if !validCandidateHost(c, p, arch) || !validCandidateProvenance(c, p, payload) {
 		return ErrRefused
 	}
 	return nil
@@ -381,14 +392,43 @@ func AdmitChannel(t Trust, s Highwater, c Channel, digest, wanted string, now ti
 	return advanceHighwaterChannel(s, t.Epoch, wanted, digest, c.Sequence, c.Issued, now.Unix()), nil
 }
 
-func AdmitRelease(t Trust, s Highwater, c Channel, arch, ref string, r Release) (Highwater, error) {
+func admitChannelRef(c Channel, arch, ref string) bool {
+	return channel(c.Name) && c.Format == 1 && !c.Withdrawn && c.Releases[arch] == ref
+}
+
+func admitReleasePayload(t Trust, s Highwater, c Channel, arch, ref string, r Release) error {
 	p, _, e := r.Validate(t)
-	if e != nil || s.Validate() != nil || !channel(c.Name) || c.Format != 1 || c.Withdrawn || c.Releases[arch] != ref || p.Architecture != arch || (c.Name != "candidate" && r.Qualification != "native-install-upgrade-recovery") {
-		return s, ErrRefused
+	if e != nil || s.Validate() != nil || !admitChannelRef(c, arch, ref) {
+		return ErrRefused
 	}
+	if p.Architecture != arch {
+		return ErrRefused
+	}
+	if c.Name != "candidate" && r.Qualification != "native-install-upgrade-recovery" {
+		return ErrRefused
+	}
+	return nil
+}
+
+func admitReleaseDigest(s Highwater, arch, ref string, r Release) (string, error) {
 	_, d, _ := strings.Cut(ref, "@")
 	if r.Serial < s.Serials[arch] || (r.Serial == s.Serials[arch] && s.Releases[arch] != d) {
-		return s, ErrRefused
+		return "", ErrRefused
+	}
+	return d, nil
+}
+
+func admitReleaseRef(t Trust, s Highwater, c Channel, arch, ref string, r Release) (string, error) {
+	if err := admitReleasePayload(t, s, c, arch, ref, r); err != nil {
+		return "", err
+	}
+	return admitReleaseDigest(s, arch, ref, r)
+}
+
+func AdmitRelease(t Trust, s Highwater, c Channel, arch, ref string, r Release) (Highwater, error) {
+	d, e := admitReleaseRef(t, s, c, arch, ref, r)
+	if e != nil {
+		return s, e
 	}
 	b, _ := json.Marshal(s)
 	var next Highwater

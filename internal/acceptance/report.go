@@ -59,6 +59,28 @@ func (e *Evidence) Hashes() (map[string]string, error) {
 
 // readObservation binds decoded metadata and all retained-file hashes through
 // one open directory, even if its pathname is renamed during the read.
+func observationArtifactsValid(o Observation) error {
+	for name, sum := range o.Artifacts {
+		if name == "" || !nativebuild.Digest(sum) {
+			return errors.New("invalid public artifact reference")
+		}
+	}
+	return nil
+}
+
+func observationFilesMatch(root *os.Root, o Observation) error {
+	for name, sum := range o.Files {
+		if !filepath.IsLocal(name) || filepath.Clean(name) != name || name == "." {
+			return errors.New("unsafe observation reference")
+		}
+		actual, err := nativebuild.HashAt(root, name)
+		if err != nil || actual != sum {
+			return errors.New("observation bytes changed")
+		}
+	}
+	return nil
+}
+
 func readObservation(file string) (Observation, string, error) {
 	var o Observation
 	root, err := os.OpenRoot(filepath.Dir(file))
@@ -70,21 +92,43 @@ func readObservation(file string) (Observation, string, error) {
 	if err != nil {
 		return o, "", err
 	}
-	for name, sum := range o.Artifacts {
-		if name == "" || !nativebuild.Digest(sum) {
-			return o, "", errors.New("invalid public artifact reference")
-		}
+	if err = observationArtifactsValid(o); err != nil {
+		return o, "", err
 	}
-	for name, sum := range o.Files {
-		if !filepath.IsLocal(name) || filepath.Clean(name) != name || name == "." {
-			return o, "", errors.New("unsafe observation reference")
-		}
-		actual, err := nativebuild.HashAt(root, name)
-		if err != nil || actual != sum {
-			return o, "", errors.New("observation bytes changed")
-		}
+	if err = observationFilesMatch(root, o); err != nil {
+		return o, "", err
 	}
 	return o, digest, nil
+}
+
+func admitHandoffObservation(o Observation, arch, revision string) error {
+	if !ValidOwner(o.Owner) {
+		return errors.New("unknown observation owner")
+	}
+	switch o.Outcome {
+	case "completed":
+		if o.Execution != "completed" || o.Evidence != "completed" || len(o.Files) == 0 {
+			return errors.New("completed observation lacks execution/evidence")
+		}
+	case "failed", "cancelled":
+	default:
+		return errors.New("unknown observation outcome")
+	}
+	if o.RequestedRevision != revision || o.RequestedArchitecture != arch {
+		return errors.New("observation belongs to a different candidate/platform")
+	}
+	return nil
+}
+
+func appendMissingOwners(text *strings.Builder, seen map[string]bool) {
+	text.WriteString("\n## Not reached / not supplied\n\n")
+	owners := []string{"P02", "P03", "P04", "P05", "P06", "P11", "U08", "U20"}
+	sort.Strings(owners)
+	for _, owner := range owners {
+		if !seen[owner] {
+			fmt.Fprintf(text, "- %s: no observation supplied (not a pass).\n", owner)
+		}
+	}
 }
 
 // Handoff cites exact observations and explicitly leaves missing scopes open.
@@ -110,20 +154,8 @@ func Handoff(out, arch, revision string, records []string) error {
 		if err != nil {
 			return err
 		}
-		if !ValidOwner(o.Owner) {
-			return errors.New("unknown observation owner")
-		}
-		switch o.Outcome {
-		case "completed":
-			if o.Execution != "completed" || o.Evidence != "completed" || len(o.Files) == 0 {
-				return errors.New("completed observation lacks execution/evidence")
-			}
-		case "failed", "cancelled":
-		default:
-			return errors.New("unknown observation outcome")
-		}
-		if o.RequestedRevision != revision || o.RequestedArchitecture != arch {
-			return errors.New("observation belongs to a different candidate/platform")
+		if err = admitHandoffObservation(o, arch, revision); err != nil {
+			return err
 		}
 		// JSON quoting avoids Markdown/control injection from an external log index.
 		description, _ := json.Marshal(struct {
@@ -136,14 +168,7 @@ func Handoff(out, arch, revision string, records []string) error {
 		fmt.Fprintf(&text, "    %s\n    record-sha256: %s\n    path: %s\n\n", description, digest, location)
 		seen[o.Owner] = true
 	}
-	text.WriteString("\n## Not reached / not supplied\n\n")
-	owners := []string{"P02", "P03", "P04", "P05", "P06", "P11", "U08", "U20"}
-	sort.Strings(owners)
-	for _, owner := range owners {
-		if !seen[owner] {
-			fmt.Fprintf(&text, "- %s: no observation supplied (not a pass).\n", owner)
-		}
-	}
+	appendMissingOwners(&text, seen)
 	text.WriteString("\nP07/P08 redirect to core U08/U20. P09/P10 remain not selected. A command completing, a hash matching or a version printing proves only that observation. Retained paths and provider cleanup must be reviewed alongside the cited logs; missing cleanup is not inferred successful. Failed/cancelled/evidence-failed observations remain failures. This report performs no tests, retries, provider mutations or publication.\n")
 	return nativebuild.WriteNew(out, []byte(text.String()), 0o600)
 }

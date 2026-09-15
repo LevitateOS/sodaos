@@ -14,6 +14,19 @@ import (
 	"github.com/levitateos/sodaos/internal/nativebuild"
 )
 
+func appendContinuationFile(files []json.RawMessage, path string, content []byte, mode int) ([]json.RawMessage, error) {
+	for _, existing := range files {
+		var f struct {
+			Path string `json:"path"`
+		}
+		if json.Unmarshal(existing, &f) != nil || f.Path == path {
+			return nil, errors.New("continuation path collision")
+		}
+	}
+	file, _ := json.Marshal(map[string]interface{}{"path": path, "mode": mode, "contents": map[string]string{"source": "data:;base64," + base64.StdEncoding.EncodeToString(content)}})
+	return append(files, file), nil
+}
+
 func addContinuation(destination, binary []byte) ([]byte, error) {
 	var config map[string]json.RawMessage
 	if err := json.Unmarshal(destination, &config); err != nil {
@@ -27,10 +40,12 @@ func addContinuation(destination, binary []byte) ([]byte, error) {
 	if err := json.Unmarshal(storage["files"], &files); err != nil {
 		return nil, err
 	}
-	// Use the real writable CoreOS path; /usr/local is its native symlink.
-	for path, content := range map[string][]byte{
-		"/var/usrlocal/libexec/soda/soda-install": binary,
-		"/etc/profile.d/soda-install-next.sh": []byte(`# Guidance only; never install, enroll, activate or reboot from a login hook.
+	var err error
+	files, err = appendContinuationFile(files, "/var/usrlocal/libexec/soda/soda-install", binary, 0o755)
+	if err != nil {
+		return nil, err
+	}
+	files, err = appendContinuationFile(files, "/etc/profile.d/soda-install-next.sh", []byte(`# Guidance only; never install, enroll, activate or reboot from a login hook.
 if [ "$(id -u)" = 0 ] && [ -t 1 ]; then
   if [ ! -e /etc/soda/installed ]; then
     printf '%s\n' 'Soda components are not installed. Run: /usr/local/libexec/soda/soda-install continue'
@@ -41,22 +56,9 @@ if [ "$(id -u)" = 0 ] && [ -t 1 ]; then
     printf '%s\n' 'Need SSH access? At the local console, run: /usr/local/libexec/soda/soda-install enroll-key'
   fi
 fi
-`),
-	} {
-		mode := 0o644
-		if path == "/var/usrlocal/libexec/soda/soda-install" {
-			mode = 0o755
-		}
-		for _, existing := range files {
-			var f struct {
-				Path string `json:"path"`
-			}
-			if json.Unmarshal(existing, &f) != nil || f.Path == path {
-				return nil, errors.New("continuation path collision")
-			}
-		}
-		file, _ := json.Marshal(map[string]interface{}{"path": path, "mode": mode, "contents": map[string]string{"source": "data:;base64," + base64.StdEncoding.EncodeToString(content)}})
-		files = append(files, file)
+`), 0o644)
+	if err != nil {
+		return nil, err
 	}
 	storage["files"], _ = json.Marshal(files)
 	config["storage"], _ = json.Marshal(storage)
@@ -100,7 +102,11 @@ func freshAppliance() error {
 // A root-owned, non-writable-by-others tree prevents an unprivileged writer from
 // replacing a script between verification and execution. Native bundle verification
 // additionally confines paths and validates the exact allowlist, ELF and OCI bytes.
-func protectedBundle(path string) error {
+func protectedDir(st os.FileInfo, sys *syscall.Stat_t, ok bool) bool {
+	return ok && sys.Uid == 0 && st.IsDir() && st.Mode().Perm()&0o022 == 0
+}
+
+func protectedAncestor(path string) error {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
 		return errors.New("absolute canonical bundle directory required")
 	}
@@ -110,30 +116,39 @@ func protectedBundle(path string) error {
 			return err
 		}
 		sys, ok := st.Sys().(*syscall.Stat_t)
-		if !ok || sys.Uid != 0 || !st.IsDir() || st.Mode().Perm()&0o022 != 0 {
+		if !protectedDir(st, sys, ok) {
 			return errors.New("bundle and ancestors must be real root-owned directories not writable by others")
 		}
 		if current == "/" {
 			break
 		}
 	}
-	return filepath.WalkDir(path, func(name string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		st, err := d.Info()
-		if err != nil {
-			return err
-		}
-		sys, ok := st.Sys().(*syscall.Stat_t)
-		if !ok || sys.Uid != 0 {
-			return errors.New("bundle entries must be root-owned")
-		}
-		if st.Mode()&os.ModeSymlink == 0 && st.Mode().Perm()&0o022 != 0 {
-			return errors.New("bundle entries must not be writable by others")
-		}
-		return nil
-	})
+	return nil
+}
+
+func protectedBundleEntry(_ string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+	st, err := d.Info()
+	if err != nil {
+		return err
+	}
+	sys, ok := st.Sys().(*syscall.Stat_t)
+	if !ok || sys.Uid != 0 {
+		return errors.New("bundle entries must be root-owned")
+	}
+	if st.Mode()&os.ModeSymlink == 0 && st.Mode().Perm()&0o022 != 0 {
+		return errors.New("bundle entries must not be writable by others")
+	}
+	return nil
+}
+
+func protectedBundle(path string) error {
+	if err := protectedAncestor(path); err != nil {
+		return err
+	}
+	return filepath.WalkDir(path, protectedBundleEntry)
 }
 
 func verifyTrustedBundle(bundle, digest, arch string) (nativebuild.Inventory, error) {

@@ -45,6 +45,60 @@ func LoadBase(source, arch string) (Base, error) {
 
 // PackageInputs uses the current first-install owner rather than maintaining a
 // second host package list. Reject changes in its command shape for explicit review.
+func admitTailscaleRepo(files []struct {
+	Path     string
+	Contents struct{ Source string }
+},
+) (string, error) {
+	var repo string
+	for _, file := range files {
+		if file.Path != "/etc/yum.repos.d/tailscale.repo" {
+			continue
+		}
+		if repo != "" || file.Contents.Source != "https://pkgs.tailscale.com/stable/fedora/tailscale.repo" {
+			return "", errors.New("unexpected Tailscale repository")
+		}
+		repo = file.Contents.Source
+	}
+	return repo, nil
+}
+
+func parseInstallPackages(line string, existing []string, seen map[string]bool) ([]string, error) {
+	const prefix = "ExecStart=/usr/bin/rpm-ostree install -y --allow-inactive "
+	if existing != nil || !strings.HasPrefix(line, prefix) {
+		return nil, errors.New("unexpected package installation command")
+	}
+	packages := strings.Fields(strings.TrimPrefix(line, prefix))
+	for _, name := range packages {
+		if !regexp.MustCompile(`^[a-z0-9][a-z0-9+.-]*$`).MatchString(name) || seen[name] {
+			return nil, errors.New("invalid or duplicate host package")
+		}
+		seen[name] = true
+	}
+	return packages, nil
+}
+
+func packagesFromUnits(units []struct{ Name, Contents string }) ([]string, error) {
+	var packages []string
+	seen := map[string]bool{}
+	for _, unit := range units {
+		if unit.Name != "soda-extensions.service" {
+			continue
+		}
+		for _, line := range strings.Split(unit.Contents, "\n") {
+			if !strings.HasPrefix(line, "ExecStart=") {
+				continue
+			}
+			parsed, err := parseInstallPackages(line, packages, seen)
+			if err != nil {
+				return nil, err
+			}
+			packages = parsed
+		}
+	}
+	return packages, nil
+}
+
 func PackageInputs(data []byte) ([]string, string, error) {
 	var p struct {
 		Storage struct {
@@ -60,37 +114,13 @@ func PackageInputs(data []byte) ([]string, string, error) {
 	if err := json.Unmarshal(data, &p); err != nil {
 		return nil, "", err
 	}
-	var packages []string
-	var repo string
-	for _, file := range p.Storage.Files {
-		if file.Path == "/etc/yum.repos.d/tailscale.repo" {
-			if repo != "" || file.Contents.Source != "https://pkgs.tailscale.com/stable/fedora/tailscale.repo" {
-				return nil, "", errors.New("unexpected Tailscale repository")
-			}
-			repo = file.Contents.Source
-		}
+	repo, err := admitTailscaleRepo(p.Storage.Files)
+	if err != nil {
+		return nil, "", err
 	}
-	seen := map[string]bool{}
-	for _, unit := range p.Systemd.Units {
-		if unit.Name != "soda-extensions.service" {
-			continue
-		}
-		for _, line := range strings.Split(unit.Contents, "\n") {
-			if !strings.HasPrefix(line, "ExecStart=") {
-				continue
-			}
-			const prefix = "ExecStart=/usr/bin/rpm-ostree install -y --allow-inactive "
-			if packages != nil || !strings.HasPrefix(line, prefix) {
-				return nil, "", errors.New("unexpected package installation command")
-			}
-			packages = strings.Fields(strings.TrimPrefix(line, prefix))
-			for _, name := range packages {
-				if !regexp.MustCompile(`^[a-z0-9][a-z0-9+.-]*$`).MatchString(name) || seen[name] {
-					return nil, "", errors.New("invalid or duplicate host package")
-				}
-				seen[name] = true
-			}
-		}
+	packages, err := packagesFromUnits(p.Systemd.Units)
+	if err != nil {
+		return nil, "", err
 	}
 	if len(packages) == 0 || repo == "" {
 		return nil, "", errors.New("missing host package inputs")

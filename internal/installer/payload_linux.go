@@ -45,40 +45,53 @@ func payloadRequirement(media mediaIdentity) (uint64, error) {
 	return payloadRequirementAt(filepath.Join(mediaPayloadRoot, media.Architecture), media, verifyTrustedBundle)
 }
 
+func validMediaPayloadIdentity(media mediaIdentity) bool {
+	return media.Architecture == architecture() && media.Release != "" && media.InstallerVersion == "coreos-installer 0.26.0" && nativebuild.Revision(media.Revision) && nativebuild.Digest(media.BundleSHA256)
+}
+
+func addPayloadSize(total uint64, info os.FileInfo) (uint64, error) {
+	switch {
+	case info.Mode().IsRegular():
+		size := uint64(info.Size())
+		if ^uint64(0)-total < size {
+			return 0, errors.New("media payload size overflow")
+		}
+		return total + size, nil
+	case info.IsDir(), info.Mode()&os.ModeSymlink != 0:
+		return total, nil
+	default:
+		return 0, errors.New("unsupported media payload file type")
+	}
+}
+
+type payloadSizeAcc struct{ total uint64 }
+
+func (a *payloadSizeAcc) walk(_ string, entry fs.DirEntry, walkErr error) error {
+	if walkErr != nil {
+		return walkErr
+	}
+	info, err := entry.Info()
+	if err != nil {
+		return err
+	}
+	a.total, err = addPayloadSize(a.total, info)
+	return err
+}
+
 func payloadRequirementAt(source string, media mediaIdentity, verify func(string, string, string) (nativebuild.Inventory, error)) (uint64, error) {
-	if media.Architecture != architecture() || media.Release == "" || media.InstallerVersion != "coreos-installer 0.26.0" || !nativebuild.Revision(media.Revision) || !nativebuild.Digest(media.BundleSHA256) {
+	if !validMediaPayloadIdentity(media) {
 		return 0, errors.New("incomplete or mismatched media payload identity")
 	}
 	inventory, err := verify(source, media.BundleSHA256, media.Architecture)
 	if err != nil || inventory.Revision != media.Revision || inventory.Architecture != media.Architecture {
 		return 0, errors.New("media payload does not match its trusted identity")
 	}
-	var total uint64
-	err = filepath.WalkDir(source, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		switch {
-		case info.Mode().IsRegular():
-			size := uint64(info.Size())
-			if ^uint64(0)-total < size {
-				return errors.New("media payload size overflow")
-			}
-			total += size
-		case info.IsDir(), info.Mode()&os.ModeSymlink != 0:
-		default:
-			return errors.New("unsupported media payload file type")
-		}
-		return nil
-	})
-	if err != nil || total == 0 {
+	var acc payloadSizeAcc
+	err = filepath.WalkDir(source, acc.walk)
+	if err != nil || acc.total == 0 {
 		return 0, errors.New("cannot measure verified media payload")
 	}
-	return total, nil
+	return acc.total, nil
 }
 
 type installedBlockDevice struct {
@@ -614,15 +627,19 @@ func mountInstalledRoot(root installedRoot) (string, func() error, error) {
 	return mountpoint, cleanup, nil
 }
 
-func verifyMountedRoot(root installedRoot, mountpoint string) error {
+func mountedRootMatches(root installedRoot, mountpoint string) bool {
 	parts := strings.Split(root.MajorMinor, ":")
 	if len(parts) != 2 {
-		return errors.New("invalid installed root device identity")
+		return false
 	}
 	major, majorErr := strconv.ParseUint(parts[0], 10, 32)
 	minor, minorErr := strconv.ParseUint(parts[1], 10, 32)
 	var source, target unix.Stat_t
-	if majorErr != nil || minorErr != nil || unix.Stat(root.Device, &source) != nil || source.Mode&unix.S_IFMT != unix.S_IFBLK || unix.Stat(mountpoint, &target) != nil || unix.Major(uint64(source.Rdev)) != uint32(major) || unix.Minor(uint64(source.Rdev)) != uint32(minor) || uint64(target.Dev) != uint64(source.Rdev) {
+	return majorErr == nil && minorErr == nil && unix.Stat(root.Device, &source) == nil && source.Mode&unix.S_IFMT == unix.S_IFBLK && unix.Stat(mountpoint, &target) == nil && unix.Major(uint64(source.Rdev)) == uint32(major) && unix.Minor(uint64(source.Rdev)) == uint32(minor) && uint64(target.Dev) == uint64(source.Rdev)
+}
+
+func verifyMountedRoot(root installedRoot, mountpoint string) error {
+	if !mountedRootMatches(root, mountpoint) {
 		return errors.New("mounted CoreOS root identity mismatch")
 	}
 	return nil

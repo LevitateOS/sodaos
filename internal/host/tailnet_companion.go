@@ -48,6 +48,59 @@ func (d *Daemon) runtimePodman(ctx context.Context, args ...string) ([]byte, err
 	return d.runtimeCommand(ctx, "/usr/bin/podman", append([]string{"--remote=false"}, args...)...)
 }
 
+func companionIdentityMatches(out companion, run projectRun, image, id string) bool {
+	return containerID.MatchString(id) && out.ID == id && strings.TrimPrefix(out.Image, "sha256:") == strings.TrimPrefix(image, "sha256:")
+}
+
+func companionCommandMatches(out companion, args []string) bool {
+	return len(out.Command) == len(args)+1 && (out.Command[0] == "/usr/bin/podman" || out.Command[0] == "podman") && slices.Equal(out.Command[1:], args)
+}
+
+func companionExecsValid(execs []string) error {
+	if len(execs) > 16 {
+		return tailnet.ErrUnavailable
+	}
+	for _, id := range execs {
+		if !containerID.MatchString(id) {
+			return tailnet.ErrUnavailable
+		}
+	}
+	return nil
+}
+
+func validateCompanionRecord(out companion, run projectRun, image, id string) error {
+	args, e := companionCreateArgs(run, image)
+	if e != nil {
+		return e
+	}
+	if !companionIdentityMatches(out, run, image, id) {
+		return tailnet.ErrConflict
+	}
+	if out.Running {
+		started, e := time.Parse(time.RFC3339Nano, out.Started)
+		if e != nil || started.IsZero() || out.PID <= 1 {
+			return tailnet.ErrConflict
+		}
+	}
+	// CreateCommand is retained by Podman. Admit exactly our immutable recipe,
+	// allowing only the native argv[0] spelling, never labels/name alone.
+	if !companionCommandMatches(out, args) {
+		return tailnet.ErrConflict
+	}
+	return companionExecsValid(out.Execs)
+}
+
+func matchCompanionNamespaces(out companion, run projectRun) error {
+	if !out.Running {
+		return nil
+	}
+	identity, e := processRunIdentity(out.PID, os.ReadFile, os.Readlink)
+	if e != nil || identity.UserNS != run.UserNS || identity.NetNS != run.NetNS || identity.UID != run.UID || identity.GID != run.GID {
+		return tailnet.ErrConflict
+	}
+	return nil
+}
+
 func (d *Daemon) inspectCompanion(ctx context.Context, run projectRun) (companion, error) {
 	var out companion
 	id, e := readCompanionID(runtimeRoot, run, 0, 0)
@@ -61,43 +114,10 @@ func (d *Daemon) inspectCompanion(ctx context.Context, run projectRun) (companio
 	if e = validateCompanionRecord(out, run, d.Config.TailnetImage, id); e != nil {
 		return out, e
 	}
-	if out.Running {
-		identity, e := processRunIdentity(out.PID, os.ReadFile, os.Readlink)
-		if e != nil || identity.UserNS != run.UserNS || identity.NetNS != run.NetNS || identity.UID != run.UID || identity.GID != run.GID {
-			return out, tailnet.ErrConflict
-		}
+	if e = matchCompanionNamespaces(out, run); e != nil {
+		return out, e
 	}
 	return out, nil
-}
-
-func validateCompanionRecord(out companion, run projectRun, image, id string) error {
-	args, e := companionCreateArgs(run, image)
-	if e != nil {
-		return e
-	}
-	if !containerID.MatchString(id) || out.ID != id || strings.TrimPrefix(out.Image, "sha256:") != strings.TrimPrefix(image, "sha256:") {
-		return tailnet.ErrConflict
-	}
-	if out.Running {
-		started, e := time.Parse(time.RFC3339Nano, out.Started)
-		if e != nil || started.IsZero() || out.PID <= 1 {
-			return tailnet.ErrConflict
-		}
-	}
-	// CreateCommand is retained by Podman. Admit exactly our immutable recipe,
-	// allowing only the native argv[0] spelling, never labels/name alone.
-	if len(out.Command) != len(args)+1 || (out.Command[0] != "/usr/bin/podman" && out.Command[0] != "podman") || !slices.Equal(out.Command[1:], args) {
-		return tailnet.ErrConflict
-	}
-	if len(out.Execs) > 16 {
-		return tailnet.ErrUnavailable
-	}
-	for _, id := range out.Execs {
-		if !containerID.MatchString(id) {
-			return tailnet.ErrUnavailable
-		}
-	}
-	return nil
 }
 
 // Podman's generated ResolvConfPath is absent before first start and does not
@@ -111,6 +131,10 @@ func companionResolver(run projectRun, pid int, stat func(string) (os.FileInfo, 
 		return tailnet.ErrConflict
 	}
 	return nil
+}
+
+func companionStillRunning(before, after companion, err, other error) bool {
+	return err == nil && other == nil && after.ID == before.ID && after.PID == before.PID && after.Started == before.Started && after.Running
 }
 
 func (d *Daemon) companionCLI(ctx context.Context, run projectRun, args ...string) ([]byte, error) {
@@ -129,7 +153,7 @@ func (d *Daemon) companionCLI(ctx context.Context, run projectRun, args ...strin
 	command := []string{"exec", "--user=0:0", c.ID, "/usr/local/bin/tailscale", "--socket=/run/tailscale/tailscaled.sock"}
 	b, e := d.runtimePodman(ctx, append(command, args...)...)
 	after, other := d.inspectCompanion(ctx, run)
-	if e != nil || other != nil || after.ID != c.ID || after.PID != c.PID || after.Started != c.Started || !after.Running {
+	if !companionStillRunning(c, after, e, other) {
 		return nil, tailnet.ErrUnconfirmed
 	}
 	if args[0] != "logout" {
@@ -535,6 +559,18 @@ func (d *Daemon) StopTailnet(ctx context.Context, id string) error {
 	return d.stopTailnetRun(ctx, run)
 }
 
+func confirmStoppedResolver(ctx context.Context, d *Daemon, run projectRun) error {
+	current, runErr := d.projectRun(ctx, run.Target.Project)
+	if runErr != nil || current != run {
+		return nil
+	}
+	resolver, e := os.ReadFile(run.Resolver)
+	if e != nil || len(resolver) > 16384 || strings.Contains(strings.ToLower(string(resolver)), "tailscale") {
+		return tailnet.ErrUnconfirmed
+	}
+	return nil
+}
+
 func (d *Daemon) stopTailnetRun(ctx context.Context, run projectRun) error {
 	id := run.Target.Project
 	cid, e := d.projectContainer(ctx, id, false)
@@ -548,28 +584,28 @@ func (d *Daemon) stopTailnetRun(ctx context.Context, run projectRun) error {
 	if !c.Running {
 		return nil
 	}
-	// Every activation ends its identity. Native mem: shutdown also attempts
-	// logout; neither a successful stop nor key expiry proves provider deletion.
-	result := error(nil)
-	logout, done := context.WithTimeout(ctx, 5*time.Second)
-	if _, e = d.companionCLI(logout, run, "logout"); e != nil {
-		result = tailnet.ErrUnconfirmed
-	}
-	done()
-	if _, e = d.runtimePodman(ctx, "stop", "--time=8", c.ID); e != nil {
-		return tailnet.ErrUnconfirmed
-	}
+	result := d.logoutAndStopCompanion(ctx, run, c.ID)
 	after, e := d.inspectCompanion(ctx, run)
 	if e != nil || after.ID != c.ID || after.Running {
 		return tailnet.ErrUnconfirmed
 	}
-	if current, runErr := d.projectRun(ctx, id); runErr == nil && current == run {
-		resolver, e := os.ReadFile(run.Resolver)
-		if e != nil || len(resolver) > 16384 || strings.Contains(strings.ToLower(string(resolver)), "tailscale") {
-			return tailnet.ErrUnconfirmed
-		}
+	if e = confirmStoppedResolver(ctx, d, run); e != nil {
+		return e
 	}
 	return result
+}
+
+func (d *Daemon) logoutAndStopCompanion(ctx context.Context, run projectRun, id string) error {
+	logout, done := context.WithTimeout(ctx, 5*time.Second)
+	_, logoutErr := d.companionCLI(logout, run, "logout")
+	done()
+	if _, e := d.runtimePodman(ctx, "stop", "--time=8", id); e != nil {
+		return tailnet.ErrUnconfirmed
+	}
+	if logoutErr != nil {
+		return tailnet.ErrUnconfirmed
+	}
+	return nil
 }
 
 func (d *Daemon) queueProjectTailnetDisable(ctx context.Context, project string, view *tailnet.ProjectView) {

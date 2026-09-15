@@ -133,6 +133,40 @@ func Run(ctx context.Context, action string) error {
 	return runLockedInstall(ctx, c, action)
 }
 
+func liveISOFromCmdline(data []byte) bool {
+	for _, arg := range strings.Fields(string(data)) {
+		if arg == "coreos.liveiso" || strings.HasPrefix(arg, "coreos.liveiso=") || strings.HasPrefix(arg, "coreos.live.rootfs_url=") {
+			return true
+		}
+	}
+	return false
+}
+
+func admitLiveInstaller(values map[string]string) error {
+	var media mediaIdentity
+	if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
+		return errors.New("missing media identity")
+	}
+	// Selected CoreOS reports the Fedora major in VERSION_ID (44), and
+	// the exact image release in IMAGE_VERSION (44.20260817.3.2).
+	if err := media.validate(values["IMAGE_VERSION"], architecture()); err != nil {
+		return err
+	}
+	observed, err := command(context.Background(), "coreos-installer", []string{"--version"}, nil)
+	if err != nil || strings.TrimSpace(string(observed)) != media.InstallerVersion {
+		return errors.New("unreviewed CoreOS Installer version")
+	}
+	return nil
+}
+
+func selinuxEnforcing() error {
+	enforcing, err := os.ReadFile("/sys/fs/selinux/enforce")
+	if err != nil || strings.TrimSpace(string(enforcing)) != "1" {
+		return errors.New("SELinux must remain enforcing")
+	}
+	return nil
+}
+
 func coreOSHost(live bool) error {
 	// Display branding in /etc must not become a stale copy of base identity.
 	data, err := os.ReadFile("/usr/lib/os-release")
@@ -147,35 +181,15 @@ func coreOSHost(live bool) error {
 	if err != nil {
 		return err
 	}
-	isLive := false
-	for _, arg := range strings.Fields(string(cmdline)) {
-		if arg == "coreos.liveiso" || strings.HasPrefix(arg, "coreos.liveiso=") || strings.HasPrefix(arg, "coreos.live.rootfs_url=") {
-			isLive = true
-		}
-	}
-	if live != isLive {
+	if live != liveISOFromCmdline(cmdline) {
 		return errors.New("disk action requires the live ISO; continuation requires the installed host")
 	}
 	if live {
-		var media mediaIdentity
-		if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
-			return errors.New("missing media identity")
-		}
-		// Selected CoreOS reports the Fedora major in VERSION_ID (44), and
-		// the exact image release in IMAGE_VERSION (44.20260817.3.2).
-		if err := media.validate(values["IMAGE_VERSION"], architecture()); err != nil {
+		if err := admitLiveInstaller(values); err != nil {
 			return err
 		}
-		observed, err := command(context.Background(), "coreos-installer", []string{"--version"}, nil)
-		if err != nil || strings.TrimSpace(string(observed)) != media.InstallerVersion {
-			return errors.New("unreviewed CoreOS Installer version")
-		}
 	}
-	enforcing, err := os.ReadFile("/sys/fs/selinux/enforce")
-	if err != nil || strings.TrimSpace(string(enforcing)) != "1" {
-		return errors.New("SELinux must remain enforcing")
-	}
-	return nil
+	return selinuxEnforcing()
 }
 
 func osRelease(data []byte) map[string]string {
@@ -218,6 +232,40 @@ func installDiskAt(ctx context.Context, c console, marker string) error {
 	})
 }
 
+func askRestartOrQuit(c console) (restart bool, err error) {
+	c.page("Installation cancelled before disk writing")
+	c.print("No disk installation was started.")
+	c.print("Restart reuses this already loaded installer executable.")
+	for {
+		choice, askErr := c.ask("Type restart or quit")
+		if askErr != nil {
+			return false, askErr
+		}
+		switch strings.ToLower(choice) {
+		case "restart":
+			return true, nil
+		case "quit", "cancel":
+			return false, errors.New("cancelled; no disk installation started")
+		default:
+			c.print("Choose restart or quit.")
+		}
+	}
+}
+
+func afterFailedDiskAttempt(c console, marker string, err error, interrupted bool) (retry bool, out error) {
+	started, markerErr := diskInstallationStarted(marker)
+	if markerErr != nil {
+		return false, markerErr
+	}
+	if started || (!errors.Is(err, errRestart) && !errors.Is(err, errCancel) && !interrupted) {
+		return false, err
+	}
+	if errors.Is(err, errRestart) {
+		return true, nil
+	}
+	return askRestartOrQuit(c)
+}
+
 func retryDiskInstall(ctx context.Context, c console, marker string, attempt func(context.Context, console) error) error {
 	for {
 		started, err := diskInstallationStarted(marker)
@@ -227,7 +275,6 @@ func retryDiskInstall(ctx context.Context, c console, marker string, attempt fun
 		if started {
 			return errors.New("disk installation was already attempted this boot; inspect the result, do not replay")
 		}
-
 		attemptCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT)
 		err = attempt(attemptCtx, console{tty: c.tty, ctx: attemptCtx})
 		interrupted := ctx.Err() == nil && (attemptCtx.Err() != nil || errors.Is(err, context.Canceled))
@@ -235,38 +282,9 @@ func retryDiskInstall(ctx context.Context, c console, marker string, attempt fun
 		if err == nil {
 			return nil
 		}
-		started, markerErr := diskInstallationStarted(marker)
-		if markerErr != nil {
-			return markerErr
-		}
-		if started {
+		retry, err := afterFailedDiskAttempt(c, marker, err, interrupted)
+		if err != nil || !retry {
 			return err
-		}
-		if errors.Is(err, errRestart) {
-			continue
-		}
-		if !errors.Is(err, errCancel) && !interrupted {
-			return err
-		}
-
-		c.page("Installation cancelled before disk writing")
-		c.print("No disk installation was started.")
-		c.print("Restart reuses this already loaded installer executable.")
-		for {
-			choice, askErr := c.ask("Type restart or quit")
-			if askErr != nil {
-				return askErr
-			}
-			switch strings.ToLower(choice) {
-			case "restart":
-				// Retry via the outer loop; err is re-read from the marker above.
-			case "quit", "cancel":
-				return errors.New("cancelled; no disk installation started")
-			default:
-				c.print("Choose restart or quit.")
-				continue
-			}
-			break
 		}
 	}
 }
@@ -290,26 +308,94 @@ type diskInstallChoices struct {
 	subnet       string
 }
 
-func installDiskAttempt(ctx context.Context, c console, marker string) error {
+func destinationForMedia(media mediaIdentity, template []byte, choices diskInstallChoices) ([]byte, error) {
+	if media.Format == 2 {
+		factory, err := readRegular("/usr/share/soda/defaults/host.example.json", 16384)
+		if err != nil {
+			return nil, err
+		}
+		return candidateDestination(template, factory, choices)
+	}
+	return Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
+}
+
+func attachContinuation(media mediaIdentity, destination []byte) ([]byte, error) {
+	if media.Format != 0 {
+		return destination, nil
+	}
+	binary, err := readRegular(installerBinary, 64<<20)
+	if err != nil {
+		return nil, err
+	}
+	return addContinuation(destination, binary)
+}
+
+func printDiskComplete(c console, media mediaIdentity) {
+	if media.Format == 2 {
+		c.print("SodaOS disk installation completed with all five application images local.")
+		c.print("Remove installation media and reboot explicitly; log in locally as root with your password.")
+		c.print("Native startup imports the included images before starting their services. No reboot was performed.")
+		c.print("For key-only SSH access, run locally after reboot: %s enroll-key", candidateInstallerBinary)
+		c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
+		return
+	}
+	c.print("CoreOS disk installation completed; Soda setup is not complete.")
+	c.print("Remove installation media and reboot explicitly.")
+	c.print("On the installed system run: sudo %s continue", installerBinary)
+	c.print("No reboot was performed.")
+}
+
+func collectDiskAttempt(ctx context.Context, c console) (mediaIdentity, diskInstallChoices, uint64, error) {
+	var media mediaIdentity
+	if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
+		return media, diskInstallChoices{}, 0, errors.New("missing media identity")
+	}
+	payloadBytes, err := payloadRequirement(media)
+	if err != nil {
+		return media, diskInstallChoices{}, 0, err
+	}
+	choices, err := collectDiskInstallChoices(ctx, c, command, scanDisks, payloadBytes)
+	return media, choices, payloadBytes, err
+}
+
+func writeAttemptIgnition(destination []byte) (string, error) {
+	work, err := os.MkdirTemp("/run", "soda-installer-")
+	if err != nil {
+		return "", err
+	}
+	ignition := filepath.Join(work, "destination.ign")
+	if err := nativebuild.WriteNew(ignition, destination, 0o600); err != nil {
+		return "", err
+	}
+	return ignition, nil
+}
+
+func beginDiskAttempt(c console) error {
 	welcome, err := readRegular("/etc/motd", 16384)
 	if err != nil {
 		return errors.New("cannot read installer welcome text")
 	}
 	c.print("\x1b[0m\x1b[2J\x1b[H%s", string(welcome))
 	c.print("Press Enter to begin. Ctrl-C cancels safely before disk writing.")
-	if _, err := c.line(); err != nil {
-		return err
-	}
+	_, err = c.line()
+	return err
+}
 
-	var media mediaIdentity
-	if err := nativebuild.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
-		return errors.New("missing media identity")
+func finishDiskAttempt(ctx context.Context, c console, disk Disk, media mediaIdentity, payloadBytes uint64) error {
+	if media.Format != 2 {
+		if err := copyInstalledPayload(ctx, disk, media, payloadBytes, command); err != nil {
+			return err
+		}
 	}
-	payloadBytes, err := payloadRequirement(media)
-	if err != nil {
+	printDiskComplete(c, media)
+	return nil
+}
+
+func installDiskAttempt(ctx context.Context, c console, marker string) error {
+	if err := beginDiskAttempt(c); err != nil {
 		return err
 	}
-	choices, err := collectDiskInstallChoices(ctx, c, command, scanDisks, payloadBytes)
+	media, choices, payloadBytes, err := collectDiskAttempt(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -317,67 +403,32 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	if err != nil {
 		return err
 	}
-	var destination []byte
-	if media.Format == 2 {
-		factory, readErr := readRegular("/usr/share/soda/defaults/host.example.json", 16384)
-		if readErr != nil {
-			return readErr
-		}
-		destination, err = candidateDestination(template, factory, choices)
-	} else {
-		destination, err = Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
-	}
+	destination, err := destinationForMedia(media, template, choices)
 	choices.passwordHash = ""
 	if err != nil {
 		return err
 	}
-	// Deliver this media's already trusted executable for explicit post-boot
-	// continuation. No remote runtime lookup or executable from the untrusted bundle.
-	if media.Format == 0 {
-		binary, err := readRegular(installerBinary, 64<<20)
-		if err != nil {
-			return err
-		}
-		destination, err = addContinuation(destination, binary)
-		if err != nil {
-			return err
-		}
-	}
-	work, err := os.MkdirTemp("/run", "soda-installer-")
+	destination, err = attachContinuation(media, destination)
 	if err != nil {
 		return err
 	}
-	// Private inputs remain in this boot's tmpfs, including on failure. No logs
-	// contain them; no cleanup touches unrelated or retained evidence.
-	ignition := filepath.Join(work, "destination.ign")
-	if err := nativebuild.WriteNew(ignition, destination, 0o600); err != nil {
+	ignition, err := writeAttemptIgnition(destination)
+	if err != nil {
 		return err
 	}
 	c.page("Installing CoreOS")
 	c.print("Writing the confirmed disk. Do not disconnect it.")
 	c.print("Raw diagnostics are suppressed to protect provisioning inputs.")
-	err = executeDisk(ctx, choices.disk, ignition, func() ([]Disk, error) { return scanDisks(ctx, command) }, func() error {
-		return nativebuild.WriteNew(marker, []byte(choices.disk.Device.Name+"\n"), 0o600)
+	if err := executeAttemptDisk(ctx, choices.disk, ignition, marker); err != nil {
+		return err
+	}
+	return finishDiskAttempt(ctx, c, choices.disk, media, payloadBytes)
+}
+
+func executeAttemptDisk(ctx context.Context, disk Disk, ignition, marker string) error {
+	return executeDisk(ctx, disk, ignition, func() ([]Disk, error) { return scanDisks(ctx, command) }, func() error {
+		return nativebuild.WriteNew(marker, []byte(disk.Device.Name+"\n"), 0o600)
 	}, command)
-	if err != nil {
-		return err
-	}
-	if media.Format == 2 {
-		c.print("SodaOS disk installation completed with all five application images local.")
-		c.print("Remove installation media and reboot explicitly; log in locally as root with your password.")
-		c.print("Native startup imports the included images before starting their services. No reboot was performed.")
-		c.print("For key-only SSH access, run locally after reboot: %s enroll-key", candidateInstallerBinary)
-		c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
-		return nil
-	}
-	if err := copyInstalledPayload(ctx, choices.disk, media, payloadBytes, command); err != nil {
-		return err
-	}
-	c.print("CoreOS disk installation completed; Soda setup is not complete.")
-	c.print("Remove installation media and reboot explicitly.")
-	c.print("On the installed system run: sudo %s continue", installerBinary)
-	c.print("No reboot was performed.")
-	return nil
 }
 
 func checkNav(value string) error {
