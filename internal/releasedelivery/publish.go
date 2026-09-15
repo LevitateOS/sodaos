@@ -33,6 +33,17 @@ func InitLedger(path string, t Trust, repo string) error {
 	return writeJSON(path, Ledger{Format: 1, Repository: repo, Phase: "idle", State: state})
 }
 
+func validLedgerPhase(phase, digest string) bool {
+	switch phase {
+	case "idle":
+		return digest == ""
+	case "pending", "complete":
+		return Digest(digest)
+	default:
+		return false
+	}
+}
+
 func (l Ledger) Validate(t Trust) error {
 	if l.Format != 1 || l.State.Validate() != nil || l.State.TrustEpoch > t.Epoch {
 		return ErrRefused
@@ -40,14 +51,7 @@ func (l Ledger) Validate(t Trust) error {
 	if _, e := t.Role(l.Repository); e != nil {
 		return e
 	}
-	if l.Phase != "idle" && l.Phase != "pending" && l.Phase != "complete" {
-		return ErrRefused
-	}
-	if l.Phase == "idle" {
-		if l.Digest != "" {
-			return ErrRefused
-		}
-	} else if !Digest(l.Digest) {
+	if !validLedgerPhase(l.Phase, l.Digest) {
 		return ErrRefused
 	}
 	return nil

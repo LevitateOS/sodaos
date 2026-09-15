@@ -26,7 +26,7 @@ type Artifact struct {
 	Files     map[string]string
 }
 
-func ReadArtifact(root string) (Artifact, error) {
+func loadArtifactMetadata(root string) (Artifact, error) {
 	var a Artifact
 	if !filepath.IsAbs(root) {
 		return a, errors.New("absolute artifact root required")
@@ -45,6 +45,25 @@ func ReadArtifact(root string) (Artifact, error) {
 	if err = a.Candidate.Validate(a.Payload, pb); err != nil {
 		return a, err
 	}
+	return a, nil
+}
+
+func hashArtifactSidecars(opened *os.Root, files map[string]string) error {
+	for _, path := range []string{"payload.json", "candidate.json"} {
+		sum, e := nativebuild.HashAt(opened, path)
+		if e != nil {
+			return e
+		}
+		files[path] = sum
+	}
+	return nil
+}
+
+func ReadArtifact(root string) (Artifact, error) {
+	a, err := loadArtifactMetadata(root)
+	if err != nil {
+		return a, err
+	}
 	opened, err := os.OpenRoot(root)
 	if err != nil {
 		return a, err
@@ -54,12 +73,8 @@ func ReadArtifact(root string) (Artifact, error) {
 	if err != nil {
 		return a, err
 	}
-	for _, path := range []string{"payload.json", "candidate.json"} {
-		sum, e := nativebuild.HashAt(opened, path)
-		if e != nil {
-			return a, e
-		}
-		a.Files[path] = sum
+	if err = hashArtifactSidecars(opened, a.Files); err != nil {
+		return a, err
 	}
 	return a, nil
 }

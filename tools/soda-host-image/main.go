@@ -46,6 +46,40 @@ func main() {
 		os.Exit(nativebuild.BuildExitCode(err))
 	}
 }
+
+func gitOutput(args ...string) (string, error) {
+	data, e := exec.Command("git", args...).Output()
+	return strings.TrimSpace(string(data)), e
+}
+
+func admitLegacyNative(arch, out string) (source, revision string, err error) {
+	if e := nativebuild.RequireNative(arch); e != nil {
+		return "", "", e
+	}
+	if runtime.Version() != "go1.26.7" {
+		return "", "", errors.New("pinned Go 1.26.7 required")
+	}
+	source, e := gitOutput("rev-parse", "--show-toplevel")
+	if e != nil {
+		return "", "", e
+	}
+	status, e := gitOutput("status", "--porcelain", "--untracked-files=normal")
+	if e != nil {
+		return "", "", e
+	}
+	if status != "" {
+		return "", "", errors.New("clean committed source required")
+	}
+	revision, e = gitOutput("rev-parse", "HEAD")
+	if e != nil {
+		return "", "", e
+	}
+	if out != filepath.Join(source, ".artifacts/native", arch) {
+		return "", "", errors.New("legacy output must use its native stage path")
+	}
+	return source, revision, nil
+}
+
 func run() (err error) {
 	arch := flag.String("arch", "", "native architecture")
 	out := flag.String("out", "", "fresh legacy native output")
@@ -54,33 +88,9 @@ func run() (err error) {
 	if !*legacy || flag.NArg() != 0 {
 		return errors.New("host producer retired; use soda-build; this command requires --legacy-native")
 	}
-	if e := nativebuild.RequireNative(*arch); e != nil {
-		return e
-	}
-	if runtime.Version() != "go1.26.7" {
-		return errors.New("pinned Go 1.26.7 required")
-	}
-	capture := func(args ...string) (string, error) {
-		data, e := exec.Command("git", args...).Output()
-		return strings.TrimSpace(string(data)), e
-	}
-	source, e := capture("rev-parse", "--show-toplevel")
+	source, revision, e := admitLegacyNative(*arch, *out)
 	if e != nil {
 		return e
-	}
-	status, e := capture("status", "--porcelain", "--untracked-files=normal")
-	if e != nil {
-		return e
-	}
-	if status != "" {
-		return errors.New("clean committed source required")
-	}
-	revision, e := capture("rev-parse", "HEAD")
-	if e != nil {
-		return e
-	}
-	if *out != filepath.Join(source, ".artifacts/native", *arch) {
-		return errors.New("legacy output must use its native stage path")
 	}
 	if e = nativebuild.FreshDirectory(*out); e != nil {
 		return e
@@ -93,7 +103,7 @@ func run() (err error) {
 	if e = progress.CreateLog(filepath.Join(*out, "timing.log")); e != nil {
 		return e
 	}
-	log, e := os.OpenFile(filepath.Join(*out, "build.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	log, e := os.OpenFile(filepath.Join(*out, "build.log"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if e != nil {
 		return e
 	}

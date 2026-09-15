@@ -254,11 +254,27 @@ func verifyReleases(ctx context.Context, r Runner, t Trust, s Highwater, c Chann
 // Fetch verifies an approved channel and its images but never installs/imports,
 // switches bootc, changes policy or reboots. Withdrawal advances the high-water
 // mark without rewinding any installed release or application database.
-func Fetch(ctx context.Context, r Runner, t Trust, name, arch, statePath, out string, now time.Time) error {
+func admitFetchRequest(t Trust, name, arch string) error {
 	if t.Validate() != nil || !channel(name) {
 		return ErrRefused
 	}
-	if _, e := nativebuild.OCIArchitecture(arch); e != nil {
+	_, e := nativebuild.OCIArchitecture(arch)
+	return e
+}
+
+func completeFetch(ctx context.Context, r Runner, t Trust, state Highwater, offer Channel, ref, arch, statePath, out string) error {
+	next, verificationErr := verifyReleases(ctx, r, t, state, offer, arch, out)
+	if e := saveState(statePath, next); e != nil {
+		return e
+	}
+	if verificationErr != nil {
+		return verificationErr
+	}
+	return writeJSON(filepath.Join(out, "verified.json"), map[string]any{"Channel": ref, "Architecture": arch, "Withdrawn": offer.Withdrawn, "Scope": "native signature/digest verification only; no installation or activation"})
+}
+
+func Fetch(ctx context.Context, r Runner, t Trust, name, arch, statePath, out string, now time.Time) error {
+	if e := admitFetchRequest(t, name, arch); e != nil {
 		return e
 	}
 	lock, e := lockState(statePath)
@@ -289,12 +305,5 @@ func Fetch(ctx context.Context, r Runner, t Trust, name, arch, statePath, out st
 	if e = saveState(statePath, state); e != nil {
 		return e
 	}
-	next, verificationErr := verifyReleases(ctx, r, t, state, offer, arch, out)
-	if e = saveState(statePath, next); e != nil {
-		return e
-	}
-	if verificationErr != nil {
-		return verificationErr
-	}
-	return writeJSON(filepath.Join(out, "verified.json"), map[string]any{"Channel": ref, "Architecture": arch, "Withdrawn": offer.Withdrawn, "Scope": "native signature/digest verification only; no installation or activation"})
+	return completeFetch(ctx, r, t, state, offer, ref, arch, statePath, out)
 }

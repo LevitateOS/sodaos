@@ -59,14 +59,7 @@ func CheckNative(ctx context.Context, r Runner) error {
 	return nil
 }
 
-func PrivateFile(path string) error {
-	if !filepath.IsAbs(path) {
-		return ErrRefused
-	}
-	resolved, e := filepath.EvalSymlinks(path)
-	if e != nil || resolved != path {
-		return ErrRefused
-	}
+func ownedPrivateRegular(path string) error {
 	st, e := os.Lstat(path)
 	if e != nil || !st.Mode().IsRegular() || st.Mode().Perm()&0o077 != 0 || st.Size() > 1<<20 {
 		return ErrRefused
@@ -80,6 +73,17 @@ func PrivateFile(path string) error {
 		return ErrRefused
 	}
 	return nil
+}
+
+func PrivateFile(path string) error {
+	if !filepath.IsAbs(path) {
+		return ErrRefused
+	}
+	resolved, e := filepath.EvalSymlinks(path)
+	if e != nil || resolved != path {
+		return ErrRefused
+	}
+	return ownedPrivateRegular(path)
 }
 
 func writeJSON(path string, v any) error {
@@ -123,6 +127,35 @@ func localPolicy(transport, path string) any {
 // MergePolicy emits a proposed policy, never installs it. Unrelated Fedora/vendor
 // scopes are preserved. Existing more-specific Soda overrides must be reviewed,
 // not silently allowed to bypass the new rule.
+func sodaTrustRepos(t Trust) []string {
+	repos := []string{t.Prefix + "-host", t.Prefix + "-release"}
+	for _, n := range appliancerelease.Names {
+		repos = append(repos, t.Prefix+"-"+n)
+	}
+	for _, c := range []string{"candidate", "preview", "stable"} {
+		repos = append(repos, t.Prefix+"-channel-"+c)
+	}
+	return repos
+}
+
+func sodaOverrideExists(existing, repo string) bool {
+	return existing == repo || strings.HasPrefix(existing, repo+":") || strings.HasPrefix(existing, repo+"@") || strings.HasPrefix(existing, repo+"/")
+}
+
+func applySodaTrust(t Trust, docker map[string]json.RawMessage) error {
+	for _, repo := range sodaTrustRepos(t) {
+		for existing := range docker {
+			if sodaOverrideExists(existing, repo) {
+				return errors.New("existing Soda trust override requires explicit review")
+			}
+		}
+		req, _ := t.requirement(repo)
+		raw, _ := json.Marshal([]requirement{req})
+		docker[repo] = raw
+	}
+	return nil
+}
+
 func MergePolicy(t Trust, original []byte) ([]byte, error) {
 	if e := t.Validate(); e != nil {
 		return nil, e
@@ -140,22 +173,8 @@ func MergePolicy(t Trust, original []byte) ([]byte, error) {
 	if p.Transports["docker"] == nil {
 		p.Transports["docker"] = map[string]json.RawMessage{}
 	}
-	repos := []string{t.Prefix + "-host", t.Prefix + "-release"}
-	for _, n := range appliancerelease.Names {
-		repos = append(repos, t.Prefix+"-"+n)
-	}
-	for _, c := range []string{"candidate", "preview", "stable"} {
-		repos = append(repos, t.Prefix+"-channel-"+c)
-	}
-	for _, repo := range repos {
-		for existing := range p.Transports["docker"] {
-			if existing == repo || strings.HasPrefix(existing, repo+":") || strings.HasPrefix(existing, repo+"@") || strings.HasPrefix(existing, repo+"/") {
-				return nil, errors.New("existing Soda trust override requires explicit review")
-			}
-		}
-		req, _ := t.requirement(repo)
-		raw, _ := json.Marshal([]requirement{req})
-		p.Transports["docker"][repo] = raw
+	if e := applySodaTrust(t, p.Transports["docker"]); e != nil {
+		return nil, e
 	}
 	return marshal(p)
 }
@@ -187,6 +206,27 @@ func registryConfig(out string, t Trust) (string, error) {
 
 // VerifyCopy is deliberately a fresh native copy, never a Podman-cache existence
 // assertion or an inspect-only request (neither proves signature enforcement).
+func admitVerifySource(ref, source, repo string) (transport, scope string, err error) {
+	transport, scope, ok := strings.Cut(source, ":")
+	if !ok {
+		return "", "", ErrRefused
+	}
+	switch transport {
+	case "docker":
+		if source != "docker://"+ref {
+			return "", "", ErrRefused
+		}
+		return transport, repo, nil
+	case "dir":
+		if !filepath.IsAbs(scope) {
+			return "", "", ErrRefused
+		}
+		return transport, scope, nil
+	default:
+		return "", "", ErrRefused
+	}
+}
+
 func VerifyCopy(ctx context.Context, r Runner, t Trust, ref, source, out string) error {
 	repo, _, e := t.Reference(ref)
 	if e != nil {
@@ -196,22 +236,9 @@ func VerifyCopy(ctx context.Context, r Runner, t Trust, ref, source, out string)
 	if e = nativebuild.FreshDirectory(out); e != nil {
 		return e
 	}
-	transport, scope, ok := strings.Cut(source, ":")
-	if !ok {
-		return ErrRefused
-	}
-	switch transport {
-	case "docker":
-		if source != "docker://"+ref {
-			return ErrRefused
-		}
-		scope = repo
-	case "dir":
-		if !filepath.IsAbs(scope) {
-			return ErrRefused
-		}
-	default:
-		return ErrRefused
+	transport, scope, e := admitVerifySource(ref, source, repo)
+	if e != nil {
+		return e
 	}
 	p, e := policyFor(t, repo, transport, scope)
 	if e != nil {
@@ -228,6 +255,10 @@ func VerifyCopy(ctx context.Context, r Runner, t Trust, ref, source, out string)
 	if _, e = r.Run(ctx, "--command-timeout=10m", "--policy", pp, "--registries.d", registry, "copy", "--preserve-digests", "--src-no-creds", source, "dir:"+filepath.Join(out, "image")); e != nil {
 		return e
 	}
+	return verifyCopiedManifest(out, digest)
+}
+
+func verifyCopiedManifest(out, digest string) error {
 	b, e := ReadFile(filepath.Join(out, "image/manifest.json"), 1<<20)
 	if e != nil || Hash(b) != digest {
 		return ErrRefused

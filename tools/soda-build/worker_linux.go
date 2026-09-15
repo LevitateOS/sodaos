@@ -177,6 +177,10 @@ func buildWorker(c workerConfig, r hostimage.Request) (acceptance.Worker, error)
 	return w, nil
 }
 
+func workerResultMatches(r hostimage.Request, result *hostimage.Result, out, media, completed string) bool {
+	return result.Revision == r.Revision && result.Architecture == r.Arch && result.Candidate == filepath.Join(out, "artifacts/candidate.json") && result.Media == media && result.Purpose == r.Purpose() && result.RequestedTarget == r.RequestedTarget() && result.CompletedTarget == completed && result.MediaCompression == r.MediaCompression
+}
+
 func validateWorkerResult(r hostimage.Request, result *hostimage.Result) error {
 	rel, err := filepath.Rel(r.Source, r.Out)
 	if err != nil {
@@ -187,7 +191,7 @@ func validateWorkerResult(r hostimage.Request, result *hostimage.Result) error {
 	if r.WantsMedia() {
 		media, completed = filepath.Join(out, "artifacts/media/media.json"), "media"
 	}
-	if result.Revision != r.Revision || result.Architecture != r.Arch || result.Candidate != filepath.Join(out, "artifacts/candidate.json") || result.Media != media || result.Purpose != r.Purpose() || result.RequestedTarget != r.RequestedTarget() || result.CompletedTarget != completed || result.MediaCompression != r.MediaCompression {
+	if !workerResultMatches(r, result, out, media, completed) {
 		return errors.New("worker result does not match this run")
 	}
 	candidate := filepath.Join(r.Out, "artifacts/candidate.json")

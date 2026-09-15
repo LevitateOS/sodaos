@@ -133,15 +133,18 @@ func (v EnrollmentResult) Validate() error {
 	return v.Enrollment.Validate()
 }
 
+func validProjectOptionsIdentity(v ProjectOptions) bool {
+	if v.Revision == "0" {
+		return v.Binding == "" && v.Tailnet == ""
+	}
+	return revisionPattern.MatchString(v.Binding) && networkPattern.MatchString(v.Tailnet)
+}
+
 func (v ProjectOptions) Validate() error {
 	if !validRevision(v.Revision) || (v.Default && !v.Available) || (v.Available && v.Revision == "0") {
 		return ErrUnavailable
 	}
-	if v.Revision == "0" {
-		if v.Binding != "" || v.Tailnet != "" {
-			return ErrUnavailable
-		}
-	} else if !revisionPattern.MatchString(v.Binding) || !networkPattern.MatchString(v.Tailnet) {
+	if !validProjectOptionsIdentity(v) {
 		return ErrUnavailable
 	}
 	return nil

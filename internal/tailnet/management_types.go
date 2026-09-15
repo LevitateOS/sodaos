@@ -241,16 +241,7 @@ type ProjectRequest struct {
 	ConfirmID string `json:"confirm_id,omitempty"`
 }
 
-func (r ProjectRequest) Validate() error {
-	if !ValidProject(r.Project) {
-		return ErrInvalid
-	}
-	if r.Action == "inspect" {
-		if r.Revision != "" || r.Binding != "" || r.ConfirmID != "" {
-			return ErrInvalid
-		}
-		return nil
-	}
+func validateProjectMutation(r ProjectRequest) error {
 	if !validRevision(r.Revision) || r.ConfirmID != r.Project {
 		return ErrInvalid
 	}
@@ -267,6 +258,19 @@ func (r ProjectRequest) Validate() error {
 		return ErrInvalid
 	}
 	return nil
+}
+
+func (r ProjectRequest) Validate() error {
+	if !ValidProject(r.Project) {
+		return ErrInvalid
+	}
+	if r.Action == "inspect" {
+		if r.Revision != "" || r.Binding != "" || r.ConfirmID != "" {
+			return ErrInvalid
+		}
+		return nil
+	}
+	return validateProjectMutation(r)
 }
 
 type ProjectView struct {

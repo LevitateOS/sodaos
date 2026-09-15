@@ -361,6 +361,22 @@ func verifyBuildInputs(root, arch, revision string, images map[string]Image) err
 	return nil
 }
 
+func inspectSealImages(root, arch, revision string) (map[string]Image, error) {
+	images := map[string]Image{}
+	for _, name := range []string{"project-os", "dashboard", "forgejo", "caddy", "tailnet"} {
+		rev := ""
+		if name == "project-os" || name == "dashboard" {
+			rev = revision
+		}
+		img, err := InspectOCI(filepath.Join(root, "images", name+".oci"), arch, rev)
+		if err != nil {
+			return nil, fmt.Errorf("inspect %s: %w", name, err)
+		}
+		images[name] = img
+	}
+	return images, nil
+}
+
 func Seal(root, arch, revision string) error {
 	if err := RequireNative(arch); err != nil {
 		return err
@@ -375,17 +391,9 @@ func Seal(root, arch, revision string) error {
 	if err = inspectBinaries(root, arch, files); err != nil {
 		return err
 	}
-	images := map[string]Image{}
-	for _, name := range []string{"project-os", "dashboard", "forgejo", "caddy", "tailnet"} {
-		rev := ""
-		if name == "project-os" || name == "dashboard" {
-			rev = revision
-		}
-		img, err := InspectOCI(filepath.Join(root, "images", name+".oci"), arch, rev)
-		if err != nil {
-			return fmt.Errorf("inspect %s: %w", name, err)
-		}
-		images[name] = img
+	images, err := inspectSealImages(root, arch, revision)
+	if err != nil {
+		return err
 	}
 	if err = verifyBuildInputs(root, arch, revision, images); err != nil {
 		return err

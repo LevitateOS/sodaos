@@ -32,6 +32,10 @@ func httpsURL(raw string) bool {
 	return err == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && !strings.Contains(raw, "#")
 }
 
+func validCoreOSLock(l CoreOSLock, img CoreOSImage, ok bool) bool {
+	return ok && l.Release != "" && httpsURL(l.MetadataURL) && httpsURL(img.URL) && httpsURL(img.SignatureURL) && Digest(img.SHA256) && Digest(img.UncompressedSHA256)
+}
+
 func ReadCoreOS(lock, arch string) (CoreOSLock, CoreOSImage, error) {
 	var l CoreOSLock
 	if _, err := OCIArchitecture(arch); err != nil {
@@ -41,7 +45,7 @@ func ReadCoreOS(lock, arch string) (CoreOSLock, CoreOSImage, error) {
 		return l, CoreOSImage{}, err
 	}
 	img, ok := l.Architectures[arch]
-	if !ok || l.Release == "" || !httpsURL(l.MetadataURL) || !httpsURL(img.URL) || !httpsURL(img.SignatureURL) || !Digest(img.SHA256) || !Digest(img.UncompressedSHA256) {
+	if !validCoreOSLock(l, img, ok) {
 		return l, img, errors.New("invalid CoreOS lock")
 	}
 	return l, img, nil
@@ -155,6 +159,15 @@ func verifyCoreOSSignature(ctx context.Context, image, sig, keyring, signer, out
 	return nil
 }
 
+var gnupgFailures = map[string]bool{
+	"BADSIG": true, "ERRSIG": true, "EXPSIG": true, "EXPKEYSIG": true, "REVKEYSIG": true,
+	"KEYEXPIRED": true, "SIGEXPIRED": true, "NO_PUBKEY": true, "NODATA": true,
+}
+
+func validSIGMatch(f []string, signer string) bool {
+	return f[1] == "VALIDSIG" && (len(f) == 11 || len(f) == 12) && (strings.EqualFold(f[2], signer) || (len(f) == 12 && strings.EqualFold(f[11], signer)))
+}
+
 func validSignature(status []byte, signer string) bool {
 	valid := false
 	for _, line := range strings.Split(string(status), "\n") {
@@ -162,11 +175,10 @@ func validSignature(status []byte, signer string) bool {
 		if len(f) < 2 || f[0] != "[GNUPG:]" {
 			continue
 		}
-		switch f[1] {
-		case "BADSIG", "ERRSIG", "EXPSIG", "EXPKEYSIG", "REVKEYSIG", "KEYEXPIRED", "SIGEXPIRED", "NO_PUBKEY", "NODATA":
+		if gnupgFailures[f[1]] {
 			return false
 		}
-		if f[1] == "VALIDSIG" && (len(f) == 11 || len(f) == 12) && (strings.EqualFold(f[2], signer) || (len(f) == 12 && strings.EqualFold(f[11], signer))) {
+		if validSIGMatch(f, signer) {
 			valid = true
 		}
 	}

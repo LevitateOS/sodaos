@@ -77,8 +77,12 @@ func (b *boundedBody) Read(p []byte) (int, error) {
 
 type boundedProviderTransport struct{ base http.RoundTripper }
 
+func validOAuthTokenRequest(r *http.Request) bool {
+	return r.URL.Scheme == "https" && r.URL.Host == "api.tailscale.com" && r.URL.User == nil && r.URL.Path == "/api/v2/oauth/token" && r.URL.RawQuery == "" && r.Method == "POST"
+}
+
 func (t boundedProviderTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	if r.URL.Scheme != "https" || r.URL.Host != "api.tailscale.com" || r.URL.User != nil || r.URL.Path != "/api/v2/oauth/token" || r.URL.RawQuery != "" || r.Method != "POST" {
+	if !validOAuthTokenRequest(r) {
 		return nil, ErrInvalid
 	}
 	response, err := t.base.RoundTrip(r)
@@ -204,25 +208,36 @@ func peerView(p nativePeer) (Peer, error) {
 	return Peer{p.ID, name, ip, p.Online, p.ExitNodeOption, p.Expired}, e
 }
 
+func haveNodeKeyOmitted(fields map[string]json.RawMessage, key string) bool {
+	// Tailscale 1.102.4 ipnstate.Status marks HaveNodeKey omitempty:
+	// an absent field is false on a fresh, unenrolled daemon. Keep explicit
+	// null/type errors and case-aliased fields fail-closed.
+	if key != "HaveNodeKey" {
+		return false
+	}
+	for name := range fields {
+		if strings.EqualFold(name, key) {
+			return false
+		}
+	}
+	return true
+}
+
+func requiredNativeField(fields map[string]json.RawMessage, key string) bool {
+	value, ok := fields[key]
+	if !ok {
+		return haveNodeKeyOmitted(fields, key)
+	}
+	return !bytes.Equal(value, []byte("null")) || key == "AdvertiseRoutes"
+}
+
 func nativeObject(data []byte, out any, required ...string) error {
 	var fields map[string]json.RawMessage
 	if strictjson.Decode(bytes.NewReader(data), &fields) != nil || fields == nil {
 		return ErrUnavailable
 	}
 	for _, key := range required {
-		value, ok := fields[key]
-		// Tailscale 1.102.4 ipnstate.Status marks HaveNodeKey omitempty:
-		// an absent field is false on a fresh, unenrolled daemon. Keep explicit
-		// null/type errors and case-aliased fields fail-closed.
-		if !ok && key == "HaveNodeKey" {
-			for name := range fields {
-				if strings.EqualFold(name, key) {
-					return ErrUnavailable
-				}
-			}
-			continue
-		}
-		if !ok || (bytes.Equal(value, []byte("null")) && key != "AdvertiseRoutes") {
+		if !requiredNativeField(fields, key) {
 			return ErrUnavailable
 		}
 	}
@@ -379,12 +394,16 @@ func (m *Management) observe(ctx context.Context) (HostView, string, error) {
 	return view, s.AuthURL, nil
 }
 
+func validTailscaleAuthURL(u *url.URL) bool {
+	return u.Scheme == "https" && u.Host == "login.tailscale.com" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && u.RawPath == "" && strings.HasPrefix(u.Path, "/a/") && clientPattern.MatchString(strings.TrimPrefix(u.Path, "/a/"))
+}
+
 func authenticationURL(raw string) string {
 	if len(raw) > 2048 {
 		return ""
 	}
 	u, e := url.Parse(raw)
-	if e != nil || u.Scheme != "https" || u.Host != "login.tailscale.com" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawPath != "" || !strings.HasPrefix(u.Path, "/a/") || !clientPattern.MatchString(strings.TrimPrefix(u.Path, "/a/")) {
+	if e != nil || !validTailscaleAuthURL(u) {
 		return ""
 	}
 	return u.String()

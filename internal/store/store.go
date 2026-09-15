@@ -56,29 +56,10 @@ func OpenEncrypted(path string, key []byte) (*Store, error) {
 	return open(path, cipher)
 }
 
-func open(path string, cipher *grantCipher) (*Store, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, err
-	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0600)
-	if err != nil {
-		return nil, err
-	}
-	f.Close()
-	absolute, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-	// database/sql can replace connections after cancellation. Configure every
-	// connection, not just startup, so logout cascades cannot leave live grants.
-	dsn := url.URL{Scheme: "file", Path: absolute, RawQuery: url.Values{"_pragma": {"foreign_keys(1)", "busy_timeout(5000)"}}.Encode()}
-	db, err := sql.Open("sqlite", dsn.String())
-	if err != nil {
-		return nil, err
-	}
+func configureStore(db *sql.DB, cipher *grantCipher) (*Store, error) {
 	db.SetMaxOpenConns(1)
 	s := &Store{db: db, grants: cipher}
-	err = s.checkGrantKey(context.Background())
+	err := s.checkGrantKey(context.Background())
 	if err == nil {
 		err = migrate(context.Background(), db)
 	}
@@ -94,6 +75,29 @@ func open(path string, cipher *grantCipher) (*Store, error) {
 	}
 	return s, nil
 }
+
+func open(path string, cipher *grantCipher) (*Store, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	f.Close()
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	// database/sql can replace connections after cancellation. Configure every
+	// connection, not just startup, so logout cascades cannot leave live grants.
+	dsn := url.URL{Scheme: "file", Path: absolute, RawQuery: url.Values{"_pragma": {"foreign_keys(1)", "busy_timeout(5000)"}}.Encode()}
+	db, err := sql.Open("sqlite", dsn.String())
+	if err != nil {
+		return nil, err
+	}
+	return configureStore(db, cipher)
+}
 func (s *Store) Close() error { return s.db.Close() }
 
 func (s *Store) UpsertUser(ctx context.Context, u User) error {
@@ -103,11 +107,13 @@ func (s *Store) UpsertUser(ctx context.Context, u User) error {
 	_, err := s.db.ExecContext(ctx, `INSERT INTO users(id,login,name) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET login=excluded.login`, u.ID, u.Login, u.Name)
 	return err
 }
+
 func (s *Store) User(ctx context.Context, id int64) (User, error) {
 	var u User
 	err := s.db.QueryRowContext(ctx, `SELECT id,login,name FROM users WHERE id=?`, id).Scan(&u.ID, &u.Login, &u.Name)
 	return u, err
 }
+
 func (s *Store) RenameProfile(ctx context.Context, id int64, name string) error {
 	if len(name) > 200 {
 		return errors.New("name too long")
@@ -115,10 +121,12 @@ func (s *Store) RenameProfile(ctx context.Context, id int64, name string) error 
 	_, err := s.db.ExecContext(ctx, `UPDATE users SET name=? WHERE id=?`, name, id)
 	return err
 }
+
 func (s *Store) AddKey(ctx context.Context, uid int64, public, fingerprint string) error {
 	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO keys(user_id,public,fingerprint) VALUES(?,?,?)`, uid, public, fingerprint)
 	return err
 }
+
 func (s *Store) RemoveKey(ctx context.Context, uid, id int64) (bool, error) {
 	result, err := s.db.ExecContext(ctx, `DELETE FROM keys WHERE user_id=? AND id=?`, uid, id)
 	if err != nil {
@@ -144,6 +152,7 @@ func (s *Store) Keys(ctx context.Context, uid int64) ([]Key, error) {
 	}
 	return out, rows.Err()
 }
+
 func (s *Store) CreateProject(ctx context.Context, p Project) error {
 	if p.Profile == nil {
 		_, err := s.db.ExecContext(ctx, `INSERT INTO projects(id,name,repository_id,owner_id,repository) VALUES(?,?,?,?,?)`, p.ID, p.Name, p.RepositoryID, p.OwnerID, p.Repository)
@@ -159,10 +168,12 @@ func (s *Store) CreateProject(ctx context.Context, p Project) error {
 	_, err = s.db.ExecContext(ctx, `INSERT INTO projects(id,name,repository_id,owner_id,repository,creation_profile) VALUES(?,?,?,?,?,?)`, p.ID, p.Name, p.RepositoryID, p.OwnerID, p.Repository, string(raw))
 	return err
 }
+
 func (s *Store) MarkReady(ctx context.Context, id, ip string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE projects SET ip=?,ready=1 WHERE id=?`, ip, id)
 	return err
 }
+
 func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var p Project
 	var profile sql.NullString
@@ -205,19 +216,23 @@ func (s *Store) SpaceProjects(ctx context.Context) ([]Project, error) {
 func (s *Store) ProjectByRepository(ctx context.Context, id int64) (Project, error) {
 	return scanProject(s.db.QueryRowContext(ctx, `SELECT `+projectColumns+` FROM projects WHERE repository_id=?`, id))
 }
+
 func (s *Store) Join(ctx context.Context, pid string, uid int64, login string) error {
 	_, err := s.db.ExecContext(ctx, `INSERT INTO memberships(project_id,user_id,login) VALUES(?,?,?)`, pid, uid, login)
 	return err
 }
+
 func (s *Store) MemberLogin(ctx context.Context, pid string, uid int64) (string, error) {
 	var login string
 	err := s.db.QueryRowContext(ctx, `SELECT login FROM memberships WHERE project_id=? AND user_id=?`, pid, uid).Scan(&login)
 	return login, err
 }
+
 func hash(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
 }
+
 func (s *Store) CreateSession(ctx context.Context, token string, uid int64, csrf string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -233,11 +248,13 @@ func (s *Store) CreateSession(ctx context.Context, token string, uid int64, csrf
 	}
 	return tx.Commit()
 }
+
 func (s *Store) Session(ctx context.Context, token string) (Session, error) {
 	var v Session
 	err := s.db.QueryRowContext(ctx, `SELECT users.id,users.login,users.name,sessions.csrf,sessions.context_id,MIN(sessions.expires,c.expires) FROM sessions JOIN users ON users.id=sessions.user_id JOIN login_contexts c ON c.id=sessions.context_id WHERE sessions.token=? AND sessions.expires>? AND c.expires>?`, hash(token), time.Now().Unix(), time.Now().Unix()).Scan(&v.User.ID, &v.User.Login, &v.User.Name, &v.CSRF, &v.ContextID, &v.Expires)
 	return v, err
 }
+
 func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM login_contexts WHERE id=(SELECT context_id FROM sessions WHERE token=?)`, hash(token))
 	return err

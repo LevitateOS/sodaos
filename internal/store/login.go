@@ -126,15 +126,11 @@ func (s *Store) EndLoginContext(ctx context.Context, id string) error {
 
 // FinishOAuth is the only production callback persistence path. No provider I/O
 // or cookie writes belong inside this short, conditional transaction.
-func (s *Store) FinishOAuth(ctx context.Context, a OAuthAttempt, user User, session, csrf string, grant Grant) error {
-	if user.ID <= 0 || strings.TrimSpace(user.Login) == "" || (a.ExpectedUserID != 0 && user.ID != a.ExpectedUserID) {
-		return ErrLoginContext
-	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+func validOAuthUser(a OAuthAttempt, user User) bool {
+	return user.ID > 0 && strings.TrimSpace(user.Login) != "" && (a.ExpectedUserID == 0 || user.ID == a.ExpectedUserID)
+}
+
+func consumeOAuthAttempt(ctx context.Context, tx *sql.Tx, a OAuthAttempt) error {
 	now := time.Now().Unix()
 	result, err := tx.ExecContext(ctx, `UPDATE login_contexts SET pending=NULL,expires=? WHERE id=? AND pending=? AND expires>? AND ?>?`, time.Now().Add(12*time.Hour).Unix(), a.contextID, a.state, now, a.expires, now)
 	if err != nil {
@@ -146,6 +142,21 @@ func (s *Store) FinishOAuth(ctx context.Context, a OAuthAttempt, user User, sess
 	}
 	if count != 1 {
 		return ErrLoginContext
+	}
+	return nil
+}
+
+func (s *Store) FinishOAuth(ctx context.Context, a OAuthAttempt, user User, session, csrf string, grant Grant) error {
+	if !validOAuthUser(a, user) {
+		return ErrLoginContext
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err = consumeOAuthAttempt(ctx, tx, a); err != nil {
+		return err
 	}
 	if _, err = tx.ExecContext(ctx, `INSERT INTO users(id,login,name) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET login=excluded.login`, user.ID, user.Login, user.Name); err != nil {
 		return err

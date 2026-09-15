@@ -111,13 +111,7 @@ func (p Production) Assets(hostContext, forgejoContext string) error {
 }
 
 // Dependencies is run before any production compilation.
-func (p Production) Dependencies() error {
-	if e := p.validate(); e != nil {
-		return e
-	}
-	if e := p.step("Check frontend toolchain"); e != nil {
-		return e
-	}
+func (p Production) requirePinnedBun() error {
 	var workspace struct{ PackageManager string }
 	// The workspace has unrelated fields; read the pin from its owning manifest.
 	data, e := os.ReadFile(filepath.Join(p.Source, "package.json"))
@@ -131,13 +125,26 @@ func (p Production) Dependencies() error {
 	if e != nil || "bun@"+bun != workspace.PackageManager {
 		return errors.New("workspace-pinned Bun required")
 	}
-	if e = p.step("Verify Go dependencies"); e != nil {
+	return nil
+}
+
+func (p Production) Dependencies() error {
+	if e := p.validate(); e != nil {
 		return e
 	}
-	if e = p.Execute(p.Source, "go", "mod", "verify"); e != nil {
+	if e := p.step("Check frontend toolchain"); e != nil {
 		return e
 	}
-	if e = p.step("Install frontend dependencies"); e != nil {
+	if e := p.requirePinnedBun(); e != nil {
+		return e
+	}
+	if e := p.step("Verify Go dependencies"); e != nil {
+		return e
+	}
+	if e := p.Execute(p.Source, "go", "mod", "verify"); e != nil {
+		return e
+	}
+	if e := p.step("Install frontend dependencies"); e != nil {
 		return e
 	}
 	return p.Execute(p.Source, "bun", "install", "--frozen-lockfile")
@@ -174,6 +181,27 @@ type ProducedImage struct {
 // recipe is Forgejo: vendor builds immutable presentation; legacy pulls upstream
 // and stages presentation into writable paths at installation. Proxy/caddy is one
 // component with the legacy archive filename retained for bundle compatibility.
+func (p Production) pullFrozenImage(inputs []ResolvedInput, label, ref, iidName string) (string, string, error) {
+	if e := p.step("Select frozen " + label); e != nil {
+		return "", "", e
+	}
+	for _, input := range inputs {
+		if input.Requested != ref {
+			continue
+		}
+		if !Digest(strings.TrimPrefix(input.Config, "sha256:")) || !strings.Contains(input.Reference, "@sha256:") {
+			return "", "", errors.New("invalid frozen image input")
+		}
+		if iidName != "" {
+			if e := WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(input.Config+"\n"), 0o600); e != nil {
+				return "", "", e
+			}
+		}
+		return input.Config, input.Reference, nil
+	}
+	return "", "", errors.New("image source was not frozen before production")
+}
+
 func (p Production) Images(forgejoContext string) (map[string]ProducedImage, error) {
 	if e := p.validate(); e != nil {
 		return nil, e
@@ -189,30 +217,9 @@ func (p Production) Images(forgejoContext string) (map[string]ProducedImage, err
 	if len(inputs) != 4 {
 		return nil, errors.New("image inputs must be frozen before production")
 	}
-	pull := func(label, ref, iidName string) (string, string, error) {
-		if e := p.step("Select frozen " + label); e != nil {
-			return "", "", e
-		}
-		for _, input := range inputs {
-			if input.Requested != ref {
-				continue
-			}
-			if !Digest(strings.TrimPrefix(input.Config, "sha256:")) || !strings.Contains(input.Reference, "@sha256:") {
-				return "", "", errors.New("invalid frozen image input")
-			}
-			if iidName != "" {
-				if e := WriteNew(filepath.Join(p.Out, iidName+".iid"), []byte(input.Config+"\n"), 0o600); e != nil {
-					return "", "", e
-				}
-			}
-			return input.Config, input.Reference, nil
-		}
-		return "", "", errors.New("image source was not frozen before production")
-	}
-	build := func(name, dir, file, pinned string, args ...string) (string, error) {
-		return p.buildImage(name, dir, file, pinned, args...)
-	}
-	return p.exportImages(forgejoContext, archives, pull, build)
+	return p.exportImages(forgejoContext, archives, func(label, ref, iidName string) (string, string, error) {
+		return p.pullFrozenImage(inputs, label, ref, iidName)
+	}, p.buildImage)
 }
 
 // ResolveInputs records the actual upstream manifests once, before shipping work.

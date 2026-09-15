@@ -127,6 +127,33 @@ func (p *BuildProgress) End(err error) error {
 	return p.emit(kind, label+" | section "+duration(now-p.started)+" | total "+duration(now-p.origin))
 }
 
+func (p *BuildProgress) writeSectionSummary() error {
+	if p.path == "" {
+		return nil
+	}
+	data, e := os.ReadFile(p.path)
+	end := e
+	_, e = fmt.Fprintln(p.Stderr, "\nSECTION SUMMARY")
+	end = errors.Join(end, e)
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.HasPrefix(line, "DONE ") || strings.HasPrefix(line, "FAILED ") || strings.HasPrefix(line, "CANCELLED ") {
+			_, e = fmt.Fprintln(p.Stderr, "  "+line)
+			end = errors.Join(end, e)
+		}
+	}
+	return end
+}
+
+func finishKind(code int) string {
+	if code == 0 {
+		return "SUCCESS"
+	}
+	if code == 130 || code == 143 {
+		return "CANCELLED"
+	}
+	return "FAILED"
+}
+
 func (p *BuildProgress) Finish(err error) error {
 	if p.finished {
 		return nil
@@ -136,27 +163,9 @@ func (p *BuildProgress) Finish(err error) error {
 	if os.Getenv("SODA_BUILD_CHILD") == "1" {
 		return end
 	}
-	if p.path != "" {
-		data, e := os.ReadFile(p.path)
-		end = errors.Join(end, e)
-		_, e = fmt.Fprintln(p.Stderr, "\nSECTION SUMMARY")
-		end = errors.Join(end, e)
-		for _, line := range strings.Split(string(data), "\n") {
-			if strings.HasPrefix(line, "DONE ") || strings.HasPrefix(line, "FAILED ") || strings.HasPrefix(line, "CANCELLED ") {
-				_, e = fmt.Fprintln(p.Stderr, "  "+line)
-				end = errors.Join(end, e)
-			}
-		}
-	}
-	kind := "SUCCESS"
+	end = errors.Join(end, p.writeSectionSummary())
 	code := BuildExitCode(errors.Join(err, end))
-	if code != 0 {
-		kind = "FAILED"
-	}
-	if code == 130 || code == 143 {
-		kind = "CANCELLED"
-	}
-	return errors.Join(end, p.emit(kind, p.title+" | total "+duration(p.Now()-p.origin)+fmt.Sprintf(" | exit %d", code)))
+	return errors.Join(end, p.emit(finishKind(code), p.title+" | total "+duration(p.Now()-p.origin)+fmt.Sprintf(" | exit %d", code)))
 }
 
 func BuildExitCode(err error) int {

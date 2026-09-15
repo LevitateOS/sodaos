@@ -33,6 +33,61 @@ type manifest struct {
 
 // WriteDocument packages one bounded JSON record using the standard OCI image
 // layout. Native skopeo owns transport and signatures; this image is never run.
+func putDocumentBlob(blobs string, b []byte, media string) (descriptor, error) {
+	h := Hash(b)
+	e := nativebuild.WriteNew(filepath.Join(blobs, strings.TrimPrefix(h, "sha256:")), b, 0o600)
+	return descriptor{media, h, int64(len(b))}, e
+}
+
+func documentLayer(data []byte) ([]byte, error) {
+	var layer bytes.Buffer
+	tw := tar.NewWriter(&layer)
+	if e := tw.WriteHeader(&tar.Header{Name: "record.json", Mode: 0o444, Size: int64(len(data)), Typeflag: tar.TypeReg}); e != nil {
+		return nil, e
+	}
+	if _, e := tw.Write(data); e != nil {
+		return nil, e
+	}
+	if e := tw.Close(); e != nil {
+		return nil, e
+	}
+	return layer.Bytes(), nil
+}
+
+func writeDocumentIndex(path string, md descriptor) error {
+	index, _ := json.Marshal(map[string]any{"schemaVersion": 2, "manifests": []descriptor{md}})
+	if e := nativebuild.WriteNew(filepath.Join(path, "index.json"), index, 0o600); e != nil {
+		return e
+	}
+	return nativebuild.WriteNew(filepath.Join(path, "oci-layout"), []byte(`{"imageLayoutVersion":"1.0.0"}`), 0o600)
+}
+
+func writeDocumentBlobs(path string, data []byte) (string, error) {
+	blobs := filepath.Join(path, "blobs/sha256")
+	if e := os.MkdirAll(blobs, 0o700); e != nil {
+		return "", e
+	}
+	layer, e := documentLayer(data)
+	if e != nil {
+		return "", e
+	}
+	ld, e := putDocumentBlob(blobs, layer, layerType)
+	if e != nil {
+		return "", e
+	}
+	config, _ := json.Marshal(map[string]any{"architecture": "unknown", "os": "unknown", "rootfs": map[string]any{"type": "layers", "diff_ids": []string{ld.Digest}}})
+	cd, e := putDocumentBlob(blobs, config, "application/vnd.oci.image.config.v1+json")
+	if e != nil {
+		return "", e
+	}
+	mb, _ := json.Marshal(manifest{2, manifestType, cd, []descriptor{ld}})
+	md, e := putDocumentBlob(blobs, mb, manifestType)
+	if e != nil {
+		return "", e
+	}
+	return md.Digest, writeDocumentIndex(path, md)
+}
+
 func WriteDocument(path string, value any) (string, error) {
 	data, e := marshal(value)
 	if e != nil || len(data) > 1<<20 {
@@ -41,46 +96,7 @@ func WriteDocument(path string, value any) (string, error) {
 	if e = nativebuild.FreshDirectory(path); e != nil {
 		return "", e
 	}
-	blobs := filepath.Join(path, "blobs/sha256")
-	if e = os.MkdirAll(blobs, 0o700); e != nil {
-		return "", e
-	}
-	put := func(b []byte, media string) (descriptor, error) {
-		h := Hash(b)
-		e := nativebuild.WriteNew(filepath.Join(blobs, strings.TrimPrefix(h, "sha256:")), b, 0o600)
-		return descriptor{media, h, int64(len(b))}, e
-	}
-	var layer bytes.Buffer
-	tw := tar.NewWriter(&layer)
-	if e = tw.WriteHeader(&tar.Header{Name: "record.json", Mode: 0o444, Size: int64(len(data)), Typeflag: tar.TypeReg}); e != nil {
-		return "", e
-	}
-	if _, e = tw.Write(data); e != nil {
-		return "", e
-	}
-	if e = tw.Close(); e != nil {
-		return "", e
-	}
-	ld, e := put(layer.Bytes(), layerType)
-	if e != nil {
-		return "", e
-	}
-	config, _ := json.Marshal(map[string]any{"architecture": "unknown", "os": "unknown", "rootfs": map[string]any{"type": "layers", "diff_ids": []string{ld.Digest}}})
-	cd, e := put(config, "application/vnd.oci.image.config.v1+json")
-	if e != nil {
-		return "", e
-	}
-	mb, _ := json.Marshal(manifest{2, manifestType, cd, []descriptor{ld}})
-	md, e := put(mb, manifestType)
-	if e != nil {
-		return "", e
-	}
-	index, _ := json.Marshal(map[string]any{"schemaVersion": 2, "manifests": []descriptor{md}})
-	if e = nativebuild.WriteNew(filepath.Join(path, "index.json"), index, 0o600); e != nil {
-		return "", e
-	}
-	e = nativebuild.WriteNew(filepath.Join(path, "oci-layout"), []byte(`{"imageLayoutVersion":"1.0.0"}`), 0o600)
-	return md.Digest, e
+	return writeDocumentBlobs(path, data)
 }
 
 func ReadFile(path string, maximum int64) ([]byte, error) {

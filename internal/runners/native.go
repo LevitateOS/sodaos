@@ -53,33 +53,29 @@ func NewNative() *Native {
 	return &Native{RootPath: DefaultRootPath, LockPath: DefaultLockPath, Runner: ExecCommandRunner{}}
 }
 
-func (native *Native) List(ctx context.Context) (Inventory, error) {
+func (native *Native) observeRunner(ctx context.Context, name string) (RunnerView, error) {
+	descriptor, err := native.readDescriptor(name)
+	if err != nil {
+		return RunnerView{}, err
+	}
+	view := RunnerView{Descriptor: descriptor, Capacity: RunnerCapacity}
+	if service, err := native.serviceState(ctx, name); err == nil {
+		view.Service = &service
+	}
+	return view, nil
+}
+
+func (native *Native) listRunners(ctx context.Context, entries []os.DirEntry) Inventory {
 	inventory := Inventory{Runners: []RunnerView{}, Unavailable: []string{}}
-	lock, err := native.lock(ctx)
-	if err != nil {
-		return Inventory{}, err
-	}
-	defer lock.Close()
-	entries, err := os.ReadDir(native.rootPath())
-	if errors.Is(err, os.ErrNotExist) {
-		return inventory, nil
-	}
-	if err != nil {
-		return Inventory{}, fmt.Errorf("read local runner directory: %w", err)
-	}
 	// ReadDir is sorted. A bad row cannot erase earlier independent observations.
 	for _, entry := range entries {
 		if !entry.IsDir() || ValidateID(entry.Name()) != nil {
 			continue
 		}
-		descriptor, err := native.readDescriptor(entry.Name())
+		view, err := native.observeRunner(ctx, entry.Name())
 		if err != nil {
 			inventory.Unavailable = append(inventory.Unavailable, entry.Name())
 			continue
-		}
-		view := RunnerView{Descriptor: descriptor, Capacity: RunnerCapacity}
-		if service, err := native.serviceState(ctx, entry.Name()); err == nil {
-			view.Service = &service
 		}
 		inventory.Runners = append(inventory.Runners, view)
 	}
@@ -90,6 +86,23 @@ func (native *Native) List(ctx context.Context) (Inventory, error) {
 			inventory.Runners[i].Version = version
 		}
 	}
+	return inventory
+}
+
+func (native *Native) List(ctx context.Context) (Inventory, error) {
+	lock, err := native.lock(ctx)
+	if err != nil {
+		return Inventory{}, err
+	}
+	defer lock.Close()
+	entries, err := os.ReadDir(native.rootPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return Inventory{Runners: []RunnerView{}, Unavailable: []string{}}, nil
+	}
+	if err != nil {
+		return Inventory{}, fmt.Errorf("read local runner directory: %w", err)
+	}
+	inventory := native.listRunners(ctx, entries)
 	if ctx.Err() != nil {
 		return Inventory{}, ctx.Err()
 	}
@@ -271,15 +284,18 @@ func (native *Native) rootPath() string {
 	}
 	return DefaultRootPath
 }
+
 func (native *Native) lockPath() string {
 	if native.LockPath != "" {
 		return native.LockPath
 	}
 	return DefaultLockPath
 }
+
 func (native *Native) statePath(id string) string {
 	return filepath.Join(native.rootPath(), id, "state")
 }
+
 func (native *Native) descriptorPath(id string) string {
 	return filepath.Join(native.rootPath(), id, "descriptor.json")
 }

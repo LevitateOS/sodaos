@@ -177,30 +177,38 @@ func InspectOCI(file, arch, revision string) (Image, error) {
 	return inspectArchiveIndex(entries, want, revision)
 }
 
-func readOCIBlob(entries map[string]blob, name string, length int64, r io.Reader, jsonBytes *int) error {
-	if length < 0 || length == math.MaxInt64 {
-		return errors.New("invalid OCI blob size")
-	}
+func copyOCIBlob(name string, length int64, r io.Reader) (sum string, size int64, body []byte, err error) {
 	hash := sha256.New()
 	var data bytes.Buffer
 	var w io.Writer = hash
 	if length <= 4<<20 {
 		w = io.MultiWriter(hash, &data)
 	}
-	size, err := io.Copy(w, io.LimitReader(r, length+1))
+	size, err = io.Copy(w, io.LimitReader(r, length+1))
 	if err != nil {
-		return err
+		return "", 0, nil, err
 	}
 	if size != length {
-		return errors.New("OCI blob size changed")
+		return "", 0, nil, errors.New("OCI blob size changed")
 	}
-	sum := hex.EncodeToString(hash.Sum(nil))
+	sum = hex.EncodeToString(hash.Sum(nil))
 	if strings.HasPrefix(name, "blobs/") && name != "blobs/sha256/"+sum {
-		return errors.New("OCI blob checksum mismatch")
+		return "", 0, nil, errors.New("OCI blob checksum mismatch")
 	}
-	body := data.Bytes()
+	body = data.Bytes()
 	if !json.Valid(body) {
 		body = nil
+	}
+	return sum, size, body, nil
+}
+
+func readOCIBlob(entries map[string]blob, name string, length int64, r io.Reader, jsonBytes *int) error {
+	if length < 0 || length == math.MaxInt64 {
+		return errors.New("invalid OCI blob size")
+	}
+	sum, size, body, err := copyOCIBlob(name, length, r)
+	if err != nil {
+		return err
 	}
 	*jsonBytes += len(body)
 	if *jsonBytes > 32<<20 {

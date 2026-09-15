@@ -50,6 +50,7 @@ type projectPolicy struct {
 }
 
 func newRevision() string { b := make([]byte, 16); _, _ = rand.Read(b); return hex.EncodeToString(b) }
+
 func owned(info os.FileInfo, uid uint32, directory bool) bool {
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok || stat.Uid != uid || info.Mode().Perm()&0o077 != 0 {
@@ -61,6 +62,22 @@ func owned(info os.FileInfo, uid uint32, directory bool) bool {
 	return info.Mode().IsRegular() && stat.Nlink == 1 && info.Size() <= 65536
 }
 
+func openOwnedLibDir(root *os.Root, name string) (*os.Root, error) {
+	info, e := root.Lstat(name)
+	if e != nil || !info.IsDir() || info.Mode().Perm()&0o022 != 0 {
+		return nil, ErrUnavailable
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || st.Uid != 0 {
+		return nil, ErrUnavailable
+	}
+	next, e := root.OpenRoot(name)
+	if e != nil {
+		return nil, ErrUnavailable
+	}
+	return next, nil
+}
+
 func policyParent() (*os.Root, error) {
 	if os.Geteuid() != 0 {
 		return nil, ErrUnavailable
@@ -70,17 +87,7 @@ func policyParent() (*os.Root, error) {
 		return nil, ErrUnavailable
 	}
 	for _, name := range []string{"var", "lib"} {
-		info, e := root.Lstat(name)
-		if e != nil || !info.IsDir() || info.Mode().Perm()&0o022 != 0 {
-			root.Close()
-			return nil, ErrUnavailable
-		}
-		st, ok := info.Sys().(*syscall.Stat_t)
-		if !ok || st.Uid != 0 {
-			root.Close()
-			return nil, ErrUnavailable
-		}
-		next, e := root.OpenRoot(name)
+		next, e := openOwnedLibDir(root, name)
 		root.Close()
 		if e != nil {
 			return nil, ErrUnavailable
@@ -189,20 +196,21 @@ func (p *policyStore) read(root *os.Root, name string, out any) error {
 	return nil
 }
 
-func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) error {
-	// Refuse special/relinked occupants before atomic publication. Only host root
-	// can alter this directory; noncooperating root writers aren't a CAS guarantee.
-	if st, e := root.Lstat(name); e == nil {
-		if !owned(st, p.uid, false) {
+func refuseUnownedPolicy(root *os.Root, name string, uid uint32) error {
+	st, e := root.Lstat(name)
+	if e == nil {
+		if !owned(st, uid, false) {
 			return ErrUnavailable
 		}
-	} else if !errors.Is(e, os.ErrNotExist) {
+		return nil
+	}
+	if !errors.Is(e, os.ErrNotExist) {
 		return ErrUnavailable
 	}
-	b, err := json.Marshal(v)
-	if err != nil || len(b) > 65536 {
-		return ErrInvalid
-	}
+	return nil
+}
+
+func writePolicyFile(root *os.Root, name string, b []byte) error {
 	temp := "pending-" + newRevision()
 	f, err := root.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
@@ -219,12 +227,30 @@ func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) 
 	if root.Rename(temp, name) != nil {
 		return ErrUnconfirmed
 	}
+	return nil
+}
+
+func (p *policyStore) syncPolicy(lock *os.File) error {
 	if p.syncDir != nil {
-		err = p.syncDir(lock)
-	} else {
-		err = lock.Sync()
+		return p.syncDir(lock)
 	}
-	if err != nil {
+	return lock.Sync()
+}
+
+func (p *policyStore) publish(root *os.Root, lock *os.File, name string, v any) error {
+	// Refuse special/relinked occupants before atomic publication. Only host root
+	// can alter this directory; noncooperating root writers aren't a CAS guarantee.
+	if err := refuseUnownedPolicy(root, name, p.uid); err != nil {
+		return err
+	}
+	b, err := json.Marshal(v)
+	if err != nil || len(b) > 65536 {
+		return ErrInvalid
+	}
+	if err = writePolicyFile(root, name, b); err != nil {
+		return err
+	}
+	if err = p.syncPolicy(lock); err != nil {
 		return ErrUnconfirmed
 	}
 	return nil
@@ -416,6 +442,10 @@ func (p *policyStore) update(ctx context.Context, r EnrollmentRequest, check fun
 	return EnrollmentResult{Outcome: "confirmed", Saved: true, CredentialChecked: v.view().CredentialChecked, Enrollment: p.view(v)}, nil
 }
 
+func validLoadedProject(loaded projectPolicy) bool {
+	return loaded.Version == 1 && revisionPattern.MatchString(loaded.Revision) && (loaded.Binding == "" || revisionPattern.MatchString(loaded.Binding)) && (!loaded.Enabled || loaded.Binding != "")
+}
+
 func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPolicy, error) {
 	v := projectPolicy{Project: project, Container: cid, Revision: "0"}
 	var loaded projectPolicy
@@ -426,7 +456,7 @@ func (p *policyStore) loadProject(root *os.Root, project, cid string) (projectPo
 	if e != nil {
 		return v, e
 	}
-	if loaded.Version != 1 || !revisionPattern.MatchString(loaded.Revision) || (loaded.Binding != "" && !revisionPattern.MatchString(loaded.Binding)) || (loaded.Enabled && loaded.Binding == "") {
+	if !validLoadedProject(loaded) {
 		return v, ErrUnavailable
 	}
 	if loaded.Project != project || loaded.Container != cid {

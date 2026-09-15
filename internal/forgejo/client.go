@@ -34,6 +34,7 @@ type Application struct {
 func New(base string) *Client {
 	return &Client{Base: strings.TrimRight(base, "/"), HTTP: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 }
+
 func (c *Client) request(ctx context.Context, method, path, token string, in, out any) error {
 	var b bytes.Buffer
 	if in != nil {
@@ -61,6 +62,7 @@ func (c *Client) request(ctx context.Context, method, path, token string, in, ou
 	}
 	return nil
 }
+
 func (c *Client) Current(ctx context.Context, token string) (User, error) {
 	var u User
 	err := c.request(ctx, "GET", "/user", token, nil, &u)
@@ -72,6 +74,7 @@ func (c *Client) Application(ctx context.Context, token, redirect string) (Appli
 	err := c.request(ctx, "POST", "/user/applications/oauth2", token, map[string]any{"name": "SodaOS dashboard", "redirect_uris": []string{redirect}, "confidential_client": true}, &a)
 	return a, err
 }
+
 func (c *Client) ExchangeGrant(ctx context.Context, clientID, secret, code, redirect, verifier string) (TokenResponse, error) {
 	form := url.Values{"grant_type": {"authorization_code"}, "client_id": {clientID}, "client_secret": {secret}, "code": {code}, "redirect_uri": {redirect}, "code_verifier": {verifier}}
 	return c.tokenRequest(ctx, form)
@@ -87,6 +90,13 @@ type TokenResponse struct {
 	Type      string `json:"token_type"`
 	ExpiresIn int64  `json:"expires_in"`
 	ExpiresAt int64  `json:"-"`
+}
+
+func admitTokenResponse(token TokenResponse) error {
+	if token.Access == "" || token.Refresh == "" || !strings.EqualFold(token.Type, "bearer") || token.ExpiresIn <= 0 || token.ExpiresIn > 365*24*60*60 {
+		return ErrInvalidResponse
+	}
+	return nil
 }
 
 func (c *Client) tokenRequest(ctx context.Context, form url.Values) (TokenResponse, error) {
@@ -108,8 +118,8 @@ func (c *Client) tokenRequest(ctx context.Context, form url.Values) (TokenRespon
 	if err = decodeResponse(res.Body, 65536, &token); err != nil {
 		return TokenResponse{}, err
 	}
-	if token.Access == "" || token.Refresh == "" || !strings.EqualFold(token.Type, "bearer") || token.ExpiresIn <= 0 || token.ExpiresIn > 365*24*60*60 {
-		return TokenResponse{}, ErrInvalidResponse
+	if err = admitTokenResponse(token); err != nil {
+		return TokenResponse{}, err
 	}
 	token.ExpiresAt = started.Add(time.Duration(token.ExpiresIn) * time.Second).Unix()
 	return token, nil
