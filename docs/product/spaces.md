@@ -5,9 +5,10 @@ a repository environment entry, shared management views and terminals that stay
 available while forge pages navigate.
 
 The persistent outer document is a dedicated Soda HTML shell at `/-/soda/workspace`.
-Native Forgejo pages load in a same-origin iframe. That is not a second Soda
-frontend and not a Forgejo replacement: Forgejo still owns header, profile menu,
-forms, routing and authentication inside the frame.
+Native Forgejo pages load in a same-origin iframe. The address bar stays on that
+workspace URL. Optional `?to=` names the framed Forgejo path (same origin, not
+`/-/soda/`, no credential query). Child navigations update `to` with `replaceState`;
+they do not use canonical Forgejo URLs as the top-level document.
 
 Until workspace-entry routing is selected, the existing dashboard Spaces view
 (`/?soda-view=spaces`) and the native drawer remain the signed-in browsing path.
@@ -21,7 +22,7 @@ views under the configured Forgejo origin at `/-/soda/`.
 | Surface | Purpose |
 | --- | --- |
 | Spaces page | Bounded listing and navigation for environments the actor may use |
-| Workspace host | Dedicated Soda HTML document at `/-/soda/workspace` with a same-origin Forgejo iframe |
+| Workspace host | Dedicated Soda HTML document at `/-/soda/workspace`; `to` names the framed Forgejo path |
 | Repository Spaces settings | Create and inspect the environment for that repository |
 | Environment drawer | Management controls and managed terminals beside native forge content |
 | Operator Runners settings | Local CI capacity (Soda operator only) |

@@ -73,8 +73,10 @@ operation authority stay in protected APIs. Page loads and redirects never regis
 a runner, create a terminal or change project lifecycle state.
 
 The persistent workspace outer document is the Soda HTML shell at
-`/-/soda/workspace`. It may frame same-origin Forgejo; it does not embed
-credentials or select a separate-origin trust model.
+`/-/soda/workspace`. Optional `to` is an untrusted same-origin Forgejo locator
+for the iframe, not an OAuth return URL and not a Soda API path. The shell may
+frame same-origin Forgejo; it does not embed credentials or select a
+separate-origin trust model.
 
 ## Host helper
 

@@ -4,8 +4,12 @@ import (
 	"bytes"
 	"html/template"
 	"net/http"
+	"net/url"
+	"path"
 	"strconv"
+	"strings"
 
+	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -35,16 +39,76 @@ var workspaceShell = template.Must(template.New("workspace").Parse(`<!DOCTYPE ht
 <link rel="stylesheet" href="/assets/soda-terminal/xterm.css">
 </head>
 <body class="soda-workspace-shell">
-<iframe id="soda-forgejo-frame" title="Forgejo" src="/"></iframe>
+<iframe id="soda-forgejo-frame" title="Forgejo" src="{{.Frame}}"></iframe>
 <div id="soda-workspace-root" data-actor="{{.Actor}}"></div>
 <script type="module" src="/assets/sodaspaces-shell.js?v={{.Revision}}"></script>
 </body>
 </html>
 `))
 
-func (s *API) writeWorkspaceShell(w http.ResponseWriter, session store.Session) {
+func workspaceFrame(r *http.Request) (string, bool) {
+	if r.URL.ForceQuery && r.URL.RawQuery == "" {
+		return "", false
+	}
+	query := r.URL.Query()
+	if len(query) == 0 {
+		return "/", true
+	}
+	values, ok := query["to"]
+	if !ok || len(query) != 1 || len(values) != 1 {
+		return "", false
+	}
+	return admitWorkspaceFrame(values[0])
+}
+
+func admitWorkspaceFrame(raw string) (string, bool) {
+	u, ok := parseWorkspaceFrame(raw)
+	if !ok || sodaFramePath(u.Path) || credentialFrameQuery(u.Query()) {
+		return "", false
+	}
+	frame := u.Path
+	if u.RawQuery != "" {
+		frame += "?" + u.Query().Encode()
+	}
+	return frame, true
+}
+
+func parseWorkspaceFrame(raw string) (*url.URL, bool) {
+	if blockedFrameRaw(raw) {
+		return nil, false
+	}
+	u, err := url.Parse(raw)
+	if err != nil || !relativeFrameURL(u) {
+		return nil, false
+	}
+	if !strings.HasPrefix(u.Path, "/") || u.Path != path.Clean(u.Path) {
+		return nil, false
+	}
+	return u, true
+}
+
+func blockedFrameRaw(raw string) bool {
+	return raw == "" || len(raw) > 2048 || strings.Contains(raw, "..") || strings.Contains(raw, "//") || strings.Contains(raw, `\`)
+}
+
+func relativeFrameURL(u *url.URL) bool {
+	if u.IsAbs() || u.Scheme != "" || u.Host != "" {
+		return false
+	}
+	return u.Opaque == "" && u.User == nil && u.Fragment == ""
+}
+
+func sodaFramePath(p string) bool {
+	return p == config.SodaPath || strings.HasPrefix(p, config.SodaPath+"/")
+}
+
+func credentialFrameQuery(q url.Values) bool {
+	return q.Has("code") || q.Has("state") || q.Has("access_token") || q.Has("id_token")
+}
+
+func (s *API) writeWorkspaceShell(w http.ResponseWriter, session store.Session, frame string) {
 	var body bytes.Buffer
-	if workspaceShell.Execute(&body, struct{ Revision, Actor string }{workspacePresentation, strconv.FormatInt(session.User.ID, 10)}) != nil {
+	if workspaceShell.Execute(&body, struct{ Revision, Actor, Frame string }{workspacePresentation, strconv.FormatInt(session.User.ID, 10), frame}) != nil {
 		http.Error(w, "Workspace unavailable.", http.StatusInternalServerError)
 		return
 	}

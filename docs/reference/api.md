@@ -33,7 +33,7 @@ Bookmark bridges redirect to fixed native Forgejo views; they do not embed autho
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/spaces` | Bookmark bridge to Spaces native view |
-| GET | `/workspace` | Persistent Soda HTML workspace host (session) or bookmark bridge |
+| GET | `/workspace` | Persistent Soda HTML workspace host. Optional `to` is an admitted same-origin Forgejo path for the iframe. Unauthenticated requests fall through to the Spaces bookmark. |
 | GET | `/repositories/{repositoryID}/settings/spaces` | Repository Spaces settings bridge |
 | GET | `/settings/runners` | Operator Runners bridge |
 | GET | `/settings/tailnet` | Operator Tailnet bridge |

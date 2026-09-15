@@ -98,3 +98,28 @@ func TestSpacesWorkspaceShell(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkspaceFrameLocator(t *testing.T) {
+	s := apiTestServer(t)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, apiTestRequest("GET", "/workspace?to=/alice/repo", "", "alice"))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `src="/alice/repo"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	for _, query := range []string{
+		"?to=https://evil.test/", "?to=//evil.test/x", "?to=/foo/../bar",
+		"?to=/-/soda/workspace", "?to=/login?code=secret", "?actor=2", "?to=/&to=/",
+	} {
+		w := terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/workspace"+query, nil)
+		if w.Code != 400 || strings.Contains(w.Body.String(), "data-actor=") {
+			t.Fatal(query, w.Code, w.Body.String())
+		}
+	}
+	r := apiTestRequest("GET", "/workspace?to=/alice/repo", "", "alice")
+	r.Header.Del("Cookie")
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != 303 || strings.Contains(w.Body.String(), "<iframe") {
+		t.Fatal("unauthenticated locator", w.Code, w.Body.String())
+	}
+}
