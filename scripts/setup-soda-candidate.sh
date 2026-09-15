@@ -46,7 +46,7 @@ BINDIR="$(mktemp -d)"
 trap 'rm -rf "$BINDIR"' EXIT
 go build -o "$BINDIR/soda-build" ./tools/soda-build
 go build -o "$BINDIR/soda-candidate" ./tools/soda-candidate
-[ "$(go version "$BINDIR/soda-build")" = "$WANT" ] || fail "controller stamp is not Go $PINNED; refusing to admit it"
+[ "$(go version "$BINDIR/soda-build")" = "$BINDIR/soda-build: go$PINNED" ] || fail "controller stamp is not Go $PINNED; refusing to admit it"
 
 echo "-- install wrapper and admitted controller"
 sudo install -m 0755 "$BINDIR/soda-candidate" "$WRAPPER"
