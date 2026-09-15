@@ -71,7 +71,9 @@ export interface CreationProfile {
   image: string;
   revision: string;
 }
-function rockyHeadless(p: Record<string, unknown>) {
+function rockyHeadless(
+  p: Record<string, unknown>
+): Pick<CreationProfile, 'id' | 'distribution' | 'interface' | 'version'> {
   check(
     p.id === 'rocky-headless' &&
       p.distribution === 'rocky' &&
@@ -79,8 +81,9 @@ function rockyHeadless(p: Record<string, unknown>) {
       typeof p.version === 'string' &&
       /^[0-9]{1,3}(\.[0-9]{1,3}){0,2}$/.test(p.version)
   );
+  return {id: p.id, distribution: p.distribution, version: p.version, interface: p.interface};
 }
-function profileImage(p: Record<string, unknown>) {
+function profileImage(p: Record<string, unknown>): Pick<CreationProfile, 'architecture' | 'image' | 'revision'> {
   check(p.architecture === 'amd64' || p.architecture === 'arm64');
   check(
     typeof p.image === 'string' &&
@@ -88,20 +91,11 @@ function profileImage(p: Record<string, unknown>) {
       typeof p.revision === 'string' &&
       /^[0-9a-f]{40}$/.test(p.revision)
   );
+  return {architecture: p.architecture, image: p.image, revision: p.revision};
 }
 export function creationProfile(value: unknown): CreationProfile {
   const p = object(value);
-  rockyHeadless(p);
-  profileImage(p);
-  return {
-    id: p.id,
-    distribution: p.distribution,
-    version: p.version,
-    interface: p.interface,
-    architecture: p.architecture,
-    image: p.image,
-    revision: p.revision,
-  };
+  return {...rockyHeadless(p), ...profileImage(p)};
 }
 export interface Environment {
   id: string;
@@ -162,19 +156,25 @@ function osImage(env: Record<string, unknown>) {
   check(image === null || (typeof image === 'string' && /^sha256:[0-9a-f]{64}$/.test(image)));
   return image as string | null;
 }
-function osReleaseIdentity(r: Record<string, unknown>, env: Record<string, unknown>, data: Record<string, unknown>) {
+function osReleaseIdentity(
+  r: Record<string, unknown>,
+  env: Record<string, unknown>,
+  data: Record<string, unknown>
+): {id: string; version: string} {
   check(
     env.running && !data.os_release_unavailable && typeof r.id === 'string' && /^[a-z0-9][a-z0-9._-]{0,63}$/.test(r.id)
   );
   check(typeof r.version === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(r.version));
+  return {id: r.id, version: r.version};
 }
-function osReleaseName(r: Record<string, unknown>) {
+function osReleaseName(r: Record<string, unknown>): string {
   check(
     typeof r.name === 'string' &&
       r.name.length > 0 &&
       new TextEncoder().encode(r.name).length <= 256 &&
       !/[\p{Cc}\p{Cf}]/u.test(r.name)
   );
+  return r.name;
 }
 function osRelease(data: Record<string, unknown>, env: Record<string, unknown>): OSObservation['release'] {
   if (data.os_release === null) {
@@ -182,9 +182,7 @@ function osRelease(data: Record<string, unknown>, env: Record<string, unknown>):
     return null;
   }
   const r = object(data.os_release);
-  osReleaseIdentity(r, env, data);
-  osReleaseName(r);
-  return {id: r.id, version: r.version, name: r.name};
+  return {...osReleaseIdentity(r, env, data), name: osReleaseName(r)};
 }
 export function osObservation(value: unknown, environmentID: string): OSObservation {
   const data = object(value),
@@ -269,7 +267,7 @@ export interface TerminalMetadata {
   attached: boolean;
   state: 'opening' | 'ready' | 'ending' | 'ended';
 }
-function admitTerminalBinding(data: Record<string, unknown>, binding: TerminalIdentity) {
+function admitTerminalBinding(data: Record<string, unknown>, binding: TerminalIdentity): string {
   check(
     terminalID(data.id) &&
       data.environment_id === binding.environmentId &&
@@ -277,37 +275,35 @@ function admitTerminalBinding(data: Record<string, unknown>, binding: TerminalId
       data.user_id === binding.expectedUserId &&
       data.login === binding.login
   );
+  return data.id;
 }
-function admitTerminalName(data: Record<string, unknown>) {
+function admitTerminalName(data: Record<string, unknown>): string {
   check(typeof data.name === 'string' && Array.from(data.name).length <= 80 && !/[\p{Cc}\p{Cf}]/u.test(data.name));
+  return data.name;
 }
-function admitTerminalClock(data: Record<string, unknown>) {
+function admitTerminalClock(data: Record<string, unknown>): number {
   check(typeof data.created_at === 'number' && Number.isSafeInteger(data.created_at) && data.created_at > 0);
+  return data.created_at;
 }
 function knownTerminalState(state: unknown): state is TerminalMetadata['state'] {
   return state === 'opening' || state === 'ready' || state === 'ending' || state === 'ended';
 }
-function admitTerminalState(data: Record<string, unknown>) {
+function admitTerminalState(data: Record<string, unknown>): Pick<TerminalMetadata, 'ready' | 'attached' | 'state'> {
   check(typeof data.ready === 'boolean' && typeof data.attached === 'boolean' && knownTerminalState(data.state));
   check(data.ready === (data.state === 'ready') && (!data.attached || data.ready));
+  return {ready: data.ready, attached: data.attached, state: data.state};
 }
 export function terminalMetadata(value: unknown, binding: TerminalIdentity): TerminalMetadata {
   const data = object(value);
-  admitTerminalBinding(data, binding);
-  admitTerminalName(data);
-  admitTerminalClock(data);
-  admitTerminalState(data);
   return {
-    id: data.id,
+    id: admitTerminalBinding(data, binding),
     environment_id: binding.environmentId,
     repository_id: binding.repositoryId,
     user_id: binding.expectedUserId,
     login: binding.login,
-    name: data.name,
-    created_at: data.created_at,
-    ready: data.ready,
-    attached: data.attached,
-    state: data.state,
+    name: admitTerminalName(data),
+    created_at: admitTerminalClock(data),
+    ...admitTerminalState(data),
   };
 }
 export function terminalResponse(value: unknown, binding: TerminalIdentity): TerminalMetadata | null {
@@ -417,7 +413,7 @@ export interface RepositoryChoices {
 function admitChoicesPage(data: Record<string, unknown>, page: number) {
   check(Number.isInteger(page) && page >= 1 && page <= 100 && data.page === page);
 }
-function admitChoicesFlags(data: Record<string, unknown>, page: number) {
+function admitChoicesFlags(data: Record<string, unknown>, page: number): {more: boolean; limited: boolean} {
   check(
     typeof data.more === 'boolean' &&
       typeof data.limited === 'boolean' &&
@@ -425,6 +421,7 @@ function admitChoicesFlags(data: Record<string, unknown>, page: number) {
       (!data.more || page < 100) &&
       (!data.limited || page === 100)
   );
+  return {more: data.more, limited: data.limited};
 }
 function repositoryPathPart(v: unknown): v is string {
   return (
@@ -455,11 +452,11 @@ function repositoryChoice(raw: unknown, seen: Set<string>): RepositoryChoice {
 export function repositoryChoices(value: unknown, page: number): RepositoryChoices {
   const data = object(value);
   admitChoicesPage(data, page);
-  admitChoicesFlags(data, page);
+  const flags = admitChoicesFlags(data, page);
   check(Array.isArray(data.items) && data.items.length <= 12);
   const seen = new Set<string>();
   const items = data.items.map((raw: unknown) => repositoryChoice(raw, seen));
-  return {items, page, more: data.more, limited: data.limited};
+  return {items, page, ...flags};
 }
 export class SodaRequestError extends Error {
   constructor(

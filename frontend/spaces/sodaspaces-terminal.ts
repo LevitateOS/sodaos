@@ -714,7 +714,7 @@ export class SodaTerminal extends LitElement {
       .then((result) => {
         if (!this.live(n) || this.sessionID !== target || !this.binding) return;
         const metadata = terminalResponse(result, this.binding);
-        if (metadata?.id === target) this.observe(metadata);
+        if (metadata && metadata.id === target) this.observe(metadata);
       })
       .catch(() => {});
   }

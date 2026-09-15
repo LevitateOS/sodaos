@@ -271,7 +271,7 @@ function readLayoutEntry(raw: unknown, keys: Set<string>, locators: Set<string>)
   return {key: item.key, environmentId: item.environmentId, locator};
 }
 
-function admitPaneTab(tab: unknown, parse: TreeParse) {
+function admitPaneTab(tab: unknown, parse: TreeParse): string {
   check(typeof tab === 'string' && parse.keys.has(tab) && !parse.tabs.has(tab));
   parse.tabs.add(tab);
   return tab;
@@ -279,7 +279,7 @@ function admitPaneTab(tab: unknown, parse: TreeParse) {
 
 function admitPane(node: Record<string, unknown>, parse: TreeParse): Pane {
   check(++parse.leaves <= layoutLimit && Object.keys(node).sort().join(',') === 'key,kind,selected,tabs');
-  check(Array.isArray(node.tabs) && node.tabs.length <= layoutLimit);
+  check(localKey(node.key) && Array.isArray(node.tabs) && node.tabs.length <= layoutLimit);
   const ordered = node.tabs.map((tab: unknown) => admitPaneTab(tab, parse));
   check(ordered.length ? typeof node.selected === 'string' && ordered.includes(node.selected) : node.selected === null);
   return {
@@ -290,7 +290,7 @@ function admitPane(node: Record<string, unknown>, parse: TreeParse): Pane {
   };
 }
 
-function admitSplitAxis(node: Record<string, unknown>) {
+function admitSplitAxis(node: Record<string, unknown>): {axis: Split['axis']; ratio: number} {
   check(
     (node.axis === 'right' || node.axis === 'below') &&
       typeof node.ratio === 'number' &&
@@ -298,6 +298,7 @@ function admitSplitAxis(node: Record<string, unknown>) {
       node.ratio > 0 &&
       node.ratio < 1
   );
+  return {axis: node.axis, ratio: node.ratio};
 }
 
 function readTree(raw: unknown, parse: TreeParse, depth: number): PaneTree {
@@ -307,19 +308,19 @@ function readTree(raw: unknown, parse: TreeParse, depth: number): PaneTree {
   parse.nodes.add(node.key);
   if (node.kind === 'pane') return admitPane(node, parse);
   check(node.kind === 'split' && Object.keys(node).sort().join(',') === 'axis,first,key,kind,ratio,second');
-  admitSplitAxis(node);
+  const axis = admitSplitAxis(node);
   return {
     kind: 'split',
     key: node.key,
-    axis: node.axis,
-    ratio: node.ratio,
+    ...axis,
     first: readTree(node.first, parse, depth + 1),
     second: readTree(node.second, parse, depth + 1),
   };
 }
 
-function admitSidebar(value: unknown) {
+function admitSidebar(value: unknown): number | null {
   check(value === null || (typeof value === 'number' && Number.isFinite(value) && value >= 220 && value <= 360));
+  return value;
 }
 
 export function parseLayout(text: string): WorkspaceLayout {
@@ -333,8 +334,7 @@ export function parseLayout(text: string): WorkspaceLayout {
   const parse: TreeParse = {keys, nodes: new Set<string>(), tabs: new Set<string>(), leaves: 0};
   const tree = readTree(value.tree, parse, 1);
   check(typeof value.focused === 'string' && panes(tree).some((pane) => pane.key === value.focused));
-  admitSidebar(value.sidebar);
-  return {version: 3, entries, tree, focused: value.focused, sidebar: value.sidebar};
+  return {version: 3, entries, tree, focused: value.focused, sidebar: admitSidebar(value.sidebar)};
 }
 export function serializeLayout(layout: WorkspaceLayout): string {
   // An unsent draft has no native locator. Keep live drafts, not reload commands.

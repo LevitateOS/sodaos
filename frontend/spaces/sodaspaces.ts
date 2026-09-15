@@ -75,12 +75,14 @@ function drawerChrome(root: HTMLElement): DrawerChrome | undefined {
   return {button, drawer, close, content, divider};
 }
 
+type NativeWorkspace = Extract<WorkspaceContext, {kind: 'native'}>;
+
 function nativeWorkspace(
   nativeRepository: string | undefined,
   signed: string | undefined,
   userId: string | undefined,
   repositoryId: string
-): WorkspaceContext {
+): NativeWorkspace {
   return {
     kind: 'native',
     expectedUserId: signed === 'true' ? userId : undefined,
@@ -113,14 +115,11 @@ class DrawerHost {
     private readonly root: HTMLElement,
     rows: NodeListOf<Element>,
     private readonly chrome: DrawerChrome,
-    private readonly context: WorkspaceContext,
+    private readonly context: NativeWorkspace,
     private readonly repositoryId: string,
     private readonly storageKey: string | null,
     saved: SavedWorkspace | undefined,
-    private readonly mountContent?: (
-      root: HTMLElement,
-      context: Extract<WorkspaceContext, {kind: 'native'}>
-    ) => DrawerContent
+    private readonly mountContent?: (root: HTMLElement, context: NativeWorkspace) => DrawerContent
   ) {
     this.width = saved?.width !== undefined ? Math.max(35, Math.min(65, saved.width)) : 50;
     this.lifetime = new win.AbortController();
@@ -172,17 +171,17 @@ class DrawerHost {
     this.covered.clear();
   }
 
-  private skipCover(element: Element) {
+  private isCoverable(element: Element): element is HTMLElement {
     return (
-      !(element instanceof this.win.HTMLElement) ||
-      element === this.root ||
-      ['SCRIPT', 'STYLE', 'LINK'].includes(element.tagName)
+      element instanceof this.win.HTMLElement &&
+      element !== this.root &&
+      !['SCRIPT', 'STYLE', 'LINK'].includes(element.tagName)
     );
   }
 
   private coverNative(parent: Element) {
     for (const element of parent.children) {
-      if (this.skipCover(element)) continue;
+      if (!this.isCoverable(element)) continue;
       if (element.contains(this.root)) {
         this.coverNative(element);
         continue;
@@ -502,7 +501,7 @@ function resumeWorkspace(
 
 export function mountDrawer(
   doc: Document,
-  mountContent?: (root: HTMLElement, context: Extract<WorkspaceContext, {kind: 'native'}>) => DrawerContent
+  mountContent?: (root: HTMLElement, context: NativeWorkspace) => DrawerContent
 ) {
   const found = drawerRoots(doc);
   if (!found) return;

@@ -27,7 +27,9 @@ const states: readonly ConnectionState[] = [
   'unavailable',
 ];
 
-function observationShape(v: Record<string, unknown>) {
+function observationShape(
+  v: Record<string, unknown>
+): v is Record<string, unknown> & {kind: 'output' | 'state'; generation: number; id: string | null} {
   if (Object.keys(v).sort().join(',') !== 'generation,id,kind,state') return false;
   if (v.kind !== 'output' && v.kind !== 'state') return false;
   if (!Number.isSafeInteger(v.generation) || typeof v.generation !== 'number' || v.generation < 0) return false;

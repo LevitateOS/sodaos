@@ -2119,10 +2119,9 @@ export class SodaSpaces extends LitElement {
   }
   private async refreshLive(n: number, request: AbortController) {
     if (!(await this.admitRefreshSession(n, request))) return;
-    const collection = spacesResponse(
-      await this.api('/api/spaces', undefined, request.signal),
-      this.binding!.expectedUserId
-    );
+    const actor = this.binding?.expectedUserId;
+    if (!actor) return;
+    const collection = spacesResponse(await this.api('/api/spaces', undefined, request.signal), actor);
     if (!this.live(n)) return;
     this.applySpacesCollection(collection);
     this.refreshSlots(collection.complete);
