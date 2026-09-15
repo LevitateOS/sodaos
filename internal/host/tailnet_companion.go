@@ -572,6 +572,71 @@ func (d *Daemon) stopTailnetRun(ctx context.Context, run projectRun) error {
 	return result
 }
 
+func (d *Daemon) queueProjectTailnetDisable(ctx context.Context, project string, view *tailnet.ProjectView) {
+	// Queue cancellation first. Also handle an owned orphan whose unit is already
+	// inactive: stopping an inactive systemd unit does not execute ExecStop.
+	if _, e := d.runtimeCommand(ctx, "/usr/bin/systemctl", "stop", "--no-block", "soda-tailnet@"+project+".service"); e == nil {
+		view.Outcome = "queued"
+	}
+	stop, done := context.WithTimeout(ctx, 15*time.Second)
+	if e := d.StopTailnet(stop, project); e != nil {
+		view.Outcome = "runtime-unconfirmed"
+	}
+	done()
+}
+
+func (d *Daemon) markStoppedProject(ctx context.Context, project string, view *tailnet.ProjectView) {
+	// Distinguish a confirmed stopped parent from failed runtime observation.
+	env, _, other := d.inspect(ctx, project)
+	if other == nil && !env.Running {
+		view.State = "stopped"
+	}
+}
+
+func (d *Daemon) queueProjectTailnetStart(ctx context.Context, in tailnet.ProjectRequest, view *tailnet.ProjectView) bool {
+	if in.Action == "inspect" || !view.Enabled {
+		return true
+	}
+	args := []string{"start", "--no-block", "soda-tailnet@" + in.Project + ".service"}
+	if _, e := d.runtimeCommand(ctx, "/usr/bin/systemctl", args...); e != nil {
+		return false
+	}
+	view.Outcome = "queued"
+	return true
+}
+
+func applyCompanionIdleState(view *tailnet.ProjectView, running bool) bool {
+	if running {
+		return view.Enabled
+	}
+	if !view.Enabled {
+		view.State = "off"
+	}
+	return false // Off intent is not confirmed disconnection.
+}
+
+func (d *Daemon) observeCompanionStatus(ctx context.Context, run projectRun, view *tailnet.ProjectView) {
+	binding, e := d.Tailnet.RunBinding(ctx, run.Target)
+	if e != nil {
+		return
+	}
+	b, e := d.companionCLI(ctx, run, "status", "--json", "--peers=false")
+	if e != nil {
+		return
+	}
+	prefs, e := d.companionCLI(ctx, run, "debug", "prefs")
+	if e != nil {
+		return
+	}
+	state, addresses, dns, e := tailnet.ProjectStatus(b, prefs, binding)
+	if e != nil || d.recheckProjectRun(ctx, run) != nil {
+		return
+	}
+	view.State = state
+	view.Addresses = addresses
+	view.DNSName = dns
+}
+
 func (d *Daemon) observeProjectTailnet(ctx context.Context, in tailnet.ProjectRequest, cid string) (tailnet.ProjectView, error) {
 	view, e := d.Tailnet.Project(ctx, in, cid)
 	if e != nil {
@@ -581,64 +646,20 @@ func (d *Daemon) observeProjectTailnet(ctx context.Context, in tailnet.ProjectRe
 		return view, nil
 	}
 	if in.Action == "disable" {
-		// Queue cancellation first. Also handle an owned orphan whose unit is already
-		// inactive: stopping an inactive systemd unit does not execute ExecStop.
-		if _, e = d.runtimeCommand(ctx, "/usr/bin/systemctl", "stop", "--no-block", "soda-tailnet@"+in.Project+".service"); e == nil {
-			view.Outcome = "queued"
-		}
-		stop, done := context.WithTimeout(ctx, 15*time.Second)
-		if e = d.StopTailnet(stop, in.Project); e != nil {
-			view.Outcome = "runtime-unconfirmed"
-		}
-		done()
+		d.queueProjectTailnetDisable(ctx, in.Project, &view)
 	}
 	run, e := d.projectRun(ctx, in.Project)
 	if e != nil {
-		// Distinguish a confirmed stopped parent from failed runtime observation.
-		env, _, other := d.inspect(ctx, in.Project)
-		if other == nil && !env.Running {
-			view.State = "stopped"
-		}
+		d.markStoppedProject(ctx, in.Project, &view)
 		return view, nil
 	}
-	if in.Action != "inspect" && view.Enabled {
-		args := []string{"start", "--no-block", "soda-tailnet@" + in.Project + ".service"}
-		if _, e = d.runtimeCommand(ctx, "/usr/bin/systemctl", args...); e != nil {
-			return view, nil
-		}
-		view.Outcome = "queued"
+	if !d.queueProjectTailnetStart(ctx, in, &view) {
+		return view, nil
 	}
 	c, e := d.inspectCompanion(ctx, run)
-	if e != nil {
+	if e != nil || !applyCompanionIdleState(&view, c.Running) {
 		return view, nil
 	}
-	if !c.Running {
-		if !view.Enabled {
-			view.State = "off"
-		}
-		return view, nil
-	}
-	if !view.Enabled {
-		return view, nil
-	} // Off intent is not confirmed disconnection.
-	binding, e := d.Tailnet.RunBinding(ctx, run.Target)
-	if e != nil {
-		return view, nil
-	}
-	b, e := d.companionCLI(ctx, run, "status", "--json", "--peers=false")
-	if e != nil {
-		return view, nil
-	}
-	prefs, e := d.companionCLI(ctx, run, "debug", "prefs")
-	if e != nil {
-		return view, nil
-	}
-	state, addresses, dns, e := tailnet.ProjectStatus(b, prefs, binding)
-	if e != nil || d.recheckProjectRun(ctx, run) != nil {
-		return view, nil
-	}
-	view.State = state
-	view.Addresses = addresses
-	view.DNSName = dns
+	d.observeCompanionStatus(ctx, run, &view)
 	return view, nil
 }
