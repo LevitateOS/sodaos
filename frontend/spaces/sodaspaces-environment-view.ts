@@ -2,27 +2,97 @@ import {html} from 'lit';
 import type {TemplateResult} from 'lit';
 import type {CreationProfile, Environment, OSObservation} from './sodaspaces-api.js';
 
-export function renderProjectOS(profiles: readonly CreationProfile[], selected: string, environment: Environment | undefined, blocked: boolean, select: (id: string) => void, context: 'standard' | 'configure' = 'standard'): TemplateResult {
-  if (environment) {
-    const p = environment.profile;
-    return html`<section aria-label="Project OS"><h3>Project OS</h3>
-      ${p ? html`<p>Rocky ${p.version} · headless · ${p.architecture}</p><details><summary>Immutable creation identity</summary><dl>
-        <dt>Profile</dt><dd>${p.id}</dd><dt>Image</dt><dd><code>${p.image}</code></dd><dt>Soda recipe revision</dt><dd><code>${p.revision}</code></dd>
-      </dl></details>` : html`<p>Legacy / unknown creation profile. The current image default is not this persistent root’s identity.</p>`}
-      <p>Creation metadata describes the original image, not later installed packages. Changing distribution/interface for an existing root is not implemented.</p></section>`;
-  }
-  return profiles.length ? html`<label>Project OS <select .value=${selected} ?disabled=${blocked} @change=${(event: Event) => {if (event.target instanceof HTMLSelectElement && !blocked) select(event.target.value);}}>
-    ${profiles.map(p => html`<option value=${p.id} ?selected=${p.id === selected}>${context === 'configure' ? `Rocky Linux ${p.version} · Terminal` : `Rocky ${p.version} headless (${p.architecture})`}</option>`)}
-    </select></label><p>${context === 'configure' ? 'A shared Linux system with browser terminal access.' : 'Headless provides terminal access to the shared development foundation. KDE adds graphical access, but KDE and Fedora are not available in this build. Selection alone does not pull or start anything.'}</p>` : html``;
+function onProjectOSChange(event: Event, blocked: boolean, select: (id: string) => void) {
+  if (event.target instanceof HTMLSelectElement && !blocked) select(event.target.value);
+}
+function createdProjectOS(p: CreationProfile): TemplateResult {
+  return html`<p>Rocky ${p.version} · headless · ${p.architecture}</p>
+    <details>
+      <summary>Immutable creation identity</summary>
+      <dl>
+        <dt>Profile</dt>
+        <dd>${p.id}</dd>
+        <dt>Image</dt>
+        <dd><code>${p.image}</code></dd>
+        <dt>Soda recipe revision</dt>
+        <dd><code>${p.revision}</code></dd>
+      </dl>
+    </details>`;
+}
+function projectOSOptionLabel(p: CreationProfile, context: 'standard' | 'configure'): string {
+  if (context === 'configure') return `Rocky Linux ${p.version} · Terminal`;
+  return `Rocky ${p.version} headless (${p.architecture})`;
+}
+function projectOSHelp(context: 'standard' | 'configure'): string {
+  if (context === 'configure') return 'A shared Linux system with browser terminal access.';
+  return 'Headless provides terminal access to the shared development foundation. KDE adds graphical access, but KDE and Fedora are not available in this build. Selection alone does not pull or start anything.';
+}
+function projectOSPicker(
+  profiles: readonly CreationProfile[],
+  selected: string,
+  blocked: boolean,
+  select: (id: string) => void,
+  context: 'standard' | 'configure'
+): TemplateResult {
+  if (!profiles.length) return html``;
+  return html`<label
+      >Project OS
+      <select
+        .value=${selected}
+        ?disabled=${blocked}
+        @change=${(event: Event) => onProjectOSChange(event, blocked, select)}
+      >
+        ${profiles.map((p) => html`<option value=${p.id} ?selected=${p.id === selected}>${projectOSOptionLabel(p, context)}</option>`)}
+      </select></label
+    >
+    <p>${projectOSHelp(context)}</p>`;
+}
+export function renderProjectOS(
+  profiles: readonly CreationProfile[],
+  selected: string,
+  environment: Environment | undefined,
+  blocked: boolean,
+  select: (id: string) => void,
+  context: 'standard' | 'configure' = 'standard'
+): TemplateResult {
+  if (!environment) return projectOSPicker(profiles, selected, blocked, select, context);
+  const p = environment.profile;
+  return html`<section aria-label="Project OS">
+    <h3>Project OS</h3>
+    ${p ? createdProjectOS(p) : html`<p>Legacy / unknown creation profile. The current image default is not this persistent root’s identity.</p>`}
+    <p>
+      Creation metadata describes the original image, not later installed packages. Changing distribution/interface for
+      an existing root is not implemented.
+    </p>
+  </section>`;
 }
 
-export function renderOSObservation(observed: OSObservation | undefined, status: string, blocked: boolean, inspect: (event: MouseEvent) => void): TemplateResult {
-  return html`<section aria-label="Observed project userspace"><h3>Current userspace</h3>
+function osReleaseLine(observed: OSObservation): string {
+  if (observed.release) return `${observed.release.name} · ${observed.release.id} ${observed.release.version}`;
+  if (observed.running) return 'OS release unavailable; current distribution/version are unknown.';
+  return 'OS release not read: environment is stopped.';
+}
+function observedOSBody(observed: OSObservation | undefined): TemplateResult | string {
+  if (!observed) return '';
+  return html`<p>${osReleaseLine(observed)}</p>
+    <p>Original container image (not current installed packages):</p>
+    <code>${observed.image || 'Unknown'}</code>`;
+}
+export function renderOSObservation(
+  observed: OSObservation | undefined,
+  status: string,
+  blocked: boolean,
+  inspect: (event: MouseEvent) => void
+): TemplateResult {
+  return html`<section aria-label="Observed project userspace">
+    <h3>Current userspace</h3>
     <button type="button" class="ui basic button" ?disabled=${blocked} @click=${inspect}>Inspect current OS</button>
-    <p>Reads this root’s OS release and original container image. Does not start, modify or assign a creation profile.</p>
-    ${observed ? html`<p>${observed.release ? `${observed.release.name} · ${observed.release.id} ${observed.release.version}` : observed.running ? 'OS release unavailable; current distribution/version are unknown.' : 'OS release not read: environment is stopped.'}</p>
-      <p>Original container image (not current installed packages):</p><code>${observed.image || 'Unknown'}</code>` : ''}
-    <p role="status">${status}</p></section>`;
+    <p>
+      Reads this root’s OS release and original container image. Does not start, modify or assign a creation profile.
+    </p>
+    ${observedOSBody(observed)}
+    <p role="status">${status}</p>
+  </section>`;
 }
 
 export interface EnvironmentPresentation {
@@ -46,28 +116,113 @@ export interface EnvironmentCommands {
   readonly create: (event: MouseEvent) => void;
   readonly join: (event: MouseEvent) => void;
 }
-export function renderEnvironment(view: EnvironmentPresentation, commands: EnvironmentCommands, lifecycle: TemplateResult): TemplateResult {
+
+function onSSHChange(event: Event, selectSSH: (checked: boolean) => void) {
+  if (event.target instanceof HTMLInputElement) selectSSH(event.target.checked);
+}
+
+function joinKeys(view: EnvironmentPresentation, commands: EnvironmentCommands): TemplateResult {
+  if (!view.sshKeys.length)
+    return html`<p>No external SSH keys will be installed. You can explicitly add and apply keys later in Access.</p>`;
+  return html`<label
+      ><input
+        type="checkbox"
+        .checked=${view.useSavedKeys}
+        ?disabled=${view.blocked}
+        @change=${(event: Event) => onSSHChange(event, commands.selectSSH)}
+      />Also install my saved public keys for external SSH</label
+    >
+    ${
+      view.useSavedKeys
+        ? html`<ul>
+            ${view.sshKeys.map((key) => html`<li>${key}</li>`)}
+          </ul>`
+        : ''
+    }`;
+}
+
+function joinAdmission(view: EnvironmentPresentation, commands: EnvironmentCommands): TemplateResult | '' {
+  if (!view.canJoin) return '';
+  return html`<p>
+      Join creates your real, password-locked project account. Browser terminals do not need an SSH key. External SSH
+      and outbound Git credentials are separate.
+    </p>
+    ${joinKeys(view, commands)}`;
+}
+
+function environmentBusy(view: EnvironmentPresentation) {
+  return view.busy || view.stale;
+}
+
+function environmentActions(view: EnvironmentPresentation, commands: EnvironmentCommands): TemplateResult {
+  return html`<div class="soda-spaces-actions">
+    <button
+      data-control="refresh"
+      type="button"
+      class="ui basic button"
+      ?disabled=${environmentBusy(view)}
+      @click=${commands.refresh}
+    >
+      Refresh status
+    </button>
+    <button
+      data-control="reload"
+      type="button"
+      class="ui basic button"
+      ?hidden=${!view.stale}
+      @click=${commands.reload}
+    >
+      Reload repository page
+    </button>
+    <button
+      data-control="sign-out"
+      type="button"
+      class="ui basic button"
+      ?hidden=${!view.signedIn}
+      ?disabled=${environmentBusy(view) || !view.signedIn}
+      @click=${commands.logout}
+    >
+      Sign out
+    </button>
+    <button
+      data-control="create"
+      type="button"
+      class="ui primary button"
+      ?hidden=${!view.canCreate}
+      ?disabled=${view.blocked}
+      @click=${commands.create}
+    >
+      Create environment
+    </button>
+    <button
+      data-control="join"
+      type="button"
+      class="ui primary button"
+      ?hidden=${!view.canJoin}
+      ?disabled=${view.blocked}
+      @click=${commands.join}
+    >
+      Join environment
+    </button>
+  </div>`;
+}
+
+export function renderEnvironment(
+  view: EnvironmentPresentation,
+  commands: EnvironmentCommands,
+  lifecycle: TemplateResult
+): TemplateResult {
   return html`
     <p>Shared resources, explicit actions. Hiding does not undo work already sent.</p>
-    <a data-control="sign-in" class="ui primary button" href=${view.connectURL}
-      ?hidden=${!view.connectVisible || view.stale} aria-disabled=${view.busy || view.stale ? 'true' : 'false'}
-      @click=${commands.connect}>Connect to Soda</a>
-    ${view.canJoin ? html`<p>Join creates your real, password-locked project account. Browser terminals do not need an SSH key. External SSH and outbound Git credentials are separate.</p>
-      ${view.sshKeys.length ? html`<label><input type="checkbox" .checked=${view.useSavedKeys} ?disabled=${view.blocked}
-        @change=${(event: Event) => {if (event.target instanceof HTMLInputElement) commands.selectSSH(event.target.checked);}}>Also install my saved public keys for external SSH</label>
-        ${view.useSavedKeys ? html`<ul>${view.sshKeys.map(key => html`<li>${key}</li>`)}</ul>` : ''}` : html`<p>No external SSH keys will be installed. You can explicitly add and apply keys later in Access.</p>`}` : ''}
-    <div class="soda-spaces-actions">
-      <button data-control="refresh" type="button" class="ui basic button" ?disabled=${view.busy || view.stale}
-        @click=${commands.refresh}>Refresh status</button>
-      <button data-control="reload" type="button" class="ui basic button" ?hidden=${!view.stale}
-        @click=${commands.reload}>Reload repository page</button>
-      <button data-control="sign-out" type="button" class="ui basic button" ?hidden=${!view.signedIn}
-        ?disabled=${view.busy || view.stale || !view.signedIn} @click=${commands.logout}>Sign out</button>
-      <button data-control="create" type="button" class="ui primary button" ?hidden=${!view.canCreate}
-        ?disabled=${view.blocked} @click=${commands.create}>Create environment</button>
-      <button data-control="join" type="button" class="ui primary button" ?hidden=${!view.canJoin}
-        ?disabled=${view.blocked} @click=${commands.join}>Join environment</button>
-    </div>
-    ${lifecycle}
+    <a
+      data-control="sign-in"
+      class="ui primary button"
+      href=${view.connectURL}
+      ?hidden=${!view.connectVisible || view.stale}
+      aria-disabled=${view.busy || view.stale ? 'true' : 'false'}
+      @click=${commands.connect}
+      >Connect to Soda</a
+    >
+    ${joinAdmission(view, commands)} ${environmentActions(view, commands)} ${lifecycle}
   `;
 }
