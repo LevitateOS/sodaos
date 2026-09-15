@@ -400,42 +400,50 @@ func Seal(root, arch, revision string) error {
 	return checksums(root)
 }
 
-func Verify(root, arch, revision string) (Inventory, error) {
-	var inv Inventory
-	if err := ReadJSON(filepath.Join(root, inventoryName), &inv); err != nil {
-		return inv, err
-	}
-	sum, err := HashFile(filepath.Join(root, inventoryName))
-	if err != nil {
-		return inv, err
-	}
+func verifyManifestChecksumFile(root, sum string) error {
 	sumPath := filepath.Join(root, "SHA256SUMS")
 	st, err := os.Lstat(sumPath)
 	if err != nil || !st.Mode().IsRegular() || st.Size() > 256 {
-		return inv, errors.New("regular bounded manifest checksum required")
+		return errors.New("regular bounded manifest checksum required")
 	}
 	checks, err := os.ReadFile(sumPath)
 	if err != nil || string(checks) != sum+"  "+inventoryName+"\n" {
-		return inv, errors.New("missing or mismatched manifest checksum")
+		return errors.New("missing or mismatched manifest checksum")
+	}
+	return nil
+}
+
+func verifyInventoryChecksum(root, arch, revision string, inv Inventory) error {
+	sum, err := HashFile(filepath.Join(root, inventoryName))
+	if err != nil {
+		return err
+	}
+	if err := verifyManifestChecksumFile(root, sum); err != nil {
+		return err
 	}
 	if inv.Architecture != arch || inv.Revision != revision || !Revision(revision) || len(inv.Images) != 5 {
-		return inv, errors.New("bundle revision/platform mismatch")
+		return errors.New("bundle revision/platform mismatch")
 	}
+	return nil
+}
+
+func verifyInventoryFiles(root string, inv Inventory) (map[string]File, error) {
 	files, err := tree(root)
 	if err != nil {
-		return inv, err
+		return nil, err
 	}
 	if len(files) != len(inv.Files) {
-		return inv, errors.New("payload file set changed")
+		return nil, errors.New("payload file set changed")
 	}
 	for name, entry := range files {
 		if entry != inv.Files[name] {
-			return inv, fmt.Errorf("payload changed: %s", name)
+			return nil, fmt.Errorf("payload changed: %s", name)
 		}
 	}
-	if err = inspectBinaries(root, arch, files); err != nil {
-		return inv, err
-	}
+	return files, inspectBinaries(root, inv.Architecture, files)
+}
+
+func verifyInventoryImages(root, arch, revision string, inv Inventory) error {
 	for _, name := range []string{"project-os", "dashboard", "forgejo", "caddy", "tailnet"} {
 		rev := ""
 		if name == "project-os" || name == "dashboard" {
@@ -443,16 +451,27 @@ func Verify(root, arch, revision string) (Inventory, error) {
 		}
 		img, err := InspectOCI(filepath.Join(root, "images", name+".oci"), arch, rev)
 		if err != nil {
-			return inv, err
+			return err
 		}
 		if img != inv.Images[name] {
-			return inv, errors.New("image identity changed")
+			return errors.New("image identity changed")
 		}
 	}
-	if err = verifyBuildInputs(root, arch, revision, inv.Images); err != nil {
+	return verifyBuildInputs(root, arch, revision, inv.Images)
+}
+
+func Verify(root, arch, revision string) (Inventory, error) {
+	var inv Inventory
+	if err := ReadJSON(filepath.Join(root, inventoryName), &inv); err != nil {
 		return inv, err
 	}
-	return inv, nil
+	if err := verifyInventoryChecksum(root, arch, revision, inv); err != nil {
+		return inv, err
+	}
+	if _, err := verifyInventoryFiles(root, inv); err != nil {
+		return inv, err
+	}
+	return inv, verifyInventoryImages(root, arch, revision, inv)
 }
 
 // Bundle copies only the sealed payload, not private state or the build tree.
