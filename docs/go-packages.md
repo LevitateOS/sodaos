@@ -77,7 +77,8 @@ genuinely covers the package's combined surface. Facade integration tests
 (e.g. `web/*_test.go` exercising the server) stay with the facade and
 reference the owning packages (`api.*`, `auth.*`) directly — forwarding
 aliases between internal packages are banned and `internal/archcheck`
-fails if `web/aliases.go` returns.
+fails if `web/aliases.go` returns. The host Client may re-export
+`host/terminal` wire types so transport never imports that executor.
 
 ## Interfaces and errors
 
@@ -101,10 +102,15 @@ boundaries only: privilege execution under `host/` (`host/project`,
 `release/deliver`). No `internal/models`, `internal/services`,
 `internal/utils` or other horizontal dumping grounds; no micro-packages;
 no splitting `tailnet` / `runners` / `store`; no resurrecting retired
-names (`projectos`, `linuxhost`, `installlayout`, `webapp`, `webauth`,
-`nativebuild`, `nativequalification`, `nativefinalization`,
-`releasedelivery`, `appliancerelease`, top-level `hostproject` /
-`hostterminal` / `hosttailnet`).
+top-level paths (`internal/projectos`, `internal/linuxhost`,
+`internal/installlayout`, `internal/webapp`, `internal/webauth`,
+`internal/nativebuild`, `internal/nativequalification`,
+`internal/nativefinalization`, `internal/releasedelivery`,
+`internal/appliancerelease`, `internal/hostproject`,
+`internal/hostterminal`, `internal/hosttailnet`). Package declarations
+match directory leaves; colliding domain twins are resolved with import
+aliases (`domain`, `projectexec`, `tailnetexec`), not concatenated
+package names.
 
 Dependencies run one way, from orchestration toward capabilities:
 
@@ -122,9 +128,11 @@ external adapters and primitives (forgejo, filelock, strictjson, platform)
 
 Domain types are defined once in the owning package and referenced
 directly — never duplicated as parallel DTOs, never translated field by
-field, never re-exported through aliases. Each side of a privilege
-boundary validates its own inputs against the domain validators
-(`project.Valid*`); duplicated validation logic anywhere else is a smell.
+field, never re-exported through aliases. Privileged wire types owned by
+an executor may appear on the `host` Client surface so transport never
+imports that executor. Each side of a privilege boundary validates its
+own inputs against the domain validators (`project.Valid*`); duplicated
+validation logic anywhere else is a smell.
 Moving files inside a package is cheap; moving symbols between packages
 changes architecture — do it only when ownership is clearly wrong, keep
 the new ownership explainable in one sentence, and avoid cycles.

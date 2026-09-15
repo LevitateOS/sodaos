@@ -18,9 +18,9 @@ remain in [architecture](architecture.md).
 | Product HTTP/WS (environments, spaces, terminal, lifecycle, runners, tailnet settings, pages) | `web/api` |
 | Dashboard mux root, namespace gate, `web.New` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
 | Unix client + thin daemon mux/admission | `host` (`client.go`, `daemon.go`; decode straight into `project` types — no translators) |
-| Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `host/project` (package `hostproject`; executes on `project` types) |
-| Privileged terminal attach | `host/terminal` (package `hostterminal`) |
-| Tailnet companion container runtime | `host/tailnet` (package `hosttailnet`) |
+| Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `host/project` (package `project`; executes on domain `project` types) |
+| Privileged terminal attach | `host/terminal` (package `terminal`) |
+| Tailnet companion container runtime | `host/tailnet` (package `tailnet`) |
 | Install phase on Linux | `installer/<phase>_linux.go` |
 | Build-time installed path consts | `platform` (`legacy.go` / `vendor.go` build-tag pair) |
 | Runner composition + native operator identity | `runners` (`operator.go`) |
@@ -34,8 +34,9 @@ Hard size rule: prefer production files under 400 LOC; do not grow a production
 for process startup only). `cmd/soda-host` enters through `host`
 (plus `tailnet`). `web.Server` constructs `auth`/`api`; `host.Daemon`
 wires the three executors. These are the only facades; do not add
-forwarding packages, type aliases between internal packages, or
-compatibility shims for moved code.
+forwarding packages or compatibility shims for moved code. The host
+Client may re-export `host/terminal` wire types so `web` never imports
+the privileged terminal executor directly.
 
 ## Placement decision tree
 
@@ -56,19 +57,22 @@ compatibility shims for moved code.
 10. Still ambiguous → rules in the domain package; HTTP admits and calls;
     privileged packages execute and confirm. Do not invent a fourth package.
 
-**Naming.** Package = durable owner; directory = privilege/subsystem
-boundary. Executor subpackages keep the `host` prefix (`hostproject`,
-`hostterminal`, `hosttailnet`) to distinguish them from domain twins
-(`project`, `tailnet`) — the hierarchy under `host/` already states the
-privilege boundary. Filename = concrete product concern (`lifecycle.go`,
-`enrollment.go`, `control.go`). Ban new `helpers.go`, `utils.go`, or vague
+**Naming.** Package declaration matches the directory leaf
+(`host/project` → `package project`). When an executor imports its domain
+twin (`project`, `tailnet`), alias the domain import inside the executor
+and alias the executor import at the facade (`projectexec`,
+`tailnetexec`) — do not invent concatenated package names. Filename =
+concrete product concern (`lifecycle.go`, `enrollment.go`,
+`control.go`). Ban new `helpers.go`, `utils.go`, or vague
 `management.go`. Matching concern names across layers (`terminal.go`,
 `runners.go`, `lifecycle.go`) are intentional. Never resurrect a retired
-package name (`projectos`, `linuxhost`, `installlayout`, `webapp`,
-`webauth`, `nativebuild`, `nativequalification`, `nativefinalization`,
-`releasedelivery`, `appliancerelease`, top-level `hostproject` /
-`hostterminal` / `hosttailnet`) — `internal/archcheck` fails the build if
-they return.
+top-level package path (`internal/projectos`, `internal/linuxhost`,
+`internal/installlayout`, `internal/webapp`, `internal/webauth`,
+`internal/nativebuild`, `internal/nativequalification`,
+`internal/nativefinalization`, `internal/releasedelivery`,
+`internal/appliancerelease`, `internal/hostproject`,
+`internal/hostterminal`, `internal/hosttailnet`) —
+`internal/archcheck` fails the build if they return.
 
 ## Ownership map
 
