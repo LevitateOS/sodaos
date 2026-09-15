@@ -180,6 +180,59 @@ func (m *Management) projectKey(ctx context.Context, p enrollmentPolicy, c crede
 // The native caller holds its runtime lock and observes the actual daemon before
 // calling: an existing node or unfinished exec is not a new enrollment. A failed
 // operation leaves no permanent attempt veto; a later explicit retry is permitted.
+func admitEnrollRun(policy enrollmentPolicy, project projectPolicy, validate func(context.Context) error, ctx context.Context) error {
+	if !project.Enabled || !policy.Admission || project.Binding != policy.Binding || policy.Revision == "0" {
+		return ErrConflict
+	}
+	if validate(ctx) != nil || ctx.Err() != nil {
+		return ErrConflict
+	}
+	return nil
+}
+
+func consumeEnrollKey(ctx context.Context, key string, validate func(context.Context) error, consume func(context.Context, string) error) error {
+	if validate(ctx) != nil || ctx.Err() != nil {
+		return ErrUnconfirmed
+	}
+	return consume(ctx, key)
+}
+
+// EnrollRun is a root-native operation, not an HTTP credential/key endpoint.
+// validate rechecks the exact incarnation; consume writes only the single-use key
+// into the validated companion input and invokes its fixed CLI. Neither callback
+// receives the OAuth secret/token. The existing policy lock fences rotation/Off;
+// this must run outside the host's global Create/lifecycle admission gate.
+// The native caller holds its runtime lock and observes the actual daemon before
+// calling: an existing node or unfinished exec is not a new enrollment. A failed
+// operation leaves no permanent attempt veto; a later explicit retry is permitted.
+func confirmEnrollSubmission(ctx context.Context, e error, validate func(context.Context) error) error {
+	if e != nil || validate(ctx) != nil || ctx.Err() != nil {
+		return ErrUnconfirmed
+	}
+	return nil
+}
+
+func (m *Management) enrollLocked(ctx context.Context, root *os.Root, target RunTarget, validate func(context.Context) error, consume func(context.Context, string) error) error {
+	policy, e := m.policy.load(root)
+	if e != nil {
+		return e
+	}
+	project, e := m.policy.loadProject(root, target.Project, target.Container)
+	if e != nil {
+		return e
+	}
+	if e = admitEnrollRun(policy, project, validate, ctx); e != nil {
+		return e
+	}
+	key, e := m.projectKey(ctx, policy, policy.Credential)
+	policy.Credential.Secret = ""
+	if e == nil {
+		e = consumeEnrollKey(ctx, key, validate, consume)
+	}
+	key = ""
+	return confirmEnrollSubmission(ctx, e, validate) // Submission is not enrollment/approval/reachability confirmation.
+}
+
 func (m *Management) EnrollRun(ctx context.Context, target RunTarget, validate func(context.Context) error, consume func(context.Context, string) error) error {
 	if !target.valid() || validate == nil || consume == nil {
 		return ErrInvalid
@@ -195,32 +248,5 @@ func (m *Management) EnrollRun(ctx context.Context, target RunTarget, validate f
 	}
 	defer root.Close()
 	defer lock.Close()
-	policy, e := m.policy.load(root)
-	if e != nil {
-		return e
-	}
-	project, e := m.policy.loadProject(root, target.Project, target.Container)
-	if e != nil {
-		return e
-	}
-	if !project.Enabled || !policy.Admission || project.Binding != policy.Binding || policy.Revision == "0" {
-		return ErrConflict
-	}
-	if validate(ctx) != nil || ctx.Err() != nil {
-		return ErrConflict
-	}
-	key, e := m.projectKey(ctx, policy, policy.Credential)
-	policy.Credential.Secret = ""
-	if e == nil {
-		if validate(ctx) != nil || ctx.Err() != nil {
-			e = ErrUnconfirmed
-		} else {
-			e = consume(ctx, key)
-		}
-	}
-	key = ""
-	if e != nil || validate(ctx) != nil || ctx.Err() != nil {
-		return ErrUnconfirmed
-	}
-	return nil // Submission is not enrollment/approval/reachability confirmation.
+	return m.enrollLocked(ctx, root, target, validate, consume)
 }
