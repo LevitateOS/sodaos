@@ -1,5 +1,5 @@
 // Package web wires the dashboard HTTP root: namespace gates, health, avatars
-// and registration of webauth/api. It does not own OAuth or product handlers.
+// and registration of auth/api. It does not own OAuth or product handlers.
 package web
 
 import (
@@ -17,14 +17,14 @@ import (
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
-// Server is the dashboard HTTP facade. Handlers live in Auth and App.
+// Server is the dashboard HTTP facade. Handlers live in Auth and API.
 type Server struct {
 	Config  config.Config
 	Store   *store.Store
 	Forgejo *forgejo.Client
 	Host    *host.Client
 	Auth    *auth.Service
-	App     *api.API
+	API     *api.API
 	mux     *http.ServeMux
 }
 
@@ -37,9 +37,9 @@ func New(c config.Config, db *store.Store) *Server {
 		mux: http.NewServeMux(),
 	}
 	s.Auth = auth.New(&s.Config, db, client)
-	s.App = api.New(&s.Config, db, client, hostClient, s.Auth)
-	s.Auth.SessionEndGate = s.App.TerminalLock()
-	s.Auth.CancelTerminals = s.App.CancelTerminals
+	s.API = api.New(&s.Config, db, client, hostClient, s.Auth)
+	s.Auth.SessionEndGate = s.API.TerminalLock()
+	s.Auth.CancelTerminals = s.API.CancelTerminals
 
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -49,7 +49,7 @@ func New(c config.Config, db *store.Store) *Server {
 	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
 	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
 	s.Auth.Register(s.mux)
-	s.App.Register(s.mux)
+	s.API.Register(s.mux)
 	notFound := func(w http.ResponseWriter, r *http.Request) {
 		auth.JSONError(w, http.StatusNotFound, "not_found", "API route not found.")
 	}
@@ -63,19 +63,19 @@ func (s *Server) forgejoHome(w http.ResponseWriter, r *http.Request) {
 }
 
 // CloseTerminals shuts down browser terminal peers before process exit.
-func (s *Server) CloseTerminals() { s.App.CloseTerminals() }
+func (s *Server) CloseTerminals() { s.API.CloseTerminals() }
 
 // SetForgejo replaces the Forgejo client on the facade and both services.
 func (s *Server) SetForgejo(client *forgejo.Client) {
 	s.Forgejo = client
 	s.Auth.Forgejo = client
-	s.App.Forgejo = client
+	s.API.Forgejo = client
 }
 
 // SetHost replaces the host client on the facade and product API.
 func (s *Server) SetHost(client *host.Client) {
 	s.Host = client
-	s.App.Host = client
+	s.API.Host = client
 }
 
 func publicAvatarPath(p string) bool {

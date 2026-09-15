@@ -173,9 +173,9 @@ func TestTerminalLostCreateReplyRecoversThroughIssuedNativeID(t *testing.T) {
 
 func TestTerminalStopGateAndPendingTransportBound(t *testing.T) {
 	s, srv, native, _ := terminalWebFixture(t, 0)
-	s.App.TerminalLock().Lock()
-	s.App.TerminalStopping = map[string]bool{webTerminalProject: true}
-	s.App.TerminalLock().Unlock()
+	s.API.TerminalLock().Lock()
+	s.API.TerminalStopping = map[string]bool{webTerminalProject: true}
+	s.API.TerminalLock().Unlock()
 	if terminalAPI(t, s, srv.URL, "POST", "/api/environments/"+webTerminalProject+"/terminal-sessions", map[string]any{"cols": 80, "rows": 24}).Code != 503 {
 		t.Fatal("Stop admitted reservation")
 	}
@@ -186,13 +186,13 @@ func TestTerminalStopGateAndPendingTransportBound(t *testing.T) {
 	if err == nil || response.StatusCode != 409 || native.Load() != 0 {
 		t.Fatal("Stop admitted stream")
 	}
-	s.App.TerminalLock().Lock()
-	clear(s.App.TerminalStopping)
-	s.App.TerminalPeers = make(map[*http.Request]*api.TerminalPeer)
+	s.API.TerminalLock().Lock()
+	clear(s.API.TerminalStopping)
+	s.API.TerminalPeers = make(map[*http.Request]*api.TerminalPeer)
 	for i := 0; i < 128; i++ {
-		s.App.TerminalPeers[new(http.Request)] = &api.TerminalPeer{Cancel: func() {}}
+		s.API.TerminalPeers[new(http.Request)] = &api.TerminalPeer{Cancel: func() {}}
 	}
-	s.App.TerminalLock().Unlock()
+	s.API.TerminalLock().Unlock()
 	c, response, err = terminalDial(t, srv, "")
 	if c != nil {
 		c.CloseNow()
@@ -200,7 +200,7 @@ func TestTerminalStopGateAndPendingTransportBound(t *testing.T) {
 	if err == nil || response.StatusCode != 409 || native.Load() != 0 {
 		t.Fatal("pending transport bound bypassed")
 	}
-	s.App.TerminalLock().Lock()
-	clear(s.App.TerminalPeers)
-	s.App.TerminalLock().Unlock()
+	s.API.TerminalLock().Lock()
+	clear(s.API.TerminalPeers)
+	s.API.TerminalLock().Unlock()
 }

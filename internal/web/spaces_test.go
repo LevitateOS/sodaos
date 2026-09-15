@@ -166,14 +166,14 @@ func TestSpacesResponseByteLimitAndOversizedStoreLabel(t *testing.T) {
 }
 func TestSpacesAdmissionActorAndQueryBounds(t *testing.T) {
 	s, provider, native := spacesFixture(t, 0, true)
-	for range cap(s.App.SpacesSlots) {
-		s.App.SpacesSlots <- struct{}{}
+	for range cap(s.API.SpacesSlots) {
+		s.API.SpacesSlots <- struct{}{}
 	}
 	if terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces", nil).Code != 503 {
 		t.Fatal("request gate")
 	}
-	for range cap(s.App.SpacesSlots) {
-		<-s.App.SpacesSlots
+	for range cap(s.API.SpacesSlots) {
+		<-s.API.SpacesSlots
 	}
 	for _, query := range []string{"?", "?repository_id=7", "?after=1"} {
 		if terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces"+query, nil).Code != 400 {
