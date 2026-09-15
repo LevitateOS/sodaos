@@ -1,6 +1,7 @@
 import {connectPage} from './soda-connection.js';
 import {id} from './sodaspaces-api.js';
 import {workspaceFrameLocator} from './sodaspaces-frame.js';
+import {bindWorkspaceShellLayout} from './sodaspaces-shell-layout.js';
 import {mountSpacesPage} from './sodaspaces-page.js';
 
 function frameLocation(frame: HTMLIFrameElement) {
@@ -28,6 +29,7 @@ async function startWorkspaceShell() {
   const frame = document.querySelector<HTMLIFrameElement>('#soda-forgejo-frame');
   const actor = root?.dataset.actor;
   if (!root || !frame || !id(actor)) return;
+  bindWorkspaceShellLayout(document);
   frame.addEventListener('load', () => syncWorkspaceLocator(frame));
   const session = await connectPage(actor, 'spaces', '', () => root.isConnected);
   if (!session) return;

@@ -16,6 +16,11 @@ with admitted `to`. Login, OAuth, install, failed `soda-connect`, and remaining
 `soda-view` hosts (repository Spaces, Runners, Tailnet) stay top-level. Unsigned
 `/-/soda/spaces` stays a bookmark that establishes the native actor first.
 
+Forgejo owns navbar, profile, notifications, forms and routing inside the iframe.
+The Soda shell has no second header. Layout is two surfaces: framed Forgejo on the
+left, workspace on the right, with the same measured split and compact
+Forge/Terminal switch as the native drawer.
+
 There is no separate-origin Soda UI. Lit supplies Soda's management and workspace
 views under the configured Forgejo origin at `/-/soda/`.
 
@@ -46,6 +51,16 @@ permissions.
 
 UX composition details live in [Spaces UX](../design/spaces-ux.md).
 Wire contracts live in [Terminal](../reference/terminal.md) and [HTTP API](../reference/api.md).
+
+## Remaining workspace-host decisions
+
+Host, address bar, signed-in entry, chrome, and split layout are selected. Further
+host work happens in this order. Do not fold auth into chrome.
+
+1. **Prove that composition** in the browser and native fixtures.
+2. **Auth that may leave the shell.** Login, consent, and callback stay outside the
+   shell until this step selects otherwise.
+3. **Prove those auth flows** in the browser and native fixtures.
 
 ## Settings ownership
 

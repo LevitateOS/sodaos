@@ -1,4 +1,4 @@
-/* Persistent Soda HTML host: Forgejo stays in the child frame. */
+/* Persistent Soda HTML host: Forgejo chrome stays in the child frame. */
 html,
 body.soda-workspace-shell {
   height: 100%;
@@ -12,16 +12,52 @@ body.soda-workspace-shell {
   font: var(--soda-font-body);
 }
 #soda-forgejo-frame {
-  flex: 1 1 50%;
+  flex: 1 1 auto;
+  width: calc(100% - var(--soda-space-width, 50vw));
   min-width: 0;
   min-height: 0;
   border: 0;
   background: var(--soda-page-surface);
 }
 #soda-workspace-root {
-  flex: 1 1 50%;
+  flex: 0 0 auto;
+  width: var(--soda-space-width, 50vw);
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  border-left: 1px solid var(--soda-page-edge);
+}
+#soda-workspace-divider {
+  flex: 0 0 0;
+  width: 0;
+  position: relative;
+  z-index: 2;
+}
+#soda-workspace-divider::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -5px;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+}
+#soda-workspace-divider:hover::before,
+#soda-workspace-divider:focus-visible::before {
+  background: var(--soda-page-selected);
+}
+body.soda-workspace-shell.sodaspaces-compact {
+  padding-top: var(--soda-control-height);
+  flex-direction: column;
+}
+body.soda-workspace-shell.sodaspaces-compact #soda-forgejo-frame,
+body.soda-workspace-shell.sodaspaces-compact #soda-workspace-root {
+  width: 100%;
+  flex: 1 1 auto;
+}
+body.soda-workspace-shell.sodaspaces-compact #soda-workspace-divider {
+  display: none;
+}
+body.soda-workspace-shell #sodaspaces-surfaces {
+  position: fixed;
 }

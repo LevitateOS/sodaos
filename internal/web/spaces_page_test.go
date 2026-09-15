@@ -92,6 +92,12 @@ func TestSpacesWorkspaceShell(t *testing.T) {
 	if !strings.Contains(body, `data-actor="1"`) || !strings.Contains(body, "/assets/sodaspaces-shell.js?v="+string(revision[1])) {
 		t.Fatal(body)
 	}
+	if !strings.Contains(body, `id="sodaspaces-surfaces"`) || !strings.Contains(body, `id="soda-workspace-divider"`) {
+		t.Fatal("missing split layout")
+	}
+	if strings.Contains(body, `id="navbar"`) || strings.Contains(body, `id="soda-notification-preview"`) {
+		t.Fatal("shell copied Forgejo chrome")
+	}
 	for _, forbidden := range []string{"csrf-alice", "session-alice", "callback-access", "window.config", "/app/", "unsafe-inline"} {
 		if strings.Contains(body, forbidden) {
 			t.Fatal("copied authority or credentials", forbidden)

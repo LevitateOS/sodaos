@@ -14,7 +14,7 @@ import (
 )
 
 // Must match appliance/forgejo/templates/custom/header.tmpl.
-const workspacePresentation = "2026-09-15.workspace-entry-1"
+const workspacePresentation = "2026-09-15.workspace-split-1"
 
 const workspaceShellCSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
@@ -39,7 +39,13 @@ var workspaceShell = template.Must(template.New("workspace").Parse(`<!DOCTYPE ht
 <link rel="stylesheet" href="/assets/soda-terminal/xterm.css">
 </head>
 <body class="soda-workspace-shell">
+<span class="sodaspaces-measure" aria-hidden="true">MMMMMMMMMMMMMMMM</span>
+<nav id="sodaspaces-surfaces" hidden aria-label="Workspace surface">
+<button type="button" class="ui button" id="soda-surface-forge">Forge</button>
+<button type="button" class="ui button" id="soda-surface-terminal">Terminal</button>
+</nav>
 <iframe id="soda-forgejo-frame" title="Forgejo" src="{{.Frame}}"></iframe>
+<div id="soda-workspace-divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Workspace width"></div>
 <div id="soda-workspace-root" data-actor="{{.Actor}}"></div>
 <script type="module" src="/assets/sodaspaces-shell.js?v={{.Revision}}"></script>
 </body>

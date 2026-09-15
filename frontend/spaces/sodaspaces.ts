@@ -2,13 +2,10 @@
 // session authority. Compact Forge/Terminal visibility belongs to this document.
 import type {WorkspaceContext} from './sodaspaces-workspace.js';
 import {object} from './sodaspaces-api.js';
+import {workspaceWidths} from './sodaspaces-widths.js';
+export {workspaceWidths} from './sodaspaces-widths.js';
 const identifier = (v: unknown): v is string =>
   typeof v === 'string' && /^[1-9][0-9]{0,18}$/.test(v) && BigInt(v) <= 9223372036854775807n;
-export function workspaceWidths(viewport: number, terminalMinimum: number, desired: number) {
-  const minimum = Math.max(35, (terminalMinimum / Math.max(1, viewport)) * 100),
-    maximum = Math.min(65, ((viewport - 480) / Math.max(1, viewport)) * 100);
-  return {compact: minimum > maximum, minimum, maximum, actual: Math.max(minimum, Math.min(maximum, desired))};
-}
 export interface DrawerContent {
   readonly ready?: Promise<unknown>;
   refresh(): void | Promise<void>;

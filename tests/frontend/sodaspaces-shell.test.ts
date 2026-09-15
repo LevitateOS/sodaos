@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {workspaceEntryLocation, workspaceFrameLocator} from '../../frontend/spaces/sodaspaces-frame.ts';
+import {shellPaneHidden} from '../../frontend/spaces/sodaspaces-widths.ts';
 
 test('workspace frame locator admits same-origin Forgejo paths only', () => {
   assert.equal(workspaceFrameLocator('/'), '/');
@@ -33,4 +34,12 @@ test('workspace entry wraps ordinary Forgejo paths and keeps native Soda hosts',
     workspaceEntryLocation('https://forgejo.example.test/?soda-view=spaces&soda-connect=failed', ''),
     undefined
   );
+});
+
+test('shell compact surfaces hide the inactive pane only', () => {
+  assert.equal(shellPaneHidden(false, 'forge', 'forge'), false);
+  assert.equal(shellPaneHidden(false, 'forge', 'terminal'), false);
+  assert.equal(shellPaneHidden(true, 'forge', 'forge'), false);
+  assert.equal(shellPaneHidden(true, 'forge', 'terminal'), true);
+  assert.equal(shellPaneHidden(true, 'terminal', 'forge'), true);
 });
