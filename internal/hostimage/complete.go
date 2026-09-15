@@ -61,17 +61,17 @@ func LockHostPackages(source, context, arch string, base Base) (string, error) {
 		seen[line] = true
 	}
 	expected := []byte(strings.Join(lock.Inventory, "\n") + "\n")
-	if err = ownedWrite(filepath.Join(context, "packages.list"), []byte(strings.Join(lock.Install, "\n")+"\n"), 0644); err != nil {
+	if err = ownedWrite(filepath.Join(context, "packages.list"), []byte(strings.Join(lock.Install, "\n")+"\n"), 0o644); err != nil {
 		return "", err
 	}
-	if err = ownedWrite(filepath.Join(context, "packages.expected"), expected, 0644); err != nil {
+	if err = ownedWrite(filepath.Join(context, "packages.expected"), expected, 0o644); err != nil {
 		return "", err
 	}
 	return hashBytes(expected), nil
 }
 
 func ownedWrite(path string, data []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
 	if err := os.WriteFile(path, data, mode); err != nil {
@@ -102,7 +102,7 @@ func publicFiles(source string) (map[string]string, error) {
 			return err
 		}
 		if d.IsDir() {
-			if info.Mode() != os.ModeDir|0755 {
+			if info.Mode() != os.ModeDir|0o755 {
 				return errors.New("public presentation directory must be 0755")
 			}
 			return nil
@@ -110,7 +110,7 @@ func publicFiles(source string) (map[string]string, error) {
 		if !info.Mode().IsRegular() {
 			return errors.New("public stage symlink/special file refused")
 		}
-		if info.Mode() != 0644 {
+		if info.Mode() != 0o644 {
 			return errors.New("public presentation file must be 0644")
 		}
 		files[filepath.ToSlash(rel)], err = nativebuild.HashFile(path)
@@ -132,24 +132,26 @@ func StagePresentation(forgejoContext, context string) (string, error) {
 		return "", err
 	}
 	data = append(data, '\n')
-	if err = ownedWrite(filepath.Join(forgejoContext, "presentation.json"), data, 0644); err != nil {
+	if err = ownedWrite(filepath.Join(forgejoContext, "presentation.json"), data, 0o644); err != nil {
 		return "", err
 	}
-	if err = ownedWrite(filepath.Join(context, "rootfs/usr/share/soda/host-image/presentation.json"), data, 0644); err != nil {
+	if err = ownedWrite(filepath.Join(context, "rootfs/usr/share/soda/host-image/presentation.json"), data, 0o644); err != nil {
 		return "", err
 	}
 	return hashBytes(data), nil
 }
 
-// Complete binds all callers to one v3 payload and ordinary Podman storage.
-func Complete(source, context, archives string, p appliancerelease.Payload, run nativebuild.BuildExec) error {
+func validateCompletePayload(p appliancerelease.Payload) error {
 	if err := p.Validate(); err != nil {
 		return err
 	}
 	if p.Format != 3 {
 		return errors.New("new candidates require the shared-layout v3 payload")
 	}
-	root := filepath.Join(context, "rootfs")
+	return nil
+}
+
+func writeCompleteQuadlets(source, root string, p appliancerelease.Payload) error {
 	for _, name := range []string{"forgejo", "dashboard", "proxy"} {
 		unit := map[string]string{"forgejo": "forgejo.container", "dashboard": "soda-dashboard.container", "proxy": "soda-proxy.container"}[name]
 		original, err := os.ReadFile(filepath.Join(source, "appliance/services", unit))
@@ -160,36 +162,43 @@ func Complete(source, context, archives string, p appliancerelease.Payload, run 
 		if err != nil {
 			return err
 		}
-		if err = ownedWrite(filepath.Join(root, "usr/share/containers/systemd", unit), []byte(body), 0644); err != nil {
+		if err = ownedWrite(filepath.Join(root, "usr/share/containers/systemd", unit), []byte(body), 0o644); err != nil {
 			return err
 		}
 	}
-	// Retain public-tree verification at the final destinations, without copying.
+	return nil
+}
+
+func verifyPublicBrandingAndMOTD(root string) error {
 	for _, dir := range []string{"etc/cockpit/branding", "usr/share/soda/fastfetch", "etc/fastfetch"} {
 		if _, err := publicFiles(filepath.Join(root, dir)); err != nil {
 			return err
 		}
 	}
 	motd, err := os.Lstat(filepath.Join(root, "etc/motd"))
-	if err != nil || motd.Mode() != 0644 {
+	if err != nil || motd.Mode() != 0o644 {
 		return errors.New("regular public MOTD required")
 	}
-	// Keep the public factory defaults alongside /etc, not another stage.
+	return nil
+}
+
+func writeFactoryDefaults(root string) error {
 	for _, name := range []string{"forgejo.env", "proxy.Caddyfile"} {
 		b, err := os.ReadFile(filepath.Join(root, "etc/soda", name))
 		if err != nil {
 			return err
 		}
-		if err = ownedWrite(filepath.Join(root, "usr/share/soda/defaults", name), b, 0644); err != nil {
+		if err = ownedWrite(filepath.Join(root, "usr/share/soda/defaults", name), b, 0o644); err != nil {
 			return err
 		}
 	}
 	// Machine setup must supply the explicit private subnet. Images are not saved
 	// here: the vendor helper reads their immutable IDs from the release owner.
 	example := []byte("{\n  \"network\": \"soda-projects\",\n  \"bridge\": \"soda0\",\n  \"subnet\": \"\",\n  \"tailnet_management\": false\n}\n")
-	if err := ownedWrite(filepath.Join(root, "usr/share/soda/defaults/host.example.json"), example, 0644); err != nil {
-		return err
-	}
+	return ownedWrite(filepath.Join(root, "usr/share/soda/defaults/host.example.json"), example, 0o644)
+}
+
+func configureCompleteSystemd(source, root string) error {
 	for from, to := range map[string]string{
 		"appliance/host-image/soda-image-import.service": "usr/lib/systemd/system/soda-image-import.service",
 		"appliance/host-image/retained-images.conf":      "usr/lib/systemd/system/soda-host.service.d/10-images.conf",
@@ -198,7 +207,7 @@ func Complete(source, context, archives string, p appliancerelease.Payload, run 
 		if err != nil {
 			return err
 		}
-		if err = ownedWrite(filepath.Join(root, to), b, 0644); err != nil {
+		if err = ownedWrite(filepath.Join(root, to), b, 0o644); err != nil {
 			return err
 		}
 	}
@@ -214,22 +223,20 @@ func Complete(source, context, archives string, p appliancerelease.Payload, run 
 		return err
 	}
 	body = []byte(strings.Replace(string(body), "[Unit]\n", string(dropin)+"\n", 1))
-	if err = ownedWrite(project, body, 0644); err != nil {
-		return err
-	}
-	if err = stageImages(archives, filepath.Join(root, "usr/share/soda/images"), p, run); err != nil {
-		return err
-	}
+	return ownedWrite(project, body, 0o644)
+}
+
+func writeReleaseMetadataAndNormalize(root string, p appliancerelease.Payload) error {
 	// The complete payload is the sole resolved-image/defaults owner. Leave only
 	// a pointer in the earlier host-content build marker, not stale scope data.
-	if err := ownedWrite(filepath.Join(root, "usr/share/soda/host-image/build.json"), []byte("{\"Scope\":\"complete-local-payload\",\"ReleaseMetadata\":\"/usr/share/soda/release.json\"}\n"), 0644); err != nil {
+	if err := ownedWrite(filepath.Join(root, "usr/share/soda/host-image/build.json"), []byte("{\"Scope\":\"complete-local-payload\",\"ReleaseMetadata\":\"/usr/share/soda/release.json\"}\n"), 0o644); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err = ownedWrite(filepath.Join(root, "usr/share/soda/release.json"), append(data, '\n'), 0644); err != nil {
+	if err = ownedWrite(filepath.Join(root, "usr/share/soda/release.json"), append(data, '\n'), 0o644); err != nil {
 		return err
 	}
 	// Normalize only fresh image context directories, not credentials or sources.
@@ -238,10 +245,34 @@ func Complete(source, context, archives string, p appliancerelease.Payload, run 
 			return err
 		}
 		if d.IsDir() {
-			return os.Chmod(path, 0755)
+			return os.Chmod(path, 0o755)
 		}
 		return nil
 	})
+}
+
+// Complete binds all callers to one v3 payload and ordinary Podman storage.
+func Complete(source, context, archives string, p appliancerelease.Payload, run nativebuild.BuildExec) error {
+	if err := validateCompletePayload(p); err != nil {
+		return err
+	}
+	root := filepath.Join(context, "rootfs")
+	if err := writeCompleteQuadlets(source, root, p); err != nil {
+		return err
+	}
+	if err := verifyPublicBrandingAndMOTD(root); err != nil {
+		return err
+	}
+	if err := writeFactoryDefaults(root); err != nil {
+		return err
+	}
+	if err := configureCompleteSystemd(source, root); err != nil {
+		return err
+	}
+	if err := stageImages(archives, filepath.Join(root, "usr/share/soda/images"), p, run); err != nil {
+		return err
+	}
+	return writeReleaseMetadataAndNormalize(root, p)
 }
 
 func LocalQuadlet(body, reference string) (string, error) {
