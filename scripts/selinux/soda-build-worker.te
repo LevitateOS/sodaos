@@ -2,9 +2,12 @@ module soda-build-worker 1.0;
 
 require {
 	type init_t;
+	type unconfined_t;
+	type setfiles_t;
+	attribute file_type;
 	class process setpgid;
-	class file { create open read write getattr setattr lock append unlink rename map };
-	class dir { create open read write getattr setattr search add_name remove_name rmdir };
+	class file { create open read write getattr setattr lock append unlink rename map relabelfrom relabelto };
+	class dir { create open read write getattr setattr search add_name remove_name rmdir relabelfrom relabelto };
 }
 
 # The isolated build worker runs Go as an init_t systemd transient unit:
@@ -17,7 +20,15 @@ require {
 # storage, the runtime dir and the frontend caches keep their types so the
 # container stack and offline module warming are undisturbed.
 type soda_build_cache_t;
+# semanage only records file contexts for file_type members.
+typeattribute soda_build_cache_t file_type;
 
 allow init_t self:process setpgid;
 allow init_t soda_build_cache_t:file { create open read write getattr setattr lock append unlink rename map };
 allow init_t soda_build_cache_t:dir { create open read write getattr setattr search add_name remove_name rmdir };
+# Provisioning (setup, restorecon) runs outside the worker domain and must
+# be able to label the cache dirs; without relabelto even root cannot.
+allow unconfined_t soda_build_cache_t:file { getattr relabelfrom relabelto };
+allow unconfined_t soda_build_cache_t:dir { getattr search read open relabelfrom relabelto };
+allow setfiles_t soda_build_cache_t:file { getattr relabelfrom relabelto };
+allow setfiles_t soda_build_cache_t:dir { getattr search read open relabelfrom relabelto };
