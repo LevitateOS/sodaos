@@ -134,27 +134,59 @@ type Release struct {
 	Notes         string
 }
 
-func (r Release) Validate(t Trust) (appliancerelease.Payload, Candidate, error) {
+func validReleaseIdentity(r Release) bool {
+	return r.Format == 1 && r.Serial != 0 && (r.Class == "normal" || r.Class == "emergency") && (r.Qualification == "local-only" || r.Qualification == "native-install-upgrade-recovery")
+}
+
+func validReleaseNotesAndEvidence(r Release) bool {
+	return len(r.Evidence) > 0 && len(r.Evidence) <= 64 && len(r.Notes) > 0 && len(r.Notes) <= 16384
+}
+
+func decodeReleasePayloads(r Release) (appliancerelease.Payload, Candidate, error) {
 	var p appliancerelease.Payload
 	var c Candidate
-	if r.Format != 1 || r.Serial == 0 || (r.Class != "normal" && r.Class != "emergency") || (r.Qualification != "local-only" && r.Qualification != "native-install-upgrade-recovery") || len(r.Evidence) == 0 || len(r.Evidence) > 64 || len(r.Notes) == 0 || len(r.Notes) > 16384 || decode(r.Payload, &p) != nil || decode(r.Candidate, &c) != nil || p.RepositoryPrefix != t.Prefix || c.Validate(p, r.Payload) != nil {
+	if decode(r.Payload, &p) != nil || decode(r.Candidate, &c) != nil {
 		return p, c, ErrRefused
 	}
+	return p, c, nil
+}
+
+func validReleaseProvenance(r Release, p appliancerelease.Payload) bool {
 	if len(r.Provenance) != 4 {
-		return p, c, ErrRefused
+		return false
 	}
 	for _, n := range []string{"source.tar", "app-inputs.json", "packages.txt", "presentation.json"} {
 		if !Digest(r.Provenance[n]) {
-			return p, c, ErrRefused
+			return false
 		}
 	}
-	if r.Provenance["packages.txt"] != "sha256:"+p.HostPackagesSHA256 || r.Provenance["presentation.json"] != "sha256:"+p.PresentationSHA256 {
+	return r.Provenance["packages.txt"] == "sha256:"+p.HostPackagesSHA256 && r.Provenance["presentation.json"] == "sha256:"+p.PresentationSHA256
+}
+
+func validReleaseEvidence(evidence map[string]string) bool {
+	for n, h := range evidence {
+		if len(n) == 0 || len(n) > 128 || strings.ContainsAny(n, "\n\r\x00") || !Digest(h) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r Release) Validate(t Trust) (appliancerelease.Payload, Candidate, error) {
+	var p appliancerelease.Payload
+	var c Candidate
+	if !validReleaseIdentity(r) || !validReleaseNotesAndEvidence(r) {
 		return p, c, ErrRefused
 	}
-	for n, h := range r.Evidence {
-		if len(n) == 0 || len(n) > 128 || strings.ContainsAny(n, "\n\r\x00") || !Digest(h) {
-			return p, c, ErrRefused
-		}
+	p, c, err := decodeReleasePayloads(r)
+	if err != nil {
+		return p, c, err
+	}
+	if p.RepositoryPrefix != t.Prefix || c.Validate(p, r.Payload) != nil {
+		return p, c, ErrRefused
+	}
+	if !validReleaseProvenance(r, p) || !validReleaseEvidence(r.Evidence) {
+		return p, c, ErrRefused
 	}
 	return p, c, nil
 }
