@@ -42,32 +42,51 @@ func PublicKey(value string) (string, error) {
 	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))), nil
 }
 
-func ProjectSubnet(value string, routes []string) error {
-	subnet, err := netip.ParsePrefix(value)
-	if err != nil || !subnet.Addr().Is4() || subnet != subnet.Masked() {
-		return errors.New("canonical IPv4 project subnet required")
-	}
-	private := false
+func rfc1918Contains(subnet netip.Prefix) bool {
 	for _, raw := range []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"} {
 		p := netip.MustParsePrefix(raw)
 		if p.Bits() <= subnet.Bits() && p.Contains(subnet.Addr()) {
-			private = true
+			return true
 		}
 	}
-	if !private {
-		return errors.New("RFC1918 project subnet required")
+	return false
+}
+
+func canonicalPrivateIPv4(value string) (netip.Prefix, error) {
+	subnet, err := netip.ParsePrefix(value)
+	if err != nil || !subnet.Addr().Is4() || subnet != subnet.Masked() {
+		return netip.Prefix{}, errors.New("canonical IPv4 project subnet required")
+	}
+	if !rfc1918Contains(subnet) {
+		return netip.Prefix{}, errors.New("RFC1918 project subnet required")
+	}
+	return subnet, nil
+}
+
+func parseHostRoute(raw string) (netip.Prefix, error) {
+	p, err := netip.ParsePrefix(raw)
+	if err == nil {
+		return p, nil
+	}
+	addr, err := netip.ParseAddr(raw)
+	if err != nil {
+		return netip.Prefix{}, errors.New("cannot interpret current network route")
+	}
+	return netip.PrefixFrom(addr, addr.BitLen()), nil
+}
+
+func ProjectSubnet(value string, routes []string) error {
+	subnet, err := canonicalPrivateIPv4(value)
+	if err != nil {
+		return err
 	}
 	for _, raw := range routes {
 		if raw == "default" || raw == "" {
 			continue
 		}
-		p, e := netip.ParsePrefix(raw)
+		p, e := parseHostRoute(raw)
 		if e != nil {
-			if a, e := netip.ParseAddr(raw); e == nil {
-				p = netip.PrefixFrom(a, a.BitLen())
-			} else {
-				return errors.New("cannot interpret current network route")
-			}
+			return e
 		}
 		if p.Bits() != 0 && p.Overlaps(subnet) {
 			return errors.New("project subnet overlaps a current host route")

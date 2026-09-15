@@ -84,6 +84,27 @@ func (c console) ask(prompt string) (string, error) {
 	return c.line()
 }
 
+func pollTTY(fd int, timeout int) (readable bool, err error) {
+	events := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
+	if _, err := unix.Poll(events, timeout); err != nil && err != unix.EINTR {
+		return false, err
+	}
+	if events[0].Revents&(unix.POLLHUP|unix.POLLERR|unix.POLLNVAL) != 0 {
+		return false, errors.New("terminal disconnected")
+	}
+	return events[0].Revents&unix.POLLIN != 0, nil
+}
+
+func appendConsoleByte(data []byte, b byte) ([]byte, bool, error) {
+	if b == '\n' {
+		return data, true, nil
+	}
+	if b < 32 && b != '\t' {
+		return nil, false, errors.New("control character refused")
+	}
+	return append(data, b), false, nil
+}
+
 func (c console) line() (string, error) {
 	var data []byte
 	var b [1]byte
@@ -91,14 +112,11 @@ func (c console) line() (string, error) {
 		if err := c.ctx.Err(); err != nil {
 			return "", err
 		}
-		events := []unix.PollFd{{Fd: int32(c.tty.Fd()), Events: unix.POLLIN}}
-		if _, err := unix.Poll(events, 100); err != nil && err != unix.EINTR {
+		readable, err := pollTTY(int(c.tty.Fd()), 100)
+		if err != nil {
 			return "", err
 		}
-		if events[0].Revents&(unix.POLLHUP|unix.POLLERR|unix.POLLNVAL) != 0 {
-			return "", errors.New("terminal disconnected")
-		}
-		if events[0].Revents&unix.POLLIN == 0 {
+		if !readable {
 			continue
 		}
 		n, err := c.tty.Read(b[:])
@@ -108,32 +126,69 @@ func (c console) line() (string, error) {
 		if n == 0 {
 			return "", io.EOF
 		}
-		if b[0] == '\n' {
+		var done bool
+		data, done, err = appendConsoleByte(data, b[0])
+		if err != nil {
+			return "", err
+		}
+		if done {
 			return strings.TrimSpace(string(data)), nil
 		}
-		if b[0] < 32 && b[0] != '\t' {
-			return "", errors.New("control character refused")
-		}
-		data = append(data, b[0])
 	}
 	return "", errors.New("input exceeds limit")
 }
 
-func (c console) secret(prompt string) (string, error) {
-	fd := int(c.tty.Fd())
+func hideTerminalEcho(fd int) (*unix.Termios, error) {
 	state, err := unix.IoctlGetTermios(fd, unix.TCGETS)
 	if err != nil {
-		return "", errors.New("password entry requires a terminal")
+		return nil, errors.New("password entry requires a terminal")
 	}
 	hidden := *state
 	hidden.Lflag &^= unix.ECHO | unix.ECHONL
+	if err = unix.IoctlSetTermios(fd, unix.TCSETS, &hidden); err != nil {
+		return nil, err
+	}
+	return state, nil
+}
+
+func secretInterrupted(signals <-chan os.Signal) error {
+	select {
+	case sig := <-signals:
+		if sig == syscall.SIGINT {
+			return context.Canceled
+		}
+		return errors.New("password entry terminated")
+	default:
+		return nil
+	}
+}
+
+func (c console) consumeSecretByte(data []byte) ([]byte, bool, error) {
+	var b [1]byte
+	n, e := c.tty.Read(b[:])
+	if e != nil || n == 0 {
+		return nil, false, errors.New("password input ended")
+	}
+	if b[0] == '\n' {
+		c.print("")
+		return data, true, nil
+	}
+	if b[0] < 32 || b[0] == 127 {
+		return nil, false, errors.New("password contains control characters")
+	}
+	return append(data, b[0]), false, nil
+}
+
+func (c console) secret(prompt string) (string, error) {
+	fd := int(c.tty.Fd())
+	state, err := hideTerminalEcho(fd)
+	if err != nil {
+		return "", err
+	}
 	// Signals terminate input through context handling after echo is restored.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer signal.Stop(signals)
-	if err = unix.IoctlSetTermios(fd, unix.TCSETS, &hidden); err != nil {
-		return "", err
-	}
 	// Flush queued private input before restoring echo, including overlong entry
 	// and cancellation. It must not become visible input to a later prompt.
 	defer unix.IoctlSetTermios(fd, unix.TCSETSF, state)
@@ -144,38 +199,25 @@ func (c console) secret(prompt string) (string, error) {
 		if err := c.ctx.Err(); err != nil {
 			return "", err
 		}
-		select {
-		case signal := <-signals:
+		if err := secretInterrupted(signals); err != nil {
 			c.print("")
-			if signal == syscall.SIGINT {
-				return "", context.Canceled
-			}
-			return "", errors.New("password entry terminated")
-		default:
+			return "", err
 		}
-		events := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
-		if _, e := unix.Poll(events, 100); e != nil && e != unix.EINTR {
+		readable, e := pollTTY(fd, 100)
+		if e != nil {
 			return "", e
 		}
-		if events[0].Revents&(unix.POLLHUP|unix.POLLERR|unix.POLLNVAL) != 0 {
-			return "", errors.New("terminal disconnected")
-		}
-		if events[0].Revents&unix.POLLIN == 0 {
+		if !readable {
 			continue
 		}
-		var b [1]byte
-		n, e := c.tty.Read(b[:])
-		if e != nil || n == 0 {
-			return "", errors.New("password input ended")
+		var done bool
+		data, done, err = c.consumeSecretByte(data)
+		if err != nil {
+			return "", err
 		}
-		if b[0] == '\n' {
-			c.print("")
+		if done {
 			return string(data), nil
 		}
-		if b[0] < 32 || b[0] == 127 {
-			return "", errors.New("password contains control characters")
-		}
-		data = append(data, b[0])
 	}
 	return "", errors.New("password exceeds limit")
 }

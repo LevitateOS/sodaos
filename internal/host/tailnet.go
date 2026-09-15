@@ -313,6 +313,19 @@ func (c *Client) TailnetPolicy(ctx context.Context, project string) (tailnet.Pro
 	return out, e
 }
 
+func tailnetProjectConfirmed(in tailnet.ProjectRequest, out tailnet.ProjectView) bool {
+	if out.Project != in.Project || out.Saved != (in.Action != "inspect") {
+		return false
+	}
+	if !out.Saved {
+		return true
+	}
+	if out.Revision == in.Revision || out.Enabled != (in.Action != "disable") {
+		return false
+	}
+	return in.Action == "disable" || out.Binding == in.Binding
+}
+
 func (c *Client) TailnetProject(ctx context.Context, in tailnet.ProjectRequest) (tailnet.ProjectView, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.ProjectView{}, err
@@ -321,7 +334,7 @@ func (c *Client) TailnetProject(ctx context.Context, in tailnet.ProjectRequest) 
 	err := c.tailnetCall(ctx, "project", in, &out)
 	if err == nil {
 		err = out.Validate()
-		if out.Project != in.Project || out.Saved != (in.Action != "inspect") || (out.Saved && (out.Revision == in.Revision || out.Enabled != (in.Action != "disable") || (in.Action != "disable" && out.Binding != in.Binding))) {
+		if !tailnetProjectConfirmed(in, out) {
 			err = tailnet.ErrUnavailable
 		}
 	}

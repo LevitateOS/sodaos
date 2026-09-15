@@ -13,12 +13,20 @@ import (
 
 const candidateInstallerBinary = "/usr/libexec/soda/soda-install"
 
+func (m mediaIdentity) validFormat0() bool {
+	return nativebuild.Digest(m.BundleSHA256) && m.HostManifest == "" && m.PayloadSHA256 == "" && m.ConsoleSHA256 == ""
+}
+
+func (m mediaIdentity) validFormat2() bool {
+	return m.BundleSHA256 == "" && strings.HasPrefix(m.HostManifest, "sha256:") && nativebuild.Digest(strings.TrimPrefix(m.HostManifest, "sha256:")) && nativebuild.Digest(m.PayloadSHA256) && nativebuild.Digest(m.ConsoleSHA256)
+}
+
 func (m mediaIdentity) validContent() bool {
 	switch m.Format {
 	case 0:
-		return nativebuild.Digest(m.BundleSHA256) && m.HostManifest == "" && m.PayloadSHA256 == "" && m.ConsoleSHA256 == ""
+		return m.validFormat0()
 	case 2:
-		return m.BundleSHA256 == "" && strings.HasPrefix(m.HostManifest, "sha256:") && nativebuild.Digest(strings.TrimPrefix(m.HostManifest, "sha256:")) && nativebuild.Digest(m.PayloadSHA256) && nativebuild.Digest(m.ConsoleSHA256)
+		return m.validFormat2()
 	default:
 		return false
 	}
@@ -27,22 +35,43 @@ func (m mediaIdentity) validContent() bool {
 // The authenticated minimal ISO anchors native stream verification before live
 // Ignition runs. Verify its expected Soda payload and all local image content, not an
 // ISO mount or rpm-ostree status (the live EROFS root is not a booted deployment).
-func candidateRequirement(m mediaIdentity, root string) (uint64, error) {
+func candidateIdentityMatches(m mediaIdentity) error {
 	if m.Format != 2 || m.validate(m.Release, architecture()) != nil || m.InstallerVersion != "coreos-installer 0.26.0" {
-		return 0, errors.New("invalid candidate media identity")
+		return errors.New("invalid candidate media identity")
 	}
-	console, err := nativebuild.HashFile(filepath.Join(root, candidateInstallerBinary))
-	if err != nil || console != m.ConsoleSHA256 {
-		return 0, errors.New("candidate installer differs from prebuilt tool")
+	return nil
+}
+
+func candidateFileMatches(path, want, mismatch string) error {
+	hash, err := nativebuild.HashFile(path)
+	if err != nil || hash != want {
+		return errors.New(mismatch)
 	}
-	payload := filepath.Join(root, appliancerelease.Path)
-	hash, err := nativebuild.HashFile(payload)
-	if err != nil || hash != m.PayloadSHA256 {
-		return 0, errors.New("live candidate payload differs from authenticated media")
-	}
+	return nil
+}
+
+func candidateReleaseMatches(m mediaIdentity, payload string) (appliancerelease.Payload, error) {
 	p, err := appliancerelease.Load(payload)
 	if err != nil || p.Revision != m.Revision || p.Architecture != m.Architecture || p.CoreOS != m.Release {
-		return 0, errors.New("live candidate release mismatch")
+		return appliancerelease.Payload{}, errors.New("live candidate release mismatch")
+	}
+	return p, nil
+}
+
+func candidateRequirement(m mediaIdentity, root string) (uint64, error) {
+	if err := candidateIdentityMatches(m); err != nil {
+		return 0, err
+	}
+	if err := candidateFileMatches(filepath.Join(root, candidateInstallerBinary), m.ConsoleSHA256, "candidate installer differs from prebuilt tool"); err != nil {
+		return 0, err
+	}
+	payload := filepath.Join(root, appliancerelease.Path)
+	if err := candidateFileMatches(payload, m.PayloadSHA256, "live candidate payload differs from authenticated media"); err != nil {
+		return 0, err
+	}
+	p, err := candidateReleaseMatches(m, payload)
+	if err != nil {
+		return 0, err
 	}
 	_, total, err := appliancerelease.VerifyContent(p, filepath.Join(root, appliancerelease.ImagesPath))
 	return total, err

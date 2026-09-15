@@ -19,6 +19,59 @@ type mediaEventWriter struct {
 	dropped     bool
 }
 
+func mediaLogEvent(line string) string {
+	switch {
+	case strings.HasPrefix(line, "Generating osmet file for "):
+		return "osmet-start"
+	case line == "Packing successful!":
+		return "osmet-end"
+	case strings.HasPrefix(line, "Creating erofs with "):
+		return "rootfs-start"
+	case strings.HasPrefix(line, "Substituting ISO kernel arguments:"):
+		return "rootfs-end"
+	case strings.HasPrefix(line, "genisoimage "):
+		return "iso-start"
+	case strings.Contains(line, " extents written ("):
+		return "iso-end"
+	default:
+		return ""
+	}
+}
+
+func (w *mediaEventWriter) appendLineByte(b byte) {
+	if len(w.line) == 8192 {
+		w.line = w.line[:0]
+		w.dropped = true
+	}
+	if !w.dropped {
+		w.line = append(w.line, b)
+	}
+}
+
+func (w *mediaEventWriter) finishLine() string {
+	event := ""
+	if !w.dropped {
+		event = mediaLogEvent(string(w.line))
+	}
+	w.line, w.dropped = w.line[:0], false
+	return event
+}
+
+func (w *mediaEventWriter) consume(b byte) error {
+	if b != '\n' {
+		w.appendLineByte(b)
+		return nil
+	}
+	event := w.finishLine()
+	if event == "" {
+		return nil
+	}
+	return json.NewEncoder(w.events).Encode(struct {
+		Event   string
+		Seconds float64
+	}{event, time.Since(w.start).Seconds()})
+}
+
 func (w *mediaEventWriter) Write(data []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -27,43 +80,8 @@ func (w *mediaEventWriter) Write(data []byte) (int, error) {
 		return n, err
 	}
 	for _, b := range data[:n] {
-		if b != '\n' {
-			if len(w.line) == 8192 {
-				w.line = w.line[:0]
-				w.dropped = true
-			}
-			if !w.dropped {
-				w.line = append(w.line, b)
-			}
-			continue
-		}
-		event := ""
-		if !w.dropped {
-			line := string(w.line)
-			switch {
-			case strings.HasPrefix(line, "Generating osmet file for "):
-				event = "osmet-start"
-			case line == "Packing successful!":
-				event = "osmet-end"
-			case strings.HasPrefix(line, "Creating erofs with "):
-				event = "rootfs-start"
-			case strings.HasPrefix(line, "Substituting ISO kernel arguments:"):
-				event = "rootfs-end"
-			case strings.HasPrefix(line, "genisoimage "):
-				event = "iso-start"
-			case strings.Contains(line, " extents written ("):
-				event = "iso-end"
-			}
-		}
-		w.line, w.dropped = w.line[:0], false
-		if event != "" {
-			err = json.NewEncoder(w.events).Encode(struct {
-				Event   string
-				Seconds float64
-			}{event, time.Since(w.start).Seconds()})
-			if err != nil {
-				return n, err
-			}
+		if err = w.consume(b); err != nil {
+			return n, err
 		}
 	}
 	return n, nil

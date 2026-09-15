@@ -36,14 +36,20 @@ type Result struct {
 
 // ValidateTarget rejects implicit partial production and irrelevant media inputs.
 // MediaAuthority is admitted separately inside the isolated media worker.
-func (r Request) ValidateTarget() error {
+func (r Request) validateDevelopmentTarget() error {
 	if r.Development {
 		if r.Target != "candidate" && r.Target != "media" {
 			return errors.New("--development requires --target candidate or media")
 		}
-	} else if r.Target != "" {
+		return nil
+	}
+	if r.Target != "" {
 		return errors.New("--target requires --development")
 	}
+	return nil
+}
+
+func (r Request) validateMediaInputs() error {
 	if r.MediaCompression != "" && (!r.Development || r.Target != "media" || r.MediaCompression != "fast") {
 		return errors.New("--media-compression accepts only fast with --development --target media")
 	}
@@ -54,6 +60,13 @@ func (r Request) ValidateTarget() error {
 		return nil
 	}
 	return mediaBaseURL(r.RootfsBaseURL)
+}
+
+func (r Request) ValidateTarget() error {
+	if err := r.validateDevelopmentTarget(); err != nil {
+		return err
+	}
+	return r.validateMediaInputs()
 }
 
 func (r Request) WantsMedia() bool { return r.Target != "candidate" }

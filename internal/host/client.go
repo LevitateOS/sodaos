@@ -37,8 +37,10 @@ type Connection struct {
 	HostKey     string      `json:"host_key"`
 	Fingerprint string      `json:"fingerprint"`
 }
-type Client struct{ HTTP *http.Client }
-type nativeHTTPError struct{ status int }
+type (
+	Client          struct{ HTTP *http.Client }
+	nativeHTTPError struct{ status int }
+)
 
 func (e nativeHTTPError) Error() string {
 	return fmt.Sprintf("native project operation failed (HTTP %d); operator should inspect soda-host journal", e.status)
@@ -49,6 +51,31 @@ func NewClient(socket string) *Client {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 }
+
+func decodeNativeResponse(body []byte, out any) error {
+	if len(body) > 65536 || bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
+		return fmt.Errorf("invalid native response")
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return fmt.Errorf("invalid native response")
+	}
+	return nil
+}
+
+func readNativeResponse(res *http.Response, out any) error {
+	if res.StatusCode != 200 {
+		return nativeHTTPError{res.StatusCode}
+	}
+	if out == nil {
+		return nil
+	}
+	body, err := io.ReadAll(io.LimitReader(res.Body, 65537))
+	if err != nil {
+		return fmt.Errorf("invalid native response")
+	}
+	return decodeNativeResponse(body, out)
+}
+
 func (c *Client) call(ctx context.Context, path string, in, out any) error {
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(in); err != nil {
@@ -64,20 +91,9 @@ func (c *Client) call(ctx context.Context, path string, in, out any) error {
 		return fmt.Errorf("host service unavailable")
 	}
 	defer res.Body.Close()
-	if res.StatusCode != 200 {
-		return nativeHTTPError{res.StatusCode}
-	}
-	if out != nil {
-		body, err := io.ReadAll(io.LimitReader(res.Body, 65537))
-		if err != nil || len(body) > 65536 || bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
-			return fmt.Errorf("invalid native response")
-		}
-		if err = json.Unmarshal(body, out); err != nil {
-			return fmt.Errorf("invalid native response")
-		}
-	}
-	return nil
+	return readNativeResponse(res, out)
 }
+
 func (c *Client) Create(ctx context.Context, in Create) (Environment, error) {
 	var out Environment
 	err := c.call(ctx, "/create", in, &out)
@@ -86,6 +102,7 @@ func (c *Client) Create(ctx context.Context, in Create) (Environment, error) {
 	}
 	return out, err
 }
+
 func (c *Client) Inspect(ctx context.Context, id string) (Environment, error) {
 	var out Environment
 	err := c.call(ctx, "/inspect", Create{ID: id}, &out)
@@ -94,6 +111,7 @@ func (c *Client) Inspect(ctx context.Context, id string) (Environment, error) {
 	}
 	return out, err
 }
+
 func (c *Client) Join(ctx context.Context, in Account) error {
 	var result struct {
 		OK bool `json:"ok"`
@@ -104,6 +122,7 @@ func (c *Client) Join(ctx context.Context, in Account) error {
 	}
 	return err
 }
+
 func (c *Client) Connection(ctx context.Context, id string) (Connection, error) {
 	var result Connection
 	err := c.call(ctx, "/connection", Create{ID: id}, &result)
@@ -112,6 +131,7 @@ func (c *Client) Connection(ctx context.Context, id string) (Connection, error) 
 	}
 	return result, err
 }
+
 func validAddress(value string) bool {
 	ip, err := netip.ParseAddr(value)
 	return err == nil && !ip.IsUnspecified() && !ip.IsMulticast() && !ip.IsLoopback()

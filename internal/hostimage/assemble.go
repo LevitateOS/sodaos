@@ -571,7 +571,7 @@ func assembleMedia(ctx context.Context, p nativebuild.Production, r Request, loc
 
 // VerifyLiveIgnition checks the native customization readback against the exact
 // fragment supplied by this build. Ignition's serializer emits absent optionals as null.
-func VerifyLiveIgnition(data, expected []byte) error {
+func liveIgnitionBytes(data []byte) ([]byte, error) {
 	var wrapper struct {
 		Ignition struct {
 			Config struct {
@@ -580,22 +580,26 @@ func VerifyLiveIgnition(data, expected []byte) error {
 		}
 	}
 	if json.Unmarshal(data, &wrapper) != nil || len(wrapper.Ignition.Config.Merge) != 1 {
-		return errors.New("unexpected native live Ignition")
+		return nil, errors.New("unexpected native live Ignition")
 	}
 	fragment := wrapper.Ignition.Config.Merge[0]
 	if !strings.HasPrefix(fragment.Source, "data:;base64,") || fragment.Compression != "gzip" {
-		return errors.New("unexpected native Ignition encoding")
+		return nil, errors.New("unexpected native Ignition encoding")
 	}
 	compressed, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(fragment.Source, "data:;base64,"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	reader, err := gzip.NewReader(bytes.NewReader(compressed))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer reader.Close()
-	raw, err := io.ReadAll(io.LimitReader(reader, 2<<20))
+	return io.ReadAll(io.LimitReader(reader, 2<<20))
+}
+
+func VerifyLiveIgnition(data, expected []byte) error {
+	raw, err := liveIgnitionBytes(data)
 	if err != nil {
 		return err
 	}
@@ -638,6 +642,22 @@ func mediaFile(path string) (MediaFile, error) {
 }
 
 // VerifyRootfsChunks checks the bootstrap's native chunk list against the download.
+func matchRootfsChunk(f *os.File, want []string, i int) (int, bool, error) {
+	h := sha256.New()
+	n, e := io.CopyN(h, f, 2<<20)
+	if e != nil && e != io.EOF {
+		return i, false, e
+	}
+	if n == 0 {
+		return i, false, nil
+	}
+	if i >= len(want) || hex.EncodeToString(h.Sum(nil)) != want[i] {
+		return i, false, errors.New("rootfs differs from native bootstrap hashes")
+	}
+	i++
+	return i, e != io.EOF, nil
+}
+
 func VerifyRootfsChunks(path, text string) error {
 	if !strings.HasPrefix(text, "stream-hash sha256 2097152\n") {
 		return errors.New("unexpected native rootfs hash format")
@@ -650,19 +670,12 @@ func VerifyRootfsChunks(path, text string) error {
 	want := strings.Fields(strings.TrimPrefix(text, "stream-hash sha256 2097152\n"))
 	i := 0
 	for {
-		h := sha256.New()
-		n, e := io.CopyN(h, f, 2<<20)
-		if e != nil && e != io.EOF {
-			return e
+		var more bool
+		i, more, err = matchRootfsChunk(f, want, i)
+		if err != nil {
+			return err
 		}
-		if n == 0 {
-			break
-		}
-		if i >= len(want) || hex.EncodeToString(h.Sum(nil)) != want[i] {
-			return errors.New("rootfs differs from native bootstrap hashes")
-		}
-		i++
-		if e == io.EOF {
+		if !more {
 			break
 		}
 	}

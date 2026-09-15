@@ -98,6 +98,29 @@ func enrollmentWrite(directory, name, value string) error {
 	return os.Link(f.Name(), filepath.Join(directory, name))
 }
 
+func enrollmentWindowRemaining(until int64, parseErr, clockErr error, now int64) (time.Duration, error) {
+	if parseErr != nil || clockErr != nil || until <= now || until-now > 300 {
+		return 0, errors.New("enrollment window expired")
+	}
+	return time.Duration(until-now) * time.Second, nil
+}
+
+func parseArmedEnrollment(data []byte) (enrollmentAddress, int64, error) {
+	fields := strings.Fields(string(data))
+	if len(fields) != 3 {
+		return enrollmentAddress{}, 0, errors.New("invalid enrollment arm state")
+	}
+	selected := enrollmentAddress{fields[0], fields[1]}
+	if _, err := enrollmentPrivateAddress(selected.ip); err != nil {
+		return selected, 0, err
+	}
+	until, err := strconv.ParseInt(fields[2], 10, 64)
+	if err != nil {
+		return selected, 0, errors.New("enrollment window expired")
+	}
+	return selected, until, nil
+}
+
 func enrollmentState() (enrollmentAddress, time.Duration, error) {
 	var selected enrollmentAddress
 	fd, err := unix.Open(enrollmentDir, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
@@ -112,21 +135,27 @@ func enrollmentState() (enrollmentAddress, time.Duration, error) {
 	if err != nil {
 		return selected, 0, err
 	}
-	fields := strings.Fields(string(data))
-	if len(fields) != 3 {
-		return selected, 0, errors.New("invalid enrollment arm state")
-	}
-	selected = enrollmentAddress{fields[0], fields[1]}
-	if _, err := enrollmentPrivateAddress(selected.ip); err != nil {
+	selected, until, err := parseArmedEnrollment(data)
+	if err != nil {
 		return selected, 0, err
 	}
-	until, err := strconv.ParseInt(fields[2], 10, 64)
 	now, clockErr := enrollmentBootSeconds()
-	if err != nil || clockErr != nil || until <= now || until-now > 300 {
-		return selected, 0, errors.New("enrollment window expired")
-	}
-	return selected, time.Duration(until-now) * time.Second, nil
+	remaining, err := enrollmentWindowRemaining(until, nil, clockErr, now)
+	return selected, remaining, err
 }
+
+func parseEnrollmentChoice(value string, n int) (int, error) {
+	if strings.EqualFold(value, "back") || strings.EqualFold(value, "cancel") {
+		return 0, errors.New("key enrollment cancelled")
+	}
+	index, err := strconv.Atoi(value)
+	if err != nil || index < 1 || index > n {
+		return 0, errEnrollmentChoice
+	}
+	return index, nil
+}
+
+var errEnrollmentChoice = errors.New("enter a listed enrollment address")
 
 func selectEnrollmentAddress(c console, addresses []enrollmentAddress) (enrollmentAddress, error) {
 	if len(addresses) == 0 {
@@ -140,14 +169,15 @@ func selectEnrollmentAddress(c console, addresses []enrollmentAddress) (enrollme
 		if err != nil {
 			return enrollmentAddress{}, err
 		}
-		if strings.EqualFold(value, "back") || strings.EqualFold(value, "cancel") {
-			return enrollmentAddress{}, errors.New("key enrollment cancelled")
+		index, err := parseEnrollmentChoice(value, len(addresses))
+		if errors.Is(err, errEnrollmentChoice) {
+			c.print("Enter a number from 1 to %d, or back/cancel.", len(addresses))
+			continue
 		}
-		index, err := strconv.Atoi(value)
-		if err == nil && index >= 1 && index <= len(addresses) {
-			return addresses[index-1], nil
+		if err != nil {
+			return enrollmentAddress{}, err
 		}
-		c.print("Enter a number from 1 to %d, or back/cancel.", len(addresses))
+		return addresses[index-1], nil
 	}
 }
 

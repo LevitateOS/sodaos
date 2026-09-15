@@ -50,6 +50,38 @@ func openRuntimeRoot(base string, uid uint32) (*os.Root, error) {
 }
 
 // Tests use their own UID in a private directory; production always passes 0:0.
+func ensureRuntimeProjectDir(parent *os.Root, project string, uid uint32) error {
+	info, e := parent.Stat(".")
+	if e != nil || !rootDirectory(info, uid) {
+		return tailnet.ErrUnavailable
+	}
+	if e = parent.Mkdir(project, 0o700); e != nil && !errors.Is(e, os.ErrExist) {
+		return tailnet.ErrUnavailable
+	}
+	info, e = parent.Lstat(project)
+	if e != nil || !rootDirectory(info, uid) {
+		return tailnet.ErrUnavailable
+	}
+	return nil
+}
+
+func lockRuntimeProject(ctx context.Context, root *os.Root, uid, gid uint32) (*os.File, error) {
+	lock, e := root.OpenFile("lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	if e != nil {
+		return nil, tailnet.ErrUnavailable
+	}
+	info, e := lock.Stat()
+	if e != nil || !runtimeFile(info, uid, gid, 0o600) {
+		lock.Close()
+		return nil, tailnet.ErrUnavailable
+	}
+	if e = filelock.Acquire(ctx, lock, syscall.LOCK_EX); e != nil {
+		lock.Close()
+		return nil, e
+	}
+	return lock, nil
+}
+
 func openRuntimeProjectOwned(ctx context.Context, base, project string, uid, gid uint32) (*runFiles, error) {
 	if !projectID.MatchString(project) {
 		return nil, tailnet.ErrInvalid
@@ -59,34 +91,15 @@ func openRuntimeProjectOwned(ctx context.Context, base, project string, uid, gid
 		return nil, tailnet.ErrUnavailable
 	}
 	defer parent.Close()
-	info, e := parent.Stat(".")
-	if e != nil || !rootDirectory(info, uid) {
-		return nil, tailnet.ErrUnavailable
-	}
-	if e = parent.Mkdir(project, 0o700); e != nil && !errors.Is(e, os.ErrExist) {
-		return nil, tailnet.ErrUnavailable
-	}
-	info, e = parent.Lstat(project)
-	if e != nil || !rootDirectory(info, uid) {
-		return nil, tailnet.ErrUnavailable
+	if e = ensureRuntimeProjectDir(parent, project, uid); e != nil {
+		return nil, e
 	}
 	root, e := parent.OpenRoot(project)
 	if e != nil {
 		return nil, tailnet.ErrUnavailable
 	}
-	lock, e := root.OpenFile("lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	lock, e := lockRuntimeProject(ctx, root, uid, gid)
 	if e != nil {
-		root.Close()
-		return nil, tailnet.ErrUnavailable
-	}
-	info, e = lock.Stat()
-	if e != nil || !runtimeFile(info, uid, gid, 0o600) {
-		lock.Close()
-		root.Close()
-		return nil, tailnet.ErrUnavailable
-	}
-	if e = filelock.Acquire(ctx, lock, syscall.LOCK_EX); e != nil {
-		lock.Close()
 		root.Close()
 		return nil, e
 	}
@@ -196,23 +209,36 @@ func retireRunKey(root *os.Root, file *os.File) error {
 
 // Called only under the runtime lock after observing no outstanding native exec.
 // This retires the exact completed consumer's input, not arbitrary retained files.
-func retirePendingRunKey(root *os.Root, run projectRun) error {
+func pendingRunKeyMatches(info os.FileInfo, run projectRun) bool {
+	return runtimeFile(info, run.UID, run.GID, 0o600) && info.Size() <= 1024
+}
+
+func openPendingRunKey(root *os.Root, run projectRun) (*os.File, error) {
 	before, e := root.Lstat("input/key")
 	if errors.Is(e, os.ErrNotExist) {
-		return nil
+		return nil, nil
 	}
-	if e != nil || !runtimeFile(before, run.UID, run.GID, 0o600) || before.Size() > 1024 {
-		return tailnet.ErrUnconfirmed
+	if e != nil || !pendingRunKeyMatches(before, run) {
+		return nil, tailnet.ErrUnconfirmed
 	}
 	file, e := root.OpenFile("input/key", os.O_WRONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if e != nil {
-		return tailnet.ErrUnconfirmed
+		return nil, tailnet.ErrUnconfirmed
+	}
+	info, e := file.Stat()
+	if e != nil || !os.SameFile(before, info) || !pendingRunKeyMatches(info, run) {
+		file.Close()
+		return nil, tailnet.ErrUnconfirmed
+	}
+	return file, nil
+}
+
+func retirePendingRunKey(root *os.Root, run projectRun) error {
+	file, e := openPendingRunKey(root, run)
+	if e != nil || file == nil {
+		return e
 	}
 	defer file.Close()
-	info, e := file.Stat()
-	if e != nil || !os.SameFile(before, info) || !runtimeFile(info, run.UID, run.GID, 0o600) || info.Size() > 1024 {
-		return tailnet.ErrUnconfirmed
-	}
 	return retireRunKey(root, file)
 }
 
@@ -242,22 +268,18 @@ func writeCompanionID(root *os.Root, id string) error {
 	return nil
 }
 
-func readCompanionID(base string, run projectRun, uid, gid uint32) (string, error) {
-	if !projectID.MatchString(run.Target.Project) || !containerID.MatchString(run.Target.Run) {
-		return "", tailnet.ErrInvalid
-	}
-	root, e := openRuntimeRoot(base, uid)
-	if e != nil {
-		return "", tailnet.ErrUnavailable
-	}
-	defer root.Close()
+func companionAncestorsOwned(root *os.Root, run projectRun, uid uint32) error {
 	for _, path := range []string{".", run.Target.Project, filepath.Join(run.Target.Project, run.Target.Run)} {
 		info, e := root.Lstat(path)
 		if e != nil || !rootDirectory(info, uid) {
-			return "", tailnet.ErrUnavailable
+			return tailnet.ErrUnavailable
 		}
 	}
-	file, e := root.OpenFile(filepath.Join(run.Target.Project, run.Target.Run, "companion-id"), os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	return nil
+}
+
+func readCompanionIDFile(root *os.Root, path string, uid, gid uint32) (string, error) {
+	file, e := root.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
 	if e != nil {
 		return "", tailnet.ErrUnavailable
 	}
@@ -271,6 +293,21 @@ func readCompanionID(base string, run projectRun, uid, gid uint32) (string, erro
 		return "", tailnet.ErrUnavailable
 	}
 	return string(b), nil
+}
+
+func readCompanionID(base string, run projectRun, uid, gid uint32) (string, error) {
+	if !projectID.MatchString(run.Target.Project) || !containerID.MatchString(run.Target.Run) {
+		return "", tailnet.ErrInvalid
+	}
+	root, e := openRuntimeRoot(base, uid)
+	if e != nil {
+		return "", tailnet.ErrUnavailable
+	}
+	defer root.Close()
+	if e = companionAncestorsOwned(root, run, uid); e != nil {
+		return "", e
+	}
+	return readCompanionIDFile(root, filepath.Join(run.Target.Project, run.Target.Run, "companion-id"), uid, gid)
 }
 
 // Validate the real shared resolver inode, not an arbitrary path obtained from

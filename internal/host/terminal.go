@@ -133,18 +133,30 @@ func (in TerminalRequest) valid(now time.Time) bool {
 	return validTerminalActor(in) && validTerminalWindow(in, now) && validTerminalScope(in.Action, in.Scope) && validTerminalAction(in)
 }
 
+func validTypedInput(f TerminalFrame) bool {
+	data, err := base64.StdEncoding.Strict().DecodeString(f.Data)
+	return err == nil && !strings.ContainsAny(f.Data, "\r\n") && len(data) > 0 && len(data) <= 16384 && f.Cols == 0 && f.Rows == 0
+}
+
+func validResizeInput(f TerminalFrame) bool {
+	return f.Data == "" && terminalDimensions(f.Cols, f.Rows)
+}
+
+func validIdleInput(f TerminalFrame) bool {
+	return f.Data == "" && f.Cols == 0 && f.Rows == 0
+}
+
 func (f TerminalFrame) inputValid() bool {
 	if f.Reason != "" || f.Terminals != nil {
 		return false
 	}
 	switch f.Type {
 	case "input":
-		data, err := base64.StdEncoding.Strict().DecodeString(f.Data)
-		return err == nil && !strings.ContainsAny(f.Data, "\r\n") && len(data) > 0 && len(data) <= 16384 && f.Cols == 0 && f.Rows == 0
+		return validTypedInput(f)
 	case "resize":
-		return f.Data == "" && terminalDimensions(f.Cols, f.Rows)
+		return validResizeInput(f)
 	case "heartbeat", "close":
-		return f.Data == "" && f.Cols == 0 && f.Rows == 0
+		return validIdleInput(f)
 	}
 	return false
 }
@@ -334,11 +346,42 @@ var (
 
 const terminalInspect = `{"id":{{json .ID}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "org.soda.project")}},"owner":{{json (index .Config.Labels "org.soda.owner")}},"privileged":{{json .HostConfig.Privileged}},"userns":{{json .HostConfig.UsernsMode}},"mappings":{{json .HostConfig.IDMappings}}}`
 
+type terminalInspection struct {
+	ID         string `json:"id"`
+	Running    bool   `json:"running"`
+	Project    string `json:"project"`
+	Owner      string `json:"owner"`
+	Privileged bool   `json:"privileged"`
+	Userns     string `json:"userns"`
+	Mappings   struct {
+		UIDMap []string `json:"UidMap"`
+		GIDMap []string `json:"GidMap"`
+	} `json:"mappings"`
+}
+
 func (d *Daemon) terminalContainer(ctx context.Context, id string) (string, error) {
 	return d.projectContainer(ctx, id, true)
 }
 
 // Native lifecycle may inspect stopped containers, never missing/replacement ones.
+func terminalIsolation(v terminalInspection, id string) bool {
+	if !containerID.MatchString(v.ID) || v.Project != id || v.Privileged || v.Userns != "private" {
+		return false
+	}
+	return terminalIDMap(v.Mappings.UIDMap) && terminalIDMap(v.Mappings.GIDMap)
+}
+
+func terminalTargetReady(v terminalInspection, id string, requireRunning bool) bool {
+	owner, err := strconv.ParseInt(v.Owner, 10, 64)
+	if err != nil || owner <= 0 {
+		return false
+	}
+	if requireRunning && !v.Running {
+		return false
+	}
+	return terminalIsolation(v, id)
+}
+
 func (d *Daemon) projectContainer(ctx context.Context, id string, requireRunning bool) (string, error) {
 	if !projectID.MatchString(id) {
 		return "", errors.New("invalid project")
@@ -347,23 +390,11 @@ func (d *Daemon) projectContainer(ctx context.Context, id string, requireRunning
 	if err != nil || len(data) > 4096 {
 		return "", errors.New("terminal inspection unavailable")
 	}
-	var v struct {
-		ID         string `json:"id"`
-		Running    bool   `json:"running"`
-		Project    string `json:"project"`
-		Owner      string `json:"owner"`
-		Privileged bool   `json:"privileged"`
-		Userns     string `json:"userns"`
-		Mappings   struct {
-			UIDMap []string `json:"UidMap"`
-			GIDMap []string `json:"GidMap"`
-		} `json:"mappings"`
-	}
+	var v terminalInspection
 	if err = strictjson.Decode(bytes.NewReader(data), &v); err != nil {
 		return "", errors.New("invalid terminal inspection")
 	}
-	owner, e := strconv.ParseInt(v.Owner, 10, 64)
-	if !containerID.MatchString(v.ID) || (requireRunning && !v.Running) || v.Project != id || e != nil || owner <= 0 || v.Privileged || v.Userns != "private" || !terminalIDMap(v.Mappings.UIDMap) || !terminalIDMap(v.Mappings.GIDMap) {
+	if !terminalTargetReady(v, id, requireRunning) {
 		return "", errors.New("terminal target not ready or isolated")
 	}
 	return v.ID, nil

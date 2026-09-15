@@ -101,40 +101,47 @@ func hashBytes(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToSt
 
 // publicFiles verifies directly emitted assets without another layout copy.
 // Public modes must not depend on the builder's umask.
+type publicFileSet struct {
+	root  string
+	files map[string]string
+}
+
+func (s *publicFileSet) visit(path string, d os.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(s.root, path)
+	if err != nil {
+		return err
+	}
+	info, err := d.Info()
+	if err != nil {
+		return err
+	}
+	if d.IsDir() {
+		if info.Mode() != os.ModeDir|0o755 {
+			return errors.New("public presentation directory must be 0755")
+		}
+		return nil
+	}
+	if !info.Mode().IsRegular() {
+		return errors.New("public stage symlink/special file refused")
+	}
+	if info.Mode() != 0o644 {
+		return errors.New("public presentation file must be 0644")
+	}
+	s.files[filepath.ToSlash(rel)], err = nativebuild.HashFile(path)
+	return err
+}
+
 func publicFiles(source string) (map[string]string, error) {
-	files := map[string]string{}
 	info, err := os.Lstat(source)
 	if err != nil || !info.IsDir() {
 		return nil, errors.New("real generated public directory required")
 	}
-	err = filepath.WalkDir(source, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(source, path)
-		if err != nil {
-			return err
-		}
-		info, err := d.Info()
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if info.Mode() != os.ModeDir|0o755 {
-				return errors.New("public presentation directory must be 0755")
-			}
-			return nil
-		}
-		if !info.Mode().IsRegular() {
-			return errors.New("public stage symlink/special file refused")
-		}
-		if info.Mode() != 0o644 {
-			return errors.New("public presentation file must be 0644")
-		}
-		files[filepath.ToSlash(rel)], err = nativebuild.HashFile(path)
-		return err
-	})
-	return files, err
+	s := &publicFileSet{root: source, files: map[string]string{}}
+	err = filepath.WalkDir(source, s.visit)
+	return s.files, err
 }
 
 func StagePresentation(forgejoContext, context string) (string, error) {
@@ -293,27 +300,36 @@ func Complete(source, context, archives string, p appliancerelease.Payload, run 
 	return writeReleaseMetadataAndNormalize(root, p)
 }
 
+func rewriteQuadletLine(line, reference string, image, container, unit *int) ([]string, error) {
+	switch {
+	case line == "[Unit]":
+		*unit++
+		return []string{line, "Requires=soda-image-import.service", "After=soda-image-import.service"}, nil
+	case line == "[Container]":
+		*container++
+		return []string{line, "Pull=never"}, nil
+	case strings.HasPrefix(line, "Image="):
+		*image++
+		return []string{"Image=" + reference}, nil
+	case strings.HasPrefix(line, "Pull="):
+		return nil, nil
+	case strings.HasPrefix(line, "GlobalArgs="):
+		return nil, errors.New("unexpected existing Quadlet storage arguments")
+	default:
+		return []string{line}, nil
+	}
+}
+
 func LocalQuadlet(body, reference string) (string, error) {
 	lines := strings.Split(body, "\n")
 	image, container, unit := 0, 0, 0
 	var out []string
 	for _, line := range lines {
-		switch {
-		case line == "[Unit]":
-			unit++
-			out = append(out, line, "Requires=soda-image-import.service", "After=soda-image-import.service")
-		case line == "[Container]":
-			container++
-			out = append(out, line, "Pull=never")
-		case strings.HasPrefix(line, "Image="):
-			image++
-			out = append(out, "Image="+reference)
-		case strings.HasPrefix(line, "Pull="):
-		case strings.HasPrefix(line, "GlobalArgs="):
-			return "", errors.New("unexpected existing Quadlet storage arguments")
-		default:
-			out = append(out, line)
+		extra, err := rewriteQuadletLine(line, reference, &image, &container, &unit)
+		if err != nil {
+			return "", err
 		}
+		out = append(out, extra...)
 	}
 	if image != 1 || container != 1 || unit != 1 {
 		return "", errors.New("one fixed Quadlet container/image required")

@@ -22,6 +22,31 @@ const localCAPath = "/var/lib/soda/proxy/caddy/pki/authorities/local/root.crt"
 
 type setupAddress struct{ Interface, Address string }
 
+type setupInterface struct {
+	Name      string   `json:"ifname"`
+	Flags     []string `json:"flags"`
+	Addresses []struct {
+		Local string `json:"local"`
+		Scope string `json:"scope"`
+	} `json:"addr_info"`
+}
+
+func skipSetupInterface(network setupInterface) bool {
+	up := false
+	for _, flag := range network.Flags {
+		up = up || flag == "UP"
+	}
+	return !up || network.Name == "soda0" || strings.HasPrefix(network.Name, "podman") || strings.HasPrefix(network.Name, "veth")
+}
+
+func appendSetupAddress(choices []setupAddress, seen map[string]bool, name, local, scope string) []setupAddress {
+	if _, err := privateSetupOrigin(local); err == nil && scope == "global" && !seen[local] {
+		choices = append(choices, setupAddress{name, local})
+		seen[local] = true
+	}
+	return choices
+}
+
 func privateSetupOrigin(value string) (string, error) {
 	address, err := netip.ParseAddr(value)
 	if err != nil || address.Zone() != "" || address.Is4In6() ||
@@ -36,32 +61,18 @@ func privateSetupOrigin(value string) (string, error) {
 }
 
 func setupAddresses(data []byte) ([]setupAddress, error) {
-	var interfaces []struct {
-		Name      string   `json:"ifname"`
-		Flags     []string `json:"flags"`
-		Addresses []struct {
-			Local string `json:"local"`
-			Scope string `json:"scope"`
-		} `json:"addr_info"`
-	}
+	var interfaces []setupInterface
 	if err := json.Unmarshal(data, &interfaces); err != nil {
 		return nil, errors.New("cannot inspect private setup addresses")
 	}
 	var choices []setupAddress
 	seen := map[string]bool{}
 	for _, network := range interfaces {
-		up := false
-		for _, flag := range network.Flags {
-			up = up || flag == "UP"
-		}
-		if !up || network.Name == "soda0" || strings.HasPrefix(network.Name, "podman") || strings.HasPrefix(network.Name, "veth") {
+		if skipSetupInterface(network) {
 			continue
 		}
 		for _, address := range network.Addresses {
-			if _, err := privateSetupOrigin(address.Local); err == nil && address.Scope == "global" && !seen[address.Local] {
-				choices = append(choices, setupAddress{network.Name, address.Local})
-				seen[address.Local] = true
-			}
+			choices = appendSetupAddress(choices, seen, network.Name, address.Local, address.Scope)
 		}
 	}
 	if len(choices) == 0 {
