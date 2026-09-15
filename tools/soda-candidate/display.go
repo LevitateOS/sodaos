@@ -336,6 +336,9 @@ func (r *renderer) printWhyPanelLocked() error {
 	if r.outDir != "" {
 		fmt.Fprintf(&b, "  log: %s\n", filepath.Join(r.outDir, "logs/build.log"))
 	}
+	if hint := failureHint(r.failedReason); hint != "" {
+		fmt.Fprintf(&b, "  hint: %s\n", hint)
+	}
 	_, err := io.WriteString(r.w, b.String())
 	return err
 }
