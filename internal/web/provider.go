@@ -53,6 +53,32 @@ func (p *providerLocks) lock(ctx context.Context, uid int64) (func(), error) {
 	}
 }
 
+func (s *Server) discardGrantOr(ctx context.Context, session string, fallback error) error {
+	if deleteErr := s.discardGrant(ctx, session); deleteErr != nil {
+		return deleteErr
+	}
+	return fallback
+}
+
+func (s *Server) refreshUserGrant(ctx context.Context, session string, uid int64, grant store.Grant) (store.Grant, error) {
+	secret, err := config.Secret(s.Config.OAuthSecretFile)
+	if err != nil {
+		return store.Grant{}, forgejo.ErrUnavailable
+	}
+	renewed, err := s.Forgejo.RefreshGrant(ctx, s.Config.OAuthClientID, secret, grant.Refresh)
+	if err != nil {
+		// A timeout may already have consumed the rotating refresh credential. Do
+		// not replay it or a pending provider write. Reauthenticate explicitly.
+		return store.Grant{}, s.discardGrantOr(ctx, session, store.ErrGrantUnavailable)
+	}
+	grant.Access, grant.Refresh = renewed.Access, renewed.Refresh
+	grant.Expires = renewed.ExpiresAt
+	if err = s.Store.ReplaceGrant(ctx, session, uid, grant); err != nil {
+		return store.Grant{}, s.discardGrantOr(ctx, session, err)
+	}
+	return grant, nil
+}
+
 func (s *Server) userGrant(r *http.Request, v store.Session) (store.Grant, error) {
 	cookie, err := requestCookie(r, sessionCookie)
 	if err != nil {
@@ -70,28 +96,7 @@ func (s *Server) userGrant(r *http.Request, v store.Session) (store.Grant, error
 	if grant.Expires > time.Now().Add(30*time.Second).Unix() {
 		return grant, nil
 	}
-	secret, err := config.Secret(s.Config.OAuthSecretFile)
-	if err != nil {
-		return store.Grant{}, forgejo.ErrUnavailable
-	}
-	renewed, err := s.Forgejo.RefreshGrant(r.Context(), s.Config.OAuthClientID, secret, grant.Refresh)
-	if err != nil {
-		// A timeout may already have consumed the rotating refresh credential. Do
-		// not replay it or a pending provider write. Reauthenticate explicitly.
-		if deleteErr := s.discardGrant(r.Context(), cookie.Value); deleteErr != nil {
-			return store.Grant{}, deleteErr
-		}
-		return store.Grant{}, store.ErrGrantUnavailable
-	}
-	grant.Access, grant.Refresh = renewed.Access, renewed.Refresh
-	grant.Expires = renewed.ExpiresAt
-	if err = s.Store.ReplaceGrant(r.Context(), cookie.Value, v.User.ID, grant); err != nil {
-		if deleteErr := s.discardGrant(r.Context(), cookie.Value); deleteErr != nil {
-			return store.Grant{}, deleteErr
-		}
-		return store.Grant{}, err
-	}
-	return grant, nil
+	return s.refreshUserGrant(r.Context(), cookie.Value, v.User.ID, grant)
 }
 
 func (s *Server) discardGrant(ctx context.Context, session string) error {
@@ -118,48 +123,63 @@ func (s *Server) apiProvider(next func(http.ResponseWriter, *http.Request, store
 		next(w, r, v, grant.Access)
 	}, methods...)
 }
-func providerError(w http.ResponseWriter, err error) {
-	if errors.Is(err, errRepositoryConsent) {
-		jsonError(w, 403, "consent_required", "Forgejo user and repository consent is required.")
-		return
+
+func grantReauthentication(err error) bool {
+	return errors.Is(err, store.ErrGrantUnavailable) || errors.Is(err, store.ErrGrantKey)
+}
+
+func providerOperationUnavailable(status int) bool {
+	return status == 405 || status == 423
+}
+
+func providerValidationStatus(status int) bool {
+	return status == 400 || status == 422
+}
+
+func providerHTTPStatus(native *forgejo.HTTPError) (int, string, string, bool) {
+	switch native.Status {
+	case 401:
+		return 401, "provider_unauthenticated", "Forgejo authorization expired; sign in again.", true
+	case 403:
+		return 403, "provider_forbidden", "Forgejo denied this operation.", true
+	case 404:
+		return 404, "provider_not_found", "Forgejo object not found or not visible.", true
+	case 409:
+		return 409, "provider_conflict", "Forgejo reported a conflict; reload before editing.", true
+	case 429:
+		return 429, "provider_rate_limit", "Forgejo rate limit reached; try later.", true
 	}
-	if errors.Is(err, errProviderIdentity) {
-		jsonError(w, 401, "provider_identity_mismatch", "Sign in again.")
-		return
+	if providerOperationUnavailable(native.Status) {
+		return 409, "provider_operation_unavailable", "Forgejo does not permit this operation in its current state or settings.", true
 	}
-	if errors.Is(err, forgejo.ErrResponseTooLarge) {
-		jsonError(w, 413, "provider_response_too_large", "This object exceeds the dashboard's supported size. Use native Git or Forgejo for larger files.")
-		return
+	if providerValidationStatus(native.Status) {
+		return 422, "provider_validation", "Forgejo rejected the supplied fields.", true
 	}
-	if errors.Is(err, store.ErrGrantUnavailable) || errors.Is(err, store.ErrGrantKey) {
-		jsonError(w, 401, "reauthentication_required", "Sign in again to authorize Forgejo access.")
-		return
+	return 0, "", "", false
+}
+
+func knownProviderError(err error) (int, string, string, bool) {
+	switch {
+	case errors.Is(err, errRepositoryConsent):
+		return 403, "consent_required", "Forgejo user and repository consent is required.", true
+	case errors.Is(err, errProviderIdentity):
+		return 401, "provider_identity_mismatch", "Sign in again.", true
+	case errors.Is(err, forgejo.ErrResponseTooLarge):
+		return 413, "provider_response_too_large", "This object exceeds the dashboard's supported size. Use native Git or Forgejo for larger files.", true
+	case grantReauthentication(err):
+		return 401, "reauthentication_required", "Sign in again to authorize Forgejo access.", true
 	}
 	var native *forgejo.HTTPError
-	if errors.As(err, &native) {
-		switch native.Status {
-		case 401:
-			jsonError(w, 401, "provider_unauthenticated", "Forgejo authorization expired; sign in again.")
-			return
-		case 403:
-			jsonError(w, 403, "provider_forbidden", "Forgejo denied this operation.")
-			return
-		case 404:
-			jsonError(w, 404, "provider_not_found", "Forgejo object not found or not visible.")
-			return
-		case 405, 423:
-			jsonError(w, 409, "provider_operation_unavailable", "Forgejo does not permit this operation in its current state or settings.")
-			return
-		case 409:
-			jsonError(w, 409, "provider_conflict", "Forgejo reported a conflict; reload before editing.")
-			return
-		case 400, 422:
-			jsonError(w, 422, "provider_validation", "Forgejo rejected the supplied fields.")
-			return
-		case 429:
-			jsonError(w, 429, "provider_rate_limit", "Forgejo rate limit reached; try later.")
-			return
-		}
+	if !errors.As(err, &native) {
+		return 0, "", "", false
+	}
+	return providerHTTPStatus(native)
+}
+
+func providerError(w http.ResponseWriter, err error) {
+	if code, kind, msg, ok := knownProviderError(err); ok {
+		jsonError(w, code, kind, msg)
+		return
 	}
 	jsonError(w, 503, "provider_unavailable", "Forgejo could not complete this request. A write may have completed; inspect native state before retrying.")
 }

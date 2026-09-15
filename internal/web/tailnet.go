@@ -17,6 +17,7 @@ func (s *Server) tailnetRoutes() {
 	s.mux.HandleFunc("/api/repositories/{repositoryID}/tailnet-options", s.apiProtected(s.apiTailnetOptions, http.MethodGet))
 	s.mux.HandleFunc("/api/environments/{id}/tailnet", s.apiProtected(s.apiProjectTailnet, http.MethodGet, http.MethodPost))
 }
+
 func tailnetQuery(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
@@ -25,6 +26,7 @@ func tailnetQuery(w http.ResponseWriter, r *http.Request) bool {
 	}
 	return true
 }
+
 func (s *Server) tailnetSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
 	cookie, err := requestCookie(r, sessionCookie)
 	if err != nil || r.Context().Err() != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
@@ -33,6 +35,7 @@ func (s *Server) tailnetSession(w http.ResponseWriter, r *http.Request, v store.
 	}
 	return true
 }
+
 func tailnetError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, tailnet.ErrInvalid):
@@ -47,6 +50,7 @@ func tailnetError(w http.ResponseWriter, err error) {
 		jsonError(w, 502, "tailnet_unconfirmed", "Operation unconfirmed. Policy, credentials or native state may have changed. Observe before retrying; no automatic rollback or replay occurred.")
 	}
 }
+
 func (s *Server) apiTailnetSettings(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) || !s.tailnetSession(w, r, v) {
 		return
@@ -61,6 +65,7 @@ func (s *Server) apiTailnetSettings(w http.ResponseWriter, r *http.Request, v st
 	}
 	jsonResponse(w, 200, result)
 }
+
 func (s *Server) apiTailnetHost(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) {
 		return
@@ -86,6 +91,7 @@ func (s *Server) apiTailnetHost(w http.ResponseWriter, r *http.Request, v store.
 	}
 	jsonResponse(w, 200, result)
 }
+
 func (s *Server) apiTailnetEnrollment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !s.authorizeOperator(w, r, v) || !tailnetQuery(w, r) {
 		return
@@ -113,6 +119,7 @@ func (s *Server) apiTailnetEnrollment(w http.ResponseWriter, r *http.Request, v 
 	}
 	jsonResponse(w, 200, result)
 }
+
 func (s *Server) apiTailnetOptions(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !tailnetQuery(w, r) {
 		return
@@ -144,6 +151,7 @@ func (s *Server) apiTailnetOptions(w http.ResponseWriter, r *http.Request, v sto
 	}
 	jsonResponse(w, 200, result)
 }
+
 func (s *Server) authorizeProjectTailnet(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
 	if v.User.ID == s.Config.OperatorID {
 		return s.authorizeOperator(w, r, v)
@@ -174,44 +182,69 @@ func (s *Server) authorizeProjectTailnet(w http.ResponseWriter, r *http.Request,
 	}
 	return true
 }
+
+func parseProjectTailnetMutation(w http.ResponseWriter, r *http.Request, in *tailnet.ProjectRequest) bool {
+	if r.Method != http.MethodPost {
+		return true
+	}
+	// Project ID is selected only by the canonical route/store association.
+	var body struct {
+		Action    string `json:"action"`
+		Revision  string `json:"revision"`
+		Binding   string `json:"binding,omitempty"`
+		ConfirmID string `json:"confirm_id"`
+	}
+	if !decodeAPIObject(w, r, &body) {
+		return false
+	}
+	in.Action, in.Revision, in.Binding, in.ConfirmID = body.Action, body.Revision, body.Binding, body.ConfirmID
+	if in.Action == "inspect" || in.Validate() != nil {
+		tailnetError(w, tailnet.ErrInvalid)
+		return false
+	}
+	return true
+}
+
+func (s *Server) admitProjectTailnetDispatch(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
+	return s.authorizeProjectTailnet(w, r, v, p) && s.tailnetSession(w, r, v)
+}
+
+func (s *Server) confirmProjectTailnetDispatch(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) bool {
+	return s.tailnetSession(w, r, v) && s.authorizeProjectTailnet(w, r, v, p)
+}
+
+func (s *Server) admitProjectTailnetRequest(w http.ResponseWriter, r *http.Request, v store.Session) (store.Project, bool) {
+	p, ok := s.loadEnvironment(w, r)
+	if !ok {
+		return p, false
+	}
+	if !s.authorizeProjectTailnet(w, r, v, p) {
+		return p, false
+	}
+	if !p.Ready {
+		jsonError(w, 409, "not_provisioned", "Project provisioning is incomplete.")
+		return p, false
+	}
+	return p, true
+}
+
 func (s *Server) apiProjectTailnet(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if !tailnetQuery(w, r) {
 		return
 	}
-	p, ok := s.loadEnvironment(w, r)
+	p, ok := s.admitProjectTailnetRequest(w, r, v)
 	if !ok {
 		return
 	}
-	if !s.authorizeProjectTailnet(w, r, v, p) {
-		return
-	}
-	if !p.Ready {
-		jsonError(w, 409, "not_provisioned", "Project provisioning is incomplete.")
-		return
-	}
 	in := tailnet.ProjectRequest{Project: p.ID, Action: "inspect"}
-	if r.Method == http.MethodPost {
-		// Project ID is selected only by the canonical route/store association.
-		var body struct {
-			Action    string `json:"action"`
-			Revision  string `json:"revision"`
-			Binding   string `json:"binding,omitempty"`
-			ConfirmID string `json:"confirm_id"`
-		}
-		if !decodeAPIObject(w, r, &body) {
-			return
-		}
-		in.Action, in.Revision, in.Binding, in.ConfirmID = body.Action, body.Revision, body.Binding, body.ConfirmID
-		if in.Action == "inspect" || in.Validate() != nil {
-			tailnetError(w, tailnet.ErrInvalid)
-			return
-		}
+	if !parseProjectTailnetMutation(w, r, &in) {
+		return
 	}
-	if !s.authorizeProjectTailnet(w, r, v, p) || !s.tailnetSession(w, r, v) {
+	if !s.admitProjectTailnetDispatch(w, r, v, p) {
 		return
 	}
 	result, err := s.Host.TailnetProject(r.Context(), in)
-	if !s.tailnetSession(w, r, v) || !s.authorizeProjectTailnet(w, r, v, p) {
+	if !s.confirmProjectTailnetDispatch(w, r, v, p) {
 		return
 	}
 	if err != nil {

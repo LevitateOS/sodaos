@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -9,9 +10,11 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-var errRepositoryConsent = errors.New("repository and user consent required")
-var errProviderIdentity = errors.New("provider identity differs from Soda session")
-var errRepositoryDenied = errors.New("repository is not visible")
+var (
+	errRepositoryConsent = errors.New("repository and user consent required")
+	errProviderIdentity  = errors.New("provider identity differs from Soda session")
+	errRepositoryDenied  = errors.New("repository is not visible")
+)
 
 // Request-local verified facts, never serialized or persisted as copied roles.
 type repositoryAccess struct {
@@ -20,32 +23,52 @@ type repositoryAccess struct {
 	grant      store.Grant
 }
 
+func repositoryConsentOK(grant store.Grant) bool {
+	return forgejo.HasScope(grant.Scopes, "read:user") && forgejo.HasScope(grant.Scopes, "read:repository")
+}
+
+func denyHiddenRepository(err error) error {
+	var native *forgejo.HTTPError
+	if errors.As(err, &native) && hiddenRepositoryStatus(native.Status) {
+		return errors.Join(errRepositoryDenied, err)
+	}
+	return err
+}
+
+func hiddenRepositoryStatus(status int) bool {
+	return status == 403 || status == 404
+}
+
+func (s *Server) providerActor(ctx context.Context, grant store.Grant, v store.Session) (forgejo.User, error) {
+	actor, err := s.Forgejo.Current(ctx, grant.Access)
+	if err != nil {
+		return actor, err
+	}
+	if actor.ID != v.User.ID {
+		return actor, errProviderIdentity
+	}
+	if actor.Login == "" {
+		return actor, forgejo.ErrInvalidResponse
+	}
+	return actor, nil
+}
+
 func (s *Server) visibleRepository(r *http.Request, v store.Session, id int64) (repositoryAccess, error) {
 	var access repositoryAccess
 	grant, err := s.userGrant(r, v)
 	if err != nil {
 		return access, err
 	}
-	if !forgejo.HasScope(grant.Scopes, "read:user") || !forgejo.HasScope(grant.Scopes, "read:repository") {
+	if !repositoryConsentOK(grant) {
 		return access, errRepositoryConsent
 	}
-	actor, err := s.Forgejo.Current(r.Context(), grant.Access)
+	actor, err := s.providerActor(r.Context(), grant, v)
 	if err != nil {
 		return access, err
-	}
-	if actor.ID != v.User.ID {
-		return access, errProviderIdentity
-	}
-	if actor.Login == "" {
-		return access, forgejo.ErrInvalidResponse
 	}
 	repo, err := s.Forgejo.RepositoryByID(r.Context(), grant.Access, id)
 	if err != nil {
-		var native *forgejo.HTTPError
-		if errors.As(err, &native) && (native.Status == 403 || native.Status == 404) {
-			err = errors.Join(errRepositoryDenied, err)
-		}
-		return access, err
+		return access, denyHiddenRepository(err)
 	}
 	return repositoryAccess{actor, repo, grant}, nil
 }

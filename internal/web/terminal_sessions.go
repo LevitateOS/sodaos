@@ -53,6 +53,7 @@ func (s *Server) cancelTerminals(contextID, token string) {
 		}
 	}
 }
+
 func (s *Server) CloseTerminals() {
 	s.terminalMu.Lock()
 	s.terminalClosed = true
@@ -62,6 +63,7 @@ func (s *Server) CloseTerminals() {
 	s.terminalMu.Unlock()
 	s.terminalWG.Wait()
 }
+
 func (s *Server) terminalCurrent(ctx context.Context, token string, original store.Session, project store.Project, login string) bool {
 	check, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -77,9 +79,20 @@ func (s *Server) terminalCurrent(ctx context.Context, token string, original sto
 	return err == nil && member == login
 }
 
-func (s *Server) terminalAccount(w http.ResponseWriter, r *http.Request, v store.Session) (store.Project, string, string, bool) {
+func rejectTerminalQuery(w http.ResponseWriter, r *http.Request) bool {
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
 		jsonError(w, 400, "invalid_request", "No query parameters are accepted.")
+		return true
+	}
+	return false
+}
+
+func terminalMemberReady(p store.Project, login string, err error) bool {
+	return err == nil && p.Ready && login != "root" && projectLogin.MatchString(login)
+}
+
+func (s *Server) terminalAccount(w http.ResponseWriter, r *http.Request, v store.Session) (store.Project, string, string, bool) {
+	if rejectTerminalQuery(w, r) {
 		return store.Project{}, "", "", false
 	}
 	p, ok := s.loadEnvironment(w, r)
@@ -87,7 +100,7 @@ func (s *Server) terminalAccount(w http.ResponseWriter, r *http.Request, v store
 		return p, "", "", false
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
-	if err != nil || !p.Ready || login == "root" || !projectLogin.MatchString(login) {
+	if !terminalMemberReady(p, login, err) {
 		jsonError(w, 403, "membership_required", "An existing account is required.")
 		return p, "", "", false
 	}
@@ -105,6 +118,14 @@ func (s *Server) terminalAccount(w http.ResponseWriter, r *http.Request, v store
 	return p, login, cookie.Value, true
 }
 
+func validTerminalGeometry(cols, rows int, name string) bool {
+	return cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300 && validTerminalName(name)
+}
+
+func reservedTerminal(items []host.TerminalState, id string, err error) bool {
+	return err == nil && len(items) == 1 && items[0].ID == id
+}
+
 func (s *Server) apiReserveTerminal(w http.ResponseWriter, r *http.Request, v store.Session) {
 	var in struct {
 		Cols int    `json:"cols"`
@@ -114,7 +135,7 @@ func (s *Server) apiReserveTerminal(w http.ResponseWriter, r *http.Request, v st
 	if !decodeAPIObject(w, r, &in) {
 		return
 	}
-	if in.Cols < 2 || in.Cols > 500 || in.Rows < 2 || in.Rows > 300 || !validTerminalName(in.Name) {
+	if !validTerminalGeometry(in.Cols, in.Rows, in.Name) {
 		jsonError(w, 400, "invalid_request", "Choose bounded terminal dimensions and name.")
 		return
 	}
@@ -124,11 +145,29 @@ func (s *Server) apiReserveTerminal(w http.ResponseWriter, r *http.Request, v st
 	}
 	id := newTerminalID()
 	items, err := s.terminalOperation(r, v, p, login, token, host.TerminalRequest{Action: "reserve", ID: id, Cols: in.Cols, Rows: in.Rows, Name: in.Name, Scope: terminalCreationScope(v)})
-	if err != nil || len(items) != 1 || items[0].ID != id {
+	if !reservedTerminal(items, id, err) {
 		jsonError(w, 503, "terminal_unavailable", "Terminal reservation unavailable; no shell creation was requested.")
 		return
 	}
 	jsonResponse(w, 201, map[string]string{"id": id})
+}
+
+func terminalReadAction(action string) bool {
+	return action == "list" || action == "inspect"
+}
+
+func (s *Server) terminalOperationAdmitted(ctx context.Context, token string, v store.Session, p store.Project, login string, read bool) bool {
+	return !s.terminalClosed && (read || !s.terminalStopping[p.ID]) && len(s.terminalPeers) < 128 && s.terminalCurrent(ctx, token, v, p, login)
+}
+
+func (s *Server) terminalStillAuthorized(ctx context.Context, token string, v store.Session, p store.Project, login string) bool {
+	return ctx.Err() == nil && !s.terminalClosed && s.terminalCurrent(ctx, token, v, p, login)
+}
+
+func (s *Server) dropTerminalPeer(r *http.Request) {
+	s.terminalMu.Lock()
+	delete(s.terminalPeers, r)
+	s.terminalMu.Unlock()
 }
 
 // Short native operations share logout/shutdown cancellation with attachments,
@@ -137,8 +176,7 @@ func (s *Server) terminalOperation(r *http.Request, v store.Session, p store.Pro
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	s.terminalMu.Lock()
-	read := in.Action == "list" || in.Action == "inspect"
-	if s.terminalClosed || (!read && s.terminalStopping[p.ID]) || len(s.terminalPeers) >= 128 || !s.terminalCurrent(ctx, token, v, p, login) {
+	if !s.terminalOperationAdmitted(ctx, token, v, p, login, terminalReadAction(in.Action)) {
 		s.terminalMu.Unlock()
 		return nil, errors.New("terminal operation unavailable")
 	}
@@ -149,11 +187,11 @@ func (s *Server) terminalOperation(r *http.Request, v store.Session, p store.Pro
 	s.terminalWG.Add(1)
 	s.terminalMu.Unlock()
 	defer s.terminalWG.Done()
-	defer func() { s.terminalMu.Lock(); delete(s.terminalPeers, r); s.terminalMu.Unlock() }()
+	defer s.dropTerminalPeer(r)
 	in.Project, in.Login, in.Identity = p.ID, login, v.User.ID
 	items, err := s.Host.TerminalStates(ctx, in)
 	s.terminalMu.Lock()
-	current := ctx.Err() == nil && !s.terminalClosed && s.terminalCurrent(ctx, token, v, p, login)
+	current := s.terminalStillAuthorized(ctx, token, v, p, login)
 	s.terminalMu.Unlock()
 	if !current {
 		return nil, errors.New("terminal authorization ended")
@@ -166,6 +204,42 @@ func terminalMetadata(w http.ResponseWriter, view *terminalView) {
 		Terminal *terminalView `json:"terminal"`
 	}{view})
 }
+
+type terminalSessionMutation struct {
+	Action string  `json:"action"`
+	Name   *string `json:"name"`
+}
+
+func validTerminalSessionMutation(action terminalSessionMutation) bool {
+	switch action.Action {
+	case "end":
+		return action.Name == nil
+	case "rename":
+		return action.Name != nil && validTerminalName(*action.Name)
+	default:
+		return false
+	}
+}
+
+func parseTerminalSessionAction(w http.ResponseWriter, r *http.Request, in *host.TerminalRequest) bool {
+	if r.Method != "POST" {
+		return true
+	}
+	var action terminalSessionMutation
+	if !decodeAPIObject(w, r, &action) {
+		return false
+	}
+	if !validTerminalSessionMutation(action) {
+		jsonError(w, 400, "invalid_action", "Choose End or Rename for this exact terminal.")
+		return false
+	}
+	in.Action = action.Action
+	if action.Name != nil {
+		in.Name = *action.Name
+	}
+	return true
+}
+
 func (s *Server) apiTerminalSession(w http.ResponseWriter, r *http.Request, v store.Session) {
 	id := r.PathValue("terminalID")
 	if !browserTerminalID.MatchString(id) {
@@ -173,22 +247,8 @@ func (s *Server) apiTerminalSession(w http.ResponseWriter, r *http.Request, v st
 		return
 	}
 	in := host.TerminalRequest{Action: "inspect", ID: id}
-	if r.Method == "POST" {
-		var action struct {
-			Action string  `json:"action"`
-			Name   *string `json:"name"`
-		}
-		if !decodeAPIObject(w, r, &action) {
-			return
-		}
-		if action.Action != "end" && action.Action != "rename" || action.Action == "end" && action.Name != nil || action.Action == "rename" && (action.Name == nil || !validTerminalName(*action.Name)) {
-			jsonError(w, 400, "invalid_action", "Choose End or Rename for this exact terminal.")
-			return
-		}
-		in.Action = action.Action
-		if action.Name != nil {
-			in.Name = *action.Name
-		}
+	if !parseTerminalSessionAction(w, r, &in) {
+		return
 	}
 	p, login, token, ok := s.terminalAccount(w, r, v)
 	if !ok {

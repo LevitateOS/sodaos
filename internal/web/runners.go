@@ -150,6 +150,48 @@ func (s *Server) apiRunners(w http.ResponseWriter, r *http.Request, v store.Sess
 	jsonResponse(w, 200, inventory.Response(s.Config.ForgejoURL))
 }
 
+func runnerActionLocator(r *http.Request) bool {
+	return runners.ValidateID(r.PathValue("runner")) == nil && r.URL.RawQuery == "" && !r.URL.ForceQuery
+}
+
+func knownRunnerAction(action string) bool {
+	return action == "start" || action == "stop" || action == "restart" || action == "remove"
+}
+
+func confirmRunnerAction(w http.ResponseWriter, r *http.Request, id, action string) bool {
+	if action == "remove" {
+		var in struct {
+			ConfirmID string `json:"confirm_id"`
+		}
+		if !decodeAPIObject(w, r, &in) {
+			return false
+		}
+		if in.ConfirmID != id {
+			jsonError(w, 400, "confirmation_required", "Confirm the exact runner ID and destructive effects.")
+			return false
+		}
+		return true
+	}
+	var in runners.EmptyRequest
+	return decodeAPIObject(w, r, &in)
+}
+
+func parseRunnerAction(w http.ResponseWriter, r *http.Request) (string, string, bool) {
+	id, action := r.PathValue("runner"), r.PathValue("action")
+	if !runnerActionLocator(r) {
+		jsonError(w, 400, "invalid_runner", "Invalid runner operation.")
+		return "", "", false
+	}
+	if !knownRunnerAction(action) {
+		jsonError(w, 404, "not_found", "Runner operation not found.")
+		return "", "", false
+	}
+	if !confirmRunnerAction(w, r, id, action) {
+		return "", "", false
+	}
+	return id, action, true
+}
+
 func (s *Server) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store.Session) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
 	defer cancel()
@@ -157,33 +199,9 @@ func (s *Server) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store
 	if !s.authorizeOperator(w, r, v) {
 		return
 	}
-	id, action := r.PathValue("runner"), r.PathValue("action")
-	if runners.ValidateID(id) != nil || r.URL.RawQuery != "" || r.URL.ForceQuery {
-		jsonError(w, 400, "invalid_runner", "Invalid runner operation.")
+	id, action, ok := parseRunnerAction(w, r)
+	if !ok {
 		return
-	}
-	switch action {
-	case "start", "stop", "restart", "remove":
-	default:
-		jsonError(w, 404, "not_found", "Runner operation not found.")
-		return
-	}
-	if action == "remove" {
-		var in struct {
-			ConfirmID string `json:"confirm_id"`
-		}
-		if !decodeAPIObject(w, r, &in) {
-			return
-		}
-		if in.ConfirmID != id {
-			jsonError(w, 400, "confirmation_required", "Confirm the exact runner ID and destructive effects.")
-			return
-		}
-	} else {
-		var in runners.EmptyRequest
-		if !decodeAPIObject(w, r, &in) {
-			return
-		}
 	}
 	// Recheck after decoding and confirmation, immediately before dispatch.
 	cookie, err := requestCookie(r, sessionCookie)

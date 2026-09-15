@@ -65,19 +65,49 @@ func environmentDTO(p store.Project) environmentView {
 	return environmentView{p.Profile, p.ID, p.Name, strconv.FormatInt(p.RepositoryID, 10), p.Repository, strconv.FormatInt(p.OwnerID, 10), p.Ready}
 }
 
+func environmentListQuery(query url.Values, err error) (int64, bool) {
+	id, valid := positiveID(query.Get("repository_id"))
+	return id, err == nil && len(query) == 1 && len(query["repository_id"]) == 1 && valid
+}
+
+func parseEnvironmentsListQuery(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	if len(r.URL.RawQuery) > 8192 {
+		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
+		return 0, false
+	}
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	id, ok := environmentListQuery(query, err)
+	if !ok {
+		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
+		return 0, false
+	}
+	return id, true
+}
+
+func listedEnvironments(p store.Project, absent bool) []environmentView {
+	items := []environmentView{}
+	if !absent {
+		items = append(items, environmentDTO(p))
+	}
+	return items
+}
+
+func (s *Server) requireListedSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
+	cookie, cookieErr := requestCookie(r, sessionCookie)
+	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+		return false
+	}
+	return true
+}
+
 func (s *Server) apiEnvironments(w http.ResponseWriter, r *http.Request, v store.Session) {
 	if r.Method == "POST" {
 		s.apiCreateEnvironment(w, r, v)
 		return
 	}
-	if len(r.URL.RawQuery) > 8192 {
-		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
-		return
-	}
-	query, err := url.ParseQuery(r.URL.RawQuery)
-	id, valid := positiveID(query.Get("repository_id"))
-	if err != nil || len(query) != 1 || len(query["repository_id"]) != 1 || !valid {
-		jsonError(w, 400, "invalid_repository", "Provide one repository_id.")
+	id, ok := parseEnvironmentsListQuery(w, r)
+	if !ok {
 		return
 	}
 	access, err := s.visibleRepository(r, v, id)
@@ -91,20 +121,14 @@ func (s *Server) apiEnvironments(w http.ResponseWriter, r *http.Request, v store
 		jsonError(w, 503, "store_unavailable", "Could not read environment.")
 		return
 	}
-	items := []environmentView{}
-	if !absent {
-		items = append(items, environmentDTO(p))
-	}
-	cookie, cookieErr := requestCookie(r, sessionCookie)
-	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
-		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+	if !s.requireListedSession(w, r, v) {
 		return
 	}
 	jsonResponse(w, 200, struct {
 		Items      []environmentView     `json:"items"`
 		Repository repositoryContextView `json:"repository"`
 		CanCreate  bool                  `json:"can_create"`
-	}{Items: items, Repository: repositoryContextView{strconv.FormatInt(id, 10), strconv.FormatInt(access.repository.Owner.ID, 10), access.repository.Owner.Login, access.repository.Name}, CanCreate: absent && access.repository.Owner.ID == v.User.ID})
+	}{Items: listedEnvironments(p, absent), Repository: repositoryContextView{strconv.FormatInt(id, 10), strconv.FormatInt(access.repository.Owner.ID, 10), access.repository.Owner.Login, access.repository.Name}, CanCreate: absent && access.repository.Owner.ID == v.User.ID})
 }
 
 func validRepositoryPart(value string) bool {
@@ -335,6 +359,20 @@ func (s *Server) loadEnvironment(w http.ResponseWriter, r *http.Request) (store.
 	return p, true
 }
 
+func environmentProfileMismatch(p store.Project, env host.Environment) bool {
+	return p.Profile != nil && (env.Profile == nil || *p.Profile != *env.Profile)
+}
+
+func observedEnvironment(p store.Project, env host.Environment, nativeErr error) (*host.Environment, error) {
+	if nativeErr == nil && environmentProfileMismatch(p, env) {
+		nativeErr = errors.New("creation profile mismatch")
+	}
+	if nativeErr != nil {
+		return nil, nativeErr
+	}
+	return &env, nil
+}
+
 func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Session) {
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
@@ -347,16 +385,8 @@ func (s *Server) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.
 	// Even an incomplete reservation has read-only inspection; ready is a
 	// provisioning result, not evidence of a running or client-reachable service.
 	env, nativeErr := s.Host.Inspect(r.Context(), p.ID)
-	var observed *host.Environment
-	if nativeErr == nil && p.Profile != nil && (env.Profile == nil || *p.Profile != *env.Profile) {
-		nativeErr = errors.New("creation profile mismatch")
-	}
-	if nativeErr == nil {
-		observed = &env
-	}
-	cookie, cookieErr := requestCookie(r, sessionCookie)
-	if cookieErr != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
-		jsonError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
+	observed, nativeErr := observedEnvironment(p, env, nativeErr)
+	if !s.requireListedSession(w, r, v) {
 		return
 	}
 	jsonResponse(w, 200, struct {
