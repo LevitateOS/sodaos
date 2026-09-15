@@ -36,80 +36,133 @@ func (s *Server) apiRemoveDevelopmentKey(w http.ResponseWriter, r *http.Request,
 	jsonResponse(w, 200, map[string]any{"removed": true, "existing_project_access_changed": false})
 }
 
-func (s *Server) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Session) {
+func (s *Server) checkLifecycleEnvironment(w http.ResponseWriter, r *http.Request) (store.Project, bool) {
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
 		jsonError(w, 400, "invalid_request", "No query parameters are accepted.")
-		return
+		return store.Project{}, false
 	}
 	p, ok := s.loadEnvironment(w, r)
 	if !ok {
-		return
+		return store.Project{}, false
 	}
 	if !p.Ready {
 		jsonError(w, 409, "not_provisioned", "Provisioning is incomplete; do not repair or recreate it.")
+		return store.Project{}, false
+	}
+	return p, true
+}
+
+type lifecycleRequest struct {
+	Action      string `json:"action"`
+	ConfirmStop bool   `json:"confirm_stop"`
+}
+
+func decodeLifecycleRequest(w http.ResponseWriter, r *http.Request) (string, bool) {
+	var in lifecycleRequest
+	if !decodeAPIObject(w, r, &in) {
+		return "", false
+	}
+	if (in.Action != "start" && in.Action != "stop") || (in.Action == "stop" && !in.ConfirmStop) || (in.Action == "start" && in.ConfirmStop) {
+		jsonError(w, 400, "invalid_action", "Choose Start or explicitly confirm Stop for everyone.")
+		return "", false
+	}
+	return in.Action, true
+}
+
+func (s *Server) authorizeLifecycleOperator(w http.ResponseWriter, r *http.Request, v store.Session, repositoryID int64) bool {
+	if v.User.ID == s.Config.OperatorID {
+		return true
+	}
+	access, err := s.visibleRepository(r, v, repositoryID)
+	if err != nil {
+		providerError(w, err)
+		return false
+	}
+	allowed, err := s.environmentAdministrator(r, access)
+	if err != nil {
+		providerError(w, err)
+		return false
+	}
+	if !allowed {
+		jsonError(w, 403, "administrator_required", "Only the current project administrator or Soda operator can start/stop it.")
+		return false
+	}
+	return true
+}
+
+func (s *Server) checkLifecycleSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
+	cookie, err := requestCookie(r, sessionCookie)
+	if err != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
+		jsonError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
+		return false
+	}
+	return true
+}
+
+func (s *Server) acquireLifecycleStop(w http.ResponseWriter, projectID string) (func(), bool) {
+	s.terminalMu.Lock()
+	if s.terminalStopping == nil {
+		s.terminalStopping = make(map[string]bool)
+	}
+	if s.terminalStopping[projectID] {
+		s.terminalMu.Unlock()
+		jsonError(w, 409, "stop_pending", "A Stop is already pending; inspect its outcome.")
+		return nil, false
+	}
+	s.terminalStopping[projectID] = true
+	for _, peer := range s.terminalPeers {
+		if peer.project == projectID {
+			peer.cancel()
+		}
+	}
+	s.terminalMu.Unlock()
+	cleanup := func() {
+		s.terminalMu.Lock()
+		delete(s.terminalStopping, projectID)
+		s.terminalMu.Unlock()
+	}
+	return cleanup, true
+}
+
+func (s *Server) handleLifecycleMutation(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) (string, func(), bool) {
+	action, ok := decodeLifecycleRequest(w, r)
+	if !ok {
+		return "", nil, false
+	}
+	if !s.authorizeLifecycleOperator(w, r, v, p.RepositoryID) {
+		return "", nil, false
+	}
+	if !s.checkLifecycleSession(w, r, v) {
+		return "", nil, false
+	}
+	if action == "stop" {
+		cleanup, ok := s.acquireLifecycleStop(w, p.ID)
+		if !ok {
+			return "", nil, false
+		}
+		return action, cleanup, true
+	}
+	return action, nil, true
+}
+
+func (s *Server) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Session) {
+	p, ok := s.checkLifecycleEnvironment(w, r)
+	if !ok {
 		return
 	}
 	action := "inspect"
 	if r.Method == "POST" {
-		var in struct {
-			Action      string `json:"action"`
-			ConfirmStop bool   `json:"confirm_stop"`
-		}
-		if !decodeAPIObject(w, r, &in) {
+		var cleanup func()
+		var ok bool
+		action, cleanup, ok = s.handleLifecycleMutation(w, r, v, p)
+		if !ok {
 			return
 		}
-		if (in.Action != "start" && in.Action != "stop") || (in.Action == "stop" && !in.ConfirmStop) || (in.Action == "start" && in.ConfirmStop) {
-			jsonError(w, 400, "invalid_action", "Choose Start or explicitly confirm Stop for everyone.")
-			return
+		if cleanup != nil {
+			defer cleanup()
 		}
-		allowed := v.User.ID == s.Config.OperatorID
-		if !allowed {
-			access, err := s.visibleRepository(r, v, p.RepositoryID)
-			if err != nil {
-				providerError(w, err)
-				return
-			}
-			allowed, err = s.environmentAdministrator(r, access)
-			if err != nil {
-				providerError(w, err)
-				return
-			}
-		}
-		if !allowed {
-			jsonError(w, 403, "administrator_required", "Only the current project administrator or Soda operator can start/stop it.")
-			return
-		}
-		// Admit before Stop reserves/cancels terminals or Start reaches native
-		// dispatch. This also covers the operator path without provider I/O.
-		cookie, err := requestCookie(r, sessionCookie)
-		if err != nil || s.requireCurrentSession(r.Context(), cookie.Value, v) != nil {
-			jsonError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
-			return
-		}
-		action = in.Action
-		if action == "stop" {
-			s.terminalMu.Lock()
-			if s.terminalStopping == nil {
-				s.terminalStopping = make(map[string]bool)
-			}
-			if s.terminalStopping[p.ID] {
-				s.terminalMu.Unlock()
-				jsonError(w, 409, "stop_pending", "A Stop is already pending; inspect its outcome.")
-				return
-			}
-			s.terminalStopping[p.ID] = true
-			defer func() { s.terminalMu.Lock(); delete(s.terminalStopping, p.ID); s.terminalMu.Unlock() }()
-			for _, peer := range s.terminalPeers {
-				if peer.project == p.ID {
-					peer.cancel()
-				}
-			}
-			s.terminalMu.Unlock()
-		}
-	} else {
-		if _, ok := s.authorizeEnvironmentRead(w, r, v, p); !ok {
-			return
-		}
+	} else if _, ok := s.authorizeEnvironmentRead(w, r, v, p); !ok {
+		return
 	}
 	result, err := s.Host.Lifecycle(r.Context(), host.Lifecycle{Project: p.ID, Action: action})
 	if err != nil {
