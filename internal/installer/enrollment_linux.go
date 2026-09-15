@@ -462,37 +462,42 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 	return waitEnrollmentResult(ctx, c, run, selected)
 }
 
-// ServeEnrollment is an internal fixed systemd service action, not an arming
-// entrypoint. Run dispatches it without requesting a terminal, after root and
-// installed-CoreOS checks. The cgroup check prevents accidental direct execution.
-func ServeEnrollment(ctx context.Context) error {
+func validateEnrollmentServerEnvironment() (time.Duration, error) {
 	group, err := os.ReadFile("/proc/self/cgroup")
 	if err != nil || strings.TrimSpace(string(group)) != "0::/system.slice/"+enrollmentUnit {
-		return errors.New("enrollment server requires its fixed native transient service")
+		return 0, errors.New("enrollment server requires its fixed native transient service")
 	}
 	selected, remaining, err := enrollmentState()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if !enrollmentLiveAddress(selected) {
-		return errors.New("selected private address is no longer live")
+		return 0, errors.New("selected private address is no longer live")
 	}
-	phase, cancel := context.WithTimeout(ctx, remaining)
-	defer cancel()
+	return remaining, nil
+}
+
+func startEnrollmentBroker(phase context.Context) (*net.UnixListener, error) {
 	broker, err := net.ListenUnix("unix", &net.UnixAddr{Name: enrollmentSocket, Net: "unix"})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer broker.Close()
 	if err := os.Chmod(enrollmentSocket, 0o600); err != nil {
-		return err
+		broker.Close()
+		return nil, err
 	}
 	if _, err := command(phase, "systemctl", []string{"start", enrollmentSocketUnit}, nil); err != nil {
-		return errors.New("native key-import socket could not start")
+		broker.Close()
+		return nil, errors.New("native key-import socket could not start")
 	}
 	if err := enrollmentWrite(enrollmentDir, "ready", "ready\n"); err != nil {
-		return err
+		broker.Close()
+		return nil, err
 	}
+	return broker, nil
+}
+
+func acceptEnrollmentRequests(phase context.Context, broker *net.UnixListener) <-chan *net.UnixConn {
 	requests := make(chan *net.UnixConn)
 	go func() {
 		for {
@@ -508,8 +513,71 @@ func ServeEnrollment(ctx context.Context) error {
 			}
 		}
 	}()
-	// CLOCK_BOOTTIME state also expires across suspend, unlike Go's ordinary
-	// monotonic timers. A resumed machine cannot extend an old arm window.
+	return requests
+}
+
+func setEnrollmentConnectionDeadline(phase context.Context, connection *net.UnixConn) {
+	deadline := time.Now().Add(15 * time.Second)
+	if window, ok := phase.Deadline(); ok && window.Before(deadline) {
+		deadline = window
+	}
+	connection.SetDeadline(deadline)
+}
+
+func readEnrollmentKeyFromConnection(phase context.Context, connection *net.UnixConn) (string, bool, error) {
+	setEnrollmentConnectionDeadline(phase, connection)
+	unit, err := enrollmentConnectionUnit(connection)
+	if err != nil || !enrollmentReceiverUnit(unit) {
+		connection.Close()
+		return "", false, nil
+	}
+	key, err := enrollmentPublicKey(connection)
+	if err != nil {
+		io.WriteString(connection, "refused\n")
+		connection.Close()
+		return "", false, nil
+	}
+	if phase.Err() != nil {
+		connection.Close()
+		return "", false, phase.Err()
+	}
+	if _, _, err := enrollmentState(); err != nil {
+		connection.Close()
+		return "", false, err
+	}
+	return key, true, nil
+}
+
+func enrollmentCommitStatus(err error) string {
+	if err == nil {
+		return "imported\n"
+	}
+	if errors.Is(err, errEnrollmentWriteUncertain) {
+		return "uncertain\n"
+	}
+	return "failed\n"
+}
+
+func commitEnrollmentKey(phase context.Context, connection *net.UnixConn, key string) error {
+	home, err := enrollmentRootHome()
+	if err == nil {
+		err = appendEnrollmentKey(phase, home, key, 0)
+	}
+	if err == nil {
+		if _, labelErr := command(phase, "/usr/sbin/restorecon", []string{"--", home + "/.ssh", home + "/.ssh/authorized_keys"}, nil); labelErr != nil {
+			err = errEnrollmentWriteUncertain
+		}
+	}
+	status := enrollmentCommitStatus(err)
+	if writeErr := enrollmentWrite(enrollmentDir, "result", status); writeErr != nil {
+		err = writeErr
+	}
+	io.WriteString(connection, status)
+	connection.Close()
+	return err
+}
+
+func serveEnrollmentLoop(phase context.Context, broker *net.UnixListener, requests <-chan *net.UnixConn) error {
 	clockCheck := time.NewTicker(time.Second)
 	defer clockCheck.Stop()
 	for {
@@ -521,61 +589,38 @@ func ServeEnrollment(ctx context.Context) error {
 				return err
 			}
 		case connection := <-requests:
-			// The receiver has already authenticated as root through stock sshd. The
-			// local broker also checks kernel peer credentials and accepts one bounded
-			// key only. No user-selected path/account/command reaches this writer.
-			deadline := time.Now().Add(15 * time.Second)
-			if window, ok := phase.Deadline(); ok && window.Before(deadline) {
-				deadline = window
-			}
-			connection.SetDeadline(deadline)
-			if unit, err := enrollmentConnectionUnit(connection); err != nil || !enrollmentReceiverUnit(unit) {
-				connection.Close()
-				continue
-			}
-			key, err := enrollmentPublicKey(connection)
+			key, accepted, err := readEnrollmentKeyFromConnection(phase, connection)
 			if err != nil {
-				io.WriteString(connection, "refused\n")
-				connection.Close()
-				continue
-			}
-			if phase.Err() != nil {
-				connection.Close()
-				return phase.Err()
-			}
-			if _, _, err := enrollmentState(); err != nil {
-				connection.Close()
 				return err
 			}
-			// One validated import consumes the broker immediately. On service
-			// exit, native BindsTo/After ordering closes the TCP socket and
-			// all connection service cgroups, including sshd session children.
+			if !accepted {
+				continue
+			}
 			broker.Close()
-			home, err := enrollmentRootHome()
-			if err == nil {
-				err = appendEnrollmentKey(phase, home, key, 0)
-			}
-			if err == nil {
-				if _, labelErr := command(phase, "/usr/sbin/restorecon", []string{"--", home + "/.ssh", home + "/.ssh/authorized_keys"}, nil); labelErr != nil {
-					err = errEnrollmentWriteUncertain
-				}
-			}
-			// A valid commit attempt consumes the window even on an uncertain write or
-			// labeling failure. Never retry a possible completed append automatically.
-			status := "failed\n"
-			if err == nil {
-				status = "imported\n"
-			} else if errors.Is(err, errEnrollmentWriteUncertain) {
-				status = "uncertain\n"
-			}
-			if writeErr := enrollmentWrite(enrollmentDir, "result", status); writeErr != nil {
-				err = writeErr
-			}
-			io.WriteString(connection, status)
-			connection.Close()
-			return err
+			return commitEnrollmentKey(phase, connection, key)
 		}
 	}
+}
+
+// ServeEnrollment is an internal fixed systemd service action, not an arming
+// entrypoint. Run dispatches it without requesting a terminal, after root and
+// installed-CoreOS checks. The cgroup check prevents accidental direct execution.
+func ServeEnrollment(ctx context.Context) error {
+	remaining, err := validateEnrollmentServerEnvironment()
+	if err != nil {
+		return err
+	}
+	phase, cancel := context.WithTimeout(ctx, remaining)
+	defer cancel()
+
+	broker, err := startEnrollmentBroker(phase)
+	if err != nil {
+		return err
+	}
+	defer broker.Close()
+
+	requests := acceptEnrollmentRequests(phase, broker)
+	return serveEnrollmentLoop(phase, broker, requests)
 }
 
 // Kernel credentials and the peer's native service cgroup distinguish the fixed
