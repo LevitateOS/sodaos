@@ -55,53 +55,57 @@ ALTER TABLE oauth_tailnet RENAME TO oauth;`,
 // Matching versions alone do not establish an approved appliance upgrade path.
 func SchemaVersion() int { return len(migrations) }
 
-func migrate(ctx context.Context, db *sql.DB) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+func schemaPresent(ctx context.Context, tx *sql.Tx) (bool, error) {
 	var hasVersion int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name='schema_version'`).Scan(&hasVersion); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name='schema_version'`).Scan(&hasVersion); err != nil {
+		return false, err
+	}
+	return hasVersion != 0, nil
+}
+
+func refuseUnversionedDatabase(ctx context.Context, tx *sql.Tx) error {
+	var objects int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'`).Scan(&objects); err != nil {
 		return err
 	}
-	version := 0
-	if hasVersion == 0 {
-		var objects int
-		if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE name NOT LIKE 'sqlite_%'`).Scan(&objects); err != nil {
-			return err
-		}
-		if objects != 0 {
-			return errors.New("refusing an unversioned nonempty database")
-		}
-	} else {
-		var count int
-		var minimum, maximum sql.NullInt64
-		if err = tx.QueryRowContext(ctx, `SELECT count(*),min(version),max(version) FROM schema_version`).Scan(&count, &minimum, &maximum); err != nil {
-			return err
-		}
-		if count != 1 || !minimum.Valid || minimum.Int64 < 1 {
-			return errors.New("invalid database schema version record")
-		}
-		if maximum.Int64 > int64(len(migrations)) {
-			return errors.New("database schema is newer than this application")
-		}
-		version = int(minimum.Int64)
+	if objects != 0 {
+		return errors.New("refusing an unversioned nonempty database")
 	}
+	return nil
+}
+
+func currentSchemaVersion(ctx context.Context, tx *sql.Tx) (int, error) {
+	var count int
+	var minimum, maximum sql.NullInt64
+	if err := tx.QueryRowContext(ctx, `SELECT count(*),min(version),max(version) FROM schema_version`).Scan(&count, &minimum, &maximum); err != nil {
+		return 0, err
+	}
+	if count != 1 || !minimum.Valid || minimum.Int64 < 1 {
+		return 0, errors.New("invalid database schema version record")
+	}
+	if maximum.Int64 > int64(len(migrations)) {
+		return 0, errors.New("database schema is newer than this application")
+	}
+	return int(minimum.Int64), nil
+}
+
+func applyMigrations(ctx context.Context, tx *sql.Tx, version int) error {
 	for version < len(migrations) {
-		if _, err = tx.ExecContext(ctx, migrations[version]); err != nil {
+		if _, err := tx.ExecContext(ctx, migrations[version]); err != nil {
 			return fmt.Errorf("database migration %d failed: %w", version+1, err)
 		}
 		version++
-		if _, err = tx.ExecContext(ctx, `DELETE FROM schema_version`); err != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM schema_version`); err != nil {
 			return err
 		}
-		if _, err = tx.ExecContext(ctx, `INSERT INTO schema_version(version) VALUES(?)`, version); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO schema_version(version) VALUES(?)`, version); err != nil {
 			return err
 		}
 	}
-	// A version marker alone must not make an incomplete database usable. Check
-	// the required columns without reading product rows or recreating tables.
+	return nil
+}
+
+func verifyRequiredColumns(ctx context.Context, tx *sql.Tx) error {
 	for _, query := range []string{
 		`SELECT id,login,name FROM users LIMIT 0`,
 		`SELECT id,user_id,public,fingerprint FROM keys LIMIT 0`,
@@ -121,27 +125,65 @@ func migrate(ctx context.Context, db *sql.DB) error {
 			return err
 		}
 	}
-	// v10 changes a CHECK without adding a column. A forged/stale version marker
-	// over the v9 table must not pass the column check. Probe only an unbound,
-	// expired synthetic row inside a rolled-back savepoint, never product rows;
-	// no parsing or repair of sqlite_master SQL and no committed probe state.
-	if _, err = tx.ExecContext(ctx, `SAVEPOINT tailnet_return_contract`); err != nil {
+	return nil
+}
+
+func probeTailnetReturnContract(ctx context.Context, tx *sql.Tx) error {
+	if _, err := tx.ExecContext(ctx, `SAVEPOINT tailnet_return_contract`); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,settings_return) VALUES(lower(hex(randomblob(32))),'',0,'tailnet')`); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO oauth(state,verifier,expires,settings_return) VALUES(lower(hex(randomblob(32))),'',0,'tailnet')`); err != nil {
 		return errors.New("database schema is incomplete")
 	}
-	if _, err = tx.ExecContext(ctx, `ROLLBACK TO tailnet_return_contract; RELEASE tailnet_return_contract`); err != nil {
+	if _, err := tx.ExecContext(ctx, `ROLLBACK TO tailnet_return_contract; RELEASE tailnet_return_contract`); err != nil {
 		return err
 	}
-	// Immutability is a required Soda schema contract, not just an application
-	// convention. Require the named trigger on projects; do not repair or parse SQL.
+	return nil
+}
+
+func verifyImmutableCreationProfile(ctx context.Context, tx *sql.Tx) error {
 	var hasImmutableProfile int
 	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name='immutable_creation_profile' AND tbl_name='projects'`).Scan(&hasImmutableProfile); err != nil {
 		return err
 	}
 	if hasImmutableProfile != 1 {
 		return errors.New("database schema is incomplete")
+	}
+	return nil
+}
+
+func loadSchemaVersion(ctx context.Context, tx *sql.Tx) (int, error) {
+	present, err := schemaPresent(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
+	if !present {
+		return 0, refuseUnversionedDatabase(ctx, tx)
+	}
+	return currentSchemaVersion(ctx, tx)
+}
+
+func migrate(ctx context.Context, db *sql.DB) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	version, err := loadSchemaVersion(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if err = applyMigrations(ctx, tx, version); err != nil {
+		return err
+	}
+	if err = verifyRequiredColumns(ctx, tx); err != nil {
+		return err
+	}
+	if err = probeTailnetReturnContract(ctx, tx); err != nil {
+		return err
+	}
+	if err = verifyImmutableCreationProfile(ctx, tx); err != nil {
+		return err
 	}
 	return tx.Commit()
 }
