@@ -206,6 +206,21 @@ All 10 functions restructured with structural moves only; zero gaming, all helpe
 - [x] (`73e73e6`) `internal/tailnet/management.go:235` (*Management).observe (29 → 8): native status fetching, native prefs fetching, backend state validation, host preferences population, self peer application, peer list sorting, and host revision digest helpers.
 - [x] (`d5af8ee`) `internal/releasedelivery/model.go:217` AdmitChannel (29 → 7): release reference validation, channel releases validation, channel identity validation, timing/freshness check, progression verification, and highwater state advancement helpers.
 
+## Complexity top-10 batch 5 (zero exemptions)
+
+All 10 functions restructured with structural moves only; zero gaming, all helpers and entrypoints strictly below 10 ($\le 8$):
+
+- [x] (`198c2e7`) `internal/nativebuild/oci_layout.go:21` InspectOCILayout (28 → 7): input validation, layout root opener, blob loader, descriptor inspector, image set inspector, and file tally helpers.
+- [x] (`1a2906c`) `internal/acceptance/disk_vm_linux.go:19` LaunchDiskVM (28 → 6): config validator, paths/disk checks, input evidence recorder, ISO handler, and QEMU argument builder helpers.
+- [x] (`46bb8a5`) `internal/tailnet/project_status.go:8` ProjectStatus (27 → 6): status response parser, preferences validator, binding/self matchers, and peer resolution helpers.
+- [x] (`c501b5d`) `internal/tailnet/management_types.go:85` (HostRequest).Validate (27 → 6): extra-field check, signin validator, confirmed action validator, exit-node validator, and advertise action validator helpers.
+- [x] (`c789fc9`) `internal/tailnet/management_types.go:136` (EnrollmentRequest).Validate (27 → 4): tags validator, policy validator, mutation validator, payload check, and toggle validator helpers.
+- [x] (`e7453f2`) `internal/releasedelivery/fetch.go:102` verifyReleases (27 → 6): architectures resolver, image metadata/manifest verifiers, copy validator, release images verifier, identity tracker, and per-architecture release verifier helpers.
+- [x] (`46986ae`) `internal/hostimage/complete.go:145` Complete (27 → 7): payload validator, quadlet generator/writer, branding/MOTD checker, factory defaults writer, systemd service/dropin configurator, and release metadata writer/normalizer helpers.
+- [x] (`3ca434b`) `internal/acceptance/vm.go:41` (VMConfig).preflight (27 → 5): config identity validator, paths validator, SSH/trust validator, input files validator, and host toolchain/KVM checker helpers.
+- [x] (`a10fa38`) `internal/web/management.go:39` (*Server).apiLifecycle (26 → 7): environment preflight checker, request decoder, operator authorization, session validator, stop terminal manager, and mutation handler helpers.
+- [x] (`4fde77f`) `internal/nativebuild/bundle.go:127` tree (26 → 4): bundle root opener, entry file resolver, tree entry processor, payload subtree walker, and required/Sodaspaces payload verifier helpers.
+
 ## Open verification items
 
 - [ ] Grep git history for credential shapes (L1.14 covered the working tree
