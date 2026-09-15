@@ -21,6 +21,7 @@ func (v EnrollmentView) Validate() error {
 	}
 	return nil
 }
+
 func (v HostView) Validate() error {
 	if (v.Tailnet != "" && !networkPattern.MatchString(v.Tailnet)) || (v.Tailnet == "" && (v.MagicDNSEnabled || v.State == "Running")) {
 		return ErrUnavailable
@@ -56,6 +57,7 @@ func (v HostView) Validate() error {
 	}
 	return nil
 }
+
 func (v SettingsView) Validate() error {
 	if v.Enrollment.Validate() != nil || (v.Host == nil) != v.HostUnavailable {
 		return ErrUnavailable
@@ -65,6 +67,7 @@ func (v SettingsView) Validate() error {
 	}
 	return nil
 }
+
 func (v HostResult) Validate() error {
 	switch v.Outcome {
 	case "confirmed", "unconfirmed", "pending", "observed":
@@ -85,12 +88,14 @@ func (v HostResult) Validate() error {
 	}
 	return nil
 }
+
 func (v EnrollmentResult) Validate() error {
 	if v.Outcome != "confirmed" || !v.CredentialChecked && v.Saved {
 		return ErrUnavailable
 	}
 	return v.Enrollment.Validate()
 }
+
 func (v ProjectOptions) Validate() error {
 	if !validRevision(v.Revision) || (v.Default && !v.Available) || (v.Available && v.Revision == "0") {
 		return ErrUnavailable
@@ -104,33 +109,59 @@ func (v ProjectOptions) Validate() error {
 	}
 	return nil
 }
-func (v ProjectView) Validate() error {
-	if (v.AvailableBinding == "") != (v.AvailableNetwork == "") || (v.AvailableBinding != "" && (!revisionPattern.MatchString(v.AvailableBinding) || !networkPattern.MatchString(v.AvailableNetwork))) {
+
+func validProjectAvailability(binding, network string) bool {
+	if (binding == "") != (network == "") {
+		return false
+	}
+	if binding == "" {
+		return true
+	}
+	return revisionPattern.MatchString(binding) && networkPattern.MatchString(network)
+}
+
+func validProjectIdentity(v ProjectView) bool {
+	return ValidProject(v.Project) && validRevision(v.Revision) && (v.Binding == "" || revisionPattern.MatchString(v.Binding)) && (!v.Enabled || v.Binding != "")
+}
+
+func validProjectPersistence(v ProjectView) bool {
+	if v.Saved {
+		return v.Revision != "0" && (v.Outcome == "disconnect-unconfirmed" || v.Outcome == "runtime-unconfirmed" || v.Outcome == "queued")
+	}
+	return v.Outcome == "observed"
+}
+
+func validDisconnectedProjectState(v ProjectView) bool {
+	return len(v.Addresses) == 0 && v.DNSName == ""
+}
+
+func validConnectedProjectState(v ProjectView) error {
+	if !v.Enabled || len(v.Addresses) == 0 {
 		return ErrUnavailable
 	}
-	if !ValidProject(v.Project) || !validRevision(v.Revision) || (v.Binding != "" && !revisionPattern.MatchString(v.Binding)) || (v.Enabled && v.Binding == "") {
-		return ErrUnavailable
+	if _, e := peerView(nativePeer{DNSName: v.DNSName, TailscaleIPs: v.Addresses}); e != nil {
+		return e
 	}
-	if v.Saved && (v.Revision == "0" || (v.Outcome != "disconnect-unconfirmed" && v.Outcome != "runtime-unconfirmed" && v.Outcome != "queued")) {
-		return ErrUnavailable
-	}
-	if !v.Saved && v.Outcome != "observed" {
-		return ErrUnavailable
-	}
+	return nil
+}
+
+func validProjectRuntime(v ProjectView) error {
 	switch v.State {
 	case "runtime-unsupported", "off", "stopped", "pending", "needs-login", "approval-required", "unconfirmed":
-		if len(v.Addresses) != 0 || v.DNSName != "" {
+		if !validDisconnectedProjectState(v) {
 			return ErrUnavailable
 		}
 	case "connected":
-		if !v.Enabled || len(v.Addresses) == 0 {
-			return ErrUnavailable
-		}
-		if _, e := peerView(nativePeer{DNSName: v.DNSName, TailscaleIPs: v.Addresses}); e != nil {
-			return e
-		}
+		return validConnectedProjectState(v)
 	default:
 		return ErrUnavailable
 	}
 	return nil
+}
+
+func (v ProjectView) Validate() error {
+	if !validProjectAvailability(v.AvailableBinding, v.AvailableNetwork) || !validProjectIdentity(v) || !validProjectPersistence(v) {
+		return ErrUnavailable
+	}
+	return validProjectRuntime(v)
 }
