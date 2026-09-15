@@ -237,58 +237,95 @@ func writeSetupFile(path string, data []byte) error {
 	return closeErr
 }
 
-func configuredAccess(ctx context.Context, c console, root, caPath string, run commandRunner) error {
+func validInstalledHTTPSOrigin(origin *url.URL, raw string) bool {
+	if origin.Scheme != "https" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" {
+		return false
+	}
+	if origin.Path != "" && origin.Path != "/" {
+		return false
+	}
+	return !strings.ContainsAny(raw, "\r\n\x00")
+}
+
+func installedForgejoOrigin(root string) (*url.URL, string, error) {
 	data, err := readRegular(filepath.Join(root, "dashboard.json"), 65536)
 	if err != nil {
-		return errors.New("cannot read installed browser address")
+		return nil, "", errors.New("cannot read installed browser address")
 	}
 	var config struct {
 		URL string `json:"forgejo_url"`
 	}
 	if json.Unmarshal(data, &config) != nil {
-		return errors.New("invalid installed browser configuration")
+		return nil, "", errors.New("invalid installed browser configuration")
 	}
 	origin, err := url.Parse(config.URL)
-	if err != nil || origin.Scheme != "https" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || origin.Path != "" && origin.Path != "/" || strings.ContainsAny(config.URL, "\r\n\x00") {
-		return errors.New("invalid installed HTTPS address")
+	if err != nil || !validInstalledHTTPSOrigin(origin, config.URL) {
+		return nil, "", errors.New("invalid installed HTTPS address")
 	}
+	return origin, config.URL, nil
+}
+
+func usesInternalTLS(root string) (bool, error) {
 	proxy, err := readRegular(filepath.Join(root, "proxy.env"), 65536)
 	if err != nil {
-		return errors.New("cannot inspect the installed TLS mode")
+		return false, errors.New("cannot inspect the installed TLS mode")
 	}
 	local := false
 	for _, line := range strings.Split(string(proxy), "\n") {
 		local = local || line == "SODA_TLS=internal"
 	}
-	if local {
-		expected, err := privateSetupOrigin(origin.Hostname())
-		if err != nil || strings.TrimSuffix(config.URL, "/") != expected {
-			return errors.New("local TLS must use the selected private IP origin")
-		}
-	}
-	// The existing activated file admits the units through ConditionPathExists;
-	// it records a request, not successful startup. Inspect each native unit rather
-	// than replaying activation or recording another copy of service state.
+	return local, nil
+}
+
+func confirmActiveBrowserUnits(ctx context.Context, run commandRunner) error {
 	for _, unit := range []string{"forgejo.service", "soda-dashboard.service", "soda-proxy.service"} {
 		if _, err := run(ctx, "systemctl", []string{"is-active", "--quiet", unit}, nil); err != nil {
 			return fmt.Errorf("private activation was requested, but %s is not confirmed active; inspect its native service state, then rerun configure for read-only guidance; setup was not replayed", unit)
 		}
 	}
-	c.print("The browser services report active. Open %s after setting up client trust; browser login still needs verification.", config.URL)
+	return nil
+}
+
+func printLocalCAGuidance(c console, origin *url.URL, caPath string) error {
+	certificate, err := readRegular(caPath, 16384)
+	if err != nil {
+		c.print("The local certificate is not available yet. Inspect soda-proxy.service, then run configure again to show the trust instructions. Existing setup will not be replayed.")
+		return nil
+	}
+	fingerprint, err := localCAFingerprint(certificate)
+	if err != nil {
+		return err
+	}
+	c.print("Local CA certificate SHA-256: %s", fingerprint)
+	c.print("Copy only the public root.crt file over your verified SSH connection:")
+	c.print("scp root@%s:%s ./soda-local-ca.crt", origin.Host, caPath)
+	c.print("Compare its certificate fingerprint, then trust it in your laptop/browser certificate settings. Never copy the CA private key.")
+	return nil
+}
+
+func configuredAccess(ctx context.Context, c console, root, caPath string, run commandRunner) error {
+	origin, address, err := installedForgejoOrigin(root)
+	if err != nil {
+		return err
+	}
+	local, err := usesInternalTLS(root)
+	if err != nil {
+		return err
+	}
 	if local {
-		certificate, err := readRegular(caPath, 16384)
-		if err != nil {
-			c.print("The local certificate is not available yet. Inspect soda-proxy.service, then run configure again to show the trust instructions. Existing setup will not be replayed.")
-			return nil
+		expected, err := privateSetupOrigin(origin.Hostname())
+		if err != nil || strings.TrimSuffix(address, "/") != expected {
+			return errors.New("local TLS must use the selected private IP origin")
 		}
-		fingerprint, err := localCAFingerprint(certificate)
-		if err != nil {
+	}
+	if err := confirmActiveBrowserUnits(ctx, run); err != nil {
+		return err
+	}
+	c.print("The browser services report active. Open %s after setting up client trust; browser login still needs verification.", address)
+	if local {
+		if err := printLocalCAGuidance(c, origin, caPath); err != nil {
 			return err
 		}
-		c.print("Local CA certificate SHA-256: %s", fingerprint)
-		c.print("Copy only the public root.crt file over your verified SSH connection:")
-		c.print("scp root@%s:%s ./soda-local-ca.crt", origin.Host, caPath)
-		c.print("Compare its certificate fingerprint, then trust it in your laptop/browser certificate settings. Never copy the CA private key.")
 	}
 	c.print("Sign in to native Forgejo, create or choose a repository, and open Sodaspaces to create and join its development environment.")
 	c.print("Verify a browser terminal in that project. Opening this setup screen is not a completed project/access test.")
