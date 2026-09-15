@@ -15,7 +15,7 @@ if ! git diff --cached --check --; then
   fail=1
 fi
 
-# 2. Credential-shaped strings in staged additions. tskey-* is the Tailscale
+# 2. Credential-shaped strings in staged additions. tskey-* is the Tailscale # slop-audit-allow: documents the scanned Tailscale credential shape
 # shape production legitimately validates (credentialPattern, authKeyPattern),
 # so fixtures must wear it to exercise the real path; those sites carry an
 # explicit `slop-audit-allow` marker with the reason. Test trees are out of
@@ -28,7 +28,7 @@ cred_hits=$(git diff --cached -U0 --diff-filter=ACM -- . | awk '
 /^\+/ && !/^\+\+\+/ {
   line++
   body = substr($0, 2)
-  skip = (file ~ /_test\.go$/ || file ~ /\.test\.ts$/ || file ~ /^tests\// || file ~ /^\.githooks\// || file == "docs/slop-audit.md")
+  skip = (file ~ /_test\.go$/ || file ~ /\.test\.ts$/ || file ~ /^tests\//)
   if (!skip && body ~ /tskey-/ && body !~ /slop-audit-allow/) print file":"line": tskey-shaped value without allow marker"
   if (body ~ /BEGIN [A-Z ]*PRIVATE KEY|AKIA[0-9A-Z]{16}/) print file":"line": private-key block or AWS key ID"
   next }

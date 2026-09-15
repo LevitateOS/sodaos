@@ -22,18 +22,18 @@ Methodology reference lives outside this repo
 
 - [x] Pre-commit hooks (L1.9 was Slop: no `.pre-commit-config.yaml`, no
   `.husky`). `.githooks/pre-commit` now gates staged changes only: `git diff
-  --check`, credential shapes (`tskey-*`, private-key blocks, `AKIA*`),
+  --check`, credential shapes (`tskey-*`, private-key blocks, `AKIA*`), <!-- slop-audit-allow: documents the hook's scanned credential shapes -->
   `gofmt -l`, complexity below 10 on staged production Go
   (`scripts/check-complexity.sh`), `go vet` on staged packages. Clone setup:
   `git config core.hooksPath .githooks` (local, not committed).
-- [x] `tskey-` fixtures kept by design (decision A1): the prefix is the
+- [x] `tskey-` fixtures kept by design (decision A1): the prefix is the <!-- slop-audit-allow: documents why production sites keep the Tailscale-shaped prefix -->
   production validation shape (`credentialPattern`, `authKeyPattern`), so
   dummies must wear it to exercise the real path — renaming them would untest
   the validator. Instead the hook allowlists: `slop-audit-allow` markers on
   the 4 production sites, path exclusion for `*_test.go` / `*.test.ts` /
   `tests/`. Private-key blocks and `AKIA*` are never allowlisted. All four
   hook paths probed (block unmarked, silent marked, AKIA always blocked,
-  tskey-in-tests silent). L1.14's 9 hits were all read and are false
+  tskey-in-tests silent). L1.14's 9 hits were all read and are false <!-- slop-audit-allow: documents the hook probe covering tskey-shaped values in tests -->
   positives; zero confirmed credentials.
 
 ## Fix checklist — needs localization before code changes
