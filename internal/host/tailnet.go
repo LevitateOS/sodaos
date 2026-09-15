@@ -85,6 +85,20 @@ func (d *Daemon) verifyProjectContainerUnchanged(ctx context.Context, project, c
 	return nil
 }
 
+func admitProjectPolicy(action string, in tailnet.ProjectRequest) error {
+	if action == "policy" && in.Action != "inspect" {
+		return tailnet.ErrInvalid
+	}
+	return nil
+}
+
+func (d *Daemon) observeProjectTailnet(ctx context.Context, action string, in tailnet.ProjectRequest, cid string) (any, error) {
+	if action == "policy" {
+		return d.Tailnet.Project(ctx, in, cid)
+	}
+	return d.Companion.ObserveProjectTailnet(ctx, in, cid)
+}
+
 func (d *Daemon) executeTailnetProjectOrPolicy(ctx context.Context, action string, body io.Reader) (any, error) {
 	var in tailnet.ProjectRequest
 	if err := decodeTailnetBody(body, &in); err != nil {
@@ -93,8 +107,8 @@ func (d *Daemon) executeTailnetProjectOrPolicy(ctx context.Context, action strin
 	if err := in.Validate(); err != nil {
 		return nil, err
 	}
-	if action == "policy" && in.Action != "inspect" {
-		return nil, tailnet.ErrInvalid
+	if err := admitProjectPolicy(action, in); err != nil {
+		return nil, err
 	}
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
@@ -103,17 +117,9 @@ func (d *Daemon) executeTailnetProjectOrPolicy(ctx context.Context, action strin
 	if err != nil {
 		return nil, err
 	}
-	var (
-		out   any
-		opErr error
-	)
-	if action == "policy" {
-		out, opErr = d.Tailnet.Project(ctx, in, cid)
-	} else {
-		out, opErr = d.Companion.ObserveProjectTailnet(ctx, in, cid)
-	}
-	if opErr != nil {
-		return nil, opErr
+	out, err := d.observeProjectTailnet(ctx, action, in, cid)
+	if err != nil {
+		return nil, err
 	}
 	if err := d.verifyProjectContainerUnchanged(ctx, in.Project, cid); err != nil {
 		return nil, err

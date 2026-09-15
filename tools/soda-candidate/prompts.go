@@ -128,134 +128,182 @@ func outStatus(out string) string {
 // overviewFields lists every choice for the current mode. Arch is shown
 // pinned, never edited: the controller only runs natively.
 func overviewFields(p *prompter, o *options) []ovField {
-	fields := []ovField{
-		{"mode", func() string { return o.mode }, nil, func() error {
-			sel, err := p.choice("Build mode", modeOptions, modeIndex(o.mode))
-			if err != nil {
-				return err
-			}
-			o.mode = []string{"candidate", "media", "production"}[sel]
-			// Keep the fixture pickup address from leaking into production,
-			// and restore it when coming back to development media.
-			if o.mode == "production" && o.rootfsURL == fixtureRootfsURL {
-				o.rootfsURL = ""
-			}
-			if o.mode == "media" && o.rootfsURL == "" {
-				o.rootfsURL = fixtureRootfsURL
-			}
-			return nil
-		}},
-		{"output", func() string { return o.out }, func() string { return outStatus(o.out) }, func() error {
-			s, err := p.askOut("Fresh output directory", o.out)
-			if err != nil {
-				return err
-			}
-			o.out = s
-			return nil
-		}},
-		{"controller", func() string { return o.controller }, nil, func() error {
-			s, err := p.askAbsolute("Admitted soda-build executable", o.controller)
-			if err != nil {
-				return err
-			}
-			o.controller = s
-			return nil
-		}},
-		{"worker config", func() string { return o.workerConfig }, nil, func() error {
-			s, err := p.askAbsolute("Restricted worker config", o.workerConfig)
-			if err != nil {
-				return err
-			}
-			o.workerConfig = s
-			return nil
-		}},
-	}
+	fields := baseFields(p, o)
 	switch o.mode {
 	case "media":
-		fields = append(fields,
-			ovField{"rootfs URL", func() string { return o.rootfsURL }, nil, func() error {
-				s, err := p.askNonEmpty("Public rootfs base URL", o.rootfsURL)
-				if err != nil {
-					return err
-				}
-				o.rootfsURL = s
-				return nil
-			}},
-			ovField{"fast compress", func() string {
-				if o.compression == "fast" {
-					return "yes"
-				}
-				return "no"
-			}, nil, func() error {
-				def := "n"
-				if o.compression == "fast" {
-					def = "y"
-				}
-				s, err := p.askFast(def)
-				if err != nil {
-					return err
-				}
-				o.compression = s
-				return nil
-			}},
-		)
+		fields = append(fields, mediaFields(p, o)...)
 	case "production":
-		fields = append(fields,
-			ovField{"rootfs URL", func() string { return o.rootfsURL }, nil, func() error {
-				s, err := p.askNonEmpty("Public rootfs base URL", o.rootfsURL)
-				if err != nil {
-					return err
-				}
-				o.rootfsURL = s
-				return nil
-			}},
-			ovField{"qualification", func() string { return o.qualConfig }, nil, func() error {
-				s, err := p.askAbsolute("Qualification config", o.qualConfig)
-				if err != nil {
-					return err
-				}
-				o.qualConfig = s
-				return nil
-			}},
-			ovField{"signing", func() string {
-				if o.signConfig == "" {
-					return "(empty: ends incomplete)"
-				}
-				return o.signConfig
-			}, nil, func() error {
-				for {
-					s, err := p.line("Signing config (empty ends incomplete, no qualified release)", o.signConfig)
-					if err != nil {
-						return err
-					}
-					if s != "" && !filepath.IsAbs(s) {
-						if _, err := fmt.Fprintln(p.out, "Absolute path required."); err != nil {
-							return err
-						}
-						o.signConfig = s
-						continue
-					}
-					o.signConfig = s
-					return nil
-				}
-			}},
-		)
+		fields = append(fields, productionFields(p, o)...)
 	}
-	fields = append(fields, ovField{"repo prefix", func() string { return o.repoPrefix }, nil, func() error {
-		s, err := p.askNonEmpty("Image repository prefix (intent only; no publication)", o.repoPrefix)
+	return append(fields, ovField{"repo prefix", func() string { return o.repoPrefix }, nil, func() error {
+		return p.editRepoPrefix(o)
+	}})
+}
+
+func baseFields(p *prompter, o *options) []ovField {
+	return []ovField{
+		{"mode", func() string { return o.mode }, nil, func() error { return p.editMode(o) }},
+		{"output", func() string { return o.out }, func() string { return outStatus(o.out) }, func() error {
+			return p.editOut(o)
+		}},
+		{"controller", func() string { return o.controller }, nil, func() error { return p.editController(o) }},
+		{"worker config", func() string { return o.workerConfig }, nil, func() error { return p.editWorkerConfig(o) }},
+	}
+}
+
+func mediaFields(p *prompter, o *options) []ovField {
+	return []ovField{
+		{"rootfs URL", func() string { return o.rootfsURL }, nil, func() error { return p.editRootfsURL(o) }},
+		{"fast compress", func() string { return showFastCompress(o) }, nil, func() error {
+			return p.editFastCompress(o)
+		}},
+	}
+}
+
+func productionFields(p *prompter, o *options) []ovField {
+	return []ovField{
+		{"rootfs URL", func() string { return o.rootfsURL }, nil, func() error { return p.editRootfsURL(o) }},
+		{"qualification", func() string { return o.qualConfig }, nil, func() error { return p.editQualification(o) }},
+		{"signing", func() string { return showSigning(o) }, nil, func() error { return p.editSigning(o) }},
+	}
+}
+
+func (p *prompter) editMode(o *options) error {
+	sel, err := p.choice("Build mode", modeOptions, modeIndex(o.mode))
+	if err != nil {
+		return err
+	}
+	o.mode = []string{"candidate", "media", "production"}[sel]
+	// Keep the fixture pickup address from leaking into production,
+	// and restore it when coming back to development media.
+	if o.mode == "production" && o.rootfsURL == fixtureRootfsURL {
+		o.rootfsURL = ""
+	}
+	if o.mode == "media" && o.rootfsURL == "" {
+		o.rootfsURL = fixtureRootfsURL
+	}
+	return nil
+}
+
+func (p *prompter) editOut(o *options) error {
+	s, err := p.askOut("Fresh output directory", o.out)
+	if err != nil {
+		return err
+	}
+	o.out = s
+	return nil
+}
+
+func (p *prompter) editController(o *options) error {
+	s, err := p.askAbsolute("Admitted soda-build executable", o.controller)
+	if err != nil {
+		return err
+	}
+	o.controller = s
+	return nil
+}
+
+func (p *prompter) editWorkerConfig(o *options) error {
+	s, err := p.askAbsolute("Restricted worker config", o.workerConfig)
+	if err != nil {
+		return err
+	}
+	o.workerConfig = s
+	return nil
+}
+
+func (p *prompter) editRootfsURL(o *options) error {
+	s, err := p.askNonEmpty("Public rootfs base URL", o.rootfsURL)
+	if err != nil {
+		return err
+	}
+	o.rootfsURL = s
+	return nil
+}
+
+func showFastCompress(o *options) string {
+	if o.compression == "fast" {
+		return "yes"
+	}
+	return "no"
+}
+
+func (p *prompter) editFastCompress(o *options) error {
+	def := "n"
+	if o.compression == "fast" {
+		def = "y"
+	}
+	s, err := p.askFast(def)
+	if err != nil {
+		return err
+	}
+	o.compression = s
+	return nil
+}
+
+func (p *prompter) editQualification(o *options) error {
+	s, err := p.askAbsolute("Qualification config", o.qualConfig)
+	if err != nil {
+		return err
+	}
+	o.qualConfig = s
+	return nil
+}
+
+func showSigning(o *options) string {
+	if o.signConfig == "" {
+		return "(empty: ends incomplete)"
+	}
+	return o.signConfig
+}
+
+func (p *prompter) editSigning(o *options) error {
+	for {
+		s, err := p.line("Signing config (empty ends incomplete, no qualified release)", o.signConfig)
 		if err != nil {
 			return err
 		}
-		o.repoPrefix = s
-		return nil
-	}})
-	return fields
+		o.signConfig = s
+		if s == "" || filepath.IsAbs(s) {
+			return nil
+		}
+		if _, err := fmt.Fprintln(p.out, "Absolute path required."); err != nil {
+			return err
+		}
+	}
+}
+
+func (p *prompter) editRepoPrefix(o *options) error {
+	s, err := p.askNonEmpty("Image repository prefix (intent only; no publication)", o.repoPrefix)
+	if err != nil {
+		return err
+	}
+	o.repoPrefix = s
+	return nil
 }
 
 // overview shows every choice on one screen. The operator edits fields by
 // number and starts with 'go'. Nothing runs before an explicit start, and a
 // blocked start explains itself without losing any answers.
 func (p *prompter) overview(o *options, suggestOut func() string) error {
+	defaultOverview(o, suggestOut)
+	for {
+		fields := overviewFields(p, o)
+		if err := renderOverview(p.out, o, fields); err != nil {
+			return err
+		}
+		s, err := p.line("Number to edit, 'go' to start, 'quit' to abort", "go")
+		if err != nil {
+			return err
+		}
+		done, err := dispatchOverviewCmd(p, o, fields, s)
+		if err != nil || done {
+			return err
+		}
+	}
+}
+
+func defaultOverview(o *options, suggestOut func() string) {
 	if o.mode == "" {
 		o.mode = "media"
 	}
@@ -267,47 +315,54 @@ func (p *prompter) overview(o *options, suggestOut func() string) error {
 	}
 	o.controller = defaultPath(o.controller, standardControllerPaths...)
 	o.workerConfig = defaultPath(o.workerConfig, standardWorkerConfigPaths...)
-	for {
-		fields := overviewFields(p, o)
-		if _, err := fmt.Fprintf(p.out, "\nsoda-candidate | %s | arch %s (this host)\n", modeLabel(o.mode), o.arch); err != nil {
-			return err
+}
+
+func renderOverview(out io.Writer, o *options, fields []ovField) error {
+	if _, err := fmt.Fprintf(out, "\nsoda-candidate | %s | arch %s (this host)\n", modeLabel(o.mode), o.arch); err != nil {
+		return err
+	}
+	for i, f := range fields {
+		extra := ""
+		if f.status != nil {
+			extra = "  [" + f.status() + "]"
 		}
-		for i, f := range fields {
-			extra := ""
-			if f.status != nil {
-				extra = "  [" + f.status() + "]"
-			}
-			if _, err := fmt.Fprintf(p.out, "  %d) %-13s %s%s\n", i+1, f.label, f.show(), extra); err != nil {
-				return err
-			}
-		}
-		s, err := p.line("Number to edit, 'go' to start, 'quit' to abort", "go")
-		if err != nil {
-			return err
-		}
-		switch strings.ToLower(strings.TrimSpace(s)) {
-		case "go", "run", "":
-			if err := validateResolved(o); err != nil {
-				if _, werr := fmt.Fprintf(p.out, "Cannot start: %s\n", err); werr != nil {
-					return werr
-				}
-				continue
-			}
-			return nil
-		case "quit", "q", "abort":
-			return errors.New("aborted by operator")
-		}
-		n, err := strconv.Atoi(strings.TrimSpace(s))
-		if err != nil || n < 1 || n > len(fields) {
-			if _, err := fmt.Fprintln(p.out, "Type a field number, 'go', or 'quit'."); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := fields[n-1].edit(); err != nil {
+		if _, err := fmt.Fprintf(out, "  %d) %-13s %s%s\n", i+1, f.label, f.show(), extra); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func dispatchOverviewCmd(p *prompter, o *options, fields []ovField, s string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "go", "run", "":
+		return startIfValid(p.out, o)
+	case "quit", "q", "abort":
+		return true, errors.New("aborted by operator")
+	default:
+		return false, editFieldByNumber(p, fields, s)
+	}
+}
+
+func startIfValid(out io.Writer, o *options) (bool, error) {
+	if err := validateResolved(o); err != nil {
+		if _, werr := fmt.Fprintf(out, "Cannot start: %s\n", err); werr != nil {
+			return false, werr
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
+func editFieldByNumber(p *prompter, fields []ovField, s string) error {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n < 1 || n > len(fields) {
+		if _, err := fmt.Fprintln(p.out, "Type a field number, 'go', or 'quit'."); err != nil {
+			return err
+		}
+		return nil
+	}
+	return fields[n-1].edit()
 }
 
 var modeOptions = []string{

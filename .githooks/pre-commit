@@ -38,9 +38,9 @@ if [ -n "$cred_hits" ]; then
   fail=1
 fi
 
-# 3. Cyclomatic complexity below 10 on staged shipping Go (not tools/scripts/tests).
+# 3. Cyclomatic complexity below 10 on staged shipping Go (not scripts/tests).
 gofiles=$(printf '%s\n' "$staged" | grep '\.go$' || true)
-prodgofiles=$(printf '%s\n' "$staged" | grep '\.go$' | grep -E '^(internal|cmd|appliance|project-os)/' | grep -v '_test\.go$' || true)
+prodgofiles=$(printf '%s\n' "$staged" | grep '\.go$' | grep -E '^(internal|cmd|tools|appliance|project-os)/' | grep -v '_test\.go$' || true)
 if [ -n "$prodgofiles" ]; then
   # shellcheck disable=SC2086
   if ! bash scripts/check-complexity.sh $prodgofiles; then

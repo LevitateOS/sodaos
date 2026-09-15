@@ -83,6 +83,13 @@ func prepareRuntime(workerConfigPath string, listUnits func() (string, error)) e
 	if err != nil || !st.IsDir() {
 		return errors.New("worker runtime directory missing; rerun the setup script")
 	}
+	if err := refuseConcurrentBuild(listUnits); err != nil {
+		return err
+	}
+	return clearRuntimeDir(wp.Runtime)
+}
+
+func refuseConcurrentBuild(listUnits func() (string, error)) error {
 	units, err := listUnits()
 	if err != nil {
 		return err
@@ -92,12 +99,16 @@ func prepareRuntime(workerConfigPath string, listUnits func() (string, error)) e
 			return fmt.Errorf("worker unit %s is already running; refusing a concurrent build", name)
 		}
 	}
-	entries, err := os.ReadDir(wp.Runtime)
+	return nil
+}
+
+func clearRuntimeDir(dir string) error {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return fmt.Errorf("cannot inspect worker runtime directory: %w", err)
 	}
 	for _, e := range entries {
-		if err := os.RemoveAll(filepath.Join(wp.Runtime, e.Name())); err != nil {
+		if err := os.RemoveAll(filepath.Join(dir, e.Name())); err != nil {
 			return fmt.Errorf("cannot clear leftover worker runtime state: %w", err)
 		}
 	}

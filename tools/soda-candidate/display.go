@@ -30,34 +30,50 @@ func parseEvent(line string) (event, bool) {
 	kind, rest, _ := strings.Cut(line, " ")
 	switch kind {
 	case "START":
-		if rest == "" {
-			return event{}, false
-		}
-		return event{kind: kind, label: rest}, true
+		return parseStartEvent(kind, rest)
 	case "DONE", "FAILED", "CANCELLED":
-		parts := strings.Split(rest, " | ")
-		if len(parts) < 1 || parts[0] == "" {
-			return event{}, false
-		}
-		e := event{kind: kind, label: parts[0]}
-		for _, p := range parts[1:] {
-			if d, ok := strings.CutPrefix(p, "phase "); ok {
-				e.phaseDur = d
-			} else if d, ok := strings.CutPrefix(p, "section "); ok {
-				e.phaseDur = d
-			} else if d, ok := strings.CutPrefix(p, "total "); ok {
-				e.totalDur = d
-			}
-		}
-		return e, true
+		return parseDoneEvent(kind, rest)
 	case "CANDIDATE", "MEDIA", "FINAL", "LOG":
-		if rest == "" {
-			return event{}, false
-		}
-		return event{kind: kind, path: rest}, true
+		return parseArtifactEvent(kind, rest)
 	default:
 		return event{}, false
 	}
+}
+
+func parseStartEvent(kind, rest string) (event, bool) {
+	if rest == "" {
+		return event{}, false
+	}
+	return event{kind: kind, label: rest}, true
+}
+
+func parseDoneEvent(kind, rest string) (event, bool) {
+	parts := strings.Split(rest, " | ")
+	if len(parts) < 1 || parts[0] == "" {
+		return event{}, false
+	}
+	e := event{kind: kind, label: parts[0]}
+	for _, p := range parts[1:] {
+		applyDurationPart(&e, p)
+	}
+	return e, true
+}
+
+func applyDurationPart(e *event, p string) {
+	if d, ok := strings.CutPrefix(p, "phase "); ok {
+		e.phaseDur = d
+	} else if d, ok := strings.CutPrefix(p, "section "); ok {
+		e.phaseDur = d
+	} else if d, ok := strings.CutPrefix(p, "total "); ok {
+		e.totalDur = d
+	}
+}
+
+func parseArtifactEvent(kind, rest string) (event, bool) {
+	if rest == "" {
+		return event{}, false
+	}
+	return event{kind: kind, path: rest}, true
 }
 
 // phase tracks one STARTed controller phase until its DONE/FAILED line.
@@ -165,33 +181,7 @@ func phaseMark(state string) string {
 
 // draw redraws the whole table in place. Callers hold r.mu.
 func (r *renderer) draw() error {
-	now := time.Now()
-	lines := []string{fmt.Sprintf("soda-candidate | elapsed %s", wallDur(now.Sub(r.start)))}
-	for _, l := range r.log {
-		lines = append(lines, "  "+l)
-	}
-	if len(r.phases) > 0 {
-		lines = append(lines, "  steps:")
-	}
-	for _, p := range r.phases {
-		var line string
-		if p.state == "run" {
-			frame := spinner[int(now.Sub(p.started)/(250*time.Millisecond))%len(spinner)]
-			line = fmt.Sprintf("  [%c] %s  (live %s)", frame, p.label, wallDur(now.Sub(p.started)))
-		} else {
-			line = fmt.Sprintf("  %s %s", phaseMark(p.state), p.label)
-			if p.dur != "" {
-				line += "  (" + p.dur + ")"
-			}
-		}
-		lines = append(lines, line)
-	}
-	if len(r.arts) > 0 {
-		lines = append(lines, "  outputs:")
-	}
-	for _, a := range r.arts {
-		lines = append(lines, "  "+a)
-	}
+	lines := r.buildLines(time.Now())
 	var errs []error
 	if r.drawn > 0 {
 		_, err := fmt.Fprintf(r.w, "\x1b[%dA", r.drawn)
@@ -203,6 +193,38 @@ func (r *renderer) draw() error {
 	}
 	r.drawn = len(lines)
 	return errors.Join(errs...)
+}
+
+func (r *renderer) buildLines(now time.Time) []string {
+	lines := []string{fmt.Sprintf("soda-candidate | elapsed %s", wallDur(now.Sub(r.start)))}
+	for _, l := range r.log {
+		lines = append(lines, "  "+l)
+	}
+	if len(r.phases) > 0 {
+		lines = append(lines, "  steps:")
+	}
+	for _, p := range r.phases {
+		lines = append(lines, phaseLine(p, now))
+	}
+	if len(r.arts) > 0 {
+		lines = append(lines, "  outputs:")
+	}
+	for _, a := range r.arts {
+		lines = append(lines, "  "+a)
+	}
+	return lines
+}
+
+func phaseLine(p phase, now time.Time) string {
+	if p.state == "run" {
+		frame := spinner[int(now.Sub(p.started)/(250*time.Millisecond))%len(spinner)]
+		return fmt.Sprintf("  [%c] %s  (live %s)", frame, p.label, wallDur(now.Sub(p.started)))
+	}
+	line := fmt.Sprintf("  %s %s", phaseMark(p.state), p.label)
+	if p.dur != "" {
+		line += "  (" + p.dur + ")"
+	}
+	return line
 }
 
 // startTicker refreshes the elapsed header while the controller runs.

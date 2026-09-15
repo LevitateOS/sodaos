@@ -12,11 +12,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strings"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -73,13 +70,24 @@ func parseOptions(args []string) (options, error) {
 	if fs.NArg() != 0 {
 		return o, errors.New("unexpected positional arguments")
 	}
-	if o.mode != "" && o.mode != "candidate" && o.mode != "media" && o.mode != "production" {
-		return o, errors.New("--mode accepts candidate, media, or production")
+	if err := validateModeFlag(o.mode); err != nil {
+		return o, err
 	}
-	if o.arch != "x86_64" && o.arch != "aarch64" {
-		return o, errors.New("matching native x86_64 or aarch64 required")
+	return o, validateArchFlag(o.arch)
+}
+
+func validateModeFlag(mode string) error {
+	if mode != "" && mode != "candidate" && mode != "media" && mode != "production" {
+		return errors.New("--mode accepts candidate, media, or production")
 	}
-	return o, nil
+	return nil
+}
+
+func validateArchFlag(arch string) error {
+	if arch != "x86_64" && arch != "aarch64" {
+		return errors.New("matching native x86_64 or aarch64 required")
+	}
+	return nil
 }
 
 func nativeArch() (string, error) {
@@ -96,6 +104,22 @@ func nativeArch() (string, error) {
 // validateResolved checks the final answers in the controller's own
 // vocabulary. The controller re-admits everything; this never widens it.
 func validateResolved(o *options) error {
+	if err := validateCommonPaths(o); err != nil {
+		return err
+	}
+	switch o.mode {
+	case "candidate":
+		return validateCandidate(o)
+	case "media":
+		return validateMedia(o)
+	case "production":
+		return validateProduction(o)
+	default:
+		return errors.New("choose a build mode: candidate, media, or production")
+	}
+}
+
+func validateCommonPaths(o *options) error {
 	if o.controller == "" || !filepath.IsAbs(o.controller) {
 		return errors.New("absolute controller path required")
 	}
@@ -108,40 +132,43 @@ func validateResolved(o *options) error {
 	if !validOutLeaf(filepath.Base(o.out)) {
 		return errors.New("output name must be lowercase letters, digits, or dashes (worker name rule)")
 	}
-	switch o.mode {
-	case "candidate":
-		if o.rootfsURL != "" || o.compression != "" {
-			return errors.New("candidate refuses media-only inputs")
-		}
-		if o.qualConfig != "" || o.signConfig != "" {
-			return errors.New("development cannot request protected qualification or final signing")
-		}
-		return nil
-	case "media":
-		if o.qualConfig != "" || o.signConfig != "" {
-			return errors.New("development cannot request protected qualification or final signing")
-		}
-		if o.compression != "" && o.compression != "fast" {
-			return errors.New("--media-compression accepts only fast with development media")
-		}
-		if o.rootfsURL == "" {
-			return errors.New("media requires the rootfs base URL")
-		}
-		return nil
-	case "production":
-		if o.qualConfig == "" {
-			return errors.New("production requires the qualification config")
-		}
-		if o.compression != "" {
-			return errors.New("media compression is development-only")
-		}
-		if o.rootfsURL == "" {
-			return errors.New("production media requires the rootfs base URL")
-		}
-		return nil
-	default:
-		return errors.New("choose a build mode: candidate, media, or production")
+	return nil
+}
+
+func validateCandidate(o *options) error {
+	if o.rootfsURL != "" || o.compression != "" {
+		return errors.New("candidate refuses media-only inputs")
 	}
+	if o.qualConfig != "" || o.signConfig != "" {
+		return errors.New("development cannot request protected qualification or final signing")
+	}
+	return nil
+}
+
+func validateMedia(o *options) error {
+	if o.qualConfig != "" || o.signConfig != "" {
+		return errors.New("development cannot request protected qualification or final signing")
+	}
+	if o.compression != "" && o.compression != "fast" {
+		return errors.New("--media-compression accepts only fast with development media")
+	}
+	if o.rootfsURL == "" {
+		return errors.New("media requires the rootfs base URL")
+	}
+	return nil
+}
+
+func validateProduction(o *options) error {
+	if o.qualConfig == "" {
+		return errors.New("production requires the qualification config")
+	}
+	if o.compression != "" {
+		return errors.New("media compression is development-only")
+	}
+	if o.rootfsURL == "" {
+		return errors.New("production media requires the rootfs base URL")
+	}
+	return nil
 }
 
 // preflight checks the operator-side facts the controller also enforces:
@@ -149,8 +176,8 @@ func validateResolved(o *options) error {
 // directory. The controller binds its source to this working directory, so
 // starting anywhere else fails late and confusingly without this check.
 func preflight(o options) error {
-	if st, err := os.Stat("go.mod"); err != nil || st.IsDir() {
-		return errors.New("run soda-candidate from the checkout root (~/Projects/sodaos)")
+	if err := checkCheckoutRoot(); err != nil {
+		return err
 	}
 	native, err := nativeArch()
 	if err != nil {
@@ -159,6 +186,20 @@ func preflight(o options) error {
 	if o.arch != native {
 		return fmt.Errorf("arch %s is not this native %s host", o.arch, native)
 	}
+	if err := checkCleanTree(); err != nil {
+		return err
+	}
+	return checkFreshOut(o.out)
+}
+
+func checkCheckoutRoot() error {
+	if st, err := os.Stat("go.mod"); err != nil || st.IsDir() {
+		return errors.New("run soda-candidate from the checkout root (~/Projects/sodaos)")
+	}
+	return nil
+}
+
+func checkCleanTree() error {
 	cmd := exec.Command("git", "status", "--porcelain", "--untracked-files=no")
 	cmd.Dir, _ = os.Getwd()
 	out, err := cmd.Output()
@@ -168,11 +209,15 @@ func preflight(o options) error {
 	if len(out) != 0 {
 		return errors.New("controller requires committed source; commit or stash first")
 	}
-	if _, err := os.Stat(o.out); !os.IsNotExist(err) {
-		return fmt.Errorf("output %s exists; choose a fresh --out per attempt", o.out)
+	return nil
+}
+
+func checkFreshOut(out string) error {
+	if _, err := os.Stat(out); !os.IsNotExist(err) {
+		return fmt.Errorf("output %s exists; choose a fresh --out per attempt", out)
 	}
-	if st, err := os.Stat(filepath.Dir(o.out)); err != nil || !st.IsDir() {
-		return fmt.Errorf("output parent %s must already exist", filepath.Dir(o.out))
+	if st, err := os.Stat(filepath.Dir(out)); err != nil || !st.IsDir() {
+		return fmt.Errorf("output parent %s must already exist", filepath.Dir(out))
 	}
 	return nil
 }
@@ -190,27 +235,42 @@ func describe(o options) string {
 	return fmt.Sprintf("mode %s | arch %s | out %s | run %s", modeLabel(o.mode), o.arch, o.out, o.controller)
 }
 
-func run(args []string, stdin, stdout, stderr *os.File) error {
+// preseedRuntime fails fast on a preseeded config before asking anything;
+// the prepareRuntime call in run covers a path typed on the screen. Both
+// are cheap and idempotent: refuse a running worker, then drop idle
+// session state.
+func preseedRuntime(o options) error {
+	if o.workerConfig == "" {
+		return nil
+	}
+	return prepareRuntime(o.workerConfig, listRunningBuildUnits)
+}
+
+func resolveOptions(args []string, stdin, stderr *os.File) (options, error) {
 	o, err := parseOptions(args)
 	if err != nil {
+		return o, err
+	}
+	if err := preseedRuntime(o); err != nil {
+		return o, err
+	}
+	if !isTerminal(stdin) || !isTerminal(stderr) || o.nonInteractive {
+		if o.mode == "" {
+			return o, errors.New("choose --mode candidate, media, or production (or run on a terminal)")
+		}
+		return o, nil
+	}
+	p := newPrompter(bufio.NewReader(stdin), stderr)
+	if err := p.overview(&o, suggestOut); err != nil {
+		return o, err
+	}
+	return o, nil
+}
+
+func run(args []string, stdin, stdout, stderr *os.File) error {
+	o, err := resolveOptions(args, stdin, stderr)
+	if err != nil {
 		return err
-	}
-	// Fail fast on a preseeded config before asking anything; the second
-	// call below covers a path typed on the screen. Both are cheap and
-	// idempotent: refuse a running worker, then drop idle session state.
-	if o.workerConfig != "" {
-		if err := prepareRuntime(o.workerConfig, listRunningBuildUnits); err != nil {
-			return err
-		}
-	}
-	interactive := isTerminal(stdin) && isTerminal(stderr) && !o.nonInteractive
-	if interactive {
-		p := newPrompter(bufio.NewReader(stdin), stderr)
-		if err := p.overview(&o, suggestOut); err != nil {
-			return err
-		}
-	} else if o.mode == "" {
-		return errors.New("choose --mode candidate, media, or production (or run on a terminal)")
 	}
 	if err := validateResolved(&o); err != nil {
 		return err
@@ -221,87 +281,17 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 	if err := prepareRuntime(o.workerConfig, listRunningBuildUnits); err != nil {
 		return err
 	}
-	// Loopback development media serves itself: the installer needs a live
-	// pickup address, and the operator should never hand-run a file server.
-	if fixtureWanted(o.mode, o.rootfsURL) {
-		addr, err := fixtureAddr(o.rootfsURL)
-		if err != nil {
-			return err
-		}
-		stop, _, err := serveFixture(addr, o.rootfsDir)
-		if err != nil {
-			return err
-		}
-		defer stop()
-	}
-	ns, err := monotonicNS()
+	stop, err := maybeServeFixture(o)
 	if err != nil {
 		return err
 	}
-	env := os.Environ()
-	if os.Getenv("SODA_BUILD_START_NS") == "" {
-		env = append(env, fmt.Sprintf("SODA_BUILD_START_NS=%d", ns))
-	}
-	argv := append([]string{o.controller}, controllerArgs(o)...)
-	if os.Geteuid() != 0 {
-		argv = append([]string{"sudo", fmt.Sprintf("SODA_BUILD_START_NS=%d", ns)}, argv...)
-	}
-	cmd := exec.Command(argv[0], argv[1:]...)
-	cmd.Dir, _ = os.Getwd()
-	cmd.Env = env
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout
-	childErr, err := cmd.StderrPipe()
+	defer stop()
+	r, err := startControllerRun(o, stdin, stdout, stderr)
 	if err != nil {
 		return err
 	}
-	tty := isTerminal(stderr) && !o.nonInteractive
-	view := newRenderer(stderr, tty, termWidth(stderr))
-	if err := view.note("soda-candidate: " + describe(o)); err != nil {
-		return err
-	}
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	relay := make(chan os.Signal, 1)
-	signal.Notify(relay, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(relay)
-	go func() {
-		for s := range relay {
-			if sig, ok := s.(syscall.Signal); ok {
-				_ = cmd.Process.Signal(sig)
-			}
-		}
-	}()
-	if tty {
-		view.startTicker()
-	}
-	sc := bufio.NewScanner(childErr)
-	sc.Buffer(make([]byte, 64*1024), 1024*1024)
-	var feedErr error
-	for sc.Scan() {
-		if err := view.feed(strings.TrimRight(sc.Text(), "\r")); err != nil && feedErr == nil {
-			feedErr = err
-		}
-	}
-	waitErr := cmd.Wait()
-	if tty {
-		view.stopTicker()
-	}
-	if err := sc.Err(); err != nil {
-		return err
-	}
-	if feedErr != nil {
-		return feedErr
-	}
-	code := 0
-	var exit *exec.ExitError
-	if errors.As(waitErr, &exit) {
-		code = exit.ExitCode()
-	} else if waitErr != nil {
-		return waitErr
-	}
-	if err := view.finish(code); err != nil {
+	code, err := r.wait()
+	if err != nil {
 		return err
 	}
 	if code != 0 {
@@ -309,16 +299,7 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 	}
 	// File the built image where the installer was told to fetch it, so the
 	// run ends with a bootable ISO and a served rootfs, not homework.
-	if fixtureWanted(o.mode, o.rootfsURL) {
-		name, err := copyBuiltRootfs(o.out, o.rootfsDir)
-		if err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintln(stderr, "soda-candidate: serving "+name+" from "+strings.TrimSuffix(o.rootfsURL, "/")+"/"+name); err != nil {
-			return err
-		}
-	}
-	return nil
+	return fileBuiltRootfs(o, stderr)
 }
 
 func main() {
