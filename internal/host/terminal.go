@@ -85,26 +85,52 @@ func terminalDimensions(cols, rows int) bool {
 	return cols >= 2 && cols <= 500 && rows >= 2 && rows <= 300
 }
 
-func (in TerminalRequest) valid(now time.Time) bool {
-	if !projectID.MatchString(in.Project) || !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 || in.Expires <= now.Unix() || in.Expires > now.Add(12*time.Hour).Unix() || !ValidTerminalName(in.Name) {
-		return false
+func validTerminalActor(in TerminalRequest) bool {
+	return projectID.MatchString(in.Project) && loginName.MatchString(in.Login) && in.Login != "root" && in.Identity > 0 && ValidTerminalName(in.Name)
+}
+
+func validTerminalWindow(in TerminalRequest, now time.Time) bool {
+	return in.Expires > now.Unix() && in.Expires <= now.Add(12*time.Hour).Unix()
+}
+
+func validTerminalScope(action, scope string) bool {
+	creating := action == "reserve" || action == "create"
+	if creating {
+		return len(scope) == 64 && containerID.MatchString(scope)
 	}
-	if (in.Action == "reserve" || in.Action == "create") != (len(in.Scope) == 64 && containerID.MatchString(in.Scope)) || (in.Action != "reserve" && in.Action != "create" && in.Scope != "") {
-		return false
-	}
+	return scope == ""
+}
+
+func validListRequest(in TerminalRequest) bool {
+	return in.ID == "" && in.Cols == 0 && in.Rows == 0 && in.Name == ""
+}
+
+func validSizedTerminalAction(in TerminalRequest) bool {
+	return terminalDimensions(in.Cols, in.Rows) && (in.Action != "attach" || in.Name == "")
+}
+
+func validIdleTerminalAction(in TerminalRequest) bool {
+	return in.Cols == 0 && in.Rows == 0 && (in.Action == "rename" || in.Name == "")
+}
+
+func validTerminalAction(in TerminalRequest) bool {
 	if in.Action == "list" {
-		return in.ID == "" && in.Cols == 0 && in.Rows == 0 && in.Name == ""
+		return validListRequest(in)
 	}
 	if !terminalID.MatchString(in.ID) {
 		return false
 	}
 	switch in.Action {
 	case "reserve", "create", "attach":
-		return terminalDimensions(in.Cols, in.Rows) && (in.Action != "attach" || in.Name == "")
+		return validSizedTerminalAction(in)
 	case "inspect", "end", "rename":
-		return in.Cols == 0 && in.Rows == 0 && (in.Action == "rename" || in.Name == "")
+		return validIdleTerminalAction(in)
 	}
 	return false
+}
+
+func (in TerminalRequest) valid(now time.Time) bool {
+	return validTerminalActor(in) && validTerminalWindow(in, now) && validTerminalScope(in.Action, in.Scope) && validTerminalAction(in)
 }
 
 func (f TerminalFrame) inputValid() bool {
