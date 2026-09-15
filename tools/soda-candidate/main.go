@@ -104,6 +104,9 @@ func validateResolved(o *options) error {
 	if o.out == "" || !filepath.IsAbs(o.out) {
 		return errors.New("absolute --out required")
 	}
+	if !validOutLeaf(filepath.Base(o.out)) {
+		return errors.New("output name must be lowercase letters, digits, or dashes (worker name rule)")
+	}
 	switch o.mode {
 	case "candidate":
 		if o.rootfsURL != "" || o.compression != "" {
@@ -173,10 +176,26 @@ func preflight(o options) error {
 	return nil
 }
 
+// validOutLeaf mirrors the worker admission rule: the output leaf becomes
+// the worker unit name, which allows lowercase letters, digits, and dashes.
+func validOutLeaf(leaf string) bool {
+	if len(leaf) < 1 || len(leaf) > 48 {
+		return false
+	}
+	for _, r := range leaf {
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 // suggestOut names a timestamped leaf below the isolated releases parent.
+// Lowercase by worker rule; uppercase timestamps are refused at dispatch.
 func suggestOut() string {
 	cwd, _ := os.Getwd()
-	leaf := time.Now().UTC().Format("20060102T150405Z")
+	leaf := time.Now().UTC().Format("20060102t150405z")
 	return filepath.Join(cwd, ".artifacts", "releases", "isolated", leaf)
 }
 

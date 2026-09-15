@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -176,6 +177,29 @@ func TestModeSwitchKeepsFixtureURLHonest(t *testing.T) {
 	got, _ = scriptedOverview(t, prod, "1\n2\nquit\n")
 	if got.mode != "media" || got.rootfsURL != fixtureRootfsURL {
 		t.Fatalf("fixture URL not restored for media: %+v", got)
+	}
+}
+
+func TestOutLeafFollowsWorkerNameRule(t *testing.T) {
+	for _, leaf := range []string{"20260915t212541z", "manual-01", "a"} {
+		if !validOutLeaf(leaf) {
+			t.Fatalf("valid leaf refused: %q", leaf)
+		}
+	}
+	for _, leaf := range []string{"", "20260915T212541Z", "has space", "UPPER", "under_score", strings.Repeat("a", 49)} {
+		if validOutLeaf(leaf) {
+			t.Fatalf("invalid leaf accepted: %q", leaf)
+		}
+	}
+	// The exact reported failure: an uppercase timestamp must be refused
+	// with a plain message before anything privileged runs.
+	o := baseOptions()
+	o.out = "/source/.artifacts/releases/isolated/20260915T212541Z"
+	if err := validateResolved(&o); err == nil || !strings.Contains(err.Error(), "lowercase") {
+		t.Fatalf("uppercase output not refused plainly, got: %v", err)
+	}
+	if got := filepath.Base(suggestOut()); !validOutLeaf(got) {
+		t.Fatalf("suggested output violates the worker rule: %q", got)
 	}
 }
 

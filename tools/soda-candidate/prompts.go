@@ -386,6 +386,8 @@ func (p *prompter) askOut(prompt, def string) (string, error) {
 		switch {
 		case !filepath.IsAbs(s):
 			reason = "Absolute path required."
+		case !validOutLeaf(filepath.Base(s)):
+			reason = "Lowercase letters, digits, or dashes only (worker name rule)."
 		case !parentDirExists(s):
 			reason = "Parent " + filepath.Dir(s) + " must already exist."
 		case !pathAbsent(s):
