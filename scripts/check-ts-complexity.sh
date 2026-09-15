@@ -19,8 +19,8 @@ if [ -z "$files" ]; then
   exit 0
 fi
 # shellcheck disable=SC2086
-out=$("$oxlint" --format unix $files || true)
-violations=$(printf '%s\n' "$out" | grep 'eslint(complexity)]' || true)
+out=$("$oxlint" --format=agent $files || true)
+violations=$(printf '%s\n' "$out" | grep 'eslint(complexity)' || true)
 if [ -n "$violations" ]; then
   printf '%s\n' "$violations"
   count=$(printf '%s\n' "$violations" | wc -l | tr -d ' ')

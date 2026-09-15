@@ -20,6 +20,7 @@ require (
 	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/kisielk/errcheck v1.9.0 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
@@ -40,6 +41,7 @@ require (
 
 tool (
 	github.com/fzipp/gocyclo/cmd/gocyclo
+	github.com/kisielk/errcheck
 	honnef.co/go/tools/cmd/staticcheck
 	mvdan.cc/gofumpt
 )

@@ -14,8 +14,8 @@ fi
 # the production complexity backlog.
 if [ "$#" -gt 0 ]; then
   # shellcheck disable=SC2086
-  "$oxlint" -A complexity $*
+  "$oxlint" --format=agent -A complexity $*
 else
-  "$oxlint" -A complexity .
+  "$oxlint" --format=agent -A complexity .
 fi
 printf 'oxlint gate passed.\n'

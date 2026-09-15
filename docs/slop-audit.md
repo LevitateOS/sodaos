@@ -23,7 +23,7 @@ Methodology reference lives outside this repo
 - [x] Pre-commit hooks (L1.9 was Slop: no `.pre-commit-config.yaml`, no
   `.husky`). `.githooks/pre-commit` now gates staged changes only: `git diff
   --check`, credential shapes (`tskey-*`, private-key blocks, `AKIA*`), <!-- slop-audit-allow: documents the hook's scanned credential shapes -->
-  `gofmt -l`, complexity below 10 on staged production Go
+  `gofumpt`, complexity below 10 on staged production Go
   (`scripts/check-complexity.sh`), `go vet` on staged packages. Clone setup:
   `git config core.hooksPath .githooks` (local, not committed).
 - [x] `tskey-` fixtures kept by design (decision A1): the prefix is the <!-- slop-audit-allow: documents why production sites keep the Tailscale-shaped prefix -->
@@ -89,10 +89,9 @@ Methodology reference lives outside this repo
 
 ## Go quality gates (`.githooks/pre-commit`, staged scope only)
 
-Hook checks, in order: `git diff --check`, credential shapes, `gofmt -l`,
+Hook checks, in order: `git diff --check`, credential shapes,
 complexity below 10 on staged production Go, gofumpt, staticcheck
-(GOOS=linux), `go vet` (GOOS=linux, matching staticcheck so Darwin
-checkouts can analyze linux-only installer types). Whole-repo scripts below are red-but-ratcheting: the
+(GOOS=linux), errcheck (GOOS=linux), `go vet` (GOOS=linux). Whole-repo scripts below are red-but-ratcheting: the
 hook blocks new violations in staged files; legacy backlogs do not block
 unrelated commits. Mechanical-only commits that restage legacy-violating files
 (e.g. the gofumpt reformat) go through with `--no-verify` and a note.
@@ -107,6 +106,11 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
   `tee | head` SIGPIPE truncation; true backlog is ~185 files. 22 files
   reformatted (format-only, linux build passes); no mass reformat of the rest
   without an explicit decision — the hook ratchets staged files instead.
+  Pre-commit no longer runs a separate `gofmt` pass; gofumpt is a strict
+  superset.
+- [ ] errcheck: `scripts/check-errcheck.sh` via pinned `github.com/kisielk/errcheck`
+  (v1.9.0), linux analysis like staticcheck. Staged-package ratchet; do not
+  mass-fix the tree.
 - [ ] staticcheck: `scripts/check-staticcheck.sh` (pinned v0.8.1, must analyze
   GOOS=linux or installer files drop out; the script builds the tool for the
   host first — passing GOOS=linux to `go tool` builds an unexecutable binary).

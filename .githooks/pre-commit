@@ -38,18 +38,8 @@ if [ -n "$cred_hits" ]; then
   fail=1
 fi
 
-# 3. Go formatting on all staged Go files (production and tests alike).
+# 3. Cyclomatic complexity below 10 on staged production Go files.
 gofiles=$(printf '%s\n' "$staged" | grep '\.go$' || true)
-if [ -n "$gofiles" ]; then
-  # shellcheck disable=SC2086
-  unformatted=$(gofmt -l $gofiles || true)
-  if [ -n "$unformatted" ]; then
-    printf 'pre-commit: unformatted Go files (run gofmt -w):\n%s\n' "$unformatted"
-    fail=1
-  fi
-fi
-
-# 4. Cyclomatic complexity below 10 on staged production Go files.
 prodgofiles=$(printf '%s\n' "$staged" | grep '\.go$' | grep -v '_test\.go$' || true)
 if [ -n "$prodgofiles" ]; then
   # shellcheck disable=SC2086
@@ -59,8 +49,8 @@ if [ -n "$prodgofiles" ]; then
   fi
 fi
 
-# 5. gofumpt formatting on staged Go files (zero tolerance; the tree-wide
-# backlog is explicitly not blocking, only staged files are checked).
+# 4. gofumpt on staged Go files (strict gofmt; whole-tree backlog is not
+# blocking). Zero tolerance on staged files.
 if [ -n "$gofiles" ]; then
   # shellcheck disable=SC2086
   if ! bash scripts/check-gofumpt.sh $gofiles; then
@@ -69,21 +59,21 @@ if [ -n "$gofiles" ]; then
   fi
 fi
 
-# 6. staticcheck on packages containing staged Go files (linux build).
+# 5–7. Package analyzers on staged Go (linux build).
 if [ -n "$gofiles" ]; then
-  scpkgs=$(printf '%s\n' "$gofiles" | xargs -n1 dirname | sort -u | sed 's|^|./|;s|$|/|' || true)
+  gopkgs=$(printf '%s\n' "$gofiles" | xargs -n1 dirname | sort -u | sed 's|^|./|;s|$|/|' || true)
   # shellcheck disable=SC2086
-  if ! GOOS=linux bash scripts/check-staticcheck.sh $scpkgs; then
+  if ! GOOS=linux bash scripts/check-staticcheck.sh $gopkgs; then
     printf 'pre-commit: staticcheck failed on staged packages.\n'
     fail=1
   fi
-fi
-
-# 7. go vet on packages containing staged Go files.
-if [ -n "$gofiles" ]; then
-  vetpkgs=$(printf '%s\n' "$gofiles" | xargs -n1 dirname | sort -u | sed 's|^|./|;s|$|/|' || true)
   # shellcheck disable=SC2086
-  if ! GOOS=linux go vet -mod=readonly $vetpkgs; then
+  if ! GOOS=linux bash scripts/check-errcheck.sh $gopkgs; then
+    printf 'pre-commit: errcheck failed on staged packages.\n'
+    fail=1
+  fi
+  # shellcheck disable=SC2086
+  if ! GOOS=linux go vet -mod=readonly $gopkgs; then
     printf 'pre-commit: go vet failed on staged packages.\n'
     fail=1
   fi
