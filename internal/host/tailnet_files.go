@@ -25,8 +25,9 @@ type runFiles struct {
 
 func rootDirectory(info os.FileInfo, uid uint32) bool {
 	s, ok := info.Sys().(*syscall.Stat_t)
-	return ok && info.IsDir() && s.Uid == uid && info.Mode().Perm() == 0700
+	return ok && info.IsDir() && s.Uid == uid && info.Mode().Perm() == 0o700
 }
+
 func openRuntimeProject(ctx context.Context, base, project string) (*runFiles, error) {
 	return openRuntimeProjectOwned(ctx, base, project, 0, 0)
 }
@@ -62,7 +63,7 @@ func openRuntimeProjectOwned(ctx context.Context, base, project string, uid, gid
 	if e != nil || !rootDirectory(info, uid) {
 		return nil, tailnet.ErrUnavailable
 	}
-	if e = parent.Mkdir(project, 0700); e != nil && !errors.Is(e, os.ErrExist) {
+	if e = parent.Mkdir(project, 0o700); e != nil && !errors.Is(e, os.ErrExist) {
 		return nil, tailnet.ErrUnavailable
 	}
 	info, e = parent.Lstat(project)
@@ -73,13 +74,13 @@ func openRuntimeProjectOwned(ctx context.Context, base, project string, uid, gid
 	if e != nil {
 		return nil, tailnet.ErrUnavailable
 	}
-	lock, e := root.OpenFile("lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	lock, e := root.OpenFile("lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
 		root.Close()
 		return nil, tailnet.ErrUnavailable
 	}
 	info, e = lock.Stat()
-	if e != nil || !runtimeFile(info, uid, gid, 0600) {
+	if e != nil || !runtimeFile(info, uid, gid, 0o600) {
 		lock.Close()
 		root.Close()
 		return nil, tailnet.ErrUnavailable
@@ -91,6 +92,7 @@ func openRuntimeProjectOwned(ctx context.Context, base, project string, uid, gid
 	}
 	return &runFiles{root: root, lock: lock, uid: uid, gid: gid}, nil
 }
+
 func runtimeFile(info os.FileInfo, uid, gid uint32, mode os.FileMode) bool {
 	s, ok := info.Sys().(*syscall.Stat_t)
 	return ok && info.Mode().IsRegular() && info.Mode().Perm() == mode && s.Uid == uid && s.Gid == gid && s.Nlink == 1
@@ -103,7 +105,7 @@ func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 	}
 	if fresh {
 		// A pre-existing directory is an incomplete attempt, never an empty workspace.
-		if e := f.root.Mkdir(name, 0700); e != nil {
+		if e := f.root.Mkdir(name, 0o700); e != nil {
 			return nil, tailnet.ErrConflict
 		}
 	}
@@ -117,7 +119,7 @@ func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 	}
 	for _, path := range []string{"control", "input"} {
 		if fresh {
-			if e = root.Mkdir(path, 0700); e == nil {
+			if e = root.Mkdir(path, 0o700); e == nil {
 				e = root.Chown(path, int(run.UID), int(run.GID))
 			}
 			if e != nil {
@@ -131,7 +133,7 @@ func (f *runFiles) prepare(run projectRun, fresh bool) (*os.Root, error) {
 			return nil, tailnet.ErrUnavailable
 		}
 		s, ok := info.Sys().(*syscall.Stat_t)
-		if !ok || !info.IsDir() || info.Mode().Perm() != 0700 || s.Uid != run.UID || s.Gid != run.GID {
+		if !ok || !info.IsDir() || info.Mode().Perm() != 0o700 || s.Uid != run.UID || s.Gid != run.GID {
 			root.Close()
 			return nil, tailnet.ErrUnavailable
 		}
@@ -145,7 +147,7 @@ func writeRunKey(root *os.Root, run projectRun, key string) (*os.File, error) {
 	if !strings.HasPrefix(key, "tskey-auth-") || len(key) > 1024 || strings.ContainsAny(key, "\r\n\x00") { // slop-audit-allow: production shape check for real Tailscale-shaped auth keys
 		return nil, tailnet.ErrInvalid
 	}
-	file, e := root.OpenFile("input/key", os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	file, e := root.OpenFile("input/key", os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
 		return nil, tailnet.ErrConflict
 	}
@@ -161,6 +163,7 @@ func writeRunKey(root *os.Root, run projectRun, key string) (*os.File, error) {
 	}
 	return file, nil
 }
+
 func retireRunKey(root *os.Root, file *os.File) error {
 	before, e := file.Stat()
 	after, other := root.Lstat("input/key")
@@ -180,7 +183,7 @@ func retirePendingRunKey(root *os.Root, run projectRun) error {
 	if errors.Is(e, os.ErrNotExist) {
 		return nil
 	}
-	if e != nil || !runtimeFile(before, run.UID, run.GID, 0600) || before.Size() > 1024 {
+	if e != nil || !runtimeFile(before, run.UID, run.GID, 0o600) || before.Size() > 1024 {
 		return tailnet.ErrUnconfirmed
 	}
 	file, e := root.OpenFile("input/key", os.O_WRONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
@@ -189,7 +192,7 @@ func retirePendingRunKey(root *os.Root, run projectRun) error {
 	}
 	defer file.Close()
 	info, e := file.Stat()
-	if e != nil || !os.SameFile(before, info) || !runtimeFile(info, run.UID, run.GID, 0600) || info.Size() > 1024 {
+	if e != nil || !os.SameFile(before, info) || !runtimeFile(info, run.UID, run.GID, 0o600) || info.Size() > 1024 {
 		return tailnet.ErrUnconfirmed
 	}
 	return retireRunKey(root, file)
@@ -199,7 +202,7 @@ func writeCompanionID(root *os.Root, id string) error {
 	if !containerID.MatchString(id) {
 		return tailnet.ErrUnconfirmed
 	}
-	file, e := root.OpenFile("companion-id", os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
+	file, e := root.OpenFile("companion-id", os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0o600)
 	if e != nil {
 		return tailnet.ErrConflict
 	}
@@ -220,6 +223,7 @@ func writeCompanionID(root *os.Root, id string) error {
 	}
 	return nil
 }
+
 func readCompanionID(base string, run projectRun, uid, gid uint32) (string, error) {
 	if !projectID.MatchString(run.Target.Project) || !containerID.MatchString(run.Target.Run) {
 		return "", tailnet.ErrInvalid
@@ -241,7 +245,7 @@ func readCompanionID(base string, run projectRun, uid, gid uint32) (string, erro
 	}
 	defer file.Close()
 	info, e := file.Stat()
-	if e != nil || !runtimeFile(info, uid, gid, 0600) || info.Size() != 64 {
+	if e != nil || !runtimeFile(info, uid, gid, 0o600) || info.Size() != 64 {
 		return "", tailnet.ErrUnavailable
 	}
 	b, e := io.ReadAll(io.LimitReader(file, 65))
@@ -253,7 +257,28 @@ func readCompanionID(base string, run projectRun, uid, gid uint32) (string, erro
 
 // Validate the real shared resolver inode, not an arbitrary path obtained from
 // the project. Tailscale owns backup/restore in the retained companion root.
-func validateRunResolver(run projectRun, read func(string) ([]byte, error), stat func(string) (os.FileInfo, error), fresh bool) error {
+func freshTailscaleConflict(devices string) bool {
+	for _, line := range strings.Split(devices, "\n") {
+		name, _, ok := strings.Cut(line, ":")
+		if ok && strings.TrimSpace(name) == "tailscale0" {
+			return true
+		}
+	}
+	return false
+}
+
+func validateResolverText(data []byte, fresh bool) error {
+	if len(data) > 16384 || len(data) == 0 {
+		return tailnet.ErrUnsupported
+	}
+	text := strings.ToLower(string(data))
+	if strings.Contains(text, "systemd-resolved") || strings.Contains(text, "resolvconf") || (fresh && strings.Contains(text, "tailscale")) {
+		return tailnet.ErrUnsupported
+	}
+	return nil
+}
+
+func validateResolverInode(run projectRun, stat func(string) (os.FileInfo, error)) error {
 	expected := filepath.Join("/var/lib/containers/storage/overlay-containers", run.Target.Container, "userdata/resolv.conf")
 	if run.Resolver != expected {
 		return tailnet.ErrUnsupported
@@ -266,25 +291,27 @@ func validateRunResolver(run projectRun, read func(string) ([]byte, error), stat
 	if e != nil || !os.SameFile(info, actual) {
 		return tailnet.ErrUnsupported
 	}
+	return nil
+}
+
+func validateRunResolver(run projectRun, read func(string) ([]byte, error), stat func(string) (os.FileInfo, error), fresh bool) error {
+	if e := validateResolverInode(run, stat); e != nil {
+		return e
+	}
+	expected := filepath.Join("/var/lib/containers/storage/overlay-containers", run.Target.Container, "userdata/resolv.conf")
 	data, e := read(expected)
-	if e != nil || len(data) > 16384 || len(data) == 0 {
+	if e != nil {
 		return tailnet.ErrUnsupported
 	}
-	text := strings.ToLower(string(data))
-	if strings.Contains(text, "systemd-resolved") || strings.Contains(text, "resolvconf") || (fresh && strings.Contains(text, "tailscale")) {
-		return tailnet.ErrUnsupported
+	if e = validateResolverText(data, fresh); e != nil {
+		return e
 	}
 	devices, e := read("/proc/" + strconv.Itoa(run.PID) + "/net/dev")
 	if e != nil || len(devices) > 65536 {
 		return tailnet.ErrUnavailable
 	}
-	if fresh {
-		for _, line := range strings.Split(string(devices), "\n") {
-			name, _, ok := strings.Cut(line, ":")
-			if ok && strings.TrimSpace(name) == "tailscale0" {
-				return tailnet.ErrConflict
-			}
-		}
+	if fresh && freshTailscaleConflict(string(devices)) {
+		return tailnet.ErrConflict
 	}
 	return nil
 }
