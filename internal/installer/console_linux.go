@@ -182,6 +182,88 @@ func (c console) secret(prompt string) (string, error) {
 
 func (c console) network(ctx context.Context) error { return c.networkWith(ctx, command) }
 
+func (c console) chooseNetworkAction(openEditor bool) (string, error) {
+	if openEditor {
+		return "edit", nil
+	}
+	return c.ask("Type keep, edit, back, restart, or cancel")
+}
+
+func (c console) runNetworkEditor(ctx context.Context) string {
+	cmd := exec.CommandContext(ctx, "nmtui")
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = c.tty, c.tty, c.tty
+	err := cmd.Run()
+	// NEWT leaves its background/cursor position behind when it exits.
+	// Restore our page on both success and failure, before any next prompt.
+	c.page("Step 1 of 5 — Network")
+	if err != nil {
+		return "NetworkManager editor failed. No disk installation started."
+	}
+	return ""
+}
+
+func (c console) confirmLiveAddresses() (edit bool, err error) {
+	for {
+		answer, err := c.ask("Type yes to use them, edit, back, restart, or cancel")
+		if err != nil {
+			return false, err
+		}
+		switch strings.ToLower(answer) {
+		case "yes":
+			return false, nil
+		case "edit":
+			return true, nil
+		case "back":
+			return false, errBack
+		case "restart":
+			return false, errRestart
+		case "cancel":
+			return false, errCancel
+		default:
+			c.print("Choose yes, edit, back, restart, or cancel.")
+		}
+	}
+}
+
+func (c console) printLiveAddresses(data []byte) {
+	c.print("")
+	c.print("Current live addresses:")
+	// Quote native output so a configured interface name cannot inject terminal controls.
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		c.print("  %q", line)
+	}
+}
+
+func (c console) applyNetworkChoice(ctx context.Context, choice string) (feedback string, retry bool, err error) {
+	switch strings.ToLower(choice) {
+	case "back":
+		return "", false, errBack
+	case "restart":
+		return "", false, errRestart
+	case "cancel":
+		return "", false, errCancel
+	case "edit":
+		if feedback = c.runNetworkEditor(ctx); feedback != "" {
+			return feedback, true, nil
+		}
+		return "", false, nil
+	case "keep":
+		return "", false, nil
+	default:
+		return "Choose keep, edit, back, restart, or cancel.", true, nil
+	}
+}
+
+func (c console) inspectAndConfirmNetwork(ctx context.Context, run commandRunner) (edit bool, feedback string, err error) {
+	data, err := run(ctx, "ip", []string{"-brief", "address"}, nil)
+	if err != nil {
+		return false, "Could not inspect live network addresses.", nil
+	}
+	c.printLiveAddresses(data)
+	edit, err = c.confirmLiveAddresses()
+	return edit, "", err
+}
+
 func (c console) networkWith(ctx context.Context, run commandRunner) error {
 	feedback := ""
 	openEditor := false
@@ -195,73 +277,30 @@ func (c console) networkWith(ctx context.Context, run commandRunner) error {
 		c.print("DHCP is ready by default.")
 		c.print("Use nmtui to set a static address, gateway, or DNS.")
 		c.print("The installed system will receive the reviewed live settings.")
-		choice := "edit"
-		if !openEditor {
-			var err error
-			choice, err = c.ask("Type keep, edit, back, restart, or cancel")
-			if err != nil {
-				return err
-			}
+		choice, err := c.chooseNetworkAction(openEditor)
+		if err != nil {
+			return err
 		}
 		openEditor = false
-		switch strings.ToLower(choice) {
-		case "back":
-			return errBack
-		case "restart":
-			return errRestart
-		case "cancel":
-			return errCancel
-		case "edit":
-			cmd := exec.CommandContext(ctx, "nmtui")
-			cmd.Stdin, cmd.Stdout, cmd.Stderr = c.tty, c.tty, c.tty
-			err := cmd.Run()
-			// NEWT leaves its background/cursor position behind when it exits.
-			// Restore our page on both success and failure, before any next prompt.
-			c.page("Step 1 of 5 — Network")
-			if err != nil {
-				feedback = "NetworkManager editor failed. No disk installation started."
-				continue
-			}
-		case "keep":
-		default:
-			feedback = "Choose keep, edit, back, restart, or cancel."
-			continue
-		}
-
-		data, err := run(ctx, "ip", []string{"-brief", "address"}, nil)
+		retry := false
+		feedback, retry, err = c.applyNetworkChoice(ctx, choice)
 		if err != nil {
-			feedback = "Could not inspect live network addresses."
+			return err
+		}
+		if retry {
 			continue
 		}
-		c.print("")
-		c.print("Current live addresses:")
-		// Quote native output so a configured interface name cannot inject terminal controls.
-		for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
-			c.print("  %q", line)
+		edit, inspectFeedback, err := c.inspectAndConfirmNetwork(ctx, run)
+		if err != nil {
+			return err
 		}
-		for {
-			answer, err := c.ask("Type yes to use them, edit, back, restart, or cancel")
-			if err != nil {
-				return err
-			}
-			switch strings.ToLower(answer) {
-			case "yes":
-				return nil
-			case "edit":
-				openEditor = true
-				//lint:ignore SA4011,S1023 the break exits the switch onto the loop break below; the flag routes the next outer iteration into the nmtui path.
-				break
-			case "back":
-				return errBack
-			case "restart":
-				return errRestart
-			case "cancel":
-				return errCancel
-			default:
-				c.print("Choose yes, edit, back, restart, or cancel.")
-				continue
-			}
-			break
+		if inspectFeedback != "" {
+			feedback = inspectFeedback
+			continue
 		}
+		if !edit {
+			return nil
+		}
+		openEditor = true
 	}
 }
