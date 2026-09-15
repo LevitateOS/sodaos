@@ -393,7 +393,7 @@ func stubProbeExec(t *testing.T) {
 	execRunner = func(name string, args ...string) (string, error) {
 		switch name {
 		case "stat":
-			return "system_u:object_r:var_lib_t:s0\n", nil
+			return "system_u:object_r:lib_t:s0\n", nil
 		case "/usr/bin/git":
 			return "/run/soda-build-source\n", nil
 		default:
@@ -511,7 +511,7 @@ func TestModuleCacheLabelRefused(t *testing.T) {
 	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
 	quiet := func() (string, error) { return "", nil }
 	err := prepareRuntime(o, quiet)
-	if err == nil || !strings.Contains(err.Error(), "module-cache label") {
+	if err == nil || !strings.Contains(err.Error(), "want lib_t") {
 		t.Fatalf("foreign label not refused, got: %v", err)
 	}
 }
@@ -522,7 +522,7 @@ func TestSetpgidDenialExplained(t *testing.T) {
 	execRunner = func(name string, args ...string) (string, error) {
 		switch name {
 		case "stat":
-			return "system_u:object_r:var_lib_t:s0\n", nil
+			return "system_u:object_r:lib_t:s0\n", nil
 		case "/usr/bin/git":
 			return "/run/soda-build-source\n", nil
 		default:

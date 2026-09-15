@@ -104,11 +104,14 @@ func controllerGoVersion(path string) (string, error) {
 	return bi.GoVersion, nil
 }
 
+// pinnedGoRoot is the fixed host GOROOT provisioned by
+// setup-soda-candidate.sh; mirrors tools/soda-build pinnedGoRoot.
+const pinnedGoRoot = "/usr/local/lib/soda/pinned-go"
+
 // toolsGoContext reports the SELinux type of the provisioned Go so a
-// module-cache copy (foreign cache_home_t label, unexecutable in the
-// worker) is caught here instead of dying at dispatch.
-func toolsGoContext(toolsDir string) (string, error) {
-	out, err := execRunner("stat", "-c", "%C", filepath.Join(toolsDir, "go", "bin", "go"))
+// mislabeled toolchain is caught here instead of dying at dispatch.
+func toolsGoContext() (string, error) {
+	out, err := execRunner("stat", "-c", "%C", filepath.Join(pinnedGoRoot, "bin", "go"))
 	if err != nil {
 		return "", fmt.Errorf("cannot inspect provisioned Go: %w", err)
 	}
@@ -160,12 +163,12 @@ func checkWorkerEnvironment(o options, wp workerPaths) error {
 			return fmt.Errorf("controller reports %s, want go%s: rebuild with the pinned toolchain and re-admit", got, pin)
 		}
 	}
-	label, err := toolsGoContext(wp.Tools)
+	label, err := toolsGoContext()
 	if err != nil {
 		return err
 	}
-	if label == "cache_home_t" {
-		return errors.New("provisioned Go carries a module-cache label; restorecon the tools tree or rerun the setup script")
+	if label != "lib_t" {
+		return fmt.Errorf("provisioned Go carries label %q, want lib_t; rerun bash scripts/setup-soda-candidate.sh from the repo root", label)
 	}
 	out, err := execRunner("/usr/bin/git", "config", "--system", "--get-all", "safe.directory")
 	if err != nil || !strings.Contains(out, "/run/soda-build-source") {
