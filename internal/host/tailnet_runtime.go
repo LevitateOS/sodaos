@@ -146,63 +146,92 @@ func processRunIdentity(pid int, read func(string) ([]byte, error), link func(st
 	return out, err
 }
 
-func (d *Daemon) projectRun(ctx context.Context, id string) (projectRun, error) {
-	var out projectRun
-	cid, e := d.projectContainer(ctx, id, true)
-	if e != nil {
-		return out, tailnet.ErrUnavailable
-	}
-	observe := func() ([]byte, error) {
-		return d.podman(ctx, nil, "--remote=false", "inspect", "--format", tailnetRunInspect, cid)
-	}
-	data, e := observe()
-	if e != nil || len(data) > 4096 {
-		return out, tailnet.ErrUnavailable
-	}
-	var raw struct {
-		ID       string `json:"id"`
-		Running  bool   `json:"running"`
-		PID      int    `json:"pid"`
-		Started  string `json:"started"`
-		Resolver string `json:"resolver"`
-	}
+type projectRunInspect struct {
+	ID       string `json:"id"`
+	Running  bool   `json:"running"`
+	PID      int    `json:"pid"`
+	Started  string `json:"started"`
+	Resolver string `json:"resolver"`
+}
+
+func decodeProjectRunInspect(data []byte, cid string) (projectRunInspect, error) {
+	var raw projectRunInspect
 	if strictjson.Decode(strings.NewReader(string(data)), &raw) != nil || raw.ID != cid || !raw.Running || raw.PID <= 1 {
-		return out, tailnet.ErrConflict
+		return raw, tailnet.ErrConflict
 	}
-	started, e := time.Parse(time.RFC3339Nano, raw.Started)
-	if e != nil || started.IsZero() {
-		return out, tailnet.ErrUnavailable
-	}
-	// Only the selected native rootful storage resolver is considered. Custom
-	// resolver sources/storage layouts are unsupported, not a path-repair task.
-	resolver := "/var/lib/containers/storage/overlay-containers/" + cid + "/userdata/resolv.conf"
-	if raw.Resolver != resolver {
-		return out, tailnet.ErrUnsupported
-	}
-	identity, e := processRunIdentity(raw.PID, os.ReadFile, os.Readlink)
-	if e != nil {
-		return out, e
-	}
-	again, e := observe()
+	return raw, nil
+}
+
+func (d *Daemon) confirmProjectRunIdentity(ctx context.Context, cid string, data []byte, pid int, identity processIdentity) error {
+	again, e := d.inspectProjectRun(ctx, cid)
 	if e != nil || string(again) != string(data) {
-		return out, tailnet.ErrConflict
+		return tailnet.ErrConflict
 	}
-	second, e := processRunIdentity(raw.PID, os.ReadFile, os.Readlink)
+	second, e := processRunIdentity(pid, os.ReadFile, os.Readlink)
 	if e != nil || second != identity {
-		return out, tailnet.ErrConflict
+		return tailnet.ErrConflict
 	}
-	current, e := d.projectContainer(ctx, id, true)
-	if e != nil || current != cid {
-		return out, tailnet.ErrConflict
-	}
+	return nil
+}
+
+func (d *Daemon) inspectProjectRun(ctx context.Context, cid string) ([]byte, error) {
+	return d.podman(ctx, nil, "--remote=false", "inspect", "--format", tailnetRunInspect, cid)
+}
+
+func assembleProjectRun(id, cid, resolver string, raw projectRunInspect, identity processIdentity) projectRun {
 	b, _ := json.Marshal(struct {
 		CID, Started string
 		PID          int
 		Identity     processIdentity
 	}{cid, raw.Started, raw.PID, identity})
 	sum := sha256.Sum256(b)
-	out = projectRun{Target: tailnet.RunTarget{Project: id, Container: cid, Run: hex.EncodeToString(sum[:])}, PID: raw.PID, Started: raw.Started, UserNS: identity.UserNS, NetNS: identity.NetNS, UID: identity.UID, GID: identity.GID, Resolver: resolver}
-	return out, nil
+	return projectRun{Target: tailnet.RunTarget{Project: id, Container: cid, Run: hex.EncodeToString(sum[:])}, PID: raw.PID, Started: raw.Started, UserNS: identity.UserNS, NetNS: identity.NetNS, UID: identity.UID, GID: identity.GID, Resolver: resolver}
+}
+
+func admitProjectRunSnapshot(cid string, raw projectRunInspect) (string, processIdentity, error) {
+	started, e := time.Parse(time.RFC3339Nano, raw.Started)
+	if e != nil || started.IsZero() {
+		return "", processIdentity{}, tailnet.ErrUnavailable
+	}
+	// Only the selected native rootful storage resolver is considered. Custom
+	// resolver sources/storage layouts are unsupported, not a path-repair task.
+	resolver := "/var/lib/containers/storage/overlay-containers/" + cid + "/userdata/resolv.conf"
+	if raw.Resolver != resolver {
+		return "", processIdentity{}, tailnet.ErrUnsupported
+	}
+	identity, e := processRunIdentity(raw.PID, os.ReadFile, os.Readlink)
+	if e != nil {
+		return "", processIdentity{}, e
+	}
+	return resolver, identity, nil
+}
+
+func (d *Daemon) projectRun(ctx context.Context, id string) (projectRun, error) {
+	var out projectRun
+	cid, e := d.projectContainer(ctx, id, true)
+	if e != nil {
+		return out, tailnet.ErrUnavailable
+	}
+	data, e := d.inspectProjectRun(ctx, cid)
+	if e != nil || len(data) > 4096 {
+		return out, tailnet.ErrUnavailable
+	}
+	raw, e := decodeProjectRunInspect(data, cid)
+	if e != nil {
+		return out, e
+	}
+	resolver, identity, e := admitProjectRunSnapshot(cid, raw)
+	if e != nil {
+		return out, e
+	}
+	if e = d.confirmProjectRunIdentity(ctx, cid, data, raw.PID, identity); e != nil {
+		return out, e
+	}
+	current, e := d.projectContainer(ctx, id, true)
+	if e != nil || current != cid {
+		return out, tailnet.ErrConflict
+	}
+	return assembleProjectRun(id, cid, resolver, raw, identity), nil
 }
 
 // The immutable image ID is host configuration, never a browser or project field.
