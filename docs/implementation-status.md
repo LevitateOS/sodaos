@@ -208,8 +208,10 @@ synthesizes a different commit.
 hash/size/location). `soda-release prepare` requires `--media`. After P9,
 `soda-build --signing-config` runs Prepare+Sign (P10) and optional channel-last
 Publish when auth/ledger/channel/channel-signer are admitted together. Without
-`--signing-config`, production still exits 2. Fixture keys stay isolated from
-production custody; public GHCR commissioning is not claimed.
+`--signing-config`, production still exits 2. Local fixture evidence
+`.artifacts/b5-finalization/local-signed-02/final.json` signed a media-bound
+release from retained candidate bytes with synthetic keys; fixture keys stay
+isolated from production custody. Public GHCR commissioning is not claimed.
 
 ### 6. Retire old lanes and prove the replacement — B6
 
@@ -221,11 +223,14 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 ## Immediate prerequisites and next action
 
 B5 wiring is in source: media-bound release metadata, protected finalization package,
-and soda-build P10 hook. Remaining: local noninteractive signed-final evidence with
-fixture trust against a retained or fresh qualified candidate, plus failure-case
-coverage for wrong role/signer and channel-last refusal. B3 fixture signatures and
-B4 qualification evidence alone do not complete B5. Public hosting, ARM and
-minimum-hardware work remain separate.
+and soda-build P10 hook. Local fixture evidence
+`.artifacts/b5-finalization/local-signed-02/final.json` shows Prepare+Sign of a
+media-bound release document against retained `b3-media-33ea3f5` candidate bytes
+with synthetic keys (~5.5s); wrong-digest signing refused. That is mechanism
+evidence, not production custody or a protected P9→P10 production receipt. Next:
+admit a real `--signing-config` path for a fresh production run (or retained P9
+custody) without GHCR/channel movement unless separately granted. Public hosting,
+ARM and minimum-hardware work remain separate.
 
 The public rootfs base URL is an explicit media input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
