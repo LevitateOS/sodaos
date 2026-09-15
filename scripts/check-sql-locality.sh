@@ -1,6 +1,6 @@
 #!/bin/bash
 # SQL locality: product SQLite stays in internal/store.
-# See docs/go.md. No appliance installation or provider setup.
+# See docs/development/go.md. No appliance installation or provider setup.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,7 +20,7 @@ rm -f /tmp/soda-sql-locality.hits
 
 if [ -n "$violations" ]; then
   printf '%s' "$violations"
-  printf 'SQL locality failed: database/sql, sql.Open, and SQL verb literals are allowed only in internal/store (docs/go.md).\n'
+  printf 'SQL locality failed: database/sql, sql.Open, and SQL verb literals are allowed only in internal/store (docs/development/go.md).\n'
   exit 1
 fi
 printf 'SQL locality passed: no database/sql usage outside internal/store.\n'

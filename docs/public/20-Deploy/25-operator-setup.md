@@ -49,7 +49,7 @@ On the host, replace the example Forgejo origin and token-file path:
 Setup creates the actual OAuth application and records the operator identity.
 New source retains the OAuth secret and grant-encryption key, not a bootstrap-token
 copy/reference, and leaves the supplied token file unchanged. Existing copies need
-[separately authorized maintenance](../../dashboard-credentials.md#retired-bootstrap-token--existing-install-maintenance);
+separately authorized maintenance;
 setup does not delete or revoke them.
 Current source shares Forgejo's HTTPS origin, with Soda API/OAuth at `/-/soda/`;
 the drawer is not implemented yet. That origin must resolve to the approved

@@ -28,8 +28,8 @@ still use them; none is included in Forgejo's payload.
 
 Native interface/provider icons, QR codes and actual user/repository/organization
 images remain. The functional `theme-preview.html` uses the native canonical logo.
-See [redesign status](../../../docs/forgejo-redesign-status.md) for live/component
-review evidence and [branding review](../../../docs/branding-review.md) for tools.
+See [Forgejo customization](../../../docs/reference/forgejo.md) and
+[branding](../../../docs/design/branding.md).
 
 The public front page uses the six approved subway WebPs: mobile,
 tablet and desktop, each in day/night. They live in `backgrounds/`; its README

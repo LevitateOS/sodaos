@@ -162,7 +162,7 @@ class AvatarPackaging(unittest.TestCase):
                 'bun.lock',
                 'bunfig.toml',
                 'scripts/install-native.sh',
-                'docs/native-support-notices.md',
+                'docs/research/notices.md',
                 'project-os/licenses/tea-LICENSE',
                 'appliance/licenses/avatar-dependencies.txt',
                 'LICENSE',

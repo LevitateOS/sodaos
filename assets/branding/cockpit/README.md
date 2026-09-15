@@ -1,12 +1,12 @@
 # Stock Cockpit branding
 
 The active adapter is `branding.css` plus `theme.css`. It is independent of the
-retired custom-page workspace. [The Cockpit guide](../../../docs/cockpit-port.md)
+retired custom-page workspace. [The Cockpit guide](../../../docs/development/cockpit.md)
 owns stock-page, security and installed acceptance requirements.
 
 ## Current design and supported hook
 
-The adapter follows the current [Forgejo design](../../../docs/forgejo-redesign-status.md):
+The adapter follows the current [Forgejo design](../../../docs/reference/forgejo.md):
 red actions, white/near-black surfaces, square controls, Barlow body text,
 Barlow Condensed headings and IBM Plex Mono controls. It reuses the canonical
 brutalist light/dark symbols. Sign-in/administration stays restrained; the marketing
@@ -41,6 +41,6 @@ licenses without making them active branding/build inputs.
 CSS/fonts/native theme tokens in a deliberately small browser styling fixture.
 Temporary-filesystem staging tests check canonical icon/font bytes and reject stale
 custom-page output. These are not native Cockpit HTML, login/PAM, keyboard/error,
-mobile or visual parity acceptance. The [fresh VM receipt](../../../docs/implementation-history.md#fresh-tailnet-vm-installation-and-access-smoke)
+mobile or visual parity acceptance. The [fresh VM receipt](../../../docs/development/cockpit.md)
 separately records native root login, stock administration and logout; wider
 visual/theme/keyboard acceptance remains pending.

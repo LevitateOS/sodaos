@@ -11,8 +11,8 @@ appliance/licenses/avatar-dependencies.txt and included in new native bundles.
 
 Selected code and canonical branding were adapted or imported from Soda OS
 (https://github.com/LevitateOS/soda-os), including the source at revision
-bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c. See docs/predecessor-reuse.md,
-docs/native-support-notices.md and assets/README.md for provenance and scope.
+bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c. See docs/research/predecessor-reuse.md,
+docs/research/notices.md and assets/README.md for provenance and scope.
 Existing copyright, license and trademark notices remain applicable. Missing
 inherited license grants are not supplied by the Apache license for original
 SodaOS work.
@@ -20,7 +20,7 @@ SodaOS work.
 Forgejo, Cockpit, Tea, frontend dependencies, fonts, runtime packages and
 container inputs retain their respective licenses. Forgejo and customized native
 templates retain their applicable GPL-3.0-or-later/per-file terms, not an
-Apache-only license. See docs/licensing.md for source/notices requirements.
+Apache-only license. See docs/research/licensing.md for source/notices requirements.
 
 The Spaces repository and terminal icons are unmodified Primer Octicons 19.14.0,
 Copyright (c) 2024 GitHub Inc., under the MIT license. The license and provenance

@@ -1,7 +1,7 @@
 # Spaces visual design sheets
 
-The current design is [Parallel work, one terminal workspace](../../spaces-design.md),
-with the complementary [right-half drawer design](../../spaces-drawer-design.md).
+The current design is [Parallel work, one terminal workspace](../spaces-ux.md),
+with the complementary [right-half drawer design](../spaces-ux.md).
 It replaces the earlier grid-first interactive mockup after research into cmux,
 Superset, Agent Deck, Wave, Zellij and Conductor. These are **static annotated drawings**,
 not live UI, another app to connect to, or installed-product screenshots.
@@ -20,7 +20,7 @@ not live UI, another app to connect to, or installed-product screenshots.
 Native pages are schematic context, not newly authored replacements for Forgejo's
 UI or captures of its actual handlers. In particular, keep the merged native compact
 repository header/action disclosure rather than reproducing schematic native chrome.
-The [Lit implementation plan](../../lit-migration-plan.md) owns the real shared
+The [Lit implementation plan](../../development/lit.md) owns the real shared
 page/drawer sequence; these sheets are design inputs, not a component prototype. All session names, output and state are fictional. “Working” / “Waiting” require a
 real explicit signal integration before the product may show them. The sheets do not
 supply that integration, real xterm rendering, authentication, multiple native sessions,

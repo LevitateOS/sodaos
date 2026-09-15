@@ -16,7 +16,7 @@ case "$action" in
       echo 'Native x86_64 Linux with KVM access required' >&2; exit 1;
     }
     for file in disk.qcow2 soda.ign operator known_hosts; do
-      [[ -f "$vm/$file" ]] || { echo "Missing $vm/$file; see docs/local-testing.md" >&2; exit 1; }
+      [[ -f "$vm/$file" ]] || { echo "Missing $vm/$file; see docs/guides/local-testing.md" >&2; exit 1; }
     done
     umask 077
     exec 9>"$vm/start.lock"

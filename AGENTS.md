@@ -76,20 +76,20 @@ justify keeping obsolete implementations alive.
   decision. Label optional diagnostic/review choices as recommendations.
 - Update requirements in their owning guide; link to them elsewhere instead of
   copying rules or appending exceptions. The documentation map below identifies owners.
-- Report changes, checks actually run and remaining limitations concisely. Update
-  the owning workstream's status in place for substantial changes; keep independent
-  agents' task lists separate. `docs/implementation-status.md` tracks the selected
-  single-run build/release replacement; `docs/development-handoff.md` retains other
-  workstreams' target state and scoped permissions. Detailed receipts
-  belong in history, not additional rules here.
+  Documentation authority rules live in [docs/README.md](docs/README.md#authority-rules):
+  one canonical owner per subject; product docs are not status trackers; completed
+  plans are absorbed and deleted; research is non-normative.
+- Report changes, checks actually run and remaining limitations concisely. Prefer
+  issues, milestones and Git history for transient status. Detailed receipts belong
+  in history, not additional durable docs.
 
 ## Permissions and preservation
 
-- Current grants belong to the user's task and its handoff: [release work](docs/implementation-status.md#current-permissions)
-  or [retained development targets](docs/development-handoff.md#current-permissions).
-  Appliance installation, service/VM lifecycle, real provider registration/jobs,
-  publishing/automatic CI, network/trust changes and cleanup require applicable
-  target/action approval. A command, input file or old approval is not a new grant.
+- Destructive or externally visible work needs explicit task approval in the current
+  conversation or task brief. Documentation is not a grant. Appliance installation,
+  service/VM lifecycle, real provider registration/jobs, publishing/automatic CI,
+  network/trust changes and cleanup require applicable target/action approval.
+  A command, input file or old approval is not a new grant.
 - Artifact retention is not a compatibility requirement. Experimental roots, fixtures
   and evidence may be retired rather than supported by current code. This does not
   itself authorize deletion: consult the target's current approval, and clean up only
@@ -108,12 +108,12 @@ justify keeping obsolete implementations alive.
 
 ## Code and tooling
 
-- Use Go for backend/setup/privileged integration. The [Go ownership guide](docs/go.md)
-  owns package placement, SQL locality and house style. The [TypeScript guide](docs/typescript.md)
+- Use Go for backend/setup/privileged integration. The [Go ownership guide](docs/development/go.md)
+  owns package placement, SQL locality and house style. The [TypeScript guide](docs/development/typescript.md)
   owns JS-family language, strict typing, Bun workspace and asset-porting conventions.
   Versions belong in source manifests/locks; avoid incidental upgrades.
 - Do not reshape the Go package topology: `internal/` hierarchy, ownership
-  boundaries and dependency direction are owned by [Go ownership](docs/go.md)
+  boundaries and dependency direction are owned by [Go ownership](docs/development/go.md)
   and enforced by `internal/archcheck` (`go test ./internal/archcheck/`).
   Never recreate a retired package name, add a forwarding/alias package
   between internal packages, duplicate a domain DTO, or add a cross-boundary
@@ -137,8 +137,8 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `bun install --frozen-lockfile` | Install the locked workspace dependencies. |
 | `go test ./internal/runners` | Example focused Go package test; select the affected package/tests. |
 | `bun run typecheck` | Strict TypeScript and Lit checks. |
-| `bash scripts/check-oxfmt.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and cyclomatic-below-10 on browser-payload TS (see [typescript guide](docs/typescript.md)). |
-| `bash scripts/check-ruff-format.sh` / `check-ruff.sh` / `check-py-complexity.sh` | Python format, correctness lint, and cyclomatic-below-10 on shipping Python (see [Python tooling](docs/python.md)). |
+| `bash scripts/check-oxfmt.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and cyclomatic-below-10 on browser-payload TS (see [typescript guide](docs/development/typescript.md)). |
+| `bash scripts/check-ruff-format.sh` / `check-ruff.sh` / `check-py-complexity.sh` | Python format, correctness lint, and cyclomatic-below-10 on shipping Python (see [Python tooling](docs/development/python.md)). |
 | `bash scripts/check-gofumpt.sh` / `check-staticcheck.sh` / `check-errcheck.sh` | Go format (gofumpt), staticcheck, and unchecked-error lint; linux analysis for the last two. |
 | `bun run test:frontend` / `bun run test:forgejo` | Build browser assets and run the selected suite. |
 | `bun run test:pages` | Native-page fixture checks; requires the authorized local Forgejo fixture. |
@@ -159,16 +159,15 @@ Service/image source in `appliance/services/` and `project-os/` establishes topo
 
 | Area | Guide |
 | --- | --- |
-| Go package ownership and style | [Go ownership](docs/go.md), [package convention](docs/go-packages.md) |
-| Product scope and ownership | [Architecture](docs/architecture.md), [Sodaspaces](docs/sodaspaces-plan.md), [deferred work](docs/deferred.md) |
-| Native pages and Runners | [Active combined plan](docs/native-pages-runners-plan.md), [page integration](docs/forgejo-soda-pages-plan.md), [runner contracts](docs/runners-port.md) |
-| Forgejo extension implementation | [Dedicated status and order](docs/forgejo-extension-status.md), [source audit](docs/forgejo-extension-audit.md) |
-| Forgejo customization and UI | [Customization contract](docs/forgejo-frontend-integration.md), [Lit](docs/lit.md), [TypeScript and test prerequisites](docs/typescript.md) |
-| Python format/lint/complexity | [Python tooling](docs/python.md) |
-| Project runtime and access | [Project OS](docs/project-os.md), [terminals](docs/terminal-integration.md), [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md) |
-| Cockpit and Tailnet | [Tailnet implementation](docs/tailnet-integration-plan.md), [Cockpit](docs/cockpit-port.md), [operator setup](docs/operator-setup.md) |
-| Active build/release replacement | [Six replacement milestones and later commissioning](docs/release-engineering-plan.md#single-run-build-replacement-implementation), [current status](docs/implementation-status.md) |
-| Build, deployment and native tools | [Installation](docs/installation.md), [native validation](docs/native-validation.md), [support-tool effects](docs/native-support.md) |
-| Browser screenshots | [Capture and fixture login](docs/screenshot-capture.md); use `scripts/screenshot.ts`. |
-| Refactoring | [Upstream-first review](docs/refactoring-plan.md#1-upstream-first-review) |
-| Retained state and active grants | [Release implementation](docs/implementation-status.md), [development handoff](docs/development-handoff.md); [local testing](docs/local-testing.md) owns access paths, not another state/approval record. |
+| Documentation map and authority | [docs/README.md](docs/README.md) |
+| Go package ownership and style | [Go ownership](docs/development/go.md), [package convention](docs/development/go-packages.md) |
+| Product scope and ownership | [Architecture](docs/architecture/overview.md), [Spaces](docs/product/spaces.md), [Scope](docs/product/scope.md) |
+| Runners and Tailnet | [Runners](docs/reference/runners.md), [Networking](docs/architecture/networking.md) |
+| Forgejo customization and UI | [Forgejo](docs/reference/forgejo.md), [Lit](docs/development/lit.md), [TypeScript](docs/development/typescript.md) |
+| Python format/lint/complexity | [Python tooling](docs/development/python.md) |
+| Project runtime and access | [Project OS](docs/reference/project-os.md), [Terminal](docs/reference/terminal.md), [API](docs/reference/api.md), [Credentials](docs/reference/credentials.md) |
+| Cockpit and operator setup | [Cockpit](docs/development/cockpit.md), [Operator setup](docs/guides/operator-setup.md) |
+| Release | [Release architecture](docs/architecture/release.md), [Release workflow](docs/development/release.md) |
+| Build, deployment and native tools | [Installation](docs/guides/installation.md), [Testing](docs/development/testing.md), [Native support](docs/development/native-support.md) |
+| Browser screenshots | [Screenshot capture](docs/design/screenshot-capture.md); use `scripts/screenshot.ts`. |
+| Local fixture access | [Local testing](docs/guides/local-testing.md) |

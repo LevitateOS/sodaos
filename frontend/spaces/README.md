@@ -33,7 +33,7 @@ preview still prepare their own destinations using the same locked fetcher.
 
 Rendering never creates a terminal, changes native lifetime, provisions access
 or owns native forms. Controls retain the original target and bootstrap binding;
-actual server operations authorize access. The [terminal guide](../../docs/terminal-integration.md)
+actual server operations authorize access. The [terminal guide](../../docs/reference/terminal.md)
 owns native lifetime, exact lookup and disposable current-cache requirements. The xterm screen is unconditional; flat terminal
 hosts are never moved between keyed template parents. View updates must retain
 unsent drafts and renderer/socket identity.

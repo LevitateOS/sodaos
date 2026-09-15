@@ -4,16 +4,11 @@ Persistent, shared development environments on an operator-managed Fedora CoreOS
 appliance. Developers use native Forgejo, SSH, Git, mise and container tools—not
 individual Linux accounts on the host.
 
-**Current direction:** Forgejo's native frontend with a **Sodaspaces** repository
-button/environment drawer, without adding a new tab. Both standalone Soda frontends (React and Go/HTMX) are
-removed. The protected Go environment/access API, OAuth, native provisioning and
-Native Forgejo Tailnet/Runners and stock-only branded Cockpit are the source candidate; retained targets still have both custom Cockpit fallbacks until authorized replacement acceptance/removal. **Sodaspaces passed bounded native x86_64 build/export, real create/key/join/Copy and own-key SSH access proof on a fresh isolated fixture. Preserved-state rehearsal and separately approved retained cutover also passed, including native browser checks and existing-account SSH/PTY.**
+Soda integrates Forgejo's native frontend with **Spaces** (repository environment
+entry and drawer), a protected Go environment/access API, OAuth, native
+provisioning, Tailnet/Runners operator settings and stock branded Cockpit.
 
-The handoff records installed revisions, schemas, preserved roots and which
-targets still retain the Cockpit Runners fallback. Bounded native x86_64 first-product
-proof is accepted, not final product, fresh-install or aarch64 acceptance. See
-[Sodaspaces scope](docs/sodaspaces-plan.md), [development handoff/evidence](docs/development-handoff.md)
-and [local access](docs/local-testing.md). This is not a ready-to-deploy release.
+Documentation index: [docs/README.md](docs/README.md).
 
 ## System
 
@@ -24,50 +19,42 @@ Fedora CoreOS host — operator administration only
     ├── Stock Forgejo — native frontend, identity/Git and its own persistent data
     ├── Soda Go API/OAuth service — separate SQLite/grants
     ├── Caddy — configured private HTTPS endpoints
-    └── Persistent Rocky + mise projects
+    └── Persistent Project OS containers
         ├── Project-local accounts, homes, SSH and personal checkouts
         ├── Actual shared installed tools/files
         └── Native nested workloads and persistent service data
 ```
 
 Forgejo, Soda and Caddy are separate containers; **Forgejo is not a Podman pod**.
-See [architecture](docs/architecture.md) and `appliance/services/` for ownership and
-placement. The repository's human owner administers its project, not the host.
-Each user explicitly joins; today's implementation requires a public development
-key, while key-free browser onboarding is selected but unimplemented. Native Git
-authorization is separate. Normal startup preserves the existing container/root,
-not replacement; see the [Project OS baseline](docs/project-os.md).
+See [architecture](docs/architecture/overview.md) and `appliance/services/` for
+ownership and placement. The repository's human owner administers its project, not
+the host. Each user explicitly joins. Native Git authorization is separate. Normal
+startup preserves the existing container/root; see
+[Project OS](docs/reference/project-os.md).
 
 Project access is ordinary `user@project-ip`, SCP/SFTP and native service ports.
 Clients need a real route; host Tailnet enrollment alone does not provide it.
 Cockpit is loopback-first/root-only. Browser origins, Git advertisement and project
-routing are separate configuration—not inferred from an old port or hostname.
+routing are separate configuration.
 
 ## Source and guides
 
-**Current build/release priority:** finish the six single-run replacement milestones
-in the [implementation plan](docs/release-engineering-plan.md#single-run-build-replacement-implementation),
-then commission public delivery, unattended scheduling and production launch. Existing
-candidate/signing evidence is reusable groundwork, not completion of that rewrite.
-
 | Area | Source / documentation |
 | --- | --- |
-| Product decisions and remaining work | [Architecture](docs/architecture.md), [Sodaspaces plan](docs/sodaspaces-plan.md), [deferred scope](docs/deferred.md) |
-| CoreOS product direction and proposed priorities | [OS strategy](docs/os-product-strategy.md): host value, service boundaries, effort estimates and bounded first slices |
-| API/auth/native integration | `cmd/`, `internal/`, [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md), [Forgejo customization](docs/forgejo-frontend-integration.md) |
-| Installation/operator access | `appliance/`, `scripts/`, [installation](docs/installation.md), [bootstrap](docs/operator-setup.md), [native validation](docs/native-validation.md) |
-| Project environments | `project-os/`, [Project OS baseline](docs/project-os.md), [development guide](docs/development-environment.md), [services](docs/project-services.md), [CLIs](docs/project-clis.md) |
-| Cockpit branding and outside tooling | `assets/branding/cockpit/`, `tools/`, [Cockpit](docs/cockpit-port.md), [runners](docs/runners-port.md), [native support](docs/native-support.md) |
-| Branding and reuse | `assets/`, [attribution](docs/predecessor-reuse.md), [console](docs/console-welcome.md), [branding review](docs/branding-review.md), [capture rules](docs/screenshot-capture.md) |
-| Public handbook | [Release-day handbook](docs/public/10-Start-here/10-index.md), [authoring/sync](docs/public/README.md), [editorial review](docs/public-docs-review.md); intended product documentation, not current acceptance |
-| Active build/release replacement | [Implementation status](docs/implementation-status.md), [single-run implementation plan](docs/release-engineering-plan.md#single-run-build-replacement-implementation) |
-| Retained evidence and coding guidance | [Development handoff](docs/development-handoff.md), [local test host](docs/local-testing.md), [AGENTS.md](AGENTS.md) |
+| Product and architecture | [Overview](docs/product/overview.md), [Architecture](docs/architecture/overview.md), [Scope](docs/product/scope.md) |
+| Host capability strategy | [Host strategy](docs/research/host-strategy.md) |
+| API / auth / Forgejo customization | `cmd/`, `internal/`, [API](docs/reference/api.md), [Credentials](docs/reference/credentials.md), [Forgejo](docs/reference/forgejo.md) |
+| Installation / operator access | `appliance/`, `scripts/`, [Installation](docs/guides/installation.md), [Operator setup](docs/guides/operator-setup.md), [Media](docs/guides/media.md) |
+| Project environments | `project-os/`, [Project OS](docs/reference/project-os.md), [Develop](docs/guides/develop.md), [Services](docs/guides/project-services.md), [CLIs](docs/guides/project-clis.md) |
+| Cockpit, runners, support tools | `assets/branding/cockpit/`, `tools/`, [Cockpit](docs/development/cockpit.md), [Runners](docs/reference/runners.md), [Native support](docs/development/native-support.md) |
+| Branding and reuse | `assets/`, [Branding](docs/design/branding.md), [Attribution](docs/research/predecessor-reuse.md), [Console](docs/design/console-welcome.md), [Screenshots](docs/design/screenshot-capture.md) |
+| Public handbook | [Handbook](docs/public/10-Start-here/10-index.md), [Authoring](docs/public/README.md) |
+| Release | [Release architecture](docs/architecture/release.md), [Release workflow](docs/development/release.md) |
+| Development | [Development](docs/development/README.md), [Go](docs/development/go.md), [Local testing](docs/guides/local-testing.md), [AGENTS.md](AGENTS.md) |
 
-Native x86_64 and aarch64 are independent targets. Builds/tests, installation,
-restart, routing, provider mutations and destructive cleanup need their applicable
-scope; neither this README nor a tool flag grants it. Preserve credentials, project
-state, backups and failed evidence. Historical plans/audits remain in Git, not active
-roadmaps; the handoff explains where to find them.
+Native x86_64 and aarch64 are independent targets. Builds, installation, provider
+mutations and destructive cleanup need applicable approval. Preserve credentials,
+project state, backups and failed evidence.
 
 ## License
 
@@ -78,4 +65,4 @@ terms apply, and a missing inherited license is not an Apache grant.
 
 Preserve Forgejo and other dependency licenses. Actual-artifact corresponding-source,
 notice/font delivery and inherited-rights clearance remain required under
-[licensing](docs/licensing.md), not satisfied by adding the original-code license.
+[licensing](docs/research/licensing.md), not satisfied by adding the original-code license.

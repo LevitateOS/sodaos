@@ -2317,7 +2317,7 @@
       "beforeRoleHash": "db965becbb1dc79cb170bbc6d26e64958b07bbf4536bf56ed82d2207c86b7782",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md.",
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
       "definedPartials": [
         "package/shared/cleanup_rules/edit_body"
       ]
@@ -2686,7 +2686,7 @@
       "beforeRoleHash": "cbbac0fbbc09efce486f5c212f828dccf55e7de0480b66bbb2b83fd702a4d5d0",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md."
     },
     {
       "template": "projects/view.tmpl",
@@ -3313,7 +3313,7 @@
         "soda-form-section-title"
       ],
       "beforeRoleHash": "6b346e99ee6976bd2c6b31f8e4581e9f66da65330141919489543575028b55e6",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md."
     },
     {
       "template": "repo/diff/box.tmpl",
@@ -3465,7 +3465,7 @@
       "beforeRoleHash": "680521cf13cc5cc479737b45e0aad78b9ee0fde9b2dee9ec0db07077dccc197a",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md."
     },
     {
       "template": "repo/editor/delete.tmpl",
@@ -5333,7 +5333,7 @@
       "beforeRoleHash": "2f23f82f33f1dbca9471492e04deb76c3d618021593384d148fc30685496ede4",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md."
     },
     {
       "template": "repo/settings/githook_edit.tmpl",
@@ -5510,7 +5510,7 @@
       "beforeRoleHash": "e14fb3e23fea0e5f0470f60d91bf9c5d051345480694f11e99b37e6c5d236131",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md."
     },
     {
       "template": "repo/settings/lfs.tmpl",
@@ -6002,7 +6002,7 @@
       "beforeRoleHash": "ad5f82f9ec2b3e4b200862275ed2605b8e28589d3a851820be4ad049529318ff",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md.",
+      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md.",
       "presentationDelta": "Native create-page autofocus is intentionally removed; edit-tag autofocus is retained."
     },
     {
@@ -6735,7 +6735,7 @@
       "beforeRoleHash": "d851af811ea197bd2b639cd946c3a3546e2acc071a93af5b9428439039deac6f",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md.",
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
       "definedPartials": [
         "shared/actions/runner_create_body"
       ]
@@ -7022,7 +7022,7 @@
         "org/settings/actions.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md."
     },
     {
       "template": "shared/user/profile_big_avatar.tmpl",
@@ -7099,7 +7099,7 @@
         "org/settings/actions.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md."
+      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md."
     },
     {
       "template": "status/404.tmpl",
@@ -8577,7 +8577,7 @@
         "org/settings/applications.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md.",
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
       "definedPartials": [
         "user/settings/applications_oauth2_list_body"
       ],
@@ -8792,7 +8792,7 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md.",
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
       "beforeRoleHash": "9fb3e4271418508a0263c0217b993f7851e9855e3d74104c78514d971caf40e8",
       "taskComposition": "inventory"
     },
@@ -8834,7 +8834,7 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md.",
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
       "beforeRoleHash": "7e184bed660b6de5ca6d50b27c6a88e2ad7769bdc7d98269144341fea6795b34",
       "taskComposition": "inventory"
     },
@@ -8876,7 +8876,7 @@
       "nativeCalls": [
         "base/modal_actions_confirm"
       ],
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md.",
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
       "beforeRoleHash": "8ca05f856b7b25312b740d76b9c3ce862fac24485186e081ff7c4ac5324855f7",
       "taskComposition": "inventory"
     },
@@ -9000,7 +9000,7 @@
       "beforeRoleHash": "78f2ccc7ec2b05552e157af59f91bcbd40395a996c181ac1ddf4b3a0aec08f0d",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
-      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/form-page-redesign.md.",
+      "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md.",
       "taskComposition": "identity/navigation"
     },
     {
@@ -9750,7 +9750,7 @@
         "webhook/new/wechatwork.tmpl"
       ],
       "entryPoint": "shared partial",
-      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/form-page-redesign.md."
+      "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md."
     }
   ]
 }

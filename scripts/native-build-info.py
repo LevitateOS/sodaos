@@ -68,7 +68,7 @@ def collect(root, arch, revision):
     (stage / 'install-native.sh').chmod(0o755)
     notices = stage / 'notices'
     notices.mkdir()
-    shutil.copyfile(root / 'docs/native-support-notices.md', notices / 'README.md')
+    shutil.copyfile(root / 'docs/research/notices.md', notices / 'README.md')
     shutil.copyfile(root / 'project-os/licenses/tea-LICENSE', notices / 'tea-LICENSE')
     shutil.copyfile(root / 'LICENSE', notices / 'soda-LICENSE')
     shutil.copyfile(root / 'NOTICE', notices / 'soda-NOTICE')

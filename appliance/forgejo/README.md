@@ -3,7 +3,7 @@
 Targets stock Forgejo **15.0.7**. The login wrapper is adapted from the embedded
 `templates/user/auth/signin.tmpl`; upstream project: https://codeberg.org/forgejo/forgejo.
 Forgejo's GPL-3.0-or-later terms apply to the adapted template; see
-[licensing obligations](../../docs/licensing.md). Its original embedded wrapper SHA-256:
+[licensing obligations](../../docs/research/licensing.md). Its original embedded wrapper SHA-256:
 `b19374666dc4bff231aa49d60d2459cfebf565028edf67b439b3d093fc3a7547`.
 
 Soda changes the wrapper into a branded story/form layout and adds a scoped
@@ -31,7 +31,7 @@ Focused Go/browser checks pass, and the user-authorized local template reload is
 complete. Real signed-in populated and empty inboxes, both bells, mobile containment,
 Escape/focus and full-page coexistence were checked without changing unread counts.
 Production delivery remains separately pending. See the
-[plan/evidence](../../docs/notification-preview-plan.md) for exact limits, including
+[plan/evidence](../../docs/reference/forgejo.md) for exact limits, including
 unexercised native pinned/event cases and a pre-existing 320px navbar overflow.
 Do not mark entries read or change fixture data merely to preview this feature.
 
@@ -53,7 +53,7 @@ CSS and artwork changes need a browser refresh; template changes need:
 docker exec --user git sodaos-local-forgejo forgejo manager reload-templates
 ```
 
-The [native Soda page host](../../docs/forgejo-soda-pages-plan.md#3-native-page-host-and-ownership)
+The [native Soda page host](../../docs/reference/forgejo.md)
 has an opt-in browser check against this exact local preview:
 `SODA_FORGEJO_NATIVE_PAGES=1 bun test --timeout 120000 tests/forgejo/native-pages.test.ts`.
 Prepare the matching canonical public payload first; missing server assets fail
@@ -89,7 +89,7 @@ See the implementation handoff for actual checks and remaining validation.
 The September brutalist redesign supersedes the older visual receipts below.
 Routine page artwork is retired from templates and delivery; avatars, organization
 logos, repository content and functional icons remain. Current scope and validation
-are tracked in [the redesign status](../../docs/forgejo-redesign-status.md).
+are tracked in [the redesign status](../../docs/reference/forgejo.md).
 
 
 Soda pages compose a small, opt-in presentation vocabulary around native Forgejo
@@ -172,7 +172,7 @@ need their own structure; a generic card or form renderer would obscure it.
 repository drawer would restyle the surrounding navbar/footer. A future drawer
 must use its own local root and native or explicitly scoped semantic variables.
 Do not add page classes merely to borrow another page's styling. See the
-[component audit](../../docs/forgejo-components-audit.md) for the reviewed boundaries.
+[component audit](../../docs/reference/forgejo.md) for the reviewed boundaries.
 
 Callers retain native handlers, context, permission gates, translations, IDs,
 forms and scripts. The partials do not accept arbitrary template names, raw HTML or
@@ -419,7 +419,7 @@ details, federated authentication and setup. Native source provenance and exact
 stock recovery checks accompany the adapted files. Full setup, consent and native
 workflow execution are not implied by source composition or local rendering.
 
-The follow-up [component audit](../../docs/forgejo-components-audit.md) removes
+The follow-up [component audit](../../docs/reference/forgejo.md) removes
 dead and competing adapters and records the current owner map. The shared header
 registers the scoped feature files; existing page, form, toolbar, tab, list and
 empty-state primitives remain the common presentation owners. Shared runner,

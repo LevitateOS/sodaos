@@ -34,16 +34,13 @@ provider public ingress closed and the console available.
 
 ## Use the native Tailnet page
 
-The source candidate places the entry under **Site administration → Soda → Tailnet**,
+The Tailnet operator entry lives under **Site administration → Soda → Tailnet**,
 not the global top bar. The fixed bookmark `/-/soda/settings/tailnet` also works
 without first entering Spaces or logging in to Soda. Native administration visibility
 does not grant management access: the configured Soda operator remains required.
 The page renders in Forgejo's native administration layout, so native site-admin
-eligibility is also required, including for direct bookmarks. See the
-[native page contract](../../forgejo-soda-pages-plan.md#automatic-connection).
-It has not yet replaced the installed Cockpit fallback
-on retained development targets; [the handoff](../../development-handoff.md)
-records delivery and acceptance separately.
+eligibility is also required, including for direct bookmarks. Native administration
+visibility does not replace the configured Soda operator requirement.
 
 For a reachable, paired deployment, open **Tailnet → Appliance**, select **Sign in**,
 follow the explicit authentication link and observe the resulting identity. Saving
@@ -67,7 +64,7 @@ connection and uncertainty. Administrators/operators can enable, disable or retr
 native startup; a read never retries enrollment. Members receive only authorized
 metadata and their own ordinary SSH account/fingerprint. Missing or uncertain run
 state does not permit automatically issuing another key. Native DNS, lifecycle and
-intended-client connectivity acceptance are still pending for the source candidate.
+intended-client connectivity must be verified for each deployment.
 
 ## Route the project subnet
 

@@ -2,7 +2,7 @@
 // may exist, which package names they declare, and which internal
 // dependencies may cross ownership boundaries. It parses only production
 // (non-test) imports, so test fakes may still use whatever they need. See
-// docs/go.md and docs/go-packages.md for the rules.
+// docs/development/go.md and docs/development/go-packages.md for the rules.
 package archcheck
 
 import (
