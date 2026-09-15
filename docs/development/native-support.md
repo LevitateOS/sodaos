@@ -111,7 +111,7 @@ sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
 # This selects a distinct development host/ISO, not production qualification.
 ```
 
-`tools/soda-iso` wraps the same admitted controller: one overview screen
+`tools/soda-candidate` wraps the same admitted controller: one overview screen
 shows every choice (mode, output with freshness status, controller, worker
 config, fixture URL, protected configs; arch stays pinned to the host),
 fields are edited by number with inline validation, and `go` starts only a

@@ -226,7 +226,7 @@ func (p *prompter) overview(o *options, suggestOut func() string) error {
 	}
 	for {
 		fields := overviewFields(p, o)
-		if _, err := fmt.Fprintf(p.out, "\nsoda-iso | %s | arch %s (this host)\n", modeLabel(o.mode), o.arch); err != nil {
+		if _, err := fmt.Fprintf(p.out, "\nsoda-candidate | %s | arch %s (this host)\n", modeLabel(o.mode), o.arch); err != nil {
 			return err
 		}
 		for i, f := range fields {

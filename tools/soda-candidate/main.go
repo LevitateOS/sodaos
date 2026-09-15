@@ -1,4 +1,4 @@
-// soda-iso wraps the admitted soda-build controller with preflight checks
+// soda-candidate wraps the admitted soda-build controller with preflight checks
 // and a step-by-step progress display. Build choices are asked in the TUI;
 // flags only pre-seed answers for scripting. The wrapper never admits
 // workers, signs, or publishes; those authorities stay with the controller
@@ -54,7 +54,7 @@ func parseOptions(args []string) (options, error) {
 	if err != nil {
 		return o, err
 	}
-	fs := flag.NewFlagSet("soda-iso", flag.ContinueOnError)
+	fs := flag.NewFlagSet("soda-candidate", flag.ContinueOnError)
 	fs.StringVar(&o.controller, "controller", "", "admitted soda-build executable (asked when empty)")
 	fs.StringVar(&o.workerConfig, "worker-config", "", "restricted worker configuration (asked when empty)")
 	fs.StringVar(&o.arch, "arch", native, "matching native x86_64 or aarch64")
@@ -256,7 +256,7 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 	}
 	tty := isTerminal(stderr) && !o.nonInteractive
 	view := newRenderer(stderr, tty, termWidth(stderr))
-	if err := view.note("soda-iso: " + describe(o)); err != nil {
+	if err := view.note("soda-candidate: " + describe(o)); err != nil {
 		return err
 	}
 	if err := cmd.Start(); err != nil {
@@ -311,7 +311,7 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 
 func main() {
 	if err := run(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
-		fmt.Fprintln(os.Stderr, "soda-iso:", err)
+		fmt.Fprintln(os.Stderr, "soda-candidate:", err)
 		var ee exitError
 		if errors.As(err, &ee) {
 			os.Exit(ee.ExitCode())

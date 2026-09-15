@@ -166,7 +166,7 @@ func phaseMark(state string) string {
 // draw redraws the whole table in place. Callers hold r.mu.
 func (r *renderer) draw() error {
 	now := time.Now()
-	lines := []string{fmt.Sprintf("soda-iso | elapsed %s", wallDur(now.Sub(r.start)))}
+	lines := []string{fmt.Sprintf("soda-candidate | elapsed %s", wallDur(now.Sub(r.start)))}
 	for _, l := range r.log {
 		lines = append(lines, "  "+l)
 	}
@@ -249,7 +249,7 @@ func (r *renderer) finish(code int) error {
 			return err
 		}
 	}
-	_, err := fmt.Fprintf(r.w, "soda-iso: finished in %s with exit %d%s\n", wallSince(r.start), code, exitMeaning(code))
+	_, err := fmt.Fprintf(r.w, "soda-candidate: finished in %s with exit %d%s\n", wallSince(r.start), code, exitMeaning(code))
 	return err
 }
 
