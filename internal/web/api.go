@@ -62,65 +62,94 @@ func (s *Server) apiRoutes() {
 	s.mux.HandleFunc("/api/", notFound)
 }
 
+func allowAPIMethod(w http.ResponseWriter, r *http.Request, methods []string) bool {
+	allowed := false
+	for _, method := range methods {
+		allowed = allowed || r.Method == method
+	}
+	if !allowed {
+		w.Header().Set("Allow", strings.Join(methods, ", "))
+		jsonError(w, http.StatusMethodNotAllowed, "method_not_allowed", "HTTP method not supported.")
+		return false
+	}
+	return true
+}
+
+func (s *Server) loadAPISession(w http.ResponseWriter, r *http.Request) (store.Session, bool) {
+	cookie, err := requestCookie(r, sessionCookie)
+	if err != nil || cookie.Value == "" {
+		jsonError(w, http.StatusUnauthorized, "unauthenticated", "Sign in through Forgejo.")
+		return store.Session{}, false
+	}
+	if s.Store == nil {
+		jsonError(w, http.StatusServiceUnavailable, "store_unavailable", "Soda session storage is unavailable.")
+		return store.Session{}, false
+	}
+	session, err := s.Store.Session(r.Context(), cookie.Value)
+	if errors.Is(err, sql.ErrNoRows) {
+		jsonError(w, http.StatusUnauthorized, "unauthenticated", "Session expired; sign in again.")
+		return store.Session{}, false
+	}
+	if err != nil {
+		jsonError(w, http.StatusServiceUnavailable, "store_unavailable", "Soda session storage is unavailable.")
+		return store.Session{}, false
+	}
+	return session, true
+}
+
+func checkExpectedActor(w http.ResponseWriter, r *http.Request, session store.Session) bool {
+	expected := r.Header.Values(expectedUserHeader)
+	if len(expected) == 0 && r.URL.Path == "/api/session" && r.Method == http.MethodGet {
+		return true
+	}
+	if len(expected) != 1 {
+		jsonError(w, 400, "invalid_actor_context", "Provide one expected Forgejo user ID.")
+		return false
+	}
+	id, ok := positiveID(expected[0])
+	if !ok || id != session.User.ID {
+		if !ok {
+			jsonError(w, 400, "invalid_actor_context", "Provide one expected Forgejo user ID.")
+		} else {
+			jsonError(w, 403, "identity_mismatch", "Soda is signed in as a different user. Reload the repository and sign in again.")
+		}
+		return false
+	}
+	return true
+}
+
+func (s *Server) constrainAPIBody(w http.ResponseWriter, r *http.Request, session store.Session) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	if !s.validAPIMutation(r, session.CSRF) {
+		jsonError(w, http.StatusForbidden, "invalid_csrf", "Request origin or CSRF token is invalid.")
+		return false
+	}
+	contentType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || contentType != "application/json" || (params["charset"] != "" && !strings.EqualFold(params["charset"], "utf-8")) {
+		jsonError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Send a UTF-8 application/json object.")
+		return false
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, apiBodyLimit)
+	return true
+}
+
 func (s *Server) apiProtected(next func(http.ResponseWriter, *http.Request, store.Session), methods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		allowed := false
-		for _, method := range methods {
-			allowed = allowed || r.Method == method
-		}
-		if !allowed {
-			w.Header().Set("Allow", strings.Join(methods, ", "))
-			jsonError(w, http.StatusMethodNotAllowed, "method_not_allowed", "HTTP method not supported.")
+		if !allowAPIMethod(w, r, methods) {
 			return
 		}
-		cookie, err := requestCookie(r, sessionCookie)
-		if err != nil || cookie.Value == "" {
-			jsonError(w, http.StatusUnauthorized, "unauthenticated", "Sign in through Forgejo.")
+		session, ok := s.loadAPISession(w, r)
+		if !ok {
 			return
 		}
-		if s.Store == nil {
-			jsonError(w, http.StatusServiceUnavailable, "store_unavailable", "Soda session storage is unavailable.")
+		if !checkExpectedActor(w, r, session) {
 			return
 		}
-		session, err := s.Store.Session(r.Context(), cookie.Value)
-		if errors.Is(err, sql.ErrNoRows) {
-			jsonError(w, http.StatusUnauthorized, "unauthenticated", "Session expired; sign in again.")
+		if !s.constrainAPIBody(w, r, session) {
 			return
-		}
-		if err != nil {
-			jsonError(w, http.StatusServiceUnavailable, "store_unavailable", "Soda session storage is unavailable.")
-			return
-		}
-		// A page must declare its expected actor, but this hint never selects a
-		// session or grants permission. Only session bootstrap may omit it.
-		expected := r.Header.Values(expectedUserHeader)
-		if len(expected) != 0 || r.URL.Path != "/api/session" || r.Method != http.MethodGet {
-			if len(expected) != 1 {
-				jsonError(w, 400, "invalid_actor_context", "Provide one expected Forgejo user ID.")
-				return
-			}
-			id, ok := positiveID(expected[0])
-			if !ok {
-				jsonError(w, 400, "invalid_actor_context", "Provide one expected Forgejo user ID.")
-				return
-			}
-			if id != session.User.ID {
-				jsonError(w, 403, "identity_mismatch", "Soda is signed in as a different user. Reload the repository and sign in again.")
-				return
-			}
-		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			if !s.validAPIMutation(r, session.CSRF) {
-				jsonError(w, http.StatusForbidden, "invalid_csrf", "Request origin or CSRF token is invalid.")
-				return
-			}
-			contentType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-			if err != nil || contentType != "application/json" || (params["charset"] != "" && !strings.EqualFold(params["charset"], "utf-8")) {
-				jsonError(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Send a UTF-8 application/json object.")
-				return
-			}
-			r.Body = http.MaxBytesReader(w, r.Body, apiBodyLimit)
 		}
 		next(w, r, session)
 	}
