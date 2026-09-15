@@ -14,8 +14,10 @@ import (
 	"github.com/levitateos/sodaos/internal/nativebuild"
 )
 
-const manifestType = "application/vnd.oci.image.manifest.v1+json"
-const layerType = "application/vnd.oci.image.layer.v1.tar"
+const (
+	manifestType = "application/vnd.oci.image.manifest.v1+json"
+	layerType    = "application/vnd.oci.image.layer.v1.tar"
+)
 
 type descriptor struct {
 	MediaType string `json:"mediaType"`
@@ -40,17 +42,17 @@ func WriteDocument(path string, value any) (string, error) {
 		return "", e
 	}
 	blobs := filepath.Join(path, "blobs/sha256")
-	if e = os.MkdirAll(blobs, 0700); e != nil {
+	if e = os.MkdirAll(blobs, 0o700); e != nil {
 		return "", e
 	}
 	put := func(b []byte, media string) (descriptor, error) {
 		h := Hash(b)
-		e := nativebuild.WriteNew(filepath.Join(blobs, strings.TrimPrefix(h, "sha256:")), b, 0600)
+		e := nativebuild.WriteNew(filepath.Join(blobs, strings.TrimPrefix(h, "sha256:")), b, 0o600)
 		return descriptor{media, h, int64(len(b))}, e
 	}
 	var layer bytes.Buffer
 	tw := tar.NewWriter(&layer)
-	if e = tw.WriteHeader(&tar.Header{Name: "record.json", Mode: 0444, Size: int64(len(data)), Typeflag: tar.TypeReg}); e != nil {
+	if e = tw.WriteHeader(&tar.Header{Name: "record.json", Mode: 0o444, Size: int64(len(data)), Typeflag: tar.TypeReg}); e != nil {
 		return "", e
 	}
 	if _, e = tw.Write(data); e != nil {
@@ -74,10 +76,10 @@ func WriteDocument(path string, value any) (string, error) {
 		return "", e
 	}
 	index, _ := json.Marshal(map[string]any{"schemaVersion": 2, "manifests": []descriptor{md}})
-	if e = nativebuild.WriteNew(filepath.Join(path, "index.json"), index, 0600); e != nil {
+	if e = nativebuild.WriteNew(filepath.Join(path, "index.json"), index, 0o600); e != nil {
 		return "", e
 	}
-	e = nativebuild.WriteNew(filepath.Join(path, "oci-layout"), []byte(`{"imageLayoutVersion":"1.0.0"}`), 0600)
+	e = nativebuild.WriteNew(filepath.Join(path, "oci-layout"), []byte(`{"imageLayoutVersion":"1.0.0"}`), 0o600)
 	return md.Digest, e
 }
 
@@ -89,6 +91,7 @@ func ReadFile(path string, maximum int64) ([]byte, error) {
 	defer root.Close()
 	return readAt(root, filepath.Base(path), maximum)
 }
+
 func readAt(root *os.Root, path string, maximum int64) ([]byte, error) {
 	st, e := root.Lstat(path)
 	if e != nil {
@@ -112,6 +115,7 @@ func readAt(root *os.Root, path string, maximum int64) ([]byte, error) {
 	}
 	return b, nil
 }
+
 func ReadJSON(path string, v any) error {
 	b, e := ReadFile(path, 1<<20)
 	if e != nil {
@@ -123,6 +127,44 @@ func ReadJSON(path string, v any) error {
 // ReadDocument operates only on a fresh dir: copy already verified by native
 // signature policy. Verify every descriptor and reject extraction/path tricks.
 // Calling this hash reader alone is deliberately NOT signature verification.
+func decodeDocumentManifest(mb []byte, want string) (manifest, error) {
+	var m manifest
+	if Hash(mb) != want {
+		return m, ErrRefused
+	}
+	if e := decode(mb, &m); e != nil || m.SchemaVersion != 2 || m.MediaType != manifestType || len(m.Layers) != 1 || m.Layers[0].MediaType != layerType || m.Config.MediaType != "application/vnd.oci.image.config.v1+json" {
+		return m, ErrRefused
+	}
+	return m, nil
+}
+
+func readDocumentBlob(root *os.Root, d descriptor) ([]byte, error) {
+	if !Digest(d.Digest) || d.Size < 0 || d.Size > 2<<20 {
+		return nil, ErrRefused
+	}
+	b, e := readAt(root, strings.TrimPrefix(d.Digest, "sha256:"), 2<<20)
+	if e != nil || int64(len(b)) != d.Size || Hash(b) != d.Digest {
+		return nil, ErrRefused
+	}
+	return b, nil
+}
+
+func readDocumentRecord(data []byte) ([]byte, error) {
+	tr := tar.NewReader(bytes.NewReader(data))
+	h, e := tr.Next()
+	if e != nil || h.Name != "record.json" || h.Typeflag != tar.TypeReg || h.Size > 1<<20 {
+		return nil, ErrRefused
+	}
+	record, e := io.ReadAll(io.LimitReader(tr, (1<<20)+1))
+	if e != nil {
+		return nil, e
+	}
+	if _, e = tr.Next(); !errors.Is(e, io.EOF) {
+		return nil, ErrRefused
+	}
+	return record, nil
+}
+
 func ReadDocument(path, want string, v any) error {
 	root, e := os.OpenRoot(path)
 	if e != nil {
@@ -130,41 +172,23 @@ func ReadDocument(path, want string, v any) error {
 	}
 	defer root.Close()
 	mb, e := readAt(root, "manifest.json", 64<<10)
-	if e != nil || Hash(mb) != want {
+	if e != nil {
 		return ErrRefused
 	}
-	var m manifest
-	if e = decode(mb, &m); e != nil || m.SchemaVersion != 2 || m.MediaType != manifestType || len(m.Layers) != 1 || m.Layers[0].MediaType != layerType || m.Config.MediaType != "application/vnd.oci.image.config.v1+json" {
-		return ErrRefused
-	}
-	blob := func(d descriptor) ([]byte, error) {
-		if !Digest(d.Digest) || d.Size < 0 || d.Size > 2<<20 {
-			return nil, ErrRefused
-		}
-		b, e := readAt(root, strings.TrimPrefix(d.Digest, "sha256:"), 2<<20)
-		if e != nil || int64(len(b)) != d.Size || Hash(b) != d.Digest {
-			return nil, ErrRefused
-		}
-		return b, nil
-	}
-	if _, e = blob(m.Config); e != nil {
-		return e
-	}
-	data, e := blob(m.Layers[0])
+	m, e := decodeDocumentManifest(mb, want)
 	if e != nil {
 		return e
 	}
-	tr := tar.NewReader(bytes.NewReader(data))
-	h, e := tr.Next()
-	if e != nil || h.Name != "record.json" || h.Typeflag != tar.TypeReg || h.Size > 1<<20 {
-		return ErrRefused
+	if _, e = readDocumentBlob(root, m.Config); e != nil {
+		return e
 	}
-	record, e := io.ReadAll(io.LimitReader(tr, (1<<20)+1))
+	data, e := readDocumentBlob(root, m.Layers[0])
 	if e != nil {
 		return e
 	}
-	if _, e = tr.Next(); !errors.Is(e, io.EOF) {
-		return ErrRefused
+	record, e := readDocumentRecord(data)
+	if e != nil {
+		return e
 	}
 	return decode(record, v)
 }
