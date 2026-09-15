@@ -231,31 +231,57 @@ func (c *Client) TailnetHost(ctx context.Context, in tailnet.HostRequest) (tailn
 	return out, err
 }
 
+func admitEnrollmentSave(out tailnet.EnrollmentResult, in tailnet.EnrollmentRequest) error {
+	if out.Saved != (in.Action != "check") {
+		return tailnet.ErrUnavailable
+	}
+	if out.Saved && (out.Enrollment.Revision == in.Revision || !out.Enrollment.Configured) {
+		return tailnet.ErrUnavailable
+	}
+	if !out.Saved && (!out.CredentialChecked || out.Enrollment.Revision != in.Revision) {
+		return tailnet.ErrUnavailable
+	}
+	return nil
+}
+
+func admitEnrollmentSaveRotate(out tailnet.EnrollmentResult, in tailnet.EnrollmentRequest) error {
+	if out.Enrollment.Tailnet != in.Tailnet || !slices.Equal(out.Enrollment.Tags, in.Tags) || out.Enrollment.Preauthorized != *in.Preauthorized {
+		return tailnet.ErrUnavailable
+	}
+	return nil
+}
+
+func admitEnrollmentAction(out tailnet.EnrollmentResult, in tailnet.EnrollmentRequest) error {
+	switch in.Action {
+	case "save", "rotate":
+		return admitEnrollmentSaveRotate(out, in)
+	case "disable":
+		if out.Enrollment.Admission || out.Enrollment.Default {
+			return tailnet.ErrUnavailable
+		}
+	case "default":
+		if out.Enrollment.Default != *in.Default {
+			return tailnet.ErrUnavailable
+		}
+	}
+	return nil
+}
+
 func (c *Client) TailnetEnrollment(ctx context.Context, in tailnet.EnrollmentRequest) (tailnet.EnrollmentResult, error) {
 	if err := in.Validate(); err != nil {
 		return tailnet.EnrollmentResult{}, err
 	}
 	var out tailnet.EnrollmentResult
 	err := c.tailnetCall(ctx, "enrollment", in, &out)
-	if err == nil {
-		err = out.Validate()
-		if out.Saved != (in.Action != "check") || (out.Saved && (out.Enrollment.Revision == in.Revision || !out.Enrollment.Configured)) || (!out.Saved && (!out.CredentialChecked || out.Enrollment.Revision != in.Revision)) {
-			err = tailnet.ErrUnavailable
-		}
-		switch in.Action {
-		case "save", "rotate":
-			if out.Enrollment.Tailnet != in.Tailnet || !slices.Equal(out.Enrollment.Tags, in.Tags) || out.Enrollment.Preauthorized != *in.Preauthorized {
-				err = tailnet.ErrUnavailable
-			}
-		case "disable":
-			if out.Enrollment.Admission || out.Enrollment.Default {
-				err = tailnet.ErrUnavailable
-			}
-		case "default":
-			if out.Enrollment.Default != *in.Default {
-				err = tailnet.ErrUnavailable
-			}
-		}
+	if err != nil {
+		return out, err
+	}
+	err = out.Validate()
+	if e := admitEnrollmentSave(out, in); e != nil {
+		err = e
+	}
+	if e := admitEnrollmentAction(out, in); e != nil {
+		err = e
 	}
 	return out, err
 }
