@@ -58,23 +58,59 @@ func architecture() string {
 
 // Run requires a controlling terminal. The live service starts disk review;
 // installed-host continuation is explicitly operator-started.
+func runEnrollmentAction(ctx context.Context, action string) (bool, error) {
+	switch action {
+	case "enrollment-serve":
+		if err := coreOSHost(false); err != nil {
+			return true, err
+		}
+		return true, ServeEnrollment(ctx)
+	case "enrollment-receive":
+		if err := coreOSHost(false); err != nil {
+			return true, err
+		}
+		return true, ReceiveEnrollment(ctx)
+	}
+	return false, nil
+}
+
+func lockInstaller() (*os.File, error) {
+	lock, err := os.OpenFile("/run/soda-installer.lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, errors.New("cannot open installer lock")
+	}
+	if err := unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
+		lock.Close()
+		return nil, errors.New("another installer is active")
+	}
+	return lock, nil
+}
+
+func runLockedInstall(ctx context.Context, c console, action string) error {
+	switch action {
+	case "continue":
+		return continueInstall(ctx, c, command)
+	case "configure":
+		return configureInstall(ctx, c, command)
+	case "enroll-key":
+		return armEnrollment(ctx, c, command)
+	default:
+		return installDisk(ctx, c)
+	}
+}
+
+func validInstallAction(action string) bool {
+	return action == "disk" || action == "continue" || action == "configure" || action == "enroll-key"
+}
+
 func Run(ctx context.Context, action string) error {
 	if os.Geteuid() != 0 || runtime.GOOS != "linux" {
 		return errors.New("native CoreOS root required")
 	}
-	switch action {
-	case "enrollment-serve":
-		if err := coreOSHost(false); err != nil {
-			return err
-		}
-		return ServeEnrollment(ctx)
-	case "enrollment-receive":
-		if err := coreOSHost(false); err != nil {
-			return err
-		}
-		return ReceiveEnrollment(ctx)
+	if handled, err := runEnrollmentAction(ctx, action); handled {
+		return err
 	}
-	if action != "disk" && action != "continue" && action != "configure" && action != "enroll-key" {
+	if !validInstallAction(action) {
 		return errors.New("usage: soda-install disk|continue|configure|enroll-key")
 	}
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
@@ -88,25 +124,13 @@ func Run(ctx context.Context, action string) error {
 	}
 	// One local caller, including when different consoles are active. Lock file is
 	// not a success marker and is never removed to pretend a partial attempt is new.
-	lock, err := os.OpenFile("/run/soda-installer.lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0o600)
+	lock, err := lockInstaller()
 	if err != nil {
-		return errors.New("cannot open installer lock")
+		return err
 	}
 	defer lock.Close()
-	if err := unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
-		return errors.New("another installer is active")
-	}
 	defer unix.Flock(int(lock.Fd()), unix.LOCK_UN)
-	switch action {
-	case "continue":
-		return continueInstall(ctx, c, command)
-	case "configure":
-		return configureInstall(ctx, c, command)
-	case "enroll-key":
-		return armEnrollment(ctx, c, command)
-	default:
-		return installDisk(ctx, c)
-	}
+	return runLockedInstall(ctx, c, action)
 }
 
 func coreOSHost(live bool) error {
