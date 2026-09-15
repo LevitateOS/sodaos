@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Sample the canonical polygon emblem into a 32-column, 16-row ASCII mark."""
+
 import argparse
 import re
 import xml.etree.ElementTree as ET
@@ -22,9 +23,11 @@ def polygons(data):
             x, y = float(tokens[i]), float(tokens[i + 1])
             i += 2
         elif command == 'H':
-            x = float(tokens[i]); i += 1
+            x = float(tokens[i])
+            i += 1
         elif command == 'V':
-            y = float(tokens[i]); i += 1
+            y = float(tokens[i])
+            i += 1
         elif command == 'Z':
             assert len(points) >= 3
             result.append(points)
@@ -58,7 +61,7 @@ def render():
         for column in range(32):
             char = ' '
             for shape, glyph in zip(layers, '#@'):
-                if sum(inside((column + .5) * 4, (row + .5) * 8, p) for p in shape) % 2:
+                if sum(inside((column + 0.5) * 4, (row + 0.5) * 8, p) for p in shape) % 2:
                     char = glyph
             cells.append(char)
         rows.append(''.join(cells).rstrip())

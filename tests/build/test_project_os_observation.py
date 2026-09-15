@@ -1,4 +1,5 @@
 """Real parser/filesystem checks; no project or host OS is changed."""
+
 import importlib.util
 import os
 from pathlib import Path
@@ -31,7 +32,15 @@ class OSObservation(unittest.TestCase):
         self.assertFalse(marker.exists())
 
     def test_ambiguous_malformed_or_oversized_fields_are_unknown(self):
-        for contents in [b'ID=rocky\nID=fedora\nVERSION_ID=9', b'ID=rocky', b'ID=rocky\nVERSION_ID=9\nPRETTY_NAME="oops', b'ID=rocky\nVERSION_ID=9\nPRETTY_NAME="a\x00b"', b'ID=rocky\nVERSION_ID=9\nPRETTY_NAME="\xff"', b'ID=rocky\nVERSION_ID=9\nPRETTY_NAME="' + b'x' * 257 + b'"', b'x' * 4097]:
+        for contents in [
+            b'ID=rocky\nID=fedora\nVERSION_ID=9',
+            b'ID=rocky',
+            b'ID=rocky\nVERSION_ID=9\nPRETTY_NAME="oops',
+            b'ID=rocky\nVERSION_ID=9\nPRETTY_NAME="a\x00b"',
+            b'ID=rocky\nVERSION_ID=9\nPRETTY_NAME="\xff"',
+            b'ID=rocky\nVERSION_ID=9\nPRETTY_NAME="' + b'x' * 257 + b'"',
+            b'x' * 4097,
+        ]:
             with self.subTest(contents=contents[:24]):
                 self.release.write_bytes(contents)
                 with self.assertRaises((ValueError, UnicodeError)):

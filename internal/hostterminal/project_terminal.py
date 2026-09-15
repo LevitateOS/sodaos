@@ -4,6 +4,7 @@ stdin/stdout are bounded JSON lines, not a terminal. Only the child PTY receives
 input. A dead peer expires even when Podman leaves its exec session attached to
 conmon. No transcript or diagnostic containing terminal bytes is emitted.
 """
+
 import base64
 import binascii
 import errno
@@ -41,6 +42,7 @@ def decode_frame(raw):
                 raise ValueError('duplicate field')
             result[key] = value
         return result
+
     value = json.loads(raw.decode('utf-8'), object_pairs_hook=unique)
     if not isinstance(value, dict):
         raise ValueError('object required')
@@ -83,7 +85,12 @@ def account_for(login, identity):
     finally:
         os.close(fd)
     account = pwd.getpwnam(login)
-    if account.pw_name != login or account.pw_uid <= 0 or not os.path.isabs(account.pw_dir) or not os.path.isabs(account.pw_shell):
+    if (
+        account.pw_name != login
+        or account.pw_uid <= 0
+        or not os.path.isabs(account.pw_dir)
+        or not os.path.isabs(account.pw_shell)
+    ):
         raise ValueError('invalid native account')
     if os.path.basename(account.pw_shell) in ('false', 'nologin'):
         raise ValueError('login disabled')
@@ -91,9 +98,15 @@ def account_for(login, identity):
 
 
 def user_environment(account):
-    return {'HOME': account.pw_dir, 'USER': account.pw_name, 'LOGNAME': account.pw_name,
-            'SHELL': account.pw_shell, 'PATH': '/usr/local/bin:/usr/bin:/bin',
-            'TERM': 'xterm-256color', 'LANG': 'C.UTF-8'}
+    return {
+        'HOME': account.pw_dir,
+        'USER': account.pw_name,
+        'LOGNAME': account.pw_name,
+        'SHELL': account.pw_shell,
+        'PATH': '/usr/local/bin:/usr/bin:/bin',
+        'TERM': 'xterm-256color',
+        'LANG': 'C.UTF-8',
+    }
 
 
 def become_user(account):
@@ -107,8 +120,9 @@ def become_user(account):
 
 def launch_attach(account, path):
     become_user(account)
-    os.execve('/usr/bin/tmux', ['tmux', '-N', '-S', path, 'attach-session', '-E', '-t', '=soda'],
-              user_environment(account))
+    os.execve(
+        '/usr/bin/tmux', ['tmux', '-N', '-S', path, 'attach-session', '-E', '-t', '=soda'], user_environment(account)
+    )
 
 
 def set_size(master, cols, rows):
@@ -138,9 +152,7 @@ def line(value):
     return json.dumps(value, separators=(',', ':')).encode('ascii') + b'\n'
 
 
-def run_terminal(account, cols, rows, seconds, path):
-    if not dimensions(cols, rows) or type(seconds) is not int or not 1 <= seconds <= 43200:
-        raise ValueError('invalid terminal bounds')
+def spawn_login_pty(account, path):
     # Pipe EOF confirms successful exec (CLOEXEC). PTY output is withheld until then.
     ready_read, ready_write = os.pipe2(os.O_CLOEXEC)
     # A gate lets the parent set initial dimensions before the login shell executes.
@@ -159,14 +171,144 @@ def run_terminal(account, cols, rows, seconds, path):
         os._exit(1)
     os.close(ready_write)
     os.close(gate_read)
+    return pid, master, ready_read, gate_write
+
+
+def apply_control_frame(kind, value, master, to_pty, stopped):
+    if kind == 'close':
+        stopped[0] = True
+        return None
+    if kind == 'heartbeat':
+        return time.monotonic() + HEARTBEAT_SECONDS
+    if kind == 'resize':
+        set_size(master, *value)
+        return None
+    if len(to_pty) + len(value) <= QUEUE_LIMIT:
+        to_pty.extend(value)
+        return None
+    raise ValueError('input queue full')
+
+
+def ingest_control_bytes(incoming, master, to_pty, lease, stopped):
+    while b'\n' in incoming:
+        raw, _, tail = incoming.partition(b'\n')
+        incoming[:] = tail
+        if len(raw) > FRAME_LIMIT:
+            raise ValueError('frame size')
+        kind, value = decode_frame(raw)
+        renewed = apply_control_frame(kind, value, master, to_pty, stopped)
+        if renewed is not None:
+            lease = renewed
+        if stopped[0]:
+            break
+    if len(incoming) > FRAME_LIMIT:
+        raise ValueError('frame size')
+    return lease
+
+
+def read_pty_output(master, outgoing, attaching):
+    try:
+        data = os.read(master, 4096)
+    except OSError as error:
+        if error.errno != errno.EIO:
+            raise
+        data = b''
+    if not data:
+        return 'exited', attaching
+    if attaching:
+        # exec success is not tmux input readiness. Its tty_start_tty
+        # enters raw mode and flushes queued input BEFORE emitting
+        # the initial screen. Wait for that output, retaining it;
+        # otherwise immediate input can be echoed then discarded.
+        outgoing.extend(line({'type': 'ready'}))
+        attaching = False
+    outgoing.extend(line({'type': 'output', 'data': base64.b64encode(data).decode('ascii')}))
+    return None, attaching
+
+
+def session_should_stop(now, deadline, lease, attaching, attach_deadline, pid, reason):
+    if now >= min(deadline, lease):
+        return True, 'expired' if reason != 'exited' else reason, deadline
+    if attaching and now >= attach_deadline:
+        return True, 'launch_failed', deadline
+    if reason != 'exited' and child_exited(pid):
+        return False, 'exited', min(deadline, now + 0.5)
+    return False, reason, deadline
+
+
+def pty_select(master, to_pty, outgoing, attaching, timeout):
+    reads = [0] if len(to_pty) <= QUEUE_LIMIT - 16384 else []
+    if len(outgoing) <= QUEUE_LIMIT - 8192:
+        reads.append(master)
+    writes = ([1] if outgoing else []) + ([master] if to_pty and not attaching else [])
+    return select.select(reads, writes, [], timeout)
+
+
+def take_control_input(incoming, master, to_pty, lease, stopped):
+    data = os.read(0, 4096)
+    if not data:
+        return lease, 'eof'
+    incoming.extend(data)
+    lease = ingest_control_bytes(incoming, master, to_pty, lease, stopped)
+    return lease, 'stop' if stopped[0] else None
+
+
+def flush_pty_queues(master, to_pty, outgoing, writable):
+    if master in writable:
+        del to_pty[: os.write(master, to_pty)]
+    if 1 in writable:
+        del outgoing[: os.write(1, outgoing)]
+
+
+def relay_pty_session(pid, master, seconds, stopped, outgoing):
+    incoming, to_pty = bytearray(), bytearray()
+    attaching = True
+    attach_deadline = time.monotonic() + 5
+    deadline = time.monotonic() + seconds
+    lease = time.monotonic() + HEARTBEAT_SECONDS
+    reason = 'disconnected'
+    while not stopped[0]:
+        now = time.monotonic()
+        halt, reason, deadline = session_should_stop(now, deadline, lease, attaching, attach_deadline, pid, reason)
+        if halt:
+            return reason
+        readable, writable, _ = pty_select(master, to_pty, outgoing, attaching, min(0.1, deadline - now, lease - now))
+        if 0 in readable:
+            lease, event = take_control_input(incoming, master, to_pty, lease, stopped)
+            if event:
+                break
+        if master in readable:
+            ended, attaching = read_pty_output(master, outgoing, attaching)
+            if ended:
+                return ended
+        flush_pty_queues(master, to_pty, outgoing, writable)
+    return reason
+
+
+def flush_closed(outgoing):
+    # Best effort, bounded status delivery AFTER teardown. No output transcript.
+    try:
+        os.set_blocking(1, False)
+        until = time.monotonic() + 0.5
+        while outgoing and time.monotonic() < until:
+            _, ready, _ = select.select([], [1], [], max(0, until - time.monotonic()))
+            if ready:
+                del outgoing[: os.write(1, outgoing)]
+    except OSError:
+        pass
+
+
+def run_terminal(account, cols, rows, seconds, path):
+    if not dimensions(cols, rows) or type(seconds) is not int or not 1 <= seconds <= 43200:
+        raise ValueError('invalid terminal bounds')
+    pid, master, ready_read, gate_write = spawn_login_pty(account, path)
     reason = 'disconnected'
     old_handlers = {}
-    stopped = False
+    stopped = [False]
     outgoing = bytearray()
 
     def stop(_sig, _frame):
-        nonlocal stopped
-        stopped = True
+        stopped[0] = True
 
     try:
         for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
@@ -181,79 +323,7 @@ def run_terminal(account, cols, rows, seconds, path):
         else:
             for fd in (0, 1, master):
                 os.set_blocking(fd, False)
-            incoming, to_pty = bytearray(), bytearray()
-            attaching = True
-            attach_deadline = time.monotonic() + 5
-            deadline = time.monotonic() + seconds
-            lease = time.monotonic() + HEARTBEAT_SECONDS
-            while not stopped:
-                now = time.monotonic()
-                if now >= min(deadline, lease):
-                    if reason != 'exited':
-                        reason = 'expired'
-                    break
-                if attaching and now >= attach_deadline:
-                    reason = 'launch_failed'
-                    break
-                if reason != 'exited' and child_exited(pid):
-                    reason = 'exited'
-                    # Drain final output, but do not retain the PTY indefinitely
-                    # for descendants after its login shell has exited.
-                    deadline = min(deadline, now + 0.5)
-                # Input is not accumulated without bound while the shell is blocked.
-                reads = [0] if len(to_pty) <= QUEUE_LIMIT - 16384 else []
-                if len(outgoing) <= QUEUE_LIMIT - 8192:
-                    reads.append(master)
-                writes = ([1] if outgoing else []) + ([master] if to_pty and not attaching else [])
-                readable, writable, _ = select.select(reads, writes, [], min(0.1, deadline-now, lease-now))
-                if 0 in readable:
-                    data = os.read(0, 4096)
-                    if not data:
-                        break
-                    incoming.extend(data)
-                    while b'\n' in incoming:
-                        raw, _, tail = incoming.partition(b'\n')
-                        incoming = bytearray(tail)
-                        if len(raw) > FRAME_LIMIT:
-                            raise ValueError('frame size')
-                        kind, value = decode_frame(raw)
-                        if kind == 'close':
-                            stopped = True
-                            break
-                        if kind == 'heartbeat':
-                            lease = time.monotonic() + HEARTBEAT_SECONDS
-                        elif kind == 'resize':
-                            set_size(master, *value)
-                        elif len(to_pty) + len(value) <= QUEUE_LIMIT:
-                            to_pty.extend(value)
-                        else:
-                            raise ValueError('input queue full')
-                    if len(incoming) > FRAME_LIMIT:
-                        raise ValueError('frame size')
-                if stopped:
-                    break
-                if master in readable:
-                    try:
-                        data = os.read(master, 4096)
-                    except OSError as error:
-                        if error.errno != errno.EIO:
-                            raise
-                        data = b''
-                    if not data:
-                        reason = 'exited'
-                        break
-                    if attaching:
-                        # exec success is not tmux input readiness. Its tty_start_tty
-                        # enters raw mode and flushes queued input BEFORE emitting
-                        # the initial screen. Wait for that output, retaining it;
-                        # otherwise immediate input can be echoed then discarded.
-                        outgoing.extend(line({'type': 'ready'}))
-                        attaching = False
-                    outgoing.extend(line({'type': 'output', 'data': base64.b64encode(data).decode('ascii')}))
-                if master in writable:
-                    del to_pty[:os.write(master, to_pty)]
-                if 1 in writable:
-                    del outgoing[:os.write(1, outgoing)]
+            reason = relay_pty_session(pid, master, seconds, stopped, outgoing)
     except (OSError, ValueError, binascii.Error, RecursionError):
         reason = 'stream_failed'
     finally:
@@ -263,17 +333,8 @@ def run_terminal(account, cols, rows, seconds, path):
         status = end_child(pid, master)
         for sig, handler in old_handlers.items():
             signal.signal(sig, handler)
-    # Best effort, bounded status delivery AFTER teardown. No output transcript.
     outgoing.extend(line({'type': 'closed', 'reason': reason if status is not None else 'cleanup_unconfirmed'}))
-    try:
-        os.set_blocking(1, False)
-        until = time.monotonic() + 0.5
-        while outgoing and time.monotonic() < until:
-            _, ready, _ = select.select([], [1], [], max(0, until - time.monotonic()))
-            if ready:
-                del outgoing[:os.write(1, outgoing)]
-    except OSError:
-        pass
+    flush_closed(outgoing)
     return 0 if status is not None and reason not in ('launch_failed', 'stream_failed') else 1
 
 
@@ -316,8 +377,7 @@ def root_directory(path):
 
 
 def root_file(directory, name, writable=False):
-    fd = os.open(name, (os.O_RDWR if writable else os.O_RDONLY) | os.O_NOFOLLOW | os.O_NONBLOCK,
-                 dir_fd=directory)
+    fd = os.open(name, (os.O_RDWR if writable else os.O_RDONLY) | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
     info = os.fstat(fd)
     if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1 or info.st_mode & 0o077:
         os.close(fd)
@@ -355,13 +415,23 @@ def binding(directory, account=None, identity=None):
     if not isinstance(record, dict) or set(record) != {'account', 'identity', 'cols', 'rows', 'created_at'}:
         raise ValueError('terminal binding')
     a = record['account']
-    if (not isinstance(a, list) or len(a) != 5 or not isinstance(a[0], str) or
-            not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}', a[0]) or a[0] == 'root' or
-            type(a[1]) is not int or a[1] <= 0 or type(a[2]) is not int or a[2] < 0 or
-            not all(isinstance(v, str) and os.path.isabs(v) for v in a[3:]) or
-            type(record['identity']) is not int or record['identity'] <= 0 or
-            not dimensions(record['cols'], record['rows']) or
-            type(record['created_at']) is not int or not 0 < record['created_at'] <= 9007199254740991):
+    if (
+        not isinstance(a, list)
+        or len(a) != 5
+        or not isinstance(a[0], str)
+        or not re.fullmatch(r'[a-z][a-z0-9_-]{0,30}', a[0])
+        or a[0] == 'root'
+        or type(a[1]) is not int
+        or a[1] <= 0
+        or type(a[2]) is not int
+        or a[2] < 0
+        or not all(isinstance(v, str) and os.path.isabs(v) for v in a[3:])
+        or type(record['identity']) is not int
+        or record['identity'] <= 0
+        or not dimensions(record['cols'], record['rows'])
+        or type(record['created_at']) is not int
+        or not 0 < record['created_at'] <= 9007199254740991
+    ):
         raise ValueError('terminal binding values')
     if account is not None and (record['identity'] != identity or record['account'] != account_binding(account)):
         raise ValueError('terminal account changed')
@@ -369,7 +439,9 @@ def binding(directory, account=None, identity=None):
 
 
 def valid_name(value):
-    return isinstance(value, str) and len(value) <= 80 and all(unicodedata.category(c) not in ('Cc', 'Cf') for c in value)
+    return (
+        isinstance(value, str) and len(value) <= 80 and all(unicodedata.category(c) not in ('Cc', 'Cf') for c in value)
+    )
 
 
 def write_name(directory, name):
@@ -387,9 +459,16 @@ def write_name(directory, name):
 
 
 def tmux_control(account, path, *args):
-    subprocess.run(['/usr/bin/tmux', '-N', '-S', path, *args], check=True, timeout=2,
-                   preexec_fn=lambda: become_user(account), env=user_environment(account),
-                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(
+        ['/usr/bin/tmux', '-N', '-S', path, *args],
+        check=True,
+        timeout=2,
+        preexec_fn=lambda: become_user(account),
+        env=user_environment(account),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 def socket_identity(path, account, pid):
@@ -422,9 +501,14 @@ def cgroup_parent():
             os.close(fd)
             fd = child
             info = os.fstat(fd)
-            result = subprocess.run(['/usr/bin/stat', '-f', '-c', '%T', '/proc/self/fd/' + str(fd)],
-                                    pass_fds=(fd,), check=True, timeout=2,
-                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            result = subprocess.run(
+                ['/usr/bin/stat', '-f', '-c', '%T', '/proc/self/fd/' + str(fd)],
+                pass_fds=(fd,),
+                check=True,
+                timeout=2,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
             if part in ('sys', 'fs'):
                 if result.stdout != b'sysfs\n' or not os.fstatvfs(fd).f_flag & os.ST_RDONLY:
                     raise ValueError('expected read-only kernel sysfs')
@@ -440,7 +524,9 @@ def cgroup_empty(identifier):
     parent = cgroup_parent()
     try:
         try:
-            directory = os.open('soda-terminal-' + identifier + '.service', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+            directory = os.open(
+                'soda-terminal-' + identifier + '.service', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent
+            )
         except FileNotFoundError:
             return True  # Kernel cannot remove a populated cgroup.
     finally:
@@ -460,7 +546,9 @@ def prepare(identifier):
     path = terminal_path(identifier)
     parent = cgroup_parent()
     try:
-        group = os.open('soda-terminal-' + identifier + '.service', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+        group = os.open(
+            'soda-terminal-' + identifier + '.service', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent
+        )
     finally:
         os.close(parent)
     info = os.fstat(group)
@@ -502,9 +590,25 @@ def prepare(identifier):
     inode = socket_identity(sock, account, pid)
     # -D starts empty and disables exit-empty. Restore normal empty-server exit
     # AFTER new-session, in the same native command queue (also supported by 3.2a).
-    tmux_control(account, sock, 'new-session', '-d', '-s', 'soda', '-x', str(record['cols']),
-                 '-y', str(record['rows']), '-c', account.pw_dir,
-                 ';', 'set-option', '-s', 'exit-empty', 'on')
+    tmux_control(
+        account,
+        sock,
+        'new-session',
+        '-d',
+        '-s',
+        'soda',
+        '-x',
+        str(record['cols']),
+        '-y',
+        str(record['rows']),
+        '-c',
+        account.pw_dir,
+        ';',
+        'set-option',
+        '-s',
+        'exit-empty',
+        'on',
+    )
     new_file(directory, 'ready', line({'pid': pid, 'socket': inode}))
     os.close(directory)
     return 0
@@ -513,22 +617,38 @@ def prepare(identifier):
 def service_state(identifier, account=None):
     unit = 'soda-terminal-' + identifier + '.service'
     properties = 'LoadState,ActiveState,Description,FragmentPath,DropInPaths,Type,User,KillMode,Restart,SendSIGKILL,TimeoutStopUSec,StandardInput,StandardOutput,StandardError'
-    result = subprocess.run(['/usr/bin/systemctl', 'show', unit, '--property=' + properties],
-                            check=False, timeout=3, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    result = subprocess.run(
+        ['/usr/bin/systemctl', 'show', unit, '--property=' + properties],
+        check=False,
+        timeout=3,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
     if len(result.stdout) > 4096:
         raise ValueError('unit response size')
     fields = dict(line.split('=', 1) for line in result.stdout.decode('ascii').splitlines())
     if set(fields) != set(properties.split(',')) or (result.returncode and fields.get('LoadState') != 'not-found'):
         raise ValueError('unit inspection unavailable')
-    if fields.get('LoadState') != 'not-found' and (fields.get('Description') != 'Soda terminal ' + identifier or
-            fields.get('FragmentPath') != '/run/systemd/transient/' + unit):
+    if fields.get('LoadState') != 'not-found' and (
+        fields.get('Description') != 'Soda terminal ' + identifier
+        or fields.get('FragmentPath') != '/run/systemd/transient/' + unit
+    ):
         raise ValueError('not the owned terminal unit')
     if fields['LoadState'] != 'not-found':
         if account is None:
             raise ValueError('terminal unit occupied')
-        selected = {'DropInPaths': '', 'Type': 'exec', 'User': account.pw_name, 'KillMode': 'control-group',
-                    'Restart': 'no', 'SendSIGKILL': 'yes', 'TimeoutStopUSec': '3s',
-                    'StandardInput': 'null', 'StandardOutput': 'null', 'StandardError': 'null'}
+        selected = {
+            'DropInPaths': '',
+            'Type': 'exec',
+            'User': account.pw_name,
+            'KillMode': 'control-group',
+            'Restart': 'no',
+            'SendSIGKILL': 'yes',
+            'TimeoutStopUSec': '3s',
+            'StandardInput': 'null',
+            'StandardOutput': 'null',
+            'StandardError': 'null',
+        }
         if any(fields[k] != value for k, value in selected.items()):
             raise ValueError('terminal supervision changed')
     return fields.get('ActiveState')
@@ -537,11 +657,36 @@ def service_state(identifier, account=None):
 def stop_service(identifier, account):
     state = service_state(identifier, account)
     if state not in ('inactive', 'failed'):
-        subprocess.run(['/usr/bin/systemctl', 'stop', 'soda-terminal-' + identifier + '.service'],
-                       check=True, timeout=8, stdin=subprocess.DEVNULL,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ['/usr/bin/systemctl', 'stop', 'soda-terminal-' + identifier + '.service'],
+            check=True,
+            timeout=8,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
     if service_state(identifier, account) not in ('inactive', 'failed') or not cgroup_empty(identifier):
         raise ValueError('terminal cleanup unconfirmed')
+
+
+def remove_screen_contents(directory, account):
+    screen = os.open('screen', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+    try:
+        info = os.fstat(screen)
+        # Failed startup may precede the root seal. The parent is held and
+        # the unit/cgroup is already empty; accept only its original account.
+        if info.st_uid not in (0, account.pw_uid) or info.st_mode & 0o022:
+            raise ValueError('unexpected terminal screen')
+        for name in os.listdir(screen):
+            info = os.stat(name, dir_fd=screen, follow_symlinks=False)
+            expected = (
+                name == 'socket' and stat.S_ISSOCK(info.st_mode) or name == 'socket.lock' and stat.S_ISREG(info.st_mode)
+            )
+            if not expected or info.st_uid != account.pw_uid or info.st_nlink != 1:
+                raise ValueError('unexpected terminal socket')
+            os.unlink(name, dir_fd=screen)
+    finally:
+        os.close(screen)
 
 
 def remove_owned_files(path, directory, account):
@@ -550,21 +695,7 @@ def remove_owned_files(path, directory, account):
     if names - {'binding', 'reservation', 'name', 'name.next', 'writer', 'tmux.conf', 'ready', 'screen'}:
         raise ValueError('unexpected terminal files')
     if 'screen' in names:
-        screen = os.open('screen', os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
-        try:
-            info = os.fstat(screen)
-            # Failed startup may precede the root seal. The parent is held and
-            # the unit/cgroup is already empty; accept only its original account.
-            if info.st_uid not in (0, account.pw_uid) or info.st_mode & 0o022:
-                raise ValueError('unexpected terminal screen')
-            for name in os.listdir(screen):
-                info = os.stat(name, dir_fd=screen, follow_symlinks=False)
-                expected = name == 'socket' and stat.S_ISSOCK(info.st_mode) or name == 'socket.lock' and stat.S_ISREG(info.st_mode)
-                if not expected or info.st_uid != account.pw_uid or info.st_nlink != 1:
-                    raise ValueError('unexpected terminal socket')
-                os.unlink(name, dir_fd=screen)
-        finally:
-            os.close(screen)
+        remove_screen_contents(directory, account)
     for name in names - {'screen'}:
         info = os.stat(name, dir_fd=directory, follow_symlinks=False)
         if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1:
@@ -590,8 +721,9 @@ def reserve_terminal(identifier, account, identity, cols, rows, name, source_has
         os.close(program)
         os.close(parent)
     for term in ('xterm-256color', 'screen-256color'):
-        subprocess.run(['/usr/bin/infocmp', term], check=True, timeout=2,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(
+            ['/usr/bin/infocmp', term], check=True, timeout=2, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
     path = terminal_path(identifier)
     # Refuse occupied locators before retiring any completed runtime files.
     # The caller holds the native parent lock across preparation/admission.
@@ -613,8 +745,13 @@ def reserve_terminal(identifier, account, identity, cols, rows, name, source_has
         os.close(parent)
     directory = root_directory(path)
     os.fchmod(directory, 0o711)
-    record = {'account': account_binding(account), 'identity': identity, 'cols': cols, 'rows': rows,
-              'created_at': int(time.time())}
+    record = {
+        'account': account_binding(account),
+        'identity': identity,
+        'cols': cols,
+        'rows': rows,
+        'created_at': int(time.time()),
+    }
     new_file(directory, 'binding', line(record))
     new_file(directory, 'reservation', line({'expires': int(time.time()) + 120, 'scope': scope}))
     write_name(directory, name)
@@ -631,9 +768,14 @@ def reservation(directory):
         value = read_record(directory, 'reservation')
     except FileNotFoundError:
         return None
-    if (not isinstance(value, dict) or set(value) != {'expires', 'scope'} or
-            type(value['expires']) is not int or value['expires'] <= 0 or
-            not isinstance(value['scope'], str) or not re.fullmatch(r'[0-9a-f]{64}', value['scope'])):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {'expires', 'scope'}
+        or type(value['expires']) is not int
+        or value['expires'] <= 0
+        or not isinstance(value['scope'], str)
+        or not re.fullmatch(r'[0-9a-f]{64}', value['scope'])
+    ):
         raise ValueError('invalid creation reservation')
     return value
 
@@ -644,7 +786,12 @@ def create_terminal(identifier, account, identity, cols, rows, name, scope):
     try:
         record = binding(directory, account, identity)
         permit = reservation(directory)
-        if permit is None or permit['expires'] <= time.time() or permit['scope'] != scope or (cols, rows) != (record['cols'], record['rows']):
+        if (
+            permit is None
+            or permit['expires'] <= time.time()
+            or permit['scope'] != scope
+            or (cols, rows) != (record['cols'], record['rows'])
+        ):
             raise ValueError('creation reservation expired, consumed or changed')
         if collect_finished() >= 64:
             raise ValueError('native terminal capacity')
@@ -656,19 +803,43 @@ def create_terminal(identifier, account, identity, cols, rows, name, scope):
         os.close(directory)
     if service_state(identifier) != 'inactive':
         raise ValueError('terminal unit occupied')
-    subprocess.run(['/usr/bin/systemd-run', '--quiet', '--collect',
-                    '--unit=soda-terminal-' + identifier, '--description=Soda terminal ' + identifier,
-                    '--service-type=exec', '--property=User=' + account.pw_name,
-                    '--property=Group=' + str(account.pw_gid), '--property=WorkingDirectory=' + account.pw_dir,
-                    '--slice=system.slice', '--property=KillMode=control-group', '--property=SendSIGKILL=yes',
-                    '--property=Restart=no', '--property=TimeoutStartSec=10s', '--property=TimeoutStopSec=3s',
-                    '--property=UMask=0077', '--property=LimitCORE=0', '--property=StandardInput=null',
-                    '--property=StandardOutput=null', '--property=StandardError=null',
-                    '--property=ExecStartPost=+/usr/bin/python3 -I ' + PROGRAM + ' prepare ' + identifier,
-                    *['--setenv=' + key + '=' + value for key, value in user_environment(account).items()],
-                    '/usr/bin/tmux', '-D', '-S', path + '/screen/socket', '-f', path + '/tmux.conf'],
-                   check=True, timeout=15, stdin=subprocess.DEVNULL,
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(
+        [
+            '/usr/bin/systemd-run',
+            '--quiet',
+            '--collect',
+            '--unit=soda-terminal-' + identifier,
+            '--description=Soda terminal ' + identifier,
+            '--service-type=exec',
+            '--property=User=' + account.pw_name,
+            '--property=Group=' + str(account.pw_gid),
+            '--property=WorkingDirectory=' + account.pw_dir,
+            '--slice=system.slice',
+            '--property=KillMode=control-group',
+            '--property=SendSIGKILL=yes',
+            '--property=Restart=no',
+            '--property=TimeoutStartSec=10s',
+            '--property=TimeoutStopSec=3s',
+            '--property=UMask=0077',
+            '--property=LimitCORE=0',
+            '--property=StandardInput=null',
+            '--property=StandardOutput=null',
+            '--property=StandardError=null',
+            '--property=ExecStartPost=+/usr/bin/python3 -I ' + PROGRAM + ' prepare ' + identifier,
+            *['--setenv=' + key + '=' + value for key, value in user_environment(account).items()],
+            '/usr/bin/tmux',
+            '-D',
+            '-S',
+            path + '/screen/socket',
+            '-f',
+            path + '/tmux.conf',
+        ],
+        check=True,
+        timeout=15,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     # No owner stream or lifetime timer. systemd's start job includes the bounded
     # privileged preparation hook; it cleans the cgroup if that hook fails.
     return terminal_status(identifier, account, identity)
@@ -685,12 +856,54 @@ def attach_terminal(identifier, account, identity, cols, rows, seconds):
         os.close(screen)
         ready = read_record(directory, 'ready')
         sock = path + '/screen/socket'
-        if service_state(identifier, account) != 'active' or socket_identity(sock, account, ready['pid']) != ready['socket']:
+        if (
+            service_state(identifier, account) != 'active'
+            or socket_identity(sock, account, ready['pid']) != ready['socket']
+        ):
             raise ValueError('terminal absent')
         return run_terminal(account, cols, rows, seconds, sock)
     finally:
         os.close(writer)
         os.close(directory)
+
+
+def writer_attached(directory):
+    writer = root_file(directory, 'writer', True)
+    try:
+        try:
+            fcntl.flock(writer, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        return False
+    finally:
+        os.close(writer)
+
+
+def observe_ready_terminal(path, directory, account, identifier):
+    ready = read_record(directory, 'ready')
+    screen = root_directory(path + '/screen')
+    os.close(screen)
+    if socket_identity(path + '/screen/socket', account, ready['pid']) != ready['socket']:
+        raise ValueError('terminal socket changed')
+    return writer_attached(directory)
+
+
+def classify_unit_state(path, directory, account, identifier, state, permit):
+    attached = False
+    if state in ('inactive', 'failed'):
+        if not cgroup_empty(identifier):
+            raise ValueError('terminal cleanup unconfirmed')
+        state = 'opening' if permit is not None and permit['expires'] > time.time() else 'ended'
+    elif permit is not None:
+        raise ValueError('unconsumed reservation has a native unit')
+    elif state == 'active':
+        attached = observe_ready_terminal(path, directory, account, identifier)
+        state = 'ready'
+    elif state in ('activating', 'deactivating'):
+        state = 'opening' if state == 'activating' else 'ending'
+    else:
+        raise ValueError('terminal state unavailable')
+    return state, attached
 
 
 def terminal_status(identifier, account, identity):
@@ -703,39 +916,21 @@ def terminal_status(identifier, account, identity):
         return None  # observed absence, not an expired web receipt
     try:
         record = binding(directory, account, identity)
-        state = service_state(identifier, account)
-        attached = False
         permit = reservation(directory)
-        if state in ('inactive', 'failed'):
-            if not cgroup_empty(identifier):
-                raise ValueError('terminal cleanup unconfirmed')
-            state = 'opening' if permit is not None and permit['expires'] > time.time() else 'ended'
-        elif permit is not None:
-            raise ValueError('unconsumed reservation has a native unit')
-        elif state == 'active':
-            ready = read_record(directory, 'ready')
-            screen = root_directory(path + '/screen')
-            os.close(screen)
-            if socket_identity(path + '/screen/socket', account, ready['pid']) != ready['socket']:
-                raise ValueError('terminal socket changed')
-            writer = root_file(directory, 'writer', True)
-            try:
-                try:
-                    fcntl.flock(writer, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError:
-                    attached = True
-            finally:
-                os.close(writer)
-            state = 'ready'
-        elif state in ('activating', 'deactivating'):
-            state = 'opening' if state == 'activating' else 'ending'
-        else:
-            raise ValueError('terminal state unavailable')
+        state, attached = classify_unit_state(
+            path, directory, account, identifier, service_state(identifier, account), permit
+        )
         name = read_record(directory, 'name')
         if not valid_name(name):
             raise ValueError('terminal name')
-        return {'id': identifier, 'name': name, 'created_at': record['created_at'],
-                'ready': state == 'ready', 'attached': attached, 'state': state}
+        return {
+            'id': identifier,
+            'name': name,
+            'created_at': record['created_at'],
+            'ready': state == 'ready',
+            'attached': attached,
+            'state': state,
+        }
     finally:
         os.close(directory)
 
@@ -789,6 +984,44 @@ def collect_finished():
     return active
 
 
+def list_owned_terminals(account, identity):
+    values = []
+    for identifier in terminal_directories():
+        directory = root_directory(terminal_path(identifier))
+        try:
+            record = binding(directory)
+            pending = reservation(directory)
+        finally:
+            os.close(directory)
+        if pending is None and record['identity'] == identity and record['account'] == account_binding(account):
+            value = terminal_status(identifier, account, identity)
+            if value is not None and value['state'] != 'ended':
+                values.append(value)
+    return values
+
+
+def mutate_terminal(action, identifier, account, identity, name):
+    try:
+        directory = root_directory(terminal_path(identifier))
+    except FileNotFoundError:
+        if action == 'end' and terminal_status(identifier, account, identity) is None:
+            return []
+        raise
+    try:
+        binding(directory, account, identity)
+        if action == 'end':
+            stop_service(identifier, account)
+            remove_owned_files(terminal_path(identifier), directory, account)
+            return []
+        if action != 'rename':
+            raise ValueError('terminal action')
+        write_name(directory, name)
+    finally:
+        os.close(directory)
+    value = terminal_status(identifier, account, identity)
+    return [] if value is None else [value]
+
+
 def control_terminal(action, identifier, account, identity, cols, rows, name, source_hash, scope):
     parent = root_directory(TERMINALS)
     try:
@@ -798,43 +1031,41 @@ def control_terminal(action, identifier, account, identity, cols, rows, name, so
         elif action == 'create':
             value = create_terminal(identifier, account, identity, cols, rows, name, scope)
         elif action == 'list':
-            values = []
-            for identifier in terminal_directories():
-                directory = root_directory(terminal_path(identifier))
-                try:
-                    record = binding(directory)
-                    pending = reservation(directory)
-                finally:
-                    os.close(directory)
-                if pending is None and record['identity'] == identity and record['account'] == account_binding(account):
-                    value = terminal_status(identifier, account, identity)
-                    if value is not None and value['state'] != 'ended':
-                        values.append(value)
-            return values
+            return list_owned_terminals(account, identity)
         elif action == 'inspect':
             value = terminal_status(identifier, account, identity)
         else:
-            try:
-                directory = root_directory(terminal_path(identifier))
-            except FileNotFoundError:
-                if action == 'end' and terminal_status(identifier, account, identity) is None:
-                    return []
-                raise
-            try:
-                binding(directory, account, identity)
-                if action == 'end':
-                    stop_service(identifier, account)
-                    remove_owned_files(terminal_path(identifier), directory, account)
-                    return []
-                if action != 'rename':
-                    raise ValueError('terminal action')
-                write_name(directory, name)
-            finally:
-                os.close(directory)
-            value = terminal_status(identifier, account, identity)
+            return mutate_terminal(action, identifier, account, identity, name)
         return [] if value is None else [value]
     finally:
         os.close(parent)
+
+
+def require_terminal_target(action, identifier):
+    if action != 'list':
+        terminal_path(identifier)
+    elif identifier:
+        raise ValueError('list target')
+
+
+def require_creation_scope(action, scope):
+    if action in ('reserve', 'create'):
+        if not re.fullmatch(r'[0-9a-f]{64}', scope):
+            raise ValueError('creation scope')
+    elif scope:
+        raise ValueError('unexpected creation scope')
+
+
+def parse_control_argv():
+    action, identifier, login, identity, cols, rows, seconds, source_hash, name, scope = sys.argv[1:]
+    identity, cols, rows, seconds = int(identity), int(cols), int(rows), int(seconds)
+    if action not in ('reserve', 'create', 'attach', 'inspect', 'list', 'end', 'rename') or not 1 <= seconds <= 43200:
+        raise ValueError('terminal bounds')
+    require_terminal_target(action, identifier)
+    if action in ('reserve', 'create', 'attach') and not dimensions(cols, rows) or not valid_name(name):
+        raise ValueError('terminal arguments')
+    require_creation_scope(action, scope)
+    return action, identifier, login, identity, cols, rows, seconds, source_hash, name, scope
 
 
 def main():
@@ -843,21 +1074,7 @@ def main():
             return prepare(sys.argv[2])
         if len(sys.argv) != 11:
             raise ValueError('arguments')
-        action, identifier, login, identity, cols, rows, seconds, source_hash, name, scope = sys.argv[1:]
-        identity, cols, rows, seconds = int(identity), int(cols), int(rows), int(seconds)
-        if action not in ('reserve', 'create', 'attach', 'inspect', 'list', 'end', 'rename') or not 1 <= seconds <= 43200:
-            raise ValueError('terminal bounds')
-        if action != 'list':
-            terminal_path(identifier)
-        elif identifier:
-            raise ValueError('list target')
-        if action in ('reserve', 'create', 'attach') and not dimensions(cols, rows) or not valid_name(name):
-            raise ValueError('terminal arguments')
-        if action in ('reserve', 'create'):
-            if not re.fullmatch(r'[0-9a-f]{64}', scope):
-                raise ValueError('creation scope')
-        elif scope:
-            raise ValueError('unexpected creation scope')
+        action, identifier, login, identity, cols, rows, seconds, source_hash, name, scope = parse_control_argv()
         signal.alarm(5)
         account = account_for(login, identity)
         signal.alarm(0)

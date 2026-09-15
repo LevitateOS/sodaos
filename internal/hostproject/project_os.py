@@ -2,6 +2,7 @@
 
 Never source os-release as shell code or dump arbitrary files/environment.
 """
+
 import json
 import os
 import re
@@ -9,16 +10,7 @@ import shlex
 import stat
 
 
-def observe(path="/etc/os-release"):
-    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
-    try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
-            raise ValueError("not a regular OS release file")
-        raw = os.read(fd, 4097)
-        if len(raw) > 4096:
-            raise ValueError("oversized OS release file")
-    finally:
-        os.close(fd)
+def parse_os_release(raw):
     values = {}
     for line in raw.decode("utf-8", errors="strict").splitlines():
         if not line.strip() or line.lstrip().startswith("#"):
@@ -39,6 +31,19 @@ def observe(path="/etc/os-release"):
     if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}", values.get("VERSION_ID", "")):
         raise ValueError("missing OS version")
     return {"id": values["ID"], "version": values["VERSION_ID"], "name": values.get("PRETTY_NAME", values["ID"])}
+
+
+def observe(path="/etc/os-release"):
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise ValueError("not a regular OS release file")
+        raw = os.read(fd, 4097)
+        if len(raw) > 4096:
+            raise ValueError("oversized OS release file")
+    finally:
+        os.close(fd)
+    return parse_os_release(raw)
 
 
 if __name__ == "__main__":

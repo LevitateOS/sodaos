@@ -131,6 +131,7 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `go test ./internal/runners` | Example focused Go package test; select the affected package/tests. |
 | `bun run typecheck` | Strict TypeScript and Lit checks. |
 | `bash scripts/check-oxfmt.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and cyclomatic-below-10 on browser-payload TS (see [typescript guide](docs/typescript.md)). |
+| `bash scripts/check-ruff-format.sh` / `check-ruff.sh` / `check-py-complexity.sh` | Python format, correctness lint, and cyclomatic-below-10 on shipping Python (see [Python tooling](docs/python.md)). |
 | `bash scripts/check-gofumpt.sh` / `check-staticcheck.sh` / `check-errcheck.sh` | Go format (gofumpt), staticcheck, and unchecked-error lint; linux analysis for the last two. |
 | `bun run test:frontend` / `bun run test:forgejo` | Build browser assets and run the selected suite. |
 | `bun run test:pages` | Native-page fixture checks; requires the authorized local Forgejo fixture. |
@@ -156,6 +157,7 @@ Service/image source in `appliance/services/` and `project-os/` establishes topo
 | Native pages and Runners | [Active combined plan](docs/native-pages-runners-plan.md), [page integration](docs/forgejo-soda-pages-plan.md), [runner contracts](docs/runners-port.md) |
 | Forgejo extension implementation | [Dedicated status and order](docs/forgejo-extension-status.md), [source audit](docs/forgejo-extension-audit.md) |
 | Forgejo customization and UI | [Customization contract](docs/forgejo-frontend-integration.md), [Lit](docs/lit.md), [TypeScript and test prerequisites](docs/typescript.md) |
+| Python format/lint/complexity | [Python tooling](docs/python.md) |
 | Project runtime and access | [Project OS](docs/project-os.md), [terminals](docs/terminal-integration.md), [API](docs/dashboard-api.md), [credentials](docs/dashboard-credentials.md) |
 | Cockpit and Tailnet | [Tailnet implementation](docs/tailnet-integration-plan.md), [Cockpit](docs/cockpit-port.md), [operator setup](docs/operator-setup.md) |
 | Active build/release replacement | [Six replacement milestones and later commissioning](docs/release-engineering-plan.md#single-run-build-replacement-implementation), [current status](docs/implementation-status.md) |

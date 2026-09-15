@@ -1,4 +1,5 @@
 """Exercise the existing Bun orchestrator with command doubles, not a browser/provider."""
+
 import json
 import os
 from pathlib import Path
@@ -22,21 +23,30 @@ class PageFixtures(unittest.TestCase):
         self.tools.mkdir()
         self.log = self.root / 'commands.jsonl'
         tool = self.tools / 'go'
-        tool.write_text(f'#!{sys.executable}\n' + '''import json, os, sys
+        tool.write_text(
+            f'#!{sys.executable}\n'
+            + '''import json, os, sys
 with open(os.environ['COMMAND_LOG'], 'a') as log:
     log.write(json.dumps({'args': sys.argv[1:], 'fixture': os.environ['SODA_NATIVE_CONNECTION_FIXTURE'], 'consumers': os.environ['SODA_PAGE_CONSUMERS']}) + '\\n')
 sys.exit(int(os.environ.get('GO_STATUS', '0')))
-''')
+'''
+        )
         tool.chmod(0o700)
 
     def run_pages(self, **changes):
         bun = shutil.which('bun')
         self.assertIsNotNone(bun, 'Bun is required for page-orchestrator checks')
-        env = dict(os.environ, PATH=str(self.tools) + os.pathsep + os.environ['PATH'], COMMAND_LOG=str(self.log),
-                   SODA_NATIVE_CONNECTION_FIXTURE='/must-not-reuse', SODA_PAGE_CONSUMERS='0')
+        env = dict(
+            os.environ,
+            PATH=str(self.tools) + os.pathsep + os.environ['PATH'],
+            COMMAND_LOG=str(self.log),
+            SODA_NATIVE_CONNECTION_FIXTURE='/must-not-reuse',
+            SODA_PAGE_CONSUMERS='0',
+        )
         env.update(changes)
-        return subprocess.run([bun, str(self.root / 'scripts/test-spaces-page.ts')], env=env,
-                              capture_output=True, text=True, timeout=30)
+        return subprocess.run(
+            [bun, str(self.root / 'scripts/test-spaces-page.ts')], env=env, capture_output=True, text=True, timeout=30
+        )
 
     def commands(self):
         return [json.loads(line) for line in self.log.read_text().splitlines()]

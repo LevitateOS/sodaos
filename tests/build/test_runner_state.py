@@ -1,4 +1,5 @@
 """Local fixtures only; never invoke the installed host entrypoint or native CLI."""
+
 import importlib.util
 import json
 import os
@@ -28,7 +29,9 @@ class RunnerState(unittest.TestCase):
             configuration = state / 'forgejo-runner.yml'
             configuration.write_text('synthetic-config')
             configuration.chmod(0o600)
-            person = SimpleNamespace(pw_uid=os.getuid(), pw_gid=os.getgid(), pw_dir=str(state), pw_shell='/usr/sbin/nologin')
+            person = SimpleNamespace(
+                pw_uid=os.getuid(), pw_gid=os.getgid(), pw_dir=str(state), pw_shell='/usr/sbin/nologin'
+            )
             first = module.runner_state('one', root.parent, lambda _: person)
             self.assertEqual(first, module.runner_state('one', root.parent, lambda _: person))
             self.assertNotIn('synthetic-private', repr(first))
@@ -59,6 +62,7 @@ class RunnerState(unittest.TestCase):
     def test_partial_native_state_is_unavailable_not_absent(self):
         def missing(_):
             raise KeyError('missing')
+
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             self.assertEqual(module.runner_state('one', root, missing), {'present': False})
@@ -83,6 +87,7 @@ class RunnerState(unittest.TestCase):
             work.write_bytes(b'initial')
             read = os.read
             changed = False
+
             def changing(fd, count):
                 nonlocal changed
                 data = read(fd, count)
@@ -90,6 +95,7 @@ class RunnerState(unittest.TestCase):
                     changed = True
                     work.write_bytes(b'concurrent later write')
                 return data
+
             with patch.object(module.os, 'read', side_effect=changing):
                 with self.assertRaises(RuntimeError):
                     module.tree_digest(root)
@@ -100,18 +106,30 @@ class RunnerState(unittest.TestCase):
             root = Path(directory)
             work = root / 'one' / 'state' / 'work'
             person = SimpleNamespace(pw_uid=os.getuid(), pw_name='soda-runner-one')
-            account = lambda _: person
+
+            def account(_login):
+                return person
+
             self.assertIsNone(module.job_proof('one', 'unique', root, account))
             self.assertFalse(work.exists())
             work.mkdir(parents=True)
             self.assertIsNone(module.job_proof('one', 'unique', root, account))
-            record = dict(observation='unique', account=person.pw_name, uid=person.pw_uid,
-                          pid=999999999, start='1', steps=2)
+            record = dict(
+                observation='unique', account=person.pw_name, uid=person.pw_uid, pid=999999999, start='1', steps=2
+            )
             proof = work / 'soda-native-proof-unique.json'
             proof.write_text(json.dumps(record))
             proof.chmod(0o600)
             self.assertEqual(module.job_proof('one', 'unique', root, account), {**record, 'alive': False})
-            for change in ({'observation': 'other'}, {'account': 'root'}, {'pid': 0}, {'steps': 3}, {'steps': True}, {'uid': False}, {'token': 'synthetic-secret'}):
+            for change in (
+                {'observation': 'other'},
+                {'account': 'root'},
+                {'pid': 0},
+                {'steps': 3},
+                {'steps': True},
+                {'uid': False},
+                {'token': 'synthetic-secret'},
+            ):
                 proof.write_text(json.dumps({**record, **change}))
                 with self.assertRaises(RuntimeError):
                     module.job_proof('one', 'unique', root, account)
@@ -177,7 +195,11 @@ class RunnerState(unittest.TestCase):
                 with patch.object(module, 'process_identity', return_value=observation):
                     with self.assertRaises(RuntimeError):
                         module.unit_processes(*args)
-            with patch.object(module, 'process_identity', side_effect=[{'pid': 1234, 'uid': 123, 'start': '1'}, {'pid': 1234, 'uid': 123, 'start': '2'}]):
+            with patch.object(
+                module,
+                'process_identity',
+                side_effect=[{'pid': 1234, 'uid': 123, 'start': '1'}, {'pid': 1234, 'uid': 123, 'start': '2'}],
+            ):
                 with self.assertRaises(RuntimeError):
                     module.unit_processes(*args)
             (group / 'cgroup.procs').write_text('\n'.join(str(i) for i in range(1, 258)))

@@ -117,10 +117,11 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
 
 TypeScript format/lint/complexity (oxfmt, oxlint, cyclomatic below 10 on
 production TS) are owned by [the TypeScript guide](typescript.md#formatting-linting-and-complexity),
-not this Go checklist. The threshold matches production Go; the hook is staged-only
-for the same ratchet reason. First measurement: 129 files fail formatting, 92
-production functions at cyclomatic 10+, 3 oxlint correctness findings. No mass
-TypeScript cyclo rewrite.
+not this Go checklist. Python format/lint/complexity (Ruff) are owned by
+[the Python tooling guide](python.md). The cyclomatic threshold matches production
+Go; the hook is staged-only for the same ratchet reason. TypeScript first
+measurement: 129 files fail formatting, 92 production functions at cyclomatic 10+,
+3 oxlint correctness findings. No mass TypeScript or Python rewrite.
 
 ## staticcheck backlog (48) — fix order
 

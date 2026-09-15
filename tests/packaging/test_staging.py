@@ -1,4 +1,5 @@
 """Authored staging checks. Run later against an explicitly built native stage."""
+
 import json
 import os
 import unittest
@@ -13,7 +14,15 @@ class NativeStage(unittest.TestCase):
         cls.root = Path(os.environ['SODA_STAGE'])
 
     def test_commands_and_extensions(self):
-        for name in ['soda-dashboard', 'soda-host', 'soda-setup', 'soda-tailnet', 'soda-forgejo-tailnet', 'soda-runners', 'soda-runner-launch']:
+        for name in [
+            'soda-dashboard',
+            'soda-host',
+            'soda-setup',
+            'soda-tailnet',
+            'soda-forgejo-tailnet',
+            'soda-runners',
+            'soda-runner-launch',
+        ]:
             p = self.root / 'usr/local/libexec/soda' / name
             self.assertTrue(p.is_file(), str(p))
             self.assertTrue(p.stat().st_mode & 0o111, str(p))
@@ -40,20 +49,21 @@ class NativeStage(unittest.TestCase):
 
     def test_cockpit_native_pam_session_and_operator_gate(self):
         pam = (self.root / 'etc/pam.d/cockpit').read_text()
-        rules = [line.split() for line in pam.splitlines()
-                 if line.strip() and not line.lstrip().startswith('#')]
-        self.assertIn(['account', 'requisite', 'pam_succeed_if.so',
-                       'uid', '=', '0', 'quiet'], rules)
+        rules = [line.split() for line in pam.splitlines() if line.strip() and not line.lstrip().startswith('#')]
+        self.assertIn(['account', 'requisite', 'pam_succeed_if.so', 'uid', '=', '0', 'quiet'], rules)
         self.assertIn(['auth', 'required', 'pam_sepermit.so'], rules)
         self.assertIn(['account', 'required', 'pam_nologin.so'], rules)
         sessions = [rule for rule in rules if rule[0] == 'session']
         # Without these native rules root stays in cockpit_session_t: even
         # read-only tailscale status and stock systemd administration fail.
-        self.assertEqual(sessions[:3], [
-            ['session', 'required', 'pam_selinux.so', 'close'],
-            ['session', 'required', 'pam_loginuid.so'],
-            ['session', 'required', 'pam_selinux.so', 'open', 'env_params'],
-        ])
+        self.assertEqual(
+            sessions[:3],
+            [
+                ['session', 'required', 'pam_selinux.so', 'close'],
+                ['session', 'required', 'pam_loginuid.so'],
+                ['session', 'required', 'pam_selinux.so', 'open', 'env_params'],
+            ],
+        )
         self.assertIn(['session', 'include', 'password-auth'], sessions[3:])
 
     def test_cockpit_keeps_native_accounts_navigation(self):
@@ -65,7 +75,15 @@ class NativeStage(unittest.TestCase):
         brand = self.root / 'etc/cockpit/branding'
         css = (brand / 'branding.css').read_text()
         self.assertNotIn('../theme/palette.css', css)
-        for name in ['palette.css', 'theme.css', 'soda-symbol-brutalist.svg', 'soda-symbol-brutalist-dark.svg', 'fonts/fonts.css', 'fonts/barlow/LICENSE', 'fonts/barlow-condensed/LICENSE']:
+        for name in [
+            'palette.css',
+            'theme.css',
+            'soda-symbol-brutalist.svg',
+            'soda-symbol-brutalist-dark.svg',
+            'fonts/fonts.css',
+            'fonts/barlow/LICENSE',
+            'fonts/barlow-condensed/LICENSE',
+        ]:
             self.assertTrue((brand / name).is_file(), name)
 
     def test_sodaspaces_proxy_namespace(self):
@@ -89,8 +107,7 @@ class NativeStage(unittest.TestCase):
 
     def test_forgejo_branding_settings_and_review_exclusion(self):
         env = self.root / 'etc/soda/forgejo.env'
-        values = dict(line.split('=', 1) for line in env.read_text().splitlines()
-                      if line and not line.startswith('#'))
+        values = dict(line.split('=', 1) for line in env.read_text().splitlines() if line and not line.startswith('#'))
         self.assertEqual(values['FORGEJO____APP_NAME'], 'Soda OS')
         self.assertEqual(values['FORGEJO__ui_0x2E_meta__AUTHOR'], 'Soda OS')
         self.assertEqual(values['FORGEJO__server__STATIC_CACHE_TIME'], '0')
@@ -103,8 +120,7 @@ class NativeStage(unittest.TestCase):
         custom = self.root / 'var/lib/soda/forgejo/gitea'
         root = Path(__file__).resolve().parents[2]
         payload = json.loads((root / 'internal/nativebuild/forgejo-payload.json').read_text())
-        for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl',
-                     'public/assets/sodaspaces.css'):
+        for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl', 'public/assets/sodaspaces.css'):
             target = custom / name
             self.assertFalse(target.is_symlink())
             self.assertEqual(target.read_bytes(), (root / payload[name]).read_bytes())
@@ -119,11 +135,15 @@ class NativeStage(unittest.TestCase):
             self.assertFalse(target.is_symlink(), name)
             self.assertEqual(target.stat().st_mode & 0o777, 0o644)
             if origin.startswith('@build/forgejo-js/'):
-                self.assertEqual(target.read_bytes(), (self.root.parent / origin.removeprefix('@build/')).read_bytes(), name)
+                self.assertEqual(
+                    target.read_bytes(), (self.root.parent / origin.removeprefix('@build/')).read_bytes(), name
+                )
             elif not origin.startswith('@build/'):
                 self.assertEqual(target.read_bytes(), (root / origin).read_bytes(), name)
-        self.assertEqual({p.relative_to(custom).as_posix() for p in (custom / 'templates').rglob('*.tmpl')},
-                         {name for name in payload if name.startswith('templates/')})
+        self.assertEqual(
+            {p.relative_to(custom).as_posix() for p in (custom / 'templates').rglob('*.tmpl')},
+            {name for name in payload if name.startswith('templates/')},
+        )
 
     def test_operator_console_delivery(self):
         renderer = self.root / 'usr/local/libexec/soda/soda-console-welcome'

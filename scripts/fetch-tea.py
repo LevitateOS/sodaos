@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Stage an upstream Linux Tea binary and license for the project image."""
+
 import argparse
 import hashlib
 import tomllib
@@ -23,8 +24,7 @@ def fetch(arch, out):
         body = response.read(64_000_001)
     if len(body) > 64_000_000 or hashlib.sha256(body).hexdigest() != release['sha256']:
         raise ValueError('Tea binary checksum mismatch')
-    if (len(body) < 64 or body[:6] != b'\x7fELF\x02\x01'
-            or int.from_bytes(body[18:20], 'little') != machine):
+    if len(body) < 64 or body[:6] != b'\x7fELF\x02\x01' or int.from_bytes(body[18:20], 'little') != machine:
         raise ValueError('Tea binary is not ELF64 for the requested architecture')
     out.mkdir(parents=True, exist_ok=False)
     (out / 'bin').mkdir()

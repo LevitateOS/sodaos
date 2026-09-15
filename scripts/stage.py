@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """Stage existing native build outputs plus configuration; does not build or install."""
-import argparse, hashlib, json, os, platform, shutil, struct
+
+import argparse
+import hashlib
+import json
+import platform
+import shutil
+import struct
 from pathlib import Path
+
 p = argparse.ArgumentParser()
 p.add_argument('--arch', choices=['x86_64', 'aarch64'], required=True)
 p.add_argument('--host-context', type=Path)
@@ -26,6 +33,8 @@ else:
     if stage.exists() or stage.is_symlink():
         p.error('rootfs staging already exists; retain the attempt and use fresh output')
     stage.mkdir(parents=True)
+
+
 def copy(src, dest, mode=None, root=stage):
     target = root / dest.lstrip('/')
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -39,6 +48,8 @@ def copy(src, dest, mode=None, root=stage):
     if mode is not None:
         target.chmod(mode)
     return target
+
+
 # Vendor programs/units/configuration are already emitted directly by Go.
 # Keep the retiring writable layout usable; never create it for vendor assets.
 if not vendor:
@@ -78,13 +89,17 @@ for name in ['soda-symbol-brutalist.svg', 'soda-symbol-brutalist-dark.svg']:
     shutil.copy2(source / 'assets/branding/source' / name, brand / name)
 shutil.copy2(source / 'assets/branding/forgejo/apple-touch-icon.png', brand / 'apple-touch-icon.png')
 # ICO is just a container: reuse the canonical rendered PNGs without redrawing.
-frames = [(size, (source / 'assets/branding/forgejo' / name).read_bytes())
-          for size, name in [(16, 'favicon-16.png'), (32, 'favicon.png')]]
+frames = [
+    (size, (source / 'assets/branding/forgejo' / name).read_bytes())
+    for size, name in [(16, 'favicon-16.png'), (32, 'favicon.png')]
+]
 entries, offset = [], 6 + 16 * len(frames)
 for size, data in frames:
     entries.append(struct.pack('<BBBBHHII', size, size, 0, 0, 1, 32, len(data), offset))
     offset += len(data)
-(brand / 'favicon.ico').write_bytes(struct.pack('<HHH', 0, 1, len(frames)) + b''.join(entries) + b''.join(data for _, data in frames))
+(brand / 'favicon.ico').write_bytes(
+    struct.pack('<HHH', 0, 1, len(frames)) + b''.join(entries) + b''.join(data for _, data in frames)
+)
 for target in [brand, *brand.rglob('*')]:
     target.chmod(0o755 if target.is_dir() else 0o644)
 # Adapt directly to the final Forgejo build context for vendor images.
@@ -113,7 +128,11 @@ for dest, src in payload.items():
     if dest.startswith('public/assets/soda/fonts/'):
         relative = dest.removeprefix('public/assets/soda/fonts/')
         copy(source / src, '/etc/cockpit/branding/fonts/' + relative, 0o644)
-locked = {asset['file']: asset['sha256'] for item in json.loads((source / 'appliance/terminal-assets.lock.json').read_text()) for asset in item['files']}
+locked = {
+    asset['file']: asset['sha256']
+    for item in json.loads((source / 'appliance/terminal-assets.lock.json').read_text())
+    for asset in item['files']
+}
 for name, origin in payload.items():
     if Path(name).is_absolute() or '..' in Path(name).parts:
         p.error('invalid Forgejo payload destination')
@@ -123,7 +142,10 @@ for name, origin in payload.items():
         src = source / origin
     if src.is_symlink() or not src.is_file():
         p.error('missing or unsafe Forgejo payload input')
-    if origin.startswith('@build/terminal-assets/') and hashlib.sha256(src.read_bytes()).hexdigest() != locked[src.name]:
+    if (
+        origin.startswith('@build/terminal-assets/')
+        and hashlib.sha256(src.read_bytes()).hexdigest() != locked[src.name]
+    ):
         p.error('terminal asset differs from locked upstream bytes')
     target = copy(src, name, 0o644, root=forgejo)
     for parent in target.parents:

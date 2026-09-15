@@ -1,4 +1,5 @@
 """Packaging/probe guards only; not an installed RPM or compiler claim."""
+
 import os
 from pathlib import Path
 import re
@@ -15,7 +16,30 @@ class FoundationContracts(unittest.TestCase):
         match = re.search(r'RUN dnf -y --enablerepo=crb install (.*?) && dnf clean all', recipe)
         self.assertIsNotNone(match)
         packages = set(match.group(1).split())
-        self.assertLessEqual({'gcc', 'gcc-c++', 'glibc-devel', 'libstdc++-devel', 'make', 'cmake', 'ninja-build', 'pkgconf-pkg-config', 'binutils', 'gdb', 'strace', 'openssl-devel', 'zlib-devel', 'rsync', 'iproute', 'iputils', 'bind-utils', 'lsof', 'jq'}, packages)
+        self.assertLessEqual(
+            {
+                'gcc',
+                'gcc-c++',
+                'glibc-devel',
+                'libstdc++-devel',
+                'make',
+                'cmake',
+                'ninja-build',
+                'pkgconf-pkg-config',
+                'binutils',
+                'gdb',
+                'strace',
+                'openssl-devel',
+                'zlib-devel',
+                'rsync',
+                'iproute',
+                'iputils',
+                'bind-utils',
+                'lsof',
+                'jq',
+            },
+            packages,
+        )
         self.assertNotIn('--nogpgcheck', recipe)
         self.assertNotIn('dnf upgrade', recipe)
 
@@ -23,7 +47,9 @@ class FoundationContracts(unittest.TestCase):
         script = ROOT / 'tests/installed/project-foundation.sh'
         subprocess.run(['/bin/sh', '-n', str(script)], check=True)
         with tempfile.TemporaryDirectory() as temporary:
-            result = subprocess.run(['/bin/sh', str(script)], env={'PATH': os.defpath, 'TMPDIR': temporary}, capture_output=True)
+            result = subprocess.run(
+                ['/bin/sh', str(script)], env={'PATH': os.defpath, 'TMPDIR': temporary}, capture_output=True
+            )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn(b'SODA_NATIVE_VALIDATE', result.stderr)
             self.assertEqual(list(Path(temporary).iterdir()), [])

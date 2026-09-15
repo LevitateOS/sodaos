@@ -27,11 +27,13 @@ class SnapshotContracts(unittest.TestCase):
 
     def test_public_hash_changes_and_symlink_is_not_followed(self):
         with tempfile.TemporaryDirectory() as directory:
-            p = Path(directory) / 'public'; p.write_text('before')
+            p = Path(directory) / 'public'
+            p.write_text('before')
             before = state.entry(p)
             p.write_text('after')
             self.assertNotEqual(before['sha256'], state.entry(p)['sha256'])
-            link = Path(directory) / 'link'; link.symlink_to(p)
+            link = Path(directory) / 'link'
+            link.symlink_to(p)
             self.assertEqual(state.entry(link)['link'], str(p))
             self.assertNotIn('sha256', state.entry(link))
 

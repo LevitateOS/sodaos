@@ -2,6 +2,7 @@
 Adapted from soda-os bc1d3e0 soda-release-executor's exact-source/fresh-run idea.
 No release account, login shell, publication, install, VM or product phase.
 """
+
 import json
 import os
 from pathlib import Path
@@ -12,7 +13,7 @@ import subprocess
 import sys
 
 
-def main():
+def phase_request():
     raw = sys.stdin.buffer.read(16385)
     if len(raw) > 16384:
         raise ValueError('request too large')
@@ -23,7 +24,11 @@ def main():
         raise ValueError('request values must be strings')
     if not re.fullmatch('[0-9a-f]{40}', x['Revision']):
         raise ValueError('full revision required')
-    if x['Architecture'] not in ('x86_64', 'aarch64') or platform.system() != 'Linux' or platform.machine() != x['Architecture']:
+    if (
+        x['Architecture'] not in ('x86_64', 'aarch64')
+        or platform.system() != 'Linux'
+        or platform.machine() != x['Architecture']
+    ):
         raise ValueError('matching-native Linux required')
     if platform.node() != x['Target']:
         raise ValueError('actual native hostname does not match target')
@@ -32,48 +37,89 @@ def main():
     work = Path(x['Work'])
     if not work.is_absolute() or work.parent.resolve() != work.parent or not work.parent.is_dir():
         raise ValueError('absolute fresh work path with existing real parent required')
-    checkout = work / 'source'
-    receipt = {k: v for k, v in x.items() if k != 'Phase'}
-    env = dict(os.environ, GIT_TERMINAL_PROMPT='0', GOTOOLCHAIN='local')
-    if x['Phase'] == 'prepare':
-        work.mkdir(mode=0o700)  # exclusive; never adopt an old checkout
-        with (work / 'request.json').open('x') as f:
-            json.dump(receipt, f)
-        subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', 'clone', '--no-checkout', '--', 'https://github.com/LevitateOS/sodaos.git', str(checkout)], check=True, env=env)
-        subprocess.run(['git', '-c', 'core.hooksPath=/dev/null', 'checkout', '--detach', x['Revision']], cwd=checkout, check=True, env=env)
-    else:
-        st = work.lstat()
-        if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
-            raise ValueError('private owned run directory required')
-        if json.loads((work / 'request.json').read_text()) != receipt:
-            raise ValueError('phase does not belong to this source/target/run')
-        if not (work / 'prepare.completed').is_file():
-            raise ValueError('prepare did not complete')
+    return x, work
+
+
+def git_env():
+    return dict(os.environ, GIT_TERMINAL_PROMPT='0', GOTOOLCHAIN='local')
+
+
+def git_head(checkout, env):
+    return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, env=env).decode().strip()
+
+
+def git_dirty(checkout, env):
+    return subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'], cwd=checkout, env=env)
+
+
+def require_checkout(checkout, revision, env):
     if checkout.is_symlink() or not checkout.is_dir():
         raise ValueError('real checkout required')
-    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, env=env).decode().strip()
-    dirty = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'], cwd=checkout, env=env)
-    if head != x['Revision'] or dirty:
+    head = git_head(checkout, env)
+    if head != revision or git_dirty(checkout, env):
         raise ValueError('checkout revision/content changed; use a fresh run')
-    phase = x['Phase']
-    prerequisite = {'bundle': 'check.completed'}.get(phase)
+    return head
+
+
+def prepare_checkout(x, work, checkout, receipt, env):
+    work.mkdir(mode=0o700)  # exclusive; never adopt an old checkout
+    with (work / 'request.json').open('x') as f:
+        json.dump(receipt, f)
+    subprocess.run(
+        [
+            'git',
+            '-c',
+            'core.hooksPath=/dev/null',
+            'clone',
+            '--no-checkout',
+            '--',
+            'https://github.com/LevitateOS/sodaos.git',
+            str(checkout),
+        ],
+        check=True,
+        env=env,
+    )
+    subprocess.run(
+        ['git', '-c', 'core.hooksPath=/dev/null', 'checkout', '--detach', x['Revision']],
+        cwd=checkout,
+        check=True,
+        env=env,
+    )
+
+
+def admit_existing_run(x, work, receipt):
+    st = work.lstat()
+    if not stat.S_ISDIR(st.st_mode) or st.st_uid != os.getuid() or st.st_mode & 0o077:
+        raise ValueError('private owned run directory required')
+    if json.loads((work / 'request.json').read_text()) != receipt:
+        raise ValueError('phase does not belong to this source/target/run')
+    if not (work / 'prepare.completed').is_file():
+        raise ValueError('prepare did not complete')
+    prerequisite = {'bundle': 'check.completed'}.get(x['Phase'])
     if prerequisite and not (work / prerequisite).is_file():
         raise ValueError('required earlier phase did not complete')
-    with (work / (phase + '.started')).open('x') as f:
-        json.dump(receipt, f)
+
+
+def phase_command(phase, x, work):
     if phase == 'build':
         candidate = work / 'candidate'
-        if not candidate.is_dir() or not (candidate / 'payload.json').is_file() or not (candidate / 'candidate.json').is_file():
-            raise ValueError('build admits an existing soda-build candidate at work/candidate; legacy build-native is retired')
-        command = None
-    elif phase == 'check':
+        if (
+            not candidate.is_dir()
+            or not (candidate / 'payload.json').is_file()
+            or not (candidate / 'candidate.json').is_file()
+        ):
+            raise ValueError(
+                'build admits an existing soda-build candidate at work/candidate; legacy build-native is retired'
+            )
+        return None
+    if phase == 'check':
         candidate = work / 'candidate'
         if not (work / 'build.completed').is_file():
             raise ValueError('required earlier phase did not complete')
         if not candidate.is_dir():
             raise ValueError('check requires work/candidate pointing at soda-build artifacts')
-        command = ['bash', 'scripts/check-native.sh', x['Architecture'], str(candidate)]
-    elif phase == 'bundle':
+        return ['bash', 'scripts/check-native.sh', x['Architecture'], str(candidate)]
+    if phase == 'bundle':
         (work / 'bundle').mkdir(mode=0o700)
         candidate = work / 'candidate'
         if not candidate.is_dir():
@@ -81,12 +127,38 @@ def main():
         tool = candidate / 'tools' / 'soda-artifacts'
         if not tool.is_file():
             raise ValueError('candidate tools/soda-artifacts required for bundle export')
-        command = [str(tool), 'bundle', '--source', str(candidate), '--out', str(work / 'bundle' / x['Architecture']), '--arch', x['Architecture'], '--revision', x['Revision']]
+        return [
+            str(tool),
+            'bundle',
+            '--source',
+            str(candidate),
+            '--out',
+            str(work / 'bundle' / x['Architecture']),
+            '--arch',
+            x['Architecture'],
+            '--revision',
+            x['Revision'],
+        ]
+    return None
+
+
+def main():
+    x, work = phase_request()
+    checkout = work / 'source'
+    receipt = {k: v for k, v in x.items() if k != 'Phase'}
+    env = git_env()
+    if x['Phase'] == 'prepare':
+        prepare_checkout(x, work, checkout, receipt, env)
     else:
-        command = None
+        admit_existing_run(x, work, receipt)
+    head = require_checkout(checkout, x['Revision'], env)
+    phase = x['Phase']
+    with (work / (phase + '.started')).open('x') as f:
+        json.dump(receipt, f)
+    command = phase_command(phase, x, work)
     if command:
         subprocess.run(command, cwd=checkout, check=True, env=env)
-    if subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=checkout, env=env).decode().strip() != head or subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'], cwd=checkout, env=env):
+    if git_head(checkout, env) != head or git_dirty(checkout, env):
         raise ValueError('source changed during phase')
     with (work / (phase + '.completed')).open('x') as f:
         json.dump(receipt, f)
