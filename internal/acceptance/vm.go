@@ -38,7 +38,7 @@ type VM struct {
 	closeErr error
 }
 
-func (c VMConfig) preflight(e *Evidence) error {
+func validateVMConfigIdentity(c VMConfig) error {
 	if err := nativebuild.RequireNative(c.Architecture); err != nil {
 		return err
 	}
@@ -48,6 +48,10 @@ func (c VMConfig) preflight(e *Evidence) error {
 	if !regexp.MustCompile(`^soda-native-[a-z0-9-]+$`).MatchString(c.Name) {
 		return errors.New("fresh soda-native-* fixture name required")
 	}
+	return nil
+}
+
+func validateVMPaths(c VMConfig, e *Evidence) error {
 	for _, p := range []string{c.CoreOSLock, c.BaseReceipt, c.Ignition, c.QEMU, c.Firmware, c.Variables, c.Work, c.SSH.Key, c.SSH.KnownHosts} {
 		if !filepath.IsAbs(p) || strings.ContainsAny(p, ",\n\r") {
 			return errors.New("absolute paths without QEMU separators required")
@@ -59,6 +63,13 @@ func (c VMConfig) preflight(e *Evidence) error {
 	if err := disjointVMWork(c.Work, e); err != nil {
 		return err
 	}
+	if _, err := os.Lstat(c.Work); !errors.Is(err, os.ErrNotExist) {
+		return errors.New("fresh unoccupied VM work path required")
+	}
+	return nil
+}
+
+func validateVMSSHAndTrust(c VMConfig) error {
 	if c.SSH.Host != "127.0.0.1" || c.SSH.User != "root" {
 		return errors.New("CoreOS fixture SSH must be root on loopback")
 	}
@@ -68,12 +79,10 @@ func (c VMConfig) preflight(e *Evidence) error {
 	if _, err := PrivateFile(c.Ignition); err != nil {
 		return err
 	}
-	if err := VerifyFixtureTrust(c.Ignition, c.Name, c.SSH); err != nil {
-		return err
-	}
-	if _, err := os.Lstat(c.Work); !errors.Is(err, os.ErrNotExist) {
-		return errors.New("fresh unoccupied VM work path required")
-	}
+	return VerifyFixtureTrust(c.Ignition, c.Name, c.SSH)
+}
+
+func validateVMInputs(c VMConfig) error {
 	for _, p := range []string{c.QEMU, c.Firmware, c.Variables} {
 		s, err := os.Lstat(p)
 		if err != nil {
@@ -83,7 +92,11 @@ func (c VMConfig) preflight(e *Evidence) error {
 			return errors.New("bounded regular QEMU/firmware input required")
 		}
 	}
-	if _, err := exec.LookPath(c.QEMU); err != nil {
+	return nil
+}
+
+func checkVMHostToolsAndKVM(qemu string, sshPort int) error {
+	if _, err := exec.LookPath(qemu); err != nil {
 		return err
 	}
 	for _, tool := range []string{"qemu-img", "ssh"} {
@@ -98,11 +111,27 @@ func (c VMConfig) preflight(e *Evidence) error {
 	if err = kvm.Close(); err != nil {
 		return err
 	}
-	listener, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(c.SSH.Port)))
+	listener, err := net.Listen("tcp4", net.JoinHostPort("127.0.0.1", strconv.Itoa(sshPort)))
 	if err != nil {
 		return err
 	}
 	return listener.Close()
+}
+
+func (c VMConfig) preflight(e *Evidence) error {
+	if err := validateVMConfigIdentity(c); err != nil {
+		return err
+	}
+	if err := validateVMPaths(c, e); err != nil {
+		return err
+	}
+	if err := validateVMSSHAndTrust(c); err != nil {
+		return err
+	}
+	if err := validateVMInputs(c); err != nil {
+		return err
+	}
+	return checkVMHostToolsAndKVM(c.QEMU, c.SSH.Port)
 }
 
 func disjointVMWork(work string, e *Evidence) error {
