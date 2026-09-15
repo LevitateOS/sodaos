@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/hostterminal"
+	"github.com/levitateos/sodaos/internal/host/terminal"
 )
 
 // Host keeps a Client-facing integration check that terminal streams do not

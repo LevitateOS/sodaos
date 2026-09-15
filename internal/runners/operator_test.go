@@ -1,4 +1,4 @@
-package linuxhost
+package runners
 
 import (
 	"testing"

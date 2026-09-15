@@ -3,7 +3,7 @@ package host
 import (
 	"net/http"
 
-	"github.com/levitateos/sodaos/internal/hostterminal"
+	"github.com/levitateos/sodaos/internal/host/terminal"
 )
 
 type (

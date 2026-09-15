@@ -1,6 +1,7 @@
-// Package projectos defines the immutable creation identity shared by storage and
-// the native project boundary. It is not an image registry or runtime selector.
-package projectos
+// Profile is the immutable creation identity shared by storage, the
+// dashboard and the privileged project boundary. It is not an image
+// registry or runtime selector.
+package project
 
 import (
 	"errors"
@@ -22,9 +23,11 @@ type Profile struct {
 	Revision     string `json:"revision"`
 }
 
-var digest = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
-var revision = regexp.MustCompile(`^[0-9a-f]{40}$`)
-var version = regexp.MustCompile(`^[0-9]{1,3}(\.[0-9]{1,3}){0,2}$`)
+var (
+	digest   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	revision = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	version  = regexp.MustCompile(`^[0-9]{1,3}(\.[0-9]{1,3}){0,2}$`)
+)
 
 func (p Profile) Validate() error {
 	if p.ID != RockyHeadless || p.Distribution != "rocky" || p.Interface != "headless" || !version.MatchString(p.Version) || (p.Architecture != "amd64" && p.Architecture != "arm64") || !digest.MatchString(p.Image) || !revision.MatchString(p.Revision) {
@@ -32,6 +35,7 @@ func (p Profile) Validate() error {
 	}
 	return nil
 }
+
 func Decode(raw string) (*Profile, error) {
 	if len(raw) > 1024 {
 		return nil, errors.New("oversized project profile")

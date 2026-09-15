@@ -5,7 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/platform"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func validLifecycleAction(action string) bool {
@@ -37,7 +38,7 @@ func parseUnitShowProperties(b []byte) (map[string]string, error) {
 
 func validateUnitProperties(fields map[string]string) (bool, error) {
 	dropIns := fields["DropInPaths"]
-	if len(fields) != 4 || fields["LoadState"] != "loaded" || fields["FragmentPath"] != installlayout.ProjectUnit {
+	if len(fields) != 4 || fields["LoadState"] != "loaded" || fields["FragmentPath"] != platform.ProjectUnit {
 		return false, errors.New("native unit is not the selected project unit")
 	}
 	if dropIns != "" && dropIns != "/usr/lib/systemd/system/service.d/10-timeout-abort.conf" {
@@ -77,7 +78,7 @@ func (r *Runtime) applyLifecycleAction(ctx context.Context, action, unit string)
 	return nil
 }
 
-func verifyLifecycleOutcome(action string, result LifecycleState) error {
+func verifyLifecycleOutcome(action string, result project.LifecycleState) error {
 	if action == "start" && (!result.Environment.Running || !result.BootEnabled) {
 		return errors.New("native lifecycle outcome unconfirmed")
 	}
@@ -87,8 +88,8 @@ func verifyLifecycleOutcome(action string, result LifecycleState) error {
 	return nil
 }
 
-func (r *Runtime) Lifecycle(ctx context.Context, in Lifecycle) (LifecycleState, error) {
-	var result LifecycleState
+func (r *Runtime) Lifecycle(ctx context.Context, in project.Lifecycle) (project.LifecycleState, error) {
+	var result project.LifecycleState
 	if !validLifecycleAction(in.Action) {
 		return result, errors.New("invalid lifecycle operation")
 	}

@@ -3,18 +3,11 @@ package host
 import (
 	"context"
 	"errors"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
-type Lifecycle struct {
-	Project string `json:"project"`
-	Action  string `json:"action"`
-}
-type LifecycleState struct {
-	Environment Environment `json:"environment"`
-	BootEnabled bool        `json:"boot_enabled"`
-}
-
-func lifecycleActionConfirmed(action string, out LifecycleState) bool {
+func lifecycleActionConfirmed(action string, out project.LifecycleState) bool {
 	switch action {
 	case "start":
 		return out.Environment.Running && out.BootEnabled
@@ -25,7 +18,7 @@ func lifecycleActionConfirmed(action string, out LifecycleState) bool {
 	}
 }
 
-func lifecycleOutcomeConfirmed(in Lifecycle, out LifecycleState) bool {
+func lifecycleOutcomeConfirmed(in project.Lifecycle, out project.LifecycleState) bool {
 	if out.Environment.ID != in.Project {
 		return false
 	}
@@ -35,8 +28,8 @@ func lifecycleOutcomeConfirmed(in Lifecycle, out LifecycleState) bool {
 	return lifecycleActionConfirmed(in.Action, out)
 }
 
-func (c *Client) Lifecycle(ctx context.Context, in Lifecycle) (LifecycleState, error) {
-	var out LifecycleState
+func (c *Client) Lifecycle(ctx context.Context, in project.Lifecycle) (project.LifecycleState, error) {
+	var out project.LifecycleState
 	err := c.call(ctx, "/lifecycle", in, &out)
 	if err == nil && !lifecycleOutcomeConfirmed(in, out) {
 		err = errors.New("native lifecycle outcome not confirmed")

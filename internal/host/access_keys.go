@@ -6,26 +6,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/levitateos/sodaos/internal/project"
 	"golang.org/x/crypto/ssh"
 )
 
-type AccessKeys struct {
-	Project  string   `json:"project"`
-	Login    string   `json:"login"`
-	Identity int64    `json:"identity"`
-	Revision string   `json:"revision,omitempty"`
-	Keys     []string `json:"keys,omitempty"`
-	Apply    bool     `json:"apply"`
-}
-type AccessKeyState struct {
-	Revision string   `json:"revision"`
-	Keys     []string `json:"keys"`
-}
-
 var keyRevision = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-func (c *Client) AccessKeys(ctx context.Context, in AccessKeys) (AccessKeyState, error) {
-	var out AccessKeyState
+func (c *Client) AccessKeys(ctx context.Context, in project.AccessKeys) (project.AccessKeyState, error) {
+	var out project.AccessKeyState
 	err := c.call(ctx, "/access-keys", in, &out)
 	if err == nil {
 		_, err = canonicalKeys(out.Keys)

@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/projectos"
+	"github.com/levitateos/sodaos/internal/project"
 	_ "modernc.org/sqlite"
 )
 
@@ -36,7 +36,7 @@ type Key struct {
 	Public, Fingerprint string
 }
 type Project struct {
-	Profile               *projectos.Profile
+	Profile               *project.Profile
 	ID, Name              string
 	RepositoryID, OwnerID int64
 	Repository, IP        string
@@ -185,7 +185,7 @@ func scanProject(row interface{ Scan(...any) error }) (Project, error) {
 	var profile sql.NullString
 	err := row.Scan(&p.ID, &p.Name, &p.RepositoryID, &p.OwnerID, &p.Repository, &p.IP, &p.Ready, &profile)
 	if err == nil && profile.Valid {
-		p.Profile, err = projectos.Decode(profile.String)
+		p.Profile, err = project.Decode(profile.String)
 	}
 	return p, err
 }

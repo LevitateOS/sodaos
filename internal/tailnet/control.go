@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/platform"
 	"github.com/levitateos/sodaos/internal/strictjson"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -559,7 +559,7 @@ func (m *Control) executeAdvertiseExitNode(ctx context.Context, r HostRequest) e
 }
 
 func (m *Control) executeRefreshForgejo(ctx context.Context) error {
-	_, err := m.command(ctx, installlayout.Libexec+"/soda-forgejo-tailnet")
+	_, err := m.command(ctx, platform.Libexec+"/soda-forgejo-tailnet")
 	return err
 }
 

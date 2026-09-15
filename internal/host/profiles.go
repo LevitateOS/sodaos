@@ -5,13 +5,13 @@ import (
 	"errors"
 	"runtime"
 
-	"github.com/levitateos/sodaos/internal/projectos"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 // ResolveProfile inspects only the configured installed image. It never pulls,
 // runs a container, changes a tag or accepts an image/architecture from the caller.
-func (c *Client) ResolveProfile(ctx context.Context) (projectos.Profile, error) {
-	var p projectos.Profile
+func (c *Client) ResolveProfile(ctx context.Context) (project.Profile, error) {
+	var p project.Profile
 	err := c.call(ctx, "/profile", struct{}{}, &p)
 	if err == nil {
 		err = p.Validate()

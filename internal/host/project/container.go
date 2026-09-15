@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
@@ -31,7 +32,7 @@ func (r *Runtime) TerminalContainer(ctx context.Context, id string) (string, err
 
 // Native lifecycle may inspect stopped containers, never missing/replacement ones.
 func projectIsolation(v projectInspection, id string) bool {
-	if !containerID.MatchString(v.ID) || v.Project != id || v.Privileged || v.Userns != "private" {
+	if !project.ValidContainerID(v.ID) || v.Project != id || v.Privileged || v.Userns != "private" {
 		return false
 	}
 	return projectIDMap(v.Mappings.UIDMap) && projectIDMap(v.Mappings.GIDMap)
@@ -49,7 +50,7 @@ func projectTargetReady(v projectInspection, id string, requireRunning bool) boo
 }
 
 func (r *Runtime) ProjectContainer(ctx context.Context, id string, requireRunning bool) (string, error) {
-	if !projectID.MatchString(id) {
+	if !project.ValidID(id) {
 		return "", errors.New("invalid project")
 	}
 	data, err := r.podman(ctx, nil, "--remote=false", "inspect", "--format", projectInspect, "soda-"+id)

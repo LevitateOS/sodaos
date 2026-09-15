@@ -20,24 +20,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/appliancerelease"
-	"github.com/levitateos/sodaos/internal/hostproject"
-	"github.com/levitateos/sodaos/internal/hosttailnet"
-	"github.com/levitateos/sodaos/internal/hostterminal"
-	"github.com/levitateos/sodaos/internal/installlayout"
-	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/host/project"
+	"github.com/levitateos/sodaos/internal/host/tailnet"
+	"github.com/levitateos/sodaos/internal/host/terminal"
+	"github.com/levitateos/sodaos/internal/platform"
+	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/release/build"
+	"github.com/levitateos/sodaos/internal/release/deliver"
 	"github.com/levitateos/sodaos/internal/runners"
 	"github.com/levitateos/sodaos/internal/strictjson"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-var (
-	projectID   = regexp.MustCompile(`^p[0-9a-f]{24}$`)
-	loginName   = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
-	imageID     = regexp.MustCompile(`^(?:sha256:)?[0-9a-f]{64}$`)
-	containerID = regexp.MustCompile(`^[0-9a-f]{64}$`)
-	networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
-)
+var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
 	TailnetManagement bool   `json:"tailnet_management,omitempty"`
@@ -49,15 +44,15 @@ type Config struct {
 }
 
 func LoadConfig(path string) (Config, error) {
-	return loadConfig(path, installlayout.Release)
+	return loadConfig(path, platform.Release)
 }
 
 func applyReleaseImages(c *Config, releasePath string) error {
 	if releasePath == "" {
 		return nil
 	}
-	p, err := appliancerelease.Load(releasePath)
-	if err != nil || nativebuild.RequireNative(p.Architecture) != nil {
+	p, err := deliver.Load(releasePath)
+	if err != nil || build.RequireNative(p.Architecture) != nil {
 		return errors.New("immutable appliance image defaults unavailable")
 	}
 	// Never silently replace an operator's saved image choice. New installs
@@ -77,7 +72,7 @@ func validTailnetImage(c Config) bool {
 	if c.TailnetImage == "" {
 		return true
 	}
-	return c.TailnetManagement && strings.HasPrefix(c.TailnetImage, "sha256:") && imageID.MatchString(c.TailnetImage)
+	return c.TailnetManagement && strings.HasPrefix(c.TailnetImage, "sha256:") && project.ValidImageRef(c.TailnetImage)
 }
 
 func validNetworkNames(c Config) bool {
@@ -276,18 +271,18 @@ func (d *Daemon) dispatchProfile(ctx context.Context, decode func(any) error) (a
 }
 
 func (d *Daemon) dispatchCreate(ctx context.Context, decode func(any) error) (any, error) {
-	var in Create
+	var in project.Create
 	if err := decode(&in); err != nil {
 		return nil, err
 	}
-	if !projectID.MatchString(in.ID) || in.Owner <= 0 {
+	if !project.ValidID(in.ID) || in.Owner <= 0 {
 		return nil, errors.New("invalid project identity")
 	}
 	return d.create(ctx, in)
 }
 
 func (d *Daemon) dispatchCreateTargeted(ctx context.Context, path string, decode func(any) error) (any, error) {
-	var in Create
+	var in project.Create
 	if err := decode(&in); err != nil {
 		return nil, err
 	}
@@ -307,19 +302,19 @@ func (d *Daemon) dispatchCreateTargeted(ctx context.Context, path string, decode
 func (d *Daemon) dispatchMutation(ctx context.Context, path string, decode func(any) error) (any, error) {
 	switch path {
 	case "/lifecycle":
-		var in Lifecycle
+		var in project.Lifecycle
 		if err := decode(&in); err != nil {
 			return nil, err
 		}
 		return d.lifecycle(ctx, in)
 	case "/access-keys":
-		var in AccessKeys
+		var in project.AccessKeys
 		if err := decode(&in); err != nil {
 			return nil, err
 		}
 		return d.accessKeys(ctx, in)
 	case "/account":
-		var in Account
+		var in project.Account
 		if err := decode(&in); err != nil {
 			return nil, err
 		}

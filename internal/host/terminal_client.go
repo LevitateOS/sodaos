@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/levitateos/sodaos/internal/hostterminal"
+	"github.com/levitateos/sodaos/internal/host/terminal"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 

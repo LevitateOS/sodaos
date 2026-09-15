@@ -11,7 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/platform"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 type managementExec func(context.Context, []byte, string, ...string) ([]byte, error)
@@ -38,7 +39,7 @@ func TestLifecycleUsesExistingUnitAndRetainsIdentity(t *testing.T) {
 							if enabled {
 								state = "enabled"
 							}
-							return []byte("LoadState=loaded\nFragmentPath=" + installlayout.ProjectUnit + "\nDropInPaths=" + dropIn + "\nUnitFileState=" + state + "\n"), nil
+							return []byte("LoadState=loaded\nFragmentPath=" + platform.ProjectUnit + "\nDropInPaths=" + dropIn + "\nUnitFileState=" + state + "\n"), nil
 						}
 						verb := "enable"
 						if action == "stop" {
@@ -63,7 +64,7 @@ func TestLifecycleUsesExistingUnitAndRetainsIdentity(t *testing.T) {
 					return []byte(fmt.Sprintf(`[{"Config":{"Labels":{"org.soda.project":%q,"org.soda.owner":"1"}},"State":{"Running":%t},"NetworkSettings":{"Networks":{}}}]`, id, running)), nil
 				})
 				d := testDaemon(exec, Config{Network: "soda-projects", Subnet: "10.89.0.0/24"})
-				state, err := d.lifecycle(t.Context(), Lifecycle{Project: id, Action: action})
+				state, err := d.lifecycle(t.Context(), project.Lifecycle{Project: id, Action: action})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -88,12 +89,12 @@ func TestLifecycleRefusesUnexpectedUnitBeforeMutation(t *testing.T) {
 				if args[0] != "show" {
 					t.Fatal("unexpected unit was mutated")
 				}
-				return []byte(strings.ReplaceAll(unit, "/etc/systemd/system/soda-project@.service", installlayout.ProjectUnit)), nil
+				return []byte(strings.ReplaceAll(unit, "/etc/systemd/system/soda-project@.service", platform.ProjectUnit)), nil
 			}
 			return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":"p0123456789abcdef01234567","owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64))), nil
 		})
 		d := testDaemon(exec, Config{})
-		if _, err := d.lifecycle(t.Context(), Lifecycle{Project: "p0123456789abcdef01234567", Action: "stop"}); err == nil {
+		if _, err := d.lifecycle(t.Context(), project.Lifecycle{Project: "p0123456789abcdef01234567", Action: "stop"}); err == nil {
 			t.Fatal("unexpected unit accepted")
 		}
 	}
@@ -106,12 +107,12 @@ func TestLifecycleRejectsCallerSelectedTargetsBeforeExec(t *testing.T) {
 		return nil, errors.New("unexpected")
 	})
 	d := testDaemon(exec, Config{})
-	for _, in := range []Lifecycle{{Project: "/host", Action: "start"}, {Project: "p0123456789abcdef01234567", Action: "destroy"}} {
+	for _, in := range []project.Lifecycle{{Project: "/host", Action: "start"}, {Project: "p0123456789abcdef01234567", Action: "destroy"}} {
 		if _, err := d.lifecycle(t.Context(), in); err == nil {
 			t.Fatal("invalid lifecycle accepted")
 		}
 	}
-	for _, in := range []AccessKeys{{Project: "p0123456789abcdef01234567", Login: "root", Identity: 1}, {Project: "p0123456789abcdef01234567", Login: "alice", Identity: 1, Apply: true, Revision: "bad"}} {
+	for _, in := range []project.AccessKeys{{Project: "p0123456789abcdef01234567", Login: "root", Identity: 1}, {Project: "p0123456789abcdef01234567", Login: "alice", Identity: 1, Apply: true, Revision: "bad"}} {
 		if _, err := d.accessKeys(t.Context(), in); err == nil {
 			t.Fatal("invalid key operation accepted")
 		}
@@ -143,7 +144,7 @@ func TestEmbeddedKeyProgramLoadsAndRefusesLocalUnprivilegedAccount(t *testing.T)
 		return nil, e
 	})
 	d := testDaemon(hostExec, Config{})
-	if _, err := d.accessKeys(t.Context(), AccessKeys{Project: "p0123456789abcdef01234567", Login: "alice", Identity: 1}); err == nil {
+	if _, err := d.accessKeys(t.Context(), project.AccessKeys{Project: "p0123456789abcdef01234567", Login: "alice", Identity: 1}); err == nil {
 		t.Fatal("unprivileged native update accepted")
 	}
 }
@@ -169,7 +170,7 @@ func TestKeyPreviewUsesExistingMarkerValidatorAndVerifiedContainer(t *testing.T)
 		return []byte(`{"revision":"` + strings.Repeat("a", 64) + `","keys":[]}`), nil
 	})
 	d := testDaemon(hostExec, Config{})
-	if _, err := d.accessKeys(t.Context(), AccessKeys{Project: id, Login: "alice", Identity: 1}); err != nil {
+	if _, err := d.accessKeys(t.Context(), project.AccessKeys{Project: id, Login: "alice", Identity: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if calls != 2 {

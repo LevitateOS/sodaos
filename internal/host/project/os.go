@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 //go:embed project_os.py
@@ -17,7 +19,7 @@ var (
 	osVersion = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$`)
 )
 
-func validOSRelease(p OSRelease) bool {
+func validOSRelease(p project.OSRelease) bool {
 	if !osID.MatchString(p.ID) || !osVersion.MatchString(p.Version) || p.Name == "" || len(p.Name) > 256 || !utf8.ValidString(p.Name) {
 		return false
 	}
@@ -29,9 +31,9 @@ func validOSRelease(p OSRelease) bool {
 	return true
 }
 
-func (r *Runtime) ObserveOS(ctx context.Context, id string) (OSObservation, error) {
+func (r *Runtime) ObserveOS(ctx context.Context, id string) (project.OSObservation, error) {
 	env, _, err := r.Inspect(ctx, id)
-	result := OSObservation{Environment: env, Unavailable: true}
+	result := project.OSObservation{Environment: env, Unavailable: true}
 	if err != nil {
 		return result, err
 	}
@@ -42,7 +44,7 @@ func (r *Runtime) ObserveOS(ctx context.Context, id string) (OSObservation, erro
 	if err != nil || len(raw) > 2048 {
 		return result, nil
 	}
-	var release OSRelease
+	var release project.OSRelease
 	if json.Unmarshal(raw, &release) != nil || !validOSRelease(release) {
 		return result, nil
 	}

@@ -1,6 +1,6 @@
-// Package linuxhost provides only the native operator identity boundary needed
-// by the retained runner code. It does not provision human host accounts.
-package linuxhost
+// Operator identity is the native pkexec/root boundary the runner commands
+// execute under. It does not provision human host accounts.
+package runners
 
 import (
 	"context"
@@ -18,10 +18,10 @@ type Account struct {
 	Username string
 	UID      int
 }
-type Native struct{}
+type HostAccounts struct{}
 
-func NewNative() *Native { return &Native{} }
-func (*Native) LookupAccount(_ context.Context, name string) (Account, error) {
+func NewHostAccounts() *HostAccounts { return &HostAccounts{} }
+func (*HostAccounts) LookupAccount(_ context.Context, name string) (Account, error) {
 	u, err := user.Lookup(name)
 	if err != nil {
 		return Account{}, err

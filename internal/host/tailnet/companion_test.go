@@ -13,11 +13,11 @@ import (
 func TestCompanionResolverUsesActualInodeRatherThanGeneratedMetadata(t *testing.T) {
 	run := fileRun()
 	run.Resolver = filepath.Join(t.TempDir(), "resolver")
-	if e := os.WriteFile(run.Resolver, []byte("nameserver 10.89.0.1\n"), 0600); e != nil {
+	if e := os.WriteFile(run.Resolver, []byte("nameserver 10.89.0.1\n"), 0o600); e != nil {
 		t.Fatal(e)
 	}
 	other := filepath.Join(t.TempDir(), "resolver")
-	if e := os.WriteFile(other, []byte("nameserver 10.89.0.1\n"), 0600); e != nil {
+	if e := os.WriteFile(other, []byte("nameserver 10.89.0.1\n"), 0o600); e != nil {
 		t.Fatal(e)
 	}
 	for _, same := range []bool{true, false} {

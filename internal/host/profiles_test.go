@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/levitateos/sodaos/internal/projectos"
+	"github.com/levitateos/sodaos/internal/project"
 	"reflect"
 	"runtime"
 	"strings"
 	"testing"
 )
 
-func testProfile() projectos.Profile {
-	return projectos.Profile{ID: projectos.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: runtime.GOARCH, Image: "sha256:" + strings.Repeat("a", 64), Revision: strings.Repeat("b", 40)}
+func testProfile() project.Profile {
+	return project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: runtime.GOARCH, Image: "sha256:" + strings.Repeat("a", 64), Revision: strings.Repeat("b", 40)}
 }
-func testImage(p projectos.Profile) []byte {
+func testImage(p project.Profile) []byte {
 	raw, _ := json.Marshal(map[string]any{"Id": strings.TrimPrefix(p.Image, "sha256:"), "Os": "linux", "Architecture": p.Architecture, "Labels": map[string]string{"org.soda.profile": p.ID, "org.soda.distribution": p.Distribution, "org.soda.distribution.version": p.Version, "org.soda.interface": p.Interface, "org.opencontainers.image.revision": p.Revision}})
 	return raw
 }
@@ -110,7 +110,7 @@ func TestOnlyCompleteNativeInstalledProfileAndNoTagCreation(t *testing.T) {
 			}
 			e.calls = 0
 			if kind != "valid" {
-				if _, err := d.create(t.Context(), Create{ID: "p0123456789abcdef01234567", Owner: 1, Profile: &p}); err == nil || e.calls != 1 {
+				if _, err := d.create(t.Context(), project.Create{ID: "p0123456789abcdef01234567", Owner: 1, Profile: &p}); err == nil || e.calls != 1 {
 					t.Fatal("preflight reached mutations", e.calls, err)
 				}
 			}
@@ -118,7 +118,7 @@ func TestOnlyCompleteNativeInstalledProfileAndNoTagCreation(t *testing.T) {
 	}
 	n := &noExec{}
 	d := testDaemon(n, Config{})
-	if _, err := d.create(t.Context(), Create{ID: "p0123456789abcdef01234567", Owner: 1}); err == nil || n.called {
+	if _, err := d.create(t.Context(), project.Create{ID: "p0123456789abcdef01234567", Owner: 1}); err == nil || n.called {
 		t.Fatal("missing profile reached native executor")
 	}
 }

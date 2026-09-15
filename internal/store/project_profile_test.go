@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/projectos"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func TestV7MigrationKeepsLegacyUnknownAndImmutableCreation(t *testing.T) {
@@ -44,7 +44,7 @@ func TestV7MigrationKeepsLegacyUnknownAndImmutableCreation(t *testing.T) {
 	if err := s.db.QueryRow(`SELECT settings_return,repository_settings_return FROM oauth WHERE state='pending'`).Scan(&kind, &target); err != nil || kind != "runners" || target {
 		t.Fatal("legacy login changed", err)
 	}
-	profile := projectos.Profile{ID: projectos.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: "amd64", Image: "sha256:" + strings.Repeat("a", 64), Revision: strings.Repeat("b", 40)}
+	profile := project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: "amd64", Image: "sha256:" + strings.Repeat("a", 64), Revision: strings.Repeat("b", 40)}
 	p = Project{ID: "new", Name: "New", RepositoryID: 8, OwnerID: 1, Repository: "alice/New", Profile: &profile}
 	if err := s.CreateProject(t.Context(), p); err != nil {
 		t.Fatal(err)

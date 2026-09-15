@@ -10,7 +10,6 @@ import (
 	"syscall"
 
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/linuxhost"
 	"github.com/levitateos/sodaos/internal/runners"
 )
 
@@ -25,7 +24,7 @@ func run() int {
 	err := execute(ctx, os.Args[1:], os.Stdin, os.Stdout, func(ctx context.Context, action string, input io.Reader) (any, error) {
 		// Preserve the helper's real/effective-root and original pkexec caller gate
 		// before reading configuration, input or native runner state.
-		actor, err := linuxhost.PKExecCaller()
+		actor, err := runners.PKExecCaller()
 		if err != nil {
 			return nil, err
 		}
@@ -37,7 +36,7 @@ func run() int {
 		coordinator := runners.Coordinator{
 			ForgejoURL:       cfg.ForgejoInternalURL,
 			ForgejoPublicURL: cfg.ForgejoURL,
-			Authorizer:       runners.LinuxAuthorizer{Accounts: linuxhost.NewNative()},
+			Authorizer:       runners.LinuxAuthorizer{Accounts: runners.NewHostAccounts()},
 			Local:            native,
 			Lifecycle:        native,
 		}

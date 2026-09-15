@@ -6,12 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/installlayout"
+	"github.com/levitateos/sodaos/internal/project"
+
+	"github.com/levitateos/sodaos/internal/platform"
 )
 
 func TestLifecycleRefusesOtherPackagingLayout(t *testing.T) {
 	other := "/usr/lib/systemd/system/soda-project@.service"
-	if other == installlayout.ProjectUnit {
+	if other == platform.ProjectUnit {
 		other = "/etc/systemd/system/soda-project@.service"
 	}
 	exec := managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
@@ -24,7 +26,7 @@ func TestLifecycleRefusesOtherPackagingLayout(t *testing.T) {
 		return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":"p0123456789abcdef01234567","owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64))), nil
 	})
 	d := testDaemon(exec, Config{})
-	if _, err := d.lifecycle(t.Context(), Lifecycle{Project: "p0123456789abcdef01234567", Action: "stop"}); err == nil {
+	if _, err := d.lifecycle(t.Context(), project.Lifecycle{Project: "p0123456789abcdef01234567", Action: "stop"}); err == nil {
 		t.Fatal("other packaging layout accepted")
 	}
 }

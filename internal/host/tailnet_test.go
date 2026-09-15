@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/hosttailnet"
+	"github.com/levitateos/sodaos/internal/host/tailnet"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 

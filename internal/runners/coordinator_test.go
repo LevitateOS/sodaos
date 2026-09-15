@@ -7,17 +7,16 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/levitateos/sodaos/internal/linuxhost"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeAuthorizer struct{ err error }
 
-func (authorizer fakeAuthorizer) RequireAdministrator(context.Context, linuxhost.PKExecIdentity) error {
+func (authorizer fakeAuthorizer) RequireAdministrator(context.Context, PKExecIdentity) error {
 	return authorizer.err
 }
 
-var testAdministrator = linuxhost.PKExecIdentity{Username: "root", UID: 0}
+var testAdministrator = PKExecIdentity{Username: "root", UID: 0}
 
 type fakeLocal struct{ views []RunnerView }
 
@@ -56,13 +55,13 @@ func (lifecycle *fakeLifecycle) Remove(ctx context.Context, id string) error {
 func TestCoordinatorRequiresNativeAdministratorBeforeReadingInputOrState(t *testing.T) {
 	for _, action := range []string{"list", "create", "start", "stop", "restart", "remove"} {
 		for _, test := range []struct {
-			actor     linuxhost.PKExecIdentity
-			account   linuxhost.Account
+			actor     PKExecIdentity
+			account   Account
 			lookupErr error
 		}{
-			{actor: linuxhost.PKExecIdentity{Username: "alice", UID: 1000}},
-			{actor: testAdministrator, account: linuxhost.Account{Username: "root", UID: 1000}},
-			{actor: testAdministrator, account: linuxhost.Account{Username: "other", UID: 0}},
+			{actor: PKExecIdentity{Username: "alice", UID: 1000}},
+			{actor: testAdministrator, account: Account{Username: "root", UID: 1000}},
+			{actor: testAdministrator, account: Account{Username: "other", UID: 0}},
 			{actor: testAdministrator, lookupErr: errors.New("lookup unavailable")},
 		} {
 			coordinator := Coordinator{Authorizer: LinuxAuthorizer{Accounts: fakeLinuxAccounts{account: test.account, err: test.lookupErr}}}

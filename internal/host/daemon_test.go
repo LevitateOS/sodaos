@@ -6,6 +6,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 type captureCreate struct{ args []string }
@@ -30,7 +32,7 @@ func TestCreateUsesFixedNamespacedRuntimeCapabilities(t *testing.T) {
 	id := "p123456789012345678901234"
 	profile := testProfile()
 	encoded, _ := json.Marshal(profile)
-	if _, err := d.create(context.Background(), Create{ID: id, Owner: 2, Profile: &profile}); err == nil {
+	if _, err := d.create(context.Background(), project.Create{ID: id, Owner: 2, Profile: &profile}); err == nil {
 		t.Fatal("failed native creation reported success")
 	}
 	want := []string{"create", "--name", "soda-" + id, "--label", "org.soda.project=" + id,
@@ -58,7 +60,7 @@ func TestInvalidProjectNeverExecutes(t *testing.T) {
 func TestInvalidAccountNeverExecutes(t *testing.T) {
 	n := &noExec{}
 	d := testDaemon(n, Config{})
-	if err := d.account(context.Background(), Account{Login: "root;id", Identity: 1, Keys: []string{"x"}}); err == nil || n.called {
+	if err := d.account(context.Background(), project.Account{Login: "root;id", Identity: 1, Keys: []string{"x"}}); err == nil || n.called {
 		t.Fatal("untrusted account reached executor")
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/levitateos/sodaos/internal/linuxhost"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
@@ -21,7 +20,7 @@ type Coordinator struct {
 	Lifecycle        Lifecycle
 }
 
-func (coordinator Coordinator) Execute(ctx context.Context, actor linuxhost.PKExecIdentity, action string, input io.Reader) (any, error) {
+func (coordinator Coordinator) Execute(ctx context.Context, actor PKExecIdentity, action string, input io.Reader) (any, error) {
 	if err := coordinator.Authorizer.RequireAdministrator(ctx, actor); err != nil {
 		return nil, err
 	}

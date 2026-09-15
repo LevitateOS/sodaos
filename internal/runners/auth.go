@@ -3,18 +3,17 @@ package runners
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/linuxhost"
 )
 
 type Authorizer interface {
-	RequireAdministrator(context.Context, linuxhost.PKExecIdentity) error
+	RequireAdministrator(context.Context, PKExecIdentity) error
 }
 type LinuxAccounts interface {
-	LookupAccount(context.Context, string) (linuxhost.Account, error)
+	LookupAccount(context.Context, string) (Account, error)
 }
 type LinuxAuthorizer struct{ Accounts LinuxAccounts }
 
-func (a LinuxAuthorizer) RequireAdministrator(ctx context.Context, actor linuxhost.PKExecIdentity) error {
+func (a LinuxAuthorizer) RequireAdministrator(ctx context.Context, actor PKExecIdentity) error {
 	if actor.UID != 0 || actor.Username != "root" {
 		return errors.New("host root operator required")
 	}

@@ -1,6 +1,6 @@
 //go:build soda_host_image
 
-package installlayout
+package platform
 
 const Libexec = "/usr/libexec/soda"
 const Sbin = "/usr/bin"

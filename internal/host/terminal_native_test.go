@@ -22,7 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/hostterminal"
+	"github.com/levitateos/sodaos/internal/host/terminal"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
@@ -75,12 +76,12 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	}
 	err = strictjson.Decode(f, &request)
 	f.Close()
-	if err != nil || request.Protocol != "native-owned-tmux-v2" || !containerID.MatchString(request.Container) || request.Target != hostname || os.Getenv("SODA_NATIVE_VALIDATE") != hostname || !projectID.MatchString(request.Project) || len(request.Accounts) != 2 {
+	if err != nil || request.Protocol != "native-owned-tmux-v2" || !project.ValidContainerID(request.Container) || request.Target != hostname || os.Getenv("SODA_NATIVE_VALIDATE") != hostname || !project.ValidID(request.Project) || len(request.Accounts) != 2 {
 		t.Fatal("native target/account scope mismatch")
 	}
 	seen := map[int64]bool{}
 	for _, a := range request.Accounts {
-		if !loginName.MatchString(a.Login) || a.Login == "root" || a.Identity <= 0 || seen[a.Identity] || a.UID <= 0 || a.GID < 0 || !filepath.IsAbs(a.Home) || len(a.Groups) == 0 {
+		if !project.ValidLogin(a.Login) || a.Login == "root" || a.Identity <= 0 || seen[a.Identity] || a.UID <= 0 || a.GID < 0 || !filepath.IsAbs(a.Home) || len(a.Groups) == 0 {
 			t.Fatal("invalid declared native account")
 		}
 		seen[a.Identity] = true

@@ -10,31 +10,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/projectos"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/strictjson"
 	"golang.org/x/crypto/ssh"
 )
 
-func (c Create) Validate() error {
-	if !projectID.MatchString(c.ID) || c.Owner <= 0 || c.Profile == nil || c.Profile.Validate() != nil {
-		return errors.New("invalid creation identity")
-	}
-	return nil
-}
-
 // Create provisions and starts a project environment. Callers that serialize
 // mutations must acquire their admission gate before invoking this method.
-func (r *Runtime) Create(ctx context.Context, in Create) (Environment, error) {
+func (r *Runtime) Create(ctx context.Context, in project.Create) (project.Environment, error) {
 	if err := in.Validate(); err != nil {
-		return Environment{}, err
+		return project.Environment{}, err
 	}
 	if err := r.createContainer(ctx, in); err != nil {
-		return Environment{}, err
+		return project.Environment{}, err
 	}
 	return r.startCreated(ctx, in)
 }
 
-func (r *Runtime) createContainer(ctx context.Context, in Create) error {
+func (r *Runtime) createContainer(ctx context.Context, in project.Create) error {
 	profile, err := r.ResolveProfile(ctx)
 	if err != nil {
 		return err
@@ -67,12 +60,12 @@ type inspectItem struct {
 	}
 }
 
-func applyCreationProfile(env *Environment, item inspectItem) error {
+func applyCreationProfile(env *project.Environment, item inspectItem) error {
 	raw := item.Config.Labels["org.soda.creation-profile"]
 	if raw == "" {
 		return nil
 	}
-	p, decodeErr := projectos.Decode(raw)
+	p, decodeErr := project.Decode(raw)
 	image := item.Image
 	if !strings.HasPrefix(image, "sha256:") {
 		image = "sha256:" + image
@@ -84,7 +77,7 @@ func applyCreationProfile(env *Environment, item inspectItem) error {
 	return nil
 }
 
-func admitProjectIP(env *Environment, network, subnet string, networks map[string]struct{ IPAddress string }) error {
+func admitProjectIP(env *project.Environment, network, subnet string, networks map[string]struct{ IPAddress string }) error {
 	env.IP = networks[network].IPAddress
 	if env.IP == "" {
 		return nil
@@ -111,9 +104,9 @@ func inspectOwner(item inspectItem, id string) (int64, error) {
 	return owner, nil
 }
 
-func (r *Runtime) Inspect(ctx context.Context, id string) (Environment, int64, error) {
-	env := Environment{ID: id}
-	if !projectID.MatchString(id) {
+func (r *Runtime) Inspect(ctx context.Context, id string) (project.Environment, int64, error) {
+	env := project.Environment{ID: id}
+	if !project.ValidID(id) {
 		return env, 0, errors.New("invalid project id")
 	}
 	out, err := r.podman(ctx, nil, "inspect", "soda-"+id)
@@ -125,7 +118,7 @@ func (r *Runtime) Inspect(ctx context.Context, id string) (Environment, int64, e
 		return env, 0, errors.New("invalid native inspection")
 	}
 	item := items[0]
-	if imageID.MatchString(item.Image) {
+	if project.ValidImageRef(item.Image) {
 		env.Image = "sha256:" + strings.TrimPrefix(item.Image, "sha256:")
 	}
 	owner, err := inspectOwner(item, id)
@@ -157,13 +150,13 @@ func (r *Runtime) waitProjectReady(ctx context.Context, name string) error {
 	}
 }
 
-func (r *Runtime) startCreated(ctx context.Context, in Create) (Environment, error) {
+func (r *Runtime) startCreated(ctx context.Context, in project.Create) (project.Environment, error) {
 	name := "soda-" + in.ID
 	if _, err := r.Exec.Run(ctx, nil, "/usr/bin/systemctl", "enable", "--now", "soda-project@"+in.ID+".service"); err != nil {
-		return Environment{}, err
+		return project.Environment{}, err
 	}
 	if err := r.waitProjectReady(ctx, name); err != nil {
-		return Environment{}, err
+		return project.Environment{}, err
 	}
 	env, _, err := r.Inspect(ctx, in.ID)
 	if err != nil {
@@ -187,7 +180,7 @@ func canonicalizeAccountKeys(values []string) ([]string, error) {
 	return keys, nil
 }
 
-func confirmAccount(out []byte, in Account) error {
+func confirmAccount(out []byte, in project.Account) error {
 	var result struct {
 		Login    string `json:"login"`
 		Identity int64  `json:"identity"`
@@ -198,8 +191,8 @@ func confirmAccount(out []byte, in Account) error {
 	return nil
 }
 
-func (r *Runtime) Account(ctx context.Context, in Account) error {
-	if !loginName.MatchString(in.Login) || in.Login == "root" || in.Identity <= 0 || len(in.Keys) > 32 {
+func (r *Runtime) Account(ctx context.Context, in project.Account) error {
+	if !project.ValidLogin(in.Login) || in.Login == "root" || in.Identity <= 0 || len(in.Keys) > 32 {
 		return errors.New("invalid project account")
 	}
 	env, owner, err := r.Inspect(ctx, in.Project)
@@ -223,9 +216,9 @@ func (r *Runtime) Account(ctx context.Context, in Account) error {
 
 // Connection returns only the fixed public Ed25519 host key. No caller path or
 // full container inspection crosses this boundary, and stopped containers stay stopped.
-func (r *Runtime) Connection(ctx context.Context, id string) (Connection, error) {
+func (r *Runtime) Connection(ctx context.Context, id string) (project.Connection, error) {
 	env, _, err := r.Inspect(ctx, id)
-	result := Connection{Environment: env}
+	result := project.Connection{Environment: env}
 	if err != nil {
 		return result, err
 	}
