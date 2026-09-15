@@ -90,47 +90,49 @@ func policyParent() (*os.Root, error) {
 	return root, nil
 }
 
-func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File, error) {
-	parent, err := p.parent()
-	if err != nil {
-		return nil, nil, ErrUnavailable
+func createPolicyDir(ctx context.Context, parent *os.Root) error {
+	if e := ctx.Err(); e != nil {
+		return e
 	}
-	defer parent.Close()
+	err := parent.Mkdir("soda-tailnet", 0o700)
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		return ErrUnavailable
+	}
+	directory, e := parent.Open(".")
+	if e != nil {
+		return ErrUnconfirmed
+	}
+	e = directory.Sync()
+	directory.Close()
+	if e != nil {
+		return ErrUnconfirmed
+	}
+	return nil
+}
+
+func (p *policyStore) ensurePolicyDir(ctx context.Context, parent *os.Root, create bool) (os.FileInfo, error) {
 	info, err := parent.Lstat("soda-tailnet")
 	if errors.Is(err, os.ErrNotExist) && create {
-		if e := ctx.Err(); e != nil {
-			return nil, nil, e
-		}
-		err = parent.Mkdir("soda-tailnet", 0o700)
-		if err != nil && !errors.Is(err, os.ErrExist) {
-			return nil, nil, ErrUnavailable
-		}
-		directory, e := parent.Open(".")
-		if e != nil {
-			return nil, nil, ErrUnconfirmed
-		}
-		e = directory.Sync()
-		directory.Close()
-		if e != nil {
-			return nil, nil, ErrUnconfirmed
+		if e := createPolicyDir(ctx, parent); e != nil {
+			return nil, e
 		}
 		info, err = parent.Lstat("soda-tailnet")
 	}
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil, os.ErrNotExist
+		return nil, os.ErrNotExist
 	}
 	if err != nil || !owned(info, p.uid, true) {
-		return nil, nil, ErrUnavailable
+		return nil, ErrUnavailable
 	}
-	root, err := parent.OpenRoot("soda-tailnet")
-	if err != nil {
-		return nil, nil, ErrUnavailable
-	}
+	return info, nil
+}
+
+func acquirePolicyLock(ctx context.Context, root *os.Root, uid uint32) (*os.File, error) {
 	lock, err := root.Open(".")
 	if err == nil {
 		var st os.FileInfo
 		st, err = lock.Stat()
-		if err == nil && !owned(st, p.uid, true) {
+		if err == nil && !owned(st, uid, true) {
 			err = ErrUnavailable
 		}
 	}
@@ -141,8 +143,28 @@ func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File
 		if lock != nil {
 			lock.Close()
 		}
-		root.Close()
+		return nil, ErrUnavailable
+	}
+	return lock, nil
+}
+
+func (p *policyStore) lock(ctx context.Context, create bool) (*os.Root, *os.File, error) {
+	parent, err := p.parent()
+	if err != nil {
 		return nil, nil, ErrUnavailable
+	}
+	defer parent.Close()
+	if _, err = p.ensurePolicyDir(ctx, parent, create); err != nil {
+		return nil, nil, err
+	}
+	root, err := parent.OpenRoot("soda-tailnet")
+	if err != nil {
+		return nil, nil, ErrUnavailable
+	}
+	lock, err := acquirePolicyLock(ctx, root, p.uid)
+	if err != nil {
+		root.Close()
+		return nil, nil, err
 	}
 	return root, lock, nil
 }
