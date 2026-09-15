@@ -647,22 +647,62 @@ func enrollmentConnectionUnit(connection *net.UnixConn) (string, error) {
 	return enrollmentPeerUnit(string(group))
 }
 
-// ReceiveEnrollment is the sole ForceCommand. Client commands/subsystems are
-// refused, not interpreted. It never handles the native password or a private key.
-func ReceiveEnrollment(ctx context.Context) error {
+func admitReceiveEnrollment() (time.Duration, error) {
 	if os.Geteuid() != 0 || os.Getenv("SSH_ORIGINAL_COMMAND") != "" || os.Getenv("SSH_TTY") != "" {
-		return errors.New("only public-key stdin enrollment is allowed")
+		return 0, errors.New("only public-key stdin enrollment is allowed")
 	}
 	selected, remaining, err := enrollmentState()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	fields := strings.Fields(os.Getenv("SSH_CONNECTION"))
 	if len(fields) != 4 || fields[2] != selected.ip || fields[3] != enrollmentPort {
-		return errors.New("dedicated key-import SSH connection required")
+		return 0, errors.New("dedicated key-import SSH connection required")
 	}
 	if remaining > 30*time.Second {
 		remaining = 30 * time.Second
+	}
+	return remaining, nil
+}
+
+func confirmEnrollmentImport(result []byte, err error) error {
+	if err == nil && string(result) == "uncertain\n" {
+		return errEnrollmentWriteUncertain
+	}
+	if err != nil || string(result) != "imported\n" {
+		return errors.New("key import was not confirmed; inspect the local console before retrying")
+	}
+	return nil
+}
+
+func submitEnrollmentKey(ctx context.Context, key string) error {
+	connection, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: enrollmentSocket, Net: "unix"})
+	if err != nil {
+		return errors.New("key-import window is closed")
+	}
+	defer connection.Close()
+	if deadline, ok := ctx.Deadline(); ok {
+		connection.SetDeadline(deadline)
+	}
+	if unit, err := enrollmentConnectionUnit(connection); err != nil || unit != enrollmentUnit {
+		return errors.New("dedicated enrollment broker required")
+	}
+	if _, err := io.WriteString(connection, key+"\n"); err != nil {
+		return err
+	}
+	if err := connection.CloseWrite(); err != nil {
+		return err
+	}
+	result, err := io.ReadAll(io.LimitReader(connection, 129))
+	return confirmEnrollmentImport(result, err)
+}
+
+// ReceiveEnrollment is the sole ForceCommand. Client commands/subsystems are
+// refused, not interpreted. It never handles the native password or a private key.
+func ReceiveEnrollment(ctx context.Context) error {
+	remaining, err := admitReceiveEnrollment()
+	if err != nil {
+		return err
 	}
 	phase, cancel := context.WithTimeout(ctx, remaining)
 	defer cancel()
@@ -674,28 +714,8 @@ func ReceiveEnrollment(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	connection, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: enrollmentSocket, Net: "unix"})
-	if err != nil {
-		return errors.New("key-import window is closed")
-	}
-	defer connection.Close()
-	deadline, _ := phase.Deadline()
-	connection.SetDeadline(deadline)
-	if unit, err := enrollmentConnectionUnit(connection); err != nil || unit != enrollmentUnit {
-		return errors.New("dedicated enrollment broker required")
-	}
-	if _, err := io.WriteString(connection, key+"\n"); err != nil {
+	if err := submitEnrollmentKey(phase, key); err != nil {
 		return err
-	}
-	if err := connection.CloseWrite(); err != nil {
-		return err
-	}
-	result, err := io.ReadAll(io.LimitReader(connection, 129))
-	if err == nil && string(result) == "uncertain\n" {
-		return errEnrollmentWriteUncertain
-	}
-	if err != nil || string(result) != "imported\n" {
-		return errors.New("key import was not confirmed; inspect the local console before retrying")
 	}
 	fmt.Fprintln(os.Stdout, "Public key imported. Verify a fresh ordinary key-only SSH login.")
 	return nil
