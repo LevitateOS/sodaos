@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"os"
 	"strings"
 	"testing"
 )
@@ -163,6 +164,25 @@ func TestRunningPhaseShowsLiveElapsed(t *testing.T) {
 	}
 	if got = b.String(); !strings.Contains(got, "[ok]") || !strings.Contains(got, "00:05:30") {
 		t.Fatalf("finished row misses controller duration:\n%s", got)
+	}
+}
+
+func TestPreflightRefusesOutsideCheckout(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	err = preflight(baseOptions())
+	if err == nil || !strings.Contains(err.Error(), "checkout root") {
+		t.Fatalf("preflight must refuse a non-checkout directory first, got: %v", err)
 	}
 }
 

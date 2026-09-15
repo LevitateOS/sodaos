@@ -10,10 +10,21 @@ the entry point.
 
 ## Run
 
+Start from the repository root: the controller binds its source to the
+working directory. Anything else is refused before privilege is touched.
+
 ```sh
-GOTOOLCHAIN=local go build -o /usr/local/bin/soda-candidate ./tools/soda-candidate
-soda-candidate
+cd ~/Projects/sodaos
+bash scripts/setup-soda-candidate.sh
+sudo soda-candidate
 ```
+
+The script builds both tools from committed source, installs the wrapper
+where sudo resolves it (`/usr/sbin`, since `secure_path` excludes
+`/usr/local/bin`), admits the controller, creates the worker directories,
+and writes the restricted worker config plus a fixture-only media authority.
+Fixture scope only: it never creates qualification or signing configs.
+Manual equivalent of each step is printed by the script as it goes.
 
 One overview screen shows every choice (mode, output with freshness status,
 controller, worker config, fixture URL or protected configs). Type a field

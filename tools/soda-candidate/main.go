@@ -141,8 +141,13 @@ func validateResolved(o *options) error {
 }
 
 // preflight checks the operator-side facts the controller also enforces:
-// native arch, clean source revision, and a fresh output directory.
+// checkout root, native arch, clean source revision, and a fresh output
+// directory. The controller binds its source to this working directory, so
+// starting anywhere else fails late and confusingly without this check.
 func preflight(o options) error {
+	if st, err := os.Stat("go.mod"); err != nil || st.IsDir() {
+		return errors.New("run soda-candidate from the checkout root (~/Projects/sodaos)")
+	}
 	native, err := nativeArch()
 	if err != nil {
 		return err
