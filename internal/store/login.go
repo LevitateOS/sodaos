@@ -18,8 +18,47 @@ type OAuthAttempt struct {
 	expires          int64
 }
 
+func validOAuthSettingsReturn(login OAuthLogin) bool {
+	if login.SettingsReturn == "" {
+		return true
+	}
+	if login.SettingsReturn != "runners" && login.SettingsReturn != "tailnet" {
+		return false
+	}
+	return !login.SpacesReturn && login.RepositoryID == 0
+}
+
+func validOAuthLogin(login OAuthLogin) bool {
+	if login.RepositorySettingsReturn && (login.RepositoryID <= 0 || login.SpacesReturn || login.SettingsReturn != "") {
+		return false
+	}
+	if login.SpacesReturn && login.RepositoryID != 0 {
+		return false
+	}
+	return validOAuthSettingsReturn(login)
+}
+
+func bindOAuthContext(ctx context.Context, tx *sql.Tx, state, session, previous string, now, expires int64) (string, error) {
+	var id string
+	var err error
+	switch {
+	case session != "":
+		err = tx.QueryRowContext(ctx, `SELECT context_id FROM sessions WHERE token=? AND expires>?`, hash(session), now).Scan(&id)
+	case previous != "":
+		// pending remains available even after the earlier callback claimed its state.
+		err = tx.QueryRowContext(ctx, `SELECT id FROM login_contexts WHERE oauth_cookie=? AND expires>?`, hash(previous), now).Scan(&id)
+	default:
+		id = hash(state)
+		_, err = tx.ExecContext(ctx, `INSERT INTO login_contexts(id,expires) VALUES(?,?)`, id, expires)
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrLoginContext
+	}
+	return id, err
+}
+
 func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin, session, previous string) error {
-	if (login.RepositorySettingsReturn && (login.RepositoryID <= 0 || login.SpacesReturn || login.SettingsReturn != "")) || (login.SpacesReturn && login.RepositoryID != 0) || (login.SettingsReturn != "" && ((login.SettingsReturn != "runners" && login.SettingsReturn != "tailnet") || login.SpacesReturn || login.RepositoryID != 0)) {
+	if !validOAuthLogin(login) {
 		return ErrLoginContext
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -32,20 +71,7 @@ func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin, 
 	if _, err = tx.ExecContext(ctx, `DELETE FROM login_contexts WHERE expires<=?`, now); err != nil {
 		return err
 	}
-	var id string
-	switch {
-	case session != "":
-		err = tx.QueryRowContext(ctx, `SELECT context_id FROM sessions WHERE token=? AND expires>?`, hash(session), now).Scan(&id)
-	case previous != "":
-		// pending remains available even after the earlier callback claimed its state.
-		err = tx.QueryRowContext(ctx, `SELECT id FROM login_contexts WHERE oauth_cookie=? AND expires>?`, hash(previous), now).Scan(&id)
-	default:
-		id = hash(state)
-		_, err = tx.ExecContext(ctx, `INSERT INTO login_contexts(id,expires) VALUES(?,?)`, id, expires)
-	}
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrLoginContext
-	}
+	id, err := bindOAuthContext(ctx, tx, state, session, previous, now, expires)
 	if err != nil {
 		return err
 	}
