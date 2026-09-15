@@ -12,16 +12,24 @@ they do not use canonical Forgejo URLs as the top-level document.
 
 Signed-in browsing uses that workspace host. The navbar Spaces link and Spaces OAuth
 return go to `/-/soda/workspace`. Ordinary signed-in Forgejo documents wrap into it
-with admitted `to`. Login, OAuth authorize/grant, callback, install, failed
-`soda-connect`, and remaining `soda-view` hosts (repository Spaces, Runners, Tailnet)
-stay top-level. If the framed document lands on those, the shell replaces itself
-with that URL. Credential query never becomes `to`. Unsigned `/-/soda/spaces` stays
-a bookmark that establishes the native actor first.
+with admitted `to`. Login, logout, signup/activate, password recovery,
+two-factor/passkey, provider OAuth link, OAuth authorize/grant, callback, install,
+failed `soda-connect`, and any `soda-view` host stay top-level. If the framed
+document lands on those, the shell replaces itself with that URL. Credential query
+never becomes `to`. Unsigned `/-/soda/spaces` stays a bookmark that establishes
+the native actor first.
 
 Forgejo owns navbar, profile, notifications, forms and routing inside the iframe.
 The Soda shell has no second header. Layout is two surfaces: framed Forgejo on the
 left, workspace on the right, with the same measured split and compact
-Forge/Terminal switch as the native drawer.
+Forge/Terminal switch as the native drawer. The right surface mounts the same
+page-kind Spaces workspace as the native dashboard view: the listing is only its
+empty/first-use state, and live terminals stay mounted while the iframe navigates.
+The native drawer mounts the native-kind binding of that same workspace on Forgejo
+documents outside the shell; framed Forgejo never mounts a nested drawer.
+
+Direct visits to `/?soda-view=spaces` still render that native Spaces view, kept
+for OAuth-failure display and older links; it is not the browsing host.
 
 There is no separate-origin Soda UI. Lit supplies Soda's management and workspace
 views under the configured Forgejo origin at `/-/soda/`.

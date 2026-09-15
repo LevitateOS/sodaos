@@ -25,8 +25,10 @@ handlers, cookies or chrome. Native Forgejo retains header, profile menu, forms,
 routing, notifications and beforeunload behavior inside that frame.
 
 Framed Forgejo documents must not mount a nested Spaces drawer. Signed-in top-level
-Forgejo documents wrap into `/-/soda/workspace` except login/OAuth/install, failed
-`soda-connect`, and remaining `soda-view` settings hosts.
+Forgejo documents wrap into `/-/soda/workspace` except auth/recovery flows,
+login/OAuth/install, failed `soda-connect`, and any `soda-view` host (valid,
+unknown, or duplicate — the dashboard answers those). Product host contract:
+[Spaces](../product/spaces.md).
 
 Responsive workspace rules:
 

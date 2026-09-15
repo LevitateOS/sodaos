@@ -115,7 +115,11 @@ func TestWorkspaceFrameLocator(t *testing.T) {
 	for _, query := range []string{
 		"?to=https://evil.test/", "?to=//evil.test/x", "?to=/foo/../bar",
 		"?to=/-/soda/workspace", "?to=/login?code=secret", "?to=/user/login",
+		"?to=/user/logout", "?to=/user/two_factor", "?to=/user/webauthn/assertion",
+		"?to=/user/oauth2/github", "?to=/user/forgot_password", "?to=/user/reset_password",
 		"?to=/login/oauth/authorize", "?to=/install", "?to=/?soda-view=spaces",
+		"?to=/?soda-view=unknown", "?to=/?soda-view=spaces&soda-view=runners",
+		"?to=/alice/repo?soda-view=unknown", "?to=/alice/repo?soda-connect=1",
 		"?actor=2", "?to=/&to=/",
 	} {
 		w := terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/workspace"+query, nil)

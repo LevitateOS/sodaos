@@ -26,6 +26,15 @@ test('workspace frame locator admits same-origin Forgejo paths only', () => {
   assert.equal(workspaceFrameLocator('/user/login'), undefined);
   assert.equal(workspaceFrameLocator('/login/oauth/authorize'), undefined);
   assert.equal(workspaceFrameLocator('/admin?soda-view=runners'), undefined);
+  assert.equal(workspaceFrameLocator('/user/logout'), undefined);
+  assert.equal(workspaceFrameLocator('/user/two_factor'), undefined);
+  assert.equal(workspaceFrameLocator('/user/webauthn/assertion'), undefined);
+  assert.equal(workspaceFrameLocator('/user/oauth2/github'), undefined);
+  assert.equal(workspaceFrameLocator('/user/forgot_password'), undefined);
+  assert.equal(workspaceFrameLocator('/user/reset_password'), undefined);
+  assert.equal(workspaceFrameLocator('/alice/repo?soda-view=unknown'), undefined);
+  assert.equal(workspaceFrameLocator('/?soda-view=spaces&soda-view=runners'), undefined);
+  assert.equal(workspaceFrameLocator('/alice/repo?soda-connect=1'), undefined);
 });
 
 test('framed login, consent, and callback leave the shell', () => {
@@ -33,6 +42,11 @@ test('framed login, consent, and callback leave the shell', () => {
   assert.equal(workspaceAuthLocation('/user/login?redirect_to=%2F'), '/user/login?redirect_to=%2F');
   assert.equal(workspaceAuthLocation('/login/oauth/authorize?client_id=app'), '/login/oauth/authorize?client_id=app');
   assert.equal(workspaceAuthLocation('/login/oauth/grant'), '/login/oauth/grant');
+  assert.equal(workspaceAuthLocation('/user/logout'), '/user/logout');
+  assert.equal(workspaceAuthLocation('/user/two_factor'), '/user/two_factor');
+  assert.equal(workspaceAuthLocation('/user/oauth2/github'), '/user/oauth2/github');
+  assert.equal(workspaceAuthLocation('/?soda-view=unknown'), '/?soda-view=unknown');
+  assert.equal(workspaceAuthLocation('/?soda-view=spaces&soda-view=runners'), '/?soda-view=spaces&soda-view=runners');
   assert.equal(workspaceAuthLocation('/-/soda/login?destination=spaces'), '/-/soda/login?destination=spaces');
   assert.equal(workspaceAuthLocation('/-/soda/oauth/callback?code=x&state=y'), '/-/soda/oauth/callback?code=x&state=y');
   assert.equal(workspaceAuthLocation('/alice?code=secret'), '/alice?code=secret');
@@ -55,6 +69,13 @@ test('workspace entry wraps ordinary Forgejo paths and keeps native Soda hosts',
   assert.equal(workspaceEntryLocation('https://forgejo.example.test/?soda-view=spaces', ''), undefined);
   assert.equal(workspaceEntryLocation('https://forgejo.example.test/admin?soda-view=runners', ''), undefined);
   assert.equal(workspaceEntryLocation('https://forgejo.example.test/user/login', ''), undefined);
+  assert.equal(workspaceEntryLocation('https://forgejo.example.test/user/logout', ''), undefined);
+  assert.equal(workspaceEntryLocation('https://forgejo.example.test/?soda-view=unknown', ''), undefined);
+  assert.equal(
+    workspaceEntryLocation('https://forgejo.example.test/?soda-view=spaces&soda-view=runners', ''),
+    undefined
+  );
+  assert.equal(workspaceEntryLocation('https://forgejo.example.test/alice?soda-connect=1', ''), undefined);
   assert.equal(
     workspaceEntryLocation('https://forgejo.example.test/?soda-view=spaces&soda-connect=failed', ''),
     undefined

@@ -35,12 +35,12 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
   {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin dashboard" "formPage" true)}}
   <div class="admin-setting-content soda-page-container">
     {{template "custom/soda/page_intro" dict "TitleID" "soda-admin-title" "Eyebrow" "Soda administration" "Title" $title "Description" $description "Class" "soda-page-intro--compact"}}
-    <link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-15.workspace-auth-1">
-    {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-15.workspace-auth-1">{{end}}
+    <link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-15.workspace-review-1">
+    {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-15.workspace-review-1">{{end}}
     <div data-appliance-label="{{ctx.Locale.Tr "soda.tailnet_appliance"}}" data-enrollment-label="{{ctx.Locale.Tr "soda.tailnet_projects"}}" id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="" data-document-title="{{$title}} - {{AppDisplayName}}">
       <noscript><p>JavaScript is required for Soda controls. <a href="{{AppSubUrl}}/admin">Return to administration</a></p></noscript>
     </div>
-    <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-15.workspace-auth-1"></script>
+    <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-15.workspace-review-1"></script>
   </div>
   {{template "admin/layout_footer" .}}
 {{else}}

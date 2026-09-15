@@ -10,8 +10,10 @@ UX composition: [Spaces UX](../design/spaces-ux.md). Routes: [HTTP API](api.md).
 
 - Attach to the member's existing project-local account and home.
 - Opening a terminal must not create, join, start or repair a project.
-- Ordinary Forgejo navigation must preserve the live terminal view (same mounted
-  component, xterm renderer and WebSocket attachment).
+- In the workspace shell, ordinary Forgejo navigation happens inside the iframe,
+  so the mounted workspace component, xterm renderer, and WebSocket attachment
+  survive it. On native documents the drawer re-attaches the same session after
+  navigation instead.
 - Browsing another repository must not retarget the terminal's project, account or
   session.
 

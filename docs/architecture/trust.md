@@ -75,12 +75,15 @@ a runner, create a terminal or change project lifecycle state.
 The persistent workspace outer document is the Soda HTML shell at
 `/-/soda/workspace`. Optional `to` is an untrusted same-origin Forgejo locator
 for the iframe, not an OAuth return URL and not a Soda API path. Signed-in Forgejo
-top-level pages wrap into that host with an admitted locator. Login, consent,
-callback, install, failed `soda-connect`, and remaining `soda-view` settings hosts
-stay outside the shell. If a framed document lands on those, the host replaces
-itself with that same-origin URL. The shell does not copy credential query into
-`to`. The shell may frame same-origin Forgejo; it does not embed credentials or
-select a separate-origin trust model.
+top-level pages wrap into that host with an admitted locator. Login, logout,
+signup/activate, password recovery, two-factor/passkey, provider OAuth link,
+consent, callback, install, failed `soda-connect`, and any `soda-view` host
+(valid, unknown, or duplicate) stay outside the shell. If a framed document lands
+on those, the host replaces itself with that same-origin URL. When the frame
+cannot be read (initial, cross-origin, or failed load) the host leaves the address
+bar untouched. The shell does not copy credential query into `to`. The shell may
+frame same-origin Forgejo; it does not embed credentials or select a
+separate-origin trust model.
 
 ## Host helper
 

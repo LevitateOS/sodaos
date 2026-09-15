@@ -14,7 +14,7 @@ import (
 )
 
 // Must match appliance/forgejo/templates/custom/header.tmpl.
-const workspacePresentation = "2026-09-15.workspace-auth-1"
+const workspacePresentation = "2026-09-15.workspace-review-1"
 
 const workspaceShellCSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
@@ -119,20 +119,36 @@ func outsideWorkspaceFrame(u *url.URL) bool {
 	return loginConsentInstall(u.Path)
 }
 
+// Any soda-view or soda-connect host is a native document, never framed
+// content: valid settings hosts, failure displays, and unknown or duplicate
+// selectors all stay top-level so the dashboard can answer them.
 func sodaViewHost(q url.Values) bool {
-	views := q["soda-view"]
-	if len(views) != 1 {
-		return false
-	}
-	switch views[0] {
-	case "spaces", "repository-spaces", "runners", "tailnet":
-		return true
-	}
-	return false
+	return q.Has("soda-view")
 }
 
+// Auth and account-recovery flows stay top-level. Keep in lockstep with
+// authPaths in frontend/spaces/sodaspaces-frame.ts.
 func loginConsentInstall(p string) bool {
-	return strings.HasPrefix(p, "/user/login") || strings.HasPrefix(p, "/login/oauth") || p == "/install" || strings.HasPrefix(p, "/install/")
+	for _, prefix := range []string{
+		"/user/login",
+		"/user/logout",
+		"/user/sign_up",
+		"/user/activate",
+		"/user/forgot_password",
+		"/user/reset_password",
+		"/user/two_factor",
+		"/user/u2f",
+		"/user/webauthn",
+		"/user/oauth2",
+		"/user/link_account",
+		"/login/oauth",
+		"/install",
+	} {
+		if p == prefix || strings.HasPrefix(p, prefix+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *API) writeWorkspaceShell(w http.ResponseWriter, session store.Session, frame string) {
