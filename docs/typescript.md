@@ -144,16 +144,17 @@ Bun and remain strictly typed; they do not introduce a Node process requirement.
 
 ## Formatting, linting, and complexity
 
-Pinned `prettier` (3.6.2) and `oxlint` (1.81.0) in the root lock are the TypeScript
-analogues of gofumpt and of staticcheck plus gocyclo. They do not replace
-`bun run typecheck`. Do not add ESLint, Biome, or a second formatter on top of this
-pair. Whole-tree scripts live beside the Go gates; the pre-commit hook is
+Pinned `oxfmt` (0.68.0) and `oxlint` (1.81.0) in the root lock are the TypeScript
+Oxc analogue of gofumpt and of staticcheck plus gocyclo. They share one parser
+family. They do not replace `bun run typecheck` (Oxc has no typechecker we will
+use in place of TypeScript 7). Do not add Prettier, ESLint, or Biome on top.
+Whole-tree scripts live beside the Go gates; the pre-commit hook is
 staged-only so an existing backlog cannot block unrelated commits. Go quality-gate
 ownership and the Go threshold remain in [the slop audit](slop-audit.md#go-quality-gates-githookspre-commit-staged-scope-only).
 
 | Command | Scope |
 | --- | --- |
-| `bash scripts/check-prettier.sh` (`bun run check:prettier`) | Zero-tolerance format on the given `.ts`/`.tsx` paths, or every tracked TypeScript file. Fix with `bunx prettier --write <files>`. |
+| `bash scripts/check-oxfmt.sh` (`bun run check:oxfmt`) | Zero-tolerance format on the given `.ts`/`.tsx` paths, or every tracked TypeScript file. Fix with `bunx oxfmt --write <files>`. |
 | `bash scripts/check-oxlint.sh` (`bun run check:oxlint`) | Correctness lint (oxlint `correctness`, without duplicating `tsc`). Complexity is excluded here. |
 | `bash scripts/check-ts-complexity.sh` (`bun run check:ts-complexity`) | Production TypeScript only (not `tests/`, `docs/`, `*.test.ts`, fixtures, or testdata). Cyclomatic complexity strictly below 10, matching production Go (`gocyclo -over 9` / oxlint `complexity` max 9). |
 

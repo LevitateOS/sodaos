@@ -112,10 +112,10 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
   host first — passing GOOS=linux to `go tool` builds an unexecutable binary).
   Whole repo: 48 findings, gate exits 1.
 
-TypeScript format/lint/complexity (prettier, oxlint, cyclomatic below 10 on
+TypeScript format/lint/complexity (oxfmt, oxlint, cyclomatic below 10 on
 production TS) are owned by [the TypeScript guide](typescript.md#formatting-linting-and-complexity),
 not this Go checklist. The threshold matches production Go; the hook is staged-only
-for the same ratchet reason. First measurement: 129 files fail prettier, 92
+for the same ratchet reason. First measurement: 129 files fail formatting, 92
 production functions at cyclomatic 10+, 3 oxlint correctness findings. No mass
 TypeScript cyclo rewrite.
 

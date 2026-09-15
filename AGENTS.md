@@ -129,7 +129,7 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `bun install --frozen-lockfile` | Install the locked workspace dependencies. |
 | `go test ./internal/runners` | Example focused Go package test; select the affected package/tests. |
 | `bun run typecheck` | Strict TypeScript and Lit checks. |
-| `bash scripts/check-prettier.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and cyclomatic-below-10 on production TS (see [typescript guide](docs/typescript.md)). |
+| `bash scripts/check-oxfmt.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and cyclomatic-below-10 on production TS (see [typescript guide](docs/typescript.md)). |
 | `bun run test:frontend` / `bun run test:forgejo` | Build browser assets and run the selected suite. |
 | `bun run test:pages` | Native-page fixture checks; requires the authorized local Forgejo fixture. |
 | `bun test tests/forgejo/cockpit-branding.test.ts` | Independent stock-Cockpit branding source/component checks. |

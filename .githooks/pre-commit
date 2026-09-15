@@ -89,13 +89,13 @@ if [ -n "$gofiles" ]; then
   fi
 fi
 
-# 8. Prettier on staged TypeScript (zero tolerance; whole-tree backlog is not
-# blocking). Darwin-safe: no GOOS, uses the Bun-locked prettier binary.
+# 8. Oxfmt on staged TypeScript (zero tolerance; whole-tree backlog is not
+# blocking). Darwin-safe: no GOOS, uses the Bun-locked oxfmt binary.
 tsfiles=$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx)$' || true)
 if [ -n "$tsfiles" ]; then
   # shellcheck disable=SC2086
-  if ! bash scripts/check-prettier.sh $tsfiles; then
-    printf 'pre-commit: prettier gate failed on staged TypeScript (run prettier --write).\n'
+  if ! bash scripts/check-oxfmt.sh $tsfiles; then
+    printf 'pre-commit: oxfmt gate failed on staged TypeScript (run oxfmt --write).\n'
     fail=1
   fi
 fi
