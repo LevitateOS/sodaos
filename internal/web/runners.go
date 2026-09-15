@@ -54,11 +54,76 @@ func (s *Server) authorizeOperator(w http.ResponseWriter, r *http.Request, v sto
 	}
 	return true
 }
+
 func (s *Server) runnerRoutes() {
 	s.mux.HandleFunc("/api/settings/runners", s.apiProtected(s.apiRunners, http.MethodGet, http.MethodPost))
 	s.mux.HandleFunc("/api/settings/runners/{runner}/{action}", s.apiProtected(s.apiRunnerAction, http.MethodPost))
 	s.mux.HandleFunc("GET /settings/runners", s.runnersPage)
 }
+
+func (s *Server) createRunner(w http.ResponseWriter, r *http.Request, v store.Session, ctx context.Context) {
+	var in runners.CreateRequest
+	if !decodeAPIObject(w, r, &in) {
+		return
+	}
+	if in.Provider == runners.ProviderForgejo {
+		in.RegistrationURL = s.Config.ForgejoInternalURL
+	}
+	if in.Validate() != nil {
+		jsonError(w, 400, "invalid_runner", "Check the runner ID, provider, registration ID, labels and token.")
+		return
+	}
+	cookie, err := requestCookie(r, sessionCookie)
+	if err != nil || s.requireCurrentSession(ctx, cookie.Value, v) != nil {
+		providerError(w, store.ErrGrantUnavailable)
+		return
+	}
+	err = s.Host.RunnerCreate(ctx, in)
+	in.RegistrationToken = ""
+	if err != nil {
+		runnerUnconfirmed(w)
+		return
+	}
+	jsonResponse(w, 200, runners.MutationResponse{OK: true})
+}
+
+func admitUnavailableRunners(w http.ResponseWriter, ids []string, seen map[string]bool) bool {
+	for _, id := range ids {
+		if runners.ValidateID(id) != nil || seen[id] {
+			jsonError(w, 503, "runners_unavailable", "Invalid unavailable runner locator.")
+			return false
+		}
+		seen[id] = true
+	}
+	return true
+}
+
+func admitObservedRunners(w http.ResponseWriter, inventory *runners.Inventory, seen map[string]bool, forgejoURL string) bool {
+	for i := range inventory.Runners {
+		row := &inventory.Runners[i]
+		if runners.ValidateID(row.ID) != nil || seen[row.ID] || row.Capacity != runners.RunnerCapacity {
+			jsonError(w, 503, "runners_unavailable", "Invalid local runner observation.")
+			return false
+		}
+		if row.Provider != runners.ProviderForgejo {
+			jsonError(w, 503, "runners_unavailable", "Invalid local runner provider.")
+			return false
+		}
+		seen[row.ID] = true
+		row.RegistrationURL = forgejoURL
+	}
+	return true
+}
+
+func admitRunnerInventory(w http.ResponseWriter, inventory *runners.Inventory, forgejoURL string) bool {
+	if inventory.Runners == nil || inventory.Unavailable == nil || len(inventory.Runners)+len(inventory.Unavailable) > 64 {
+		jsonError(w, 503, "runners_unavailable", "Local runner inventory is unavailable; no empty or provider-available state was inferred.")
+		return false
+	}
+	seen := map[string]bool{}
+	return admitUnavailableRunners(w, inventory.Unavailable, seen) && admitObservedRunners(w, inventory, seen, forgejoURL)
+}
+
 func (s *Server) apiRunners(w http.ResponseWriter, r *http.Request, v store.Session) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
 	defer cancel()
@@ -71,60 +136,20 @@ func (s *Server) apiRunners(w http.ResponseWriter, r *http.Request, v store.Sess
 		return
 	}
 	if r.Method == http.MethodPost {
-		var in runners.CreateRequest
-		if !decodeAPIObject(w, r, &in) {
-			return
-		}
-		if in.Provider == runners.ProviderForgejo {
-			in.RegistrationURL = s.Config.ForgejoInternalURL
-		}
-		if in.Validate() != nil {
-			jsonError(w, 400, "invalid_runner", "Check the runner ID, provider, registration ID, labels and token.")
-			return
-		}
-		// Body decoding may outlive the session verified by the operator gate.
-		cookie, err := requestCookie(r, sessionCookie)
-		if err != nil || s.requireCurrentSession(ctx, cookie.Value, v) != nil {
-			providerError(w, store.ErrGrantUnavailable)
-			return
-		}
-		err = s.Host.RunnerCreate(ctx, in)
-		in.RegistrationToken = ""
-		if err != nil {
-			runnerUnconfirmed(w)
-			return
-		}
-		jsonResponse(w, 200, runners.MutationResponse{OK: true})
+		s.createRunner(w, r, v, ctx)
 		return
 	}
 	inventory, err := s.Host.RunnersList(ctx)
-	if err != nil || inventory.Runners == nil || inventory.Unavailable == nil || len(inventory.Runners)+len(inventory.Unavailable) > 64 {
+	if err != nil {
 		jsonError(w, 503, "runners_unavailable", "Local runner inventory is unavailable; no empty or provider-available state was inferred.")
 		return
 	}
-	seen := map[string]bool{}
-	for _, id := range inventory.Unavailable {
-		if runners.ValidateID(id) != nil || seen[id] {
-			jsonError(w, 503, "runners_unavailable", "Invalid unavailable runner locator.")
-			return
-		}
-		seen[id] = true
-	}
-	for i := range inventory.Runners {
-		row := &inventory.Runners[i]
-		if runners.ValidateID(row.ID) != nil || seen[row.ID] || row.Capacity != runners.RunnerCapacity {
-			jsonError(w, 503, "runners_unavailable", "Invalid local runner observation.")
-			return
-		}
-		if row.Provider != runners.ProviderForgejo {
-			jsonError(w, 503, "runners_unavailable", "Invalid local runner provider.")
-			return
-		}
-		seen[row.ID] = true
-		row.RegistrationURL = s.Config.ForgejoURL
+	if !admitRunnerInventory(w, &inventory, s.Config.ForgejoURL) {
+		return
 	}
 	jsonResponse(w, 200, inventory.Response(s.Config.ForgejoURL))
 }
+
 func (s *Server) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store.Session) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
 	defer cancel()
@@ -172,6 +197,7 @@ func (s *Server) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store
 	}
 	jsonResponse(w, 200, runners.MutationResponse{OK: true})
 }
+
 func runnerUnconfirmed(w http.ResponseWriter) {
 	jsonError(w, 502, "runner_unconfirmed", "Operation unconfirmed. Local account, files or listener may have changed; provider registration may remain. Refresh and inspect native provider state before retrying. No automatic rollback or retry occurred.")
 }
