@@ -87,6 +87,28 @@ echo "-- verify tools as the worker user"
 [ "$(sudo -u soda-build-worker env GOTOOLCHAIN=local HOME="$BUILD_HOME" "$TOOLS/go/bin/go" version)" = "$WANT" ] || fail "provisioned Go is not $PINNED or not worker-runnable"
 sudo -u soda-build-worker "$TOOLS/bin/bun" --version >/dev/null || fail "provisioned bun is not worker-runnable"
 
+echo "-- warm worker caches (the isolated worker has no network)"
+# Go 1.26 defaults GOPROXY/GOSUMDB to empty and the service worker is
+# denied egress, so all Go modules must be cached and Go locked offline.
+# `go build` warms exactly the readonly build set without touching the
+# checkout; fetched as root, then handed to the worker.
+sudo mkdir -p "$BUILD_HOME/go-mod" "$BUILD_HOME/go-build"
+sudo env HOME="$BUILD_HOME" GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org GOMODCACHE="$BUILD_HOME/go-mod" GOCACHE="$BUILD_HOME/go-build" GOTOOLCHAIN="go$PINNED" GOFLAGS=-mod=readonly CGO_ENABLED=0 "$TOOLS/go/bin/go" build ./... || fail "cannot warm Go module cache"
+sudo -u soda-build-worker env HOME="$BUILD_HOME" "$TOOLS/go/bin/go" env -w GOPROXY=off || fail "cannot lock worker Go offline"
+# Bun installs only from its HOME cache inside: warm it from a scratch copy
+# (mirroring the workspaces list) so node_modules never lands in the
+# checkout. Bun refuses files owned by another user, so the scratch tree
+# belongs to the worker first.
+TMPW="$(mktemp -d)"
+mkdir -p "$TMPW/tools"
+cp package.json bun.lock bunfig.toml "$TMPW/"
+cp -a tools/lit-check "$TMPW/tools/"
+sudo chown -R soda-build-worker:soda-build-worker "$TMPW"
+sudo find "$TMPW" -type d -exec chmod 0755 {} +
+(cd "$TMPW" && sudo -u soda-build-worker env HOME="$BUILD_HOME" "$TOOLS/bin/bun" install --frozen-lockfile >/dev/null) || fail "cannot warm Bun cache"
+sudo rm -rf "$TMPW"
+sudo chown -R soda-build-worker:soda-build-worker "$BUILD_HOME"
+
 echo "-- worker process-group policy (one self-only setpgid rule)"
 if ! sudo semodule -l 2>/dev/null | grep -qx "soda-build-setpgid"; then
   command -v checkmodule semodule_package semodule >/dev/null || fail "policycoreutils tooling required for the worker SELinux module"

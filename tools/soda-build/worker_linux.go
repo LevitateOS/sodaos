@@ -157,11 +157,13 @@ func buildWorker(c workerConfig, r image.Request) (acceptance.Worker, error) {
 		return w, err
 	}
 	name := "soda-build-" + filepath.Base(r.Out)
+	// Bun installs only from its HOME default cache; an explicit cache
+	// directory makes it fail before touching the network.
 	w = acceptance.Worker{
 		Name: name, User: "soda-build-worker", Executable: c.Executable, Directory: workerSource,
 		ReadOnly:    []string{c.Source + ":" + workerSource, c.Tools + ":" + workerTools},
 		Writable:    []string{c.OutputParent + ":" + filepath.Join(workerSource, parentRel), c.BuildHome + ":" + workerHome, c.Runtime + ":" + workerRuntime},
-		Environment: []string{"HOME=" + workerHome, "PATH=" + workerTools + "/go/bin:" + workerTools + "/bin:/usr/sbin:/usr/bin:/sbin:/bin", "XDG_RUNTIME_DIR=" + workerRuntime, "GOTOOLCHAIN=go1.26.7", "GOCACHE=" + workerHome + "/go-build", "GOMODCACHE=" + workerHome + "/go-mod", "BUN_INSTALL_CACHE_DIR=" + workerHome + "/bun-cache", "PLAYWRIGHT_BROWSERS_PATH=" + workerHome + "/browsers", "SODA_BUILD_START_NS=" + os.Getenv("SODA_BUILD_START_NS")},
+		Environment: []string{"HOME=" + workerHome, "PATH=" + workerTools + "/go/bin:" + workerTools + "/bin:/usr/sbin:/usr/bin:/sbin:/bin", "XDG_RUNTIME_DIR=" + workerRuntime, "GOTOOLCHAIN=go1.26.7", "GOCACHE=" + workerHome + "/go-build", "GOMODCACHE=" + workerHome + "/go-mod", "PLAYWRIGHT_BROWSERS_PATH=" + workerHome + "/browsers", "SODA_BUILD_START_NS=" + os.Getenv("SODA_BUILD_START_NS")},
 		Arguments:   []string{"--worker-build", "--arch", r.Arch, "--out", out, "--repository-prefix", r.RepositoryPrefix},
 	}
 	if r.Development {
