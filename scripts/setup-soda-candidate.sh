@@ -52,9 +52,9 @@ echo "-- install wrapper and admitted controller"
 sudo install -m 0755 "$BINDIR/soda-candidate" "$WRAPPER"
 sudo install -D -m 0755 "$BINDIR/soda-build" "$ADMITTED"
 # Canonicalize: /sbin may be a symlink to /usr/sbin, so compare targets.
-GOT="$(sudo readlink -f "$(sudo which soda-candidate)")"
-WANT="$(readlink -f "$WRAPPER")"
-[ "$GOT" = "$WANT" ] || fail "wrapper not visible on sudo secure_path (got $GOT)"
+GOT_WRAPPER="$(sudo readlink -f "$(sudo which soda-candidate)")"
+WANT_WRAPPER="$(readlink -f "$WRAPPER")"
+[ "$GOT_WRAPPER" = "$WANT_WRAPPER" ] || fail "wrapper not visible on sudo secure_path (got $GOT_WRAPPER)"
 
 echo "-- worker directories"
 sudo mkdir -p "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME" "$TOOLS/bin" "$AUTHORITY"
