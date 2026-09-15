@@ -97,9 +97,10 @@ unrelated commits. Mechanical-only commits that restage legacy-violating files
 (e.g. the gofumpt reformat) go through with `--no-verify` and a note.
 
 - [ ] Complexity: `scripts/check-complexity.sh` via pinned `go tool gocyclo`
-  (v0.6.0). Whole repo: 223 prod violations (88 at 20+). Top:
-  `tools/soda-acceptance/main.go:35` (86), `internal/web/terminal.go:16` (86),
-  `internal/hostimage/assemble.go:144` (72).
+  (v0.6.0). Whole repo: 174 prod violations (down from 223 initially; 40 at 20+, down from 88).
+  Peak complexity reduced from 125/86 to 26.
+  Top: `tools/soda-build/main.go:38` (26), `internal/host/terminal.go:88` (26),
+  `internal/web/management.go:177` (25). Batches 1–5 completed with zero exemptions.
 - [x] gofumpt: `scripts/check-gofumpt.sh` via pinned `go tool gofumpt`
   (v0.9.1), zero tolerance. First measurement undercounted (24) through a
   `tee | head` SIGPIPE truncation; true backlog is ~185 files. 22 files
