@@ -35,7 +35,8 @@ func main() {
 		os.Exit(nativebuild.BuildExitCode(err))
 	}
 }
-func run() (err error) {
+
+func parseBuildFlags() (r hostimage.Request, workerBuild bool, workerConfigPath string, err error) {
 	development := flag.Bool("development", false, "explicit development-only run; never release-qualified")
 	target := flag.String("target", "", "development boundary: candidate or media (requires --development)")
 	compression := flag.String("media-compression", "", "fast: development media only; changes host compression metadata (default: upstream)")
@@ -44,31 +45,35 @@ func run() (err error) {
 	prefix := flag.String("repository-prefix", "ghcr.io/levitateos/sodaos", "intended immutable image repositories; no publication")
 	rootfs := flag.String("rootfs-base-url", "", "public base URL for the exact hash-named rootfs file")
 	authority := flag.String("media-authority", "", "worker-local fixture authority; not release custody")
-	workerConfigPath := flag.String("worker-config", "", "root-owned configuration for isolated worker dispatch")
-	workerBuild := flag.Bool("worker-build", false, "internal build stage; requires the isolated build identity")
+	configPath := flag.String("worker-config", "", "root-owned configuration for isolated worker dispatch")
+	build := flag.Bool("worker-build", false, "internal build stage; requires the isolated build identity")
 	flag.Parse()
 	if flag.NArg() != 0 {
-		return errors.New("unexpected positional arguments")
+		return r, false, "", errors.New("unexpected positional arguments")
 	}
-	r := hostimage.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression}
+	r = hostimage.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression}
 	if err := r.ValidateTarget(); err != nil {
-		return err
+		return r, false, "", err
 	}
-	if *workerBuild {
-		if *workerConfigPath != "" {
+	return r, *build, *configPath, nil
+}
+
+func admitBuildDispatch(workerBuild bool, workerConfigPath, authority string) error {
+	if workerBuild {
+		if workerConfigPath != "" {
 			return errors.New("build stage cannot select qualification authority")
 		}
-		if err := buildWorkerIdentity(); err != nil {
-			return err
-		}
-	} else if *workerConfigPath == "" || *authority != "" {
+		return buildWorkerIdentity()
+	}
+	if workerConfigPath == "" || authority != "" {
 		return errors.New("root-owned --worker-config required; media authority belongs to the isolated worker")
 	}
-	ctx, cancel := context.WithCancelCause(context.Background())
-	defer cancel(nil)
+	return nil
+}
+
+func watchBuildSignals(ctx context.Context, cancel context.CancelCauseFunc) func() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
-	defer signal.Stop(signals)
 	go func() {
 		select {
 		case s := <-signals:
@@ -76,29 +81,28 @@ func run() (err error) {
 		case <-ctx.Done():
 		}
 	}()
+	return func() { signal.Stop(signals) }
+}
+
+func sanitizeBuildEnv(workerBuild bool) {
 	// No inherited child mode, false summary or unrelated installed-test activation.
 	for _, key := range []string{"SODA_BUILD_TIMING_LOG", "SODA_BUILD_CHILD"} {
 		os.Unsetenv(key)
 	}
-	if !*workerBuild {
+	if !workerBuild {
 		os.Unsetenv("SODA_BUILD_START_NS")
 	}
+}
+
+func startBuildProgress(r hostimage.Request) (*nativebuild.BuildProgress, error) {
 	title := "Soda release build"
 	if r.Development {
 		title = "Soda development " + r.Target + " (not release-qualified)"
 	}
-	progress, e := nativebuild.NewBuildProgress("", title)
-	if e != nil {
-		return e
-	}
-	defer func() { err = errors.Join(context.Cause(ctx), err); err = errors.Join(err, progress.Finish(err)) }()
-	if e = unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0); e != nil {
-		return e
-	}
-	source, e := os.Getwd()
-	if e != nil {
-		return e
-	}
+	return nativebuild.NewBuildProgress("", title)
+}
+
+func controllerRevision() (string, error) {
 	var revision string
 	if info, ok := debug.ReadBuildInfo(); ok {
 		for _, setting := range info.Settings {
@@ -106,19 +110,43 @@ func run() (err error) {
 				revision = setting.Value
 			}
 			if setting.Key == "vcs.modified" && setting.Value == "true" {
-				return errors.New("controller must be compiled from committed source")
+				return "", errors.New("controller must be compiled from committed source")
 			}
 		}
 	}
 	if !nativebuild.Revision(revision) {
-		return errors.New("controller needs build VCS metadata; compile tools/soda-build from the committed checkout")
+		return "", errors.New("controller needs build VCS metadata; compile tools/soda-build from the committed checkout")
+	}
+	return revision, nil
+}
+
+func bindBuildSource(r *hostimage.Request) error {
+	if e := unix.Prctl(unix.PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0); e != nil {
+		return e
+	}
+	source, e := os.Getwd()
+	if e != nil {
+		return e
+	}
+	revision, e := controllerRevision()
+	if e != nil {
+		return e
 	}
 	r.Source, r.Revision = source, revision
-	if *workerBuild {
-		_, e := hostimage.Build(ctx, r, progress)
-		return e // stage completion only; the trusted parent owns qualification
+	return nil
+}
+
+func reportBuildResult(result hostimage.Result, r hostimage.Request) error {
+	fmt.Fprintln(os.Stderr, "CANDIDATE", result.Candidate)
+	if result.Media != "" {
+		fmt.Fprintln(os.Stderr, "MEDIA", result.Media)
 	}
-	config, e := loadWorkerConfig(*workerConfigPath, r)
+	fmt.Fprintln(os.Stderr, result.Scope)
+	return completion(r)
+}
+
+func runParentBuild(ctx context.Context, workerConfigPath string, r hostimage.Request, progress *nativebuild.BuildProgress) error {
+	config, e := loadWorkerConfig(workerConfigPath, r)
 	if e != nil {
 		return e
 	}
@@ -126,12 +154,34 @@ func run() (err error) {
 	if e != nil {
 		return e
 	}
-	fmt.Fprintln(os.Stderr, "CANDIDATE", result.Candidate)
-	if result.Media != "" {
-		fmt.Fprintln(os.Stderr, "MEDIA", result.Media)
+	return reportBuildResult(result, r)
+}
+
+func run() (err error) {
+	r, workerBuild, workerConfigPath, err := parseBuildFlags()
+	if err != nil {
+		return err
 	}
-	fmt.Fprintln(os.Stderr, result.Scope)
-	return completion(r)
+	if err := admitBuildDispatch(workerBuild, workerConfigPath, r.MediaAuthority); err != nil {
+		return err
+	}
+	ctx, cancel := context.WithCancelCause(context.Background())
+	defer cancel(nil)
+	defer watchBuildSignals(ctx, cancel)()
+	sanitizeBuildEnv(workerBuild)
+	progress, e := startBuildProgress(r)
+	if e != nil {
+		return e
+	}
+	defer func() { err = errors.Join(context.Cause(ctx), err); err = errors.Join(err, progress.Finish(err)) }()
+	if e = bindBuildSource(&r); e != nil {
+		return e
+	}
+	if workerBuild {
+		_, e := hostimage.Build(ctx, r, progress)
+		return e // stage completion only; the trusted parent owns qualification
+	}
+	return runParentBuild(ctx, workerConfigPath, r, progress)
 }
 
 func completion(r hostimage.Request) error {
