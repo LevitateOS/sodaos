@@ -726,35 +726,55 @@ func installedPayloadAt(root, arch, release string, verify func(string, string, 
 	return installedPayloadAtWith(root, arch, release, verify, protectedBundle)
 }
 
-func installedPayloadAtWith(root, arch, release string, verify func(string, string, string) (nativebuild.Inventory, error), protect func(string) error) (bundle, digest, revision string, err error) {
-	if err := protect(root); err != nil {
-		return "", "", "", errors.New("protected installed payload state required")
-	}
+func rejectIncompleteMediaCopy(root string) error {
 	for _, name := range []string{"media-copy-ready.json", "media-copy-incomplete.json"} {
 		if _, err := os.Lstat(filepath.Join(root, name)); !errors.Is(err, os.ErrNotExist) {
-			return "", "", "", errors.New("incomplete installer media-copy state requires operator inspection")
+			return errors.New("incomplete installer media-copy state requires operator inspection")
 		}
 	}
-	receiptPath := filepath.Join(root, "media-copy.json")
-	info, err := os.Lstat(receiptPath)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
-		return "", "", "", errors.New("private regular installer media-copy receipt required")
-	}
-	data, err := readRegular(receiptPath, 4096)
-	if err != nil {
-		return "", "", "", errors.New("completed installer media-copy receipt required")
-	}
+	return nil
+}
+
+func decodePayloadReceipt(data []byte, arch, release string) (payloadReceipt, error) {
 	var receipt payloadReceipt
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&receipt); err != nil {
-		return "", "", "", errors.New("completed installer media-copy receipt required")
+		return receipt, errors.New("completed installer media-copy receipt required")
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return "", "", "", errors.New("completed installer media-copy receipt required")
+		return receipt, errors.New("completed installer media-copy receipt required")
 	}
 	if receipt.Schema != payloadReceiptSchema || receipt.Architecture != arch || receipt.Release != release || receipt.Bytes == 0 || !nativebuild.Digest(receipt.BundleSHA256) || !nativebuild.Revision(receipt.Revision) {
-		return "", "", "", errors.New("invalid installer media-copy receipt")
+		return receipt, errors.New("invalid installer media-copy receipt")
+	}
+	return receipt, nil
+}
+
+func readMediaCopyReceipt(root, arch, release string) (payloadReceipt, error) {
+	var receipt payloadReceipt
+	receiptPath := filepath.Join(root, "media-copy.json")
+	info, err := os.Lstat(receiptPath)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 {
+		return receipt, errors.New("private regular installer media-copy receipt required")
+	}
+	data, err := readRegular(receiptPath, 4096)
+	if err != nil {
+		return receipt, errors.New("completed installer media-copy receipt required")
+	}
+	return decodePayloadReceipt(data, arch, release)
+}
+
+func installedPayloadAtWith(root, arch, release string, verify func(string, string, string) (nativebuild.Inventory, error), protect func(string) error) (bundle, digest, revision string, err error) {
+	if err := protect(root); err != nil {
+		return "", "", "", errors.New("protected installed payload state required")
+	}
+	if err := rejectIncompleteMediaCopy(root); err != nil {
+		return "", "", "", err
+	}
+	receipt, err := readMediaCopyReceipt(root, arch, release)
+	if err != nil {
+		return "", "", "", err
 	}
 	bundle = filepath.Join(root, "bundle", arch)
 	inventory, err := verify(bundle, receipt.BundleSHA256, arch)
