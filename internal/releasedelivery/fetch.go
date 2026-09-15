@@ -220,7 +220,7 @@ func verifyArchitectureRelease(ctx context.Context, r Runner, t Trust, s Highwat
 	}
 	expected := buildExpectedReleaseConfigs(candidate, p)
 	if err := verifyReleaseImages(ctx, r, t, arch, out, refs, expected, refsSeen); err != nil {
-		return s, err
+		return next, err
 	}
 	return next, nil
 }
@@ -244,7 +244,7 @@ func verifyReleases(ctx context.Context, r Runner, t Trust, s Highwater, c Chann
 		}
 		next, err := verifyArchitectureRelease(ctx, r, t, s, c, a, ref, out, &tracker, refsSeen)
 		if err != nil {
-			return s, err
+			return next, err
 		}
 		s = next // highest authenticated release, even if subsequent content is missing
 	}

@@ -26,6 +26,7 @@ func publicKey(t *testing.T) string {
 	require.NoError(t, e)
 	return string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: b}))
 }
+
 func testTrust(t *testing.T) Trust {
 	now := time.Now().Unix()
 	tr := Trust{Format: 1, Prefix: "ghcr.io/example/sodaos", Epoch: 1, NotBefore: now - 600, MaxAgeSeconds: 3600, ClockSkewSeconds: 10, Keys: map[string][]string{}, MinimumSequence: map[string]uint64{"candidate": 1, "preview": 1, "stable": 1}}
@@ -35,6 +36,20 @@ func testTrust(t *testing.T) Trust {
 	require.NoError(t, tr.Validate())
 	return tr
 }
+
+func testMediaBytes(t *testing.T, p appliancerelease.Payload, c Candidate) []byte {
+	t.Helper()
+	media := MediaBinding{
+		Revision: p.Revision, Architecture: p.Architecture, HostManifest: c.Host.Manifest, PayloadSHA256: c.PayloadSHA256,
+		RootfsURL: "https://example.invalid/" + strings.Repeat("a", 64) + "-live-rootfs.x86_64.img",
+		ISO:       MediaFile{Path: "minimal.iso", SHA256: strings.Repeat("e", 64), Bytes: 1024},
+		Rootfs:    MediaFile{Path: strings.Repeat("a", 64) + "-live-rootfs.x86_64.img", SHA256: strings.Repeat("f", 64), Bytes: 2048},
+	}
+	mb, err := json.Marshal(media)
+	require.NoError(t, err)
+	return mb
+}
+
 func testRelease(t *testing.T, tr Trust) Release {
 	p := appliancerelease.Payload{Format: 3, CoreOS: "44.20260817.3.2", Revision: strings.Repeat("a", 40), Architecture: "x86_64", Schema: 10, RepositoryPrefix: tr.Prefix, Base: "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("b", 64), PresentationSHA256: strings.Repeat("c", 64), HostPackagesSHA256: strings.Repeat("d", 64), Images: map[string]appliancerelease.Image{}}
 	p.ID = p.CoreOS + ".soda-" + p.Revision[:12]
@@ -48,7 +63,7 @@ func testRelease(t *testing.T, tr Trust) Release {
 	c.HostReference = tr.Prefix + "-host@" + c.Host.Manifest
 	cb, e := marshal(c)
 	require.NoError(t, e)
-	r := Release{Format: 1, Serial: 10, Class: "normal", Payload: pb, Candidate: cb, Qualification: "local-only", Evidence: map[string]string{"synthetic": Hash([]byte("receipt"))}, Notes: "fixture", Provenance: map[string]string{}}
+	r := Release{Format: 1, Serial: 10, Class: "normal", Payload: pb, Candidate: cb, Media: testMediaBytes(t, p, c), Qualification: "local-only", Evidence: map[string]string{"synthetic": Hash([]byte("receipt"))}, Notes: "fixture", Provenance: map[string]string{}}
 	for _, n := range []string{"source.tar", "app-inputs.json", "packages.txt", "presentation.json"} {
 		r.Provenance[n] = Hash([]byte(n))
 	}
@@ -58,6 +73,7 @@ func testRelease(t *testing.T, tr Trust) Release {
 	require.NoError(t, e)
 	return r
 }
+
 func TestSharedLayoutPayloadKeepsDeliveryArchiveBindings(t *testing.T) {
 	tr := testTrust(t)
 	r := testRelease(t, tr)
@@ -75,6 +91,7 @@ func TestSharedLayoutPayloadKeepsDeliveryArchiveBindings(t *testing.T) {
 	c.PayloadSHA256 = strings.TrimPrefix(Hash(r.Payload), "sha256:")
 	r.Candidate, err = marshal(c)
 	require.NoError(t, err)
+	r.Media = testMediaBytes(t, p, c)
 	_, _, err = r.Validate(tr)
 	require.NoError(t, err)
 	for _, image := range p.Images {
@@ -86,6 +103,7 @@ func testChannel(tr Trust, name string) Channel {
 	now := time.Now().Unix()
 	return Channel{Format: 1, Name: name, Sequence: 1, Issued: now - 30, Expires: now + 600, Releases: map[string]string{"x86_64": tr.Prefix + "-release@" + Hash([]byte("release"))}}
 }
+
 func TestAuthorityFreshnessReplayAndWithdrawal(t *testing.T) {
 	tr := testTrust(t)
 	c := testChannel(tr, "stable")
@@ -129,6 +147,7 @@ func TestAuthorityFreshnessReplayAndWithdrawal(t *testing.T) {
 	require.Error(t, e, "withdrawal cannot be replaced by replaying the old offer")
 	require.Equal(t, uint64(2), state.Channels["stable"].Sequence)
 }
+
 func TestReleaseBindingQualificationAndDowngrade(t *testing.T) {
 	tr := testTrust(t)
 	r := testRelease(t, tr)
@@ -170,6 +189,7 @@ func TestReleaseBindingQualificationAndDowngrade(t *testing.T) {
 	_, _, e = r.Validate(tr)
 	require.Error(t, e)
 }
+
 func TestTrustRolesRotationAndPreservedVendorPolicy(t *testing.T) {
 	tr := testTrust(t)
 	base := []byte(`{"default":[{"type":"reject"}],"transports":{"docker":{"quay.io/fedora":[{"type":"signedBy","keyPath":"/vendor/key","keyType":"GPGKeys"}]},"containers-storage":{"": [{"type":"insecureAcceptAnything"}]}}}`)
@@ -190,10 +210,11 @@ func TestTrustRolesRotationAndPreservedVendorPolicy(t *testing.T) {
 	tr.Keys["preview"] = tr.Keys["stable"]
 	require.Error(t, tr.Validate(), "preview must not inherit stable signing authority")
 }
+
 func TestPrivateStateRefusesResetCorruptionAndConcurrentMutation(t *testing.T) {
 	tr := testTrust(t)
 	root := t.TempDir()
-	require.NoError(t, os.Chmod(root, 0700))
+	require.NoError(t, os.Chmod(root, 0o700))
 	path := filepath.Join(root, "state.json")
 	require.NoError(t, InitState(path, tr))
 	require.Error(t, InitState(path, tr), "no implicit recovery/reset")
@@ -209,6 +230,6 @@ func TestPrivateStateRefusesResetCorruptionAndConcurrentMutation(t *testing.T) {
 	alias := filepath.Join(root, "alias")
 	require.NoError(t, os.Symlink(path, alias))
 	require.Error(t, PrivateFile(alias))
-	require.NoError(t, os.Chmod(path, 0644))
+	require.NoError(t, os.Chmod(path, 0o644))
 	require.Error(t, PrivateFile(path))
 }

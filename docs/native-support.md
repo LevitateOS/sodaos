@@ -221,7 +221,7 @@ or an ambient authenticated proxy are not silently substituted.
 
 | Operation | Inputs and effects |
 | --- | --- |
-| `prepare` | `--input M1-CANDIDATE-DIR --qualification PUBLIC-QUALIFICATION.json`; verifies all six archives/identities and emits one local release OCI layout. Prints its intended digest reference. No signatures/registry effects. |
+| `prepare` | `--input M1-CANDIDATE-DIR --media MEDIA.json --qualification PUBLIC-QUALIFICATION.json`; verifies archives/identities, embeds exact ISO/rootfs bindings and emits one local release OCI layout. Prints its intended digest reference. No signatures/registry effects. |
 | `channel` | `--input CHANNEL.json`; validates channel shape/freshness and writes its local OCI layout/reference. Does not authorize publication or prove referenced artifacts available. |
 | `policy` | Optional `--base-policy FILE`; writes proposed policy/registries.d into a fresh directory, preserving unrelated scopes or refusing conflicts. Never installs it. |
 | `init-state` | `--out NEW-PRIVATE-STATE-FILE`; explicit bootstrap only, refuses an existing file. No discovery/reset/recovery side effect. |

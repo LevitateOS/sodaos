@@ -23,6 +23,7 @@ type releaseFlags struct {
 	trustFile     string
 	out           string
 	input         string
+	media         string
 	qualification string
 	permitFile    string
 	signerFile    string
@@ -38,7 +39,7 @@ type releaseFlags struct {
 }
 
 var allowedOptions = map[string]string{
-	"prepare":     "input qualification",
+	"prepare":     "input media qualification",
 	"channel":     "input",
 	"policy":      "base-policy",
 	"init-state":  "",
@@ -85,6 +86,7 @@ func parseReleaseArgs(args []string) (releaseFlags, releasedelivery.Trust, error
 	trustFile := flags.String("trust", "", "explicit public trust configuration")
 	out := flags.String("out", "", "fresh absolute output directory (init operations: new private state file)")
 	input := flags.String("input", "", "candidate directory, channel JSON, or local signing input")
+	media := flags.String("media", "", "exact media.json binding ISO/rootfs hash/size/location")
 	qualification := flags.String("qualification", "", "public qualification metadata; not signing permission")
 	permitFile := flags.String("permit", "", "restricted protected-worker exact-digest permit")
 	signerFile := flags.String("signer", "", "restricted JSON naming Key and Passphrase files")
@@ -112,6 +114,7 @@ func parseReleaseArgs(args []string) (releaseFlags, releasedelivery.Trust, error
 		trustFile:     *trustFile,
 		out:           *out,
 		input:         *input,
+		media:         *media,
 		qualification: *qualification,
 		permitFile:    *permitFile,
 		signerFile:    *signerFile,
@@ -127,12 +130,12 @@ func parseReleaseArgs(args []string) (releaseFlags, releasedelivery.Trust, error
 	}, trust, nil
 }
 
-func runPrepare(trust releasedelivery.Trust, qualificationFile, input, out string) error {
+func runPrepare(trust releasedelivery.Trust, qualificationFile, input, media, out string) error {
 	var q releasedelivery.Qualification
 	if err := releasedelivery.ReadJSON(qualificationFile, &q); err != nil {
 		return err
 	}
-	digest, err := releasedelivery.Prepare(trust, input, q, out)
+	digest, err := releasedelivery.Prepare(trust, input, media, q, out)
 	if err != nil {
 		return err
 	}
@@ -255,7 +258,7 @@ func executeReleaseOperation(ctx context.Context, rf releaseFlags, trust release
 	native := releasedelivery.Native{Home: rf.out}
 	switch rf.operation {
 	case "prepare":
-		return runPrepare(trust, rf.qualification, rf.input, rf.out)
+		return runPrepare(trust, rf.qualification, rf.input, rf.media, rf.out)
 	case "channel":
 		return runChannel(trust, rf.input, rf.out)
 	case "policy":

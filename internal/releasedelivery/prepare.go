@@ -1,6 +1,7 @@
 package releasedelivery
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,35 +38,59 @@ func hashReleaseProvenance(root *os.Root, release *Release) error {
 	return nil
 }
 
-func Prepare(t Trust, candidate string, q Qualification, out string) (string, error) {
-	if e := t.Validate(); e != nil {
-		return "", e
+func readMediaBinding(path string) ([]byte, error) {
+	b, err := ReadFile(path, 1<<20)
+	if err != nil {
+		return nil, err
 	}
+	var m MediaBinding
+	if json.Unmarshal(b, &m) != nil || !validMediaFile(m.ISO) || !validMediaFile(m.Rootfs) {
+		return nil, ErrRefused
+	}
+	return b, nil
+}
+
+func buildReleaseDocument(t Trust, candidate string, media []byte, q Qualification) (Release, error) {
 	root, e := os.OpenRoot(candidate)
 	if e != nil {
-		return "", e
+		return Release{}, e
 	}
 	defer root.Close()
 	pb, e := readAt(root, "payload.json", 1<<20)
 	if e != nil {
-		return "", e
+		return Release{}, e
 	}
 	cb, e := readAt(root, "candidate.json", 1<<20)
 	if e != nil {
-		return "", e
+		return Release{}, e
 	}
-	release := Release{Format: 1, Serial: q.Serial, Class: q.Class, Payload: pb, Candidate: cb, Qualification: q.Scope, Evidence: q.Evidence, Notes: q.Notes, Provenance: map[string]string{}}
+	release := Release{Format: 1, Serial: q.Serial, Class: q.Class, Payload: pb, Candidate: cb, Media: media, Qualification: q.Scope, Evidence: q.Evidence, Notes: q.Notes, Provenance: map[string]string{}}
 	if e = hashReleaseProvenance(root, &release); e != nil {
-		return "", e
+		return Release{}, e
 	}
 	p, c, e := release.Validate(t)
 	if e != nil {
-		return "", e
+		return Release{}, e
 	}
 	if !matchingReleaseProvenance(release, p) {
-		return "", ErrRefused
+		return Release{}, ErrRefused
 	}
 	if _, e = VerifyCandidateImages(root, candidate, p, c); e != nil {
+		return Release{}, e
+	}
+	return release, nil
+}
+
+func Prepare(t Trust, candidate, media string, q Qualification, out string) (string, error) {
+	if e := t.Validate(); e != nil {
+		return "", e
+	}
+	mb, e := readMediaBinding(media)
+	if e != nil {
+		return "", e
+	}
+	release, e := buildReleaseDocument(t, candidate, mb, q)
+	if e != nil {
 		return "", e
 	}
 	return WriteDocument(out, release)

@@ -26,6 +26,7 @@ func (n offlineNative) Run(ctx context.Context, args ...string) ([]byte, error) 
 	}
 	return n.Native.Run(ctx, args...)
 }
+
 func TestNativeSigstoreDirectoryRoundTrip(t *testing.T) {
 	out := os.Getenv("SODA_RELEASE_NATIVE_OUT")
 	if out == "" {
@@ -38,7 +39,7 @@ func TestNativeSigstoreDirectoryRoundTrip(t *testing.T) {
 	var random [32]byte
 	_, e := rand.Read(random[:])
 	require.NoError(t, e)
-	require.NoError(t, nativebuild.WriteNew(pass, []byte(hex.EncodeToString(random[:])), 0600))
+	require.NoError(t, nativebuild.WriteNew(pass, []byte(hex.EncodeToString(random[:])), 0o600))
 	tr := testTrust(t)
 	keys := map[string]SecretFiles{}
 	for _, role := range []string{"artifact", "candidate", "preview", "stable", "wrong"} {
@@ -94,7 +95,7 @@ func TestNativeSigstoreDirectoryRoundTrip(t *testing.T) {
 	tamper := filepath.Join(out, "valid/image/manifest.json")
 	b, e := ReadFile(tamper, 1<<20)
 	require.NoError(t, e)
-	require.NoError(t, os.WriteFile(tamper, append([]byte(" "), b...), 0600))
+	require.NoError(t, os.WriteFile(tamper, append([]byte(" "), b...), 0o600))
 	require.Error(t, VerifyCopy(t.Context(), n, tr, ref, "dir:"+filepath.Join(out, "valid/image"), filepath.Join(out, "tampered")))
 	require.NoError(t, writeJSON(filepath.Join(out, "receipt.json"), map[string]any{"Skopeo": "1.22.2", "Positive": []string{"native local signing", "native signature/digest verification", "rotation overlap"}, "Refused": []string{"unsigned", "wrong repository", "wrong signer despite preexisting valid signature", "revoked key", "preview as stable", "tampered manifest"}, "Scope": "filesystem transports only; no GHCR, bootc deployment or cache/import proof"}))
 }

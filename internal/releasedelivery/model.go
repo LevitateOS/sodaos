@@ -152,6 +152,19 @@ func (c Candidate) Validate(p appliancerelease.Payload, payload []byte) error {
 	return nil
 }
 
+// MediaFile is the exact ISO/rootfs binding already sealed in media.json.
+type MediaFile struct {
+	Path, SHA256 string
+	Bytes        int64
+}
+
+// MediaBinding is decoded from embedded media.json bytes. Extra fields are
+// ignored; required ISO/rootfs/location bindings are checked against the candidate.
+type MediaBinding struct {
+	Revision, Architecture, HostManifest, PayloadSHA256, RootfsURL string
+	ISO, Rootfs                                                    MediaFile
+}
+
 // Exact existing metadata bytes are embedded, not independently re-maintained
 // component inventories. Native qualification is evidence, not self-authorizing:
 // the protected signer must admit the exact prepared document digest separately.
@@ -161,6 +174,7 @@ type Release struct {
 	Class         string // normal or emergency
 	Payload       []byte
 	Candidate     []byte
+	Media         []byte // exact media.json bytes: ISO/rootfs hash/size/location
 	Provenance    map[string]string
 	Qualification string // local-only or native-install-upgrade-recovery
 	Evidence      map[string]string
@@ -182,6 +196,32 @@ func decodeReleasePayloads(r Release) (appliancerelease.Payload, Candidate, erro
 		return p, c, ErrRefused
 	}
 	return p, c, nil
+}
+
+func validMediaFile(f MediaFile) bool {
+	return f.Path != "" && !strings.Contains(f.Path, "..") && !strings.ContainsAny(f.Path, "\n\r\x00") && nativebuild.Digest(f.SHA256) && f.Bytes > 0
+}
+
+func validMediaURL(url string) bool {
+	return url != "" && !strings.ContainsAny(url, "\n\r\x00 ") && (strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://"))
+}
+
+func validMediaBinding(m MediaBinding, p appliancerelease.Payload, c Candidate) bool {
+	if m.Revision != p.Revision || m.Architecture != p.Architecture || m.HostManifest != c.Host.Manifest || m.PayloadSHA256 != c.PayloadSHA256 {
+		return false
+	}
+	return validMediaFile(m.ISO) && validMediaFile(m.Rootfs) && validMediaURL(m.RootfsURL)
+}
+
+func decodeReleaseMedia(r Release, p appliancerelease.Payload, c Candidate) error {
+	if len(r.Media) == 0 || len(r.Media) > 1<<20 {
+		return ErrRefused
+	}
+	var m MediaBinding
+	if json.Unmarshal(r.Media, &m) != nil || !validMediaBinding(m, p, c) {
+		return ErrRefused
+	}
+	return nil
 }
 
 func validReleaseProvenance(r Release, p appliancerelease.Payload) bool {
@@ -218,7 +258,7 @@ func (r Release) Validate(t Trust) (appliancerelease.Payload, Candidate, error) 
 	if p.RepositoryPrefix != t.Prefix || c.Validate(p, r.Payload) != nil {
 		return p, c, ErrRefused
 	}
-	if !validReleaseProvenance(r, p) || !validReleaseEvidence(r.Evidence) {
+	if !validReleaseProvenance(r, p) || !validReleaseEvidence(r.Evidence) || decodeReleaseMedia(r, p, c) != nil {
 		return p, c, ErrRefused
 	}
 	return p, c, nil

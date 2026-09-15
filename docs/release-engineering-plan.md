@@ -2,10 +2,12 @@
 
 ## Priority and current state
 
-**Immediate priority is B5 after completed B4.** The
+**Immediate priority is B5 after completed B4.** The replacement is the active
+release-engineering track. B4 protected native qualification is complete; B5
+connects protected final signing/delivery. The
 [fast-development side plan](fast-development-build-plan.md) is complete within its
 scoped development checks and does not substitute for production qualification.
-B1–B4 of the release replacement are done; B5–B6 remain. The side plan
+B1–B4 of the release replacement are done; B5–B6 remain. That side plan
 neither qualifies development output nor creates a competing release recipe.
 Complete the six replacement milestones below before unattended scheduling,
 production-readiness commissioning or launch. The previous complete-candidate →
@@ -429,8 +431,9 @@ while native CLI/console qualification need not wait on an unrelated UI repair.
 
 ### Milestone 5 — integrate protected signing and delivery
 
-**B5; not started.** Connect the existing mechanisms; do not commission a release
-service before replacing its builder.
+**B5; in progress.** Connect the existing mechanisms; do not commission a release
+service before replacing its builder. Release metadata now embeds exact media.json
+bindings; soda-build admits `--signing-config` for P10 and optional channel-last P11.
 
 1. Reuse `internal/releasedelivery` and the reviewed protected worker protocol for
    P7 and P10–P11. Keep separate build, qualification and signing/publishing authority,

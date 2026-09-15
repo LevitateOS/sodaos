@@ -1,6 +1,8 @@
 # Implementation status — single-run replacement
 
-**Active priority: B4 complete; B5 is next.** Protected native qualification passed
+**Active priority: B5 in progress after completed B4.** Protected native qualification
+passed; final protected signing is being connected through `--signing-config` and
+`internal/nativefinalization`.
 on production-09. F1–F3 remain separate development work. The original B1–B6
 milestones below are retained. The
 [release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
@@ -202,9 +204,12 @@ synthesizes a different commit.
 
 ### 5. Integrate protected signing and delivery — B5
 
-**Not started.** Connect protected authority to final candidate/ISO/evidence bindings
-and existing delivery primitives. Test failure handling and channel-last publication
-interfaces locally. B3 fixture signatures do not count as this completion.
+**In progress.** Release documents now embed exact `media.json` bytes (ISO/rootfs
+hash/size/location). `soda-release prepare` requires `--media`. After P9,
+`soda-build --signing-config` runs Prepare+Sign (P10) and optional channel-last
+Publish when auth/ledger/channel/channel-signer are admitted together. Without
+`--signing-config`, production still exits 2. Fixture keys stay isolated from
+production custody; public GHCR commissioning is not claimed.
 
 ### 6. Retire old lanes and prove the replacement — B6
 
@@ -215,10 +220,12 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-B4 is complete. Next is B5: connect protected authority to final candidate/ISO/evidence
-bindings and existing delivery primitives; test failure handling and channel-last
-publication interfaces locally. B3 fixture signatures and B4 qualification evidence
-do not complete B5. Public hosting, ARM and minimum-hardware work remain separate.
+B5 wiring is in source: media-bound release metadata, protected finalization package,
+and soda-build P10 hook. Remaining: local noninteractive signed-final evidence with
+fixture trust against a retained or fresh qualified candidate, plus failure-case
+coverage for wrong role/signer and channel-last refusal. B3 fixture signatures and
+B4 qualification evidence alone do not complete B5. Public hosting, ARM and
+minimum-hardware work remain separate.
 
 The public rootfs base URL is an explicit media input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
@@ -228,9 +235,12 @@ complete offline installer.
 
 ## Current permissions
 
-**Current task: B4 complete; B5 not started.** No new broad grant is added by this
-status update. Historical B4 execution bounds below remain the record of what was
-authorized for the completed qualification work.
+**Current task: B5 in progress.** No new broad grant is added by this status update.
+Local fixture signing/finalization against retained or fresh candidates is in scope
+for development evidence. Real `/var/lib/soda-release` custody changes, GHCR writes
+and public channel movement still require their exact grants. Historical B4 execution
+bounds below remain the record of what was authorized for the completed qualification
+work.
 
 Next development target: `workers/soda-qualifier/update-probe-01`, copied from the
 stopped attachment probe. The separately admitted `probe-native-update-01` helper

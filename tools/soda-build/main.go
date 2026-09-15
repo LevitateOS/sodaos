@@ -1,5 +1,5 @@
-// soda-build owns source-to-native-qualification production. B5 final signing
-// remains disconnected; native qualification alone is not a qualified release.
+// soda-build owns source-to-native-qualification production and connects
+// protected final signing when --signing-config is admitted.
 package main
 
 import (
@@ -16,7 +16,9 @@ import (
 
 	"github.com/levitateos/sodaos/internal/hostimage"
 	"github.com/levitateos/sodaos/internal/nativebuild"
+	"github.com/levitateos/sodaos/internal/nativefinalization"
 	"github.com/levitateos/sodaos/internal/nativequalification"
+	rd "github.com/levitateos/sodaos/internal/releasedelivery"
 	"golang.org/x/sys/unix"
 )
 
@@ -38,6 +40,7 @@ type buildFlags struct {
 	WorkerBuild         bool
 	WorkerConfig        string
 	QualificationConfig string
+	SigningConfig       string
 	WorkerQualify       bool
 	GuestAction         string
 	ExpectedPayload     string
@@ -56,6 +59,7 @@ func parseBuildFlags() (buildFlags, error) {
 	configPath := flag.String("worker-config", "", "root-owned configuration for isolated worker dispatch")
 	build := flag.Bool("worker-build", false, "internal build stage; requires the isolated build identity")
 	qualificationConfig := flag.String("qualification-config", "", "root-owned qualification configuration; required for production")
+	signingConfig := flag.String("signing-config", "", "root-owned final signing configuration; required for a qualified release")
 	workerQualify := flag.Bool("worker-qualify", false, "internal protected native qualification worker")
 	guestAction := flag.String("qualification-state", "", "internal native guest observation/state action")
 	expectedPayload := flag.String("expected-payload", "", "internal exact guest payload identity")
@@ -65,7 +69,8 @@ func parseBuildFlags() (buildFlags, error) {
 	}
 	f.Request = hostimage.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression}
 	f.WorkerBuild, f.WorkerConfig = *build, *configPath
-	f.QualificationConfig, f.WorkerQualify = *qualificationConfig, *workerQualify
+	f.QualificationConfig, f.SigningConfig = *qualificationConfig, *signingConfig
+	f.WorkerQualify = *workerQualify
 	f.GuestAction, f.ExpectedPayload = *guestAction, *expectedPayload
 	if f.GuestAction != "" || f.WorkerQualify {
 		return f, nil
@@ -74,8 +79,8 @@ func parseBuildFlags() (buildFlags, error) {
 }
 
 func admitWorkerBuild(f buildFlags) error {
-	if f.WorkerConfig != "" || f.QualificationConfig != "" {
-		return errors.New("build stage cannot select qualification authority")
+	if f.WorkerConfig != "" || f.QualificationConfig != "" || f.SigningConfig != "" {
+		return errors.New("build stage cannot select qualification or signing authority")
 	}
 	return buildWorkerIdentity()
 }
@@ -84,8 +89,8 @@ func admitParentDispatch(f buildFlags) error {
 	if f.WorkerConfig == "" || f.Request.MediaAuthority != "" {
 		return errors.New("root-owned --worker-config required; media authority belongs to the isolated worker")
 	}
-	if f.Request.Development && f.QualificationConfig != "" {
-		return errors.New("development build cannot request protected qualification")
+	if f.Request.Development && (f.QualificationConfig != "" || f.SigningConfig != "") {
+		return errors.New("development build cannot request protected qualification or final signing")
 	}
 	if !f.Request.Development && (f.QualificationConfig == "" || f.Request.Arch != "x86_64") {
 		return errors.New("production requires --qualification-config and the selected native x86_64 scenario")
@@ -187,14 +192,55 @@ func printBuildArtifacts(result hostimage.Result) {
 	fmt.Fprintln(os.Stderr, result.Scope)
 }
 
-func runProtectedQualification(ctx context.Context, progress *nativebuild.BuildProgress, result hostimage.Result, r hostimage.Request, qualification nativequalification.Config) error {
+func runProtectedQualification(ctx context.Context, progress *nativebuild.BuildProgress, result hostimage.Result, r hostimage.Request, qualification nativequalification.Config) (string, error) {
 	if err := progress.Phase("P9 / Protected native install-update-recovery"); err != nil {
+		return "", err
+	}
+	custody := filepath.Join(r.Source, ".artifacts/b4-qualification/controller-runs", filepath.Base(r.Out))
+	if err := nativequalification.Dispatch(ctx, qualification, filepath.Dir(result.Candidate), r.Revision, custody, os.Stderr); err != nil {
+		return "", err
+	}
+	return custody, errors.Join(progress.End(nil), progress.EndPhase(nil))
+}
+
+func loadSigning(path string, development bool) (nativefinalization.Config, error) {
+	var signing nativefinalization.Config
+	if development || path == "" {
+		return signing, nil
+	}
+	return nativefinalization.LoadConfig(path)
+}
+
+func runProtectedFinalization(ctx context.Context, progress *nativebuild.BuildProgress, result hostimage.Result, custody string, signing nativefinalization.Config) error {
+	if signing.Trust == "" {
+		return incomplete{}
+	}
+	if err := progress.Phase("P10 / Finalize and sign release metadata"); err != nil {
 		return err
 	}
-	if err := nativequalification.Dispatch(ctx, qualification, filepath.Dir(result.Candidate), r.Revision, filepath.Join(r.Source, ".artifacts/b4-qualification/controller-runs", filepath.Base(r.Out)), os.Stderr); err != nil {
+	if result.Media == "" {
+		return errors.New("final signing requires sealed media.json from P8")
+	}
+	evidence := filepath.Join(custody, "evidence/qualification.json")
+	out := filepath.Join(custody, "final")
+	ref, err := nativefinalization.Finalize(ctx, rd.Native{Home: out}, signing, filepath.Dir(result.Candidate), result.Media, evidence, out)
+	if err != nil {
 		return err
 	}
+	fmt.Fprintln(os.Stderr, "FINAL", ref)
 	return errors.Join(progress.End(nil), progress.EndPhase(nil))
+}
+
+func reportBuildResult(ctx context.Context, progress *nativebuild.BuildProgress, result hostimage.Result, r hostimage.Request, qualification nativequalification.Config, signing nativefinalization.Config) error {
+	printBuildArtifacts(result)
+	if r.Development {
+		return nil
+	}
+	custody, err := runProtectedQualification(ctx, progress, result, r, qualification)
+	if err != nil {
+		return err
+	}
+	return runProtectedFinalization(ctx, progress, result, custody, signing)
 }
 
 func loadQualification(path string, configExecutable string, development bool) (nativequalification.Config, error) {
@@ -212,17 +258,7 @@ func loadQualification(path string, configExecutable string, development bool) (
 	return qualification, nil
 }
 
-func reportBuildResult(ctx context.Context, progress *nativebuild.BuildProgress, result hostimage.Result, r hostimage.Request, qualification nativequalification.Config) error {
-	printBuildArtifacts(result)
-	if !r.Development {
-		if err := runProtectedQualification(ctx, progress, result, r, qualification); err != nil {
-			return err
-		}
-	}
-	return completion(r)
-}
-
-func runParentBuild(ctx context.Context, workerConfigPath, qualificationConfig string, r hostimage.Request, progress *nativebuild.BuildProgress) error {
+func runParentBuild(ctx context.Context, workerConfigPath, qualificationConfig, signingConfig string, r hostimage.Request, progress *nativebuild.BuildProgress) error {
 	config, err := loadWorkerConfig(workerConfigPath, r)
 	if err != nil {
 		return err
@@ -231,11 +267,15 @@ func runParentBuild(ctx context.Context, workerConfigPath, qualificationConfig s
 	if err != nil {
 		return err
 	}
+	signing, err := loadSigning(signingConfig, r.Development)
+	if err != nil {
+		return err
+	}
 	result, err := runBuildWorker(ctx, config, r, progress)
 	if err != nil {
 		return err
 	}
-	return reportBuildResult(ctx, progress, result, r, qualification)
+	return reportBuildResult(ctx, progress, result, r, qualification, signing)
 }
 
 func run() (err error) {
@@ -268,14 +308,7 @@ func run() (err error) {
 		_, e := hostimage.Build(ctx, f.Request, progress)
 		return e // stage completion only; the trusted parent owns qualification
 	}
-	return runParentBuild(ctx, f.WorkerConfig, f.QualificationConfig, f.Request, progress)
-}
-
-func completion(r hostimage.Request) error {
-	if r.Development {
-		return nil // success for the explicit target, never release qualification
-	}
-	return incomplete{}
+	return runParentBuild(ctx, f.WorkerConfig, f.QualificationConfig, f.SigningConfig, f.Request, progress)
 }
 
 func main() {

@@ -64,14 +64,14 @@ func (f *registryDouble) Run(_ context.Context, args ...string) ([]byte, error) 
 		}
 		require.True(f.t, strings.HasPrefix(dst, "dir:"))
 		dest := strings.TrimPrefix(dst, "dir:")
-		require.NoError(f.t, os.Mkdir(dest, 0700))
+		require.NoError(f.t, os.Mkdir(dest, 0o700))
 		entries, e := os.ReadDir(path)
 		require.NoError(f.t, e)
 		for _, entry := range entries {
 			require.False(f.t, entry.IsDir())
 			b, e := os.ReadFile(filepath.Join(path, entry.Name()))
 			require.NoError(f.t, e)
-			require.NoError(f.t, os.WriteFile(filepath.Join(dest, entry.Name()), b, 0600))
+			require.NoError(f.t, os.WriteFile(filepath.Join(dest, entry.Name()), b, 0o600))
 		}
 		return nil, nil
 	}
@@ -103,27 +103,36 @@ func (f *registryDouble) Run(_ context.Context, args ...string) ([]byte, error) 
 	}
 	return nil, errors.New("unexpected test-double operation")
 }
+
+func privateTempDir(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	require.NoError(t, os.Chmod(root, 0o700))
+	return root
+}
+
 func documentDir(t *testing.T, root, name string, value any) (string, string) {
 	t.Helper()
 	oci := filepath.Join(root, name+"-oci")
 	d, e := WriteDocument(oci, value)
 	require.NoError(t, e)
 	dest := filepath.Join(root, name+"-dir")
-	require.NoError(t, os.Mkdir(dest, 0700))
+	require.NoError(t, os.Mkdir(dest, 0o700))
 	mb, e := os.ReadFile(filepath.Join(oci, "blobs/sha256", strings.TrimPrefix(d, "sha256:")))
 	require.NoError(t, e)
-	require.NoError(t, os.WriteFile(filepath.Join(dest, "manifest.json"), mb, 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dest, "manifest.json"), mb, 0o600))
 	entries, e := os.ReadDir(filepath.Join(oci, "blobs/sha256"))
 	require.NoError(t, e)
 	for _, entry := range entries {
 		b, e := os.ReadFile(filepath.Join(oci, "blobs/sha256", entry.Name()))
 		require.NoError(t, e)
-		require.NoError(t, os.WriteFile(filepath.Join(dest, entry.Name()), b, 0600))
+		require.NoError(t, os.WriteFile(filepath.Join(dest, entry.Name()), b, 0o600))
 	}
 	return dest, d
 }
+
 func TestPublicationCommitLastAndUncertainResultIsObservedNotReplayed(t *testing.T) {
-	root := t.TempDir()
+	root := privateTempDir(t)
 	tr := testTrust(t)
 	c := testChannel(tr, "candidate")
 	c.Withdrawn = true
@@ -131,7 +140,7 @@ func TestPublicationCommitLastAndUncertainResultIsObservedNotReplayed(t *testing
 	signed, d := documentDir(t, root, "channel", c)
 	p := Permit{Format: 1, Repository: tr.Prefix + "-channel-candidate", Digest: d, Previous: "absent", Expires: time.Now().Add(time.Hour).Unix()}
 	auth := filepath.Join(root, "auth.json")
-	require.NoError(t, os.WriteFile(auth, []byte(`{}`), 0600))
+	require.NoError(t, os.WriteFile(auth, []byte(`{}`), 0o600))
 	ledger := filepath.Join(root, "ledger.json")
 	require.NoError(t, InitLedger(ledger, tr, p.Repository))
 	f := &registryDouble{t: t, images: map[string]string{}, tags: map[string]map[string]string{}, failPromotionAfterCommit: true}
@@ -173,10 +182,11 @@ func TestPublicationCommitLastAndUncertainResultIsObservedNotReplayed(t *testing
 	require.Greater(t, roundTrip, firstWrite)
 	require.Greater(t, lastWrite, roundTrip, "immutable content/signature round-trip must precede mutable channel tag")
 }
+
 func TestMissingArtifactAndUnqualifiedStableNeverWriteRegistry(t *testing.T) {
 	for _, kind := range []string{"missing-release", "missing-image", "unqualified-stable", "missing-architecture"} {
 		t.Run(kind, func(t *testing.T) {
-			root := t.TempDir()
+			root := privateTempDir(t)
 			tr := testTrust(t)
 			c := testChannel(tr, "candidate")
 			f := &registryDouble{t: t, images: map[string]string{}, tags: map[string]map[string]string{}}
@@ -196,7 +206,7 @@ func TestMissingArtifactAndUnqualifiedStableNeverWriteRegistry(t *testing.T) {
 			signed, d := documentDir(t, root, "channel", c)
 			p := Permit{Format: 1, Repository: tr.Prefix + "-channel-" + c.Name, Digest: d, Previous: "absent", Expires: time.Now().Add(time.Hour).Unix()}
 			auth := filepath.Join(root, "auth.json")
-			require.NoError(t, os.WriteFile(auth, []byte(`{}`), 0600))
+			require.NoError(t, os.WriteFile(auth, []byte(`{}`), 0o600))
 			ledger := filepath.Join(root, "ledger.json")
 			require.NoError(t, InitLedger(ledger, tr, p.Repository))
 			require.Error(t, Publish(t.Context(), f, tr, p, signed, auth, ledger, filepath.Join(root, "attempt"), false))
@@ -204,8 +214,9 @@ func TestMissingArtifactAndUnqualifiedStableNeverWriteRegistry(t *testing.T) {
 		})
 	}
 }
+
 func TestFetchAdvancesObservedAuthorityEvenWhenImageUnavailable(t *testing.T) {
-	root := t.TempDir()
+	root := privateTempDir(t)
 	tr := testTrust(t)
 	release := testRelease(t, tr)
 	rd, d := documentDir(t, root, "release", release)
