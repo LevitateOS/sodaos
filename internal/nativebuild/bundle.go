@@ -124,73 +124,124 @@ func validLink(name, target string) bool {
 	}
 	return false
 }
-func tree(root string) (map[string]File, error) {
+
+func openBundleRoot(root string) (*os.Root, error) {
 	cap, err := os.OpenRoot(root)
 	if err != nil {
 		return nil, err
 	}
-	defer cap.Close()
 	st, err := cap.Lstat("tools")
 	if err != nil || !st.IsDir() {
+		cap.Close()
 		return nil, errors.New("real tools directory required")
 	}
+	return cap, nil
+}
+
+func resolveTreeFileContent(cap *os.Root, p, rel string, mode os.FileMode) (string, string, error) {
+	switch {
+	case mode.IsDir():
+		return "", "", nil
+	case mode.IsRegular():
+		hash, err := HashAt(cap, p)
+		return hash, "", err
+	case mode&os.ModeSymlink != 0:
+		link, err := cap.Readlink(p)
+		if err != nil {
+			return "", "", err
+		}
+		if !validLink(rel, link) {
+			return "", "", errors.New("unsafe payload symlink")
+		}
+		return "", link, nil
+	default:
+		return "", "", errors.New("unsupported payload file")
+	}
+}
+
+func processTreeEntry(cap *os.Root, p string) (File, error) {
+	rel := p
+	if !allowedPayload(rel) {
+		return File{}, fmt.Errorf("non-payload path refused: %s", rel)
+	}
+	info, err := cap.Lstat(p)
+	if err != nil {
+		return File{}, err
+	}
+	if info.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 {
+		return File{}, errors.New("set-ID payload refused")
+	}
+	hash, link, err := resolveTreeFileContent(cap, p, rel, info.Mode())
+	if err != nil {
+		return File{}, err
+	}
+	return File{
+		Mode:      uint32(info.Mode().Perm()),
+		Directory: info.IsDir(),
+		SHA256:    hash,
+		Link:      link,
+	}, nil
+}
+
+func walkTreePayload(cap *os.Root) (map[string]File, error) {
 	result := map[string]File{}
 	for _, top := range []string{"rootfs", "images", "tools/soda-artifacts", "install-native.sh", "inputs", "notices"} {
 		err := fs.WalkDir(cap.FS(), top, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			rel := p
-			if !allowedPayload(rel) {
-				return fmt.Errorf("non-payload path refused: %s", rel)
-			}
-			info, err := cap.Lstat(p)
+			entry, err := processTreeEntry(cap, p)
 			if err != nil {
 				return err
 			}
-			if info.Mode()&(os.ModeSetuid|os.ModeSetgid) != 0 {
-				return errors.New("set-ID payload refused")
-			}
-			entry := File{Mode: uint32(info.Mode().Perm()), Directory: info.IsDir()}
-			switch {
-			case info.IsDir():
-			case info.Mode().IsRegular():
-				entry.SHA256, err = HashAt(cap, p)
-			case info.Mode()&os.ModeSymlink != 0:
-				entry.Link, err = cap.Readlink(p)
-				if err == nil && !validLink(rel, entry.Link) {
-					err = errors.New("unsafe payload symlink")
-				}
-			default:
-				err = errors.New("unsupported payload file")
-			}
-			if err != nil {
-				return err
-			}
-			result[rel] = entry
+			result[p] = entry
 			return nil
 		})
 		if err != nil {
 			return nil, err
 		}
 	}
-	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/etc/systemd/system/soda-project@.service", "rootfs/etc/systemd/system/soda-tailnet@.service", "inputs/tailscale-image.json", "rootfs/etc/fastfetch/config.jsonc", "rootfs/usr/local/share/soda/fastfetch/sodaos.txt", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE"} {
-		entry, ok := result[required]
-		if !ok || entry.SHA256 == "" {
-			return nil, fmt.Errorf("missing core/support payload: %s", required)
-		}
-	}
+	return result, nil
+}
+
+func verifySodaspacesPayload(result map[string]File) error {
 	for _, name := range forgejoFiles {
 		entry, ok := result[name]
-		if !ok || entry.SHA256 == "" || entry.Mode != 0644 {
-			return nil, fmt.Errorf("missing or unreadable Sodaspaces payload: %s", name)
+		if !ok || entry.SHA256 == "" || entry.Mode != 0o644 {
+			return fmt.Errorf("missing or unreadable Sodaspaces payload: %s", name)
 		}
 	}
 	for _, name := range []string{"rootfs/var/lib/soda/forgejo/gitea/templates", "rootfs/var/lib/soda/forgejo/gitea/templates/custom"} {
 		entry := result[name]
-		if !entry.Directory || entry.Mode != 0755 {
-			return nil, fmt.Errorf("unreadable Sodaspaces directory: %s", name)
+		if !entry.Directory || entry.Mode != 0o755 {
+			return fmt.Errorf("unreadable Sodaspaces directory: %s", name)
 		}
+	}
+	return nil
+}
+
+func verifyRequiredPayload(result map[string]File) error {
+	for _, required := range []string{"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container", "rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/etc/systemd/system/soda-project@.service", "rootfs/etc/systemd/system/soda-tailnet@.service", "inputs/tailscale-image.json", "rootfs/etc/fastfetch/config.jsonc", "rootfs/usr/local/share/soda/fastfetch/sodaos.txt", "rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE"} {
+		entry, ok := result[required]
+		if !ok || entry.SHA256 == "" {
+			return fmt.Errorf("missing core/support payload: %s", required)
+		}
+	}
+	return verifySodaspacesPayload(result)
+}
+
+func tree(root string) (map[string]File, error) {
+	cap, err := openBundleRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	defer cap.Close()
+	result, err := walkTreePayload(cap)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyRequiredPayload(result); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -259,11 +310,12 @@ func Seal(root, arch, revision string) error {
 	if err != nil {
 		return err
 	}
-	if err = WriteNew(filepath.Join(root, inventoryName), append(data, '\n'), 0644); err != nil {
+	if err = WriteNew(filepath.Join(root, inventoryName), append(data, '\n'), 0o644); err != nil {
 		return err
 	}
 	return checksums(root)
 }
+
 func Verify(root, arch, revision string) (Inventory, error) {
 	var inv Inventory
 	if err := ReadJSON(filepath.Join(root, inventoryName), &inv); err != nil {
@@ -341,7 +393,7 @@ func Bundle(source, dest, arch, revision string) error {
 	files := inv.Files
 	for name, entry := range files {
 		if entry.Directory {
-			if err = destRoot.MkdirAll(name, 0755); err != nil {
+			if err = destRoot.MkdirAll(name, 0o755); err != nil {
 				return err
 			}
 		}
@@ -351,7 +403,7 @@ func Bundle(source, dest, arch, revision string) error {
 		if entry.Directory {
 			continue
 		}
-		if err = destRoot.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		if err = destRoot.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
 		if entry.Link != "" {
@@ -374,7 +426,7 @@ func Bundle(source, dest, arch, revision string) error {
 	if err != nil {
 		return err
 	}
-	if err = WriteNew(filepath.Join(dest, inventoryName), append(data, '\n'), 0644); err != nil {
+	if err = WriteNew(filepath.Join(dest, inventoryName), append(data, '\n'), 0o644); err != nil {
 		return err
 	}
 	if err = checksums(dest); err != nil {
@@ -383,13 +435,15 @@ func Bundle(source, dest, arch, revision string) error {
 	_, err = Verify(dest, arch, revision)
 	return err
 }
+
 func checksums(root string) error {
 	sum, err := HashFile(filepath.Join(root, inventoryName))
 	if err != nil {
 		return err
 	}
-	return WriteNew(filepath.Join(root, "SHA256SUMS"), []byte(sum+"  "+inventoryName+"\n"), 0644)
+	return WriteNew(filepath.Join(root, "SHA256SUMS"), []byte(sum+"  "+inventoryName+"\n"), 0o644)
 }
+
 func copyExclusive(src, dest *os.Root, name string, entry File) error {
 	st, err := src.Lstat(name)
 	if err != nil {
