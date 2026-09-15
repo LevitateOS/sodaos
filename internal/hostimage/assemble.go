@@ -52,7 +52,7 @@ func mediaBaseURL(value string) error {
 	return nil
 }
 
-func prepareAssembler(p nativebuild.Production, root string) (mediaLock, error) {
+func loadMediaToolsLock(p nativebuild.Production) (mediaLock, error) {
 	var lock mediaLock
 	if err := nativebuild.ReadJSON(filepath.Join(p.Source, "appliance/locks/media-tools.json"), &lock); err != nil {
 		return lock, err
@@ -61,26 +61,27 @@ func prepareAssembler(p nativebuild.Production, root string) (mediaLock, error) 
 	if lock.Architecture != p.Arch || !strings.HasPrefix(lock.Assembler, prefix) || !nativebuild.Digest(strings.TrimPrefix(lock.Assembler, prefix)) || !nativebuild.Revision(lock.Config) || lock.Installer != "coreos-installer 0.26.0" {
 		return lock, errors.New("unreviewed media tools")
 	}
-	if err := os.Mkdir(root, 0o700); err != nil {
-		return lock, err
-	}
-	run := func(cmd string, args ...string) error { return p.Execute(root, cmd, args...) }
+	return lock, nil
+}
+
+func fetchAssemblerConfig(run func(string, ...string) error, root string, lock mediaLock) error {
 	for _, args := range [][]string{{"init", "config-repo"}, {"-C", "config-repo", "fetch", "--depth=1", "https://github.com/coreos/fedora-coreos-config.git", lock.Config}, {"-C", "config-repo", "archive", "--format=tar", "--output", filepath.Join(root, "config.tar"), lock.Config}} {
 		if err := run("git", args...); err != nil {
-			return lock, err
+			return err
 		}
 	}
 	config := filepath.Join(root, "config")
 	if err := os.Mkdir(config, 0o755); err != nil {
-		return lock, err
+		return err
 	}
-	if err := run("tar", "-xf", "config.tar", "-C", config, "--no-same-owner"); err != nil {
-		return lock, err
-	}
-	argsFile := filepath.Join(config, "build-args.conf")
+	return run("tar", "-xf", "config.tar", "-C", config, "--no-same-owner")
+}
+
+func pinAssemblerBuildArgs(root string) error {
+	argsFile := filepath.Join(root, "config", "build-args.conf")
 	b, err := os.ReadFile(argsFile)
 	if err != nil {
-		return lock, err
+		return err
 	}
 	lines := strings.Split(string(b), "\n")
 	found := false
@@ -91,37 +92,62 @@ func prepareAssembler(p nativebuild.Production, root string) (mediaLock, error) 
 		}
 	}
 	if !found {
-		return lock, errors.New("missing upstream buildroot selection")
+		return errors.New("missing upstream buildroot selection")
 	}
-	if err = os.WriteFile(argsFile, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
-		return lock, err
-	}
-	if err = run("podman", "--remote=false", "pull", "--policy=missing", lock.Assembler); err != nil {
-		return lock, err
-	}
-	if err = nativebuild.WriteNew(filepath.Join(root, "Containerfile"), []byte("FROM "+lock.Assembler+"\nUSER 0\n"), 0o644); err != nil {
-		return lock, err
-	}
-	if err = run("podman", "--remote=false", "build", "--pull=never", "--network=none", "--iidfile", "builder.iid", "."); err != nil {
-		return lock, err
-	}
-	id, err := builderID(root)
+	return os.WriteFile(argsFile, []byte(strings.Join(lines, "\n")), 0o644)
+}
+
+func verifyAssemblerLayers(p nativebuild.Production, root, assembler, id string) error {
+	original, err := p.Capture(root, "podman", "--remote=false", "image", "inspect", "--format", "{{json .RootFS.Layers}}", assembler)
 	if err != nil {
-		return lock, err
-	}
-	original, err := p.Capture(root, "podman", "--remote=false", "image", "inspect", "--format", "{{json .RootFS.Layers}}", lock.Assembler)
-	if err != nil {
-		return lock, err
+		return err
 	}
 	wrapped, err := p.Capture(root, "podman", "--remote=false", "image", "inspect", "--format", "{{json .RootFS.Layers}}", id)
 	if err != nil {
-		return lock, err
+		return err
 	}
 	if original != wrapped || original == "" {
-		return lock, errors.New("assembler wrapper changed rootfs")
+		return errors.New("assembler wrapper changed rootfs")
 	}
-	err = run("podman", "--remote=false", "save", "--format=oci-archive", "--output", "assembler-root.oci", id)
-	return lock, err
+	return nil
+}
+
+func wrapAssemblerImage(p nativebuild.Production, run func(string, ...string) error, root string, lock mediaLock) error {
+	if err := run("podman", "--remote=false", "pull", "--policy=missing", lock.Assembler); err != nil {
+		return err
+	}
+	if err := nativebuild.WriteNew(filepath.Join(root, "Containerfile"), []byte("FROM "+lock.Assembler+"\nUSER 0\n"), 0o644); err != nil {
+		return err
+	}
+	if err := run("podman", "--remote=false", "build", "--pull=never", "--network=none", "--iidfile", "builder.iid", "."); err != nil {
+		return err
+	}
+	id, err := builderID(root)
+	if err != nil {
+		return err
+	}
+	if err = verifyAssemblerLayers(p, root, lock.Assembler, id); err != nil {
+		return err
+	}
+	return run("podman", "--remote=false", "save", "--format=oci-archive", "--output", "assembler-root.oci", id)
+}
+
+func prepareAssembler(p nativebuild.Production, root string) (mediaLock, error) {
+	lock, err := loadMediaToolsLock(p)
+	if err != nil {
+		return lock, err
+	}
+	if err := os.Mkdir(root, 0o700); err != nil {
+		return lock, err
+	}
+	run := func(cmd string, args ...string) error { return p.Execute(root, cmd, args...) }
+	if err := fetchAssemblerConfig(run, root, lock); err != nil {
+		return lock, err
+	}
+	if err := pinAssemblerBuildArgs(root); err != nil {
+		return lock, err
+	}
+	return lock, wrapAssemblerImage(p, run, root, lock)
 }
 
 func builderID(root string) (string, error) {
