@@ -53,40 +53,124 @@ var forgejoFiles = func() []string {
 	return names
 }()
 
-func allowedPayload(p string) bool {
+func isForgejoPayload(p string) bool {
 	for _, name := range forgejoFiles {
 		if p == name || strings.HasPrefix(name, p+"/") {
 			return true
 		}
 	}
-	// Retired presentation output is not a valid payload for new Soda bundles.
+	return false
+}
+
+func isRetiredPresentationPayload(p string) bool {
 	for _, retired := range []string{"rootfs/usr/local/share/soda/dashboard", "rootfs/usr/local/share/cockpit"} {
 		if p == retired || strings.HasPrefix(p, retired+"/") {
-			return false
+			return true
 		}
 	}
-	if p == "rootfs" || strings.HasPrefix(p, "rootfs/") {
-		if p == "rootfs/etc" || strings.HasPrefix(p, "rootfs/etc/") {
-			return publicEtcPath(p)
+	return false
+}
+
+func isPrivateRootfsPayload(p string) bool {
+	// The core owns the stage. Reject known runtime/private content rather than
+	// interpreting application config or inventing a React payload.
+	for _, bad := range []string{"/dashboard.json", "/host.json", "/install-started", "/shadow", "/gshadow", "/machine-id", "/tailscale/", "/browser-home/", "/soda-artifacts", "/soda-acceptance", "/ssh_host_", "/authorized_keys"} {
+		if strings.Contains(p, bad) {
+			return true
 		}
-		// The core owns the stage. Reject known runtime/private content rather than
-		// interpreting application config or inventing a React payload.
-		for _, bad := range []string{"/dashboard.json", "/host.json", "/install-started", "/shadow", "/gshadow", "/machine-id", "/tailscale/", "/browser-home/", "/soda-artifacts", "/soda-acceptance", "/ssh_host_", "/authorized_keys"} {
-			if strings.Contains(p, bad) {
-				return false
-			}
-		}
-		switch filepath.Ext(p) {
-		case ".ign", ".bu", ".key", ".pem", ".sqlite", ".db":
-			return false
-		}
-		return p == "rootfs" || p == "rootfs/usr" || p == "rootfs/var" || p == "rootfs/var/lib" || p == "rootfs/var/lib/soda" || p == "rootfs/var/lib/soda/forgejo" || p == "rootfs/var/lib/soda/forgejo/gitea" || p == "rootfs/usr/local" || strings.HasPrefix(p, "rootfs/usr/local/") || p == "rootfs/var/lib/soda/forgejo/gitea/public" || strings.HasPrefix(p, "rootfs/var/lib/soda/forgejo/gitea/public/")
 	}
-	switch p {
-	case "images", "tools", "tools/soda-artifacts", "install-native.sh", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "images/tailnet.oci", "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-binary.toml", "inputs/coreos-qemu.json", "inputs/tailscale-image.json", "inputs/package.json", "inputs/lit-check-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "notices", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE":
+	switch filepath.Ext(p) {
+	case ".ign", ".bu", ".key", ".pem", ".sqlite", ".db":
 		return true
 	}
 	return false
+}
+
+func isSodaRootfsDir(p string) bool {
+	switch p {
+	case "rootfs", "rootfs/usr", "rootfs/var", "rootfs/var/lib", "rootfs/var/lib/soda":
+		return true
+	}
+	return false
+}
+
+func isForgejoRootfsDir(p string) bool {
+	return p == "rootfs/var/lib/soda/forgejo" || p == "rootfs/var/lib/soda/forgejo/gitea" || p == "rootfs/var/lib/soda/forgejo/gitea/public" || strings.HasPrefix(p, "rootfs/var/lib/soda/forgejo/gitea/public/")
+}
+
+func isUsrLocalPayload(p string) bool {
+	return p == "rootfs/usr/local" || strings.HasPrefix(p, "rootfs/usr/local/")
+}
+
+func isRootfsPayload(p string) bool {
+	if p != "rootfs" && !strings.HasPrefix(p, "rootfs/") {
+		return false
+	}
+	if p == "rootfs/etc" || strings.HasPrefix(p, "rootfs/etc/") {
+		return publicEtcPath(p)
+	}
+	if isPrivateRootfsPayload(p) {
+		return false
+	}
+	return isSodaRootfsDir(p) || isForgejoRootfsDir(p) || isUsrLocalPayload(p)
+}
+
+func isImagesPayload(p string) bool {
+	switch p {
+	case "images", "images/project-os.oci", "images/dashboard.oci", "images/forgejo.oci", "images/caddy.oci", "images/tailnet.oci":
+		return true
+	}
+	return false
+}
+
+func isToolsPayload(p string) bool {
+	switch p {
+	case "tools", "tools/soda-artifacts", "install-native.sh":
+		return true
+	}
+	return false
+}
+
+func isLockInputsPayload(p string) bool {
+	switch p {
+	case "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-binary.toml", "inputs/coreos-qemu.json", "inputs/tailscale-image.json":
+		return true
+	}
+	return false
+}
+
+func isFrontendInputsPayload(p string) bool {
+	switch p {
+	case "inputs/package.json", "inputs/lit-check-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json":
+		return true
+	}
+	return false
+}
+
+func isNoticesPayload(p string) bool {
+	switch p {
+	case "notices", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE":
+		return true
+	}
+	return false
+}
+
+func isBundleManifestPayload(p string) bool {
+	return isImagesPayload(p) || isToolsPayload(p) || isLockInputsPayload(p) || isFrontendInputsPayload(p) || isNoticesPayload(p)
+}
+
+func allowedPayload(p string) bool {
+	if isForgejoPayload(p) {
+		return true
+	}
+	// Retired presentation output is not a valid payload for new Soda bundles.
+	if isRetiredPresentationPayload(p) {
+		return false
+	}
+	if isRootfsPayload(p) {
+		return true
+	}
+	return isBundleManifestPayload(p)
 }
 
 // P04's export boundary follows the actual /etc outputs in scripts/stage.py.
