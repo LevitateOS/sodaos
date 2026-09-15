@@ -6,7 +6,7 @@ import type {Page} from 'playwright';
 import {decodeRunnerResponse} from '../../frontend/runners/soda-runner-response';
 import type {Runner} from '../../frontend/runners/soda-runner-types';
 import {capturePageFixture} from '../../scripts/screenshot';
-import payload from '../../internal/nativebuild/forgejo-payload.json';
+import payload from '../../internal/release/build/forgejo-payload.json';
 import {object} from '../../frontend/spaces/sodaspaces-api';
 
 const origin = process.env.SODA_PAGE_ORIGIN || 'https://forgejo.example.test';

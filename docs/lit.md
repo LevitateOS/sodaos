@@ -108,7 +108,7 @@ customElements.define('soda-example', SodaExample);
 ```
 
 New production modules still require explicit entries in
-`internal/nativebuild/forgejo-payload.json`. Register real components only from
+`internal/release/build/forgejo-payload.json`. Register real components only from
 their page's existing supported hook/entrypoint. The native adapter dynamically
 imports the drawer on demand and checks departure/Hide before mounting it. The smoke component is test-only.
 

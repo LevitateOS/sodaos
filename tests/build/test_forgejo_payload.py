@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class ForgejoPayload(unittest.TestCase):
     def test_exact_sources_template_closure_and_notices(self):
-        files = json.loads((ROOT / 'internal/nativebuild/forgejo-payload.json').read_text())
+        files = json.loads((ROOT / 'internal/release/build/forgejo-payload.json').read_text())
         templates = {
             'templates/' + p.relative_to(ROOT / 'appliance/forgejo/templates').as_posix()
             for p in (ROOT / 'appliance/forgejo/templates').rglob('*.tmpl')
@@ -44,7 +44,7 @@ class ForgejoPayload(unittest.TestCase):
         self.assertIn('options/locale/locale_en-US.ini', files)
 
     def test_spaces_page_assets_use_the_canonical_public_payload(self):
-        files = json.loads((ROOT / 'internal/nativebuild/forgejo-payload.json').read_text())
+        files = json.loads((ROOT / 'internal/release/build/forgejo-payload.json').read_text())
         page = (ROOT / 'appliance/forgejo/templates/user/dashboard/dashboard.tmpl').read_text()
         self.assertIn('soda-native-page.js', page)
         self.assertFalse((ROOT / 'internal/web/templates/spaces.html').exists())
@@ -57,7 +57,7 @@ class ForgejoPayload(unittest.TestCase):
         self.assertNotIn('type="application/json"', page)
 
     def test_operator_settings_page_and_shared_runner_decoder_are_staged(self):
-        files = json.loads((ROOT / 'internal/nativebuild/forgejo-payload.json').read_text())
+        files = json.loads((ROOT / 'internal/release/build/forgejo-payload.json').read_text())
         page = (ROOT / 'appliance/forgejo/templates/user/dashboard/dashboard.tmpl').read_text()
         self.assertIn('public/assets/soda-settings.css', files)
         self.assertIn('public/assets/soda-runners-page.js', files)

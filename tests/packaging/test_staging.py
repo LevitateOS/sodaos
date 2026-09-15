@@ -119,7 +119,7 @@ class NativeStage(unittest.TestCase):
     def test_sodaspaces_payload(self):
         custom = self.root / 'var/lib/soda/forgejo/gitea'
         root = Path(__file__).resolve().parents[2]
-        payload = json.loads((root / 'internal/nativebuild/forgejo-payload.json').read_text())
+        payload = json.loads((root / 'internal/release/build/forgejo-payload.json').read_text())
         for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl', 'public/assets/sodaspaces.css'):
             target = custom / name
             self.assertFalse(target.is_symlink())

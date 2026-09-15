@@ -20,7 +20,7 @@ bounded HTML/OAuth/API response; Forgejo keeps its own forms, auth and navigatio
 `tsconfig.browser.json` and the required analyzer discover this directory. The
 browser build enforces exact source/payload inventory and rewrites source-relative
 module imports to canonical public destinations (also for emitted test fixtures).
-`internal/nativebuild/forgejo-payload.json` remains the staging/preview authority.
+`internal/release/build/forgejo-payload.json` remains the staging/preview authority.
 Published URLs intentionally stay compatible: the workspace owner is still served
 as `sodaspaces-drawer.js`, workspace CSS as `sodaspaces-page.css`, project CSS as
 `sodaspaces-drawer.css`. These are URLs, not duplicate source owners. The sole Lit

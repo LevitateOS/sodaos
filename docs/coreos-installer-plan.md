@@ -255,7 +255,7 @@ protected source-to-qualified-release run.
 | Owner | Required change in the replacement |
 | --- | --- |
 | `tools/soda-build` and existing Go build packages | Build the candidate and media programs once; own timing, cancellation, source identity and exact handoff |
-| `internal/hostimage` | Invoke upstream media-only assembly from the existing Go controller; the old `scripts/build-installer.py` lane is retiring, not another new producer |
+| `internal/release/image` | Invoke upstream media-only assembly from the existing Go controller; the old `scripts/build-installer.py` lane is retiring, not another new producer |
 | `appliance/installer`, `internal/installer` | Preserve CoreOS Installer/Ignition ownership and the text/disk/secret guards; change candidate handoff only after B1 proves the supported path |
 | Public provisioning/branding owners | Reuse public bootstrap and canonical artwork; separate live from destination inputs and bounded private additions |
 | Existing media/native test drivers | Verify actual media readback and native installation/update/recovery; consume prebuilt artifacts, never another production build |

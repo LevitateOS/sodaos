@@ -15,7 +15,7 @@ Forgejo delivers six Soda branding images plus six welcome-page backgrounds:
 canonical exports; they are not separate artwork. The native symbol/core remains
 open, with a red outer plate and contrasting middle plate.
 
-The delivery manifest is `internal/nativebuild/forgejo-payload.json`. Its source
+The delivery manifest is `internal/release/build/forgejo-payload.json`. Its source
 test rejects extra delivered branding images. `build:preview` removes unlisted top-level
 images from its generated Soda image directories after successful staging; native
 icons and uploaded content are outside that cleanup.

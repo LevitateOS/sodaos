@@ -28,7 +28,7 @@ class TailnetImage(unittest.TestCase):
             'Copyright (c) 2020 Tailscale Inc & contributors.',
             (ROOT / 'appliance/licenses/tailscale-LICENSE').read_text(),
         )
-        build = (ROOT / 'internal/nativebuild/production.go').read_text()
+        build = (ROOT / 'internal/release/build/production.go').read_text()
         self.assertIn('"--build-arg=TAILSCALE_VERSION="+tail.Version', build.replace(' ', ''))
         self.assertIn('"--build-arg=ARCHIVE_SHA256="+tail.SHA256[platform]', build.replace(' ', ''))
         self.assertIn('"appliance/tailnet.Containerfile"', build)

@@ -4,7 +4,7 @@ import path from 'node:path';
 import {mkdtemp, chmod} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import type {ServerWebSocket} from 'bun';
-import payload from '../../internal/nativebuild/forgejo-payload.json';
+import payload from '../../internal/release/build/forgejo-payload.json';
 import {object, type Space, type TerminalMetadata} from '../../frontend/spaces/sodaspaces-api';
 import {journeyInput, matchesTerminalReservation} from '../installed/sodaspaces-input';
 import {matrixInput} from '../installed/sodaspaces-matrix-input';

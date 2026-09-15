@@ -5,7 +5,7 @@ import {chromium} from 'playwright';
 import type {Page} from 'playwright';
 import {authenticationURL, hostResult, settingsView} from '../../frontend/tailnet/soda-tailnet-response';
 import type {Settings} from '../../frontend/tailnet/soda-tailnet-response';
-import payload from '../../internal/nativebuild/forgejo-payload.json';
+import payload from '../../internal/release/build/forgejo-payload.json';
 
 const origin = process.env.SODA_PAGE_ORIGIN || 'https://forgejo.example.test';
 const actor = process.env.SODA_PAGE_ACTOR || '1';

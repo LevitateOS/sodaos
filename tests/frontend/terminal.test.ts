@@ -3,7 +3,7 @@ import test, {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {chromium, type Browser, type Page} from 'playwright';
 import path from 'node:path';
-import payload from '../../internal/nativebuild/forgejo-payload.json';
+import payload from '../../internal/release/build/forgejo-payload.json';
 import {buildForgejoModule} from '../../scripts/build-forgejo';
 import type {TerminalFixtureOptions} from './fixtures/terminal-fixture';
 const root = path.resolve(import.meta.dirname, '../..'), env = 'p0123456789abcdef01234567', id = 'a'.repeat(32);

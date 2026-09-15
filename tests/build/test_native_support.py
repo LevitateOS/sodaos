@@ -91,7 +91,7 @@ class OutsideContracts(unittest.TestCase):
         self.assertTrue((ROOT / 'tools' / 'soda-build' / 'main.go').is_file())
         self.assertFalse((ROOT / 'scripts/build-native.sh').exists())
         self.assertFalse((ROOT / 'tools/soda-host-image').exists())
-        producer = (ROOT / 'internal/nativebuild/production.go').read_text()
+        producer = (ROOT / 'internal/release/build/production.go').read_text()
         self.assertIn('"save", "--format=oci-archive"', producer)
         self.assertIn('--iidfile', producer)
         self.assertNotIn('"push"', producer)

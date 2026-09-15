@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile,readdir} from 'node:fs/promises';
 import {test} from 'node:test';
-import payload from '../../internal/nativebuild/forgejo-payload.json';
+import payload from '../../internal/release/build/forgejo-payload.json';
 const root=new URL('../../',import.meta.url);
 
 test('Forgejo delivers no decorative robot artwork and retains the new identity',async()=>{

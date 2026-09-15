@@ -484,7 +484,7 @@ layout restoration or the shared drawer.
 ##### Step 13 — Wire the emitted graph and run affected local checks
 
 - [x] Register any new production modules in
-  `internal/nativebuild/forgejo-payload.json` and keep `scripts/build-forgejo.ts`
+  `internal/release/build/forgejo-payload.json` and keep `scripts/build-forgejo.ts`
   aligned. Bump the presentation epoch and all affected entry/style URLs together
   under the [TypeScript asset contract](typescript.md). Do not edit emitted files.
 - [x] Extend the existing fixture/driver with the whole welcome-to-input sequence,
@@ -503,7 +503,7 @@ layout restoration or the shared drawer.
 | Emitted production assets | `bun run build:forgejo` |
 | Frontend/component behavior | `bun run test:frontend`; it prepares the emitted assets itself |
 | Shared drawer geometry | `bun run test:layout` |
-| Native hooks, presentation epoch and emitted closure | `bun run test:forgejo`; payload changes also select affected `internal/nativebuild` / `scripts` Go tests |
+| Native hooks, presentation epoch and emitted closure | `bun run test:forgejo`; payload changes also select affected `internal/release/build` / `scripts` Go tests |
 | Actual native-page HTML/CSP and connection | `bun run test:pages`, only with its authorized fixture prerequisites; operations are still synthetic |
 
 Extend `tests/frontend/spaces-page.test.ts` and the native connection producer only
@@ -1430,7 +1430,7 @@ retained-appliance delivery remain unproven by that run.
   `/var/lib/soda/forgejo/gitea/{templates/custom/,public/assets/}`. Keep readable
   0644 files/0755 new directories and existing canonical branding. Retain selected
   `STATIC_CACHE_TIME=0` and verify asset revalidation; no new cache/build pipeline.
-- `internal/nativebuild/bundle.go` admits only the two template filenames and their
+- `internal/release/build/bundle.go` admits only the two template filenames and their
   required ancestors, and requires all four files in the inventory. Do not whitelist
   arbitrary templates or Forgejo data. Update bundle fixtures, staged-path assertions
   in `tests/packaging/test_staging.py`, and applicable notices together.

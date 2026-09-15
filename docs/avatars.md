@@ -111,7 +111,7 @@ for this feature. Do not use old whole-database backups to erase later writes.
 ## Checks and packaging
 
 ```sh
-go test ./internal/avatar ./internal/web ./tools/soda-avatars ./internal/nativebuild
+go test ./internal/avatar ./internal/web ./tools/soda-avatars ./internal/release/build
 go test -race ./internal/avatar ./internal/web -run 'Avatar|Render|Definition|Versioned|Stable|Offline|InputBounds'
 python3 -m unittest discover -s tests/build -p test_avatar_integration.py
 SODA_CADDY_BINARY=/absolute/path/to/caddy python3 -m unittest discover -s tests/build -p test_avatar_integration.py

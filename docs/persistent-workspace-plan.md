@@ -297,7 +297,7 @@ An unavailable native target must not gate the earlier synthetic/component work.
 | Connection and sign-out | [soda-connection.ts](../frontend/spaces/soda-connection.ts), [auth.go](../internal/web/auth.go), existing connection/credential tests |
 | Conditional new HTML host/CSP | [server.go](../internal/web/server.go), existing page/route handlers and tests; needed only if D1 selects backend hosting |
 | Conditional ingress change | [proxy.Caddyfile](../appliance/config/proxy.Caddyfile); needed only when the selected route strategy requires it |
-| Browser emission and complete payload | [build-forgejo.ts](../scripts/build-forgejo.ts), [forgejo-payload.json](../internal/nativebuild/forgejo-payload.json), [custom/header.tmpl](../appliance/forgejo/templates/custom/header.tmpl) |
+| Browser emission and complete payload | [build-forgejo.ts](../scripts/build-forgejo.ts), [forgejo-payload.json](../internal/release/build/forgejo-payload.json), [custom/header.tmpl](../appliance/forgejo/templates/custom/header.tmpl) |
 
 The browser build already scans the source directories and requires exact agreement
 with the one payload inventory. Reuse it for any shell/bridge modules and canonical
@@ -353,7 +353,7 @@ because it exists. The chosen CLI navigation journey does not finish the indepen
 | Real-renderer component/browser | [workspace.test.ts](../tests/frontend/workspace.test.ts), [workspace-journey.test.ts](../tests/frontend/workspace-journey.test.ts), [spaces-page.test.ts](../tests/frontend/spaces-page.test.ts), [drawer-layout.test.ts](../tests/frontend/drawer-layout.test.ts) and existing workspace fixtures. Real emitted components/xterm with explicitly synthetic operation/socket peers. |
 | Synthetic renderer lifecycle | [terminal.test.ts](../tests/frontend/terminal.test.ts) and its terminal fixture use a fake renderer and transport. They prove lifecycle logic; they do not establish real-xterm identity, screen behavior or native continuity. |
 | Native Forgejo integration | [native-pages.test.ts](../tests/forgejo/native-pages.test.ts), [native-connection.test.ts](../tests/forgejo/native-connection.test.ts), [test-spaces-page.ts](../scripts/test-spaces-page.ts) and `TestNativeConnectionFixture`. Real native documents/login plus the fixture's declared synthetic operation boundary. |
-| Browser asset packaging | [lit-build.test.ts](../tests/forgejo/lit-build.test.ts), canonical payload/nativebuild checks and emitted module graph. Complete bytes/imports/cache identity, not installed behavior. |
+| Browser asset packaging | [lit-build.test.ts](../tests/forgejo/lit-build.test.ts), canonical payload/release-build checks and emitted module graph. Complete bytes/imports/cache identity, not installed behavior. |
 | Matching-native candidate | Existing `soda-build` / `check-native.sh ARCH CANDIDATE_DIR` prerequisites and artifact verification. Native preparation is not installed acceptance. |
 | Installed journey | [sodaspaces-workspace-journey.ts](../tests/installed/sodaspaces-workspace-journey.ts), shared installed controls and [sodaspaces-cli.ts](../tests/installed/sodaspaces-cli.ts), extended only for the authorized journey. Exact target/candidate browser and native effects. |
 

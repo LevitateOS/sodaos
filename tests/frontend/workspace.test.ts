@@ -2,7 +2,7 @@ import test, {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {chromium, type Browser, type Page} from 'playwright';
 import path from 'node:path';
-import payload from '../../internal/nativebuild/forgejo-payload.json';
+import payload from '../../internal/release/build/forgejo-payload.json';
 import {buildForgejoModule} from '../../scripts/build-forgejo';
 import type {} from './fixtures/workspace-fixture';
 import {installMeasurementProbe} from './fixtures/workspace-measurement-probe';

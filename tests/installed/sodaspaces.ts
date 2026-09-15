@@ -9,7 +9,7 @@ import {exerciseWorkspaceMatrix} from './sodaspaces-workspace-journey.ts';
 import {observeMatrixShell, inspectMatrixProcess} from './sodaspaces-matrix-native.ts';
 import {exerciseSelectedCLIs} from './sodaspaces-cli.ts';
 import {terminalID} from '../../frontend/spaces/sodaspaces-api.ts';
-import forgejoPayload from '../../internal/nativebuild/forgejo-payload.json';
+import forgejoPayload from '../../internal/release/build/forgejo-payload.json';
 import type {launchNativeBrowser} from './native-browser.ts';
 // SPDX-License-Identifier: Apache-2.0
 // Opt-in real stock Forgejo/Caddy journey. Existing repository and two users;

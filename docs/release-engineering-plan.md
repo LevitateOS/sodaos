@@ -129,7 +129,7 @@ The current caller graph is:
 build-iso.sh → build-installer.py --build-native → build-native.sh
   → soda-host-image --legacy-native → Production → native metadata/seal → ISO
 
-soda-host-image --complete → frozen archive → Production + hostimage
+soda-host-image --complete → frozen archive → Production + release/image
   → writable-shaped stage.py output → vendor translation → candidate
 
 soda-release → separately reviewed trust/prepare/sign/publish/fetch operations
@@ -307,7 +307,7 @@ B4/B5 connect protected qualification and finalization. See the
 and [current execution authority](implementation-status.md#current-permissions).
 Replace the candidate handoff, not the native FCOS disk/boot engine.
 
-1. Keep media-only assembly in `internal/hostimage` under the Go controller; retire
+1. Keep media-only assembly in `internal/release/image` under the Go controller; retire
    `scripts/build-installer.py` rather than making it another new producer. No second
    native build, Go compilation, source selection or supervision. Inputs are the signed
    candidate, prebuilt console/tools and public trust/bootstrap. B1's recommended

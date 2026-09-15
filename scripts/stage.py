@@ -122,7 +122,7 @@ for target in custom.rglob('*'):
     target.chmod(0o755 if target.is_dir() else 0o644)
 # Exact reviewed presentation payload: templates, local assets, fonts/notices and
 # generated full native locale. Never copy a mutable Forgejo tree or partial hooks.
-payload = json.loads((source / 'internal/nativebuild/forgejo-payload.json').read_text())
+payload = json.loads((source / 'internal/release/build/forgejo-payload.json').read_text())
 # Branding uses the same reviewed font files/notices, not a Cockpit extension.
 for dest, src in payload.items():
     if dest.startswith('public/assets/soda/fonts/'):

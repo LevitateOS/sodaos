@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
-import payload from '../../internal/nativebuild/forgejo-payload.json';
+import payload from '../../internal/release/build/forgejo-payload.json';
 import terminalLock from '../../appliance/terminal-assets.lock.json';
 import type {TerminalMetadata} from '../../frontend/spaces/sodaspaces-api';
 import {newManagedTerminal, projectView, terminalMenu} from '../installed/sodaspaces-controls';

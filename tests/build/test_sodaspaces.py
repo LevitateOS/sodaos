@@ -173,10 +173,10 @@ class SodaspacesPackaging(unittest.TestCase):
                 asset.chmod(0o700 if asset.is_dir() else 0o600)
             shutil.copytree(ROOT / 'appliance', checkout / 'appliance')
             shutil.copytree(ROOT / 'frontend', checkout / 'frontend')
-            (checkout / 'internal/nativebuild').mkdir(parents=True)
+            (checkout / 'internal/release/build').mkdir(parents=True)
             shutil.copyfile(
-                ROOT / 'internal/nativebuild/forgejo-payload.json',
-                checkout / 'internal/nativebuild/forgejo-payload.json',
+                ROOT / 'internal/release/build/forgejo-payload.json',
+                checkout / 'internal/release/build/forgejo-payload.json',
             )
             for name in ('LICENSE', 'NOTICE'):
                 shutil.copyfile(ROOT / name, checkout / name)
@@ -187,7 +187,7 @@ class SodaspacesPackaging(unittest.TestCase):
             (build / 'forgejo-locales').mkdir()
             (build / 'forgejo-locales/locale_en-US.ini').write_text('synthetic full-catalog output; not native proof')
             (build / 'forgejo-js').mkdir()
-            for origin in json.loads((checkout / 'internal/nativebuild/forgejo-payload.json').read_text()).values():
+            for origin in json.loads((checkout / 'internal/release/build/forgejo-payload.json').read_text()).values():
                 if origin.startswith('@build/forgejo-js/'):
                     (build / origin.removeprefix('@build/')).write_text('// synthetic compiled browser fixture\n')
             # Synthetic bytes and lock only inside this temporary checkout.
@@ -250,7 +250,7 @@ class SodaspacesPackaging(unittest.TestCase):
                 self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
             for name in FILES:
                 p = stage / PREFIX.removeprefix('rootfs/') / name
-                origin = json.loads((checkout / 'internal/nativebuild/forgejo-payload.json').read_text())[name]
+                origin = json.loads((checkout / 'internal/release/build/forgejo-payload.json').read_text())[name]
                 original = build / origin.removeprefix('@build/') if origin.startswith('@build/') else checkout / origin
                 self.assertEqual(p.read_bytes(), original.read_bytes())
                 self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
@@ -260,7 +260,7 @@ class SodaspacesPackaging(unittest.TestCase):
                     self.assertEqual(stat.S_IMODE(parent.stat().st_mode), 0o755)
 
             for name, origin in json.loads(
-                (checkout / 'internal/nativebuild/forgejo-payload.json').read_text()
+                (checkout / 'internal/release/build/forgejo-payload.json').read_text()
             ).items():
                 original = build / origin.removeprefix('@build/') if origin.startswith('@build/') else checkout / origin
                 target = stage / PREFIX.removeprefix('rootfs/') / name

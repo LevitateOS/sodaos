@@ -435,7 +435,7 @@ consumers; no second copy belongs in a new workspace directory.
 
 The [browser build](../scripts/build-forgejo.ts) currently discovers `.ts` files
 under the branding and appliance asset roots. It maps unique flat basenames to the
-[production payload](../internal/nativebuild/forgejo-payload.json) and requires exact
+[production payload](../internal/release/build/forgejo-payload.json) and requires exact
 inventory equality. Moving source therefore requires coordinated changes to:
 
 1. Source discovery, compiler includes and test/fixture imports.

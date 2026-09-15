@@ -78,7 +78,7 @@ history retains provenance. Fonts retain their family OFL notices.
 ## Scope and checks
 
 The original preview update was local only. Appliance staging/verifier now share
-`internal/nativebuild/forgejo-payload.json`, admitting the full selected presentation,
+`internal/release/build/forgejo-payload.json`, admitting the full selected presentation,
 mounted Sodaspaces content, fonts/notices and complete merged English locale. Exact
 ancestor/destination conflict refusal remains mandatory. Local fixture checks do not
 establish a new native build or separately authorized deployment.
