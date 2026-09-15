@@ -74,49 +74,66 @@ func oauthContextID(query url.Values, name string) (int64, bool) {
 	return positiveID(values[0])
 }
 
-func (s *Server) login(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
+func loginQuery(r *http.Request) (url.Values, int, string) {
 	if len(r.URL.RawQuery) > 8192 {
-		http.Error(w, "Invalid sign-in request.", 400)
-		return
+		return nil, 400, "Invalid sign-in request."
 	}
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		http.Error(w, "Invalid sign-in request.", 400)
-		return
+		return nil, 400, "Invalid sign-in request."
 	}
+	return query, 0, ""
+}
+
+func validLoginDestination(query url.Values) bool {
 	if len(query["return_to"]) > 1 || query.Get("return_to") != "" {
-		http.Error(w, "Unsupported sign-in destination.", http.StatusBadRequest)
-		return
+		return false
 	}
 	destination, hasDestination := query["destination"]
-	if hasDestination && (len(destination) != 1 || (destination[0] != "spaces" && destination[0] != "runners" && destination[0] != "tailnet" && destination[0] != "repository-spaces") || (destination[0] != "repository-spaces" && query.Has("repository_id"))) {
-		http.Error(w, "Unsupported sign-in destination.", http.StatusBadRequest)
-		return
+	if !hasDestination {
+		return true
 	}
+	if len(destination) != 1 {
+		return false
+	}
+	switch destination[0] {
+	case "spaces", "runners", "tailnet":
+		return !query.Has("repository_id")
+	case "repository-spaces":
+		return true
+	}
+	return false
+}
+
+func loginOAuthContext(query url.Values) (int64, int64, bool) {
 	repositoryID, repoOK := oauthContextID(query, "repository_id")
 	expectedUserID, userOK := oauthContextID(query, "expected_user_id")
 	if !repoOK || !userOK || (query.Get("destination") == "repository-spaces" && repositoryID == 0) {
-		http.Error(w, "Invalid repository or expected user ID.", 400)
-		return
+		return 0, 0, false
 	}
-	settingsReturn := ""
-	if query.Get("destination") == "runners" || query.Get("destination") == "tailnet" {
-		settingsReturn = query.Get("destination")
+	return repositoryID, expectedUserID, true
+}
+
+func loginSettingsReturn(destination string) string {
+	if destination == "runners" || destination == "tailnet" {
+		return destination
 	}
-	state, verifier := token(), token()
-	login := store.OAuthLogin{RepositorySettingsReturn: query.Get("destination") == "repository-spaces", Verifier: verifier, RepositoryID: repositoryID, ExpectedUserID: expectedUserID, SpacesReturn: query.Get("destination") == "spaces", SettingsReturn: settingsReturn}
-	var session, previous string
+	return ""
+}
+
+func readLoginCookies(r *http.Request) (session, previous string, status int, message string) {
 	for name, target := range map[string]*string{sessionCookie: &session, oauthCookie: &previous} {
 		c, err := requestCookie(r, name)
 		if err == nil {
 			*target = c.Value
 		} else if !errors.Is(err, http.ErrNoCookie) {
-			s.loginFailure(w, r, login, "Ambiguous Soda cookies; clear them and sign in again.", 400)
-			return
+			return "", "", 400, "Ambiguous Soda cookies; clear them and sign in again."
 		}
 	}
+	return session, previous, 0, ""
+}
+
+func (s *Server) beginLoginAttempt(w http.ResponseWriter, r *http.Request, state string, login store.OAuthLogin, session, previous string) bool {
 	if err := s.Store.BeginOAuth(r.Context(), state, login, session, previous); err != nil {
 		if errors.Is(err, store.ErrLoginContext) {
 			s.cookie(w, sessionCookie, "", -1)
@@ -125,13 +142,48 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		} else {
 			s.loginFailure(w, r, login, "Cannot begin sign-in.", 500)
 		}
-		return
+		return false
 	}
+	return true
+}
+
+func (s *Server) redirectLogin(w http.ResponseWriter, r *http.Request, state, verifier string) {
 	challenge := sha256.Sum256([]byte(verifier))
 	s.cookie(w, oauthCookie, state, 600)
 	scopes := "read:user read:repository read:organization"
 	q := url.Values{"client_id": {s.Config.OAuthClientID}, "redirect_uri": {s.Config.OAuthCallbackURL()}, "response_type": {"code"}, "scope": {scopes}, "state": {state}, "code_challenge": {base64.RawURLEncoding.EncodeToString(challenge[:])}, "code_challenge_method": {"S256"}}
 	http.Redirect(w, r, s.Config.ForgejoURL+"/login/oauth/authorize?"+q.Encode(), http.StatusFound)
+}
+
+func (s *Server) login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	query, status, message := loginQuery(r)
+	if status != 0 {
+		http.Error(w, message, status)
+		return
+	}
+	if !validLoginDestination(query) {
+		http.Error(w, "Unsupported sign-in destination.", http.StatusBadRequest)
+		return
+	}
+	repositoryID, expectedUserID, ok := loginOAuthContext(query)
+	if !ok {
+		http.Error(w, "Invalid repository or expected user ID.", 400)
+		return
+	}
+	destination := query.Get("destination")
+	state, verifier := token(), token()
+	login := store.OAuthLogin{RepositorySettingsReturn: destination == "repository-spaces", Verifier: verifier, RepositoryID: repositoryID, ExpectedUserID: expectedUserID, SpacesReturn: destination == "spaces", SettingsReturn: loginSettingsReturn(destination)}
+	session, previous, status, message := readLoginCookies(r)
+	if status != 0 {
+		s.loginFailure(w, r, login, message, status)
+		return
+	}
+	if !s.beginLoginAttempt(w, r, state, login, session, previous) {
+		return
+	}
+	s.redirectLogin(w, r, state, verifier)
 }
 
 func validCallbackState(state string, c *http.Cookie) bool {
