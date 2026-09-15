@@ -163,40 +163,61 @@ type EnrollmentRequest struct {
 	Default       *bool    `json:"default,omitempty"`
 }
 
+func validateEnrollmentTags(tags []string) error {
+	if len(tags) < 1 || len(tags) > 8 || !slices.IsSorted(tags) {
+		return ErrInvalid
+	}
+	for i, t := range tags {
+		if !tagPattern.MatchString(t) || (i > 0 && tags[i-1] == t) {
+			return ErrInvalid
+		}
+	}
+	return nil
+}
+
+func validateEnrollmentPolicy(tailnet string, tags []string, preauthorized *bool) error {
+	if !networkPattern.MatchString(tailnet) || strings.Contains(tailnet, "..") || preauthorized == nil {
+		return ErrInvalid
+	}
+	return validateEnrollmentTags(tags)
+}
+
+func validateEnrollmentMutation(r EnrollmentRequest) error {
+	if !clientPattern.MatchString(r.ClientID) || !credentialPattern.MatchString(r.ClientSecret) || r.Default != nil {
+		return ErrInvalid
+	}
+	return validateEnrollmentPolicy(r.Tailnet, r.Tags, r.Preauthorized)
+}
+
+func hasEnrollmentPayload(r EnrollmentRequest) bool {
+	return r.ClientID != "" || r.ClientSecret != "" || r.Tailnet != "" || r.Tags != nil || r.Preauthorized != nil
+}
+
+func validateEnrollmentToggle(r EnrollmentRequest) error {
+	if hasEnrollmentPayload(r) {
+		return ErrInvalid
+	}
+	if r.Action == "default" && r.Default == nil {
+		return ErrInvalid
+	}
+	if r.Action == "disable" && r.Default != nil {
+		return ErrInvalid
+	}
+	return nil
+}
+
 func (r EnrollmentRequest) Validate() error {
 	if !validRevision(r.Revision) {
 		return ErrInvalid
 	}
-	credentials := r.ClientID != "" || r.ClientSecret != ""
-	policy := r.Tailnet != "" || r.Tags != nil || r.Preauthorized != nil
 	switch r.Action {
 	case "save", "check", "rotate":
-		if !clientPattern.MatchString(r.ClientID) || !credentialPattern.MatchString(r.ClientSecret) || r.Default != nil {
-			return ErrInvalid
-		}
-		if !networkPattern.MatchString(r.Tailnet) || strings.Contains(r.Tailnet, "..") || len(r.Tags) < 1 || len(r.Tags) > 8 || r.Preauthorized == nil {
-			return ErrInvalid
-		}
-		if !slices.IsSorted(r.Tags) {
-			return ErrInvalid
-		}
-		for i, t := range r.Tags {
-			if !tagPattern.MatchString(t) || (i > 0 && r.Tags[i-1] == t) {
-				return ErrInvalid
-			}
-		}
-	case "default":
-		if credentials || policy || r.Default == nil {
-			return ErrInvalid
-		}
-	case "disable":
-		if credentials || policy || r.Default != nil {
-			return ErrInvalid
-		}
+		return validateEnrollmentMutation(r)
+	case "default", "disable":
+		return validateEnrollmentToggle(r)
 	default:
 		return ErrInvalid
 	}
-	return nil
 }
 
 type EnrollmentResult struct {
