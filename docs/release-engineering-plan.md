@@ -2,10 +2,10 @@
 
 ## Priority and current state
 
-**Immediate priority is completing B4, resumed by the owner.** The
+**Immediate priority is B5 after completed B4.** The
 [fast-development side plan](fast-development-build-plan.md) is complete within its
 scoped development checks and does not substitute for production qualification.
-B1–B6 remain the release replacement milestones, not launch work; the side plan
+B1–B4 of the release replacement are done; B5–B6 remain. The side plan
 neither qualifies development output nor creates a competing release recipe.
 Complete the six replacement milestones below before unattended scheduling,
 production-readiness commissioning or launch. The previous complete-candidate →
@@ -343,14 +343,12 @@ phase order: artifact authentication still precedes privileged installation.
 
 ### Milestone 4 — connect native qualification
 
-**B4 incomplete; integrated development driver passed; protected production receipt
-required.** The fixed
-**P9** path is reconnected after P7 candidate admission and P8 media assembly;
-`development-driver-02` passed against retained artifacts. A fresh production
-qualification run remains required. Retained failed-run artifacts are not qualified
-releases. Use reviewed `internal/acceptance`
+**B4 complete.** Protected production-09 wrote byte-bound
+`qualified.json` for the fixed same-base x86_64 install/update/recovery scenario.
+Retained failed-run and development artifacts are not that receipt. B5 owns final
+signing/publishing custody. Use reviewed `internal/acceptance`
 and applicable `tests/installed` drivers, not another framework or build-supplied
-`passed` assertion. Execution authority is recorded in
+`passed` assertion. Execution authority for the completed run is recorded in
 [implementation status](implementation-status.md#current-permissions).
 
 **Selected first qualification path — x86_64, same base, compatible schema:**

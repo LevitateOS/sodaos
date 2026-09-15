@@ -1,24 +1,28 @@
 # Implementation status — single-run replacement
 
-**Active priority: finish B4.** The owner explicitly resumed remaining production
-qualification after the completed
-[fast-development side path](fast-development-build-plan.md). B4 is not complete.
-F1–F3 are done separately; the original B1–B6 milestones below are retained, not
-renumbered or replaced. The
+**Active priority: B4 complete; B5 is next.** Protected native qualification passed
+on production-09. F1–F3 remain separate development work. The original B1–B6
+milestones below are retained. The
 [release plan](release-engineering-plan.md#single-run-build-replacement-implementation)
 owns production contracts; [history](implementation-history.md) owns detailed
 receipts and superseded grants. Other workstreams remain in the [development handoff](development-handoff.md).
 
 ## Current position
 
+- **B4 complete:** `0618409` reconnects protected P9. Non-qualifying
+  `development-driver-02` passed first. Fresh production-09 (`soda-build-b4-0618409`,
+  trimpath Go 1.26.7, driver `7113e360…`) finished P1–P8 in **21m39s** and P9 in
+  **9m36s** (**31m16s** total). Exit **2** with B5 signing disconnected, as required.
+  Protected receipt: `.artifacts/b4-qualification/controller-runs/b4-production-09/qualified.json`
+  — install/media-free B, wrong-key and required-content refusals, Zincati
+  maintenance/offline activation, later-write rollback to A, both state generations,
+  unchanged baseline `8b3f7289…`, candidate host
+  `sha256:a879a4ab112cfa94aefe6962cb1ea6bfc2a19044ffc73395eee7eb7fd7087ab8` on revision
+  `0618409`. VMs/listeners stopped. Retained failed production-05..08 and cancelled
+  development-driver-01 are not resumes.
 - **Integrated P9 development driver passed:** `development-driver-02` exercised the
   reconnected fixed scenario against retained `baseline-02` and unchanged
-  `b4-production-02` candidate/media (**~9m20s**, exit 0). Evidence covers B ISO
-  install/media-free boot, wrong-key and required-content refusals with A unchanged,
-  Zincati maintenance/offline B activation, later-write rollback to A, and both state
-  generations. Baseline disk hash unchanged; VMs/listeners stopped. This is
-  non-qualifying; no production `qualified.json`. Cancelled `development-driver-01`
-  remains retained (SIGINT after Forgejo `/api/v1/version` 404 on unlocked install).
+  `b4-production-02` candidate/media (**~9m20s**, exit 0) before the production run.
 - **Fast-development F1/F2 delivered:** `bb17280` adds explicit development
   candidate/media targets through the existing isolated producer. Native candidate
   runs passed in **8m29s cold / 5m30s warm**, with all five apps/checks and no media
@@ -26,7 +30,7 @@ receipts and superseded grants. Other workstreams remain in the [development han
   default/fast media took **21m24s / 18m35s**, with fast packaging saving **2m56s**
   for a **2.85% larger rootfs**. Native readback and a diskless fast-media welcome boot
   passed; task workers, VM and listener stopped. Production settings remain unchanged. [F1–F3 status](fast-development-build-plan.md#implementation-order) remains
-  separate from B1–B6. B4 fixtures and real release custody remain untouched.
+  separate from B1–B6.
 - B2's source-to-candidate controller was natively proved. Earlier B3 fixtures proved
   candidate-derived installation, media removal, exact-candidate first boot, five local
   application images, SELinux and interruption/cancellation boundaries.
@@ -102,13 +106,15 @@ A fixture download URL is not a distribution-ready public installer.
 
 ### 4. Connect native qualification — B4
 
-**Resumed; integrated development driver passed; protected production receipt still
-required.** The prior approval and completed groundwork remain in force. The
+**Complete.** Protected P9 production-09 wrote
+`.artifacts/b4-qualification/controller-runs/b4-production-09/qualified.json` against
+unchanged candidate bytes from clean committed controller `0618409`. Scope covered
+ISO install/media-free boot, native signature/content refusal, Zincati
+maintenance/offline A→B activation, populated-state preservation and later-write
+rollback to A. Fixture/development probes are not this receipt. B5 still owns final
+release signing; CLI exit 2 records that gap. The
 [owning B4 contract](release-engineering-plan.md#milestone-4--connect-native-qualification)
-selects P9 installation, same-base x86_64 A → B update and compatible native recovery.
-A is the verified current-layout `33ea3f5` artifact; B for the final production run is
-the next necessary clean committed controller build. Development used retained
-`b4-production-02` bytes only as a non-qualifying check.
+remains the authority for what this first scenario does and does not claim.
 
 Required evidence covers native signatures, HTTPS graph offers, maintenance,
 staged offline content, populated-state preservation including later writes, and
@@ -209,17 +215,10 @@ actual caller is replaced; do not invent compatibility to keep experiments usabl
 
 ## Immediate prerequisites and next action
 
-The owner resumed B4 to completion. Native policy/attachment, update and recovery
-prerequisites are demonstrated in retained non-qualifying probes. The integrated
-driver is reconnected; `development-driver-01` installed B and reached media-free
-first boot, then was SIGINT'd while polling unconfigured Forgejo `/api/v1/version`
-(404 until install lock). Readiness now requires that API only after fixture setup.
-Next: `development-driver-02` against retained artifacts, then one fresh protected
-production P9 run. Development evidence is not release qualification. Public hosting,
-ARM and minimum-hardware work remain separate. The required final qualification scope
-is unchanged in the
-[B4 contract](release-engineering-plan.md#milestone-4--connect-native-qualification).
-Preserve failed targets and the original seed.
+B4 is complete. Next is B5: connect protected authority to final candidate/ISO/evidence
+bindings and existing delivery primitives; test failure handling and channel-last
+publication interfaces locally. B3 fixture signatures and B4 qualification evidence
+do not complete B5. Public hosting, ARM and minimum-hardware work remain separate.
 
 The public rootfs base URL is an explicit media input. GitHub Release assets can serve
 hash-named ISO/rootfs files; this local work neither publishes them nor requires an
@@ -229,26 +228,9 @@ complete offline installer.
 
 ## Current permissions
 
-**Current task: finish B4.** The owner explicitly resumed implementation and bounded
-native execution under the B4 scope below. Development checks come first; do not
-repeat production builds to debug native boundaries. No artifact deletion or broader
-provider, publication, trust or resource grant is added.
-
-Active development target completed: `development-driver-02` passed. Next production
-target: fresh `b4-production-05` under `.artifacts/releases/isolated/` with admitted
-controller/helpers, new `p9-production-05` work root, `production-worker-04.json` and
-`production-p9-04.json` (includes BaselinePassword). Use stopped `baseline-02` only as
-a verified copy source. No resume of failed production-01..04. Exact disposable
-registry/listeners/VMs stop on exit; retain all artifacts.
-
-Completed earlier probe targets remain retained for evidence. First development
-target was `workers/soda-qualifier/attachment-probe-02` beneath
-`.artifacts/b4-qualification/`, with a fresh copy of the stopped `p9-production-01`
-diagnostic disk/NVRAM. Reuse the exact stopped `p9-production-02` fixture registry
-and TLS inputs; stop that registry and the new VM/listener after the probe. Admit a
-separately named `probe-native-attachments-02` helper under the existing protected
-helper directory, recording its hash before execution. This probe is non-qualifying;
-original disks, baseline, keys, historical helpers and failed receipts remain retained.
+**Current task: B4 complete; B5 not started.** No new broad grant is added by this
+status update. Historical B4 execution bounds below remain the record of what was
+authorized for the completed qualification work.
 
 Next development target: `workers/soda-qualifier/update-probe-01`, copied from the
 stopped attachment probe. The separately admitted `probe-native-update-01` helper
