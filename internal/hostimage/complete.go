@@ -27,6 +27,35 @@ type PackageLock struct {
 // LockHostPackages pins the complete added transaction and checks the entire
 // resulting RPM inventory. Mirrors may disappear: fail, never resolve a newer
 // substitute. This is NEVRA/provenance locking, not byte-reproducible RPM storage.
+func validRPMNames(names []string) error {
+	seen := map[string]bool{}
+	for _, n := range names {
+		if !regexp.MustCompile(`^[a-z0-9][a-zA-Z0-9+._:-]*$`).MatchString(n) || seen[n] {
+			return errors.New("invalid RPM lock entry")
+		}
+		seen[n] = true
+	}
+	return nil
+}
+
+func validRPMInventory(lines []string) error {
+	if !slices.IsSorted(lines) {
+		return errors.New("sorted RPM inventory required")
+	}
+	seen := map[string]bool{}
+	for _, line := range lines {
+		if !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9+._-]* [0-9]+:[a-zA-Z0-9+._~^-]+$`).MatchString(line) || seen[line] {
+			return errors.New("invalid expected RPM inventory")
+		}
+		seen[line] = true
+	}
+	return nil
+}
+
+func lockMatchesBase(lock PackageLock, arch string, base Base, requested []string) bool {
+	return lock.CoreOS == base.Release && lock.Architecture == arch && slices.Equal(lock.Requested, requested) && len(lock.Install) != 0 && len(lock.Inventory) != 0
+}
+
 func LockHostPackages(source, context, arch string, base Base) (string, error) {
 	var lock PackageLock
 	if err := nativebuild.ReadJSON(filepath.Join(source, "appliance/locks/host-packages-"+arch+".json"), &lock); err != nil {
@@ -40,25 +69,14 @@ func LockHostPackages(source, context, arch string, base Base) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if lock.CoreOS != base.Release || lock.Architecture != arch || !slices.Equal(lock.Requested, requested) || len(lock.Install) == 0 || len(lock.Inventory) == 0 {
+	if !lockMatchesBase(lock, arch, base, requested) {
 		return "", errors.New("host package lock does not match current base/provisioning")
 	}
-	seen := map[string]bool{}
-	for _, n := range lock.Install {
-		if !regexp.MustCompile(`^[a-z0-9][a-zA-Z0-9+._:-]*$`).MatchString(n) || seen[n] {
-			return "", errors.New("invalid RPM lock entry")
-		}
-		seen[n] = true
+	if err = validRPMNames(lock.Install); err != nil {
+		return "", err
 	}
-	if !slices.IsSorted(lock.Inventory) {
-		return "", errors.New("sorted RPM inventory required")
-	}
-	seen = map[string]bool{}
-	for _, line := range lock.Inventory {
-		if !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9+._-]* [0-9]+:[a-zA-Z0-9+._~^-]+$`).MatchString(line) || seen[line] {
-			return "", errors.New("invalid expected RPM inventory")
-		}
-		seen[line] = true
+	if err = validRPMInventory(lock.Inventory); err != nil {
+		return "", err
 	}
 	expected := []byte(strings.Join(lock.Inventory, "\n") + "\n")
 	if err = ownedWrite(filepath.Join(context, "packages.list"), []byte(strings.Join(lock.Install, "\n")+"\n"), 0o644); err != nil {
