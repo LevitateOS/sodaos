@@ -48,6 +48,51 @@ func LoadConfig(path string) (Config, error) {
 	return loadConfig(path, installlayout.Release)
 }
 
+func applyReleaseImages(c *Config, releasePath string) error {
+	if releasePath == "" {
+		return nil
+	}
+	p, err := appliancerelease.Load(releasePath)
+	if err != nil || nativebuild.RequireNative(p.Architecture) != nil {
+		return errors.New("immutable appliance image defaults unavailable")
+	}
+	// Never silently replace an operator's saved image choice. New installs
+	// omit these fields; a conflicting old install needs explicit migration.
+	project, companion := p.Images["project-os"].Config, p.Images["tailnet"].Config
+	if (c.Image != "" && c.Image != project) || (c.TailnetImage != "" && c.TailnetImage != companion) {
+		return errors.New("saved image selection conflicts with appliance release; explicit migration required")
+	}
+	c.Image = project
+	if c.TailnetManagement {
+		c.TailnetImage = companion
+	}
+	return nil
+}
+
+func validTailnetImage(c Config) bool {
+	if c.TailnetImage == "" {
+		return true
+	}
+	return c.TailnetManagement && strings.HasPrefix(c.TailnetImage, "sha256:") && imageID.MatchString(c.TailnetImage)
+}
+
+func validNetworkNames(c Config) bool {
+	return c.Image != "" && !strings.HasPrefix(c.Image, "-") && networkName.MatchString(c.Network) && networkName.MatchString(c.Bridge)
+}
+
+func validateRuntimeConfig(c Config) error {
+	if _, err := netip.ParsePrefix(c.Subnet); err != nil {
+		return err
+	}
+	if !validTailnetImage(c) {
+		return errors.New("invalid immutable Tailnet companion configuration")
+	}
+	if !validNetworkNames(c) {
+		return errors.New("invalid native runtime configuration")
+	}
+	return nil
+}
+
 func loadConfig(path, releasePath string) (Config, error) {
 	var c Config
 	b, err := os.ReadFile(path)
@@ -59,30 +104,11 @@ func loadConfig(path, releasePath string) (Config, error) {
 	if err = d.Decode(&c); err != nil {
 		return c, err
 	}
-	if releasePath != "" {
-		p, err := appliancerelease.Load(releasePath)
-		if err != nil || nativebuild.RequireNative(p.Architecture) != nil {
-			return c, errors.New("immutable appliance image defaults unavailable")
-		}
-		// Never silently replace an operator's saved image choice. New installs
-		// omit these fields; a conflicting old install needs explicit migration.
-		project, companion := p.Images["project-os"].Config, p.Images["tailnet"].Config
-		if (c.Image != "" && c.Image != project) || (c.TailnetImage != "" && c.TailnetImage != companion) {
-			return c, errors.New("saved image selection conflicts with appliance release; explicit migration required")
-		}
-		c.Image = project
-		if c.TailnetManagement {
-			c.TailnetImage = companion
-		}
-	}
-	if _, err = netip.ParsePrefix(c.Subnet); err != nil {
+	if err = applyReleaseImages(&c, releasePath); err != nil {
 		return c, err
 	}
-	if c.TailnetImage != "" && (!c.TailnetManagement || !strings.HasPrefix(c.TailnetImage, "sha256:") || !imageID.MatchString(c.TailnetImage)) {
-		return c, errors.New("invalid immutable Tailnet companion configuration")
-	}
-	if c.Image == "" || strings.HasPrefix(c.Image, "-") || !networkName.MatchString(c.Network) || !networkName.MatchString(c.Bridge) {
-		return c, errors.New("invalid native runtime configuration")
+	if err = validateRuntimeConfig(c); err != nil {
+		return c, err
 	}
 	return c, nil
 }
