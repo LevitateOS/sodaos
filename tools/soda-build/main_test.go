@@ -57,6 +57,21 @@ func TestWorkerEnvUsesDefaultBunCache(t *testing.T) {
 	require.Contains(t, w.Environment, "HOME="+workerHome)
 }
 
+func TestWorkerPathLeadsWithFixedGoRoot(t *testing.T) {
+	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
+	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "media", RootfsBaseURL: "https://example.invalid"}
+	w, err := buildWorker(c, r)
+	require.NoError(t, err)
+	for _, env := range w.Environment {
+		if strings.HasPrefix(env, "PATH=") {
+			require.True(t, strings.HasPrefix(env, "PATH="+pinnedGoRoot+"/bin:"), env)
+			require.NotContains(t, env, "soda-build-tools/go")
+			return
+		}
+	}
+	t.Fatal("worker PATH missing")
+}
+
 func TestFastMediaWorkerSelection(t *testing.T) {
 	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
 	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "media", MediaCompression: "fast", RootfsBaseURL: "https://example.invalid"}

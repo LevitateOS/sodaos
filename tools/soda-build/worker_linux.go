@@ -28,6 +28,10 @@ const (
 	workerHome    = "/var/lib/soda-build-worker"
 	workerRuntime = "/run/soda-build-worker"
 	workerTools   = "/run/soda-build-tools"
+	// pinnedGoRoot is the fixed host GOROOT provisioned by
+	// setup-soda-candidate.sh. Go 1.26 refuses a toolchain reached
+	// through a bind mount, so it cannot live under workerTools.
+	pinnedGoRoot = "/usr/local/lib/soda/pinned-go"
 )
 
 func buildWorkerIdentity() error {
@@ -163,7 +167,7 @@ func buildWorker(c workerConfig, r image.Request) (acceptance.Worker, error) {
 		Name: name, User: "soda-build-worker", Executable: c.Executable, Directory: workerSource,
 		ReadOnly:    []string{c.Source + ":" + workerSource, c.Tools + ":" + workerTools},
 		Writable:    []string{c.OutputParent + ":" + filepath.Join(workerSource, parentRel), c.BuildHome + ":" + workerHome, c.Runtime + ":" + workerRuntime},
-		Environment: []string{"HOME=" + workerHome, "PATH=" + workerTools + "/go/bin:" + workerTools + "/bin:/usr/sbin:/usr/bin:/sbin:/bin", "XDG_RUNTIME_DIR=" + workerRuntime, "GOTOOLCHAIN=go1.26.7", "GOCACHE=" + workerHome + "/go-build", "GOMODCACHE=" + workerHome + "/go-mod", "PLAYWRIGHT_BROWSERS_PATH=" + workerHome + "/browsers", "SODA_BUILD_START_NS=" + os.Getenv("SODA_BUILD_START_NS")},
+		Environment: []string{"HOME=" + workerHome, "PATH=" + pinnedGoRoot + "/bin:" + workerTools + "/bin:/usr/sbin:/usr/bin:/sbin:/bin", "XDG_RUNTIME_DIR=" + workerRuntime, "GOTOOLCHAIN=go1.26.7", "GOCACHE=" + workerHome + "/go-build", "GOMODCACHE=" + workerHome + "/go-mod", "PLAYWRIGHT_BROWSERS_PATH=" + workerHome + "/browsers", "SODA_BUILD_START_NS=" + os.Getenv("SODA_BUILD_START_NS")},
 		Arguments:   []string{"--worker-build", "--arch", r.Arch, "--out", out, "--repository-prefix", r.RepositoryPrefix},
 	}
 	if r.Development {

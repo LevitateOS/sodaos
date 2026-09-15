@@ -15,6 +15,7 @@ REFRESH="${SODA_REFRESH_AUTHORITY:-0}"
 ROOTFS_DIR="/var/lib/soda-rootfs"
 ROOTFS_URL="http://127.0.0.1:8080"
 ADMITTED="/usr/local/lib/soda/soda-build"
+PINNED_GO="/usr/local/lib/soda/pinned-go"
 WRAPPER="/usr/sbin/soda-candidate"
 OUTPUT_PARENT="$PWD/.artifacts/releases/isolated"
 BUILD_HOME="/var/lib/soda-candidate-home"
@@ -58,25 +59,24 @@ WANT_WRAPPER="$(readlink -f "$WRAPPER")"
 
 echo "-- worker directories"
 sudo mkdir -p "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME" "$TOOLS/bin" "$AUTHORITY"
-# Self-contained tools: the worker runs under ProtectHome=tmpfs and
-# ProtectSystem=strict, so symlinks into /usr/local or $HOME would dangle.
-# Copy the full pinned GOROOT tree (a bare go binary cannot find its stdlib)
-# and the single-file bun binary; the worker bind-mounts only this directory.
-# Module-cache copies carry foreign SELinux labels, so relabel afterwards.
-# The isolated worker runs as a systemd service: it is denied execute on
-# var_lib_t, so the provisioned executables need bin_t to run at all.
-sudo rm -rf "$TOOLS/go" "$TOOLS/bin/bun"
-sudo cp -a "$PINNED_GOROOT" "$TOOLS/go"
+# The pinned GOROOT installs at a fixed host path instead of the bound
+# tools dir: Go 1.26 refuses a toolchain reached through a bind mount
+# (synthesized "permission denied", no failing syscall, no audit trail),
+# and /usr/local stays readable under ProtectSystem=strict. The
+# single-file bun binary tolerates the bind, so it stays in $TOOLS.
+sudo rm -rf "$TOOLS/go" "$PINNED_GO" "$TOOLS/bin/bun"
+sudo cp -a "$PINNED_GOROOT" "$PINNED_GO"
 sudo cp "$(command -v bun)" "$TOOLS/bin/bun"
-sudo chown -R root:root "$TOOLS"
+sudo chown -R root:root "$PINNED_GO" "$TOOLS"
 if command -v semanage >/dev/null; then
   sudo semanage fcontext -a -t bin_t "$TOOLS(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t bin_t "$TOOLS(/.*)?"
 fi
-command -v restorecon >/dev/null && sudo restorecon -R "$TOOLS"
-sudo find "$TOOLS/go" -type d -exec chmod 0755 {} +
+command -v restorecon >/dev/null && sudo restorecon -R "$PINNED_GO" "$TOOLS"
 # Module-cache toolchain files arrive owner-read-only; the worker compiles
-# against them, so every file must be world-readable too.
-sudo find "$TOOLS/go" -type f -exec chmod a+r {} +
+# against them, so directories need traversal and files need read bits.
+sudo find "$PINNED_GO" -type d -exec chmod 0755 {} +
+sudo find "$PINNED_GO" -type f -exec chmod a+r {} +
+sudo stat -c %C "$PINNED_GO/bin/go" | grep -q ":lib_t:" || fail "pinned GOROOT is not lib_t; the sandboxed worker could not execute it"
 sudo chown soda-build-worker:soda-build-worker "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME"
 # The service worker is denied file creation on user_home_t, so the output
 # parent inside the checkout needs var_lib_t to take build output.
@@ -87,8 +87,8 @@ command -v restorecon >/dev/null && sudo restorecon -R "$OUTPUT_PARENT"
 sudo chmod 0755 "$TOOLS" "$TOOLS/bin"
 sudo chmod 0700 "$AUTHORITY"
 echo "-- verify tools as the worker user"
-[ "$(sudo -u soda-build-worker env GOTOOLCHAIN=local HOME="$BUILD_HOME" "$TOOLS/go/bin/go" version)" = "$WANT" ] || fail "provisioned Go is not $PINNED or not worker-runnable"
-sudo -u soda-build-worker test -r "$TOOLS/go/src/net/textproto/header.go" || fail "provisioned GOROOT sources are not worker-readable"
+[ "$(sudo -u soda-build-worker env GOTOOLCHAIN=local HOME="$BUILD_HOME" "$PINNED_GO/bin/go" version)" = "$WANT" ] || fail "provisioned Go is not $PINNED or not worker-runnable"
+sudo -u soda-build-worker test -r "$PINNED_GO/src/net/textproto/header.go" || fail "provisioned GOROOT sources are not worker-readable"
 sudo -u soda-build-worker "$TOOLS/bin/bun" --version >/dev/null || fail "provisioned bun is not worker-runnable"
 
 echo "-- warm worker caches (the isolated worker has no network)"
@@ -97,8 +97,8 @@ echo "-- warm worker caches (the isolated worker has no network)"
 # `go build` warms exactly the readonly build set without touching the
 # checkout; fetched as root, then handed to the worker.
 sudo mkdir -p "$BUILD_HOME/go-mod" "$BUILD_HOME/go-build"
-sudo env HOME="$BUILD_HOME" GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org GOMODCACHE="$BUILD_HOME/go-mod" GOCACHE="$BUILD_HOME/go-build" GOTOOLCHAIN="go$PINNED" GOFLAGS=-mod=readonly CGO_ENABLED=0 "$TOOLS/go/bin/go" build ./... || fail "cannot warm Go module cache"
-sudo -u soda-build-worker env HOME="$BUILD_HOME" "$TOOLS/go/bin/go" env -w GOPROXY=off || fail "cannot lock worker Go offline"
+sudo env HOME="$BUILD_HOME" GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org GOMODCACHE="$BUILD_HOME/go-mod" GOCACHE="$BUILD_HOME/go-build" GOTOOLCHAIN="go$PINNED" GOFLAGS=-mod=readonly CGO_ENABLED=0 "$PINNED_GO/bin/go" build ./... || fail "cannot warm Go module cache"
+sudo -u soda-build-worker env HOME="$BUILD_HOME" "$PINNED_GO/bin/go" env -w GOPROXY=off || fail "cannot lock worker Go offline"
 # Bun installs only from its HOME cache inside: warm it from a scratch copy
 # (mirroring the workspaces list) so node_modules never lands in the
 # checkout. Bun refuses files owned by another user, so the scratch tree
