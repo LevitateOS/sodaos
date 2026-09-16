@@ -120,7 +120,8 @@ func printDiskComplete(c console, media mediaIdentity) {
 		c.print("SodaOS disk installation completed with all five application images local.")
 		c.print("Remove installation media and reboot explicitly; log in locally as root with your password.")
 		c.print("Native startup imports the included images before starting their services. No reboot was performed.")
-		c.print("For key-only SSH access, run locally after reboot: %s enroll-key", candidateInstallerBinary)
+		c.print("SSH password access is enabled; log in as root over SSH with your password.")
+		c.print("To go key-only later, run locally after reboot: %s enroll-key, then disable password logins yourself.", candidateInstallerBinary)
 		c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
 		return
 	}

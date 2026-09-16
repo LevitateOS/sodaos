@@ -9,9 +9,9 @@
         "contents": {"inline": "immutable-candidate\n"}
       },
       {
-        "path": "/etc/ssh/sshd_config.d/20-soda-key-only.conf",
+        "path": "/etc/ssh/sshd_config.d/20-soda-operator.conf",
         "mode": 420,
-        "contents": {"inline": "PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin prohibit-password\n"}
+        "contents": {"inline": "PermitRootLogin yes\nPasswordAuthentication yes\nKbdInteractiveAuthentication yes\n"}
       }
     ]
   },

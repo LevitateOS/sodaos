@@ -82,6 +82,17 @@ class Provisioning(unittest.TestCase):
         self.assertNotIn('reboot', raw)
         self.assertIn('rpm-ostree install', raw)
 
+    def test_installed_system_defaults_to_password_ssh(self):
+        raw = (ROOT / 'appliance/provisioning/candidate.json').read_text()
+        data = json.loads(raw)
+        dropin = next(f for f in data['storage']['files'] if f['path'].startswith('/etc/ssh/sshd_config.d/'))
+        self.assertNotIn('key-only', dropin['path'])
+        config = dropin['contents']['inline']
+        self.assertIn('PermitRootLogin yes', config)
+        self.assertIn('PasswordAuthentication yes', config)
+        self.assertNotIn('prohibit-password', config)
+        self.assertNotIn(' no\n', config)
+
 
 class OutsideContracts(unittest.TestCase):
     def test_support_tools_are_not_appliance_commands(self):
