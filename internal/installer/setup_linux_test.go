@@ -83,7 +83,7 @@ func TestPrivateSetupKeepsCredentialOutOfCommandsAndTranscript(t *testing.T) {
 	for _, cancelSetup := range []bool{false, true} {
 		t.Run(map[bool]string{false: "configure", true: "cancel"}[cancelSetup], func(t *testing.T) {
 			root := t.TempDir()
-			if err := os.WriteFile(filepath.Join(root, "installed"), nil, 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(root, "installed"), nil, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			master, slave := openTestPTY(t)
@@ -113,16 +113,16 @@ func TestPrivateSetupKeepsCredentialOutOfCommandsAndTranscript(t *testing.T) {
 					}
 					data, err := os.ReadFile(args[3])
 					st, statErr := os.Stat(args[3])
-					if err != nil || statErr != nil || string(data) != token+"\n" || st.Mode().Perm() != 0600 {
+					if err != nil || statErr != nil || string(data) != token+"\n" || st.Mode().Perm() != 0o600 {
 						t.Error("token was not passed in a restricted file")
 					}
 					config, _ := json.Marshal(map[string]string{"forgejo_url": args[1]})
-					return nil, os.WriteFile(args[5], config, 0600)
+					return nil, os.WriteFile(args[5], config, 0o600)
 				}
 				if name != platform.Sbin+"/soda-activate" || strings.Join(args, " ") != "--bind-ip 192.168.1.5 --local-tls" {
 					t.Errorf("unexpected activation: %s %v", name, args)
 				}
-				return nil, os.WriteFile(filepath.Join(root, "proxy.env"), []byte("SODA_TLS=internal\n"), 0600)
+				return nil, os.WriteFile(filepath.Join(root, "proxy.env"), []byte("SODA_TLS=internal\n"), 0o600)
 			}
 			done := make(chan error, 1)
 			go func() {
@@ -182,7 +182,7 @@ func TestPrivateSetupDoesNotReplayExistingState(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			root := t.TempDir()
 			for _, name := range []string{"installed", state} {
-				if err := os.WriteFile(filepath.Join(root, name), nil, 0600); err != nil {
+				if err := os.WriteFile(filepath.Join(root, name), nil, 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -204,10 +204,10 @@ func TestLocalTrustGuidanceRejectsUntrustedDestination(t *testing.T) {
 		t.Run(origin, func(t *testing.T) {
 			root := t.TempDir()
 			config, _ := json.Marshal(map[string]string{"forgejo_url": origin})
-			if err := os.WriteFile(filepath.Join(root, "dashboard.json"), config, 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(root, "dashboard.json"), config, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(root, "proxy.env"), []byte("SODA_TLS=internal\n"), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(root, "proxy.env"), []byte("SODA_TLS=internal\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			_, tty := openTestPTY(t)
@@ -234,10 +234,10 @@ func TestConfigureRequiresLaptopTerminalBeforeInput(t *testing.T) {
 
 func TestConfiguredGuidanceReportsInactiveServiceWithoutReplay(t *testing.T) {
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "dashboard.json"), []byte(`{"forgejo_url":"https://192.168.1.5"}`), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "dashboard.json"), []byte(`{"forgejo_url":"https://192.168.1.5"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "proxy.env"), []byte("SODA_TLS=internal\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "proxy.env"), []byte("SODA_TLS=internal\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	_, tty := openTestPTY(t)

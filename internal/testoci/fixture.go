@@ -32,7 +32,7 @@ func Archive(t testing.TB, path, arch, revision string) Image {
 	var layer bytes.Buffer
 	tw := tar.NewWriter(&layer)
 	body := []byte(strings.Repeat("shared inert fixture content\n", 100))
-	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "fixture.txt", Mode: 0644, Size: int64(len(body))}))
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "fixture.txt", Mode: 0o644, Size: int64(len(body))}))
 	_, err := tw.Write(body)
 	require.NoError(t, err)
 	require.NoError(t, tw.Close())
@@ -47,15 +47,15 @@ func Archive(t testing.TB, path, arch, revision string) Image {
 	blobs["index.json"], err = json.Marshal(map[string]any{"schemaVersion": 2, "manifests": []any{md}})
 	require.NoError(t, err)
 	blobs["oci-layout"] = []byte(`{"imageLayoutVersion":"1.0.0"}`)
-	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	f, err := os.Create(path)
 	require.NoError(t, err)
 	tw = tar.NewWriter(f)
 	for _, name := range []string{"blobs", "blobs/sha256"} {
-		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Typeflag: tar.TypeDir, Mode: 0755, Uid: os.Getuid(), Gid: os.Getgid()}))
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Typeflag: tar.TypeDir, Mode: 0o755, Uid: os.Getuid(), Gid: os.Getgid()}))
 	}
 	for name, b := range blobs {
-		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0644, Uid: os.Getuid(), Gid: os.Getgid(), Size: int64(len(b))}))
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Uid: os.Getuid(), Gid: os.Getgid(), Size: int64(len(b))}))
 		_, err = tw.Write(b)
 		require.NoError(t, err)
 	}
@@ -107,15 +107,15 @@ func Add(t testing.TB, archive, layout string) {
 			continue
 		}
 		dest := filepath.Join(layout, h.Name)
-		require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Dir(dest), 0o755))
 		if previous, err := os.ReadFile(dest); err == nil {
 			require.Equal(t, b, previous)
 		} else {
 			require.True(t, os.IsNotExist(err))
-			require.NoError(t, os.WriteFile(dest, b, 0644))
+			require.NoError(t, os.WriteFile(dest, b, 0o644))
 		}
 	}
 	b, err := json.Marshal(map[string]any{"schemaVersion": 2, "mediaType": "application/vnd.oci.image.index.v1+json", "manifests": descriptors})
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(indexPath, b, 0644))
+	require.NoError(t, os.WriteFile(indexPath, b, 0o644))
 }

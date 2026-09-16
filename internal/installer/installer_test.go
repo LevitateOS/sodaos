@@ -263,7 +263,7 @@ func TestExtensionActivationRequired(t *testing.T) {
 func TestPrivateInputAndOutputBounds(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "input")
-	if err := os.WriteFile(file, []byte("fixture"), 0600); err != nil {
+	if err := os.WriteFile(file, []byte("fixture"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := readRegular(file, 6); err == nil {

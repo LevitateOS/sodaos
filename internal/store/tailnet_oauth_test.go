@@ -66,7 +66,7 @@ func tailnetV9Fixture(t *testing.T) (string, []byte) {
 		t.Fatal("fixture was not v9")
 	}
 	s.Close()
-	if e = os.Chmod(path, 0600); e != nil {
+	if e = os.Chmod(path, 0o600); e != nil {
 		t.Fatal(e)
 	}
 	return path, key

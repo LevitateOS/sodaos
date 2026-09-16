@@ -137,7 +137,7 @@ func TestForgejoPresentationGallery(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := "../.artifacts/forgejo-presentation"
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	for _, theme := range []string{"light", "dark"} {

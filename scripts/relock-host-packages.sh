@@ -122,7 +122,7 @@ def base_evr(evr_arch):
 base = {}
 for line in inventory:
     name, evr = line.split(' ', 1)
-    base.setdefault(name, base_evr(evr))
+    base.setdefault(name, (base_evr(evr), evr.rsplit('.', 1)[1]))
 for n in install:
     base.pop(nevra_name(n), None)
 
@@ -132,16 +132,39 @@ for n in have:
     if arch in ARCHES:
         by_name_arch.setdefault((name, arch), []).append(n)
 
-def providers(req):
-    return [n for n in nevra_lines(dnf('repoquery', '--whatprovides', req)) if split_nevra(n)[3] in ARCHES]
+def ok_lines(proc, what):
+    # A failed repo query must abort, never read as empty: empty requirements
+    # would silently accept every bump, and empty providers would silently
+    # skip every conditional or drop every requirer.
+    if proc.returncode != 0:
+        sys.exit(f'repo query failed ({what}); network required:\n{proc.stderr.strip()[:500]}')
+    return nevra_lines(proc)
 
-def concretize(req, names):
-    # (inner if condition): the condition holds when its package is in the
-    # install world; anything else is out of scope and refused below.
+def providers(req):
+    return [n for n in ok_lines(dnf('repoquery', '--whatprovides', req), f'whatprovides {req}')
+            if split_nevra(n)[3] in ARCHES]
+
+def concretize(req, view, names):
+    # (inner if condition): the condition holds when the installed world
+    # provides it. Exact-NEVRA matching alone is unsound: pruned base packages
+    # vanish from repo queries while remaining installed (selinux-policy-44.6
+    # provides selinux-policy-base, but only -43.3/-44.9 are downloadable).
+    # So a condition also holds when any package NAME providing it upstream is
+    # installed, and an unresolvable condition fires fail-closed: a spurious
+    # requirement can only refuse a bump, while a skipped one ships a lock
+    # rpm-ostree cannot layer (proven against the pinned CoreOS base image).
     req = req.strip()
     m = re.match(r'^\((.*) if (.*)\)$', req)
     if m:
-        return m.group(1).strip() if m.group(2).strip().split(' ')[0] in names else None
+        cond, inner = m.group(2).strip(), m.group(1).strip()
+        prov = providers(cond)
+        if not prov:
+            return inner
+        if set(prov) & set(view.values()):
+            return inner
+        if {nevra_name(n) for n in prov} & set(view):
+            return inner
+        return None
     return req
 
 def base_nevra(name, evr):
@@ -164,32 +187,33 @@ def check_tree(nev, world, names, stack, memo):
         memo[nev] = (True, set(), '')
         return memo[nev]
     additions = set()
-    for req in nevra_lines(dnf('repoquery', '--requires', nev)):
-        want = concretize(req, names)
+    view = dict(world)
+    view_names = set(names)
+    for req in ok_lines(dnf('repoquery', '--requires', nev), f'requires {nev}'):
+        want = concretize(req, view, view_names)
         if want is None:
             continue
         cands = providers(want)
         if not cands:
             memo[nev] = (False, set(), f'{nev} needs {want}: nothing provides it')
             return memo[nev]
-        same = [p for p in cands if nevra_name(p) in world and p == world[nevra_name(p)]]
+        same = [p for p in cands if nevra_name(p) in view and p == view[nevra_name(p)]]
         if same:
             pick = same[0]
         else:
             pick = newest(cands)
             pn = nevra_name(pick)
-            if pn in world:
-                memo[nev] = (False, set(), f'{nev} needs {pick}, replacing {world[pn]}')
+            if pn in view:
+                memo[nev] = (False, set(), f'{nev} needs {pick}, replacing {view[pn]}')
                 return memo[nev]
         pn = nevra_name(pick)
         if pn in base:
             continue
-        local = dict(world)
-        local.update({nevra_name(n): n for n in additions})
-        if pn not in local:
+        if pn not in view:
             additions.add(pick)
-            local[pn] = pick
-        ok, sub, refusal = check_tree(pick, local, names | set(local), stack + (nev,), memo)
+            view[pn] = pick
+            view_names.add(pn)
+        ok, sub, refusal = check_tree(pick, view, view_names, stack + (nev,), memo)
         if not ok:
             memo[nev] = (False, set(), refusal)
             return memo[nev]
@@ -200,7 +224,7 @@ def check_tree(nev, world, names, stack, memo):
 def requirers(name):
     found = set()
     for flag in ('--whatrequires', '--whatrecommends', '--whatsuggests'):
-        for n in nevra_lines(dnf('repoquery', flag, name)):
+        for n in ok_lines(dnf('repoquery', flag, name), f'{flag} {name}'):
             found.add(nevra_name(n))
     return found
 
@@ -208,8 +232,13 @@ def requirers(name):
 # versions. Per-pin checks copy and extend it; the final pass uses exact
 # chosen versions and is authoritative.
 world0 = {}
-for name, evr in base.items():
+for name, (evr, arch) in base.items():
     nev = base_nevra(name, evr)
+    if not nev and arch in ARCHES:
+        # Pruned upstream but installed in the base: retain the installed
+        # NEVRA so conditions and replacements still see the real world.
+        e, vr = evr
+        nev = f'{name}-{e}:{vr}.{arch}'
     if nev:
         world0[name] = nev
 for n in install:
@@ -245,7 +274,8 @@ while pending:
                 pending.remove(old)
                 progressed = True
                 break
-            last_refusal = refusal
+            if last_refusal == 'no available build':
+                last_refusal = refusal
         else:
             old_refusal[old] = last_refusal
     if not progressed:
@@ -254,13 +284,22 @@ while pending:
 world = dict(world0)
 world.update(accepted)
 names = names0 | set(world)
+drifted_names = {nevra_name(p) for p in missing}
 for old in pending:
     name = nevra_name(old)
+    reason = old_refusal[old]
+    # A 'replacing X' block on a sibling that is itself drifted is an ordering
+    # artifact: the pin could move jointly. Chain the sibling's own refusal so
+    # the message points at the root base conflict, not the joint move.
+    m = re.search(r'replacing (\S+)', reason)
+    if m and nevra_name(m.group(1)) in drifted_names - {name}:
+        sib = next(p for p in missing if nevra_name(p) == nevra_name(m.group(1)))
+        reason += f'; {sib} is itself blocked ({old_refusal.get(sib, "no replacement")})'
     if name in requested:
-        refused.append(f'{old}: requested package no longer installable ({old_refusal[old]})')
+        refused.append(f'{old}: requested package no longer installable ({reason})')
         continue
     if requirers(name) & names - {name}:
-        refused.append(f'{old}: no base-compatible replacement ({old_refusal[old]})')
+        refused.append(f'{old}: no base-compatible replacement ({reason})')
         continue
     drops.append(old)
 

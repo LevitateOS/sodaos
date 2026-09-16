@@ -14,14 +14,14 @@ import (
 func statusClient(t *testing.T, output string) *Client {
 	t.Helper()
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "status.json"), []byte(output), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "status.json"), []byte(output), 0o600))
 	// Exercise the real command boundary, including fixed arguments and no stdin.
 	cli := filepath.Join(dir, "tailscale")
 	require.NoError(t, os.WriteFile(cli, []byte(`#!/bin/sh
 [ "$#" = 2 ] && [ "$1" = status ] && [ "$2" = --json ] || exit 2
 if read -r input; then exit 3; fi
 cat "${0%/*}/status.json"
-`), 0700))
+`), 0o700))
 	return New(Options{CLI: cli})
 }
 
@@ -93,7 +93,7 @@ func TestStatusRejectsMalformedOutputAndPreservesAuthPending(t *testing.T) {
 func TestStatusCommandFailureAndCancellation(t *testing.T) {
 	cli := filepath.Join(t.TempDir(), "tailscale")
 	client := New(Options{CLI: cli})
-	require.NoError(t, os.WriteFile(cli, []byte("#!/bin/sh\nprintf '{\"BackendState\":\"Running\"}'\nprintf 'daemon unavailable' >&2\nexit 7\n"), 0700))
+	require.NoError(t, os.WriteFile(cli, []byte("#!/bin/sh\nprintf '{\"BackendState\":\"Running\"}'\nprintf 'daemon unavailable' >&2\nexit 7\n"), 0o700))
 	status, err := client.Status(t.Context())
 	require.Empty(t, status, "nonzero exit never supplies status")
 	require.ErrorIs(t, err, ErrUnavailable)
@@ -108,7 +108,7 @@ func TestStatusCommandFailureAndCancellation(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 
 	// exec keeps only the test-owned child; cancellation must not wait for sleep.
-	require.NoError(t, os.WriteFile(cli, []byte("#!/bin/sh\nexec sleep 60\n"), 0700))
+	require.NoError(t, os.WriteFile(cli, []byte("#!/bin/sh\nexec sleep 60\n"), 0o700))
 	ctx, cancel = context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
 	start := time.Now()

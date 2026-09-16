@@ -26,7 +26,7 @@ func fixtureOCI(t *testing.T, file, arch string, unsafe bool) {
 	var layerBytes bytes.Buffer
 	lw := tar.NewWriter(&layerBytes)
 	body := []byte("synthetic layer fixture; never executed")
-	if err := lw.WriteHeader(&tar.Header{Name: "fixture.txt", Mode: 0644, Size: int64(len(body))}); err != nil {
+	if err := lw.WriteHeader(&tar.Header{Name: "fixture.txt", Mode: 0o644, Size: int64(len(body))}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := lw.Write(body); err != nil {
@@ -51,7 +51,7 @@ func fixtureOCI(t *testing.T, file, arch string, unsafe bool) {
 	var buf bytes.Buffer
 	writer := tar.NewWriter(&buf)
 	for name, data := range blobs {
-		if err := writer.WriteHeader(&tar.Header{Name: name, Mode: 0644, Size: int64(len(data))}); err != nil {
+		if err := writer.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(data))}); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := writer.Write(data); err != nil {
@@ -61,7 +61,7 @@ func fixtureOCI(t *testing.T, file, arch string, unsafe bool) {
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(file, buf.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(file, buf.Bytes(), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -88,7 +88,7 @@ func TestOCIRejectsEscapesAndMisnamedFormats(t *testing.T) {
 	if _, err := InspectOCI(file, "x86_64", fixtureRevision); err == nil {
 		t.Fatal("escaping archive accepted")
 	}
-	if err := os.WriteFile(file, []byte("not OCI despite extension"), 0600); err != nil {
+	if err := os.WriteFile(file, []byte("not OCI despite extension"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := InspectOCI(file, "x86_64", fixtureRevision); err == nil {
@@ -103,7 +103,7 @@ func TestOCIRejectsChangedBlob(t *testing.T) {
 		t.Fatal(err)
 	}
 	data = bytes.Replace(data, []byte("synthetic layer"), []byte("tampered! layer"), 1)
-	if err = os.WriteFile(file, data, 0600); err != nil {
+	if err = os.WriteFile(file, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = InspectOCI(file, "x86_64", fixtureRevision); err == nil {

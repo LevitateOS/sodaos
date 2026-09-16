@@ -27,13 +27,13 @@ func payloadInventory(media mediaIdentity) build.Inventory {
 
 func TestPayloadRequirementMeasuresVerifiedRegularBytes(t *testing.T) {
 	root := t.TempDir()
-	if err := os.Mkdir(filepath.Join(root, "nested"), 0700); err != nil {
+	if err := os.Mkdir(filepath.Join(root, "nested"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "one"), []byte("123"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "one"), []byte("123"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "nested/two"), []byte("4567"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "nested/two"), []byte("4567"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink("nested/two", filepath.Join(root, "link")); err != nil {
@@ -121,10 +121,10 @@ func payloadCopyFixture(t *testing.T) (Disk, mediaIdentity, uint64, string, payl
 	t.Helper()
 	mountpoint := t.TempDir()
 	physicalVar := filepath.Join(mountpoint, "ostree/deploy/fedora-coreos/var")
-	if err := os.MkdirAll(filepath.Join(physicalVar, "lib"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(physicalVar, "lib"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Mkdir(filepath.Join(mountpoint, "ostree/repo"), 0755); err != nil {
+	if err := os.Mkdir(filepath.Join(mountpoint, "ostree/repo"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	selected, _, root := installedDiskFixture(t, "")
@@ -150,7 +150,7 @@ func payloadCopyFixture(t *testing.T) (Disk, mediaIdentity, uint64, string, payl
 		},
 		prepare: func(string) (string, error) {
 			state := filepath.Join(physicalVar, "lib/soda-installer")
-			return state, os.Mkdir(state, 0700)
+			return state, os.Mkdir(state, 0o700)
 		},
 		recheck: func(context.Context, Disk, installedRoot, string, commandRunner) error {
 			events = append(events, "recheck")
@@ -162,7 +162,7 @@ func payloadCopyFixture(t *testing.T) (Disk, mediaIdentity, uint64, string, payl
 			if source != opsSource(media) || arch != media.Architecture || revision != media.Revision {
 				t.Fatal("wrong bundle copy identity")
 			}
-			return os.Mkdir(destination, 0700)
+			return os.Mkdir(destination, 0o700)
 		},
 		verify: func(string, string, string) (build.Inventory, error) {
 			events = append(events, "verify")

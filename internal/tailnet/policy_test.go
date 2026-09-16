@@ -83,7 +83,7 @@ func TestTailnetPolicyRotationCASAndSecretProjection(t *testing.T) {
 	credentials := 0
 	for _, entry := range entries {
 		info, _ := entry.Info()
-		if info.Mode().Perm() != 0600 {
+		if info.Mode().Perm() != 0o600 {
 			t.Fatal("public state", entry.Name(), info.Mode())
 		}
 		if strings.HasPrefix(entry.Name(), "credential-") {
@@ -119,7 +119,7 @@ func TestTailnetPolicyDoesNotConvertOrDeleteRetainedCredentials(t *testing.T) {
 	dir := filepath.Join(parent, "soda-tailnet")
 	retained := filepath.Join(dir, "credential-"+strings.Repeat("a", 32)+".json")
 	secret := []byte(`{"client_id":"synthetic-client","secret":"tskey-client-retained-synthetic-secret"}`)
-	if e = os.WriteFile(retained, secret, 0600); e != nil {
+	if e = os.WriteFile(retained, secret, 0o600); e != nil {
 		t.Fatal(e)
 	}
 	rotate := enrollmentInput()
@@ -141,7 +141,7 @@ func TestTailnetPolicyDoesNotConvertOrDeleteRetainedCredentials(t *testing.T) {
 	}
 	old["version"], old["credential"] = 1, strings.Repeat("a", 32)
 	b, _ = json.Marshal(old)
-	if e = os.WriteFile(path, b, 0600); e != nil {
+	if e = os.WriteFile(path, b, 0o600); e != nil {
 		t.Fatal(e)
 	}
 	if _, e = p.enrollment(t.Context()); e == nil {
@@ -229,11 +229,11 @@ func TestTailnetPolicyRefusesUnsafeAndAmbiguousState(t *testing.T) {
 						t.Fatal(e)
 					}
 				case "permissions":
-					if e := os.Chmod(path, 0644); e != nil {
+					if e := os.Chmod(path, 0o644); e != nil {
 						t.Fatal(e)
 					}
 				case "corrupt":
-					if e := os.WriteFile(path, []byte(`{}`), 0600); e != nil {
+					if e := os.WriteFile(path, []byte(`{}`), 0o600); e != nil {
 						t.Fatal(e)
 					}
 				case "missing-credential":
@@ -247,7 +247,7 @@ func TestTailnetPolicyRefusesUnsafeAndAmbiguousState(t *testing.T) {
 					}
 					policy.Credential = credential{}
 					b, _ = json.Marshal(policy)
-					if e = os.WriteFile(path, b, 0600); e != nil {
+					if e = os.WriteFile(path, b, 0o600); e != nil {
 						t.Fatal(e)
 					}
 				}

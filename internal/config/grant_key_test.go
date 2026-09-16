@@ -14,23 +14,23 @@ func TestGrantKeyRestrictedAndExact(t *testing.T) {
 	if _, err := GrantKey(path); err == nil {
 		t.Fatal("missing key accepted")
 	}
-	if err := os.WriteFile(path, []byte(value+"\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(value+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	key, err := GrantKey(path)
 	if err != nil || len(key) != 32 {
 		t.Fatal(err)
 	}
-	if err = os.Chmod(path, 0644); err != nil {
+	if err = os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = GrantKey(path); err == nil {
 		t.Fatal("public key file accepted")
 	}
-	if err = os.Chmod(path, 0600); err != nil {
+	if err = os.Chmod(path, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err = os.WriteFile(path, []byte("not-base64"), 0600); err != nil {
+	if err = os.WriteFile(path, []byte("not-base64"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = GrantKey(path); err == nil {

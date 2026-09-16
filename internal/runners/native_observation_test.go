@@ -89,12 +89,12 @@ func TestInvalidDescriptorIsReportedWithoutAuthorityOrRewrites(t *testing.T) {
 	for _, bad := range []string{"missing", "directory", "malformed", "unknown field", "duplicate field", "trailing object", "wrong account", "wrong id", "unsupported provider"} {
 		t.Run(bad, func(t *testing.T) {
 			native, _, prepared := runnerFixture(t)
-			require.NoError(t, os.WriteFile(filepath.Join(prepared.state, "work-data"), []byte("keep later writes"), 0600))
+			require.NoError(t, os.WriteFile(filepath.Join(prepared.state, "work-data"), []byte("keep later writes"), 0o600))
 			bytes := descriptor
 			switch bad {
 			case "missing":
 			case "directory":
-				require.NoError(t, os.Mkdir(native.descriptorPath("one"), 0700))
+				require.NoError(t, os.Mkdir(native.descriptorPath("one"), 0o700))
 			case "malformed":
 				bytes = "{"
 			case "unknown field":
@@ -111,7 +111,7 @@ func TestInvalidDescriptorIsReportedWithoutAuthorityOrRewrites(t *testing.T) {
 				bytes = strings.Replace(descriptor, "forgejo", "github", 1)
 			}
 			if bad != "missing" && bad != "directory" {
-				require.NoError(t, os.WriteFile(native.descriptorPath("one"), []byte(bytes), 0644))
+				require.NoError(t, os.WriteFile(native.descriptorPath("one"), []byte(bytes), 0o644))
 			}
 			commands := &recordingCommandRunner{}
 			native.Runner = commands
@@ -143,7 +143,7 @@ func TestListPublishesIndependentRowsWhenAnotherRunnerIsUnreadable(t *testing.T)
 	require.NoError(t, native.recordRunner(prepared.account, forgejoRequest()))
 	// The first sorted row is fully readable; the next is a retained partial
 	// directory without a descriptor, as can remain after failed creation.
-	require.NoError(t, os.MkdirAll(native.statePath("two"), 0700))
+	require.NoError(t, os.MkdirAll(native.statePath("two"), 0o700))
 	inventory, err := native.List(t.Context())
 	require.NoError(t, err)
 	require.Len(t, inventory.Runners, 1)
@@ -166,9 +166,9 @@ func TestLegacyDescriptorReadsDoNotRewriteStateOrCredentials(t *testing.T) {
 	native, _, prepared := runnerFixture(t)
 	// Historical descriptor: no labels field; deliberately retain original formatting/origin.
 	descriptor := []byte("{\n\"id\":\"one\",\"provider\":\"forgejo\",\"registration_url\":\"http://old-internal:3000\",\"account\":\"soda-runner-one\",\"architecture\":\"x86-64\"\n}\n")
-	require.NoError(t, os.WriteFile(native.descriptorPath("one"), descriptor, 0644))
+	require.NoError(t, os.WriteFile(native.descriptorPath("one"), descriptor, 0o644))
 	for _, file := range []string{"forgejo-token", "forgejo-runner.yml", "work-data"} {
-		require.NoError(t, os.WriteFile(filepath.Join(prepared.state, file), []byte("synthetic preserved "+file), 0600))
+		require.NoError(t, os.WriteFile(filepath.Join(prepared.state, file), []byte("synthetic preserved "+file), 0o600))
 	}
 	inventory, err := native.List(t.Context())
 	require.NoError(t, err)
@@ -186,6 +186,6 @@ func TestLegacyDescriptorReadsDoNotRewriteStateOrCredentials(t *testing.T) {
 		require.Equal(t, "synthetic preserved "+file, string(contents))
 		info, err := os.Stat(path)
 		require.NoError(t, err)
-		require.Equal(t, os.FileMode(0600), info.Mode().Perm())
+		require.Equal(t, os.FileMode(0o600), info.Mode().Perm())
 	}
 }

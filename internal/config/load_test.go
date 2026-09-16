@@ -17,7 +17,7 @@ func TestLoadRejectsTrailingDataPastSizeLimit(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
 	write := func(contents string) {
 		t.Helper()
-		if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
+		if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -45,7 +45,7 @@ func TestPrivateHTTPSDeploymentBoundary(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = os.WriteFile(path, b, 0600); err != nil {
+		if err = os.WriteFile(path, b, 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -57,7 +57,7 @@ func TestPrivateHTTPSDeploymentBoundary(t *testing.T) {
 	// Retired bootstrap references are parse-only, even when unusable. Loading
 	// must not open the path or alter an existing operator file.
 	retired := filepath.Join(t.TempDir(), "retired-token")
-	if err := os.WriteFile(retired, []byte("synthetic-retained-input"), 0000); err != nil {
+	if err := os.WriteFile(retired, []byte("synthetic-retained-input"), 0o000); err != nil {
 		t.Fatal(err)
 	}
 	before, err := os.Lstat(retired)
@@ -82,7 +82,7 @@ func TestPrivateHTTPSDeploymentBoundary(t *testing.T) {
 		})
 	}
 	after, err := os.Lstat(retired)
-	if err != nil || !os.SameFile(before, after) || after.Mode().Perm() != 0000 || !after.ModTime().Equal(before.ModTime()) {
+	if err != nil || !os.SameFile(before, after) || after.Mode().Perm() != 0o000 || !after.ModTime().Equal(before.ModTime()) {
 		t.Fatal("retired credential changed")
 	}
 	insecure := c
@@ -91,7 +91,7 @@ func TestPrivateHTTPSDeploymentBoundary(t *testing.T) {
 	if _, err = Load(path); err == nil {
 		t.Fatal("insecure browser accepted")
 	}
-	if err = os.WriteFile(path, []byte(`{"public_url":"https://legacy.example"}`), 0600); err != nil {
+	if err = os.WriteFile(path, []byte(`{"public_url":"https://legacy.example"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = Load(path); err == nil || !strings.Contains(err.Error(), `unknown field "public_url"`) {

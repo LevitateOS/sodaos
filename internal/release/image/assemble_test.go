@@ -37,14 +37,14 @@ func TestMediaReadbackBindsNativeIgnitionAndRootfs(t *testing.T) {
 	}
 	manifest := "stream-hash sha256 2097152\n" + strings.Join(hashes, "\n") + "\n"
 	path := filepath.Join(t.TempDir(), "rootfs.img")
-	require.NoError(t, os.WriteFile(path, rootfs, 0600))
+	require.NoError(t, os.WriteFile(path, rootfs, 0o600))
 	require.NoError(t, VerifyRootfsChunks(path, manifest))
 	require.Error(t, VerifyRootfsChunks(path, strings.Join(hashes, "\n")))
 	require.Error(t, VerifyRootfsChunks(path, manifest+hashes[0]+"\n"))
 	rootfs[len(rootfs)-1] = 'y'
-	require.NoError(t, os.WriteFile(path, rootfs, 0600))
+	require.NoError(t, os.WriteFile(path, rootfs, 0o600))
 	require.Error(t, VerifyRootfsChunks(path, manifest))
-	require.NoError(t, os.WriteFile(path, rootfs[:2<<20], 0600))
+	require.NoError(t, os.WriteFile(path, rootfs[:2<<20], 0o600))
 	require.Error(t, VerifyRootfsChunks(path, manifest))
 }
 func TestMediaURLHasNoCredentialsOrMutableQuery(t *testing.T) {

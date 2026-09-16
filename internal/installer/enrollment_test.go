@@ -141,7 +141,7 @@ func TestEnrollmentNativeConfigParse(t *testing.T) {
 	}
 	config := strings.Replace(enrollmentConfig(), "/etc/ssh/ssh_host_ed25519_key", key, 1)
 	file := filepath.Join(dir, "sshd_config")
-	if err := os.WriteFile(file, []byte(config), 0600); err != nil {
+	if err := os.WriteFile(file, []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	output, err := exec.Command(sshd, "-T", "-f", file).Output()
@@ -157,17 +157,17 @@ func TestEnrollmentNativeConfigParse(t *testing.T) {
 
 func TestEnrollmentPreservesAuthorizedKeys(t *testing.T) {
 	home := t.TempDir()
-	if err := os.Chmod(home, 0700); err != nil {
+	if err := os.Chmod(home, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	existingKey := enrollmentTestKey(t)
 	existing := []byte("# existing native policy\nrestrict " + existingKey + " original comment")
 	dir := filepath.Join(home, ".ssh")
-	if err := os.Mkdir(dir, 0700); err != nil {
+	if err := os.Mkdir(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "authorized_keys")
-	if err := os.WriteFile(path, existing, 0600); err != nil {
+	if err := os.WriteFile(path, existing, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	key := enrollmentTestKey(t)
@@ -182,7 +182,7 @@ func TestEnrollmentPreservesAuthorizedKeys(t *testing.T) {
 		t.Fatal("existing authorized keys were not preserved exactly")
 	}
 	st, err := os.Stat(path)
-	if err != nil || st.Mode().Perm() != 0600 {
+	if err != nil || st.Mode().Perm() != 0o600 {
 		t.Fatal("native file permissions changed unsafely")
 	}
 	if err := appendEnrollmentKey(context.Background(), home, existingKey, uint32(os.Geteuid())); err == nil {
@@ -210,7 +210,7 @@ func TestEnrollmentCreatesAuthorizedKeys(t *testing.T) {
 	for _, entry := range []struct {
 		name string
 		mode os.FileMode
-	}{{".ssh", 0700}, {".ssh/authorized_keys", 0600}} {
+	}{{".ssh", 0o700}, {".ssh/authorized_keys", 0o600}} {
 		st, err := os.Stat(filepath.Join(home, entry.name))
 		if err != nil || st.Mode().Perm() != entry.mode {
 			t.Fatalf("wrong ownership/mode for %s", entry.name)
@@ -223,17 +223,17 @@ func TestEnrollmentRefusesUnsafeKeyPaths(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			root := t.TempDir()
 			home := filepath.Join(root, "home")
-			if err := os.Mkdir(home, 0700); err != nil {
+			if err := os.Mkdir(home, 0o700); err != nil {
 				t.Fatal(err)
 			}
 			dir := filepath.Join(home, ".ssh")
-			if err := os.Mkdir(dir, 0700); err != nil {
+			if err := os.Mkdir(dir, 0o700); err != nil {
 				t.Fatal(err)
 			}
 			path := filepath.Join(dir, "authorized_keys")
 			sentinel := filepath.Join(root, "sentinel")
 			original := []byte("preserve this unrelated file\n")
-			if err := os.WriteFile(sentinel, original, 0600); err != nil {
+			if err := os.WriteFile(sentinel, original, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			uid := uint32(os.Geteuid())
@@ -253,18 +253,18 @@ func TestEnrollmentRefusesUnsafeKeyPaths(t *testing.T) {
 			case "key-hardlink":
 				err = os.Link(sentinel, path)
 			case "key-directory":
-				err = os.Mkdir(path, 0700)
+				err = os.Mkdir(path, 0o700)
 			case "key-writable":
-				err = os.WriteFile(path, original, 0666)
+				err = os.WriteFile(path, original, 0o666)
 				if err == nil {
-					err = os.Chmod(path, 0666)
+					err = os.Chmod(path, 0o666)
 				}
 			case "ssh-writable":
-				err = os.Chmod(dir, 0777)
+				err = os.Chmod(dir, 0o777)
 			case "home-writable":
-				err = os.Chmod(home, 0777)
+				err = os.Chmod(home, 0o777)
 			case "oversized":
-				err = os.WriteFile(path, bytes.Repeat([]byte{'x'}, (1<<20)+1), 0600)
+				err = os.WriteFile(path, bytes.Repeat([]byte{'x'}, (1<<20)+1), 0o600)
 			case "wrong-owner":
 				uid++
 			}
@@ -327,13 +327,13 @@ func TestEnrollmentNativeEditorRacePreservesNewerFile(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			home := t.TempDir()
 			dir := filepath.Join(home, ".ssh")
-			if err := os.Mkdir(dir, 0700); err != nil {
+			if err := os.Mkdir(dir, 0o700); err != nil {
 				t.Fatal(err)
 			}
 			path := filepath.Join(dir, "authorized_keys")
 			original := enrollmentTestKey(t) + " original\n"
 			newer := enrollmentTestKey(t) + " native editor without trailing newline"
-			if err := os.WriteFile(path, []byte(original), 0600); err != nil {
+			if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			key := enrollmentTestKey(t)
@@ -346,7 +346,7 @@ func TestEnrollmentNativeEditorRacePreservesNewerFile(t *testing.T) {
 				if replacement {
 					target = filepath.Join(dir, "native-editor-new-file")
 				}
-				if err := os.WriteFile(target, []byte(newer), 0600); err != nil {
+				if err := os.WriteFile(target, []byte(newer), 0o600); err != nil {
 					return 0, err
 				}
 				if replacement {
@@ -377,7 +377,7 @@ func TestEnrollmentConcurrentCreationIsNeverReplaced(t *testing.T) {
 	path := filepath.Join(home, ".ssh", "authorized_keys")
 	native := enrollmentTestKey(t) + " created by native editor\n"
 	write := func(file *os.File, data []byte) (int, error) {
-		if err := os.WriteFile(path, []byte(native), 0600); err != nil {
+		if err := os.WriteFile(path, []byte(native), 0o600); err != nil {
 			return 0, err
 		}
 		return file.Write(data)
@@ -398,12 +398,12 @@ func TestEnrollmentConcurrentCreationIsNeverReplaced(t *testing.T) {
 func TestEnrollmentPartialAppendDoesNotRollBackNativeData(t *testing.T) {
 	home := t.TempDir()
 	dir := filepath.Join(home, ".ssh")
-	if err := os.Mkdir(dir, 0700); err != nil {
+	if err := os.Mkdir(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "authorized_keys")
 	original := enrollmentTestKey(t) + " preserved original\n"
-	if err := os.WriteFile(path, []byte(original), 0640); err != nil {
+	if err := os.WriteFile(path, []byte(original), 0o640); err != nil {
 		t.Fatal(err)
 	}
 	before, err := os.Stat(path)

@@ -13,7 +13,7 @@ import (
 func fixtureBundle(t *testing.T) string {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "source")
-	if err := os.Mkdir(root, 0700); err != nil {
+	if err := os.Mkdir(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	paths := []string{
@@ -27,24 +27,24 @@ func fixtureBundle(t *testing.T) string {
 	paths = append(paths, forgejoFiles...)
 	for _, name := range paths {
 		p := filepath.Join(root, name)
-		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(p, []byte("synthetic payload; never executed\n"), 0644); err != nil {
+		if err := os.WriteFile(p, []byte("synthetic payload; never executed\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for _, name := range forgejoFiles {
-		if err := os.Chmod(filepath.Join(root, name), 0644); err != nil {
+		if err := os.Chmod(filepath.Join(root, name), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for _, name := range []string{"templates", "templates/custom"} {
-		if err := os.Chmod(filepath.Join(root, "rootfs/var/lib/soda/forgejo/gitea", name), 0755); err != nil {
+		if err := os.Chmod(filepath.Join(root, "rootfs/var/lib/soda/forgejo/gitea", name), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := os.Mkdir(filepath.Join(root, "images"), 0755); err != nil {
+	if err := os.Mkdir(filepath.Join(root, "images"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	images := map[string]Image{}
@@ -68,10 +68,10 @@ func fixtureBundle(t *testing.T) string {
 		binary.LittleEndian.PutUint16(header[52:], 64)
 		binary.LittleEndian.PutUint16(header[54:], 56)
 		binary.LittleEndian.PutUint16(header[58:], 64)
-		if err := os.WriteFile(p, header, 0755); err != nil {
+		if err := os.WriteFile(p, header, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Chmod(p, 0755); err != nil {
+		if err := os.Chmod(p, 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -84,7 +84,7 @@ func fixtureBundle(t *testing.T) string {
 		ids[name] = map[string]string{"ID": image.Config}
 	}
 	metadata, _ := json.Marshal(map[string]any{"Revision": fixtureRevision, "Architecture": "x86_64", "Tools": tools, "Images": ids})
-	if err := os.WriteFile(filepath.Join(root, "inputs/native-build.json"), metadata, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "inputs/native-build.json"), metadata, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	files, err := tree(root)
@@ -92,7 +92,7 @@ func fixtureBundle(t *testing.T) string {
 		t.Fatal(err)
 	}
 	raw, _ := json.Marshal(Inventory{Revision: fixtureRevision, Architecture: "x86_64", Files: files, Images: images})
-	if err = os.WriteFile(filepath.Join(root, inventoryName), raw, 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(root, inventoryName), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err = checksums(root); err != nil {
@@ -130,10 +130,10 @@ func TestTerminalBrandingUsesOnlyDeliveredPublicPaths(t *testing.T) {
 
 func TestBundleAllowlistIntegrityAndNoOverwrite(t *testing.T) {
 	source := fixtureBundle(t)
-	if err := os.WriteFile(filepath.Join(source, "private-operator-key"), []byte("synthetic excluded data"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(source, "private-operator-key"), []byte("synthetic excluded data"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	oldMask := syscall.Umask(0077)
+	oldMask := syscall.Umask(0o077)
 	defer syscall.Umask(oldMask)
 	dest := filepath.Join(t.TempDir(), "x86_64")
 	if err := Bundle(source, dest, "x86_64", fixtureRevision); err != nil {
@@ -149,7 +149,7 @@ func TestBundleAllowlistIntegrityAndNoOverwrite(t *testing.T) {
 		t.Fatal("overwrote bundle")
 	}
 	p := filepath.Join(dest, "rootfs/usr/local/libexec/soda/soda-host")
-	if err := os.WriteFile(p, []byte("changed"), 0644); err != nil {
+	if err := os.WriteFile(p, []byte("changed"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Verify(dest, "x86_64", fixtureRevision); err == nil {
@@ -160,10 +160,10 @@ func TestBundleRejectsPrivateFilesAndMissingPayload(t *testing.T) {
 	for _, name := range []string{"rootfs/etc/soda/operator.key", "rootfs/usr/local/libexec/soda/soda-artifacts", "rootfs/etc/soda/oauth-secret", "rootfs/etc/soda/admin-token", "rootfs/etc/soda/grant-key", "rootfs/etc/soda/dashboard.json", "rootfs/etc/private/credentials", "rootfs/etc/soda/unknown-input", "rootfs/usr/local/share/cockpit/soda-runners/index.html", "rootfs/usr/local/share/cockpit/soda-runners/assets/old.js", "rootfs/usr/local/share/cockpit/soda-tailscale/index.html", "rootfs/usr/local/share/cockpit/soda-tailscale/assets/old.js", "inputs/cockpit-package.json"} {
 		root := fixtureBundle(t)
 		p := filepath.Join(root, name)
-		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(p, []byte("synthetic private/support file"), 0600); err != nil {
+		if err := os.WriteFile(p, []byte("synthetic private/support file"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := tree(root); err == nil {
@@ -231,14 +231,14 @@ func TestSelectedSignerAndMalformedStatus(t *testing.T) {
 }
 func TestPrivateOutputRefusesExistingAndSymlinkedParents(t *testing.T) {
 	root := t.TempDir()
-	if err := os.Chmod(root, 0700); err != nil {
+	if err := os.Chmod(root, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	out := filepath.Join(root, "private.json")
 	if err := PrivateDestination(out); err != nil {
 		t.Fatal(err)
 	}
-	if err := WriteNew(out, nil, 0600); err != nil {
+	if err := WriteNew(out, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := PrivateDestination(out); err == nil {

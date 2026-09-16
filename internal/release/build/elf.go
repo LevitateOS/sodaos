@@ -36,7 +36,7 @@ func inspectBinaries(root, arch string, files map[string]File) error {
 		if name == "rootfs/usr/local/libexec/soda/soda-console-welcome" {
 			continue
 		} // delivered shell hook, not Go
-		if os.FileMode(entry.Mode)&0111 == 0 {
+		if os.FileMode(entry.Mode)&0o111 == 0 {
 			return errors.New("native command is not executable")
 		}
 		if err := inspectELF(filepath.Join(root, name), arch); err != nil {

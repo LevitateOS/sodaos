@@ -37,7 +37,7 @@ func recordBuildResult(p build.Production, r Request) (result Result, err error)
 	}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err == nil {
-		err = build.WriteNew(filepath.Join(r.Out, "evidence/build.json"), append(data, '\n'), 0600)
+		err = build.WriteNew(filepath.Join(r.Out, "evidence/build.json"), append(data, '\n'), 0o600)
 	}
 	return
 }
@@ -63,5 +63,5 @@ func recordCandidate(out, prefix string, host build.Image, archiveHash string) e
 	if err != nil {
 		return err
 	}
-	return build.WriteNew(filepath.Join(out, "candidate.json"), append(b, '\n'), 0600)
+	return build.WriteNew(filepath.Join(out, "candidate.json"), append(b, '\n'), 0o600)
 }

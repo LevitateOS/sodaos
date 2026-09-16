@@ -75,7 +75,7 @@ func TestForgejoDescriptorFailureReportsLocalCleanup(t *testing.T) {
 	for _, cleanupFails := range []bool{false, true} {
 		t.Run(map[bool]string{false: "removed", true: "retained"}[cleanupFails], func(t *testing.T) {
 			native, commands, prepared := runnerFixture(t)
-			require.NoError(t, os.Mkdir(native.descriptorPath("one"), 0700))
+			require.NoError(t, os.Mkdir(native.descriptorPath("one"), 0o700))
 			if cleanupFails {
 				commands.cleanupError = errors.New("userdel failed")
 			}
@@ -96,7 +96,7 @@ func TestForgejoDescriptorFailureReportsLocalCleanup(t *testing.T) {
 
 func TestForgejoConfigurationFailureDoesNotClaimFailedCleanupSucceeded(t *testing.T) {
 	native, commands, prepared := runnerFixture(t)
-	require.NoError(t, os.Mkdir(filepath.Join(prepared.state, "forgejo-token"), 0700))
+	require.NoError(t, os.Mkdir(filepath.Join(prepared.state, "forgejo-token"), 0o700))
 	commands.cleanupError = errors.New("userdel failed")
 	err := native.registerPrepared(t.Context(), prepared, forgejoRequest())
 	require.ErrorContains(t, err, "write provider-owned Forgejo connection token")
@@ -115,12 +115,12 @@ func TestUnsupportedProvidersNeverDispatchOrRewriteRetainedState(t *testing.T) {
 			request.Provider = provider
 			require.ErrorContains(t, native.Create(t.Context(), request), "provider must be forgejo")
 			require.NoDirExists(t, filepath.Join(root, "one"))
-			require.NoError(t, os.MkdirAll(native.statePath("one"), 0700))
+			require.NoError(t, os.MkdirAll(native.statePath("one"), 0o700))
 			require.NoError(t, native.writeDescriptor(Descriptor{ID: "one", Provider: provider, Account: "soda-runner-one"}))
 			before, err := os.ReadFile(native.descriptorPath("one"))
 			require.NoError(t, err)
 			state := filepath.Join(native.statePath("one"), "retained-input")
-			require.NoError(t, os.WriteFile(state, []byte("preserve fixture state"), 0600))
+			require.NoError(t, os.WriteFile(state, []byte("preserve fixture state"), 0o600))
 			inventory, err := native.List(t.Context())
 			require.NoError(t, err)
 			require.Empty(t, inventory.Runners)

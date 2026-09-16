@@ -93,7 +93,7 @@ func TestNetworkEditorRestoresConsole(t *testing.T) {
 				"nmtui": fmt.Sprintf("#!/bin/sh\nprintf '\\033[44mEDITOR'\nexit %d\n", exit),
 				"ip":    "#!/bin/sh\nprintf 'lo UNKNOWN 127.0.0.1/8\\n'\n",
 			} {
-				if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0700); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o700); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -431,7 +431,7 @@ func TestPreWriteCancellationCanRestartButMarkerCannot(t *testing.T) {
 		calls := 0
 		err := retryDiskInstall(ctx, console{tty: slave, ctx: ctx}, marker, func(context.Context, console) error {
 			calls++
-			if err := os.WriteFile(marker, []byte("/dev/sda\n"), 0600); err != nil {
+			if err := os.WriteFile(marker, []byte("/dev/sda\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			return context.Canceled

@@ -51,21 +51,21 @@ func TestForgejoHomeRedesign(t *testing.T) {
 			}
 			if prefix == "" && registration {
 				dir := filepath.Join("..", ".artifacts", "forgejo-presentation")
-				if err = os.MkdirAll(dir, 0755); err != nil {
+				if err = os.MkdirAll(dir, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				for _, theme := range []string{"light", "dark"} {
 					preview := strings.Replace(html, "<html>", `<html data-soda-login-theme="`+theme+`" style="color-scheme: `+theme+`">`, 1)
-					if err = os.WriteFile(filepath.Join(dir, "home-"+theme+".html"), []byte(preview), 0644); err != nil {
+					if err = os.WriteFile(filepath.Join(dir, "home-"+theme+".html"), []byte(preview), 0o644); err != nil {
 						t.Fatal(err)
 					}
 				}
 			}
 			if dir := os.Getenv("SODA_HOME_PREVIEW"); dir != "" && prefix == "" && registration {
-				if err = os.MkdirAll(dir, 0755); err != nil {
+				if err = os.MkdirAll(dir, 0o755); err != nil {
 					t.Fatal(err)
 				}
-				if err = os.WriteFile(filepath.Join(dir, "index.html"), out.Bytes(), 0644); err != nil {
+				if err = os.WriteFile(filepath.Join(dir, "index.html"), out.Bytes(), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -27,12 +27,12 @@ fi`,
 		"soda-tailnet": "echo 'Tailnet: native status fixture'",
 	}
 	for name, source := range commands {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"+source+"\n"), 0755); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\n"+source+"\n"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
 	config := filepath.Join(dir, "dashboard.json")
-	if err := os.WriteFile(config, []byte(configuration), 0600); err != nil {
+	if err := os.WriteFile(config, []byte(configuration), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	env := []string{}

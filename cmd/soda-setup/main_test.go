@@ -21,12 +21,12 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
 			dir := filepath.Join(root, "soda")
-			if err := os.Mkdir(dir, 0700); err != nil {
+			if err := os.Mkdir(dir, 0o700); err != nil {
 				t.Fatal(err)
 			}
 			tokenPath := filepath.Join(root, "operator-input")
 			if name != "missing-token" {
-				if err := os.WriteFile(tokenPath, []byte(token+"\n"), 0600); err != nil {
+				if err := os.WriteFile(tokenPath, []byte(token+"\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -42,7 +42,7 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 			}
 			var before os.FileInfo
 			if retained != "" {
-				if err := os.WriteFile(retained, []byte("preserve original bytes\n"), 0600); err != nil {
+				if err := os.WriteFile(retained, []byte("preserve original bytes\n"), 0o600); err != nil {
 					t.Fatal(err)
 				}
 				before, _ = os.Stat(retained)
@@ -128,14 +128,14 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 			if retained != "" {
 				data, err := os.ReadFile(retained)
 				after, statErr := os.Stat(retained)
-				if err != nil || statErr != nil || string(data) != "preserve original bytes\n" || !os.SameFile(before, after) || after.Mode().Perm() != 0600 {
+				if err != nil || statErr != nil || string(data) != "preserve original bytes\n" || !os.SameFile(before, after) || after.Mode().Perm() != 0o600 {
 					t.Fatal("existing operator file changed")
 				}
 			}
 			if name != "missing-token" {
 				data, err := os.ReadFile(tokenPath)
 				st, statErr := os.Stat(tokenPath)
-				if err != nil || statErr != nil || string(data) != token+"\n" || st.Mode().Perm() != 0600 {
+				if err != nil || statErr != nil || string(data) != token+"\n" || st.Mode().Perm() != 0o600 {
 					t.Fatal("operator input changed")
 				}
 			}
@@ -180,7 +180,7 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 			}
 			for _, path := range []string{out, c.OAuthSecretFile, c.GrantKeyFile} {
 				st, err := os.Stat(path)
-				if err != nil || st.Mode().Perm() != 0600 {
+				if err != nil || st.Mode().Perm() != 0o600 {
 					t.Fatal("setup file not restricted")
 				}
 			}
