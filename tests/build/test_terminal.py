@@ -19,7 +19,7 @@ import types
 import unittest
 from unittest.mock import patch
 
-SOURCE = Path(__file__).resolve().parents[2] / 'internal/host/project_terminal.py'
+SOURCE = Path(__file__).resolve().parents[2] / 'internal/host/terminal/project_terminal.py'
 spec = importlib.util.spec_from_file_location('project_terminal', SOURCE)
 terminal = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(terminal)

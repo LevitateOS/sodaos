@@ -20,6 +20,15 @@ class SourceChecks(unittest.TestCase):
         self.root = Path(self.tmp.name).resolve()
         (self.root / 'scripts').mkdir()
         shutil.copyfile(ROOT / 'scripts/check-source.sh', self.root / 'scripts/check-source.sh')
+        # check-source.sh runs the SQL locality gate as a real script, so the
+        # fixture root needs a stub that logs and fails like the PATH tools.
+        (self.root / 'scripts' / 'check-sql-locality.sh').write_text(
+            '#!/bin/bash\n'
+            'printf \'{"command": ["bash", "scripts/check-sql-locality.sh"], "cwd": "%s", '
+            '"env": {"GOWORK": "%s", "GOFLAGS": "%s", "CGO_ENABLED": "%s", "GOTOOLCHAIN": "%s"}}\\n\' '
+            '"$PWD" "$GOWORK" "$GOFLAGS" "$CGO_ENABLED" "$GOTOOLCHAIN" >> "$COMMAND_LOG"\n'
+            'if [ "bash scripts/check-sql-locality.sh" = "${FAIL_COMMAND:-}" ]; then exit 7; fi\n'
+        )
         self.tools = self.root / 'tools'
         self.tools.mkdir()
         self.log = self.root / 'commands.jsonl'
@@ -38,6 +47,7 @@ if ' '.join(command) == os.environ.get('FAIL_COMMAND'): sys.exit(7)
         self.expected = [
             ['go', 'mod', 'verify'],
             ['go', 'test', '-mod=readonly', './...'],
+            ['bash', 'scripts/check-sql-locality.sh'],
             ['bun', 'run', 'typecheck'],
             ['bun', 'run', 'test'],
             ['python3', '-m', 'unittest', 'discover', '-s', 'tests/build'],
@@ -92,11 +102,13 @@ if ' '.join(command) == os.environ.get('FAIL_COMMAND'): sys.exit(7)
         self.assertIn('$(uname -s) == Linux && $(uname -m) == "$arch"', before)
         self.assertIn('Pinned native source-check tools required', before)
         self.assertIn('Check requires a clean exact-revision checkout', before)
-        verification = '".artifacts/native/$arch/tools/soda-artifacts" verify --source "$PWD/.artifacts/native/$arch" --arch "$arch" --revision "$revision"'
-        self.assertIn(verification, before)
-        self.assertIn(verification, after)
         self.assertIn(
-            'SODA_STAGE="$PWD/.artifacts/native/$arch/rootfs" python3 -m unittest discover -s tests/packaging', after
+            'soda-build candidate artifacts directory required (payload.json, candidate.json, host.oci)', before
         )
+        self.assertIn('verifier=$artifacts/tools/soda-artifacts', before)
+        self.assertIn('"$verifier" verify --source "$artifacts" --arch "$arch" --revision "$revision"', before)
+        self.assertIn('candidate architecture mismatch', before)
+        self.assertIn('missing application archives: ', before)
+        self.assertIn('python3 -m unittest discover -s tests/packaging', after)
         self.assertIn('$(git rev-parse HEAD) == "$revision"', after)
         self.assertIn('git status --porcelain --untracked-files=normal', after)

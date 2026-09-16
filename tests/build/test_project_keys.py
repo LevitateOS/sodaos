@@ -19,9 +19,9 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2] / 'internal/host'
 identity = types.ModuleType('project_terminal')
-exec((ROOT / 'project_terminal.py').read_text(), identity.__dict__)
+exec((ROOT / 'terminal/project_terminal.py').read_text(), identity.__dict__)
 with patch.dict(sys.modules, project_terminal=identity):
-    spec = importlib.util.spec_from_file_location('project_keys', ROOT / 'project_keys.py')
+    spec = importlib.util.spec_from_file_location('project_keys', ROOT / 'project/project_keys.py')
     keys = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(keys)
 

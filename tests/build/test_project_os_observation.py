@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-SOURCE = Path(__file__).resolve().parents[2] / 'internal/host/project_os.py'
+SOURCE = Path(__file__).resolve().parents[2] / 'internal/host/project/project_os.py'
 spec = importlib.util.spec_from_file_location('soda_os_observation', SOURCE)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
