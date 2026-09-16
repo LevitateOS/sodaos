@@ -62,8 +62,10 @@ test('shipping shell mounts, tracks the frame, and leaves login, consent, and ca
       if (url.pathname.startsWith('/assets/')) {
         const source = Object.entries(payload).find(([target]) => target === 'public' + url.pathname)?.[1];
         if (!source) return new Response(null, {status: 404});
+        const base = path.basename(source);
+        const cut = base.indexOf('?');
         const file = source.startsWith('@build/forgejo-js/')
-          ? path.join(root, '.artifacts/forgejo-js', path.basename(source).split('?')[0])
+          ? path.join(root, '.artifacts/forgejo-js', cut < 0 ? base : base.slice(0, cut))
           : path.join(root, source);
         const contentType = /\.m?js$/.test(source)
           ? 'text/javascript'
