@@ -56,6 +56,6 @@ facts.
 
 ## Operator services
 
-Stock Cockpit remains loopback-first. Tailscaled, runners and project units follow
+Stock Cockpit listens on all interfaces with the operator credential. Tailscaled, runners and project units follow
 the appliance service definitions under `appliance/services/`. Preserve credentials,
 project state, backups and failed evidence unless cleanup is explicitly approved.

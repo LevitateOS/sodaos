@@ -82,6 +82,14 @@ class Provisioning(unittest.TestCase):
         self.assertNotIn('reboot', raw)
         self.assertIn('rpm-ostree install', raw)
 
+    def test_installed_console_welcome_runs_before_login(self):
+        data = json.loads((ROOT / 'appliance/provisioning/candidate.json').read_text())
+        units = {u['name']: u for u in data['systemd']['units']}
+        self.assertTrue(units['soda-console.service']['enabled'])
+        body = (ROOT / 'appliance/services/soda-console.service').read_text()
+        self.assertIn('Before=getty@tty1.service', body)
+        self.assertIn('50-soda.issue', body)
+
     def test_installed_system_defaults_to_password_ssh(self):
         raw = (ROOT / 'appliance/provisioning/candidate.json').read_text()
         data = json.loads(raw)
@@ -106,6 +114,15 @@ class OutsideContracts(unittest.TestCase):
         self.assertIn('"save", "--format=oci-archive"', producer)
         self.assertIn('--iidfile', producer)
         self.assertNotIn('"push"', producer)
+
+    def test_activation_persists_browser_services_across_reboot(self):
+        source = (ROOT / 'appliance/bin/soda-activate').read_text()
+        self.assertIn("'systemctl', 'enable', 'forgejo.service', 'soda-dashboard.service', 'soda-proxy.service'", source)
+
+    def test_native_install_accepts_any_canonical_ipv4_project_network(self):
+        source = (ROOT / 'scripts/install-native.sh').read_text()
+        self.assertIn("'canonical IPv4 project network required'", source)
+        self.assertNotIn('RFC1918', source)
 
     def test_installer_verifies_before_copy_and_retains_first_install_guard(self):
         source = (ROOT / 'scripts/install-native.sh').read_text()

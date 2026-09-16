@@ -92,9 +92,6 @@ func selectDisk(disks []Disk, selected string) (Disk, string, bool) {
 		return Disk{}, "Choose an available disk number.", false
 	}
 	disk := disks[index-1]
-	if disk.Blocked != "" {
-		return Disk{}, "That disk is unavailable; choose another disk.", false
-	}
 	return disk, "", true
 }
 
@@ -173,8 +170,8 @@ func stepPassword(ctx context.Context, c console, run commandRunner) (string, er
 			c.print("")
 			feedback = ""
 		}
-		c.print("This password is for local root login after reboot.")
-		c.print("It does not enable ordinary root-password SSH.")
+		c.print("This password is for root login after reboot, local console and SSH.")
+		c.print("Enroll a key later and disable password logins yourself to go key-only.")
 		c.print("Type back, restart, or cancel in a password field to navigate.")
 		password, err := askSecretNav(c, "Password")
 		if err != nil {
@@ -192,7 +189,7 @@ func stepPassword(ctx context.Context, c console, run commandRunner) (string, er
 	}
 }
 
-func stepSubnet(ctx context.Context, c console, run commandRunner, currentSubnet string) (string, error) {
+func stepSubnet(c console, currentSubnet string) (string, error) {
 	feedback := ""
 	for {
 		c.page("Step 5 of 5 — Project network and review")
@@ -201,24 +198,19 @@ func stepSubnet(ctx context.Context, c console, run commandRunner, currentSubnet
 			c.print("")
 			feedback = ""
 		}
-		c.print("Developer client routing is configured separately.")
+		c.print("Developer client routing is configured separately. Any canonical IPv4 range is accepted, including public or overlapping ranges.")
 		subnetDefault := currentSubnet
 		if subnetDefault == "" {
 			subnetDefault = "10.89.0.0/24"
 		}
-		subnet, err := askNav(c, "Private project IPv4 subnet ["+subnetDefault+"], back, restart, or cancel")
+		subnet, err := askNav(c, "Project IPv4 subnet ["+subnetDefault+"], back, restart, or cancel")
 		if err != nil {
 			return "", err
 		}
 		if subnet == "" {
 			subnet = subnetDefault
 		}
-		observedRoutes, routeErr := routes(ctx, run)
-		if routeErr != nil {
-			feedback = "Could not inspect current IPv4 routes. Correct networking or retry."
-			continue
-		}
-		if err := ProjectSubnet(subnet, observedRoutes); err != nil {
+		if err := ProjectSubnet(subnet); err != nil {
 			feedback = "Invalid subnet: " + err.Error()
 			continue
 		}
@@ -230,9 +222,12 @@ func printFinalReview(c console, choices diskInstallChoices, payloadBytes uint64
 	c.page("Final review")
 	c.print("ERASE ALL DATA on:")
 	c.print("  %s", diskSummary(choices.disk.Device))
+	if choices.disk.Blocked != "" {
+		c.print("  Installer note: %s. Typing ERASE still wipes it.", choices.disk.Blocked)
+	}
 	c.print("Hostname: %s", choices.hostname)
 	c.print("Project subnet: %s", choices.subnet)
-	c.print("Operator access: local native root password")
+	c.print("Operator access: root password (local console and SSH)")
 	c.print("Included Soda payload: %.1f MiB verified", float64(payloadBytes)/(1<<20))
 	c.print("Network settings will be copied to the installed system.")
 	c.print("After writing, follow the completion screen for media removal and next steps.")
@@ -254,7 +249,7 @@ func confirmFinalReview(c console, diskName string) error {
 
 func stepSubnetAndReview(ctx context.Context, c console, run commandRunner, choices *diskInstallChoices, payloadBytes uint64) error {
 	for {
-		subnet, err := stepSubnet(ctx, c, run, choices.subnet)
+		subnet, err := stepSubnet(c, choices.subnet)
 		if err != nil {
 			return err
 		}

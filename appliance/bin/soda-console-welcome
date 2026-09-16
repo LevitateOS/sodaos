@@ -30,9 +30,8 @@ for device in $devices; do
     done
 done
 [ "$found" = true ] || printf 'No local uplink IPv4 address is currently available.\n'
-printf '\nCockpit is loopback-first: https://127.0.0.1:9090\n'
-printf 'From your client, tunnel over SSH:\n  ssh -N -L 9090:127.0.0.1:9090 root@%s\n' "$tunnel_host"
-printf 'Then open https://127.0.0.1:9090 in that client browser.\n'
+printf '\nCockpit: https://%s:9090\n' "$tunnel_host"
+printf 'Self-signed certificate; expect a browser warning. Root password login is enabled.\n'
 
 # Read only public origins and the dashboard port, never print credentials
 # or the whole JSON document.
@@ -64,6 +63,10 @@ try:
         origins.append((label, value.rstrip('/')))
 except (OSError, ValueError, KeyError):
     print('\nBrowser origins are not configured or cannot be read; complete operator setup.')
+    print('\nForgejo installer is loopback-first: http://127.0.0.1:3000')
+    print('From your client, tunnel over SSH:')
+    print(f'  ssh -N -L 33000:127.0.0.1:3000 root@{host}')
+    print('Then open http://localhost:33000 in that client browser.')
 else:
     print(f'\nDashboard is loopback-first: http://{listen_host}:{listen_port}')
     print('From your client, tunnel over SSH:')

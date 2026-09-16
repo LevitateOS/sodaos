@@ -221,14 +221,14 @@ func TestLocalTrustGuidanceRejectsUntrustedDestination(t *testing.T) {
 	}
 }
 
-func TestConfigureRequiresLaptopTerminalBeforeInput(t *testing.T) {
+func TestConfigureRunsWithoutLaptopTerminal(t *testing.T) {
 	t.Setenv("SSH_CONNECTION", "")
 	t.Setenv("SSH_TTY", "")
 	if err := configureInstall(context.Background(), console{}, func(context.Context, string, []string, io.Reader) ([]byte, error) {
 		t.Fatal("local configure reached native operations")
 		return nil, errors.New("unexpected command")
-	}); err == nil || !strings.Contains(err.Error(), "laptop") {
-		t.Fatalf("local console was not redirected to SSH: %v", err)
+	}); err == nil || !strings.Contains(err.Error(), "install the included Soda components") {
+		t.Fatalf("local console was not admitted to configure: %v", err)
 	}
 }
 

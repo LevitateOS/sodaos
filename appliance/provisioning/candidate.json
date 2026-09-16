@@ -18,7 +18,8 @@
   "systemd": {
     "units": [
       {"name": "soda-host.socket", "enabled": true},
-      {"name": "cockpit.socket", "enabled": true}
+      {"name": "cockpit.socket", "enabled": true},
+      {"name": "soda-console.service", "enabled": true}
     ]
   }
 }

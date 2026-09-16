@@ -1,0 +1,14 @@
+[Unit]
+Description=Soda console welcome and loopback Forgejo installer
+Wants=network-online.target
+After=network-online.target
+Before=getty@tty1.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'mkdir -p /etc/issue.d && /usr/local/libexec/soda/soda-console-welcome > /etc/issue.d/50-soda.issue'
+ExecStart=/usr/bin/systemctl enable --now forgejo.service
+
+[Install]
+WantedBy=getty.target

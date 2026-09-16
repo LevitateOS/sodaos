@@ -42,64 +42,26 @@ func PublicKey(value string) (string, error) {
 	return strings.TrimSpace(string(ssh.MarshalAuthorizedKey(key))), nil
 }
 
-func rfc1918Contains(subnet netip.Prefix) bool {
-	for _, raw := range []string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"} {
-		p := netip.MustParsePrefix(raw)
-		if p.Bits() <= subnet.Bits() && p.Contains(subnet.Addr()) {
-			return true
-		}
-	}
-	return false
-}
-
-func canonicalPrivateIPv4(value string) (netip.Prefix, error) {
+// The operator explicitly chooses the project subnet, including public or
+// overlapping ranges; only the canonical IPv4 form is enforced.
+func canonicalProjectSubnet(value string) (netip.Prefix, error) {
 	subnet, err := netip.ParsePrefix(value)
 	if err != nil || !subnet.Addr().Is4() || subnet != subnet.Masked() {
 		return netip.Prefix{}, errors.New("canonical IPv4 project subnet required")
 	}
-	if !rfc1918Contains(subnet) {
-		return netip.Prefix{}, errors.New("RFC1918 project subnet required")
-	}
 	return subnet, nil
 }
 
-func parseHostRoute(raw string) (netip.Prefix, error) {
-	p, err := netip.ParsePrefix(raw)
-	if err == nil {
-		return p, nil
-	}
-	addr, err := netip.ParseAddr(raw)
-	if err != nil {
-		return netip.Prefix{}, errors.New("cannot interpret current network route")
-	}
-	return netip.PrefixFrom(addr, addr.BitLen()), nil
-}
-
-func ProjectSubnet(value string, routes []string) error {
-	subnet, err := canonicalPrivateIPv4(value)
-	if err != nil {
-		return err
-	}
-	for _, raw := range routes {
-		if raw == "default" || raw == "" {
-			continue
-		}
-		p, e := parseHostRoute(raw)
-		if e != nil {
-			return e
-		}
-		if p.Bits() != 0 && p.Overlaps(subnet) {
-			return errors.New("project subnet overlaps a current host route")
-		}
-	}
-	return nil
+func ProjectSubnet(value string) error {
+	_, err := canonicalProjectSubnet(value)
+	return err
 }
 
 // Destination extends a public, strictly Butane-converted template. The builder
 // owns that template; this is not an arbitrary user-supplied Ignition interpreter.
 // Butane is not required on the live OS and private inputs never reach its logs.
 func validProvisioningInputs(hostname, passwordHash, subnet string) bool {
-	if !Hostname(hostname) || ProjectSubnet(subnet, nil) != nil {
+	if !Hostname(hostname) || ProjectSubnet(subnet) != nil {
 		return false
 	}
 	return regexp.MustCompile(`^\$6\$[./a-zA-Z0-9]{1,16}\$[./a-zA-Z0-9]{86}$`).MatchString(passwordHash)

@@ -45,9 +45,8 @@ python3 - "$subnet" "$1" "$bundle/build-info.json" <<'PY'
 import ipaddress, json, subprocess, sys
 from pathlib import Path
 network = ipaddress.ip_network(sys.argv[1], strict=True)
-private = [ipaddress.ip_network(x) for x in ('10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16')]
-if network.version != 4 or not any(network.subnet_of(x) for x in private):
-    sys.exit('RFC1918 IPv4 project network required')
+if network.version != 4:
+    sys.exit('canonical IPv4 project network required')
 start, count = 1000000, 268435456
 updates = []
 for name in ('/etc/subuid', '/etc/subgid'):

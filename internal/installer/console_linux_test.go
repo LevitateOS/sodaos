@@ -256,8 +256,8 @@ func TestDiskChoicesCorrectInvalidInputWithoutPublicKey(t *testing.T) {
 	driver.sendAfter("Confirm password: ", "different password")
 	driver.sendAfter("Password: ", password)
 	driver.sendAfter("Confirm password: ", password)
-	driver.sendAfter("Private project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "8.8.8.0/24")
-	driver.sendAfter("Private project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "10.89.0.0/24")
+	driver.sendAfter("Project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "192.168.1.1/24")
+	driver.sendAfter("Project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "10.89.0.0/24")
 	driver.sendAfter("Type exactly ERASE /dev/sda, back, restart, or cancel: ", "erase /dev/sda")
 	driver.sendAfter("Type exactly ERASE /dev/sda, back, restart, or cancel: ", "ERASE /dev/sda")
 
@@ -370,14 +370,14 @@ func TestDiskChoicesBackPreservesNonSecretDefaults(t *testing.T) {
 	driver.sendAfter("Hostname [soda], back, restart, or cancel: ", "soda-original")
 	driver.sendAfter("Password: ", password)
 	driver.sendAfter("Confirm password: ", password)
-	driver.sendAfter("Private project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "10.90.0.0/24")
+	driver.sendAfter("Project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "10.90.0.0/24")
 	driver.sendAfter("Type exactly ERASE /dev/sda, back, restart, or cancel: ", "back")
-	driver.sendAfter("Private project IPv4 subnet [10.90.0.0/24], back, restart, or cancel: ", "back")
+	driver.sendAfter("Project IPv4 subnet [10.90.0.0/24], back, restart, or cancel: ", "back")
 	driver.sendAfter("Password: ", "back")
 	driver.sendAfter("Hostname [soda-original], back, restart, or cancel: ", "soda-corrected")
 	driver.sendAfter("Password: ", password)
 	driver.sendAfter("Confirm password: ", password)
-	driver.sendAfter("Private project IPv4 subnet [10.90.0.0/24], back, restart, or cancel: ", "")
+	driver.sendAfter("Project IPv4 subnet [10.90.0.0/24], back, restart, or cancel: ", "")
 	driver.sendAfter("Type exactly ERASE /dev/sda, back, restart, or cancel: ", "ERASE /dev/sda")
 
 	select {

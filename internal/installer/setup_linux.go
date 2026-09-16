@@ -83,11 +83,9 @@ func setupAddresses(data []byte) ([]setupAddress, error) {
 
 // configureInstall uses the existing native Forgejo installer and setup command.
 // Soda does not create a second account/password authority or expose the unfinished
-// Forgejo installer. Initial browser access remains an operator SSH tunnel.
+// Forgejo installer. It runs in any interactive operator terminal, local or SSH,
+// so the token can be typed or pasted; no SSH session is required.
 func configureInstall(ctx context.Context, c console, run commandRunner) error {
-	if os.Getenv("SSH_CONNECTION") == "" || os.Getenv("SSH_TTY") == "" {
-		return errors.New("run configure in your laptop's interactive SSH terminal so you can paste the Forgejo token; first use enroll-key at the local console if needed")
-	}
 	return configurePrivateInstall(ctx, c, run, "/etc/soda", "/run", localCAPath)
 }
 

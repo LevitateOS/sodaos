@@ -2,7 +2,6 @@ package installer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -80,22 +79,4 @@ func osRelease(data []byte) map[string]string {
 		values[k] = strings.Trim(v, "\"'")
 	}
 	return values
-}
-
-func routes(ctx context.Context, run commandRunner) ([]string, error) {
-	data, err := run(ctx, "ip", []string{"-json", "-4", "route", "show", "table", "all"}, nil)
-	if err != nil {
-		return nil, err
-	}
-	var entries []struct {
-		Destination string `json:"dst"`
-	}
-	if err = json.Unmarshal(data, &entries); err != nil {
-		return nil, errors.New("cannot inspect current routes")
-	}
-	var result []string
-	for _, entry := range entries {
-		result = append(result, entry.Destination)
-	}
-	return result, nil
 }

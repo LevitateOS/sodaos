@@ -34,7 +34,7 @@ startup preserves the existing container/root; see
 
 Project access is ordinary `user@project-ip`, SCP/SFTP and native service ports.
 Clients need a real route; host Tailnet enrollment alone does not provide it.
-Cockpit is loopback-first/root-only. Browser origins, Git advertisement and project
+Cockpit listens on all interfaces/root-only. Browser origins, Git advertisement and project
 routing are separate configuration.
 
 ## Source and guides
