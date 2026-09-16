@@ -47,6 +47,8 @@ func TestCandidateSharedLayoutAuthenticatesAllImagesWithoutArchives(t *testing.T
 	live, err := CandidateLiveConfig(raw, []byte(`{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}`), m.HostManifest, consoleHash)
 	require.NoError(t, err)
 	require.Contains(t, string(live), "ExecStart="+candidateInstallerBinary+" disk")
+	require.Contains(t, string(live), "Type=simple")
+	require.NotContains(t, string(live), "Type=idle")
 	for _, forbidden := range []string{"/run/media/iso", "http", "--dest-device"} {
 		require.NotContains(t, string(live), forbidden)
 	}

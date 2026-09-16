@@ -47,7 +47,7 @@ func CandidateLiveConfig(payload, destination []byte, manifest, consoleSHA256 st
 	for _, name := range []string{"getty@tty1.service", "forgejo.service", "soda-dashboard.service", "soda-proxy.service", "soda-host.service", "soda-host.socket", "soda-image-import.service"} {
 		units = append(units, map[string]any{"name": name, "mask": true})
 	}
-	body := strings.Join([]string{"[Unit]", "Description=SodaOS installation console", "After=systemd-user-sessions.service NetworkManager.service", "Conflicts=getty@tty1.service", "[Service]", "Type=idle", "PrivateMounts=yes", "ExecStart=" + candidateInstallerBinary + " disk", "StandardInput=tty-force", "StandardOutput=tty", "StandardError=tty", "TTYPath=/dev/tty1", "TTYReset=yes", "TTYVHangup=yes", "Restart=no", "[Install]", "WantedBy=multi-user.target", ""}, "\n")
+	body := strings.Join([]string{"[Unit]", "Description=SodaOS installation console", "After=systemd-user-sessions.service NetworkManager.service", "Conflicts=getty@tty1.service", "[Service]", "Type=simple", "PrivateMounts=yes", "ExecStart=" + candidateInstallerBinary + " disk", "StandardInput=tty-force", "StandardOutput=tty", "StandardError=tty", "TTYPath=/dev/tty1", "TTYReset=yes", "TTYVHangup=yes", "Restart=no", "[Install]", "WantedBy=multi-user.target", ""}, "\n")
 	units = append(units, map[string]any{"name": "soda-installer-console.service", "enabled": true, "contents": body})
 	return json.Marshal(map[string]any{"ignition": map[string]string{"version": "3.5.0"}, "storage": map[string]any{"files": files}, "systemd": map[string]any{"units": units}})
 }
