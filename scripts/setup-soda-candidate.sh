@@ -96,7 +96,10 @@ echo "-- warm worker caches (the isolated worker has no network)"
 # `go build` warms exactly the readonly build set without touching the
 # checkout; fetched as root, then handed to the worker.
 sudo mkdir -p "$BUILD_HOME/go-mod" "$BUILD_HOME/go-build"
+# `go mod download all`, not just `go build ./...`: the worker runs
+# `go mod verify` over the whole build list while offline.
 sudo env HOME="$BUILD_HOME" GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org GOMODCACHE="$BUILD_HOME/go-mod" GOCACHE="$BUILD_HOME/go-build" GOTOOLCHAIN="go$PINNED" GOFLAGS=-mod=readonly CGO_ENABLED=0 "$PINNED_GO/bin/go" build ./... || fail "cannot warm Go module cache"
+sudo env HOME="$BUILD_HOME" GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org GOMODCACHE="$BUILD_HOME/go-mod" GOCACHE="$BUILD_HOME/go-build" GOTOOLCHAIN="go$PINNED" GOFLAGS=-mod=readonly CGO_ENABLED=0 "$PINNED_GO/bin/go" mod download all || fail "cannot warm full Go module set"
 sudo -u soda-build-worker env HOME="$BUILD_HOME" "$PINNED_GO/bin/go" env -w GOPROXY=off || fail "cannot lock worker Go offline"
 # Bun installs only from its HOME cache inside: warm it from a scratch copy
 # (mirroring the workspaces list) so node_modules never lands in the
