@@ -7,6 +7,18 @@ require {
 	type initrc_tmp_t;
 	type sshd_t;
 	type ssh_keygen_tmp_t;
+	type certmaster_port_t;
+	type cluster_port_t;
+	type cyphesis_port_t;
+	type gear_port_t;
+	type gluster_port_t;
+	type hadoop_datanode_port_t;
+	type hplip_port_t;
+	type isns_port_t;
+	type keystone_port_t;
+	type matahari_port_t;
+	type postgrey_port_t;
+	type virt_migration_port_t;
 	type tmp_t;
 	type ptmx_t;
 	type devpts_t;
@@ -44,12 +56,16 @@ allow init_t init_tmp_t:file { execute execute_no_trans read map open getattr };
 # Suite tests create and verify symlinks in PrivateTmp, and httptest-based
 # suites connect to ephemeral (and unreserved) localhost ports.
 allow init_t init_tmp_t:lnk_file { create read getattr setattr unlink rename };
-allow init_t { ephemeral_port_t unreserved_port_t }:tcp_socket name_connect;
 # Suite temp dirs land on tmp_t here, and the enrollment PTY test drives a
 # pty master. Teardown-time unlink noise from systemd itself is excluded.
 allow init_t tmp_t:lnk_file { create read getattr unlink rename };
 allow init_t ptmx_t:chr_file { read write open ioctl };
 allow init_t devpts_t:chr_file { open read write ioctl };
+# httptest fixtures bind :0 and the kernel deals ports across the whole
+# ephemeral range, including holes labeled for other services (derived from
+# the portcon entries intersecting ip_local_port_range; re-derive if the
+# range moves). Nothing else listens on these ports inside the worker.
+allow init_t { ephemeral_port_t unreserved_port_t certmaster_port_t cluster_port_t cyphesis_port_t gear_port_t gluster_port_t hadoop_datanode_port_t hplip_port_t isns_port_t keystone_port_t matahari_port_t postgrey_port_t virt_migration_port_t }:tcp_socket name_connect;
 # Shell children of the test binaries run as initrc_t, so files they write
 # (the subreaper pidfile) and scripts the tests stage under var_lib_t need
 # init_t access back.
