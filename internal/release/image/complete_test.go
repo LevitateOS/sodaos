@@ -27,7 +27,7 @@ func TestLockedHostTransactionMatchesActualPackageOwner(t *testing.T) {
 	require.Contains(t, string(b), "cockpit-ostree-1:225-1.fc44.noarch")
 	b, err = os.ReadFile(filepath.Join(context, "packages.expected"))
 	require.NoError(t, err)
-	require.Equal(t, 624, len(strings.FieldsFunc(string(b), func(r rune) bool { return r == '\n' })))
+	require.Equal(t, 625, len(strings.FieldsFunc(string(b), func(r rune) bool { return r == '\n' })))
 	require.Equal(t, hash, hashBytes(b))
 	// Do not infer native ARM packages or qualification from the x86 lock.
 	_, err = LockHostPackages(source, context, "aarch64", base)
