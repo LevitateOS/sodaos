@@ -337,7 +337,7 @@ func freezeBaseImageConfig(snapshot, out, contextDir, arch, prefix, compression 
 	return ownedWrite(filepath.Join(contextDir, "rootfs/usr/share/coreos-assembler/image.json"), append(imageData, '\n'), 0o644)
 }
 
-func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression string, p build.Production, execute build.BuildExec, capture build.BuildCapture) (string, Base, string, error) {
+func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression string, p *build.Production, execute build.BuildExec, capture build.BuildCapture) (string, Base, string, error) {
 	contextDir := filepath.Join(out, "work/host-context")
 	base, err := Prepare(snapshot, contextDir, arch, revision)
 	if err != nil {
@@ -353,7 +353,11 @@ func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression 
 	return contextDir, base, packageHash, freezeBaseImageConfig(snapshot, out, contextDir, arch, prefix, compression, base, execute, capture)
 }
 
-func prepareBuildProduction(p build.Production, r Request, snapshot, revision string, execute build.BuildExec, capture build.BuildCapture, next func(string) error) (string, Base, string, mediaTools, mediaLock, error) {
+// prepareBuildProduction shares one Production: ResolveInputs records the
+// frozen image inputs on it, and later phases read them back from the same
+// value. Passing Production by value here would strand the inputs on a copy
+// and fail P4 with "image inputs must be frozen before production".
+func prepareBuildProduction(p *build.Production, r Request, snapshot, revision string, execute build.BuildExec, capture build.BuildCapture, next func(string) error) (string, Base, string, mediaTools, mediaLock, error) {
 	contextDir, base, packageHash, err := prepareBuildHostContext(snapshot, r.Out, r.Arch, revision, r.RepositoryPrefix, r.MediaCompression, p, execute, capture)
 	if err != nil {
 		return "", base, "", mediaTools{}, mediaLock{}, err
@@ -364,7 +368,7 @@ func prepareBuildProduction(p build.Production, r Request, snapshot, revision st
 	if err = p.Dependencies(); err != nil {
 		return "", base, "", mediaTools{}, mediaLock{}, err
 	}
-	tooling, assembler, err := prepareBuildMedia(p, r)
+	tooling, assembler, err := prepareBuildMedia(*p, r)
 	return contextDir, base, packageHash, tooling, assembler, err
 }
 
@@ -480,7 +484,7 @@ func runBuild(ctx context.Context, r Request, progress *build.BuildProgress, exe
 	artifacts := filepath.Join(r.Out, "artifacts")
 	p := build.Production{Source: snapshot, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
 
-	contextDir, base, packageHash, mediaTooling, assembler, err := prepareBuildProduction(p, r, snapshot, revision, execute, capture, progress.Phase)
+	contextDir, base, packageHash, mediaTooling, assembler, err := prepareBuildProduction(&p, r, snapshot, revision, execute, capture, progress.Phase)
 	if err != nil {
 		return result, err
 	}
