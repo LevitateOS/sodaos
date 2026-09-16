@@ -153,7 +153,7 @@ func stepHostname(c console, selectedDisk Disk, currentHostname string) (string,
 }
 
 func validPassword(password, confirmation string) bool {
-	return utf8.ValidString(password) && utf8.RuneCountInString(password) >= 12 && password == confirmation
+	return utf8.ValidString(password) && password != "" && password == confirmation
 }
 
 func hashPassword(ctx context.Context, run commandRunner, password string) (string, error) {
@@ -176,7 +176,7 @@ func stepPassword(ctx context.Context, c console, run commandRunner) (string, er
 		c.print("This password is for local root login after reboot.")
 		c.print("It does not enable ordinary root-password SSH.")
 		c.print("Type back, restart, or cancel in a password field to navigate.")
-		password, err := askSecretNav(c, "Password (at least 12 characters)")
+		password, err := askSecretNav(c, "Password")
 		if err != nil {
 			return "", err
 		}
@@ -185,7 +185,7 @@ func stepPassword(ctx context.Context, c console, run commandRunner) (string, er
 			return "", err
 		}
 		if !validPassword(password, confirmation) {
-			feedback = "Passwords must match and contain at least 12 characters."
+			feedback = "Passwords must match and must not be empty."
 			continue
 		}
 		return hashPassword(ctx, run, password)
