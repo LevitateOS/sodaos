@@ -3,6 +3,8 @@ module soda-build-worker 1.0;
 require {
 	type init_t;
 	type init_tmp_t;
+	type tmp_t;
+	type ptmx_t;
 	type ephemeral_port_t;
 	type unreserved_port_t;
 	type unconfined_t;
@@ -13,6 +15,7 @@ require {
 	class dir { create open read write getattr setattr search add_name remove_name rmdir relabelfrom relabelto };
 	class lnk_file { create read getattr setattr unlink rename };
 	class tcp_socket { name_connect };
+	class chr_file { read write };
 }
 
 # The isolated build worker runs Go as an init_t systemd transient unit:
@@ -37,6 +40,10 @@ allow init_t init_tmp_t:file { execute execute_no_trans read map open getattr };
 # suites connect to ephemeral (and unreserved) localhost ports.
 allow init_t init_tmp_t:lnk_file { create read getattr setattr unlink rename };
 allow init_t { ephemeral_port_t unreserved_port_t }:tcp_socket name_connect;
+# Suite temp dirs land on tmp_t here, and the enrollment PTY test drives a
+# pty master. Teardown-time unlink noise from systemd itself is excluded.
+allow init_t tmp_t:lnk_file { create read getattr unlink rename };
+allow init_t ptmx_t:chr_file { read write };
 allow init_t soda_build_cache_t:file { create open read write getattr setattr lock append unlink rename map };
 allow init_t soda_build_cache_t:dir { create open read write getattr setattr search add_name remove_name rmdir };
 # Provisioning (setup, restorecon) runs outside the worker domain and must
