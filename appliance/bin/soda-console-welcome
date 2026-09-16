@@ -19,27 +19,39 @@ devices=$({
     LC_ALL=C nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null | awk -F: '$3 == "connected" && ($2 == "ethernet" || $2 == "wifi") {print $1}'
 } | awk '!seen[$0]++')
 found=false
+tunnel_host=HOST
 for device in $devices; do
     case "$device" in lo|tailscale*) continue ;; esac
     addresses=$(ip -o -4 addr show dev "$device" scope global 2>/dev/null | awk '{sub(/\/.*/, "", $4); print $4}')
     for address in $addresses; do
         found=true
+        [ "$tunnel_host" = HOST ] && tunnel_host=$address
         printf 'Observed local IPv4 (%s): %s\n' "$device" "$address"
     done
 done
 [ "$found" = true ] || printf 'No local uplink IPv4 address is currently available.\n'
 printf '\nCockpit is loopback-first: https://127.0.0.1:9090\n'
-printf 'From your client, select a reachable host address and tunnel:\n  ssh -N -L 9090:127.0.0.1:9090 root@HOST\n'
+printf 'From your client, tunnel over SSH:\n  ssh -N -L 9090:127.0.0.1:9090 root@%s\n' "$tunnel_host"
 printf 'Then open https://127.0.0.1:9090 in that client browser.\n'
 
-# Read only public origins, never print credentials or the whole JSON document.
-python3 - "$config" <<'PY'
-import json, sys
+# Read only public origins and the dashboard port, never print credentials
+# or the whole JSON document.
+python3 - "$config" "$tunnel_host" <<'PY'
+import ipaddress, json, sys
 from pathlib import Path
 from urllib.parse import urlsplit
 try:
+    host = sys.argv[2] if len(sys.argv) > 2 else 'HOST'
     config = json.loads(Path(sys.argv[1]).read_text())
     if not isinstance(config, dict): raise ValueError('configuration object required')
+    listen = config.get('listen', '127.0.0.1:8080')
+    if not isinstance(listen, str) or listen.count(':') != 1:
+        raise ValueError('invalid listen')
+    listen_host, listen_port = listen.rsplit(':', 1)
+    if not listen_port.isdigit() or not (1 <= int(listen_port) <= 65535):
+        raise ValueError('invalid listen')
+    if not ipaddress.ip_address(listen_host).is_loopback:
+        raise ValueError('invalid listen')
     origins = []
     for field, label in [('forgejo_url', 'Forgejo / Sodaspaces')]:
         value = config[field]
@@ -53,6 +65,10 @@ try:
 except (OSError, ValueError, KeyError):
     print('\nBrowser origins are not configured or cannot be read; complete operator setup.')
 else:
+    print(f'\nDashboard is loopback-first: http://{listen_host}:{listen_port}')
+    print('From your client, tunnel over SSH:')
+    print(f'  ssh -N -L {listen_port}:{listen_host}:{listen_port} root@{host}')
+    print(f'Then open http://{listen_host}:{listen_port} in that client browser.')
     print('\nConfigured browser origins (not a listener or reachability check):')
     for label, value in origins: print(f'  {label}: {value}')
 PY

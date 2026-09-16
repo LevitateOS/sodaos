@@ -54,18 +54,43 @@ func TestConsoleUsesConfiguredOriginsAndNativeUplinks(t *testing.T) {
 		t.Fatal(err, string(output))
 	}
 	text := string(output)
-	for _, want := range []string{"native-appliance", "Observed local IPv4 (eth0): 192.168.1.10", "Observed local IPv4 (wifi0): 192.168.2.10", "Forgejo / Sodaspaces: https://forgejo.example.test", "ssh -N -L 9090:127.0.0.1:9090 root@HOST", "not a listener"} {
+	for _, want := range []string{"native-appliance", "Observed local IPv4 (eth0): 192.168.1.10", "Observed local IPv4 (wifi0): 192.168.2.10", "Forgejo / Sodaspaces: https://forgejo.example.test", "ssh -N -L 9090:127.0.0.1:9090 root@192.168.1.10", "Dashboard is loopback-first: http://127.0.0.1:8080", "ssh -N -L 8080:127.0.0.1:8080 root@192.168.1.10", "not a listener"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in %s", want, text)
 		}
 	}
-	for _, bad := range []string{"never-print-this", ":30000", "https://192.168.1.10:9090", "Observed local IPv4 (tailscale0)"} {
+	for _, bad := range []string{"never-print-this", ":30000", "https://192.168.1.10:9090", "http://192.168.1.10:8080", "root@HOST", "Observed local IPv4 (tailscale0)"} {
 		if strings.Contains(text, bad) {
 			t.Fatalf("unexpected %q", bad)
 		}
 	}
 	if strings.Count(text, "Observed local IPv4 (eth0)") != 1 {
 		t.Fatal("duplicate uplink")
+	}
+}
+
+func TestConsoleUsesConfiguredDashboardPort(t *testing.T) {
+	config, env := consoleFixture(t, "0", `{"forgejo_url":"https://forgejo.example.test","listen":"127.0.0.1:18080"}`)
+	cmd := exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+	cmd.Env = env
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatal(err, string(output))
+	}
+	text := string(output)
+	for _, want := range []string{"Dashboard is loopback-first: http://127.0.0.1:18080", "ssh -N -L 18080:127.0.0.1:18080 root@192.168.1.10"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("missing %q in %s", want, text)
+		}
+	}
+	for _, listen := range []string{"192.168.1.10:8080", "127.0.0.1:notaport", "127.0.0.1:0", "127.0.0.1:65536", "127.0.0.1:8080:extra", "42"} {
+		config, env = consoleFixture(t, "0", `{"forgejo_url":"https://forgejo.example.test","listen":"`+listen+`"}`)
+		cmd = exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil || !strings.Contains(string(out), "complete operator setup") || strings.Contains(string(out), "Dashboard is loopback-first") {
+			t.Fatalf("unsafe listen %q mishandled: %v %s", listen, err, string(out))
+		}
 	}
 }
 
