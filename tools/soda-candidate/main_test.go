@@ -280,6 +280,33 @@ func TestServeAndFileRootfs(t *testing.T) {
 	}
 }
 
+func TestFileBuiltRootfsCoversNonLoopbackMedia(t *testing.T) {
+	serveDir := t.TempDir()
+	out := t.TempDir()
+	media := filepath.Join(out, "artifacts", "media")
+	if err := os.MkdirAll(media, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(media, "b-rootfs.img"), []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log, err := os.Create(filepath.Join(t.TempDir(), "stderr.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = log.Close() }()
+	o := options{mode: "media", rootfsURL: "http://192.168.122.1:8080", out: out, rootfsDir: serveDir}
+	if err := fileBuiltRootfs(o, log); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(serveDir, "b-rootfs.img")); err != nil {
+		t.Fatal("bridge-URL media rootfs not filed:", err)
+	}
+	if err := fileBuiltRootfs(options{mode: "candidate", rootfsURL: "http://192.168.122.1:8080", out: out, rootfsDir: serveDir}, log); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCheckCleanTreeRefusesUntrackedFiles(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git unavailable")
