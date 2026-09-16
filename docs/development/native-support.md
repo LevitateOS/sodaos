@@ -201,6 +201,13 @@ metadata; omitting signing still exits **2**. Channel/GHCR publication remains
 grant-scoped. Earlier failures stop immediately. These build/inspection effects do
 not authorize installation, publishing or migration.
 Only x86_64 currently has the locked host package transaction; no ARM lock is invented.
+When Fedora supersedes a pinned build, P5 fails closed (`Packages not found`)
+instead of substituting: refresh with `bash scripts/relock-host-packages.sh`,
+which re-resolves `appliance/locks/host-packages-x86_64.json` against current
+updates and refuses pins that would upgrade pinned base packages (a base bump
+is then required instead). The candidate build's `packages.expected` diff is
+the final arbiter; a missing-pin failure right after a relock usually means
+installer mirrors lag the master, so wait for mirror sync and retry.
 
 The legacy `soda-host-image --legacy-native` / `build-native.sh` lane was removed.
 The [superseded experimental recipes](https://github.com/LevitateOS/sodaos/blob/3fe7f18/docs/native-support.md#local-host-content-image-candidate)
