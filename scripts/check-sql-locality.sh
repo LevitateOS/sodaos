@@ -5,18 +5,18 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 violations=""
+hits_file="$(mktemp "${TMPDIR:-/tmp}/soda-sql-locality.XXXXXX")"
+trap 'rm -f "$hits_file"' EXIT
 while IFS= read -r -d '' file; do
   case "$file" in
     ./internal/store/*) continue ;;
   esac
-  if grep -nE '"database/sql"|sql\.Open[[:space:]]*\(|`(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]|"[[:space:]]*(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]' "$file" >/tmp/soda-sql-locality.hits 2>/dev/null; then
+  if grep -nE '"database/sql"|sql\.Open[[:space:]]*\(|`(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]|"[[:space:]]*(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]' "$file" >"$hits_file" 2>/dev/null; then
     while IFS= read -r hit; do
       violations+="${file}:${hit}"$'\n'
-    done </tmp/soda-sql-locality.hits
+    done <"$hits_file"
   fi
 done < <(find ./internal ./cmd ./tools ./appliance -name '*.go' -print0)
-
-rm -f /tmp/soda-sql-locality.hits
 
 if [ -n "$violations" ]; then
   printf '%s' "$violations"

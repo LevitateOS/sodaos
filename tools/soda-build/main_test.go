@@ -121,6 +121,42 @@ func TestWorkerResultBindsTargetAndCandidate(t *testing.T) {
 	}
 }
 
+func TestAdmitInternalDispatchBindsAuthority(t *testing.T) {
+	// Qualification runs only from the mounted qualifier inputs; any other
+	// authority selection fails before identity is consulted.
+	for _, f := range []buildFlags{
+		{WorkerQualify: true},
+		{WorkerQualify: true, QualificationConfig: "/elsewhere/config.json"},
+		{WorkerQualify: true, QualificationConfig: "/run/soda-p9-input/config.json", SigningConfig: "/restricted/signing.json"},
+		{WorkerQualify: true, QualificationConfig: "/run/soda-p9-input/config.json", WorkerConfig: "/restricted/worker.json"},
+		{WorkerQualify: true, QualificationConfig: "/run/soda-p9-input/config.json", WorkerBuild: true},
+		{WorkerQualify: true, QualificationConfig: "/run/soda-p9-input/config.json", GuestAction: "snapshot", ExpectedPayload: "payload"},
+	} {
+		require.Error(t, admitBuildDispatch(f), "%+v", f)
+	}
+	// Guest observation binds the exact payload identity and refuses every
+	// worker or release authority flag.
+	for _, f := range []buildFlags{
+		{GuestAction: "snapshot"},
+		{GuestAction: "seed", ExpectedPayload: "payload"},
+		{GuestAction: "bogus", ExpectedPayload: "payload"},
+		{GuestAction: "snapshot", ExpectedPayload: "payload", SigningConfig: "/restricted/signing.json"},
+		{GuestAction: "snapshot", ExpectedPayload: "payload", QualificationConfig: "/restricted/qualification.json"},
+		{GuestAction: "snapshot", ExpectedPayload: "payload", WorkerConfig: "/restricted/worker.json"},
+		{GuestAction: "snapshot", ExpectedPayload: "payload", WorkerBuild: true},
+		{GuestAction: "snapshot", ExpectedPayload: "payload", WorkerQualify: true},
+	} {
+		require.Error(t, admitBuildDispatch(f), "%+v", f)
+	}
+	for _, f := range []buildFlags{
+		{GuestAction: "snapshot", ExpectedPayload: "payload"},
+		{GuestAction: "later", ExpectedPayload: "payload"},
+		{GuestAction: "content", ExpectedPayload: "payload"},
+	} {
+		require.NoError(t, admitBuildDispatch(f), "%+v", f)
+	}
+}
+
 func TestControllerSubreaperReapsLeaderFirstDescendant(t *testing.T) {
 	// Isolate the process-wide subreaper setting from the parent test runner.
 	if os.Getenv("SODA_BUILD_REAPER_FIXTURE") != "1" {

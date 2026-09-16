@@ -178,8 +178,18 @@ func TestCancellationDuringDecodeCannotDispatch(t *testing.T) {
 	}
 }
 
+func TestAccountFailureSurfacesNativeError(t *testing.T) {
+	executor := &noExec{}
+	d := testDaemonPtr(executor, Config{})
+	w := httptest.NewRecorder()
+	d.ServeHTTP(w, httptest.NewRequest("POST", "/account", strings.NewReader(`{"project":"p0123456789abcdef01234567","login":"alice","identity":1,"keys":[]}`)))
+	if w.Code != 500 || strings.Contains(w.Body.String(), `"ok":false`) {
+		t.Fatal("account failure hidden behind ok:false", w.Code, w.Body.String())
+	}
+}
+
 func TestInvalidRequestReleasesAdmission(t *testing.T) {
-	for _, request := range []struct{ path, body string }{{"/inspect", `{`}, {"/inspect", `{"id":"bad"}`}, {"/lifecycle", `{`}, {"/unknown", `{}`}} {
+	for _, request := range []struct{ path, body string }{{"/inspect", `{`}, {"/inspect", `{"id":"bad"}`}, {"/os", `{"id":"bad"}`}, {"/connection", `{"id":"bad"}`}, {"/lifecycle", `{`}, {"/unknown", `{}`}} {
 		executor := &noExec{}
 		d := testDaemonPtr(executor, Config{})
 		d.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", request.path, strings.NewReader(request.body)))

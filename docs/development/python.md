@@ -9,7 +9,7 @@ Install with `python3 -m pip install -r requirements-ruff.txt`, or run via `uvx`
 
 Whole-tree scripts live beside the Go and TypeScript gates; the pre-commit hook is
 staged-only so an existing backlog cannot block unrelated commits. Go ownership
-remains in [the slop audit](go.md);
+remains in [the Go ownership guide](go.md);
 TypeScript ownership remains in [the TypeScript guide](typescript.md#formatting-linting-and-complexity).
 
 | Command | Scope |

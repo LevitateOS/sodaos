@@ -34,6 +34,18 @@ const (
 	pinnedGoRoot = "/usr/local/lib/soda/pinned-go"
 )
 
+func qualifierIdentity() error {
+	u, err := user.Lookup("soda-qualifier")
+	if err != nil {
+		return err
+	}
+	uid, err := strconv.Atoi(u.Uid)
+	if err != nil || uid == 0 || os.Geteuid() != uid {
+		return errors.New("qualification worker requires the isolated soda-qualifier identity")
+	}
+	return nil
+}
+
 func buildWorkerIdentity() error {
 	u, err := user.Lookup("soda-build-worker")
 	if err != nil {

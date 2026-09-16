@@ -13,6 +13,7 @@ OUT = ROOT / 'assets/branding/terminal'
 
 def polygons(data):
     # This emblem uses only absolute polygon commands. Fail on changed geometry syntax.
+    # Explicit errors only: interpreter optimization must not disable the gate.
     tokens = re.findall(r'[A-Za-z]|-?\d+(?:\.\d+)?', data)
     result, points, x, y = [], [], 0.0, 0.0
     i = 0
@@ -20,23 +21,31 @@ def polygons(data):
         command = tokens[i]
         i += 1
         if command in ('M', 'L'):
+            if i + 2 > len(tokens):
+                raise ValueError(f'Truncated emblem command: {command}')
             x, y = float(tokens[i]), float(tokens[i + 1])
             i += 2
         elif command == 'H':
+            if i + 1 > len(tokens):
+                raise ValueError('Truncated emblem command: H')
             x = float(tokens[i])
             i += 1
         elif command == 'V':
+            if i + 1 > len(tokens):
+                raise ValueError('Truncated emblem command: V')
             y = float(tokens[i])
             i += 1
         elif command == 'Z':
-            assert len(points) >= 3
+            if len(points) < 3:
+                raise ValueError('Emblem polygon has fewer than 3 points')
             result.append(points)
             points = []
             continue
         else:
             raise ValueError(f'Unsupported emblem command: {command}')
         points.append((x, y))
-    assert not points and result
+    if points or not result:
+        raise ValueError('Unterminated emblem geometry')
     return result
 
 
@@ -50,10 +59,13 @@ def inside(x, y, polygon):
 
 def render():
     svg = ET.parse(SOURCE).getroot()
-    assert svg.attrib['viewBox'] == '0 0 128 128'
+    if svg.attrib.get('viewBox') != '0 0 128 128':
+        raise ValueError('Unexpected emblem viewBox')
     paths = svg.findall('{http://www.w3.org/2000/svg}path')
-    assert [p.attrib['fill'] for p in paths] == ['#df001b', '#101010']
-    assert all(p.attrib['fill-rule'] == 'evenodd' for p in paths)
+    if [p.attrib.get('fill') for p in paths] != ['#df001b', '#101010']:
+        raise ValueError('Unexpected emblem layers')
+    if not paths or any(p.attrib.get('fill-rule') != 'evenodd' for p in paths):
+        raise ValueError('Unexpected emblem fill rule')
     layers = [polygons(p.attrib['d']) for p in paths]
     rows = []
     for row in range(16):
@@ -85,6 +97,7 @@ if __name__ == '__main__':
     for name, text in zip(('sodaos.txt', 'motd.txt'), render()):
         path = OUT / name
         if args.check:
-            assert path.read_text() == text, f'Stale terminal branding: {path}'
+            if path.read_text() != text:
+                raise SystemExit(f'Stale terminal branding: {path}')
         else:
             path.write_text(text)

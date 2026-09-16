@@ -27,7 +27,7 @@ async function runnersPage(t: TestContext, mode = 'html') {
   const page = await browser.newPage({ignoreHTTPSErrors: true, storageState: process.env.SODA_PAGE_STATE || ''});
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
-  const state = {runners: [] as unknown[], unavailable: [] as string[], csrf: 'csrf-alice', failList: false, mutationStatus: 200, sessionStatus: 200, actor, operator: mode !== 'denied', logoutStatus: 204, logoutRequests: 0, sessionReads: 0, page: mode};
+  const state = {runners: [] as unknown[], unavailable: [] as string[], csrf: 'csrf-alice', failList: false, omitForgejo: false, mutationStatus: 200, sessionStatus: 200, actor, operator: mode !== 'denied', logoutStatus: 204, logoutRequests: 0, sessionReads: 0, page: mode};
   const mutations: {path: string; body: Record<string, unknown>}[] = [];
   await page.route(origin + '/**', async route => {
     const request = route.request(), pathname = new URL(request.url()).pathname;
@@ -61,7 +61,7 @@ async function runnersPage(t: TestContext, mode = 'html') {
       }
       const complete = state.unavailable.length === 0 && state.runners.every(row => object(row).service !== null && object(row).version !== '');
       const active = state.runners.filter(row => {const service = object(row).service; return service !== null && object(service).active === 'active' && object(service).sub === 'running';}).length;
-      await route.fulfill({status: state.failList ? 503 : 200, json: {forgejo_url: origin, complete, unavailable:state.unavailable, runners: state.runners, runner_count: state.runners.length, active_listeners: active, total_capacity: state.runners.length}});
+      await route.fulfill({status: state.failList ? 503 : 200, json: {complete, unavailable:state.unavailable, runners: state.runners, runner_count: state.runners.length, active_listeners: active, total_capacity: state.runners.length, ...(state.omitForgejo ? {} : {forgejo_url: origin})}});
       return;
     }
     if (componentOnly) {
@@ -125,6 +125,8 @@ test('runner response enforces native one-slot validation', () => {
   assert.throws(() => decodeRunnerResponse('remove', {ok: false}));
   assert.throws(() => decodeRunnerResponse('list', {runners: [], runner_count: 0, active_listeners: -1, total_capacity: 0}));
   assert.equal(decodeRunnerResponse('start', {ok: true}).ok, true);
+  const omittedOrigin = {complete: true, unavailable: [], runners: [], runner_count: 0, active_listeners: 0, total_capacity: 0};
+  assert.deepEqual(decodeRunnerResponse('list', omittedOrigin), omittedOrigin);
 });
 
 test('partial runner response retains known rows and refuses false completeness or counts', () => {
@@ -133,6 +135,13 @@ test('partial runner response retains known rows and refuses false completeness 
   assert.deepEqual(decodeRunnerResponse('list', partial), partial);
   for (const change of [{complete:true}, {total_capacity:3}, {active_listeners:2}, {unavailable:['one']}, {unavailable:['../bad']}, {unavailable:['broken','broken']}]) assert.throws(() => decodeRunnerResponse('list', {...partial,...change}));
   assert.throws(() => decodeRunnerResponse('list', {...partial,runners:[{...row,account:'root'},partial.runners[1]]}));
+});
+
+test('omitted Forgejo origin keeps local inventory available', browserCase, async t => {
+  const {page, state} = await runnersPage(t);
+  state.omitForgejo = true;
+  await page.getByRole('button', {name:'Refresh status'}).click(); await settled(page);
+  await page.getByText('No local runners registered.').waitFor();
 });
 
 test('partial inventory shows unknown capacity without locking readable runner actions', browserCase, async t => {

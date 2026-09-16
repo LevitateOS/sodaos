@@ -97,12 +97,38 @@ func admitParentDispatch(f buildFlags) error {
 	return nil
 }
 
+func admitWorkerQualify(f buildFlags) error {
+	if f.WorkerBuild || f.GuestAction != "" || f.WorkerConfig != "" || f.SigningConfig != "" {
+		return errors.New("qualification worker cannot select build, guest or signing authority")
+	}
+	if f.QualificationConfig != "/run/soda-p9-input/config.json" {
+		return errors.New("qualification worker requires the mounted qualifier inputs")
+	}
+	return qualifierIdentity()
+}
+
+func admitGuestAction(f buildFlags) error {
+	if f.WorkerBuild || f.WorkerQualify || f.WorkerConfig != "" || f.QualificationConfig != "" || f.SigningConfig != "" {
+		return errors.New("guest observation cannot select worker or release authority")
+	}
+	if f.ExpectedPayload == "" {
+		return errors.New("guest observation requires the exact payload identity")
+	}
+	if f.GuestAction != "snapshot" && f.GuestAction != "later" && f.GuestAction != "content" {
+		return errors.New("guest reseeding refused")
+	}
+	return nil
+}
+
 func admitBuildDispatch(f buildFlags) error {
 	if f.WorkerBuild {
 		return admitWorkerBuild(f)
 	}
-	if f.WorkerQualify || f.GuestAction != "" {
-		return nil
+	if f.GuestAction != "" {
+		return admitGuestAction(f)
+	}
+	if f.WorkerQualify {
+		return admitWorkerQualify(f)
 	}
 	return admitParentDispatch(f)
 }

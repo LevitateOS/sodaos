@@ -64,6 +64,21 @@ test('server locator is published before Create; original bootstrap CSRF and bou
   assert.equal(Buffer.from(data, 'base64').toString(), 'héllo\r');
   assert.equal(await page.evaluate(() => {const value = window.terminalFixture.term().writes[0]; return typeof value === 'string' ? value : new TextDecoder().decode(value);}), '世界');
 });
+test('sub-URL deployments prefix API and socket URLs', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    const marker = document.createElement('span');
+    marker.id = 'soda-settings-link';
+    marker.dataset.subUrl = '/forgejo.test';
+    document.body.append(marker);
+  });
+  await opening(page);
+  const reserved = await page.evaluate(() => window.terminalFixture.writes());
+  assert.equal(reserved.length, 1);
+  assert(reserved[0]?.url.startsWith('/forgejo.test/-/soda/api/environments/'));
+  assert(reserved[0]?.url.endsWith('/terminal-sessions'));
+  assert.equal(await page.evaluate(() => window.terminalFixture.socket().url), server.url.origin.replace('http:', 'wss:') + `/forgejo.test/-/soda/api/environments/${env}/terminal`);
+});
 for (const event of ['pagehide', 'pageshow']) test(`${event} retires access without End or replay`, async t => {
   const page = await fixture(t); await ready(page);
   await page.evaluate(async event => {const f = window.terminalFixture; window.dispatchEvent(event === 'pageshow' ? new PageTransitionEvent(event, {persisted: true}) : new Event(event)); await f.api.ready; f.socket().message({type: 'output', data: 'YWJj'}); window.dispatchEvent(new Event('focus')); f.root.querySelector('button')?.click();}, event);

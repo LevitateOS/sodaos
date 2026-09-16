@@ -34,6 +34,10 @@ function confirmationFocusSelector(action: LifecycleAction): string {
   return action === 'remove' ? 'input[name=confirm_id]' : '[data-runner-cancel]';
 }
 
+function sodaAPIBase(): string {
+  return (document.getElementById('soda-settings-link')?.dataset.subUrl || '') + '/-/soda';
+}
+
 class RunnerRequestError extends Error {
   constructor(readonly status: number) {
     super('Runner request rejected');
@@ -158,7 +162,7 @@ class SodaRunners extends LitElement {
     try {
       this.requireCurrent(lifetime);
       if (body !== undefined) this.operation = {kind: 'runner', sent: true};
-      const pending = fetch('/-/soda/api/settings/runners' + path, {
+      const pending = fetch(sodaAPIBase() + '/api/settings/runners' + path, {
         method: body === undefined ? 'GET' : 'POST',
         credentials: 'same-origin',
         cache: 'no-store',
@@ -190,7 +194,7 @@ class SodaRunners extends LitElement {
     this.requireCurrent(lifetime);
     if (
       rows.runners.length > 64 ||
-      rows.forgejo_url !== location.origin ||
+      (rows.forgejo_url !== undefined && rows.forgejo_url !== location.origin) ||
       rows.runners.some((row) => !/^[a-z][a-z0-9-]{0,15}$/.test(row.id))
     )
       throw Error('Invalid inventory');

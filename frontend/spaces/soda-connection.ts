@@ -4,6 +4,9 @@ import type {Session} from './sodaspaces-api.js';
 const suppressionKey = 'soda-signout';
 let retired = false;
 let signingOut = false;
+// A completed sign-out already dispatched its single native activation; a
+// later call refreshes the Soda state and notice without replaying it.
+let signOutComplete = false;
 let replay: HTMLAnchorElement | null = null;
 const marker = document.getElementById('soda-settings-link');
 const sub = marker?.dataset.subUrl || '';
@@ -29,6 +32,7 @@ window.addEventListener('pageshow', () => {
 
 function allowExplicitConnection() {
   retired = false;
+  signOutComplete = false;
   try {
     localStorage.removeItem(suppressionKey);
   } catch {
@@ -164,6 +168,7 @@ function notice(message: string, actor: string, link: HTMLAnchorElement | null, 
 }
 export async function signOut(actor: string) {
   if (signingOut || !id(actor)) return;
+  const repeat = signOutComplete;
   signingOut = true;
   suppress();
   const link = nativeLogout();
@@ -172,11 +177,12 @@ export async function signOut(actor: string) {
   try {
     await cancel(actor, controller.signal);
     notice('Soda sign-out is complete. Forgejo sign-out is still pending.', actor, link, false);
-    if (link) activate(link);
+    signOutComplete = true;
+    if (link && !repeat) activate(link);
   } catch {
     notice('Soda sign-out could not be confirmed. Retry, or explicitly sign out of Forgejo only.', actor, link, true);
-    signingOut = false;
   } finally {
+    signingOut = false;
     controller.abort();
   }
 }

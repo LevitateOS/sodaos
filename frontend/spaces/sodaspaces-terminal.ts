@@ -40,6 +40,9 @@ export type TerminalLocator =
       kind: 'existing';
       id: string;
     };
+function sodaAPIBase(): string {
+  return (document.getElementById('soda-settings-link')?.dataset.subUrl || '') + '/-/soda';
+}
 const renderer = async (): Promise<Renderer> => {
   const [{Terminal}, {FitAddon}] = await Promise.all([
     import('./soda-terminal/xterm.mjs'),
@@ -335,7 +338,7 @@ export class SodaTerminal extends LitElement {
       headers['Content-Type'] = 'application/json';
       headers['X-CSRF-Token'] = this.binding.csrfToken;
     }
-    const response = await fetch('/-/soda' + path, {
+    const response = await fetch(sodaAPIBase() + path, {
       method: body ? 'POST' : 'GET',
       credentials: 'same-origin',
       cache: 'no-store',
@@ -804,7 +807,7 @@ export class SodaTerminal extends LitElement {
     rows: number,
     request: AbortController
   ) {
-    const url = new URL(`/-/soda/api/environments/${this.binding!.environmentId}/terminal`, location.origin);
+    const url = new URL(`${sodaAPIBase()}/api/environments/${this.binding!.environmentId}/terminal`, location.origin);
     url.protocol = 'wss:';
     const peer = (this.socket = new WebSocket(url)),
       queued = {bytes: 0};

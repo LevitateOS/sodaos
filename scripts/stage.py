@@ -37,11 +37,13 @@ else:
 
 def copy(src, dest, mode=None, root=stage):
     target = root / dest.lstrip('/')
+    fresh = {parent for parent in target.parents if not parent.exists()}
     target.parent.mkdir(parents=True, exist_ok=True)
     for parent in target.parents:
         if parent == root:
             break
-        parent.chmod(0o755)
+        if parent in fresh:
+            parent.chmod(0o755)
     if target.exists() or target.is_symlink():
         p.error('occupied staging file refused')
     shutil.copy2(src, target)

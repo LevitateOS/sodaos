@@ -119,6 +119,11 @@ func chownName(path, name string) error {
 }
 
 func copyFile(src, dst string) error {
+	if _, err := os.Lstat(dst); err == nil {
+		return fmt.Errorf("occupied pickup file %s refused", dst)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -126,7 +131,7 @@ func copyFile(src, dst string) error {
 	defer func() {
 		_ = in.Close()
 	}()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return err
 	}

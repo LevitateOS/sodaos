@@ -201,7 +201,7 @@ func checkCheckoutRoot() error {
 }
 
 func checkCleanTree() error {
-	cmd := exec.Command("git", "status", "--porcelain", "--untracked-files=no")
+	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir, _ = os.Getwd()
 	out, err := cmd.Output()
 	if err != nil {

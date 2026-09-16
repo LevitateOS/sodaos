@@ -294,6 +294,9 @@ func (d *Daemon) dispatchCreateTargeted(ctx context.Context, path string, decode
 	if err := decode(&in); err != nil {
 		return nil, err
 	}
+	if !project.ValidID(in.ID) {
+		return nil, errors.New("invalid project identity")
+	}
 	switch path {
 	case "/inspect":
 		out, _, err := d.Project.Inspect(ctx, in.ID)
@@ -326,8 +329,10 @@ func (d *Daemon) dispatchMutation(ctx context.Context, path string, decode func(
 		if err := decode(&in); err != nil {
 			return nil, err
 		}
-		err := d.Project.Account(ctx, in)
-		return map[string]bool{"ok": err == nil}, nil
+		if err := d.Project.Account(ctx, in); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, nil
 	default:
 		return nil, errNotFound
 	}

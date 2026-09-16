@@ -176,6 +176,9 @@ test('coordinated logout captures keyboard activation and retires other tabs bef
       await page.getByRole('link', {name: 'Sign out', exact: true}).click();
       assert.equal(await page.locator('body').getAttribute('data-native-calls'), '1', 'duplicate activation must not replay');
       assert.match(await page.getByRole('alert').innerText(), /Forgejo sign-out is still pending/);
+      await page.waitForLoadState('networkidle');
+      assert.equal(await page.locator('body').getAttribute('data-native-calls'), '1', 'late replay must not appear after settle');
+      assert(calls.filter(call => call.endsWith('/session')).length >= 2, 'repeat sign-out must still refresh Soda state');
     }
     if (mode === 'pending') assert(!calls.some(call => call.endsWith('/session/logout')));
     if (mode === 'actor-change') assert.equal(calls.length, 1, 'must not adopt another actor for cancellation');

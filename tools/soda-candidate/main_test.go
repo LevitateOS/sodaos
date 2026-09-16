@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -288,6 +289,66 @@ func TestServeAndFileRootfs(t *testing.T) {
 	}
 	if string(body) != "payload" {
 		t.Fatalf("served %q", body)
+	}
+}
+
+func TestCheckCleanTreeRefusesUntrackedFiles(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git unavailable")
+	}
+	root := t.TempDir()
+	t.Chdir(root)
+	git := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	git("init", "-q")
+	untracked := filepath.Join(root, "untracked.txt")
+	if err := os.WriteFile(untracked, []byte("uncommitted"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkCleanTree(); err == nil || !strings.Contains(err.Error(), "committed source") {
+		t.Fatalf("untracked file admitted to bound source, got: %v", err)
+	}
+	if err := os.Remove(untracked); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkCleanTree(); err != nil {
+		t.Fatalf("clean tree refused: %v", err)
+	}
+}
+
+func TestCopyFileRefusesOccupiedPickup(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.img")
+	dst := filepath.Join(dir, "served.img")
+	if err := os.WriteFile(src, []byte("new"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFile(src, dst); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(src, []byte("changed"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFile(src, dst); err == nil {
+		t.Fatal("occupied pickup file overwritten")
+	}
+	if got, err := os.ReadFile(dst); err != nil || string(got) != "new" {
+		t.Fatalf("pickup file altered: %q %v", got, err)
+	}
+	if err := os.Remove(dst); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(src, dst); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFile(src, dst); err == nil {
+		t.Fatal("symlinked pickup file overwritten")
 	}
 }
 

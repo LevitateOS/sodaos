@@ -150,7 +150,7 @@ family. They do not replace `bun run typecheck` (Oxc has no typechecker we will
 use in place of TypeScript 7). Do not add Prettier, ESLint, or Biome on top.
 Whole-tree scripts live beside the Go gates; the pre-commit hook is
 staged-only so an existing backlog cannot block unrelated commits. Go quality-gate
-ownership and the Go threshold remain in [the slop audit](go.md).
+ownership and the Go threshold remain in [the Go ownership guide](go.md).
 
 | Command | Scope |
 | --- | --- |

@@ -19,7 +19,7 @@ Reference: `soda-os` commit `bc1d3e0dbec48dfaa6a20f9d0453ad3e4cdf353c`. The pred
 | `packaging/rpm/forgejo/sources/app.ini.tmpl` | Selected app metadata, stock/accessibility themes and cache policy in `appliance/config/forgejo.env`; no copied host paths, PAM identity or secrets |
 | Native console welcome and profile hook | `appliance/bin/soda-console-welcome`, interactive-only host hook, actual configured HTTPS origins and loopback Cockpit guidance |
 | `docs/public/40-Develop/10-connect-and-develop.md` | Reworked editor, SSH/SCP/SFTP, Git, tool and service guidance for project-local users/IPs and shared installations |
-| `docs/screenshot-capture.md` | Current-page capture/redaction rules, with no fabricated images or published placeholders |
+| `docs/design/screenshot-capture.md` | Current-page capture/redaction rules, with no fabricated images or published placeholders |
 | Tea CLI and license | Tea remains preinstalled in Rocky projects; inherited source-build machinery was replaced with verified upstream binaries. See [project CLIs](../guides/project-clis.md). |
 | GitHub CLI baseline and user guidance | Same version baseline via GitHub's signed RPM repository inside Rocky; personal native authentication, not host runner credentials |
 
@@ -42,7 +42,7 @@ plan](../product/spaces.md) and production callers own product contracts and nat
 environments. Predecessor product/workload/preservation scenarios are references
 for existing product tests, not a second Go harness suite or readiness gate.
 
-The active source port now has concrete callers under `tools/`, adapted helpers/tests in `internal/acceptance` and `internal/nativebuild`, exact-source remote phases, bundle/provisioning integration and retained-operator checks. See [support contracts/recipes](../development/native-support.md) and [source attribution](notices.md). No builds, tests or native observations were performed for this source port. The later [CoreOS ISO implementation](../guides/media.md) has separately recorded generation and bounded diskless boot evidence, not complete fresh-install acceptance; it does not gate core work. The [recommended product QCOW2](../guides/installation.md) remains unimplemented and is not a port of the predecessor's image orchestrator. Retain CoreOS/project-local identities; do not import bootc/Anaconda, old host-workspace assertions or release qualification/publication machinery. Native architecture evidence remains independent.
+The active source port now has concrete callers under `tools/`, adapted helpers/tests in `internal/acceptance` and `internal/release/build`, exact-source remote phases, bundle/provisioning integration and retained-operator checks. See [support contracts/recipes](../development/native-support.md) and [source attribution](notices.md). No builds, tests or native observations were performed for this source port. The later [CoreOS ISO implementation](../guides/media.md) has separately recorded generation and bounded diskless boot evidence, not complete fresh-install acceptance; it does not gate core work. The [recommended product QCOW2](../guides/installation.md) remains unimplemented and is not a port of the predecessor's image orchestrator. Retain CoreOS/project-local identities; do not import bootc/Anaconda, old host-workspace assertions or release qualification/publication machinery. Native architecture evidence remains independent.
 
 ## Evidence boundary
 
