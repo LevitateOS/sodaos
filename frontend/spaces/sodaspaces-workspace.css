@@ -328,11 +328,11 @@
 .soda-workspace.is-project-setup :is(.soda-repository-choice, .soda-config-repository-name) { font: var(--soda-font-body); }
 @media (max-width: 640px) {
   .soda-workspace.is-project-setup .soda-setup-actions > .primary { min-width: 0; }
-  .soda-workspace.is-project-setup .soda-setup-footer { padding-block: var(--soda-space-4); gap: var(--soda-space-2); }
+  .soda-workspace.is-project-setup .soda-setup-footer { padding-block: var(--soda-space-2); gap: var(--soda-space-2); }
   .soda-workspace.is-project-setup :is(.soda-setup-panel, .soda-workspace-work) { padding-block: var(--soda-space-2) var(--soda-space-4); }
-  .soda-workspace.is-project-setup .soda-setup-step-heading { margin-bottom: var(--soda-space-4); }
+  .soda-workspace.is-project-setup .soda-setup-step-heading { margin-bottom: var(--soda-space-2); }
   .soda-workspace.is-project-setup .soda-repository-search { margin-bottom: var(--soda-space-4); }
   .soda-workspace.is-project-setup .soda-configuration-fields { margin-bottom: var(--soda-space-2); }
-  .soda-workspace.is-project-setup .soda-configuration-repository { margin-bottom: var(--soda-space-2); }
+  .soda-workspace.is-project-setup .soda-configuration-repository { margin-bottom: 0; }
 }
 .soda-menu-heading > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }

@@ -597,15 +597,15 @@ export class SodaSpaces extends LitElement {
     </button>`;
   }
   private renderStatusBanners() {
+    // The status element must contain no whitespace text so its empty
+    // state reads empty; the formatter would reintroduce it.
+    // oxfmt-ignore
     return html`<div
         id="sodaspaces-status"
         class="soda-feedback soda-list-feedback"
         data-tone="warning"
         role="status"
-        ?hidden=${this.hideListStatus()}
-      >
-        <span>${this.status}</span>${this.retryLoading()}
-      </div>
+        ?hidden=${this.hideListStatus()}><span>${this.status}</span>${this.retryLoading()}</div>
       <p class="soda-feedback" data-tone="warning" role="status" ?hidden=${!this.storageNotice}>
         ${this.storageNotice}
       </p>`;
@@ -1337,16 +1337,16 @@ export class SodaSpaces extends LitElement {
   }
   private renderPaneMenu() {
     if (this.binding?.kind !== 'page') return '';
+    // Button labels stay inline: wrapping whitespace text nodes around them
+    // breaks exact-text assertions.
+    // oxfmt-ignore
     return renderMenu(
       'Pane actions',
       'Pane ⌄',
       html`
         <p class="soda-menu-heading">Pane layout</p>
-        <button class="ui button" ?disabled=${!this.canSplit('right')} @click=${() => this.split('right')}>
-          Split right</button
-        ><button class="ui button" ?disabled=${!this.canSplit('below')} @click=${() => this.split('below')}>
-          Split below
-        </button>
+        <button class="ui button" ?disabled=${!this.canSplit('right')} @click=${() => this.split('right')}>Split right</button
+        ><button class="ui button" ?disabled=${!this.canSplit('below')} @click=${() => this.split('below')}>Split below</button>
         ${this.renderPaneLayoutExtras()} ${this.renderPaneSplitHelp()}
       `
     );
