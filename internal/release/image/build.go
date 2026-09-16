@@ -446,6 +446,10 @@ func compileShippingTools(p build.Production, snapshot, contextDir, artifacts, r
 	return recordToolFiles(tools, revision, arch, artifacts)
 }
 
+// buildHostCandidate observes the floating package inventory from an
+// observation build, seals the payload (release metadata included) into the
+// context, then bakes and verifies the final image. The sealed fingerprint
+// must reproduce from the final image; a shift fails the build.
 func buildHostCandidate(snapshot, contextDir, artifacts, arch, revision, prefix string, base Base, p build.Production, next func(string) error) error {
 	payload, err := completeCandidate(snapshot, contextDir, artifacts, arch, revision, prefix, base, p, next)
 	if err != nil {
@@ -454,15 +458,26 @@ func buildHostCandidate(snapshot, contextDir, artifacts, arch, revision, prefix 
 	if err := next("P5 / Build FCOS host candidate"); err != nil {
 		return err
 	}
-	if err := Inventory(contextDir); err != nil {
+	observation, err := buildHostImage(contextDir, artifacts, arch, revision, prefix, base, p)
+	if err != nil {
 		return err
 	}
-	packageHash, err := buildHost(contextDir, artifacts, arch, revision, prefix, base, p, next)
+	packageHash, err := recordHostPackages(contextDir, artifacts, observation, p)
 	if err != nil {
 		return err
 	}
 	payload.HostPackagesSHA256 = packageHash
-	return sealCandidatePayload(payload, snapshot, contextDir, artifacts, p)
+	if err := sealCandidatePayload(payload, snapshot, contextDir, artifacts, p); err != nil {
+		return err
+	}
+	if err := Inventory(contextDir); err != nil {
+		return err
+	}
+	id, err := buildHostImage(contextDir, artifacts, arch, revision, prefix, base, p)
+	if err != nil {
+		return err
+	}
+	return verifyBuiltHost(contextDir, artifacts, arch, revision, prefix, id, packageHash, base, p, next)
 }
 
 func executeBuildProduction(ctx context.Context, p build.Production, r Request, snapshot, contextDir, artifacts, revision string, base Base, mediaTooling mediaTools, assembler mediaLock, phase func(string) error) (Result, error) {
