@@ -97,7 +97,7 @@ func TestMediaURLHasNoCredentialsOrMutableQuery(t *testing.T) {
 	for _, url := range []string{"https://example.invalid/releases/candidate", "http://10.0.2.2:19843"} {
 		require.NoError(t, mediaBaseURL(url))
 	}
-	for _, url := range []string{"", "file:///tmp/rootfs", "https://user:secret@example.invalid/", "https://example.invalid/?token=secret", "https://example.invalid/#fragment", "https://example.invalid/ bad"} {
+	for _, url := range []string{"", "file:///tmp/rootfs", "https://user:secret@example.invalid/", "https://example.invalid/?token=secret", "https://example.invalid/#fragment", "https://example.invalid/ bad", "http://127.0.0.1:8080", "http://localhost:8080", "http://[::1]:8080"} {
 		require.Error(t, mediaBaseURL(url))
 	}
 }

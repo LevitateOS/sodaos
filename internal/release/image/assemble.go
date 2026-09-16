@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/netip"
 	"net/url"
 	"os"
 	"os/exec"
@@ -47,6 +48,15 @@ func mediaBaseURL(value string) error {
 	u, err := url.Parse(value)
 	if err != nil || u.Host == "" || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.RawQuery != "" || u.Fragment != "" || strings.ContainsAny(value, "\r\n ") {
 		return errors.New("explicit public HTTP(S) rootfs base URL required")
+	}
+	// The installing machine fetches this address: a loopback URL always
+	// points at the guest itself, never at the machine serving the rootfs.
+	host := strings.ToLower(u.Hostname())
+	if host == "localhost" {
+		return errors.New("rootfs base URL must be reachable from the installing machine, not loopback")
+	}
+	if addr, err := netip.ParseAddr(host); err == nil && addr.IsLoopback() {
+		return errors.New("rootfs base URL must be reachable from the installing machine, not loopback")
 	}
 	return nil
 }

@@ -13,7 +13,13 @@ REFRESH="${SODA_REFRESH_AUTHORITY:-0}"
 # Pickup folder for the built system image. The ISO is only the boot menu;
 # the installer downloads the big rootfs file from the address below.
 ROOTFS_DIR="/var/lib/soda-rootfs"
+# The installing machine fetches this address, so it must be reachable from
+# the guest: prefer the libvirt bridge when present. Loopback always points
+# at the guest itself and the media build refuses it.
 ROOTFS_URL="http://127.0.0.1:8080"
+if BRIDGE_IP="$(ip -4 -o addr show virbr0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)" && [ -n "$BRIDGE_IP" ]; then
+  ROOTFS_URL="http://$BRIDGE_IP:8080"
+fi
 ADMITTED="/usr/local/lib/soda/soda-build"
 PINNED_GO="/usr/local/lib/soda/pinned-go"
 WRAPPER="/usr/sbin/soda-candidate"
