@@ -393,11 +393,9 @@ class SodaspacesPackaging(unittest.TestCase):
 
             def synthetic_output(args):
                 if '--entrypoint=/usr/local/bin/tailscale' in args:
-                    return json.dumps(
-                        {'short': json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']}
-                    )
+                    return json.dumps({'short': 'synthetic tailscale version'})
                 if '--entrypoint=/usr/local/bin/tailscaled' in args:
-                    return json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']
+                    return 'synthetic tailscaled version'
                 return '[]' if '{{json .RepoDigests}}' in args else 'synthetic metadata; no commands run'
 
             with (
@@ -410,9 +408,13 @@ class SodaspacesPackaging(unittest.TestCase):
                 (stage / 'inputs/lit-check-package.json').read_bytes(),
                 (ROOT / 'tools/lit-check/package.json').read_bytes(),
             )
+            build_info = json.loads((stage / 'inputs/native-build.json').read_text())
             self.assertEqual(
-                (stage / 'inputs/tailscale-image.json').read_bytes(),
-                (ROOT / 'appliance/locks/tailscale-image.json').read_bytes(),
+                build_info['Images']['tailnet']['CLIs'],
+                {
+                    '/usr/local/bin/tailscale': json.dumps({'short': 'synthetic tailscale version'}),
+                    '/usr/local/bin/tailscaled': 'synthetic tailscaled version',
+                },
             )
             self.assertFalse((stage / 'inputs/cockpit-package.json').exists())
             for source, name in (('LICENSE', 'soda-LICENSE'), ('NOTICE', 'soda-NOTICE')):

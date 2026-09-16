@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -37,6 +38,121 @@ func coreOSRegistry() string {
 		return strings.TrimSuffix(u, "/")
 	}
 	return defaultCoreOSRegistry
+}
+
+const (
+	defaultTailnetIndexURL    = "https://pkgs.tailscale.com/stable/"
+	defaultTailnetBaseTagsURL = "https://hub.docker.com/v2/repositories/tailscale/alpine-base/tags?page_size=100"
+)
+
+func tailnetIndexURL() string {
+	if u := strings.TrimSpace(os.Getenv("SODA_TAILSCALE_INDEX_URL")); u != "" {
+		return u
+	}
+	return defaultTailnetIndexURL
+}
+
+func tailnetBaseTagsURL() string {
+	if u := strings.TrimSpace(os.Getenv("SODA_TAILSCALE_BASE_TAGS_URL")); u != "" {
+		return u
+	}
+	return defaultTailnetBaseTagsURL
+}
+
+// ResolveTailnetInputs floats the Tailnet toolchain: the newest stable
+// release in the upstream index, its archive checksum for the architecture,
+// and the newest upstream alpine-base tag. The worker downloads by version
+// and pulls by tag; these values plus the pull digests are the record.
+func ResolveTailnetInputs(ctx context.Context, arch string) (TailnetInputs, error) {
+	var inputs TailnetInputs
+	platform, err := OCIArchitecture(arch)
+	if err != nil {
+		return inputs, err
+	}
+	version, err := latestTailnetRelease(ctx)
+	if err != nil {
+		return inputs, err
+	}
+	checksumURL := tailnetIndexURL() + "tailscale_" + version + "_" + platform + ".tgz.sha256"
+	raw, err := fetchCappedText(ctx, checksumURL, 1<<20)
+	if err != nil {
+		return inputs, err
+	}
+	sha, _, _ := strings.Cut(strings.TrimSpace(raw), " ")
+	base, err := latestTailnetBaseTag(ctx)
+	if err != nil {
+		return inputs, err
+	}
+	inputs = TailnetInputs{Version: version, SHA256: sha, Base: base}
+	if err := ValidTailnetInputs(inputs); err != nil {
+		return TailnetInputs{}, err
+	}
+	return inputs, nil
+}
+
+func latestTailnetRelease(ctx context.Context) (string, error) {
+	raw, err := fetchCappedText(ctx, tailnetIndexURL(), 1<<20)
+	if err != nil {
+		return "", err
+	}
+	found := regexp.MustCompile(`tailscale_([0-9]+)\.([0-9]+)\.([0-9]+)_(?:amd64|arm64)\.tgz`).FindAllStringSubmatch(raw, -1)
+	var best [3]int
+	version := ""
+	for _, m := range found {
+		var v [3]int
+		for i := 0; i < 3; i++ {
+			n, err := strconv.Atoi(m[i+1])
+			if err != nil {
+				return "", errors.New("unparseable Tailnet release")
+			}
+			v[i] = n
+		}
+		if version == "" || v[0] > best[0] || (v[0] == best[0] && (v[1] > best[1] || (v[1] == best[1] && v[2] > best[2]))) {
+			best, version = v, m[1]+"."+m[2]+"."+m[3]
+		}
+	}
+	if version == "" {
+		return "", errors.New("no Tailnet release in upstream index")
+	}
+	return version, nil
+}
+
+func latestTailnetBaseTag(ctx context.Context) (string, error) {
+	data, err := fetchCappedJSON(ctx, tailnetBaseTagsURL(), 1<<20)
+	if err != nil {
+		return "", err
+	}
+	var tags struct {
+		Results []struct{ Name string }
+	}
+	if err := json.Unmarshal(data, &tags); err != nil {
+		return "", err
+	}
+	best := ""
+	var bestV [2]int
+	for _, tag := range tags.Results {
+		m := regexp.MustCompile(`^([0-9]+)\.([0-9]+)$`).FindStringSubmatch(tag.Name)
+		if m == nil {
+			continue
+		}
+		major, _ := strconv.Atoi(m[1])
+		minor, _ := strconv.Atoi(m[2])
+		if best == "" || major > bestV[0] || (major == bestV[0] && minor > bestV[1]) {
+			bestV, best = [2]int{major, minor}, m[1]+"."+m[2]
+		}
+	}
+	if best == "" {
+		return "", errors.New("no Tailnet base tag upstream")
+	}
+	return "docker.io/tailscale/alpine-base:" + best, nil
+}
+
+func fetchCappedText(ctx context.Context, url string, maxBytes int64) (string, error) {
+	data, err := fetchCappedJSON(ctx, url, maxBytes)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // ResolvedCoreOS is one stable build as found right now: release and
@@ -80,18 +196,18 @@ func fetchCappedJSON(ctx context.Context, url string, maxBytes int64) ([]byte, e
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("CoreOS metadata fetch failed: %w", err)
+		return nil, fmt.Errorf("live input fetch failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("CoreOS metadata HTTP failure: %s", resp.Status)
+		return nil, fmt.Errorf("live input HTTP failure: %s", resp.Status)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
 	if err != nil {
 		return nil, err
 	}
 	if int64(len(data)) > maxBytes {
-		return nil, errors.New("CoreOS metadata exceeds size limit")
+		return nil, errors.New("live input exceeds size limit")
 	}
 	return data, nil
 }
@@ -151,9 +267,8 @@ func resolveStreamBuild(data []byte) (release string, iso, qemu map[string]CoreO
 	return release, iso, qemu, nil
 }
 
-// validStreamImages applies the lock-era shape rules to stream-resolved
-// triples: the ISO rules mirror validCoreOSISO and the QEMU rules mirror
-// validCoreOSLock, minus the file they used to come from.
+// validStreamImages applies shape rules to stream-resolved triples: HTTPS
+// locations, ISO naming with a sidecar signature, and hex digests.
 func validStreamImages(release string, iso, qemu map[string]CoreOSImage) error {
 	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(release) {
 		return errors.New("stable stream release is malformed")
@@ -308,34 +423,68 @@ func ResolveCoreOS(ctx context.Context) (ResolvedCoreOS, error) {
 	return ResolvedCoreOS{Release: release, MetadataURL: meta, Container: digests, ISO: iso, QEMU: qemu}, nil
 }
 
-// WriteResolvedCoreOS records one resolved stable build for an isolated
-// consumer that cannot fetch it: the controller resolves where network is
-// admitted and the worker consumes its own attempt's file. Public metadata
-// only (release, locations, digests); the file carries no authority beyond
-// the digest-pinned pulls that verify content downstream.
-func WriteResolvedCoreOS(path string, resolved ResolvedCoreOS) error {
-	if err := ValidResolvedCoreOS(resolved); err != nil {
+// TailnetInputs carries the floating Tailnet toolchain for one attempt:
+// the latest stable release version, its per-architecture archive checksum,
+// and the floating container base tag. The worker pulls by tag and downloads
+// by version; the recorded values plus the pull digests are the record.
+type TailnetInputs struct{ Version, SHA256, Base string }
+
+// LiveInputs is the controller-resolved live input set for one isolated
+// worker attempt: the stable CoreOS build plus the floating Tailnet
+// toolchain. The controller resolves where network is admitted; the worker
+// consumes its own attempt's file and validates it like a live resolution.
+// Public metadata only; digest-pinned pulls verify content downstream.
+type LiveInputs struct {
+	CoreOS  ResolvedCoreOS
+	Tailnet TailnetInputs
+}
+
+// WriteLiveInputs records one attempt's live inputs. Validation mirrors the
+// live path; a missing or tampered file fails on read.
+func WriteLiveInputs(path string, inputs LiveInputs) error {
+	if err := ValidLiveInputs(inputs); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(resolved, "", "  ")
+	data, err := json.MarshalIndent(inputs, "", "  ")
 	if err != nil {
 		return err
 	}
 	return WriteNew(path, append(data, '\n'), 0o644)
 }
 
-// ReadResolvedCoreOS admits controller-resolved inputs for the isolated
-// worker. Validation mirrors the live path; a missing or tampered file
-// fails here.
-func ReadResolvedCoreOS(path string) (ResolvedCoreOS, error) {
-	var resolved ResolvedCoreOS
-	if err := ReadJSON(path, &resolved); err != nil {
-		return resolved, err
+// ReadLiveInputs admits controller-resolved inputs for the isolated worker.
+func ReadLiveInputs(path string) (LiveInputs, error) {
+	var inputs LiveInputs
+	if err := ReadJSON(path, &inputs); err != nil {
+		return inputs, err
 	}
-	if err := ValidResolvedCoreOS(resolved); err != nil {
-		return resolved, err
+	if err := ValidLiveInputs(inputs); err != nil {
+		return inputs, err
 	}
-	return resolved, nil
+	return inputs, nil
+}
+
+// ValidLiveInputs applies the live resolution shape rules to admitted inputs.
+func ValidLiveInputs(inputs LiveInputs) error {
+	if err := ValidResolvedCoreOS(inputs.CoreOS); err != nil {
+		return err
+	}
+	return ValidTailnetInputs(inputs.Tailnet)
+}
+
+// ValidTailnetInputs checks the floating Tailnet shape: a release version,
+// a hex archive checksum, and the upstream alpine-base tag being floated.
+func ValidTailnetInputs(tailnet TailnetInputs) error {
+	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(tailnet.Version) {
+		return errors.New("invalid Tailnet version")
+	}
+	if !Digest(tailnet.SHA256) {
+		return errors.New("invalid Tailnet archive checksum")
+	}
+	if !regexp.MustCompile(`^docker\.io/tailscale/alpine-base:[0-9]+\.[0-9]+$`).MatchString(tailnet.Base) {
+		return errors.New("invalid Tailnet base tag")
+	}
+	return nil
 }
 
 // ValidResolvedCoreOS applies the live resolution shape rules to admitted

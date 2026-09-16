@@ -37,7 +37,7 @@ local work does not need a new grant per command.
 - `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Its selected check determines browser, native and provider effects.
 - `native`: one remote `prepare`, `build`, `check` or `bundle` phase. No automatic next phase. Preparation clones the canonical repository into a new private checkout; it never copies laptop binaries/dependencies/state.
 - `fetch-coreos`: downloads/verifies/decompresses a public QEMU base into a fresh private cache. No overwrite, key import, VM or installation.
-- `fetch-coreos-iso`: downloads/verifies the uncompressed upstream ISO selected by `appliance/locks/coreos-iso.json`, using the same trusted-key/signature boundary, into new `coreos.iso` and `verified-iso.json` outputs. It does not customize, boot, publish or install; soda-build media assembly is the concrete media caller.
+- `fetch-coreos-iso`: downloads/verifies the uncompressed upstream ISO resolved live from the stable stream for the requested architecture, using the same trusted-key/signature boundary, into new `coreos.iso` and `verified-iso.json` outputs. No stored version is consulted. It does not customize, boot, publish or install; soda-build media assembly is the concrete media caller.
 - `convert-butane`: runs strict native Butane conversion into a new restricted file. No boot or install.
 - `vm`: creates a new KVM overlay/NVRAM/process, boots to pinned SSH, then shuts down. `--restart` explicitly tests one restart of those same files. `--hold` keeps it available for separately authorized checks. The selected Ignition may install extensions: that requires installation permission as well as boot permission.
 - `transfer`: validates/streams only a sealed bundle into a new remote directory, checks the transferred verifier before executing it, and verifies the payload. It does **not** install.
@@ -63,7 +63,7 @@ bash scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts
   --out /absolute/new-export/x86_64
 ```
 
-The export's parent must already exist; the `ARCH` directory must not. A legacy bundle contains `rootfs/`, five actual OCI archives (including the locked Tailnet companion), the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. soda-build candidates carry payload/candidate/OCI archives under `artifacts/` without a writable rootfs tree. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory when verifying a sealed legacy stage. The payload contains native Forgejo templates/Lit assets and Soda's API/OAuth backend, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions when `SODA_STAGE` points at a retained rootfs.
+The export's parent must already exist; the `ARCH` directory must not. A legacy bundle contains `rootfs/`, five actual OCI archives (including the floating Tailnet companion), the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. soda-build candidates carry payload/candidate/OCI archives under `artifacts/` without a writable rootfs tree. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory when verifying a sealed legacy stage. The payload contains native Forgejo templates/Lit assets and Soda's API/OAuth backend, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions when `SODA_STAGE` points at a retained rootfs.
 
 `SHA256SUMS` identifies `build-info.json`, which identifies every delivered payload file. Establish that checksum through a trusted external channel **before executing any bundled program**, then verify the inventory. These are integrity records, not signatures or reproducible-build claims. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 
@@ -121,10 +121,10 @@ fallback with `--non-interactive`). Flags only pre-seed answers. The wrapper
 never admits workers, signs, or publishes; production mode still needs the
 protected configs, and publication stays grant-scoped as below.
 
-Substitute the operator-admitted absolute paths and explicit URL. Omitting both
-`--development` and `--target` requests the production path, which still ends
-incomplete at P8. Target flags require development mode; candidate mode refuses
-media-only inputs. Development cannot select publication/final signing.
+Substitute the operator-admitted absolute paths and explicit URL. Production
+builds are removed: omitting `--development` is refused, target flags require
+development mode, and candidate mode refuses media-only inputs. Development
+cannot select publication/final signing.
 Source commands run only inside the separate systemd worker:
 read-only source/tools, selected writable output/cache/runtime binds, CPUs 0–3,
 a four-CPU quota, 16 GiB ceiling, and no operator-home or real-release-custody access.
@@ -145,8 +145,9 @@ Each output is fresh;
 there is no worktree, partial-host mode, resume or skip-tests flag. The intended
 repository prefix defaults to `ghcr.io/levitateos/sodaos`; changing it does not create
 or publish repositories. Source and app inputs freeze before compilation. Prepared
-source/browser suites use the emitted assets; native page/provider journeys still
-belong to their separately authorized qualification drivers.
+source/browser suites no longer gate the build; they consume the same emitted
+assets when run directly. Native page/provider journeys still belong to their
+separately authorized qualification drivers.
 
 P1–P6 builds runtime programs, the installer console and support tools once; stages
 vendor assets directly; builds/exports five apps and the native FCOS host; then
@@ -160,11 +161,12 @@ Outputs occupy `inputs/`, `work/`, `artifacts/`, `evidence/`, `release/` and `lo
 `artifacts/` contains the six OCI archives (five under `images/`), tool binaries and
 hashes, payload/candidate identities and frozen app provenance. The once-compiled
 installer is also embedded in the host; native checks bind it to the exported tool.
-For media requests, pinned Butane produces public `destination.ign` and `live.ign`.
-P7 authenticates the
-candidate and packaging inputs using existing Sigstore primitives. P8 invokes pinned
-Assembler/OSBuild in fresh disposable scratch, extracts minimal media, customizes
-it once, and reads back Ignition, kernel arguments and native rootfs chunk hashes.
+For media requests, floating upstream Butane produces public `destination.ign`
+and `live.ign`; its observed version is recorded per build. P7 authenticates the
+candidate and packaging inputs using existing Sigstore primitives. P8 invokes the
+floating stable Assembler in fresh disposable scratch, extracts minimal media,
+customizes it once, and reads back Ignition, kernel arguments and native rootfs
+chunk hashes.
 `artifacts/media/media.json` binds the ISO/rootfs sizes, hashes, URL, candidate and
 actual rootfs filesystem/options. `image-config.json` is checked against the built
 host and included in the authenticated packaging inventory. Media builds also record
@@ -196,18 +198,16 @@ worker units). An unmatched reason gets no guess: the log path is the whole
 advice. Preflight refusals happen before any run and say the fix directly: a
 dirty tree lists the files to commit or stash, and a reused `--out` asks for a
 fresh directory per attempt.
-Production reaches P9 qualification and, with `--signing-config`, P10 signed final
-metadata; omitting signing still exits **2**. Channel/GHCR publication remains
-grant-scoped. Earlier failures stop immediately. These build/inspection effects do
-not authorize installation, publishing or migration.
-Only x86_64 currently has the locked host package transaction; no ARM lock is invented.
-When Fedora supersedes a pinned build, P5 fails closed (`Packages not found`)
-instead of substituting: refresh with `bash scripts/relock-host-packages.sh`,
-which re-resolves `appliance/locks/host-packages-x86_64.json` against current
-updates and refuses pins that would upgrade pinned base packages (a base bump
-is then required instead). The candidate build's `packages.expected` diff is
-the final arbiter; a missing-pin failure right after a relock usually means
-installer mirrors lag the master, so wait for mirror sync and retry.
+There is no P9/P10 production qualification path: development targets are the
+only builds, and channel/GHCR publication remains grant-scoped. Earlier failures
+stop immediately. These build/inspection effects do not authorize installation,
+publishing or migration.
+The host install floats on current repositories: bare package names plus the
+stable Tailscale repository, with the observed RPM inventory recorded per build
+as the bill-of-materials. No lock file precedes the install, for either
+architecture. When Fedora supersedes a package set, the install fails against
+current mirrors instead of substituting; the recorded inventory names the exact
+attempt.
 
 The legacy `soda-host-image --legacy-native` / `build-native.sh` lane was removed.
 The [superseded experimental recipes](https://github.com/LevitateOS/sodaos/blob/3fe7f18/docs/native-support.md#local-host-content-image-candidate)
@@ -215,16 +215,18 @@ remain historical evidence, not current commands or authority to mutate retained
 images. Source history remains available; old experiments do not require current readers.
 The [release owner](../architecture/release.md)
 defines current storage, defaults and machine-state ownership. The base/RPM inventory
-is locked, not mirrored or byte-reproducible. No installed-release claim follows
+is recorded per build, not locked, mirrored or byte-reproducible. No installed-release claim follows
 from local image inspection or ordinary build-cache reuse.
 
 ## Trusted release-delivery worker
 
 The [release plan](../architecture/release.md)
-owns authority, protocol and custody. `tools/soda-release` is a noninteractive worker
-CLI; it does not run build code, install a policy/image, import Podman state or reboot.
-It uses the locked native skopeo from `internal/release/deliver/tools.json` and the
-existing M1 OCI verifier. No new Go cryptographic signing implementation or registry
+owns authority, protocol and custody. The `tools/soda-release` worker CLI was
+removed: delivery operations below live in `internal/release/deliver` with no
+current operator entry point. Nothing there runs build code, installs a
+policy/image, imports Podman state or reboots. It uses the locked native
+skopeo from `internal/release/deliver/tools.json` and the existing M1 OCI
+verifier. No new Go cryptographic signing implementation or registry
 server is introduced. Run source checks/builds with the repository-pinned Go.
 
 All operations require `--trust PUBLIC-TRUST.json` and an absolute `--out`. Trust is
@@ -269,7 +271,7 @@ contract. Explicit fault reconciliation is not ordinary per-release manual signi
 Source/process-double checks:
 
 ```sh
-GOTOOLCHAIN=go1.26.7 go test -race ./internal/release/deliver ./tools/soda-release
+GOTOOLCHAIN=go1.26.7 go test -race ./internal/release/deliver
 ```
 
 Native **filesystem-only** Sigstore proof, using fresh synthetic keys and no network
@@ -347,11 +349,12 @@ Remote commands are bounded with native `timeout` plus a 10-second termination a
 
 ## Verified CoreOS and private provisioning
 
-`appliance/locks/coreos-qemu.json` records the stable metadata's selected `44.20260817.3.2` QEMU inputs for both architectures. The metadata was inspected during implementation; the images/signatures were **not downloaded or natively exercised**. The caller must independently select a trusted Fedora keyring and full signer fingerprint (see [Fedora security](https://fedoraproject.org/security/)). No key is fetched/imported as a trust shortcut.
+The stable stream's QEMU inputs resolve live per architecture; no stored version
+is consulted. The caller must independently select a trusted Fedora keyring and
+full signer fingerprint (see [Fedora security](https://fedoraproject.org/security/)). No key is fetched/imported as a trust shortcut.
 
 ```sh
 /path/to/soda-artifacts fetch-coreos --arch x86_64 \
-  --lock /absolute/source/appliance/locks/coreos-qemu.json \
   --keyring /absolute/trusted/fedora.gpg --signer TRUSTED_FULL_FINGERPRINT \
   --out /absolute/cache/new-coreos-attempt
 ```
@@ -382,7 +385,6 @@ Use actual native executable/firmware paths from the selected builder; resolve s
 {
   "Name": "soda-native-example",
   "Architecture": "x86_64",
-  "CoreOSLock": "/absolute/source/appliance/locks/coreos-qemu.json",
   "BaseReceipt": "/absolute/cache/new-coreos-attempt/verified-base.json",
   "Ignition": "/absolute/private/instance.ign",
   "QEMU": "/absolute/native/qemu-system-x86_64",
@@ -402,7 +404,7 @@ Invoke `vm --owner P03 --config FILE --target soda-native-example` with the comm
 
 Work/evidence must be disjoint fresh directories. Preflight checks matching Linux/KVM, tools, trust, paths and loopback port before creating VM state (private diagnostic evidence may exist on preflight failure). The overlay grows only the new disk, never the base. Orderly shutdown and owned process-group termination are bounded independently. Disks/NVRAM remain for inspection, including on failure; no PID-file adoption, global cleanup, project replacement, bridge/tap/firewall setup or persistent `soda-test` adoption occurs.
 
-For aarch64 use its own lock entry, `qemu-system-aarch64`, compatible ARM UEFI pair and matching-native hardware. Availability and success are independent of x86_64. Firmware/`fw_cfg` boot behavior and final filesystem capacity still need actual native observation.
+For aarch64 use its own live-resolved stream entry, `qemu-system-aarch64`, compatible ARM UEFI pair and matching-native hardware. Availability and success are independent of x86_64. Firmware/`fw_cfg` boot behavior and final filesystem capacity still need actual native observation.
 
 ## Installed substrate and retained integrations
 

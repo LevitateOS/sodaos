@@ -143,52 +143,57 @@ func TestResolveCoreOSRequiresHTTPSStream(t *testing.T) {
 	}
 }
 
-func TestResolvedCoreOSFileRoundTrip(t *testing.T) {
+func liveInputsFixture(t *testing.T) LiveInputs {
+	t.Helper()
 	streamFixtureServer(t, fixtureStreamDoc(t, nil), fixtureIndexDoc(t, nil), http.StatusOK)
 	resolved, err := ResolveCoreOS(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(t.TempDir(), "coreos-inputs.json")
-	if err := WriteResolvedCoreOS(path, resolved); err != nil {
+	return LiveInputs{CoreOS: resolved, Tailnet: TailnetInputs{
+		Version: "1.2.3",
+		SHA256:  strings.Repeat("a", 64),
+		Base:    "docker.io/tailscale/alpine-base:3.22",
+	}}
+}
+
+func TestLiveInputsFileRoundTrip(t *testing.T) {
+	inputs := liveInputsFixture(t)
+	path := filepath.Join(t.TempDir(), "live-inputs.json")
+	if err := WriteLiveInputs(path, inputs); err != nil {
 		t.Fatal(err)
 	}
-	back, err := ReadResolvedCoreOS(path)
+	back, err := ReadLiveInputs(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if back.Release != resolved.Release || back.MetadataURL != resolved.MetadataURL {
+	if back.CoreOS.Release != inputs.CoreOS.Release || back.CoreOS.MetadataURL != inputs.CoreOS.MetadataURL {
 		t.Fatal("inputs file lost the resolved release")
 	}
-	if back.Container["x86_64"] != resolved.Container["x86_64"] || back.Container["aarch64"] != resolved.Container["aarch64"] {
+	if back.CoreOS.Container["x86_64"] != inputs.CoreOS.Container["x86_64"] {
 		t.Fatal("inputs file lost base digests")
 	}
-	if back.ISO["x86_64"] != resolved.ISO["x86_64"] || back.QEMU["aarch64"] != resolved.QEMU["aarch64"] {
+	if back.CoreOS.ISO["x86_64"] != inputs.CoreOS.ISO["x86_64"] || back.CoreOS.QEMU["aarch64"] != inputs.CoreOS.QEMU["aarch64"] {
 		t.Fatal("inputs file lost media triples")
+	}
+	if back.Tailnet != inputs.Tailnet {
+		t.Fatal("inputs file lost Tailnet inputs")
 	}
 }
 
-func TestResolvedCoreOSFileRefusesTampering(t *testing.T) {
-	streamFixtureServer(t, fixtureStreamDoc(t, nil), fixtureIndexDoc(t, nil), http.StatusOK)
-	resolved, err := ResolveCoreOS(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	resolved.Container["x86_64"] = "quay.io/fedora/fedora-coreos@sha256:nope"
-	if err := WriteResolvedCoreOS(filepath.Join(t.TempDir(), "bad.json"), resolved); err == nil {
+func TestLiveInputsFileRefusesTampering(t *testing.T) {
+	inputs := liveInputsFixture(t)
+	inputs.CoreOS.Container["x86_64"] = "quay.io/fedora/fedora-coreos@sha256:nope"
+	if err := WriteLiveInputs(filepath.Join(t.TempDir(), "bad.json"), inputs); err == nil {
 		t.Fatal("undigest-pinned base admitted")
 	}
-	resolved.Container["x86_64"] = "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("c", 64)
-	delete(resolved.Container, "aarch64")
-	if err := WriteResolvedCoreOS(filepath.Join(t.TempDir(), "bad-arch.json"), resolved); err == nil {
-		t.Fatal("single-arch base admitted")
+	inputs = liveInputsFixture(t)
+	inputs.Tailnet.Version = "yesterday"
+	if err := WriteLiveInputs(filepath.Join(t.TempDir(), "bad-tailnet.json"), inputs); err == nil {
+		t.Fatal("unversioned Tailnet admitted")
 	}
-	path := filepath.Join(t.TempDir(), "coreos-inputs.json")
-	good, err := ResolveCoreOS(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := WriteResolvedCoreOS(path, good); err != nil {
+	path := filepath.Join(t.TempDir(), "live-inputs.json")
+	if err := WriteLiveInputs(path, liveInputsFixture(t)); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := os.ReadFile(path)
@@ -202,13 +207,65 @@ func TestResolvedCoreOSFileRefusesTampering(t *testing.T) {
 	if err := os.WriteFile(path, []byte(tampered), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadResolvedCoreOS(path); err == nil {
+	if _, err := ReadLiveInputs(path); err == nil {
 		t.Fatal("on-disk digest swap admitted")
 	}
 	if err := os.WriteFile(path, []byte("{truncated"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadResolvedCoreOS(path); err == nil {
+	if _, err := ReadLiveInputs(path); err == nil {
 		t.Fatal("corrupt inputs file admitted")
+	}
+}
+
+func tailnetFixtureServer(t *testing.T) {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/idx/", func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/idx/")
+		if strings.HasSuffix(name, ".sha256") {
+			fmt.Fprint(w, strings.Repeat("c", 64)+"  "+strings.TrimSuffix(name, ".sha256")+"\n")
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `<html><body>
+<a href="tailscale_1.9.9_amd64.tgz">old</a>
+<a href="tailscale_1.10.2_arm64.tgz">new-arm</a>
+<a href="tailscale_1.10.2_amd64.tgz">new</a>
+<a href="tailscale_1.10.10_amd64.tgz">newest</a>
+</body></html>`)
+	})
+	mux.HandleFunc("/tags", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"results":[{"name":"latest"},{"name":"3.16"},{"name":"3.22"},{"name":"edge"}]}`)
+	})
+	server := httptest.NewTLSServer(mux)
+	t.Cleanup(server.Close)
+	t.Setenv("SODA_TAILSCALE_INDEX_URL", server.URL+"/idx/")
+	t.Setenv("SODA_TAILSCALE_BASE_TAGS_URL", server.URL+"/tags")
+	previous := streamHTTPTransport
+	streamHTTPTransport = server.Client().Transport
+	t.Cleanup(func() { streamHTTPTransport = previous })
+}
+
+func TestResolveTailnetInputsFloats(t *testing.T) {
+	tailnetFixtureServer(t)
+	for _, arch := range []string{"x86_64", "aarch64"} {
+		got, err := ResolveTailnetInputs(context.Background(), arch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got.Version != "1.10.10" {
+			t.Fatalf("newest stable not selected for %s: %s", arch, got.Version)
+		}
+		if got.SHA256 != strings.Repeat("c", 64) {
+			t.Fatalf("checksum not read for %s", arch)
+		}
+		if got.Base != "docker.io/tailscale/alpine-base:3.22" {
+			t.Fatalf("newest base tag not selected for %s: %s", arch, got.Base)
+		}
+	}
+	if _, err := ResolveTailnetInputs(context.Background(), "armv7"); err == nil {
+		t.Fatal("unknown architecture admitted")
 	}
 }

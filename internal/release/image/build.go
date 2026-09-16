@@ -21,9 +21,9 @@ import (
 
 // Request selects a boundary of the same producer, never installation or publication.
 type Request struct {
-	Source, Out, Arch, RepositoryPrefix, Revision, RootfsBaseURL, MediaAuthority, CoreOSInputs string
-	Development                                                                                bool
-	Target, MediaCompression                                                                   string
+	Source, Out, Arch, RepositoryPrefix, Revision, RootfsBaseURL, MediaAuthority, LiveInputs string
+	Development                                                                              bool
+	Target, MediaCompression                                                                 string
 }
 type Result struct {
 	Revision, Architecture, Candidate, CandidateSHA256, HostManifest, PayloadSHA256, Scope string
@@ -349,45 +349,42 @@ func freezeBaseImageConfig(snapshot, out, contextDir, arch, prefix, compression 
 	return ownedWrite(filepath.Join(contextDir, "rootfs/usr/share/coreos-assembler/image.json"), append(imageData, '\n'), 0o644)
 }
 
-func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression, coreOSInputs string, p *build.Production, execute build.BuildExec, capture build.BuildCapture) (string, Base, string, error) {
+func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression, liveInputs string, p *build.Production, execute build.BuildExec, capture build.BuildCapture) (string, Base, error) {
 	contextDir := filepath.Join(out, "work/host-context")
 	var base Base
 	var err error
-	if coreOSInputs != "" {
-		base, err = PrepareResolved(snapshot, contextDir, arch, revision, coreOSInputs)
+	if liveInputs != "" {
+		base, err = PrepareResolved(snapshot, contextDir, arch, revision, liveInputs)
 	} else {
 		base, err = Prepare(snapshot, contextDir, arch, revision)
 	}
 	if err != nil {
-		return "", base, "", err
-	}
-	packageHash, err := LockHostPackages(snapshot, contextDir, arch, base)
-	if err != nil {
-		return "", base, "", err
+		return "", base, err
 	}
 	if err = p.ResolveInputs(); err != nil {
-		return "", base, "", err
+		return "", base, err
 	}
-	return contextDir, base, packageHash, freezeBaseImageConfig(snapshot, out, contextDir, arch, prefix, compression, base, execute, capture)
+	err = freezeBaseImageConfig(snapshot, out, contextDir, arch, prefix, compression, base, execute, capture)
+	return contextDir, base, err
 }
 
 // prepareBuildProduction shares one Production: ResolveInputs records the
 // frozen image inputs on it, and later phases read them back from the same
 // value. Passing Production by value here would strand the inputs on a copy
 // and fail P4 with "image inputs must be frozen before production".
-func prepareBuildProduction(p *build.Production, r Request, snapshot, revision string, execute build.BuildExec, capture build.BuildCapture, next func(string) error) (string, Base, string, mediaTools, mediaLock, error) {
-	contextDir, base, packageHash, err := prepareBuildHostContext(snapshot, r.Out, r.Arch, revision, r.RepositoryPrefix, r.MediaCompression, r.CoreOSInputs, p, execute, capture)
+func prepareBuildProduction(p *build.Production, r Request, snapshot, revision string, execute build.BuildExec, capture build.BuildCapture, next func(string) error) (string, Base, mediaTools, mediaLock, error) {
+	contextDir, base, err := prepareBuildHostContext(snapshot, r.Out, r.Arch, revision, r.RepositoryPrefix, r.MediaCompression, r.LiveInputs, p, execute, capture)
 	if err != nil {
-		return "", base, "", mediaTools{}, mediaLock{}, err
+		return "", base, mediaTools{}, mediaLock{}, err
 	}
 	if err = next("P2 / Verify and install frozen dependencies"); err != nil {
-		return "", base, "", mediaTools{}, mediaLock{}, err
+		return "", base, mediaTools{}, mediaLock{}, err
 	}
 	if err = p.Dependencies(); err != nil {
-		return "", base, "", mediaTools{}, mediaLock{}, err
+		return "", base, mediaTools{}, mediaLock{}, err
 	}
 	tooling, assembler, err := prepareBuildMedia(*p, r)
-	return contextDir, base, packageHash, tooling, assembler, err
+	return contextDir, base, tooling, assembler, err
 }
 
 func compileSodaCommands(p build.Production, snapshot, contextDir string) error {
@@ -449,8 +446,9 @@ func compileShippingTools(p build.Production, snapshot, contextDir, artifacts, r
 	return recordToolFiles(tools, revision, arch, artifacts)
 }
 
-func buildHostCandidate(snapshot, contextDir, artifacts, arch, revision, prefix string, base Base, packageHash string, p build.Production, next func(string) error) error {
-	if _, err := completeCandidate(snapshot, contextDir, artifacts, arch, revision, prefix, base, packageHash, p, next); err != nil {
+func buildHostCandidate(snapshot, contextDir, artifacts, arch, revision, prefix string, base Base, p build.Production, next func(string) error) error {
+	payload, err := completeCandidate(snapshot, contextDir, artifacts, arch, revision, prefix, base, p, next)
+	if err != nil {
 		return err
 	}
 	if err := next("P5 / Build FCOS host candidate"); err != nil {
@@ -459,17 +457,22 @@ func buildHostCandidate(snapshot, contextDir, artifacts, arch, revision, prefix 
 	if err := Inventory(contextDir); err != nil {
 		return err
 	}
-	return buildHost(contextDir, artifacts, arch, revision, prefix, base, p, next)
+	packageHash, err := buildHost(contextDir, artifacts, arch, revision, prefix, base, p, next)
+	if err != nil {
+		return err
+	}
+	payload.HostPackagesSHA256 = packageHash
+	return sealCandidatePayload(payload, snapshot, contextDir, artifacts, p)
 }
 
-func executeBuildProduction(ctx context.Context, p build.Production, r Request, snapshot, contextDir, artifacts, revision string, base Base, packageHash string, mediaTooling mediaTools, assembler mediaLock, phase func(string) error) (Result, error) {
-	if err := phase("P3 / Compile shipping programs and prepared tools"); err != nil {
+func executeBuildProduction(ctx context.Context, p build.Production, r Request, snapshot, contextDir, artifacts, revision string, base Base, mediaTooling mediaTools, assembler mediaLock, phase func(string) error) (Result, error) {
+	if err := phase("P3 / Compile shipping programs"); err != nil {
 		return Result{}, err
 	}
 	if err := compileShippingTools(p, snapshot, contextDir, artifacts, revision, r.Arch); err != nil {
 		return Result{}, err
 	}
-	if err := buildHostCandidate(snapshot, contextDir, artifacts, r.Arch, revision, r.RepositoryPrefix, base, packageHash, p, phase); err != nil {
+	if err := buildHostCandidate(snapshot, contextDir, artifacts, r.Arch, revision, r.RepositoryPrefix, base, p, phase); err != nil {
 		return Result{}, err
 	}
 	if err := finishBuildMedia(ctx, p, r, mediaTooling, assembler, phase); err != nil {
@@ -500,13 +503,13 @@ func runBuild(ctx context.Context, r Request, progress *build.BuildProgress, exe
 	defer func() { err = errors.Join(err, closeLog()) }()
 
 	artifacts := filepath.Join(r.Out, "artifacts")
-	p := build.Production{Source: snapshot, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
+	p := build.Production{Source: snapshot, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, LiveInputs: r.LiveInputs, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
 
-	contextDir, base, packageHash, mediaTooling, assembler, err := prepareBuildProduction(&p, r, snapshot, revision, execute, capture, progress.Phase)
+	contextDir, base, mediaTooling, assembler, err := prepareBuildProduction(&p, r, snapshot, revision, execute, capture, progress.Phase)
 	if err != nil {
 		return result, err
 	}
-	res, err := executeBuildProduction(ctx, p, r, snapshot, contextDir, artifacts, revision, base, packageHash, mediaTooling, assembler, progress.Phase)
+	res, err := executeBuildProduction(ctx, p, r, snapshot, contextDir, artifacts, revision, base, mediaTooling, assembler, progress.Phase)
 	return finalizeBuild(progress, res, err)
 }
 
@@ -567,8 +570,12 @@ func runBuildCommand(ctx context.Context, log, output io.Writer, dir, name strin
 	return strings.TrimSpace(data.String()), nil
 }
 
-func preparedChecks(p build.Production) error {
-	// Existing suites consume these aliases, never rebuild shipping assets.
+// linkPreparedAssets points the snapshot at the already-built frontend
+// outputs the Forgejo stage consumes. The language and presentation suites
+// stay runnable on their own (go test, bun run typecheck/test:*, unittest)
+// but never gate a development build: an ISO to test today must not fail
+// on unrelated suites.
+func linkPreparedAssets(p build.Production) error {
 	for link, target := range map[string]string{
 		filepath.Join(p.Source, ".artifacts/forgejo-js"):              filepath.Join(p.Native, "forgejo-js"),
 		filepath.Join(p.Source, ".artifacts/browser-terminal/vendor"): filepath.Join(p.Native, "terminal-assets"),
@@ -577,24 +584,6 @@ func preparedChecks(p build.Production) error {
 			return err
 		}
 		if err := os.Symlink(target, link); err != nil {
-			return err
-		}
-	}
-	for _, check := range []struct {
-		label, name string
-		args        []string
-	}{
-		{"Go source tests", "go", []string{"test", "./..."}},
-		{"TypeScript and Lit checks", "bun", []string{"run", "typecheck"}},
-		{"Prepared frontend tests", "bun", []string{"run", "test:frontend:prepared"}},
-		{"Prepared Forgejo tests", "bun", []string{"run", "test:forgejo:prepared"}},
-		{"Prepared layout tests", "bun", []string{"run", "test:layout:prepared"}},
-		{"Build/source fixtures", "python3", []string{"-m", "unittest", "discover", "-s", "tests/build"}},
-	} {
-		if err := p.Next("P3 / " + check.label); err != nil {
-			return err
-		}
-		if err := p.Execute(p.Source, check.name, check.args...); err != nil {
 			return err
 		}
 	}

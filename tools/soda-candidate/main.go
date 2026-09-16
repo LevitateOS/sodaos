@@ -41,8 +41,6 @@ type options struct {
 	rootfsURL      string
 	rootfsDir      string
 	repoPrefix     string
-	qualConfig     string
-	signConfig     string
 	nonInteractive bool
 }
 
@@ -57,13 +55,11 @@ func parseOptions(args []string) (options, error) {
 	fs.StringVar(&o.workerConfig, "worker-config", "", "restricted worker configuration (asked when empty)")
 	fs.StringVar(&o.arch, "arch", native, "matching native x86_64 or aarch64")
 	fs.StringVar(&o.out, "out", "", "fresh output below .artifacts/releases (asked when empty)")
-	fs.StringVar(&o.mode, "mode", "", "candidate, media, or production (asked when empty)")
+	fs.StringVar(&o.mode, "mode", "", "candidate or media (asked when empty)")
 	fs.StringVar(&o.compression, "media-compression", "", "fast: development media only")
 	fs.StringVar(&o.rootfsURL, "rootfs-base-url", "", "public base URL for the hash-named rootfs file")
-	fs.StringVar(&o.rootfsDir, "rootfs-dir", fixtureRootfsDir, "pickup folder served for loopback development media")
+	fs.StringVar(&o.rootfsDir, "rootfs-dir", "", "pickup folder served for loopback development media (default .artifacts/rootfs)")
 	fs.StringVar(&o.repoPrefix, "repository-prefix", "ghcr.io/levitateos/sodaos", "intended image repositories; no publication")
-	fs.StringVar(&o.qualConfig, "qualification-config", "", "production qualification configuration")
-	fs.StringVar(&o.signConfig, "signing-config", "", "production final signing configuration")
 	fs.BoolVar(&o.nonInteractive, "non-interactive", false, "require all flags; timestamped log output")
 	if err := fs.Parse(args); err != nil {
 		return o, err
@@ -78,8 +74,8 @@ func parseOptions(args []string) (options, error) {
 }
 
 func validateModeFlag(mode string) error {
-	if mode != "" && mode != "candidate" && mode != "media" && mode != "production" {
-		return errors.New("--mode accepts candidate, media, or production")
+	if mode != "" && mode != "candidate" && mode != "media" {
+		return errors.New("--mode accepts candidate or media")
 	}
 	return nil
 }
@@ -113,10 +109,8 @@ func validateResolved(o *options) error {
 		return validateCandidate(o)
 	case "media":
 		return validateMedia(o)
-	case "production":
-		return validateProduction(o)
 	default:
-		return errors.New("choose a build mode: candidate, media, or production")
+		return errors.New("choose a build mode: candidate or media")
 	}
 }
 
@@ -140,34 +134,15 @@ func validateCandidate(o *options) error {
 	if o.rootfsURL != "" || o.compression != "" {
 		return errors.New("candidate refuses media-only inputs")
 	}
-	if o.qualConfig != "" || o.signConfig != "" {
-		return errors.New("development cannot request protected qualification or final signing")
-	}
 	return nil
 }
 
 func validateMedia(o *options) error {
-	if o.qualConfig != "" || o.signConfig != "" {
-		return errors.New("development cannot request protected qualification or final signing")
-	}
 	if o.compression != "" && o.compression != "fast" {
 		return errors.New("--media-compression accepts only fast with development media")
 	}
 	if o.rootfsURL == "" {
 		return errors.New("media requires the rootfs base URL")
-	}
-	return nil
-}
-
-func validateProduction(o *options) error {
-	if o.qualConfig == "" {
-		return errors.New("production requires the qualification config")
-	}
-	if o.compression != "" {
-		return errors.New("media compression is development-only")
-	}
-	if o.rootfsURL == "" {
-		return errors.New("production media requires the rootfs base URL")
 	}
 	return nil
 }
@@ -276,7 +251,7 @@ func resolveOptions(args []string, stdin, stderr *os.File) (options, error) {
 	}
 	if !isTerminal(stdin) || !isTerminal(stderr) || o.nonInteractive {
 		if o.mode == "" {
-			return o, errors.New("choose --mode candidate, media, or production (or run on a terminal)")
+			return o, errors.New("choose --mode candidate or media (or run on a terminal)")
 		}
 		return o, nil
 	}
@@ -287,6 +262,18 @@ func resolveOptions(args []string, stdin, stderr *os.File) (options, error) {
 	return o, nil
 }
 
+// readyRun admits the checkout, points the pickup folder at the checkout,
+// and clears stale runtime state before the controller starts.
+func readyRun(o *options) error {
+	if err := preflight(*o); err != nil {
+		return err
+	}
+	if err := defaultRootfsDir(o); err != nil {
+		return err
+	}
+	return prepareRuntime(*o, listRunningBuildUnits)
+}
+
 func run(args []string, stdin, stdout, stderr *os.File) error {
 	o, err := resolveOptions(args, stdin, stderr)
 	if err != nil {
@@ -295,10 +282,7 @@ func run(args []string, stdin, stdout, stderr *os.File) error {
 	if err := validateResolved(&o); err != nil {
 		return err
 	}
-	if err := preflight(o); err != nil {
-		return err
-	}
-	if err := prepareRuntime(o, listRunningBuildUnits); err != nil {
+	if err := readyRun(&o); err != nil {
 		return err
 	}
 	stop, err := maybeServeFixture(o)

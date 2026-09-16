@@ -19,12 +19,24 @@ import (
 	"time"
 )
 
-// fixtureRootfsDir is where the setup script points its pickup folder.
-const fixtureRootfsDir = "/var/lib/soda-rootfs"
+// defaultRootfsDir points the pickup folder at the checkout's ignored
+// artifacts instead of the removed system path: everything the wrapper
+// serves and files stays on the roomy disk, never on root.
+func defaultRootfsDir(o *options) error {
+	if o.rootfsDir != "" {
+		return nil
+	}
+	source, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	o.rootfsDir = filepath.Join(source, ".artifacts", "rootfs")
+	return os.MkdirAll(o.rootfsDir, 0o755)
+}
 
 // fixtureWanted reports whether the wrapper should serve the pickup address
-// itself: development media with a loopback URL. Everything else (production,
-// public URLs) stays operator-managed.
+// itself: development media with a loopback URL. Public URLs stay
+// operator-managed.
 func fixtureWanted(mode, rootfsURL string) bool {
 	if mode != "media" {
 		return false

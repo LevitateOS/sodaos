@@ -154,9 +154,6 @@ class AvatarPackaging(unittest.TestCase):
             for source in (
                 'go.mod',
                 'go.sum',
-                'project-os/locks/tea-binary.toml',
-                'appliance/locks/coreos-qemu.json',
-                'appliance/locks/tailscale-image.json',
                 'package.json',
                 'tools/lit-check/package.json',
                 'bun.lock',
@@ -178,11 +175,9 @@ class AvatarPackaging(unittest.TestCase):
 
             def observed_output(args):
                 if '--entrypoint=/usr/local/bin/tailscale' in args:
-                    return json.dumps(
-                        {'short': json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']}
-                    )
+                    return json.dumps({'short': 'synthetic tailscale version'})
                 if '--entrypoint=/usr/local/bin/tailscaled' in args:
-                    return json.loads((ROOT / 'appliance/locks/tailscale-image.json').read_text())['version']
+                    return 'synthetic tailscaled version'
                 if '{{json .RepoDigests}}' in args:
                     return '[]'
                 return 'synthetic build observation'

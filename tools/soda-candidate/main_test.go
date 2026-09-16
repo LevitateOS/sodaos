@@ -69,22 +69,14 @@ func TestValidateResolvedBoundaries(t *testing.T) {
 	o = baseOptions()
 	o.mode = "production"
 	if err := validateResolved(&o); err == nil {
-		t.Fatal("production requires the qualification config")
+		t.Fatal("production mode removed")
 	}
-	o.qualConfig = "/restricted/qualification.json"
-	if err := validateResolved(&o); err != nil {
-		t.Fatal(err)
-	}
-	o.signConfig = "/restricted/signing.json"
-	args := controllerArgs(o)
+	args := controllerArgs(baseOptions())
 	joined := strings.Join(args, " ")
-	for _, want := range []string{"--qualification-config", "--signing-config"} {
+	for _, want := range []string{"--development", "--target", "media", "--rootfs-base-url"} {
 		if !strings.Contains(joined, want) {
-			t.Fatalf("production args miss %s: %s", want, joined)
+			t.Fatalf("media args miss %s: %s", want, joined)
 		}
-	}
-	if strings.Contains(joined, "--development") {
-		t.Fatalf("production must not pass development flags: %s", joined)
 	}
 }
 
@@ -131,7 +123,7 @@ func TestOverviewEditsField(t *testing.T) {
 
 func TestOverviewBlocksBadStartWithoutLosingAnswers(t *testing.T) {
 	o := validScriptedOptions(t.TempDir())
-	o.mode, o.rootfsURL = "production", "" // no qualification config either
+	o.mode, o.rootfsURL = "candidate", "http://fixture:8080" // candidate refuses media inputs
 	_, screen := scriptedOverview(t, o, "go\nquit\n")
 	if !strings.Contains(screen, "Cannot start:") {
 		t.Fatalf("blocked start unexplained:\n%s", screen)
@@ -171,17 +163,11 @@ func TestOverviewDefaultsFixtureRootfsURL(t *testing.T) {
 	}
 }
 
-func TestModeSwitchKeepsFixtureURLHonest(t *testing.T) {
-	base := options{arch: "x86_64", out: t.TempDir() + "/fresh", controller: "/a", workerConfig: "/b", repoPrefix: "x", qualConfig: "/q"}
-	media := base
-	media.mode, media.rootfsURL = "media", fixtureRootfsURL
-	got, _ := scriptedOverview(t, media, "1\n3\nquit\n")
-	if got.mode != "production" || got.rootfsURL != "" {
-		t.Fatalf("fixture URL leaked into production: %+v", got)
-	}
-	prod := base
-	prod.mode = "production"
-	got, _ = scriptedOverview(t, prod, "1\n2\nquit\n")
+func TestModeSwitchRestoresFixtureURL(t *testing.T) {
+	base := options{arch: "x86_64", out: t.TempDir() + "/fresh", controller: "/a", workerConfig: "/b", repoPrefix: "x"}
+	cand := base
+	cand.mode, cand.rootfsURL = "candidate", ""
+	got, _ := scriptedOverview(t, cand, "1\n2\nquit\n")
 	if got.mode != "media" || got.rootfsURL != fixtureRootfsURL {
 		t.Fatalf("fixture URL not restored for media: %+v", got)
 	}
@@ -238,8 +224,8 @@ func TestFixtureWanted(t *testing.T) {
 	if fixtureWanted("candidate", "http://127.0.0.1:8080") {
 		t.Fatal("candidate needs no pickup server")
 	}
-	if fixtureWanted("production", "http://127.0.0.1:8080") {
-		t.Fatal("production must stay operator-managed")
+	if fixtureWanted("", "http://127.0.0.1:8080") {
+		t.Fatal("empty mode serves nothing")
 	}
 	if fixtureWanted("media", "://bogus") {
 		t.Fatal("unparseable URL accepted")

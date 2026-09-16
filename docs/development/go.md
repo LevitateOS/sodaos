@@ -24,7 +24,7 @@ remain in [architecture](../architecture/overview.md).
 | Install phase on Linux | `installer/<phase>_linux.go` |
 | Build-time installed path consts | `platform` (`legacy.go` / `vendor.go` build-tag pair) |
 | Runner composition + native operator identity | `runners` (`operator.go`) |
-| Release build primitives / image assembly / qualification / delivery | `release/build`, `release/image`, `release/qualify`, `release/deliver` |
+| Release build primitives / image assembly / delivery | `release/build`, `release/image`, `release/deliver` |
 | Domain policy / Forgejo client / SQLite | `tailnet` / `forgejo` / `store` |
 
 Hard size rule: prefer production files under 400 LOC; do not grow a production
@@ -42,9 +42,9 @@ the privileged terminal executor directly.
 
 1. SQL / schema / row mapping → `store`
 2. Project identity / lifecycle / key / OS types or validation → `project`
-   (one canonical definition referenced by HTTP, host, executors, store,
-   qualify — never a parallel DTO)
-3. Build / image / qualify / deliver → the matching `release/` subpackage —
+   (one canonical definition referenced by HTTP, host, executors and store —
+   never a parallel DTO)
+3. Build / image / deliver → the matching `release/` subpackage —
    never `web`/`host`
 4. Outside VM/evidence checks → `acceptance` (release support harness)
 5. Tiny reusable primitive → its own small package (`strictjson`, `filelock`, …)
@@ -91,11 +91,10 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `installer` | Console-to-CoreOS install adapter | Host daemon, SQLite | phase `*_linux.go` files |
 | `platform` | Build-time installed path consts | Scratch `/run` paths | `legacy.go` / `vendor.go` |
 | `project` | Canonical project domain: profile, lifecycle/key/OS types, validation | I/O, HTTP, privileged execution | `types.go`, `profile.go`, `project.go` |
-| `release` | Release-construction overview only | Any build/qualify/publish logic | `doc.go` |
+| `release` | Release-construction overview only | Any build/publish logic | `doc.go` |
 | `release/build` | Shared build primitives | Qualify/sign/install UX | `production.go`, `oci.go` |
 | `release/deliver` | Payload model, signing, publication | Building images | `payload.go`, `publish.go`, `finalize.go` |
 | `release/image` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
-| `release/qualify` | Artifact admission + guest state | Image build, update client | `inputs.go`, `state.go` |
 | `runners` | Local CI runner composition + operator identity | Forgejo Actions UI | `model.go`, `native.go`, `operator.go` |
 | `store` | SQLite schema + row ops | HTTP, host execute | `store.go`, `migrations.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
@@ -120,10 +119,8 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | --- | --- | --- |
 | Image/candidate will not build | `release/build`, `tools/soda-build` | `release/image` |
 | Media/assemble wrong | `release/image` | `installer` phases |
-| Guest/fixture will not qualify | `release/qualify` | `acceptance` |
-| Sign/publish | `release/deliver` | `tools/soda-release` |
+| Sign/publish | `release/deliver` | explicit grant (no operator CLI) |
 
-Do not casually start in `release/qualify` for a build failure.
 
 ## `scripts/` Go tests
 

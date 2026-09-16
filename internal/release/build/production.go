@@ -22,6 +22,9 @@ type (
 
 type Production struct {
 	Source, Native, Out, Arch, Revision string
+	// LiveInputs is the controller-resolved live inputs file for this attempt.
+	// The worker never fetches: floating toolchain versions come from here.
+	LiveInputs string
 	// Vendor selects image-owned binaries and Forgejo presentation. Legacy is
 	// deliberately not byte-equivalent; it still uses the writable installer.
 	Vendor  bool
@@ -294,18 +297,19 @@ func (p *Production) recipeImageRefs() (rocky, forgejo, proxy string, err error)
 	return rocky, forgejo, proxy, err
 }
 
-func (p *Production) lockedTailnetBase(platform string) (string, error) {
-	var tail struct {
-		Version, Base string
-		SHA256        map[string]string
+// liveTailnetInputs admits the controller-resolved floating Tailnet
+// toolchain for this attempt: latest stable version, archive checksum and
+// floating base tag. The file is validated on read; the pull digests join
+// the record downstream.
+func (p *Production) liveTailnetInputs() (TailnetInputs, error) {
+	if p.LiveInputs == "" {
+		return TailnetInputs{}, errors.New("live inputs file required for floating Tailnet")
 	}
-	if e := ReadJSON(filepath.Join(p.Source, "appliance/locks/tailscale-image.json"), &tail); e != nil {
-		return "", e
+	inputs, err := ReadLiveInputs(p.LiveInputs)
+	if err != nil {
+		return TailnetInputs{}, err
 	}
-	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(tail.Version) || !regexp.MustCompile(`^docker.io/tailscale/alpine-base@sha256:[0-9a-f]{64}$`).MatchString(tail.Base) || !Digest(tail.SHA256[platform]) {
-		return "", errors.New("invalid locked Tailnet input")
-	}
-	return tail.Base, nil
+	return inputs.Tailnet, nil
 }
 
 func (p *Production) ResolveInputs() error {
@@ -320,10 +324,11 @@ func (p *Production) ResolveInputs() error {
 	if e != nil {
 		return e
 	}
-	tailBase, e := p.lockedTailnetBase(platform)
+	tailnet, e := p.liveTailnetInputs()
 	if e != nil {
 		return e
 	}
+	tailBase := tailnet.Base
 	var inputs []ResolvedInput
 	for _, ref := range []string{rocky, forgejo, proxy, tailBase} {
 		if _, _, e = p.pullResolvedInput(ref, ref, "", platform, &inputs); e != nil {
@@ -477,21 +482,15 @@ func (p Production) exportTailnetImage(
 	build func(string, string, string, string, ...string) (string, error),
 	export func(string, string, string) error,
 ) error {
-	var tail struct {
-		Version, Base string
-		SHA256        map[string]string
-	}
-	if err := ReadJSON(filepath.Join(p.Source, "appliance/locks/tailscale-image.json"), &tail); err != nil {
+	tail, err := p.liveTailnetInputs()
+	if err != nil {
 		return err
-	}
-	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(tail.Version) || !regexp.MustCompile(`^docker.io/tailscale/alpine-base@sha256:[0-9a-f]{64}$`).MatchString(tail.Base) || !Digest(tail.SHA256[platform]) {
-		return errors.New("invalid locked Tailscale input")
 	}
 	_, pinned, err := pull("Tailnet base", tail.Base, "tailnet-base")
 	if err != nil {
 		return err
 	}
-	id, err := build("tailnet", p.Source, "appliance/tailnet.Containerfile", pinned, "--build-arg=TAILSCALE_VERSION="+tail.Version, "--build-arg=TARGETARCH="+platform, "--build-arg=ARCHIVE_SHA256="+tail.SHA256[platform])
+	id, err := build("tailnet", p.Source, "appliance/tailnet.Containerfile", pinned, "--build-arg=TAILSCALE_VERSION="+tail.Version, "--build-arg=TARGETARCH="+platform, "--build-arg=ARCHIVE_SHA256="+tail.SHA256)
 	if err != nil {
 		return err
 	}

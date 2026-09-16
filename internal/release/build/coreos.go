@@ -19,13 +19,9 @@ import (
 )
 
 type (
-	CoreOSImage struct{ URL, SignatureURL, SHA256, UncompressedSHA256 string }
-	CoreOSLock  struct {
-		MetadataURL, Release string
-		Architectures        map[string]CoreOSImage
-	}
+	CoreOSImage  struct{ URL, SignatureURL, SHA256, UncompressedSHA256 string }
+	VerifiedBase struct{ Path, SHA256, Architecture, Release, Signer string }
 )
-type VerifiedBase struct{ Path, SHA256, Architecture, Release, Signer string }
 
 func httpsURL(raw string) bool {
 	u, err := url.Parse(raw)
@@ -35,25 +31,6 @@ func httpsURL(raw string) bool {
 // HTTPSURL exposes the strict metadata-URL shape to sibling packages that
 // validate resolved inputs.
 func HTTPSURL(raw string) bool { return httpsURL(raw) }
-
-func validCoreOSLock(l CoreOSLock, img CoreOSImage, ok bool) bool {
-	return ok && l.Release != "" && httpsURL(l.MetadataURL) && httpsURL(img.URL) && httpsURL(img.SignatureURL) && Digest(img.SHA256) && Digest(img.UncompressedSHA256)
-}
-
-func ReadCoreOS(lock, arch string) (CoreOSLock, CoreOSImage, error) {
-	var l CoreOSLock
-	if _, err := OCIArchitecture(arch); err != nil {
-		return l, CoreOSImage{}, err
-	}
-	if err := ReadJSON(lock, &l); err != nil {
-		return l, CoreOSImage{}, err
-	}
-	img, ok := l.Architectures[arch]
-	if !validCoreOSLock(l, img, ok) {
-		return l, img, errors.New("invalid CoreOS lock")
-	}
-	return l, img, nil
-}
 
 // FetchCoreOS uses an explicitly supplied trusted keyring and signer. It does
 // not download/import trust roots or permit an unsigned-image fallback.

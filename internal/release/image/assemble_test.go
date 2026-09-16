@@ -12,8 +12,54 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/levitateos/sodaos/internal/release/build"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPrepareAssemblerFloatsOnStableUpstream(t *testing.T) {
+	work := filepath.Join(t.TempDir(), "media")
+	digest := strings.Repeat("e", 64)
+	sha := "ab12cd34ef56ab12cd34ef56ab12cd34ef56ab12"
+	var runs []string
+	p := build.Production{Arch: "x86_64",
+		Execute: func(dir, name string, args ...string) error {
+			runs = append(runs, name+" "+strings.Join(args, " "))
+			if name == "tar" {
+				// Simulate the config archive providing build arguments.
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "config", "build-args.conf"), []byte("BUILDER_IMG=placeholder\n"), 0o644))
+			}
+			for _, arg := range args {
+				if name == "podman" && arg == "build" {
+					require.NoError(t, os.WriteFile(filepath.Join(dir, "builder.iid"), []byte("sha256:"+strings.Repeat("f", 64)+"\n"), 0o644))
+				}
+			}
+			return nil
+		},
+		Capture: func(dir, name string, args ...string) (string, error) {
+			joined := strings.Join(args, " ")
+			switch {
+			case strings.Contains(joined, "rev-parse"):
+				return sha + "\n", nil
+			case strings.Contains(joined, "{{.Digest}}"):
+				return "sha256:" + digest + "\n", nil
+			case strings.Contains(joined, "RootFS.Layers"):
+				return `["a","b"]`, nil
+			}
+			return "", nil
+		}}
+	lock, err := prepareAssembler(p, work)
+	require.NoError(t, err)
+	require.Equal(t, "quay.io/coreos-assembler/coreos-assembler@sha256:"+digest, lock.Assembler)
+	require.Equal(t, sha, lock.Config)
+	require.Equal(t, "x86_64", lock.Architecture)
+	joined := strings.Join(runs, "\n")
+	require.Contains(t, joined, "fetch --depth=1 https://github.com/coreos/fedora-coreos-config.git stable")
+	require.Contains(t, joined, "archive --format=tar --output "+filepath.Join(work, "config.tar")+" "+sha)
+	require.Contains(t, joined, "pull quay.io/coreos-assembler/coreos-assembler:stable")
+	content, err := os.ReadFile(filepath.Join(work, "Containerfile"))
+	require.NoError(t, err)
+	require.Contains(t, string(content), "FROM quay.io/coreos-assembler/coreos-assembler@sha256:"+digest)
+}
 
 func TestMediaReadbackBindsNativeIgnitionAndRootfs(t *testing.T) {
 	expected := []byte(`{"ignition":{"version":"3.5.0"},"storage":{"files":[]}}`)

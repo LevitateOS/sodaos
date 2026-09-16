@@ -39,11 +39,11 @@ func LoadBase(arch string) (Base, error) {
 // path, no network. The controller records these per build; the worker only
 // consumes its own attempt's file.
 func LoadBaseFromFile(path, arch string) (Base, error) {
-	resolved, err := build.ReadResolvedCoreOS(path)
+	inputs, err := build.ReadLiveInputs(path)
 	if err != nil {
 		return Base{}, err
 	}
-	return baseFromResolved(arch, resolved)
+	return baseFromResolved(arch, inputs.CoreOS)
 }
 
 func baseFromResolved(arch string, resolved build.ResolvedCoreOS) (Base, error) {
@@ -185,8 +185,10 @@ func (w preparedWriter) writeBaseFiles(packages []string, repo string) error {
 		return err
 	}
 	for name, text := range map[string]string{
+		// Bare names only: the install floats on current repositories and the
+		// built image's inventory is recorded as the bill-of-materials.
+		// Nothing here pins versions.
 		"packages.list":      strings.Join(packages, "\n") + "\n",
-		"packages.expected":  "",
 		"tailscale-repo.url": repo + "\n",
 	} {
 		if err := w.write(name, []byte(text), 0o644); err != nil {

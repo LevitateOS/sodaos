@@ -138,7 +138,8 @@ func TestCandidateBoundaryDoesNotAdmitOrDispatchMedia(t *testing.T) {
 	require.Equal(t, hashBytes(data), result.CandidateSHA256)
 	require.Equal(t, candidate.Host.Manifest, result.HostManifest)
 	require.Equal(t, candidate.PayloadSHA256, result.PayloadSHA256)
-	require.Contains(t, result.Checks, "Prepared Forgejo tests")
+	require.Contains(t, result.Checks, "Application OCI identities")
+	require.NotContains(t, strings.Join(result.Checks, " "), "Prepared")
 	require.NotContains(t, strings.Join(result.Checks, " "), "media")
 	require.Equal(t, "development-only; not release-qualified", result.Scope)
 }
@@ -153,23 +154,24 @@ func TestMediaBoundaryStillStopsOnFailure(t *testing.T) {
 	}
 }
 
-func TestPreparedChecksUseExistingOutputsAndStopOnFailure(t *testing.T) {
+func TestLinkPreparedAssetsRunsNoCommands(t *testing.T) {
 	root := t.TempDir()
-	var calls []string
-	sentinel := errors.New("source test failed")
-	p := build.Production{Source: root, Native: filepath.Join(root, ".artifacts/native/x86_64"), Next: func(string) error { return nil }, Execute: func(_, name string, args ...string) error {
-		calls = append(calls, name+" "+strings.Join(args, " "))
-		if name == "bun" && strings.Contains(strings.Join(args, " "), "test:forgejo") {
-			return sentinel
-		}
+	p := build.Production{Source: root, Native: filepath.Join(root, ".artifacts/native/x86_64"), Next: func(string) error {
+		t.Fatal("asset linking emits no progress phases")
+		return nil
+	}, Execute: func(_, name string, _ ...string) error {
+		t.Fatal("asset linking runs no commands: " + name)
 		return nil
 	}}
-	require.ErrorIs(t, preparedChecks(p), sentinel)
-	require.Equal(t, []string{"go test ./...", "bun run typecheck", "bun run test:frontend:prepared", "bun run test:forgejo:prepared"}, calls)
-	target, err := os.Readlink(filepath.Join(root, ".artifacts/forgejo-js"))
-	require.NoError(t, err)
-	require.Equal(t, filepath.Join(p.Native, "forgejo-js"), target)
-	require.NotContains(t, strings.Join(calls, "\n"), "build:forgejo")
+	require.NoError(t, linkPreparedAssets(p))
+	for link, target := range map[string]string{
+		".artifacts/forgejo-js":              "forgejo-js",
+		".artifacts/browser-terminal/vendor": "terminal-assets",
+	} {
+		resolved, err := os.Readlink(filepath.Join(root, link))
+		require.NoError(t, err)
+		require.Equal(t, filepath.Join(p.Native, target), resolved)
+	}
 }
 
 func TestRecallLogReasonSkipsMarkers(t *testing.T) {

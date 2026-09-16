@@ -18,11 +18,11 @@ func fixtureBundle(t *testing.T) string {
 	}
 	paths := []string{
 		"rootfs/etc/containers/systemd/forgejo.container", "rootfs/etc/containers/systemd/soda-dashboard.container", "rootfs/etc/containers/systemd/soda-proxy.container",
-		"rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/etc/systemd/system/soda-project@.service", "rootfs/etc/systemd/system/soda-tailnet@.service", "inputs/tailscale-image.json",
+		"rootfs/etc/systemd/system/soda-host.service", "rootfs/etc/systemd/system/soda-host.socket", "rootfs/etc/systemd/system/soda-project@.service", "rootfs/etc/systemd/system/soda-tailnet@.service",
 		"rootfs/usr/local/libexec/soda/soda-dashboard", "rootfs/usr/local/libexec/soda/soda-host",
 		"rootfs/etc/fastfetch/config.jsonc", "rootfs/usr/local/share/soda/fastfetch/sodaos.txt",
 		"rootfs/var/lib/soda/forgejo/gitea/public/assets/img/logo.svg",
-		"inputs/tea-binary.toml", "inputs/package.json", "inputs/lit-check-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
+		"inputs/package.json", "inputs/lit-check-package.json", "inputs/bun.lock", "inputs/bunfig.toml", "inputs/native-build.json", "inputs/go.mod", "inputs/go.sum", "notices/README.md", "notices/tea-LICENSE", "notices/avatar-dependencies.txt", "notices/soda-LICENSE", "notices/soda-NOTICE", "tools/soda-artifacts", "install-native.sh",
 	}
 	paths = append(paths, forgejoFiles...)
 	for _, name := range paths {

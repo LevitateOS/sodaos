@@ -38,7 +38,7 @@ func TestDevelopmentWorkerInputsAndCompletion(t *testing.T) {
 		}
 		if target == "" {
 			require.NotContains(t, w.Arguments, "--development")
-			require.Equal(t, 2, build.BuildExitCode(incomplete{}))
+			require.Equal(t, 2, build.BuildExitCode(interrupted(2)))
 		} else {
 			require.Contains(t, w.Arguments, "--development")
 			require.Contains(t, w.Arguments, target)
@@ -46,23 +46,23 @@ func TestDevelopmentWorkerInputsAndCompletion(t *testing.T) {
 	}
 }
 
-func TestWorkerForwardsControllerCoreOSInputs(t *testing.T) {
+func TestWorkerForwardsControllerLiveInputs(t *testing.T) {
 	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
-	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "candidate", CoreOSInputs: "/run/soda-build-source/.artifacts/releases/isolated/soda-coreos-inputs-test.json"}
+	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "candidate", LiveInputs: "/run/soda-build-source/.artifacts/releases/isolated/soda-live-inputs-test.json"}
 	w, err := buildWorker(c, r)
 	require.NoError(t, err)
-	require.Contains(t, w.Arguments, "--coreos-inputs")
-	require.Contains(t, w.Arguments, r.CoreOSInputs)
-	r.CoreOSInputs = ""
+	require.Contains(t, w.Arguments, "--live-inputs")
+	require.Contains(t, w.Arguments, r.LiveInputs)
+	r.LiveInputs = ""
 	w, err = buildWorker(c, r)
 	require.NoError(t, err)
-	require.NotContains(t, w.Arguments, "--coreos-inputs")
+	require.NotContains(t, w.Arguments, "--live-inputs")
 }
 
-func TestCoreOSInputsAdmissionBoundary(t *testing.T) {
+func TestLiveInputsAdmissionBoundary(t *testing.T) {
 	worker := buildFlags{WorkerBuild: true, Request: image.Request{Out: "/o", Arch: "x86_64"}}
-	require.ErrorContains(t, admitWorkerBuild(worker), "requires controller-resolved CoreOS inputs")
-	parent := buildFlags{WorkerConfig: "/cfg", Request: image.Request{Out: "/o", Arch: "x86_64", CoreOSInputs: "/inputs.json"}}
+	require.ErrorContains(t, admitWorkerBuild(worker), "requires controller-resolved live inputs")
+	parent := buildFlags{WorkerConfig: "/cfg", Request: image.Request{Out: "/o", Arch: "x86_64", LiveInputs: "/inputs.json"}}
 	require.ErrorContains(t, admitParentDispatch(parent), "operator selection refused")
 }
 
@@ -142,36 +142,21 @@ func TestWorkerResultBindsTargetAndCandidate(t *testing.T) {
 }
 
 func TestAdmitInternalDispatchBindsAuthority(t *testing.T) {
-	// Qualification runs only from the mounted qualifier inputs; any other
-	// authority selection fails before identity is consulted.
+	// The worker stage refuses operator configuration; the controller
+	// refuses anything but development dispatch. Failures land before
+	// identity is consulted.
 	for _, f := range []buildFlags{
-		{WorkerQualify: true},
-		{WorkerQualify: true, QualificationConfig: "/elsewhere/config.json"},
-		{WorkerQualify: true, QualificationConfig: "/run/soda-p9-input/config.json", SigningConfig: "/restricted/signing.json"},
-		{WorkerQualify: true, QualificationConfig: "/run/soda-p9-input/config.json", WorkerConfig: "/restricted/worker.json"},
-		{WorkerQualify: true, QualificationConfig: "/run/soda-p9-input/config.json", WorkerBuild: true},
-		{WorkerQualify: true, QualificationConfig: "/run/soda-p9-input/config.json", GuestAction: "snapshot", ExpectedPayload: "payload"},
-	} {
-		require.Error(t, admitBuildDispatch(f), "%+v", f)
-	}
-	// Guest observation binds the exact payload identity and refuses every
-	// worker or release authority flag.
-	for _, f := range []buildFlags{
-		{GuestAction: "snapshot"},
-		{GuestAction: "seed", ExpectedPayload: "payload"},
-		{GuestAction: "bogus", ExpectedPayload: "payload"},
-		{GuestAction: "snapshot", ExpectedPayload: "payload", SigningConfig: "/restricted/signing.json"},
-		{GuestAction: "snapshot", ExpectedPayload: "payload", QualificationConfig: "/restricted/qualification.json"},
-		{GuestAction: "snapshot", ExpectedPayload: "payload", WorkerConfig: "/restricted/worker.json"},
-		{GuestAction: "snapshot", ExpectedPayload: "payload", WorkerBuild: true},
-		{GuestAction: "snapshot", ExpectedPayload: "payload", WorkerQualify: true},
+		{WorkerBuild: true, WorkerConfig: "/restricted/worker.json"},
+		{WorkerBuild: true},
+		{WorkerConfig: ""},
+		{WorkerConfig: "/cfg", Request: image.Request{MediaAuthority: "x"}},
+		{WorkerConfig: "/cfg", Request: image.Request{LiveInputs: "x"}},
+		{WorkerConfig: "/cfg"},
 	} {
 		require.Error(t, admitBuildDispatch(f), "%+v", f)
 	}
 	for _, f := range []buildFlags{
-		{GuestAction: "snapshot", ExpectedPayload: "payload"},
-		{GuestAction: "later", ExpectedPayload: "payload"},
-		{GuestAction: "content", ExpectedPayload: "payload"},
+		{WorkerConfig: "/cfg", Request: image.Request{Development: true}},
 	} {
 		require.NoError(t, admitBuildDispatch(f), "%+v", f)
 	}

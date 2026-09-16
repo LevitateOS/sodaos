@@ -36,13 +36,6 @@ def output(args):
     return subprocess.check_output(args, text=True, timeout=120).strip()
 
 
-def require_tailnet_release(clis, version):
-    cli = json.loads(clis['/usr/local/bin/tailscale'])
-    daemon = clis['/usr/local/bin/tailscaled'].splitlines()
-    if not isinstance(cli, dict) or cli.get('short') != version or not daemon or daemon[0].split('-', 1)[0] != version:
-        raise ValueError('Tailnet image binaries differ from locked release')
-
-
 def collect(root, arch, revision):
     progress.next('Native / Collect build inputs and tool versions')
     if platform.system() != 'Linux' or platform.machine() != arch:
@@ -55,9 +48,6 @@ def collect(root, arch, revision):
     for source, name in (
         ('go.mod', 'go.mod'),
         ('go.sum', 'go.sum'),
-        ('project-os/locks/tea-binary.toml', 'tea-binary.toml'),
-        ('appliance/locks/coreos-qemu.json', 'coreos-qemu.json'),
-        ('appliance/locks/tailscale-image.json', 'tailscale-image.json'),
         ('package.json', 'package.json'),
         ('tools/lit-check/package.json', 'lit-check-package.json'),
         ('bun.lock', 'bun.lock'),
@@ -126,8 +116,8 @@ def collect(root, arch, revision):
                     ('/usr/local/bin/tailscaled', ('--version',)),
                 )
             }
-            version = json.loads((root / 'appliance/locks/tailscale-image.json').read_text())['version']
-            require_tailnet_release(images[name]['CLIs'], version)
+            # Observed CLI versions are recorded in native-build.json as-is;
+            # nothing precedes them: the image under test was built floating.
         if name == 'project-os':
             images[name]['CLIs'] = {
                 binary: output(

@@ -145,18 +145,6 @@ func TestCoreOSLockAndDownloadBoundaries(t *testing.T) {
 			t.Fatalf("unsafe public input URL %q", raw)
 		}
 	}
-	path := filepath.Join(t.TempDir(), "lock.json")
-	image := CoreOSImage{URL: "https://example.test/base.xz", SignatureURL: "https://example.test/base.xz.sig", SHA256: strings.Repeat("a", 64), UncompressedSHA256: strings.Repeat("b", 64)}
-	data, _ := json.Marshal(CoreOSLock{MetadataURL: "https://example.test/stream.json", Release: "fixture", Architectures: map[string]CoreOSImage{"x86_64": image}})
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := ReadCoreOS(path, "x86_64"); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := ReadCoreOS(path, "aarch64"); err == nil {
-		t.Fatal("accepted absent platform")
-	}
 	var out bytes.Buffer
 	w := &limitWriter{w: &out, remaining: 3}
 	if _, err := w.Write([]byte("abc")); err != nil {

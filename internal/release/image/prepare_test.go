@@ -160,8 +160,13 @@ func TestBaseStreamAndUnsafeOutputRefusal(t *testing.T) {
 	t.Run("admitted file", func(t *testing.T) {
 		resolved, err := build.ResolveCoreOS(context.Background())
 		require.NoError(t, err)
-		path := filepath.Join(t.TempDir(), "coreos-inputs.json")
-		require.NoError(t, build.WriteResolvedCoreOS(path, resolved))
+		inputs := build.LiveInputs{CoreOS: resolved, Tailnet: build.TailnetInputs{
+			Version: "1.2.3",
+			SHA256:  strings.Repeat("a", 64),
+			Base:    "docker.io/tailscale/alpine-base:3.22",
+		}}
+		path := filepath.Join(t.TempDir(), "live-inputs.json")
+		require.NoError(t, build.WriteLiveInputs(path, inputs))
 		filed, err := LoadBaseFromFile(path, "x86_64")
 		require.NoError(t, err)
 		require.Equal(t, base, filed)

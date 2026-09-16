@@ -267,13 +267,6 @@ func controllerArgs(o options) []string {
 		"--worker-config", o.workerConfig, "--arch", o.arch, "--out", o.out,
 		"--repository-prefix", o.repoPrefix,
 	}
-	if o.mode == "production" {
-		args = append(args, "--qualification-config", o.qualConfig)
-		if o.signConfig != "" {
-			args = append(args, "--signing-config", o.signConfig)
-		}
-		return args
-	}
 	target := o.mode
 	if target == "" {
 		target = "media"

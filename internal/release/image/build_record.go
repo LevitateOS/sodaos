@@ -8,15 +8,19 @@ import (
 	"github.com/levitateos/sodaos/internal/release/deliver"
 )
 
-// Called only after the fixed candidate checks and requested media checks succeed.
-// The candidate hash binds all five app identities through its payload hash; this
-// producer receipt is never protected qualification evidence.
+// Called only after the fixed candidate artifact checks and requested media
+// checks succeed. The candidate hash binds all five app identities through
+// its payload hash; this producer receipt is never protected qualification
+// evidence. Language and presentation suites are not build gates, so they
+// are not listed here; run them directly when they matter.
 func recordBuildResult(p build.Production, r Request) (result Result, err error) {
-	result = Result{Revision: p.Revision, Architecture: p.Arch,
+	result = Result{
+		Revision: p.Revision, Architecture: p.Arch,
 		Candidate: filepath.Join(p.Out, "candidate.json"), Purpose: r.Purpose(),
 		RequestedTarget: r.RequestedTarget(), CompletedTarget: "candidate",
 		Scope:  "P1-P6 verified candidate; not a qualified release",
-		Checks: []string{"Go source tests", "TypeScript and Lit checks", "Prepared frontend tests", "Prepared Forgejo tests", "Prepared layout tests", "Build/source fixtures", "ELF architecture", "Application OCI identities", "Host identity, RPM inventory, shared layout and Quadlets", "Host OCI export"}}
+		Checks: []string{"ELF architecture", "Application OCI identities", "Host identity, RPM inventory, shared layout and Quadlets", "Host OCI export"},
+	}
 	var candidate deliver.Candidate
 	if err = build.ReadJSON(result.Candidate, &candidate); err != nil {
 		return

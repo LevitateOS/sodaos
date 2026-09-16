@@ -11,18 +11,6 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-func admitHostPackages(p *deliver.Payload, context, packageHash string, producer build.Production) error {
-	if err := producer.Next("Verify admitted host package transaction"); err != nil {
-		return err
-	}
-	var err error
-	p.HostPackagesSHA256, err = build.HashFile(filepath.Join(context, "packages.expected"))
-	if err != nil || p.HostPackagesSHA256 != packageHash {
-		return fmt.Errorf("admitted package inventory changed: %v", err)
-	}
-	return nil
-}
-
 func linkCandidateCommands(source, context, native string) error {
 	if err := os.MkdirAll(filepath.Join(native, "bin"), 0o755); err != nil {
 		return err
@@ -63,7 +51,7 @@ func stageCandidateForgejo(p *deliver.Payload, source, context, out string, prod
 	if err = build.WriteNew(filepath.Join(forgejoContext, "Containerfile"), recipe, 0o644); err != nil {
 		return "", err
 	}
-	return forgejoContext, preparedChecks(producer)
+	return forgejoContext, linkPreparedAssets(producer)
 }
 
 func recordCandidateImages(p *deliver.Payload, prefix string, images map[string]build.ProducedImage) {
@@ -108,11 +96,10 @@ func sealCandidatePayload(p deliver.Payload, source, context, out string, produc
 
 // completeCandidate is image-layout assembly, not a second component producer.
 // The legacy installer uses the same Production methods with its explicit layout.
-func completeCandidate(source, context, out, arch, revision, prefix string, base Base, packageHash string, producer build.Production, phase func(string) error) (deliver.Payload, error) {
+// The payload seals later: the host inventory floats, so its fingerprint is
+// recorded from the built image and set before sealing.
+func completeCandidate(source, context, out, arch, revision, prefix string, base Base, producer build.Production, phase func(string) error) (deliver.Payload, error) {
 	p := deliver.Payload{Format: 3, ID: base.Release + ".soda-" + revision[:12], Revision: revision, Architecture: arch, CoreOS: base.Release, Base: base.Images[arch], RepositoryPrefix: prefix, Schema: store.SchemaVersion(), Images: map[string]deliver.Image{}, UpgradeFrom: []string{}}
-	if err := admitHostPackages(&p, context, packageHash, producer); err != nil {
-		return p, err
-	}
 	if err := linkCandidateCommands(source, context, producer.Native); err != nil {
 		return p, err
 	}
@@ -131,5 +118,5 @@ func completeCandidate(source, context, out, arch, revision, prefix string, base
 	if err = inspectCandidateForgejo(source, out, images, producer); err != nil {
 		return p, err
 	}
-	return p, sealCandidatePayload(p, source, context, out, producer)
+	return p, nil
 }

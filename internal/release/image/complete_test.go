@@ -13,37 +13,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLockedHostTransactionMatchesActualPackageOwner(t *testing.T) {
-	streamFixtures(t, goodStreamDoc(), goodIndexDoc())
-	source := sourceRoot(t)
+func TestRecordHostPackagesFilesObservedInventory(t *testing.T) {
 	root := t.TempDir()
 	context := filepath.Join(root, "context")
-	base, err := Prepare(source, context, "x86_64", strings.Repeat("a", 40))
-	require.NoError(t, err)
-	lockRaw, err := os.ReadFile(filepath.Join(source, "appliance/locks/host-packages-x86_64.json"))
-	require.NoError(t, err)
-	var lock struct {
-		CoreOS    string
-		Inventory []string
-	}
-	require.NoError(t, json.Unmarshal(lockRaw, &lock))
-	base.Release = lock.CoreOS
-	hash, err := LockHostPackages(source, context, "x86_64", base)
+	out := filepath.Join(root, "out")
+	require.NoError(t, os.MkdirAll(context, 0o755))
+	require.NoError(t, os.MkdirAll(out, 0o755))
+	inventory := "cockpit-ostree 1:225-1.fc44.noarch\ntailscale 0:1.102.4-1.x86_64\n"
+	p := build.Production{Capture: func(dir, cmd string, args ...string) (string, error) {
+		return inventory, nil
+	}}
+	hash, err := recordHostPackages(context, out, "fixture-id", p)
 	require.NoError(t, err)
 	require.True(t, build.Digest(hash))
-	b, err := os.ReadFile(filepath.Join(context, "packages.list"))
+	recorded, err := os.ReadFile(filepath.Join(context, "packages.recorded"))
 	require.NoError(t, err)
-	require.Contains(t, string(b), "cockpit-ostree-1:225-1.fc44.noarch")
-	b, err = os.ReadFile(filepath.Join(context, "packages.expected"))
+	require.Equal(t, inventory, string(recorded))
+	require.Equal(t, hash, hashBytes(recorded))
+	stable, err := os.ReadFile(filepath.Join(out, "packages.txt"))
 	require.NoError(t, err)
-	require.Equal(t, len(lock.Inventory), len(strings.FieldsFunc(string(b), func(r rune) bool { return r == '\n' })))
-	require.Equal(t, hash, hashBytes(b))
-	// Do not infer native ARM packages or qualification from the x86 lock.
-	_, err = LockHostPackages(source, context, "aarch64", base)
-	require.ErrorContains(t, err, "architecture package lock")
-	base.Release = "44.0.0.0"
-	_, err = LockHostPackages(source, context, "x86_64", base)
-	require.ErrorContains(t, err, "does not match")
+	require.Equal(t, recorded, stable)
+	// Malformed observations are refused, never recorded.
+	bad := build.Production{Capture: func(dir, cmd string, args ...string) (string, error) {
+		return "not-an-inventory-line\n", nil
+	}}
+	_, err = recordHostPackages(context, out, "fixture-id", bad)
+	require.Error(t, err)
 }
 
 func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {

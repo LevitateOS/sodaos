@@ -51,29 +51,38 @@ func mediaBaseURL(value string) error {
 	return nil
 }
 
-func loadMediaToolsLock(p build.Production) (mediaLock, error) {
-	var lock mediaLock
-	if err := build.ReadJSON(filepath.Join(p.Source, "appliance/locks/media-tools.json"), &lock); err != nil {
-		return lock, err
-	}
-	const prefix = "quay.io/coreos-assembler/coreos-assembler@sha256:"
-	if lock.Architecture != p.Arch || !strings.HasPrefix(lock.Assembler, prefix) || !build.Digest(strings.TrimPrefix(lock.Assembler, prefix)) || !build.Revision(lock.Config) || lock.Installer != "coreos-installer 0.26.0" {
-		return lock, errors.New("unreviewed media tools")
-	}
-	return lock, nil
-}
+// assemblerImage and assemblerConfigBranch float on upstream: the stable
+// assembler and the stable config branch matching the stable base. The
+// resolved digest and fetched revision are recorded per build in media.json;
+// no pinned digest, revision or installer version precedes the run.
+const assemblerImage = "quay.io/coreos-assembler/coreos-assembler:stable"
+const assemblerConfigBranch = "stable"
 
-func fetchAssemblerConfig(run func(string, ...string) error, root string, lock mediaLock) error {
-	for _, args := range [][]string{{"init", "config-repo"}, {"-C", "config-repo", "fetch", "--depth=1", "https://github.com/coreos/fedora-coreos-config.git", lock.Config}, {"-C", "config-repo", "archive", "--format=tar", "--output", filepath.Join(root, "config.tar"), lock.Config}} {
+func fetchAssemblerConfig(p build.Production, run func(string, ...string) error, root string) (string, error) {
+	for _, args := range [][]string{{"init", "config-repo"}, {"-C", "config-repo", "fetch", "--depth=1", "https://github.com/coreos/fedora-coreos-config.git", assemblerConfigBranch}} {
 		if err := run("git", args...); err != nil {
-			return err
+			return "", err
 		}
+	}
+	sha, err := p.Capture(root, "git", "-C", "config-repo", "rev-parse", "FETCH_HEAD")
+	if err != nil {
+		return "", err
+	}
+	sha = strings.TrimSpace(sha)
+	if !build.Revision(sha) {
+		return "", errors.New("unresolved assembler config revision")
+	}
+	if err := run("git", "-C", "config-repo", "archive", "--format=tar", "--output", filepath.Join(root, "config.tar"), sha); err != nil {
+		return "", err
 	}
 	config := filepath.Join(root, "config")
 	if err := os.Mkdir(config, 0o755); err != nil {
-		return err
+		return "", err
 	}
-	return run("tar", "-xf", "config.tar", "-C", config, "--no-same-owner")
+	if err := run("tar", "-xf", "config.tar", "-C", config, "--no-same-owner"); err != nil {
+		return "", err
+	}
+	return sha, nil
 }
 
 func pinAssemblerBuildArgs(root string) error {
@@ -111,42 +120,60 @@ func verifyAssemblerLayers(p build.Production, root, assembler, id string) error
 	return nil
 }
 
-func wrapAssemblerImage(p build.Production, run func(string, ...string) error, root string, lock mediaLock) error {
-	if err := run("podman", "--remote=false", "pull", "--policy=missing", lock.Assembler); err != nil {
-		return err
+func wrapAssemblerImage(p build.Production, run func(string, ...string) error, root string) (string, error) {
+	// No --policy=missing: the tag floats, so every build re-resolves it.
+	if err := run("podman", "--remote=false", "pull", assemblerImage); err != nil {
+		return "", err
 	}
-	if err := build.WriteNew(filepath.Join(root, "Containerfile"), []byte("FROM "+lock.Assembler+"\nUSER 0\n"), 0o644); err != nil {
-		return err
+	digest, err := p.Capture(root, "podman", "--remote=false", "image", "inspect", "--format", "{{.Digest}}", assemblerImage)
+	if err != nil {
+		return "", err
+	}
+	digest = strings.TrimSpace(digest)
+	const prefix = "quay.io/coreos-assembler/coreos-assembler@sha256:"
+	if !strings.HasPrefix(digest, "sha256:") || !build.Digest(strings.TrimPrefix(digest, "sha256:")) {
+		return "", errors.New("unresolved assembler digest")
+	}
+	ref := prefix + strings.TrimPrefix(digest, "sha256:")
+	if err := build.WriteNew(filepath.Join(root, "Containerfile"), []byte("FROM "+ref+"\nUSER 0\n"), 0o644); err != nil {
+		return "", err
 	}
 	if err := run("podman", "--remote=false", "build", "--pull=never", "--network=none", "--iidfile", "builder.iid", "."); err != nil {
-		return err
+		return "", err
 	}
 	id, err := builderID(root)
 	if err != nil {
-		return err
+		return "", err
 	}
-	if err = verifyAssemblerLayers(p, root, lock.Assembler, id); err != nil {
-		return err
+	if err = verifyAssemblerLayers(p, root, ref, id); err != nil {
+		return "", err
 	}
-	return run("podman", "--remote=false", "save", "--format=oci-archive", "--output", "assembler-root.oci", id)
+	if err := run("podman", "--remote=false", "save", "--format=oci-archive", "--output", "assembler-root.oci", id); err != nil {
+		return "", err
+	}
+	return ref, nil
 }
 
 func prepareAssembler(p build.Production, root string) (mediaLock, error) {
-	lock, err := loadMediaToolsLock(p)
-	if err != nil {
-		return lock, err
-	}
+	lock := mediaLock{Architecture: p.Arch}
 	if err := os.Mkdir(root, 0o700); err != nil {
 		return lock, err
 	}
 	run := func(cmd string, args ...string) error { return p.Execute(root, cmd, args...) }
-	if err := fetchAssemblerConfig(run, root, lock); err != nil {
+	sha, err := fetchAssemblerConfig(p, run, root)
+	if err != nil {
 		return lock, err
 	}
+	lock.Config = sha
 	if err := pinAssemblerBuildArgs(root); err != nil {
 		return lock, err
 	}
-	return lock, wrapAssemblerImage(p, run, root, lock)
+	digest, err := wrapAssemblerImage(p, run, root)
+	if err != nil {
+		return lock, err
+	}
+	lock.Assembler = digest
+	return lock, nil
 }
 
 func builderID(root string) (string, error) {
@@ -442,22 +469,29 @@ func verifyCustomizedISO(native func(string, ...string) (string, error), artifac
 	return nil
 }
 
-func customizeInstallerISO(p build.Production, root, artifacts, buildDir, id, rootfsURL, expectedInstaller, liveISOPath string) error {
+func customizeInstallerISO(p build.Production, root, artifacts, buildDir, id, rootfsURL, liveISOPath string) (string, error) {
 	native := func(name string, args ...string) (string, error) {
 		prefix := []string{"--remote=false", "run", "--rm", "--pull=never", "--network=none", "--read-only", "--cap-drop=all", "--security-opt=label=disable", "--volume=" + buildDir + ":/build:ro", "--volume=" + artifacts + ":/out:rw", "--entrypoint=" + name, id}
 		return p.Capture(root, "podman", append(prefix, args...)...)
 	}
 	version, err := native("/usr/bin/coreos-installer", "--version")
-	if err != nil || version != expectedInstaller {
-		return errors.New("media installer version mismatch")
+	if err != nil {
+		return "", err
+	}
+	version = strings.TrimSpace(version)
+	if !strings.HasPrefix(version, "coreos-installer ") || strings.ContainsAny(version, "\r\n") {
+		return "", errors.New("unrecognized installer version output")
 	}
 	if _, err = native("/usr/bin/coreos-installer", "iso", "extract", "minimal-iso", "/build/"+liveISOPath, "/out/media/minimal.iso"); err != nil {
-		return err
+		return "", err
 	}
 	if _, err = native("/usr/bin/coreos-installer", "iso", "customize", "--live-ignition", "/out/live.ign", "--live-karg-append", "coreos.live.rootfs_url="+rootfsURL, "--output", "/out/media/installer.iso", "/out/media/minimal.iso"); err != nil {
-		return err
+		return "", err
 	}
-	return verifyCustomizedISO(native, artifacts, rootfsURL)
+	if err = verifyCustomizedISO(native, artifacts, rootfsURL); err != nil {
+		return "", err
+	}
+	return version, nil
 }
 
 func verifyMediaReadback(p build.Production, root, artifacts, buildDir, id, mediaDir, rootfsName string) error {
@@ -486,11 +520,15 @@ func verifyMediaReadback(p build.Production, root, artifacts, buildDir, id, medi
 	return VerifyRootfsChunks(filepath.Join(mediaDir, rootfsName), string(chunks))
 }
 
-func prepareAndVerifyMedia(p build.Production, root, artifacts, buildDir, id, mediaDir string, meta mediaMeta, rootfsURL, rootfsName, installerVersion string) error {
-	if err := customizeInstallerISO(p, root, artifacts, buildDir, id, rootfsURL, installerVersion, meta.Images["live-iso"].Path); err != nil {
-		return err
+func prepareAndVerifyMedia(p build.Production, root, artifacts, buildDir, id, mediaDir string, meta mediaMeta, rootfsURL, rootfsName string) (string, error) {
+	version, err := customizeInstallerISO(p, root, artifacts, buildDir, id, rootfsURL, meta.Images["live-iso"].Path)
+	if err != nil {
+		return "", err
 	}
-	return verifyMediaReadback(p, root, artifacts, buildDir, id, mediaDir, rootfsName)
+	if err = verifyMediaReadback(p, root, artifacts, buildDir, id, mediaDir, rootfsName); err != nil {
+		return "", err
+	}
+	return version, nil
 }
 
 func sealMedia(artifacts, mediaDir, rootfsName, revision, arch, manifest, payloadSHA256, ostreeCommit, rootfsURL, compression, filesystem, fsoptions string, lock mediaLock) (Media, error) {
@@ -562,9 +600,11 @@ func assembleMedia(ctx context.Context, p build.Production, r Request, lock medi
 		return Media{}, err
 	}
 	rootfsURL := strings.TrimRight(r.RootfsBaseURL, "/") + "/" + rootfsName
-	if err = prepareAndVerifyMedia(p, root, artifacts, buildDir, id, mediaDir, meta, rootfsURL, rootfsName, lock.Installer); err != nil {
+	installerVersion, err := prepareAndVerifyMedia(p, root, artifacts, buildDir, id, mediaDir, meta, rootfsURL, rootfsName)
+	if err != nil {
 		return Media{}, err
 	}
+	lock.Installer = installerVersion
 	return sealMedia(artifacts, mediaDir, rootfsName, p.Revision, p.Arch, in.candidate.Host.Manifest, in.candidate.PayloadSHA256, meta.OSTreeCommit, rootfsURL, r.MediaCompression, in.filesystem, in.fsoptions, lock)
 }
 
