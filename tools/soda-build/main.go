@@ -81,6 +81,9 @@ func admitWorkerBuild(f buildFlags) error {
 	if f.WorkerConfig != "" || f.QualificationConfig != "" || f.SigningConfig != "" {
 		return errors.New("build stage cannot select qualification or signing authority")
 	}
+	if f.GuestAction != "" || f.WorkerQualify {
+		return errors.New("build stage cannot select guest or qualification authority")
+	}
 	return buildWorkerIdentity()
 }
 

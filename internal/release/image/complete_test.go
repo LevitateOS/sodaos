@@ -14,11 +14,20 @@ import (
 )
 
 func TestLockedHostTransactionMatchesActualPackageOwner(t *testing.T) {
+	streamFixtures(t, goodStreamDoc(), goodIndexDoc())
 	source := sourceRoot(t)
 	root := t.TempDir()
 	context := filepath.Join(root, "context")
 	base, err := Prepare(source, context, "x86_64", strings.Repeat("a", 40))
 	require.NoError(t, err)
+	lockRaw, err := os.ReadFile(filepath.Join(source, "appliance/locks/host-packages-x86_64.json"))
+	require.NoError(t, err)
+	var lock struct {
+		CoreOS    string
+		Inventory []string
+	}
+	require.NoError(t, json.Unmarshal(lockRaw, &lock))
+	base.Release = lock.CoreOS
 	hash, err := LockHostPackages(source, context, "x86_64", base)
 	require.NoError(t, err)
 	require.True(t, build.Digest(hash))
@@ -27,7 +36,7 @@ func TestLockedHostTransactionMatchesActualPackageOwner(t *testing.T) {
 	require.Contains(t, string(b), "cockpit-ostree-1:225-1.fc44.noarch")
 	b, err = os.ReadFile(filepath.Join(context, "packages.expected"))
 	require.NoError(t, err)
-	require.Equal(t, 625, len(strings.FieldsFunc(string(b), func(r rune) bool { return r == '\n' })))
+	require.Equal(t, len(lock.Inventory), len(strings.FieldsFunc(string(b), func(r rune) bool { return r == '\n' })))
 	require.Equal(t, hash, hashBytes(b))
 	// Do not infer native ARM packages or qualification from the x86 lock.
 	_, err = LockHostPackages(source, context, "aarch64", base)
@@ -38,6 +47,7 @@ func TestLockedHostTransactionMatchesActualPackageOwner(t *testing.T) {
 }
 
 func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
+	streamFixtures(t, goodStreamDoc(), goodIndexDoc())
 	source := sourceRoot(t)
 	work := t.TempDir()
 	context := filepath.Join(work, "context")

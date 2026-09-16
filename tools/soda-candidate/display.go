@@ -240,6 +240,13 @@ func (r *renderer) draw() error {
 	return errors.Join(errs...)
 }
 
+// closedPhaseKeep bounds the live table: a long run keeps only its most
+// recent successes on screen. Running and failed phases are always shown;
+// older successes collapse to one summary line so redraws stop scrolling
+// full screens of already-reported steps. The full record stays in the
+// timing log regardless.
+const closedPhaseKeep = 5
+
 func (r *renderer) buildLines(now time.Time) []string {
 	lines := []string{fmt.Sprintf("soda-candidate | elapsed %s", wallDur(now.Sub(r.start)))}
 	for _, l := range r.log {
@@ -248,7 +255,27 @@ func (r *renderer) buildLines(now time.Time) []string {
 	if len(r.phases) > 0 {
 		lines = append(lines, "  steps:")
 	}
-	for _, p := range r.phases {
+	keepOK := map[int]bool{}
+	kept := 0
+	for i := len(r.phases) - 1; i >= 0; i-- {
+		if r.phases[i].state != "ok" {
+			continue
+		}
+		kept++
+		if kept <= closedPhaseKeep {
+			keepOK[i] = true
+		}
+	}
+	hidden := 0
+	for i, p := range r.phases {
+		if p.state == "ok" && !keepOK[i] {
+			hidden++
+			continue
+		}
+		if hidden > 0 {
+			lines = append(lines, fmt.Sprintf("  … %d earlier steps done", hidden))
+			hidden = 0
+		}
 		lines = append(lines, phaseLine(p, now))
 	}
 	if len(r.arts) > 0 {

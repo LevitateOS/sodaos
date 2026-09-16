@@ -2,12 +2,43 @@ package scripts
 
 import (
 	"bytes"
+	"errors"
 	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
+
+// writeHomePreviews files the rendered theme previews for human review. The
+// render assertions above are the test; this output is best-effort so a
+// read-only worker source or a foreign-owned leftover tree cannot fail them.
+func writeHomePreviews(t *testing.T, html string) {
+	t.Helper()
+	dir := filepath.Join("..", ".artifacts", "forgejo-presentation")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		if previewUnwritable(err) {
+			t.Logf("preview directory not writable, skipping preview output: %v", err)
+			return
+		}
+		t.Fatal(err)
+	}
+	for _, theme := range []string{"light", "dark"} {
+		preview := strings.Replace(html, "<html>", `<html data-soda-login-theme="`+theme+`" style="color-scheme: `+theme+`">`, 1)
+		if err := os.WriteFile(filepath.Join(dir, "home-"+theme+".html"), []byte(preview), 0o644); err != nil {
+			if previewUnwritable(err) {
+				t.Logf("preview output not writable, skipping: %v", err)
+				return
+			}
+			t.Fatal(err)
+		}
+	}
+}
+
+func previewUnwritable(err error) bool {
+	return os.IsPermission(err) || errors.Is(err, syscall.EROFS)
+}
 
 func TestForgejoHomeRedesign(t *testing.T) {
 	for _, prefix := range []string{"", "/forge"} {
@@ -50,16 +81,7 @@ func TestForgejoHomeRedesign(t *testing.T) {
 				t.Fatal("missing invitation guidance")
 			}
 			if prefix == "" && registration {
-				dir := filepath.Join("..", ".artifacts", "forgejo-presentation")
-				if err = os.MkdirAll(dir, 0o755); err != nil {
-					t.Fatal(err)
-				}
-				for _, theme := range []string{"light", "dark"} {
-					preview := strings.Replace(html, "<html>", `<html data-soda-login-theme="`+theme+`" style="color-scheme: `+theme+`">`, 1)
-					if err = os.WriteFile(filepath.Join(dir, "home-"+theme+".html"), []byte(preview), 0o644); err != nil {
-						t.Fatal(err)
-					}
-				}
+				writeHomePreviews(t, html)
 			}
 			if dir := os.Getenv("SODA_HOME_PREVIEW"); dir != "" && prefix == "" && registration {
 				if err = os.MkdirAll(dir, 0o755); err != nil {

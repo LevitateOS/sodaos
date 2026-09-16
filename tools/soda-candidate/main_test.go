@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseControllerEvents(t *testing.T) {
@@ -728,5 +730,26 @@ func TestDirtyFilesSkipsBlanks(t *testing.T) {
 	}
 	if len(dirtyFiles(nil)) != 0 {
 		t.Fatal("clean tree must parse to no dirty files")
+	}
+}
+
+func TestBuildLinesCollapsesOldSuccesses(t *testing.T) {
+	r := newRenderer(io.Discard, true, 80)
+	now := time.Now()
+	for i := 0; i < 8; i++ {
+		r.phases = append(r.phases, phase{label: fmt.Sprintf("step %d", i), state: "ok", dur: "00:00:01"})
+	}
+	r.phases = append(r.phases, phase{label: "bad step", state: "fail", dur: "00:00:02"})
+	r.phases = append(r.phases, phase{label: "live step", state: "run", started: now})
+	joined := strings.Join(r.buildLines(now), "\n")
+	for _, want := range []string{"… 3 earlier steps done", "step 7", "bad step", "live step"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("table misses %q:\n%s", want, joined)
+		}
+	}
+	for _, hidden := range []string{"step 0", "step 1", "step 2"} {
+		if strings.Contains(joined, hidden) {
+			t.Fatalf("table leaks collapsed %q:\n%s", hidden, joined)
+		}
 	}
 }

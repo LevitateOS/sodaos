@@ -133,7 +133,7 @@ func isToolsPayload(p string) bool {
 
 func isLockInputsPayload(p string) bool {
 	switch p {
-	case "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-binary.toml", "inputs/coreos-qemu.json", "inputs/tailscale-image.json":
+	case "inputs", "inputs/go.mod", "inputs/go.sum", "inputs/tea-binary.toml", "inputs/tailscale-image.json":
 		return true
 	}
 	return false

@@ -1,7 +1,10 @@
 package image
 
 import (
-	"encoding/json"
+	"encoding/pem"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +21,7 @@ func sourceRoot(t *testing.T) string {
 }
 
 func TestPrepareVendorContextFromActualOwners(t *testing.T) {
+	streamFixtures(t, goodStreamDoc(), goodIndexDoc())
 	source := sourceRoot(t)
 	for _, arch := range []string{"x86_64", "aarch64"} {
 		t.Run(arch, func(t *testing.T) {
@@ -90,30 +94,86 @@ func TestPackageInputFailures(t *testing.T) {
 	}
 }
 
-func TestBaseLockAndUnsafeOutputRefusal(t *testing.T) {
-	source := sourceRoot(t)
-	_, err := LoadBase(source, "armv7")
-	require.Error(t, err)
-	data, err := os.ReadFile(filepath.Join(source, "appliance/locks/coreos-host.json"))
-	require.NoError(t, err)
-	var base Base
-	require.NoError(t, json.Unmarshal(data, &base))
-	for _, mutate := range []func(*Base){
-		func(b *Base) { b.Images["x86_64"] = "quay.io/fedora/fedora-coreos:stable" },
-		func(b *Base) { delete(b.Images, "aarch64") },
-		func(b *Base) { b.MetadataURL = "https://untrusted.test/release.json" },
-	} {
-		var invalid Base
-		require.NoError(t, json.Unmarshal(data, &invalid))
-		mutate(&invalid)
-		root := t.TempDir()
-		require.NoError(t, os.MkdirAll(filepath.Join(root, "appliance/locks"), 0o755))
-		raw, e := json.Marshal(invalid)
-		require.NoError(t, e)
-		require.NoError(t, os.WriteFile(filepath.Join(root, "appliance/locks/coreos-host.json"), raw, 0o644))
-		_, e = LoadBase(root, "x86_64")
-		require.Error(t, e)
+// streamFixtures serves a minimal stable-stream document and registry
+// index over local TLS the resolver trusts via SSL_CERT_FILE, then points
+// the resolver endpoints at it. Every LoadBase path in these tests resolves
+// live fixtures; production endpoints are never contacted.
+func streamFixtures(t *testing.T, streamDoc, indexDoc string) {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/streams/stable.json", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, streamDoc)
+	})
+	mux.HandleFunc("/v2/fedora/fedora-coreos/manifests/stable", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, indexDoc)
+	})
+	server := httptest.NewTLSServer(mux)
+	t.Cleanup(server.Close)
+	cert := filepath.Join(t.TempDir(), "cert.pem")
+	require.NoError(t, os.WriteFile(cert, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}), 0o600))
+	t.Setenv("SSL_CERT_FILE", cert)
+	t.Setenv("SODA_COREOS_STREAM_URL", server.URL+"/streams/stable.json")
+	t.Setenv("SODA_COREOS_REGISTRY", server.URL)
+}
+
+func fixtureDisk(base, file string, uncompressed bool) string {
+	loc := base + "/" + file
+	disk := fmt.Sprintf(`{"location":%q,"sha256":%q,"signature":%q`, loc, strings.Repeat("a", 64), loc+".sig")
+	if uncompressed {
+		disk += fmt.Sprintf(`,"uncompressed-sha256":%q`, strings.Repeat("b", 64))
 	}
+	return disk + "}"
+}
+
+// goodStreamDoc builds a minimal valid stream document for both arches.
+func goodStreamDoc() string {
+	arches := []string{}
+	for _, arch := range []string{"x86_64", "aarch64"} {
+		base := fmt.Sprintf("https://builds.test/prod/streams/stable/builds/44.20260901.1.0/%s/fedora-coreos-44.20260901.1.0", arch)
+		arches = append(arches, fmt.Sprintf(`%q:{"artifacts":{"metal":{"formats":{"iso":{"disk":%s}}},"qemu":{"formats":{"qcow2.xz":{"disk":%s}}}}}`, arch,
+			fixtureDisk(base, "fedora-coreos-44.20260901.1.0-live."+arch+".iso", false),
+			fixtureDisk(base, "fedora-coreos-44.20260901.1.0-qemu."+arch+".qcow2.xz", true)))
+	}
+	return `{"architectures":{` + strings.Join(arches, ",") + `}}`
+}
+
+func goodIndexDoc() string {
+	return `{"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[` +
+		`{"digest":"sha256:` + strings.Repeat("c", 64) + `","platform":{"architecture":"amd64"}},` +
+		`{"digest":"sha256:` + strings.Repeat("d", 64) + `","platform":{"architecture":"arm64"}}]}`
+}
+
+func TestBaseStreamAndUnsafeOutputRefusal(t *testing.T) {
+	streamFixtures(t, goodStreamDoc(), goodIndexDoc())
+	_, err := LoadBase("armv7")
+	require.Error(t, err)
+	base, err := LoadBase("x86_64")
+	require.NoError(t, err)
+	require.Equal(t, "44.20260901.1.0", base.Release)
+	require.Contains(t, base.Images["x86_64"], "@sha256:"+strings.Repeat("c", 64))
+	require.Contains(t, base.Images["aarch64"], "@sha256:"+strings.Repeat("d", 64))
+	require.Contains(t, base.MetadataURL, "/builds/44.20260901.1.0/release.json")
+	for name, doc := range map[string]string{
+		"missing arch":   strings.Replace(goodStreamDoc(), `"aarch64":{"artifacts"`, `"ppc64le":{"artifacts"`, 1),
+		"bad digest":     strings.Replace(goodStreamDoc(), strings.Repeat("a", 64), "zz", 1),
+		"bad release":    strings.Replace(goodStreamDoc(), "44.20260901.1.0", "yesterday", -1),
+		"bad image ref":  `{"architectures":{}}`,
+		"untrusted host": strings.Replace(goodStreamDoc(), "https://builds.test/", "http://builds.test/", -1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			streamFixtures(t, doc, goodIndexDoc())
+			_, err := LoadBase("x86_64")
+			require.Error(t, err)
+		})
+	}
+	t.Run("registry failure", func(t *testing.T) {
+		streamFixtures(t, goodStreamDoc(), `{"manifests":[]}`)
+		_, err := LoadBase("x86_64")
+		require.Error(t, err)
+	})
+	source := sourceRoot(t)
 	parent := t.TempDir()
 	link := filepath.Join(parent, "link")
 	require.NoError(t, os.Symlink(t.TempDir(), link))

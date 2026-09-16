@@ -1,8 +1,0 @@
-{
-  "Release": "44.20260817.3.2",
-  "MetadataURL": "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/44.20260817.3.2/release.json",
-  "Images": {
-    "x86_64": "quay.io/fedora/fedora-coreos@sha256:4222ad36286b40b8233e4ace5756fcdc73e22f498e4c6cc93cfe4a0e640dc27e",
-    "aarch64": "quay.io/fedora/fedora-coreos@sha256:ae1aaa031ed14d9a504267d0a5033fad6eb9c29b42eedef7f1b8bb124acfbeb9"
-  }
-}

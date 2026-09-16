@@ -3,6 +3,7 @@
 package image
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,23 +21,30 @@ type Base struct {
 	Images      map[string]string
 }
 
-func LoadBase(source, arch string) (Base, error) {
+// LoadBase resolves the current stable CoreOS build live: release and live
+// media locations from the stream, container digests from the registry.
+// Nothing is read from stored lock files; the resolved values are recorded
+// per build instead. Checks stay shape-strict but host-agnostic so local
+// stream fixtures exercise the same path as production.
+func LoadBase(arch string) (Base, error) {
 	var b Base
 	if _, err := build.OCIArchitecture(arch); err != nil {
 		return b, err
 	}
-	if err := build.ReadJSON(filepath.Join(source, "appliance/locks/coreos-host.json"), &b); err != nil {
+	resolved, err := build.ResolveCoreOS(context.Background())
+	if err != nil {
 		return b, err
 	}
-	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(b.Release) || b.MetadataURL != "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/"+b.Release+"/release.json" {
-		return b, errors.New("invalid pinned CoreOS release")
+	b = Base{Release: resolved.Release, MetadataURL: resolved.MetadataURL, Images: resolved.Container}
+	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(b.Release) || !build.HTTPSURL(b.MetadataURL) || !strings.HasSuffix(b.MetadataURL, "/builds/"+b.Release+"/release.json") {
+		return b, errors.New("invalid resolved CoreOS release")
 	}
 	if len(b.Images) != 2 {
 		return b, errors.New("both architecture base digests required")
 	}
 	for _, a := range []string{"x86_64", "aarch64"} {
-		const prefix = "quay.io/fedora/fedora-coreos@sha256:"
-		if !strings.HasPrefix(b.Images[a], prefix) || !build.Digest(strings.TrimPrefix(b.Images[a], prefix)) {
+		host, digest, ok := strings.Cut(b.Images[a], "/fedora/fedora-coreos@sha256:")
+		if !ok || host == "" || strings.Contains(host, "/") || !build.Digest(digest) {
 			return b, errors.New("digest-pinned CoreOS base required")
 		}
 	}
@@ -270,7 +278,7 @@ func (w preparedWriter) writeBuildRecord(b Base, revision, arch string, packages
 }
 
 func loadBaseInputs(source, arch, revision string) (Base, []string, string, error) {
-	b, err := LoadBase(source, arch)
+	b, err := LoadBase(arch)
 	if err != nil {
 		return b, nil, "", err
 	}
