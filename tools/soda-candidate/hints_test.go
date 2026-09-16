@@ -17,6 +17,7 @@ func TestFailureHintMatchesKnownSignatures(t *testing.T) {
 		{"GOPROXY list is not the empty string", "setup-soda-candidate.sh"},
 		{"go: module lookup disabled by GOPROXY=off", "setup-soda-candidate.sh"},
 		{"worker unit is already present or could not be checked", "wait for it"},
+		{"sd-bus call: Interactive authentication required", "setup-soda-candidate.sh"},
 		{"some brand-new failure mode", ""},
 		{"", ""},
 	} {

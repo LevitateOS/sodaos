@@ -46,4 +46,8 @@ var hintCatalog = []struct {
 		"already present",
 		"A previous worker unit still exists; wait for it to finish or stop it, then retry.",
 	},
+	{
+		"interactive authentication required",
+		"A worker container could not use systemd cgroups (no user session); rerun bash scripts/setup-soda-candidate.sh from the repo root.",
+	},
 }

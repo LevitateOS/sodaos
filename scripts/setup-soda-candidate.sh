@@ -127,6 +127,14 @@ sudo semodule -i "$BINDIR/soda-build-worker.pp"
 # var_lib_t home withholds map, so the Go state dirs carry a dedicated
 # type. Podman storage, the runtime dir and frontend caches keep theirs.
 sudo mkdir -p "$BUILD_HOME/go-build" "$BUILD_HOME/go-mod" "$BUILD_HOME/.config"
+# Podman builds run inside the worker without a systemd user session, so
+# build containers cannot use the systemd cgroup driver (crun fails on an
+# sd-bus polkit denial). Pin the worker to cgroupfs; the unit's CPU and
+# memory bounds still apply. BUILD_HOME is the worker HOME inside the unit.
+sudo install -d -o soda-build-worker -g soda-build-worker "$BUILD_HOME/.config/containers"
+printf '[engine]\ncgroup_manager = "cgroupfs"\n' | sudo tee "$BUILD_HOME/.config/containers/containers.conf" >/dev/null
+sudo chown soda-build-worker:soda-build-worker "$BUILD_HOME/.config/containers/containers.conf"
+sudo chmod 0644 "$BUILD_HOME/.config/containers/containers.conf"
 if command -v semanage >/dev/null; then
   for d in go-build go-mod .config; do
     sudo semanage fcontext -a -t soda_build_cache_t "$BUILD_HOME/$d(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t soda_build_cache_t "$BUILD_HOME/$d(/.*)?"
