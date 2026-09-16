@@ -33,11 +33,11 @@ func inspectHostIdentity(context, platform, revision, scope, id string, p build.
 	return nil
 }
 
-// recordHostPackages files the built host inventory as the bill-of-materials.
-// The install floats on bare names, so nothing precedes the observation: the
-// image's own inventory is validated for shape and recorded, and its SHA256
-// becomes the payload fingerprint.
-func recordHostPackages(context, out, id string, p build.Production) (string, error) {
+// observeHostPackages reads the built host inventory as the
+// bill-of-materials. The install floats on bare names, so nothing precedes
+// the observation: the image's own inventory is validated for shape, and its
+// SHA256 becomes the payload fingerprint.
+func observeHostPackages(context, out, id string, p build.Production) ([]byte, error) {
 	packages, err := p.Capture(context, "podman", "--remote=false", "run", "--cidfile", filepath.Join(out, "inspect.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--entrypoint=/bin/sh", id, "-ec", `test "$(stat -c %a /usr/libexec/soda/soda-host)" = 755
  test -L /usr/sbin
  test "$(readlink /usr/sbin)" = bin
@@ -53,13 +53,22 @@ func recordHostPackages(context, out, id string, p build.Production) (string, er
  rpm -q rpm-ostree zincati ignition cockpit-ostree tailscale >/dev/null
  cat /usr/share/soda/host-image/packages.txt`)
 	if err != nil {
-		return "", fmt.Errorf("read-only host inspection failed; retain inspect.cid: %w", err)
+		return nil, fmt.Errorf("read-only host inspection failed; retain inspect.cid: %w", err)
 	}
 	lines := strings.Split(strings.TrimSpace(packages), "\n")
 	if err := validRPMInventory(lines); err != nil {
+		return nil, err
+	}
+	return []byte(strings.Join(lines, "\n") + "\n"), nil
+}
+
+// recordHostPackages files the observed inventory: one copy beside the
+// context for the record, one frozen evidence copy in the output.
+func recordHostPackages(context, out, id string, p build.Production) (string, error) {
+	record, err := observeHostPackages(context, out, id, p)
+	if err != nil {
 		return "", err
 	}
-	record := []byte(strings.Join(lines, "\n") + "\n")
 	if err := ownedWrite(filepath.Join(context, "packages.recorded"), record, 0o644); err != nil {
 		return "", err
 	}
@@ -117,11 +126,11 @@ func verifyBuiltHost(context, out, arch, revision, prefix, id, packageHash strin
 	if err := inspectHostIdentity(context, platform, revision, scope, id, p); err != nil {
 		return err
 	}
-	observed, err := recordHostPackages(context, out, id, p)
+	observed, err := observeHostPackages(context, out, id, p)
 	if err != nil {
 		return err
 	}
-	if observed != packageHash {
+	if hashBytes(observed) != packageHash {
 		return errors.New("host inventory shifted during build; refusing mismatched fingerprint")
 	}
 	imageConfig, err := p.Capture(context, "podman", "--remote=false", "run", "--cidfile", filepath.Join(out, "image-config-inspect.cid"), "--network=none", "--read-only", "--cap-drop=all", "--entrypoint=/usr/bin/cat", id, "/"+imageConfigPath)
