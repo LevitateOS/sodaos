@@ -109,6 +109,11 @@ cp -a tools/lit-check "$TMPW/tools/"
 sudo chown -R soda-build-worker:soda-build-worker "$TMPW"
 sudo find "$TMPW" -type d -exec chmod 0755 {} +
 (cd "$TMPW" && sudo -u soda-build-worker env HOME="$BUILD_HOME" "$TOOLS/bin/bun" install --frozen-lockfile >/dev/null) || fail "cannot warm Bun cache"
+# Playwright browsers cannot be fetched offline, so the pinned chromium
+# ships in the worker home now (setup has network; the worker does not).
+# Install from the scratch tree so the frozen playwright is used.
+sudo install -d -o soda-build-worker -g soda-build-worker "$BUILD_HOME/browsers"
+(cd "$TMPW" && sudo -u soda-build-worker env HOME="$BUILD_HOME" PLAYWRIGHT_BROWSERS_PATH="$BUILD_HOME/browsers" "$TOOLS/bin/bun" x playwright install chromium) || fail "cannot stage Playwright chromium"
 sudo rm -rf "$TMPW"
 sudo chown -R soda-build-worker:soda-build-worker "$BUILD_HOME"
 
