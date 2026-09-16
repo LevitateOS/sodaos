@@ -12,9 +12,8 @@ RUN curl --fail --show-error --location "$(cat /run/soda-build/tailscale-repo.ur
     mkdir -p /usr/share/soda/host-image && \
     rpm -qa --qf '%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' > /run/soda-build/packages.unsorted && \
     LC_ALL=C sort /run/soda-build/packages.unsorted > /usr/share/soda/host-image/packages.txt && \
-    if test -s /run/soda-build/packages.expected; then \
-      diff -u /run/soda-build/packages.expected /usr/share/soda/host-image/packages.txt; \
-    fi
+    test -s /run/soda-build/packages.expected && \
+      diff -u /run/soda-build/packages.expected /usr/share/soda/host-image/packages.txt
 
 COPY rootfs/ /
 # Native rpm-ostree container finalization. Keep Fedora's update ownership;

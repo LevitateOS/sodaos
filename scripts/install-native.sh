@@ -12,7 +12,7 @@ for state in /etc/soda/installed /etc/soda/install-started /etc/soda/dashboard.j
 done
 . /etc/os-release
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]] || { echo 'Upstream Fedora CoreOS target required, not the builder' >&2; exit 1; }
-for command in python3 restorecon matchpathcon rpm-ostree podman ip systemd-sysusers systemd-tmpfiles sysctl; do command -v "$command" >/dev/null; done
+for command in python3 restorecon matchpathcon rpm-ostree podman ip systemd-sysusers systemd-tmpfiles sysctl; do command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }; done
 rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree cockpit-podman cockpit-files cockpit-selinux cockpit-sosreport tailscale forgejo-runner git python3 tar gzip >/dev/null
 # Fedora may satisfy these capabilities with versioned/replacement packages.
 rpm -q --whatprovides nodejs >/dev/null

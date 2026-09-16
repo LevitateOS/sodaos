@@ -15,6 +15,9 @@ case "$action" in
     [[ $(uname -s) == Linux && $(uname -m) == x86_64 && -r /dev/kvm && -w /dev/kvm ]] || {
       echo 'Native x86_64 Linux with KVM access required' >&2; exit 1;
     }
+    # QEMU selects the executed hypervisor, so refuse anything that is not
+    # an absolute executable file instead of execing the override blindly.
+    [[ "$qemu" == /* && -f "$qemu" && -x "$qemu" ]] || { echo 'QEMU must be an absolute executable path (default /usr/libexec/qemu-kvm)' >&2; exit 1; }
     for file in disk.qcow2 soda.ign operator known_hosts; do
       [[ -f "$vm/$file" ]] || { echo "Missing $vm/$file; see docs/guides/local-testing.md" >&2; exit 1; }
     done

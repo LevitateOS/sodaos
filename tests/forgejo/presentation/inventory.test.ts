@@ -31,7 +31,7 @@ test('presentation inventory covers every production override and its local call
 // upstream side of the caller inventory too. No network or export is implicit.
 test('embedded native callers match the inventory when the local export is available', async t => {
   const upstream = new URL('../../../.artifacts/forgejo-presentation/upstream/templates/', import.meta.url);
-  try { await stat(upstream); } catch (error) { if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return t.skip('requires local embedded 15.0.7 template export'); throw error; }
+  try { await stat(upstream); } catch (error) { if (error instanceof Error && 'code' in error && error.code === 'ENOENT') { process.stderr.write('warning: upstream caller inventory skipped without the local embedded 15.0.7 template export\n'); return t.skip('requires local embedded 15.0.7 template export'); } throw error; }
   const {entries} = (await import('./inventory.json')).default;
   const local = new Set(entries.map(e => e.template));
   const sources = await Promise.all((await templates(upstream)).filter(p => !local.has(p)).map(async p => [p, await readFile(new URL(p,upstream),'utf8')] as const));

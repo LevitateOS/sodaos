@@ -23,13 +23,16 @@ export function createWorkspaceModel(origin: string, actor = '1', repository?: {
   const profile = {id: 'rocky-headless', distribution: 'rocky', version: '9', interface: 'headless', architecture: 'amd64', image: 'sha256:' + '1'.repeat(64), revision: '1'.repeat(40)};
   let createOutcome: 'confirmed' | 'uncertain' | 'incomplete' | 'rejected' = 'confirmed', joinFailure: false | string = false, profileAvailable = true;
   const calls: {path: string; method: string; body: Record<string, unknown> | null}[] = [], sockets: Socket[] = [];
+  // 43-char base64url session token like production sessions, so component
+  // tests exercise the real format instead of a short synthetic string.
+  const csrf = 'workspace-fixture-csrf-token-00000000000000';
   let user = actor, complete = true, status = 200, unknownEnd = false, serial = 0;
   const reservations = new Set<string>();
   let pause: Promise<void> | undefined;
   const request = async (path: string, method = 'GET', body: Record<string, unknown> | null = null) => {
     calls.push({path, method, body}); await pause;
     if (status !== 200 || user !== actor) return new Response(null, {status: user !== actor ? 403 : status});
-    if (path.endsWith('/api/session')) return Response.json({user: {id: user, login: 'alice'}, csrf_token: 'synthetic-only', forgejo_url: origin});
+    if (path.endsWith('/api/session')) return Response.json({user: {id: user, login: 'alice'}, csrf_token: csrf, forgejo_url: origin});
     if (path.endsWith('/api/spaces')) return Response.json({items: spaces.map(space => ({...space, terminals: space.terminals.filter(t => t.state !== 'ended')})), complete});
     if (path.endsWith('/api/forgejo/me')) return Response.json({id: user});
     if (firstUse) {
@@ -98,6 +101,12 @@ export function createWorkspaceModel(origin: string, actor = '1', repository?: {
       const frame = object(JSON.parse(text)); this.sent.push(frame);
       if (frame.type === 'input' && typeof frame.data === 'string') this.onmessage?.({data: JSON.stringify({type: 'output', data: frame.data})});
       if (frame.action !== 'attach' && frame.action !== 'create') return;
+      if (frame.csrf_token !== csrf) {
+        // Mirror the native handshake: a wrong token refuses the peer without
+        // attaching or reporting ready.
+        this.close();
+        return;
+      }
       const space = spaces.find(p => String(this.url).includes(p.environment.id)); if (!space) throw Error('Unknown fixture project');
       let terminal = space.terminals.find(t => t.id === frame.id);
       if (frame.action === 'create') {

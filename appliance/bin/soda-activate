@@ -18,8 +18,8 @@ if args.local_tls:
 elif not args.certificate or not args.private_key:
     parser.error('select --local-tls or supply both --certificate and --private-key')
 address = ipaddress.ip_address(args.bind_ip)
-if address.is_unspecified or address.is_multicast or address.is_global:
-    parser.error('select an explicit private/loopback address, not a public administration exposure')
+if address.is_unspecified or address.is_multicast or address.is_global or address.is_loopback:
+    parser.error('select an explicit private address, not loopback or a public administration exposure')
 root = Path('/etc/soda')
 if (root / 'activated').exists():
     parser.error('already activated; use explicit native configuration maintenance instead of blind reactivation')

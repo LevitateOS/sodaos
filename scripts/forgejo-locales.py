@@ -52,7 +52,11 @@ if __name__ == '__main__':
             parser.error('native catalog differs from locked bytes')
         native = data.decode('utf-8')
     else:
-        native = args.native.read_text()
+        # Same bound as the --lock fetch: never load an unbounded file.
+        data = args.native.read_bytes()
+        if len(data) > 1024 * 1024:
+            parser.error('native catalog exceeds the 1 MiB bound')
+        native = data.decode('utf-8')
     output = merge(native, args.additions.read_text())
     args.out.parent.mkdir(parents=True, exist_ok=True)
     with args.out.open('x') as stream:

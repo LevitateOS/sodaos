@@ -88,14 +88,30 @@ func convertButane(ctx context.Context, source, out, arch string) error {
 	if err != nil {
 		return err
 	}
+	return finishButaneConversion(dest, out, func() error { return runButane(ctx, in, dest) })
+}
+
+// runButane executes the strict conversion; finishButaneConversion owns the
+// destination lifetime so a failure never leaves a partial output behind.
+func runButane(ctx context.Context, in, dest *os.File) error {
 	phase, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(phase, "butane", "--strict")
 	cmd.Stdin = in
 	cmd.Stdout = dest
 	cmd.WaitDelay = time.Second
-	if err = errors.Join(cmd.Run(), dest.Close()); err != nil {
-		return errors.New("strict Butane conversion failed; restricted output retained, not bootable evidence")
+	return cmd.Run()
+}
+
+func finishButaneConversion(dest *os.File, out string, run func() error) error {
+	if err := run(); err != nil {
+		_ = dest.Close()
+		_ = os.Remove(out)
+		return errors.New("strict Butane conversion failed; partial output removed")
+	}
+	if err := dest.Close(); err != nil {
+		_ = os.Remove(out)
+		return err
 	}
 	return nil
 }

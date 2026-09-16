@@ -74,7 +74,7 @@ class AvatarActivation(unittest.TestCase):
                     return path
 
                 address = 'fd00::5' if origin == 'https://[fd00::5]' else '192.168.2.100'
-                args = ['soda-activate', '--bind-ip', address if local_tls else '127.0.0.1']
+                args = ['soda-activate', '--bind-ip', address]
                 if local_tls:
                     args += ['--local-tls']
                 else:

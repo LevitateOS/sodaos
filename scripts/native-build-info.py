@@ -33,7 +33,7 @@ progress = Progress()
 def output(args):
     if args[0] == 'podman':
         args = [args[0], '--remote=false', *args[1:]]
-    return subprocess.check_output(args, text=True).strip()
+    return subprocess.check_output(args, text=True, timeout=120).strip()
 
 
 def require_tailnet_release(clis, version):

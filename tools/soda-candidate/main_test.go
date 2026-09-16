@@ -524,6 +524,39 @@ func TestPrepareRuntimeRefusesConcurrentBuild(t *testing.T) {
 	}
 }
 
+func TestPrepareRuntimeRechecksAfterClear(t *testing.T) {
+	chdirRepoRoot(t)
+	stubProbeExec(t)
+	runtimeDir := t.TempDir()
+	calls := 0
+	racing := func() (string, error) {
+		calls++
+		if calls > 1 {
+			return "soda-build-manual-01.service loaded active running\n", nil
+		}
+		return "", nil
+	}
+	err := prepareRuntime(prepareOpts(writeWorkerJSON(t, runtimeDir)), racing)
+	if err == nil || !strings.Contains(err.Error(), "already running") {
+		t.Fatalf("build started during clear not refused, got: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("concurrent-build check ran %d times, want 2 (before and after clear)", calls)
+	}
+}
+
+func TestControllerArgsEmptyModeDefaultsMedia(t *testing.T) {
+	o := baseOptions()
+	o.mode = ""
+	joined := strings.Join(controllerArgs(o), " ")
+	if !strings.Contains(joined, "--target media") {
+		t.Fatalf("empty mode did not default to media target: %s", joined)
+	}
+	if !strings.Contains(joined, "--rootfs-base-url "+o.rootfsURL) {
+		t.Fatalf("defaulted media target omitted the rootfs base URL: %s", joined)
+	}
+}
+
 func TestPrepareRuntimeNamesSetupDrift(t *testing.T) {
 	stubProbeExec(t)
 	quiet := func() (string, error) { return "", nil }

@@ -938,6 +938,28 @@ for (const status of [401, 403]) test(`native recovery: ${status} project reads 
   await captureSpacesComponent(page, status === 401 ? 'project-reconnect' : 'project-access-changed');
 });
 
+test('terminal handshake with a mismatched CSRF token is refused without attaching', async t => {
+  const page = await fixture(t);
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
+  await openSession(page, 'Build');
+  const outcome = await page.evaluate(async () => {
+    const f = window.workspaceFixture;
+    const environment = f.spaces[0]?.environment;
+    if (!environment) throw Error('Missing fixture project');
+    const peer = new f.Socket('ws://fixture/' + environment.id + '/terminal-sessions');
+    let ready = false;
+    peer.onmessage = () => {ready = true;};
+    peer.send(JSON.stringify({action: 'attach', id: 'b'.repeat(32), expected_user_id: '1', repository_id: environment.repository_id, csrf_token: 'mismatched-csrf-token-for-proof', cols: 80, rows: 24}));
+    const deadline = Date.now() + 5000;
+    while (peer.readyState !== 3 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 10));
+    return {closed: peer.readyState === 3, ready, attached: f.spaces[0]?.terminals.find(terminal => terminal.id === 'b'.repeat(32))?.attached === true};
+  });
+  assert.equal(outcome.closed, true, 'mismatched handshake must be refused');
+  assert.equal(outcome.ready, false, 'mismatched handshake must not report ready');
+  assert.equal(outcome.attached, false, 'mismatched handshake must not attach');
+  assert.equal(await page.locator('.soda-workspace-terminal:not([hidden]) .is-connected').count(), 1, 'legitimate session stays connected');
+});
+
 test('native CSS loaded last preserves full-width Spaces and quiet controls', async t => {
   const page = await fixture(t, 'page', undefined, true);
   await page.evaluate(() => {

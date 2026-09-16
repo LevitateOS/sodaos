@@ -32,6 +32,14 @@ func TestEqualPNGComparesDecodedPixels(t *testing.T) {
 	require.False(t, equal)
 }
 
+func TestEqualPNGRejectsUnboundedDimensions(t *testing.T) {
+	wide := filepath.Join(t.TempDir(), "wide.png")
+	writePNG(t, wide, image.NewNRGBA(image.Rect(0, 0, maxPNGDimension+1, 1)), png.BestSpeed)
+	if _, err := decodeBoundedPNG(wide); err == nil {
+		t.Fatal("oversized PNG dimensions accepted")
+	}
+}
+
 func writePNG(t *testing.T, path string, value image.Image, compression png.CompressionLevel) {
 	t.Helper()
 	file, err := os.Create(path)

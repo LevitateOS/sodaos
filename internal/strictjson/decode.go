@@ -79,6 +79,9 @@ func decodeFields(decoder *json.Decoder) (map[string]json.RawMessage, error) {
 		if err = decoder.Decode(&value); err != nil {
 			return nil, fmt.Errorf("decode request field %q: %w", field, err)
 		}
+		if err = rejectDuplicateKeys(field, value, 0); err != nil {
+			return nil, err
+		}
 		object[field] = value
 	}
 	return object, nil
@@ -97,6 +100,74 @@ func decodeFieldName(decoder *json.Decoder, object map[string]json.RawMessage) (
 		return "", fmt.Errorf("duplicate request field %q", field)
 	}
 	return field, nil
+}
+
+// rejectDuplicateKeys extends the top-level duplicate ban to every nested
+// object and array element: encoding/json keeps the last of any nested
+// duplicates, so values must be scanned before they are accepted. Depth is
+// capped because request bodies are small API objects, never deep documents.
+func rejectDuplicateKeys(field string, raw json.RawMessage, depth int) error {
+	if depth > 100 {
+		return fmt.Errorf("decode request field %q: request is nested too deeply", field)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	token, err := decoder.Token()
+	if err != nil {
+		return fmt.Errorf("decode request field %q: %w", field, err)
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delimiter {
+	case '{':
+		if err = rejectObjectDuplicates(decoder, field, depth); err != nil {
+			return err
+		}
+	case '[':
+		for decoder.More() {
+			var element json.RawMessage
+			if err = decoder.Decode(&element); err != nil {
+				return fmt.Errorf("decode request field %q: %w", field, err)
+			}
+			if err = rejectDuplicateKeys(field, element, depth+1); err != nil {
+				return err
+			}
+		}
+		if _, err = decoder.Token(); err != nil {
+			return fmt.Errorf("decode request field %q: %w", field, err)
+		}
+	}
+	return nil
+}
+
+func rejectObjectDuplicates(decoder *json.Decoder, field string, depth int) error {
+	seen := map[string]bool{}
+	for decoder.More() {
+		token, err := decoder.Token()
+		if err != nil {
+			return fmt.Errorf("decode request field %q: %w", field, err)
+		}
+		name, valid := token.(string)
+		if !valid {
+			return fmt.Errorf("decode request field %q: request field name must be a string", field)
+		}
+		if seen[name] {
+			return fmt.Errorf("duplicate request field %q", name)
+		}
+		seen[name] = true
+		var value json.RawMessage
+		if err = decoder.Decode(&value); err != nil {
+			return fmt.Errorf("decode request field %q: %w", field, err)
+		}
+		if err = rejectDuplicateKeys(field, value, depth+1); err != nil {
+			return err
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return fmt.Errorf("decode request field %q: %w", field, err)
+	}
+	return nil
 }
 
 func finishObject(decoder *json.Decoder) error {

@@ -188,10 +188,14 @@ export async function signOut(actor: string) {
 }
 
 function sodaLoginLink(target: Element | null) {
-  if (!(target instanceof HTMLAnchorElement)) return false;
-  return (
-    new URL(target.href).origin === location.origin && new URL(target.href).pathname === api + '/login' && !signingOut
-  );
+  if (!(target instanceof HTMLAnchorElement) || !target.href) return false;
+  let url: URL;
+  try {
+    url = new URL(target.href);
+  } catch {
+    return false;
+  }
+  return url.origin === location.origin && url.pathname === api + '/login' && !signingOut;
 }
 
 function clickAnchor(event: MouseEvent) {

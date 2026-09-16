@@ -20,6 +20,7 @@ class SourceChecks(unittest.TestCase):
         self.root = Path(self.tmp.name).resolve()
         (self.root / 'scripts').mkdir()
         shutil.copyfile(ROOT / 'scripts/check-source.sh', self.root / 'scripts/check-source.sh')
+        (self.root / 'go.mod').write_text('module fixture\n\ngo 1.26.7\n')
         # check-source.sh runs the SQL locality gate as a real script, so the
         # fixture root needs a stub that logs and fails like the PATH tools.
         (self.root / 'scripts' / 'check-sql-locality.sh').write_text(
@@ -36,15 +37,19 @@ class SourceChecks(unittest.TestCase):
             tool = self.tools / name
             tool.write_text(
                 f'#!{sys.executable}\n'
-                + '''import json, os, pathlib, sys
+                + '''import json, os, pathlib, re, sys
 command = [pathlib.Path(sys.argv[0]).name, *sys.argv[1:]]
 with open(os.environ['COMMAND_LOG'], 'a') as log:
     log.write(json.dumps({'command': command, 'cwd': os.getcwd(), 'env': {key: os.environ.get(key) for key in ('GOWORK', 'GOFLAGS', 'CGO_ENABLED', 'GOTOOLCHAIN')}}) + '\\n')
+if command[:2] == ['go', 'version']:
+    pin = re.search(r'^go (\\S+)', pathlib.Path('go.mod').read_text(), re.M).group(1)
+    print(f'go version go{pin} fixture/fixture')
 if ' '.join(command) == os.environ.get('FAIL_COMMAND'): sys.exit(7)
 '''
             )
             tool.chmod(0o700)
         self.expected = [
+            ['go', 'version'],
             ['go', 'mod', 'verify'],
             ['go', 'test', '-mod=readonly', './...'],
             ['bash', 'scripts/check-sql-locality.sh'],

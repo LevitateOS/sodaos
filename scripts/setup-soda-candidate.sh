@@ -204,7 +204,9 @@ fi
 sudo chown soda-build-worker:soda-build-worker "$AUTHORITY" "$AUTHORITY/trust.json" "$AUTHORITY/artifact.private" "$AUTHORITY/passphrase" "$AUTHORITY/config.json"
 
 sudo mkdir -p "$ROOTFS_DIR"
-sudo chown "$USER" "$ROOTFS_DIR"
+# $USER is unset under set -u or points at root under sudo; the invoking
+# operator is always the id outside sudo.
+sudo chown "$(id -un)" "$ROOTFS_DIR"
 
 cat <<EOF
 -- ready. One command from $PWD:

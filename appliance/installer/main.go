@@ -14,7 +14,7 @@ import (
 
 func main() {
 	if len(os.Args) != 2 || !action(os.Args[1]) {
-		fmt.Fprintln(os.Stderr, "usage: soda-install disk|continue|configure|enroll-key")
+		fmt.Fprintln(os.Stderr, "usage: soda-install disk|continue|configure|enroll-key|enrollment-serve|enrollment-receive")
 		os.Exit(2)
 	}
 	signals := []os.Signal{syscall.SIGTERM, syscall.SIGHUP}

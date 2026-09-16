@@ -8,15 +8,27 @@ import (
 
 func TestPKExecCallerRequiresBothRootIDsAndRootOriginalCaller(t *testing.T) {
 	for _, test := range []struct {
-		uid, euid int
-		original  string
-		allowed   bool
+		uid, euid    int
+		pkexec, sudo string
+		allowed      bool
 	}{
-		{0, 0, "", true}, {0, 0, "0", true},
-		{1000, 0, "", false}, {0, 1000, "", false}, {1000, 1000, "0", false},
-		{0, 0, "1000", false}, {0, 0, "00", false}, {0, 0, "invalid", false},
+		{0, 0, "", "", true},
+		{0, 0, "0", "", true},
+		{0, 0, "", "0", true},
+		{0, 0, "0", "0", true},
+		{1000, 0, "", "", false},
+		{0, 1000, "", "", false},
+		{1000, 1000, "0", "0", false},
+		{0, 0, "1000", "", false},
+		{0, 0, "00", "", false},
+		{0, 0, "invalid", "", false},
+		{0, 0, "", "1000", false},
+		{0, 0, "", "00", false},
+		{0, 0, "", "invalid", false},
+		{0, 0, "0", "1000", false},
+		{0, 0, "1000", "0", false},
 	} {
-		actor, err := pkexecCaller(test.uid, test.euid, test.original)
+		actor, err := pkexecCaller(test.uid, test.euid, test.pkexec, test.sudo)
 		if test.allowed {
 			require.NoError(t, err)
 			require.Equal(t, PKExecIdentity{Username: "root", UID: 0}, actor)

@@ -14,6 +14,10 @@ const origin = 'http://localhost:3300';
 // Prepare current canonical preview assets first. Without a Soda backend, the
 // native host must show stable connection failure; the separate connection journey
 // supplies real Soda/OAuth proof.
+test('admin-gate proof executes instead of skipping', () => {
+  assert.equal(process.env.SODA_FORGEJO_NATIVE_PAGES, '1', 'run `SODA_FORGEJO_NATIVE_PAGES=1 bun test --timeout 120000 tests/forgejo/native-pages.test.ts` so the admin-gate proof executes instead of skipping');
+});
+
 test('non-admin Forgejo hosts Spaces views and denies admin Soda hosts', {
   skip: process.env.SODA_FORGEJO_NATIVE_PAGES !== '1',
   timeout: 120000,

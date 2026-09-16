@@ -8,6 +8,35 @@ import (
 	"testing"
 )
 
+func TestLoadRejectsTrailingDataPastSizeLimit(t *testing.T) {
+	c := Config{Listen: "127.0.0.1:8080", ForgejoURL: "https://forgejo.test/", ForgejoInternalURL: "http://127.0.0.1:3000", Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: "app", OAuthSecretFile: "/etc/soda/oauth-secret", GrantKeyFile: "/etc/soda/grant-key", OperatorID: 1}
+	valid, err := json.Marshal(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "config.json")
+	write := func(contents string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(contents), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(string(valid) + `{"forgejo_url":"https://evil.test"}`)
+	if _, err = Load(path); err == nil || !strings.Contains(err.Error(), "one JSON object") {
+		t.Fatal("small trailing object was not rejected", err)
+	}
+	// Trailing bytes pushed past the 64 KiB window must not read as a clean
+	// EOF: the file is oversized, not a single object.
+	write(string(valid) + strings.Repeat(" ", 65537-len(valid)) + `{"forgejo_url":"https://evil.test"}`)
+	if _, err = Load(path); err == nil || !strings.Contains(err.Error(), "exceeds 64 KiB") {
+		t.Fatal("trailing data past the size limit was accepted", err)
+	}
+	write(string(valid))
+	if _, err = Load(path); err != nil {
+		t.Fatal("valid configuration rejected", err)
+	}
+}
+
 func TestPrivateHTTPSDeploymentBoundary(t *testing.T) {
 	c := Config{Listen: "127.0.0.1:8080", ForgejoURL: "https://forgejo.test/", ForgejoInternalURL: "http://127.0.0.1:3000", Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: "app", OAuthSecretFile: "/etc/soda/oauth-secret", GrantKeyFile: "/etc/soda/grant-key", AdminTokenFile: "/etc/soda/admin-token", OperatorID: 1}
 	path := filepath.Join(t.TempDir(), "config.json")

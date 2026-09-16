@@ -102,3 +102,22 @@ class ForgejoPayload(unittest.TestCase):
                 runpy.run_path(str(ROOT / 'scripts/forgejo-locales.py'), run_name='__main__')
             self.assertTrue(output.read_bytes().startswith(native))
             self.assertIn('[soda]', output.read_text())
+
+    def test_unbounded_native_catalog_is_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            native = root / 'native.ini'
+            native.write_bytes(b'[common]\nname = Native\n[settings]\ntitle = Settings\n' + b'x' * (1024 * 1024))
+            output = root / 'locale.ini'
+            args = [
+                'forgejo-locales.py',
+                '--native',
+                str(native),
+                '--additions',
+                str(ROOT / 'appliance/forgejo/i18n/en-US.ini'),
+                '--out',
+                str(output),
+            ]
+            with patch('sys.argv', args), self.assertRaises(SystemExit):
+                runpy.run_path(str(ROOT / 'scripts/forgejo-locales.py'), run_name='__main__')
+            self.assertFalse(output.exists())

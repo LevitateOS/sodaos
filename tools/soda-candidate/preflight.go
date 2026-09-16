@@ -225,6 +225,13 @@ func prepareRuntime(o options, listUnits func() (string, error)) error {
 	if err := clearRuntimeDir(wp.Runtime); err != nil {
 		return err
 	}
+	// Re-check after the destructive step: a build that started while the
+	// directory was being cleared must still refuse, fail closed. The
+	// controller re-admits the unit at dispatch; this only narrows the
+	// wrapper's own check-then-act window.
+	if err := refuseConcurrentBuild(listUnits); err != nil {
+		return err
+	}
 	return checkWorkerEnvironment(o, wp)
 }
 
@@ -275,7 +282,7 @@ func controllerArgs(o options) []string {
 	if o.compression != "" {
 		args = append(args, "--media-compression", o.compression)
 	}
-	if o.mode == "media" {
+	if target == "media" {
 		args = append(args, "--rootfs-base-url", o.rootfsURL)
 	}
 	return args

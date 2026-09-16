@@ -65,6 +65,15 @@ class ProjectRuntimeContracts(unittest.TestCase):
         self.assertIn('"$BOB@$ISOLATION_IP"', probe)
         self.assertNotIn('$BOB@10.89.0.3', probe)
 
+    def test_compose_database_image_is_digest_pinned(self):
+        compose = (ROOT / 'tests/fixtures/workload/compose.yaml').read_text()
+        images = [line.split('image:', 1)[1].strip() for line in compose.splitlines() if 'image:' in line]
+        self.assertEqual(len(images), 1)
+        self.assertRegex(
+            images[0],
+            r'^docker\.io/library/postgres:17@sha256:[0-9a-f]{64}$',
+        )
+
     def test_compose_uses_native_secret_not_password_argv(self):
         compose = (ROOT / 'tests/fixtures/workload/compose.yaml').read_text()
         self.assertIn('POSTGRES_PASSWORD_FILE: /run/secrets/soda-example-db', compose)

@@ -77,9 +77,16 @@ func loadReleaseTrust(path string) (deliver.Trust, error) {
 	return trust, nil
 }
 
+// errUsage marks argument/flag errors so main can keep the conventional
+// distinction: usage errors exit 2, operational failures exit 1.
+var errUsage = errors.New("usage error")
+
 func parseReleaseArgs(args []string) (releaseFlags, deliver.Trust, error) {
 	if len(args) < 2 {
-		return releaseFlags{}, deliver.Trust{}, errors.New("operation required: prepare, channel, policy, init-state, init-ledger, sign, publish, fetch")
+		return releaseFlags{}, deliver.Trust{}, errors.Join(
+			errors.New("operation required: prepare, channel, policy, init-state, init-ledger, sign, publish, fetch"),
+			errUsage,
+		)
 	}
 	op := args[1]
 	flags := flag.NewFlagSet(op, flag.ContinueOnError)
@@ -100,10 +107,10 @@ func parseReleaseArgs(args []string) (releaseFlags, deliver.Trust, error) {
 	base := flags.String("base-policy", "", "public existing policy to preserve; otherwise emit standalone reject-default policy")
 	observe := flags.Bool("observe", false, "observe an uncertain/completed publication, never replay registry writes")
 	if err := flags.Parse(args[2:]); err != nil {
-		return releaseFlags{}, deliver.Trust{}, err
+		return releaseFlags{}, deliver.Trust{}, errors.Join(err, errUsage)
 	}
 	if err := validateOperationFlags(flags, op, *out); err != nil {
-		return releaseFlags{}, deliver.Trust{}, err
+		return releaseFlags{}, deliver.Trust{}, errors.Join(err, errUsage)
 	}
 	trust, err := loadReleaseTrust(*trustFile)
 	if err != nil {
@@ -288,9 +295,16 @@ func run() error {
 	return executeReleaseOperation(ctx, rf, trust)
 }
 
+func exitCode(err error) int {
+	if errors.Is(err, errUsage) {
+		return 2
+	}
+	return 1
+}
+
 func main() {
 	if e := run(); e != nil {
 		fmt.Fprintln(os.Stderr, e)
-		os.Exit(1)
+		os.Exit(exitCode(e))
 	}
 }

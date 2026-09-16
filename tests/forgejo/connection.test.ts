@@ -9,6 +9,10 @@ const files: Record<string, string> = payload;
 const session = {user: {id: '1', login: 'alice'}, csrf_token: 'fixture', forgejo_url: origin};
 const shell = `<!doctype html><nav id="navbar"><span id="soda-settings-link" data-actor="1"></span><a class="link-action" href="" data-url="/user/logout">Sign out</a><a class="link-action" data-url="/unrelated">Unrelated</a></nav><main><input id="draft" value="unsaved"><div id="soda-native-content" data-view="spaces" data-actor="1" data-title="Spaces" data-document-title="Spaces" data-destination="/-/soda/spaces"></div></main>`;
 
+test('actor/logout journey executes instead of skipping', () => {
+  assert.equal(process.env.SODA_LIT_BROWSER, '1', 'run `bun run test:forgejo` so this browser journey executes instead of skipping');
+});
+
 test('entry connection is bounded, actor checked, and never restarts on focus or failure', {skip: process.env.SODA_LIT_BROWSER !== '1'}, async t => {
   const browser = await chromium.launch({headless: true, chromiumSandbox: true}); t.after(() => browser.close());
   for (const mode of ['valid', 'restored', 'retired', 'detached', 'missing', 'mismatch', 'unavailable', 'failed-return', 'failed-valid', 'suppressed', 'late-restored', 'late-detached', 'late-retry', 'history-valid', 'history-missing', 'history-changed', 'history-signout']) {

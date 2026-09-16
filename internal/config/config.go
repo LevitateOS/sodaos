@@ -3,6 +3,7 @@
 package config
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -40,7 +41,14 @@ func decodeConfig(path string) (Config, error) {
 		return c, err
 	}
 	defer f.Close()
-	d := json.NewDecoder(io.LimitReader(f, 65537))
+	// Read the whole file before decoding: a LimitReader around the decoder
+	// would exhaust the limit during the first Decode and hide trailing
+	// bytes past it as a clean EOF in the second.
+	contents, err := io.ReadAll(io.LimitReader(f, 65537))
+	if err != nil || len(contents) > 65536 {
+		return c, errors.New("configuration exceeds 64 KiB")
+	}
+	d := json.NewDecoder(bytes.NewReader(contents))
 	d.DisallowUnknownFields()
 	if err = d.Decode(&c); err != nil {
 		return c, fmt.Errorf("configuration: %w", err)

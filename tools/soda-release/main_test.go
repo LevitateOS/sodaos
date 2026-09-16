@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -19,6 +20,12 @@ func TestRejectsAmbiguousOperationsBeforeCredentialsOrNativeCommands(t *testing.
 		{"soda-release", "reboot", "--out", filepath.Join(t.TempDir(), "out")},
 	} {
 		os.Args = args
-		require.Error(t, run())
+		err := run()
+		require.Error(t, err)
+		require.Equal(t, 2, exitCode(err))
 	}
+}
+
+func TestOperationalFailuresKeepExitOne(t *testing.T) {
+	require.Equal(t, 1, exitCode(errors.New("registry unreachable")))
 }
