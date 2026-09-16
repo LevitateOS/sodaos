@@ -33,7 +33,7 @@ COPY ${ARTIFACT_DIR}/project-tools/bin/tea /usr/local/bin/tea
 COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/licenses/tea/LICENSE
 COPY project-os/rootfs/ /
 # Same fixed program as the helper embeds; never downloaded or installed on Open.
-COPY internal/host/project_terminal.py /usr/libexec/soda/project-terminal
+COPY internal/host/terminal/project_terminal.py /usr/libexec/soda/project-terminal
 # Check the final userspace after all package operations, not just the base tag.
 RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2" && \
     chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \
