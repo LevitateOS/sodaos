@@ -488,15 +488,35 @@ func TestPrepareRuntimeNamesSetupDrift(t *testing.T) {
 func TestControllerToolchainMismatchNamed(t *testing.T) {
 	chdirRepoRoot(t)
 	stubProbeExec(t)
+	pin, err := pinnedGoVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
 	self, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
+	}
+	// The isolated worker builds this test binary with the pinned
+	// toolchain, so the mismatch premise is unavailable there; the message
+	// itself is covered hermetically by TestControllerVersionErrorNamed.
+	if stamp, err := controllerGoVersion(self); err == nil && stamp == "go"+pin {
+		t.Skip("test binary carries the pinned toolchain; mismatch premise unavailable")
 	}
 	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
 	o.controller = self // test binary: never the pinned toolchain
 	quiet := func() (string, error) { return "", nil }
 	err = prepareRuntime(o, quiet)
 	if err == nil || !strings.Contains(err.Error(), "rebuild with the pinned toolchain") {
+		t.Fatalf("toolchain downgrade not named, got: %v", err)
+	}
+}
+
+func TestControllerVersionErrorNamed(t *testing.T) {
+	if err := controllerVersionError("go1.26.7", "1.26.7"); err != nil {
+		t.Fatalf("matching toolchain refused: %v", err)
+	}
+	err := controllerVersionError("go1.27.0", "1.26.7")
+	if err == nil || !strings.Contains(err.Error(), "rebuild with the pinned toolchain") || !strings.Contains(err.Error(), "go1.27.0") {
 		t.Fatalf("toolchain downgrade not named, got: %v", err)
 	}
 }

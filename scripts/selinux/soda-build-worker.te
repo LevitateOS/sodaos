@@ -17,7 +17,7 @@ require {
 	class dir { create open read write getattr setattr search add_name remove_name rmdir relabelfrom relabelto };
 	class lnk_file { create read getattr setattr unlink rename };
 	class tcp_socket { name_connect };
-	class chr_file { read write open };
+	class chr_file { read write open ioctl };
 }
 
 # The isolated build worker runs Go as an init_t systemd transient unit:
@@ -45,7 +45,7 @@ allow init_t { ephemeral_port_t unreserved_port_t }:tcp_socket name_connect;
 # Suite temp dirs land on tmp_t here, and the enrollment PTY test drives a
 # pty master. Teardown-time unlink noise from systemd itself is excluded.
 allow init_t tmp_t:lnk_file { create read getattr unlink rename };
-allow init_t ptmx_t:chr_file { read write open };
+allow init_t ptmx_t:chr_file { read write open ioctl };
 # Shell children of the test binaries run as initrc_t, so files they write
 # (the subreaper pidfile) and scripts the tests stage under var_lib_t need
 # init_t access back.

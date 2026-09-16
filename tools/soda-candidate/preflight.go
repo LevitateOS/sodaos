@@ -126,6 +126,15 @@ func selinuxType(path string) (string, error) {
 	return parts[2], nil
 }
 
+// controllerVersionError names a controller/toolchain mismatch so a stale
+// admitted controller fails here instead of dying at dispatch.
+func controllerVersionError(got, pin string) error {
+	if got != "go"+pin {
+		return fmt.Errorf("controller reports %s, want go%s: rebuild with the pinned toolchain and re-admit", got, pin)
+	}
+	return nil
+}
+
 // toolsGoContext reports the SELinux type of the provisioned Go so a
 // mislabeled toolchain is caught here instead of dying at dispatch.
 func toolsGoContext() (string, error) {
@@ -173,8 +182,8 @@ func checkWorkerEnvironment(o options, wp workerPaths) error {
 		if err != nil {
 			return err
 		}
-		if got != "go"+pin {
-			return fmt.Errorf("controller reports %s, want go%s: rebuild with the pinned toolchain and re-admit", got, pin)
+		if err := controllerVersionError(got, pin); err != nil {
+			return err
 		}
 	}
 	label, err := toolsGoContext()
