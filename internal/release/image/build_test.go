@@ -22,20 +22,20 @@ func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 	for _, mode := range []string{"dirty", "revision", "occupied", "outside", "worktree", "architecture"} {
 		t.Run(mode, func(t *testing.T) {
 			source := t.TempDir()
-			require.NoError(t, os.Mkdir(filepath.Join(source, ".git"), 0700))
+			require.NoError(t, os.Mkdir(filepath.Join(source, ".git"), 0o700))
 			parent := filepath.Join(source, ".artifacts/releases")
-			require.NoError(t, os.MkdirAll(parent, 0700))
+			require.NoError(t, os.MkdirAll(parent, 0o700))
 			out := filepath.Join(parent, "run")
 			if mode == "occupied" {
-				require.NoError(t, os.Mkdir(out, 0700))
-				require.NoError(t, os.WriteFile(filepath.Join(out, "retain"), []byte("later writes"), 0600))
+				require.NoError(t, os.Mkdir(out, 0o700))
+				require.NoError(t, os.WriteFile(filepath.Join(out, "retain"), []byte("later writes"), 0o600))
 			}
 			if mode == "worktree" {
 				require.NoError(t, os.Rename(filepath.Join(source, ".git"), filepath.Join(source, "retained-git")))
-				require.NoError(t, os.WriteFile(filepath.Join(source, ".git"), []byte("gitdir: elsewhere"), 0600))
+				require.NoError(t, os.WriteFile(filepath.Join(source, ".git"), []byte("gitdir: elsewhere"), 0o600))
 			}
 			authority := filepath.Join(source, "fixture-authority.json")
-			require.NoError(t, os.WriteFile(authority, []byte("{}"), 0600))
+			require.NoError(t, os.WriteFile(authority, []byte("{}"), 0o600))
 			r := Request{Source: source, Out: out, Arch: "x86_64", RepositoryPrefix: "ghcr.io/example/sodaos", RootfsBaseURL: "https://example.invalid", MediaAuthority: authority}
 			if mode == "outside" {
 				r.Out = filepath.Join(source, "outside")
@@ -79,6 +79,7 @@ func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 		})
 	}
 }
+
 func TestDevelopmentTargetAdmission(t *testing.T) {
 	for _, tc := range []struct {
 		r     Request
@@ -107,25 +108,27 @@ func TestDevelopmentTargetAdmission(t *testing.T) {
 func TestCandidateBoundaryDoesNotAdmitOrDispatchMedia(t *testing.T) {
 	root := t.TempDir()
 	r := Request{Development: true, Target: "candidate", Out: root}
-	p := build.Production{Source: filepath.Join(root, "absent-source"), Out: filepath.Join(root, "artifacts"), Arch: "x86_64", Revision: strings.Repeat("a", 40),
+	p := build.Production{
+		Source: filepath.Join(root, "absent-source"), Out: filepath.Join(root, "artifacts"), Arch: "x86_64", Revision: strings.Repeat("a", 40),
 		Next:    func(string) error { t.Fatal("candidate dispatched media progress"); return nil },
 		Execute: func(string, string, ...string) error { t.Fatal("candidate dispatched media command"); return nil },
 		Capture: func(string, string, ...string) (string, error) {
 			t.Fatal("candidate dispatched media capture")
 			return "", nil
-		}}
+		},
+	}
 	tools, lock, err := prepareBuildMedia(p, r)
 	require.NoError(t, err)
 	require.NoError(t, finishBuildMedia(t.Context(), p, r, tools, lock, p.Next))
 	require.NoDirExists(t, filepath.Join(root, "work/media"))
 	require.NoDirExists(t, p.Out)
 	// A successful fixed candidate path records only its own checks/identities.
-	require.NoError(t, os.Mkdir(p.Out, 0700))
-	require.NoError(t, os.Mkdir(filepath.Join(root, "evidence"), 0700))
+	require.NoError(t, os.Mkdir(p.Out, 0o700))
+	require.NoError(t, os.Mkdir(filepath.Join(root, "evidence"), 0o700))
 	candidate := deliver.Candidate{Host: build.Image{Manifest: "sha256:" + strings.Repeat("b", 64)}, PayloadSHA256: strings.Repeat("c", 64)}
 	data, err := json.Marshal(candidate)
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(p.Out, "candidate.json"), data, 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(p.Out, "candidate.json"), data, 0o600))
 	result, err := recordBuildResult(p, r)
 	require.NoError(t, err)
 	require.Equal(t, "development", result.Purpose)
@@ -168,6 +171,7 @@ func TestPreparedChecksUseExistingOutputsAndStopOnFailure(t *testing.T) {
 	require.Equal(t, filepath.Join(p.Native, "forgejo-js"), target)
 	require.NotContains(t, strings.Join(calls, "\n"), "build:forgejo")
 }
+
 func TestRecallLogReasonSkipsMarkers(t *testing.T) {
 	ring := newRecallLog()
 	_, err := ring.Write([]byte("\nCOMMAND go\n"))

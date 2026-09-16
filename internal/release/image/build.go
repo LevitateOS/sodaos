@@ -114,7 +114,8 @@ func (l *recallLog) Write(p []byte) (int, error) {
 // first so the file holds the whole attempt from the first command.
 func (l *recallLog) attach(w io.Writer) {
 	for _, line := range l.lines {
-		fmt.Fprintln(w, line)
+		// Best-effort admission replay; the build outcome never depends on it.
+		_, _ = fmt.Fprintln(w, line)
 	}
 	l.file = w
 }
