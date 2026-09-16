@@ -141,6 +141,9 @@ func runBuildWorker(ctx context.Context, c workerConfig, r image.Request, p *bui
 	if err := p.Phase(boundary); err != nil {
 		return result, err
 	}
+	if err := resolveWorkerCoreOSInputs(ctx, c, &r); err != nil {
+		return result, err
+	}
 	w, err := buildWorker(c, r)
 	if err != nil {
 		return result, err
@@ -156,6 +159,28 @@ func runBuildWorker(ctx context.Context, c workerConfig, r image.Request, p *bui
 		return result, err
 	}
 	return result, errors.Join(p.End(nil), p.EndPhase(nil))
+}
+
+// resolveWorkerCoreOSInputs resolves the current stable CoreOS build on the
+// controller, where outbound HTTPS is admitted, and records it beside the
+// attempt output for the isolated worker, which SELinux denies outbound
+// HTTPS. The worker consumes only its own attempt's file and validates it
+// like a live resolution; digest-pinned pulls verify content downstream.
+func resolveWorkerCoreOSInputs(ctx context.Context, c workerConfig, r *image.Request) error {
+	resolved, err := build.ResolveCoreOS(ctx)
+	if err != nil {
+		return err
+	}
+	name := "soda-coreos-inputs-" + filepath.Base(r.Out) + ".json"
+	if err := build.WriteResolvedCoreOS(filepath.Join(c.OutputParent, name), resolved); err != nil {
+		return err
+	}
+	parentRel, err := filepath.Rel(c.Source, c.OutputParent)
+	if err != nil {
+		return err
+	}
+	r.CoreOSInputs = filepath.Join(workerSource, parentRel, name)
+	return nil
 }
 
 func buildWorker(c workerConfig, r image.Request) (acceptance.Worker, error) {
@@ -187,6 +212,9 @@ func buildWorker(c workerConfig, r image.Request) (acceptance.Worker, error) {
 	}
 	if r.MediaCompression != "" {
 		w.Arguments = append(w.Arguments, "--media-compression", r.MediaCompression)
+	}
+	if r.CoreOSInputs != "" {
+		w.Arguments = append(w.Arguments, "--coreos-inputs", r.CoreOSInputs)
 	}
 	if r.WantsMedia() {
 		w.ReadOnly = append(w.ReadOnly, c.MediaAuthorityDirectory+":/run/soda-media-authority")

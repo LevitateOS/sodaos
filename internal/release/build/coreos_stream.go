@@ -308,6 +308,60 @@ func ResolveCoreOS(ctx context.Context) (ResolvedCoreOS, error) {
 	return ResolvedCoreOS{Release: release, MetadataURL: meta, Container: digests, ISO: iso, QEMU: qemu}, nil
 }
 
+// WriteResolvedCoreOS records one resolved stable build for an isolated
+// consumer that cannot fetch it: the controller resolves where network is
+// admitted and the worker consumes its own attempt's file. Public metadata
+// only (release, locations, digests); the file carries no authority beyond
+// the digest-pinned pulls that verify content downstream.
+func WriteResolvedCoreOS(path string, resolved ResolvedCoreOS) error {
+	if err := ValidResolvedCoreOS(resolved); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(resolved, "", "  ")
+	if err != nil {
+		return err
+	}
+	return WriteNew(path, append(data, '\n'), 0o644)
+}
+
+// ReadResolvedCoreOS admits controller-resolved inputs for the isolated
+// worker. Validation mirrors the live path; a missing or tampered file
+// fails here.
+func ReadResolvedCoreOS(path string) (ResolvedCoreOS, error) {
+	var resolved ResolvedCoreOS
+	if err := ReadJSON(path, &resolved); err != nil {
+		return resolved, err
+	}
+	if err := ValidResolvedCoreOS(resolved); err != nil {
+		return resolved, err
+	}
+	return resolved, nil
+}
+
+// ValidResolvedCoreOS applies the live resolution shape rules to admitted
+// inputs: release form and cross-arch agreement, verified ISO/QEMU triples,
+// release metadata URL, and digest-pinned container refs for both arches.
+// The registry host itself is not allowlisted: digest-pinned pulls verify
+// content downstream, so a retargeted host cannot substitute bytes.
+func ValidResolvedCoreOS(resolved ResolvedCoreOS) error {
+	if err := validStreamImages(resolved.Release, resolved.ISO, resolved.QEMU); err != nil {
+		return err
+	}
+	if !httpsURL(resolved.MetadataURL) || !strings.HasSuffix(resolved.MetadataURL, "/builds/"+resolved.Release+"/release.json") {
+		return errors.New("resolved CoreOS metadata URL is malformed")
+	}
+	if len(resolved.Container) != 2 {
+		return errors.New("both architecture base digests required")
+	}
+	for _, arch := range []string{"x86_64", "aarch64"} {
+		host, digest, ok := strings.Cut(resolved.Container[arch], "/fedora/fedora-coreos@sha256:")
+		if !ok || host == "" || strings.Contains(host, "/") || !Digest(digest) {
+			return errors.New("digest-pinned CoreOS base required")
+		}
+	}
+	return nil
+}
+
 // streamReleaseURL derives the build's release.json URL from the stream
 // endpoint and release: <stream-prefix>/builds/<release>/release.json.
 func streamReleaseURL(streamURL, release string) (string, error) {

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -138,5 +140,75 @@ func TestResolveCoreOSRequiresHTTPSStream(t *testing.T) {
 	t.Setenv("SODA_COREOS_STREAM_URL", "http://builds.test/streams/stable.json")
 	if _, err := ResolveCoreOS(context.Background()); err == nil {
 		t.Fatal("plain-HTTP stream admitted")
+	}
+}
+
+func TestResolvedCoreOSFileRoundTrip(t *testing.T) {
+	streamFixtureServer(t, fixtureStreamDoc(t, nil), fixtureIndexDoc(t, nil), http.StatusOK)
+	resolved, err := ResolveCoreOS(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "coreos-inputs.json")
+	if err := WriteResolvedCoreOS(path, resolved); err != nil {
+		t.Fatal(err)
+	}
+	back, err := ReadResolvedCoreOS(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if back.Release != resolved.Release || back.MetadataURL != resolved.MetadataURL {
+		t.Fatal("inputs file lost the resolved release")
+	}
+	if back.Container["x86_64"] != resolved.Container["x86_64"] || back.Container["aarch64"] != resolved.Container["aarch64"] {
+		t.Fatal("inputs file lost base digests")
+	}
+	if back.ISO["x86_64"] != resolved.ISO["x86_64"] || back.QEMU["aarch64"] != resolved.QEMU["aarch64"] {
+		t.Fatal("inputs file lost media triples")
+	}
+}
+
+func TestResolvedCoreOSFileRefusesTampering(t *testing.T) {
+	streamFixtureServer(t, fixtureStreamDoc(t, nil), fixtureIndexDoc(t, nil), http.StatusOK)
+	resolved, err := ResolveCoreOS(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved.Container["x86_64"] = "quay.io/fedora/fedora-coreos@sha256:nope"
+	if err := WriteResolvedCoreOS(filepath.Join(t.TempDir(), "bad.json"), resolved); err == nil {
+		t.Fatal("undigest-pinned base admitted")
+	}
+	resolved.Container["x86_64"] = "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("c", 64)
+	delete(resolved.Container, "aarch64")
+	if err := WriteResolvedCoreOS(filepath.Join(t.TempDir(), "bad-arch.json"), resolved); err == nil {
+		t.Fatal("single-arch base admitted")
+	}
+	path := filepath.Join(t.TempDir(), "coreos-inputs.json")
+	good, err := ResolveCoreOS(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteResolvedCoreOS(path, good); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered := strings.Replace(string(raw), strings.Repeat("c", 64), strings.Repeat("z", 64), 1)
+	if tampered == string(raw) {
+		t.Fatal("fixture digest not found for tampering")
+	}
+	if err := os.WriteFile(path, []byte(tampered), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadResolvedCoreOS(path); err == nil {
+		t.Fatal("on-disk digest swap admitted")
+	}
+	if err := os.WriteFile(path, []byte("{truncated"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadResolvedCoreOS(path); err == nil {
+		t.Fatal("corrupt inputs file admitted")
 	}
 }

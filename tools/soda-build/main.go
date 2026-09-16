@@ -55,6 +55,7 @@ func parseBuildFlags() (buildFlags, error) {
 	prefix := flag.String("repository-prefix", "ghcr.io/levitateos/sodaos", "intended immutable image repositories; no publication")
 	rootfs := flag.String("rootfs-base-url", "", "public base URL for the exact hash-named rootfs file")
 	authority := flag.String("media-authority", "", "worker-local fixture authority; not release custody")
+	coreOSInputs := flag.String("coreos-inputs", "", "internal controller-resolved CoreOS inputs file")
 	configPath := flag.String("worker-config", "", "root-owned configuration for isolated worker dispatch")
 	build := flag.Bool("worker-build", false, "internal build stage; requires the isolated build identity")
 	qualificationConfig := flag.String("qualification-config", "", "root-owned qualification configuration; required for production")
@@ -66,7 +67,7 @@ func parseBuildFlags() (buildFlags, error) {
 	if flag.NArg() != 0 {
 		return f, errors.New("unexpected positional arguments")
 	}
-	f.Request = image.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression}
+	f.Request = image.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression, CoreOSInputs: *coreOSInputs}
 	f.WorkerBuild, f.WorkerConfig = *build, *configPath
 	f.QualificationConfig, f.SigningConfig = *qualificationConfig, *signingConfig
 	f.WorkerQualify = *workerQualify
@@ -84,12 +85,18 @@ func admitWorkerBuild(f buildFlags) error {
 	if f.GuestAction != "" || f.WorkerQualify {
 		return errors.New("build stage cannot select guest or qualification authority")
 	}
+	if f.Request.CoreOSInputs == "" {
+		return errors.New("isolated worker requires controller-resolved CoreOS inputs; it never fetches")
+	}
 	return buildWorkerIdentity()
 }
 
 func admitParentDispatch(f buildFlags) error {
 	if f.WorkerConfig == "" || f.Request.MediaAuthority != "" {
 		return errors.New("root-owned --worker-config required; media authority belongs to the isolated worker")
+	}
+	if f.Request.CoreOSInputs != "" {
+		return errors.New("controller resolves CoreOS inputs per attempt; operator selection refused")
 	}
 	if f.Request.Development && (f.QualificationConfig != "" || f.SigningConfig != "") {
 		return errors.New("development build cannot request protected qualification or final signing")

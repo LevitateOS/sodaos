@@ -46,6 +46,26 @@ func TestDevelopmentWorkerInputsAndCompletion(t *testing.T) {
 	}
 }
 
+func TestWorkerForwardsControllerCoreOSInputs(t *testing.T) {
+	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
+	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "candidate", CoreOSInputs: "/run/soda-build-source/.artifacts/releases/isolated/soda-coreos-inputs-test.json"}
+	w, err := buildWorker(c, r)
+	require.NoError(t, err)
+	require.Contains(t, w.Arguments, "--coreos-inputs")
+	require.Contains(t, w.Arguments, r.CoreOSInputs)
+	r.CoreOSInputs = ""
+	w, err = buildWorker(c, r)
+	require.NoError(t, err)
+	require.NotContains(t, w.Arguments, "--coreos-inputs")
+}
+
+func TestCoreOSInputsAdmissionBoundary(t *testing.T) {
+	worker := buildFlags{WorkerBuild: true, Request: image.Request{Out: "/o", Arch: "x86_64"}}
+	require.ErrorContains(t, admitWorkerBuild(worker), "requires controller-resolved CoreOS inputs")
+	parent := buildFlags{WorkerConfig: "/cfg", Request: image.Request{Out: "/o", Arch: "x86_64", CoreOSInputs: "/inputs.json"}}
+	require.ErrorContains(t, admitParentDispatch(parent), "operator selection refused")
+}
+
 func TestWorkerEnvUsesDefaultBunCache(t *testing.T) {
 	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
 	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "media", RootfsBaseURL: "https://example.invalid"}

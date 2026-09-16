@@ -27,28 +27,34 @@ type Base struct {
 // per build instead. Checks stay shape-strict but host-agnostic so local
 // stream fixtures exercise the same path as production.
 func LoadBase(arch string) (Base, error) {
+	resolved, err := build.ResolveCoreOS(context.Background())
+	if err != nil {
+		return Base{}, err
+	}
+	return baseFromResolved(arch, resolved)
+}
+
+// LoadBaseFromFile admits controller-resolved CoreOS inputs for the isolated
+// worker, which SELinux denies outbound HTTPS: same validation as the live
+// path, no network. The controller records these per build; the worker only
+// consumes its own attempt's file.
+func LoadBaseFromFile(path, arch string) (Base, error) {
+	resolved, err := build.ReadResolvedCoreOS(path)
+	if err != nil {
+		return Base{}, err
+	}
+	return baseFromResolved(arch, resolved)
+}
+
+func baseFromResolved(arch string, resolved build.ResolvedCoreOS) (Base, error) {
 	var b Base
 	if _, err := build.OCIArchitecture(arch); err != nil {
 		return b, err
 	}
-	resolved, err := build.ResolveCoreOS(context.Background())
-	if err != nil {
+	if err := build.ValidResolvedCoreOS(resolved); err != nil {
 		return b, err
 	}
-	b = Base{Release: resolved.Release, MetadataURL: resolved.MetadataURL, Images: resolved.Container}
-	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(b.Release) || !build.HTTPSURL(b.MetadataURL) || !strings.HasSuffix(b.MetadataURL, "/builds/"+b.Release+"/release.json") {
-		return b, errors.New("invalid resolved CoreOS release")
-	}
-	if len(b.Images) != 2 {
-		return b, errors.New("both architecture base digests required")
-	}
-	for _, a := range []string{"x86_64", "aarch64"} {
-		host, digest, ok := strings.Cut(b.Images[a], "/fedora/fedora-coreos@sha256:")
-		if !ok || host == "" || strings.Contains(host, "/") || !build.Digest(digest) {
-			return b, errors.New("digest-pinned CoreOS base required")
-		}
-	}
-	return b, nil
+	return Base{Release: resolved.Release, MetadataURL: resolved.MetadataURL, Images: resolved.Container}, nil
 }
 
 // PackageInputs uses the current first-install owner rather than maintaining a
@@ -282,6 +288,18 @@ func loadBaseInputs(source, arch, revision string) (Base, []string, string, erro
 	if err != nil {
 		return b, nil, "", err
 	}
+	return finishBaseInputs(source, revision, b)
+}
+
+func loadBaseInputsResolved(source, arch, revision, inputs string) (Base, []string, string, error) {
+	b, err := LoadBaseFromFile(inputs, arch)
+	if err != nil {
+		return b, nil, "", err
+	}
+	return finishBaseInputs(source, revision, b)
+}
+
+func finishBaseInputs(source, revision string, b Base) (Base, []string, string, error) {
 	if !build.Revision(revision) {
 		return b, nil, "", errors.New("exact source revision required")
 	}
@@ -304,6 +322,20 @@ func Prepare(source, out, arch, revision string) (Base, error) {
 	if err != nil {
 		return b, err
 	}
+	return finishPrepare(source, out, arch, revision, b, packages, repo)
+}
+
+// PrepareResolved stages the same context from controller-admitted CoreOS
+// inputs for the isolated worker: identical output, no network fetch.
+func PrepareResolved(source, out, arch, revision, inputs string) (Base, error) {
+	b, packages, repo, err := loadBaseInputsResolved(source, arch, revision, inputs)
+	if err != nil {
+		return b, err
+	}
+	return finishPrepare(source, out, arch, revision, b, packages, repo)
+}
+
+func finishPrepare(source, out, arch, revision string, b Base, packages []string, repo string) (Base, error) {
 	if err := build.FreshDirectory(out); err != nil {
 		return b, err
 	}

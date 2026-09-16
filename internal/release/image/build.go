@@ -21,9 +21,9 @@ import (
 
 // Request selects a boundary of the same producer, never installation or publication.
 type Request struct {
-	Source, Out, Arch, RepositoryPrefix, Revision, RootfsBaseURL, MediaAuthority string
-	Development                                                                  bool
-	Target, MediaCompression                                                     string
+	Source, Out, Arch, RepositoryPrefix, Revision, RootfsBaseURL, MediaAuthority, CoreOSInputs string
+	Development                                                                                bool
+	Target, MediaCompression                                                                   string
 }
 type Result struct {
 	Revision, Architecture, Candidate, CandidateSHA256, HostManifest, PayloadSHA256, Scope string
@@ -349,9 +349,15 @@ func freezeBaseImageConfig(snapshot, out, contextDir, arch, prefix, compression 
 	return ownedWrite(filepath.Join(contextDir, "rootfs/usr/share/coreos-assembler/image.json"), append(imageData, '\n'), 0o644)
 }
 
-func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression string, p *build.Production, execute build.BuildExec, capture build.BuildCapture) (string, Base, string, error) {
+func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression, coreOSInputs string, p *build.Production, execute build.BuildExec, capture build.BuildCapture) (string, Base, string, error) {
 	contextDir := filepath.Join(out, "work/host-context")
-	base, err := Prepare(snapshot, contextDir, arch, revision)
+	var base Base
+	var err error
+	if coreOSInputs != "" {
+		base, err = PrepareResolved(snapshot, contextDir, arch, revision, coreOSInputs)
+	} else {
+		base, err = Prepare(snapshot, contextDir, arch, revision)
+	}
 	if err != nil {
 		return "", base, "", err
 	}
@@ -370,7 +376,7 @@ func prepareBuildHostContext(snapshot, out, arch, revision, prefix, compression 
 // value. Passing Production by value here would strand the inputs on a copy
 // and fail P4 with "image inputs must be frozen before production".
 func prepareBuildProduction(p *build.Production, r Request, snapshot, revision string, execute build.BuildExec, capture build.BuildCapture, next func(string) error) (string, Base, string, mediaTools, mediaLock, error) {
-	contextDir, base, packageHash, err := prepareBuildHostContext(snapshot, r.Out, r.Arch, revision, r.RepositoryPrefix, r.MediaCompression, p, execute, capture)
+	contextDir, base, packageHash, err := prepareBuildHostContext(snapshot, r.Out, r.Arch, revision, r.RepositoryPrefix, r.MediaCompression, r.CoreOSInputs, p, execute, capture)
 	if err != nil {
 		return "", base, "", mediaTools{}, mediaLock{}, err
 	}

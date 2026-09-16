@@ -1,6 +1,7 @@
 package image
 
 import (
+	"context"
 	"encoding/pem"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/levitateos/sodaos/internal/release/build"
 	"github.com/stretchr/testify/require"
 )
 
@@ -155,6 +157,18 @@ func TestBaseStreamAndUnsafeOutputRefusal(t *testing.T) {
 	require.Contains(t, base.Images["x86_64"], "@sha256:"+strings.Repeat("c", 64))
 	require.Contains(t, base.Images["aarch64"], "@sha256:"+strings.Repeat("d", 64))
 	require.Contains(t, base.MetadataURL, "/builds/44.20260901.1.0/release.json")
+	t.Run("admitted file", func(t *testing.T) {
+		resolved, err := build.ResolveCoreOS(context.Background())
+		require.NoError(t, err)
+		path := filepath.Join(t.TempDir(), "coreos-inputs.json")
+		require.NoError(t, build.WriteResolvedCoreOS(path, resolved))
+		filed, err := LoadBaseFromFile(path, "x86_64")
+		require.NoError(t, err)
+		require.Equal(t, base, filed)
+		require.NoError(t, os.WriteFile(path, []byte(`{"release":"yesterday"}`), 0o600))
+		_, err = LoadBaseFromFile(path, "x86_64")
+		require.Error(t, err)
+	})
 	for name, doc := range map[string]string{
 		"missing arch":   strings.Replace(goodStreamDoc(), `"aarch64":{"artifacts"`, `"ppc64le":{"artifacts"`, 1),
 		"bad digest":     strings.Replace(goodStreamDoc(), strings.Repeat("a", 64), "zz", 1),
