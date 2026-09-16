@@ -271,7 +271,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9d8597399cfb4a8bf249d8da2ed4b52750bd049b492f0716c20e033dfd48f5bb",
+      "beforeRoleHash": "1b391c47c1edd9c033244c3e3419037e4fdec3ff8719e83e6955ab4db4b36f12",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -881,7 +881,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "39458f4d06e309607ea30a4d3e9def652b893d72c2714b47ba92ee40db73f68e",
+      "beforeRoleHash": "829a0514686c6643026a91d920b6a5c98591ce1afe12d75f13534680993c009b",
       "presentationReview": "Keep global Spaces and the exact signed actor/sub-URL logout marker; operator settings links belong in native administration, not dynamic global navigation.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
@@ -917,7 +917,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9df39496b3d75359e251b7aff8be1f810a7fef003fbafbb08496adab7eac8ded",
+      "beforeRoleHash": "e994215bf6cee5c1f7ba895b535b8c10ce73b8e77388fef45ee760ea10f399ae",
       "presentationReview": "Merge administration navigation and mechanism-removal module graphs under one new epoch; preserve coordinated logout, notification, drawer suppression and repository-switcher gates.",
       "upstreamCallers": [
         "base/footer.tmpl"
@@ -946,7 +946,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0488900c6e22cc549e8fdf5712f46f7baedd0182d700134b02b2845f2c086b69",
+      "beforeRoleHash": "7c3a6c6dbf9c16ecfb34ef2a72af58853cc0d3d32eef337241de6e0aee3c2825",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -7842,7 +7842,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "f7620d2f3956dcf36306bb318163fa0def309049c4a4572a37966f774341416b",
+      "beforeRoleHash": "bb159bb6192f44593b323180b4c5c5e5b3591261f51a82dbf32c3b258dd29bb9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Advance the matching native-page graph epoch; preserve all selector/actor gates and existing content hosts."

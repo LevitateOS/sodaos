@@ -184,6 +184,18 @@ and signing inputs are not required for that target.
 
 **Current completion boundary:** explicit development targets exit **0** on success
 with `development-only; not release-qualified`. Failures/cancellation remain nonzero.
+
+**Wrapper failure output:** a failed run ends with a `finished in ... with exit N`
+line plus a failure panel, on terminals and pipes alike, so the cause is the
+last thing the operator sees: `why` names the failed step, `cause` gives the
+controller's one-line reason, `log` points at the host build log
+(`<out>/logs/build.log`; per-phase detail sits beside it under `<out>/logs/`),
+and `hint` suggests the fix when the reason matches a failure the wrapper has
+actually seen (stale worker provisioning, offline-module denials, leftover
+worker units). An unmatched reason gets no guess: the log path is the whole
+advice. Preflight refusals happen before any run and say the fix directly: a
+dirty tree lists the files to commit or stash, and a reused `--out` asks for a
+fresh directory per attempt.
 Production reaches P9 qualification and, with `--signing-config`, P10 signed final
 metadata; omitting signing still exits **2**. Channel/GHCR publication remains
 grant-scoped. Earlier failures stop immediately. These build/inspection effects do

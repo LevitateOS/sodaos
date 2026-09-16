@@ -58,6 +58,13 @@ script creates `/var/lib/soda-rootfs`, the TUI prefills
 and files the produced `*-rootfs.img` there afterwards. A busy port means
 you already serve it yourself; any non-loopback address stays fully yours.
 
+## Failures
+
+A failed run ends with the cause last: the failed step, its reason, the host
+build log, and a fix hint when the failure is a known one. Preflight refusals
+(dirty tree, reused output) name the fix directly. Full contract and log
+locations live in [Native support](../../docs/development/native-support.md).
+
 ## Never
 
 Admit workers, sign payloads, publish images, or accept production keys as

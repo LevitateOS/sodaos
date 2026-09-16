@@ -626,3 +626,13 @@ func TestPipeRendererSummarizes(t *testing.T) {
 		}
 	}
 }
+
+func TestDirtyFilesSkipsBlanks(t *testing.T) {
+	got := dirtyFiles([]byte(" M tools/soda-candidate/main.go\n\n?? scratch\n"))
+	if len(got) != 2 || got[0] != "M tools/soda-candidate/main.go" || got[1] != "?? scratch" {
+		t.Fatalf("porcelain not parsed: %q", got)
+	}
+	if len(dirtyFiles(nil)) != 0 {
+		t.Fatal("clean tree must parse to no dirty files")
+	}
+}

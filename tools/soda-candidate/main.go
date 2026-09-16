@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"golang.org/x/sys/unix"
 )
@@ -206,10 +207,29 @@ func checkCleanTree() error {
 	if err != nil {
 		return errors.New("source must be a clean git checkout")
 	}
-	if len(out) != 0 {
-		return errors.New("controller requires committed source; commit or stash first")
+	if lines := dirtyFiles(out); len(lines) != 0 {
+		shown := lines
+		suffix := ""
+		if len(lines) > 10 {
+			shown = lines[:10]
+			suffix = fmt.Sprintf("\n... and %d more", len(lines)-10)
+		}
+		return fmt.Errorf(
+			"controller requires committed source (%d dirty file(s)); commit or stash first:\n%s%s",
+			len(lines), strings.Join(shown, "\n"), suffix)
 	}
 	return nil
+}
+
+// dirtyFiles parses git status porcelain output into per-file status lines.
+func dirtyFiles(out []byte) []string {
+	var lines []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			lines = append(lines, trimmed)
+		}
+	}
+	return lines
 }
 
 func checkFreshOut(out string) error {

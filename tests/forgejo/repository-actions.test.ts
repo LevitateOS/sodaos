@@ -5,8 +5,16 @@ import {JSDOM} from 'jsdom';
 
 const script = await readFile(new URL('../../.artifacts/forgejo-js/repository-actions.js', import.meta.url), 'utf8');
 
+function runActions(dom: JSDOM): void {
+  // JSDOM's window.eval does not resolve top-level function declarations for
+  // later statements under this runner, unlike a real classic <script>. The
+  // IIFE restores classic-script scoping without touching shipped bytes.
+  dom.window.eval('(function(){' + script + '\n})()');
+}
+
 function fixture(initialCompact = true) {
-  const dom = new JSDOM(`<!doctype html><body>
+  const dom = new JSDOM(
+    `<!doctype html><body>
     <div class="soda-repository-header">
       <details class="soda-repository-actions" open>
         <summary>Repository actions</summary>
@@ -19,7 +27,9 @@ function fixture(initialCompact = true) {
       </details>
     </div>
     <button id="outside" type="button">Outside</button>
-  </body>`, {runScripts: 'outside-only'});
+  </body>`,
+    {runScripts: 'outside-only'}
+  );
   const doc = dom.window.document;
   const details = doc.querySelector<HTMLDetailsElement>('.soda-repository-actions');
   const summary = doc.querySelector<HTMLElement>('summary');
@@ -33,21 +43,34 @@ function fixture(initialCompact = true) {
 
   let compact = initialCompact;
   const nativeGetComputedStyle = dom.window.getComputedStyle.bind(dom.window);
-  Object.defineProperty(dom.window, 'getComputedStyle', {value: (element: Element) => {
-    if (element === summary) return {display: compact ? 'flex' : 'none'};
-    return nativeGetComputedStyle(element);
-  }});
+  Object.defineProperty(dom.window, 'getComputedStyle', {
+    value: (element: Element) => {
+      if (element === summary) return {display: compact ? 'flex' : 'none'};
+      return nativeGetComputedStyle(element);
+    },
+  });
   let resize: (() => void) | undefined;
   let observed: Element | undefined;
   class TestResizeObserver {
-    constructor(callback: () => void) { resize = callback; }
-    observe(target: Element) { observed = target; }
+    constructor(callback: () => void) {
+      resize = callback;
+    }
+    observe(target: Element) {
+      observed = target;
+    }
   }
   Object.defineProperty(dom.window, 'ResizeObserver', {value: TestResizeObserver});
-  dom.window.eval(script);
+  runActions(dom);
   assert.equal(observed, header);
   return {
-    dom, details, summary, panel, feed, watch, modalAction, outside,
+    dom,
+    details,
+    summary,
+    panel,
+    feed,
+    watch,
+    modalAction,
+    outside,
     setCompact(value: boolean, beforeResize?: () => void) {
       compact = value;
       beforeResize?.();
@@ -107,8 +130,10 @@ test('Escape closes compact actions and setup remains idempotent', () => {
   const f = fixture(true);
   f.details.open = true;
   let focuses = 0;
-  f.summary.focus = () => { focuses++; };
-  f.dom.window.eval(script);
+  f.summary.focus = () => {
+    focuses++;
+  };
+  runActions(f.dom);
   const event = new f.dom.window.KeyboardEvent('keydown', {key: 'Escape', bubbles: true, cancelable: true});
   f.watch.dispatchEvent(event);
   assert.equal(f.details.open, false);
