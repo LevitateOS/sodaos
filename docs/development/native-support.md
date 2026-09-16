@@ -164,7 +164,7 @@ installer is also embedded in the host; native checks bind it to the exported to
 For media requests, floating upstream Butane produces public `destination.ign`
 and `live.ign`; its observed version is recorded per build. P7 authenticates the
 candidate and packaging inputs using existing Sigstore primitives. P8 invokes the
-floating stable Assembler in fresh disposable scratch, extracts minimal media,
+floating latest Assembler in fresh disposable scratch, extracts minimal media,
 customizes it once, and reads back Ignition, kernel arguments and native rootfs
 chunk hashes.
 `artifacts/media/media.json` binds the ISO/rootfs sizes, hashes, URL, candidate and

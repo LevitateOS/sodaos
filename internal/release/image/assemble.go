@@ -51,11 +51,12 @@ func mediaBaseURL(value string) error {
 	return nil
 }
 
-// assemblerImage and assemblerConfigBranch float on upstream: the stable
-// assembler and the stable config branch matching the stable base. The
-// resolved digest and fetched revision are recorded per build in media.json;
-// no pinned digest, revision or installer version precedes the run.
-const assemblerImage = "quay.io/coreos-assembler/coreos-assembler:stable"
+// assemblerImage and assemblerConfigBranch float on upstream: the latest
+// assembler release and the stable config branch matching the stable base.
+// (Upstream publishes no stable assembler tag.) The resolved digest and
+// fetched revision are recorded per build in media.json; no pinned digest,
+// revision or installer version precedes the run.
+const assemblerImage = "quay.io/coreos-assembler/coreos-assembler:latest"
 const assemblerConfigBranch = "stable"
 
 func fetchAssemblerConfig(p build.Production, run func(string, ...string) error, root string) (string, error) {

@@ -55,7 +55,7 @@ func TestPrepareAssemblerFloatsOnStableUpstream(t *testing.T) {
 	joined := strings.Join(runs, "\n")
 	require.Contains(t, joined, "fetch --depth=1 https://github.com/coreos/fedora-coreos-config.git stable")
 	require.Contains(t, joined, "archive --format=tar --output "+filepath.Join(work, "config.tar")+" "+sha)
-	require.Contains(t, joined, "pull quay.io/coreos-assembler/coreos-assembler:stable")
+	require.Contains(t, joined, "pull quay.io/coreos-assembler/coreos-assembler:latest")
 	content, err := os.ReadFile(filepath.Join(work, "Containerfile"))
 	require.NoError(t, err)
 	require.Contains(t, string(content), "FROM quay.io/coreos-assembler/coreos-assembler@sha256:"+digest)
