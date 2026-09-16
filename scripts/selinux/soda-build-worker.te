@@ -5,6 +5,8 @@ require {
 	type init_tmp_t;
 	type init_var_lib_t;
 	type initrc_tmp_t;
+	type sshd_t;
+	type ssh_keygen_tmp_t;
 	type tmp_t;
 	type ptmx_t;
 	type devpts_t;
@@ -53,6 +55,12 @@ allow init_t devpts_t:chr_file { open read write ioctl };
 # init_t access back.
 allow init_t initrc_tmp_t:file { open read unlink getattr };
 allow init_t init_var_lib_t:file { execute execute_no_trans read map open getattr };
+# The enrollment parse test runs native sshd -T against a synthetic config
+# and key in suite temp dirs; sshd only reads them, and the suite unlinks
+# the synthetic keys at cleanup. Read-only for sshd; unlink-only for init_t.
+allow sshd_t init_tmp_t:file { open read getattr };
+allow sshd_t ssh_keygen_tmp_t:file { open read getattr };
+allow init_t ssh_keygen_tmp_t:file { unlink };
 allow init_t soda_build_cache_t:file { create open read write getattr setattr lock append unlink rename map };
 allow init_t soda_build_cache_t:dir { create open read write getattr setattr search add_name remove_name rmdir };
 # Provisioning (setup, restorecon) runs outside the worker domain and must
