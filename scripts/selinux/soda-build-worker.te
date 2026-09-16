@@ -7,6 +7,7 @@ require {
 	type initrc_tmp_t;
 	type tmp_t;
 	type ptmx_t;
+	type devpts_t;
 	type ephemeral_port_t;
 	type unreserved_port_t;
 	type unconfined_t;
@@ -46,6 +47,7 @@ allow init_t { ephemeral_port_t unreserved_port_t }:tcp_socket name_connect;
 # pty master. Teardown-time unlink noise from systemd itself is excluded.
 allow init_t tmp_t:lnk_file { create read getattr unlink rename };
 allow init_t ptmx_t:chr_file { read write open ioctl };
+allow init_t devpts_t:chr_file { open read write ioctl };
 # Shell children of the test binaries run as initrc_t, so files they write
 # (the subreaper pidfile) and scripts the tests stage under var_lib_t need
 # init_t access back.
