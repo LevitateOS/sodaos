@@ -42,7 +42,9 @@ func coreOSRegistry() string {
 
 const (
 	defaultTailnetIndexURL    = "https://pkgs.tailscale.com/stable/"
-	defaultTailnetBaseTagsURL = "https://hub.docker.com/v2/repositories/tailscale/alpine-base/tags?page_size=100"
+	// No query string: the shared fetch gate admits strict HTTPS only, and
+	// the repository holds few tags, so the default first page is complete.
+	defaultTailnetBaseTagsURL = "https://hub.docker.com/v2/repositories/tailscale/alpine-base/tags"
 )
 
 func tailnetIndexURL() string {
