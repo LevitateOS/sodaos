@@ -131,17 +131,18 @@ func printDiskComplete(c console, media mediaIdentity) {
 	c.print("No reboot was performed.")
 }
 
-func collectDiskAttempt(ctx context.Context, c console) (mediaIdentity, diskInstallChoices, uint64, error) {
+// verifyDiskMedia hashes the full media payload (gigabytes on slow drives).
+// It runs before any prompt so the operator never waits on a silent screen.
+func verifyDiskMedia() (mediaIdentity, uint64, error) {
 	var media mediaIdentity
 	if err := build.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
-		return media, diskInstallChoices{}, 0, errors.New("missing media identity")
+		return media, 0, errors.New("missing media identity")
 	}
 	payloadBytes, err := payloadRequirement(media)
 	if err != nil {
-		return media, diskInstallChoices{}, 0, err
+		return media, 0, err
 	}
-	choices, err := collectDiskInstallChoices(ctx, c, command, scanDisks, payloadBytes)
-	return media, choices, payloadBytes, err
+	return media, payloadBytes, nil
 }
 
 func writeAttemptIgnition(destination []byte) (string, error) {
@@ -162,8 +163,15 @@ func beginDiskAttempt(c console) error {
 		return errors.New("cannot read installer welcome text")
 	}
 	c.print("\x1b[0m\x1b[2J\x1b[H%s", string(welcome))
-	c.print("Press Enter to begin. Ctrl-C cancels safely before disk writing.")
-	_, err = c.line()
+	c.print("Checking installation media. Please wait; this hashes gigabytes and takes a while on slow drives.")
+	return nil
+}
+
+// promptDiskAttempt runs only after media verification, so Enter leads
+// straight into the first step with no further silent work.
+func promptDiskAttempt(c console) error {
+	c.print("Media verified. Press Enter to begin. Ctrl-C cancels safely before disk writing.")
+	_, err := c.line()
 	return err
 }
 
@@ -181,7 +189,14 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	if err := beginDiskAttempt(c); err != nil {
 		return err
 	}
-	media, choices, payloadBytes, err := collectDiskAttempt(ctx, c)
+	media, payloadBytes, err := verifyDiskMedia()
+	if err != nil {
+		return err
+	}
+	if err := promptDiskAttempt(c); err != nil {
+		return err
+	}
+	choices, err := collectDiskInstallChoices(ctx, c, command, scanDisks, payloadBytes)
 	if err != nil {
 		return err
 	}

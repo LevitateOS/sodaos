@@ -455,3 +455,27 @@ func TestPreWriteCancellationCanRestartButMarkerCannot(t *testing.T) {
 		}
 	})
 }
+
+func TestMediaVerificationFailsBeforeEnterPrompt(t *testing.T) {
+	if _, _, err := verifyDiskMedia(); err == nil || !strings.Contains(err.Error(), "missing media identity") {
+		t.Fatalf("media verification did not fail fast without identity: %v", err)
+	}
+}
+
+func TestEnterPromptShowsOnlyAfterVerification(t *testing.T) {
+	master, slave := openTestPTY(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- promptDiskAttempt(console{tty: slave, ctx: ctx}) }()
+	driver := &ptyDriver{t: t, master: master}
+	driver.sendAfter("Media verified. Press Enter to begin. Ctrl-C cancels safely before disk writing.\r\n", "")
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("verified prompt stuck")
+	}
+}

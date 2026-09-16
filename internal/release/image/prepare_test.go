@@ -42,7 +42,7 @@ func TestPrepareVendorContextFromActualOwners(t *testing.T) {
 			require.Contains(t, read("rootfs/etc/profile.d/soda-console-welcome.sh"), "/usr/libexec/soda/soda-console-welcome")
 			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "/usr/libexec/soda/soda-console-welcome")
 			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "Before=getty@tty1.service")
-			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "enable --now forgejo.service")
+			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "Wants=forgejo.service soda-dashboard.service soda-proxy.service")
 			require.Contains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "Image=localhost/soda-dashboard:dev") // Explicitly not yet bound app delivery.
 			require.NoFileExists(t, filepath.Join(out, "rootfs/etc/zincati/config.d/90-soda-image.toml"))
 			for _, path := range []string{"rootfs/var", "rootfs/usr/sbin", "rootfs/usr/local", "rootfs/etc/soda", "rootfs/etc/systemd/system", "rootfs/etc/containers/systemd"} {

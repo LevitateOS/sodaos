@@ -1,14 +1,17 @@
 [Unit]
-Description=Soda console welcome and loopback Forgejo installer
+Description=Soda console welcome and boot-time service binding
 Wants=network-online.target
 After=network-online.target
 Before=getty@tty1.service
+# Quadlet-generated units cannot be enabled; bind them here instead. The
+# dashboard and proxy carry their own activated condition, so pre-setup boots
+# only render the welcome and start the loopback Forgejo installer.
+Wants=forgejo.service soda-dashboard.service soda-proxy.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/bin/sh -c 'mkdir -p /etc/issue.d && /usr/local/libexec/soda/soda-console-welcome > /etc/issue.d/50-soda.issue'
-ExecStart=/usr/bin/systemctl enable --now forgejo.service
 
 [Install]
 WantedBy=getty.target

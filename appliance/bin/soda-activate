@@ -71,7 +71,8 @@ bind = f'[{address}]' if address.version == 6 else str(address)
 (network / '10-private-network.conf').write_text(f'[Container]\nPublishPort=\nPublishPort=127.0.0.1:3000:3000\nPublishPort={bind}:2222:22\n')
 (root / 'activated').touch(mode=0o600)
 subprocess.run(['systemctl', 'daemon-reload'], check=True)
-subprocess.run(['systemctl', 'enable', 'forgejo.service', 'soda-dashboard.service', 'soda-proxy.service'], check=True)
+# No enable: Quadlet-generated units refuse it. Boot-time binding lives in
+# soda-console.service; activation only (re)starts the configured listeners.
 subprocess.run(['systemctl', 'restart', 'forgejo.service'], check=True)
 subprocess.run(['systemctl', 'start', 'soda-dashboard.service', 'soda-proxy.service'], check=True)
 print('Activation requested. Inspect native service state and perform the later login/SSH validation; this is not a validation result.')

@@ -115,9 +115,14 @@ class OutsideContracts(unittest.TestCase):
         self.assertIn('--iidfile', producer)
         self.assertNotIn('"push"', producer)
 
-    def test_activation_persists_browser_services_across_reboot(self):
-        source = (ROOT / 'appliance/bin/soda-activate').read_text()
-        self.assertIn("'systemctl', 'enable', 'forgejo.service', 'soda-dashboard.service', 'soda-proxy.service'", source)
+    def test_boot_binds_browser_services_without_quadlet_enable(self):
+        # Quadlet-generated units refuse enable; the console unit binds them.
+        unit = (ROOT / 'appliance/services/soda-console.service').read_text()
+        self.assertIn('Wants=forgejo.service soda-dashboard.service soda-proxy.service', unit)
+        self.assertNotIn('enable --now', unit)
+        for name in ('soda-dashboard.container', 'soda-proxy.container'):
+            container = (ROOT / 'appliance/services' / name).read_text()
+            self.assertIn('ConditionPathExists=/etc/soda/activated', container)
 
     def test_native_install_accepts_any_canonical_ipv4_project_network(self):
         source = (ROOT / 'scripts/install-native.sh').read_text()
