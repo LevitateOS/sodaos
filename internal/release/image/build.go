@@ -170,16 +170,27 @@ func Build(ctx context.Context, r Request, progress *build.BuildProgress) (Resul
 		return func() error { return errors.Join(f.Close(), events.Close()) }, nil
 	})
 	if err != nil {
-		// Tool failures on stdout (go test) never reach the recall ring,
-		// which only sees stderr. Fall back to the failing command's own
-		// error line so the wrapper hint still names the broken tool.
-		if reason := ring.reason(); reason != "" {
-			progress.NoteReason(reason)
-		} else if line, _, _ := strings.Cut(strings.TrimSpace(err.Error()), "\n"); line != "" {
-			progress.NoteReason(line)
-		}
+		progress.NoteReason(failureReason(ring, err))
 	}
 	return res, err
+}
+
+// failureReason prefers the recall ring for tool failures, where it holds
+// the failing command's own stderr. Local failures (decode, file,
+// validation) must surface their own error instead: the ring then holds
+// only progress noise from earlier, already successful commands.
+func failureReason(ring *recallLog, err error) string {
+	if reason := ring.reason(); reason != "" && isToolFailure(err) {
+		return reason
+	}
+	line, _, _ := strings.Cut(strings.TrimSpace(err.Error()), "\n")
+	return line
+}
+
+// isToolFailure reports whether err came from a build command rather than
+// local admission or validation.
+func isToolFailure(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "retain attempt and inspect build.log")
 }
 
 func verifyCheckoutSource(requestedSource string, capture build.BuildCapture) (string, error) {

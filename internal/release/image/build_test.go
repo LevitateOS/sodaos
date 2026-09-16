@@ -179,6 +179,19 @@ func TestRecallLogReasonSkipsMarkers(t *testing.T) {
 	require.Equal(t, "go: last word: permission denied", ring.reason())
 }
 
+func TestFailureReasonPrefersLocalErrorOverStaleRing(t *testing.T) {
+	ring := newRecallLog()
+	_, err := ring.Write([]byte("Writing manifest to image destination\n"))
+	require.NoError(t, err)
+	local := errors.New("decode request: json: cannot unmarshal string into Go struct field Trust.Keys of type []string")
+	require.Equal(t, local.Error(), failureReason(ring, local))
+	tool := errors.New("podman observation failed; retain attempt and inspect build.log: exit status 1")
+	require.Equal(t, "Writing manifest to image destination", failureReason(ring, tool))
+	require.False(t, isToolFailure(local))
+	require.True(t, isToolFailure(tool))
+	require.False(t, isToolFailure(nil))
+}
+
 func TestRecallLogAttachFlushesAdmission(t *testing.T) {
 	ring := newRecallLog()
 	_, err := ring.Write([]byte("early voice\n"))

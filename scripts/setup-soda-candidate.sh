@@ -179,7 +179,7 @@ else
 import json, sys
 tmpd, now, prefix = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 roles = ["artifact", "candidate", "preview", "stable"]
-keys = {r: open(f"{tmpd}/{r}.pub").read() for r in roles}
+keys = {r: [open(f"{tmpd}/{r}.pub").read()] for r in roles}
 trust = {
   "Format": 1, "Prefix": prefix, "Epoch": 1, "Keys": keys,
   "NotBefore": now - 600, "MaxAgeSeconds": 3600, "ClockSkewSeconds": 10,
