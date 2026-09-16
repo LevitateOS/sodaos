@@ -3,12 +3,16 @@ module soda-build-worker 1.0;
 require {
 	type init_t;
 	type init_tmp_t;
+	type ephemeral_port_t;
+	type unreserved_port_t;
 	type unconfined_t;
 	type setfiles_t;
 	attribute file_type;
 	class process setpgid;
 	class file { create open read write getattr setattr lock append unlink rename map relabelfrom relabelto execute entrypoint execmod execute_no_trans };
 	class dir { create open read write getattr setattr search add_name remove_name rmdir relabelfrom relabelto };
+	class lnk_file { create read getattr setattr unlink rename };
+	class tcp_socket { name_connect };
 }
 
 # The isolated build worker runs Go as an init_t systemd transient unit:
@@ -29,6 +33,10 @@ allow init_t self:process setpgid;
 # carries init_tmp_t. The tmpfs is per-unit private, so executing it here
 # stays inside the worker's own sandbox.
 allow init_t init_tmp_t:file { execute execute_no_trans read map open getattr };
+# Suite tests create and verify symlinks in PrivateTmp, and httptest-based
+# suites connect to ephemeral (and unreserved) localhost ports.
+allow init_t init_tmp_t:lnk_file { create read getattr setattr unlink rename };
+allow init_t { ephemeral_port_t unreserved_port_t }:tcp_socket name_connect;
 allow init_t soda_build_cache_t:file { create open read write getattr setattr lock append unlink rename map };
 allow init_t soda_build_cache_t:dir { create open read write getattr setattr search add_name remove_name rmdir };
 # Provisioning (setup, restorecon) runs outside the worker domain and must
