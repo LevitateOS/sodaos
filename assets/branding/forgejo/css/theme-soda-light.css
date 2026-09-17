@@ -1,6 +1,6 @@
 /* Soda brutalist palette: neutral surfaces and red actions.
  * Extend Forgejo 15's native theme; keep its diff, syntax and status palettes. */
-@import "../../css/theme-forgejo-light.css";
+@import "../../../css/theme-forgejo-light.css";
 @import "../../theme/palette.css?v=2026-09-12.brutalist-2";
 @import "soda-controls.css";
 

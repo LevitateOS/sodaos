@@ -111,7 +111,13 @@ custom = forgejo / 'public/assets'
 shutil.copytree(source / 'assets/branding/forgejo/css', custom / 'css')
 shutil.copytree(source / 'assets/branding/theme', custom / 'theme')
 for stylesheet in (custom / 'css').glob('*.css'):
-    stylesheet.write_text(stylesheet.read_text().replace('../../theme/palette.css', '../theme/palette.css'))
+    # The staged copy lives beside Forgejo's native css/ instead of the Soda
+    # payload dir, so upstream theme imports become same-directory too.
+    stylesheet.write_text(
+        stylesheet.read_text()
+        .replace('../../theme/palette.css', '../theme/palette.css')
+        .replace('../../../css/theme-forgejo-', 'theme-forgejo-')
+    )
 images = custom / 'img'
 images.mkdir()
 for name in ['logo.svg', 'favicon.svg']:
