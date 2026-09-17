@@ -57,7 +57,7 @@ body.soda-workspace-shell {
   background: transparent;
   color: var(--soda-page-text);
   cursor: pointer;
-  font-size: 12px;
+  font: var(--soda-font-button);
   line-height: 1;
 }
 #soda-workspace-toggle:hover {
