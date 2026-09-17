@@ -83,8 +83,18 @@ func TestSpacesWorkspaceShell(t *testing.T) {
 		t.Fatal(w.Code, w.Header())
 	}
 	csp := w.Header().Get("Content-Security-Policy")
-	if !strings.Contains(csp, "frame-src 'self'") || !strings.Contains(csp, "frame-ancestors 'none'") || strings.Contains(csp, "unsafe-inline") {
+	if !strings.Contains(csp, "frame-src 'self'") || !strings.Contains(csp, "frame-ancestors 'none'") {
 		t.Fatal(csp)
+	}
+	// Lit geometry bindings need style-src 'unsafe-inline'; script-src stays strict.
+	if !strings.Contains(csp, "style-src 'self' 'unsafe-inline'") {
+		t.Fatal(csp)
+	}
+	for _, directive := range strings.Split(csp, ";") {
+		name := strings.TrimSpace(strings.SplitN(directive, " ", 2)[0])
+		if name == "script-src" && strings.Contains(directive, "unsafe-inline") {
+			t.Fatal(csp)
+		}
 	}
 	if !strings.Contains(body, `<iframe id="soda-forgejo-frame" title="Forgejo" src="/"></iframe>`) {
 		t.Fatal("missing same-origin Forgejo frame")
@@ -94,6 +104,9 @@ func TestSpacesWorkspaceShell(t *testing.T) {
 	}
 	if !strings.Contains(body, `id="sodaspaces-surfaces"`) || !strings.Contains(body, `id="soda-workspace-divider"`) {
 		t.Fatal("missing split layout")
+	}
+	if !strings.Contains(body, `id="soda-workspace-toggle"`) {
+		t.Fatal("missing workspace drawer toggle")
 	}
 	if strings.Contains(body, `id="navbar"`) || strings.Contains(body, `id="soda-notification-preview"`) {
 		t.Fatal("shell copied Forgejo chrome")
@@ -108,26 +121,47 @@ func TestSpacesWorkspaceShell(t *testing.T) {
 func TestWorkspaceFrameLocator(t *testing.T) {
 	s := apiTestServer(t)
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/workspace?to=/alice/repo", "", "alice"))
+	s.ServeHTTP(w, apiTestRequest("GET", "/alice/repo", "", "alice"))
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `src="/alice/repo"`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	for _, query := range []string{
-		"?to=https://evil.test/", "?to=//evil.test/x", "?to=/foo/../bar",
-		"?to=/-/soda/workspace", "?to=/login?code=secret", "?to=/user/login",
-		"?to=/user/logout", "?to=/user/two_factor", "?to=/user/webauthn/assertion",
-		"?to=/user/oauth2/github", "?to=/user/forgot_password", "?to=/user/reset_password",
-		"?to=/login/oauth/authorize", "?to=/install", "?to=/?soda-view=spaces",
-		"?to=/?soda-view=unknown", "?to=/?soda-view=spaces&soda-view=runners",
-		"?to=/alice/repo?soda-view=unknown", "?to=/alice/repo?soda-connect=1",
-		"?actor=2", "?to=/&to=/",
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, apiTestRequest("GET", "/alice/repo?tab=code", "", "alice"))
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `src="/alice/repo?tab=code"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	for _, tc := range []struct {
+		target string
+		code   int
+	}{
+		{"/workspace?to=/alice/repo", 400},
+		{"/workspace?actor=2", 400},
+		{"/-/soda/workspace", 400},
+		{"/alice/repo?code=secret", 400},
+		{"/alice/repo?state=secret", 400},
+		{"/user/login", 400},
+		{"/user/logout", 400},
+		{"/user/two_factor", 400},
+		{"/user/webauthn/assertion", 400},
+		{"/user/oauth2/github", 400},
+		{"/user/forgot_password", 400},
+		{"/user/reset_password", 400},
+		{"/login/oauth/authorize", 400},
+		{"/install", 400},
+		{"/alice/repo?soda-view=unknown", 400},
+		{"/alice/repo?soda-connect=1", 400},
+		{"//evil.test/x", 404},
+		{"/foo/../bar", 404},
+		{"/app/", 404},
+		{"/projects", 404},
+		{"/spaces/", 404},
 	} {
-		w := terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/workspace"+query, nil)
-		if w.Code != 400 || strings.Contains(w.Body.String(), "data-actor=") {
-			t.Fatal(query, w.Code, w.Body.String())
+		w := terminalAPI(t, s, s.Config.ForgejoURL, "GET", tc.target, nil)
+		if w.Code != tc.code || strings.Contains(w.Body.String(), "data-actor=") {
+			t.Fatal(tc.target, w.Code, w.Body.String())
 		}
 	}
-	r := apiTestRequest("GET", "/workspace?to=/alice/repo", "", "alice")
+	r := apiTestRequest("GET", "/alice/repo", "", "alice")
 	r.Header.Del("Cookie")
 	w = httptest.NewRecorder()
 	s.ServeHTTP(w, r)

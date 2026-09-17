@@ -4,15 +4,17 @@
 a repository environment entry, shared management views and terminals that stay
 available while forge pages navigate.
 
-The persistent outer document is a dedicated Soda HTML shell at `/-/soda/workspace`.
-Native Forgejo pages load in a same-origin iframe. The address bar stays on that
-workspace URL. Optional `?to=` names the framed Forgejo path (same origin, not
-`/-/soda/`, no credential query). Child navigations update `to` with `replaceState`;
-they do not use canonical Forgejo URLs as the top-level document.
+The persistent outer document is a dedicated Soda HTML shell. `/workspace` is the
+home entry; the address bar carries the shell path itself, `/-/soda/<framed-path>`
+with the frame query intact and no locator parameter. The entry normalizes to the
+canonical `/-/soda/workspace` on first framed navigation. Native Forgejo pages load
+in a same-origin iframe (same origin, not `/-/soda/`, no credential query). Child
+navigations update the shell path with `replaceState`; they do not use canonical
+Forgejo URLs as the top-level document.
 
 Signed-in browsing uses that workspace host. The navbar Spaces link and Spaces OAuth
-return go to `/-/soda/workspace`. Ordinary signed-in Forgejo documents wrap into it
-with admitted `to`. Login, logout, signup/activate, password recovery,
+return go to `/workspace`. Ordinary signed-in Forgejo documents wrap into it
+with an admitted frame path. Login, logout, signup/activate, password recovery,
 two-factor/passkey, provider OAuth link, OAuth authorize/grant, callback, install,
 failed `soda-connect`, and any `soda-view` host stay top-level. If the framed
 document lands on those, the shell replaces itself with that URL. Credential query
@@ -39,7 +41,7 @@ views under the configured Forgejo origin at `/-/soda/`.
 | Surface | Purpose |
 | --- | --- |
 | Spaces page | Bounded listing and navigation for environments the actor may use |
-| Workspace host | Dedicated Soda HTML document at `/-/soda/workspace`; `to` names the framed Forgejo path |
+| Workspace host | Dedicated Soda HTML document at `/workspace`; the shell path itself (`/-/soda/<framed-path>`) names the framed Forgejo path |
 | Repository Spaces settings | Create and inspect the environment for that repository |
 | Environment drawer | Management controls and managed terminals beside native forge content |
 | Operator Runners settings | Local CI capacity (Soda operator only) |
@@ -55,6 +57,8 @@ permissions.
 - Page and drawer share one multi-session workspace with flat terminal owners.
 - Splits create views, never shells.
 - Hide and show change presentation only; End is a separate confirmed action.
+- The shell toggle hides the workspace drawer so Forgejo takes the full width
+  and shows it again; the choice persists across reloads.
 - Ordinary Forgejo navigation must preserve the live terminal view: same mounted
   component, xterm renderer and WebSocket attachment. Browsing another repository
   must not retarget the terminal's project, account or session.

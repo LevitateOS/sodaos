@@ -16,7 +16,9 @@ import (
 // Must match appliance/forgejo/templates/custom/header.tmpl.
 const workspacePresentation = "2026-09-15.workspace-review-1"
 
-const workspaceShellCSP = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+// style-src keeps 'unsafe-inline' because Lit geometry bindings render as
+// style attributes at runtime; script-src stays strict.
+const workspaceShellCSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
 var workspaceShell = template.Must(template.New("workspace").Parse(`<!DOCTYPE html>
 <html lang="en">
@@ -46,25 +48,49 @@ var workspaceShell = template.Must(template.New("workspace").Parse(`<!DOCTYPE ht
 </nav>
 <iframe id="soda-forgejo-frame" title="Forgejo" src="{{.Frame}}"></iframe>
 <div id="soda-workspace-divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Workspace width"></div>
+<button id="soda-workspace-toggle" class="ui button" type="button" aria-expanded="true" title="Hide workspace">»</button>
 <div id="soda-workspace-root" data-actor="{{.Actor}}"></div>
 <script type="module" src="/assets/sodaspaces-shell.js?v={{.Revision}}"></script>
 </body>
 </html>
 `))
 
-func workspaceFrame(r *http.Request) (string, bool) {
-	if r.URL.ForceQuery && r.URL.RawQuery == "" {
+// workspaceEntryFrame serves the home document: no navigation parameters.
+func workspaceEntryFrame(r *http.Request) (string, bool) {
+	if r.URL.ForceQuery || r.URL.RawQuery != "" {
 		return "", false
 	}
-	query := r.URL.Query()
-	if len(query) == 0 {
-		return "/", true
+	return "/", true
+}
+
+// workspacePathFrame admits the shell path itself as the framed document:
+// /-/soda/<forge-path> frames <forge-path> with its query intact.
+func workspacePathFrame(path, rawQuery string) (string, bool) {
+	raw := path
+	if rawQuery != "" {
+		raw += "?" + rawQuery
 	}
-	values, ok := query["to"]
-	if !ok || len(query) != 1 || len(values) != 1 {
-		return "", false
+	return admitWorkspaceFrame(raw)
+}
+
+// retiredWorkspacePath keeps retired frontend namespaces and near-miss
+// product routes out of the frame shell. The shell wildcard would otherwise
+// alias them: old dashboard, static assets, top-level person pages, project
+// adapters, avatar lookalikes.
+func retiredWorkspacePath(path string) bool {
+	switch path {
+	case "/profile", "/people", "/keys", "/logout", "/projects", "/spaces/":
+		return true
 	}
-	return admitWorkspaceFrame(values[0])
+	segment := strings.TrimPrefix(path, "/")
+	if i := strings.IndexByte(segment, '/'); i >= 0 {
+		segment = segment[:i]
+	}
+	switch segment {
+	case "app", "assets", "static", "projects", "avatars":
+		return true
+	}
+	return strings.HasPrefix(segment, "avatars-") || strings.HasPrefix(segment, "avatarsx")
 }
 
 func admitWorkspaceFrame(raw string) (string, bool) {

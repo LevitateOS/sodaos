@@ -58,13 +58,14 @@ test('framed login, consent, and callback leave the shell', () => {
 
 test('workspace entry wraps ordinary Forgejo paths and keeps native Soda hosts', () => {
   assert.equal(workspaceEntryLocation('https://forgejo.example.test/', ''), '/-/soda/workspace');
-  assert.equal(
-    workspaceEntryLocation('https://forgejo.example.test/alice/repo', ''),
-    '/-/soda/workspace?to=%2Falice%2Frepo'
-  );
+  assert.equal(workspaceEntryLocation('https://forgejo.example.test/alice/repo', ''), '/-/soda/alice/repo');
   assert.equal(
     workspaceEntryLocation('https://forgejo.example.test/native/alice/repo', '/native'),
-    '/native/-/soda/workspace?to=%2Falice%2Frepo'
+    '/native/-/soda/alice/repo'
+  );
+  assert.equal(
+    workspaceEntryLocation('https://forgejo.example.test/alice/repo?tab=issues', ''),
+    '/-/soda/alice/repo?tab=issues'
   );
   assert.equal(workspaceEntryLocation('https://forgejo.example.test/?soda-view=spaces', ''), undefined);
   assert.equal(workspaceEntryLocation('https://forgejo.example.test/admin?soda-view=runners', ''), undefined);
@@ -114,6 +115,7 @@ const shellMarkup = `<!doctype html><body class="soda-workspace-shell">
 </nav>
 <iframe id="soda-forgejo-frame" title="Forgejo" src="/"></iframe>
 <div id="soda-workspace-divider" role="separator" tabindex="0"></div>
+<button id="soda-workspace-toggle" type="button" aria-expanded="true" title="Hide workspace">»</button>
 <div id="soda-workspace-root" data-actor="1"></div>
 </body>`;
 
@@ -154,6 +156,40 @@ test('compact shell switches Forge and Terminal without a second header', () => 
   assert.equal(workspace.hasAttribute('data-surface-hidden'), true);
 });
 
+test('wide shell toggle hides and restores the workspace drawer', () => {
+  const doc = bindShell(1440);
+  const toggle = doc.getElementById('soda-workspace-toggle');
+  const workspace = doc.getElementById('soda-workspace-root');
+  const divider = doc.getElementById('soda-workspace-divider');
+  assert(toggle && workspace && divider);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  toggle.click();
+  assert.equal(workspace.hasAttribute('data-surface-hidden'), true);
+  assert.equal(divider.hasAttribute('data-surface-hidden'), true);
+  assert.equal(doc.body.hasAttribute('data-workspace-hidden'), true);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  assert.equal(toggle.getAttribute('title'), 'Show workspace');
+  assert.equal(doc.defaultView?.localStorage.getItem('soda.workspace.drawer'), 'hidden');
+  toggle.click();
+  assert.equal(workspace.hasAttribute('data-surface-hidden'), false);
+  assert.equal(divider.hasAttribute('data-surface-hidden'), false);
+  assert.equal(doc.body.hasAttribute('data-workspace-hidden'), false);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(toggle.getAttribute('title'), 'Hide workspace');
+  assert.equal(doc.defaultView?.localStorage.getItem('soda.workspace.drawer'), null);
+});
+
+test('wide shell restores the persisted hidden drawer', () => {
+  const dom = new JSDOM(shellMarkup, {url: 'https://forge.test/-/soda/workspace', pretendToBeVisual: true});
+  Object.defineProperty(dom.window, 'innerWidth', {value: 1440, writable: true});
+  dom.window.localStorage.setItem('soda.workspace.drawer', 'hidden');
+  bindWorkspaceShellLayout(dom.window.document);
+  const doc = dom.window.document;
+  assert.equal(doc.getElementById('soda-workspace-root')?.hasAttribute('data-surface-hidden'), true);
+  assert.equal(doc.body.hasAttribute('data-workspace-hidden'), true);
+  assert.equal(doc.getElementById('soda-workspace-toggle')?.getAttribute('aria-expanded'), 'false');
+});
+
 test('wide shell divider grows the workspace from the keyboard', () => {
   const doc = bindShell(1600);
   const divider = doc.getElementById('soda-workspace-divider');
@@ -169,9 +205,9 @@ test('workspace host replaces itself when the frame lands on login', () => {
   applyWorkspaceFrameNavigation(
     {
       location: {
-        href: 'https://forge.test/-/soda/workspace?to=%2Falice%2Frepo',
-        pathname: '/-/soda/workspace',
-        search: '?to=%2Falice%2Frepo',
+        href: 'https://forge.test/-/soda/alice/repo',
+        pathname: '/-/soda/alice/repo',
+        search: '',
         replace(href: string) {
           replaced.push(href);
         },
@@ -186,6 +222,28 @@ test('workspace host replaces itself when the frame lands on login', () => {
 test('workspace host records admitted child paths without leaving', () => {
   const dom = new JSDOM(shellMarkup, {url: 'https://forge.test/-/soda/workspace', pretendToBeVisual: true});
   applyWorkspaceFrameNavigation(dom.window as unknown as Window, '/alice/repo');
+  assert.equal(dom.window.location.pathname, '/-/soda/alice/repo');
+  assert.equal(dom.window.location.search, '');
+});
+
+test('workspace host normalizes the entry to the canonical shell path', () => {
+  const dom = new JSDOM(shellMarkup, {url: 'https://forge.test/workspace', pretendToBeVisual: true});
+  applyWorkspaceFrameNavigation(dom.window as unknown as Window, '/alice/repo');
+  assert.equal(dom.window.location.pathname, '/-/soda/alice/repo');
+  applyWorkspaceFrameNavigation(dom.window as unknown as Window, '/');
   assert.equal(dom.window.location.pathname, '/-/soda/workspace');
-  assert.equal(dom.window.location.search, '?to=%2Falice%2Frepo');
+});
+
+test('workspace host keeps the frame query on the shell path', () => {
+  const dom = new JSDOM(shellMarkup, {url: 'https://forge.test/-/soda/workspace', pretendToBeVisual: true});
+  applyWorkspaceFrameNavigation(dom.window as unknown as Window, '/alice/repo?tab=issues');
+  assert.equal(dom.window.location.pathname, '/-/soda/alice/repo');
+  assert.equal(dom.window.location.search, '?tab=issues');
+});
+
+test('workspace host returns to the bare entry from the home frame', () => {
+  const dom = new JSDOM(shellMarkup, {url: 'https://forge.test/-/soda/alice/repo', pretendToBeVisual: true});
+  applyWorkspaceFrameNavigation(dom.window as unknown as Window, '/');
+  assert.equal(dom.window.location.pathname, '/-/soda/workspace');
+  assert.equal(dom.window.location.search, '');
 });

@@ -19,6 +19,7 @@ const workspacePage = `<!doctype html><title>Workspace auth fixture</title>
 </nav>
 <iframe id="soda-forgejo-frame" title="Forgejo" src="about:blank"></iframe>
 <div id="soda-workspace-divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Workspace width"></div>
+<button id="soda-workspace-toggle" class="ui button" type="button" aria-expanded="true" title="Hide workspace">»</button>
 <div id="soda-workspace-root" data-actor="1"></div>
 <script type="module" src="/assets/sodaspaces-shell.js"></script>
 </body>`;
@@ -97,7 +98,7 @@ test('shipping shell mounts, tracks the frame, and leaves login, consent, and ca
   await gotoWorkspace(page, origin);
   // Ordinary framed navigation stays in the shell and names the child path.
   await driveFrame(page, '/forge');
-  await page.waitForFunction(() => new URL(location.href).searchParams.get('to') === '/forge');
+  await page.waitForFunction(() => new URL(location.href).pathname === '/-/soda/forge');
   assert.equal(await page.locator('soda-spaces').count(), 1);
 
   await leaveThroughFrame(page, '/user/login');

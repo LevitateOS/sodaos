@@ -46,6 +46,30 @@ body.soda-workspace-shell {
 #soda-workspace-divider:focus-visible::before {
   background: var(--soda-page-selected);
 }
+#soda-workspace-toggle {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 22px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--soda-page-edge);
+  border-radius: 0;
+  background: transparent;
+  color: var(--soda-page-text);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+#soda-workspace-toggle:hover {
+  background: var(--soda-page-selected);
+  color: var(--soda-page-text);
+}
+body.soda-workspace-shell[data-workspace-hidden]:not(.sodaspaces-compact) #soda-forgejo-frame {
+  width: 100%;
+}
+body.soda-workspace-shell.sodaspaces-compact #soda-workspace-toggle {
+  display: none;
+}
 body.soda-workspace-shell.sodaspaces-compact {
   padding-top: var(--soda-control-height);
   flex-direction: column;

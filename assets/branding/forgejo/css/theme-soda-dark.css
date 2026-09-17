@@ -1,6 +1,6 @@
 /* Soda brutalist palette: neutral surfaces and red actions.
  * Brighter links and darker filled buttons preserve small-text contrast. */
-@import "theme-forgejo-dark.css";
+@import "../../css/theme-forgejo-dark.css";
 @import "../../theme/palette.css?v=2026-09-12.brutalist-2";
 @import "soda-controls.css";
 
