@@ -149,7 +149,9 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 				s.ServeHTTP(w, apiTestRequest(http.MethodGet, "/api/environments/"+webTerminalProject+read.suffix, "", "alice").WithContext(ctx))
 				require.True(t, changed, "request never reached the selected I/O boundary")
 				wantProvider := 3
-				if read.operator || read.suffix == "/connection" {
+				if read.operator {
+					wantProvider = 2
+				} else if read.suffix == "/connection" {
 					wantProvider = 0
 				} else if read.providerUnavailable {
 					wantProvider = 2

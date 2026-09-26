@@ -49,7 +49,7 @@ func productionFixture(t *testing.T, vendor bool) (Production, *[]string) {
 		"package.json":                            `{"packageManager":"bun@1.4.2","unrelated":true}`,
 		"project-os/Containerfile":                "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
 		"appliance/dashboard.Containerfile":       "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
-		"appliance/services/forgejo.container":    "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.7\n",
+		"appliance/services/forgejo.container":    "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.9\n",
 		"appliance/services/soda-proxy.container": "[Container]\nImage=docker.io/library/caddy:2\n",
 	}
 	for n, b := range files {

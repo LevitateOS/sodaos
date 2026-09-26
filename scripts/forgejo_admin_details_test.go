@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
+func TestForgejoAdminDetailsOverridesMatchStock1509(t *testing.T) {
 	// Reviewed Soda presentation branch around dashboard.tmpl's pristine native
 	// content. Any branch edit, including a presentation-epoch bump, must update
 	// these exact boundaries; the pristine remainder keeps its hash below.
@@ -35,12 +35,12 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
   {{template "admin/layout_head" (dict "ctxData" . "pageClass" "admin dashboard" "formPage" true)}}
   <div class="admin-setting-content soda-page-container">
     {{template "custom/soda/page_intro" dict "TitleID" "soda-admin-title" "Eyebrow" "Soda administration" "Title" $title "Description" $description "Class" "soda-page-intro--compact"}}
-    <link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-26.factory-copy-1">
-    {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-26.factory-copy-1">{{end}}
+    <link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-26.execution-write-1">
+    {{if eq $sodaView "tailnet"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-tailnet.css?v=2026-09-26.execution-write-1">{{end}}
     <div data-appliance-label="{{ctx.Locale.Tr "soda.tailnet_appliance"}}" data-enrollment-label="{{ctx.Locale.Tr "soda.tailnet_projects"}}" id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="" data-document-title="{{$title}} - {{AppDisplayName}}">
       <noscript><p>JavaScript is required for Soda controls. <a href="{{AppSubUrl}}/admin">Return to administration</a></p></noscript>
     </div>
-    <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-26.factory-copy-1"></script>
+    <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-26.execution-write-1"></script>
   </div>
   {{template "admin/layout_footer" .}}
 {{else}}
@@ -52,7 +52,7 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
 		kind string
 		sha  string
 	}{
-		{"dashboard.tmpl", "dashboard", "66be2bd90fad0aa90981e9283c614c69d574a6fb883f1d1be9616e0db11a0f97"},
+		{"dashboard.tmpl", "dashboard", "063621f9eb2107d74dc9414e2e996867f77d75c46c53df23502e481222dbe344"},
 		{"config.tmpl", "config", "d44a53121631182bf6de4d77980f38915828bf114930d654824ee8a8858e7295"},
 		{"auth/new.tmpl", "auth-new", "f4120ea177d7dc6569ebd47380cb7b2394606f008c29028426096061f9dd7473"},
 		{"auth/edit.tmpl", "auth-edit", "d50ddd4916af1e27411d4915f37e941d868367eb53d1d939a0df0532c674a3b9"},
@@ -69,7 +69,7 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(strings.ReplaceAll(tt.name, "/", "_"), func(t *testing.T) {
 			contents := readForgejoTemplate(t, append([]string{"admin"}, strings.Split(tt.name, "/")...)...)
-			provenance := fmt.Sprintf("{{/* Adapted from Forgejo 15.0.7 templates/admin/%s, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: %s */}}\n", tt.name, tt.sha)
+			provenance := fmt.Sprintf("{{/* Adapted from Forgejo 15.0.9 templates/admin/%s, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: %s */}}\n", tt.name, tt.sha)
 			if !strings.HasPrefix(contents, provenance) {
 				t.Fatalf("%s lost exact Forgejo version, GPL attribution, or embedded-source provenance", tt.name)
 			}
@@ -96,7 +96,7 @@ func TestForgejoAdminDetailsOverridesMatchStock1507(t *testing.T) {
 			}
 			restored = strings.Replace(restored, custom, `class="admin-setting-content"`, 1)
 			if got := fmt.Sprintf("%x", sha256.Sum256([]byte(restored))); got != tt.sha {
-				t.Errorf("%s differs from pristine Forgejo 15.0.7 outside its attributed content-root class: got SHA-256 %s, want %s", tt.name, got, tt.sha)
+				t.Errorf("%s differs from pristine Forgejo 15.0.9 outside its attributed content-root class: got SHA-256 %s, want %s", tt.name, got, tt.sha)
 			}
 			calls := templateCalls(contents)
 			if !calls["admin/layout_head"] || !calls["admin/layout_footer"] {

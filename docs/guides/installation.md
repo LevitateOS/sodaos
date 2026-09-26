@@ -62,6 +62,7 @@ facts.
 
 ## Operator services
 
-Stock Cockpit listens on all interfaces with the operator credential. Tailscaled, runners and project units follow
-the appliance service definitions under `appliance/services/`. Preserve credentials,
+Stock Cockpit listens on all interfaces with the operator credential. Tailscaled and project units follow
+the appliance service definitions under `appliance/services/`. Local CI execution is
+[unavailable](../reference/runners.md). Preserve credentials,
 project state, backups and failed evidence unless cleanup is explicitly approved.

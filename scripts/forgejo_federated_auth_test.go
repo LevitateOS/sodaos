@@ -12,9 +12,9 @@ import (
 )
 
 // These hashes bind the presentation-only overrides to the embedded templates in
-// stock Forgejo v15.0.7. The upstream templates are GPL-3.0-or-later:
-// https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/templates/user/auth
-var forgejo1507FederatedTemplateHashes = map[string]string{
+// stock Forgejo v15.0.9. The upstream templates are GPL-3.0-or-later:
+// https://codeberg.org/forgejo/forgejo/src/tag/v15.0.9/templates/user/auth
+var forgejo1509FederatedTemplateHashes = map[string]string{
 	"grant.tmpl":                  "25d0995c17b53e1e80e4fa48f5621e4d944ae75995d97dc64ae3139163631ffa",
 	"grant_error.tmpl":            "0b5bc97171fcbb17d5845fe746740ccc7d4d5d31769c50790b3f16f64dffb775",
 	"link_account.tmpl":           "b6e0a3fa0a8863728d12d4ab423058e5afd48e40f6b59152fed3be56c3ef9382",
@@ -25,7 +25,7 @@ var forgejo1507FederatedTemplateHashes = map[string]string{
 
 var forgejoFederatedPresentationEdits = map[string][][2]string{
 	"grant.tmpl": {
-		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.7; GPL-3.0-or-later. */}}
+		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.9; GPL-3.0-or-later. */}}
 `, ``},
 		{
 			`class="page-content ui one column stackable center aligned page grid oauth2-authorize-application-box soda-page soda-federated-auth soda-federated-auth--grant" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
@@ -33,7 +33,7 @@ var forgejoFederatedPresentationEdits = map[string][][2]string{
 		},
 	},
 	"grant_error.tmpl": {
-		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.7; GPL-3.0-or-later. */}}
+		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.9; GPL-3.0-or-later. */}}
 `, ``},
 		{
 			`class="page-content ui one column stackable center aligned page grid oauth2-authorize-application-box soda-page soda-federated-auth soda-federated-auth--error {{if .IsRepo}}repository{{end}}" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
@@ -41,7 +41,7 @@ var forgejoFederatedPresentationEdits = map[string][][2]string{
 		},
 	},
 	"link_account.tmpl": {
-		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.7; GPL-3.0-or-later. */}}
+		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.9; GPL-3.0-or-later. */}}
 `, ``},
 		{
 			`class="page-content user link-account soda-page soda-federated-auth soda-federated-auth--link-account" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
@@ -54,7 +54,7 @@ var forgejoFederatedPresentationEdits = map[string][][2]string{
 		},
 	},
 	"signin_openid.tmpl": {
-		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.7; GPL-3.0-or-later. */}}
+		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.9; GPL-3.0-or-later. */}}
 `, ``},
 		{
 			`class="page-content user signin openid soda-page soda-federated-auth soda-federated-auth--openid-signin" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
@@ -67,7 +67,7 @@ var forgejoFederatedPresentationEdits = map[string][][2]string{
 		},
 	},
 	"signup_openid_connect.tmpl": {
-		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.7; GPL-3.0-or-later. */}}
+		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.9; GPL-3.0-or-later. */}}
 `, ``},
 		{
 			`class="page-content user signup soda-page soda-federated-auth soda-federated-auth--openid-connect" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
@@ -80,7 +80,7 @@ var forgejoFederatedPresentationEdits = map[string][][2]string{
 		},
 	},
 	"signup_openid_register.tmpl": {
-		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.7; GPL-3.0-or-later. */}}
+		{`{{/* Adapted presentation wrapper from stock Forgejo 15.0.9; GPL-3.0-or-later. */}}
 `, ``},
 		{
 			`class="page-content user signup soda-page soda-federated-auth soda-federated-auth--openid-register" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`,
@@ -94,8 +94,8 @@ var forgejoFederatedPresentationEdits = map[string][][2]string{
 	},
 }
 
-func TestForgejoFederatedAuthOverridesMatchStock1507ApartFromPresentation(t *testing.T) {
-	for name, wantHash := range forgejo1507FederatedTemplateHashes {
+func TestForgejoFederatedAuthOverridesMatchStock1509ApartFromPresentation(t *testing.T) {
+	for name, wantHash := range forgejo1509FederatedTemplateHashes {
 		t.Run(name, func(t *testing.T) {
 			contents := readForgejoTemplateForUpstreamParity(t, "user", "auth", name)
 			for _, edit := range forgejoFederatedPresentationEdits[name] {
@@ -106,7 +106,7 @@ func TestForgejoFederatedAuthOverridesMatchStock1507ApartFromPresentation(t *tes
 			}
 			gotHash := fmt.Sprintf("%x", sha256.Sum256([]byte(contents)))
 			if gotHash != wantHash {
-				t.Errorf("normalized override hash = %s, stock 15.0.7 hash = %s", gotHash, wantHash)
+				t.Errorf("normalized override hash = %s, stock 15.0.9 hash = %s", gotHash, wantHash)
 			}
 		})
 	}
@@ -157,7 +157,7 @@ func TestForgejoFederatedAuthOverridesParseWithNativeSeams(t *testing.T) {
 		{{define "user/auth/webauthn_error"}}{{end}}
 		{{define "user/auth/signup_openid_navbar"}}{{end}}{{define "user/auth/captcha"}}{{end}}
 		{{define "custom/soda/page_intro"}}{{end}}`
-	for name := range forgejo1507FederatedTemplateHashes {
+	for name := range forgejo1509FederatedTemplateHashes {
 		t.Run(name, func(t *testing.T) {
 			definition := nativeSeams + `{{define "page"}}` + readForgejoFederatedTemplate(t, name) + `{{end}}`
 			if _, err := template.New(name).Funcs(functions).Parse(definition); err != nil {
@@ -300,7 +300,7 @@ func TestForgejoFederatedAuthCSSIsScopedAndAttributed(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	css := string(contents)
-	for _, want := range []string{"Forgejo 15.0.7", "GPL-3.0-or-later", ".soda-federated-auth", ".secondary-nav"} {
+	for _, want := range []string{"Forgejo 15.0.9", "GPL-3.0-or-later", ".soda-federated-auth", ".secondary-nav"} {
 		if !strings.Contains(css, want) {
 			t.Errorf("federated-auth CSS lacks %q", want)
 		}

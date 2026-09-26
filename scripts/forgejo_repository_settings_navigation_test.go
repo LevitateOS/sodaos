@@ -32,7 +32,7 @@ func TestForgejoRepositorySettingsNavigationMatchesNativeGates(t *testing.T) {
 	// do unreadable ones (leftover preview trees owned by another user, or a
 	// read-only worker source bind, surface as permission errors, not ENOENT).
 	if os.IsNotExist(err) || os.IsPermission(err) {
-		t.Skip("requires the retained exact 15.0.7 template export")
+		t.Skip("requires the retained exact 15.0.9 template export")
 	}
 	if err != nil {
 		t.Fatal(err)

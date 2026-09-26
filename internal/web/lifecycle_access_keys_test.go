@@ -26,7 +26,7 @@ func managementWebFixture(t *testing.T) (*Server, *[]string) {
 		case "/api/v1/user":
 			fmt.Fprintf(w, `{"id":%d,"login":"current-login"}`, uid)
 		case "/api/v1/repositories/7":
-			fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`)
+			fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		case "/api/v1/users/current-login/orgs/alice/permissions":
 			fmt.Fprint(w, `{"is_owner":false}`)
 		default:
@@ -82,6 +82,7 @@ func managementWebFixture(t *testing.T) (*Server, *[]string) {
 	})}
 	return s, &calls
 }
+
 func TestLifecycleAuthorizationAndExplicitStop(t *testing.T) {
 	for _, tc := range []struct {
 		login, body string
@@ -100,6 +101,7 @@ func TestLifecycleAuthorizationAndExplicitStop(t *testing.T) {
 		})
 	}
 }
+
 func TestSavedKeyRemovalIsOwnOnlyAndNeverNativeRevocation(t *testing.T) {
 	s, calls := managementWebFixture(t)
 	if err := s.Store.AddKey(t.Context(), 1, "synthetic-public", "synthetic-fingerprint"); err != nil {
@@ -125,6 +127,7 @@ func TestSavedKeyRemovalIsOwnOnlyAndNeverNativeRevocation(t *testing.T) {
 		t.Fatal("saved key removal changed native access")
 	}
 }
+
 func TestOperatorCannotManageAnotherAccountsKeysAndCSRFStillApplies(t *testing.T) {
 	s, calls := managementWebFixture(t)
 	other := "pabcdef0123456789abcdef01"

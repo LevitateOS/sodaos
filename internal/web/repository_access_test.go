@@ -21,9 +21,19 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 		name   string
 		status int
 	}{
-		{"hidden", 404}, {"forbidden", 403}, {"unavailable", 503}, {"wrong repository", 503},
-		{"malformed", 503}, {"oversized", 413}, {"wrong subject", 401}, {"no grant", 401},
-		{"no consent", 403}, {"no user consent", 403}, {"timeout", 503}, {"site admin", 404}, {"Soda operator", 404},
+		{"hidden", 404},
+		{"forbidden", 403},
+		{"unavailable", 503},
+		{"wrong repository", 503},
+		{"malformed", 503},
+		{"oversized", 413},
+		{"wrong subject", 401},
+		{"no grant", 401},
+		{"no consent", 403},
+		{"no user consent", 403},
+		{"timeout", 503},
+		{"site admin", 404},
+		{"Soda operator", 404},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var calls atomic.Int32
@@ -44,7 +54,7 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 				}
 				switch tc.name {
 				case "wrong repository":
-					fmt.Fprint(w, `{"id":43,"name":"private","full_name":"alice/private","owner":{"id":1,"login":"alice"}}`)
+					fmt.Fprint(w, `{"id":43,"name":"private","full_name":"alice/private","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 				case "malformed":
 					fmt.Fprint(w, `{"id":42}`)
 				case "oversized":
@@ -137,7 +147,7 @@ func TestRepositoryLookupAndJoinRecheckNativeAccess(t *testing.T) {
 				w.WriteHeader(404)
 				return
 			}
-			fmt.Fprint(w, `{"id":42,"name":"renamed","full_name":"current/renamed","owner":{"id":2,"login":"current"}}`)
+			fmt.Fprint(w, `{"id":42,"name":"renamed","full_name":"current/renamed","permissions":{"push":true},"owner":{"id":2,"login":"current"}}`)
 		default:
 			t.Error("unexpected provider call", r.URL.Path)
 			w.WriteHeader(500)
@@ -205,7 +215,7 @@ func TestRepositoryLookupAndJoinRecheckNativeAccess(t *testing.T) {
 	}
 	before := lookups.Load()
 	allowed = false
-	if w := join(); w.Code != 200 || accounts.Load() != 1 || lookups.Load() != before || !strings.Contains(w.Body.String(), "bob-now") {
+	if w := join(); w.Code != 404 || accounts.Load() != 1 || lookups.Load() != before+1 {
 		t.Fatal("existing join reprovisioned/revoked", w.Code)
 	}
 	p, err := s.Store.Project(t.Context(), id)

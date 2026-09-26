@@ -15,7 +15,7 @@ type forgejoTemplateLocale struct {
 	translations map[string]string
 }
 
-func (l forgejoTemplateLocale) Tr(key string) string {
+func (l forgejoTemplateLocale) Tr(key string, _ ...any) string {
 	return l.translations[key]
 }
 

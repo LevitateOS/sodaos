@@ -12,11 +12,11 @@ import (
 )
 
 const (
-	forgejoActivity1507SHA = "60cce79800498066b21ec48a2dfc317ee593761d24945c20c481a8572806c9e3"
-	forgejoGraph1507SHA    = "fb938c350bbb9718ab6d0b289ff9156a4d184644581ec83a1ef01c8ebc6ddd0d"
+	forgejoActivity1509SHA = "60cce79800498066b21ec48a2dfc317ee593761d24945c20c481a8572806c9e3"
+	forgejoGraph1509SHA    = "fb938c350bbb9718ab6d0b289ff9156a4d184644581ec83a1ef01c8ebc6ddd0d"
 )
 
-func TestForgejoInsightsOverridesMatchStock1507(t *testing.T) {
+func TestForgejoInsightsOverridesMatchStock1509(t *testing.T) {
 	tests := []struct {
 		name         string
 		sha          string
@@ -26,8 +26,8 @@ func TestForgejoInsightsOverridesMatchStock1507(t *testing.T) {
 	}{
 		{
 			name:        "activity.tmpl",
-			sha:         forgejoActivity1507SHA,
-			provenance:  `{{/* Adapted from Forgejo 15.0.7 templates/repo/activity.tmpl (GPL-3.0-or-later); upstream SHA-256 ` + forgejoActivity1507SHA + `. */}}` + "\n",
+			sha:         forgejoActivity1509SHA,
+			provenance:  `{{/* Adapted from Forgejo 15.0.9 templates/repo/activity.tmpl (GPL-3.0-or-later); upstream SHA-256 ` + forgejoActivity1509SHA + `. */}}` + "\n",
 			stockSuffix: "\n",
 			replacements: [][2]string{
 				{` class="page-content repository commits soda-page soda-insights soda-insights-activity" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`, ` class="page-content repository commits"`},
@@ -36,8 +36,8 @@ func TestForgejoInsightsOverridesMatchStock1507(t *testing.T) {
 		},
 		{
 			name:       "graph.tmpl",
-			sha:        forgejoGraph1507SHA,
-			provenance: `{{/* Adapted from Forgejo 15.0.7 templates/repo/graph.tmpl (GPL-3.0-or-later); upstream SHA-256 ` + forgejoGraph1507SHA + `. */}}` + "\n",
+			sha:        forgejoGraph1509SHA,
+			provenance: `{{/* Adapted from Forgejo 15.0.9 templates/repo/graph.tmpl (GPL-3.0-or-later); upstream SHA-256 ` + forgejoGraph1509SHA + `. */}}` + "\n",
 			replacements: [][2]string{
 				{` class="page-content repository commits soda-page soda-insights soda-insights-graph" data-signed="{{if .IsSigned}}true{{else}}false{{end}}"`, ` class="page-content repository commits"`},
 				{` class="ui container soda-page-container"`, ` class="ui container"`},
@@ -60,7 +60,7 @@ func TestForgejoInsightsOverridesMatchStock1507(t *testing.T) {
 			}
 			restored += tt.stockSuffix
 			if got := fmt.Sprintf("%x", sha256.Sum256([]byte(restored))); got != tt.sha {
-				t.Errorf("%s differs from pristine Forgejo 15.0.7 outside the attributed Soda wrapper changes: got SHA-256 %s, want %s", tt.name, got, tt.sha)
+				t.Errorf("%s differs from pristine Forgejo 15.0.9 outside the attributed Soda wrapper changes: got SHA-256 %s, want %s", tt.name, got, tt.sha)
 			}
 		})
 	}

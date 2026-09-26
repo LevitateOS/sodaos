@@ -78,12 +78,7 @@ func (s *API) reportJoinPersist(w http.ResponseWriter, login string, err error) 
 	}
 }
 
-func (s *API) admitNewJoin(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, sshKeys string) (login string, public []string, ok bool) {
-	access, err := s.visibleRepository(r, v, p.RepositoryID)
-	if err != nil {
-		auth.ProviderError(w, err)
-		return "", nil, false
-	}
+func (s *API) admitNewJoin(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, access repositoryAccess, sshKeys string) (login string, public []string, ok bool) {
 	if !p.Ready {
 		auth.JSONError(w, 409, "not_provisioned", "Environment provisioning is incomplete.")
 		return "", nil, false
@@ -95,7 +90,7 @@ func (s *API) admitNewJoin(w http.ResponseWriter, r *http.Request, v store.Sessi
 	}
 	// Empty legacy requests retain saved-key behavior. New browser callers can
 	// explicitly choose account-only provisioning even when saved SSH keys exist.
-	public, err = s.joinPublicKeys(r.Context(), v.User.ID, sshKeys)
+	public, err := s.joinPublicKeys(r.Context(), v.User.ID, sshKeys)
 	if errors.Is(err, errTooManyJoinKeys) {
 		auth.JSONError(w, 422, "too_many_keys", "Native onboarding supports at most 32 development keys.")
 		return "", nil, false
@@ -122,6 +117,15 @@ func (s *API) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store
 		auth.JSONError(w, 400, "invalid_ssh_selection", "Select saved or none for optional external SSH keys.")
 		return
 	}
+	access, err := s.executionRepository(r, v, p.RepositoryID)
+	if err != nil {
+		reportExecutionAuthorityError(w, err)
+		return
+	}
+	if !s.currentJoinSession(r, v) {
+		auth.ProviderError(w, store.ErrGrantUnavailable)
+		return
+	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
 	if err == nil {
 		s.writeJoinLogin(w, login)
@@ -131,10 +135,15 @@ func (s *API) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store
 		auth.JSONError(w, 503, "store_unavailable", "Could not inspect membership.")
 		return
 	}
-	login, public, ok := s.admitNewJoin(w, r, v, p, input.SSHKeys)
+	login, public, ok := s.admitNewJoin(w, r, v, p, access, input.SSHKeys)
 	if !ok {
 		return
 	}
 	// Fresh admission after provider/state I/O, not rollback after dispatch.
 	s.reportJoinPersist(w, login, s.persistEnvironmentJoin(r.Context(), r, v, p, login, public))
+}
+
+func (s *API) currentJoinSession(r *http.Request, v store.Session) bool {
+	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
+	return err == nil && s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) == nil
 }

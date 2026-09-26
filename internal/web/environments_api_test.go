@@ -22,7 +22,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 			login := strings.TrimPrefix(r.Header.Get("Authorization"), "token acting-")
 			fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
 		case "/api/v1/repositories/7":
-			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
+			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		default:
 			t.Error("unexpected provider path", r.URL.Path)
 			w.WriteHeader(500)
@@ -117,6 +117,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 		t.Fatal("existing membership reprovisioned")
 	}
 }
+
 func TestIncompleteEnvironmentStillInspected(t *testing.T) {
 	s := apiTestServer(t)
 	id := "p0123456789abcdef01234567"

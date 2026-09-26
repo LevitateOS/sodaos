@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-// OwnPublicKey is the supported 15.0.7 own-user API projection. Never use its
+// OwnPublicKey is the supported 15.0.9 own-user API projection. Never use its
 // optional global fingerprint query or an arbitrary username/provider URL.
 type OwnPublicKey struct {
 	ID    int64  `json:"id"`

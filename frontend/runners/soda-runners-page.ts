@@ -6,9 +6,7 @@ import {decodeRunnerResponse} from './soda-runner-response.js';
 import type {LifecycleAction, ListResponse, Runner} from './soda-runner-types.js';
 
 const effects: Record<LifecycleAction, string> = {
-  start: 'Start this existing listener now and enable host-boot start. This does not register or repair it.',
   stop: 'Stop and disable host-boot start. An active job may be interrupted; its provider outcome is not locally known.',
-  restart: 'Interrupt and restart the listener. Boot start will be enabled, even if it was previously stopped.',
   remove:
     'Permanently remove this local Linux account, provider credentials, dependencies, work files and uncommitted job changes. Provider registration and history remain. There is no rollback.',
 };
@@ -73,9 +71,8 @@ class SodaRunners extends LitElement {
   private lifetime: AbortController | null = null;
   private operation: {kind: 'runner'; sent: boolean} | null = null;
   private confirmationTrigger: HTMLButtonElement | null = null;
-  private dirty = false;
   private readonly beforeDeparture = (event: BeforeUnloadEvent) => {
-    if (this.dirty || this.busy) {
+    if (this.busy) {
       event.preventDefault();
       event.returnValue = '';
     }
@@ -124,13 +121,7 @@ class SodaRunners extends LitElement {
   private requireCurrent(lifetime: AbortController) {
     if (!this.current(lifetime)) throw Error('Runner page retired');
   }
-  private clearToken() {
-    this.querySelectorAll<HTMLInputElement>('input[type=password]').forEach((input) => {
-      input.value = '';
-    });
-  }
   private retire() {
-    this.clearToken(); // Synchronous: do not leave secrets waiting for a Lit render.
     this.lifetime?.abort();
     this.lifetime = null;
     if (this.operation?.kind === 'runner') {
@@ -147,11 +138,9 @@ class SodaRunners extends LitElement {
   private resume() {
     if (!this.actor || this.lifetime || !this.isConnected || connectionSuppressed()) return;
     this.lifetime = new AbortController();
-    this.clearToken(); // Also discard a password restored by browser form history.
     void this.refresh();
   }
   private authorizationLost() {
-    this.clearToken();
     this.rows = null;
     this.pending = null;
     this.confirmationTrigger = null;
@@ -250,7 +239,7 @@ class SodaRunners extends LitElement {
     try {
       const response = this.request(lifetime, path, body);
       body = '';
-      decodeRunnerResponse('create', await response);
+      decodeRunnerResponse('stop', await response);
       this.requireCurrent(lifetime);
       this.notice = 'Native operation confirmed. Provider records and job results remain provider-owned.';
     } catch (error) {
@@ -259,43 +248,6 @@ class SodaRunners extends LitElement {
       body = '';
       await this.finishMutation(lifetime);
     }
-  }
-  private inputChanged(event: Event) {
-    if (event.target instanceof HTMLInputElement) event.target.setCustomValidity('');
-    this.dirty = true;
-  }
-  private register(event: SubmitEvent) {
-    event.preventDefault();
-    if (!(event.currentTarget instanceof HTMLFormElement) || this.busy || this.stale || this.blocked) return;
-    const form = event.currentTarget;
-    const labels = form.querySelector<HTMLInputElement>('input[name=labels]');
-    if (labels) {
-      const pattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:host$/;
-      labels.setCustomValidity(
-        labels.value.split(',').every((label) => pattern.test(label))
-          ? ''
-          : 'Separate name:host labels with commas and no spaces, for example soda-linux:host.'
-      );
-    }
-    if (!form.reportValidity()) return;
-    const data = new FormData(form);
-    const field = (name: string) => {
-      const value = data.get(name);
-      return typeof value === 'string' ? value : '';
-    };
-    let body = JSON.stringify({
-      id: field('id'),
-      provider: 'forgejo',
-      registration_url: '',
-      registration_id: field('registration_id'),
-      labels: field('labels'),
-      registration_token: field('registration_token'),
-    });
-    data.delete('registration_token');
-    this.clearToken();
-    this.dirty = false;
-    void this.mutate('', body);
-    body = '';
   }
   private canDispatchAction(lifetime: AbortController | null): lifetime is AbortController {
     return !this.busy && !this.stale && !this.blocked && this.current(lifetime);
@@ -342,7 +294,6 @@ class SodaRunners extends LitElement {
   }
   private async logout() {
     if (this.busy || !this.current(this.lifetime)) return;
-    this.dirty = false;
     await signOut(this.actor);
   }
 
@@ -359,7 +310,7 @@ class SodaRunners extends LitElement {
       </p>
       <p><a href=${location.origin} aria-label=${`Open ${row.id} in Forgejo`}>Open in Forgejo</a></p>
       <div class="settings-actions">
-        ${(['start', 'stop', 'restart', 'remove'] as const).map(
+        ${(['stop', 'remove'] as const).map(
           (action) => html` <button
             type="button"
             class=${action === 'remove' ? 'settings-danger' : ''}
@@ -376,7 +327,7 @@ class SodaRunners extends LitElement {
     if (!this.rows) return '';
     return html` <section aria-label="Local runner inventory">
       <h2>
-        ${this.stale ? 'Stale observations' : this.rows.complete ? 'Local capacity' : 'Partial local observations'}
+        ${this.stale ? 'Stale observations' : this.rows.complete ? 'Local runner cleanup' : 'Partial local observations'}
       </h2>
       ${!this.rows.complete ? html`<p>Inventory is incomplete. Counts are known observations, not complete or available capacity.</p>` : ''}
       <dl class="settings-capacity">
@@ -399,64 +350,6 @@ class SodaRunners extends LitElement {
       </p>
       ${this.rows.complete && this.rows.runners.length === 0 ? html`<p>No local runners registered.</p>` : this.rows.runners.map((row) => this.runnerView(row, disabled))}
       ${this.rows.unavailable.map((id) => html`<p>${id}: descriptor unavailable. No account or provider details inferred; inspect this exact target separately.</p>`)}
-    </section>`;
-  }
-  private registrationView(disabled: boolean) {
-    return html` <section aria-labelledby="register-runner-title">
-      <h2 id="register-runner-title">Register local runner</h2>
-      <p>Registration starts a one-slot host listener and enables it at boot.</p>
-      <form
-        @submit=${(event: SubmitEvent) => this.register(event)}
-        @input=${(event: Event) => this.inputChanged(event)}
-        autocomplete="off"
-      >
-        <fieldset ?disabled=${disabled}>
-          <legend>Provider registration</legend>
-          <label
-            >Local runner ID<input
-              name="id"
-              pattern="[a-z][a-z0-9\\-]{0,15}"
-              maxlength="16"
-              aria-describedby="runner-id-help"
-              required
-          /></label>
-          <p id="runner-id-help" class="settings-help">
-            Use 1–16 lowercase letters, digits or hyphens, starting with a letter.
-          </p>
-          <p>
-            An authorized Forgejo administrator must first create a system runner and supply its UUID/token. Soda does
-            not create or reset that provider record.
-          </p>
-          <label
-            >Forgejo runner UUID<input
-              name="registration_id"
-              required
-              pattern="[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-              aria-describedby="runner-uuid-help"
-          /></label>
-          <p id="runner-uuid-help" class="settings-help">
-            Copy the lowercase UUID from the native Forgejo runner registration.
-          </p>
-          <label>Labels<input name="labels" maxlength="4096" aria-describedby="runner-labels-help" required /></label>
-          <p id="runner-labels-help" class="settings-help">
-            Comma-separated name:host labels, for example soda-linux:host. OCI labels are not supported.
-          </p>
-          <label
-            >Registration token<input
-              type="password"
-              name="registration_token"
-              autocomplete="new-password"
-              maxlength="8192"
-              aria-describedby="runner-token-help"
-              required
-          /></label>
-          <p id="runner-token-help" class="settings-help">
-            The token is cleared after submission, when signing out or leaving this page. Never include it in
-            screenshots or shared logs.
-          </p>
-          <button class="settings-primary">Register and start listener</button>
-        </fieldset>
-      </form>
     </section>`;
   }
   private pageDisabled(): boolean {
@@ -511,15 +404,13 @@ class SodaRunners extends LitElement {
           registrations. It requires separate Forgejo administrator permission and may deny a Soda operator.
         </p>
         <p>
-          Forgejo owns registration authority, labels, workflows, scheduling and results. Soda manages local accounts,
-          listeners and capacity.
+          Forgejo owns registration authority, labels, workflows, scheduling and results. Soda retains inspection,
+          stopping and removal of existing local runners.
         </p>
         <p>
-          Host execution only; isolated OCI jobs are not supported. Use only trusted repositories and contributors. Jobs
-          can change this account’s persistent work files.
+          Local CI execution is unavailable until isolated jobs are supported. Register, start and restart are disabled.
         </p>
-      </section>
-      ${this.registrationView(disabled)}`;
+      </section>`;
   }
 }
 customElements.define('soda-runners', SodaRunners);

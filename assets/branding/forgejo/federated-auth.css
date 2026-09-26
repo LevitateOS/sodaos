@@ -1,7 +1,7 @@
 /*
- * Presentation adapters for stock Forgejo 15.0.7 federated-auth templates.
+ * Presentation adapters for stock Forgejo 15.0.9 federated-auth templates.
  * The adapted template wrappers remain GPL-3.0-or-later; upstream source:
- * https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/templates/user/auth
+ * https://codeberg.org/forgejo/forgejo/src/tag/v15.0.9/templates/user/auth
  */
 .soda-federated-auth {
   position: relative;

@@ -78,3 +78,6 @@ Do not commandeer a personal shell for automation inventory.
 - Browser: `frontend/spaces/`
 - API/WS: `internal/web/api/terminal*.go`
 - Privileged attach: `internal/host/terminal`
+
+Project execution admission follows the current repository-write policy in
+[Projects](../product/projects.md#explicit-joining).

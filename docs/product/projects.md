@@ -50,7 +50,16 @@ confirmed native success.
 - Account-only Join without external SSH keys follows the Project OS access contract.
 - A database row, mock or manual checklist is not Join.
 - Never request a private SSH key.
-- Joining is separate from native Git authorization.
+- Join requires the acting Forgejo grant’s current repository code-write permission
+  (`permissions.push`). Public visibility, read-only repository access, existing
+  membership and Soda operator authority do not grant execution access.
+- Managed browser-terminal creation, attachment, inventory, control and heartbeats,
+  and installation of project SSH keys, require that same current write permission.
+  Missing native permissions deny execution. Readers may still inspect project state.
+- Permission loss refuses new Soda execution actions and disconnects browser
+  attachments when their next authority check fails. Retained Linux accounts, data,
+  existing managed shells and previously installed SSH keys remain; native SSH and
+  independent processes are not automatically revoked.
 - Stable Forgejo identity binds membership to its original Linux login. Native rename
   or transfer does not silently remap Linux users, ownership or installed keys.
 

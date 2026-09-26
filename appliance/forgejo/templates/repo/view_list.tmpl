@@ -1,4 +1,4 @@
-{{/* Adapted from Forgejo 15.0.7 templates/repo/view_list.tmpl (GPL-3.0-or-later); upstream SHA-256 f16a26c269c8bcd8699971cca3de2197b3d407bf9bb94a46b7030f410b253dc0. Presentation changes only. */}}
+{{/* Adapted from Forgejo 15.0.9 templates/repo/view_list.tmpl (GPL-3.0-or-later); upstream SHA-256 f16a26c269c8bcd8699971cca3de2197b3d407bf9bb94a46b7030f410b253dc0. Presentation changes only. */}}
 <table id="repo-files-table" class="ui single line table tw-mt-0 soda-code-files" {{if .HasFilesWithoutLatestCommit}}hx-indicator="tr.notready td.message span" hx-trigger="load" hx-swap="morph" hx-post="{{.LastCommitLoaderURL}}"{{end}}>
 	<thead>
 		<tr class="commit-list">

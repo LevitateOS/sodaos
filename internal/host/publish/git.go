@@ -33,10 +33,7 @@ esac
 }
 
 func (g *repository) run(ctx context.Context, args ...string) ([]byte, error) {
-	prefix := []string{"-c", "core.hooksPath=/dev/null", "-c", "http.followRedirects=false", "-c", "protocol.file.allow=always", "-c", "protocol.ext.allow=never", "--git-dir=" + filepath.Join(g.dir, "repo.git")}
-	command := exec.CommandContext(ctx, "git", append(prefix, args...)...)
-	command.Dir = g.dir
-	command.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + g.dir, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=" + filepath.Join(g.dir, "askpass"), "SODA_PUBLISH_TOKEN_FILE=" + g.token, "SODA_PUBLISH_USERNAME=" + g.user, "LC_ALL=C"}
+	command := g.command(ctx, args...)
 	var output limitedOutput
 	command.Stdout = &output
 	// Native diagnostics can contain credentials or remote repository content.
@@ -47,6 +44,14 @@ func (g *repository) run(ctx context.Context, args ...string) ([]byte, error) {
 		return nil, errors.New("publication Git operation failed")
 	}
 	return output.Bytes(), nil
+}
+
+func (g *repository) command(ctx context.Context, args ...string) *exec.Cmd {
+	prefix := []string{"-c", "core.hooksPath=/dev/null", "-c", "http.followRedirects=false", "-c", "protocol.file.allow=always", "-c", "protocol.ext.allow=never", "--git-dir=" + filepath.Join(g.dir, "repo.git")}
+	command := exec.CommandContext(ctx, "git", append(prefix, args...)...)
+	command.Dir = g.dir
+	command.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + g.dir, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=" + filepath.Join(g.dir, "askpass"), "SODA_PUBLISH_TOKEN_FILE=" + g.token, "SODA_PUBLISH_USERNAME=" + g.user, "LC_ALL=C"}
+	return command
 }
 
 type limitedOutput struct{ bytes.Buffer }

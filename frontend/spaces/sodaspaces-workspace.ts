@@ -329,7 +329,8 @@ export class SodaSpaces extends LitElement {
     return this.binding?.kind === 'page' && !this.setupScreen && this.complete && !this.selected;
   }
   private spaceReadyForFirstTerminal(space: Space | undefined) {
-    if (!space?.login || space.authority_unavailable || space.native_unavailable) return false;
+    if (!space?.login || space.authority_unavailable || !space.execution_allowed || space.native_unavailable)
+      return false;
     if (space.observed?.running !== true || !space.environment.provisioned) return false;
     return !this.rows(space).length;
   }
@@ -337,6 +338,7 @@ export class SodaSpaces extends LitElement {
     return (
       !!space.login &&
       !space.authority_unavailable &&
+      space.execution_allowed &&
       !space.native_unavailable &&
       space.environment.provisioned &&
       space.observed?.running === true
@@ -1379,10 +1381,10 @@ export class SodaSpaces extends LitElement {
     });
   }
   private rowAttentionReady(space: Space) {
-    return !this.stale && this.available && !!space.login && !space.authority_unavailable;
+    return !this.stale && this.available && !!space.login && !space.authority_unavailable && space.execution_allowed;
   }
   private rowAttentionBlocked(space: Space) {
-    return this.stale || !this.available || !space.login || space.authority_unavailable;
+    return this.stale || !this.available || !space.login || !space.execution_allowed || space.authority_unavailable;
   }
   private rowAttention(space: Space, row: Row) {
     if (this.rowAttentionBlocked(space)) return '';
@@ -1441,7 +1443,7 @@ export class SodaSpaces extends LitElement {
     return space.environment.repository || space.environment.name || space.environment.id;
   }
   private rows(space: Space): Row[] {
-    if (space.authority_unavailable || !space.login) return [];
+    if (space.authority_unavailable || !space.execution_allowed || !space.login) return [];
     const entries = this.layout.entries.filter((e) => e.environmentId === space.environment.id),
       seen = new Set<string>();
     const rows = space.terminals.map((metadata) => {
@@ -1517,7 +1519,7 @@ export class SodaSpaces extends LitElement {
     return '';
   }
   private rowDisabled(space: Space) {
-    return this.stale || !this.available || !space.login || space.authority_unavailable;
+    return this.stale || !this.available || !space.login || !space.execution_allowed || space.authority_unavailable;
   }
   private selectRow(space: Space, row: Row) {
     if (row.entry) void this.openSaved(row.entry, this.choosingPane);
@@ -1569,7 +1571,7 @@ export class SodaSpaces extends LitElement {
   private paneSession(key: string): PaneSession[] {
     const entry = this.layout.entries.find((e) => e.key === key);
     const space = this.spaces.find((s) => s.environment.id === entry?.environmentId);
-    if (!entry || !space || !space.login || space.authority_unavailable) return [];
+    if (!entry || !space || !space.login || !space.execution_allowed || space.authority_unavailable) return [];
     return [{entry, space, slot: this.slots.find((s) => s.key === key)}];
   }
   private paneAriaOwns(pane: Pane, navigation: boolean) {
@@ -1772,6 +1774,7 @@ export class SodaSpaces extends LitElement {
       !!space?.login &&
       space.environment.provisioned &&
       !space.authority_unavailable &&
+      space.execution_allowed &&
       space.observed?.running === true
     );
   }
@@ -1779,6 +1782,7 @@ export class SodaSpaces extends LitElement {
     if (this.creationEligible(space)) return '';
     if (!space?.login) return 'Join required.';
     if (space.authority_unavailable) return 'Status unavailable.';
+    if (!space.execution_allowed) return 'Repository write access required.';
     return 'Environment stopped.';
   }
   private creationContext(space: Space | undefined) {
@@ -1954,7 +1958,11 @@ export class SodaSpaces extends LitElement {
   private pageBlocksNewTerminal(space: Space | undefined) {
     if (this.binding?.kind !== 'page' || !space) return false;
     return (
-      !space.login || space.authority_unavailable || !space.environment.provisioned || space.observed?.running !== true
+      !space.login ||
+      !space.execution_allowed ||
+      space.authority_unavailable ||
+      !space.environment.provisioned ||
+      space.observed?.running !== true
     );
   }
   private newTerminalBlocked() {
@@ -2038,7 +2046,7 @@ export class SodaSpaces extends LitElement {
       : 'We couldn’t load all projects and terminals. Some may be missing from this list.';
   }
   private slotLost(slot: Slot, space: Space | undefined, complete: boolean) {
-    if (space) return space.authority_unavailable || space.login !== slot.binding.login;
+    if (space) return space.authority_unavailable || !space.execution_allowed || space.login !== slot.binding.login;
     return complete;
   }
   private invalidateSlot(slot: Slot) {
@@ -2175,7 +2183,15 @@ export class SodaSpaces extends LitElement {
   private drawerEntry() {
     const entry = this.layout.entries.find((entry) => entry.key === this.selected);
     const space = this.spaces.find((space) => space.environment.id === entry?.environmentId);
-    if (!entry || entry.locator.kind !== 'existing' || !space || space.authority_unavailable || !space.login) return;
+    if (
+      !entry ||
+      entry.locator.kind !== 'existing' ||
+      !space ||
+      space.authority_unavailable ||
+      !space.execution_allowed ||
+      !space.login
+    )
+      return;
     return {entry, space};
   }
   private drawerStillCurrent(n: number, request: AbortController, entry: LayoutEntry) {
@@ -2221,7 +2237,15 @@ export class SodaSpaces extends LitElement {
     }
   }
   private canRestorePane(entry: LayoutEntry | undefined, space: Space | undefined, n: number, signal: AbortSignal) {
-    return !!entry && !!space && !space.authority_unavailable && !!space.login && this.live(n) && !signal.aborted;
+    return (
+      !!entry &&
+      !!space &&
+      !space.authority_unavailable &&
+      space.execution_allowed &&
+      !!space.login &&
+      this.live(n) &&
+      !signal.aborted
+    );
   }
   private async restoreSelectedPane(n: number, signal: AbortSignal, area: {pane: Pane}) {
     const entry = this.layout.entries.find((e) => e.key === area.pane.selected);
@@ -2278,7 +2302,7 @@ export class SodaSpaces extends LitElement {
   }
   private openSavedSpace(entry: LayoutEntry) {
     const space = this.spaces.find((s) => s.environment.id === entry.environmentId);
-    if (!space || space.authority_unavailable || !space.login) return;
+    if (!space || space.authority_unavailable || !space.execution_allowed || !space.login) return;
     return space;
   }
   private applyOpenLayout(entry: LayoutEntry, destination?: string) {
@@ -2689,6 +2713,7 @@ export class SodaSpaces extends LitElement {
       !!space?.login &&
       space.environment.provisioned &&
       !space.authority_unavailable &&
+      space.execution_allowed &&
       space.observed?.running === true
     );
   }
@@ -2724,7 +2749,14 @@ export class SodaSpaces extends LitElement {
     }
   }
   private openExistingBlocked(space: Space) {
-    return this.stale || this.disposed || !this.activeSurface || !this.available || space.authority_unavailable;
+    return (
+      this.stale ||
+      this.disposed ||
+      !this.activeSurface ||
+      !this.available ||
+      space.authority_unavailable ||
+      !space.execution_allowed
+    );
   }
   private existingOrNewEntry(space: Space, metadata: TerminalMetadata) {
     let entry = this.layout.entries.find((e) => sameLocator(e.locator, {kind: 'existing', id: metadata.id}));

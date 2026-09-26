@@ -1,5 +1,5 @@
 {
-  "baseline": "794f86a and embedded Forgejo 15.0.7 for newly overridden forms",
+  "baseline": "794f86a and embedded Forgejo 15.0.9 for newly overridden forms",
   "entries": {
     "admin/auth/new.tmpl": {
       "controls": "9b7a1015d2ed8fb6ea22a818d0e553e7d5783e90e229847484cea99830eb1210",

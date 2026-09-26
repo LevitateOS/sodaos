@@ -96,7 +96,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 						if req.URL.Path == "/api/v1/repositories/7" {
 							// Lifecycle must finish the later organization-owner call
 							// too, not admit from a merely visible repository.
-							_, _ = w.WriteString(`{"id":7,"name":"repo","full_name":"team/repo","owner":{"id":99,"login":"team"}}`)
+							_, _ = w.WriteString(`{"id":7,"name":"repo","full_name":"team/repo","permissions":{"push":true},"owner":{"id":99,"login":"team"}}`)
 							return w.Result(), nil
 						}
 						if req.URL.Path != "/api/v1/users/current-login/orgs/team/permissions" {
@@ -162,7 +162,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 					if operation == "join" {
 						id = 8
 					}
-					_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "name": "repo", "full_name": "alice/repo", "owner": map[string]any{"id": 1, "login": "alice"}})
+					_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "name": "repo", "full_name": "alice/repo", "permissions": map[string]bool{"push": true}, "owner": map[string]any{"id": 1, "login": "alice"}})
 					return w.Result(), nil
 				})}
 				w := httptest.NewRecorder()

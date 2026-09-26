@@ -20,7 +20,7 @@ type forgejoSetupContext struct {
 	Locale forgejoSetupLocale
 }
 
-func TestForgejoSetupOverridesMatchStock1507(t *testing.T) {
+func TestForgejoSetupOverridesMatchStock1509(t *testing.T) {
 	tests := []struct {
 		name         string
 		sha          string
@@ -30,7 +30,7 @@ func TestForgejoSetupOverridesMatchStock1507(t *testing.T) {
 		{
 			name:       "install.tmpl",
 			sha:        "2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8bae8f2dcc",
-			provenance: "{{/* Adapted from Forgejo 15.0.7 templates/install.tmpl, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: 2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8bae8f2dcc */}}\n",
+			provenance: "{{/* Adapted from Forgejo 15.0.9 templates/install.tmpl, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: 2b9dc656d0a4e3b0eb95a6efd5467c8140f1a5a50b993c2c2f402e8bae8f2dcc */}}\n",
 			replacements: [][2]string{
 				{` class="page-content install soda-page soda-forgejo-setup" data-signed="false"`, ` class="page-content install"`},
 				{"\t<div class=\"soda-setup-theme\">{{template \"custom/soda/theme_toggle\" dict \"Class\" \"soda-setup-theme-toggle\"}}</div>\n", ""},
@@ -42,7 +42,7 @@ func TestForgejoSetupOverridesMatchStock1507(t *testing.T) {
 		{
 			name:       "post-install.tmpl",
 			sha:        "059e23b3e3dd5aa347f1f21c0f851862c3b45a094dcc7470373b26223b661fd1",
-			provenance: "{{/* Adapted from Forgejo 15.0.7 templates/post-install.tmpl, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: 059e23b3e3dd5aa347f1f21c0f851862c3b45a094dcc7470373b26223b661fd1 */}}\n",
+			provenance: "{{/* Adapted from Forgejo 15.0.9 templates/post-install.tmpl, GPL-3.0-or-later.\nUpstream: https://codeberg.org/forgejo/forgejo\nEmbedded source SHA-256: 059e23b3e3dd5aa347f1f21c0f851862c3b45a094dcc7470373b26223b661fd1 */}}\n",
 			replacements: [][2]string{
 				{` class="page-content install post-install soda-page soda-forgejo-setup soda-forgejo-setup-completing" data-signed="false"`, ` class="page-content install post-install"`},
 				{"\t<div class=\"soda-setup-theme\">{{template \"custom/soda/theme_toggle\" dict \"Class\" \"soda-setup-theme-toggle\"}}</div>\n", ""},
@@ -66,7 +66,7 @@ func TestForgejoSetupOverridesMatchStock1507(t *testing.T) {
 				restored = strings.Replace(restored, replacement[0], replacement[1], 1)
 			}
 			if got := fmt.Sprintf("%x", sha256.Sum256([]byte(restored))); got != tt.sha {
-				t.Errorf("%s differs from pristine Forgejo 15.0.7 outside attributed presentation changes: got SHA-256 %s, want %s", tt.name, got, tt.sha)
+				t.Errorf("%s differs from pristine Forgejo 15.0.9 outside attributed presentation changes: got SHA-256 %s, want %s", tt.name, got, tt.sha)
 			}
 		})
 	}

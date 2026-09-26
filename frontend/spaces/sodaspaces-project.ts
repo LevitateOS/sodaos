@@ -397,6 +397,7 @@ export class SodaProjectControls extends LitElement {
   private get canJoin() {
     return (
       !!this.detail?.environment.provisioned &&
+      this.detail.execution_allowed &&
       !this.detail.login &&
       this.running &&
       (!this.useSavedKeys || !!this.saved)
@@ -463,6 +464,7 @@ export class SodaProjectControls extends LitElement {
     return (
       !this.stale &&
       !!this.detail?.environment.provisioned &&
+      this.detail.execution_allowed &&
       this.running &&
       !this.detail.login &&
       !this.detail.authority_unavailable &&
@@ -600,6 +602,9 @@ export class SodaProjectControls extends LitElement {
   private journeyRuntimeUnavailable() {
     return !this.detail || this.detail.authority_unavailable || this.detail.native_unavailable || !this.detail.observed;
   }
+  private executionDenied() {
+    return !!this.detail && !this.detail.authority_unavailable && !this.detail.execution_allowed;
+  }
   private journeyExistingKind(accountReady: boolean, stopped: boolean) {
     if (this.busy) return 'loading' as const;
     if (accountReady) return 'terminal' as const;
@@ -608,12 +613,15 @@ export class SodaProjectControls extends LitElement {
   }
   private journeyExistingHeading(accountReady: boolean, incomplete: boolean, stopped: boolean) {
     if (accountReady) return 'Your account is ready';
+    if (this.executionDenied()) return 'Repository write access required';
     if (incomplete) return 'Project needs inspection';
     if (stopped) return 'Project not ready';
     return 'Project status unavailable';
   }
   private journeyExistingDescription(accountReady: boolean, incomplete: boolean, stopped: boolean) {
     if (accountReady) return html`Your project account is ready for a browser terminal.`;
+    if (this.executionDenied())
+      return html`You can inspect this project. Joining and terminal access require repository write permission.`;
     if (incomplete) return html`Project setup is incomplete. Ask the operator to inspect this project.`;
     if (stopped) return html`This project is stopped. Start it before joining or opening a terminal.`;
     return html`Current project access or runtime state could not be confirmed.`;
@@ -662,7 +670,7 @@ export class SodaProjectControls extends LitElement {
   }
   private journeyAccountReady(unavailable: boolean) {
     if (unavailable || !this.running) return false;
-    return !!this.detail?.login;
+    return !!this.detail?.login && this.detail.execution_allowed;
   }
   private renderJourneyExisting() {
     const flags = this.journeyExistingFlags();
@@ -982,6 +990,7 @@ export class SodaProjectControls extends LitElement {
           saved: this.saved,
           preview: this.keyPreview,
           joined: !!this.detail?.login,
+          executionAllowed: this.detail?.execution_allowed === true,
           running: this.running,
           blocked: this.blocked,
           draft: this.draft,
@@ -1054,7 +1063,14 @@ export class SodaProjectControls extends LitElement {
     </section>`;
   }
   private joinEnvironment() {
-    if (!this.environment || !this.running || this.detail?.login || this.detail?.authority_unavailable) return;
+    if (
+      !this.environment ||
+      !this.running ||
+      !this.detail?.execution_allowed ||
+      this.detail.login ||
+      this.detail.authority_unavailable
+    )
+      return;
     return this.mutate(
       '/api/environments/' + this.environment.id + '/join',
       {
@@ -1875,7 +1891,7 @@ export class SodaProjectControls extends LitElement {
     }
   }
   private applyKeys() {
-    if (!this.keyPreview || !this.environment) return;
+    if (!this.keyPreview || !this.environment || !this.detail?.execution_allowed) return;
     if (!this.keyPreview.saved_fingerprints.length && !this.emptyConfirmed) {
       this.outcome = 'Explicitly confirm removal of the last managed key.';
       return;

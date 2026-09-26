@@ -1,4 +1,4 @@
-{{/* Adapted from Forgejo 15.0.7 templates/user/settings/applications_oauth2_list.tmpl (GPL-3.0-or-later); upstream SHA-256 fef3276344cd83d2df9a074ff37eafb320b2835de59d951add2601672d53c761. */}}
+{{/* Adapted from Forgejo 15.0.9 templates/user/settings/applications_oauth2_list.tmpl (GPL-3.0-or-later); upstream SHA-256 fef3276344cd83d2df9a074ff37eafb320b2835de59d951add2601672d53c761. */}}
 {{if .PersonalSettings}}{{template "user/settings/applications_oauth2_list_body" .}}{{else}}{{template "user/settings/applications_oauth2_list_body" (dict "ctxData" .)}}{{end}}
 {{define "user/settings/applications_oauth2_list_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 <div class="ui attached segment soda-p-section">

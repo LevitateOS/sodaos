@@ -51,7 +51,7 @@ func TestForgejoStatus404RendersDefaultAndEscapedCustomPrompt(t *testing.T) {
 		"ctx": func() forgejoTemplateContext {
 			return forgejoTemplateContext{Locale: forgejoTemplateLocale{translations: map[string]string{"error404": "Page unavailable", "go_back": "Go back", "admin.config.app_ver": "Version"}}}
 		},
-		"AppVerNoMetadata": func() string { return "15.0.7" },
+		"AppVerNoMetadata": func() string { return "15.0.9" },
 		"AssetUrlPrefix":   func() string { return "/assets" },
 	}).Parse(definition)
 	if err != nil {

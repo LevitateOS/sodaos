@@ -20,6 +20,7 @@ func (c nativePageRequest) FormStrings(key string) []string {
 	_ = c.Req.FormValue(key)
 	return c.Req.Form[key]
 }
+
 func (c nativePageRequest) FormInt64(key string) int64 {
 	value, _ := strconv.ParseInt(c.Req.FormValue(key), 10, 64)
 	return value
@@ -175,13 +176,20 @@ func TestNativeSodaPagePreservesOrdinaryDashboardAndOtherRoutes(t *testing.T) {
 // actual admin shell partials, not the dashboard host above.
 func renderAdminSettingsHost(t *testing.T, prefix, query string, data map[string]any) string {
 	t.Helper()
-	ctx := nativePageTemplateContext{Context: nativePageRequest{Req: httptest.NewRequest("GET", "http://forge.test/admin"+query, nil)}}
+	ctx := nativePageTemplateContext{
+		Context: nativePageRequest{Req: httptest.NewRequest("GET", "http://forge.test/admin"+query, nil)},
+		Locale: forgejoTemplateLocale{translations: map[string]string{
+			"admin.dashboard.new_major_version_hint": "admin.dashboard.new_major_version_hint",
+			"admin.dashboard.new_minor_version_hint": "admin.dashboard.new_minor_version_hint",
+			"admin.dashboard.update_checker_error":   "admin.dashboard.update_checker_error",
+		}},
+	}
 	functions := template.FuncMap{
 		"ctx":             func() nativePageTemplateContext { return ctx },
 		"AppSubUrl":       func() string { return prefix },
 		"AssetUrlPrefix":  func() string { return prefix + "/assets" },
 		"AppDisplayName":  func() string { return "Forgejo" },
-		"AppVer":          func() string { return "15.0.7" },
+		"AppVer":          func() string { return "15.0.9" },
 		"svg":             func(...any) string { return "icon" },
 		"dict":            forgejoTemplateDict,
 		"DisableWebhooks": func() bool { return false },
@@ -259,9 +267,13 @@ func TestAdminSodaSettingsHostKeepsNativeDashboard(t *testing.T) {
 		query  string
 		signed bool
 	}{
-		{"", true}, {"?soda-view=spaces", true}, {"?soda-view=unknown", true},
-		{"?soda-view=runners&soda-view=runners", true}, {"?soda-view=tailnet&soda-view=runners", true},
-		{"?soda-view=runners&repository_id=1", true}, {"?soda-view=tailnet&repository_id=", true},
+		{"", true},
+		{"?soda-view=spaces", true},
+		{"?soda-view=unknown", true},
+		{"?soda-view=runners&soda-view=runners", true},
+		{"?soda-view=tailnet&soda-view=runners", true},
+		{"?soda-view=runners&repository_id=1", true},
+		{"?soda-view=tailnet&repository_id=", true},
 		{"?soda-view=tailnet&repository_id=1&repository_id=2", true},
 		{"?soda-view=runners", false},
 	} {
@@ -272,6 +284,26 @@ func TestAdminSodaSettingsHostKeepsNativeDashboard(t *testing.T) {
 			}
 			if strings.Contains(body, `id="soda-native-content"`) || strings.Contains(body, `soda-native-page.js`) {
 				t.Fatal("Soda mount escaped its validated admin selector")
+			}
+		})
+	}
+}
+
+func TestAdminDashboardKeepsNativeUpdateNotices(t *testing.T) {
+	for _, tc := range []struct {
+		field string
+		key   string
+	}{
+		{"NeedMajorUpdate", "admin.dashboard.new_major_version_hint"},
+		{"NeedMinorUpdate", "admin.dashboard.new_minor_version_hint"},
+		{"UpdateCheckerError", "admin.dashboard.update_checker_error"},
+	} {
+		t.Run(tc.field, func(t *testing.T) {
+			data := adminSettingsHostData("", true)
+			data[tc.field] = true
+			body := renderAdminSettingsHost(t, "", "", data)
+			if !strings.Contains(body, tc.key) || !strings.Contains(body, `hx-get=`) {
+				t.Fatal("native update notice or dashboard operations lost")
 			}
 		})
 	}

@@ -1,5 +1,5 @@
 /* Forgejo's first-run form keeps native fields and setup behavior; this file only
-   adapts that exact 15.0.7 markup to the Soda full-page presentation shell. */
+   adapts that exact 15.0.9 markup to the Soda full-page presentation shell. */
 .soda-forgejo-setup {
   position: relative;
   padding-block: 32px 32px;

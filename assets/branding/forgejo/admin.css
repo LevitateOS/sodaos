@@ -1,4 +1,4 @@
-/* Administrator pages retain Forgejo 15.0.7 controls, permission gates, and
+/* Administrator pages retain Forgejo 15.0.9 controls, permission gates, and
    scripts. These rules only compose the Soda shell around native layouts. */
 .soda-admin-layout {
 	align-items: flex-start;

@@ -79,7 +79,7 @@ class ForgejoPayload(unittest.TestCase):
             lock.write_text(
                 json.dumps(
                     {
-                        'url': 'https://codeberg.org/forgejo/forgejo/raw/tag/v15.0.7/options/locale/locale_en-US.ini',
+                        'url': 'https://codeberg.org/forgejo/forgejo/raw/tag/v15.0.9/options/locale/locale_en-US.ini',
                         'sha256': hashlib.sha256(native).hexdigest(),
                     }
                 )

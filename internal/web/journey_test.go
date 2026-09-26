@@ -30,7 +30,7 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 			login := strings.TrimPrefix(r.Header.Get("Authorization"), "token acting-")
 			fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
 		case "/api/v1/repositories/7":
-			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
+			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		case "/api/v1/users/bob/orgs/alice/permissions":
 			fmt.Fprint(w, `{"is_owner":false}`)
 		default:

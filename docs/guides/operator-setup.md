@@ -3,7 +3,7 @@
 Prepare Forgejo identity and private access for software collaboration and bounded
 agent work. Factory execution and persistent human Projects have separate authority.
 
-Source baseline: Forgejo 15.0.7. Soda uses OAuth2 and `/api/v1/user`, not an assumed
+Source baseline: Forgejo 15.0.9. Soda uses OAuth2 and `/api/v1/user`, not an assumed
 OIDC identity-token flow.
 
 Media continuation: [Installation media](media.md).

@@ -115,6 +115,7 @@ export interface Detail {
   environment: Environment & {provisioned: boolean};
   login: string;
   environment_administrator: boolean;
+  execution_allowed: boolean;
   native_unavailable: boolean;
   authority_unavailable: boolean;
   observed: {id: string; running: boolean} | null;
@@ -131,6 +132,7 @@ export function detailResponse(value: unknown, environment: Environment): Detail
       typeof data.native_unavailable === 'boolean' &&
       typeof data.authority_unavailable === 'boolean'
   );
+  check(typeof data.execution_allowed === 'boolean');
   let observed: Detail['observed'] = null;
   if (data.observed !== null) {
     const state = object(data.observed);
@@ -141,6 +143,7 @@ export function detailResponse(value: unknown, environment: Environment): Detail
     environment: {...environmentResponse(env, environment.repository_id), provisioned: env.provisioned},
     login: data.login,
     environment_administrator: data.environment_administrator,
+    execution_allowed: data.execution_allowed,
     native_unavailable: data.native_unavailable,
     authority_unavailable: data.authority_unavailable,
     observed,
@@ -315,6 +318,7 @@ export interface Space {
   environment: Environment & {name: string; repository: string; owner_id: string; provisioned: boolean};
   login: string;
   environment_administrator: boolean;
+  execution_allowed: boolean;
   authority_unavailable: boolean;
   native_unavailable: boolean;
   observed: Detail['observed'];
@@ -349,6 +353,7 @@ function spaceTerminals(
   check(
     Array.isArray(row.terminals) &&
       row.terminals.length <= 64 &&
+      (detail.execution_allowed || row.terminals.length === 0) &&
       (!detail.authority_unavailable || (!detail.environment_administrator && row.terminals.length === 0))
   );
   const terminals = row.terminals.map((value: unknown) =>

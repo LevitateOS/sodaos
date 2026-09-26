@@ -49,7 +49,8 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 `, ""},
 			{`{{if $settings}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-key" "Title" (ctx.Locale.Tr "secrets.none")}}</div>{{else}}{{ctx.Locale.Tr "secrets.none"}}{{end}}`, `{{ctx.Locale.Tr "secrets.none"}}`},
 			{"\n{{end}}{{end}}\n", "\n"},
-			{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-config-list\"", "class=\"ui attached segment\""},
+			{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""},
+			{"class=\"ui attached segment soda-config-list\"", "class=\"ui attached segment\""},
 		}},
 		{"shared/variables/variable_list.tmpl", "53adaccdeba06289d589f2d0da64e1acc382febd598c84043305302c7e88091d", [][2]string{
 			{`{{if .SettingsPresentation}}{{template "shared/variables/variable_list_body" .}}{{else}}{{template "shared/variables/variable_list_body" (dict "ctxData" .)}}{{end}}
@@ -57,7 +58,8 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 `, ""},
 			{`{{if $settings}}<div class="soda-empty soda-empty--compact">{{template "custom/soda/empty_content" dict "Icon" "octicon-pencil" "Title" (ctx.Locale.Tr "actions.variables.none")}}</div>{{else}}{{ctx.Locale.Tr "actions.variables.none"}}{{end}}`, `{{ctx.Locale.Tr "actions.variables.none"}}`},
 			{"\n{{end}}{{end}}\n", "\n"},
-			{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-config-list\"", "class=\"ui attached segment\""},
+			{"class=\"ui top attached header soda-config-heading\"", "class=\"ui top attached header\""},
+			{"class=\"ui attached segment soda-config-list\"", "class=\"ui attached segment\""},
 		}},
 		{"webhook/new.tmpl", "581de797cb9a2f83193985ec51e712f15fdd3e7c5008512ecfa114035623e73a", [][2]string{{`{{if not .SettingsPresentation}}{{.CustomHeaderTitle}}{{end}}`, `{{.CustomHeaderTitle}}`}, {"class=\"ui top attached header soda-webhook-heading\"", "class=\"ui top attached header\""}, {"class=\"ui attached segment soda-webhook-provider\"", "class=\"ui attached segment\""}}},
 		{"webhook/shared-settings.tmpl", "06576d36e3b23e919aebbae72cefa8743492d8478040928bf7ce47d0622a3fc6", [][2]string{{"class=\"event type soda-webhook-events\"", "class=\"event type\""}, {"<legend class=\"soda-p-heading\">", "<legend>"}}},
@@ -77,7 +79,7 @@ func TestForgejoCodeAndWorkflowOverridesKeepNativeBodies(t *testing.T) {
 		t.Run(tc.path, func(t *testing.T) {
 			contents := readForgejoTemplateForUpstreamParity(t, tc.path)
 			_, native, ok := strings.Cut(contents, "\n")
-			if !ok || !strings.HasPrefix(contents, "{{/* Adapted from Forgejo 15.0.7 templates/") {
+			if !ok || !strings.HasPrefix(contents, "{{/* Adapted from Forgejo 15.0.9 templates/") {
 				t.Fatal("missing pinned upstream attribution")
 			}
 			if tc.path == "repo/home.tmpl" {

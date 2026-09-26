@@ -23,10 +23,12 @@ import (
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
-const webTerminalProject = "p0123456789abcdef01234567"
-const secondTerminalProject = "p1123456789abcdef01234567"
-const reservedTerminalID = "0123456789abcdef0123456789abcdef"
-const terminalAuth = `{"action":"create","id":"0123456789abcdef0123456789abcdef","expected_user_id":"1","repository_id":"7","csrf_token":"csrf-alice","cols":80,"rows":24}`
+const (
+	webTerminalProject    = "p0123456789abcdef01234567"
+	secondTerminalProject = "p1123456789abcdef01234567"
+	reservedTerminalID    = "0123456789abcdef0123456789abcdef"
+	terminalAuth          = `{"action":"create","id":"0123456789abcdef0123456789abcdef","expected_user_id":"1","repository_id":"7","csrf_token":"csrf-alice","cols":80,"rows":24}`
+)
 
 type nativeCreationPermit struct {
 	scope   string
@@ -69,9 +71,9 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 		case "/api/v1/user":
 			fmt.Fprint(w, `{"id":1,"login":"renamed-alice"}`)
 		case "/api/v1/repositories/8":
-			fmt.Fprint(w, `{"id":8,"name":"second","full_name":"alice/second","owner":{"id":1,"login":"alice"}}`)
+			fmt.Fprint(w, `{"id":8,"name":"second","full_name":"alice/second","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		case "/api/v1/repositories/7":
-			fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`)
+			fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		default:
 			t.Error("unexpected authority request")
 			w.WriteHeader(500)
@@ -240,10 +242,12 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 	t.Cleanup(s.CloseTerminals)
 	return s, server, calls, closed
 }
+
 func terminalDial(t *testing.T, server *httptest.Server, query string) (*websocket.Conn, *http.Response, error) {
 	t.Helper()
 	return websocket.Dial(t.Context(), "wss"+strings.TrimPrefix(server.URL, "https")+config.SodaPath+"/api/environments/"+webTerminalProject+"/terminal"+query, &websocket.DialOptions{HTTPClient: server.Client(), HTTPHeader: http.Header{"Origin": {server.URL}, "Cookie": {"__Secure-sodaspaces-session=session-alice"}, "Sec-Fetch-Site": {"same-origin"}}})
 }
+
 func terminalReady(t *testing.T, c *websocket.Conn) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
@@ -256,6 +260,7 @@ func terminalReady(t *testing.T, c *websocket.Conn) {
 		t.Fatal("terminal not ready", err)
 	}
 }
+
 func TestBrowserTerminalDenialsNeverReachNative(t *testing.T) {
 	for _, body := range []string{`{}`, strings.Replace(terminalAuth, `"1"`, `"2"`, 1), strings.Replace(terminalAuth, `"7"`, `"8"`, 1), strings.Replace(terminalAuth, "csrf-alice", "wrong", 1), strings.Replace(terminalAuth, `"cols":80`, `"cols":1`, 1), strings.Replace(terminalAuth, `"cols":80`, `"cols":80,"cols":81`, 1), strings.Replace(terminalAuth, `"cols":80`, `"command":"id","cols":80`, 1)} {
 		t.Run(body, func(t *testing.T) {
@@ -296,6 +301,7 @@ func TestBrowserTerminalDenialsNeverReachNative(t *testing.T) {
 		})
 	}
 }
+
 func TestBrowserTerminalLogoutDuplicateAndOriginalLogin(t *testing.T) {
 	s, srv, calls, closed := terminalWebFixture(t, 0)
 	c, _, err := terminalDial(t, srv, "")
@@ -331,6 +337,7 @@ func TestBrowserTerminalLogoutDuplicateAndOriginalLogin(t *testing.T) {
 		t.Fatal("duplicate replayed native creation or attachment")
 	}
 }
+
 func TestBrowserTerminalPendingLogoutAndShutdown(t *testing.T) {
 	for _, shutdown := range []bool{false, true} {
 		t.Run(fmt.Sprint(shutdown), func(t *testing.T) {
@@ -363,6 +370,7 @@ func TestBrowserTerminalPendingLogoutAndShutdown(t *testing.T) {
 		})
 	}
 }
+
 func TestBrowserTerminalRotationAndActiveShutdown(t *testing.T) {
 	for _, rotation := range []bool{false, true} {
 		t.Run(fmt.Sprint(rotation), func(t *testing.T) {

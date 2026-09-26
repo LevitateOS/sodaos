@@ -70,6 +70,12 @@ results for a different commit. It does not create another CI queue.
 Only the publisher holds Forgejo write credentials. It imports a bounded bundle
 into a fresh bare repository, disables hooks and inherited Git configuration,
 checks ancestry, rejects changes under `.forgejo/` or `.github/workflows/`, and
+rejects known before/after worker credential literals in decoded Git objects
+reachable beyond the admitted base, including deleted historical files and commit
+messages. Each publication scans at most 10,000 objects, 4 MiB per decoded object
+and 32 MiB total decoded content; exceeding a limit denies publication. This
+literal check does not prevent intentional encoding or exfiltration by code that
+can read the injected credential. After those checks, the publisher
 pushes only `soda/factory/ATTEMPT_ID` with an exact expected-revision lease.
 Review can submit findings for its assigned PR and commit; it has no candidate
 publication operation. Human merging remains a Forgejo operation.

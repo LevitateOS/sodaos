@@ -1,4 +1,4 @@
-{{/* Adapted from Forgejo 15.0.7 templates/user/settings/hook_new.tmpl (GPL-3.0-or-later); upstream SHA-256 7625cd383ec0618e2d629900700988de74ac2e1d08fef3c529bd9110af9204fe. */}}
+{{/* Adapted from Forgejo 15.0.9 templates/user/settings/hook_new.tmpl (GPL-3.0-or-later); upstream SHA-256 7625cd383ec0618e2d629900700988de74ac2e1d08fef3c529bd9110af9204fe. */}}
 {{$taskTitle := ctx.Locale.Tr "repo.settings.update_webhook"}}{{if .PageIsSettingsHooksNew}}{{$taskTitle = ctx.Locale.Tr "repo.settings.add_webhook"}}{{end}}
 {{template "user/settings/layout_head" (dict "ctxData" . "pageClass" "user settings new webhook" "title" $taskTitle "parentURL" (printf "%s/user/settings/hooks" AppSubUrl) "parentTitle" (ctx.Locale.Tr "repo.settings.hooks") "formPage" true)}}
 {{$CustomHeaderTitle := ctx.Locale.Tr "repo.settings.update_webhook"}}

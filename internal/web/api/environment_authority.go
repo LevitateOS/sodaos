@@ -3,15 +3,17 @@ package api
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 var (
-	errRepositoryDenied = errors.New("repository is not visible")
+	errRepositoryDenied        = errors.New("repository is not visible")
+	errRepositoryWriteRequired = errors.New("repository write permission required")
 )
 
 // Request-local verified facts, never serialized or persisted as copied roles.
@@ -71,6 +73,28 @@ func (s *API) visibleRepository(r *http.Request, v store.Session, id int64) (rep
 	return repositoryAccess{actor, repo, grant}, nil
 }
 
+// Current native code-write authority admits project execution; visibility and
+// retained membership alone do not. Missing capabilities fail closed.
+func repositoryExecutionAllowed(a repositoryAccess) bool {
+	return a.repository.Permissions != nil && a.repository.Permissions.Push
+}
+
+func (s *API) executionRepository(r *http.Request, v store.Session, id int64) (repositoryAccess, error) {
+	access, err := s.visibleRepository(r, v, id)
+	if err == nil && !repositoryExecutionAllowed(access) {
+		err = errRepositoryWriteRequired
+	}
+	return access, err
+}
+
+func reportExecutionAuthorityError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errRepositoryWriteRequired) {
+		auth.JSONError(w, 403, "repository_write_required", "Repository write permission is required for project execution.")
+		return
+	}
+	auth.ProviderError(w, err)
+}
+
 // Ownership consumes the already-verified repository/actor, avoiding a second
 // lookup or stale display login. Visibility alone never confers administration.
 func (s *API) environmentAdministrator(r *http.Request, a repositoryAccess) (bool, error) {
@@ -91,7 +115,7 @@ func (s *API) environmentAdministrator(r *http.Request, a repositoryAccess) (boo
 type environmentReader struct {
 	login                               string
 	administrator, authorityUnavailable bool
-	repositoryVisible                   bool
+	repositoryVisible, executionAllowed bool
 }
 
 // Only existing membership or the explicit Soda operator permits degraded reads.
@@ -108,6 +132,9 @@ func (s *API) readEnvironmentAuthority(r *http.Request, v store.Session, p store
 	reader.login = login
 	if v.User.ID == s.Config.OperatorID {
 		reader.administrator = true
+		access, nativeErr := s.visibleRepository(r, v, p.RepositoryID)
+		reader.repositoryVisible = nativeErr == nil
+		reader.executionAllowed = nativeErr == nil && repositoryExecutionAllowed(access)
 		return reader, nil
 	}
 	access, err := s.visibleRepository(r, v, p.RepositoryID)
@@ -119,6 +146,7 @@ func (s *API) readEnvironmentAuthority(r *http.Request, v store.Session, p store
 		return reader, nil
 	}
 	reader.repositoryVisible = true
+	reader.executionAllowed = repositoryExecutionAllowed(access)
 	reader.administrator, err = s.environmentAdministrator(r, access)
 	reader.authorityUnavailable = err != nil
 	return reader, nil

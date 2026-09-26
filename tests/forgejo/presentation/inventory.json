@@ -1,5 +1,5 @@
 {
-  "upstream": "15.0.7",
+  "upstream": "15.0.9",
   "entries": [
     {
       "template": "admin/applications/list.tmpl",
@@ -433,12 +433,12 @@
         "permission-gated"
       ],
       "verification": {
-        "source": "exact Forgejo 15.0.7 restoration and rendered sidebar ancestry checks",
+        "source": "exact Forgejo 15.0.9 restoration and rendered sidebar ancestry checks",
         "native": "not yet delivered",
         "requiredStates": "native visual acceptance pending"
       },
       "beforeRoleHash": "cf5f50e37ce367f575ec8b180d87dfbd268e7938de77a4829c56f8e53c9b026b",
-      "presentationReview": "Preserve exact native 15.0.7 administration menu and append a signed/admin-gated Soda header with ordinary Runners/Tailnet menu entries; no separate toolbar.",
+      "presentationReview": "Preserve exact native 15.0.9 administration menu and append a signed/admin-gated Soda header with ordinary Runners/Tailnet menu entries; no separate toolbar.",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -4570,7 +4570,7 @@
       ],
       "verification": {
         "source": "passed actual-template rendering for source availability, escaping and native route context; full scripts suite and presentation inventory passed",
-        "native": "read-only local 15.0.7: all ten native provider forms; seven chooser widths in light/dark with logo, containment, focus and hover checks",
+        "native": "read-only local 15.0.9: all ten native provider forms; seven chooser widths in light/dark with logo, containment, focus and hover checks",
         "requiredStates": "configured ten-source fixture observed; absent/Git-only/provider-only states tested through actual Go template rendering, not fixture mutation"
       },
       "beforeRoleHash": "a12f329516bf7c3277d6113f2b052b8e6a47ebf5d7da282207cc256cb93a2b55",

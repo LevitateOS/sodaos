@@ -14,7 +14,7 @@ const (
 	RepositoryPageLimit = 100
 )
 
-// SearchOwnedRepositories uses Forgejo 15.0.7's actor-reduced native search.
+// SearchOwnedRepositories uses Forgejo 15.0.9's actor-reduced native search.
 // Pagination is upstream-owned; never search a locally truncated repository list.
 func validOwnedSearch(owner int64, query string, page int) bool {
 	if owner <= 0 || page < 1 || page > RepositoryPageLimit || len(query) > 200 {

@@ -14,7 +14,7 @@ func TestRemoveReportsPartialOutcomeAndPreservesOtherRunners(t *testing.T) {
 	for _, failure := range []string{"none", "stop", "account", "state"} {
 		t.Run(failure, func(t *testing.T) {
 			native, _, prepared := runnerFixture(t)
-			require.NoError(t, native.recordRunner(prepared.account, forgejoRequest()))
+			require.NoError(t, native.writeDescriptor(fixtureDescriptor()))
 			descriptor, err := os.ReadFile(native.descriptorPath("one"))
 			require.NoError(t, err)
 			require.NoError(t, os.WriteFile(filepath.Join(prepared.state, "forgejo-token"), []byte("synthetic-private-token"), 0o600))

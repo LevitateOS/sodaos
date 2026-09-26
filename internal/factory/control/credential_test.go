@@ -1,6 +1,7 @@
 package control
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,46 @@ import (
 	"github.com/levitateos/sodaos/internal/host/workspace"
 	"github.com/levitateos/sodaos/internal/store"
 )
+
+func TestDelegatedCredentialSnapshotUsesInjectedBytes(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "auth.json")
+	original := []byte(`{"tokens":{"access_token":"synthetic-injected-credential"}}`)
+	if err := os.WriteFile(path, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := store.Open(filepath.Join(root, "execution.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	a := testAttempt(t, s)
+	copy := a
+	r, err := copy.BeginRun(factory.Implementation, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Image = "sha256:" + strings.Repeat("c", 64)
+	r.Harness, r.Model = "test", "test"
+	r.CredentialClaimed = true
+	if err = s.StartFactoryRun(t.Context(), &a, r); err != nil {
+		t.Fatal(err)
+	}
+	runtime := &workspace.Runtime{Exec: executorFunc(func(_ context.Context, data []byte, _ string, _ ...string) ([]byte, error) {
+		if string(data) != string(original) {
+			t.Fatal("injected different credential state")
+		}
+		return nil, os.WriteFile(path, []byte(`{"tokens":{"access_token":"synthetic-later-enrollment"}}`), 0o600)
+	})}
+	c := Controller{Store: s, Config: Config{Workspace: workspace.Config{CredentialHome: root}}, Workspace: runtime}
+	secrets, err := c.delegateCredential(t.Context(), &r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := resultBytes(factory.Result{Summary: "synthetic-injected-credential"}, secrets); err == nil {
+		t.Fatal("later enrollment displaced injected credential snapshot")
+	}
+}
 
 func TestSaveCredentialPreservesEnrollment(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "auth.json")

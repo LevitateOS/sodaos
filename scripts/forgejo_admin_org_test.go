@@ -9,10 +9,10 @@ import (
 	"testing"
 )
 
-// These hashes pin the exact embedded Forgejo 15.0.7 templates inspected when
+// These hashes pin the exact embedded Forgejo 15.0.9 templates inspected when
 // the overrides were authored. The tests remove only Soda's presentation deltas
 // before comparing, so native gates and hooks cannot drift unnoticed.
-func TestForgejoAdminOrganizationOverridesRetain1507Source(t *testing.T) {
+func TestForgejoAdminOrganizationOverridesRetain1509Source(t *testing.T) {
 	tests := []struct {
 		name         string
 		path         []string
@@ -24,7 +24,7 @@ func TestForgejoAdminOrganizationOverridesRetain1507Source(t *testing.T) {
 			path:         []string{"admin", "layout_head.tmpl"},
 			upstreamHash: "71fb21cdb74bdf890fdd0e0b56522437776cbddb7c289e8663ec3a00c3b37c0a",
 			normalize: func(contents string) string {
-				contents = strings.TrimPrefix(contents, `{{/* Soda presentation override of Forgejo 15.0.7 admin/layout_head.tmpl. */}}`+"\n")
+				contents = strings.TrimPrefix(contents, `{{/* Soda presentation override of Forgejo 15.0.9 admin/layout_head.tmpl. */}}`+"\n")
 				contents = strings.Replace(contents,
 					`class="page-content {{.pageClass}} soda-page soda-admin soda-native-forms" data-signed="true"`,
 					`class="page-content {{.pageClass}}"`, 1)
@@ -42,7 +42,7 @@ func TestForgejoAdminOrganizationOverridesRetain1507Source(t *testing.T) {
 			path:         []string{"org", "header.tmpl"},
 			upstreamHash: "12daa767b4898ea9bbe2794fa2da3c04c17dc1ad4555c14d10219247198e3b29",
 			normalize: func(contents string) string {
-				contents = strings.TrimPrefix(contents, `{{/* Soda presentation override of Forgejo 15.0.7 org/header.tmpl. */}}`+"\n")
+				contents = strings.TrimPrefix(contents, `{{/* Soda presentation override of Forgejo 15.0.9 org/header.tmpl. */}}`+"\n")
 				return strings.Replace(contents,
 					`class="ui container tw-flex tw-gap-x-4 soda-page-marker soda-org-header" data-signed="{{.IsSigned}}"`,
 					`class="ui container tw-flex tw-gap-x-4"`, 1)
@@ -53,7 +53,7 @@ func TestForgejoAdminOrganizationOverridesRetain1507Source(t *testing.T) {
 			path:         []string{"org", "settings", "layout_head.tmpl"},
 			upstreamHash: "a24850ec5e6716926dcbe1ef777ed328af3a05ba7a918f162fdeebcdccd84672",
 			normalize: func(contents string) string {
-				contents = strings.TrimPrefix(contents, `{{/* Soda presentation override of Forgejo 15.0.7 org/settings/layout_head.tmpl. */}}`+"\n")
+				contents = strings.TrimPrefix(contents, `{{/* Soda presentation override of Forgejo 15.0.9 org/settings/layout_head.tmpl. */}}`+"\n")
 				contents = strings.Replace(contents,
 					`class="page-content {{.pageClass}} soda-page soda-org-settings soda-native-forms" data-signed="true"`,
 					`class="page-content {{.pageClass}}"`, 1)
@@ -70,7 +70,7 @@ func TestForgejoAdminOrganizationOverridesRetain1507Source(t *testing.T) {
 			normalized := tt.normalize(contents)
 			got := fmt.Sprintf("%x", sha256.Sum256([]byte(normalized)))
 			if got != tt.upstreamHash {
-				t.Fatalf("override differs from pinned Forgejo 15.0.7 source beyond its reviewed Soda presentation delta: got %s, want %s", got, tt.upstreamHash)
+				t.Fatalf("override differs from pinned Forgejo 15.0.9 source beyond its reviewed Soda presentation delta: got %s, want %s", got, tt.upstreamHash)
 			}
 		})
 	}

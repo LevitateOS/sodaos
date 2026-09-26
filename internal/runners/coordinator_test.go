@@ -35,18 +35,22 @@ func (lifecycle *fakeLifecycle) Create(ctx context.Context, request CreateReques
 	lifecycle.action, lifecycle.create = "create", request
 	return errors.Join(lifecycle.err, ctx.Err())
 }
+
 func (lifecycle *fakeLifecycle) Start(ctx context.Context, id string) error {
 	lifecycle.action, lifecycle.id = "start", id
 	return errors.Join(lifecycle.err, ctx.Err())
 }
+
 func (lifecycle *fakeLifecycle) Stop(ctx context.Context, id string) error {
 	lifecycle.action, lifecycle.id = "stop", id
 	return errors.Join(lifecycle.err, ctx.Err())
 }
+
 func (lifecycle *fakeLifecycle) Restart(ctx context.Context, id string) error {
 	lifecycle.action, lifecycle.id = "restart", id
 	return errors.Join(lifecycle.err, ctx.Err())
 }
+
 func (lifecycle *fakeLifecycle) Remove(ctx context.Context, id string) error {
 	lifecycle.action, lifecycle.id = "remove", id
 	return errors.Join(lifecycle.err, ctx.Err())
@@ -74,23 +78,12 @@ func TestCoordinatorRequiresNativeAdministratorBeforeReadingInputOrState(t *test
 	}
 }
 
-func TestCoordinatorUsesOnlyTheConfiguredOrBundledForgejoEndpoint(t *testing.T) {
-	for _, endpoint := range []string{"", "http://forgejo.fixture:3000"} {
-		lifecycle := &fakeLifecycle{}
-		coordinator := Coordinator{ForgejoURL: endpoint, Authorizer: fakeAuthorizer{}, Lifecycle: lifecycle}
-		response, err := coordinator.Execute(t.Context(), testAdministrator, "create", strings.NewReader(`{
-			"id":"forgejo-one","provider":"forgejo","registration_url":"https://external.invalid",
-			"registration_id":"33834eef-e758-48c4-a676-1745426747aa",
-			"labels":"soda-arm64:host","registration_token":"provider-input"
-		}`))
-		require.NoError(t, err)
-		require.Equal(t, MutationResponse{OK: true}, response)
-		if endpoint == "" {
-			endpoint = BundledForgejoURL
-		}
-		require.Equal(t, endpoint, lifecycle.create.RegistrationURL)
-		require.Equal(t, "provider-input", lifecycle.create.RegistrationToken)
-	}
+func TestCoordinatorRejectsRegistrationWithoutDispatch(t *testing.T) {
+	lifecycle := &fakeLifecycle{}
+	coordinator := Coordinator{Authorizer: fakeAuthorizer{}, Lifecycle: lifecycle}
+	_, err := coordinator.Execute(t.Context(), testAdministrator, "create", strings.NewReader(`{}`))
+	require.ErrorIs(t, err, ErrUnavailable)
+	require.Empty(t, lifecycle.create)
 }
 
 func TestCoordinatorReportsExactLocalListenerAndCapacityCounts(t *testing.T) {
@@ -121,7 +114,7 @@ func TestCoordinatorRetainsStrictRequestDecoding(t *testing.T) {
 }
 
 func TestCoordinatorDispatchesExactNativeLifecycleAndPreservesFailure(t *testing.T) {
-	for _, action := range []string{"start", "stop", "restart", "remove"} {
+	for _, action := range []string{"stop", "remove"} {
 		for _, failure := range []error{nil, errors.New("native result unconfirmed"), context.Canceled} {
 			lifecycle := &fakeLifecycle{err: failure}
 			coordinator := Coordinator{Authorizer: fakeAuthorizer{}, Lifecycle: lifecycle}

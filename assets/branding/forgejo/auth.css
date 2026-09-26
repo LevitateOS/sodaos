@@ -1,4 +1,4 @@
-/* Secondary authentication routes retain Forgejo 15.0.7 forms and security hooks. */
+/* Secondary authentication routes retain Forgejo 15.0.9 forms and security hooks. */
 .soda-auth {
 	padding: 32px 16px;
 }

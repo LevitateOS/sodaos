@@ -62,7 +62,7 @@ FORGEJO__picture__GRAVATAR_SOURCE=https://<configured-forgejo-origin>/-/soda/ava
 Configure Forgejo's **native administration → configuration settings** to allow
 provider avatars (`DisableGravatar=false`) and disable federated avatars
 (`EnableFederatedAvatar=false`). Those settings are database-backed in Forgejo
-15.0.7; old environment/app.ini entries are not a reliable override of saved
+15.0.9; old environment/app.ini entries are not a reliable override of saved
 values. Soda does not write Forgejo's database or gain administrator authority.
 
 `[server] OFFLINE_MODE=true` bypasses providers, including this local provider.

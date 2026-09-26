@@ -10,17 +10,14 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// credentialStrings is a read of CLI-maintained state, not an OAuth client.
-func (c *Controller) credentialStrings() ([]string, error) {
-	data, err := privateFile(filepath.Join(c.Config.Workspace.CredentialHome, "auth.json"))
-	if err != nil {
-		return nil, err
-	}
+// credentialStrings inspects the exact delegated or returned state, not a later
+// read of enrollment that a human login could have replaced.
+func credentialStrings(data []byte) ([]string, error) {
 	var auth struct {
 		APIKey string            `json:"OPENAI_API_KEY"`
 		Tokens map[string]string `json:"tokens"`
 	}
-	if err = json.Unmarshal(data, &auth); err != nil {
+	if err := json.Unmarshal(data, &auth); err != nil {
 		return nil, errors.New("invalid enrolled credential state")
 	}
 	values := []string{}
@@ -44,7 +41,11 @@ func resultBytes(result factory.Result, secrets []string) ([]byte, error) {
 		return nil, errors.New("agent result exceeds retained output limit")
 	}
 	for _, secret := range secrets {
-		if secret != "" && strings.Contains(string(data), secret) {
+		encoded, err := json.Marshal(secret)
+		if err != nil {
+			return nil, err
+		}
+		if secret != "" && strings.Contains(string(data), string(encoded[1:len(encoded)-1])) {
 			return nil, errors.New("agent result contains protected credential material")
 		}
 	}
@@ -53,12 +54,8 @@ func resultBytes(result factory.Result, secrets []string) ([]byte, error) {
 
 // retainResult retains only the bounded structured contract, never the transcript.
 // It also runs before publication so known enrolled secrets cannot enter PR text.
-func (c *Controller) retainResult(r factory.Run, result factory.Result, before []string) error {
-	after, err := c.credentialStrings()
-	if err != nil {
-		return err
-	}
-	data, err := resultBytes(result, append(before, after...))
+func (c *Controller) retainResult(r factory.Run, result factory.Result, secrets []string) error {
+	data, err := resultBytes(result, secrets)
 	if err != nil {
 		return err
 	}

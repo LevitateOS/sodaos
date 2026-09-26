@@ -5,29 +5,21 @@ package runners
 
 import (
 	"errors"
-	"fmt"
-	"net/url"
 	"regexp"
-	"runtime"
-	"strings"
 )
 
 const (
 	DefaultRootPath   = "/var/lib/soda/runners"
 	DefaultLockPath   = "/run/lock/soda/runners.lock"
-	RunnerGroup       = "soda-runners"
-	RunnerShell       = "/usr/sbin/nologin"
 	RunnerCapacity    = 1
 	BundledForgejoURL = "http://127.0.0.1:3000"
 
 	ProviderForgejo Provider = "forgejo"
 )
 
-var (
-	runnerIDPattern     = regexp.MustCompile(`^[a-z][a-z0-9-]{0,15}$`)
-	forgejoUUIDPattern  = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-	forgejoLabelPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}:host$`)
-)
+var runnerIDPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,15}$`)
+
+var ErrUnavailable = errors.New("local CI execution is unavailable until isolated jobs are supported")
 
 type Provider string
 
@@ -101,35 +93,7 @@ type MutationResponse struct {
 	OK bool `json:"ok"`
 }
 
-func (request CreateRequest) Validate() error {
-	if err := ValidateID(request.ID); err != nil {
-		return err
-	}
-	if err := validateRegistrationToken(request.RegistrationToken); err != nil {
-		return err
-	}
-	if request.Provider != ProviderForgejo {
-		return errors.New("provider must be forgejo")
-	}
-	return request.validateForgejo()
-}
-
-func validateRegistrationToken(token string) error {
-	if token == "" || strings.IndexFunc(token, func(r rune) bool { return r == '\n' || r == '\r' || r == 0 }) >= 0 {
-		return errors.New("registration token must be non-empty and contain no line breaks")
-	}
-	return nil
-}
-
-func (request CreateRequest) validateForgejo() error {
-	if err := validateForgejoURL(request.RegistrationURL); err != nil {
-		return fmt.Errorf("forgejo URL: %w", err)
-	}
-	if !forgejoUUIDPattern.MatchString(request.RegistrationID) {
-		return errors.New("forgejo runner ID must be a lowercase UUID")
-	}
-	return requireLabels(request.Labels, forgejoLabelPattern, "Forgejo labels must use name:host syntax")
-}
+func (CreateRequest) Validate() error { return ErrUnavailable }
 
 func ValidateID(id string) error {
 	if !runnerIDPattern.MatchString(id) {
@@ -143,59 +107,4 @@ func AccountName(id string) (string, error) {
 		return "", err
 	}
 	return "soda-runner-" + id, nil
-}
-
-func NativeArchitecture() (string, error) {
-	switch runtime.GOARCH {
-	case "amd64":
-		return "x86-64", nil
-	case "arm64":
-		return "AArch64", nil
-	default:
-		return "", fmt.Errorf("unsupported runner architecture %q", runtime.GOARCH)
-	}
-}
-
-func requireLabels(labels string, pattern *regexp.Regexp, message string) error {
-	if labels == "" {
-		return errors.New(message)
-	}
-	return validateLabels(labels, pattern, message)
-}
-
-func validateLabels(labels string, pattern *regexp.Regexp, message string) error {
-	if labels == "" {
-		return nil
-	}
-	for _, label := range strings.Split(labels, ",") {
-		if !pattern.MatchString(label) {
-			return errors.New(message)
-		}
-	}
-	return nil
-}
-
-func validateForgejoURL(raw string) error {
-	parsed, err := validateProviderURL(raw)
-	if err != nil {
-		return err
-	}
-	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return errors.New("must use HTTP or HTTPS")
-	}
-	return nil
-}
-
-func validateProviderURL(raw string) (*url.URL, error) {
-	if raw == "" || strings.IndexFunc(raw, func(r rune) bool { return r <= 0x20 || r == 0x7f }) >= 0 {
-		return nil, errors.New("must be non-empty and contain no whitespace or control characters")
-	}
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return nil, errors.New("is not a valid URL")
-	}
-	if parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return nil, errors.New("must contain a host and no credentials, query, or fragment")
-	}
-	return parsed, nil
 }

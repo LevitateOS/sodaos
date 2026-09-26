@@ -41,8 +41,8 @@ func TestListPreservesValidatedDescriptorsWithUnavailableObservations(t *testing
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			native, _, prepared := runnerFixture(t)
-			require.NoError(t, native.recordRunner(prepared.account, forgejoRequest()))
+			native, _, _ := runnerFixture(t)
+			require.NoError(t, native.writeDescriptor(fixtureDescriptor()))
 			before, err := os.ReadFile(native.descriptorPath("one"))
 			require.NoError(t, err)
 			native.Runner = runnerCommandFunc(func(_ context.Context, command Command) (CommandResult, error) {
@@ -123,8 +123,6 @@ func TestInvalidDescriptorIsReportedWithoutAuthorityOrRewrites(t *testing.T) {
 			for _, action := range []func(context.Context, string) error{native.Start, native.Stop, native.Restart, native.Remove} {
 				require.Error(t, action(t.Context(), "one"))
 			}
-			_, err = native.Launch("one")
-			require.Error(t, err)
 			require.Empty(t, commands.commands)
 			if bad != "missing" && bad != "directory" {
 				after, err := os.ReadFile(native.descriptorPath("one"))
@@ -139,8 +137,8 @@ func TestInvalidDescriptorIsReportedWithoutAuthorityOrRewrites(t *testing.T) {
 }
 
 func TestListPublishesIndependentRowsWhenAnotherRunnerIsUnreadable(t *testing.T) {
-	native, _, prepared := runnerFixture(t)
-	require.NoError(t, native.recordRunner(prepared.account, forgejoRequest()))
+	native, _, _ := runnerFixture(t)
+	require.NoError(t, native.writeDescriptor(fixtureDescriptor()))
 	// The first sorted row is fully readable; the next is a retained partial
 	// directory without a descriptor, as can remain after failed creation.
 	require.NoError(t, os.MkdirAll(native.statePath("two"), 0o700))
@@ -174,8 +172,6 @@ func TestLegacyDescriptorReadsDoNotRewriteStateOrCredentials(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, inventory.Runners, 1)
 	require.Equal(t, "http://old-internal:3000", inventory.Runners[0].RegistrationURL)
-	_, err = native.Launch("one")
-	require.NoError(t, err)
 	after, err := os.ReadFile(native.descriptorPath("one"))
 	require.NoError(t, err)
 	require.Equal(t, descriptor, after)

@@ -12,7 +12,7 @@ import (
 	"github.com/levitateos/sodaos/internal/host/publish"
 )
 
-func (c *Controller) publish(ctx context.Context, a *factory.Attempt, r factory.Run, result factory.Result, bundle []byte) error {
+func (c *Controller) publish(ctx context.Context, a *factory.Attempt, r factory.Run, result factory.Result, bundle []byte, secrets []string) error {
 	lease, err := c.lock(ctx, a.ID, "publication")
 	if err != nil {
 		return err
@@ -22,7 +22,7 @@ func (c *Controller) publish(ctx context.Context, a *factory.Attempt, r factory.
 	if err != nil {
 		return err
 	}
-	request := publish.Request{Attempt: current, Run: r, Commit: result.Candidate, Bundle: bundle}
+	request := publish.Request{Attempt: current, Run: r, Commit: result.Candidate, Bundle: bundle, ProtectedCredentials: secrets}
 	if err = c.Publisher.Candidate(ctx, request, func() error { _, err := c.live(ctx, a.ID); return err }); err != nil {
 		return err
 	}

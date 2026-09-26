@@ -127,3 +127,6 @@ Required package, helper or config additions apply to the **same** retained proj
 root. Maintenance must declare package/service effects and preserve state. Image
 replacement, fleet updaters and silent installation on terminal Open are out of
 scope ([Product scope](../product/scope.md)).
+
+Project execution admission follows the current repository-write policy in
+[Projects](../product/projects.md#explicit-joining).

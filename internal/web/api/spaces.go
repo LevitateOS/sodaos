@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
@@ -17,6 +18,7 @@ type SpaceView struct {
 	TailnetState         string               `json:"tailnet_state,omitempty"`
 	Environment          EnvironmentView      `json:"environment"`
 	Login                string               `json:"login"`
+	ExecutionAllowed     bool                 `json:"execution_allowed"`
 	Administrator        bool                 `json:"environment_administrator"`
 	AuthorityUnavailable bool                 `json:"authority_unavailable"`
 	NativeUnavailable    bool                 `json:"native_unavailable"`
@@ -34,12 +36,6 @@ func (s *API) resolveSpaceAuthority(request *http.Request, v store.Session, p st
 	if err != nil {
 		complete := errors.Is(err, errRepositoryDenied)
 		return reader, false, complete
-	}
-	// Operator inspection is legitimate but never a terminal-authority bypass.
-	if v.User.ID == s.Config.OperatorID {
-		_, err = s.visibleRepository(request, v, p.RepositoryID)
-		reader.repositoryVisible = err == nil
-		reader.authorityUnavailable = err != nil
 	}
 	return reader, true, !reader.authorityUnavailable
 }
@@ -67,7 +63,7 @@ func (s *API) inspectSpaceTerminals(
 	row *SpaceView,
 	terminalCount *int,
 ) bool {
-	if !reader.repositoryVisible || reader.authorityUnavailable || reader.login == "" || !s.terminalCurrent(check, cookieValue, v, p, reader.login) {
+	if !reader.executionAllowed || !reader.repositoryVisible || reader.authorityUnavailable || reader.login == "" || !s.terminalCurrent(check, cookieValue, v, p, reader.login) {
 		return true
 	}
 	items, err := s.terminalOperation(request, v, p, reader.login, cookieValue, host.TerminalRequest{Action: "list"})
@@ -121,6 +117,7 @@ func (s *API) inspectSpaceRow(
 	row := SpaceView{
 		Environment:          EnvironmentDTO(p),
 		Login:                reader.login,
+		ExecutionAllowed:     reader.executionAllowed,
 		Administrator:        reader.administrator && !reader.authorityUnavailable,
 		AuthorityUnavailable: reader.authorityUnavailable,
 		Terminals:            []TerminalView{},

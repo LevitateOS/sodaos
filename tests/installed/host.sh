@@ -15,7 +15,7 @@ else
 fi
 . /etc/os-release
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]]
-rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale forgejo-runner git python3 tar gzip
+rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale git python3 tar gzip
 # Fedora may satisfy these capabilities with versioned/replacement packages.
 rpm -q --whatprovides nodejs
 rpm-ostree status --json | python3 -c 'import json,sys; x=json.load(sys.stdin); print(json.dumps([{k:d.get(k) for k in ("booted","version","checksum","requested-packages")} for d in x["deployments"]]))'
@@ -26,7 +26,7 @@ done
 for directory in /etc /var /var/lib; do
   [[ $(stat -c '%u:%g:%a' "$directory") == 0:0:755 ]]
 done
-for command in soda-dashboard soda-host soda-setup soda-forgejo-tailnet soda-runners soda-runner-launch soda-tailnet; do
+for command in soda-dashboard soda-host soda-setup soda-forgejo-tailnet soda-runners soda-tailnet; do
   file="/usr/local/libexec/soda/$command"
   [[ $(stat -c '%u:%g:%a' "$file") == 0:0:755 ]]
   matchpathcon -V "$file"

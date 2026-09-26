@@ -2,7 +2,6 @@ package runners
 
 import (
 	"context"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,7 +27,7 @@ func TestNativeRunnerLockContender(t *testing.T) {
 	native := &Native{RootPath: root, LockPath: filepath.Join(filepath.Dir(root), "runners.lock"), Runner: runnerCommandFunc(func(_ context.Context, command Command) (CommandResult, error) {
 		calls++
 		require.False(t, blocked, "cancelled waiter dispatched a native command")
-		require.Equal(t, Command{Name: "systemctl", Args: []string{"enable", "--now", "soda-runner@one.service"}}, command)
+		require.Equal(t, Command{Name: "systemctl", Args: []string{"disable", "--now", "soda-runner@one.service"}}, command)
 		return CommandResult{}, nil
 	})}
 	var err error
@@ -74,54 +73,18 @@ func runRunnerLockContender(t *testing.T, native *Native, action string, blocked
 }
 
 func TestEveryReadAndMutationUsesTheCrossProcessLock(t *testing.T) {
-	native, _, prepared := runnerFixture(t)
-	require.NoError(t, native.recordRunner(prepared.account, forgejoRequest()))
+	native, _, _ := runnerFixture(t)
+	require.NoError(t, native.writeDescriptor(fixtureDescriptor()))
 	lock, err := native.lock(t.Context())
 	require.NoError(t, err)
 	defer lock.Close()
-	for _, action := range []string{"list", "create", "start", "stop", "restart", "remove"} {
+	for _, action := range []string{"list", "stop", "remove"} {
 		t.Run(action, func(t *testing.T) { runRunnerLockContender(t, native, action, true) })
 	}
 	require.NoError(t, lock.Close())
 	// A fresh call after the cancelled processes have exited can acquire the lock.
 	// None of the timed-out requests is replayed on release.
-	runRunnerLockContender(t, native, "start", false)
-}
-
-func TestRestartKeepsCrossProcessAdmissionAcrossEnableAndRestart(t *testing.T) {
-	for _, failure := range []string{"", "enable", "restart"} {
-		t.Run("failure-"+failure, func(t *testing.T) {
-			native, _, prepared := runnerFixture(t)
-			require.NoError(t, native.recordRunner(prepared.account, forgejoRequest()))
-			var actions []string
-			native.Runner = runnerCommandFunc(func(_ context.Context, command Command) (CommandResult, error) {
-				require.Equal(t, "systemctl", command.Name)
-				require.Len(t, command.Args, 2)
-				require.Equal(t, "soda-runner@one.service", command.Args[1])
-				action := command.Args[0]
-				actions = append(actions, action)
-				// Actual second-process Native calls must remain excluded at both command
-				// boundaries, including when enable/restart subsequently reports failure.
-				runRunnerLockContender(t, native, "start", true)
-				if action == failure {
-					return CommandResult{}, errors.New("simulated service failure")
-				}
-				return CommandResult{}, nil
-			})
-			err := native.Restart(t.Context(), "one")
-			if failure == "" {
-				require.NoError(t, err)
-			} else {
-				require.ErrorContains(t, err, failure+" local runner listener")
-			}
-			expected := []string{"enable"}
-			if failure != "enable" {
-				expected = append(expected, "restart")
-			}
-			require.Equal(t, expected, actions)
-			runRunnerLockContender(t, native, "start", false)
-		})
-	}
+	runRunnerLockContender(t, native, "stop", false)
 }
 
 func TestNativeRunnerLockHonorsCancellation(t *testing.T) {

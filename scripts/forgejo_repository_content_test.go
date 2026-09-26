@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestForgejoRepositoryContentOverridesRetain1507Source(t *testing.T) {
+func TestForgejoRepositoryContentOverridesRetain1509Source(t *testing.T) {
 	tests := []struct {
 		name         string
 		path         []string
@@ -35,7 +35,7 @@ func TestForgejoRepositoryContentOverridesRetain1507Source(t *testing.T) {
 			normalized := strings.Replace(contents, `class="`+tt.sodaClass+`"`, `class="`+tt.stockClass+`"`, 1)
 			got := fmt.Sprintf("%x", sha256.Sum256([]byte(normalized)))
 			if got != tt.upstreamHash {
-				t.Fatalf("override differs from pinned Forgejo 15.0.7 source beyond its page-class delta: got %s, want %s", got, tt.upstreamHash)
+				t.Fatalf("override differs from pinned Forgejo 15.0.9 source beyond its page-class delta: got %s, want %s", got, tt.upstreamHash)
 			}
 		})
 	}
@@ -70,14 +70,14 @@ func TestForgejoRepositoryContentKeepsNativeGatesAndPartials(t *testing.T) {
 	}
 }
 
-func TestForgejoWikiSearchFragmentRetains1507Structure(t *testing.T) {
+func TestForgejoWikiSearchFragmentRetains1509Structure(t *testing.T) {
 	contents := readForgejoTemplate(t, "repo", "wiki", "search.tmpl")
 	normalized := strings.Replace(readForgejoTemplateForUpstreamParity(t, "repo", "wiki", "search.tmpl"), "item soda-wiki-search-result tw-max-w", "item tw-max-w", 1)
 	normalized = strings.Replace(normalized, "item muted soda-wiki-search-empty", "item muted", 1)
 	got := fmt.Sprintf("%x", sha256.Sum256([]byte(normalized)))
 	const upstreamHash = "a1bc2b8774b415885f65ae031f74daddc1b003c48b8226528d8ad2d5044c4007"
 	if got != upstreamHash {
-		t.Fatalf("wiki search fragment differs from pinned Forgejo 15.0.7 source beyond presentation classes: got %s, want %s", got, upstreamHash)
+		t.Fatalf("wiki search fragment differs from pinned Forgejo 15.0.9 source beyond presentation classes: got %s, want %s", got, upstreamHash)
 	}
 	if templateCalls(contents)["base/head"] || templateCalls(contents)["base/footer"] {
 		t.Fatal("wiki search must remain a fragment for native HTMX replacement")
@@ -91,7 +91,7 @@ func TestForgejoReleaseTagHeaderRetainsNativePolicy(t *testing.T) {
 	got := fmt.Sprintf("%x", sha256.Sum256([]byte(normalized)))
 	const upstreamHash = "a3ab4d2a9892bad246b88e9f05f1d90835cd2958104e77cadcaeb3a0933067cc"
 	if got != upstreamHash {
-		t.Fatalf("release/tag header differs from pinned Forgejo 15.0.7 source beyond toolbar classes: got %s, want %s", got, upstreamHash)
+		t.Fatalf("release/tag header differs from pinned Forgejo 15.0.9 source beyond toolbar classes: got %s, want %s", got, upstreamHash)
 	}
 	for _, marker := range []string{
 		`$.Permission.CanRead $.UnitTypeReleases`,

@@ -82,8 +82,8 @@ attach semantics: [Terminal](terminal.md).
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET/POST | `/api/settings/runners` | List / register capacity |
-| POST | `/api/settings/runners/{runner}/{action}` | Start/Stop/Restart/Remove |
+| GET/POST | `/api/settings/runners` | List; registration returns unavailable |
+| POST | `/api/settings/runners/{runner}/{action}` | Stop/Remove; Start/Restart return unavailable |
 
 Server-side gate: session user ID must equal configured `operator_id`.
 Contracts: [Runners](runners.md).

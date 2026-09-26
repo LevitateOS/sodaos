@@ -53,19 +53,7 @@ func (coordinator Coordinator) create(ctx context.Context, input io.Reader) (Mut
 	if err := strictjson.Decode(input, &request); err != nil {
 		return MutationResponse{}, err
 	}
-	if request.Provider == ProviderForgejo {
-		request.RegistrationURL = coordinator.ForgejoURL
-		if request.RegistrationURL == "" {
-			request.RegistrationURL = BundledForgejoURL
-		}
-	}
-	if err := request.Validate(); err != nil {
-		return MutationResponse{}, err
-	}
-	if err := coordinator.Lifecycle.Create(ctx, request); err != nil {
-		return MutationResponse{}, err
-	}
-	return MutationResponse{OK: true}, nil
+	return MutationResponse{}, ErrUnavailable
 }
 
 func (coordinator Coordinator) mutate(ctx context.Context, action string, input io.Reader) (MutationResponse, error) {
@@ -76,14 +64,13 @@ func (coordinator Coordinator) mutate(ctx context.Context, action string, input 
 	if err := ValidateID(request.ID); err != nil {
 		return MutationResponse{}, err
 	}
+	if action == "start" || action == "restart" {
+		return MutationResponse{}, ErrUnavailable
+	}
 	var err error
 	switch action {
-	case "start":
-		err = coordinator.Lifecycle.Start(ctx, request.ID)
 	case "stop":
 		err = coordinator.Lifecycle.Stop(ctx, request.ID)
-	case "restart":
-		err = coordinator.Lifecycle.Restart(ctx, request.ID)
 	case "remove":
 		err = coordinator.Lifecycle.Remove(ctx, request.ID)
 	}

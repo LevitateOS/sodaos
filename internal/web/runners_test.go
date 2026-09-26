@@ -37,6 +37,7 @@ func runnerWebFixture(t *testing.T, native http.HandlerFunc) *Server {
 	})
 	return s
 }
+
 func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +76,7 @@ func TestRunnerAPIRejectsUnsupportedProviders(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners", string(input), "alice"))
-			if w.Code != 400 || calls != 0 {
+			if w.Code != 503 || calls != 0 {
 				t.Fatal("unsupported registration reached native code", w.Code, calls)
 			}
 			w = httptest.NewRecorder()
@@ -86,56 +87,26 @@ func TestRunnerAPIRejectsUnsupportedProviders(t *testing.T) {
 		})
 	}
 }
-func TestRunnerRegistrationFixedOriginAndSanitizedFailure(t *testing.T) {
+
+func TestRunnerExecutionUnavailableBeforeNativeDispatch(t *testing.T) {
 	calls := 0
-	fail := false
-	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		if r.URL.Path != "/runners/create" {
-			t.Error(r.URL.Path)
+	s := runnerWebFixture(t, func(http.ResponseWriter, *http.Request) { calls++ })
+	for _, operation := range runnerAPIRequests {
+		if operation.name != "create" && operation.name != "start" && operation.name != "restart" {
+			continue
 		}
-		var in runners.CreateRequest
-		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-			t.Error(err)
-		}
-		if in.RegistrationURL == "https://attacker.test" || in.RegistrationToken != "synthetic-registration-secret" {
-			t.Error("incorrect native input")
-		}
-		if fail {
-			w.WriteHeader(500)
-			fmt.Fprint(w, "synthetic-registration-secret")
-			return
-		}
-		fmt.Fprint(w, `{"ok":true}`)
-	})
-	body := `{"id":"one","provider":"forgejo","registration_url":"https://attacker.test","registration_id":"33834eef-e758-48c4-a676-1745426747aa","labels":"native:host","registration_token":"synthetic-registration-secret"}`
-	for _, failure := range []bool{false, true} {
-		fail = failure
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners", body, "alice"))
-		want := 200
-		if fail {
-			want = 502
-		}
-		if w.Code != want || strings.Contains(w.Body.String(), "synthetic-registration-secret") || w.Header().Get("Cache-Control") != "no-store" {
-			t.Fatal(w.Code, w.Body.String())
-		}
-	}
-	if calls != 2 {
-		t.Fatal("unexpected retry", calls)
-	}
-	for _, mutation := range []string{strings.Replace(body, "native:host", "native:docker://image", 1), strings.Replace(body, `"forgejo"`, `"evil"`, 1), strings.Replace(body, `"id":"one"`, `"id":"../one"`, 1)} {
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners", mutation, "alice"))
-		if w.Code != 400 || calls != 2 {
-			t.Fatal(w.Code, calls)
+		s.ServeHTTP(w, apiTestRequest(operation.method, operation.path, operation.body, "alice"))
+		if w.Code != 503 || calls != 0 || !strings.Contains(w.Body.String(), "runner_execution_unavailable") || strings.Contains(w.Body.String(), "synthetic-runner-secret") {
+			t.Fatal(w.Code, w.Body.String(), calls)
 		}
 	}
 }
+
 func TestRunnerLifecycleConfirmationActorAndCSRF(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; fmt.Fprint(w, `{"ok":true}`) })
-	for _, action := range []string{"start", "stop", "restart", "remove"} {
+	for _, action := range []string{"stop", "remove"} {
 		for _, body := range []string{`{}`, `{"confirm_id":""}`, `{"confirm_id":"other"}`, `{"confirm_id":"one"}`, `{"unit":"sshd"}`} {
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners/one/"+action, body, "alice"))
@@ -148,10 +119,10 @@ func TestRunnerLifecycleConfirmationActorAndCSRF(t *testing.T) {
 			}
 		}
 	}
-	if calls != 4 {
+	if calls != 2 {
 		t.Fatal(calls)
 	}
-	for _, action := range []string{"start", "stop", "restart", "remove"} {
+	for _, action := range []string{"stop", "remove"} {
 		for _, header := range []string{"X-Soda-Expected-User-ID", "X-CSRF-Token", "Origin"} {
 			body := `{}`
 			if action == "remove" {
@@ -161,12 +132,13 @@ func TestRunnerLifecycleConfirmationActorAndCSRF(t *testing.T) {
 			r.Header.Del(header)
 			w := httptest.NewRecorder()
 			s.ServeHTTP(w, r)
-			if w.Code < 400 || calls != 4 {
+			if w.Code < 400 || calls != 2 {
 				t.Fatal(action, header, w.Code, calls)
 			}
 		}
 	}
 }
+
 func TestRunnerListPublicOriginAndUnavailableNotEmpty(t *testing.T) {
 	fail := false
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
@@ -188,6 +160,7 @@ func TestRunnerListPublicOriginAndUnavailableNotEmpty(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }
+
 func TestRunnerPartialInventoryKeepsValidatedRowsAndQualifiesCounts(t *testing.T) {
 	inventory := runners.Inventory{Runners: []runners.RunnerView{{Descriptor: runners.Descriptor{ID: "one", Provider: runners.ProviderForgejo, Account: "soda-runner-one"}, Capacity: 1}}, Unavailable: []string{"two"}}
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(inventory) })

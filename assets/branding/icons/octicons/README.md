@@ -1,7 +1,7 @@
 # Spaces repository and terminal icons
 
 Unmodified `repo-16.svg`, `terminal-16.svg` and `LICENSE` from the official
-`@primer/octicons` 19.14.0 npm archive, the icon package selected by Forgejo 15.0.7.
+`@primer/octicons` 19.14.0 npm archive, the icon package selected by Forgejo 15.0.9.
 The filenames include the source version; no new workspace dependency is installed.
 
 Source: https://registry.npmjs.org/@primer/octicons/-/octicons-19.14.0.tgz

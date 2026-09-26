@@ -104,11 +104,8 @@ func (c *Controller) worker(ctx context.Context, a *factory.Attempt, r *factory.
 	if err := c.prepareWorkspace(ctx, *a, r); err != nil {
 		return factory.Result{}, err
 	}
-	secrets, err := c.credentialStrings()
+	secrets, err := c.delegateCredential(ctx, r)
 	if err != nil {
-		return factory.Result{}, err
-	}
-	if err := c.delegateCredential(ctx, r); err != nil {
 		return factory.Result{}, err
 	}
 	result, err := c.Workspace.Launch(ctx, *r)
@@ -127,9 +124,11 @@ func (c *Controller) completeWorker(ctx context.Context, a *factory.Attempt, r *
 		if err != nil || head != r.InputSHA {
 			return result, errors.New("review did not retain assigned HEAD")
 		}
-		if err := c.returnCredential(ctx, r); err != nil {
+		after, err := c.returnCredential(ctx, r)
+		if err != nil {
 			return result, err
 		}
+		secrets = append(secrets, after...)
 		if err := c.retainResult(*r, result, secrets); err != nil {
 			return result, err
 		}
@@ -143,13 +142,15 @@ func (c *Controller) publishWorker(ctx context.Context, a *factory.Attempt, r *f
 	if err != nil {
 		return result, err
 	}
-	if err := c.returnCredential(ctx, r); err != nil {
+	after, err := c.returnCredential(ctx, r)
+	if err != nil {
 		return result, err
 	}
+	secrets = append(secrets, after...)
 	if err := c.retainResult(*r, result, secrets); err != nil {
 		return result, err
 	}
-	return result, c.publish(ctx, a, *r, result, bundle)
+	return result, c.publish(ctx, a, *r, result, bundle, secrets)
 }
 
 func (c *Controller) prepareWorkspace(ctx context.Context, a factory.Attempt, r *factory.Run) error {

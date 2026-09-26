@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/coder/websocket"
 	"github.com/levitateos/sodaos/internal/host"
@@ -166,7 +167,7 @@ func (s *API) validateTerminalHandshake(ctx context.Context, r *http.Request, id
 	}
 	check, checked := context.WithTimeout(ctx, 15*time.Second)
 	defer checked()
-	if _, err := s.visibleRepository(authorized.WithContext(check), identity.session, identity.project.RepositoryID); err != nil {
+	if _, err := s.executionRepository(authorized.WithContext(check), identity.session, identity.project.RepositoryID); err != nil {
 		return nil, false
 	}
 	return authorized, true
@@ -269,7 +270,7 @@ func pumpBrowserControls(ctx context.Context, cancel context.CancelFunc, conn *w
 func (s *API) checkTerminalHeartbeat(ctx context.Context, conn *websocket.Conn, native *host.Terminal, authorized *http.Request, identity terminalSessionAuth) bool {
 	check, done := context.WithTimeout(ctx, 5*time.Second)
 	defer done()
-	_, authorityErr := s.visibleRepository(authorized.WithContext(check), identity.session, identity.project.RepositoryID)
+	_, authorityErr := s.executionRepository(authorized.WithContext(check), identity.session, identity.project.RepositoryID)
 	live := authorityErr == nil && conn.Ping(check) == nil && s.terminalCurrent(check, identity.cookie, identity.session, identity.project, identity.login)
 	if !live {
 		return false

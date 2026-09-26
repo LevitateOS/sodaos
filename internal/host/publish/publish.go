@@ -24,10 +24,11 @@ type Config struct {
 }
 
 type Request struct {
-	Attempt factory.Attempt
-	Run     factory.Run
-	Commit  string
-	Bundle  []byte
+	Attempt              factory.Attempt
+	Run                  factory.Run
+	Commit               string
+	Bundle               []byte
+	ProtectedCredentials []string
 }
 
 func Branch(attemptID string) string { return "soda/factory/" + attemptID }
@@ -87,6 +88,9 @@ func (c Config) Candidate(ctx context.Context, r Request, authorize func() error
 	}
 	defer cleanup()
 	if err = git.validateCandidate(ctx, r, c.ProtectedPaths); err != nil {
+		return err
+	}
+	if err = git.checkCredentials(ctx, r); err != nil {
 		return err
 	}
 	target := "refs/heads/" + Branch(r.Attempt.ID)

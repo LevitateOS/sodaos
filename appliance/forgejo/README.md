@@ -1,6 +1,6 @@
 # Soda Forgejo presentation overrides
 
-Targets stock Forgejo **15.0.7**. The login wrapper is adapted from the embedded
+Targets stock Forgejo **15.0.9**. The login wrapper is adapted from the embedded
 `templates/user/auth/signin.tmpl`; upstream project: https://codeberg.org/forgejo/forgejo.
 Forgejo's GPL-3.0-or-later terms apply to the adapted template; see
 [licensing obligations](../../docs/research/licensing.md). Its original embedded wrapper SHA-256:
@@ -220,7 +220,7 @@ The login illustration is unchanged.
 ## Translation scaffold
 
 [i18n/](i18n/README.md) reserves Soda-only locale additions. Native build now verifies
-the complete 15.0.7 English catalog using `locale.lock.json`, merges only that
+the complete 15.0.9 English catalog using `locale.lock.json`, merges only that
 namespace and stages the full replacement. Translation of the remaining custom
 copy remains future work; this is not evidence of a new installed catalog.
 
@@ -233,7 +233,7 @@ background. Used by the repository explorer intro.
 ## Repository explorer
 
 `templates/explore/repos.tmpl` adds the Soda intro and artwork around the unchanged
-15.0.7 explore navigation, repository search/list and pagination partials.
+15.0.9 explore navigation, repository search/list and pagination partials.
 `explore.css` scopes presentation to this wrapper. Native main navigation,
 authentication links, permission-dependent controls and repository data remain
 upstream-owned. The custom extra-links hook adds a guest theme button only here.
@@ -248,7 +248,7 @@ navigation was preserved by source inspection, not a new authenticated journey.
 
 ### People and organizations
 
-Forgejo 15.0.7 renders both directories with `explore/users.tmpl`. The override
+Forgejo 15.0.9 renders both directories with `explore/users.tmpl`. The override
 selects introductory copy using `PageIsExploreOrganizations`, uses separate generated Users and Organizations
 papercraft artwork, and retains native search, user list and pagination.
 Avatar/profile links and email/visibility conditions remain upstream-owned.
@@ -325,7 +325,7 @@ retained by composition but not newly exercised. No appliance deployment occurre
 
 ### Global Issues overview
 
-`user/dashboard/issues.tmpl` adapts the stock 15.0.7 template with a Soda intro,
+`user/dashboard/issues.tmpl` adapts the stock 15.0.9 template with a Soda intro,
 new checklist artwork, and unified issue panel. Native search syntax, type/sort
 links, open/closed counts, account/org navigation and shared issue list remain
 upstream-owned. The shared template now also applies the design to Pull requests, with its own
@@ -362,7 +362,7 @@ existing non-fixture repositories changed. The ignored one-shot execution record
 
 ### Global Milestones overview
 
-`user/dashboard/milestones.tmpl` adapts stock Forgejo 15.0.7 with the shared Soda
+`user/dashboard/milestones.tmpl` adapts stock Forgejo 15.0.9 with the shared Soda
 intro/toolbar and existing checklist artwork, a repository filter panel and separate
 milestone cards. Native repository selection, count/state/search/sort links,
 progress, deadlines, tracked time, rendered descriptions and pagination are retained.
@@ -384,7 +384,7 @@ do not blindly rerun it. No non-fixture repository writes or deployment.
 ### Notifications
 
 `user/notification/notification_div.tmpl` and `notification_subscriptions.tmpl`
-customize the stock 15.0.7 wrappers. Keep notification IDs, sequence/data hooks
+customize the stock 15.0.9 wrappers. Keep notification IDs, sequence/data hooks
 and native forms intact: Forgejo refreshes the notification partial after actions.
 `notifications.css` supplies notification metadata, visible row actions and
 responsive row placement; shared toolbar/list/empty files own the common visuals. Dedicated artwork provenance lives
@@ -393,7 +393,7 @@ were used for read/unread and empty-state checks; original states were restored.
 
 ### New Repository
 
-`repo/create.tmpl` adapts the native 15.0.7 wrapper and composes the unchanged
+`repo/create.tmpl` adapts the native 15.0.9 wrapper and composes the unchanged
 creation partials and permission gates. `components-forms.css` owns fieldsets,
 inputs, dropdowns, advanced disclosure and submit actions; `create.css` only
 adapts template-unit spacing and the native template search. Reuses the repository-folder
@@ -402,7 +402,7 @@ repository creation or appliance deployment was performed.
 
 ## Broad native page families
 
-The stock 15.0.7 repository header/settings seam now reaches 65 full-page templates;
+The stock 15.0.9 repository header/settings seam now reaches 65 full-page templates;
 account settings reaches 23; administrator and organization seams reach 58 (33 admin,
 8 organization pages, 17 organization settings). Nine secondary authentication
 wrappers add registration, recovery/reset/change-password, activation, TOTP/scratch,
@@ -435,7 +435,7 @@ selected artwork remains attributed in [historical artwork record](https://githu
 navbar toggle. Repository context uses `.Repository`, organization context uses
 `.Org`, profile/overview context uses `.ContextUser`, and secondary auth uses native
 `.Link`. Setup uses `PageIsInstall` with its own body toggle and no duplicate navbar
-toggle. Stock 15.0.7 constructs that Link
+toggle. Stock 15.0.9 constructs that Link
 from `AppSubURL` plus the escaped URL path (without query state). Prohibited login
 retains `PageIsSignIn`, so its override supplies the body toggle, just as login does.
 Account themes remain native. Source parity hashes for the adapted wrappers and
@@ -491,7 +491,7 @@ Sign-in retains its native partial with a bounded form adapter. Do not replace
 these with selectors matching every descendant form or segment on a page.
 
 `tests/forgejo/presentation/inventory.json` accounts for all 229 overrides and
-records local and embedded-15.0.7 callers, compositions, roles and required
+records local and embedded-15.0.9 callers, compositions, roles and required
 states. It is test-only, not routing configuration. Role-only source hashes
 complement the existing exact upstream-body tests; they do not constitute visual
 verification. The reference gallery renders production intro/empty partials,
@@ -572,7 +572,7 @@ account preference writes or substitute authentication state is introduced.
 
 The test-only presentation inventory records all overrides/native callers and
 reviewed structural changes. `settings-native-contracts.json` records native
-15.0.7 form controls and capability conditions, separately from presentation
+15.0.9 form controls and capability conditions, separately from presentation
 hashes. Existing native gate tests and explicit shared-root rendering checks
 remain required. The gallery uses production navigation and the actual CSS
 registry with minimal native form, preference, security and inventory fixtures.
@@ -713,7 +713,7 @@ focus, submitted values, validation, dirty-form behavior, IDs, permissions,
 methods/actions and destructive confirmations are preserved. No fields are
 submitted, credentials generated or repository state changed by the enhancement.
 
-`repository-settings-native-contracts.json` records exact 15.0.7 controls,
+`repository-settings-native-contracts.json` records exact 15.0.9 controls,
 conditions and script hooks for the 22 settings leaves and four unit partials.
 The Go navigation test compares all 256 feature/permission combinations with the
 exact native navbar. Non-opted organization/administrator shared-partial bodies

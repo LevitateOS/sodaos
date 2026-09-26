@@ -5,40 +5,77 @@ import {chromium} from 'playwright';
 import type {Page} from 'playwright';
 import {decodeRunnerResponse} from '../../frontend/runners/soda-runner-response';
 import type {Runner} from '../../frontend/runners/soda-runner-types';
-import {capturePageFixture} from '../../scripts/screenshot';
 import payload from '../../internal/release/build/forgejo-payload.json';
 import {object} from '../../frontend/spaces/sodaspaces-api';
 
 const origin = process.env.SODA_PAGE_ORIGIN || 'https://forgejo.example.test';
 const actor = process.env.SODA_PAGE_ACTOR || '1';
 const componentOnly = process.env.SODA_RUNNERS_COMPONENT === '1';
-assert(!(componentOnly && process.env.SODA_PAGE_ORIGIN), 'Component fixtures never substitute for native-page consumers');
+assert(
+  !(componentOnly && process.env.SODA_PAGE_ORIGIN),
+  'Component fixtures never substitute for native-page consumers'
+);
 const browserCase = {skip: !process.env.SODA_PAGE_ORIGIN && !componentOnly};
 const files: Record<string, string> = payload;
 const exampleRunner = (): Runner => ({
-  id: 'one', provider: 'forgejo', registration_url: origin,
-  account: 'soda-runner-one', architecture: 'x86-64', version: 'fixture', capacity: 1,
+  id: 'one',
+  provider: 'forgejo',
+  registration_url: origin,
+  account: 'soda-runner-one',
+  architecture: 'x86-64',
+  version: 'fixture',
+  capacity: 1,
   service: {load: 'loaded', active: 'active', sub: 'running', enabled: 'enabled'},
 });
 
 async function runnersPage(t: TestContext, mode = 'html') {
-  const browser = await chromium.launch({headless: true, chromiumSandbox: true, ignoreDefaultArgs: ['--disable-back-forward-cache']});
+  const browser = await chromium.launch({
+    headless: true,
+    chromiumSandbox: true,
+    ignoreDefaultArgs: ['--disable-back-forward-cache'],
+  });
   t.after(() => browser.close());
   const page = await browser.newPage({ignoreHTTPSErrors: true, storageState: process.env.SODA_PAGE_STATE || ''});
   const errors: string[] = [];
-  page.on('pageerror', error => errors.push(error.message));
-  const state = {runners: [] as unknown[], unavailable: [] as string[], csrf: 'csrf-alice', failList: false, omitForgejo: false, mutationStatus: 200, sessionStatus: 200, actor, operator: mode !== 'denied', logoutStatus: 204, logoutRequests: 0, sessionReads: 0, page: mode};
+  page.on('pageerror', (error) => errors.push(error.message));
+  const state = {
+    runners: [] as unknown[],
+    unavailable: [] as string[],
+    csrf: 'csrf-alice',
+    failList: false,
+    omitForgejo: false,
+    mutationStatus: 200,
+    sessionStatus: 200,
+    actor,
+    operator: mode !== 'denied',
+    logoutStatus: 204,
+    logoutRequests: 0,
+    sessionReads: 0,
+    page: mode,
+  };
   const mutations: {path: string; body: Record<string, unknown>}[] = [];
-  await page.route(origin + '/**', async route => {
-    const request = route.request(), pathname = new URL(request.url()).pathname;
+  await page.route(origin + '/**', async (route) => {
+    const request = route.request(),
+      pathname = new URL(request.url()).pathname;
     if (pathname === '/user/logout') return route.fulfill({status: 503, body: 'Synthetic native logout failure'});
     if (pathname === '/-/soda/api/session') {
       state.sessionReads++;
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);
-      await route.fulfill({status: state.sessionStatus, json: {user: {id: state.actor, login: 'alice'}, csrf_token: state.csrf, soda_operator: state.operator, forgejo_url: origin}});
+      await route.fulfill({
+        status: state.sessionStatus,
+        json: {
+          user: {id: state.actor, login: 'alice'},
+          csrf_token: state.csrf,
+          soda_operator: state.operator,
+          forgejo_url: origin,
+        },
+      });
       return;
     }
-    if (pathname === '/-/soda/api/login/cancel') {await route.fulfill({status: 204}); return;}
+    if (pathname === '/-/soda/api/login/cancel') {
+      await route.fulfill({status: 204});
+      return;
+    }
     if (pathname === '/-/soda/api/session/logout') {
       state.logoutRequests++;
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);
@@ -49,26 +86,58 @@ async function runnersPage(t: TestContext, mode = 'html') {
     }
     if (pathname.startsWith('/-/soda/api/settings/runners')) {
       assert.equal(request.headers()['x-soda-expected-user-id'], actor);
-      if (state.sessionStatus !== 200 || !state.operator || state.actor !== actor || (request.method() === 'POST' && request.headers()['x-csrf-token'] !== state.csrf)) return route.fulfill({status:403, json:{error:{code:'reauthentication_required'}}});
+      if (
+        state.sessionStatus !== 200 ||
+        !state.operator ||
+        state.actor !== actor ||
+        (request.method() === 'POST' && request.headers()['x-csrf-token'] !== state.csrf)
+      )
+        return route.fulfill({status: 403, json: {error: {code: 'reauthentication_required'}}});
       if (request.method() === 'POST') {
         assert.equal(request.headers()['x-csrf-token'], 'csrf-alice');
         const body: unknown = request.postDataJSON();
         assert(body && typeof body === 'object' && !Array.isArray(body));
         mutations.push({path: pathname, body: {...body}});
         if (state.mutationStatus === 200) state.runners = pathname.endsWith('/remove') ? [] : [exampleRunner()];
-        await route.fulfill({status: state.mutationStatus, json: state.mutationStatus === 200 ? {ok: true} : {error: {message: 'must-not-render-native-secret'}}});
+        await route.fulfill({
+          status: state.mutationStatus,
+          json: state.mutationStatus === 200 ? {ok: true} : {error: {message: 'must-not-render-native-secret'}},
+        });
         return;
       }
-      const complete = state.unavailable.length === 0 && state.runners.every(row => object(row).service !== null && object(row).version !== '');
-      const active = state.runners.filter(row => {const service = object(row).service; return service !== null && object(service).active === 'active' && object(service).sub === 'running';}).length;
-      await route.fulfill({status: state.failList ? 503 : 200, json: {complete, unavailable:state.unavailable, runners: state.runners, runner_count: state.runners.length, active_listeners: active, total_capacity: state.runners.length, ...(state.omitForgejo ? {} : {forgejo_url: origin})}});
+      const complete =
+        state.unavailable.length === 0 &&
+        state.runners.every((row) => object(row).service !== null && object(row).version !== '');
+      const active = state.runners.filter((row) => {
+        const service = object(row).service;
+        return service !== null && object(service).active === 'active' && object(service).sub === 'running';
+      }).length;
+      await route.fulfill({
+        status: state.failList ? 503 : 200,
+        json: {
+          complete,
+          unavailable: state.unavailable,
+          runners: state.runners,
+          runner_count: state.runners.length,
+          active_listeners: active,
+          total_capacity: state.runners.length,
+          ...(state.omitForgejo ? {} : {forgejo_url: origin}),
+        },
+      });
       return;
     }
     if (componentOnly) {
-      if (pathname === '/admin') return route.fulfill({contentType:'text/html', body:`<!doctype html><meta name="viewport" content="width=device-width"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda-settings.css"><nav id="navbar"><a href="#" class="link-action" data-url="/user/logout">Native logout fixture</a></nav><div id="soda-settings-link" data-actor="${actor}" data-sub-url=""></div><div id="soda-native-content" class="soda-settings soda-runner-settings" data-actor="${actor}" data-view="runners" data-document-title="Runners component fixture"></div><script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>`});
-      const source = files['public' + pathname]; assert(source, 'Unmapped component asset');
-      const file = source.startsWith('@build/forgejo-js/') ? '.artifacts/forgejo-js/' + source.split('/').at(-1) : source;
-      return route.fulfill({path:new URL('../../' + file, import.meta.url).pathname});
+      if (pathname === '/admin')
+        return route.fulfill({
+          contentType: 'text/html',
+          body: `<!doctype html><meta name="viewport" content="width=device-width"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda-settings.css"><nav id="navbar"><a href="#" class="link-action" data-url="/user/logout">Native logout fixture</a></nav><div id="soda-settings-link" data-actor="${actor}" data-sub-url=""></div><div id="soda-native-content" class="soda-settings soda-runner-settings" data-actor="${actor}" data-view="runners" data-document-title="Runners component fixture"></div><script type="module" src="/assets/soda/forgejo/soda-native-page.js"></script>`,
+        });
+      const source = files['public' + pathname];
+      assert(source, 'Unmapped component asset');
+      const file = source.startsWith('@build/forgejo-js/')
+        ? '.artifacts/forgejo-js/' + source.split('/').at(-1)
+        : source;
+      return route.fulfill({path: new URL('../../' + file, import.meta.url).pathname});
     }
     await route.continue();
   });
@@ -76,12 +145,6 @@ async function runnersPage(t: TestContext, mode = 'html') {
   if (mode === 'html') await page.getByText('No local runners registered.').waitFor();
   t.after(() => assert.deepEqual(errors, []));
   return {page, state, mutations};
-}
-async function registerDraft(page: Page) {
-  await page.getByLabel('Local runner ID', {exact: true}).fill('one');
-  await page.getByLabel('Forgejo runner UUID').fill('33834eef-e758-48c4-a676-1745426747aa');
-  await page.getByLabel('Labels', {exact: true}).fill('native:host');
-  await page.getByLabel('Registration token', {exact: true}).fill('synthetic-secret-never-store');
 }
 async function settled(page: Page) {
   await page.waitForFunction(() => !document.querySelector<HTMLButtonElement>('soda-runners button')?.disabled);
@@ -97,19 +160,41 @@ async function restore(page: Page) {
 // Deliberately ignore abort for one response. A browser/transport abort alone must
 // not be the implementation's guard against publishing or dispatching old work.
 async function pauseNextFetch(page: Page, kind: 'session' | 'list' | 'mutation') {
-  await page.evaluate(kind => {
+  await page.evaluate((kind) => {
     const original = window.fetch;
     let armed = true;
     window.fetch = Object.assign(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      const matches = kind === 'session' ? url.endsWith('/api/session') : url.includes('/api/settings/runners') && (kind === 'mutation' ? init?.method === 'POST' : init?.method === 'GET');
+      const matches =
+        kind === 'session'
+          ? url.endsWith('/api/session')
+          : url.includes('/api/settings/runners') &&
+            (kind === 'mutation' ? init?.method === 'POST' : init?.method === 'GET');
       if (!armed || !matches) return original(input, init);
       armed = false;
       document.documentElement.dataset.pausedRunnerFetch = kind;
-      await new Promise<void>(resolve => window.addEventListener('release-runner-fetch', () => resolve(), {once: true}));
-      const json = kind === 'session'
-        ? {user: {id: document.getElementById('soda-native-content')?.dataset.actor, login: 'alice'}, csrf_token: 'old-csrf', soda_operator: true, forgejo_url: location.origin}
-        : kind === 'mutation' ? {ok: true} : {forgejo_url: location.origin, complete:true, unavailable:[], runners: [], runner_count: 0, active_listeners: 0, total_capacity: 0};
+      await new Promise<void>((resolve) =>
+        window.addEventListener('release-runner-fetch', () => resolve(), {once: true})
+      );
+      const json =
+        kind === 'session'
+          ? {
+              user: {id: document.getElementById('soda-native-content')?.dataset.actor, login: 'alice'},
+              csrf_token: 'old-csrf',
+              soda_operator: true,
+              forgejo_url: location.origin,
+            }
+          : kind === 'mutation'
+            ? {ok: true}
+            : {
+                forgejo_url: location.origin,
+                complete: true,
+                unavailable: [],
+                runners: [],
+                runner_count: 0,
+                active_listeners: 0,
+                total_capacity: 0,
+              };
       return new Response(JSON.stringify(json), {headers: {'Content-Type': 'application/json'}});
     }, original);
   }, kind);
@@ -117,378 +202,218 @@ async function pauseNextFetch(page: Page, kind: 'session' | 'list' | 'mutation')
 async function releaseFetch(page: Page) {
   await page.evaluate(() => window.dispatchEvent(new Event('release-runner-fetch')));
   // Let chained async continuations and Lit updates settle without a wall-clock sleep.
-  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+  );
 }
 
 test('runner response enforces native one-slot validation', () => {
-  assert.throws(() => decodeRunnerResponse('list', {runners: [], runner_count: 1, active_listeners: 0, total_capacity: 0}));
+  assert.throws(() =>
+    decodeRunnerResponse('list', {runners: [], runner_count: 1, active_listeners: 0, total_capacity: 0})
+  );
   assert.throws(() => decodeRunnerResponse('remove', {ok: false}));
-  assert.throws(() => decodeRunnerResponse('list', {runners: [], runner_count: 0, active_listeners: -1, total_capacity: 0}));
-  assert.equal(decodeRunnerResponse('start', {ok: true}).ok, true);
-  const omittedOrigin = {complete: true, unavailable: [], runners: [], runner_count: 0, active_listeners: 0, total_capacity: 0};
+  assert.throws(() =>
+    decodeRunnerResponse('list', {runners: [], runner_count: 0, active_listeners: -1, total_capacity: 0})
+  );
+  assert.equal(decodeRunnerResponse('stop', {ok: true}).ok, true);
+  const omittedOrigin = {
+    complete: true,
+    unavailable: [],
+    runners: [],
+    runner_count: 0,
+    active_listeners: 0,
+    total_capacity: 0,
+  };
   assert.deepEqual(decodeRunnerResponse('list', omittedOrigin), omittedOrigin);
 });
 
 test('partial runner response retains known rows and refuses false completeness or counts', () => {
   const row = exampleRunner();
-  const partial = {forgejo_url:origin, complete:false, unavailable:['broken'], runners:[row, {...row,id:'two',account:'soda-runner-two',service:null,version:''}], runner_count:2, active_listeners:1, total_capacity:2};
+  const partial = {
+    forgejo_url: origin,
+    complete: false,
+    unavailable: ['broken'],
+    runners: [row, {...row, id: 'two', account: 'soda-runner-two', service: null, version: ''}],
+    runner_count: 2,
+    active_listeners: 1,
+    total_capacity: 2,
+  };
   assert.deepEqual(decodeRunnerResponse('list', partial), partial);
-  for (const change of [{complete:true}, {total_capacity:3}, {active_listeners:2}, {unavailable:['one']}, {unavailable:['../bad']}, {unavailable:['broken','broken']}]) assert.throws(() => decodeRunnerResponse('list', {...partial,...change}));
-  assert.throws(() => decodeRunnerResponse('list', {...partial,runners:[{...row,account:'root'},partial.runners[1]]}));
+  for (const change of [
+    {complete: true},
+    {total_capacity: 3},
+    {active_listeners: 2},
+    {unavailable: ['one']},
+    {unavailable: ['../bad']},
+    {unavailable: ['broken', 'broken']},
+  ])
+    assert.throws(() => decodeRunnerResponse('list', {...partial, ...change}));
+  assert.throws(() =>
+    decodeRunnerResponse('list', {...partial, runners: [{...row, account: 'root'}, partial.runners[1]]})
+  );
 });
 
-test('omitted Forgejo origin keeps local inventory available', browserCase, async t => {
+test('omitted Forgejo origin keeps local inventory available', browserCase, async (t) => {
   const {page, state} = await runnersPage(t);
   state.omitForgejo = true;
-  await page.getByRole('button', {name:'Refresh status'}).click(); await settled(page);
+  await page.getByRole('button', {name: 'Refresh status'}).click();
+  await settled(page);
   await page.getByText('No local runners registered.').waitFor();
 });
 
-test('partial inventory shows unknown capacity without locking readable runner actions', browserCase, async t => {
+test('partial inventory shows unknown capacity without locking readable runner actions', browserCase, async (t) => {
   const {page, state, mutations} = await runnersPage(t);
-  state.runners = [exampleRunner(), {...exampleRunner(),id:'two',account:'soda-runner-two',service:null,version:''}];
+  state.runners = [
+    exampleRunner(),
+    {...exampleRunner(), id: 'two', account: 'soda-runner-two', service: null, version: ''},
+  ];
   state.unavailable = ['broken'];
-  await page.getByRole('button', {name:'Refresh status'}).click(); await settled(page);
-  await page.getByRole('heading', {name:'Partial local observations'}).waitFor();
+  await page.getByRole('button', {name: 'Refresh status'}).click();
+  await settled(page);
+  await page.getByRole('heading', {name: 'Partial local observations'}).waitFor();
   await page.getByText(/not complete or available capacity/).waitFor();
   await page.getByText(/Service and boot policy unavailable/).waitFor();
-  assert.equal(await page.getByRole('button', {name:'start broken',exact:true}).count(), 0);
-  assert(!await page.getByRole('button', {name:'start one',exact:true}).isDisabled());
-  assert(!await page.getByRole('button', {name:'Register and start listener'}).isDisabled());
-  await page.getByRole('button', {name:'start one',exact:true}).click();
-  await page.getByRole('button', {name:'Cancel',exact:true}).click();
+  assert.equal(await page.getByRole('button', {name: 'start broken', exact: true}).count(), 0);
+  assert(!(await page.getByRole('button', {name: 'stop one', exact: true}).isDisabled()));
+  await page.getByRole('button', {name: 'stop one', exact: true}).click();
+  await page.getByRole('button', {name: 'Cancel', exact: true}).click();
   assert.equal(mutations.length, 0);
 });
 
-test('same-actor CSRF rotation is refused by the operation rather than adopted', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  await registerDraft(page); state.csrf = 'rotated-csrf';
-  await page.getByRole('button', {name:'Register and start listener'}).click(); await settled(page);
-  await page.getByRole('link', {name:'Reconnect explicitly',exact:true}).waitFor();
-  assert.equal(mutations.length, 0); assert.equal(state.sessionReads, 1);
-  assert.equal(await page.getByLabel('Registration token', {exact:true}).inputValue(), '');
-});
-
-test('emitted Runners registers Forgejo with proportional exact-target confirmations', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  assert.equal(mutations.length, 0);
-  await registerDraft(page);
-  await page.getByRole('button', {name: 'Register and start listener'}).click();
-  await page.getByRole('button', {name: 'start one', exact: true}).waitFor();
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  assert.equal(mutations[0]?.body.registration_token, 'synthetic-secret-never-store');
-  assert.equal(mutations[0]?.body.registration_url, '');
-  assert(!await page.evaluate(() => document.documentElement.outerHTML.includes('synthetic-secret-never-store') || JSON.stringify(localStorage).includes('synthetic-secret-never-store') || JSON.stringify(sessionStorage).includes('synthetic-secret-never-store')));
-  for (const action of ['start', 'stop', 'restart', 'remove']) {
-    await page.getByRole('button', {name: `${action} one`, exact: true}).click();
-    const warning = await page.getByRole('region', {name: 'Confirm runner operation'}).innerText();
-    const effects: Record<string, RegExp> = {
-      start: /enable host-boot start.*does not register or repair/,
-      stop: /disable host-boot start.*active job may be interrupted/,
-      restart: /Boot start will be enabled.*previously stopped/,
-      remove: /provider credentials, dependencies, work files and uncommitted job changes.*Provider registration and history remain/,
-    };
-    assert.match(warning, effects[action] ?? /unexpected action/);
-    if (action === 'remove') {
-      for (const wrong of [' one', 'wrong']) {
-        await page.getByLabel('Exact runner ID').fill(wrong);
-        await page.getByRole('button', {name: `Confirm ${action}`, exact: true}).click();
-        await page.getByText('Type the exact runner ID to confirm.').waitFor();
-      }
-      await page.getByLabel('Exact runner ID').fill('one');
-    } else {
-      assert.equal(await page.getByLabel('Exact runner ID').count(), 0);
-      assert(await page.getByRole('button', {name:'Cancel', exact:true}).evaluate(el => el === document.activeElement));
-    }
-    await page.getByRole('button', {name: `Confirm ${action}`, exact: true}).click();
-    await settled(page);
-  }
-  assert.equal(mutations.length, 5);
-  assert.equal(await page.getByRole('combobox').count(), 0);
-  assert.equal(await page.locator('input[name=registration_url]').count(), 0);
-  assert.equal(state.sessionReads, 1);
-  assert.deepEqual(mutations.slice(1).map(value => value.body), [{}, {}, {}, {confirm_id:'one'}]);
-});
-
-test('pending registration clears credentials, rejects duplicate dispatch and preserves confirmed operation with failed readback', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  await registerDraft(page);
-  await pauseNextFetch(page, 'mutation');
-  await page.getByRole('button', {name: 'Register and start listener'}).click();
-  await page.waitForFunction(() => document.documentElement.dataset.pausedRunnerFetch === 'mutation');
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  assert.equal(await page.getByRole('button', {name: 'Register and start listener'}).isDisabled(), true);
-  assert(!await page.evaluate(() => document.documentElement.outerHTML.includes('synthetic-secret-never-store') || JSON.stringify(localStorage).includes('synthetic-secret-never-store') || JSON.stringify(sessionStorage).includes('synthetic-secret-never-store')));
-  // Direct form dispatch also cannot bypass the busy guard.
-  await page.locator('input[name=id]').evaluate(input => input.closest('form')?.dispatchEvent(new SubmitEvent('submit', {bubbles: true, cancelable: true})));
-  state.failList = true;
-  await releaseFetch(page); await settled(page);
-  await page.getByText(/Native operation confirmed/).waitFor();
-  await page.getByText('Local refresh failed; shown observations are stale.').waitFor();
-  assert.equal(mutations.length, 0, 'only the intercepted request was sent');
-  state.failList = false; state.runners = [exampleRunner()];
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).waitFor();
-  await page.getByText(/Native operation confirmed/).waitFor();
-});
-
-test('failed registration refreshes retained capacity without erasing uncertainty or leaking diagnostics', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  state.runners = [exampleRunner()]; state.mutationStatus = 502;
-  await registerDraft(page);
-  await page.getByRole('button', {name: 'Register and start listener'}).click(); await settled(page);
-  await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).waitFor();
-  await page.getByText(/Operation unconfirmed:/).waitFor();
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  assert(!(await page.locator('body').innerText()).includes('must-not-render-native-secret'));
-  assert.equal(mutations.length, 1);
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  await page.getByText(/Operation unconfirmed:/).waitFor();
-  assert.equal(mutations.length, 1);
-});
-
-test('synchronous transport failure clears registration secrets and remains unconfirmed', browserCase, async t => {
-  const {page, mutations} = await runnersPage(t);
-  await registerDraft(page);
-  await page.evaluate(() => {
-    const original = window.fetch;
-    window.fetch = Object.assign((input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === 'POST') throw Error('synthetic transport secret');
-      return original(input, init);
-    }, original);
-  });
-  await page.getByRole('button', {name: 'Register and start listener'}).click(); await settled(page);
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  await page.getByText(/Operation unconfirmed:/).waitFor();
-  assert(!(await page.locator('body').innerText()).includes('synthetic transport secret'));
-  assert.equal(mutations.length, 0);
-});
-
-test('Forgejo links use only the configured public origin and unsupported observations fail closed', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  assert.equal(await page.getByRole('link', {name: 'Forgejo Actions administration', exact: true}).getAttribute('href'), origin + '/admin/actions/runners');
-  for (const address of ['http://internal-only:3000', 'javascript:alert(1)', 'https://external.example.test/repo']) {
-    state.runners = [{...exampleRunner(), registration_url: address}];
-    await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-    assert.equal(await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).getAttribute('href'), origin);
-    assert(!(await page.locator('body').innerText()).includes(address));
-  }
-  state.runners = [{...exampleRunner(), provider: 'github'}];
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  await page.getByRole('heading', {name: 'Stale observations'}).waitFor();
-  assert.equal(await page.getByRole('button', {name: 'Register and start listener'}).isDisabled(), true);
-  assert.equal(await page.getByRole('link', {name: /GitHub/}).count(), 0);
-  assert.equal(mutations.length, 0);
-});
-
-test('Forgejo field guidance and changed actors prevent invalid registration', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  await registerDraft(page);
-  await page.getByLabel('Labels', {exact: true}).fill('soda-linux');
-  await page.getByRole('button', {name: 'Register and start listener'}).click();
-  assert.match(await page.getByLabel('Labels', {exact: true}).evaluate(node => node instanceof HTMLInputElement ? node.validationMessage : ''), /name:host/);
-  assert.equal(mutations.length, 0);
-  await page.getByLabel('Labels', {exact: true}).fill('soda-linux:host');
-  await page.getByLabel('Forgejo runner UUID').fill('invalid');
-  await page.getByRole('button', {name: 'Register and start listener'}).click();
-  assert.equal(mutations.length, 0);
-  await page.getByLabel('Forgejo runner UUID').fill('33834eef-e758-48c4-a676-1745426747aa');
-  state.actor = '2';
-  await page.getByRole('button', {name: 'Register and start listener'}).click(); await settled(page);
-  await page.getByRole('link', {name:'Reconnect explicitly',exact:true}).waitFor();
-  assert.equal(mutations.length, 0);
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-});
-
-test('pagehide scrubs tokens immediately and restoration requires fresh authority', browserCase, async t => {
+test('cleanup retains exact-target confirmation while execution controls are unavailable', browserCase, async (t) => {
   const {page, state, mutations} = await runnersPage(t);
   state.runners = [exampleRunner()];
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  await registerDraft(page);
-  await page.getByRole('button', {name: 'remove one', exact: true}).click();
-  await hide(page);
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  assert.equal(await page.getByRole('button', {name: 'Register and start listener'}).isDisabled(), true);
-  assert.equal(await page.getByRole('region', {name: 'Confirm runner operation'}).count(), 0);
-  state.sessionStatus = 401;
-  await restore(page);
-  await page.getByText('Reconnect explicitly').waitFor();
-  assert.equal(await page.getByRole('region', {name: 'Local runner inventory'}).count(), 0);
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  assert.equal(mutations.length, 0);
-});
-
-test('retired operation and sign-out continuations cannot publish or adopt a later owner', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  await registerDraft(page);
-  await pauseNextFetch(page, 'mutation');
-  await page.getByRole('button', {name: 'Register and start listener'}).click();
-  await page.waitForFunction(() => document.documentElement.dataset.pausedRunnerFetch === 'mutation');
-  await page.evaluate(() => {
-    const element = document.querySelector('soda-runners'); assertElement(element);
-    const parent = element.parentElement; assertElement(parent);
-    element.remove(); parent.append(element);
-    function assertElement(value: Element | null): asserts value is Element {if (!value) throw Error('Missing fixture element');}
-  });
-  await settled(page);
-  await releaseFetch(page);
-  assert.equal(mutations.length, 0);
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  assert.match(await page.locator('.settings-notice').innerText(), /Operation unconfirmed/);
-  await pauseNextFetch(page, 'session');
-  await page.getByRole('button', {name: 'Sign out', exact: true}).click();
-  await hide(page);
-  await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', {persisted: true})));
-  await releaseFetch(page);
-  assert.equal(state.logoutRequests, 0);
-  await page.getByText(/Soda sign-out could not be confirmed/).waitFor();
-});
-
-test('late inventory and mutation replies cannot replace a restored page or replay effects', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  await pauseNextFetch(page, 'list');
   await page.getByRole('button', {name: 'Refresh status'}).click();
-  await page.waitForFunction(() => document.documentElement.dataset.pausedRunnerFetch === 'list');
-  await hide(page); state.runners = [exampleRunner()]; await restore(page);
-  await releaseFetch(page);
-  await page.getByRole('link', {name: 'Open one in Forgejo', exact: true}).waitFor();
-  await pauseNextFetch(page, 'mutation');
+  await settled(page);
+  await page.getByText(/Local CI execution is unavailable/).waitFor();
+  assert.equal(await page.getByRole('button', {name: 'Register and start listener'}).count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'start one', exact: true}).count(), 0);
+  assert.equal(await page.getByRole('button', {name: 'restart one', exact: true}).count(), 0);
+  assert.equal(await page.locator('input[type=password]').count(), 0);
+  await page.getByRole('button', {name: 'remove one', exact: true}).click();
+  await page.getByLabel('Exact runner ID').fill('wrong');
+  await page.getByRole('button', {name: 'Confirm remove', exact: true}).click();
+  await page.getByText('Type the exact runner ID to confirm.').waitFor();
+  assert.equal(mutations.length, 0);
+  await page.getByLabel('Exact runner ID').fill('one');
+  await page.getByRole('button', {name: 'Confirm remove', exact: true}).click();
+  await settled(page);
+  assert.deepEqual(
+    mutations.map((value) => value.body),
+    [{confirm_id: 'one'}]
+  );
+});
+
+test('cleanup rechecks authority and preserves uncertain outcomes without replay', browserCase, async (t) => {
+  const {page, state, mutations} = await runnersPage(t);
+  state.runners = [exampleRunner()];
+  await page.getByRole('button', {name: 'Refresh status'}).click();
+  await settled(page);
+  state.mutationStatus = 502;
   await page.getByRole('button', {name: 'stop one', exact: true}).click();
   await page.getByRole('button', {name: 'Confirm stop', exact: true}).click();
-  await page.waitForFunction(() => document.documentElement.dataset.pausedRunnerFetch === 'mutation');
-  await hide(page); await restore(page); await releaseFetch(page);
+  await settled(page);
   await page.getByText(/Operation unconfirmed:/).waitFor();
-  assert.equal(mutations.length, 0, 'intercepted request is never replayed to the HTTP peer');
-  assert(!await page.getByText(/Native operation confirmed/).count());
-  assert.equal(await page.getByRole('region', {name: 'Confirm runner operation'}).count(), 0);
-});
-
-test('unconfirmed operations survive refresh; auth loss scrubs drafts and hides inventory', browserCase, async t => {
-  const {page, state, mutations} = await runnersPage(t);
-  await registerDraft(page); state.mutationStatus = 502;
-  await page.getByRole('button', {name: 'Register and start listener'}).click(); await settled(page);
-  await page.getByText(/Operation unconfirmed:/).waitFor();
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  await page.getByText(/Operation unconfirmed:/).waitFor();
-  assert(!(await page.locator('body').innerText()).includes('must-not-render-native-secret'));
-  state.failList = true;
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  await page.getByRole('heading', {name: 'Stale observations'}).waitFor();
-  assert.equal(await page.getByRole('button', {name: 'Register and start listener'}).isDisabled(), true);
-  state.failList = false;
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  await page.getByLabel('Registration token', {exact: true}).fill('unsent-after-operation');
-  state.operator = false;
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  await page.getByText('Reconnect explicitly').waitFor();
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  assert.equal(await page.getByRole('region', {name: 'Local runner inventory'}).count(), 0);
+  await page.getByRole('button', {name: 'Refresh status'}).click();
+  await settled(page);
   assert.equal(mutations.length, 1);
+  assert(!(await page.locator('body').innerText()).includes('must-not-render-native-secret'));
+  state.csrf = 'rotated-csrf';
+  await page.getByRole('button', {name: 'stop one', exact: true}).click();
+  await page.getByRole('button', {name: 'Confirm stop', exact: true}).click();
+  await settled(page);
+  await page.getByRole('link', {name: 'Reconnect explicitly', exact: true}).waitFor();
+  assert.equal(mutations.length, 1);
+  assert.equal(await page.getByRole('region', {name: 'Local runner inventory'}).count(), 0);
 });
 
-test('Soda logout clears credentials on success and unconfirmed failure', browserCase, async t => {
-  const {page, state} = await runnersPage(t);
-  await registerDraft(page); state.logoutStatus = 503;
-  await page.getByRole('button', {name: 'Sign out', exact: true}).click();
-  await page.getByText(/Soda sign-out could not be confirmed/).waitFor();
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-  state.logoutStatus = 204;
-  await page.getByRole('button', {name: 'Retry sign-out'}).click();
-  await page.getByRole('button', {name: 'Retry Forgejo sign-out'}).waitFor();
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
-});
-
-test('native runner controls refuse non-operator access without listing or mutation', browserCase, async t => {
- const {page, mutations} = await runnersPage(t, 'denied');
- await page.getByText('Operator authorization unavailable.', {exact: false}).waitFor();
- assert.equal(await page.getByLabel('Registration token', {exact: true}).isDisabled(), true);
- assert.equal(mutations.length, 0);
-});
-
-test('populated runner pages keep long inventory, drafts and keyboard controls usable without writes', browserCase, async t => {
-  const {page,state,mutations}=await runnersPage(t);
-  state.runners=Array.from({length:24},(_,index)=>({...exampleRunner(),id:'runner-'+index,
-    account:'soda-runner-runner-'+index,version:'fixture-version-'+ 'long-native-version-'.repeat(12)}));
-  await registerDraft(page);
-  for(const colorScheme of ['light','dark'] as const) {
-    await page.emulateMedia({colorScheme});
-    for(const width of [360,768,1440]) {
-      await page.setViewportSize({width,height:720});
-      await page.getByRole('button',{name:'Refresh status',exact:true}).click(); await settled(page);
-      await page.evaluate(()=>document.fonts.ready);
-      assert.equal(await page.locator('soda-runners .settings-runner').count(),24);
-      assert.equal(await page.getByLabel('Local runner ID',{exact:true}).inputValue(),'one');
-      assert.equal(await page.getByLabel('Registration token',{exact:true}).inputValue(),'synthetic-secret-never-store');
-      const metrics=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,height:innerHeight,content:document.documentElement.scrollHeight}));
-      if (metrics.scroll !== metrics.width) t.diagnostic(JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('body *')].filter(node => node.getBoundingClientRect().right > innerWidth + 1).map(node => ({tag: node.tagName, class: node.className, right: node.getBoundingClientRect().right, width: node.getBoundingClientRect().width})).slice(0, 25))));
-      assert.equal(metrics.scroll,metrics.width,'Long inventory caused document horizontal overflow');
-      assert(metrics.content > metrics.height,'Fixture must exercise vertical scrolling');
-      const remove=page.getByRole('button',{name:'remove runner-23',exact:true});
-      await remove.scrollIntoViewIfNeeded(); await remove.focus(); await page.keyboard.press('Enter');
-      const confirmation=page.getByLabel('Exact runner ID',{exact:true});
-      assert(await confirmation.evaluate(node=>node === document.activeElement));
-      await confirmation.scrollIntoViewIfNeeded();
-      const box=await confirmation.boundingBox();
-      // Chromium scroll offsets are quantized; DOM rectangles retain subpixels.
-      // Permit only the same one-CSS-pixel rounding used by layout checks.
-      assert(box && box.x >= -1 && box.x+box.width <= width+1 && box.y >= -1 && box.y+box.height <= 721,
-        JSON.stringify({colorScheme, width, confirmation: box}));
-      await page.keyboard.press('Escape');
-      assert(await remove.evaluate(node=>node === document.activeElement));
-      assert.equal(await confirmation.count(),0);
-      assert.equal(await page.locator('#soda-native-content > soda-runners').count(),1);
-      assert.equal(mutations.length,0,'Layout/refresh/confirmation cancellation dispatched a mutation');
-    }
-  }
-  if (process.env.SODA_PAGE_CAPTURES) {
-    await assert.rejects(capturePageFixture(page, 'runners-credential-refusal', 'soda-runners', 'light'), /Credential-entry captures are not permitted/);
-  }
-  // History retirement still scrubs the secret even after scrolling/refreshing
-  // a populated owner. This event is synthetic, not a real BFCache receipt.
-  await hide(page); await restore(page);
-  assert.equal(await page.getByLabel('Registration token',{exact:true}).inputValue(),'');
-  if (process.env.SODA_PAGE_CAPTURES) {
-    for (const theme of ['light', 'dark'] as const) for (const width of [390, 768, 1440]) {
-      await page.setViewportSize({width, height: 900});
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await capturePageFixture(page, `runners-${theme}-${width}`, 'soda-runners .settings-runner', theme);
-      const remove = page.getByRole('button', {name: 'remove runner-23', exact: true});
-      await remove.scrollIntoViewIfNeeded(); await remove.click();
-      await page.getByLabel('Exact runner ID', {exact: true}).scrollIntoViewIfNeeded();
-      await capturePageFixture(page, `runners-confirm-${theme}-${width}`, '.settings-confirmation', theme);
-      await page.getByLabel('Exact runner ID', {exact: true}).focus(); await page.keyboard.press('Escape');
-      await page.getByRole('button', {name: 'Register and start listener', exact: true}).scrollIntoViewIfNeeded();
-      await capturePageFixture(page, `runners-register-${theme}-${width}`, '[aria-labelledby=register-runner-title]', theme);
-    }
-  }
-  assert.equal(mutations.length,0);
-});
-
-test('keyboard confirmation, native Back navigation and both-theme responsive presentation', {skip: !process.env.SODA_PAGE_ORIGIN}, async t => {
+test('retired cleanup response is not shown as confirmed or replayed', browserCase, async (t) => {
   const {page, state, mutations} = await runnersPage(t);
   state.runners = [exampleRunner()];
-  await page.getByRole('button', {name: 'Refresh status'}).click(); await settled(page);
-  const remove = page.getByRole('button', {name: 'remove one', exact: true});
-  await remove.focus(); await page.keyboard.press('Enter');
-  assert.equal(await page.getByLabel('Exact runner ID').evaluate(node => node === document.activeElement), true);
-  await page.keyboard.press('Escape');
-  assert.equal(await remove.evaluate(node => node === document.activeElement), true);
-  for (const colorScheme of ['light', 'dark'] as const) {
-    await page.emulateMedia({colorScheme});
-    for (const width of [1280, 390]) {
-      await page.setViewportSize({width, height: 900});
-      await page.evaluate(() => document.fonts.ready);
-      const metrics = await page.evaluate(() => ({width: innerWidth, scroll: document.documentElement.scrollWidth, background: getComputedStyle(document.body).backgroundColor, text: getComputedStyle(document.body).color, font: getComputedStyle(document.body).fontFamily}));
-      assert.equal(metrics.scroll, metrics.width);
-      assert.match(metrics.font, /Barlow/); assert.notEqual(metrics.background, metrics.text);
-    }
-  }
-  await page.getByLabel('Registration token', {exact: true}).fill('unsent-before-back');
-  page.on('dialog', dialog => dialog.accept());
-  await page.setViewportSize({width: 1280, height: 900});
-  await page.locator('#navbar a[href="/issues"]').click();
-  await page.waitForURL('**/issues');
-  await page.goBack(); await settled(page);
-  assert.equal(await page.getByLabel('Registration token', {exact: true}).inputValue(), '');
+  await page.getByRole('button', {name: 'Refresh status'}).click();
+  await settled(page);
+  await page.getByRole('button', {name: 'stop one', exact: true}).click();
+  await pauseNextFetch(page, 'mutation');
+  await page.getByRole('button', {name: 'Confirm stop', exact: true}).click();
+  await page.waitForFunction(() => document.documentElement.dataset.pausedRunnerFetch === 'mutation');
+  await hide(page);
+  await restore(page);
+  await releaseFetch(page);
+  await page.getByText(/Operation unconfirmed:/).waitFor();
+  assert.equal(mutations.length, 0);
+  assert.equal(await page.getByText(/Native operation confirmed/).count(), 0);
+});
+
+test('runner cleanup refuses non-operator access without mutations', browserCase, async (t) => {
+  const {page, mutations} = await runnersPage(t, 'denied');
+  await page.getByText('Operator authorization unavailable.', {exact: false}).waitFor();
+  assert.equal(await page.getByRole('region', {name: 'Local runner inventory'}).count(), 0);
   assert.equal(mutations.length, 0);
 });
+
+test(
+  'populated runner pages keep long inventory, drafts and keyboard controls usable without writes',
+  browserCase,
+  async (t) => {
+    const {page, state, mutations} = await runnersPage(t);
+    state.runners = Array.from({length: 24}, (_, index) => ({
+      ...exampleRunner(),
+      id: 'runner-' + index,
+      account: 'soda-runner-runner-' + index,
+      version: 'fixture-version-' + 'long-native-version-'.repeat(12),
+    }));
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({colorScheme});
+      for (const width of [360, 768, 1440]) {
+        await page.setViewportSize({width, height: 720});
+        await page.getByRole('button', {name: 'Refresh status', exact: true}).click();
+        await settled(page);
+        await page.evaluate(() => document.fonts.ready);
+        assert.equal(await page.locator('soda-runners .settings-runner').count(), 24);
+        const metrics = await page.evaluate(() => ({
+          width: innerWidth,
+          scroll: document.documentElement.scrollWidth,
+          height: innerHeight,
+          content: document.documentElement.scrollHeight,
+        }));
+        if (metrics.scroll !== metrics.width)
+          t.diagnostic(
+            JSON.stringify(
+              await page.evaluate(() =>
+                [...document.querySelectorAll('body *')]
+                  .filter((node) => node.getBoundingClientRect().right > innerWidth + 1)
+                  .map((node) => ({
+                    tag: node.tagName,
+                    class: node.className,
+                    right: node.getBoundingClientRect().right,
+                    width: node.getBoundingClientRect().width,
+                  }))
+                  .slice(0, 25)
+              )
+            )
+          );
+        assert.equal(metrics.scroll, metrics.width, 'Long inventory caused document horizontal overflow');
+        assert(metrics.content > metrics.height, 'Fixture must exercise vertical scrolling');
+        const remove = page.getByRole('button', {name: 'remove runner-23', exact: true});
+        await remove.scrollIntoViewIfNeeded();
+        await remove.focus();
+        await page.keyboard.press('Enter');
+        const confirmation = page.getByLabel('Exact runner ID', {exact: true});
+        assert(await confirmation.evaluate((node) => node === document.activeElement));
+        await confirmation.scrollIntoViewIfNeeded();
+        const box = await confirmation.boundingBox();
+        // Chromium scroll offsets are quantized; DOM rectangles retain subpixels.
+        // Permit only the same one-CSS-pixel rounding used by layout checks.
+        assert(
+          box && box.x >= -1 && box.x + box.width <= width + 1 && box.y >= -1 && box.y + box.height <= 721,
+          JSON.stringify({colorScheme, width, confirmation: box})
+        );
+        await page.keyboard.press('Escape');
+        assert(await remove.evaluate((node) => node === document.activeElement));
+        assert.equal(await confirmation.count(), 0);
+        assert.equal(await page.locator('#soda-native-content > soda-runners').count(), 1);
+        assert.equal(mutations.length, 0, 'Layout/refresh/confirmation cancellation dispatched a mutation');
+      }
+    }
+  }
+);

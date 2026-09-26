@@ -106,9 +106,9 @@ func assertSodaSidebarEntries(t *testing.T, source string) {
 	}
 }
 
-func TestSodaAdminNavbarRetainsExact1507Source(t *testing.T) {
-	const provenance = `{{/* Soda navigation addition to Forgejo 15.0.7 templates/admin/navbar.tmpl; GPL-3.0-or-later.
-Upstream: https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/templates/admin/navbar.tmpl
+func TestSodaAdminNavbarRetainsExact1509Source(t *testing.T) {
+	const provenance = `{{/* Soda navigation addition to Forgejo 15.0.9 templates/admin/navbar.tmpl; GPL-3.0-or-later.
+Upstream: https://codeberg.org/forgejo/forgejo/src/tag/v15.0.9/templates/admin/navbar.tmpl
 Embedded source SHA-256: b0298e1f0850ce38bea744ea6a65a16853820b27ce52208cb93737a5c1bd71ac */}}
 `
 	const addition = `		{{if and .IsSigned .IsAdmin}}

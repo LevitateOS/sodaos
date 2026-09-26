@@ -6,11 +6,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
@@ -91,8 +92,8 @@ func (s *API) terminalAccount(w http.ResponseWriter, r *http.Request, v store.Se
 	}
 	check, done := context.WithTimeout(r.Context(), 10*time.Second)
 	defer done()
-	if _, err = s.visibleRepository(r.WithContext(check), v, p.RepositoryID); err != nil {
-		auth.ProviderError(w, err)
+	if _, err = s.executionRepository(r.WithContext(check), v, p.RepositoryID); err != nil {
+		reportExecutionAuthorityError(w, err)
 		return p, "", "", false
 	}
 	cookie, err := auth.RequestCookie(r, auth.SessionCookie)

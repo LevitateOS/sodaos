@@ -38,32 +38,36 @@ func (c *Controller) checkCredentialStream(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) delegateCredential(ctx context.Context, r *factory.Run) error {
+func (c *Controller) delegateCredential(ctx context.Context, r *factory.Run) ([]string, error) {
 	state, err := privateFile(c.authPath())
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if !json.Valid(state) {
-		return errors.New("invalid enrolled credential state")
+	secrets, err := credentialStrings(state)
+	if err != nil {
+		return nil, err
 	}
 	r.CredentialDelegated = true
 	r.CredentialSeedSHA = credentialSHA(state)
 	if err = c.Store.SaveFactoryRun(ctx, *r); err != nil {
-		return err
+		return nil, err
 	}
-	return c.Workspace.SeedCredential(ctx, *r, state)
+	return secrets, c.Workspace.SeedCredential(ctx, *r, state)
 }
 
-func (c *Controller) returnCredential(ctx context.Context, r *factory.Run) error {
+func (c *Controller) returnCredential(ctx context.Context, r *factory.Run) ([]string, error) {
 	state, err := c.Workspace.CaptureCredential(ctx, *r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err = saveCredential(c.authPath(), r.CredentialSeedSHA, state); err != nil {
-		return err
+		return nil, err
 	}
 	r.CredentialReturned = true
-	return c.Store.SaveFactoryRun(ctx, *r)
+	if err = c.Store.SaveFactoryRun(ctx, *r); err != nil {
+		return nil, err
+	}
+	return credentialStrings(state)
 }
 
 // The stream lease excludes factory writers. A changed enrollment is preserved;
@@ -115,7 +119,8 @@ func (c *Controller) returnDelegatedCredential(ctx context.Context, r *factory.R
 	if !r.CredentialDelegated || r.CredentialReturned {
 		return nil
 	}
-	return c.returnCredential(ctx, r)
+	_, err := c.returnCredential(ctx, r)
+	return err
 }
 
 func validCredentialState(state []byte) bool {

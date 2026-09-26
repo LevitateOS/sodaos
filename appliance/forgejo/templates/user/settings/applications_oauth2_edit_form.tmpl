@@ -1,4 +1,4 @@
-{{/* Adapted from Forgejo 15.0.7 templates/user/settings/applications_oauth2_edit_form.tmpl (GPL-3.0-or-later); upstream SHA-256 d3d0490154dba87ed93bdaad86a00fe779b379fba517645a467b053814ebf996. */}}
+{{/* Adapted from Forgejo 15.0.9 templates/user/settings/applications_oauth2_edit_form.tmpl (GPL-3.0-or-later); upstream SHA-256 d3d0490154dba87ed93bdaad86a00fe779b379fba517645a467b053814ebf996. */}}
 {{if .PersonalSettings}}{{template "user/settings/applications_oauth2_edit_form_body" .}}{{else}}{{template "user/settings/applications_oauth2_edit_form_body" (dict "ctxData" .)}}{{end}}
 {{define "user/settings/applications_oauth2_edit_form_body"}}{{$personal := .PersonalSettings}}{{$ := .ctxData}}{{with .ctxData}}
 {{if not $personal}}<h4 class="ui top attached header">

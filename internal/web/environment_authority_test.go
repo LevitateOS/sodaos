@@ -107,8 +107,8 @@ func TestEnvironmentAuthorityUsesCurrentNativeIdentity(t *testing.T) {
 					}
 				}
 			}
-			if tc.operator && calls != 0 {
-				t.Fatal("Soda operator conflated with native owner")
+			if tc.operator && calls != 4 {
+				t.Fatal("operator execution capability lookup changed")
 			}
 			retained, err := s.Store.Project(t.Context(), id)
 			login, e := s.Store.MemberLogin(t.Context(), id, 1)

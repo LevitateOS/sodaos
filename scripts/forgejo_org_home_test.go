@@ -11,16 +11,18 @@ import (
 
 func TestForgejoOrganizationHomeSourceParity(t *testing.T) {
 	src := readForgejoTemplateForUpstreamParity(t, "org", "home.tmpl")
-	provenance := "{{/* Soda presentation of Forgejo 15.0.7 templates/org/home.tmpl; GPL-3.0-or-later. Upstream SHA-256: a8b8f935f72758355efa25bdb53d376f77c39a0984f2d1a0b875c9bbb8fea32f. */}}\n"
+	provenance := "{{/* Soda presentation of Forgejo 15.0.9 templates/org/home.tmpl; GPL-3.0-or-later. Upstream SHA-256: a8b8f935f72758355efa25bdb53d376f77c39a0984f2d1a0b875c9bbb8fea32f. */}}\n"
 	if !strings.HasPrefix(src, provenance) {
 		t.Fatal("missing source attribution")
 	}
 	src = strings.TrimPrefix(src, provenance)
-	for _, r := range [][2]string{{"class=\"page-content organization profile soda-page soda-org-home\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\"", "class=\"page-content organization profile\""},
+	for _, r := range [][2]string{
+		{"class=\"page-content organization profile soda-page soda-org-home\" data-signed=\"{{if .IsSigned}}true{{else}}false{{end}}\"", "class=\"page-content organization profile\""},
 		{"class=\"ui {{if .ShowMemberAndTeamTab}}eleven wide{{end}} column soda-org-home-main\"", "class=\"ui {{if .ShowMemberAndTeamTab}}eleven wide{{end}} column\""},
 		{"class=\"ui five wide column soda-org-home-sidebar\"", "class=\"ui five wide column\""},
 		{"<div class=\"soda-toolbar\">{{template \"shared/repo_search\" .}}</div>", "{{template \"shared/repo_search\" .}}"},
-		{"<div class=\"soda-list\">{{template \"explore/repo_list\" .}}</div>", "{{template \"explore/repo_list\" .}}"}} {
+		{"<div class=\"soda-list\">{{template \"explore/repo_list\" .}}</div>", "{{template \"explore/repo_list\" .}}"},
+	} {
 		if strings.Count(src, r[0]) != 1 {
 			t.Fatalf("unexpected presentation delta %q", r[0])
 		}
@@ -30,6 +32,7 @@ func TestForgejoOrganizationHomeSourceParity(t *testing.T) {
 		t.Fatalf("native organization content changed: %s", got)
 	}
 }
+
 func TestForgejoOrganizationHomeNativeCreationAndVisibility(t *testing.T) {
 	seams := `{{define "base/head"}}head{{end}}{{define "base/footer"}}footer{{end}}{{define "org/header"}}org-header{{end}}{{define "base/alert"}}alert{{end}}{{define "shared/repo_search"}}native-search{{end}}{{define "explore/repo_list"}}native-repositories{{end}}{{define "base/paginate"}}native-pagination{{end}}`
 	functions := template.FuncMap{"ctx": func() forgejoTemplateContext {

@@ -1,4 +1,4 @@
-/* Repository presentation for stock Forgejo 15.0.7. The native templates own
+/* Repository presentation for stock Forgejo 15.0.9. The native templates own
    repository state, permissions, forms, scripts, and all workflow behavior. */
 .page-content:has(> .soda-repository-header) {
   padding-bottom: 32px;

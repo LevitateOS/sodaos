@@ -1,5 +1,5 @@
 {
-  "upstream": "15.0.7",
+  "upstream": "15.0.9",
   "presentationDeltas": [
     "one identity/navigation row; native sidebar replaced by gated menus",
     "semantic open sections and reordered account/profile groups",
@@ -571,7 +571,7 @@
       "gates": []
     }
   },
-  "attribution": "Derived from Forgejo 15.0.7 templates, GPL-3.0-or-later; native interaction contracts only.",
+  "attribution": "Derived from Forgejo 15.0.9 templates, GPL-3.0-or-later; native interaction contracts only.",
   "sourceHashes": {
     "user/settings/access_token_edit.tmpl": "0168c31a3d728e74d4c9e3756c9c863457aeaca55ef17c7433999d89a3703b42",
     "user/settings/account.tmpl": "4e418544763f6a3d79fce08aa84ddca216bf390060fcb2d60b54d63a39c392ca",

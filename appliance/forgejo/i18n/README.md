@@ -4,7 +4,7 @@
 warnings retain native translations. Untranslated Soda additions use Forgejo's
 English fallback; existing native languages and JSON catalogs remain untouched.
 
-These additions are **not a deployable replacement catalog**. Forgejo 15.0.7
+These additions are **not a deployable replacement catalog**. Forgejo 15.0.9
 loads a custom INI ahead of its embedded equivalent without merging its keys.
 Never mount this directory directly into a running instance.
 
@@ -32,11 +32,11 @@ The complete generated English catalog was copied to the existing preview's
 user-authorized restart. The existing image, configuration and data volume were
 retained. Further locale changes require another authorized activation; template
 reloads do not refresh production locale caches. Appliance build now uses
-`--lock appliance/forgejo/locale.lock.json` to verify the complete upstream 15.0.7
+`--lock appliance/forgejo/locale.lock.json` to verify the complete upstream 15.0.9
 English input before merging. The exact payload inventory stages that generated
 catalog and its GPL/source notices. This is source packaging plus local fixture
 coverage, not a new appliance catalog installation.
 
 Verified upstream source:
-[locale loading](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/modules/translation/translation.go)
-and [custom file precedence](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.7/modules/assetfs/layered.go).
+[locale loading](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.9/modules/translation/translation.go)
+and [custom file precedence](https://codeberg.org/forgejo/forgejo/src/tag/v15.0.9/modules/assetfs/layered.go).

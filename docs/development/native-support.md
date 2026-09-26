@@ -423,10 +423,11 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 
 Shell/PAM checks require `SODA_NATIVE_VALIDATE` equal to the actual host. Browser checks use a fresh profile below a restricted browser home, retain it privately, and never bypass TLS. Native provider CLI package/version evidence is included in build metadata; personal authentication remains product validation.
 
-Registration/start/stop/restart/remove use native **Runners** at
-`/admin?soda-view=runners` and the existing root `soda-runners` stdin protocol with
-separately approved IDs/provider grants. The current operator journey checks
-Cockpit runner retirement; unretired targets retain their historical check revision. Retain actual provider run URL/attempt and job output, not merely listener status. `tests/fixtures/runner/native-support.yaml` is a manually selected trusted-job fixture, outside CI discovery; approve any copy/scheduling in the actual provider repository first. Choose the actual registered label. Record registration removal, service/account cleanup and provider leftovers explicitly. Never dump registrations, runner credentials, container environments or entire provider responses.
+Local runner execution is [unavailable](../reference/runners.md). Existing-state
+observation and Stop/Remove use native **Runners** at `/admin?soda-view=runners`
+and the root `soda-runners` stdin protocol. Historical installed runner execution
+receipts and their optional drivers do not qualify the current deferred feature.
+Never dump runner credentials, container environments or entire provider responses.
 
 Interactive console/native-branding reviews reuse the existing console welcome, opt-in branding renderer/tests and [capture rules](../design/screenshot-capture.md). Do not call a quiet noninteractive check an interactive/visual pass. Browser/product/user/repository/shared-tool/workload/persistence tests remain at their core-owned entrypoints.
 
@@ -471,7 +472,7 @@ claim stays unverified. This is not a second product readiness gate.
 | Artifact identity | Retired SPA payloads are rejected; rebuild/check current Go/Lit/stock-branding output. OCI schema/descriptor/rootfs checks and tiny real tar fixtures exist, not a full compressed-layer/native-import proof. Verify exact transfer digest, installer/verifier trust and byte-bound evidence record; generic exec identity stays caller-declared. |
 | CoreOS/VM inputs | Missing-tool preflight, version capture and bounded tool phases exist. Independently select trusted signer/keyring and matching per-architecture firmware/tools; exercise retrieval/signature/decompression, strict Ignition and fresh KVM boot/restart/shutdown with retained disk/NVRAM. Never adopt the live guest. |
 | First installation | Route/container-network collision, writable ancestry and booted-deployment checks exist; complete behavioral rejection fixtures and a genuinely fresh exact-target install/activation without repair edits. Reinstalling the persistent guest is not that proof. |
-| Host/operator | Secret/TLS modes, socket/DNAT and enforcing-state checks exist; execute current listener/permission/byte checks, root/non-root Cockpit sessions, interactive/quiet console and native branding. Tailnet mutations and Forgejo runner lifecycle/jobs/removal require separate grants. |
+| Host/operator | Secret/TLS modes, socket/DNAT and enforcing-state checks exist; execute current listener/permission/byte checks, root/non-root Cockpit sessions, interactive/quiet console and native branding. Tailnet mutations and retained runner cleanup require their applicable task authorization. |
 | Reporting/architecture | Keep invocation/exit/evidence/cleanup/artifact outcomes distinct, including missing/failed/not-reached scopes. Native remote dispatcher/transfer/fixture coverage and independent aarch64 results remain incomplete; no inferred full support acceptance. |
 
 Current results and retained evidence belong with the [development index](README.md) and task records,

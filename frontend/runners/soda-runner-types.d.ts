@@ -6,7 +6,7 @@ export interface Service {
 }
 export interface Runner {
   id: string;
-  provider: "forgejo";
+  provider: 'forgejo';
   registration_url: string;
   account: string;
   architecture: string;
@@ -23,23 +23,12 @@ export interface ListResponse {
   active_listeners: number;
   total_capacity: number;
 }
-export interface Registration {
-  id: string;
-  provider: "forgejo";
-  registration_url: string;
-  registration_id: string;
-  labels: string;
-  registration_token: string;
-}
 export interface Requests {
   list: Record<string, never>;
-  create: Registration;
-  start: { id: string };
-  stop: { id: string };
-  restart: { id: string };
-  remove: { id: string };
+  stop: {id: string};
+  remove: {id: string};
 }
 export type Action = keyof Requests;
-export type LifecycleAction = "start" | "stop" | "restart" | "remove";
-export type Response<A extends Action> = A extends "list" ? ListResponse : { ok: true };
+export type LifecycleAction = 'stop' | 'remove';
+export type Response<A extends Action> = A extends 'list' ? ListResponse : {ok: true};
 export type Invoke = <A extends Action>(action: A, payload: Requests[A]) => Promise<Response<A>>;

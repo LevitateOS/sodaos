@@ -32,20 +32,19 @@ func TestForgejoAccountDetailOverridesRetainUpstreamAttribution(t *testing.T) {
 	for _, fixture := range forgejoAccountDetailFixtures {
 		t.Run(fixture.slug, func(t *testing.T) {
 			contents := readForgejoAccountDetailTemplate(t, fixture.path)
-			notice := fmt.Sprintf("{{/* Adapted from Forgejo 15.0.7 templates/user/settings/%s (GPL-3.0-or-later); upstream SHA-256 %s. */}}\n", fixture.path, fixture.sha)
+			notice := fmt.Sprintf("{{/* Adapted from Forgejo 15.0.9 templates/user/settings/%s (GPL-3.0-or-later); upstream SHA-256 %s. */}}\n", fixture.path, fixture.sha)
 			if !strings.HasPrefix(contents, notice) {
 				t.Fatalf("%s lost exact Forgejo version, license, or pristine-source attribution", fixture.path)
 			}
 			// Structural presentation deltas are checked against native control and
 			// capability snapshots in settings-source.test.ts, rather than markup parity.
-
 		})
 	}
 }
 
 func TestForgejoOAuthApplicationListKeepsNativeFormsAndActions(t *testing.T) {
 	const upstreamHash = "fef3276344cd83d2df9a074ff37eafb320b2835de59d951add2601672d53c761"
-	const notice = "{{/* Adapted from Forgejo 15.0.7 templates/user/settings/applications_oauth2_list.tmpl (GPL-3.0-or-later); upstream SHA-256 " + upstreamHash + ". */}}\n"
+	const notice = "{{/* Adapted from Forgejo 15.0.9 templates/user/settings/applications_oauth2_list.tmpl (GPL-3.0-or-later); upstream SHA-256 " + upstreamHash + ". */}}\n"
 	contents := readForgejoAccountDetailTemplate(t, "applications_oauth2_list.tmpl")
 	if !strings.HasPrefix(contents, notice) {
 		t.Fatal("OAuth application list lost exact Forgejo version, license, or pristine-source attribution")

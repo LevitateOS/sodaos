@@ -32,8 +32,14 @@ func (s *API) authorizeAccessKeysMember(w http.ResponseWriter, r *http.Request, 
 		auth.JSONError(w, 409, "not_provisioned", "Provisioning is incomplete.")
 		return "", false
 	}
-	if _, err = s.visibleRepository(r, v, p.RepositoryID); err != nil {
-		auth.ProviderError(w, err)
+	var accessErr error
+	if r.Method == "POST" {
+		_, accessErr = s.executionRepository(r, v, p.RepositoryID)
+	} else {
+		_, accessErr = s.visibleRepository(r, v, p.RepositoryID)
+	}
+	if accessErr != nil {
+		reportExecutionAuthorityError(w, accessErr)
 		return "", false
 	}
 	return login, true

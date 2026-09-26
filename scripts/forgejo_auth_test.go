@@ -45,7 +45,7 @@ func TestForgejoSecondaryAuthPagesOnlyAddPresentationRoot(t *testing.T) {
 			}
 			actualHash := fmt.Sprintf("%x", sha256.Sum256([]byte(stock)))
 			if actualHash != upstreamHash {
-				t.Errorf("%s diverges from pristine Forgejo 15.0.7 after removing presentation attributes: got %s, want %s", name, actualHash, upstreamHash)
+				t.Errorf("%s diverges from pristine Forgejo 15.0.9 after removing presentation attributes: got %s, want %s", name, actualHash, upstreamHash)
 			}
 		})
 	}

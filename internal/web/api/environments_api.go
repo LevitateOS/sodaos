@@ -163,12 +163,13 @@ func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Ses
 	}
 	auth.JSONResponse(w, 200, struct {
 		AuthorityUnavailable bool                 `json:"authority_unavailable"`
+		ExecutionAllowed     bool                 `json:"execution_allowed"`
 		Environment          EnvironmentView      `json:"environment"`
 		Observed             *project.Environment `json:"observed"`
 		NativeUnavailable    bool                 `json:"native_unavailable"`
 		Login                string               `json:"login"`
 		Administrator        bool                 `json:"environment_administrator"`
-	}{reader.authorityUnavailable, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
+	}{reader.authorityUnavailable, reader.executionAllowed, EnvironmentDTO(p), observed, nativeErr != nil, reader.login, reader.administrator})
 }
 
 func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v store.Session) {

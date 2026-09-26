@@ -35,7 +35,7 @@ func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int3
 		}
 		var id int64
 		_, _ = fmt.Sscanf(r.URL.Path, "/api/v1/repositories/%d", &id)
-		fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`, id)
+		fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`, id)
 	})
 	s.Config.OperatorID = 999
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +71,7 @@ func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int3
 	}
 	return s, providerCalls, nativeCalls
 }
+
 func readSpaces(t *testing.T, s *Server) api.SpacesView {
 	t.Helper()
 	w := terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces", nil)
@@ -83,6 +84,7 @@ func readSpaces(t *testing.T, s *Server) api.SpacesView {
 	}
 	return result
 }
+
 func TestSpacesDeniedUnavailableAndDegradedOwnMembership(t *testing.T) {
 	for _, status := range []int{0, 403, 404, 503} {
 		for _, member := range []bool{false, true} {
@@ -119,6 +121,7 @@ func TestSpacesDeniedUnavailableAndDegradedOwnMembership(t *testing.T) {
 		}
 	}
 }
+
 func TestSpacesProviderIdentityDenialIsNotCompleteEmpty(t *testing.T) {
 	s, _, native := spacesFixture(t, 0, false)
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(403) }))
@@ -146,6 +149,7 @@ func TestSpacesBoundsAreIncompleteNotCompleteEmpty(t *testing.T) {
 		})
 	}
 }
+
 func TestSpacesResponseByteLimitAndOversizedStoreLabel(t *testing.T) {
 	s, _, _ := spacesFixture(t, 0, false)
 	for i := 0; i < 32; i++ {
@@ -164,6 +168,7 @@ func TestSpacesResponseByteLimitAndOversizedStoreLabel(t *testing.T) {
 		t.Fatal("oversized DB metadata silently truncated")
 	}
 }
+
 func TestSpacesAdmissionActorAndQueryBounds(t *testing.T) {
 	s, provider, native := spacesFixture(t, 0, true)
 	for range cap(s.API.SpacesSlots) {
@@ -188,6 +193,7 @@ func TestSpacesAdmissionActorAndQueryBounds(t *testing.T) {
 		t.Fatal("actor guard did not precede collection")
 	}
 }
+
 func TestSpacesSlowInspectionCannotBlockLogoutOrPublishAfterIt(t *testing.T) {
 	s, _, _ := spacesFixture(t, 0, true)
 	entered, release := make(chan struct{}), make(chan struct{})

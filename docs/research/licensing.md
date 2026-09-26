@@ -39,7 +39,7 @@ and copied into new native bundles; this is not broader distribution clearance.
   deleting a notice or assuming permission. The predecessor remains unchanged.
 
 Spaces uses two unmodified Primer Octicons 19.14.0 SVGs, matching the icon package
-selected by Forgejo 15.0.7. Their [source and MIT notice](../../assets/branding/icons/octicons/README.md)
+selected by Forgejo 15.0.9. Their [source and MIT notice](../../assets/branding/icons/octicons/README.md)
 are staged with the icons; this does not add a JS package dependency or change
 Forgejo's own licensing obligations.
 
@@ -77,7 +77,7 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
   branding attribution. HTMX and its matching license are removed from current
   source together; historical bundles/evidence still need their original notices.
 
-The full Forgejo presentation inventory now includes the selected 15.0.7 GPL text
+The full Forgejo presentation inventory now includes the selected 15.0.9 GPL text
 (`appliance/licenses/forgejo-LICENSE`), Soda LICENSE/NOTICE, all three bundled font
 family licenses, and the locked source metadata for the complete merged English
 catalog. This is source/fixture packaging, not final shipped-image license closure.
@@ -111,7 +111,8 @@ notices, not complete binary/runtime license closure or deployment.
 ## Upgrade research is not a deployment selection
 
 The prior v15/v16 comparison and release-note review remain evidence in H01 and the
-handoff. Stock 15.0.7 is still the recorded installation. The v16 source development
+handoff. Stock 15.0.7 remains the recorded installation; current source selects
+stock 15.0.9 without a new deployment receipt. The v16 source development
 lock was removed with the fork preparer; missing JSON APIs no longer justify an
 upgrade or backport. Select a supported stock release based on actual security,
 template/configuration/protocol compatibility and migration review at that time.

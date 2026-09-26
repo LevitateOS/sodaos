@@ -17,7 +17,7 @@ import (
 // the real store/logout route; the existing fixture never executes native commands.
 func TestRunnerMutationAdmissionAfterDecode(t *testing.T) {
 	for _, operation := range runnerAPIRequests {
-		if operation.method != http.MethodPost {
+		if operation.name != "stop" && operation.name != "remove" {
 			continue
 		}
 		for _, change := range []string{"unchanged", "logout", "user", "context", "csrf", "store", "cancel"} {

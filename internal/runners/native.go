@@ -109,14 +109,7 @@ func (native *Native) List(ctx context.Context) (Inventory, error) {
 	return inventory, nil
 }
 
-func (native *Native) Start(ctx context.Context, id string) error {
-	lock, err := native.lock(ctx)
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
-	return native.serviceAction(ctx, id, "enable", "--now")
-}
+func (*Native) Start(context.Context, string) error { return ErrUnavailable }
 
 func (native *Native) Stop(ctx context.Context, id string) error {
 	lock, err := native.lock(ctx)
@@ -127,17 +120,7 @@ func (native *Native) Stop(ctx context.Context, id string) error {
 	return native.serviceAction(ctx, id, "disable", "--now")
 }
 
-func (native *Native) Restart(ctx context.Context, id string) error {
-	lock, err := native.lock(ctx)
-	if err != nil {
-		return err
-	}
-	defer lock.Close()
-	if err := native.serviceAction(ctx, id, "enable"); err != nil {
-		return err
-	}
-	return native.serviceAction(ctx, id, "restart")
-}
+func (*Native) Restart(context.Context, string) error { return ErrUnavailable }
 
 func (native *Native) Remove(ctx context.Context, id string) error {
 	lock, err := native.lock(ctx)
@@ -300,10 +283,3 @@ func (native *Native) descriptorPath(id string) string {
 	return filepath.Join(native.rootPath(), id, "descriptor.json")
 }
 func (native *Native) unit(id string) string { return "soda-runner@" + id + ".service" }
-
-func writeOwnedFile(path string, contents []byte, mode os.FileMode, owner identity) error {
-	if err := os.WriteFile(path, contents, mode); err != nil {
-		return err
-	}
-	return os.Chown(path, int(owner.UID), int(owner.GID))
-}

@@ -25,7 +25,7 @@ func TestForgejoRepositorySettingsLeavesUseSharedShell(t *testing.T) {
 	}
 }
 
-func TestForgejoWebhookPartialsRetain1507Source(t *testing.T) {
+func TestForgejoWebhookPartialsRetain1509Source(t *testing.T) {
 	partials := []struct{ name, hash string }{
 		{"base_list.tmpl", "4f9799349c043b5ece5757c8fd1929b13304b033916d667c624de73064c705cb"},
 		{"history.tmpl", "ebb007fd23ec9cd8e8ffbe057f78bb516674d245d7c8672b27d29558ef2a3432"},
@@ -47,7 +47,7 @@ func TestForgejoWebhookPartialsRetain1507Source(t *testing.T) {
 		}
 
 		if got := fmt.Sprintf("%x", sha256.Sum256([]byte(page))); got != tt.hash {
-			t.Errorf("%s diverges from exact Forgejo 15.0.7 beyond presentation classes: got %s, want %s", tt.name, got, tt.hash)
+			t.Errorf("%s diverges from exact Forgejo 15.0.9 beyond presentation classes: got %s, want %s", tt.name, got, tt.hash)
 		}
 	}
 }
@@ -94,7 +94,7 @@ func TestForgejoSharedRunnerStylesStayWithSharedPartial(t *testing.T) {
 	}
 }
 
-func TestForgejoSharedRunnerDetailsRetain1507Source(t *testing.T) {
+func TestForgejoSharedRunnerDetailsRetain1509Source(t *testing.T) {
 	hashes := map[string]string{
 		"runner_create.tmpl":  "e05805b4f7885dc082c586ecea87db0fae758b8fa269a4c4a63c07c730d0cc6a",
 		"runner_details.tmpl": "1ecf2232c0d2c434bad3fdbb7049f31ec6399fe959322d00fbe2dce5b0eca73e",
@@ -140,7 +140,7 @@ func TestForgejoSharedRunnerDetailsRetain1507Source(t *testing.T) {
 			recovered = strings.ReplaceAll(recovered, `<fieldset{{if $settings}} class="soda-form-section"{{end}}>`, `<fieldset>`)
 			got := fmt.Sprintf("%x", sha256.Sum256([]byte(recovered)))
 			if got != upstreamHash {
-				t.Fatalf("%s diverges from exact Forgejo 15.0.7 beyond its presentation class: got %s, want %s", name, got, upstreamHash)
+				t.Fatalf("%s diverges from exact Forgejo 15.0.9 beyond its presentation class: got %s, want %s", name, got, upstreamHash)
 			}
 		})
 	}

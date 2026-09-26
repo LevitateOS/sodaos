@@ -3,9 +3,10 @@ package api
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/runners"
@@ -62,30 +63,17 @@ func (s *API) runnerRoutes() {
 	s.mux.HandleFunc("GET /settings/runners", s.runnersPage)
 }
 
-func (s *API) createRunner(w http.ResponseWriter, r *http.Request, v store.Session, ctx context.Context) {
+func (s *API) createRunner(w http.ResponseWriter, r *http.Request) {
 	var in runners.CreateRequest
 	if !auth.DecodeAPIObject(w, r, &in) {
 		return
 	}
-	if in.Provider == runners.ProviderForgejo {
-		in.RegistrationURL = s.Config.ForgejoInternalURL
-	}
-	if in.Validate() != nil {
-		auth.JSONError(w, 400, "invalid_runner", "Check the runner ID, provider, registration ID, labels and token.")
-		return
-	}
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil || s.Auth.RequireCurrentSession(ctx, cookie.Value, v) != nil {
-		auth.ProviderError(w, store.ErrGrantUnavailable)
-		return
-	}
-	err = s.Host.RunnerCreate(ctx, in)
 	in.RegistrationToken = ""
-	if err != nil {
-		runnerUnconfirmed(w)
-		return
-	}
-	auth.JSONResponse(w, 200, runners.MutationResponse{OK: true})
+	runnerExecutionUnavailable(w)
+}
+
+func runnerExecutionUnavailable(w http.ResponseWriter) {
+	auth.JSONError(w, 503, "runner_execution_unavailable", "Local CI execution is unavailable until isolated jobs are supported. Existing runners can be stopped or removed.")
 }
 
 func admitUnavailableRunners(w http.ResponseWriter, ids []string, seen map[string]bool) bool {
@@ -137,7 +125,7 @@ func (s *API) apiRunners(w http.ResponseWriter, r *http.Request, v store.Session
 		return
 	}
 	if r.Method == http.MethodPost {
-		s.createRunner(w, r, v, ctx)
+		s.createRunner(w, r)
 		return
 	}
 	inventory, err := s.Host.RunnersList(ctx)
@@ -202,6 +190,10 @@ func (s *API) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store.Se
 	}
 	id, action, ok := parseRunnerAction(w, r)
 	if !ok {
+		return
+	}
+	if action == "start" || action == "restart" {
+		runnerExecutionUnavailable(w)
 		return
 	}
 	// Recheck after decoding and confirmation, immediately before dispatch.

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Forgejo 15.0.7 omits scope in token responses and may reuse an older
+// Forgejo 15.0.9 omits scope in token responses and may reuse an older
 // confidential-client consent. Introspection supplies the actual grant, not the
 // requested scope. Never treat a requested scope as evidence of consent.
 func (c *Client) GrantScopes(ctx context.Context, clientID, secret, access string, uid int64) (string, error) {
