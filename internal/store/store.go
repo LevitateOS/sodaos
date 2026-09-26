@@ -244,7 +244,7 @@ func (s *Store) CreateSession(ctx context.Context, token string, uid int64, csrf
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	expires := time.Now().Add(12 * time.Hour).Unix()
 	if _, err = tx.ExecContext(ctx, `INSERT INTO login_contexts(id,expires) VALUES(?,?)`, hash(token), expires); err != nil {
 		return err

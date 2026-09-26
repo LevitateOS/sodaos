@@ -46,7 +46,7 @@ func ReadSchemaVersion(ctx context.Context, path string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	return loadSchemaVersion(ctx, tx)
 }
 
@@ -64,7 +64,7 @@ func OpenObserve(ctx context.Context, path string) (*Store, error) {
 	}
 	version, err := loadSchemaVersion(ctx, tx)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		db.Close()
 		return nil, err
 	}

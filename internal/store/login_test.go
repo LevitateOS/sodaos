@@ -32,7 +32,7 @@ func TestV9PreservesPendingCancellationAndExistingGrant(t *testing.T) {
 	}
 	// Remove later additions from this synthetic database. Existing v8
 	// session/grant/pending rows must survive the actual upgrade on reopen.
-	if _, err = s.db.Exec(`DROP TABLE factory_runs; DROP TABLE factory_attempts; DROP INDEX login_context_oauth_cookie; ALTER TABLE login_contexts DROP COLUMN oauth_cookie; UPDATE schema_version SET version=8;`); err != nil {
+	if _, err = s.db.Exec(`DROP TABLE identity_leases; DROP TABLE identity_grants; DROP TABLE identity_connections; DROP TABLE factory_runs; DROP TABLE factory_attempts; DROP INDEX login_context_oauth_cookie; ALTER TABLE login_contexts DROP COLUMN oauth_cookie; UPDATE schema_version SET version=8;`); err != nil {
 		t.Fatal(err)
 	}
 	s.Close()

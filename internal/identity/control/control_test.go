@@ -1,0 +1,281 @@
+package control
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/sodaos/internal/store"
+)
+
+type testProvider struct{}
+
+func (testProvider) Start(context.Context, string) (identity.EnrollmentSession, error) {
+	return &testSession{}, nil
+}
+
+type testSession struct{}
+
+func (*testSession) Snapshot() identity.Enrollment {
+	return identity.Enrollment{ID: "enrollment", State: "completed"}
+}
+
+func (*testSession) Finish(context.Context) (identity.Connection, []byte, error) {
+	return identity.Connection{Email: "soda-tester@example.invalid", Plan: "plus"}, []byte(`{"tokens":{"refresh_token":"synthetic-private"}}`), nil
+}
+func (*testSession) Close() error { return nil }
+
+type testRuntime struct {
+	validateErr, stopErr error
+	validated, stopped   int
+}
+
+func (r *testRuntime) Validate(context.Context, identity.Lease) error {
+	r.validated++
+	return r.validateErr
+}
+func (r *testRuntime) Stop(context.Context, identity.Lease) error { r.stopped++; return r.stopErr }
+
+func (r *testRuntime) Finish(context.Context, identity.Lease) ([]byte, error) {
+	r.stopped++
+	return []byte(`{"tokens":{"refresh_token":"synthetic-maintained"}}`), r.stopErr
+}
+
+func controllerFixture(t *testing.T) (*Controller, *store.Store, *testRuntime, identity.Connection) {
+	t.Helper()
+	s, err := store.OpenEncrypted(filepath.Join(t.TempDir(), "broker.db"), bytes.Repeat([]byte{3}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	r := &testRuntime{}
+	c, err := New(s, testProvider{}, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	e, err := c.StartEnrollment(ctx, 1, "private subscription")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e, err = c.Enrollment(ctx, 1, e.ID)
+	if err != nil || e.Connection == nil {
+		t.Fatal(err)
+	}
+	return c, s, r, *e.Connection
+}
+
+func acquireInput(id string, actor int64) identity.AcquireRequest {
+	return identity.AcquireRequest{ConnectionID: id, ActorID: actor, ExecutionID: "execution", ProjectID: "project", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
+}
+
+func registerBinding(l identity.Lease) identity.Binding {
+	return identity.Binding{Kind: l.Kind, ID: "native-container", Generation: l.Generation}
+}
+
+func TestNamedGrantSerializationAndMaintainedReturn(t *testing.T) {
+	c, s, r, conn := controllerFixture(t)
+	ctx := t.Context()
+	if _, err := c.Acquire(ctx, acquireInput(conn.ID, 2)); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("unnamed recipient admitted", err)
+	}
+	g, err := c.CreateGrant(ctx, 1, identity.GrantRequest{ConnectionID: conn.ID, UserID: 2, ProjectID: "project", ConfirmSubscription: true, ConfirmCredentialExposure: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	available, err := c.Available(ctx, 2, "project")
+	if err != nil || len(available) != 1 || available[0].Email != "" {
+		t.Fatal("delegated discovery leaked account identity", err)
+	}
+	wrong := acquireInput(conn.ID, 2)
+	wrong.ProjectID = "other"
+	if _, err = c.Acquire(ctx, wrong); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("wrong project admitted", err)
+	}
+	l, err := c.Acquire(ctx, acquireInput(conn.ID, 2))
+	if err != nil || l.GrantID != g.ID {
+		t.Fatal(err)
+	}
+	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1)); !errors.Is(err, identity.ErrBusy) {
+		t.Fatal("parallel refresh copy admitted", err)
+	}
+	b := registerBinding(l)
+	d, err := c.Register(ctx, l.ID, b)
+	if err != nil || !bytes.Contains(d.Credential, []byte("synthetic-private")) || r.validated != 1 {
+		t.Fatal("delivery preceded native attestation", err)
+	}
+	if _, err = c.Register(ctx, l.ID, b); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("delivery replay admitted", err)
+	}
+	maintained := []byte(`{"tokens":{"refresh_token":"synthetic-refreshed"}}`)
+	if err = c.Return(ctx, l.ID, b, maintained); err != nil || r.stopped != 1 {
+		t.Fatal(err)
+	}
+	current, err := s.IdentityConnection(ctx, conn.ID)
+	if err != nil || current.Generation != conn.Generation+1 {
+		t.Fatal("generation was not advanced", err)
+	}
+	data, err := s.IdentityCredential(ctx, current)
+	if err != nil || !bytes.Equal(data, maintained) {
+		t.Fatal("maintained credential lost", err)
+	}
+	if err = c.Return(ctx, l.ID, b, d.Credential); err == nil {
+		t.Fatal("stale return replaced refreshed state")
+	}
+}
+
+func TestRevocationDeniesBeforeUncertainTermination(t *testing.T) {
+	c, s, r, conn := controllerFixture(t)
+	ctx := t.Context()
+	l, err := c.Acquire(ctx, acquireInput(conn.ID, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.Register(ctx, l.ID, registerBinding(l)); err != nil {
+		t.Fatal(err)
+	}
+	r.stopErr = errors.New("native stop could not be established")
+	if err = c.Revoke(ctx, 1, conn.ID); !errors.Is(err, identity.ErrUncertain) {
+		t.Fatal(err)
+	}
+	current, err := s.IdentityConnection(ctx, conn.ID)
+	if err != nil || current.State != identity.Revoked {
+		t.Fatal("revocation was not durable before native stop", err)
+	}
+	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1)); !errors.Is(err, identity.ErrUncertain) {
+		t.Fatal("revoked stream reused", err)
+	}
+	if _, err = s.IdentityLease(ctx, l.ID); err != nil {
+		t.Fatal("uncertain binding forgotten", err)
+	}
+	r.stopErr = nil
+	if err = c.Sweep(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.IdentityLease(ctx, l.ID); !errors.Is(err, store.ErrNotFound) {
+		t.Fatal("revoked cleanup was not retried before deadline", err)
+	}
+	current, err = s.IdentityConnection(ctx, conn.ID)
+	if err != nil || current.State != identity.Revoked {
+		t.Fatal("cleanup revived revoked connection", err)
+	}
+}
+
+func TestRestartAndNativeAttestationFailClosed(t *testing.T) {
+	c, s, r, conn := controllerFixture(t)
+	ctx := t.Context()
+	l, err := c.Acquire(ctx, acquireInput(conn.ID, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.validateErr = errors.New("resource mismatch")
+	if _, err = c.Register(ctx, l.ID, registerBinding(l)); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("unattested resource received bytes", err)
+	}
+	restarted, err := New(s, testProvider{}, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = restarted.Reconcile(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = restarted.Acquire(ctx, acquireInput(conn.ID, 1)); !errors.Is(err, identity.ErrUncertain) {
+		t.Fatal("interrupted stream reused", err)
+	}
+}
+
+func TestAdminListenerCannotDeliverCredentials(t *testing.T) {
+	c, _, _, _ := controllerFixture(t)
+	for _, path := range []string{"/acquire", "/register", "/return", "/register?alias=connections"} {
+		r := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(`{"owner_id":"1"}`))
+		w := httptest.NewRecorder()
+		c.Handler(false).ServeHTTP(w, r)
+		if w.Code != http.StatusForbidden || bytes.Contains(w.Body.Bytes(), []byte("synthetic-private")) {
+			t.Fatal("admin delivery allowed", path, w.Code)
+		}
+	}
+	r := httptest.NewRequest(http.MethodPost, "/connections", bytes.NewBufferString(`{"owner_id":"1"}`))
+	r.Header.Set("Origin", "https://browser.invalid")
+	w := httptest.NewRecorder()
+	c.Handler(true).ServeHTTP(w, r)
+	if w.Code != http.StatusForbidden {
+		t.Fatal("browser origin reached private protocol")
+	}
+}
+
+func TestGrantRevocationEndsOnlyItsLease(t *testing.T) {
+	c, s, r, conn := controllerFixture(t)
+	ctx := t.Context()
+	g, err := c.CreateGrant(ctx, 1, identity.GrantRequest{ConnectionID: conn.ID, UserID: 2, ProjectID: "project", ConfirmSubscription: true, ConfirmCredentialExposure: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := c.Acquire(ctx, acquireInput(conn.ID, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.Register(ctx, l.ID, registerBinding(l)); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.RevokeGrant(ctx, 1, g.ID); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.IdentityGrant(ctx, g.ID)
+	if err != nil || !current.Revoked || current.Revision != 2 || r.stopped != 1 {
+		t.Fatal("grant revocation did not stop matching execution", err)
+	}
+}
+
+func TestDelegateEndRetainsConnectionAndUnrelatedActorCannotEnd(t *testing.T) {
+	c, s, r, conn := controllerFixture(t)
+	ctx := t.Context()
+	_, err := c.CreateGrant(ctx, 1, identity.GrantRequest{ConnectionID: conn.ID, UserID: 2, ProjectID: "project", ConfirmSubscription: true, ConfirmCredentialExposure: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := c.Acquire(ctx, acquireInput(conn.ID, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.Register(ctx, l.ID, registerBinding(l)); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.EndLease(ctx, 3, l.ID); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("unrelated actor ended sponsored execution", err)
+	}
+	leases, err := c.Leases(ctx, 2, conn.ID)
+	if err != nil || len(leases) != 1 || leases[0].Binding != nil {
+		t.Fatal("delegate inventory leaked native binding", err)
+	}
+	if err = c.EndLease(ctx, 2, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	current, err := s.IdentityConnection(ctx, conn.ID)
+	if err != nil || current.State != identity.Ready || r.stopped != 1 {
+		t.Fatal("ordinary end required reconnection", err)
+	}
+	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 2)); err != nil {
+		t.Fatal("maintained subscription could not be reused", err)
+	}
+}
+
+func TestReservationRecoveryDoesNotInvalidateUndeliveredCredential(t *testing.T) {
+	c, _, _, conn := controllerFixture(t)
+	ctx := t.Context()
+	l, err := c.Acquire(ctx, acquireInput(conn.ID, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = c.ReconcileLease(ctx, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1)); err != nil {
+		t.Fatal("undelivered reservation invalidated credential", err)
+	}
+}

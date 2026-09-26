@@ -80,6 +80,10 @@ OR json_extract(NEW.data,'$.harness')!=json_extract(OLD.data,'$.harness')
 OR json_extract(NEW.data,'$.model')!=json_extract(OLD.data,'$.model')
 OR (coalesce(json_extract(OLD.data,'$.outcome'),'')!='' AND coalesce(json_extract(NEW.data,'$.outcome'),'')!=json_extract(OLD.data,'$.outcome'))
 BEGIN SELECT RAISE(ABORT,'factory run binding is immutable'); END;`,
+	`CREATE TABLE identity_connections(id TEXT PRIMARY KEY, owner_id INTEGER NOT NULL, generation INTEGER NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)), credential BLOB NOT NULL);
+CREATE TABLE identity_grants(id TEXT PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES identity_connections(id), user_id INTEGER NOT NULL, project_id TEXT NOT NULL, revision INTEGER NOT NULL, revoked INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE UNIQUE INDEX identity_grant_recipient ON identity_grants(connection_id,user_id,project_id) WHERE revoked=0;
+CREATE TABLE identity_leases(id TEXT PRIMARY KEY, connection_id TEXT NOT NULL UNIQUE REFERENCES identity_connections(id), data TEXT NOT NULL CHECK(json_valid(data)));`,
 }
 
 // SchemaVersion identifies the schema produced by this source's migration owner.
@@ -199,7 +203,7 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	version, err := loadSchemaVersion(ctx, tx)
 	if err != nil {
 		return err

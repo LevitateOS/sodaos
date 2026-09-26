@@ -12,8 +12,10 @@ import (
 	"time"
 )
 
-var ErrGrantUnavailable = errors.New("provider grant unavailable; reauthentication required")
-var ErrGrantKey = errors.New("provider grant encryption key missing or incorrect")
+var (
+	ErrGrantUnavailable = errors.New("provider grant unavailable; reauthentication required")
+	ErrGrantKey         = errors.New("provider grant encryption key missing or incorrect")
+)
 
 type Grant struct {
 	Access  string `json:"access"`
@@ -38,11 +40,13 @@ func newGrantCipher(key []byte) (*grantCipher, error) {
 	}
 	return &grantCipher{aead}, nil
 }
+
 func (c *grantCipher) seal(data []byte, binding string) []byte {
 	nonce := make([]byte, c.NonceSize())
-	rand.Read(nonce)
+	_, _ = rand.Read(nonce) // crypto/rand fills the buffer or terminates the process.
 	return c.Seal(nonce, nonce, data, []byte(binding))
 }
+
 func (c *grantCipher) open(data []byte, binding string) ([]byte, error) {
 	if c == nil || len(data) < c.NonceSize() {
 		return nil, ErrGrantKey
@@ -86,6 +90,7 @@ func (s *Store) checkGrantKey(ctx context.Context) error {
 	}
 	return nil
 }
+
 func (s *Store) initializeGrantKey(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO grant_key_check(id,ciphertext) VALUES(1,?)`, s.grants.seal([]byte(keyBinding), keyBinding))
 	if err != nil {
@@ -93,6 +98,7 @@ func (s *Store) initializeGrantKey(ctx context.Context) error {
 	}
 	return s.checkGrantKey(ctx)
 }
+
 func grantBinding(session string, uid int64) string {
 	return "soda/session-grants/v1/" + hash(session) + "/" + strconv.FormatInt(uid, 10)
 }
@@ -103,7 +109,7 @@ func (s *Store) CreateGrantedSession(ctx context.Context, session string, uid in
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err = tx.ExecContext(ctx, `INSERT INTO login_contexts(id,expires) VALUES(?,?)`, hash(session), time.Now().Add(12*time.Hour).Unix()); err != nil {
 		return err
 	}
@@ -132,6 +138,7 @@ func (s *Store) insertGrantedSession(ctx context.Context, tx *sql.Tx, contextID,
 	}
 	return nil
 }
+
 func (s *Store) Grant(ctx context.Context, session string, uid int64) (Grant, error) {
 	var grant Grant
 	var ciphertext []byte
@@ -175,6 +182,7 @@ func (s *Store) ReplaceGrant(ctx context.Context, session string, uid int64, gra
 	}
 	return nil
 }
+
 func (s *Store) DeleteGrant(ctx context.Context, session string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM session_grants WHERE session_token=?`, hash(session))
 	return err

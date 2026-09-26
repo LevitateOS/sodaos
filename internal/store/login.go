@@ -65,7 +65,7 @@ func (s *Store) BeginOAuth(ctx context.Context, state string, login OAuthLogin, 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	now, expires := time.Now().Unix(), time.Now().Add(10*time.Minute).Unix()
 	// Expired contexts cannot authorize a callback; bounded lifetime, no worker.
 	if _, err = tx.ExecContext(ctx, `DELETE FROM login_contexts WHERE expires<=?`, now); err != nil {
@@ -154,7 +154,7 @@ func (s *Store) FinishOAuth(ctx context.Context, a OAuthAttempt, user User, sess
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if err = consumeOAuthAttempt(ctx, tx, a); err != nil {
 		return err
 	}
