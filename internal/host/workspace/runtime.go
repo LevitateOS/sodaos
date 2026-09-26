@@ -34,7 +34,7 @@ func (w *Runtime) Create(ctx context.Context, r *factory.Run, persist func(facto
 	}
 	for i := range r.Resources {
 		if err := w.createResource(ctx, r, i); err != nil {
-			return err
+			return fmt.Errorf("create %s: %w", r.Resources[i].Kind, err)
 		}
 		if err := persist(*r); err != nil {
 			return err
@@ -93,10 +93,11 @@ func (w *Runtime) createContainer(ctx context.Context, resource *factory.Resourc
 	if err != nil {
 		return err
 	}
-	resource.ID = strings.TrimSpace(string(out))
-	if !factory.ValidDigest(resource.ID) {
+	id := strings.TrimSpace(string(out))
+	if !factory.ValidDigest(id) {
 		return errors.New("native container did not return an immutable ID")
 	}
+	resource.ID = id
 	return nil
 }
 
@@ -114,7 +115,7 @@ func (w *Runtime) createWorkspace(ctx context.Context, r *factory.Run, resource 
 	}
 	url := "http://" + ip.String() + ":3128"
 	args := w.containerArguments(r, resource)
-	args = append(args, "--network="+network, "--tmpfs", "/tmp:rw,nosuid,nodev,size=32m", "--tmpfs", fmt.Sprintf("/workspace:rw,nosuid,nodev,size=%d,mode=0700,uid=1000,gid=1000", w.Config.WritableBytes), "--env", "HOME=/workspace/home", "--env", "CODEX_HOME=/run/codex", "--env", "CODEX_SQLITE_HOME=/workspace/.codex-state", "--env", "PATH=/opt/codex/bin:/opt/codex/codex-path:/usr/bin:/bin", "--env", "HTTPS_PROXY="+url, "--env", "HTTP_PROXY="+url, "--volume", w.Config.HarnessDirectory+":/opt/codex:ro,Z", "--volume", w.Config.CredentialHome+":/run/codex:rw,Z", "--volume", filepath.Join(w.Config.Root, r.ID, "input")+":/input:ro,Z", "--workdir", "/workspace", w.Config.Image, "sleep", "infinity")
+	args = append(args, "--network="+network, "--tmpfs", "/tmp:rw,nosuid,nodev,size=32m", "--tmpfs", fmt.Sprintf("/workspace:rw,nosuid,nodev,size=%d,mode=1777", w.Config.WritableBytes), "--env", "HOME=/workspace/home", "--env", "CODEX_HOME=/run/codex", "--env", "CODEX_SQLITE_HOME=/workspace/.codex-state", "--env", "PATH=/opt/codex/bin:/opt/codex/codex-path:/usr/bin:/bin", "--env", "HTTPS_PROXY="+url, "--env", "HTTP_PROXY="+url, "--volume", w.Config.HarnessDirectory+":/opt/codex:ro,Z", "--volume", w.Config.CredentialHome+":/run/codex:rw,Z", "--volume", filepath.Join(w.Config.Root, r.ID, "input")+":/input:ro,Z", "--workdir", "/workspace", w.Config.Image, "sleep", "infinity")
 	return w.createContainer(ctx, resource, args)
 }
 

@@ -41,7 +41,7 @@ func (w *Runtime) Prepare(r factory.Run, task any, bundle []byte) error {
 // insufficient: it must also produce a bounded, valid structured result.
 func (w *Runtime) Launch(ctx context.Context, r factory.Run) (factory.Result, error) {
 	id := w.resource(r, "workspace").ID
-	out, err := w.Exec.Run(ctx, nil, "podman", "exec", id, "/opt/codex/bin/codex", "login", "status")
+	out, err := w.Exec.Run(ctx, nil, "podman", "exec", id, "sh", "-c", "/opt/codex/bin/codex login status 2>&1")
 	if err != nil || !strings.Contains(string(out), "Logged in using ChatGPT") {
 		return factory.Result{}, errors.New("enrolled Codex subscription needs authentication")
 	}

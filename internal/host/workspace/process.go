@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os/exec"
 )
 
@@ -16,7 +17,9 @@ type Native struct{}
 
 type ExitError struct{ Code int }
 
-func (e *ExitError) Error() string { return "native workspace command failed" }
+func (e *ExitError) Error() string {
+	return fmt.Sprintf("native workspace command failed (exit %d)", e.Code)
+}
 
 // Native retains bounded output in memory. It never logs command arguments,
 // provider responses or credential-bearing native diagnostics.
@@ -24,7 +27,8 @@ func (Native) Run(ctx context.Context, input []byte, executable string, args ...
 	cmd := exec.CommandContext(ctx, executable, args...)
 	cmd.Stdin = bytes.NewReader(input)
 	var output boundedOutput
-	cmd.Stdout, cmd.Stderr = &output, &output
+	var diagnostics boundedOutput
+	cmd.Stdout, cmd.Stderr = &output, &diagnostics
 	err := cmd.Run()
 	if ctx.Err() != nil {
 		return nil, ctx.Err()

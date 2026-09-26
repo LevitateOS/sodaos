@@ -35,14 +35,17 @@ shutdown_lifetime 1 seconds
 }
 
 func (w *Runtime) createNetwork(ctx context.Context, r *factory.Run, resource *factory.Resource) error {
-	out, err := w.Exec.Run(ctx, nil, "podman", "network", "create", "--internal", "--disable-dns", "--ipv6", "--opt", "isolate=true", "--label", ownership(r.ID), resource.Name)
+	if _, err := w.Exec.Run(ctx, nil, "podman", "network", "create", "--internal", "--disable-dns", "--ipv6", "--opt", "isolate=true", "--label", ownership(r.ID), resource.Name); err != nil {
+		return err
+	}
+	id, exists, err := w.observeResource(ctx, *r, *resource)
 	if err != nil {
 		return err
 	}
-	resource.ID = strings.TrimSpace(string(out))
-	if !factory.ValidDigest(resource.ID) {
-		return errors.New("native network did not return an immutable ID")
+	if !exists {
+		return errors.New("created network is missing")
 	}
+	resource.ID = id
 	return nil
 }
 
