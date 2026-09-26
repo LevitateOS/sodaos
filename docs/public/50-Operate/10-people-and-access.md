@@ -29,7 +29,7 @@ that status is separate from the configured Soda operator and host root.
 ## Grant the right project and repository access
 
 The repository's human owner administers its environment. Every person selects
-**Add me to this project** to create their own project-local account; ownership
+**Join project** to create their own project-local account; ownership
 is not an implicit join. Members receive shared-resource access, not engine
 administration or host sudo.
 

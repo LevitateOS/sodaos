@@ -20,6 +20,10 @@ private diagnostics or unrelated personal data into public issues or attachments
 
 ## Review and merge
 
+For a factory task, the publisher creates the branch and pull request. Follow
+[Review a factory candidate](#review-a-factory-candidate) to inspect the final
+verified commit. For manual development, create your own candidate as follows:
+
 1. Create a branch in your own checkout and push it with your own Git credential.
 2. Open a pull request against the intended base branch. Review the comparison
    before submitting; a branch with a similar name is not the same revision.

@@ -38,7 +38,7 @@ Forgejo's own interface. It uses the same identity and native permissions, not
 a second copy of repository state. Host services are administered separately in
 [Cockpit](10-cockpit.md), not through a developer dashboard terminal.
 
-## Open a workspace
+## Open a human workspace
 
 Select the project you want to work in and open its environment. Join explicitly
 if you have no workspace there. Once joined, open its workspace terminal in the

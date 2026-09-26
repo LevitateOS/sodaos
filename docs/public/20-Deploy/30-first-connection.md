@@ -49,7 +49,7 @@ synchronize existing project accounts. See [People and access](../50-Operate/10-
 
 ## Join and obtain the project address
 
-Open the environment you intend to use and select **Add me to this project**.
+Open the environment you intend to use and select **Join project**.
 Wait for its real provisioning result, then use its connection details: your
 project-local login, current IP and public SSH host key. The repository owner
 must join too. See [Projects and workspaces](../30-Use-Soda/20-projects-and-workspaces.md).
