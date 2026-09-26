@@ -1,7 +1,9 @@
 # Project OS baseline
 
-Project OS is the userspace foundation inside every Soda project: native accounts,
-shared tools, persistent roots, access and nested workloads.
+Project OS is the userspace foundation for persistent human projects: native
+accounts, shared tools, lasting roots, access and nested workloads. It supports
+development and intervention, separately from the disposable
+[factory workspace runtime](factory.md).
 
 Product model: [Projects](../product/projects.md). Everyday use:
 [Develop](../guides/develop.md). Terminal contract: [Terminal](terminal.md).

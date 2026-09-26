@@ -1,7 +1,9 @@
 # Projects
 
-A **project** is a lasting shared development environment bound to a Forgejo
-repository. It is not a disposable per-user Codespace and not a host Linux account.
+A **project** is a lasting shared human development environment bound to a Forgejo
+repository. It supports development, debugging and intervention alongside bounded
+agent work. Its writable roots, credentials and lifetime are separate from
+[disposable factory workspaces](../reference/factory.md).
 
 Canonical runtime contracts live in [Project OS](../reference/project-os.md).
 This document owns the product model: what a project is, who may create and join it,
@@ -40,7 +42,7 @@ runtime flags.
 
 ## Explicit joining
 
-**Add me to this project** creates the intended project-local Linux account, installs
+**Join project** creates the intended project-local Linux account, installs
 any explicitly selected external-SSH public keys, and records membership only after
 confirmed native success.
 

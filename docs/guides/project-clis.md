@@ -2,7 +2,7 @@
 
 Project images include packaged `tea` (Forgejo) and `gh` (GitHub) CLIs for personal
 provider authentication inside the project. They are not shared credentials and not
-a substitute for native Git.
+a substitute for native Git or a factory execution identity.
 
 Runtime packaging lives in `project-os/` recipes. Versions belong in those recipes
 and locks, not a second prose table here.
@@ -11,8 +11,8 @@ and locks, not a second prose table here.
 
 - Authenticate each CLI with the member's own provider login inside the project.
 - Do not place provider tokens in `~/shared` or the repository.
-- Repository automation credentials, when offered, are a separate product surface
-  from a member's personal CLI login.
+- Factory credentials and publication authority belong to the separate
+  [operator interface](../reference/factory.md), outside personal project logins.
 
 ## Maintenance
 

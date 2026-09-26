@@ -22,7 +22,8 @@ root. Setup tokens are not ordinary acting-user credentials.
 - **Forgejo** owns passwords, factors, native sessions, permissions, Git credentials
   and collaboration.
 - **Soda** owns preferences, development-access public keys, environment membership
-  and protected adapter sessions/grants.
+  and protected adapter sessions/grants, plus factory execution identity and
+  run-scoped authority.
 - Native Git keys and collaboration remain upstream-owned.
 - Soda does not maintain a second password, provider-role inventory or CI scheduler.
 
@@ -39,7 +40,7 @@ boundaries.
 
 ## Factory authority boundary
 
-The intended factory runs only for a trusted team on one operator-managed
+The factory runs only for a trusted team on one operator-managed
 appliance. Agent instructions and repository content are untrusted inputs even
 there. An agent may work in its assigned disposable workspace, but its identity
 does not confer host, Soda operator, Forgejo administrator or merge authority.
@@ -53,9 +54,23 @@ Reusable subscription credentials are a narrow exception for private trusted wor
 Keep them restricted to the assigned execution boundary and out of source, logs
 and retained artifacts. A provider credential stream may be reused serially across
 runs, with credential state maintained by its supported CLI. Deleting a workspace
-does not revoke a provider credential; provider revocation is a separate operator action. This factory
-boundary is an intended contract, not a claim that credential delivery, mediation
-or reviewer isolation is implemented today.
+does not revoke a provider credential; provider revocation is a separate operator
+action. Code in the trusted runtime may extract its injected provider credential.
+Containers share a kernel, and an allowlist does not prevent exfiltration through
+an allowed service.
+
+Keep four identities distinct: the authorizing human, the principal of one Soda
+run, the Forgejo actor publishing its candidate or findings, and the provider
+account supplying model access. A role is a policy template, not authority an
+agent can grant itself or its subagents. An issue or label is task context rather
+than an execution grant.
+
+The [factory operator interface](../reference/factory.md) records admitted inputs
+and checks active authority for publication. Cancellation or closed work withdraws
+further execution and publication. New commits invalidate earlier CI and review
+evidence. Cleanup operates only on recorded run-owned resources; persistent human
+Projects retain their separate authority and lifetime. A fresh review boundary
+constrains operations without guaranteeing independent reasoning or correct code.
 
 ## Frontend and session boundary
 

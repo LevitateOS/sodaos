@@ -4,6 +4,11 @@ Soda keeps OAuth client secrets, grant-encryption keys and adapter sessions sepa
 from Forgejo's native credential store. This document owns durable credential
 contracts and operator maintenance. Route behavior: [HTTP API](api.md).
 
+Factory execution, publication actors and provider account authentication are
+distinct from these browser grants. Their authority belongs to
+[Trust](../architecture/trust.md#factory-authority-boundary); delivery and
+CLI-maintained credential continuity belong to the [factory reference](factory.md).
+
 ## New installations
 
 1. Operator creates a Forgejo site-admin access token with `write:user` (includes

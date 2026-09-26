@@ -38,6 +38,10 @@ validation or error handling.
 
 Deferral does not remove:
 
+- explicit factory admission, separate execution identities, time and resource
+  limits, cancellation and reconciliation of recorded run resources
+- exact-candidate CI and fresh review, at most one repair, human merge and
+  an understandable intervention outcome when work cannot finish
 - ordinary authorization, validation and honest error handling
 - persistence and no-destructive-repair rules for project roots
 - native installation, update and recovery qualification for the release candidate

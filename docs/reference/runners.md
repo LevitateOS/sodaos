@@ -3,6 +3,10 @@
 Soda owns local runner **capacity** on the appliance. Forgejo owns Actions settings,
 workflows, scheduling, secrets, variables and results.
 
+Factory candidate verification uses Forgejo Actions against the exact candidate
+commit. CI jobs remain separate from implementation and fresh review agents;
+the [factory operator interface](factory.md) observes their results.
+
 ## Product boundary
 
 - Operator-only **Runners** destination mounts through Forgejo administration

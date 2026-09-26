@@ -3,6 +3,10 @@
 Configuration for the Soda Go API/OAuth service. Source of truth:
 `internal/config` and the installed JSON/unit files under the appliance.
 
+This configures human project access and browser integration. Bounded agent work
+has separate protected [factory operator configuration](factory.md); do not add
+factory credentials or run authority to a human project configuration.
+
 ## Fields
 
 | Field | Meaning |

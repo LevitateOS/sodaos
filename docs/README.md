@@ -3,13 +3,18 @@
 Navigate by intent. Each important subject has one canonical owner; other documents
 link to it rather than redefining the contract.
 
+Soda OS runs human-authorized software work within controlled execution boundaries.
+Start with the [first factory task](public/30-Use-Soda/15-software-factory.md) and
+[operator interface](reference/factory.md). Persistent human projects provide a
+separate path for development and intervention.
+
 ## Understand Soda
 
 | Document | Owns |
 | --- | --- |
 | [Product overview](product/overview.md) | What Soda OS is and the major concepts |
-| [Projects](product/projects.md) | Project environments, profiles, joining, persistence |
-| [Spaces](product/spaces.md) | Sodaspaces workspace inside Forgejo |
+| [Projects](product/projects.md) | Persistent human environments, profiles, joining, persistence |
+| [Spaces](product/spaces.md) | Human project workspace beside Forgejo collaboration |
 | [Scope](product/scope.md) | Deferred and excluded product work |
 | [Architecture overview](architecture/overview.md) | Topology, components, data flow |
 | [Trust model](architecture/trust.md) | Authority, identity, privilege boundaries |

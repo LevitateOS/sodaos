@@ -1,8 +1,9 @@
 # Architecture overview
 
-Soda OS runs as an operator-managed Fedora CoreOS appliance. Developers use native
-Forgejo pages, ordinary SSH, Git, mise and container tools. Soda integrates those
-pieces; it does not ask developers to assemble missing account, key or runtime wiring.
+Soda OS is a Fedora CoreOS appliance for human-authorized software work. Forgejo
+owns collaboration, Soda owns bounded execution, agents perform tasks and people
+authorize work and merge verified results. Persistent Projects support manual
+development and intervention through Forgejo, SSH, Git, mise and container tools.
 
 Product concepts: [overview](../product/overview.md). Trust and privilege:
 [trust](trust.md). Networking: [networking](networking.md). Release:
@@ -16,6 +17,7 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Native operator services | Stock branded Cockpit, Tailnet/Runners management, `tailscaled`, CI runner services, restricted Soda project helper |
 | Appliance applications | Separate Podman containers for stock Forgejo, Soda's Go API/OAuth service and Caddy |
 | Persistent application data | Separate Soda SQLite database and upstream-owned Forgejo data |
+| Factory execution | Unprivileged `soda-factory` operator command, execution ledger, narrow publisher and rootless Podman workspaces |
 | Projects | Persistent Project OS containers with project-local accounts, writable roots, SSH and shared installations |
 | Project workloads | Nested Podman inside the project |
 
@@ -33,6 +35,8 @@ Spaces.
 | --- | --- |
 | Forgejo | Identity, Git, collaboration, Actions UI/scheduling, native sessions |
 | Soda Go service (`web`, `web/api`, `web/auth`) | OAuth adapter, environment APIs, Spaces pages, terminal WS, runner/Tailnet settings |
+| `soda-factory` (`factory/control`) | Admission, fixed implementation/verification/repair loop, execution records, cancellation and reconciliation |
+| Factory workspace and publisher (`host/workspace`, `host/publish`) | Disposable OCI execution and permitted Forgejo publication, separate from persistent Project authority |
 | `soda-host` daemon | Privileged project, terminal and Tailnet companion execution |
 | Project OS | Developer accounts, tools, persistence, nested workloads |
 | Caddy | Private HTTPS termination for configured origins |
@@ -41,10 +45,11 @@ Spaces.
 
 Go package placement for developers: [Go ownership](../development/go.md).
 
-## Intended factory flow
+## Factory flow
 
-This is the target design, not an assertion of existing runtime or API support.
-Native capability boundaries must be proved before controller or UI development.
+The operator interface is [the factory command](../reference/factory.md). Forgejo
+remains the collaboration control plane; there is no factory dashboard or second
+CI scheduler implied by this flow.
 
 1. A human selects Forgejo work for Soda to admit. Forgejo remains the source of
    truth for its issue, branch, pull request, review and CI state. Soda keeps only
@@ -52,14 +57,18 @@ Native capability boundaries must be proved before controller or UI development.
 2. Soda assigns a replaceable coding agent to a disposable workspace separate from
    persistent Project roots. Codex is the first agent; OpenCode, Muse Code and
    Oh My Pi are later candidates, not required adapters in the initial path.
-3. Agent changes reach Forgejo through mediated writes. A fresh independent
-   reviewer examines the proposed change. At most one bounded repair follows a
+3. Agent changes reach Forgejo through the narrow publisher, which checks the
+   repository, assigned branch, expected revision and active run. A fresh reviewer
+   with a separate identity examines the candidate. At most one bounded repair follows a
    failed check before the work returns to a human.
 4. Review and CI evidence bind to the exact candidate commit. A repair receives a
    new review in another fresh workspace and new CI results; older evidence cannot
    authorize it.
 5. A human makes the merge decision. Forgejo runs and displays CI; Soda does not
    replace its workflow scheduler or collaboration records.
+6. Completion, cancellation or expired limits end execution and publication
+   authority. Cleanup is recorded separately from the outcome. Restart handling
+   reconciles recorded resources; a human must explicitly admit another attempt.
 
 The factory does not require changing the current Forgejo, Soda, Caddy or Project
 container topology. Disposable workspaces and their cleanup must have their own
@@ -84,15 +93,22 @@ resource boundary; the Project persistence rules below still apply.
 | --- | --- |
 | Forgejo database and repos | Forgejo volume |
 | Soda SQLite, OAuth grants, environment rows | Soda data volume |
+| Factory admissions, attempts, runs and resource ledger | Protected factory `execution.db` under the configured operator root |
+| Run checkout, scratch, containers and network | Disposable run resources, reconciled from recorded ownership |
+| Retained factory results and provider enrollment | Protected operator state, separate from disposable resources and public logs |
 | Project accounts, homes, tools, service data | Project persistent root |
 | Runner registration and local capacity | Host runner state |
 | Host OS and layered packages | rpm-ostree / CoreOS |
 
-Application containers and project roots start existing state. Replacement,
+Persistent application containers and project roots start existing state. Replacement,
 `--rm` and pruning are not repair strategies.
+
+Factory workspaces instead receive fresh writable state and are destroyed at the
+end of their run. Their cleanup never selects persistent human Projects or
+unrelated host resources.
 
 ## Related source
 
 - Appliance topology: `appliance/services/`
 - Project images and units: `project-os/`
-- Entrypoints: `cmd/soda-dashboard`, `cmd/soda-host`
+- Entrypoints: `cmd/soda-dashboard`, `cmd/soda-host`, `cmd/soda-factory`

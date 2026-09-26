@@ -1,12 +1,26 @@
 # SodaOS
 
-Persistent, shared development environments on an operator-managed Fedora CoreOS
-appliance. Developers use native Forgejo, SSH, Git, mise and container tools—not
-individual Linux accounts on the host.
+**The operating system for software factories.** Run your coding agents on your
+infrastructure, with controlled access and reviewable results.
+
+A person authorizes work in Forgejo. Soda gives a coding agent a fresh workspace
+with time and resource limits. Results return as a pull request, checked by CI
+and a fresh review against the exact candidate commit. One bounded repair receives
+new verification; a person decides what merges. Every run ends with a recorded
+outcome and separately tracked cleanup.
+
+Persistent shared Projects support human development, debugging and intervention
+through native Forgejo, SSH, Git, mise and container tools. Developers do not
+receive individual Linux accounts on the host.
 
 Soda integrates Forgejo's native frontend with **Spaces** (repository environment
 entry and drawer), a protected Go environment/access API, OAuth, native
-provisioning, Tailnet/Runners operator settings and stock branded Cockpit.
+provisioning, Tailnet/Runners operator settings and stock branded Cockpit. The
+`soda-factory` operator command owns explicit admission and bounded execution.
+
+Start with the [first factory task](docs/public/30-Use-Soda/15-software-factory.md).
+The [operator reference](docs/reference/factory.md) describes configuration and
+commands; [manual development](docs/guides/develop.md) is a separate path.
 
 Documentation index: [docs/README.md](docs/README.md).
 
@@ -15,6 +29,8 @@ Documentation index: [docs/README.md](docs/README.md).
 ```text
 Fedora CoreOS host — operator administration only
 ├── Stock branded Cockpit, tailscaled, trusted project Tailnet companions and CI runners
+├── soda-factory — unprivileged operator command, execution ledger and publisher
+│   └── Rootless Podman — disposable agent workspaces and restricted networking
 └── Podman
     ├── Stock Forgejo — native frontend, identity/Git and its own persistent data
     ├── Soda Go API/OAuth service — separate SQLite/grants
@@ -42,6 +58,7 @@ routing are separate configuration.
 | Area | Source / documentation |
 | --- | --- |
 | Product and architecture | [Overview](docs/product/overview.md), [Architecture](docs/architecture/overview.md), [Scope](docs/product/scope.md) |
+| Bounded software work | `cmd/soda-factory/`, `internal/factory/`, [Operator reference](docs/reference/factory.md), [First task](docs/public/30-Use-Soda/15-software-factory.md) |
 | Host capability strategy | [Host strategy](docs/research/host-strategy.md) |
 | API / auth / Forgejo customization | `cmd/`, `internal/`, [API](docs/reference/api.md), [Credentials](docs/reference/credentials.md), [Forgejo](docs/reference/forgejo.md) |
 | Installation / operator access | `appliance/`, `scripts/`, [Installation](docs/guides/installation.md), [Operator setup](docs/guides/operator-setup.md), [Media](docs/guides/media.md) |

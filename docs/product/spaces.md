@@ -1,8 +1,13 @@
 # Spaces
 
-**Spaces** (Sodaspaces) is the Soda workspace experience beside native Forgejo:
+**Spaces** (Sodaspaces) is the persistent human workspace beside native Forgejo:
 a repository environment entry, shared management views and terminals that stay
 available while forge pages navigate.
+
+Use it for development, debugging and intervention alongside factory work. Issues,
+candidate pull requests, reviews and CI remain in Forgejo; admission, status and
+cancellation use the [factory operator interface](../reference/factory.md).
+Opening Spaces or joining a project does not authorize an agent run.
 
 The persistent outer document is a dedicated Soda HTML shell. `/workspace` is the
 home entry; the address bar carries the shell path itself, `/-/soda/<framed-path>`
@@ -71,7 +76,7 @@ Wire contracts live in [Terminal](../reference/terminal.md) and [HTTP API](../re
 | Setting | Location |
 | --- | --- |
 | Project profile / Spaces creation | Repository settings |
-| CLI-based AI automation (when offered) | Repository settings |
+| Factory admission, execution policy and run controls | Protected `soda-factory` operator configuration and commands |
 | Local Sodarunners capacity | Global Soda-operator settings |
 | Host Tailnet and enrollment policy | Global Soda-operator settings |
 

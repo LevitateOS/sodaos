@@ -1,7 +1,7 @@
 # Host capability strategy
 
 Non-normative strategy for CoreOS host capabilities that strengthen Soda as a
-dependable shared development appliance. Normative topology and trust remain in
+software factory with supporting human development. Normative topology and trust remain in
 [Architecture](../architecture/overview.md). Project runtime remains in
 [Project OS](../reference/project-os.md).
 
@@ -31,7 +31,7 @@ job containers are distinct lifetimes and credentials.
 
 ## Recommended host investments
 
-1. **Resource protection** for shared development and CI, leaving room for appliance
+1. **Resource protection** for bounded agent runs, human development and CI, leaving room for appliance
    services.
 2. **Backups with tested restoration** for team work on the appliance.
 3. **Machine health / first-boot report** through the existing operator console/CLI.

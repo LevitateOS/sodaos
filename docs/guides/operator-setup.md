@@ -1,5 +1,8 @@
 # Operator bootstrap
 
+Prepare Forgejo identity and private access for software collaboration and bounded
+agent work. Factory execution and persistent human Projects have separate authority.
+
 Source baseline: Forgejo 15.0.7. Soda uses OAuth2 and `/api/v1/user`, not an assumed
 OIDC identity-token flow.
 
@@ -33,3 +36,10 @@ keys.
 
 Existing installations use [credential maintenance](../reference/credentials.md),
 not rerunning setup. Console guidance: [Operator console welcome](../design/console-welcome.md).
+
+After browser access is configured, prepare the private repository, publishing and
+review actors, selected agent profile and protected factory configuration through
+the [factory operator reference](../reference/factory.md). A repository, project
+join or issue label does not admit work. Follow the
+[first-task walkthrough](../public/30-Use-Soda/15-software-factory.md) for explicit
+admission, verification and human merge.

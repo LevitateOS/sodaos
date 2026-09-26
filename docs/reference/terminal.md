@@ -1,8 +1,11 @@
 # Managed terminal contract
 
-Soda provides managed browser terminals for project members. Soda retains access and
+Soda provides managed browser terminals for human project members. Soda retains access and
 lifetime authority; stock packaged **tmux** retains live terminal state. This is not
 a replacement for ordinary SSH and not a public terminal server.
+
+A browser terminal is manual development access. Opening one does not admit agent
+work or grant factory authority; use the [factory operator interface](factory.md).
 
 UX composition: [Spaces UX](../design/spaces-ux.md). Routes: [HTTP API](api.md).
 

@@ -90,12 +90,13 @@ retention and publication.
 ## Development checks
 
 The opt-in native checks use a private task-owned fixture; they are development
-integration evidence rather than installed appliance qualification:
+integration evidence rather than installed appliance qualification. The workspace
+lifecycle check uses synthetic credential state; subscription execution goes
+through the controller, which owns serialized credential persistence:
 
 ```sh
 SODA_FACTORY_NATIVE_CONFIG=/absolute/private/workspace-config.json \
   go test ./internal/host/workspace -run TestNativeLifecycle -count=1
-# Add SODA_FACTORY_NATIVE_AGENT=1 only when exercising the enrolled subscription.
 SODA_FACTORY_CONTROLLER_CONFIG=/absolute/private/controller-config.json \
   go test ./internal/factory/control -run TestNativeWithdrawAndRecover -count=1
 SODA_FACTORY_PUBLICATION_CONFIG=/absolute/private/publication-config.json \

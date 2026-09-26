@@ -6,6 +6,10 @@ Annotated sheets: [design/spaces](spaces/README.md).
 
 ## Direction
 
+Spaces supports persistent human development and intervention alongside the
+software factory. The first-use journey below creates a human project; agent
+admission and run controls use the [operator interface](../reference/factory.md).
+
 A focused first-use journey, then a project/session sidebar for finding work, tabs
 for switching within a pane, and contextual splits for the few terminals viewed
 together. Native CLI agents remain inside real terminals. No agent-chat frontend,

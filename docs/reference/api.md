@@ -7,6 +7,10 @@ and [Trust](../architecture/trust.md).
 
 Source owners: `internal/web`, `internal/web/api`, `internal/web/auth`.
 
+Factory admission, execution, status and cancellation use the separate
+[`soda-factory` operator command](factory.md). The HTTP routes below do not create
+agent runs or grant factory execution authority.
+
 ## Browser namespace
 
 All routes below are relative to `/-/soda/` unless noted. Protected APIs require the

@@ -1,6 +1,8 @@
 # Working inside a project
 
-Everyday developer workflows inside a Soda project environment.
+Manual development, debugging and intervention inside a persistent human project,
+alongside the software factory. Agent admission and execution use the separate
+[factory operator interface](../reference/factory.md).
 
 Runtime contracts: [Project OS](../reference/project-os.md).
 Product model: [Projects](../product/projects.md).

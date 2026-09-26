@@ -1,9 +1,15 @@
 # Native build and installation
 
-How to prepare builders, produce candidates, install components and activate an
-appliance. Release model: [Release architecture](../architecture/release.md).
+How to prepare builders, produce candidates, install components and activate a
+software factory appliance with supporting persistent human projects.
+Release model: [Release architecture](../architecture/release.md).
 Tool effects: [Native support](../development/native-support.md).
 Media details: [Installation media](media.md).
+
+After installation and private operator setup, configure bounded work through the
+[factory operator interface](../reference/factory.md). The public
+[first-task walkthrough](../public/30-Use-Soda/15-software-factory.md) connects
+admission to verified results and human merge.
 
 Commands that write disks, mutate providers, publish artifacts or destroy fixtures
 require explicit task approval. This guide is not that approval.
