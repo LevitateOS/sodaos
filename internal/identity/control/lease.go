@@ -175,15 +175,19 @@ func (c *Controller) finish(ctx context.Context, l identity.Lease) error {
 		return c.store.IdentityForgetLease(ctx, l.ID)
 	}
 	data, err := c.runtime.Finish(ctx, l)
-	if err != nil || !identity.CredentialValid(data) {
-		_ = c.uncertain(ctx, l)
-		return identity.ErrUncertain
-	}
 	defer func() {
 		for i := range data {
 			data[i] = 0
 		}
 	}()
+	if err != nil || !identity.CredentialValid(data) {
+		_ = c.uncertain(ctx, l)
+		return identity.ErrUncertain
+	}
+	if err = c.runtime.Stop(ctx, l); err != nil {
+		_ = c.uncertain(ctx, l)
+		return identity.ErrUncertain
+	}
 	if err = c.store.IdentityReturn(ctx, l, data); err != nil {
 		_ = c.uncertain(ctx, l)
 	}

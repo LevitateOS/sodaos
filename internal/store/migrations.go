@@ -84,6 +84,9 @@ BEGIN SELECT RAISE(ABORT,'factory run binding is immutable'); END;`,
 CREATE TABLE identity_grants(id TEXT PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES identity_connections(id), user_id INTEGER NOT NULL, project_id TEXT NOT NULL, revision INTEGER NOT NULL, revoked INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
 CREATE UNIQUE INDEX identity_grant_recipient ON identity_grants(connection_id,user_id,project_id) WHERE revoked=0;
 CREATE TABLE identity_leases(id TEXT PRIMARY KEY, connection_id TEXT NOT NULL UNIQUE REFERENCES identity_connections(id), data TEXT NOT NULL CHECK(json_valid(data)));`,
+	`CREATE TABLE identity_events(id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL, connection_id TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TRIGGER identity_events_immutable_update BEFORE UPDATE ON identity_events BEGIN SELECT RAISE(ABORT,'identity audit is immutable'); END;
+CREATE TRIGGER identity_events_immutable_delete BEFORE DELETE ON identity_events BEGIN SELECT RAISE(ABORT,'identity audit is immutable'); END;`,
 }
 
 // SchemaVersion identifies the schema produced by this source's migration owner.

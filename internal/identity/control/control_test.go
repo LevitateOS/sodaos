@@ -32,8 +32,9 @@ func (*testSession) Finish(context.Context) (identity.Connection, []byte, error)
 func (*testSession) Close() error { return nil }
 
 type testRuntime struct {
-	validateErr, stopErr error
-	validated, stopped   int
+	validateErr, stopErr, finishErr error
+	validated, stopped, finished    int
+	finishedData                    []byte
 }
 
 func (r *testRuntime) Validate(context.Context, identity.Lease) error {
@@ -43,8 +44,9 @@ func (r *testRuntime) Validate(context.Context, identity.Lease) error {
 func (r *testRuntime) Stop(context.Context, identity.Lease) error { r.stopped++; return r.stopErr }
 
 func (r *testRuntime) Finish(context.Context, identity.Lease) ([]byte, error) {
-	r.stopped++
-	return []byte(`{"tokens":{"refresh_token":"synthetic-maintained"}}`), r.stopErr
+	r.finished++
+	r.finishedData = []byte(`{"tokens":{"refresh_token":"synthetic-maintained"}}`)
+	return r.finishedData, r.finishErr
 }
 
 func controllerFixture(t *testing.T) (*Controller, *store.Store, *testRuntime, identity.Connection) {
@@ -277,5 +279,36 @@ func TestReservationRecoveryDoesNotInvalidateUndeliveredCredential(t *testing.T)
 	}
 	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1)); err != nil {
 		t.Fatal("undelivered reservation invalidated credential", err)
+	}
+}
+
+func TestFinishCannotReleaseUntilNativeRetirementConfirmed(t *testing.T) {
+	c, s, r, conn := controllerFixture(t)
+	ctx := t.Context()
+	l, err := c.Acquire(ctx, acquireInput(conn.ID, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = c.Register(ctx, l.ID, registerBinding(l)); err != nil {
+		t.Fatal(err)
+	}
+	r.stopErr = errors.New("credential boundary retirement failed")
+	if err = c.EndLease(ctx, 1, l.ID); !errors.Is(err, identity.ErrUncertain) {
+		t.Fatal("retirement failure accepted credential return", err)
+	}
+	current, err := s.IdentityConnection(ctx, conn.ID)
+	if err != nil || current.State != identity.Reauth || current.Generation != conn.Generation {
+		t.Fatal("uncertain retirement advanced credential stream", err)
+	}
+	if _, err = s.IdentityLease(ctx, l.ID); err != nil {
+		t.Fatal("uncertain native binding forgotten", err)
+	}
+	if r.finished != 1 || r.stopped != 1 {
+		t.Fatal("finish did not require separate retirement confirmation")
+	}
+	for _, b := range r.finishedData {
+		if b != 0 {
+			t.Fatal("failed return left credential bytes live")
+		}
 	}
 }
