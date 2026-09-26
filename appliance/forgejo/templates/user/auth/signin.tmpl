@@ -8,17 +8,17 @@
 			<img class="soda-login-logo-dark" src="{{AssetUrlPrefix}}/soda/source/soda-symbol-brutalist-dark.svg" width="40" height="40" alt="Soda OS">
 		</a>
 		<div class="soda-login-message">
-			<h1>Development goes<br>better with Soda.</h1>
+			<h1>The operating system for software factories.</h1>
 
 		</div>
-		<p class="soda-login-tagline">Your projects. Your tools. Your Soda.</p>
+		<p class="soda-login-tagline">Run your coding agents on your infrastructure, with controlled access and reviewable results.</p>
 	</section>
 	<section class="soda-login-panel" aria-label="{{ctx.Locale.Tr "sign_in"}}">
 		<div class="soda-login-form">
 			{{if not .LinkAccountMode}}
-			<p class="soda-login-eyebrow">Your development cloud</p>
+			<p class="soda-login-eyebrow">Your software factory</p>
 			<h2>Welcome back.</h2>
-			<p class="soda-login-intro">Sign in to your Soda dashboard.</p>
+			<p class="soda-login-intro">Sign in to inspect issues, pull requests, reviews and CI. People authorize work and decide what merges.</p>
 			{{end}}
 			{{template "user/auth/signin_inner" .}}
 			{{if not .ShowRegistrationButton}}<p class="soda-login-account">Need an account? Contact your administrator.</p>{{end}}

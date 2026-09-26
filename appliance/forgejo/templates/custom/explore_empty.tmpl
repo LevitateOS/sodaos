@@ -1,17 +1,17 @@
 {{/* Presentation only: never infer the existence of records hidden by native visibility. */}}
 <section class="soda-empty" aria-labelledby="soda-empty-title">
   {{$icon := "octicon-people"}}
-  {{$eyebrow := "There’s room at the workbench"}}
+  {{$eyebrow := "Repository collaboration"}}
   {{$title := "No people to show yet."}}
   {{$description := "People with profiles visible to you will appear here. Check back as your community grows."}}
   {{if .PageIsExploreRepositories}}
     {{$icon = "octicon-repo"}}
-    {{$eyebrow = "Room for your next idea"}}
+    {{$eyebrow = "Repository access"}}
     {{$title = "No repositories to show."}}
     {{$description = "Nothing is visible in this view right now. Reset the filters to see the repositories available to you."}}
   {{else if .PageIsExploreOrganizations}}
     {{$icon = "octicon-organization"}}
-    {{$eyebrow = "Good things start together"}}
+    {{$eyebrow = "Team collaboration"}}
     {{$title = "No organizations to show yet."}}
     {{$description = "When organizations are available to you, you’ll find their shared home here."}}
   {{end}}
@@ -19,7 +19,7 @@
     {{$kind := "people"}}
     {{if .PageIsExploreRepositories}}{{$kind = "repositories"}}{{else if .PageIsExploreOrganizations}}{{$kind = "organizations"}}{{end}}
     {{$icon = "octicon-search"}}
-    {{$eyebrow = "A little room to explore"}}
+    {{$eyebrow = "Search results"}}
     {{$title = "No matches this time."}}
     {{$description = printf "We couldn’t find %s matching “%s”. Try a different search, or start fresh." $kind .Keyword}}
   {{end}}

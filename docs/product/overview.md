@@ -9,8 +9,7 @@ Projects support human development and intervention.
 Developers work through native Forgejo, ordinary SSH, Git, mise and container tools.
 Soda supplies the integration that creates project environments, membership, access
 keys, managed terminals, local CI runner capacity and disposable agent workspaces.
-Developers do not receive
-individual Linux accounts on the host.
+Developers do not receive individual Linux accounts on the host.
 
 Public Internet hosting and a production hosting platform are outside this product.
 Private LAN access and optional Tailscale access are in scope. Trying Soda or using
@@ -44,7 +43,7 @@ removing one must not remove a Project's accounts, tools or data.
 
 Replaceable coding agents perform bounded work, starting with Codex. OpenCode,
 Muse Code and Oh My Pi may be added later through the same authority boundary. A
-fresh, independent reviewer checks an agent's proposed change; a human decides
+fresh review in a separate workspace checks an agent's proposed change; a human decides
 whether to merge. A repairable failure may receive one bounded repair before
 returning to a human. CI and review bind to the exact candidate commit; a changed
 candidate requires new verification. Closing or cancelling work withdraws further

@@ -8,6 +8,8 @@ fi
 [ "$(id -u)" = 0 ] || exit 0
 config=${1:-/etc/soda/dashboard.json}
 printf '\nWelcome to Soda OS — host operator console\n'
+printf 'The operating system for software factories.\n'
+printf 'Run your coding agents on your infrastructure, with controlled access and reviewable results.\n'
 host=$(hostnamectl --static 2>/dev/null)
 [ -n "$host" ] || host=$(uname -n)
 printf 'Hostname: %s\n' "$host"
@@ -81,5 +83,7 @@ else
     printf '\nTailnet status helper is unavailable; inspect native tailscaled.service.\n'
 fi
 printf '\nProject developers use their project IPs, not host Linux accounts.\n'
+printf 'People authorize factory work and merge the final verified commit in Forgejo.\n'
+printf 'Persistent human projects support development and intervention; run cleanup leaves them intact.\n'
 printf 'Host Tailnet enrollment does not establish project-subnet routing.\n'
 printf 'No firewall, listener, enrollment or service configuration was changed.\n'

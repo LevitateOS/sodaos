@@ -24,8 +24,8 @@ function projectOSOptionLabel(p: CreationProfile, context: 'standard' | 'configu
   return `Rocky ${p.version} headless (${p.architecture})`;
 }
 function projectOSHelp(context: 'standard' | 'configure'): string {
-  if (context === 'configure') return 'A shared Linux system with browser terminal access.';
-  return 'Headless provides terminal access to the shared development foundation. KDE adds graphical access, but KDE and Fedora are not available in this build. Selection alone does not pull or start anything.';
+  if (context === 'configure') return 'A persistent Linux project for human development, debugging and intervention.';
+  return 'Headless provides terminal access to a persistent human project. KDE adds graphical access, but KDE and Fedora are not available in this build. Agent workspaces have a separate runtime and lifetime. Selection alone does not pull or start anything.';
 }
 function projectOSPicker(
   profiles: readonly CreationProfile[],

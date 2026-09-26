@@ -589,7 +589,7 @@ export class SodaProjectControls extends LitElement {
         kind: 'project',
         heading: 'Project created',
         description: html`Join ${this.repositoryName} to set up your personal account<span
-            >on this shared development system.</span
+            >in this persistent human project.</span
           >`,
         action: this.joinAction(),
         helper: html`Then you can open your first browser terminal.`,

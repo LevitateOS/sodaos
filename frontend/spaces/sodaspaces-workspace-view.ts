@@ -11,8 +11,8 @@ export function renderWelcome(blocked: boolean, create: () => void) {
     </svg>
     <h2 tabindex="-1">Create your first project</h2>
     <p class="soda-welcome-copy">
-      <span>A shared development system, connected to your repository.</span
-      ><span>Open terminals and work together, right in your browser.</span>
+      <span>A persistent human project, connected to your repository.</span
+      ><span>Develop, debug and intervene alongside factory work using browser terminals or SSH.</span>
     </p>
     <button class="ui primary button" ?disabled=${blocked} @click=${create}>
       <span aria-hidden="true">＋</span> Create project
@@ -22,7 +22,7 @@ export function renderWelcome(blocked: boolean, create: () => void) {
         href="https://github.com/levitateos/sodaos/blob/main/docs/public/30-Use-Soda/20-projects-and-workspaces.md"
         target="_blank"
         rel="noopener noreferrer"
-        >How Spaces works <span aria-hidden="true">↗</span
+        >How human projects work <span aria-hidden="true">↗</span
         ><span class="soda-visually-hidden"> (opens in a new tab)</span></a
       >
     </p>`;
