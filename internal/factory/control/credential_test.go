@@ -3,7 +3,13 @@ package control
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/host/workspace"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestSaveCredentialPreservesEnrollment(t *testing.T) {
@@ -35,5 +41,54 @@ func TestSaveCredentialPreservesEnrollment(t *testing.T) {
 	}
 	if err := saveCredential(path, credentialSHA(renewed), []byte("invalid")); err == nil {
 		t.Fatal("accepted invalid state")
+	}
+}
+
+func TestCredentialStreamRequiresReenrollmentAfterLostReturn(t *testing.T) {
+	root := t.TempDir()
+	state := []byte(`{"tokens":{"refresh_token":"synthetic-first"}}`)
+	if err := os.WriteFile(filepath.Join(root, "auth.json"), state, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := store.Open(filepath.Join(root, "execution.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	a := testAttempt(t, s)
+	copy := a
+	r, err := copy.BeginRun(factory.Implementation, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Image = "sha256:" + strings.Repeat("c", 64)
+	r.Harness = "test"
+	r.Model = "test"
+	if err := s.StartFactoryRun(t.Context(), &a, r); err != nil {
+		t.Fatal(err)
+	}
+	r.CredentialClaimed = true
+	r.CredentialDelegated = true
+	r.CredentialSeedSHA = credentialSHA(state)
+	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
+		t.Fatal(err)
+	}
+	c := Controller{Store: s, Config: Config{Workspace: workspace.Config{CredentialHome: root}}}
+	if err := c.checkCredentialStream(t.Context()); err == nil {
+		t.Fatal("reused running credential stream")
+	}
+	r.Outcome = factory.NeedsHuman
+	r.CleanupComplete = true
+	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.checkCredentialStream(t.Context()); err == nil {
+		t.Fatal("cleanup allowed stale credential reuse")
+	}
+	if err := os.WriteFile(filepath.Join(root, "auth.json"), []byte(`{"tokens":{"refresh_token":"synthetic-new-enrollment"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.checkCredentialStream(t.Context()); err != nil {
+		t.Fatal(err)
 	}
 }

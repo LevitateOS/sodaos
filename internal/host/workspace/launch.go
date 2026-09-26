@@ -47,6 +47,9 @@ func (w *Runtime) Launch(ctx context.Context, r factory.Run) (factory.Result, er
 	}
 	args := []string{"exec", "--interactive", "--workdir", "/workspace/repo", id, "/opt/codex/bin/codex", "--ask-for-approval", "never", "exec", "--ignore-user-config", "--ephemeral", "--json", "--sandbox", "danger-full-access", "--config", `sqlite_home="/workspace/.codex-state"`, "--config", `log_dir="/workspace/.codex-log"`, "--config", `model_reasoning_effort="low"`, "--color", "never", "--model", w.Config.Model, "--output-schema", "/input/result-schema.json", "--output-last-message", "/workspace/result.json", "-"}
 	prompt := []byte("Read the immutable task in /input/task.json. Perform only its assigned role against the checkout and source revisions. Use tools to edit and test implementation/repair work and commit the changes locally. Review work must inspect and test the assigned candidate without creating implementation changes. Do not publish, approve, merge, change policy, inspect credentials or access host services. Your structured result must report the actual HEAD commit, a concise summary, findings, and review_passed only for the review role. Report blocked if the task is ambiguous or cannot be completed. A statement of success is insufficient: verify the actual files and tests with tools.")
+	if r.Role == factory.Review {
+		prompt = append(prompt, []byte(" Review the assigned immutable commit "+r.InputSHA+". Copy this exact 40-character SHA into candidate; verify it with git rev-parse HEAD. Do not reconstruct or abbreviate it.")...)
+	}
 	if _, err := w.Exec.Run(ctx, prompt, "podman", args...); err != nil {
 		return factory.Result{}, err
 	}

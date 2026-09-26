@@ -213,3 +213,47 @@ func TestLatestFactoryAttemptFollowsExplicitAdmission(t *testing.T) {
 		t.Fatal("older result replaced current work state")
 	}
 }
+
+func TestFactoryCredentialDelegationSurvivesStaleWritesAndCleanup(t *testing.T) {
+	s, a, now := factoryFixture(t)
+	r := factoryExecution(t, a, factory.Implementation, now)
+	if err := s.StartFactoryRun(t.Context(), &a, r); err != nil {
+		t.Fatal(err)
+	}
+	stale := r
+	r.CredentialClaimed = true
+	r.CredentialDelegated = true
+	r.CredentialSeedSHA = strings.Repeat("d", 64)
+	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveFactoryRun(t.Context(), stale); err == nil {
+		t.Fatal("stale writer erased delegation")
+	}
+	changed := r
+	changed.CredentialSeedSHA = strings.Repeat("e", 64)
+	if err := s.SaveFactoryRun(t.Context(), changed); err == nil {
+		t.Fatal("changed credential seed")
+	}
+	r.Outcome = factory.NeedsHuman
+	r.CleanupComplete = true
+	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := s.FactoryUnreturnedCredentials(t.Context())
+	if err != nil || len(pending) != 1 || pending[0].ID != r.ID {
+		t.Fatalf("terminal delegation lost: %v", err)
+	}
+	stale = r
+	r.CredentialReturned = true
+	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveFactoryRun(t.Context(), stale); err == nil {
+		t.Fatal("stale writer erased credential return")
+	}
+	pending, err = s.FactoryUnreturnedCredentials(t.Context())
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("returned credential remained pending: %v", err)
+	}
+}

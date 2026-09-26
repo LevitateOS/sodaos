@@ -169,7 +169,7 @@ func (s *Store) SaveFactoryRun(ctx context.Context, r factory.Run) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_runs SET active=?,cleanup=?,data=? WHERE id=? AND attempt_id=?`, r.Outcome == "", r.CleanupComplete, string(data), r.ID, r.AttemptID)
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_runs SET active=?,cleanup=?,data=? WHERE id=? AND attempt_id=? AND (coalesce(json_extract(data,'$.credential_claimed'),0)=0 OR ?=1) AND (coalesce(json_extract(data,'$.credential_delegated'),0)=0 OR (?=1 AND json_extract(data,'$.credential_seed_sha')=?)) AND (coalesce(json_extract(data,'$.credential_returned'),0)=0 OR ?=1)`, r.Outcome == "", r.CleanupComplete, string(data), r.ID, r.AttemptID, r.CredentialClaimed, r.CredentialDelegated, r.CredentialSeedSHA, r.CredentialReturned)
 	if err != nil {
 		return err
 	}

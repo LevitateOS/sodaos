@@ -94,7 +94,10 @@ func saveCredential(path, seed string, state []byte) error {
 	if credentialSHA(current) != seed {
 		return errors.New("credential enrollment changed during execution")
 	}
-	return os.Rename(file.Name(), path)
+	if err = os.Rename(file.Name(), path); err != nil {
+		return err
+	}
+	return syncCredentialDirectory(filepath.Dir(path))
 }
 
 func writeCredential(file *os.File, state []byte) error {
@@ -117,4 +120,13 @@ func (c *Controller) returnDelegatedCredential(ctx context.Context, r *factory.R
 
 func validCredentialState(state []byte) bool {
 	return len(state) > 0 && len(state) <= 256<<10 && json.Valid(state)
+}
+
+func syncCredentialDirectory(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = dir.Close() }()
+	return dir.Sync()
 }
