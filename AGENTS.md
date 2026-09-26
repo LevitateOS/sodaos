@@ -36,10 +36,11 @@ justify keeping obsolete implementations alive.
   reasoning, polling and reporting concise.
 - **Separate development experiments from final qualification.** A failed release
   run must not be relabeled successful or resumed as a qualified release, but its
-  retained artifacts can support authorized, explicitly non-qualifying development
-  checks. Driver-only debugging does not inherently require rebuilding shipping
-  bytes. Use the smallest applicable development target; run full production
-  qualification when its prerequisites are demonstrated, not as the default debug loop.
+  retained artifacts can support task-scoped, explicitly non-qualifying development
+  checks without another approval. Driver-only debugging does not inherently
+  require rebuilding shipping bytes. Use the smallest applicable development target;
+  run full production qualification when its prerequisites are demonstrated, not as
+  the default debug loop.
 
 ## Working style
 
@@ -56,10 +57,11 @@ justify keeping obsolete implementations alive.
   repeated approximately 22-minute production builds while those boundaries were
   unresolved. Passing tests and compliance with a self-selected plan did not justify
   that sequencing or expense. Review necessity and cost independently of correctness.
-  Broad task approval does not approve every implementation choice. Own the actual
-  decision and its rationale; do not substitute agreement for reassessment or frame
-  the owner's status questions as technical pushback. Reassess from available
-  evidence without waiting for the owner to notice waste.
+  Task approval leaves routine implementation choices to the agent; it does not
+  excuse wasteful execution. Own the decision and its rationale; do not substitute
+  agreement for reassessment or frame the owner's status questions as technical
+  pushback. Reassess from available evidence without waiting for the owner to notice
+  waste.
 
 - Never put the owner's personal name or other identifying information in source,
   tests, fixtures, example accounts, generated resource names or documentation.
@@ -68,10 +70,12 @@ justify keeping obsolete implementations alive.
 
 - Work in the canonical `~/Projects/sodaos` checkout for this redesign. Do not create or use a worktree unless the owner explicitly changes that preference.
 
-- Inspect the working tree first; preserve unrelated changes. Make coherent commits;
-  do not amend or rewrite history without permission.
-- Finish approved work without repeated handoffs. Ask again only for actions outside
-  approval or a concrete safety issue requiring the user's decision.
+- Inspect the working tree first; preserve unrelated changes. Make coherent local
+  commits as part of the task without another approval; do not amend or rewrite
+  history without permission.
+- Finish the requested work end to end. Treat task approval as covering its normal
+  implementation and verification steps; do not request separate approval for each
+  command, probe, provider call, retry or cleanup. Ask only at the boundaries below.
 - Use the smallest sufficient investigation and affected-contract checks. A passing
   receipt supports its stated scope, not a prescribed sequence. Reuse valid evidence;
   ground required checks in current contracts, source behavior or an explicit user
@@ -87,16 +91,40 @@ justify keeping obsolete implementations alive.
 
 ## Permissions and preservation
 
-- Destructive or externally visible work needs explicit task approval in the current
-  conversation or task brief. Documentation is not a grant. Appliance installation,
-  service/VM lifecycle, real provider registration/jobs, publishing/automatic CI,
-  network/trust changes and cleanup require applicable target/action approval.
-  A command, input file or old approval is not a new grant.
-- Artifact retention is not a compatibility requirement. Experimental roots, fixtures
-  and evidence may be retired rather than supported by current code. This does not
-  itself authorize deletion: consult the target's current approval, and clean up only
-  authorized, exact resources. Do not use `--rm`, `--replace`, pruning or root recreation
-  as shortcuts against unrelated or explicitly protected state.
+- **Default to action within the task.** A request to implement, fix, test or finish
+  something authorizes the ordinary work needed to deliver and verify it. Use the
+  current conversation and task brief to determine scope. Approval persists across
+  steps, turns and context compaction; do not ask for it again merely because the
+  next command or implementation detail differs from the previous one.
+- **Development work is included.** Within the requested task and its development
+  targets, proceed with code and documentation changes, dependency setup, builds,
+  local and native tests, isolated containers/VMs/services, temporary private test
+  repositories, test runner registration and CI jobs. Reasonable bounded provider
+  calls using the selected account or existing subscription are included when
+  needed to implement or verify the requested integration. Creating, restarting,
+  replacing and removing task-owned fixtures, and changing their isolated network
+  configuration, are part of that work. Use existing configured development hosts
+  when relevant; do not treat access alone as permission to modify unrelated state.
+- **Ask only for a material scope or risk change.** Obtain a decision before
+  affecting unrelated or explicitly protected data/services, changing shared host
+  networking or trust, installing or deploying to a production appliance,
+  publishing externally or merging when not requested, adding paid billing or
+  materially increasing cost, or exceeding an explicit user-imposed limit. If the
+  user has already authorized that target and action, proceed without another
+  confirmation. Explain the concrete change requiring a decision and bundle the
+  necessary related operations into one request.
+- **Do not manufacture approval gates.** Agent-written plans, estimates, suggested
+  call counts and checklists are not additional user restrictions. Respect actual
+  user limits, but do not turn routine implementation adjustments or bounded
+  retries into repeated handoffs. Reassess failures and expense before retrying;
+  autonomy is not a reason to repeat an invalid approach. Prefer a narrower safe
+  action when it can finish the task without affecting unrelated state.
+- **Clean up what the task owns.** Artifact retention is not a compatibility
+  requirement. Task-created disposable roots, fixtures and evidence may be replaced
+  or removed without another approval when no longer needed. Identify exact owned
+  resources first. `--rm` and replacement are appropriate for disposable task-owned
+  resources; never use broad pruning, root recreation or name guesses against
+  unrelated or explicitly protected state. Retain diagnostics only when useful.
 - Protect credentials, unrelated work and any state the owner explicitly requires
   keeping. Take consistent backups when that protection requires them; do not create
   a preservation programme for disposable experiments. Never blindly restore an old
