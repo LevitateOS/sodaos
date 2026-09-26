@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/identity"
 )
 
 func factoryFixture(t *testing.T) (*Store, factory.Attempt, time.Time) {
@@ -221,9 +222,11 @@ func TestFactoryCredentialDelegationSurvivesStaleWritesAndCleanup(t *testing.T) 
 		t.Fatal(err)
 	}
 	stale := r
-	r.CredentialClaimed = true
+	r.IdentityLeaseID = factory.NewID()
+	r.IdentityGeneration = 1
+	r.Resources = []factory.Resource{{Kind: "workspace", Name: factory.ResourceName(r.ID, "workspace"), ID: strings.Repeat("d", 64)}}
+	r.IdentityBinding = &identity.Binding{Kind: identity.Factory, ID: strings.Repeat("d", 64), Generation: 1}
 	r.CredentialDelegated = true
-	r.CredentialSeedSHA = strings.Repeat("d", 64)
 	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
 		t.Fatal(err)
 	}
@@ -231,19 +234,20 @@ func TestFactoryCredentialDelegationSurvivesStaleWritesAndCleanup(t *testing.T) 
 		t.Fatal("stale writer erased delegation")
 	}
 	changed := r
-	changed.CredentialSeedSHA = strings.Repeat("e", 64)
+	changed.IdentityLeaseID = factory.NewID()
 	if err := s.SaveFactoryRun(t.Context(), changed); err == nil {
-		t.Fatal("changed credential seed")
+		t.Fatal("changed identity lease")
 	}
 	r.Outcome = factory.NeedsHuman
 	r.CleanupComplete = true
 	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
 		t.Fatal(err)
 	}
-	pending, err := s.FactoryUnreturnedCredentials(t.Context())
-	if err != nil || len(pending) != 1 || pending[0].ID != r.ID {
-		t.Fatalf("terminal delegation lost: %v", err)
+	stored, err := s.FactoryRun(t.Context(), r.ID)
+	if err != nil || stored.IdentityLeaseID != r.IdentityLeaseID {
+		t.Fatal("cleanup erased identity attribution")
 	}
+
 	stale = r
 	r.CredentialReturned = true
 	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
@@ -252,8 +256,8 @@ func TestFactoryCredentialDelegationSurvivesStaleWritesAndCleanup(t *testing.T) 
 	if err := s.SaveFactoryRun(t.Context(), stale); err == nil {
 		t.Fatal("stale writer erased credential return")
 	}
-	pending, err = s.FactoryUnreturnedCredentials(t.Context())
-	if err != nil || len(pending) != 0 {
-		t.Fatalf("returned credential remained pending: %v", err)
+	stored, err = s.FactoryRun(t.Context(), r.ID)
+	if err != nil || !stored.CredentialReturned {
+		t.Fatal("credential return was not retained")
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/identity"
 )
 
 var digest = regexp.MustCompile(`^[a-f0-9]{64}$`)
@@ -109,8 +111,37 @@ func (r Run) validateCredentials() error {
 	if r.CredentialReturned && !r.CredentialDelegated {
 		return errors.New("credential return has no delegation")
 	}
-	if r.CredentialDelegated && (!r.CredentialClaimed || !ValidDigest(r.CredentialSeedSHA)) {
+	if r.IdentityLeaseID == "" {
+		return r.validateUnleasedCredential()
+	}
+	if r.IdentityGeneration <= 0 {
+		return errors.New("invalid credential generation")
+	}
+	if r.CredentialDelegated && r.IdentityBinding == nil {
 		return errors.New("invalid credential delegation")
 	}
+	return r.validateIdentityBinding()
+}
+
+func (r Run) validateUnleasedCredential() error {
+	if r.IdentityGeneration != 0 || r.IdentityBinding != nil || r.CredentialDelegated {
+		return errors.New("credential authority has no lease")
+	}
 	return nil
+}
+
+func (r Run) validateIdentityBinding() error {
+	b := r.IdentityBinding
+	if b == nil {
+		return nil
+	}
+	if b.Validate() != nil || b.Kind != identity.Factory || b.Generation != r.IdentityGeneration {
+		return errors.New("invalid execution binding")
+	}
+	for _, resource := range r.Resources {
+		if resource.Kind == "workspace" && resource.ID == b.ID {
+			return nil
+		}
+	}
+	return errors.New("credential binding differs from workspace")
 }

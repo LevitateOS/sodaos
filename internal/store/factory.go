@@ -169,7 +169,11 @@ func (s *Store) SaveFactoryRun(ctx context.Context, r factory.Run) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_runs SET active=?,cleanup=?,data=? WHERE id=? AND attempt_id=? AND (coalesce(json_extract(data,'$.credential_claimed'),0)=0 OR ?=1) AND (coalesce(json_extract(data,'$.credential_delegated'),0)=0 OR (?=1 AND json_extract(data,'$.credential_seed_sha')=?)) AND (coalesce(json_extract(data,'$.credential_returned'),0)=0 OR ?=1)`, r.Outcome == "", r.CleanupComplete, string(data), r.ID, r.AttemptID, r.CredentialClaimed, r.CredentialDelegated, r.CredentialSeedSHA, r.CredentialReturned)
+	result, err := s.db.ExecContext(ctx, `UPDATE factory_runs SET active=?,cleanup=?,data=? WHERE id=? AND attempt_id=?
+AND (coalesce(json_extract(data,'$.identity_lease_id'),'')='' OR (json_extract(data,'$.identity_lease_id')=? AND json_extract(data,'$.identity_generation')=?))
+AND (json_extract(data,'$.identity_binding') IS NULL OR json_extract(data,'$.identity_binding')=json_extract(?,'$.identity_binding'))
+AND (coalesce(json_extract(data,'$.credential_delegated'),0)=0 OR ?=1)
+AND (coalesce(json_extract(data,'$.credential_returned'),0)=0 OR ?=1)`, r.Outcome == "", r.CleanupComplete, string(data), r.ID, r.AttemptID, r.IdentityLeaseID, r.IdentityGeneration, string(data), r.CredentialDelegated, r.CredentialReturned)
 	if err != nil {
 		return err
 	}
@@ -237,27 +241,4 @@ func (s *Store) LatestFactoryAttempt(ctx context.Context, repositoryID, issue in
 		err = json.Unmarshal(data, &a)
 	}
 	return a, err
-}
-
-// FactoryUnreturnedCredentials includes terminal executions: cleanup alone does
-// not make a potentially refreshed provider credential safe to reuse.
-func (s *Store) FactoryUnreturnedCredentials(ctx context.Context) ([]factory.Run, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_runs WHERE json_extract(data,'$.credential_delegated')=1 AND coalesce(json_extract(data,'$.credential_returned'),0)=0 ORDER BY rowid`)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	var runs []factory.Run
-	for rows.Next() {
-		var data []byte
-		var r factory.Run
-		if err := rows.Scan(&data); err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(data, &r); err != nil {
-			return nil, err
-		}
-		runs = append(runs, r)
-	}
-	return runs, rows.Err()
 }

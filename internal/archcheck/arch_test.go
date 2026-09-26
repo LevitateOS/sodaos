@@ -212,7 +212,7 @@ func TestDependencyDirection(t *testing.T) {
 	// Pure domain: project validates; store persists. Neither reaches
 	// transport, privilege or release machinery.
 	allowOnly(t, edges, "internal/project", "internal/strictjson")
-	allowOnly(t, edges, "internal/factory")
+	allowOnly(t, edges, "internal/factory", "internal/identity")
 	allowOnly(t, edges, "internal/factory/control", "internal/factory", "internal/filelock", "internal/forgejo", "internal/host/workspace", "internal/host/publish", "internal/store", "internal/strictjson", "internal/identity", "internal/identity/client")
 	allowOnly(t, edges, "internal/store", "internal/project", "internal/factory", "internal/identity")
 

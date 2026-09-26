@@ -82,15 +82,10 @@ func (c *Controller) executeRun(ctx context.Context, a *factory.Attempt, role fa
 	runctx, cancel := context.WithCancelCause(runctx)
 	defer cancel(nil)
 	go c.watch(runctx, a.ID, cancel)
-	credential, err := c.Workspace.AcquireCredential(runctx)
-	if err != nil {
-		return c.finishRun(a, &r, factory.Result{}, err)
-	}
-	defer func() { _ = credential.Close() }()
 	if err = c.Workspace.CheckCapacity(); err != nil {
 		return c.finishRun(a, &r, factory.Result{}, err)
 	}
-	if err = c.claimCredential(runctx, &r); err != nil {
+	if err = c.acquireCredential(runctx, a.Work.HumanID, &r); err != nil {
 		return c.finishRun(a, &r, factory.Result{}, err)
 	}
 	result, err := c.worker(runctx, a, &r)
@@ -176,6 +171,8 @@ func (c *Controller) prepareWorkspace(ctx context.Context, a factory.Attempt, r 
 
 func (c *Controller) task(ctx context.Context, a factory.Attempt, r factory.Run) (Task, error) {
 	task := Task{Run: r, Work: a.Work, Candidate: a.Candidate, CI: a.CI}
+	task.Run.IdentityLeaseID, task.Run.IdentityGeneration, task.Run.IdentityBinding = "", 0, nil
+	task.Run.CredentialDelegated, task.Run.CredentialReturned = false, false
 	// Resource names and image provenance are useful; host paths and credentials
 	// are deliberately absent from immutable task input.
 	if r.Role != factory.Repair {
@@ -196,15 +193,16 @@ func (c *Controller) task(ctx context.Context, a factory.Attempt, r factory.Run)
 func (c *Controller) finishRun(a *factory.Attempt, r *factory.Run, result factory.Result, workErr error) error {
 	ctx, stop := context.WithTimeout(context.Background(), 45*time.Second)
 	defer stop()
-	if err := c.returnDelegatedCredential(ctx, r); err != nil {
-		workErr = err
+	credentialErr := c.returnDelegatedCredential(ctx, r)
+	if credentialErr != nil {
+		workErr = credentialErr
 	}
 	current, err := c.Store.FactoryAttempt(ctx, a.ID)
 	if err != nil {
 		return err
 	}
 	completeRun(r, result, workErr, current.Outcome)
-	if err = c.cleanupRun(ctx, r); err != nil {
+	if err = c.cleanupRun(ctx, r, credentialErr); err != nil {
 		return err
 	}
 	current, err = c.Store.FactoryAttempt(ctx, a.ID)
@@ -228,41 +226,18 @@ func (c *Controller) finishRun(a *factory.Attempt, r *factory.Run, result factor
 	return nil
 }
 
-func (c *Controller) cleanupRun(ctx context.Context, r *factory.Run) error {
+func (c *Controller) cleanupRun(ctx context.Context, r *factory.Run, credentialErr error) error {
 	if err := c.Store.SaveFactoryRun(ctx, *r); err != nil {
 		return err
 	}
 	cleanupErr := c.Workspace.Cleanup(ctx, r)
+	if credentialErr != nil {
+		r.CleanupComplete = false
+	}
 	if err := c.Store.SaveFactoryRun(ctx, *r); err != nil {
 		return err
 	}
-	if cleanupErr != nil {
-		return cleanupErr
-	}
-	return nil
-}
-
-func (c *Controller) claimCredential(ctx context.Context, r *factory.Run) error {
-	attempts, err := c.Store.FactoryAttempts(ctx)
-	if err != nil {
-		return err
-	}
-	for _, a := range attempts {
-		runs, err := c.Store.FactoryRuns(ctx, a.ID)
-		if err != nil {
-			return err
-		}
-		for _, other := range runs {
-			if other.ID != r.ID && other.CredentialClaimed && !other.CleanupComplete {
-				return errors.New("credential stream has an unreconciled workspace")
-			}
-		}
-	}
-	if err := c.checkCredentialStream(ctx); err != nil {
-		return err
-	}
-	r.CredentialClaimed = true
-	return c.Store.SaveFactoryRun(ctx, *r)
+	return errors.Join(cleanupErr, credentialErr)
 }
 
 func completeRun(r *factory.Run, result factory.Result, workErr error, parent factory.Outcome) {

@@ -15,11 +15,15 @@ import (
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host/publish"
 	"github.com/levitateos/sodaos/internal/host/workspace"
+	identityclient "github.com/levitateos/sodaos/internal/identity/client"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
 type Config struct {
+	IdentitySocket          string           `json:"identity_socket"`
+	ConnectionID            string           `json:"connection_id"`
+	ProjectID               string           `json:"project_id"`
 	Root                    string           `json:"root"`
 	ForgejoURL              string           `json:"forgejo_url"`
 	RepositoryID            int64            `json:"repository_id"`
@@ -33,6 +37,7 @@ type Config struct {
 }
 
 type Controller struct {
+	Identity                                     *identityclient.Client
 	Config                                       Config
 	PolicySHA                                    string
 	Store                                        *store.Store
@@ -59,7 +64,17 @@ func Load(path string) (Config, string, error) {
 	return config, hex.EncodeToString(digest[:]), config.Validate()
 }
 
+func (c Config) validateIdentity() error {
+	if !filepath.IsAbs(c.IdentitySocket) || strings.ContainsAny(c.IdentitySocket, "\x00\r\n") || c.ConnectionID == "" || c.ProjectID == "" {
+		return errors.New("explicit identity socket, connection and project are required")
+	}
+	return nil
+}
+
 func (c Config) Validate() error {
+	if err := c.validateIdentity(); err != nil {
+		return err
+	}
 	if !filepath.IsAbs(c.Root) || c.RepositoryID <= 0 || c.Workflow == "" || strings.ContainsAny(c.Workflow, "/\\\r\n") {
 		return errors.New("explicit factory root, repository and workflow are required")
 	}
@@ -107,7 +122,7 @@ func OpenLocal(config Config, policy string) (*Controller, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Controller{Config: config, PolicySHA: policy, Store: s, Workspace: &workspace.Runtime{Config: config.Workspace, Exec: workspace.Native{}}}, nil
+	return &Controller{Identity: identityclient.New(config.IdentitySocket), Config: config, PolicySHA: policy, Store: s, Workspace: &workspace.Runtime{Config: config.Workspace, Exec: workspace.Native{}}}, nil
 }
 
 func Open(ctx context.Context, config Config, policy string) (*Controller, error) {

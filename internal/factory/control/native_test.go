@@ -47,8 +47,7 @@ func nativeWithdrawal(t *testing.T, config Config, policy, base string, source [
 	}
 	config.Root = root
 	config.Workspace.Root = filepath.Join(root, "workspaces")
-	config.Workspace.CredentialHome = filepath.Join(root, "credentials")
-	for _, path := range []string{config.Workspace.Root, config.Workspace.CredentialHome} {
+	for _, path := range []string{config.Workspace.Root} {
 		if err := os.Mkdir(path, 0o700); err != nil {
 			t.Fatal(err)
 		}

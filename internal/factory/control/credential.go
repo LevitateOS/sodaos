@@ -2,65 +2,74 @@ package control
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/identity"
 )
 
-func credentialSHA(data []byte) string {
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
-
-func (c *Controller) authPath() string {
-	return filepath.Join(c.Config.Workspace.CredentialHome, "auth.json")
-}
-
-func (c *Controller) checkCredentialStream(ctx context.Context) error {
-	runs, err := c.Store.FactoryUnreturnedCredentials(ctx)
-	if err != nil {
+func (c *Controller) acquireCredential(ctx context.Context, actor int64, r *factory.Run) error {
+	if err := c.Workspace.CheckHarness(ctx); err != nil {
 		return err
 	}
-	state, err := privateFile(c.authPath())
-	if err != nil {
-		return err
-	}
-	for _, r := range runs {
-		if !r.CleanupComplete || credentialSHA(state) == r.CredentialSeedSHA {
-			return errors.New("credential state was not returned; reconcile and reauthenticate")
+	request := identity.AcquireRequest{ActorID: actor, ConnectionID: c.Config.ConnectionID, ProjectID: c.Config.ProjectID, ExecutionID: r.ID, Kind: identity.Factory, Deadline: r.Deadline, Role: string(r.Role)}
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		lease, err := c.Identity.Acquire(ctx, request)
+		if errors.Is(err, identity.ErrBusy) {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				continue
+			}
 		}
+		if err != nil {
+			return err
+		}
+		r.IdentityLeaseID, r.IdentityGeneration = lease.ID, lease.Generation
+		return c.Store.SaveFactoryRun(ctx, *r)
 	}
-	return nil
 }
 
 func (c *Controller) delegateCredential(ctx context.Context, r *factory.Run) ([]string, error) {
-	state, err := privateFile(c.authPath())
+	var id string
+	for _, resource := range r.Resources {
+		if resource.Kind == "workspace" {
+			id = resource.ID
+		}
+	}
+	if id == "" || r.IdentityLeaseID == "" {
+		return nil, errors.New("credential delivery requires a reserved native execution")
+	}
+	binding := identity.Binding{Kind: identity.Factory, ID: id, Project: c.Config.ProjectID, Generation: r.IdentityGeneration}
+	// Record binding and delivery intent before the broker can release bytes.
+	r.IdentityBinding, r.CredentialDelegated = &binding, true
+	if err := c.Store.SaveFactoryRun(ctx, *r); err != nil {
+		return nil, err
+	}
+	delivery, err := c.Identity.Register(ctx, r.IdentityLeaseID, binding)
 	if err != nil {
 		return nil, err
 	}
-	secrets, err := credentialStrings(state)
+	secrets, err := credentialStrings(delivery.Credential)
 	if err != nil {
 		return nil, err
 	}
-	r.CredentialDelegated = true
-	r.CredentialSeedSHA = credentialSHA(state)
-	if err = c.Store.SaveFactoryRun(ctx, *r); err != nil {
-		return nil, err
-	}
-	return secrets, c.Workspace.SeedCredential(ctx, *r, state)
+	return secrets, c.Workspace.SeedCredential(ctx, *r, delivery.Credential)
 }
 
 func (c *Controller) returnCredential(ctx context.Context, r *factory.Run) ([]string, error) {
+	if r.IdentityBinding == nil {
+		return nil, errors.New("credential return has no native binding")
+	}
 	state, err := c.Workspace.CaptureCredential(ctx, *r)
 	if err != nil {
 		return nil, err
 	}
-	if err = saveCredential(c.authPath(), r.CredentialSeedSHA, state); err != nil {
+	if err = c.Identity.Return(ctx, r.IdentityLeaseID, *r.IdentityBinding, state); err != nil {
 		return nil, err
 	}
 	r.CredentialReturned = true
@@ -70,68 +79,15 @@ func (c *Controller) returnCredential(ctx context.Context, r *factory.Run) ([]st
 	return credentialStrings(state)
 }
 
-// The stream lease excludes factory writers. A changed enrollment is preserved;
-// the controller never restores stale state over a newer human login.
-func saveCredential(path, seed string, state []byte) error {
-	if !validCredentialState(state) {
-		return errors.New("invalid returned credential state")
-	}
-	current, err := privateFile(path)
-	if err != nil {
-		return err
-	}
-	if credentialSHA(current) != seed {
-		return errors.New("credential enrollment changed during execution")
-	}
-	file, err := os.CreateTemp(filepath.Dir(path), ".auth-return-*")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = os.Remove(file.Name()) }()
-	if err = writeCredential(file, state); err != nil {
-		return err
-	}
-	current, err = privateFile(path)
-	if err != nil {
-		return err
-	}
-	if credentialSHA(current) != seed {
-		return errors.New("credential enrollment changed during execution")
-	}
-	if err = os.Rename(file.Name(), path); err != nil {
-		return err
-	}
-	return syncCredentialDirectory(filepath.Dir(path))
-}
-
-func writeCredential(file *os.File, state []byte) error {
-	defer func() { _ = file.Close() }()
-	if _, err := file.Write(state); err != nil {
-		return err
-	}
-	if err := file.Sync(); err != nil {
-		return err
-	}
-	return file.Close()
-}
-
 func (c *Controller) returnDelegatedCredential(ctx context.Context, r *factory.Run) error {
-	if !r.CredentialDelegated || r.CredentialReturned {
+	if r.IdentityLeaseID == "" || r.CredentialReturned {
 		return nil
 	}
-	_, err := c.returnCredential(ctx, r)
-	return err
-}
-
-func validCredentialState(state []byte) bool {
-	return len(state) > 0 && len(state) <= 256<<10 && json.Valid(state)
-}
-
-func syncCredentialDirectory(path string) error {
-	dir, err := os.Open(path)
-	if err != nil {
-		return err
+	if r.CredentialDelegated {
+		if _, err := c.returnCredential(ctx, r); err == nil {
+			return nil
+		}
 	}
-	defer func() { _ = dir.Close() }()
-	return dir.Sync()
+	// A failed capture or an interrupted delivery must never restore old state.
+	return c.Identity.ReconcileLease(ctx, r.IdentityLeaseID)
 }

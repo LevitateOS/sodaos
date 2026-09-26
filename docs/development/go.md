@@ -93,7 +93,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `avatar` | Robot SVG render | Identity lookup | `avatar.go` |
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
-| `factory` | Bounded work/run identities and fixed lifecycle policy | Forgejo collaboration, runtime execution, SQLite | `types.go`, `lifecycle.go` |
+| `factory` | Bounded work/run identities and fixed lifecycle policy (references canonical `identity` leases) | Forgejo collaboration, runtime execution, SQLite | `types.go`, `lifecycle.go` |
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
 | `identity/control` | Serialized subscription custody, enrollment, revocation and reconciliation | Browser authority, Git publication | concern files |
 | `identity/codex` | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | concern files |

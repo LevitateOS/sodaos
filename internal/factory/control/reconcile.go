@@ -115,27 +115,42 @@ func (c *Controller) clean(ctx context.Context, id string) error {
 		return err
 	}
 	for _, r := range runs {
-		if r.CleanupComplete {
-			continue
-		}
-		if r.Outcome == "" {
-			r.Outcome = factory.NeedsHuman
-			r.Summary = "interrupted execution"
-		}
-		if err = c.Store.SaveFactoryRun(ctx, r); err != nil {
-			return err
-		}
-		if err = c.Workspace.Cleanup(ctx, &r); err != nil {
-			return err
-		}
-		if err = c.Store.SaveFactoryRun(ctx, r); err != nil {
-			return err
+		if !r.CleanupComplete {
+			if err := c.cleanExecution(ctx, r); err != nil {
+				return err
+			}
 		}
 	}
+
 	a, err := c.Store.FactoryAttempt(ctx, id)
 	if err != nil {
 		return err
 	}
 	a.CleanupComplete = true
 	return c.save(ctx, &a)
+}
+
+func (c *Controller) cleanExecution(ctx context.Context, r factory.Run) error {
+	if r.Outcome == "" {
+		r.Outcome = factory.NeedsHuman
+		r.Summary = "interrupted execution"
+	}
+	if err := c.Store.SaveFactoryRun(ctx, r); err != nil {
+		return err
+	}
+	var credentialErr error
+	if r.IdentityLeaseID != "" && !r.CredentialReturned {
+		credentialErr = c.Identity.ReconcileLease(ctx, r.IdentityLeaseID)
+	}
+	cleanupErr := c.Workspace.Cleanup(ctx, &r)
+	if credentialErr != nil {
+		r.CleanupComplete = false
+	}
+	if err := c.Store.SaveFactoryRun(ctx, r); err != nil {
+		return err
+	}
+	if err := errors.Join(credentialErr, cleanupErr); err != nil {
+		return err
+	}
+	return nil
 }

@@ -17,7 +17,7 @@ import (
 type Config struct {
 	Root             string   `json:"root"`
 	HarnessDirectory string   `json:"harness_directory"`
-	CredentialHome   string   `json:"credential_home"`
+	HarnessSHA256    string   `json:"harness_sha256"`
 	Image            string   `json:"image"`
 	ProxyImage       string   `json:"proxy_image"`
 	HarnessVersion   string   `json:"harness_version"`
@@ -46,14 +46,14 @@ func (c Config) Validate() error {
 	if err := c.validateDomains(); err != nil {
 		return err
 	}
-	if c.HarnessVersion == "" || c.Model == "" {
+	if c.HarnessVersion == "" || c.Model == "" || !factory.ValidDigest(c.HarnessSHA256) {
 		return errors.New("a qualified Codex version and model are required")
 	}
 	return c.validatePaths()
 }
 
 func (c Config) validatePaths() error {
-	for _, path := range []string{c.Root, c.HarnessDirectory, c.CredentialHome} {
+	for _, path := range []string{c.Root, c.HarnessDirectory} {
 		if !filepath.IsAbs(path) || strings.ContainsAny(path, ":\x00\r\n") {
 			return errors.New("workspace paths must be explicit absolute paths")
 		}
@@ -83,8 +83,7 @@ func (c Config) validateDomains() error {
 	return nil
 }
 
-// Open admits existing private operator inputs; it never creates a login or
-// replaces a credential directory. CLI-maintained auth state is reused in place.
+// Open admits private operator inputs and the pinned native harness.
 func Open(c Config) (*Runtime, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
@@ -99,13 +98,13 @@ func Open(c Config) (*Runtime, error) {
 }
 
 func (c Config) validateInputs() error {
-	for _, path := range []string{c.Root, c.CredentialHome} {
+	for _, path := range []string{c.Root} {
 		info, err := os.Lstat(path)
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() || info.Mode().Perm()&0o077 != 0 {
-			return errors.New("factory state and credentials must be private directories")
+			return errors.New("factory state must be a private directory")
 		}
 	}
 	for _, file := range []string{"bin/codex", "bin/codex-code-mode-host", "codex-resources/bwrap", "codex-path/rg"} {
@@ -117,7 +116,7 @@ func (c Config) validateInputs() error {
 			return errors.New("complete executable Codex package required")
 		}
 	}
-	return c.validateCredentialState()
+	return c.validateHarnessDigest()
 }
 
 func (c Config) Bind(r *factory.Run) {
@@ -125,19 +124,4 @@ func (c Config) Bind(r *factory.Run) {
 	for _, kind := range []string{"network", "proxy", "workspace"} {
 		r.Resources = append(r.Resources, factory.Resource{Kind: kind, Name: factory.ResourceName(r.ID, kind)})
 	}
-}
-
-// Persistent conversation state cannot be shared between implementation and review.
-func (c Config) validateCredentialState() error {
-	entries, err := os.ReadDir(c.CredentialHome)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		name := entry.Name()
-		if strings.Contains(name, ".sqlite") || name == "sessions" || name == "archived_sessions" || name == "memories" {
-			return errors.New("credential home contains conversation state; enroll a dedicated clean factory login")
-		}
-	}
-	return nil
 }
