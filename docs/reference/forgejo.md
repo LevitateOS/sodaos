@@ -89,3 +89,14 @@ Brand assets: [Branding](../design/branding.md).
 - Templates/assets: `appliance/forgejo/`
 - Browser hooks: `assets/branding/forgejo/`, `frontend/spaces/`, `frontend/runners/`
 - Presentation checks: `scripts/*forgejo*`, `tests/forgejo/`
+
+## Factory API boundary
+
+The factory integration uses stock issue, pull-request and review APIs. Review
+submission includes the assigned `commit_id`; Soda must verify current run
+and target authority before submitting it. The client exposes no factory merge
+or commit-status write operation.
+
+CI observations use Forgejo Actions run records filtered by `head_sha` and
+`workflow_id`. The returned `commit_sha` and workflow must match the requested
+candidate. A successful agent process or agent-authored status is not CI evidence.
