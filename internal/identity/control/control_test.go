@@ -35,6 +35,7 @@ type testRuntime struct {
 	validateErr, stopErr, finishErr error
 	validated, stopped, finished    int
 	finishedData                    []byte
+	beforeFinish                    func(context.Context, identity.Lease)
 }
 
 func (r *testRuntime) Validate(context.Context, identity.Lease) error {
@@ -43,7 +44,10 @@ func (r *testRuntime) Validate(context.Context, identity.Lease) error {
 }
 func (r *testRuntime) Stop(context.Context, identity.Lease) error { r.stopped++; return r.stopErr }
 
-func (r *testRuntime) Finish(context.Context, identity.Lease) ([]byte, error) {
+func (r *testRuntime) Finish(ctx context.Context, l identity.Lease) ([]byte, error) {
+	if r.beforeFinish != nil {
+		r.beforeFinish(ctx, l)
+	}
 	r.finished++
 	r.finishedData = []byte(`{"tokens":{"refresh_token":"synthetic-maintained"}}`)
 	return r.finishedData, r.finishErr
@@ -211,7 +215,83 @@ func TestAdminListenerCannotDeliverCredentials(t *testing.T) {
 	}
 }
 
-func TestGrantRevocationEndsOnlyItsLease(t *testing.T) {
+func TestGrantRevocationDeniesBeforeRetirementAndPreservesOtherGrant(t *testing.T) {
+	c, s, r, conn := controllerFixture(t)
+	ctx := t.Context()
+	grantInput := identity.GrantRequest{ConnectionID: conn.ID, UserID: 2, ProjectID: "project", ConfirmSubscription: true, ConfirmCredentialExposure: true}
+	g, err := c.CreateGrant(ctx, 1, grantInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grantInput.UserID = 3
+	other, err := c.CreateGrant(ctx, 1, grantInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := c.Acquire(ctx, acquireInput(conn.ID, 2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := registerBinding(l)
+	original, err := c.Register(ctx, l.ID, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.beforeFinish = func(ctx context.Context, finishing identity.Lease) {
+		revoked, err := s.IdentityGrant(ctx, g.ID)
+		if err != nil || !revoked.Revoked || revoked.Revision != 2 {
+			t.Fatal("native capture began before durable grant withdrawal", err)
+		}
+		if _, err = c.registrationAuthority(ctx, finishing); !errors.Is(err, identity.ErrDenied) {
+			t.Fatal("withdrawn grant still authorizes delivery during retirement", err)
+		}
+	}
+	if err = c.RevokeGrant(ctx, 1, g.ID); err != nil {
+		t.Fatal(err)
+	}
+	r.beforeFinish = nil
+	current, err := s.IdentityConnection(ctx, conn.ID)
+	if err != nil || current.State != identity.Ready || current.Generation != conn.Generation+1 || r.finished != 1 || r.stopped != 1 {
+		t.Fatal("verified grant retirement invalidated sponsoring connection", err)
+	}
+	maintained := []byte(`{"tokens":{"refresh_token":"synthetic-maintained"}}`)
+	data, err := s.IdentityCredential(ctx, current)
+	if err != nil || !bytes.Equal(data, maintained) {
+		t.Fatal("grant retirement lost refreshed credential", err)
+	}
+	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 2)); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("revoked delegate reacquired sponsorship", err)
+	}
+	stillAuthorized, err := s.IdentityGrant(ctx, other.ID)
+	if err != nil || stillAuthorized.Revoked || stillAuthorized.Revision != other.Revision {
+		t.Fatal("unrelated grant changed", err)
+	}
+	next, err := c.Acquire(ctx, acquireInput(conn.ID, 3))
+	if err != nil {
+		t.Fatal("other authorized grant cannot reuse sponsorship", err)
+	}
+	delivery, err := c.Register(ctx, next.ID, registerBinding(next))
+	if err != nil || !bytes.Equal(delivery.Credential, maintained) {
+		t.Fatal("next workload did not receive maintained credential", err)
+	}
+	if err = c.Return(ctx, l.ID, b, original.Credential); err == nil {
+		t.Fatal("late retired workload returned stale credentials")
+	}
+	after, err := s.IdentityConnection(ctx, conn.ID)
+	if err != nil || after.State != identity.Ready || after.Generation != current.Generation || r.stopped != 1 {
+		t.Fatal("late return changed current execution or connection", err)
+	}
+	data, err = s.IdentityCredential(ctx, after)
+	if err != nil || !bytes.Equal(data, maintained) {
+		t.Fatal("late return replaced maintained credential", err)
+	}
+	revoked, err := s.IdentityGrant(ctx, g.ID)
+	if err != nil || !revoked.Revoked || revoked.Revision != 2 {
+		t.Fatal("credential preservation restored revoked grant", err)
+	}
+}
+
+func TestGrantCaptureFailureStillAttemptsStopAndKeepsUncertainLease(t *testing.T) {
 	c, s, r, conn := controllerFixture(t)
 	ctx := t.Context()
 	g, err := c.CreateGrant(ctx, 1, identity.GrantRequest{ConnectionID: conn.ID, UserID: 2, ProjectID: "project", ConfirmSubscription: true, ConfirmCredentialExposure: true})
@@ -222,15 +302,36 @@ func TestGrantRevocationEndsOnlyItsLease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.Register(ctx, l.ID, registerBinding(l)); err != nil {
+	b := registerBinding(l)
+	if _, err = c.Register(ctx, l.ID, b); err != nil {
 		t.Fatal(err)
 	}
-	if err = c.RevokeGrant(ctx, 1, g.ID); err != nil {
-		t.Fatal(err)
+	r.finishErr = errors.New("native credential capture failed")
+	if err = c.RevokeGrant(ctx, 1, g.ID); !errors.Is(err, identity.ErrUncertain) {
+		t.Fatal("failed capture accepted as preserved credentials", err)
 	}
-	current, err := s.IdentityGrant(ctx, g.ID)
-	if err != nil || !current.Revoked || current.Revision != 2 || r.stopped != 1 {
-		t.Fatal("grant revocation did not stop matching execution", err)
+	if r.finished != 1 || r.stopped != 1 {
+		t.Fatal("capture failure skipped native shutdown")
+	}
+	current, err := s.IdentityConnection(ctx, conn.ID)
+	if err != nil || current.State != identity.Reauth || current.Generation != conn.Generation {
+		t.Fatal("failed capture advanced credential stream", err)
+	}
+	retained, err := s.IdentityLease(ctx, l.ID)
+	if err != nil || retained.Binding == nil || *retained.Binding != b {
+		t.Fatal("failed capture forgot native boundary", err)
+	}
+	revoked, err := s.IdentityGrant(ctx, g.ID)
+	if err != nil || !revoked.Revoked {
+		t.Fatal("failed capture revived grant", err)
+	}
+	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1)); !errors.Is(err, identity.ErrUncertain) {
+		t.Fatal("uncertain sponsor was reusable", err)
+	}
+	for _, value := range r.finishedData {
+		if value != 0 {
+			t.Fatal("failed capture left credential bytes live")
+		}
 	}
 }
 

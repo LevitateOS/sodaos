@@ -174,24 +174,23 @@ func (c *Controller) finish(ctx context.Context, l identity.Lease) error {
 	if l.Binding == nil {
 		return c.store.IdentityForgetLease(ctx, l.ID)
 	}
-	data, err := c.runtime.Finish(ctx, l)
+	data, captureErr := c.runtime.Finish(ctx, l)
 	defer func() {
 		for i := range data {
 			data[i] = 0
 		}
 	}()
-	if err != nil || !identity.CredentialValid(data) {
+	// Capture failure does not establish retirement; always attempt native stop.
+	stopErr := c.runtime.Stop(ctx, l)
+	if captureErr != nil || !identity.CredentialValid(data) || stopErr != nil {
 		_ = c.uncertain(ctx, l)
 		return identity.ErrUncertain
 	}
-	if err = c.runtime.Stop(ctx, l); err != nil {
+	if err := c.store.IdentityReturn(ctx, l, data); err != nil {
 		_ = c.uncertain(ctx, l)
-		return identity.ErrUncertain
+		return err
 	}
-	if err = c.store.IdentityReturn(ctx, l, data); err != nil {
-		_ = c.uncertain(ctx, l)
-	}
-	return err
+	return nil
 }
 
 // ReconcileLease is scoped recovery, never cancellation of another execution.
@@ -253,7 +252,7 @@ func (c *Controller) RevokeGrant(ctx context.Context, owner int64, id string) er
 	}
 	for _, l := range all {
 		if l.GrantID == id {
-			if err = c.end(ctx, l); err != nil {
+			if err = c.finish(ctx, l); err != nil {
 				return err
 			}
 		}
