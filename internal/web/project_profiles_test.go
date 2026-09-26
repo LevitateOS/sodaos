@@ -4,18 +4,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/levitateos/sodaos/internal/project"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 func testCreationProfile() project.Profile {
 	return project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: runtime.GOARCH, Image: "sha256:" + strings.Repeat("a", 64), Revision: strings.Repeat("b", 40)}
 }
+
 func profileTestResponse() *http.Response {
 	raw, _ := json.Marshal(testCreationProfile())
 	return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(string(raw)))}
@@ -25,12 +27,12 @@ func TestProfileReadKeepsOwnerAndRequestGuards(t *testing.T) {
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/user" {
 			if strings.Contains(r.Header.Get("Authorization"), "bob") {
-				fmt.Fprint(w, `{"id":2,"login":"bob","is_admin":true}`)
+				_, _ = fmt.Fprint(w, `{"id":2,"login":"bob","is_admin":true}`)
 			} else {
-				fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+				_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 			}
 		} else {
-			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
+			_, _ = fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
 		}
 	})
 	s.Config.OperatorID = 2
@@ -68,9 +70,9 @@ func TestProfilePreflightNeverReservesOnUnavailableOrLogout(t *testing.T) {
 			owner := 1
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/api/v1/user" {
-					fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+					_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 				} else {
-					fmt.Fprintf(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":%d,"login":"alice"}}`, owner)
+					_, _ = fmt.Fprintf(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":%d,"login":"alice"}}`, owner)
 				}
 			})
 			s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {

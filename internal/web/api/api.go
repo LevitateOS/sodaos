@@ -16,11 +16,12 @@ import (
 
 // API owns product handlers and the browser terminal peer registry.
 type API struct {
-	Config  *config.Config
-	Store   *store.Store
-	Forgejo *forgejo.Client
-	Host    *host.Client
-	Auth    *auth.Service
+	Config   *config.Config
+	Store    *store.Store
+	Forgejo  *forgejo.Client
+	Host     *host.Client
+	Auth     *auth.Service
+	Identity IdentityClient
 
 	mux              *http.ServeMux
 	terminalMu       sync.Mutex
@@ -53,6 +54,7 @@ func (s *API) Register(mux *http.ServeMux) {
 	s.environmentRoutes()
 	s.runnerRoutes()
 	s.tailnetRoutes()
+	s.identityRoutes()
 	s.pageRoutes()
 }
 

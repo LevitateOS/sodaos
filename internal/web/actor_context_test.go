@@ -97,7 +97,7 @@ func TestActorHintIsNeitherAuthenticationNorProviderIdentity(t *testing.T) {
 		if r.URL.Path != "/api/v1/user" || r.Header.Get("Authorization") != "token acting-alice" {
 			t.Error("wrong acting request")
 		}
-		fmt.Fprint(w, `{"id":2,"login":"bob"}`)
+		_, _ = fmt.Fprint(w, `{"id":2,"login":"bob"}`)
 	})
 	r := apiTestRequest("GET", "/api/forgejo/me", "", "")
 	r.Header.Set(auth.ExpectedUserHeader, "1")

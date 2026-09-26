@@ -107,6 +107,8 @@
   "public/assets/sodaspaces-project-view.js": "@build/forgejo-js/sodaspaces-project-view.js",
   "public/assets/sodaspaces-terminal-view.js": "@build/forgejo-js/sodaspaces-terminal-view.js",
   "public/assets/sodaspaces-workspace-view.js": "@build/forgejo-js/sodaspaces-workspace-view.js",
+  "public/assets/soda-identity.js": "@build/forgejo-js/soda-identity.js",
+  "public/assets/soda-identity-response.js": "@build/forgejo-js/soda-identity-response.js",
   "public/assets/sodaspaces-project.js": "@build/forgejo-js/sodaspaces-project.js",
   "public/assets/sodaspaces-attention.js": "@build/forgejo-js/sodaspaces-attention.js",
   "public/assets/sodaspaces-api.js": "@build/forgejo-js/sodaspaces-api.js",

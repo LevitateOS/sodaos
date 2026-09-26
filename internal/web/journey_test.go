@@ -28,11 +28,11 @@ func TestExplicitJoinsAndHonestNativeFailure(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/user":
 			login := strings.TrimPrefix(r.Header.Get("Authorization"), "token acting-")
-			fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
+			_, _ = fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
 		case "/api/v1/repositories/7":
-			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
+			_, _ = fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		case "/api/v1/users/bob/orgs/alice/permissions":
-			fmt.Fprint(w, `{"is_owner":false}`)
+			_, _ = fmt.Fprint(w, `{"is_owner":false}`)
 		default:
 			t.Error("unexpected provider path", r.URL.Path)
 			w.WriteHeader(500)

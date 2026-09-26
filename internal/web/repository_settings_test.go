@@ -15,13 +15,13 @@ func TestRepositorySettingsProtectedContext(t *testing.T) {
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/user":
-			fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 		case "/api/v1/repositories/7":
 			if denied {
 				w.WriteHeader(404)
 				return
 			}
-			fmt.Fprint(w, `{"id":7,"name":"renamed?#","full_name":"stale/ignored","html_url":"https://evil.test/","owner":{"id":2,"login":"current"}}`)
+			_, _ = fmt.Fprint(w, `{"id":7,"name":"renamed?#","full_name":"stale/ignored","html_url":"https://evil.test/","owner":{"id":2,"login":"current"}}`)
 		default:
 			t.Error("unexpected provider path", r.URL.Path)
 			w.WriteHeader(500)

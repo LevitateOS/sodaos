@@ -19,9 +19,9 @@ func TestConcurrentNewJoinsAndResultPersistenceFailure(t *testing.T) {
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/api/v1/user":
-					fmt.Fprint(w, `{"id":2,"login":"bob"}`)
+					_, _ = fmt.Fprint(w, `{"id":2,"login":"bob"}`)
 				case "/api/v1/repositories/7":
-					fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
+					_, _ = fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 				default:
 					t.Error("unexpected provider call")
 					w.WriteHeader(500)

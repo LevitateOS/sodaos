@@ -14,7 +14,7 @@ import (
 )
 
 // Must match appliance/forgejo/templates/custom/header.tmpl.
-const workspacePresentation = "2026-09-26.execution-write-1"
+const workspacePresentation = "2026-09-26.identity-broker-1"
 
 // style-src keeps 'unsafe-inline' because Lit geometry bindings render as
 // style attributes at runtime; script-src stays strict.

@@ -21,9 +21,9 @@ func runnerWebFixture(t *testing.T, native http.HandlerFunc) *Server {
 			t.Error("unexpected provider request", r.URL.Path)
 		}
 		if strings.Contains(r.Header.Get("Authorization"), "bob") {
-			fmt.Fprint(w, `{"id":2,"login":"bob","is_admin":true}`)
+			_, _ = fmt.Fprint(w, `{"id":2,"login":"bob","is_admin":true}`)
 		} else {
-			fmt.Fprint(w, `{"id":1,"login":"alice","is_admin":false}`)
+			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice","is_admin":false}`)
 		}
 	})
 	peer := httptest.NewServer(native)
@@ -42,7 +42,7 @@ func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		fmt.Fprint(w, `{"runners":[],"unavailable":[]}`)
+		_, _ = fmt.Fprint(w, `{"runners":[],"unavailable":[]}`)
 	})
 	for _, path := range []string{"/api/settings/runners", "/api/settings/runners/one/remove"} {
 		method := "GET"
@@ -105,7 +105,7 @@ func TestRunnerExecutionUnavailableBeforeNativeDispatch(t *testing.T) {
 
 func TestRunnerLifecycleConfirmationActorAndCSRF(t *testing.T) {
 	calls := 0
-	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; fmt.Fprint(w, `{"ok":true}`) })
+	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; _, _ = fmt.Fprint(w, `{"ok":true}`) })
 	for _, action := range []string{"stop", "remove"} {
 		for _, body := range []string{`{}`, `{"confirm_id":""}`, `{"confirm_id":"other"}`, `{"confirm_id":"one"}`, `{"unit":"sshd"}`} {
 			w := httptest.NewRecorder()
@@ -185,7 +185,7 @@ func TestRunnerPartialInventoryKeepsValidatedRowsAndQualifiesCounts(t *testing.T
 
 func TestRunnerAuthorizationLogoutDuringProviderCheck(t *testing.T) {
 	calls := 0
-	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; fmt.Fprint(w, `[]`) })
+	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; _, _ = fmt.Fprint(w, `[]`) })
 	s.Forgejo.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
 		v, err := s.Store.Session(context.Background(), "session-alice")
 		if err != nil {

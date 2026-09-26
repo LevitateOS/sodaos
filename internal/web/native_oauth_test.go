@@ -24,15 +24,15 @@ func TestNativeOAuthFailuresStayInFixedHostWithoutNewSession(t *testing.T) {
 							w.WriteHeader(503)
 							return
 						}
-						fmt.Fprint(w, `{"access_token":"fixture-access","refresh_token":"fixture-refresh","token_type":"bearer","expires_in":3600}`)
+						_, _ = fmt.Fprint(w, `{"access_token":"fixture-access","refresh_token":"fixture-refresh","token_type":"bearer","expires_in":3600}`)
 					case "/api/v1/user":
 						if mode == "actor changed" {
-							fmt.Fprint(w, `{"id":2,"login":"bob"}`)
+							_, _ = fmt.Fprint(w, `{"id":2,"login":"bob"}`)
 						} else {
-							fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+							_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 						}
 					case "/login/oauth/introspect":
-						fmt.Fprint(w, `{"active":true,"scope":"read:user read:repository","sub":"1","aud":["client"]}`)
+						_, _ = fmt.Fprint(w, `{"active":true,"scope":"read:user read:repository","sub":"1","aud":["client"]}`)
 					default:
 						t.Error("unexpected provider request")
 						w.WriteHeader(500)

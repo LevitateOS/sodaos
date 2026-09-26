@@ -26,7 +26,7 @@ func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int3
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		providerCalls.Add(1)
 		if r.URL.Path == "/api/v1/user" {
-			fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 			return
 		}
 		if status != 0 {
@@ -35,7 +35,7 @@ func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int3
 		}
 		var id int64
 		_, _ = fmt.Sscanf(r.URL.Path, "/api/v1/repositories/%d", &id)
-		fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`, id)
+		_, _ = fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`, id)
 	})
 	s.Config.OperatorID = 999
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

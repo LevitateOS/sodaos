@@ -20,9 +20,9 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/v1/user":
 			login := strings.TrimPrefix(r.Header.Get("Authorization"), "token acting-")
-			fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
+			_, _ = fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
 		case "/api/v1/repositories/7":
-			fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
+			_, _ = fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		default:
 			t.Error("unexpected provider path", r.URL.Path)
 			w.WriteHeader(500)
@@ -35,7 +35,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 	native := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/profile":
-			json.NewEncoder(w).Encode(testCreationProfile())
+			_ = json.NewEncoder(w).Encode(testCreationProfile())
 		case "/create":
 			var input project.Create
 			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -45,7 +45,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 				t.Error("caller selected owner")
 			}
 			id = input.ID
-			json.NewEncoder(w).Encode(project.Environment{ID: id, IP: "10.89.0.2", Running: true, Profile: input.Profile})
+			_ = json.NewEncoder(w).Encode(project.Environment{ID: id, IP: "10.89.0.2", Running: true, Profile: input.Profile})
 		case "/account":
 			accountCalls++
 			var input project.Account
@@ -58,7 +58,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 			if rejectAccount {
 				w.WriteHeader(500)
 			} else {
-				fmt.Fprint(w, `{"ok":true}`)
+				_, _ = fmt.Fprint(w, `{"ok":true}`)
 			}
 		default:
 			t.Error("unexpected native operation")

@@ -69,11 +69,11 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 		}
 		switch r.URL.Path {
 		case "/api/v1/user":
-			fmt.Fprint(w, `{"id":1,"login":"renamed-alice"}`)
+			_, _ = fmt.Fprint(w, `{"id":1,"login":"renamed-alice"}`)
 		case "/api/v1/repositories/8":
-			fmt.Fprint(w, `{"id":8,"name":"second","full_name":"alice/second","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
+			_, _ = fmt.Fprint(w, `{"id":8,"name":"second","full_name":"alice/second","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		case "/api/v1/repositories/7":
-			fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
+			_, _ = fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		default:
 			t.Error("unexpected authority request")
 			w.WriteHeader(500)
@@ -109,7 +109,7 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 		if r.URL.Path == "/lifecycle" {
 			var in project.Lifecycle
 			_ = json.NewDecoder(r.Body).Decode(&in)
-			fmt.Fprintf(w, `{"environment":{"id":%q,"running":false},"boot_enabled":false}`, in.Project)
+			_, _ = fmt.Fprintf(w, `{"environment":{"id":%q,"running":false},"boot_enabled":false}`, in.Project)
 			return
 		}
 		if r.URL.Path != "/terminal" {
@@ -411,7 +411,7 @@ func TestBrowserTerminalLogoutDuringFreshAuthorityNeverSpawns(t *testing.T) {
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		close(entered)
 		<-release
-		fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+		_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 	}))
 	defer provider.Close()
 	defer close(release)

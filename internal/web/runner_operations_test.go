@@ -87,7 +87,7 @@ func TestEveryRunnerAPIRejectsInvalidAuthorityBeforeDecodeOrNative(t *testing.T)
 							require.Equal(t, "/login/oauth/access_token", r.URL.Path)
 							w.WriteHeader(401)
 						case "changed subject":
-							fmt.Fprint(w, `{"id":2,"login":"bob","is_admin":true}`)
+							_, _ = fmt.Fprint(w, `{"id":2,"login":"bob","is_admin":true}`)
 						case "provider denied":
 							w.WriteHeader(403)
 						case "provider unavailable":
@@ -96,7 +96,7 @@ func TestEveryRunnerAPIRejectsInvalidAuthorityBeforeDecodeOrNative(t *testing.T)
 							v, err := s.Store.Session(t.Context(), "session-alice")
 							require.NoError(t, err)
 							require.NoError(t, s.Store.EndLoginContext(t.Context(), v.ContextID))
-							fmt.Fprint(w, `{"id":1,"login":"alice","is_admin":false}`)
+							_, _ = fmt.Fprint(w, `{"id":1,"login":"alice","is_admin":false}`)
 						}
 						return w.Result(), nil
 					})}
@@ -214,13 +214,13 @@ func TestRunnerOperationsDispatchOnceWithFixedTargetsAndSanitizedFailures(t *tes
 					}
 					if fail {
 						w.WriteHeader(500)
-						fmt.Fprint(w, "synthetic-runner-secret")
+						_, _ = fmt.Fprint(w, "synthetic-runner-secret")
 						return
 					}
 					if operation.name == "list" {
-						fmt.Fprint(w, `{"runners":[],"unavailable":[]}`)
+						_, _ = fmt.Fprint(w, `{"runners":[],"unavailable":[]}`)
 					} else {
-						fmt.Fprint(w, `{"ok":true}`)
+						_, _ = fmt.Fprint(w, `{"ok":true}`)
 					}
 				})
 				w := httptest.NewRecorder()

@@ -136,6 +136,6 @@ func avatarError(w http.ResponseWriter, r *http.Request, status int, message str
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(status)
 	if r.Method != http.MethodHead {
-		fmt.Fprintln(w, message)
+		_, _ = fmt.Fprintln(w, message)
 	}
 }

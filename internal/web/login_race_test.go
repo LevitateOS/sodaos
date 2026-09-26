@@ -24,17 +24,17 @@ func TestLogoutCancelsClaimedOAuthBeforeAndAfterCallbackCommit(t *testing.T) {
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/login/oauth/access_token":
-					fmt.Fprint(w, `{"access_token":"review-access","refresh_token":"review-refresh","token_type":"bearer","expires_in":3600}`)
+					_, _ = fmt.Fprint(w, `{"access_token":"review-access","refresh_token":"review-refresh","token_type":"bearer","expires_in":3600}`)
 				case "/api/v1/user":
-					fmt.Fprint(w, `{"id":1,"login":"changed-alice"}`)
+					_, _ = fmt.Fprint(w, `{"id":1,"login":"changed-alice"}`)
 				case "/login/oauth/introspect":
-					fmt.Fprint(w, `{"active":true,"scope":"read:user read:repository","sub":"1","aud":["client"]}`)
+					_, _ = fmt.Fprint(w, `{"active":true,"scope":"read:user read:repository","sub":"1","aud":["client"]}`)
 				case "/api/v1/repositories/42":
 					if !callbackFirst {
 						close(entered)
 						<-release
 					}
-					fmt.Fprint(w, `{"id":42,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
+					_, _ = fmt.Fprint(w, `{"id":42,"name":"demo","full_name":"alice/demo","owner":{"id":1,"login":"alice"}}`)
 				default:
 					t.Error("unexpected provider request")
 					w.WriteHeader(500)

@@ -12,6 +12,7 @@ import (
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
+	identityclient "github.com/levitateos/sodaos/internal/identity/client"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 	"github.com/levitateos/sodaos/internal/web/auth"
@@ -38,12 +39,13 @@ func New(c config.Config, db *store.Store) *Server {
 	}
 	s.Auth = auth.New(&s.Config, db, client)
 	s.API = api.New(&s.Config, db, client, hostClient, s.Auth)
+	s.API.Identity = identityclient.New(c.IdentitySocket)
 	s.Auth.SessionEndGate = s.API.TerminalLock()
 	s.Auth.CancelTerminals = s.API.CancelTerminals
 
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("ok\n"))
+		_, _ = w.Write([]byte("ok\n"))
 	})
 	s.mux.HandleFunc("GET /{$}", s.forgejoHome)
 	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})

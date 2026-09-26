@@ -55,7 +55,7 @@ func TestActingUserDenialNeverUsesBootstrap(t *testing.T) {
 			t.Error("wrong acting request")
 		}
 		w.WriteHeader(403)
-		fmt.Fprint(w, `{"message":"private-native-details"}`)
+		_, _ = fmt.Fprint(w, `{"message":"private-native-details"}`)
 	})
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, apiTestRequest("GET", "/api/forgejo/me", "", "bob"))
@@ -76,7 +76,7 @@ func TestConcurrentRefreshAndLogout(t *testing.T) {
 			close(entered)
 		}
 		<-release
-		fmt.Fprint(w, `{"access_token":"rotated-access","refresh_token":"rotated-refresh","token_type":"bearer","expires_in":3600}`)
+		_, _ = fmt.Fprint(w, `{"access_token":"rotated-access","refresh_token":"rotated-refresh","token_type":"bearer","expires_in":3600}`)
 	})
 	ctx := context.Background()
 	grant, err := s.Store.Grant(ctx, "session-alice", 1)

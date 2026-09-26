@@ -210,7 +210,7 @@ func (s *API) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v sto
 	}
 	repo := access.repository
 	bytes := make([]byte, 12)
-	rand.Read(bytes)
+	_, _ = rand.Read(bytes)
 	p := store.Project{Profile: &profile, ID: "p" + hex.EncodeToString(bytes), Name: repo.Name, RepositoryID: repo.ID, OwnerID: v.User.ID, Repository: repo.FullName}
 	if err := s.Store.CreateProject(r.Context(), p); err != nil {
 		auth.JSONError(w, 409, "reservation_failed", "Repository may already have an environment reservation. Refresh its environment before retrying.")

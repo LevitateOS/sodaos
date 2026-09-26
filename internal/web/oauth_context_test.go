@@ -85,11 +85,11 @@ func TestOAuthRepositoryReturnUsesOnlyStoredIDsAndActingGrant(t *testing.T) {
 					if err := r.ParseForm(); err != nil || r.Form.Get("redirect_uri") != "https://forgejo.example.test/-/soda/oauth/callback" {
 						t.Error("wrong callback binding")
 					}
-					fmt.Fprint(w, `{"access_token":"callback-access","refresh_token":"callback-refresh","token_type":"bearer","expires_in":3600}`)
+					_, _ = fmt.Fprint(w, `{"access_token":"callback-access","refresh_token":"callback-refresh","token_type":"bearer","expires_in":3600}`)
 				case "/api/v1/user":
-					fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+					_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 				case "/login/oauth/introspect":
-					fmt.Fprintf(w, `{"active":true,"scope":%q,"sub":"1","aud":["client"]}`, tc.scopes)
+					_, _ = fmt.Fprintf(w, `{"active":true,"scope":%q,"sub":"1","aud":["client"]}`, tc.scopes)
 				case "/api/v1/repositories/42":
 					if tc.repoStatus == 0 || r.Header.Get("Authorization") != "token callback-access" {
 						t.Error("wrong or unnecessary repository request")
@@ -97,7 +97,7 @@ func TestOAuthRepositoryReturnUsesOnlyStoredIDsAndActingGrant(t *testing.T) {
 						return
 					}
 					w.WriteHeader(tc.repoStatus)
-					fmt.Fprint(w, tc.repo)
+					_, _ = fmt.Fprint(w, tc.repo)
 				default:
 					t.Error("unexpected provider request", r.URL.Path)
 					w.WriteHeader(500)
@@ -148,9 +148,9 @@ func TestOAuthExpectedUserMismatchPreservesExistingSodaState(t *testing.T) {
 		calls++
 		switch r.URL.Path {
 		case "/login/oauth/access_token":
-			fmt.Fprint(w, `{"access_token":"wrong-user-access","refresh_token":"wrong-user-refresh","token_type":"bearer","expires_in":3600}`)
+			_, _ = fmt.Fprint(w, `{"access_token":"wrong-user-access","refresh_token":"wrong-user-refresh","token_type":"bearer","expires_in":3600}`)
 		case "/api/v1/user":
-			fmt.Fprint(w, `{"id":2,"login":"changed-bob"}`)
+			_, _ = fmt.Fprint(w, `{"id":2,"login":"changed-bob"}`)
 		default:
 			t.Error("mismatch reached another provider operation")
 			w.WriteHeader(500)

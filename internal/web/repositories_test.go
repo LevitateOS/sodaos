@@ -20,9 +20,9 @@ func TestRepositoryPickerAuthorityAndReservations(t *testing.T) {
 				switch r.URL.Path {
 				case "/api/v1/user":
 					if kind == "wrong-actor" {
-						fmt.Fprint(w, `{"id":2,"login":"bob"}`)
+						_, _ = fmt.Fprint(w, `{"id":2,"login":"bob"}`)
 					} else {
-						fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+						_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 					}
 				case "/api/v1/repos/search":
 					if kind == "unavailable" {
@@ -33,7 +33,7 @@ func TestRepositoryPickerAuthorityAndReservations(t *testing.T) {
 					if kind == "foreign-search" {
 						owner = 99
 					}
-					fmt.Fprintf(w, `{"ok":true,"data":[{"id":7,"name":"repo","full_name":"alice/repo","owner":{"id":%d,"login":"alice"}}]}`, owner)
+					_, _ = fmt.Fprintf(w, `{"ok":true,"data":[{"id":7,"name":"repo","full_name":"alice/repo","owner":{"id":%d,"login":"alice"}}]}`, owner)
 				case "/api/v1/repositories/7":
 					if kind == "hidden" {
 						w.WriteHeader(404)
@@ -43,7 +43,7 @@ func TestRepositoryPickerAuthorityAndReservations(t *testing.T) {
 					if kind == "transfer" {
 						owner = 2
 					}
-					fmt.Fprintf(w, `{"id":7,"name":"renamed","full_name":"alice/renamed","owner":{"id":%d,"login":"alice"}}`, owner)
+					_, _ = fmt.Fprintf(w, `{"id":7,"name":"renamed","full_name":"alice/renamed","owner":{"id":%d,"login":"alice"}}`, owner)
 				default:
 					t.Error("unexpected provider request", r.URL)
 					w.WriteHeader(500)
@@ -85,11 +85,12 @@ func TestRepositoryPickerAuthorityAndReservations(t *testing.T) {
 		})
 	}
 }
+
 func TestRepositoryPickerLogoutWinsPublication(t *testing.T) {
 	var s *Server
 	s = grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/user" {
-			fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 			return
 		}
 		if r.URL.Path != "/api/v1/repos/search" {
@@ -98,7 +99,7 @@ func TestRepositoryPickerLogoutWinsPublication(t *testing.T) {
 		if err := s.Store.DeleteSession(t.Context(), "session-alice"); err != nil {
 			t.Error(err)
 		}
-		fmt.Fprint(w, `{"ok":true,"data":[]}`)
+		_, _ = fmt.Fprint(w, `{"ok":true,"data":[]}`)
 	})
 	w := httptest.NewRecorder()
 	s.ServeHTTP(w, apiTestRequest("GET", "/api/repositories?q=&page=1", "", "alice"))
@@ -111,22 +112,22 @@ func TestRepositoryPickerReadConsentAndPageBoundary(t *testing.T) {
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/user":
-			fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 		case "/api/v1/repos/search":
-			fmt.Fprint(w, `{"ok":true,"data":[`)
+			_, _ = fmt.Fprint(w, `{"ok":true,"data":[`)
 			for n := 1; n <= 12; n++ {
 				if n > 1 {
-					fmt.Fprint(w, ",")
+					_, _ = fmt.Fprint(w, ",")
 				}
-				fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`, n)
+				_, _ = fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`, n)
 			}
-			fmt.Fprint(w, `]}`)
+			_, _ = fmt.Fprint(w, `]}`)
 		default:
 			var id int
 			if _, err := fmt.Sscanf(r.URL.Path, "/api/v1/repositories/%d", &id); err != nil {
 				t.Error(err)
 			}
-			fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`, id)
+			_, _ = fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`, id)
 		}
 	})
 	grant, err := s.Store.Grant(t.Context(), "session-alice", 1)

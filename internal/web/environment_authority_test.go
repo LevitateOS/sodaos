@@ -41,14 +41,14 @@ func TestEnvironmentAuthorityUsesCurrentNativeIdentity(t *testing.T) {
 				case "/api/v1/repositories/7":
 					if tc.status != 0 {
 						w.WriteHeader(tc.status)
-						fmt.Fprint(w, `{"id":8,"name":"wrong","full_name":"wrong/repo","owner":{"id":1,"login":"alice"}}`)
+						_, _ = fmt.Fprint(w, `{"id":8,"name":"wrong","full_name":"wrong/repo","owner":{"id":1,"login":"alice"}}`)
 						return
 					}
-					fmt.Fprintf(w, `{"id":7,"name":"renamed","full_name":"current/renamed","owner":{"id":%d,"login":"current"}}`, tc.owner)
+					_, _ = fmt.Fprintf(w, `{"id":7,"name":"renamed","full_name":"current/renamed","owner":{"id":%d,"login":"current"}}`, tc.owner)
 				case "/api/v1/user":
-					fmt.Fprint(w, `{"id":1,"login":"alice-now"}`)
+					_, _ = fmt.Fprint(w, `{"id":1,"login":"alice-now"}`)
 				case "/api/v1/users/alice-now/orgs/current/permissions":
-					fmt.Fprint(w, tc.permission)
+					_, _ = fmt.Fprint(w, tc.permission)
 				default:
 					t.Error("unexpected provider path", r.URL.Path)
 					w.WriteHeader(500)

@@ -19,7 +19,7 @@ import (
 
 var BrowserTerminalID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
-func newTerminalID() string { var b [16]byte; rand.Read(b[:]); return hex.EncodeToString(b[:]) }
+func newTerminalID() string { var b [16]byte; _, _ = rand.Read(b[:]); return hex.EncodeToString(b[:]) }
 
 // Native reservation consumption is serialized with End and Create in the
 // project. A web restart or late helper dial cannot recreate an ended locator.

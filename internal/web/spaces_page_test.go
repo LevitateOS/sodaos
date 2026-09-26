@@ -25,7 +25,7 @@ func TestSpacesBookmarkEntry(t *testing.T) {
 				if mode == "mismatch" {
 					id = 2
 				}
-				fmt.Fprintf(w, `{"id":%d,"login":"alice"}`, id)
+				_, _ = fmt.Fprintf(w, `{"id":%d,"login":"alice"}`, id)
 			})
 			r := apiTestRequest("GET", "/spaces", "", "alice")
 			if mode == "anonymous" {

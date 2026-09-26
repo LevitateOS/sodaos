@@ -23,9 +23,9 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 			owner := 1
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/api/v1/user" {
-					fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+					_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 				} else {
-					fmt.Fprintf(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":%d,"login":"alice"}}`, owner)
+					_, _ = fmt.Fprintf(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":%d,"login":"alice"}}`, owner)
 				}
 			})
 			if kind == "transfer-after-create" {
@@ -140,6 +140,7 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 func tailnetOffSettings() tailnet.SettingsView {
 	return tailnet.SettingsView{HostUnavailable: true, Enrollment: tailnet.EnrollmentView{Revision: "0", Tags: []string{}}}
 }
+
 func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
 	calls := 0
 	fail := false
@@ -147,11 +148,11 @@ func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
 		calls++
 		if fail {
 			w.WriteHeader(409)
-			fmt.Fprint(w, "synthetic-secret-provider-body")
+			_, _ = fmt.Fprint(w, "synthetic-secret-provider-body")
 			return
 		}
 		if r.URL.Path == "/tailnet/settings" {
-			json.NewEncoder(w).Encode(tailnetOffSettings())
+			_ = json.NewEncoder(w).Encode(tailnetOffSettings())
 			return
 		}
 		t.Error("unexpected native dispatch", r.URL.Path)
@@ -179,6 +180,7 @@ func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
 		t.Fatal(w.Code, w.Body.String(), calls)
 	}
 }
+
 func TestTailnetMutationStrictFieldsAndRequestGuards(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(422) })
@@ -205,6 +207,7 @@ func TestTailnetMutationStrictFieldsAndRequestGuards(t *testing.T) {
 		t.Fatal(w.Code, calls)
 	}
 }
+
 func TestTailnetEnrollmentNeverEchoesInputAndRejectsEndpointOverride(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
@@ -216,7 +219,7 @@ func TestTailnetEnrollmentNeverEchoesInputAndRejectsEndpointOverride(t *testing.
 		if json.NewDecoder(r.Body).Decode(&in) != nil || in.ClientSecret != "tskey-client-synthetic-credential" {
 			t.Error("missing protected input")
 		}
-		json.NewEncoder(w).Encode(tailnet.EnrollmentResult{Outcome: "confirmed", CredentialChecked: true, Enrollment: tailnetOffSettings().Enrollment})
+		_ = json.NewEncoder(w).Encode(tailnet.EnrollmentResult{Outcome: "confirmed", CredentialChecked: true, Enrollment: tailnetOffSettings().Enrollment})
 	})
 	body := `{"action":"check","revision":"0","tailnet":"soda.example.test","tags":["tag:soda-stored"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-synthetic-credential"}`
 	w := httptest.NewRecorder()
@@ -232,13 +235,14 @@ func TestTailnetEnrollmentNeverEchoesInputAndRejectsEndpointOverride(t *testing.
 		}
 	}
 }
+
 func TestTailnetContextChangeSuppressesReadsAndDispatch(t *testing.T) {
 	for _, phase := range []string{"provider", "native"} {
 		t.Run(phase, func(t *testing.T) {
 			var s *Server
 			calls := 0
 			s = grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+				_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 			})
 			// Use the request's actual fixture session, not a guessed cookie name/value.
 			request := apiTestRequest("GET", "/api/settings/tailnet", "", "alice")
@@ -275,6 +279,7 @@ func TestTailnetContextChangeSuppressesReadsAndDispatch(t *testing.T) {
 		})
 	}
 }
+
 func TestTailnetProjectPrivacyAndCurrentOwnership(t *testing.T) {
 	for _, tc := range []struct {
 		name             string
@@ -296,11 +301,11 @@ func TestTailnetProjectPrivacyAndCurrentOwnership(t *testing.T) {
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/api/v1/user":
-					fmt.Fprint(w, `{"id":1,"login":"renamed-alice","is_admin":true}`)
+					_, _ = fmt.Fprint(w, `{"id":1,"login":"renamed-alice","is_admin":true}`)
 				case "/api/v1/repositories/7":
-					fmt.Fprintf(w, `{"id":7,"name":"renamed","full_name":"current/renamed","owner":{"id":%d,"login":"current"}}`, tc.owner)
+					_, _ = fmt.Fprintf(w, `{"id":7,"name":"renamed","full_name":"current/renamed","owner":{"id":%d,"login":"current"}}`, tc.owner)
 				case "/api/v1/users/renamed-alice/orgs/current/permissions":
-					fmt.Fprintf(w, `{"is_owner":%t,"is_admin":true}`, tc.orgOwner)
+					_, _ = fmt.Fprintf(w, `{"is_owner":%t,"is_admin":true}`, tc.orgOwner)
 				default:
 					t.Error("unexpected provider path", r.URL.Path)
 				}
@@ -324,7 +329,7 @@ func TestTailnetProjectPrivacyAndCurrentOwnership(t *testing.T) {
 					t.Error(r.URL.Path)
 				}
 				var in tailnet.ProjectRequest
-				json.NewDecoder(r.Body).Decode(&in)
+				_ = json.NewDecoder(r.Body).Decode(&in)
 				if in.Project != id {
 					t.Error("wrong stored")
 				}
@@ -348,19 +353,20 @@ func TestTailnetProjectPrivacyAndCurrentOwnership(t *testing.T) {
 		})
 	}
 }
+
 func TestTailnetCreationOptionsRequireCurrentHumanOwner(t *testing.T) {
 	for _, owner := range []int64{1, 2} {
 		t.Run(fmt.Sprint(owner), func(t *testing.T) {
 			calls := 0
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/api/v1/user" {
-					fmt.Fprint(w, `{"id":1,"login":"alice","is_admin":true}`)
+					_, _ = fmt.Fprint(w, `{"id":1,"login":"alice","is_admin":true}`)
 					return
 				}
 				if r.URL.Path != "/api/v1/repositories/7" {
 					t.Error(r.URL.Path)
 				}
-				fmt.Fprintf(w, `{"id":7,"name":"project","full_name":"current/project","owner":{"id":%d,"login":"current"}}`, owner)
+				_, _ = fmt.Fprintf(w, `{"id":7,"name":"project","full_name":"current/project","owner":{"id":%d,"login":"current"}}`, owner)
 			})
 			s.Config.OperatorID = 777
 			s.Host.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
@@ -382,6 +388,7 @@ func TestTailnetCreationOptionsRequireCurrentHumanOwner(t *testing.T) {
 		})
 	}
 }
+
 func TestTailnetFixedBookmarkAndOAuthReturn(t *testing.T) {
 	s := apiTestServer(t)
 	w := httptest.NewRecorder()

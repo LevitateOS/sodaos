@@ -46,7 +46,7 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 					if tc.name == "wrong subject" {
 						uid = 1
 					}
-					fmt.Fprintf(w, `{"id":%d,"login":"bob","is_admin":true}`, uid)
+					_, _ = fmt.Fprintf(w, `{"id":%d,"login":"bob","is_admin":true}`, uid)
 					return
 				}
 				if r.URL.Path != "/api/v1/repositories/42" {
@@ -54,11 +54,11 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 				}
 				switch tc.name {
 				case "wrong repository":
-					fmt.Fprint(w, `{"id":43,"name":"private","full_name":"alice/private","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
+					_, _ = fmt.Fprint(w, `{"id":43,"name":"private","full_name":"alice/private","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 				case "malformed":
-					fmt.Fprint(w, `{"id":42}`)
+					_, _ = fmt.Fprint(w, `{"id":42}`)
 				case "oversized":
-					fmt.Fprint(w, strings.Repeat("x", (2<<20)+1))
+					_, _ = fmt.Fprint(w, strings.Repeat("x", (2<<20)+1))
 				case "unavailable":
 					w.WriteHeader(503)
 				case "forbidden":
@@ -140,14 +140,14 @@ func TestRepositoryLookupAndJoinRecheckNativeAccess(t *testing.T) {
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/user":
-			fmt.Fprint(w, `{"id":2,"login":"bob-now"}`)
+			_, _ = fmt.Fprint(w, `{"id":2,"login":"bob-now"}`)
 		case "/api/v1/repositories/42":
 			lookups.Add(1)
 			if !allowed {
 				w.WriteHeader(404)
 				return
 			}
-			fmt.Fprint(w, `{"id":42,"name":"renamed","full_name":"current/renamed","permissions":{"push":true},"owner":{"id":2,"login":"current"}}`)
+			_, _ = fmt.Fprint(w, `{"id":42,"name":"renamed","full_name":"current/renamed","permissions":{"push":true},"owner":{"id":2,"login":"current"}}`)
 		default:
 			t.Error("unexpected provider call", r.URL.Path)
 			w.WriteHeader(500)

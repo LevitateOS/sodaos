@@ -27,7 +27,7 @@ func TestAvatarBrowserRendering(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "image/svg+xml")
-		w.Write([]byte(svg))
+		_, _ = w.Write([]byte(svg))
 	})
 	server := httptest.NewServer(mux)
 	defer server.Close()

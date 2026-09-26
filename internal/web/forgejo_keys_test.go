@@ -30,7 +30,7 @@ func TestOwnForgejoKeyReviewDoesNotSaveOrInstallAndIsBounded(t *testing.T) {
 					if mode == "identity" {
 						id = 2
 					}
-					fmt.Fprintf(w, `{"id":%d,"login":"alice"}`, id)
+					_, _ = fmt.Fprintf(w, `{"id":%d,"login":"alice"}`, id)
 					return
 				}
 				keyCalls++
@@ -57,7 +57,7 @@ func TestOwnForgejoKeyReviewDoesNotSaveOrInstallAndIsBounded(t *testing.T) {
 					return
 				}
 				if mode == "null" {
-					fmt.Fprint(w, "null")
+					_, _ = fmt.Fprint(w, "null")
 					return
 				}
 				row := map[string]any{"id": 7, "user": map[string]int{"id": owner}, "key_type": kind, "key": value, "title": "Laptop <not HTML>"}
@@ -86,6 +86,7 @@ func TestOwnForgejoKeyReviewDoesNotSaveOrInstallAndIsBounded(t *testing.T) {
 		})
 	}
 }
+
 func TestForgejoKeyPickerRejectsGlobalQueries(t *testing.T) {
 	calls := 0
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(503) })

@@ -1,5 +1,6 @@
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
 import {signOut} from './soda-connection.js';
+import './soda-identity.js';
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
@@ -838,7 +839,7 @@ export class SodaProjectControls extends LitElement {
     return this.environment?.id || '';
   }
   protected render() {
-    if (this.shouldRenderJourney()) return this.renderJourney();
+    if (this.shouldRenderJourney()) return html`${this.renderJourney()}${this.renderIdentity()}`;
     return html`<section
       data-project-controls
       data-repository-id=${this.boundRepositoryId()}
@@ -849,7 +850,19 @@ export class SodaProjectControls extends LitElement {
       ${this.renderRepositoryContext()} ${this.renderViewTabs()} ${this.renderEnvironmentView()}
       ${this.renderAccessView()} ${this.renderNetworkView()}
       ${renderProjectStatus(this.repository, this.sessionCaption(), this.projectAccountCaption(), this.status, this.outcome)}
+      ${this.renderIdentity()}
     </section>`;
+  }
+  private renderIdentity() {
+    if (!this.identityPresentationReady() || !this.session) return html``;
+    const actor = this.binding?.expectedUserId;
+    if (!actor || this.session.user.id !== actor) return html``;
+    return html`<soda-identity
+      .context=${{actor, session: this.session, project: this.environment?.id || ''}}
+    ></soda-identity>`;
+  }
+  private identityPresentationReady() {
+    return !this.stale && !this.disposed && this.presentation !== 'standard';
   }
   private renderRepositoryContext() {
     if (!this.binding?.settings || !this.repositoryURL) return html``;

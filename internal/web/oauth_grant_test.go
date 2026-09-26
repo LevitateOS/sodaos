@@ -17,11 +17,11 @@ func TestOAuthCallbackStoresActualConsentAndRotatesSession(t *testing.T) {
 		calls++
 		switch r.URL.Path {
 		case "/login/oauth/access_token":
-			fmt.Fprint(w, `{"access_token":"test-access","refresh_token":"test-refresh","token_type":"bearer","expires_in":3600}`)
+			_, _ = fmt.Fprint(w, `{"access_token":"test-access","refresh_token":"test-refresh","token_type":"bearer","expires_in":3600}`)
 		case "/api/v1/user":
-			fmt.Fprint(w, `{"id":1,"login":"alice"}`)
+			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
 		case "/login/oauth/introspect":
-			fmt.Fprint(w, `{"active":true,"scope":"read:user","sub":"1","aud":["client"]}`)
+			_, _ = fmt.Fprint(w, `{"active":true,"scope":"read:user","sub":"1","aud":["client"]}`)
 		default:
 			t.Error("unexpected OAuth request")
 			w.WriteHeader(404)

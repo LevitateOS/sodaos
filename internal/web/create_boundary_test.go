@@ -50,9 +50,9 @@ func TestCreateRechecksCurrentOwnerAfterAdvisoryRead(t *testing.T) {
 	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/v1/user":
-			fmt.Fprint(w, `{"id":1,"login":"alice-renamed","is_admin":true}`)
+			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice-renamed","is_admin":true}`)
 		case "/api/v1/repositories/9223372036854775807":
-			fmt.Fprintf(w, `{"id":9223372036854775807,"name":"renamed","full_name":"current/renamed","owner":{"id":%d,"login":"current"}}`, owner.Load())
+			_, _ = fmt.Fprintf(w, `{"id":9223372036854775807,"name":"renamed","full_name":"current/renamed","owner":{"id":%d,"login":"current"}}`, owner.Load())
 		default:
 			t.Error("not stable-ID lookup", r.URL.Path)
 			w.WriteHeader(500)
@@ -84,9 +84,9 @@ func TestCreateReservationSurvivesConcurrentAndUncertainResults(t *testing.T) {
 			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/api/v1/user":
-					fmt.Fprint(w, `{"id":1,"login":"alice-renamed"}`)
+					_, _ = fmt.Fprint(w, `{"id":1,"login":"alice-renamed"}`)
 				case "/api/v1/repositories/7":
-					fmt.Fprint(w, `{"id":7,"name":"renamed","full_name":"alice-renamed/renamed","owner":{"id":1,"login":"alice-renamed"}}`)
+					_, _ = fmt.Fprint(w, `{"id":7,"name":"renamed","full_name":"alice-renamed/renamed","owner":{"id":1,"login":"alice-renamed"}}`)
 				default:
 					t.Error("unexpected provider path", r.URL.Path)
 					w.WriteHeader(500)

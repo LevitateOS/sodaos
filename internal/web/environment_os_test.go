@@ -2,12 +2,13 @@ package web
 
 import (
 	"encoding/json"
-	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestOSObservationUsesExistingReadAuthorityAndLogoutWins(t *testing.T) {
@@ -53,7 +54,7 @@ func TestOSObservationUsesExistingReadAuthorityAndLogoutWins(t *testing.T) {
 			p.Revision = ""
 			out.Environment.Profile = &p
 		}
-		json.NewEncoder(w).Encode(out)
+		_ = json.NewEncoder(w).Encode(out)
 	}))
 	defer native.Close()
 	s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {

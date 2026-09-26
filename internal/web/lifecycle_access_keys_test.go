@@ -24,11 +24,11 @@ func managementWebFixture(t *testing.T) (*Server, *[]string) {
 		}
 		switch r.URL.Path {
 		case "/api/v1/user":
-			fmt.Fprintf(w, `{"id":%d,"login":"current-login"}`, uid)
+			_, _ = fmt.Fprintf(w, `{"id":%d,"login":"current-login"}`, uid)
 		case "/api/v1/repositories/7":
-			fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
+			_, _ = fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
 		case "/api/v1/users/current-login/orgs/alice/permissions":
-			fmt.Fprint(w, `{"is_owner":false}`)
+			_, _ = fmt.Fprint(w, `{"is_owner":false}`)
 		default:
 			t.Error("unexpected provider operation")
 			w.WriteHeader(500)
