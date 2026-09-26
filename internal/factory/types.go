@@ -100,20 +100,23 @@ type Resource struct {
 }
 
 type Run struct {
-	CredentialClaimed bool       `json:"credential_claimed"`
-	ID                string     `json:"id"`
-	AttemptID         string     `json:"attempt_id"`
-	Role              Role       `json:"role"`
-	InputSHA          string     `json:"input_sha"`
-	Started           time.Time  `json:"started"`
-	Deadline          time.Time  `json:"deadline"`
-	Outcome           Outcome    `json:"outcome,omitempty"`
-	Summary           string     `json:"summary,omitempty"`
-	Resources         []Resource `json:"resources"`
-	CleanupComplete   bool       `json:"cleanup_complete"`
-	Image             string     `json:"image"`
-	Harness           string     `json:"harness"`
-	Model             string     `json:"model"`
+	CredentialDelegated bool       `json:"credential_delegated"`
+	CredentialReturned  bool       `json:"credential_returned"`
+	CredentialSeedSHA   string     `json:"credential_seed_sha,omitempty"`
+	CredentialClaimed   bool       `json:"credential_claimed"`
+	ID                  string     `json:"id"`
+	AttemptID           string     `json:"attempt_id"`
+	Role                Role       `json:"role"`
+	InputSHA            string     `json:"input_sha"`
+	Started             time.Time  `json:"started"`
+	Deadline            time.Time  `json:"deadline"`
+	Outcome             Outcome    `json:"outcome,omitempty"`
+	Summary             string     `json:"summary,omitempty"`
+	Resources           []Resource `json:"resources"`
+	CleanupComplete     bool       `json:"cleanup_complete"`
+	Image               string     `json:"image"`
+	Harness             string     `json:"harness"`
+	Model               string     `json:"model"`
 }
 
 func New(work WorkItem, event string, now time.Time) (Attempt, error) {

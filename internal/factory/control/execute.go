@@ -104,10 +104,21 @@ func (c *Controller) worker(ctx context.Context, a *factory.Attempt, r *factory.
 	if err := c.prepareWorkspace(ctx, *a, r); err != nil {
 		return factory.Result{}, err
 	}
-	result, err := c.launchAgent(ctx, *r)
+	secrets, err := c.credentialStrings()
+	if err != nil {
+		return factory.Result{}, err
+	}
+	if err := c.delegateCredential(ctx, r); err != nil {
+		return factory.Result{}, err
+	}
+	result, err := c.Workspace.Launch(ctx, *r)
 	if err != nil {
 		return result, err
 	}
+	return c.completeWorker(ctx, a, r, result, secrets)
+}
+
+func (c *Controller) completeWorker(ctx context.Context, a *factory.Attempt, r *factory.Run, result factory.Result, secrets []string) (factory.Result, error) {
 	if result.Status != "completed" {
 		return result, errors.New("agent could not complete the assigned task")
 	}
@@ -116,10 +127,26 @@ func (c *Controller) worker(ctx context.Context, a *factory.Attempt, r *factory.
 		if err != nil || head != r.InputSHA {
 			return result, errors.New("review did not retain assigned HEAD")
 		}
+		if err := c.returnCredential(ctx, r); err != nil {
+			return result, err
+		}
+		if err := c.retainResult(*r, result, secrets); err != nil {
+			return result, err
+		}
 		return result, c.submitReview(ctx, *a, *r, result)
 	}
+	return c.publishWorker(ctx, a, r, result, secrets)
+}
+
+func (c *Controller) publishWorker(ctx context.Context, a *factory.Attempt, r *factory.Run, result factory.Result, secrets []string) (factory.Result, error) {
 	bundle, err := c.Workspace.ExportCandidate(ctx, *r)
 	if err != nil {
+		return result, err
+	}
+	if err := c.returnCredential(ctx, r); err != nil {
+		return result, err
+	}
+	if err := c.retainResult(*r, result, secrets); err != nil {
 		return result, err
 	}
 	return result, c.publish(ctx, a, *r, result, bundle)
@@ -168,6 +195,9 @@ func (c *Controller) task(ctx context.Context, a factory.Attempt, r factory.Run)
 func (c *Controller) finishRun(a *factory.Attempt, r *factory.Run, result factory.Result, workErr error) error {
 	ctx, stop := context.WithTimeout(context.Background(), 45*time.Second)
 	defer stop()
+	if err := c.returnDelegatedCredential(ctx, r); err != nil {
+		workErr = err
+	}
 	current, err := c.Store.FactoryAttempt(ctx, a.ID)
 	if err != nil {
 		return err
@@ -227,6 +257,9 @@ func (c *Controller) claimCredential(ctx context.Context, r *factory.Run) error 
 			}
 		}
 	}
+	if err := c.checkCredentialStream(ctx); err != nil {
+		return err
+	}
 	r.CredentialClaimed = true
 	return c.Store.SaveFactoryRun(ctx, *r)
 }
@@ -242,19 +275,4 @@ func completeRun(r *factory.Run, result factory.Result, workErr error, parent fa
 		r.Outcome = factory.Cancelled
 		r.Summary = "execution cancelled"
 	}
-}
-
-func (c *Controller) launchAgent(ctx context.Context, r factory.Run) (factory.Result, error) {
-	secrets, err := c.credentialStrings()
-	if err != nil {
-		return factory.Result{}, err
-	}
-	result, err := c.Workspace.Launch(ctx, r)
-	if retained := c.retainResult(r, result, secrets); retained != nil {
-		return factory.Result{}, retained
-	}
-	if err != nil {
-		return result, fmt.Errorf("agent launch: %w", err)
-	}
-	return result, nil
 }

@@ -65,7 +65,7 @@ func (c Config) validateLimits() error {
 	if c.CPUs < 1 || c.PIDs < 16 || c.PIDs > 4096 {
 		return errors.New("invalid CPU or process limit")
 	}
-	if c.MemoryBytes < 256<<20 || c.WritableBytes < 16<<20 || c.WritableBytes > c.MemoryBytes/2 {
+	if c.MemoryBytes < 256<<20 || c.WritableBytes < 80<<20 || c.WritableBytes > c.MemoryBytes/2 {
 		return errors.New("tmpfs workspace must fit within its enforced memory limit")
 	}
 	return nil

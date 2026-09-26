@@ -9,8 +9,8 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 )
 
-// ExportCandidate captures bounded immutable bundle bytes, then terminates the
-// whole worker. The publisher verifies the bundle's reported commit and ancestry.
+// ExportCandidate captures bounded immutable bundle bytes. Credential return
+// subsequently freezes and terminates the whole worker before publication. The publisher verifies the bundle's reported commit and ancestry.
 // No filesystem tree, credential home or transcript is exported.
 func (w *Runtime) ExportCandidate(ctx context.Context, r factory.Run) ([]byte, error) {
 	if err := r.Authority(r.AttemptID, time.Now()); err != nil {
@@ -32,9 +32,6 @@ func (w *Runtime) ExportCandidate(ctx context.Context, r factory.Run) ([]byte, e
 	}
 	if len(bundle) == 0 {
 		return nil, errors.New("candidate export is empty")
-	}
-	if _, err := w.Exec.Run(ctx, nil, "podman", "stop", "--time", "3", id); err != nil {
-		return nil, err
 	}
 	return bundle, nil
 }

@@ -95,24 +95,19 @@ func TestNativeLifecycle(t *testing.T) {
 	if err != nil || string(out) != r.InputSHA+"\n" {
 		t.Fatal("checkout differs from admitted commit")
 	}
-	if os.Getenv("SODA_FACTORY_NATIVE_AGENT") == "1" {
-		result, err := runtime.Launch(ctx, r)
-		if err != nil || result.Status != "completed" {
-			t.Fatalf("native launch: %v status %s", err, result.Status)
-		}
-		actual, err := runtime.Revision(ctx, r)
-		if err != nil || actual != result.Candidate || actual == r.InputSHA {
-			t.Fatal("agent result did not create its actual candidate")
-		}
-		proof, err := runtime.Exec.Run(ctx, nil, "podman", "exec", id, "cat", "/workspace/repo/proof.txt")
-		if err != nil || string(proof) != "FACTORY_LAUNCH_OK\n" {
-			t.Fatal("agent did not create required file")
-		}
-
+	// Subscription execution is exercised through the controller, which owns
+	// serialized credential persistence. This runtime check uses synthetic state.
+	state := []byte(`{"tokens":{"refresh_token":"synthetic-native"}}`)
+	if err = runtime.SeedCredential(ctx, r, state); err != nil {
+		t.Fatal(err)
 	}
 	bundle, err = runtime.ExportCandidate(ctx, r)
 	if err != nil || len(bundle) == 0 {
 		t.Fatalf("export frozen candidate: %v", err)
+	}
+	returned, err := runtime.CaptureCredential(ctx, r)
+	if err != nil || string(returned) != string(state) {
+		t.Fatalf("bounded credential return: %v", err)
 	}
 	// Reconstruct the runtime and record to exercise restart cleanup, not names guessed from the engine.
 	var recovered factory.Run

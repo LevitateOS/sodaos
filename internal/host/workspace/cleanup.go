@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -76,6 +77,15 @@ func (w *Runtime) removeResource(ctx context.Context, r factory.Run, resource fa
 	if resource.Kind == "network" {
 		_, err := w.Exec.Run(ctx, nil, "podman", "network", "rm", id)
 		return err
+	}
+	paused, err := w.Exec.Run(ctx, nil, "podman", "inspect", "--format", "{{.State.Paused}}", id)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(paused)) == "true" {
+		if _, err := w.Exec.Run(ctx, nil, "podman", "kill", "--signal=KILL", id); err != nil {
+			return err
+		}
 	}
 	// Stop the whole container, rather than signalling only the harness leader.
 	if _, err := w.Exec.Run(ctx, nil, "podman", "stop", "--time", "3", id); err != nil {

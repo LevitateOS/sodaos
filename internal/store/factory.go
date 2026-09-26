@@ -238,3 +238,26 @@ func (s *Store) LatestFactoryAttempt(ctx context.Context, repositoryID, issue in
 	}
 	return a, err
 }
+
+// FactoryUnreturnedCredentials includes terminal executions: cleanup alone does
+// not make a potentially refreshed provider credential safe to reuse.
+func (s *Store) FactoryUnreturnedCredentials(ctx context.Context) ([]factory.Run, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_runs WHERE json_extract(data,'$.credential_delegated')=1 AND coalesce(json_extract(data,'$.credential_returned'),0)=0 ORDER BY rowid`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var runs []factory.Run
+	for rows.Next() {
+		var data []byte
+		var r factory.Run
+		if err := rows.Scan(&data); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(data, &r); err != nil {
+			return nil, err
+		}
+		runs = append(runs, r)
+	}
+	return runs, rows.Err()
+}

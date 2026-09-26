@@ -24,6 +24,9 @@ func (r Run) Validate() error {
 	if err := r.validateOutcome(); err != nil {
 		return err
 	}
+	if err := r.validateCredentials(); err != nil {
+		return err
+	}
 	return r.validateResources()
 }
 
@@ -101,3 +104,13 @@ func (r Run) validateResources() error {
 }
 
 func ResourceName(runID, kind string) string { return "soda-factory-" + kind + "-" + runID }
+
+func (r Run) validateCredentials() error {
+	if r.CredentialReturned && !r.CredentialDelegated {
+		return errors.New("credential return has no delegation")
+	}
+	if r.CredentialDelegated && (!r.CredentialClaimed || !ValidDigest(r.CredentialSeedSHA)) {
+		return errors.New("invalid credential delegation")
+	}
+	return nil
+}

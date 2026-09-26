@@ -30,7 +30,13 @@ The dedicated Codex credential home contains CLI-maintained account authenticati
 not implementation conversations. SQLite state and logs use fresh per-run paths;
 execution uses `--ephemeral` and ignores user configuration. Enrollment must also
 redirect SQLite state outside the credential home. Soda serializes this credential
-stream and refuses another execution while a claimed workspace remains unclean.
+stream. Workers receive authentication bytes in bounded tmpfs; the host credential
+directory is never mounted. Before publication, Soda freezes the worker, reads
+its maintained authentication state and kills the whole container before saving
+that state privately. A changed enrollment is preserved. An interrupted return
+requires cleanup and reauthentication before the stream can be reused. The
+writable limit includes checkout, scratch, authentication, temporary files and
+shared memory; automatic writable mounts are disabled for workers.
 Supported private subscription automation and renewal conditions are owned by the
 [Codex account-auth workflow](https://learn.chatgpt.com/docs/auth/ci-cd-auth).
 

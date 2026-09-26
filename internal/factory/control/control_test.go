@@ -71,6 +71,9 @@ func TestCancelWithdrawsAuthorityAndRemovesRecordedWorker(t *testing.T) {
 	defer server.Close()
 	var removed []string
 	runtime := &workspace.Runtime{Exec: executorFunc(func(_ context.Context, _ []byte, _ string, args ...string) ([]byte, error) {
+		if args[0] == "inspect" {
+			return []byte("false"), nil
+		}
 		switch args[1] {
 		case "exists":
 			return nil, nil

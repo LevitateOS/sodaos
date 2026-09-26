@@ -29,6 +29,9 @@ func TestCleanupRequiresRecordedOwnership(t *testing.T) {
 			r := testRun()
 			var removed []string
 			w := Runtime{Exec: executorFunc(func(_ context.Context, _ []byte, _ string, args ...string) ([]byte, error) {
+				if args[0] == "inspect" {
+					return []byte("false"), nil
+				}
 				switch args[1] {
 				case "exists":
 					return nil, nil
