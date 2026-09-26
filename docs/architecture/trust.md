@@ -37,6 +37,26 @@ Soda service UID/GID values and native runner accounts are not developer host
 onboarding. The web process's privileges and human authorization are separate
 boundaries.
 
+## Factory authority boundary
+
+The intended factory runs only for a trusted team on one operator-managed
+appliance. Agent instructions and repository content are untrusted inputs even
+there. An agent may work in its assigned disposable workspace, but its identity
+does not confer host, Soda operator, Forgejo administrator or merge authority.
+Soda mediates Forgejo writes using the admitted work and acting authority; agents
+must not receive a general Forgejo write token or bypass native repository
+permissions. A fresh reviewer receives a separate execution identity and review
+authority, without the worker's conversation, writable environment or publication
+authority. Human review and merge remain Forgejo decisions.
+
+Reusable subscription credentials are a narrow exception for private trusted work.
+Keep them restricted to the assigned execution boundary and out of source, logs
+and retained artifacts. A provider credential stream may be reused serially across
+runs, with credential state maintained by its supported CLI. Deleting a workspace
+does not revoke a provider credential; provider revocation is a separate operator action. This factory
+boundary is an intended contract, not a claim that credential delivery, mediation
+or reviewer isolation is implemented today.
+
 ## Frontend and session boundary
 
 Use stock Forgejo's native handlers, forms, scripts/styles and authentication, with

@@ -16,10 +16,16 @@ validation or error handling.
    orchestrators and automatic destructive recovery.
 5. **Broader recovery and lifecycle management** — project archival/deletion
    programmes and general fleet orchestration beyond the selected release model.
+6. **Factory expansion** — automatic work discovery, automatic merge, production
+   deployment, multihost execution, generic agent orchestration, and workspace
+   snapshots or resume, and execution of hostile external contributions. The
+   initial factory path is explicit admission, bounded execution and human merge
+   on one trusted appliance.
 
 ## Not pursuing
 
 - Public Internet application hosting as a Soda product surface
+- Mutually untrusted tenant hosting
 - Domain ownership or preprovisioned per-app public certificates as a prerequisite
   for trying Soda or using baseline services
 - A second standalone Soda web frontend (the same-origin workspace shell that

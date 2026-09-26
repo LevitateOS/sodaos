@@ -41,6 +41,30 @@ Spaces.
 
 Go package placement for developers: [Go ownership](../development/go.md).
 
+## Intended factory flow
+
+This is the target design, not an assertion of existing runtime or API support.
+Native capability boundaries must be proved before controller or UI development.
+
+1. A human selects Forgejo work for Soda to admit. Forgejo remains the source of
+   truth for its issue, branch, pull request, review and CI state. Soda keeps only
+   the execution record and resource ledger needed to run and account for the work.
+2. Soda assigns a replaceable coding agent to a disposable workspace separate from
+   persistent Project roots. Codex is the first agent; OpenCode, Muse Code and
+   Oh My Pi are later candidates, not required adapters in the initial path.
+3. Agent changes reach Forgejo through mediated writes. A fresh independent
+   reviewer examines the proposed change. At most one bounded repair follows a
+   failed check before the work returns to a human.
+4. Review and CI evidence bind to the exact candidate commit. A repair receives a
+   new review in another fresh workspace and new CI results; older evidence cannot
+   authorize it.
+5. A human makes the merge decision. Forgejo runs and displays CI; Soda does not
+   replace its workflow scheduler or collaboration records.
+
+The factory does not require changing the current Forgejo, Soda, Caddy or Project
+container topology. Disposable workspaces and their cleanup must have their own
+resource boundary; the Project persistence rules below still apply.
+
 ## Control and data flow
 
 1. Browser users authenticate with Forgejo. Soda OAuth creates a separate adapter
