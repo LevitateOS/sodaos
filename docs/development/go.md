@@ -21,6 +21,7 @@ remain in [architecture](../architecture/overview.md).
 | Unix client + thin daemon mux/admission | `host` (`client.go`, `daemon.go`; decode straight into `project` types — no translators) |
 | Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `host/project` (package `project`; executes on domain `project` types) |
 | Privileged terminal attach | `host/terminal` (package `terminal`) |
+| Narrow factory Git publication | `host/publish` (unprivileged; imports verified candidate bundles) |
 | Disposable factory OCI execution | `host/workspace` (unprivileged; consumes `factory` run records) |
 | Tailnet companion container runtime | `host/tailnet` (package `tailnet`) |
 | Install phase on Linux | `installer/<phase>_linux.go` |

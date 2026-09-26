@@ -95,6 +95,10 @@ func TestNativeLifecycle(t *testing.T) {
 	if err != nil || string(out) != r.InputSHA+"\n" {
 		t.Fatal("checkout differs from admitted commit")
 	}
+	bundle, err = runtime.ExportCandidate(ctx, r)
+	if err != nil || len(bundle) == 0 {
+		t.Fatalf("export frozen candidate: %v", err)
+	}
 	// Reconstruct the runtime and record to exercise restart cleanup, not names guessed from the engine.
 	var recovered factory.Run
 	data, err = os.ReadFile(ledger)

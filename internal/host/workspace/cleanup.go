@@ -14,15 +14,14 @@ func (w *Runtime) Cleanup(ctx context.Context, r *factory.Run) error {
 	if err := r.Validate(); err != nil {
 		return err
 	}
-	var failures []error
+	r.CleanupComplete = false
 	for i := len(r.Resources) - 1; i >= 0; i-- {
 		if err := w.removeResource(ctx, *r, r.Resources[i]); err != nil {
-			failures = append(failures, err)
+			return err
 		}
 	}
-	err := errors.Join(failures...)
-	r.CleanupComplete = err == nil
-	return err
+	r.CleanupComplete = true
+	return nil
 }
 
 func (w *Runtime) observeResource(ctx context.Context, r factory.Run, resource factory.Resource) (string, bool, error) {

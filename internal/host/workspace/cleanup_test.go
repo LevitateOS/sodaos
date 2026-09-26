@@ -105,3 +105,18 @@ func TestLaunchRejectsMissingResultAfterSuccessfulProcess(t *testing.T) {
 		t.Fatal("successful exit accepted without result")
 	}
 }
+
+func TestCleanupKeepsDependenciesWhenWorkerCannotBeObserved(t *testing.T) {
+	r := testRun()
+	c := Config{Image: r.Image, HarnessVersion: "test", Model: r.Model}
+	r.Resources = nil
+	c.Bind(&r)
+	calls := 0
+	w := Runtime{Exec: executorFunc(func(context.Context, []byte, string, ...string) ([]byte, error) {
+		calls++
+		return nil, &ExitError{Code: 125}
+	})}
+	if err := w.Cleanup(context.Background(), &r); err == nil || calls != 1 || r.CleanupComplete {
+		t.Fatal("cleanup removed dependencies after worker failure")
+	}
+}
