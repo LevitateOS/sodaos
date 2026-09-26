@@ -94,6 +94,9 @@ func TestLaunchRejectsMissingResultAfterSuccessfulProcess(t *testing.T) {
 		}
 		if calls == 2 {
 			command := strings.Join(args, " ")
+			if !strings.Contains(command, "exec --interactive") {
+				t.Fatal("prompt stdin is not forwarded")
+			}
 			if !strings.Contains(command, `sqlite_home="/workspace/.codex-state"`) || !strings.Contains(command, `log_dir="/workspace/.codex-log"`) {
 				t.Fatal("shared conversation state")
 			}

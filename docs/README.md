@@ -36,6 +36,7 @@ link to it rather than redefining the contract.
 | [HTTP API](reference/api.md) | Callable Soda routes and semantics |
 | [Credentials](reference/credentials.md) | OAuth, grants, schema, maintenance |
 | [Project OS](reference/project-os.md) | Project runtime baseline contracts |
+| [Factory](reference/factory.md) | Bounded software-work operator interface |
 | [Runners](reference/runners.md) | Local CI runner capacity contracts |
 | [Terminal](reference/terminal.md) | Managed terminal and WebSocket contracts |
 | [Forgejo customization](reference/forgejo.md) | Supported Forgejo presentation integration |

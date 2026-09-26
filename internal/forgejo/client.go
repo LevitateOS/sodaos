@@ -24,15 +24,25 @@ type User struct {
 	Admin bool   `json:"is_admin"`
 }
 type Repository struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	FullName string `json:"full_name"`
-	Owner    User   `json:"owner"`
+	Private       bool                   `json:"private"`
+	DefaultBranch string                 `json:"default_branch"`
+	Permissions   *RepositoryPermissions `json:"permissions"`
+	ID            int64                  `json:"id"`
+	Name          string                 `json:"name"`
+	FullName      string                 `json:"full_name"`
+	Owner         User                   `json:"owner"`
 }
-type Application struct {
-	ClientID string `json:"client_id"`
-	Secret   string `json:"client_secret"`
-}
+type (
+	RepositoryPermissions struct {
+		Admin bool `json:"admin"`
+		Push  bool `json:"push"`
+		Pull  bool `json:"pull"`
+	}
+	Application struct {
+		ClientID string `json:"client_id"`
+		Secret   string `json:"client_secret"`
+	}
+)
 
 func New(base string) *Client {
 	return &Client{Base: strings.TrimRight(base, "/"), HTTP: &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}

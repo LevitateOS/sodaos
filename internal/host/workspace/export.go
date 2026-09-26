@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -36,4 +37,17 @@ func (w *Runtime) ExportCandidate(ctx context.Context, r factory.Run) ([]byte, e
 		return nil, err
 	}
 	return bundle, nil
+}
+
+func (w *Runtime) Revision(ctx context.Context, r factory.Run) (string, error) {
+	id := w.resource(r, "workspace").ID
+	out, err := w.Exec.Run(ctx, nil, "podman", "exec", "--workdir", "/workspace/repo", id, "git", "rev-parse", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	sha := strings.TrimSpace(string(out))
+	if !factory.ValidCommit(sha) {
+		return "", errors.New("workspace HEAD is invalid")
+	}
+	return sha, nil
 }

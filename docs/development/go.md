@@ -14,6 +14,7 @@ remain in [architecture](../architecture/overview.md).
 | If you are adding… | It goes in… |
 | --- | --- |
 | Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
+| Bounded factory admission and fixed execution loop | `factory/control`; `cmd/soda-factory` wires operator configuration and commands |
 | Work Item, attempt/run identity, budgets and fixed factory lifecycle policy | `factory` — pure domain types and validation; no runtime or SQL |
 | OAuth / login / session / provider / me keys | `web/auth` |
 | Product HTTP/WS (environments, spaces, terminal, lifecycle, runners, tailnet settings, pages) | `web/api` |
@@ -36,7 +37,9 @@ Hard size rule: prefer production files under 400 LOC; do not grow a production
 `cmd/soda-dashboard` enters through `web` (plus `config`/`store`/`avatar`
 for process startup only). `cmd/soda-host` enters through `host`
 (plus `tailnet`). `web.Server` constructs `auth`/`api`; `host.Daemon`
-wires the three executors. These are the only facades; do not add
+wires the persistent development executors. `cmd/soda-factory` wires
+`factory/control`, which owns the bounded loop and composes the unprivileged
+workspace and publication executors. Do not add
 forwarding packages or compatibility shims for moved code. The host
 Client may re-export `host/terminal` wire types so `web` never imports
 the privileged terminal executor directly.

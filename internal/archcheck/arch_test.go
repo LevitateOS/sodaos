@@ -213,12 +213,13 @@ func TestDependencyDirection(t *testing.T) {
 	// transport, privilege or release machinery.
 	allowOnly(t, edges, "internal/project", "internal/strictjson")
 	allowOnly(t, edges, "internal/factory")
+	allowOnly(t, edges, "internal/factory/control", "internal/factory", "internal/filelock", "internal/forgejo", "internal/host/workspace", "internal/host/publish", "internal/store", "internal/strictjson")
 	allowOnly(t, edges, "internal/store", "internal/project", "internal/factory")
 
-	// Privileged project / terminal / companion execution lives under host/.
+	// Native project, terminal, companion and factory execution lives under host/.
 	for _, pkg := range []string{"internal/host/project", "internal/host/terminal", "internal/host/tailnet", "internal/host/workspace", "internal/host/publish"} {
 		if _, err := os.Stat(filepath.Join(root, pkg)); err != nil {
-			t.Errorf("privileged executor %s missing", pkg)
+			t.Errorf("native executor %s missing", pkg)
 		}
 	}
 

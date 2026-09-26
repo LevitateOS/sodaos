@@ -17,6 +17,7 @@ type Issue struct {
 }
 
 type Pull struct {
+	User   User       `json:"user"`
 	Number int64      `json:"number"`
 	State  string     `json:"state"`
 	Merged bool       `json:"merged"`
@@ -116,4 +117,42 @@ func (c *Client) WorkActions(ctx context.Context, token string, repo Repository,
 		}
 	}
 	return result.Runs, nil
+}
+
+type WorkReview struct {
+	ID     int64  `json:"id"`
+	Commit string `json:"commit_id"`
+	State  string `json:"state"`
+	Body   string `json:"body"`
+	User   User   `json:"user"`
+}
+
+func (c *Client) WorkReviews(ctx context.Context, token string, repo Repository, number int64) ([]WorkReview, error) {
+	path, err := workPath(repo)
+	if err != nil || number <= 0 {
+		return nil, ErrInvalidResponse
+	}
+	var reviews []WorkReview
+	err = c.request(ctx, "GET", path+"/pulls/"+strconv.FormatInt(number, 10)+"/reviews?limit=50", token, nil, &reviews)
+	return reviews, err
+}
+
+func (c *Client) WorkComment(ctx context.Context, token string, repo Repository, issue int64, body string) error {
+	path, err := workPath(repo)
+	if err != nil || issue <= 0 {
+		return ErrInvalidResponse
+	}
+	return c.request(ctx, "POST", path+"/issues/"+strconv.FormatInt(issue, 10)+"/comments", token, map[string]string{"body": body}, nil)
+}
+
+func (c *Client) WorkActor(ctx context.Context, token, login string) (User, error) {
+	if !repositoryPart(login) {
+		return User{}, ErrInvalidResponse
+	}
+	var user User
+	err := c.request(ctx, "GET", "/users/"+url.PathEscape(login), token, nil, &user)
+	if err == nil && user.Login != login {
+		err = ErrInvalidResponse
+	}
+	return user, err
 }

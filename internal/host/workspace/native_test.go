@@ -63,7 +63,7 @@ func TestNativeLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = runtime.Prepare(r, map[string]string{"role": "implementation"}, bundle); err != nil {
+	if err = runtime.Prepare(r, map[string]any{"run": r, "work": map[string]string{"objective": "Create proof.txt containing FACTORY_LAUNCH_OK, verify the file with a tool and commit it locally. Report the actual HEAD and completed. This is a private native integration probe."}}, bundle); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -94,6 +94,21 @@ func TestNativeLifecycle(t *testing.T) {
 	out, err := runtime.Exec.Run(ctx, nil, "podman", "exec", id, "git", "-C", "/workspace/repo", "rev-parse", "HEAD")
 	if err != nil || string(out) != r.InputSHA+"\n" {
 		t.Fatal("checkout differs from admitted commit")
+	}
+	if os.Getenv("SODA_FACTORY_NATIVE_AGENT") == "1" {
+		result, err := runtime.Launch(ctx, r)
+		if err != nil || result.Status != "completed" {
+			t.Fatalf("native launch: %v status %s", err, result.Status)
+		}
+		actual, err := runtime.Revision(ctx, r)
+		if err != nil || actual != result.Candidate || actual == r.InputSHA {
+			t.Fatal("agent result did not create its actual candidate")
+		}
+		proof, err := runtime.Exec.Run(ctx, nil, "podman", "exec", id, "cat", "/workspace/repo/proof.txt")
+		if err != nil || string(proof) != "FACTORY_LAUNCH_OK\n" {
+			t.Fatal("agent did not create required file")
+		}
+
 	}
 	bundle, err = runtime.ExportCandidate(ctx, r)
 	if err != nil || len(bundle) == 0 {

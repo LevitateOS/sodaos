@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -24,6 +25,9 @@ func ownership(id string) string { return "io.soda.factory.run=" + id }
 // the next allocation. Exact recorded intent covers interruption during create.
 func (w *Runtime) Create(ctx context.Context, r *factory.Run, persist func(factory.Run) error) error {
 	if err := r.Validate(); err != nil {
+		return err
+	}
+	if err := r.Authority(r.AttemptID, time.Now()); err != nil {
 		return err
 	}
 	if err := w.Config.Validate(); err != nil {
@@ -85,7 +89,9 @@ func (w *Runtime) resource(r factory.Run, kind string) factory.Resource {
 }
 
 func (w *Runtime) containerArguments(r *factory.Run, resource *factory.Resource) []string {
-	return []string{"create", "--name", resource.Name, "--label", ownership(r.ID), "--pull=never", "--userns=keep-id:uid=1000,gid=1000", "--user=1000:1000", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--pids-limit=" + strconv.Itoa(w.Config.PIDs), "--cpus=" + strconv.Itoa(w.Config.CPUs), "--memory=" + strconv.FormatInt(w.Config.MemoryBytes, 10), "--memory-swap=" + strconv.FormatInt(w.Config.MemoryBytes, 10)}
+	limits := w.containerLimits(resource.Kind)
+	seconds := max(1, int(time.Until(r.Deadline).Seconds()))
+	return []string{"create", "--timeout=" + strconv.Itoa(seconds), "--name", resource.Name, "--label", ownership(r.ID), "--pull=never", "--userns=keep-id:uid=1000,gid=1000", "--user=1000:1000", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--pids-limit=" + strconv.Itoa(limits.pids), "--cpus=" + limits.cpus, "--memory=" + strconv.FormatInt(limits.memory, 10), "--memory-swap=" + strconv.FormatInt(limits.memory, 10)}
 }
 
 func (w *Runtime) createContainer(ctx context.Context, resource *factory.Resource, args []string) error {
@@ -147,4 +153,17 @@ func freshResourceIntents(resources []factory.Resource) bool {
 		}
 	}
 	return true
+}
+
+type containerLimits struct {
+	pids   int
+	cpus   string
+	memory int64
+}
+
+func (w *Runtime) containerLimits(kind string) containerLimits {
+	if kind == "proxy" {
+		return containerLimits{32, "0.25", 128 << 20}
+	}
+	return containerLimits{w.Config.PIDs, strconv.Itoa(w.Config.CPUs), w.Config.MemoryBytes}
 }
