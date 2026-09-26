@@ -1,6 +1,11 @@
 # Data safety and removal
 
-Preserve local work and understand native deletion scope before changing accounts, workloads, repositories or storage.
+Separate disposable run cleanup from removal of persistent projects, retained results, credentials and repository data.
+
+Use the [factory operator interface](../30-Use-Soda/15-software-factory.md) to
+cancel and reconcile recorded run resources. Its authority does not extend to
+persistent human projects or unrelated containers. Identify exact ownership
+before any separate native deletion.
 
 ## Know what is not disposable
 
@@ -60,3 +65,15 @@ Do not reset, reinstall or recreate project state to make inspection look clean.
 Use your tested restoration procedure and account for writes newer than the
 backup. [Fallback](../30-Use-Soda/60-updates-and-fallback.md#understand-fallback-limits)
 changes software/deployment selection; it is not an undo command for deleted data.
+
+## Disposable factory resources
+
+A run owns its checkout, scratch space, recorded containers and network. Use
+`cancel` and `recover` through the [factory operator interface](../30-Use-Soda/15-software-factory.md)
+to terminate and reconcile these resources. Confirm cleanup independently of the
+run outcome. Never select resources by a broad name prefix or use global pruning.
+
+Retained results, ledger records and protected credential enrollment have distinct
+retention needs; do not treat them as anonymous scratch. Persistent human Projects
+are outside run cleanup, even when they use the same repository. Deleting a
+repository or changing an issue does not authorize deletion of human project data.

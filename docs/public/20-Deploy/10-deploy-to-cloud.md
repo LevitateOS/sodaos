@@ -1,6 +1,10 @@
 # Deploy to a cloud or VM
 
-Deploy a SodaOS QCOW2 on matching virtual hardware, establish private operator access and route project environments to your clients.
+Deploy a Soda OS software factory on matching virtual hardware, establish private operator access and retain separate capacity for human projects.
+
+Allow capacity for disposable agent workspaces, Forgejo verification and persistent
+human data. After deployment, follow [Operator setup](25-operator-setup.md) and
+the [factory walkthrough](../30-Use-Soda/15-software-factory.md).
 
 ## Prepare the deployment
 

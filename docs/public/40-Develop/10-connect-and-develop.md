@@ -1,6 +1,11 @@
 # Connect and develop
 
-Use your preferred SSH editor, terminal or browser workspace terminal with ordinary personal Git checkouts inside a shared project.
+Use your preferred editor or terminal in a persistent human project for development and intervention alongside factory work.
+
+These instructions concern your human project account and checkout, not an agent
+workspace. Inspect candidate code with your own Git access; do not edit a running
+agent’s environment or assume your local tests replace its exact-commit CI and
+[fresh review](../30-Use-Soda/15-software-factory.md).
 
 ## Connect to your workspace
 

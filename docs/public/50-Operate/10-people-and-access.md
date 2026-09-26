@@ -1,6 +1,10 @@
 # People and access
 
-Onboard people through Forgejo-backed identity, then manage browser, project, Git and network access as distinct responsibilities.
+Manage human access, execution authority, publishing actors and provider authentication as distinct responsibilities.
+
+Human onboarding and project access do not automatically authorize agent work.
+The [factory walkthrough](../30-Use-Soda/15-software-factory.md) explains explicit
+admission; the factory identity section below explains credential boundaries.
 
 ## Add a person
 
@@ -72,3 +76,28 @@ Disabling a Forgejo login is not proof that project SSH access ended.
 See [Data safety and removal](40-data-safety-and-removal.md) before any native
 destructive action. Never delete an environment or database as an access-control
 shortcut.
+
+## Factory identities and provider access
+
+Keep four identities distinct: the human authorizing an objective, the execution
+principal for one run, the Forgejo actor publishing a candidate or review, and
+the provider account supplying model access. Separate implementation and review
+actors do not need a new Forgejo account for every process.
+
+The agent receives only its run's permitted operations. Forgejo write tokens stay
+with the publisher and review boundary. Provider account authentication may be
+injected into a trusted runtime under the selected profile's supported terms;
+code in that runtime may extract it. Containers and network allowlists do not
+make this a universal secret-confidentiality guarantee.
+
+For Codex account authentication, use a dedicated enrollment. Soda serializes its
+use, delivers authentication into bounded tmpfs and returns CLI-maintained state
+before another execution. An interrupted return requires cleanup and explicit
+reauthentication. Do not restore stale tokens or share the credential stream with
+an independent active session. Enrollment changes must wait until the active run
+ends. Never put provider state in images, task input, retained output or normal logs.
+
+Renewal, revocation and subscription exhaustion require their actual provider
+controls. Workspace destruction removes Soda's copy but cannot invalidate a token
+copied elsewhere. A provider login does not grant repository or host access. See
+[factory setup](../30-Use-Soda/15-software-factory.md#prepare-the-factory).

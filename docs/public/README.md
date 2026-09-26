@@ -1,7 +1,7 @@
 # Public website documentation
 
 Source handbook for the **release-day Soda OS product**. It teaches installation,
-everyday development and operation. It is not a repository progress report.
+bounded agent work, supporting human development and operation. It is not a repository progress report.
 
 Do not insert candidate revisions, test-VM instructions, milestone status,
 missing-build disclaimers or preview routes into published pages.

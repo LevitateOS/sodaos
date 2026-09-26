@@ -1,6 +1,11 @@
 # Tailscale
 
-Connect the appliance privately and establish approved routes to project environments without changing Soda's identity or authorization model.
+Connect the factory appliance privately and route persistent human projects without granting agent or repository authority.
+
+Network reachability is separate from execution permission. Factory workers use
+their configured network profile; joining a Tailnet does not grant them access
+to other machines, projects or production services.
+
 
 Tailscale supplies network connectivity. Forgejo still authenticates browser
 users, and ordinary OpenSSH authenticates project access. Soda does not replace

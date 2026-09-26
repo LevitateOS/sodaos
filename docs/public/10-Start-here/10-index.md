@@ -1,55 +1,58 @@
-# SodaOS documentation
+# Soda OS handbook
 
-Set up SodaOS, join a persistent project environment, and develop from your browser or preferred SSH editor.
+Deploy a software factory on infrastructure you control, authorize coding-agent work through Forgejo, and review verified results before a human merge.
 
-Use a powerful computer as your remote development environment or as extra
-capacity beside your everyday computer. A team can share a cloud server or
-hardware it owns: builds, agents, development tools and databases run on Soda,
-while each person keeps their own project-local account and ordinary checkouts.
+Soda creates fresh environments for approved work, enforces time and resource
+limits, and records outcomes and cleanup. Forgejo keeps repositories, issues,
+pull requests, reviews and CI. People authorize objectives and decide what merges.
+Persistent human projects support development, debugging and intervention through
+familiar editors, browser terminals and SSH.
 
 ## Start with your task
 
 | You want to… | Start here |
 | --- | --- |
-| Understand people, projects and shared resources | [Product model](20-product-model.md) |
-| Install on hardware or a VM from an ISO | [Install on premises](../20-Deploy/20-install-on-premises.md) |
+| Understand the factory and human projects | [Product model](20-product-model.md) |
+| Install on hardware from an ISO | [Install on premises](../20-Deploy/20-install-on-premises.md) |
 | Import a VM image or deploy on Scaleway | [Deploy to a cloud or VM](../20-Deploy/10-deploy-to-cloud.md) |
-| Configure a new server for the team | [Operator setup](../20-Deploy/25-operator-setup.md) |
-| Sign in and register your development key | [First connection](../20-Deploy/30-first-connection.md) |
-| Find your repository and join its environment | [Projects and workspaces](../30-Use-Soda/20-projects-and-workspaces.md) |
+| Configure private access and the factory | [Operator setup](../20-Deploy/25-operator-setup.md) |
+| Authorize and inspect the first agent task | [Software factory walkthrough](../30-Use-Soda/15-software-factory.md) |
+| Review a candidate and merge it yourself | [Collaboration](../30-Use-Soda/35-collaboration.md) |
+| Manage runs, capacity or interruption | [Administration](../50-Operate/20-administration.md) |
+| Manage human and agent access | [People and access](../50-Operate/10-people-and-access.md) |
+| Develop or intervene manually | [Projects and workspaces](../30-Use-Soda/20-projects-and-workspaces.md) |
 | Connect an editor and use Git | [Connect and develop](../40-Develop/10-connect-and-develop.md) |
-| Install a tool once for the project | [Shared tools and files](../40-Develop/20-shared-tools-and-files.md) |
-| Run a database or development service | [Project services](../40-Develop/30-project-services.md) |
-| Add a teammate | [People and access](../50-Operate/10-people-and-access.md) |
-| Diagnose or maintain the server | [Administration](../50-Operate/20-administration.md) |
+| Protect persistent data and retained results | [Backups and restoration](../50-Operate/30-backups-and-restoration.md) |
 
-## Your first project session
+## Your first authorized task
 
-1. Obtain the Soda dashboard URL and private-network access from your operator.
-2. Sign in through Forgejo, completing any first-password change and consent.
-3. Add your **public** development-access SSH key in your Soda profile.
-4. Open the project's environment. Its repository owner creates the environment
-   if needed; creating a repository alone does not create one.
-5. Select **Add me to this project**, even if you created it.
-6. Verify the project's displayed SSH identity and connect as your own user at
-   its IP address, or open your existing workspace's browser terminal.
-7. Clone with your own Git credentials and use the project's shared tools and
-   services alongside your personal checkout.
+1. Deploy Soda and configure private access, Forgejo and the selected agent profile.
+2. Choose a private repository and write an issue with a clear expected outcome.
+3. Admit the issue explicitly through the operator interface.
+4. Run the bounded attempt and inspect its pull request, CI and fresh review.
+5. If a repair produces another commit, check its new verification.
+6. Merge the final verified commit yourself, or resolve the intervention request.
+7. Confirm the run's recorded cleanup independently of its terminal outcome.
 
-Soda supplies a real Linux account and usable environment when you join. You do
-not need a host account, a source checkout of Soda, or Cockpit access to develop.
+Follow the [factory walkthrough](../30-Use-Soda/15-software-factory.md) for the
+actual commands. An issue, label or successful process exit alone is insufficient
+authorization or verification.
 
 ## Choose the right interface
 
-The [Soda dashboard](../30-Use-Soda/05-dashboard.md) brings together repositories,
-collaboration and environments. [Forgejo](../30-Use-Soda/30-forgejo.md) owns Git,
-identity and repository permissions. [Cockpit](../30-Use-Soda/10-cockpit.md) is
-for the host operator, including [Tailscale](../30-Use-Soda/40-tailscale.md) and
-[local CI runners](../30-Use-Soda/50-ci-runners.md).
+[Forgejo](../30-Use-Soda/30-forgejo.md) owns code, permissions and collaboration.
+The factory operator command owns explicit admission, run status and cancellation.
+The [Soda Dashboard](../30-Use-Soda/05-dashboard.md) provides repository and human
+project access. [Cockpit](../30-Use-Soda/10-cockpit.md) is for host administration.
+The [CI runners](../30-Use-Soda/50-ci-runners.md) supply Forgejo verification capacity.
+
+For manual development, follow [First connection](../20-Deploy/30-first-connection.md),
+join a persistent project explicitly and use its displayed account and connection
+details. A human project account is separate from a factory execution identity.
 
 ## Platforms
 
-Choose the x86-64 or AArch64 download matching the machine or VM. Both hardware
-and cloud deployments use the same project model. WSL2 support for x86-64 Windows
-gaming PCs is planned for a future release, with no WSL2 download; use a full
-hardware or VM installation for the release-day paths.
+Choose x86-64 or AArch64 to match the machine or VM. Run Soda on hardware you
+control or a private cloud instance; Scaleway is the first team cloud path.
+WSL2 support for x86-64 Windows gaming PCs is planned for a future release,
+with no WSL2 download. Use the full hardware or VM paths at launch.

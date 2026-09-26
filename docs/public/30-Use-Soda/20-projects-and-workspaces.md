@@ -1,11 +1,11 @@
 # Projects and workspaces
 
-Choose a repository, create its shared project, then open a terminal and work.
-Creating a project, starting it, joining it and creating a terminal are separate
-operations. Browser terminals do **not** require SSH keys or Tailnet.
+Open a persistent human project for manual development, debugging and intervention, separately from disposable agent workspaces.
 
-These instructions describe the new Spaces journey. Older installations may still
-show the earlier environment/session controls until a compatible upgrade.
+Creating a project, starting it, joining it and creating a terminal are separate
+operations. Browser terminals do **not** require SSH keys or Tailnet. A human
+project persists after an agent attempt ends; [factory cleanup](15-software-factory.md)
+must never remove its accounts, tools or data.
 
 ## Choose the repository
 

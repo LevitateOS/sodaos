@@ -1,8 +1,52 @@
 # Product model
 
-Understand the shared appliance, persistent project environments and personal workspaces before choosing where to work.
+Understand authorized software work, bounded agent runs and the persistent human projects that support them.
 
-## Three layers
+## Software work and execution
+
+| Concept | Meaning |
+| --- | --- |
+| Work Item | A Forgejo issue or pull request with a human-authorized objective |
+| Attempt | One explicit admission, with recorded inputs and limits for the fixed implementation, verification and repair loop |
+| Run | One bounded agent execution performing an assigned role against an exact source revision |
+| Workspace | The fresh disposable environment allocated to a run |
+| Persistent Project | A shared human development environment with lasting accounts, tools and data |
+
+An issue describes work; it does not itself grant execution authority. Soda checks
+human authorization and trusted configuration before admitting it. Forgejo owns
+software collaboration and repository policy; Soda owns execution and cleanup;
+the agent performs the task; people authorize objectives and merge verified changes.
+
+A new candidate commit requires new CI and fresh review. One repair may follow
+a repairable failure. Runs end when work finishes, limits expire or authority is
+withdrawn. Their cleanup is recorded separately from their outcome. Follow the
+[factory walkthrough](../30-Use-Soda/15-software-factory.md).
+
+## Four identities for factory work
+
+| Identity | Role |
+| --- | --- |
+| Authorizing human | Approves the objective within their repository permissions |
+| Soda execution principal | Identifies a single run and its permitted operations |
+| Forgejo actor | Publishes the assigned candidate or review through a separate bot account |
+| Provider account | Supplies model access under its own authentication and usage terms |
+
+A role is an authority template, not permission for an agent to name itself a
+reviewer or grant another process additional access. Separate identities constrain
+operations; they do not guarantee independent reasoning or correct code.
+
+Dedicated container workspaces have host-enforced limits but share the host kernel.
+Soda is for a trusted team on a private network, not hostile public multitenancy.
+Provider credentials require protected enrollment and may require renewal; cleanup
+cannot revoke a token copied outside the runtime.
+
+## Persistent human development
+
+Agent workspaces are destroyed after their runs. Human project environments have
+separate roots, credentials and lifetimes. The following layers describe manual
+development and intervention, not the disposable factory runtime.
+
+## Three layers for human development
 
 | Layer | What lives there |
 | --- | --- |

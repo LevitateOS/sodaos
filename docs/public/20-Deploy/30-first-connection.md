@@ -1,6 +1,11 @@
 # Make the first connection
 
-Sign in to Soda, register your public development key and establish trusted access to your project environment.
+Sign in to inspect repository work, then register a development key if you also need a persistent human project.
+
+Review factory issues and pull requests through Forgejo using your own account.
+Admitting an agent task follows the [factory walkthrough](../30-Use-Soda/15-software-factory.md);
+it does not require joining a human project. The steps below establish your
+separate access for manual development and intervention.
 
 ## Obtain the connection information
 

@@ -1,6 +1,11 @@
 # Maintenance and fallback
 
-Maintain the CoreOS host and Soda application components deliberately while preserving persistent project state and current credentials.
+Maintain the factory appliance while protecting persistent projects, execution records and credentials; software fallback is not data recovery.
+
+Before maintenance, stop admitting work and let active attempts finish or cancel
+them through the [factory operator interface](15-software-factory.md). Check
+recorded cleanup before stopping the controller. Reconcile interrupted runs after
+restart rather than resuming their conversations or resetting limits.
 
 ## Plan the maintenance window
 

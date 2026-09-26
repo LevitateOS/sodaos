@@ -1,6 +1,10 @@
 # Shared tools and files
 
-Install a tool once for the project and share files deliberately while keeping personal checkouts and credentials in your own home.
+Share tools and files deliberately inside a persistent human project while keeping personal checkouts and credentials separate.
+
+Shared human project installations do not become writable factory caches or
+agent mounts. [Agent workspaces](../30-Use-Soda/15-software-factory.md) start with
+fresh writable state and their own resource limits.
 
 ## Know the shared paths
 

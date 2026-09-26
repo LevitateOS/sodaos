@@ -1,6 +1,12 @@
 # Backups and restoration
 
-Protect the appliance's mutable identities, repositories and project data using consistent native backups and tested restoration.
+Protect factory records, retained results, credentials and persistent human data using consistent native backups and tested restoration.
+
+Disposable workspaces are not persistent project backups. Preserve the execution
+ledger and useful retained artifacts separately from human project roots. Provider
+credentials need protected continuity; restoring an old token file can invalidate
+renewal state rather than recover it.
+
 
 A persistent environment survives normal startup; it does not survive arbitrary
 storage loss without a backup. Git protects only material present in another
@@ -91,3 +97,20 @@ Verify operator access and intended host/application versions, then check:
 Record the backup and restoration results. An archive command succeeding is not
 proof of recovery. Repeat restore testing after storage, schema, credential or
 backup-method changes.
+
+## Factory records and credential continuity
+
+Include trusted factory configuration, the execution ledger and selected retained
+results in protected backups. Keep image digests, source commits, agent version,
+model and policy references needed to reconstruct an environment. These records
+do not make model behavior deterministically replayable.
+
+Stop admission and finish or cancel active runs before a consistent backup. Confirm
+cleanup separately. Disposable checkout and scratch data are not a replacement for
+published commits or retained artifacts, and factory cleanup never deletes a
+persistent human project's root.
+
+Provider credential state is private operational material, not an image or public
+artifact. Do not restore an old refreshed token over newer enrollment. After a
+restore, reconcile recorded resources and review provider enrollment before admitting
+work; reauthenticate when safe continuity cannot be established.

@@ -1,10 +1,13 @@
 # CI runners
 
-Register local Forgejo execution capacity through **Site administration → Soda →
-Runners**, while Forgejo owns workflows, scheduling and results. The fixed bookmark
-is `/-/soda/settings/runners`; it also works without first entering Spaces or logging
-in to Soda. The administration entry is visible to native Forgejo administrators,
-but only the configured Soda operator can manage local capacity.
+Supply Forgejo Actions verification capacity for candidate commits, separate from coding-agent workspaces.
+
+Register local capacity through **Site administration → Soda → Runners**.
+The fixed bookmark is `/-/soda/settings/runners`; it works without entering
+Spaces or logging in to Soda. Forgejo owns workflows, scheduling and results.
+Native Forgejo administrators see the entry, but only the configured Soda operator
+can manage local capacity. Soda does not add a second CI queue.
+
 
 Each local runner has one job slot, a noninteractive unprivileged Linux runtime
 account and persistent working state. It is not a developer workspace. Jobs run
@@ -63,3 +66,15 @@ it again. Preserve registration, working state and active jobs during maintenanc
 If an operation fails, retain its partial result and inspect local/provider
 state before retrying. Registration may have changed one side without completing
 the other. Do not repeatedly register or delete unrelated accounts as a repair.
+
+## Verify factory candidates
+
+CI jobs are verification executions, not the implementation or review agent.
+Use the selected Forgejo Actions workflow to evaluate each candidate once on
+`pull_request` events for `opened` and `synchronize`. Bind checkout and results
+to the actual candidate commit; branch names alone are insufficient.
+
+Soda observes Forgejo's result and rejects evidence for another commit or multiple
+candidate evaluations. A new repair commit requires a new CI evaluation and fresh
+review. CI configuration is trusted policy, outside the agent's permitted changes.
+See the [factory walkthrough](15-software-factory.md#prepare-the-factory).

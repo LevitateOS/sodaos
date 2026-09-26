@@ -1,6 +1,11 @@
 # Forgejo: built-in Git
 
-Use Soda's built-in Forgejo for identity, repositories, Git permissions and collaboration, with your own credentials for each client.
+Use Forgejo as the factory’s collaboration control plane for repositories, issues, permissions, pull requests, reviews and human merging.
+
+Forgejo records software activity. Soda records bounded executions and their
+owned resources, linked by attempt and run IDs. To assign work explicitly, follow
+the [factory walkthrough](15-software-factory.md). An imported repository does
+not automatically start agent work.
 
 ## Sign in
 
@@ -82,3 +87,17 @@ Repository access does not automatically grant or revoke project Linux access.
 Coordinate destructive native repository/account changes with the Soda operator
 before changing an environment's associated identity. See
 [People and access](../50-Operate/10-people-and-access.md).
+
+## Factory publishing and review actors
+
+Use separate non-administrator implementation and review bot accounts. Restrict
+their tokens to the selected repository where upstream scopes allow it. Native
+repository tokens do not by themselves enforce branch-specific or review-only
+operations; Soda's publication boundary enforces the assigned target and active run.
+
+Keep bot secrets outside the agent environment. Record attempt/run attribution in
+pull requests and reviews. Human repository permissions and protected-branch policy
+remain Forgejo's authority. An agent cannot grant itself merge permission, change
+policy or manufacture a passing CI result. Follow the
+[factory walkthrough](15-software-factory.md) for admission rather than treating a
+label or bot comment as an authorization event.

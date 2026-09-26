@@ -1,6 +1,11 @@
 # Administration and troubleshooting
 
-Inspect the right service, identity and network boundary before changing a shared Soda appliance.
+Operate bounded factory runs and persistent human projects through their separate service, identity and resource boundaries.
+
+Use the [factory walkthrough](../30-Use-Soda/15-software-factory.md) for task
+admission and verification. The run controls below handle status, cancellation
+and interrupted execution; native host tools remain for appliance administration.
+
 
 Use native host root and [Cockpit](../30-Use-Soda/10-cockpit.md) for host work.
 Project owners administer inside their project only. Forgejo site administration
@@ -94,3 +99,40 @@ error, native failure and transport loss. Remove passwords, private keys, tokens
 authentication URLs and unrelated personal/repository data before sharing.
 Use the [SodaOS issue tracker](https://github.com/LevitateOS/sodaos/issues) without
 publishing private backups or raw environment dumps.
+
+## Operate factory runs
+
+Use the configured unprivileged operator command and exact admitted attempt ID:
+
+```sh
+soda-factory --config /home/soda-tester/factory/config.json status ATTEMPT_ID
+soda-factory --config /home/soda-tester/factory/config.json cancel ATTEMPT_ID
+```
+
+Status distinguishes terminal outcome from cleanup completion. Cancellation
+withdraws publication authority and terminates surviving workspace processes.
+Admission checks CPU and memory capacity with headroom for human use; each worker
+also has process and writable-storage limits. Coordinate factory, CI and persistent
+project demand rather than admitting against nominal hardware capacity alone.
+
+After a controller restart, reconcile interrupted attempts:
+
+```sh
+soda-factory --config /home/soda-tester/factory/config.json recover
+```
+
+Recovery ends interrupted work in `needs-human` and removes only resources recorded
+as belonging to its runs. It does not infer intent from container names, resume
+conversations, reset deadlines or prune human projects. Inspect incomplete cleanup
+before allowing another attempt or reuse of a provider credential stream.
+
+Status, cancellation and recovery can use local state while Forgejo or the provider
+is unavailable. After connectivity returns, explicitly retry outcome reporting:
+
+```sh
+soda-factory --config /home/soda-tester/factory/config.json report ATTEMPT_ID
+```
+
+Forgejo retains software discussions and results; Soda retains admission, execution
+and infrastructure decisions. Link their records by attempt/run ID. Keep raw
+transcripts and secret diagnostics private; do not publish them as audit artifacts.

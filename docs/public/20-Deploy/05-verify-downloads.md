@@ -1,6 +1,9 @@
 # Verify downloads
 
-Check the origin, architecture and exact bytes of a SodaOS download before booting media or executing an installer.
+Verify the release artifacts for your software factory before booting media or executing an installer.
+
+The factory and persistent human projects use the same appliance release. Verify
+the matching architecture and accompanying installation instructions before setup.
 
 ## Choose one release
 

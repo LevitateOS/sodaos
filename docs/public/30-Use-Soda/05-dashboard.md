@@ -1,6 +1,11 @@
 # The Soda dashboard
 
-Use one dashboard for repository work, collaboration, your profile and persistent development environments.
+Use Soda Dashboard for repository access and persistent human projects alongside the factory operator interface.
+
+Factory work is authorized explicitly through the
+[operator command](15-software-factory.md). Forgejo presents issues, candidate
+pull requests, reviews and CI. Do not confuse opening a human project terminal
+with creating an agent run.
 
 ## Sign in
 

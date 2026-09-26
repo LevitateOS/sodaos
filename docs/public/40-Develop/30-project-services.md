@@ -1,6 +1,11 @@
 # Project services
 
-Run ordinary Podman workloads and native development processes inside a project, and share their endpoints without sharing engine administration.
+Run development services inside a persistent human project with ordinary native tools and the correct project authority.
+
+These services have a persistent human project lifetime. An agent cannot borrow
+the project’s container socket, mounts or credentials to provision a dependency.
+Factory services must be explicitly owned and controlled by their run; project
+services are not removed by [factory cleanup](../30-Use-Soda/15-software-factory.md).
 
 ## Who controls the runtime
 

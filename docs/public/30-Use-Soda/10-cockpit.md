@@ -1,8 +1,10 @@
 # Cockpit: host administration
 
-Use Soda-branded stock Cockpit to administer the host. [Tailnet](40-tailscale.md)
-and [Runners](50-ci-runners.md) belong to the native Forgejo dashboard, not custom
-Cockpit pages.
+Use Soda-branded stock Cockpit for appliance administration, separate from agent work and repository authority.
+
+[Factory runs](15-software-factory.md) cannot administer the host. Project and
+Forgejo roles do not grant Cockpit access. Tailnet and CI runner management remain
+in their existing native Forgejo settings, rather than custom Cockpit pages.
 
 ## Connect as the operator
 

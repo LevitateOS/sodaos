@@ -1,6 +1,10 @@
 # Operator setup
 
-Establish Forgejo-backed identity, trusted private browser endpoints and project networking before inviting your team.
+Prepare the appliance, Forgejo and private access, then configure the agent profile and authority for approved software work.
+
+Host administration, Forgejo collaboration, factory execution and persistent human
+projects have separate authority. The [factory walkthrough](../30-Use-Soda/15-software-factory.md)
+describes explicit task admission after the appliance is configured.
 
 ## Keep four authorities separate
 
@@ -11,7 +15,7 @@ Do not create developer host accounts or reuse root's password as a team login.
 
 Complete the selected release's host/component installation first. Its initial
 Forgejo and Cockpit listeners are loopback-only. Keep native console access and
-use the operator's verified SSH key; do not expose the unfinished installer.
+use the operator's verified SSH key; keep bootstrap access private.
 
 ## Configure Forgejo privately
 
@@ -51,8 +55,7 @@ New source retains the OAuth secret and grant-encryption key, not a bootstrap-to
 copy/reference, and leaves the supplied token file unchanged. Existing copies need
 separately authorized maintenance;
 setup does not delete or revoke them.
-Current source shares Forgejo's HTTPS origin, with Soda API/OAuth at `/-/soda/`;
-the drawer is not implemented yet. That origin must resolve to the approved
+Soda shares Forgejo's HTTPS origin, with Soda API/OAuth at `/-/soda/`. That origin must resolve to the approved
 endpoint and be covered by a trusted certificate. Setup refuses to overwrite existing configuration. After
 an uncertain failure, inspect Forgejo's applications and Soda's existing state
 before retrying; do not reset its databases.
@@ -103,3 +106,17 @@ service access to the approved private networks.
 Setup and first installation are not normal upgrade commands. Preserve existing
 configuration, grant-encryption key, databases and project roots during
 [maintenance](../30-Use-Soda/60-updates-and-fallback.md).
+
+## Configure bounded agent execution
+
+After private Forgejo access is established, prepare one private repository and
+separate implementation and review bot accounts. Configure the authorizing human,
+protected token files, selected Forgejo Actions workflow and agent profile through
+the [factory walkthrough](../30-Use-Soda/15-software-factory.md#prepare-the-factory).
+Configure CPU, memory, process and writable-storage limits against available
+capacity, and select permitted network destinations deliberately.
+
+Keep the dedicated provider credential home outside human project roots. Protect
+the factory ledger and its workspace/publication directories. A project join,
+issue label or repository creation does not admit work. Verify the first task,
+its exact-commit CI and review, and recorded cleanup before routine operation.

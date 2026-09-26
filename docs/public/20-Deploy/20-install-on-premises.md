@@ -1,6 +1,10 @@
 # Install on premises
 
-Install SodaOS on a computer you control or in a matching-architecture virtual machine using the release's ISO and provisioning instructions.
+Install your software factory on hardware you control or a matching-architecture VM using the release ISO and provisioning instructions.
+
+Gaming PCs, workstations, mini PCs and VM hosts can supply factory capacity.
+Keep room for persistent human projects and CI as well as bounded agent runs.
+Continue with [Operator setup](25-operator-setup.md) after installation.
 
 ## Prepare the machine
 
