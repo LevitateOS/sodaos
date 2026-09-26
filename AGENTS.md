@@ -1,5 +1,7 @@
 # Working on SodaOS
 
+Consult Jev (TypeSafe AI) SystemOne for difficult design decisions. It is a classifier, not an LLM, and cannot research: supply all relevant context and evidence yourself. Make three fresh consultations, rewriting ALL explanatory prose each time: context, instructions, questions, and option descriptions. Preserve the same facts, constraints, and alternatives; keep exact code and technical identifiers where needed. Check semantic equivalence and full-request wording differences before sending. Save all requests and responses, investigate disagreements, and treat agreement as advice—not proof or guaranteed bias removal.
+
 ## Unreleased: optimize for simplicity
 
 Build as if nobody is using the product. Experimental data and build artifacts are
