@@ -108,11 +108,11 @@ func streamFixtures(t *testing.T, streamDoc, indexDoc string) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/streams/stable.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, streamDoc)
+		_, _ = fmt.Fprint(w, streamDoc)
 	})
 	mux.HandleFunc("/v2/fedora/fedora-coreos/manifests/stable", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, indexDoc)
+		_, _ = fmt.Fprint(w, indexDoc)
 	})
 	server := httptest.NewTLSServer(mux)
 	t.Cleanup(server.Close)

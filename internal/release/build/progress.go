@@ -62,7 +62,7 @@ func NewBuildProgress(source, title string) (*BuildProgress, error) {
 		}
 		p.origin = time.Duration(n)
 	} else {
-		os.Setenv("SODA_BUILD_START_NS", strconv.FormatInt(int64(p.origin), 10))
+		_ = os.Setenv("SODA_BUILD_START_NS", strconv.FormatInt(int64(p.origin), 10))
 	}
 	return p, nil
 }
@@ -254,7 +254,7 @@ func (b BuildExecution) command(dir, name string, args ...string) *exec.Cmd {
 	cmd.Stderr = b.Log
 	// Build arguments are public; raw provider/provisioning outputs do not enter
 	// this producer. Keep tool logs separate from the progress-only timing log.
-	fmt.Fprintf(b.Log, "\n$ %s %s\n", name, strings.Join(args, " "))
+	_, _ = fmt.Fprintf(b.Log, "\n$ %s %s\n", name, strings.Join(args, " "))
 	return cmd
 }
 

@@ -19,26 +19,33 @@ to the target repository with `write:repository` and `write:issue`. Forgejo 15
 excludes `read:user` from repository-restricted tokens; the operator pins bot
 logins and Soda resolves their native profiles using the human token.
 
-The workspace configuration pins worker and proxy image IDs, the complete Codex
-package and version, the supported model, a dedicated credential home, allowed
-TLS hostnames, and worker CPU, memory, process and writable tmpfs limits. Its root
-must be the controller root's `workspaces` directory. The proxy has a quarter-CPU,
-128 MiB memory and 32-process limit. Capacity checks leave CPU, memory and disk
-headroom for human use. Source and candidate bundles are limited to 4 MiB.
+The configuration also names `identity_socket` (the private runtime socket),
+`connection_id` and `project_id`. Run factory and broker as the same Unix operator
+in the same rootless Podman context. The authorizing human remains the work actor;
+connection sponsorship does not give the worker Forgejo write authority.
 
-The dedicated Codex credential home contains CLI-maintained account authentication,
-not implementation conversations. SQLite state and logs use fresh per-run paths;
-execution uses `--ephemeral` and ignores user configuration. Enrollment must also
-redirect SQLite state outside the credential home. Soda serializes this credential
-stream. Workers receive authentication bytes in bounded tmpfs; the host credential
-directory is never mounted. Before publication, Soda freezes the worker, reads
-its maintained authentication state and kills the whole container before saving
-that state privately. A changed enrollment is preserved. An interrupted return
-requires cleanup and reauthentication before the stream can be reused. The
-writable limit includes checkout, scratch, authentication, temporary files and
-shared memory; automatic writable mounts are disabled for workers.
-Supported private subscription automation and renewal conditions are owned by the
-[Codex account-auth workflow](https://learn.chatgpt.com/docs/auth/ci-cd-auth).
+The workspace configuration pins worker and proxy image IDs, the complete Codex
+package, actual executable SHA256 (`harness_sha256`) and version, the model,
+allowed TLS hostnames and CPU, memory, process and writable tmpfs limits. Soda
+checks executable bytes and `--version` before leasing credentials. The workspace
+root belongs to the controller's `workspaces` directory. Source and candidate
+bundles are limited to 4 MiB.
+The proxy has a quarter-CPU, 128 MiB memory and 32-process limit. Capacity checks
+leave CPU, memory and disk headroom for human use.
+
+The [Identity Broker](credentials.md#identity-broker) owns subscription credentials.
+Factory waits for its selected connection within the existing execution deadline;
+it cannot create a second refresh writer. The lease and exact OCI binding are
+recorded before credentials enter the worker. Authentication travels through stdin
+into bounded tmpfs, never a host credential-directory mount. Before publication,
+Soda freezes the worker, captures updated CLI state and terminates the whole
+container before returning that state to broker custody. Interrupted returns are
+reconciled by exact lease ID; uncertain streams require reauthentication. Old
+`credential_home` configuration and local credential stream locks are removed.
+
+SQLite state and logs use fresh per-run paths; execution is ephemeral and ignores
+user configuration. The writable budget covers checkout, scratch, authentication,
+temporary files and shared memory; automatic writable mounts are disabled.
 
 Build the operator binary with the repository's pinned Go toolchain:
 

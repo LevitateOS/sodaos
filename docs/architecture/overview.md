@@ -17,6 +17,7 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Native operator services | Stock branded Cockpit, Tailnet/Runners management, `tailscaled`, CI runner services, restricted Soda project helper |
 | Appliance applications | Separate Podman containers for stock Forgejo, Soda's Go API/OAuth service and Caddy |
 | Persistent application data | Separate Soda SQLite database and upstream-owned Forgejo data |
+| Identity Broker | Host userspace `soda-identity`, private administration/execution sockets and encrypted subscription custody |
 | Factory execution | Unprivileged `soda-factory` operator command, execution ledger, narrow publisher and rootless Podman workspaces |
 | Projects | Persistent Project OS containers with project-local accounts, writable roots, SSH and shared installations |
 | Project workloads | Nested Podman inside the project |
@@ -37,6 +38,7 @@ Spaces.
 | Soda Go service (`web`, `web/api`, `web/auth`) | OAuth adapter, environment APIs, Spaces pages, terminal WS, runner/Tailnet settings |
 | `soda-factory` (`factory/control`) | Admission, fixed implementation/verification/repair loop, execution records, cancellation and reconciliation |
 | Factory workspace and publisher (`host/workspace`, `host/publish`) | Disposable OCI execution and permitted Forgejo publication, separate from persistent Project authority |
+| Identity Broker (`identity/control`) | Explicit subscription ownership/delegation and serialized native execution leases; [credential boundary](../reference/credentials.md#identity-broker) |
 | `soda-host` daemon | Privileged project, terminal and Tailnet companion execution |
 | Project OS | Developer accounts, tools, persistence, nested workloads |
 | Caddy | Private HTTPS termination for configured origins |
@@ -95,7 +97,8 @@ resource boundary; the Project persistence rules below still apply.
 | Soda SQLite, OAuth grants, environment rows | Soda data volume |
 | Factory admissions, attempts, runs and resource ledger | Protected factory `execution.db` under the configured operator root |
 | Run checkout, scratch, containers and network | Disposable run resources, reconciled from recorded ownership |
-| Retained factory results and provider enrollment | Protected operator state, separate from disposable resources and public logs |
+| Retained factory results | Protected factory operator state, separate from disposable resources and public logs |
+| Provider connection custody | Broker-owned encrypted database and separate private key; transient enrollment/tool auth in tmpfs |
 | Project accounts, homes, tools, service data | Project persistent root |
 | Runner registration and local capacity | Host runner state |
 | Host OS and layered packages | rpm-ostree / CoreOS |

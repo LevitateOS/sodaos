@@ -69,7 +69,7 @@ func streamFixtureServer(t *testing.T, streamBody, indexBody string, indexStatus
 	mux := http.NewServeMux()
 	mux.HandleFunc("/streams/stable.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, streamBody)
+		_, _ = fmt.Fprint(w, streamBody)
 	})
 	mux.HandleFunc("/v2/fedora/fedora-coreos/manifests/stable", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Accept") != "application/vnd.oci.image.index.v1+json" {
@@ -77,7 +77,7 @@ func streamFixtureServer(t *testing.T, streamBody, indexBody string, indexStatus
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(indexStatus)
-		fmt.Fprint(w, indexBody)
+		_, _ = fmt.Fprint(w, indexBody)
 	})
 	server := httptest.NewTLSServer(mux)
 	t.Cleanup(server.Close)
@@ -224,11 +224,11 @@ func tailnetFixtureServer(t *testing.T) {
 	mux.HandleFunc("/idx/", func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/idx/")
 		if strings.HasSuffix(name, ".sha256") {
-			fmt.Fprint(w, strings.Repeat("c", 64)+"  "+strings.TrimSuffix(name, ".sha256")+"\n")
+			_, _ = fmt.Fprint(w, strings.Repeat("c", 64)+"  "+strings.TrimSuffix(name, ".sha256")+"\n")
 			return
 		}
 		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprint(w, `<html><body>
+		_, _ = fmt.Fprint(w, `<html><body>
 <a href="tailscale_1.9.9_amd64.tgz">old</a>
 <a href="tailscale_1.10.2_arm64.tgz">new-arm</a>
 <a href="tailscale_1.10.2_amd64.tgz">new</a>
@@ -237,7 +237,7 @@ func tailnetFixtureServer(t *testing.T) {
 	})
 	mux.HandleFunc("/tags", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"results":[{"name":"latest"},{"name":"3.16"},{"name":"3.22"},{"name":"edge"}]}`)
+		_, _ = fmt.Fprint(w, `{"results":[{"name":"latest"},{"name":"3.16"},{"name":"3.22"},{"name":"edge"}]}`)
 	})
 	server := httptest.NewTLSServer(mux)
 	t.Cleanup(server.Close)

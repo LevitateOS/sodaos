@@ -233,7 +233,9 @@ func TestProductionRefusesWrongToolchainInputsAndLayout(t *testing.T) {
 				}
 				return
 			case "base":
-				os.WriteFile(filepath.Join(p.Source, "appliance/dashboard.Containerfile"), []byte("ARG BASE_IMAGE=unrelated\n"), 0o644)
+				if err := os.WriteFile(filepath.Join(p.Source, "appliance/dashboard.Containerfile"), []byte("ARG BASE_IMAGE=unrelated\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
 			case "tailnet":
 				raw, e := json.Marshal(fixtureLiveInputs())
 				if e != nil {
@@ -305,7 +307,9 @@ func TestSodaCommandsRefusesSupportToolsInRuntime(t *testing.T) {
 	if e != nil || strings.Join(names, ",") != "soda-dashboard,soda-host" {
 		t.Fatal(names, e)
 	}
-	os.Mkdir(filepath.Join(root, "cmd/soda-artifacts"), 0o755)
+	if err := os.Mkdir(filepath.Join(root, "cmd/soda-artifacts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if _, e = SodaCommands(root); e == nil {
 		t.Fatal("support tool admitted")
 	}
