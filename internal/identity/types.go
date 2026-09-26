@@ -1,0 +1,128 @@
+// Package identity owns subscription connection, grant and execution contracts.
+package identity
+
+import (
+	"encoding/json"
+	"errors"
+	"strings"
+	"time"
+)
+
+var (
+	ErrDenied    = errors.New("identity authority denied")
+	ErrBusy      = errors.New("subscription is in use")
+	ErrStale     = errors.New("identity generation changed")
+	ErrUncertain = errors.New("subscription requires reconnection")
+)
+
+const (
+	Ready    = "ready"
+	Reauth   = "reauth"
+	Revoked  = "revoked"
+	Factory  = "factory"
+	Terminal = "terminal"
+)
+
+type Connection struct {
+	ID         string `json:"id"`
+	OwnerID    int64  `json:"owner_id,string"`
+	Label      string `json:"label"`
+	Email      string `json:"email"`
+	Plan       string `json:"plan"`
+	Generation int64  `json:"generation"`
+	State      string `json:"state"`
+}
+
+type Grant struct {
+	ID           string `json:"id"`
+	ConnectionID string `json:"connection_id"`
+	UserID       int64  `json:"user_id,string"`
+	ProjectID    string `json:"project_id"`
+	Revision     int64  `json:"revision"`
+	Revoked      bool   `json:"revoked"`
+}
+
+type GrantRequest struct {
+	ConnectionID              string `json:"connection_id"`
+	UserID                    int64  `json:"user_id,string"`
+	ProjectID                 string `json:"project_id"`
+	ConfirmSubscription       bool   `json:"confirm_subscription"`
+	ConfirmCredentialExposure bool   `json:"confirm_credential_exposure"`
+}
+
+type AcquireRequest struct {
+	ExecutionID  string    `json:"execution_id"`
+	ActorID      int64     `json:"actor_id,string"`
+	ConnectionID string    `json:"connection_id"`
+	ProjectID    string    `json:"project_id"`
+	Kind         string    `json:"kind"`
+	Deadline     time.Time `json:"deadline"`
+	Role         string    `json:"role,omitempty"`
+}
+
+// Binding identifies a native process boundary, not a browser attachment.
+type Binding struct {
+	Kind       string `json:"kind"`
+	ID         string `json:"id"`
+	Project    string `json:"project"`
+	Login      string `json:"login"`
+	Generation int64  `json:"generation"`
+}
+
+type Lease struct {
+	ID            string    `json:"id"`
+	ConnectionID  string    `json:"connection_id"`
+	Generation    int64     `json:"generation"`
+	ActorID       int64     `json:"actor_id,string"`
+	ProjectID     string    `json:"project_id"`
+	ExecutionID   string    `json:"execution_id"`
+	Kind          string    `json:"kind"`
+	Role          string    `json:"role,omitempty"`
+	Deadline      time.Time `json:"deadline"`
+	GrantID       string    `json:"grant_id,omitempty"`
+	GrantRevision int64     `json:"grant_revision,omitempty"`
+	Binding       *Binding  `json:"binding,omitempty"`
+}
+
+// Delivery is a trusted-process result and must never enter browser responses.
+type Delivery struct {
+	Lease      Lease
+	Credential []byte
+}
+
+type Enrollment struct {
+	ID              string      `json:"id"`
+	VerificationURL string      `json:"verification_url"`
+	UserCode        string      `json:"user_code"`
+	State           string      `json:"state"`
+	Error           string      `json:"error,omitempty"`
+	Connection      *Connection `json:"connection,omitempty"`
+}
+
+func (r GrantRequest) Validate() error {
+	if r.ConnectionID == "" || r.UserID <= 0 || r.ProjectID == "" || !r.ConfirmSubscription || !r.ConfirmCredentialExposure {
+		return ErrDenied
+	}
+	return nil
+}
+
+func (r AcquireRequest) Validate(now time.Time) error {
+	if r.ActorID <= 0 || r.ConnectionID == "" || r.ExecutionID == "" || (r.Kind != Factory && r.Kind != Terminal) || !r.Deadline.After(now) || r.Deadline.After(now.Add(24*time.Hour)) {
+		return ErrDenied
+	}
+	return nil
+}
+
+func (b Binding) Validate() error {
+	if b.ID == "" || b.Generation <= 0 || (b.Kind != Factory && b.Kind != Terminal) {
+		return ErrDenied
+	}
+	if b.Kind == Terminal && (b.Project == "" || strings.TrimSpace(b.Login) == "") {
+		return ErrDenied
+	}
+	return nil
+}
+
+func CredentialValid(data []byte) bool {
+	return len(data) > 0 && len(data) <= 256<<10 && json.Valid(data)
+}

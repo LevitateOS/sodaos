@@ -26,6 +26,7 @@ type Config struct {
 	ForgejoInternalURL string `json:"forgejo_internal_url"`
 	Database           string `json:"database"`
 	HostSocket         string `json:"host_socket"`
+	IdentitySocket     string `json:"identity_socket"`
 	OAuthClientID      string `json:"oauth_client_id"`
 	OAuthSecretFile    string `json:"oauth_secret_file"`
 	GrantKeyFile       string `json:"grant_key_file"`
@@ -85,6 +86,9 @@ func validateConfigURLs(c *Config) error {
 }
 
 func validateConfigPaths(c Config) error {
+	if c.IdentitySocket != "" && !filepath.IsAbs(c.IdentitySocket) {
+		return errors.New("identity_socket must be an absolute path")
+	}
 	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "oauth_secret_file": c.OAuthSecretFile, "grant_key_file": c.GrantKeyFile} {
 		if !filepath.IsAbs(value) {
 			return fmt.Errorf("%s must be an absolute path", name)
@@ -106,6 +110,9 @@ func Load(path string) (Config, error) {
 	}
 	if err = validateConfigURLs(&c); err != nil {
 		return c, err
+	}
+	if c.IdentitySocket == "" {
+		c.IdentitySocket = "/run/soda/identity.sock"
 	}
 	if err = validateConfigPaths(c); err != nil {
 		return c, err

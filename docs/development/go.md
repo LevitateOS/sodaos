@@ -16,6 +16,10 @@ remain in [architecture](../architecture/overview.md).
 | Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
 | Bounded factory admission and fixed execution loop | `factory/control`; `cmd/soda-factory` wires operator configuration and commands |
 | Work Item, attempt/run identity, budgets and fixed factory lifecycle policy | `factory` — pure domain types and validation; no runtime or SQL |
+| Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
+| Serialized provider custody and enrollment | `identity/control`; `cmd/soda-identity` wires private service/runtime |
+| Codex app-server protocol | `identity/codex` — verified CLI protocol and private credential files |
+| Trusted broker Unix transport | `identity/client` — service callers only; never mounted in workspaces |
 | OAuth / login / session / provider / me keys | `web/auth` |
 | Product HTTP/WS (environments, spaces, terminal, lifecycle, runners, tailnet settings, pages) | `web/api` |
 | Dashboard mux root, namespace gate, `web.New` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
@@ -90,6 +94,10 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
 | `factory` | Bounded work/run identities and fixed lifecycle policy | Forgejo collaboration, runtime execution, SQLite | `types.go`, `lifecycle.go` |
+| `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
+| `identity/control` | Serialized subscription custody, enrollment, revocation and reconciliation | Browser authority, Git publication | concern files |
+| `identity/codex` | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | concern files |
+| `identity/client` | Private broker Unix client | Browser authority, credential persistence | `client.go` |
 | `forgejo` | Forgejo HTTP API client | Forgejo DB, upstream rules | `client.go` |
 | `host` | Unix client + thin Daemon mux/admission | Project/terminal/companion guts | `client.go`, `daemon.go`, `project.go` |
 | `host/project` | Privileged project env execution | HTTP admission, Tailnet policy, terminal attach | `create.go`, `lifecycle.go` |
