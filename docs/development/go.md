@@ -14,6 +14,7 @@ remain in [architecture](../architecture/overview.md).
 | If you are adding… | It goes in… |
 | --- | --- |
 | Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
+| Work Item, attempt/run identity, budgets and fixed factory lifecycle policy | `factory` — pure domain types and validation; no runtime or SQL |
 | OAuth / login / session / provider / me keys | `web/auth` |
 | Product HTTP/WS (environments, spaces, terminal, lifecycle, runners, tailnet settings, pages) | `web/api` |
 | Dashboard mux root, namespace gate, `web.New` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
@@ -83,6 +84,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `avatar` | Robot SVG render | Identity lookup | `avatar.go` |
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
+| `factory` | Bounded work/run identities and fixed lifecycle policy | Forgejo collaboration, runtime execution, SQLite | `types.go`, `lifecycle.go` |
 | `forgejo` | Forgejo HTTP API client | Forgejo DB, upstream rules | `client.go` |
 | `host` | Unix client + thin Daemon mux/admission | Project/terminal/companion guts | `client.go`, `daemon.go`, `project.go` |
 | `host/project` | Privileged project env execution | HTTP admission, Tailnet policy, terminal attach | `create.go`, `lifecycle.go` |
@@ -96,7 +98,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `release/deliver` | Payload model, signing, publication | Building images | `payload.go`, `publish.go`, `finalize.go` |
 | `release/image` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
 | `runners` | Local CI runner composition + operator identity | Forgejo Actions UI | `model.go`, `native.go`, `operator.go` |
-| `store` | SQLite schema + row ops | HTTP, host execute | `store.go`, `migrations.go` |
+| `store` | SQLite schema + row ops, including the factory execution/resource ledger | HTTP, host execute | `store.go`, `migrations.go`, `factory.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
 | `testoci` | Inert OCI test fixtures | Production images | `fixture.go` |

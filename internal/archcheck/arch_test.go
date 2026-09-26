@@ -212,7 +212,8 @@ func TestDependencyDirection(t *testing.T) {
 	// Pure domain: project validates; store persists. Neither reaches
 	// transport, privilege or release machinery.
 	allowOnly(t, edges, "internal/project", "internal/strictjson")
-	allowOnly(t, edges, "internal/store", "internal/project")
+	allowOnly(t, edges, "internal/factory")
+	allowOnly(t, edges, "internal/store", "internal/project", "internal/factory")
 
 	// Privileged project / terminal / companion execution lives under host/.
 	for _, pkg := range []string{"internal/host/project", "internal/host/terminal", "internal/host/tailnet"} {

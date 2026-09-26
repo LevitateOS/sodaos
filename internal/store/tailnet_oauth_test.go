@@ -71,6 +71,7 @@ func tailnetV9Fixture(t *testing.T) (string, []byte) {
 	}
 	return path, key
 }
+
 func TestTailnetV10PreservesV9ContextsAndEncryptedGrants(t *testing.T) {
 	path, key := tailnetV9Fixture(t)
 	db, e := sql.Open("sqlite", path)
@@ -101,7 +102,7 @@ func TestTailnetV10PreservesV9ContextsAndEncryptedGrants(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer s.Close()
-	if e = s.db.QueryRow(`SELECT version FROM schema_version`).Scan(&version); e != nil || version != 10 {
+	if e = s.db.QueryRow(`SELECT version FROM schema_version`).Scan(&version); e != nil || version != SchemaVersion() {
 		t.Fatal(version, e)
 	}
 	var pending int
@@ -155,6 +156,7 @@ func TestTailnetV10PreservesV9ContextsAndEncryptedGrants(t *testing.T) {
 		t.Fatal("Tailnet return bypassed logout")
 	}
 }
+
 func TestTailnetV10RejectsMixedAndMalformedState(t *testing.T) {
 	path, key := tailnetV9Fixture(t)
 	s, e := OpenEncrypted(path, key)
@@ -173,6 +175,7 @@ func TestTailnetV10RejectsMixedAndMalformedState(t *testing.T) {
 		}
 	}
 }
+
 func TestTailnetV10RejectsStaleVersionMarker(t *testing.T) {
 	path, key := tailnetV9Fixture(t)
 	db, e := sql.Open("sqlite", path)

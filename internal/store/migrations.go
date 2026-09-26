@@ -49,6 +49,37 @@ repository_settings_return INTEGER NOT NULL DEFAULT 0 CHECK(repository_settings_
 INSERT INTO oauth_tailnet SELECT state,verifier,expires,return_path,repository_id,expected_user_id,context_id,spaces_return,settings_return,repository_settings_return FROM oauth;
 DROP TABLE oauth;
 ALTER TABLE oauth_tailnet RENAME TO oauth;`,
+	`CREATE TABLE factory_attempts(
+id TEXT PRIMARY KEY, repository_id INTEGER NOT NULL, issue INTEGER NOT NULL,
+delivery TEXT NOT NULL, phase TEXT NOT NULL, cleanup INTEGER NOT NULL CHECK(cleanup IN(0,1)),
+revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)),
+UNIQUE(repository_id,issue,delivery));
+CREATE UNIQUE INDEX factory_active_work ON factory_attempts(repository_id,issue) WHERE phase!='finished' OR cleanup=0;
+CREATE TRIGGER factory_admission_immutable BEFORE UPDATE ON factory_attempts
+WHEN NEW.id!=OLD.id OR NEW.repository_id!=OLD.repository_id OR NEW.issue!=OLD.issue OR NEW.delivery!=OLD.delivery
+OR json_extract(NEW.data,'$.work')!=json_extract(OLD.data,'$.work')
+OR json_extract(NEW.data,'$.admitted')!=json_extract(OLD.data,'$.admitted')
+OR json_extract(NEW.data,'$.deadline')!=json_extract(OLD.data,'$.deadline')
+OR json_extract(NEW.data,'$.executions')<json_extract(OLD.data,'$.executions')
+OR json_extract(NEW.data,'$.ci_evaluations')<json_extract(OLD.data,'$.ci_evaluations')
+OR (OLD.phase='finished' AND (NEW.phase!='finished' OR json_extract(NEW.data,'$.outcome')!=json_extract(OLD.data,'$.outcome')))
+BEGIN SELECT RAISE(ABORT,'factory admission is immutable'); END;
+CREATE TABLE factory_runs(
+id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES factory_attempts(id),
+active INTEGER NOT NULL CHECK(active IN(0,1)), cleanup INTEGER NOT NULL CHECK(cleanup IN(0,1)),
+data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE UNIQUE INDEX factory_active_run ON factory_runs(attempt_id) WHERE active=1 OR cleanup=0;
+CREATE TRIGGER factory_run_binding_immutable BEFORE UPDATE ON factory_runs
+WHEN NEW.id!=OLD.id OR NEW.attempt_id!=OLD.attempt_id
+OR json_extract(NEW.data,'$.role')!=json_extract(OLD.data,'$.role')
+OR json_extract(NEW.data,'$.input_sha')!=json_extract(OLD.data,'$.input_sha')
+OR json_extract(NEW.data,'$.started')!=json_extract(OLD.data,'$.started')
+OR json_extract(NEW.data,'$.deadline')!=json_extract(OLD.data,'$.deadline')
+OR json_extract(NEW.data,'$.image')!=json_extract(OLD.data,'$.image')
+OR json_extract(NEW.data,'$.harness')!=json_extract(OLD.data,'$.harness')
+OR json_extract(NEW.data,'$.model')!=json_extract(OLD.data,'$.model')
+OR (coalesce(json_extract(OLD.data,'$.outcome'),'')!='' AND coalesce(json_extract(NEW.data,'$.outcome'),'')!=json_extract(OLD.data,'$.outcome'))
+BEGIN SELECT RAISE(ABORT,'factory run binding is immutable'); END;`,
 }
 
 // SchemaVersion identifies the schema produced by this source's migration owner.
