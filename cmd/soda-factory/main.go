@@ -54,7 +54,7 @@ func dispatch(ctx context.Context, c *control.Controller, args []string) error {
 			return errors.New("recover takes no arguments")
 		}
 		return c.Recover(ctx)
-	case "run", "cancel", "status":
+	case "run", "cancel", "status", "report":
 		return attempt(ctx, c, args)
 	default:
 		return errors.New("unknown factory command")
@@ -85,6 +85,8 @@ func attempt(ctx context.Context, c *control.Controller, args []string) error {
 		return c.Execute(ctx, args[1])
 	case "cancel":
 		return c.Cancel(ctx, args[1])
+	case "report":
+		return c.Report(ctx, args[1])
 	default:
 		a, err := c.Store.FactoryAttempt(ctx, args[1])
 		if err != nil {

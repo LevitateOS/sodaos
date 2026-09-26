@@ -94,7 +94,11 @@ func (c *Controller) Admit(ctx context.Context, issueNumber int64, delivery stri
 	if err != nil {
 		return a, false, err
 	}
-	return c.Store.AdmitFactory(ctx, a)
+	admitted, created, err := c.Store.AdmitFactory(ctx, a)
+	if err == nil && created {
+		err = c.labelOutcome(ctx, admitted)
+	}
+	return admitted, created, err
 }
 
 func (c *Controller) watch(ctx context.Context, id string, cancel context.CancelCauseFunc) {

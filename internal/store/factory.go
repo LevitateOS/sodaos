@@ -226,3 +226,15 @@ func (s *Store) FactoryAttempts(ctx context.Context) ([]factory.Attempt, error) 
 	}
 	return attempts, rows.Err()
 }
+
+// LatestFactoryAttempt identifies the current human admission for outcome labels.
+// Earlier attempts remain available by ID and cannot overwrite current work state.
+func (s *Store) LatestFactoryAttempt(ctx context.Context, repositoryID, issue int64) (factory.Attempt, error) {
+	var a factory.Attempt
+	var data []byte
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_attempts WHERE repository_id=? AND issue=? ORDER BY rowid DESC LIMIT 1`, repositoryID, issue).Scan(&data)
+	if err == nil {
+		err = json.Unmarshal(data, &a)
+	}
+	return a, err
+}

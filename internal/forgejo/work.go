@@ -76,12 +76,17 @@ func (c *Client) CreateWorkPull(ctx context.Context, token string, repo Reposito
 
 // SubmitWorkReview deliberately exposes review submission, not merge or status writes.
 // The caller enforces live run authority and the assigned PR/commit before invoking it.
-func (c *Client) SubmitWorkReview(ctx context.Context, token string, repo Repository, number int64, commit, event, body string) error {
+func (c *Client) SubmitWorkReview(ctx context.Context, token string, repo Repository, number int64, commit, event, body string) (WorkReview, error) {
 	path, err := workPath(repo)
 	if err != nil || number <= 0 || (event != "APPROVED" && event != "REQUEST_CHANGES") {
-		return ErrInvalidResponse
+		return WorkReview{}, ErrInvalidResponse
 	}
-	return c.request(ctx, "POST", path+"/pulls/"+strconv.FormatInt(number, 10)+"/reviews", token, map[string]string{"commit_id": commit, "event": event, "body": body}, nil)
+	var review WorkReview
+	err = c.request(ctx, "POST", path+"/pulls/"+strconv.FormatInt(number, 10)+"/reviews", token, map[string]string{"commit_id": commit, "event": event, "body": body}, &review)
+	if err == nil && (review.ID <= 0 || review.Commit != commit || review.State != event) {
+		err = ErrInvalidResponse
+	}
+	return review, err
 }
 
 type ActionRun struct {

@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
@@ -22,7 +21,7 @@ func (c *Controller) intervene(id string, cause error) error {
 		if errors.Is(cause, ErrClosed) {
 			outcome = factory.Cancelled
 		}
-		a.Finish(outcome, "execution stopped; human intervention required")
+		a.Finish(outcome, interventionSummary(cause))
 		err = c.save(ctx, &a)
 	}
 	_ = lease.Close()
@@ -139,15 +138,4 @@ func (c *Controller) clean(ctx context.Context, id string) error {
 	}
 	a.CleanupComplete = true
 	return c.save(ctx, &a)
-}
-
-func (c *Controller) report(ctx context.Context, a factory.Attempt) error {
-	if c.Forgejo == nil {
-		return nil
-	}
-	if a.Work.RepositoryID != c.Config.RepositoryID && c.Config.RepositoryID != 0 {
-		return errors.New("attempt belongs to a different repository")
-	}
-	body := fmt.Sprintf("Soda attempt `%s`: **%s**.\n\n%s\n\nCandidate: `%s`. Executions: %d/4. CI evaluations: %d/2. Cleanup complete: %t.", a.ID, a.Outcome, a.Summary, a.Candidate, a.Executions, a.CIEvaluations, a.CleanupComplete)
-	return c.Forgejo.WorkComment(ctx, c.implementationToken, c.Repository, a.Work.Issue, body)
 }

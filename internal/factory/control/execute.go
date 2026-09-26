@@ -104,9 +104,9 @@ func (c *Controller) worker(ctx context.Context, a *factory.Attempt, r *factory.
 	if err := c.prepareWorkspace(ctx, *a, r); err != nil {
 		return factory.Result{}, err
 	}
-	result, err := c.Workspace.Launch(ctx, *r)
+	result, err := c.launchAgent(ctx, *r)
 	if err != nil {
-		return result, fmt.Errorf("agent launch: %w", err)
+		return result, err
 	}
 	if result.Status != "completed" {
 		return result, errors.New("agent could not complete the assigned task")
@@ -242,4 +242,19 @@ func completeRun(r *factory.Run, result factory.Result, workErr error, parent fa
 		r.Outcome = factory.Cancelled
 		r.Summary = "execution cancelled"
 	}
+}
+
+func (c *Controller) launchAgent(ctx context.Context, r factory.Run) (factory.Result, error) {
+	secrets, err := c.credentialStrings()
+	if err != nil {
+		return factory.Result{}, err
+	}
+	result, err := c.Workspace.Launch(ctx, r)
+	if retained := c.retainResult(r, result, secrets); retained != nil {
+		return factory.Result{}, retained
+	}
+	if err != nil {
+		return result, fmt.Errorf("agent launch: %w", err)
+	}
+	return result, nil
 }

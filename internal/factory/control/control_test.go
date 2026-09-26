@@ -59,7 +59,15 @@ func TestCancelWithdrawsAuthorityAndRemovesRecordedWorker(t *testing.T) {
 	if err = s.StartFactoryRun(t.Context(), &a, r); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, q *http.Request) { w.WriteHeader(http.StatusCreated) }))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, q *http.Request) {
+		if q.Method == "GET" && strings.HasSuffix(q.URL.Path, "/labels") {
+			if err := json.NewEncoder(w).Encode([]forgejo.WorkLabel{{ID: 10, Name: "soda:cancelled"}}); err != nil {
+				t.Error(err)
+			}
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+	}))
 	defer server.Close()
 	var removed []string
 	runtime := &workspace.Runtime{Exec: executorFunc(func(_ context.Context, _ []byte, _ string, args ...string) ([]byte, error) {

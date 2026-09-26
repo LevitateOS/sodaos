@@ -96,16 +96,13 @@ func (c *Controller) submitReview(ctx context.Context, a factory.Attempt, r fact
 	if err = c.checkPull(ctx, current); err != nil {
 		return err
 	}
-	event := "REQUEST_CHANGES"
-	if result.ReviewPassed {
-		event = "APPROVED"
-	}
-	body := fmt.Sprintf("Soda attempt `%s`, fresh review run `%s`, commit `%s`.\n\n%s", a.ID, r.ID, r.InputSHA, result.Summary)
-	if len(result.Findings) > 0 {
-		body += "\n\n" + strings.Join(result.Findings, "\n\n")
-	}
-	if err = c.Forgejo.SubmitWorkReview(ctx, c.reviewToken, c.Repository, a.Pull, r.InputSHA, event, body); err != nil {
+	event, body := reviewSubmission(a, r, result)
+	review, err := c.Forgejo.SubmitWorkReview(ctx, c.reviewToken, c.Repository, a.Pull, r.InputSHA, event, body)
+	if err != nil {
 		return err
+	}
+	if review.User.ID != c.Reviewer.ID {
+		return errors.New("review actor differs from enrolled role")
 	}
 	return c.checkPull(ctx, current)
 }
@@ -122,4 +119,16 @@ func (c *Controller) validateCandidatePull(pull forgejo.Pull, a factory.Attempt)
 		return errors.New("PR candidate changed or closed")
 	}
 	return nil
+}
+
+func reviewSubmission(a factory.Attempt, r factory.Run, result factory.Result) (string, string) {
+	event := "REQUEST_CHANGES"
+	if result.ReviewPassed {
+		event = "APPROVED"
+	}
+	body := fmt.Sprintf("Soda attempt `%s`, fresh review run `%s`, commit `%s`.\n\n%s", a.ID, r.ID, r.InputSHA, result.Summary)
+	if len(result.Findings) > 0 {
+		body += "\n\n" + strings.Join(result.Findings, "\n\n")
+	}
+	return event, body
 }

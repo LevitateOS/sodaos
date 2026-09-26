@@ -43,6 +43,7 @@ go build -o .artifacts/soda-factory ./cmd/soda-factory
 .artifacts/soda-factory --config /home/soda-tester/factory/config.json status ATTEMPT_ID
 .artifacts/soda-factory --config /home/soda-tester/factory/config.json cancel ATTEMPT_ID
 .artifacts/soda-factory --config /home/soda-tester/factory/config.json recover
+.artifacts/soda-factory --config /home/soda-tester/factory/config.json report ATTEMPT_ID
 ```
 
 Admission records the issue objective, current default-branch revision, authorizing
@@ -73,6 +74,12 @@ cancellation and recovery can operate from local state without Forgejo or provid
 availability. Recovery ends interrupted work in `needs-human`; it does not resume
 an old agent conversation or silently create another attempt. An online `run` of
 an already terminal attempt reports its existing outcome without executing an agent.
+`report` retries Forgejo notification explicitly after offline cleanup. Reserved
+`soda:` outcome labels describe the latest admission on an issue and each PR
+individually; reporting an older attempt cannot overwrite the current issue state.
+Human labels are preserved. Bounded structured results are retained privately
+without raw transcripts; known enrolled credential strings are rejected before
+retention and publication.
 
 ## Development checks
 
@@ -83,6 +90,8 @@ integration evidence rather than installed appliance qualification:
 SODA_FACTORY_NATIVE_CONFIG=/absolute/private/workspace-config.json \
   go test ./internal/host/workspace -run TestNativeLifecycle -count=1
 # Add SODA_FACTORY_NATIVE_AGENT=1 only when exercising the enrolled subscription.
+SODA_FACTORY_CONTROLLER_CONFIG=/absolute/private/controller-config.json \
+  go test ./internal/factory/control -run TestNativeWithdrawAndRecover -count=1
 SODA_FACTORY_PUBLICATION_CONFIG=/absolute/private/publication-config.json \
   go test ./internal/host/publish -run TestNativePublication -count=1
 ```

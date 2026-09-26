@@ -51,13 +51,16 @@ func TestReviewSubmissionHasExactCommitAndNoMergeOperation(t *testing.T) {
 			t.Error("incorrect review binding")
 		}
 		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(WorkReview{ID: 1, Commit: "candidate", State: "REQUEST_CHANGES", User: User{ID: 3}}); err != nil {
+			t.Error(err)
+		}
 	}))
 	defer server.Close()
 	client := New(server.URL)
-	if err := client.SubmitWorkReview(context.Background(), "test", workRepository(), 3, "candidate", "REQUEST_CHANGES", "finding"); err != nil {
+	if _, err := client.SubmitWorkReview(context.Background(), "test", workRepository(), 3, "candidate", "REQUEST_CHANGES", "finding"); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.SubmitWorkReview(context.Background(), "test", workRepository(), 3, "candidate", "MERGE", ""); err == nil {
+	if _, err := client.SubmitWorkReview(context.Background(), "test", workRepository(), 3, "candidate", "MERGE", ""); err == nil {
 		t.Fatal("merge accepted")
 	}
 }

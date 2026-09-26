@@ -192,3 +192,24 @@ func TestFactoryRunBindingAndTerminalOutcomeCannotBeRewritten(t *testing.T) {
 		t.Fatal("terminal execution reactivated")
 	}
 }
+
+func TestLatestFactoryAttemptFollowsExplicitAdmission(t *testing.T) {
+	s, a, now := factoryFixture(t)
+	a.Finish(factory.NeedsHuman, "needs clarification")
+	saved, err := s.SaveFactoryAttempt(t.Context(), &a)
+	if err != nil || !saved {
+		t.Fatal(err)
+	}
+	next, err := factory.New(a.Work, "human-next", now.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, _, err = s.AdmitFactory(t.Context(), next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	latest, err := s.LatestFactoryAttempt(t.Context(), a.Work.RepositoryID, a.Work.Issue)
+	if err != nil || latest.ID != next.ID {
+		t.Fatal("older result replaced current work state")
+	}
+}
