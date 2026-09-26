@@ -23,7 +23,10 @@ type Executor interface {
 }
 
 type Service struct {
-	Exec Executor
+	Exec               Executor
+	CodexHarness       string
+	CodexHarnessSHA256 string
+	EndIdentity        func(context.Context, int64, string) error
 
 	mu      sync.Mutex
 	streams map[*http.Request]context.CancelFunc
@@ -157,15 +160,19 @@ func (s *Service) launch(ctx context.Context, launcher attachLauncher, conn *web
 	id, err := s.projectContainer(inspectCtx, in.Project, true)
 	inspectCancel()
 	if err != nil {
-		Write(ctx, conn, TerminalFrame{Type: "closed", Reason: "launch_failed"})
+		_ = Write(ctx, conn, TerminalFrame{Type: "closed", Reason: "launch_failed"})
 		return nil, false
 	}
 	if ctx.Err() != nil {
 		return nil, false
 	}
+	if err = s.managedEnd(ctx, id, in); err != nil {
+		_ = Write(ctx, conn, TerminalFrame{Type: "closed", Reason: "cleanup_unconfirmed"})
+		return nil, false
+	}
 	p, err := launcher.Terminal(id, in)
 	if err != nil {
-		Write(ctx, conn, TerminalFrame{Type: "closed", Reason: "launch_failed"})
+		_ = Write(ctx, conn, TerminalFrame{Type: "closed", Reason: "launch_failed"})
 		return nil, false
 	}
 	return p, true

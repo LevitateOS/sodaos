@@ -112,7 +112,7 @@ func Load(path string) (Config, error) {
 		return c, err
 	}
 	if c.IdentitySocket == "" {
-		c.IdentitySocket = "/run/soda/identity.sock"
+		c.IdentitySocket = "/run/soda/identity/admin.sock"
 	}
 	if err = validateConfigPaths(c); err != nil {
 		return c, err

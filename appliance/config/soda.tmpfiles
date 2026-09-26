@@ -3,4 +3,6 @@ d /var/lib/soda/dashboard 0700 soda soda -
 d /var/lib/soda/forgejo 0755 root root -
 d /var/lib/soda/proxy 0700 root root -
 d /run/soda 0755 root root -
+d /home/soda-identity 0700 soda-identity soda -
+d /run/soda/identity 0750 soda-identity soda -
 d /run/soda-tailnet 0700 root root -

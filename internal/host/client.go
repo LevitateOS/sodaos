@@ -29,8 +29,8 @@ func NewClient(socket string) *Client {
 	}}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 }
 
-func decodeNativeResponse(body []byte, out any) error {
-	if len(body) > 65536 || bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
+func decodeNativeResponseLimit(body []byte, out any, limit int) error {
+	if len(body) > limit || bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
 		return fmt.Errorf("invalid native response")
 	}
 	if err := json.Unmarshal(body, out); err != nil {
@@ -39,21 +39,25 @@ func decodeNativeResponse(body []byte, out any) error {
 	return nil
 }
 
-func readNativeResponse(res *http.Response, out any) error {
+func readNativeResponseLimit(res *http.Response, out any, limit int) error {
 	if res.StatusCode != 200 {
 		return nativeHTTPError{res.StatusCode}
 	}
 	if out == nil {
 		return nil
 	}
-	body, err := io.ReadAll(io.LimitReader(res.Body, 65537))
+	body, err := io.ReadAll(io.LimitReader(res.Body, int64(limit+1)))
 	if err != nil {
 		return fmt.Errorf("invalid native response")
 	}
-	return decodeNativeResponse(body, out)
+	return decodeNativeResponseLimit(body, out, limit)
 }
 
 func (c *Client) call(ctx context.Context, path string, in, out any) error {
+	return c.callLimit(ctx, path, in, out, 65536)
+}
+
+func (c *Client) callLimit(ctx context.Context, path string, in, out any, limit int) error {
 	var b bytes.Buffer
 	if err := json.NewEncoder(&b).Encode(in); err != nil {
 		return err
@@ -68,7 +72,7 @@ func (c *Client) call(ctx context.Context, path string, in, out any) error {
 		return fmt.Errorf("host service unavailable")
 	}
 	defer res.Body.Close()
-	return readNativeResponse(res, out)
+	return readNativeResponseLimit(res, out, limit)
 }
 
 func (c *Client) Create(ctx context.Context, in project.Create) (project.Environment, error) {

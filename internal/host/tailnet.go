@@ -164,7 +164,7 @@ func writeTailnetResponse(w http.ResponseWriter, out any) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
+	_, _ = w.Write(data)
 }
 
 // The root:soda socket admits the service, not human operators. Web owns fresh

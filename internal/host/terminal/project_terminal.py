@@ -588,6 +588,7 @@ def prepare(identifier):
     os.chown(path + '/screen', 0, 0, follow_symlinks=False)
     os.chmod(path + '/screen', 0o711, follow_symlinks=False)
     inode = socket_identity(sock, account, pid)
+    profile_args = subscription_session(directory, path)
     # -D starts empty and disables exit-empty. Restore normal empty-server exit
     # AFTER new-session, in the same native command queue (also supported by 3.2a).
     tmux_control(
@@ -603,6 +604,7 @@ def prepare(identifier):
         str(record['rows']),
         '-c',
         account.pw_dir,
+        *profile_args,
         ';',
         'set-option',
         '-s',
@@ -612,6 +614,46 @@ def prepare(identifier):
     new_file(directory, 'ready', line({'pid': pid, 'socket': inode}))
     os.close(directory)
     return 0
+
+
+def subscription_session(directory, path):
+    if 'subscription' not in os.listdir(directory):
+        return []
+    profile = read_record(directory, 'subscription')
+    unit = 'soda-terminal-' + profile['binding']['id'] + '.service'
+    invocation = (
+        subprocess.check_output(['/usr/bin/systemctl', 'show', '--value', '--property=InvocationID', unit], timeout=2)
+        .decode()
+        .strip()
+    )
+    if not re.fullmatch(r'[0-9a-f]{32}', invocation):
+        raise ValueError('missing terminal incarnation')
+    new_file(directory, 'subscription-unit', line({'invocation_id': invocation}))
+    return ['exec /usr/bin/sleep infinity']
+
+
+def subscription_command(path):
+    return [
+        '-e',
+        'CODEX_HOME=' + path + '/model/auth',
+        '-e',
+        'CODEX_SQLITE_HOME=' + path + '/model/auth/state',
+        '-e',
+        'PATH=' + path + '/model/harness/bin:' + path + '/model/harness/codex-path:/usr/bin:/bin',
+        (
+            'exec '
+            + path
+            + '/model/harness/bin/codex '
+            + "--config 'cli_auth_credentials_store=\"file\"' "
+            + "--config 'sqlite_home=\""
+            + path
+            + "/model/auth/state\"' "
+            + "--config 'log_dir=\""
+            + path
+            + "/model/auth/logs\"' "
+            + '--ask-for-approval never --sandbox danger-full-access'
+        ),
+    ]
 
 
 def service_state(identifier, account=None):
@@ -803,6 +845,7 @@ def create_terminal(identifier, account, identity, cols, rows, name, scope):
         os.close(directory)
     if service_state(identifier) != 'inactive':
         raise ValueError('terminal unit occupied')
+    lifetime = subscription_lifetime(path)
     subprocess.run(
         [
             '/usr/bin/systemd-run',
@@ -822,6 +865,7 @@ def create_terminal(identifier, account, identity, cols, rows, name, scope):
             '--property=TimeoutStopSec=3s',
             '--property=UMask=0077',
             '--property=LimitCORE=0',
+            *lifetime,
             '--property=StandardInput=null',
             '--property=StandardOutput=null',
             '--property=StandardError=null',
@@ -843,6 +887,19 @@ def create_terminal(identifier, account, identity, cols, rows, name, scope):
     # No owner stream or lifetime timer. systemd's start job includes the bounded
     # privileged preparation hook; it cleans the cgroup if that hook fails.
     return terminal_status(identifier, account, identity)
+
+
+def subscription_lifetime(path):
+    directory = root_directory(path)
+    try:
+        if 'subscription' not in os.listdir(directory):
+            return []
+        seconds = read_record(directory, 'subscription')['deadline'] - int(time.time())
+        if not 0 < seconds <= 12 * 3600:
+            raise ValueError('subscription deadline')
+        return ['--property=RuntimeMaxSec=' + str(seconds)]
+    finally:
+        os.close(directory)
 
 
 def attach_terminal(identifier, account, identity, cols, rows, seconds):
@@ -973,6 +1030,9 @@ def collect_finished():
                 continue
             login, uid, gid, home, shell = record['account']
             account = pwd.struct_passwd((login, '', uid, gid, '', home, shell))
+            if 'subscription' in os.listdir(directory):
+                active += 1
+                continue  # broker owns credential capture and retirement
             if service_state(identifier, account) in ('inactive', 'failed') and cgroup_empty(identifier):
                 permit = reservation(directory)
                 if permit is None or permit['expires'] <= time.time():
@@ -1010,6 +1070,8 @@ def mutate_terminal(action, identifier, account, identity, name):
     try:
         binding(directory, account, identity)
         if action == 'end':
+            if 'subscription' in os.listdir(directory):
+                raise ValueError('subscription requires broker End')
             stop_service(identifier, account)
             remove_owned_files(terminal_path(identifier), directory, account)
             return []

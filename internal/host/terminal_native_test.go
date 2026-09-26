@@ -111,7 +111,7 @@ func TestInstalledTerminalBoundary(t *testing.T) {
 	d := testDaemonPtr(Native{}, Config{})
 	d.Terminal = &terminal.Service{Exec: Native{}}
 	server := &http.Server{Handler: d, ReadHeaderTimeout: 5 * time.Second}
-	go server.Serve(listener)
+	go func() { _ = server.Serve(listener) }()
 	defer server.Close()
 	defer d.CloseTerminals()
 	// A parent probe may kill only this exact owned child helper to test abrupt

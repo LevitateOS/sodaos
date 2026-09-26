@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	projectexec "github.com/levitateos/sodaos/internal/host/project"
 	tailnetexec "github.com/levitateos/sodaos/internal/host/tailnet"
 	"github.com/levitateos/sodaos/internal/host/terminal"
+	identityclient "github.com/levitateos/sodaos/internal/identity/client"
 	"github.com/levitateos/sodaos/internal/platform"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/release/build"
@@ -35,12 +37,15 @@ import (
 var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
-	TailnetManagement bool   `json:"tailnet_management,omitempty"`
-	TailnetImage      string `json:"tailnet_image,omitempty"`
-	Image             string `json:"image"`
-	Network           string `json:"network"`
-	Subnet            string `json:"subnet"`
-	Bridge            string `json:"bridge"`
+	IdentitySocket     string `json:"identity_socket"`
+	CodexHarness       string `json:"codex_harness"`
+	CodexHarnessSHA256 string `json:"codex_harness_sha256"`
+	TailnetManagement  bool   `json:"tailnet_management,omitempty"`
+	TailnetImage       string `json:"tailnet_image,omitempty"`
+	Image              string `json:"image"`
+	Network            string `json:"network"`
+	Subnet             string `json:"subnet"`
+	Bridge             string `json:"bridge"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -79,7 +84,20 @@ func validNetworkNames(c Config) bool {
 	return c.Image != "" && !strings.HasPrefix(c.Image, "-") && networkName.MatchString(c.Network) && networkName.MatchString(c.Bridge)
 }
 
+func validateIdentityRuntime(c Config) error {
+	if c.CodexHarness == "" {
+		return nil
+	}
+	if !filepath.IsAbs(c.IdentitySocket) || !filepath.IsAbs(c.CodexHarness) || len(c.CodexHarnessSHA256) != 64 {
+		return errors.New("explicit identity runtime socket and verified harness required")
+	}
+	return nil
+}
+
 func validateRuntimeConfig(c Config) error {
+	if err := validateIdentityRuntime(c); err != nil {
+		return err
+	}
 	if _, err := netip.ParsePrefix(c.Subnet); err != nil {
 		return err
 	}
@@ -132,6 +150,7 @@ func (Native) Run(ctx context.Context, in []byte, command string, args ...string
 }
 
 type Daemon struct {
+	Identity      *identityclient.Client
 	Tailnet       *tailnet.Control
 	Companion     *tailnetexec.Companion
 	Terminal      *terminal.Service
@@ -150,12 +169,14 @@ func NewDaemon(c Config) *Daemon {
 	native := Native{}
 	runnerNative := runners.NewNative()
 	d := &Daemon{
+		Identity: identityclient.New(c.IdentitySocket),
 		Config:   c,
 		Exec:     native,
 		Project:  projectRuntime(native, c),
-		Terminal: &terminal.Service{Exec: native},
+		Terminal: &terminal.Service{Exec: native, CodexHarness: c.CodexHarness, CodexHarnessSHA256: c.CodexHarnessSHA256},
 		Runners:  &runners.Operations{Local: runnerNative, Lifecycle: runnerNative},
 	}
+	d.Terminal.EndIdentity = d.Identity.EndLease
 	if !c.TailnetManagement {
 		return d
 	}
@@ -206,6 +227,10 @@ func (d *Daemon) acquireAdmission(ctx context.Context) error {
 var errNotFound = errors.New("not found")
 
 func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
+	if strings.HasPrefix(r.URL.Path, "/identity/") {
+		d.identityHandler(w, r)
+		return true
+	}
 	if strings.HasPrefix(r.URL.Path, "/tailnet/") {
 		d.tailnetHandler(w, r)
 		return true
@@ -389,5 +414,5 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
+	_ = json.NewEncoder(w).Encode(out)
 }

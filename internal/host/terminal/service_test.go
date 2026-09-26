@@ -38,6 +38,7 @@ func (f *terminalFake) Run(_ context.Context, _ []byte, command string, args ...
 	}
 	return f.inspect, nil
 }
+
 func (f *terminalFake) Terminal(id string, in TerminalRequest) (Process, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -63,6 +64,7 @@ func (p *terminalFakeProcess) Input(f TerminalFrame) error {
 		return nil
 	}
 }
+
 func (p *terminalFakeProcess) Output() (TerminalFrame, error) {
 	select {
 	case <-p.closed:
@@ -94,7 +96,7 @@ func terminalFixture(t *testing.T) (*Service, string, *terminalFake) {
 		t.Fatal(err)
 	}
 	server := &http.Server{Handler: http.HandlerFunc(s.Handler)}
-	go server.Serve(listener)
+	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { s.Close(); server.Close() })
 	return s, socket, f
 }
@@ -159,7 +161,9 @@ func TestTerminalIdentityAndIsolationRefusal(t *testing.T) {
 		t.Run(field, func(t *testing.T) {
 			s, _, f := terminalFixture(t)
 			var v map[string]any
-			json.Unmarshal(f.inspect, &v)
+			if err := json.Unmarshal(f.inspect, &v); err != nil {
+				t.Fatal(err)
+			}
 			switch field {
 			case "id":
 				v[field] = "host"

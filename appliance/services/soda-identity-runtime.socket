@@ -1,0 +1,15 @@
+[Unit]
+Description=Soda identity execution socket
+After=systemd-tmpfiles-setup.service
+ConditionPathExists=/etc/soda/identity.json
+
+[Socket]
+ListenStream=/run/soda/identity/runtime.sock
+FileDescriptorName=runtime
+SocketUser=soda-identity
+SocketGroup=soda
+SocketMode=0600
+Service=soda-identity.service
+
+[Install]
+WantedBy=sockets.target

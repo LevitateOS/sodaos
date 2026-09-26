@@ -38,6 +38,7 @@ func (f *terminalFake) Run(_ context.Context, _ []byte, command string, args ...
 	}
 	return f.inspect, nil
 }
+
 func (f *terminalFake) Terminal(id string, in TerminalRequest) (terminal.Process, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -63,6 +64,7 @@ func (p *terminalFakeProcess) Input(f TerminalFrame) error {
 		return nil
 	}
 }
+
 func (p *terminalFakeProcess) Output() (TerminalFrame, error) {
 	select {
 	case <-p.closed:
@@ -93,7 +95,7 @@ func terminalFixture(t *testing.T) (*Daemon, *Client, *terminalFake) {
 		t.Fatal(err)
 	}
 	server := &http.Server{Handler: d}
-	go server.Serve(listener)
+	go func() { _ = server.Serve(listener) }()
 	t.Cleanup(func() { d.CloseTerminals(); server.Close() })
 	return d, NewClient(socket), f
 }

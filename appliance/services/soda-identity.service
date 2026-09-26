@@ -1,0 +1,25 @@
+[Unit]
+Description=Soda subscription identity broker
+After=soda-host.socket
+Requires=soda-host.socket soda-identity.socket soda-identity-runtime.socket
+ConditionPathExists=/etc/soda/identity.json
+
+[Service]
+User=soda-identity
+Group=soda
+ExecStart=/usr/local/libexec/soda/soda-identity
+Environment=HOME=/home/soda-identity
+Environment=XDG_RUNTIME_DIR=/run/soda-identity
+RuntimeDirectory=soda-identity
+RuntimeDirectoryMode=0700
+Sockets=soda-identity.socket soda-identity-runtime.socket
+KillMode=control-group
+UMask=0077
+LimitCORE=0
+Restart=on-failure
+RestartSec=3
+# Factory commands use this same operator and rootless Podman context.
+# The credential runtime socket is owner-only; dashboard uses administration.
+
+[Install]
+WantedBy=multi-user.target
