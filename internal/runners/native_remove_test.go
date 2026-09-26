@@ -17,11 +17,11 @@ func TestRemoveReportsPartialOutcomeAndPreservesOtherRunners(t *testing.T) {
 			require.NoError(t, native.recordRunner(prepared.account, forgejoRequest()))
 			descriptor, err := os.ReadFile(native.descriptorPath("one"))
 			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(filepath.Join(prepared.state, "forgejo-token"), []byte("synthetic-private-token"), 0600))
-			require.NoError(t, os.WriteFile(filepath.Join(prepared.state, "work-data"), []byte("uncommitted fixture work"), 0600))
+			require.NoError(t, os.WriteFile(filepath.Join(prepared.state, "forgejo-token"), []byte("synthetic-private-token"), 0o600))
+			require.NoError(t, os.WriteFile(filepath.Join(prepared.state, "work-data"), []byte("uncommitted fixture work"), 0o600))
 			other := filepath.Join(native.rootPath(), "other", "state")
-			require.NoError(t, os.MkdirAll(other, 0700))
-			require.NoError(t, os.WriteFile(filepath.Join(other, "work-data"), []byte("unrelated fixture work"), 0600))
+			require.NoError(t, os.MkdirAll(other, 0o700))
+			require.NoError(t, os.WriteFile(filepath.Join(other, "work-data"), []byte("unrelated fixture work"), 0o600))
 			var commands []Command
 			native.Runner = runnerCommandFunc(func(_ context.Context, command Command) (CommandResult, error) {
 				commands = append(commands, command)

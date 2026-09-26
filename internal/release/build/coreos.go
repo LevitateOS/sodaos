@@ -19,37 +19,18 @@ import (
 )
 
 type (
-	CoreOSImage struct{ URL, SignatureURL, SHA256, UncompressedSHA256 string }
-	CoreOSLock  struct {
-		MetadataURL, Release string
-		Architectures        map[string]CoreOSImage
-	}
+	CoreOSImage  struct{ URL, SignatureURL, SHA256, UncompressedSHA256 string }
+	VerifiedBase struct{ Path, SHA256, Architecture, Release, Signer string }
 )
-type VerifiedBase struct{ Path, SHA256, Architecture, Release, Signer string }
 
 func httpsURL(raw string) bool {
 	u, err := url.Parse(raw)
 	return err == nil && u.Scheme == "https" && u.Hostname() != "" && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && !strings.Contains(raw, "#")
 }
 
-func validCoreOSLock(l CoreOSLock, img CoreOSImage, ok bool) bool {
-	return ok && l.Release != "" && httpsURL(l.MetadataURL) && httpsURL(img.URL) && httpsURL(img.SignatureURL) && Digest(img.SHA256) && Digest(img.UncompressedSHA256)
-}
-
-func ReadCoreOS(lock, arch string) (CoreOSLock, CoreOSImage, error) {
-	var l CoreOSLock
-	if _, err := OCIArchitecture(arch); err != nil {
-		return l, CoreOSImage{}, err
-	}
-	if err := ReadJSON(lock, &l); err != nil {
-		return l, CoreOSImage{}, err
-	}
-	img, ok := l.Architectures[arch]
-	if !validCoreOSLock(l, img, ok) {
-		return l, img, errors.New("invalid CoreOS lock")
-	}
-	return l, img, nil
-}
+// HTTPSURL exposes the strict metadata-URL shape to sibling packages that
+// validate resolved inputs.
+func HTTPSURL(raw string) bool { return httpsURL(raw) }
 
 // FetchCoreOS uses an explicitly supplied trusted keyring and signer. It does
 // not download/import trust roots or permit an unsigned-image fallback.
@@ -105,12 +86,14 @@ func decompressCoreOS(ctx context.Context, archive, dest, uncompressed string) e
 	return os.Chmod(dest, 0o444)
 }
 
-func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (VerifiedBase, error) {
+// FetchCoreOS retains a new, signature-verified upstream qemu image. The
+// image resolves live from the stable stream; no stored version is consulted.
+func FetchCoreOS(ctx context.Context, arch, keyring, signer, out string) (VerifiedBase, error) {
 	var result VerifiedBase
 	if err := admitCoreOSFetch(arch, signer, keyring); err != nil {
 		return result, err
 	}
-	l, img, err := ReadCoreOS(lock, arch)
+	release, img, err := ResolveCoreOSQEMU(ctx, arch)
 	if err != nil {
 		return result, err
 	}
@@ -130,7 +113,7 @@ func FetchCoreOS(ctx context.Context, lock, arch, keyring, signer, out string) (
 	if err = decompressCoreOS(ctx, archive, dest, img.UncompressedSHA256); err != nil {
 		return result, err
 	}
-	result = VerifiedBase{dest, img.UncompressedSHA256, arch, l.Release, strings.ToUpper(signer)}
+	result = VerifiedBase{dest, img.UncompressedSHA256, arch, release, strings.ToUpper(signer)}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return result, err

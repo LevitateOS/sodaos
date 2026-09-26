@@ -36,7 +36,7 @@ Spaces.
 | `soda-host` daemon | Privileged project, terminal and Tailnet companion execution |
 | Project OS | Developer accounts, tools, persistence, nested workloads |
 | Caddy | Private HTTPS termination for configured origins |
-| Cockpit | Host administration (loopback-first, root/operator) |
+| Cockpit | Host administration (all interfaces, root/operator) |
 | Local runners | Appliance CI capacity; Forgejo owns workflows and results |
 
 Go package placement for developers: [Go ownership](../development/go.md).

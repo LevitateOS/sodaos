@@ -134,7 +134,7 @@ func TestProjectPolicyMissingIsOffWhileMalformedFailsSafely(t *testing.T) {
 	}
 	// A malformed configured file fails safely and distinctly from missing.
 	path := filepath.Join(parent, "soda-tailnet", "project-"+project+".json")
-	if e = os.WriteFile(path, []byte(`{}`), 0600); e != nil {
+	if e = os.WriteFile(path, []byte(`{}`), 0o600); e != nil {
 		t.Fatal(e)
 	}
 	if _, e = m.Project(t.Context(), ProjectRequest{Project: project, Action: "inspect"}, cid); !errors.Is(e, ErrUnavailable) {

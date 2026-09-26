@@ -21,9 +21,9 @@ import (
 )
 
 type VMConfig struct {
-	Name, Architecture, CoreOSLock, BaseReceipt, Ignition, QEMU, Firmware, Variables, Work string
-	DiskGiB                                                                                int
-	SSH                                                                                    Remote
+	Name, Architecture, BaseReceipt, Ignition, QEMU, Firmware, Variables, Work string
+	DiskGiB                                                                    int
+	SSH                                                                        Remote
 }
 type VM struct {
 	config   VMConfig
@@ -52,7 +52,7 @@ func validateVMConfigIdentity(c VMConfig) error {
 }
 
 func validateVMPaths(c VMConfig, e *Evidence) error {
-	for _, p := range []string{c.CoreOSLock, c.BaseReceipt, c.Ignition, c.QEMU, c.Firmware, c.Variables, c.Work, c.SSH.Key, c.SSH.KnownHosts} {
+	for _, p := range []string{c.BaseReceipt, c.Ignition, c.QEMU, c.Firmware, c.Variables, c.Work, c.SSH.Key, c.SSH.KnownHosts} {
 		if !filepath.IsAbs(p) || strings.ContainsAny(p, ",\n\r") {
 			return errors.New("absolute paths without QEMU separators required")
 		}
@@ -164,9 +164,9 @@ func verifyBaseReceiptPathAndMode(base build.VerifiedBase) error {
 	return nil
 }
 
-func verifyLaunchBaseIdentity(base build.VerifiedBase, arch string, lock build.CoreOSLock, img build.CoreOSImage) error {
-	if base.Architecture != arch || base.Release != lock.Release || base.SHA256 != img.UncompressedSHA256 {
-		return errors.New("base does not match selected CoreOS input")
+func verifyLaunchBaseIdentity(base build.VerifiedBase, arch, release string, img build.CoreOSImage) error {
+	if base.Architecture != arch || base.Release != release || base.SHA256 != img.UncompressedSHA256 {
+		return errors.New("base does not match resolved CoreOS input")
 	}
 	return nil
 }
@@ -176,11 +176,11 @@ func verifyLaunchBaseImage(c VMConfig) (build.VerifiedBase, error) {
 	if err := build.ReadJSON(c.BaseReceipt, &base); err != nil {
 		return base, err
 	}
-	l, img, err := build.ReadCoreOS(c.CoreOSLock, c.Architecture)
+	release, img, err := build.ResolveCoreOSQEMU(context.Background(), c.Architecture)
 	if err != nil {
 		return base, err
 	}
-	if err = verifyLaunchBaseIdentity(base, c.Architecture, l, img); err != nil {
+	if err = verifyLaunchBaseIdentity(base, c.Architecture, release, img); err != nil {
 		return base, err
 	}
 	if err = verifyBaseReceiptPathAndMode(base); err != nil {

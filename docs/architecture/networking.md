@@ -23,7 +23,7 @@ independently of Soda development-access public keys.
 
 ## Cockpit
 
-Cockpit is loopback-first and root/operator-only. Do not silently expose host
+Cockpit listens on all interfaces and is root/operator-only. Do not silently expose host
 administration or development services publicly. Stock Cockpit administration and
 its private security boundary remain even when Tailnet or Runners controls move into
 native Soda operator settings.

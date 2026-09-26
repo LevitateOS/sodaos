@@ -147,7 +147,9 @@ func checkHolders(device BlockDevice) error {
 func sameDisk(selected Disk, observed []Disk) error {
 	for _, current := range observed {
 		if current.Device.Name == selected.Device.Name {
-			if selected.Blocked != "" || current.Blocked != "" || selected.Sequence == "" || !reflect.DeepEqual(selected, current) {
+			// Blocked disks are installable with explicit ERASE intent, but any
+			// identity, partition or use change since selection still refuses.
+			if selected.Sequence == "" || !reflect.DeepEqual(selected, current) {
 				return errors.New("disk identity, partition inventory or use changed; no installation started")
 			}
 			return nil

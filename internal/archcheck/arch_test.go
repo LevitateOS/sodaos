@@ -231,7 +231,7 @@ func TestDependencyDirection(t *testing.T) {
 
 	// Release construction never calls back into HTTP transport or the
 	// privileged daemon; image assembly shells out instead of importing.
-	for _, pkg := range []string{"internal/release/build", "internal/release/image", "internal/release/qualify", "internal/release/deliver"} {
+	for _, pkg := range []string{"internal/release/build", "internal/release/image", "internal/release/deliver"} {
 		forbid(t, edges, pkg, "internal/web", "internal/host")
 	}
 

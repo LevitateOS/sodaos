@@ -204,11 +204,7 @@ func confirmContinueSubnet(ctx context.Context, c console, run commandRunner, in
 		return "", err
 	}
 	subnet := strings.TrimSpace(string(data))
-	observed, err := routes(ctx, run)
-	if err != nil {
-		return "", err
-	}
-	if err := ProjectSubnet(subnet, observed); err != nil {
+	if err := ProjectSubnet(subnet); err != nil {
 		return "", err
 	}
 	c.print("Install Soda revision %s for %s using project subnet %s. This installs files/images and starts private/loopback services; it does not complete Forgejo/OAuth/TLS setup.", inventory.Revision, architecture(), subnet)
@@ -242,7 +238,7 @@ func executeContinueInstall(ctx context.Context, c console, run commandRunner, b
 	c.print("Soda components installed. Browser setup is next.")
 	c.print("At this machine's local console, run %s enroll-key to import your laptop's public key without typing or pasting it here.", installerBinary)
 	c.print("Then connect from your laptop using that key and run %s configure in its SSH terminal. The setup guide uses native Forgejo and a private HTTPS address; no domain is needed.", installerBinary)
-	c.print("Cockpit remains loopback-first; direct project SSH still needs client routing.")
+	c.print("Cockpit listens on all interfaces with the root password; direct project SSH still needs client routing.")
 	c.print("Guide: https://github.com/LevitateOS/sodaos/blob/main/docs/guides/operator-setup.md")
 	return nil
 }

@@ -34,6 +34,7 @@ test('browser shell split keeps Forgejo chrome in the frame', async (t) => {
 </nav>
 <iframe id="soda-forgejo-frame" title="Forgejo" src="about:blank"></iframe>
 <div id="soda-workspace-divider" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Workspace width"></div>
+<button id="soda-workspace-toggle" class="ui button" type="button" aria-expanded="true" title="Hide workspace">»</button>
 <div id="soda-workspace-root" data-actor="1"></div>
 <script type="module">
 import {bindWorkspaceShellLayout} from '/assets/sodaspaces-shell-layout.js';
@@ -59,6 +60,16 @@ bindWorkspaceShellLayout(document);
   assert.equal(await page.locator('#navbar, #soda-notification-preview').count(), 0);
   assert.equal(await page.locator('#sodaspaces-surfaces').isHidden(), true);
   assert.equal(await page.locator('#soda-forgejo-frame').isHidden(), false);
+  assert.equal(await page.locator('#soda-workspace-root').isHidden(), false);
+  await page.getByTitle('Hide workspace', {exact: true}).click();
+  assert.equal(await page.locator('#soda-workspace-root').isHidden(), true);
+  assert.equal(await page.locator('#soda-workspace-divider[data-surface-hidden]').count(), 1);
+  assert.equal(await page.locator('#soda-forgejo-frame').isHidden(), false);
+  const fullWidth = await page.locator('#soda-forgejo-frame').evaluate((frame) => frame.getBoundingClientRect().width);
+  assert(fullWidth > 1400, `drawer-hidden frame keeps full width, got ${fullWidth}`);
+  await page.reload();
+  assert.equal(await page.locator('#soda-workspace-root').isHidden(), true);
+  await page.getByTitle('Show workspace', {exact: true}).click();
   assert.equal(await page.locator('#soda-workspace-root').isHidden(), false);
   await page.setViewportSize({width: 390, height: 900});
   await page.waitForFunction(() => document.body.classList.contains('sodaspaces-compact'));

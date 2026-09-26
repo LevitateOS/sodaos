@@ -96,7 +96,7 @@ func (p *prompter) choice(prompt string, options []string, def int) (int, error)
 }
 
 func modeIndex(mode string) int {
-	for i, m := range []string{"candidate", "media", "production"} {
+	for i, m := range []string{"candidate", "media"} {
 		if mode == m {
 			return i
 		}
@@ -129,11 +129,8 @@ func outStatus(out string) string {
 // pinned, never edited: the controller only runs natively.
 func overviewFields(p *prompter, o *options) []ovField {
 	fields := baseFields(p, o)
-	switch o.mode {
-	case "media":
+	if o.mode == "media" {
 		fields = append(fields, mediaFields(p, o)...)
-	case "production":
-		fields = append(fields, productionFields(p, o)...)
 	}
 	return append(fields, ovField{"repo prefix", func() string { return o.repoPrefix }, nil, func() error {
 		return p.editRepoPrefix(o)
@@ -160,25 +157,12 @@ func mediaFields(p *prompter, o *options) []ovField {
 	}
 }
 
-func productionFields(p *prompter, o *options) []ovField {
-	return []ovField{
-		{"rootfs URL", func() string { return o.rootfsURL }, nil, func() error { return p.editRootfsURL(o) }},
-		{"qualification", func() string { return o.qualConfig }, nil, func() error { return p.editQualification(o) }},
-		{"signing", func() string { return showSigning(o) }, nil, func() error { return p.editSigning(o) }},
-	}
-}
-
 func (p *prompter) editMode(o *options) error {
 	sel, err := p.choice("Build mode", modeOptions, modeIndex(o.mode))
 	if err != nil {
 		return err
 	}
-	o.mode = []string{"candidate", "media", "production"}[sel]
-	// Keep the fixture pickup address from leaking into production,
-	// and restore it when coming back to development media.
-	if o.mode == "production" && o.rootfsURL == fixtureRootfsURL {
-		o.rootfsURL = ""
-	}
+	o.mode = []string{"candidate", "media"}[sel]
 	if o.mode == "media" && o.rootfsURL == "" {
 		o.rootfsURL = fixtureRootfsURL
 	}
@@ -239,38 +223,6 @@ func (p *prompter) editFastCompress(o *options) error {
 	}
 	o.compression = s
 	return nil
-}
-
-func (p *prompter) editQualification(o *options) error {
-	s, err := p.askAbsolute("Qualification config", o.qualConfig)
-	if err != nil {
-		return err
-	}
-	o.qualConfig = s
-	return nil
-}
-
-func showSigning(o *options) string {
-	if o.signConfig == "" {
-		return "(empty: ends incomplete)"
-	}
-	return o.signConfig
-}
-
-func (p *prompter) editSigning(o *options) error {
-	for {
-		s, err := p.line("Signing config (empty ends incomplete, no qualified release)", o.signConfig)
-		if err != nil {
-			return err
-		}
-		o.signConfig = s
-		if s == "" || filepath.IsAbs(s) {
-			return nil
-		}
-		if _, err := fmt.Fprintln(p.out, "Absolute path required."); err != nil {
-			return err
-		}
-	}
 }
 
 func (p *prompter) editRepoPrefix(o *options) error {
@@ -368,18 +320,13 @@ func editFieldByNumber(p *prompter, fields []ovField, s string) error {
 var modeOptions = []string{
 	"Development candidate (no media, no signing)",
 	"Development media (installer ISO, fixture rootfs URL)",
-	"Production (protected qualification, optional final signing)",
 }
 
 func modeLabel(mode string) string {
-	switch mode {
-	case "candidate":
+	if mode == "candidate" {
 		return modeOptions[0]
-	case "production":
-		return modeOptions[2]
-	default:
-		return modeOptions[1]
 	}
+	return modeOptions[1]
 }
 
 // askAbsolute re-asks until the answer is an absolute path.

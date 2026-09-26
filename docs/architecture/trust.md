@@ -92,10 +92,11 @@ Bookmark handlers redirect only to fixed native views. Private collection and
 operation authority stay in protected APIs. Page loads and redirects never register
 a runner, create a terminal or change project lifecycle state.
 
-The persistent workspace outer document is the Soda HTML shell at
-`/-/soda/workspace`. Optional `to` is an untrusted same-origin Forgejo locator
-for the iframe, not an OAuth return URL and not a Soda API path. Signed-in Forgejo
-top-level pages wrap into that host with an admitted locator. Login, logout,
+The persistent workspace outer document is the Soda HTML shell entered at
+`/workspace`. The shell path itself (`/-/soda/<framed-path>`) is an untrusted
+same-origin Forgejo locator for the iframe, not an OAuth return URL and not a
+Soda API path. Signed-in Forgejo
+top-level pages wrap into that host with an admitted frame path. Login, logout,
 signup/activate, password recovery, two-factor/passkey, provider OAuth link,
 consent, callback, install, failed `soda-connect`, and any `soda-view` host
 (valid, unknown, or duplicate) stay outside the shell. If a framed document lands

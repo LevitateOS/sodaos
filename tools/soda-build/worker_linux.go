@@ -34,18 +34,6 @@ const (
 	pinnedGoRoot = "/usr/local/lib/soda/pinned-go"
 )
 
-func qualifierIdentity() error {
-	u, err := user.Lookup("soda-qualifier")
-	if err != nil {
-		return err
-	}
-	uid, err := strconv.Atoi(u.Uid)
-	if err != nil || uid == 0 || os.Geteuid() != uid {
-		return errors.New("qualification worker requires the isolated soda-qualifier identity")
-	}
-	return nil
-}
-
 func buildWorkerIdentity() error {
 	u, err := user.Lookup("soda-build-worker")
 	if err != nil {
@@ -141,6 +129,9 @@ func runBuildWorker(ctx context.Context, c workerConfig, r image.Request, p *bui
 	if err := p.Phase(boundary); err != nil {
 		return result, err
 	}
+	if err := resolveWorkerLiveInputs(ctx, c, &r); err != nil {
+		return result, err
+	}
 	w, err := buildWorker(c, r)
 	if err != nil {
 		return result, err
@@ -156,6 +147,32 @@ func runBuildWorker(ctx context.Context, c workerConfig, r image.Request, p *bui
 		return result, err
 	}
 	return result, errors.Join(p.End(nil), p.EndPhase(nil))
+}
+
+// resolveWorkerLiveInputs resolves the live inputs on the controller,
+// where outbound HTTPS is admitted, and records them beside the attempt
+// output for the isolated worker, which SELinux denies outbound HTTPS.
+// The worker consumes only its own attempt's file and validates it like
+// a live resolution; digest-pinned pulls verify content downstream.
+func resolveWorkerLiveInputs(ctx context.Context, c workerConfig, r *image.Request) error {
+	coreOS, err := build.ResolveCoreOS(ctx)
+	if err != nil {
+		return err
+	}
+	name := "soda-live-inputs-" + filepath.Base(r.Out) + ".json"
+	tailnet, err := build.ResolveTailnetInputs(ctx, r.Arch)
+	if err != nil {
+		return err
+	}
+	if err := build.WriteLiveInputs(filepath.Join(c.OutputParent, name), build.LiveInputs{CoreOS: coreOS, Tailnet: tailnet}); err != nil {
+		return err
+	}
+	parentRel, err := filepath.Rel(c.Source, c.OutputParent)
+	if err != nil {
+		return err
+	}
+	r.LiveInputs = filepath.Join(workerSource, parentRel, name)
+	return nil
 }
 
 func buildWorker(c workerConfig, r image.Request) (acceptance.Worker, error) {
@@ -187,6 +204,9 @@ func buildWorker(c workerConfig, r image.Request) (acceptance.Worker, error) {
 	}
 	if r.MediaCompression != "" {
 		w.Arguments = append(w.Arguments, "--media-compression", r.MediaCompression)
+	}
+	if r.LiveInputs != "" {
+		w.Arguments = append(w.Arguments, "--live-inputs", r.LiveInputs)
 	}
 	if r.WantsMedia() {
 		w.ReadOnly = append(w.ReadOnly, c.MediaAuthorityDirectory+":/run/soda-media-authority")

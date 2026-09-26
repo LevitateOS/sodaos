@@ -36,7 +36,7 @@ func recordImageConfig(context, out, observed string) error {
 	if strings.TrimSpace(string(expected)) != observed {
 		return errors.New("host image configuration differs from admitted metadata")
 	}
-	return build.WriteNew(filepath.Join(out, "image-config.json"), expected, 0644)
+	return build.WriteNew(filepath.Join(out, "image-config.json"), expected, 0o644)
 }
 
 func rootfsSettings(out string) (filesystem, options string, err error) {

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -144,8 +145,14 @@ func maybeServeFixture(o options) (func(), error) {
 	return stop, nil
 }
 
+// fileBuiltRootfs files the built image in the pickup folder for any media
+// run. Serving stays loopback-only and operator-managed otherwise, but the
+// local copy is never a network exposure.
 func fileBuiltRootfs(o options, stderr *os.File) error {
-	if !fixtureWanted(o.mode, o.rootfsURL) {
+	if o.mode != "media" {
+		return nil
+	}
+	if u, err := url.Parse(o.rootfsURL); err != nil || u.Hostname() == "" {
 		return nil
 	}
 	name, err := copyBuiltRootfs(o.out, o.rootfsDir)

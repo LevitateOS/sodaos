@@ -72,9 +72,24 @@ export function workspaceFrameAction(raw: string) {
 }
 
 function syncWorkspaceTo(win: Window, to: string) {
+  // The address bar carries the shell path itself: /-/soda/<frame> with the
+  // frame query intact, never a ?to= locator. The /workspace entry is the
+  // home shell, so its first framed navigation normalizes it to the
+  // canonical /-/soda/workspace; later navigation only swaps the frame path.
   const url = new URL(win.location.href);
-  url.search = '';
-  if (to !== '/') url.searchParams.set('to', to);
+  const cut = url.pathname.indexOf(sodaPath + '/');
+  const entrySuffix = '/workspace';
+  const base =
+    cut >= 0
+      ? url.pathname.slice(0, cut + sodaPath.length)
+      : url.pathname === entrySuffix || url.pathname.endsWith(entrySuffix)
+        ? url.pathname.slice(0, -entrySuffix.length) + sodaPath
+        : undefined;
+  if (base === undefined) return;
+  const query = to.indexOf('?');
+  const path = query < 0 ? to : to.slice(0, query);
+  url.pathname = path === '/' ? base + '/workspace' : base + path;
+  url.search = query < 0 ? '' : to.slice(query);
   const href = url.pathname + url.search;
   if (href !== win.location.pathname + win.location.search) win.history.replaceState(null, '', href);
 }
@@ -96,7 +111,7 @@ export function workspaceEntryLocation(href: string, subUrl: string): string | u
     if (!path || staysOutsideWorkspace(url, path)) return;
     const to = workspaceFrameLocator(path + url.search);
     if (to === undefined) return;
-    return (subUrl || '') + '/-/soda/workspace' + (to === '/' ? '' : '?to=' + encodeURIComponent(to));
+    return (subUrl || '') + (to === '/' ? sodaPath + '/workspace' : sodaPath + to);
   } catch {
     return;
   }

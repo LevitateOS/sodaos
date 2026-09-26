@@ -28,7 +28,10 @@ func TestForgejoRepositorySettingsNavigationMatchesNativeGates(t *testing.T) {
 		root = "../.artifacts/forgejo-presentation/upstream/templates"
 	}
 	native, err := os.ReadFile(filepath.Join(root, "repo/settings/navbar.tmpl"))
-	if os.IsNotExist(err) {
+	// The export is optional retained evidence: absent fixtures skip, and so
+	// do unreadable ones (leftover preview trees owned by another user, or a
+	// read-only worker source bind, surface as permission errors, not ENOENT).
+	if os.IsNotExist(err) || os.IsPermission(err) {
 		t.Skip("requires the retained exact 15.0.7 template export")
 	}
 	if err != nil {

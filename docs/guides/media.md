@@ -10,8 +10,8 @@ Build/install procedures: [Installation](installation.md).
 
 | Owner | Responsibility |
 | --- | --- |
-| `scripts/build-installer.py` | Fetch/verify upstream ISO, customize live Ignition, embed console |
-| `appliance/locks/coreos-iso.json` | Upstream ISO metadata per architecture |
+| `tools/soda-candidate`, `tools/soda-build` | Development candidate/media producer (no release qualification) |
+| Stable CoreOS stream (resolved live per build) | Upstream ISO metadata per architecture; observed values recorded, never pinned |
 | `appliance/installer`, `internal/installer` | Interactive disk adapter and installed-host continuation |
 | `scripts/render-provisioning.py` | Public bootstrap Butane/Ignition template |
 

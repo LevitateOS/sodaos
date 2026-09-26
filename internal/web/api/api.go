@@ -71,5 +71,9 @@ func (s *API) CancelTerminals(contextID, token string) {
 func (s *API) pageRoutes() {
 	s.mux.HandleFunc("GET /spaces", s.spacesPage)
 	s.mux.HandleFunc("GET /workspace", s.workspacePage)
+	// Unqualified on purpose: a method-scoped wildcard conflicts with the
+	// unqualified avatar routes. Exact patterns still win; the handler
+	// admits only GET.
+	s.mux.HandleFunc("/{frame...}", s.workspaceFramePage)
 	s.mux.HandleFunc("GET /repositories/{repositoryID}/settings/spaces", s.repositorySpacesPage)
 }

@@ -1,8 +1,0 @@
-{
-  "version": "1.102.4",
-  "base": "docker.io/tailscale/alpine-base@sha256:06120476aed9233e53b4fc1da7f5c21570a1d6b5021a9a41cc075484f44fa9a9",
-  "sha256": {
-    "amd64": "50748df1045e60b5b695f19f4c56b0da36c019948b440fb456b6584a50f0d8b9",
-    "arm64": "9dd1e6a592a014bbaea0103167ffe299adeda4ba14e078ce9c2895364f6c4c3f"
-  }
-}

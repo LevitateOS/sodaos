@@ -27,7 +27,7 @@ func main() {
 }
 
 type artifactFlags struct {
-	arch, revision, source, out, lock, keyring, signer string
+	arch, revision, source, out, keyring, signer string
 }
 
 func parseArtifactFlags(args []string) (string, artifactFlags, error) {
@@ -41,13 +41,12 @@ func parseArtifactFlags(args []string) (string, artifactFlags, error) {
 	revision := f.String("revision", "", "full source revision")
 	source := f.String("source", "", "stage/bundle or private Butane file")
 	out := f.String("out", "", "new absolute output directory/file")
-	lock := f.String("lock", "", "selected CoreOS lock")
 	keyring := f.String("keyring", "", "already trusted Fedora keyring")
 	signer := f.String("signer", "", "full independently trusted signer fingerprint")
 	if err := f.Parse(args[1:]); err != nil || len(f.Args()) != 0 {
 		return "", artifactFlags{}, errors.New("invalid artifact command flags")
 	}
-	return action, artifactFlags{*arch, *revision, *source, *out, *lock, *keyring, *signer}, nil
+	return action, artifactFlags{*arch, *revision, *source, *out, *keyring, *signer}, nil
 }
 
 func inspectArtifactOCI(source, arch, revision string) error {
@@ -119,10 +118,10 @@ func finishButaneConversion(dest *os.File, out string, run func() error) error {
 func runCoreOSArtifact(ctx context.Context, action string, f artifactFlags) error {
 	switch action {
 	case "fetch-coreos":
-		_, err := build.FetchCoreOS(ctx, f.lock, f.arch, f.keyring, f.signer, f.out)
+		_, err := build.FetchCoreOS(ctx, f.arch, f.keyring, f.signer, f.out)
 		return err
 	case "fetch-coreos-iso":
-		_, err := build.FetchCoreOSISO(ctx, f.lock, f.arch, f.keyring, f.signer, f.out)
+		_, err := build.FetchCoreOSISO(ctx, f.arch, f.keyring, f.signer, f.out)
 		return err
 	default:
 		return errors.New("unknown artifact action; use fetch-coreos-iso for upstream ISO inputs; QCOW2 media delivery is not selected")

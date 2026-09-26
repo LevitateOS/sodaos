@@ -6,18 +6,18 @@ Cockpit pages.
 
 ## Connect as the operator
 
-Cockpit is loopback-first and permits the native root/operator account. It does
+Cockpit listens on all interfaces and permits the native root/operator account. It does
 not use Forgejo login. Project owners, project members and Forgejo site
 administrators do not gain access merely through those roles.
 
-From the operator client, use a verified private SSH route and a local tunnel:
+From the operator client, open `https://APPLIANCE_ADDRESS:9090` and sign in as
+root with the host credential. A loopback SSH tunnel remains available instead:
 
 ```sh
 ssh -N -L 127.0.0.1:9090:127.0.0.1:9090 root@APPLIANCE_ADDRESS
 ```
 
-Open `https://127.0.0.1:9090` locally and sign in as root with the host credential.
-A personal SSH key authenticates the tunnel; it is not Cockpit's browser password.
+Then open `https://127.0.0.1:9090` locally. A personal SSH key authenticates the tunnel; it is not Cockpit's browser password.
 Compare the certificate with the intended server through trusted operator access.
 A loopback tunnel can require handling a certificate-name mismatch deliberately;
 do not disable TLS checking globally or accept an unexplained certificate change.

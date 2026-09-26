@@ -17,9 +17,32 @@ func (s *API) spacesPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *API) workspacePage(w http.ResponseWriter, r *http.Request) {
-	frame, ok := workspaceFrame(r)
+	frame, ok := workspaceEntryFrame(r)
 	if !ok {
 		rejectWorkspaceQuery(w)
+		return
+	}
+	if s.serveWorkspaceShell(w, r, frame) {
+		return
+	}
+	startWorkspaceLogin(w, r, s.Config.ForgejoURL)
+}
+
+func (s *API) workspaceFramePage(w http.ResponseWriter, r *http.Request) {
+	// Retired namespaces 404 for every method, like the outer gate.
+	if retiredWorkspacePath(r.URL.Path) {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		http.Error(w, "Workspace frames are read-only.", http.StatusMethodNotAllowed)
+		return
+	}
+	frame, ok := workspacePathFrame(r.URL.Path, r.URL.RawQuery)
+	if !ok {
+		rejectWorkspaceFrame(w)
 		return
 	}
 	if s.serveWorkspaceShell(w, r, frame) {
@@ -61,6 +84,12 @@ func rejectWorkspaceQuery(w http.ResponseWriter) {
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	http.Error(w, "Page entries do not accept navigation parameters.", 400)
+}
+
+func rejectWorkspaceFrame(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	http.Error(w, "Workspace cannot frame that address.", 400)
 }
 
 func (s *API) runnersPage(w http.ResponseWriter, r *http.Request) {

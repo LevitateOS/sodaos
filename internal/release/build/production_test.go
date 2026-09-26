@@ -2,12 +2,41 @@ package build
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+// fixtureLiveInputs builds a valid live-inputs file: a well-formed stable
+// CoreOS section plus the floating Tailnet toolchain under test.
+func fixtureLiveInputs() LiveInputs {
+	img := CoreOSImage{
+		URL:                "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso",
+		SignatureURL:       "https://builds.test/fedora-coreos-44.20260901.1.0-live.x86_64.iso.sig",
+		SHA256:             strings.Repeat("a", 64),
+		UncompressedSHA256: strings.Repeat("b", 64),
+	}
+	return LiveInputs{
+		CoreOS: ResolvedCoreOS{
+			Release:     "44.20260901.1.0",
+			MetadataURL: "https://builds.test/prod/streams/stable/builds/44.20260901.1.0/release.json",
+			Container: map[string]string{
+				"x86_64":  "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("c", 64),
+				"aarch64": "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("d", 64),
+			},
+			ISO:  map[string]CoreOSImage{"x86_64": img, "aarch64": img},
+			QEMU: map[string]CoreOSImage{"x86_64": img, "aarch64": img},
+		},
+		Tailnet: TailnetInputs{
+			Version: "1.98.2",
+			SHA256:  strings.Repeat("e", 64),
+			Base:    "docker.io/tailscale/alpine-base:3.22",
+		},
+	}
+}
 
 func productionFixture(t *testing.T, vendor bool) (Production, *[]string) {
 	t.Helper()
@@ -22,7 +51,6 @@ func productionFixture(t *testing.T, vendor bool) (Production, *[]string) {
 		"appliance/dashboard.Containerfile":       "ARG BASE_IMAGE=docker.io/rockylinux/rockylinux:10.2\n",
 		"appliance/services/forgejo.container":    "[Container]\nImage=codeberg.org/forgejo/forgejo:15.0.7\n",
 		"appliance/services/soda-proxy.container": "[Container]\nImage=docker.io/library/caddy:2\n",
-		"appliance/locks/tailscale-image.json":    `{"Version":"1.98.2","Base":"docker.io/tailscale/alpine-base@sha256:` + strings.Repeat("b", 64) + `","SHA256":{"amd64":"` + strings.Repeat("c", 64) + `"}}`,
 	}
 	for n, b := range files {
 		path := filepath.Join(root, n)
@@ -43,8 +71,12 @@ func productionFixture(t *testing.T, vendor bool) (Production, *[]string) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	livePath := filepath.Join(root, "live-inputs.json")
+	if e := WriteLiveInputs(livePath, fixtureLiveInputs()); e != nil {
+		t.Fatal(e)
+	}
 	var calls []string
-	p := Production{Source: root, Native: out, Out: out, Arch: "x86_64", Revision: fixtureRevision, Vendor: vendor}
+	p := Production{Source: root, Native: out, Out: out, Arch: "x86_64", Revision: fixtureRevision, LiveInputs: livePath, Vendor: vendor}
 	p.Next = func(s string) error { calls = append(calls, "STEP "+s); return nil }
 	p.Capture = func(dir, name string, args ...string) (string, error) {
 		calls = append(calls, name+" "+strings.Join(args, " "))
@@ -203,7 +235,14 @@ func TestProductionRefusesWrongToolchainInputsAndLayout(t *testing.T) {
 			case "base":
 				os.WriteFile(filepath.Join(p.Source, "appliance/dashboard.Containerfile"), []byte("ARG BASE_IMAGE=unrelated\n"), 0o644)
 			case "tailnet":
-				os.WriteFile(filepath.Join(p.Source, "appliance/locks/tailscale-image.json"), []byte(`{"Version":"1.0.0","Base":"mutable:latest","SHA256":{}}`), 0o644)
+				raw, e := json.Marshal(fixtureLiveInputs())
+				if e != nil {
+					t.Fatal(e)
+				}
+				raw = []byte(strings.Replace(string(raw), `"Version":"1.98.2"`, `"Version":"yesterday"`, 1))
+				if e := os.WriteFile(filepath.Join(p.Source, "live-inputs.json"), raw, 0o644); e != nil {
+					t.Fatal(e)
+				}
 			case "forgejo":
 				if _, e := p.Images(""); e == nil {
 					t.Fatal("legacy Forgejo entered host payload")

@@ -98,7 +98,7 @@ plus small primitives). Subpackages express genuine subordinate
 boundaries only: privilege execution under `host/` (`host/project`,
 `host/terminal`, `host/tailnet`), HTTP transport under `web/`
 (`web/api`, `web/auth`), release construction under `release/`
-(`release/build`, `release/image`, `release/qualify`,
+(`release/build`, `release/image`,
 `release/deliver`). No `internal/models`, `internal/services`,
 `internal/utils` or other horizontal dumping grounds; no micro-packages;
 no splitting `tailnet` / `runners` / `store`; no resurrecting retired

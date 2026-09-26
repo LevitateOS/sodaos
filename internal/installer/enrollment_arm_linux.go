@@ -15,19 +15,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// /dev/tty itself has major 5; TIOCGDEV obtains its actual controlling device.
-// Only Linux virtual consoles are selected by this keyboard/monitor installer.
-// SSH PTYs, tmux, serial consoles and a merely inherited SSH-free environment
-// are insufficient to arm. Existing native root can of course administer the
-// machine independently; this is not a security boundary against hostile root.
-func enrollmentLocalConsole(tty *os.File) error {
-	device, err := unix.IoctlGetInt(int(tty.Fd()), unix.TIOCGDEV)
-	if err != nil || unix.Major(uint64(device)) != 4 || unix.Minor(uint64(device)) < 1 || unix.Minor(uint64(device)) > 63 || os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_TTY") != "" {
-		return errors.New("key enrollment must be armed after root login on the local keyboard/monitor console; remote and multiplexed terminals cannot arm it")
-	}
-	return nil
-}
-
+// Key enrollment arms from any interactive root terminal, local or remote:
+// an operator who already holds root can administer keys directly, so the
+// terminal type was never a security boundary, only an inconvenience.
+// Explicit typed intent and the expiring password-only window remain.
 type enrollmentAddress struct{ name, ip string }
 
 func enrollmentAddresses() ([]enrollmentAddress, error) {
@@ -211,9 +202,6 @@ func confirmEnrollmentIntent(c console, selected enrollmentAddress, fingerprint 
 }
 
 func selectEnrollmentTarget(ctx context.Context, c console, run commandRunner) (enrollmentAddress, error) {
-	if err := enrollmentLocalConsole(c.tty); err != nil {
-		return enrollmentAddress{}, err
-	}
 	if _, err := enrollmentRootHome(); err != nil {
 		return enrollmentAddress{}, err
 	}

@@ -82,6 +82,25 @@ class Provisioning(unittest.TestCase):
         self.assertNotIn('reboot', raw)
         self.assertIn('rpm-ostree install', raw)
 
+    def test_installed_console_welcome_runs_before_login(self):
+        data = json.loads((ROOT / 'appliance/provisioning/candidate.json').read_text())
+        units = {u['name']: u for u in data['systemd']['units']}
+        self.assertTrue(units['soda-console.service']['enabled'])
+        body = (ROOT / 'appliance/services/soda-console.service').read_text()
+        self.assertIn('Before=getty@tty1.service', body)
+        self.assertIn('50-soda.issue', body)
+
+    def test_installed_system_defaults_to_password_ssh(self):
+        raw = (ROOT / 'appliance/provisioning/candidate.json').read_text()
+        data = json.loads(raw)
+        dropin = next(f for f in data['storage']['files'] if f['path'].startswith('/etc/ssh/sshd_config.d/'))
+        self.assertNotIn('key-only', dropin['path'])
+        config = dropin['contents']['inline']
+        self.assertIn('PermitRootLogin yes', config)
+        self.assertIn('PasswordAuthentication yes', config)
+        self.assertNotIn('prohibit-password', config)
+        self.assertNotIn(' no\n', config)
+
 
 class OutsideContracts(unittest.TestCase):
     def test_support_tools_are_not_appliance_commands(self):
@@ -95,6 +114,20 @@ class OutsideContracts(unittest.TestCase):
         self.assertIn('"save", "--format=oci-archive"', producer)
         self.assertIn('--iidfile', producer)
         self.assertNotIn('"push"', producer)
+
+    def test_boot_binds_browser_services_without_quadlet_enable(self):
+        # Quadlet-generated units refuse enable; the console unit binds them.
+        unit = (ROOT / 'appliance/services/soda-console.service').read_text()
+        self.assertIn('Wants=forgejo.service soda-dashboard.service soda-proxy.service', unit)
+        self.assertNotIn('enable --now', unit)
+        for name in ('soda-dashboard.container', 'soda-proxy.container'):
+            container = (ROOT / 'appliance/services' / name).read_text()
+            self.assertIn('ConditionPathExists=/etc/soda/activated', container)
+
+    def test_native_install_accepts_any_canonical_ipv4_project_network(self):
+        source = (ROOT / 'scripts/install-native.sh').read_text()
+        self.assertIn("'canonical IPv4 project network required'", source)
+        self.assertNotIn('RFC1918', source)
 
     def test_installer_verifies_before_copy_and_retains_first_install_guard(self):
         source = (ROOT / 'scripts/install-native.sh').read_text()

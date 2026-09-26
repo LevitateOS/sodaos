@@ -1,52 +1,48 @@
 package build
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
+	"context"
+	"strings"
 	"testing"
 )
 
-func TestCoreOSISOInputsAreSeparateFromQEMU(t *testing.T) {
+func TestCoreOSISOResolvesLiveTriple(t *testing.T) {
+	streamFixtureServer(t, fixtureStreamDoc(t, nil), fixtureIndexDoc(t, nil), 200)
 	for _, arch := range []string{"x86_64", "aarch64"} {
-		lock, img, err := ReadCoreOSISO("../../../appliance/locks/coreos-iso.json", arch)
-		if err != nil || lock.Release != "44.20260817.3.2" || img.SHA256 == "" {
-			t.Fatal("missing selected ISO input", err)
+		release, img, err := ResolveCoreOSISO(context.Background(), arch)
+		if err != nil || release != "44.20260901.1.0" || img.SHA256 != strings.Repeat("a", 64) {
+			t.Fatal("missing resolved ISO input", err)
 		}
-		if _, _, err := ReadCoreOSISO("../../../appliance/locks/coreos-qemu.json", arch); err == nil {
-			t.Fatal("QEMU lock admitted as ISO")
+		if !strings.HasSuffix(img.URL, ".iso") || img.SignatureURL != img.URL+".sig" {
+			t.Fatalf("resolved ISO triple malformed: %+v", img)
 		}
-		if _, _, err := ReadCoreOS("../../../appliance/locks/coreos-iso.json", arch); err == nil {
-			t.Fatal("ISO lock admitted as QEMU")
+		_, qemu, err := ResolveCoreOSQEMU(context.Background(), arch)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if qemu.URL == img.URL {
+			t.Fatal("QEMU image admitted as ISO")
 		}
 	}
-	if _, _, err := ReadCoreOSISO("../../../appliance/locks/coreos-iso.json", "riscv64"); err == nil {
+	if _, _, err := ResolveCoreOSISO(context.Background(), "riscv64"); err == nil {
 		t.Fatal("unknown architecture admitted")
 	}
 }
 
-func TestCoreOSISORejectsUnsafeMetadata(t *testing.T) {
-	original, _, err := ReadCoreOSISO("../../../appliance/locks/coreos-iso.json", "x86_64")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for name, change := range map[string]func(*CoreOSImage){
-		"http":        func(i *CoreOSImage) { i.URL = "http://example.test/coreos.iso" },
-		"credentials": func(i *CoreOSImage) { i.URL = "https://secret@example.test/coreos.iso" },
-		"signature":   func(i *CoreOSImage) { i.SignatureURL = i.URL },
-		"checksum":    func(i *CoreOSImage) { i.SHA256 = "missing" },
-		"compressed":  func(i *CoreOSImage) { i.UncompressedSHA256 = i.SHA256 },
+func TestCoreOSISORejectsUnsafeStream(t *testing.T) {
+	for name, mutate := range map[string]func(string, string, map[string]string){
+		"http": func(_, _ string, disk map[string]string) {
+			disk["location"] = strings.Replace(disk["location"], "https://", "http://", 1)
+		},
+		"credentials": func(_, _ string, disk map[string]string) {
+			disk["location"] = strings.Replace(disk["location"], "https://", "https://secret@", 1)
+		},
+		"signature": func(_, _ string, disk map[string]string) { disk["signature"] = disk["location"] },
+		"checksum":  func(_, _ string, disk map[string]string) { disk["sha256"] = "missing" },
 	} {
 		t.Run(name, func(t *testing.T) {
-			img := original.Architectures["x86_64"]
-			change(&img)
-			lock := CoreOSLock{MetadataURL: original.MetadataURL, Release: original.Release, Architectures: map[string]CoreOSImage{"x86_64": img}}
-			data, _ := json.Marshal(lock)
-			path := filepath.Join(t.TempDir(), "lock.json")
-			if err := os.WriteFile(path, data, 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if _, _, err := ReadCoreOSISO(path, "x86_64"); err == nil {
+			streamFixtureServer(t, fixtureStreamDoc(t, mutate), fixtureIndexDoc(t, nil), 200)
+			if _, _, err := ResolveCoreOSISO(context.Background(), "x86_64"); err == nil {
 				t.Fatal("unsafe ISO metadata accepted")
 			}
 		})

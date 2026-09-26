@@ -15,7 +15,7 @@ import (
 func runtimeTestRoot(t *testing.T) string {
 	t.Helper()
 	path := t.TempDir()
-	if e := os.Chmod(path, 0700); e != nil {
+	if e := os.Chmod(path, 0o700); e != nil {
 		t.Fatal(e)
 	}
 	return path
@@ -79,7 +79,7 @@ func TestTailnetRunFilesExclusiveSecretRetirementAndIndependentLocks(t *testing.
 	}
 	defer key.Close()
 	info, e := key.Stat()
-	if e != nil || !runtimeFile(info, run.UID, run.GID, 0600) {
+	if e != nil || !runtimeFile(info, run.UID, run.GID, 0o600) {
 		t.Fatal("unsafe key metadata", e)
 	}
 	if _, e = writeRunKey(root, run, "tskey-auth-synthetic-another"); !errors.Is(e, domain.ErrConflict) {
@@ -128,11 +128,11 @@ func TestTailnetRunFilesRefuseSymlinksModesAndChangedKeyInode(t *testing.T) {
 					t.Fatal(e)
 				}
 			} else {
-				if e := os.Mkdir(project, 0700); e != nil {
+				if e := os.Mkdir(project, 0o700); e != nil {
 					t.Fatal(e)
 				}
 				target := filepath.Join(outside, "retained")
-				if e := os.WriteFile(target, []byte("preserve"), 0600); e != nil {
+				if e := os.WriteFile(target, []byte("preserve"), 0o600); e != nil {
 					t.Fatal(e)
 				}
 				var e error
@@ -142,7 +142,7 @@ func TestTailnetRunFilesRefuseSymlinksModesAndChangedKeyInode(t *testing.T) {
 				case "lock-hardlink":
 					e = os.Link(target, filepath.Join(project, "lock"))
 				case "unsafe-mode":
-					e = os.Chmod(project, 0755)
+					e = os.Chmod(project, 0o755)
 				}
 				if e != nil {
 					t.Fatal(e)
@@ -176,7 +176,7 @@ func TestTailnetRunFilesRefuseSymlinksModesAndChangedKeyInode(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer key.Close()
-	if root.Rename("input/key", "input/retained") != nil || root.WriteFile("input/key", []byte("later write"), 0600) != nil {
+	if root.Rename("input/key", "input/retained") != nil || root.WriteFile("input/key", []byte("later write"), 0o600) != nil {
 		t.Fatal("fixture")
 	}
 	if e = retireRunKey(root, key); !errors.Is(e, domain.ErrUnconfirmed) {
@@ -191,7 +191,7 @@ func TestTailnetResolverRequiresOriginalInodeAndNoConflictingManager(t *testing.
 	run := fileRun()
 	run.Resolver = "/var/lib/containers/storage/overlay-containers/" + run.Target.Container + "/userdata/resolv.conf"
 	path := filepath.Join(t.TempDir(), "resolver")
-	if os.WriteFile(path, []byte("nameserver 192.0.2.1\n"), 0600) != nil {
+	if os.WriteFile(path, []byte("nameserver 192.0.2.1\n"), 0o600) != nil {
 		t.Fatal("fixture")
 	}
 	info, e := os.Stat(path)
@@ -225,7 +225,7 @@ func TestTailnetResolverRequiresOriginalInodeAndNoConflictingManager(t *testing.
 		t.Fatal("owned same-run interface refused", e)
 	}
 	other := filepath.Join(t.TempDir(), "other")
-	if os.WriteFile(other, []byte(contents), 0600) != nil {
+	if os.WriteFile(other, []byte(contents), 0o600) != nil {
 		t.Fatal("fixture")
 	}
 	stat = func(p string) (os.FileInfo, error) {

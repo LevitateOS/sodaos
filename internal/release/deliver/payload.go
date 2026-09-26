@@ -48,8 +48,12 @@ func (p Payload) validIdentity() bool {
 }
 
 func (p Payload) validBase() bool {
-	const basePrefix = "quay.io/fedora/fedora-coreos@sha256:"
-	return strings.HasPrefix(p.Base, basePrefix) && build.Digest(strings.TrimPrefix(p.Base, basePrefix)) && p.Schema >= 1 && build.Digest(p.PresentationSHA256) && build.Digest(p.HostPackagesSHA256)
+	// The base is the fedora-coreos repository at a digest; the registry
+	// host floats (production quay.io, fixture servers in tests) while the
+	// repository path and digest shape are fixed. Digests, not hosts, carry
+	// integrity: provenance matching compares hashes, never names.
+	host, digest, ok := strings.Cut(p.Base, "/fedora/fedora-coreos@sha256:")
+	return ok && host != "" && !strings.Contains(host, "/") && build.Digest(digest) && p.Schema >= 1 && build.Digest(p.PresentationSHA256) && build.Digest(p.HostPackagesSHA256)
 }
 
 func (p Payload) validImages() error {

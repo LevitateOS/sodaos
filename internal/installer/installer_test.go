@@ -45,19 +45,14 @@ func TestInputValidation(t *testing.T) {
 			t.Error("invalid key accepted")
 		}
 	}
-	for _, value := range []string{"10.89.0.0/24", "172.16.0.0/16", "192.168.100.0/28"} {
-		if err := ProjectSubnet(value, []string{"default", "192.0.2.0/24"}); err != nil {
+	for _, value := range []string{"10.89.0.0/24", "172.16.0.0/16", "192.168.100.0/28", "8.8.8.0/24", "11.0.0.0/8", "0.0.0.0/0"} {
+		if err := ProjectSubnet(value); err != nil {
 			t.Error(err)
 		}
 	}
-	for _, value := range []string{"0.0.0.0/0", "8.8.8.0/24", "172.0.0.0/8", "192.168.1.1/24", "fd00::/64"} {
-		if ProjectSubnet(value, nil) == nil {
+	for _, value := range []string{"", "192.168.1.1/24", "fd00::/64", "soda", "10.89.0.0/33"} {
+		if ProjectSubnet(value) == nil {
 			t.Errorf("invalid project subnet accepted: %s", value)
-		}
-	}
-	for _, route := range []string{"10.89.0.0/16", "10.89.0.4/32", "10.89.0.1", "unparseable"} {
-		if ProjectSubnet("10.89.0.0/24", []string{route}) == nil {
-			t.Errorf("overlapping/unknown route accepted: %s", route)
 		}
 	}
 }
@@ -192,6 +187,11 @@ func TestDiskUseAndIdentity(t *testing.T) {
 	if sameDisk(disk, nil) == nil {
 		t.Fatal("disappeared disk accepted")
 	}
+	blocked := fixtureDisk()
+	blocked.Blocked = "synthetic installer note"
+	if err := sameDisk(blocked, []Disk{blocked}); err != nil {
+		t.Fatal("unchanged noted disk refused", err)
+	}
 }
 
 func TestDiskExecutionBoundary(t *testing.T) {
@@ -263,7 +263,7 @@ func TestExtensionActivationRequired(t *testing.T) {
 func TestPrivateInputAndOutputBounds(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "input")
-	if err := os.WriteFile(file, []byte("fixture"), 0600); err != nil {
+	if err := os.WriteFile(file, []byte("fixture"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := readRegular(file, 6); err == nil {

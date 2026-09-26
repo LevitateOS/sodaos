@@ -72,7 +72,7 @@ func TestSharedOCILayoutRefusesSubstitution(t *testing.T) {
 			case "missing":
 				require.NoError(t, os.Remove(blob))
 			case "corrupt":
-				require.NoError(t, os.WriteFile(blob, []byte("corrupted"), 0644))
+				require.NoError(t, os.WriteFile(blob, []byte("corrupted"), 0o644))
 			case "symlink-file":
 				outside := filepath.Join(filepath.Dir(dir), "outside-blob")
 				require.NoError(t, os.Rename(blob, outside))
@@ -108,7 +108,7 @@ func TestSharedOCILayoutRefusesSubstitution(t *testing.T) {
 				}
 				b, err = json.Marshal(index)
 				require.NoError(t, err)
-				require.NoError(t, os.WriteFile(path, b, 0644))
+				require.NoError(t, os.WriteFile(path, b, 0o644))
 			}
 			_, err = build.InspectOCILayout(dir, "x86_64", revisions)
 			require.Error(t, err)

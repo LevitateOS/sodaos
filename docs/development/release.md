@@ -10,8 +10,8 @@ How developers produce and qualify release candidates. Durable model:
 | --- | --- | --- |
 | Candidate will not build | `release/build`, `tools/soda-build` | `release/image` |
 | Media/assemble wrong | `release/image` | `internal/installer` |
-| Guest/fixture will not qualify | `release/qualify` | `internal/acceptance` |
-| Sign/publish | `release/deliver` | `tools/soda-release` |
+| Guest/fixture behavior | `internal/acceptance` | `tests/build` |
+| Sign/publish | `release/deliver` | explicit grant (no operator CLI) |
 
 ## Development vs qualification
 

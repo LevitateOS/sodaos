@@ -93,7 +93,7 @@ func TestNetworkEditorRestoresConsole(t *testing.T) {
 				"nmtui": fmt.Sprintf("#!/bin/sh\nprintf '\\033[44mEDITOR'\nexit %d\n", exit),
 				"ip":    "#!/bin/sh\nprintf 'lo UNKNOWN 127.0.0.1/8\\n'\n",
 			} {
-				if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0700); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o700); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -250,14 +250,14 @@ func TestDiskChoicesCorrectInvalidInputWithoutPublicKey(t *testing.T) {
 	driver.sendAfter("Disk number, back, restart, or cancel: ", "1")
 	driver.sendAfter("Hostname [soda], back, restart, or cancel: ", "Soda")
 	driver.sendAfter("Hostname [soda], back, restart, or cancel: ", "soda-fixed")
-	driver.sendAfter("Password (at least 12 characters): ", "short")
-	driver.sendAfter("Confirm password: ", "short")
-	driver.sendAfter("Password (at least 12 characters): ", password)
+	driver.sendAfter("Password: ", "")
+	driver.sendAfter("Confirm password: ", "")
+	driver.sendAfter("Password: ", password)
 	driver.sendAfter("Confirm password: ", "different password")
-	driver.sendAfter("Password (at least 12 characters): ", password)
+	driver.sendAfter("Password: ", password)
 	driver.sendAfter("Confirm password: ", password)
-	driver.sendAfter("Private project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "8.8.8.0/24")
-	driver.sendAfter("Private project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "10.89.0.0/24")
+	driver.sendAfter("Project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "192.168.1.1/24")
+	driver.sendAfter("Project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "10.89.0.0/24")
 	driver.sendAfter("Type exactly ERASE /dev/sda, back, restart, or cancel: ", "erase /dev/sda")
 	driver.sendAfter("Type exactly ERASE /dev/sda, back, restart, or cancel: ", "ERASE /dev/sda")
 
@@ -368,16 +368,16 @@ func TestDiskChoicesBackPreservesNonSecretDefaults(t *testing.T) {
 	driver.sendAfter("Type yes to use them, edit, back, restart, or cancel: ", "yes")
 	driver.sendAfter("Disk number, back, restart, or cancel: ", "1")
 	driver.sendAfter("Hostname [soda], back, restart, or cancel: ", "soda-original")
-	driver.sendAfter("Password (at least 12 characters): ", password)
+	driver.sendAfter("Password: ", password)
 	driver.sendAfter("Confirm password: ", password)
-	driver.sendAfter("Private project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "10.90.0.0/24")
+	driver.sendAfter("Project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", "10.90.0.0/24")
 	driver.sendAfter("Type exactly ERASE /dev/sda, back, restart, or cancel: ", "back")
-	driver.sendAfter("Private project IPv4 subnet [10.90.0.0/24], back, restart, or cancel: ", "back")
-	driver.sendAfter("Password (at least 12 characters): ", "back")
+	driver.sendAfter("Project IPv4 subnet [10.90.0.0/24], back, restart, or cancel: ", "back")
+	driver.sendAfter("Password: ", "back")
 	driver.sendAfter("Hostname [soda-original], back, restart, or cancel: ", "soda-corrected")
-	driver.sendAfter("Password (at least 12 characters): ", password)
+	driver.sendAfter("Password: ", password)
 	driver.sendAfter("Confirm password: ", password)
-	driver.sendAfter("Private project IPv4 subnet [10.90.0.0/24], back, restart, or cancel: ", "")
+	driver.sendAfter("Project IPv4 subnet [10.90.0.0/24], back, restart, or cancel: ", "")
 	driver.sendAfter("Type exactly ERASE /dev/sda, back, restart, or cancel: ", "ERASE /dev/sda")
 
 	select {
@@ -431,7 +431,7 @@ func TestPreWriteCancellationCanRestartButMarkerCannot(t *testing.T) {
 		calls := 0
 		err := retryDiskInstall(ctx, console{tty: slave, ctx: ctx}, marker, func(context.Context, console) error {
 			calls++
-			if err := os.WriteFile(marker, []byte("/dev/sda\n"), 0600); err != nil {
+			if err := os.WriteFile(marker, []byte("/dev/sda\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			return context.Canceled
@@ -454,4 +454,28 @@ func TestPreWriteCancellationCanRestartButMarkerCannot(t *testing.T) {
 			t.Fatalf("terminal lifecycle cancellation restarted: calls=%d err=%v", calls, err)
 		}
 	})
+}
+
+func TestMediaVerificationFailsBeforeEnterPrompt(t *testing.T) {
+	if _, _, err := verifyDiskMedia(); err == nil || !strings.Contains(err.Error(), "missing media identity") {
+		t.Fatalf("media verification did not fail fast without identity: %v", err)
+	}
+}
+
+func TestEnterPromptShowsOnlyAfterVerification(t *testing.T) {
+	master, slave := openTestPTY(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- promptDiskAttempt(console{tty: slave, ctx: ctx}) }()
+	driver := &ptyDriver{t: t, master: master}
+	driver.sendAfter("Media verified. Press Enter to begin. Ctrl-C cancels safely before disk writing.\r\n", "")
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("verified prompt stuck")
+	}
 }

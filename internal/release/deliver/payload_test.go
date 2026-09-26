@@ -35,7 +35,7 @@ func TestPayloadValidation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "release.json")
 	b, e := json.Marshal(fixture())
 	require.NoError(t, e)
-	require.NoError(t, os.WriteFile(path, append(b, []byte(` {"unexpected":true}`)...), 0644))
+	require.NoError(t, os.WriteFile(path, append(b, []byte(` {"unexpected":true}`)...), 0o644))
 	_, e = Load(path)
 	require.Error(t, e)
 }

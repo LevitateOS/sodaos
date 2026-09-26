@@ -73,10 +73,10 @@ func TestForgejoNotificationPreviewRendering(t *testing.T) {
 				t.Fatal(err)
 			}
 			if os.Getenv("SODA_FORGEJO_NOTIFICATION_GALLERY") == "1" && count == 5 && len(flags) == 0 {
-				if err := os.MkdirAll("../.artifacts/forgejo-notification-refinement", 0700); err != nil {
+				if err := os.MkdirAll("../.artifacts/forgejo-notification-refinement", 0o700); err != nil {
 					t.Fatal(err)
 				}
-				if err := os.WriteFile("../.artifacts/forgejo-notification-refinement/populated.html", out.Bytes(), 0600); err != nil {
+				if err := os.WriteFile("../.artifacts/forgejo-notification-refinement/populated.html", out.Bytes(), 0o600); err != nil {
 					t.Fatal(err)
 				}
 			}

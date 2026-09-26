@@ -12,7 +12,11 @@ import (
 	"github.com/levitateos/sodaos/internal/release/deliver"
 )
 
-type mediaTools struct{ Butane, Version, Architecture string }
+type mediaTools struct{ Butane, Architecture string }
+
+// butaneImage floats on the upstream tag; the observed version is recorded
+// per build. No pinned digest or version string precedes the pull.
+const butaneImage = "quay.io/coreos/butane:latest"
 
 func prepareBuildMedia(p build.Production, r Request) (tools mediaTools, lock mediaLock, err error) {
 	if !r.WantsMedia() {
@@ -21,7 +25,7 @@ func prepareBuildMedia(p build.Production, r Request) (tools mediaTools, lock me
 	if err = p.Next("P2 / Verify native media tooling"); err != nil {
 		return tools, lock, err
 	}
-	tools, err = admitMediaTools(p.Source, filepath.Join(r.Out, "evidence"), r.Arch, p)
+	tools, err = admitMediaTools(p.Source, filepath.Join(r.Out, "evidence"), p)
 	if err == nil {
 		lock, err = prepareAssembler(p, filepath.Join(r.Out, "work/media"))
 	}
@@ -42,45 +46,39 @@ func finishBuildMedia(ctx context.Context, p build.Production, r Request, tools 
 	return err
 }
 
-func admitButaneLock(tools mediaTools, arch string) error {
-	const prefix = "quay.io/coreos/butane@sha256:"
-	if tools.Architecture != arch || !strings.HasPrefix(tools.Butane, prefix) || !build.Digest(strings.TrimPrefix(tools.Butane, prefix)) || !strings.HasPrefix(tools.Version, "Butane v") || strings.ContainsAny(tools.Version, "\r\n") {
-		return errors.New("unreviewed native media tool")
+func verifyButaneImage(source, evidence string, p build.Production) (string, error) {
+	if err := p.Execute(source, "podman", "--remote=false", "pull", butaneImage); err != nil {
+		return "", err
 	}
-	return nil
-}
-
-func verifyButaneImage(source, evidence, arch string, p build.Production, tools mediaTools) error {
-	if err := p.Execute(source, "podman", "--remote=false", "pull", tools.Butane); err != nil {
-		return err
-	}
-	platform, _ := build.OCIArchitecture(arch)
-	observed, err := p.Capture(source, "podman", "--remote=false", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", tools.Butane)
+	platform, _ := build.OCIArchitecture(p.Arch)
+	observed, err := p.Capture(source, "podman", "--remote=false", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", butaneImage)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if observed != "linux/"+platform {
-		return errors.New("native Butane platform mismatch")
+		return "", errors.New("native Butane platform mismatch")
 	}
-	version, err := p.Capture(source, "podman", "--remote=false", "run", "--pull=never", "--cidfile", filepath.Join(evidence, "butane-version.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", tools.Butane, "--version")
+	version, err := p.Capture(source, "podman", "--remote=false", "run", "--pull=never", "--cidfile", filepath.Join(evidence, "butane-version.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", butaneImage, "--version")
 	if err != nil {
-		return err
+		return "", err
 	}
-	if version != tools.Version {
-		return errors.New("native Butane version mismatch")
+	version = strings.TrimSpace(version)
+	if !strings.HasPrefix(version, "Butane v") || strings.ContainsAny(version, "\r\n") {
+		return "", errors.New("unrecognized Butane version output")
 	}
-	return nil
+	return version, nil
 }
 
-func admitMediaTools(source, evidence, arch string, p build.Production) (mediaTools, error) {
-	var tools mediaTools
-	if err := build.ReadJSON(filepath.Join(source, "appliance/locks/installer-tools.json"), &tools); err != nil {
+func admitMediaTools(source, evidence string, p build.Production) (mediaTools, error) {
+	tools := mediaTools{Butane: butaneImage, Architecture: p.Arch}
+	version, err := verifyButaneImage(source, evidence, p)
+	if err != nil {
 		return tools, err
 	}
-	if err := admitButaneLock(tools, arch); err != nil {
+	if err := build.WriteNew(filepath.Join(evidence, "butane-version.txt"), []byte(version+"\n"), 0o600); err != nil {
 		return tools, err
 	}
-	return tools, verifyButaneImage(source, evidence, arch, p, tools)
+	return tools, nil
 }
 
 // Generate the live handoff in the same source-to-candidate run, using the exact

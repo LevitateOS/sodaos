@@ -13,7 +13,13 @@ REFRESH="${SODA_REFRESH_AUTHORITY:-0}"
 # Pickup folder for the built system image. The ISO is only the boot menu;
 # the installer downloads the big rootfs file from the address below.
 ROOTFS_DIR="/var/lib/soda-rootfs"
+# The installing machine fetches this address, so it must be reachable from
+# the guest: prefer the libvirt bridge when present. Loopback always points
+# at the guest itself and the media build refuses it.
 ROOTFS_URL="http://127.0.0.1:8080"
+if BRIDGE_IP="$(ip -4 -o addr show virbr0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)" && [ -n "$BRIDGE_IP" ]; then
+  ROOTFS_URL="http://$BRIDGE_IP:8080"
+fi
 ADMITTED="/usr/local/lib/soda/soda-build"
 PINNED_GO="/usr/local/lib/soda/pinned-go"
 WRAPPER="/usr/sbin/soda-candidate"
@@ -96,7 +102,10 @@ echo "-- warm worker caches (the isolated worker has no network)"
 # `go build` warms exactly the readonly build set without touching the
 # checkout; fetched as root, then handed to the worker.
 sudo mkdir -p "$BUILD_HOME/go-mod" "$BUILD_HOME/go-build"
+# `go mod download all`, not just `go build ./...`: the worker runs
+# `go mod verify` over the whole build list while offline.
 sudo env HOME="$BUILD_HOME" GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org GOMODCACHE="$BUILD_HOME/go-mod" GOCACHE="$BUILD_HOME/go-build" GOTOOLCHAIN="go$PINNED" GOFLAGS=-mod=readonly CGO_ENABLED=0 "$PINNED_GO/bin/go" build ./... || fail "cannot warm Go module cache"
+sudo env HOME="$BUILD_HOME" GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org GOMODCACHE="$BUILD_HOME/go-mod" GOCACHE="$BUILD_HOME/go-build" GOTOOLCHAIN="go$PINNED" GOFLAGS=-mod=readonly CGO_ENABLED=0 "$PINNED_GO/bin/go" mod download all || fail "cannot warm full Go module set"
 sudo -u soda-build-worker env HOME="$BUILD_HOME" "$PINNED_GO/bin/go" env -w GOPROXY=off || fail "cannot lock worker Go offline"
 # Bun installs only from its HOME cache inside: warm it from a scratch copy
 # (mirroring the workspaces list) so node_modules never lands in the

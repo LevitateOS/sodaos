@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseControllerEvents(t *testing.T) {
@@ -67,22 +69,14 @@ func TestValidateResolvedBoundaries(t *testing.T) {
 	o = baseOptions()
 	o.mode = "production"
 	if err := validateResolved(&o); err == nil {
-		t.Fatal("production requires the qualification config")
+		t.Fatal("production mode removed")
 	}
-	o.qualConfig = "/restricted/qualification.json"
-	if err := validateResolved(&o); err != nil {
-		t.Fatal(err)
-	}
-	o.signConfig = "/restricted/signing.json"
-	args := controllerArgs(o)
+	args := controllerArgs(baseOptions())
 	joined := strings.Join(args, " ")
-	for _, want := range []string{"--qualification-config", "--signing-config"} {
+	for _, want := range []string{"--development", "--target", "media", "--rootfs-base-url"} {
 		if !strings.Contains(joined, want) {
-			t.Fatalf("production args miss %s: %s", want, joined)
+			t.Fatalf("media args miss %s: %s", want, joined)
 		}
-	}
-	if strings.Contains(joined, "--development") {
-		t.Fatalf("production must not pass development flags: %s", joined)
 	}
 }
 
@@ -129,7 +123,7 @@ func TestOverviewEditsField(t *testing.T) {
 
 func TestOverviewBlocksBadStartWithoutLosingAnswers(t *testing.T) {
 	o := validScriptedOptions(t.TempDir())
-	o.mode, o.rootfsURL = "production", "" // no qualification config either
+	o.mode, o.rootfsURL = "candidate", "http://fixture:8080" // candidate refuses media inputs
 	_, screen := scriptedOverview(t, o, "go\nquit\n")
 	if !strings.Contains(screen, "Cannot start:") {
 		t.Fatalf("blocked start unexplained:\n%s", screen)
@@ -169,17 +163,11 @@ func TestOverviewDefaultsFixtureRootfsURL(t *testing.T) {
 	}
 }
 
-func TestModeSwitchKeepsFixtureURLHonest(t *testing.T) {
-	base := options{arch: "x86_64", out: t.TempDir() + "/fresh", controller: "/a", workerConfig: "/b", repoPrefix: "x", qualConfig: "/q"}
-	media := base
-	media.mode, media.rootfsURL = "media", fixtureRootfsURL
-	got, _ := scriptedOverview(t, media, "1\n3\nquit\n")
-	if got.mode != "production" || got.rootfsURL != "" {
-		t.Fatalf("fixture URL leaked into production: %+v", got)
-	}
-	prod := base
-	prod.mode = "production"
-	got, _ = scriptedOverview(t, prod, "1\n2\nquit\n")
+func TestModeSwitchRestoresFixtureURL(t *testing.T) {
+	base := options{arch: "x86_64", out: t.TempDir() + "/fresh", controller: "/a", workerConfig: "/b", repoPrefix: "x"}
+	cand := base
+	cand.mode, cand.rootfsURL = "candidate", ""
+	got, _ := scriptedOverview(t, cand, "1\n2\nquit\n")
 	if got.mode != "media" || got.rootfsURL != fixtureRootfsURL {
 		t.Fatalf("fixture URL not restored for media: %+v", got)
 	}
@@ -236,8 +224,8 @@ func TestFixtureWanted(t *testing.T) {
 	if fixtureWanted("candidate", "http://127.0.0.1:8080") {
 		t.Fatal("candidate needs no pickup server")
 	}
-	if fixtureWanted("production", "http://127.0.0.1:8080") {
-		t.Fatal("production must stay operator-managed")
+	if fixtureWanted("", "http://127.0.0.1:8080") {
+		t.Fatal("empty mode serves nothing")
 	}
 	if fixtureWanted("media", "://bogus") {
 		t.Fatal("unparseable URL accepted")
@@ -289,6 +277,33 @@ func TestServeAndFileRootfs(t *testing.T) {
 	}
 	if string(body) != "payload" {
 		t.Fatalf("served %q", body)
+	}
+}
+
+func TestFileBuiltRootfsCoversNonLoopbackMedia(t *testing.T) {
+	serveDir := t.TempDir()
+	out := t.TempDir()
+	media := filepath.Join(out, "artifacts", "media")
+	if err := os.MkdirAll(media, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(media, "b-rootfs.img"), []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	log, err := os.Create(filepath.Join(t.TempDir(), "stderr.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = log.Close() }()
+	o := options{mode: "media", rootfsURL: "http://192.168.122.1:8080", out: out, rootfsDir: serveDir}
+	if err := fileBuiltRootfs(o, log); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(serveDir, "b-rootfs.img")); err != nil {
+		t.Fatal("bridge-URL media rootfs not filed:", err)
+	}
+	if err := fileBuiltRootfs(options{mode: "candidate", rootfsURL: "http://192.168.122.1:8080", out: out, rootfsDir: serveDir}, log); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -728,5 +743,26 @@ func TestDirtyFilesSkipsBlanks(t *testing.T) {
 	}
 	if len(dirtyFiles(nil)) != 0 {
 		t.Fatal("clean tree must parse to no dirty files")
+	}
+}
+
+func TestBuildLinesCollapsesOldSuccesses(t *testing.T) {
+	r := newRenderer(io.Discard, true, 80)
+	now := time.Now()
+	for i := 0; i < 8; i++ {
+		r.phases = append(r.phases, phase{label: fmt.Sprintf("step %d", i), state: "ok", dur: "00:00:01"})
+	}
+	r.phases = append(r.phases, phase{label: "bad step", state: "fail", dur: "00:00:02"})
+	r.phases = append(r.phases, phase{label: "live step", state: "run", started: now})
+	joined := strings.Join(r.buildLines(now), "\n")
+	for _, want := range []string{"… 3 earlier steps done", "step 7", "bad step", "live step"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("table misses %q:\n%s", want, joined)
+		}
+	}
+	for _, hidden := range []string{"step 0", "step 1", "step 2"} {
+		if strings.Contains(joined, hidden) {
+			t.Fatalf("table leaks collapsed %q:\n%s", hidden, joined)
+		}
 	}
 }

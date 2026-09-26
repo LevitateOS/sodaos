@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,28 +15,9 @@ import (
 	"github.com/levitateos/sodaos/internal/release/deliver"
 )
 
-type PackageLock struct {
-	CoreOS       string
-	Architecture string
-	Requested    []string
-	Install      []string
-	Inventory    []string
-}
-
-// LockHostPackages pins the complete added transaction and checks the entire
-// resulting RPM inventory. Mirrors may disappear: fail, never resolve a newer
-// substitute. This is NEVRA/provenance locking, not byte-reproducible RPM storage.
-func validRPMNames(names []string) error {
-	seen := map[string]bool{}
-	for _, n := range names {
-		if !regexp.MustCompile(`^[a-z0-9][a-zA-Z0-9+._:-]*$`).MatchString(n) || seen[n] {
-			return errors.New("invalid RPM lock entry")
-		}
-		seen[n] = true
-	}
-	return nil
-}
-
+// validRPMInventory guards the recorded bill-of-materials shape: sorted,
+// unique NAME EPOCH:VERSION-RELEASE.ARCH lines. It validates what the build
+// observed; it never pins what a future build must install.
 func validRPMInventory(lines []string) error {
 	if !slices.IsSorted(lines) {
 		return errors.New("sorted RPM inventory required")
@@ -45,47 +25,11 @@ func validRPMInventory(lines []string) error {
 	seen := map[string]bool{}
 	for _, line := range lines {
 		if !regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9+._-]* [0-9]+:[a-zA-Z0-9+._~^-]+$`).MatchString(line) || seen[line] {
-			return errors.New("invalid expected RPM inventory")
+			return errors.New("invalid recorded RPM inventory")
 		}
 		seen[line] = true
 	}
 	return nil
-}
-
-func lockMatchesBase(lock PackageLock, arch string, base Base, requested []string) bool {
-	return lock.CoreOS == base.Release && lock.Architecture == arch && slices.Equal(lock.Requested, requested) && len(lock.Install) != 0 && len(lock.Inventory) != 0
-}
-
-func LockHostPackages(source, context, arch string, base Base) (string, error) {
-	var lock PackageLock
-	if err := build.ReadJSON(filepath.Join(source, "appliance/locks/host-packages-"+arch+".json"), &lock); err != nil {
-		return "", fmt.Errorf("qualified architecture package lock required: %w", err)
-	}
-	b, err := os.ReadFile(filepath.Join(source, "appliance/provisioning/base.json"))
-	if err != nil {
-		return "", err
-	}
-	requested, _, err := PackageInputs(b)
-	if err != nil {
-		return "", err
-	}
-	if !lockMatchesBase(lock, arch, base, requested) {
-		return "", errors.New("host package lock does not match current base/provisioning")
-	}
-	if err = validRPMNames(lock.Install); err != nil {
-		return "", err
-	}
-	if err = validRPMInventory(lock.Inventory); err != nil {
-		return "", err
-	}
-	expected := []byte(strings.Join(lock.Inventory, "\n") + "\n")
-	if err = ownedWrite(filepath.Join(context, "packages.list"), []byte(strings.Join(lock.Install, "\n")+"\n"), 0o644); err != nil {
-		return "", err
-	}
-	if err = ownedWrite(filepath.Join(context, "packages.expected"), expected, 0o644); err != nil {
-		return "", err
-	}
-	return hashBytes(expected), nil
 }
 
 func ownedWrite(path string, data []byte, mode os.FileMode) error {

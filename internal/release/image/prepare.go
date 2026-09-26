@@ -3,6 +3,7 @@
 package image
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,27 +21,40 @@ type Base struct {
 	Images      map[string]string
 }
 
-func LoadBase(source, arch string) (Base, error) {
+// LoadBase resolves the current stable CoreOS build live: release and live
+// media locations from the stream, container digests from the registry.
+// Nothing is read from stored lock files; the resolved values are recorded
+// per build instead. Checks stay shape-strict but host-agnostic so local
+// stream fixtures exercise the same path as production.
+func LoadBase(arch string) (Base, error) {
+	resolved, err := build.ResolveCoreOS(context.Background())
+	if err != nil {
+		return Base{}, err
+	}
+	return baseFromResolved(arch, resolved)
+}
+
+// LoadBaseFromFile admits controller-resolved CoreOS inputs for the isolated
+// worker, which SELinux denies outbound HTTPS: same validation as the live
+// path, no network. The controller records these per build; the worker only
+// consumes its own attempt's file.
+func LoadBaseFromFile(path, arch string) (Base, error) {
+	inputs, err := build.ReadLiveInputs(path)
+	if err != nil {
+		return Base{}, err
+	}
+	return baseFromResolved(arch, inputs.CoreOS)
+}
+
+func baseFromResolved(arch string, resolved build.ResolvedCoreOS) (Base, error) {
 	var b Base
 	if _, err := build.OCIArchitecture(arch); err != nil {
 		return b, err
 	}
-	if err := build.ReadJSON(filepath.Join(source, "appliance/locks/coreos-host.json"), &b); err != nil {
+	if err := build.ValidResolvedCoreOS(resolved); err != nil {
 		return b, err
 	}
-	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(b.Release) || b.MetadataURL != "https://builds.coreos.fedoraproject.org/prod/streams/stable/builds/"+b.Release+"/release.json" {
-		return b, errors.New("invalid pinned CoreOS release")
-	}
-	if len(b.Images) != 2 {
-		return b, errors.New("both architecture base digests required")
-	}
-	for _, a := range []string{"x86_64", "aarch64"} {
-		const prefix = "quay.io/fedora/fedora-coreos@sha256:"
-		if !strings.HasPrefix(b.Images[a], prefix) || !build.Digest(strings.TrimPrefix(b.Images[a], prefix)) {
-			return b, errors.New("digest-pinned CoreOS base required")
-		}
-	}
-	return b, nil
+	return Base{Release: resolved.Release, MetadataURL: resolved.MetadataURL, Images: resolved.Container}, nil
 }
 
 // PackageInputs uses the current first-install owner rather than maintaining a
@@ -171,8 +185,10 @@ func (w preparedWriter) writeBaseFiles(packages []string, repo string) error {
 		return err
 	}
 	for name, text := range map[string]string{
+		// Bare names only: the install floats on current repositories and the
+		// built image's inventory is recorded as the bill-of-materials.
+		// Nothing here pins versions.
 		"packages.list":      strings.Join(packages, "\n") + "\n",
-		"packages.expected":  "",
 		"tailscale-repo.url": repo + "\n",
 	} {
 		if err := w.write(name, []byte(text), 0o644); err != nil {
@@ -197,7 +213,7 @@ func rootfsFileMap() map[string]string {
 		"LICENSE":                                "usr/share/licenses/soda/LICENSE",
 		"NOTICE":                                 "usr/share/licenses/soda/NOTICE",
 	}
-	for _, name := range []string{"soda-host.service", "soda-host.socket", "soda-project@.service", "soda-tailnet@.service", "soda-runner@.service"} {
+	for _, name := range []string{"soda-host.service", "soda-host.socket", "soda-project@.service", "soda-tailnet@.service", "soda-runner@.service", "soda-console.service"} {
 		files["appliance/services/"+name] = "usr/lib/systemd/system/" + name
 	}
 	for _, name := range []string{"forgejo.container", "soda-dashboard.container", "soda-proxy.container"} {
@@ -270,10 +286,22 @@ func (w preparedWriter) writeBuildRecord(b Base, revision, arch string, packages
 }
 
 func loadBaseInputs(source, arch, revision string) (Base, []string, string, error) {
-	b, err := LoadBase(source, arch)
+	b, err := LoadBase(arch)
 	if err != nil {
 		return b, nil, "", err
 	}
+	return finishBaseInputs(source, revision, b)
+}
+
+func loadBaseInputsResolved(source, arch, revision, inputs string) (Base, []string, string, error) {
+	b, err := LoadBaseFromFile(inputs, arch)
+	if err != nil {
+		return b, nil, "", err
+	}
+	return finishBaseInputs(source, revision, b)
+}
+
+func finishBaseInputs(source, revision string, b Base) (Base, []string, string, error) {
 	if !build.Revision(revision) {
 		return b, nil, "", errors.New("exact source revision required")
 	}
@@ -296,6 +324,20 @@ func Prepare(source, out, arch, revision string) (Base, error) {
 	if err != nil {
 		return b, err
 	}
+	return finishPrepare(source, out, arch, revision, b, packages, repo)
+}
+
+// PrepareResolved stages the same context from controller-admitted CoreOS
+// inputs for the isolated worker: identical output, no network fetch.
+func PrepareResolved(source, out, arch, revision, inputs string) (Base, error) {
+	b, packages, repo, err := loadBaseInputsResolved(source, arch, revision, inputs)
+	if err != nil {
+		return b, err
+	}
+	return finishPrepare(source, out, arch, revision, b, packages, repo)
+}
+
+func finishPrepare(source, out, arch, revision string, b Base, packages []string, repo string) (Base, error) {
 	if err := build.FreshDirectory(out); err != nil {
 		return b, err
 	}

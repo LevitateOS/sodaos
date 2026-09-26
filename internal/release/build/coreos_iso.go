@@ -11,28 +11,9 @@ import (
 	"strings"
 )
 
-// ReadCoreOSISO admits only uncompressed live ISOs, not QEMU or metal disk images.
-func validCoreOSISO(l CoreOSLock, img CoreOSImage, ok bool) bool {
-	return ok && l.Release != "" && httpsURL(l.MetadataURL) && httpsURL(img.URL) && strings.HasSuffix(img.URL, ".iso") && img.SignatureURL == img.URL+".sig" && Digest(img.SHA256) && img.UncompressedSHA256 == ""
-}
-
-func ReadCoreOSISO(lock, arch string) (CoreOSLock, CoreOSImage, error) {
-	var l CoreOSLock
-	if _, err := OCIArchitecture(arch); err != nil {
-		return l, CoreOSImage{}, err
-	}
-	if err := ReadJSON(lock, &l); err != nil {
-		return l, CoreOSImage{}, err
-	}
-	img, ok := l.Architectures[arch]
-	if !validCoreOSISO(l, img, ok) {
-		return l, img, errors.New("invalid uncompressed CoreOS ISO lock")
-	}
-	return l, img, nil
-}
-
 // FetchCoreOSISO retains a new, signature-verified upstream ISO. No customization,
-// boot, key import or disk installation is implicit.
+// boot, key import or disk installation is implicit. The ISO resolves live
+// from the stable stream; no stored version is consulted.
 func admitCoreOSISOFetch(arch, signer, keyring string) (string, error) {
 	if err := RequireNative(arch); err != nil {
 		return "", err
@@ -66,13 +47,13 @@ func fetchVerifiedISO(ctx context.Context, img CoreOSImage, dest, keyring, signe
 	return verifyCoreOSSignature(ctx, dest, dest+".sig", keyring, signer, out)
 }
 
-func FetchCoreOSISO(ctx context.Context, lock, arch, keyring, signer, out string) (VerifiedBase, error) {
+func FetchCoreOSISO(ctx context.Context, arch, keyring, signer, out string) (VerifiedBase, error) {
 	var result VerifiedBase
 	keyring, err := admitCoreOSISOFetch(arch, signer, keyring)
 	if err != nil {
 		return result, err
 	}
-	l, img, err := ReadCoreOSISO(lock, arch)
+	release, img, err := ResolveCoreOSISO(ctx, arch)
 	if err != nil {
 		return result, err
 	}
@@ -86,7 +67,7 @@ func FetchCoreOSISO(ctx context.Context, lock, arch, keyring, signer, out string
 	if err = os.Chmod(dest, 0o444); err != nil {
 		return result, err
 	}
-	result = VerifiedBase{dest, img.SHA256, arch, l.Release, strings.ToUpper(signer)}
+	result = VerifiedBase{dest, img.SHA256, arch, release, strings.ToUpper(signer)}
 	data, err := json.MarshalIndent(result, "", "  ")
 	if err != nil {
 		return result, err

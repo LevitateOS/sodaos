@@ -12,29 +12,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func TestEnrollmentPTYCannotArm(t *testing.T) {
+func TestEnrollmentPTYProceedsPastConsoleCheck(t *testing.T) {
 	_, tty := openTestPTY(t)
-	t.Setenv("SSH_CONNECTION", "")
-	t.Setenv("SSH_TTY", "")
-	called := false
-	run := func(context.Context, string, []string, io.Reader) ([]byte, error) { called = true; return nil, nil }
-	ctx := context.Background()
-	if err := armEnrollment(ctx, console{tty: tty, ctx: ctx}, run); err == nil {
-		t.Fatal("PTY armed key enrollment")
-	}
-	if called {
-		t.Fatal("native command ran before local console refusal")
-	}
-}
-
-func TestEnrollmentRegularFileCannotArm(t *testing.T) {
-	file, err := os.CreateTemp(t.TempDir(), "terminal")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-	if err := enrollmentLocalConsole(file); err == nil {
-		t.Fatal("regular file accepted as local console")
+	t.Setenv("SSH_CONNECTION", "synthetic")
+	t.Setenv("SSH_TTY", "/dev/pts/99")
+	run := func(context.Context, string, []string, io.Reader) ([]byte, error) { return nil, nil }
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := armEnrollment(ctx, console{tty: tty, ctx: ctx}, run)
+	if err == nil || strings.Contains(err.Error(), "local keyboard/monitor") {
+		t.Fatalf("SSH arming still refused at the console: %v", err)
 	}
 }
 

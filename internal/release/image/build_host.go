@@ -33,7 +33,11 @@ func inspectHostIdentity(context, platform, revision, scope, id string, p build.
 	return nil
 }
 
-func inspectHostPackages(context, out, id string, p build.Production) error {
+// observeHostPackages reads the built host inventory as the
+// bill-of-materials. The install floats on bare names, so nothing precedes
+// the observation: the image's own inventory is validated for shape, and its
+// SHA256 becomes the payload fingerprint.
+func observeHostPackages(context, out, id string, p build.Production) ([]byte, error) {
 	packages, err := p.Capture(context, "podman", "--remote=false", "run", "--cidfile", filepath.Join(out, "inspect.cid"), "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--entrypoint=/bin/sh", id, "-ec", `test "$(stat -c %a /usr/libexec/soda/soda-host)" = 755
  test -L /usr/sbin
  test "$(readlink /usr/sbin)" = bin
@@ -49,16 +53,29 @@ func inspectHostPackages(context, out, id string, p build.Production) error {
  rpm -q rpm-ostree zincati ignition cockpit-ostree tailscale >/dev/null
  cat /usr/share/soda/host-image/packages.txt`)
 	if err != nil {
-		return fmt.Errorf("read-only host inspection failed; retain inspect.cid: %w", err)
+		return nil, fmt.Errorf("read-only host inspection failed; retain inspect.cid: %w", err)
 	}
-	expected, err := os.ReadFile(filepath.Join(context, "packages.expected"))
+	lines := strings.Split(strings.TrimSpace(packages), "\n")
+	if err := validRPMInventory(lines); err != nil {
+		return nil, err
+	}
+	return []byte(strings.Join(lines, "\n") + "\n"), nil
+}
+
+// recordHostPackages files the observed inventory: one copy beside the
+// context for the record, one frozen evidence copy in the output.
+func recordHostPackages(context, out, id string, p build.Production) (string, error) {
+	record, err := observeHostPackages(context, out, id, p)
 	if err != nil {
-		return err
+		return "", err
 	}
-	if packages == "" || packages != strings.TrimSpace(string(expected)) {
-		return errors.New("built RPM inventory differs from the admitted transaction")
+	if err := ownedWrite(filepath.Join(context, "packages.recorded"), record, 0o644); err != nil {
+		return "", err
 	}
-	return build.WriteNew(filepath.Join(out, "packages.txt"), []byte(packages+"\n"), 0o600)
+	if err := build.WriteNew(filepath.Join(out, "packages.txt"), record, 0o600); err != nil {
+		return "", err
+	}
+	return hashBytes(record), nil
 }
 
 func exportHostArchive(context, out, arch, revision, prefix, pinned, id string, p build.Production) error {
@@ -83,26 +100,38 @@ func exportHostArchive(context, out, arch, revision, prefix, pinned, id string, 
 	return recordCandidate(out, prefix, host, hash)
 }
 
-func buildHost(context, out, arch, revision, prefix string, base Base, p build.Production, phase func(string) error) error {
+// buildHostImage bakes one host image from the context as staged. The first
+// pass stages no release metadata: its only job is package observation for
+// the bill-of-materials. The final pass builds the sealed context.
+func buildHostImage(context, out, arch, revision, prefix string, base Base, p build.Production) (string, error) {
 	platform, _ := build.OCIArchitecture(arch)
 	pinned := base.Images[arch]
 	iid := filepath.Join(out, "host.iid")
 	const scope = "complete-local-payload"
 	if err := p.Execute(context, "podman", "--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/"+platform, "--build-arg=BASE_IMAGE="+pinned, "--build-arg=PAYLOAD_SCOPE="+scope, "--label=org.opencontainers.image.revision="+revision, "--label=org.opencontainers.image.base.name="+pinned, "--label=org.opencontainers.image.base.digest="+strings.SplitN(pinned, "@", 2)[1], "--label=org.opencontainers.image.version="+base.Release+".soda-"+revision[:12], "--iidfile", iid, "--file", "Containerfile", "."); err != nil {
+		return "", err
+	}
+	return readHostImageID(iid)
+}
+
+// verifyBuiltHost inspects the final sealed-context image: identity, a
+// package inventory that must match the sealed fingerprint, image config,
+// embedded payload/content/Quadlets, then OCI export.
+func verifyBuiltHost(context, out, arch, revision, prefix, id, packageHash string, base Base, p build.Production, phase func(string) error) error {
+	platform, _ := build.OCIArchitecture(arch)
+	const scope = "complete-local-payload"
+	if err := phase("P6 / Verify native host identity and content"); err != nil {
 		return err
 	}
-	id, err := readHostImageID(iid)
+	if err := inspectHostIdentity(context, platform, revision, scope, id, p); err != nil {
+		return err
+	}
+	observed, err := observeHostPackages(context, out, id, p)
 	if err != nil {
 		return err
 	}
-	if err = phase("P6 / Verify native host identity and content"); err != nil {
-		return err
-	}
-	if err = inspectHostIdentity(context, platform, revision, scope, id, p); err != nil {
-		return err
-	}
-	if err = inspectHostPackages(context, out, id, p); err != nil {
-		return err
+	if hashBytes(observed) != packageHash {
+		return errors.New("host inventory shifted during build; refusing mismatched fingerprint")
 	}
 	imageConfig, err := p.Capture(context, "podman", "--remote=false", "run", "--cidfile", filepath.Join(out, "image-config-inspect.cid"), "--network=none", "--read-only", "--cap-drop=all", "--entrypoint=/usr/bin/cat", id, "/"+imageConfigPath)
 	if err != nil {
@@ -114,5 +143,5 @@ func buildHost(context, out, arch, revision, prefix string, base Base, p build.P
 	if err = inspectComplete(context, out, id, p.Capture); err != nil {
 		return err
 	}
-	return exportHostArchive(context, out, arch, revision, prefix, pinned, id, p)
+	return exportHostArchive(context, out, arch, revision, prefix, base.Images[arch], id, p)
 }

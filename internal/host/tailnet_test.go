@@ -130,7 +130,7 @@ func TestTailnetHostConfigurationDefaultsOff(t *testing.T) {
 		if enabled {
 			field = `,"tailnet_management":true`
 		}
-		if e := os.WriteFile(path, []byte(`{"image":"image","network":"soda","bridge":"soda0","subnet":"10.89.0.0/16"`+field+`}`), 0600); e != nil {
+		if e := os.WriteFile(path, []byte(`{"image":"image","network":"soda","bridge":"soda0","subnet":"10.89.0.0/16"`+field+`}`), 0o600); e != nil {
 			t.Fatal(e)
 		}
 		v, e := loadConfig(path, "") // Existing writable-installer configuration contract.

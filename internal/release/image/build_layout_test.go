@@ -33,9 +33,9 @@ func TestSharedLayoutStagingRefusesBeforeCopiesAndStopsOnFailure(t *testing.T) {
 			calls := 0
 			switch kind {
 			case "changed-archive":
-				require.NoError(t, os.WriteFile(filepath.Join(archives, "tailnet.oci"), []byte("changed"), 0644))
+				require.NoError(t, os.WriteFile(filepath.Join(archives, "tailnet.oci"), []byte("changed"), 0o644))
 			case "occupied":
-				require.NoError(t, os.Mkdir(dest, 0755))
+				require.NoError(t, os.Mkdir(dest, 0o755))
 			case "linked":
 				require.NoError(t, os.Symlink(archives, dest))
 			case "bad-format":
@@ -67,8 +67,8 @@ func TestNativeHostReadbackChecksEverySharedBlob(t *testing.T) {
 			require.NoError(t, err)
 			raw, err := json.Marshal(p)
 			require.NoError(t, err)
-			require.NoError(t, os.WriteFile(filepath.Join(out, "payload.json"), raw, 0644))
-			require.NoError(t, ownedWrite(filepath.Join(out, "tools/soda-installer"), []byte("console"), 0755))
+			require.NoError(t, os.WriteFile(filepath.Join(out, "payload.json"), raw, 0o644))
+			require.NoError(t, ownedWrite(filepath.Join(out, "tools/soda-installer"), []byte("console"), 0o755))
 			consoleHash := hashBytes([]byte("console"))
 			checked := 0
 			err = inspectComplete(context, out, "candidate", func(_ string, cmd string, args ...string) (string, error) {

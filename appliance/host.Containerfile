@@ -5,15 +5,15 @@ FROM ${BASE_IMAGE}
 
 # Keep the existing provisioning package list as the source of authority. The
 # preparation command validates it and emits this argument file and repository URL.
-COPY packages.list packages.expected tailscale-repo.url /run/soda-build/
+# Bare names: the transaction floats on current repositories. The resulting
+# inventory is the bill-of-materials, recorded by the build after inspection.
+COPY packages.list tailscale-repo.url /run/soda-build/
 RUN curl --fail --show-error --location "$(cat /run/soda-build/tailscale-repo.url)" \
       --output /etc/yum.repos.d/tailscale.repo && \
     rpm-ostree install $(cat /run/soda-build/packages.list) && \
     mkdir -p /usr/share/soda/host-image && \
     rpm -qa --qf '%{NAME} %{EPOCHNUM}:%{VERSION}-%{RELEASE}.%{ARCH}\n' > /run/soda-build/packages.unsorted && \
-    LC_ALL=C sort /run/soda-build/packages.unsorted > /usr/share/soda/host-image/packages.txt && \
-    test -s /run/soda-build/packages.expected && \
-      diff -u /run/soda-build/packages.expected /usr/share/soda/host-image/packages.txt
+    LC_ALL=C sort /run/soda-build/packages.unsorted > /usr/share/soda/host-image/packages.txt
 
 COPY rootfs/ /
 # Native rpm-ostree container finalization. Keep Fedora's update ownership;

@@ -5,13 +5,34 @@ export type ShellLayout = {
   frame: HTMLElement;
   workspace: HTMLElement;
   divider: HTMLElement;
+  toggle: HTMLButtonElement;
   switcher: HTMLElement;
   forge: HTMLButtonElement;
   terminal: HTMLButtonElement;
   measure: HTMLElement;
   width: number;
   surface: ShellSurface;
+  drawer: boolean;
 };
+
+const drawerStorageKey = 'soda.workspace.drawer';
+
+function readDrawerHidden(win: Window | null): boolean {
+  try {
+    return win?.localStorage.getItem(drawerStorageKey) === 'hidden';
+  } catch {
+    return false;
+  }
+}
+
+function writeDrawerHidden(win: Window | null, hidden: boolean) {
+  try {
+    if (hidden) win?.localStorage.setItem(drawerStorageKey, 'hidden');
+    else win?.localStorage.removeItem(drawerStorageKey);
+  } catch {
+    // Private browsing keeps the default open drawer.
+  }
+}
 
 function cellWidth(measure: HTMLElement) {
   return measure.getBoundingClientRect().width / 16 || 9;
@@ -35,11 +56,17 @@ export function applyShellLayout(layout: ShellLayout) {
   layout.body.style.setProperty('--soda-space-width', geometry.actual + 'vw');
   layout.body.classList.toggle('sodaspaces-compact', geometry.compact);
   layout.switcher.hidden = !geometry.compact;
+  const drawerHidden = !layout.drawer && !geometry.compact;
+  layout.body.toggleAttribute('data-workspace-hidden', drawerHidden);
   layout.frame.toggleAttribute('data-surface-hidden', shellPaneHidden(geometry.compact, layout.surface, 'forge'));
   layout.workspace.toggleAttribute(
     'data-surface-hidden',
-    shellPaneHidden(geometry.compact, layout.surface, 'terminal')
+    shellPaneHidden(geometry.compact, layout.surface, 'terminal') || drawerHidden
   );
+  layout.divider.toggleAttribute('data-surface-hidden', drawerHidden);
+  layout.toggle.setAttribute('aria-expanded', String(!drawerHidden));
+  layout.toggle.setAttribute('title', drawerHidden ? 'Show workspace' : 'Hide workspace');
+  layout.toggle.textContent = drawerHidden ? '«' : '»';
   layout.forge.setAttribute('aria-pressed', String(layout.surface === 'forge'));
   layout.terminal.setAttribute('aria-pressed', String(layout.surface === 'terminal'));
   layout.divider.setAttribute('aria-valuemin', String(Math.round(geometry.minimum * 10) / 10));
@@ -93,6 +120,11 @@ export function bindWorkspaceShellLayout(doc: Document) {
     layout.surface = 'terminal';
     size();
   });
+  layout.toggle.addEventListener('click', () => {
+    layout.drawer = !layout.drawer;
+    writeDrawerHidden(win, !layout.drawer);
+    size();
+  });
   layout.divider.addEventListener('keydown', (event) => onDividerKey(layout, event));
   layout.divider.addEventListener('pointerdown', (event) => {
     if (event.button === 0) layout.divider.setPointerCapture(event.pointerId);
@@ -107,10 +139,24 @@ function readShellLayout(doc: Document): ShellLayout | undefined {
   const frame = doc.querySelector<HTMLIFrameElement>('#soda-forgejo-frame');
   const workspace = doc.getElementById('soda-workspace-root');
   const divider = doc.getElementById('soda-workspace-divider');
+  const toggle = doc.querySelector<HTMLButtonElement>('#soda-workspace-toggle');
   const switcher = doc.getElementById('sodaspaces-surfaces');
   const forge = doc.querySelector<HTMLButtonElement>('#soda-surface-forge');
   const terminal = doc.querySelector<HTMLButtonElement>('#soda-surface-terminal');
   const measure = doc.querySelector<HTMLElement>('.sodaspaces-measure');
-  if (!frame || !workspace || !divider || !switcher || !forge || !terminal || !measure) return;
-  return {body: doc.body, frame, workspace, divider, switcher, forge, terminal, measure, width: 50, surface: 'forge'};
+  if (!frame || !workspace || !divider || !toggle || !switcher || !forge || !terminal || !measure) return;
+  return {
+    body: doc.body,
+    frame,
+    workspace,
+    divider,
+    toggle,
+    switcher,
+    forge,
+    terminal,
+    measure,
+    width: 50,
+    surface: 'forge',
+    drawer: !readDrawerHidden(doc.defaultView),
+  };
 }

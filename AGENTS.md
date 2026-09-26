@@ -91,6 +91,13 @@ justify keeping obsolete implementations alive.
 
 ## Permissions and preservation
 
+- The small root disk is permanently and completely off-limits, forever. Never put
+  anything on `/`: no builds, state, caches, temp files, installs, cleanups or
+  other writes. Never propose the root disk as an option, a fallback or a
+  shortcut, and never present it as one. The roomy disk (`/home`) is the only
+  workspace. If work cannot be done there, stop and say so instead of reaching
+  for `/`. This covers the root filesystem only; explicitly approved privilege
+  use is unaffected.
 - **Default to action within the task.** A request to implement, fix, test or finish
   something authorizes the ordinary work needed to deliver and verify it. Use the
   current conversation and task brief to determine scope. Approval persists across
