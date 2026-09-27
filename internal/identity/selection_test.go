@@ -23,3 +23,20 @@ func TestSelectMuseConnectionRequiresCurrentAuthorizedProvider(t *testing.T) {
 		t.Fatal(selected, err)
 	}
 }
+
+func TestSelectForgejoConnectionCannotSwitchAccountsOrProviders(t *testing.T) {
+	connections := []Connection{{ID: "subscription", ProviderID: Muse, State: Ready}, {ID: "git", ProviderID: Forgejo, State: Ready}, {ID: "expired", ProviderID: Forgejo, State: Reauth}}
+	selected, err := SelectForgejoConnection(connections, "")
+	if err != nil || selected != "git" {
+		t.Fatal(selected, err)
+	}
+	for _, id := range []string{"subscription", "expired", "missing"} {
+		if _, err := SelectForgejoConnection(connections, id); err == nil {
+			t.Fatal("selected unavailable account silently replaced", id)
+		}
+	}
+	connections = append(connections, Connection{ID: "second", ProviderID: Forgejo, State: Ready})
+	if _, err := SelectForgejoConnection(connections, ""); err == nil {
+		t.Fatal("multiple accounts selected implicitly")
+	}
+}

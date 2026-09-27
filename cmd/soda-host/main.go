@@ -84,28 +84,15 @@ func serveHostSocket(c host.Config) error {
 	server := &http.Server{Handler: daemon, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 20 * time.Second, MaxHeaderBytes: 8192}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
-	museListener, err := daemon.OpenMuseListener()
+	awaitLaunchers, err := startRuntimeLaunchers(ctx, stop, daemon)
 	if err != nil {
 		return err
 	}
-	museErrors := make(chan error, 1)
-	if museListener != nil {
-		defer func() { _ = museListener.Close() }()
-		go func() {
-			err := daemon.ServeMuse(ctx, museListener)
-			museErrors <- err
-			if err != nil {
-				stop()
-			}
-		}()
-	}
 	done := make(chan struct{})
-	var museFailure error
+	var launchFailure error
 	go func() {
 		<-ctx.Done()
-		if museListener != nil {
-			museFailure = awaitMuseShutdown(museErrors)
-		}
+		launchFailure = awaitLaunchers()
 		daemon.CloseTerminals()
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -115,7 +102,7 @@ func serveHostSocket(c host.Config) error {
 	err = server.Serve(listener)
 	stop()
 	<-done
-	return hostSocketResult(err, museFailure)
+	return hostSocketResult(err, launchFailure)
 }
 
 func run() error {
@@ -143,7 +130,7 @@ func awaitMuseShutdown(result <-chan error) error {
 	case err := <-result:
 		return err
 	case <-timer.C:
-		return errors.New("muse execution retirement remains unconfirmed")
+		return errors.New("launch execution retirement remains unconfirmed")
 	}
 }
 

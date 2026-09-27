@@ -154,6 +154,12 @@ requests cannot supply that authority. Factory Git leases require that repositor
 upload-pack reads. Human leases may use native receive-pack when Forgejo grants
 write permission. Ending a lease cancels its HTTP streams before native stop;
 normal Git retirement does not replace the broker credential.
+The normal Git remote helper uses a separate launch-only Unix interface. The host
+attests the account, container incarnation and transferred loopback listener,
+then supervises one native Git helper unit. Its relay capability lives in a
+protected runtime config file supplied through restricted stdin; upstream OAuth
+credentials stay in broker custody. Revocation stops that unit and removes its
+runtime config without stopping the project or a sibling Git session.
 Git author identity
 uses upstream verified email; successful authentication alone does not set it.
 

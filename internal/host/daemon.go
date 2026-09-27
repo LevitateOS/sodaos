@@ -37,6 +37,7 @@ import (
 var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
+	GitSocket          string `json:"git_socket,omitempty"`
 	MuseSHA256         string `json:"muse_sha256"`
 	MuseVersion        string `json:"muse_version"`
 	MuseSocket         string `json:"muse_socket"`
@@ -98,6 +99,9 @@ func validateIdentityRuntime(c Config) error {
 }
 
 func validateRuntimeConfig(c Config) error {
+	if err := validateGitRuntime(c); err != nil {
+		return err
+	}
 	if err := validateMuseRuntime(c); err != nil {
 		return err
 	}
@@ -160,6 +164,7 @@ func (Native) RunReader(ctx context.Context, in io.Reader, command string, args 
 }
 
 type Daemon struct {
+	Git           *terminal.GitRuntime
 	Muse          *terminal.MuseRuntime
 	Identity      *identityclient.Client
 	Tailnet       *tailnet.Control
@@ -188,6 +193,9 @@ func NewDaemon(c Config) *Daemon {
 		Runners:  &runners.Operations{Local: runnerNative, Lifecycle: runnerNative},
 	}
 	d.Terminal.EndIdentity = d.Identity.EndLease
+	if c.GitSocket != "" {
+		d.Git = d.gitRuntime()
+	}
 	if c.MuseSHA256 != "" {
 		d.Muse = d.museRuntime()
 	}

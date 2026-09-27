@@ -40,7 +40,7 @@ func (n nativeRuntime) Finish(ctx context.Context, l identity.Lease) ([]byte, er
 func (n nativeRuntime) Validate(ctx context.Context, l identity.Lease) error {
 	// Forgejo requires its own supervised Git execution, never the workspace boundary.
 	if l.ProviderID == identity.Forgejo {
-		return identity.ErrDenied
+		return n.projectGitOperation(ctx, "validate", l)
 	}
 	if l.Binding == nil {
 		return identity.ErrDenied
@@ -106,7 +106,7 @@ func podman(ctx context.Context, args ...string) ([]byte, error) {
 
 func (n nativeRuntime) Stop(ctx context.Context, l identity.Lease) error {
 	if l.ProviderID == identity.Forgejo {
-		return identity.ErrUncertain
+		return n.projectGitOperation(ctx, "stop", l)
 	}
 	if l.Binding == nil {
 		return nil
@@ -118,6 +118,19 @@ func (n nativeRuntime) Stop(ctx context.Context, l identity.Lease) error {
 		return n.Host.IdentityStop(ctx, l)
 	}
 	return stopFactory(ctx, l)
+}
+
+func (n nativeRuntime) projectGitOperation(ctx context.Context, action string, l identity.Lease) error {
+	if n.Host == nil || l.Kind != identity.Terminal || l.Binding == nil || l.Binding.Scope != "git" {
+		if action == "stop" {
+			return identity.ErrUncertain
+		}
+		return identity.ErrDenied
+	}
+	if action == "validate" {
+		return n.Host.IdentityValidate(ctx, l)
+	}
+	return n.Host.IdentityStop(ctx, l)
 }
 
 func stopFactory(ctx context.Context, l identity.Lease) error {
