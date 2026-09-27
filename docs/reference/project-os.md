@@ -144,7 +144,7 @@ Nested services require the explicit [Compose opt-in](../guides/project-services
 Update an existing running project explicitly from the appliance:
 
 ```sh
-sudo soda-muse-maintain --project p0123456789abcdef01234567
+sudo /usr/libexec/soda/soda-muse-maintain --project p0123456789abcdef01234567
 ```
 
 Maintenance replaces only the three public Muse tools and attaches the dedicated

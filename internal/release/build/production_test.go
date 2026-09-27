@@ -106,7 +106,7 @@ func productionFixture(t *testing.T, vendor bool) (Production, *[]string) {
 			binary.LittleEndian.PutUint16(header[52:], 64)
 			for i, a := range args {
 				if a == "-o" {
-					return os.WriteFile(args[i+1], header, 0o755)
+					return os.WriteFile(args[i+1], header, 0o700)
 				}
 			}
 		}
@@ -147,6 +147,12 @@ func TestProductionBothLayoutsUseOneAssetAndImageSequence(t *testing.T) {
 			}
 			if e := p.Assets(host, forgejo); e != nil {
 				t.Fatal(e)
+			}
+			for _, tool := range []string{"muse", "soda-muse-compose"} {
+				info, err := os.Stat(filepath.Join(p.Native, "project-tools/bin", tool))
+				if err != nil || info.Mode().Perm() != 0o755 {
+					t.Fatalf("public tool %s must be executable by project accounts: %v", tool, err)
+				}
 			}
 			images, e := p.Images(forgejo)
 			if e != nil {
