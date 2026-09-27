@@ -10,6 +10,25 @@ import (
 	"github.com/levitateos/sodaos/internal/identity"
 )
 
+// configureGitIdentity updates only Git's global author keys for the attested
+// project login. Repository-local choices retain their normal precedence.
+func (g *GitRuntime) configureGitIdentity(ctx context.Context, c museCaller, session identity.GitSession) error {
+	if !gitIdentityValue(session.Name) || !gitIdentityValue(session.Email) {
+		return identity.ErrDenied
+	}
+	for _, item := range [][2]string{{"user.name", session.Name}, {"user.email", session.Email}} {
+		_, err := g.Exec.Run(ctx, nil, "/usr/bin/podman", "--remote=false", "exec", "--user="+strconv.Itoa(c.UID)+":"+strconv.Itoa(c.GID), "--env=HOME="+c.Home, c.Container, "/usr/bin/git", "config", "--global", "--replace-all", item[0], item[1])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func gitIdentityValue(value string) bool {
+	return value != "" && len(value) <= 1024 && !strings.ContainsAny(value, "\x00\r\n")
+}
+
 // stageConfig writes the invocation capability through restricted stdin, never
 // argv or environment. The independent unit reads only this protected tmpfs file.
 func (g *GitRuntime) stageConfig(ctx context.Context, c museCaller, path, capability string) error {

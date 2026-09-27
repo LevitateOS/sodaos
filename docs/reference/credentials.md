@@ -166,8 +166,14 @@ then supervises one native Git helper unit. Its relay capability lives in a
 protected runtime config file supplied through restricted stdin; upstream OAuth
 credentials stay in broker custody. Revocation stops that unit and removes its
 runtime config without stopping the project or a sibling Git session.
-Git author identity
-uses upstream verified email; successful authentication alone does not set it.
+After broker registration, the native Git launch sets the attested project
+login's global `user.name` and `user.email` to the connected Forgejo account's
+verified name and primary email. A later ordinary `git commit` uses those
+values by default; another brokered launch refreshes stale global values.
+Other global settings remain intact. Repository-local configuration, command-line
+`-c` values and commit environment variables retain Git's normal precedence,
+so commit metadata can still be changed by the project user. Forgejo records
+the authenticated account separately as the push actor.
 
 ### Muse subscription custody
 

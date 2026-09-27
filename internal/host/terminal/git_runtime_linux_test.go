@@ -4,10 +4,12 @@ package terminal
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/identity"
 )
@@ -60,5 +62,37 @@ func TestGitCommandPinsNativeHelperAndTransport(t *testing.T) {
 	}
 	if strings.Contains(args, "podman\nkill") || strings.Contains(args, "auth.json") {
 		t.Fatal("incorrect lifetime or credential boundary")
+	}
+}
+
+func TestGitSessionMustMatchReservedNativeBinding(t *testing.T) {
+	lease := identity.Lease{ID: strings.Repeat("a", 32), ProviderID: identity.Forgejo, ConnectionID: "connection", Generation: 2, ActorID: 13, ProjectID: "project", ExecutionID: strings.Repeat("b", 32), RepositoryID: 42, Kind: identity.Terminal, Deadline: time.Now().Add(time.Hour)}
+	binding := identity.Binding{Kind: identity.Terminal, Scope: "git", ID: lease.ExecutionID, Project: lease.ProjectID, ContainerID: strings.Repeat("c", 64), UID: 1000, GID: 1000, Login: "soda-tester", Generation: lease.Generation, InvocationID: strings.Repeat("d", 32)}
+	session := identity.GitSession{Lease: lease, Name: "Soda Tester", Email: "soda-tester@example.test"}
+	session.Lease.Binding = &binding
+	encoded, err := json.Marshal(session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(encoded, &session); err != nil {
+		t.Fatal(err)
+	}
+	if !gitSessionMatches(session, lease, binding) {
+		t.Fatal("matching broker session denied")
+	}
+	for _, change := range []func(*identity.GitSession){
+		func(s *identity.GitSession) { s.Lease.ActorID++ },
+		func(s *identity.GitSession) { s.Lease.RepositoryID++ },
+		func(s *identity.GitSession) { s.Lease.ConnectionID = "foreign" },
+		func(s *identity.GitSession) { s.Lease.ProviderID = identity.Muse },
+		func(s *identity.GitSession) { s.Lease.Deadline = s.Lease.Deadline.Add(time.Second) },
+		func(s *identity.GitSession) { s.Lease.Binding = nil },
+		func(s *identity.GitSession) { altered := binding; altered.UID++; s.Lease.Binding = &altered },
+	} {
+		mismatch := session
+		change(&mismatch)
+		if gitSessionMatches(mismatch, lease, binding) {
+			t.Fatal("mismatched broker session admitted")
+		}
 	}
 }

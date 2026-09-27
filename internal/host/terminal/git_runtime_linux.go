@@ -96,12 +96,30 @@ func (g *GitRuntime) prepareHelper(resolver *MuseRuntime, caller museCaller, uni
 		if err != nil || !terminalID.MatchString(binding.InvocationID) {
 			return identity.ErrDenied
 		}
-		if _, err = g.Register(ctx, lease.ID, *binding); err != nil {
+		session, err := g.Register(ctx, lease.ID, *binding)
+		if err != nil {
+			return err
+		}
+		if !gitSessionMatches(session, lease, *binding) {
+			return identity.ErrDenied
+		}
+		if err := g.configureGitIdentity(ctx, caller, session); err != nil {
 			return err
 		}
 		gitServe(relayCtx, listener, server)
 		return nil
 	}
+}
+
+func gitSessionMatches(session identity.GitSession, lease identity.Lease, binding identity.Binding) bool {
+	if session.Lease.Binding == nil || *session.Lease.Binding != binding || !session.Lease.Deadline.Equal(lease.Deadline) {
+		return false
+	}
+	registered := session.Lease
+	registered.Binding = nil
+	registered.Deadline = lease.Deadline
+	lease.Binding = nil
+	return registered == lease
 }
 
 func (g *GitRuntime) controlHelper(resolver *MuseRuntime, caller museCaller, unit string, binding *identity.Binding) func(context.Context, identity.LaunchControl) error {
