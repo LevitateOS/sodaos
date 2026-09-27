@@ -69,6 +69,8 @@ type AcquireRequest struct {
 
 // Binding identifies a native process boundary, not a browser attachment.
 type Binding struct {
+	// ContainerID pins a mediated Git execution to its immutable OCI incarnation.
+	ContainerID    string `json:"container_id,omitempty"`
 	ChildID        string `json:"child_id,omitempty"`
 	UID            int    `json:"uid,omitempty"`
 	GID            int    `json:"gid,omitempty"`
