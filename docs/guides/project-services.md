@@ -24,3 +24,21 @@ than assuming an appliance-wide port pool. Application-consistent backup and res
 are separate operations from terminal reconnect.
 
 Related: [Develop](develop.md).
+
+## Muse opt-in
+
+Use a compatible Linux container with the architecture and runtime prerequisites
+for the pinned Muse CLI. From project root, opt one service in for a provisioned
+Soda account:
+
+```sh
+sudo soda-muse-compose --login soda-tester --file compose.yml --service development
+```
+
+The helper adds read-only tools, the launch interface and a private runtime
+credential mount. It registers the actual immutable child container incarnation
+against the authorizing account. The service keeps its configured user and volumes.
+Run `muse` normally inside the service. Cloning or restarting the child requires
+fresh validation through the helper; an old registration cannot authorize another
+incarnation. Provider custody and credential exposure are owned by
+[Credentials](../reference/credentials.md#normal-muse-command).

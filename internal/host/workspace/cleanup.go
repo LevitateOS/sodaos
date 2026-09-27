@@ -21,6 +21,9 @@ func (w *Runtime) Cleanup(ctx context.Context, r *factory.Run) error {
 			return err
 		}
 	}
+	if err := w.cleanupMuse(r.ID); err != nil {
+		return err
+	}
 	r.CleanupComplete = true
 	return nil
 }

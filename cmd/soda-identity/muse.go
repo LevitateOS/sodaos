@@ -48,6 +48,9 @@ func openFactoryMuseSocket(c settings) (*net.UnixListener, error) {
 	if err := workerRuntimeAvailable(c.MuseWorkerRoot); err != nil {
 		return nil, err
 	}
+	if err := prepareWorkerInterface(c.MuseWorkerSocket); err != nil {
+		return nil, err
+	}
 	if _, err := os.Lstat(c.MuseWorkerSocket); !errors.Is(err, os.ErrNotExist) {
 		return nil, errors.New("muse worker socket is occupied")
 	}
@@ -140,10 +143,10 @@ func validateWorkerSettings(c settings) error {
 	if c.MuseWorkerSocket == "" && c.MuseWorkerRoot == "" {
 		return nil
 	}
-	if !filepath.IsAbs(c.MuseWorkerSocket) || !filepath.IsAbs(c.MuseWorkerRoot) || c.Muse.Binary == "" {
+	if !filepath.IsAbs(c.MuseWorkerSocket) || !filepath.IsAbs(c.MuseWorkerRoot) || c.Muse.Binary == "" || filepath.Base(c.MuseWorkerSocket) != "launch.sock" {
 		return errors.New("explicit Muse worker runtime paths required")
 	}
-	if c.MuseWorkerSocket == c.AdminSocket || c.MuseWorkerSocket == c.RuntimeSocket {
+	if filepath.Dir(c.MuseWorkerSocket) == filepath.Dir(c.AdminSocket) || filepath.Dir(c.MuseWorkerSocket) == filepath.Dir(c.RuntimeSocket) {
 		return errors.New("muse launch socket must be separate from broker sockets")
 	}
 	return nil
@@ -193,4 +196,16 @@ func factoryPeerNamespace(peer terminal.MusePeer) (string, error) {
 		return "", identity.ErrDenied
 	}
 	return ns, nil
+}
+
+func prepareWorkerInterface(socket string) error {
+	root := filepath.Dir(socket)
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(root)
+	if err != nil || len(entries) != 0 {
+		return errors.New("worker public interface directory must be empty at startup")
+	}
+	return nil
 }

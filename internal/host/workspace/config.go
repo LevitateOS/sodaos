@@ -15,18 +15,21 @@ import (
 // Config is trusted operator configuration, never input from a coding agent.
 // HarnessDirectory contains the complete pinned Codex package, not auth state.
 type Config struct {
-	Root             string   `json:"root"`
-	HarnessDirectory string   `json:"harness_directory"`
-	HarnessSHA256    string   `json:"harness_sha256"`
-	Image            string   `json:"image"`
-	ProxyImage       string   `json:"proxy_image"`
-	HarnessVersion   string   `json:"harness_version"`
-	Model            string   `json:"model"`
-	AllowedDomains   []string `json:"allowed_domains"`
-	CPUs             int      `json:"cpus"`
-	MemoryBytes      int64    `json:"memory_bytes"`
-	WritableBytes    int64    `json:"writable_bytes"`
-	PIDs             int      `json:"pids"`
+	MuseToolsDirectory string   `json:"muse_tools_directory"`
+	MuseSocket         string   `json:"muse_socket"`
+	MuseCredentialRoot string   `json:"muse_credential_root"`
+	Root               string   `json:"root"`
+	HarnessDirectory   string   `json:"harness_directory"`
+	HarnessSHA256      string   `json:"harness_sha256"`
+	Image              string   `json:"image"`
+	ProxyImage         string   `json:"proxy_image"`
+	HarnessVersion     string   `json:"harness_version"`
+	Model              string   `json:"model"`
+	AllowedDomains     []string `json:"allowed_domains"`
+	CPUs               int      `json:"cpus"`
+	MemoryBytes        int64    `json:"memory_bytes"`
+	WritableBytes      int64    `json:"writable_bytes"`
+	PIDs               int      `json:"pids"`
 }
 
 var hostname = regexp.MustCompile(`^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$`)
@@ -48,6 +51,9 @@ func (c Config) Validate() error {
 	}
 	if c.HarnessVersion == "" || c.Model == "" || !factory.ValidDigest(c.HarnessSHA256) {
 		return errors.New("a qualified Codex version and model are required")
+	}
+	if err := c.validateMusePaths(); err != nil {
+		return err
 	}
 	return c.validatePaths()
 }

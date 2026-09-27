@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/netip"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +47,11 @@ func (r *Runtime) createContainer(ctx context.Context, in domain.Create) error {
 	// NET_ADMIN lets nested netavark configure project-owned networking;
 	// SYS_PTRACE lets the engine enter different-UID workload process namespaces.
 	// Both are confined to the project's user namespace, not the appliance.
-	args := []string{"create", "--name", name, "--label", "org.soda.project=" + in.ID, "--label", "org.soda.owner=" + strconv.FormatInt(in.Owner, 10), "--network", r.Config.Network, "--userns=auto:size=262144", "--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN,SYS_PTRACE", "--device=/dev/fuse", "--security-opt=label=disable", "--label", "org.soda.profile=" + profile.ID, "--label", "org.soda.creation-profile=" + string(encoded), "--pull=never", profile.Image}
+	args := []string{"create", "--name", name, "--label", "org.soda.project=" + in.ID, "--label", "org.soda.owner=" + strconv.FormatInt(in.Owner, 10), "--network", r.Config.Network, "--userns=auto:size=262144", "--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN,SYS_PTRACE", "--device=/dev/fuse", "--security-opt=label=disable", "--label", "org.soda.profile=" + profile.ID, "--label", "org.soda.creation-profile=" + string(encoded), "--pull=never"}
+	if r.Config.MuseSocket != "" {
+		args = append(args, "--volume", filepath.Dir(r.Config.MuseSocket)+":/run/soda-muse-interface:ro")
+	}
+	args = append(args, profile.Image)
 	_, err = r.podman(ctx, nil, args...)
 	return err
 }

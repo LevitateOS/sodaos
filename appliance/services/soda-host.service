@@ -8,5 +8,8 @@ ExecStart=/usr/local/libexec/soda/soda-host
 User=root
 Group=root
 UMask=0077
+RuntimeDirectory=soda-muse-interface
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
 # Podman and systemctl require real host namespaces. Authorization is at the
 # root:soda Unix socket and the fixed operation surface, never a public listener.

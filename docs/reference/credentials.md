@@ -62,8 +62,8 @@ named transactions return with bounded UI markers, not arbitrary return URLs.
 
 The userspace `soda-identity` service keeps Codex ChatGPT and Muse Code subscription
 connections private to their Soda owner. Connections, enrollments and leases carry
-an explicit `provider_id` (`codex` or `muse`). Connect in project controls, complete OpenAI device
-sign-in, and explicitly choose a connection when starting Codex. Device sign-in
+an explicit `provider_id` (`codex` or `muse`). Connect in project controls and complete the selected provider’s device sign-in.
+Choose a connection when starting Codex. Device sign-in
 must be enabled by the upstream account or organization; unsupported enrollment
 requires upstream setup, never silent conversion to API billing. The verified
 protocol is Codex CLI `0.153.4`; operator configuration pins actual executable bytes.
@@ -121,6 +121,24 @@ an undocumented Meta refresh service or switch to pay-as-you-go billing. The nat
 file backend uses `TBH_CREDENTIAL_BACKEND=file`; it is verified for the selected
 bytes, rather than assumed to be a stable public interface across releases.
 
+### Normal Muse command
+
+After one Muse enrollment, run `muse` or `muse exec` from the provisioned account
+in an authorized project. The launcher derives identity from kernel peer evidence
+and the current account marker; caller arguments do not select an actor or project.
+When several authorized Muse connections exist, set `SODA_MUSE_CONNECTION` to the
+chosen connection ID. Settings and working directories belong to each invocation;
+subscription execution removes inherited API-key overrides.
+
+Each execution has a separate systemd unit and broker lease. The only container
+interface is the launch socket at `/run/soda-muse-interface/launch.sock`.
+Mount its dedicated public directory read-only, so socket replacement after service
+restart remains visible. Never place broker administration, credential-delivery
+sockets or credentials in that directory. The broker must confirm termination
+before deleting runtime credentials. A rejected upstream credential requires
+reconnection through Soda; generic command failures are not proof of authentication
+failure.
+
 ### Service configuration
 
 Broker and factory share the dedicated `soda-identity` operator, its rootless Podman
@@ -159,3 +177,15 @@ Source owners: `identity` records, `identity/control` custody, `identity/codex`
 provider protocol, `identity/muse` native enrollment, `identity/client` private transport, `store` encrypted rows,
 `web/api` browser authority, and native workspace/terminal executors for attestation
 and complete execution termination.
+
+For project Muse execution, host configuration supplies `identity_socket`,
+`muse_socket`, `muse_version` and `muse_sha256` from the pinned release manifest.
+For workers, broker configuration adds `muse_worker_socket` and
+`muse_worker_root`; the latter is a private tmpfs directory. Its dedicated operator
+must have a lingering systemd user manager and an available user D-Bus socket.
+Execution uses that manager while retaining the existing rootless Podman context.
+Factory configuration supplies `muse_tools_directory`, `muse_socket` and
+`muse_credential_root`, matching the broker’s public interface and tmpfs root.
+Only pinned public tools and the launch interface enter the worker. The existing
+factory Git authority and Codex coding loop remain unchanged. The worker’s explicit
+egress profile must permit `api.meta.ai` for Muse subscription requests.

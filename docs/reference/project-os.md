@@ -37,7 +37,7 @@ wires the non-preference foundation.
 | --- | --- |
 | Native account/home/group setup, locale, shell startup, permissions, CA trust | Personal dotfiles, preferred shell, appearance |
 | Working terminal, tmux, basic editor/pager, diagnostics | Preferred editor/IDE, keybindings, theme |
-| Git, packaged forge CLIs, shared mise, standard build/debug tools | Repository language versions, build commands, trust decisions |
+| Git, packaged forge CLIs, pinned Muse launcher and CLI, shared mise, standard build/debug tools | Repository language versions, build commands, trust decisions |
 | Native workload engine, Compose support, storage and access integration | Which services to run and how they are configured |
 | On KDE: functioning user desktop, display/input transport, fonts, clipboard, file manager, basic graphical editor, browser | Preferred apps, browser profile, personal accounts |
 
@@ -130,3 +130,24 @@ scope ([Product scope](../product/scope.md)).
 
 Project execution admission follows the current repository-write policy in
 [Projects](../product/projects.md#explicit-joining).
+
+## Muse subscription access
+
+The normal `muse` command uses the [Identity Broker](credentials.md#normal-muse-command)
+from SSH and browser terminals. The pinned native executable lives at
+`/usr/local/libexec/soda/muse`; its Go launcher lives at `/usr/local/bin/muse`.
+Versions and architecture-specific checksums belong to `project-os/muse-release.json`.
+Project images contain public executables only. Enrollment and runtime credentials
+are never image payloads.
+
+Nested services require the explicit [Compose opt-in](../guides/project-services.md#muse-opt-in).
+Update an existing running project explicitly from the appliance:
+
+```sh
+sudo soda-muse-maintain --project p0123456789abcdef01234567
+```
+
+Maintenance replaces only the three public Muse tools and attaches the dedicated
+launch interface to the same native root. It preserves accounts, project files,
+volumes and other installed tools. The project startup unit restores the interface
+after a restart; maintenance does not recreate a container or its storage.

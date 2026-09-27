@@ -27,7 +27,11 @@ func TestMuseWorkerSettingsRequireDedicatedExplicitPaths(t *testing.T) {
 	if err := validateWorkerSettings(c); err == nil {
 		t.Fatal("broker credential socket exposed for launch")
 	}
-	c.MuseWorkerSocket = "/run/soda-identity/muse-launch.sock"
+	c.MuseWorkerSocket = "/run/soda/launch.sock"
+	if err := validateWorkerSettings(c); err == nil {
+		t.Fatal("broker socket directory exposed for launch")
+	}
+	c.MuseWorkerSocket = "/run/soda-muse-worker-interface/launch.sock"
 	if err := validateWorkerSettings(c); err != nil {
 		t.Fatal(err)
 	}

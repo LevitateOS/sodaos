@@ -93,7 +93,13 @@ func (d *Daemon) identityOperation(ctx context.Context, path string, body io.Rea
 	if err := strictjson.Decode(body, &in); err != nil {
 		return nil, err
 	}
-	out, err := d.Terminal.Identity(ctx, strings.TrimPrefix(path, "/identity/"), identity.Delivery(in))
+	var out identity.Delivery
+	var err error
+	if in.Lease.ProviderID == identity.Muse && in.Lease.Binding != nil && in.Lease.Binding.Scope == "muse-project" && d.Muse != nil {
+		out, err = d.Muse.Muse(ctx, strings.TrimPrefix(path, "/identity/"), identity.Delivery(in))
+	} else {
+		out, err = d.Terminal.Identity(ctx, strings.TrimPrefix(path, "/identity/"), identity.Delivery(in))
+	}
 	return identity.DeliveryWire(out), err
 }
 

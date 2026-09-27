@@ -37,6 +37,9 @@ import (
 var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
+	MuseSHA256         string `json:"muse_sha256"`
+	MuseVersion        string `json:"muse_version"`
+	MuseSocket         string `json:"muse_socket"`
 	IdentitySocket     string `json:"identity_socket"`
 	CodexHarness       string `json:"codex_harness"`
 	CodexHarnessSHA256 string `json:"codex_harness_sha256"`
@@ -95,6 +98,9 @@ func validateIdentityRuntime(c Config) error {
 }
 
 func validateRuntimeConfig(c Config) error {
+	if err := validateMuseRuntime(c); err != nil {
+		return err
+	}
 	if err := validateIdentityRuntime(c); err != nil {
 		return err
 	}
@@ -154,6 +160,7 @@ func (Native) RunReader(ctx context.Context, in io.Reader, command string, args 
 }
 
 type Daemon struct {
+	Muse          *terminal.MuseRuntime
 	Identity      *identityclient.Client
 	Tailnet       *tailnet.Control
 	Companion     *tailnetexec.Companion
@@ -181,6 +188,9 @@ func NewDaemon(c Config) *Daemon {
 		Runners:  &runners.Operations{Local: runnerNative, Lifecycle: runnerNative},
 	}
 	d.Terminal.EndIdentity = d.Identity.EndLease
+	if c.MuseSHA256 != "" {
+		d.Muse = d.museRuntime()
+	}
 	if !c.TailnetManagement {
 		return d
 	}
@@ -419,4 +429,14 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(out)
+}
+
+func validateMuseRuntime(c Config) error {
+	if c.MuseSHA256 == "" {
+		return nil
+	}
+	if !filepath.IsAbs(c.MuseSocket) || !filepath.IsAbs(c.IdentitySocket) || !build.Digest(c.MuseSHA256) || c.MuseVersion == "" || filepath.Base(c.MuseSocket) != "launch.sock" {
+		return errors.New("explicit muse socket, broker socket and release digest required")
+	}
+	return nil
 }
