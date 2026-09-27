@@ -9,6 +9,17 @@ func TestRemoteRequestSelectsRepositoryWithoutCredentials(t *testing.T) {
 	}
 }
 
+func TestRemoteRequestAcceptsGitURLRewriteLabel(t *testing.T) {
+	remote := "https://forgejo.example.test/soda-tester/repository.git"
+	r, err := remoteRequest([]string{remote, "soda://soda-tester/repository.git"}, "/workspace/repo", "")
+	if err != nil || r.Remote != remote || r.Owner != "soda-tester" || r.Repository != "repository" {
+		t.Fatal("ordinary Git URL rewrite rejected", err)
+	}
+	if _, err := remoteRequest([]string{remote + "\nunsafe", "soda://soda-tester/repository.git"}, "/workspace/repo", ""); err == nil {
+		t.Fatal("control-bearing remote label admitted")
+	}
+}
+
 func TestRemoteRequestRejectsAuthorityAndPathOverrides(t *testing.T) {
 	for _, remote := range []string{
 		"https://example.test/soda-tester/repository.git",

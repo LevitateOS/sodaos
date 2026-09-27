@@ -1,6 +1,9 @@
 package identity
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 const GitLaunchSocket = "/run/soda-git-interface/launch.sock"
 
@@ -16,10 +19,22 @@ type GitLaunchRequest struct {
 }
 
 func (r GitLaunchRequest) Validate() error {
-	if !launchAbsolutePath(r.CWD, false) || !launchText(r.ConnectionID, 128) || !gitLaunchPart(r.Remote) || !gitLaunchPart(r.Owner) || !gitLaunchPart(r.Repository) {
+	if !launchAbsolutePath(r.CWD, false) || !launchText(r.ConnectionID, 128) || !gitLaunchRemote(r.Remote) || !gitLaunchPart(r.Owner) || !gitLaunchPart(r.Repository) {
 		return ErrDenied
 	}
 	return nil
+}
+
+func gitLaunchRemote(value string) bool {
+	if value == "" || len(value) > 2048 || strings.HasPrefix(value, "-") {
+		return false
+	}
+	for _, ch := range value {
+		if unicode.IsControl(ch) {
+			return false
+		}
+	}
+	return true
 }
 
 func gitLaunchPart(value string) bool {

@@ -12,11 +12,14 @@ import (
 	"github.com/levitateos/sodaos/internal/host/terminal"
 	"github.com/levitateos/sodaos/internal/host/workspace"
 	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type nativeRuntime struct {
-	Host *host.Client
-	Muse *terminal.MuseRuntime
+	Host  *host.Client
+	Muse  *terminal.MuseRuntime
+	Git   *terminal.FactoryGitRuntime
+	Store *store.Store
 }
 
 var nativeID = regexp.MustCompile(`^[0-9a-f]{64}$`)
@@ -40,6 +43,9 @@ func (n nativeRuntime) Finish(ctx context.Context, l identity.Lease) ([]byte, er
 func (n nativeRuntime) Validate(ctx context.Context, l identity.Lease) error {
 	// Forgejo requires its own supervised Git execution, never the workspace boundary.
 	if l.ProviderID == identity.Forgejo {
+		if l.Kind == identity.Factory {
+			return n.factoryGitOperation(ctx, "validate", l)
+		}
 		return n.projectGitOperation(ctx, "validate", l)
 	}
 	if l.Binding == nil {
@@ -106,6 +112,9 @@ func podman(ctx context.Context, args ...string) ([]byte, error) {
 
 func (n nativeRuntime) Stop(ctx context.Context, l identity.Lease) error {
 	if l.ProviderID == identity.Forgejo {
+		if l.Kind == identity.Factory {
+			return n.factoryGitOperation(ctx, "stop", l)
+		}
 		return n.projectGitOperation(ctx, "stop", l)
 	}
 	if l.Binding == nil {
