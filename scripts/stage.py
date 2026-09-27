@@ -63,6 +63,10 @@ if not vendor:
     for unit in (source / 'appliance/services').iterdir():
         folder = '/etc/containers/systemd' if unit.suffix == '.container' else '/etc/systemd/system'
         copy(unit, f'{folder}/{unit.name}', 0o644)
+# Public, pinned tools only; runtime credentials never enter a build context.
+muse_tools = '/usr/share/soda/muse-tools' if vendor else '/usr/local/share/soda/muse-tools'
+for name in ['muse', 'muse-native', 'soda-muse-compose']:
+    copy(build / 'project-tools/bin' / name, muse_tools + '/' + name, 0o755)
 # Stock Cockpit only. Never copy an ignored retired cockpit/dist tree.
 configs = {
     'soda.sysusers': '/etc/sysusers.d/soda.conf',

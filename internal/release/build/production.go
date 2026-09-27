@@ -156,6 +156,9 @@ func (p Production) Dependencies() error {
 }
 
 func (p Production) assetSteps(stage []string) error {
+	if err := os.MkdirAll(filepath.Join(p.Native, "project-tools/bin"), 0o755); err != nil {
+		return err
+	}
 	steps := []struct {
 		label string
 		args  []string
@@ -163,6 +166,9 @@ func (p Production) assetSteps(stage []string) error {
 		{"Build frontend assets", []string{"bun", "scripts/build-forgejo.ts", "--out", filepath.Join(p.Native, "forgejo-js")}},
 		{"Fetch terminal assets", []string{"python3", "scripts/fetch-terminal.py", "--out", filepath.Join(p.Native, "terminal-assets")}},
 		{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
+		{"Fetch upstream Muse binary", []string{"go", "run", "./tools/soda-fetch-muse", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools/bin/muse-native")}},
+		{"Compile Muse launcher", []string{"go", "build", "-mod=readonly", "-trimpath", "-o", filepath.Join(p.Native, "project-tools/bin/muse"), "./cmd/soda-muse"}},
+		{"Compile Muse Compose helper", []string{"go", "build", "-mod=readonly", "-trimpath", "-o", filepath.Join(p.Native, "project-tools/bin/soda-muse-compose"), "./cmd/soda-muse-compose"}},
 		{"Fetch upstream Tea binary", []string{"python3", "scripts/fetch-tea.py", "--arch", p.Arch}},
 		{"Stage appliance files", stage},
 	}
