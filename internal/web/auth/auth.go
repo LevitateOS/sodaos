@@ -20,7 +20,7 @@ import (
 
 func token() string {
 	b := make([]byte, 32)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
@@ -51,6 +51,7 @@ func (s *Service) authRoutes() {
 	s.mux.HandleFunc("/api/login/cancel", s.cancelLogin)
 	s.mux.HandleFunc("GET /login", s.login)
 	s.mux.HandleFunc("GET /oauth/callback", s.callback)
+	s.mux.HandleFunc("GET /identity/callback", s.brokerCallback)
 }
 
 // Native IDs have one bounded decimal representation; they are never usernames

@@ -40,6 +40,7 @@ func New(c config.Config, db *store.Store) *Server {
 	s.Auth = auth.New(&s.Config, db, client)
 	s.API = api.New(&s.Config, db, client, hostClient, s.Auth)
 	s.API.Identity = identityclient.New(c.IdentitySocket)
+	s.Auth.EnrollmentBroker = identityclient.New(c.IdentitySocket)
 	s.Auth.SessionEndGate = s.API.TerminalLock()
 	s.Auth.CancelTerminals = s.API.CancelTerminals
 

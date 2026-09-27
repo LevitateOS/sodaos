@@ -83,7 +83,7 @@ export class SodaIdentity extends LitElement {
     this.leases = [];
     this.available = [];
     this.enrollment = undefined;
-    this.message = 'Reconnect Soda before managing subscriptions.';
+    this.message = 'Reconnect Soda before managing connections.';
   };
   connectedCallback() {
     super.connectedCallback();
@@ -129,7 +129,7 @@ export class SodaIdentity extends LitElement {
     const serial = this.contextSerial;
     try {
       await action();
-      if (serial === this.contextSerial) this.message = 'Subscription status refreshed.';
+      if (serial === this.contextSerial) this.message = 'Connection status refreshed.';
     } catch (error) {
       if (serial === this.contextSerial)
         this.message = error instanceof Error ? error.message : 'Request was not confirmed. Refresh status.';
@@ -148,7 +148,10 @@ export class SodaIdentity extends LitElement {
         availableConnectionView
       );
     if (this.enrollment)
-      this.enrollment = enrollmentView(await this.request('/identity/enrollments/' + this.enrollment.id));
+      this.enrollment = enrollmentView(
+        await this.request('/identity/enrollments/' + this.enrollment.id),
+        window.location.origin
+      );
   }
   private async loadSelected() {
     this.grants = [];
@@ -172,7 +175,8 @@ export class SodaIdentity extends LitElement {
           provider_id: data.get('provider_id'),
           label,
           confirm_credential_exposure: data.has('exposure'),
-        })
+        }),
+        window.location.origin
       );
     });
   };
@@ -256,9 +260,9 @@ export class SodaIdentity extends LitElement {
       ${
         enrollment.verification_url
           ? html`<a href=${enrollment.verification_url} target="_blank" rel="noopener noreferrer"
-                >Open OpenAI sign-in</a
+                >Open provider sign-in</a
               >
-              <p>Code: <strong>${enrollment.user_code}</strong></p>`
+              ${enrollment.user_code ? html`<p>Code: <strong>${enrollment.user_code}</strong></p>` : ''}`
           : ''
       }
       <button type="button" @click=${this.cancel}>Cancel sign-in</button>
@@ -269,7 +273,7 @@ export class SodaIdentity extends LitElement {
     if (!connection) return '';
     return html`<p>${connection.email} · ${connection.plan} · ${connection.state}</p>
       <p>Connection ID: ${connection.id}</p>
-      <button type="button" @click=${this.disconnect}>Disconnect subscription and end its active uses</button>
+      <button type="button" @click=${this.disconnect}>Disconnect connection and end its active uses</button>
       <ul>
         ${this.grants.map(
           (grant) => html`<li>
@@ -289,21 +293,27 @@ export class SodaIdentity extends LitElement {
   }
   private projectView() {
     if (!this.project) return '';
-    return html`<form @submit=${this.delegate}>
-        <h3>Delegate this subscription in this project</h3>
-        <label
-          >Named member's Forgejo user ID <input name="user_id" required inputmode="numeric" pattern="[1-9][0-9]*"
-        /></label>
-        <label
-          ><input type="checkbox" name="subscription" required />I confirm my provider terms allow this named user to
-          use my subscription.</label
-        >
-        <label
-          ><input type="checkbox" name="exposure" required />I understand the selected tool receives credentials in the
-          trusted project process; code running with that account may read them.</label
-        >
-        <button ?disabled=${!this.selected}>Authorize named member</button>
-      </form>
+    const forgejo = this.connections.find((connection) => connection.id === this.selected)?.provider_id === 'forgejo';
+    return html`${
+        forgejo
+          ? html`<p>Forgejo connections remain bound to your own account.</p>`
+          : html`<form @submit=${this.delegate}>
+              <h3>Delegate this subscription in this project</h3>
+              <label
+                >Named member's Forgejo user ID
+                <input name="user_id" required inputmode="numeric" pattern="[1-9][0-9]*"
+              /></label>
+              <label
+                ><input type="checkbox" name="subscription" required />I confirm my provider terms allow this named user
+                to use my subscription.</label
+              >
+              <label
+                ><input type="checkbox" name="exposure" required />I understand the selected tool receives credentials
+                in the trusted project process; code running with that account may read them.</label
+              >
+              <button ?disabled=${!this.selected}>Authorize named member</button>
+            </form>`
+      }
       <form @submit=${this.launch}>
         <p>Connected Muse subscriptions are used by the normal <code>muse</code> command in authorized containers.</p>
         <h3>Start Codex</h3>
@@ -317,11 +327,11 @@ export class SodaIdentity extends LitElement {
       </form>`;
   }
   protected render() {
-    return html`<section aria-label="CLI subscriptions">
-      <h2>CLI subscriptions</h2>
+    return html`<section aria-label="Identity connections">
+      <h2>Identity connections</h2>
       <p role="status">${this.message}</p>
       <fieldset ?disabled=${this.blocked()}>
-        <legend>Personal subscription connections</legend>
+        <legend>Personal account connections</legend>
         <button type="button" @click=${this.refresh}>Refresh status</button>
         <form @submit=${this.connect}>
           <label
@@ -329,13 +339,15 @@ export class SodaIdentity extends LitElement {
             <select name="provider_id">
               <option value="codex">Codex / OpenAI</option>
               <option value="muse">Muse Code / Meta</option>
+              <option value="forgejo">Forgejo account</option>
             </select></label
           >
           <label>Connection label <input name="label" required maxlength="80" /></label
           ><label
             ><input type="checkbox" name="exposure" required />I trust this appliance and project administrators with my
-            subscription credentials. The tool and code running in my project account may read them.</label
-          ><button>Connect subscription</button>
+            connected credentials. Authorized project code may receive provider credentials; Forgejo access is
+            mediated.</label
+          ><button>Connect account</button>
         </form>
         ${this.enrollmentView()}<label
           >Your connections

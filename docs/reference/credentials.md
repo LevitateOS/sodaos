@@ -79,7 +79,7 @@ subscription-only behavior cannot be established is not admitted by the broker.
 
 The userspace `soda-identity` service keeps Codex ChatGPT and Muse Code subscription
 connections private to their Soda owner. Connections, enrollments and leases carry
-an explicit `provider_id` (`codex` or `muse`). Connect in project controls and complete the selected provider’s device sign-in.
+an explicit `provider_id` (`codex`, `muse` or `forgejo`). Codex and Muse use subscription device sign-in; Forgejo uses the separate account consent flow below. Connect in project controls and complete the selected provider’s native sign-in.
 Choose a connection when starting Codex. Device sign-in
 must be enabled by the upstream account or organization; unsupported enrollment
 requires upstream setup, never silent conversion to API billing. The verified
@@ -131,6 +131,11 @@ Configure `forgejo.base`, `forgejo.client_id`, `forgejo.redirect_url` and the
 absolute `forgejo_secret_file` in the broker settings. Keep the client secret in a
 restricted file, separate from the browser application's secret. Native callback
 completion uses the private administration interface; it does not expose tokens.
+The fixed browser return is `/-/soda/identity/callback`. A secure HTTP-only cookie
+binds its expiring transaction to the initiating Soda account, session and context.
+The callback is consumed once, with fresh session checks around completion and
+encrypted retention. Logout, a changed session or dashboard restart requires
+starting a new enrollment. Browser sign-in transactions remain separate.
 Forgejo credentials are excluded from raw terminal and factory credential
 delivery. Repository access must be mediated because native OAuth repository
 scopes apply across the account's permitted repositories. Git author identity

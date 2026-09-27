@@ -23,6 +23,7 @@ Bookmark bridges redirect to fixed native Forgejo views; they do not embed autho
 | --- | --- | --- |
 | GET | `/login` | Start OAuth with fixed destination |
 | GET | `/oauth/callback` | OAuth callback |
+| GET | `/identity/callback` | Native Forgejo broker consent return; bound to the initiating Soda session, single use, no credential response |
 | GET/POST | `/api/login/cancel` | Cancel pending OAuth / coordinated logout helper |
 | GET | `/api/session` | Current Soda session |
 | POST | `/api/session/logout` | End Soda session |

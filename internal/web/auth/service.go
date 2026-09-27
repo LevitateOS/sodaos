@@ -19,8 +19,11 @@ type Service struct {
 	Store   *store.Store
 	Forgejo *forgejo.Client
 
-	mux           *http.ServeMux
-	providerLocks providerLocks
+	mux              *http.ServeMux
+	providerLocks    providerLocks
+	EnrollmentBroker EnrollmentBroker
+	brokerMu         sync.Mutex
+	brokerBindings   map[string]brokerBinding
 
 	// SessionEndGate and CancelTerminals are wired by web from the terminal
 	// registry so login-context end stays serialized with peer cancellation.

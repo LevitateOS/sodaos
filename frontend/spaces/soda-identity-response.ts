@@ -1,6 +1,6 @@
 import {check, id, object} from './sodaspaces-api.js';
 
-export type ProviderID = 'codex' | 'muse';
+export type ProviderID = 'codex' | 'muse' | 'forgejo';
 export interface Connection {
   provider_id: ProviderID;
   id: string;
@@ -43,7 +43,7 @@ function identityID(value: unknown): string {
   return result;
 }
 function provider(value: unknown): ProviderID {
-  check(value === 'codex' || value === 'muse');
+  check(value === 'codex' || value === 'muse' || value === 'forgejo');
   return value;
 }
 export function connectionView(value: unknown, actor: string): Connection {
@@ -64,17 +64,13 @@ export function availableConnectionView(value: unknown): Connection {
     state: text(data.state),
   };
 }
-export function enrollmentView(value: unknown): Enrollment {
+export function enrollmentView(value: unknown, forgejoOrigin?: string): Enrollment {
   const data = object(value),
     url = text(data.verification_url),
     providerID = provider(data.provider_id);
   if (url) {
     const parsed = new URL(url);
-    check(
-      parsed.origin === (providerID === 'muse' ? 'https://auth.meta.com' : 'https://auth.openai.com') &&
-        !parsed.username &&
-        !parsed.password
-    );
+    check(parsed.origin === enrollmentOrigin(providerID, forgejoOrigin) && !parsed.username && !parsed.password);
   }
   return {
     provider_id: providerID,
@@ -83,6 +79,14 @@ export function enrollmentView(value: unknown): Enrollment {
     user_code: text(data.user_code),
     state: text(data.state),
   };
+}
+function enrollmentOrigin(providerID: ProviderID, forgejoOrigin?: string): string {
+  if (providerID === 'muse') return 'https://auth.meta.com';
+  if (providerID === 'codex') return 'https://auth.openai.com';
+  check(typeof forgejoOrigin === 'string');
+  const origin = new URL(forgejoOrigin);
+  check(origin.protocol === 'https:' && origin.origin === forgejoOrigin);
+  return origin.origin;
 }
 export function grantView(value: unknown): Grant {
   const data = object(value);

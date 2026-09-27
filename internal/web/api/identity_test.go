@@ -20,10 +20,12 @@ import (
 
 type identityFake struct {
 	IdentityClient
-	owner int64
-	calls int
-	grant identity.GrantRequest
-	after func()
+	owner             int64
+	calls             int
+	grant             identity.GrantRequest
+	after             func()
+	invalidEnrollment bool
+	canceled          int
 }
 
 func (f *identityFake) Connections(_ context.Context, owner int64) ([]identity.Connection, error) {
@@ -44,9 +46,30 @@ func (f *identityFake) Revoke(_ context.Context, owner int64, _ string) error {
 	return nil
 }
 
-func (f *identityFake) StartEnrollment(_ context.Context, owner int64, _, _ string) (identity.Enrollment, error) {
+func (f *identityFake) StartEnrollment(_ context.Context, owner int64, providerID, _ string) (identity.Enrollment, error) {
 	f.owner, f.calls = owner, f.calls+1
-	return identity.Enrollment{ID: "enrollment", State: "pending"}, nil
+	result := identity.Enrollment{ID: "enrollment", ProviderID: providerID, State: "pending"}
+	if providerID == identity.Forgejo {
+		result.VerificationURL = "https://forgejo.example.test/login/oauth/authorize?state=native-state&redirect_uri=https%3A%2F%2Fforgejo.example.test%2F-%2Fsoda%2Fidentity%2Fcallback"
+		if f.invalidEnrollment {
+			result.VerificationURL = "https://foreign.example.test/login/oauth/authorize"
+		}
+	}
+	return result, nil
+}
+
+func (f *identityFake) CancelEnrollment(_ context.Context, owner int64, _ string) error {
+	f.owner = owner
+	f.canceled++
+	return nil
+}
+
+func (f *identityFake) CompleteEnrollment(context.Context, int64, string, string, string) (identity.Enrollment, error) {
+	return identity.Enrollment{}, identity.ErrDenied
+}
+
+func (f *identityFake) Enrollment(context.Context, int64, string) (identity.Enrollment, error) {
+	return identity.Enrollment{}, identity.ErrDenied
 }
 
 func (f *identityFake) Available(_ context.Context, owner int64, _ string) ([]identity.Connection, error) {
@@ -234,5 +257,23 @@ func TestIdentityGrantRequiresConfirmationsProvisionedMembersAndCurrentWrite(t *
 				}
 			}
 		})
+	}
+}
+
+func TestIdentityForgejoEnrollmentRequiresBoundNativeURL(t *testing.T) {
+	for _, invalid := range []bool{false, true} {
+		s, mux, fake := identityFixture(t, true)
+		s.Auth.EnrollmentBroker = fake
+		fake.invalidEnrollment = invalid
+		r := identityRequest("POST", "/api/identity/enrollments", `{"provider_id":"forgejo","label":"Git account","confirm_credential_exposure":true}`)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r)
+		if invalid {
+			if w.Code != 403 || fake.canceled != 1 {
+				t.Fatal("invalid native URL accepted or orphan not canceled")
+			}
+		} else if w.Code != 200 || len(w.Result().Cookies()) != 1 || fake.owner != 1 {
+			t.Fatal("Forgejo enrollment not bound to browser owner")
+		}
 	}
 }

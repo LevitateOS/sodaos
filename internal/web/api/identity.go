@@ -44,9 +44,9 @@ func (s *API) identityRoutes() {
 func identityError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, identity.ErrDenied):
-		auth.JSONError(w, 403, "identity_denied", "This subscription operation is not authorized.")
+		auth.JSONError(w, 403, "identity_denied", "This connection operation is not authorized.")
 	case errors.Is(err, identity.ErrBusy), errors.Is(err, identity.ErrStale), errors.Is(err, identity.ErrUncertain):
-		auth.JSONError(w, 409, "identity_unavailable", "Subscription use is unavailable. Refresh status or reconnect before retrying.")
+		auth.JSONError(w, 409, "identity_unavailable", "Connection use is unavailable. Refresh status or reconnect before retrying.")
 	default:
 		auth.JSONError(w, 503, "identity_unavailable", "Identity service did not confirm the operation. Refresh before retrying.")
 	}
@@ -98,12 +98,26 @@ func (s *API) apiIdentityStartEnrollment(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	input.Label = strings.TrimSpace(input.Label)
-	if (input.ProviderID != identity.Codex && input.ProviderID != identity.Muse) || input.Label == "" || len(input.Label) > 80 || !input.ConfirmCredentialExposure {
+	if !identity.ProviderValid(input.ProviderID) || input.Label == "" || len(input.Label) > 80 || !input.ConfirmCredentialExposure {
 		auth.JSONError(w, 400, "invalid_enrollment", "Provide a label and confirm appliance trust and credential exposure.")
 		return
 	}
 	result, err := s.Identity.StartEnrollment(r.Context(), v.User.ID, input.ProviderID, input.Label)
+	if err == nil {
+		err = s.bindIdentityEnrollment(w, r, v, input.ProviderID, result)
+	}
 	s.identityResult(w, r, v, result, err)
+}
+
+func (s *API) bindIdentityEnrollment(w http.ResponseWriter, r *http.Request, v store.Session, providerID string, result identity.Enrollment) error {
+	if providerID != identity.Forgejo {
+		return nil
+	}
+	err := s.Auth.BindBrokerEnrollment(w, r, v, result)
+	if err != nil {
+		_ = s.Identity.CancelEnrollment(r.Context(), v.User.ID, result.ID)
+	}
+	return err
 }
 
 func (s *API) apiIdentityEnrollment(w http.ResponseWriter, r *http.Request, v store.Session) {
@@ -151,7 +165,13 @@ func (s *API) apiIdentityCancelEnrollment(w http.ResponseWriter, r *http.Request
 	if !s.identityAdmission(w, r, v) {
 		return
 	}
-	s.identityMutation(w, r, v, s.Identity.CancelEnrollment)
+	s.identityMutation(w, r, v, func(ctx context.Context, owner int64, id string) error {
+		err := s.Identity.CancelEnrollment(ctx, owner, id)
+		if err == nil {
+			s.Auth.ForgetBrokerEnrollment(r, v, id)
+		}
+		return err
+	})
 }
 
 func (s *API) apiIdentityRevoke(w http.ResponseWriter, r *http.Request, v store.Session) {

@@ -50,6 +50,29 @@ test('device enrollment only links to the selected provider authentication origi
   }
 });
 
+test('Forgejo enrollment is restricted to the configured native HTTPS origin', () => {
+  const enrollment = {
+    provider_id: 'forgejo',
+    id: 'enrollment',
+    verification_url: 'https://forgejo.example.test/login/oauth/authorize?state=fixture',
+    user_code: '',
+    state: 'pending',
+  };
+  assert.equal(
+    enrollmentView(enrollment, 'https://forgejo.example.test').verification_url,
+    enrollment.verification_url
+  );
+  assert.throws(() => enrollmentView(enrollment));
+  assert.throws(() => enrollmentView(enrollment, 'https://other.example.test'));
+  assert.throws(() => enrollmentView(enrollment, 'http://forgejo.example.test'));
+  assert.throws(() =>
+    enrollmentView(
+      {...enrollment, verification_url: 'https://user:secret@forgejo.example.test/'},
+      'https://forgejo.example.test'
+    )
+  );
+});
+
 test('named grants and leases preserve decimal identities without exposing delivery', () => {
   const grant = {
     id: 'grant',
@@ -136,7 +159,7 @@ test(
         project: 'p0123456789abcdef01234567',
       };
     });
-    await page.getByRole('status').filter({hasText: 'Subscription status refreshed.'}).waitFor();
+    await page.getByRole('status').filter({hasText: 'Connection status refreshed.'}).waitFor();
     const reads = requests.length;
     await page.evaluate(() => {
       const widget = document.querySelector('soda-identity') as HTMLElement & {
