@@ -101,15 +101,14 @@ func launchCompose(o options, root string) (string, error) {
 	if err := command.Run(); err != nil {
 		return "", errors.New("compose did not confirm opted-in service creation")
 	}
-	out, err := exec.Command("/usr/local/bin/podman-compose", append(args, "ps", "-q", o.service)...).Output()
+	out, err := exec.Command("/usr/local/bin/podman-compose", append(args, "ps", "-q")...).Output()
 	if err != nil {
 		return "", errors.New("compose container identification failed")
 	}
-	child := strings.TrimSpace(string(out))
-	if len(child) != 64 || strings.ContainsAny(child, " \r\n") {
-		return "", errors.New("exactly one immutable Compose container required")
-	}
-	return child, nil
+	return selectComposeChild(string(out), o.service, func(id string) (string, error) {
+		body, err := exec.Command("/usr/bin/podman", "--remote=false", "inspect", "--format", `{{.ID}} {{index .Config.Labels "io.podman.compose.service"}}`, id).Output()
+		return string(body), err
+	})
 }
 
 func account(login string) (int64, error) {
