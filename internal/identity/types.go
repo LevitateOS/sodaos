@@ -81,6 +81,8 @@ type Binding struct {
 }
 
 type Lease struct {
+	// RepositoryID binds mediated Forgejo access to one native repository.
+	RepositoryID  int64     `json:"repository_id,string,omitempty"`
 	ProviderID    string    `json:"provider_id"`
 	ID            string    `json:"id"`
 	ConnectionID  string    `json:"connection_id"`

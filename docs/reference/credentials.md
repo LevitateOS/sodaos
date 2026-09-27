@@ -126,6 +126,9 @@ owner's verified primary email. The native user ID must equal the Soda owner ID.
 One unrevoked Forgejo connection per owner prevents competing refresh streams for
 the same native user/application grant. Reconnection requires retiring that
 connection first. Delegation cannot change the authenticated Forgejo user.
+Forgejo reservations require a project and one stable native repository ID, and
+remain bound to the connected account owner. Independent reservations can coexist;
+retiring one reservation does not remove its siblings.
 
 Configure `forgejo.base`, `forgejo.client_id`, `forgejo.redirect_url` and the
 absolute `forgejo_secret_file` in the broker settings. Keep the client secret in a

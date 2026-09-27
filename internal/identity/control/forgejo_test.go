@@ -18,7 +18,7 @@ func TestForgejoRefusesCredentialDelivery(t *testing.T) {
 	if _, err := c.Acquire(t.Context(), request); !errors.Is(err, identity.ErrDenied) {
 		t.Fatal("Git account admitted to raw credential acquisition")
 	}
-	lease := identity.Lease{ID: "git-lease", ProviderID: identity.Forgejo, ConnectionID: connection.ID, Generation: 1, ActorID: 1, ProjectID: "project", ExecutionID: "git-execution", Kind: identity.Terminal, Deadline: request.Deadline}
+	lease := identity.Lease{RepositoryID: 7, ID: "git-lease", ProviderID: identity.Forgejo, ConnectionID: connection.ID, Generation: 1, ActorID: 1, ProjectID: "project", ExecutionID: "git-execution", Kind: identity.Terminal, Deadline: request.Deadline}
 	if err := s.IdentityReserve(t.Context(), lease); err != nil {
 		t.Fatal(err)
 	}
