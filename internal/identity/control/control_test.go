@@ -88,6 +88,20 @@ func registerBinding(l identity.Lease) identity.Binding {
 	return identity.Binding{Kind: l.Kind, ID: "native-container", Generation: l.Generation}
 }
 
+func TestFactoryReservationRetainsAdmittedRepository(t *testing.T) {
+	c, s, _, connection := controllerFixture(t)
+	in := acquireInput(connection.ID, 1)
+	in.RepositoryID = 7
+	l, err := c.Acquire(t.Context(), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retained, err := s.IdentityLease(t.Context(), l.ID)
+	if err != nil || retained.RepositoryID != 7 || retained.ActorID != 1 {
+		t.Fatal("factory admission lost repository authority", err)
+	}
+}
+
 func TestNamedGrantSerializationAndMaintainedReturn(t *testing.T) {
 	c, s, r, conn := controllerFixture(t)
 	ctx := t.Context()

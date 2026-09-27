@@ -28,7 +28,7 @@ func (c *Controller) Acquire(ctx context.Context, in identity.AcquireRequest) (i
 	if conn.State != identity.Ready || c.providers[conn.ProviderID] == nil {
 		return identity.Lease{}, identity.ErrUncertain
 	}
-	l := identity.Lease{ID: newID(), ProviderID: conn.ProviderID, ConnectionID: conn.ID, Generation: conn.Generation, ActorID: in.ActorID, ProjectID: in.ProjectID, ExecutionID: in.ExecutionID, Kind: in.Kind, Role: in.Role, Deadline: in.Deadline}
+	l := identity.Lease{ID: newID(), ProviderID: conn.ProviderID, ConnectionID: conn.ID, Generation: conn.Generation, ActorID: in.ActorID, ProjectID: in.ProjectID, ExecutionID: in.ExecutionID, Kind: in.Kind, Role: in.Role, Deadline: in.Deadline, RepositoryID: in.RepositoryID}
 	if err = c.authorizeReservation(ctx, conn, &l); err != nil {
 		return l, err
 	}

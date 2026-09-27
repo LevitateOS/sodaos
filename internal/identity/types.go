@@ -55,6 +55,8 @@ type GrantRequest struct {
 }
 
 type AcquireRequest struct {
+	// RepositoryID is supplied by trusted factory admission, never a guest.
+	RepositoryID int64     `json:"repository_id,string,omitempty"`
 	ProviderID   string    `json:"provider_id"`
 	ExecutionID  string    `json:"execution_id"`
 	ActorID      int64     `json:"actor_id,string"`
@@ -81,7 +83,7 @@ type Binding struct {
 }
 
 type Lease struct {
-	// RepositoryID binds mediated Forgejo access to one native repository.
+	// RepositoryID records factory admission or one mediated Forgejo repository.
 	RepositoryID  int64     `json:"repository_id,string,omitempty"`
 	ProviderID    string    `json:"provider_id"`
 	ID            string    `json:"id"`

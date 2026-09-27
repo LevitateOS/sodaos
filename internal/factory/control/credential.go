@@ -10,10 +10,28 @@ import (
 )
 
 func (c *Controller) acquireCredential(ctx context.Context, actor int64, r *factory.Run) error {
+	request, err := c.credentialRequest(ctx, actor, r)
+	if err != nil {
+		return err
+	}
+	return c.reserveCredential(ctx, request, r)
+}
+
+func (c *Controller) credentialRequest(ctx context.Context, actor int64, r *factory.Run) (identity.AcquireRequest, error) {
+	a, err := c.Store.FactoryAttempt(ctx, r.AttemptID)
+	if err != nil {
+		return identity.AcquireRequest{}, err
+	}
+	if a.Work.HumanID != actor || a.Work.RepositoryID <= 0 {
+		return identity.AcquireRequest{}, identity.ErrDenied
+	}
+	return identity.AcquireRequest{ProviderID: identity.Codex, ActorID: actor, ConnectionID: c.Config.ConnectionID, ProjectID: c.Config.ProjectID, ExecutionID: r.ID, Kind: identity.Factory, Deadline: r.Deadline, Role: string(r.Role), RepositoryID: a.Work.RepositoryID}, nil
+}
+
+func (c *Controller) reserveCredential(ctx context.Context, request identity.AcquireRequest, r *factory.Run) error {
 	if err := c.Workspace.CheckHarness(ctx); err != nil {
 		return err
 	}
-	request := identity.AcquireRequest{ProviderID: identity.Codex, ActorID: actor, ConnectionID: c.Config.ConnectionID, ProjectID: c.Config.ProjectID, ExecutionID: r.ID, Kind: identity.Factory, Deadline: r.Deadline, Role: string(r.Role)}
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {

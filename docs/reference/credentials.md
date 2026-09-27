@@ -148,7 +148,9 @@ scopes apply across the account's permitted repositories. A selected remote reso
 to a stable native repository ID; each mediated operation must recheck current
 native read or write permission and the connected owner's verified identity.
 Git HTTP traffic uses the private runtime interface; administration sockets deny
-it. Factory leases require the authorizing run's repository ID and permit only
+it. Factory admission records the repository ID from the admitted work item in
+the broker's base execution lease, alongside its authorizing human. Guest launch
+requests cannot supply that authority. Factory Git leases require that repository ID and permit only
 upload-pack reads. Human leases may use native receive-pack when Forgejo grants
 write permission. Ending a lease cancels its HTTP streams before native stop;
 normal Git retirement does not replace the broker credential.

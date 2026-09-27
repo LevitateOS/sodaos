@@ -169,7 +169,7 @@ func TestBusyReservationHonorsRunCancellationAndHumanIdentity(t *testing.T) {
 		if err := json.NewDecoder(q.Body).Decode(&in); err != nil {
 			t.Fatal(err)
 		}
-		if in.Acquire.ActorID != 7 || in.Acquire.ExecutionID != r.ID || in.Acquire.Role != string(r.Role) || in.Acquire.ProjectID != "project" {
+		if in.Acquire.ActorID != 1 || in.Acquire.RepositoryID != 1 || in.Acquire.ExecutionID != r.ID || in.Acquire.Role != string(r.Role) || in.Acquire.ProjectID != "project" {
 			t.Fatal("reservation identity changed")
 		}
 		w.WriteHeader(http.StatusConflict)
@@ -180,11 +180,19 @@ func TestBusyReservationHonorsRunCancellationAndHumanIdentity(t *testing.T) {
 	})}}
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Millisecond)
 	defer cancel()
-	if err := c.acquireCredential(ctx, 7, &r); !errors.Is(err, context.DeadlineExceeded) {
+	if err := c.acquireCredential(ctx, 1, &r); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal("busy lease escaped cancellation")
 	}
 	if r.IdentityLeaseID != "" {
 		t.Fatal("busy reservation created authority")
+	}
+}
+
+func TestReservationRejectsActorOutsideAdmittedWork(t *testing.T) {
+	s, r := credentialRun(t)
+	c := Controller{Store: s}
+	if err := c.acquireCredential(t.Context(), 2, &r); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("unrelated actor reached harness or broker", err)
 	}
 }
 
