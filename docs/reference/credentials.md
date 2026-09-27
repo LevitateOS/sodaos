@@ -60,6 +60,23 @@ named transactions return with bounded UI markers, not arbitrary return URLs.
 
 ## Identity Broker
 
+### Authentication and billing choice
+
+The selected provider, account and native authentication method are the connection
+contract. Soda-managed AI execution uses subscription access only. Authentication
+failure, credential expiry or subscription limits must stop the affected execution
+and explain the required user action. Soda must never automatically switch to
+usage billing, another account, another provider or another authentication method.
+Changing the selection requires an explicit user choice.
+
+Credential format alone does not establish billing: a subscription credential can
+contain a key, and OAuth can authorize usage-billed access. Each integration must
+verify its native subscription route and prevent environment, configuration and
+upstream overage settings from silently selecting usage billing. A route whose
+subscription-only behavior cannot be established is not admitted by the broker.
+
+### Current providers
+
 The userspace `soda-identity` service keeps Codex ChatGPT and Muse Code subscription
 connections private to their Soda owner. Connections, enrollments and leases carry
 an explicit `provider_id` (`codex` or `muse`). Connect in project controls and complete the selected provider’s device sign-in.
