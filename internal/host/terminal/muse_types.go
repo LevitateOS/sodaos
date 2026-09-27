@@ -13,18 +13,19 @@ import (
 // MuseRuntime owns native caller resolution and one independently supervised
 // execution per launch. Broker authority remains in its existing custody service.
 type MuseRuntime struct {
-	Exec           Executor
-	BinaryVersion  string
-	BinarySHA256   string
-	FactoryRoot    string
-	FactoryResolve func(context.Context, MusePeer) (MuseFactoryCaller, error)
-	Acquire        func(context.Context, identity.AcquireRequest) (identity.Lease, error)
-	Attach         func(context.Context, string, identity.Binding) (identity.Delivery, error)
-	End            func(context.Context, int64, string) error
-	Authorize      func(context.Context, int64, string) error
-	Select         func(context.Context, int64, string, string) (string, error)
-	mu             sync.Mutex
-	nested         map[string]museNested
+	Exec            Executor
+	BinaryVersion   string
+	BinarySHA256    string
+	FactoryRoot     string
+	FactoryResolve  func(context.Context, MusePeer) (MuseFactoryCaller, error)
+	Acquire         func(context.Context, identity.AcquireRequest) (identity.Lease, error)
+	Attach          func(context.Context, string, identity.Binding) (identity.Delivery, error)
+	End             func(context.Context, int64, string) error
+	Authorize       func(context.Context, int64, string) error
+	NestedAuthorize func(context.Context, int64, string) error
+	Select          func(context.Context, int64, string, string) (string, error)
+	mu              sync.Mutex
+	nested          map[string]museNested
 }
 
 type (
@@ -32,11 +33,13 @@ type (
 		Project, Container, Login, Home, Namespace, Child, Registration string
 		Actor                                                           int64
 		UID, GID, ProjectPID, NestedPID                                 int
+		MuseAllowed, GitAllowed                                         bool
 	}
 	museNested struct {
 		Parent, Project, Child, Namespace, Registration string
 		Actor                                           int64
 		PID                                             int
+		Muse, Git                                       bool
 	}
 )
 

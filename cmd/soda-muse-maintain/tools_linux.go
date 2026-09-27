@@ -32,7 +32,7 @@ func loadTools(root, digest, version string) ([]tool, error) {
 		return nil, errors.New("muse maintenance version differs from pinned release")
 	}
 	var sources []tool
-	for _, name := range []string{"muse", "soda-muse-compose", "muse-native"} {
+	for _, name := range []string{"muse", "soda-identity-compose", "muse-native"} {
 		source, err := openTool(filepath.Join(root, name), name)
 		if err != nil {
 			closeTools(sources)

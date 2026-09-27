@@ -8,6 +8,6 @@ import (
 )
 
 func main() {
-	fmt.Fprintln(os.Stderr, "soda-muse-compose requires native Linux Project OS")
+	fmt.Fprintln(os.Stderr, "soda-identity-compose requires native Linux Project OS")
 	os.Exit(1)
 }

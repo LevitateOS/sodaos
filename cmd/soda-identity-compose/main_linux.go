@@ -1,6 +1,6 @@
 //go:build linux
 
-// soda-muse-compose explicitly registers one nested Compose service for Muse.
+// soda-identity-compose registers one explicitly opted-in Compose service.
 package main
 
 import (
@@ -22,11 +22,14 @@ import (
 	"github.com/levitateos/sodaos/internal/identity"
 )
 
-type options struct{ login, service, file string }
+type options struct {
+	login, service, file string
+	muse, git            bool
+}
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "soda-muse-compose:", err)
+		fmt.Fprintln(os.Stderr, "soda-identity-compose:", err)
 		os.Exit(1)
 	}
 }
@@ -48,26 +51,33 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	return register(identity.NestedRegistration{ChildID: child, ActorID: actor, RegistrationID: registration})
+	if o.git {
+		if err := verifyGitChild(child); err != nil {
+			return err
+		}
+	}
+	return register(identity.NestedRegistration{ChildID: child, ActorID: actor, RegistrationID: registration, Muse: o.muse, Git: o.git})
 }
 
 func loadOptions() (options, error) {
-	flags := flag.NewFlagSet("soda-muse-compose", flag.ContinueOnError)
+	flags := flag.NewFlagSet("soda-identity-compose", flag.ContinueOnError)
 	var o options
 	flags.StringVar(&o.login, "login", "", "authorizing provisioned Soda account")
 	flags.StringVar(&o.service, "service", "", "Compose service to opt in")
 	flags.StringVar(&o.file, "file", "compose.yml", "Compose file")
+	flags.BoolVar(&o.muse, "muse", false, "allow Muse in the selected service")
+	flags.BoolVar(&o.git, "git", false, "allow brokered Forgejo Git in the selected service")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return o, err
 	}
 	if !validOptions(o, flags.NArg()) {
-		return o, errors.New("project root, provisioned login and one service required")
+		return o, errors.New("project root, provisioned login, one service and at least one provider required")
 	}
 	return o, nil
 }
 
 func validOptions(o options, remaining int) bool {
-	return remaining == 0 && os.Geteuid() == 0 && o.login != "" && filepath.Base(o.login) == o.login && o.service != ""
+	return remaining == 0 && os.Geteuid() == 0 && o.login != "" && filepath.Base(o.login) == o.login && o.service != "" && (o.muse || o.git)
 }
 
 func registrationRoot() (string, string, error) {
@@ -92,7 +102,7 @@ func registrationRoot() (string, string, error) {
 
 func launchCompose(o options, root string) (string, error) {
 	override := filepath.Join(root, "compose.json")
-	if err := writeOverride(override, o.service, root); err != nil {
+	if err := writeOverride(override, o.service, root, o.muse, o.git); err != nil {
 		return "", err
 	}
 	args := []string{"-f", o.file, "-f", override}
@@ -132,12 +142,13 @@ func account(login string) (int64, error) {
 	return actor, nil
 }
 
-func writeOverride(path, service, root string) error {
-	mounts := []string{
-		"/usr/local/bin/muse:/usr/local/bin/muse:ro",
-		"/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro",
-		filepath.Dir(identity.MuseLaunchSocket) + ":" + filepath.Dir(identity.MuseLaunchSocket) + ":ro",
-		root + ":/run/soda-muse/credentials:ro",
+func writeOverride(path, service, root string, muse, git bool) error {
+	var mounts []string
+	if muse {
+		mounts = append(mounts, root+":/run/soda-muse/credentials:ro", "/usr/local/bin/muse:/usr/local/bin/muse:ro", "/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro", filepath.Dir(identity.MuseLaunchSocket)+":"+filepath.Dir(identity.MuseLaunchSocket)+":ro")
+	}
+	if git {
+		mounts = append(mounts, root+":/run/soda-git/credentials:ro", "/usr/local/bin/git-remote-soda:/usr/local/bin/git-remote-soda:ro", identity.GitLaunchSocket+":"+identity.GitLaunchSocket+":ro")
 	}
 	wire := map[string]any{"services": map[string]any{service: map[string]any{"volumes": mounts}}}
 	data, err := json.Marshal(wire)
@@ -147,10 +158,29 @@ func writeOverride(path, service, root string) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
+func verifyGitChild(child string) error {
+	base := []string{"--remote=false", "exec", child}
+	git, err := exec.Command("/usr/bin/podman", append(base, "/usr/bin/git", "--exec-path")...).Output()
+	if err != nil || strings.TrimSpace(string(git)) != "/usr/libexec/git-core" {
+		return errors.New("selected service requires compatible native Git")
+	}
+	for _, path := range []string{"/usr/libexec/git-core/git-remote-http", "/usr/bin/getent"} {
+		if err := exec.Command("/usr/bin/podman", append(base, "/usr/bin/test", "-x", path)...).Run(); err != nil {
+			return errors.New("selected service requires compatible native Git")
+		}
+	}
+	body, err := exec.Command("/usr/bin/podman", append(base, "/usr/local/bin/git-remote-soda")...).CombinedOutput()
+	var status *exec.ExitError
+	if !errors.As(err, &status) || status.ExitCode() != 1 || string(body) != "invalid Soda Git remote\n" {
+		return errors.New("selected service requires compatible Soda Git helper")
+	}
+	return nil
+}
+
 func register(request identity.NestedRegistration) error {
 	conn, err := net.DialUnix("unixpacket", nil, &net.UnixAddr{Name: identity.MuseLaunchSocket, Net: "unixpacket"})
 	if err != nil {
-		return errors.New("muse launch service unavailable")
+		return errors.New("identity registration service unavailable")
 	}
 	defer func() { _ = conn.Close() }()
 	if err = conn.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
@@ -166,11 +196,11 @@ func register(request identity.NestedRegistration) error {
 	body := make([]byte, 4096)
 	n, err := conn.Read(body)
 	if err != nil {
-		return errors.New("muse registration unconfirmed")
+		return errors.New("identity registration unconfirmed")
 	}
 	var response identity.LaunchExit
 	if err = json.Unmarshal(body[:n], &response); err != nil || response.Code != 0 || response.Error != "" {
-		return errors.New("muse registration rejected")
+		return errors.New("identity registration rejected")
 	}
 	return nil
 }

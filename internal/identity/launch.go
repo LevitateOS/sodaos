@@ -12,6 +12,8 @@ type (
 		ChildID        string `json:"child_id"`
 		ActorID        int64  `json:"actor_id,string"`
 		RegistrationID string `json:"registration_id"`
+		Muse           bool   `json:"muse"`
+		Git            bool   `json:"git"`
 	}
 	// LaunchRequest carries invocation preferences, never caller authority or credentials.
 	LaunchRequest struct {
@@ -45,7 +47,7 @@ func (r LaunchRequest) Validate() error {
 }
 
 func (r LaunchRequest) registrationValid() error {
-	if r.CWD != "" || len(r.Args) != 0 || r.ConnectionID != "" || r.TTY || r.Register.ActorID <= 0 {
+	if r.CWD != "" || len(r.Args) != 0 || r.ConnectionID != "" || r.TTY || r.Register.ActorID <= 0 || (!r.Register.Muse && !r.Register.Git) {
 		return ErrDenied
 	}
 	return nil

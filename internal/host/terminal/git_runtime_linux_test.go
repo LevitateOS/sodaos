@@ -40,7 +40,7 @@ func TestGitRelayCapability(t *testing.T) {
 }
 
 func TestGitUnitBindingRejectsReplacementAndWrongAccount(t *testing.T) {
-	b := identity.Binding{Kind: identity.Terminal, Scope: "git", ID: strings.Repeat("a", 32), Project: "project", ContainerID: strings.Repeat("c", 64), Generation: 1, Login: "soda-tester", UID: 1000, GID: 1000, InvocationID: strings.Repeat("b", 32)}
+	b := identity.Binding{Kind: identity.Terminal, Scope: "git", ID: strings.Repeat("a", 32), Project: "project", ContainerID: strings.Repeat("c", 64), Generation: 1, Login: "soda-tester", UID: 1000, GID: 1000, InvocationID: strings.Repeat("b", 32), CredentialRoot: "/run/soda-git/" + strings.Repeat("a", 32)}
 	body := "ActiveState=active\nInvocationID=" + b.InvocationID + "\nUser=soda-tester\nGroup=1000\nControlGroup=/system.slice/soda-git-" + b.ID + ".service\n"
 	if !gitBinding(b) || !gitUnitMatches([]byte(body), b) {
 		t.Fatal("valid binding denied")
@@ -67,7 +67,7 @@ func TestGitCommandPinsNativeHelperAndTransport(t *testing.T) {
 
 func TestGitSessionMustMatchReservedNativeBinding(t *testing.T) {
 	lease := identity.Lease{ID: strings.Repeat("a", 32), ProviderID: identity.Forgejo, ConnectionID: "connection", Generation: 2, ActorID: 13, ProjectID: "project", ExecutionID: strings.Repeat("b", 32), RepositoryID: 42, Kind: identity.Terminal, Deadline: time.Now().Add(time.Hour)}
-	binding := identity.Binding{Kind: identity.Terminal, Scope: "git", ID: lease.ExecutionID, Project: lease.ProjectID, ContainerID: strings.Repeat("c", 64), UID: 1000, GID: 1000, Login: "soda-tester", Generation: lease.Generation, InvocationID: strings.Repeat("d", 32)}
+	binding := identity.Binding{Kind: identity.Terminal, Scope: "git", ID: lease.ExecutionID, Project: lease.ProjectID, ContainerID: strings.Repeat("c", 64), UID: 1000, GID: 1000, Login: "soda-tester", Generation: lease.Generation, InvocationID: strings.Repeat("d", 32), CredentialRoot: "/run/soda-git/" + lease.ExecutionID}
 	session := identity.GitSession{Lease: lease, Name: "Soda Tester", Email: "soda-tester@example.test"}
 	session.Lease.Binding = &binding
 	encoded, err := json.Marshal(session)
@@ -94,5 +94,42 @@ func TestGitSessionMustMatchReservedNativeBinding(t *testing.T) {
 		if gitSessionMatches(mismatch, lease, binding) {
 			t.Fatal("mismatched broker session admitted")
 		}
+	}
+}
+
+func TestGitNestedCommandUsesChildWorkingDirectoryAndUnitBoundary(t *testing.T) {
+	c := museCaller{Container: strings.Repeat("a", 64), Child: strings.Repeat("b", 64), Login: "soda-tester", Home: "/root", UID: 0, GID: 0, NestedPID: 1234}
+	command := gitCommand(t.Context(), c, identity.GitLaunchRequest{CWD: "/work with spaces", Remote: "origin"}, "soda-git-test.service", "http://127.0.0.1:1234/owner/repo.git", "/run/soda-git/credentials/git-test/gitconfig")
+	args := strings.Join(command.Args, "\n")
+	for _, required := range []string{"--uid=root", "--gid=0", "/usr/bin/nsenter", "--target=1234", "--mount", "--net", "--root", "--setuid=0", "--setgid=0", "--wdns=/work with spaces", "--setenv=GIT_CONFIG_VALUE_3=/run/soda-git/credentials/git-test/gitconfig"} {
+		if !strings.Contains(args, required) {
+			t.Fatal(required)
+		}
+	}
+	if strings.Contains(args, "--working-directory=/work with spaces") || strings.Contains(args, "--wd=/work with spaces") {
+		t.Fatal("parent working directory used for child Git")
+	}
+}
+
+func TestGitNestedBindingPinsRegistrationAndChild(t *testing.T) {
+	id := strings.Repeat("a", 32)
+	registration := strings.Repeat("b", 32)
+	b := identity.Binding{Kind: identity.Terminal, Scope: "git", ID: id, Project: "project", ContainerID: strings.Repeat("c", 64), ChildID: strings.Repeat("d", 64), Generation: 1, Login: "soda-tester", UID: 0, GID: 0, InvocationID: strings.Repeat("e", 32), CredentialRoot: "/run/soda-muse/nested/" + registration + "/git-" + id}
+	if !gitBinding(b) || !gitStopBinding(b) {
+		t.Fatal("nested binding denied")
+	}
+	body := "ActiveState=active\nInvocationID=" + b.InvocationID + "\nUser=root\nGroup=0\nControlGroup=/system.slice/soda-git-" + id + ".service\n"
+	if !gitUnitMatches([]byte(body), b) {
+		t.Fatal("nested native unit denied")
+	}
+	for _, path := range []string{"/run/soda-muse/nested/" + registration + "/git-" + strings.Repeat("f", 32), "/run/soda-muse/nested/../git-" + id, "/run/soda-git/" + id} {
+		changed := b
+		changed.CredentialRoot = path
+		if gitBinding(changed) || gitStopBinding(changed) {
+			t.Fatalf("foreign nested config admitted: %s", path)
+		}
+	}
+	if gitUnitMatches([]byte(strings.Replace(body, "User=root", "User=soda-tester", 1)), b) {
+		t.Fatal("wrong unit user admitted")
 	}
 }

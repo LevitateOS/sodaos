@@ -151,18 +151,23 @@ func (m *MuseRuntime) registeredCaller(ctx context.Context, c museCaller, peer M
 	c.Child = registered.Child
 	c.Registration = registered.Registration
 	c.NestedPID = registered.PID
+	c.MuseAllowed = registered.Muse
+	c.GitAllowed = registered.Git
 	if !musePeerAlive(peer) {
 		return c, identity.ErrDenied
 	}
 	return c, nil
 }
 
-func (m *MuseRuntime) resolve(ctx context.Context, peer MusePeer) (museCaller, error) {
+func (m *MuseRuntime) resolve(ctx context.Context, peer MusePeer, provider string) (museCaller, error) {
 	c, err := m.resolveProject(ctx, peer)
 	if err != nil {
 		return c, identity.ErrDenied
 	}
 	if c.Child != "" {
+		if !nestedProviderAllowed(c, provider) {
+			return c, identity.ErrDenied
+		}
 		return m.nestedCaller(ctx, c, peer)
 	}
 	if c.UID == 0 {
@@ -180,6 +185,17 @@ func (m *MuseRuntime) resolve(ctx context.Context, peer MusePeer) (museCaller, e
 		return c, identity.ErrDenied
 	}
 	return c, nil
+}
+
+func nestedProviderAllowed(c museCaller, provider string) bool {
+	switch provider {
+	case identity.Muse:
+		return c.MuseAllowed
+	case identity.Forgejo:
+		return c.GitAllowed
+	default:
+		return false
+	}
 }
 
 func (m *MuseRuntime) projectAccount(ctx context.Context, c museCaller) (museCaller, error) {
@@ -258,18 +274,18 @@ func museAccountNode(line string, marker bool) bool {
 
 // RegisterNested binds only a current project-root registration. Records are
 // deliberately ephemeral: a host restart requires fresh root authorization.
-func (m *MuseRuntime) RegisterNested(ctx context.Context, peer MusePeer, child string, actor int64, registration string) error {
-	if !museRegistrationValid(child, actor, registration) {
+func (m *MuseRuntime) RegisterNested(ctx context.Context, peer MusePeer, in identity.NestedRegistration) error {
+	if !museRegistrationValid(in) {
 		return identity.ErrDenied
 	}
 	c, err := m.resolveProject(ctx, peer)
 	if err != nil {
 		return err
 	}
-	if !m.registrationAuthority(ctx, c, actor) {
+	if !m.registrationAuthority(ctx, c, in.ActorID) {
 		return identity.ErrDenied
 	}
-	record, err := m.registeredChild(ctx, c, child, actor, registration)
+	record, err := m.registeredChild(ctx, c, in)
 	if err != nil {
 		return err
 	}
@@ -288,12 +304,12 @@ func (m *MuseRuntime) RegisterNested(ctx context.Context, peer MusePeer, child s
 	return nil
 }
 
-func museRegistrationValid(child string, actor int64, registration string) bool {
-	return containerID.MatchString(child) && actor > 0 && terminalID.MatchString(registration)
+func museRegistrationValid(in identity.NestedRegistration) bool {
+	return containerID.MatchString(in.ChildID) && in.ActorID > 0 && terminalID.MatchString(in.RegistrationID) && (in.Muse || in.Git)
 }
 
 func (m *MuseRuntime) registrationAuthority(ctx context.Context, c museCaller, actor int64) bool {
-	if c.UID != 0 || m.Authorize == nil || m.Authorize(ctx, actor, c.Project) != nil {
+	if c.UID != 0 || m.NestedAuthorize == nil || m.NestedAuthorize(ctx, actor, c.Project) != nil {
 		return false
 	}
 	ns, err := os.Readlink("/proc/" + strconv.Itoa(c.ProjectPID) + "/ns/pid")
@@ -304,10 +320,10 @@ func (m *MuseRuntime) registrationAuthority(ctx context.Context, c museCaller, a
 	return err == nil
 }
 
-func (m *MuseRuntime) registeredChild(ctx context.Context, c museCaller, child string, actor int64, registration string) (museNested, error) {
+func (m *MuseRuntime) registeredChild(ctx context.Context, c museCaller, in identity.NestedRegistration) (museNested, error) {
 	var record museNested
-	body, err := m.guest(ctx, c.Container, nil, "/usr/bin/podman", "--remote=false", "inspect", "--format", `{"id":{{json .ID}},"pid":{{json .State.Pid}},"running":{{json .State.Running}}}`, child)
-	pid, err := museChildPID(body, err, child)
+	body, err := m.guest(ctx, c.Container, nil, "/usr/bin/podman", "--remote=false", "inspect", "--format", `{"id":{{json .ID}},"pid":{{json .State.Pid}},"running":{{json .State.Running}}}`, in.ChildID)
+	pid, err := museChildPID(body, err, in.ChildID)
 	if err != nil {
 		return record, err
 	}
@@ -319,7 +335,7 @@ func (m *MuseRuntime) registeredChild(ctx context.Context, c museCaller, child s
 	if !strings.HasPrefix(ns, "pid:[") || ns == c.Namespace {
 		return record, identity.ErrDenied
 	}
-	return museNested{Parent: c.Container, Project: c.Project, Child: child, Namespace: ns, Registration: registration, Actor: actor, PID: pid}, nil
+	return museNested{Parent: c.Container, Project: c.Project, Child: in.ChildID, Namespace: ns, Registration: in.RegistrationID, Actor: in.ActorID, PID: pid, Muse: in.Muse, Git: in.Git}, nil
 }
 
 func museChildPID(body []byte, err error, id string) (int, error) {
@@ -346,7 +362,13 @@ func (m *MuseRuntime) validateNested(ctx context.Context, r museNested) error {
 		return err
 	}
 	body, err = m.guest(ctx, r.Parent, nil, "/usr/bin/podman", "--remote=false", "inspect", "--format", `{{json .Mounts}}`, r.Child)
-	return museReadonlyMount(body, err, "/run/soda-muse/nested/"+r.Registration)
+	if r.Muse && museReadonlyMount(body, err, "/run/soda-muse/nested/"+r.Registration, "/run/soda-muse/credentials") != nil {
+		return identity.ErrDenied
+	}
+	if r.Git && museReadonlyMount(body, err, "/run/soda-muse/nested/"+r.Registration, "/run/soda-git/credentials") != nil {
+		return identity.ErrDenied
+	}
+	return nil
 }
 
 func (m *MuseRuntime) nestedNamespace(ctx context.Context, r museNested) error {
@@ -371,7 +393,7 @@ func museID() (string, error) {
 	return hex.EncodeToString(b[:]), err
 }
 
-func museReadonlyMount(body []byte, err error, source string) error {
+func museReadonlyMount(body []byte, err error, source, destination string) error {
 	var mounts []struct {
 		Source      string `json:"Source"`
 		Destination string `json:"Destination"`
@@ -381,7 +403,7 @@ func museReadonlyMount(body []byte, err error, source string) error {
 		return identity.ErrDenied
 	}
 	for _, mount := range mounts {
-		if mount.Source == source && mount.Destination == "/run/soda-muse/credentials" && !mount.RW {
+		if mount.Source == source && mount.Destination == destination && !mount.RW {
 			return nil
 		}
 	}

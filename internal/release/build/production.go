@@ -161,7 +161,7 @@ func (p Production) assetSteps(stage []string) error {
 	}
 	for _, tool := range []struct{ name, command string }{
 		{"muse", "soda-muse"},
-		{"soda-muse-compose", "soda-muse-compose"},
+		{"soda-identity-compose", "soda-identity-compose"},
 		{"git-remote-soda", "git-remote-soda"},
 	} {
 		if err := p.Compile(tool.command, "./cmd/"+tool.command, filepath.Join(p.Native, "project-tools/bin", tool.name)); err != nil {

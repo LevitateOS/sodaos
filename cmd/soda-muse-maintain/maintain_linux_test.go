@@ -19,7 +19,7 @@ import (
 func syntheticTools(t *testing.T) []tool {
 	t.Helper()
 	var sources []tool
-	for _, name := range []string{"muse", "soda-muse-compose", "muse-native"} {
+	for _, name := range []string{"muse", "soda-identity-compose", "muse-native"} {
 		path := filepath.Join(t.TempDir(), name)
 		if err := os.WriteFile(path, []byte("synthetic "+name), 0o755); err != nil {
 			t.Fatal(err)
@@ -40,7 +40,7 @@ func syntheticTools(t *testing.T) []tool {
 
 func TestPublicToolReplacementPreservesOtherFilesAndRefusesSymlinks(t *testing.T) {
 	root := t.TempDir()
-	targets := []string{filepath.Join(root, "bin", "muse"), filepath.Join(root, "bin", "soda-muse-compose"), filepath.Join(root, "libexec", "soda", "muse")}
+	targets := []string{filepath.Join(root, "bin", "muse"), filepath.Join(root, "bin", "soda-identity-compose"), filepath.Join(root, "libexec", "soda", "muse")}
 	for _, target := range targets {
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			t.Fatal(err)
@@ -210,8 +210,13 @@ func TestGitMaintenanceModeAndPreservation(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = f.Close() }()
+	compose, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = compose.Close() }()
 	var stream bytes.Buffer
-	if err := archiveTools(&stream, []tool{{name: "git-remote-soda", file: f, size: int64(len("synthetic helper"))}}); err != nil {
+	if err := archiveTools(&stream, []tool{{name: "git-remote-soda", file: f, size: int64(len("synthetic helper"))}, {name: "soda-identity-compose", file: compose, size: int64(len("synthetic helper"))}}); err != nil {
 		t.Fatal(err)
 	}
 	script := strings.ReplaceAll(installGitScript, "/usr/local/bin", root)
@@ -222,6 +227,9 @@ func TestGitMaintenanceModeAndPreservation(t *testing.T) {
 	}
 	if body, err := os.ReadFile(binary); err != nil || string(body) != "synthetic helper" {
 		t.Fatal("Git helper missing", err)
+	}
+	if body, err := os.ReadFile(filepath.Join(root, "soda-identity-compose")); err != nil || string(body) != "synthetic helper" {
+		t.Fatal("Compose helper missing", err)
 	}
 	if body, err := os.ReadFile(retained); err != nil || string(body) != "preserved" {
 		t.Fatal("account state changed", err)

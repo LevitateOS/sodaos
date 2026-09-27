@@ -20,11 +20,14 @@ test ! -L /usr/local/bin
 test -d /usr/local/bin
 test ! -L /usr/local/bin/git-remote-soda
 if test -e /usr/local/bin/git-remote-soda; then test -f /usr/local/bin/git-remote-soda; fi
+test ! -L /usr/local/bin/soda-identity-compose
+if test -e /usr/local/bin/soda-identity-compose; then test -f /usr/local/bin/soda-identity-compose; fi
 stage=$(mktemp -d /usr/local/bin/.soda-git-maintain.XXXXXXXX)
 trap 'rm -rf -- "$stage"' EXIT
 tar --extract --file=- --directory="$stage" --no-same-owner
-chmod 0755 "$stage/git-remote-soda"
+chmod 0755 "$stage/git-remote-soda" "$stage/soda-identity-compose"
 mv -T -- "$stage/git-remote-soda" /usr/local/bin/git-remote-soda
+mv -T -- "$stage/soda-identity-compose" /usr/local/bin/soda-identity-compose
 `
 
 func maintainGit(o options, c host.Config) error {
@@ -56,8 +59,13 @@ func installProjectGit(ctx context.Context, target observation, tools, origin st
 	if err != nil {
 		return err
 	}
-	defer closeTools([]tool{source})
-	if err := stagePublicTools(ctx, target, []tool{source}, installGitScript, nil); err != nil {
+	compose, err := openTool(filepath.Join(tools, "soda-identity-compose"), "soda-identity-compose")
+	if err != nil {
+		closeTools([]tool{source})
+		return err
+	}
+	defer closeTools([]tool{source, compose})
+	if err := stagePublicTools(ctx, target, []tool{source, compose}, installGitScript, nil); err != nil {
 		return err
 	}
 	if err := confirmProject(ctx, target); err != nil {

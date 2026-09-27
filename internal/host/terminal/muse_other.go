@@ -19,7 +19,7 @@ func (*MuseRuntime) Start(context.Context, MusePeer, identity.LaunchRequest, [3]
 	return MuseInvocation{}, identity.ErrDenied
 }
 
-func (*MuseRuntime) RegisterNested(context.Context, MusePeer, string, int64, string) error {
+func (*MuseRuntime) RegisterNested(context.Context, MusePeer, identity.NestedRegistration) error {
 	return identity.ErrDenied
 }
 

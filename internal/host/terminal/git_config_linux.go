@@ -17,7 +17,12 @@ func (g *GitRuntime) configureGitIdentity(ctx context.Context, c museCaller, ses
 		return identity.ErrDenied
 	}
 	for _, item := range [][2]string{{"user.name", session.Name}, {"user.email", session.Email}} {
-		_, err := g.Exec.Run(ctx, nil, "/usr/bin/podman", "--remote=false", "exec", "--user="+strconv.Itoa(c.UID)+":"+strconv.Itoa(c.GID), "--env=HOME="+c.Home, c.Container, "/usr/bin/git", "config", "--global", "--replace-all", item[0], item[1])
+		user := "--user=" + strconv.Itoa(c.UID) + ":" + strconv.Itoa(c.GID)
+		args := []string{"--remote=false", "exec", user, "--env=HOME=" + c.Home, c.Container, "/usr/bin/git", "config", "--global", "--replace-all", item[0], item[1]}
+		if c.Child != "" {
+			args = []string{"--remote=false", "exec", c.Container, "/usr/bin/podman", "--remote=false", "exec", user, "--env=HOME=" + c.Home, c.Child, "/usr/bin/git", "config", "--global", "--replace-all", item[0], item[1]}
+		}
+		_, err := g.Exec.Run(ctx, nil, "/usr/bin/podman", args...)
 		if err != nil {
 			return err
 		}
@@ -33,11 +38,11 @@ func gitIdentityValue(value string) bool {
 // argv or environment. The independent unit reads only this protected tmpfs file.
 func (g *GitRuntime) stageConfig(ctx context.Context, c museCaller, path, capability string) error {
 	runtime := &MuseRuntime{Exec: g.Exec}
-	commands := [][]string{
-		{"/usr/bin/install", "--directory", "--mode=0700", path},
-		{"/usr/bin/mount", "--types=tmpfs", "--options=mode=0700,size=64k", "tmpfs", path},
-		{"/usr/bin/install", "--mode=0600", "/dev/null", path + "/gitconfig"},
+	commands := [][]string{{"/usr/bin/install", "--directory", "--mode=0700", path}}
+	if c.Child == "" {
+		commands = append(commands, []string{"/usr/bin/mount", "--types=tmpfs", "--options=mode=0700,size=64k", "tmpfs", path})
 	}
+	commands = append(commands, []string{"/usr/bin/install", "--mode=0600", "/dev/null", path + "/gitconfig"})
 	for _, command := range commands {
 		if _, err := runtime.guest(ctx, c.Container, nil, command...); err != nil {
 			return err
@@ -57,6 +62,16 @@ func (g *GitRuntime) stageConfig(ctx context.Context, c museCaller, path, capabi
 
 func (g *GitRuntime) removeConfig(ctx context.Context, container, path string) error {
 	runtime := &MuseRuntime{Exec: g.Exec}
+	if gitNestedConfigPath(path) {
+		if _, err := runtime.guest(ctx, container, nil, "/usr/bin/test", "!", "-d", path); err == nil {
+			return nil
+		}
+		if _, err := runtime.guest(ctx, container, nil, "/usr/bin/rm", "--", path+"/gitconfig"); err != nil {
+			return err
+		}
+		_, err := runtime.guest(ctx, container, nil, "/usr/bin/rmdir", "--", path)
+		return err
+	}
 	id := strings.TrimPrefix(path, "/run/soda-git/")
 	if !terminalID.MatchString(id) {
 		return identity.ErrDenied
@@ -69,4 +84,9 @@ func (g *GitRuntime) removeConfig(ctx context.Context, container, path string) e
 	}
 	_, err := runtime.guest(ctx, container, nil, "/usr/bin/rmdir", path)
 	return err
+}
+
+func gitNestedConfigPath(path string) bool {
+	parts := strings.Split(path, "/")
+	return len(parts) == 6 && parts[0] == "" && parts[1] == "run" && parts[2] == "soda-muse" && parts[3] == "nested" && terminalID.MatchString(parts[4]) && strings.HasPrefix(parts[5], "git-") && terminalID.MatchString(strings.TrimPrefix(parts[5], "git-"))
 }

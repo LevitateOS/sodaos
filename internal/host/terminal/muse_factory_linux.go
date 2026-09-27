@@ -225,7 +225,7 @@ func (m *MuseRuntime) factoryMount(ctx context.Context, c MuseFactoryCaller) err
 		return identity.ErrStale
 	}
 	body, err = m.podman(ctx, nil, "inspect", "--format", `{{json .Mounts}}`, c.Container)
-	return museReadonlyMount(body, err, c.CredentialRoot)
+	return museReadonlyMount(body, err, c.CredentialRoot, "/run/soda-muse/credentials")
 }
 
 func (m *MuseRuntime) factoryInvocation(ctx context.Context, unit string, wait bool) (string, error) {

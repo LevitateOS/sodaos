@@ -194,11 +194,11 @@ func NewDaemon(c Config) *Daemon {
 		Runners:  &runners.Operations{Local: runnerNative, Lifecycle: runnerNative},
 	}
 	d.Terminal.EndIdentity = d.Identity.EndLease
-	if c.GitSocket != "" {
-		d.Git = d.gitRuntime()
-	}
 	if c.MuseSHA256 != "" {
 		d.Muse = d.museRuntime()
+	}
+	if c.GitSocket != "" {
+		d.Git = d.gitRuntime()
 	}
 	if !c.TailnetManagement {
 		return d

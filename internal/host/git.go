@@ -47,7 +47,7 @@ func (d *Daemon) selectGit(ctx context.Context, actor int64, project, selected s
 
 func (d *Daemon) gitRuntime() *terminal.GitRuntime {
 	return &terminal.GitRuntime{
-		Exec: d.Terminal.Exec, Acquire: d.Identity.AcquireGit,
+		Exec: d.Terminal.Exec, Nested: d.Muse, Acquire: d.Identity.AcquireGit,
 		Register: d.Identity.RegisterGit, End: d.Identity.EndLease,
 		Proxy: d.Identity.GitProxy, Select: d.selectGit,
 		Authorize: func(ctx context.Context, actor int64, project string) error {

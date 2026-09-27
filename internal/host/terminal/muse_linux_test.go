@@ -13,6 +13,20 @@ import (
 	"github.com/levitateos/sodaos/internal/identity"
 )
 
+func TestNestedProvidersRequireExplicitSelection(t *testing.T) {
+	gitOnly := museCaller{GitAllowed: true}
+	if !nestedProviderAllowed(gitOnly, identity.Forgejo) || nestedProviderAllowed(gitOnly, identity.Muse) {
+		t.Fatal("Git selection admitted an unselected provider")
+	}
+	museOnly := museCaller{MuseAllowed: true}
+	if !nestedProviderAllowed(museOnly, identity.Muse) || nestedProviderAllowed(museOnly, identity.Forgejo) {
+		t.Fatal("Muse selection admitted an unselected provider")
+	}
+	if nestedProviderAllowed(museCaller{MuseAllowed: true, GitAllowed: true}, "unknown") {
+		t.Fatal("unknown provider admitted")
+	}
+}
+
 func TestMuseKernelIdentityContracts(t *testing.T) {
 	id := strings.Repeat("a", 64)
 	got, err := museProjectCgroup("0::/machine.slice/libpod-" + id + ".scope/container/system.slice/service")
@@ -39,6 +53,20 @@ func TestMuseProvisionedAccountMarker(t *testing.T) {
 	}
 	if museAccountModes(strings.Replace(valid, "600:regular file", "600:symbolic link", 1)) || museAccountModes(strings.Replace(valid, "755:directory", "777:directory", 1)) {
 		t.Fatal("unsafe account record admitted")
+	}
+}
+
+func TestNestedReadonlyProviderMounts(t *testing.T) {
+	source := "/run/soda-muse/nested/" + strings.Repeat("a", 32)
+	git := []byte(`[{"Source":"` + source + `","Destination":"/run/soda-git/credentials","RW":false}]`)
+	if museReadonlyMount(git, nil, source, "/run/soda-git/credentials") != nil {
+		t.Fatal("Git-only credential-free mount denied")
+	}
+	if museReadonlyMount(git, nil, source, "/run/soda-muse/credentials") == nil {
+		t.Fatal("Git mount accepted as Muse auth view")
+	}
+	if museReadonlyMount([]byte(strings.Replace(string(git), `"RW":false`, `"RW":true`, 1)), nil, source, "/run/soda-git/credentials") == nil {
+		t.Fatal("writable Git mount admitted")
 	}
 }
 

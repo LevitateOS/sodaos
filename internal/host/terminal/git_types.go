@@ -12,6 +12,7 @@ import (
 // Its broker callbacks use private host transport; no broker socket enters OCI.
 type GitRuntime struct {
 	Exec      Executor
+	Nested    *MuseRuntime
 	Authorize func(context.Context, int64, string) error
 	Select    func(context.Context, int64, string, string) (string, error)
 	Acquire   func(context.Context, identity.GitAcquireRequest) (identity.Lease, error)

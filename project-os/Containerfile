@@ -31,7 +31,7 @@ RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; e
 # Official upstream Linux binary, checksum-verified by scripts/fetch-tea.py.
 COPY ${ARTIFACT_DIR}/project-tools/bin/git-remote-soda /usr/local/bin/git-remote-soda
 COPY ${ARTIFACT_DIR}/project-tools/bin/muse /usr/local/bin/muse
-COPY ${ARTIFACT_DIR}/project-tools/bin/soda-muse-compose /usr/local/bin/soda-muse-compose
+COPY ${ARTIFACT_DIR}/project-tools/bin/soda-identity-compose /usr/local/bin/soda-identity-compose
 COPY ${ARTIFACT_DIR}/project-tools/bin/muse-native /usr/local/libexec/soda/muse
 COPY ${ARTIFACT_DIR}/project-tools/bin/tea /usr/local/bin/tea
 COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/licenses/tea/LICENSE

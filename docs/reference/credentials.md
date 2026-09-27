@@ -166,6 +166,15 @@ then supervises one native Git helper unit. Its relay capability lives in a
 protected runtime config file supplied through restricted stdin; upstream OAuth
 credentials stay in broker custody. Revocation stops that unit and removes its
 runtime config without stopping the project or a sibling Git session.
+`soda-identity-compose --git` explicitly opts one nested service into the same
+Forgejo path. The child receives only the public Git helper, its exact launch
+socket and a read-only view of its per-invocation config; broker OAuth credentials
+and administration sockets remain outside it. Registration attests the parent
+project, authorizing Soda account, immutable child ID and live PID namespace.
+A restarted child needs fresh registration. The host runs each nested Git helper
+in an independently stoppable parent unit while entering the child's namespaces
+and working directory; stopping Git does not stop the child. A Git-only service
+does not receive Muse tools or its launch socket.
 After broker registration, the native Git launch sets the attested project
 login's global `user.name` and `user.email` to the connected Forgejo account's
 verified name and primary email. A later ordinary `git commit` uses those

@@ -27,6 +27,7 @@ func (d *Daemon) museRuntime() *terminal.MuseRuntime {
 			}
 			return identity.ErrDenied
 		},
+		NestedAuthorize: d.authorizeNested,
 		Select: func(ctx context.Context, actor int64, project, selected string) (string, error) {
 			available, err := d.Identity.Available(ctx, actor, project)
 			if err != nil {
@@ -35,6 +36,19 @@ func (d *Daemon) museRuntime() *terminal.MuseRuntime {
 			return identity.SelectMuseConnection(available, selected)
 		},
 	}
+}
+
+func (d *Daemon) authorizeNested(ctx context.Context, actor int64, project string) error {
+	available, err := d.Identity.Available(ctx, actor, project)
+	if err != nil {
+		return err
+	}
+	for _, connection := range available {
+		if (connection.ProviderID == identity.Muse || connection.ProviderID == identity.Forgejo) && connection.State == identity.Ready {
+			return nil
+		}
+	}
+	return identity.ErrDenied
 }
 
 // OpenMuseListener exposes only kernel-attested launch and trusted registration.
@@ -67,7 +81,7 @@ func (d *Daemon) OpenMuseListener() (*net.UnixListener, error) {
 
 func (d *Daemon) ServeMuse(ctx context.Context, listener *net.UnixListener) error {
 	service := terminal.MuseLaunch{Start: d.Muse.Start, Register: func(ctx context.Context, peer terminal.MusePeer, in identity.NestedRegistration) error {
-		return d.Muse.RegisterNested(ctx, peer, in.ChildID, in.ActorID, in.RegistrationID)
+		return d.Muse.RegisterNested(ctx, peer, in)
 	}}
 	return service.Serve(ctx, listener)
 }

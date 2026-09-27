@@ -9,7 +9,7 @@ import (
 )
 
 // Destinations are fixed by the installed project interface, never repository input.
-var destinations = []string{"/usr/local/bin/muse", "/usr/local/bin/soda-muse-compose", "/usr/local/libexec/soda/muse"}
+var destinations = []string{"/usr/local/bin/muse", "/usr/local/bin/soda-identity-compose", "/usr/local/libexec/soda/muse"}
 
 const installScript = `
 set -eu
@@ -30,9 +30,9 @@ for target in "$@"; do mkdir -p "$(dirname "$target")"; done
 stage=$(mktemp -d "$(dirname "$3")/.soda-muse-maintain.XXXXXXXX")
 trap 'rm -rf -- "$stage"' EXIT
 tar --extract --file=- --directory="$stage" --no-same-owner
-chmod 0755 "$stage/muse" "$stage/soda-muse-compose" "$stage/muse-native"
+chmod 0755 "$stage/muse" "$stage/soda-identity-compose" "$stage/muse-native"
 mv -T -- "$stage/muse" "$1"
-mv -T -- "$stage/soda-muse-compose" "$2"
+mv -T -- "$stage/soda-identity-compose" "$2"
 mv -T -- "$stage/muse-native" "$3"
 `
 

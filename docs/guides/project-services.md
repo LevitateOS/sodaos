@@ -25,20 +25,20 @@ are separate operations from terminal reconnect.
 
 Related: [Develop](develop.md).
 
-## Muse opt-in
+## Brokered tools opt-in
 
-Use a compatible Linux container with the architecture and runtime prerequisites
-for the pinned Muse CLI. From project root, opt one service in for a provisioned
-Soda account:
+Use a compatible Linux container. From project root, opt one service in for a
+provisioned Soda account and explicitly choose its brokered tools:
 
 ```sh
-sudo soda-muse-compose --login soda-tester --file compose.yml --service development
+sudo soda-identity-compose --login soda-tester --file compose.yml --service development --muse
 ```
 
-The helper adds read-only tools, the launch interface and a private runtime
-credential mount. It registers the actual immutable child container incarnation
-against the authorizing account. The service keeps its configured user and volumes.
-Run `muse` normally inside the service. Cloning or restarting the child requires
-fresh validation through the helper; an old registration cannot authorize another
-incarnation. Provider custody and credential exposure are owned by
-[Credentials](../reference/credentials.md#normal-muse-command).
+Use `--git` to add the public Forgejo Git helper and its launch interface; use
+both flags when the service needs both tools. Git-only selection does not mount
+Muse executables or its launch interface. The helper registers the actual immutable
+child container incarnation against the authorizing account. The service keeps
+its configured user and volumes. Run `muse` or ordinary Git inside the selected
+service. Cloning or restarting the child requires fresh validation through the
+helper; an old registration cannot authorize another incarnation. Provider custody
+and credential exposure are owned by [Credentials](../reference/credentials.md#identity-broker).
