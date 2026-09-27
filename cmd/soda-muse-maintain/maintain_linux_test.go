@@ -189,3 +189,52 @@ func TestProjectIdentityAndPublicInterfaceAdmission(t *testing.T) {
 		t.Fatal("invalid project admitted")
 	}
 }
+
+func TestGitMaintenanceModeAndPreservation(t *testing.T) {
+	o, err := parse([]string{"--git-only", "--bind-only", "--project", "p0123456789abcdef01234567"})
+	if err != nil || !o.gitOnly || !o.bindOnly {
+		t.Fatal("Git startup mode unavailable", err)
+	}
+	root := t.TempDir()
+	binary := filepath.Join(root, "git-remote-soda")
+	retained := filepath.Join(root, "account-state")
+	if err := os.WriteFile(retained, []byte("preserved"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "public-source")
+	if err := os.WriteFile(path, []byte("synthetic helper"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	var stream bytes.Buffer
+	if err := archiveTools(&stream, []tool{{name: "git-remote-soda", file: f, size: int64(len("synthetic helper"))}}); err != nil {
+		t.Fatal(err)
+	}
+	script := strings.ReplaceAll(installGitScript, "/usr/local/bin", root)
+	command := exec.Command("/bin/sh", "-ceu", script)
+	command.Stdin = bytes.NewReader(stream.Bytes())
+	if body, err := command.CombinedOutput(); err != nil {
+		t.Fatal(err, string(body))
+	}
+	if body, err := os.ReadFile(binary); err != nil || string(body) != "synthetic helper" {
+		t.Fatal("Git helper missing", err)
+	}
+	if body, err := os.ReadFile(retained); err != nil || string(body) != "preserved" {
+		t.Fatal("account state changed", err)
+	}
+	if err := os.Remove(binary); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(retained, binary); err != nil {
+		t.Fatal(err)
+	}
+	denied := exec.Command("/bin/sh", "-ceu", script)
+	denied.Stdin = bytes.NewReader(stream.Bytes())
+	if err := denied.Run(); err == nil {
+		t.Fatal("Git target symlink accepted")
+	}
+}

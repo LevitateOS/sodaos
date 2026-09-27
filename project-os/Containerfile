@@ -29,6 +29,7 @@ RUN case "$(uname -m)" in x86_64) arch=x64;; aarch64) arch=arm64;; *) exit 1;; e
     awk -v file="$file" '$2 == file || $2 == "./" file { print }' SHASUMS256.txt | sha256sum -c - && \
     tar -xzf "$file" && install -m 0755 mise/bin/mise /usr/local/bin/mise && rm -rf /tmp/mise /tmp/mise-* /tmp/SHASUMS256.txt
 # Official upstream Linux binary, checksum-verified by scripts/fetch-tea.py.
+COPY ${ARTIFACT_DIR}/project-tools/bin/git-remote-soda /usr/local/bin/git-remote-soda
 COPY ${ARTIFACT_DIR}/project-tools/bin/muse /usr/local/bin/muse
 COPY ${ARTIFACT_DIR}/project-tools/bin/soda-muse-compose /usr/local/bin/soda-muse-compose
 COPY ${ARTIFACT_DIR}/project-tools/bin/muse-native /usr/local/libexec/soda/muse

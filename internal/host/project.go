@@ -10,6 +10,8 @@ func projectRuntime(exec Executor, c Config) *projectexec.Runtime {
 		Exec: exec,
 		Config: projectexec.Config{
 			MuseSocket: c.MuseSocket,
+			GitSocket:  c.GitSocket,
+			ForgejoURL: c.ForgejoURL,
 			Image:      c.Image,
 			Network:    c.Network,
 			Subnet:     c.Subnet,

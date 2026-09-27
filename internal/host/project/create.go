@@ -51,6 +51,9 @@ func (r *Runtime) createContainer(ctx context.Context, in domain.Create) error {
 	if r.Config.MuseSocket != "" {
 		args = append(args, "--volume", filepath.Dir(r.Config.MuseSocket)+":/run/soda-muse-interface:ro")
 	}
+	if r.Config.GitSocket != "" {
+		args = append(args, "--volume", filepath.Dir(r.Config.GitSocket)+":/run/soda-git-interface:ro")
+	}
 	args = append(args, profile.Image)
 	_, err = r.podman(ctx, nil, args...)
 	return err
@@ -161,6 +164,9 @@ func (r *Runtime) startCreated(ctx context.Context, in domain.Create) (domain.En
 		return domain.Environment{}, err
 	}
 	if err := r.waitProjectReady(ctx, name); err != nil {
+		return domain.Environment{}, err
+	}
+	if err := r.configureGit(ctx, in.ID); err != nil {
 		return domain.Environment{}, err
 	}
 	env, _, err := r.Inspect(ctx, in.ID)

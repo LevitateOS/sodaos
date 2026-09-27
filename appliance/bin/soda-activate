@@ -39,6 +39,14 @@ if cfg['forgejo_internal_url'] != 'http://127.0.0.1:3000' or cfg['listen'] != '1
 account = pwd.getpwnam('soda')
 if account.pw_uid != 2000 or account.pw_gid != 2000:
     parser.error('unexpected native soda service identity')
+# Project Git must use the same native origin as Forgejo and the dashboard.
+hostpath = root / 'host.json'
+if hostpath.is_symlink() or not hostpath.is_file():
+    parser.error('host configuration must be a regular operator-created file')
+hostcfg = json.loads(hostpath.read_text())
+hostcfg['forgejo_url'] = cfg['forgejo_url'].rstrip('/')
+hostpath.write_text(json.dumps(hostcfg, indent=2) + '\n')
+hostpath.chmod(0o600)
 root.chmod(0o750)
 os.chown(root, 0, account.pw_gid)
 # Legacy admin_token_file is parse-only, never authority to touch an operator file.

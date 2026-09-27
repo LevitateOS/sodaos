@@ -11,7 +11,7 @@ import (
 )
 
 func TestGitConfigurationSeparatesLaunchAndBrokerInterfaces(t *testing.T) {
-	valid := Config{GitSocket: "/run/soda-git-interface/launch.sock", IdentitySocket: "/run/soda-identity/runtime.sock", MuseSocket: "/run/soda-muse-interface/launch.sock"}
+	valid := Config{ForgejoURL: "https://forgejo.example.test", GitSocket: "/run/soda-git-interface/launch.sock", IdentitySocket: "/run/soda-identity/runtime.sock", MuseSocket: "/run/soda-muse-interface/launch.sock"}
 	if err := validateGitRuntime(valid); err != nil {
 		t.Fatal(err)
 	}
@@ -20,6 +20,14 @@ func TestGitConfigurationSeparatesLaunchAndBrokerInterfaces(t *testing.T) {
 		invalid.GitSocket = socket
 		if validateGitRuntime(invalid) == nil {
 			t.Fatal("invalid launch interface admitted", socket)
+		}
+	}
+}
+
+func TestGitOriginRejectsUnrelatedRewriteAuthority(t *testing.T) {
+	for _, origin := range []string{"", "http://forgejo.example.test", "https://secret@forgejo.example.test", "https://forgejo.example.test/other", "https://forgejo.example.test/?override=1", "https://forgejo.example.test/#fragment"} {
+		if validGitOrigin(origin) {
+			t.Fatal("invalid rewrite origin admitted", origin)
 		}
 	}
 }

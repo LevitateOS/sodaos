@@ -37,6 +37,10 @@ mv -T -- "$stage/muse-native" "$3"
 `
 
 func stageTools(ctx context.Context, target observation, sources []tool) error {
+	return stagePublicTools(ctx, target, sources, installScript, destinations)
+}
+
+func stagePublicTools(ctx context.Context, target observation, sources []tool, script string, targets []string) error {
 	if err := confirmProject(ctx, target); err != nil {
 		return err
 	}
@@ -44,8 +48,8 @@ func stageTools(ctx context.Context, target observation, sources []tool) error {
 	defer func() { _ = read.Close() }()
 	complete := make(chan error, 1)
 	go func() { err := archiveTools(write, sources); _ = write.CloseWithError(err); complete <- err }()
-	args := []string{"exec", "--user", "0:0", "-i", target.ID, "/bin/sh", "-ceu", installScript, "soda-muse-maintain"}
-	args = append(args, destinations...)
+	args := []string{"exec", "--user", "0:0", "-i", target.ID, "/bin/sh", "-ceu", script, "soda-muse-maintain"}
+	args = append(args, targets...)
 	_, err := podman(ctx, read, args...)
 	_ = read.Close()
 	archiveErr := <-complete

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -15,6 +16,9 @@ func validateGitRuntime(c Config) error {
 	if c.GitSocket == "" {
 		return nil
 	}
+	if !validGitOrigin(c.ForgejoURL) {
+		return errors.New("explicit native https forgejo origin required for git")
+	}
 	if !filepath.IsAbs(c.GitSocket) || filepath.Base(c.GitSocket) != "launch.sock" || !filepath.IsAbs(c.IdentitySocket) {
 		return errors.New("explicit git launch and private broker sockets required")
 	}
@@ -22,6 +26,15 @@ func validateGitRuntime(c Config) error {
 		return errors.New("git launch interface must be separate from other sockets")
 	}
 	return nil
+}
+
+func validGitOrigin(origin string) bool {
+	u, err := url.Parse(origin)
+	return err == nil && u.Scheme == "https" && u.Hostname() != "" && cleanGitOrigin(u)
+}
+
+func cleanGitOrigin(u *url.URL) bool {
+	return (u.Path == "" || u.Path == "/") && u.User == nil && u.RawPath == "" && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && u.Opaque == ""
 }
 
 func (d *Daemon) selectGit(ctx context.Context, actor int64, project, selected string) (string, error) {

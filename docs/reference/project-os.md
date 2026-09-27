@@ -151,3 +151,15 @@ Maintenance replaces only the three public Muse tools and attaches the dedicated
 launch interface to the same native root. It preserves accounts, project files,
 volumes and other installed tools. The project startup unit restores the interface
 after a restart; maintenance does not recreate a container or its storage.
+
+For native Forgejo Git, the same maintainer has an explicit Git mode:
+
+```sh
+sudo /usr/libexec/soda/soda-muse-maintain --git-only --project p0123456789abcdef01234567
+```
+
+This updates the public Git helper, applies the configured native origin's
+rewrite and attaches its launch-only interface to the existing root. The startup
+unit restores that interface separately. Host configuration and broker custody
+are owned by [Credentials](credentials.md#forgejo-account-custody); maintenance
+preserves accounts, checkouts, volumes and other installed tools.

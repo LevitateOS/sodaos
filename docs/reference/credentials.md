@@ -137,6 +137,12 @@ Configure `forgejo.base`, `forgejo.client_id`, `forgejo.redirect_url` and the
 absolute `forgejo_secret_file` in the broker settings. Keep the client secret in a
 restricted file, separate from the browser application's secret. Native callback
 completion uses the private administration interface; it does not expose tokens.
+Project Git launch requires the host's explicit `git_socket` at
+`/run/soda-git-interface/launch.sock`, its private `identity_socket`, and the
+configured HTTPS `forgejo_url` origin. The native origin's slash-bounded Git
+rewrite selects the Soda remote helper; other origins keep their selected
+transport. `SODA_GIT_CONNECTION` selects an authorized Forgejo connection
+explicitly. A missing or unavailable selection denies the invocation.
 The fixed browser return is `/-/soda/identity/callback`. A secure HTTP-only cookie
 binds its expiring transaction to the initiating Soda account, session and context.
 The callback is consumed once, with fresh session checks around completion and

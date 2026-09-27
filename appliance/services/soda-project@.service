@@ -7,6 +7,7 @@ Wants=network-online.target soda-host.service
 Type=simple
 ExecStart=/usr/bin/podman start --attach soda-%i
 ExecStartPost=/usr/local/libexec/soda/soda-muse-maintain --bind-only --project %i
+ExecStartPost=/usr/local/libexec/soda/soda-muse-maintain --bind-only --git-only --project %i
 # Queue only; enrollment never waits inside the helper's project admission gate.
 ExecStartPost=-/usr/bin/systemctl --no-block start soda-tailnet@%i.service
 ExecStop=/usr/bin/podman stop --time 30 soda-%i

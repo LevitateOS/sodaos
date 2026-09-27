@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -18,10 +19,14 @@ import (
 const interfaceScript = `set -eu; test ! -L /run; test -d /run; test ! -L /run/soda-muse-interface; if test -e /run/soda-muse-interface; then test -d /run/soda-muse-interface; fi; mkdir -p /run/soda-muse-interface`
 
 func prepareInterface(ctx context.Context, target observation) error {
+	return prepareLaunchInterface(ctx, target, "muse")
+}
+
+func prepareLaunchInterface(ctx context.Context, target observation, kind string) error {
 	if err := confirmProject(ctx, target); err != nil {
 		return err
 	}
-	_, err := podman(ctx, nil, "exec", "--user", "0:0", target.ID, "/bin/sh", "-ceu", interfaceScript)
+	_, err := podman(ctx, nil, "exec", "--user", "0:0", target.ID, "/bin/sh", "-ceu", strings.ReplaceAll(interfaceScript, "soda-muse-interface", "soda-"+kind+"-interface"))
 	return err
 }
 
@@ -44,6 +49,10 @@ func publicSocketDirectory(socket string) (string, error) {
 }
 
 func attachInterface(ctx context.Context, target observation, socket string) error {
+	return attachLaunchInterface(ctx, target, socket, "muse")
+}
+
+func attachLaunchInterface(ctx context.Context, target observation, socket, kind string) error {
 	source, err := publicSocketDirectory(socket)
 	if err != nil {
 		return err
@@ -62,12 +71,12 @@ func attachInterface(ctx context.Context, target observation, socket string) err
 	if err := unix.MountSetattr(tree, "", unix.AT_EMPTY_PATH, &attr); err != nil {
 		return fmt.Errorf("restrict public interface mount: %w", err)
 	}
-	return attachProjectMount(ctx, target, tree)
+	return attachProjectMount(ctx, target, tree, kind)
 }
 
-func attachProjectMount(ctx context.Context, target observation, tree int) error {
+func attachProjectMount(ctx context.Context, target observation, tree int, kind string) error {
 	root := "/proc/" + strconv.Itoa(target.PID)
-	targetFD, err := unix.Open(root+"/root/run/soda-muse-interface", unix.O_PATH|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+	targetFD, err := unix.Open(root+"/root/run/soda-"+kind+"-interface", unix.O_PATH|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return err
 	}

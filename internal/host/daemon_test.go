@@ -35,10 +35,12 @@ func TestCreateUsesFixedNamespacedRuntimeCapabilities(t *testing.T) {
 	if _, err := d.Project.Create(context.Background(), project.Create{ID: id, Owner: 2, Profile: &profile}); err == nil {
 		t.Fatal("failed native creation reported success")
 	}
-	want := []string{"create", "--name", "soda-" + id, "--label", "org.soda.project=" + id,
+	want := []string{
+		"create", "--name", "soda-" + id, "--label", "org.soda.project=" + id,
 		"--label", "org.soda.owner=2", "--network", "soda-projects", "--userns=auto:size=262144",
 		"--systemd=always", "--cgroupns=private", "--cap-add=SYS_ADMIN,MKNOD,NET_ADMIN,SYS_PTRACE",
-		"--device=/dev/fuse", "--security-opt=label=disable", "--label", "org.soda.profile=" + profile.ID, "--label", "org.soda.creation-profile=" + string(encoded), "--pull=never", profile.Image}
+		"--device=/dev/fuse", "--security-opt=label=disable", "--label", "org.soda.profile=" + profile.ID, "--label", "org.soda.creation-profile=" + string(encoded), "--pull=never", profile.Image,
+	}
 	if !reflect.DeepEqual(commands.args, want) {
 		t.Fatalf("unexpected native creation contract: %q", commands.args)
 	}
@@ -50,6 +52,7 @@ func (n *noExec) Run(context.Context, []byte, string, ...string) ([]byte, error)
 	n.called = true
 	return nil, errors.New("unexpected command")
 }
+
 func TestInvalidProjectNeverExecutes(t *testing.T) {
 	n := &noExec{}
 	d := testDaemon(n, Config{})
@@ -57,10 +60,30 @@ func TestInvalidProjectNeverExecutes(t *testing.T) {
 		t.Fatal("untrusted project reached executor")
 	}
 }
+
 func TestInvalidAccountNeverExecutes(t *testing.T) {
 	n := &noExec{}
 	d := testDaemon(n, Config{})
 	if err := d.Project.Account(context.Background(), project.Account{Login: "root;id", Identity: 1, Keys: []string{"x"}}); err == nil || n.called {
 		t.Fatal("untrusted account reached executor")
+	}
+}
+
+func TestCreateMountsOnlyGitLaunchDirectory(t *testing.T) {
+	commands := &captureCreate{}
+	d := testDaemon(commands, Config{Network: "soda-projects", Image: "localhost/soda-project-os:dev", GitSocket: "/run/soda-git-interface/launch.sock", ForgejoURL: "https://forge.example.test"})
+	profile := testProfile()
+	_, _ = d.Project.Create(context.Background(), project.Create{ID: "p123456789012345678901234", Owner: 2, Profile: &profile})
+	count := 0
+	for i, arg := range commands.args {
+		if arg == "--volume" {
+			count++
+			if i+1 >= len(commands.args) || commands.args[i+1] != "/run/soda-git-interface:/run/soda-git-interface:ro" {
+				t.Fatalf("unexpected mount: %q", commands.args)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("Git launch mount missing: %q", commands.args)
 	}
 }

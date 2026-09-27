@@ -37,6 +37,7 @@ import (
 var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
+	ForgejoURL         string `json:"forgejo_url,omitempty"`
 	GitSocket          string `json:"git_socket,omitempty"`
 	MuseSHA256         string `json:"muse_sha256"`
 	MuseVersion        string `json:"muse_version"`
