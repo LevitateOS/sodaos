@@ -18,6 +18,7 @@ var (
 const (
 	Codex    = "codex"
 	Muse     = "muse"
+	Forgejo  = "forgejo"
 	Ready    = "ready"
 	Reauth   = "reauth"
 	Revoked  = "revoked"
@@ -139,5 +140,6 @@ func CredentialValid(data []byte) bool {
 	return len(data) > 0 && len(data) <= 256<<10 && json.Valid(data)
 }
 
-// ProviderValid admits only the currently supported subscription providers.
-func ProviderValid(id string) bool { return id == Codex || id == Muse }
+// ProviderValid identifies the supported native account adapters. Execution
+// admission remains specific to the provider and its credential exposure model.
+func ProviderValid(id string) bool { return id == Codex || id == Muse || id == Forgejo }

@@ -117,6 +117,25 @@ reboot or interrupted return never restores the original seed; reconciliation
 terminates the recorded boundary and uncertain streams require one Soda-level
 reconnection. Local project files survive authentication failures.
 
+### Forgejo account custody
+
+Forgejo broker enrollment uses a separate confidential native OAuth application
+from browser login. Its code and PKCE exchange must verify the native subject,
+application audience, explicit `read:user write:repository` consent and the
+owner's verified primary email. The native user ID must equal the Soda owner ID.
+One unrevoked Forgejo connection per owner prevents competing refresh streams for
+the same native user/application grant. Reconnection requires retiring that
+connection first. Delegation cannot change the authenticated Forgejo user.
+
+Configure `forgejo.base`, `forgejo.client_id`, `forgejo.redirect_url` and the
+absolute `forgejo_secret_file` in the broker settings. Keep the client secret in a
+restricted file, separate from the browser application's secret. Native callback
+completion uses the private administration interface; it does not expose tokens.
+Forgejo credentials are excluded from raw terminal and factory credential
+delivery. Repository access must be mediated because native OAuth repository
+scopes apply across the account's permitted repositories. Git author identity
+uses upstream verified email; successful authentication alone does not set it.
+
 ### Muse subscription custody
 
 Muse uses the pinned upstream CLI `1.4.0-R4161.1` and its native device login.

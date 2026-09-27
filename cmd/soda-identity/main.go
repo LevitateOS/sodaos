@@ -23,21 +23,24 @@ import (
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/identity/codex"
 	"github.com/levitateos/sodaos/internal/identity/control"
+	identityforgejo "github.com/levitateos/sodaos/internal/identity/forgejo"
 	"github.com/levitateos/sodaos/internal/identity/muse"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
 type settings struct {
-	MuseWorkerRoot   string       `json:"muse_worker_root"`
-	MuseWorkerSocket string       `json:"muse_worker_socket"`
-	Database         string       `json:"database"`
-	KeyFile          string       `json:"key_file"`
-	AdminSocket      string       `json:"admin_socket"`
-	RuntimeSocket    string       `json:"runtime_socket"`
-	HostSocket       string       `json:"host_socket"`
-	Codex            codex.Config `json:"codex"`
-	Muse             muse.Config  `json:"muse"`
+	Forgejo           identityforgejo.Config `json:"forgejo"`
+	ForgejoSecretFile string                 `json:"forgejo_secret_file"`
+	MuseWorkerRoot    string                 `json:"muse_worker_root"`
+	MuseWorkerSocket  string                 `json:"muse_worker_socket"`
+	Database          string                 `json:"database"`
+	KeyFile           string                 `json:"key_file"`
+	AdminSocket       string                 `json:"admin_socket"`
+	RuntimeSocket     string                 `json:"runtime_socket"`
+	HostSocket        string                 `json:"host_socket"`
+	Codex             codex.Config           `json:"codex"`
+	Muse              muse.Config            `json:"muse"`
 }
 
 func main() {
@@ -184,6 +187,9 @@ func openStore(c settings) (*store.Store, error) {
 
 func openBroker(c settings, db *store.Store, worker *terminal.MuseRuntime) (*control.Controller, error) {
 	providers := map[string]identity.Provider{}
+	if err := configureForgejo(c, providers); err != nil {
+		return nil, err
+	}
 	if c.Codex.Binary != "" {
 		if err := os.MkdirAll(c.Codex.Root, 0o700); err != nil {
 			return nil, err

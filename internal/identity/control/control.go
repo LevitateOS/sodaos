@@ -73,8 +73,8 @@ func (c *Controller) StartEnrollment(ctx context.Context, owner int64, providerI
 	if c.providers[providerID] == nil || owner <= 0 || len(label) > 100 || label == "" {
 		return identity.Enrollment{}, identity.ErrDenied
 	}
-	if c.pendingEnrollment(owner, providerID) {
-		return identity.Enrollment{}, identity.ErrBusy
+	if err := c.enrollmentAdmission(ctx, owner, providerID); err != nil {
+		return identity.Enrollment{}, err
 	}
 	s, err := c.providers[providerID].Start(ctx, owner)
 	if err != nil {
@@ -92,11 +92,35 @@ func (c *Controller) StartEnrollment(ctx context.Context, owner int64, providerI
 
 func (c *Controller) pendingEnrollment(owner int64, providerID string) bool {
 	for _, e := range c.enrollments {
-		if e.owner == owner && e.providerID == providerID && e.session != nil && e.result.Connection == nil && e.session.Snapshot().State == "pending" {
+		if e.owner == owner && e.providerID == providerID && e.session != nil && e.result.Connection == nil && enrollmentUnretained(e.session) {
 			return true
 		}
 	}
 	return false
+}
+
+func enrollmentUnretained(session identity.EnrollmentSession) bool {
+	state := session.Snapshot().State
+	return state == "pending" || state == "completed"
+}
+
+func (c *Controller) enrollmentAdmission(ctx context.Context, owner int64, providerID string) error {
+	if c.pendingEnrollment(owner, providerID) {
+		return identity.ErrBusy
+	}
+	if providerID != identity.Forgejo {
+		return nil
+	}
+	connections, err := c.store.IdentityConnections(ctx, owner)
+	if err != nil {
+		return err
+	}
+	for _, connection := range connections {
+		if connection.ProviderID == identity.Forgejo && connection.State != identity.Revoked {
+			return identity.ErrBusy
+		}
+	}
+	return nil
 }
 
 func (c *Controller) Enrollment(ctx context.Context, owner int64, id string) (identity.Enrollment, error) {
@@ -179,6 +203,9 @@ func (c *Controller) CreateGrant(ctx context.Context, owner int64, in identity.G
 	conn, err := c.owned(ctx, owner, in.ConnectionID)
 	if err != nil {
 		return identity.Grant{}, err
+	}
+	if conn.ProviderID == identity.Forgejo && in.UserID != owner {
+		return identity.Grant{}, identity.ErrDenied
 	}
 	if conn.State != identity.Ready {
 		return identity.Grant{}, identity.ErrUncertain

@@ -15,6 +15,9 @@ func (c *Controller) Acquire(ctx context.Context, in identity.AcquireRequest) (i
 	if err := in.Validate(time.Now()); err != nil {
 		return identity.Lease{}, err
 	}
+	if in.ProviderID == identity.Forgejo {
+		return identity.Lease{}, identity.ErrDenied
+	}
 	conn, err := c.store.IdentityConnection(ctx, in.ConnectionID)
 	if err != nil {
 		return identity.Lease{}, err
@@ -59,6 +62,9 @@ func (c *Controller) Register(ctx context.Context, id string, b identity.Binding
 	l, conn, err := c.registration(ctx, id, b)
 	if err != nil {
 		return identity.Delivery{}, err
+	}
+	if conn.ProviderID == identity.Forgejo {
+		return identity.Delivery{}, identity.ErrDenied
 	}
 	l.Binding = &b
 	if err = c.store.IdentityRegister(ctx, l); err != nil {
