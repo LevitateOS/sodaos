@@ -29,7 +29,7 @@ printf 'synthetic secret diagnostic' >&2
 		t.Fatal(err)
 	}
 	p := &Provider{config: Config{Binary: binary, Root: root}}
-	session, err := p.Start(t.Context(), "subscription")
+	session, err := p.Start(t.Context(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -76,7 +76,7 @@ func (c *Controller) StartEnrollment(ctx context.Context, owner int64, providerI
 	if c.pendingEnrollment(owner, providerID) {
 		return identity.Enrollment{}, identity.ErrBusy
 	}
-	s, err := c.providers[providerID].Start(ctx, label)
+	s, err := c.providers[providerID].Start(ctx, owner)
 	if err != nil {
 		return identity.Enrollment{}, err
 	}

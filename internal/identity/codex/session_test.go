@@ -61,7 +61,7 @@ func TestManagedEnrollmentProtocolPersistsOnlyAfterProcessStop(t *testing.T) {
 	p := fixtureProvider(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	session, err := p.Start(ctx, "subscription")
+	session, err := p.Start(ctx, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestManagedEnrollmentProtocolPersistsOnlyAfterProcessStop(t *testing.T) {
 func TestCancelRemovesUnfinishedEnrollment(t *testing.T) {
 	p := fixtureProvider(t)
 	t.Setenv("SODA_IDENTITY_CODEX_TEST_PENDING", "1")
-	session, err := p.Start(t.Context(), "subscription")
+	session, err := p.Start(t.Context(), 1)
 	if err != nil {
 		t.Fatal(err)
 	}

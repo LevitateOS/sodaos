@@ -14,9 +14,12 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-type testProvider struct{}
+type testProvider struct{ onStart func(int64) }
 
-func (testProvider) Start(context.Context, string) (identity.EnrollmentSession, error) {
+func (p testProvider) Start(_ context.Context, owner int64) (identity.EnrollmentSession, error) {
+	if p.onStart != nil {
+		p.onStart(owner)
+	}
 	return &testSession{}, nil
 }
 
@@ -411,5 +414,17 @@ func TestFinishCannotReleaseUntilNativeRetirementConfirmed(t *testing.T) {
 		if b != 0 {
 			t.Fatal("failed return left credential bytes live")
 		}
+	}
+}
+
+func TestEnrollmentSuppliesTrustedOwner(t *testing.T) {
+	c, _, _, _ := controllerFixture(t)
+	var observed int64
+	c.providers[identity.Codex] = testProvider{onStart: func(owner int64) { observed = owner }}
+	if _, err := c.StartEnrollment(t.Context(), 42, identity.Codex, "native account"); err != nil {
+		t.Fatal(err)
+	}
+	if observed != 42 {
+		t.Fatalf("provider received owner %d", observed)
 	}
 }

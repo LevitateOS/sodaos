@@ -36,7 +36,7 @@ type message struct {
 	Params json.RawMessage `json:"params"`
 }
 
-func (p *Provider) Start(ctx context.Context, label string) (identity.EnrollmentSession, error) {
+func (p *Provider) Start(ctx context.Context, ownerID int64) (identity.EnrollmentSession, error) {
 	s, err := p.createSession()
 	if err != nil {
 		return nil, err

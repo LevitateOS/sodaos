@@ -25,7 +25,7 @@ type Session struct {
 	done  chan struct{}
 }
 
-func (p *Provider) Start(ctx context.Context, label string) (identity.EnrollmentSession, error) {
+func (p *Provider) Start(ctx context.Context, ownerID int64) (identity.EnrollmentSession, error) {
 	root, err := os.MkdirTemp(p.config.Root, "enrollment-")
 	if err != nil {
 		return nil, err
