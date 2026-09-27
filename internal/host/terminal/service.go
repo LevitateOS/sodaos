@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 
 type Executor interface {
 	Run(context.Context, []byte, string, ...string) ([]byte, error)
+	RunReader(context.Context, io.Reader, string, ...string) ([]byte, error)
 }
 
 type Service struct {

@@ -29,6 +29,10 @@ type terminalFake struct {
 	process    *terminalFakeProcess
 }
 
+func (f *terminalFake) RunReader(context.Context, io.Reader, string, ...string) ([]byte, error) {
+	return nil, errors.New("unexpected streaming operation")
+}
+
 func (f *terminalFake) Run(_ context.Context, _ []byte, command string, args ...string) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

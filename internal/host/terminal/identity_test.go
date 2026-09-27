@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,12 @@ type identityExecutor struct {
 	requests  []identityRequest
 	calls     [][]string
 	response  identity.Delivery
+}
+
+func (e *identityExecutor) RunReader(_ context.Context, body io.Reader, command string, args ...string) ([]byte, error) {
+	e.calls = append(e.calls, append([]string{command}, args...))
+	_, err := io.Copy(io.Discard, body)
+	return nil, err
 }
 
 func (e *identityExecutor) Run(_ context.Context, body []byte, command string, args ...string) ([]byte, error) {

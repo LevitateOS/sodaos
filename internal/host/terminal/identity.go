@@ -225,10 +225,7 @@ func (s *Service) identityStage(ctx context.Context, container string, delivery 
 		return err
 	}
 	path := "/run/soda-terminals/" + delivery.Lease.ExecutionID + "/model/harness"
-	if _, err := s.podman(ctx, nil, "--remote=false", "cp", filepath.Clean(s.CodexHarness)+"/.", container+":"+path); err != nil {
-		return errors.New("codex harness staging failed")
-	}
-	return nil
+	return s.streamIdentityHarness(ctx, container, path)
 }
 
 func terminalPreparation(lease identity.Lease, login, scope string, cols, rows int) bool {

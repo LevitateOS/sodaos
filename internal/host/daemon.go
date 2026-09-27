@@ -137,9 +137,13 @@ type Native struct{}
 
 func (Native) HostNative() {}
 
-func (Native) Run(ctx context.Context, in []byte, command string, args ...string) ([]byte, error) {
+func (n Native) Run(ctx context.Context, in []byte, command string, args ...string) ([]byte, error) {
+	return n.RunReader(ctx, bytes.NewReader(in), command, args...)
+}
+
+func (Native) RunReader(ctx context.Context, in io.Reader, command string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, command, args...)
-	cmd.Stdin = bytes.NewReader(in)
+	cmd.Stdin = in
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
