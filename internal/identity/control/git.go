@@ -88,7 +88,10 @@ func (c *Controller) registerGitNative(ctx context.Context, l identity.Lease) er
 }
 
 func validGitRegistration(l identity.Lease, conn identity.Connection, b identity.Binding) bool {
-	return l.ProviderID == identity.Forgejo && l.RepositoryID > 0 && l.ActorID == conn.OwnerID && b.Project == l.ProjectID && b.Scope == "git"
+	if l.ProviderID != identity.Forgejo || l.RepositoryID <= 0 || l.ActorID != conn.OwnerID || b.Project != l.ProjectID || b.Kind != l.Kind {
+		return false
+	}
+	return (l.Kind == identity.Terminal && b.Scope == "git") || (l.Kind == identity.Factory && b.Scope == "git-factory")
 }
 
 func validGitAcquire(in identity.GitAcquireRequest) bool {

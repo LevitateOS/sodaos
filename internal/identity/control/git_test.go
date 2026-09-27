@@ -25,6 +25,20 @@ func TestFactoryGitRequiresAuthorizingRepository(t *testing.T) {
 	}
 }
 
+func TestFactoryGitRegistrationRequiresFactoryReadScope(t *testing.T) {
+	c, _ := gitControllerFixture(t, http.NotFoundHandler())
+	l, err := c.AcquireGit(t.Context(), identity.GitAcquireRequest{ExpectedRepositoryID: 7, Owner: "soda-tester", Repository: "repo", Acquire: identity.AcquireRequest{ProviderID: identity.Forgejo, ConnectionID: "git-account", ActorID: 1, ProjectID: "project", Kind: identity.Factory, ExecutionID: "worker", Deadline: time.Now().Add(time.Hour)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, scope := range []string{"", "git", "muse-factory"} {
+		_, err := c.RegisterGit(t.Context(), l.ID, identity.Binding{Kind: identity.Factory, ID: "worker", Project: "project", Scope: scope, Generation: l.Generation})
+		if !errors.Is(err, identity.ErrDenied) {
+			t.Fatalf("factory scope %q admitted: %v", scope, err)
+		}
+	}
+}
+
 func gitControllerFixture(t *testing.T, git http.Handler) (*Controller, identity.Connection) {
 	t.Helper()
 	c, db, _, _ := controllerFixture(t)
@@ -63,7 +77,11 @@ func gitLeaseFixture(t *testing.T, c *Controller, kind, execution string) identi
 	if err != nil {
 		t.Fatal(err)
 	}
-	b := identity.Binding{Scope: "git", Kind: kind, ID: execution, Project: "project", Login: "soda-tester", Generation: 1}
+	scope := "git"
+	if kind == identity.Factory {
+		scope = "git-factory"
+	}
+	b := identity.Binding{Scope: scope, Kind: kind, ID: execution, Project: "project", Login: "soda-tester", Generation: 1}
 	session, err := c.RegisterGit(t.Context(), l.ID, b)
 	if err != nil || session.Email != "soda-tester@example.test" || session.Name != "Soda Tester" {
 		t.Fatal("native attribution missing", err)
