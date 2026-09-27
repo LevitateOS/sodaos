@@ -23,6 +23,8 @@ The configuration also names `identity_socket` (the private runtime socket),
 `connection_id` and `project_id`. Run factory and broker as the same Unix operator
 in the same rootless Podman context. The authorizing human remains the work actor;
 connection sponsorship does not give the worker Forgejo write authority.
+Worker Git setup belongs to
+[Forgejo account custody](credentials.md#forgejo-account-custody).
 
 The workspace configuration pins worker and proxy image IDs, the complete Codex
 package, actual executable SHA256 (`harness_sha256`) and version, the model,

@@ -166,6 +166,17 @@ then supervises one native Git helper unit. Its relay capability lives in a
 protected runtime config file supplied through restricted stdin; upstream OAuth
 credentials stay in broker custody. Revocation stops that unit and removes its
 runtime config without stopping the project or a sibling Git session.
+
+Ephemeral workers use the broker's `git_worker_socket` in a separate public
+directory. Factory workspace configuration supplies `git_tools_directory` and
+`git_socket` for the matching public helper and interface. The operator's user
+systemd manager supervises each transport while entering the attested worker's
+user, mount and network namespaces. Only its read-scoped relay capability enters
+worker tmpfs; the initial `source.bundle` checkout remains in place, with the
+trusted admitted repository origin routed through the helper. Stopping Git leaves
+the worker and sibling sessions running. Admission and controlled publication
+remain governed by the [factory operator interface](factory.md).
+
 `soda-identity-compose --git` explicitly opts one nested service into the same
 Forgejo path. The child receives only the public Git helper, its exact launch
 socket and a read-only view of its per-invocation config; broker OAuth credentials
