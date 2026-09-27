@@ -30,3 +30,14 @@ func TestComposeRejectsAmbiguousOrUnconfirmedIdentity(t *testing.T) {
 		t.Fatal("failed native observation admitted")
 	}
 }
+
+func TestComposeResolvesUpstreamShortHandleToImmutableIdentity(t *testing.T) {
+	id := strings.Repeat("a", 64)
+	child, err := selectComposeChild(id[:12], "development", func(string) (string, error) { return id + " development", nil })
+	if err != nil || child != id {
+		t.Fatalf("upstream short handle did not resolve: %q %v", child, err)
+	}
+	if _, err = selectComposeChild(id[:12], "development", func(string) (string, error) { return strings.Repeat("b", 64) + " development", nil }); err == nil {
+		t.Fatal("different native identity admitted")
+	}
+}
