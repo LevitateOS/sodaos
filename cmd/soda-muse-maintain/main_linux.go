@@ -79,6 +79,9 @@ func maintain(o options, c host.Config) error {
 		return err
 	}
 	if !o.bindOnly {
+		if err := ensureSystemBus(ctx, target); err != nil {
+			return err
+		}
 		if err := stageTools(ctx, target, sources); err != nil {
 			return err
 		}

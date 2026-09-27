@@ -128,7 +128,10 @@ in an authorized project. The launcher derives identity from kernel peer evidenc
 and the current account marker; caller arguments do not select an actor or project.
 When several authorized Muse connections exist, set `SODA_MUSE_CONNECTION` to the
 chosen connection ID. Settings and working directories belong to each invocation;
-subscription execution removes inherited API-key overrides.
+subscription execution removes inherited API-key overrides. Existing personal
+settings seed the private view and remain unchanged. CLI settings or trust edits
+in that view are discarded at retirement; edit the personal settings file for
+persistent preferences.
 
 Each execution has a separate systemd unit and broker lease. The only container
 interface is the launch socket at `/run/soda-muse-interface/launch.sock`.

@@ -81,7 +81,7 @@ Source owners include `internal/host/`, `project-os/rootfs/usr/libexec/soda/`,
 
 ## Supported userspace
 
-- Keep the distribution's native package mechanisms, systemd, OpenSSH, Git, Bash and
+- Keep the distribution's native package mechanisms, systemd with its D-Bus broker, OpenSSH, Git, Bash and
   OS Python. Versions live in `project-os/Containerfile` and locks.
 - Shared mise lives in `/opt/mise` with global config in `/etc/mise/config.toml`.
 - Keep personal Git clones, repository `mise.toml`, explicit trust decisions and
