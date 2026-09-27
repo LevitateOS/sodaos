@@ -147,6 +147,11 @@ delivery. Repository access must be mediated because native OAuth repository
 scopes apply across the account's permitted repositories. A selected remote resolves
 to a stable native repository ID; each mediated operation must recheck current
 native read or write permission and the connected owner's verified identity.
+Git HTTP traffic uses the private runtime interface; administration sockets deny
+it. Factory leases require the authorizing run's repository ID and permit only
+upload-pack reads. Human leases may use native receive-pack when Forgejo grants
+write permission. Ending a lease cancels its HTTP streams before native stop;
+normal Git retirement does not replace the broker credential.
 Git author identity
 uses upstream verified email; successful authentication alone does not set it.
 

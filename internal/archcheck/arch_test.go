@@ -221,7 +221,7 @@ func TestDependencyDirection(t *testing.T) {
 	allowOnly(t, edges, "internal/identity/muse", "internal/identity", "internal/strictjson")
 	allowOnly(t, edges, "internal/identity/forgejo", "internal/identity", "internal/forgejo", "internal/strictjson")
 	allowOnly(t, edges, "internal/identity/codex", "internal/identity", "internal/strictjson")
-	allowOnly(t, edges, "internal/identity/control", "internal/identity", "internal/identity/codex", "internal/store", "internal/strictjson", "internal/filelock")
+	allowOnly(t, edges, "internal/identity/control", "internal/identity", "internal/forgejo", "internal/identity/codex", "internal/store", "internal/strictjson", "internal/filelock")
 
 	// Native project, terminal, companion and factory execution lives under host/.
 	for _, pkg := range []string{"internal/host/project", "internal/host/terminal", "internal/host/tailnet", "internal/host/workspace", "internal/host/publish"} {

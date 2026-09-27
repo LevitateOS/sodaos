@@ -14,6 +14,10 @@ const forgejoRenewalMargin = time.Minute
 func (c *Controller) forgejoCredential(ctx context.Context, owner int64, id string) (identity.Connection, []byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.forgejoCredentialLocked(ctx, owner, id)
+}
+
+func (c *Controller) forgejoCredentialLocked(ctx context.Context, owner int64, id string) (identity.Connection, []byte, error) {
 	conn, err := c.owned(ctx, owner, id)
 	if err != nil {
 		return identity.Connection{}, nil, err

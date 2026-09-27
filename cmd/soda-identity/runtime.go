@@ -38,6 +38,10 @@ func (n nativeRuntime) Finish(ctx context.Context, l identity.Lease) ([]byte, er
 }
 
 func (n nativeRuntime) Validate(ctx context.Context, l identity.Lease) error {
+	// Forgejo requires its own supervised Git execution, never the workspace boundary.
+	if l.ProviderID == identity.Forgejo {
+		return identity.ErrDenied
+	}
 	if l.Binding == nil {
 		return identity.ErrDenied
 	}
@@ -101,6 +105,9 @@ func podman(ctx context.Context, args ...string) ([]byte, error) {
 }
 
 func (n nativeRuntime) Stop(ctx context.Context, l identity.Lease) error {
+	if l.ProviderID == identity.Forgejo {
+		return identity.ErrUncertain
+	}
 	if l.Binding == nil {
 		return nil
 	}

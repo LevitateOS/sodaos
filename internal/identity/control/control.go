@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"net/http"
 	"sync"
 
 	"github.com/levitateos/sodaos/internal/identity"
@@ -13,6 +14,7 @@ import (
 )
 
 type Controller struct {
+	gitRequests map[string]map[*http.Request]context.CancelFunc
 	mu          sync.Mutex
 	store       *store.Store
 	providers   map[string]identity.Provider

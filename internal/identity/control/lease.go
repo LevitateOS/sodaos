@@ -126,12 +126,13 @@ func (c *Controller) Return(ctx context.Context, id string, b identity.Binding, 
 	if l.Binding == nil || *l.Binding != b {
 		return identity.ErrDenied
 	}
+	c.cancelGitRequests(l.ID)
 	// Trusted native termination is mandatory even when the caller reports exit.
 	if err = c.runtime.Stop(ctx, l); err != nil {
 		_ = c.uncertain(ctx, l)
 		return identity.ErrUncertain
 	}
-	if l.ProviderID == identity.Muse {
+	if l.ProviderID == identity.Muse || l.ProviderID == identity.Forgejo {
 		return c.store.IdentityForgetLease(ctx, l.ID)
 	}
 	if !identity.CredentialValid(data) {
@@ -153,10 +154,11 @@ func (c *Controller) uncertain(ctx context.Context, l identity.Lease) error {
 }
 
 func (c *Controller) end(ctx context.Context, l identity.Lease) error {
+	c.cancelGitRequests(l.ID)
 	if l.Binding == nil {
 		return c.store.IdentityForgetLease(ctx, l.ID)
 	}
-	if l.ProviderID != identity.Muse {
+	if l.ProviderID != identity.Muse && l.ProviderID != identity.Forgejo {
 		if err := c.uncertain(ctx, l); err != nil {
 			return err
 		}
@@ -189,7 +191,7 @@ func (c *Controller) finish(ctx context.Context, l identity.Lease) error {
 	if l.Binding == nil {
 		return c.store.IdentityForgetLease(ctx, l.ID)
 	}
-	if l.ProviderID == identity.Muse {
+	if l.ProviderID == identity.Muse || l.ProviderID == identity.Forgejo {
 		return c.end(ctx, l)
 	}
 	data, captureErr := c.runtime.Finish(ctx, l)
@@ -329,6 +331,9 @@ func (c *Controller) sweepLease(ctx context.Context, l identity.Lease) error {
 func (c *Controller) Close() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	for id := range c.gitRequests {
+		c.cancelGitRequests(id)
+	}
 	var failures []error
 	for _, e := range c.enrollments {
 		if e.session != nil {

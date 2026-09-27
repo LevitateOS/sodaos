@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/store"
@@ -14,6 +15,10 @@ import (
 // are excluded from the dashboard's admin listener.
 func (c *Controller) Handler(runtimeAllowed bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if runtimeAllowed && strings.HasPrefix(r.URL.Path, "/git/") {
+			c.serveGit(w, r)
+			return
+		}
 		if r.Method != "POST" || r.URL.RawQuery != "" || r.Header.Get("Origin") != "" {
 			http.Error(w, "denied", http.StatusForbidden)
 			return
@@ -116,6 +121,16 @@ func (c *Controller) grantRequest(r *http.Request, in identity.Request) (any, er
 func (c *Controller) runtimeRequest(r *http.Request, in identity.Request) (any, error) {
 	ctx := r.Context()
 	switch r.URL.Path {
+	case "/git-acquire":
+		if in.GitAcquire == nil {
+			return nil, identity.ErrDenied
+		}
+		return c.AcquireGit(ctx, *in.GitAcquire)
+	case "/git-register":
+		if in.Binding == nil {
+			return nil, identity.ErrDenied
+		}
+		return c.RegisterGit(ctx, in.ID, *in.Binding)
 	case "/acquire":
 		if in.Acquire == nil {
 			return nil, identity.ErrDenied
