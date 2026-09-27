@@ -84,7 +84,15 @@ Choose a connection when starting Codex. Device sign-in
 must be enabled by the upstream account or organization; unsupported enrollment
 requires upstream setup, never silent conversion to API billing. The verified
 protocol is Codex CLI `0.153.4`; operator configuration pins actual executable bytes.
-Claude subscription tokens, API billing and federation adapters are outside v1.
+Claude.ai subscription credentials are not admitted into broker custody:
+[Anthropic's credential rules](https://code.claude.com/docs/en/legal-and-compliance#authentication-and-credential-use)
+prohibit third-party collection, storage and intermediation of these session
+tokens. An end user may sign into the unmodified Claude Code binary through its
+native flow; that is separate from Soda's shared credential custody. An explicit
+upstream agreement covering broker custody is required before adding that route.
+OpenRouter's documented [usage billing](https://openrouter.ai/support/#how-do-i-get-billed-for-my-usage-on-openrouter)
+does not satisfy subscription-only admission. API billing and federation adapters
+are not supported.
 
 A project grant names one Soda user and project. Its owner must confirm provider
 permission to share and accept credential exposure. Current provisioned membership
