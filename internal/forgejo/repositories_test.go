@@ -14,8 +14,11 @@ func TestSearchOwnedRepositories(t *testing.T) {
 		name, body string
 		accept     bool
 	}{
-		{"owned", valid, true}, {"empty", `{"ok":true,"data":[]}`, true},
-		{"missing", `{}`, false}, {"null", `{"ok":true,"data":null}`, false}, {"false", `{"ok":false,"data":[]}`, false},
+		{"owned", valid, true},
+		{"empty", `{"ok":true,"data":[]}`, true},
+		{"missing", `{}`, false},
+		{"null", `{"ok":true,"data":null}`, false},
+		{"false", `{"ok":false,"data":[]}`, false},
 		{"foreign owner", strings.Replace(valid, `"id":1,`, `"id":2,`, 1), false},
 		{"wrong label", strings.Replace(valid, "alice/repo", "other/repo", 1), false},
 		{"oversized", strings.Repeat(" ", 2<<20) + valid, false},
@@ -26,7 +29,7 @@ func TestSearchOwnedRepositories(t *testing.T) {
 				if r.URL.Path != "/api/v1/repos/search" || r.Header.Get("Authorization") != "token actor" || q.Get("q") != "x & y" || q.Get("uid") != "1" || q.Get("exclusive") != "true" || q.Get("private") != "true" || q.Get("page") != "2" || q.Get("limit") != "12" {
 					t.Error("wrong native search", r.URL)
 				}
-				fmt.Fprint(w, tc.body)
+				_, _ = fmt.Fprint(w, tc.body)
 			}))
 			defer server.Close()
 			_, err := New(server.URL).SearchOwnedRepositories(t.Context(), "actor", 1, "x & y", 2)
@@ -36,6 +39,7 @@ func TestSearchOwnedRepositories(t *testing.T) {
 		})
 	}
 }
+
 func TestSearchRepositoryBounds(t *testing.T) {
 	c := New("http://must-not-contact.invalid")
 	for _, page := range []int{-1, 0, 101} {

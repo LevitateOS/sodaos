@@ -10,7 +10,9 @@ import (
 func TestTailnetPreservesBrowserOrigin(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "forgejo.env")
 	original := "FORGEJO__server__ROOT_URL=https://forgejo.example/\n"
-	os.WriteFile(p, []byte(original), 0o600)
+	if err := os.WriteFile(p, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	changed, err := UpdateSSHDomain(p, "100.100.0.1")
 	if err != nil || !changed {
 		t.Fatal(changed, err)

@@ -28,7 +28,7 @@ func TestGrantExchangeAndRefreshUseNativeForms(t *testing.T) {
 				} else if r.Form.Get("grant_type") != "authorization_code" || r.Form.Get("code_verifier") != "verifier" || r.Form.Get("redirect_uri") != "https://soda.example/oauth/callback" {
 					t.Error("PKCE/redirect binding lost")
 				}
-				fmt.Fprint(w, `{"access_token":"access","refresh_token":"rotated","token_type":"bearer","expires_in":3600}`)
+				_, _ = fmt.Fprint(w, `{"access_token":"access","refresh_token":"rotated","token_type":"bearer","expires_in":3600}`)
 			}))
 			defer server.Close()
 			client := New(server.URL)
@@ -45,6 +45,7 @@ func TestGrantExchangeAndRefreshUseNativeForms(t *testing.T) {
 		})
 	}
 }
+
 func TestIntrospectionChecksActualScopeSubjectAndAudience(t *testing.T) {
 	for _, tc := range []struct {
 		name, body string
@@ -61,7 +62,7 @@ func TestIntrospectionChecksActualScopeSubjectAndAudience(t *testing.T) {
 				if !ok || id != "client" || secret != "secret" || r.URL.Path != "/login/oauth/introspect" {
 					t.Error("wrong introspection authentication")
 				}
-				fmt.Fprint(w, tc.body)
+				_, _ = fmt.Fprint(w, tc.body)
 			}))
 			defer server.Close()
 			scope, err := New(server.URL).GrantScopes(context.Background(), "client", "secret", "access", 12)

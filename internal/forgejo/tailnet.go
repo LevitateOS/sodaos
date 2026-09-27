@@ -39,7 +39,7 @@ func writeForgejoEnv(path, updated string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }()
 	if err = f.Chmod(0o600); err == nil {
 		_, err = f.WriteString(updated)
 	}

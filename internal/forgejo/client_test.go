@@ -13,7 +13,7 @@ func TestCurrent(t *testing.T) {
 		if r.URL.Path != "/api/v1/user" || r.Header.Get("Authorization") != "token test" {
 			t.Error("wrong native request")
 		}
-		fmt.Fprint(w, `{"id":12,"login":"alice"}`)
+		_, _ = fmt.Fprint(w, `{"id":12,"login":"alice"}`)
 	}))
 	defer server.Close()
 	u, err := New(server.URL).Current(context.Background(), "test")

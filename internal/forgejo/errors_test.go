@@ -41,7 +41,7 @@ func TestNativeStatusIsTypedAndSanitized(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				requests++
 				w.WriteHeader(status)
-				fmt.Fprint(w, `{"message":"private-provider-content"}`)
+				_, _ = fmt.Fprint(w, `{"message":"private-provider-content"}`)
 			}))
 			defer server.Close()
 			_, err := New(server.URL).Current(context.Background(), "private-token")
@@ -61,7 +61,7 @@ func TestNativeStatusIsTypedAndSanitized(t *testing.T) {
 
 func TestExchangeRejectsTrailingData(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, `{"access_token":"private-token"}{}`)
+		_, _ = fmt.Fprint(w, `{"access_token":"private-token"}{}`)
 	}))
 	defer server.Close()
 	token, err := New(server.URL).ExchangeGrant(context.Background(), "client", "secret", "code", "https://soda.example/oauth/callback", "verifier")
