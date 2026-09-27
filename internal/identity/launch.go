@@ -100,7 +100,21 @@ func MuseArguments(args []string) ([]string, error) {
 	if positional == "auth" || positional == "login" || positional == "logout" {
 		return nil, ErrDenied
 	}
-	return append([]string{"--provider", "meta"}, args...), nil
+	return museProviderArguments(args), nil
+}
+
+// The pinned native dispatcher recognizes subcommands only in argv[0].
+func museProviderArguments(args []string) []string {
+	if len(args) == 0 {
+		return []string{"--provider", "meta"}
+	}
+	switch args[0] {
+	case "exec", "resume", "serve":
+		return append([]string{args[0], "--provider", "meta"}, args[1:]...)
+	case "config", "export", "trace", "skills", "sandbox", "schema", "session-message", "mcp", "init":
+		return append([]string{}, args...)
+	}
+	return append([]string{"--provider", "meta"}, args...)
 }
 
 func museAuthOverride(arg string) bool {

@@ -35,7 +35,7 @@ func (m *MuseRuntime) Start(ctx context.Context, peer MusePeer, in identity.Laun
 	out.Command = museCommand(ctx, execution.caller, execution.request, execution.unit, execution.path)
 	out.Prepare = func(ctx context.Context) error { return m.deliverExecution(ctx, execution) }
 	out.Finish = func(ctx context.Context) error {
-		return m.stopExecution(ctx, execution.caller.Container, execution.unit, execution.path, execution.caller.Actor, execution.lease.ID, true)
+		return m.stopExecution(ctx, execution.binding, execution.caller.Actor, execution.lease.ID, true)
 	}
 	out.Control = func(ctx context.Context, control identity.LaunchControl) error {
 		return m.controlExecution(ctx, execution, stdio[0], out.Command, control)
@@ -70,12 +70,15 @@ func (m *MuseRuntime) prepareExecution(ctx context.Context, peer MusePeer, in id
 		return nil, err
 	}
 	if !musePeerAlive(peer) {
+		clean, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = m.End(clean, caller.Actor, execution.lease.ID)
 		return nil, identity.ErrDenied
 	}
 	if err = m.stage(ctx, caller, execution.path, in.ConfigHome); err != nil {
 		clean, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		_ = m.stopExecution(clean, caller.Container, execution.unit, execution.path, caller.Actor, execution.lease.ID, true)
+		_ = m.stopExecution(clean, execution.binding, caller.Actor, execution.lease.ID, true)
 		return nil, err
 	}
 	return execution, nil
@@ -98,7 +101,7 @@ func (m *MuseRuntime) reserveExecution(ctx context.Context, caller museCaller, i
 	if caller.Child != "" {
 		path = "/run/soda-muse/nested/" + caller.Registration + "/" + id
 	}
-	binding := identity.Binding{Kind: identity.Terminal, ID: id, Project: caller.Container, Login: caller.Login, Generation: lease.Generation, Scope: "muse-project", CredentialRoot: path}
+	binding := identity.Binding{Kind: identity.Terminal, ID: id, Project: caller.Container, ChildID: caller.Child, UID: caller.UID, GID: caller.GID, Login: caller.Login, Generation: lease.Generation, Scope: "muse-project", CredentialRoot: path}
 	return &museExecution{caller: caller, request: in, lease: lease, binding: binding, path: path, unit: "soda-muse-" + id + ".service"}, nil
 }
 
@@ -212,7 +215,7 @@ func (m *MuseRuntime) stage(ctx context.Context, c museCaller, path string, conf
 
 func (m *MuseRuntime) stageFiles(ctx context.Context, c museCaller, path string) error {
 	var err error
-	for _, dir := range []string{path + "/config/muse", path + "/state", path + "/cache"} {
+	for _, dir := range []string{path + "/config/muse"} {
 		if _, err = m.guest(ctx, c.Container, nil, "/usr/bin/install", "--directory", "--mode=0700", "--owner="+strconv.Itoa(c.UID), "--group="+strconv.Itoa(c.GID), dir); err != nil {
 			return err
 		}
@@ -262,7 +265,9 @@ func (m *MuseRuntime) authMountTarget(ctx context.Context, c museCaller, path st
 	return err
 }
 
-func (m *MuseRuntime) stopExecution(ctx context.Context, container, unit, path string, actor int64, leaseID string, returnCustody bool) error {
+func (m *MuseRuntime) stopExecution(ctx context.Context, binding identity.Binding, actor int64, leaseID string, returnCustody bool) error {
+	container := binding.Project
+	unit := "soda-muse-" + binding.ID + ".service"
 	// systemctl stop waits for KillMode=control-group. Verify its cgroup is gone or
 	// unpopulated before returning custody. Do not infer cleanup from CLI exit.
 	_, stopErr := m.guest(ctx, container, nil, "/usr/bin/systemctl", "stop", unit)
@@ -275,13 +280,8 @@ func (m *MuseRuntime) stopExecution(ctx context.Context, container, unit, path s
 			return identity.ErrUncertain
 		}
 	}
-	if !strings.Contains(path, "/nested/") {
-		if err = m.retireMount(ctx, container, path); err != nil {
-			return err
-		}
-	}
-	if _, err = m.guest(ctx, container, nil, "/usr/bin/rm", "--recursive", "--force", "--", path); err != nil {
-		return identity.ErrUncertain
+	if err = m.retireExecutionFiles(ctx, binding); err != nil {
+		return err
 	}
 	if returnCustody {
 		return m.End(ctx, actor, leaseID)
@@ -373,6 +373,9 @@ func (m *MuseRuntime) factoryOperation(ctx context.Context, action string, deliv
 	if err := m.stopFactoryUnit(ctx, unit, b.InvocationID); err != nil {
 		return err
 	}
+	if err := m.cleanupExecutionState(ctx, *b); err != nil {
+		return err
+	}
 	_, err := m.podman(ctx, nil, "unshare", "/usr/bin/rm", "--recursive", "--force", "--", b.CredentialRoot)
 	return err
 }
@@ -405,7 +408,7 @@ func (m *MuseRuntime) projectOperation(ctx context.Context, action string, deliv
 	if action != "stop" {
 		return identity.ErrDenied
 	}
-	return m.stopExecution(ctx, b.Project, unit, b.CredentialRoot, delivery.Lease.ActorID, delivery.Lease.ID, false)
+	return m.stopExecution(ctx, *b, delivery.Lease.ActorID, delivery.Lease.ID, false)
 }
 
 func museProjectCredentialRoot(b identity.Binding) bool {

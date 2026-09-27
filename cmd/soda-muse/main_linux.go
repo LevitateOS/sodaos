@@ -169,7 +169,7 @@ func execute(root, cwd string, args []string) (int, error) {
 	if err := awaitAdmission(root); err != nil {
 		return 1, err
 	}
-	state, err := os.MkdirTemp("", "soda-muse-")
+	state, err := executionState(root)
 	if err != nil {
 		return 1, err
 	}
@@ -196,7 +196,7 @@ func awaitAdmission(root string) error {
 }
 
 func museEnvironment(root, state string) []string {
-	env := []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TBH_CREDENTIAL_BACKEND=file", "XDG_CONFIG_HOME=" + root + "/config", "XDG_STATE_HOME=" + state + "/state", "XDG_CACHE_HOME=" + state + "/cache"}
+	env := []string{"PATH=/usr/local/bin:/usr/bin:/bin", "LANG=C.UTF-8", "TBH_CREDENTIAL_BACKEND=file", "XDG_CONFIG_HOME=" + root + "/config", "XDG_STATE_HOME=" + state + "/state", "XDG_CACHE_HOME=" + state + "/cache", "XDG_DATA_HOME=" + state + "/data", "TMPDIR=" + state + "/tmp"}
 	for _, name := range []string{"HOME", "USER", "LOGNAME", "TERM", "COLORTERM"} {
 		if value := os.Getenv(name); value != "" {
 			env = append(env, name+"="+value)

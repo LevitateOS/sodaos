@@ -66,6 +66,9 @@ type AcquireRequest struct {
 
 // Binding identifies a native process boundary, not a browser attachment.
 type Binding struct {
+	ChildID        string `json:"child_id,omitempty"`
+	UID            int    `json:"uid,omitempty"`
+	GID            int    `json:"gid,omitempty"`
 	Scope          string `json:"scope,omitempty"`
 	CredentialRoot string `json:"credential_root,omitempty"`
 	InvocationID   string `json:"invocation_id,omitempty"`

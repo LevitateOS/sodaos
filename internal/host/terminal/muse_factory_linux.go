@@ -92,7 +92,7 @@ func (m *MuseRuntime) reserveFactory(ctx context.Context, caller MuseFactoryCall
 		return nil, err
 	}
 	path := filepath.Join(caller.CredentialRoot, id)
-	e := &museFactoryExecution{caller: caller, request: in, lease: lease, path: path, unit: "soda-muse-" + id + ".service", binding: identity.Binding{Kind: identity.Factory, ID: id, Project: caller.Container, Login: caller.Login, Generation: lease.Generation, Scope: "muse-factory", CredentialRoot: path}}
+	e := &museFactoryExecution{caller: caller, request: in, lease: lease, path: path, unit: "soda-muse-" + id + ".service", binding: identity.Binding{Kind: identity.Factory, ID: id, Project: caller.Container, Login: caller.Login, Generation: lease.Generation, Scope: "muse-factory", UID: caller.UID, GID: caller.GID, CredentialRoot: path}}
 	if err = m.stageFactory(ctx, e); err != nil {
 		clean, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
@@ -117,7 +117,7 @@ func (m *MuseRuntime) stageFactory(ctx context.Context, e *museFactoryExecution)
 }
 
 func (m *MuseRuntime) factoryCommand(ctx context.Context, e *museFactoryExecution) *exec.Cmd {
-	args := []string{"--user", "--quiet", "--wait", "--collect", "--service-type=exec", "--unit=" + e.unit, "--property=KillMode=control-group", "--property=RuntimeMaxSec=43200", "--property=TimeoutStopSec=10", "--setenv=HOME=" + e.request.Home, "--setenv=TERM=" + e.request.Term}
+	args := []string{"--user", "--quiet", "--wait", "--collect", "--service-type=exec", "--unit=" + e.unit, "--property=KillMode=control-group", "--property=RuntimeMaxSec=" + museRuntimeMax(e.lease.Deadline), "--property=TimeoutStopSec=10", "--setenv=HOME=" + e.request.Home, "--setenv=TERM=" + e.request.Term}
 	if e.request.TTY {
 		args = append(args, "--pty")
 	} else {
@@ -160,6 +160,9 @@ func (m *MuseRuntime) deliverFactory(ctx context.Context, e *museFactoryExecutio
 
 func (m *MuseRuntime) finishFactory(ctx context.Context, e *museFactoryExecution) error {
 	if err := m.stopFactoryUnit(ctx, e.unit, e.binding.InvocationID); err != nil {
+		return err
+	}
+	if err := m.cleanupExecutionState(ctx, e.binding); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(e.path); err != nil {
@@ -297,4 +300,12 @@ func museActiveInvocation(body []byte) string {
 		return id
 	}
 	return ""
+}
+
+func museRuntimeMax(deadline time.Time) string {
+	remaining := time.Until(deadline)
+	if remaining < time.Millisecond {
+		return "1ms"
+	}
+	return strconv.FormatFloat(remaining.Seconds(), 'f', 3, 64)
 }
