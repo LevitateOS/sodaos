@@ -15,8 +15,9 @@ import (
 )
 
 type Runtime struct {
-	Config Config
-	Exec   Executor
+	Config    Config
+	Exec      Executor
+	GitRemote string
 }
 
 func ownership(id string) string { return "io.soda.factory.run=" + id }
@@ -125,6 +126,10 @@ func (w *Runtime) createWorkspace(ctx context.Context, r *factory.Run, resource 
 	if err != nil {
 		return err
 	}
+	args, err = w.gitArguments(args)
+	if err != nil {
+		return err
+	}
 	args = append(args, "--read-only-tmpfs=false", "--shm-size=16m", "--network="+network, "--tmpfs", "/tmp:rw,nosuid,nodev,size=32m", "--tmpfs", fmt.Sprintf("/workspace:rw,nosuid,nodev,size=%d,mode=1777", w.Config.WritableBytes-(64<<20)), "--tmpfs", "/run/codex:rw,nosuid,nodev,size=16m,mode=1777", "--env", "HOME=/workspace/home", "--env", "CODEX_HOME=/run/codex", "--env", "CODEX_SQLITE_HOME=/workspace/.codex-state", "--env", "PATH=/usr/local/bin:/opt/codex/bin:/opt/codex/codex-path:/usr/bin:/bin", "--env", "HTTPS_PROXY="+url, "--env", "HTTP_PROXY="+url, "--volume", w.Config.HarnessDirectory+":/opt/codex:ro,z", "--volume", filepath.Join(w.Config.Root, r.ID, "input")+":/input:ro,Z", "--workdir", "/workspace", w.Config.Image, "sleep", "infinity")
 	return w.createContainer(ctx, resource, args)
 }
@@ -144,7 +149,10 @@ git -C /workspace/repo config user.name soda-agent
 git -C /workspace/repo config user.email soda-agent@localhost
 `
 	_, err := w.Exec.Run(ctx, nil, "podman", "exec", id, "sh", "-c", script, "initialize-workspace", r.InputSHA)
-	return err
+	if err != nil {
+		return err
+	}
+	return w.configureGit(ctx, id)
 }
 
 func freshResourceIntents(resources []factory.Resource) bool {

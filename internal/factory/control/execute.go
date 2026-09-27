@@ -149,7 +149,7 @@ func (c *Controller) publishWorker(ctx context.Context, a *factory.Attempt, r *f
 }
 
 func (c *Controller) prepareWorkspace(ctx context.Context, a factory.Attempt, r *factory.Run) error {
-	source, err := c.Publisher.Source(ctx, r.InputSHA)
+	source, err := c.factorySource(ctx, a, r)
 	if err != nil {
 		return err
 	}
@@ -167,6 +167,13 @@ func (c *Controller) prepareWorkspace(ctx context.Context, a factory.Attempt, r 
 		return fmt.Errorf("initialize workspace: %w", err)
 	}
 	return nil
+}
+
+func (c *Controller) factorySource(ctx context.Context, a factory.Attempt, r *factory.Run) ([]byte, error) {
+	if c.Config.Workspace.GitSocket != "" && (a.Work.RepositoryID <= 0 || a.Work.RepositoryID != c.Repository.ID || c.Workspace.GitRemote != c.Publisher.Remote) {
+		return nil, errors.New("factory Git remote differs from admitted repository")
+	}
+	return c.Publisher.Source(ctx, r.InputSHA)
 }
 
 func (c *Controller) task(ctx context.Context, a factory.Attempt, r factory.Run) (Task, error) {

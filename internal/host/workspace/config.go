@@ -18,6 +18,8 @@ type Config struct {
 	MuseToolsDirectory string   `json:"muse_tools_directory"`
 	MuseSocket         string   `json:"muse_socket"`
 	MuseCredentialRoot string   `json:"muse_credential_root"`
+	GitToolsDirectory  string   `json:"git_tools_directory"`
+	GitSocket          string   `json:"git_socket"`
 	Root               string   `json:"root"`
 	HarnessDirectory   string   `json:"harness_directory"`
 	HarnessSHA256      string   `json:"harness_sha256"`
@@ -53,6 +55,13 @@ func (c Config) Validate() error {
 		return errors.New("a qualified Codex version and model are required")
 	}
 	if err := c.validateMusePaths(); err != nil {
+		return err
+	}
+	return c.validateRuntimePaths()
+}
+
+func (c Config) validateRuntimePaths() error {
+	if err := c.validateGitPaths(); err != nil {
 		return err
 	}
 	return c.validatePaths()
