@@ -90,7 +90,7 @@ func shellRequest() (identity.LaunchRequest, error) {
 	if err != nil {
 		return request, err
 	}
-	request = identity.LaunchRequest{CWD: cwd, Args: os.Args[1:], Home: os.Getenv("HOME"), ConfigHome: os.Getenv("XDG_CONFIG_HOME"), Term: os.Getenv("TERM")}
+	request = identity.LaunchRequest{CWD: cwd, Args: os.Args[1:], Home: os.Getenv("HOME"), ConnectionID: os.Getenv("SODA_MUSE_CONNECTION"), ConfigHome: os.Getenv("XDG_CONFIG_HOME"), Term: os.Getenv("TERM")}
 	if request.ConfigHome == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {

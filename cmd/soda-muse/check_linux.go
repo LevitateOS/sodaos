@@ -25,7 +25,7 @@ func checkRuntime(version string) error {
 	if err != nil {
 		return fmt.Errorf("muse native runtime prerequisite failed: %w", err)
 	}
-	if !strings.HasSuffix(strings.TrimSpace(string(body)), version) {
+	if strings.TrimSpace(string(body)) != "Muse Code 1.4.0 ("+version+")" {
 		return fmt.Errorf("muse version differs from pinned %s", version)
 	}
 	return nil
