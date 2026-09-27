@@ -93,11 +93,13 @@ func (p *Provider) Start(ctx context.Context, ownerID int64) (identity.Enrollmen
 		"response_type": {"code"}, "scope": {requiredScopes}, "state": {state},
 		"code_challenge": {base64.RawURLEncoding.EncodeToString(digest[:])}, "code_challenge_method": {"S256"},
 	}
-	return &Session{
+	session := &Session{
 		provider: p, ownerID: ownerID, nonce: state, verifier: verifier,
 		expires: time.Now().Add(enrollmentLifetime), enrollment: identity.Enrollment{
 			ID:         id,
 			ProviderID: identity.Forgejo, State: "pending", VerificationURL: p.config.Base + "/login/oauth/authorize?" + query.Encode(),
 		},
-	}, nil
+	}
+	session.timer = time.AfterFunc(time.Until(session.expires), session.expireEnrollment)
+	return session, nil
 }

@@ -16,6 +16,7 @@ type Session struct {
 	ownerID         int64
 	nonce, verifier string
 	expires         time.Time
+	timer           *time.Timer
 	enrollment      identity.Enrollment
 	connection      identity.Connection
 	credential      Credential
@@ -24,10 +25,27 @@ type Session struct {
 var _ identity.CodeEnrollmentSession = (*Session)(nil)
 
 func (s *Session) expire() {
-	if s.enrollment.State == "pending" && !time.Now().Before(s.expires) {
+	unretained := s.enrollment.State == "completed" && s.credential.Access != ""
+	if (s.enrollment.State == "pending" || unretained) && !time.Now().Before(s.expires) {
 		s.enrollment.State = "expired"
 		s.nonce, s.verifier = "", ""
+		s.credential = Credential{}
+		s.connection = identity.Connection{}
 		s.enrollment.VerificationURL = ""
+		s.stopTimer()
+	}
+}
+
+func (s *Session) expireEnrollment() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.expire()
+}
+
+func (s *Session) stopTimer() {
+	if s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
 	}
 }
 
@@ -61,12 +79,17 @@ func (s *Session) Complete(ctx context.Context, state, code string) error {
 	}
 	s.connection, s.credential = connection, credential
 	s.enrollment.State = "completed"
+	s.expire()
+	if s.enrollment.State == "expired" {
+		return identity.ErrDenied
+	}
 	return nil
 }
 
 func (s *Session) Finish(context.Context) (identity.Connection, []byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.expire()
 	if s.enrollment.State != "completed" || !validCredential(s.credential, s.ownerID) {
 		return identity.Connection{}, nil, identity.ErrDenied
 	}
@@ -75,12 +98,14 @@ func (s *Session) Finish(context.Context) (identity.Connection, []byte, error) {
 		return identity.Connection{}, nil, identity.ErrDenied
 	}
 	s.credential = Credential{}
+	s.stopTimer()
 	return s.connection, encoded, nil
 }
 
 func (s *Session) Close() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.stopTimer()
 	s.nonce, s.verifier = "", ""
 	s.credential = Credential{}
 	s.enrollment.VerificationURL = ""

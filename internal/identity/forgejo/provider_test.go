@@ -200,6 +200,74 @@ func TestEnrollmentExpiryCancellationAndInvalidOwner(t *testing.T) {
 	}
 }
 
+func TestCompletedEnrollmentExpiresWithoutPolling(t *testing.T) {
+	p, _ := fixtureProvider(t)
+	s, query := startSession(t, p)
+	if s.timer == nil {
+		t.Fatal("enrollment has no expiry timer")
+	}
+	if err := s.Complete(t.Context(), query.Get("state"), "fixture-code"); err != nil {
+		t.Fatal(err)
+	}
+	s.mu.Lock()
+	s.expires = time.Now().Add(-time.Second)
+	s.mu.Unlock()
+	s.expireEnrollment()
+	if s.credential != (Credential{}) || s.nonce != "" || s.verifier != "" || s.timer != nil {
+		t.Fatal("expiry callback retained enrollment secrets or timer")
+	}
+	if _, data, err := s.Finish(t.Context()); !errors.Is(err, identity.ErrDenied) || data != nil {
+		t.Fatal("expired completion returned a credential")
+	}
+	if s.Snapshot().State != "expired" {
+		t.Fatal("completed enrollment did not expire")
+	}
+}
+
+func TestEnrollmentTimerStopsOnRetentionAndClose(t *testing.T) {
+	p, _ := fixtureProvider(t)
+	s, query := startSession(t, p)
+	if err := s.Complete(t.Context(), query.Get("state"), "fixture-code"); err != nil {
+		t.Fatal(err)
+	}
+	timer := s.timer
+	if _, _, err := s.Finish(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if s.timer != nil || timer.Stop() {
+		t.Fatal("retention left expiry timer active")
+	}
+	s.expires = time.Now().Add(-time.Second)
+	s.expireEnrollment()
+	if s.Snapshot().State != "completed" {
+		t.Fatal("late callback changed retained completion")
+	}
+	s, _ = startSession(t, p)
+	timer = s.timer
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if s.timer != nil || timer.Stop() || s.nonce != "" || s.verifier != "" {
+		t.Fatal("close left pending enrollment active")
+	}
+	s.expires = time.Now().Add(-time.Second)
+	s.expireEnrollment()
+	if s.Snapshot().State != "canceled" {
+		t.Fatal("late callback changed canceled enrollment")
+	}
+	s, query = startSession(t, p)
+	if err := s.Complete(t.Context(), query.Get("state"), "fixture-code"); err != nil {
+		t.Fatal(err)
+	}
+	timer = s.timer
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if s.timer != nil || timer.Stop() || s.credential != (Credential{}) {
+		t.Fatal("close retained completed credential or timer")
+	}
+}
+
 func TestRefreshReverifiesScopeOwnerAndEmailWithoutOldSeed(t *testing.T) {
 	old, _ := json.Marshal(Credential{Access: "old-access", Refresh: "fixture-refresh", Expiry: 1, UserID: 7, Scopes: requiredScopes})
 	p, native := fixtureProvider(t)
