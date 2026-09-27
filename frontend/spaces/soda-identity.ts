@@ -168,7 +168,11 @@ export class SodaIdentity extends LitElement {
       label = String(data.get('label') || '').trim();
     void this.act(async () => {
       this.enrollment = enrollmentView(
-        await this.request('/identity/enrollments', {label, confirm_credential_exposure: data.has('exposure')})
+        await this.request('/identity/enrollments', {
+          provider_id: data.get('provider_id'),
+          label,
+          confirm_credential_exposure: data.has('exposure'),
+        })
       );
     });
   };
@@ -295,35 +299,43 @@ export class SodaIdentity extends LitElement {
           use my subscription.</label
         >
         <label
-          ><input type="checkbox" name="exposure" required />I understand Codex receives credentials in the trusted
-          project process; code running with that account may read them.</label
+          ><input type="checkbox" name="exposure" required />I understand the selected tool receives credentials in the
+          trusted project process; code running with that account may read them.</label
         >
         <button ?disabled=${!this.selected}>Authorize named member</button>
       </form>
       <form @submit=${this.launch}>
+        <p>Connected Muse subscriptions are used by the normal <code>muse</code> command in authorized containers.</p>
         <h3>Start Codex</h3>
         <label
           >Authorized subscription
           <select name="connection_id" required>
-            ${this.available.map((connection) => html`<option value=${connection.id}>${connection.label} · owner ${connection.owner_id}</option>`)}
+            ${this.available.filter((connection) => connection.provider_id === 'codex').map((connection) => html`<option value=${connection.id}>${connection.label} · owner ${connection.owner_id}</option>`)}
           </select></label
         >
         <button ?disabled=${this.available.length === 0}>Start Codex in this project's terminal</button>
       </form>`;
   }
   protected render() {
-    return html`<section aria-label="Codex subscription">
-      <h2>Codex subscription</h2>
+    return html`<section aria-label="CLI subscriptions">
+      <h2>CLI subscriptions</h2>
       <p role="status">${this.message}</p>
       <fieldset ?disabled=${this.blocked()}>
         <legend>Personal subscription connections</legend>
         <button type="button" @click=${this.refresh}>Refresh status</button>
         <form @submit=${this.connect}>
+          <label
+            >Provider
+            <select name="provider_id">
+              <option value="codex">Codex / OpenAI</option>
+              <option value="muse">Muse Code / Meta</option>
+            </select></label
+          >
           <label>Connection label <input name="label" required maxlength="80" /></label
           ><label
             ><input type="checkbox" name="exposure" required />I trust this appliance and project administrators with my
-            subscription credentials. Codex and code running in my project account may read them.</label
-          ><button>Connect OpenAI subscription</button>
+            subscription credentials. The tool and code running in my project account may read them.</label
+          ><button>Connect subscription</button>
         </form>
         ${this.enrollmentView()}<label
           >Your connections

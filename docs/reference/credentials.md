@@ -60,8 +60,9 @@ named transactions return with bounded UI markers, not arbitrary return URLs.
 
 ## Identity Broker
 
-The userspace `soda-identity` service keeps Codex ChatGPT subscription connections
-private to their Soda owner. Connect in project controls, complete OpenAI device
+The userspace `soda-identity` service keeps Codex ChatGPT and Muse Code subscription
+connections private to their Soda owner. Connections, enrollments and leases carry
+an explicit `provider_id` (`codex` or `muse`). Connect in project controls, complete OpenAI device
 sign-in, and explicitly choose a connection when starting Codex. Device sign-in
 must be enabled by the upstream account or organization; unsupported enrollment
 requires upstream setup, never silent conversion to API billing. The verified
@@ -83,7 +84,7 @@ Soda cannot invalidate copies or recall already accepted upstream requests; prov
 logout/revocation is separate. This mode does not restrict where repository data
 can be sent. Git read/publication/review permissions remain independent.
 
-Each connection has one active stream across enrollment, human and factory use.
+Each Codex connection has one active stream across enrollment, human and factory use.
 Factory waits within its existing deadline; a human start reports unavailable
 while busy. Native OCI identity and labels attest factory runs. Human sessions bind
 to the exact project OCI incarnation, terminal, lease and systemd invocation. The
@@ -98,6 +99,27 @@ registered execution. A failed termination keeps the connection blocked. Crash,
 reboot or interrupted return never restores the original seed; reconciliation
 terminates the recorded boundary and uncertain streams require one Soda-level
 reconnection. Local project files survive authentication failures.
+
+### Muse subscription custody
+
+Muse uses the pinned upstream CLI `1.4.0-R4161.1` and its native device login.
+Meta attaches subscription billing to the CLI credential produced during onboarding;
+Soda never creates an additional API key. The native OAuth record includes the CLI
+key as well as an access token. A manually supplied key is not accepted as Muse
+subscription enrollment.
+
+Muse permits concurrent independent leases. Runtime credentials are immutable,
+restricted, and read-only; completing one execution does not replace the encrypted
+connection or end another execution. Disconnect denies admission before retiring all
+leases; withdrawing a grant retires only its executions. Unconfirmed termination
+blocks admission. Restart reconciliation must confirm retirement before reuse.
+
+Concurrent and fresh-container credential reuse are supported by native evidence
+for this pinned release. Automatic token refresh is unverified. If Muse rejects
+its credential, the connection requires device reconnection; Soda does not provide
+an undocumented Meta refresh service or switch to pay-as-you-go billing. The native
+file backend uses `TBH_CREDENTIAL_BACKEND=file`; it is verified for the selected
+bytes, rather than assumed to be a stable public interface across releases.
 
 ### Service configuration
 
@@ -115,7 +137,7 @@ project or factory workspace.
 SQLite `database`, private base64 32-byte `key_file`, and `codex` fields `binary`,
 `version`, `sha256`, `root`. Store broker state and private key under
 `/home/soda-identity`; keep the key mode `0600` and outside dashboard mounts.
-`codex.root` is a private tmpfs directory under `/run/soda-identity`. CLI credentials,
+Both providers require a private tmpfs enrollment root. `codex.root` is a private tmpfs directory under `/run/soda-identity`. CLI credentials,
 logs and enrollment state remain in that tmpfs. Completed credentials are opaque
 AES-GCM ciphertext in the broker database, authenticated to the connection and
 revision. The host key permits unattended startup: encryption protects a database
@@ -134,6 +156,6 @@ or overwrite an existing broker key. Starting a native service or installing a
 release remains subject to the normal installation guide.
 
 Source owners: `identity` records, `identity/control` custody, `identity/codex`
-provider protocol, `identity/client` private transport, `store` encrypted rows,
+provider protocol, `identity/muse` native enrollment, `identity/client` private transport, `store` encrypted rows,
 `web/api` browser authority, and native workspace/terminal executors for attestation
 and complete execution termination.

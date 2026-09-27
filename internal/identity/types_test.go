@@ -23,7 +23,7 @@ func TestGrantRequiresBothConfirmations(t *testing.T) {
 
 func TestLeaseRequiresBoundedDeadlineAndExecution(t *testing.T) {
 	now := time.Now()
-	r := AcquireRequest{ActorID: 1, ConnectionID: "connection", ExecutionID: "execution", Kind: Factory, Deadline: now.Add(time.Hour)}
+	r := AcquireRequest{ProviderID: Codex, ActorID: 1, ConnectionID: "connection", ExecutionID: "execution", Kind: Factory, Deadline: now.Add(time.Hour)}
 	if err := r.Validate(now); err != nil {
 		t.Fatal(err)
 	}

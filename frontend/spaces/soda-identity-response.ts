@@ -1,6 +1,8 @@
 import {check, id, object} from './sodaspaces-api.js';
 
+export type ProviderID = 'codex' | 'muse';
 export interface Connection {
+  provider_id: ProviderID;
   id: string;
   owner_id: string;
   label: string;
@@ -9,6 +11,7 @@ export interface Connection {
   state: string;
 }
 export interface Enrollment {
+  provider_id: ProviderID;
   id: string;
   verification_url: string;
   user_code: string;
@@ -39,6 +42,10 @@ function identityID(value: unknown): string {
   check(/^[A-Za-z0-9_-]{1,128}$/.test(result));
   return result;
 }
+function provider(value: unknown): ProviderID {
+  check(value === 'codex' || value === 'muse');
+  return value;
+}
 export function connectionView(value: unknown, actor: string): Connection {
   const data = object(value);
   check(data.owner_id === actor && id(actor));
@@ -48,6 +55,7 @@ export function availableConnectionView(value: unknown): Connection {
   const data = object(value);
   check(id(data.owner_id));
   return {
+    provider_id: provider(data.provider_id),
     id: identityID(data.id),
     owner_id: data.owner_id,
     label: text(data.label),
@@ -58,12 +66,23 @@ export function availableConnectionView(value: unknown): Connection {
 }
 export function enrollmentView(value: unknown): Enrollment {
   const data = object(value),
-    url = text(data.verification_url);
+    url = text(data.verification_url),
+    providerID = provider(data.provider_id);
   if (url) {
     const parsed = new URL(url);
-    check(parsed.origin === 'https://auth.openai.com' && !parsed.username && !parsed.password);
+    check(
+      parsed.origin === (providerID === 'muse' ? 'https://auth.meta.com' : 'https://auth.openai.com') &&
+        !parsed.username &&
+        !parsed.password
+    );
   }
-  return {id: identityID(data.id), verification_url: url, user_code: text(data.user_code), state: text(data.state)};
+  return {
+    provider_id: providerID,
+    id: identityID(data.id),
+    verification_url: url,
+    user_code: text(data.user_code),
+    state: text(data.state),
+  };
 }
 export function grantView(value: unknown): Grant {
   const data = object(value);

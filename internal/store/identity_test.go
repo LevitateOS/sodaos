@@ -16,7 +16,7 @@ func TestIdentityCipherBindingAndLeaseReturnAtomicity(t *testing.T) {
 	}
 	defer func() { _ = s.Close() }()
 	ctx := t.Context()
-	c := identity.Connection{ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
+	c := identity.Connection{ProviderID: identity.Codex, ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
 	credential := []byte(`{"tokens":{"refresh_token":"synthetic-secret"}}`)
 	if err = s.IdentitySaveConnection(ctx, c, credential); err != nil {
 		t.Fatal(err)
@@ -33,7 +33,7 @@ func TestIdentityCipherBindingAndLeaseReturnAtomicity(t *testing.T) {
 	if _, err = s.grants.open(encrypted, identityBinding(wrong)); err == nil {
 		t.Fatal("ciphertext not bound to connection generation")
 	}
-	l := identity.Lease{ID: "lease", ConnectionID: c.ID, Generation: 1, ActorID: 1, ExecutionID: "execution", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
+	l := identity.Lease{ProviderID: identity.Codex, ID: "lease", ConnectionID: c.ID, Generation: 1, ActorID: 1, ExecutionID: "execution", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
 	if err = s.IdentityReserve(ctx, l); err != nil {
 		t.Fatal(err)
 	}
@@ -86,18 +86,36 @@ func TestIdentityAuditFailureRollsBackAdmission(t *testing.T) {
 	}
 	defer func() { _ = s.Close() }()
 	ctx := t.Context()
-	c := identity.Connection{ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
+	c := identity.Connection{ProviderID: identity.Codex, ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
 	if err = s.IdentitySaveConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic"}}`)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = s.db.Exec(`CREATE TRIGGER failed_identity_audit BEFORE INSERT ON identity_events BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;`); err != nil {
 		t.Fatal(err)
 	}
-	l := identity.Lease{ID: "lease", ConnectionID: c.ID, Generation: 1, ActorID: 1, ExecutionID: "execution", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
+	l := identity.Lease{ProviderID: identity.Codex, ID: "lease", ConnectionID: c.ID, Generation: 1, ActorID: 1, ExecutionID: "execution", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
 	if err = s.IdentityReserve(ctx, l); err == nil {
 		t.Fatal("unaudited credential reservation committed")
 	}
 	if _, err = s.IdentityLease(ctx, l.ID); err != ErrNotFound {
 		t.Fatal("audit failure left committed reservation", err)
+	}
+}
+
+func TestIdentityRefusesObsoleteExclusiveLeaseFormat(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "obsolete.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`CREATE UNIQUE INDEX obsolete_identity_exclusive ON identity_leases(connection_id)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if reopened, err := Open(path); err == nil {
+		_ = reopened.Close()
+		t.Fatal("obsolete exclusive lease format admitted")
 	}
 }

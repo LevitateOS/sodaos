@@ -27,7 +27,7 @@ func (*testSession) Snapshot() identity.Enrollment {
 }
 
 func (*testSession) Finish(context.Context) (identity.Connection, []byte, error) {
-	return identity.Connection{Email: "soda-tester@example.invalid", Plan: "plus"}, []byte(`{"tokens":{"refresh_token":"synthetic-private"}}`), nil
+	return identity.Connection{ProviderID: identity.Codex, Email: "soda-tester@example.invalid", Plan: "plus"}, []byte(`{"tokens":{"refresh_token":"synthetic-private"}}`), nil
 }
 func (*testSession) Close() error { return nil }
 
@@ -61,12 +61,12 @@ func controllerFixture(t *testing.T) (*Controller, *store.Store, *testRuntime, i
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	r := &testRuntime{}
-	c, err := New(s, testProvider{}, r)
+	c, err := New(s, map[string]identity.Provider{identity.Codex: testProvider{}, identity.Muse: testProvider{}}, r)
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx := t.Context()
-	e, err := c.StartEnrollment(ctx, 1, "private subscription")
+	e, err := c.StartEnrollment(ctx, 1, identity.Codex, "private subscription")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func controllerFixture(t *testing.T) (*Controller, *store.Store, *testRuntime, i
 }
 
 func acquireInput(id string, actor int64) identity.AcquireRequest {
-	return identity.AcquireRequest{ConnectionID: id, ActorID: actor, ExecutionID: "execution", ProjectID: "project", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
+	return identity.AcquireRequest{ProviderID: identity.Codex, ConnectionID: id, ActorID: actor, ExecutionID: "execution", ProjectID: "project", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
 }
 
 func registerBinding(l identity.Lease) identity.Binding {
@@ -184,7 +184,7 @@ func TestRestartAndNativeAttestationFailClosed(t *testing.T) {
 	if _, err = c.Register(ctx, l.ID, registerBinding(l)); !errors.Is(err, identity.ErrDenied) {
 		t.Fatal("unattested resource received bytes", err)
 	}
-	restarted, err := New(s, testProvider{}, r)
+	restarted, err := New(s, map[string]identity.Provider{identity.Codex: testProvider{}, identity.Muse: testProvider{}}, r)
 	if err != nil {
 		t.Fatal(err)
 	}

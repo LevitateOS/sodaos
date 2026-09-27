@@ -44,7 +44,7 @@ func (f *identityFake) Revoke(_ context.Context, owner int64, _ string) error {
 	return nil
 }
 
-func (f *identityFake) StartEnrollment(_ context.Context, owner int64, _ string) (identity.Enrollment, error) {
+func (f *identityFake) StartEnrollment(_ context.Context, owner int64, _, _ string) (identity.Enrollment, error) {
 	f.owner, f.calls = owner, f.calls+1
 	return identity.Enrollment{ID: "enrollment", State: "pending"}, nil
 }
@@ -158,7 +158,7 @@ func TestIdentityResponseRejectsRetiredSession(t *testing.T) {
 
 func TestIdentityEnrollmentRequiresExplicitCredentialTrust(t *testing.T) {
 	_, mux, fake := identityFixture(t, true)
-	for _, body := range []string{`{"label":"personal"}`, `{"label":"personal","confirm_credential_exposure":false}`, `{"label":"personal","confirm_credential_exposure":true,"owner_id":"2"}`} {
+	for _, body := range []string{`{"provider_id":"codex","label":"personal"}`, `{"provider_id":"codex","label":"personal","confirm_credential_exposure":false}`, `{"provider_id":"codex","label":"personal","confirm_credential_exposure":true,"owner_id":"2"}`} {
 		w := httptest.NewRecorder()
 		mux.ServeHTTP(w, identityRequest("POST", "/api/identity/enrollments", body))
 		if w.Code != 400 || fake.calls != 0 {
@@ -166,7 +166,7 @@ func TestIdentityEnrollmentRequiresExplicitCredentialTrust(t *testing.T) {
 		}
 	}
 	w := httptest.NewRecorder()
-	mux.ServeHTTP(w, identityRequest("POST", "/api/identity/enrollments", `{"label":"personal","confirm_credential_exposure":true}`))
+	mux.ServeHTTP(w, identityRequest("POST", "/api/identity/enrollments", `{"provider_id":"codex","label":"personal","confirm_credential_exposure":true}`))
 	if w.Code != 200 || fake.owner != 1 || fake.calls != 1 {
 		t.Fatalf("%d %s owner %d", w.Code, w.Body.String(), fake.owner)
 	}

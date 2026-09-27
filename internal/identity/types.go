@@ -16,6 +16,8 @@ var (
 )
 
 const (
+	Codex    = "codex"
+	Muse     = "muse"
 	Ready    = "ready"
 	Reauth   = "reauth"
 	Revoked  = "revoked"
@@ -24,6 +26,7 @@ const (
 )
 
 type Connection struct {
+	ProviderID string `json:"provider_id"`
 	ID         string `json:"id"`
 	OwnerID    int64  `json:"owner_id,string"`
 	Label      string `json:"label"`
@@ -51,6 +54,7 @@ type GrantRequest struct {
 }
 
 type AcquireRequest struct {
+	ProviderID   string    `json:"provider_id"`
 	ExecutionID  string    `json:"execution_id"`
 	ActorID      int64     `json:"actor_id,string"`
 	ConnectionID string    `json:"connection_id"`
@@ -62,14 +66,18 @@ type AcquireRequest struct {
 
 // Binding identifies a native process boundary, not a browser attachment.
 type Binding struct {
-	Kind       string `json:"kind"`
-	ID         string `json:"id"`
-	Project    string `json:"project"`
-	Login      string `json:"login"`
-	Generation int64  `json:"generation"`
+	Scope          string `json:"scope,omitempty"`
+	CredentialRoot string `json:"credential_root,omitempty"`
+	InvocationID   string `json:"invocation_id,omitempty"`
+	Kind           string `json:"kind"`
+	ID             string `json:"id"`
+	Project        string `json:"project"`
+	Login          string `json:"login"`
+	Generation     int64  `json:"generation"`
 }
 
 type Lease struct {
+	ProviderID    string    `json:"provider_id"`
 	ID            string    `json:"id"`
 	ConnectionID  string    `json:"connection_id"`
 	Generation    int64     `json:"generation"`
@@ -91,6 +99,7 @@ type Delivery struct {
 }
 
 type Enrollment struct {
+	ProviderID      string      `json:"provider_id"`
 	ID              string      `json:"id"`
 	VerificationURL string      `json:"verification_url"`
 	UserCode        string      `json:"user_code"`
@@ -107,7 +116,7 @@ func (r GrantRequest) Validate() error {
 }
 
 func (r AcquireRequest) Validate(now time.Time) error {
-	if r.ActorID <= 0 || r.ConnectionID == "" || r.ExecutionID == "" || (r.Kind != Factory && r.Kind != Terminal) || !r.Deadline.After(now) || r.Deadline.After(now.Add(24*time.Hour)) {
+	if !ProviderValid(r.ProviderID) || r.ActorID <= 0 || r.ConnectionID == "" || r.ExecutionID == "" || (r.Kind != Factory && r.Kind != Terminal) || !r.Deadline.After(now) || r.Deadline.After(now.Add(24*time.Hour)) {
 		return ErrDenied
 	}
 	return nil
@@ -126,3 +135,6 @@ func (b Binding) Validate() error {
 func CredentialValid(data []byte) bool {
 	return len(data) > 0 && len(data) <= 256<<10 && json.Valid(data)
 }
+
+// ProviderValid admits only the currently supported subscription providers.
+func ProviderValid(id string) bool { return id == Codex || id == Muse }

@@ -29,7 +29,7 @@ func (d *Daemon) identityLaunch(ctx context.Context, in identity.TerminalStart) 
 	if _, err := rand.Read(raw[:]); err != nil {
 		return identity.Lease{}, err
 	}
-	lease, err := d.Identity.Acquire(ctx, identity.AcquireRequest{ActorID: in.ActorID, ConnectionID: in.ConnectionID, ProjectID: in.ProjectID, ExecutionID: hex.EncodeToString(raw[:]), Kind: identity.Terminal, Deadline: time.Now().Add(12 * time.Hour)})
+	lease, err := d.Identity.Acquire(ctx, identity.AcquireRequest{ProviderID: identity.Codex, ActorID: in.ActorID, ConnectionID: in.ConnectionID, ProjectID: in.ProjectID, ExecutionID: hex.EncodeToString(raw[:]), Kind: identity.Terminal, Deadline: time.Now().Add(12 * time.Hour)})
 	if err != nil {
 		return lease, err
 	}

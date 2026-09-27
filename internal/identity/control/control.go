@@ -15,22 +15,30 @@ import (
 type Controller struct {
 	mu          sync.Mutex
 	store       *store.Store
-	provider    identity.Provider
+	providers   map[string]identity.Provider
 	runtime     identity.Runtime
 	enrollments map[string]*enrollment
 }
 type enrollment struct {
-	owner   int64
-	label   string
-	session identity.EnrollmentSession
-	result  identity.Enrollment
+	owner      int64
+	label      string
+	providerID string
+	session    identity.EnrollmentSession
+	result     identity.Enrollment
 }
 
-func New(s *store.Store, p identity.Provider, r identity.Runtime) (*Controller, error) {
-	if s == nil || p == nil || r == nil {
+func New(s *store.Store, p map[string]identity.Provider, r identity.Runtime) (*Controller, error) {
+	if s == nil || len(p) == 0 || r == nil {
 		return nil, errors.New("identity custody dependencies required")
 	}
-	return &Controller{store: s, provider: p, runtime: r, enrollments: map[string]*enrollment{}}, nil
+	providers := make(map[string]identity.Provider, len(p))
+	for id, provider := range p {
+		if !identity.ProviderValid(id) || provider == nil {
+			return nil, errors.New("invalid subscription provider")
+		}
+		providers[id] = provider
+	}
+	return &Controller{store: s, providers: providers, runtime: r, enrollments: map[string]*enrollment{}}, nil
 }
 func newID() string { var b [16]byte; _, _ = rand.Read(b[:]); return hex.EncodeToString(b[:]) }
 
@@ -59,31 +67,32 @@ func (c *Controller) Available(ctx context.Context, actor int64, project string)
 	return c.store.IdentityAvailable(ctx, actor, project)
 }
 
-func (c *Controller) StartEnrollment(ctx context.Context, owner int64, label string) (identity.Enrollment, error) {
+func (c *Controller) StartEnrollment(ctx context.Context, owner int64, providerID, label string) (identity.Enrollment, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if owner <= 0 || len(label) > 100 || label == "" {
+	if c.providers[providerID] == nil || owner <= 0 || len(label) > 100 || label == "" {
 		return identity.Enrollment{}, identity.ErrDenied
 	}
-	if c.pendingEnrollment(owner) {
+	if c.pendingEnrollment(owner, providerID) {
 		return identity.Enrollment{}, identity.ErrBusy
 	}
-	s, err := c.provider.Start(ctx, label)
+	s, err := c.providers[providerID].Start(ctx, label)
 	if err != nil {
 		return identity.Enrollment{}, err
 	}
 	result := s.Snapshot()
+	result.ProviderID = providerID
 	if result.ID == "" {
 		_ = s.Close()
 		return identity.Enrollment{}, identity.ErrUncertain
 	}
-	c.enrollments[result.ID] = &enrollment{owner: owner, label: label, session: s, result: result}
+	c.enrollments[result.ID] = &enrollment{owner: owner, label: label, providerID: providerID, session: s, result: result}
 	return result, nil
 }
 
-func (c *Controller) pendingEnrollment(owner int64) bool {
+func (c *Controller) pendingEnrollment(owner int64, providerID string) bool {
 	for _, e := range c.enrollments {
-		if e.owner == owner && e.session != nil && e.result.Connection == nil && e.session.Snapshot().State == "pending" {
+		if e.owner == owner && e.providerID == providerID && e.session != nil && e.result.Connection == nil && e.session.Snapshot().State == "pending" {
 			return true
 		}
 	}
@@ -101,6 +110,7 @@ func (c *Controller) Enrollment(ctx context.Context, owner int64, id string) (id
 		return e.result, nil
 	}
 	e.result = e.session.Snapshot()
+	e.result.ProviderID = e.providerID
 	if e.result.State != "completed" {
 		return e.result, nil
 	}
@@ -112,6 +122,7 @@ func (c *Controller) Enrollment(ctx context.Context, owner int64, id string) (id
 		e.session = nil
 		return e.result, err
 	}
+	conn.ProviderID = e.providerID
 	conn.ID = newID()
 	conn.OwnerID = owner
 	conn.Label = e.label

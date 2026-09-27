@@ -2,6 +2,7 @@ package identity
 
 // Request is the private Unix HTTP protocol. Browser handlers never accept it.
 type Request struct {
+	ProviderID string          `json:"provider_id"`
 	OwnerID    int64           `json:"owner_id,string"`
 	ID         string          `json:"id"`
 	Label      string          `json:"label"`

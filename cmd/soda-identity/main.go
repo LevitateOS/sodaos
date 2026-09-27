@@ -19,8 +19,10 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/identity/codex"
 	"github.com/levitateos/sodaos/internal/identity/control"
+	"github.com/levitateos/sodaos/internal/identity/muse"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
@@ -32,6 +34,7 @@ type settings struct {
 	RuntimeSocket string       `json:"runtime_socket"`
 	HostSocket    string       `json:"host_socket"`
 	Codex         codex.Config `json:"codex"`
+	Muse          muse.Config  `json:"muse"`
 }
 
 func main() {
@@ -164,14 +167,28 @@ func openStore(c settings) (*store.Store, error) {
 }
 
 func openBroker(c settings, db *store.Store) (*control.Controller, error) {
-	if err := os.MkdirAll(c.Codex.Root, 0o700); err != nil {
-		return nil, err
+	providers := map[string]identity.Provider{}
+	if c.Codex.Binary != "" {
+		if err := os.MkdirAll(c.Codex.Root, 0o700); err != nil {
+			return nil, err
+		}
+		p, err := codex.New(c.Codex)
+		if err != nil {
+			return nil, err
+		}
+		providers[identity.Codex] = p
 	}
-	p, err := codex.New(c.Codex)
-	if err != nil {
-		return nil, err
+	if c.Muse.Binary != "" {
+		if err := os.MkdirAll(c.Muse.Root, 0o700); err != nil {
+			return nil, err
+		}
+		p, err := muse.New(c.Muse)
+		if err != nil {
+			return nil, err
+		}
+		providers[identity.Muse] = p
 	}
-	return control.New(db, p, nativeRuntime{Host: host.NewClient(c.HostSocket)})
+	return control.New(db, providers, nativeRuntime{Host: host.NewClient(c.HostSocket)})
 }
 
 func serviceListeners(c settings) (net.Listener, net.Listener, error) {

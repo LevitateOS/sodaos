@@ -15,7 +15,7 @@ import (
 type IdentityClient interface {
 	Connections(context.Context, int64) ([]identity.Connection, error)
 	Available(context.Context, int64, string) ([]identity.Connection, error)
-	StartEnrollment(context.Context, int64, string) (identity.Enrollment, error)
+	StartEnrollment(context.Context, int64, string, string) (identity.Enrollment, error)
 	Enrollment(context.Context, int64, string) (identity.Enrollment, error)
 	CancelEnrollment(context.Context, int64, string) error
 	Grants(context.Context, int64, string) ([]identity.Grant, error)
@@ -90,6 +90,7 @@ func (s *API) apiIdentityStartEnrollment(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	var input struct {
+		ProviderID                string `json:"provider_id"`
 		Label                     string `json:"label"`
 		ConfirmCredentialExposure bool   `json:"confirm_credential_exposure"`
 	}
@@ -97,11 +98,11 @@ func (s *API) apiIdentityStartEnrollment(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	input.Label = strings.TrimSpace(input.Label)
-	if input.Label == "" || len(input.Label) > 80 || !input.ConfirmCredentialExposure {
+	if (input.ProviderID != identity.Codex && input.ProviderID != identity.Muse) || input.Label == "" || len(input.Label) > 80 || !input.ConfirmCredentialExposure {
 		auth.JSONError(w, 400, "invalid_enrollment", "Provide a label and confirm appliance trust and credential exposure.")
 		return
 	}
-	result, err := s.Identity.StartEnrollment(r.Context(), v.User.ID, input.Label)
+	result, err := s.Identity.StartEnrollment(r.Context(), v.User.ID, input.ProviderID, input.Label)
 	s.identityResult(w, r, v, result, err)
 }
 

@@ -5,6 +5,7 @@ import {connectionView, enrollmentView, grantView, leaseView} from '../../fronte
 
 test('subscription metadata remains bound to owner and excludes credential fields', () => {
   const connection = {
+    provider_id: 'codex',
     id: 'connection',
     owner_id: '9007199254740993',
     label: 'personal',
@@ -22,14 +23,22 @@ test('subscription metadata remains bound to owner and excludes credential field
   assert.throws(() => connectionView({...connection, owner_id: Number.MAX_SAFE_INTEGER + 1}, connection.owner_id));
 });
 
-test('device enrollment only links to OpenAI authentication origin', () => {
+test('device enrollment only links to the selected provider authentication origin', () => {
   const enrollment = {
+    provider_id: 'codex',
     id: 'enrollment',
     verification_url: 'https://auth.openai.com/codex/device',
     user_code: 'ABCD-EFGH',
     state: 'pending',
   };
   assert.equal(enrollmentView(enrollment).verification_url, enrollment.verification_url);
+  const muse = {
+    ...enrollment,
+    provider_id: 'muse',
+    verification_url: 'https://auth.meta.com/oauth/device/?code=ABCD-EFGH',
+  };
+  assert.equal(enrollmentView(muse).verification_url, muse.verification_url);
+  assert.throws(() => enrollmentView({...muse, verification_url: enrollment.verification_url}));
   for (const url of [
     'javascript:alert(1)',
     'https://other.example.test/',
@@ -75,6 +84,7 @@ test(
     assert.equal(bundle.success, true);
     const script = await bundle.outputs[0]!.text();
     const connection = {
+      provider_id: 'codex',
       id: 'connection',
       owner_id: '1',
       label: 'personal',

@@ -13,7 +13,7 @@ func (c *Controller) acquireCredential(ctx context.Context, actor int64, r *fact
 	if err := c.Workspace.CheckHarness(ctx); err != nil {
 		return err
 	}
-	request := identity.AcquireRequest{ActorID: actor, ConnectionID: c.Config.ConnectionID, ProjectID: c.Config.ProjectID, ExecutionID: r.ID, Kind: identity.Factory, Deadline: r.Deadline, Role: string(r.Role)}
+	request := identity.AcquireRequest{ProviderID: identity.Codex, ActorID: actor, ConnectionID: c.Config.ConnectionID, ProjectID: c.Config.ProjectID, ExecutionID: r.ID, Kind: identity.Factory, Deadline: r.Deadline, Role: string(r.Role)}
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {

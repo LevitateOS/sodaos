@@ -17,7 +17,7 @@ func (s *Store) IdentitySaveConnection(ctx context.Context, c identity.Connectio
 	if s.grants == nil {
 		return ErrGrantKey
 	}
-	if !identity.CredentialValid(credential) || c.OwnerID <= 0 || c.ID == "" || c.Generation <= 0 {
+	if !identity.ProviderValid(c.ProviderID) || !identity.CredentialValid(credential) || c.OwnerID <= 0 || c.ID == "" || c.Generation <= 0 {
 		return identity.ErrDenied
 	}
 	data, err := json.Marshal(c)
@@ -218,12 +218,15 @@ func (s *Store) IdentityLease(ctx context.Context, id string) (identity.Lease, e
 }
 
 func (s *Store) IdentityReserve(ctx context.Context, l identity.Lease) error {
+	if !identity.ProviderValid(l.ProviderID) {
+		return identity.ErrDenied
+	}
 	d, err := json.Marshal(l)
 	if err != nil {
 		return err
 	}
 	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `INSERT INTO identity_leases(id,connection_id,data) SELECT ?,id,? FROM identity_connections WHERE id=? AND generation=? AND state='ready' AND NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=?) AND (?='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=? AND connection_id=? AND user_id=? AND project_id=? AND revision=? AND revoked=0))`, l.ID, d, l.ConnectionID, l.Generation, l.ConnectionID, l.GrantID, l.GrantID, l.ConnectionID, l.ActorID, l.ProjectID, l.GrantRevision)
+		res, err := tx.ExecContext(ctx, `INSERT INTO identity_leases(id,connection_id,data) SELECT ?,id,? FROM identity_connections WHERE id=? AND generation=? AND state='ready' AND json_extract(data,'$.provider_id')=? AND (?='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=?)) AND (?='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=? AND connection_id=? AND user_id=? AND project_id=? AND revision=? AND revoked=0))`, l.ID, d, l.ConnectionID, l.Generation, l.ProviderID, l.ProviderID, l.ConnectionID, l.GrantID, l.GrantID, l.ConnectionID, l.ActorID, l.ProjectID, l.GrantRevision)
 		if err != nil {
 			return err
 		}
@@ -262,24 +265,10 @@ func (s *Store) IdentityReturn(ctx context.Context, l identity.Lease, credential
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	var data []byte
-	var c identity.Connection
-	if err = tx.QueryRowContext(ctx, `SELECT data FROM identity_connections WHERE id=? AND generation=? AND state='ready'`, l.ConnectionID, l.Generation).Scan(&data); err != nil {
-		return identity.ErrStale
-	}
-	if err = json.Unmarshal(data, &c); err != nil {
+	if err := s.identityMaintainCredential(ctx, tx, l, credential); err != nil {
 		return err
 	}
-	c.Generation++
-	data, err = json.Marshal(c)
-	if err != nil {
-		return err
-	}
-	res, err := tx.ExecContext(ctx, `UPDATE identity_connections SET generation=?,data=?,credential=? WHERE id=? AND generation=?`, c.Generation, data, s.grants.seal(credential, identityBinding(c)), c.ID, l.Generation)
-	if err = identityChanged(res, err); err != nil {
-		return err
-	}
-	res, err = tx.ExecContext(ctx, `DELETE FROM identity_leases WHERE id=? AND connection_id=? AND json_extract(data,'$.generation')=?`, l.ID, l.ConnectionID, l.Generation)
+	res, err := tx.ExecContext(ctx, `DELETE FROM identity_leases WHERE id=? AND connection_id=? AND json_extract(data,'$.generation')=?`, l.ID, l.ConnectionID, l.Generation)
 	if err = identityChanged(res, err); err != nil {
 		return err
 	}
@@ -304,4 +293,28 @@ func (s *Store) IdentityForgetLease(ctx context.Context, id string) error {
 		}
 		return appendIdentityEvent(ctx, tx, leaseEvent(l, "reconciled"))
 	})
+}
+
+func (s *Store) identityMaintainCredential(ctx context.Context, tx *sql.Tx, l identity.Lease, credential []byte) error {
+	var data []byte
+	var c identity.Connection
+	if err := tx.QueryRowContext(ctx, `SELECT data FROM identity_connections WHERE id=? AND generation=? AND state='ready'`, l.ConnectionID, l.Generation).Scan(&data); err != nil {
+		return identity.ErrStale
+	}
+	if err := json.Unmarshal(data, &c); err != nil {
+		return err
+	}
+	if c.ProviderID != identity.Codex || l.ProviderID != identity.Codex {
+		return identity.ErrDenied
+	}
+	c.Generation++
+	data, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+	res, err := tx.ExecContext(ctx, `UPDATE identity_connections SET generation=?,data=?,credential=? WHERE id=? AND generation=?`, c.Generation, data, s.grants.seal(credential, identityBinding(c)), c.ID, l.Generation)
+	if err = identityChanged(res, err); err != nil {
+		return err
+	}
+	return nil
 }

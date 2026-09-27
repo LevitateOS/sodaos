@@ -97,9 +97,9 @@ func (c *Client) Available(ctx context.Context, actor int64, project string) ([]
 	return out, err
 }
 
-func (c *Client) StartEnrollment(ctx context.Context, owner int64, label string) (identity.Enrollment, error) {
+func (c *Client) StartEnrollment(ctx context.Context, owner int64, providerID, label string) (identity.Enrollment, error) {
 	var out identity.Enrollment
-	err := c.call(ctx, "/enrollment/start", identity.Request{OwnerID: owner, Label: label}, &out)
+	err := c.call(ctx, "/enrollment/start", identity.Request{OwnerID: owner, ProviderID: providerID, Label: label}, &out)
 	return out, err
 }
 
@@ -157,4 +157,8 @@ func (c *Client) Register(ctx context.Context, id string, b identity.Binding) (i
 
 func (c *Client) Return(ctx context.Context, id string, b identity.Binding, data []byte) error {
 	return c.call(ctx, "/return", identity.Request{ID: id, Binding: &b, Credential: data}, nil)
+}
+
+func (c *Client) Reject(ctx context.Context, id string, b identity.Binding) error {
+	return c.call(ctx, "/reject", identity.Request{ID: id, Binding: &b}, nil)
 }

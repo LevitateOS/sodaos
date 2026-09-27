@@ -18,6 +18,7 @@ remain in [architecture](../architecture/overview.md).
 | Work Item, attempt/run identity, budgets and fixed factory lifecycle policy | `factory` — pure domain types and validation; no runtime or SQL |
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
 | Serialized provider custody and enrollment | `identity/control`; `cmd/soda-identity` wires private service/runtime |
+| Muse native device enrollment and immutable CLI credentials | `identity/muse` — pinned upstream CLI; no Meta refresh service |
 | Codex app-server protocol | `identity/codex` — verified CLI protocol and private credential files |
 | Trusted broker Unix transport | `identity/client` — service callers only; never mounted in workspaces |
 | OAuth / login / session / provider / me keys | `web/auth` |
@@ -95,7 +96,8 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
 | `factory` | Bounded work/run identities and fixed lifecycle policy (references canonical `identity` leases) | Forgejo collaboration, runtime execution, SQLite | `types.go`, `lifecycle.go` |
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
-| `identity/control` | Serialized subscription custody, enrollment, revocation and reconciliation | Browser authority, Git publication | concern files |
+| `identity/control` | Provider-specific subscription custody, enrollment, revocation and reconciliation | Browser authority, Git publication | concern files |
+| `identity/muse` | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | concern files |
 | `identity/codex` | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | concern files |
 | `identity/client` | Private broker Unix client | Browser authority, credential persistence | `client.go` |
 | `forgejo` | Forgejo HTTP API client | Forgejo DB, upstream rules | `client.go` |

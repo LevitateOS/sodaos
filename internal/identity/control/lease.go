@@ -19,10 +19,13 @@ func (c *Controller) Acquire(ctx context.Context, in identity.AcquireRequest) (i
 	if err != nil {
 		return identity.Lease{}, err
 	}
-	if conn.State != identity.Ready {
+	if conn.ProviderID != in.ProviderID {
+		return identity.Lease{}, identity.ErrDenied
+	}
+	if conn.State != identity.Ready || c.providers[conn.ProviderID] == nil {
 		return identity.Lease{}, identity.ErrUncertain
 	}
-	l := identity.Lease{ID: newID(), ConnectionID: conn.ID, Generation: conn.Generation, ActorID: in.ActorID, ProjectID: in.ProjectID, ExecutionID: in.ExecutionID, Kind: in.Kind, Role: in.Role, Deadline: in.Deadline}
+	l := identity.Lease{ID: newID(), ProviderID: conn.ProviderID, ConnectionID: conn.ID, Generation: conn.Generation, ActorID: in.ActorID, ProjectID: in.ProjectID, ExecutionID: in.ExecutionID, Kind: in.Kind, Role: in.Role, Deadline: in.Deadline}
 	if err = c.authorizeReservation(ctx, conn, &l); err != nil {
 		return l, err
 	}
@@ -92,7 +95,7 @@ func (c *Controller) registrationAuthority(ctx context.Context, l identity.Lease
 	if err != nil {
 		return conn, err
 	}
-	if conn.State != identity.Ready || conn.Generation != l.Generation {
+	if conn.State != identity.Ready || conn.Generation != l.Generation || conn.ProviderID != l.ProviderID {
 		return conn, identity.ErrStale
 	}
 	if l.GrantID != "" {
@@ -122,6 +125,9 @@ func (c *Controller) Return(ctx context.Context, id string, b identity.Binding, 
 		_ = c.uncertain(ctx, l)
 		return identity.ErrUncertain
 	}
+	if l.ProviderID == identity.Muse {
+		return c.store.IdentityForgetLease(ctx, l.ID)
+	}
 	if !identity.CredentialValid(data) {
 		_ = c.uncertain(ctx, l)
 		return identity.ErrUncertain
@@ -144,11 +150,14 @@ func (c *Controller) end(ctx context.Context, l identity.Lease) error {
 	if l.Binding == nil {
 		return c.store.IdentityForgetLease(ctx, l.ID)
 	}
-	if err := c.uncertain(ctx, l); err != nil {
-		return err
+	if l.ProviderID != identity.Muse {
+		if err := c.uncertain(ctx, l); err != nil {
+			return err
+		}
 	}
 	if l.Binding != nil {
 		if err := c.runtime.Stop(ctx, l); err != nil {
+			_ = c.uncertain(ctx, l)
 			return identity.ErrUncertain
 		}
 	}
@@ -173,6 +182,9 @@ func (c *Controller) EndLease(ctx context.Context, owner int64, id string) error
 func (c *Controller) finish(ctx context.Context, l identity.Lease) error {
 	if l.Binding == nil {
 		return c.store.IdentityForgetLease(ctx, l.ID)
+	}
+	if l.ProviderID == identity.Muse {
+		return c.end(ctx, l)
 	}
 	data, captureErr := c.runtime.Finish(ctx, l)
 	defer func() {
@@ -221,14 +233,15 @@ func (c *Controller) Revoke(ctx context.Context, owner int64, id string) error {
 	if err != nil {
 		return err
 	}
+	var failures []error
 	for _, l := range all {
 		if l.ConnectionID == id {
 			if err = c.end(ctx, l); err != nil {
-				return err
+				failures = append(failures, err)
 			}
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }
 
 func (c *Controller) RevokeGrant(ctx context.Context, owner int64, id string) error {
@@ -250,14 +263,15 @@ func (c *Controller) RevokeGrant(ctx context.Context, owner int64, id string) er
 	if err != nil {
 		return err
 	}
+	var failures []error
 	for _, l := range all {
 		if l.GrantID == id {
 			if err = c.finish(ctx, l); err != nil {
-				return err
+				failures = append(failures, err)
 			}
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }
 
 func (c *Controller) Reconcile(ctx context.Context) error {

@@ -89,7 +89,7 @@ func (c *Controller) connectionRequest(r *http.Request, in identity.Request) (an
 func (c *Controller) enrollmentRequest(r *http.Request, in identity.Request) (any, error) {
 	switch r.URL.Path {
 	case "/enrollment/start":
-		return c.StartEnrollment(r.Context(), in.OwnerID, in.Label)
+		return c.StartEnrollment(r.Context(), in.OwnerID, in.ProviderID, in.Label)
 	case "/enrollment/read":
 		return c.Enrollment(r.Context(), in.OwnerID, in.ID)
 	default:
@@ -119,22 +119,30 @@ func (c *Controller) runtimeRequest(r *http.Request, in identity.Request) (any, 
 			return nil, identity.ErrDenied
 		}
 		return c.Acquire(ctx, *in.Acquire)
+	case "/register", "/reject", "/return":
+		return c.boundLeaseRequest(r, in)
+	case "/reconcile-lease":
+		return nil, c.ReconcileLease(ctx, in.ID)
+	default:
+		return nil, identity.ErrDenied
+	}
+}
+
+func (c *Controller) boundLeaseRequest(r *http.Request, in identity.Request) (any, error) {
+	if in.Binding == nil {
+		return nil, identity.ErrDenied
+	}
+	switch r.URL.Path {
 	case "/register":
-		if in.Binding == nil {
-			return nil, identity.ErrDenied
-		}
-		delivery, err := c.Register(ctx, in.ID, *in.Binding)
+		delivery, err := c.Register(r.Context(), in.ID, *in.Binding)
 		if err != nil {
 			return nil, err
 		}
 		return identity.DeliveryWire(delivery), nil
+	case "/reject":
+		return nil, c.Reject(r.Context(), in.ID, *in.Binding)
 	case "/return":
-		if in.Binding == nil {
-			return nil, identity.ErrDenied
-		}
-		return nil, c.Return(ctx, in.ID, *in.Binding, in.Credential)
-	case "/reconcile-lease":
-		return nil, c.ReconcileLease(ctx, in.ID)
+		return nil, c.Return(r.Context(), in.ID, *in.Binding, in.Credential)
 	default:
 		return nil, identity.ErrDenied
 	}
