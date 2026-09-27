@@ -289,6 +289,44 @@ class ManagedTerminalBoundary(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             terminal.cgroup_empty(self.identifier)
 
+    def test_collected_unit_stop_requires_positive_native_confirmation(self):
+        def collected(args, **kwargs):
+            if kwargs['check']:
+                raise subprocess.CalledProcessError(5, args)
+            return subprocess.CompletedProcess(args, 5)
+
+        with (
+            patch.object(terminal.subprocess, 'run', side_effect=collected),
+            patch.object(terminal, 'service_state', side_effect=['active', 'inactive']),
+            patch.object(terminal, 'cgroup_empty', return_value=True),
+        ):
+            terminal.stop_service(self.identifier, self.account)
+
+        for state, empty in [('active', True), ('inactive', False)]:
+            with (
+                self.subTest(state=state, empty=empty),
+                patch.object(terminal.subprocess, 'run', side_effect=collected),
+                patch.object(terminal, 'service_state', side_effect=['active', state]),
+                patch.object(terminal, 'cgroup_empty', return_value=empty),
+                self.assertRaises(ValueError),
+            ):
+                terminal.stop_service(self.identifier, self.account)
+
+        with (
+            patch.object(terminal.subprocess, 'run', side_effect=collected),
+            patch.object(terminal, 'service_state', side_effect=['active', OSError('inspection failed')]),
+            self.assertRaises(OSError),
+        ):
+            terminal.stop_service(self.identifier, self.account)
+
+    def test_stop_timeout_remains_uncertain(self):
+        with (
+            patch.object(terminal, 'service_state', return_value='active'),
+            patch.object(terminal.subprocess, 'run', side_effect=subprocess.TimeoutExpired('systemctl', 8)),
+            self.assertRaises(subprocess.TimeoutExpired),
+        ):
+            terminal.stop_service(self.identifier, self.account)
+
     def mock_kernel_filesystems(self):
         def stat_command(args, **kwargs):
             fd = kwargs['pass_fds'][0]

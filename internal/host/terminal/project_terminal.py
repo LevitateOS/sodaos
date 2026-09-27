@@ -699,9 +699,11 @@ def service_state(identifier, account=None):
 def stop_service(identifier, account):
     state = service_state(identifier, account)
     if state not in ('inactive', 'failed'):
+        # A collected unit can disappear after this observation. Confirm native
+        # state and cgroup emptiness below instead of trusting the command status.
         subprocess.run(
             ['/usr/bin/systemctl', 'stop', 'soda-terminal-' + identifier + '.service'],
-            check=True,
+            check=False,
             timeout=8,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
