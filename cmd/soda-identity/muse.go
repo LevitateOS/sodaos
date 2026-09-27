@@ -54,7 +54,7 @@ func openFactoryMuseSocket(c settings) (*net.UnixListener, error) {
 	if _, err := os.Lstat(c.MuseWorkerSocket); !errors.Is(err, os.ErrNotExist) {
 		return nil, errors.New("muse worker socket is occupied")
 	}
-	listener, err := net.ListenUnix("unixpacket", &net.UnixAddr{Name: c.MuseWorkerSocket, Net: "unixpacket"})
+	listener, err := listenWorkerSocket(c.MuseWorkerSocket)
 	if err != nil {
 		return nil, err
 	}
