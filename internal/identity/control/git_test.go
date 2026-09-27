@@ -159,3 +159,31 @@ func TestGitLeaseEndCancelsOnlyItsOwnStream(t *testing.T) {
 		t.Fatal("sibling cleanup did not complete")
 	}
 }
+
+func TestControllerCloseCancelsGitStream(t *testing.T) {
+	ready := make(chan struct{})
+	c, _ := gitControllerFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(ready)
+		<-r.Context().Done()
+	}))
+	l := gitLeaseFixture(t, c, identity.Terminal, "closing")
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		r := httptest.NewRequest("GET", "/git/"+l.ID+"/soda-tester/repo.git/info/refs?service=git-upload-pack", nil)
+		c.Handler(true).ServeHTTP(httptest.NewRecorder(), r)
+	}()
+	select {
+	case <-ready:
+	case <-time.After(3 * time.Second):
+		t.Fatal("stream did not start")
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("shutdown left Git stream running")
+	}
+}
