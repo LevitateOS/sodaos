@@ -9,11 +9,15 @@ import (
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/host/terminal"
 	"github.com/levitateos/sodaos/internal/host/workspace"
 	"github.com/levitateos/sodaos/internal/identity"
 )
 
-type nativeRuntime struct{ Host *host.Client }
+type nativeRuntime struct {
+	Host *host.Client
+	Muse *terminal.MuseRuntime
+}
 
 var nativeID = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
@@ -36,6 +40,9 @@ func (n nativeRuntime) Finish(ctx context.Context, l identity.Lease) ([]byte, er
 func (n nativeRuntime) Validate(ctx context.Context, l identity.Lease) error {
 	if l.Binding == nil {
 		return identity.ErrDenied
+	}
+	if isFactoryMuseLease(l) {
+		return n.factoryMuseOperation(ctx, "validate", l)
 	}
 	if l.Kind == identity.Terminal {
 		return n.Host.IdentityValidate(ctx, l)
@@ -97,9 +104,16 @@ func (n nativeRuntime) Stop(ctx context.Context, l identity.Lease) error {
 	if l.Binding == nil {
 		return nil
 	}
+	if isFactoryMuseLease(l) {
+		return n.factoryMuseOperation(ctx, "stop", l)
+	}
 	if l.Kind == identity.Terminal {
 		return n.Host.IdentityStop(ctx, l)
 	}
+	return stopFactory(ctx, l)
+}
+
+func stopFactory(ctx context.Context, l identity.Lease) error {
 	observed, exists, err := observeFactory(ctx, l)
 	if err != nil || !exists {
 		return err
@@ -118,4 +132,16 @@ func (n nativeRuntime) Stop(ctx context.Context, l identity.Lease) error {
 
 func factoryObservationMatches(data []byte, out *factoryObservation, l identity.Lease) bool {
 	return json.Unmarshal(data, out) == nil && out.ID == l.Binding.ID && out.Owner == l.ExecutionID
+}
+
+func isFactoryMuseLease(l identity.Lease) bool {
+	return l.ProviderID == identity.Muse && l.Kind == identity.Factory && l.Binding != nil && l.Binding.Scope == "muse-factory"
+}
+
+func (n nativeRuntime) factoryMuseOperation(ctx context.Context, action string, l identity.Lease) error {
+	if n.Muse == nil {
+		return identity.ErrDenied
+	}
+	_, err := n.Muse.Muse(ctx, action, identity.Delivery{Lease: l})
+	return err
 }
