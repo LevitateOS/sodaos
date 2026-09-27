@@ -128,7 +128,10 @@ the same native user/application grant. Reconnection requires retiring that
 connection first. Delegation cannot change the authenticated Forgejo user.
 Forgejo reservations require a project and one stable native repository ID, and
 remain bound to the connected account owner. Independent reservations can coexist;
-retiring one reservation does not remove its siblings.
+retiring one reservation does not remove its siblings. Native token renewal is
+serialized by broker custody. Admission is durably withdrawn before requesting
+renewal and restored only after verified credentials are encrypted. An uncertain
+renewal leaves the connection unavailable; restart never replays its old seed.
 
 Configure `forgejo.base`, `forgejo.client_id`, `forgejo.redirect_url` and the
 absolute `forgejo_secret_file` in the broker settings. Keep the client secret in a
