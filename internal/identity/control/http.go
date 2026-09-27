@@ -59,7 +59,7 @@ func (c *Controller) dispatch(r *http.Request, in identity.Request, runtimeAllow
 	switch r.URL.Path {
 	case "/connections", "/available", "/revoke":
 		return c.connectionRequest(r, in)
-	case "/enrollment/start", "/enrollment/read", "/enrollment/cancel":
+	case "/enrollment/start", "/enrollment/read", "/enrollment/complete", "/enrollment/cancel":
 		return c.enrollmentRequest(r, in)
 	case "/grants", "/grant/create", "/grant/revoke":
 		return c.grantRequest(r, in)
@@ -92,6 +92,8 @@ func (c *Controller) enrollmentRequest(r *http.Request, in identity.Request) (an
 		return c.StartEnrollment(r.Context(), in.OwnerID, in.ProviderID, in.Label)
 	case "/enrollment/read":
 		return c.Enrollment(r.Context(), in.OwnerID, in.ID)
+	case "/enrollment/complete":
+		return c.CompleteEnrollment(r.Context(), in.OwnerID, in.ID, in.State, in.Code)
 	default:
 		return nil, c.CancelEnrollment(r.Context(), in.OwnerID, in.ID)
 	}

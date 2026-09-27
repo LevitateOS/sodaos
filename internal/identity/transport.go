@@ -6,6 +6,8 @@ type Request struct {
 	OwnerID    int64           `json:"owner_id,string"`
 	ID         string          `json:"id"`
 	Label      string          `json:"label"`
+	State      string          `json:"state,omitempty"`
+	Code       string          `json:"code,omitempty"`
 	ProjectID  string          `json:"project_id"`
 	Grant      *GrantRequest   `json:"grant,omitempty"`
 	Acquire    *AcquireRequest `json:"acquire,omitempty"`
