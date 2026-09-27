@@ -144,7 +144,10 @@ encrypted retention. Logout, a changed session or dashboard restart requires
 starting a new enrollment. Browser sign-in transactions remain separate.
 Forgejo credentials are excluded from raw terminal and factory credential
 delivery. Repository access must be mediated because native OAuth repository
-scopes apply across the account's permitted repositories. Git author identity
+scopes apply across the account's permitted repositories. A selected remote resolves
+to a stable native repository ID; each mediated operation must recheck current
+native read or write permission and the connected owner's verified identity.
+Git author identity
 uses upstream verified email; successful authentication alone does not set it.
 
 ### Muse subscription custody

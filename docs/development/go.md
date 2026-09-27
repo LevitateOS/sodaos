@@ -99,7 +99,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
 | `identity/control` | Provider-specific subscription custody, enrollment, revocation and reconciliation | Browser authority, Git publication | concern files |
 | `identity/muse` | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | concern files |
-| `identity/forgejo` | Native Forgejo broker enrollment, account verification and renewal | Git transport, browser sessions, Soda grants | concern files |
+| `identity/forgejo` | Native Forgejo broker enrollment, account verification, repository authorization and renewal | Git publication, browser sessions, Soda grants | concern files |
 | `identity/codex` | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | concern files |
 | `identity/client` | Private broker Unix client | Browser authority, credential persistence | `client.go` |
 | `forgejo` | Forgejo HTTP API client | Forgejo DB, upstream rules | `client.go` |
