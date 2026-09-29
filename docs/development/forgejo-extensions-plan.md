@@ -96,39 +96,339 @@ planning evidence. Agreement is advice, not proof; the gates below provide proof
 
 ## Dependency order and parallel ownership
 
-```mermaid
-flowchart TD
-    P0[P0 Target contracts and caller map] --> P1[P1 Native boundary proofs]
-    P0 --> P2[P2 Standalone SDK and live authority]
-    P1 --> P3[P3 WebSocket transport]
-    P2 --> P3
-    P1 --> P4[P4 Soda backend bridge and native API]
-    P2 --> P4
-    P2 --> P6[P6 Native policy and observation hooks]
-    P3 --> P5[P5 Native UI and persistent Soda terminal]
-    P4 --> P5
-    P1 --> P7[P7 Lifecycle and appliance packaging]
-    P4 --> P7
-    P5 --> P8[P8 Native qualification and cutover closure]
-    P6 --> P8
-    P7 --> P8
-```
-
 Use three implementation lanes, with one integrator reviewing their shared
 contracts. Use Codex implementation agents; the explicit instruction excluding
-Muse applies throughout this work.
+Muse applies throughout this work. The executable task order below replaces
+whole-milestone barriers: P0–P8 remain the detailed scope and acceptance contracts,
+not a requirement to finish an entire milestone before starting another.
 
 | Lane | Owned changes | Dependencies and handoffs |
 | --- | --- | --- |
-| Native authority and core hooks | Forgejo session integration, admission registry, host capabilities, policy/event seams, security checks | Publishes the smallest typed SDK contract before consumer work; reviews authority at every transport handoff |
-| Runtime, SDK and delivery | SDK extraction, package lifecycle, private transport, Linux image probe and existing release integration | Can extract unchanged SDK types early; waits for native probes before release orchestration |
-| Soda consumer and browser | Existing Soda API/auth owners, thin extension executable, Lit entrypoints, terminal workspace, deletion of replaced integration | Inventories and prepares entrypoints early; integrates against actual authority and streaming contracts |
+| A — Native authority and core hooks | Forgejo session integration, admission/capability handlers, HTTP/WS route enforcement, policy/event seams | Unblocks the authenticated bridge and terminal first; policy implementation follows the required-package runtime |
+| B — SDK, host runtime and delivery | Public SDK, callback connection lifecycle, package manager, native workspace host, Linux fixture and appliance/release integration | Publishes compilable interfaces early; prepares the native browser host while C ports product APIs; owns the long-running native fixture |
+| C — Soda API and Lit consumer | Thin Soda extension, existing API/auth owners, product policy, Lit entrypoints and retained terminal, old browser integration removal | Prepares mount/adapter code against the shared SDK; proves a narrow real bridge before broad API migration |
+| R — Integrator | Shared contracts, file allocation, cross-repository commits, targeted review, integration receipts, owning documentation | Keeps downstream tasks ready; does not become a fourth long-running implementation lane |
 
 Assign files before parallel edits. The integrator owns cross-repository interface
 changes, documentation decisions, final acceptance and commit boundaries. Do not
 have two agents independently invent bridge DTOs, authentication semantics or
 release drivers. Reuse existing agents and evidence; each review answers a concrete
 remaining question rather than restarting an architecture audit.
+
+## Ordered implementation task list
+
+All boxes below start unchecked; the preceding foundation is already complete.
+`Needs` lists hard predecessors whose stated output must exist. A written interface
+permits preparation, but never counts as a working capability or native proof.
+Task IDs are stable references, not numeric execution order. Each task includes
+its focused checks and updates to the owning interface documentation when behavior
+lands. Use Git history and ignored receipts for results rather than another status
+file. This list is part of the active plan and is removed with it at completion.
+
+### First dispatch and scheduling rules
+
+1. R completes **R00**, then immediately dispatches **A01**, **B01** and **C01**
+   together. These use the completed baseline and do not need a new protocol.
+2. When C01 returns the caller map, R completes **R01**. B prioritizes **B02**;
+   A can finish the session proof while C prepares the exact UI/adapter inventory.
+3. After B02, start **C02**; start **A02** as soon as A01 has also passed. Run them
+   concurrently when both are ready. A can use a wait on SDK work for A05's bounded
+   caller mapping rather than editing B's files. B03 can begin after R01 without
+   waiting for live authority; B10 later integrates actual account restoration.
+4. Once A02, B01 and C02 all pass, **C03** proves the real bridge while A prioritizes
+   **A03** and B finishes **B03/B10**. R accepts the bridge as **R02** without rerunning
+   unchanged checks. Once R02 and A03 pass, **A04** and **C04** proceed in parallel
+   with B's remaining host/lifecycle work. They do not wait for A08's other reads.
+5. R accepts the real terminal path as **R03**. C prioritizes **C05**, then **C06**;
+   A finishes the mandatory policy and selected events while B prepares packaging.
+   Coordinate C07/B08 cutover before the integrated development journey.
+6. Release admission work has its own dependency chain after native development
+   proof. Final x86_64 and aarch64 qualification may run in parallel on their
+   respective native hosts after one shared source/artifact freeze.
+
+These are earliest-start bands, not all-lanes-finish-together waves. Start a task
+as soon as its own predecessors and files are available. If a task blocks, select
+another ready task in that lane; reassign a ready task only with an explicit file
+handoff and without exceeding three workers plus R. Do not manufacture additional
+features to keep agents busy.
+
+No duration estimates are assumed. Prioritize work that unlocks the next real
+integration boundary, then independent long-running native probes, then other ready
+tasks. Reassess this priority using observed duration/blockers; the dependency graph
+establishes a safe order, not a measured globally shortest schedule.
+
+| Lane | Preferred ready queue; skip blocked entries |
+| --- | --- |
+| A | A01 → A02 → A03 → A04 → A08 → A05 → A06 → A07. Pull A05 forward during an SDK/bridge wait; it unblocks B05. A08 can also fill a bridge wait and unblocks C06. |
+| B | Launch B01 → prioritize B02 when R01 is ready → B03 → B10 → B05 → B06 → B07 → B04 → B08 → B09 → Q01 → Q02. Use B04/B09 during a blocked handoff; B05 unblocks mandatory policies. |
+| C | C01 → C02 → C03 → C04 → C05 → C06 → C07. Pull C06 forward while waiting for streams or the browser host; do not delay ready C05 for optional UI refinement. |
+| R | R00 → R01 → R02 → R03 → R04 → R05 → R06 → R07 as each gate becomes ready. Review small handoffs between gates. |
+
+Q03/Q04 replace A/C's queues after R06. A fixture process waiting for a bounded
+result is not permission to add another agent; its lane can perform disjoint ready
+work against frozen source inputs, then inspect the result when it completes.
+
+### R — Contracts, acceptance gates and integration
+
+- [ ] **R00 — Record the starting state and reserve files.** Needs: none.
+  Inspect both canonical checkouts; preserve unrelated changes; record revisions,
+  existing receipts, three lane assignments and shared-file ownership. Done when
+  A01/B01/C01 can run without overlapping writers or mutable build inputs. Scope: P0.
+- [ ] **R01 — Publish the minimum shared contract.** Needs: C01.
+  Fix the SDK DTO/callback signatures, live admission versus session-generation
+  binding, operation/context requirements, mount contract, and policy/runtime
+  handshake. Update intended architecture owners. Done when each lane knows its
+  inputs/outputs and one owner holds each shared file; no native proof is claimed.
+  Keep public publication/namespace commissioning outside local development. Scope: P0/P2.
+- [ ] **R02 — Accept the authenticated bridge gate.** Needs: A02, B01, C03.
+  Review the actual read/mutation, forgery/Origin denials and container isolation
+  receipts. Done when ordinary native API migration and stream integration can use
+  this demonstrated boundary; do not wait for every capability or UI page. Scope: P1c.
+- [ ] **R03 — Accept the real terminal gate.** Needs: A04, C04.
+  Exercise the existing terminal driver through native admission, both proxy
+  directions and Soda to an actual retained shell. Done when input/output,
+  revocation, disconnect and cross-request continuity meet P3/P4. This is backend
+  terminal proof; persistent browser-element proof is C05.
+- [ ] **R04 — Land the complete browser cutover.** Needs: A06, A07, B04, B07, B08, C07.
+  Review and commit the coordinated routes/assets/configuration/policy change.
+  Done when only the native integration is shipped, required-package activation
+  is coherent, and retained credential/branding behaviors have focused evidence.
+  Do not use a transient development seam as a shipped compatibility path. Scope: P4–P7.
+- [ ] **R05 — Accept integrated native development.** Needs: R04.
+  Run/reuse the affected native image, installed browser and lifecycle journeys
+  against the same identified artifacts. Done when the P8 development matrix is
+  satisfied, including package replacement, preserved data and actual isolation.
+  Label the result development-only; this does not restore production admission.
+- [ ] **R06 — Freeze qualification inputs and current guides.** Needs: R05, B09, Q02.
+  Complete the P8 owner-document map and upstream maintenance procedure, commit
+  coherent source in both repositories, and bind the exact native inputs. Done
+  when Q03/Q04 have committed, reproducible identities and no pending source edits.
+- [ ] **R07 — Close the delivery plan.** Needs: Q03, Q04.
+  Check native evidence for every advertised architecture and record exact limits.
+  Absorb final contracts and delete this completed plan/task list. External
+  publication and production activation remain separate actions under the existing
+  scope rules. If a required target is unavailable, leave its task and R07 incomplete.
+
+### A — Native session, authority, streaming and policies
+
+- [ ] **A01 — Prove and fix native session/response behavior.** Needs: R00.
+  Implement the smallest real-server memory/file echo-stream probe and bounded
+  middleware/writer fixes. Done when upgrade, logout/delayed-release race,
+  regeneration, expiry and provider failure meet P1a without a new session system.
+- [ ] **A02 — Implement the minimum live admission slice.** Needs: A01, B02.
+  Add atomic admission/invalidation, instance-bound callback validation, native
+  generation binding, and the native read needed by C03's selected operation.
+  Done when a real request can be admitted and revalidated, forgery/stale generation
+  fails, and C can consume a working callback rather than a mock. Scope: P2.
+- [ ] **A03 — Complete terminal authority and permission rechecks.** Needs: A02.
+  Supply current actor, stable repository identity/code permission and the live
+  permission-recheck capability needed by reserve/create/attach/end. Done when
+  native permission changes revoke this authority and both stream/consumer lanes
+  can use the working slice. Picker, public-key and page-guard work is A08 and
+  does not gate the terminal. Scope: P2/P3.
+- [ ] **A04 — Implement host-side WebSocket proxy and revocation.** Needs: R02, A03.
+  Extend the native route transport with P3's Origin/header, backpressure, timeout
+  and continuous authority rules. Done when the real private path carries an echo
+  stream, closes both directions correctly and preserves ordinary HTTP bounds.
+  Coordinate with C04; only R03 can claim the real Soda terminal works end to end.
+- [ ] **A05 — Map the policy seam and all native callers.** Needs: R01.
+  Identify create/rename entrypoints, transactions, filesystem effects, CLI loading
+  and the bounded required-policy interface. Done when A06 can insert its veto
+  before side effects without unbounded RPC under transaction locks. Scope: P6.
+- [ ] **A06 — Enforce the username policy across web and CLI.** Needs: A05, B05, C02.
+  Implement native hooks and the narrowly assigned Soda policy handler using the
+  common contract. Done when all supported real entrypoints enforce the policy;
+  missing/crashed/timeout decisions fail closed and leave no identity/path changes.
+  Keep bootstrap ordering explicit and retain existing users. Scope: P6/P7.
+- [ ] **A07 — Wire only the selected observation consumers.** Needs: A02, C01.
+  Implement/document the required bounded observations and snapshot refresh;
+  reuse authority invalidation already in A02/A04. Done when actual consumers have
+  truthful timing/coverage/missed-event behavior. Add no unused event families or
+  durable bus; if no extra observation is needed, record that finding. Scope: P6.
+- [ ] **A08 — Finish the remaining reads and contribution guards.** Needs: A03.
+  Reuse the current native permission checks for repository picker/search,
+  ownership and public keys; add bounded narrowing of page/navigation access.
+  Done when real consumer and operator/non-operator cases pass. This unblocks C06
+  independently of WebSocket completion; no arbitrary core write API. Scope: P2.
+
+### B — SDK, native host, package runtime and delivery
+
+- [ ] **B01 — Prove the existing package in native Linux containers.** Needs: R00.
+  Use the pinned baseline to identify the executable/entrypoint, build the native
+  host/example and check UID/labels/socket/data/replace behavior. Done when P1b's
+  receipts identify real native bytes. Do not wait for session or UI work.
+- [ ] **B02 — Extract the shared SDK and working callback channel.** Needs: R01.
+  Move the single current wire contract and SDK into its independent module;
+  connect the instance-bound callback transport and update host/example imports.
+  Done when an external consumer builds without the host checkout and A/C can
+  compile against real types/channel wiring. Host authorization belongs to A02;
+  a transport echo is not admission proof. Scope: P2.
+- [ ] **B03 — Prepare generic native workspace behavior.** Needs: R01.
+  Implement preferred entry, exclusions, stable panel roots and ordinary
+  navigation/forms/history/subpath behavior against the mount contract. Done when
+  existing sample-panel checks pass without a Soda shell. This can proceed before
+  live admission; account restoration is a separate hard gate in B10. Scope: P5.
+- [ ] **B04 — Add operator-visible package status and safe removal.** Needs: B01, B02.
+  Implement bounded startup/exit diagnostics, status and stopped-runtime removal
+  retaining private data. Done when lock/replace/remove/crash cases pass and
+  diagnostics disclose no credentials. Scope: P7.
+- [ ] **B05 — Add required-package and policy lifecycle enforcement.** Needs: A02, A05.
+  Implement required IDs, offline/online CLI loading/lock behavior, crash admission
+  cancellation and fail-closed hook availability. Done when A06 can rely on real
+  runtime enforcement and bootstrap/activation ordering is testable. Scope: P6/P7.
+- [ ] **B06 — Wire the proven image, package and isolated service.** Needs: R02, B02, B05.
+  Promote the small Linux/IPC proof into the patched image and separate Soda package
+  recipes and narrow units/configuration. Done when the task-owned development
+  fixture starts the intended components; no full release/media orchestration yet.
+  Keep recipe edits separate from C's frontend package content. Scope: P7.
+- [ ] **B07 — Integrate existing candidate provenance and inventories.** Needs: R03, B06.
+  Extend current staging/build/installed readers for host/package/service hashes,
+  native architecture and independent package replacement. Done when the existing
+  development producer records actual artifacts without a second release driver.
+- [ ] **B08 — Remove obsolete staging and public adapter routing.** Needs: B10, B07, C07.
+  Remove only obsolete template/bootstrap/assets/proxy/configuration entries using
+  C07's replacement map. Done when packaged content includes native mounts and
+  retains branding, notification/action/switcher features and credential custody.
+  This is the packaging half of R04's coordinated cutover. Scope: P4/P5/P7.
+- [ ] **B09 — Finish source/notices and maintenance packaging.** Needs: B02, B06.
+  Verify source and license inclusion for fork/SDK/package and the reproducible
+  upstream update procedure. Done when the distribution assumptions are accurate
+  and R06 can bind the final artifacts; generator success alone is insufficient.
+- [ ] **B10 — Integrate native account restoration into the browser host.** Needs: B03, A02.
+  Connect the real generation binding to mount/cache restoration and account-change
+  invalidation. Done when stale private UI/access cannot resume under another
+  session; use actual native session checks, not a stub. C05 waits for this gate
+  before claiming the real persistent workspace. Scope: P2/P5.
+
+### C — Soda service, API migration and Lit workspace
+
+- [ ] **C01 — Produce the exact caller and retirement map.** Needs: R00.
+  Map current UI/API operations to native/Soda authority, session continuity,
+  mounts/assets and retained nonbrowser credentials. Select the smallest real read
+  and mutation for C03. Done when R01 can define only the needed interfaces and
+  later deletion has named replacements. Scope: P0/P4/P5.
+- [ ] **C02 — Build the thin Soda consumer and entrypoint skeleton.** Needs: B02.
+  Build the separate extension against the SDK; prepare existing Lit mount adapters
+  and Soda's private HTTP/callback connection within existing Go owners. Done when
+  the package compiles and can call A02 once available; no stub authority, alternate
+  browser credential or speculative UI rewrite is accepted as working integration.
+- [ ] **C03 — Prove one native read and mutation across isolated services.** Needs: A02, B01, C02.
+  Exercise the real callbacks and IPC with the P1c denial/isolation cases. B lends
+  the existing fixture and applies any owned unit edits; C owns the product adapter.
+  Done when R02 has actual evidence, including unsafe Origin and forged context.
+- [ ] **C04 — Port terminal control and its backend stream endpoint.** Needs: R02, A03.
+  Port reserve/create/attach/end and their membership/repository/generation guards
+  first. Implement the Soda side of P3 alongside A04. Done when focused terminal
+  and session-continuity checks pass and R03 can exercise a real retained shell.
+- [ ] **C05 — Mount and prove the persistent real terminal.** Needs: R03, B10.
+  Reuse Lit/xterm in the native persistent root. Done when the same element,
+  renderer, socket and target survive native navigation, with account-change,
+  history/cache, form, focus and mobile behavior covered. Opening must not create,
+  join or start a project. Scope: P5.
+- [ ] **C06 — Finish the remaining native product APIs and pages.** Needs: R02, A08, C02.
+  Port Spaces/project creation/join/settings, identity/broker continuity, access
+  controls, Runners and Tailnet with their existing policies and mounts. Done when
+  C01 has a real replacement for every browser caller, including non-admin operator
+  access. This work can run before A04 finishes if C04 is waiting for transport;
+  prioritize C05 once its predecessors pass. Scope: P4/P5.
+- [ ] **C07 — Delete the replaced product auth and shell implementation.** Needs: C05, C06.
+  Remove old browser OAuth/session/return, expected-user workaround, shell/frame,
+  `soda-view` and injection callers with their tests; update current API/credential/
+  terminal guides. Done when product source has one current path and B receives
+  the exact obsolete staging/config entries. Preserve shared credential custody
+  and independent native presentation; R04 waits for B08 as well. Scope: P4/P5.
+
+### Q — Existing production-qualification dependency
+
+This tail is required for the production-qualified appliance, not for proving the
+working development integration. R tracks its known missing prerequisites early;
+do not divert the critical native integration lanes into a new release framework.
+Q tasks reuse lanes after their preceding implementation work is complete.
+
+- [ ] **Q01 — Establish protected qualification observations (lane B).** Needs: R05.
+  Reuse valid native install/recovery evidence and prove missing boundaries before
+  controller orchestration. Select upgrade sources only when actually qualified.
+  Done when existing acceptance/delivery owners can consume concrete observations
+  bound to candidate/media identities. Scope: P8's release prerequisite.
+- [ ] **Q02 — Wire native admission and finalization safely (lane B).** Needs: Q01.
+  Implement the missing protected admission/controller path in existing owners.
+  Done when failed, cancelled, incomplete and mismatched evidence cannot qualify
+  or publish, fixture signing is distinguished, and the development-only guard
+  can be replaced by actual admission rather than simply deleted. No public
+  publication or production activation is part of this task.
+- [ ] **Q03 — Qualify native Linux x86_64 (lane A).** Needs: R06.
+  Produce and qualify a fresh committed candidate with native evidence for the
+  complete P8 matrix and release checks. Done only for the exact qualified bytes;
+  retain honest failure scope and do not resume a failed release as qualified.
+- [ ] **Q04 — Qualify native Linux aarch64 (lane C).** Needs: R06.
+  Run the corresponding native target independently with the same source contract.
+  Can run alongside Q03 when distinct native hosts/resources are available. Done
+  only with native evidence; cross-compilation and macOS arm64 do not substitute.
+
+For either target, reuse valid native boundary receipts or run the smallest
+unproved image/package/IPC check before an expensive candidate/media build. A
+passing probe on the other architecture is not a reason to skip that check.
+
+### Critical path and file handoffs
+
+```mermaid
+flowchart LR
+    R00 --> A01
+    R00 --> B01
+    R00 --> C01
+    C01 --> R01 --> B02
+    A01 --> A02
+    B02 --> A02
+    B02 --> C02
+    A02 --> C03
+    B01 --> C03
+    C02 --> C03
+    C03 --> R02
+    A02 --> A03
+    R01 --> B03
+    A02 --> B10
+    B03 --> B10
+    R02 --> A04
+    A03 --> A04
+    R02 --> C04
+    A03 --> C04
+    A04 --> R03
+    C04 --> R03
+    R03 --> C05
+    B10 --> C05
+    C05 --> CUT[Complete pages, policies and packaging cutover]
+    CUT --> R05 --> Q01 --> Q02 --> R06
+    R06 --> Q03
+    R06 --> Q04
+    Q03 --> R07
+    Q04 --> R07
+```
+
+The diagram highlights the terminal path and production tail; the task `Needs`
+lists are the complete dependency source, including policy/packaging joins. In
+particular, C06 does **not** wait for WebSockets, A05 does **not** wait for all SDK
+capabilities, B01 does **not** wait for the session probe, and B03 does **not** wait
+for live admission or finished Soda pages. The terminal path waits for A03's
+permission/recheck slice, not A08's other reads. B02 may proceed while a native
+probe waits only if that probe uses frozen inputs; never change source underneath
+a running build.
+
+| Shared surface | Single writer and handoff |
+| --- | --- |
+| Public SDK, manifests, host/example dependency files | B implements R01's contract. A/C request required changes through B; no duplicate types or simultaneous module/lock edits. |
+| Forgejo extension manager and callback connection lifecycle | B owns manager/bootstrap edits. A owns new authority/capability handlers. Agree the call boundary in R01; B lands thin wiring changes needed by A. |
+| Forgejo extension HTTP/WS and native guards | A owns Go handlers/proxy/auth changes. B's browser host uses assigned JS/template files; R sequences shared route/navigation registration edits. |
+| Username hooks and required-package runtime | A owns native operation seams and the assigned policy handler; B owns availability/CLI loading. A06 waits for B05 so enforcement cannot be bypassed. |
+| Soda auth/API, adapter and browser assets | C owns these files through deletion. A's policy handler uses separately assigned files. B consumes built package output rather than editing C's source. |
+| Containerfile, appliance units, proxy, staging and release inventories | B owns all changes. C supplies obsolete-entry/replacement maps; R groups C07/B08 into the final cutover. |
+| Canonical architecture/product documentation and Git index | R owns shared document changes and stages/commits exact reviewed paths. Workers supply needed edits/receipts; no concurrent staging, broad commits, resets or worktrees. |
+| Native fixture, caches and expensive execution | B owns setup/lifecycle under `/home`; other lanes reserve use before a check or restart. Do not restart/reconfigure it during another lane's stream/browser checks. Freeze build inputs and reuse unchanged artifacts. Q03/Q04 use distinct native target resources. |
+
+A completed task handoff is its reviewed code, exact source/artifact identity,
+focused check result, and the next consumer it unblocks. R integrates those
+handoffs promptly; gates require evidence, not a new user approval or a repeated
+full test run. Failures block only affected dependents. Do not start broad
+packaging/qualification orchestration to fill time while a native assumption fails.
 
 ## P0 — Establish the target contracts and exact caller map
 

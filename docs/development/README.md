@@ -36,8 +36,9 @@ Do not treat package paths as the product vocabulary.
 
 [Fountain: extensible Forgejo implementation plan](forgejo-extensions-plan.md)
 covers the remaining native extension platform, Soda adoption and appliance
-delivery work. It is removed after its completed contracts are absorbed into their
-owning guides.
+delivery work. Start implementation from its
+[ordered task list and parallel lanes](forgejo-extensions-plan.md#ordered-implementation-task-list).
+It is removed after its completed contracts are absorbed into their owning guides.
 
 ## Permissions
 
