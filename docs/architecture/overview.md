@@ -15,8 +15,8 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | --- | --- |
 | Host | Fedora CoreOS, native rpm-ostree layering, Podman, systemd |
 | Native operator services | Stock branded Cockpit, Tailnet/Runners management, `tailscaled`, CI runner services, restricted Soda project helper |
-| Appliance applications | Separate Podman containers for stock Forgejo, Soda's Go API/OAuth service and Caddy |
-| Persistent application data | Separate Soda SQLite database and upstream-owned Forgejo data |
+| Appliance applications | Separate Podman containers for the maintained Forgejo extension host, Soda's Go API service and Caddy |
+| Persistent application data | Soda SQLite database and a separate Forgejo volume (including installed extension packages) |
 | Identity Broker | Host userspace `soda-identity`, private administration/execution sockets and encrypted subscription custody |
 | Factory execution | Unprivileged `soda-factory` operator command, execution ledger, narrow publisher and rootless Podman workspaces |
 | Projects | Persistent Project OS containers with project-local accounts, writable roots, SSH and shared installations |
@@ -34,8 +34,9 @@ Spaces.
 
 | Component | Responsibility |
 | --- | --- |
-| Forgejo | Identity, Git, collaboration, Actions UI/scheduling, native sessions |
-| Soda Go service (`web`, `web/api`, `web/auth`) | OAuth adapter, environment APIs, Spaces pages, terminal WS, runner/Tailnet settings |
+| Forgejo | Identity, Git, collaboration, Actions UI/scheduling, native sessions and extension contributions |
+| Soda Forgejo extension | Native browser pages, persistent workspace panel and narrowly scoped calls into the Soda service |
+| Soda Go service (`web`, `web/api`, `web/auth`) | Environment/project APIs, membership and operator policy, terminal streams and runner/Tailnet operations |
 | `soda-factory` (`factory/control`) | Admission, fixed implementation/verification/repair loop, execution records, cancellation and reconciliation |
 | Factory workspace and publisher (`host/workspace`, `host/publish`) | Disposable OCI execution and permitted Forgejo publication, separate from persistent Project authority |
 | Identity Broker (`identity/control`) | Explicit subscription ownership/delegation and serialized native execution leases; [credential boundary](../reference/credentials.md#identity-broker) |
@@ -78,14 +79,18 @@ resource boundary; the Project persistence rules below still apply.
 
 ## Control and data flow
 
-1. Browser users authenticate with Forgejo. Soda OAuth creates a separate adapter
-   session and encrypted grants under `/-/soda/`.
-2. Spaces and settings views call protected Soda APIs with expected-actor, CSRF,
-   origin and session checks.
+1. Browser users authenticate with Forgejo. Native routes and extension
+   contributions share that session; the browser sends no separate Soda login
+   credential to the Soda service.
+2. The extension carries live, narrowly scoped native authority across a private
+   bridge. The Soda service checks its own project membership, operator policy and
+   operation-specific grants before acting. Browser cookies and raw Forgejo
+   session IDs remain inside Forgejo.
 3. Mutating project operations go through the host Unix-socket helper as fixed
    operations, not arbitrary commands.
 4. Terminal attach allocates a managed tmux session under the member's project
-   account; the browser holds a disposable attachment, not shell lifetime.
+   account. Native session and repository authority govern the disposable browser
+   attachment, not the lifetime of the shell.
 5. Runner and Tailnet operator settings mutate appliance-local state only for the
    configured Soda operator identity.
 
@@ -94,7 +99,7 @@ resource boundary; the Project persistence rules below still apply.
 | State | Owner |
 | --- | --- |
 | Forgejo database and repos | Forgejo volume |
-| Soda SQLite, OAuth grants, environment rows | Soda data volume |
+| Soda SQLite, environments, preferences and product grants | Soda data volume |
 | Factory admissions, attempts, runs and resource ledger | Protected factory `execution.db` under the configured operator root |
 | Run checkout, scratch, containers and network | Disposable run resources, reconciled from recorded ownership |
 | Retained factory results | Protected factory operator state, separate from disposable resources and public logs |

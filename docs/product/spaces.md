@@ -9,44 +9,32 @@ candidate pull requests, reviews and CI remain in Forgejo; admission, status and
 cancellation use the [factory operator interface](../reference/factory.md).
 Opening Spaces or joining a project does not authorize an agent run.
 
-The persistent outer document is a dedicated Soda HTML shell. `/workspace` is the
-home entry; the address bar carries the shell path itself, `/-/soda/<framed-path>`
-with the frame query intact and no locator parameter. The entry normalizes to the
-canonical `/-/soda/workspace` on first framed navigation. Native Forgejo pages load
-in a same-origin iframe (same origin, not `/-/soda/`, no credential query). Child
-navigations update the shell path with `replaceState`; they do not use canonical
-Forgejo URLs as the top-level document.
+Forgejo owns one generic persistent browser host for installed extension panels.
+When Soda is enabled, ordinary signed-in Forgejo navigation uses that host: native
+Forgejo pages occupy the browsing area and Soda's Lit workspace stays mounted
+beside them. Login, logout, enrollment/consent callbacks, installation, external
+navigation and failed authentication remain top-level. The host never turns
+credential query values into a return URL. Exact route and frame contracts belong
+to the [Forgejo extension reference](../reference/forgejo.md) once implemented.
 
-Signed-in browsing uses that workspace host. The navbar Spaces link and Spaces OAuth
-return go to `/workspace`. Ordinary signed-in Forgejo documents wrap into it
-with an admitted frame path. Login, logout, signup/activate, password recovery,
-two-factor/passkey, provider OAuth link, OAuth authorize/grant, callback, install,
-failed `soda-connect`, and any `soda-view` host stay top-level. If the framed
-document lands on those, the shell replaces itself with that URL. Credential query
-never becomes `to`. Unsigned `/-/soda/spaces` stays a bookmark that establishes
-the native actor first.
+Forgejo owns native navigation, forms and routing in the browsing area; Soda adds
+its contribution and workspace panel without a second header or nested drawer.
+Keep the existing measured split and compact Forge/Terminal switch. Normal links
+change the Forgejo page while preserving the same terminal element, xterm renderer,
+WebSocket and shell attachment. A page or displayed repository change never
+retargets the terminal. A new target requires an explicit terminal selection.
 
-Forgejo owns navbar, profile, notifications, forms and routing inside the iframe.
-The Soda shell has no second header. Layout is two surfaces: framed Forgejo on the
-left, workspace on the right, with the same measured split and compact
-Forge/Terminal switch as the native drawer. The right surface mounts the same
-page-kind Spaces workspace as the native dashboard view: the listing is only its
-empty/first-use state, and live terminals stay mounted while the iframe navigates.
-The native drawer mounts the native-kind binding of that same workspace on Forgejo
-documents outside the shell; framed Forgejo never mounts a nested drawer.
-
-Direct visits to `/?soda-view=spaces` still render that native Spaces view, kept
-for OAuth-failure display and older links; it is not the browsing host.
-
-There is no separate-origin Soda UI. Lit supplies Soda's management and workspace
-views under the configured Forgejo origin at `/-/soda/`.
+The host rechecks the signed-in account when returning from cached pages before
+showing private state or resuming operations. An expired flow cannot continue as a
+different actor. There is one workspace host; the former Soda-only shell and
+dashboard route are removed as part of the native cutover.
 
 ## Product surface
 
 | Surface | Purpose |
 | --- | --- |
 | Spaces page | Bounded listing and navigation for environments the actor may use |
-| Workspace host | Dedicated Soda HTML document at `/workspace`; the shell path itself (`/-/soda/<framed-path>`) names the framed Forgejo path |
+| Workspace host | Forgejo's generic persistent extension host with the Soda workspace panel |
 | Repository Spaces settings | Create and inspect the environment for that repository |
 | Environment drawer | Management controls and managed terminals beside native forge content |
 | Operator Runners settings | Local CI capacity (Soda operator only) |
@@ -82,9 +70,11 @@ Wire contracts live in [Terminal](../reference/terminal.md) and [HTTP API](../re
 
 ## Integration boundary
 
-Use stock Forgejo handlers, forms, scripts and authentication, with supported
-template hooks first and necessary targeted overrides second. Do not deploy an
-unchanged copy of the upstream template tree. Do not introduce a Forgejo fork,
-source patch set or custom Forgejo executable.
+Preserve native Forgejo handlers, forms and session security. The maintained fork
+supplies generic extension routes, contribution mounts and the persistent browser
+host; Soda adds pages and a workspace panel as an administrator-installed extension.
+Keep the fork's upstream patch set small and covered by the session, authorization,
+native-route and package checks in the
+[Forgejo extension implementation plan](../development/forgejo-extensions-plan.md).
 
 Customization rules: [Forgejo customization](../reference/forgejo.md).

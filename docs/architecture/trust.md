@@ -22,8 +22,10 @@ root. Setup tokens are not ordinary acting-user credentials.
 - **Forgejo** owns passwords, factors, native sessions, permissions, Git credentials
   and collaboration.
 - **Soda** owns preferences, development-access public keys, environment membership
-  and protected adapter sessions/grants, plus factory execution identity and
-  run-scoped authority.
+  and product grants, plus factory execution identity and run-scoped authority.
+- **The installed Soda extension** carries only the live native actor and bounded
+  request authority needed by the current browser operation. The Soda service
+  checks its product policy and does not receive Forgejo cookies or session IDs.
 - Native Git keys and collaboration remain upstream-owned.
 - Soda does not maintain a second password, provider-role inventory or CI scheduler.
 
@@ -74,52 +76,41 @@ constrains operations without guaranteeing independent reasoning or correct code
 
 ## Frontend and session boundary
 
-Use stock Forgejo's native handlers, forms, scripts/styles and authentication, with
-supported template hooks first and necessary targeted overrides second.
+Forgejo's small maintained extension layer owns native contribution routes,
+session admission, scoped callbacks and one generic persistent browser host.
+Installed extensions are administrator-trusted code: backend processes share the
+Forgejo operating-system identity and browser assets run on its origin. Process
+separation manages lifetime and failure; it does not sandbox extensions or make
+their JavaScript safe to install.
 
-**No downstream Forgejo fork, source patch set or custom Forgejo executable.** If
-supported integration cannot meet a requirement, document the actual constraint and
-return for an explicit product decision. A convenience feature does not justify
-taking ownership of building, shipping and maintaining modified Forgejo through
-upgrades.
+Forgejo validates its native session, account state, request origin and core
+permission before creating scoped extension authority. Cookies and raw session
+IDs remain in Forgejo. A signed-in page, navigation context, repository shown in
+the frame or opaque display binding does not grant an extension broader access.
+Host callbacks name bounded operations and recheck current authority. Soda also
+checks its own membership, configured operator identity, broker consent and
+project grants. A Forgejo site administrator is not automatically the Soda
+operator.
 
-Do not substitute scraping, an HTML relay, borrowed cookies or weakened native
-security. Same-origin composition (including a deliberate Forgejo iframe inside a
-stable Soda workspace) does not select arbitrary embedding or a separate-origin
-trust model.
+Multi-request flows use a host-verified binding to one native session generation.
+It conveys continuity, not authentication. Logout, session regeneration or an
+account switch invalidates the old flow; the next step cannot silently adopt the
+new actor. Terminal streams retain authorization for their lifetime and close on
+invalid session or lost repository/membership permission. Native state checks are
+decisive; observations may accelerate cancellation but do not grant or preserve
+access.
 
-### OAuth and adapter sessions
+Bookmark handlers lead to fixed native views. Page loading, redirects and opening
+the persistent workspace do not register a runner, create a terminal or change
+project lifecycle state. Native Forgejo authorization protects each view; Soda's
+operation rules still govern every private read and mutation.
 
-Keep OAuth state/PKCE/callback binding, encrypted session-bound grants, serialized
-refresh, logout-winning persistence, request/response bounds and CSRF/origin checks.
-
-- Native OAuth tokens are not native web sessions.
-- Different ports do not isolate cookies.
-- Root redirects to configured native Forgejo home.
-- OAuth may return to a repository resolved by stored ID through the acting grant,
-  never a caller-supplied URL.
-- Soda's expected-user header guards page/session consistency, not native browser
-  session authenticity.
-- Native WebAuthn origins/RP-ID, session revocation and Git protocols stay
-  upstream-owned.
-
-Bookmark handlers redirect only to fixed native views. Private collection and
-operation authority stay in protected APIs. Page loads and redirects never register
-a runner, create a terminal or change project lifecycle state.
-
-The persistent workspace outer document is the Soda HTML shell entered at
-`/workspace`. The shell path itself (`/-/soda/<framed-path>`) is an untrusted
-same-origin Forgejo locator for the iframe, not an OAuth return URL and not a
-Soda API path. Signed-in Forgejo
-top-level pages wrap into that host with an admitted frame path. Login, logout,
-signup/activate, password recovery, two-factor/passkey, provider OAuth link,
-consent, callback, install, failed `soda-connect`, and any `soda-view` host
-(valid, unknown, or duplicate) stay outside the shell. If a framed document lands
-on those, the host replaces itself with that same-origin URL. When the frame
-cannot be read (initial, cross-origin, or failed load) the host leaves the address
-bar untouched. The shell does not copy credential query into `to`. The shell may
-frame same-origin Forgejo; it does not embed credentials or select a
-separate-origin trust model.
+Keep provider OAuth consent, state/PKCE/callback binding, encrypted account
+custody, serialized refresh and factory grants where those product flows need
+them. Browser sign-in and the old Soda adapter session are separate: removing the
+browser adapter does not remove Forgejo broker custody, native WebAuthn, Git
+protocols or factory publication credentials. See
+[Credentials](../reference/credentials.md).
 
 ## Host helper
 
@@ -129,14 +120,15 @@ from trusted state. Existing Linux accounts, homes and permissions remain native
 facts; report incomplete provisioning honestly rather than claiming success or
 destructively recreating a reservation.
 
-## No-fork consequences
+## Maintaining the Forgejo extension layer
 
-The no-fork boundary shapes integration: query-selected dashboard bodies, template
-overrides, separate Soda OAuth sessions, coordinated logout and API-based identity
-reads. Any future fork proposal must evaluate those existing costs together with
-unmet requirements, including upstream tracking, security updates, packaging and
-regression testing. Patch size does not measure ongoing commitment.
+The native extension layer adds a maintained Forgejo fork. Keep its source change
+small, attributable to the pinned upstream LTS, and reproducible in the appliance
+image. Track security and maintenance updates. Verify session admission, operation
+permissions, callback bounds, package lifecycle and native routes against the
+selected upstream version before updating its pin. Keep the runtime and Soda
+service boundaries independent of this maintenance obligation.
 
 Project provisioning, privileged host operations and terminal supervision have
-useful isolation independent of the no-fork constraint. Preserve those unless a
-separate justification establishes otherwise.
+their own Soda and host ownership. The Forgejo process and its trusted extensions
+do not gain the Soda database, broker secrets or privileged helper sockets.
