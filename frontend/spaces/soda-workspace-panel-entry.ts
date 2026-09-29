@@ -6,7 +6,7 @@ import {forgejoPrefix} from './soda-native-paths.js';
 export function mount(root: HTMLElement, context: ExtensionMountContext) {
   if (context.panelId !== 'workspace') throw Error('Invalid workspace panel');
   const transport = prepareExtensionMount(root, context);
-  const styles = ['components.css', 'sodaspaces.css', 'sodaspaces-drawer.css', 'sodaspaces-terminal.css'].map(
+  const styles = ['components.css', 'sodaspaces-page.css', 'sodaspaces-drawer.css', 'sodaspaces-terminal.css'].map(
     (name) => {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
