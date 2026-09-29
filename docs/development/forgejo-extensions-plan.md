@@ -194,10 +194,14 @@ work against frozen source inputs, then inspect the result when it completes.
   Exercise the existing terminal driver through native admission, both proxy
   directions and Soda to an actual retained shell. Done when input/output,
   revocation, disconnect and cross-request continuity meet P3/P4. This is backend
-  terminal proof; persistent browser-element proof is C05. The native Linux host
-  allocates 65,536 subordinate UID/GID IDs per configured identity, while Soda's
-  project creation requires `--userns=auto:size=262144`. No real tmux shell session
-  was exercised; changing the shared host allocation needs an owner decision.
+  terminal proof; persistent browser-element proof is C05. The Soda rootless
+  identity now has the owner-approved, non-overlapping `917504:262144` UID/GID
+  range. Its task-scoped Podman namespace reports the full mapping, and a control
+  container using the caller's namespace starts. The required
+  `--userns=auto:size=262144` project container is created with the expected single
+  `0:1:262144` map, but `crun` fails to write `gid_map` with `EPERM`. No tmux shell
+  session ran, so R03 remains open pending a supported native runtime path; the
+  old shared Podman services and containers were left running.
 - [ ] **R04 — Land the complete browser cutover.** Needs: A06, A07, B04, B07, B08, C07.
   Review and commit the coordinated routes/assets/configuration/policy change.
   Done when only the native integration is shipped, required-package activation
