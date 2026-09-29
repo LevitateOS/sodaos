@@ -170,11 +170,11 @@ work against frozen source inputs, then inspect the result when it completes.
 
 ### R — Contracts, acceptance gates and integration
 
-- [ ] **R00 — Record the starting state and reserve files.** Needs: none.
+- [x] **R00 — Record the starting state and reserve files.** Needs: none.
   Inspect both canonical checkouts; preserve unrelated changes; record revisions,
   existing receipts, three lane assignments and shared-file ownership. Done when
   A01/B01/C01 can run without overlapping writers or mutable build inputs. Scope: P0.
-- [ ] **R01 — Publish the minimum shared contract.** Needs: C01.
+- [x] **R01 — Publish the minimum shared contract.** Needs: C01.
   Fix the SDK DTO/callback signatures, live admission versus session-generation
   binding, operation/context requirements, mount contract, and policy/runtime
   handshake. Update intended architecture owners. Done when each lane knows its
@@ -253,7 +253,7 @@ work against frozen source inputs, then inspect the result when it completes.
 
 ### B — SDK, native host, package runtime and delivery
 
-- [ ] **B01 — Prove the existing package in native Linux containers.** Needs: R00.
+- [x] **B01 — Prove the existing package in native Linux containers.** Needs: R00.
   Use the pinned baseline to identify the executable/entrypoint, build the native
   host/example and check UID/labels/socket/data/replace behavior. Done when P1b's
   receipts identify real native bytes. Do not wait for session or UI work.
@@ -302,7 +302,7 @@ work against frozen source inputs, then inspect the result when it completes.
 
 ### C — Soda service, API migration and Lit workspace
 
-- [ ] **C01 — Produce the exact caller and retirement map.** Needs: R00.
+- [x] **C01 — Produce the exact caller and retirement map.** Needs: R00.
   Map current UI/API operations to native/Soda authority, session continuity,
   mounts/assets and retained nonbrowser credentials. Select the smallest real read
   and mutation for C03. Done when R01 can define only the needed interfaces and
