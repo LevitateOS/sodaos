@@ -18,9 +18,14 @@ inherited license grants are not supplied by the Apache license for original
 SodaOS work.
 
 Forgejo, Cockpit, Tea, frontend dependencies, fonts, runtime packages and
-container inputs retain their respective licenses. Forgejo and customized native
-templates retain their applicable GPL-3.0-or-later/per-file terms, not an
-Apache-only license. See docs/research/licensing.md for source/notices requirements.
+container inputs retain their respective licenses. Fountain is Soda's modified
+Forgejo 15.0 LTS distribution and remains GPL-3.0-or-later; its candidate source
+archive retains Forgejo's LICENSE, the standalone extension SDK source and the
+notices for modified vendored code. The separately packaged Soda extension is
+original Apache-2.0 SodaOS work whose source is retained in the SodaOS source
+archive. Customized native templates retain their applicable
+GPL-3.0-or-later/per-file terms, not an Apache-only license. See
+docs/research/licensing.md for source/notices requirements.
 
 The Spaces repository and terminal icons are unmodified Primer Octicons 19.14.0,
 Copyright (c) 2024 GitHub Inc., under the MIT license. The license and provenance

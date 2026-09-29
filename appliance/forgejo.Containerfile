@@ -1,6 +1,8 @@
 # Exact upstream Forgejo image/wrapper, with release-owned custom resources.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
+RUN rm /usr/local/bin/gitea
+COPY --chmod=0755 forgejo-bin /usr/local/bin/gitea
 COPY forgejo/ /usr/share/soda/forgejo/
 COPY presentation.json /usr/share/soda/presentation.json
 # The upstream s6 setup and environment-to-ini keep writing their normal app.ini

@@ -1,0 +1,26 @@
+{
+  "protocol": 1,
+  "id": "soda",
+  "name": "Soda",
+  "version": "0.1.0",
+  "executable": "run",
+  "pages": [
+    {"id": "spaces", "title": "Spaces", "scope": "global", "entry": "soda-spaces-entry.js"},
+    {"id": "runners", "title": "Runners", "scope": "admin", "permission": "admin", "entry": "soda-runners-entry.js"},
+    {"id": "tailnet", "title": "Tailnet", "scope": "admin", "permission": "admin", "entry": "soda-tailnet-entry.js"}
+  ],
+  "panels": [
+    {"id": "workspace", "title": "Workspace", "entry": "soda-workspace-panel-entry.js"}
+  ],
+  "capabilities": [
+    "native.actor.read",
+    "native.repository.read",
+    "native.repositories.owned.search",
+    "native.organization.ownership",
+    "native.user.public_keys.read",
+    "native.contribution.authorize",
+    "native.service.bridge"
+  ],
+  "policies": ["forgejo.username"],
+  "preferred_workspace": true
+}

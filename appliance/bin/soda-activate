@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Operator-only activation after native Forgejo setup, with explicit private TLS."""
-import argparse, ipaddress, json, os, pwd, shutil, subprocess
+import argparse, ipaddress, json, os, pwd, shutil, stat, subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -26,6 +26,9 @@ if (root / 'activated').exists():
 cfg = json.loads((root / 'dashboard.json').read_text())
 if 'public_url' in cfg:
     parser.error('legacy separate-origin configuration; use rehearsed configuration maintenance')
+operator_id = cfg.get('operator_id')
+if type(operator_id) is not int or not 1 <= operator_id <= (1 << 63) - 1:
+    parser.error('dashboard operator identity is invalid')
 for key in ('forgejo_url',):
     u = urlsplit(cfg[key])
     if u.scheme != 'https' or not u.hostname or u.username or u.password or u.query or u.fragment or u.path not in ('', '/') or any(c in cfg[key] for c in '\r\n'):
@@ -36,6 +39,8 @@ if args.local_tls:
         parser.error('local TLS uses the exact selected private IP on HTTPS port 443')
 if cfg['forgejo_internal_url'] != 'http://127.0.0.1:3000' or cfg['listen'] != '127.0.0.1:8080':
     parser.error('bundled service recipes require the documented internal listeners')
+if cfg['oauth_secret_file'] != '/etc/soda/oauth-secret' or cfg['grant_key_file'] != '/etc/soda/grant-key' or cfg['host_socket'] != '/run/soda/host.sock' or cfg.get('identity_socket', '/run/soda/identity/admin.sock') != '/run/soda/identity/admin.sock':
+    parser.error('bundled isolated service mounts require the standard private file and socket paths')
 account = pwd.getpwnam('soda')
 if account.pw_uid != 2000 or account.pw_gid != 2000:
     parser.error('unexpected native soda service identity')
@@ -55,6 +60,33 @@ for p in [root / 'dashboard.json', Path(cfg['oauth_secret_file']), Path(cfg['gra
         parser.error('credentials must be regular operator-created files under /etc/soda')
     os.chown(p, 0, account.pw_gid)
     p.chmod(0o640)
+# The extension package needs only the stable operator ID for its navigation
+# guard. Keep it in the package's private data directory, outside the image.
+extension_root = Path('/var/lib/soda/forgejo/gitea/extensions')
+for path in (Path('/var/lib/soda'), Path('/var/lib/soda/forgejo'), Path('/var/lib/soda/forgejo/gitea'), extension_root):
+    if path.is_symlink():
+        parser.error('Forgejo extension data path must not contain symlinks')
+extension_data = extension_root / '.data'
+extension_root.mkdir(mode=0o700, exist_ok=True)
+os.chown(extension_root, 1000, 1000)
+extension_root.chmod(0o700)
+if extension_data.is_symlink():
+    parser.error('Forgejo extension data path must not contain symlinks')
+extension_data.mkdir(mode=0o700, exist_ok=True)
+os.chown(extension_data, 1000, 1000)
+operator_data = extension_data / 'soda'
+if operator_data.is_symlink():
+    parser.error('Soda extension data path must not contain symlinks')
+operator_data.mkdir(mode=0o700, exist_ok=True)
+os.chown(operator_data, 1000, 1000)
+operator_file = operator_data / 'operator-id'
+if operator_file.exists() or operator_file.is_symlink():
+    info = operator_file.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+        parser.error('Soda extension operator identity must be a private regular file')
+operator_file.write_text(str(operator_id) + '\n')
+os.chown(operator_file, 1000, 1000)
+operator_file.chmod(0o600)
 tls = root / 'tls'
 tls.mkdir(mode=0o700, exist_ok=True)
 if not args.local_tls:
@@ -70,6 +102,12 @@ values.update({'FORGEJO__server__ROOT_URL': cfg['forgejo_url'].rstrip('/') + '/'
 # Forgejo appends its email hash and size query to this supported provider URL.
 # Dynamic provider/federation settings remain native Forgejo administrator state.
 values['FORGEJO__picture__GRAVATAR_SOURCE'] = cfg['forgejo_url'].rstrip('/') + '/-/soda/avatars/v1/'
+values.update({
+    'FORGEJO__extensions__ENABLED': 'true',
+    'FORGEJO__extensions__PATH': '/data/gitea/extensions',
+    'FORGEJO__extensions__REQUIRED_IDS': 'soda',
+    'FORGEJO__extensions__SERVICE_CALLBACK_PATH': '/ipc/host.sock',
+})
 values.setdefault('FORGEJO__server__SSH_DOMAIN', str(address))
 envpath.write_text(''.join(f'{k}={v}\n' for k, v in values.items()))
 envpath.chmod(0o600)

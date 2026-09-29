@@ -48,16 +48,22 @@ class AvatarActivation(unittest.TestCase):
                     'forgejo_url': origin,
                     'forgejo_internal_url': 'http://127.0.0.1:3000',
                     'listen': '127.0.0.1:8080',
-                    'oauth_secret_file': str(config_root / 'oauth'),
-                    'grant_key_file': str(config_root / 'grant'),
+                    'oauth_secret_file': '/etc/soda/oauth-secret',
+                    'grant_key_file': '/etc/soda/grant-key',
+                    'host_socket': '/run/soda/host.sock',
+                    'identity_socket': '/run/soda/identity/admin.sock',
+                    'operator_id': 42,
                 }
                 if legacy is not None:
                     config['admin_token_file'] = str(config_root / legacy)
                 (config_root / 'dashboard.json').write_text(json.dumps(config))
-                for name in ('oauth', 'token', 'grant'):
+                (config_root / 'host.json').write_text(json.dumps({'forgejo_url': origin}))
+                for name in ('oauth-secret', 'token', 'grant-key'):
                     (config_root / name).write_text('synthetic, not a credential')
                     (config_root / name).chmod(0o600)
                 (config_root / 'link').symlink_to(config_root / 'token')
+                extension_root = temp / 'var/lib/soda/forgejo/gitea/extensions'
+                extension_root.parent.mkdir(parents=True)
                 token_before = (config_root / 'token').stat()
                 (config_root / 'forgejo.env').write_text(
                     'FORGEJO__ui__DEFAULT_THEME=soda-auto\nFORGEJO__server__SSH_DOMAIN=retained.example.test\n'
@@ -67,8 +73,10 @@ class AvatarActivation(unittest.TestCase):
 
                 def mapped_path(value):
                     path = Path(value)
-                    if path == Path('/etc/soda'):
-                        return config_root
+                    if str(path) == '/etc/soda' or str(path).startswith('/etc/soda/'):
+                        return config_root / path.relative_to('/etc/soda')
+                    if str(path).startswith('/var/lib/soda/'):
+                        return temp / path.relative_to('/')
                     if str(path).startswith('/etc/containers/'):
                         return temp / path.relative_to('/')
                     return path
@@ -95,6 +103,8 @@ class AvatarActivation(unittest.TestCase):
                 )
                 self.assertEqual(values['FORGEJO__server__SSH_DOMAIN'], 'retained.example.test')
                 self.assertEqual(values['FORGEJO__ui__DEFAULT_THEME'], 'soda-auto')
+                self.assertEqual(values['FORGEJO__extensions__REQUIRED_IDS'], 'soda')
+                self.assertEqual(values['FORGEJO__extensions__SERVICE_CALLBACK_PATH'], '/ipc/host.sock')
                 self.assertFalse(
                     any('DISABLE_GRAVATAR' in k or 'FEDERATED' in k or 'OFFLINE_MODE' in k for k in values)
                 )
@@ -104,11 +114,15 @@ class AvatarActivation(unittest.TestCase):
                     [
                         (config_root, 0, 2000),
                         (config_root / 'dashboard.json', 0, 2000),
-                        (config_root / 'oauth', 0, 2000),
-                        (config_root / 'grant', 0, 2000),
+                        (config_root / 'oauth-secret', 0, 2000),
+                        (config_root / 'grant-key', 0, 2000),
+                        (extension_root, 1000, 1000),
+                        (extension_root / '.data', 1000, 1000),
+                        (extension_root / '.data/soda', 1000, 1000),
+                        (extension_root / '.data/soda/operator-id', 1000, 1000),
                     ],
                 )
-                for name in ('dashboard.json', 'oauth', 'grant'):
+                for name in ('dashboard.json', 'oauth-secret', 'grant-key'):
                     self.assertEqual((config_root / name).stat().st_mode & 0o777, 0o640)
                 token_after = (config_root / 'token').stat()
                 self.assertEqual(
@@ -117,6 +131,10 @@ class AvatarActivation(unittest.TestCase):
                 )
                 self.assertEqual((config_root / 'token').read_text(), 'synthetic, not a credential')
                 self.assertTrue((config_root / 'link').is_symlink())
+                operator_file = extension_root / '.data/soda/operator-id'
+                self.assertEqual(operator_file.read_text(), '42\n')
+                self.assertEqual(operator_file.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(extension_root.stat().st_mode & 0o777, 0o700)
                 proxy = (config_root / 'proxy.env').read_text()
                 self.assertIn(
                     'SODA_TLS=internal\n' if local_tls else 'SODA_TLS=/etc/soda/tls/cert.pem /etc/soda/tls/key.pem\n',

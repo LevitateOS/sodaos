@@ -13,10 +13,16 @@ User=2000:2000
 DropCapability=all
 ReadOnly=true
 NoNewPrivileges=true
-SecurityLabelDisable=true
-Volume=/etc/soda:/etc/soda:ro
-Volume=/run/soda:/run/soda:ro
-Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw
+Volume=/etc/soda/dashboard.json:/etc/soda/dashboard.json:ro,Z
+Volume=/etc/soda/oauth-secret:/etc/soda/oauth-secret:ro,Z
+Volume=/etc/soda/grant-key:/etc/soda/grant-key:ro,Z
+Volume=/run/soda/host.sock:/run/soda/host.sock:ro,z
+Volume=/run/soda/identity:/run/soda/identity:ro,z
+Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw,Z
+Volume=/run/soda/extension:/ipc:z
+GroupAdd=2100
+Environment=FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET=/ipc/host.sock
+Exec=--extension-socket=/ipc/soda.sock
 Tmpfs=/tmp:rw,nosuid,nodev,size=64m
 
 [Service]

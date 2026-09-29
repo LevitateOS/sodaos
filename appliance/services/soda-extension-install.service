@@ -1,0 +1,12 @@
+[Unit]
+Description=Install the required Soda Forgejo extension while Forgejo is stopped
+Requires=soda-image-import.service
+After=soda-image-import.service systemd-tmpfiles-setup.service
+Before=forgejo.service
+ConditionPathExists=/etc/soda/activated
+ConditionPathExists=/var/lib/soda/forgejo/gitea/conf/app.ini
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/podman run --rm --pull=never --network=none --user=1000:1000 --cap-drop=all --security-opt=no-new-privileges --volume=/var/lib/soda/forgejo:/data:Z --entrypoint=/usr/local/bin/gitea localhost/soda-extension:dev --config /data/gitea/conf/app.ini extensions install --replace /usr/share/soda/extension
+TimeoutStartSec=120

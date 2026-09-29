@@ -30,11 +30,13 @@ planning inputs, not instructions to downgrade a checkout or discard later work.
 | Soda adoption | Existing OAuth adapter, shell, template customizations and service remain | Native replacement, old-path deletion, isolated backend integration, updated owning contracts |
 | Delivery | Local macOS arm64 host/example builds and browser evidence | Native Linux container proof, patched appliance image, separate Soda package, installation and qualification |
 
-The foundation has focused Go and browser checks, actual Chrome navigation and
-cache-restoration checks, and package replacement evidence showing unchanged host
-bytes and retained notes. It has not proved a Soda terminal, Linux container
-execution, session-safe streaming, or a qualified appliance release. Existing Soda
-tests exercise the current OAuth and shell implementation until ported.
+At those starting revisions the foundation had focused Go and browser checks,
+actual Chrome navigation and cache-restoration checks, and package replacement
+evidence showing unchanged host bytes and retained notes. It had not proved a Soda
+terminal, Linux container execution, session-safe streaming, or a qualified
+appliance release. Since then, the checked B01 task records native x86_64 Linux
+host/package execution and replacement; the live isolated Soda bridge, terminal,
+aarch64 qualification and appliance release remain separate gates below.
 
 ## Target architecture and decisions
 
@@ -117,8 +119,8 @@ remaining question rather than restarting an architecture audit.
 
 ## Ordered implementation task list
 
-All boxes below start unchecked; the preceding foundation is already complete.
-`Needs` lists hard predecessors whose stated output must exist. A written interface
+Completed tasks are checked; unchecked tasks remain open. `Needs` lists hard
+predecessors whose stated output must exist. A written interface
 permits preparation, but never counts as a working capability or native proof.
 Task IDs are stable references, not numeric execution order. Each task includes
 its focused checks and updates to the owning interface documentation when behavior
@@ -180,18 +182,22 @@ work against frozen source inputs, then inspect the result when it completes.
   handshake. Update intended architecture owners. Done when each lane knows its
   inputs/outputs and one owner holds each shared file; no native proof is claimed.
   Keep public publication/namespace commissioning outside local development. Scope: P0/P2.
-- [ ] **R02 — Accept the authenticated bridge gate.** Needs: A02, B01, C03.
+- [x] **R02 — Accept the authenticated bridge gate.** Needs: A02, B01, C03.
   Review the actual read/mutation, forgery/Origin denials and container isolation
   receipts. Done when ordinary native API migration and stream integration can use
   this demonstrated boundary; do not wait for every capability or UI page. Scope: P1c.
-  The live bridge currently passes on macOS with both processes sharing one UID.
-  B01 separately proves the Forgejo package runtime on native x86_64 Linux; the
-  bridge still needs its Linux cross-UID, socket and SELinux isolation receipt in C03.
+  C03's native x86_64 receipt proves read/mutation, forged-authority and Origin
+  denials, cross-UID IPC group access, SELinux/DAC isolation and fail-closed Soda
+  outage behavior. It uses inert helper-socket stand-ins; real privileged helper
+  operations, terminal streams and aarch64 remain separate gates.
 - [ ] **R03 — Accept the real terminal gate.** Needs: A04, C04.
   Exercise the existing terminal driver through native admission, both proxy
   directions and Soda to an actual retained shell. Done when input/output,
   revocation, disconnect and cross-request continuity meet P3/P4. This is backend
-  terminal proof; persistent browser-element proof is C05.
+  terminal proof; persistent browser-element proof is C05. The native Linux host
+  allocates 65,536 subordinate UID/GID IDs per configured identity, while Soda's
+  project creation requires `--userns=auto:size=262144`. No real tmux shell session
+  was exercised; changing the shared host allocation needs an owner decision.
 - [ ] **R04 — Land the complete browser cutover.** Needs: A06, A07, B04, B07, B08, C07.
   Review and commit the coordinated routes/assets/configuration/policy change.
   Done when only the native integration is shipped, required-package activation
@@ -234,11 +240,14 @@ work against frozen source inputs, then inspect the result when it completes.
   stable repository ID and current Code permission; the native integration check
   rejects a reader after the repository becomes private. Continuous stream revocation
   remains A04's responsibility.
-- [ ] **A04 — Implement host-side WebSocket proxy and revocation.** Needs: R02, A03.
+- [x] **A04 — Implement host-side WebSocket proxy and revocation.** Needs: R02, A03.
   Extend the native route transport with P3's Origin/header, backpressure, timeout
   and continuous authority rules. Done when the real private path carries an echo
   stream, closes both directions correctly and preserves ordinary HTTP bounds.
   Coordinate with C04; only R03 can claim the real Soda terminal works end to end.
+  Native TLS integration passes the extension-process echo path, forged-header and
+  redirect rejection, message bounds, logout/permission revocation, >30-second
+  stream lifetime and package shutdown. The real Soda shell remains R03.
 - [x] **A05 — Map the policy seam and all native callers.** Needs: R01.
   Identify create/rename entrypoints, transactions, filesystem effects, CLI loading
   and the bounded required-policy interface. Decide the current Soda policy applies
@@ -246,14 +255,15 @@ work against frozen source inputs, then inspect the result when it completes.
   Done when A06 can insert its veto before side effects without unbounded RPC under
   transaction locks. Scope: P6. Caller map and decision are in ignored evidence;
   three consultations are advice, not implementation proof.
-- [ ] **A06 — Enforce the username policy across web and CLI.** Needs: A05, B05, C02.
+- [x] **A06 — Enforce the username policy across web and CLI.** Needs: A05, B05, C02.
   Implement native hooks and the narrowly assigned Soda policy handler using the
   common contract. Done when all supported real entrypoints enforce the policy;
   missing/crashed/timeout decisions fail closed and leave no identity/path changes.
   Keep bootstrap ordering explicit and retain existing users. Scope: P6/P7. ActivityPub
   identities are intentionally excluded because their federation names cannot satisfy
-  Soda's Linux login policy. Signup, admin UI/API, self-rename and CLI checks pass;
-  installer runtime wiring compiles, but full installer/browser bootstrap remains open.
+  Soda's Linux login policy. Real installer HTTP/subprocess checks now cover allow,
+  deny, timeout, missing policy and reinstall preservation; failed bootstrap leaves
+  `INSTALL_LOCK` clear and creates no account, email or user repository path.
 - [x] **A07 — Wire only the selected observation consumers.** Needs: A02, C01.
   Implement/document the required bounded observations and snapshot refresh;
   reuse authority invalidation already in A02/A04. Done when actual consumers have
@@ -266,8 +276,8 @@ work against frozen source inputs, then inspect the result when it completes.
   ownership and public keys; add bounded narrowing of page/navigation access.
   Done when real consumer and operator/non-operator cases pass. This unblocks C06
   independently of WebSocket completion; no arbitrary core write API. Scope: P2.
-  Native integration covers owner-only search, organization ownership, public keys
-  and page guards; a two-page search regression confirms no repository is skipped.
+  Native integration covers owner-only search, organization ownership, public keys,
+  page and panel guards, and a two-page search regression with no skipped repository.
 
 ### B — SDK, native host, package runtime and delivery
 
@@ -294,20 +304,25 @@ work against frozen source inputs, then inspect the result when it completes.
   live admission; account restoration is a separate hard gate in B10. The preferred
   entry is opt-out for the current navigation and eligible signed-in pages only.
   Scope: P5.
-- [ ] **B04 — Add operator-visible package status and safe removal.** Needs: B01, B02.
+- [x] **B04 — Add operator-visible package status and safe removal.** Needs: B01, B02.
   Implement bounded startup/exit diagnostics, status and stopped-runtime removal
   retaining private data. Done when lock/replace/remove/crash cases pass and
-  diagnostics disclose no credentials. Local lifecycle tests pass; accept package
-  replacement/removal after B01's Linux runtime check. Scope: P7.
+  diagnostics disclose no credentials. CLI tests cover enabled/disabled listing,
+  status, required-package denial, safe removal and diagnostics; lifecycle/runtime
+  package tests pass. B01 proves the package replacement/removal path on Linux.
+  Scope: P7.
 - [x] **B05 — Add required-package and policy lifecycle enforcement.** Needs: A02, A05.
   Implement required IDs, offline/online CLI loading/lock behavior, crash admission
   cancellation and fail-closed hook availability. Done when A06 can rely on real
   runtime enforcement and bootstrap/activation ordering is testable. Scope: P6/P7.
-- [ ] **B06 — Wire the proven image, package and isolated service.** Needs: R02, B02, B05.
+- [x] **B06 — Wire the proven image, package and isolated service.** Needs: R02, B02, B05.
   Promote the small Linux/IPC proof into the patched image and separate Soda package
   recipes and narrow units/configuration. Done when the task-owned development
   fixture starts the intended components; no full release/media orchestration yet.
-  Keep recipe edits separate from C's frontend package content. Scope: P7.
+  Native x86_64 rootless Podman/SELinux evidence in `.artifacts/b06/receipt.md`
+  confirms patched Forgejo, the standalone Soda package/backend, cross-UID IPC and
+  denied private-resource access. A clean candidate and aarch64 evidence remain
+  downstream. Keep recipe edits separate from C's frontend package content. Scope: P7.
 - [ ] **B07 — Integrate existing candidate provenance and inventories.** Needs: R03, B06.
   Extend current staging/build/installed readers for host/package/service hashes,
   native architecture and independent package replacement. Done when the existing
@@ -317,10 +332,12 @@ work against frozen source inputs, then inspect the result when it completes.
   C07's replacement map. Done when packaged content includes native mounts and
   retains branding, notification/action/switcher features and credential custody.
   This is the packaging half of R04's coordinated cutover. Scope: P4/P5/P7.
-- [ ] **B09 — Finish source/notices and maintenance packaging.** Needs: B02, B06.
+- [x] **B09 — Finish source/notices and maintenance packaging.** Needs: B02, B06.
   Verify source and license inclusion for fork/SDK/package and the reproducible
-  upstream update procedure. Done when the distribution assumptions are accurate
-  and R06 can bind the final artifacts; generator success alone is insufficient.
+  upstream update procedure. The archived fork source and SodaOS package-source
+  checks confirm the expected licenses, SDK and package sources; the LTS update
+  procedure is in the release guide. A clean candidate's final inventory is still
+  required at R06; generator success alone is insufficient.
 - [x] **B10 — Integrate native account restoration into the browser host.** Needs: B03, A02.
   Connect the real generation binding to mount/cache restoration and account-change
   invalidation. Done when stale private UI/access cannot resume under another
@@ -346,27 +363,36 @@ work against frozen source inputs, then inspect the result when it completes.
   no browser credentials, and bounds requests and responses. The live same-UID bridge
   now exercises page and panel session/preferences calls through native admission;
   final C03 acceptance still depends on R02's Linux isolation proof.
-- [ ] **C03 — Prove one native read and mutation across isolated services.** Needs: A02, B01, C02.
+- [x] **C03 — Prove one native read and mutation across isolated services.** Needs: A02, B01, C02.
   Exercise the real callbacks and IPC with the P1c denial/isolation cases. B lends
   the existing fixture and applies any owned unit edits; C owns the product adapter.
   Done when R02 has actual evidence, including unsafe Origin and forged context.
-  The same-UID development test now covers page and panel reads plus preference
-  mutation/readback; Linux process, group and SELinux separation are still unproved.
-- [ ] **C04 — Port terminal control and its backend stream endpoint.** Needs: R02, A03.
+  Native Linux proves page and panel reads plus preference mutation/readback,
+  unsafe Origin and forged-admission denial, stale-generation rejection, private
+  resource and workload denial, and service-outage 503 with no fallback. The
+  helper sockets are inert stand-ins; terminal disconnect/cancellation remains A04/C05.
+- [x] **C04 — Port terminal control and its backend stream endpoint.** Needs: R02, A03.
   Port reserve/create/attach/end and their membership/repository/generation guards
   first. Implement the Soda side of P3 alongside A04. Done when focused terminal
   and session-continuity checks pass and R03 can exercise a real retained shell.
+  The focused Soda reverse-proxy check passes reserve/create/attach, bidirectional
+  input/output, live permission change and End. R03 still must prove the actual
+  native tmux process and container path.
 - [ ] **C05 — Mount and prove the persistent real terminal.** Needs: R03, B10.
   Reuse Lit/xterm in the native persistent root. Done when the same element,
   renderer, socket and target survive native navigation, with account-change,
   history/cache, form, focus and mobile behavior covered. Opening must not create,
   join or start a project. Scope: P5.
-- [ ] **C06 — Finish the remaining native product APIs and pages.** Needs: R02, A08, C02.
+- [x] **C06 — Finish the remaining native product APIs and pages.** Needs: R02, A08, C02.
   Port Spaces/project creation/join/settings, identity/broker continuity, access
   controls, Runners and Tailnet with their existing policies and mounts. Done when
   C01 has a real replacement for every browser caller, including non-admin operator
   access. This work can run before A04 finishes if C04 is waiting for transport;
-  prioritize C05 once its predecessors pass. Scope: P4/P5.
+  prioritize C05 once its predecessors pass. Scope: P4/P5. Active native consumers
+  now use the extension transport across these areas; focused tests report 21 passed
+  and one unavailable browser case skipped, with active-source typecheck, Lit,
+  complexity, lint and fixture-bundle checks passing. Two full test-typecheck errors
+  remain in the retired drawer path, which C07 removes with its callers.
 - [ ] **C07 — Delete the replaced product auth and shell implementation.** Needs: C05, C06.
   Remove old browser OAuth/session/return, expected-user workaround, shell/frame,
   `soda-view` and injection callers with their tests; update current API/credential/

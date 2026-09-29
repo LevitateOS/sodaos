@@ -30,7 +30,12 @@ Produce a candidate with the admitted `soda-build` controller (see
 bash scripts/check-native.sh ARCH /ABS/PATH/TO/stage
 ```
 
-Use a clean exact-revision checkout and a fresh output directory per attempt.
+Use clean exact-revision Soda and Forgejo fork checkouts and a fresh output
+directory per attempt. Pass the fork checkout with `--forgejo-source`; the
+candidate snapshots its exact HEAD and embeds its patched binary. The separate
+`extension` image carries the Soda package installed by
+`soda-extension-install.service` before an activated Forgejo starts. An install
+failure blocks Forgejo startup.
 
 ## Provision the host
 
@@ -56,6 +61,11 @@ against preserved project roots.
    [Operator setup](operator-setup.md).
 3. Trust the appliance public root certificate on intended clients when using
    local TLS.
+
+The dashboard mounts only its config and credential files, the host and
+identity helper sockets, its private data and the shared extension IPC
+directory. Forgejo joins only that IPC directory through supplemental group
+2100. Keep SELinux enabled so the private mounts retain separate labels.
 
 Browser origins, Git advertisement and project routing are separate configuration
 facts.
