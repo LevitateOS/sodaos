@@ -14,6 +14,7 @@ import (
 	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -74,7 +75,7 @@ func rejectTerminalQuery(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func terminalMemberReady(p store.Project, login string, err error) bool {
-	return err == nil && p.Ready && login != "root" && projectLogin.MatchString(login)
+	return err == nil && p.Ready && login != "root" && project.ValidLogin(login)
 }
 
 func (s *API) terminalAccount(w http.ResponseWriter, r *http.Request, v store.Session) (store.Project, string, string, bool) {

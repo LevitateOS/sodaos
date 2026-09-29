@@ -13,6 +13,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/levitateos/sodaos/internal/host"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
@@ -61,7 +62,7 @@ type terminalSessionAuth struct {
 }
 
 func validMemberLogin(p store.Project, login string, err error) bool {
-	return err == nil && p.Ready && login != "root" && projectLogin.MatchString(login)
+	return err == nil && p.Ready && login != "root" && project.ValidLogin(login)
 }
 
 func (s *API) authenticateTerminalSession(w http.ResponseWriter, r *http.Request) (terminalSessionAuth, bool) {

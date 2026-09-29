@@ -185,11 +185,15 @@ func (s *Service) apiLogout(w http.ResponseWriter, r *http.Request, v store.Sess
 }
 
 func (s *Service) apiPreferences(w http.ResponseWriter, r *http.Request, v store.Session) {
+	s.preferences(w, r, v.User, nil)
+}
+
+func (s *Service) preferences(w http.ResponseWriter, r *http.Request, user store.User, beforeWrite func() bool) {
 	type preferences struct {
 		DisplayName string `json:"display_name"`
 	}
 	if r.Method == http.MethodGet {
-		JSONResponse(w, http.StatusOK, preferences{v.User.Name})
+		JSONResponse(w, http.StatusOK, preferences{user.Name})
 		return
 	}
 	var input struct {
@@ -203,7 +207,10 @@ func (s *Service) apiPreferences(w http.ResponseWriter, r *http.Request, v store
 		return
 	}
 	name := strings.TrimSpace(*input.DisplayName)
-	if err := s.Store.RenameProfile(r.Context(), v.User.ID, name); err != nil {
+	if beforeWrite != nil && !beforeWrite() {
+		return
+	}
+	if err := s.Store.RenameProfile(r.Context(), user.ID, name); err != nil {
 		JSONError(w, http.StatusServiceUnavailable, "store_unavailable", "Could not save Soda preferences.")
 		return
 	}

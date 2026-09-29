@@ -24,7 +24,7 @@ func (s *API) accessKeysEnvironment(w http.ResponseWriter, r *http.Request) (sto
 
 func (s *API) authorizeAccessKeysMember(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) (string, bool) {
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)
-	if err != nil || login == "root" || !projectLogin.MatchString(login) {
+	if err != nil || login == "root" || !project.ValidLogin(login) {
 		auth.JSONError(w, 403, "membership_required", "Only your own existing project access may be managed.")
 		return "", false
 	}

@@ -4,16 +4,11 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"regexp"
 
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
-
-// Project-local Linux names are a native provisioning constraint, not a
-// restriction on Forgejo's own account names.
-var projectLogin = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 func validJoinSSHSelection(selection string) bool {
 	return selection == "" || selection == "saved" || selection == "none"
@@ -84,7 +79,7 @@ func (s *API) admitNewJoin(w http.ResponseWriter, r *http.Request, v store.Sessi
 		return "", nil, false
 	}
 	login = access.actor.Login
-	if !projectLogin.MatchString(login) || login == "root" {
+	if !project.ValidLogin(login) || login == "root" {
 		auth.JSONError(w, 422, "unsupported_linux_login", "Your Forgejo username is not supported as a project Linux account. No automatic rename is performed.")
 		return "", nil, false
 	}

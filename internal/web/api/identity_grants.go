@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/identity"
+	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
@@ -30,7 +31,7 @@ func (s *API) identityNamedMember(w http.ResponseWriter, r *http.Request, p stor
 		auth.JSONError(w, 503, "store_unavailable", "Could not confirm the project member.")
 		return false
 	}
-	if err != nil || login == "root" || !projectLogin.MatchString(login) {
+	if err != nil || login == "root" || !project.ValidLogin(login) {
 		auth.JSONError(w, 403, "membership_required", "Subscription use requires a named provisioned member of this project.")
 		return false
 	}
