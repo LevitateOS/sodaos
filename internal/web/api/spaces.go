@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/web/auth"
@@ -29,6 +30,12 @@ type SpaceView struct {
 type SpacesView struct {
 	Items    []SpaceView `json:"items"`
 	Complete bool        `json:"complete"`
+	Actor    SpacesActor `json:"actor"`
+}
+
+type SpacesActor struct {
+	ID    string `json:"id"`
+	Login string `json:"login"`
 }
 
 func (s *API) resolveSpaceAuthority(request *http.Request, v store.Session, p store.Project) (environmentReader, bool, bool) {
@@ -63,10 +70,18 @@ func (s *API) inspectSpaceTerminals(
 	row *SpaceView,
 	terminalCount *int,
 ) bool {
-	if !reader.executionAllowed || !reader.repositoryVisible || reader.authorityUnavailable || reader.login == "" || !s.terminalCurrent(check, cookieValue, v, p, reader.login) {
+	if !reader.executionAllowed || !reader.repositoryVisible || reader.authorityUnavailable || reader.login == "" {
 		return true
 	}
-	items, err := s.terminalOperation(request, v, p, reader.login, cookieValue, host.TerminalRequest{Action: "list"})
+	var items []host.TerminalState
+	var err error
+	if _, native := requestExtensionAuthority(request); native {
+		items, err = s.extensionTerminalStates(request, check, v, p, reader.login, "list")
+	} else if s.terminalCurrent(check, cookieValue, v, p, reader.login) {
+		items, err = s.terminalOperation(request, v, p, reader.login, cookieValue, host.TerminalRequest{Action: "list"})
+	} else {
+		return true
+	}
 	complete := err == nil
 	for _, item := range items {
 		if *terminalCount >= 64 {
@@ -151,7 +166,11 @@ func (s *API) inspectSpaces(
 	v store.Session,
 	projects []store.Project,
 ) SpacesView {
-	response := SpacesView{Items: []SpaceView{}, Complete: len(projects) <= 128}
+	actor := SpacesActor{ID: strconv.FormatInt(v.User.ID, 10), Login: v.User.Login}
+	if authority, ok := requestExtensionAuthority(r); ok {
+		actor = SpacesActor{ID: authority.Actor.ID, Login: authority.Actor.Username}
+	}
+	response := SpacesView{Items: []SpaceView{}, Complete: len(projects) <= 128, Actor: actor}
 	if len(projects) > 128 {
 		projects = projects[:128]
 	}
@@ -175,7 +194,14 @@ func (s *API) inspectSpaces(
 	return response
 }
 
-func (s *API) verifySpacesSession(w http.ResponseWriter, ctx context.Context, cookieValue string, v store.Session) bool {
+func (s *API) verifySpacesSession(w http.ResponseWriter, ctx context.Context, r *http.Request, cookieValue string, v store.Session) bool {
+	if _, native := requestExtensionAuthority(r); native {
+		if ctx.Err() != nil || !s.extensionSessionCurrent(ctx, r, v) {
+			auth.JSONError(w, 401, "unauthenticated", "Native session ended.")
+			return false
+		}
+		return true
+	}
 	// Logout wins publication too; never hold the registry lock over inspections.
 	s.terminalMu.Lock()
 	current, err := s.Store.Session(ctx, cookieValue)
@@ -214,13 +240,17 @@ func (s *API) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Session)
 		auth.JSONError(w, 503, "spaces_unavailable", "Could not enumerate Soda associations.")
 		return
 	}
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil {
-		auth.JSONError(w, 401, "unauthenticated", "Sign in again.")
-		return
+	cookieValue := ""
+	if _, native := requestExtensionAuthority(r); !native {
+		cookie, err := auth.RequestCookie(r, auth.SessionCookie)
+		if err != nil {
+			auth.JSONError(w, 401, "unauthenticated", "Sign in again.")
+			return
+		}
+		cookieValue = cookie.Value
 	}
-	response := s.inspectSpaces(r, ctx, cookie.Value, v, projects)
-	if !s.verifySpacesSession(w, ctx, cookie.Value, v) {
+	response := s.inspectSpaces(r, ctx, cookieValue, v, projects)
+	if !s.verifySpacesSession(w, ctx, r, cookieValue, v) {
 		return
 	}
 	auth.JSONResponse(w, 200, response)

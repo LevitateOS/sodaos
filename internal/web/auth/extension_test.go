@@ -20,6 +20,8 @@ func TestExtensionContribution(t *testing.T) {
 		want         bool
 	}{
 		{"spaces page", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
+		{"runners page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, true},
+		{"tailnet page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, true},
 		{"workspace panel", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
 		{"workspace panel with page scope", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "global"}, false},
 		{"other panel", extensions.Contribution{Kind: "panel", ID: "other", Scope: "panel"}, false},

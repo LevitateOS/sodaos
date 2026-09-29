@@ -1,8 +1,9 @@
 package api
 
 import (
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
@@ -63,8 +64,7 @@ func (s *API) authorizeLifecycleOperator(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *API) checkLifecycleSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+	if !s.extensionSessionCurrent(r.Context(), r, v) {
 		auth.JSONError(w, 401, "unauthorized", "Soda context changed. Reconnect before acting.")
 		return false
 	}

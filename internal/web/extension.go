@@ -39,4 +39,4 @@ func forgejoUsernamePolicy(_ context.Context, request extensions.PolicyRequest) 
 }
 
 // ExtensionHandler is mounted only on the dedicated private service socket.
-func (s *Server) ExtensionHandler() http.Handler { return s.Auth.ExtensionHandler() }
+func (s *Server) ExtensionHandler() http.Handler { return s.API.ExtensionHandler() }

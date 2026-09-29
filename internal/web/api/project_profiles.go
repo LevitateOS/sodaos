@@ -2,9 +2,10 @@ package api
 
 import (
 	"context"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
@@ -32,12 +33,7 @@ func (s *API) apiProjectProfiles(w http.ResponseWriter, r *http.Request, v store
 		auth.JSONError(w, 503, "profile_unavailable", "Installed Project OS could not be confirmed. No image was pulled or started.")
 		return
 	}
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil {
-		auth.JSONError(w, 401, "unauthorized", "Reconnect to Soda.")
-		return
-	}
-	if err := s.Auth.RequireCurrentSession(ctx, cookie.Value, v); err != nil {
+	if !s.extensionSessionCurrent(ctx, r, v) {
 		auth.JSONError(w, 401, "unauthorized", "Soda context changed.")
 		return
 	}

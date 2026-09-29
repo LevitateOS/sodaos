@@ -43,6 +43,7 @@ type terminalNativeFixture struct {
 	writers      map[string]*websocket.Conn
 	requests     []host.TerminalRequest
 	fail         map[string]bool
+	echo         bool
 }
 
 func (f *terminalNativeFixture) count(action string) int {
@@ -225,6 +226,12 @@ func terminalWebFixture(t *testing.T, providerStatus int, cleanupReason ...strin
 			}
 			var f host.TerminalFrame
 			_ = json.Unmarshal(body, &f)
+			if f.Type == "input" && calls.echo {
+				output, _ := json.Marshal(host.TerminalFrame{Type: "output", Data: f.Data})
+				if c.Write(r.Context(), websocket.MessageText, output) != nil {
+					return
+				}
+			}
 			if f.Type == "close" {
 				body, _ := json.Marshal(host.TerminalFrame{Type: "closed", Reason: "disconnected"})
 				_ = c.Write(r.Context(), websocket.MessageText, body)

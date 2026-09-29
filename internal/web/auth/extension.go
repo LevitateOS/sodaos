@@ -42,6 +42,13 @@ func ExtensionAuthority(r *http.Request) (extensions.Authority, error) {
 
 // ExtensionContribution limits the initial bridge to Soda's declared mounts.
 func ExtensionContribution(contribution extensions.Contribution) bool {
-	return (contribution.Kind == "page" && contribution.ID == "spaces" && contribution.Scope == "global") ||
-		(contribution.Kind == "panel" && contribution.ID == "workspace" && contribution.Scope == "panel")
+	switch contribution.Kind {
+	case "page":
+		return contribution.Scope == "global" &&
+			(contribution.ID == "spaces" || contribution.ID == "runners" || contribution.ID == "tailnet")
+	case "panel":
+		return contribution.Scope == "panel" && contribution.ID == "workspace"
+	default:
+		return false
+	}
 }

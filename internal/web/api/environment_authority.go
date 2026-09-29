@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
+	"strings"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/forgejo"
@@ -21,6 +24,7 @@ type repositoryAccess struct {
 	actor      forgejo.User
 	repository forgejo.Repository
 	grant      store.Grant
+	native     bool
 }
 
 func repositoryConsentOK(grant store.Grant) bool {
@@ -55,6 +59,9 @@ func (s *API) providerActor(ctx context.Context, grant store.Grant, v store.Sess
 
 func (s *API) visibleRepository(r *http.Request, v store.Session, id int64) (repositoryAccess, error) {
 	var access repositoryAccess
+	if authority, ok := requestExtensionAuthority(r); ok {
+		return s.nativeVisibleRepository(r, v, id, authority)
+	}
 	grant, err := s.Auth.UserGrant(r, v)
 	if err != nil {
 		return access, err
@@ -70,7 +77,26 @@ func (s *API) visibleRepository(r *http.Request, v store.Session, id int64) (rep
 	if err != nil {
 		return access, denyHiddenRepository(err)
 	}
-	return repositoryAccess{actor, repo, grant}, nil
+	return repositoryAccess{actor: actor, repository: repo, grant: grant}, nil
+}
+
+func (s *API) nativeVisibleRepository(r *http.Request, v store.Session, id int64, authority extensions.Authority) (repositoryAccess, error) {
+	repository, err := authority.Native().Repository(r.Context(), strconv.FormatInt(id, 10))
+	if err != nil {
+		return repositoryAccess{}, err
+	}
+	actor := forgejo.User{ID: v.User.ID, Login: authority.Actor.Username, Admin: authority.Actor.SiteAdmin}
+	owner := forgejo.User{Login: repository.Owner}
+	if strings.EqualFold(owner.Login, actor.Login) {
+		owner.ID = actor.ID
+	}
+	permissions := &forgejo.RepositoryPermissions{Pull: true}
+	permissions.Push = repository.Permission == "write" || repository.Permission == "admin"
+	permissions.Admin = repository.Permission == "admin" || owner.ID == actor.ID
+	return repositoryAccess{actor: actor, repository: forgejo.Repository{
+		ID: id, Name: repository.Name, FullName: repository.Owner + "/" + repository.Name,
+		Owner: owner, Permissions: permissions,
+	}, native: true}, nil
 }
 
 // Current native code-write authority admits project execution; visibility and
@@ -100,6 +126,13 @@ func reportExecutionAuthorityError(w http.ResponseWriter, err error) {
 func (s *API) environmentAdministrator(r *http.Request, a repositoryAccess) (bool, error) {
 	if a.repository.Owner.ID == a.actor.ID {
 		return true, nil
+	}
+	if a.native {
+		authority, ok := requestExtensionAuthority(r)
+		if !ok {
+			return false, errors.New("native authority is unavailable")
+		}
+		return authority.Native().OrganizationOwner(r.Context(), a.repository.Owner.Login)
 	}
 	if !forgejo.HasScope(a.grant.Scopes, "read:organization") {
 		return false, store.ErrGrantUnavailable

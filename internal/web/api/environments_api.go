@@ -80,8 +80,7 @@ func listedEnvironments(p store.Project, absent bool) []EnvironmentView {
 }
 
 func (s *API) requireListedSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
-	cookie, cookieErr := auth.RequestCookie(r, auth.SessionCookie)
-	if cookieErr != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+	if !s.extensionSessionCurrent(r.Context(), r, v) {
 		auth.JSONError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
 		return false
 	}
@@ -198,8 +197,7 @@ func (s *API) apiEnvironmentMembers(w http.ResponseWriter, r *http.Request, v st
 	} else if reader.login != "" {
 		items = append(items, memberView{strconv.FormatInt(v.User.ID, 10), reader.login})
 	}
-	cookie, cookieErr := auth.RequestCookie(r, auth.SessionCookie)
-	if cookieErr != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+	if !s.extensionSessionCurrent(r.Context(), r, v) {
 		auth.JSONError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
 		return
 	}
@@ -228,8 +226,7 @@ func (s *API) apiConnection(w http.ResponseWriter, r *http.Request, v store.Sess
 		auth.JSONError(w, 503, "native_unavailable", "Current address and public host key are unavailable; do not use a cached address as proof of access.")
 		return
 	}
-	cookie, cookieErr := auth.RequestCookie(r, auth.SessionCookie)
-	if cookieErr != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+	if !s.extensionSessionCurrent(r.Context(), r, v) {
 		auth.JSONError(w, 401, "unauthenticated", "Soda context changed; reconnect.")
 		return
 	}

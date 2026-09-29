@@ -35,8 +35,7 @@ func (s *API) joinPublicKeys(ctx context.Context, userID int64, selection string
 var errTooManyJoinKeys = errors.New("too many development keys")
 
 func (s *API) persistEnvironmentJoin(ctx context.Context, r *http.Request, v store.Session, p store.Project, login string, public []string) error {
-	cookie, cookieErr := auth.RequestCookie(r, auth.SessionCookie)
-	if cookieErr != nil || s.Auth.RequireCurrentSession(ctx, cookie.Value, v) != nil {
+	if !s.extensionSessionCurrent(ctx, r, v) {
 		return errJoinUnauthorized
 	}
 	if err := s.Host.Join(ctx, project.Account{Project: p.ID, Login: login, Identity: v.User.ID, Keys: public}); err != nil {
@@ -139,6 +138,5 @@ func (s *API) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store
 }
 
 func (s *API) currentJoinSession(r *http.Request, v store.Session) bool {
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	return err == nil && s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) == nil
+	return s.extensionSessionCurrent(r.Context(), r, v)
 }

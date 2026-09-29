@@ -2,8 +2,9 @@ package api
 
 import (
 	"errors"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
@@ -28,8 +29,7 @@ func tailnetQuery(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (s *API) tailnetSession(w http.ResponseWriter, r *http.Request, v store.Session) bool {
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil || r.Context().Err() != nil || s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v) != nil {
+	if r.Context().Err() != nil || !s.extensionSessionCurrent(r.Context(), r, v) {
 		auth.JSONError(w, 401, "unauthorized", "Soda context changed. Already-dispatched work may have completed; reconnect and observe before retrying.")
 		return false
 	}

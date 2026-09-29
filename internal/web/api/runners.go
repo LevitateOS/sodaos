@@ -21,6 +21,16 @@ func (s *API) operatorAuthorization(r *http.Request, v store.Session) error {
 	if s.Config.OperatorID <= 0 || v.User.ID != s.Config.OperatorID {
 		return errOperatorRequired
 	}
+	if _, ok := s.extensionActor(r, v); ok {
+		if !s.extensionSessionCurrent(r.Context(), r, v) {
+			return store.ErrGrantUnavailable
+		}
+		return nil
+	}
+	return s.providerOperatorAuthorization(r, v)
+}
+
+func (s *API) providerOperatorAuthorization(r *http.Request, v store.Session) error {
 	grant, err := s.Auth.UserGrant(r, v)
 	if err != nil {
 		return err
@@ -35,11 +45,7 @@ func (s *API) operatorAuthorization(r *http.Request, v store.Session) error {
 	if actor.ID != v.User.ID {
 		return auth.ErrProviderIdentity
 	}
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil {
-		return store.ErrGrantUnavailable
-	}
-	if err := s.Auth.RequireCurrentSession(r.Context(), cookie.Value, v); err != nil {
+	if !s.extensionSessionCurrent(r.Context(), r, v) {
 		return store.ErrGrantUnavailable
 	}
 	return nil
@@ -197,8 +203,7 @@ func (s *API) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store.Se
 		return
 	}
 	// Recheck after decoding and confirmation, immediately before dispatch.
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil || s.Auth.RequireCurrentSession(ctx, cookie.Value, v) != nil {
+	if !s.extensionSessionCurrent(ctx, r, v) {
 		auth.ProviderError(w, store.ErrGrantUnavailable)
 		return
 	}

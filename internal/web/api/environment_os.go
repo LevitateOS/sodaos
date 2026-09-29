@@ -2,9 +2,10 @@ package api
 
 import (
 	"context"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"time"
+
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -18,12 +19,7 @@ func rejectOSQuery(w http.ResponseWriter, r *http.Request) bool {
 }
 
 func (s *API) confirmOSSession(w http.ResponseWriter, r *http.Request, ctx context.Context, v store.Session) bool {
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil {
-		auth.JSONError(w, 401, "unauthorized", "Reconnect to Soda.")
-		return false
-	}
-	if err := s.Auth.RequireCurrentSession(ctx, cookie.Value, v); err != nil {
+	if !s.extensionSessionCurrent(ctx, r, v) {
 		auth.JSONError(w, 401, "unauthorized", "Soda context changed.")
 		return false
 	}

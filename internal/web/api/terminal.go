@@ -116,14 +116,15 @@ func (s *API) unregisterTerminalPeer(r *http.Request) {
 }
 
 type terminalHandshake struct {
-	Action         string `json:"action"`
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	ExpectedUserID string `json:"expected_user_id"`
-	RepositoryID   string `json:"repository_id"`
-	CSRF           string `json:"csrf_token"`
-	Cols           int    `json:"cols"`
-	Rows           int    `json:"rows"`
+	Action            string `json:"action"`
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	ExpectedUserID    string `json:"expected_user_id"`
+	RepositoryID      string `json:"repository_id"`
+	SessionGeneration string `json:"session_generation"`
+	CSRF              string `json:"csrf_token"`
+	Cols              int    `json:"cols"`
+	Rows              int    `json:"rows"`
 }
 
 func readTerminalHandshake(ctx context.Context, conn *websocket.Conn) (terminalHandshake, error) {

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"github.com/levitateos/sodaos/internal/web/auth"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -11,6 +10,9 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	extensions "forgejo.org/extension-sdk"
+	"github.com/levitateos/sodaos/internal/web/auth"
 
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/store"
@@ -59,6 +61,30 @@ func parseRepositoryQuery(rawQuery string) (string, int, bool) {
 		return "", 0, false
 	}
 	return query, page, true
+}
+
+func parseNativeRepositoryQuery(rawQuery string) (string, string, bool) {
+	if len(rawQuery) > 8192 {
+		return "", "", false
+	}
+	query, err := url.ParseQuery(rawQuery)
+	if err != nil || !nativeRepositoryQueryFields(query) {
+		return "", "", false
+	}
+	search := query.Get("q")
+	cursor := query.Get("cursor")
+	if !isValidSearchTerm(search) || len(cursor) > 4096 {
+		return "", "", false
+	}
+	return search, cursor, true
+}
+
+func nativeRepositoryQueryFields(query url.Values) bool {
+	if len(query) < 1 || len(query) > 2 || len(query["q"]) != 1 || len(query["cursor"]) > 1 {
+		return false
+	}
+	_, cursor := query["cursor"]
+	return len(query) == 1 || cursor
 }
 
 func (s *API) authorizeRepositorySearch(ctx context.Context, r *http.Request, v store.Session) (store.Grant, forgejo.User, error) {
@@ -129,15 +155,29 @@ func (s *API) collectRepositoryChoices(ctx context.Context, access string, repos
 	return items, nil
 }
 
+func (s *API) collectNativeRepositoryChoices(ctx context.Context, items []extensions.Repository, actor extensions.Actor) ([]repositoryChoice, error) {
+	choices := make([]repositoryChoice, 0, len(items))
+	for _, repo := range items {
+		id, valid := auth.PositiveID(repo.ID)
+		if !valid || repo.Owner != actor.Username || !auth.ValidRepositoryPart(repo.Owner) || !auth.ValidRepositoryPart(repo.Name) {
+			return nil, forgejo.ErrInvalidResponse
+		}
+		choice := repositoryChoice{ID: repo.ID, Owner: repo.Owner, Name: repo.Name}
+		project, err := s.Store.ProjectByRepository(ctx, id)
+		if errors.Is(err, store.ErrNotFound) {
+			choice.CanCreate = true
+		} else if err != nil {
+			return nil, errStoreReservation
+		} else {
+			choice.Project = &repositoryProject{ID: project.ID, Provisioned: project.Ready}
+		}
+		choices = append(choices, choice)
+	}
+	return choices, nil
+}
+
 func (s *API) verifyRepositorySession(ctx context.Context, r *http.Request, v store.Session) bool {
-	if ctx.Err() != nil {
-		return false
-	}
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil || s.Auth.RequireCurrentSession(ctx, cookie.Value, v) != nil {
-		return false
-	}
-	return true
+	return ctx.Err() == nil && s.extensionSessionCurrent(ctx, r, v)
 }
 
 func handleRepositoryChoicesError(w http.ResponseWriter, err error) {
@@ -159,6 +199,53 @@ func handleRepositorySessionFailure(w http.ResponseWriter, ctx context.Context) 
 // Human-owner discovery only. Shared projects retain the separate Spaces read
 // authority. This endpoint neither inspects nor mutates native project state.
 func (s *API) apiRepositories(w http.ResponseWriter, r *http.Request, v store.Session) {
+	if authority, native := requestExtensionAuthority(r); native {
+		s.apiNativeRepositories(w, r, v, authority)
+		return
+	}
+	s.apiProviderRepositories(w, r, v)
+}
+
+func (s *API) apiNativeRepositories(w http.ResponseWriter, r *http.Request, v store.Session, authority extensions.Authority) {
+	query, cursor, ok := parseNativeRepositoryQuery(r.URL.RawQuery)
+	if !ok {
+		auth.JSONError(w, http.StatusBadRequest, "invalid_query", "Provide a search term and one bounded cursor.")
+		return
+	}
+	select {
+	case s.RepositorySlots <- struct{}{}:
+		defer func() { <-s.RepositorySlots }()
+	default:
+		auth.JSONError(w, http.StatusServiceUnavailable, "repositories_unavailable", "Repository search is busy.")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+	page, err := authority.Native().SearchOwnedRepositories(ctx, query, cursor, forgejo.RepositoryPageSize)
+	if err != nil {
+		auth.JSONError(w, http.StatusServiceUnavailable, "repositories_unavailable", "Native repository search is unavailable.")
+		return
+	}
+	if len(page.Items) > forgejo.RepositoryPageSize || len(page.NextCursor) > 4096 {
+		auth.JSONError(w, http.StatusServiceUnavailable, "repositories_unavailable", "Native repository search returned an invalid page.")
+		return
+	}
+	items, err := s.collectNativeRepositoryChoices(ctx, page.Items, authority.Actor)
+	if err != nil {
+		handleRepositoryChoicesError(w, err)
+		return
+	}
+	if ctx.Err() != nil || !s.extensionSessionCurrent(ctx, r, v) {
+		handleRepositorySessionFailure(w, ctx)
+		return
+	}
+	auth.JSONResponse(w, http.StatusOK, struct {
+		Items      []repositoryChoice `json:"items"`
+		NextCursor string             `json:"next_cursor,omitempty"`
+	}{items, page.NextCursor})
+}
+
+func (s *API) apiProviderRepositories(w http.ResponseWriter, r *http.Request, v store.Session) {
 	query, page, ok := parseRepositoryQuery(r.URL.RawQuery)
 	if !ok {
 		auth.JSONError(w, 400, "invalid_query", "Provide q and one bounded page.")

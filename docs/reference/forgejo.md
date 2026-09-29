@@ -1,7 +1,9 @@
 # Forgejo customization contract
 
-Soda customizes stock Forgejo through supported template hooks, assets and APIs.
-There is no Forgejo fork, source patch set or custom Forgejo executable.
+Soda ships Fountain, a maintained Forgejo 15.0 LTS fork with a native extension
+host. Fountain supplies the independently consumable extension SDK and loads
+administrator-installed process packages. The Soda extension is built and packaged
+separately; installing or replacing that package does not rebuild Fountain.
 
 Product surface: [Spaces](../product/spaces.md). Trust boundary:
 [Trust](../architecture/trust.md).
@@ -86,9 +88,18 @@ Brand assets: [Branding](../design/branding.md).
 
 ## Source owners
 
+- Fountain host and standalone SDK: the separate canonical Fountain repository
+- Soda extension package: `appliance/soda-extension/` and its backend entry point
 - Templates/assets: `appliance/forgejo/`
 - Browser hooks: `assets/branding/forgejo/`, `frontend/spaces/`, `frontend/runners/`
 - Presentation checks: `scripts/*forgejo*`, `tests/forgejo/`
+
+The candidate producer accepts a clean exact-revision Fountain checkout, archives
+that revision before generation or compilation, and builds its patched executable
+from the extracted archive. Source and notice obligations are recorded in
+[licensing](../research/licensing.md). Upstream ownership and the reproducible
+maintenance procedure are defined in the
+[release workflow](../development/release.md#fountain-upstream-maintenance).
 
 ## Factory API boundary
 
