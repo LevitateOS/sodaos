@@ -32,6 +32,13 @@ Do not treat package paths as the product vocabulary.
 | Running the release pipeline | [Release workflow](release.md) |
 | Local fixture access | [Local testing](../guides/local-testing.md) |
 
+## Active transition
+
+[Fountain: extensible Forgejo implementation plan](forgejo-extensions-plan.md)
+covers the remaining native extension platform, Soda adoption and appliance
+delivery work. It is removed after its completed contracts are absorbed into their
+owning guides.
+
 ## Permissions
 
 Destructive host operations, provider mutations, publication and fixture cleanup
