@@ -2,8 +2,6 @@ import test, {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
 import {chromium, type Browser, type Page} from 'playwright';
 import path from 'node:path';
-import payload from '../../internal/release/build/forgejo-payload.json';
-import {buildForgejoModule} from '../../scripts/build-forgejo';
 import type {} from './fixtures/workspace-fixture';
 import {installMeasurementProbe} from './fixtures/workspace-measurement-probe';
 import {projectView, newManagedTerminal, terminalMenu} from '../installed/sodaspaces-controls.ts';
@@ -13,43 +11,60 @@ import {parseLayout, focusedPane} from '../../frontend/spaces/sodaspaces-layout'
 const root = path.resolve(import.meta.dirname, '../..');
 let browser: Browser, server: ReturnType<typeof Bun.serve>;
 before(async () => {
-  const fixture = await buildForgejoModule(
-    path.join(root, 'tests/frontend/fixtures/workspace-fixture.ts'),
-    'public/assets/workspace-fixture.js'
-  );
-  const model = await buildForgejoModule(
-    path.join(root, 'tests/frontend/fixtures/workspace-model.ts'),
-    'public/assets/workspace-model.js'
-  );
+  const build = await Bun.build({
+    entrypoints: [path.join(root, 'tests/frontend/fixtures/workspace-fixture.ts')],
+    target: 'browser',
+    format: 'esm',
+    minify: true,
+    define: {'process.env.NODE_ENV': '"production"'},
+    plugins: [
+      {
+        name: 'terminal-vendor',
+        setup(build) {
+          build.onResolve({filter: /^\.\/soda-terminal\/(?:xterm|addon-fit)\.mjs$/}, (args) => ({
+            path: args.path,
+            external: true,
+          }));
+        },
+      },
+    ],
+  });
+  assert(build.success, `Native workspace fixture build failed: ${build.logs.join('\n')}`);
+  const [fixture] = build.outputs;
+  assert(fixture && build.outputs.length === 1);
   server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
     fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname === '/assets/workspace-model.js')
-        return new Response(model, {headers: {'Content-Type': 'text/javascript'}});
       if (url.pathname === '/assets/workspace-fixture.js')
         return new Response(fixture, {headers: {'Content-Type': 'text/javascript'}});
-      const target = 'public' + url.pathname;
-      const source = Object.entries(payload).find(([dest]) => dest === target)?.[1];
-      if (source) {
-        const file = source.startsWith('@build/forgejo-js/')
-          ? path.join(root, '.artifacts/forgejo-js', path.basename(source))
-          : source.startsWith('@build/terminal-assets/')
-            ? path.join(root, '.artifacts/browser-terminal/vendor', path.basename(source))
-            : path.join(root, source);
-        return new Response(Bun.file(file), {
+      const local =
+        url.pathname === '/assets/sodaspaces-drawer.css'
+          ? 'frontend/spaces/sodaspaces-project.css'
+          : url.pathname === '/assets/sodaspaces-page.css'
+            ? 'frontend/spaces/sodaspaces-workspace.css'
+            : url.pathname === '/assets/sodaspaces-terminal.css'
+              ? 'frontend/spaces/sodaspaces-terminal.css'
+              : url.pathname.startsWith('/assets/soda-terminal/')
+                ? '.artifacts/browser-terminal/vendor/' + path.basename(url.pathname)
+                : url.pathname.startsWith('/assets/soda/forgejo/icons/')
+                  ? 'assets/branding/icons/octicons/' + path.basename(url.pathname)
+                  : url.pathname.startsWith('/assets/soda/')
+                    ? 'assets/branding/' + url.pathname.slice('/assets/soda/'.length)
+                    : '';
+      if (local)
+        return new Response(Bun.file(path.join(root, local)), {
           headers: {
-            'Content-Type': /\.m?js$/.test(source)
+            'Content-Type': /\.m?js$/.test(local)
               ? 'text/javascript'
-              : source.endsWith('.css')
+              : local.endsWith('.css')
                 ? 'text/css'
-                : source.endsWith('.svg')
+                : local.endsWith('.svg')
                   ? 'image/svg+xml'
                   : 'application/octet-stream',
           },
         });
-      }
       if (url.pathname !== '/') return new Response(null, {status: 404});
       return new Response(
         '<!doctype html><style>.ui.button{display:inline-flex;justify-content:center;text-align:center}</style><meta name="soda-component-fixture" content="spaces"><link rel="icon" href="data:,"><link rel="stylesheet" href="/assets/sodaspaces-drawer.css"><link rel="stylesheet" href="/assets/sodaspaces-page.css"><link rel="stylesheet" href="/assets/sodaspaces-terminal.css"><link rel="stylesheet" href="/assets/soda-terminal/xterm.css"><link rel="stylesheet" href="/assets/soda/forgejo/components.css"><link rel="stylesheet" href="/assets/soda/forgejo/components-buttons.css"><style>main{height:calc(100dvh - 40px)}body{margin:0}</style><input id="native-draft" value="unsaved"><main></main><script type="module" src="/assets/workspace-fixture.js"></script>',
@@ -1347,9 +1362,6 @@ test('first use: superseded search and retired actor cannot publish stale privat
                 resolve(
                   Response.json({
                     items: [{id: '7', owner: 'alice', name: 'Alpha', can_create: true, project: null}],
-                    page: 1,
-                    more: false,
-                    limited: false,
                   })
                 ),
               {once: true}
@@ -1724,22 +1736,14 @@ for (const status of [401, 403])
     await page.getByRole('button', {name: 'Join project', exact: true}).waitFor();
     await page.evaluate((status) => window.workspaceFixture.setStatus(status), status);
     await page.getByRole('button', {name: 'alice/Alpha', exact: true}).click();
-    await page
-      .getByRole('heading', {name: status === 401 ? 'Reconnect to Forgejo' : 'Project access changed'})
-      .waitFor();
+    await page.getByRole('heading', {name: 'Project access changed'}).waitFor();
     assert.equal(await page.getByRole('heading', {name: 'Configure project', exact: true}).count(), 0);
-    if (status === 401) {
-      assert.equal(
-        await page.getByRole('link', {name: 'Reconnect to Forgejo', exact: true}).getAttribute('href'),
-        '/-/soda/login?destination=spaces&expected_user_id=1'
-      );
-      assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).count(), 0);
-    } else assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).isEnabled(), true);
+    assert.equal(await page.getByRole('button', {name: 'Reload Spaces', exact: true}).isEnabled(), true);
     assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 1);
     await captureSpacesComponent(page, status === 401 ? 'project-reconnect' : 'project-access-changed');
   });
 
-test('terminal handshake with a mismatched CSRF token is refused without attaching', async (t) => {
+test('terminal handshake with a mismatched native generation is refused without attaching', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => window.workspaceFixture.api.refresh());
   await openSession(page, 'Build');
@@ -1758,7 +1762,7 @@ test('terminal handshake with a mismatched CSRF token is refused without attachi
         id: 'b'.repeat(32),
         expected_user_id: '1',
         repository_id: environment.repository_id,
-        csrf_token: 'mismatched-csrf-token-for-proof',
+        session_generation: 'mismatched-generation-for-proof',
         cols: 80,
         rows: 24,
       })

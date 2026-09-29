@@ -1,7 +1,6 @@
 import {LitElement, html} from 'lit';
-import {connectionSuppressed} from '../spaces/soda-connection.js';
-import {id, readSodaJSON} from '../spaces/sodaspaces-api.js';
-import type {Session} from '../spaces/sodaspaces-api.js';
+import {readSodaJSON} from '../spaces/sodaspaces-api.js';
+import type {PreparedExtensionMount} from '../spaces/soda-extension.js';
 import {settingsView, hostResult, enrollmentResult} from './soda-tailnet-response.js';
 import type {Enrollment, Host, Settings} from './soda-tailnet-response.js';
 
@@ -53,7 +52,7 @@ function mutationFailureNotice(error: unknown, sent: boolean) {
   if (error instanceof TailnetRequestError && [400, 409, 422].includes(error.status)) {
     return 'Request rejected before the requested management effect. Review inputs, revision and runtime support, then refresh. No automatic retry occurred.';
   }
-  return sent ? unknownOutcome : 'Operation was not sent. Check the original operator and refresh before retrying.';
+  return sent ? unknownOutcome : 'Operation was not sent. Check Forgejo authorization and refresh before retrying.';
 }
 function hostWarning(action: string) {
   if (action === 'advertise-exit-node')
@@ -75,14 +74,11 @@ function renderPeerItem(peer: Host['peers'][number]) {
 }
 
 class SodaTailnet extends LitElement {
-  private actor = '';
-  private csrf = '';
-  configure(actor: string, session: Session) {
-    if (this.actor || !id(actor) || session.user.id !== actor) throw Error('Invalid original Tailnet actor');
-    this.actor = actor;
-    this.csrf = session.csrf_token;
+  private transport: PreparedExtensionMount | null = null;
+  configure(transport: PreparedExtensionMount) {
+    if (this.transport) throw Error('Tailnet page already configured');
+    this.transport = transport;
   }
-  private apiBase = '';
   private lifetime: AbortController | null = null;
   private timer: ReturnType<typeof setInterval> | undefined;
   private settings: Settings | null = null;
@@ -127,10 +123,8 @@ class SodaTailnet extends LitElement {
   }
   connectedCallback() {
     super.connectedCallback();
-    this.apiBase = (document.getElementById('soda-settings-link')?.dataset.subUrl || '') + '/-/soda';
     window.addEventListener('pagehide', this.hiddenPage);
     window.addEventListener('pageshow', this.shownPage);
-    window.addEventListener('soda-session-retired', this.hiddenPage);
     window.addEventListener('beforeunload', this.departure);
     document.addEventListener('visibilitychange', this.visibility);
     this.resume();
@@ -139,7 +133,6 @@ class SodaTailnet extends LitElement {
     this.retire();
     window.removeEventListener('pagehide', this.hiddenPage);
     window.removeEventListener('pageshow', this.shownPage);
-    window.removeEventListener('soda-session-retired', this.hiddenPage);
     window.removeEventListener('beforeunload', this.departure);
     document.removeEventListener('visibilitychange', this.visibility);
     super.disconnectedCallback();
@@ -168,11 +161,11 @@ class SodaTailnet extends LitElement {
     this.settings = null;
     this.pending = null;
     this.trigger = null;
-    this.message = 'Tailnet controls retired. Revalidate the original operator to continue.';
+    this.message = 'Tailnet controls retired. Refresh this Forgejo page to continue.';
     this.requestUpdate();
   }
   private resume() {
-    if (!this.actor || this.lifetime || !this.isConnected || connectionSuppressed()) return;
+    if (!this.transport || this.lifetime || !this.isConnected) return;
     this.clearSecrets();
     this.lifetime = new AbortController();
     this.timer = setInterval(() => {
@@ -181,7 +174,7 @@ class SodaTailnet extends LitElement {
     void this.refresh();
   }
   private current(lifetime: AbortController) {
-    return this.isConnected && this.lifetime === lifetime && !lifetime.signal.aborted && !connectionSuppressed();
+    return this.isConnected && this.lifetime === lifetime && !lifetime.signal.aborted;
   }
   private requireCurrent(lifetime: AbortController) {
     if (!this.current(lifetime)) throw Error('Retired Tailnet owner');
@@ -199,16 +192,10 @@ class SodaTailnet extends LitElement {
     try {
       this.requireCurrent(lifetime);
       if (body !== undefined) this.sent = true;
-      const pending = fetch(this.apiBase + '/api/settings/tailnet' + (scope ? '/' + scope : ''), {
+      const pending = this.transport!.request('settings/tailnet' + (scope ? '/' + scope : ''), {
         method: body === undefined ? 'GET' : 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        redirect: 'error',
         referrerPolicy: 'no-referrer',
-        headers: {
-          'X-Soda-Expected-User-ID': this.actor,
-          ...(body === undefined ? {} : {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrf}),
-        },
+        ...(body === undefined ? {} : {headers: {'Content-Type': 'application/json'}}),
         ...(body === undefined ? {} : {body}),
         signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(30000)]),
       });
@@ -275,7 +262,7 @@ class SodaTailnet extends LitElement {
     this.clearSecrets();
     this.stale = true;
     this.message = this.blocked
-      ? 'The original Soda operator is unavailable. No private controls are shown.'
+      ? 'Forgejo operator authorization is unavailable. No private controls are shown.'
       : 'Tailnet observation unavailable. Previous data and drafts are stale, not an empty network. The native helper may be disabled.';
   }
   private async refresh() {
@@ -572,8 +559,7 @@ class SodaTailnet extends LitElement {
   private renderReconnect() {
     if (!(this.blocked || !this.lifetime)) return '';
     return html`<p>
-      <a href=${this.apiBase + '/login?destination=tailnet&expected_user_id=' + this.actor}>Reconnect Soda explicitly</a
-      >. Native CLI/console recovery remains available.
+      Refresh this Forgejo page to restore operator authorization. Native CLI/console recovery remains available.
     </p>`;
   }
   private renderPending() {
@@ -840,10 +826,11 @@ class SodaTailnet extends LitElement {
   }
 }
 customElements.define('soda-tailnet', SodaTailnet);
-export function mountTailnetPage(root: HTMLElement, actor: string, session: Session) {
+export function mountTailnetPage(root: HTMLElement, transport: PreparedExtensionMount) {
   const page = new SodaTailnet();
-  page.configure(actor, session);
+  page.configure(transport);
   page.dataset.applianceLabel = root.dataset.applianceLabel || 'Appliance';
   page.dataset.enrollmentLabel = root.dataset.enrollmentLabel || 'Automatic project access';
   root.append(page);
+  return {dispose: () => page.remove()};
 }

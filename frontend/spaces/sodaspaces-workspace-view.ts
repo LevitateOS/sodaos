@@ -138,7 +138,7 @@ function pickerLocked(view: RepositoryPickerView) {
 }
 function repositoryPages(view: RepositoryPickerView, search: (page: number) => void) {
   const result = view.result;
-  if (!result || !(result.more || result.page > 1)) return '';
+  if (!result || !(result.nextCursor || result.page > 1)) return '';
   return html`<nav aria-label="Repository pages">
     <button
       class="ui button"
@@ -147,7 +147,11 @@ function repositoryPages(view: RepositoryPickerView, search: (page: number) => v
     >
       Previous repositories</button
     ><span>Page ${result.page}</span
-    ><button class="ui button" ?disabled=${pickerLocked(view) || !result.more} @click=${() => search(result.page + 1)}>
+    ><button
+      class="ui button"
+      ?disabled=${pickerLocked(view) || !result.nextCursor}
+      @click=${() => search(result.page + 1)}
+    >
       Next repositories
     </button>
   </nav>`;
@@ -177,7 +181,6 @@ export function renderRepositoryPicker(view: RepositoryPickerView, actions: Repo
       ${view.busy ? 'Finding repositories…' : view.error}
     </div>
     ${repositoryResults(view, actions.select)} ${repositoryPages(view, actions.search)}
-    ${view.result?.limited ? html`<p>Search limit reached. Narrow your search.</p>` : ''}
     <div class="soda-setup-actions">
       <a href=${view.createURL}>Create a new repository</a
       ><button class="ui primary button" ?disabled=${pickerLocked(view) || !choice} @click=${actions.continue}>

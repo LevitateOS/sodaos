@@ -96,11 +96,8 @@ export function renderOSObservation(
 }
 
 export interface EnvironmentPresentation {
-  readonly connectURL: string;
-  readonly connectVisible: boolean;
   readonly busy: boolean;
   readonly stale: boolean;
-  readonly signedIn: boolean;
   readonly blocked: boolean;
   readonly canCreate: boolean;
   readonly canJoin: boolean;
@@ -109,10 +106,8 @@ export interface EnvironmentPresentation {
 }
 export interface EnvironmentCommands {
   readonly selectSSH: (checked: boolean) => void;
-  readonly connect: (event: MouseEvent) => void;
   readonly refresh: (event: MouseEvent) => void;
   readonly reload: (event: MouseEvent) => void;
-  readonly logout: (event: MouseEvent) => void;
   readonly create: (event: MouseEvent) => void;
   readonly join: (event: MouseEvent) => void;
 }
@@ -175,16 +170,6 @@ function environmentActions(view: EnvironmentPresentation, commands: Environment
       Reload repository page
     </button>
     <button
-      data-control="sign-out"
-      type="button"
-      class="ui basic button"
-      ?hidden=${!view.signedIn}
-      ?disabled=${environmentBusy(view) || !view.signedIn}
-      @click=${commands.logout}
-    >
-      Sign out
-    </button>
-    <button
       data-control="create"
       type="button"
       class="ui primary button"
@@ -214,15 +199,6 @@ export function renderEnvironment(
 ): TemplateResult {
   return html`
     <p>Shared resources, explicit actions. Hiding does not undo work already sent.</p>
-    <a
-      data-control="sign-in"
-      class="ui primary button"
-      href=${view.connectURL}
-      ?hidden=${!view.connectVisible || view.stale}
-      aria-disabled=${view.busy || view.stale ? 'true' : 'false'}
-      @click=${commands.connect}
-      >Connect to Soda</a
-    >
     ${joinAdmission(view, commands)} ${environmentActions(view, commands)} ${lifecycle}
   `;
 }

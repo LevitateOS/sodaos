@@ -123,11 +123,12 @@ test(
       async fetch(request) {
         const url = new URL(request.url);
         if (url.pathname === '/widget.js') return new Response(script, {headers: {'Content-Type': 'text/javascript'}});
-        if (url.pathname.startsWith('/-/soda/api/')) {
+        if (url.pathname.startsWith('/-/extensions/pages/soda/spaces/api/')) {
           requests.push(url.pathname);
-          assert.equal(request.headers.get('X-Soda-Expected-User-ID'), '1');
+          assert.equal(request.headers.get('X-Extension-Session-Generation'), 'fixture');
+          assert.equal(request.headers.get('X-Soda-Expected-User-ID'), null);
+          assert.equal(request.headers.get('X-CSRF-Token'), null);
           if (request.method === 'POST') {
-            assert.equal(request.headers.get('X-CSRF-Token'), 'csrf');
             launches.push(await request.json());
             return Response.json({terminal_id: 'a'.repeat(32)});
           }
@@ -153,9 +154,24 @@ test(
         module = await import(modulePath),
         widget = new module.SodaIdentity();
       document.body.append(widget);
+      const transport = {
+        root: widget,
+        generation: 'fixture',
+        assetBase: '/assets/',
+        request: (path: string, init: RequestInit = {}) =>
+          fetch('/-/extensions/pages/soda/spaces/api/' + path, {
+            ...init,
+            headers: {...init.headers, 'X-Extension-Session-Generation': 'fixture'},
+          }),
+        websocket: () => {
+          throw Error('No terminal in identity test');
+        },
+        dispose() {},
+      };
+      (window as typeof window & {fixtureTransport?: typeof transport}).fixtureTransport = transport;
       widget.context = {
         actor: '1',
-        session: {user: {id: '1', login: 'soda-tester'}, csrf_token: 'csrf', forgejo_url: location.origin},
+        transport,
         project: 'p0123456789abcdef01234567',
       };
     });
@@ -168,7 +184,7 @@ test(
       };
       widget.context = {
         actor: '1',
-        session: {user: {id: '1', login: 'soda-tester'}, csrf_token: 'csrf', forgejo_url: location.origin},
+        transport: (window as typeof window & {fixtureTransport?: unknown}).fixtureTransport,
         project: 'p0123456789abcdef01234567',
       };
       return widget.updateComplete;
@@ -180,7 +196,6 @@ test(
       .filter({hasText: 'Codex started. Open project terminal and select Codex.'})
       .waitFor();
     assert.deepEqual(launches, [{connection_id: 'connection', cols: 80, rows: 24}]);
-    await page.evaluate(() => window.dispatchEvent(new Event('soda-session-retired')));
-    assert.equal(await page.getByRole('button', {name: "Start Codex in this project's terminal"}).isEnabled(), false);
+    await page.evaluate(() => document.querySelector('soda-identity')?.remove());
   }
 );

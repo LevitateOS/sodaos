@@ -1,13 +1,18 @@
 import {mountSpacesPage} from '../../frontend/spaces/sodaspaces-page.js';
 import {parseLayout} from '../../frontend/spaces/sodaspaces-layout.js';
 import {object} from '../../frontend/spaces/sodaspaces-api.js';
+import type {PreparedExtensionMount} from '../../frontend/spaces/soda-extension.js';
 // Production always uses WSS. This development-only entry maps its own loopback
 // mock transport to WS; no production module or remote destination is changed.
 const NativeWebSocket = WebSocket;
 class FixtureWebSocket extends NativeWebSocket {
   constructor(input: string | URL, protocols?: string | string[]) {
     const target = new URL(input);
-    if (target.host !== location.host || !target.pathname.startsWith('/-/soda/api/environments/')) throw Error('Fixture socket must stay local');
+    if (
+      target.host !== location.host ||
+      !target.pathname.startsWith('/-/extensions/pages/soda/spaces/api/environments/')
+    )
+      throw Error('Fixture socket must stay local');
     target.protocol = location.protocol === 'http:' ? 'ws:' : 'wss:';
     super(target, protocols);
   }
@@ -23,7 +28,11 @@ const ui = {root, scenario, theme, fault, notice};
 let revision = '';
 let mounted: ReturnType<typeof mountSpacesPage> | undefined;
 async function control(path: string, body?: unknown) {
-  const response = await fetch('/_fixture/' + path, {method: body === undefined ? 'GET' : 'POST', headers: body === undefined ? {} : {'Content-Type': 'application/json'}, ...(body === undefined ? {} : {body: JSON.stringify(body)})});
+  const response = await fetch('/_fixture/' + path, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: body === undefined ? {} : {'Content-Type': 'application/json'},
+    ...(body === undefined ? {} : {body: JSON.stringify(body)}),
+  });
   if (!response.ok) throw Error('Fixture control failed');
   return object(await response.json());
 }
@@ -38,26 +47,54 @@ async function mount(reset = false) {
     sessionStorage.setItem('spaces-fixture-generation', String(state.generation));
   }
   ui.notice.textContent = 'Simulated data and shell · no appliance connection';
-  mounted = mountSpacesPage(ui.root, '1');
+  const transport = {
+    root: ui.root,
+    generation: 'fixture-generation',
+    assetBase: '/assets/',
+    request: (path: string, init: RequestInit = {}) =>
+      fetch('/-/extensions/pages/soda/spaces/api/' + path, {
+        ...init,
+        headers: new Headers({
+          ...Object.fromEntries(new Headers(init.headers)),
+          'X-Extension-Session-Generation': 'fixture-generation',
+        }),
+      }),
+    websocket: (path: string) => new WebSocket(new URL('/-/extensions/pages/soda/spaces/api/' + path, location.href)),
+    dispose() {},
+  } satisfies PreparedExtensionMount;
+  mounted = mountSpacesPage(ui.root, transport);
 }
 async function run(action: () => Promise<void>) {
-  try {await action();} catch (error) {ui.notice.textContent = error instanceof Error ? error.message : 'Fixture unavailable';}
+  try {
+    await action();
+  } catch (error) {
+    ui.notice.textContent = error instanceof Error ? error.message : 'Fixture unavailable';
+  }
 }
 ui.scenario.addEventListener('change', () => void run(() => mount(true)));
 document.querySelector('#fixture-reset')?.addEventListener('click', () => void run(() => mount(true)));
-ui.fault.addEventListener('change', () => void run(async () => {
-  await control('fault', {fault: ui.fault.value});
-  await mount();
-}));
+ui.fault.addEventListener(
+  'change',
+  () =>
+    void run(async () => {
+      await control('fault', {fault: ui.fault.value});
+      await mount();
+    })
+);
 ui.theme.value = localStorage.getItem('spaces-fixture-theme') || 'dark';
 function setTheme() {
   document.documentElement.style.colorScheme = ui.theme.value;
   localStorage.setItem('spaces-fixture-theme', ui.theme.value);
 }
-ui.theme.addEventListener('change', setTheme); setTheme();
+ui.theme.addEventListener('change', setTheme);
+setTheme();
 void run(() => mount());
 
 setInterval(() => {
   if (!revision || document.hidden) return;
-  void control('state').then(state => {if (String(state.revision) !== revision) location.reload();}).catch(() => undefined);
+  void control('state')
+    .then((state) => {
+      if (String(state.revision) !== revision) location.reload();
+    })
+    .catch(() => undefined);
 }, 1000);

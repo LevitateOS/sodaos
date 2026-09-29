@@ -5,6 +5,7 @@ import {object, readSodaJSON, terminalID, terminalResponse, id as identifier} fr
 import type {Terminal, ITerminalOptions, ITerminalInitOnlyOptions, ITerminalAddon} from '@xterm/xterm';
 import type {FitAddon} from '@xterm/addon-fit';
 import type {TerminalMetadata} from './sodaspaces-api.js';
+import type {PreparedExtensionMount} from './soda-extension.js';
 export type TerminalView = Pick<
   Terminal,
   | 'cols'
@@ -26,7 +27,7 @@ export interface Renderer {
 }
 export interface TerminalContext {
   expectedUserId: string;
-  csrfToken: string;
+  transport: PreparedExtensionMount;
   repositoryId: string;
   environmentId: string;
   login: string;
@@ -40,9 +41,6 @@ export type TerminalLocator =
       kind: 'existing';
       id: string;
     };
-function sodaAPIBase(): string {
-  return (document.getElementById('soda-settings-link')?.dataset.subUrl || '') + '/-/soda';
-}
 const renderer = async (): Promise<Renderer> => {
   const [{Terminal}, {FitAddon}] = await Promise.all([
     import('./soda-terminal/xterm.mjs'),
@@ -331,18 +329,12 @@ export class SodaTerminal extends LitElement {
   }
   private async json(path: string, body: Record<string, unknown> | null, signal: AbortSignal) {
     if (!this.binding) throw Error('Missing terminal binding');
-    const headers: Record<string, string> = {
-      'X-Soda-Expected-User-ID': this.binding.expectedUserId,
-    };
+    const headers: Record<string, string> = {};
     if (body) {
       headers['Content-Type'] = 'application/json';
-      headers['X-CSRF-Token'] = this.binding.csrfToken;
     }
-    const response = await fetch(sodaAPIBase() + path, {
+    const response = await this.binding.transport.request(path.slice('/api/'.length), {
       method: body ? 'POST' : 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      redirect: 'error',
       headers,
       ...(body
         ? {
@@ -687,7 +679,7 @@ export class SodaTerminal extends LitElement {
       ...(action === 'create' ? {name: this.createName} : {}),
       expected_user_id: expectedUserId,
       repository_id: repositoryId,
-      csrf_token: this.binding?.csrfToken,
+      session_generation: this.binding?.transport.generation,
       cols,
       rows,
     };
@@ -807,9 +799,9 @@ export class SodaTerminal extends LitElement {
     rows: number,
     request: AbortController
   ) {
-    const url = new URL(`${sodaAPIBase()}/api/environments/${this.binding!.environmentId}/terminal`, location.origin);
-    url.protocol = 'wss:';
-    const peer = (this.socket = new WebSocket(url)),
+    const peer = (this.socket = this.binding!.transport.websocket(
+        `environments/${this.binding!.environmentId}/terminal`
+      )),
       queued = {bytes: 0};
     peer.onopen = () => this.onPeerOpen(n, peer, action, cols, rows);
     peer.onmessage = (event) => this.onPeerMessage(event, n, terminal, screen, action, request, queued);
@@ -929,7 +921,6 @@ function admitMountContext(root: HTMLElement, context: TerminalContext) {
     root.ownerDocument !== document ||
     !identifier(expectedUserId) ||
     !identifier(repositoryId) ||
-    !/^[A-Za-z0-9_-]{1,128}$/.test(context.csrfToken) ||
     !/^p[0-9a-f]{24}$/.test(environmentId) ||
     !/^[a-z][a-z0-9_-]{0,30}$/.test(login) ||
     login === 'root'

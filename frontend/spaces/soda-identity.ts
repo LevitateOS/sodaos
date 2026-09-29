@@ -1,7 +1,6 @@
 import {LitElement, html} from 'lit';
-import {connectionSuppressed} from './soda-connection.js';
 import {check, id, object, projectId, readSodaJSON} from './sodaspaces-api.js';
-import type {Session} from './sodaspaces-api.js';
+import type {PreparedExtensionMount} from './soda-extension.js';
 import {
   availableConnectionView,
   connectionView,
@@ -24,7 +23,7 @@ export class SodaIdentity extends LitElement {
     available: {state: true},
   };
   private actor = '';
-  private session?: Session;
+  private transport?: PreparedExtensionMount;
   private project = '';
   declare private busy: boolean;
   declare private message: string;
@@ -45,25 +44,20 @@ export class SodaIdentity extends LitElement {
     this.leases = [];
     this.enrollment = undefined;
   }
-  set context(context: {actor: string; session: Session; project: string}) {
-    if (
-      this.actor === context.actor &&
-      this.session?.csrf_token === context.session.csrf_token &&
-      this.project === context.project
-    )
+  set context(context: {actor: string; transport: PreparedExtensionMount; project: string}) {
+    if (this.actor === context.actor && this.transport === context.transport && this.project === context.project)
       return;
-    this.configure(context.actor, context.session, context.project);
+    this.configure(context.actor, context.transport, context.project);
     void this.refresh();
   }
 
   protected createRenderRoot() {
     return this;
   }
-  configure(actor: string, session: Session, project = '') {
-    if (!id(actor) || session.user.id !== actor || (project && !projectId(project)))
-      throw Error('Invalid identity context');
+  configure(actor: string, transport: PreparedExtensionMount, project = '') {
+    if (!id(actor) || (project && !projectId(project))) throw Error('Invalid identity context');
     this.actor = actor;
-    this.session = session;
+    this.transport = transport;
     this.project = project;
     this.contextSerial++;
     this.retired = false;
@@ -83,32 +77,23 @@ export class SodaIdentity extends LitElement {
     this.leases = [];
     this.available = [];
     this.enrollment = undefined;
-    this.message = 'Reconnect Soda before managing connections.';
+    this.message = 'Reload this Forgejo page before managing connections.';
   };
-  connectedCallback() {
-    super.connectedCallback();
-    window.addEventListener('soda-session-retired', this.retire);
-  }
   disconnectedCallback() {
-    window.removeEventListener('soda-session-retired', this.retire);
+    this.retire();
     super.disconnectedCallback();
   }
   private blocked() {
-    return this.busy || this.retired || connectionSuppressed();
+    return this.busy || this.retired;
   }
   private requestInit(body?: unknown): RequestInit {
-    const session = this.session;
-    if (!session || this.retired || connectionSuppressed()) throw Error('Soda connection unavailable');
-    const headers: Record<string, string> = {'X-Soda-Expected-User-ID': this.actor};
+    if (!this.transport || this.retired) throw Error('Native extension unavailable');
+    const headers: Record<string, string> = {};
     if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
-      headers['X-CSRF-Token'] = session.csrf_token;
     }
     return {
       method: body === undefined ? 'GET' : 'POST',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      redirect: 'error',
       headers,
       ...(body === undefined ? {} : {body: JSON.stringify(body)}),
       signal: AbortSignal.timeout(15000),
@@ -116,9 +101,10 @@ export class SodaIdentity extends LitElement {
   }
   private async request(path: string, body?: unknown): Promise<unknown> {
     const serial = this.contextSerial;
-    const response = await fetch('/-/soda/api' + path, this.requestInit(body));
+    if (!this.transport) throw Error('Native extension unavailable');
+    const response = await this.transport.request(path.slice(1), this.requestInit(body));
     const result = await readSodaJSON(response);
-    if (serial !== this.contextSerial || this.retired || connectionSuppressed()) throw Error('Soda context changed');
+    if (serial !== this.contextSerial || this.retired) throw Error('Soda context changed');
     if (!response.ok)
       throw Error('Identity request was not confirmed (' + response.status + '). Refresh before retrying.');
     return result;
@@ -361,9 +347,9 @@ export class SodaIdentity extends LitElement {
   }
 }
 customElements.define('soda-identity', SodaIdentity);
-export function mountIdentity(root: HTMLElement, actor: string, session: Session, project = '') {
+export function mountIdentity(root: HTMLElement, actor: string, transport: PreparedExtensionMount, project = '') {
   const widget = new SodaIdentity();
-  widget.configure(actor, session, project);
+  widget.configure(actor, transport, project);
   root.append(widget);
   void widget.refresh();
   return widget;

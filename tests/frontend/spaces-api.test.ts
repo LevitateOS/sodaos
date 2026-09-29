@@ -38,8 +38,9 @@ const row = {
 };
 test('repository choices bind stable identity and distinguish existing reservations from Create', () => {
   const repo = {id: '7', owner: 'alice', name: 'repo', can_create: true, project: null};
-  const result = {items: [repo], page: 1, more: false, limited: false};
+  const result = {items: [repo], next_cursor: 'opaque-next'};
   assert.equal(repositoryChoices(result, 1).items[0]?.canCreate, true);
+  assert.equal(repositoryChoices(result, 1).nextCursor, 'opaque-next');
   assert.equal(
     repositoryChoices(
       {...result, items: [{...repo, can_create: false, project: {id: binding.environmentId, provisioned: false}}]},
@@ -48,9 +49,11 @@ test('repository choices bind stable identity and distinguish existing reservati
     false
   );
   for (const delta of [
-    {page: 2},
-    {more: true, limited: true},
-    {limited: true},
+    {page: 1},
+    {more: false},
+    {limited: false},
+    {next_cursor: 3},
+    {next_cursor: 'x'.repeat(4097)},
     {items: [repo, repo]},
     {items: Array(13).fill(repo)},
     {items: [{...repo, id: '07'}]},
@@ -59,7 +62,7 @@ test('repository choices bind stable identity and distinguish existing reservati
     {items: [{...repo, project: {id: binding.environmentId, provisioned: true}}]},
   ])
     assert.throws(() => repositoryChoices({...result, ...delta}, 1));
-  assert.equal(repositoryChoices({...result, page: 100, limited: true}, 100).limited, true);
+  assert.equal(repositoryChoices({items: [repo]}, 100).nextCursor, '');
 });
 test('terminal metadata preserves exact native binding without retired lifetime fields', () => {
   assert.deepEqual(terminalResponse({terminal}, binding), terminal);
@@ -94,24 +97,28 @@ for (const delta of [
     assert.throws(() => terminalResponse({terminal: {...terminal, ...delta}}, binding));
   });
 test('Spaces validates visible rows and does not turn incomplete into complete', () => {
-  const result = spacesResponse({items: [row], complete: false}, '1');
+  const actor = {id: '1', login: 'soda-tester'};
+  const result = spacesResponse({actor, items: [row], complete: false});
   assert.equal(result.complete, false);
   assert.deepEqual(result.items[0]?.terminals, [terminal]);
-  assert.throws(() => spacesResponse({items: [row], complete: true}, '2'));
-  assert.throws(() => spacesResponse({items: [row, row], complete: true}, '1'));
-  assert.throws(() => spacesResponse({items: [{...row, terminals: [terminal, terminal]}], complete: true}, '1'));
-  assert.throws(() => spacesResponse({items: Array(33).fill(row), complete: true}, '1'));
+  assert.throws(() => spacesResponse({actor: {...actor, id: '2'}, items: [row], complete: true}));
+  assert.throws(() => spacesResponse({actor, items: [row, row], complete: true}));
+  assert.throws(() => spacesResponse({actor, items: [{...row, terminals: [terminal, terminal]}], complete: true}));
+  assert.throws(() => spacesResponse({actor, items: Array(33).fill(row), complete: true}));
 });
 test('degraded collection cannot carry session metadata or elevation', () => {
-  assert.throws(() => spacesResponse({items: [{...row, authority_unavailable: true}], complete: false}, '1'));
+  const actor = {id: '1', login: 'soda-tester'};
+  assert.throws(() => spacesResponse({actor, items: [{...row, authority_unavailable: true}], complete: false}));
   assert.throws(() =>
-    spacesResponse(
-      {items: [{...row, authority_unavailable: true, terminals: [], environment_administrator: true}], complete: false},
-      '1'
-    )
+    spacesResponse({
+      actor,
+      items: [{...row, authority_unavailable: true, terminals: [], environment_administrator: true}],
+      complete: false,
+    })
   );
   assert.equal(
-    spacesResponse({items: [{...row, authority_unavailable: true, terminals: []}], complete: false}, '1').items.length,
+    spacesResponse({actor, items: [{...row, authority_unavailable: true, terminals: []}], complete: false}).items
+      .length,
     1
   );
 });

@@ -42,7 +42,6 @@ import {
   id,
   object,
   readSodaJSON,
-  sessionResponse,
   spacesResponse,
   terminalResponse,
   terminalMetadata,
@@ -50,17 +49,16 @@ import {
   repositoryChoices,
   projectId,
 } from './sodaspaces-api.js';
-import type {Space, TerminalMetadata, Session, RepositoryChoices} from './sodaspaces-api.js';
-export type WorkspaceContext = {session?: Session | undefined} & (
+import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
+import type {PreparedExtensionMount} from './soda-extension.js';
+export type WorkspaceContext = {transport: PreparedExtensionMount; forgejoPrefix?: string} & (
   | {
       kind: 'native';
-      expectedUserId?: string | undefined;
-      repositoryId: string;
+      repositoryId?: string;
       pageRepositoryId?: string;
     }
   | {
       kind: 'page';
-      expectedUserId: string;
     }
 );
 type TerminalFactory = typeof mountTerminal;
@@ -113,9 +111,6 @@ function sodaWorkspaceInit(
 ): RequestInit {
   return {
     method: body ? 'POST' : 'GET',
-    credentials: 'same-origin',
-    cache: 'no-store',
-    redirect: 'error',
     headers,
     ...(body
       ? {
@@ -265,6 +260,7 @@ export class SodaSpaces extends LitElement {
   declare private repositoryBusy: boolean;
   declare private repositoryError: string;
   private repositoryRequest: AbortController | undefined;
+  private repositoryCursors: string[] = [''];
   private setupReturn:
     | {project: string; view: 'terminal' | 'sessions' | 'project'; mode: 'standard' | 'journey' | 'settings'}
     | undefined;
@@ -275,7 +271,7 @@ export class SodaSpaces extends LitElement {
   private disposed = false;
   private restored = false;
   private storageLoaded = false;
-  private session: ReturnType<typeof sessionResponse> | undefined;
+  private actor: {id: string; login: string} | undefined;
   private available = false;
   private surfaceVisible = true;
   private storageKey = '';
@@ -415,12 +411,9 @@ export class SodaSpaces extends LitElement {
     this.binding = {
       ...context,
     };
-    check(!context.session || context.session.user.id === context.expectedUserId);
-    this.session = context.session;
     this.factory = factory;
-    this.storageKey = 'soda-spaces:v3:' + context.expectedUserId;
+    this.storageKey = '';
     this.addEventListener('focusout', (event) => this.menuFocusOut(event), {signal: this.lifetime.signal});
-    window.addEventListener('soda-session-retired', () => this.invalidate(), {signal: this.lifetime.signal});
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal,
     });
@@ -918,11 +911,7 @@ export class SodaSpaces extends LitElement {
     </section>`;
   }
   private get connectURL() {
-    const intent = new URLSearchParams(
-      this.binding?.kind === 'page' ? {destination: 'spaces'} : {repository_id: this.binding?.repositoryId || ''}
-    );
-    if (this.binding?.expectedUserId) intent.set('expected_user_id', this.binding.expectedUserId);
-    return '/-/soda/login?' + intent;
+    return window.location.href;
   }
   private sessionsButtonHidden() {
     if (this.binding?.kind !== 'page') return false;
@@ -1010,11 +999,14 @@ export class SodaSpaces extends LitElement {
     return this.binding?.kind === 'native' ? this.binding.repositoryId : '';
   }
   private renderNativeManagementOption() {
-    if (this.binding?.kind !== 'native') return '';
+    if (this.binding?.kind !== 'native' || !this.binding.repositoryId) return '';
     return html`<button
       class="ui button"
       ?disabled=${this.workspaceBlocked()}
-      @click=${() => this.showManagement(this.nativeManagementTarget())}
+      @click=${() => {
+        const repository = this.nativeManagementTarget();
+        if (repository) void this.showManagement(repository);
+      }}
     >
       Repository environment / access
     </button>`;
@@ -1033,17 +1025,7 @@ export class SodaSpaces extends LitElement {
     );
   }
   private renderSpacesLink() {
-    if (this.binding?.kind !== 'native') return '';
-    return html`<a href="/-/soda/workspace" aria-label="Open in Spaces" title="Open in Spaces">↗</a>`;
-  }
-  private toolbarConnectQuery() {
-    const connect =
-      this.binding?.kind === 'page' ? 'destination=spaces' : 'repository_id=' + this.binding?.repositoryId;
-    if (!this.binding?.expectedUserId) return connect;
-    return connect + '&expected_user_id=' + this.binding.expectedUserId;
-  }
-  private hideConnectLink() {
-    return this.available && !this.stale;
+    return '';
   }
   private renderToolbar() {
     return html`<header class="soda-workspace-toolbar" ?hidden=${this.setupScreen}>
@@ -1071,19 +1053,16 @@ export class SodaSpaces extends LitElement {
       </button>
       ${this.renderProjectSettingsButton()} ${this.renderBackButton()} ${this.renderToolbarMenu()}
       ${this.renderSpacesLink()}
-      <a ?hidden=${this.hideConnectLink()} href=${'/-/soda/login?' + this.toolbarConnectQuery()}>Connect to Soda</a>
     </header>`;
   }
   private repositoryPrefix() {
-    const sub = document.querySelector<HTMLElement>('#soda-settings-link')?.dataset.subUrl || '';
-    if (!/^(\/[^/\\?#\s]+)*$/u.test(sub)) return '';
-    if (sub.split('/').some((part) => part === '.' || part === '..')) return '';
-    return sub;
+    return this.binding?.forgejoPrefix || '';
   }
   private clearRepositorySearch() {
     this.repositoryQuery = this.repositoryError = '';
     this.repositoryChoice = '';
     this.repositoryResult = undefined;
+    this.repositoryCursors = [''];
     this.repositoryRequest?.abort();
     this.repositoryRequest = undefined;
     this.repositoryBusy = false;
@@ -1152,13 +1131,9 @@ export class SodaSpaces extends LitElement {
       helper: this.setupIntroHelper(),
     });
   }
-  private settingsSubPrefix() {
-    const sub = document.querySelector<HTMLElement>('#soda-settings-link')?.dataset.subUrl || '';
-    if (/^(\/[^/\\?#\s]+)*$/u.test(sub) && !sub.split('/').some((part) => part === '.' || part === '..')) return sub;
-    return '';
-  }
   private onRepositoryQuery(value: string) {
     this.repositoryQuery = value;
+    this.repositoryCursors = [''];
     this.repositoryChoice = '';
     this.repositoryResult = undefined;
     this.repositoryError = '';
@@ -1243,7 +1218,10 @@ export class SodaSpaces extends LitElement {
   }
   private applyRepositorySearch(request: AbortController, query: string, result: RepositoryChoices) {
     if (this.stale || this.repositoryRequest !== request || request.signal.aborted) return;
-    if (this.repositoryQuery === query) this.repositoryResult = result;
+    if (this.repositoryQuery !== query) return;
+    this.repositoryCursors = this.repositoryCursors.slice(0, result.page);
+    if (result.nextCursor) this.repositoryCursors.push(result.nextCursor);
+    this.repositoryResult = result;
   }
   private failRepositorySearch(request: AbortController, query: string) {
     if (this.stale || this.repositoryRequest !== request) return;
@@ -1253,11 +1231,19 @@ export class SodaSpaces extends LitElement {
   private searchAdmitted() {
     return !this.stale && this.available && this.setup === 'repositories' && this.activeSurface;
   }
-  private searchStillCurrent(request: AbortController, query: string) {
-    return !this.stale && this.repositoryRequest === request && this.repositoryQuery === query;
+  private searchCursor(page: number) {
+    if (page === 1) this.repositoryCursors = [''];
+    return this.repositoryCursors[page - 1];
+  }
+  private repositorySearchPath(query: string, cursor: string) {
+    const params = new URLSearchParams({q: query});
+    if (cursor) params.set('cursor', cursor);
+    return '/api/repositories?' + params;
   }
   private async searchRepositories(page: number) {
     if (!this.searchAdmitted()) return;
+    const cursor = this.searchCursor(page);
+    if (cursor === undefined) return;
     this.repositoryRequest?.abort();
     const request = (this.repositoryRequest = new AbortController()),
       query = this.repositoryQuery;
@@ -1268,17 +1254,12 @@ export class SodaSpaces extends LitElement {
     this.repositoryResult = undefined;
     try {
       const result = repositoryChoices(
-        await this.api(
-          '/api/repositories?' + new URLSearchParams({q: query, page: String(page)}),
-          undefined,
-          request.signal
-        ),
+        await this.api(this.repositorySearchPath(query, cursor), undefined, request.signal),
         page
       );
-      if (this.searchStillCurrent(request, query) && !request.signal.aborted) this.repositoryResult = result;
+      this.applyRepositorySearch(request, query, result);
     } catch {
-      if (this.searchStillCurrent(request, query))
-        this.repositoryError = 'Could not find repositories. Search again; no project was created.';
+      this.failRepositorySearch(request, query);
     } finally {
       window.clearTimeout(timer);
       if (this.repositoryRequest === request) this.repositoryBusy = false;
@@ -1989,14 +1970,6 @@ export class SodaSpaces extends LitElement {
   private live(n: number) {
     return !this.disposed && !this.stale && this.epoch === n;
   }
-  private apiHeaders(actor: string, body?: Record<string, unknown>) {
-    const headers: Record<string, string> = {'X-Soda-Expected-User-ID': actor};
-    if (!body) return headers;
-    check(this.session?.user.id === actor);
-    headers['X-CSRF-Token'] = this.session.csrf_token;
-    headers['Content-Type'] = 'application/json';
-    return headers;
-  }
   private async readSpacesResponse(response: Response) {
     if (response.ok) return readSodaJSON(response);
     if (response.status === 401 || response.status === 403) {
@@ -2006,11 +1979,11 @@ export class SodaSpaces extends LitElement {
     throw Error('Spaces request refused');
   }
   private async api(path: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-    const actor = this.binding?.expectedUserId;
-    check(actor && !this.disposed && !this.stale && !signal?.aborted);
-    const response = await fetch(
-      '/-/soda' + path,
-      sodaWorkspaceInit(this.apiHeaders(actor, body), body, signal || this.lifetime.signal)
+    check(this.binding && !this.disposed && !this.stale && !signal?.aborted);
+    const headers = body ? {'Content-Type': 'application/json'} : {};
+    const response = await this.binding.transport.request(
+      path.slice('/api/'.length),
+      sodaWorkspaceInit(headers, body, signal || this.lifetime.signal)
     );
     return this.readSpacesResponse(response);
   }
@@ -2022,17 +1995,6 @@ export class SodaSpaces extends LitElement {
     this.request?.abort();
     const request = (this.request = new AbortController());
     return request;
-  }
-  private async admitRefreshSession(n: number, request: AbortController) {
-    if (this.session) return true;
-    const session = sessionResponse(await this.api('/api/session', undefined, request.signal), location.origin);
-    if (!this.live(n)) return false;
-    if (session.user.id !== this.binding?.expectedUserId) {
-      this.invalidate();
-      return false;
-    }
-    this.session = session;
-    return true;
   }
   private applySpacesCollection(collection: {items: Space[]; complete: boolean}) {
     this.spaces = collection.items;
@@ -2126,11 +2088,14 @@ export class SodaSpaces extends LitElement {
     this.display();
   }
   private async refreshLive(n: number, request: AbortController) {
-    if (!(await this.admitRefreshSession(n, request))) return;
-    const actor = this.binding?.expectedUserId;
-    if (!actor) return;
-    const collection = spacesResponse(await this.api('/api/spaces', undefined, request.signal), actor);
+    const collection = spacesResponse(await this.api('/api/spaces', undefined, request.signal));
     if (!this.live(n)) return;
+    if (this.actor && this.actor.id !== collection.actor.id) {
+      this.invalidate();
+      return;
+    }
+    this.actor = collection.actor;
+    this.storageKey = 'soda-spaces:v3:' + collection.actor.id;
     this.applySpacesCollection(collection);
     this.refreshSlots(collection.complete);
     await this.updateComplete;
@@ -2139,10 +2104,6 @@ export class SodaSpaces extends LitElement {
   }
   async refresh() {
     if (this.refreshBlocked()) return;
-    if (!this.binding?.expectedUserId) {
-      this.status = 'Connect through a signed native Forgejo page; no actor was inferred.';
-      return;
-    }
     const n = this.epoch;
     const request = this.beginRefreshRead();
     const timer = window.setTimeout(() => request.abort(), 15000);
@@ -2198,7 +2159,7 @@ export class SodaSpaces extends LitElement {
     return this.live(n) && !request.signal.aborted && this.selected === entry.key;
   }
   private assignDrawer(owner: string, name: string) {
-    window.location.assign('/' + encodeURIComponent(owner) + '/' + encodeURIComponent(name) + '#sodaspaces');
+    window.location.assign(this.repositoryPrefix() + '/' + encodeURIComponent(owner) + '/' + encodeURIComponent(name));
   }
   private async openDrawerNavigation(entry: LayoutEntry, space: Space, n: number, request: AbortController) {
     const response = object(
@@ -2342,10 +2303,10 @@ export class SodaSpaces extends LitElement {
     }
   }
   private identity(space: Space): TerminalContext {
-    check(this.session);
+    check(this.actor && this.binding);
     return {
-      csrfToken: this.session.csrf_token,
-      expectedUserId: this.binding?.expectedUserId || '',
+      transport: this.binding.transport,
+      expectedUserId: this.actor.id,
       repositoryId: space.environment.repository_id,
       environmentId: space.environment.id,
       login: space.login,
@@ -2787,25 +2748,20 @@ export class SodaSpaces extends LitElement {
     }
   }
   private managementAdmitted(repositoryId: string) {
-    return (
-      id(repositoryId) &&
-      !!this.binding?.expectedUserId &&
-      this.available &&
-      !this.stale &&
-      !this.disposed &&
-      this.activeSurface
-    );
+    return id(repositoryId) && !!this.actor && this.available && !this.stale && !this.disposed && this.activeSurface;
   }
   private mountProject(repositoryId: string) {
     const layer = this.querySelector('.soda-workspace-management');
-    check(layer && this.binding?.expectedUserId);
+    check(layer && this.actor && this.binding);
     const host = document.createElement('div');
     layer.append(host);
     const api = mountProjectControls(host, {
       repositoryId,
-      expectedUserId: this.binding.expectedUserId,
+      expectedUserId: this.actor.id,
+      actorLogin: this.actor.login,
       page: this.binding.kind === 'page',
-      session: this.session,
+      transport: this.binding.transport,
+      forgejoPrefix: this.binding.forgejoPrefix || '',
     });
     const project = {host, api};
     this.projects.set(repositoryId, project);
@@ -2948,10 +2904,9 @@ export function mountSodaspaces(
   check(
     root.ownerDocument === document &&
       (context.kind === 'native'
-        ? id(context.repositoryId) &&
-          (context.expectedUserId === undefined || id(context.expectedUserId)) &&
+        ? (context.repositoryId === undefined || id(context.repositoryId)) &&
           (context.pageRepositoryId === undefined || id(context.pageRepositoryId))
-        : context.kind === 'page' && id(context.expectedUserId))
+        : context.kind === 'page')
   );
   const box = new SodaSpaces();
   box.configure(context, factory);

@@ -1,7 +1,6 @@
-import {signOut, connectionSuppressed} from '../spaces/soda-connection.js';
 import {LitElement, html} from 'lit';
-import {id, readSodaJSON} from '../spaces/sodaspaces-api.js';
-import type {Session} from '../spaces/sodaspaces-api.js';
+import {readSodaJSON} from '../spaces/sodaspaces-api.js';
+import type {PreparedExtensionMount} from '../spaces/soda-extension.js';
 import {decodeRunnerResponse} from './soda-runner-response.js';
 import type {LifecycleAction, ListResponse, Runner} from './soda-runner-types.js';
 
@@ -19,7 +18,7 @@ function noticeForRunnerError(error: unknown, sent: boolean): string {
     return 'Operation rejected. Check the runner ID, provider registration fields and labels, then refresh before trying again.';
   }
   if (error instanceof RunnerRequestError && [401, 403].includes(error.status)) {
-    return 'Operation not authorized. Reconnect explicitly before trying again.';
+    return 'Operation not authorized. Refresh this Forgejo page before trying again.';
   }
   return sent ? unconfirmed : notSent;
 }
@@ -30,10 +29,6 @@ function confirmationButton(event: Event): HTMLButtonElement | null {
 
 function confirmationFocusSelector(action: LifecycleAction): string {
   return action === 'remove' ? 'input[name=confirm_id]' : '[data-runner-cancel]';
-}
-
-function sodaAPIBase(): string {
-  return (document.getElementById('soda-settings-link')?.dataset.subUrl || '') + '/-/soda';
 }
 
 class RunnerRequestError extends Error {
@@ -59,12 +54,10 @@ class SodaRunners extends LitElement {
   declare private stale: boolean;
   declare private blocked: boolean;
   declare private pending: {id: string; action: LifecycleAction} | null;
-  private actor = '';
-  private csrf = '';
-  configure(actor: string, session: Session) {
-    if (this.actor || !id(actor) || session.user.id !== actor) throw Error('Invalid original runner actor');
-    this.actor = actor;
-    this.csrf = session.csrf_token;
+  private transport: PreparedExtensionMount | null = null;
+  configure(transport: PreparedExtensionMount) {
+    if (this.transport) throw Error('Runner page already configured');
+    this.transport = transport;
   }
   // One controller is both the current document/element lifetime and its request
   // generation. An abort is not proof that a dispatched native effect stopped.
@@ -101,7 +94,6 @@ class SodaRunners extends LitElement {
     super.connectedCallback();
     window.addEventListener('beforeunload', this.beforeDeparture);
     window.addEventListener('pagehide', this.pageHidden);
-    window.addEventListener('soda-session-retired', this.pageHidden);
     window.addEventListener('pageshow', this.pageShown);
     document.addEventListener('visibilitychange', this.visibilityChanged);
     this.resume();
@@ -110,7 +102,6 @@ class SodaRunners extends LitElement {
     this.retire();
     window.removeEventListener('beforeunload', this.beforeDeparture);
     window.removeEventListener('pagehide', this.pageHidden);
-    window.removeEventListener('soda-session-retired', this.pageHidden);
     window.removeEventListener('pageshow', this.pageShown);
     document.removeEventListener('visibilitychange', this.visibilityChanged);
     super.disconnectedCallback();
@@ -136,7 +127,7 @@ class SodaRunners extends LitElement {
     this.message = 'Refresh authorization before managing runners.';
   }
   private resume() {
-    if (!this.actor || this.lifetime || !this.isConnected || connectionSuppressed()) return;
+    if (!this.transport || this.lifetime || !this.isConnected) return;
     this.lifetime = new AbortController();
     void this.refresh();
   }
@@ -151,15 +142,9 @@ class SodaRunners extends LitElement {
     try {
       this.requireCurrent(lifetime);
       if (body !== undefined) this.operation = {kind: 'runner', sent: true};
-      const pending = fetch(sodaAPIBase() + '/api/settings/runners' + path, {
+      const pending = this.transport!.request('settings/runners' + path, {
         method: body === undefined ? 'GET' : 'POST',
-        credentials: 'same-origin',
-        cache: 'no-store',
-        redirect: 'error',
-        headers: {
-          'X-Soda-Expected-User-ID': this.actor,
-          ...(body === undefined ? {} : {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrf}),
-        },
+        ...(body === undefined ? {} : {headers: {'Content-Type': 'application/json'}}),
         ...(body === undefined ? {} : {body}),
         signal: AbortSignal.any([lifetime.signal, AbortSignal.timeout(190000)]),
       });
@@ -292,11 +277,6 @@ class SodaRunners extends LitElement {
     }
     void this.mutate(`/${runner}/${action}`, JSON.stringify(action === 'remove' ? {confirm_id: runner} : {}));
   }
-  private async logout() {
-    if (this.busy || !this.current(this.lifetime)) return;
-    await signOut(this.actor);
-  }
-
   private runnerView(row: Runner, disabled: boolean) {
     return html` <article class="settings-runner">
       <div class="settings-runner-heading">
@@ -363,10 +343,7 @@ class SodaRunners extends LitElement {
   }
   private reconnectView() {
     return this.blocked
-      ? html`<p>
-          Operator authorization unavailable.
-          <a href=${`/-/soda/login?destination=runners&expected_user_id=${this.actor}`}>Reconnect explicitly</a>
-        </p>`
+      ? html`<p>Operator authorization unavailable. Refresh this Forgejo page to recheck access.</p>`
       : '';
   }
   private confirmationView(disabled: boolean) {
@@ -392,7 +369,6 @@ class SodaRunners extends LitElement {
         <button type="button" ?disabled=${this.controlsLocked()} @click=${() => void this.refresh()}>
           Refresh status
         </button>
-        <button type="button" ?disabled=${this.controlsLocked()} @click=${() => void this.logout()}>Sign out</button>
       </div>
       <p role="status">${this.message}</p>
       ${this.statusNoticeView()} ${this.reconnectView()} ${this.inventoryView(disabled)}
@@ -414,9 +390,9 @@ class SodaRunners extends LitElement {
   }
 }
 customElements.define('soda-runners', SodaRunners);
-export function mountRunnersPage(root: HTMLElement, actor: string, session: Session) {
+export function mountRunnersPage(root: HTMLElement, transport: PreparedExtensionMount) {
   const view = new SodaRunners();
-  view.configure(actor, session);
+  view.configure(transport);
   root.replaceChildren(view);
   return {
     dispose() {

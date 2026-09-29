@@ -79,9 +79,7 @@ export function createWorkspaceModel(
     profileAvailable = true;
   const calls: {path: string; method: string; body: Record<string, unknown> | null}[] = [],
     sockets: Socket[] = [];
-  // 43-char base64url session token like production sessions, so component
-  // tests exercise the real format instead of a short synthetic string.
-  const csrf = 'workspace-fixture-csrf-token-00000000000000';
+  const generation = 'fixture-generation';
   let user = actor,
     complete = true,
     status = 200,
@@ -93,10 +91,9 @@ export function createWorkspaceModel(
     calls.push({path, method, body});
     await pause;
     if (status !== 200 || user !== actor) return new Response(null, {status: user !== actor ? 403 : status});
-    if (path.endsWith('/api/session'))
-      return Response.json({user: {id: user, login: 'alice'}, csrf_token: csrf, forgejo_url: origin});
     if (path.endsWith('/api/spaces'))
       return Response.json({
+        actor: {id: user, login: 'soda-tester'},
         items: spaces.map((space) => ({...space, terminals: space.terminals.filter((t) => t.state !== 'ended')})),
         complete,
       });
@@ -118,7 +115,7 @@ export function createWorkspaceModel(
               project: project ? {id: project.environment.id, provisioned: project.environment.provisioned} : null,
             };
           });
-        return Response.json({items, page: Number(url.searchParams.get('page')), more: false, limited: false});
+        return Response.json({items});
       }
       if (path.endsWith('/profiles'))
         return profileAvailable
@@ -229,8 +226,8 @@ export function createWorkspaceModel(
       if (frame.type === 'input' && typeof frame.data === 'string')
         this.onmessage?.({data: JSON.stringify({type: 'output', data: frame.data})});
       if (frame.action !== 'attach' && frame.action !== 'create') return;
-      if (frame.csrf_token !== csrf) {
-        // Mirror the native handshake: a wrong token refuses the peer without
+      if (frame.session_generation !== generation) {
+        // Mirror the native handshake: a stale generation refuses the peer without
         // attaching or reporting ready.
         this.close();
         return;
@@ -267,7 +264,7 @@ export function createWorkspaceModel(
     }
   }
   return {
-    csrf,
+    generation,
     request,
     Socket,
     profile,

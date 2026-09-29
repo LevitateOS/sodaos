@@ -1,6 +1,6 @@
 import {renderWorkspaceIntro} from './sodaspaces-workspace-view.js';
-import {signOut} from './soda-connection.js';
 import './soda-identity.js';
+import type {PreparedExtensionMount} from './soda-extension.js';
 // Soda owns only this mount. Native forms, authentication and terminal lifetime
 // are not rendering concerns; commands remain explicit and generation guarded.
 import {LitElement, html} from 'lit';
@@ -18,7 +18,6 @@ import {
   osObservation,
   projectId,
   fingerprint,
-  sessionResponse,
   environmentResponse,
   detailResponse,
   savedKeysResponse,
@@ -30,7 +29,6 @@ import {
 import type {
   OSObservation,
   CreationProfile,
-  Session,
   Environment,
   Detail,
   KeyPreview,
@@ -38,11 +36,13 @@ import type {
   ProfileKeys,
 } from './sodaspaces-api.js';
 export interface ProjectContext {
-  expectedUserId?: string | undefined;
+  expectedUserId: string;
+  actorLogin?: string;
   repositoryId: string;
   page?: boolean;
   settings?: boolean;
-  session?: Session | undefined;
+  transport: PreparedExtensionMount;
+  forgejoPrefix?: string;
 }
 const rejected = new Set([400, 401, 403, 404, 409, 413, 415, 422]);
 const views = ['environment', 'access', 'network'] as const;
@@ -65,25 +65,6 @@ function viewFromTabKey(key: string, current: View): View | undefined {
   if (key === 'ArrowLeft') return views[(i - 1 + views.length) % views.length];
 }
 
-function withExpectedUser(intent: URLSearchParams, expectedUserId: string | undefined): URLSearchParams {
-  if (expectedUserId) intent.set('expected_user_id', expectedUserId);
-  return intent;
-}
-
-function journeyLoginQuery(binding: ProjectContext | undefined): URLSearchParams {
-  if (binding?.page && !binding.settings)
-    return withExpectedUser(new URLSearchParams({destination: 'spaces'}), binding.expectedUserId);
-  const intent = new URLSearchParams({repository_id: binding?.repositoryId || ''});
-  if (binding?.settings) intent.set('destination', 'repository-spaces');
-  return withExpectedUser(intent, binding?.expectedUserId);
-}
-
-function environmentLoginQuery(binding: ProjectContext | undefined): URLSearchParams {
-  const intent = new URLSearchParams({repository_id: binding?.repositoryId || ''});
-  if (binding?.settings) intent.set('destination', 'repository-spaces');
-  return withExpectedUser(intent, binding?.expectedUserId);
-}
-
 function sodaFetchInit(
   method: string,
   headers: Record<string, string>,
@@ -98,9 +79,6 @@ function sodaFetchInit(
       : {
           body: JSON.stringify(body),
         }),
-    credentials: 'same-origin',
-    cache: 'no-store',
-    redirect: 'error',
     ...(signal
       ? {
           signal,
@@ -227,9 +205,6 @@ export class SodaProjectControls extends LitElement {
     repositoryURL: {
       state: true,
     },
-    session: {
-      state: true,
-    },
     environment: {
       state: true,
     },
@@ -255,9 +230,6 @@ export class SodaProjectControls extends LitElement {
       state: true,
     },
     stale: {
-      state: true,
-    },
-    connectVisible: {
       state: true,
     },
     canCreate: {
@@ -295,7 +267,6 @@ export class SodaProjectControls extends LitElement {
   declare private repository: string;
   declare private repositoryName: string;
   declare private repositoryURL: string;
-  declare private session: Session | undefined;
   declare private environment: Environment | undefined;
   declare private detail: Detail | undefined;
   declare private saved: SavedKey[] | undefined;
@@ -310,7 +281,6 @@ export class SodaProjectControls extends LitElement {
     | undefined;
   declare private busy: boolean;
   declare private stale: boolean;
-  declare private connectVisible: boolean;
   declare private canCreate: boolean;
   declare private selected: View;
   declare private draft: string;
@@ -342,8 +312,7 @@ export class SodaProjectControls extends LitElement {
     this.osStatus = '';
     this.status = 'Refresh to inspect your shared environment.';
     this.outcome = this.repository = this.repositoryName = this.repositoryURL = this.draft = '';
-    this.session =
-      this.environment =
+    this.environment =
       this.detail =
       this.saved =
       this.keyPreview =
@@ -352,7 +321,6 @@ export class SodaProjectControls extends LitElement {
       this.profileKeys =
         undefined;
     this.busy = this.stale = this.canCreate = this.stopConfirmed = this.emptyConfirmed = false;
-    this.connectVisible = true;
     this.selected = 'environment';
     this.useSavedKeys = false;
   }
@@ -362,9 +330,7 @@ export class SodaProjectControls extends LitElement {
   configure(context: ProjectContext) {
     if (this.binding || this.disposed) throw Error('Project binding is immutable');
     this.binding = {...context};
-    check(!context.session || context.session.user.id === context.expectedUserId);
-    this.session = context.session;
-    window.addEventListener('soda-session-retired', () => this.invalidate(), {signal: this.lifetime.signal});
+    check(id(context.expectedUserId));
     window.addEventListener('pagehide', () => this.invalidate(), {
       signal: this.lifetime.signal,
     });
@@ -479,21 +445,17 @@ export class SodaProjectControls extends LitElement {
     return this.renderJourneyConfigure();
   }
   private journeyUnavailableHeading() {
-    if (this.stale && this.connectVisible) return 'Reconnect to Forgejo';
     if (this.stale) return 'Project access changed';
     if (this.busy) return 'Checking project';
     return 'Project status unavailable';
   }
   private journeyUnavailableDescription() {
-    if (this.stale && this.connectVisible) return html`Sign in again to restore your Forgejo access.`;
     if (this.stale) return html`Reload Spaces to check your current access.`;
     if (this.busy) return html`Checking your account and project.`;
     return html`Current project access or runtime state could not be confirmed.`;
   }
   private journeyUnavailableAction() {
     if (this.busy) return html``;
-    if (this.stale && this.connectVisible)
-      return html`<a class="ui primary button" href=${this.connectURL}>Reconnect to Forgejo</a>`;
     if (this.stale)
       return html`<button class="ui primary button" @click=${() => location.reload()}>Reload Spaces</button>`;
     return html`<button class="ui primary button" @click=${() => this.refresh()}>Refresh status</button>`;
@@ -815,18 +777,17 @@ export class SodaProjectControls extends LitElement {
       ${this.renderConfigureFeedback()} ${this.renderStaleReloadNote()}
     </section>`;
   }
-  private get connectURL() {
-    return '/-/soda/login?' + journeyLoginQuery(this.binding);
-  }
   private shouldRenderJourney() {
-    return this.presentation === 'journey' || (this.stale && this.connectVisible);
+    return this.presentation === 'journey';
   }
   private sectionAriaBusy() {
     return this.busy && !this.stale ? 'true' : 'false';
   }
   private sessionCaption() {
-    if (!this.session) return '';
-    return `Soda account: ${this.session.user.login} (ID ${this.session.user.id})`;
+    if (!this.binding) return '';
+    return this.binding.actorLogin
+      ? `Forgejo account: ${this.binding.actorLogin} (ID ${this.binding.expectedUserId})`
+      : `Forgejo account ID ${this.binding.expectedUserId}`;
   }
   private projectAccountCaption() {
     if (!this.connection) return '';
@@ -854,11 +815,11 @@ export class SodaProjectControls extends LitElement {
     </section>`;
   }
   private renderIdentity() {
-    if (!this.identityPresentationReady() || !this.session) return html``;
+    if (!this.identityPresentationReady() || !this.binding) return html``;
     const actor = this.binding?.expectedUserId;
-    if (!actor || this.session.user.id !== actor) return html``;
+    if (!actor) return html``;
     return html`<soda-identity
-      .context=${{actor, session: this.session, project: this.environment?.id || ''}}
+      .context=${{actor, transport: this.binding.transport, project: this.environment?.id || ''}}
     ></soda-identity>`;
   }
   private identityPresentationReady() {
@@ -920,9 +881,6 @@ export class SodaProjectControls extends LitElement {
   private onUseSavedKeys(checked: boolean) {
     this.useSavedKeys = checked;
   }
-  private onConnectClick(event: Event) {
-    if (this.busy || this.stale || this.disposed) event.preventDefault();
-  }
   private onReloadPage(event: Event) {
     if (this.reloadAdmitted(event)) window.location.reload();
   }
@@ -944,7 +902,6 @@ export class SodaProjectControls extends LitElement {
     this.networkConfirmed = confirmed;
   }
   private renderEnvironmentView() {
-    const intent = environmentLoginQuery(this.binding);
     return html`<section
       id=${'soda-project-' + this.binding?.repositoryId + '-environment'}
       class="soda-spaces-view"
@@ -956,11 +913,8 @@ export class SodaProjectControls extends LitElement {
       ${this.renderCreateNetworkSelection()} ${this.renderNetworkSummary()} ${this.renderObservedOS()}
       ${renderEnvironment(
         {
-          connectURL: '/-/soda/login?' + intent,
-          connectVisible: this.connectVisible,
           busy: this.busy,
           stale: this.stale,
-          signedIn: !!this.session,
           blocked: this.blocked,
           canCreate: this.canCreate,
           canJoin: this.canJoin,
@@ -969,10 +923,8 @@ export class SodaProjectControls extends LitElement {
         },
         {
           selectSSH: (checked) => this.onUseSavedKeys(checked),
-          connect: (event) => this.onConnectClick(event),
           refresh: (event) => this.command(event, () => this.refresh()),
           reload: (event) => this.onReloadPage(event),
-          logout: (event) => this.command(event, () => signOut(this.session?.user.id || '')),
           create: (event) => this.command(event, () => this.createProject()),
           join: (event) => this.command(event, () => this.joinEnvironment()),
         },
@@ -1145,26 +1097,19 @@ export class SodaProjectControls extends LitElement {
     this.busy = false;
     this.readController?.abort();
     this.reset();
-    this.session = undefined;
     this.repository = this.repositoryName = '';
-    this.connectVisible = false;
     this.status =
       'Page context changed. Reload the full repository page; no action was replayed or undone. A dispatched operation may still have completed.';
   }
   private requestHeaders(method: string): Record<string, string> {
     const headers: Record<string, string> = {};
-    const actor = this.binding?.expectedUserId;
-    if (actor) headers['X-Soda-Expected-User-ID'] = actor;
     if (method === 'GET') return headers;
-    if (!this.session) throw Error('Missing Soda session');
     headers['Content-Type'] = 'application/json';
-    headers['X-CSRF-Token'] = this.session.csrf_token;
     return headers;
   }
   private admitHttpFailure(status: number) {
     if (status !== 401 && status !== 403) return;
     this.invalidate();
-    this.connectVisible = status === 401;
   }
   private async api(
     path: string,
@@ -1172,7 +1117,11 @@ export class SodaProjectControls extends LitElement {
     body?: Record<string, unknown>,
     signal?: AbortSignal
   ): Promise<unknown> {
-    const response = await fetch('/-/soda' + path, sodaFetchInit(method, this.requestHeaders(method), body, signal));
+    if (!this.binding) throw Error('Missing native extension');
+    const response = await this.binding.transport.request(
+      path.slice('/api/'.length),
+      sodaFetchInit(method, this.requestHeaders(method), body, signal)
+    );
     if (response.ok) return response.status === 204 ? null : readSodaJSON(response);
     this.admitHttpFailure(response.status);
     throw new SodaRequestError(response.status, await sodaErrorCode(response));
@@ -1185,7 +1134,6 @@ export class SodaProjectControls extends LitElement {
     this.reset();
     const control = (this.readController = new AbortController());
     this.busy = true;
-    this.connectVisible = false;
     this.status = 'Checking your account and environment…';
     return control;
   }
@@ -1216,29 +1164,11 @@ export class SodaProjectControls extends LitElement {
     prior: RefreshPrior,
     control: AbortController
   ): Promise<boolean> {
-    if (!(await this.admitRefreshSession(n, expectedUserId, control))) return false;
+    if (!this.active(n) || expectedUserId !== this.binding?.expectedUserId) return false;
     const collection = await this.loadEnvironmentCollection(n, repositoryId, control);
     if (!collection || !this.active(n)) return false;
     if (collection.items.length) return this.refreshExisting(n, repositoryId, collection.items[0], control);
     await this.refreshEmpty(n, repositoryId, prior, collection.can_create, control);
-    return false;
-  }
-  private async admitRefreshSession(
-    n: number,
-    expectedUserId: string | undefined,
-    control: AbortController
-  ): Promise<boolean> {
-    const found =
-      this.session ||
-      sessionResponse(await this.api('/api/session', 'GET', undefined, control.signal), location.origin);
-    if (!this.active(n)) return false;
-    if (expectedUserId && found.user.id === expectedUserId) {
-      this.session = found;
-      return true;
-    }
-    this.invalidate();
-    this.connectVisible = true;
-    this.status = 'Soda and native page identities differ. Sign out of Soda or reload and connect explicitly.';
     return false;
   }
   private admitCollection(
@@ -1260,7 +1190,13 @@ export class SodaProjectControls extends LitElement {
       name = repository.name as string;
     this.repositoryName = `${owner}/${name}`;
     this.repository = `Repository ${owner}/${name} · ID ${repositoryId}`;
-    this.repositoryURL = location.origin + '/' + encodeURIComponent(owner) + '/' + encodeURIComponent(name);
+    this.repositoryURL =
+      location.origin +
+      (this.binding?.forgejoPrefix || '') +
+      '/' +
+      encodeURIComponent(owner) +
+      '/' +
+      encodeURIComponent(name);
   }
   private async loadEnvironmentCollection(n: number, repositoryId: string, control: AbortController) {
     const collection = object(
@@ -1521,7 +1457,6 @@ export class SodaProjectControls extends LitElement {
   private refreshErrorStatus(e: SodaRequestError) {
     if (e.code === 'profile_unavailable')
       return 'Installed Project OS unavailable or incompatible. Nothing was reserved, pulled or started; ask the operator to inspect.';
-    if (this.connectVisible) return 'Connect through Forgejo to authorize Soda access.';
     return 'Could not confirm state. Refresh; do not infer absence or retry an uncertain action.';
   }
   private refreshFailed(n: number, error: unknown) {
@@ -1529,8 +1464,6 @@ export class SodaProjectControls extends LitElement {
     const e = error instanceof SodaRequestError ? error : new SodaRequestError(0);
     this.reset();
     this.repository = '';
-    if (e.status === 401 || e.status === 403) this.session = undefined;
-    this.connectVisible = e.status === 401 || e.status === 403;
     this.status = this.refreshErrorStatus(e);
   }
   private async finishRefresh(n: number, timeout: number, repositoryId: string, recoveredJoin: boolean) {
@@ -1554,7 +1487,7 @@ export class SodaProjectControls extends LitElement {
     await this.updateComplete;
   }
   private async mutate(path: string, body: Record<string, unknown>, message: string, method = 'POST') {
-    if (this.blocked || !this.session) return;
+    if (this.blocked || !this.binding) return;
     const n = this.epoch;
     this.busy = true;
     this.outcomeNeedsAttention = false;

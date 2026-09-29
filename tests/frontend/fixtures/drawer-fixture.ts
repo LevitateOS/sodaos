@@ -84,11 +84,9 @@ function createFixture(extra: Partial<State> = {}) {
     if (override) return override;
     const {url, method, body: encoded} = call;
     if (
-      !url.endsWith('/api/session') &&
-      !url.includes('/api/login/cancel') &&
-      (state.user !== '1' ||
-        state.provider !== '1' ||
-        (method !== 'GET' && call.headers['x-csrf-token'] !== state.csrf))
+      state.user !== '1' ||
+      state.provider !== '1' ||
+      call.headers['x-extension-session-generation'] !== 'fixture-generation'
     )
       return Response.json({error: {code: 'reauthentication_required'}}, {status: 403});
     let body: unknown;
@@ -183,7 +181,24 @@ function createFixture(extra: Partial<State> = {}) {
     return Response.json(body);
   };
   Object.defineProperty(window, 'fetch', {value: fetchFixture, configurable: true});
-  const api = mountProjectControls(root, {expectedUserId: '1', repositoryId: '7'});
+  const transport = {
+    root,
+    generation: 'fixture-generation',
+    assetBase: '/assets/',
+    request: (path: string, init: RequestInit = {}) =>
+      fetchFixture('/-/extensions/pages/soda/spaces/api/' + path, {
+        ...init,
+        headers: new Headers({
+          ...Object.fromEntries(new Headers(init.headers)),
+          'X-Extension-Session-Generation': 'fixture-generation',
+        }),
+      }),
+    websocket: () => {
+      throw Error('Project fixture has no terminal');
+    },
+    dispose() {},
+  };
+  const api = mountProjectControls(root, {expectedUserId: '1', repositoryId: '7', transport});
   const button = (text: string) => {
     const b = [...root.querySelectorAll('button')].find((b) => b.textContent?.trim() === text);
     if (!b) throw Error('Missing button: ' + text);

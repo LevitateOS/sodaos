@@ -392,15 +392,25 @@ function spaceItem(
     terminals,
   };
 }
-export function spacesResponse(value: unknown, expectedUserId: string): {items: Space[]; complete: boolean} {
+export function spacesResponse(value: unknown): {
+  actor: {id: string; login: string};
+  items: Space[];
+  complete: boolean;
+} {
   const data = object(value);
+  const actor = object(data.actor);
   check(
-    id(expectedUserId) && typeof data.complete === 'boolean' && Array.isArray(data.items) && data.items.length <= 32
+    id(actor.id) &&
+      typeof actor.login === 'string' &&
+      actor.login.length > 0 &&
+      typeof data.complete === 'boolean' &&
+      Array.isArray(data.items) &&
+      data.items.length <= 32
   );
   const seen = new Set<string>(),
     sessions = new Set<string>();
-  const items = data.items.map((row: unknown) => spaceItem(row, expectedUserId, data, seen, sessions));
-  return {items, complete: data.complete};
+  const items = data.items.map((row: unknown) => spaceItem(row, actor.id as string, data, seen, sessions));
+  return {actor: {id: actor.id as string, login: actor.login as string}, items, complete: data.complete};
 }
 export interface RepositoryChoice {
   id: string;
@@ -412,21 +422,7 @@ export interface RepositoryChoice {
 export interface RepositoryChoices {
   items: RepositoryChoice[];
   page: number;
-  more: boolean;
-  limited: boolean;
-}
-function admitChoicesPage(data: Record<string, unknown>, page: number) {
-  check(Number.isInteger(page) && page >= 1 && page <= 100 && data.page === page);
-}
-function admitChoicesFlags(data: Record<string, unknown>, page: number): {more: boolean; limited: boolean} {
-  check(
-    typeof data.more === 'boolean' &&
-      typeof data.limited === 'boolean' &&
-      !(data.more && data.limited) &&
-      (!data.more || page < 100) &&
-      (!data.limited || page === 100)
-  );
-  return {more: data.more, limited: data.limited};
+  nextCursor: string;
 }
 function repositoryPathPart(v: unknown): v is string {
   return (
@@ -456,12 +452,13 @@ function repositoryChoice(raw: unknown, seen: Set<string>): RepositoryChoice {
 }
 export function repositoryChoices(value: unknown, page: number): RepositoryChoices {
   const data = object(value);
-  admitChoicesPage(data, page);
-  const flags = admitChoicesFlags(data, page);
+  check(Number.isSafeInteger(page) && page >= 1);
+  check(data.page === undefined && data.more === undefined && data.limited === undefined);
+  check(data.next_cursor === undefined || (typeof data.next_cursor === 'string' && data.next_cursor.length <= 4096));
   check(Array.isArray(data.items) && data.items.length <= 12);
   const seen = new Set<string>();
   const items = data.items.map((raw: unknown) => repositoryChoice(raw, seen));
-  return {items, page, ...flags};
+  return {items, page, nextCursor: typeof data.next_cursor === 'string' ? data.next_cursor : ''};
 }
 export class SodaRequestError extends Error {
   constructor(

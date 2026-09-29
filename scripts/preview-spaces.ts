@@ -93,11 +93,6 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
       }
       if (!['GET', 'HEAD'].includes(req.method) && req.headers.get('origin') !== origin)
         return json({error: 'Fixture controls require same-origin requests'}, 403);
-      if (url.pathname === '/-/soda/login' && req.method === 'GET') {
-        review.model.setStatus(200);
-        review.fault = 'healthy';
-        return Response.redirect(origin + '/?soda-view=spaces', 303);
-      }
       if (url.pathname.startsWith('/_fixture/')) {
         if (url.pathname === '/_fixture/review.css')
           return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.css')), {
@@ -135,20 +130,19 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
         }
         return json({error: 'Unknown fixture control'}, 400);
       }
-      if (url.pathname.startsWith('/-/soda/api/')) {
+      if (url.pathname.startsWith('/-/extensions/pages/soda/spaces/api/')) {
         if (req.headers.get('upgrade') === 'websocket') {
           if (req.headers.get('origin') !== origin || review.fault === 'expired' || review.fault === 'offline')
             return json({error: 'Fixture socket unavailable'}, 403);
-          if (!/^\/-\/soda\/api\/environments\/p[0-9a-f]{24}\/terminal$/.test(url.pathname))
+          if (!/^\/-\/extensions\/pages\/soda\/spaces\/api\/environments\/p[0-9a-f]{24}\/terminal$/.test(url.pathname))
             return json({error: 'Unknown fixture socket'}, 404);
           return server.upgrade(req, {data: {review, url: url.href, line: ''}})
             ? undefined
             : json({error: 'Socket upgrade failed'}, 400);
         }
-        if (req.headers.get('X-Soda-Expected-User-ID') !== '1') return json({error: {code: 'identity_mismatch'}}, 403);
+        if (req.headers.get('X-Extension-Session-Generation') !== review.model.generation)
+          return json({error: {code: 'generation_changed'}}, 409);
         if (review.fault === 'slow') await Bun.sleep(1200);
-        if (req.method !== 'GET' && req.headers.get('X-CSRF-Token') !== review.model.csrf)
-          return json({error: {code: 'invalid_csrf'}}, 403);
         const body = req.method === 'GET' ? null : object(await req.json());
         return review.model.request(url.href, req.method, body);
       }

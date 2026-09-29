@@ -24,14 +24,15 @@ function nativeBase(value: string, origin: string): URL {
   return base;
 }
 
-// Prepares transport and lifetime for mountSpacesPage/mountSodaspaces. Their
-// existing browser-session transport must be ported before they are connected to
-// this adapter; preparation alone does not mount a working native workspace.
+// Prepares the native request transport and lifetime for mounted pages.
 export function prepareExtensionMount(root: HTMLElement, context: ExtensionMountContext) {
   if (
     context.extensionId !== 'soda' ||
     !context.sessionGeneration ||
-    !((context.pageId === 'spaces' && !context.panelId) || (context.panelId === 'workspace' && !context.pageId))
+    !(
+      (['spaces', 'runners', 'tailnet'].includes(context.pageId || '') && !context.panelId) ||
+      (context.panelId === 'workspace' && !context.pageId)
+    )
   ) {
     throw Error('Invalid Soda mount context');
   }
@@ -46,10 +47,7 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
     assetBase: assetBase.href,
     async request(relativePath: string, init: RequestInit = {}): Promise<Response> {
       if (disposed) throw Error('Soda mount is disposed');
-      const url = new URL(relativePath, apiBase);
-      if (!url.href.startsWith(apiBase.href) || url.search || url.hash || /%2f|%5c/i.test(url.pathname)) {
-        throw Error('Invalid Soda operation path');
-      }
+      const url = extensionURL(apiBase, relativePath, true);
       const headers = new Headers(init.headers);
       headers.set('X-Extension-Session-Generation', generation);
       return fetch(url, {
@@ -61,9 +59,26 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
         signal: init.signal ? AbortSignal.any([init.signal, lifetime.signal]) : lifetime.signal,
       });
     },
+    websocket(relativePath: string): WebSocket {
+      if (disposed) throw Error('Soda mount is disposed');
+      const url = extensionURL(apiBase, relativePath, false);
+      if (url.search) throw Error('Invalid Soda terminal path');
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      return new WebSocket(url);
+    },
     dispose() {
       disposed = true;
       lifetime.abort();
     },
   };
 }
+
+function extensionURL(apiBase: URL, relativePath: string, allowQuery: boolean): URL {
+  const url = new URL(relativePath, apiBase);
+  if (!url.href.startsWith(apiBase.href) || url.hash || (!allowQuery && url.search) || /%2f|%5c/i.test(url.pathname)) {
+    throw Error('Invalid Soda operation path');
+  }
+  return url;
+}
+
+export type PreparedExtensionMount = ReturnType<typeof prepareExtensionMount>;
