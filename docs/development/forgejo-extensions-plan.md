@@ -190,18 +190,20 @@ work against frozen source inputs, then inspect the result when it completes.
   denials, cross-UID IPC group access, SELinux/DAC isolation and fail-closed Soda
   outage behavior. It uses inert helper-socket stand-ins; real privileged helper
   operations, terminal streams and aarch64 remain separate gates.
-- [ ] **R03 — Accept the real terminal gate.** Needs: A04, C04.
+- [x] **R03 — Accept the real terminal gate.** Needs: A04, C04.
   Exercise the existing terminal driver through native admission, both proxy
   directions and Soda to an actual retained shell. Done when input/output,
   revocation, disconnect and cross-request continuity meet P3/P4. This is backend
-  terminal proof; persistent browser-element proof is C05. The Soda rootless
-  identity now has the owner-approved, non-overlapping `917504:262144` UID/GID
-  range. Its task-scoped Podman namespace reports the full mapping, and a control
-  container using the caller's namespace starts. The required
-  `--userns=auto:size=262144` project container is created with the expected single
-  `0:1:262144` map, but `crun` fails to write `gid_map` with `EPERM`. No tmux shell
-  session ran, so R03 remains open pending a supported native runtime path; the
-  old shared Podman services and containers were left running.
+  terminal proof; persistent browser-element proof is C05. The task-owned native
+  Linux fixture accepted reserve, WebSocket attach, shell input/output, disconnect
+  and reconnect continuity, logout and membership revocation, and explicit End
+  with no remaining terminal record through the live Forgejo-to-Soda route. The
+  project used a private `0:1179648:262144` user namespace and `network=none` in a
+  task-scoped rootful Podman store. Rootless setup was also tested after the
+  approved non-overlapping `917504:262144` UID/GID allocation, but `crun` denied
+  the project container's `gid_map` with `EPERM`; this remains a runtime limitation.
+  The passing route test is development evidence, not installed or release
+  qualification. Existing shared Podman services and containers were left running.
 - [ ] **R04 — Land the complete browser cutover.** Needs: A06, A07, B04, B07, B08, C07.
   Review and commit the coordinated routes/assets/configuration/policy change.
   Done when only the native integration is shipped, required-package activation
@@ -382,11 +384,16 @@ work against frozen source inputs, then inspect the result when it completes.
   The focused Soda reverse-proxy check passes reserve/create/attach, bidirectional
   input/output, live permission change and End. R03 still must prove the actual
   native tmux process and container path.
-- [ ] **C05 — Mount and prove the persistent real terminal.** Needs: R03, B10.
+- [x] **C05 — Mount and prove the persistent real terminal.** Needs: R03, B10.
   Reuse Lit/xterm in the native persistent root. Done when the same element,
   renderer, socket and target survive native navigation, with account-change,
   history/cache, form, focus and mobile behavior covered. Opening must not create,
-  join or start a project. Scope: P5.
+  join or start a project. Scope: P5. The Chromium browser fixture passed its
+  persistent-owner acceptance for navigation/history, form departure, focus and
+  mobile layout while retaining the Lit owner, xterm renderer, socket and target;
+  account change retires that state. A local Chrome rerun was blocked by the
+  Playwright sandbox and was not used to weaken its isolation. This browser fixture
+  evidence is development-only.
 - [x] **C06 — Finish the remaining native product APIs and pages.** Needs: R02, A08, C02.
   Port Spaces/project creation/join/settings, identity/broker continuity, access
   controls, Runners and Tailnet with their existing policies and mounts. Done when
