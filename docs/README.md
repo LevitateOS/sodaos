@@ -72,6 +72,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Spaces sheets](design/spaces/README.md) | Annotated visual design sheets |
 | [Avatars](design/avatars.md) | Robot avatar rendering |
 | [Host strategy](research/host-strategy.md) | CoreOS host capability strategy |
+| [Factory capability map](research/factory-capability-map.md) | Source assessment of target requirements, existing capabilities, gaps and Soda/Fountain/upstream ownership |
 | [Licensing](research/licensing.md) | License and attribution notes |
 | [Predecessor reuse](research/predecessor-reuse.md) | Selected reuse attribution |
 
