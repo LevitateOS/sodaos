@@ -49,6 +49,9 @@ native integrations. The [implementation tasks](factory-implementation-plan.md#r
 assign concrete outcomes, owners, prerequisites, changes, checks and completion
 conditions. The [six implementation lanes](factory-implementation-plan.md#implementation-lanes)
 show ordering and parallel branches while preserving all cross-lane dependencies.
+The [concurrency controls](factory-implementation-plan.md#worker-allocation-and-concurrency)
+limit implementation to three workers, initially FT02/ST01/FT01, with reassignment
+and shared-resource coordination in the canonical Soda checkout.
 Their [execution assignments](factory-implementation-plan.md#execution-assignments)
 record lanes, accountable owner roles and shared-resource constraints, separating
 [can start from proven for consumers](factory-implementation-plan.md#start-readiness-and-consumer-proof)

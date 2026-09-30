@@ -828,6 +828,47 @@ release its Soda consumer, and qualification still requires the matching candida
 Owner roles remain accountable across parallel contributors; lane membership does
 not force serial execution or allocate additional workers.
 
+### Worker allocation and concurrency
+
+Use **at most three active implementation workers** across the six lanes. The
+coordinator assigns work and resolves conflicts; it must count itself within that
+limit if it also implements. Delegated implementation helpers do not create extra
+capacity outside the limit. This controls implementation staffing, not the
+product's separately defined factory concurrency or provider limits.
+
+| Initial worker slot | Initial task | Accountable role |
+| --- | --- | --- |
+| 1 | FT02 — Background extension/service authentication | Enforcement lead |
+| 2 | ST01 — Shared Project preparation | Runtime lead |
+| 3 | FT01 — Independent native package/browser consumption | Integration lead |
+
+These are the initial priorities for a future implementation run, not dispatched
+workers. FT01 and FT02 coordinate shared SDK/manifest/manager files before editing;
+their separate proofs remain independent. ST01 runs alongside them in Soda's
+canonical checkout, coordinating any shared service or backend changes with FT01.
+
+Reassign capacity when a task finishes or cannot make useful progress within its
+available prerequisites/resources. Prefer ready work that unlocks dependent native
+proof or product integration: FT03 after FT02 and ST02 after ST01 are early
+examples. Other free capacity can advance permitted FT10 work, ST13 or RT01 when
+their files and fixtures are available. Later FT05–FT08, operation siblings,
+sessions and CI can share the same three slots as their own prerequisites pass.
+No lane permanently owns a slot, and an independent task need not wait for an
+entire lane to finish. Leave capacity idle if using it would require speculative
+work, conflicting edits or consumption of an unproved boundary.
+
+Before reassigning a worker, identify its partial changes, evidence, next action
+and any resources still held. Retain an explicit accountable owner for outstanding
+native operations, processes, credentials and fixtures. A blocked task or freed
+worker does not establish quiescence, return a provider connection or release a
+fixture; unresolved resources remain held under their existing contracts.
+
+Apply the [shared-resource coordination](#shared-resource-coordination) rules and
+each task's resource column at dispatch and handoff. In particular, whole-domain
+recovery requires exclusive use of that native domain, and concurrent workers
+never gain separate Soda authoring worktrees. Use existing task coordination and
+fixture controls; this schedule adds no worker pool or resource-management service.
+
 ### Start readiness and consumer proof
 
 **Can start** and **proven for consumers** are separate scheduling facts, not new
@@ -880,7 +921,9 @@ The two readiness columns apply the
 [start-readiness and consumer-proof rules](#start-readiness-and-consumer-proof)
 without changing the task definitions or adding a tracking subsystem.
 
-These shared-resource rules apply to every row:
+#### Shared resource coordination
+
+These shared-resource rules apply to every row and all three worker slots:
 
 - Keep Soda authoring in the canonical checkout. Coordinate overlapping files,
   schema/DTO definitions and generated outputs; serialize commits and other Git
