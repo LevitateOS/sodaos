@@ -97,7 +97,7 @@ func exportHostArchive(context, out, arch, revision, prefix, pinned, id string, 
 	if err != nil {
 		return err
 	}
-	return recordCandidate(out, prefix, host, hash)
+	return recordCandidate(out, prefix, host, hash, p.ForgejoRevision, arch)
 }
 
 // buildHostImage bakes one host image from the context as staged. The first

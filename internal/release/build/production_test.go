@@ -158,7 +158,11 @@ func TestProductionBothLayoutsUseOneAssetAndImageSequence(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			if len(images) != 5 {
+			wantImages := 5
+			if vendor {
+				wantImages++
+			}
+			if len(images) != wantImages {
 				t.Fatal(images)
 			}
 			text := strings.Join(*calls, "\n")
@@ -170,7 +174,10 @@ func TestProductionBothLayoutsUseOneAssetAndImageSequence(t *testing.T) {
 			if strings.Contains(text, "--host-context "+host+" --forgejo-context "+forgejo) != vendor {
 				t.Fatal("asset destinations do not match the selected layout", text)
 			}
-			if strings.Count(text, " save --format=oci-archive") != 5 {
+			if strings.Contains(text, "bun scripts/build-soda-extension.ts --out ") != vendor {
+				t.Fatal("separate Soda package asset build does not match vendor layout", text)
+			}
+			if strings.Count(text, " save --format=oci-archive") != wantImages {
 				t.Fatal(text)
 			}
 			if strings.Contains(text, " push ") || strings.Contains(text, " --rm ") || strings.Contains(text, "--replace") {

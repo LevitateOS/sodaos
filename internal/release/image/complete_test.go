@@ -91,13 +91,13 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 		return nil
 	}
 	require.NoError(t, Complete(source, context, archives, p, run))
-	require.Equal(t, 5, copies)
+	require.Equal(t, len(deliver.Names), copies)
 	layout := filepath.Join(context, "rootfs/usr/share/soda/images")
 	files, _, err := deliver.VerifyContent(p, layout)
 	require.NoError(t, err)
-	require.Len(t, files, 13) // five configs/manifests, one shared layer, index and layout
+	require.Len(t, files, 2*len(deliver.Names)+3) // configs/manifests, one shared layer, index and layout
 	require.Error(t, stageImages(archives, layout, p, run))
-	require.Equal(t, 5, copies, "occupied layout must refuse before another copy")
+	require.Equal(t, len(deliver.Names), copies, "occupied layout must refuse before another copy")
 	read := func(path string) string {
 		t.Helper()
 		b, e := os.ReadFile(filepath.Join(context, "rootfs", path))
@@ -111,6 +111,9 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 		require.NotContains(t, body, "additionalimagestore")
 		require.Contains(t, body, "Requires=soda-image-import.service")
 	}
+	installer := read("usr/lib/systemd/system/soda-extension-install.service")
+	require.Contains(t, installer, "--entrypoint=/usr/local/bin/gitea "+p.Images["extension"].Config)
+	require.NotContains(t, installer, "localhost/soda-extension:dev")
 	require.NoDirExists(t, filepath.Join(context, "rootfs/usr/lib/bootc/bound-images.d"))
 	for _, name := range deliver.Names {
 		require.NoFileExists(t, filepath.Join(context, "rootfs/usr/share/soda/images", name+".oci"))
@@ -149,6 +152,7 @@ func TestDirectPresentationDoesNotNormalizeOrCopyUntrustedInputs(t *testing.T) {
 		require.Equal(t, mode, info.Mode().Perm())
 	}
 	source := t.TempDir()
+	require.NoError(t, os.Chmod(source, 0o700))
 	_, err := publicFiles(source)
 	require.ErrorContains(t, err, "directory must be 0755")
 	require.NoError(t, os.Chmod(source, 0o755))

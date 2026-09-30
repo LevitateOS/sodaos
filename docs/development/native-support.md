@@ -88,7 +88,8 @@ build time from **21m24s to 18m35s**, with a **2.85% larger rootfs** and unchang
 size. Native readback and a diskless fast-media boot passed; see the
 [owning plan](release.md) for scope/measurements.
 
-The configuration names `Executable`, canonical `Source`, an existing private
+The configuration names `Executable`, canonical `Source`, the separate clean committed
+`ForgejoSource`, an existing private
 `OutputParent` below `.artifacts/releases/`, and `BuildHome`, `Runtime`, `Tools` and
 `MediaAuthorityDirectory` (needed only for media). `OutputParent`, `BuildHome` and `Runtime` belong to
 `soda-build-worker`; tools provide `go/bin/go` and `bin/bun`. The executable and its
@@ -100,12 +101,14 @@ The operator runs the admitted executable as root from the canonical checkout:
 ```sh
 # Candidate-only development: no rootfs URL or media authority needed/mounted.
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
-  --arch x86_64 --out /OUTPUT_PARENT/UNIQUE --development --target candidate
+  --arch x86_64 --out /OUTPUT_PARENT/UNIQUE --development --target candidate \
+  --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
 
 # Installer development: same candidate producer, then authenticated native media.
 sudo /ADMITTED/soda-build --worker-config /RESTRICTED/worker.json \
   --arch x86_64 --out /OUTPUT_PARENT/ANOTHER_UNIQUE --development --target media \
-  --rootfs-base-url http://FIXTURE_ADDRESS:PORT
+  --rootfs-base-url http://FIXTURE_ADDRESS:PORT \
+  --forgejo-source /CANONICAL/FORGEJO-CHECKOUT
 
 # For faster installer iteration, add --media-compression fast to the media command.
 # This selects a distinct development host/ISO, not production qualification.

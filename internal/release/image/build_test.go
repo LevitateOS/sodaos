@@ -19,10 +19,12 @@ import (
 )
 
 func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
-	for _, mode := range []string{"dirty", "revision", "occupied", "outside", "worktree", "architecture"} {
+	for _, mode := range []string{"dirty", "revision", "occupied", "outside", "worktree", "architecture", "forgejo-dirty", "forgejo-revision", "forgejo-worktree"} {
 		t.Run(mode, func(t *testing.T) {
 			source := t.TempDir()
+			forgejo := t.TempDir()
 			require.NoError(t, os.Mkdir(filepath.Join(source, ".git"), 0o700))
+			require.NoError(t, os.Mkdir(filepath.Join(forgejo, ".git"), 0o700))
 			parent := filepath.Join(source, ".artifacts/releases")
 			require.NoError(t, os.MkdirAll(parent, 0o700))
 			out := filepath.Join(parent, "run")
@@ -34,9 +36,13 @@ func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 				require.NoError(t, os.Rename(filepath.Join(source, ".git"), filepath.Join(source, "retained-git")))
 				require.NoError(t, os.WriteFile(filepath.Join(source, ".git"), []byte("gitdir: elsewhere"), 0o600))
 			}
+			if mode == "forgejo-worktree" {
+				require.NoError(t, os.Rename(filepath.Join(forgejo, ".git"), filepath.Join(forgejo, "retained-git")))
+				require.NoError(t, os.WriteFile(filepath.Join(forgejo, ".git"), []byte("gitdir: elsewhere"), 0o600))
+			}
 			authority := filepath.Join(source, "fixture-authority.json")
 			require.NoError(t, os.WriteFile(authority, []byte("{}"), 0o600))
-			r := Request{Source: source, Out: out, Arch: "x86_64", RepositoryPrefix: "ghcr.io/example/sodaos", RootfsBaseURL: "https://example.invalid", MediaAuthority: authority}
+			r := Request{Source: source, ForgejoSource: forgejo, ForgejoRevision: strings.Repeat("f", 40), Out: out, Arch: "x86_64", RepositoryPrefix: "ghcr.io/example/sodaos", RootfsBaseURL: "https://example.invalid", MediaAuthority: authority}
 			if mode == "outside" {
 				r.Out = filepath.Join(source, "outside")
 			}
@@ -46,21 +52,28 @@ func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 			if mode == "revision" {
 				r.Revision = strings.Repeat("b", 40)
 			}
-			capture := func(_, name string, args ...string) (string, error) {
+			if mode == "forgejo-revision" {
+				r.ForgejoRevision = strings.Repeat("b", 40)
+			}
+			capture := func(dir, name string, args ...string) (string, error) {
 				if name == "go" {
 					require.Equal(t, []string{"env", "GOVERSION"}, args)
 					return runtime.Version(), nil
 				}
 				require.Equal(t, "git", name)
-				switch strings.Join(args, " ") {
+				require.Equal(t, []string{"-c", "safe.directory=" + dir}, args[:2])
+				switch strings.Join(args[2:], " ") {
 				case "rev-parse --show-toplevel":
-					return source, nil
+					return dir, nil
 				case "status --porcelain --untracked-files=normal":
-					if mode == "dirty" {
+					if mode == "dirty" && dir == source || mode == "forgejo-dirty" && dir == forgejo {
 						return " M source.go", nil
 					}
 					return "", nil
 				case "rev-parse HEAD":
+					if dir == forgejo {
+						return strings.Repeat("f", 40), nil
+					}
 					return strings.Repeat("a", 40), nil
 				}
 				t.Fatalf("unexpected preflight %v", args)
@@ -142,6 +155,48 @@ func TestCandidateBoundaryDoesNotAdmitOrDispatchMedia(t *testing.T) {
 	require.NotContains(t, strings.Join(result.Checks, " "), "Prepared")
 	require.NotContains(t, strings.Join(result.Checks, " "), "media")
 	require.Equal(t, "development-only; not release-qualified", result.Scope)
+}
+
+func TestCandidateRecordsExactForkArchive(t *testing.T) {
+	root := t.TempDir()
+	out := filepath.Join(root, "artifacts")
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "inputs"), 0o700))
+	require.NoError(t, os.Mkdir(out, 0o700))
+	archive := []byte("archived fork source")
+	require.NoError(t, os.WriteFile(filepath.Join(root, "inputs/forgejo-source.tar"), archive, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(out, "payload.json"), []byte("payload"), 0o600))
+	toolchain, err := json.MarshalIndent(build.ForgejoToolchain{CompilerImage: build.ForgejoCompilerImage, APKPackages: []string{"build-base-0.5-r4", "gcc-14.2.0-r6", "musl-dev-1.2.5-r10"}}, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(out, "forgejo-toolchain.json"), append(toolchain, '\n'), 0o600))
+	for path, content := range map[string]string{
+		"artifacts/forgejo-context/forgejo-bin":                                          "fork binary",
+		"artifacts/extension-context/extension/extension.json":                           "package manifest",
+		"artifacts/extension-context/extension/backend":                                  "Soda backend",
+		"artifacts/extension-context/extension/run":                                      "package runner",
+		"artifacts/extension-context/extension/assets/entry.js":                          "browser asset",
+		"work/host-context/rootfs/usr/share/containers/systemd/forgejo.container":        "fork service",
+		"work/host-context/rootfs/usr/lib/systemd/system/soda-extension-install.service": "package service",
+	} {
+		full := filepath.Join(root, path)
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o700))
+		require.NoError(t, os.WriteFile(full, []byte(content), 0o600))
+	}
+	revision := strings.Repeat("a", 40)
+	host := build.Image{Manifest: "sha256:" + strings.Repeat("b", 64), Architecture: "amd64"}
+	require.NoError(t, writeContentInventory(filepath.Join(root, "work/host-context"), out))
+	require.NoError(t, recordCandidate(out, "ghcr.io/example/sodaos", host, strings.Repeat("c", 64), revision, "x86_64"))
+	var candidate deliver.Candidate
+	require.NoError(t, build.ReadJSON(filepath.Join(out, "candidate.json"), &candidate))
+	require.Equal(t, revision, candidate.ForgejoRevision)
+	require.Equal(t, hashBytes(archive), candidate.ForgejoSourceSHA256)
+	require.Equal(t, "x86_64", candidate.Architecture)
+	require.Len(t, candidate.ContentSHA256, 8)
+	require.Equal(t, hashBytes([]byte("fork binary")), candidate.ContentSHA256["forgejo:/usr/local/bin/gitea"])
+	require.Equal(t, candidate.ContentSHA256["forgejo:/usr/local/bin/gitea"], candidate.ContentSHA256["extension:/usr/local/bin/gitea"])
+	require.NoError(t, candidate.ForgejoToolchain.Validate())
+	require.Error(t, recordCandidate(out, "ghcr.io/example/sodaos", build.Image{}, "", "", "x86_64"))
+	require.NoError(t, os.Remove(filepath.Join(root, "inputs/forgejo-source.tar")))
+	require.Error(t, recordCandidate(out, "ghcr.io/example/sodaos", host, "", revision, "x86_64"))
 }
 
 func TestMediaBoundaryStillStopsOnFailure(t *testing.T) {

@@ -58,12 +58,17 @@ func testRelease(t *testing.T, tr Trust) Release {
 	}
 	pb, e := marshal(p)
 	require.NoError(t, e)
-	c := Candidate{Format: 1, Host: build.Image{Manifest: Hash([]byte("host")), Config: Hash([]byte("host-config")), Architecture: "amd64", Revision: p.Revision, Source: "https://github.com/LevitateOS/sodaos", BaseName: p.Base, BaseDigest: "sha256:" + strings.Repeat("b", 64)}, HostArchiveSHA256: strings.Repeat("f", 64), PayloadSHA256: strings.TrimPrefix(Hash(pb), "sha256:"), Migration: "no upgrade qualified", Notes: "synthetic fixture"}
+	c := Candidate{Format: 1, Host: build.Image{Manifest: Hash([]byte("host")), Config: Hash([]byte("host-config")), Architecture: "amd64", Revision: p.Revision, Source: "https://github.com/LevitateOS/sodaos", BaseName: p.Base, BaseDigest: "sha256:" + strings.Repeat("b", 64)}, HostArchiveSHA256: strings.Repeat("f", 64), PayloadSHA256: strings.TrimPrefix(Hash(pb), "sha256:"), ForgejoRevision: strings.Repeat("2", 40), ForgejoSourceSHA256: strings.TrimPrefix(Hash([]byte("forgejo-source.tar")), "sha256:"), ForgejoToolchain: build.ForgejoToolchain{CompilerImage: build.ForgejoCompilerImage, APKPackages: []string{"build-base-0.5-r4", "gcc-14.2.0-r6", "musl-dev-1.2.5-r10"}}, Migration: "no upgrade qualified", Notes: "synthetic fixture"}
+	c.Architecture = p.Architecture
+	c.ContentSHA256 = map[string]string{}
+	for _, path := range []string{"forgejo:/usr/local/bin/gitea", "extension:/usr/local/bin/gitea", "extension:/usr/share/soda/extension/extension.json", "extension:/usr/share/soda/extension/backend", "extension:/usr/share/soda/extension/run", "extension:/usr/share/soda/extension/assets/entry.js", "host:/usr/share/containers/systemd/forgejo.container", "host:/usr/lib/systemd/system/soda-extension-install.service"} {
+		c.ContentSHA256[path] = strings.Repeat("a", 64)
+	}
 	c.HostReference = tr.Prefix + "-host@" + c.Host.Manifest
 	cb, e := marshal(c)
 	require.NoError(t, e)
 	r := Release{Format: 1, Serial: 10, Class: "normal", Payload: pb, Candidate: cb, Media: testMediaBytes(t, p, c), Qualification: "local-only", Evidence: map[string]string{"synthetic": Hash([]byte("receipt"))}, Notes: "fixture", Provenance: map[string]string{}}
-	for _, n := range []string{"source.tar", "app-inputs.json", "packages.txt", "presentation.json"} {
+	for _, n := range []string{"source.tar", "forgejo-source.tar", "app-inputs.json", "packages.txt", "presentation.json"} {
 		r.Provenance[n] = Hash([]byte(n))
 	}
 	r.Provenance["packages.txt"] = "sha256:" + p.HostPackagesSHA256
@@ -95,6 +100,48 @@ func TestSharedLayoutPayloadKeepsDeliveryArchiveBindings(t *testing.T) {
 	require.NoError(t, err)
 	for _, image := range p.Images {
 		require.Equal(t, strings.Repeat("1", 64), image.ArchiveSHA256)
+	}
+}
+
+func TestForgejoSourceProvenanceCannotBeOmittedOrSubstituted(t *testing.T) {
+	tr := testTrust(t)
+	base := testRelease(t, tr)
+	for _, change := range []struct {
+		name string
+		edit func(*Release, *Candidate)
+	}{
+		{"missing candidate revision", func(_ *Release, c *Candidate) { c.ForgejoRevision = "" }},
+		{"missing candidate archive digest", func(_ *Release, c *Candidate) { c.ForgejoSourceSHA256 = "" }},
+		{"missing compiler provenance", func(_ *Release, c *Candidate) { c.ForgejoToolchain = build.ForgejoToolchain{} }},
+		{"changed compiler provenance", func(_ *Release, c *Candidate) {
+			c.ForgejoToolchain.CompilerImage = "docker.io/library/golang@sha256:" + strings.Repeat("0", 64)
+		}},
+		{"wrong native architecture", func(_ *Release, c *Candidate) { c.Architecture = "aarch64" }},
+		{"missing independent package", func(_ *Release, c *Candidate) { delete(c.ContentSHA256, "extension:/usr/share/soda/extension/backend") }},
+		{"different extension CLI", func(_ *Release, c *Candidate) {
+			c.ContentSHA256["extension:/usr/local/bin/gitea"] = strings.Repeat("b", 64)
+		}},
+		{"changed service content", func(_ *Release, c *Candidate) {
+			c.ContentSHA256["host:/usr/lib/systemd/system/soda-extension-install.service"] = "wrong"
+		}},
+		{"missing release archive", func(r *Release, _ *Candidate) { delete(r.Provenance, "forgejo-source.tar") }},
+		{"changed release archive", func(r *Release, _ *Candidate) { r.Provenance["forgejo-source.tar"] = Hash([]byte("other fork")) }},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			r := base
+			r.Provenance = make(map[string]string, len(base.Provenance))
+			for name, digest := range base.Provenance {
+				r.Provenance[name] = digest
+			}
+			var c Candidate
+			require.NoError(t, decode(r.Candidate, &c))
+			change.edit(&r, &c)
+			var err error
+			r.Candidate, err = marshal(c)
+			require.NoError(t, err)
+			_, _, err = r.Validate(tr)
+			require.Error(t, err)
+		})
 	}
 }
 
@@ -199,7 +246,7 @@ func TestTrustRolesRotationAndPreservedVendorPolicy(t *testing.T) {
 	docker := p["transports"].(map[string]any)["docker"].(map[string]any)
 	require.Contains(t, docker, "quay.io/fedora")
 	require.Contains(t, string(merged), "/vendor/key")
-	require.Len(t, docker, 11)
+	require.Len(t, docker, len(Names)+6)
 	require.Contains(t, string(merged), "exactRepository")
 	require.Contains(t, string(merged), "sigstoreSigned")
 	_, e = MergePolicy(tr, merged)
@@ -212,8 +259,7 @@ func TestTrustRolesRotationAndPreservedVendorPolicy(t *testing.T) {
 
 func TestPrivateStateRefusesResetCorruptionAndConcurrentMutation(t *testing.T) {
 	tr := testTrust(t)
-	root := t.TempDir()
-	require.NoError(t, os.Chmod(root, 0o700))
+	root := privateTempDir(t)
 	path := filepath.Join(root, "state.json")
 	require.NoError(t, InitState(path, tr))
 	require.Error(t, InitState(path, tr), "no implicit recovery/reset")

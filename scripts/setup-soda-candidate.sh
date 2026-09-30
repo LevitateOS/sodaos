@@ -10,6 +10,7 @@ cd "$(dirname "$0")/.."
 
 PREFIX="${SODA_REPOSITORY_PREFIX:-ghcr.io/levitateos/sodaos}"
 REFRESH="${SODA_REFRESH_AUTHORITY:-0}"
+FORGEJO_SOURCE="${SODA_FORGEJO_SOURCE:-}"
 # Pickup folder for the built system image. The ISO is only the boot menu;
 # the installer downloads the big rootfs file from the address below.
 ROOTFS_DIR="/var/lib/soda-rootfs"
@@ -33,6 +34,9 @@ WORKER_JSON="$AUTHORITY/worker.json"
 fail() { printf 'setup-soda-candidate: %s\n' "$*" >&2; exit 1; }
 
 [ -f go.mod ] || fail "run from the repository root"
+[ -n "$FORGEJO_SOURCE" ] || fail "set SODA_FORGEJO_SOURCE to the clean canonical Forgejo fork checkout"
+[ -d "$FORGEJO_SOURCE/.git" ] && [ "$(realpath "$FORGEJO_SOURCE")" = "$FORGEJO_SOURCE" ] || fail "canonical Forgejo checkout required"
+[ -z "$(git -c "safe.directory=$FORGEJO_SOURCE" -C "$FORGEJO_SOURCE" status --porcelain --untracked-files=normal)" ] || fail "Forgejo source must be clean and committed"
 [ "$(uname -m)" = "x86_64" ] || fail "matching native x86_64 required on this host"
 command -v go bun podman skopeo python3 >/dev/null || fail "pinned go, bun, podman, skopeo and python3 required"
 id soda-build-worker >/dev/null 2>&1 || fail "soda-build-worker user missing"
@@ -159,11 +163,12 @@ if [ ! -f /etc/gitconfig ] || ! grep -qF "directory = /run/soda-build-source" /e
 fi
 
 echo "-- restricted worker config"
-sudo python3 - "$WORKER_JSON" <<EOF
+sudo python3 - "$WORKER_JSON" "$FORGEJO_SOURCE" <<EOF
 import json, sys
 json.dump({
   "Executable": "$ADMITTED",
   "Source": "$PWD",
+  "ForgejoSource": sys.argv[2],
   "OutputParent": "$OUTPUT_PARENT",
   "BuildHome": "$BUILD_HOME",
   "Runtime": "$RUNTIME",
@@ -218,10 +223,8 @@ sudo mkdir -p "$ROOTFS_DIR"
 sudo chown "$(id -un)" "$ROOTFS_DIR"
 
 cat <<EOF
--- ready. One command from $PWD:
-  sudo soda-candidate   (press go)
-The wrapper serves $ROOTFS_DIR on $ROOTFS_URL itself during the build and
-files the built rootfs image there afterwards. Flags still pre-seed answers:
-  sudo soda-candidate --controller $ADMITTED --worker-config $WORKER_JSON \\
-    --out $OUTPUT_PARENT/manual-01 --rootfs-base-url $ROOTFS_URL
+-- ready. Development candidate command from $PWD:
+  sudo $ADMITTED --worker-config $WORKER_JSON --arch x86_64 \\
+    --out $OUTPUT_PARENT/manual-01 --development --target candidate \\
+    --forgejo-source $FORGEJO_SOURCE
 EOF

@@ -22,6 +22,12 @@ type Image struct{ Config, Manifest, ArchiveSHA256 string }
 func sum(b []byte) string { h := sha256.Sum256(b); return hex.EncodeToString(h[:]) }
 
 func Archive(t testing.TB, path, arch, revision string) Image {
+	return ArchiveFiles(t, path, arch, revision, map[string][]byte{
+		"fixture.txt": []byte(strings.Repeat("shared inert fixture content\n", 100)),
+	})
+}
+
+func ArchiveFiles(t testing.TB, path, arch, revision string, files map[string][]byte) Image {
 	t.Helper()
 	blobs := map[string][]byte{}
 	desc := func(data []byte, media string) map[string]any {
@@ -31,10 +37,11 @@ func Archive(t testing.TB, path, arch, revision string) Image {
 	}
 	var layer bytes.Buffer
 	tw := tar.NewWriter(&layer)
-	body := []byte(strings.Repeat("shared inert fixture content\n", 100))
-	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "fixture.txt", Mode: 0o644, Size: int64(len(body))}))
-	_, err := tw.Write(body)
-	require.NoError(t, err)
+	for name, body := range files {
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: strings.TrimPrefix(name, "/"), Mode: 0o644, Size: int64(len(body))}))
+		_, err := tw.Write(body)
+		require.NoError(t, err)
+	}
 	require.NoError(t, tw.Close())
 	ld := desc(layer.Bytes(), "application/vnd.oci.image.layer.v1.tar")
 	cfg, err := json.Marshal(map[string]any{"os": "linux", "architecture": arch, "rootfs": map[string]any{"type": "layers", "diff_ids": []any{ld["digest"]}}, "config": map[string]any{"Labels": map[string]string{"org.opencontainers.image.revision": revision, "org.opencontainers.image.source": "https://github.com/LevitateOS/sodaos", "org.opencontainers.image.base.name": "synthetic-base", "org.opencontainers.image.base.digest": "sha256:" + strings.Repeat("b", 64), "io.soda.fixture": filepath.Base(path)}}})

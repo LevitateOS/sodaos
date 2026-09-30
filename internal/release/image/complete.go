@@ -195,6 +195,20 @@ func configureCompleteSystemd(source, root string) error {
 	return ownedWrite(project, body, 0o644)
 }
 
+func bindExtensionInstallImage(root string, p deliver.Payload) error {
+	path := filepath.Join(root, "usr/lib/systemd/system/soda-extension-install.service")
+	unit, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	const placeholder = "localhost/soda-extension:dev"
+	if strings.Count(string(unit), placeholder) != 1 {
+		return errors.New("soda extension installer image binding is ambiguous")
+	}
+	body := strings.Replace(string(unit), placeholder, p.Images["extension"].Config, 1)
+	return ownedWrite(path, []byte(body), 0o644)
+}
+
 func writeReleaseMetadataAndNormalize(root string, p deliver.Payload) error {
 	// The complete payload is the sole resolved-image/defaults owner. Leave only
 	// a pointer in the earlier host-content build marker, not stale scope data.
@@ -236,6 +250,9 @@ func Complete(source, context, archives string, p deliver.Payload, run build.Bui
 		return err
 	}
 	if err := configureCompleteSystemd(source, root); err != nil {
+		return err
+	}
+	if err := bindExtensionInstallImage(root, p); err != nil {
 		return err
 	}
 	if err := stageImages(archives, filepath.Join(root, "usr/share/soda/images"), p, run); err != nil {

@@ -88,11 +88,16 @@ func stageCandidate(src, dest string) error {
 			return err
 		}
 	}
-	source := filepath.Join(filepath.Dir(src), "inputs", "source.tar")
-	if _, err := os.Stat(source); err != nil {
-		source = filepath.Join(src, "source.tar")
+	for _, name := range []string{"source.tar", "forgejo-source.tar"} {
+		source := filepath.Join(filepath.Dir(src), "inputs", name)
+		if _, err := os.Stat(source); err != nil {
+			source = filepath.Join(src, name)
+		}
+		if err := linkOrCopy(source, filepath.Join(dest, name)); err != nil {
+			return err
+		}
 	}
-	return linkOrCopy(source, filepath.Join(dest, "source.tar"))
+	return nil
 }
 
 func linkOrCopy(src, dest string) error {

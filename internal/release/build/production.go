@@ -21,7 +21,7 @@ type (
 )
 
 type Production struct {
-	Source, Native, Out, Arch, Revision string
+	Source, ForgejoSource, ForgejoRevision, Native, Out, Arch, Revision string
 	// LiveInputs is the controller-resolved live inputs file for this attempt.
 	// The worker never fetches: floating toolchain versions come from here.
 	LiveInputs string
@@ -168,17 +168,23 @@ func (p Production) assetSteps(stage []string) error {
 			return err
 		}
 	}
-	steps := []struct {
+	type assetStep struct {
 		label string
 		args  []string
-	}{
+	}
+	steps := []assetStep{
 		{"Build frontend assets", []string{"bun", "scripts/build-forgejo.ts", "--out", filepath.Join(p.Native, "forgejo-js")}},
 		{"Fetch terminal assets", []string{"python3", "scripts/fetch-terminal.py", "--out", filepath.Join(p.Native, "terminal-assets")}},
-		{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
-		{"Fetch upstream Muse binary", []string{"go", "run", "./tools/soda-fetch-muse", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools/bin/muse-native")}},
-		{"Fetch upstream Tea binary", []string{"python3", "scripts/fetch-tea.py", "--arch", p.Arch}},
-		{"Stage appliance files", stage},
 	}
+	if p.Vendor {
+		steps = append(steps, assetStep{"Build Soda extension browser assets", []string{"bun", "scripts/build-soda-extension.ts", "--out", filepath.Join(p.Native, "soda-extension-assets"), "--terminal-assets", filepath.Join(p.Native, "terminal-assets")}})
+	}
+	steps = append(steps,
+		assetStep{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
+		assetStep{"Fetch upstream Muse binary", []string{"go", "run", "./tools/soda-fetch-muse", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools/bin/muse-native")}},
+		assetStep{"Fetch upstream Tea binary", []string{"python3", "scripts/fetch-tea.py", "--arch", p.Arch}},
+		assetStep{"Stage appliance files", stage},
+	)
 	for _, s := range steps {
 		if e := p.step(s.label); e != nil {
 			return e
@@ -358,7 +364,11 @@ func (p Production) buildImage(name, dir, file, pinned string, args ...string) (
 		return "", e
 	}
 	iid := filepath.Join(p.Out, name+".iid")
-	cmd := []string{"--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/" + platform, "--build-arg=BASE_IMAGE=" + pinned, "--label=org.opencontainers.image.revision=" + p.Revision, "--label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos", "--label=org.opencontainers.image.base.name=" + pinned, "--label=org.opencontainers.image.base.digest=" + strings.SplitN(pinned, "@", 2)[1], "--iidfile", iid, "--file", file}
+	baseDigest := pinned
+	if _, digest, ok := strings.Cut(pinned, "@"); ok {
+		baseDigest = digest
+	}
+	cmd := []string{"--remote=false", "build", "--pull=never", "--rm=false", "--platform=linux/" + platform, "--build-arg=BASE_IMAGE=" + pinned, "--label=org.opencontainers.image.revision=" + p.Revision, "--label=org.opencontainers.image.source=https://github.com/LevitateOS/sodaos", "--label=org.opencontainers.image.base.name=" + pinned, "--label=org.opencontainers.image.base.digest=" + baseDigest, "--iidfile", iid, "--file", file}
 	cmd = append(cmd, args...)
 	cmd = append(cmd, ".")
 	if e := p.Execute(dir, "podman", cmd...); e != nil {
@@ -510,6 +520,21 @@ func (p Production) exportTailnetImage(
 	return export("tailnet", id, p.Revision)
 }
 
+func (p Production) exportExtensionImage(
+	images map[string]ProducedImage,
+	build func(string, string, string, string, ...string) (string, error),
+	export func(string, string, string) error,
+) error {
+	if !p.Vendor {
+		return nil
+	}
+	id, err := build("extension", filepath.Join(p.Out, "extension-context"), "Containerfile", images["forgejo"].Config)
+	if err != nil {
+		return err
+	}
+	return export("extension", id, p.Revision)
+}
+
 func (p Production) exportImages(forgejoContext, archives string, pull func(string, string, string) (string, string, error), build func(string, string, string, string, ...string) (string, error)) (map[string]ProducedImage, error) {
 	platform, _ := OCIArchitecture(p.Arch)
 	result := map[string]ProducedImage{}
@@ -529,6 +554,9 @@ func (p Production) exportImages(forgejoContext, archives string, pull func(stri
 		return nil, err
 	}
 	if err = p.exportForgejoImage(forgejoContext, pull, build, export); err != nil {
+		return nil, err
+	}
+	if err = p.exportExtensionImage(result, build, export); err != nil {
 		return nil, err
 	}
 	if err = p.exportProxyImage(pull, export); err != nil {

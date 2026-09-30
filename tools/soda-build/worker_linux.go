@@ -19,7 +19,7 @@ import (
 // existing, separately owned task directories; this command does not create users,
 // grant sudo, install trust or adopt an existing service/VM.
 type workerConfig struct {
-	Executable, Source, OutputParent                   string
+	Executable, Source, ForgejoSource, OutputParent    string
 	BuildHome, Runtime, Tools, MediaAuthorityDirectory string
 }
 
@@ -28,6 +28,7 @@ const (
 	workerHome    = "/var/lib/soda-build-worker"
 	workerRuntime = "/run/soda-build-worker"
 	workerTools   = "/run/soda-build-tools"
+	workerForgejo = "/run/soda-build-forgejo-source"
 	// pinnedGoRoot is the fixed host GOROOT provisioned by
 	// setup-soda-candidate.sh. It carries lib_t there so the worker
 	// domain can execute it, so it cannot live under workerTools.
@@ -47,7 +48,7 @@ func buildWorkerIdentity() error {
 }
 
 func validWorkerTaskPaths(c workerConfig, r image.Request) bool {
-	return c.Source == r.Source && filepath.Dir(r.Out) == c.OutputParent && strings.HasPrefix(c.OutputParent, filepath.Join(r.Source, ".artifacts/releases")+"/")
+	return c.Source == r.Source && c.ForgejoSource == r.ForgejoSource && filepath.Dir(r.Out) == c.OutputParent && strings.HasPrefix(c.OutputParent, filepath.Join(r.Source, ".artifacts/releases")+"/")
 }
 
 func workerExecutableMatches(path string) error {
@@ -88,7 +89,7 @@ func admitLoadedWorkerConfig(c workerConfig, r image.Request) error {
 }
 
 func workerConfigPaths(c workerConfig, r image.Request) []string {
-	paths := []string{c.Source, c.OutputParent, c.BuildHome, c.Runtime, c.Tools}
+	paths := []string{c.Source, c.ForgejoSource, c.OutputParent, c.BuildHome, c.Runtime, c.Tools}
 	if r.WantsMedia() {
 		paths = append(paths, c.MediaAuthorityDirectory)
 	}
@@ -194,10 +195,10 @@ func buildWorker(c workerConfig, r image.Request) (acceptance.Worker, error) {
 	// directory makes it fail before touching the network.
 	w = acceptance.Worker{
 		Name: name, User: "soda-build-worker", Executable: c.Executable, Directory: workerSource,
-		ReadOnly:    []string{c.Source + ":" + workerSource, c.Tools + ":" + workerTools},
+		ReadOnly:    []string{c.Source + ":" + workerSource, c.ForgejoSource + ":" + workerForgejo, c.Tools + ":" + workerTools},
 		Writable:    []string{c.OutputParent + ":" + filepath.Join(workerSource, parentRel), c.BuildHome + ":" + workerHome, c.Runtime + ":" + workerRuntime},
 		Environment: []string{"HOME=" + workerHome, "PATH=" + pinnedGoRoot + "/bin:" + workerTools + "/bin:/usr/sbin:/usr/bin:/sbin:/bin", "XDG_RUNTIME_DIR=" + workerRuntime, "GOTOOLCHAIN=go1.26.7", "GOCACHE=" + workerHome + "/go-build", "GOMODCACHE=" + workerHome + "/go-mod", "PLAYWRIGHT_BROWSERS_PATH=" + workerHome + "/browsers", "SODA_BUILD_START_NS=" + os.Getenv("SODA_BUILD_START_NS")},
-		Arguments:   []string{"--worker-build", "--arch", r.Arch, "--out", out, "--repository-prefix", r.RepositoryPrefix},
+		Arguments:   []string{"--worker-build", "--arch", r.Arch, "--out", out, "--repository-prefix", r.RepositoryPrefix, "--forgejo-source", workerForgejo, "--forgejo-revision", r.ForgejoRevision},
 	}
 	if r.Development {
 		w.Arguments = append(w.Arguments, "--development", "--target", r.Target)

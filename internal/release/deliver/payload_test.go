@@ -14,11 +14,12 @@ import (
 func fixture() Payload {
 	p := Payload{Format: 3, CoreOS: "44.20260817.3.2", Revision: strings.Repeat("a", 40), Architecture: "x86_64", Schema: 10, RepositoryPrefix: "ghcr.io/example/sodaos", Base: "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("b", 64), PresentationSHA256: strings.Repeat("c", 64), HostPackagesSHA256: strings.Repeat("d", 64), Images: map[string]Image{}}
 	p.ID = p.CoreOS + ".soda-" + p.Revision[:12]
-	for _, n := range Names {
-		p.Images[n] = Image{Reference: p.RepositoryPrefix + "-" + n + "@sha256:" + strings.Repeat("e", 64), Manifest: "sha256:" + strings.Repeat("e", 64), Config: "sha256:" + strings.Repeat("f", 64), ArchiveSHA256: strings.Repeat("1", 64)}
+	for i, n := range Names {
+		p.Images[n] = Image{Reference: p.RepositoryPrefix + "-" + n + "@sha256:" + strings.Repeat("e", 64), Manifest: "sha256:" + strings.Repeat("e", 64), Config: Hash([]byte{byte(i)}), ArchiveSHA256: strings.Repeat("1", 64)}
 	}
 	return p
 }
+
 func TestPayloadValidation(t *testing.T) {
 	require.NoError(t, fixture().Validate())
 	for _, mutate := range []func(*Payload){
@@ -39,6 +40,15 @@ func TestPayloadValidation(t *testing.T) {
 	_, e = Load(path)
 	require.Error(t, e)
 }
+
+func TestPayloadRejectsForgejoExtensionIdentityReuse(t *testing.T) {
+	p := fixture()
+	extension := p.Images["extension"]
+	extension.Config = p.Images["forgejo"].Config
+	p.Images["extension"] = extension
+	require.ErrorContains(t, p.Validate(), "independent image identity")
+}
+
 func writeArchive(t *testing.T, path string, p Payload) Image {
 	t.Helper()
 	im := testoci.Archive(t, path, "amd64", p.Revision)

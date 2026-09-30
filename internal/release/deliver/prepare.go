@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,12 +22,8 @@ type Qualification struct {
 // Prepare reuses the M1 payload and native OCI verifier. Qualification assertions
 // do not authorize signing: the protected worker must independently admit this
 // exact resulting document digest based on its retained test evidence.
-func matchingReleaseProvenance(release Release, p Payload) bool {
-	return release.Provenance["packages.txt"] == "sha256:"+p.HostPackagesSHA256 && release.Provenance["presentation.json"] == "sha256:"+p.PresentationSHA256
-}
-
 func hashReleaseProvenance(root *os.Root, release *Release) error {
-	paths := map[string]string{"source.tar": "source.tar", "app-inputs.json": "app-inputs.json", "packages.txt": "packages.txt", "presentation.json": "forgejo-context/presentation.json"}
+	paths := map[string]string{"source.tar": "source.tar", "forgejo-source.tar": "forgejo-source.tar", "app-inputs.json": "app-inputs.json", "packages.txt": "packages.txt", "presentation.json": "forgejo-context/presentation.json"}
 	for n, path := range paths {
 		h, e := build.HashAt(root, path)
 		if e != nil {
@@ -71,9 +68,6 @@ func buildReleaseDocument(t Trust, candidate string, media []byte, q Qualificati
 	if e != nil {
 		return Release{}, e
 	}
-	if !matchingReleaseProvenance(release, p) {
-		return Release{}, ErrRefused
-	}
 	if _, e = VerifyCandidateImages(root, candidate, p, c); e != nil {
 		return Release{}, e
 	}
@@ -98,7 +92,22 @@ func Prepare(t Trust, candidate, media string, q Qualification, out string) (str
 // VerifyCandidateImages is the shared native archive/identity check used by
 // qualification admission and release preparation. The caller validates payload
 // and candidate metadata first; observed archive hashes can bind later evidence.
-func verifyCandidateImage(root *os.Root, candidate, n, arch string, expected Image, rev string) (string, string, error) {
+func candidateImageContent(content map[string]string, image string) (map[string]string, []string) {
+	prefix := image + ":"
+	expected := map[string]string{}
+	var paths []string
+	for name, hash := range content {
+		if strings.HasPrefix(name, prefix) {
+			member := strings.TrimPrefix(name, prefix)
+			expected[member] = hash
+			paths = append(paths, member)
+		}
+	}
+	slices.Sort(paths)
+	return expected, paths
+}
+
+func verifyCandidateImage(root *os.Root, candidate, n, arch string, expected Image, rev string, content map[string]string) (string, string, error) {
 	path := n + ".oci"
 	if n != "host" {
 		path = "images/" + path
@@ -107,11 +116,35 @@ func verifyCandidateImage(root *os.Root, candidate, n, arch string, expected Ima
 	if e != nil || hash != expected.ArchiveSHA256 {
 		return "", "", errorAt(n + " archive")
 	}
-	im, e := build.InspectOCI(filepath.Join(candidate, path), arch, rev)
-	if e != nil || im.Manifest != expected.Manifest || im.Config != expected.Config {
+	im, e := inspectCandidateImage(filepath.Join(candidate, path), n, arch, rev, content)
+	if e != nil {
+		return "", "", e
+	}
+	if im.Manifest != expected.Manifest || im.Config != expected.Config {
 		return "", "", errorAt(n + " identity")
 	}
 	return path, hash, nil
+}
+
+func inspectCandidateImage(path, n, arch, rev string, content map[string]string) (build.Image, error) {
+	if len(content) == 0 {
+		im, err := build.InspectOCI(path, arch, rev)
+		if err != nil {
+			return im, errorAt(n + " identity")
+		}
+		return im, nil
+	}
+	expected, members := candidateImageContent(content, n)
+	im, observed, err := build.InspectOCIContent(path, arch, rev, members)
+	if err != nil {
+		return im, errorAt(n + " content")
+	}
+	for member, digest := range expected {
+		if observed[member] != digest {
+			return im, errorAt(n + " content")
+		}
+	}
+	return im, nil
 }
 
 func VerifyCandidateImages(root *os.Root, candidate string, p Payload, c Candidate) (map[string]string, error) {
@@ -125,7 +158,11 @@ func VerifyCandidateImages(root *os.Root, candidate string, p Payload, c Candida
 		if n == "proxy" {
 			rev = ""
 		}
-		path, hash, e := verifyCandidateImage(root, candidate, n, p.Architecture, inputs[n], rev)
+		content := map[string]string{}
+		if n == "host" || n == "forgejo" || n == "extension" {
+			content = c.ContentSHA256
+		}
+		path, hash, e := verifyCandidateImage(root, candidate, n, p.Architecture, inputs[n], rev, content)
 		if e != nil {
 			return nil, e
 		}

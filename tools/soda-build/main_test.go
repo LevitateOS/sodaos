@@ -19,15 +19,18 @@ import (
 )
 
 func TestDevelopmentWorkerInputsAndCompletion(t *testing.T) {
-	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
+	c := workerConfig{Source: "/source", ForgejoSource: "/forgejo", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
 	for _, target := range []string{"candidate", "media", ""} {
-		r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: target != "", Target: target}
+		r := image.Request{Source: c.Source, ForgejoSource: c.ForgejoSource, ForgejoRevision: strings.Repeat("a", 40), Out: c.OutputParent + "/test", Development: target != "", Target: target}
 		if r.WantsMedia() {
 			r.RootfsBaseURL = "https://example.invalid"
 		}
 		w, err := buildWorker(c, r)
 		require.NoError(t, err)
 		require.Equal(t, "soda-build-worker", w.User)
+		require.Contains(t, w.ReadOnly, c.ForgejoSource+":"+workerForgejo)
+		require.Contains(t, w.Arguments, workerForgejo)
+		require.Contains(t, w.Arguments, r.ForgejoRevision)
 		if target == "candidate" {
 			require.NotContains(t, strings.Join(w.ReadOnly, " "), "authority")
 			require.NotContains(t, w.Arguments, "--rootfs-base-url")

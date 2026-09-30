@@ -18,7 +18,7 @@ const (
 	ImagesPath = "/usr/share/soda/images"
 )
 
-var Names = []string{"dashboard", "forgejo", "proxy", "project-os", "tailnet"}
+var Names = []string{"dashboard", "forgejo", "extension", "proxy", "project-os", "tailnet"}
 
 type Image struct {
 	Reference     string
@@ -65,6 +65,9 @@ func (p Payload) validImages() error {
 		if !ok || !digest(im.Config) || !digest(im.Manifest) || !build.Digest(im.ArchiveSHA256) || im.Reference != p.RepositoryPrefix+"-"+name+"@"+im.Manifest {
 			return fmt.Errorf("invalid %s image binding", name)
 		}
+	}
+	if p.Images["extension"].Config == p.Images["forgejo"].Config {
+		return errors.New("extension requires an independent image identity")
 	}
 	return nil
 }

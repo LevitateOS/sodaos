@@ -9,8 +9,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"syscall"
 
 	"github.com/levitateos/sodaos/internal/release/build"
@@ -40,13 +43,15 @@ func parseBuildFlags() (buildFlags, error) {
 	rootfs := flag.String("rootfs-base-url", "", "public base URL for the exact hash-named rootfs file")
 	authority := flag.String("media-authority", "", "worker-local fixture authority; not release custody")
 	liveInputs := flag.String("live-inputs", "", "internal controller-resolved live inputs file")
+	forgejoSource := flag.String("forgejo-source", "", "explicit clean canonical Forgejo fork checkout")
+	forgejoRevision := flag.String("forgejo-revision", "", "internal exact Forgejo source revision")
 	configPath := flag.String("worker-config", "", "root-owned configuration for isolated worker dispatch")
 	build := flag.Bool("worker-build", false, "internal build stage; requires the isolated build identity")
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return f, errors.New("unexpected positional arguments")
 	}
-	f.Request = image.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression, LiveInputs: *liveInputs}
+	f.Request = image.Request{Out: *out, Arch: *arch, RepositoryPrefix: *prefix, RootfsBaseURL: *rootfs, MediaAuthority: *authority, Development: *development, Target: *target, MediaCompression: *compression, LiveInputs: *liveInputs, ForgejoSource: *forgejoSource, ForgejoRevision: *forgejoRevision}
 	f.WorkerBuild, f.WorkerConfig = *build, *configPath
 	return f, f.Request.ValidateTarget()
 }
@@ -65,7 +70,7 @@ func admitParentDispatch(f buildFlags) error {
 	if f.WorkerConfig == "" || f.Request.MediaAuthority != "" {
 		return errors.New("root-owned --worker-config required; media authority belongs to the isolated worker")
 	}
-	if f.Request.LiveInputs != "" {
+	if f.Request.LiveInputs != "" || f.Request.ForgejoRevision != "" {
 		return errors.New("controller resolves live inputs per attempt; operator selection refused")
 	}
 	if !f.Request.Development {
@@ -94,14 +99,19 @@ func watchBuildSignals(ctx context.Context, cancel context.CancelCauseFunc) func
 	return func() { signal.Stop(signals) }
 }
 
-func sanitizeBuildEnv(workerBuild bool) {
+func sanitizeBuildEnv(workerBuild bool) error {
 	// No inherited child mode, false summary or unrelated installed-test activation.
 	for _, key := range []string{"SODA_BUILD_TIMING_LOG", "SODA_BUILD_CHILD"} {
-		os.Unsetenv(key)
+		if err := os.Unsetenv(key); err != nil {
+			return err
+		}
 	}
 	if !workerBuild {
-		os.Unsetenv("SODA_BUILD_START_NS")
+		if err := os.Unsetenv("SODA_BUILD_START_NS"); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func startBuildProgress(r image.Request) (*build.BuildProgress, error) {
@@ -143,6 +153,55 @@ func bindBuildSource(r *image.Request) error {
 		return e
 	}
 	r.Source, r.Revision = source, revision
+	return bindForgejoSource(r)
+}
+
+func forgejoGitOutput(source string, args ...string) ([]byte, error) {
+	commandArgs := []string{"-c", "safe.directory=" + source, "-C", source}
+	commandArgs = append(commandArgs, args...)
+	return exec.Command("git", commandArgs...).Output()
+}
+
+func validateForgejoCheckoutRoot(source string) error {
+	if !filepath.IsAbs(source) || filepath.Clean(source) != source {
+		return errors.New("explicit absolute Forgejo checkout required")
+	}
+	root, err := forgejoGitOutput(source, "rev-parse", "--show-toplevel")
+	if err != nil || strings.TrimSpace(string(root)) != source {
+		return errors.New("canonical Forgejo checkout required")
+	}
+	info, err := os.Lstat(filepath.Join(source, ".git"))
+	if err != nil || !info.IsDir() {
+		return errors.New("canonical Forgejo checkout required; no worktree")
+	}
+	return nil
+}
+
+func forgejoCheckoutRevision(source string) (string, error) {
+	status, err := forgejoGitOutput(source, "status", "--porcelain", "--untracked-files=normal")
+	if err != nil || len(status) != 0 {
+		return "", errors.New("clean committed Forgejo source required")
+	}
+	head, err := forgejoGitOutput(source, "rev-parse", "HEAD")
+	revision := strings.TrimSpace(string(head))
+	if err != nil || !build.Revision(revision) {
+		return "", errors.New("exact Forgejo source revision required")
+	}
+	return revision, nil
+}
+
+func bindForgejoSource(r *image.Request) error {
+	if err := validateForgejoCheckoutRoot(r.ForgejoSource); err != nil {
+		return err
+	}
+	revision, err := forgejoCheckoutRevision(r.ForgejoSource)
+	if err != nil {
+		return err
+	}
+	if r.ForgejoRevision != "" && r.ForgejoRevision != revision {
+		return errors.New("forgejo source changed after dispatch")
+	}
+	r.ForgejoRevision = revision
 	return nil
 }
 
@@ -178,7 +237,9 @@ func run() (err error) {
 	ctx, cancel := context.WithCancelCause(context.Background())
 	defer cancel(nil)
 	defer watchBuildSignals(ctx, cancel)()
-	sanitizeBuildEnv(f.WorkerBuild)
+	if err := sanitizeBuildEnv(f.WorkerBuild); err != nil {
+		return err
+	}
 	progress, e := startBuildProgress(f.Request)
 	if e != nil {
 		return e

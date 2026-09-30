@@ -22,6 +22,7 @@ import (
 // Request selects a boundary of the same producer, never installation or publication.
 type Request struct {
 	Source, Out, Arch, RepositoryPrefix, Revision, RootfsBaseURL, MediaAuthority, LiveInputs string
+	ForgejoSource, ForgejoRevision                                                           string
 	Development                                                                              bool
 	Target, MediaCompression                                                                 string
 }
@@ -195,7 +196,10 @@ func isToolFailure(err error) bool {
 }
 
 func verifyCheckoutSource(requestedSource string, capture build.BuildCapture) (string, error) {
-	source, err := capture(requestedSource, "git", "rev-parse", "--show-toplevel")
+	if !filepath.IsAbs(requestedSource) || filepath.Clean(requestedSource) != requestedSource {
+		return "", errors.New("explicit canonical checkout path required")
+	}
+	source, err := capture(requestedSource, "git", "-c", "safe.directory="+requestedSource, "rev-parse", "--show-toplevel")
 	if err != nil {
 		return "", err
 	}
@@ -210,14 +214,14 @@ func verifyCheckoutSource(requestedSource string, capture build.BuildCapture) (s
 }
 
 func verifyCommittedRevision(source, requestedRevision string, capture build.BuildCapture) (string, error) {
-	status, err := capture(source, "git", "status", "--porcelain", "--untracked-files=normal")
+	status, err := capture(source, "git", "-c", "safe.directory="+source, "status", "--porcelain", "--untracked-files=normal")
 	if err != nil {
 		return "", err
 	}
 	if status != "" {
 		return "", errors.New("clean committed source required")
 	}
-	revision, err := capture(source, "git", "rev-parse", "HEAD")
+	revision, err := capture(source, "git", "-c", "safe.directory="+source, "rev-parse", "HEAD")
 	if err != nil || !build.Revision(revision) {
 		return "", errors.New("exact committed revision required")
 	}
@@ -274,6 +278,13 @@ func admitBuildInputs(r Request, capture build.BuildCapture) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fork, err := verifyCheckoutSource(r.ForgejoSource, capture)
+	if err != nil {
+		return "", fmt.Errorf("forgejo source: %w", err)
+	}
+	if _, err = verifyCommittedRevision(fork, r.ForgejoRevision, capture); err != nil {
+		return "", fmt.Errorf("forgejo source: %w", err)
+	}
 	return revision, admitBuildOutput(r.Out, source, r.WantsMedia(), r.MediaAuthority)
 }
 
@@ -314,6 +325,10 @@ func setupBuildWorkspace(r Request, revision string, progress *build.BuildProgre
 	}
 	snapshot, err := extractBuildSnapshot(r.Source, r.Out, revision, execute)
 	if err != nil {
+		_ = closeLog()
+		return "", nil, err
+	}
+	if err = extractForgejoSnapshot(r, execute); err != nil {
 		_ = closeLog()
 		return "", nil, err
 	}
@@ -470,6 +485,9 @@ func buildHostCandidate(snapshot, contextDir, artifacts, arch, revision, prefix 
 	if err := sealCandidatePayload(payload, snapshot, contextDir, artifacts, p); err != nil {
 		return err
 	}
+	if err := writeContentInventory(contextDir, artifacts); err != nil {
+		return err
+	}
 	if err := Inventory(contextDir); err != nil {
 		return err
 	}
@@ -518,7 +536,7 @@ func runBuild(ctx context.Context, r Request, progress *build.BuildProgress, exe
 	defer func() { err = errors.Join(err, closeLog()) }()
 
 	artifacts := filepath.Join(r.Out, "artifacts")
-	p := build.Production{Source: snapshot, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, LiveInputs: r.LiveInputs, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
+	p := build.Production{Source: snapshot, ForgejoSource: filepath.Join(r.Out, "work/forgejo-source"), ForgejoRevision: r.ForgejoRevision, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, LiveInputs: r.LiveInputs, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
 
 	contextDir, base, mediaTooling, assembler, err := prepareBuildProduction(&p, r, snapshot, revision, execute, capture, progress.Phase)
 	if err != nil {

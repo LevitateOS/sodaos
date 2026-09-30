@@ -7,8 +7,10 @@ or third-party material. Preserve their existing terms and provenance.
 
 These notes preserve useful findings from the removed Forgejo source-build guide.
 They are not a build recipe, dependency lock, distribution approval or complete
-license-clearance claim. The selected integration uses stock Forgejo and supported
-template overrides; no patched executable or native source-build path is selected.
+license-clearance claim. The selected integration is Fountain, a maintained
+Forgejo 15.0 LTS fork compiled from an exact committed source input. The current
+upstream update procedure belongs to the
+[release workflow](../development/release.md#fountain-upstream-maintenance).
 
 ## Distribution obligations
 
@@ -18,17 +20,22 @@ Bottts artwork. Exact DiceBear/core-schema/validator/text dependency license tex
 are retained in [`avatar-dependencies.txt`](../../appliance/licenses/avatar-dependencies.txt)
 and copied into new native bundles; this is not broader distribution clearance.
 
-- Forgejo's overall GPL-3.0-or-later and its per-file/template terms remain applicable.
-  Swagger's MIT grant is not the Forgejo distribution license. Using an official
-  image or overriding a template does not waive corresponding-source/notice duties.
+- Forgejo's overall GPL-3.0-or-later and its per-file/template terms remain applicable
+  to Fountain. Swagger's MIT grant is not the Forgejo distribution license. Building
+  a patched executable on an official image does not waive corresponding-source or
+  notice duties.
 - Preserve copyright/license notices in overridden upstream templates and assets,
   document modifications as required and deliver their applicable source/notices.
   Do not stamp inherited templates as original Apache-only Soda code.
-- The actual bundle must bind the stock image, overrides and Soda artifacts to
-  their source/notices. Include required source and licenses for distributed
-  dependencies/runtime material; a tag URL or generic license-name list is not
-  automatically sufficient. Exclude private configuration, credentials, databases,
-  repositories and evidence from distributable payloads.
+- The actual candidate retains the exact Fountain Git archive used for compilation.
+  That archive contains the root GPL license, nested SDK source/manifests,
+  extension authoring documentation/example, and the license plus modification
+  note for the vendored session dependency. The separate SodaOS source archive
+  contains the Soda extension package/backend sources; bundle notices carry the
+  SodaOS Apache license and notice. Include required source and licenses for other
+  distributed dependencies/runtime material; a tag URL or generic license-name
+  list is not automatically sufficient. Exclude private configuration, credentials,
+  databases, repositories and evidence from distributable payloads.
 - Retain MIT/BSD notices, Apache NOTICE, applicable MPL covered source, LGPL
   source/relinking requirements and OFL/CC attribution according to actual shipped
   content. Review embedded assets/linkage, not only container labels or `dev` flags.
@@ -77,10 +84,12 @@ From the U01 review at `542de21`, whose architecture acceptance was later withdr
   branding attribution. HTMX and its matching license are removed from current
   source together; historical bundles/evidence still need their original notices.
 
-The full Forgejo presentation inventory now includes the selected 15.0.9 GPL text
+The full Forgejo presentation inventory includes the selected 15.0.9 GPL text
 (`appliance/licenses/forgejo-LICENSE`), Soda LICENSE/NOTICE, all three bundled font
 family licenses, and the locked source metadata for the complete merged English
-catalog. This is source/fixture packaging, not final shipped-image license closure.
+catalog. Fountain's exact source input is retained separately by the candidate
+producer because the presentation inventory is not corresponding source. Neither
+record is final shipped-image license closure.
 
 Research evidence remains in `.artifacts/research/u01-d5b5065/` and
 `.artifacts/research/u01-8727233/`, with provenance, license texts, hash comparisons
@@ -110,10 +119,9 @@ notices, not complete binary/runtime license closure or deployment.
 
 ## Upgrade research is not a deployment selection
 
-The prior v15/v16 comparison and release-note review remain evidence in H01 and the
-handoff. Stock 15.0.7 remains the recorded installation; current source selects
-stock 15.0.9 without a new deployment receipt. The v16 source development
-lock was removed with the fork preparer; missing JSON APIs no longer justify an
-upgrade or backport. Select a supported stock release based on actual security,
-template/configuration/protocol compatibility and migration review at that time.
-Only Forgejo performs its migrations; an old image alone is not data rollback.
+Fountain currently derives from Forgejo 15.0.9. The prior v15/v16 comparison and
+release-note review remain historical evidence, not selection of another release.
+Assess maintenance and security releases on the maintained 15.0 LTS line and update
+the source and runtime base together through the release workflow. A major upgrade
+requires its own compatibility and migration decision. Only Forgejo performs its
+migrations; selecting an older image is not data rollback.

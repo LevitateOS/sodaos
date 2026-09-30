@@ -106,7 +106,8 @@ func (f *registryDouble) Run(_ context.Context, args ...string) ([]byte, error) 
 
 func privateTempDir(t *testing.T) string {
 	t.Helper()
-	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
 	require.NoError(t, os.Chmod(root, 0o700))
 	return root
 }
@@ -250,7 +251,8 @@ func completeRegistry(t *testing.T, root string, tr Trust) (*registryDouble, str
 	for _, n := range append([]string{"host"}, Names...) {
 		path := filepath.Join(root, "artifact-"+n)
 		require.NoError(t, os.Mkdir(path, 0o700))
-		config := []byte(`{"os":"linux","architecture":"amd64"}`)
+		config, e := json.Marshal(map[string]string{"os": "linux", "architecture": "amd64", "fixture": n})
+		require.NoError(t, e)
 		configHash := Hash(config)
 		mb, e := json.Marshal(map[string]any{"schemaVersion": 2, "mediaType": manifestType, "config": descriptor{MediaType: "application/vnd.oci.image.config.v1+json", Digest: configHash, Size: int64(len(config))}, "layers": []descriptor{}, "annotations": map[string]string{"synthetic-fixture": n}})
 		require.NoError(t, e)

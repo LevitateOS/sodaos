@@ -15,6 +15,56 @@ else
 fi
 . /etc/os-release
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]]
+python3 - <<'PY'
+import hashlib, json, platform, subprocess
+from pathlib import Path
+
+payload = json.loads(Path('/usr/share/soda/release.json').read_text())
+content = json.loads(Path('/usr/share/soda/host-image/content.json').read_text())
+fixed = {
+    'forgejo:/usr/local/bin/gitea',
+    'extension:/usr/local/bin/gitea',
+    'extension:/usr/share/soda/extension/extension.json',
+    'extension:/usr/share/soda/extension/backend',
+    'extension:/usr/share/soda/extension/run',
+    'host:/usr/share/containers/systemd/forgejo.container',
+    'host:/usr/lib/systemd/system/soda-extension-install.service',
+}
+asset_prefix = 'extension:/usr/share/soda/extension/assets/'
+assets = {name for name in content if name.startswith(asset_prefix)}
+if not assets or set(content) != fixed | assets:
+    raise SystemExit('incomplete installed content inventory')
+for name in assets:
+    relative = name.removeprefix(asset_prefix)
+    if not relative or '..' in Path(relative).parts or Path(relative).is_absolute():
+        raise SystemExit('unsafe installed extension asset inventory')
+if payload['Architecture'] != platform.machine():
+    raise SystemExit('installed release architecture differs from native host')
+packages = Path('/usr/share/soda/host-image/packages.txt').read_bytes()
+if hashlib.sha256(packages).hexdigest() != payload['HostPackagesSHA256']:
+    raise SystemExit('installed RPM inventory differs from release metadata')
+images = payload['Images']
+if images['forgejo']['Config'] == images['extension']['Config']:
+    raise SystemExit('independent extension image required')
+if content['forgejo:/usr/local/bin/gitea'] != content['extension:/usr/local/bin/gitea']:
+    raise SystemExit('extension installer CLI differs from patched Forgejo')
+for name in ('forgejo', 'extension'):
+    image = images[name]['Config']
+    observed = subprocess.check_output(['podman', '--remote=false', 'image', 'inspect', '--format', '{{.Id}}', image], text=True).strip()
+    if observed != image:
+        raise SystemExit(f'{name} image identity differs from installed release')
+for name, expected in content.items():
+    component, path = name.split(':', 1)
+    if component == 'host':
+        actual = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    else:
+        image = images[component]['Config']
+        output = subprocess.check_output(['podman', '--remote=false', 'run', '--rm', '--network=none', '--read-only', '--cap-drop=all', '--security-opt=no-new-privileges', '--entrypoint=/usr/bin/sha256sum', image, path], text=True).strip()
+        actual = output.split('  ', 1)[0] if output.endswith('  ' + path) else ''
+    if actual != expected:
+        raise SystemExit(f'installed content differs from release inventory: {name}')
+print('Installed fork, independent extension, service bytes and native architecture match the release inventory.')
+PY
 rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale git python3 tar gzip
 # Fedora may satisfy these capabilities with versioned/replacement packages.
 rpm -q --whatprovides nodejs

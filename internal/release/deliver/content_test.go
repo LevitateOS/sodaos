@@ -32,7 +32,7 @@ func TestV3ImportsExactLocalReferencesWithoutLifecycle(t *testing.T) {
 		p, root := sharedFixture(t)
 		files, size, err := VerifyContent(p, root)
 		require.NoError(t, err)
-		require.Len(t, files, 13)
+		require.Len(t, files, 2*len(Names)+3)
 		require.Positive(t, size)
 		present := map[string]bool{}
 		queries, pulls := 0, 0
@@ -61,11 +61,11 @@ func TestV3ImportsExactLocalReferencesWithoutLifecycle(t *testing.T) {
 		})
 		require.NoError(t, err)
 		if alreadyPresent {
-			require.Equal(t, 5, queries)
+			require.Equal(t, len(Names), queries)
 			require.Zero(t, pulls)
 		} else {
-			require.Equal(t, 10, queries)
-			require.Equal(t, 5, pulls)
+			require.Equal(t, 2*len(Names), queries)
+			require.Equal(t, len(Names), pulls)
 		}
 	}
 }

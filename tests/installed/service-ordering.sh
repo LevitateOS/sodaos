@@ -15,6 +15,10 @@ contains_property soda-dashboard.service After soda-host.socket
 contains_property soda-proxy.service After soda-dashboard.service
 contains_property soda-proxy.service After forgejo.service
 contains_property forgejo.service After network-online.target
+contains_property forgejo.service Requires soda-extension-install.service
+contains_property forgejo.service After soda-extension-install.service
+contains_property soda-extension-install.service Requires soda-image-import.service
+contains_property soda-extension-install.service Before forgejo.service
 for unit in forgejo.service soda-dashboard.service soda-proxy.service; do
   path=$(systemctl show "$unit" --property=FragmentPath --value)
   [[ "$path" == /run/systemd/generator*/* && -f "$path" ]]

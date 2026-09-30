@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
@@ -130,6 +131,10 @@ type Candidate struct {
 	Format                                                            int
 	Host                                                              build.Image
 	HostReference, HostArchiveSHA256, PayloadSHA256, Migration, Notes string
+	ForgejoRevision, ForgejoSourceSHA256                              string
+	ForgejoToolchain                                                  build.ForgejoToolchain
+	Architecture                                                      string
+	ContentSHA256                                                     map[string]string
 }
 
 func validCandidateHost(c Candidate, p Payload, arch string) bool {
@@ -137,7 +142,68 @@ func validCandidateHost(c Candidate, p Payload, arch string) bool {
 }
 
 func validCandidateProvenance(c Candidate, p Payload, payload []byte) bool {
-	return c.Format == 1 && c.PayloadSHA256 == strings.TrimPrefix(Hash(payload), "sha256:") && c.Host.BaseDigest == strings.Split(p.Base, "@")[1] && c.Host.Source == "https://github.com/LevitateOS/sodaos" && c.Migration != "" && c.Notes != ""
+	return validCandidateSource(c, p, payload) && validCandidateBuild(c, p) && ValidCandidateContent(c.ContentSHA256) && c.Migration != "" && c.Notes != ""
+}
+
+func validCandidateSource(c Candidate, p Payload, payload []byte) bool {
+	return c.Format == 1 && c.PayloadSHA256 == strings.TrimPrefix(Hash(payload), "sha256:") && c.Host.BaseDigest == strings.Split(p.Base, "@")[1] && c.Host.Source == "https://github.com/LevitateOS/sodaos"
+}
+
+func validCandidateBuild(c Candidate, p Payload) bool {
+	return build.Revision(c.ForgejoRevision) && build.Digest(c.ForgejoSourceSHA256) && c.ForgejoToolchain.Validate() == nil && c.Architecture == p.Architecture
+}
+
+func ValidCandidateContent(files map[string]string) bool {
+	if !requiredCandidateContent(files) || files["forgejo:/usr/local/bin/gitea"] != files["extension:/usr/local/bin/gitea"] {
+		return false
+	}
+	assets := 0
+	for file, hash := range files {
+		if !build.Digest(hash) {
+			return false
+		}
+		if strings.HasPrefix(file, "extension:/usr/share/soda/extension/assets/") {
+			if !validCandidateAssetName(strings.TrimPrefix(file, "extension:/usr/share/soda/extension/assets/")) {
+				return false
+			}
+			assets++
+			continue
+		}
+		if !knownCandidateContentName(file) {
+			return false
+		}
+	}
+	return assets > 0
+}
+
+func requiredCandidateContent(files map[string]string) bool {
+	for _, path := range []string{
+		"forgejo:/usr/local/bin/gitea",
+		"extension:/usr/local/bin/gitea",
+		"extension:/usr/share/soda/extension/extension.json",
+		"extension:/usr/share/soda/extension/backend",
+		"extension:/usr/share/soda/extension/run",
+		"host:/usr/share/containers/systemd/forgejo.container",
+		"host:/usr/lib/systemd/system/soda-extension-install.service",
+	} {
+		if !build.Digest(files[path]) {
+			return false
+		}
+	}
+	return true
+}
+
+func validCandidateAssetName(name string) bool {
+	return name != "" && path.Clean(name) == name && !path.IsAbs(name) && !strings.HasPrefix(name, "../") && !strings.ContainsAny(name, "\\\n\r\x00")
+}
+
+func knownCandidateContentName(file string) bool {
+	switch file {
+	case "forgejo:/usr/local/bin/gitea", "extension:/usr/local/bin/gitea", "extension:/usr/share/soda/extension/extension.json", "extension:/usr/share/soda/extension/backend", "extension:/usr/share/soda/extension/run", "host:/usr/share/containers/systemd/forgejo.container", "host:/usr/lib/systemd/system/soda-extension-install.service":
+		return true
+	default:
+		return false
+	}
 }
 
 func (c Candidate) Validate(p Payload, payload []byte) error {
@@ -223,16 +289,16 @@ func decodeReleaseMedia(r Release, p Payload, c Candidate) error {
 	return nil
 }
 
-func validReleaseProvenance(r Release, p Payload) bool {
-	if len(r.Provenance) != 4 {
+func validReleaseProvenance(r Release, p Payload, c Candidate) bool {
+	if len(r.Provenance) != 5 {
 		return false
 	}
-	for _, n := range []string{"source.tar", "app-inputs.json", "packages.txt", "presentation.json"} {
+	for _, n := range []string{"source.tar", "forgejo-source.tar", "app-inputs.json", "packages.txt", "presentation.json"} {
 		if !Digest(r.Provenance[n]) {
 			return false
 		}
 	}
-	return r.Provenance["packages.txt"] == "sha256:"+p.HostPackagesSHA256 && r.Provenance["presentation.json"] == "sha256:"+p.PresentationSHA256
+	return r.Provenance["packages.txt"] == "sha256:"+p.HostPackagesSHA256 && r.Provenance["presentation.json"] == "sha256:"+p.PresentationSHA256 && r.Provenance["forgejo-source.tar"] == "sha256:"+c.ForgejoSourceSHA256
 }
 
 func validReleaseEvidence(evidence map[string]string) bool {
@@ -257,7 +323,7 @@ func (r Release) Validate(t Trust) (Payload, Candidate, error) {
 	if p.RepositoryPrefix != t.Prefix || c.Validate(p, r.Payload) != nil {
 		return p, c, ErrRefused
 	}
-	if !validReleaseProvenance(r, p) || !validReleaseEvidence(r.Evidence) || decodeReleaseMedia(r, p, c) != nil {
+	if !validReleaseProvenance(r, p, c) || !validReleaseEvidence(r.Evidence) || decodeReleaseMedia(r, p, c) != nil {
 		return p, c, ErrRefused
 	}
 	return p, c, nil

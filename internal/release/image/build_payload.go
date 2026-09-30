@@ -33,6 +33,9 @@ func stageCandidateForgejo(p *deliver.Payload, source, context, out string, prod
 	if err := os.Mkdir(forgejoContext, 0o700); err != nil {
 		return "", err
 	}
+	if err := producer.StageForkBinary(forgejoContext); err != nil {
+		return "", err
+	}
 	if err := producer.Assets(context, forgejoContext); err != nil {
 		return "", err
 	}
@@ -51,7 +54,38 @@ func stageCandidateForgejo(p *deliver.Payload, source, context, out string, prod
 	if err = build.WriteNew(filepath.Join(forgejoContext, "Containerfile"), recipe, 0o644); err != nil {
 		return "", err
 	}
+	if err = stageExtensionPackage(source, context, out, producer.Native); err != nil {
+		return "", err
+	}
 	return forgejoContext, linkPreparedAssets(producer)
+}
+
+func stageExtensionPackage(source, context, out, native string) error {
+	root := filepath.Join(out, "extension-context")
+	packageDir := filepath.Join(root, "extension")
+	if err := os.MkdirAll(packageDir, 0o700); err != nil {
+		return err
+	}
+	for name, mode := range map[string]os.FileMode{"extension.json": 0o644, "run": 0o755} {
+		data, err := os.ReadFile(filepath.Join(source, "appliance/soda-extension", name))
+		if err != nil {
+			return err
+		}
+		if err = build.WriteNew(filepath.Join(packageDir, name), data, mode); err != nil {
+			return err
+		}
+	}
+	if err := os.Link(filepath.Join(context, "rootfs/usr/libexec/soda/soda-extension"), filepath.Join(packageDir, "backend")); err != nil {
+		return err
+	}
+	if err := stageExtensionAssets(native, packageDir); err != nil {
+		return err
+	}
+	recipe, err := os.ReadFile(filepath.Join(source, "appliance/soda-extension.Containerfile"))
+	if err != nil {
+		return err
+	}
+	return build.WriteNew(filepath.Join(root, "Containerfile"), recipe, 0o644)
 }
 
 func recordCandidateImages(p *deliver.Payload, prefix string, images map[string]build.ProducedImage) {
@@ -70,11 +104,60 @@ func inspectCandidateForgejo(source, out string, images map[string]build.Produce
  test "$(readlink "$GITEA_CUSTOM/conf")" = /data/gitea/conf
  test "$(stat -c '%u:%g:%a' "$GITEA_CUSTOM/templates/custom/header.tmpl")" = 0:0:444
  test -s "$GITEA_CUSTOM/public/assets/soda/forgejo/soda-native-page.js"
- /usr/local/bin/gitea --version`)
+ /usr/local/bin/gitea --version
+ /usr/local/bin/gitea extensions --help >/dev/null`)
 	if err != nil {
 		return fmt.Errorf("forgejo payload image inspection failed: %w", err)
 	}
+	if err := inspectCandidateFiles(out, images, producer); err != nil {
+		return err
+	}
 	return build.WriteNew(filepath.Join(out, "forgejo-inspection.txt"), []byte(result+"\n"), 0o600)
+}
+
+func inspectCandidateFiles(out string, images map[string]build.ProducedImage, producer build.Production) error {
+	if err := inspectPackagedFile(out, images["forgejo"].Config, "forgejo-context/forgejo-bin", "/usr/local/bin/gitea", producer); err != nil {
+		return err
+	}
+	if err := inspectPackagedFile(out, images["extension"].Config, "forgejo-context/forgejo-bin", "/usr/local/bin/gitea", producer); err != nil {
+		return err
+	}
+	for staged, installed := range map[string]string{
+		"extension-context/extension/extension.json": "/usr/share/soda/extension/extension.json",
+		"extension-context/extension/backend":        "/usr/share/soda/extension/backend",
+		"extension-context/extension/run":            "/usr/share/soda/extension/run",
+	} {
+		if err := inspectPackagedFile(out, images["extension"].Config, staged, installed, producer); err != nil {
+			return err
+		}
+	}
+	return inspectExtensionAssets(out, images["extension"].Config, producer)
+}
+
+func inspectExtensionAssets(out, imageID string, producer build.Production) error {
+	assets := filepath.Join(out, "extension-context/extension/assets")
+	return filepath.WalkDir(assets, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(assets, path)
+		if err != nil {
+			return err
+		}
+		return inspectPackagedFile(out, imageID, "extension-context/extension/assets/"+rel, "/usr/share/soda/extension/assets/"+filepath.ToSlash(rel), producer)
+	})
+}
+
+func inspectPackagedFile(out, imageID, staged, installed string, producer build.Production) error {
+	want, err := build.HashFile(filepath.Join(out, staged))
+	if err != nil {
+		return err
+	}
+	observed, err := producer.Capture(out, "podman", "--remote=false", "run", "--rm", "--network=none", "--read-only", "--cap-drop=all", "--security-opt=no-new-privileges", "--entrypoint=/usr/bin/sha256sum", imageID, installed)
+	if err != nil || observed != want+"  "+installed {
+		return fmt.Errorf("packaged content differs from staged source: %s", installed)
+	}
+	return nil
 }
 
 func sealCandidatePayload(p deliver.Payload, source, context, out string, producer build.Production) error {

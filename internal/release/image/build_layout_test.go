@@ -25,6 +25,7 @@ func stagingImages(t *testing.T) (deliver.Payload, string) {
 	}
 	return p, root
 }
+
 func TestSharedLayoutStagingRefusesBeforeCopiesAndStopsOnFailure(t *testing.T) {
 	for _, kind := range []string{"changed-archive", "occupied", "linked", "bad-format", "ambiguous-path", "failed-copy"} {
 		t.Run(kind, func(t *testing.T) {
@@ -53,6 +54,7 @@ func TestSharedLayoutStagingRefusesBeforeCopiesAndStopsOnFailure(t *testing.T) {
 		})
 	}
 }
+
 func TestNativeHostReadbackChecksEverySharedBlob(t *testing.T) {
 	for _, fault := range []string{"", "missing", "changed"} {
 		t.Run("readback-"+fault, func(t *testing.T) {
@@ -70,6 +72,13 @@ func TestNativeHostReadbackChecksEverySharedBlob(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(out, "payload.json"), raw, 0o644))
 			require.NoError(t, ownedWrite(filepath.Join(out, "tools/soda-installer"), []byte("console"), 0o755))
 			consoleHash := hashBytes([]byte("console"))
+			serviceHashes := map[string]string{}
+			for _, path := range []string{"/usr/share/containers/systemd/forgejo.container", "/usr/lib/systemd/system/soda-extension-install.service"} {
+				body := []byte("staged " + path)
+				require.NoError(t, ownedWrite(filepath.Join(context, "rootfs", strings.TrimPrefix(path, "/")), body, 0o644))
+				serviceHashes[path] = hashBytes(body)
+			}
+			require.NoError(t, ownedWrite(filepath.Join(context, "rootfs/usr/share/soda/host-image/content.json"), []byte("{}\n"), 0o644))
 			checked := 0
 			err = inspectComplete(context, out, "candidate", func(_ string, cmd string, args ...string) (string, error) {
 				require.Equal(t, "podman", cmd)
@@ -99,6 +108,13 @@ func TestNativeHostReadbackChecksEverySharedBlob(t *testing.T) {
 					return consoleHash + "  /usr/libexec/soda/soda-install", nil
 				case strings.Contains(joined, "quadlet-inspect.cid"):
 					return "soda-image-import.service " + p.Images["forgejo"].Config + " " + p.Images["dashboard"].Config + " " + p.Images["proxy"].Config, nil
+				case strings.Contains(joined, "extension-unit-inspect.cid"):
+					return "ExecStart=/usr/bin/podman run --entrypoint=/usr/local/bin/gitea " + p.Images["extension"].Config + " --config /data/gitea/conf/app.ini extensions install", nil
+				case strings.Contains(joined, "service-hash-inspect.cid"):
+					path := args[len(args)-1]
+					return serviceHashes[path] + "  " + path, nil
+				case strings.Contains(joined, "inventory-inspect.cid"):
+					return "{}", nil
 				default:
 					t.Fatalf("unexpected native inspection: %v", args)
 					return "", nil

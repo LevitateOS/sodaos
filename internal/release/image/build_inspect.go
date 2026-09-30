@@ -80,6 +80,47 @@ func inspectCompleteQuadlets(out string, p deliver.Payload, run func(string, str
 	return nil
 }
 
+func inspectCompleteExtensionUnit(p deliver.Payload, run func(string, string, ...string) (string, error)) error {
+	unit, err := run("extension-unit-inspect", "/usr/bin/cat", "/usr/lib/systemd/system/soda-extension-install.service")
+	if err != nil {
+		return err
+	}
+	if strings.Contains(unit, "localhost/soda-extension:dev") || !strings.Contains(unit, "--entrypoint=/usr/local/bin/gitea "+p.Images["extension"].Config+" ") {
+		return errors.New("host image lost Soda extension installer binding")
+	}
+	return nil
+}
+
+func inspectCompleteServiceFiles(context string, run func(string, string, ...string) (string, error)) error {
+	for _, path := range []string{
+		"/usr/share/containers/systemd/forgejo.container",
+		"/usr/lib/systemd/system/soda-extension-install.service",
+	} {
+		want, err := build.HashFile(filepath.Join(context, "rootfs", strings.TrimPrefix(path, "/")))
+		if err != nil {
+			return err
+		}
+		got, err := run("service-hash-inspect", "/usr/bin/sha256sum", path)
+		if err != nil || got != want+"  "+path {
+			return errors.New("host service differs from staged source")
+		}
+	}
+	return nil
+}
+
+func inspectCompleteInventory(context string, run func(string, string, ...string) (string, error)) error {
+	const path = "/usr/share/soda/host-image/content.json"
+	want, err := os.ReadFile(filepath.Join(context, "rootfs", strings.TrimPrefix(path, "/")))
+	if err != nil {
+		return err
+	}
+	got, err := run("inventory-inspect", "/usr/bin/cat", path)
+	if err != nil || got+"\n" != string(want) {
+		return errors.New("host content inventory differs from staged source")
+	}
+	return nil
+}
+
 func inspectComplete(context, out, id string, capture build.BuildCapture) error {
 	run := func(name, entry string, args ...string) (string, error) {
 		command := []string{"--remote=false", "run", "--cidfile", filepath.Join(out, name+".cid"), "--network=none", "--read-only", "--entrypoint=" + entry, id}
@@ -101,5 +142,14 @@ func inspectComplete(context, out, id string, capture build.BuildCapture) error 
 	if err != nil || console != consoleHash+"  /usr/libexec/soda/soda-install" {
 		return errors.New("image installer differs from prebuilt tool")
 	}
-	return inspectCompleteQuadlets(out, p, run)
+	if err = inspectCompleteQuadlets(out, p, run); err != nil {
+		return err
+	}
+	if err = inspectCompleteExtensionUnit(p, run); err != nil {
+		return err
+	}
+	if err = inspectCompleteServiceFiles(context, run); err != nil {
+		return err
+	}
+	return inspectCompleteInventory(context, run)
 }
