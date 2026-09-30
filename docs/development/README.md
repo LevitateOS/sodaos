@@ -38,8 +38,10 @@ The [factory implementation plan](factory-implementation-plan.md) records the
 current source baseline, owning contracts, exclusions and
 [requirement deliverables](factory-implementation-plan.md#deliverable-map).
 The [source change inventory](factory-implementation-plan.md#source-change-inventory)
-locates coordinated code, caller, configuration and fixture changes. Interface
-details and ordered implementation tasks are still to be derived. The
+locates coordinated code, caller, configuration and fixture changes. The
+[factory interfaces](../architecture/factory-interfaces.md) specify target APIs,
+records, transitions and process bindings; ordered implementation tasks are still
+to be derived. The
 [earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.

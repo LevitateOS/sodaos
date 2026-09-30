@@ -56,6 +56,8 @@ Spaces.
 These responsibilities describe the target boundaries, not completion of the
 automatic lifecycle. Current commands: [factory reference](../reference/factory.md).
 Go package placement: [Go ownership](../development/go.md).
+Target command, persistence and process contracts:
+[factory interfaces](factory-interfaces.md).
 
 ## Factory flow
 
@@ -81,7 +83,7 @@ against the [factory acceptance criteria](../development/testing.md#factory-acce
 | Decision | Rationale and consequence |
 | --- | --- |
 | One persistent Project execution foundation serves humans and factory roles. | The [environment model](../product/projects.md) preserves the repository's tools, services and human work. Native role separation, read-only attachment and targeted process termination have focused experimental support. Replace the disposable factory runtime; qualify real CLI/broker integration in the selected Project OS before enabling it. |
-| Soda owns one durable coordinator and execution ledger; Forgejo owns collaboration records. | Automatic intake, reservations, accepted-input versions and run transitions need durable Soda state. Native issues, dependencies, PRs, reviews and CI already exist. Operator commands and Spaces control the same coordinator rather than maintaining another factory engine. |
+| Soda owns one durable coordinator and execution ledger; Forgejo owns collaboration records. | Host `factory/control` in the existing Soda backend and persist product authority/execution in its existing store. Broker custody stays separate. Operator commands and Spaces control that coordinator; native issues, dependencies, PRs, reviews and CI remain native. [Interface placement](factory-interfaces.md#service-and-persistence-placement) owns lifecycle, publisher packaging and the shared availability tradeoff. |
 | Background writes use native principals and generic constraints at the native mutation boundary. | Browser-bound callbacks cannot authorize unattended work, and a separate policy preflight cannot close a write race. Keep Soda policy in Soda and require the [conditional mutation contract](trust.md#conditional-native-mutations) from Fountain/native Forgejo. Do not create another login or general credential-relay system. |
 | Execution, provider lease, browser attachment and intervention remain separate authorities. | A viewer disappearing must not kill an agent; a role UID or surviving checkout must not revive a lease. Bind each execution to its actual process generation, keep factory views read-only, and perform takeover under the member's own identity. [Trust](trust.md#project-execution-boundary) and [Spaces](../product/spaces.md#sessions-and-views) own the details. |
 | Qualification composes proven native boundaries with the actual product journey. | Synthetic probes support feasibility but cannot prove a provider, broker protocol or rendered Spaces. Use bounded integration checks before release qualification, then demonstrate the real automatic loop with exact candidate and authority evidence. |

@@ -6,8 +6,8 @@ visible through Spaces. Fountain supplies generic native collaboration and
 extension capabilities; Soda owns factory policy and environment coordination.
 
 This draft establishes the planning baseline, maps requirements to finished
-deliverables and identifies the source changes. Interface details, implementation
-tasks and dependency order are not yet specified.
+deliverables, identifies source changes and references the defined implementation
+interfaces. Implementation tasks and dependency order are not yet specified.
 The current work is documentation only. The linked owning guides remain authoritative
 for behavior, and this plan does not duplicate or replace their requirements.
 
@@ -61,7 +61,8 @@ services and protocols to consume, not a parallel implementation to build.
 The evidence column describes what will establish completion. Reuse valid evidence
 at its stated scope; do not repeat every check for every task. Detailed acceptance
 remains in [Testing](testing.md#factory-acceptance). The source inventory below
-locates the changes; interfaces and the dependency graph remain subsequent steps.
+locates the changes; the [interface definition](#interface-definition) specifies
+their boundaries. The dependency graph remains subsequent planning work.
 
 ### Native extension foundation
 
@@ -120,8 +121,38 @@ becoming prerequisites or placeholder functionality.
 Unfinished extension/appliance work from the earlier plan maps to D01–D05 and
 D21–D25, including the delivery owners in the source inventory below. That mapping retains
 the required outcome, not the old task order, proposed implementation or claim of
-qualification. Detailed wire/data contracts, edit assignments, task dependencies
-and execution sequencing remain subsequent planning work.
+qualification. The [interface definition](#interface-definition) now fixes component
+contracts; edit assignments, task dependencies and execution sequencing remain
+subsequent planning work.
+
+## Interface definition
+
+The [factory interface owner](../architecture/factory-interfaces.md) defines the
+target component APIs, persistent records, state transitions, process bindings
+and UI actions. Product and security rules remain in their existing owners; the
+current API reference is not relabeled as an implemented target API.
+
+| Deliverables | Defined interface boundary |
+| --- | --- |
+| D01–D05 | Generic Fountain background SDK admission, native snapshots and four typed operation intents; native records/results continue to follow Trust's operation and reservation protocol. |
+| D06–D15 | Authenticated policy/grant/acceptance/work controls, one Soda ledger, local CAS and ordered withdrawal/dispatch, scheduling/usage records and attributable stage transitions. |
+| D16–D20 | Canonical Project preparation/checkout identities, fixed host preparation and one-time launch/stop, execution-unique broker acquisition, exact process binding, read-only output and separate human takeover. |
+| D21–D26 | Existing networking/operator/delivery interfaces retain ownership; source inventory changes integrate packaging, removal and composed qualification with these boundaries. |
+
+The bounded source check used Soda `edc10d7dc4c114e37cf6e3a0ec3c77bb31124f71`
+and Fountain `c22b3543f6a1f88ede70ed3f046576b725430934`; the intervening Soda
+commits since the baseline are documentation only. Newly resolved decisions are
+to host the coordinator in the existing backend/store, and to put the broker/native
+launch handshake in fixed host execution code. This requires publisher Git in the
+backend image and stronger durable run/acquisition receipts; it does not claim
+the existing human launch helper is already retry-safe.
+
+Three fresh Jev requests, an independent complete-request wording/equivalence
+audit, all responses and the source-grounded decision record are retained in
+`.artifacts/factory-implementation-interfaces-20260930/jev/`. All three supported
+both choices. Agreement is advisory; native restart, credential and writer-boundary
+evidence is still required by the acceptance contract. No product/runtime code,
+build or installed qualification is part of this interface-definition step.
 
 ## Source change inventory
 

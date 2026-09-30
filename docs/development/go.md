@@ -123,6 +123,45 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 
 ## Cross-cut owners
 
+### Factory interface placement
+
+The [target factory interfaces](../architecture/factory-interfaces.md) reuse these
+owners. The tables above describe existing placement; apply the following narrow
+dependency changes with the implementation and its `internal/archcheck` update,
+not as an invitation to reorganize `internal/`:
+
+- `factory` owns policy, acceptance, assessment, command, attempt, assignment,
+  run and usage records. Reference canonical `identity` records; use Project IDs
+  rather than inventing a second Project DTO. `project` owns preparation and
+  checkout/lifecycle records. `store` is still the only SQL owner.
+- `factory/control` composes `store`, `forgejo`/Fountain SDK, `host.Client` and
+  unprivileged `host/publish`. Replace its `host/workspace` dependency with the
+  host client and canonical Project records; it must not import privileged
+  `host/project` or `host/terminal` execution. Remove `host/workspace` and its
+  architecture-test required-directory entry with its last caller.
+- `web` wires the coordinator and its explicit lifecycle. `web/api` admits calls
+  into `factory/control`; it still cannot call native executor packages directly.
+  `cmd/soda-dashboard` continues to enter through `web`. Convert any retained
+  `cmd/soda-factory` controls to that coordinator's admitted API, not a second
+  local controller/database.
+- `host` supplies typed client methods and thin admission/routing. Fixed Project
+  preparation/launch orchestration belongs in `host/project`, using
+  `host/terminal` for managed execution and the private identity client for the
+  broker handshake. Preserve that existing permitted sibling direction. Native
+  receipts are protected mechanical files; neither executor imports `store` or
+  decides factory policy. Canonical factory/Project/identity request records cross
+  the facade directly, without forwarding DTO packages.
+- `identity` owns acquisition identity, lease and process-binding types;
+  `identity/control` enforces execution uniqueness and credential custody, using
+  `store` for persistence. Broker runtime adapters use the fixed host process
+  contract instead of disposable-container or hard-coded worker assumptions.
+
+Keep construction in facades and behavior in the existing concern packages.
+No new coordinator daemon, parallel runtime abstraction or generic persistence
+API is required by this placement.
+
+### Current cross-cut map
+
 | Concern | Meaning / policy | Privileged execute | HTTP |
 | --- | --- | --- | --- |
 | Project | `project` (types + validation) | `host/project` | `web/api` (+ thin `host` daemon routes) |

@@ -18,6 +18,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Spaces](product/spaces.md) | Human and factory sessions and views beside native Forgejo collaboration |
 | [Scope](product/scope.md) | Retain/adapt/retire/defer decisions and excluded product work |
 | [Architecture overview](architecture/overview.md) | Topology, components, data flow |
+| [Factory interfaces](architecture/factory-interfaces.md) | Target component APIs, records, transitions and process bindings |
 | [Trust model](architecture/trust.md) | Authority, identity, privilege boundaries |
 | [Networking](architecture/networking.md) | Access, Tailnet, Cockpit boundary |
 | [Release architecture](architecture/release.md) | Install/update candidate model |
