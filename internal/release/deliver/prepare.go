@@ -107,6 +107,19 @@ func candidateImageContent(content map[string]string, image string) (map[string]
 	return expected, paths
 }
 
+func candidateContentWithEmbeddedInventory(content map[string]string) (map[string]string, error) {
+	data, err := json.MarshalIndent(content, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	withInventory := make(map[string]string, len(content)+1)
+	for name, digest := range content {
+		withInventory[name] = digest
+	}
+	withInventory["host:/usr/share/soda/host-image/content.json"] = strings.TrimPrefix(Hash(append(data, '\n')), "sha256:")
+	return withInventory, nil
+}
+
 func verifyCandidateImage(root *os.Root, candidate, n, arch string, expected Image, rev string, content map[string]string) (string, string, error) {
 	path := n + ".oci"
 	if n != "host" {
@@ -159,7 +172,13 @@ func VerifyCandidateImages(root *os.Root, candidate string, p Payload, c Candida
 			rev = ""
 		}
 		content := map[string]string{}
-		if n == "host" || n == "forgejo" || n == "extension" {
+		if n == "host" {
+			var err error
+			content, err = candidateContentWithEmbeddedInventory(c.ContentSHA256)
+			if err != nil {
+				return nil, err
+			}
+		} else if n == "forgejo" || n == "extension" {
 			content = c.ContentSHA256
 		}
 		path, hash, e := verifyCandidateImage(root, candidate, n, p.Architecture, inputs[n], rev, content)

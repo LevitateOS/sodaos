@@ -1,6 +1,7 @@
 package deliver
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +27,7 @@ func TestVerifyCandidateImagesChecksRecordedImageMembers(t *testing.T) {
 		"extension:/usr/share/soda/extension/backend":                 []byte("extension backend"),
 		"extension:/usr/share/soda/extension/run":                     []byte("extension runner"),
 		"extension:/usr/share/soda/extension/assets/entry.js":         []byte("extension browser asset"),
+		"extension:/usr/share/soda/extension/assets/entry.css":        []byte("extension browser style"),
 		"host:/usr/share/containers/systemd/forgejo.container":        []byte("host unit"),
 		"host:/usr/lib/systemd/system/soda-extension-install.service": []byte("extension install unit"),
 	}
@@ -49,17 +51,30 @@ func TestVerifyCandidateImagesChecksRecordedImageMembers(t *testing.T) {
 			hostFiles[strings.TrimPrefix(key, "host:")] = body
 		}
 	}
-	hostArchive := filepath.Join(rootPath, "host.oci")
-	host := testoci.ArchiveFiles(t, hostArchive, "amd64", p.Revision, hostFiles)
-	c := Candidate{Host: build.Image{Config: host.Config, Manifest: host.Manifest}, HostArchiveSHA256: host.ArchiveSHA256, ContentSHA256: map[string]string{}}
+	c := Candidate{ContentSHA256: map[string]string{}}
 	for name, body := range content {
 		c.ContentSHA256[name] = contentDigest(body)
 	}
+	inventory, err := json.MarshalIndent(c.ContentSHA256, "", "  ")
+	require.NoError(t, err)
+	hostFiles["usr/share/soda/host-image/content.json"] = append(inventory, '\n')
+	hostArchive := filepath.Join(rootPath, "host.oci")
+	host := testoci.ArchiveFiles(t, hostArchive, "amd64", p.Revision, hostFiles)
+	c.Host = build.Image{Config: host.Config, Manifest: host.Manifest}
+	c.HostArchiveSHA256 = host.ArchiveSHA256
 	root, err := os.OpenRoot(rootPath)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, root.Close()) })
 	_, err = VerifyCandidateImages(root, rootPath, p, c)
 	require.NoError(t, err)
+
+	asset := "extension:/usr/share/soda/extension/assets/entry.css"
+	assetDigest := c.ContentSHA256[asset]
+	delete(c.ContentSHA256, asset)
+	require.True(t, ValidCandidateContent(c.ContentSHA256), "one remaining asset still passes the shape check")
+	_, err = VerifyCandidateImages(root, rootPath, p, c)
+	require.Error(t, err, "the embedded host inventory must reject an omitted asset")
+	c.ContentSHA256[asset] = assetDigest
 
 	c.ContentSHA256["extension:/usr/share/soda/extension/backend"] = strings.Repeat("0", 64)
 	_, err = VerifyCandidateImages(root, rootPath, p, c)

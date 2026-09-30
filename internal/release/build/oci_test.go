@@ -248,4 +248,43 @@ func TestOCIArchiveLayerCompressionAndDigest(t *testing.T) {
 		_, _, err = scanArchiveLayer(bytes.NewReader(tc.data), desc, wanted)
 		require.ErrorContains(t, err, "OCI layer changed")
 	}
+
+	corrupt := bytes.Clone(compressed.Bytes())
+	corrupt[len(corrupt)-1] ^= 0xff
+	corruptHash := sha256.Sum256(corrupt)
+	corruptDescriptor := descriptor{
+		Digest:    "sha256:" + hex.EncodeToString(corruptHash[:]),
+		Size:      int64(len(corrupt)),
+		MediaType: "application/vnd.oci.image.layer.v1.tar+gzip",
+	}
+	_, _, err = scanArchiveLayer(bytes.NewReader(corrupt), corruptDescriptor, wanted)
+	require.Error(t, err, "a matching blob digest must not hide a corrupt gzip trailer")
+}
+
+func TestOCIArchiveRejectsConflictingDuplicateLayerMediaTypes(t *testing.T) {
+	var layer bytes.Buffer
+	tw := tar.NewWriter(&layer)
+	content := []byte("verified member")
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "wanted", Mode: 0o644, Size: int64(len(content))}))
+	_, err := tw.Write(content)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	data := layer.Bytes()
+	h := sha256.Sum256(data)
+	digest := "sha256:" + hex.EncodeToString(h[:])
+
+	var archive bytes.Buffer
+	archiveTar := tar.NewWriter(&archive)
+	name := "blobs/sha256/" + hex.EncodeToString(h[:])
+	require.NoError(t, archiveTar.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(data))}))
+	_, err = archiveTar.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, archiveTar.Close())
+
+	layers := []descriptor{
+		{Digest: digest, Size: int64(len(data)), MediaType: "application/vnd.oci.image.layer.v1.tar"},
+		{Digest: digest, Size: int64(len(data)), MediaType: "application/vnd.oci.image.layer.v1.tar+zstd"},
+	}
+	_, _, err = scanOCIArchiveLayers(bytes.NewReader(archive.Bytes()), layers, map[string]string{"wanted": "/wanted"})
+	require.ErrorContains(t, err, "conflicting OCI layer descriptors")
 }

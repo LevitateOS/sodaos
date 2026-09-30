@@ -314,13 +314,18 @@ func scanOCILayer(r io.Reader, wanted map[string]string) (map[string]layerMember
 	}
 }
 
-func layerArchiveIndexes(layers []descriptor) map[string][]int {
+func layerArchiveIndexes(layers []descriptor) (map[string][]int, error) {
 	indexes := map[string][]int{}
+	seen := map[string]descriptor{}
 	for i, layer := range layers {
 		name := "blobs/sha256/" + strings.TrimPrefix(layer.Digest, "sha256:")
+		if prior, ok := seen[name]; ok && (prior.MediaType != layer.MediaType || prior.Size != layer.Size) {
+			return nil, errors.New("conflicting OCI layer descriptors")
+		}
+		seen[name] = layer
 		indexes[name] = append(indexes[name], i)
 	}
-	return indexes
+	return indexes, nil
 }
 
 func verifyLayerDigest(raw io.Reader, checksum hash.Hash, digest string) error {
@@ -350,6 +355,11 @@ func openLayerReader(raw io.Reader, mediaType string) (io.Reader, func() error, 
 
 func scanLayerReader(layer io.Reader, closeLayer func() error, wanted map[string]string) (map[string]layerMember, error) {
 	members, scanErr := scanOCILayer(layer, wanted)
+	if scanErr == nil {
+		if _, err := io.Copy(io.Discard, layer); err != nil {
+			scanErr = err
+		}
+	}
 	if closeLayer != nil {
 		if closeErr := closeLayer(); scanErr == nil {
 			scanErr = closeErr
@@ -379,7 +389,10 @@ func scanArchiveLayer(tr io.Reader, descriptor descriptor, wanted map[string]str
 }
 
 func scanOCIArchiveLayers(f io.Reader, layers []descriptor, wanted map[string]string) ([]map[string]layerMember, []bool, error) {
-	indexes := layerArchiveIndexes(layers)
+	indexes, err := layerArchiveIndexes(layers)
+	if err != nil {
+		return nil, nil, err
+	}
 	found := make([]map[string]layerMember, len(layers))
 	unsupported := make([]bool, len(layers))
 	tr := tar.NewReader(f)
