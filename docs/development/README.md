@@ -43,7 +43,10 @@ locates coordinated code, caller, configuration and fixture changes. The
 records, transitions and process bindings. The
 [dependency graph](factory-implementation-plan.md#dependency-graph) separates
 parallel work from integration that requires demonstrated native capabilities;
-executable tasks and milestone assignments are still to be derived. The
+the [early milestones](factory-implementation-plan.md#early-integration-milestones)
+bound implementation/proof, pass scope and failure reconsideration for the uncertain
+native integrations. Remaining executable tasks and delivery milestones are still
+to be derived. The
 [earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.

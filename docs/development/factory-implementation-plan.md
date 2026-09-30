@@ -7,8 +7,9 @@ extension capabilities; Soda owns factory policy and environment coordination.
 
 This draft establishes the planning baseline, maps requirements to finished
 deliverables, identifies source changes, references the defined implementation
-interfaces and establishes their dependency graph. Executable task breakdown and
-milestone assignments are not yet specified.
+interfaces, establishes their dependency graph and places the uncertain native
+integrations into early implementation-and-proof milestones. The remaining
+executable task breakdown and delivery milestones are not yet specified.
 The current work is documentation only. The linked owning guides remain authoritative
 for behavior, and this plan does not duplicate or replace their requirements.
 
@@ -123,8 +124,10 @@ Unfinished extension/appliance work from the earlier plan maps to D01–D05 and
 D21–D25, including the delivery owners in the source inventory below. That mapping retains
 the required outcome, not the old task order, proposed implementation or claim of
 qualification. The [interface definition](#interface-definition) fixes component
-contracts and the [dependency graph](#dependency-graph) establishes prerequisites;
-executable edit assignments and milestone sequencing remain subsequent planning work.
+contracts and the [dependency graph](#dependency-graph) establishes prerequisites.
+The [early integration milestones](#early-integration-milestones) put native proof
+before dependent expansion; the remaining executable edit assignments and delivery
+milestones are subsequent planning work.
 
 ## Interface definition
 
@@ -328,6 +331,304 @@ local store transactions do not span native/broker calls, host locks do not span
 `Register` callbacks into `Validate`, and deferred native work takes fresh
 ownership; these interface rules prevent the same apparent cycles from becoming
 deadlocks in the implementation.
+
+## Early integration milestones
+
+These milestones make the graph's uncertain boundaries executable before broad
+factory orchestration expands. They specify **implementation and proof**, not
+another research phase or approval ceremony. This planning step uses Soda
+`3671005cfc28628e94dffa0503decfd68076b384` and the same Fountain revision recorded
+above; neither repository's runtime changed, and no milestone was executed here.
+The [testing guide](testing.md#factory-acceptance) remains the acceptance owner.
+The cases below select early decisive checks from it; they do not replace the
+remaining acceptance cases or claim installed qualification.
+
+Start the Fountain and Project paths in parallel with only their necessary
+SDK/domain/store/service wiring. The native browser contribution can proceed
+independently alongside them. Preparation precedes real provider consumption;
+after consumption works, viewing and lifecycle control can be proved independently:
+
+```mermaid
+flowchart LR
+  SDK[F-sdk] --> M1a[Background admission]
+  M1a --> M1b[Guarded native write]
+  M1b --> M1c[Mixed writers and recovery]
+  M1c --> Domain[Finish F-domain]
+  State[S-state] --> M2[Project preparation]
+  M2 --> M3[CLI and broker execution]
+  Broker[S-broker] --> M3
+  M3 --> M4a[Read-only Spaces]
+  M3 --> M4b[Lifecycle and takeover]
+  Browser[F-browser] --> M4a
+  Browser --> M4b
+  Views[S-views slice] --> M4a
+```
+
+M1c follows M1b. Native operation implementations can proceed as siblings after
+M1b, but their completion/consumer gates still require F-domain and their own
+proofs. M4a also needs the small S-views contribution, not the full factory UI.
+The [source inventory](#source-change-inventory) fixes implementation ownership
+and coupled removals; these milestone boundaries do not require separate commits
+that would leave two selectable runtimes.
+
+### M1a — Authenticate the actual background channel
+
+**Entry and implementation:** F-sdk's required SDK/host interfaces. In Fountain,
+implement installation/runtime/service admission and native actor binding through
+the selected private dispatcher/control channel. In Soda, build only the minimal
+independent extension and external service caller plus exact socket/secret-file
+deployment wiring. Use the actual native Unix peers and user namespaces; a caller
+in a different namespace is not a substitute. No coordinator, AI run or Git write
+is needed for this boundary.
+
+**Decisive proof:** bootstrap both supported caller forms without a browser;
+accept the bound caller and reject wrong/ambiguous peer, forged installation/actor
+and wrong repository/kind. Restart/replace the runtime and preserve installation
+identity while replacing ephemeral admission. Verify current token generation,
+permission and binding withdrawal are enforced, with owning-installation
+lookup/cancel **admission** still available. This last check concerns authorization;
+M1b establishes durable operation/tombstone behavior.
+
+**Passing proves / permits:** F-auth for the recorded deployment, caller forms and
+credential binding. Proceed to authenticated native enforcement. It does not
+prove a conditional write, native cancellation ordering or unattended Soda policy.
+
+**On failure:** inspect the actual peer mapping, installation lifecycle and native
+credential checks. If the selected channel cannot distinguish the required peers,
+reconsider that generic Fountain admission boundary before adding native mutation
+callers. Do not compensate with a Soda login relay, browser cookie or broader PAT.
+
+### M1b — Enforce one native write through its full effect span
+
+**Entry and implementation:** M1a. Implement the F-core operation/reservation
+records, submit/get/cancel path, prepared-checkpoint admission and trusted native
+execution/callback binding in the selected Fountain source. Use one fixture
+repository/PR, the supported fast-forward-only path, an ordinary branch update
+and a relevant issue/input mutation. Reuse the retained prototype's bounded pause
+and race cases as test instruments through the real SDK/native Git/hook path;
+neither a test-only authorization bypass nor the old prototype qualifies the new
+code. Keep factory scheduling and all other mutation kinds out of this milestone.
+
+**Decisive proof:** a valid exact merge succeeds and native branch protection still
+refuses an ineligible one. Changed head, base or participating input revision
+refuses stale intent; changed intent cannot reuse an operation ID. Cancellation
+recorded before submission prevents a delayed request from starting. Cancellation
+winning before admission prevents the write;
+an admitted writer keeps cancellation pending until the actual effect is known,
+and a committed write returns its attributable result and `too_late`. Pause after
+prepared admission: a competing writer cannot mutate through the held owner.
+Lose the response or interrupt the caller while the receiver survives; identical
+operation lookup/replay cannot launch another merge. Restart or deadline passage
+cannot erase ownership, and a forged execution/phase binding cannot reenter it.
+
+**Passing proves / permits:** the authenticated F-core path and its observed native
+ordering, attribution and fencing cases. Expand into M1c and independent native
+operation implementations. It does not establish all writer coverage, authoritative
+snapshot brackets, production recovery or any Soda write consumer's readiness.
+
+**On failure:** locate the first unauthorized effect, duplicate launch or premature
+release in native evidence. Reconsider enforcement placement, execution-capability
+propagation or effect/owner lifetime if it does not span the real write. A route
+preflight, additional Soda lock or larger orchestration layer cannot repair this
+boundary. An inaccurate pause/observer requires a driver correction, not an
+invented architecture change or another full release build.
+
+### M1c — Test mixed native writers and recovery before widening coverage
+
+**Entry and implementation:** M1b. Take the first slices of F-domain through a
+transaction-plus-direct-Git writer such as `DeleteBranch`, an Actions task/job
+update and its resulting status, and a deferred push/completion worker. Acquire
+Actions ownership before task state changes, not merely at the final status insert.
+Add their actual outer ownership,
+nested execution context, busy-work retention and effect identities. Implement
+the minimum offline stop/restart-inhibition and exact-owner reconciliation for
+the interrupted ordinary fixture and M1b's merge. Use the real selected deployment
+domain, with task-owned native fixtures, not a replacement supervisory service.
+
+**Decisive proof:** missing/stale ownership refuses before effects; participating
+mutations advance the revision. Required synchronous callbacks finish without
+waiting on their parent's gate, and a deferred job retains busy work then acquires
+fresh ownership. With the entire fixture writer domain stopped and restart
+inhibited, recovery identifies the known effect and releases only its exact
+owner/generation. Wrong generation, unaccounted ordinary effects and uncertain
+attribution remain fenced; a merge-tip comparison cannot release an ordinary
+writer's reservation.
+
+**Passing proves / permits:** these mixed Git/SQL, callback, queue and recovery
+integration mechanisms work for the recorded families. Proceed with the rest of
+the existing participating-writer inventory. **M1c alone does not complete
+F-domain.** Complete source/caller coverage and remaining affected checks still
+precede F-read or any enabled conditional operation. Each operation sibling must
+also prove its own effect/completion recovery; none waits for all other kinds.
+
+**On failure:** reconsider where the native transaction starts, which phase owns
+completion, how deferred work is retained, or whether deployment controls can
+actually establish quiescence. Correct the failed boundary before applying it to
+more writers. Never replace missing attribution with timeout release, force-unlock,
+or an assumption that process exit means the native effect did not happen.
+
+### M2 — Prepare a usable shared Project without an agent
+
+**Entry and implementation:** the necessary S-state Project/approval records and
+existing lifecycle helpers, independent of Fountain's mutation milestones. Implement
+fixed coder/reviewer roles and protected layout, separate maintainer requirement
+acceptance and privileged-effect approval, exact approved setup, preparation
+inspect/stop, maintenance hold and readiness records. Use the selected full Rocky
+Project OS and actual launcher environment with one small repository, a real
+toolchain and a native development service. Keep a dirty human checkout, terminal
+and identifiable service data present. Test both absent-Project acquisition and
+retained-Project reuse through the authorized path.
+
+Use current native identity/permission admission for human approvals. If the
+bounded preparation driver instead seeds accepted owner/maintainer/admin records,
+identify those fixture inputs explicitly: it can prove preparation execution and
+helper restrictions, but not the human approval/admission journey. That journey
+retains its F-browser/S-input and actual control prerequisites; fixture records
+are not a production authorization path.
+
+**Decisive proof:** missing shared prerequisites wait without a provider lease.
+After native administrative preparation, both the coding checkout and a fresh
+independent reviewer checkout can prepare/build/test using the resolved installed
+tools and assigned service data. Check actual UID/permissions/PATH and effective
+inputs: repository hooks or changed referenced configuration cannot select root
+execution, shared tooling or the engine socket. Both roles can use disposable test
+data without accessing human data. Interrupt private setup, observe partial effects
+and retire it before a safe preparation with a new identity. Maintenance holds
+deny affected admission and retained roots/human state survive the check.
+
+**Passing proves / permits:** S-project's preparation/role/data boundary for that
+profile, native architecture and representative service arrangement. Proceed to
+M3; later dispatch may consume this readiness boundary. Fixture-seeded approvals
+leave the real admission journey unproved. This pass also does not establish
+arbitrary repository setup, a functioning provider CLI or a qualified appliance.
+
+**On failure:** reconsider the fixed role/launch permissions, approved-input
+resolution or native service/data assignment that failed. A successful account
+creation is insufficient if the launched environment still has shared authority.
+Do not bypass missing tools with privileged repository execution, automatic root
+installation, a disposable worker fallback or replacement of the retained Project.
+
+### M3 — Run and retire a real CLI through the broker
+
+**Entry and implementation:** M2 and S-broker's execution acquisition/closure
+records. Implement the fixed host prepare/launch/inspect/stop/finish sequence,
+single-use start and terminal acquisition identities, exact process binding and
+restricted credential delivery/return. Keep it callable by a small driver through
+the real host/broker interfaces; no issue scheduler or publication loop is needed.
+Use M2's retained Project and a short real task under the selected subscription.
+Start with one named supported harness and prove its intended coding and reviewer
+role environments. Its pass permits dependent integration for that harness without
+waiting for the others. Each additional selectable harness needs its own M3 proof
+and remains unavailable until then; reuse identical already-proven native primitives.
+
+**Decisive proof:** the CLI authenticates and executes with its fresh private home
+and recorded role/run; host observation and broker lease identify the same Project
+incarnation and native unit invocation. Normal completion and targeted retirement
+account for credential state and descendants while human terminal/service activity
+continues. Controlled delayed acquire/register/start, withdrawal, lost reply and
+restart cannot reacquire a retired execution or start a second conversation.
+Uncertain stop/return keeps the connection unavailable. Test the `Register` →
+`Validate` callback with real transport so a lock-order error is observable.
+Use short deterministic limits/faults for accounting and races instead of spending
+provider time to exhaust quotas or reproduce every failure.
+
+**Passing proves / permits:** S-run for the named harness/version, provider path,
+role bindings and architecture. Permit actual S-launch integration, M4a attachment
+and M4b control; this is not proof that the agent produces correct code/reviews or
+has native publication authority. Enrollment or another harness's pass does not
+qualify an untested selectable harness.
+
+**On failure:** distinguish provider availability/reauthentication from a broken
+fresh-home delivery contract. Reconsider process containment if descendants escape
+or human activity is killed, and serialization if start or broker callbacks race
+stop. Preserve an uncertain lease fence and inspect the same execution; never
+replay credential delivery or launch another provider task merely to repair an
+observer. Do not switch accounts, enable paid access or restore whole-Project kill.
+
+### M4a — Observe that process through real Spaces
+
+**Entry and implementation:** M3, F-browser and the necessary S-views component.
+Wire the real factory inventory/output route and read-only rendered view using
+minimal durable issue/attempt/run records. Drive the actual fixed host/broker path;
+the minimal record fixture must be identified in the evidence and must not bypass
+the native viewer authority or process binding being tested. Reuse a suitable M3
+execution/output fixture; a full intake or review/merge loop is not required.
+
+**Decisive proof:** displayed output and status belong to the recorded run and
+actual process. Input, resize/signals and human-terminal End cannot control it.
+Navigation, split/hide/close/reopen and reconnect preserve execution identity;
+reattachment never launches an agent. Native logout, permission loss and account
+switch disconnect the view and prevent stale private output disclosure. Use the
+actual native contribution and stream, not a standalone mock page.
+
+**Passing proves / permits:** S-spaces for the tested browser/transport/run path;
+proceed with observation UI integration. It does not qualify control actions,
+durable transcript replay or the complete automatic factory.
+
+**On failure:** reconsider attachment lifetime if closing a view ends execution,
+admitted routing/framing if human terminal commands reach the factory process,
+or authority revalidation if stale viewers retain access. Debug rendering/transport
+with retained output or a harmless native process where sufficient; do not repeat
+provider calls just to test UI, and do not accept that substitute as the missing
+final real-CLI composition proof.
+
+### M4b — Control lifecycle and transfer work safely
+
+**Entry and implementation:** M3 and F-browser for the actual admitted control
+actions; M4a is not a prerequisite. Implement minimal durable hold/pause/cancel
+records, Project Stop/Start coordination and fixed takeover into a joined member's
+separate checkout, all using the same host/broker owners. Use unfinished factory
+changes alongside the human dirty checkout, terminal and service data.
+
+**Decisive proof:** hold/withdrawal closes dispatch before stopping; a delayed
+acquisition or physical start cannot escape confirmed retirement. Normal run stop
+preserves other activity. An explicit authorized **Project** Stop can stop that
+Project's services, but preserves their data and root; Start does not revive old
+runs, leases, grants or readiness. Stale incarnations refuse. Takeover waits for
+descendant retirement and credential accounting, then copies only retained work
+into independent human Git state, excluding provider homes and role configuration.
+Human Join, terminal/End and explicit-key access remain usable. Where a native
+write outcome is pending, control status stays pending and takeover cannot finish;
+proving that write's actual cancellation belongs to its Fountain operation check.
+
+**Passing proves / permits:** S-life's execution/lifecycle and human-transfer
+boundary. Proceed with those controller/UI controls and later C-loop composition.
+Stopping a CLI still does not prove cancellation of a previously submitted native
+write; the corresponding operation proof remains a separate dependency.
+
+**On failure:** reconsider durable effect admission if stop can finish ahead of
+delayed creation, lifecycle invalidation if Start restores authority, or checkout
+transfer if it requires a live agent/credential home. Keep unresolved native
+effects explicit; neither restarting the Project nor replaying the run resolves
+them. Do not enlarge the factory loop while these control guarantees are missing.
+
+### Passing evidence and failure handling
+
+Keep a small task-scoped receipt for each milestone: exact source/patch and driver
+identities, native architecture and selected images/CLI versions, operation or
+run/lease/binding IDs, the observed before/after result, and the limits of the
+claim. Preserve relevant failure diagnostics without credentials. Reuse previous
+evidence only where its source, boundary and native path still apply; changed
+boundaries need the affected check, not automatic repetition of every milestone.
+
+On a failed or uncertain check, stop expansion of its dependent graph branch and
+name the unproved fact before the next action. Classify it as fixture/observer,
+implementation defect, unavailable prerequisite, or a contradicted design
+assumption. Choose the cheapest check that distinguishes those explanations.
+Repair and retry a demonstrated defect within the authorized development scope;
+do not turn suggested case counts into a new approval limit. If evidence invalidates
+an architecture choice, update its owning contract and assemble that evidence for
+the required three fresh Jev consultations before committing to a replacement.
+Unchanged independent branches may continue. There is no automatic retry loop,
+weakened pass criterion or production rebuild to compensate for an unresolved
+native boundary.
+
+Passing these early milestones permits the dependent work named above, not general
+factory enablement. F-domain coverage, authoritative F-read, each operation's
+separate effect/completion proof, complete native CI, C-loop and R-qualify still
+have their graph-defined dependencies. Use the smallest native development target
+and minimum relevant packaging throughout; no full production build is required
+merely to discover whether these boundaries work.
 
 ## Source change inventory
 
