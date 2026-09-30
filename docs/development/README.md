@@ -50,8 +50,9 @@ assign concrete outcomes, owners, prerequisites, changes, checks and completion
 conditions. The [six implementation lanes](factory-implementation-plan.md#implementation-lanes)
 show ordering and parallel branches while preserving all cross-lane dependencies.
 Their [execution assignments](factory-implementation-plan.md#execution-assignments)
-record lanes, accountable owner roles, start prerequisites, downstream proof and
-shared-resource constraints without changing those task definitions. The
+record lanes, accountable owner roles and shared-resource constraints, separating
+[can start from proven for consumers](factory-implementation-plan.md#start-readiness-and-consumer-proof)
+without changing those task definitions. The
 [integration and qualification sequence](factory-implementation-plan.md#integration-cutover-and-qualification)
 joins those outputs, replaces old callers and schedules feature availability,
 the real factory demonstration and native qualification after their prerequisites.

@@ -705,14 +705,9 @@ ownership/imports change. Browser changes include the affected built assets and
 actual contribution where native evidence is required. A named milestone is a
 required proof at its stated scope, not shorthand for running a full release.
 
-**Start versus complete:** FT10's read conversion can begin from the baseline;
-FT11–FT14 can implement and exercise their native fixture paths after FT03 while
-common coverage continues. Completion of all five requires FT09.
-No Soda mutation consumer can use those tasks as a prerequisite until that complete
-proof exists. FT01's browser proof and FT02's background proof can proceed in
-parallel using the existing SDK baseline; coordinate shared SDK/manifest versions
-without making background authentication wait for browser completion. Review
-shared native service/model edits together rather than duplicating ownership.
+The [start-readiness and consumer-proof rules](#start-readiness-and-consumer-proof)
+distinguish permitted early implementation from a completed capability that another
+task can rely on. Shared native service/model edits retain one definition and owner.
 
 ### Fountain tasks
 
@@ -833,6 +828,40 @@ release its Soda consumer, and qualification still requires the matching candida
 Owner roles remain accountable across parallel contributors; lane membership does
 not force serial execution or allocate additional workers.
 
+### Start readiness and consumer proof
+
+**Can start** and **proven for consumers** are separate scheduling facts, not new
+factory runtime states. The assignment table records their conditions; it does not
+assert that implementation has started or evidence has passed.
+
+| Scheduling fact | Meaning |
+| --- | --- |
+| **Can start** | The row's start prerequisites and necessary shared resources are available for its stated implementation and task-scoped proof work. This does not establish product enablement or let a downstream integration rely on an unproved native capability. |
+| **Proven for consumers** | The original task checks and **Done** criterion, including required upstream proof, are satisfied with evidence valid for the capability being consumed. An authored interface, completed code or passing mock/source test cannot substitute for a required native check. This handoff retains its stated scope; it does not establish unrelated capabilities or qualified shipping bytes. |
+
+A named task prerequisite requires its completed, scoped proof unless the row
+explicitly allows an earlier start. FT10's read conversion can start from the
+baseline. FT11–FT14 can implement and exercise native fixtures after FT03 while
+writer coverage continues; each remains unproved for its Soda consumer until FT09
+and its own operation proof pass. Conversely, FT03's narrower proof is sufficient
+for FT04 and the stated early operation work; they need not wait for full FT09.
+FT01 and FT02 can prove their separate channels in parallel against the baseline
+SDK, coordinating shared fields without waiting for each other's completion.
+
+Pure predicates, DTOs and bounded fixtures may be authored before dependent native
+integration under the graph's rules. They do not satisfy the native handoff or
+justify expanding orchestration around an unresolved boundary. Baseline means the
+recorded source/contracts, not another foundation task.
+
+The producing owner identifies the evidence and its source/boundary scope; the
+consuming owner checks that it covers the actual integration. Harness, role and
+native architecture scope apply where relevant: one M3 harness pass permits its
+dependent work while unproved harnesses remain unavailable. Record receipts through
+the existing task/evidence path. If a relevant boundary changes or proof fails,
+hold only the affected consumers and use the existing milestone failure rules;
+unchanged evidence and independent work remain reusable. Resource contention can
+delay work without turning an otherwise proved capability into an unproved one.
+
 ### Execution assignments
 
 Each row below refers to the existing task with the same ID; it is not another
@@ -847,12 +876,9 @@ dispatched by this table. A role may coordinate contributors on disjoint files,
 but responsibility for the task and its proof stays with that owner. Lane labels
 group related work, not six mandatory simultaneous workers or additional packages.
 
-**Start prerequisites** govern implementation that depends on the named boundary.
-A named prerequisite must meet its existing completion/proof condition, except
-for the explicitly limited early starts below. Pure predicates, DTOs and bounded
-fixtures may still be authored earlier under the graph's rules; they cannot
-authorize a live operation or satisfy a downstream proof requirement. Baseline
-means the already recorded source/contracts, not another foundation task.
+The two readiness columns apply the
+[start-readiness and consumer-proof rules](#start-readiness-and-consumer-proof)
+without changing the task definitions or adding a tracking subsystem.
 
 These shared-resource rules apply to every row:
 
@@ -877,7 +903,7 @@ These shared-resource rules apply to every row:
   Qualification needs its own matching native capacity; no new fixture manager,
   resource scheduler or production build is introduced by these constraints.
 
-| Task | Lane | Assigned owner | Start prerequisites | Proof before downstream use | Shared-resource constraints |
+| Task | Lane | Assigned owner | Can start when | Proven for consumers when | Shared-resource constraints |
 | --- | --- | --- | --- | --- | --- |
 | FT01 | Fountain browser and operations | Integration lead | Baseline SDK/consumer contracts; coordinate FT02 fields without waiting for its proof. | Independent package lifecycle, selected policy/isolation and real native browser/stream proof: F-sdk/F-browser. | SDK, manifest, extension manager/router and Soda bridge with FT02; generated browser assets and admitted browser session. |
 | FT02 | Fountain enforcement | Enforcement lead | Baseline SDK; coordinate FT01 fields without waiting for browser completion. | M1a for both runtime and external-service admission, including actor binding and withdrawal. | Shared SDK/manager/router with FT01; private socket/peer configuration, native actor and credential fixtures. |
