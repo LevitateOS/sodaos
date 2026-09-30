@@ -240,11 +240,58 @@ receipt. Reconcile actual native evidence and retain `indeterminate` where neede
 
 Second, a clock check in `prepared` precedes the physical ref write. Scheduling or
 I/O delay can cross `not_after` afterward; timer cancellation has a similar gap.
-**The strict physical-write expiry in the logical contract is not established by
-stock Git hooks or a receiver-lifetime fence.** Redefining it as a deadline to
-enter the guarded commit phase would change the contract and requires an explicit
-decision. This trace does not make that change or claim that another preflight
-solves it.
+**The earlier strict physical-write expiry is not established by stock Git hooks
+or a receiver-lifetime fence.** The subsequent
+[coordination decision](../architecture/trust.md#selected-coordination-mechanism)
+explicitly changes `not_after` to guarded commit admission. It permits later
+publication by an admitted writer; another preflight or a clock check moved into
+Git would not prove the earlier hard physical deadline.
+
+## Conditional operation mechanism comparison
+
+Using the trace above, the first single-host design selects a **durable host-wide
+exclusive mutation reservation with a coarse native-state revision**. The
+[trust model](../architecture/trust.md#selected-coordination-mechanism) owns the
+protocol and its explicit admission-expiry semantics. This selection is a source-
+supported design, not a claim that Fountain implements or has qualified it.
+
+| Mechanism | Concrete behavior and cost | Disposition |
+| --- | --- | --- |
+| Durable global reservation | Short database claim/release transactions retain one execution owner across native Git and callbacks. Participating mutations serialize; one native revision detects changed observed inputs. Crash retains the fence for intervention. | **Select:** avoids lock inheritance, a resource graph, leases and automatic recovery. Costs are broad contention, conservative stale refusals and host-wide mutation blockage after an unresolved execution. |
+| Durable resource reservations | Reserve source/base repositories/refs and shared authority/input resources in a defined order, with corresponding revision expectations. | **Defer:** better concurrency, but complete dependency discovery, multi-resource ordering and recovery are extra work without a demonstrated first-profile need. |
+| OS lock plus durable recovery latch | Keep an OS lock in the actual ref writer, with a native revision and persistent uncertainty barrier. Qualify inherited descriptors or supervision, descendant lifetime, callback reentry and stable lock identity. | **Defer:** credible, but adds a process/descriptor proof dependency; automatic lock release still does not establish past non-commit. |
+| SQL transaction around push | Keep application transaction/connection locks open while native Git calls back into the host. | **Reject:** not a joint SQL/Git commit. Native source already warns of callback/database deadlock; connection lifetime does not establish writer lifetime. |
+| Modified Git publication backend | Move checks into backend publication and maintain the Git changes across ref backends/versions. | **Reject for this scope:** still needs native-input coordination and cannot establish a strict physical deadline merely by moving a clock check. No demonstrated need justifies replacing the stock path. |
+
+The source supports these concrete integration boundaries:
+
+- [Native `Merge`](../../../forgejo-ext/services/pull/merge.go) acquires its PR pool
+  at entry. Gate admission must precede that pool; retain the existing preparation,
+  possible LFS work, push and synchronous native bookkeeping. Only the SQL claim
+  is short; the whole reservation is not guaranteed to be short.
+- [HTTP receive-pack](../../../forgejo-ext/routers/web/repo/githttp.go),
+  [SSH execution](../../../forgejo-ext/cmd/serv.go), internal pushes and direct
+  [branch/ref commands](../../../forgejo-ext/modules/git/repo_branch.go) have distinct
+  launch paths. Wrapping [Git command execution](../../../forgejo-ext/modules/git/command.go)
+  alone misses the raw SSH command path.
+- Native SQL mutators include direct engine calls and explicit transactions.
+  [Issue updates](../../../forgejo-ext/models/issues/issue_update.go),
+  [dependencies](../../../forgejo-ext/models/issues/dependency.go), native access,
+  token, protection, review and status writers must participate. `ContentVersion`
+  covers issue-body edits, and `UpdatedUnix` is a timestamp; neither is a generic
+  accepted-input revision. A host revision around authoritative reads avoids
+  recreating a record-version/dependency graph or teaching Fountain Soda predicates.
+- [Process setup](../../../forgejo-ext/modules/process/manager_unix.go) and
+  [Linux cancellation](../../../forgejo-ext/modules/process/graceful_cancel_linux.go)
+  provide group cancellation and leader observation. They do not establish
+  controller-death containment or descendant quiescence. Retaining the durable
+  reservation avoids equating a lost controller with a stopped native writer.
+
+The comparison deliberately chooses intervention after unresolved crashes over an
+automatic recovery service. Complete participation, trusted callback binding and
+native effect attribution still need the
+[focused proof](../development/testing.md#acceptance-cases). Until those pass,
+the chosen design does not authorize a weaker interim merge path.
 
 ## Remaining decisive boundaries
 
@@ -255,9 +302,10 @@ solves it.
   [logical merge operation](../architecture/trust.md#operation-identity-and-authorization)
   now specifies identity, immutable intent, cancellation and separate write/completion
   outcomes. The [enforcement trace](#native-merge-enforcement-trace) locates the
-  prepared-to-ref-publication span; a concrete fence, writer/accepted-input coverage,
-  strict expiry, authenticated background transport and native race behavior remain
-  unresolved. Native
+  prepared-to-ref-publication span. The selected durable reservation and native
+  revision specify coordination and input binding, with explicit admission expiry;
+  complete writer coverage, authenticated background/execution binding, recovery
+  evidence and native race behavior remain unproved. Native
   principals are legitimate; an absent SDK method alone is not evidence a
   replacement credential system is needed.
 - **Selected CLI and environment:** when the actual factory launcher exists, use

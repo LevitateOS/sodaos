@@ -237,8 +237,9 @@ not replace Soda's product checks.
 
 This selects a minimal conditional-operation boundary, not a replacement identity
 system or an unrestricted durable delegation framework. The logical contract below
-specifies merge first. Its authenticated transport, enforcement placement and
-coverage of other mutation kinds still need design and native proof. The current merge input's
+specifies merge first. The coordination mechanism below is selected for the first
+single-host profile; authenticated transport, writer coverage and native behavior
+still require proof. Other mutation kinds need their own contracts. The current merge input's
 `head_commit_id` check during preparation does not satisfy expected-base or
 application-authority requirements. Automatic merge remains unavailable until
 the [mutation acceptance cases](../development/testing.md#factory-acceptance) pass;
@@ -277,7 +278,8 @@ Fountain does not need a reusable hierarchy of factory grants.
 | `repository_id` | Stable native ID of the base repository. Resolve by ID; do not authorize by a mutable owner/name or supplied clone URL. |
 | `kind` | Exactly `pull_request.merge` for this first contract; unknown kinds and arbitrary native commands are rejected. |
 | `authorization_revision` | Nonempty opaque application revision identifying the policy/accepted-input/grant decision behind this operation. Bound to the entire immutable intent. Fountain records validity and cancellation without interpreting that revision as Soda policy. It is not a bearer secret or a reusable grant. |
-| `not_after` | Finite authorization expiry, checked using host time and constrained by the host's supported maximum lifetime. Expiry forbids a later commit; it does not undo a prior write or prove an in-flight write never happened. No in-place renewal. |
+| `expected_native_revision` | Opaque host-issued revision obtained with the stable native-read protocol below. Reservation acquisition requires equality with the current idle revision. It binds observed native inputs without telling Fountain what Soda considers eligible. |
+| `not_after` | Finite deadline for host admission into the guarded commit phase, checked in `prepared` using host time and constrained by the host's maximum lifetime. An admitted write may finish afterward. Expiry prevents new admission; it does not release a reservation, undo a write or establish non-commit. No in-place renewal. |
 | `merge` | The exact operation-specific payload below; all semantic fields participate in intent identity. |
 
 Native IDs use the SDK's decimal-string representation. Ref names are full native
@@ -318,6 +320,7 @@ a Git/database locking mechanism already satisfies it.
 
 | Logical action | Contract |
 | --- | --- |
+| `ReadNativeRevision()` | Authenticated atomic observation of the host's native mutation revision and idle/busy state from one authoritative database snapshot. Bracket authoritative native input reads with two equal idle observations before binding that revision to an intent. This neither grants access to those inputs nor adopts them for Soda. |
 | `SubmitOperation(intent)` | Authenticate the installation/principal, validate the complete intent and durably claim its operation ID before native execution. The same ID and identical intent return or reconcile the existing record, never start a second execution. Different content under the same ID is `intent_conflict`, including a changed authorization revision or expiry. |
 | `GetOperation(operation_id)` | Authenticated lookup within the owning installation. Return the recorded intent, effect and native completion evidence. Absence is `not_observed`, not proof that an earlier request cannot still arrive or that a write never occurred. Lookup performs no new mutation. |
 | `CancelOperation(operation_id)` | The owning installation can invalidate its operation even if the native actor has since lost permission. Persist cancellation even when submission has not arrived; a delayed submission or duplicate cannot recreate authority. Order cancellation with any in-flight write and return its actual outcome. |
@@ -392,11 +395,82 @@ native merge and hook behavior. Its ownership, callback reentrancy, cross-proces
 lifetime, crash recovery and writer coverage require native proof before use.
 Controller death cannot release the guard on the assumption that Git also died.
 
-The contract's strict `not_after` cutoff is a separate unresolved requirement:
-prepared-hook time checks and timer cancellation do not prove a physical ref write
-cannot occur later. Do not silently substitute commit-admission expiry or report
-the deadline as enforced. Resolve that semantic/mechanism boundary explicitly
-before enabling the operation.
+#### Selected coordination mechanism
+
+Use **one durable exclusive mutation reservation and one native-state revision**
+in Fountain's existing database for the first single-host profile. This is a
+target capability, not an existing lock. Short atomic transactions claim and
+release the reservation; no SQL transaction spans Git execution. The
+[mechanism comparison](../research/factory-capability-map.md#conditional-operation-mechanism-comparison)
+records why resource-scoped reservations and an inherited OS lock are deferred.
+
+All participating native mutations serialize through this reservation, including
+ordinary human/API operations. Participation covers source/base refs, native
+actor/token/repository/org/team authority, protections, PR/review/check state and
+native issue/comment/dependency inputs. Global scope avoids a resource dependency
+graph; unrelated participating changes can still make an intent stale. Independent
+telemetry may remain outside only when it cannot affect these inputs. Route
+middleware, receive hooks or a database transaction helper alone are not coverage.
+
+The protocol is:
+
+1. Soda brackets its authoritative native reads with two equal idle
+   `ReadNativeRevision()` results. Each result reads revision and occupancy together
+   from one authoritative database snapshot; separate reads could tear across a
+   completed mutation. Input reads must use current database/ref state, not
+   stale replicas or caches. Soda decides whether those inputs are accepted and
+   eligible, then binds the native and application revisions and exact refs to its intent.
+   A stale revision requires fresh reads and Soda's acceptance rules, never
+   automatic adoption of changed objectives.
+2. A native mutation atomically claims an idle reservation and advances the
+   persisted native revision **before its effects**. Conditional merge also
+   compares `expected_native_revision` with the pre-claim value in that transaction.
+   Record its execution identity durably before launch; its own revision advance
+   does not invalidate its later prepared admission. Failed attempts may advance
+   the revision; revisions are never reused. This closes the gap before webhook-driven
+   withdrawal without putting factory predicates in Fountain.
+3. Acquire before native PR/ref locks and SQL mutation transactions. For the first
+   merge integration, acquire outside `Merge` and retain ownership through its
+   existing preparation, push and synchronous completion. This avoids splitting
+   the native engine but also includes preparation/LFS work in the reservation's
+   duration. Competing writers reject as busy or defer outside native locks;
+   they cannot check the marker and then write without owning it.
+4. Native callbacks reenter only with host-authenticated execution/generation
+   binding and permission for that specific callback. They do not reacquire the
+   gate. Permit required validation and native completion bookkeeping, not arbitrary
+   edits to frozen authority/input state. Deferred jobs acquire their own reservation.
+   A push option, claimed operation ID or unauthenticated environment value cannot
+   grant this privilege; agents and extensions never receive the bypass authority.
+5. In `reference-transaction prepared`, verify the reservation and bound native
+   execution, actual source/target identity, the current source OID against
+   `expected_head_oid`, and the exact old/new target tuple against the expected
+   base and persisted native merge result. Fresh native authority and required
+   checks remain effective under the gate. Atomically order cancellation against
+   recording the single commit admission, checking `not_after` at that admission.
+   Refuse unexpected ref effects or any missing binding. Keep the reservation
+   after the hook returns, through publication and native writer quiescence.
+6. Cancellation/lookup control requests remain available while the gate is busy.
+   A cancellation recorded before commit admission prevents admission; after
+   admission it remains pending until the actual result can be reported. Release
+   only after authoritative writer quiescence and effect reconciliation. Completion
+   failure may coexist with a known committed effect; unknown effects retain the
+   fence and `indeterminate` state.
+
+There is no expiring lease, automatic takeover or replay. Controller death leaves
+the durable owner in place, including after restart. Recovery requires intervention
+to establish that every admitted writer has stopped and reconcile its actual
+effect before explicitly clearing the reservation. A leader PID, hook exit,
+command timeout, elapsed deadline or reflog alone cannot authorize clearing it.
+Unknown recovery can therefore block participating mutations across the host;
+that availability cost is deliberate in this first design. Writer coverage and
+callback/process behavior must pass native proof before enabling operations.
+
+**Expiry correction:** `not_after` now limits guarded commit admission, not physical
+ref publication. This changes the earlier design's strict physical-write cutoff:
+an admitted operation may finish later while cancellation remains pending. A clock
+check in a hook, or even moved into Git's backend, can still precede scheduling/I/O
+delay. Preserve stock Git and make this narrower guarantee explicit; do not claim a
+hard latest-publication time or use expiry to release an unresolved reservation.
 
 ## Frontend and session boundary
 

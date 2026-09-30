@@ -123,7 +123,7 @@ specifies `pull_request.merge`. Its focused acceptance additionally exercises:
 
 - Identical-ID replay without a second execution, changed-intent refusal, and
   cancellation arriving before submission or after a lost submission response.
-- Spoofed actor/installation/target refusal, expiry at the write boundary, and
+- Spoofed actor/installation/target refusal, expiry at guarded commit admission, and
   cancellation by the owning installation after its native actor loses write rights.
 - Both cancellation/write orderings and restart with an in-flight write, preserving
   operation identity and denial of replay rather than inferring failure from timeout.
@@ -137,8 +137,26 @@ cancellation, a source-branch update and a relevant native policy/input change
 against that paused writer; also exercise controller death while the receiver
 survives. Prove coverage for selected HTTP/SSH and direct native writers. Do not
 infer this from a preparation check, PR mutex, reflog entry or missing completion
-callback. The separate strict-expiry question must be resolved explicitly; a
-passing clock check before the pause is not deadline proof.
+callback. Under the [selected reservation protocol](../architecture/trust.md#selected-coordination-mechanism),
+also demonstrate:
+
+- Atomic idle/revision observations bracket authoritative input reads; changes before
+  claim, including issue/dependency changes before Soda receives an event, reject
+  the old revision. Unrelated participating changes may conservatively reject too.
+- Competing native ref and policy/input mutations join the gate before taking
+  native locks. Required synchronous callbacks reenter without deadlock; forged
+  bindings and deferred jobs cannot borrow the owner's authority.
+- Controller restart and elapsed deadlines cannot clear an occupied reservation.
+  Recovery distinguishes writer quiescence from effect attribution; an unresolved
+  outcome retains the fence and does not launch replacement work.
+- Expiry before guarded admission rejects. Admission before `not_after` may publish
+  afterward; a paused admitted writer keeps cancellation pending until resolved.
+  This tests the explicit admission deadline, not a physical-publication deadline.
+
+First prove one real native merge with a competing input/ref mutation, cancellation
+and controller loss around the prepared checkpoint. Do not build broad factory
+orchestration to test this primitive. That focused proof does not replace the
+required inventory and coverage checks for every participating writer family.
 
 ### Recording completion
 
