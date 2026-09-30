@@ -15,9 +15,11 @@ owners, prerequisites, changes, checks and completion conditions.
 define how those outcomes join, when features become usable and when to demonstrate
 and qualify the complete product. Requirement coverage, boundaries, dependencies
 and cost have been independently reviewed. Implementation and native proof remain
-the work specified by this plan. Planning is complete; no implementation, build or
-qualification is authorized by this document alone. The linked owning guides remain
-authoritative for behavior, and this plan does not duplicate or replace their requirements.
+the work specified by this plan. The [execution readiness](#execution-readiness)
+section distinguishes the settled decisions from remaining implementation risks.
+Planning is complete; no implementation, build or qualification is authorized by
+this document alone. The linked owning guides remain authoritative for behavior,
+and this plan does not duplicate or replace their requirements.
 
 ## Source baseline
 
@@ -56,6 +58,44 @@ interfaces present in the baseline and do not override the target with the older
 manual factory workflow. The [capability map](../research/factory-capability-map.md)
 is source/evidence material for deriving changes, not an additional requirements
 owner or proof that all mapped capabilities work together.
+
+## Execution readiness
+
+The plan is finalized for its recorded baseline and exclusions. All known review
+findings are resolved: the capability graph includes protected release admission,
+delivery promises attributable artifacts rather than reproducible builds, shared
+capabilities are introduced with their consumers, and superseded planning gaps
+have been removed. The implementation tasks provide outcomes, owners, prerequisites,
+coupled changes/removals, verification and completion conditions.
+
+**No known unresolved major product or architectural decision prevents execution.**
+The owning contracts select the factory behavior, authority boundaries, component
+interfaces and supported first paths. Implementers need not invent those choices.
+Repository-specific tooling/checks, actor bindings, provider sponsorship and grants
+are inputs supplied through the defined product and administration interfaces;
+they are not missing product design. Selecting bounded fixtures and the first
+harness to prove is an implementation choice within those contracts.
+
+The remaining uncertainty is whether the chosen mechanisms meet their contracts
+on the actual native paths. It is assigned to implementation and proof work:
+
+| Remaining implementation risk | Assigned work and decisive evidence |
+| --- | --- |
+| Native package and background authority may behave differently through deployed peers, namespaces or restarts. | FT01–FT02 and M1a prove the real independent consumer, browser/service admission and actor binding before operation consumers rely on them. |
+| The reservation may miss an ordinary writer, callback or deferred effect, or recovery may not establish whole-domain quiescence. Complete native coverage is the largest implementation breadth risk. | FT03–FT04 / M1b–M1c test the mechanism before FT05–FT09 broaden coverage. FT10–FT14 require the complete domain and their own read/operation proofs; partial merge evidence cannot enable them. |
+| Approved tools, setup and service access may not produce isolated, usable coding and review environments in the full Project OS. | ST01 / M2 prove preparation and human-data preservation; ST05 proves the real maintainer/administrator approval journey. Missing privileged preparation remains an explicit wait. |
+| Actual CLI custody, process identity, delayed starts or credential return may violate the scoped execution contract. | ST02 / M3 prove each exposed harness and broker/host boundary, including targeted stop and restart reconciliation. Unproved harnesses remain unavailable. |
+| Real Spaces attachment, intervention or takeover may fail to preserve execution identity, current authority or unrelated human activity. | ST03–ST04 / M4a–M4b prove browser observation, lifecycle controls and safe transfer independently before composition. |
+| Individually working components may fail when composed or installed as the exact shipping candidate. | ST15 proves the real development loop; ST13–ST14 cover removal and retained support. RT01–RT04 establish protected admission, candidate/media identities and affected native qualification separately for each target. |
+
+These risks are not unresolved decisions or permission to add alternative runtimes,
+authentication workarounds or speculative recovery services. Follow the
+[milestone failure rules](#passing-evidence-and-failure-handling): stop the affected
+dependent work, establish the smallest missing fact and reconsider necessity and
+cost before expanding. If evidence contradicts an architectural assumption, resolve
+that new decision in its owning contract with the required fresh Jev consultations.
+Otherwise, complete the assigned implementation and checks without reopening settled
+product behavior. A passing plan review is not native proof or product completion.
 
 ## Deliverable map
 

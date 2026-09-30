@@ -51,7 +51,9 @@ conditions. The [integration and qualification sequence](factory-implementation-
 joins those outputs, replaces old callers and schedules feature availability,
 the real factory demonstration and native qualification after their prerequisites.
 The plan has been independently reviewed for requirement coverage, boundaries,
-dependencies and cost; implementation and native evidence remain outstanding. The
+dependencies and cost. Its [execution readiness](factory-implementation-plan.md#execution-readiness)
+records that major decisions are settled and assigns remaining implementation risks
+to their proof tasks; implementation and native evidence remain outstanding. The
 [earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.
