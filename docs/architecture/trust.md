@@ -44,13 +44,25 @@ boundaries.
 
 The factory runs only for a trusted team on one operator-managed
 appliance. Agent instructions and repository content are untrusted inputs even
-there. An agent may work in its assigned disposable workspace, but its identity
-does not confer host, Soda operator, Forgejo administrator or merge authority.
-Soda mediates Forgejo writes using the admitted work and acting authority; agents
-must not receive a general Forgejo write token or bypass native repository
-permissions. A fresh reviewer receives a separate execution identity and review
-authority, without the worker's conversation, writable environment or publication
-authority. Human review and merge remain Forgejo decisions.
+there. People authorize the repository's factory policy and the account access it
+uses. Eligible issues then proceed without a separate human admission or merge
+decision for every issue. Who may establish that policy and sponsor each authority
+remains a decision identified in the [product contract](../product/overview.md#rules-to-settle-before-implementation).
+
+An agent may work in its assigned environment, but its execution identity does not
+confer host, Soda operator or Forgejo administrator authority. Soda mediates native
+writes and automatic merge within the authorized repository scope. Agents cannot
+grant themselves broader access, receive general Forgejo write authority or bypass
+native repository policy. Issue content, comments and labels cannot enlarge the
+factory's configured authority.
+
+Review is assigned to another agent session with its own execution identity in
+the same repository container, as required by the
+[factory lifecycle](../product/overview.md#software-factory-workflow). Distinct
+assignments do not make a shared writable environment a security isolation boundary
+or guarantee independent reasoning. Review context, checkout separation and the
+division of correction work remain to be designed; the older fresh-container rule
+does not decide them.
 
 Reusable subscription credentials are a narrow exception for private trusted work.
 Keep them restricted to the assigned execution boundary and out of source, logs
@@ -62,17 +74,44 @@ Containers share a kernel, and an allowlist does not prevent exfiltration throug
 an allowed service.
 
 Keep four identities distinct: the authorizing human, the principal of one Soda
-run, the Forgejo actor publishing its candidate or findings, and the provider
+run, the native actor publishing a candidate, review or merge, and the provider
 account supplying model access. A role is a policy template, not authority an
-agent can grant itself or its subagents. An issue or label is task context rather
-than an execution grant.
+agent can grant itself or its subagents. An issue may trigger work under an
+existing policy; it is not an execution grant on its own.
 
-The [factory operator interface](../reference/factory.md) records admitted inputs
-and checks active authority for publication. Cancellation or closed work withdraws
-further execution and publication. New commits invalidate earlier CI and review
-evidence. Cleanup operates only on recorded run-owned resources; persistent human
-Projects retain their separate authority and lifetime. A fresh review boundary
-constrains operations without guaranteeing independent reasoning or correct code.
+Publication and merge require active authority. Revocation, cancellation or closed
+work withdraws further execution, publication and merge authority. Review and CI
+must cover the exact candidate; new commits invalidate earlier evidence. Native
+repository state and policy must still permit the merge when it occurs. Cleanup
+operates only on recorded run-owned resources; a run does not acquire ownership of
+a persistent environment merely by using it.
+
+The [factory reference](../reference/factory.md) describes how the existing
+operator command enforces its narrower admission and publication model. It does
+not impose manual admission, human merge or disposable containers on the target
+product.
+
+## Fountain consumption boundary
+
+Fountain is a generic Forgejo extension platform. It owns native identity,
+sessions, repository permissions and supported ways for extensions to act with
+bounded authority. Soda owns its factory policy, environments and Identity Broker;
+those product concepts do not belong in Fountain.
+
+If Soda appears to need an authentication or native-authorization workaround,
+first check the selected Fountain version, its supported contract and the actual
+Soda caller. If correct consumption cannot satisfy the requirement, the missing generic
+capability is a Fountain shortcoming to resolve there. Soda must not compensate
+with borrowed cookies, synthetic native sessions, login relays, impersonation or
+a parallel OAuth login. This applies to background factory operations as well as
+browser contributions; background authority cannot depend on keeping a person's
+browser session alive.
+
+Provider enrollment and account custody remain legitimate Identity Broker duties,
+separate from native forge sign-in. The concrete grant protocol and unattended
+publication/merge integration must be settled against Fountain's generic contract
+before implementation; this document does not assume that capability is already
+available.
 
 ## Frontend and session boundary
 

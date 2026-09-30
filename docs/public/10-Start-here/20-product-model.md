@@ -1,6 +1,8 @@
 # Product model
 
-Understand authorized software work, bounded agent runs and the persistent human projects that support them.
+Understand the operator-invoked factory workflow, bounded agent runs and persistent human projects.
+
+This chapter describes the `soda-factory` command and human project workflow.
 
 ## Software work and execution
 

@@ -1,13 +1,15 @@
 # Spaces
 
-**Spaces** (Sodaspaces) is Soda's native Forgejo extension for human project work:
-a repository environment entry, shared management views and terminals that stay
-available while Forgejo pages navigate.
+**Spaces** (Sodaspaces) is Soda's Fountain-hosted workspace for human and factory
+work: repository environments, shared management views and live AI CLI and human
+terminal sessions that stay available while native Forgejo pages navigate.
 
-Use it for development, debugging and intervention alongside factory work. Issues,
-candidate pull requests, reviews and CI remain in Forgejo; admission, status and
-cancellation use the [factory operator interface](../reference/factory.md).
-Opening Spaces or joining a project does not authorize an agent run.
+It provides visibility and intervention for the
+[factory lifecycle](overview.md#software-factory-workflow), alongside manual
+development and debugging. Issues, candidate pull requests, reviews and CI remain
+native Forgejo records. Opening Spaces or joining a project does not authorize
+agent execution. The [factory reference](../reference/factory.md) describes the
+existing operator command interface.
 
 Fountain owns the generic persistent browser host and its installed page and panel
 contributions. Soda supplies the Spaces page and a preferred Workspace panel; the
@@ -31,16 +33,28 @@ dashboard route are removed as part of the native cutover.
 
 | Surface | Purpose |
 | --- | --- |
-| Spaces page | Bounded listing and navigation for environments the actor may use |
-| Workspace panel | Persistent terminal and project workspace beside native Forgejo pages |
+| Spaces page | Find authorized repository environments and their human and factory work |
+| Workspace panel | Persistent human terminals and live factory CLI activity beside native Forgejo pages |
 | Repository Spaces settings | Create and inspect the environment for that repository |
-| Workspace management | Project controls and managed terminals |
+| Workspace management | Environment controls, sessions, factory progress and intervention |
 | Operator Runners settings | Local CI capacity (Soda operator only) |
 | Operator Tailnet settings | Host Tailnet controls and enrollment policy |
 
 “Move runners to the dashboard” means this bounded native-interface extension, not
 a revived standalone Soda UI. Forgejo retains Actions settings, scheduling and
 permissions.
+
+## Factory visibility
+
+People can follow coding, review and correction in their real CLI sessions and
+connect that activity to the issue, attempt and candidate PR. Spaces exposes the
+current stage, outcome and any blocker or intervention request. Viewing a session
+does not grant input or execution authority; available actions follow the
+[trust boundary](../architecture/trust.md#factory-authority-boundary).
+
+Factory progress does not depend on keeping a browser tab open. Hiding or closing
+a view does not cancel work. The detailed controls and their layout belong to the
+subsequent interaction design, within the product lifecycle above.
 
 ## Workspace behavior
 
@@ -61,17 +75,16 @@ Wire contracts live in [Terminal](../reference/terminal.md) and [HTTP API](../re
 | Setting | Location |
 | --- | --- |
 | Project profile / Spaces creation | Repository settings |
-| Factory admission, execution policy and run controls | Protected `soda-factory` operator configuration and commands |
+| Factory policy and intervention | Repository-scoped factory authority; configuration and control placement remain to be designed |
 | Local Sodarunners capacity | Global Soda-operator settings |
 | Host Tailnet and enrollment policy | Global Soda-operator settings |
 
 ## Integration boundary
 
-Preserve native Forgejo handlers, forms and session security. The maintained fork
-supplies generic extension routes, contribution mounts and the persistent browser
-host; Soda adds pages and a workspace panel as an administrator-installed extension.
-Keep the fork's upstream patch set small and covered by the session, authorization,
-native-route and package checks in the
-[Forgejo extension implementation plan](../development/forgejo-extensions-plan.md).
+Preserve native Forgejo handlers, forms and session security. Fountain supplies
+generic extension routes, contribution mounts and the persistent browser host;
+Soda adds pages and a workspace panel as an administrator-installed extension.
+Missing host capabilities follow the
+[Fountain consumption boundary](../architecture/trust.md#fountain-consumption-boundary).
 
 Customization rules: [Forgejo customization](../reference/forgejo.md).

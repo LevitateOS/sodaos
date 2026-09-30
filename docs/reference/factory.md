@@ -1,9 +1,13 @@
 # Bounded factory operator interface
 
-`cmd/soda-factory` admits explicit work and executes the fixed factory lifecycle.
-Product responsibilities belong to [architecture](../architecture/overview.md);
-authority belongs to [trust](../architecture/trust.md). Persistent
-[Projects](../product/projects.md) use a separate runtime and lifecycle.
+This reference describes the existing `cmd/soda-factory` operator interface:
+explicit admission, a fixed execution loop, disposable workspaces and human merge.
+The target automatic lifecycle belongs to the
+[product overview](../product/overview.md#software-factory-workflow); these command
+constraints do not define its limits. Component responsibilities belong to
+[architecture](../architecture/overview.md), and authority to
+[trust](../architecture/trust.md). The command uses a runtime and lifecycle
+separate from persistent [Projects](../product/projects.md).
 
 ## Configuration and admission
 

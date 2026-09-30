@@ -1,9 +1,10 @@
 # Architecture overview
 
-Soda OS is a Fedora CoreOS appliance for human-authorized software work. Forgejo
-owns collaboration, Soda owns bounded execution, agents perform tasks and people
-authorize work and merge verified results. Persistent Projects support manual
-development and intervention through Forgejo, SSH, Git, mise and container tools.
+Soda OS is a Fedora CoreOS appliance for software factories. People authorize
+factory operation; Soda coordinates eligible issues through execution, review,
+correction and automatic native merge. Fountain supplies Forgejo collaboration
+and generic extension capabilities. Repository environments and Spaces support
+both agent work and human development or intervention.
 
 Product concepts: [overview](../product/overview.md). Trust and privilege:
 [trust](trust.md). Networking: [networking](networking.md). Release:
@@ -22,6 +23,11 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Projects | Persistent Project OS containers with project-local accounts, writable roots, SSH and shared installations |
 | Project workloads | Nested Podman inside the project |
 
+This table locates existing services. The operator command's disposable execution
+model does not prescribe the target factory's environment lifetime. Environment
+reuse and the review session's shared container are governed by the
+[product contract](../product/overview.md#software-factory-workflow).
+
 **Forgejo is a standalone container, not a Podman pod.** A pod groups containers; it
 is not a user database, init system or filesystem. Project containers share the host
 kernel; the Project OS distribution supplies userspace.
@@ -34,11 +40,11 @@ Spaces.
 
 | Component | Responsibility |
 | --- | --- |
-| Forgejo | Identity, Git, collaboration, Actions UI/scheduling, native sessions and extension contributions |
+| Fountain / native Forgejo | Identity, Git, collaboration, Actions UI/scheduling, native sessions and generic extension contributions |
 | Soda Forgejo extension | Native browser pages, persistent workspace panel and narrowly scoped calls into the Soda service |
 | Soda Go service (`web`, `web/api`, `web/auth`) | Environment/project APIs, membership and operator policy, terminal streams and runner/Tailnet operations |
-| `soda-factory` (`factory/control`) | Admission, fixed implementation/verification/repair loop, execution records, cancellation and reconciliation |
-| Factory workspace and publisher (`host/workspace`, `host/publish`) | Disposable OCI execution and permitted Forgejo publication, separate from persistent Project authority |
+| Factory control (`factory/control`) | Readiness and execution coordination, verification and merge eligibility, execution records, limits and cancellation |
+| Factory workspace and publisher (`host/workspace`, `host/publish`) | Assigned execution resources and permitted native publication; run authority remains distinct from Project membership |
 | Identity Broker (`identity/control`) | Explicit subscription ownership/delegation and serialized native execution leases; [credential boundary](../reference/credentials.md#identity-broker) |
 | `soda-host` daemon | Privileged project, terminal and Tailnet companion execution |
 | Project OS | Developer accounts, tools, persistence, nested workloads |
@@ -46,36 +52,27 @@ Spaces.
 | Cockpit | Host administration (all interfaces, root/operator) |
 | Local runners | Appliance CI capacity; Forgejo owns workflows and results |
 
-Go package placement for developers: [Go ownership](../development/go.md).
+These responsibilities describe the target boundaries, not completion of the
+automatic lifecycle. Current commands: [factory reference](../reference/factory.md).
+Go package placement: [Go ownership](../development/go.md).
 
 ## Factory flow
 
-The operator interface is [the factory command](../reference/factory.md). Forgejo
-remains the collaboration control plane; there is no factory dashboard or second
-CI scheduler implied by this flow.
+The [product overview](../product/overview.md#software-factory-workflow) owns the
+issue-to-merge loop and its remaining design questions. Soda owns readiness,
+dependency handling, agent coordination and the decision to request a merge under
+authorized policy. Fountain owns native repository permissions and the actual
+collaboration operations; Forgejo Actions owns CI scheduling and results. Soda
+does not maintain competing issue, PR or CI records.
 
-1. A human selects Forgejo work for Soda to admit. Forgejo remains the source of
-   truth for its issue, branch, pull request, review and CI state. Soda keeps only
-   the execution record and resource ledger needed to run and account for the work.
-2. Soda assigns a replaceable coding agent to a disposable workspace separate from
-   persistent Project roots. Codex is the first agent; OpenCode, Muse Code and
-   Oh My Pi are later candidates, not required adapters in the initial path.
-3. Agent changes reach Forgejo through the narrow publisher, which checks the
-   repository, assigned branch, expected revision and active run. A fresh reviewer
-   with a separate identity examines the candidate. At most one bounded repair follows a
-   failed check before the work returns to a human.
-4. Review and CI evidence bind to the exact candidate commit. A repair receives a
-   new review in another fresh workspace and new CI results; older evidence cannot
-   authorize it.
-5. A human makes the merge decision. Forgejo runs and displays CI; Soda does not
-   replace its workflow scheduler or collaboration records.
-6. Completion, cancellation or expired limits end execution and publication
-   authority. Cleanup is recorded separately from the outcome. Restart handling
-   reconciles recorded resources; a human must explicitly admit another attempt.
+Spaces exposes the live work and intervention needs. Browser presence is not the
+execution grant for background factory work. The Identity Broker supplies
+authorized AI CLI access; [Trust](trust.md) separates provider sponsorship,
+execution identity and native publication/merge authority.
 
-The factory does not require changing the current Forgejo, Soda, Caddy or Project
-container topology. Disposable workspaces and their cleanup must have their own
-resource boundary; the Project persistence rules below still apply.
+Reusable environments and disposable run resources have different lifetimes.
+The environment design must preserve that distinction without making a fresh
+container for every stage a product requirement.
 
 ## Control and data flow
 
@@ -101,7 +98,7 @@ resource boundary; the Project persistence rules below still apply.
 | Forgejo database and repos | Forgejo volume |
 | Soda SQLite, environments, preferences and product grants | Soda data volume |
 | Factory admissions, attempts, runs and resource ledger | Protected factory `execution.db` under the configured operator root |
-| Run checkout, scratch, containers and network | Disposable run resources, reconciled from recorded ownership |
+| Run-owned checkout, scratch, containers and network | Disposable only where exclusively assigned to the run; recorded ownership governs cleanup |
 | Retained factory results | Protected factory operator state, separate from disposable resources and public logs |
 | Provider connection custody | Broker-owned encrypted database and separate private key; transient enrollment/tool auth in tmpfs |
 | Project accounts, homes, tools, service data | Project persistent root |
@@ -111,9 +108,10 @@ resource boundary; the Project persistence rules below still apply.
 Persistent application containers and project roots start existing state. Replacement,
 `--rm` and pruning are not repair strategies.
 
-Factory workspaces instead receive fresh writable state and are destroyed at the
-end of their run. Their cleanup never selects persistent human Projects or
-unrelated host resources.
+Ending a factory run releases its authority and resources, not every resource it
+used. Cleanup may remove exclusively owned temporary state; it must preserve
+reused containers, persistent Project data and unrelated work. The current
+operator command's fresh workspaces follow its documented disposable lifecycle.
 
 ## Related source
 

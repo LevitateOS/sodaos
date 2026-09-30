@@ -1,8 +1,13 @@
 # Product scope
 
-This document owns deferred and excluded product work for the current architecture.
+This document owns deferred and excluded product work for the target architecture.
 It is a scope boundary, not a backlog tracker and not permission to strip working
 validation or error handling.
+
+The automatic issue-to-merge loop, including dependency and requirements blockers,
+environment reuse, visible CLI execution, review/fix and reconsideration of waiting
+issues, is core scope. Its behavior is owned by the
+[factory product contract](overview.md#software-factory-workflow).
 
 ## Deferred
 
@@ -16,11 +21,10 @@ validation or error handling.
    orchestrators and automatic destructive recovery.
 5. **Broader recovery and lifecycle management** — project archival/deletion
    programmes and general fleet orchestration beyond the selected release model.
-6. **Factory expansion** — automatic work discovery, automatic merge, production
-   deployment, multihost execution, generic agent orchestration, and workspace
-   snapshots or resume, and execution of hostile external contributions. The
-   initial factory path is explicit admission, bounded execution and human merge
-   on one trusted appliance.
+6. **Factory expansion** — production deployment after merge, multihost execution,
+   general-purpose orchestration beyond the factory loop, workspace snapshots or
+   conversation resume, and execution of hostile external contributions. The
+   factory targets a trusted team on one operator-managed appliance.
 
 ## Not pursuing
 
@@ -36,10 +40,10 @@ validation or error handling.
 
 Deferral does not remove:
 
-- explicit factory admission, separate execution identities, time and resource
+- authorized factory operation, distinct execution identities, time and resource
   limits, cancellation and reconciliation of recorded run resources
-- exact-candidate CI and fresh review, at most one repair, human merge and
-  an understandable intervention outcome when work cannot finish
+- exact-candidate verification and review, native merge authorization and an
+  understandable intervention outcome when work cannot finish
 - ordinary authorization, validation and honest error handling
 - persistence and no-destructive-repair rules for project roots
 - native installation, update and recovery qualification for the release candidate

@@ -1,9 +1,13 @@
 # Projects
 
-A **project** is a lasting shared human development environment bound to a Forgejo
-repository. It supports development, debugging and intervention alongside bounded
-agent work. Its writable roots, credentials and lifetime are separate from
-[disposable factory workspaces](../reference/factory.md).
+A **project** is a lasting shared development environment bound to a Forgejo
+repository. It supports development, debugging and intervention. The target
+[factory contract](overview.md#software-factory-workflow) also requires prepared,
+reusable repository environments for agent work. The mapping between those
+environments and existing Project roots, accounts and checkouts must be settled
+before implementation; a separate disposable container per run is not a product
+requirement. Agent authority and cleanup do not confer ownership of persistent
+project data.
 
 Canonical runtime contracts live in [Project OS](../reference/project-os.md).
 This document owns the product model: what a project is, who may create and join it,

@@ -6,14 +6,18 @@ Annotated sheets: [design/spaces](spaces/README.md).
 
 ## Direction
 
-Spaces supports persistent human development and intervention alongside the
-software factory. The first-use journey below creates a human project; agent
-admission and run controls use the [operator interface](../reference/factory.md).
+Spaces exposes live factory CLI work and supports human development and
+intervention under the [Spaces contract](../product/spaces.md). The first-use
+journey below creates a human project. Detailed factory controls still need
+interaction design; the [operator reference](../reference/factory.md) documents
+the existing command interface.
 
 A focused first-use journey, then a project/session sidebar for finding work, tabs
 for switching within a pane, and contextual splits for the few terminals viewed
-together. Native CLI agents remain inside real terminals. No agent-chat frontend,
-worktree-per-task policy or separate application origin.
+together. Native CLI agents remain inside real terminals; there is no separate
+agent-chat frontend or application origin. Checkout and worktree policy belongs to the
+[product and environment decisions](../product/overview.md#rules-to-settle-before-implementation),
+not this presentation design.
 
 Visual language matches Soda brand tokens: Barlow interface type, Plex Mono for
 controls/terminal, square geometry, thin rules, restrained red primary actions and

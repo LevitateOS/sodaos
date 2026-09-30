@@ -3,18 +3,19 @@
 Navigate by intent. Each important subject has one canonical owner; other documents
 link to it rather than redefining the contract.
 
-Soda OS runs human-authorized software work within controlled execution boundaries.
-Start with the [first factory task](public/30-Use-Soda/15-software-factory.md) and
-[operator interface](reference/factory.md). Persistent human projects provide a
-separate path for development and intervention.
+Soda OS coordinates an automatic software factory within authorized boundaries.
+Start with the [target product contract](product/overview.md). The
+[operator interface](reference/factory.md) and
+[first factory task](public/30-Use-Soda/15-software-factory.md) document the existing
+command workflow. Spaces connects repository environments with human and factory work.
 
 ## Understand Soda
 
 | Document | Owns |
 | --- | --- |
-| [Product overview](product/overview.md) | What Soda OS is and the major concepts |
+| [Product overview](product/overview.md) | Target issue-to-merge lifecycle and major concepts |
 | [Projects](product/projects.md) | Persistent human environments, profiles, joining, persistence |
-| [Spaces](product/spaces.md) | Human project workspace beside Forgejo collaboration |
+| [Spaces](product/spaces.md) | Human and factory workspace beside native Forgejo collaboration |
 | [Scope](product/scope.md) | Deferred and excluded product work |
 | [Architecture overview](architecture/overview.md) | Topology, components, data flow |
 | [Trust model](architecture/trust.md) | Authority, identity, privilege boundaries |
@@ -39,9 +40,9 @@ separate path for development and intervention.
 | Document | Owns |
 | --- | --- |
 | [HTTP API](reference/api.md) | Callable Soda routes and semantics |
-| [Credentials](reference/credentials.md) | OAuth, grants, schema, maintenance |
+| [Credentials](reference/credentials.md) | Provider connections, grants and credential custody |
 | [Project OS](reference/project-os.md) | Project runtime baseline contracts |
-| [Factory](reference/factory.md) | Bounded software-work operator interface |
+| [Factory](reference/factory.md) | Existing bounded software-work operator interface |
 | [Runners](reference/runners.md) | Local CI runner capacity contracts |
 | [Terminal](reference/terminal.md) | Managed terminal and WebSocket contracts |
 | [Forgejo customization](reference/forgejo.md) | Supported Forgejo presentation integration |

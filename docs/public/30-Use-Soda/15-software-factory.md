@@ -1,6 +1,6 @@
 # Run your first software factory task
 
-Authorize a Forgejo issue, run a coding agent with time and resource limits, then inspect a pull request verified against its exact commit before merging it yourself.
+Use the factory operator interface to admit a Forgejo issue, run a bounded coding task, and inspect its verified pull request before merging it yourself.
 
 ## Prepare the factory
 

@@ -1,10 +1,11 @@
 # Soda OS handbook
 
-Deploy a software factory on infrastructure you control, authorize coding-agent work through Forgejo, and review verified results before a human merge.
+Deploy Soda on infrastructure you control, run factory tasks through the operator interface, and work in persistent projects.
 
-Soda creates fresh environments for approved work, enforces time and resource
-limits, and records outcomes and cleanup. Forgejo keeps repositories, issues,
-pull requests, reviews and CI. People authorize objectives and decide what merges.
+The operator-invoked factory workflow creates fresh environments for approved
+work, enforces time and resource limits, and records outcomes and cleanup. Forgejo
+keeps repositories, issues, pull requests, reviews and CI. In this workflow,
+people admit objectives and merge verified results.
 Persistent human projects support development, debugging and intervention through
 familiar editors, browser terminals and SSH.
 
