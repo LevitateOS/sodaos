@@ -1,6 +1,6 @@
 # Factory capability map
 
-This source assessment maps the agreed Soda factory to existing implementation,
+This assessment maps the agreed Soda factory to existing implementation,
 required changes and unproved integration boundaries. Most missing product behavior
 belongs in Soda: automatic readiness, scheduling, shared-Project execution and
 factory views. Existing factory, Project and broker code supplies useful primitives.
@@ -20,8 +20,11 @@ Inspected on September 30, 2026:
 - SodaOS source at `6955952b31489f9e315ed7c63019bd69731e4bd4`.
 - Fountain source at `c22b3543f6a1f88ede70ed3f046576b725430934` in the sibling
   `forgejo-ext` checkout. Fountain source links below use that checkout layout.
-- Existing task-scoped development receipts where their narrower scope matters;
-  no new runtime tests, builds, provider executions or installations were performed.
+- A focused Linux x86_64 experiment using Soda's terminal helper source at
+  `a7194d83062db0a681e5d84691f53eefef09eab7`, plus older development receipts within
+  their stated scope. The [native findings](#focused-native-findings) distinguish
+  tested primitives from missing integration. No build, provider execution or
+  appliance installation was performed for this assessment.
 
 [Soda's module](../../go.mod) requires `forgejo.org/extension-sdk v0.0.0` with a
 local `../forgejo-ext/sdk` replacement. This assessment therefore uses the SDK in
@@ -74,7 +77,7 @@ a new login, general grant framework or replacement event service.
 | Dependency and requirements readiness | Admission reads an open issue and base revision; the [fixed lifecycle](../../internal/factory/lifecycle.go) has no target readiness model. | **Missing:** dependency outcome evaluation, material-question blockers, accepted answers, cycles/unavailable evidence, blocked versus resource-queued states and reassessment only when relevant inputs change. Native issues remain the records; Soda evaluates eligibility. | Soda; upstream issue relations/comments and generic access where needed. |
 | Prompt assembly and inspectable assignments | [Task assembly](../../internal/factory/control/execute.go) includes work, run, candidate, findings and CI; [launcher](../../internal/host/workspace/launch.go) tells the CLI to consume task JSON. Objective admission is title/body plus the recorded base and policy. | **Adapt:** assemble accepted requirements, authorized clarifications/dependency outcomes, approved-base instructions, environment inputs, exact diff/check evidence, role policy and blocker output. Record template/input identities; do not put secrets into prompts. | Soda. |
 | Queue, capacity and spending rules | [Attempt types](../../internal/factory/types.go) set a three-hour deadline; [lifecycle](../../internal/factory/lifecycle.go) allows four executions and one correction; [workspace configuration](../../internal/host/workspace/config.go) bounds CPU, memory, PIDs and scratch. | **Adapt / missing:** implement the [selected limits](../product/overview.md#concurrency-and-usage-limits), oldest-ready ordering, cross-repository reservations, one attempt/session per repository, cumulative active time and rolling provider accounting. Existing resource bounds do not implement those scheduling/budget rules. | Soda on native resource controls; upstream providers enforce their own quotas. |
-| Coding execution | [Workspace runtime](../../internal/host/workspace/runtime.go) creates a disposable rootless worker, imports a source bundle and launches a pinned CLI with recorded resources. | **Replace execution path:** launch bounded processes in the associated persistent Project; retain run identity and resource accounting. Shared-Project execution is **unproved**, not merely a different container flag. | Soda using Project OS and native process controls. |
+| Coding execution | [Workspace runtime](../../internal/host/workspace/runtime.go) creates a disposable rootless worker, imports a source bundle and launches a pinned CLI with recorded resources. | **Replace execution path:** launch bounded processes in the associated persistent Project; retain run identity and resource accounting. Native role/process primitives passed the focused experiment below; actual factory harness execution in the selected Project OS remains **unproved**. | Soda using Project OS and native process controls. |
 | Candidate publication | [Publisher](../../internal/host/publish/publish.go) validates a candidate bundle and pushes its assigned branch; [controller](../../internal/factory/control/publication.go) creates a native PR. Publisher credentials stay outside agent execution. | **Retain / adapt:** preserve exact candidate, branch and repository checks while consuming the retained attempt checkout. Revalidate authority before each native write; avoid a replacement Soda Git-authentication service. | Soda publication policy; upstream Git and Forgejo operations. |
 | Review and correction | [Verification](../../internal/factory/control/verification.go) launches a separate reviewer; [publication](../../internal/factory/control/publication.go) submits a commit-bound native review; findings feed one repair run. | **Adapt:** same Project container, separate role account and fresh independent Git metadata; coder owns fixes, followed by fresh review of every changed candidate within the selected correction allowance. | Soda role coordination; upstream native reviews. |
 | Required CI evidence | Verification observes one configured Actions workflow for the candidate; [forge client](../../internal/forgejo/work.go) checks returned commit/workflow identity. Multiple evaluations currently require intervention. | **Adapt:** evaluate the complete required-check set, current candidate/base and changed verification policy. Missing, skipped or stale evidence cannot pass. Preserve native CI scheduling and use separately managed execution capacity. | Soda eligibility; upstream Forgejo Actions/checks and runners. |
@@ -89,7 +92,7 @@ a new login, general grant framework or replacement event service.
 | Subscription enrollment and custody | [Broker control](../../internal/identity/control/control.go), [Codex adapter](../../internal/identity/codex/) and [Muse adapter](../../internal/identity/muse/) implement native enrollment, protected custody and provider-specific behavior. | **Retain:** subscription-only selection, explicit account ownership, no silent account/provider or paid fallback. Verify the selected supported CLI route for the actual execution; broker support is not proof of every harness path. | Soda broker; upstream provider authentication and CLI. |
 | Grants, leases and provider concurrency | [Lease control](../../internal/identity/control/lease.go) and private admin/runtime transports bind delegated execution; Codex uses serialized streams while Muse permits independent leases. | **Adapt:** connect sponsorship to target repository/Project roles and enforce the factory's aggregate usage reservations. Keep provider ownership, native publishing actor and run identity distinct. | Soda. |
 | Supported factory harnesses | [Factory credential request](../../internal/factory/control/credential.go) selects Codex; [workspace launcher](../../internal/host/workspace/launch.go) runs it. [Muse workspace support](../../internal/host/workspace/muse.go) is an optional tool/connection path inside that worker. | **Gap:** there is no top-level Muse factory-agent execution path. If Muse is selected for a coding/review role, its launch, result and termination contract needs implementation and native proof; existing Muse enrollment alone does not supply it. | Soda harness integration; upstream CLI behavior. |
-| Credentials inside a shared Project | [Factory capture](../../internal/host/workspace/credential.go) pauses and kills the entire worker before returning credential state. [Human terminal identity](../../internal/host/terminal/identity.go) demonstrates narrower managed execution binding. | **Adapt / unproved:** attest the actual role, run, checkout and process generation; capture updated credentials and stop all descendants without interrupting the Project. Keep credentials transient and broker/helper sockets outside the container. Human terminal binding is a starting point, not proof this factory boundary works. | Soda broker and privileged execution integration, using native Linux controls. |
+| Credentials inside a shared Project | [Factory capture](../../internal/host/workspace/credential.go) pauses and kills the entire worker before returning credential state. [Human terminal identity](../../internal/host/terminal/identity.go) supplies narrower managed execution primitives; their cgroup freeze/capture/kill path passed with synthetic credentials below. | **Adapt / unproved binding:** attest the actual role, run, checkout and process generation and complete broker lease return. The experiment stopped assigned descendants while preserving unrelated processes; it did not exercise broker attestation or real provider credentials. Keep credentials transient and broker/helper sockets outside the container. | Soda broker and privileged execution integration, using native Linux controls. |
 | Human AI CLI access | [Human launch API](../../internal/web/api/identity_launch.go), [host identity bridge](../../internal/host/identity.go) and [account UI](../../frontend/spaces/soda-identity.ts) connect joined members to supported provider accounts. | **Retain:** a person may use an AI CLI in their own terminal; that does not create an attempt, acquire factory authority or permit reuse of their credentials by an agent role. | Soda; native provider CLI. |
 
 ## Projects and Spaces
@@ -97,7 +100,7 @@ a new login, general grant framework or replacement event service.
 | Requirement | Current implementation and evidence | Necessary change or actual gap | Owner |
 | --- | --- | --- | --- |
 | One repository and persistent Project | [Creation](../../internal/web/api/environments_create.go) reserves one environment and supports explicit human-owner creation; [profiles](../../internal/project/profile.go) select Rocky headless. | **Adapt:** owner-authorized automatic creation/start or reuse of that reservation. Organization-owned creation remains unsupported by the target; incomplete provisioning needs intervention, not a second worker or destructive replacement. | Soda using native Project OS/container lifecycle. |
-| Human membership and agent accounts | [Join](../../internal/web/api/environments_join.go) confirms native account creation through [project-account](../../project-os/rootfs/usr/libexec/soda/project-account); current code-write authority gates human execution. | **Retain human Join; missing agent setup:** create the two nonhuman role accounts and fresh run state without granting membership, SSH or sudo. Native ownership and access to approved tools still need proof. | Soda integration; upstream Linux account/permission mechanisms. |
+| Human membership and agent accounts | [Join](../../internal/web/api/environments_join.go) confirms native account creation through [project-account](../../project-os/rootfs/usr/libexec/soda/project-account); current code-write authority gates human execution. | **Retain human Join; missing agent setup:** create the two nonhuman role accounts and fresh run state without granting membership, SSH or sudo. Native ownership separation passed below. Launch non-login roles with explicit executable arguments; the human account/terminal path is not reusable unchanged. Actual approved repository tools still need proof. | Soda integration; upstream Linux account/permission mechanisms. |
 | Checkouts and worktrees | Human Git work is manual; the old factory [runtime](../../internal/host/workspace/runtime.go) imports fresh worker source. | **Missing allocation model:** preserve an attempt-owned coding checkout/branch, create fresh review Git state, and keep both separate from human clones. Use native Git/worktrees within the permitted ownership boundary. Prove source preparation and safe takeover of unfinished changes. | Soda allocation and handoff; upstream Git. |
 | Correct development environment | [Project OS image](../../project-os/Containerfile) and [initialization](../../project-os/rootfs/usr/libexec/soda/project-init) supply accounts, Git, mise, CLI tools, tmux, OpenSSH and nested workloads. | **Adapt / unproved:** resolve approved repository tool/setup/service inputs and prepare assigned writable dependencies/test data before agents run. A base image is not proof a particular repository builds; no new manifest format or root access from issue text is implied. | Soda preparation; upstream mise, packages, native services and repository tooling. |
 | Persistent roots and Project Stop/Start | [Lifecycle API](../../internal/web/api/lifecycle.go) starts/stops the existing environment with owner/operator checks; native Project OS owns persistent homes, tools, configuration and service volumes. | **Adapt:** factory admission hold, coordinated run termination/credential return and stale-binding rejection. Start clears only the Project hold. Prove human dirty work and unrelated data survive the combined path. | Soda lifecycle policy; upstream Podman/systemd/storage behavior. |
@@ -133,21 +136,62 @@ snapshots, hostile tenancy, production deployment after merge and general archiv
 or destructive recovery machinery remain deferred or excluded as specified in the
 scope guide. They are not hidden prerequisites for the retained features above.
 
-## Evidence that still needs native verification
+## Focused native findings
 
-Source establishes useful starting points, not completion of the automatic loop.
-Before an implementation plan depends on the target, resolve these bounded facts:
+A task-owned Rocky 10.2 container on native Linux x86_64 exercised the uncertain
+process and filesystem boundaries. It used Podman 5.8.2, systemd 257, cgroup v2,
+tmux `next-3.4` and Git 2.52.0. The reused minimal terminal-test image
+`6e71e0e26999` is **not the full Project OS image**: Git was supplied for this probe;
+repository toolchains, nested services and provider CLIs were not qualified.
+Rootful storage was isolated on the development host's `/home` disk, networking
+was disabled, and explicit subordinate UID/GID mappings exercised the namespaced
+container. The lab could not allocate the production `--userns=auto` mapping;
+automatic allocation was not tested. The disposable container and its isolated
+storage were removed after retaining receipts.
 
-1. Native unattended authority and conditional merge satisfy the exact accepted
-   repository, actor, revision and revocation conditions without a session workaround.
-2. Two factory role accounts in a persistent Project can use the approved repository
-   environment while preserving human state and separate writable Git administration.
-3. Attestation, credential return and termination cover the assigned run and all
-   descendants while unrelated Project processes remain running.
-4. A live factory CLI can be observed without granting input, exposing credentials
-   or tying execution lifetime to a browser attachment.
-5. Stop/Start, interruption and human takeover preserve unfinished work, enforce
-   the admission hold and reject stale process/lease bindings.
+| Uncertain assumption | Observed result | Limit of the evidence |
+| --- | --- | --- |
+| Coding and review can share a container without sharing writable Git administration. | Four sequential deterministic workloads completed coding → review findings → correction → fresh passing review. Two non-login role accounts used a retained coding checkout and separate fresh reviewer clones at the exact candidate commits. Cross-role reads of private Git configuration and synthetic credentials were denied; human dirty work remained unchanged. | These were process surrogates, not AI CLI executions or native PR publication. No hostile-tenant isolation or repository-specific environment claim. |
+| Factory output can be observed without granting input or owning process lifetime. | Native `tmux attach-session -r` displayed live output, rejected injected input, and survived viewer close/reopen with the same supervised execution. A writable input control confirmed the workload could otherwise receive input. | Proves the native attachment primitive, not a factory Spaces endpoint, rendered panel, browser authorization or safe output content. |
+| Capture and termination can target one run instead of the whole Project. | Existing [terminal identity helper](../../internal/host/terminal/identity_terminal.py) freeze/capture/kernel-kill functions captured stable synthetic credential state, killed the workload and its detached child, and removed its cgroup. A human tmux session kept its process identity; an unrelated service kept both its identity and advancing heartbeat. Reusing a unit name produced a different systemd invocation ID. | Fixture paths replaced helper bindings. The factory's role/run/checkout attestation, broker lease protocol and real provider credential return were not exercised. |
+| Stop/Start can preserve durable work while discarding transient execution state. | Stopping and starting the same container preserved the candidate, human dirty file and receipt byte-for-byte; transient `/run` state disappeared. | Native Podman/storage behavior only. Soda admission holds, coordinated credential return, stale-binding rejection and human takeover remain unimplemented or untested. |
+
+One launcher incompatibility was demonstrated: a shell-command string given to
+tmux inherited the role account's `nologin` shell and failed. Supplying an explicit
+executable and argument list worked while retaining the non-login account. This
+requires Soda launch integration, not a new login system or Fountain extension.
+Failed fixture/driver attempts were retained separately; none constitutes an
+installed or release qualification run.
+
+These results support keeping the chosen shared-container model. They do not
+establish completion of the factory. There is no implemented factory Spaces view
+to qualify yet. Existing [panel tests](../../tests/frontend/persistent-panel.test.ts)
+exercise component persistence with mocked transport. Fountain's
+[native stream tests](../../../forgejo-ext/tests/integration/extension_stream_test.go)
+cover the generic relay; a retained passing development log has unchanged relevant
+test/relay source but incomplete invocation provenance, so it is corroborating
+evidence, not a fresh qualification receipt. Rebuilding the product or adding a
+fake factory endpoint would not close the missing integration.
+
+## Remaining decisive boundaries
+
+- **Generic mutation authority and merge:** source already confirms the absent
+  expected-base condition and absent Soda policy/sponsor revision binding. Settle
+  the smallest supported native authority/conditional-operation contract before
+  testing its races. Native principals are legitimate; an absent SDK method alone
+  is not evidence a replacement credential system is needed.
+- **Selected CLI and environment:** when the actual factory launcher exists, use
+  one bounded supported-provider run in the selected Project OS to establish its
+  role identity, required tools, broker binding, credential return and targeted
+  stop. Synthetic probes and the old disposable-worker receipt do not replace it.
+- **Spaces integration:** when the real factory route/view exists, observe one
+  actual run through it; reject input, preserve the process across view navigation
+  and close, and disconnect on authority loss. Native attachment plus mocked UI
+  tests cannot prove that composed path.
+- **Lifecycle coordination and takeover:** once wired, check the admission hold,
+  stale execution/lease rejection and transfer of unfinished work to a member's
+  own checkout, preserving human state. Repeating raw container Stop/Start cannot
+  prove absent Soda policy.
 
 A retained native development receipt at Soda source `21122ccbf` covers Codex
 `0.153.4` in the old disposable worker on Linux x86_64, including credential return,
