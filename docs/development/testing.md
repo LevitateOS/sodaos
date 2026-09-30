@@ -158,6 +158,38 @@ and controller loss around the prepared checkpoint. Do not build broad factory
 orchestration to test this primitive. That focused proof does not replace the
 required inventory and coverage checks for every participating writer family.
 
+The [selected integration boundaries](../architecture/trust.md#background-authentication)
+add these focused cases during implementation:
+
+- Runtime and external-service bootstrap work without a browser. Verify both Unix
+  peers in the actual container/user namespaces; reject an unbound/ambiguous peer,
+  spoofed installation/actor, stale admission and native PAT scope/resource loss.
+  Owned cancellation remains available after actor-token or binding withdrawal.
+- Replacement/restart retain installation identity; remove/reinstall cannot adopt
+  old operations. Rotate service admissions without resubmitting accepted work.
+  A duplicate cannot replace its recorded native credential with a fresh token;
+  regeneration under the same token ID also invalidates the old credential binding.
+  Initial submission requires full current-secret verification even after a cache hit.
+- Native hooks require the execution capability as well as internal-channel
+  authentication. Reject forged generation, phase, ref effects and policy push
+  options; preserve only the existing unresolved execution's bounded callbacks
+  across restart. Check credential redaction and retirement after reconciliation.
+- Exercise a transaction-plus-direct-Git writer such as `DeleteBranch`, an Actions
+  task/status update and a deferred push worker. Missing ownership refuses before
+  effects; busy work remains queued and no callback waits on its parent's gate.
+  Authority revoked between route authentication and claim cannot survive as a
+  cached permission. Complete the participating-writer inventory before enablement.
+  Native post-publication Actions notifications retain their bounded completion
+  ownership without deadlock or dropped effects; runner updates claim fresh ownership.
+- Qualify offline reconciliation with the whole native writer domain stopped and
+  restart inhibited. Wrong owner/generation and uncertain attribution refuse
+  release. Native admin cancellation alone never provides a force-unlock path.
+  Include an interrupted ordinary writer; quiescence or a merge-tip comparison
+  cannot substitute for accounting for its own native effects and consistency.
+- The first conditional method is `fast-forward-only`: require the exact reviewed
+  result, native permission for that method and a real target change. Other methods,
+  divergence and no-op updates refuse without policy changes or fallback.
+
 ### Recording completion
 
 Retain a scoped receipt with exact source/image/CLI versions and native architecture;

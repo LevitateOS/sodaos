@@ -238,8 +238,10 @@ not replace Soda's product checks.
 This selects a minimal conditional-operation boundary, not a replacement identity
 system or an unrestricted durable delegation framework. The logical contract below
 specifies merge first. The coordination mechanism below is selected for the first
-single-host profile; authenticated transport, writer coverage and native behavior
-still require proof. Other mutation kinds need their own contracts. The current merge input's
+single-host profile. The integration design below selects authentication, writer
+boundaries, recovery authority and initial methods; their implementation still
+requires native qualification. Other mutation kinds need their own contracts.
+The current merge input's
 `head_commit_id` check during preparation does not satisfy expected-base or
 application-authority requirements. Automatic merge remains unavailable until
 the [mutation acceptance cases](../development/testing.md#factory-acceptance) pass;
@@ -258,8 +260,8 @@ transport and resolves the native actor through native authentication and an
 explicitly permitted extension/principal binding. Browser admission is not that
 background binding. A JSON `actor_id`, username, repository URL or operation ID
 cannot authenticate the caller or select an arbitrary impersonated actor. The
-binding's concrete transport is a remaining Fountain design requirement; this
-contract does not invent a header or synthetic session to stand in for it.
+binding uses the [background authentication design](#background-authentication)
+below. It is a target Fountain capability, not a synthetic native session.
 
 Each authorization permits **one immutable operation**. Its identity is the pair
 `(extension_installation_id, operation_id)`; cancellation revokes that operation,
@@ -298,8 +300,7 @@ equality compares validated semantic fields, not JSON whitespace or key order.
 | `base_ref` | Exact target branch in `repository_id`; it must still be this PR's target. |
 | `expected_head_oid` | Candidate that received review and required checks; the current PR head must still equal it at the effective write. |
 | `expected_base_oid` | Target tip against which the candidate was verified; the target must still equal it at the effective write. |
-| `method` | Explicit supported native merge method, permitted by current native repository policy. No force, bypass, delayed auto-merge scheduling or manually-merged mode. |
-| `message` | Final requested native merge message, fixed with the intent rather than regenerated from subsequently edited PR text. Native signing and author/committer rules still apply. |
+| `method` | Exactly `fast-forward-only` for the first conditional interface, permitted by current native repository policy. No implicit fallback, force, bypass, delayed auto-merge scheduling or manually-merged mode. |
 
 The effect is one native merge updating the identified base ref through the native
 merge engine and its normal hooks. Branch deletion is outside this operation.
@@ -471,6 +472,219 @@ an admitted operation may finish later while cancellation remains pending. A clo
 check in a hook, or even moved into Git's backend, can still precede scheduling/I/O
 delay. Preserve stock Git and make this narrower guarantee explicit; do not claim a
 hard latest-publication time or use expiry to release an unresolved reservation.
+
+#### Background authentication
+
+Use Fountain's existing private Unix callback transport with a new, explicitly
+declared background conditional-operations capability. Browser admissions remain
+browser-bound. The following additions authenticate background callers without
+extending a person's session or introducing another credential store:
+
+1. Fountain assigns a random installation UUID in host-owned installation metadata.
+   Replacement, enable/disable and process restart preserve it; removal followed
+   by installation creates a new UUID. Old operation records keep their original
+   owner. A manifest name, retained extension data directory or runtime `InstanceID`
+   cannot substitute for installation identity.
+2. After registration, the host delivers a random runtime admission over the
+   existing host-to-extension control RPC. The SDK holds it in memory and uses it
+   on the existing per-instance callback socket. The host registry binds it to
+   installation, current `InstanceID` and declared capabilities; caller JSON
+   cannot select another installation. Runtime stop revokes that admission.
+3. An external service bootstraps on the existing shared service callback socket.
+   Both peers verify configured native Unix peer identities; the host maps the
+   observed service peer to exactly one permitted installation. Require explicit
+   operator configuration and `native.service.bridge`; socket group membership or
+   manifest declaration alone is insufficient. Reject ambiguous mappings. Verify
+   the actual kernel UID mapping in the deployed user namespaces before enabling
+   this path. Bootstrap issues a separate admission for the current runtime, kept
+   only in service memory. It requires no browser and must not block host startup.
+4. Service restart bootstraps again and atomically replaces its delegated admission;
+   runtime restart invalidates previous runtime/service admissions. A disconnected
+   service reconnects and looks up the same operation IDs. Transport revocation
+   neither erases operations nor establishes their cancellation or non-commit.
+
+Submission additionally presents a real native repository-restricted personal
+access token (PAT) over that authenticated private transport. Use native PAT
+verification and permission reduction, without the general OAuth/Actions-token
+fallback. A native administrator explicitly approves the binding of installation
+UUID, token ID, actor ID, repository ID and operation kind. Effective authority is
+the intersection of that binding, manifest capability, native token scope/resource
+restrictions and current native account/repository permissions. `actor_id` only
+checks equality with the verified token owner.
+
+The caller keeps its PAT in its existing protected service inputs, outside agent
+execution. Fountain discards the presented secret after verification and records
+token ID, actor provenance and a private fingerprint of the native credential's
+hash/salt with the operation. This detects regeneration of the same token row;
+the fingerprint is neither a bearer credential nor public receipt data. Native
+verification must compare the presented PAT against the current authoritative
+hash/salt before capturing that fingerprint, including after a cached-ID lookup.
+Under the acquired reservation, compare that fingerprint and reload current token,
+account, binding and repository authority, then run the native mergeability checks;
+`Merge` alone expects its caller to have done those checks. At prepared admission,
+revalidate the bound credential generation and native authority from authoritative
+state. Earlier route authentication and cached permissions are insufficient.
+Credential rotation authorizes future operations; replay cannot replace an
+existing operation's credential, including by regenerating its token ID, or renew
+its intent.
+
+Owned lookup/cancellation require the installation admission, not a still-valid
+PAT or repository write permission. They grant access to that installation's
+operation receipt and cancellation only. Disablement blocks submission and revokes
+runtime/service admissions; native administrator intervention remains available.
+Installation/binding retirement must order invalidation of its outstanding
+operations through the same cancellation control path, reporting pending effects
+honestly before claiming withdrawal is complete.
+
+These are attribution and lifecycle boundaries among administrator-trusted
+components. They do not sandbox extensions sharing the native OS identity.
+
+#### Native execution binding
+
+The host records an execution ID and generation when it claims the reservation.
+Create an unpredictable execution capability, store its verifier with the durable
+owner and place the secret in a host-private mode `0600` file. Pass only the file's
+path in the sanitized environment of the final native Git child. The extension,
+external service and agent receive neither that capability nor its file path.
+Credentials must not appear in argv, operation intent, logs or receipts.
+
+Before the push, bind the native prepared result, old/new target tuple, source
+identity, actor/token provenance and permitted hook phases to this execution.
+Generated native hooks read the restricted file and present execution proof on
+the existing private internal channel. Its shared `INTERNAL_TOKEN` authenticates
+the channel but does not identify an execution. Require both proofs and validate
+the exact owner/generation, route, phase, repository and ref effects. An operation
+ID, pusher ID, push option or caller-supplied environment flag is never reentry
+authority. Required fencing must not inherit existing internal-hook skip paths.
+
+Bound callbacks may validate the write and perform its normal synchronous native
+completion: branch metadata, native PR merged state and authorized issue closure.
+They cannot alter unrelated policy, accept visibility/template push options or
+borrow authority for another mutation. They neither claim nor release the gate.
+Repeated callback delivery cannot grant another prepared admission or duplicate
+completion mutations; return recorded completion or uncertainty instead.
+
+After confirmed ref publication, native synchronous merge notifications also run
+under the same host-owned completion context. Permit the Actions runs, statuses
+and configured concurrency-group cancellations attributable to that native event,
+including notifications from authorized issue closure. Record their completion
+separately from the committed ref effect. This exception does not permit changing
+merge eligibility before publication or invoking unrelated Actions APIs. Do not
+reacquire inline, discard a busy notification or replay uncertain notifications
+to repair completion. Deferred jobs and actual runner updates receive no reusable
+execution capability and claim their own owner; the merge does not wait for them.
+
+For ordinary native receives, the host binds the permitted proposed ref tuples
+after normal pre-receive authorization under that receive's own reservation.
+They do not borrow a conditional merge owner or fabricate application authority.
+Direct native ref commands carry their outer operation's host execution context.
+Private-channel error handling must redact the execution secret and the existing
+internal credential as well as the submitted PAT.
+
+Execution generation differs from extension runtime generation. While its owner
+is unresolved, the native execution verifier survives controller/server restart
+for its already permitted callback phases; restart cannot launch it again.
+Retire the verifier and secret file only after writer quiescence and reconciliation.
+A retired generation cannot reenter, even if a delayed callback has its old secret.
+
+#### Participating native writers
+
+Claim at the outer logical native service, command or worker **before** its
+authorization-dependent reads, SQL transactions and PR/ref locks. Authentication
+may perform an initial refusal before claiming, but credentials and permissions
+must be refreshed under ownership before effects. Nested participating model/ref
+writers require an existing host-owned context and refuse before effects if it is
+missing; they must not acquire late while holding upstream locks. This applies to
+ordinary human/native operations as well as conditional requests.
+
+| Writer family | Required ownership boundary |
+| --- | --- |
+| HTTP and SSH receive-pack | Before receiver launch, including the raw SSH command path; retain through writer completion and bound hooks. |
+| Native merge, retarget, branch/ref and file edits | Before PR locks, preparation, SQL or Git effects. Temporary preparation refs belong to that execution; published effects must match its permitted native operation. |
+| Repository creation/deletion/transfer/rename, units and protections | Enclose the logical operation and derived changes, including direct model callers. |
+| Users, native credentials/keys/auth sources, collaborators, organizations and teams | Include permission recalculation, account blocking/deletion and external-directory synchronization. Changes to token restrictions are authority changes. |
+| Issues, comments, dependencies, PR metadata, reviews and conversations | Cover creation, editing, deletion and resolution of native accepted-input or eligibility records. Generated changes use the enclosing ordinary owner or the explicitly permitted merge-completion context. |
+| Commit status and Actions task/job/run results | Own the complete logical update before task state changes, including resulting statuses and dependent native state. A status-insert guard alone is insufficient. |
+| Deferred push processing, PR tests, Actions jobs, mirrors and maintenance | Claim fresh ownership before their effects; preserve busy items using the existing queue. No inherited completion privilege and no waiting for these workers while holding the parent's reservation. |
+| Native administration, hook/key regeneration and offline data operations | Online commands participate before effects; restore/schema/raw data work requires the offline operator boundary below. Regeneration must preserve enforcement hooks. |
+
+Only explicitly identified, non-authorizing telemetry writes may run outside this
+reservation—for example, token last-used timestamps or log byte counters that do
+not change eligibility. Updating a whole model cannot borrow that exception to
+change protected columns. Cancellation/lookup and recovery control keep their
+separate authenticated control path. Busy means refusal or retained deferred work,
+never an acknowledged permission change or a discarded job.
+
+The [source seam map](../research/factory-capability-map.md#native-integration-source-map)
+identifies the selected entry points and lock hazards. Implementation must close
+every participating caller, including direct model writes; this family inventory
+is not a claim that those call sites are already guarded. Unmanaged direct writes
+to the native database or repositories are outside the supported running profile.
+
+#### Recovery authority
+
+The owning installation may inspect and cancel its operations. A current native
+administrator may inspect/cancel across installations, including disabled ones;
+this does not grant online force-release authority. Normal successful execution
+releases through the host's recorded completion path only after quiescence and
+attribution. An interrupted or indeterminate execution requires the **host
+operator**, using a native offline reconciliation command.
+
+The first supported deployment must place every native writer for its data set in
+an operator-controlled, fully stoppable execution domain. Recovery stops HTTP/SSH
+write ingress, native services, workers, scheduled/admin commands and all surviving
+native descendants, and inhibits restart throughout reconciliation. Verify the
+whole domain has stopped using the deployment's native service/container controls;
+main-process exit, PID disappearance or a process-group signal alone is insufficient.
+External SSH writers must be included in that domain or disabled for this profile.
+No new per-operation supervisor or automatic takeover service is selected.
+
+With exclusive offline access, the command matches the persisted operation owner
+and generation and inspects actual target refs, saved native result and native
+completion records. An attributable distinct expected target under the intact
+reservation can establish `committed`; a proven pre-admission refusal with no
+remaining writer can establish `not_committed`. An admitted operation with an old
+target, reflog alone, missing records or inconsistent evidence stays `indeterminate`.
+Record native bookkeeping separately; do not repeat the merge to repair it.
+
+Only a known effect plus established quiescence permits a conditional database
+update clearing that exact owner and retiring its capability. Preserve the terminal
+operation and cancellation outcome; never reset the native revision or erase the
+record to unlock the host. Unknown outcomes remain fenced for intervention. There
+is no force-unlock flag, timeout-based release or credential requirement on the
+original extension/actor for this host-operator recovery.
+
+Ordinary native owners must persist their writer family and affected resource
+identities before effects. They need not fabricate a conditional merge intent.
+After the same whole-domain stop, offline reconciliation establishes that family's
+actual database/ref or maintenance effects and native consistency before release;
+a merge-tip comparison cannot reconcile credential, team or Actions changes.
+Quiescence is not rollback evidence. Unclassified or uncertain ordinary effects
+keep the reservation occupied until accounted for. This requires family-specific
+reconciliation, not a generic undo journal or automatic replay.
+
+#### Initial merge methods
+
+The first conditional interface supports native **`fast-forward-only`**. Use
+`doMergeAndPush`'s existing prepared base and result before ordinary push; persist
+that result under the reservation. It must equal the reviewed head, differ from
+the expected base and satisfy native fast-forward and repository-policy checks.
+This method creates no new commit, so there is no merge-message input or rewriting
+of the candidate's authorship/signature. Native protection remains effective.
+
+Ordinary merge commits, squash and both rebase styles are deferred from this
+conditional interface; ordinary native use still participates in the reservation.
+Their shared native preparation seam makes later support possible without another
+merge engine. This initial scope matches the demonstrated native path and the
+current publisher's requirement that candidates descend from admitted input; it
+does not claim an upstream limitation or embed that consumer rule in Fountain.
+
+Unsupported methods, diverged candidates and no-op target updates refuse without
+changing repository policy or choosing another method. A repository that does not
+permit fast-forward-only cannot use this first conditional merge interface. Force,
+manually-merged marking, branch update/deletion and delayed auto-merge are outside
+the operation. The prototype supports feasibility only; the authenticated path
+still requires its acceptance cases before enabling it.
 
 ## Frontend and session boundary
 
