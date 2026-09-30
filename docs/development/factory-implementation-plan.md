@@ -1,11 +1,11 @@
-# Factory implementation plan draft
+# Factory implementation plan
 
 The planning target is Soda's automatic issue → readiness → coding → PR →
 review/fix → native merge → unblock loop, running in persistent Projects and
 visible through Spaces. Fountain supplies generic native collaboration and
 extension capabilities; Soda owns factory policy and environment coordination.
 
-This draft establishes the planning baseline, maps requirements to finished
+This plan establishes the planning baseline, maps requirements to finished
 deliverables, identifies source changes, references the defined implementation
 interfaces, establishes their dependency graph and places the uncertain native
 integrations into early implementation-and-proof milestones. The
@@ -13,9 +13,11 @@ integrations into early implementation-and-proof milestones. The
 owners, prerequisites, changes, checks and completion conditions.
 [Integration, cutover and qualification](#integration-cutover-and-qualification)
 define how those outcomes join, when features become usable and when to demonstrate
-and qualify the complete product. Final plan review remains to be settled.
-The current work is documentation only. The linked owning guides remain authoritative
-for behavior, and this plan does not duplicate or replace their requirements.
+and qualify the complete product. Requirement coverage, boundaries, dependencies
+and cost have been independently reviewed. Implementation and native proof remain
+the work specified by this plan. Planning is complete; no implementation, build or
+qualification is authorized by this document alone. The linked owning guides remain
+authoritative for behavior, and this plan does not duplicate or replace their requirements.
 
 ## Source baseline
 
@@ -113,7 +115,7 @@ their boundaries and the [dependency graph](#dependency-graph) orders their inte
 | **D22 — Operator administration and fixed helpers.** [Host helper](../architecture/trust.md#host-helper), [setup](../guides/operator-setup.md), [Cockpit](cockpit.md). | Bootstrap establishes the correct native operator/appliance identity. The isolated backend invokes only authorized fixed host operations with restricted secret inputs. Stock Cockpit continues to provide native diagnosis and administration; no custom Project-management subsystem is restored there. | Native operators retain host logs, storage, networking and service tools. Repository and provider authorities cannot acquire host administration; helper/broker sockets are not exposed through the extension host or Project. | **Soda:** bootstrap, helper validation, packaging and isolation. **Upstream:** Cockpit and host administration. **Fountain:** native identity/permission inputs. | Real setup/helper authorization and isolation checks, rejected arbitrary commands/cross-Project targets and retained Cockpit/operator journeys; protect secret-bearing diagnostics. |
 | **D23 — Retained presentation and attribution.** [Supporting feature disposition](../product/scope.md#appliance-networking-ci-and-delivery), [branding](../design/branding.md). | Soda branding, avatars, console guidance, canonical assets and attribution remain integrated through supported extension/image surfaces. Native Forgejo presentation stays native; superseded copies and standalone shell assets are absent. | Human-facing pages, account imagery and console guidance remain coherent and usable. No new privilege or authentication surface is introduced for presentation. | **Soda:** owned assets, UI and packaging. **Fountain/upstream:** supported native surfaces. | Affected source/browser/branding checks and installed asset/notices inspection; verify actual rendered surfaces rather than screenshots of obsolete pages. |
 | **D24 — One current implementation and cutover.** [Retirement decisions](../product/scope.md#retire), [documentation authority](../README.md#authority-rules). | Replaced OAuth/Git mediation, manual/disposable factory paths, obsolete runner artifacts, presentation patches, formats/callers/configuration/staging and fixtures are removed together. Operator tools and Spaces address one coordinator. Owning references document only interfaces that actually ship. | Existing retained workflows transition to the new native paths without a second login, engine or compatibility branch. Cleanup affects only identified task-owned/obsolete resources; human/project state remains protected. | **Soda:** consumer/runtime removal, caller and documentation cutover. **Fountain:** superseded host seams if applicable. **Upstream:** retained functionality. | Affected caller/staging checks and real retained journeys demonstrate the new path is used. Review removals with replacements; no new permanent subsystem whose sole purpose is detecting retired code. |
-| **D25 — Reproducible native appliance delivery.** [Release architecture](../architecture/release.md), [release workflow](release.md), [extension maintenance](../architecture/trust.md#maintaining-the-forgejo-extension-layer). | The existing producer/staging/installation/update path carries exact Fountain, SDK/Soda package, service, Project OS and notice/source identities. Release admission rejects failed, cancelled, incomplete or mismatched evidence; native qualification selects the actual candidate bytes; upstream maintenance remains attributable without incidental version upgrades. Backup/recovery and protected existing state remain supported. | Existing native operator installation/activation and recovery retain their authorization boundaries. Build/release or production rollout is not a factory agent action. No failed release is relabeled as qualified. | **Soda:** packaging, producer, installation and qualification. **Fountain:** host/SDK artifacts and generic package integration. **Upstream:** CoreOS/rpm-ostree/container delivery primitives. | Applicable native x86_64/aarch64 candidate/install/update/recovery evidence for each advertised target, exact artifact provenance, admission refusals and state preservation. Development/cross-build evidence does not qualify another architecture. |
+| **D25 — Attributable native appliance delivery.** [Release architecture](../architecture/release.md), [release workflow](release.md), [native input contract](native-support.md#build-and-artifact-contract), [extension maintenance](../architecture/trust.md#maintaining-the-forgejo-extension-layer). | The existing producer/staging/installation/update path carries exact Fountain, SDK/Soda package, service, Project OS and notice/source identities. Release admission rejects failed, cancelled, incomplete or mismatched evidence; native qualification selects the actual candidate bytes; upstream maintenance remains attributable without incidental version upgrades. Backup/recovery and protected existing state remain supported. | Existing native operator installation/activation and recovery retain their authorization boundaries. Build/release or production rollout is not a factory agent action. No failed release is relabeled as qualified. | **Soda:** packaging, producer, installation and qualification. **Fountain:** host/SDK artifacts and generic package integration. **Upstream:** CoreOS/rpm-ostree/container delivery primitives. | Applicable native x86_64/aarch64 candidate/install/update/recovery evidence for each advertised target, exact artifact provenance, admission refusals and state preservation. Development/cross-build evidence does not qualify another architecture. |
 | **D26 — Demonstrated complete factory.** [Finished product demonstration](testing.md#finished-product-demonstration), [completion evidence](testing.md#recording-completion). | One installed supported system composes the preceding outcomes: accepted issue and blockers → ready Project → real coding CLI → native PR → separate review/fix → complete CI → conditional merge → confirmed issue outcome → eligible dependent pickup. | Actual Spaces and human intervention/access coexist with the loop, protected credentials and preserved human work/services. Normal progress needs no manual issue admission or routine human merge. | **Soda:** composed product and evidence. **Fountain/upstream:** demonstrated native dependencies, not substituted mocks. | The specified real provider/broker/browser/native collaboration journey plus focused rejection/race cases. Receipts bind actual source/runtime/architecture, authority/input/candidate identities, usage and cleanup; no component test or Jev verdict substitutes for composition. |
 
 ### Coverage and boundaries
@@ -131,8 +133,9 @@ qualification. The [interface definition](#interface-definition) fixes component
 contracts and the [dependency graph](#dependency-graph) establishes prerequisites.
 The [early integration milestones](#early-integration-milestones) put native proof
 before dependent expansion; the [task breakdown](#reviewable-implementation-tasks)
-assigns executable changes and checks. Final delivery grouping remains subsequent
-planning work.
+assigns executable changes and checks. The
+[integration sequence](#integration-cutover-and-qualification) groups delivery,
+replaces old callers and schedules demonstration and qualification.
 
 ## Interface definition
 
@@ -171,7 +174,7 @@ since the planning baseline remain documentation only. No new architecture choic
 is introduced here: the edges follow the agreed interfaces, source inventory and
 [remaining native boundaries](../research/factory-capability-map.md#remaining-decisive-boundaries).
 
-The node tables below are the full prerequisite graph. **Work** nodes produce
+The node tables below describe capability prerequisites. **Work** nodes produce
 bounded implementation; **Native** nodes include implementation and a focused
 demonstration of the actual capability. A downstream consumer must have that
 native evidence before building integration that relies on the uncertain boundary.
@@ -185,6 +188,13 @@ selected source/contracts are sufficient to start, not that existing upstream
 behavior needs rewriting. Each node includes its affected caller/configuration/
 fixture removal from the source inventory. These are dependency groups, not new
 features, time estimates or independent approval gates.
+
+Shared Work nodes such as S-state, S-views and A-package are supplied in the slices
+needed by their consuming tasks. An arrow does not require every later policy,
+view or packaging behavior before an early native proof. The
+[task prerequisites](#reviewable-implementation-tasks) define concrete completion
+order, including coupled retirement and product integration; their grouped
+capability coverage is recorded in [task handoffs](#task-coverage-and-handoffs).
 
 ### Fountain foundation and native operations
 
@@ -236,7 +246,7 @@ credential relay, native SQL read or bypass credential.
 | Node | Kind / deliverables | Prerequisites | Output that downstream work can rely on |
 | --- | --- | --- | --- |
 | **A-support** | Work; D21–D24 | — | Retained LAN/private HTTPS, optional Tailnet, native operator/Cockpit, assets and attribution; coherent removal of deferred local-runner implementation. Reuse existing source/native evidence where applicable and check affected journeys. Optional Tailnet/domain setup is not a factory prerequisite; usable native origin/networking is. |
-| **A-package** | Work; D01/D22/D24–D25 | — | Build/staging/install selectors and service/Project OS/extension configuration evolve alongside each implementation, including backend Git/private publisher data and socket identity mapping. Minimal relevant packaging is included in each Native check; this node does not demand a finished production image to discover a boundary. |
+| **A-package** | Work; D01/D22/D24–D25 | — | Build/staging/install selectors and service/Project OS/extension configuration evolve alongside each implementation, including backend Git/private publisher data and socket identity mapping. This group also includes RT01’s protected evidence-admission/finalization mechanism, whose focused proof must pass before R-candidate. Minimal relevant packaging is included in each Native check; this node does not demand a finished production image to discover a boundary. |
 | **C-loop** | Native; D06–D20/D26 development evidence | S-merge, S-spaces, S-life | One bounded composed development journey: accepted issue and blockers → coding → publication/PR → review/correction → native CI → merge/completion → eligible dependent pickup, with control withdrawal and preserved human activity. Use the actual provider/broker/native/browser path and current source identities. This closes orchestration gaps before expensive production qualification; it is not a qualified release. |
 | **R-candidate** | Work; D24–D25 | C-loop, A-support, A-package | Coherent removal/caller/configuration closure and exact Fountain/SDK/Soda/service/Project OS artifacts in the existing native candidate pipeline. Required support/native evidence must match the affected paths. No obsolete alternate runtime remains enabled. |
 | **R-qualify** | Native; D25–D26 | R-candidate | Existing installed acceptance and finished-factory demonstration against identified shipping bytes, including installation/update/recovery and retained support. Qualify each advertised affected architecture independently; reuse valid matching evidence rather than repeating unrelated builds or every harness combination. |
@@ -725,7 +735,7 @@ qualified native upgrade observations.
 | Task and usable outcome | Owning repository / packages | Prerequisites | Required changes and removals | Relevant checks and completion condition |
 | --- | --- | --- | --- | --- |
 | **RT01 — Admit native release evidence through the protected path.** Failed or mismatched runs cannot become releasable, while valid evidence can reach existing finalization without rebuilding tested bytes. | Soda: `tools/soda-build`, `internal/acceptance`, `release/build`, `release/image`, `release/deliver`, installer/recovery owners and existing protected drivers. | Baseline release contracts; establish missing protected native observations with the smallest development target before implementing dependent orchestration | Reconcile retained observations; finish missing protected admission/controller and finalization wiring in current owners. Preserve exact candidate/media identities, fixture-versus-production trust and qualified upgrade-source selection. Replace temporary guards only with working admission; do not merely delete blanket refusals or invent compatibility. | Focused valid/failed/cancelled/incomplete/mismatched/forged-evidence cases, native protected-boundary checks and preservation/recovery observations. **Done:** the executable admission path enforces the release contract; fixture acceptance is explicitly non-qualifying, and any advertised upgrade source has the required real evidence. This does not publish or qualify a candidate. |
-| **RT02 — Produce the coherent native candidate.** Selected Fountain, SDK/Soda package, backend/helpers and Project OS bytes form one reproducible staged appliance. | Soda: `soda-build`, `release/build`, `release/image`, `release/deliver`, installer, service/container recipes, stage/native-check scripts. Fountain: exact host/SDK/package identities and notices. | ST15, ST13, ST14, RT01 | Close remaining caller/configuration/format/asset/reference/handbook removal gaps; finish exact source/image/architecture inputs and deployed socket/user mappings. Reuse the existing candidate pipeline and refusal rules; package changes were already exercised in earlier narrow tasks. | Applicable source/staging/native-candidate checks and identity/notice/removal-closure inspection. **Done:** each produced architecture's artifact set is complete and attributable, with no obsolete alternate engine or guessed upgrade claim. Candidate production is not installed qualification. |
+| **RT02 — Produce the coherent native candidate.** Selected Fountain, SDK/Soda package, backend/helpers and Project OS bytes form one attributable staged appliance. | Soda: `soda-build`, `release/build`, `release/image`, `release/deliver`, installer, service/container recipes, stage/native-check scripts. Fountain: exact host/SDK/package identities and notices. | ST15, ST13, ST14, RT01 | Close remaining caller/configuration/format/asset/reference/handbook removal gaps; finish exact source/image/architecture inputs and deployed socket/user mappings. Reuse the existing candidate pipeline and refusal rules; package changes were already exercised in earlier narrow tasks. | Applicable source/staging/native-candidate checks and identity/notice/removal-closure inspection. **Done:** each produced architecture's artifact set is complete and attributable, with no obsolete alternate engine or guessed upgrade claim. Candidate production is not installed qualification. |
 | **RT03 — Qualify the x86_64 candidate.** Installed evidence establishes the advertised product on that native target. | Soda native acceptance/release/installer owners; actual selected Fountain/Project OS and provider/browser integration. | RT02 for x86_64 | Run the established installation/update/recovery, retained support and finished-factory journeys against the exact candidate; correct failures in their owning tasks. Preserve protected state and failed-run identity; use its artifacts only for separately identified development checks. | Existing native/installed acceptance and D26 with matching artifact/source/architecture evidence. **Done:** every required case for the exact x86_64 bytes passes or the task remains incomplete; no production publication/activation is implied. |
 | **RT04 — Qualify the aarch64 candidate.** Installed evidence independently establishes the advertised product on that native target. | Same existing owners as RT03, using native aarch64 execution/resources. | RT02 for aarch64; independent of RT03 | Perform the corresponding affected native qualification with exact aarch64 bytes. Reuse source-level/shared evidence only at its valid scope; cross-compilation, emulation, macOS arm64 or x86_64 receipts cannot replace native boundaries. | Required native/installed acceptance and D26 evidence for aarch64. **Done:** the advertised target is actually qualified; an unavailable native prerequisite leaves this task incomplete without forcing an unrelated sibling build. |
 
@@ -940,8 +950,10 @@ or privileged Project/terminal executors. Update the owning guide and these
 explicit rules in the same implementation change that establishes the shared
 execution dependency. Preserve SQL locality, thin web/host facades and executor
 isolation; do not evade the rule through aliases, a forwarding package or a new
-parallel domain DTO. The exact controller/host call contract is the next design
-step, not permission to bypass the existing check now.
+parallel domain DTO. Implement the defined
+[controller/host call contract](../architecture/factory-interfaces.md#project-execution-and-broker-interface)
+with the ownership guide and arch check; the target interface does not bypass the
+existing check before that coordinated change lands.
 
 ### Soda interfaces, supporting features and shipped assets
 
@@ -1048,10 +1060,11 @@ coordination and full native qualification still need their stated evidence.
 The [earlier extension transition plan](forgejo-extensions-plan.md) retains useful
 source references, scoped receipts and unfinished extension/appliance delivery
 work. Its older baseline, task ordering and narrower completion definition do not
-govern this factory plan. Reconcile that remaining work when deriving deliverables;
-do not drop it, blindly rerun it or count old checked tasks as factory acceptance.
+govern this factory plan. Its remaining required outcomes are assigned in the
+deliverable map and implementation tasks above; reuse applicable evidence without
+blindly rerunning it or counting old checked tasks as factory acceptance.
 
-As that reconciliation proceeds, absorb relevant contracts into their existing
-owners and remove superseded planning material. Remove this plan after the
+As implementation lands, absorb final contracts into their existing owners and
+remove superseded planning material. Remove this plan after the
 implementation is completed and its final contracts are absorbed, following the
 documentation authority rules.

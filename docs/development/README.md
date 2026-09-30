@@ -50,7 +50,8 @@ assign concrete outcomes, owners, prerequisites, changes, checks and completion
 conditions. The [integration and qualification sequence](factory-implementation-plan.md#integration-cutover-and-qualification)
 joins those outputs, replaces old callers and schedules feature availability,
 the real factory demonstration and native qualification after their prerequisites.
-Final plan review remains. The
+The plan has been independently reviewed for requirement coverage, boundaries,
+dependencies and cost; implementation and native evidence remain outstanding. The
 [earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.
