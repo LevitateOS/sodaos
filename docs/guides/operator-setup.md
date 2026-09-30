@@ -29,10 +29,11 @@ Install/activate context: [Installation](installation.md).
 
 Use absolute setup/activation paths: CoreOS root SSH PATH may omit `/usr/local/sbin`.
 
-Developers use native Forgejo account creation. Soda's API/OAuth service and Spaces
-share the configured Forgejo HTTPS origin under `/-/soda/`. Git authentication uses
-native Forgejo SSH keys or HTTPS tokens, independently of Soda development-access
-keys.
+Developers use native Forgejo account creation. Browser pages and product
+operations use Forgejo's native extension service on the configured HTTPS origin.
+The public `/-/soda/` routes are limited to the broker identity callback and avatar
+provider. Git authentication uses native Forgejo SSH keys or HTTPS tokens,
+independently of Soda development-access keys.
 
 Existing installations use [credential maintenance](../reference/credentials.md),
 not rerunning setup. Console guidance: [Operator console welcome](../design/console-welcome.md).

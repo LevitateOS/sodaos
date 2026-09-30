@@ -1,91 +1,53 @@
 # Lit components
 
-The management drawer and terminal controls now use Lit for Soda-owned interactive
-UI, loaded only on workspace opening/restoration. Xterm and its transport remain
-imperative resources of the terminal component. Native dashboard views now mount
-Spaces, Runners, Tailnet and repository controls directly; the old Go shells and their
-auto-boot callers are removed. The native page/drawer journey shares these same
-component owners.
-Forgejo owns its pages, forms, permissions, authentication and native scripts;
-Cockpit's custom React/PatternFly workspace is retired; stock branding is independent. See the handoff for actual local checks; no new
-installed browser/CLI compatibility proof follows from the port.
-
-The [Spaces implementation plan](lit.md) defines the drawer-first
-ports, ID-keyed backend and shared page/drawer workspace (now locally implemented),
-including locally completed step-5 layouts and step-6a/6b attention/candidate source
-coverage. Scoped native/selected-CLI acceptance remains step 6c.
-It incorporates the existing managed-tmux contract; it does not
-restart the older request-owned terminal migration. Retained native adapters and
-required validation remain explicit.
-
-The [frontend improvement guide](typescript.md) consolidates the
-researched cleanup after locally completed step 5: mandatory canonical tokens,
-enforced template diagnostics, typed view composition and clearer source ownership.
-It preserves this renderer and the existing action/terminal owners. The analyzer is now integrated into required local checks through the root Bun
-workspace; see [tool ownership and resolution](../../tools/lit-check/README.md).
+Soda uses Lit for the Spaces page, persistent Workspace panel and project and
+terminal controls. Fountain owns the native page and panel host. Soda supplies
+browser entry modules through its standalone extension package; the host provides
+the mount context and keeps the Workspace panel mounted while native Forgejo pages
+navigate. Xterm and its socket remain resources of the terminal component.
+Forgejo owns its own pages, forms, authentication and native scripts. See the
+[Forgejo integration contract](../reference/forgejo.md) for that boundary.
 
 ## Runtime and builds
 
-The root `package.json` declares Lit; the single `bun.lock` records its resolved
-dependencies. Use the pinned Bun and existing commands:
+The root `package.json` declares Lit and the single `bun.lock` pins its resolved
+dependencies. Use the repository's Bun commands:
 
 ```sh
 bun install --frozen-lockfile
-bun run build:forgejo
-bun run build:preview
 bun run typecheck
-bun run test:forgejo
-bun run test:lit # emitted runtime, project/workspace and terminal contracts in Chromium
+bun run build:forgejo
+bun run test:lit
 ```
 
-`assets/branding/forgejo/lit.ts` exports the upstream core API. The build bundles
-it once into `.artifacts/forgejo-js/lit.js`; the production payload and preview
-stage it at `public/assets/soda/forgejo/lit.js` alongside its BSD license. No
-template loads it eagerly. A component importing Lit loads the runtime on demand.
+`appliance/soda-extension/extension.json` declares the Spaces, Runners and Tailnet
+page entries and Workspace panel entry. `scripts/build-soda-extension.ts` bundles
+their module graphs, builds their CSS and packages the locked xterm assets and
+notices. Extension components load those package assets through the mount context's
+asset base. Add an extension module through its owning entry graph; do not stage a
+second copy in `internal/release/build/forgejo-payload.json`.
 
-Write standard `import {LitElement, html} from 'lit'` statements. The production
-build uses each module's payload destination to emit a relative runtime URL:
-
-| Component destination | Generated runtime import |
-| --- | --- |
-| `public/assets/soda/forgejo/example.js` | `./lit.js` |
-| `public/assets/example.js` | `./soda/forgejo/lit.js` |
-
-The compiler appends the shared presentation `?v=` epoch to these URLs and all
-other relative external Soda imports. See [cache ownership](typescript.md); the
-runtime remains one module identity per document, including lazy imports.
-
-This works beneath Forgejo's `AppSubUrl` too, without a CDN, import map or a second
-TypeScript resolver. Existing native and terminal imports keep their public URLs.
-Core Lit and `lit/directives/repeat.js` imports share this runtime; repeat is used
-for stable pane/tab chrome. Other subpath imports fail until exports and build
-mapping are added together. Each addition must keep one runtime.
+Forgejo branding retains the shared `assets/branding/forgejo/lit.ts` runtime at
+`public/assets/soda/forgejo/lit.js` with its license. Forgejo templates do not load
+it eagerly. `scripts/build-forgejo.ts` maps supported Lit imports in Forgejo-side
+modules to that single runtime and appends the presentation cache epoch. The
+extension build bundles its own Lit graph and does not depend on Forgejo's public
+Lit URL. See [TypeScript build ownership](typescript.md#porting-source).
 
 ## Authoring
 
-Strict TypeScript checks expressions and typed helper calls inside/around `html`
-templates, but does not check their native/custom property, boolean or event binding
-positions. A language-service plugin listed in `tsconfig` does not run under `tsc`.
-Follow the [checker contract](typescript.md):
-`bun run typecheck` retains the product compiler and requires actual-source analysis
-plus independent checker fixtures. The development-only runner binds bare analyzer
-compiler imports to its workspace's classic compiler; a package alias alone is not
-sufficient. Unknown-event checking is enabled and warnings also fail the gate.
-Callable-event parameter compatibility remains a known analyzer gap. This local gate
-is not fully TSX-equivalent checking or installed/native behavior proof.
+Use standard `import {LitElement, html} from 'lit'` statements. Strict TypeScript
+checks expressions around Lit templates; the [template analyzer](typescript.md#compiler-boundaries)
+checks property, boolean and event binding positions in actual source. `bun run
+typecheck` runs both checks and independent analyzer fixtures. Callable-event
+parameter compatibility remains a known analyzer gap. These source checks do not
+prove native installed behavior.
 
-Use readable multiline templates and typed functions for stateless sections and
-wrappers. A wrapper may accept a `TemplateResult` body and specific typed callbacks;
-its call site receives normal TypeScript checking while its internal bindings need
-the analyzer. Extract coherent Environment/Access/status views before broader chrome.
-Keep drafts, synchronous action guards, requests and resource lifetimes in their
-existing concrete owners. Add a reactive element only for independent state/lifetime,
-not simply to shorten a render method.
-
-Use `.ts` and the existing strict browser configuration. Static reactive-property
-declarations avoid changing the repository's decorator configuration. Declare
-fields and initialize them in the constructor so native class fields do not
-shadow Lit's reactive accessors:
+Use readable templates and typed helpers for coherent stateless sections. Add a
+reactive element when it owns independent state or a resource lifetime. Static
+reactive-property declarations work with the repository's decorator settings.
+Declare fields and initialize them in the constructor so native class fields do
+not shadow Lit's reactive accessors:
 
 ```ts
 import {LitElement, html} from 'lit';
@@ -107,55 +69,32 @@ class SodaExample extends LitElement {
 customElements.define('soda-example', SodaExample);
 ```
 
-New production modules still require explicit entries in
-`internal/release/build/forgejo-payload.json`. Register real components only from
-their page's existing supported hook/entrypoint. The native adapter dynamically
-imports the drawer on demand and checks departure/Hide before mounting it. The smoke component is test-only.
+Lit defaults to shadow DOM, where global Soda and xterm styles and document
+selectors do not reach. A component using `createRenderRoot() { return this; }`
+renders into light DOM and shares the package styles. Neither rendering choice
+permits replacing native Forgejo forms or HTMX-owned fragments.
 
-Choose the rendering boundary per component. Lit defaults to shadow DOM, where
-global Soda/Forgejo/xterm styles and document selectors do not reach. Rendering
-into light DOM with `createRenderRoot() { return this; }` reuses existing styles
-but gives up style isolation. Neither choice permits rendering over native forms
-or HTMX-owned fragments.
+Rendering must not create or join an environment, replay mutations or reopen a
+terminal. Keep drafts, action guards, requests and resource lifetimes in their
+concrete owners. Preserve terminal DOM and socket identity across reactive updates
+and panel view changes; component disposal detaches the terminal without issuing
+native End. Clean up external listeners and observers through component lifecycle
+callbacks.
 
-Keep state changes separate from effectful commands. Rendering must not create or
-join an environment, replay mutations or reopen terminals. Preserve terminal DOM
-and socket lifetimes across reactive updates, view changes and Hide. Clean up
-external listeners and observers through component lifecycle callbacks. Use the
-current terminal facade, including exact `restore`, finite `retain`, deliberate
-`returnToWork` and HTTP End. Document/element disposal detaches, not native End.
-
-A keyed list preserves identity within its own render part, not across different
-pane parents. The workspace plan selects a stable terminal layer; moving/maximizing
-views must not disconnect/recreate terminal elements. Add `repeat` through the
-shared runtime/export mapping when it is actually used, not an independent bundle.
-A parent's `updateComplete` does not wait for all children or layout: await the
-relevant child, recheck retirement and use ResizeObserver for terminal geometry.
-
-The workspace's private `WorkspaceMeasurement` controller owns only resize/font/
-viewport subscriptions. Its `hostUpdated` hook waits for an actual rendered canvas;
-connection alone is too early. Invalidation/disconnection retire subscriptions and
-fence delayed callbacks, while ordinary Hide/view/Refresh preserve them. Geometry,
-layout persistence and command policy stay in `SodaSpaces`. This is not a controller
-base class or permission to split terminal transport/retention into separate stores.
-
-The loopback browser smoke test compiles a test-only component through the real
-build and loads the emitted runtime over HTTP. Native browser/access journeys
-remain separate from this scaffold proof.
+A keyed list preserves identity within its render part, not across different
+pane parents. Keep the terminal layer stable when panes move or maximize. A
+parent's `updateComplete` does not wait for all children or layout: await the
+relevant child, recheck disposal and use ResizeObserver for terminal geometry.
+The private `WorkspaceMeasurement` controller owns resize, font and viewport
+subscriptions; layout persistence and command policy stay in `SodaSpaces`.
 
 ## Shared styling
 
-Canonical token adoption is mandatory across both Spaces surfaces. Follow the
-[token scope](typescript.md): reuse
-the existing palette, semantic colors, typography, spacing and control roles; define
-only necessary shared density/terminal roles. Separate token availability from the
-full-page body/navbar/footer selectors. A drawer must not acquire a full-page marker
-just to inherit variables. Preserve the native selected theme and native form layout.
-
-Check source for repeated raw visual values, including fallbacks and inline styling,
-and verify resolved appearance in both themes and compact/wide states. Computed styles
-cannot prove that source used tokens. Keep measured terminal/pane geometry distinct
-from visual styling, and carry layout/focus tests when font or chrome dimensions change.
+Use the existing palette, semantic colors, typography, spacing and control roles
+for both Spaces page and Workspace panel. Keep page layout selectors scoped to
+the page and panel layout selectors scoped to the panel. Preserve the native
+Forgejo theme and form layout. Check resolved appearance in light and dark themes
+and compact and wide views when changing shared tokens, fonts or geometry.
 
 Upstream references: [Lit overview](https://lit.dev/docs/),
 [reactive properties](https://lit.dev/docs/components/properties/),

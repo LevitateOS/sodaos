@@ -19,6 +19,12 @@ type extensionRequest struct {
 	userID    int64
 }
 
+type sessionUserView struct {
+	ID              string `json:"id"`
+	Login           string `json:"login"`
+	SodaDisplayName string `json:"soda_display_name"`
+}
+
 // ExtensionHandler serves the bounded read and preference mutation available
 // to the private native extension listener.
 func (s *Service) ExtensionHandler() http.Handler {
@@ -111,6 +117,7 @@ func (s *Service) serveExtensionDevelopmentKeyRemoval(w http.ResponseWriter, r *
 	if !allowExtensionNoQuery(w, r) || !revalidateExtensionAuthority(w, r) {
 		return
 	}
+	r.SetPathValue("key", strings.TrimPrefix(r.URL.Path, "/api/me/development-keys/"))
 	s.apiRemoveDevelopmentKey(w, r, session)
 }
 

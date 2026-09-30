@@ -39,9 +39,4 @@
 <a href="{{.RepoLink}}/settings/actions/variables" {{if .PageIsSharedSettingsVariables}}aria-current="page"{{end}}>{{ctx.Locale.Tr "actions.variables"}}</a>
 </div></section>
 {{end}}
-{{if and .IsSigned (gt .Repository.ID 0)}}
-<section class="soda-settings-nav-group">
-<a class="soda-settings-nav-link" href="{{AppSubUrl}}/?soda-view=repository-spaces&amp;repository_id={{.Repository.ID}}">Sodaspaces</a>
-</section>
-{{end}}
 </div></nav>

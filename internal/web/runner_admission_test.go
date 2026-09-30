@@ -9,18 +9,19 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/store"
+	extensions "forgejo.org/extension-sdk"
 	"github.com/stretchr/testify/require"
 )
 
-// Delay body decoding after the real operator/provider gate. Session changes use
-// the real store/logout route; the existing fixture never executes native commands.
+// The active stop/remove mutations recheck native authority after decoding and
+// before dispatch. Changing presentation authority during the body read cannot
+// run a native command under the original actor or page generation.
 func TestRunnerMutationAdmissionAfterDecode(t *testing.T) {
 	for _, operation := range runnerAPIRequests {
 		if operation.name != "stop" && operation.name != "remove" {
 			continue
 		}
-		for _, change := range []string{"unchanged", "logout", "user", "context", "csrf", "store", "cancel"} {
+		for _, change := range []string{"unchanged", "actor", "generation", "instance", "cancel"} {
 			t.Run(operation.name+"/"+change, func(t *testing.T) {
 				s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
 					if r.Method != http.MethodPost || r.URL.Path != "/runners/"+operation.name {
@@ -28,68 +29,34 @@ func TestRunnerMutationAdmissionAfterDecode(t *testing.T) {
 					}
 					_, _ = w.Write([]byte(`{"ok":true}`))
 				})
-				// Count attempts before the transport can reject a cancelled context;
-				// transport cancellation alone is not web mutation admission.
 				var calls atomic.Int32
 				transport := s.Host.HTTP.Transport
 				s.Host.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
 					calls.Add(1)
 					return transport.RoundTrip(r)
 				})
-				original, err := s.Store.Session(t.Context(), "session-alice")
-				require.NoError(t, err)
-				grant, err := s.Store.Grant(t.Context(), "session-alice", original.User.ID)
-				require.NoError(t, err)
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
 				r := apiTestRequest(operation.method, operation.path, operation.body, "alice").WithContext(ctx)
 				read := false
 				r.Body = io.NopCloser(&mutationAdmissionBody{Reader: strings.NewReader(operation.body), beforeRead: func() {
 					read = true
+					context := r.Header.Get(extensions.ContextHeader)
 					switch change {
-					case "logout":
-						logout := httptest.NewRecorder()
-						s.ServeHTTP(logout, apiTestRequest(http.MethodPost, "/api/session/logout", `{}`, "alice"))
-						require.Equal(t, http.StatusNoContent, logout.Code)
-						_, err := s.Store.Session(t.Context(), "session-alice")
-						require.ErrorIs(t, err, store.ErrNotFound)
-					case "user", "context", "csrf":
-						require.NoError(t, s.Store.DeleteSession(t.Context(), "session-alice"))
-						uid, csrf := original.User.ID, original.CSRF
-						if change == "user" {
-							uid = 2
-						} else if change == "csrf" {
-							csrf = "rotated-csrf"
-						}
-						if change == "context" {
-							// Preserve the token, actor, CSRF and grant so only the
-							// original-context comparison can detect this replacement.
-							require.NoError(t, s.Store.BeginOAuth(t.Context(), "runner-new-context", store.OAuthLogin{}, "", ""))
-							attempt, err := s.Store.ConsumeOAuth(t.Context(), "runner-new-context", "")
-							require.NoError(t, err)
-							require.NoError(t, s.Store.FinishOAuth(t.Context(), attempt, original.User, "session-alice", csrf, grant))
-						} else {
-							require.NoError(t, s.Store.CreateGrantedSession(t.Context(), "session-alice", uid, csrf, grant))
-						}
-						replacement, err := s.Store.Session(t.Context(), "session-alice")
-						require.NoError(t, err)
-						require.Equal(t, uid, replacement.User.ID)
-						require.Equal(t, csrf, replacement.CSRF)
-						if change == "context" {
-							require.NotEqual(t, original.ContextID, replacement.ContextID)
-						} else {
-							require.Equal(t, original.ContextID, replacement.ContextID)
-						}
-					case "store":
-						require.NoError(t, s.Store.Close())
+					case "actor":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(context, `"id":"1"`, `"id":"2"`, 1))
+					case "generation":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(context, nativeProductGeneration, "expired", 1))
+					case "instance":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(context, "native-test-instance", "other-instance", 1))
 					case "cancel":
 						cancel()
 					}
 				}})
 				w := httptest.NewRecorder()
-				s.ServeHTTP(w, r)
+				nativeAPIServe(t, s, w, r)
 				require.True(t, read, "request never reached the post-authorization body read")
-				wantStatus, wantCalls := http.StatusUnauthorized, int32(0)
+				wantStatus, wantCalls := http.StatusConflict, int32(0)
 				if change == "unchanged" {
 					wantStatus, wantCalls = http.StatusOK, 1
 				}
@@ -100,8 +67,6 @@ func TestRunnerMutationAdmissionAfterDecode(t *testing.T) {
 				require.NotContains(t, w.Body.String(), "synthetic-runner-secret")
 				if change == "unchanged" {
 					require.JSONEq(t, `{"ok":true}`, w.Body.String())
-				} else {
-					require.Contains(t, w.Body.String(), `"code":"reauthentication_required"`)
 				}
 			})
 		}

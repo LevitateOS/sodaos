@@ -11,26 +11,6 @@ import (
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
-func (s *API) environmentRoutes() {
-	s.mux.HandleFunc("/api/repositories", s.Auth.Protected(s.apiRepositories, http.MethodGet))
-	s.mux.HandleFunc("/api/environments/{id}/os", s.Auth.Protected(s.apiEnvironmentOS, "GET"))
-	s.mux.HandleFunc("/api/repositories/{repositoryID}/profiles", s.Auth.Protected(s.apiProjectProfiles, "GET"))
-	s.mux.HandleFunc("/api/environments/{id}/lifecycle", s.Auth.Protected(s.apiLifecycle, "GET", "POST"))
-	s.mux.HandleFunc("/api/environments/{id}/access-keys", s.Auth.Protected(s.apiAccessKeys, "GET", "POST"))
-	s.mux.HandleFunc("/api/environments/{id}/terminal", s.apiTerminal)
-	s.mux.HandleFunc("/api/environments/{id}/terminal-session", s.Auth.Protected(func(w http.ResponseWriter, r *http.Request, _ store.Session) {
-		auth.JSONError(w, 410, "terminal_client_obsolete", "Reload this page; terminal actions now require an exact ID.")
-	}, http.MethodGet, http.MethodPost))
-	s.mux.HandleFunc("/api/environments/{id}/terminal-sessions/{terminalID}", s.Auth.Protected(s.apiTerminalSession, http.MethodGet, http.MethodPost))
-	s.mux.HandleFunc("/api/environments/{id}/terminal-sessions", s.Auth.Protected(s.apiReserveTerminal, http.MethodPost))
-	s.mux.HandleFunc("/api/spaces", s.Auth.Protected(s.apiSpaces, http.MethodGet))
-	s.mux.HandleFunc("/api/environments", s.Auth.Protected(s.apiEnvironments, "GET", "POST"))
-	s.mux.HandleFunc("/api/environments/{id}", s.Auth.Protected(s.apiEnvironment, "GET"))
-	s.mux.HandleFunc("/api/environments/{id}/join", s.Auth.Protected(s.apiJoinEnvironment, "POST"))
-	s.mux.HandleFunc("/api/environments/{id}/members", s.Auth.Protected(s.apiEnvironmentMembers, "GET"))
-	s.mux.HandleFunc("/api/environments/{id}/connection", s.Auth.Protected(s.apiConnection, "GET"))
-}
-
 type EnvironmentView struct {
 	Profile      *project.Profile `json:"profile"`
 	ID           string           `json:"id"`

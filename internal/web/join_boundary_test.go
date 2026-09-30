@@ -16,17 +16,7 @@ import (
 func TestConcurrentNewJoinsAndResultPersistenceFailure(t *testing.T) {
 	for _, failStore := range []bool{false, true} {
 		t.Run(fmt.Sprint(failStore), func(t *testing.T) {
-			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				switch r.URL.Path {
-				case "/api/v1/user":
-					_, _ = fmt.Fprint(w, `{"id":2,"login":"bob"}`)
-				case "/api/v1/repositories/7":
-					_, _ = fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
-				default:
-					t.Error("unexpected provider call")
-					w.WriteHeader(500)
-				}
-			})
+			s := apiTestServer(t)
 			id := "p0123456789abcdef01234567"
 			if err := s.Store.CreateProject(t.Context(), store.Project{ID: id, RepositoryID: 7, OwnerID: 1}); err != nil {
 				t.Fatal(err)
@@ -62,7 +52,7 @@ func TestConcurrentNewJoinsAndResultPersistenceFailure(t *testing.T) {
 			for i := 0; i < count; i++ {
 				go func() {
 					w := httptest.NewRecorder()
-					s.ServeHTTP(w, apiTestRequest("POST", "/api/environments/"+id+"/join", "{}", "bob"))
+					nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/environments/"+id+"/join", "{}", "bob"))
 					results <- w
 				}()
 			}
@@ -102,7 +92,7 @@ func TestConcurrentNewJoinsAndResultPersistenceFailure(t *testing.T) {
 }
 
 func TestConnectionRemainsOwnMembershipOnlyDuringProviderFailure(t *testing.T) {
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) })
+	s := apiTestServer(t)
 	id := "p0123456789abcdef01234567"
 	if err := s.Store.CreateProject(t.Context(), store.Project{ID: id, RepositoryID: 7, OwnerID: 1}); err != nil {
 		t.Fatal(err)
@@ -117,7 +107,7 @@ func TestConnectionRemainsOwnMembershipOnlyDuringProviderFailure(t *testing.T) {
 	})}
 	for _, login := range []string{"alice", "bob"} {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/environments/"+id+"/connection", "", login))
+		nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/environments/"+id+"/connection", "", login))
 		if w.Code != 403 || calls != 0 {
 			t.Fatal("nonmember/operator obtained connection", w.Code)
 		}
@@ -126,7 +116,7 @@ func TestConnectionRemainsOwnMembershipOnlyDuringProviderFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/environments/"+id+"/connection", "", "bob"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/environments/"+id+"/connection", "", "bob"))
 	if w.Code != 200 || calls != 1 || !strings.Contains(w.Body.String(), `"login":"original-bob"`) || !strings.Contains(w.Body.String(), `"routing_verified":false`) {
 		t.Fatal(w.Code, w.Body.String())
 	}

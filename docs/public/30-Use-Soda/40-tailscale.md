@@ -40,12 +40,9 @@ provider public ingress closed and the console available.
 ## Use the native Tailnet page
 
 The Tailnet operator entry lives under **Site administration → Soda → Tailnet**,
-not the global top bar. The fixed bookmark `/-/soda/settings/tailnet` also works
-without first entering Spaces or logging in to Soda. Native administration visibility
-does not grant management access: the configured Soda operator remains required.
-The page renders in Forgejo's native administration layout, so native site-admin
-eligibility is also required, including for direct bookmarks. Native administration
-visibility does not replace the configured Soda operator requirement.
+not the global top bar. The page renders in Forgejo's native administration layout,
+so native site-admin eligibility is required. The configured Soda operator also
+remains required to manage appliance state.
 
 For a reachable, paired deployment, open **Tailnet → Appliance**, select **Sign in**,
 follow the explicit authentication link and observe the resulting identity. Saving

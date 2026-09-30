@@ -82,9 +82,11 @@ func TestExtensionProductContributionScopes(t *testing.T) {
 	}{
 		{"/api/spaces", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 		{"/api/environments/1/join", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
-		{"/api/settings/runners", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, true},
+		{"/api/settings/runners", extensions.Contribution{Kind: "page", ID: "runners", Scope: "admin"}, true},
+		{"/api/settings/runners", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
 		{"/api/settings/runners", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, false},
-		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, true},
+		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, true},
+		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
 		{"/api/environments/1/tailnet", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 		{"/api/settings/runners", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
 	} {
@@ -96,12 +98,32 @@ func TestExtensionProductContributionScopes(t *testing.T) {
 	}
 }
 
+func TestNativeTerminalContributionScopes(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		contribution extensions.Contribution
+		allowed      bool
+	}{
+		{"Spaces page", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
+		{"workspace panel", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
+		{"admin runners page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "admin"}, false},
+		{"other global page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
+		{"spaces admin scope", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "admin"}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := nativeTerminalContribution(extensions.Authority{Contribution: test.contribution})
+			if got != test.allowed {
+				t.Fatalf("nativeTerminalContribution(%+v) = %t, want %t", test.contribution, got, test.allowed)
+			}
+		})
+	}
+}
+
 func TestExtensionTransportDoesNotForwardBrowserCredentials(t *testing.T) {
 	in := httptest.NewRequest("PATCH", "/me/preferences", nil)
 	in.Header.Set("Cookie", "native=private")
 	in.Header.Set("Authorization", "Bearer private")
 	in.Header.Set("X-Forwarded-Host", "untrusted")
-	in.Header.Set("X-Soda-Expected-User-ID", "99")
 	in.Header.Set("Origin", "https://forgejo.test")
 	in.Header.Set(extensions.AdmissionHeader, "private-admission")
 	out := in.Clone(in.Context())
@@ -109,7 +131,7 @@ func TestExtensionTransportDoesNotForwardBrowserCredentials(t *testing.T) {
 	if out.URL.Path != "/api/me/preferences" {
 		t.Fatalf("private service path = %q", out.URL.Path)
 	}
-	for _, name := range []string{"Cookie", "Authorization", "X-Forwarded-Host", "X-Soda-Expected-User-ID"} {
+	for _, name := range []string{"Cookie", "Authorization", "X-Forwarded-Host"} {
 		if out.Header.Get(name) != "" {
 			t.Errorf("forwarded %s", name)
 		}

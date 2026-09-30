@@ -178,12 +178,14 @@ func ValidCandidateContent(files map[string]string) bool {
 
 func requiredCandidateContent(files map[string]string) bool {
 	for _, path := range []string{
+		"dashboard:/usr/local/bin/soda-dashboard",
 		"forgejo:/usr/local/bin/gitea",
 		"extension:/usr/local/bin/gitea",
 		"extension:/usr/share/soda/extension/extension.json",
 		"extension:/usr/share/soda/extension/backend",
 		"extension:/usr/share/soda/extension/run",
 		"host:/usr/share/containers/systemd/forgejo.container",
+		"host:/usr/share/containers/systemd/soda-dashboard.container",
 		"host:/usr/lib/systemd/system/soda-extension-install.service",
 	} {
 		if !build.Digest(files[path]) {
@@ -199,7 +201,7 @@ func validCandidateAssetName(name string) bool {
 
 func knownCandidateContentName(file string) bool {
 	switch file {
-	case "forgejo:/usr/local/bin/gitea", "extension:/usr/local/bin/gitea", "extension:/usr/share/soda/extension/extension.json", "extension:/usr/share/soda/extension/backend", "extension:/usr/share/soda/extension/run", "host:/usr/share/containers/systemd/forgejo.container", "host:/usr/lib/systemd/system/soda-extension-install.service":
+	case "dashboard:/usr/local/bin/soda-dashboard", "forgejo:/usr/local/bin/gitea", "extension:/usr/local/bin/gitea", "extension:/usr/share/soda/extension/extension.json", "extension:/usr/share/soda/extension/backend", "extension:/usr/share/soda/extension/run", "host:/usr/share/containers/systemd/forgejo.container", "host:/usr/share/containers/systemd/soda-dashboard.container", "host:/usr/lib/systemd/system/soda-extension-install.service":
 		return true
 	default:
 		return false

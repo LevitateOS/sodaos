@@ -1,6 +1,5 @@
 .soda-settings { font: var(--soda-font-body); color-scheme: inherit; }
 .soda-settings .settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--soda-space-4); }
-.soda-native-page > .soda-page-container:has(.soda-settings) { max-width: 1000px; margin: auto; padding: var(--soda-space-6); }
 .soda-settings soda-runners { display: block; }
 .soda-settings h1 { font: var(--soda-font-title); }
 .soda-settings h2 { font: var(--soda-font-heading); }
@@ -15,10 +14,6 @@
 .soda-settings :focus-visible { outline: 2px solid var(--soda-page-focus); outline-offset: var(--soda-space-half); }
 .soda-settings [role=status] { padding: var(--soda-space-3); background: var(--soda-page-selected); }
 .soda-settings article p { overflow-wrap: anywhere; }
-.soda-repository-spaces soda-project-controls { display: block; }
-.soda-repository-spaces .soda-spaces-tabs { width: 100%; }
-.soda-repository-spaces .soda-spaces-view, .soda-repository-spaces .soda-spaces-controls { height: auto; }
-.soda-repository-spaces input[type=checkbox] { width: auto; min-height: auto; justify-self: start; }
 
 /* Runner presentation uses the shared settings tokens without changing the
    repository settings component's geometry or Forgejo's native theme authority. */

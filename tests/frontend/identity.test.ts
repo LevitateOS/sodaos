@@ -126,8 +126,6 @@ test(
         if (url.pathname.startsWith('/-/extensions/pages/soda/spaces/api/')) {
           requests.push(url.pathname);
           assert.equal(request.headers.get('X-Extension-Session-Generation'), 'fixture');
-          assert.equal(request.headers.get('X-Soda-Expected-User-ID'), null);
-          assert.equal(request.headers.get('X-CSRF-Token'), null);
           if (request.method === 'POST') {
             launches.push(await request.json());
             return Response.json({terminal_id: 'a'.repeat(32)});

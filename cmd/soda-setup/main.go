@@ -1,4 +1,4 @@
-// soda-setup is an operator-invoked one-time dashboard OAuth setup, not a daemon.
+// soda-setup is operator-invoked setup for the Forgejo identity broker, not a daemon.
 package main
 
 import (
@@ -116,7 +116,9 @@ func setup(external, internal, tokenPath, out string) error {
 	secretPath := filepath.Join(dir, "oauth-secret")
 	keyPath := filepath.Join(dir, "grant-key")
 	key := make([]byte, 32)
-	rand.Read(key)
+	if _, err = rand.Read(key); err != nil {
+		return fmt.Errorf("generate identity encryption key: %w", err)
+	}
 	for path, value := range map[string]string{secretPath: a.Secret, keyPath: base64.StdEncoding.EncodeToString(key)} {
 		if err := writeSetupSecret(path, value); err != nil {
 			return err

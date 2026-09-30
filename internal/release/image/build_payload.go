@@ -103,7 +103,6 @@ func inspectCandidateForgejo(source, out string, images map[string]build.Produce
  test "$FORGEJO_CUSTOM" = "$GITEA_CUSTOM"
  test "$(readlink "$GITEA_CUSTOM/conf")" = /data/gitea/conf
  test "$(stat -c '%u:%g:%a' "$GITEA_CUSTOM/templates/custom/header.tmpl")" = 0:0:444
- test -s "$GITEA_CUSTOM/public/assets/soda/forgejo/soda-native-page.js"
  /usr/local/bin/gitea --version
  /usr/local/bin/gitea extensions --help >/dev/null`)
 	if err != nil {

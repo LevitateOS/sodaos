@@ -37,7 +37,9 @@ export async function exerciseRunnerContention(
   assert(input.phase === 'contention' || input.phase === 'departure');
   const receipt: ContentionEvidence = {mutation_posts: 0};
   evidence.contention = receipt;
-  const route = '/-/soda/api/settings/runners/' + input.runner_id + '/restart';
+  const pageRoute = '/admin/extensions/soda/runners';
+  const apiRoute = '/api/settings/runners/' + input.runner_id + '/restart';
+  const route = pageRoute + apiRoute;
   const observe = (request: Request) => {
     const url = new URL(request.url());
     if (url.origin === input.origin && url.pathname === route && request.method() === 'POST') {
@@ -100,7 +102,7 @@ export async function exerciseRunnerContention(
       const held = receipt.held_at;
       assert(typeof held === 'number');
       evidence.stage = 'one native Restart under held admission';
-      permit(input.operator_id, route.slice('/-/soda'.length), '{}');
+      permit(input.operator_id, apiRoute, '{}');
       const dispatched = operator.waitForRequest((r) => new URL(r.url()).pathname === route && r.method() === 'POST');
       if (input.phase === 'contention') {
         web = operator
@@ -173,20 +175,29 @@ export async function exerciseRunnerContention(
     evidence.after = after;
     receipt.result = verifyRunnerContention(input, before, after);
     evidence.stage = 'native return and reload without replay';
-    await operator.goto(input.origin + '/admin?soda-view=runners');
-    await operator.locator('#soda-native-content[data-actor="' + input.operator_id + '"]').waitFor();
+    await operator.goto(input.origin + pageRoute);
+    const mount = operator.locator('[data-extension-page][data-extension-id="soda"][data-extension-page-id="runners"]');
+    await mount.waitFor();
+    await operator.locator('soda-runners').waitFor();
     await operator.reload();
-    await operator.locator('#soda-native-content[data-actor="' + input.operator_id + '"]').waitFor();
+    await mount.waitFor();
+    await operator.locator('soda-runners').waitFor();
     await new Promise((resolve) => setTimeout(resolve, 2000));
     assert.equal(receipt.mutation_posts, 1, 'Navigation replayed the mutation');
-    const listed = await operator.evaluate(async (actor) => {
-      const response = await fetch('/-/soda/api/settings/runners', {
+    const listed = await operator.evaluate(async (path) => {
+      const generation = document.querySelector<HTMLElement>(
+        '[data-extension-page][data-extension-id="soda"][data-extension-page-id="runners"]'
+      )?.dataset.extensionSessionGeneration;
+      if (!generation) throw Error('Native Runners session unavailable');
+      const response = await fetch(path, {
         cache: 'no-store',
-        headers: {'X-Soda-Expected-User-ID': actor},
+        credentials: 'same-origin',
+        redirect: 'error',
+        headers: {'X-Extension-Session-Generation': generation},
       });
       if (!response.ok) throw Error('Post-case inventory unavailable');
       return response.json();
-    }, input.operator_id);
+    }, pageRoute + '/api/settings/runners');
     assert.deepEqual(decodeRunnerResponse('list', listed), after.inventory);
     evidence.outcome = 'confirmed';
   } finally {

@@ -12,7 +12,7 @@ implementation and review agents; see the [factory interface](factory.md).
 ## Product boundary
 
 - The operator-only **Runners** destination mounts through Forgejo administration
-  customization and protected `/-/soda/api/` endpoints.
+  customization and the protected native extension service.
 - Only the stable Forgejo user ID recorded as `operator_id` may inspect or clean up
   local runner state. Site, organization and repository administration do not grant
   appliance authority.
@@ -35,9 +35,9 @@ is implied by changing source files.
 
 Report partial cleanup failures honestly. No automatic provider cleanup or rollback.
 Neither browser nor helper accepts a selected UID, account, state path, unit name,
-executable or command. Fixed runner methods use the root:soda Unix socket. Browser
-mutations require expected actor, origin and CSRF checks and a current session
-immediately before cleanup dispatch.
+executable or command. Fixed runner methods use the root:soda Unix socket. The
+native Forgejo actor must match `operator_id`; mutations pass the native
+same-origin and session-generation checks before cleanup dispatch.
 
 ## Deferred execution boundary
 

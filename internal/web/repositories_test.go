@@ -7,48 +7,14 @@ import (
 	"strings"
 	"testing"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestRepositoryPickerAuthorityAndReservations(t *testing.T) {
 	for _, kind := range []string{"new", "ready", "incomplete", "transfer", "hidden", "foreign-search", "wrong-actor", "unavailable"} {
 		t.Run(kind, func(t *testing.T) {
-			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("Authorization") != "token acting-alice" {
-					t.Error("borrowed authority")
-				}
-				switch r.URL.Path {
-				case "/api/v1/user":
-					if kind == "wrong-actor" {
-						_, _ = fmt.Fprint(w, `{"id":2,"login":"bob"}`)
-					} else {
-						_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
-					}
-				case "/api/v1/repos/search":
-					if kind == "unavailable" {
-						w.WriteHeader(503)
-						return
-					}
-					owner := 1
-					if kind == "foreign-search" {
-						owner = 99
-					}
-					_, _ = fmt.Fprintf(w, `{"ok":true,"data":[{"id":7,"name":"repo","full_name":"alice/repo","owner":{"id":%d,"login":"alice"}}]}`, owner)
-				case "/api/v1/repositories/7":
-					if kind == "hidden" {
-						w.WriteHeader(404)
-						return
-					}
-					owner := 1
-					if kind == "transfer" {
-						owner = 2
-					}
-					_, _ = fmt.Fprintf(w, `{"id":7,"name":"renamed","full_name":"alice/renamed","owner":{"id":%d,"login":"alice"}}`, owner)
-				default:
-					t.Error("unexpected provider request", r.URL)
-					w.WriteHeader(500)
-				}
-			})
+			s := apiTestServer(t)
 			if kind == "ready" || kind == "incomplete" {
 				if err := s.Store.CreateProject(t.Context(), store.Project{ID: "p0123456789abcdef01234567", RepositoryID: 7, OwnerID: 1, Name: "repo", Repository: "alice/repo"}); err != nil {
 					t.Fatal(err)
@@ -59,8 +25,33 @@ func TestRepositoryPickerAuthorityAndReservations(t *testing.T) {
 					}
 				}
 			}
+			callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+				if in.Operation != extensions.OperationOwnedRepositories {
+					t.Error("unexpected native callback", in.Operation)
+					return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
+				}
+				if kind == "unavailable" {
+					return extensions.CallbackResponse{ErrorCode: "unavailable"}
+				}
+				items := []extensions.Repository{}
+				if kind != "transfer" && kind != "hidden" {
+					owner := "alice"
+					if kind == "foreign-search" {
+						owner = "other"
+					}
+					items = append(items, extensions.Repository{ID: "7", Owner: owner, Name: "renamed", Permission: "write"})
+				}
+				return extensions.CallbackResponse{Page: &extensions.RepositoryPage{Items: items}}
+			}
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("GET", "/api/repositories?q=&page=1", "", "alice"))
+			r := apiTestRequest("GET", "/api/repositories?q=", "", "alice")
+			var headers func(http.Header)
+			if kind == "wrong-actor" {
+				headers = func(h http.Header) {
+					h.Set(extensions.ContextHeader, strings.Replace(h.Get(extensions.ContextHeader), `"id":"1"`, `"id":"2"`, 1))
+				}
+			}
+			nativeAPIServeWithOptions(t, s, w, r, callback, headers)
 			body := w.Body.String()
 			switch kind {
 			case "foreign-search", "wrong-actor", "unavailable":
@@ -86,104 +77,83 @@ func TestRepositoryPickerAuthorityAndReservations(t *testing.T) {
 	}
 }
 
-func TestRepositoryPickerLogoutWinsPublication(t *testing.T) {
-	var s *Server
-	s = grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v1/user" {
-			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
-			return
+func TestRepositoryPickerNativeGenerationChangeWinsPublication(t *testing.T) {
+	s := apiTestServer(t)
+	r := apiTestRequest("GET", "/api/repositories?q=", "", "alice")
+	callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+		if in.Operation != extensions.OperationOwnedRepositories {
+			t.Error("unexpected callback", in.Operation)
 		}
-		if r.URL.Path != "/api/v1/repos/search" {
-			t.Error("unexpected request", r.URL)
-		}
-		if err := s.Store.DeleteSession(t.Context(), "session-alice"); err != nil {
-			t.Error(err)
-		}
-		_, _ = fmt.Fprint(w, `{"ok":true,"data":[]}`)
-	})
+		r.Header.Set(extensions.ContextHeader, strings.Replace(r.Header.Get(extensions.ContextHeader), nativeProductGeneration, "expired", 1))
+		return extensions.CallbackResponse{Page: &extensions.RepositoryPage{Items: []extensions.Repository{}}}
+	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/repositories?q=&page=1", "", "alice"))
+	nativeAPIServeWithCallback(t, s, w, r, callback)
 	if w.Code != 401 || strings.Contains(w.Body.String(), `"items"`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 }
 
-func TestRepositoryPickerReadConsentAndPageBoundary(t *testing.T) {
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/api/v1/user":
-			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
-		case "/api/v1/repos/search":
-			_, _ = fmt.Fprint(w, `{"ok":true,"data":[`)
-			for n := 1; n <= 12; n++ {
-				if n > 1 {
-					_, _ = fmt.Fprint(w, ",")
-				}
-				_, _ = fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`, n)
-			}
-			_, _ = fmt.Fprint(w, `]}`)
-		default:
-			var id int
-			if _, err := fmt.Sscanf(r.URL.Path, "/api/v1/repositories/%d", &id); err != nil {
-				t.Error(err)
-			}
-			_, _ = fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","owner":{"id":1,"login":"alice"}}`, id)
+func TestRepositoryPickerNativePageBoundary(t *testing.T) {
+	s := apiTestServer(t)
+	oversized := false
+	callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+		if in.Operation != extensions.OperationOwnedRepositories {
+			t.Error("unexpected callback", in.Operation)
 		}
-	})
-	grant, err := s.Store.Grant(t.Context(), "session-alice", 1)
-	if err != nil {
-		t.Fatal(err)
+		count := in.Limit
+		if oversized {
+			count++
+		}
+		items := make([]extensions.Repository, count)
+		for i := range items {
+			items[i] = extensions.Repository{ID: fmt.Sprint(i + 1), Owner: "alice", Name: "repo", Permission: "write"}
+		}
+		return extensions.CallbackResponse{Page: &extensions.RepositoryPage{Items: items, NextCursor: "next"}}
 	}
-	for _, scopes := range []string{"read:user read:repository", "read:user"} {
-		if err = s.Store.DeleteSession(t.Context(), "session-alice"); err != nil {
-			t.Fatal(err)
-		}
-		grant.Scopes = scopes
-		if err = s.Store.CreateGrantedSession(t.Context(), "session-alice", 1, "csrf-alice", grant); err != nil {
-			t.Fatal(err)
-		}
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/repositories?q=&page=100", "", "alice"))
-		if scopes == "read:user" {
-			if w.Code == 200 {
-				t.Fatal("missing consent accepted")
-			}
-			continue
-		}
-		if w.Code != 200 || !strings.Contains(w.Body.String(), `"more":false,"limited":true`) {
-			t.Fatal(w.Code, w.Body.String())
-		}
+	w := httptest.NewRecorder()
+	nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/repositories?q=&cursor=first", "", "alice"), callback)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"next_cursor":"next"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	oversized = true
+	w = httptest.NewRecorder()
+	nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/repositories?q=&cursor=first", "", "alice"), callback)
+	if w.Code != 503 || strings.Contains(w.Body.String(), `"items"`) {
+		t.Fatal("invalid native page was published", w.Code, w.Body.String())
 	}
 }
 
 func TestRepositoryPickerQueryAndAdmission(t *testing.T) {
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Error("invalid request reached Forgejo")
-		w.WriteHeader(500)
-	})
-	for _, query := range []string{"", "?q=", "?q=&page=0", "?q=&page=01", "?q=&page=101", "?q=&page=1&page=1", "?q=&page=1&uid=2", "?q=%0a&page=1", "?q=" + strings.Repeat("x", 201) + "&page=1"} {
+	s := apiTestServer(t)
+	calls := 0
+	callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+		calls++
+		return extensions.CallbackResponse{Page: &extensions.RepositoryPage{Items: []extensions.Repository{}}}
+	}
+	for _, query := range []string{"", "?page=1", "?q=&page=1", "?q=&cursor=a&cursor=b", "?q=&uid=2", "?q=%0a", "?q=" + strings.Repeat("x", 201), "?q=&cursor=" + strings.Repeat("x", 4097)} {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/repositories"+query, "", "alice"))
-		if w.Code != 400 {
-			t.Fatal(query, w.Code, w.Body.String())
+		nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/repositories"+query, "", "alice"), callback)
+		if w.Code != 400 || calls != 0 {
+			t.Fatal(query, w.Code, w.Body.String(), calls)
 		}
 	}
 	for range cap(s.API.RepositorySlots) {
 		s.API.RepositorySlots <- struct{}{}
 	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/repositories?q=&page=1", "", "alice"))
-	if w.Code != 503 {
-		t.Fatal(w.Code)
+	nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/repositories?q=", "", "alice"), callback)
+	if w.Code != 503 || calls != 0 {
+		t.Fatal(w.Code, calls)
 	}
 	for range cap(s.API.RepositorySlots) {
 		<-s.API.RepositorySlots
 	}
-	r := apiTestRequest("GET", "/api/repositories?q=&page=1", "", "alice")
-	r.Header.Set("X-Soda-Expected-User-ID", "2")
 	w = httptest.NewRecorder()
-	s.ServeHTTP(w, r)
-	if w.Code != 403 {
-		t.Fatal(w.Code, w.Body.String())
+	nativeAPIServeWithOptions(t, s, w, apiTestRequest("GET", "/api/repositories?q=", "", "alice"), callback, func(h http.Header) {
+		h.Set(extensions.ContextHeader, strings.Replace(h.Get(extensions.ContextHeader), `"id":"1"`, `"id":"2"`, 1))
+	})
+	if w.Code != 403 || calls != 0 {
+		t.Fatal(w.Code, w.Body.String(), calls)
 	}
 }

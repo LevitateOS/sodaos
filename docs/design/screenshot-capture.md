@@ -118,43 +118,7 @@ container while preserving its data volume. Subsequent asset rebuilds use the sa
 mount and do not require a container restart. This is local preview wiring, not an
 appliance deployment or permission to change retained projects.
 
-## Capturing the existing native page consumers
-
-For local populated-state review, the existing page tests can call
-`capturePageFixture` from this same `scripts/screenshot.ts` owner. Set
-`SODA_PAGE_CAPTURES` to an existing absolute mode-0700 directory when running
-`bun run test:pages`. Each named case creates an exclusive child directory with
-`viewport.png` and a scoped `capture.json`; occupied names refuse overwrite.
-The normal CLI still runs only when invoked directly, not when imported by tests.
-
-The capture function borrows the consumer's already-authenticated page, not another
-login/profile. It restricts capture to the selected loopback native fixture's fixed
-page URLs, checks native landmarks and refuses nonempty password fields without
-printing their values. It does not mask or alter controls. Tests choose the existing
-populated state and scroll position; caller error assertions and operation guards
-remain in force. The CLI and fixture share browser-only theme selection and await
-finite native CSS transitions rather than freezing animations or capturing an
-intermediate theme. Infinite cursor animations remain live.
-
-These are **local native-page fixtures with synthetic operation/terminal data**,
-not the CLI's `--verify` template/stylesheet-byte check or installed proof. The workspace consumer also
-retains its existing fixture-script insertion into native HTML. Sidecars label that
-limited scope and record viewport, theme, scroll, presentation revision and selected
-tab styles without credential values or authentication URLs. Review actual PNGs:
-a passing test or capture does not prove good framing, readability, real provisioning
-or terminal processes. Keep earlier failures/poorly framed captures; do not publish
-fixture images as installed-product proof.
-
-### Installed Spaces captures
-
-`captureInstalledSpaces` reuses the installed consumer's authenticated page. It
-requires the selected `SODA_NATIVE_VALIDATE` target, explicit HTTPS origin and
-presentation epoch, a private output directory and the actual native header at
-`/?soda-view=spaces`. Password/fixture-marker pages are refused. It does not alter
-HTML, cookies, APIs or terminal transport. Each new capture has its own scoped
-receipt; backend identity and native input/process proof remain separate evidence.
-
-### Synthetic Spaces component captures
+## Synthetic Spaces component captures
 
 For the existing emitted-component tests only, `captureSpacesComponent` in
 `scripts/screenshot.ts` accepts `SODA_SPACES_COMPONENT_CAPTURES` pointing to a fresh

@@ -190,7 +190,7 @@ func TestNativeConnectionFixture(t *testing.T) {
 	if !actor.IsAdmin {
 		t.Fatal("native Runners/Tailnet consumers require an authorized admin-eligible fixture; account changes need separate approval")
 	}
-	input, _ := json.Marshal(map[string]any{"name": "Soda connection fixture " + filepath.Base(dir), "redirect_uris": []string{server.URL + config.SodaPath + "/oauth/callback"}, "confidential_client": true})
+	input, _ := json.Marshal(map[string]any{"name": "Soda connection fixture " + filepath.Base(dir), "redirect_uris": []string{server.URL + config.SodaPath + "/identity/callback"}, "confidential_client": true})
 	req, _ := http.NewRequest("POST", upstream.String()+"/api/v1/user/applications/oauth2", bytes.NewReader(input))
 	req.SetBasicAuth("soda-screenshot", string(match[1]))
 	req.Header.Set("Content-Type", "application/json")

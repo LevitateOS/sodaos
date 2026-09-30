@@ -1,8 +1,6 @@
 package web
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,22 +8,14 @@ import (
 	"strings"
 	"testing"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/runners"
 )
 
 func runnerWebFixture(t *testing.T, native http.HandlerFunc) *Server {
 	t.Helper()
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/user" {
-			t.Error("unexpected provider request", r.URL.Path)
-		}
-		if strings.Contains(r.Header.Get("Authorization"), "bob") {
-			_, _ = fmt.Fprint(w, `{"id":2,"login":"bob","is_admin":true}`)
-		} else {
-			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice","is_admin":false}`)
-		}
-	})
+	s := apiTestServer(t)
 	peer := httptest.NewServer(native)
 	t.Cleanup(peer.Close)
 	s.SetHost(&host.Client{HTTP: peer.Client()})
@@ -50,13 +40,13 @@ func TestRunnerOperatorGatesBeforeNativeAndDecode(t *testing.T) {
 			method = "POST"
 		}
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest(method, path, `{"bad":`, "bob"))
+		nativeAPIServe(t, s, w, apiTestRequest(method, path, `{"bad":`, "bob"))
 		if w.Code != 403 || calls != 0 || !strings.Contains(w.Body.String(), "operator_required") {
 			t.Fatal(path, w.Code, w.Body.String(), calls)
 		}
 	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
 	if w.Code != 200 || calls != 1 {
 		t.Fatal(w.Code, w.Body.String(), calls)
 	}
@@ -75,12 +65,12 @@ func TestRunnerAPIRejectsUnsupportedProviders(t *testing.T) {
 				t.Fatal(err)
 			}
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners", string(input), "alice"))
+			nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/runners", string(input), "alice"))
 			if w.Code != 503 || calls != 0 {
 				t.Fatal("unsupported registration reached native code", w.Code, calls)
 			}
 			w = httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+			nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
 			if w.Code != 503 || strings.Contains(w.Body.String(), "soda-runner-legacy") {
 				t.Fatal("unsupported inventory was exposed", w.Code, w.Body.String())
 			}
@@ -96,20 +86,20 @@ func TestRunnerExecutionUnavailableBeforeNativeDispatch(t *testing.T) {
 			continue
 		}
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest(operation.method, operation.path, operation.body, "alice"))
+		nativeAPIServe(t, s, w, apiTestRequest(operation.method, operation.path, operation.body, "alice"))
 		if w.Code != 503 || calls != 0 || !strings.Contains(w.Body.String(), "runner_execution_unavailable") || strings.Contains(w.Body.String(), "synthetic-runner-secret") {
 			t.Fatal(w.Code, w.Body.String(), calls)
 		}
 	}
 }
 
-func TestRunnerLifecycleConfirmationActorAndCSRF(t *testing.T) {
+func TestRunnerLifecycleConfirmationActorAndGeneration(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; _, _ = fmt.Fprint(w, `{"ok":true}`) })
 	for _, action := range []string{"stop", "remove"} {
 		for _, body := range []string{`{}`, `{"confirm_id":""}`, `{"confirm_id":"other"}`, `{"confirm_id":"one"}`, `{"unit":"sshd"}`} {
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/runners/one/"+action, body, "alice"))
+			nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/runners/one/"+action, body, "alice"))
 			want := 400
 			if action == "remove" && body == `{"confirm_id":"one"}` || action != "remove" && body == `{}` {
 				want = 200
@@ -123,15 +113,23 @@ func TestRunnerLifecycleConfirmationActorAndCSRF(t *testing.T) {
 		t.Fatal(calls)
 	}
 	for _, action := range []string{"stop", "remove"} {
-		for _, header := range []string{"X-Soda-Expected-User-ID", "X-CSRF-Token", "Origin"} {
+		for _, header := range []string{"actor", "generation", "origin"} {
 			body := `{}`
 			if action == "remove" {
 				body = `{"confirm_id":"one"}`
 			}
 			r := apiTestRequest("POST", "/api/settings/runners/one/"+action, body, "alice")
-			r.Header.Del(header)
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, r)
+			nativeAPIServeWithOptions(t, s, w, r, nil, func(h http.Header) {
+				switch header {
+				case "actor":
+					h.Set(extensions.ContextHeader, strings.Replace(h.Get(extensions.ContextHeader), `"id":"1"`, `"id":"2"`, 1))
+				case "generation":
+					h.Set(extensions.SessionGenerationHeader, "changed")
+				case "origin":
+					h.Del("Origin")
+				}
+			})
 			if w.Code < 400 || calls != 2 {
 				t.Fatal(action, header, w.Code, calls)
 			}
@@ -149,13 +147,13 @@ func TestRunnerListPublicOriginAndUnavailableNotEmpty(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(runners.Inventory{Runners: []runners.RunnerView{{Descriptor: runners.Descriptor{ID: "legacy", Provider: runners.ProviderForgejo, RegistrationURL: "http://internal-only:3000", Account: "soda-runner-legacy", Architecture: "x86-64"}, Version: "runner", Capacity: 1, Service: &runners.ServiceState{Load: "loaded", Active: "active", Sub: "running", Enabled: "enabled"}}}, Unavailable: []string{}})
 	})
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
 	if w.Code != 200 || strings.Contains(w.Body.String(), "internal-only") || !strings.Contains(w.Body.String(), `"active_listeners":1`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	fail = true
 	w = httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
 	if w.Code != 503 || strings.Contains(w.Body.String(), `"runners":[]`) {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -165,7 +163,7 @@ func TestRunnerPartialInventoryKeepsValidatedRowsAndQualifiesCounts(t *testing.T
 	inventory := runners.Inventory{Runners: []runners.RunnerView{{Descriptor: runners.Descriptor{ID: "one", Provider: runners.ProviderForgejo, Account: "soda-runner-one"}, Capacity: 1}}, Unavailable: []string{"two"}}
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { _ = json.NewEncoder(w).Encode(inventory) })
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
 	var result runners.ListResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
@@ -176,32 +174,21 @@ func TestRunnerPartialInventoryKeepsValidatedRowsAndQualifiesCounts(t *testing.T
 	for _, unavailable := range [][]string{{"one"}, {"../two"}, {"two", "two"}} {
 		inventory.Unavailable = unavailable
 		w = httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
+		nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
 		if w.Code != 503 {
 			t.Fatal(w.Code, w.Body.String())
 		}
 	}
 }
 
-func TestRunnerAuthorizationLogoutDuringProviderCheck(t *testing.T) {
+func TestRunnerAuthorizationRejectsExpiredGenerationBeforeInventory(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; _, _ = fmt.Fprint(w, `[]`) })
-	s.Forgejo.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
-		v, err := s.Store.Session(context.Background(), "session-alice")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err = s.Store.EndLoginContext(context.Background(), v.ContextID); err != nil {
-			t.Fatal(err)
-		}
-		response := httptest.NewRecorder()
-		response.WriteHeader(200)
-		_, _ = response.Write(bytes.NewBufferString(`{"id":1,"login":"alice"}`).Bytes())
-		return response.Result(), nil
-	})}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/runners", "", "alice"))
-	if w.Code != 401 || calls != 0 {
+	nativeAPIServeWithOptions(t, s, w, apiTestRequest("GET", "/api/settings/runners", "", "alice"), nil, func(h http.Header) {
+		h.Set(extensions.SessionGenerationHeader, "expired")
+	})
+	if w.Code != 409 || calls != 0 {
 		t.Fatal(w.Code, calls)
 	}
 }

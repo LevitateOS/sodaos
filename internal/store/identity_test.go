@@ -101,21 +101,3 @@ func TestIdentityAuditFailureRollsBackAdmission(t *testing.T) {
 		t.Fatal("audit failure left committed reservation", err)
 	}
 }
-
-func TestIdentityRefusesObsoleteExclusiveLeaseFormat(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "obsolete.db")
-	s, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.db.Exec(`CREATE UNIQUE INDEX obsolete_identity_exclusive ON identity_leases(connection_id)`); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if reopened, err := Open(path); err == nil {
-		_ = reopened.Close()
-		t.Fatal("obsolete exclusive lease format admitted")
-	}
-}

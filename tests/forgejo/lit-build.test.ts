@@ -8,20 +8,25 @@ import payload from '../../internal/release/build/forgejo-payload.json';
 
 const root = resolve(import.meta.dirname, '../..');
 
-test('Lit submodules cannot silently become unresolved or duplicate runtimes', async t => {
+test('Lit submodules cannot silently become unresolved or duplicate runtimes', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'soda-lit-build-'));
   t.after(() => rm(directory, {recursive: true, force: true}));
   const source = join(directory, 'unsupported.ts');
   await writeFile(source, "export {classMap} from 'lit/directives/class-map.js';\n");
   await assert.rejects(buildForgejoModule(source, 'public/assets/component.js'), (error: unknown) => {
     assert(error instanceof AggregateError);
-    assert(error.errors.some((diagnostic: unknown) => diagnostic instanceof Error &&
-      diagnostic.message.includes('Unsupported Lit submodule lit/directives/class-map.js')));
+    assert(
+      error.errors.some(
+        (diagnostic: unknown) =>
+          diagnostic instanceof Error &&
+          diagnostic.message.includes('Unsupported Lit submodule lit/directives/class-map.js')
+      )
+    );
     return true;
   });
 });
 
-test('analysis tools cannot enter browser payloads through external imports', async t => {
+test('analysis tools cannot enter browser payloads through external imports', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'soda-analysis-boundary-'));
   t.after(() => rm(directory, {recursive: true, force: true}));
   const source = join(directory, 'tool-import.ts');
@@ -29,37 +34,27 @@ test('analysis tools cannot enter browser payloads through external imports', as
     await writeFile(source, `import ${JSON.stringify(name)};\n`);
     await assert.rejects(buildForgejoModule(source, 'public/assets/component.js'), (error: unknown) => {
       assert(error instanceof AggregateError);
-      assert(error.errors.some((diagnostic: unknown) => diagnostic instanceof Error && diagnostic.message.includes('Development-only analysis tool')));
+      assert(
+        error.errors.some(
+          (diagnostic: unknown) =>
+            diagnostic instanceof Error && diagnostic.message.includes('Development-only analysis tool')
+        )
+      );
       return true;
     });
   }
 });
 
-test('moved workspace source imports retain canonical public URLs from either asset root', async () => {
-  for (const [destination, expected] of [
-    ['public/assets/probe.js', './sodaspaces-drawer.js'],
-    ['public/assets/soda/forgejo/probe.js', '../../sodaspaces-drawer.js'],
-  ]) {
-    assert(destination && expected);
-    const built = await buildForgejoModule(join(root, 'frontend/spaces/sodaspaces-page.ts'), destination);
-    assert((await built.text()).includes(expected));
-    assert(!(await built.text()).includes('frontend/spaces'));
-  }
-});
-
-test('entry templates and every emitted relative import share the presentation cache epoch', async () => {
-  const templates = await Promise.all(['custom/header', 'custom/footer', 'user/dashboard/dashboard', 'admin/dashboard'].map(name =>
-    readFile(join(root, `appliance/forgejo/templates/${name}.tmpl`), 'utf8')));
-  for (const name of ['sodaspaces.js', 'soda-native-page.js', 'soda-settings-link.js', 'soda-workspace-entry.js', 'soda-settings.css', 'soda-tailnet.css', 'sodaspaces-page.css', 'sodaspaces-drawer.css', 'sodaspaces-terminal.css', 'sodaspaces.css']) {
-    assert(templates.join('\n').includes(`${name}?v=${presentationVersion}`), name);
-  }
+test('emitted Forgejo imports share the presentation cache epoch', async () => {
   for (const [destination, source] of Object.entries(payload)) {
     if (!source.startsWith('@build/forgejo-js/')) continue;
-    const filename = source.split('/').at(-1); assert(filename);
+    const filename = source.split('/').at(-1);
+    assert(filename);
     const emitted = await readFile(join(root, '.artifacts/forgejo-js', filename), 'utf8');
     // Includes static exports/imports and dynamic imports in the minified graph.
     for (const match of emitted.matchAll(/["'](\.{1,2}\/[^"']+\.js(?:\?[^"']*)?)["']/g)) {
-      const specifier = match[1]; assert(specifier);
+      const specifier = match[1];
+      assert(specifier);
       const url = new URL(specifier, 'https://fixture.invalid/' + destination);
       assert.equal(url.search, `?v=${presentationVersion}`, `${destination}: ${url.pathname}`);
       assert(Object.hasOwn(payload, url.pathname.slice(1)), `Unstaged import ${url.pathname}`);

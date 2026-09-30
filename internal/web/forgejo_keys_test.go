@@ -2,13 +2,12 @@ package web
 
 import (
 	"crypto/ed25519"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	extensions "forgejo.org/extension-sdk"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -18,57 +17,40 @@ func TestOwnForgejoKeyReviewDoesNotSaveOrInstallAndIsBounded(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := string(ssh.MarshalAuthorizedKey(public))
-	for _, mode := range []string{"valid", "foreign-owner", "deploy", "missing-type", "invalid-key", "unavailable", "identity", "duplicate", "null"} {
+	for _, mode := range []string{"valid", "invalid-key", "unavailable", "invalid-id", "oversized", "null"} {
 		t.Run(mode, func(t *testing.T) {
+			s := apiTestServer(t)
 			keyCalls := 0
-			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "GET" || r.Header.Get("Authorization") != "token acting-alice" {
-					t.Error("unexpected mutation or actor")
-				}
-				if r.URL.Path == "/api/v1/user" {
-					id := 1
-					if mode == "identity" {
-						id = 2
-					}
-					_, _ = fmt.Fprintf(w, `{"id":%d,"login":"alice"}`, id)
-					return
-				}
+			callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
 				keyCalls++
-				if r.URL.Path != "/api/v1/user/keys" || r.URL.RawQuery != "limit=10&page=2" {
-					t.Error("unexpected key selector", r.URL.String())
-				}
-				owner := 1
-				kind := "user"
-				value := key
-				if mode == "foreign-owner" {
-					owner = 2
-				}
-				if mode == "deploy" {
-					kind = "deploy"
-				}
-				if mode == "missing-type" {
-					kind = ""
-				}
-				if mode == "invalid-key" {
-					value = "PRIVATE KEY"
+				if in.Operation != extensions.OperationPublicSSHKeys {
+					t.Error("unexpected native callback", in.Operation)
+					return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
 				}
 				if mode == "unavailable" {
-					w.WriteHeader(503)
-					return
+					return extensions.CallbackResponse{ErrorCode: "unavailable"}
 				}
 				if mode == "null" {
-					_, _ = fmt.Fprint(w, "null")
-					return
+					return extensions.CallbackResponse{}
 				}
-				row := map[string]any{"id": 7, "user": map[string]int{"id": owner}, "key_type": kind, "key": value, "title": "Laptop <not HTML>"}
-				rows := []any{row}
-				if mode == "duplicate" {
-					rows = append(rows, row)
+				count := 11
+				if mode == "oversized" {
+					count = 101
 				}
-				_ = json.NewEncoder(w).Encode(rows)
-			})
+				keys := make([]extensions.PublicKey, count)
+				for i := range keys {
+					keys[i] = extensions.PublicKey{ID: fmt.Sprint(i + 1), Key: key}
+				}
+				if mode == "invalid-id" {
+					keys[10].ID = "0"
+				}
+				if mode == "invalid-key" {
+					keys[10].Key = "PRIVATE KEY"
+				}
+				return extensions.CallbackResponse{PublicKeys: keys}
+			}
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("GET", "/api/me/forgejo-keys?page=2", "", "alice"))
+			nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/me/forgejo-keys?page=2", "", "alice"), callback)
 			if mode == "valid" {
 				if w.Code != 200 || !strings.Contains(w.Body.String(), ssh.FingerprintSHA256(public)) || !strings.Contains(w.Body.String(), `"page":2`) {
 					t.Fatal(w.Code, w.Body.String())
@@ -76,8 +58,8 @@ func TestOwnForgejoKeyReviewDoesNotSaveOrInstallAndIsBounded(t *testing.T) {
 			} else if w.Code < 400 || strings.Contains(w.Body.String(), key) {
 				t.Fatal(mode, w.Code, w.Body.String())
 			}
-			if mode == "identity" && keyCalls != 0 {
-				t.Fatal("mismatched actor listed keys")
+			if keyCalls != 1 {
+				t.Fatal("public-key lookup count", keyCalls)
 			}
 			keys, err := s.Store.Keys(t.Context(), 1)
 			if err != nil || len(keys) != 0 {
@@ -89,10 +71,14 @@ func TestOwnForgejoKeyReviewDoesNotSaveOrInstallAndIsBounded(t *testing.T) {
 
 func TestForgejoKeyPickerRejectsGlobalQueries(t *testing.T) {
 	calls := 0
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(503) })
+	s := apiTestServer(t)
+	callback := func(extensions.CallbackRequest) extensions.CallbackResponse {
+		calls++
+		return extensions.CallbackResponse{ErrorCode: "unexpected"}
+	}
 	for _, query := range []string{"page=0", "page=9", "page=1&page=1", "fingerprint=SHA256:abc", "username=bob", "page=01", "page="} {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/me/forgejo-keys?"+query, "", "alice"))
+		nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/me/forgejo-keys?"+query, "", "alice"), callback)
 		if w.Code != 400 || calls != 0 {
 			t.Fatal(query, w.Code, calls)
 		}

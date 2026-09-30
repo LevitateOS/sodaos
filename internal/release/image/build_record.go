@@ -11,18 +11,20 @@ import (
 	"github.com/levitateos/sodaos/internal/release/deliver"
 )
 
-// These are the actual bytes staged into the three images. The archive
+// These are the actual bytes staged into the host and component images. The archive
 // identities in the payload bind the images; this inventory names the fork,
 // independent package, and host service inputs within those images.
 func candidateContent(out string) (map[string]string, error) {
 	root := filepath.Dir(out)
 	paths := map[string]string{
+		"dashboard:/usr/local/bin/soda-dashboard":                     filepath.Join(root, "work/host-context/rootfs/usr/libexec/soda/soda-dashboard"),
 		"forgejo:/usr/local/bin/gitea":                                filepath.Join(out, "forgejo-context/forgejo-bin"),
 		"extension:/usr/local/bin/gitea":                              filepath.Join(out, "forgejo-context/forgejo-bin"),
 		"extension:/usr/share/soda/extension/extension.json":          filepath.Join(out, "extension-context/extension/extension.json"),
 		"extension:/usr/share/soda/extension/backend":                 filepath.Join(out, "extension-context/extension/backend"),
 		"extension:/usr/share/soda/extension/run":                     filepath.Join(out, "extension-context/extension/run"),
 		"host:/usr/share/containers/systemd/forgejo.container":        filepath.Join(root, "work/host-context/rootfs/usr/share/containers/systemd/forgejo.container"),
+		"host:/usr/share/containers/systemd/soda-dashboard.container": filepath.Join(root, "work/host-context/rootfs/usr/share/containers/systemd/soda-dashboard.container"),
 		"host:/usr/lib/systemd/system/soda-extension-install.service": filepath.Join(root, "work/host-context/rootfs/usr/lib/systemd/system/soda-extension-install.service"),
 	}
 	assets := filepath.Join(out, "extension-context/extension/assets")

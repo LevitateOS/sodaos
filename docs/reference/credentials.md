@@ -1,11 +1,13 @@
 # Credentials and grants
 
-Soda keeps OAuth client secrets, grant-encryption keys and adapter sessions separate
-from Forgejo's native credential store. This document owns durable credential
-contracts and operator maintenance. Route behavior: [HTTP API](api.md).
+Soda keeps broker OAuth client secrets and credential-encryption keys separate
+from Forgejo's native credential store. Product identity comes from the verified
+Forgejo extension request; Soda does not issue browser login sessions. This
+document owns durable credential contracts and operator maintenance. Route
+behavior: [HTTP API](api.md).
 
 Factory execution, publication actors and provider account authentication are
-distinct from these browser grants. Their authority belongs to
+distinct from these credentials. Their authority belongs to
 [Trust](../architecture/trust.md#factory-authority-boundary); delivery and
 CLI execution belongs to the [factory reference](factory.md). The Identity Broker
 below owns provider custody and delegation.
@@ -14,9 +16,9 @@ below owns provider custody and delegation.
 
 1. Operator creates a Forgejo site-admin access token with `write:user` (includes
    `read:user`) and supplies it through a mode-0600 file.
-2. `soda-setup` calls the native API, records `operator_id`, creates the OAuth client
-   and retains the OAuth secret plus grant-encryption key. It does not keep a
-   bootstrap-token copy.
+2. `soda-setup` calls the native API, records `operator_id`, and retains broker
+   encryption material in restricted files. It does not keep a bootstrap-token
+   copy.
 3. Setup refuses to overwrite existing configuration.
 4. `soda-activate` applies bind address and TLS, then starts the dashboard/proxy.
 
@@ -29,28 +31,25 @@ administration frontend.
 may use protected operator runner and Tailnet settings APIs. Forgejo site-admin
 status alone is not sufficient.
 
-## Grant encryption
+## Credential encryption
 
-Session-bound grants are encrypted with the configured grant key file. Protect
-grant-key and OAuth-secret files as operator secrets. Never expose them in source,
-argv, logs, screenshots or evidence.
+Broker-held provider credentials are encrypted with the configured key file.
+Protect encryption-key and broker OAuth-secret files as operator secrets. Never
+expose them in source, argv, logs, screenshots or evidence.
 
 ## Existing-install maintenance
 
 Rerunning setup/activation is not the maintenance path for existing installs.
-Credential rotation, bootstrap-token retirement and schema-compatible grant updates
-are explicit operator procedures against the live data volume. Revocation and
-deletion are separate explicit actions, never automatic migrations.
-
-When schema or return-destination fields change, preserve existing sessions where
-the migration defines compatibility; otherwise require reauthentication. Do not
-invent silent grant rewriting as repair.
+Credential rotation, bootstrap-token retirement and broker schema updates are
+explicit operator procedures against the live data volume. Revocation and deletion
+are separate explicit actions, never automatic migrations.
 
 ## Native consent
 
 Soda verifies required OAuth scopes after exchange (including `read:user`,
 `read:repository` and `read:organization` where those surfaces need them). Failed
-named transactions return with bounded UI markers, not arbitrary return URLs.
+named transactions return through the native Forgejo callback, not arbitrary
+return URLs.
 
 ## Source owners
 
@@ -96,7 +95,7 @@ are not supported.
 
 A project grant names one Soda user and project. Its owner must confirm provider
 permission to share and accept credential exposure. Current provisioned membership
-and repository execution authority are checked by browser admission. Requester,
+and repository execution authority are checked by native extension admission. Requester,
 execution, sponsoring owner and grant stay separate. Repository contents and
 browser-supplied execution IDs cannot expand authority.
 
@@ -127,8 +126,8 @@ reconnection. Local project files survive authentication failures.
 
 ### Forgejo account custody
 
-Forgejo broker enrollment uses a separate confidential native OAuth application
-from browser login. Its code and PKCE exchange must verify the native subject,
+Forgejo broker enrollment uses a confidential native OAuth application. Its code
+and PKCE exchange must verify the native subject,
 application audience, explicit `read:user write:repository` consent and the
 owner's verified primary email. The native user ID must equal the Soda owner ID.
 One unrevoked Forgejo connection per owner prevents competing refresh streams for
@@ -151,11 +150,13 @@ configured HTTPS `forgejo_url` origin. The native origin's slash-bounded Git
 rewrite selects the Soda remote helper; other origins keep their selected
 transport. `SODA_GIT_CONNECTION` selects an authorized Forgejo connection
 explicitly. A missing or unavailable selection denies the invocation.
-The fixed browser return is `/-/soda/identity/callback`. A secure HTTP-only cookie
-binds its expiring transaction to the initiating Soda account, session and context.
-The callback is consumed once, with fresh session checks around completion and
-encrypted retention. Logout, a changed session or dashboard restart requires
-starting a new enrollment. Browser sign-in transactions remain separate.
+The fixed return is `/-/soda/identity/callback`. The Soda broker stores a bounded,
+expiring one-time OAuth state binding to the native actor and enrollment before
+the browser leaves for Forgejo consent. The callback consumes that state once,
+completes only for the stored owner/enrollment, and returns status without
+credentials. Native cancellation removes its matching binding; a dashboard
+restart invalidates pending state. Forgejo identity and custody credentials remain
+backend-only.
 Forgejo credentials are excluded from raw terminal and factory credential
 delivery. Repository access must be mediated because native OAuth repository
 scopes apply across the account's permitted repositories. A selected remote resolves
@@ -279,9 +280,9 @@ and service. `soda-setup` does not invent a Codex account, choose an external pa
 or overwrite an existing broker key. Starting a native service or installing a
 release remains subject to the normal installation guide.
 
-Source owners: `identity` records, `identity/control` custody, `identity/codex`
-provider protocol, `identity/muse` native enrollment, `identity/client` private transport, `store` encrypted rows,
-`web/api` browser authority, and native workspace/terminal executors for attestation
+Source owners: `identity` records, `identity/control` custody, provider-specific
+protocol packages, `identity/client` private transport, `store` encrypted rows,
+`web/api` native extension authority, and native workspace/terminal executors for attestation
 and complete execution termination.
 
 For project Muse execution, host configuration supplies `identity_socket`,

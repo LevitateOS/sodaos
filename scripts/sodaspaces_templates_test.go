@@ -10,35 +10,30 @@ import (
 	texttemplate "text/template"
 )
 
-func TestSodaspacesTemplates(t *testing.T) {
-	// Only Soda's hooks and the native scalar context contract, not a Forgejo renderer.
+func TestForgejoFooterKeepsLiveFeatures(t *testing.T) {
+	// The retired drawer no longer owns the footer. Repository actions and
+	// notifications keep their native Forgejo visibility gates.
 	type repository struct {
 		ID                       int64
 		IsBroken, IsBeingCreated bool
 	}
 	for _, tc := range []struct {
-		name   string
-		repo   *repository
-		signed bool
-		want   bool
+		name    string
+		repo    *repository
+		signed  bool
+		actions bool
 	}{
 		{"signed", &repository{ID: 9223372036854775807}, true, true},
 		{"anonymous", &repository{ID: 42}, false, true},
 		{"no repository", nil, false, false},
-		{"signed non-repository resume hook", nil, true, true},
+		{"signed non-repository", nil, true, false},
 		{"broken", &repository{ID: 42, IsBroken: true}, true, false},
 		{"creating", &repository{ID: 42, IsBeingCreated: true}, true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tmpl, err := template.New("hooks").Funcs(template.FuncMap{"AppSubUrl": func() string { return "" }, "AssetUrlPrefix": func() string { return "/assets" }, "dict": forgejoTemplateDict, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles(
-				"../appliance/forgejo/templates/custom/header.tmpl", "../appliance/forgejo/templates/custom/footer.tmpl")
+			tmpl, err := template.New("hooks").Funcs(template.FuncMap{"AppSubUrl": func() string { return "" }, "AssetUrlPrefix": func() string { return "/assets" }, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles(
+				"../appliance/forgejo/templates/custom/footer.tmpl")
 			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err = tmpl.New("custom/soda/guest_theme").Parse(readForgejoTemplate(t, "custom/soda/guest_theme.tmpl")); err != nil {
-				t.Fatal(err)
-			}
-			if _, err = tmpl.New("custom/soda/theme_toggle").Parse(readForgejoTemplate(t, "custom/soda/theme_toggle.tmpl")); err != nil {
 				t.Fatal(err)
 			}
 			var out bytes.Buffer
@@ -47,31 +42,14 @@ func TestSodaspacesTemplates(t *testing.T) {
 				t.Fatal(err)
 			}
 			html := out.String()
-			if strings.Contains(html, `id="sodaspaces-root"`) != tc.want {
-				t.Fatal("incorrect repository guard")
-			}
-			if strings.Contains(html, `src="/assets/soda/forgejo/repository-actions.js?v=4"`) != (tc.want && tc.repo != nil) {
+			if strings.Contains(html, `src="/assets/soda/forgejo/repository-actions.js?v=4"`) != tc.actions {
 				t.Fatal("repository disclosure script escaped its native repository boundary")
 			}
-			if tc.want {
-				for _, value := range []string{`type="button"`, `aria-label="Sodaspaces"`, `<span>Sodaspaces</span>`, `aria-labelledby="sodaspaces-title"`, `src="/assets/sodaspaces.js?v=` + sodaPresentationVersion(t) + `"`, `data-sub-url=""`} {
-					if !strings.Contains(html, value) {
-						t.Fatalf("missing %s", value)
-					}
-				}
-				if tc.signed && !strings.Contains(html, `data-user-id="9007199254740993"`) {
-					t.Fatal("rounded actor")
-				}
-				if !tc.signed && !strings.Contains(html, `data-user-id=""`) {
-					t.Fatal("anonymous actor emitted")
-				}
+			if strings.Contains(html, `id="sodaspaces-root"`) || strings.Contains(html, `/assets/sodaspaces.js`) || strings.Contains(html, `data-user-id=`) {
+				t.Fatal("retired drawer bootstrap returned")
 			}
-			out.Reset()
-			if err := tmpl.ExecuteTemplate(&out, "header.tmpl", ctx); err != nil {
-				t.Fatal(err)
-			}
-			if !strings.Contains(out.String(), `href="/assets/sodaspaces.css?v=`+sodaPresentationVersion(t)+`"`) {
-				t.Fatal("missing local stylesheet")
+			if strings.Contains(html, `id="soda-notification-preview"`) != tc.signed {
+				t.Fatal("notification preview changed its signed-session gate")
 			}
 		})
 	}
@@ -109,20 +87,19 @@ func TestSodaspacesRequestLoggingOmitsQueries(t *testing.T) {
 	}
 }
 
-func TestSodaspacesTemplateEscapesContext(t *testing.T) {
+func TestForgejoFooterUsesPrefixedNativeAssets(t *testing.T) {
 	tmpl, err := template.New("footer.tmpl").Funcs(template.FuncMap{"AppSubUrl": func() string { return "/native" }, "AssetUrlPrefix": func() string { return "/native/assets" }, "ctx": func() forgejoTemplateContext { return forgejoTemplateContext{} }, "svg": func(...any) string { return "icon" }}).ParseFiles("../appliance/forgejo/templates/custom/footer.tmpl")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	ctx := map[string]any{"Repository": map[string]any{"ID": `42" onmouseover="evil`, "IsBroken": false, "IsBeingCreated": false}, "IsSigned": true, "SignedUserID": `1"><script>evil</script>`}
+	ctx := map[string]any{"Repository": map[string]any{"ID": int64(42), "IsBroken": false, "IsBeingCreated": false}, "IsSigned": true}
 	if err := tmpl.Execute(&out, ctx); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(out.String(), `<script>evil`) || strings.Contains(out.String(), `data-repository-id="42" onmouseover`) {
-		t.Fatal("unescaped context")
-	}
-	if !strings.Contains(out.String(), `src="/native/assets/sodaspaces.js?v=`+sodaPresentationVersion(t)+`"`) {
-		t.Fatal("lost native asset subpath")
+	for _, path := range []string{"repository-actions.js?v=4", "notification-preview.js?v=1", "repository-switcher.js?v=3-repository-only"} {
+		if !strings.Contains(out.String(), `src="/native/assets/soda/forgejo/`+path+`"`) {
+			t.Fatal("lost native asset subpath", path)
+		}
 	}
 }

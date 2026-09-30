@@ -116,7 +116,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `release/deliver` | Payload model, signing, publication | Building images | `payload.go`, `publish.go`, `finalize.go` |
 | `release/image` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
 | `runners` | Local CI runner composition + operator identity | Forgejo Actions UI | `model.go`, `native.go`, `operator.go` |
-| `store` | SQLite schema + row ops, including the factory execution/resource ledger | HTTP, host execute | `store.go`, `migrations.go`, `factory.go` |
+| `store` | SQLite schema + row ops, including the factory execution/resource ledger | HTTP, host execute | `store.go`, `schema.go`, `factory.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
 | `testoci` | Inert OCI test fixtures | Production images | `fixture.go` |

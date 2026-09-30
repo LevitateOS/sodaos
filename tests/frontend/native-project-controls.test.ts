@@ -100,8 +100,6 @@ test('Create dispatches once with native generation and does not join or start',
     tailnet: {enabled: false},
   });
   assert.equal(sent[0]?.headers['x-extension-session-generation'], 'fixture-generation');
-  assert.equal(sent[0]?.headers['x-csrf-token'], undefined);
-  assert.equal(sent[0]?.headers['x-soda-expected-user-id'], undefined);
 });
 
 test('Create uses the reviewed network binding and keeps network failure separate', async (t) => {

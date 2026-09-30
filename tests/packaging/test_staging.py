@@ -85,13 +85,16 @@ class NativeStage(unittest.TestCase):
         ]:
             self.assertTrue((brand / name).is_file(), name)
 
-    def test_sodaspaces_proxy_namespace(self):
+    def test_soda_proxy_only_exposes_native_callback_and_avatars(self):
         proxy = (self.root / 'etc/soda/proxy.Caddyfile').read_text()
         self.assertNotIn('SODA_ORIGIN', proxy)
         self.assertEqual(proxy.count('{$FORGEJO_ORIGIN} {'), 1)
         # Caddy's canonical formatter uses tabs; indentation is not routing.
         # Keep exact paths/ports and complete non-stripping handler blocks.
-        self.assertRegex(proxy, r'(?m)^\s*handle\s+/-/soda/\*\s*\{\s+reverse_proxy\s+127\.0\.0\.1:8080\s+\}')
+        self.assertRegex(
+            proxy, r'(?m)^\s*handle\s+/-/soda/identity/callback\s*\{\s+reverse_proxy\s+127\.0\.0\.1:8080\s+\}'
+        )
+        self.assertNotIn('handle /-/soda/*', proxy)
         self.assertRegex(proxy, r'(?m)^\s*handle\s*\{\s+reverse_proxy\s+127\.0\.0\.1:3000\s+\}')
         self.assertNotIn('handle_path', proxy)
 
@@ -119,7 +122,11 @@ class NativeStage(unittest.TestCase):
         custom = self.root / 'var/lib/soda/forgejo/gitea'
         root = Path(__file__).resolve().parents[2]
         payload = json.loads((root / 'internal/release/build/forgejo-payload.json').read_text())
-        for name in ('templates/custom/header.tmpl', 'templates/custom/footer.tmpl', 'public/assets/sodaspaces.css'):
+        for name in (
+            'templates/custom/header.tmpl',
+            'templates/custom/footer.tmpl',
+            'public/assets/soda/forgejo/repository-actions.js',
+        ):
             target = custom / name
             self.assertFalse(target.is_symlink())
             self.assertEqual(target.read_bytes(), (root / payload[name]).read_bytes())

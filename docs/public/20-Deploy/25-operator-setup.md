@@ -55,8 +55,10 @@ Setup retains the OAuth secret and grant-encryption key, not a bootstrap-token
 copy/reference, and leaves the supplied token file unchanged. Existing copies need
 separately authorized maintenance;
 setup does not delete or revoke them.
-Soda shares Forgejo's HTTPS origin, with Soda API/OAuth at `/-/soda/`. That origin must resolve to the approved
-endpoint and be covered by a trusted certificate. Setup refuses to overwrite existing configuration. After
+Soda's browser pages and product operations use Forgejo's native extension service
+on the configured HTTPS origin. The public `/-/soda/` routes are limited to the
+broker identity callback and avatar provider. The origin must resolve to the
+approved endpoint and be covered by a trusted certificate. Setup refuses to overwrite existing configuration. After
 an uncertain failure, inspect Forgejo's applications and Soda's existing state
 before retrying; do not reset its databases.
 

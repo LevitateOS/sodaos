@@ -20,23 +20,22 @@ sys.path.insert(0, str(ROOT / "scripts"))
 FILES = (
     'templates/custom/header.tmpl',
     'templates/custom/footer.tmpl',
-    'public/assets/sodaspaces.css',
-    'public/assets/sodaspaces.js',
-    'public/assets/sodaspaces-terminal.js',
-    'public/assets/sodaspaces-terminal.css',
-    'public/assets/sodaspaces-drawer.js',
-    'public/assets/sodaspaces-drawer.css',
-    'public/assets/sodaspaces-api.js',
-)
-VENDOR_FILES = tuple(
-    'public/assets/soda-terminal/' + f['file']
-    for item in json.loads((ROOT / 'appliance/terminal-assets.lock.json').read_text())
-    for f in item['files']
+    'public/assets/soda/forgejo/repository-actions.js',
+    'public/assets/soda/forgejo/notification-preview.js',
 )
 PREFIX = 'rootfs/var/lib/soda/forgejo/gitea/'
 
 
 class SodaspacesPackaging(unittest.TestCase):
+    def test_spaces_entry_is_packaged_by_the_extension(self):
+        extension = json.loads((ROOT / 'appliance/soda-extension/extension.json').read_text())
+        manifest = json.loads((ROOT / 'internal/release/build/forgejo-payload.json').read_text())
+        spaces = next(page for page in extension['pages'] if page['id'] == 'spaces')
+        self.assertEqual(spaces['entry'], 'soda-spaces-entry.js')
+        self.assertTrue((ROOT / 'frontend/spaces/soda-spaces-entry.ts').is_file())
+        self.assertNotIn('public/assets/sodaspaces.js', manifest)
+        self.assertNotIn('public/assets/soda-spaces-entry.js', manifest)
+
     def test_vm_web_tunnel_uses_only_the_native_browser_origin(self):
         with tempfile.TemporaryDirectory() as tmp:
             ssh = Path(tmp) / 'ssh'
@@ -53,34 +52,6 @@ class SodaspacesPackaging(unittest.TestCase):
             self.assertIn('Forgejo + Sodaspaces https://localhost:24444', result.stdout)
             self.assertIn('127.0.0.1:24444:127.0.0.1:24444', result.stdout)
             self.assertNotIn('24443', result.stdout)
-
-    def test_browser_probe_refuses_bad_inputs_without_secret_output(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            source = root / 'input.json'
-            source.write_text('invalid JSON SYNTHETIC_AUTH_SECRET_MARKER')
-            source.chmod(0o600)
-            for permission in (
-                [],
-                ['--allow-auth-transitions'],
-                ['--allow-auth-transitions', '--allow-environment-access'],
-            ):
-                result = subprocess.run(
-                    [
-                        'bun',
-                        str(ROOT / 'tests/installed/sodaspaces.ts'),
-                        str(source),
-                        str(root / 'not-created'),
-                        *permission,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                )
-                self.assertEqual(result.returncode, 1)
-                self.assertIn('private input validation', result.stdout)
-                self.assertNotIn('SYNTHETIC_AUTH_SECRET_MARKER', result.stdout + result.stderr)
-                self.assertFalse((root / 'not-created').exists())
 
     def test_access_probe_rejects_private_bad_request_before_native_commands(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -99,68 +70,6 @@ class SodaspacesPackaging(unittest.TestCase):
             self.assertIn('Developer access incomplete', result.stderr)
             self.assertNotIn('SYNTHETIC_PRIVATE_MARKER', result.stdout + result.stderr)
             self.assertEqual(list(root.iterdir()), [request])
-
-    def test_browser_probe_does_not_finalize_an_occupied_run(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            root.chmod(0o700)
-            run = root / 'sodaspaces-run'
-            run.mkdir(mode=0o700)
-            (run / 'retained-marker').write_text('retained')
-            private = root / 'synthetic-input'
-            private.write_text('synthetic fixture, not a real credential or CA')
-            private.chmod(0o600)
-            config = {
-                'origin': 'https://example.invalid',
-                'target': 'fixture',
-                'revision': '1' * 40,
-                'repository_path': '/alice/repo',
-                'repository_id': '42',
-                'oauth_client_id': 'synthetic-client',
-                'ca_file': str(private),
-                'users': [
-                    {'id': '1', 'login': 'alice', 'password_file': str(private)},
-                    {'id': '2', 'login': 'bob', 'password_file': str(private)},
-                ],
-            }
-            request = root / 'request.json'
-            request.write_text(json.dumps(config))
-            request.chmod(0o600)
-            # Source/transport doubles only. Never query a provider or start a browser.
-            bin_dir = root / 'bin'
-            bin_dir.mkdir()
-            git = bin_dir / 'git'
-            git.write_text('#!/bin/sh\ncase "$1" in rev-parse) echo ' + '1' * 40 + ';; status) :;; *) exit 1;; esac\n')
-            git.chmod(0o755)
-            guard = root / 'no-network.ts'
-            guard.write_text(
-                "import https from 'node:https'; import {writeFileSync} from 'node:fs'; https.request = () => { writeFileSync("
-                + json.dumps(str(root / 'unexpected-network'))
-                + ", 'refused'); throw Error('test transport refused'); };\n"
-            )
-            result = subprocess.run(
-                [
-                    'bun',
-                    '--preload',
-                    str(guard),
-                    str(ROOT / 'tests/installed/sodaspaces.ts'),
-                    str(request),
-                    str(root),
-                    '--allow-auth-transitions',
-                ],
-                env={
-                    **os.environ,
-                    'PATH': str(bin_dir) + os.pathsep + os.environ['PATH'],
-                    'SODA_NATIVE_VALIDATE': 'fixture',
-                },
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            self.assertEqual(result.returncode, 1)
-            self.assertEqual(sorted(p.name for p in run.iterdir()), ['retained-marker'])
-            self.assertEqual((run / 'retained-marker').read_text(), 'retained')
-            self.assertFalse((root / 'unexpected-network').exists())
 
     def test_actual_stage_recipe_with_synthetic_build_inputs(self):
         # No generated artifact is placed in the production .artifacts/native tree.
@@ -184,6 +93,9 @@ class SodaspacesPackaging(unittest.TestCase):
             build = checkout / '.artifacts/native/x86_64'
             (build / 'bin').mkdir(parents=True)
             (build / 'bin/soda-dashboard').write_text('synthetic; never executed')
+            (build / 'project-tools/bin').mkdir(parents=True)
+            for name in ('muse', 'muse-native', 'soda-identity-compose', 'git-remote-soda'):
+                (build / 'project-tools/bin' / name).write_text('synthetic; never executed')
             (build / 'forgejo-locales').mkdir()
             (build / 'forgejo-locales/locale_en-US.ini').write_text('synthetic full-catalog output; not native proof')
             (build / 'forgejo-js').mkdir()
@@ -273,12 +185,6 @@ class SodaspacesPackaging(unittest.TestCase):
                 self.assertEqual(target.read_bytes(), original.read_bytes())
                 self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o644)
 
-            for name in VENDOR_FILES:
-                p = stage / PREFIX.removeprefix('rootfs/') / name
-                self.assertEqual(p.read_bytes(), ('synthetic asset ' + Path(name).name).encode())
-                self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
-                self.assertEqual(stat.S_IMODE(p.parent.stat().st_mode), 0o755)
-
             # Reuse these exact inputs for the direct vendor destinations. Keep
             # the legacy result as an oracle, not an intermediate vendor input.
             legacy = stage.rename(build / 'legacy-fixture')
@@ -355,25 +261,6 @@ class SodaspacesPackaging(unittest.TestCase):
             link.symlink_to(forgejo_context, target_is_directory=True)
             with self.assertRaises(SystemExit):
                 vendor_stage(args[:-1] + [str(link)])
-            bad_host, bad_forgejo = checkout / 'bad-host', checkout / 'bad-forgejo'
-            (bad_host / 'rootfs').mkdir(parents=True)
-            bad_forgejo.mkdir()
-            asset = build / 'terminal-assets' / lock[0]['files'][0]['file']
-            asset.write_bytes(b'wrong locked asset; synthetic input only')
-            with self.assertRaises(SystemExit):
-                vendor_stage(
-                    [
-                        'stage.py',
-                        '--arch',
-                        'x86_64',
-                        '--host-context',
-                        str(bad_host),
-                        '--forgejo-context',
-                        str(bad_forgejo),
-                    ]
-                )
-            self.assertEqual(before, (inventory(vendor_root), inventory(presentation)))
-            self.assertFalse(stage.exists())
             # Copying public data must not normalize the canonical/private inputs.
             self.assertEqual(
                 stat.S_IMODE((checkout / 'assets/branding/source/soda-symbol-brutalist.svg').stat().st_mode), 0o600
@@ -459,11 +346,11 @@ class SodaspacesPackaging(unittest.TestCase):
             return os.stat_result(values)
 
         with tempfile.TemporaryDirectory() as tmp, patch.object(Path, 'stat', root_owned):
-            root = Path(tmp)
-            payload = [PREFIX + name for name in FILES + VENDOR_FILES]
+            root = Path(tmp).resolve()
+            payload = [PREFIX + name for name in FILES]
             check(root, payload)
             self.assertEqual(list(root.iterdir()), [])
-            for name in FILES + VENDOR_FILES:
+            for name in FILES:
                 target = root / PREFIX.removeprefix('rootfs/') / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text('operator bytes')

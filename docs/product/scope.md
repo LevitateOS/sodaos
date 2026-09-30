@@ -28,9 +28,7 @@ validation or error handling.
 - Mutually untrusted tenant hosting
 - Domain ownership or preprovisioned per-app public certificates as a prerequisite
   for trying Soda or using baseline services
-- A second standalone Soda web frontend (the same-origin workspace shell that
-  frames Forgejo is not this)
-- A downstream Forgejo fork for convenience features
+- A second standalone Soda web frontend
 - Predecessor host developer accounts, Cockpit Projects, managed checkouts or the
   predecessor Updates platform
 

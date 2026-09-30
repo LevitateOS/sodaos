@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {readFileSync} from 'node:fs';
-import {basename, dirname, posix, resolve} from 'node:path';
+import {basename, posix, resolve} from 'node:path';
 import {parseArgs} from 'node:util';
 import payload from '../internal/release/build/forgejo-payload.json';
 
@@ -20,8 +20,27 @@ assert.equal(destinations.size, modules.length, 'Each browser module must have e
 const litSource = resolve(root, 'assets/branding/forgejo/lit.ts');
 const litDestination = destinations.get('lit.js');
 // Authored shared owner name, retained public URL. Not a second runtime entry.
-const outputName = (source: string) =>
-  basename(source).replace(/\.ts$/, '.js').replace('sodaspaces-workspace.js', 'sodaspaces-drawer.js');
+const outputName = (source: string) => basename(source).replace(/\.ts$/, '.js');
+
+export function assertForgejoSourceClosure(sources: Map<string, string>, staged: Map<string, string>) {
+  assert.deepEqual(
+    new Set(sources.keys()),
+    new Set(staged.keys()),
+    'Browser source and staged module inventory must match'
+  );
+}
+
+export function collectForgejoSources() {
+  const sources = new Map<string, string>();
+  const directory = 'assets/branding/forgejo';
+  for (const file of new Bun.Glob('*.ts').scanSync(resolve(root, directory))) {
+    if (file.endsWith('.d.ts')) continue;
+    const output = outputName(file);
+    assert(!sources.has(output), `Duplicate browser module: ${output}`);
+    sources.set(output, resolve(root, directory, file));
+  }
+  return sources;
+}
 
 // Also used by the browser smoke fixture: imports must work from either public
 // asset directory, including when Forgejo has an AppSubUrl prefix.
@@ -57,22 +76,7 @@ export async function buildForgejoModule(source: string, destination: string) {
                 `Unsupported Lit submodule ${args.path}: add an explicit shared-runtime export before using it`
               );
             }
-            // Source imports resolve to their public payload destination, including
-            // fixture entrypoints and the shared workspace's historical drawer URL.
-            if (args.path.startsWith('.')) {
-              const resolved = resolve(dirname(args.importer), args.path);
-              if (
-                ['frontend/spaces', 'frontend/runners', 'frontend/tailnet'].some(
-                  (directory) => dirname(resolved) === resolve(root, directory)
-                )
-              ) {
-                const target = destinations.get(outputName(resolved));
-                assert(target, `Unstaged workspace import: ${args.path}`);
-                const relative = posix.relative(posix.dirname(destination), target);
-                return {path: versioned(relative.startsWith('.') ? relative : './' + relative), external: true};
-              }
-            }
-            // Locked xterm and native branding boundaries remain public-relative.
+            // Native branding imports remain public-relative.
             return {path: args.path.startsWith('.') ? versioned(args.path) : args.path, external: true};
           });
         },
@@ -86,20 +90,8 @@ export async function buildForgejoModule(source: string, destination: string) {
 }
 
 export async function buildForgejoAssets(out: string) {
-  const sources = new Map<string, string>();
-  for (const directory of ['assets/branding/forgejo', 'frontend/spaces', 'frontend/runners', 'frontend/tailnet']) {
-    for (const file of new Bun.Glob('*.ts').scanSync(resolve(root, directory))) {
-      if (file.endsWith('.d.ts')) continue;
-      const output = outputName(file);
-      assert(!sources.has(output), `Duplicate browser module: ${output}`);
-      sources.set(output, resolve(root, directory, file));
-    }
-  }
-  assert.deepEqual(
-    new Set(sources.keys()),
-    new Set(destinations.keys()),
-    'Browser source and staged module inventory must match'
-  );
+  const sources = collectForgejoSources();
+  assertForgejoSourceClosure(sources, destinations);
   await mkdir(out, {recursive: true});
   for (const [file, source] of sources) {
     const destination = destinations.get(file);

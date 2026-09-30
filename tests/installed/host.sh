@@ -15,19 +15,23 @@ else
 fi
 . /etc/os-release
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]]
-python3 - <<'PY'
-import hashlib, json, platform, subprocess
+phase=pre-activation
+if [[ -e /etc/soda/activated ]]; then phase=activated; fi
+python3 - "$phase" <<'PY'
+import hashlib, json, platform, subprocess, sys
 from pathlib import Path
 
 payload = json.loads(Path('/usr/share/soda/release.json').read_text())
 content = json.loads(Path('/usr/share/soda/host-image/content.json').read_text())
 fixed = {
+    'dashboard:/usr/local/bin/soda-dashboard',
     'forgejo:/usr/local/bin/gitea',
     'extension:/usr/local/bin/gitea',
     'extension:/usr/share/soda/extension/extension.json',
     'extension:/usr/share/soda/extension/backend',
     'extension:/usr/share/soda/extension/run',
     'host:/usr/share/containers/systemd/forgejo.container',
+    'host:/usr/share/containers/systemd/soda-dashboard.container',
     'host:/usr/lib/systemd/system/soda-extension-install.service',
 }
 asset_prefix = 'extension:/usr/share/soda/extension/assets/'
@@ -48,7 +52,7 @@ if images['forgejo']['Config'] == images['extension']['Config']:
     raise SystemExit('independent extension image required')
 if content['forgejo:/usr/local/bin/gitea'] != content['extension:/usr/local/bin/gitea']:
     raise SystemExit('extension installer CLI differs from patched Forgejo')
-for name in ('forgejo', 'extension'):
+for name in ('dashboard', 'forgejo', 'extension'):
     image = images[name]['Config']
     observed = subprocess.check_output(['podman', '--remote=false', 'image', 'inspect', '--format', '{{.Id}}', image], text=True).strip()
     if observed != image:
@@ -63,7 +67,34 @@ for name, expected in content.items():
         actual = output.split('  ', 1)[0] if output.endswith('  ' + path) else ''
     if actual != expected:
         raise SystemExit(f'installed content differs from release inventory: {name}')
-print('Installed fork, independent extension, service bytes and native architecture match the release inventory.')
+if sys.argv[1] == 'activated':
+    package_prefix = 'extension:/usr/share/soda/extension/'
+    package_root = Path('/var/lib/soda/forgejo/gitea/extensions/soda')
+    expected_package = {
+        name.removeprefix(package_prefix): digest
+        for name, digest in content.items()
+        if name.startswith(package_prefix)
+    }
+    if not package_root.is_dir() or package_root.is_symlink():
+        raise SystemExit('installed Soda extension package is not a regular directory')
+    observed_package = set()
+    for path in package_root.rglob('*'):
+        if path.is_symlink():
+            raise SystemExit('installed Soda extension package contains a symlink')
+        if path.is_file():
+            relative = path.relative_to(package_root).as_posix()
+            if relative != '.disabled':
+                observed_package.add(relative)
+    if observed_package != set(expected_package):
+        raise SystemExit('installed Soda extension package differs from candidate inventory')
+    for relative, expected in expected_package.items():
+        actual = hashlib.sha256((package_root / relative).read_bytes()).hexdigest()
+        if actual != expected:
+            raise SystemExit(f'installed package replacement differs from candidate inventory: {relative}')
+    checked = 'installed package replacement'
+else:
+    checked = 'extension image package'
+print(f'Installed fork, {checked}, Soda service bytes and native architecture match the release inventory.')
 PY
 rpm -q cockpit-system cockpit-ws cockpit-bridge cockpit-storaged cockpit-networkmanager cockpit-ostree tailscale git python3 tar gzip
 # Fedora may satisfy these capabilities with versioned/replacement packages.
@@ -93,9 +124,7 @@ for page in soda-tailscale; do
   [[ -r /usr/local/share/cockpit/$page/index.html ]]
   [[ -r /usr/local/share/cockpit/$page/manifest.json ]]
 done
-phase=pre-activation
-if [[ -e /etc/soda/activated ]]; then
-  phase=activated
+if [[ "$phase" == activated ]]; then
   for unit in soda-dashboard.service soda-proxy.service; do systemctl is-active --quiet "$unit"; done
   pid=$(podman inspect --format '{{.State.Pid}}' soda-dashboard)
   [[ "$pid" =~ ^[1-9][0-9]*$ && -r /proc/$pid/status ]]

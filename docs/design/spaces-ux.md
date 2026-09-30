@@ -1,6 +1,6 @@
 # Spaces UX design
 
-Design specification for the Spaces page and right-half drawer. Product contract:
+Design specification for the Spaces page and persistent workspace panel. Product contract:
 [Spaces](../product/spaces.md). Terminal behavior: [Terminal](../reference/terminal.md).
 Annotated sheets: [design/spaces](spaces/README.md).
 
@@ -28,10 +28,10 @@ provider picker in onboarding.
 4. Creation, explicit Join and first terminal.
 5. Working workspace with management controls and sessions.
 
-Keep native Forgejo header inside the framed Forgejo document. Login, consent,
-callback, and the remaining auth/recovery flows listed in
-[Trust](../architecture/trust.md) leave that host and become the top-level
-document. Prefer one composition per step over dashboard clutter.
+The native Forgejo header stays with Forgejo's page. Login, consent, callback and
+the remaining auth/recovery flows listed in [Trust](../architecture/trust.md) use
+the host's normal top-level handling. Prefer one composition per step over
+dashboard clutter.
 
 ## Full-page workspace
 
@@ -42,23 +42,22 @@ document. Prefer one composition per step over dashboard clutter.
 - Rename is display metadata. Hide is presentation-only. End is confirmed.
 - Project Stop is a separate shared-impact action.
 
-## Drawer composition
+## Persistent panel composition
 
 ```text
 ┌─────────────────────────────┬──────────────────────────────┐
-│ Native Forgejo navigation   │ Spaces workspace / terminals │
+│ Native Forgejo browsing     │ Spaces workspace / terminals │
 └─────────────────────────────┴──────────────────────────────┘
 ```
 
-On native Forgejo documents this remains a right-half drawer. The persistent
-Soda HTML host uses the same two surfaces with Forgejo in a same-origin iframe
-on the left and the workspace on the right.
+Fountain owns this generic host layout and retains installed extension panels
+while native Forgejo pages change. Soda owns only the workspace contribution; it
+does not supply a replacement shell, frame or copy of Forgejo navigation.
 
 - Two useful surfaces, not a modal.
 - Preserve native forms, routing and focus on the Forgejo side.
-- Drawer flattening and This-page filters must not destroy the full-page layout
-  model; both surfaces share one session owner layer.
-- Compact Forge/Terminal switching is deliberate; Hide does not End work.
+- The Spaces page and panel share one workspace owner layer.
+- Compact layouts keep controls and terminal input usable; Hide does not End work.
 
 ## Profile and desktop extension
 

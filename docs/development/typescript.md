@@ -18,19 +18,11 @@ bun run dev:spaces # local interactive Spaces mock backend and frontend
 bun run screenshot --help
 ```
 
-`build` compiles and minifies the Forgejo browser assets. It does not install an appliance or build a standalone dashboard. `test`
-prepares locked terminal assets and emitted Forgejo modules once, then runs the
-frontend, native Forgejo page fixtures, drawer layout and Forgejo suites. The latter
-includes independent Cockpit branding checks; the stock installed journey stays opt-in.
-The page group requires the authorized local Forgejo fixture at `localhost:3300`
-and its saved screenshot-account credential. It reuses `TestNativeConnectionFixture`,
-prepares a fresh canonical public payload and isolated Soda OAuth/DB state, then
-runs the existing page consumers, including Tailnet, with that fixture's own native login. Missing native
-host/assets fail this group; no handwritten HTML fallback or implicit installation
-is used. Synthetic operation APIs remain separate from native/provider proof.
-The local Lit runtime and operator settings-link browser checks are enabled in the
-Forgejo group. Installed/provider checks keep their explicit opt-in flags
-and target/action permissions; installing dependencies does not run those journeys.
+`build` compiles and minifies Forgejo branding modules. The separate Soda
+extension build packages its page and panel entries, styles and locked terminal
+assets; see [Lit](lit.md#runtime-and-builds). Neither command installs an appliance.
+Browser suites require the compatible Playwright Chromium runtime. Local fixture
+checks do not establish native installed behavior.
 
 For Spaces visual development without a VM, use the
 [local fixture server](../guides/local-testing.md).
@@ -57,72 +49,13 @@ optional Python checks still report skips: xorriso enables the synthetic ISO tes
 installed/provider/native-origin flags for ordinary source checks: those remain
 independently gated and are not enabled by the aggregate.
 
-Focused commands prepare their own assets:
-
-- `bun run test:frontend` — frontend unit/browser tests, including explicitly labelled
-  Runners/Tailnet emitted-component fixtures (`SODA_RUNNERS_COMPONENT=1`,
-  `SODA_TAILNET_COMPONENT=1`). These use no native
-  HTML, authentication or provider and cannot be selected alongside a native page
-  origin. Conditional page/layout journeys are executed by the commands below, not silently counted as covered here.
-- `bun run test:pages` — uncached Go producers followed by all four real HTML/CSP
-  browser consumers (Spaces, operator runners, Tailnet and repository settings).
-  Runners/Tailnet now require an explicitly authorized admin-eligible local
-  fixture account. The producer checks that role before creating its OAuth app
-  and refuses the former nonadmin fixture; it never promotes an account. The
-  separately opt-in `SODA_FORGEJO_NATIVE_PAGES=1` preview tests retain nonadmin
-  Spaces/denied-admin-host coverage, not positive admin-page acceptance. Use the
-  [handoff](../guides/local-testing.md) for fixture custody and permissions.
-  Missing or empty fixture output fails before Chromium. `test:spaces-page` is a compatibility
-  alias for this expanded group. Run directories are printed and retained on failure.
-- `bun run test:layout` — the integrated drawer layout fixture.
-- `bun run test:forgejo` — Forgejo source tests plus local Lit runtime/settings-link.
-- `bun run test:lit` — focused emitted Lit runtime, settings-link and workspace tests.
-
-**Optional predecessor-transition investigation:** the existing fixture's b8af68c
-mode was added for the recorded retained-page transition. Select it when that
-compatibility path is affected or relevant evidence is missing, not as a routine
-page-test prerequisite. It accepts `SODA_CONNECTION_PREDECESSOR` (an absolute verified b8af68c export),
-`SODA_CONNECTION_PREDECESSOR_REVISION` (its full revision) and
-`SODA_CONNECTION_PREDECESSOR_MANIFEST_SHA256` (its independently established
-`build-info.json` hash). Verify an older export with its own trusted verifier first;
-the current inventory rules are not retroactive. Pass these variables to
-`bun run test:pages`; all normal consumers still run. The fixture binds three genuine
-old module files to that manifest, models the inspected zero-age revalidation policy,
-and tests first candidate graph navigation/Back/Forward in a fresh browser context.
-Its phase file controls only the local public-file responder. No native HTML/API
-replacement, appliance cutover or old backend/page execution is involved. Without
-these inputs, the stock six-hour candidate-bytes/legacy-URL cache case remains.
-Neither asset-only case proves old-document retirement or terminal preservation.
-
-For genuine predecessor-document execution, additionally provide
-`SODA_CONNECTION_PREDECESSOR_BINARY`: a regular bounded executable extracted with
-Podman from that verified dashboard OCI. Its bytes must match the same inventory's
-`rootfs/usr/local/libexec/soda/soda-dashboard` entry (the image's executable path is
-`/usr/local/bin/soda-dashboard`). A mismatch refuses before OAuth-app/process startup.
-No rebuild or hand-written old HTML is substituted. After all ordinary consumers and
-the native parent finish, a separate browser context uses the old process, complete
-old public-file tree and a fresh synthetic v6 database. The private `backend-phase`
-file switches to current handlers only after confirmed old-process exit; those
-handlers migrate that **same database** to the [current supported schema](../reference/credentials.md) with the same fixture key/client.
-The old page remains open for its real Refresh control and subsequent departure.
-The browser observes actual pagehide retirement and the actual history outcome:
-retired BFCache owner or a network reload/current owner, labelled separately. Headers
-are not changed to force BFCache. The recorded step-5 run used a network reload;
-that is an observed result, not a required outcome for every browser run.
-
-This phase uses the existing fixture account/login owner and leaves its new OAuth
-app, separate databases, logs and private browser evidence retained. The old process
-has an absent helper socket: no project provisioning or terminal process proof is
-implied. The legacy required `admin_token_file` is an unused absolute placeholder;
-no admin token is created/read/borrowed. This does not mutate retained appliances,
-load their credentials or establish their installed cache/CSP behavior.
-
-For optional populated visual review, set `SODA_PAGE_CAPTURES` to an existing
-absolute private directory. The same consumers reuse `scripts/screenshot.ts` on
-their authenticated fixture pages; no second login or scenario runner is started.
-See [capture scope and guards](../design/screenshot-capture.md).
-The normal suite still runs with this flag absent; screenshots never replace its
-behavior/authorization assertions or installed evidence.
+Focused source checks include `bun run test:frontend` for component behavior,
+`bun run test:forgejo` for Forgejo branding and presentation, and
+`bun run test:lit` for emitted Lit, workspace and terminal behavior. The current extension
+package graph is checked by `scripts/build-soda-extension.test.ts`; the persistent
+panel fixture checks terminal continuity while native pages navigate. Choose the
+smallest affected check. Native installed journeys and their evidence rules belong
+in [Testing](testing.md).
 
 The `:prepared` scripts are the same suite bodies used by these wrappers and the
 aggregate; direct use requires a preceding `bun run build:forgejo`. Test-specific
@@ -215,27 +148,24 @@ remain locked JavaScript assets rather than being rewritten as Soda source.
 `scripts/build-forgejo.ts` uses Bun to emit minified JavaScript into ignored
 `.artifacts/forgejo-js/` by default. Native builds pass their own output directory.
 The payload map identifies those files with `@build/forgejo-js/`; staging copies
-them to the existing public URLs. Modules retain their public import boundaries,
-and upstream xterm assets retain their exact locked bytes and licenses. The shared
-[Lit runtime](lit.md) is the explicit bundled exception: component `lit` imports
-resolve to its staged relative URL, and existing imports remain external. Generated
+them to Forgejo's public branding URLs. The extension builder in
+`scripts/build-soda-extension.ts` bundles the Spaces, Runners, Tailnet and Workspace
+entries and packages its own CSS and locked xterm assets. Do not add those modules
+to Forgejo's public payload. The shared [Lit runtime](lit.md) is retained for
+Forgejo-side modules; extension components use their package graph. Generated
 JavaScript must not be tracked beside TypeScript.
 
-Changed Soda module graphs use the presentation epoch from
-`custom/header.tmpl` (`soda-presentation-revision`). The compiler appends that
-`?v=` value to every relative external import, including dynamic page imports and
-Lit. Bump the epoch and the three Soda entry URLs plus changed workspace/settings
-styles together; `lit-build.test.ts` checks the emitted closure and entry registry.
-Do not version only the top-level script: Forgejo caches assets privately for six
-hours. New documents receive the new graph; already-open documents keep their
-loaded code until navigation/reload. This is not live code replacement or an
-atomic mixed-version rollout guarantee.
+Forgejo branding modules use the presentation epoch from `custom/header.tmpl`
+(`soda-presentation-revision`) for relative external imports, including Lit.
+`lit-build.test.ts` checks that emitted Forgejo imports resolve within the public
+payload. The native extension host owns package loading and its asset lifecycle;
+Forgejo's branding cache epoch does not version extension package modules.
 
 Run `bun run build:forgejo` before serving a local preview, and resolve payload
 entries beginning `@build/forgejo-js/` from that output directory. Never serve a
-renamed `.ts` file directly to a browser. `bun run build:preview` projects the same payload into the local preview branding
-mount; see [screenshot capture](../design/screenshot-capture.md). The isolated drawer layout fixture uses
-the same emitted assets and checks their integration with the locked renderer.
+renamed `.ts` file directly to a browser. `bun run build:preview` projects the
+Forgejo branding payload into a local preview mount. The Spaces preview serves
+assets from the separate extension build; see [screenshot capture](../design/screenshot-capture.md).
 
 A completed conversion passes `bun run typecheck` and the relevant behavior tests,
 including authorization/failure paths. Browser ports also need emitted-asset checks;

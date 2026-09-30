@@ -38,7 +38,8 @@ Stage preparation and candidate production: [Native support](native-support.md).
 ## Product journeys to cover when touching those areas
 
 - Project foundation: join, terminal, files, Git, shared tools, nested service
-- Spaces: create/key/join, drawer, coordinated logout
+- Spaces: create/key/join, native extension page and persistent panel across
+  Forgejo navigation and account changes
 - Managed terminal: reserve/create/exact attach/End, reload survival
 - Operator runners: list/register/start/stop with operator gate
 - Operator Tailnet: host settings and project enrollment policy

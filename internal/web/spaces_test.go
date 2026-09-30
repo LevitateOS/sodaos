@@ -8,35 +8,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/coder/websocket"
-	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
-	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
-func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int32, *atomic.Int32) {
+func spacesFixture(t *testing.T, member bool) (*Server, *atomic.Int32, *atomic.Int32) {
 	t.Helper()
-	providerCalls, nativeCalls := new(atomic.Int32), new(atomic.Int32)
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		providerCalls.Add(1)
-		if r.URL.Path == "/api/v1/user" {
-			_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
-			return
-		}
-		if status != 0 {
-			w.WriteHeader(status)
-			return
-		}
-		var id int64
-		_, _ = fmt.Sscanf(r.URL.Path, "/api/v1/repositories/%d", &id)
-		_, _ = fmt.Fprintf(w, `{"id":%d,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`, id)
-	})
+	callbackCalls, nativeCalls := new(atomic.Int32), new(atomic.Int32)
+	s := apiTestServer(t)
 	s.Config.OperatorID = 999
 	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		nativeCalls.Add(1)
@@ -69,12 +56,38 @@ func spacesFixture(t *testing.T, status int, member bool) (*Server, *atomic.Int3
 			t.Fatal(err)
 		}
 	}
-	return s, providerCalls, nativeCalls
+	return s, callbackCalls, nativeCalls
 }
 
-func readSpaces(t *testing.T, s *Server) api.SpacesView {
+func spacesCallback(status int, calls *atomic.Int32) func(extensions.CallbackRequest) extensions.CallbackResponse {
+	return func(in extensions.CallbackRequest) extensions.CallbackResponse {
+		calls.Add(1)
+		if in.Operation != extensions.OperationRepository {
+			return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
+		}
+		switch status {
+		case http.StatusForbidden:
+			return extensions.CallbackResponse{ErrorCode: "forbidden"}
+		case http.StatusNotFound:
+			return extensions.CallbackResponse{ErrorCode: "not_found"}
+		case http.StatusServiceUnavailable:
+			return extensions.CallbackResponse{ErrorCode: "unavailable"}
+		default:
+			return extensions.CallbackResponse{Repository: &extensions.Repository{ID: in.RepositoryID, Owner: "alice", Name: "repo", Permission: "write"}}
+		}
+	}
+}
+
+func spacesAPI(t *testing.T, s *Server, path string, callback func(extensions.CallbackRequest) extensions.CallbackResponse) *httptest.ResponseRecorder {
 	t.Helper()
-	w := terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces", nil)
+	w := httptest.NewRecorder()
+	nativeAPIServeWithCallback(t, s, w, apiTestRequest(http.MethodGet, path, "", "alice"), callback)
+	return w
+}
+
+func readSpaces(t *testing.T, s *Server, callback func(extensions.CallbackRequest) extensions.CallbackResponse) api.SpacesView {
+	t.Helper()
+	w := spacesAPI(t, s, "/api/spaces", callback)
 	var result api.SpacesView
 	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil {
 		t.Fatal("collection", w.Code, w.Body.String())
@@ -89,13 +102,13 @@ func TestSpacesDeniedUnavailableAndDegradedOwnMembership(t *testing.T) {
 	for _, status := range []int{0, 403, 404, 503} {
 		for _, member := range []bool{false, true} {
 			t.Run(fmt.Sprint(status, member), func(t *testing.T) {
-				s, _, native := spacesFixture(t, status, member)
-				result := readSpaces(t, s)
+				s, calls, native := spacesFixture(t, member)
+				result := readSpaces(t, s, spacesCallback(status, calls))
 				if status != 0 && !member {
 					if len(result.Items) != 0 || native.Load() != 0 {
 						t.Fatal("unauthorized row/helper inspection")
 					}
-					if result.Complete != (status == 403 || status == 404) {
+					if result.Complete != (status == 404) {
 						t.Fatal("unavailable disguised as complete empty")
 					}
 					return
@@ -122,103 +135,111 @@ func TestSpacesDeniedUnavailableAndDegradedOwnMembership(t *testing.T) {
 	}
 }
 
-func TestSpacesProviderIdentityDenialIsNotCompleteEmpty(t *testing.T) {
-	s, _, native := spacesFixture(t, 0, false)
-	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(403) }))
-	defer provider.Close()
-	s.SetForgejo(forgejo.New(provider.URL))
-	result := readSpaces(t, s)
-	if result.Complete || len(result.Items) != 0 || native.Load() != 0 {
-		t.Fatal("unavailable actor authority disguised as a complete empty collection")
+func TestSpacesNativeActorDenialDoesNotPublishCollection(t *testing.T) {
+	s, _, native := spacesFixture(t, false)
+	w := httptest.NewRecorder()
+	nativeAPIServeWithOptions(t, s, w, apiTestRequest(http.MethodGet, "/api/spaces", "", "alice"), nil, func(h http.Header) {
+		h.Set(extensions.ContextHeader, "invalid-authority")
+	})
+	if w.Code != http.StatusForbidden || native.Load() != 0 {
+		t.Fatal("invalid native actor reached a Spaces collection", w.Code)
 	}
 }
 
 func TestSpacesBoundsAreIncompleteNotCompleteEmpty(t *testing.T) {
 	for _, status := range []int{0, 403} {
 		t.Run(fmt.Sprint(status), func(t *testing.T) {
-			s, provider, native := spacesFixture(t, status, false)
+			s, callbackCalls, native := spacesFixture(t, false)
 			for i := 0; i < 130; i++ {
 				if err := s.Store.CreateProject(t.Context(), store.Project{ID: fmt.Sprintf("p%024x", i+100), RepositoryID: int64(i + 100), OwnerID: 1, Name: "associated"}); err != nil {
 					t.Fatal(err)
 				}
 			}
-			result := readSpaces(t, s)
-			if result.Complete || len(result.Items) > 32 || provider.Load() > 256 || native.Load() > 64 {
-				t.Fatal("unbounded or falsely complete", len(result.Items), provider.Load(), native.Load())
+			result := readSpaces(t, s, spacesCallback(status, callbackCalls))
+			if result.Complete || len(result.Items) > 32 || callbackCalls.Load() > 256 || native.Load() > 64 {
+				t.Fatal("unbounded or falsely complete", len(result.Items), callbackCalls.Load(), native.Load())
 			}
 		})
 	}
 }
 
 func TestSpacesResponseByteLimitAndOversizedStoreLabel(t *testing.T) {
-	s, _, _ := spacesFixture(t, 0, false)
+	s, _, _ := spacesFixture(t, false)
 	for i := 0; i < 32; i++ {
 		if err := s.Store.CreateProject(t.Context(), store.Project{ID: fmt.Sprintf("p%024x", i+100), RepositoryID: int64(i + 100), OwnerID: 1, Name: strings.Repeat("<", 256), Repository: strings.Repeat("<", 512)}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	result := readSpaces(t, s)
+	result := readSpaces(t, s, spacesCallback(0, new(atomic.Int32)))
 	if result.Complete || len(result.Items) >= 32 {
 		t.Fatal("response bound not applied")
 	}
 	if err := s.Store.CreateProject(t.Context(), store.Project{ID: "p000000000000000000000001", RepositoryID: 9999, OwnerID: 1, Name: strings.Repeat("x", 2000)}); err != nil {
 		t.Fatal(err)
 	}
-	if terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces", nil).Code != 503 {
+	if spacesAPI(t, s, "/api/spaces", spacesCallback(0, new(atomic.Int32))).Code != 503 {
 		t.Fatal("oversized DB metadata silently truncated")
 	}
 }
 
 func TestSpacesAdmissionActorAndQueryBounds(t *testing.T) {
-	s, provider, native := spacesFixture(t, 0, true)
+	s, callbackCalls, native := spacesFixture(t, true)
 	for range cap(s.API.SpacesSlots) {
 		s.API.SpacesSlots <- struct{}{}
 	}
-	if terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces", nil).Code != 503 {
+	if spacesAPI(t, s, "/api/spaces", spacesCallback(0, callbackCalls)).Code != 503 {
 		t.Fatal("request gate")
 	}
 	for range cap(s.API.SpacesSlots) {
 		<-s.API.SpacesSlots
 	}
 	for _, query := range []string{"?", "?repository_id=7", "?after=1"} {
-		if terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces"+query, nil).Code != 400 {
-			t.Fatal("query alias")
+		want := http.StatusBadRequest
+		if query == "?" {
+			want = http.StatusNotFound // The extension rejects noncanonical empty queries at its boundary.
+		}
+		if w := spacesAPI(t, s, "/api/spaces"+query, spacesCallback(0, callbackCalls)); w.Code != want {
+			t.Fatal("query alias", query, w.Code, w.Body.String())
 		}
 	}
-	r := apiTestRequest("GET", "/api/spaces", "", "alice")
-	r.Header.Set(auth.ExpectedUserHeader, "2")
-	w := httptest.NewRecorder()
-	s.ServeHTTP(w, r)
-	if w.Code != 403 || provider.Load() != 0 || native.Load() != 0 {
-		t.Fatal("actor guard did not precede collection")
+	if spacesAPI(t, s, "/api/spaces?actor=2", spacesCallback(0, callbackCalls)).Code != 400 || callbackCalls.Load() != 0 || native.Load() != 0 {
+		t.Fatal("query aliases are rejected before collection")
 	}
 }
 
-func TestSpacesSlowInspectionCannotBlockLogoutOrPublishAfterIt(t *testing.T) {
-	s, _, _ := spacesFixture(t, 0, true)
+func TestSpacesSlowInspectionCannotPublishAfterNativeRevocation(t *testing.T) {
+	s, calls, _ := spacesFixture(t, true)
 	entered, release := make(chan struct{}), make(chan struct{})
-	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { close(entered); <-release }))
+	var enteredOnce sync.Once
+	helper := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { enteredOnce.Do(func() { close(entered) }); <-release }))
 	defer helper.Close()
-	defer close(release)
+	var releaseOnce sync.Once
+	defer releaseOnce.Do(func() { close(release) })
 	s.Host.HTTP = &http.Client{Transport: &http.Transport{DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, network, helper.Listener.Addr().String())
 	}}}
-	result := make(chan *httptest.ResponseRecorder, 1)
-	go func() { result <- terminalAPI(t, s, s.Config.ForgejoURL, "GET", "/api/spaces", nil) }()
+	var revoked atomic.Bool
+	proxy := nativeProductProxyForActorWithCallbacks(t, s, extensions.Contribution{}, "alice", spacesCallback(0, calls), func(extensions.CallbackRequest) extensions.CallbackResponse {
+		if revoked.Load() {
+			return extensions.CallbackResponse{ErrorCode: "not_found"}
+		}
+		return extensions.CallbackResponse{Actor: &extensions.Actor{ID: "1", Username: "alice"}}
+	})
+	result := make(chan *http.Response, 1)
+	go func() {
+		result <- nativeProductRequest(t, proxy, s.Config.ForgejoURL, http.MethodGet, "/api/spaces", nil)
+	}()
 	select {
 	case <-entered:
 	case <-time.After(time.Second):
 		t.Fatal("inspection not entered")
 	}
-	start := time.Now()
-	w := terminalAPI(t, s, s.Config.ForgejoURL, "POST", "/api/session/logout", map[string]any{})
-	if w.Code != 204 || time.Since(start) > time.Second {
-		t.Fatal("logout blocked behind inspection")
-	}
+	revoked.Store(true)
+	releaseOnce.Do(func() { close(release) })
 	select {
-	case w := <-result:
-		if w.Code != 401 {
-			t.Fatal("published after logout", w.Code)
+	case response := <-result:
+		if response.StatusCode != http.StatusUnauthorized {
+			t.Fatal("published after native revocation", response.StatusCode)
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("unbounded inspection")

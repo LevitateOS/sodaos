@@ -21,6 +21,7 @@ func TestVerifyCandidateImagesChecksRecordedImageMembers(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(rootPath, "images"), 0o700))
 	p := fixture()
 	content := map[string][]byte{
+		"dashboard:/usr/local/bin/soda-dashboard":                     []byte("Soda service"),
 		"forgejo:/usr/local/bin/gitea":                                []byte("patched Forgejo binary"),
 		"extension:/usr/local/bin/gitea":                              []byte("patched Forgejo binary"),
 		"extension:/usr/share/soda/extension/extension.json":          []byte("extension manifest"),
@@ -29,11 +30,12 @@ func TestVerifyCandidateImagesChecksRecordedImageMembers(t *testing.T) {
 		"extension:/usr/share/soda/extension/assets/entry.js":         []byte("extension browser asset"),
 		"extension:/usr/share/soda/extension/assets/entry.css":        []byte("extension browser style"),
 		"host:/usr/share/containers/systemd/forgejo.container":        []byte("host unit"),
+		"host:/usr/share/containers/systemd/soda-dashboard.container": []byte("Soda service unit"),
 		"host:/usr/lib/systemd/system/soda-extension-install.service": []byte("extension install unit"),
 	}
 	for _, name := range Names {
 		files := map[string][]byte{"fixture.txt": []byte(name)}
-		if name == "forgejo" || name == "extension" {
+		if name == "dashboard" || name == "forgejo" || name == "extension" {
 			files = map[string][]byte{}
 			for key, body := range content {
 				if strings.HasPrefix(key, name+":") {
@@ -67,6 +69,13 @@ func TestVerifyCandidateImagesChecksRecordedImageMembers(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, root.Close()) })
 	_, err = VerifyCandidateImages(root, rootPath, p, c)
 	require.NoError(t, err)
+
+	service := "dashboard:/usr/local/bin/soda-dashboard"
+	serviceDigest := c.ContentSHA256[service]
+	c.ContentSHA256[service] = strings.Repeat("0", 64)
+	_, err = VerifyCandidateImages(root, rootPath, p, c)
+	require.Error(t, err, "the Soda service archive must match its recorded executable")
+	c.ContentSHA256[service] = serviceDigest
 
 	asset := "extension:/usr/share/soda/extension/assets/entry.css"
 	assetDigest := c.ContentSHA256[asset]

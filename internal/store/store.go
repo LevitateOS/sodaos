@@ -4,16 +4,13 @@ package store
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/levitateos/sodaos/internal/project"
 	_ "modernc.org/sqlite"
@@ -45,15 +42,15 @@ type Project struct {
 type Session struct {
 	User User
 	CSRF string
-	// Internal cancellation boundary, never serialized as browser identity.
+	// ContextID binds a native request to its current Forgejo session.
 	ContextID string
-	Expires   int64 // earlier of session/login-context expiry; never serialized as credentials
+	Expires   int64
 }
 
 func Open(path string) (*Store, error) { return open(path, nil) }
 
-// OpenEncrypted is the production entrypoint. The key is operator managed and
-// must be validated before migrations; tests without provider grants use Open.
+// OpenEncrypted is the production entrypoint. The operator-managed key protects
+// native identity credentials and must be validated before schema initialization.
 func OpenEncrypted(path string, key []byte) (*Store, error) {
 	cipher, err := newGrantCipher(key)
 	if err != nil {
@@ -67,7 +64,7 @@ func configureStore(db *sql.DB, cipher *grantCipher) (*Store, error) {
 	s := &Store{db: db, grants: cipher}
 	err := s.checkGrantKey(context.Background())
 	if err == nil {
-		err = migrate(context.Background(), db)
+		err = initializeSchema(context.Background(), db)
 	}
 	if err == nil && cipher != nil {
 		err = s.initializeGrantKey(context.Background())
@@ -96,7 +93,7 @@ func open(path string, cipher *grantCipher) (*Store, error) {
 		return nil, err
 	}
 	// database/sql can replace connections after cancellation. Configure every
-	// connection, not just startup, so logout cascades cannot leave live grants.
+	// connection so foreign key enforcement remains active.
 	dsn := url.URL{Scheme: "file", Path: absolute, RawQuery: url.Values{"_pragma": {"foreign_keys(1)", "busy_timeout(5000)"}}.Encode()}
 	db, err := sql.Open("sqlite", dsn.String())
 	if err != nil {
@@ -232,48 +229,4 @@ func (s *Store) MemberLogin(ctx context.Context, pid string, uid int64) (string,
 	var login string
 	err := s.db.QueryRowContext(ctx, `SELECT login FROM memberships WHERE project_id=? AND user_id=?`, pid, uid).Scan(&login)
 	return login, err
-}
-
-func hash(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
-}
-
-func (s *Store) CreateSession(ctx context.Context, token string, uid int64, csrf string) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-	expires := time.Now().Add(12 * time.Hour).Unix()
-	if _, err = tx.ExecContext(ctx, `INSERT INTO login_contexts(id,expires) VALUES(?,?)`, hash(token), expires); err != nil {
-		return err
-	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO sessions(token,user_id,csrf,expires,context_id) VALUES(?,?,?,?,?)`, hash(token), uid, csrf, expires, hash(token)); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-func (s *Store) Session(ctx context.Context, token string) (Session, error) {
-	var v Session
-	err := s.db.QueryRowContext(ctx, `SELECT users.id,users.login,users.name,sessions.csrf,sessions.context_id,MIN(sessions.expires,c.expires) FROM sessions JOIN users ON users.id=sessions.user_id JOIN login_contexts c ON c.id=sessions.context_id WHERE sessions.token=? AND sessions.expires>? AND c.expires>?`, hash(token), time.Now().Unix(), time.Now().Unix()).Scan(&v.User.ID, &v.User.Login, &v.User.Name, &v.CSRF, &v.ContextID, &v.Expires)
-	return v, err
-}
-
-func (s *Store) DeleteSession(ctx context.Context, token string) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM login_contexts WHERE id=(SELECT context_id FROM sessions WHERE token=?)`, hash(token))
-	return err
-}
-
-// OAuthLogin binds navigation intent to a single-use PKCE transaction, not
-// authority. IDs may be absent (zero), including on migrated pending logins.
-// They refer to native Forgejo records, not necessarily existing Soda rows.
-type OAuthLogin struct {
-	RepositorySettingsReturn bool
-	SettingsReturn           string
-	SpacesReturn             bool
-	Verifier                 string
-	RepositoryID             int64
-	ExpectedUserID           int64
 }

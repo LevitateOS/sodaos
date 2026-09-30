@@ -48,6 +48,8 @@ export interface RunnerEvidence {
   provider?: Awaited<ReturnType<typeof exerciseRunnerProvider>>;
   outcome?: 'confirmed' | 'unconfirmed';
 }
+const runnersPage = '/admin/extensions/soda/runners';
+const runnersAPI = runnersPage + '/api/settings/runners';
 // permit is the existing installed driver's one-shot exact-request guard. It must
 // discard the transient serialized body on transmission/abort and never log it.
 export async function exerciseRunners(
@@ -99,40 +101,52 @@ export async function exerciseRunners(
       return;
     }
     evidence.stage = 'handed-off native pages';
-    for (const [page, actor] of [
-      [operator, input.operator_id],
-      [denied, input.denied_id],
-    ] as const) {
-      const url = new URL(page.url());
+    const url = new URL(operator.url());
+    assert(
+      url.origin === input.origin && url.pathname === runnersPage && !url.search && !url.hash,
+      'Native Runners page handoff required'
+    );
+    const mount = operator.locator('[data-extension-page][data-extension-id="soda"][data-extension-page-id="runners"]');
+    await mount.waitFor();
+    assert.equal(
+      new URL((await mount.getAttribute('data-extension-api-base')) || '', input.origin).pathname,
+      runnersPage + '/api/',
+      'Runners mount API mismatch'
+    );
+    assert(await mount.getAttribute('data-extension-session-generation'), 'Runners mount has no native session');
+    if (input.native_admins?.denied) {
+      const deniedURL = new URL(denied.url());
       assert(
-        url.origin === input.origin && url.pathname === '/admin' && url.search === '?soda-view=runners' && !url.hash,
-        'Native Runners page handoff required'
+        deniedURL.origin === input.origin && deniedURL.pathname === runnersPage && !deniedURL.search && !deniedURL.hash,
+        'Denied admin Runners page handoff required'
       );
-      assert(
-        (await page.locator('#soda-native-content[data-view="runners"]').getAttribute('data-actor')) === actor,
-        'Original native actor mismatch'
-      );
+      await denied
+        .locator('[data-extension-page][data-extension-id="soda"][data-extension-page-id="runners"]')
+        .waitFor();
     }
     const view = operator.locator('soda-runners');
-    assert((await view.getAttribute('data-actor')) === input.operator_id, 'Original Soda operator mismatch');
+    await view.waitFor();
     // Read-only denial: list permission never opts into even an expected-denied mutation.
-    const status = await denied.evaluate(async (actor) => {
-      const response = await fetch('/-/soda/api/settings/runners', {
+    const status = await denied.evaluate(async (path) => {
+      const generation = document.querySelector<HTMLElement>(
+        '[data-extension-page][data-extension-id="soda"][data-extension-page-id="runners"]'
+      )?.dataset.extensionSessionGeneration;
+      const response = await fetch(path, {
         credentials: 'same-origin',
         cache: 'no-store',
         redirect: 'error',
-        headers: {'X-Soda-Expected-User-ID': actor},
+        headers: generation ? {'X-Extension-Session-Generation': generation} : {},
       });
       await response.body?.cancel();
       return response.status;
-    }, input.denied_id);
+    }, runnersAPI);
     assert(status === 403, 'Nonoperator runner read was not denied');
     const refresh = async () => {
       const [response] = await Promise.all([
         operator.waitForResponse(
           (r) =>
             new URL(r.url()).origin === input.origin &&
-            new URL(r.url()).pathname === '/-/soda/api/settings/runners' &&
+            new URL(r.url()).pathname === runnersAPI &&
             r.request().method() === 'GET'
         ),
         view.getByRole('button', {name: 'Refresh status', exact: true}).click(),
@@ -194,7 +208,7 @@ export async function exerciseRunners(
         operator.waitForResponse(
           (r) =>
             new URL(r.url()).origin === input.origin &&
-            new URL(r.url()).pathname === '/-/soda' + route &&
+            new URL(r.url()).pathname === runnersPage + route &&
             r.request().method() === 'POST',
           {timeout: 200000}
         ),

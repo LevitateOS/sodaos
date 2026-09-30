@@ -67,7 +67,7 @@ separate path for development and intervention.
 | Document | Owns |
 | --- | --- |
 | [Branding](design/branding.md) | Logo, palette, asset rules |
-| [Spaces UX](design/spaces-ux.md) | Spaces page and drawer design |
+| [Spaces UX](design/spaces-ux.md) | Spaces page and persistent panel design |
 | [Spaces sheets](design/spaces/README.md) | Annotated visual design sheets |
 | [Avatars](design/avatars.md) | Robot avatar rendering |
 | [Host strategy](research/host-strategy.md) | CoreOS host capability strategy |

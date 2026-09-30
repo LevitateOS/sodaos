@@ -51,7 +51,7 @@ func TestPrivateHTTPSDeploymentBoundary(t *testing.T) {
 	}
 	save(c)
 	loaded, err := Load(path)
-	if err != nil || loaded.ForgejoURL != "https://forgejo.test" || loaded.OAuthCallbackURL() != "https://forgejo.test/-/soda/oauth/callback" {
+	if err != nil || loaded.ForgejoURL != "https://forgejo.test" || loaded.OAuthCallbackURL() != "https://forgejo.test/-/soda/identity/callback" {
 		t.Fatal(loaded, err)
 	}
 	// Retired bootstrap references are parse-only, even when unusable. Loading

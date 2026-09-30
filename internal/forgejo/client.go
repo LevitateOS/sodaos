@@ -116,7 +116,7 @@ func (c *Client) Current(ctx context.Context, token string) (User, error) {
 
 func (c *Client) Application(ctx context.Context, token, redirect string) (Application, error) {
 	var a Application
-	err := c.request(ctx, "POST", "/user/applications/oauth2", token, map[string]any{"name": "SodaOS dashboard", "redirect_uris": []string{redirect}, "confidential_client": true}, &a)
+	err := c.request(ctx, "POST", "/user/applications/oauth2", token, map[string]any{"name": "SodaOS identity broker", "redirect_uris": []string{redirect}, "confidential_client": true}, &a)
 	return a, err
 }
 

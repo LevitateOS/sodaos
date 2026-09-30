@@ -8,7 +8,6 @@ import (
 
 	"github.com/levitateos/sodaos/internal/web/auth"
 
-	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/runners"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -21,32 +20,11 @@ func (s *API) operatorAuthorization(r *http.Request, v store.Session) error {
 	if s.Config.OperatorID <= 0 || v.User.ID != s.Config.OperatorID {
 		return errOperatorRequired
 	}
-	if _, ok := s.extensionActor(r, v); ok {
-		if !s.extensionSessionCurrent(r.Context(), r, v) {
-			return store.ErrGrantUnavailable
-		}
-		return nil
-	}
-	return s.providerOperatorAuthorization(r, v)
-}
-
-func (s *API) providerOperatorAuthorization(r *http.Request, v store.Session) error {
-	grant, err := s.Auth.UserGrant(r, v)
-	if err != nil {
-		return err
-	}
-	if !forgejo.HasScope(grant.Scopes, "read:user") {
-		return auth.ErrRepositoryConsent
-	}
-	actor, err := s.Forgejo.Current(r.Context(), grant.Access)
-	if err != nil {
-		return err
-	}
-	if actor.ID != v.User.ID {
-		return auth.ErrProviderIdentity
+	if _, ok := s.extensionActor(r, v); !ok {
+		return auth.ErrNativeSessionChanged
 	}
 	if !s.extensionSessionCurrent(r.Context(), r, v) {
-		return store.ErrGrantUnavailable
+		return auth.ErrNativeSessionChanged
 	}
 	return nil
 }
@@ -61,12 +39,6 @@ func (s *API) authorizeOperator(w http.ResponseWriter, r *http.Request, v store.
 		return false
 	}
 	return true
-}
-
-func (s *API) runnerRoutes() {
-	s.mux.HandleFunc("/api/settings/runners", s.Auth.Protected(s.apiRunners, http.MethodGet, http.MethodPost))
-	s.mux.HandleFunc("/api/settings/runners/{runner}/{action}", s.Auth.Protected(s.apiRunnerAction, http.MethodPost))
-	s.mux.HandleFunc("GET /settings/runners", s.runnersPage)
 }
 
 func (s *API) createRunner(w http.ResponseWriter, r *http.Request) {
@@ -204,7 +176,7 @@ func (s *API) apiRunnerAction(w http.ResponseWriter, r *http.Request, v store.Se
 	}
 	// Recheck after decoding and confirmation, immediately before dispatch.
 	if !s.extensionSessionCurrent(ctx, r, v) {
-		auth.ProviderError(w, store.ErrGrantUnavailable)
+		auth.ProviderError(w, auth.ErrNativeSessionChanged)
 		return
 	}
 	if s.Host.RunnerAction(ctx, action, runners.RunnerRequest{ID: id}) != nil {

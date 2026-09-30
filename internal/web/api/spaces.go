@@ -63,7 +63,6 @@ func (s *API) inspectSpaceNative(ctx context.Context, p store.Project, row *Spac
 func (s *API) inspectSpaceTerminals(
 	request *http.Request,
 	check context.Context,
-	cookieValue string,
 	v store.Session,
 	p store.Project,
 	reader environmentReader,
@@ -75,13 +74,7 @@ func (s *API) inspectSpaceTerminals(
 	}
 	var items []host.TerminalState
 	var err error
-	if _, native := requestExtensionAuthority(request); native {
-		items, err = s.extensionTerminalStates(request, check, v, p, reader.login, "list")
-	} else if s.terminalCurrent(check, cookieValue, v, p, reader.login) {
-		items, err = s.terminalOperation(request, v, p, reader.login, cookieValue, host.TerminalRequest{Action: "list"})
-	} else {
-		return true
-	}
+	items, err = s.extensionTerminalStates(request, check, v, p, reader.login, "list")
 	complete := err == nil
 	for _, item := range items {
 		if *terminalCount >= 64 {
@@ -115,7 +108,6 @@ func (s *API) inspectSpaceTailnet(check context.Context, p store.Project, reader
 func (s *API) inspectSpaceRow(
 	r *http.Request,
 	ctx context.Context,
-	cookieValue string,
 	v store.Session,
 	p store.Project,
 	terminalCount *int,
@@ -141,7 +133,7 @@ func (s *API) inspectSpaceRow(
 	if !s.inspectSpaceNative(check, p, &row) {
 		complete = false
 	}
-	if !s.inspectSpaceTerminals(request, check, cookieValue, v, p, reader, &row, terminalCount) {
+	if !s.inspectSpaceTerminals(request, check, v, p, reader, &row, terminalCount) {
 		complete = false
 	}
 	s.inspectSpaceTailnet(check, p, reader, &row)
@@ -162,7 +154,6 @@ func appendSpaceRow(response *SpacesView, row SpaceView) bool {
 func (s *API) inspectSpaces(
 	r *http.Request,
 	ctx context.Context,
-	cookieValue string,
 	v store.Session,
 	projects []store.Project,
 ) SpacesView {
@@ -180,7 +171,7 @@ func (s *API) inspectSpaces(
 			response.Complete = false
 			break
 		}
-		row, keep, complete := s.inspectSpaceRow(r, ctx, cookieValue, v, p, &terminalCount)
+		row, keep, complete := s.inspectSpaceRow(r, ctx, v, p, &terminalCount)
 		if !complete {
 			response.Complete = false
 		}
@@ -194,30 +185,19 @@ func (s *API) inspectSpaces(
 	return response
 }
 
-func (s *API) verifySpacesSession(w http.ResponseWriter, ctx context.Context, r *http.Request, cookieValue string, v store.Session) bool {
-	if _, native := requestExtensionAuthority(r); native {
-		if ctx.Err() != nil || !s.extensionSessionCurrent(ctx, r, v) {
-			auth.JSONError(w, 401, "unauthenticated", "Native session ended.")
-			return false
-		}
-		return true
-	}
-	// Logout wins publication too; never hold the registry lock over inspections.
-	s.terminalMu.Lock()
-	current, err := s.Store.Session(ctx, cookieValue)
-	s.terminalMu.Unlock()
+func (s *API) verifySpacesSession(w http.ResponseWriter, ctx context.Context, r *http.Request, v store.Session) bool {
 	if ctx.Err() != nil {
 		auth.JSONError(w, 503, "spaces_unavailable", "Spaces inspection exhausted its time budget; no complete result is available.")
 		return false
 	}
-	if err != nil || current.ContextID != v.ContextID || current.User.ID != v.User.ID || current.CSRF != v.CSRF {
-		auth.JSONError(w, 401, "unauthenticated", "Session ended.")
+	if !s.extensionSessionCurrent(ctx, r, v) {
+		auth.JSONError(w, 401, "unauthenticated", "Native Forgejo session ended.")
 		return false
 	}
 	return true
 }
 
-// Fixed bounds: 4 requests, sequential provider/helper calls, 8 seconds total,
+// Fixed bounds: 4 requests, sequential native/helper calls, 8 seconds total,
 // 2 seconds per row, 128 scanned associations, 32 published rows, <=64 KiB JSON.
 // No missing repository_id overload, copied permissions, unauthorized counts,
 // unbounded fan-out or denial placeholders. Limits are incomplete, not empty truth.
@@ -240,17 +220,8 @@ func (s *API) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Session)
 		auth.JSONError(w, 503, "spaces_unavailable", "Could not enumerate Soda associations.")
 		return
 	}
-	cookieValue := ""
-	if _, native := requestExtensionAuthority(r); !native {
-		cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-		if err != nil {
-			auth.JSONError(w, 401, "unauthenticated", "Sign in again.")
-			return
-		}
-		cookieValue = cookie.Value
-	}
-	response := s.inspectSpaces(r, ctx, cookieValue, v, projects)
-	if !s.verifySpacesSession(w, ctx, r, cookieValue, v) {
+	response := s.inspectSpaces(r, ctx, v, projects)
+	if !s.verifySpacesSession(w, ctx, r, v) {
 		return
 	}
 	auth.JSONResponse(w, 200, response)

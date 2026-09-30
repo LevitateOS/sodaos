@@ -68,20 +68,3 @@ func TestPersistenceAndMembership(t *testing.T) {
 		t.Fatalf("%q %v", login, err)
 	}
 }
-func TestOAuthSingleUse(t *testing.T) {
-	s, err := Open(filepath.Join(t.TempDir(), "soda.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.Close()
-	ctx := context.Background()
-	if err = s.BeginOAuth(ctx, "state", OAuthLogin{Verifier: "verifier", RepositoryID: 42, ExpectedUserID: 1}, "", ""); err != nil {
-		t.Fatal(err)
-	}
-	if login, err := s.ConsumeOAuth(ctx, "state", ""); err != nil || login.OAuthLogin != (OAuthLogin{Verifier: "verifier", RepositoryID: 42, ExpectedUserID: 1}) {
-		t.Fatal(login, err)
-	}
-	if _, err = s.ConsumeOAuth(ctx, "state", ""); err == nil {
-		t.Fatal("state reused")
-	}
-}

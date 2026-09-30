@@ -2,21 +2,15 @@ package auth
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"errors"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/identity"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 const (
-	brokerCookie   = "__Secure-soda-broker-enrollment"
 	brokerLifetime = 10 * time.Minute
 	brokerTimeout  = 15 * time.Second
 )
@@ -31,8 +25,6 @@ type EnrollmentBroker interface {
 type brokerBinding struct {
 	enrollment, state string
 	owner             int64
-	contextID, csrf   string
-	tokenHash         [32]byte
 	expires           time.Time
 }
 
@@ -56,15 +48,7 @@ func (s *Service) brokerAuthorizeURL(u *url.URL) bool {
 	return u.Scheme == "https" && u.User == nil && u.Fragment == "" && u.RawPath == "" && u.Scheme+"://"+u.Host == s.Config.ForgejoURL && u.Path == "/login/oauth/authorize"
 }
 
-func brokerBindingKey() (string, error) {
-	var random [32]byte
-	if _, err := rand.Read(random[:]); err != nil {
-		return "", errors.New("broker enrollment unavailable")
-	}
-	return base64.RawURLEncoding.EncodeToString(random[:]), nil
-}
-
-func (s *Service) saveBrokerBinding(key string, binding brokerBinding) error {
+func (s *Service) saveBrokerBinding(binding brokerBinding) error {
 	s.brokerMu.Lock()
 	defer s.brokerMu.Unlock()
 	s.pruneBrokerBindings()
@@ -74,7 +58,10 @@ func (s *Service) saveBrokerBinding(key string, binding brokerBinding) error {
 	if s.brokerBindings == nil {
 		s.brokerBindings = make(map[string]brokerBinding)
 	}
-	s.brokerBindings[key] = binding
+	if _, exists := s.brokerBindings[binding.state]; exists {
+		return identity.ErrBusy
+	}
+	s.brokerBindings[binding.state] = binding
 	return nil
 }
 
@@ -86,51 +73,30 @@ func (s *Service) pruneBrokerBindings() {
 	}
 }
 
-// BindBrokerEnrollment binds a native authorization URL to this initiating session.
-func (s *Service) BindBrokerEnrollment(w http.ResponseWriter, r *http.Request, session store.Session, enrollment identity.Enrollment) error {
+// BindNativeBrokerEnrollment binds provider OAuth state to the actor admitted
+// by the current native extension request. The state is provider-generated and
+// is consumed exactly once by brokerCallback.
+func (s *Service) BindNativeBrokerEnrollment(owner int64, enrollment identity.Enrollment) error {
 	if s.EnrollmentBroker == nil || enrollment.ID == "" || enrollment.ProviderID != identity.Forgejo {
+		return identity.ErrDenied
+	}
+	if owner <= 0 {
 		return identity.ErrDenied
 	}
 	state, err := s.brokerState(enrollment)
 	if err != nil {
 		return err
 	}
-	cookie, err := RequestCookie(r, SessionCookie)
-	if err != nil {
-		return identity.ErrDenied
-	}
-	key, err := brokerBindingKey()
-	if err != nil {
-		return err
-	}
-	s.withSessionEndGate(func() {
-		if err = s.RequireCurrentSession(r.Context(), cookie.Value, session); err != nil {
-			return
-		}
-		err = s.saveBrokerBinding(key, brokerBinding{enrollment: enrollment.ID, state: state, owner: session.User.ID, contextID: session.ContextID, csrf: session.CSRF, tokenHash: sha256.Sum256([]byte(cookie.Value)), expires: time.Now().Add(brokerLifetime)})
-	})
-	if err != nil {
-		return identity.ErrDenied
-	}
-	s.cookie(w, brokerCookie, key, int(brokerLifetime.Seconds()))
-	return nil
+	return s.saveBrokerBinding(brokerBinding{enrollment: enrollment.ID, state: state, owner: owner, expires: time.Now().Add(brokerLifetime)})
 }
 
-func (b brokerBinding) matches(session store.Session, token string) bool {
-	return b.owner == session.User.ID && b.contextID == session.ContextID && b.csrf == session.CSRF && b.tokenHash == sha256.Sum256([]byte(token))
-}
-
-// ForgetBrokerEnrollment removes only bindings belonging to the initiating session.
-func (s *Service) ForgetBrokerEnrollment(r *http.Request, session store.Session, id string) {
-	cookie, err := RequestCookie(r, SessionCookie)
-	if err != nil {
-		return
-	}
+// ForgetNativeBrokerEnrollment removes only this actor's pending enrollment.
+func (s *Service) ForgetNativeBrokerEnrollment(owner int64, id string) {
 	s.brokerMu.Lock()
 	defer s.brokerMu.Unlock()
-	for key, binding := range s.brokerBindings {
-		if binding.enrollment == id && binding.matches(session, cookie.Value) {
-			delete(s.brokerBindings, key)
+	for state, binding := range s.brokerBindings {
+		if binding.owner == owner && binding.enrollment == id {
+			delete(s.brokerBindings, state)
 		}
 	}
 }
@@ -157,46 +123,33 @@ func validBrokerCallbackResult(query url.Values) bool {
 	return len(query["code"])+len(query["error"]) == 1 && len(query.Get("code")) <= 4096 && len(query.Get("error")) <= 256 && (query.Get("code") != "" || query.Get("error") != "")
 }
 
-func (s *Service) claimBrokerBinding(r *http.Request, session store.Session, state string) (brokerBinding, error) {
-	cookie, err := RequestCookie(r, brokerCookie)
-	if err != nil {
-		return brokerBinding{}, identity.ErrDenied
-	}
-	token, err := RequestCookie(r, SessionCookie)
-	if err != nil {
-		return brokerBinding{}, identity.ErrDenied
-	}
+func (s *Service) claimBrokerBinding(state string) (brokerBinding, error) {
 	s.brokerMu.Lock()
 	defer s.brokerMu.Unlock()
 	s.pruneBrokerBindings()
-	binding, ok := s.brokerBindings[cookie.Value]
-	if !ok || binding.state != state || !binding.matches(session, token.Value) {
+	binding, ok := s.brokerBindings[state]
+	if !ok || binding.state != state {
 		return brokerBinding{}, identity.ErrDenied
 	}
-	delete(s.brokerBindings, cookie.Value)
+	delete(s.brokerBindings, state)
 	return binding, nil
 }
 
-func (s *Service) finishBrokerCallback(r *http.Request, session store.Session, binding brokerBinding, query url.Values) error {
+func (s *Service) finishBrokerCallback(r *http.Request, binding brokerBinding, query url.Values) error {
 	ctx := r.Context()
 	if query.Get("error") != "" {
-		_ = s.EnrollmentBroker.CancelEnrollment(ctx, session.User.ID, binding.enrollment)
+		_ = s.EnrollmentBroker.CancelEnrollment(ctx, binding.owner, binding.enrollment)
 		return identity.ErrDenied
 	}
-	if _, err := s.EnrollmentBroker.CompleteEnrollment(ctx, session.User.ID, binding.enrollment, binding.state, query.Get("code")); err != nil {
-		_ = s.EnrollmentBroker.CancelEnrollment(ctx, session.User.ID, binding.enrollment)
+	if _, err := s.EnrollmentBroker.CompleteEnrollment(ctx, binding.owner, binding.enrollment, binding.state, query.Get("code")); err != nil {
+		_ = s.EnrollmentBroker.CancelEnrollment(ctx, binding.owner, binding.enrollment)
 		return identity.ErrDenied
 	}
-	cookie, err := RequestCookie(r, SessionCookie)
-	if err != nil || s.RequireCurrentSession(ctx, cookie.Value, session) != nil {
-		_ = s.EnrollmentBroker.CancelEnrollment(ctx, session.User.ID, binding.enrollment)
-		return identity.ErrDenied
-	}
-	retained, err := s.EnrollmentBroker.Enrollment(ctx, session.User.ID, binding.enrollment)
+	retained, err := s.EnrollmentBroker.Enrollment(ctx, binding.owner, binding.enrollment)
 	if err != nil || retained.State != "completed" || retained.Connection == nil {
 		return identity.ErrDenied
 	}
-	return s.RequireCurrentSession(ctx, cookie.Value, session)
+	return nil
 }
 
 func (s *Service) brokerCallback(w http.ResponseWriter, r *http.Request) {
@@ -206,25 +159,14 @@ func (s *Service) brokerCallback(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	r = r.WithContext(ctx)
 	query, err := brokerCallbackQuery(r)
-	session, sessionErr := s.BrowserSession(r)
-	if err != nil || sessionErr != nil || s.EnrollmentBroker == nil {
+	if err != nil || s.EnrollmentBroker == nil {
 		http.Error(w, "Enrollment could not be completed.", http.StatusForbidden)
 		return
 	}
-	s.withSessionEndGate(func() {
-		cookie, cookieErr := RequestCookie(r, SessionCookie)
-		if cookieErr != nil || s.RequireCurrentSession(r.Context(), cookie.Value, session) != nil {
-			err = identity.ErrDenied
-			return
-		}
-		var binding brokerBinding
-		binding, err = s.claimBrokerBinding(r, session, query.Get("state"))
-		if err != nil {
-			return
-		}
-		s.cookie(w, brokerCookie, "", -1)
-		err = s.finishBrokerCallback(r, session, binding, query)
-	})
+	binding, err := s.claimBrokerBinding(query.Get("state"))
+	if err == nil {
+		err = s.finishBrokerCallback(r, binding, query)
+	}
 	if err != nil {
 		http.Error(w, "Enrollment could not be completed.", http.StatusForbidden)
 		return

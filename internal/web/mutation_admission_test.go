@@ -9,17 +9,18 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
 
-// Real routed handlers and store; transport doubles never execute native commands.
-func TestMutationAdmissionAfterProviderIO(t *testing.T) {
+// Native repository facts are rechecked for each mutation. A page that changes
+// actor, instance, or generation during callback I/O cannot dispatch to the host.
+func TestMutationAdmissionAfterNativeCallbackIO(t *testing.T) {
 	for _, operation := range []string{"join", "start", "stop", "apply"} {
-		for _, change := range []string{"unchanged", "logout", "user", "context", "csrf", "store", "cancel", "provider-denied", "provider-unavailable"} {
+		for _, change := range []string{"unchanged", "generation", "actor", "instance", "callback-denied", "cancel"} {
 			t.Run(operation+"/"+change, func(t *testing.T) {
 				s, _ := managementWebFixture(t)
 				projectID := webTerminalProject
@@ -28,7 +29,6 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 					body = `{"action":"stop","confirm_stop":true}`
 				}
 				if operation == "join" {
-					// A fresh projectID has no membership to short-circuit provisioning.
 					projectID = "pabcdef0123456789abcdef01"
 					if err := s.Store.CreateProject(t.Context(), store.Project{ID: projectID, RepositoryID: 8, OwnerID: 1}); err != nil {
 						t.Fatal(err)
@@ -36,7 +36,7 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 					if err := s.Store.MarkReady(t.Context(), projectID, "10.89.0.3"); err != nil {
 						t.Fatal(err)
 					}
-					path, body = "/join", `{"ssh_keys":"none"}`
+					path, body = "/join", `{}`
 				} else if operation == "apply" {
 					path, body = "/access-keys", `{"revision":"`+strings.Repeat("a", 64)+`","saved_fingerprints":[],"confirm_empty":true}`
 				}
@@ -44,16 +44,9 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 				ctx, cancel := context.WithCancel(r.Context())
 				defer cancel()
 				r = r.WithContext(ctx)
-
-				// Another actor's terminals in the target projectID must survive a
-				// denied Stop, even when real Alice logout correctly ends Alice access.
-				bob, err := s.Store.Session(t.Context(), "session-bob")
-				if err != nil {
-					t.Fatal(err)
-				}
 				peerCtx, endPeer := context.WithCancel(t.Context())
 				defer endPeer()
-				s.API.TerminalPeers = map[*http.Request]*api.TerminalPeer{r: {ContextID: bob.ContextID, Project: projectID, Cancel: endPeer}}
+				s.API.TerminalPeers = map[*http.Request]*api.TerminalPeer{r: {ContextID: nativeProductGeneration, Project: projectID, Cancel: endPeer}}
 				nativeCalls := 0
 				s.Host.HTTP = &http.Client{Transport: roundTrip(func(req *http.Request) (*http.Response, error) {
 					nativeCalls++
@@ -64,13 +57,13 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 					w := httptest.NewRecorder()
 					switch operation {
 					case "join":
-						if req.URL.Path != "/account" || in["identity"] != float64(1) || in["login"] != "current-login" {
-							t.Error("Join lost original actor/provider login")
+						if req.URL.Path != "/account" || in["identity"] != float64(1) || in["login"] != "alice" {
+							t.Error("Join lost native actor")
 						}
 						_, _ = w.WriteString(`{"ok":true}`)
 					case "apply":
 						if req.URL.Path != "/access-keys" || in["identity"] != float64(1) || in["login"] != "original-alice" || in["apply"] != true {
-							t.Error("Apply remapped original membership")
+							t.Error("Apply remapped membership")
 						}
 						_, _ = w.WriteString(`{"revision":"` + strings.Repeat("a", 64) + `","keys":[]}`)
 					default:
@@ -84,118 +77,48 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 					}
 					return w.Result(), nil
 				})}
-				providerCalls := 0
-				s.Forgejo.HTTP = &http.Client{Transport: roundTrip(func(req *http.Request) (*http.Response, error) {
-					providerCalls++
-					w := httptest.NewRecorder()
-					if req.URL.Path == "/api/v1/user" {
-						_, _ = w.WriteString(`{"id":1,"login":"current-login"}`)
-						return w.Result(), nil
+				callbacks := 0
+				callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+					if in.Operation != extensions.OperationRepository {
+						t.Error("unexpected native callback", in.Operation)
+						return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
 					}
-					if operation == "start" || operation == "stop" {
-						if req.URL.Path == "/api/v1/repositories/7" {
-							// Lifecycle must finish the later organization-owner call
-							// too, not admit from a merely visible repository.
-							_, _ = w.WriteString(`{"id":7,"name":"repo","full_name":"team/repo","permissions":{"push":true},"owner":{"id":99,"login":"team"}}`)
-							return w.Result(), nil
-						}
-						if req.URL.Path != "/api/v1/users/current-login/orgs/team/permissions" {
-							t.Error("unexpected organization authority request", req.URL.Path)
-						}
-					} else if req.URL.Path != "/api/v1/repositories/7" && req.URL.Path != "/api/v1/repositories/8" {
-						t.Error("unexpected provider request", req.URL.Path)
+					callbacks++
+					if change == "callback-denied" {
+						return extensions.CallbackResponse{ErrorCode: "not_found"}
 					}
-					// Complete the state change while the actual provider call is
-					// suspended, then deliberately return its stale successful result.
-					switch change {
-					case "logout":
-						logout := httptest.NewRecorder()
-						s.ServeHTTP(logout, apiTestRequest("POST", "/api/session/logout", `{}`, "alice"))
-						if logout.Code != 204 {
-							t.Fatal("logout failed", logout.Code)
+					if callbacks == 1 {
+						switch change {
+						case "generation":
+							r.Header.Set(extensions.ContextHeader, strings.Replace(r.Header.Get(extensions.ContextHeader), nativeProductGeneration, "expired", 1))
+						case "actor":
+							r.Header.Set(extensions.ContextHeader, strings.Replace(r.Header.Get(extensions.ContextHeader), `"id":"1"`, `"id":"2"`, 1))
+						case "instance":
+							r.Header.Set(extensions.ContextHeader, strings.Replace(r.Header.Get(extensions.ContextHeader), "native-test-instance", "other-instance", 1))
+						case "cancel":
+							cancel()
 						}
-					case "user", "csrf", "context":
-						if err := s.Store.DeleteSession(t.Context(), "session-alice"); err != nil {
-							t.Fatal(err)
-						}
-						uid, csrf := int64(1), "csrf-alice"
-						if change == "user" {
-							uid = 2
-						} else if change == "csrf" {
-							csrf = "changed-csrf"
-						}
-						if change == "context" {
-							// Rebind the same token/actor/CSRF to a distinct real login
-							// context so only the context comparison can detect drift.
-							if err := s.Store.BeginOAuth(t.Context(), "new-context", store.OAuthLogin{}, "", ""); err != nil {
-								t.Fatal(err)
-							}
-							a, err := s.Store.ConsumeOAuth(t.Context(), "new-context", "")
-							if err != nil {
-								t.Fatal(err)
-							}
-							err = s.Store.FinishOAuth(t.Context(), a, store.User{ID: 1, Login: "alice"}, "session-alice", csrf, store.Grant{Access: "synthetic", Refresh: "synthetic", Expires: time.Now().Add(time.Hour).Unix()})
-							if err != nil {
-								t.Fatal(err)
-							}
-						} else if err := s.Store.CreateSession(t.Context(), "session-alice", uid, csrf); err != nil {
-							t.Fatal(err)
-						}
-					case "store":
-						if err := s.Store.Close(); err != nil {
-							t.Fatal(err)
-						}
-					case "cancel":
-						cancel()
-					case "provider-denied":
-						w.WriteHeader(403)
-						return w.Result(), nil
-					case "provider-unavailable":
-						w.WriteHeader(503)
-						return w.Result(), nil
 					}
-					if operation == "start" || operation == "stop" {
-						_, _ = w.WriteString(`{"is_owner":true}`)
-						return w.Result(), nil
-					}
-					id := 7
-					if operation == "join" {
-						id = 8
-					}
-					_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "name": "repo", "full_name": "alice/repo", "permissions": map[string]bool{"push": true}, "owner": map[string]any{"id": 1, "login": "alice"}})
-					return w.Result(), nil
-				})}
+					return extensions.CallbackResponse{Repository: &extensions.Repository{ID: in.RepositoryID, Owner: "alice", Name: "repo", Permission: "write"}}
+				}
 				w := httptest.NewRecorder()
-				s.ServeHTTP(w, r)
-				want := 401
-				switch change {
-				case "unchanged":
-					want = 200
-				case "provider-denied":
-					want = 403
-				case "provider-unavailable":
-					want = 503
-				case "store", "cancel":
-					if operation == "apply" { // Saved-key read precedes final admission.
-						want = 503
+				nativeAPIServeWithCallback(t, s, w, r, callback)
+				if change == "unchanged" {
+					if w.Code != 200 || nativeCalls != 1 {
+						t.Errorf("authorized mutation: status=%d native=%d body=%s", w.Code, nativeCalls, w.Body.String())
 					}
-				}
-				wantProviderCalls := 2
-				if operation == "start" || operation == "stop" {
-					wantProviderCalls = 3
-				}
-				if w.Code != want || providerCalls != wantProviderCalls || (nativeCalls == 1) != (change == "unchanged") || nativeCalls > 1 {
-					t.Errorf("admission: status=%d want=%d provider=%d native=%d body=%s", w.Code, want, providerCalls, nativeCalls, w.Body.String())
+				} else if w.Code < 400 || nativeCalls != 0 {
+					t.Errorf("stale authority dispatched: status=%d native=%d body=%s", w.Code, nativeCalls, w.Body.String())
 				}
 				shouldEnd := operation == "stop" && change == "unchanged"
 				if (peerCtx.Err() != nil) != shouldEnd || s.API.TerminalStopping[projectID] {
 					t.Error("denied mutation disturbed terminals or leaked Stop admission")
 				}
-				if operation == "join" && change != "store" {
+				if operation == "join" {
 					login, err := s.Store.MemberLogin(t.Context(), projectID, 1)
 					if change == "unchanged" {
-						if err != nil || login != "current-login" {
-							t.Error("confirmed Join did not record original login", err)
+						if err != nil || login != "alice" {
+							t.Error("confirmed Join did not record native login", err)
 						}
 					} else if !errors.Is(err, store.ErrNotFound) {
 						t.Error("denied Join recorded membership", err)
@@ -206,8 +129,6 @@ func TestMutationAdmissionAfterProviderIO(t *testing.T) {
 	}
 }
 
-// Force a post-authentication body delay, including the operator lifecycle path
-// that legitimately skips provider I/O and Apply's later decoding boundary.
 type mutationAdmissionBody struct {
 	io.Reader
 	beforeRead func()
@@ -224,7 +145,7 @@ func (b *mutationAdmissionBody) Read(p []byte) (int, error) {
 
 func TestMutationAdmissionAfterDecode(t *testing.T) {
 	for _, operation := range []string{"start", "stop", "apply"} {
-		for _, change := range []string{"logout", "store", "cancel"} {
+		for _, change := range []string{"generation", "actor", "instance", "cancel"} {
 			t.Run(operation+"/"+change, func(t *testing.T) {
 				s, calls := managementWebFixture(t)
 				s.Config.OperatorID = 1
@@ -238,25 +159,22 @@ func TestMutationAdmissionAfterDecode(t *testing.T) {
 				defer cancel()
 				r := apiTestRequest("POST", "/api/environments/"+webTerminalProject+path, body, "alice").WithContext(ctx)
 				r.Body = io.NopCloser(&mutationAdmissionBody{Reader: strings.NewReader(body), beforeRead: func() {
+					context := r.Header.Get(extensions.ContextHeader)
 					switch change {
-					case "logout":
-						w := httptest.NewRecorder()
-						s.ServeHTTP(w, apiTestRequest("POST", "/api/session/logout", `{}`, "alice"))
-						if w.Code != 204 {
-							t.Fatal("logout failed", w.Code)
-						}
-					case "store":
-						if err := s.Store.Close(); err != nil {
-							t.Fatal(err)
-						}
+					case "generation":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(context, nativeProductGeneration, "expired", 1))
+					case "actor":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(context, `"id":"1"`, `"id":"2"`, 1))
+					case "instance":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(context, "native-test-instance", "other-instance", 1))
 					case "cancel":
 						cancel()
 					}
 				}})
 				w := httptest.NewRecorder()
-				s.ServeHTTP(w, r)
-				if w.Code != 401 || len(*calls) != 0 {
-					t.Fatal("post-decode stale session reached native dispatch", w.Code, *calls)
+				nativeAPIServe(t, s, w, r)
+				if w.Code < 400 || len(*calls) != 0 {
+					t.Fatal("post-decode stale native authority reached helper", w.Code, *calls, w.Body.String())
 				}
 			})
 		}

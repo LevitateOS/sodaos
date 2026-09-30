@@ -37,12 +37,10 @@ func New(c config.Config, db *store.Store) *Server {
 		Config: c, Store: db, Forgejo: client, Host: hostClient,
 		mux: http.NewServeMux(),
 	}
-	s.Auth = auth.New(&s.Config, db, client)
+	s.Auth = auth.New(&s.Config, db)
 	s.API = api.New(&s.Config, db, client, hostClient, s.Auth)
 	s.API.Identity = identityclient.New(c.IdentitySocket)
 	s.Auth.EnrollmentBroker = identityclient.New(c.IdentitySocket)
-	s.Auth.SessionEndGate = s.API.TerminalLock()
-	s.Auth.CancelTerminals = s.API.CancelTerminals
 
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -52,7 +50,6 @@ func New(c config.Config, db *store.Store) *Server {
 	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
 	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
 	s.Auth.Register(s.mux)
-	s.API.Register(s.mux)
 	notFound := func(w http.ResponseWriter, r *http.Request) {
 		auth.JSONError(w, http.StatusNotFound, "not_found", "API route not found.")
 	}
@@ -62,16 +59,22 @@ func New(c config.Config, db *store.Store) *Server {
 }
 
 func (s *Server) forgejoHome(w http.ResponseWriter, r *http.Request) {
-	s.Auth.ForgejoReturn(w, r, nil)
+	w.Header().Set("Cache-Control", "no-store")
+	native, err := url.Parse(s.Config.ForgejoURL)
+	if err != nil || config.BaseURL(s.Config.ForgejoURL) != nil || native.Scheme != "https" {
+		http.Error(w, "Native Forgejo is not configured.", http.StatusServiceUnavailable)
+		return
+	}
+	native.Path, native.RawPath = "/", ""
+	http.Redirect(w, r, native.String(), http.StatusSeeOther)
 }
 
-// CloseTerminals shuts down browser terminal peers before process exit.
+// CloseTerminals shuts down native terminal peers before process exit.
 func (s *Server) CloseTerminals() { s.API.CloseTerminals() }
 
-// SetForgejo replaces the Forgejo client on the facade and both services.
+// SetForgejo replaces the Forgejo client on the facade and product API.
 func (s *Server) SetForgejo(client *forgejo.Client) {
 	s.Forgejo = client
-	s.Auth.Forgejo = client
 	s.API.Forgejo = client
 }
 

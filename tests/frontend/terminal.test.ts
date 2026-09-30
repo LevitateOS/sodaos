@@ -135,7 +135,6 @@ test('server locator is published before Create; native generation and bounded U
     action: 'create',
     id,
     name: '',
-    expected_user_id: '1',
     repository_id: '7',
     session_generation: 'fixture-generation',
     cols: 80,
@@ -149,7 +148,6 @@ test('server locator is published before Create; native generation and bounded U
     assert.equal(call.credentials, 'same-origin');
     assert.equal(call.redirect, 'error');
     assert.equal(call.headers['x-extension-session-generation'], 'fixture-generation');
-    assert.equal(call.headers['x-soda-expected-user-id'], undefined);
   }
   await page.evaluate(() => {
     const f = window.terminalFixture;
@@ -340,7 +338,6 @@ test('End is separately confirmed with native generation and survives attachment
   assert.deepEqual(JSON.parse(sent[0]?.body || '{}'), {action: 'end'});
   assert(sent[0]?.url.endsWith('/terminal-sessions/' + id));
   assert.equal(sent[0]?.headers['x-extension-session-generation'], 'fixture-generation');
-  assert.equal(sent[0]?.headers['x-csrf-token'], undefined);
   assert.equal(await page.evaluate(() => window.terminalFixture.term().disposed), 1);
   assert.equal(await page.evaluate(() => window.terminalFixture.locator()), null);
 });
@@ -415,7 +412,6 @@ test('unavailable lookup is not absence; an explicit refresh may recover', async
   assert.deepEqual((await inputFrames(page))[0], {
     action: 'attach',
     id,
-    expected_user_id: '1',
     repository_id: '7',
     session_generation: 'fixture-generation',
     cols: 80,

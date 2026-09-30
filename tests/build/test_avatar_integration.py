@@ -362,6 +362,12 @@ class AvatarProxy(unittest.TestCase):
             path = '/-/soda/avatars/v1/' + 'a' * 32 + '?s=64&d=identicon'
             response = request(path)
             self.assertEqual(response, {'upstream': 'soda', 'path': path, 'cookie': None, 'authorization': None})
+            callback = '/-/soda/identity/callback?state=synthetic&code=synthetic'
+            response = request(callback)
+            self.assertEqual(response['upstream'], 'soda', callback)
+            self.assertEqual(response['path'], callback)
+            self.assertEqual(response['cookie'], 'fixture=value')
+            self.assertEqual(response['authorization'], 'Bearer synthetic')
             for path in (
                 '/',
                 '/api/v1/users/alice',
@@ -379,13 +385,11 @@ class AvatarProxy(unittest.TestCase):
             for path in (
                 '/-/soda/avatars',
                 '/-/soda/avatars-other/a',
-                '/-/soda/api/session',
-                '/-/soda/login',
                 '/-/soda/avatarsx/a',
-                '/-/soda/oauth/callback',
+                '/-/soda/identity/callback/extra',
             ):
                 response = request(path)
-                self.assertEqual(response['upstream'], 'soda', path)
+                self.assertEqual(response['upstream'], 'forgejo', path)
                 self.assertEqual(response['path'], path)
                 self.assertEqual(response['cookie'], 'fixture=value')
                 self.assertEqual(response['authorization'], 'Bearer synthetic')

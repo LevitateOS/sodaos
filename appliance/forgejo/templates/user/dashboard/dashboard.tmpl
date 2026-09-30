@@ -1,37 +1,4 @@
 {{template "base/head" .}}
-{{/* Presentation only: the native Home handler has already enforced account gates.
-     FormString initializes Req.Form before FormStrings checks duplicate selectors. */}}
-{{$sodaView := ""}}
-{{if and .IsSigned .PageIsNews (eq .Link AppSubUrl)}}
-  {{$requested := ctx.Context.FormString "soda-view"}}
-  {{if and (eq (len (ctx.Context.FormStrings "soda-view")) 1) (or (eq $requested "spaces") (eq $requested "repository-spaces"))}}
-    {{$sodaView = $requested}}
-  {{end}}
-{{end}}
-{{if $sodaView}}
-  {{$title := "Spaces"}}
-  {{$repositoryID := ctx.Context.FormInt64 "repository_id"}}
-  {{$valid := eq (len (ctx.Context.FormStrings "repository_id")) 0}}
-  {{if eq $sodaView "repository-spaces"}}
-    {{$title = "Repository Spaces settings"}}
-    {{$valid = and (eq (len (ctx.Context.FormStrings "repository_id")) 1) (gt $repositoryID 0) (eq (printf "%d" $repositoryID) (ctx.Context.FormString "repository_id"))}}
-  {{end}}
-  <main data-signed="true" class="page-content soda-page soda-native-page" aria-labelledby="soda-native-title">
-    <div class="soda-page-container">
-      {{template "custom/soda/page_intro" dict "TitleID" "soda-native-title" "Title" $title "Class" "soda-page-intro--compact"}}
-      {{if $valid}}
-        {{if ne $sodaView "spaces"}}<link rel="stylesheet" href="{{AppSubUrl}}/assets/soda-settings.css?v=2026-09-26.identity-broker-1">{{end}}
-        <div id="soda-native-content" data-view="{{$sodaView}}" data-actor="{{.SignedUserID}}" data-repository-id="{{if eq $sodaView "repository-spaces"}}{{$repositoryID}}{{end}}" data-document-title="{{$title}} - {{AppDisplayName}}">
-          <noscript><p>JavaScript is required for Soda controls. <a href="{{AppSubUrl}}/">Return to your dashboard</a></p></noscript>
-        </div>
-        <script type="module" src="{{AssetUrlPrefix}}/soda/forgejo/soda-native-page.js?v=2026-09-26.identity-broker-1"></script>
-      {{else}}
-        <p role="alert">Invalid Soda page destination.</p>
-        <p><a href="{{AppSubUrl}}/">Return to your dashboard</a></p>
-      {{end}}
-    </div>
-  </main>
-{{else}}
 <div role="main" aria-label="{{.Title}}" class="page-content dashboard feeds soda-page soda-dashboard" data-signed="true">
   <div class="soda-page-container">
     <div class="soda-dashboard-grid">
@@ -59,5 +26,4 @@
     </div>
   </div>
 </div>
-{{end}}
 {{template "base/footer" .}}

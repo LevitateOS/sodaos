@@ -167,19 +167,9 @@ func VerifyCandidateImages(root *os.Root, candidate string, p Payload, c Candida
 		inputs[n] = im
 	}
 	for _, n := range append([]string{"host"}, Names...) {
-		rev := p.Revision
-		if n == "proxy" {
-			rev = ""
-		}
-		content := map[string]string{}
-		if n == "host" {
-			var err error
-			content, err = candidateContentWithEmbeddedInventory(c.ContentSHA256)
-			if err != nil {
-				return nil, err
-			}
-		} else if n == "forgejo" || n == "extension" {
-			content = c.ContentSHA256
+		rev, content, err := candidateImageInputs(n, p, c)
+		if err != nil {
+			return nil, err
 		}
 		path, hash, e := verifyCandidateImage(root, candidate, n, p.Architecture, inputs[n], rev, content)
 		if e != nil {
@@ -188,6 +178,22 @@ func VerifyCandidateImages(root *os.Root, candidate string, p Payload, c Candida
 		files[path] = hash
 	}
 	return files, nil
+}
+
+func candidateImageInputs(name string, p Payload, c Candidate) (string, map[string]string, error) {
+	revision := p.Revision
+	if name == "proxy" {
+		revision = ""
+	}
+	switch name {
+	case "host":
+		content, err := candidateContentWithEmbeddedInventory(c.ContentSHA256)
+		return revision, content, err
+	case "dashboard", "forgejo", "extension":
+		return revision, c.ContentSHA256, nil
+	default:
+		return revision, map[string]string{}, nil
+	}
 }
 
 func ReferenceForDocument(t Trust, kind, digest string) (string, error) {

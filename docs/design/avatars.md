@@ -45,10 +45,10 @@ The identifier is still an email hash, not a promise of email anonymization.
 
 Caddy sends `/-/soda/avatars/*` on the configured Forgejo origin to the
 existing backend at `127.0.0.1:8080`, preserving the path and dropping Cookie and
-Authorization for that route. The rest of `/-/soda/*` also reaches Soda under the
-same origin, retaining the credentials required by protected API/OAuth routes.
+Authorization for that route. It sends only the exact broker identity callback
+path to the backend as well; product operations use the native extension service.
 Other Forgejo routes still reach port 3000. Public image generation does not
-establish or bypass the authenticated Sodaspaces session contract.
+establish or bypass native extension authority.
 
 ## First activation
 

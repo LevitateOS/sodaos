@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
@@ -27,11 +26,10 @@ type createEnvironmentInput struct {
 }
 
 var (
-	errStoreUnavailable     = errors.New("could not inspect reservation")
-	errReservationFailed    = errors.New("repository already has a reservation")
-	errProfileUnavailable   = errors.New("profile unavailable")
-	errSessionCookieMissing = errors.New("session cookie missing")
-	errSessionChanged       = errors.New("session changed")
+	errStoreUnavailable   = errors.New("could not inspect reservation")
+	errReservationFailed  = errors.New("repository already has a reservation")
+	errProfileUnavailable = errors.New("profile unavailable")
+	errSessionChanged     = errors.New("session changed")
 )
 
 func parseCreateEnvironmentInput(w http.ResponseWriter, r *http.Request) (*createEnvironmentInput, int64, bool) {
@@ -120,12 +118,7 @@ func (s *API) precheckProfileAndTailnet(w http.ResponseWriter, ctx context.Conte
 }
 
 func (s *API) verifyCurrentSessionMatch(r *http.Request, v store.Session) error {
-	cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-	if err != nil {
-		return errSessionCookieMissing
-	}
-	current, err := s.Store.Session(r.Context(), cookie.Value)
-	if err != nil || current.ContextID != v.ContextID || current.CSRF != v.CSRF || current.User.ID != v.User.ID {
+	if !s.extensionSessionCurrent(r.Context(), r, v) {
 		return errSessionChanged
 	}
 	return nil
@@ -138,11 +131,7 @@ func (s *API) reconfirmRepositoryAndSession(w http.ResponseWriter, r *http.Reque
 		return repositoryAccess{}, false
 	}
 	if err := s.verifyCurrentSessionMatch(r, v); err != nil {
-		if errors.Is(err, errSessionCookieMissing) {
-			auth.JSONError(w, 401, "unauthorized", "Reconnect to Soda.")
-		} else {
-			auth.JSONError(w, 401, "unauthorized", "Soda context changed.")
-		}
+		auth.JSONError(w, 401, "unauthorized", "Native Forgejo session changed.")
 		return repositoryAccess{}, false
 	}
 	if access.repository.Owner.ID != v.User.ID {
@@ -153,7 +142,6 @@ func (s *API) reconfirmRepositoryAndSession(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *API) provisionAndSaveProject(w http.ResponseWriter, ctx context.Context, p store.Project) (store.Project, bool) {
-	w.Header().Set("Location", config.SodaPath+"/api/environments/"+p.ID)
 	env, err := s.Host.Create(ctx, project.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile})
 	if err != nil {
 		auth.JSONResponse(w, 502, struct {

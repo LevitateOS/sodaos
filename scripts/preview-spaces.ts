@@ -1,9 +1,11 @@
 // Loopback-only development fixture: real browser components, synthetic APIs and IO.
+import assert from 'node:assert/strict';
 import {watch, type FSWatcher} from 'node:fs';
 import {resolve, basename} from 'node:path';
 import {parseArgs} from 'node:util';
 import payload from '../internal/release/build/forgejo-payload.json';
-import {buildForgejoAssets, buildForgejoModule} from './build-forgejo.ts';
+import {buildForgejoAssets} from './build-forgejo.ts';
+import {buildSodaExtensionAssets} from './build-soda-extension.ts';
 import {scenarioModel, scenarios, type Scenario, type Model} from './fixtures/spaces-scenarios.ts';
 import {object} from '../frontend/spaces/sodaspaces-api.ts';
 import type {ServerWebSocket} from 'bun';
@@ -21,11 +23,34 @@ const faults: Fault[] = ['healthy', 'slow', 'offline', 'expired', 'join-failed',
 const json = (data: unknown, status = 200) => Response.json(data, {status, headers: {'Cache-Control': 'no-store'}});
 export async function startSpacesPreview(port = 24455, liveReload = false) {
   const out = resolve(root, '.artifacts/spaces-dev/modules');
+  let extension = resolve(root, `.artifacts/spaces-dev/extension-${crypto.randomUUID()}`);
   await buildForgejoAssets(out);
-  let client = await buildForgejoModule(
-    resolve(root, 'scripts/fixtures/spaces-review-client.ts'),
-    'public/assets/spaces-review-client.js'
-  );
+  await buildSodaExtensionAssets(extension, resolve(root, '.artifacts/browser-terminal/vendor'));
+  async function buildClient() {
+    const result = await Bun.build({
+      entrypoints: [resolve(root, 'scripts/fixtures/spaces-review-client.ts')],
+      target: 'browser',
+      format: 'esm',
+      minify: true,
+      define: {'process.env.NODE_ENV': '"production"'},
+      plugins: [
+        {
+          name: 'terminal-vendor',
+          setup(build) {
+            build.onResolve({filter: /^\.\/soda-terminal\/(?:xterm|addon-fit)\.mjs$/}, (args) => ({
+              path: args.path,
+              external: true,
+            }));
+          },
+        },
+      ],
+    });
+    assert(result.success, `Spaces fixture build failed: ${result.logs.join('\n')}`);
+    const [output] = result.outputs;
+    assert(output);
+    return output;
+  }
+  let client = await buildClient();
   let revision = crypto.randomUUID();
   const watchers: FSWatcher[] = [];
   const clients = new Map<string, Review>();
@@ -148,13 +173,20 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
       }
       if (url.pathname === '/assets/spaces-review-client.js')
         return new Response(client, {headers: {'Content-Type': 'text/javascript', 'Cache-Control': 'no-store'}});
+      if (url.pathname.startsWith('/assets/')) {
+        const asset = resolve(extension, 'assets', url.pathname.slice('/assets/'.length));
+        if (asset.startsWith(resolve(extension, 'assets') + '/') && (await Bun.file(asset).exists())) {
+          const contentType = asset.endsWith('.css')
+            ? 'text/css'
+            : /\.m?js$/.test(asset)
+              ? 'text/javascript'
+              : 'application/octet-stream';
+          return new Response(Bun.file(asset), {headers: {'Content-Type': contentType, 'Cache-Control': 'no-store'}});
+        }
+      }
       const source = Object.entries(payload).find(([key]) => key === 'public' + url.pathname)?.[1];
       if (source) {
-        const path = source.startsWith('@build/forgejo-js/')
-          ? resolve(out, basename(source))
-          : source.startsWith('@build/terminal-assets/')
-            ? resolve(root, '.artifacts/browser-terminal/vendor', basename(source))
-            : resolve(root, source);
+        const path = source.startsWith('@build/forgejo-js/') ? resolve(out, basename(source)) : resolve(root, source);
         return new Response(Bun.file(path), {headers: {'Cache-Control': 'no-store'}});
       }
       if (url.pathname === '/' && req.method === 'GET')
@@ -240,10 +272,10 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
             builds = builds
               .then(async () => {
                 await buildForgejoAssets(out);
-                client = await buildForgejoModule(
-                  resolve(root, 'scripts/fixtures/spaces-review-client.ts'),
-                  'public/assets/spaces-review-client.js'
-                );
+                const next = resolve(root, `.artifacts/spaces-dev/extension-${crypto.randomUUID()}`);
+                await buildSodaExtensionAssets(next, resolve(root, '.artifacts/browser-terminal/vendor'));
+                extension = next;
+                client = await buildClient();
                 revision = crypto.randomUUID();
                 console.log('Spaces rebuilt; browser reload requested. Mock project state retained.');
               })

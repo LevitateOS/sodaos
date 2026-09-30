@@ -26,7 +26,7 @@ its baseline services must not require buying or owning a domain.
 | **Workspace** | A disposable, isolated environment allocated to a Run, separate from a persistent Project. |
 | **Project** | A persistent shared development environment for one repository's authorized members. |
 | **Project OS** | The userspace foundation inside a project (accounts, tools, persistence, workloads). |
-| **Spaces** | Sodaspaces: the Forgejo-native workspace entry and environment drawer. |
+| **Spaces** | Fountain-hosted Spaces page and persistent Workspace panel for project work. |
 | **Runner** | Local CI capacity on the appliance, operated by the Soda operator. |
 | **Tailnet** | Private connectivity for host and project reachability. |
 
@@ -63,8 +63,8 @@ Fedora CoreOS host — operator administration only
 ├── soda-factory — admission, execution ledger and narrow publication
 │   └── Rootless Podman — disposable agent workspaces and restricted networking
 └── Podman
-    ├── Stock Forgejo — identity, Git, collaboration
-    ├── Soda Go API/OAuth service — environments, grants, adapters
+    ├── Fountain (maintained Forgejo fork) — identity, Git, collaboration and extension host
+    ├── Soda extension service — environments and broker integration
     ├── Caddy — private HTTPS endpoints
     └── Persistent Project OS containers
         ├── Project-local accounts, homes, SSH
@@ -92,7 +92,7 @@ does not grant project root inside another team's environment.
 - **Forgejo** owns identity, passwords and factors, native sessions, permissions,
   Git, collaboration and administrator workflows.
 - **Soda** owns environment associations, membership after confirmed Join,
-  development-access public keys, protected adapter sessions and grants, local
+  development-access public keys, extension operations and broker grants, local
   runner capacity and selected Tailnet enrollment policy for projects. Factory
   responsibilities include admission, execution identity, permitted operations,
   time and resource limits, cancellation, infrastructure audit and cleanup.
@@ -102,8 +102,9 @@ engine. Native Git authorization remains separate from project membership.
 
 ## Frontend model
 
-Stock Forgejo supplies the browser chrome, authentication and collaboration UI.
-Soda mounts Spaces, operator settings and related views through supported Forgejo
-customization and Lit components under the configured Forgejo origin at `/-/soda/`.
+Fountain supplies Forgejo's browser chrome, authentication and collaboration UI,
+plus the native extension host. Soda contributes the Spaces page, persistent
+Workspace panel and operator pages through its separately packaged extension.
 
-There is no standalone Soda web frontend and no downstream Forgejo fork.
+There is no standalone Soda web frontend. Fountain owns its maintained fork and
+extension SDK; Soda consumes that host contract.

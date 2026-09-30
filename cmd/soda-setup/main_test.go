@@ -63,7 +63,7 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 				case "POST /api/v1/user/applications/oauth2":
 					body, _ := io.ReadAll(r.Body)
 					var got map[string]any
-					if json.Unmarshal(body, &got) != nil || !reflect.DeepEqual(got, map[string]any{"name": "SodaOS dashboard", "redirect_uris": []any{"https://forgejo.test/-/soda/oauth/callback"}, "confidential_client": true}) {
+					if json.Unmarshal(body, &got) != nil || !reflect.DeepEqual(got, map[string]any{"name": "SodaOS identity broker", "redirect_uris": []any{"https://forgejo.test/-/soda/identity/callback"}, "confidential_client": true}) {
 						t.Error("unexpected OAuth application request")
 					}
 					if strings.Contains(string(body), token) {
@@ -169,7 +169,7 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 				t.Fatal("new config retained bootstrap reference")
 			}
 			c, err := config.Load(out)
-			if err != nil || c.OperatorID != 42 || c.OAuthClientID != "app" || c.OAuthCallbackURL() != "https://forgejo.test/-/soda/oauth/callback" {
+			if err != nil || c.OperatorID != 42 || c.OAuthClientID != "app" || c.OAuthCallbackURL() != "https://forgejo.test/-/soda/identity/callback" {
 				t.Fatal("setup output did not load with original identity/callback")
 			}
 			if key, err := config.GrantKey(c.GrantKeyFile); err != nil || len(key) != 32 {

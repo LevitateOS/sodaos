@@ -97,7 +97,6 @@ export function createWorkspaceModel(
         items: spaces.map((space) => ({...space, terminals: space.terminals.filter((t) => t.state !== 'ended')})),
         complete,
       });
-    if (path.endsWith('/api/forgejo/me')) return Response.json({id: user});
     if (firstUse) {
       const url = new URL(path, origin);
       if (url.pathname.endsWith('/api/repositories')) {

@@ -18,7 +18,6 @@ export interface Call {
   headers: Record<string, string>;
 }
 export interface State {
-  csrf: string;
   tailnetCreateOutcome: 'queued' | 'unconfirmed';
   tailnetAvailable: boolean;
   tailnetEnabled: boolean;
@@ -31,8 +30,6 @@ export interface State {
   absent: boolean;
   saved: string[];
   installed: string[];
-  user: string;
-  provider: string;
   provisioned: boolean;
   unavailable: boolean;
 }
@@ -41,7 +38,6 @@ function createFixture(extra: Partial<State> = {}) {
   if (!root) throw Error('fixture mount missing');
   const calls: Call[] = [];
   const state: State = {
-    csrf: 'synthetic-csrf',
     tailnetCreateOutcome: 'queued',
     tailnetAvailable: false,
     tailnetEnabled: false,
@@ -54,8 +50,6 @@ function createFixture(extra: Partial<State> = {}) {
     absent: false,
     saved: [fixtureFingerprint],
     installed: [fixtureFingerprint],
-    user: '1',
-    provider: '1',
     provisioned: true,
     unavailable: false,
     ...extra,
@@ -83,18 +77,12 @@ function createFixture(extra: Partial<State> = {}) {
     const override = await reply?.(call);
     if (override) return override;
     const {url, method, body: encoded} = call;
-    if (
-      state.user !== '1' ||
-      state.provider !== '1' ||
-      call.headers['x-extension-session-generation'] !== 'fixture-generation'
-    )
+    if (call.headers['x-extension-session-generation'] !== 'fixture-generation')
       return Response.json({error: {code: 'reauthentication_required'}}, {status: 403});
     let body: unknown;
     if (method !== 'GET') {
       const input: unknown = JSON.parse(encoded || '{}');
       if (!input || typeof input !== 'object') throw Error('invalid fixture action');
-      if (url.endsWith('/api/login/cancel')) return new Response(null, {status: 204});
-      if (url.endsWith('/api/session/logout')) return new Response(null, {status: 204});
       if (url.endsWith('/api/environments')) {
         const selection = 'tailnet' in input ? input.tailnet : null;
         const enabled =
@@ -126,11 +114,7 @@ function createFixture(extra: Partial<State> = {}) {
         };
       else if (method === 'DELETE') body = {removed: true, existing_project_access_changed: false};
       else body = {items: []};
-    } else if (url.endsWith('/api/login/cancel')) return new Response(null, {status: 204});
-    else if (url.endsWith('/api/session'))
-      body = {user: {id: state.user, login: 'alice'}, csrf_token: state.csrf, forgejo_url: location.origin};
-    else if (url.endsWith('/api/forgejo/me')) body = {id: state.provider};
-    else if (url.endsWith('/tailnet-options'))
+    } else if (url.endsWith('/tailnet-options'))
       body = {
         revision: state.tailnetAvailable ? 'b'.repeat(32) : '0',
         binding: state.tailnetAvailable ? 'a'.repeat(32) : '',

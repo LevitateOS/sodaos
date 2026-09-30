@@ -117,7 +117,7 @@ func (s *API) apiJoinEnvironment(w http.ResponseWriter, r *http.Request, v store
 		return
 	}
 	if !s.currentJoinSession(r, v) {
-		auth.ProviderError(w, store.ErrGrantUnavailable)
+		auth.ProviderError(w, auth.ErrNativeSessionChanged)
 		return
 	}
 	login, err := s.Store.MemberLogin(r.Context(), p.ID, v.User.ID)

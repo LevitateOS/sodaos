@@ -61,7 +61,7 @@ func testRelease(t *testing.T, tr Trust) Release {
 	c := Candidate{Format: 1, Host: build.Image{Manifest: Hash([]byte("host")), Config: Hash([]byte("host-config")), Architecture: "amd64", Revision: p.Revision, Source: "https://github.com/LevitateOS/sodaos", BaseName: p.Base, BaseDigest: "sha256:" + strings.Repeat("b", 64)}, HostArchiveSHA256: strings.Repeat("f", 64), PayloadSHA256: strings.TrimPrefix(Hash(pb), "sha256:"), ForgejoRevision: strings.Repeat("2", 40), ForgejoSourceSHA256: strings.TrimPrefix(Hash([]byte("forgejo-source.tar")), "sha256:"), ForgejoToolchain: build.ForgejoToolchain{CompilerImage: build.ForgejoCompilerImage, APKPackages: []string{"build-base-0.5-r4", "gcc-14.2.0-r6", "musl-dev-1.2.5-r10"}}, Migration: "no upgrade qualified", Notes: "synthetic fixture"}
 	c.Architecture = p.Architecture
 	c.ContentSHA256 = map[string]string{}
-	for _, path := range []string{"forgejo:/usr/local/bin/gitea", "extension:/usr/local/bin/gitea", "extension:/usr/share/soda/extension/extension.json", "extension:/usr/share/soda/extension/backend", "extension:/usr/share/soda/extension/run", "extension:/usr/share/soda/extension/assets/entry.js", "host:/usr/share/containers/systemd/forgejo.container", "host:/usr/lib/systemd/system/soda-extension-install.service"} {
+	for _, path := range []string{"dashboard:/usr/local/bin/soda-dashboard", "forgejo:/usr/local/bin/gitea", "extension:/usr/local/bin/gitea", "extension:/usr/share/soda/extension/extension.json", "extension:/usr/share/soda/extension/backend", "extension:/usr/share/soda/extension/run", "extension:/usr/share/soda/extension/assets/entry.js", "host:/usr/share/containers/systemd/forgejo.container", "host:/usr/share/containers/systemd/soda-dashboard.container", "host:/usr/lib/systemd/system/soda-extension-install.service"} {
 		c.ContentSHA256[path] = strings.Repeat("a", 64)
 	}
 	c.HostReference = tr.Prefix + "-host@" + c.Host.Manifest
@@ -117,6 +117,7 @@ func TestForgejoSourceProvenanceCannotBeOmittedOrSubstituted(t *testing.T) {
 			c.ForgejoToolchain.CompilerImage = "docker.io/library/golang@sha256:" + strings.Repeat("0", 64)
 		}},
 		{"wrong native architecture", func(_ *Release, c *Candidate) { c.Architecture = "aarch64" }},
+		{"missing Soda service", func(_ *Release, c *Candidate) { delete(c.ContentSHA256, "dashboard:/usr/local/bin/soda-dashboard") }},
 		{"missing independent package", func(_ *Release, c *Candidate) { delete(c.ContentSHA256, "extension:/usr/share/soda/extension/backend") }},
 		{"different extension CLI", func(_ *Release, c *Candidate) {
 			c.ContentSHA256["extension:/usr/local/bin/gitea"] = strings.Repeat("b", 64)

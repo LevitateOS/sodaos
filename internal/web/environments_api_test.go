@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -16,18 +15,7 @@ import (
 
 // Real JSON handlers/store, fake host only: not installed account/SSH evidence.
 func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/api/v1/user":
-			login := strings.TrimPrefix(r.Header.Get("Authorization"), "token acting-")
-			_, _ = fmt.Fprintf(w, `{"id":%d,"login":%q}`, map[string]int{"alice": 1, "bob": 2}[login], login)
-		case "/api/v1/repositories/7":
-			_, _ = fmt.Fprint(w, `{"id":7,"name":"demo","full_name":"alice/demo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
-		default:
-			t.Error("unexpected provider path", r.URL.Path)
-			w.WriteHeader(500)
-		}
-	})
+	s := apiTestServer(t)
 	accountCalls := 0
 	rejectAccount := true
 	expectedKeys := 0
@@ -73,7 +61,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 	})}
 	perform := func(method, path, body, login string) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest(method, path, body, login))
+		nativeAPIServe(t, s, w, apiTestRequest(method, path, body, login))
 		return w
 	}
 	if w := perform("POST", "/api/environments", `{"repository_id":"7"}`, "bob"); w.Code != 403 || id != "" {
@@ -82,7 +70,7 @@ func TestJSONEnvironmentReservationAndExplicitJoins(t *testing.T) {
 	if w := perform("POST", "/api/environments", `{"repository_id":"7","admin":true}`, "alice"); w.Code != 400 || id != "" {
 		t.Fatal("privilege field accepted", w.Code)
 	}
-	if w := perform("POST", "/api/environments", `{"repository_id":"7"}`, "alice"); w.Code != 201 || w.Header().Get("Location") != "/-/soda/api/environments/"+id {
+	if w := perform("POST", "/api/environments", `{"repository_id":"7"}`, "alice"); w.Code != 201 {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	for _, uid := range []int64{1, 2} {
@@ -133,7 +121,7 @@ func TestIncompleteEnvironmentStillInspected(t *testing.T) {
 		return nil, errors.New("missing native container")
 	})}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/environments/"+id, "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/environments/"+id, "", "alice"))
 	var result struct {
 		Environment struct {
 			Provisioned bool `json:"provisioned"`

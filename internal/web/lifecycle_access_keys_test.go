@@ -11,29 +11,14 @@ import (
 	"strings"
 	"testing"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/store"
 	"golang.org/x/crypto/ssh"
 )
 
 func managementWebFixture(t *testing.T) (*Server, *[]string) {
 	t.Helper()
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		uid := 1
-		if r.Header.Get("Authorization") == "token acting-bob" {
-			uid = 2
-		}
-		switch r.URL.Path {
-		case "/api/v1/user":
-			_, _ = fmt.Fprintf(w, `{"id":%d,"login":"current-login"}`, uid)
-		case "/api/v1/repositories/7":
-			_, _ = fmt.Fprint(w, `{"id":7,"name":"repo","full_name":"alice/repo","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
-		case "/api/v1/users/current-login/orgs/alice/permissions":
-			_, _ = fmt.Fprint(w, `{"is_owner":false}`)
-		default:
-			t.Error("unexpected provider operation")
-			w.WriteHeader(500)
-		}
-	})
+	s := apiTestServer(t)
 	s.Config.OperatorID = 777
 	if err := s.Store.CreateProject(t.Context(), store.Project{ID: webTerminalProject, RepositoryID: 7, OwnerID: 1}); err != nil {
 		t.Fatal(err)
@@ -91,7 +76,7 @@ func TestLifecycleAuthorizationAndExplicitStop(t *testing.T) {
 		t.Run(tc.login+tc.body, func(t *testing.T) {
 			s, calls := managementWebFixture(t)
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("POST", "/api/environments/"+webTerminalProject+"/lifecycle", tc.body, tc.login))
+			nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/environments/"+webTerminalProject+"/lifecycle", tc.body, tc.login))
 			if w.Code != tc.code {
 				t.Fatal(w.Code, w.Body.String())
 			}
@@ -111,7 +96,7 @@ func TestSavedKeyRemovalIsOwnOnlyAndNeverNativeRevocation(t *testing.T) {
 	path := fmt.Sprintf("/api/me/development-keys/%d", keys[0].ID)
 	for _, login := range []string{"bob", "alice"} {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("DELETE", path, `{}`, login))
+		nativeAPIServe(t, s, w, apiTestRequest("DELETE", path, `{}`, login))
 		want := 200
 		if login == "bob" {
 			want = 404
@@ -128,7 +113,7 @@ func TestSavedKeyRemovalIsOwnOnlyAndNeverNativeRevocation(t *testing.T) {
 	}
 }
 
-func TestOperatorCannotManageAnotherAccountsKeysAndCSRFStillApplies(t *testing.T) {
+func TestOperatorCannotManageAnotherAccountsKeysAndGenerationStillApplies(t *testing.T) {
 	s, calls := managementWebFixture(t)
 	other := "pabcdef0123456789abcdef01"
 	if err := s.Store.CreateProject(t.Context(), store.Project{ID: other, RepositoryID: 8, OwnerID: 1}); err != nil {
@@ -139,17 +124,28 @@ func TestOperatorCannotManageAnotherAccountsKeysAndCSRFStillApplies(t *testing.T
 	}
 	s.Config.OperatorID = 1
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/environments/"+other+"/access-keys", "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/environments/"+other+"/access-keys", "", "alice"))
 	if w.Code != 403 || len(*calls) != 0 {
 		t.Fatal("operator bypassed own membership")
 	}
 	for _, path := range []string{"/api/environments/" + webTerminalProject + "/access-keys", "/api/environments/" + webTerminalProject + "/lifecycle"} {
-		r := apiTestRequest("POST", path, `{}`, "alice")
-		r.Header.Set("X-CSRF-Token", "wrong")
-		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
-		if w.Code != 403 || len(*calls) != 0 {
-			t.Fatal("new control bypassed CSRF")
+		for _, changed := range []string{"generation", "origin"} {
+			r := apiTestRequest("POST", path, `{}`, "alice")
+			w := httptest.NewRecorder()
+			nativeAPIServeWithOptions(t, s, w, r, nil, func(h http.Header) {
+				if changed == "generation" {
+					h.Set(extensions.SessionGenerationHeader, "expired")
+				} else {
+					h.Set("Origin", "https://other.invalid")
+				}
+			})
+			want := 409
+			if changed == "origin" {
+				want = 403
+			}
+			if w.Code != want || len(*calls) != 0 {
+				t.Fatal("new control bypassed native admission", path, changed, w.Code)
+			}
 		}
 	}
 }
@@ -165,7 +161,7 @@ func TestAccessKeyPreviewApplyAndLastKeyConfirmation(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", path, "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", path, "", "alice"))
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "original-alice") {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -173,7 +169,7 @@ func TestAccessKeyPreviewApplyAndLastKeyConfirmation(t *testing.T) {
 	for _, body := range []string{strings.Replace(good, fingerprint, "changed", 1), strings.Replace(good, "saved_fingerprints", "keys", 1)} {
 		n := len(*calls)
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("POST", path, body, "alice"))
+		nativeAPIServe(t, s, w, apiTestRequest("POST", path, body, "alice"))
 		if w.Code != 400 && w.Code != 409 {
 			t.Fatal(w.Code, w.Body.String())
 		}
@@ -182,7 +178,7 @@ func TestAccessKeyPreviewApplyAndLastKeyConfirmation(t *testing.T) {
 		}
 	}
 	w = httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("POST", path, good, "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("POST", path, good, "alice"))
 	if w.Code != 200 {
 		t.Fatal(w.Code, w.Body.String())
 	}
@@ -192,7 +188,7 @@ func TestAccessKeyPreviewApplyAndLastKeyConfirmation(t *testing.T) {
 		n := len(*calls)
 		body := fmt.Sprintf(`{"revision":%q,"saved_fingerprints":[],"confirm_empty":%t}`, strings.Repeat("a", 64), confirm)
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("POST", path, body, "alice"))
+		nativeAPIServe(t, s, w, apiTestRequest("POST", path, body, "alice"))
 		want := 400
 		if confirm {
 			want = 200

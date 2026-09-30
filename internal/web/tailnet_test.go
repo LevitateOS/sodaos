@@ -6,28 +6,31 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/config"
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/tailnet"
-	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
 func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 	for _, kind := range []string{"legacy", "off", "managed", "stale", "closed", "transfer", "native-failure", "network-failure", "binding-changed", "transfer-after-create"} {
 		t.Run(kind, func(t *testing.T) {
-			owner := 1
-			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/api/v1/user" {
-					_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
-				} else {
-					_, _ = fmt.Fprintf(w, `{"id":7,"name":"demo","full_name":"alice/demo","owner":{"id":%d,"login":"alice"}}`, owner)
+			owner := "alice"
+			s := apiTestServer(t)
+			callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+				if in.Operation == extensions.OperationOrganizationOwner {
+					owner := false
+					return extensions.CallbackResponse{Owner: &owner}
 				}
-			})
+				if in.Operation != extensions.OperationRepository || in.RepositoryID != "7" {
+					t.Error("unexpected native callback", in.Operation, in.RepositoryID)
+					return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
+				}
+				return extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: owner, Name: "demo", Permission: "write"}}
+			}
 			if kind == "transfer-after-create" {
 				s.Config.OperatorID = 99
 			}
@@ -47,7 +50,7 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 					}
 					value = tailnet.ProjectOptions{Revision: revision, Binding: strings.Repeat("b", 32), Tailnet: "soda.example.test", Available: kind != "closed", Default: kind != "closed"}
 					if kind == "transfer" {
-						owner = 2
+						owner = "bob"
 					}
 				case "/create":
 					creates++
@@ -60,7 +63,7 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 						status = 500
 					}
 					if kind == "transfer-after-create" {
-						owner = 2
+						owner = "bob"
 					}
 				case "/tailnet/project":
 					networks++
@@ -92,7 +95,7 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 				body = `{"repository_id":"7","tailnet":{"enabled":true,"revision":"` + strings.Repeat("a", 32) + `","binding":"` + strings.Repeat("b", 32) + `"}}`
 			}
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("POST", "/api/environments", body, "alice"))
+			nativeAPIServeWithCallback(t, s, w, apiTestRequest("POST", "/api/environments", body, "alice"), callback)
 			stored, e := s.Store.ProjectByRepository(t.Context(), 7)
 			switch kind {
 			case "stale", "closed", "transfer":
@@ -128,7 +131,7 @@ func TestManagedCreateReviewsPolicyWithoutChangingLegacyDefaults(t *testing.T) {
 					t.Fatal("network failure concealed")
 				}
 				again := httptest.NewRecorder()
-				s.ServeHTTP(again, apiTestRequest("POST", "/api/environments", body, "alice"))
+				nativeAPIServeWithCallback(t, s, again, apiTestRequest("POST", "/api/environments", body, "alice"), callback)
 				if again.Code != 409 || creates != 1 || networks != 1 {
 					t.Fatal("network failure recreated stored")
 				}
@@ -163,19 +166,19 @@ func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
 			method = "GET"
 		}
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest(method, route, `{"secret":`, "bob"))
+		nativeAPIServe(t, s, w, apiTestRequest(method, route, `{"secret":`, "bob"))
 		if w.Code != 403 || calls != 0 {
 			t.Fatal("site-admin acquired appliance access", w.Code, calls)
 		}
 	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/tailnet", "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/tailnet", "", "alice"))
 	if w.Code != 200 || calls != 1 || w.Header().Get("Referrer-Policy") != "no-referrer" {
 		t.Fatal(w.Code, w.Body.String(), calls)
 	}
 	fail = true
 	w = httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/settings/tailnet", "", "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/settings/tailnet", "", "alice"))
 	if w.Code != 409 || calls != 2 || strings.Contains(w.Body.String(), "synthetic-secret") {
 		t.Fatal(w.Code, w.Body.String(), calls)
 	}
@@ -185,24 +188,32 @@ func TestTailnetMutationStrictFieldsAndRequestGuards(t *testing.T) {
 	calls := 0
 	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(422) })
 	valid := `{"action":"signin","revision":"` + strings.Repeat("a", 64) + `"}`
-	for _, header := range []string{"X-Soda-Expected-User-ID", "X-CSRF-Token", "Origin"} {
+	for _, header := range []string{"actor", "generation", "origin"} {
 		r := apiTestRequest("POST", "/api/settings/tailnet/host", valid, "alice")
-		r.Header.Del(header)
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, r)
+		nativeAPIServeWithOptions(t, s, w, r, nil, func(h http.Header) {
+			switch header {
+			case "actor":
+				h.Set(extensions.ContextHeader, strings.Replace(h.Get(extensions.ContextHeader), `"id":"1"`, `"id":"2"`, 1))
+			case "generation":
+				h.Set(extensions.SessionGenerationHeader, "expired")
+			case "origin":
+				h.Set("Origin", "https://other.invalid")
+			}
+		})
 		if w.Code < 400 || calls != 0 {
 			t.Fatal(header, w.Code, calls)
 		}
 	}
 	for _, body := range []string{`{}`, `null`, strings.TrimSuffix(valid, "}") + `,"socket":"/host.sock"}`, strings.TrimSuffix(valid, "}") + `,"action":"logout"}`, strings.Replace(valid, "signin", "logout", 1)} {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/tailnet/host", body, "alice"))
+		nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/host", body, "alice"))
 		if w.Code != 400 || calls != 0 {
 			t.Fatal(w.Code, w.Body.String(), calls)
 		}
 	}
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/tailnet/host", valid, "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/host", valid, "alice"))
 	if w.Code != 422 || calls != 1 {
 		t.Fatal(w.Code, calls)
 	}
@@ -223,60 +234,16 @@ func TestTailnetEnrollmentNeverEchoesInputAndRejectsEndpointOverride(t *testing.
 	})
 	body := `{"action":"check","revision":"0","tailnet":"soda.example.test","tags":["tag:soda-stored"],"preauthorized":false,"client_id":"synthetic-client","client_secret":"tskey-client-synthetic-credential"}`
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", body, "alice"))
+	nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", body, "alice"))
 	if w.Code != 200 || calls != 1 || strings.Contains(w.Body.String(), "synthetic-credential") || w.Header().Get("Cache-Control") != "no-store" {
 		t.Fatal(w.Code, w.Body.String(), calls)
 	}
 	for _, bad := range []string{strings.Replace(body, "synthetic-credential", "synthetic-credential?baseURL=https://evil.test", 1), strings.Replace(body, `"soda.example.test"`, `"-"`, 1), strings.TrimSuffix(body, "}") + `,"credential_path":"/etc/shadow"}`} {
 		w = httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", bad, "alice"))
+		nativeAPIServe(t, s, w, apiTestRequest("POST", "/api/settings/tailnet/enrollment", bad, "alice"))
 		if w.Code != 400 || calls != 1 {
 			t.Fatal(w.Code, calls)
 		}
-	}
-}
-
-func TestTailnetContextChangeSuppressesReadsAndDispatch(t *testing.T) {
-	for _, phase := range []string{"provider", "native"} {
-		t.Run(phase, func(t *testing.T) {
-			var s *Server
-			calls := 0
-			s = grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				_, _ = fmt.Fprint(w, `{"id":1,"login":"alice"}`)
-			})
-			// Use the request's actual fixture session, not a guessed cookie name/value.
-			request := apiTestRequest("GET", "/api/settings/tailnet", "", "alice")
-			cookie, _ := auth.RequestCookie(request, auth.SessionCookie)
-			if phase == "provider" {
-				s.Forgejo.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
-					v, e := s.Store.Session(t.Context(), cookie.Value)
-					if e != nil {
-						t.Fatal(e)
-					}
-					if e = s.Store.EndLoginContext(t.Context(), v.ContextID); e != nil {
-						t.Fatal(e)
-					}
-					return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"id":1,"login":"alice"}`)), Header: make(http.Header)}, nil
-				})
-			}
-			s.Host.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
-				calls++
-				v, e := s.Store.Session(t.Context(), cookie.Value)
-				if e != nil {
-					t.Fatal(e)
-				}
-				if e = s.Store.EndLoginContext(t.Context(), v.ContextID); e != nil {
-					t.Fatal(e)
-				}
-				b, _ := json.Marshal(tailnetOffSettings())
-				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(string(b))), Header: make(http.Header)}, nil
-			})
-			w := httptest.NewRecorder()
-			s.ServeHTTP(w, request)
-			if w.Code < 400 || (phase == "provider" && calls != 0) || (phase == "native" && calls != 1) || strings.Contains(w.Body.String(), "host_unavailable") {
-				t.Fatal(w.Code, w.Body.String(), calls)
-			}
-		})
 	}
 }
 
@@ -298,18 +265,22 @@ func TestTailnetProjectPrivacyAndCurrentOwnership(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
-			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				switch r.URL.Path {
-				case "/api/v1/user":
-					_, _ = fmt.Fprint(w, `{"id":1,"login":"renamed-alice","is_admin":true}`)
-				case "/api/v1/repositories/7":
-					_, _ = fmt.Fprintf(w, `{"id":7,"name":"renamed","full_name":"current/renamed","owner":{"id":%d,"login":"current"}}`, tc.owner)
-				case "/api/v1/users/renamed-alice/orgs/current/permissions":
-					_, _ = fmt.Fprintf(w, `{"is_owner":%t,"is_admin":true}`, tc.orgOwner)
+			s := apiTestServer(t)
+			owner := "current"
+			if tc.owner == 1 {
+				owner = "alice"
+			}
+			callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+				switch in.Operation {
+				case extensions.OperationRepository:
+					return extensions.CallbackResponse{Repository: &extensions.Repository{ID: in.RepositoryID, Owner: owner, Name: "renamed", Permission: "write"}}
+				case extensions.OperationOrganizationOwner:
+					return extensions.CallbackResponse{Owner: &tc.orgOwner}
 				default:
-					t.Error("unexpected provider path", r.URL.Path)
+					t.Error("unexpected native callback", in.Operation)
+					return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
 				}
-			})
+			}
 			s.Config.OperatorID = 777
 			id := webTerminalProject
 			if e := s.Store.CreateProject(t.Context(), store.Project{ID: id, RepositoryID: 7, OwnerID: 1}); e != nil {
@@ -346,7 +317,7 @@ func TestTailnetProjectPrivacyAndCurrentOwnership(t *testing.T) {
 			})
 			body := fmt.Sprintf(`{"action":"disable","revision":"0","confirm_id":%q}`, id)
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest(tc.method, "/api/environments/"+id+"/tailnet", body, "alice"))
+			nativeAPIServeWithCallback(t, s, w, apiTestRequest(tc.method, "/api/environments/"+id+"/tailnet", body, "alice"), callback)
 			if w.Code != tc.want || (calls > 0) != (tc.want == 200) {
 				t.Fatal(w.Code, w.Body.String(), calls)
 			}
@@ -358,16 +329,18 @@ func TestTailnetCreationOptionsRequireCurrentHumanOwner(t *testing.T) {
 	for _, owner := range []int64{1, 2} {
 		t.Run(fmt.Sprint(owner), func(t *testing.T) {
 			calls := 0
-			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.URL.Path == "/api/v1/user" {
-					_, _ = fmt.Fprint(w, `{"id":1,"login":"alice","is_admin":true}`)
-					return
+			s := apiTestServer(t)
+			callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+				if in.Operation != extensions.OperationRepository || in.RepositoryID != "7" {
+					t.Error("unexpected native callback", in.Operation, in.RepositoryID)
+					return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
 				}
-				if r.URL.Path != "/api/v1/repositories/7" {
-					t.Error(r.URL.Path)
+				login := "current"
+				if owner == 1 {
+					login = "alice"
 				}
-				_, _ = fmt.Fprintf(w, `{"id":7,"name":"project","full_name":"current/project","owner":{"id":%d,"login":"current"}}`, owner)
-			})
+				return extensions.CallbackResponse{Repository: &extensions.Repository{ID: "7", Owner: login, Name: "project", Permission: "write"}}
+			}
 			s.Config.OperatorID = 777
 			s.Host.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
 				calls++
@@ -377,7 +350,7 @@ func TestTailnetCreationOptionsRequireCurrentHumanOwner(t *testing.T) {
 				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(`{"revision":"0","available":false,"default":false}`)), Header: make(http.Header)}, nil
 			})
 			w := httptest.NewRecorder()
-			s.ServeHTTP(w, apiTestRequest("GET", "/api/repositories/7/tailnet-options", "", "alice"))
+			nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/repositories/7/tailnet-options", "", "alice"), callback)
 			want := 403
 			if owner == 1 {
 				want = 200
@@ -386,31 +359,5 @@ func TestTailnetCreationOptionsRequireCurrentHumanOwner(t *testing.T) {
 				t.Fatal(w.Code, w.Body.String(), calls)
 			}
 		})
-	}
-}
-
-func TestTailnetFixedBookmarkAndOAuthReturn(t *testing.T) {
-	s := apiTestServer(t)
-	w := httptest.NewRecorder()
-	s.ServeHTTP(w, httptest.NewRequest("GET", config.SodaPath+"/settings/tailnet", nil))
-	if w.Code != 303 || !strings.Contains(w.Header().Get("Location"), "redirect_to=%2Fadmin%3Fsoda-view%3Dtailnet") {
-		t.Fatal(w.Code, w.Header().Get("Location"))
-	}
-	for _, query := range []string{"destination=tailnet&repository_id=7", "destination=tailnet&destination=runners", "destination=tailnet&return_to=https://evil.test"} {
-		w = httptest.NewRecorder()
-		s.ServeHTTP(w, httptest.NewRequest("GET", config.SodaPath+"/login?"+query, nil))
-		if w.Code != 400 {
-			t.Fatal(query, w.Code)
-		}
-	}
-	w = httptest.NewRecorder()
-	s.ServeHTTP(w, httptest.NewRequest("GET", config.SodaPath+"/login?destination=tailnet&expected_user_id=1", nil))
-	location, e := url.Parse(w.Header().Get("Location"))
-	if e != nil || w.Code != 302 {
-		t.Fatal(w.Code, e)
-	}
-	a, e := s.Store.ConsumeOAuth(t.Context(), location.Query().Get("state"), "")
-	if e != nil || a.SettingsReturn != "tailnet" || a.ExpectedUserID != 1 || s.Auth.NativeOAuthReturn(a.OAuthLogin) != s.Config.ForgejoURL+"/admin?soda-view=tailnet" {
-		t.Fatal(a, e)
 	}
 }

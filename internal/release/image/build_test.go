@@ -169,12 +169,14 @@ func TestCandidateRecordsExactForkArchive(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(out, "forgejo-toolchain.json"), append(toolchain, '\n'), 0o600))
 	for path, content := range map[string]string{
+		"work/host-context/rootfs/usr/libexec/soda/soda-dashboard":                       "Soda service",
 		"artifacts/forgejo-context/forgejo-bin":                                          "fork binary",
 		"artifacts/extension-context/extension/extension.json":                           "package manifest",
 		"artifacts/extension-context/extension/backend":                                  "Soda backend",
 		"artifacts/extension-context/extension/run":                                      "package runner",
 		"artifacts/extension-context/extension/assets/entry.js":                          "browser asset",
 		"work/host-context/rootfs/usr/share/containers/systemd/forgejo.container":        "fork service",
+		"work/host-context/rootfs/usr/share/containers/systemd/soda-dashboard.container": "Soda service unit",
 		"work/host-context/rootfs/usr/lib/systemd/system/soda-extension-install.service": "package service",
 	} {
 		full := filepath.Join(root, path)
@@ -190,7 +192,8 @@ func TestCandidateRecordsExactForkArchive(t *testing.T) {
 	require.Equal(t, revision, candidate.ForgejoRevision)
 	require.Equal(t, hashBytes(archive), candidate.ForgejoSourceSHA256)
 	require.Equal(t, "x86_64", candidate.Architecture)
-	require.Len(t, candidate.ContentSHA256, 8)
+	require.Len(t, candidate.ContentSHA256, 10)
+	require.Equal(t, hashBytes([]byte("Soda service")), candidate.ContentSHA256["dashboard:/usr/local/bin/soda-dashboard"])
 	require.Equal(t, hashBytes([]byte("fork binary")), candidate.ContentSHA256["forgejo:/usr/local/bin/gitea"])
 	require.Equal(t, candidate.ContentSHA256["forgejo:/usr/local/bin/gitea"], candidate.ContentSHA256["extension:/usr/local/bin/gitea"])
 	require.NoError(t, candidate.ForgejoToolchain.Validate())

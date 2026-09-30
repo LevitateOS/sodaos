@@ -27,9 +27,10 @@ export function installWorkspaceModel(
   return {root, ...model};
 }
 
-function createWorkspaceFixture(mode: 'native' | 'page' = 'page', firstUse = false) {
+function createWorkspaceFixture(mode: 'native' | 'page' = 'page', firstUse = false, subpath = '') {
   const model = installWorkspaceModel('1', undefined, firstUse);
-  const apiBase = mode === 'page' ? '/-/extensions/pages/soda/spaces/api/' : '/-/extensions/panels/soda/workspace/api/';
+  const apiBase =
+    subpath + (mode === 'page' ? '/-/extensions/pages/soda/spaces/api/' : '/-/extensions/panels/soda/workspace/api/');
   const transport = {
     root: model.root,
     generation: model.generation,

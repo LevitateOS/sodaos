@@ -63,7 +63,7 @@ class TerminalAssets(unittest.TestCase):
         prepare, emit = scripts['build:forgejo'].split(' && ', 1)
         self.assertEqual(prepare, 'python3 scripts/fetch-terminal.py --out .artifacts/browser-terminal/vendor')
         self.assertEqual(emit, 'bun scripts/build-forgejo.ts')
-        groups = ('frontend', 'pages', 'layout', 'forgejo')
+        groups = ('frontend', 'pages', 'forgejo')
         self.assertEqual(
             scripts['test'].split(' && '),
             [
@@ -81,15 +81,11 @@ class TerminalAssets(unittest.TestCase):
             'SODA_RUNNERS_COMPONENT=1 SODA_TAILNET_COMPONENT=1 bun test tests/frontend/*.test.ts',
         )
         self.assertEqual(
-            scripts['test:layout:prepared'],
-            'SODA_DRAWER_LAYOUT=1 bun test --timeout 90000 tests/frontend/drawer-layout.test.ts',
-        )
-        self.assertEqual(
             scripts['test:forgejo:prepared'],
             'SODA_LIT_BROWSER=1 bun test --timeout 120000 tests/forgejo/*.test.ts tests/forgejo/presentation/*.test.ts',
         )
         self.assertTrue(scripts['test:lit'].startswith('bun run build:forgejo && SODA_LIT_BROWSER=1 bun test '))
-        self.assertIn('tests/forgejo/settings-link.test.ts', scripts['test:lit'].split())
+        self.assertNotIn('tests/forgejo/settings-link.test.ts', scripts['test:lit'].split())
 
     def test_shipping_lock_has_only_exact_local_renderer_files(self):
         lock = json.loads((ROOT / 'appliance/terminal-assets.lock.json').read_text())

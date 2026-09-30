@@ -1,8 +1,9 @@
 # Managed terminal contract
 
-Soda provides managed browser terminals for human project members. Soda retains access and
-lifetime authority; stock packaged **tmux** retains live terminal state. This is not
-a replacement for ordinary SSH and not a public terminal server.
+Soda provides managed terminals in the Forgejo native workspace extension for
+human project members. Soda retains access and lifetime authority; stock
+packaged **tmux** retains live terminal state. This is not a replacement for
+ordinary SSH and not a public terminal server.
 
 A browser terminal is manual development access. Opening one does not admit agent
 work or grant factory authority; use the [factory operator interface](factory.md).
@@ -13,16 +14,15 @@ UX composition: [Spaces UX](../design/spaces-ux.md). Routes: [HTTP API](api.md).
 
 - Attach to the member's existing project-local account and home.
 - Opening a terminal must not create, join, start or repair a project.
-- In the workspace shell, ordinary Forgejo navigation happens inside the iframe,
-  so the mounted workspace component, xterm renderer, and WebSocket attachment
-  survive it. On native documents the drawer re-attaches the same session after
-  navigation instead.
+- Forgejo owns browser navigation and native page presentation. The extension
+  workspace panel reattaches the same terminal session after navigation.
 - Browsing another repository must not retarget the terminal's project, account or
   session.
 
 ## Workspace rules
 
-- Page and drawer share one multi-session workspace with flat terminal owners.
+- The Spaces page and persistent extension workspace panel share one multi-session
+  workspace with flat terminal owners.
 - Splits create views, never shells.
 - Hide/show change presentation only; End is a separate confirmed action.
 - Actor-scoped session storage holds locators and layout only: no credentials,
@@ -45,26 +45,13 @@ Use stock Rocky-packaged tmux:
   independent SSH, services or workloads.
 - No transcript logging, resurrection plugins or edits to personal shell/SSH config.
 
-## Mounting
+## Extension mounting
 
-Canonical Spaces drawer:
+The Forgejo extension supplies the native workspace mount. It shares the
+multi-session workspace owner with the Spaces page contribution; Soda does not
+serve a shell document, frame, or standalone terminal page.
 
-```ts
-import {mountSodaspaces} from '/assets/sodaspaces-drawer.js';
-const controls = mountSodaspaces(mountNode, {expectedUserId, repositoryId});
-controls.refresh();
-```
-
-Terminal-only:
-
-```ts
-import {mountTerminal} from '/assets/sodaspaces-terminal.js';
-const terminal = mountTerminal(mountNode, {
-  expectedUserId, csrfToken, repositoryId, environmentId, login,
-}, {kind: 'existing', id: terminalId});
-```
-
-Resolve membership login through the protected API. Explicit Open on `new` reserves
+Resolve membership login through the private native extension API. Explicit Open on `new` reserves
 an ID before Create; restore only inspects/attaches an existing ID.
 
 ## Boundary with desktop and automation
@@ -75,8 +62,8 @@ Do not commandeer a personal shell for automation inventory.
 
 ## Source owners
 
-- Browser: `frontend/spaces/`
-- API/WS: `internal/web/api/terminal*.go`
+- Native extension UI: `frontend/spaces/`
+- Private API/WS: `internal/web/api/extension_terminal.go`
 - Privileged attach: `internal/host/terminal`
 
 Project execution admission follows the current repository-write policy in

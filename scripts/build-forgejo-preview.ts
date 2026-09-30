@@ -1,5 +1,4 @@
-// Two projections of the canonical payload: the retained branding-only mount,
-// and the complete public tree needed by Spaces. Neither changes a live mount.
+// Two projections of the Forgejo presentation payload for local review.
 import assert from 'node:assert/strict';
 import {mkdir, readdir, unlink} from 'node:fs/promises';
 import {dirname, resolve} from 'node:path';
@@ -8,22 +7,24 @@ import payload from '../internal/release/build/forgejo-payload.json';
 import {buildForgejoAssets} from './build-forgejo.ts';
 
 const root = resolve(import.meta.dir, '..');
-const {values} = parseArgs({args: Bun.argv.slice(2), options: {
-  out: {type: 'string', default: resolve(root, '.artifacts/forgejo-preview/branding')},
-  'public-out': {type: 'string'},
-}});
+const {values} = parseArgs({
+  args: Bun.argv.slice(2),
+  options: {
+    out: {type: 'string', default: resolve(root, '.artifacts/forgejo-preview/branding')},
+    'public-out': {type: 'string'},
+  },
+});
 assert(values.out);
-const out = resolve(values.out), publicOut = resolve(values['public-out'] || resolve(dirname(out), 'public'));
+const out = resolve(values.out),
+  publicOut = resolve(values['public-out'] || resolve(dirname(out), 'public'));
 const compiled = resolve(root, '.artifacts/forgejo-js');
 await buildForgejoAssets(compiled);
-const terminalOut = resolve(publicOut, 'assets/soda-terminal');
-const terminal = Bun.spawn(['python3', resolve(root, 'scripts/fetch-terminal.py'), '--out', terminalOut], {stdout: 'inherit', stderr: 'inherit'});
-assert.equal(await terminal.exited, 0, 'Canonical terminal asset preparation failed');
 for (const [target, source] of Object.entries(payload)) {
   if (!target.startsWith('public/')) continue;
   const input = source.startsWith('@build/forgejo-js/')
-    ? resolve(compiled, source.slice('@build/forgejo-js/'.length)) : source.startsWith('@build/terminal-assets/') ? resolve(terminalOut, source.slice('@build/terminal-assets/'.length)) : resolve(root, source);
-  assert(!source.startsWith('@build/') || source.startsWith('@build/forgejo-js/') || source.startsWith('@build/terminal-assets/'));
+    ? resolve(compiled, source.slice('@build/forgejo-js/'.length))
+    : resolve(root, source);
+  assert(!source.startsWith('@build/') || source.startsWith('@build/forgejo-js/'));
   const destinations = [resolve(publicOut, target.slice('public/'.length))];
   const prefix = 'public/assets/soda/forgejo/';
   if (target.startsWith(prefix)) destinations.push(resolve(out, target.slice(prefix.length)));
@@ -41,10 +42,15 @@ for (const [directory, prefix] of [
   [resolve(publicOut, 'assets/soda/source'), 'public/assets/soda/source/'],
 ] as const) {
   for (const file of await readdir(directory, {withFileTypes: true})) {
-    if (file.isFile() && /\.(svg|png|jpe?g|webp|gif|ico|avif)$/i.test(file.name)
-      && !Object.hasOwn(payload, prefix + file.name)) {
+    if (
+      file.isFile() &&
+      /\.(svg|png|jpe?g|webp|gif|ico|avif)$/i.test(file.name) &&
+      !Object.hasOwn(payload, prefix + file.name)
+    ) {
       await unlink(resolve(directory, file.name));
     }
   }
 }
-console.log(`Generated preview branding: ${out}\nGenerated complete preview public tree: ${publicOut}\nNo live mount or service was changed.`);
+console.log(
+  `Generated preview branding: ${out}\nGenerated complete preview public tree: ${publicOut}\nNo live mount or service was changed.`
+);

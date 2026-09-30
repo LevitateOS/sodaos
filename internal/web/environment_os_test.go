@@ -7,11 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-func TestOSObservationUsesExistingReadAuthorityAndLogoutWins(t *testing.T) {
+func TestOSObservationUsesExistingReadAuthorityAndGenerationWins(t *testing.T) {
 	s := apiTestServer(t)
 	s.Config.OperatorID = 1
 	id := "p0123456789abcdef01234567"
@@ -19,7 +20,8 @@ func TestOSObservationUsesExistingReadAuthorityAndLogoutWins(t *testing.T) {
 		t.Fatal(err)
 	}
 	calls := 0
-	logout := false
+	generationChanged := false
+	var productRequest *http.Request
 	invalid := ""
 	native := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
@@ -30,10 +32,8 @@ func TestOSObservationUsesExistingReadAuthorityAndLogoutWins(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.ID != id {
 			t.Error("wrong native target", err)
 		}
-		if logout {
-			if err := s.Store.DeleteSession(t.Context(), "session-alice"); err != nil {
-				t.Error(err)
-			}
+		if generationChanged {
+			productRequest.Header.Set(extensions.ContextHeader, strings.Replace(productRequest.Header.Get(extensions.ContextHeader), nativeProductGeneration, "expired", 1))
 		}
 		out := project.OSObservation{Environment: project.Environment{ID: id, Running: true, Image: "sha256:" + strings.Repeat("a", 64)}, Release: &project.OSRelease{ID: "rocky", Version: "9.7", Name: "Rocky Linux 9.7"}}
 		switch invalid {
@@ -68,28 +68,34 @@ func TestOSObservationUsesExistingReadAuthorityAndLogoutWins(t *testing.T) {
 	}{{"bob", "", false}, {"alice", "?path=/etc/shadow", false}, {"alice", "", true}} {
 		before := calls
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/environments/"+id+"/os"+tc.query, "", tc.login))
+		nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/environments/"+id+"/os"+tc.query, "", tc.login), func(in extensions.CallbackRequest) extensions.CallbackResponse {
+			if tc.login == "bob" {
+				return extensions.CallbackResponse{ErrorCode: "not_found"}
+			}
+			return extensions.CallbackResponse{Repository: &extensions.Repository{ID: in.RepositoryID, Owner: "alice", Name: "legacy", Permission: "write"}}
+		})
 		if tc.allowed {
 			if w.Code != 200 || !strings.Contains(w.Body.String(), `"version":"9.7"`) {
 				t.Fatal(w.Code, w.Body.String())
 			}
 		} else if w.Code < 400 || calls != before {
-			t.Fatal("unauthorized/unbounded native read", w.Code, calls)
+			t.Fatal("unauthorized/unbounded native read", tc, w.Code, calls)
 		}
 	}
 	for _, invalid = range []string{"target", "shape", "stopped", "state", "image", "bare image", "profile"} {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/environments/"+id+"/os", "", "alice"))
+		nativeAPIServe(t, s, w, apiTestRequest("GET", "/api/environments/"+id+"/os", "", "alice"))
 		if w.Code != 503 || strings.Contains(w.Body.String(), "Rocky") {
 			t.Fatal("invalid native receipt escaped", invalid, w.Code, w.Body.String())
 		}
 	}
 	invalid = ""
-	logout = true
+	generationChanged = true
 	w := httptest.NewRecorder()
-	s.ServeHTTP(w, apiTestRequest("GET", "/api/environments/"+id+"/os", "", "alice"))
+	productRequest = apiTestRequest("GET", "/api/environments/"+id+"/os", "", "alice")
+	nativeAPIServe(t, s, w, productRequest)
 	if w.Code != 401 || strings.Contains(w.Body.String(), "Rocky") {
-		t.Fatal("logout lost publication race", w.Code, w.Body.String())
+		t.Fatal("native generation change lost publication race", w.Code, w.Body.String())
 	}
 	p, err := s.Store.Project(t.Context(), id)
 	if err != nil || p.Profile != nil || p.Ready {

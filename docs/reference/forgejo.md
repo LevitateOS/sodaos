@@ -18,56 +18,55 @@ destinations before writes, including symlinks and special files.
 Do not deploy an unchanged copy of the upstream template tree. Prefer dedicated
 template hooks; use targeted overrides only when necessary.
 
-## Shared presentation components
+## Native extension presentation
 
-Spaces mounts Lit components into Forgejo's real document for the native drawer
-and dashboard/admin Soda views. The persistent workspace host is a dedicated Soda
-HTML document that frames native Forgejo same-origin; it does not replace Forgejo
-handlers, cookies or chrome. Native Forgejo retains header, profile menu, forms,
-routing, notifications and beforeunload behavior inside that frame.
-
-Framed Forgejo documents must not mount a nested Spaces drawer. Signed-in top-level
-Forgejo documents wrap into `/-/soda/workspace` except auth/recovery flows,
-login/OAuth/install, failed `soda-connect`, and any `soda-view` host (valid,
-unknown, or duplicate — the dashboard answers those). Product host contract:
+Fountain owns the native page and persistent-panel host. Soda declares the Spaces
+page, operator-only Runners and Tailnet pages, and preferred Workspace panel in its
+extension manifest. Fountain supplies each contribution's mount context and keeps
+the workspace panel mounted while native Forgejo pages change. Forgejo continues to
+own browser navigation, session and page lifecycle; the extension uses the live
+native authority and narrowly scoped service API described in the
+[API contract](api.md). Product behavior and responsive layout live in
 [Spaces](../product/spaces.md).
 
-Responsive workspace rules:
+The Soda extension build bundles its browser modules, styles and terminal runtime
+into the independently installable package. The Forgejo image payload carries
+image-owned branding/templates, not a second public copy of extension UI assets.
+Installing or replacing Soda therefore does not rebuild Fountain or update the
+host image.
 
-- Desktop drawer begins near half width with a measured native-left minimum.
-- Compact projections switch Forge/Terminal surfaces deliberately.
-- Preserve merged native compact repository header/action disclosure rather than
-  inventing schematic chrome.
+Add product UI through the declared native page or panel contribution, and retain
+normal Forgejo navigation and form behavior.
 
 ## Namespace and cookies
 
 - Browser origin is the configured `forgejo_url`.
-- Soda API/login/callback paths mount at `/-/soda/`.
-- Caddy forwards that prefix unchanged; Go rejects unprefixed aliases and
-  encoded-path tricks.
-- Soda uses its own path-scoped cookies and CSRF token with exact Forgejo Origin
-  and same-origin fetch metadata.
-- Native Forgejo cookies/CSRF are not Soda substitutes.
-- `fetch('/api/...')` targets Forgejo, not Soda. No permissive CORS.
+- The browser reaches Soda product operations through the native extension
+  service; the only public Soda callback is the broker identity callback documented
+  in [API](api.md).
+- Product requests use the extension's supplied API base and same-origin browser
+  credentials. Soda does not issue a separate browser login or cookie.
+- Native Forgejo session and extension authority are validated by Fountain and the
+  live SDK callback. A direct `/api/...` fetch targets Forgejo, not Soda.
+- No permissive CORS or broad `/-/` proxy is used.
 
 ## Actor and repository context
 
-Native templates expose signed-user and repository identity. Use escaped template
-data attributes and keep IDs as strings in JavaScript. Repository-scoped reads and
-join authorization check the acting grant's subject, consent and native visibility.
-
-`X-Soda-Expected-User-ID` is a consistency guard for page/session alignment, not
-proof of the live native browser session. OAuth returns use repository IDs resolved
-through the acting grant, never caller-supplied redirect URLs.
+Fountain supplies the extension's actor, contribution and session-generation
+context. Browser-displayed IDs and generation values are labels or consistency
+checks, never operation authority. Soda rechecks the current native actor and
+repository permission for protected work through the SDK. The broker's separate
+account custody and factory grants remain documented in
+[Credentials](credentials.md); they are not browser-session substitutes.
 
 ## Integration limits
 
 - A template cannot call Soda's database directly.
-- An OAuth grant is not a native web session; different ports do not isolate cookies.
+- A broker or factory grant is not a native Forgejo web session.
 - Do not proxy the entire `/-/` namespace; Forgejo already owns other `/-/` routes.
 - If stock configuration, templates, assets or APIs cannot meet a requirement,
-  document the concrete constraint. Do not scrape, relay HTML, borrow credentials
-  or introduce a replacement frontend.
+  document the concrete constraint. Do not scrape or relay HTML, borrow credentials,
+  or bypass the native extension host with a parallel shell.
 
 ## Username compatibility
 
@@ -91,7 +90,8 @@ Brand assets: [Branding](../design/branding.md).
 - Fountain host and standalone SDK: the separate canonical Fountain repository
 - Soda extension package: `appliance/soda-extension/` and its backend entry point
 - Templates/assets: `appliance/forgejo/`
-- Browser hooks: `assets/branding/forgejo/`, `frontend/spaces/`, `frontend/runners/`
+- Extension browser sources: `frontend/spaces/`, `frontend/runners/`,
+  `frontend/tailnet/`; packaged by `scripts/build-soda-extension.ts`
 - Presentation checks: `scripts/*forgejo*`, `tests/forgejo/`
 
 The candidate producer accepts a clean exact-revision Fountain checkout, archives

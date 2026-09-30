@@ -121,7 +121,7 @@ func Load(path string) (Config, error) {
 }
 
 func (c Config) OAuthCallbackURL() string {
-	return c.ForgejoURL + SodaPath + "/oauth/callback"
+	return c.ForgejoURL + SodaPath + "/identity/callback"
 }
 
 func originURL(u *url.URL) bool {

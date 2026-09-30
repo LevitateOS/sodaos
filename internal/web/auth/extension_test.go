@@ -20,8 +20,11 @@ func TestExtensionContribution(t *testing.T) {
 		want         bool
 	}{
 		{"spaces page", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
-		{"runners page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, true},
-		{"tailnet page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, true},
+		{"runners admin page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "admin"}, true},
+		{"tailnet admin page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, true},
+		{"runners global page", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
+		{"tailnet global page", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
+		{"spaces admin page", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "admin"}, false},
 		{"workspace panel", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
 		{"workspace panel with page scope", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "global"}, false},
 		{"other panel", extensions.Contribution{Kind: "panel", ID: "other", Scope: "panel"}, false},
@@ -61,7 +64,7 @@ func TestExtensionServiceRejectsUnverifiedMutation(t *testing.T) {
 	if err := db.UpsertUser(context.Background(), store.User{ID: 42, Login: "soda-tester", Name: "original"}); err != nil {
 		t.Fatal(err)
 	}
-	s := New(&config.Config{ForgejoURL: "https://forgejo.test", OperatorID: 43}, db, nil)
+	s := New(&config.Config{ForgejoURL: "https://forgejo.test", OperatorID: 43}, db)
 	r := httptest.NewRequest(http.MethodPatch, "/api/me/preferences", strings.NewReader(`{"display_name":"forged"}`))
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Cookie", "soda_session=untrusted")

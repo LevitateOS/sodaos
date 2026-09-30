@@ -63,7 +63,7 @@ bash scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts
   --out /absolute/new-export/x86_64
 ```
 
-The export's parent must already exist; the `ARCH` directory must not. A legacy bundle contains `rootfs/`, five actual OCI archives (including the floating Tailnet companion), the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. soda-build candidates carry payload/candidate/OCI archives under `artifacts/` without a writable rootfs tree. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory when verifying a sealed legacy stage. The payload contains native Forgejo templates/Lit assets and Soda's API/OAuth backend, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions when `SODA_STAGE` points at a retained rootfs.
+The export's parent must already exist; the `ARCH` directory must not. A legacy bundle contains `rootfs/`, five actual OCI archives (including the floating Tailnet companion), the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. soda-build candidates carry payload/candidate/OCI archives under `artifacts/` without a writable rootfs tree. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory when verifying a sealed legacy stage. The payload contains Fountain branding/templates and the separately packaged Soda extension and service, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions when `SODA_STAGE` points at a retained rootfs.
 
 `SHA256SUMS` identifies `build-info.json`, which identifies every delivered payload file. Establish that checksum through a trusted external channel **before executing any bundled program**, then verify the inventory. These are integrity records, not signatures or reproducible-build claims. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 
@@ -427,7 +427,7 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 Shell/PAM checks require `SODA_NATIVE_VALIDATE` equal to the actual host. Browser checks use a fresh profile below a restricted browser home, retain it privately, and never bypass TLS. Native provider CLI package/version evidence is included in build metadata; personal authentication remains product validation.
 
 Local runner execution is [unavailable](../reference/runners.md). Existing-state
-observation and Stop/Remove use native **Runners** at `/admin?soda-view=runners`
+observation and Stop/Remove use the Fountain-hosted **Runners** extension page
 and the root `soda-runners` stdin protocol. Historical installed runner execution
 receipts and their optional drivers do not qualify the current deferred feature.
 Never dump runner credentials, container environments or entire provider responses.

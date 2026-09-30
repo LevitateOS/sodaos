@@ -46,7 +46,7 @@ async function mount(reset = false) {
     sessionStorage.setItem('soda-spaces:v3:1', JSON.stringify(parseLayout(JSON.stringify(state.layout))));
     sessionStorage.setItem('spaces-fixture-generation', String(state.generation));
   }
-  ui.notice.textContent = 'Simulated data and shell · no appliance connection';
+  ui.notice.textContent = 'Simulated data · no appliance connection';
   const transport = {
     root: ui.root,
     generation: 'fixture-generation',

@@ -44,8 +44,14 @@ func ExtensionAuthority(r *http.Request) (extensions.Authority, error) {
 func ExtensionContribution(contribution extensions.Contribution) bool {
 	switch contribution.Kind {
 	case "page":
-		return contribution.Scope == "global" &&
-			(contribution.ID == "spaces" || contribution.ID == "runners" || contribution.ID == "tailnet")
+		switch contribution.ID {
+		case "spaces":
+			return contribution.Scope == "global"
+		case "runners", "tailnet":
+			return contribution.Scope == "admin"
+		default:
+			return false
+		}
 	case "panel":
 		return contribution.Scope == "panel" && contribution.ID == "workspace"
 	default:

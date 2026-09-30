@@ -1,5 +1,3 @@
-<a id="soda-spaces-link" class="item" href="{{AppSubUrl}}{{if .IsSigned}}/-/soda/workspace{{else}}/-/soda/spaces{{end}}">Spaces</a>
-{{if .IsSigned}}<span id="soda-settings-link" hidden data-actor="{{.SignedUserID}}" data-sub-url="{{AppSubUrl}}"></span>{{end}}
 {{template "custom/soda/guest_theme" (dict "Page" . "Placement" "navbar")}}
 
 {{if and (or .PageIsExploreRepositories .PageIsExploreUsers .PageIsExploreOrganizations .PageIsNews .PageIsExploreCode .ContextUser .Repository .Org .PageIsUserSettings .PageIsAdmin) .IsSigned}}

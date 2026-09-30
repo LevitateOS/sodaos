@@ -71,7 +71,7 @@ func extensionTerminalOrigin(r *http.Request, origin string) bool {
 }
 
 func nativeTerminalContribution(authority extensions.Authority) bool {
-	return authority.Contribution.Kind == "panel" && authority.Contribution.ID == "workspace" && authority.Contribution.Scope == "panel"
+	return extensionPageContribution(authority.Contribution, "spaces") || extensionWorkspacePanelContribution(authority.Contribution)
 }
 
 func nativeTerminalMember(p store.Project, login string, err error) bool {
@@ -248,7 +248,7 @@ func (s *API) extensionTerminalSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("terminalID")
-	if !BrowserTerminalID.MatchString(id) {
+	if !TerminalID.MatchString(id) {
 		auth.JSONError(w, 400, "invalid_request", "Provide an exact terminal ID.")
 		return
 	}
@@ -329,9 +329,9 @@ func (s *API) extensionTerminalAttach(w http.ResponseWriter, r *http.Request, id
 	stopNative := context.AfterFunc(ctx, native.Close)
 	defer stopNative()
 	controls := make(chan host.TerminalFrame, 1)
-	go pumpBrowserControls(ctx, cancel, conn, controls)
+	go pumpTerminalInput(ctx, cancel, conn, controls)
 	go s.pumpExtensionControls(ctx, cancel, conn, native, controls, r, identity)
-	pumpNativeToBrowser(ctx, conn, native)
+	pumpNativeToExtension(ctx, conn, native)
 }
 
 func (s *API) registerExtensionTerminalPeer(r *http.Request, identity extensionTerminalIdentity, cancel context.CancelFunc) (*TerminalPeer, bool) {
@@ -351,7 +351,7 @@ func (s *API) registerExtensionTerminalPeer(r *http.Request, identity extensionT
 
 func validNativeTerminalHandshake(in terminalHandshake, identity extensionTerminalIdentity) bool {
 	return validHandshakeDimensions(in.Cols, in.Rows) && validHandshakeAction(in.ID, in.Action, in.Name) &&
-		validHandshakeActorAndRepo(in, identity.actorID, identity.project.RepositoryID) && in.SessionGeneration == identity.authority.SessionGeneration
+		validHandshakeRepository(in, identity.project.RepositoryID) && in.SessionGeneration == identity.authority.SessionGeneration
 }
 
 func (s *API) extensionClaimTerminal(ctx context.Context, r *http.Request, identity extensionTerminalIdentity, peer *TerminalPeer, id string) bool {

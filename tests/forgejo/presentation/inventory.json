@@ -25,7 +25,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "52967a2b0a5396d68c28ddde4cd04d14809b50840ab76d9ac2b861dc4228f45d",
+      "beforeRoleHash": "4da5c68947ecf5231a8d3ddff7c50a41fa5a3ff2afdebf12251914dc5728678e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -52,7 +52,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e2250743a3bfd525cee19ec9381dbf5b6fd7d7d02232752dc6124f7659e2764d",
+      "beforeRoleHash": "402c455265fe92875e682c465bcde1f919dc4bae25e8f86288b1c841c3ce1dcc",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -89,7 +89,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4e3df5c0667be0d00cea2ddfc81a3d70ffbdd520352fb6319b6a5b44ef44f93f",
+      "beforeRoleHash": "9449c2e43fbd22dbee16b71428a11f5e19a0431e96dfd883a7d6e2960c428935",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -120,7 +120,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "51892a601b1a8ee74800405799ade2f3585dcbe1eef581909210c5e54b1c5f66",
+      "beforeRoleHash": "cc7ae159518028028d44c094268fdc03cf28724559a5d5bc10867d5eef908983",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -162,7 +162,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "199c3635939a6eee6c635aad23dca8466b0530f2f8157de32174678480bd3c8e",
+      "beforeRoleHash": "09e62aa11823f626bf21e1460253da716c1f060650b09db4b71135435d260187",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -199,7 +199,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0754c95ff020c8407c3bb813cbc55465faf3133491375415cf616b2975331c73",
+      "beforeRoleHash": "94c34d5941d9dc68908c581fe8ba03fd7d52aec69d1624819dcc6d39b161d1a1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -235,7 +235,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5f9be5764a9cabb34ae2ebb966b00954a85285f636648d3be748fd1027418294",
+      "beforeRoleHash": "143035cf92b587f472c1341325c77929f099bddb68839db63a07deb80d8ee8cf",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -271,7 +271,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1b391c47c1edd9c033244c3e3419037e4fdec3ff8719e83e6955ab4db4b36f12",
+      "beforeRoleHash": "081779f2ecc1e0a9a656fbe18f430c76d2e64b2c8374ec9b705732cb8dd40469",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -310,7 +310,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "d4e0a6a094475e8772dea12ab4fd33708ab360719d9ab78a9bd3743fd78e2989",
+      "beforeRoleHash": "d16c3fba763325b3fbe8df9ba7889d05e3c0b1358eda5183ecbf471ae59d9cc8",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -343,7 +343,7 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "17ef23e6244d814600f04e42b26b49b9acf8eff64c4a9f31bb0b58cadf5f8540",
+      "beforeRoleHash": "1e94a3197cfe2ff84a0541048f313f0f493be6d27259e9c0dea7ed2146e31fa2",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -397,7 +397,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "79804a001a9d8c83ea55772896735bc0e7cb0b71779b85eafc3bc1b0b9ab82fe",
+      "beforeRoleHash": "abf13790b3f436dc70939d0c522790d993d5cced60dd02a451e40cd59d900fec",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "admin/config_settings.tmpl",
@@ -415,32 +415,6 @@
       ],
       "entryPoint": "shared partial",
       "presentationReview": "Remove the separate Soda content toolbar; administrator navigation belongs in the existing native sidebar. Preserve native layout/navbar/alert composition."
-    },
-    {
-      "template": "admin/navbar.tmpl",
-      "composition": "operations",
-      "owner": "admin",
-      "callers": [
-        "admin/layout_head.tmpl"
-      ],
-      "nativeCalls": [],
-      "roles": [],
-      "states": [
-        "light",
-        "dark",
-        "narrow",
-        "long-content",
-        "permission-gated"
-      ],
-      "verification": {
-        "source": "exact Forgejo 15.0.9 restoration and rendered sidebar ancestry checks",
-        "native": "not yet delivered",
-        "requiredStates": "native visual acceptance pending"
-      },
-      "beforeRoleHash": "cf5f50e37ce367f575ec8b180d87dfbd268e7938de77a4829c56f8e53c9b026b",
-      "presentationReview": "Preserve exact native 15.0.9 administration menu and append a signed/admin-gated Soda header with ordinary Runners/Tailnet menu entries; no separate toolbar.",
-      "upstreamCallers": [],
-      "entryPoint": "shared partial"
     },
     {
       "template": "admin/notice.tmpl",
@@ -473,7 +447,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c5afe1dadf84893d5c7d982f632b3c0db89da390014c87efe6447d0b46b453d4",
+      "beforeRoleHash": "a0b3dd469b0223d2e70409d2ec8ffeb1d7caa59f07438ac3fd0606a429aaf91b",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -505,7 +479,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "03a57324dbd730ec40f2ebc22196c6c3651ef6defccb7cf0aa2ca18bee3b9ccb",
+      "beforeRoleHash": "eaf2ecbef03c8dfdbaa19d64a970ab9e779a2731f4f2fd0fc2498dbeac3b4c54",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -540,7 +514,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "86cf51543ac17e0030d2584e66900712e0f6f17ce780838fb2428e0a722ba213",
+      "beforeRoleHash": "fc8883669045bcd406cba2de3f97bd2f2cee6fcf6d792703c38ae972caae6511",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -574,7 +548,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ae2ea251e60d50157741a46fc7f4b3ca787e762f5cac93a3dec2008ff434aced",
+      "beforeRoleHash": "4e369dbec7bc73f37132d51bd9069d8c3a0b38d397d1f91060a24ca26af861f5",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -607,7 +581,7 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "c39bd61d8534ce750e95869357d2e64d063beabe85da81bd2ee7cb758427fd87",
+      "beforeRoleHash": "6e477c5daf9f18dad43659024db30d3023d740af46c692ec4110d72091045f0e",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -637,7 +611,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "3444c24ebe16c4be4fac17d8f514d83f2b1b2f1d58b816df2b1b87b6e404f214",
+      "beforeRoleHash": "9fc73ef18174e1896004a3ad00a892e5c451282b008d4dcaaff9322c4a265382",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -677,7 +651,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "387e9a7886aacfc951a8f808b4d38bcfb3d976e2981e5f615bcb7e26aecc30cb",
+      "beforeRoleHash": "d7f100ac9e55b3b6771ba597f64568f9c3746f0b724a05031c440b116979d169",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -716,7 +690,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "580c93f97f8736af2dc005c16f403bd3dec30f1b3ec8785aae6a15cce9034e88",
+      "beforeRoleHash": "5f22684d257cdb2fa26dd4d95b958bfbcfaf965fbf91c0434209e8fbb02a9c34",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "pronouns retained only as hidden native round-trip field"
@@ -756,7 +730,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2e2abfd4a298cddb01b645fc1d2b1d42d9f1a1d338a838248047208e3ce9aec8",
+      "beforeRoleHash": "ee2e8df406d72e7e36b2ef127975cc21a1485c678dd1cc2078418424c0ce9209",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -794,7 +768,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2758061848ecd08d8365350e3b018ab9d647081aa292faa78bceb6a034f1f5e4",
+      "beforeRoleHash": "decc2bf43514dcbd8d91062e482ea1cda98787e5ca1ae1971a4b9d33c20e65ac",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -826,7 +800,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "bc0e5778c4e6d5292213efe012dfddf23ba3094e060494691a13d3ddadf84131",
+      "beforeRoleHash": "9cb7efc278ee36ac33fe273452607a38330aa50d47a6536c4ae89e47399086c9",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -881,8 +855,8 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "829a0514686c6643026a91d920b6a5c98591ce1afe12d75f13534680993c009b",
-      "presentationReview": "Keep global Spaces and the exact signed actor/sub-URL logout marker; operator settings links belong in native administration, not dynamic global navigation.",
+      "beforeRoleHash": "24b791a3ffe6556a600a79ced30f3d3eb59f300fa0c7e1e551f454cdcfa7c99f",
+      "presentationReview": "Forgejo extensions supply contribution navigation from the Soda manifest; keep only the shared theme controls in this host-owned hook.",
       "upstreamCallers": [
         "base/head_navbar.tmpl"
       ],
@@ -917,7 +891,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e994215bf6cee5c1f7ba895b535b8c10ce73b8e77388fef45ee760ea10f399ae",
+      "beforeRoleHash": "a9ae91be2ad2574a3fc177581b3493f23289363821042d87bb7737bc6b41af84",
       "presentationReview": "Merge administration navigation and mechanism-removal module graphs under one new epoch; preserve coordinated logout, notification, drawer suppression and repository-switcher gates.",
       "upstreamCallers": [
         "base/footer.tmpl"
@@ -946,7 +920,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7c3a6c6dbf9c16ecfb34ef2a72af58853cc0d3d32eef337241de6e0aee3c2825",
+      "beforeRoleHash": "97972a508c23a7ae355ce7565f003e7ba34a25a26ac26bf63bce1e84ba347529",
       "upstreamCallers": [
         "base/head.tmpl"
       ],
@@ -1077,7 +1051,7 @@
         "native": "populated repository lists checked; global fixture empty",
         "requiredStates": "editable native actions and populated global caller not exercised"
       },
-      "beforeRoleHash": "35e75e15aecfbac1e2e8dc031dffb6b86bba3674064876089b1d0129306edf45",
+      "beforeRoleHash": "204c7e98b089c12c9b54362987351b2292e144cbf0c8e7a7bc4bc3f395d690d4",
       "upstreamCallers": [],
       "entryPoint": "shared presentation partial; global/repository milestones only",
       "presentationReview": "milestone-item-only-redesign; page boundaries unchanged"
@@ -1126,7 +1100,6 @@
       "owner": "custom",
       "callers": [
         "admin/auth/new.tmpl",
-        "admin/dashboard.tmpl",
         "admin/hook_new.tmpl",
         "admin/layout_head.tmpl",
         "admin/runners/create.tmpl",
@@ -1238,7 +1211,7 @@
         "requiredStates": "private/profile README and populated membership/badge states remain fixture-dependent"
       },
       "upstreamCallers": [],
-      "beforeRoleHash": "cd24899eada6d17f206a0d2bf3d3d76810a4368f6910520321653e0f6ed605a6",
+      "beforeRoleHash": "2c0eae34a0a4cc708fcb733fc51eb640ceb152fc96024a6429bccda0f03ad1fb",
       "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
@@ -1265,7 +1238,7 @@
         "requiredStates": "private/profile README and populated membership/badge states remain fixture-dependent"
       },
       "upstreamCallers": [],
-      "beforeRoleHash": "49dd936325cc9a3673d76e9ecbfd9ec06cdcb1cb13495438593b75599eac28ff",
+      "beforeRoleHash": "8e417c44346164f75b96df71a1d49ce28ded0725e6373db5cb896997dff5afc1",
       "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
     },
     {
@@ -1339,7 +1312,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "731011da96066efd9e2a3568fb85117807646b19d59d770d580afc8a1dac0865",
+      "beforeRoleHash": "0a76578e0a5f76db37bda8ed6fc36afeb88636f7b5fddf7bc4763d4b0799a0e3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -1382,7 +1355,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/002.png"
         ]
       },
-      "beforeRoleHash": "c6a18da54fcd4e330e973a53f9525ff91dfbdf2b58c378947e854416b6be58a3",
+      "beforeRoleHash": "99888b534fe97c948966c8edcd9d1ee0d0b5b45356aa99e66519c067d056e183",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -1420,7 +1393,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e766cc11d952751ef1fd49a079a71ac496fa3cc410cd07de535683669ccf89ac",
+      "beforeRoleHash": "55c9bbd2559c27c8230600d87124f3f9c379e73449b03c68c10f1312f2d1cde5",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -1466,7 +1439,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "46ec374201827cfe154f9d35303681296c9daca2acbefbb7e4961045f48a0b82",
+      "beforeRoleHash": "c364b5aa315e7392b67dde67e06906effa5d482416a8f5649f886a70dba604eb",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -1510,7 +1483,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2c44e120d45a288871022263f3106f333bfc32a549399cf0c63ff17f982fa53c",
+      "beforeRoleHash": "89cb32d2e2a57eafe2296d31caea3198164ccd77af8eb839d4b88176da2b1d51",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -1552,7 +1525,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0ddbacfeacabf7788b8cb3b69cf04608a40d614941b3e467fffb011fbb1720bf",
+      "beforeRoleHash": "5e3ef36ea9bac69fe34e9c3ceffe97e46170cd8876f6e7a1ba09e5c7058b5bfc",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -1642,7 +1615,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "fd2e835ea1d0bc5e7eba9f9b8f5e85afa95646b330094e1fd4332ce12de25063",
+      "beforeRoleHash": "6db623fbaeb14588aac739749ba68d7d98ea544ebbdb7f23d32b44547487c495",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -1684,7 +1657,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "79b26814784ea081082974b2b03f206b26b6246fe9316c2a8de64886572554d7",
+      "beforeRoleHash": "83eceaf754989319489f47befe81af6e0ecf05c078c6daeb9d6dd853656748d3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -1724,7 +1697,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "60f878648b4f19cd4471cf1e128387700d3d10e5aa805f8aa4faa8b115a1a47e",
+      "beforeRoleHash": "db79cd2124847d8496971dd55c60b58d8d627b2be85c5212d604bd63715bb22f",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -1865,7 +1838,7 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "12b9660775a41ba5626631a0a7950ec9da4c33cd2c6dbbd2a438d4505dffd024",
+      "beforeRoleHash": "8febe5886b0691d88108ed8836eee0a12e00d799dfc6110deed6be64d4d71719",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -1900,7 +1873,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "79d81a7b78e7afff49c633143506f78f5cb3b85fca3f97dba85a100eb440d3fd",
+      "beforeRoleHash": "996340de86fa01f6e4c4db43a1c0c6d1025acf383346f1dda9575a9d5af805aa",
       "upstreamCallers": [
         "org/settings/actions.tmpl",
         "org/settings/applications.tmpl",
@@ -1948,7 +1921,7 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "b06ab4d8a04f9c7d178c1730d5a16876d6f24039e933434df77cb046dac6cbf1",
+      "beforeRoleHash": "230a873c7401f3410f53984f6946497c7451558e78ec5177dc379b946753b058",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -1980,7 +1953,7 @@
         "soda-form-story",
         "soda-form-title"
       ],
-      "beforeRoleHash": "f7190aa7ebcd449a00211a9437fb524f504b119b92644e70a7c96ddc61943dc6",
+      "beforeRoleHash": "9e47ed53ec50c0f11301c30da5099a483c7f06513ddac1764a89f2461f050261",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -2014,7 +1987,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8f64e500ccd6c8a635c716b18f0d462dbf9454f684129a1f7161fb767ab8cb7b",
+      "beforeRoleHash": "10bb2c9a69c5b3ce25d169d08345e9ce07234f4f0e7e5d17a1313637f2841c25",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -2061,7 +2034,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8bea03de22da72ad1f7ff08e6f9dd58b96ff7093295bbbfef51b8ff9a80b1b5d",
+      "beforeRoleHash": "3aa18f208b870d493a4b3fe80660e1e70f3db3cfc6865d33e0b6ac955a45a442",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -2104,7 +2077,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9673bb0f28c81b77008d0693776a10b24310d921d045b7aa19b853072621db96",
+      "beforeRoleHash": "b322dcd4e5157b60a59c71d0ec96b7ab36bbaa03cae6089a7d5447cdb98e9ce6",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -2150,7 +2123,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9c6f148e8ee47ac292213a07946b52361573fc37e7668747819955b8ded807d6",
+      "beforeRoleHash": "cec172116668b2d674f6c06e7aa95a4ecd7ff899167f6b47c80b93b8bcbd57f5",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -2194,7 +2167,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "58ae37f9c2f9456afa1873200efe69dc253f53a96668af5a1cbd0cdbb8ccc72b",
+      "beforeRoleHash": "3cfbbb25650041d10bd5b3712f72eece114e718548a9efa6993da2602caac842",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -2441,7 +2414,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c058b086a809e3519e2bf0bd644792eecb4f3bb42466b017a1fac76a3ea31aa2",
+      "beforeRoleHash": "c2b3b4ac660df5b67fdd4b7379009ec601b19a240fadf2bfdf829604e2e0adfb",
       "upstreamCallers": [
         "repo/packages.tmpl"
       ],
@@ -2485,7 +2458,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "5f2ef641ba369af530c0f9abfea27b5c648c379c1dd8b89b15e9729dd6c18be4",
+      "beforeRoleHash": "c81e68537693dbbd4dd5f57bdb148bfe1780291182b61c12c0b0ee7cb68dfd93",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -2598,7 +2571,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "245d894049a52017aaed43741955f3cca1da42e8eaae9801c2d4df27b0627402",
+      "beforeRoleHash": "11119dfefbfd79802923ffa5921d3894c4609c979497af71f9a2a5d822a13fb0",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -2733,7 +2706,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4e15f9ddcc1bc68c180d7dd1dc616ffc918a731a3b4bdb94a5e261e4e17ecec5",
+      "beforeRoleHash": "5a23d28013af466bf90d440dfc21ba6fdb84346b2717072123dd803f6102ceec",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -2765,7 +2738,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "07f6d8c3e8ec9973410a23f891df2355326be45b01c0ce2fe4ad000fc83619b7",
+      "beforeRoleHash": "4d7953373c81bf084f8f3e7587d6679fd624df941cde12fa94a3c8cdea678d3b",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -2795,7 +2768,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "3076e5db6d7ff3e795af2e195cb6f46fbd10accab0b39e0f494f8f61847ee682",
+      "beforeRoleHash": "b777aee81895ded640d7673b435f94c24986506ac8337448eb2b51ff6b61c62d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -2823,7 +2796,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "82005b007e9fd331aa0003120facc56445099df2208d311009e45ad352dcc440",
+      "beforeRoleHash": "4d20dfd4a097a57c7ad61917296802a5eeb92a3bc61030973703e56952e92e87",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -2855,7 +2828,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a6ba34c307fabe784a51c2034a4fdc80e8fa9687f0b3a91eef901ed315b1c248",
+      "beforeRoleHash": "8ff3cd023fe41dad0d4da3797eb29ccf887590fdded2e81ffbdca8018808ce0c",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "Brutalist redesign: decorative artwork removed; native controls and context retained."
@@ -2890,7 +2863,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "26512fc646366b1d40022fcf4dd121e3e936d2e8220bb79773628ff2f5d114eb",
+      "beforeRoleHash": "2b143a8604d57b70350248d1128ca778a795f35397c76f1705cc87400b6a9050",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -2919,7 +2892,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e2b20fc80c73d8cc6645d0466c16fc64ce60b17a3542914814f81cd4be9e355c",
+      "beforeRoleHash": "31ace45166bb4bba3a1792b171d2932e7d7c1bf0d2eb12d698dba0399e31ac98",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -2957,7 +2930,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b3b41c85f0791b6514072b39803fa81e1f04e1c37415ce1b25c41342560ff6d3",
+      "beforeRoleHash": "5634891c1aa828fa69ef8b191a86e084d5f5d41473c24a9773e2439c680c513d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3006,7 +2979,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "00adf2447ddfbfc74d431f60ab451a7b39c9d62ecd108453ade78392f9ba9257",
+      "beforeRoleHash": "62f038969a04de41298aa01cc6bafd99133068cc521ce1c53fcd50a06cb4d9ed",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3037,7 +3010,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "aca747c60f3b6a6b2f82aa9dc7a680f4f39806b36b69e9aecbfde584cb0be44b",
+      "beforeRoleHash": "34d00e6625ae26cab27c3cb65dc725ba3a2b676fc1dd11b03d4cd92fa0682cf1",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -3066,7 +3039,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "8267ce800b3ad77b1ed4dcb18f456f74f694ad5c4d89fcf2b54ebd8e6352b026",
+      "beforeRoleHash": "6a0b84882962fe5f930ed989590a229eb125c924161fd438faa7524486b40e71",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -3104,7 +3077,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "87ad5d17c860c314a01b4106be7c2fd6531cd0ecc476cbba6fdc7d2ddc482f90",
+      "beforeRoleHash": "6940f69f761a700fb375847c0b35c9ac8d029d6d2671ffe67202505cf636bcc2",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -3133,7 +3106,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "13359ceaf69413bb0973765c03308e9929be230967147c9632b16dfde6477fdc",
+      "beforeRoleHash": "0af11224dd7d1fa60c58462f543d7e7d6754ec91cb5aa2d3388f5b96da3e6a32",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3164,7 +3137,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "7acc6a70ca642b131aa6fdb69b11f24450578978f86ffcb9b9c1e8c13bab2ba3",
+      "beforeRoleHash": "6977293e5d1787ed6fd0b82cf3053286eec4924465387475608f91e27a52d7ee",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3196,7 +3169,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "906cb21a94e0824b75d443c3b1dc4510354ad1af9a84c63bff97736e9a401667",
+      "beforeRoleHash": "41587156b0a2479e3b552a2107ce83456f730fb8c8fe78145ae09f22f0f5f3b3",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -3234,7 +3207,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "87fd2662c14c00d1e4a92a4031a1b502a946bb3469c9e1074d37b95031e9f2b3",
+      "beforeRoleHash": "8d4fd61e17eccb3a196f5a8e9476a2b43f233fd0a876f1c72f7209f8eafa0513",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -3282,7 +3255,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "d0ace6fdcc6ba3fdbe7651cf925f7905237cc75ced35c8f1d0ca31e4595ead58",
+      "beforeRoleHash": "e7b2ed2f4f6c35905338e01d3a2cb6f138faea504cb31f97afedd59ad87ca40d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -3312,7 +3285,7 @@
         "soda-form-pair",
         "soda-form-section-title"
       ],
-      "beforeRoleHash": "6b346e99ee6976bd2c6b31f8e4581e9f66da65330141919489543575028b55e6",
+      "beforeRoleHash": "88cb1da4ca34f6c288a33887346e65b04f21ac5a915862254fbf38a72cd05d10",
       "presentationReview": "Apply the existing form mockups through shared story, editor and inline-panel layouts; preserve native controls and gates. See docs/design/forms.md."
     },
     {
@@ -3353,7 +3326,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4cb43d7c7d465e7ca267f9fbfaee86848e23af119c194bcb9e34c5fe5b29828a",
+      "beforeRoleHash": "2a4f536cc5f433fdbb1ecd2083de86ce86f4d0d68cb083cd5148e6c4e3820eb5",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -3390,7 +3363,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "91f86df6a177b38f6213267793926d70f4d404a070cb49e74c6229955bb91b4e",
+      "beforeRoleHash": "f118441e3c55db05b330203f0f4f22d0e603ce5a0b8d27c6761922d755dcd178",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -3428,7 +3401,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ab669888f5ec49112e37a7662d990b23e81011a1b47d2136b0ff9f1eecf312f3",
+      "beforeRoleHash": "600974ce15e5d85bdd785b01800abdd28f8e8b23fafc225ad7b6a6c9dc4e4d08",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3462,7 +3435,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "680521cf13cc5cc479737b45e0aad78b9ee0fde9b2dee9ec0db07077dccc197a",
+      "beforeRoleHash": "d025ff603e67d424ad84bf5ef3b045f3406c85640c8c49a02e385c8ba33f8012",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md."
@@ -3500,7 +3473,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "addbed1404de2f36a0ffb16a3f50750f42d337afeb6ef24ce8dbc3c0959b4131",
+      "beforeRoleHash": "40b954c1bd1cf4f390349e4ab22f01bd6ed6230d30cbb33bca0749b899bc5ea0",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3541,7 +3514,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b4bc2324af148fcd0ce32ccce753823b17bb750d1adb993f798fc16125a07a93",
+      "beforeRoleHash": "d10025e3dcbf3714c96630a20dd996a9d78ad0d01a8957893b1f6334f9540b6e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -3581,7 +3554,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "49b472cc2dd97743b4baf1d729d4fb6a53a04ed67d63db245303de431b1c360c",
+      "beforeRoleHash": "4a4262a68975c74d3efcfc387693c0b1306fea154c3187aff7f7f2fdce6a1a65",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3622,7 +3595,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "6b525ee306304158162fc94f61d0526c098e49372cd785d59ced8dca5bb1e0df",
+      "beforeRoleHash": "4d89b0875f129a88110f8c363cd1b0501dc836aad46213c9084e6ebf1f813fcd",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -3656,7 +3629,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4c1c5739eaba7d7d1f36b7ed2f3942363bca5bc9b4fd7ba70afb7b7ef153e5e3",
+      "beforeRoleHash": "775bfd8a5eb2319ac823ff628ca9e65c929c3f4e31505c8ea861656ba53a571a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3686,7 +3659,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1a57111dc9260250dfe695c1fbe22f115df08ba1dd283d3429f3c8dfab5b69ad",
+      "beforeRoleHash": "02648a4e592701e3b74e2064635ef8f7ee859e4f2f5dfa22e5d1590a101e85a9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3718,7 +3691,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1ba9f4c605f19f12312037cc4c5337092129ea5b484d553ff5223001c976d465",
+      "beforeRoleHash": "7beacf49ee633cd485f5a63eac45a26f1607c108c651cc946234000769c50f03",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3753,7 +3726,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f4e97ef29be84a2d67c772ffd91fcdce3b2709efdbed6c3deb8b30bc86f9b7cf",
+      "beforeRoleHash": "1901c7884edc926798519e671357bf5aabaf0fdf53af8f51874321427f3734ba",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -3900,7 +3873,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/003.png"
         ]
       },
-      "beforeRoleHash": "82116cfd6b8c3c03f2dcd7925c4c51dba5c242d326e7354c4464669c1389f638",
+      "beforeRoleHash": "0919ba52474c25016cc5d5dc14477121a9336d9d29fc6bae2b0b1d3f53f2e885",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -4297,7 +4270,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "8e0e4d92bbf996edb0adb869542729cb6f42ab155a8409bc46d20e2201f4832b",
+      "beforeRoleHash": "83b019f4952d8be21610f6e664ce464c3e8aea4237c9ab5708d171a1f191ca19",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -4337,7 +4310,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "8179d6912843b447440edd4faaddf07caac27be55661ece4c65733b258bbb3fb",
+      "beforeRoleHash": "958b8e9a07380d088a899dd4a4d5e1a1b2202ae3f2cb420caf006bf1893595dd",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -4377,7 +4350,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "83222dd3dfc0e2e20e03d1809648190f22a75b83eee2edba51a389a3cb76b2c5",
+      "beforeRoleHash": "dffad9edae6ce11c23b029eeed934044e658af181ceed90c59e45b06eec8d44d",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -4418,7 +4391,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "be75a1abf9bbf8f18aa0f0892b3d4a1945c7863d9586ae5907399d4569ea3182",
+      "beforeRoleHash": "2e7bfc8bcfc46084fa7a4a40e8266654d5bf5b23e1bcb4954943b8e2ec5b3bcd",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -4457,7 +4430,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "e24d624cc5aecabb8f69c990604d2cb5a4fb787dac3c361e376179344fedf2c3",
+      "beforeRoleHash": "47f4bbe5c608c1fe1c0c00e886b59c88d4929dc226d466f6e837dcec4dc4da4d",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -4496,7 +4469,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "b1b1ef6a8375c0cc8735c937e2cdd695ef875dd96191b75ec14cba3f992789e0",
+      "beforeRoleHash": "8b3d5d6f9a498d4c0973c2f15d7881602244d859d25c5debef100e1912bf0b08",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -4535,7 +4508,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "7a59728883dc2324d6e65bb1887df88353f2ec74ff00de68d6088b65a7e9fd5e",
+      "beforeRoleHash": "2817acfe4005587721c95f543d615f14dc9f01b6bd76741355bb793c7bb124e1",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -4657,7 +4630,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "b72e86203da4a608b3701014f878f32fc0ec5d5f219fcd721e88c01b256183c6",
+      "beforeRoleHash": "bef598a16d131c7baba1af8670533d5135a072d390e27d3bbeb6a313f88982be",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -4690,7 +4663,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "da97275bdebdb9d6dc94e51da76339d6a91ce9b274b4bc2bc0d5892f3c33e85f",
+      "beforeRoleHash": "6fdb4b02849a5c2794c55bfe06b0691c9b148cd84488bec5fdefee7dea6c1235",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -4731,7 +4704,7 @@
         "soda-page",
         "soda-page-container"
       ],
-      "beforeRoleHash": "53a0ddd733de0f92093b96c2a8823115696d6a09649eb6bc7109a5fba42770f5",
+      "beforeRoleHash": "3741e854b5cb6a5cf6ae886a719e2973aba1805d7cd461eb08dd646d201c2745",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
     },
     {
@@ -5170,7 +5143,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e732cd9125b923a4d54c3f2729f0b25e459306318f90bbab2e362cc9fda22b5d",
+      "beforeRoleHash": "213063aed4322dd0b7ae223dc101ffbe13b362782f09c9f8d5431738f5966783",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -5730,7 +5703,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0b04bd6d087784386f09e690d980c37f7df42d1ff84ed00183de306b14493da9",
+      "beforeRoleHash": "46703b49d8a8c7cb0325a51aa50d87794068c76cdea4e9c082e9d9f26d125684",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "repository-settings-structural-overhaul; bounded Sodaspaces settings destination",
@@ -6063,7 +6036,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "badd64cf513ebe15365d15e4e935619c69e2978b4cde85810c506b1cbe036323",
+      "beforeRoleHash": "2b9a9b9af8040a21b3bf4ea7795979f62c9e51df155174e0b3070762a180398f",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "repository-settings-structural-overhaul"
@@ -6097,7 +6070,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a9b279611ec08b83c5e576c3f9e7ebd162409011290f8a63358f8a22b459f05e",
+      "beforeRoleHash": "cbe9dc26c06223bb10d14e116379cb92d469c87fd2cec08ea8255daf11aa5c22",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "repository-settings-structural-overhaul"
@@ -6131,7 +6104,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1f3bb17a8d4dbaf530cab2e3b918ad49b9abc85dff803f0520874a7d0410e5c0",
+      "beforeRoleHash": "7a5fc3749dfa0ff7afeaf6f3531c270b4f42b350d601da601cb1192ca6d82917",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "repository-settings-structural-overhaul"
@@ -6164,7 +6137,7 @@
         "native": "read-only live inspection covered seven currently permitted destinations; repository-admin capture and complete state coverage remain unverified; Actions, LFS, and Git hooks were gated unavailable",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "09bc26551ba34f40c93b4325e4908e7c48d16402c8884d9f7bb139e239ff8435",
+      "beforeRoleHash": "6f3fb7332b34f7caed536862c7238ea508d9279ce8b2e33365f7c315c70f89f0",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "repository-settings-structural-overhaul"
@@ -6337,7 +6310,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b591397462844e94d90842cbf1eb5696030526cf945426344c924008928fd3de",
+      "beforeRoleHash": "b0425a0234443e236a98c288b89f2ae7162af2a0c6785f555f8e664be5abb897",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -6374,7 +6347,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "cf15123402e20e1d33603e55664657b4ddf7e3486b60ac5198a4cdb931ab8aa9",
+      "beforeRoleHash": "6e72166f175e53b2be9805c76b540d3eb92d2aa5d67ebc1f79c3571427f272c3",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -6405,7 +6378,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a58ddb4469520479dbb8c56f64d7d000bc82a231ff3ec95273eba8f554827e1c",
+      "beforeRoleHash": "1e0f5de8fd1fbea42fc2d8654e2a7e89da93ad1729bfb9545878fdc94b533d4e",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -6439,7 +6412,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e93ffa125e9c12a7c0cbd9aa0e34d788f89eded337e9d5d6d60e6e7f9f9c17ea",
+      "beforeRoleHash": "66d694393fa74823c6f2d32249d2fc3e1056295eb1097dca5de6842a155690c3",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -6469,7 +6442,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "70082822582bd5bc0c53c0d62b3f58abeb56c7d8b3941f2270c5f9c0c51a5ca2",
+      "beforeRoleHash": "528a865bb97f448d764b8cfbca31af8e3c47f797a52261c82072ca9a3bbcbd16",
       "upstreamCallers": [],
       "entryPoint": "shared partial"
     },
@@ -6498,7 +6471,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "3b2221a381097551b0aa0c1aa452e576597695684459ea625fd357999dba4f6e",
+      "beforeRoleHash": "58aa06b3ec35f7a0df265aaf9ff3303a6ca1f6e9c5d1730b3401ffda5fb947e1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -6940,7 +6913,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e7bcc5a79353b528c3c7bfe862bfb61e285b47ef09c3b49ce562ed6e375a49a6",
+      "beforeRoleHash": "6fb0aa696e91ac27e3a16ac960b655a7801e6076fd4842984f0a296d9eea855e",
       "upstreamCallers": [
         "org/settings/blocked_users.tmpl"
       ],
@@ -6973,7 +6946,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "63972c7ee77bc7a354f9120ea2babe1d59908f162db4b425f3c9654e496c09a6",
+      "beforeRoleHash": "67621e27af39efc77cc778da5d5f5a8258b264d320d1276626c56a7b38ee15fc",
       "upstreamCallers": [
         "org/settings/storage_overview.tmpl"
       ],
@@ -7017,7 +6990,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "71d3dccf38c06e7b7f5771a8bcf8dbb9d9ad57337b129884104c31efe79a9479",
+      "beforeRoleHash": "6e56bd90ebd4c1762409ec45699c6267770e5146abade5b7178892c28f53bcc4",
       "upstreamCallers": [
         "org/settings/actions.tmpl"
       ],
@@ -7055,7 +7028,7 @@
       },
       "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained.",
       "upstreamCallers": [],
-      "beforeRoleHash": "4476d7f4d3f72490f5632c3c8212f461901106d96d40381b2e325ae0ed596759"
+      "beforeRoleHash": "d046b2852152639837a5be703bdf2e477fc76878f92ef28228c1d3e9090a3aed"
     },
     {
       "template": "shared/variables/variable_list.tmpl",
@@ -7093,7 +7066,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "516ce0c362e164ce05f55aeef3301bde5ba4bf1f77c98198c1041355e1cb0f1d",
+      "beforeRoleHash": "8a258f0747974c93a249eb45c5b4732f311052f63f3e1ca7fd5d6c8f093163ea",
       "upstreamCallers": [
         "admin/actions.tmpl",
         "org/settings/actions.tmpl"
@@ -7300,7 +7273,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2a45de15b60ba31da129044c10bf9c6bb2317bea7a0abfee76785fc8fe1dab89",
+      "beforeRoleHash": "a881f857d0d4fb3899244d1c0b9dfabfdd7c00eb6770cf02a7e0298e91da1888",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -7331,7 +7304,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "898efaab9433bb5042c20fa2fb0be34e8b0f439f121484d9c4cdee31e6e50629",
+      "beforeRoleHash": "19e140053130d128e83ace44aa2323fbd8d7fd80ee4a40cb7133574ed4dd5ddc",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -7363,7 +7336,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ca6fa5f79b230a61004dfbe5730f338f4ade041b9f024f06fa10f831569a028b",
+      "beforeRoleHash": "3553ca304b1df986089739f865822b1d00c471015080e19e3815e5fd1f5dc515",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -7481,7 +7454,7 @@
           ".artifacts/forgejo-presentation/final-login-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "67b84538f0efd846cc769ec821ecb98e826c4b02d150d4f3acc901caff72ed28",
+      "beforeRoleHash": "d83e3dda6de4065e364dcdd36b115c044db3440e580596e171e60320242dc3aa",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Brutalist redesign: remove decorative artwork; preserve native controls and context."
@@ -7521,7 +7494,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "a7ae7b69c8cdaeab30e65910da764fcc7282c0ea90847f7203c012621f61338c",
+      "beforeRoleHash": "faf1809e59413a4ba7a5edd626bca4aa4c342d0363529b3b81c6d26046f77682",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -7594,7 +7567,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "626106cd372e01c4768e64822edc9f21350ab977440b22ae24e43c13bae5751e",
+      "beforeRoleHash": "ad99cd773a18f248dc451beeccf06e8efed8064041bbec836bf40cfcb9a50c38",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
@@ -7636,7 +7609,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "12daaae61cb387d80e76d29064d22afd5b0eaa79f1d744d5ba01cacda771f6a9",
+      "beforeRoleHash": "8d87bcaa792b8f44d7410c29f6b08685e45e92649704ef8d767a565d3451bd50",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -7787,7 +7760,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "f9555000f6a8d234bd85edf6d7627248aaed64ec9f877ac8cccdbdcdf5cc909f",
+      "beforeRoleHash": "6cac326ea1afa1465807fac645f741fe5ee8f640f9bf29d2ab9cfc7c45d84c12",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
@@ -7842,7 +7815,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/001.png"
         ]
       },
-      "beforeRoleHash": "bb159bb6192f44593b323180b4c5c5e5b3591261f51a82dbf32c3b258dd29bb9",
+      "beforeRoleHash": "ffb985ba2549ed7a3fd346de0ce45dd753bdd12151baf54dae21a52de694a3c1",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Advance the matching native-page graph epoch; preserve all selector/actor gates and existing content hosts."
@@ -8105,7 +8078,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2fe2d1e95b094383450b8e3e3183d02b529b8105bacbb69ba55ebbf38bfe6ee2",
+      "beforeRoleHash": "60de7c30fa6586331db56f8ac4eac1b49e94c4948d205005f25260482562ca68",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Compact public identity header and open native tab compositions; native privacy and handler contracts retained."
@@ -8145,7 +8118,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ad279dd36c4c2ffa4aab1486e424ffa4138fcb6a676cdf0b5d78c6b86f105ed7",
+      "beforeRoleHash": "d38f08089677f98b0f5b90867385dc625c07e3d3c2532e392bf52484f4082bf9",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained."
@@ -8247,7 +8220,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "1869a090acf0328726376d3c6d42e531933ab555334724f8e3941cb5eb63b043",
+      "beforeRoleHash": "b9f98dc0611df29805c1ce66bf013fdb720d198d5e495e2174ca16dbfe00220d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained.",
@@ -8294,7 +8267,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "6c7ee4ffd89b96f8dd6ac43dd5ac55fda3ea568aa94c2409bf14b6c765f6c4f3",
+      "beforeRoleHash": "894ff9118327c7980e1ff53cf502b716f7aae95f6cf5d9e1f60405e8155e653e",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "section-headings-above-content",
@@ -8327,7 +8300,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "repository-settings-shared-presentation-adapter",
-      "beforeRoleHash": "42996d036ea945a127b79f01715d3dfcb2069a0b8ad1ec92c59af16c9ec1b7d5",
+      "beforeRoleHash": "4f485a62ae5674e51141e4fb03b21b7898ebcdecad84e7a03217203a0e9ba6f1",
       "taskComposition": "native operations"
     },
     {
@@ -8363,7 +8336,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4f884955d74eeedbffacc3cd79ae45486afaf29e2c0f73b01d8fcb7634415617",
+      "beforeRoleHash": "f3ff01ac01c21defbf93bf70b3d246380c3505a25006d04b7dc53962df655340",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "section-headings-above-content",
@@ -8406,7 +8379,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "4b524d0089e485273bf2688970026b071ff06b03d0d1e81c31ef207a4bea26ee",
+      "beforeRoleHash": "bdf73bde7afa3cf414cdcf38cba80cf632c7e3c929f76e420a36281c8c649bf8",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-comprehensive-consistency-pass",
@@ -8445,7 +8418,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "e2374b2b418489220164d31b0d5771b120c9675b00c634ef3d1d69f2915a8966",
+      "beforeRoleHash": "19d4392ece76a5a6cec1b9325e1b7c766f5f9faf5e329276ad930dfa257ce3f4",
       "definedPartials": [
         "user/settings/applications_oauth2_body"
       ],
@@ -8482,7 +8455,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "b1d4f804ec70ecdfa60f0bb60fb578f93de487e667feaf3ab0dd6eda1c44fb8c",
+      "beforeRoleHash": "71c22ce31e3c8f5e78cb126b004bfd582a25e333aa64f50e206372744a817bcd",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",
@@ -8526,7 +8499,7 @@
       ],
       "nativeCalls": [],
       "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "6799eb0a11ea27b41df5a85722e124d5a287d59e8b92382a14b5f41f01b88b15",
+      "beforeRoleHash": "f1d944e1767934120a3eac13f06d770a27d3c49fc679c114cd187434375f9ee4",
       "definedPartials": [
         "user/settings/applications_oauth2_edit_form_body"
       ],
@@ -8572,7 +8545,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2d38804b4e1820cd73650f3683e8281d5f5f3d6875abeea069f86fa438663a8e",
+      "beforeRoleHash": "a28e6b32206b766bf6de8e34a80d53cef8821e212e9442a1bbdd89ca91346111",
       "upstreamCallers": [
         "org/settings/applications.tmpl"
       ],
@@ -8610,7 +8583,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "5cca38d90ac166164ddd010d268f8d70b55184e83854ead62cd1ef85b8a32102",
+      "beforeRoleHash": "9233c6797275d438d022d2069e87d04f8622414b93bc26bfbeabc88822318a28",
       "taskComposition": "inventory"
     },
     {
@@ -8647,7 +8620,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "personal-settings-comprehensive-consistency-pass",
-      "beforeRoleHash": "4baeec7c3e1a826d7072cb79574cbc2654998021ae720d06a7bf12dd17b7018d",
+      "beforeRoleHash": "38071c35ba1a1824ba901c6367b9eec245e46141d6f69f4210f6b9a6876bf542",
       "taskComposition": "inventory"
     },
     {
@@ -8683,7 +8656,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained.",
-      "beforeRoleHash": "2235a44d3218fe0438049885d3c2748cf2b69335bca4fc59b5e407083174c69d",
+      "beforeRoleHash": "f832c5834de04d8a36d4b2f4e8a205a76ea294282ddf1c1bd5e19e3f49b488d1",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -8713,7 +8686,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "e1c068a394af78c32a1a68b54994af624269b9fb6436f9eeafb96076c1be8af1",
+      "beforeRoleHash": "c39a61f9662bceaf794d55299f9d33f4f4060ea61e8ff2642152185f5980e4a6",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "repository-settings-shared-presentation-adapter",
@@ -8748,7 +8721,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "15ca73e32e652169f38c3c2fd51b0877d024cd24b76f642638d32957bff4c26b",
+      "beforeRoleHash": "97a90c03738ffaf1bd1fd5ddd67d70741bd20148d890858574af6eefabf51b3a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",
@@ -8793,7 +8766,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
-      "beforeRoleHash": "9fb3e4271418508a0263c0217b993f7851e9855e3d74104c78514d971caf40e8",
+      "beforeRoleHash": "7cccf9129c33325a407e38a8de4b4a5b0884c57d6171b3c41114a6cd04b20756",
       "taskComposition": "inventory"
     },
     {
@@ -8835,7 +8808,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
-      "beforeRoleHash": "7e184bed660b6de5ca6d50b27c6a88e2ad7769bdc7d98269144341fea6795b34",
+      "beforeRoleHash": "81d00146eaa71f313a88eccfc3cbd61366e5f58fa4df8c93b05c38626fc686fe",
       "taskComposition": "inventory"
     },
     {
@@ -8877,7 +8850,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "Reviewed shared form consistency refinement; native submission controls and gates preserved. See docs/design/forms.md.",
-      "beforeRoleHash": "8ca05f856b7b25312b740d76b9c3ce862fac24485186e081ff7c4ac5324855f7",
+      "beforeRoleHash": "caaab004f6cedcd6a64d139b445136d87005a9a880f24a2c297b5b14a125f8ad",
       "taskComposition": "inventory"
     },
     {
@@ -9043,7 +9016,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "e694c63980de8049cb6e70398abff6b2ab402a516b937a175f6d6db6e7c60b3d",
+      "beforeRoleHash": "5964fe9225d368e0dfe560a1e83fe529546a932545ad4934885bc1c04b14d514",
       "taskComposition": "identity/navigation"
     },
     {
@@ -9078,7 +9051,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "0e7988d9fc74f2f6b3f62d8c04cd711d52f53575a8adb6e5e449b7561a7a77aa",
+      "beforeRoleHash": "07829156c0ba6fdaf7f68172710fd62d2f8d798e1059f3ded704188b549e304d",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "settings-feedback-empty-states-and-actions",
@@ -9114,7 +9087,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "924186130d73066a5fbc3b6af2efcbd40c1db98bc0b50f1905721ddf4847b2a6",
+      "beforeRoleHash": "1f76278b099d6eeabd075e594cd2a088e617d105d49b8315ce9ebc37a7cb61dd",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "settings-feedback-empty-states-and-actions",
@@ -9153,7 +9126,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained.",
-      "beforeRoleHash": "560c73a35a251d7a0484534e39b38c0816c6e9c997d2b7319a1677010094de27",
+      "beforeRoleHash": "3a30fa8590490240e9f33ab3836fc17389f73d103f9b6acd07bff06caed34ca9",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -9184,7 +9157,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "3a6e98501795e51d35efb7923e3c631c2d731ae4cb5af0fd305161db3e36704c",
+      "beforeRoleHash": "0457e8a6b2d3e26859da1aa5851a0c8ece54726223cbf0995c187d11886f8e3d",
       "taskComposition": "inventory / focused editor"
     },
     {
@@ -9226,7 +9199,7 @@
           ".artifacts/forgejo-presentation/final-dark-mobile/006.png"
         ]
       },
-      "beforeRoleHash": "3afdd86322b3a61e069979bdd074b22c22fb40d3f710661f1169b215aad3856e",
+      "beforeRoleHash": "e0dffb85035e223057aaa4eb85e162339f259c38177df7a66bba301b12ee5f2a",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",
@@ -9267,7 +9240,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "settings-feedback-empty-states-and-actions",
-      "beforeRoleHash": "81d78a525eec666d39ebda78730310c0ca50810d2a2170bc6338fdb7345808b3",
+      "beforeRoleHash": "d70e7ed11952e2d438e1722c8504d420d672b2273de3e1a167cbd54ca6fd265e",
       "taskComposition": "inventory"
     },
     {
@@ -9302,7 +9275,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "Second pass: remove retired artwork parameters and empty IDs; native context and behavior retained.",
-      "beforeRoleHash": "b7cc3ef52d43bd1da49f78c6a651c6b3056bdc4e6ba185aaf6ac02b88b190a7d",
+      "beforeRoleHash": "9239d7949d86989daeb9f54aadc1aaaa46c7f8fff6e3633d1128b5119462bfe6",
       "taskComposition": "native operations"
     },
     {
@@ -9332,7 +9305,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "repository-settings-shared-presentation-adapter",
-      "beforeRoleHash": "393cd0db3766003e6d2fa6c5b7a06f61ca5ac22d0aa40161d7aaa783c1530c05",
+      "beforeRoleHash": "ed7c4d5b68ccbe01729d6796c0fe66ceb26a31f58824dbd6d6c44c1b01ec6960",
       "taskComposition": "native operations"
     },
     {
@@ -9364,7 +9337,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "repository-settings-shared-presentation-adapter",
-      "beforeRoleHash": "376ee6654f2fd21674d7244124e113f8dc9dab16d52b9b796de3cd6ae7f017de",
+      "beforeRoleHash": "b49b05788ac7a7436ec2ebb1acb2fbf24233de56da9aec89d4cea4b51b8caa0d",
       "taskComposition": "native operations"
     },
     {
@@ -9396,7 +9369,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "repository-settings-shared-presentation-adapter",
-      "beforeRoleHash": "6bee3413e63734891a9774dd4262e250be134f0a65c5d414ac615e611c6292fa",
+      "beforeRoleHash": "b0b0a32ed0563c0b5e5b978b260d5001275f71995b08a9de823ab6d367dde362",
       "taskComposition": "native operations"
     },
     {
@@ -9434,7 +9407,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "section-headings-above-content",
-      "beforeRoleHash": "fb5854c9d74bae7beb51e778477259874baac0a97b02ee843c4e2a775786bbe5",
+      "beforeRoleHash": "9a5d83d88780ea63aab8cdd4f69a3346e4f317ed0ea7e5bbdf29f5e1025838f5",
       "taskComposition": "factor state and actions"
     },
     {
@@ -9474,7 +9447,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "section-headings-above-content",
-      "beforeRoleHash": "f0cfec1648a865ec574ef359ed62446c0720078d305542a97af914bdc1c0f747",
+      "beforeRoleHash": "55fdadba098d5e9a181ce090c87f1f5de2594611689d7ba1dd5e3ac261ac53af",
       "taskComposition": "factor state and actions"
     },
     {
@@ -9507,7 +9480,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "be23b0e050f762ad75408b317aae802e0dc8ed5d9bddd40da143d090908bb192",
+      "beforeRoleHash": "dac1b0279dbc6189be670fb46a49705b6602477cdcebf8b724eb5134f4e0b9ec",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "section-headings-above-content",
@@ -9550,7 +9523,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "settings-feedback-empty-states-and-actions",
-      "beforeRoleHash": "f3e2701901a1b3a20b6b53e3e95b5e59e49ca11fc7960493363d61ae264ff2fe",
+      "beforeRoleHash": "7258fe2dc60cfba97bbb8b3ed73b341d6ece0070082aa912f66ffe56d1c759eb",
       "taskComposition": "factor state and actions"
     },
     {
@@ -9586,7 +9559,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "9a4b052dcecb2b121e9e99bd9394414d7cfa4efa8bbcd8be527be0e86b5be141",
+      "beforeRoleHash": "2aa51d817ba8fbbfdba0c26bb391dfbf7c72d979bc2c07ade839942f54bf7c48",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately",
       "presentationReview": "personal-settings-structural-overhaul",
@@ -9630,7 +9603,7 @@
         "base/modal_actions_confirm"
       ],
       "presentationReview": "personal-settings-comprehensive-consistency-pass",
-      "beforeRoleHash": "898e7e7ad92cf5dd273fe6043ea6bdc700fa7360d8d7826e2a49b322a6884809",
+      "beforeRoleHash": "20e9a92c3942883963687a553ae60d1192a2bbd591432cde6356d3460f375e3d",
       "taskComposition": "factor state and actions"
     },
     {
@@ -9658,7 +9631,7 @@
       "upstreamCallers": [],
       "nativeCalls": [],
       "presentationReview": "personal-settings-structural-overhaul",
-      "beforeRoleHash": "dbf52bb2c7d6157845091ed7daec3e4231345f13c3968eb2b71584c180a9aabd",
+      "beforeRoleHash": "53b7d2e09f56ff1cb15c2540ccdb20e5a48617a32675b474ef7159ae3412e11c",
       "taskComposition": "inventory"
     },
     {
@@ -9703,7 +9676,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "ef7ac3933803c529b37849060a05164244f9d60ee920231a3083c4e110b5c787",
+      "beforeRoleHash": "cf6ca22f2575ee95c36cfdfb18be6aba8bb985459367cc695c15f4ec43a4d067",
       "upstreamCallers": [],
       "entryPoint": "shared partial",
       "presentationReview": "repository-settings-shared-presentation-adapter"
@@ -9733,7 +9706,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "2dc70657215d66b1754420ad8b0ad65b4832d2da3dbe8bfdb57a6cce9681f430",
+      "beforeRoleHash": "8b3cc52c06a90e566efeea5e531735a02d79cd77436a5745d1b7f4a93ab0e569",
       "upstreamCallers": [
         "webhook/new/dingtalk.tmpl",
         "webhook/new/discord.tmpl",

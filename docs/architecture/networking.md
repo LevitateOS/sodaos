@@ -17,9 +17,10 @@ Browser/OAuth origins, listeners and Forgejo Git advertisement are distinct
 configured facts. Do not infer endpoints from predecessor ports or another browser
 hostname.
 
-Soda's API/OAuth service and Spaces share the configured Forgejo HTTPS origin under
-`/-/soda/`. Git authentication uses native Forgejo SSH keys or HTTPS tokens,
-independently of Soda development-access public keys.
+Soda pages and product operations use Forgejo's native extension service on the
+configured HTTPS origin. Public `/-/soda/` routes serve the broker identity
+callback and avatar provider. Git authentication uses native Forgejo SSH keys or
+HTTPS tokens, independently of Soda development-access public keys.
 
 ## Cockpit
 

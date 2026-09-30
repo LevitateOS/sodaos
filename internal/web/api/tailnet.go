@@ -10,15 +10,6 @@ import (
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
 
-func (s *API) tailnetRoutes() {
-	s.mux.HandleFunc("GET /settings/tailnet", s.tailnetPage)
-	s.mux.HandleFunc("/api/settings/tailnet", s.Auth.Protected(s.apiTailnetSettings, http.MethodGet))
-	s.mux.HandleFunc("/api/settings/tailnet/host", s.Auth.Protected(s.apiTailnetHost, http.MethodPost))
-	s.mux.HandleFunc("/api/settings/tailnet/enrollment", s.Auth.Protected(s.apiTailnetEnrollment, http.MethodPost))
-	s.mux.HandleFunc("/api/repositories/{repositoryID}/tailnet-options", s.Auth.Protected(s.apiTailnetOptions, http.MethodGet))
-	s.mux.HandleFunc("/api/environments/{id}/tailnet", s.Auth.Protected(s.apiProjectTailnet, http.MethodGet, http.MethodPost))
-}
-
 func tailnetQuery(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -12,65 +11,31 @@ import (
 	"sync/atomic"
 	"testing"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
 func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		status int
+		name     string
+		response func(string) extensions.CallbackResponse
 	}{
-		{"hidden", 404},
-		{"forbidden", 403},
-		{"unavailable", 503},
-		{"wrong repository", 503},
-		{"malformed", 503},
-		{"oversized", 413},
-		{"wrong subject", 401},
-		{"no grant", 401},
-		{"no consent", 403},
-		{"no user consent", 403},
-		{"timeout", 503},
-		{"site admin", 404},
-		{"Soda operator", 404},
+		{"hidden", func(string) extensions.CallbackResponse { return extensions.CallbackResponse{ErrorCode: "not_found"} }},
+		{"unavailable", func(string) extensions.CallbackResponse { return extensions.CallbackResponse{ErrorCode: "unavailable"} }},
+		{"wrong repository", func(string) extensions.CallbackResponse {
+			return extensions.CallbackResponse{Repository: &extensions.Repository{ID: "43", Owner: "alice", Name: "private", Permission: "write"}}
+		}},
+		{"malformed", func(id string) extensions.CallbackResponse {
+			return extensions.CallbackResponse{Repository: &extensions.Repository{ID: id, Owner: "", Name: "private", Permission: "write"}}
+		}},
+		{"no permission", func(id string) extensions.CallbackResponse {
+			return extensions.CallbackResponse{Repository: &extensions.Repository{ID: id, Owner: "alice", Name: "private", Permission: "none"}}
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			var calls atomic.Int32
-			s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("Authorization") != "token acting-bob" {
-					t.Error("wrong authority")
-				}
-				if r.URL.Path == "/api/v1/user" {
-					uid := 2
-					if tc.name == "wrong subject" {
-						uid = 1
-					}
-					_, _ = fmt.Fprintf(w, `{"id":%d,"login":"bob","is_admin":true}`, uid)
-					return
-				}
-				if r.URL.Path != "/api/v1/repositories/42" {
-					t.Error("wrong repository lookup", r.URL.Path)
-				}
-				switch tc.name {
-				case "wrong repository":
-					_, _ = fmt.Fprint(w, `{"id":43,"name":"private","full_name":"alice/private","permissions":{"push":true},"owner":{"id":1,"login":"alice"}}`)
-				case "malformed":
-					_, _ = fmt.Fprint(w, `{"id":42}`)
-				case "oversized":
-					_, _ = fmt.Fprint(w, strings.Repeat("x", (2<<20)+1))
-				case "unavailable":
-					w.WriteHeader(503)
-				case "forbidden":
-					w.WriteHeader(403)
-				default:
-					w.WriteHeader(404)
-				}
-			})
+			s := apiTestServer(t)
 			s.Config.OperatorID = 99
-			if tc.name == "Soda operator" {
-				s.Config.OperatorID = 2
-			}
 			id := "p0123456789abcdef01234567"
 			if err := s.Store.CreateProject(t.Context(), store.Project{ID: id, RepositoryID: 42, OwnerID: 1, Name: "private", Repository: "alice/private"}); err != nil {
 				t.Fatal(err)
@@ -81,31 +46,22 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 			if err := s.Store.AddKey(t.Context(), 2, "public-key-double", "fingerprint"); err != nil {
 				t.Fatal(err)
 			}
-			if tc.name == "no grant" {
-				if err := s.Store.DeleteGrant(t.Context(), "session-bob"); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if tc.name == "no consent" || tc.name == "no user consent" {
-				g, err := s.Store.Grant(t.Context(), "session-bob", 2)
-				if err != nil {
-					t.Fatal(err)
-				}
-				g.Scopes = "read:user"
-				if tc.name == "no user consent" {
-					g.Scopes = "read:repository"
-				}
-				if err = s.Store.ReplaceGrant(t.Context(), "session-bob", 2, g); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if tc.name == "timeout" {
-				s.Forgejo.HTTP.Transport = roundTrip(func(*http.Request) (*http.Response, error) { return nil, context.DeadlineExceeded })
-			}
+			var calls atomic.Int32
 			s.Host.HTTP = &http.Client{Transport: roundTrip(func(*http.Request) (*http.Response, error) {
 				calls.Add(1)
 				return nil, errors.New("must not reach helper")
 			})}
+			callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+				switch in.Operation {
+				case extensions.OperationRepository:
+					return tc.response(in.RepositoryID)
+				case extensions.OperationOwnedRepositories:
+					return extensions.CallbackResponse{ErrorCode: "unavailable"}
+				default:
+					t.Error("unexpected callback", in.Operation)
+					return extensions.CallbackResponse{ErrorCode: "unavailable"}
+				}
+			}
 			for _, path := range []string{"/api/environments?repository_id=42", "/api/environments/" + id, "/api/environments/" + id + "/members", "/api/environments/" + id + "/join", "/api/environments"} {
 				method, body := "GET", "{}"
 				if strings.HasSuffix(path, "/join") || path == "/api/environments" {
@@ -114,12 +70,9 @@ func TestRepositoryDenialBlocksDiscoveryDirectReadsAndNewAccounts(t *testing.T) 
 				if path == "/api/environments" {
 					body = `{"repository_id":"42"}`
 				}
-				if tc.name == "Soda operator" && method != "POST" {
-					continue
-				} // operator inspection is selected, not a join bypass
 				w := httptest.NewRecorder()
-				s.ServeHTTP(w, apiTestRequest(method, path, body, "bob"))
-				if w.Code != tc.status || strings.Contains(w.Body.String(), "alice/private") || strings.Contains(w.Body.String(), id) {
+				nativeAPIServeWithCallback(t, s, w, apiTestRequest(method, path, body, "bob"), callback)
+				if w.Code < 400 || strings.Contains(w.Body.String(), "alice/private") || strings.Contains(w.Body.String(), id) {
 					t.Fatal(path, w.Code, w.Body.String())
 				}
 			}
@@ -137,26 +90,22 @@ func TestRepositoryLookupAndJoinRecheckNativeAccess(t *testing.T) {
 	allowed := true
 	var lookups, accounts atomic.Int32
 	var last project.Account
-	s := grantedTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/api/v1/user":
-			_, _ = fmt.Fprint(w, `{"id":2,"login":"bob-now"}`)
-		case "/api/v1/repositories/42":
-			lookups.Add(1)
-			if !allowed {
-				w.WriteHeader(404)
-				return
-			}
-			_, _ = fmt.Fprint(w, `{"id":42,"name":"renamed","full_name":"current/renamed","permissions":{"push":true},"owner":{"id":2,"login":"current"}}`)
-		default:
-			t.Error("unexpected provider call", r.URL.Path)
-			w.WriteHeader(500)
-		}
-	})
+	s := apiTestServer(t)
 	s.Config.OperatorID = 99
+	callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+		if in.Operation != extensions.OperationRepository || in.RepositoryID != "42" {
+			t.Error("unexpected native callback", in.Operation, in.RepositoryID)
+			return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
+		}
+		lookups.Add(1)
+		if !allowed {
+			return extensions.CallbackResponse{ErrorCode: "not_found"}
+		}
+		return extensions.CallbackResponse{Repository: &extensions.Repository{ID: "42", Owner: "bob", Name: "renamed", Permission: "write"}}
+	}
 	for _, query := range []string{"", "?repository_id=0", "?repository_id=01", "?repository_id=42&repository_id=42", "?repository_id=%zz", "?repository_id=42&owner=alice", "?repository_id=" + strings.Repeat("1", 8192)} {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/environments"+query, "", "bob"))
+		nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/environments"+query, "", "bob"), callback)
 		if w.Code != 400 {
 			t.Fatal("invalid context accepted", w.Code)
 		}
@@ -166,7 +115,7 @@ func TestRepositoryLookupAndJoinRecheckNativeAccess(t *testing.T) {
 	}
 	read := func() *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("GET", "/api/environments?repository_id=42", "", "bob"))
+		nativeAPIServeWithCallback(t, s, w, apiTestRequest("GET", "/api/environments?repository_id=42", "", "bob"), callback)
 		return w
 	}
 	absent := read()
@@ -202,23 +151,23 @@ func TestRepositoryLookupAndJoinRecheckNativeAccess(t *testing.T) {
 	})}
 	join := func() *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
-		s.ServeHTTP(w, apiTestRequest("POST", "/api/environments/"+id+"/join", "{}", "bob"))
+		nativeAPIServeWithCallback(t, s, w, apiTestRequest("POST", "/api/environments/"+id+"/join", "{}", "bob"), callback)
 		return w
 	}
 	allowed = false
-	if w := join(); w.Code != 404 || accounts.Load() != 0 {
+	if w := join(); w.Code < 400 || accounts.Load() != 0 {
 		t.Fatal("prior read authorized join", w.Code)
 	}
 	allowed = true
-	if w := join(); w.Code != 200 || accounts.Load() != 1 || last.Identity != 2 || last.Login != "bob-now" || last.Project != id {
+	if w := join(); w.Code != 200 || accounts.Load() != 1 || last.Identity != 2 || last.Login != "bob" || last.Project != id {
 		t.Fatal("incorrect new account", w.Code, last)
 	}
 	before := lookups.Load()
 	allowed = false
-	if w := join(); w.Code != 404 || accounts.Load() != 1 || lookups.Load() != before+1 {
+	if w := join(); w.Code < 400 || accounts.Load() != 1 || lookups.Load() != before+1 {
 		t.Fatal("existing join reprovisioned/revoked", w.Code)
 	}
-	p, err := s.Store.Project(t.Context(), id)
+	p, err := s.Store.Project(context.Background(), id)
 	if err != nil || p.OwnerID != 1 || p.Repository != "alice/old" {
 		t.Fatal("remapped retained state")
 	}

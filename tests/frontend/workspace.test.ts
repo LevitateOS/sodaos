@@ -78,7 +78,13 @@ after(async () => {
   await browser?.close();
   server?.stop(true);
 });
-async function fixture(t: TestContext, mode: 'native' | 'page' = 'page', beforeMount?: () => void, firstUse = false) {
+async function fixture(
+  t: TestContext,
+  mode: 'native' | 'page' = 'page',
+  beforeMount?: () => void,
+  firstUse = false,
+  subpath = ''
+) {
   const page = await browser.newPage({viewport: {width: 1440, height: 1000}}),
     errors: string[] = [];
   page.setDefaultTimeout(5000);
@@ -96,7 +102,7 @@ async function fixture(t: TestContext, mode: 'native' | 'page' = 'page', beforeM
       if (!mount) throw Error('Missing fixture mount');
       const shell = document.createElement('div'),
         container = document.createElement('div');
-      shell.className = 'page-content soda-page soda-native-page';
+      shell.className = 'page-content soda-page';
       container.className = 'soda-page-container';
       mount.dataset.view = 'spaces';
       mount.before(shell);
@@ -105,11 +111,11 @@ async function fixture(t: TestContext, mode: 'native' | 'page' = 'page', beforeM
     });
   if (beforeMount) await page.evaluate(beforeMount);
   await page.evaluate(
-    async ({mode, firstUse}) => {
-      window.workspaceFixture = window.createWorkspaceFixture(mode, firstUse);
+    async ({mode, firstUse, subpath}) => {
+      window.workspaceFixture = window.createWorkspaceFixture(mode, firstUse, subpath);
       await window.workspaceFixture.api.ready;
     },
-    {mode, firstUse}
+    {mode, firstUse, subpath}
   );
   return page;
 }
@@ -1316,15 +1322,8 @@ for (const outcome of ['uncertain', 'incomplete', 'rejected'] as const)
     assert.equal(await page.evaluate(() => window.workspaceFixture.sockets.length), 0);
   });
 test('first use: keyboard selection, Back and Change retain the repository without writes', async (t) => {
-  const page = await fixture(t, 'page', undefined, true);
-  await page.evaluate(() => {
-    const marker = document.createElement('span');
-    marker.id = 'soda-settings-link';
-    marker.hidden = true;
-    marker.dataset.subUrl = '/forgejo.test';
-    document.body.append(marker);
-    return window.workspaceFixture.api.refresh();
-  });
+  const page = await fixture(t, 'page', undefined, true, '/forgejo.test');
+  await page.evaluate(() => window.workspaceFixture.api.refresh());
   await page.getByRole('button', {name: 'Create project', exact: true}).focus();
   await page.keyboard.press('Enter');
   await page.getByRole('radio', {name: /alice\/Alpha/}).waitFor();
@@ -1760,7 +1759,6 @@ test('terminal handshake with a mismatched native generation is refused without 
       JSON.stringify({
         action: 'attach',
         id: 'b'.repeat(32),
-        expected_user_id: '1',
         repository_id: environment.repository_id,
         session_generation: 'mismatched-generation-for-proof',
         cols: 80,

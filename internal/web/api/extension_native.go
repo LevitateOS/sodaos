@@ -101,16 +101,20 @@ func (s *API) extensionProductUser(w http.ResponseWriter, r *http.Request, actor
 
 func extensionProductContribution(path string, contribution extensions.Contribution) bool {
 	if path == "/api/settings/runners" || strings.HasPrefix(path, "/api/settings/runners/") {
-		return extensionPageContribution(contribution, "runners")
+		return extensionAdminPageContribution(contribution, "runners")
 	}
 	if path == "/api/settings/tailnet" || strings.HasPrefix(path, "/api/settings/tailnet/") {
-		return extensionPageContribution(contribution, "tailnet")
+		return extensionAdminPageContribution(contribution, "tailnet")
 	}
 	return extensionPageContribution(contribution, "spaces") || extensionWorkspacePanelContribution(contribution)
 }
 
 func extensionPageContribution(contribution extensions.Contribution, id string) bool {
 	return contribution.Kind == "page" && contribution.Scope == "global" && contribution.ID == id
+}
+
+func extensionAdminPageContribution(contribution extensions.Contribution, id string) bool {
+	return contribution.Kind == "page" && contribution.Scope == "admin" && contribution.ID == id
 }
 
 func extensionWorkspacePanelContribution(contribution extensions.Contribution) bool {
@@ -129,8 +133,7 @@ func (s *API) extensionMutationOrigin(r *http.Request) bool {
 func (s *API) extensionSessionCurrent(ctx context.Context, r *http.Request, session store.Session) bool {
 	initial, ok := requestExtensionAuthority(r)
 	if !ok {
-		cookie, err := auth.RequestCookie(r, auth.SessionCookie)
-		return err == nil && s.Auth.RequireCurrentSession(ctx, cookie.Value, session) == nil
+		return false
 	}
 	current, err := auth.ExtensionAuthority(r.WithContext(ctx))
 	return err == nil && extensionAuthorityCurrent(current, initial) &&

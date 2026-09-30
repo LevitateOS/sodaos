@@ -1,40 +1,38 @@
 # Shared Spaces browser source
 
-This is authored TypeScript/CSS, not a public deployment directory. Go owns the
-bounded HTML/OAuth/API response; Forgejo keeps its own forms, auth and navigation.
+This is authored TypeScript and CSS for the Soda Forgejo extension package, not a
+Forgejo public-assets directory. Fountain owns browser identity, navigation and
+the lifetime of the native page and persistent workspace-panel contributions.
 
-- `sodaspaces-workspace.ts`: the **one page/drawer owner**, locators/layout,
-  original-target commands, stable flat terminal hosts and navigation observations.
-- `sodaspaces-project.ts`: project requests, synchronous admission and key drafts.
-- `sodaspaces-terminal.ts`: original account binding, one issued locator and xterm/attachment lifetime.
-- `*-view.ts`: stateless typed presentation. Readonly render projections are created
-  from the owners, never synchronized stores or permission/resource authority.
-- `sodaspaces-layout.ts` / `sodaspaces-api.ts`: pure layout and bounded JSON contracts.
-- `sodaspaces-attention.ts`: bounded typed observations and pure lifecycle reasons;
-  workspace slots own one unread bit, not transcripts, counts or agent semantics.
-  Its mounted-only clock/visible GET refresh never creates or renews terminals.
-- `sodaspaces.ts` / `sodaspaces-page.ts` / `sodaspaces-shell.ts`: native/page/shell
-  adapters, not another controller.
-- `sodaspaces-workspace.css`: shared workspace chrome plus explicitly scoped page
-  shell rules. Project, terminal and native-adapter CSS have separate owners.
+- `sodaspaces-workspace.ts` owns the shared page and panel workspace, locators,
+  layout, original-target commands, stable terminal hosts and navigation checks.
+- `sodaspaces-project.ts` owns project requests, synchronous admission and key
+  drafts.
+- `sodaspaces-terminal.ts` owns the original account binding, issued locator,
+  xterm renderer and attachment lifetime.
+- `*-view.ts` modules provide stateless typed presentation. They do not own
+  permission, request or resource authority.
+- `sodaspaces-layout.ts` and `sodaspaces-api.ts` define pure layout and bounded
+  JSON contracts.
+- `sodaspaces-attention.ts` derives bounded lifecycle observations; mounted
+  refreshes never create or renew terminals.
+- `sodaspaces-page.ts` and `soda-workspace-panel-entry.ts` adapt the shared owner
+  to the native page and persistent panel.
 
-`tsconfig.browser.json` and the required analyzer discover this directory. The
-browser build enforces exact source/payload inventory and rewrites source-relative
-module imports to canonical public destinations (also for emitted test fixtures).
-`internal/release/build/forgejo-payload.json` remains the staging/preview authority.
-Published URLs intentionally stay compatible: the workspace owner is still served
-as `sodaspaces-drawer.js`, workspace CSS as `sodaspaces-page.css`, project CSS as
-`sodaspaces-drawer.css`. These are URLs, not duplicate source owners. The sole Lit
-runtime remains in canonical branding; unsupported directives/tool imports fail.
-Generated JavaScript stays under ignored `.artifacts/forgejo-js/`. Root
-`build:forgejo` first prepares the locked renderer/CSS/licenses under
-`.artifacts/browser-terminal/vendor/`; all browser checks call that build and must
-work without a previous development checkout's cache. Native staging and isolated
-preview still prepare their own destinations using the same locked fetcher.
+`appliance/soda-extension/extension.json` declares the browser entries.
+`scripts/build-soda-extension.ts` checks that declaration against the entries and
+their styles, bundles the extension modules, and adds the locked terminal assets
+and required notices to the independently installed package. The Forgejo image
+payload in `internal/release/build/forgejo-payload.json` owns host branding and
+template assets; it does not publish a duplicate copy of the extension UI.
 
-Rendering never creates a terminal, changes native lifetime, provisions access
-or owns native forms. Controls retain the original target and bootstrap binding;
-actual server operations authorize access. The [terminal guide](../../docs/reference/terminal.md)
-owns native lifetime, exact lookup and disposable current-cache requirements. The xterm screen is unconditional; flat terminal
-hosts are never moved between keyed template parents. View updates must retain
-unsent drafts and renderer/socket identity.
+The preview builds and serves the same extension asset package. Generated browser
+and terminal assets stay under ignored `.artifacts/`. The Forgejo branding modules
+keep their own public Lit bundle, separate from the extension package runtime.
+
+Rendering never creates a terminal, changes native lifetime, provisions access or
+owns native forms. Controls retain the original target and bootstrap binding;
+server operations authorize access. The [terminal guide](../../docs/reference/terminal.md)
+owns native lifetime and exact lookup. Flat terminal hosts are not moved between
+keyed template parents, and view updates retain unsent drafts and renderer/socket
+identity.

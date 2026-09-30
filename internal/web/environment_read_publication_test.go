@@ -6,33 +6,32 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/project"
-	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 	"github.com/stretchr/testify/require"
 )
 
-// Real routed handlers/store; the transport doubles complete a session change
-// during I/O, then deliberately return a late result (even after cancellation).
-// This checks publication, not rollback or cancellation of an admitted read.
-func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
-	const permissions = "/api/v1/users/current-login/orgs/team/permissions"
+// Read handlers must reject a late result if the native page authority changes
+// while repository callbacks or the read-only host observation are in flight.
+func TestEnvironmentReadPublicationRechecksNativeAuthority(t *testing.T) {
 	for _, read := range []struct {
-		name, suffix, changeAt                           string
-		operator, providerUnavailable, nativeUnavailable bool
+		name, suffix, changeAt                            string
+		operator, authorityUnavailable, nativeUnavailable bool
 	}{
-		{name: "detail/provider", changeAt: permissions},
-		{name: "detail/helper", changeAt: "/inspect"},
-		{name: "detail/native-unavailable", changeAt: "/inspect", nativeUnavailable: true},
-		{name: "detail/degraded-member", changeAt: "/inspect", providerUnavailable: true},
-		{name: "detail/operator", changeAt: "/inspect", operator: true},
-		{name: "members/provider", suffix: "/members", changeAt: permissions},
-		{name: "members/degraded-member", suffix: "/members", changeAt: "/api/v1/repositories/7", providerUnavailable: true},
-		{name: "connection/helper", suffix: "/connection", changeAt: "/connection"},
+		{name: "detail/organization", changeAt: "organization"},
+		{name: "detail/helper", changeAt: "host"},
+		{name: "detail/native-unavailable", changeAt: "host", nativeUnavailable: true},
+		{name: "detail/degraded-member", changeAt: "host", authorityUnavailable: true},
+		{name: "detail/operator", changeAt: "host", operator: true},
+		{name: "members/organization", suffix: "/members", changeAt: "organization"},
+		{name: "members/degraded-member", suffix: "/members", changeAt: "repository", authorityUnavailable: true},
+		{name: "connection/helper", suffix: "/connection", changeAt: "host"},
 	} {
-		for _, change := range []string{"unchanged", "logout", "user", "context", "csrf", "store", "cancel"} {
+		for _, change := range []string{"unchanged", "generation", "actor", "instance"} {
 			t.Run(read.name+"/"+change, func(t *testing.T) {
 				s, _ := managementWebFixture(t)
 				if read.operator {
@@ -42,96 +41,59 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 				require.NoError(t, err)
 				members, err := s.Store.Members(t.Context(), webTerminalProject)
 				require.NoError(t, err)
-				original, err := s.Store.Session(t.Context(), "session-alice")
-				require.NoError(t, err)
-				grant, err := s.Store.Grant(t.Context(), "session-alice", original.User.ID)
-				require.NoError(t, err)
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
-
+				r := apiTestRequest(http.MethodGet, "/api/environments/"+webTerminalProject+read.suffix, "", "alice").WithContext(ctx)
 				changed := false
-				changeSession := func(path string) {
-					if path != read.changeAt {
+				changeAuthority := func(at string) {
+					if at != read.changeAt {
 						return
 					}
 					require.False(t, changed, "read boundary reached more than once")
 					changed = true
+					if change == "unchanged" {
+						return
+					}
+					authority := r.Header.Get(extensions.ContextHeader)
 					switch change {
-					case "logout":
-						logout := httptest.NewRecorder()
-						s.ServeHTTP(logout, apiTestRequest(http.MethodPost, "/api/session/logout", `{}`, "alice"))
-						require.Equal(t, http.StatusNoContent, logout.Code)
-						_, err := s.Store.Session(t.Context(), "session-alice")
-						require.ErrorIs(t, err, store.ErrNotFound)
-					case "user", "context", "csrf":
-						require.NoError(t, s.Store.DeleteSession(t.Context(), "session-alice"))
-						uid, csrf := original.User.ID, original.CSRF
-						if change == "user" {
-							uid = 2
-						} else if change == "csrf" {
-							csrf = "rotated-csrf"
-						}
-						if change == "context" {
-							// Change only the login context, not the token/actor/CSRF/grant.
-							require.NoError(t, s.Store.BeginOAuth(t.Context(), "read-new-context", store.OAuthLogin{}, "", ""))
-							attempt, err := s.Store.ConsumeOAuth(t.Context(), "read-new-context", "")
-							require.NoError(t, err)
-							require.NoError(t, s.Store.FinishOAuth(t.Context(), attempt, original.User, "session-alice", csrf, grant))
-						} else {
-							require.NoError(t, s.Store.CreateGrantedSession(t.Context(), "session-alice", uid, csrf, grant))
-						}
-						replacement, err := s.Store.Session(t.Context(), "session-alice")
-						require.NoError(t, err)
-						require.Equal(t, uid, replacement.User.ID)
-						require.Equal(t, csrf, replacement.CSRF)
-						if change == "context" {
-							require.NotEqual(t, original.ContextID, replacement.ContextID)
-						} else {
-							require.Equal(t, original.ContextID, replacement.ContextID)
-						}
-					case "store":
-						require.NoError(t, s.Store.Close())
-					case "cancel":
-						cancel()
+					case "generation":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(authority, nativeProductGeneration, "expired", 1))
+					case "actor":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(authority, `"id":"1"`, `"id":"2"`, 1))
+					case "instance":
+						r.Header.Set(extensions.ContextHeader, strings.Replace(authority, "native-test-instance", "other-instance", 1))
 					}
 				}
-
-				providerCalls := 0
-				s.Forgejo.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
-					providerCalls++
-					require.Equal(t, http.MethodGet, r.Method)
-					require.Equal(t, "token acting-alice", r.Header.Get("Authorization"))
-					changeSession(r.URL.Path)
-					w := httptest.NewRecorder()
-					switch r.URL.Path {
-					case "/api/v1/user":
-						_, _ = w.WriteString(`{"id":1,"login":"current-login"}`)
-					case "/api/v1/repositories/7":
-						if read.providerUnavailable {
-							w.WriteHeader(http.StatusServiceUnavailable)
-						} else {
-							_, _ = w.WriteString(`{"id":7,"name":"repo","full_name":"team/repo","owner":{"id":99,"login":"team"}}`)
+				callback := func(in extensions.CallbackRequest) extensions.CallbackResponse {
+					switch in.Operation {
+					case extensions.OperationRepository:
+						changeAuthority("repository")
+						if read.authorityUnavailable {
+							return extensions.CallbackResponse{ErrorCode: "unavailable"}
 						}
-					case permissions:
-						_, _ = w.WriteString(`{"is_owner":true}`)
+						return extensions.CallbackResponse{Repository: &extensions.Repository{ID: in.RepositoryID, Owner: "team", Name: "repo", Permission: "write"}}
+					case extensions.OperationOrganizationOwner:
+						changeAuthority("organization")
+						owner := true
+						return extensions.CallbackResponse{Owner: &owner}
 					default:
-						t.Fatalf("unexpected provider operation %s", r.URL.Path)
+						t.Error("unexpected native callback", in.Operation)
+						return extensions.CallbackResponse{ErrorCode: "invalid_operation"}
 					}
-					return w.Result(), nil
-				})}
+				}
 				nativeCalls := 0
-				s.Host.HTTP = &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+				s.Host.HTTP = &http.Client{Transport: roundTrip(func(req *http.Request) (*http.Response, error) {
 					nativeCalls++
-					require.Equal(t, http.MethodPost, r.Method)
+					require.Equal(t, http.MethodPost, req.Method)
 					wantPath := "/inspect"
 					if read.suffix == "/connection" {
 						wantPath = "/connection"
 					}
-					require.Equal(t, wantPath, r.URL.Path, "read must not mutate native state")
+					require.Equal(t, wantPath, req.URL.Path, "read must not mutate native state")
 					var input project.Create
-					require.NoError(t, json.NewDecoder(r.Body).Decode(&input))
+					require.NoError(t, json.NewDecoder(req.Body).Decode(&input))
 					require.Equal(t, project.Create{ID: webTerminalProject}, input)
-					changeSession(r.URL.Path)
+					changeAuthority("host")
 					if read.nativeUnavailable {
 						return nil, errors.New("synthetic-private-helper-error")
 					}
@@ -144,19 +106,9 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 					}
 					return w.Result(), nil
 				})}
-
 				w := httptest.NewRecorder()
-				s.ServeHTTP(w, apiTestRequest(http.MethodGet, "/api/environments/"+webTerminalProject+read.suffix, "", "alice").WithContext(ctx))
-				require.True(t, changed, "request never reached the selected I/O boundary")
-				wantProvider := 3
-				if read.operator {
-					wantProvider = 2
-				} else if read.suffix == "/connection" {
-					wantProvider = 0
-				} else if read.providerUnavailable {
-					wantProvider = 2
-				}
-				require.Equal(t, wantProvider, providerCalls)
+				nativeAPIServeWithCallback(t, s, w, r, callback)
+				require.True(t, changed, "request never reached selected I/O boundary")
 				wantNative := 1
 				if read.suffix == "/members" {
 					wantNative = 0
@@ -164,18 +116,15 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 				require.Equal(t, wantNative, nativeCalls)
 				require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 				require.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
-				for _, secret := range []string{original.CSRF, grant.Access, "synthetic-private-helper-error"} {
-					require.NotContains(t, w.Body.String(), secret)
-				}
-				wantStatus := http.StatusUnauthorized
-				if change == "unchanged" {
-					wantStatus = http.StatusOK
-				} else if read.name == "members/provider" && (change == "store" || change == "cancel") {
-					// The existing membership query fails before final publication.
-					wantStatus = http.StatusServiceUnavailable
-				}
-				require.Equal(t, wantStatus, w.Code, w.Body.String())
-				if change == "unchanged" {
+				require.NotContains(t, w.Body.String(), "synthetic-private-helper-error")
+				if change != "unchanged" {
+					require.Equal(t, http.StatusUnauthorized, w.Code, w.Body.String())
+					var result map[string]json.RawMessage
+					require.NoError(t, json.Unmarshal(w.Body.Bytes(), &result))
+					require.Len(t, result, 1, "refusal must not include protected data")
+					require.Contains(t, result, "error")
+				} else {
+					require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 					var result struct {
 						Environment          api.EnvironmentView  `json:"environment"`
 						Observed             *project.Environment `json:"observed"`
@@ -191,12 +140,12 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 						RoutingVerified bool               `json:"routing_verified"`
 					}
 					require.NoError(t, json.Unmarshal(w.Body.Bytes(), &result))
-					require.Equal(t, read.providerUnavailable, result.AuthorityUnavailable)
+					require.Equal(t, read.authorityUnavailable, result.AuthorityUnavailable)
 					switch read.suffix {
 					case "":
 						require.Equal(t, api.EnvironmentDTO(stored), result.Environment)
 						require.Equal(t, "original-alice", result.Login)
-						require.Equal(t, !read.providerUnavailable, result.Administrator)
+						require.Equal(t, !read.authorityUnavailable, result.Administrator)
 						require.Equal(t, read.nativeUnavailable, result.NativeUnavailable)
 						if read.nativeUnavailable {
 							require.Nil(t, result.Observed)
@@ -204,13 +153,11 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 							require.Equal(t, &project.Environment{ID: webTerminalProject, IP: "10.89.0.2", Running: true}, result.Observed)
 						}
 					case "/members":
-						if read.providerUnavailable {
+						if read.authorityUnavailable {
 							require.Len(t, result.Items, 1)
 							require.Equal(t, "1", result.Items[0].UserID)
-							require.Equal(t, "original-alice", result.Items[0].Login)
 						} else {
 							require.Len(t, result.Items, 2)
-							require.Contains(t, w.Body.String(), "original-bob")
 						}
 					case "/connection":
 						require.Equal(t, "original-alice", result.Login)
@@ -219,25 +166,16 @@ func TestEnvironmentReadPublicationRechecksSession(t *testing.T) {
 						require.Equal(t, "SHA256:fixture", result.Connection.Fingerprint)
 						require.False(t, result.RoutingVerified)
 					}
-				} else {
-					var result map[string]json.RawMessage
-					require.NoError(t, json.Unmarshal(w.Body.Bytes(), &result))
-					require.Len(t, result, 1, "refusal must not include protected data")
-					require.Contains(t, result, "error")
-					if wantStatus == http.StatusUnauthorized {
-						require.Contains(t, w.Body.String(), `"code":"unauthenticated"`)
-					}
 				}
-				if change != "store" {
-					retained, err := s.Store.Project(t.Context(), webTerminalProject)
-					require.NoError(t, err)
-					require.Equal(t, stored, retained)
-					retainedMembers, err := s.Store.Members(t.Context(), webTerminalProject)
-					require.NoError(t, err)
-					require.Equal(t, members, retainedMembers)
-					_, err = s.Store.Session(t.Context(), "session-bob")
-					require.NoError(t, err, "read/logout must preserve the other actor")
-				}
+				retained, err := s.Store.Project(t.Context(), webTerminalProject)
+				require.NoError(t, err)
+				require.Equal(t, stored, retained)
+				retainedMembers, err := s.Store.Members(t.Context(), webTerminalProject)
+				require.NoError(t, err)
+				require.Equal(t, members, retainedMembers)
+				otherActor, err := s.Store.User(t.Context(), 2)
+				require.NoError(t, err, "read must preserve the other actor profile")
+				require.Equal(t, "bob", otherActor.Login)
 			})
 		}
 	}

@@ -94,7 +94,7 @@ func nativeTerminalCallback(t *testing.T, permission *atomic.Value) string {
 
 func nativeTerminalProxyFixture(t *testing.T) (*httptest.Server, *terminalNativeFixture, *atomic.Value, string) {
 	t.Helper()
-	s, _, host, _ := terminalWebFixture(t, 0)
+	s, _, host, _ := terminalWebFixture(t)
 	permission := &atomic.Value{}
 	permission.Store("write")
 	t.Setenv(extensions.ServiceCallbackEnv, nativeTerminalCallback(t, permission))
@@ -178,7 +178,7 @@ func TestNativeTerminalReserveCreateAttachAndAuthority(t *testing.T) {
 		t.Cleanup(func() { conn.CloseNow() })
 		ctx, done := context.WithTimeout(t.Context(), 3*time.Second)
 		defer done()
-		in := map[string]any{"action": "create", "id": reserved.ID, "name": "Shell", "expected_user_id": "1", "repository_id": "7", "session_generation": generation, "cols": 80, "rows": 24}
+		in := map[string]any{"action": "create", "id": reserved.ID, "name": "Shell", "repository_id": "7", "session_generation": generation, "cols": 80, "rows": 24}
 		data, _ := json.Marshal(in)
 		if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
 			t.Fatal(err)
@@ -196,7 +196,7 @@ func TestNativeTerminalReserveCreateAttachAndAuthority(t *testing.T) {
 	_, ready, err := conn.Read(ctx)
 	done()
 	if err != nil || string(ready) != `{"type":"ready"}` || host.count("create") != 1 {
-		t.Fatalf("native terminal did not attach: %v %s", err, ready)
+		t.Fatalf("native terminal did not attach: %v %s (reserve=%d create=%d attach=%d id=%q)", err, ready, host.count("reserve"), host.count("create"), host.count("attach"), reserved.ID)
 	}
 	ctx, done = context.WithTimeout(t.Context(), 3*time.Second)
 	if err := conn.Write(ctx, websocket.MessageText, []byte(`{"type":"input","data":"YQ=="}`)); err != nil {
@@ -216,5 +216,12 @@ func TestNativeTerminalReserveCreateAttachAndAuthority(t *testing.T) {
 	ended := nativeTerminalRequest(t, proxy, origin, http.MethodPost, base+"/terminal-sessions/"+reserved.ID, nativeTerminalGeneration, []byte(`{"action":"end"}`))
 	if ended.StatusCode != http.StatusOK || host.count("end") != 1 {
 		t.Fatalf("native terminal End returned %d", ended.StatusCode)
+	}
+	replayed := connect(nativeTerminalGeneration)
+	ctx, done = context.WithTimeout(t.Context(), 3*time.Second)
+	_, _, err = replayed.Read(ctx)
+	done()
+	if err == nil || host.count("create") != 1 {
+		t.Fatal("ended terminal ID authorized another native Create")
 	}
 }

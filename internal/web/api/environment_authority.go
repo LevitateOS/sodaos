@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -23,66 +22,23 @@ var (
 type repositoryAccess struct {
 	actor      forgejo.User
 	repository forgejo.Repository
-	grant      store.Grant
 	native     bool
 }
 
-func repositoryConsentOK(grant store.Grant) bool {
-	return forgejo.HasScope(grant.Scopes, "read:user") && forgejo.HasScope(grant.Scopes, "read:repository")
-}
-
-func denyHiddenRepository(err error) error {
-	var native *forgejo.HTTPError
-	if errors.As(err, &native) && hiddenRepositoryStatus(native.Status) {
-		return errors.Join(errRepositoryDenied, err)
-	}
-	return err
-}
-
-func hiddenRepositoryStatus(status int) bool {
-	return status == 403 || status == 404
-}
-
-func (s *API) providerActor(ctx context.Context, grant store.Grant, v store.Session) (forgejo.User, error) {
-	actor, err := s.Forgejo.Current(ctx, grant.Access)
-	if err != nil {
-		return actor, err
-	}
-	if actor.ID != v.User.ID {
-		return actor, auth.ErrProviderIdentity
-	}
-	if actor.Login == "" {
-		return actor, forgejo.ErrInvalidResponse
-	}
-	return actor, nil
-}
-
 func (s *API) visibleRepository(r *http.Request, v store.Session, id int64) (repositoryAccess, error) {
-	var access repositoryAccess
-	if authority, ok := requestExtensionAuthority(r); ok {
-		return s.nativeVisibleRepository(r, v, id, authority)
+	authority, ok := requestExtensionAuthority(r)
+	if !ok {
+		return repositoryAccess{}, errors.New("native authority is unavailable")
 	}
-	grant, err := s.Auth.UserGrant(r, v)
-	if err != nil {
-		return access, err
-	}
-	if !repositoryConsentOK(grant) {
-		return access, auth.ErrRepositoryConsent
-	}
-	actor, err := s.providerActor(r.Context(), grant, v)
-	if err != nil {
-		return access, err
-	}
-	repo, err := s.Forgejo.RepositoryByID(r.Context(), grant.Access, id)
-	if err != nil {
-		return access, denyHiddenRepository(err)
-	}
-	return repositoryAccess{actor: actor, repository: repo, grant: grant}, nil
+	return s.nativeVisibleRepository(r, v, id, authority)
 }
 
 func (s *API) nativeVisibleRepository(r *http.Request, v store.Session, id int64, authority extensions.Authority) (repositoryAccess, error) {
 	repository, err := authority.Native().Repository(r.Context(), strconv.FormatInt(id, 10))
 	if err != nil {
+		if errors.Is(err, extensions.ErrRepositoryNotVisible) {
+			return repositoryAccess{}, errors.Join(errRepositoryDenied, err)
+		}
 		return repositoryAccess{}, err
 	}
 	actor := forgejo.User{ID: v.User.ID, Login: authority.Actor.Username, Admin: authority.Actor.SiteAdmin}
@@ -127,22 +83,11 @@ func (s *API) environmentAdministrator(r *http.Request, a repositoryAccess) (boo
 	if a.repository.Owner.ID == a.actor.ID {
 		return true, nil
 	}
-	if a.native {
-		authority, ok := requestExtensionAuthority(r)
-		if !ok {
-			return false, errors.New("native authority is unavailable")
-		}
-		return authority.Native().OrganizationOwner(r.Context(), a.repository.Owner.Login)
+	authority, ok := requestExtensionAuthority(r)
+	if !ok {
+		return false, errors.New("native authority is unavailable")
 	}
-	if !forgejo.HasScope(a.grant.Scopes, "read:organization") {
-		return false, store.ErrGrantUnavailable
-	}
-	owner, err := s.Forgejo.OrganizationOwner(r.Context(), a.grant.Access, a.actor.Login, a.repository.Owner.Login)
-	var native *forgejo.HTTPError
-	if errors.As(err, &native) && (native.Status == 403 || native.Status == 404) {
-		return false, nil
-	}
-	return owner, err
+	return authority.Native().OrganizationOwner(r.Context(), a.repository.Owner.Login)
 }
 
 type environmentReader struct {

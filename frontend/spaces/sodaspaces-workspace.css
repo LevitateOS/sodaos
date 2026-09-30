@@ -1,11 +1,6 @@
-/* Shared workspace presentation; page-only shell rules are explicitly scoped.
-   Pane coordinates, measured cells, clipping and hit regions are geometry. */
-/* Native page geometry stays inside its explicit mount. */
+/* Shared workspace presentation; pane geometry stays inside its mount. */
 .soda-spaces-page-mount { min-height: 0; min-width: 0; }
 .soda-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; clip-path: inset(50%); white-space: nowrap; }
-.soda-page.soda-native-page:has([data-view="spaces"]) { padding: 0; margin: 0; min-height: 0; }
-.soda-page.soda-native-page:has([data-view="spaces"]) > .soda-page-container { max-width: none; width: 100% !important; padding: 0; margin: 0; }
-.soda-page.soda-native-page:has([data-view="spaces"]) .soda-page-intro { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip-path: inset(50%); }
 .soda-workspace { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; font: var(--soda-font-workspace); color: var(--soda-page-text); }
 .soda-workspace [hidden] { display: none !important; }
 .soda-workspace p { margin: var(--soda-space-1) var(--soda-space-2); overflow-wrap: anywhere; }

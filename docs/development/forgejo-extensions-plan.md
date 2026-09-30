@@ -199,16 +199,20 @@ work against frozen source inputs, then inspect the result when it completes.
   and reconnect continuity, logout and membership revocation, and explicit End
   with no remaining terminal record through the live Forgejo-to-Soda route. The
   project used a private `0:1179648:262144` user namespace and `network=none` in a
-  task-scoped rootful Podman store. Rootless setup was also tested after the
-  approved non-overlapping `917504:262144` UID/GID allocation, but `crun` denied
-  the project container's `gid_map` with `EPERM`; this remains a runtime limitation.
+  task-scoped rootful Podman store. On the Soda Linux host, the existing
+  non-overlapping `917504:262144` UID/GID allocation met the requested range, but
+  rootless `crun` still denied the project container's `gid_map` with `EPERM`; this
+  remains a runtime limitation. No shared allocation was changed.
   The passing route test is development evidence, not installed or release
   qualification. Existing shared Podman services and containers were left running.
-- [ ] **R04 — Land the complete browser cutover.** Needs: A06, A07, B04, B07, B08, C07.
+- [x] **R04 — Land the complete browser cutover.** Needs: A06, A07, B04, B07, B08, C07.
   Review and commit the coordinated routes/assets/configuration/policy change.
   Done when only the native integration is shipped, required-package activation
   is coherent, and retained credential/branding behaviors have focused evidence.
   Do not use a transient development seam as a shipped compatibility path. Scope: P4–P7.
+  The cutover is committed with focused API/store, extension-source-closure,
+  Forgejo-payload, browser, and branding-preview checks passing. The unsupported
+  rootless `gid_map` limit and unqualified native candidate remain R05/R06 work.
 - [ ] **R05 — Accept integrated native development.** Needs: R04.
   Run/reuse the affected native image, installed browser and lifecycle journeys
   against the same identified artifacts. Done when the P8 development matrix is
@@ -329,15 +333,22 @@ work against frozen source inputs, then inspect the result when it completes.
   confirms patched Forgejo, the standalone Soda package/backend, cross-UID IPC and
   denied private-resource access. A clean candidate and aarch64 evidence remain
   downstream. Keep recipe edits separate from C's frontend package content. Scope: P7.
-- [ ] **B07 — Integrate existing candidate provenance and inventories.** Needs: R03, B06.
+- [x] **B07 — Integrate existing candidate provenance and inventories.** Needs: R03, B06.
   Extend current staging/build/installed readers for host/package/service hashes,
   native architecture and independent package replacement. Done when the existing
   development producer records actual artifacts without a second release driver.
-- [ ] **B08 — Remove obsolete staging and public adapter routing.** Needs: B10, B07, C07.
+  Candidate provenance now binds the dashboard executable, units, fork, and
+  independent Soda package; installed verification checks replacement bytes only
+  after the activation-gated installer runs. Linux-target image test binary
+  compilation passes. Actual candidate/installed evidence remains R05.
+- [x] **B08 — Remove obsolete staging and public adapter routing.** Needs: B10, B07, C07.
   Remove only obsolete template/bootstrap/assets/proxy/configuration entries using
   C07's replacement map. Done when packaged content includes native mounts and
   retains branding, notification/action/switcher features and credential custody.
   This is the packaging half of R04's coordinated cutover. Scope: P4/P5/P7.
+  The payload now stages only Forgejo presentation assets; the native Soda package
+  owns its mounts. A generated branding preview and payload/source-closure checks
+  pass, with callback routing retained and the broad Soda proxy route removed.
 - [x] **B09 — Finish source/notices and maintenance packaging.** Needs: B02, B06.
   Verify source and license inclusion for fork/SDK/package and the reproducible
   upstream update procedure. The archived fork source and SodaOS package-source
@@ -401,15 +412,20 @@ work against frozen source inputs, then inspect the result when it completes.
   access. This work can run before A04 finishes if C04 is waiting for transport;
   prioritize C05 once its predecessors pass. Scope: P4/P5. Active native consumers
   now use the extension transport across these areas; focused tests report 21 passed
-  and one unavailable browser case skipped, with active-source typecheck, Lit,
-  complexity, lint and fixture-bundle checks passing. Two full test-typecheck errors
-  remain in the retired drawer path, which C07 removes with its callers.
-- [ ] **C07 — Delete the replaced product auth and shell implementation.** Needs: C05, C06.
+  and one unavailable browser case skipped. Active-source and test typechecks, Lit,
+  complexity, lint and fixture-bundle checks pass after C07 removed the obsolete
+  drawer path and its callers.
+- [x] **C07 — Delete the replaced product auth and shell implementation.** Needs: C05, C06.
   Remove old browser OAuth/session/return, expected-user workaround, shell/frame,
   `soda-view` and injection callers with their tests; update current API/credential/
   terminal guides. Done when product source has one current path and B receives
   the exact obsolete staging/config entries. Preserve shared credential custody
   and independent native presentation; R04 waits for B08 as well. Scope: P4/P5.
+  Retired browser-session tables and their unreleased migration chain are removed
+  from the current format. Schema version 14 creates only native/current product
+  tables; older versioned files are refused without mutation. Encrypted native
+  identity credentials keep their existing grant-key binding. Current API, store,
+  extension source-closure, packaging and docs checks pass.
 
 ### Q — Existing production-qualification dependency
 

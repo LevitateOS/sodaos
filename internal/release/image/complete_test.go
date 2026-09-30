@@ -58,8 +58,8 @@ func TestCompleteCandidateBindingsAndStateOwnership(t *testing.T) {
 		require.NoError(t, ownedWrite(filepath.Join(context, "rootfs", name), []byte(data), 0o644))
 	}
 	for name, data := range map[string]string{
-		"templates/custom/header.tmpl":                   "fixture header",
-		"public/assets/soda/forgejo/soda-native-page.js": "fixture module",
+		"templates/custom/header.tmpl":                     "fixture header",
+		"public/assets/soda/forgejo/repository-actions.js": "fixture module",
 	} {
 		require.NoError(t, ownedWrite(filepath.Join(forgejo, "forgejo", name), []byte(data), 0o644))
 	}

@@ -672,12 +672,11 @@ export class SodaTerminal extends LitElement {
     return !this.live(n);
   }
   private attachPayload(action: 'attach' | 'create', cols: number, rows: number) {
-    const {expectedUserId, repositoryId} = this.binding!;
+    const {repositoryId} = this.binding!;
     return {
       action,
       id: this.sessionID,
       ...(action === 'create' ? {name: this.createName} : {}),
-      expected_user_id: expectedUserId,
       repository_id: repositoryId,
       session_generation: this.binding?.transport.generation,
       cols,

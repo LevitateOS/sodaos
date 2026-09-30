@@ -26,21 +26,6 @@ type IdentityClient interface {
 	Revoke(context.Context, int64, string) error
 }
 
-func (s *API) identityRoutes() {
-	s.mux.HandleFunc("/api/environments/{id}/identity/launch", s.Auth.Protected(s.apiIdentityLaunch, "POST"))
-	s.mux.HandleFunc("/api/identity/connections", s.Auth.Protected(s.apiIdentityConnections, "GET"))
-	s.mux.HandleFunc("/api/identity/enrollments", s.Auth.Protected(s.apiIdentityStartEnrollment, "POST"))
-	s.mux.HandleFunc("/api/identity/enrollments/{identityID}", s.Auth.Protected(s.apiIdentityEnrollment, "GET"))
-	s.mux.HandleFunc("/api/identity/enrollments/{identityID}/cancel", s.Auth.Protected(s.apiIdentityCancelEnrollment, "POST"))
-	s.mux.HandleFunc("/api/identity/connections/{identityID}/grants", s.Auth.Protected(s.apiIdentityGrants, "GET"))
-	s.mux.HandleFunc("/api/identity/connections/{identityID}/leases", s.Auth.Protected(s.apiIdentityLeases, "GET"))
-	s.mux.HandleFunc("/api/identity/connections/{identityID}/revoke", s.Auth.Protected(s.apiIdentityRevoke, "POST"))
-	s.mux.HandleFunc("/api/identity/grants/{identityID}/revoke", s.Auth.Protected(s.apiIdentityRevokeGrant, "POST"))
-	s.mux.HandleFunc("/api/identity/leases/{identityID}/end", s.Auth.Protected(s.apiIdentityEndLease, "POST"))
-	s.mux.HandleFunc("/api/environments/{id}/identity/grants", s.Auth.Protected(s.apiIdentityCreateGrant, "POST"))
-	s.mux.HandleFunc("/api/environments/{id}/identity/connections", s.Auth.Protected(s.apiIdentityAvailable, "GET"))
-}
-
 func identityError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, identity.ErrDenied):
@@ -104,16 +89,20 @@ func (s *API) apiIdentityStartEnrollment(w http.ResponseWriter, r *http.Request,
 	}
 	result, err := s.Identity.StartEnrollment(r.Context(), v.User.ID, input.ProviderID, input.Label)
 	if err == nil {
-		err = s.bindIdentityEnrollment(w, r, v, input.ProviderID, result)
+		err = s.bindIdentityEnrollment(r, v, input.ProviderID, result)
 	}
 	s.identityResult(w, r, v, result, err)
 }
 
-func (s *API) bindIdentityEnrollment(w http.ResponseWriter, r *http.Request, v store.Session, providerID string, result identity.Enrollment) error {
+func (s *API) bindIdentityEnrollment(r *http.Request, v store.Session, providerID string, result identity.Enrollment) error {
 	if providerID != identity.Forgejo {
 		return nil
 	}
-	err := s.Auth.BindBrokerEnrollment(w, r, v, result)
+	if _, native := requestExtensionAuthority(r); !native || !s.extensionSessionCurrent(r.Context(), r, v) {
+		_ = s.Identity.CancelEnrollment(r.Context(), v.User.ID, result.ID)
+		return identity.ErrDenied
+	}
+	err := s.Auth.BindNativeBrokerEnrollment(v.User.ID, result)
 	if err != nil {
 		_ = s.Identity.CancelEnrollment(r.Context(), v.User.ID, result.ID)
 	}
@@ -168,7 +157,7 @@ func (s *API) apiIdentityCancelEnrollment(w http.ResponseWriter, r *http.Request
 	s.identityMutation(w, r, v, func(ctx context.Context, owner int64, id string) error {
 		err := s.Identity.CancelEnrollment(ctx, owner, id)
 		if err == nil {
-			s.Auth.ForgetBrokerEnrollment(r, v, id)
+			s.Auth.ForgetNativeBrokerEnrollment(owner, id)
 		}
 		return err
 	})

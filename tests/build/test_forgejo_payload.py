@@ -43,33 +43,15 @@ class ForgejoPayload(unittest.TestCase):
         self.assertEqual(files['public/assets/soda/forgejo/lit.LICENSE'], 'appliance/licenses/lit-LICENSE')
         self.assertIn('options/locale/locale_en-US.ini', files)
 
-    def test_spaces_page_assets_use_the_canonical_public_payload(self):
-        files = json.loads((ROOT / 'internal/release/build/forgejo-payload.json').read_text())
-        page = (ROOT / 'appliance/forgejo/templates/user/dashboard/dashboard.tmpl').read_text()
-        self.assertIn('soda-native-page.js', page)
-        self.assertFalse((ROOT / 'internal/web/templates/spaces.html').exists())
-        self.assertIn('public/assets/sodaspaces-page.js', files)
-        self.assertIn('public/assets/sodaspaces-project.js', files)
-        self.assertIn('public/assets/sodaspaces-drawer.js', files)
-        self.assertNotIn('window.config', page)
-        self.assertNotIn('webcomponents-loader', page)
-        self.assertNotIn('htmx', page)
-        self.assertNotIn('type="application/json"', page)
+    def test_extension_pages_are_declared_in_native_package(self):
+        extension = json.loads((ROOT / 'appliance/soda-extension/extension.json').read_text())
+        self.assertEqual({entry['id'] for entry in extension['pages']}, {'spaces', 'runners', 'tailnet'})
 
-    def test_operator_settings_page_and_shared_runner_decoder_are_staged(self):
-        files = json.loads((ROOT / 'internal/release/build/forgejo-payload.json').read_text())
-        page = (ROOT / 'appliance/forgejo/templates/user/dashboard/dashboard.tmpl').read_text()
-        self.assertIn('public/assets/soda-settings.css', files)
-        self.assertIn('public/assets/soda-runners-page.js', files)
-        self.assertFalse((ROOT / 'internal/web/templates/runners.html').exists())
-        self.assertFalse((ROOT / 'internal/web/templates/repository-spaces.html').exists())
-        self.assertEqual(files['public/assets/soda-runner-response.js'], '@build/forgejo-js/soda-runner-response.js')
+    def test_operator_settings_use_the_separate_package(self):
+        package = json.loads((ROOT / 'appliance/soda-extension/extension.json').read_text())
         self.assertEqual(
-            files['public/assets/soda/forgejo/soda-settings-link.js'], '@build/forgejo-js/soda-settings-link.js'
+            {entry['id'] for entry in package['pages'] if entry['scope'] == 'admin'}, {'runners', 'tailnet'}
         )
-        self.assertNotIn('window.config', page)
-        self.assertNotIn('registration_token', page)
-        self.assertNotIn('iframe', page)
 
     def test_locale_fetch_is_locked_and_preserves_native_catalog(self):
         native = b'[common]\nname = Native\n[settings]\ntitle = Settings\n'

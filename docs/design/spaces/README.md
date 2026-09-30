@@ -1,8 +1,9 @@
 # Spaces visual design sheets
 
-The current design is [Parallel work, one terminal workspace](../spaces-ux.md),
-with the complementary [right-half drawer design](../spaces-ux.md).
-It replaces the earlier grid-first interactive mockup after research into cmux,
+These sheets record layout exploration for [Spaces](../../product/spaces.md),
+including an earlier right-half drawer concept. The current product uses a
+Fountain-hosted page and persistent Workspace panel. The sheets replaced an
+earlier grid-first interactive mockup after research into cmux,
 Superset, Agent Deck, Wave, Zellij and Conductor. These are **static annotated drawings**,
 not live UI, another app to connect to, or installed-product screenshots.
 
@@ -20,8 +21,8 @@ not live UI, another app to connect to, or installed-product screenshots.
 Native pages are schematic context, not newly authored replacements for Forgejo's
 UI or captures of its actual handlers. In particular, keep the merged native compact
 repository header/action disclosure rather than reproducing schematic native chrome.
-The [Lit implementation plan](../../development/lit.md) owns the real shared
-page/drawer sequence; these sheets are design inputs, not a component prototype. All session names, output and state are fictional. “Working” / “Waiting” require a
+The [Lit guide](../../development/lit.md) describes the current component ownership;
+these sheets are design inputs, not a component prototype. All session names, output and state are fictional. “Working” / “Waiting” require a
 real explicit signal integration before the product may show them. The sheets do not
 supply that integration, real xterm rendering, authentication, multiple native sessions,
 mobile keyboard behavior or retention/process proof. Refer to the specification for
@@ -57,8 +58,8 @@ These are drawing checks, **not UI interaction tests or product acceptance**.
 
 The SVG/CSS asset references are fulfilled by the renderer; opening a naked SVG
 in an arbitrary file viewer need not load those assets. Use its PNG outputs for review.
-No new browsing endpoint is required. Real Spaces belongs at `/-/soda/spaces` on the
-existing application origin (33443 in the isolated deployment), after implementation.
+No new browsing endpoint is required. Fountain hosts the current Spaces extension
+page and Workspace panel on the configured Forgejo origin.
 
 ## Superseded mockup
 

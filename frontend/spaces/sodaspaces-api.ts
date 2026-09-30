@@ -45,23 +45,6 @@ export const projectId = (value: unknown): value is string =>
   typeof value === 'string' && /^p[0-9a-f]{24}$/.test(value);
 export const fingerprint = (value: unknown): value is string =>
   typeof value === 'string' && /^SHA256:[A-Za-z0-9+/]{43}$/.test(value);
-export interface Session {
-  user: {id: string; login: string};
-  csrf_token: string;
-  forgejo_url: string;
-}
-export function sessionResponse(value: unknown, origin: string): Session {
-  const data = object(value),
-    user = object(data.user);
-  check(
-    id(user.id) &&
-      typeof user.login === 'string' &&
-      typeof data.csrf_token === 'string' &&
-      /^[A-Za-z0-9_-]{1,128}$/.test(data.csrf_token) &&
-      data.forgejo_url === origin
-  );
-  return {user: {id: user.id, login: user.login}, csrf_token: data.csrf_token, forgejo_url: origin};
-}
 export interface CreationProfile {
   id: string;
   distribution: string;
