@@ -12,8 +12,8 @@ here; tool transport lives in [Native support](native-support.md).
 | Native stage checks | `scripts/check-native.sh` against a prepared matching-architecture stage |
 | Installed journeys | Real appliance/project behavior on an authorized target |
 
-Cross-compilation or emulation is not native proof. x86_64 and aarch64 evidence
-are independent.
+Cross-compilation or emulation is not native proof. Native validation follows the
+[platform scope](../architecture/release.md#architectures).
 
 ## Source checks
 
@@ -110,7 +110,7 @@ merely to exhaust timers or simulate duplicate events.
 | Spaces and human access | Authorized viewers see actual factory output with correct issue/run identity; input and human-terminal End cannot control it. Navigation, splits, hide/show and closing/reopening views preserve the execution binding. Session/permission loss disconnects views and cached pages cannot reveal another actor's private state. Human Join, member-only terminals/End, explicit-key SSH/SCP/SFTP and ordinary Git remain usable. | Actual factory and human browser journeys through the native host, including forged input/control requests and access loss. Mocked components and native tmux attachment alone do not pass. |
 | Intervention and persistence | Block/pause/cancel stop affected agents, preserve work and deny further writes. Cancellation survives issue reopening and new events; only an authorized explicit retry can create another attempt. Takeover follows confirmed stop and credential return/revocation into a member-owned checkout. Project Stop holds admission; Start preserves roots without restoring old runs/leases or independent grants. Controller interruption never silently resumes or duplicates work; failed cleanup remains distinct from outcome. | Coordinated native pause/resume, cancel, takeover, Stop/Start and interruption checks with dirty work and service data present; inspect remaining allowances, process identities and lifecycle authority refusals. |
 | Retained appliance support | LAN routes and service endpoints work without purchased-domain or Tailnet prerequisites; optional Tailnet preserves operator/opt-in policy. Private HTTPS/native origin, bootstrap/helper bounds, stock Cockpit, branding/attribution and separately managed native CI remain usable. Local runner creation remains deferred. | Reuse applicable existing operator, connectivity, human-development and UI checks; verify changed installed paths without building parallel support services. |
-| Delivery and preservation | Exact selected source/runtime versions qualify on each affected native architecture. Installation/update/recovery preserve protected existing state. Obsolete auth/factory callers and fixtures are replaced together; no parallel legacy runtime is needed. | Existing [release qualification](release.md) and [native support](native-support.md) evidence for the shipping candidate. One architecture's receipt or cross-compilation does not qualify the other. |
+| Delivery and preservation | Exact selected source/runtime versions qualify on native x86_64. Installation/update/recovery preserve protected existing state. Obsolete auth/factory callers and fixtures are replaced together; no parallel legacy runtime is needed. | Existing [release qualification](release.md) and [native support](native-support.md) evidence for the shipping candidate. Cross-compilation or emulation does not qualify the native candidate. |
 
 Every advertised coding/review harness must pass its actual launch, result,
 credential and stop contract. Do not infer primary Muse factory support from

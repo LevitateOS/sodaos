@@ -53,7 +53,7 @@ details. A human project account is separate from a factory execution identity.
 
 ## Platforms
 
-Choose x86-64 or AArch64 to match the machine or VM. Run Soda on hardware you
-control or a private cloud instance; Scaleway is the first team cloud path.
+Choose x86-64 hardware or a matching VM. Run Soda on hardware you control or a
+private cloud instance; Scaleway is the first team cloud path.
 WSL2 support for x86-64 Windows gaming PCs is planned for a future release,
 with no WSL2 download. Use the full hardware or VM paths at launch.

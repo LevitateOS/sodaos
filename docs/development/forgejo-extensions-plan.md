@@ -37,8 +37,9 @@ actual Chrome navigation and cache-restoration checks, and package replacement
 evidence showing unchanged host bytes and retained notes. It had not proved a Soda
 terminal, Linux container execution, session-safe streaming, or a qualified
 appliance release. Since then, the checked B01 task records native x86_64 Linux
-host/package execution and replacement; the live isolated Soda bridge, terminal,
-aarch64 qualification and appliance release remain separate gates below.
+host/package execution and replacement; the live isolated Soda bridge, terminal
+and appliance release qualification remain separate gates below under the
+[platform scope](../architecture/release.md#architectures).
 
 ## Target architecture and decisions
 
@@ -147,8 +148,7 @@ file. This list is part of the active plan and is removed with it at completion.
    A finishes the mandatory policy and selected events while B prepares packaging.
    Coordinate C07/B08 cutover before the integrated development journey.
 6. Release admission work has its own dependency chain after native development
-   proof. Final x86_64 and aarch64 qualification may run in parallel on their
-   respective native hosts after one shared source/artifact freeze.
+   proof. Final x86_64 qualification follows the source/artifact freeze.
 
 These are earliest-start bands, not all-lanes-finish-together waves. Start a task
 as soon as its own predecessors and files are available. If a task blocks, select
@@ -168,7 +168,7 @@ establishes a safe order, not a measured globally shortest schedule.
 | C | C01 → C02 → C03 → C04 → C05 → C06 → C07. Pull C06 forward while waiting for streams or the browser host; do not delay ready C05 for optional UI refinement. |
 | R | R00 → R01 → R02 → R03 → R04 → R05 → R06 → R07 as each gate becomes ready. Review small handoffs between gates. |
 
-Q03/Q04 replace A/C's queues after R06. A fixture process waiting for a bounded
+Q03 replaces A's queue after R06. A fixture process waiting for a bounded
 result is not permission to add another agent; its lane can perform disjoint ready
 work against frozen source inputs, then inspect the result when it completes.
 
@@ -191,7 +191,7 @@ work against frozen source inputs, then inspect the result when it completes.
   C03's native x86_64 receipt proves read/mutation, forged-authority and Origin
   denials, cross-UID IPC group access, SELinux/DAC isolation and fail-closed Soda
   outage behavior. It uses inert helper-socket stand-ins; real privileged helper
-  operations, terminal streams and aarch64 remain separate gates.
+  operations and terminal streams remain separate gates.
 - [x] **R03 — Accept the real terminal gate.** Needs: A04, C04.
   Exercise the existing terminal driver through native admission, both proxy
   directions and Soda to an actual retained shell. Done when input/output,
@@ -223,9 +223,9 @@ work against frozen source inputs, then inspect the result when it completes.
 - [ ] **R06 — Freeze qualification inputs and current guides.** Needs: R05, B09, Q02.
   Complete the P8 owner-document map and upstream maintenance procedure, commit
   coherent source in both repositories, and bind the exact native inputs. Done
-  when Q03/Q04 have committed, reproducible identities and no pending source edits.
-- [ ] **R07 — Close the delivery plan.** Needs: Q03, Q04.
-  Check native evidence for every advertised architecture and record exact limits.
+  when Q03 has committed, reproducible identities and no pending source edits.
+- [ ] **R07 — Close the delivery plan.** Needs: Q03.
+  Check native x86_64 evidence and record exact limits.
   Absorb final contracts and delete this completed plan/task list. External
   publication and production activation remain separate actions under the existing
   scope rules. If a required target is unavailable, leave its task and R07 incomplete.
@@ -301,7 +301,7 @@ work against frozen source inputs, then inspect the result when it completes.
   run with SELinux enforcing against the pinned Alpine image: patched musl host and
   standalone package startup, UID/GID 1000 runtime/socket/data ownership, `/data`
   labeling, stop/start replacement, retained private data and unchanged host hash.
-  This does not qualify aarch64 or a production candidate.
+  This does not qualify a production candidate.
 - [x] **B02 — Extract the shared SDK and working callback channel.** Needs: R01.
   Move the single current wire contract and SDK into its independent module;
   connect the instance-bound callback transport and update host/example imports.
@@ -333,7 +333,7 @@ work against frozen source inputs, then inspect the result when it completes.
   fixture starts the intended components; no full release/media orchestration yet.
   Native x86_64 rootless Podman/SELinux evidence in `.artifacts/b06/receipt.md`
   confirms patched Forgejo, the standalone Soda package/backend, cross-UID IPC and
-  denied private-resource access. A clean candidate and aarch64 evidence remain
+  denied private-resource access. A clean qualified candidate remains
   downstream. Keep recipe edits separate from C's frontend package content. Scope: P7.
 - [x] **B07 — Integrate existing candidate provenance and inventories.** Needs: R03, B06.
   Extend current staging/build/installed readers for host/package/service hashes,
@@ -451,14 +451,8 @@ Q tasks reuse lanes after their preceding implementation work is complete.
   Produce and qualify a fresh committed candidate with native evidence for the
   complete P8 matrix and release checks. Done only for the exact qualified bytes;
   retain honest failure scope and do not resume a failed release as qualified.
-- [ ] **Q04 — Qualify native Linux aarch64 (lane C).** Needs: R06.
-  Run the corresponding native target independently with the same source contract.
-  Can run alongside Q03 when distinct native hosts/resources are available. Done
-  only with native evidence; cross-compilation and macOS arm64 do not substitute.
-
-For either target, reuse valid native boundary receipts or run the smallest
-unproved image/package/IPC check before an expensive candidate/media build. A
-passing probe on the other architecture is not a reason to skip that check.
+Reuse valid native x86_64 boundary receipts or run the smallest unproved
+image/package/IPC check before an expensive candidate/media build.
 
 ### Critical path and file handoffs
 
@@ -490,9 +484,7 @@ flowchart LR
     C05 --> CUT[Complete pages, policies and packaging cutover]
     CUT --> R05 --> Q01 --> Q02 --> R06
     R06 --> Q03
-    R06 --> Q04
     Q03 --> R07
-    Q04 --> R07
 ```
 
 The diagram highlights the terminal path and production tail; the task `Needs`
@@ -513,7 +505,7 @@ a running build.
 | Soda auth/API, adapter and browser assets | C owns these files through deletion. A's policy handler uses separately assigned files. B consumes built package output rather than editing C's source. |
 | Containerfile, appliance units, proxy, staging and release inventories | B owns all changes. C supplies obsolete-entry/replacement maps; R groups C07/B08 into the final cutover. |
 | Canonical architecture/product documentation and Git index | R owns shared document changes and stages/commits exact reviewed paths. Workers supply needed edits/receipts; no concurrent staging, broad commits, resets or worktrees. |
-| Native fixture, caches and expensive execution | B owns setup/lifecycle under `/home`; other lanes reserve use before a check or restart. Do not restart/reconfigure it during another lane's stream/browser checks. Freeze build inputs and reuse unchanged artifacts. Q03/Q04 use distinct native target resources. |
+| Native fixture, caches and expensive execution | B owns setup/lifecycle under `/home`; other lanes reserve use before a check or restart. Do not restart/reconfigure it during another lane's stream/browser checks. Freeze build inputs and reuse unchanged artifacts. Q03 uses native x86_64 target resources. |
 
 A completed task handoff is its reviewed code, exact source/artifact identity,
 focused check result, and the next consumer it unblocks. R integrates those
@@ -956,10 +948,9 @@ operation Go tests and frontend checks. Add real-browser/native fixtures only fo
 the boundaries that unit tests cannot establish. Port existing drivers before
 creating another harness; avoid source-string tests that merely mirror new code.
 
-Qualify Linux x86_64 and aarch64 independently on native targets when each is
-advertised. Cross-compilation and the completed macOS arm64 development evidence
-do not qualify either Linux target. Do not block useful development on the sibling
-architecture, but do not declare the two-architecture delivery complete from one.
+Qualify Linux x86_64 on a native target under the
+[platform scope](../architecture/release.md#architectures). Cross-compilation and
+the completed macOS arm64 development evidence do not qualify that Linux target.
 
 Update the owning reference guides as their interfaces land:
 
@@ -1032,7 +1023,7 @@ The delivery is finished only when all of the following are true:
 - Replaced code, configuration, templates, assets and tests are removed together;
   surviving product behavior and credential custody remain covered.
 - The existing pipeline identifies and qualifies the actual native artifacts for
-  each advertised architecture, with source/notices and upstream maintenance
+  native x86_64, with source/notices and upstream maintenance
   accounted for. Development success is not presented as release qualification.
 - Owning guides describe the final implementation, explicit optional work is
   separated, and this completed transition plan is absorbed and removed.

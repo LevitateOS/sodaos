@@ -9,8 +9,8 @@ the [factory walkthrough](../30-Use-Soda/15-software-factory.md).
 ## Prepare the deployment
 
 [Verify the release's QCOW2](05-verify-downloads.md) and use its matching
-provisioning recipe. Select an x86-64 or AArch64 instance of the same architecture,
-with enough storage for persistent project roots, repositories and service data.
+provisioning recipe. Select an x86-64 instance with enough storage for persistent
+project roots, repositories and service data.
 Keep a usable provider/VM console independent of SSH.
 
 Use a trusted LAN for a local VM or private Tailnet connectivity for remote

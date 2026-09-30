@@ -9,7 +9,7 @@ the matching architecture and accompanying installation instructions before setu
 
 Start at the [SodaOS releases](https://github.com/LevitateOS/sodaos/releases/latest)
 from the official website. Read that release's notes and verification instructions.
-Choose x86-64 for x86-64 hardware, or AArch64 for ARM64 hardware and matching VMs.
+Choose the x86-64 artifact for x86-64 hardware or a matching VM.
 
 Use the ISO for installation media, or QCOW2 for disk-image import. Keep the
 selected artifact, its verification metadata and accompanying deployment recipe

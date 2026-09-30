@@ -50,7 +50,7 @@ notes. Verify separately that the SodaOS source archive contains the Soda extens
 package/backend sources and that the bundle carries `soda-LICENSE` and
 `soda-NOTICE`. Bind both source archives, the runtime image and the separately built
 package/image in the candidate inventory, then repeat the affected native installed
-journeys on each architecture claimed by qualification.
+journeys on native `x86_64` under the [platform scope](../architecture/release.md#architectures).
 The candidate also records the native architecture and hashes of the patched
 Forgejo executable, separate package files and host service definitions. The host
 image carries the same inventory at `/usr/share/soda/host-image/content.json` for

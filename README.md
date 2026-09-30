@@ -69,9 +69,9 @@ routing are separate configuration.
 | Release | [Release architecture](docs/architecture/release.md), [Release workflow](docs/development/release.md) |
 | Development | [Development](docs/development/README.md), [Go](docs/development/go.md), [Local testing](docs/guides/local-testing.md), [AGENTS.md](AGENTS.md) |
 
-Native x86_64 and aarch64 are independent targets. Builds, installation, provider
-mutations and destructive cleanup need applicable approval. Preserve credentials,
-project state, backups and failed evidence.
+Supported platform scope belongs to [Release architecture](docs/architecture/release.md#architectures).
+Builds, installation, provider mutations and destructive cleanup need applicable
+approval. Preserve credentials, project state, backups and failed evidence.
 
 ## License
 

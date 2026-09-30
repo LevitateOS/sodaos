@@ -48,7 +48,8 @@ or clearly failed machine state rather than a silently partial appliance.
 
 ## Validation
 
-Media and installation proof are architecture-specific. Diskless boot evidence does
+Validate media and installation on native `x86_64` under the
+[platform scope](../architecture/release.md#architectures). Diskless boot evidence does
 not substitute for fresh-disk installation proof. Candidate identity, download
 integrity and complete local payload availability must hold before installation
 finishes for network-install media.

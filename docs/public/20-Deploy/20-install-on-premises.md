@@ -8,7 +8,7 @@ Continue with [Operator setup](25-operator-setup.md) after installation.
 
 ## Prepare the machine
 
-Choose the x86-64 or AArch64 ISO matching the target, and
+Choose the x86-64 ISO matching the target, and
 [verify the download](05-verify-downloads.md). Have:
 
 - a target disk whose contents may be erased, plus independent backups of

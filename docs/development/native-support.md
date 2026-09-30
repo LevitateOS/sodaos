@@ -407,7 +407,7 @@ Invoke `vm --owner P03 --config FILE --target soda-native-example` with the comm
 
 Work/evidence must be disjoint fresh directories. Preflight checks matching Linux/KVM, tools, trust, paths and loopback port before creating VM state (private diagnostic evidence may exist on preflight failure). The overlay grows only the new disk, never the base. Orderly shutdown and owned process-group termination are bounded independently. Disks/NVRAM remain for inspection, including on failure; no PID-file adoption, global cleanup, project replacement, bridge/tap/firewall setup or persistent `soda-test` adoption occurs.
 
-For aarch64 use its own live-resolved stream entry, `qemu-system-aarch64`, compatible ARM UEFI pair and matching-native hardware. Availability and success are independent of x86_64. Firmware/`fw_cfg` boot behavior and final filesystem capacity still need actual native observation.
+Use the native `x86_64` target under the [platform scope](../architecture/release.md#architectures). Firmware/`fw_cfg` boot behavior and final filesystem capacity still need actual native observation.
 
 ## Installed substrate and retained integrations
 
@@ -476,7 +476,7 @@ claim stays unverified. This is not a second product readiness gate.
 | CoreOS/VM inputs | Missing-tool preflight, version capture and bounded tool phases exist. Independently select trusted signer/keyring and matching per-architecture firmware/tools; exercise retrieval/signature/decompression, strict Ignition and fresh KVM boot/restart/shutdown with retained disk/NVRAM. Never adopt the live guest. |
 | First installation | Route/container-network collision, writable ancestry and booted-deployment checks exist; complete behavioral rejection fixtures and a genuinely fresh exact-target install/activation without repair edits. Reinstalling the persistent guest is not that proof. |
 | Host/operator | Secret/TLS modes, socket/DNAT and enforcing-state checks exist; execute current listener/permission/byte checks, root/non-root Cockpit sessions, interactive/quiet console and native branding. Tailnet mutations and retained runner cleanup require their applicable task authorization. |
-| Reporting/architecture | Keep invocation/exit/evidence/cleanup/artifact outcomes distinct, including missing/failed/not-reached scopes. Native remote dispatcher/transfer/fixture coverage and independent aarch64 results remain incomplete; no inferred full support acceptance. |
+| Reporting/architecture | Keep invocation/exit/evidence/cleanup/artifact outcomes distinct, including missing/failed/not-reached scopes. Native remote dispatcher/transfer/fixture coverage remains incomplete; no inferred full support acceptance. |
 
 Current results and retained evidence belong with the [development index](README.md) and task records,
 not the audit's old worktree mappings. Product reachability, Git/shared tools,

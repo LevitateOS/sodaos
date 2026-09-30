@@ -29,8 +29,13 @@ with the candidate.
 
 ## Architectures
 
-`x86_64` and `aarch64` are independent targets. Cross-compilation or emulation is
-not native proof. Work on one architecture does not imply the sibling.
+SodaOS supports **x86_64 only**. AArch64/ARM64 is unsupported and excluded from
+current implementation, build, delivery and qualification scope. Supporting it
+requires a future explicit product decision; upstream platform support or existing
+experimental selectors do not establish Soda support.
+
+Qualification requires native Linux x86_64 evidence. Cross-compilation, emulation
+and development checks on another host architecture do not qualify the appliance.
 
 ## Media
 

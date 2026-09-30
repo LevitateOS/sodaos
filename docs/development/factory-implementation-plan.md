@@ -21,6 +21,10 @@ Planning is complete; no implementation, build or qualification is authorized by
 this document alone. The linked owning guides remain authoritative for behavior,
 and this plan does not duplicate or replace their requirements.
 
+The sole appliance target is **x86_64**, under the
+[release platform contract](../architecture/release.md#architectures). ARM support
+and qualification are excluded; no ARM machine or evidence is a handoff prerequisite.
+
 ## Source baseline
 
 Recorded on September 30, 2026, before this planning edit:
@@ -86,7 +90,7 @@ on the actual native paths. It is assigned to implementation and proof work:
 | Approved tools, setup and service access may not produce isolated, usable coding and review environments in the full Project OS. | ST01 / M2 prove preparation and human-data preservation; ST05 proves the real maintainer/administrator approval journey. Missing privileged preparation remains an explicit wait. |
 | Actual CLI custody, process identity, delayed starts or credential return may violate the scoped execution contract. | ST02 / M3 prove each exposed harness and broker/host boundary, including targeted stop and restart reconciliation. Unproved harnesses remain unavailable. |
 | Real Spaces attachment, intervention or takeover may fail to preserve execution identity, current authority or unrelated human activity. | ST03–ST04 / M4a–M4b prove browser observation, lifecycle controls and safe transfer independently before composition. |
-| Individually working components may fail when composed or installed as the exact shipping candidate. | ST15 proves the real development loop; ST13–ST14 cover removal and retained support. RT01–RT04 establish protected admission, candidate/media identities and affected native qualification separately for each target. |
+| Individually working components may fail when composed or installed as the exact shipping candidate. | ST15 proves the real development loop; ST13–ST14 cover removal and retained support. RT01–RT03 establish protected admission, candidate/media identities and affected native x86_64 qualification. |
 
 These risks are not unresolved decisions or permission to add alternative runtimes,
 authentication workarounds or speculative recovery services. Follow the
@@ -155,7 +159,7 @@ their boundaries and the [dependency graph](#dependency-graph) orders their inte
 | **D22 — Operator administration and fixed helpers.** [Host helper](../architecture/trust.md#host-helper), [setup](../guides/operator-setup.md), [Cockpit](cockpit.md). | Bootstrap establishes the correct native operator/appliance identity. The isolated backend invokes only authorized fixed host operations with restricted secret inputs. Stock Cockpit continues to provide native diagnosis and administration; no custom Project-management subsystem is restored there. | Native operators retain host logs, storage, networking and service tools. Repository and provider authorities cannot acquire host administration; helper/broker sockets are not exposed through the extension host or Project. | **Soda:** bootstrap, helper validation, packaging and isolation. **Upstream:** Cockpit and host administration. **Fountain:** native identity/permission inputs. | Real setup/helper authorization and isolation checks, rejected arbitrary commands/cross-Project targets and retained Cockpit/operator journeys; protect secret-bearing diagnostics. |
 | **D23 — Retained presentation and attribution.** [Supporting feature disposition](../product/scope.md#appliance-networking-ci-and-delivery), [branding](../design/branding.md). | Soda branding, avatars, console guidance, canonical assets and attribution remain integrated through supported extension/image surfaces. Native Forgejo presentation stays native; superseded copies and standalone shell assets are absent. | Human-facing pages, account imagery and console guidance remain coherent and usable. No new privilege or authentication surface is introduced for presentation. | **Soda:** owned assets, UI and packaging. **Fountain/upstream:** supported native surfaces. | Affected source/browser/branding checks and installed asset/notices inspection; verify actual rendered surfaces rather than screenshots of obsolete pages. |
 | **D24 — One current implementation and cutover.** [Retirement decisions](../product/scope.md#retire), [documentation authority](../README.md#authority-rules). | Replaced OAuth/Git mediation, manual/disposable factory paths, obsolete runner artifacts, presentation patches, formats/callers/configuration/staging and fixtures are removed together. Operator tools and Spaces address one coordinator. Owning references document only interfaces that actually ship. | Existing retained workflows transition to the new native paths without a second login, engine or compatibility branch. Cleanup affects only identified task-owned/obsolete resources; human/project state remains protected. | **Soda:** consumer/runtime removal, caller and documentation cutover. **Fountain:** superseded host seams if applicable. **Upstream:** retained functionality. | Affected caller/staging checks and real retained journeys demonstrate the new path is used. Review removals with replacements; no new permanent subsystem whose sole purpose is detecting retired code. |
-| **D25 — Attributable native appliance delivery.** [Release architecture](../architecture/release.md), [release workflow](release.md), [native input contract](native-support.md#build-and-artifact-contract), [extension maintenance](../architecture/trust.md#maintaining-the-forgejo-extension-layer). | The existing producer/staging/installation/update path carries exact Fountain, SDK/Soda package, service, Project OS and notice/source identities. Release admission rejects failed, cancelled, incomplete or mismatched evidence; native qualification selects the actual candidate bytes; upstream maintenance remains attributable without incidental version upgrades. Backup/recovery and protected existing state remain supported. | Existing native operator installation/activation and recovery retain their authorization boundaries. Build/release or production rollout is not a factory agent action. No failed release is relabeled as qualified. | **Soda:** packaging, producer, installation and qualification. **Fountain:** host/SDK artifacts and generic package integration. **Upstream:** CoreOS/rpm-ostree/container delivery primitives. | Applicable native x86_64/aarch64 candidate/install/update/recovery evidence for each advertised target, exact artifact provenance, admission refusals and state preservation. Development/cross-build evidence does not qualify another architecture. |
+| **D25 — Attributable native appliance delivery.** [Release architecture](../architecture/release.md), [release workflow](release.md), [native input contract](native-support.md#build-and-artifact-contract), [extension maintenance](../architecture/trust.md#maintaining-the-forgejo-extension-layer). | The existing producer/staging/installation/update path carries exact Fountain, SDK/Soda package, service, Project OS and notice/source identities. Release admission rejects failed, cancelled, incomplete or mismatched evidence; native qualification selects the actual candidate bytes; upstream maintenance remains attributable without incidental version upgrades. Backup/recovery and protected existing state remain supported. | Existing native operator installation/activation and recovery retain their authorization boundaries. Build/release or production rollout is not a factory agent action. No failed release is relabeled as qualified. | **Soda:** packaging, producer, installation and qualification. **Fountain:** host/SDK artifacts and generic package integration. **Upstream:** CoreOS/rpm-ostree/container delivery primitives. | Native x86_64 candidate/install/update/recovery evidence, exact artifact provenance, admission refusals and state preservation. Development/cross-build evidence does not qualify the appliance. |
 | **D26 — Demonstrated complete factory.** [Finished product demonstration](testing.md#finished-product-demonstration), [completion evidence](testing.md#recording-completion). | One installed supported system composes the preceding outcomes: accepted issue and blockers → ready Project → real coding CLI → native PR → separate review/fix → complete CI → conditional merge → confirmed issue outcome → eligible dependent pickup. | Actual Spaces and human intervention/access coexist with the loop, protected credentials and preserved human work/services. Normal progress needs no manual issue admission or routine human merge. | **Soda:** composed product and evidence. **Fountain/upstream:** demonstrated native dependencies, not substituted mocks. | The specified real provider/broker/browser/native collaboration journey plus focused rejection/race cases. Receipts bind actual source/runtime/architecture, authority/input/candidate identities, usage and cleanup; no component test or Jev verdict substitutes for composition. |
 
 ### Coverage and boundaries
@@ -289,7 +293,7 @@ credential relay, native SQL read or bypass credential.
 | **A-package** | Work; D01/D22/D24–D25 | — | Build/staging/install selectors and service/Project OS/extension configuration evolve alongside each implementation, including backend Git/private publisher data and socket identity mapping. This group also includes RT01’s protected evidence-admission/finalization mechanism, whose focused proof must pass before R-candidate. Minimal relevant packaging is included in each Native check; this node does not demand a finished production image to discover a boundary. |
 | **C-loop** | Native; D06–D20/D26 development evidence | S-merge, S-spaces, S-life | One bounded composed development journey: accepted issue and blockers → coding → publication/PR → review/correction → native CI → merge/completion → eligible dependent pickup, with control withdrawal and preserved human activity. Use the actual provider/broker/native/browser path and current source identities. This closes orchestration gaps before expensive production qualification; it is not a qualified release. |
 | **R-candidate** | Work; D24–D25 | C-loop, A-support, A-package | Coherent removal/caller/configuration closure and exact Fountain/SDK/Soda/service/Project OS artifacts in the existing native candidate pipeline. Required support/native evidence must match the affected paths. No obsolete alternate runtime remains enabled. |
-| **R-qualify** | Native; D25–D26 | R-candidate | Existing installed acceptance and finished-factory demonstration against identified shipping bytes, including installation/update/recovery and retained support. Qualify each advertised affected architecture independently; reuse valid matching evidence rather than repeating unrelated builds or every harness combination. |
+| **R-qualify** | Native; D25–D26 | R-candidate | Existing installed acceptance and finished-factory demonstration against identified shipping bytes, including installation/update/recovery and retained support. Qualify x86_64; reuse valid matching evidence rather than repeating unrelated builds or every harness combination. |
 
 Package edits start early; **full production qualification follows the critical
 native boundaries and bounded composition**, not the other way around. Reuse
@@ -773,9 +777,8 @@ qualified native upgrade observations.
 | Task and usable outcome | Owning repository / packages | Prerequisites | Required changes and removals | Relevant checks and completion condition |
 | --- | --- | --- | --- | --- |
 | **RT01 — Admit native release evidence through the protected path.** Failed or mismatched runs cannot become releasable, while valid evidence can reach existing finalization without rebuilding tested bytes. | Soda: `tools/soda-build`, `internal/acceptance`, `release/build`, `release/image`, `release/deliver`, installer/recovery owners and existing protected drivers. | Baseline release contracts; establish missing protected native observations with the smallest development target before implementing dependent orchestration | Reconcile retained observations; finish missing protected admission/controller and finalization wiring in current owners. Preserve exact candidate/media identities, fixture-versus-production trust and qualified upgrade-source selection. Replace temporary guards only with working admission; do not merely delete blanket refusals or invent compatibility. | Focused valid/failed/cancelled/incomplete/mismatched/forged-evidence cases, native protected-boundary checks and preservation/recovery observations. **Done:** the executable admission path enforces the release contract; fixture acceptance is explicitly non-qualifying, and any advertised upgrade source has the required real evidence. This does not publish or qualify a candidate. |
-| **RT02 — Produce the coherent native candidate.** Selected Fountain, SDK/Soda package, backend/helpers and Project OS bytes form one attributable staged appliance. | Soda: `soda-build`, `release/build`, `release/image`, `release/deliver`, installer, service/container recipes, stage/native-check scripts. Fountain: exact host/SDK/package identities and notices. | ST15, ST13, ST14, RT01 | Close remaining caller/configuration/format/asset/reference/handbook removal gaps; finish exact source/image/architecture inputs and deployed socket/user mappings. Reuse the existing candidate pipeline and refusal rules; package changes were already exercised in earlier narrow tasks. | Applicable source/staging/native-candidate checks and identity/notice/removal-closure inspection. **Done:** each produced architecture's artifact set is complete and attributable, with no obsolete alternate engine or guessed upgrade claim. Candidate production is not installed qualification. |
+| **RT02 — Produce the coherent native candidate.** Selected Fountain, SDK/Soda package, backend/helpers and Project OS bytes form one attributable staged appliance. | Soda: `soda-build`, `release/build`, `release/image`, `release/deliver`, installer, service/container recipes, stage/native-check scripts. Fountain: exact host/SDK/package identities and notices. | ST15, ST13, ST14, RT01 | Close remaining caller/configuration/format/asset/reference/handbook removal gaps; finish exact x86_64 source/image inputs and deployed socket/user mappings. Remove obsolete Soda ARM target selection, mandatory ARM live-input resolution and corresponding positive fixtures together; unsupported target requests must refuse. Reuse the existing candidate pipeline and refusal rules; package changes were already exercised in earlier narrow tasks. | Applicable source/staging/native-candidate checks and identity/notice/removal-closure inspection. **Done:** the x86_64 artifact set is complete and attributable, and Soda build/delivery entry points reject unsupported architectures without fetching their inputs, with no obsolete alternate engine or guessed upgrade claim. Candidate production is not installed qualification. |
 | **RT03 — Qualify the x86_64 candidate.** Installed evidence establishes the advertised product on that native target. | Soda native acceptance/release/installer owners; actual selected Fountain/Project OS and provider/browser integration. | RT02 for x86_64 | Run the established installation/update/recovery, retained support and finished-factory journeys against the exact candidate; correct failures in their owning tasks. Preserve protected state and failed-run identity; use its artifacts only for separately identified development checks. | Existing native/installed acceptance and D26 with matching artifact/source/architecture evidence. **Done:** every required case for the exact x86_64 bytes passes or the task remains incomplete; no production publication/activation is implied. |
-| **RT04 — Qualify the aarch64 candidate.** Installed evidence independently establishes the advertised product on that native target. | Same existing owners as RT03, using native aarch64 execution/resources. | RT02 for aarch64; independent of RT03 | Perform the corresponding affected native qualification with exact aarch64 bytes. Reuse source-level/shared evidence only at its valid scope; cross-compilation, emulation, macOS arm64 or x86_64 receipts cannot replace native boundaries. | Required native/installed acceptance and D26 evidence for aarch64. **Done:** the advertised target is actually qualified; an unavailable native prerequisite leaves this task incomplete without forcing an unrelated sibling build. |
 
 ### Task coverage and handoffs
 
@@ -787,7 +790,7 @@ qualified native upgrade observations.
 | D11–D14; S-publish/S-review/S-checks/S-merge | ST09–ST12 and their named Fountain operation tasks |
 | D15–D20; S-broker/S-project/S-run/S-views/S-spaces/S-life | ST01–ST06, ST08–ST10 as their execution/control consumers |
 | D21–D24; A-support and coupled retirement | ST13–ST14; required removal closure travels with every replacement task |
-| D25–D26; A-package/C-loop/R-candidate/R-qualify | ST15, RT01–RT04; minimum packaging accompanies all native proof tasks |
+| D25–D26; A-package/C-loop/R-candidate/R-qualify | ST15, RT01–RT03; minimum packaging accompanies all native proof tasks |
 
 FT03/FT04 establish the shared operation/context/recovery seams before FT05–FT08
 spread them to native families. Later per-kind tasks consume that same owner and
@@ -800,13 +803,13 @@ concerns within one coherent cutover, not decomposed into a compatibility backen
 One passing ST02 harness permits its ST03/ST04 and later integration work; additional
 harnesses repeat only the missing M3 path before becoming selectable. ST03 and ST04
 remain independent, and ST11 can progress before intake/coding finishes. FT11–FT14
-remain native-fixture siblings. RT03 and RT04 can run independently when their
-own prerequisites/resources are available. Failure pauses the affected dependent
+remain native-fixture siblings. RT03 follows the x86_64 candidate and its native
+prerequisites/resources. Failure pauses the affected dependent
 branch under the milestone rules; task numbering does not require serial execution.
 
 ### Implementation lanes
 
-The same 33 tasks are arranged into six logical lanes. Arrows show order within
+The 32 tasks are arranged into six logical lanes. Arrows show order within
 a lane; parallel branches do not wait for unrelated work in that lane. These are
 not global waves: a task can proceed when its own prerequisites and resources are
 ready, without waiting for every other lane to reach the same point.
@@ -818,7 +821,7 @@ ready, without waiting for every other lane to reach the same point.
 | Project runtime and sessions | ST01 → ST02 → independently ST03 and ST04, once FT01 also passes. |
 | Factory behavior | ST05 → ST06 → ST07 → ST08 → ST09 → ST10 → ST12. ST11 runs alongside intake/coding after its own prerequisites; ST15 joins the completed loop, Spaces and controls. |
 | Retained support | ST13 independently; ST14 can start unaffected support work from the baseline and finishes after its affected integrations. |
-| Release | RT01 independently; RT02 after the composed demonstration, support work and RT01; RT03/RT04 qualify their respective architectures independently. |
+| Release | RT01 independently; RT02 after the composed demonstration, support work and RT01; RT03 qualifies the x86_64 candidate. |
 
 All existing cross-lane dependencies still apply. The
 [execution assignments](#execution-assignments) retain each task's exact start
@@ -978,9 +981,8 @@ These shared-resource rules apply to every row and all three worker slots:
 | ST14 | Retained support | Support lead | Baseline for unaffected support work. | FT01, ST02, ST04 and ST13 plus affected retained human/network/operator/presentation proof. | Access/network/helper/Cockpit and packaging files with runtime/release work; isolated connectivity/operator/browser fixtures. |
 | ST15 | Factory behavior | Factory lead | ST12, ST03 and ST04, including their transitive native proofs. | Real composed development journey, grants/acceptance, correction, CI, merge/outcome and dependent pickup with human state preserved. | Coordinated Project/provider/native/browser/CI fixture; avoid concurrent authority, lifecycle or recovery changes outside the demonstrated case. |
 | RT01 | Release | Release lead | Baseline release contract; prove missing protected observations narrowly before dependent orchestration. | Working protected admission/finalization mechanism for RT02. Future candidate qualification and unsupported upgrade sources are not prerequisites. | Release/acceptance/installer/recovery files with support work; restricted evidence inputs and isolated native preservation/recovery fixtures. |
-| RT02 | Release | Release lead | ST15, ST13, ST14 and RT01 before complete candidate production. Earlier task-local packaging remains with its owning task. | Attributable, complete candidate/media and source/image/service identities for each produced architecture; installed qualification remains outstanding. | Clean exact source inputs, exclusive native builder/output and generated inventories; coordinate recipe/selector changes before capturing inputs. |
-| RT03 | Release | Release lead | Matching RT02 x86_64 artifacts and native x86_64 resources. | All required exact-candidate installed/native and finished-factory evidence passes for x86_64. | Matching-native installation target, protected state, candidate/media/evidence identity, provider/browser/CI capacity; independent of RT04 when resources permit. |
-| RT04 | Release | Release lead | Matching RT02 aarch64 artifacts and native aarch64 resources; no RT03 dependency. | All required exact-candidate installed/native and finished-factory evidence passes for aarch64. | Matching-native installation target and its own evidence; coordinate shared provider/CI capacity even when architecture fixtures are separate. |
+| RT02 | Release | Release lead | ST15, ST13, ST14 and RT01 before complete candidate production. Earlier task-local packaging remains with its owning task. | Attributable, complete x86_64 candidate/media and source/image/service identities; unsupported Soda architecture selection refuses and installed qualification remains outstanding. | Clean exact source inputs, exclusive native builder/output and generated inventories; coordinate recipe/selector changes before capturing inputs. |
+| RT03 | Release | Release lead | Matching RT02 x86_64 artifacts and native x86_64 resources. | All required exact-candidate installed/native and finished-factory evidence passes for x86_64. | Matching-native installation target, protected state, candidate/media/evidence identity, provider/browser/CI capacity. |
 
 Proof must still match the source, native path and scope consumed downstream.
 Passing source checks alone does not release a native handoff. A resource conflict
@@ -991,19 +993,21 @@ features. Use existing task coordination and fixture controls to resolve it.
 
 The execution list is validated against the existing task definitions:
 
-- All 33 tasks have exactly one execution assignment, one logical lane and one
-  accountable owner. Their original definitions and completion criteria are intact.
+- All 32 tasks have exactly one execution assignment, one logical lane and one
+  accountable owner. Remaining task IDs are stable; release work follows the
+  x86_64-only scope and its updated completion criteria.
 - The separate start/proven dependency graph and the capability graph are acyclic.
   Early starts and scoped proof requirements agree with the original prerequisites.
 - The coordinator owns resolution of shared-code conflicts under the three-worker
   limit; task owners retain their implementation and proof responsibilities.
 - Full RT02 candidate production waits for ST15, ST13, ST14 and RT01, transitively
-  including the required Fountain and Soda proofs. RT03/RT04 then require their
-  matching native candidate and remain independent of each other.
+  including the required Fountain and Soda proofs. RT03 then requires that
+  x86_64 candidate and native execution resources.
 
-No scheduling correction was required. Detailed validation results are recorded in
-Git history. This establishes execution-list consistency, not completed tasks,
-available native resources or permission to start implementation or production builds.
+Detailed validation results and the removal of unsupported ARM qualification are
+recorded in Git history. This establishes execution-list consistency, not completed
+tasks, available native resources or permission to start implementation or
+production builds.
 
 ## Integration, cutover and qualification
 
@@ -1031,7 +1035,7 @@ Spaces observes the recorded execution rather than starting another agent engine
 | Native evidence and automatic intake | FT09 closes the complete writer/recovery domain before FT10 snapshots become authoritative. ST06–ST08 join actual native acceptance, discovery/readiness, assignment and proven Project execution. ST11 can assess real CI independently after its own prerequisites. | Accepted work can reach bounded automatic coding in development. Missing publication/review/merge stages remain visibly unavailable; coding success is not completed issue work. Native fixture reads or a merge-only proof cannot remove the FT09 hold. |
 | Candidate and review | ST09 joins FT11 publication and FT12 PR creation to the retained clean publisher; ST10 joins FT13 review and the separately proven reviewer execution. Each native kind requires FT09 and its own completion evidence. | Development runs can publish, review and correct attributable exact candidates. Each operation retains its own ID, cancellation, effect and completion state in the existing attempt; no direct push/POST fallback fills an unfinished stage. |
 | Complete automatic loop | ST12 joins ST10, ST11 and FT14; ST15 then composes it with ST03/ST04 and all transitive native prerequisites. | The real development demonstration can run after the components pass. Only its passing composed result establishes the complete factory at that scope. A committed merge still waits for native completion and the required issue outcome before dependent pickup. |
-| Qualified appliance | ST13/ST14 close retired-runner and retained-support integration. RT01 supplies protected evidence admission. RT02 assembles the exact candidate after these and ST15; RT03/RT04 qualify their own native target. | The candidate becomes eligible for delivery only for the architecture, harnesses and paths actually qualified. Qualification alone does not sign, publish or activate it. |
+| Qualified appliance | ST13/ST14 close retired-runner and retained-support integration. RT01 supplies protected evidence admission. RT02 assembles the exact candidate after these and ST15; RT03 qualifies x86_64. | The x86_64 candidate becomes eligible for delivery only for the harnesses and paths actually qualified. Qualification alone does not sign, publish or activate it. |
 
 These availability holds belong in the current routes, controls and capability
 declarations; they are not a new feature-flag or version-negotiation subsystem.
@@ -1098,13 +1102,13 @@ legitimate provider/Tailnet OAuth remain under their existing owners.
 | --- | --- | --- |
 | With each affected FT/ST task | Focused source checks, minimum packaging and the named early/native boundary case. RT01's missing protected admission observations may proceed independently on the smallest applicable development target. | Establish the actual dependency before building its orchestration. A fixture approval, prototype gate or old worker receipt retains only its stated scope. No complete production build is required merely to join two components. |
 | After ST12, ST03 and ST04 pass, including their transitive prerequisites | **ST15: the real composed development demonstration.** Use real owner grants and accepted requirements, approved tooling/service preparation, one proved subscription harness, native CI on separately managed capacity and rendered Spaces. | Run the [finished product journey](testing.md#finished-product-demonstration): blocked input and accepted answer, automatic coding, exact PR, independent review/correction, complete checks, conditional merge, confirmed issue outcome and automatic dependent pickup. Keep human dirty work, terminal and service data present. This is developmental evidence, not shipping qualification. |
-| After ST15, ST13, ST14 and RT01 pass | **RT02: produce the first complete FCOS candidate and consuming installation media**, separately for each intended native architecture using the existing build/media pipeline. | Bind exact clean source revisions, candidate/media bytes, configuration and notices. Verify archive/image/installed-inventory identities as required by the release owner. Retained old extension or factory evidence does not certify this assembly. |
-| After the matching RT02 candidate and native execution prerequisites are ready | **RT03 / RT04: qualify the exact installed candidate** on native x86_64 / aarch64, independently. | Exercise the affected installation/update/recovery and retained-support paths, and run the real finished-factory demonstration against these bytes through existing acceptance tooling. Prove each selectable harness's native boundary; one representative composed journey per qualified target need not expand into every harness/component combination. No sibling or emulated receipt substitutes for missing native evidence. |
+| After ST15, ST13, ST14 and RT01 pass | **RT02: produce the first complete FCOS candidate and consuming installation media**, for x86_64 using the existing build/media pipeline. | Bind exact clean source revisions, candidate/media bytes, configuration and notices. Verify archive/image/installed-inventory identities as required by the release owner. Retained old extension or factory evidence does not certify this assembly. |
+| After the matching RT02 candidate and native execution prerequisites are ready | **RT03: qualify the exact installed candidate** on native x86_64. | Exercise the affected installation/update/recovery and retained-support paths, and run the real finished-factory demonstration against these bytes through existing acceptance tooling. Prove each selectable harness's native boundary; one representative composed journey need not expand into every harness/component combination. Emulated or other-architecture receipts cannot substitute for native x86_64 evidence. |
 | After all required cases pass for that target | Protected admission and existing finalization consume the exact successful candidate/media evidence. | Do not rebuild tested shipping bytes to finalize. Advertise only qualified upgrade sources; preserve the current `UpgradeFrom` refusal until real protected evidence supports its replacement. Signing/publication/production activation remain separate authorized actions. |
 
 RT01's prerequisite for RT02 is the working protected admission mechanism, proved
 with bounded evidence. It does not require a future RT02 candidate to have already
-qualified. RT03/RT04 supply that candidate's real installation/update/recovery
+qualified. RT03 supplies that candidate's real installation/update/recovery
 observations; unsupported upgrade sources stay refused until their required native
 evidence exists. This keeps candidate production independent of an unproved
 upgrade claim without dropping update/recovery qualification.
@@ -1122,8 +1126,8 @@ unchanged evidence at its valid scope. Driver-only debugging can use retained
 artifacts in an explicitly non-qualifying development check without rebuilding
 shipping bytes. A shipping change requires refreshed candidate identity and the
 affected evidence; a failed release run remains failed, never relabeled or resumed
-as qualified. An unavailable native target remains unqualified without forcing a
-repeat build of the other architecture.
+as qualified. Missing native x86_64 evidence leaves qualification incomplete;
+repeat builds are justified only by changes or failures in the affected boundary.
 
 ## Source change inventory
 
@@ -1206,6 +1210,15 @@ existing check before that coordinated change lands.
 
 ### Removal closure and retained exceptions
 
+- **Unsupported architecture selection is removed with RT02.** Align
+  [soda-build's architecture input](../../tools/soda-build/main.go),
+  [build architecture mapping](../../internal/release/build/files.go),
+  [live input resolution](../../internal/release/build/coreos_stream.go),
+  [delivery selection](../../internal/release/deliver/fetch.go) and
+  [native checks](../../scripts/check-native.sh), plus their image/staging callers
+  and positive fixtures, with the [platform contract](../architecture/release.md#architectures).
+  A Soda x86_64 build must not require ARM inputs. Retain generic upstream parsing
+  and useful rejection fixtures; this does not restrict Fountain's own platforms.
 - **Disposable worker removal is one coupled change:** control/domain/store
   assumptions, `host/workspace`, broker factory runtime/Muse callers, operator
   config, service wiring, native fixtures and Go ownership checks must agree.

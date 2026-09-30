@@ -140,8 +140,8 @@ justify keeping obsolete implementations alive.
   screenshots or evidence, or request a developer's private SSH key for onboarding.
   Full container inspection and provisioning outputs can contain secrets.
 - Distinguish authored checks, local tests, native builds and installed evidence.
-  x86_64 and aarch64 are targets; cross-compilation/emulation is not native proof,
-  and one architecture's work does not require an unrelated sibling-build gate.
+  SodaOS targets x86_64 only; [Release architecture](docs/architecture/release.md#architectures)
+  owns platform scope. Cross-compilation/emulation is not native proof.
 
 ## Code and tooling
 
@@ -183,9 +183,10 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `bash scripts/check-native.sh ARCH CANDIDATE_DIR` | Verify a soda-build candidate artifacts directory; does not build, install or publish. |
 | `bash scripts/build-native.sh ARCH` | Removed at B6; use `tools/soda-build`. |
 
-`ARCH` is `x86_64` or `aarch64`. Read the deployment/support guides before using
-install/activation, provisioning, VM tools or `tests/installed/`; they can change
-real state. Provisioning output contains sensitive password hashes.
+`ARCH` is `x86_64`, as defined by [platform scope](docs/architecture/release.md#architectures).
+Read the deployment/support guides before using install/activation, provisioning,
+VM tools or `tests/installed/`; they can change real state. Provisioning output
+contains sensitive password hashes.
 
 ## Task-specific documentation
 

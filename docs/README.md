@@ -21,7 +21,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Factory interfaces](architecture/factory-interfaces.md) | Target component APIs, records, transitions and process bindings |
 | [Trust model](architecture/trust.md) | Authority, identity, privilege boundaries |
 | [Networking](architecture/networking.md) | Access, Tailnet, Cockpit boundary |
-| [Release architecture](architecture/release.md) | Install/update candidate model |
+| [Release architecture](architecture/release.md) | Supported platform scope and install/update candidate model |
 
 ## Operate Soda
 
