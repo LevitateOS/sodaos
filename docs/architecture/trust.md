@@ -376,6 +376,28 @@ evidence. Neither process restart nor receipt cleanup may restore an old operati
 execution authority. Completion/cleanup errors are recorded separately from the
 irreversible write.
 
+#### Native enforcement placement
+
+The [source trace](../research/factory-capability-map.md#native-merge-enforcement-trace)
+locates the final veto checkpoint at Git's `reference-transaction prepared` phase
+and the irreversible effect in the subsequent ref-backend finish. Fountain does
+not currently generate that hook. The target needs both this checkpoint and a
+host-owned ordering guard that remains effective after the hook exits, until the
+native writer can no longer commit. This is an enforcement span, not an assertion
+that one callback or database transaction makes Git and SQL atomic.
+
+The guard must cover cancellation, the real source and target refs, relevant PR
+metadata, native authority/verification inputs and their mutation paths. Preserve
+native merge and hook behavior. Its ownership, callback reentrancy, cross-process
+lifetime, crash recovery and writer coverage require native proof before use.
+Controller death cannot release the guard on the assumption that Git also died.
+
+The contract's strict `not_after` cutoff is a separate unresolved requirement:
+prepared-hook time checks and timer cancellation do not prove a physical ref write
+cannot occur later. Do not silently substitute commit-admission expiry or report
+the deadline as enforced. Resolve that semantic/mechanism boundary explicitly
+before enabling the operation.
+
 ## Frontend and session boundary
 
 Forgejo's small maintained extension layer owns native contribution routes,

@@ -173,6 +173,79 @@ test/relay source but incomplete invocation provenance, so it is corroborating
 evidence, not a fresh qualification receipt. Rebuilding the product or adding a
 fake factory endpoint would not close the missing integration.
 
+## Native merge enforcement trace
+
+The source trace uses Fountain `c22b3543` and upstream Git `v2.52.0`, the latter
+matching the earlier laboratory Git version, not a measured shipping Fountain
+binary. Soda's [Fountain wrapper](../../appliance/forgejo.Containerfile) inherits
+Git from its selected base image. Exact binary and ref-backend qualification remain
+necessary; no build or runtime race experiment was performed for this trace.
+
+| Point | What the inspected code establishes | Why it does not finish enforcement |
+| --- | --- | --- |
+| [Native merge entry](../../../forgejo-ext/services/pull/merge.go), `Merge` | A PR-keyed `pullWorkingPool` remains held through the push. [Retargeting](../../../forgejo-ext/services/pull/pull.go), `ChangeTargetBranch`, uses the same pool. | It is process-local and does not serialize arbitrary source/base pushes, native permission/protection/status/review changes or extension cancellation. |
+| [Preparation](../../../forgejo-ext/services/pull/merge_prepare.go), `createTemporaryRepoForMerge` | `head_commit_id` is compared with the fetched temporary tracking ref. `doMergeAndPush` has prepared base/result OIDs and invokes ordinary `git push`. | This snapshot comparison has ended before the receiver commits; there is no operation-bound expected-base or authority fence. |
+| [Pre-receive command](../../../forgejo-ext/cmd/hook.go), `runHookPreReceive`, and [private endpoint](../../../forgejo-ext/routers/private/hook_pre_receive.go) | Proposed old/new/ref tuples reach native authorization and protection logic. Existing native direct-push/admin exceptions remain visible in that logic. | Both endpoint and hook return before publication. A new permission read here alone leaves the same race. The generated `update` handler is a no-op. |
+| Git `ref_transaction_prepare()` | Backend preparation precedes `reference-transaction prepared`, giving a veto while this transaction's refs are locked. | The hook is a child process that exits before backend finish. Its own mutex or SQL transaction does not survive that exit. It cannot wait for commit before returning, because Git is waiting for it. |
+| Git `ref_transaction_commit()` and backend finish | This is the effective publication region after successful prepared-hook return. For the files backend, `files_transaction_finish()` reaches `commit_ref()`/lockfile rename. | The operation guard must still cover the writer here. Git's ref locks do not include application authority, native policy rows or a separate source repository. |
+| [Post-receive](../../../forgejo-ext/routers/private/hook_post_receive.go) and [native merged-state update](../../../forgejo-ext/models/issues/pull.go), `SetMerged` | PR/database completion follows ref publication. | This is an attribution/completion seam, too late to veto. A failed callback/database update cannot undo or disprove the Git write. |
+
+The Git function ordering is directly visible in
+[`refs.c` at v2.52.0](https://github.com/git/git/blob/v2.52.0/refs.c#L2264-L2417).
+The files-backend publication path is in
+[`files_transaction_finish`](https://github.com/git/git/blob/v2.52.0/refs/files-backend.c#L3093-L3154).
+These are upstream mechanisms to retain, not justification for a Soda merge engine
+or a replacement Git ref store.
+
+Fountain currently generates no `reference-transaction` delegate in
+[repository hooks](../../../forgejo-ext/modules/repository/hooks.go). A final
+prepared checkpoint is therefore a proposed integration surface, not an existing
+extension capability. The required placement is **a checkpoint plus a guard that
+outlives it**, spanning the remaining native writer's ability to commit. An ordinary
+SQL transaction held over the whole push is not a joint Git/database transaction;
+native hooks call back into Forgejo and can need database work themselves.
+
+The concrete fence must cover more than its own merge request:
+
+- Compare the target's transaction old OID with the operation's expected base and
+  bind its new OID to the native merge result. Git's ordinary non-fast-forward
+  rejection is not the requested expected-base guarantee.
+- Protect the actual source branch through target publication. Locking a fetched
+  copy or a base-repository PR ref does not lock the source branch, especially in
+  another repository. Freeze relevant PR target metadata and native inputs as well.
+- Order native permission, protection, review/status and accepted-input changes
+  with the final decision. The current PR mutex does not do this; rereading those
+  rows in a callback is still a preflight unless their writers participate. Native
+  pre-receive review/status checks are conditional on its protected-branch
+  `!canPush` merge path and retain administrator exceptions. Its
+  [status resolution](../../../forgejo-ext/services/pull/commit_status.go) reads the
+  current source branch, so it cannot by itself certify the prepared candidate.
+- Cover [HTTP receive-pack](../../../forgejo-ext/routers/web/repo/githttp.go),
+  [SSH receive-pack](../../../forgejo-ext/cmd/serv.go), native internal pushes and
+  [direct branch/ref writers](../../../forgejo-ext/modules/git/repo_branch.go).
+  Receive hooks have internal skip paths; adding only a receive hook cannot claim
+  coverage of every relevant ref writer. Operation identity must come from trusted
+  host execution binding, not user-controlled push options.
+- Keep cancellation pending while an approved writer can still commit. Hook exit,
+  socket loss or controller death is not evidence the receiver has stopped. A
+  restart must reconcile the operation and writer before releasing protection or
+  admitting conflicting work; it must not depend on an in-memory mutex surviving.
+
+There are two further limits. First, the files backend writes reflog entries before
+ref publication; a reflog entry alone is not commit proof after a crash. The
+[v2.52.0 hook manual](https://github.com/git/git/blob/v2.52.0/Documentation/githooks.adoc#L437-L474)
+and corresponding `refs.c` also disagree about whether a prepared veto invokes
+`aborted`. Do not use callback presence or absence as an independently durable
+receipt. Reconcile actual native evidence and retain `indeterminate` where needed.
+
+Second, a clock check in `prepared` precedes the physical ref write. Scheduling or
+I/O delay can cross `not_after` afterward; timer cancellation has a similar gap.
+**The strict physical-write expiry in the logical contract is not established by
+stock Git hooks or a receiver-lifetime fence.** Redefining it as a deadline to
+enter the guarded commit phase would change the contract and requires an explicit
+decision. This trace does not make that change or claim that another preflight
+solves it.
+
 ## Remaining decisive boundaries
 
 - **Generic mutation authority and merge:** source already confirms the absent
@@ -181,8 +254,10 @@ fake factory endpoint would not close the missing integration.
   requires generic native conditions and ordered invalidation; the
   [logical merge operation](../architecture/trust.md#operation-identity-and-authorization)
   now specifies identity, immutable intent, cancellation and separate write/completion
-  outcomes. Authenticated background transport, enforcement placement, accepted-input
-  binding and race behavior remain unproved. Native
+  outcomes. The [enforcement trace](#native-merge-enforcement-trace) locates the
+  prepared-to-ref-publication span; a concrete fence, writer/accepted-input coverage,
+  strict expiry, authenticated background transport and native race behavior remain
+  unresolved. Native
   principals are legitimate; an absent SDK method alone is not evidence a
   replacement credential system is needed.
 - **Selected CLI and environment:** when the actual factory launcher exists, use

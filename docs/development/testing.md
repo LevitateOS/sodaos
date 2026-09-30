@@ -131,6 +131,15 @@ specifies `pull_request.merge`. Its focused acceptance additionally exercises:
   withhold factory completion/dependent pickup, and reconcile without another merge.
   Where attribution cannot be recovered, report indeterminate and require intervention.
 
+The [enforcement span](../architecture/trust.md#native-enforcement-placement) needs
+controlled pauses after prepared-hook approval but before ref publication. Race
+cancellation, a source-branch update and a relevant native policy/input change
+against that paused writer; also exercise controller death while the receiver
+survives. Prove coverage for selected HTTP/SSH and direct native writers. Do not
+infer this from a preparation check, PR mutex, reflog entry or missing completion
+callback. The separate strict-expiry question must be resolved explicitly; a
+passing clock check before the pause is not deadline proof.
+
 ### Recording completion
 
 Retain a scoped receipt with exact source/image/CLI versions and native architecture;
