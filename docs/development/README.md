@@ -47,7 +47,9 @@ the [early milestones](factory-implementation-plan.md#early-integration-mileston
 bound implementation/proof, pass scope and failure reconsideration for the uncertain
 native integrations. The [implementation tasks](factory-implementation-plan.md#reviewable-implementation-tasks)
 assign concrete outcomes, owners, prerequisites, changes, checks and completion
-conditions. Their [execution assignments](factory-implementation-plan.md#execution-assignments)
+conditions. The [six implementation lanes](factory-implementation-plan.md#implementation-lanes)
+show ordering and parallel branches while preserving all cross-lane dependencies.
+Their [execution assignments](factory-implementation-plan.md#execution-assignments)
 record lanes, accountable owner roles, start prerequisites, downstream proof and
 shared-resource constraints without changing those task definitions. The
 [integration and qualification sequence](factory-implementation-plan.md#integration-cutover-and-qualification)
