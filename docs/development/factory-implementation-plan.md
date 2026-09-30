@@ -101,6 +101,37 @@ that new decision in its owning contract with the required fresh Jev consultatio
 Otherwise, complete the assigned implementation and checks without reopening settled
 product behavior. A passing plan review is not native proof or product completion.
 
+## Implementation goal completion
+
+The implementation goal covers **all 32 tasks: FT01–FT14, ST01–ST15 and
+RT01–RT03**, including their required proofs, the composed factory demonstration
+and native x86_64 qualification. These are completion requirements, not optional
+work after the code is committed.
+
+A task is complete only when its required implementation and coupled removals are
+integrated, its original **Done** criterion is satisfied, and its required checks
+and upstream proofs pass at the scope and source revisions actually consumed.
+Record the implementation commits and scoped evidence with that task. A commit,
+passing unit tests or a subagent's completion report alone cannot establish task
+completion. Apply the [consumer-proof rules](#start-readiness-and-consumer-proof)
+and the acceptance owner's [evidence rules](testing.md#evidence-rules); reuse valid
+evidence without treating it as proof of a different boundary.
+
+Mark the overall goal complete only after every task meets that standard,
+**ST15** passes the real [composed factory journey](testing.md#finished-product-demonstration),
+and **RT03** qualifies the exact **RT02** candidate on native x86_64 through the
+protected release path. Final review must reconcile all task IDs with their
+implementation and required evidence and close material findings. Retain the
+[completion receipts](testing.md#recording-completion) and report the actual
+qualified scope. Qualification does not authorize publication or production
+activation beyond the existing task scope.
+
+Missing access, an unavailable fixture, exhausted capacity or an unresolved
+failure leaves the affected task and overall goal incomplete. Report the task ID,
+missing proof and concrete prerequisite or next action; continue independent
+ready work. Do not silently waive a required proof, narrow the goal or count
+unexecuted, failed or merely authored checks as passes.
+
 ## Deliverable map
 
 Each row identifies a finished outcome derived from the linked requirements.

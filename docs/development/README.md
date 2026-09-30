@@ -65,7 +65,10 @@ the real factory demonstration and native qualification after their prerequisite
 The plan has been independently reviewed for requirement coverage, boundaries,
 dependencies and cost. Its [execution readiness](factory-implementation-plan.md#execution-readiness)
 records that major decisions are settled and assigns remaining implementation risks
-to their proof tasks; implementation and native evidence remain outstanding. The
+to their proof tasks; implementation and native evidence remain outstanding.
+The [goal completion contract](factory-implementation-plan.md#implementation-goal-completion)
+requires all 32 tasks and their proofs, the composed demonstration and native
+x86_64 candidate qualification before the implementation goal is complete. The
 [earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.
