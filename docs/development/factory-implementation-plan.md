@@ -692,6 +692,9 @@ new production admission commands. The owning [interfaces](../architecture/facto
 [source inventory](#source-change-inventory), [early milestones](#early-integration-milestones)
 and [acceptance guide](testing.md#factory-acceptance) supply exact fields, paths,
 pass scope and failure handling without duplicating their contracts here.
+The [execution assignments](#execution-assignments) add a lane, accountable owner,
+start condition, downstream proof requirement and shared-resource constraints to
+each of these same tasks. Their IDs and completion criteria remain unchanged.
 
 For every row, include affected caller/configuration/generated-asset/staging and
 current-reference/handbook changes with the implementation. Remove obsolete
@@ -805,6 +808,91 @@ remain independent, and ST11 can progress before intake/coding finishes. FT11–
 remain native-fixture siblings. RT03 and RT04 can run independently when their
 own prerequisites/resources are available. Failure pauses the affected dependent
 branch under the milestone rules; task numbering does not require serial execution.
+
+### Execution assignments
+
+Each row below refers to the existing task with the same ID; it is not another
+task or a replacement definition. The original outcome, owning packages, required
+changes/removals, checks and **Done** criterion remain authoritative. The proof
+column identifies what downstream consumers need, without shortening those checks.
+
+**Assigned owners are accountable implementation roles.** Each task has one owner
+for its complete review boundary, including cross-repository changes. Bind the
+role to a concrete implementer when dispatching work; no people or agents are
+dispatched by this table. A role may coordinate contributors on disjoint files,
+but responsibility for the task and its proof stays with that owner. Lane labels
+group related work, not six mandatory simultaneous workers or additional packages.
+
+**Start prerequisites** govern implementation that depends on the named boundary.
+A named prerequisite must meet its existing completion/proof condition, except
+for the explicitly limited early starts below. Pure predicates, DTOs and bounded
+fixtures may still be authored earlier under the graph's rules; they cannot
+authorize a live operation or satisfy a downstream proof requirement. Baseline
+means the already recorded source/contracts, not another foundation task.
+
+These shared-resource rules apply to every row:
+
+- Keep Soda authoring in the canonical checkout. Coordinate overlapping files,
+  schema/DTO definitions and generated outputs; serialize commits and other Git
+  mutations per checkout. Reserve the affected inputs while producing attributable
+  test/build evidence. A file conflict is a scheduling constraint, not a new
+  product dependency or permission to create a worktree.
+- Coordinate shared Fountain SDK, operation/context, hook and completion changes
+  through their existing owners. Parallel family/kind work must consume the same
+  definitions. Do not create competing schemas or temporary alternate runtimes.
+- Reserve the actual native fixture domain for interruption, whole-domain stop,
+  restart-inhibition and offline recovery checks. Separate repositories on the
+  same domain do not make those checks independent. Ordinary checks can overlap
+  on already supported isolated fixtures when resources permit.
+- Respect broker/provider concurrency, custody and usage limits. Coordinate live
+  Spaces checks with a suitable bounded run where practical; recorded output does
+  not replace a live-process check. Account-switch/logout tests need exclusive
+  control of their browser session and affected fixture identities.
+- Use the existing producer's clean-source, native-target, output and concurrent-
+  build rules. A documented build input checkout is not another authoring worktree.
+  Qualification needs its own matching native capacity; no new fixture manager,
+  resource scheduler or production build is introduced by these constraints.
+
+| Task | Lane | Assigned owner | Start prerequisites | Proof before downstream use | Shared-resource constraints |
+| --- | --- | --- | --- | --- | --- |
+| FT01 | Fountain integration | Integration lead | Baseline SDK/consumer contracts; coordinate FT02 fields without waiting for its proof. | Independent package lifecycle, selected policy/isolation and real native browser/stream proof: F-sdk/F-browser. | SDK, manifest, extension manager/router and Soda bridge with FT02; generated browser assets and admitted browser session. |
+| FT02 | Fountain enforcement | Enforcement lead | Baseline SDK; coordinate FT01 fields without waiting for browser completion. | M1a for both runtime and external-service admission, including actor binding and withdrawal. | Shared SDK/manager/router with FT01; private socket/peer configuration, native actor and credential fixtures. |
+| FT03 | Fountain enforcement | Enforcement lead | FT02. | M1b: scoped native merge, binding, cancellation/replay and restart proof. Full-domain consumers remain held. | Common operation model/context, hooks and merge path; exclusive race/interruption fixture. |
+| FT04 | Fountain enforcement | Enforcement lead | FT03. | M1c: representative mixed writers, completion and exact-owner recovery. Full F-domain remains held. | Operation/recovery seams, repository and Actions writers; exclusive whole writer domain for recovery. |
+| FT05 | Fountain enforcement | Enforcement lead | FT04. | Repository/ref-family coverage and interrupted-family proof for FT09. | Repository/pull/hook files with FT11/FT14; shared operation context; Git/SSH and recovery fixtures. |
+| FT06 | Fountain enforcement | Enforcement lead | FT04. | Authority-family coverage, withdrawal ordering and interrupted-family proof for FT09. | Native authority/token definitions with FT02; permission fixtures must not invalidate another task's live actor unexpectedly. |
+| FT07 | Fountain enforcement | Enforcement lead | FT04. | Collaboration-input writer/version/eligibility coverage and recovery for FT09. | Issue/pull/review models and services with FT10/FT12/FT13; native input and recovery fixtures. |
+| FT08 | Fountain enforcement | Enforcement lead | FT04. | Actions/result and synchronous/deferred completion coverage and recovery for FT09. | Actions/status/notification files with FT04 and operation completion; external runner capacity and native job/recovery fixtures. |
+| FT09 | Fountain enforcement | Enforcement lead | FT05, FT06, FT07 and FT08. | Complete F-domain coverage, quiescence and common/ordinary recovery proof; no uncovered-writer exception. | Integrate shared schema/context and all writer families; reserve the whole native domain and its service controls for recovery. |
+| FT10 | Fountain integration | Integration lead | Baseline for read conversion and DTO work. | FT09 plus FT10's native visibility/version/completeness and revision-bracket proof: authoritative F-read. | SDK/read conversion and issue/PR/check models with FT07/FT08; final bracket proof needs the complete native domain. |
+| FT11 | Fountain integration | Integration lead | FT03 for implementation and scoped native fixtures. | FT09 plus publication-specific effect, completion, cancellation/replay and recovery proof. | Git HTTP/hooks and repository files with FT05; common operation definitions and exclusive receive/recovery fixture. |
+| FT12 | Fountain integration | Integration lead | FT03 for implementation and scoped native fixtures. | FT09 plus atomic primary PR/receipt, completion, cancellation/replay and recovery proof. | Pull/issue SQL and completion with FT07/FT13/FT14; fixture branches/PRs and recovery domain. |
+| FT13 | Fountain integration | Integration lead | FT03 for implementation and scoped native fixtures. | FT09 plus exact-candidate review eligibility, primary receipt, completion and cancellation/recovery proof. | Review/pull SQL and dispatch with FT07/FT12; distinct actor/PR fixtures and recovery domain. |
+| FT14 | Fountain integration | Integration lead | FT03 for implementation and reuse of scoped merge evidence. | FT09 plus the complete supported FF-only merge/protection/effect/completion/recovery contract. | Merge/hooks/pull completion with FT03/FT05/FT12; exact-ref race and recovery fixtures. |
+| ST01 | Project execution | Runtime lead | Baseline Project/identity interfaces; introduce required preparation records with the behavior. | M2 in the full Project OS, including actual tools/services and preserved human state. Seeded grants do not prove human approval. | Project/store records, host helpers and Project OS inputs; preparation/maintenance fixture with protected human data. |
+| ST02 | Project execution | Runtime lead | ST01 and existing provider custody. | M3 for each exposed role/harness, durable start/stop/return proof and coherent old-runtime removal. | Factory/store/host/broker/startup and service files; Project incarnation and provider connection. Keep ST02 retirement intact and unresolved legacy ownership attributable. |
+| ST03 | Project execution | Runtime lead | ST02 and FT01. | M4a through real native Spaces with the actual run, read-only access and session/authority-loss checks. | Spaces/API/manifest/generated assets with FT01/ST04/ST05; live provider-backed run and exclusive browser session for identity changes. |
+| ST04 | Project execution | Runtime lead | ST02 and FT01; independent of ST03. | M4b plus control/accounting/refusal checks; native-write cancellation is connected and proved by later operation consumers. | Store/controller/Project lifecycle/broker with ST05 and later factory tasks; scoped stop/takeover fixture, browser session and connection custody. |
+| ST05 | Factory product | Factory lead | ST02, FT01 and FT02. | Real separate owner grants, preparation acceptance/approval and ordered withdrawal/admission checks. | Shared store/domain/API/Spaces settings with ST04; native administrator, maintainer and provider-grant fixture identities. |
+| ST06 | Factory product | Factory lead | ST05 and FT10. | Actual native acceptance/provenance/invalidation and stale/duplicate decision proof. | Acceptance/store/API definitions and read client; native issue/comment/dependency/actor fixtures. |
+| ST07 | Factory product | Factory lead | ST06. | Native readiness journey, missed/duplicate events, cycle/hidden-input and unchanged-blocker checks. | Controller/store observations with ST08/ST11; event/reconciliation fixtures and any bounded assessment connection. |
+| ST08 | Factory product | Factory lead | ST07 and ST02. | Short-limit accounting/scheduling and a real automatically assigned run with inspectable inputs/results. | Scheduler/store/host assignments; appliance/repository execution capacity, prepared Project and broker connection. |
+| ST09 | Factory product | Factory lead | ST08, FT11 and FT12. | Exact candidate/PR receipts, correction, partial outcomes, withdrawal and lost-response proof. | Publisher/controller/store, backend Git/storage and packaging; recorded stopped run, native receive/PR fixtures and writer domain. |
+| ST10 | Factory product | Factory lead | ST09 and FT13; ST02 proof for each selected role/harness. | Real independent review/correction/new-head/fresh-review sequence and role/stale/non-progress checks. | Run/result/controller/store records; shared Project with separate role state, broker concurrency and distinct native reviewer. |
+| ST11 | Factory product | Factory lead | ST05, FT10 and separately managed native Actions capacity; independent of ST06–ST10. | Complete exact-head/base check-set assessment and missing/stale/changed-policy refusals using a native workflow. | Verification/policy/store with ST06/ST12; Actions runner capacity and fixture statuses/accepted-policy records. |
+| ST12 | Factory product | Factory lead | ST10, ST11 and FT14. | Conditional merge, cancellation/lost-response/completion and confirmed issue-outcome/dependent-pickup proof. | Verification/completion/readiness/store; exact ref/review/check fixtures and exclusive native race/recovery cases. |
+| ST13 | Appliance support | Support lead | Baseline; identify/account for exact owned experimental resources before removing their management path. | Source/caller/staging/selector closure and retained Tailnet rendering after local-runner removal. | Runner routes/assets/configuration, shared Tailnet CSS, installer/release selectors and exact owned runner resources. |
+| ST14 | Appliance support | Support lead | Baseline for unaffected support work. | FT01, ST02, ST04 and ST13 plus affected retained human/network/operator/presentation proof. | Access/network/helper/Cockpit and packaging files with runtime/release work; isolated connectivity/operator/browser fixtures. |
+| ST15 | Factory product | Factory lead | ST12, ST03 and ST04, including their transitive native proofs. | Real composed development journey, grants/acceptance, correction, CI, merge/outcome and dependent pickup with human state preserved. | Coordinated Project/provider/native/browser/CI fixture; avoid concurrent authority, lifecycle or recovery changes outside the demonstrated case. |
+| RT01 | Release | Release lead | Baseline release contract; prove missing protected observations narrowly before dependent orchestration. | Working protected admission/finalization mechanism for RT02. Future candidate qualification and unsupported upgrade sources are not prerequisites. | Release/acceptance/installer/recovery files with support work; restricted evidence inputs and isolated native preservation/recovery fixtures. |
+| RT02 | Release | Release lead | ST15, ST13, ST14 and RT01 before complete candidate production. Earlier task-local packaging remains with its owning task. | Attributable, complete candidate/media and source/image/service identities for each produced architecture; installed qualification remains outstanding. | Clean exact source inputs, exclusive native builder/output and generated inventories; coordinate recipe/selector changes before capturing inputs. |
+| RT03 | Release | Release lead | Matching RT02 x86_64 artifacts and native x86_64 resources. | All required exact-candidate installed/native and finished-factory evidence passes for x86_64. | Matching-native installation target, protected state, candidate/media/evidence identity, provider/browser/CI capacity; independent of RT04 when resources permit. |
+| RT04 | Release | Release lead | Matching RT02 aarch64 artifacts and native aarch64 resources; no RT03 dependency. | All required exact-candidate installed/native and finished-factory evidence passes for aarch64. | Matching-native installation target and its own evidence; coordinate shared provider/CI capacity even when architecture fixtures are separate. |
+
+Proof must still match the source, native path and scope consumed downstream.
+Passing source checks alone does not release a native handoff. A resource conflict
+can delay otherwise ready work without adding a dependency between unrelated
+features. Use existing task coordination and fixture controls to resolve it.
 
 ## Integration, cutover and qualification
 
