@@ -56,6 +56,9 @@ Their [execution assignments](factory-implementation-plan.md#execution-assignmen
 record lanes, accountable owner roles and shared-resource constraints, separating
 [can start from proven for consumers](factory-implementation-plan.md#start-readiness-and-consumer-proof)
 without changing those task definitions. The
+[execution-list validation](factory-implementation-plan.md#execution-list-validation)
+records complete task coverage, acyclic dependencies, conflict ownership and intact
+production-build prerequisites. The
 [integration and qualification sequence](factory-implementation-plan.md#integration-cutover-and-qualification)
 joins those outputs, replaces old callers and schedules feature availability,
 the real factory demonstration and native qualification after their prerequisites.
