@@ -3,8 +3,8 @@
 Prepare Forgejo identity and private access for software collaboration and bounded
 agent work. Factory execution and persistent human Projects have separate authority.
 
-Source baseline: Forgejo 15.0.9. Soda uses OAuth2 and `/api/v1/user`, not an assumed
-OIDC identity-token flow.
+Soda uses Fountain’s native Forgejo extension authority. Setup reads the native
+operator identity through `/api/v1/user`.
 
 Media continuation: [Installation media](media.md).
 Install/activate context: [Installation](installation.md).
@@ -16,13 +16,12 @@ Install/activate context: [Installation](installation.md).
    `http://localhost:33000` to complete Forgejo's native installation and create its
    administrator. Activation later applies the private HTTPS origin and native SSH
    clone port 2222.
-3. Create an operator access token with `write:user` (includes `read:user`). Setup
-   reads `/api/v1/user` and creates `/api/v1/user/applications/oauth2`. The token must
-   belong to a Forgejo site administrator for Soda's bootstrap eligibility check.
+3. Create an operator access token with `read:user`. Setup reads `/api/v1/user`.
+   The token must belong to a Forgejo site administrator for Soda's bootstrap eligibility check.
    Supply it through a mode-0600 file; never expose it to developers.
-4. Run `/usr/local/sbin/soda-setup --forgejo-url https://FORGEJO --token-file /root/forgejo-token`.
-   Setup records `operator_id`, creates the OAuth client and retains the OAuth secret
-   and grant-encryption key. It refuses to overwrite existing configuration.
+4. Run `/usr/local/sbin/soda-setup --forgejo-url https://FORGEJO --token-file /home/operator/forgejo-token`.
+   Setup records `operator_id` and creates the grant-encryption key. It refuses
+   to overwrite existing configuration.
 5. Run `/usr/local/sbin/soda-activate` with the explicit private bind address and
    either `--local-tls` for that IP or an existing certificate/key. Local TLS requires
    explicit trust of the appliance's public root certificate on intended clients.
@@ -31,9 +30,8 @@ Use absolute setup/activation paths: CoreOS root SSH PATH may omit `/usr/local/s
 
 Developers use native Forgejo account creation. Browser pages and product
 operations use Forgejo's native extension service on the configured HTTPS origin.
-The public `/-/soda/` routes are limited to the broker identity callback and avatar
-provider. Git authentication uses native Forgejo SSH keys or HTTPS tokens,
-independently of Soda development-access keys.
+The public `/-/soda/` route serves the avatar provider. Git authentication uses
+native Forgejo SSH keys or HTTPS tokens, independently of Soda development-access keys.
 
 Existing installations use [credential maintenance](../reference/credentials.md),
 not rerunning setup. Console guidance: [Operator console welcome](../design/console-welcome.md).

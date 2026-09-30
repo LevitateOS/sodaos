@@ -30,17 +30,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 class AvatarActivation(unittest.TestCase):
     def test_first_activation_derives_provider_from_forgejo_origin(self):
-        for origin, local_tls, legacy in (
-            ('https://forge.example.test:8443', False, None),
-            ('https://[fd00::5]:8443/', False, None),
-            ('https://192.168.2.100', True, None),
-            ('https://[fd00::5]', True, None),
-            ('https://192.168.2.100', True, 'token'),
-            ('https://192.168.2.100', True, 'missing'),
-            ('https://192.168.2.100', True, '../outside'),
-            ('https://192.168.2.100', True, 'link'),
+        for origin, local_tls in (
+            ('https://forge.example.test:8443', False),
+            ('https://[fd00::5]:8443/', False),
+            ('https://192.168.2.100', True),
+            ('https://[fd00::5]', True),
         ):
-            with self.subTest(origin=origin, legacy=legacy), tempfile.TemporaryDirectory() as directory:
+            with self.subTest(origin=origin), tempfile.TemporaryDirectory() as directory:
                 temp = Path(directory)
                 config_root = temp / 'etc/soda'
                 config_root.mkdir(parents=True)
@@ -48,23 +44,17 @@ class AvatarActivation(unittest.TestCase):
                     'forgejo_url': origin,
                     'forgejo_internal_url': 'http://127.0.0.1:3000',
                     'listen': '127.0.0.1:8080',
-                    'oauth_secret_file': '/etc/soda/oauth-secret',
                     'grant_key_file': '/etc/soda/grant-key',
                     'host_socket': '/run/soda/host.sock',
                     'identity_socket': '/run/soda/identity/admin.sock',
                     'operator_id': 42,
                 }
-                if legacy is not None:
-                    config['admin_token_file'] = str(config_root / legacy)
                 (config_root / 'dashboard.json').write_text(json.dumps(config))
-                (config_root / 'host.json').write_text(json.dumps({'forgejo_url': origin}))
-                for name in ('oauth-secret', 'token', 'grant-key'):
+                for name in ('grant-key',):
                     (config_root / name).write_text('synthetic, not a credential')
                     (config_root / name).chmod(0o600)
-                (config_root / 'link').symlink_to(config_root / 'token')
                 extension_root = temp / 'var/lib/soda/forgejo/gitea/extensions'
                 extension_root.parent.mkdir(parents=True)
-                token_before = (config_root / 'token').stat()
                 (config_root / 'forgejo.env').write_text(
                     'FORGEJO__ui__DEFAULT_THEME=soda-auto\nFORGEJO__server__SSH_DOMAIN=retained.example.test\n'
                 )
@@ -114,7 +104,6 @@ class AvatarActivation(unittest.TestCase):
                     [
                         (config_root, 0, 2000),
                         (config_root / 'dashboard.json', 0, 2000),
-                        (config_root / 'oauth-secret', 0, 2000),
                         (config_root / 'grant-key', 0, 2000),
                         (extension_root, 1000, 1000),
                         (extension_root / '.data', 1000, 1000),
@@ -122,15 +111,8 @@ class AvatarActivation(unittest.TestCase):
                         (extension_root / '.data/soda/operator-id', 1000, 1000),
                     ],
                 )
-                for name in ('dashboard.json', 'oauth-secret', 'grant-key'):
+                for name in ('dashboard.json', 'grant-key'):
                     self.assertEqual((config_root / name).stat().st_mode & 0o777, 0o640)
-                token_after = (config_root / 'token').stat()
-                self.assertEqual(
-                    (token_after.st_ino, token_after.st_mode, token_after.st_mtime_ns),
-                    (token_before.st_ino, token_before.st_mode, token_before.st_mtime_ns),
-                )
-                self.assertEqual((config_root / 'token').read_text(), 'synthetic, not a credential')
-                self.assertTrue((config_root / 'link').is_symlink())
                 operator_file = extension_root / '.data/soda/operator-id'
                 self.assertEqual(operator_file.read_text(), '42\n')
                 self.assertEqual(operator_file.stat().st_mode & 0o777, 0o600)
@@ -362,12 +344,6 @@ class AvatarProxy(unittest.TestCase):
             path = '/-/soda/avatars/v1/' + 'a' * 32 + '?s=64&d=identicon'
             response = request(path)
             self.assertEqual(response, {'upstream': 'soda', 'path': path, 'cookie': None, 'authorization': None})
-            callback = '/-/soda/identity/callback?state=synthetic&code=synthetic'
-            response = request(callback)
-            self.assertEqual(response['upstream'], 'soda', callback)
-            self.assertEqual(response['path'], callback)
-            self.assertEqual(response['cookie'], 'fixture=value')
-            self.assertEqual(response['authorization'], 'Bearer synthetic')
             for path in (
                 '/',
                 '/api/v1/users/alice',
@@ -386,7 +362,6 @@ class AvatarProxy(unittest.TestCase):
                 '/-/soda/avatars',
                 '/-/soda/avatars-other/a',
                 '/-/soda/avatarsx/a',
-                '/-/soda/identity/callback/extra',
             ):
                 response = request(path)
                 self.assertEqual(response['upstream'], 'forgejo', path)

@@ -1,9 +1,9 @@
 # Soda HTTP API
 
 Soda's product API is private to the Forgejo native extension service. It is not
-an independently callable browser API under `/-/soda/`. The only public Soda
-callback is `GET /-/soda/identity/callback`, which returns a native Forgejo
-OAuth consent result to the broker. Forgejo pages and navigation remain native.
+an independently callable browser API under `/-/soda/`. The public
+`/-/soda/avatars/v1/` route serves generated avatars. Forgejo pages and navigation
+remain native.
 
 Source owners: `internal/web/api`, `internal/web/auth`, and the extension service
 registration in `internal/web/api/extension_terminal.go`.
@@ -53,14 +53,6 @@ paths are private service routes, not public URLs to call directly:
 Create binds an immutable profile. Join creates the project-local account and
 records membership only after confirmed native success. Terminal details are in
 the [managed terminal contract](terminal.md).
-
-## Public broker callback
-
-`GET /-/soda/identity/callback` accepts only the configured Forgejo OAuth return
-for a live one-time state. The broker consumes that state once and completes the
-enrollment for its stored native actor and enrollment binding. The callback does
-not require a Soda browser session or cookie and never returns credentials.
-Failure responses do not disclose enrollment or credential details.
 
 ## Public probes
 

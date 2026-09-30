@@ -1,5 +1,5 @@
 // Package web wires the dashboard HTTP root: namespace gates, health, avatars
-// and registration of auth/api. It does not own OAuth or product handlers.
+// and native extension services. It does not own product handlers.
 package web
 
 import (
@@ -40,7 +40,6 @@ func New(c config.Config, db *store.Store) *Server {
 	s.Auth = auth.New(&s.Config, db)
 	s.API = api.New(&s.Config, db, client, hostClient, s.Auth)
 	s.API.Identity = identityclient.New(c.IdentitySocket)
-	s.Auth.EnrollmentBroker = identityclient.New(c.IdentitySocket)
 
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -49,7 +48,6 @@ func New(c config.Config, db *store.Store) *Server {
 	s.mux.HandleFunc("GET /{$}", s.forgejoHome)
 	s.mux.Handle(avatarPrefix, avatarHandler{render: avatar.Render})
 	s.mux.Handle(strings.TrimSuffix(avatarPrefix, "/"), avatarHandler{render: avatar.Render})
-	s.Auth.Register(s.mux)
 	notFound := func(w http.ResponseWriter, r *http.Request) {
 		auth.JSONError(w, http.StatusNotFound, "not_found", "API route not found.")
 	}

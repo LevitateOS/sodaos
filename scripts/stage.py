@@ -65,7 +65,7 @@ if not vendor:
         copy(unit, f'{folder}/{unit.name}', 0o644)
 # Public, pinned tools only; runtime credentials never enter a build context.
 muse_tools = '/usr/share/soda/muse-tools' if vendor else '/usr/local/share/soda/muse-tools'
-for name in ['muse', 'muse-native', 'soda-identity-compose', 'git-remote-soda']:
+for name in ['muse', 'muse-native', 'soda-identity-compose']:
     copy(build / 'project-tools/bin' / name, muse_tools + '/' + name, 0o755)
 # Stock Cockpit only. Never copy an ignored retired cockpit/dist tree.
 configs = {

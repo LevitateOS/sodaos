@@ -148,7 +148,7 @@ func TestProductionBothLayoutsUseOneAssetAndImageSequence(t *testing.T) {
 			if e := p.Assets(host, forgejo); e != nil {
 				t.Fatal(e)
 			}
-			for _, tool := range []string{"muse", "soda-identity-compose", "git-remote-soda"} {
+			for _, tool := range []string{"muse", "soda-identity-compose"} {
 				info, err := os.Stat(filepath.Join(p.Native, "project-tools/bin", tool))
 				if err != nil || info.Mode().Perm() != 0o755 {
 					t.Fatalf("public tool %s must be executable by project accounts: %v", tool, err)

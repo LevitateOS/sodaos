@@ -69,9 +69,9 @@ flowchart LR
    permissions and before porting every endpoint.
 4. **Native browser authority replaces the browser OAuth adapter.** Cookies and
    raw session IDs remain inside the native host. There is no temporary new
-   OAuth-backed extension implementation to remove later. Preserve the separate
-   broker/account-custody and factory grant mechanisms described by
-   [Credentials](../reference/credentials.md); they are not browser adapter code.
+   OAuth-backed extension implementation to remove later. Retain Codex/Muse
+   subscription custody and factory grants described by
+   [Credentials](../reference/credentials.md); Forgejo account OAuth and Soda-managed Git are removed.
 5. **Prove streaming first for memory and file sessions.** Inspect the effective
    fixture configuration first. Other providers must reject extension streams
    explicitly until their revocation semantics are proved; ordinary extension
@@ -533,9 +533,9 @@ packaging/qualification orchestration to fill time while a native assumption fai
   policy requirements. Start with `internal/web/api/environment_authority.go`,
   `repositories.go`, `environments_create.go`, and `internal/web/auth/forgejo_keys.go`.
   Include identity/project controls and operator operations, not only Spaces reads.
-- Separate browser OAuth/session code from Forgejo credential custody, Git helper
-  access, factory grants, service credentials and account provisioning. Name the
-  exact obsolete callers before removing anything from the shared auth area.
+- Remove browser OAuth/session code, Forgejo credential custody and the Soda Git
+  helper together. Retain Codex/Muse subscriptions, factory grants and separately
+  configured publication credentials.
 - Define the initial public SDK fields and contribution authorization callback.
   JSON identifiers consumed by JavaScript use decimal strings consistently with
   Soda's existing rule; replace the unreleased numeric actor-ID shape and all its
@@ -728,7 +728,7 @@ packages, the extension executable, and narrowly scoped service configuration.
 - Use the existing environment creation flow for an already selected Forgejo
   repository. It creates Soda project state and invokes the host; it does not need
   a new core repository-create operation or automatic provisioning event.
-- Preserve broker/account custody, factory grants and Git/publication credentials.
+- Preserve Codex/Muse account custody, factory grants and publication credentials.
   Browser admission is not a substitute for a factory actor's bounded authority.
   Retain deliberate denial of unsupported account/operation combinations.
 - Remove browser OAuth login/return, adapter cookie/session and expected-user
@@ -737,7 +737,7 @@ packages, the extension executable, and narrowly scoped service configuration.
   name matching, and do not keep the old browser auth as a fallback.
 
 Preserve cross-request session continuity for terminal Reserve→Create and broker
-enrollment→callback using P2's native generation binding. Retain origin/CSRF
+device enrollment→completion using P2's native generation binding. Retain origin/CSRF
 protection for mutations. Logout between steps, another tab signing in as a
 different account, or a stale cached page must invalidate the old flow rather
 than execute it under the new actor.
@@ -936,7 +936,7 @@ not automatically require rebuilding binaries.
 | Contract | Required evidence |
 | --- | --- |
 | Native auth | Native login succeeds; anonymous/token/Basic/proxy credentials and spoofed context fail; unsafe cross-origin calls fail |
-| Cross-request continuity | Terminal Reserve→Create and broker enrollment→callback succeed only for their original native session generation; logout/account switch and stale tabs cannot adopt a new actor |
+| Cross-request continuity | Terminal Reserve→Create and broker device enrollment→completion succeed only for their original native session generation; logout/account switch and stale tabs cannot adopt a new actor |
 | Live authority | Memory/file logout, regeneration, expiry and delayed-release race fail closed; account/repository/membership changes revoke access within the stated bound |
 | Soda service isolation | Native read/mutation succeeds over narrow IPC; Forgejo cannot read Soda DB/secrets/helper sockets; project workloads cannot reach the bridge |
 | Native contributions | Correct page/nav visibility, direct-route denial, repository permissions, non-admin operator access and non-operator denial |
@@ -944,7 +944,7 @@ not automatically require rebuilding binaries.
 | Terminal semantics | Reserve/create/attach remain separate; opening does not create/join/start; disconnect preserves shell; explicit End has its documented effect |
 | Core hooks | Actual signup/admin/API/external-auth/import/CLI paths covered; timeout/crash/missing mandatory package cannot bypass policy or leave identity/filesystem side effects |
 | SDK and lifecycle | External build without host checkout; declared capability denial; install/replace/remove/required-package behavior; retained data and unchanged host bytes on package-only update |
-| Cutover | Old browser OAuth/shell/dispatch assets and staging entries removed; retained broker/factory credentials still pass their authorization checks |
+| Cutover | Old browser OAuth/shell/dispatch assets and staging entries removed; retained Codex/Muse and factory publication credentials still pass their authorization checks |
 | Distribution | Patched host, SDK, package, service, architecture and notices/source identified by candidate inventory; native installed journey matches those bytes |
 
 For Soda changes, select the affected Go packages plus `go test ./internal/archcheck/`
@@ -965,7 +965,7 @@ Update the owning reference guides as their interfaces land:
 | --- | --- |
 | [Forgejo](../reference/forgejo.md) | Native extension integration, remaining presentation overrides and upstream maintenance boundary |
 | [API](../reference/api.md) | Actual native extension routes, authority requirements and removed browser adapter routes |
-| [Credentials](../reference/credentials.md) | Removed browser OAuth session versus retained broker/factory/account custody |
+| [Credentials](../reference/credentials.md) | Native browser/Git identity and Codex/Muse subscription custody |
 | [Terminal](../reference/terminal.md) | Native stream admission, disconnect/revocation semantics and supported session providers |
 | [Configuration](../reference/configuration.md) | Required package, bridge and service settings; removed adapter settings |
 | [Operator setup](../guides/operator-setup.md) and [Installation](../guides/installation.md) | Bootstrap, activation, package replacement and real artifact/service ordering |

@@ -152,20 +152,19 @@ func (m *MuseRuntime) registeredCaller(ctx context.Context, c museCaller, peer M
 	c.Registration = registered.Registration
 	c.NestedPID = registered.PID
 	c.MuseAllowed = registered.Muse
-	c.GitAllowed = registered.Git
 	if !musePeerAlive(peer) {
 		return c, identity.ErrDenied
 	}
 	return c, nil
 }
 
-func (m *MuseRuntime) resolve(ctx context.Context, peer MusePeer, provider string) (museCaller, error) {
+func (m *MuseRuntime) resolve(ctx context.Context, peer MusePeer) (museCaller, error) {
 	c, err := m.resolveProject(ctx, peer)
 	if err != nil {
 		return c, identity.ErrDenied
 	}
 	if c.Child != "" {
-		if !nestedProviderAllowed(c, provider) {
+		if !c.MuseAllowed {
 			return c, identity.ErrDenied
 		}
 		return m.nestedCaller(ctx, c, peer)
@@ -185,17 +184,6 @@ func (m *MuseRuntime) resolve(ctx context.Context, peer MusePeer, provider strin
 		return c, identity.ErrDenied
 	}
 	return c, nil
-}
-
-func nestedProviderAllowed(c museCaller, provider string) bool {
-	switch provider {
-	case identity.Muse:
-		return c.MuseAllowed
-	case identity.Forgejo:
-		return c.GitAllowed
-	default:
-		return false
-	}
 }
 
 func (m *MuseRuntime) projectAccount(ctx context.Context, c museCaller) (museCaller, error) {
@@ -305,7 +293,7 @@ func (m *MuseRuntime) RegisterNested(ctx context.Context, peer MusePeer, in iden
 }
 
 func museRegistrationValid(in identity.NestedRegistration) bool {
-	return containerID.MatchString(in.ChildID) && in.ActorID > 0 && terminalID.MatchString(in.RegistrationID) && (in.Muse || in.Git)
+	return containerID.MatchString(in.ChildID) && in.ActorID > 0 && terminalID.MatchString(in.RegistrationID) && in.Muse
 }
 
 func (m *MuseRuntime) registrationAuthority(ctx context.Context, c museCaller, actor int64) bool {
@@ -335,7 +323,7 @@ func (m *MuseRuntime) registeredChild(ctx context.Context, c museCaller, in iden
 	if !strings.HasPrefix(ns, "pid:[") || ns == c.Namespace {
 		return record, identity.ErrDenied
 	}
-	return museNested{Parent: c.Container, Project: c.Project, Child: in.ChildID, Namespace: ns, Registration: in.RegistrationID, Actor: in.ActorID, PID: pid, Muse: in.Muse, Git: in.Git}, nil
+	return museNested{Parent: c.Container, Project: c.Project, Child: in.ChildID, Namespace: ns, Registration: in.RegistrationID, Actor: in.ActorID, PID: pid, Muse: in.Muse}, nil
 }
 
 func museChildPID(body []byte, err error, id string) (int, error) {
@@ -363,9 +351,6 @@ func (m *MuseRuntime) validateNested(ctx context.Context, r museNested) error {
 	}
 	body, err = m.guest(ctx, r.Parent, nil, "/usr/bin/podman", "--remote=false", "inspect", "--format", `{{json .Mounts}}`, r.Child)
 	if r.Muse && museReadonlyMount(body, err, "/run/soda-muse/nested/"+r.Registration, "/run/soda-muse/credentials") != nil {
-		return identity.ErrDenied
-	}
-	if r.Git && museReadonlyMount(body, err, "/run/soda-muse/nested/"+r.Registration, "/run/soda-git/credentials") != nil {
 		return identity.ErrDenied
 	}
 	return nil

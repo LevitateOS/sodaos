@@ -88,25 +88,7 @@ func (s *API) apiIdentityStartEnrollment(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	result, err := s.Identity.StartEnrollment(r.Context(), v.User.ID, input.ProviderID, input.Label)
-	if err == nil {
-		err = s.bindIdentityEnrollment(r, v, input.ProviderID, result)
-	}
 	s.identityResult(w, r, v, result, err)
-}
-
-func (s *API) bindIdentityEnrollment(r *http.Request, v store.Session, providerID string, result identity.Enrollment) error {
-	if providerID != identity.Forgejo {
-		return nil
-	}
-	if _, native := requestExtensionAuthority(r); !native || !s.extensionSessionCurrent(r.Context(), r, v) {
-		_ = s.Identity.CancelEnrollment(r.Context(), v.User.ID, result.ID)
-		return identity.ErrDenied
-	}
-	err := s.Auth.BindNativeBrokerEnrollment(v.User.ID, result)
-	if err != nil {
-		_ = s.Identity.CancelEnrollment(r.Context(), v.User.ID, result.ID)
-	}
-	return err
 }
 
 func (s *API) apiIdentityEnrollment(w http.ResponseWriter, r *http.Request, v store.Session) {
@@ -154,13 +136,7 @@ func (s *API) apiIdentityCancelEnrollment(w http.ResponseWriter, r *http.Request
 	if !s.identityAdmission(w, r, v) {
 		return
 	}
-	s.identityMutation(w, r, v, func(ctx context.Context, owner int64, id string) error {
-		err := s.Identity.CancelEnrollment(ctx, owner, id)
-		if err == nil {
-			s.Auth.ForgetNativeBrokerEnrollment(owner, id)
-		}
-		return err
-	})
+	s.identityMutation(w, r, v, s.Identity.CancelEnrollment)
 }
 
 func (s *API) apiIdentityRevoke(w http.ResponseWriter, r *http.Request, v store.Session) {

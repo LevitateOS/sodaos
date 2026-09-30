@@ -15,9 +15,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/platform"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -146,7 +146,7 @@ func TestPrivateSetupKeepsCredentialOutOfCommandsAndTranscript(t *testing.T) {
 			readUntil("Address number, or cancel")
 			unix.Write(master, []byte("1\n"))
 			readUntil("When Forgejo setup is complete")
-			if !strings.Contains(transcript.String(), "Required scope: write:user (includes read:user)") || strings.Contains(transcript.String(), "write:admin") || strings.Contains(transcript.String(), "read:repository") {
+			if !strings.Contains(transcript.String(), "Required scope: read:user") || strings.Contains(transcript.String(), "write:admin") || strings.Contains(transcript.String(), "read:repository") {
 				t.Fatal("bootstrap guidance requests unrelated token authority")
 			}
 			if cancelSetup {
@@ -191,7 +191,7 @@ func TestPrivateSetupDoesNotReplayExistingState(t *testing.T) {
 				t.Fatal("existing state caused a native command or another setup attempt")
 				return nil, errors.New("unexpected command")
 			}
-			// Empty existing config fails read-only, without enrolling another OAuth client.
+			// Empty existing config fails read-only, without repeating setup.
 			if err := configurePrivateInstall(context.Background(), console{tty: tty}, run, root, root, "missing-ca"); err == nil {
 				t.Fatal("incomplete existing state accepted")
 			}

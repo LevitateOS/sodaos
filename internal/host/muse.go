@@ -44,7 +44,7 @@ func (d *Daemon) authorizeNested(ctx context.Context, actor int64, project strin
 		return err
 	}
 	for _, connection := range available {
-		if (connection.ProviderID == identity.Muse || connection.ProviderID == identity.Forgejo) && connection.State == identity.Ready {
+		if connection.ProviderID == identity.Muse && connection.State == identity.Ready {
 			return nil
 		}
 	}

@@ -68,22 +68,3 @@ func TestInvalidAccountNeverExecutes(t *testing.T) {
 		t.Fatal("untrusted account reached executor")
 	}
 }
-
-func TestCreateMountsOnlyGitLaunchDirectory(t *testing.T) {
-	commands := &captureCreate{}
-	d := testDaemon(commands, Config{Network: "soda-projects", Image: "localhost/soda-project-os:dev", GitSocket: "/run/soda-git-interface/launch.sock", ForgejoURL: "https://forge.example.test"})
-	profile := testProfile()
-	_, _ = d.Project.Create(context.Background(), project.Create{ID: "p123456789012345678901234", Owner: 2, Profile: &profile})
-	count := 0
-	for i, arg := range commands.args {
-		if arg == "--volume" {
-			count++
-			if i+1 >= len(commands.args) || commands.args[i+1] != "/run/soda-git-interface:/run/soda-git-interface:ro" {
-				t.Fatalf("unexpected mount: %q", commands.args)
-			}
-		}
-	}
-	if count != 1 {
-		t.Fatalf("Git launch mount missing: %q", commands.args)
-	}
-}

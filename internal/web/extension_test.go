@@ -17,7 +17,7 @@ func TestExtensionUsernamePolicy(t *testing.T) {
 	if policy == nil {
 		t.Fatal("Soda extension did not register the username policy")
 	}
-	manifest, err := extensions.LoadManifest(filepath.Join("..", "..", "extensions", "soda"))
+	manifest, err := extensions.LoadManifest(filepath.Join("..", "..", "appliance", "soda-extension"))
 	if err != nil || !slices.Contains(manifest.Policies, extensions.PolicyForgejoUsername) {
 		t.Fatalf("Soda package does not declare its username policy: %v", err)
 	}

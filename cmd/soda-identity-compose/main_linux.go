@@ -24,7 +24,7 @@ import (
 
 type options struct {
 	login, service, file string
-	muse, git            bool
+	muse                 bool
 }
 
 func main() {
@@ -51,12 +51,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if o.git {
-		if err := verifyGitChild(child); err != nil {
-			return err
-		}
-	}
-	return register(identity.NestedRegistration{ChildID: child, ActorID: actor, RegistrationID: registration, Muse: o.muse, Git: o.git})
+	return register(identity.NestedRegistration{ChildID: child, ActorID: actor, RegistrationID: registration, Muse: o.muse})
 }
 
 func loadOptions() (options, error) {
@@ -66,18 +61,17 @@ func loadOptions() (options, error) {
 	flags.StringVar(&o.service, "service", "", "Compose service to opt in")
 	flags.StringVar(&o.file, "file", "compose.yml", "Compose file")
 	flags.BoolVar(&o.muse, "muse", false, "allow Muse in the selected service")
-	flags.BoolVar(&o.git, "git", false, "allow brokered Forgejo Git in the selected service")
 	if err := flags.Parse(os.Args[1:]); err != nil {
 		return o, err
 	}
 	if !validOptions(o, flags.NArg()) {
-		return o, errors.New("project root, provisioned login, one service and at least one provider required")
+		return o, errors.New("project root, provisioned login, one service and Muse access required")
 	}
 	return o, nil
 }
 
 func validOptions(o options, remaining int) bool {
-	return remaining == 0 && os.Geteuid() == 0 && o.login != "" && filepath.Base(o.login) == o.login && o.service != "" && (o.muse || o.git)
+	return remaining == 0 && os.Geteuid() == 0 && o.login != "" && filepath.Base(o.login) == o.login && o.service != "" && o.muse
 }
 
 func registrationRoot() (string, string, error) {
@@ -102,7 +96,7 @@ func registrationRoot() (string, string, error) {
 
 func launchCompose(o options, root string) (string, error) {
 	override := filepath.Join(root, "compose.json")
-	if err := writeOverride(override, o.service, root, o.muse, o.git); err != nil {
+	if err := writeOverride(override, o.service, root); err != nil {
 		return "", err
 	}
 	args := []string{"-f", o.file, "-f", override}
@@ -142,39 +136,14 @@ func account(login string) (int64, error) {
 	return actor, nil
 }
 
-func writeOverride(path, service, root string, muse, git bool) error {
-	var mounts []string
-	if muse {
-		mounts = append(mounts, root+":/run/soda-muse/credentials:ro", "/usr/local/bin/muse:/usr/local/bin/muse:ro", "/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro", filepath.Dir(identity.MuseLaunchSocket)+":"+filepath.Dir(identity.MuseLaunchSocket)+":ro")
-	}
-	if git {
-		mounts = append(mounts, root+":/run/soda-git/credentials:ro", "/usr/local/bin/git-remote-soda:/usr/local/bin/git-remote-soda:ro", identity.GitLaunchSocket+":"+identity.GitLaunchSocket+":ro")
-	}
+func writeOverride(path, service, root string) error {
+	mounts := []string{root + ":/run/soda-muse/credentials:ro", "/usr/local/bin/muse:/usr/local/bin/muse:ro", "/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro", filepath.Dir(identity.MuseLaunchSocket) + ":" + filepath.Dir(identity.MuseLaunchSocket) + ":ro"}
 	wire := map[string]any{"services": map[string]any{service: map[string]any{"volumes": mounts}}}
 	data, err := json.Marshal(wire)
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, 0o600)
-}
-
-func verifyGitChild(child string) error {
-	base := []string{"--remote=false", "exec", child}
-	git, err := exec.Command("/usr/bin/podman", append(base, "/usr/bin/git", "--exec-path")...).Output()
-	if err != nil || strings.TrimSpace(string(git)) != "/usr/libexec/git-core" {
-		return errors.New("selected service requires compatible native Git")
-	}
-	for _, path := range []string{"/usr/libexec/git-core/git-remote-http", "/usr/bin/getent"} {
-		if err := exec.Command("/usr/bin/podman", append(base, "/usr/bin/test", "-x", path)...).Run(); err != nil {
-			return errors.New("selected service requires compatible native Git")
-		}
-	}
-	body, err := exec.Command("/usr/bin/podman", append(base, "/usr/local/bin/git-remote-soda")...).CombinedOutput()
-	var status *exec.ExitError
-	if !errors.As(err, &status) || status.ExitCode() != 1 || string(body) != "invalid Soda Git remote\n" {
-		return errors.New("selected service requires compatible Soda Git helper")
-	}
-	return nil
 }
 
 func register(request identity.NestedRegistration) error {

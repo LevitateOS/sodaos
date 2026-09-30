@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,8 +15,7 @@ import (
 
 func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 	const token = "synthetic-bootstrap-token-not-for-retention"
-	const secret = "synthetic-oauth-secret"
-	for _, name := range []string{"new", "legacy-file", "existing-config", "existing-secret", "non-admin", "current-denied", "application-denied", "malformed-application", "incomplete-application", "missing-token"} {
+	for _, name := range []string{"new", "unrelated-file", "existing-config", "existing-key", "non-admin", "current-denied", "missing-token"} {
 		t.Run(name, func(t *testing.T) {
 			root := t.TempDir()
 			dir := filepath.Join(root, "soda")
@@ -33,12 +31,12 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 			out := filepath.Join(dir, "dashboard.json")
 			var retained string
 			switch name {
-			case "legacy-file":
-				retained = filepath.Join(dir, "admin-token")
+			case "unrelated-file":
+				retained = filepath.Join(dir, "operator-notes")
 			case "existing-config":
 				retained = out
-			case "existing-secret":
-				retained = filepath.Join(dir, "oauth-secret")
+			case "existing-key":
+				retained = filepath.Join(dir, "grant-key")
 			}
 			var before os.FileInfo
 			if retained != "" {
@@ -60,26 +58,6 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 						return
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "soda-tester", "is_admin": name != "non-admin"})
-				case "POST /api/v1/user/applications/oauth2":
-					body, _ := io.ReadAll(r.Body)
-					var got map[string]any
-					if json.Unmarshal(body, &got) != nil || !reflect.DeepEqual(got, map[string]any{"name": "SodaOS identity broker", "redirect_uris": []any{"https://forgejo.test/-/soda/identity/callback"}, "confidential_client": true}) {
-						t.Error("unexpected OAuth application request")
-					}
-					if strings.Contains(string(body), token) {
-						t.Error("token entered application payload")
-					}
-					switch name {
-					case "application-denied":
-						http.Error(w, token, http.StatusForbidden)
-					case "malformed-application":
-						_, _ = io.WriteString(w, token)
-					case "incomplete-application":
-						_, _ = io.WriteString(w, `{"client_id":"app"}`)
-					default:
-						w.WriteHeader(http.StatusCreated)
-						_ = json.NewEncoder(w).Encode(map[string]string{"client_id": "app", "client_secret": secret})
-					}
 				default:
 					t.Error("setup reached an unexpected provider endpoint")
 					w.WriteHeader(http.StatusNotFound)
@@ -104,12 +82,9 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 			if strings.Contains(string(output), token) || (setupErr != nil && strings.Contains(setupErr.Error(), token)) {
 				t.Fatal("bootstrap token escaped in output/error")
 			}
-			success := name == "new" || name == "legacy-file"
+			success := name == "new" || name == "unrelated-file"
 			if (setupErr == nil) != success {
 				t.Fatalf("unexpected setup success=%v", setupErr == nil)
-			}
-			if name == "existing-secret" && !strings.Contains(setupErr.Error(), "OAuth application created, but credential write failed; inspect Forgejo applications before retrying") {
-				t.Fatal("lost uncertain provider outcome guidance")
 			}
 			var gotCalls []string
 			for len(calls) > 0 {
@@ -118,9 +93,6 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 			var wantCalls []string
 			if name != "existing-config" && name != "missing-token" {
 				wantCalls = append(wantCalls, "GET /api/v1/user")
-				if name != "non-admin" && name != "current-denied" {
-					wantCalls = append(wantCalls, "POST /api/v1/user/applications/oauth2")
-				}
 			}
 			if !reflect.DeepEqual(gotCalls, wantCalls) {
 				t.Fatal("unexpected provider calls or automatic replay", gotCalls)
@@ -157,28 +129,21 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 				}
 				return
 			}
-			wantFiles := 3
-			if name == "legacy-file" {
+			wantFiles := 2
+			if name == "unrelated-file" {
 				wantFiles++
 			}
 			if len(entries) != wantFiles {
 				t.Fatal("unexpected installed files")
 			}
-			data, _ := os.ReadFile(out)
-			if strings.Contains(string(data), "admin_token_file") {
-				t.Fatal("new config retained bootstrap reference")
-			}
 			c, err := config.Load(out)
-			if err != nil || c.OperatorID != 42 || c.OAuthClientID != "app" || c.OAuthCallbackURL() != "https://forgejo.test/-/soda/identity/callback" {
-				t.Fatal("setup output did not load with original identity/callback")
+			if err != nil || c.OperatorID != 42 || c.ForgejoURL != "https://forgejo.test" {
+				t.Fatal("setup output did not load with native operator identity")
 			}
 			if key, err := config.GrantKey(c.GrantKeyFile); err != nil || len(key) != 32 {
 				t.Fatal("grant key missing or invalid")
 			}
-			if value, err := config.Secret(c.OAuthSecretFile); err != nil || value != secret {
-				t.Fatal("OAuth secret not preserved")
-			}
-			for _, path := range []string{out, c.OAuthSecretFile, c.GrantKeyFile} {
+			for _, path := range []string{out, c.GrantKeyFile} {
 				st, err := os.Stat(path)
 				if err != nil || st.Mode().Perm() != 0o600 {
 					t.Fatal("setup file not restricted")

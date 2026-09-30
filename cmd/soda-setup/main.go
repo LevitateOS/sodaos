@@ -1,4 +1,4 @@
-// soda-setup is operator-invoked setup for the Forgejo identity broker, not a daemon.
+// soda-setup records the native operator identity and Soda service configuration.
 package main
 
 import (
@@ -38,7 +38,7 @@ func run() error {
 func writeSetupSecret(path, value string) error {
 	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if e != nil {
-		return fmt.Errorf("OAuth application created, but credential write failed; inspect Forgejo applications before retrying: %w", e)
+		return fmt.Errorf("create credential encryption key: %w", e)
 	}
 	_, e = f.WriteString(value + "\n")
 	ce := f.Close()
@@ -75,26 +75,17 @@ func admitSetupPaths(external, internal, out string) error {
 	return nil
 }
 
-func setupOAuthApp(external, internal, token string) (forgejo.User, forgejo.Application, error) {
-	var zero forgejo.User
-	var app forgejo.Application
+func setupOperator(internal, token string) (forgejo.User, error) {
 	client := forgejo.New(internal)
 	ctx := context.Background()
 	u, err := client.Current(ctx, token)
 	if err != nil {
-		return zero, app, err
+		return forgejo.User{}, err
 	}
 	if !u.Admin {
-		return zero, app, fmt.Errorf("forgejo operator token is not a site administrator")
+		return forgejo.User{}, fmt.Errorf("forgejo operator token is not a site administrator")
 	}
-	a, err := client.Application(ctx, token, (config.Config{ForgejoURL: strings.TrimRight(external, "/")}).OAuthCallbackURL())
-	if err != nil {
-		return zero, app, err
-	}
-	if a.ClientID == "" || a.Secret == "" {
-		return zero, app, fmt.Errorf("forgejo returned an incomplete OAuth application")
-	}
-	return u, a, nil
+	return u, nil
 }
 
 func setup(external, internal, tokenPath, out string) error {
@@ -105,7 +96,7 @@ func setup(external, internal, tokenPath, out string) error {
 	if err != nil {
 		return err
 	}
-	u, a, err := setupOAuthApp(external, internal, token)
+	u, err := setupOperator(internal, token)
 	if err != nil {
 		return err
 	}
@@ -113,18 +104,15 @@ func setup(external, internal, tokenPath, out string) error {
 	if err = os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	secretPath := filepath.Join(dir, "oauth-secret")
 	keyPath := filepath.Join(dir, "grant-key")
 	key := make([]byte, 32)
 	if _, err = rand.Read(key); err != nil {
 		return fmt.Errorf("generate identity encryption key: %w", err)
 	}
-	for path, value := range map[string]string{secretPath: a.Secret, keyPath: base64.StdEncoding.EncodeToString(key)} {
-		if err := writeSetupSecret(path, value); err != nil {
-			return err
-		}
+	if err := writeSetupSecret(keyPath, base64.StdEncoding.EncodeToString(key)); err != nil {
+		return err
 	}
-	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(external, "/"), ForgejoInternalURL: strings.TrimRight(internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", OAuthClientID: a.ClientID, OAuthSecretFile: secretPath, GrantKeyFile: keyPath, OperatorID: u.ID}
+	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(external, "/"), ForgejoInternalURL: strings.TrimRight(internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", GrantKeyFile: keyPath, OperatorID: u.ID}
 	if err = writeSetupConfig(out, c); err != nil {
 		return err
 	}

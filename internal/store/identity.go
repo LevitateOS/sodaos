@@ -218,7 +218,7 @@ func (s *Store) IdentityLease(ctx context.Context, id string) (identity.Lease, e
 }
 
 func (s *Store) IdentityReserve(ctx context.Context, l identity.Lease) error {
-	if !identity.ProviderValid(l.ProviderID) || (l.ProviderID == identity.Forgejo && (l.RepositoryID <= 0 || l.ProjectID == "")) {
+	if !identity.ProviderValid(l.ProviderID) {
 		return identity.ErrDenied
 	}
 	d, err := json.Marshal(l)
@@ -226,7 +226,7 @@ func (s *Store) IdentityReserve(ctx context.Context, l identity.Lease) error {
 		return err
 	}
 	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `INSERT INTO identity_leases(id,connection_id,data) SELECT ?,id,? FROM identity_connections WHERE id=? AND generation=? AND state='ready' AND json_extract(data,'$.provider_id')=? AND (? IN ('muse','forgejo') OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=?)) AND (?!='forgejo' OR owner_id=?) AND (?='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=? AND connection_id=? AND user_id=? AND project_id=? AND revision=? AND revoked=0))`, l.ID, d, l.ConnectionID, l.Generation, l.ProviderID, l.ProviderID, l.ConnectionID, l.ProviderID, l.ActorID, l.GrantID, l.GrantID, l.ConnectionID, l.ActorID, l.ProjectID, l.GrantRevision)
+		res, err := tx.ExecContext(ctx, `INSERT INTO identity_leases(id,connection_id,data) SELECT ?,id,? FROM identity_connections WHERE id=? AND generation=? AND state='ready' AND json_extract(data,'$.provider_id')=? AND (?='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=?)) AND (?='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=? AND connection_id=? AND user_id=? AND project_id=? AND revision=? AND revoked=0))`, l.ID, d, l.ConnectionID, l.Generation, l.ProviderID, l.ProviderID, l.ConnectionID, l.GrantID, l.GrantID, l.ConnectionID, l.ActorID, l.ProjectID, l.GrantRevision)
 		if err != nil {
 			return err
 		}

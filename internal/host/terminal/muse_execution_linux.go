@@ -58,7 +58,7 @@ func (m *MuseRuntime) prepareExecution(ctx context.Context, peer MusePeer, in id
 		return nil, err
 	}
 	in.Args = safe
-	caller, err := m.resolve(ctx, peer, identity.Muse)
+	caller, err := m.resolve(ctx, peer)
 	if err != nil {
 		return nil, err
 	}

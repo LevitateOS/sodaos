@@ -1,7 +1,7 @@
 # Credentials and grants
 
-Soda keeps broker OAuth client secrets and credential-encryption keys separate
-from Forgejo's native credential store. Product identity comes from the verified
+Soda keeps provider credential-encryption keys separate from Forgejo's native
+credential store. Product identity comes from the verified
 Forgejo extension request; Soda does not issue browser login sessions. This
 document owns durable credential contracts and operator maintenance. Route
 behavior: [HTTP API](api.md).
@@ -14,8 +14,7 @@ below owns provider custody and delegation.
 
 ## New installations
 
-1. Operator creates a Forgejo site-admin access token with `write:user` (includes
-   `read:user`) and supplies it through a mode-0600 file.
+1. Operator creates a Forgejo site-admin access token with `read:user` and supplies it through a mode-0600 file.
 2. `soda-setup` calls the native API, records `operator_id`, and retains broker
    encryption material in restricted files. It does not keep a bootstrap-token
    copy.
@@ -34,7 +33,7 @@ status alone is not sufficient.
 ## Credential encryption
 
 Broker-held provider credentials are encrypted with the configured key file.
-Protect encryption-key and broker OAuth-secret files as operator secrets. Never
+Protect encryption-key files as operator secrets. Never
 expose them in source, argv, logs, screenshots or evidence.
 
 ## Existing-install maintenance
@@ -44,17 +43,11 @@ Credential rotation, bootstrap-token retirement and broker schema updates are
 explicit operator procedures against the live data volume. Revocation and deletion
 are separate explicit actions, never automatic migrations.
 
-## Native consent
-
-Soda verifies required OAuth scopes after exchange (including `read:user`,
-`read:repository` and `read:organization` where those surfaces need them). Failed
-named transactions return through the native Forgejo callback, not arbitrary
-return URLs.
-
 ## Source owners
 
 - Config load: `internal/config`
-- Sessions and grants: `internal/store`, `internal/web/auth`
+- Native browser authority: `internal/web/auth`
+- Provider credentials and grants: `internal/identity`, `internal/store`
 - Setup/activate scripts and units under `appliance/` and `scripts/`
 
 ## Identity Broker
@@ -78,7 +71,8 @@ subscription-only behavior cannot be established is not admitted by the broker.
 
 The userspace `soda-identity` service keeps Codex ChatGPT and Muse Code subscription
 connections private to their Soda owner. Connections, enrollments and leases carry
-an explicit `provider_id` (`codex`, `muse` or `forgejo`). Codex and Muse use subscription device sign-in; Forgejo uses the separate account consent flow below. Connect in project controls and complete the selected provider’s native sign-in.
+an explicit `provider_id` (`codex` or `muse`). Both use subscription device sign-in. Connect in
+project controls and complete the selected provider’s native sign-in.
 Choose a connection when starting Codex. Device sign-in
 must be enabled by the upstream account or organization; unsupported enrollment
 requires upstream setup, never silent conversion to API billing. The verified
@@ -123,86 +117,6 @@ registered execution. A failed termination keeps the connection blocked. Crash,
 reboot or interrupted return never restores the original seed; reconciliation
 terminates the recorded boundary and uncertain streams require one Soda-level
 reconnection. Local project files survive authentication failures.
-
-### Forgejo account custody
-
-Forgejo broker enrollment uses a confidential native OAuth application. Its code
-and PKCE exchange must verify the native subject,
-application audience, explicit `read:user write:repository` consent and the
-owner's verified primary email. The native user ID must equal the Soda owner ID.
-One unrevoked Forgejo connection per owner prevents competing refresh streams for
-the same native user/application grant. Reconnection requires retiring that
-connection first. Delegation cannot change the authenticated Forgejo user.
-Forgejo reservations require a project and one stable native repository ID, and
-remain bound to the connected account owner. Independent reservations can coexist;
-retiring one reservation does not remove its siblings. Native token renewal is
-serialized by broker custody. Admission is durably withdrawn before requesting
-renewal and restored only after verified credentials are encrypted. An uncertain
-renewal leaves the connection unavailable; restart never replays its old seed.
-
-Configure `forgejo.base`, `forgejo.client_id`, `forgejo.redirect_url` and the
-absolute `forgejo_secret_file` in the broker settings. Keep the client secret in a
-restricted file, separate from the browser application's secret. Native callback
-completion uses the private administration interface; it does not expose tokens.
-Project Git launch requires the host's explicit `git_socket` at
-`/run/soda-git-interface/launch.sock`, its private `identity_socket`, and the
-configured HTTPS `forgejo_url` origin. The native origin's slash-bounded Git
-rewrite selects the Soda remote helper; other origins keep their selected
-transport. `SODA_GIT_CONNECTION` selects an authorized Forgejo connection
-explicitly. A missing or unavailable selection denies the invocation.
-The fixed return is `/-/soda/identity/callback`. The Soda broker stores a bounded,
-expiring one-time OAuth state binding to the native actor and enrollment before
-the browser leaves for Forgejo consent. The callback consumes that state once,
-completes only for the stored owner/enrollment, and returns status without
-credentials. Native cancellation removes its matching binding; a dashboard
-restart invalidates pending state. Forgejo identity and custody credentials remain
-backend-only.
-Forgejo credentials are excluded from raw terminal and factory credential
-delivery. Repository access must be mediated because native OAuth repository
-scopes apply across the account's permitted repositories. A selected remote resolves
-to a stable native repository ID; each mediated operation must recheck current
-native read or write permission and the connected owner's verified identity.
-Git HTTP traffic uses the private runtime interface; administration sockets deny
-it. Factory admission records the repository ID from the admitted work item in
-the broker's base execution lease, alongside its authorizing human. Guest launch
-requests cannot supply that authority. Factory Git leases require that repository ID and permit only
-upload-pack reads. Human leases may use native receive-pack when Forgejo grants
-write permission. Ending a lease cancels its HTTP streams before native stop;
-normal Git retirement does not replace the broker credential.
-The normal Git remote helper uses a separate launch-only Unix interface. The host
-attests the account, container incarnation and transferred loopback listener,
-then supervises one native Git helper unit. Its relay capability lives in a
-protected runtime config file supplied through restricted stdin; upstream OAuth
-credentials stay in broker custody. Revocation stops that unit and removes its
-runtime config without stopping the project or a sibling Git session.
-
-Ephemeral workers use the broker's `git_worker_socket` in a separate public
-directory. Factory workspace configuration supplies `git_tools_directory` and
-`git_socket` for the matching public helper and interface. The operator's user
-systemd manager supervises each transport while entering the attested worker's
-user, mount and network namespaces. Only its read-scoped relay capability enters
-worker tmpfs; the initial `source.bundle` checkout remains in place, with the
-trusted admitted repository origin routed through the helper. Stopping Git leaves
-the worker and sibling sessions running. Admission and controlled publication
-remain governed by the [factory operator interface](factory.md).
-
-`soda-identity-compose --git` explicitly opts one nested service into the same
-Forgejo path. The child receives only the public Git helper, its exact launch
-socket and a read-only view of its per-invocation config; broker OAuth credentials
-and administration sockets remain outside it. Registration attests the parent
-project, authorizing Soda account, immutable child ID and live PID namespace.
-A restarted child needs fresh registration. The host runs each nested Git helper
-in an independently stoppable parent unit while entering the child's namespaces
-and working directory; stopping Git does not stop the child. A Git-only service
-does not receive Muse tools or its launch socket.
-After broker registration, the native Git launch sets the attested project
-login's global `user.name` and `user.email` to the connected Forgejo account's
-verified name and primary email. A later ordinary `git commit` uses those
-values by default; another brokered launch refreshes stale global values.
-Other global settings remain intact. Repository-local configuration, command-line
-`-c` values and commit environment variables retain Git's normal precedence,
-so commit metadata can still be changed by the project user. Forgejo records
-the authenticated account separately as the push actor.
 
 ### Muse subscription custody
 
@@ -293,6 +207,5 @@ must have a lingering systemd user manager and an available user D-Bus socket.
 Execution uses that manager while retaining the existing rootless Podman context.
 Factory configuration supplies `muse_tools_directory`, `muse_socket` and
 `muse_credential_root`, matching the broker’s public interface and tmpfs root.
-Only pinned public tools and the launch interface enter the worker. The existing
-factory Git authority and Codex coding loop remain unchanged. The worker’s explicit
+Only pinned public tools and the launch interface enter the worker. The worker’s explicit
 egress profile must permit `api.meta.ai` for Muse subscription requests.

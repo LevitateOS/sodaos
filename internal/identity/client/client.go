@@ -109,12 +109,6 @@ func (c *Client) Enrollment(ctx context.Context, owner int64, id string) (identi
 	return out, err
 }
 
-func (c *Client) CompleteEnrollment(ctx context.Context, owner int64, id, state, code string) (identity.Enrollment, error) {
-	var out identity.Enrollment
-	err := c.call(ctx, "/enrollment/complete", identity.Request{OwnerID: owner, ID: id, State: state, Code: code}, &out)
-	return out, err
-}
-
 func (c *Client) CancelEnrollment(ctx context.Context, owner int64, id string) error {
 	return c.call(ctx, "/enrollment/cancel", identity.Request{OwnerID: owner, ID: id}, nil)
 }

@@ -33,7 +33,7 @@ class NativeStage(unittest.TestCase):
         self.assertFalse((self.root / 'usr/local/share/cockpit/soda-projects').exists())
 
     def test_no_retired_react_payload(self):
-        # Soda is an API/OAuth command with no standalone frontend payload.
+        # Soda is a native extension service with no standalone frontend payload.
         self.assertFalse((self.root / 'usr/local/share/soda/dashboard').exists())
 
     def test_persistence_and_privilege_wiring(self):
@@ -85,15 +85,13 @@ class NativeStage(unittest.TestCase):
         ]:
             self.assertTrue((brand / name).is_file(), name)
 
-    def test_soda_proxy_only_exposes_native_callback_and_avatars(self):
+    def test_soda_proxy_exposes_avatars_and_native_forgejo(self):
         proxy = (self.root / 'etc/soda/proxy.Caddyfile').read_text()
         self.assertNotIn('SODA_ORIGIN', proxy)
         self.assertEqual(proxy.count('{$FORGEJO_ORIGIN} {'), 1)
         # Caddy's canonical formatter uses tabs; indentation is not routing.
         # Keep exact paths/ports and complete non-stripping handler blocks.
-        self.assertRegex(
-            proxy, r'(?m)^\s*handle\s+/-/soda/identity/callback\s*\{\s+reverse_proxy\s+127\.0\.0\.1:8080\s+\}'
-        )
+        self.assertIn('handle /-/soda/avatars/v1/*', proxy)
         self.assertNotIn('handle /-/soda/*', proxy)
         self.assertRegex(proxy, r'(?m)^\s*handle\s*\{\s+reverse_proxy\s+127\.0\.0\.1:3000\s+\}')
         self.assertNotIn('handle_path', proxy)

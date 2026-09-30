@@ -100,7 +100,7 @@ func checkPreexistingInstall(root string) (bool, error) {
 	}
 	for _, name := range []string{"dashboard.json", "setup-started"} {
 		if _, err := os.Lstat(filepath.Join(root, name)); !errors.Is(err, os.ErrNotExist) {
-			return false, errors.New("existing or partial operator setup requires inspection; do not create another OAuth application")
+			return false, errors.New("existing or partial operator setup requires inspection before retrying")
 		}
 	}
 	return false, nil
@@ -150,7 +150,7 @@ func promptOperatorToken(c console, address, origin string) (string, error) {
 	c.print("Open http://localhost:33000 and complete Forgejo's own installation and administrator account setup.")
 	c.print("Keep its localhost browser URL for this bootstrap; activation below sets the final private URL.")
 	c.print("In Forgejo Settings > Applications, create the operator token described in the operator setup guide.")
-	c.print("Required scope: write:user (includes read:user). No admin or repository scope is needed. Paste it here through the SSH terminal; input is hidden.")
+	c.print("Required scope: read:user. No admin or repository scope is needed. Paste it here through the SSH terminal; input is hidden.")
 	c.print("Caddy will issue local HTTPS certificates. You will explicitly trust its public root certificate on your laptop.")
 	answer, err := c.ask("When Forgejo setup is complete, type CONFIGURE SODA; anything else cancels")
 	if err != nil {
@@ -192,10 +192,10 @@ func executeSetupAndActivation(ctx context.Context, run commandRunner, root, tem
 		return err
 	}
 	if err := writeSetupFile(filepath.Join(root, "setup-started"), []byte(origin+"\n")); err != nil {
-		return errors.New("cannot reserve operator setup; no OAuth request made")
+		return errors.New("cannot reserve operator setup; no native API request made")
 	}
 	if _, err := run(ctx, platform.Sbin+"/soda-setup", []string{"--forgejo-url", origin, "--token-file", tokenPath, "--out", filepath.Join(root, "dashboard.json")}, nil); err != nil {
-		return errors.New("operator setup failed; preserve private inputs and inspect native Forgejo applications before retrying. " + failureSummary(err))
+		return errors.New("operator setup failed; inspect the existing configuration before retrying. " + failureSummary(err))
 	}
 	if _, err := run(ctx, platform.Sbin+"/soda-activate", []string{"--bind-ip", selected.Address, "--local-tls"}, nil); err != nil {
 		return errors.New("private activation failed; preserve the existing configuration for inspection. " + failureSummary(err))

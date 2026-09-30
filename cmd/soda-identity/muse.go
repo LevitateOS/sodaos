@@ -65,6 +65,12 @@ func openFactoryMuseSocket(c settings) (*net.UnixListener, error) {
 	return listener, nil
 }
 
+func closeWorkerSocket(listener *net.UnixListener) {
+	if listener != nil {
+		_ = listener.Close()
+	}
+}
+
 func resolveFactoryMuse(ctx context.Context, db *store.Store, root string, peer terminal.MusePeer) (terminal.MuseFactoryCaller, error) {
 	var caller terminal.MuseFactoryCaller
 	namespace, err := factoryPeerNamespace(peer)

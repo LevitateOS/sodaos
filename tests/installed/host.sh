@@ -165,7 +165,7 @@ published('127.0.0.1', 3000, 3000)
 if sys.argv[1] == 'activated':
     cfg = json.loads(Path('/etc/soda/dashboard.json').read_text())
     # Retired bootstrap files are not dashboard credentials and need not exist.
-    for key in ('oauth_secret_file', 'grant_key_file'):
+    for key in ('grant_key_file',):
         path = Path(cfg[key])
         info = path.lstat()
         if not path.is_absolute() or not stat.S_ISREG(info.st_mode) or (info.st_uid, info.st_gid, stat.S_IMODE(info.st_mode)) != (0, 2000, 0o640):

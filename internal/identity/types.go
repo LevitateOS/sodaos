@@ -18,7 +18,6 @@ var (
 const (
 	Codex    = "codex"
 	Muse     = "muse"
-	Forgejo  = "forgejo"
 	Ready    = "ready"
 	Reauth   = "reauth"
 	Revoked  = "revoked"
@@ -69,8 +68,6 @@ type AcquireRequest struct {
 
 // Binding identifies a native process boundary, not a browser attachment.
 type Binding struct {
-	// ContainerID pins a mediated Git execution to its immutable OCI incarnation.
-	ContainerID    string `json:"container_id,omitempty"`
 	ChildID        string `json:"child_id,omitempty"`
 	UID            int    `json:"uid,omitempty"`
 	GID            int    `json:"gid,omitempty"`
@@ -85,7 +82,7 @@ type Binding struct {
 }
 
 type Lease struct {
-	// RepositoryID records factory admission or one mediated Forgejo repository.
+	// RepositoryID records factory admission.
 	RepositoryID  int64     `json:"repository_id,string,omitempty"`
 	ProviderID    string    `json:"provider_id"`
 	ID            string    `json:"id"`
@@ -148,4 +145,4 @@ func CredentialValid(data []byte) bool {
 
 // ProviderValid identifies the supported native account adapters. Execution
 // admission remains specific to the provider and its credential exposure model.
-func ProviderValid(id string) bool { return id == Codex || id == Muse || id == Forgejo }
+func ProviderValid(id string) bool { return id == Codex || id == Muse }

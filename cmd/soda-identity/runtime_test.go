@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,20 +9,6 @@ import (
 
 	"github.com/levitateos/sodaos/internal/identity"
 )
-
-func TestForgejoCannotUseFactoryWorkspaceRuntime(t *testing.T) {
-	lease, log := fakeFactoryRuntime(t, "still-running")
-	lease.ProviderID = identity.Forgejo
-	if err := (nativeRuntime{}).Validate(t.Context(), lease); !errors.Is(err, identity.ErrDenied) {
-		t.Fatal("workspace admitted as Git execution", err)
-	}
-	if err := (nativeRuntime{}).Stop(t.Context(), lease); !errors.Is(err, identity.ErrUncertain) {
-		t.Fatal("workspace accepted as stopped Git execution", err)
-	}
-	if _, err := os.Stat(log); !errors.Is(err, os.ErrNotExist) {
-		t.Fatal("Git operation touched factory workspace", err)
-	}
-}
 
 func TestFactoryStopRejectsUncertainOrForeignBoundary(t *testing.T) {
 	for _, scenario := range []string{"engine-failed", "foreign-label", "still-running"} {

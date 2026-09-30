@@ -13,8 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Operation-specific tests reuse the existing handler/session fixtures. Page,
-// OAuth entry and coordinated-logout fixture ports belong to Soda-pages.
+// Operation-specific tests reuse the existing native extension fixtures.
 var runnerAPIRequests = []struct{ name, method, path, body string }{
 	{"list", "GET", "/api/settings/runners", ""},
 	{"create", "POST", "/api/settings/runners", `{"id":"one","provider":"forgejo","registration_url":"https://untrusted.invalid","registration_id":"33834eef-e758-48c4-a676-1745426747aa","labels":"soda:host","registration_token":"synthetic-runner-secret"}`},

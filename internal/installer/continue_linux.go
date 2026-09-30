@@ -207,7 +207,7 @@ func confirmContinueSubnet(ctx context.Context, c console, run commandRunner, in
 	if err := ProjectSubnet(subnet); err != nil {
 		return "", err
 	}
-	c.print("Install Soda revision %s for %s using project subnet %s. This installs files/images and starts private/loopback services; it does not complete Forgejo/OAuth/TLS setup.", inventory.Revision, architecture(), subnet)
+	c.print("Install Soda revision %s for %s using project subnet %s. This installs files/images and starts private/loopback services; it does not complete Forgejo operator and TLS setup.", inventory.Revision, architecture(), subnet)
 	answer, err := c.ask("Type INSTALL SODA to proceed")
 	if err != nil {
 		return "", err

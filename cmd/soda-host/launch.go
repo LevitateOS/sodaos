@@ -8,13 +8,13 @@ import (
 	"github.com/levitateos/sodaos/internal/host"
 )
 
-// Both launch interfaces retire their own executions before the host exits.
+// The Muse launch interface retires its executions before the host exits.
 func startRuntimeLaunchers(ctx context.Context, stop context.CancelFunc, daemon *host.Daemon) (func() error, error) {
 	services := []struct {
 		open     func() (*net.UnixListener, error)
 		serve    func(context.Context, *net.UnixListener) error
 		listener *net.UnixListener
-	}{{open: daemon.OpenMuseListener, serve: daemon.ServeMuse}, {open: daemon.OpenGitListener, serve: daemon.ServeGit}}
+	}{{open: daemon.OpenMuseListener, serve: daemon.ServeMuse}}
 	var results []<-chan error
 	for index, service := range services {
 		listener, err := service.open()

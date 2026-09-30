@@ -8,10 +8,6 @@ func SelectMuseConnection(connections []Connection, selected string) (string, er
 	return selectConnection(connections, Muse, selected, "SODA_MUSE_CONNECTION")
 }
 
-func SelectForgejoConnection(connections []Connection, selected string) (string, error) {
-	return selectConnection(connections, Forgejo, selected, "SODA_GIT_CONNECTION")
-}
-
 func selectConnection(connections []Connection, provider, selected, setting string) (string, error) {
 	var matches []string
 	for _, connection := range connections {

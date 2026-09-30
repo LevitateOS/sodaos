@@ -20,7 +20,6 @@ import (
 type options struct {
 	config, project, tools string
 	bindOnly               bool
-	gitOnly                bool
 }
 
 func main() {
@@ -36,7 +35,6 @@ func parse(args []string) (options, error) {
 	flags.StringVar(&o.config, "config", "/etc/soda/host.json", "operator host configuration")
 	flags.StringVar(&o.project, "project", "", "exact project identity")
 	flags.StringVar(&o.tools, "tools", filepath.Clean(filepath.Join(platform.Libexec, "../../share/soda/muse-tools")), "installed public tool directory")
-	flags.BoolVar(&o.gitOnly, "git-only", false, "maintain only the native Git launch interface and public helper")
 	flags.BoolVar(&o.bindOnly, "bind-only", false, "restore only the launch interface")
 	if err := flags.Parse(args); err != nil {
 		return o, err
@@ -58,9 +56,6 @@ func run() error {
 	c, err := host.LoadConfig(o.config)
 	if err != nil {
 		return err
-	}
-	if o.gitOnly {
-		return maintainGit(o, c)
 	}
 	if c.MuseSHA256 == "" {
 		if o.bindOnly {

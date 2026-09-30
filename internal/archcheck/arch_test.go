@@ -219,7 +219,6 @@ func TestDependencyDirection(t *testing.T) {
 	allowOnly(t, edges, "internal/identity")
 	allowOnly(t, edges, "internal/identity/client", "internal/identity", "internal/strictjson")
 	allowOnly(t, edges, "internal/identity/muse", "internal/identity", "internal/strictjson")
-	allowOnly(t, edges, "internal/identity/forgejo", "internal/identity", "internal/forgejo", "internal/strictjson")
 	allowOnly(t, edges, "internal/identity/codex", "internal/identity", "internal/strictjson")
 	allowOnly(t, edges, "internal/identity/control", "internal/identity", "internal/forgejo", "internal/identity/codex", "internal/store", "internal/strictjson", "internal/filelock")
 

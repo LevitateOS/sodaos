@@ -7,28 +7,6 @@ import (
 	"strings"
 )
 
-// RepositoryByName resolves a user-selected native Git remote before its stable
-// repository ID is bound to a broker lease.
-func (c *Client) RepositoryByName(ctx context.Context, token, owner, name string) (Repository, error) {
-	if !repositoryPart(owner) || !repositoryPart(name) {
-		return Repository{}, ErrInvalidResponse
-	}
-	var repo Repository
-	path := "/repos/" + url.PathEscape(owner) + "/" + url.PathEscape(name)
-	if err := c.request(ctx, "GET", path, token, nil, &repo); err != nil {
-		return Repository{}, err
-	}
-	if !namedRepositoryValid(repo, owner, name) {
-		return Repository{}, ErrInvalidResponse
-	}
-	return repo, nil
-}
-
-func namedRepositoryValid(repo Repository, owner, name string) bool {
-	return repo.ID > 0 && repo.Owner.ID > 0 && repositoryPart(repo.Owner.Login) && repositoryPart(repo.Name) &&
-		repo.FullName == repo.Owner.Login+"/"+repo.Name && strings.EqualFold(repo.Owner.Login, owner) && strings.EqualFold(repo.Name, name)
-}
-
 // RepositoryByID follows native identity across repository renames/transfers.
 func (c *Client) RepositoryByID(ctx context.Context, token string, id int64) (Repository, error) {
 	if id <= 0 {

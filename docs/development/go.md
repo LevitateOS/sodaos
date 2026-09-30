@@ -19,16 +19,14 @@ remain in [architecture](../architecture/overview.md).
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
 | Serialized provider custody and enrollment | `identity/control`; `cmd/soda-identity` wires private service/runtime |
 | Muse native device enrollment and immutable CLI credentials | `identity/muse` — pinned upstream CLI; no Meta refresh service |
-| Broker-owned Forgejo OAuth enrollment and renewal | `identity/forgejo` — uses the native `forgejo` API client; no browser-session custody |
 | Codex app-server protocol | `identity/codex` — verified CLI protocol and private credential files |
 | Trusted broker Unix transport | `identity/client` — service callers only; never mounted in workspaces |
-| OAuth / login / session / provider / me keys | `web/auth` |
+| Native extension identity / profile / me keys | `web/auth` |
 | Product HTTP/WS (environments, spaces, terminal, lifecycle, runners, tailnet settings, pages) | `web/api` |
 | Dashboard mux root, namespace gate, `web.New` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
 | Unix client + thin daemon mux/admission | `host` (`client.go`, `daemon.go`; decode straight into `project` types — no translators) |
 | Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `host/project` (package `project`; executes on domain `project` types) |
 | Privileged terminal attach | `host/terminal` (package `terminal`) |
-| Attested Git helper launch and per-invocation native supervision | `host/terminal`; `cmd/git-remote-soda` is the credential-free guest client |
 | Narrow factory Git publication | `host/publish` (unprivileged; imports verified candidate bundles) |
 | Disposable factory OCI execution | `host/workspace` (unprivileged; consumes `factory` run records) |
 | Tailnet companion container runtime | `host/tailnet` (package `tailnet`) |
@@ -65,7 +63,7 @@ the privileged terminal executor directly.
 7. Domain policy / wire types (no session, no root socket) → domain package
 8. Privileged project / terminal / companion → `host/project` /
    `host/terminal` / `host/tailnet` (wire through thin `host.Daemon`)
-9. OAuth / session → `web/auth`; product HTTP → `web/api` (wire through
+9. Native browser authority → `web/auth`; product HTTP → `web/api` (wire through
    thin `web.Server`)
 10. Still ambiguous → rules in the domain package; HTTP admits and calls;
     privileged packages execute and confirm. Do not invent a fourth package.
@@ -98,9 +96,8 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
 | `factory` | Bounded work/run identities and fixed lifecycle policy (references canonical `identity` leases) | Forgejo collaboration, runtime execution, SQLite | `types.go`, `lifecycle.go` |
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
-| `identity/control` | Provider-specific account custody, mediated Git admission, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
+| `identity/control` | Provider-specific account custody, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
 | `identity/muse` | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | concern files |
-| `identity/forgejo` | Native Forgejo broker enrollment, account verification, repository authorization, Git HTTP forwarding and renewal | Publication policy, browser sessions, Soda grants | concern files |
 | `identity/codex` | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | concern files |
 | `identity/client` | Private broker Unix client | Browser authority, credential persistence | `client.go` |
 | `forgejo` | Forgejo HTTP API client | Forgejo DB, upstream rules | `client.go` |
@@ -122,7 +119,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `testoci` | Inert OCI test fixtures | Production images | `fixture.go` |
 | `web` | HTTP root mux + wiring only | Business handlers | `server.go` |
 | `web/api` | Product API + settings + terminal WS | OAuth state machine | concern files |
-| `web/auth` | OAuth/session/provider/login | Environment/terminal APIs | `service.go`, `provider.go` |
+| `web/auth` | Native extension identity, profiles and account keys | Environment/terminal APIs | `service.go`, `provider.go` |
 
 ## Cross-cut owners
 

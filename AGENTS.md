@@ -178,7 +178,6 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `bash scripts/check-ruff-format.sh` / `check-ruff.sh` / `check-py-complexity.sh` | Python format, correctness lint, and cyclomatic-below-10 on shipping Python (see [Python tooling](docs/development/python.md)). |
 | `bash scripts/check-gofumpt.sh` / `check-staticcheck.sh` / `check-errcheck.sh` | Go format (gofumpt), staticcheck, and unchecked-error lint; linux analysis for the last two. |
 | `bun run test:frontend` / `bun run test:forgejo` | Build browser assets and run the selected suite. |
-| `bun run test:pages` | Native-page fixture checks; requires the authorized local Forgejo fixture. |
 | `bun test tests/forgejo/cockpit-branding.test.ts` | Independent stock-Cockpit branding source/component checks. |
 | `bun run check:source` | Broad Go, TypeScript, browser and Python source checks. |
 | `bash scripts/check-native.sh ARCH CANDIDATE_DIR` | Verify a soda-build candidate artifacts directory; does not build, install or publish. |

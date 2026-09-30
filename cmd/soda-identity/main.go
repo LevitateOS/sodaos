@@ -23,25 +23,21 @@ import (
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/identity/codex"
 	"github.com/levitateos/sodaos/internal/identity/control"
-	identityforgejo "github.com/levitateos/sodaos/internal/identity/forgejo"
 	"github.com/levitateos/sodaos/internal/identity/muse"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
 
 type settings struct {
-	Forgejo           identityforgejo.Config `json:"forgejo"`
-	ForgejoSecretFile string                 `json:"forgejo_secret_file"`
-	MuseWorkerRoot    string                 `json:"muse_worker_root"`
-	MuseWorkerSocket  string                 `json:"muse_worker_socket"`
-	GitWorkerSocket   string                 `json:"git_worker_socket"`
-	Database          string                 `json:"database"`
-	KeyFile           string                 `json:"key_file"`
-	AdminSocket       string                 `json:"admin_socket"`
-	RuntimeSocket     string                 `json:"runtime_socket"`
-	HostSocket        string                 `json:"host_socket"`
-	Codex             codex.Config           `json:"codex"`
-	Muse              muse.Config            `json:"muse"`
+	MuseWorkerRoot   string       `json:"muse_worker_root"`
+	MuseWorkerSocket string       `json:"muse_worker_socket"`
+	Database         string       `json:"database"`
+	KeyFile          string       `json:"key_file"`
+	AdminSocket      string       `json:"admin_socket"`
+	RuntimeSocket    string       `json:"runtime_socket"`
+	HostSocket       string       `json:"host_socket"`
+	Codex            codex.Config `json:"codex"`
+	Muse             muse.Config  `json:"muse"`
 }
 
 func main() {
@@ -72,7 +68,7 @@ func load(path string) (settings, error) {
 	if err := validateWorkerSettings(c); err != nil {
 		return c, err
 	}
-	return c, validateFactoryGitSettings(c)
+	return c, nil
 }
 
 func listen(path string, mode os.FileMode) (net.Listener, error) {
@@ -109,7 +105,7 @@ func run() error {
 		return err
 	}
 	defer func() { _ = admin.Close(); _ = runtime.Close() }()
-	broker, db, worker, gitWorker, err := openService(c)
+	broker, db, worker, err := openService(c)
 	if err != nil {
 		return err
 	}
@@ -122,31 +118,23 @@ func run() error {
 		return err
 	}
 	defer closeWorkerSocket(launch)
-	gitLaunch, err := openFactoryGitSocket(c)
-	if err != nil {
-		return err
-	}
-	defer closeWorkerSocket(gitLaunch)
 	if err = broker.Reconcile(ctx); err != nil {
 		slog.Warn("identity execution termination remains unconfirmed")
 	}
-	return serve(ctx, broker, admin, runtime, worker, launch, gitWorker, gitLaunch)
+	return serve(ctx, broker, admin, runtime, worker, launch)
 }
 
-func serve(ctx context.Context, b *control.Controller, admin, runtime net.Listener, worker *terminal.MuseRuntime, launch *net.UnixListener, gitWorker *terminal.FactoryGitRuntime, gitLaunch *net.UnixListener) error {
+func serve(ctx context.Context, b *control.Controller, admin, runtime net.Listener, worker *terminal.MuseRuntime, launch *net.UnixListener) error {
 	servers := []*http.Server{
 		{Handler: b.Handler(false), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192},
 		{Handler: b.Handler(true), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192},
 	}
-	errs := make(chan error, 4)
+	errs := make(chan error, 3)
 	go func() { errs <- servers[0].Serve(admin) }()
 	go func() { errs <- servers[1].Serve(runtime) }()
 	if launch != nil {
 		launcher := &terminal.MuseLaunch{Start: worker.StartFactory}
 		go func() { errs <- launcher.Serve(ctx, launch) }()
-	}
-	if gitLaunch != nil {
-		go func() { errs <- gitWorker.ServeFactory(ctx, gitLaunch) }()
 	}
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -172,21 +160,19 @@ func serve(ctx context.Context, b *control.Controller, admin, runtime net.Listen
 	}
 }
 
-func openService(c settings) (*control.Controller, *store.Store, *terminal.MuseRuntime, *terminal.FactoryGitRuntime, error) {
+func openService(c settings) (*control.Controller, *store.Store, *terminal.MuseRuntime, error) {
 	db, err := openStore(c)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	worker := factoryMuseRuntime(c, db)
-	gitWorker := factoryGitRuntime(db)
-	b, err := openBroker(c, db, worker, gitWorker)
+	b, err := openBroker(c, db, worker)
 	if err != nil {
 		_ = db.Close()
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	wireFactoryMuse(worker, b)
-	wireFactoryGit(gitWorker, b)
-	return b, db, worker, gitWorker, nil
+	return b, db, worker, nil
 }
 
 func openStore(c settings) (*store.Store, error) {
@@ -197,11 +183,8 @@ func openStore(c settings) (*store.Store, error) {
 	return store.OpenEncrypted(c.Database, key)
 }
 
-func openBroker(c settings, db *store.Store, worker *terminal.MuseRuntime, gitWorker *terminal.FactoryGitRuntime) (*control.Controller, error) {
+func openBroker(c settings, db *store.Store, worker *terminal.MuseRuntime) (*control.Controller, error) {
 	providers := map[string]identity.Provider{}
-	if err := configureForgejo(c, providers); err != nil {
-		return nil, err
-	}
 	if c.Codex.Binary != "" {
 		if err := os.MkdirAll(c.Codex.Root, 0o700); err != nil {
 			return nil, err
@@ -222,7 +205,7 @@ func openBroker(c settings, db *store.Store, worker *terminal.MuseRuntime, gitWo
 		}
 		providers[identity.Muse] = p
 	}
-	return control.New(db, providers, nativeRuntime{Host: host.NewClient(c.HostSocket), Muse: worker, Git: gitWorker, Store: db})
+	return control.New(db, providers, nativeRuntime{Host: host.NewClient(c.HostSocket), Muse: worker, Store: db})
 }
 
 func serviceListeners(c settings) (net.Listener, net.Listener, error) {

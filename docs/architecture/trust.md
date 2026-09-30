@@ -105,12 +105,11 @@ the persistent workspace do not register a runner, create a terminal or change
 project lifecycle state. Native Forgejo authorization protects each view; Soda's
 operation rules still govern every private read and mutation.
 
-Keep provider OAuth consent, state/PKCE/callback binding, encrypted account
-custody, serialized refresh and factory grants where those product flows need
-them. Browser sign-in and the old Soda adapter session are separate: removing the
-browser adapter does not remove Forgejo broker custody, native WebAuthn, Git
-protocols or factory publication credentials. See
-[Credentials](../reference/credentials.md).
+The Identity Broker holds Codex and Muse subscription credentials and factory
+grants. Forgejo account sign-in, WebAuthn and Git authentication remain native;
+Soda does not hold Forgejo OAuth grants or mediate project/worker Git requests.
+Factory publication uses separately configured actor credentials. See
+[Credentials](../reference/credentials.md) and the [factory interface](../reference/factory.md).
 
 ## Host helper
 

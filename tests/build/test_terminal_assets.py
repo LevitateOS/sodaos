@@ -63,7 +63,7 @@ class TerminalAssets(unittest.TestCase):
         prepare, emit = scripts['build:forgejo'].split(' && ', 1)
         self.assertEqual(prepare, 'python3 scripts/fetch-terminal.py --out .artifacts/browser-terminal/vendor')
         self.assertEqual(emit, 'bun scripts/build-forgejo.ts')
-        groups = ('frontend', 'pages', 'forgejo')
+        groups = ('frontend', 'forgejo')
         self.assertEqual(
             scripts['test'].split(' && '),
             [
@@ -74,8 +74,6 @@ class TerminalAssets(unittest.TestCase):
         for group in groups:
             self.assertEqual(scripts[f'test:{group}'], f'bun run build:forgejo && bun run test:{group}:prepared')
             self.assertNotIn('build:forgejo', scripts[f'test:{group}:prepared'])
-        self.assertEqual(scripts['test:spaces-page'], 'bun run test:pages')
-        self.assertEqual(scripts['test:pages:prepared'], 'bun scripts/test-spaces-page.ts')
         self.assertEqual(
             scripts['test:frontend:prepared'],
             'SODA_RUNNERS_COMPONENT=1 SODA_TAILNET_COMPONENT=1 bun test tests/frontend/*.test.ts',

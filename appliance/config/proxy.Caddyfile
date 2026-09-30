@@ -13,10 +13,6 @@
 			header_up -Authorization
 		}
 	}
-	# The native identity broker returns through Forgejo's exact public callback.
-	handle /-/soda/identity/callback {
-		reverse_proxy 127.0.0.1:8080
-	}
 	handle {
 		reverse_proxy 127.0.0.1:3000
 	}

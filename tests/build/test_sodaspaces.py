@@ -94,7 +94,7 @@ class SodaspacesPackaging(unittest.TestCase):
             (build / 'bin').mkdir(parents=True)
             (build / 'bin/soda-dashboard').write_text('synthetic; never executed')
             (build / 'project-tools/bin').mkdir(parents=True)
-            for name in ('muse', 'muse-native', 'soda-identity-compose', 'git-remote-soda'):
+            for name in ('muse', 'muse-native', 'soda-identity-compose'):
                 (build / 'project-tools/bin' / name).write_text('synthetic; never executed')
             (build / 'forgejo-locales').mkdir()
             (build / 'forgejo-locales/locale_en-US.ini').write_text('synthetic full-catalog output; not native proof')

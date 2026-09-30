@@ -4,8 +4,6 @@ package project
 // inspect environments. Tailnet companion settings stay on the host Daemon.
 type Config struct {
 	MuseSocket string
-	GitSocket  string
-	ForgejoURL string
 	Image      string
 	Network    string
 	Subnet     string

@@ -59,17 +59,6 @@ func TestNativeStatusIsTypedAndSanitized(t *testing.T) {
 	}
 }
 
-func TestExchangeRejectsTrailingData(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprint(w, `{"access_token":"private-token"}{}`)
-	}))
-	defer server.Close()
-	token, err := New(server.URL).ExchangeGrant(context.Background(), "client", "secret", "code", "https://soda.example/oauth/callback", "verifier")
-	if token.Access != "" || !errors.Is(err, ErrInvalidResponse) {
-		t.Fatal("malformed token response accepted")
-	}
-}
-
 func TestTransportCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

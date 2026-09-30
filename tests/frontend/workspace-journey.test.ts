@@ -9,7 +9,6 @@ const base = journeyInput(
     ca_file: '/synthetic/ca',
     origin: 'https://fixture.invalid',
     target: 'fixture',
-    oauth_client_id: 'synthetic-client',
     repository_id: '7',
     repository_path: '/alice/Alpha',
     revision: '1'.repeat(40),

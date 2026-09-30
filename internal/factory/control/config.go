@@ -162,9 +162,6 @@ func (c *Controller) initialize(ctx context.Context) error {
 		return err
 	}
 	c.Workspace, err = workspace.Open(c.Config.Workspace)
-	if err == nil && c.Config.Workspace.GitSocket != "" {
-		c.Workspace.GitRemote = c.Publisher.Remote
-	}
 	return err
 }
 

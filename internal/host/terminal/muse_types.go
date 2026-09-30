@@ -33,13 +33,13 @@ type (
 		Project, Container, Login, Home, Namespace, Child, Registration string
 		Actor                                                           int64
 		UID, GID, ProjectPID, NestedPID                                 int
-		MuseAllowed, GitAllowed                                         bool
+		MuseAllowed                                                     bool
 	}
 	museNested struct {
 		Parent, Project, Child, Namespace, Registration string
 		Actor                                           int64
 		PID                                             int
-		Muse, Git                                       bool
+		Muse                                            bool
 	}
 )
 

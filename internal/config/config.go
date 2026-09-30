@@ -27,12 +27,8 @@ type Config struct {
 	Database           string `json:"database"`
 	HostSocket         string `json:"host_socket"`
 	IdentitySocket     string `json:"identity_socket"`
-	OAuthClientID      string `json:"oauth_client_id"`
-	OAuthSecretFile    string `json:"oauth_secret_file"`
 	GrantKeyFile       string `json:"grant_key_file"`
-	// Deprecated: accepted only for legacy JSON compatibility. Never read or use this path.
-	AdminTokenFile string `json:"admin_token_file,omitempty"`
-	OperatorID     int64  `json:"operator_id"`
+	OperatorID         int64  `json:"operator_id"`
 }
 
 func decodeConfig(path string) (Config, error) {
@@ -89,13 +85,13 @@ func validateConfigPaths(c Config) error {
 	if c.IdentitySocket != "" && !filepath.IsAbs(c.IdentitySocket) {
 		return errors.New("identity_socket must be an absolute path")
 	}
-	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "oauth_secret_file": c.OAuthSecretFile, "grant_key_file": c.GrantKeyFile} {
+	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "grant_key_file": c.GrantKeyFile} {
 		if !filepath.IsAbs(value) {
 			return fmt.Errorf("%s must be an absolute path", name)
 		}
 	}
-	if c.OAuthClientID == "" || c.OperatorID <= 0 {
-		return errors.New("oauth_client_id and operator_id are required; run operator setup first")
+	if c.OperatorID <= 0 {
+		return errors.New("operator_id is required; run operator setup first")
 	}
 	return nil
 }
@@ -118,10 +114,6 @@ func Load(path string) (Config, error) {
 		return c, err
 	}
 	return c, nil
-}
-
-func (c Config) OAuthCallbackURL() string {
-	return c.ForgejoURL + SodaPath + "/identity/callback"
 }
 
 func originURL(u *url.URL) bool {

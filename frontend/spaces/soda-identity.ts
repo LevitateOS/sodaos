@@ -134,10 +134,7 @@ export class SodaIdentity extends LitElement {
         availableConnectionView
       );
     if (this.enrollment)
-      this.enrollment = enrollmentView(
-        await this.request('/identity/enrollments/' + this.enrollment.id),
-        window.location.origin
-      );
+      this.enrollment = enrollmentView(await this.request('/identity/enrollments/' + this.enrollment.id));
   }
   private async loadSelected() {
     this.grants = [];
@@ -161,8 +158,7 @@ export class SodaIdentity extends LitElement {
           provider_id: data.get('provider_id'),
           label,
           confirm_credential_exposure: data.has('exposure'),
-        }),
-        window.location.origin
+        })
       );
     });
   };
@@ -279,27 +275,21 @@ export class SodaIdentity extends LitElement {
   }
   private projectView() {
     if (!this.project) return '';
-    const forgejo = this.connections.find((connection) => connection.id === this.selected)?.provider_id === 'forgejo';
-    return html`${
-        forgejo
-          ? html`<p>Forgejo connections remain bound to your own account.</p>`
-          : html`<form @submit=${this.delegate}>
-              <h3>Delegate this subscription in this project</h3>
-              <label
-                >Named member's Forgejo user ID
-                <input name="user_id" required inputmode="numeric" pattern="[1-9][0-9]*"
-              /></label>
-              <label
-                ><input type="checkbox" name="subscription" required />I confirm my provider terms allow this named user
-                to use my subscription.</label
-              >
-              <label
-                ><input type="checkbox" name="exposure" required />I understand the selected tool receives credentials
-                in the trusted project process; code running with that account may read them.</label
-              >
-              <button ?disabled=${!this.selected}>Authorize named member</button>
-            </form>`
-      }
+    return html`<form @submit=${this.delegate}>
+        <h3>Delegate this subscription in this project</h3>
+        <label
+          >Named member's Forgejo user ID <input name="user_id" required inputmode="numeric" pattern="[1-9][0-9]*"
+        /></label>
+        <label
+          ><input type="checkbox" name="subscription" required />I confirm my provider terms allow this named user to
+          use my subscription.</label
+        >
+        <label
+          ><input type="checkbox" name="exposure" required />I understand the selected tool receives credentials in the
+          trusted project process; code running with that account may read them.</label
+        >
+        <button ?disabled=${!this.selected}>Authorize named member</button>
+      </form>
       <form @submit=${this.launch}>
         <p>Connected Muse subscriptions are used by the normal <code>muse</code> command in authorized containers.</p>
         <h3>Start Codex</h3>
@@ -325,14 +315,12 @@ export class SodaIdentity extends LitElement {
             <select name="provider_id">
               <option value="codex">Codex / OpenAI</option>
               <option value="muse">Muse Code / Meta</option>
-              <option value="forgejo">Forgejo account</option>
             </select></label
           >
           <label>Connection label <input name="label" required maxlength="80" /></label
           ><label
             ><input type="checkbox" name="exposure" required />I trust this appliance and project administrators with my
-            connected credentials. Authorized project code may receive provider credentials; Forgejo access is
-            mediated.</label
+            connected credentials. Authorized project code may receive provider credentials.</label
           ><button>Connect account</button>
         </form>
         ${this.enrollmentView()}<label

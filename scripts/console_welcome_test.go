@@ -46,7 +46,7 @@ fi`,
 }
 
 func TestConsoleUsesConfiguredOriginsAndNativeUplinks(t *testing.T) {
-	config, env := consoleFixture(t, "0", `{"forgejo_url":"https://forgejo.example.test","oauth_secret":"never-print-this"}`)
+	config, env := consoleFixture(t, "0", `{"forgejo_url":"https://forgejo.example.test","private_input":"never-print-this"}`)
 	cmd := exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
 	cmd.Env = env
 	output, err := cmd.CombinedOutput()
