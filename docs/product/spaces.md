@@ -45,6 +45,35 @@ observation and cleanup controls are described in the
 [runner reference](../reference/runners.md); the
 [feature disposition](scope.md#feature-disposition) owns future local capacity scope.
 
+## Sessions and views
+
+Spaces uses the [Project environment model](projects.md#environment-relationships).
+A session identifies an existing execution in a particular Project, native account
+and process incarnation. A pane, split or browser attachment is a view of that
+session. Repository navigation never changes that binding.
+
+| Session | Execution owner | Browser interaction |
+| --- | --- | --- |
+| Human terminal | Joined member under their own Project account | Authorized terminal input and explicit End; manually starting an AI CLI here does not create a factory attempt. |
+| Factory coding, correction or review | Factory controller under the assigned nonhuman role account, bound to repository, issue, attempt and run | Live output for currently code-write-authorized viewers; pause, cancel and takeover through factory controls, never direct terminal input or human-terminal End. |
+
+Both kinds use the Project execution foundation. They retain different grants and
+control semantics; a shared UI does not turn a factory run into a member's shell.
+The backend rechecks session visibility and each control operation independently.
+Human session inventory remains member-scoped; repository permission to observe
+factory work does not permit attachment to another person's terminal.
+
+Closing the browser, hiding a pane or losing an attachment does not end execution,
+return its lease or cancel an attempt. Reattachment targets the same live session;
+missing or stale locators do not launch replacement shells, resume conversations
+or attach to another run. Splits add views, never executions.
+
+Live CLI visibility does not promise durable terminal recordings or transcript
+replay. An ended run exposes its status, candidate, findings and check evidence;
+its old session cannot be reattached as though it were still running. Human
+terminal transport and live-state behavior remain owned by the
+[terminal reference](../reference/terminal.md).
+
 ## Factory visibility
 
 People can follow coding, review and correction in their real CLI sessions and
@@ -61,9 +90,10 @@ belongs to subsequent interaction design.
 ## Workspace behavior
 
 - The Spaces page and persistent panel share one multi-session workspace with flat
-  terminal owners.
+  session owners.
 - Splits create views, never shells.
-- Hide and show change presentation only; End is a separate confirmed action.
+- Hide and show change presentation only; human terminal End is a separate
+  confirmed action. Factory actions follow the session rules above.
 - Hiding a terminal changes its workspace presentation. It does not end the shell.
 - Ordinary Forgejo navigation preserves the live terminal view: the same mounted
   component, xterm renderer and WebSocket attachment. Browsing another repository

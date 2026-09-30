@@ -9,8 +9,8 @@ Identity Broker. People observe the work and intervene through Spaces.
 This document owns the target factory behavior. The [factory reference](../reference/factory.md)
 describes the implemented operator commands; those commands do not define the
 limits of this product contract. [Trust](../architecture/trust.md) owns authority
-and credential boundaries. This contract does not select a scheduler, wire
-protocol, container layout or implementation sequence.
+and credential boundaries. [Projects](projects.md) owns the environment model.
+This contract does not select a scheduler, wire protocol or implementation sequence.
 
 Developers work through native Forgejo, ordinary SSH, Git, mise and container tools.
 Soda supplies the integration that creates project environments, membership, access
@@ -30,8 +30,9 @@ its baseline services must not require buying or owning a domain.
 | **Attempt** | One bounded effort to complete a work item, with recorded inputs, runs and outcome. |
 | **Run** | One bounded agent execution against recorded inputs, with its own identity and resource records. |
 | **Workspace** | The checkout or worktree assigned to work inside a repository environment; its lifetime need not equal an agent process's lifetime. |
-| **Project** | A persistent shared development environment for one repository's authorized members. |
+| **Project** | One persistent repository environment shared by joined humans and authorized factory roles, with separate accounts and checkouts. |
 | **Project OS** | The userspace foundation inside a project (accounts, tools, persistence, workloads). |
+| **Session / view** | A session is a supervised human terminal or factory CLI execution; a Spaces view is an authorized attachment, not its lifetime owner. |
 | **Spaces** | Fountain-hosted view of repository environments and live human and factory CLI sessions. |
 | **Runner** | Native Forgejo Actions capacity, separate from coding/review agents; Soda-provisioned local execution is deferred. |
 | **Tailnet** | Private connectivity for host and project reachability. |
@@ -60,11 +61,11 @@ person performing each merge.
    blocker. Resolving a blocker triggers reassessment; it does not bypass the other
    readiness conditions. Waiting for compute or an AI account is distinguishable
    from a blocked objective.
-3. **Prepare the repository environment.** Soda provides the repository checkout,
-   toolchain and required development services before starting coding work. It
-   reuses a suitable existing container and prepares one when none exists. A
-   separate checkout or worktree may provide the working state for an issue.
-   Reuse must preserve unrelated dirty work, accounts and service data.
+3. **Prepare the repository environment.** Soda uses the repository's persistent
+   [Project](projects.md#environment-relationships), creating it when authorized
+   and absent. Prepare the assigned checkout, toolchain and development services
+   before coding. Human and factory work share that container while preserving
+   unrelated dirty work, accounts and service data.
 4. **Run the coding agent.** Soda starts the selected AI coding CLI with a prompt
    assembled from the issue, acceptance requirements and relevant repository
    context. The Identity Broker supplies the authorized provider connection.
@@ -191,8 +192,9 @@ not guessed from the concurrency default.
 Only one attempt may be active in a repository, with one factory agent session at
 a time in its container. Other issues queue; different repositories may use the
 appliance's configured slots. The coding checkout and review checkout are separate
-from human checkouts and from each other. Shared tools/services do not become
-run-owned. Human editing of an assigned factory checkout requires takeover first.
+from human checkouts and from each other under the
+[checkout model](projects.md#accounts-and-checkout-ownership). Shared tools/services
+do not become run-owned. Human changes to factory work require takeover first.
 Broker constraints still apply: multiple appliance slots do not create concurrent
 Codex credential streams or entitle one run to another connection.
 
@@ -288,9 +290,12 @@ without approval prompts. Human actions follow the
   work. Resume revalidates authority and inputs and uses remaining allowances.
 - **Cancel:** end the attempt's execution/publication/merge authority. Reopening
   the issue or receiving another event does not undo an explicit factory cancel.
-- **Take over:** confirm factory agents have stopped before granting human input
-  or modification of their checkout. Handing work back requires fresh assessment,
-  review and checks; merely viewing CLI output never takes control.
+- **Take over:** confirm factory execution has stopped and credential return or
+  revocation has completed, then hand its candidate and unfinished work to the
+  maintainer's own checkout and terminal under the
+  [Project model](projects.md#accounts-and-checkout-ownership). Handing work back
+  requires fresh assessment, review and checks; viewing CLI output never takes
+  control, and a human never borrows the factory's provider credentials.
 - **Retry:** after the previous execution is confirmed stopped and its resources
   accounted for, a write-authorized maintainer may explicitly start a new attempt
   under current policy. It receives that policy's fresh attempt time and correction
@@ -308,11 +313,13 @@ from the attempt outcome. Never repair by deleting the persistent environment.
 
 ## Implementation boundaries
 
-The operating policy is settled here; the remaining work is to verify and design
-its native boundaries: Fountain's durable scoped authority and conditional merge,
-native dependency/clarification representation, repository environment declarations
-and provisioning, factory account/checkout allocation, broker attestation and
-credential return, limit enforcement, event delivery and interruption handling.
+The operating policy and [environment/session model](projects.md) are settled.
+The remaining work is to verify and design their native boundaries: Fountain's
+durable scoped authority and conditional merge, native dependency/clarification
+representation, approved environment inputs and provisioning, and the
+[shared execution integration](../architecture/overview.md#shared-project-execution)
+including account/checkout permissions and broker attestation/credential return.
+Limit enforcement, event delivery and interruption handling also need native evidence.
 Those facts must be established before an implementation plan claims the complete
 loop is feasible. They are not permission to restore legacy authentication or a
 second issue, CI or execution system.
@@ -335,8 +342,8 @@ Fedora CoreOS host — operator administration only
 ```
 
 Forgejo, Soda and Caddy are separate containers. Forgejo is not a Podman pod.
-The relationship between factory execution and existing persistent Project roots
-is governed by the environment decisions above and [Projects](projects.md).
+Human and factory execution share the persistent repository Project under the
+[environment model](projects.md#environment-relationships).
 
 ## Product roles
 

@@ -3,9 +3,12 @@
 Native nested workloads inside a project: databases and application containers run
 through the project's workload engine, not the appliance engine socket.
 
-These are persistent human development services. Factory workspaces do not inherit
-their sockets, mounts, credentials or lifetime. Run-owned resources follow the
-separate [factory interface](../reference/factory.md) and cleanup boundary.
+These are persistent Project development services. The current separate
+[factory runtime](../reference/factory.md) does not inherit their sockets, mounts,
+credentials or lifetime. In the target shared Project, agents use only explicitly
+assigned service access and test data under the
+[environment preparation rules](../product/projects.md#preparing-the-environment).
+Co-location does not grant service administration or ownership of persistent data.
 
 Authority and persistence: [Project OS](../reference/project-os.md).
 OS role vocabulary: [Host strategy](../research/host-strategy.md).

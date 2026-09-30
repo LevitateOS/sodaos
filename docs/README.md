@@ -14,8 +14,8 @@ command workflow. Spaces connects repository environments with human and factory
 | Document | Owns |
 | --- | --- |
 | [Product overview](product/overview.md) | Target factory lifecycle, operating rules and major concepts |
-| [Projects](product/projects.md) | Persistent human environments, profiles, joining, persistence |
-| [Spaces](product/spaces.md) | Human and factory workspace beside native Forgejo collaboration |
+| [Projects](product/projects.md) | Shared repository environments, containers, accounts, checkouts, profiles, joining and persistence |
+| [Spaces](product/spaces.md) | Human and factory sessions and views beside native Forgejo collaboration |
 | [Scope](product/scope.md) | Retain/adapt/retire/defer decisions and excluded product work |
 | [Architecture overview](architecture/overview.md) | Topology, components, data flow |
 | [Trust model](architecture/trust.md) | Authority, identity, privilege boundaries |

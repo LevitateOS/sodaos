@@ -92,11 +92,10 @@ factory's configured authority.
 
 Review is assigned to another agent session with its own execution identity in
 the same repository container, as required by the
-[review rules](../product/overview.md#review-and-correction). The reviewer cannot
-publish candidate edits or merge. Distinct assignments do not make a shared
-writable environment a security isolation boundary
-or guarantee independent reasoning. Native account and credential separation must
-be demonstrated for this runtime before it is admitted for factory execution.
+[review rules](../product/overview.md#review-and-correction) and the
+[Project execution boundary](#project-execution-boundary). The reviewer cannot
+publish candidate edits or merge. Distinct assignments do not guarantee independent
+reasoning.
 
 Reusable subscription credentials are a narrow exception for private trusted work.
 Keep them restricted to the assigned execution boundary and out of source, logs
@@ -133,6 +132,46 @@ candidate after takeover require the same fresh review and checks before automat
 merge. Human intervention cannot mark missing or failed evidence as passing or
 bypass native protection; a separate manual merge remains the human's native
 forge action, with its actual author and outcome.
+
+## Project execution boundary
+
+The [environment model](../product/projects.md#environment-relationships) places
+humans and factory roles inside one persistent Project. Two dedicated, persistent
+nonhuman Linux accounts separate coding and reviewing state. These accounts have
+no human membership, external SSH access, sudo/wheel rights, shared engine socket
+or general native forge credentials. Fresh per-run homes/configuration and private
+transient credential storage must not inherit human or earlier agent settings.
+The native runner may execute under a role UID without enabling interactive login.
+
+Project Start and Stop require the configured Soda operator or the repository's
+current native owner, including native organization ownership where applicable.
+Recheck that authority on either action; membership, code-write permission or
+repository administrator permission alone does not grant shared-container lifecycle
+control. Start may clear the Project lifecycle hold, but cannot clear independent
+repository/operator factory pauses or restore withdrawn provider sponsorship.
+
+Each run receives only its assigned writable checkout, scratch and approved test
+resources. Human homes, the other role's state, shared Git administration, project
+configuration and durable service data are not agent-writable. The native publisher
+holds collaboration authority separately; agents receive neither publication nor
+merge credentials. Explicit provider sponsorship remains necessary even when the
+Project and role account already exist.
+
+A role UID identifies an account, not a live run. Broker attestation and execution
+control must bind the repository/Project, actual container, role account, run,
+assigned checkout and native process/service generation. Secrets enter only that
+execution's private transient storage. Stop and credential capture cover all its
+descendants and cannot pause or kill the Project container or unrelated sessions.
+Failure to confirm termination/return leaves the affected execution and connection
+unavailable under the [interruption rules](../product/overview.md#human-intervention).
+
+Project root/wheel remains trusted and can inspect accounts, processes and secrets.
+This is a trusted-team runtime, not hostile-tenant isolation; different accounts
+do not remove that limitation. Native permission, process and credential boundaries
+must be proved before factory admission to this runtime. Soda's privileged helper
+and broker sockets remain outside the Project, and agent control cannot become an
+arbitrary helper command. Human takeover uses a separate member-owned execution,
+as defined by [Projects](../product/projects.md#accounts-and-checkout-ownership).
 
 ## Fountain consumption boundary
 

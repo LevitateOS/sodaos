@@ -23,10 +23,11 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Projects | Persistent Project OS containers with project-local accounts, writable roots, SSH and shared installations |
 | Project workloads | Nested Podman inside the project |
 
-This table locates existing services. The operator command's disposable execution
-model does not prescribe the target factory's environment lifetime. Environment
-reuse and the review session's shared container are governed by the
-[product contract](../product/overview.md#software-factory-workflow).
+This table locates existing services. The target replaces disposable factory
+workers with execution inside the same persistent Project used by humans; the
+[environment model](../product/projects.md#environment-relationships) owns that
+relationship. The two runtime paths in the current tree are not a target dual
+backend or a compatibility requirement.
 
 **Forgejo is a standalone container, not a Podman pod.** A pod groups containers; it
 is not a user database, init system or filesystem. Project containers share the host
@@ -47,7 +48,7 @@ Spaces.
 | Factory workspace and publisher (`host/workspace`, `host/publish`) | Assigned execution resources and permitted native publication; run authority remains distinct from Project membership |
 | Identity Broker (`identity/control`) | Explicit subscription ownership/delegation and serialized native execution leases; [credential boundary](../reference/credentials.md#identity-broker) |
 | `soda-host` daemon | Privileged project, terminal and Tailnet companion execution |
-| Project OS | Developer accounts, tools, persistence, nested workloads |
+| Project OS | Human and factory role accounts, tools, persistence, nested workloads |
 | Caddy | Private HTTPS termination for configured origins |
 | Cockpit | Host administration (all interfaces, root/operator) |
 | CI runners | Separately managed capacity for native Forgejo workflows; Soda-provisioned local execution is deferred |
@@ -70,9 +71,41 @@ execution grant for background factory work. The Identity Broker supplies
 authorized AI CLI access; [Trust](trust.md) separates provider sponsorship,
 execution identity and native publication/merge authority.
 
-Reusable environments and disposable run resources have different lifetimes.
-The environment design must preserve that distinction without making a fresh
-container for every stage a product requirement.
+## Shared Project execution
+
+One Project execution foundation owns native accounts, container selection,
+supervised processes and terminal attachment for human and factory work. The
+factory controller owns attempt/run transitions; human terminal control owns the
+member's interactive session; the broker owns provider leases. Sharing execution
+machinery does not combine those authorities or make browser presence necessary.
+Go placement and dependency direction remain governed by
+[Go ownership](../development/go.md), not a second runtime abstraction here.
+
+Replace the separate disposable worker execution path when implementing this
+model. The existing factory credential return freezes and kills its whole worker;
+it cannot be reused unchanged inside a Project containing human sessions and
+services. The existing managed human CLI path demonstrates narrower native
+execution binding, but does not establish unattended factory compatibility.
+
+Before implementation planning relies on this model, establish these native facts
+with focused integration evidence:
+
+- Role accounts can use the approved toolchain and assigned services while native
+  permissions protect human state, the other role's Git state and shared resources.
+- Source preparation binds an exact repository/candidate to the intended checkout
+  and role without shared writable Git metadata or agent access to publisher secrets.
+- A broker lease binds to the actual supervised run; credential return and stopping
+  all its descendants leave unrelated Project processes running. Restarted containers
+  and reused role accounts cannot satisfy an old execution binding.
+- Spaces can observe that real CLI through authorized read-only attachments and
+  route intervention through factory authority without exposing input or credentials.
+- Project Stop/Start and human takeover preserve dirty work and service data while
+  invalidating old process bindings and honoring the admission hold.
+
+These are unresolved integration facts, not claims of installed support. If a
+selected native boundary is insufficient, revise the design from that evidence
+before building orchestration. Missing generic forge authority follows the
+[Fountain boundary](trust.md#fountain-consumption-boundary).
 
 ## Control and data flow
 
@@ -98,7 +131,8 @@ container for every stage a product requirement.
 | Forgejo database and repos | Forgejo volume |
 | Soda SQLite, environments, preferences and product grants | Soda data volume |
 | Factory admissions, attempts, runs and resource ledger | Protected factory `execution.db` under the configured operator root |
-| Run-owned checkout, scratch, containers and network | Disposable only where exclusively assigned to the run; recorded ownership governs cleanup |
+| Attempt-owned coding checkout and branch | Preserved across sequential runs and pauses under the [Project model](../product/projects.md#persistence); not a human checkout |
+| Run-owned review checkout, scratch, processes and transient secrets | Disposable only where exclusively assigned; recorded ownership and confirmed termination/credential return govern cleanup |
 | Retained factory results | Protected factory operator state, separate from disposable resources and public logs |
 | Provider connection custody | Broker-owned encrypted database and separate private key; transient enrollment/tool auth in tmpfs |
 | Project accounts, homes, tools, service data | Project persistent root |

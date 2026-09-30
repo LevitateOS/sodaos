@@ -10,7 +10,9 @@ Factory execution, publication actors and provider account authentication are
 distinct from these credentials. Their authority belongs to
 [Trust](../architecture/trust.md#factory-authority-boundary); delivery and
 CLI execution belongs to the [factory reference](factory.md). The Identity Broker
-below owns provider custody and delegation.
+below owns provider custody and delegation. Target factory integration in a shared
+Project must satisfy the [execution boundary](../architecture/trust.md#project-execution-boundary);
+current whole-worker credential capture is not a suitable shared-Project operation.
 
 ## New installations
 

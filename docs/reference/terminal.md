@@ -7,6 +7,9 @@ ordinary SSH and not a public terminal server.
 
 A browser terminal is manual development access. Opening one does not admit agent
 work or grant factory authority; use the [factory operator interface](factory.md).
+The target [Spaces session model](../product/spaces.md#sessions-and-views) adds
+factory observations with distinct authority. The member terminal interface below
+does not itself provide that integration or authorize attaching as a factory role.
 
 UX composition: [Spaces UX](../design/spaces-ux.md). Routes: [HTTP API](api.md).
 

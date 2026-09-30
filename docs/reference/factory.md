@@ -7,7 +7,9 @@ The target automatic lifecycle belongs to the
 constraints do not define its limits. Component responsibilities belong to
 [architecture](../architecture/overview.md), and authority to
 [trust](../architecture/trust.md). The command uses a runtime and lifecycle
-separate from persistent [Projects](../product/projects.md).
+separate from persistent [Projects](../product/projects.md). Its replacement must
+follow the [shared execution boundary](../architecture/overview.md#shared-project-execution);
+this reference does not describe that future runtime as already available.
 
 ## Configuration and admission
 
