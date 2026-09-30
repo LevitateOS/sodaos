@@ -56,7 +56,8 @@ an ID before Create; restore only inspects/attaches an existing ID.
 
 ## Boundary with desktop and automation
 
-KDE adds graphical access to the same native account; it does not replace tmux.
+Graphical access is [deferred](../product/projects.md#selected-profiles). Any future
+desktop uses the same native account and does not replace tmux.
 Automation or AI-run processes have separate authorization and lifetime contracts.
 Do not commandeer a personal shell for automation inventory.
 

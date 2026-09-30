@@ -13,14 +13,14 @@ Keep actual client and route evidence explicit.
 
 ## Origins and endpoints
 
-Browser/OAuth origins, listeners and Forgejo Git advertisement are distinct
+Browser origins, listeners and Forgejo Git advertisement are distinct
 configured facts. Do not infer endpoints from predecessor ports or another browser
 hostname.
 
 Soda pages and product operations use Forgejo's native extension service on the
-configured HTTPS origin. Public `/-/soda/` routes serve the broker identity
-callback and avatar provider. Git authentication uses native Forgejo SSH keys or
-HTTPS tokens, independently of Soda development-access public keys.
+configured HTTPS origin. Public `/-/soda/` routes serve the avatar provider.
+Git authentication uses native Forgejo SSH keys or HTTPS tokens, independently of
+Soda development-access public keys.
 
 ## Cockpit
 
@@ -31,8 +31,10 @@ native Soda operator settings.
 
 ## Tailnet model
 
-Tailnet integration places host controls in native operator settings and supports
-automatically enrolled, project-scoped ephemeral nodes.
+Optional Tailnet integration places host controls in native operator settings and
+supports project-scoped ephemeral nodes when enrollment policy enables them.
+Private LAN operation does not require Tailnet enrollment. Factory use retains
+this choice; [feature disposition](../product/scope.md#feature-disposition) owns its scope.
 
 Invariants:
 
@@ -49,5 +51,7 @@ API surface: [HTTP API](../reference/api.md).
 
 ## CI networking
 
-Providers own CI workflows, registration authority, scheduling and results. Soda
-owns local runner capacity, not a scheduler. See [Runners](../reference/runners.md).
+Forgejo owns CI workflows, registration authority, scheduling and results. The
+factory uses separately managed Actions capacity; Soda-provisioned local execution
+is deferred. Existing local observation and cleanup do not establish usable CI
+capacity. See [Runners](../reference/runners.md).

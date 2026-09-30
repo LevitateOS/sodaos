@@ -2,8 +2,9 @@
 
 Project OS is the userspace foundation for persistent human projects: native
 accounts, shared tools, lasting roots, access and nested workloads. It supports
-development and intervention, separately from the disposable
-[factory workspace runtime](factory.md).
+development and intervention. The existing [factory operator runtime](factory.md)
+uses separate disposable workspaces; the target environment reuse is owned by
+[Projects](../product/projects.md).
 
 Product model: [Projects](../product/projects.md). Everyday use:
 [Develop](../guides/develop.md). Terminal contract: [Terminal](terminal.md).
@@ -22,11 +23,8 @@ independent machines, new account systems or a second development product.
 | Managed terminal lifetime | [Terminal](terminal.md) |
 | Spaces presentation | [Spaces](../product/spaces.md), [Spaces UX](../design/spaces-ux.md) |
 
-A desktop session belongs to the existing project-local account. Terminal, desktop
-apps and ordinary SSH use that account's real home, checkouts, permissions and shared
-tools. A desktop is not a large terminal lease: it has its own display/input scope.
-Ending a desktop must not end managed tmux terminals, SSH sessions, user services or
-nested workloads, and the reverse is also true.
+Graphical desktop access is deferred under the
+[selected profile scope](../product/projects.md#selected-profiles).
 
 ## Batteries included
 
@@ -39,24 +37,17 @@ wires the non-preference foundation.
 | Working terminal, tmux, basic editor/pager, diagnostics | Preferred editor/IDE, keybindings, theme |
 | Git, packaged forge CLIs, pinned Muse launcher and CLI, shared mise, standard build/debug tools | Repository language versions, build commands, trust decisions |
 | Native workload engine, Compose support, storage and access integration | Which services to run and how they are configured |
-| On KDE: functioning user desktop, display/input transport, fonts, clipboard, file manager, basic graphical editor, browser | Preferred apps, browser profile, personal accounts |
 
 Missing standard build prerequisites are a packaging gap, not a task for each project
 administrator. Dependency baselines belong in source recipes and locks.
 
 ## Profiles
 
-| Profile | Distribution | Interface |
-| --- | --- | --- |
-| Rocky headless | Rocky Linux | Terminal (default) |
-| Rocky KDE | Rocky Linux | Terminal and KDE Plasma |
-| Fedora Server | Fedora Linux | Terminal / headless |
-| Fedora KDE | Fedora Linux | Terminal and KDE Plasma |
-
-GNOME is deferred. Mise is required for every supported profile. The creation UI
-exposes a single Project OS dropdown; server-side code resolves a bounded profile ID
-to installed artifacts. Profiles are not runtime selectors and do not by themselves
-select a VM backend.
+The supported profile is `rocky-headless`: Rocky Linux with terminal access and
+mise. `internal/project/profile.go` rejects other profile identities. Product
+selection and deferrals belong to [Projects](../product/projects.md#selected-profiles).
+The server resolves the bounded profile to installed artifacts; a profile is not
+an arbitrary runtime selector or a VM backend choice.
 
 ## Ownership and trust
 

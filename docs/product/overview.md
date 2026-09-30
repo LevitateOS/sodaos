@@ -33,11 +33,13 @@ its baseline services must not require buying or owning a domain.
 | **Project** | A persistent shared development environment for one repository's authorized members. |
 | **Project OS** | The userspace foundation inside a project (accounts, tools, persistence, workloads). |
 | **Spaces** | Fountain-hosted view of repository environments and live human and factory CLI sessions. |
-| **Runner** | Local CI capacity on the appliance, operated by the Soda operator. |
+| **Runner** | Native Forgejo Actions capacity, separate from coding/review agents; Soda-provisioned local execution is deferred. |
 | **Tailnet** | Private connectivity for host and project reachability. |
 
 Detailed ownership lives in [Projects](projects.md), [Spaces](spaces.md),
 [Architecture](../architecture/overview.md) and [Project OS](../reference/project-os.md).
+The [feature disposition](scope.md#feature-disposition) identifies what the rebuilt
+factory retains, adapts, retires and defers, including supporting appliance features.
 
 ## Software factory workflow
 
@@ -123,7 +125,7 @@ remains guidance for that command interface.
 
 ```text
 Fedora CoreOS host — operator administration only
-├── Stock branded Cockpit, tailscaled, CI runners
+├── Stock branded Cockpit, tailscaled
 ├── Soda factory control — readiness, execution, verification and native merge
 ├── Identity Broker — authorized AI CLI account custody
 └── Podman

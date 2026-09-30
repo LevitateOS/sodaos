@@ -65,6 +65,9 @@ does not supply a replacement shell, frame or copy of Forgejo navigation.
 
 ## Profile and desktop extension
 
+Graphical access is [deferred](../product/scope.md#deferred); these notes constrain
+a possible extension rather than describe a supported first-factory surface.
+
 Terminal and Desktop identify the same project account and real files. A desktop
 tab references an exact graphical session with its own display/input owner; it is
 not a PTY ID in the personal-terminal API. Compact screens show one usable selected

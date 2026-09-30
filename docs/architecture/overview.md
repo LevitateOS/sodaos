@@ -15,7 +15,7 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Placement | Mechanism |
 | --- | --- |
 | Host | Fedora CoreOS, native rpm-ostree layering, Podman, systemd |
-| Native operator services | Stock branded Cockpit, Tailnet/Runners management, `tailscaled`, CI runner services, restricted Soda project helper |
+| Native operator services | Stock branded Cockpit, Tailnet/Runners management, `tailscaled`, restricted Soda project helper |
 | Appliance applications | Separate Podman containers for the maintained Forgejo extension host, Soda's Go API service and Caddy |
 | Persistent application data | Soda SQLite database and a separate Forgejo volume (including installed extension packages) |
 | Identity Broker | Host userspace `soda-identity`, private administration/execution sockets and encrypted subscription custody |
@@ -50,7 +50,7 @@ Spaces.
 | Project OS | Developer accounts, tools, persistence, nested workloads |
 | Caddy | Private HTTPS termination for configured origins |
 | Cockpit | Host administration (all interfaces, root/operator) |
-| Local runners | Appliance CI capacity; Forgejo owns workflows and results |
+| CI runners | Separately managed capacity for native Forgejo workflows; Soda-provisioned local execution is deferred |
 
 These responsibilities describe the target boundaries, not completion of the
 automatic lifecycle. Current commands: [factory reference](../reference/factory.md).

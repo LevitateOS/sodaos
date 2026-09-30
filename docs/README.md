@@ -16,7 +16,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [Product overview](product/overview.md) | Target issue-to-merge lifecycle and major concepts |
 | [Projects](product/projects.md) | Persistent human environments, profiles, joining, persistence |
 | [Spaces](product/spaces.md) | Human and factory workspace beside native Forgejo collaboration |
-| [Scope](product/scope.md) | Deferred and excluded product work |
+| [Scope](product/scope.md) | Retain/adapt/retire/defer decisions and excluded product work |
 | [Architecture overview](architecture/overview.md) | Topology, components, data flow |
 | [Trust model](architecture/trust.md) | Authority, identity, privilege boundaries |
 | [Networking](architecture/networking.md) | Access, Tailnet, Cockpit boundary |

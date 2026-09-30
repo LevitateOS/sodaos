@@ -42,8 +42,8 @@ normal Forgejo navigation and form behavior.
 
 - Browser origin is the configured `forgejo_url`.
 - The browser reaches Soda product operations through the native extension
-  service; the only public Soda callback is the broker identity callback documented
-  in [API](api.md).
+  service. The public Soda namespace serves avatars; it has no broker login
+  callback. See [API](api.md).
 - Product requests use the extension's supplied API base and same-origin browser
   credentials. Soda does not issue a separate browser login or cookie.
 - Native Forgejo session and extension authority are validated by Fountain and the

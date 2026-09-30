@@ -25,19 +25,16 @@ how profiles work, and what must persist.
 
 ## Selected profiles
 
-Every profile shares the same Project OS foundation: native accounts, shared tools,
-persistent roots, access and maintenance. Distribution and desktop choices extend
-that foundation; they do not create a second product.
+The first factory uses the supported Rocky headless Project OS foundation: native
+accounts, shared tools, persistent roots, access and maintenance. Fedora variants
+and graphical desktops are [deferred](scope.md#deferred).
 
 | Profile | Distribution | Interface |
 | --- | --- | --- |
 | Rocky headless | Rocky Linux | Terminal (default) |
-| Rocky KDE | Rocky Linux | Terminal and KDE Plasma |
-| Fedora Server | Fedora Linux | Terminal / headless |
-| Fedora KDE | Fedora Linux | Terminal and KDE Plasma |
 
-GNOME profiles are deferred. Mise is required for every supported Project OS
-profile and for the separate Runner OS job image.
+Mise is required in the supported Project OS. A future Runner OS remains separate
+from developer environments; [local CI execution](../reference/runners.md) is deferred.
 
 Profiles describe initial userspace and interface, not independent backends.
 Server-side code resolves a bounded profile ID to installed, architecture-compatible
