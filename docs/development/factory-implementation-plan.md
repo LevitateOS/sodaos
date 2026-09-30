@@ -6,8 +6,9 @@ visible through Spaces. Fountain supplies generic native collaboration and
 extension capabilities; Soda owns factory policy and environment coordination.
 
 This draft establishes the planning baseline, maps requirements to finished
-deliverables, identifies source changes and references the defined implementation
-interfaces. Implementation tasks and dependency order are not yet specified.
+deliverables, identifies source changes, references the defined implementation
+interfaces and establishes their dependency graph. Executable task breakdown and
+milestone assignments are not yet specified.
 The current work is documentation only. The linked owning guides remain authoritative
 for behavior, and this plan does not duplicate or replace their requirements.
 
@@ -62,7 +63,7 @@ The evidence column describes what will establish completion. Reuse valid eviden
 at its stated scope; do not repeat every check for every task. Detailed acceptance
 remains in [Testing](testing.md#factory-acceptance). The source inventory below
 locates the changes; the [interface definition](#interface-definition) specifies
-their boundaries. The dependency graph remains subsequent planning work.
+their boundaries and the [dependency graph](#dependency-graph) orders their integration.
 
 ### Native extension foundation
 
@@ -121,9 +122,9 @@ becoming prerequisites or placeholder functionality.
 Unfinished extension/appliance work from the earlier plan maps to D01–D05 and
 D21–D25, including the delivery owners in the source inventory below. That mapping retains
 the required outcome, not the old task order, proposed implementation or claim of
-qualification. The [interface definition](#interface-definition) now fixes component
-contracts; edit assignments, task dependencies and execution sequencing remain
-subsequent planning work.
+qualification. The [interface definition](#interface-definition) fixes component
+contracts and the [dependency graph](#dependency-graph) establishes prerequisites;
+executable edit assignments and milestone sequencing remain subsequent planning work.
 
 ## Interface definition
 
@@ -153,6 +154,180 @@ audit, all responses and the source-grounded decision record are retained in
 both choices. Agreement is advisory; native restart, credential and writer-boundary
 evidence is still required by the acceptance contract. No product/runtime code,
 build or installed qualification is part of this interface-definition step.
+
+## Dependency graph
+
+This graph uses Soda `8548d85042e0cdc85a0a1eadec668f4ee0c1c927` and Fountain
+`c22b3543f6a1f88ede70ed3f046576b725430934`, both clean at capture. Soda's changes
+since the planning baseline remain documentation only. No new architecture choice
+is introduced here: the edges follow the agreed interfaces, source inventory and
+[remaining native boundaries](../research/factory-capability-map.md#remaining-decisive-boundaries).
+
+The node tables below are the full prerequisite graph. **Work** nodes produce
+bounded implementation; **Native** nodes include implementation and a focused
+demonstration of the actual capability. A downstream consumer must have that
+native evidence before building integration that relies on the uncertain boundary.
+DTOs, pure policy, fixtures and component views can be authored earlier against
+the agreed contracts; they do not satisfy a Native node. Small drivers and the
+minimum deployment wiring needed to demonstrate a boundary belong to that node,
+not to the eventual complete factory or production release.
+
+Prerequisites are direct edges; transitive edges are omitted. `—` means the
+selected source/contracts are sufficient to start, not that existing upstream
+behavior needs rewriting. Each node includes its affected caller/configuration/
+fixture removal from the source inventory. These are dependency groups, not new
+features, time estimates or independent approval gates.
+
+### Fountain foundation and native operations
+
+| Node | Kind / deliverables | Prerequisites | Output that downstream work can rely on |
+| --- | --- | --- | --- |
+| **F-sdk** | Work; D01 | — | Supported SDK, declared capabilities, package/runtime lifecycle and dispatcher interfaces. Reuse existing selected policy seams and valid evidence. Soda's independently built consumer remains separate from the host. |
+| **F-browser** | Native; D01–D02 | F-sdk | Real Soda contribution and bounded stream admission through native login, current actor/repository/session checks, navigation and authority-loss behavior. Includes the narrow consumer/manifest needed for the check; does not require background actor operations. |
+| **F-auth** | Native; D03 | F-sdk | Runtime and external Soda service bootstrap with actual deployed Unix peers/namespaces; stable installation identity, actor/token/resource/kind binding, rotation/revocation refusal and installation-owned lookup/cancel admission. This proves admission/ownership authorization; F-core proves durable operation records and cancellation ordering. A minimal SDK caller demonstrates the boundary without a factory loop. |
+| **F-core** | Native; D05 | F-auth | Durable reservation/revision and operation identity, trusted execution/callback binding, plus one real native fast-forward merge and a competing input/ref writer. Demonstrate the prepared-to-publication span, both cancellation orderings, retained ownership, native protection, lost reply and restart without duplicate mutation. Port/reuse the scoped prototype cases on the selected implementation; it does not establish full writer coverage. |
+| **F-domain** | Native; D04–D05 | F-core | Complete participating-writer/revision coverage, native lock ordering, bounded synchronous completion and fresh ownership for deferred jobs. Demonstrate whole-domain offline stop, restart inhibition, common exact-owner release, ordinary-writer effect reconciliation and the F-core merge recovery path. Each additional conditional kind proves its own effect/completion recovery in its sibling node below. Unknown effect stays fenced. This is the shared consistency prerequisite for every enabled conditional operation. |
+| **F-read** | Native; D04 | F-domain | Permission-checked snapshots with native versions, creation/lifecycle evidence, dependency occurrences, refs/reviews/checks and completeness. Equal idle revision brackets reject intervening changes from every relevant writer. Snapshot DTO/read implementation can proceed alongside F-auth/F-core; its authoritative guarantee waits for F-domain. |
+| **F-publish** | Native; D05/D11 | F-domain | Registered single-use native receive, exact ref/head/base and correction binding, native protections, attributable effect/completion and cancellation/restart behavior. |
+| **F-create** | Native; D05/D11 | F-domain | Native PR insertion and receipt in the same real SQL commit; derived refs/notifications complete separately, with kind-specific effect/completion recovery. Lost reply/cancellation cannot duplicate or adopt a similar PR. |
+| **F-review** | Native; D05/D12 | F-domain | Exact-candidate body-only final review, native eligibility, atomic primary receipt, separate completion and kind-specific recovery; stale/draft/replay/cancellation cases. |
+| **F-merge** | Native; D05/D14 | F-domain | Supported fast-forward-only SDK operation with the complete merge contract, exact result and native protections, attributable outcome and completion recovery. F-core is reusable evidence for its tested cases, not a substitute for this complete operation. |
+
+The four operation implementations are siblings: PR creation can be tested with
+a native fixture branch without implementing conditional publication first;
+review and merge can use native fixture PRs. Full operation completion requires
+F-domain, but after F-core their implementation and per-kind checks can proceed
+alongside writer-coverage/recovery work. Proving merge does not qualify the other
+three kinds. No caller gains a temporary unguarded push/POST fallback while waiting.
+
+### Soda execution, consumers and user journeys
+
+| Node | Kind / deliverables | Prerequisites | Output that downstream work can rely on |
+| --- | --- | --- | --- |
+| **S-state** | Work; D06–D09/D15 | — | Canonical records, CAS/idempotent commands, grants/acceptance/assessment logic, usage and dispatch registration/withdrawal ordering in the existing store/coordinator. Pure scheduling, prompt and evidence predicates can be checked with short deterministic fixtures. No mock authorizes a real launch/write. |
+| **S-broker** | Work; D18 | — | Execution-keyed acquisition/lookup/closure, terminal acquisition identity retained after return, broker grant/accounting and canonical binding records. Reuse custody and private transport; real Project execution is proved in S-run. |
+| **S-project** | Native; D16–D17/D20 | S-state | Full selected Project OS with owner-authorized creation/reuse, fixed role/layout, separately accepted requirements and privileged effects, installed tools/service access and private setup/readiness for coder and fresh reviewer. Preserve human work/data; preparation needs no AI lease or completed factory loop. |
+| **S-run** | Native; D18 | S-project, S-broker | Fixed host launch/inspect/stop/finish with exact run/container/unit/incarnation, durable preparation/start/stop receipts and late-acquire/start fencing. One bounded real broker/CLI run per selectable harness proves credential delivery/return and targeted descendant retirement while human activity survives. Synthetic failure cases cover refusal/uncertainty without wasting provider time. |
+| **S-input** | Work; D06–D08 | S-state, F-browser, F-read | Real human acceptance and current authority, native input invalidation, bounded intake/reconciliation and dependency/requirement readiness. Blocking questions remain proposals until the prescribed native records are adopted. |
+| **S-launch** | Work; D09–D10/D15 | S-input, S-run | Coordinator reservations, actual approved preparation and broker availability feed recorded assignments and bounded dispatch. Stop/block/pause/restart reconciles existing identities; no silently resumed conversation or refreshed allowance. |
+| **S-publish** | Work; D11 | S-launch, F-publish, F-create | Verified coding export → conditional candidate publication → attributable PR creation. Each stage persists its own immutable operation ID and handles withdrawal/lost replies before advancing. |
+| **S-review** | Work; D12 | S-publish, F-review | Distinct reviewer assignment and native review; findings return to coder within remaining limits, and changed candidates require fresh evidence. Uses S-run's already demonstrated role/private-state boundary. |
+| **S-checks** | Native; D13 | S-state, F-read | Complete configured native check-set assessment for exact head/base using separately managed native Actions capacity. Native status changes participate in F-domain. Use a small fixture workflow; do not depend on human acceptance/intake integration, Soda runner provisioning or a completed AI coding loop. |
+| **S-merge** | Work; D14 | S-review, S-checks, F-merge | Current accepted inputs/grants, exact review and CI evidence authorize one conditional merge. Confirm effect, native completion and issue outcome before recording completion and reconsidering dependants. |
+| **S-views** | Work; D06–D07/D15/D19 | S-state | Status, settings, acceptance, blocker, usage, preparation and intervention components against defined API records, with explicit pending/uncertain states. Component work does not wait for merge or real agent output. |
+| **S-spaces** | Native; D19 | S-views, F-browser, S-run | Observe an actual factory CLI through rendered Spaces; exact issue/run binding, read-only frames, navigation/detach survival and current code-write access. No need to finish publication/review/merge before proving this view. |
+| **S-life** | Native; D15/D20 | S-run, F-browser | Coordinated Project hold/Stop/Start, stale-binding rejection, preserved roots and transfer into the member's own checkout after confirmed retirement/accounting. Retain Join, ordinary human terminal/End and explicit-key SSH/Git. Admission remains closed during uncertainty. |
+
+Soda acceptance, prompts, budgets, dependency outcomes and merge eligibility stay
+in Soda throughout this graph. Fountain provides native facts and conditional
+operations; a missing generic boundary is resolved there, not with a Soda login,
+credential relay, native SQL read or bypass credential.
+
+### Supporting work, assembly and qualification
+
+| Node | Kind / deliverables | Prerequisites | Output that downstream work can rely on |
+| --- | --- | --- | --- |
+| **A-support** | Work; D21–D24 | — | Retained LAN/private HTTPS, optional Tailnet, native operator/Cockpit, assets and attribution; coherent removal of deferred local-runner implementation. Reuse existing source/native evidence where applicable and check affected journeys. Optional Tailnet/domain setup is not a factory prerequisite; usable native origin/networking is. |
+| **A-package** | Work; D01/D22/D24–D25 | — | Build/staging/install selectors and service/Project OS/extension configuration evolve alongside each implementation, including backend Git/private publisher data and socket identity mapping. Minimal relevant packaging is included in each Native check; this node does not demand a finished production image to discover a boundary. |
+| **C-loop** | Native; D06–D20/D26 development evidence | S-merge, S-spaces, S-life | One bounded composed development journey: accepted issue and blockers → coding → publication/PR → review/correction → native CI → merge/completion → eligible dependent pickup, with control withdrawal and preserved human activity. Use the actual provider/broker/native/browser path and current source identities. This closes orchestration gaps before expensive production qualification; it is not a qualified release. |
+| **R-candidate** | Work; D24–D25 | C-loop, A-support, A-package | Coherent removal/caller/configuration closure and exact Fountain/SDK/Soda/service/Project OS artifacts in the existing native candidate pipeline. Required support/native evidence must match the affected paths. No obsolete alternate runtime remains enabled. |
+| **R-qualify** | Native; D25–D26 | R-candidate | Existing installed acceptance and finished-factory demonstration against identified shipping bytes, including installation/update/recovery and retained support. Qualify each advertised affected architecture independently; reuse valid matching evidence rather than repeating unrelated builds or every harness combination. |
+
+Package edits start early; **full production qualification follows the critical
+native boundaries and bounded composition**, not the other way around. Reuse
+retained artifacts for non-qualifying development checks. A previously failed
+release cannot be resumed or relabeled qualified. A planned proof edge is not
+new proof, and none of these native nodes is marked complete by this document.
+
+The overview below groups nodes for readability; the tables define all edges:
+
+```mermaid
+flowchart LR
+  SDK[Fountain SDK] --> Browser[Native browser proof]
+  SDK --> Auth[Background authority proof]
+  Auth --> Core[One native merge and race proof]
+  Core --> Domain[Writer coverage and recovery proof]
+  Domain --> Read[Authoritative reads]
+  Domain --> Ops[Four independently proved operations]
+  State[Soda records and policy] --> Project[Full Project preparation proof]
+  Project --> Run[Real broker and CLI proof]
+  Broker[Broker execution records] --> Run
+  State --> Inputs[Acceptance and readiness]
+  Browser --> Inputs
+  Read --> Inputs
+  Inputs --> Loop[Factory stage integration]
+  Run --> Loop
+  Ops --> Loop
+  Browser --> Views[Real Spaces and lifecycle proof]
+  Run --> Views
+  Loop --> Compose[Bounded composed journey]
+  Views --> Compose
+  Compose --> Candidate[Exact native candidate]
+  Support[Support and packaging work] --> Candidate
+  Candidate --> Qualify[Installed qualification]
+```
+
+### Parallel work and integration holds
+
+- **Start independently:** F-sdk/F-auth/browser adaptation, S-state, S-broker,
+  existing Project role/preparation primitives, S-views components, A-support and
+  A-package. Their required domain/SDK fields are already specified. Coordinate
+  edits to shared schema/DTO/facade files rather than treating parallelism as
+  permission for competing definitions.
+- **Prove the two uncertain foundations early:** F-core on the selected native
+  implementation, and S-project followed by S-run. The retained merge prototype,
+  minimal-container experiment and old disposable-worker/provider receipt reduce
+  investigation; their limited scopes do not satisfy these replacement boundaries.
+- **After the primitive works:** finish F-domain and the independent operation
+  implementations while Soda readiness/UI/accounting work continues. S-spaces and
+  S-life can prove real execution independently of the full agent loop. Native CI
+  setup/check assessment can use fixture commits rather than waiting for AI output.
+- **Hold dependent automation:** no actual coordinator launch before S-run; no
+  authoritative accepted-input/CI consumption before F-read; no automatic native
+  publication, review or merge consumer before its named native operation proof.
+  A harmless fixture adapter or pure predicate may be developed earlier, but do
+  not build broad orchestration to discover an unresolved native primitive.
+- **Hold enablement/qualification:** per-kind tests cannot excuse incomplete
+  common writer/callback/recovery coverage, and component fixtures cannot substitute
+  for real Spaces or the composed loop. A selectable harness requires its own
+  S-run evidence; separately proven harnesses need not multiply unchanged product
+  demonstrations. Failure or a changed native contract pauses only its dependent
+  branch; do not rebuild unrelated siblings as a diagnostic default.
+
+### Cutover and cycle prevention
+
+D24 is an obligation on replacement nodes, not a deferred cleanup feature. Change
+code, callers, formats, configuration, packaging and fixtures together according
+to the [removal closure](#removal-closure-and-retained-exceptions):
+
+- S-launch/S-run replace manual CLI execution, independent `execution.db` and
+  disposable `host/workspace` with their controller, broker/Muse, ownership and
+  worker-service callers. Keep the publisher, provider custody and human execution
+  primitives that still have callers. These nodes share a coherent replacement
+  cutover: an early S-run proof can use a bounded driver before S-launch exists,
+  without landing a second selectable runtime. Graph nodes are not mandatory
+  separate commits; land replacement and last-caller removal together. Do not pull
+  broad orchestration ahead of the runtime proof merely to make an intermediate
+  node independently landable. Unfinished new behavior stays unavailable.
+- F-browser and S-spaces carry extension contributions, routing/browser assets,
+  generated outputs and presentation callers with their source changes. Local
+  runner removal in A-support must preserve shared Tailnet assets and native
+  Actions/separately managed capacity. This work need not wait for factory merge.
+- A-package advances with those changes. R-candidate verifies their closure; it
+  is not the first point at which stale binaries, configs or handbook instructions
+  are removed. Current reference/public instructions change when their replacement
+  actually lands, not because this dependency graph exists.
+
+The runtime issue/review/fix/unblock loop is intentionally cyclic; the delivery
+graph is not. Native fixtures break false dependencies from PR/review/merge proof
+back to Soda coding, and preparation works without a lease or the scheduler.
+Human Join is not a prerequisite for factory accounts. Source checks may use
+fixed DTOs without asserting native success. Existing upstream Actions is a
+dependency, while new Soda runner provisioning remains excluded. At runtime,
+local store transactions do not span native/broker calls, host locks do not span
+`Register` callbacks into `Validate`, and deferred native work takes fresh
+ownership; these interface rules prevent the same apparent cycles from becoming
+deadlocks in the implementation.
 
 ## Source change inventory
 
