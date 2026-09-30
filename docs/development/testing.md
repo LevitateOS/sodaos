@@ -118,6 +118,19 @@ enrollment or optional tool-worker support. Qualify each selectable harness's
 boundary with a small native case; one representative complete product journey
 need not be repeated for every combination of otherwise unchanged components.
 
+The first [conditional operation contract](../architecture/trust.md#operation-identity-and-authorization)
+specifies `pull_request.merge`. Its focused acceptance additionally exercises:
+
+- Identical-ID replay without a second execution, changed-intent refusal, and
+  cancellation arriving before submission or after a lost submission response.
+- Spoofed actor/installation/target refusal, expiry at the write boundary, and
+  cancellation by the owning installation after its native actor loses write rights.
+- Both cancellation/write orderings and restart with an in-flight write, preserving
+  operation identity and denial of replay rather than inferring failure from timeout.
+- Ref success followed by native bookkeeping failure: retain the committed result,
+  withhold factory completion/dependent pickup, and reconcile without another merge.
+  Where attribution cannot be recovered, report indeterminate and require intervention.
+
 ### Recording completion
 
 Retain a scoped receipt with exact source/image/CLI versions and native architecture;

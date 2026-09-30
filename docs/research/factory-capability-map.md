@@ -178,8 +178,11 @@ fake factory endpoint would not close the missing integration.
 - **Generic mutation authority and merge:** source already confirms the absent
   expected-base condition and absent Soda policy/sponsor revision binding. The
   [architecture contract](../architecture/trust.md#conditional-native-mutations)
-  now requires generic native conditions and ordered invalidation. Its concrete
-  protocol, enforcement placement and race behavior remain unproved. Native
+  requires generic native conditions and ordered invalidation; the
+  [logical merge operation](../architecture/trust.md#operation-identity-and-authorization)
+  now specifies identity, immutable intent, cancellation and separate write/completion
+  outcomes. Authenticated background transport, enforcement placement, accepted-input
+  binding and race behavior remain unproved. Native
   principals are legitimate; an absent SDK method alone is not evidence a
   replacement credential system is needed.
 - **Selected CLI and environment:** when the actual factory launcher exists, use
