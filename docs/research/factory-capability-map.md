@@ -23,8 +23,11 @@ Inspected on September 30, 2026:
 - A focused Linux x86_64 experiment using Soda's terminal helper source at
   `a7194d83062db0a681e5d84691f53eefef09eab7`, plus older development receipts within
   their stated scope. The [native findings](#focused-native-findings) distinguish
-  tested primitives from missing integration. No build, provider execution or
-  appliance installation was performed for this assessment.
+  tested primitives from missing integration.
+- A [conditional merge experiment](#focused-conditional-merge-findings) against the
+  same Fountain revision, with Soda documentation at `e7fb29b3`. Only development
+  helper/test binaries were built; no provider execution, appliance build or
+  installation was performed.
 
 [Soda's module](../../go.mod) requires `forgejo.org/extension-sdk v0.0.0` with a
 local `../forgejo-ext/sdk` replacement. This assessment therefore uses the SDK in
@@ -58,7 +61,7 @@ upstream component does not make it a Soda implementation.
 | Dependencies and clarification records | Native [dependency APIs](../../../forgejo-ext/routers/api/v1/repo/issue_dependency.go) read dependency/block relations and add/remove them; [dependency storage](../../../forgejo-ext/models/issues/dependency.go) rejects immediate two-node cycles. Soda's [work client](../../internal/forgejo/work.go) reads issues and writes comments but has no dependency caller. | **Missing Soda consumption, not missing forge storage:** evaluate required outcomes, accepted answers and full graph cycles. Inaccessible blockers can be returned as hidden/confidential placeholders; missing details are not evidence of resolution. The native representation of maintainer-confirmed outcomes/answers still needs to be selected. | Upstream records/access; Soda readiness and accepted-input semantics. |
 | Issue and PR change delivery | Native [notifier](../../../forgejo-ext/services/webhook/notifier.go), [webhook preparation](../../../forgejo-ext/services/webhook/webhook.go) and [delivery](../../../forgejo-ext/services/webhook/deliver.go) persist and dispatch webhook tasks, recover unsent tasks and support replay. | **Missing Soda intake:** consume authenticated native observations with authoritative rereads. SDK event subscription is absent, but native webhooks already exist. Do not promise automatic retries after failed delivery, complete dependency-change events or exactly-once execution; dependency-event coverage needs verification. | Upstream webhook machinery; Soda intake, deduplication and bounded reconciliation. |
 | PRs, reviews and Actions | Native APIs already serve Soda's [publication and review caller](../../internal/factory/control/publication.go) and [Actions/review reads](../../internal/forgejo/work.go). | **Retain / adapt Soda:** apply the target accepted inputs, complete required-check set and role policy. SDK parity does not justify duplicating native collaboration or CI. | Upstream Forgejo operations; Soda orchestration/evidence. |
-| Conditional merge against verified state | Native [merge form](../../../forgejo-ext/services/forms/repo_form.go) accepts `head_commit_id`; [preparation](../../../forgejo-ext/services/pull/merge_prepare.go) checks the fetched head; [merge](../../../forgejo-ext/services/pull/merge.go) serializes the PR and uses a normal push. [Protected-branch hook](../../../forgejo-ext/routers/private/hook_pre_receive.go) rechecks native permission, reviews and status. | **Confirmed contract gap:** no expected-base input rejects a base changed since Soda's evidence before merge preparation. There is also no expected Soda policy/sponsor revision binding. **Unproved:** current-head race behavior through final ref update and atomic sponsorship withdrawal. Preserve existing native checks; add Soda's absent merge caller only after these required guarantees have a supported native path. | Soda merge eligibility; upstream merge engine; Fountain carries any necessary generic conditional-operation or authority extension, never Soda factory policy. |
+| Conditional merge against verified state | Native [merge form](../../../forgejo-ext/services/forms/repo_form.go) accepts `head_commit_id`; [preparation](../../../forgejo-ext/services/pull/merge_prepare.go) checks the fetched head; [merge](../../../forgejo-ext/services/pull/merge.go) serializes the PR and uses a normal push. [Protected-branch hook](../../../forgejo-ext/routers/private/hook_pre_receive.go) rechecks native permission, reviews and status. | **Confirmed contract gap:** no expected-base input or application authorization binding. The [focused prototype](#focused-conditional-merge-findings) demonstrates conditional refusal and cancellation ordering on one native merge path. **Unproved:** complete writer participation and authenticated binding of Soda withdrawal to native execution. Preserve existing native checks; add Soda's absent merge caller only after the required guarantees have a supported native path. | Soda merge eligibility; upstream merge engine; Fountain carries any necessary generic conditional-operation or authority extension, never Soda factory policy. |
 
 The existing publication lock and `live` check in
 [Soda authority](../../internal/factory/control/authority.go) recheck the configured
@@ -288,10 +291,54 @@ The source supports these concrete integration boundaries:
   reservation avoids equating a lost controller with a stopped native writer.
 
 The comparison deliberately chooses intervention after unresolved crashes over an
-automatic recovery service. Complete participation, trusted callback binding and
-native effect attribution still need the
-[focused proof](../development/testing.md#acceptance-cases). Until those pass,
-the chosen design does not authorize a weaker interim merge path.
+automatic recovery service. The experiment below establishes controlled native
+race behavior. Complete participation, trusted callback binding and broader
+recovery attribution still need the remaining
+[acceptance cases](../development/testing.md#acceptance-cases). The chosen design
+does not authorize a weaker interim merge path.
+
+## Focused conditional merge findings
+
+Nine development cases passed on native Linux x86_64 against Fountain `c22b3543`,
+Git 2.52.0's files backend and SQLite, using Go 1.26.7. The experiment used a
+disposable source copy and Forgejo's existing integration harness, native merge
+API, Git push and ordinary hooks. A prototype helper added the reservation,
+revision and operation records to that fixture's native database. It does not
+implement Fountain's authenticated extension API or add Soda factory rules.
+
+The publication pause intercepted the actual target-ref lockfile rename. It
+verified that the prepared-hook process had exited while the old ref remained
+visible, then allowed the normal syscall to proceed. This distinguishes the
+critical publication gap from a pause inside the hook.
+
+| Case | Observed result |
+| --- | --- |
+| Baseline and native revision | Native fast-forward merge updated the target and PR record. An intervening participating source push made an earlier revision fail before dispatch. |
+| Changed head and changed base | Separate native pushes changed each ref. Refreshing the revision isolated the exact-OID checks: prepared admission refused `stale_head` and `stale_base_or_result`. Neither PR merged; the advanced base was preserved. |
+| Revocation before admission | Cancellation committed while the prepared hook was paused before admission. The hook refused `cancelled_before_admission`; target stayed unchanged and the result was `not_committed` / `cancelled`. |
+| Admission before cancellation | With Git paused after hook exit and before publication, cancellation stayed pending and replay did not acquire a new execution. Releasing Git produced the exact expected target and native merged PR; reconciliation reported `committed` / `too_late`. |
+| Completed write and controller restart | The prototype controller was killed after native HTTP completion but before recording its result. A fresh controller process using the same database did not resubmit. Cancellation and reconciliation recovered `committed` / `too_late`; the native request log contained one merge request. |
+| HTTP timeout | The client timed out with the receiver paused after hook exit. After native request cancellation the writer terminated; the target remained unchanged. The admitted operation remained `indeterminate`, retained the reservation after its admission deadline, and rejected replacement as busy. Replay issued no second native request. |
+| Native branch protection | A non-admin actor with no required approval received native HTTP 405 and the explicit insufficient-approvals reason. The operation never reached prepared admission; target and PR stayed unchanged. |
+
+These results support the selected reservation's lifetime and conservative
+reconciliation on this path. The fixture used same-repository PRs and
+fast-forward-only merges, with a distinct expected result known before execution.
+Manual reconciliation followed observed writer termination; the helper is not a
+production recovery service. Restart means the prototype controller process:
+controller death with a surviving receiver, whole-server restart and host power
+loss were not exercised. Neither were forked source repositories, other merge
+methods, other databases, complete ref/policy/input writer coverage or trusted
+callback bindings. The native approval refusal demonstrates retained enforcement,
+not every protection rule or concurrent permission revocation.
+
+The final run's nine cases passed in 21.5 seconds including harness startup.
+An earlier combined run failed because reused prototype operation IDs met new
+fixture commits; fresh per-run databases corrected fixture isolation while each
+restart test retained its database. That failed run remains failed. Detailed
+source hashes, receipts, native diagnostics and probe sources are retained in the
+ignored `.artifacts/fountain-conditional-proof-20260930/` task directory. This is
+development evidence, not shipping qualification or permission to enable merge.
 
 ## Remaining decisive boundaries
 
@@ -304,8 +351,10 @@ the chosen design does not authorize a weaker interim merge path.
   outcomes. The [enforcement trace](#native-merge-enforcement-trace) locates the
   prepared-to-ref-publication span. The selected durable reservation and native
   revision specify coordination and input binding, with explicit admission expiry;
-  complete writer coverage, authenticated background/execution binding, recovery
-  evidence and native race behavior remain unproved. Native
+  the [focused native experiment](#focused-conditional-merge-findings) establishes
+  the tested ref/cancellation and replay behavior. Complete writer coverage,
+  authenticated background/execution binding and broader crash recovery remain
+  unproved. Native
   principals are legitimate; an absent SDK method alone is not evidence a
   replacement credential system is needed.
 - **Selected CLI and environment:** when the actual factory launcher exists, use
