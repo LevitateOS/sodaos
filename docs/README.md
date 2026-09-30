@@ -58,7 +58,7 @@ command workflow. Spaces connects repository environments with human and factory
 | [TypeScript](development/typescript.md) | Bun workspace and frontend TS |
 | [Lit](development/lit.md) | Spaces Lit components |
 | [Python](development/python.md) | Python format/lint/complexity |
-| [Testing](development/testing.md) | Native and source validation |
+| [Testing](development/testing.md) | Native/source validation and finished-factory acceptance criteria |
 | [Native support tools](development/native-support.md) | Build/support tool effects |
 | [Release workflow](development/release.md) | Running the release pipeline |
 | [Cockpit](development/cockpit.md) | Stock Cockpit branding port |

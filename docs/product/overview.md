@@ -277,6 +277,18 @@ outcome before marking completion, then reassess dependents using authoritative
 forge state. An independently performed human merge is observed the same way; it
 does not make unverified work a successful factory merge.
 
+Actions invalidating authority, including pause, cancel, takeover and grant
+withdrawal, must have a defined order against concurrent native mutations, as
+specified by the [mutation boundary](../architecture/trust.md#conditional-native-mutations).
+Requesting withdrawal immediately blocks new Soda dispatch, but remains pending
+until native invalidation is acknowledged; it is not yet a completed cancellation
+or revocation. If invalidation takes effect first, the old operation cannot commit.
+If the operation commits first, report that actual result before confirming the
+withdrawal; cancellation cannot undo an existing merge. Uncertain ordering or
+failed acknowledgement must not be presented as successful revocation and must
+not permit further dispatch. There is no grace period for an already invalidated
+authorization.
+
 ### Human intervention
 
 Spaces shows the issue/PR, current stage, exact candidate, evidence, blocker or
@@ -314,15 +326,15 @@ from the attempt outcome. Never repair by deleting the persistent environment.
 ## Implementation boundaries
 
 The operating policy and [environment/session model](projects.md) are settled.
-The remaining work is to verify and design their native boundaries: Fountain's
-durable scoped authority and conditional merge, native dependency/clarification
-representation, approved environment inputs and provisioning, and the
-[shared execution integration](../architecture/overview.md#shared-project-execution)
-including account/checkout permissions and broker attestation/credential return.
-Limit enforcement, event delivery and interruption handling also need native evidence.
-Those facts must be established before an implementation plan claims the complete
-loop is feasible. They are not permission to restore legacy authentication or a
-second issue, CI or execution system.
+[Architecture](../architecture/overview.md#factory-architecture-decisions) owns the
+coordinator, native observations, accepted-input records and shared execution
+decisions. [Trust](../architecture/trust.md#conditional-native-mutations) owns the
+required background authority and conditional mutation guarantees. These contracts
+do not assert that a concrete native protocol or composed integration has passed.
+The [factory acceptance criteria](../development/testing.md#factory-acceptance)
+define the native boundary checks and real product demonstration needed to claim
+completion. Missing proof is not permission to restore legacy authentication or
+a second issue, CI or execution system.
 
 ## System shape
 

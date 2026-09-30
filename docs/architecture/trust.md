@@ -191,9 +191,58 @@ browser session alive.
 
 Provider enrollment and account custody remain legitimate Identity Broker duties,
 separate from native forge sign-in. The concrete grant protocol and unattended
-publication/merge integration must be settled against Fountain's generic contract
-before implementation; this document does not assume that capability is already
-available.
+publication/merge integration must satisfy the following contract before factory
+mutations are enabled; this document does not assume it is already available.
+
+### Conditional native mutations
+
+Use separately authorized, repository-scoped native service principals for
+unattended collaboration. An ordinary native actor credential is not an
+authentication hack, but its repository scope alone does not encode a current
+Soda attempt or sponsorship. Keep publisher/reviewer/merge authority outside agent
+processes. Browser session callbacks remain for browser operations; no live human
+session is required to sustain a valid background grant.
+
+Fountain/native Forgejo must enforce the required operation constraints at the
+native mutation boundary. Soda supplies its policy decision through a bounded
+operation authorization; Fountain treats application authority identities and
+revisions as opaque. The contract must:
+
+- Bind the installed extension, native actor, repository, permitted operation and
+  exact target. Bind relevant object/ref expectations and a revocable application
+  authority revision; neither an arbitrary command nor a reusable broad bearer
+  grant to an agent is an acceptable substitute.
+- For merge, require the reviewed head, verified target branch/base and current
+  operation authority together. Reject stale expectations at the effective native
+  write, including changes after merge preparation. Preserve native permission,
+  branch protection, review, status and merge-method enforcement; never substitute
+  an unchecked direct push or a separate Soda merge engine.
+- Order invalidation and an authorized write at a defined native commit boundary.
+  After invalidation is acknowledged, an operation carrying the old authority
+  revision cannot commit. An operation that committed first remains an attributable
+  completed operation, not something revocation can undo. Soda immediately stops
+  new dispatch on withdrawal, and reports pending invalidation honestly until the
+  native boundary confirms it; a preflight followed by an unfenced write is not
+  this guarantee.
+- Deny the operation when current required authority or state cannot be established.
+  Unknown outcomes require authoritative lookup and reconciliation, not blind
+  retry, assumed success or continued use of an old authorization.
+
+Soda owns what invalidates its authorization: accepted-input or policy changes,
+blockers, pause/cancel/takeover, limits, repository sponsorship, operator capacity
+and provider sponsorship. Fountain owns generic native enforcement and native
+permission checks, without learning issue-readiness rules, budgets or provider
+secrets. A change in either authority invalidates affected work; native checks do
+not replace Soda's product checks.
+
+This selects a minimal conditional-operation boundary, not a replacement identity
+system or an unrestricted durable delegation framework. The concrete protocol,
+revocation ordering and coverage of native publication/review/merge paths still
+need a supported contract and focused native race proof. The current merge input's
+`head_commit_id` check during preparation does not satisfy expected-base or
+application-authority requirements. Automatic merge remains unavailable until
+the [mutation acceptance cases](../development/testing.md#factory-acceptance) pass;
+no weaker temporary path is part of the target architecture.
 
 ## Frontend and session boundary
 
