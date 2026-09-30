@@ -67,9 +67,9 @@ The existing publication lock and `live` check in
 [Soda authority](../../internal/factory/control/authority.go) recheck the configured
 human's permission, open issue and startup policy before a separate bot mutation.
 That is useful enforcement, but it does not establish that the native mutation
-rejects an intervening sponsor/policy withdrawal. The next fact to establish is
-the smallest native authority contract that meets the target, not the design of
-a new login, general grant framework or replacement event service.
+rejects an intervening sponsor/policy withdrawal. The selected
+[operation contracts](../architecture/trust.md#operation-identity-and-authorization)
+address that gap through generic native enforcement; they remain unimplemented.
 
 ## Factory lifecycle and operating policy
 
@@ -81,7 +81,7 @@ a new login, general grant framework or replacement event service.
 | Prompt assembly and inspectable assignments | [Task assembly](../../internal/factory/control/execute.go) includes work, run, candidate, findings and CI; [launcher](../../internal/host/workspace/launch.go) tells the CLI to consume task JSON. Objective admission is title/body plus the recorded base and policy. | **Adapt:** assemble accepted requirements, authorized clarifications/dependency outcomes, approved-base instructions, environment inputs, exact diff/check evidence, role policy and blocker output. Record template/input identities; do not put secrets into prompts. | Soda. |
 | Queue, capacity and spending rules | [Attempt types](../../internal/factory/types.go) set a three-hour deadline; [lifecycle](../../internal/factory/lifecycle.go) allows four executions and one correction; [workspace configuration](../../internal/host/workspace/config.go) bounds CPU, memory, PIDs and scratch. | **Adapt / missing:** implement the [selected limits](../product/overview.md#concurrency-and-usage-limits), oldest-ready ordering, cross-repository reservations, one attempt/session per repository, cumulative active time and rolling provider accounting. Existing resource bounds do not implement those scheduling/budget rules. | Soda on native resource controls; upstream providers enforce their own quotas. |
 | Coding execution | [Workspace runtime](../../internal/host/workspace/runtime.go) creates a disposable rootless worker, imports a source bundle and launches a pinned CLI with recorded resources. | **Replace execution path:** launch bounded processes in the associated persistent Project; retain run identity and resource accounting. Native role/process primitives passed the focused experiment below; actual factory harness execution in the selected Project OS remains **unproved**. | Soda using Project OS and native process controls. |
-| Candidate publication | [Publisher](../../internal/host/publish/publish.go) validates a candidate bundle and pushes its assigned branch; [controller](../../internal/factory/control/publication.go) creates a native PR. Publisher credentials stay outside agent execution. | **Retain / adapt:** preserve exact candidate, branch and repository checks while consuming the retained attempt checkout. Revalidate authority before each native write; avoid a replacement Soda Git-authentication service. | Soda publication policy; upstream Git and Forgejo operations. |
+| Candidate publication | [Publisher](../../internal/host/publish/publish.go) validates a candidate bundle and pushes its assigned branch; [controller](../../internal/factory/control/publication.go) creates a native PR. Publisher credentials stay outside agent execution. | **Retain / adapt:** preserve exact candidate, branch and repository checks while consuming the retained attempt checkout. Consume the [conditional publication/create contracts](../architecture/trust.md#candidate-ref-publication), preserving native Git transport and durable attribution across lost responses. | Soda publication policy; upstream Git/PR services; Fountain conditional receive and creation receipts. |
 | Review and correction | [Verification](../../internal/factory/control/verification.go) launches a separate reviewer; [publication](../../internal/factory/control/publication.go) submits a commit-bound native review; findings feed one repair run. | **Adapt:** same Project container, separate role account and fresh independent Git metadata; coder owns fixes, followed by fresh review of every changed candidate within the selected correction allowance. | Soda role coordination; upstream native reviews. |
 | Required CI evidence | Verification observes one configured Actions workflow for the candidate; [forge client](../../internal/forgejo/work.go) checks returned commit/workflow identity. Multiple evaluations currently require intervention. | **Adapt:** evaluate the complete required-check set, current candidate/base and changed verification policy. Missing, skipped or stale evidence cannot pass. Preserve native CI scheduling and use separately managed execution capacity. | Soda eligibility; upstream Forgejo Actions/checks and runners. |
 | Automatic merge and dependent work | [Lifecycle completion](../../internal/factory/lifecycle.go) ends at readiness for human merge; the Soda work client has no merge operation. | **Missing:** conditional native merge, authoritative outcome confirmation and dependency reassessment. Native merge support and its exact stale-state guarantees must be assessed separately from Soda's absent caller. | Soda coordination; native merge enforcement, with Fountain changes only for a demonstrated generic shortcoming. |
@@ -382,6 +382,37 @@ in `.artifacts/fountain-integration-design-20260930/jev/`. This selection requir
 source inspection and consultation only; the prior native proof was reused.
 The new authentication, callback, coverage and recovery paths still require the
 [focused acceptance cases](../development/testing.md#acceptance-cases).
+
+## Publication and collaboration write boundaries
+
+The [operation contracts](../architecture/trust.md#candidate-ref-publication) extend
+the same identity, reservation and cancellation design to three separate effects.
+The following source findings use Fountain `c22b3543`; none establishes that the
+new authenticated operations already exist.
+
+| Boundary | Evidence and selected integration |
+| --- | --- |
+| Candidate publication | Soda's [publisher](../../internal/host/publish/publish.go) validates a bounded bundle in a fresh bare checkout, checks assigned-input ancestry and protected paths, then pushes with an exact lease. [Native smart-HTTP](../../../forgejo-ext/routers/web/repo/githttp.go) owns receive-pack launch, environment and stdin. Bind that receive to a registered immutable operation and current installation/native-actor proof before launch, then enforce its single ref at native hooks. This preserves existing transport without adding host bundle storage/import. |
+| PR database core and derived state | [API creation](../../../forgejo-ext/routers/api/v1/repo/pull.go) checks permissions, branches and an existing open PR. [Model creation](../../../forgejo-ext/models/issues/pull.go) allocates the issue index and inserts issue/PR records in SQL; [service creation](../../../forgejo-ext/services/pull/pull.go) currently changes the internal PR ref inside its transaction, then does further completion. Split the database core to commit primary records and receipt together, with derived Git/native completion afterward. The index supplies the internal ref name; no primary model insertion requires Git. |
+| Review database core | [Review API](../../../forgejo-ext/routers/api/v1/repo/pull_review.go) includes self-review checks, optional inline-comment creation and an omitted-commit default. [Review service](../../../forgejo-ext/services/pull/review.go) can accept diff-equivalent stale heads, and [model submission](../../../forgejo-ext/models/issues/review.go) consumes pending draft material and transactionally changes review/comment, official flags and review requests. The selected body-only contract preserves native eligibility but requires an exact head and no pending draft; commit the native database effect and receipt together. |
+| True transaction and completion | [Transaction reuse](../../../forgejo-ext/models/db/context.go) makes inner commits no-ops under an outer transaction. Wrapping the full PR/review service would therefore move supposed postcommit effects before the real commit. Integrate receipts at the native database core, keep Git outside SQL, and preserve native mentions/notifications/Actions through bounded completion. |
+| Consumer ledger gaps | [Soda publication](../../internal/factory/control/publication.go) pushes before saving the candidate, saves the PR number after the creation response, and submits a review without a durable operation receipt. Each lost response can strand a native effect outside the local transition. Distinct operation IDs and attributable receipts replace guesswork; a correction retains its recorded PR and invalidates earlier candidate evidence. |
+
+Three fresh Jev SystemOne requests used equivalent source evidence and alternatives
+with all explanatory prose rewritten and independently checked before sending.
+All selected operation-bound native receive and database-primary PR creation with
+separate completion. One PR recommendation had weak confidence; agreement is not
+proof. The concrete reasons are the existing receive launch seam and the model's
+SQL-only index/record allocation. Bundle ingestion would add a new input/storage
+lifecycle; pre-creating the PR ref would add orphan-ref/index reconciliation.
+The selected tradeoff is that a committed PR may be visible before derived state
+is ready, with downstream work held until required completion is confirmed.
+
+Requests, responses, wording checks and the source-based decision are retained in
+`.artifacts/fountain-other-writes-20260930/jev/`. Only source/contract checks and
+consultations were performed; the [native acceptance cases](../development/testing.md#acceptance-cases)
+for receive binding, database atomicity, cancellation and incomplete completion
+still require implementation and proof.
 
 ## Remaining decisive boundaries
 

@@ -237,23 +237,23 @@ not replace Soda's product checks.
 
 This selects a minimal conditional-operation boundary, not a replacement identity
 system or an unrestricted durable delegation framework. The logical contract below
-specifies merge first. The coordination mechanism below is selected for the first
-single-host profile. The integration design below selects authentication, writer
+covers merge, candidate ref publication, PR creation and review submission. The
+coordination mechanism below is selected for the first single-host profile.
+The integration design below selects authentication, writer
 boundaries, recovery authority and initial methods; their implementation still
-requires native qualification. Other mutation kinds need their own contracts.
-The current merge input's
-`head_commit_id` check during preparation does not satisfy expected-base or
-application-authority requirements. Automatic merge remains unavailable until
+requires native qualification. Additional mutation kinds need their own contracts.
+The current merge input's `head_commit_id` check during preparation does not
+satisfy expected-base or application-authority requirements. Automatic merge remains unavailable until
 the [mutation acceptance cases](../development/testing.md#factory-acceptance) pass;
 no weaker temporary path is part of the target architecture.
 
 #### Operation identity and authorization
 
 The following names describe a **target logical API**, not existing SDK methods
-or HTTP routes. Start with `pull_request.merge`; publishing a ref, creating a PR
-and submitting a review are separate native effects whose payloads and completion
-rules must be specified before adding those operation kinds. A merge authorization
-never grants those other actions.
+or HTTP routes. `git.ref.publish`, `pull_request.create`,
+`pull_request.review.submit` and `pull_request.merge` are separate native effects,
+each with its own immutable authorization and receipt. Authorization for one kind
+never grants another action or the whole factory sequence.
 
 The host derives the installed extension identity from authenticated service
 transport and resolves the native actor through native authentication and an
@@ -277,12 +277,12 @@ Fountain does not need a reusable hierarchy of factory grants.
 | `extension_installation_id` | Host-derived installation identity, stable across process restart; a different installation cannot adopt old operations. Not caller-selected authority. |
 | `operation_id` | Caller-generated opaque unique ID, durably recorded before sending and never reused for another intent. Scoped to the authenticated installation. |
 | `actor_id` | Expected stable native user ID; must match the authenticated, permitted service principal. Native account state, token scope and repository permissions remain effective. |
-| `repository_id` | Stable native ID of the base repository. Resolve by ID; do not authorize by a mutable owner/name or supplied clone URL. |
-| `kind` | Exactly `pull_request.merge` for this first contract; unknown kinds and arbitrary native commands are rejected. |
+| `repository_id` | Stable native ID of the repository receiving the primary effect; the base repository for PR operations. Resolve by ID; do not authorize by a mutable owner/name or supplied clone URL. |
+| `kind` | One of the four operation kinds defined here; unknown kinds and arbitrary native commands are rejected. |
 | `authorization_revision` | Nonempty opaque application revision identifying the policy/accepted-input/grant decision behind this operation. Bound to the entire immutable intent. Fountain records validity and cancellation without interpreting that revision as Soda policy. It is not a bearer secret or a reusable grant. |
 | `expected_native_revision` | Opaque host-issued revision obtained with the stable native-read protocol below. Reservation acquisition requires equality with the current idle revision. It binds observed native inputs without telling Fountain what Soda considers eligible. |
-| `not_after` | Finite deadline for host admission into the guarded commit phase, checked in `prepared` using host time and constrained by the host's maximum lifetime. An admitted write may finish afterward. Expiry prevents new admission; it does not release a reservation, undo a write or establish non-commit. No in-place renewal. |
-| `merge` | The exact operation-specific payload below; all semantic fields participate in intent identity. |
+| `not_after` | Finite deadline for host admission into the guarded commit phase, checked at Git `prepared` or the database admission boundary defined for that kind, using host time and constrained by the host's maximum lifetime. An admitted write may finish afterward. Expiry prevents new admission; it does not release a reservation, undo a write or establish non-commit. No in-place renewal. |
+| `payload` | Exactly the payload for the selected kind below; all semantic fields participate in intent identity. |
 
 Native IDs use the SDK's decimal-string representation. Ref names are full native
 branch refs; object IDs are full IDs in the repository's object format, never
@@ -293,7 +293,7 @@ equality compares validated semantic fields, not JSON whitespace or key order.
 
 #### Merge intent and effect
 
-| `merge` field | Required meaning |
+| Merge payload field | Required meaning |
 | --- | --- |
 | `pull_request_number` | Native PR number within `repository_id`; host resolves the native PR identity and verifies its source and target. |
 | `head_repository_id`, `head_ref` | Exact native source repository and branch of that PR. Retargeting either invalidates the request even if an object ID happens to match. |
@@ -317,6 +317,177 @@ preparation, or approving in a pre-receive hook and dropping the guard before th
 ref update, is insufficient. This defines the required invariant without claiming
 a Git/database locking mechanism already satisfies it.
 
+#### Candidate ref publication
+
+`git.ref.publish` permits one branch creation or fast-forward update in one native
+repository. It does not create a PR, change another ref, delete a branch or permit
+non-fast-forward replacement. Its payload binds:
+
+| Field | Required meaning |
+| --- | --- |
+| `ref` | One full `refs/heads/...` target, distinct from `comparison_ref`. |
+| `expected_old` | Explicit `absent` for creation or one full current OID for update; never an omitted or wildcard lease. |
+| `new_oid` | Exact new commit, different from the old tip; an update must be a native fast-forward from that tip. |
+| `comparison_ref`, `expected_comparison_oid` | Exact repository branch and tip used to assess the candidate. A changed base rejects publication. |
+| `pull_request` | Explicitly absent for initial publication; for correction, the existing PR number and expected author ID. It must remain open/unmerged, in this repository, with this source branch, comparison branch and expected old head. |
+
+Soda validates the candidate bundle in its clean publisher checkout, including
+assigned-input ancestry, protected-path and credential checks. It chooses the
+exact branch and comparison base, and retains agent/run provenance. Fountain
+checks the bound native refs and authority without interpreting those factory
+rules. Soda grants publication/create authority only to its enrolled publisher;
+its reviewer and agent credentials cannot exercise those operation kinds.
+
+Preserve native smart-HTTP Git transport. `SubmitOperation` durably registers this
+intent in `pending/awaiting_receive`; registration does not launch Git or occupy
+the native reservation. The publisher then supplies the operation ID and current
+installation runtime/service admission alongside its native PAT on Fountain's
+supported receive route. This is a new generic Fountain protocol, not a push option
+or a header accepted by unmodified Forgejo. The SDK configures restricted secret
+files for the configured verified native origin; credentials cannot follow redirects
+or appear in command arguments, logs or agent-accessible configuration.
+
+Before starting `receive-pack`, Fountain verifies the installation, kind, recorded
+actor/credential generation and route's resolved repository ID. It atomically
+claims the reservation, checks its expected revision, requires that cancellation
+has not won and the deadline has not elapsed, and changes the durable execution
+from waiting to started exactly once. Bind the receiver to the host-only
+execution capability; remove caller admission from child environment/diagnostics.
+Native push permission and protection checks remain effective. At Git `prepared`,
+require exactly the authorized old/new tuple, fresh native authority, unchanged
+comparison ref and correction PR conditions, and order cancellation/deadline
+against commit admission as for merge. Pre-receive must reject an unexpected
+command set before any ref can commit; the prepared hook also enforces the exact
+tuple. Git discovery reads do not consume execution; only the matched receive does.
+
+A retry cannot launch another receiver once execution started. A caller restart
+may use fresh installation admission to attach to a still-waiting intent, but
+cannot renew it or replace an uncertain writer. An ordinary PAT-only push remains
+an ordinary native operation; it cannot consume this registration or establish
+its success. Matching bytes or an already matching branch are not attribution.
+No-op writes refuse; a replay of this operation instead returns its earlier receipt.
+
+The primary effect is the exact branch update; return its old/new OIDs and native
+actor, with native push/PR synchronization and event processing as separate
+completion. Cancellation before admission prevents publication. After admission,
+unknown results retain the reservation until writer quiescence and attribution;
+a committed update is never undone by cancellation. Unpublished received objects
+are not a branch effect and remain subject to native Git cleanup. Lost push replies
+use `GetOperation`, never a replacement push to discover whether the first worked.
+
+#### PR creation
+
+`pull_request.create` creates one same-repository native PR. The payload fixes
+`head_repository_id` equal to `repository_id`, full `head_ref` and `base_ref`,
+`expected_head_oid`, `expected_base_oid`, final `title` and `body`, and
+`allow_maintainer_edit=false`. Reject identical refs, missing branches, native
+no-change/duplicate refusals and invalid or over-limit content rather than silently
+truncating intent. The first interface has no labels, assignees, milestone,
+attachments, fork source, update or retarget operation. Soda puts the accepted
+issue/attempt linkage into the fixed body using native references; Fountain does
+not accept a Soda-specific issue or attempt grant.
+
+The publisher's approved native operation binding must include PR creation.
+Preserve native repository-unit access, head/base permissions, account/block and
+quota checks from the API layer, refreshed under ownership. Acquire before the
+native duplicate check, comparison preparation and index allocation. An existing
+PR is a conflict, even if its author, branch or text matches; only this operation's
+receipt proves creation. Corrections validate the already recorded PR instead of
+invoking create again.
+
+The primary effect is the native issue/PR database commit. Verify exact refs and
+native authority under the held reservation, outside SQL. Split the existing
+native service at its model transaction: atomically check cancellation and expiry,
+verify owner/intent, then commit issue/PR records and the operation's
+`committed` receipt together. Record native PR ID, issue ID, PR number, author and
+head/base snapshot. Cancellation must contend on the same operation row/conditional
+update so it cannot acknowledge prevention while that transaction commits. A
+winning cancellation rolls back/prevents the primary effect; a committed
+transaction makes cancellation `too_late`. Admission expiry is not a physical
+latest-commit guarantee. No SQL transaction may span Git or wrap the entire service.
+
+After that commit, use the allocated native index to establish the exact internal
+PR ref and perform native push-history comments, code-owner requests, mentions
+and notifications under bounded completion ownership. Preserve these native
+behaviors; do not treat an API error after commit as failed creation. A PR can be
+visible while its derived state is incomplete. Report `committed` with completion
+`pending` or `needs_intervention`; downstream factory work waits for its required
+native state and event handoff. Do not delete/recreate the PR, adopt a similar PR
+or blindly rerun uncertain completion to repair a lost response.
+
+Before derived Git writes, persist their exact internal-ref tuple and allowed
+completion phase under this owner. Native hooks require that bound execution proof
+and the committed primary receipt; this is bounded completion, not permission for
+another primary write. An unexpected or uncertain internal ref retains the fence.
+
+#### Review submission
+
+`pull_request.review.submit` submits one final, body-only native review. Bind the
+PR number, expected PR author ID, head repository/ref, base ref, exact
+`expected_head_oid` and `expected_base_oid`, explicit `commit_id` equal to that
+head, final `event` (`APPROVED` or `REQUEST_CHANGES`) and `body`. Its first scope is
+same-repository PRs. Inline comments, attachments, pending/draft creation,
+submission of an existing draft, editing and dismissal are outside this operation.
+A pending review for this actor/PR refuses; do not adopt its comments or delete it.
+
+Use the distinct enrolled reviewer and its approved review-only operation binding.
+Preserve native access, account/block, self-review and official-review eligibility
+rules; do not call the model as a permission bypass. Soda owns fresh-session
+independence, findings and evidence, and rejects approval of the reviewer's own
+changes. An agent supplies findings, not native credentials or an approval grant.
+
+Acquire before loading the PR and its review state. At database admission require
+an open, unmerged PR with exactly the bound author, source, target and head/base;
+no omitted-commit default and no diff-equivalence substitution for a changed head.
+Apply the native model's review/comment, official-review and review-request changes
+with the operation receipt and ordered cancellation/deadline check in one SQL
+transaction. Return native review/comment IDs, reviewer, PR identity, commit,
+event and head/base snapshot. The service's mentions and notifications follow the
+real commit under bounded completion ownership, not inside an outer transaction.
+
+Cancellation first prevents the submitted review and its accompanying database
+effects. Database commit first makes the review historical native evidence with
+`too_late` cancellation; it does not withdraw/delete the review. A lost response
+reconciles that operation receipt, never another POST or a search for similar text.
+Later head/base changes invalidate its use by Soda for merge even if native review
+history still marks it approved. A fresh assessment uses a new operation and
+current expectations; it never rewrites the old receipt.
+
+#### Sequencing and database recovery
+
+Soda records each operation before dispatch and advances its local ledger only
+from attributable native receipts. Publication, PR creation, review and merge are
+separate authorizations, not one distributed transaction. A later refusal leaves
+previously committed branches, PRs and reviews intact. Cleanup or withdrawal of
+native records requires a separately authorized operation; cancellation grants no
+such authority. Never fall back to an ordinary push or unguarded POST when the
+conditional path refuses. Before each next stage, recheck Soda authority and
+bracket fresh native reads with the current idle revision: the previous write
+advanced it.
+
+Before correction, Soda invalidates old candidate evidence and cancels outstanding
+old-head review/merge intents. A review that committed first remains historical;
+uncertain earlier operations prevent advancing. Publish a correction against the
+recorded prior candidate and same PR, then require fresh CI and review. Cancellation
+of an attempt closes dispatch and cancels every recorded stage operation using the
+existing registration/withdrawal ordering; it cannot erase earlier successes.
+
+PR/review notifications, including synchronous Actions effects, use the same
+bounded post-primary-effect completion rule as merge. Deferred jobs claim fresh
+ownership and must survive a busy gate. Completion needed by a downstream stage
+must be observed before that stage advances; queued CI results are still separate
+required evidence. A `too_late` cancellation describes the primary effect, not proof
+that all admitted completion writers have stopped.
+
+For database-primary operations, native rows and their operation receipt must
+commit or roll back together. After lost responses, lookup can therefore identify
+the exact result without ref-tip or text heuristics. A transaction error or absent
+receipt while a writer may still run does not prove non-commit. After interrupted
+execution, the offline recovery authority must establish writer quiescence, inspect
+the authoritative transaction result and reconcile derived ref/completion effects
+before releasing the exact owner. Inconsistent rows/receipt or uncertain Git
+completion stay fenced; restart cannot rerun creation or submission.
+
 #### Submission, lookup and cancellation
 
 | Logical action | Contract |
@@ -335,8 +506,9 @@ it is not evidence that an already dispatched native process has stopped.
 Submitting does not promise immediate completion. Closing a connection, timing out,
 losing a browser or cancelling a client request does not constitute
 `CancelOperation`. A cancellation response is `pending` until its ordering is
-known, `cancelled` only when no write occurred and none can occur, or `too_late`
-when the write already committed. If the past effect cannot be established, return
+known, `cancelled` only when no primary effect occurred and none can occur, or
+`too_late` when the primary effect already committed. If the past effect cannot
+be established, return
 `indeterminate` and keep replacement work blocked; do not claim that cancellation
 prevented it. Repeated cancellation preserves the result and cannot relabel a
 committed operation as cancelled. This `cancellation_status` is reported alongside
@@ -352,11 +524,11 @@ rather than inventing them. Native effect and follow-up completion are separate 
 | Effect state | Meaning and caller action |
 | --- | --- |
 | `pending` | Accepted or preparing/executing; no final commit claim. Query or cancel this operation rather than create another. |
-| `not_committed` | Authoritative evidence that this operation made no target ref update and cannot later do so. Include a bounded reason such as cancelled, expired, stale head/base/target, denied native authority/protection, merge conflict or native failure. A native error alone cannot establish this state. |
-| `committed` | The target ref update is attributable to this operation. Return exact old/new target IDs, reviewed head, actor and native PR/merge identity. Cancellation cannot undo it. |
+| `not_committed` | Authoritative evidence that this operation's primary effect did not occur and cannot later occur. Include a bounded reason such as cancelled, expired, stale head/base/target, conflicting existing output, denied native authority/protection, merge conflict or native failure. A native error alone cannot establish this state. |
+| `committed` | The kind's primary effect is attributable to this operation. Return its exact ref tuple or native PR/review record IDs and bound actor/input snapshot as specified above. Cancellation cannot undo it. |
 | `indeterminate` | A write may have occurred or may still be in flight. Retain the operation and reconcile native evidence; forbid automatic replacement or duplicate execution. |
 
-For a committed effect, report native PR/issue completion separately as `pending`,
+For a committed effect, report its required native completion separately as `pending`,
 `complete` or `needs_intervention`, with the actual native record references. Git
 success followed by a failed post-receive/database step remains a committed write
 with incomplete bookkeeping. It must not become `not_committed` because an HTTP
@@ -366,10 +538,12 @@ operation's Git receipt alone.
 
 Transport errors, server errors, expiry during execution and controller/host restart
 do not prove non-commit. Preserve intent identity, cancellation and enough native
-evidence to resolve the write across restart. A lookup response or native PR row
-alone cannot substitute for attribution when the ref and database disagree. If
-evidence cannot resolve the result, leave it indeterminate for intervention;
-never rerun the merge merely to obtain a cleaner receipt.
+evidence to resolve the write across restart. For Git-primary operations, a
+transport response or native PR row alone cannot establish attribution when ref
+and database state disagree. Database-primary operations use their atomic receipt;
+uncertain derived completion cannot erase a known primary commit. An unresolved
+primary effect stays indeterminate for intervention; never repeat it merely to
+obtain a cleaner receipt.
 
 After a lost response, look up the same ID first. If submission is not observed,
 only the identical intent under that ID may be retransmitted, after Soda rechecks
@@ -424,10 +598,10 @@ The protocol is:
    A stale revision requires fresh reads and Soda's acceptance rules, never
    automatic adoption of changed objectives.
 2. A native mutation atomically claims an idle reservation and advances the
-   persisted native revision **before its effects**. Conditional merge also
+   persisted native revision **before its effects**. Every conditional operation also
    compares `expected_native_revision` with the pre-claim value in that transaction.
    Record its execution identity durably before launch; its own revision advance
-   does not invalidate its later prepared admission. Failed attempts may advance
+   does not invalidate its later commit admission. Failed attempts may advance
    the revision; revisions are never reused. This closes the gap before webhook-driven
    withdrawal without putting factory predicates in Fountain.
 3. Acquire before native PR/ref locks and SQL mutation transactions. For the first
@@ -442,14 +616,15 @@ The protocol is:
    edits to frozen authority/input state. Deferred jobs acquire their own reservation.
    A push option, claimed operation ID or unauthenticated environment value cannot
    grant this privilege; agents and extensions never receive the bypass authority.
-5. In `reference-transaction prepared`, verify the reservation and bound native
-   execution, actual source/target identity, the current source OID against
+5. For merge, in `reference-transaction prepared`, verify the reservation and bound
+   native execution, actual source/target identity, the current source OID against
    `expected_head_oid`, and the exact old/new target tuple against the expected
    base and persisted native merge result. Fresh native authority and required
    checks remain effective under the gate. Atomically order cancellation against
    recording the single commit admission, checking `not_after` at that admission.
    Refuse unexpected ref effects or any missing binding. Keep the reservation
    after the hook returns, through publication and native writer quiescence.
+   Other kinds use their ref or database admission boundary specified above.
 6. Cancellation/lookup control requests remain available while the gate is busy.
    A cancellation recorded before commit admission prevents admission; after
    admission it remains pending until the actual result can be reported. Release
@@ -564,15 +739,16 @@ borrow authority for another mutation. They neither claim nor release the gate.
 Repeated callback delivery cannot grant another prepared admission or duplicate
 completion mutations; return recorded completion or uncertainty instead.
 
-After confirmed ref publication, native synchronous merge notifications also run
-under the same host-owned completion context. Permit the Actions runs, statuses
+After the primary effect is confirmed, native synchronous publication, PR creation,
+review and merge notifications also run under the same host-owned completion
+context. Permit the Actions runs, statuses
 and configured concurrency-group cancellations attributable to that native event,
 including notifications from authorized issue closure. Record their completion
-separately from the committed ref effect. This exception does not permit changing
-merge eligibility before publication or invoking unrelated Actions APIs. Do not
+separately from the primary effect. This exception does not permit changing frozen
+inputs before primary admission or invoking unrelated Actions APIs. Do not
 reacquire inline, discard a busy notification or replay uncertain notifications
 to repair completion. Deferred jobs and actual runner updates receive no reusable
-execution capability and claim their own owner; the merge does not wait for them.
+execution capability and claim their own owner; the parent does not wait for them.
 
 For ordinary native receives, the host binds the permitted proposed ref tuples
 after normal pre-receive authorization under that receive's own reservation.

@@ -118,8 +118,9 @@ enrollment or optional tool-worker support. Qualify each selectable harness's
 boundary with a small native case; one representative complete product journey
 need not be repeated for every combination of otherwise unchanged components.
 
-The first [conditional operation contract](../architecture/trust.md#operation-identity-and-authorization)
-specifies `pull_request.merge`. Its focused acceptance additionally exercises:
+The [conditional operation contracts](../architecture/trust.md#operation-identity-and-authorization)
+share immutable identity, cancellation and receipt rules. Focused merge acceptance
+additionally exercises:
 
 - Identical-ID replay without a second execution, changed-intent refusal, and
   cancellation arriving before submission or after a lost submission response.
@@ -189,6 +190,36 @@ add these focused cases during implementation:
 - The first conditional method is `fast-forward-only`: require the exact reviewed
   result, native permission for that method and a real target change. Other methods,
   divergence and no-op updates refuse without policy changes or fallback.
+
+The [other factory writes](../architecture/trust.md#candidate-ref-publication)
+require native checks at their own selected boundaries:
+
+- Publish an absent branch and a correction by native smart-HTTP using registered
+  installation/actor/operation binding. Refuse wrong or stale admissions, token
+  generation, old tip, comparison base, correction PR, extra refs and non-fast-forward
+  changes. Native protection remains effective; ordinary PAT-only pushes cannot
+  consume conditional registrations. Prove no duplicate receiver after lost push
+  replies or restart, and no caller admission reaches Git children or diagnostics.
+- Race publication cancellation on both sides of prepared admission, including
+  registration before receive and a paused admitted writer. Check the exact ref
+  effect, retained fence and native completion independently.
+- Create a native PR with effect and receipt in one database commit. Race
+  cancellation against that transaction and lose its response across restart;
+  recover one attributable PR/issue identity, never a duplicate or adopted match.
+  Fail derived-ref/completion work after commit: creation remains committed,
+  downstream work waits, and no SQL transaction spans Git.
+- Submit both final review dispositions against an exact head/base. Refuse stale
+  refs, self-review, insufficient native authority and any existing pending draft;
+  draft comments remain untouched. Review/comment, official-state/request changes
+  and receipt commit together. Cancellation first leaves those effects absent;
+  commit first returns the same review after lost response, with no second POST.
+- Exercise native PR/review notifications and internal PR-ref callbacks under
+  bounded completion ownership. Preserve Actions behavior without inline gate
+  reacquisition or dropped busy jobs; uncertain completion is not blindly replayed.
+- Verify stage sequencing with a committed branch followed by failed/cancelled PR
+  creation, and an old-head review followed by correction. Earlier effects remain
+  attributable, old evidence cannot authorize the new candidate, and each next
+  operation obtains fresh native observations and application authority.
 
 ### Recording completion
 
