@@ -102,7 +102,7 @@ merely to exhaust timers or simulate duplicate events.
 | --- | --- | --- |
 | Authorization and accepted input | Separately recorded grants permit unattended accepted work even after browser logout. Missing/withdrawn grants or unadopted issue changes deny affected execution and writes. Agent instructions cannot adopt objectives, alter policy or enlarge authority. | Focused policy checks plus native unattended writes and invalidation ordering under the [mutation contract](../architecture/trust.md#conditional-native-mutations). |
 | Readiness and observations | Native issue/dependency/comment evidence produces a specific blocker and accepted resolution causes reassessment. Cycles and inaccessible evidence stay blocked. A missed notification is recovered by bounded reconciliation; duplicates and unchanged blockers cause no duplicate agent or repeated model assessment. | Native issue/answer/dependency journey; deterministic duplicate, missed-event and cycle checks against current native rereads. |
-| Assignment and preparation | Actual runs identify accepted inputs, approved base, template, role, checkout, harness/model/connection and required outputs. Authorized absent-Project creation and existing-Project reuse both prepare approved tools and assigned services. Unsupported ownership/profile or incomplete preparation prevents launch without destructive replacement. | Inspect native run assignments and selected Project OS creation/reuse with a representative repository tool and service. |
+| Assignment and preparation | Actual runs identify accepted inputs, approved base, template, role, checkout, harness/model/connection and required outputs. Authorized absent-Project creation and existing-Project reuse follow the [preparation contract](../product/projects.md#preparing-the-environment). Missing shared prerequisites wait for native administration; private setup and service checks precede a provider lease. Unsupported ownership/profile or incomplete preparation prevents launch without destructive replacement. | Inspect native assignments and the selected full Project OS with a representative repository tool and service, using the focused preparation cases below. |
 | Role and credential boundary | Each selectable factory harness runs as its assigned non-login role with fresh home/config/auth and a current process binding. Role-private Git state and human data remain protected; publisher secrets and privileged sockets are absent. Capture and stop cover descendants while unrelated workloads continue. Failed return/termination prevents connection reuse; stale container/run bindings are rejected. | Bounded real CLI/broker execution for every harness exposed as selectable, plus targeted process, permission and stale-binding checks. Enrollment or an old disposable-worker receipt alone does not qualify a factory harness. |
 | Candidate, review and correction | Native issue-linked publication identifies the exact head; a distinct reviewer receives accepted requirements and candidate evidence without the coding conversation. Independent writable Git metadata prevents shared local configuration. Reviewer edits cannot publish or approve themselves; correction changes the candidate and invalidates earlier review/checks. Disputed/non-progressing work reaches intervention. | Real coding/review/correction evidence in the same Project, native commit-bound reviews and focused role/revision enforcement checks. |
 | CI and conditional mutation | The nonempty required-check set and native protections remain effective. Missing, skipped, pending, cancelled or failed evidence, unauthorized changes to approval definitions, or stale head/base/accepted-input/policy/authority cannot produce an automatic merge. A lost response is reconciled before any retry. | Native selected-Fountain checks for head/base changes after preflight/preparation and authority invalidation racing the effective write. Record both orderings: invalidation first rejects; a write committed first is reported accurately. Pending invalidation must not appear as completed cancellation/revocation. Also exercise publication/review authority loss, native protection refusal and ambiguous outcome lookup. |
@@ -117,6 +117,38 @@ credential and stop contract. Do not infer primary Muse factory support from
 enrollment or optional tool-worker support. Qualify each selectable harness's
 boundary with a small native case; one representative complete product journey
 need not be repeated for every combination of otherwise unchanged components.
+
+### Project preparation acceptance
+
+Use the selected full Project OS on an affected native architecture, with an
+existing human checkout and service data. The earlier minimal terminal image only
+establishes process/filesystem primitives; it does not qualify this path. Use one
+representative real toolchain and native development service, not a new generic
+provisioning harness:
+
+- Show absent-Project creation and retained-Project reuse, bounded non-login role
+  provisioning, missing shared prerequisites reported without launching an agent,
+  native administrator preparation, and automatic role-private setup afterwards.
+  Confirm actual tool versions and a working build/test from both coder and fresh
+  reviewer checkouts; exercise an ordinary candidate dependency lockfile change.
+- Demonstrate that repository mise hooks, changed setup/service definitions and
+  referenced input edits cannot execute as root or silently change approved tool
+  selection. Verify both roles lack wheel, shared engine access and write access
+  to shared tool/configuration stores. Test the actual launcher environment;
+  checking the account record alone is insufficient.
+- Check endpoint health and native data permissions as each role. A destructive
+  test in assigned disposable data must succeed without access to human data;
+  native shared services and the human terminal must survive run termination.
+- Interrupt private setup and inspect partial effects before a bounded safe retry.
+  Exercise shared maintenance and Stop/Start: holds deny admission/writes, protected
+  state survives, and stale readiness/process bindings cannot pass. No preparation
+  failure may borrow root, lease a provider merely to wait, or recreate the Project.
+
+These checks qualify the preparation boundary; a small real broker/CLI execution
+under the separate role/credential acceptance case still proves agent consumption.
+Do not run a production build merely to repeat source or minimal-image evidence.
+
+### Conditional operation acceptance
 
 The [conditional operation contracts](../architecture/trust.md#operation-identity-and-authorization)
 share immutable identity, cancellation and receipt rules. Focused merge acceptance

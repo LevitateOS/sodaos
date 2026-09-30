@@ -105,7 +105,7 @@ address that gap through generic native enforcement; they remain unimplemented.
 | One repository and persistent Project | [Creation](../../internal/web/api/environments_create.go) reserves one environment and supports explicit human-owner creation; [profiles](../../internal/project/profile.go) select Rocky headless. | **Adapt:** owner-authorized automatic creation/start or reuse of that reservation. Organization-owned creation remains unsupported by the target; incomplete provisioning needs intervention, not a second worker or destructive replacement. | Soda using native Project OS/container lifecycle. |
 | Human membership and agent accounts | [Join](../../internal/web/api/environments_join.go) confirms native account creation through [project-account](../../project-os/rootfs/usr/libexec/soda/project-account); current code-write authority gates human execution. | **Retain human Join; missing agent setup:** create the two nonhuman role accounts and fresh run state without granting membership, SSH or sudo. Native ownership separation passed below. Launch non-login roles with explicit executable arguments; the human account/terminal path is not reusable unchanged. Actual approved repository tools still need proof. | Soda integration; upstream Linux account/permission mechanisms. |
 | Checkouts and worktrees | Human Git work is manual; the old factory [runtime](../../internal/host/workspace/runtime.go) imports fresh worker source. | **Missing allocation model:** preserve an attempt-owned coding checkout/branch, create fresh review Git state, and keep both separate from human clones. Use native Git/worktrees within the permitted ownership boundary. Prove source preparation and safe takeover of unfinished changes. | Soda allocation and handoff; upstream Git. |
-| Correct development environment | [Project OS image](../../project-os/Containerfile) and [initialization](../../project-os/rootfs/usr/libexec/soda/project-init) supply accounts, Git, mise, CLI tools, tmux, OpenSSH and nested workloads. | **Adapt / unproved:** resolve approved repository tool/setup/service inputs and prepare assigned writable dependencies/test data before agents run. A base image is not proof a particular repository builds; no new manifest format or root access from issue text is implied. | Soda preparation; upstream mise, packages, native services and repository tooling. |
+| Correct development environment | [Project OS image](../../project-os/Containerfile) and [initialization](../../project-os/rootfs/usr/libexec/soda/project-init) supply accounts, Git, mise, CLI tools, tmux, OpenSSH and nested workloads. | **Selected design / missing integration:** native administrators prepare shared prerequisites; Soda performs bounded role setup, private dependency preparation and actual readiness checks under the [Project contract](../product/projects.md#preparing-the-environment). No privileged repository installer or new manifest is selected. The [source findings](#environment-preparation-findings) establish existing boundaries, not repository usability. | Soda preparation policy; upstream packages, mise, native services and repository tooling. |
 | Persistent roots and Project Stop/Start | [Lifecycle API](../../internal/web/api/lifecycle.go) starts/stops the existing environment with owner/operator checks; native Project OS owns persistent homes, tools, configuration and service volumes. | **Adapt:** factory admission hold, coordinated run termination/credential return and stale-binding rejection. Start clears only the Project hold. Prove human dirty work and unrelated data survive the combined path. | Soda lifecycle policy; upstream Podman/systemd/storage behavior. |
 | Human terminals and external access | [Managed terminal contract](../reference/terminal.md), [terminal authority](../../internal/web/api/extension_terminal.go) and [access keys](../../internal/web/api/access_keys.go) provide member sessions and explicit public-key installation. OpenSSH supplies SSH/PTY/SCP/SFTP. | **Retain:** native tmux state, explicit End, stable member identities and existing access-loss rules. No private-key onboarding or automatic human offboarding expansion. Agent role accounts must not become public login accounts. | Soda authorization/supervision; upstream tmux/OpenSSH. |
 | Spaces page, panel, tabs and splits | [Soda manifest](../../appliance/soda-extension/extension.json) declares three pages and one preferred panel in one extension package; [workspace](../../frontend/spaces/sodaspaces-workspace.ts) and [layout](../../frontend/spaces/sodaspaces-layout.ts) handle human session views. | **Retain / adapt:** show factory issue/attempt/run/candidate context beside human work. View hide/split/navigation must preserve the execution binding and must not start or cancel agents. | Soda UI; Fountain generic persistent contribution host. |
@@ -450,6 +450,46 @@ the selected human action, generic reads, initial-creation provenance and native
 invalidation journey remain unimplemented and need their
 [acceptance cases](../development/testing.md#acceptance-cases).
 
+## Environment preparation findings
+
+Source inspection supports native administrator preparation followed by ordinary
+factory-role setup. It does not establish a working integrated factory environment.
+
+| Boundary | Evidence and consequence |
+| --- | --- |
+| Fixed Project provisioning | [Create](../../internal/host/project/create.go) resolves a bounded installed profile, creates a persistent container and waits for [project-init](../../project-os/rootfs/usr/libexec/soda/project-init). The marker establishes basic initialization, not repository setup or service health. [Lifecycle](../../internal/host/project/lifecycle.go) reuses the existing root; original profile identity does not inventory later installations. |
+| Account and setup gap | [Human Join](../../internal/web/api/environments_join.go) invokes [project-account](../../project-os/rootfs/usr/libexec/soda/project-account), with a login shell and owner wheel membership. Factory roles cannot reuse it unchanged. [Worker initialization](../../internal/host/workspace/runtime.go) imports/checks out source; role provisioning, approved private setup, assigned services and readiness records are absent. |
+| Shared tools | [Image packaging](../../project-os/Containerfile) provides common build prerequisites and selects mise; [mise configuration](../../project-os/rootfs/etc/mise/config.toml) initially declares no repository versions. The [profile](../../project-os/rootfs/etc/profile.d/soda-mise.sh) directs human use to root-managed `/opt/mise`, `/etc/mise` and shared shims. [Muse maintenance](../../cmd/soda-muse-maintain/main_linux.go) is limited to its named tools/interface, not repository setup. |
+| Mise execution | Selected mise `v2026.9.1` [exec source](https://github.com/jdx/mise/blob/v2026.9.1/src/cli/exec.rs) reads configuration, may install tools, loads environment directives and can perform dependency setup even with an explicit tool argument. Its [environment documentation](https://github.com/jdx/mise/blob/v2026.9.1/docs/environments/index.md) describes executable sources/plugins. Admin resolution in a controlled context followed by direct installed tool paths avoids treating `mise exec TOOL@VERSION` as a configuration boundary. Tool-specific environment still needs qualification. |
+| Shared engine authority | The [socket](../../project-os/rootfs/etc/systemd/system/soda-podman.socket) is root:wheel `0660`, the [service](../../project-os/rootfs/etc/systemd/system/soda-podman.service) runs as root, and [wheel sudo](../../project-os/rootfs/etc/sudoers.d/soda-project) is unrestricted. Engine access is Project-root-equivalent. [Identity Compose](../../cmd/soda-identity-compose/main_linux.go) is root-required Muse enrollment around native Compose, not a safe generic agent setup interface. |
+| Effective native service inputs | Selected [podman-compose `v1.6.0`](https://github.com/containers/podman-compose/blob/v1.6.0/podman_compose.py) consumes referenced configuration, interpolation and build inputs. Administrator review must include those inputs and data effects. `/srv/project/shared` is group-writable by initialization and cannot protect authoritative service definitions. Native service permissions must enforce assigned disposable data access. |
+
+The existing lifecycle, package and service tools provide the shared preparation
+path without another privileged interpreter. Integration still needs fixed
+factory-role/layout operations, controlled run environments, approved-input binding,
+private setup and observed readiness. This remains Soda work; no Fountain
+environment capability is needed. Fountain supplies generic native identity and
+permission checks for the approving human, not repository setup interpretation.
+
+The retained [minimal-image experiment](#focused-native-findings) does not test
+mise, application dependencies or nested services. The next useful native evidence
+is the actual preparation path in the selected full Project OS, using a representative
+toolchain/service and preserved human state under the
+[preparation acceptance cases](../development/testing.md#project-preparation-acceptance).
+Repeating the old process probe or building a general provisioning harness would
+not close that integration gap.
+
+Three fresh Jev SystemOne consultations compared native shared administration
+with a new typed privileged preparation service. Complete requests were independently
+checked for equivalent evidence/alternatives and rewritten explanatory prose before
+sending. All selected native administration followed by unprivileged setup.
+The source-based reason is narrower: existing native tools already cover shared
+preparation, while the alternative adds privileged input validation, maintenance
+and partial-effect handling without a requirement for unattended shared installation.
+Agreement is advice, not proof of the selected execution path. Requests, responses
+and the wording/decision audit are retained in
+`.artifacts/factory-environment-preparation-20260930/jev/`.
+
 ## Remaining decisive boundaries
 
 - **Generic mutation authority and merge:** source already confirms the absent
@@ -470,7 +510,9 @@ invalidation journey remain unimplemented and need their
 - **Selected CLI and environment:** when the actual factory launcher exists, use
   one bounded supported-provider run in the selected Project OS to establish its
   role identity, required tools, broker binding, credential return and targeted
-  stop. Synthetic probes and the old disposable-worker receipt do not replace it.
+  stop. First qualify the selected [preparation path](#environment-preparation-findings)
+  with real tools/services. Synthetic probes and the old disposable-worker receipt
+  do not replace it.
 - **Spaces integration:** when the real factory route/view exists, observe one
   actual run through it; reject input, preserve the process across view navigation
   and close, and disconnect on authority loss. Native attachment plus mocked UI

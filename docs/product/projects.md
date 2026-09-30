@@ -6,7 +6,7 @@ repository on an appliance. Human development and the
 with separate accounts, checkouts and supervised executions. An issue, branch,
 worktree or agent run does not create another Project or factory container.
 
-This document owns the target environment model, creation, joining and persistence.
+This document owns the target environment model, preparation, creation, joining and persistence.
 [Spaces](spaces.md#sessions-and-views) owns how sessions are presented and controlled;
 [Trust](../architecture/trust.md#project-execution-boundary) owns their authority.
 [Project OS](../reference/project-os.md) describes the current runtime interfaces.
@@ -80,23 +80,131 @@ the [intervention rules](overview.md#human-intervention).
 
 ## Preparing the environment
 
-The immutable Project OS profile supplies the base system. Repository-approved
-tool versions, setup instructions and development-service requirements supply the
-working environment. Resolve those inputs from the accepted base and authorized
-configuration before execution, then record the source revision and preparation
-result with the attempt. Candidate changes to setup remain proposed changes; they
-do not authorize privileged mutation of the shared Project.
+The first path uses **native Project administration for shared prerequisites,
+then automatic unprivileged repository setup and readiness checks**. The immutable
+Project OS profile supplies the initial system; it does not describe every later
+installed package or prove that a repository builds. Once prepared, the persistent
+environment is reused across attempts. Missing shared prerequisites cause an
+actionable preparation wait, not a root grant to an agent or a replacement Project.
 
-Reuse installed compatible tools and explicitly assigned service endpoints.
-Agents may prepare dependencies and test data within their own writable areas;
-they cannot administer shared tools, the workload engine or human service data.
-Destructive tests require assigned disposable data. A missing prerequisite or
-required privileged change leaves work waiting for environment preparation, rather
-than letting an issue grant root or silently replacing the Project.
+### Approved preparation inputs
 
-This chooses the product boundary, not a new environment manifest format. Native
-provisioning and tool/service preparation must be verified against the selected
-Project OS before an implementation plan depends on them.
+Use the repository's existing tool declarations, package manifests/locks, setup
+scripts and native service definitions. Do not introduce a Soda environment
+manifest or another package/service manager. A code-write-authorized maintainer
+accepts the preparation requirements at an exact source commit from the approved
+base, alongside explicit Project configuration. Record the approval revision,
+approver and source references in Soda's existing authority/attempt records.
+Issue prose and agent suggestions cannot approve their own setup.
+
+Acceptance can cover later attempts whose selected definitions and effective
+inputs are unchanged; an unrelated base commit does not require another approval.
+Record each attempt's actual source commit. Changed selected requirements need
+fresh acceptance, and withdrawal of the approval or its required human authority
+invalidates affected preparation under the existing factory withdrawal rules.
+
+The accepted inputs identify required tools and versions, setup entry points and
+working directories, allowed writable resources, service requirements and readiness
+checks. Bind the effective referenced configuration, not just a top-level filename.
+Resolve version ranges to exact installed versions for the preparation result;
+do not silently follow a changed branch, script, plugin or floating selection.
+Keep authoritative inputs in controller/admin-owned storage. A human or agent
+checkout, or the group-writable `/srv/project/shared`, cannot be that trust source.
+
+Maintainer acceptance specifies the desired environment, not permission to run
+repository instructions as root. Project administrators separately review privileged
+effects, including native service includes, environment interpolation, build inputs,
+image selection, mounts, ports and persistent data. The
+[privilege boundary](../architecture/trust.md#project-preparation-authority) governs
+who can execute those changes. Approval of a parent file does not authorize later
+agent edits to referenced files or values.
+
+### Preparation sequence
+
+1. **Acquire the existing Project.** Under current lifecycle authority and any
+   standing owner grant, create the supported profile if absent or start/reuse its
+   retained root. Confirm the actual profile and container incarnation. Fixed
+   privileged assistance establishes the two non-login factory roles and their
+   protected directory layout; it does not use human Join or grant wheel/SSH.
+2. **Check shared prerequisites.** Reuse compatible installed tools and assigned
+   services. If an OS package, shared runtime, root-owned configuration or service
+   is missing, name the unmet requirement and wait for native Project administration.
+   Administrators use ordinary `dnf`, mise and Compose/systemd, with protected
+   approved inputs. Soda does not add a general or typed privileged installation
+   service for this first path. Common build prerequisites belong in Project OS
+   packaging; a missing baseline tool is not a reason for every issue to install it.
+3. **Prepare the assigned checkout.** Resolve and record installed tool executables
+   and required environment in a controlled administrative context. Launch setup
+   directly as the assigned factory role, with explicit tool paths/PATH and fresh
+   private home/configuration/cache. Do not source human dotfiles, activate mise
+   shims, or let a controller/root `mise exec`, `mise run` or `mise env` evaluate a
+   repository checkout. Execute the setup entry point and its policy/helper
+   references from the protected approved snapshot, using the assigned checkout
+   as working input, not as the authority for which setup script to run. Repository
+   code and dependency install hooks have only that ordinary role's permissions.
+4. **Verify usability as the role.** Check the actual tools, writable dependency
+   and build paths, assigned service access and a repository-specific smoke check.
+   Record success before leasing provider credentials or starting an AI CLI.
+   Repeat private setup and checks for a fresh review checkout at the published
+   candidate; coder state is not reviewer preparation evidence.
+
+Private preparation can install application dependencies into role-owned
+`node_modules`, virtual environments and equivalent build directories. Ordinary
+candidate package/lockfile changes can therefore be tested using the approved
+toolchain; record the candidate and dependency inputs used. Candidate edits to
+authoritative toolchain selection, setup policy or shared service configuration
+remain proposals until separately adopted. This does not require human approval
+of every ordinary code/dependency edit, and none of these edits grants shared
+write access. Setup receives neither provider credentials nor native publisher
+credentials. A private dependency source needing additional access stays waiting
+until that access has a separately authorized supported path.
+
+### Services and readiness evidence
+
+Project administrators provision persistent development services through the
+[native workload path](../guides/project-services.md). Assign each factory role the
+required endpoint and narrowly scoped native service credentials, plus explicitly
+disposable test databases, schemas, directories or other resources. The grant must
+be enforced by the service/filesystem, not merely described in a prompt. An open
+endpoint that also permits destroying human data is not a safe assignment. Agents
+receive no shared engine socket or service-administration credentials; service
+secrets stay out of prompts and receipts. Role-owned temporary test processes are
+allowed within the supervised execution and resource limits.
+
+Destructive tests and migrations may affect only assigned disposable data.
+Provisioning or migrating shared human service data requires explicit native
+administration. Process success alone is insufficient: test connectivity and the
+needed permissions from the role, and check service health using the approved
+probe. Preserve human workloads and volumes when a run ends.
+
+An attempt's preparation result binds its environment approval revision, Project
+profile and actual container incarnation, role/checkout commit, resolved tool
+versions/paths, setup inputs/result and assigned service/resource identities with
+their observed checks. Secret references may identify access; secret values are
+not evidence. Reuse a compatible shared installation, but recheck its actual
+state and prepare each run's private configuration. A restarted/replaced service
+requires fresh identity and access/health checks. The boot marker, an image
+digest, a previous attempt's success or an agent's claim cannot establish readiness.
+
+### Changes and failed preparation
+
+Hold affected factory work before shared maintenance. Stop its runs, finish
+credential return and invalidate outstanding write authority before changing
+approved shared inputs; coordinate any human/service interruption with the Project
+administrator. Retain the same root and protected data, then record the new actual
+state and rerun readiness checks. Native root/wheel is trusted to respect this
+hold; Soda does not claim to fence arbitrary out-of-band root changes atomically.
+Detected drift invalidates affected readiness and triggers the existing
+[withdrawal/reassessment rules](overview.md#human-intervention). Stop/start requires
+fresh runtime and service checks, never resurrection of an old run or lease.
+
+A failed setup records the failed prerequisite and any partial effects. Timeout
+or controller loss is an uncertain result until the assigned processes are stopped
+and effects inspected. Retry only a known safe/idempotent step or recreate
+exclusively owned disposable state after quiescence; never blindly repeat shared
+migrations, delete human data or reset the whole Project. Bound preparation by the
+applicable execution/resource allowances; waits release execution capacity and
+hold no provider lease. Retrying preparation does not replenish attempt limits.
 
 ## Creation and ownership
 

@@ -183,6 +183,31 @@ and broker sockets remain outside the Project, and agent control cannot become a
 arbitrary helper command. Human takeover uses a separate member-owned execution,
 as defined by [Projects](../product/projects.md#accounts-and-checkout-ownership).
 
+### Project preparation authority
+
+[Projects](../product/projects.md#preparing-the-environment) owns the preparation
+flow and readiness evidence. Approval of repository requirements and permission to
+perform privileged preparation are separate:
+
+| Actor / boundary | Permitted preparation |
+| --- | --- |
+| Current code-write maintainer | Accept exact repository tooling, setup and service requirements. This grants neither Project root nor host execution. |
+| Soda's fixed privileged helper | Under the appropriate Project grant, perform bounded lifecycle, nonhuman account/layout and scoped process operations. Validate Project/container/role/path bindings; accept no caller-supplied root command, package recipe or arbitrary image. |
+| Native Project administrator (root/wheel) | Install shared packages/tool versions and administer native services using protected, reviewed inputs and coordinated maintenance. This is a trusted human administrative action, not an agent permission. |
+| Factory role | Consume approved installed tools, prepare private dependencies, and use only assigned endpoints and disposable test resources. It cannot administer shared packages, tools, services or another role's state. |
+
+The shared Project Podman daemon runs as root. Access to its socket is
+Project-root-equivalent, not a limited permission to run Compose; neither that
+socket nor wheel membership belongs to factory roles. Group-writable shared paths
+cannot hold authoritative setup definitions. Privileged commands must not load
+agent-controlled repository configuration, environment hooks, plugins or referenced
+files. Resolved installed tools and an explicit role environment separate launch
+authority from candidate code, which still runs as untrusted ordinary-role code.
+
+Project-root administration does not confer host-root access. Extending fixed
+host help for the selected role/layout operations must preserve that boundary;
+neither a Project shell nor a repository approval exposes the host helper socket.
+
 ## Fountain consumption boundary
 
 Fountain is a generic Forgejo extension platform. It owns native identity,
