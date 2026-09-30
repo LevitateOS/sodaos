@@ -1,11 +1,13 @@
 # Fountain: extensible Forgejo implementation plan
 
-This is the remaining implementation plan for the native Forgejo extension
-platform and its complete Soda integration. It starts from the extension
-foundation already implemented in the `forgejo-ext` repository. It is an active
-transition plan, not a claim that the planned interfaces exist. Absorb its final
-contracts into the owning guides and remove this document when the transition is
-complete, following the [documentation authority rules](../README.md#authority-rules).
+This earlier extension transition plan is historical input to the current
+[factory implementation plan](factory-implementation-plan.md). Its old baseline,
+task order and completion definition are not the current factory execution plan.
+The sections below retain scoped evidence and unfinished extension/appliance
+delivery work for reconciliation; their checkboxes do not establish factory
+completion. Current behavior is owned by the contracts linked from the new plan.
+Absorb relevant contracts and remove superseded material under the
+[documentation authority rules](../README.md#authority-rules).
 
 The delivery is complete when Soda runs through independently packaged native
 Forgejo contributions, uses native browser authority, retains a real terminal

@@ -53,6 +53,7 @@ command workflow. Spaces connects repository environments with human and factory
 | Document | Owns |
 | --- | --- |
 | [Development index](development/README.md) | How to work on this repository |
+| [Factory implementation plan](development/factory-implementation-plan.md) | Active factory planning and source baseline |
 | [Go ownership](development/go.md) | Package placement and house style |
 | [Go packages](development/go-packages.md) | Package file/role convention |
 | [TypeScript](development/typescript.md) | Bun workspace and frontend TS |

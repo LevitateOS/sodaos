@@ -32,13 +32,14 @@ Do not treat package paths as the product vocabulary.
 | Running the release pipeline | [Release workflow](release.md) |
 | Local fixture access | [Local testing](../guides/local-testing.md) |
 
-## Active transition
+## Factory implementation planning
 
-[Fountain: extensible Forgejo implementation plan](forgejo-extensions-plan.md)
-covers the remaining native extension platform, Soda adoption and appliance
-delivery work. Start implementation from its
-[ordered task list and parallel lanes](forgejo-extensions-plan.md#ordered-implementation-task-list).
-It is removed after its completed contracts are absorbed into their owning guides.
+The [factory implementation plan](factory-implementation-plan.md) records the
+current source baseline, owning contracts and exclusions. Its deliverables and
+ordered implementation tasks are still to be derived. The
+[earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
+and unfinished delivery work for reconciliation, not a competing execution queue.
+Plans are removed after completion and absorption into the owning guides.
 
 ## Permissions
 
