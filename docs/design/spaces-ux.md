@@ -16,7 +16,7 @@ A focused first-use journey, then a project/session sidebar for finding work, ta
 for switching within a pane, and contextual splits for the few terminals viewed
 together. Native CLI agents remain inside real terminals; there is no separate
 agent-chat frontend or application origin. Checkout and worktree policy belongs to the
-[product and environment decisions](../product/overview.md#rules-to-settle-before-implementation),
+[factory concurrency rules](../product/overview.md#concurrency-and-usage-limits),
 not this presentation design.
 
 Visual language matches Soda brand tokens: Barlow interface type, Plex Mono for

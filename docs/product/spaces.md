@@ -54,8 +54,9 @@ does not grant input or execution authority; available actions follow the
 [trust boundary](../architecture/trust.md#factory-authority-boundary).
 
 Factory progress does not depend on keeping a browser tab open. Hiding or closing
-a view does not cancel work. The detailed controls and their layout belong to the
-subsequent interaction design, within the product lifecycle above.
+a view does not cancel work. The available intervention actions and their effects
+are owned by the [operating rules](overview.md#human-intervention); their layout
+belongs to subsequent interaction design.
 
 ## Workspace behavior
 
@@ -76,7 +77,7 @@ Wire contracts live in [Terminal](../reference/terminal.md) and [HTTP API](../re
 | Setting | Location |
 | --- | --- |
 | Project profile / Spaces creation | Repository settings |
-| Factory policy and intervention | Repository-scoped factory authority; configuration and control placement remain to be designed |
+| Factory policy and intervention | Repository administration and work context under the [factory authority rules](../architecture/trust.md#factory-authority-boundary); detailed control placement remains to be designed |
 | Local Sodarunners capacity | Deferred; existing observation/cleanup controls are documented in the [runner reference](../reference/runners.md) |
 | Host Tailnet and enrollment policy | Global Soda-operator settings |
 

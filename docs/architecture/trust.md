@@ -42,12 +42,46 @@ boundaries.
 
 ## Factory authority boundary
 
-The factory runs only for a trusted team on one operator-managed
-appliance. Agent instructions and repository content are untrusted inputs even
-there. People authorize the repository's factory policy and the account access it
-uses. Eligible issues then proceed without a separate human admission or merge
-decision for every issue. Who may establish that policy and sponsor each authority
-remains a decision identified in the [product contract](../product/overview.md#rules-to-settle-before-implementation).
+The factory runs only for a trusted team on one operator-managed appliance. Agent
+instructions and repository content are untrusted inputs even there. Automation
+is disabled until three standing authorizations are recorded:
+
+| Authority | May authorize |
+| --- | --- |
+| Current native repository owner/administrator | Enable the repository factory; select target branch, supported harness/model per role, a nonempty set of required native CI checks, merge method and repository limits; authorize scoped native publication, review and merge actors within the other grants. |
+| Configured Soda operator | Permit the repository to use appliance capacity within explicit resource/concurrency limits; stop appliance execution. This does not grant repository access or merge rights. |
+| Provider-account owner | Select and sponsor a supported connection for this repository/project and its assigned execution roles, within an explicit usage allowance; withdraw that sponsorship. |
+
+One person may hold several roles, but each authority is checked separately.
+Enabling automation records the policy and granting identities; it neither creates
+a human project membership nor bypasses environment creation/ownership rules.
+Execution uses a distinct scoped run identity, not the browser session or a
+developer's login. The connection owner, execution sponsor and native publication
+or merge actor remain attributable rather than impersonating an issue author.
+
+Every new issue is considered. Automatic agent work requires an accepted objective
+from a currently code-write-authorized human collaborator, or an explicit adoption
+of that objective by such a maintainer. An issue from another source waits for
+adoption; reading or merely commenting on it is not adoption. Factory agents cannot
+create new spending authority by filing their own issues. Routine accepted issues
+proceed under the standing policy without per-issue administrator approval.
+
+Only write-authorized maintainers can adopt changes to requirements/dependencies,
+confirm product decisions, or pause, cancel, resume, retry or take over repository
+work. Other comments are context or suggestions, never policy or automatically
+accepted requirements. A material issue edit suspends work until its accepted
+revision is re-established; edits by unauthorized sources cannot silently replace
+that revision. Native repository administrators change repository factory policy;
+only the operator can enlarge appliance capacity and only the provider owner can
+enlarge account sponsorship. Every action remains bounded by the other grants.
+
+Policy is held outside agent-writable checkouts. An agent-authored configuration,
+label or instruction cannot enable automation, waive a blocker, grant a role or
+raise a limit. Policy changes and grant/permission loss invalidate affected active
+authority and require reassessment. Permission to stop or reduce one's own grant
+is not permission to grant someone else's authority. Native logout ends browser
+control, not a separately authorized unattended grant; explicit revocation and
+current native permissions govern that grant.
 
 An agent may work in its assigned environment, but its execution identity does not
 confer host, Soda operator or Forgejo administrator authority. Soda mediates native
@@ -58,11 +92,11 @@ factory's configured authority.
 
 Review is assigned to another agent session with its own execution identity in
 the same repository container, as required by the
-[factory lifecycle](../product/overview.md#software-factory-workflow). Distinct
-assignments do not make a shared writable environment a security isolation boundary
-or guarantee independent reasoning. Review context, checkout separation and the
-division of correction work remain to be designed; the older fresh-container rule
-does not decide them.
+[review rules](../product/overview.md#review-and-correction). The reviewer cannot
+publish candidate edits or merge. Distinct assignments do not make a shared
+writable environment a security isolation boundary
+or guarantee independent reasoning. Native account and credential separation must
+be demonstrated for this runtime before it is admitted for factory execution.
 
 Reusable subscription credentials are a narrow exception for private trusted work.
 Keep them restricted to the assigned execution boundary and out of source, logs
@@ -90,6 +124,15 @@ The [factory reference](../reference/factory.md) describes how the existing
 operator command enforces its narrower admission and publication model. It does
 not impose manual admission, human merge or disposable containers on the target
 product.
+
+Factory status follows native repository visibility. Live CLI views and human
+input/takeover require current repository code-write authority, as human terminal
+access does; viewing does not itself grant control. Provider credentials and
+private account custody are not exposed through work status. Human changes to the
+candidate after takeover require the same fresh review and checks before automatic
+merge. Human intervention cannot mark missing or failed evidence as passing or
+bypass native protection; a separate manual merge remains the human's native
+forge action, with its actual author and outcome.
 
 ## Fountain consumption boundary
 
