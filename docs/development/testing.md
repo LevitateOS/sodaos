@@ -221,6 +221,35 @@ require native checks at their own selected boundaries:
   attributable, old evidence cannot authorize the new candidate, and each next
   operation obtains fresh native observations and application authority.
 
+The [accepted-input representation](../product/overview.md#accepted-requirements-and-native-records)
+also requires focused native checks:
+
+- A verified authorized human creation accepts its exact original issue without
+  per-issue administrator admission. Outsider, factory/imported attribution and
+  missing creation evidence wait for adoption. Replayed creation cannot overwrite
+  a later acceptance or create another attempt.
+- Acceptance derives the current native human and code-write permission; an
+  issue-write-only editor, forged approver or command-like comment cannot approve.
+  Conflicting predecessor revisions and source changes while the action is open
+  refuse. Repeated decision IDs return one receipt.
+- Edit and revert issue body/title and selected question/answer comments under a different editor;
+  versions/title-event identities invalidate the old snapshot despite unchanged
+  poster or restored text. Delete selected comments and remove/readd an edge;
+  old acceptance cannot revive. Unselected discussion and excluded metadata do not
+  change approved inputs. Generic snapshot reads enforce native visibility and
+  expose the required versions/occurrence IDs without direct Soda database access.
+- Demonstrate accepted code completion unblocking automatically, and refusal for
+  closure alone, wrong target/result or changed prerequisite acceptance. Confirm
+  a non-code resolution with selected native evidence. Reopen/reclose cannot reuse
+  the old resolution occurrence. Longer dependency cycles and hidden closed
+  placeholders remain blocked without leaking their private details.
+- Distinguish a verifiable factual answer from a product choice or waiver requiring
+  human acceptance. An agent assertion alone cannot clear a material question.
+- Delay an input-change notification and race a native write against invalidation;
+  the native revision/guard still rejects stale authority. Observe dispatch hold,
+  outstanding-operation cancellation, preservation of committed effects, new
+  prompts and unchanged remaining allowances before replacement work starts.
+
 ### Recording completion
 
 Retain a scoped receipt with exact source/image/CLI versions and native architecture;

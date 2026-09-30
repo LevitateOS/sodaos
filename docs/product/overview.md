@@ -142,6 +142,155 @@ automatically within remaining authority and limits.
 Among eligible queued work, take the oldest ready issue first; dependency-blocked
 work does not occupy an execution slot.
 
+### Accepted requirements and native records
+
+Native issues, dependencies and comments remain the editable source material.
+Soda records **acceptance of exact native revisions** in its product authority
+ledger: who approved which requirements and evidence. This is an approval receipt
+and run-input snapshot, not an alternate issue editor or dependency database.
+Fountain supplies native identity, permission and authoritative record reads;
+it does not interpret acceptance, blocker or factory outcome semantics.
+
+| Native material | Meaning for Soda |
+| --- | --- |
+| Issue title/body | The objective and acceptance outcomes, taken together at an exact revision. Prose, checklists and links do not independently grant authority. |
+| Native blocked-by edge | A prerequisite relationship. Approval also specifies its required outcome; the edge alone does not say whether code, a decision or another result is needed. |
+| Question comment | A specific unresolved requirement, with its consequence and requested information. Human or agent authorship does not authorize an answer. |
+| Answer/clarification comment | Proposed behavior or facts. Only explicitly selected revisions enter accepted requirements; replies, mentions, reactions and command-like text are not adoption. |
+| Resolution/evidence comment | A proposed explanation that a prerequisite is satisfied, supported by native record or immutable artifact references. Closing an issue or writing “done” does not certify the result. |
+
+A maintainer uses an explicit **Adopt issue**, **Accept requirements/answer** or
+**Confirm resolution** action in the Soda contribution. Each shows the actual
+native text, references and required outcomes being accepted. Identity and current
+code-write authority come from the [trust boundary](../architecture/trust.md#factory-authority-boundary),
+not an author name embedded in prose. The action records a fresh acceptance ID and
+its expected predecessor; a stale screen, competing decision or changed source
+revision refuses instead of silently accepting newer material. Native comments
+are not a command language. No automatic audit-comment write is required to make
+an acceptance valid; the contribution displays the receipt, approver and source links.
+
+The receipt binds repository/issue IDs, the approving native human ID, the observed
+native revision, source revisions and exact content digests, the complete selected
+requirements/answers, every direct prerequisite and its required outcome, and any
+explicitly approved resolution evidence. Each prerequisite records its evidence
+route and, for factory completion, the required prerequisite acceptance ID.
+Preserve the accepted text needed to
+explain the run, but never use a saved copy to bypass current native visibility.
+A repeated decision ID returns the same receipt; new content under it refuses.
+History stays attributable, while only the current valid acceptance can authorize
+new work. Adoption cannot enable the repository, add capacity/provider sponsorship,
+change factory policy, or reset an attempt's remaining allowances.
+
+#### Initial acceptance and revisions
+
+Under standing repository policy, a verified native issue-created observation by
+a currently code-write-authorized human accepts **that original title/body**
+automatically. Match the actual creation identity and content against current
+native records and unchanged body/title revision evidence. A current row's original
+poster is insufficient: someone else may have edited its text. Imported attribution,
+missing creation evidence, outsider issues and factory-created issues require
+explicit human adoption. A duplicate creation event cannot admit another attempt
+or overwrite a later decision. A scan may discover issues but cannot invent their
+creation provenance. Initial objective acceptance does not approve unspecified
+prerequisite outcomes or arbitrary existing comments.
+
+Use existing native record identities and revisions:
+
+- Issue body: native `ContentVersion`, exact body and digest. Title: exact title
+  and latest native title-change event ID, or explicit absence at creation.
+- Selected comments: native issue/comment IDs, `ContentVersion`, exact body/digest
+  and continued existence. Poster and `updated_at` are not a content revision or
+  proof of who accepted an edit.
+- Dependencies: the complete current direct blocked-by set, using each edge's
+  occurrence ID and both endpoint repository/issue IDs. Delete/readd is a new
+  occurrence even when the endpoint pair matches.
+- Resolution state: current issue state and lifecycle event identities, plus the
+  exact native PR/merge, target branch or selected resolution-comment references.
+
+These are required fields of a generic, permission-checked Fountain snapshot read,
+bracketed by the existing native revision protocol. The present REST shapes do not
+expose all of them. Soda must not read native SQL or infer versions from timestamps.
+Native content history can be pruned/redacted and cannot be the acceptance ledger.
+Supported native writers must preserve the version/timeline evidence; missing or
+inconsistent provenance refuses automatic adoption or continued use.
+
+#### Prerequisites and answers
+
+Every current native blocked-by edge needs an approved outcome on the dependent
+issue. New or unapproved edges hold readiness; deleting one does not waive its
+previously accepted requirement. A maintainer explicitly adopts the revised set
+and explains any removal or changed outcome. Store that explanation in the native
+issue/comment material selected by the new receipt. Agents may propose prerequisites
+and raise blocking questions, but cannot add approval, remove a requirement or
+make a waiver effective. Keep the native graph as the sole relationship graph;
+cycles of any length and inaccessible endpoints remain blocked.
+
+An accepted prerequisite fixes its native edge and prerequisite issue revision,
+required result and supporting requirement comments, plus one of these outcomes:
+
+| Outcome | Evidence required for satisfaction |
+| --- | --- |
+| Code delivered | The named prerequisite issue is closed and the change is confirmed merged into the declared repository/target branch, with its merge result reachable from that branch. Use the factory's attributable completion for the accepted prerequisite inputs, or an explicit maintainer resolution identifying the native PR/result. PR descriptions, closing keywords, cross-links and agent reports alone cannot attribute completion. |
+| Non-code result | The prerequisite issue is closed and a maintainer has accepted an exact native resolution comment describing the result with supporting evidence references. The dependent issue's approver confirms that it meets the declared prerequisite. |
+
+An approved code prerequisite can therefore unblock automatically when its factory
+completion arrives; a second human confirmation of routine factory output is not
+required. When accepting this route, record the prerequisite's current accepted-input
+revision; the route cannot be selected before that revision exists. A change to
+that approved revision invalidates the dependent relation, even if the issue body
+is unchanged. Completion or lifecycle evidence separately changes readiness.
+A human-delivered or external prerequisite needs explicit resolution
+when no attributable accepted factory completion exists. An external link may
+support a maintainer's recorded assertion; Soda does not treat a mutable web page
+as an automatically verified outcome. Hidden/confidential placeholders, even those
+showing “closed”, cannot prove satisfaction or disclose inaccessible details.
+
+For a product choice or new acceptance requirement, select the exact question and
+answer comments in a new maintainer acceptance. A factual question may instead be
+resolved by verifiable evidence already within accepted requirements or an approved
+repository revision: record the question, exact source/commit and the fact established.
+That resolution cannot introduce a new requirement, waive an outcome or use an
+agent's confidence as proof. Unclear cases stay blocked. Ordinary equivalent
+implementation choices remain agent decisions and need no acceptance ceremony.
+
+#### Invalidation and reassessment
+
+Keep **accepted requirements** distinct from the **current readiness evidence**.
+The acceptance revision identifies approved inputs; an assessment records the
+currently satisfied prerequisites and factual answers. A completed prerequisite
+can change that assessment without changing the approved objective or needing a
+new human grant. Both are bound into subsequent prompts and operation authority;
+the global native mutation revision is an ordering guard, not a semantic input ID.
+A changed native revision alone requires fresh reads, not human readoption of
+otherwise unchanged accepted inputs.
+
+| Change | Consequence |
+| --- | --- |
+| Any title/body revision change, including whitespace, or an edit/deletion of any selected source comment, including the question | Invalidate the affected accepted snapshot. Require explicit acceptance of the new revisions, regardless of who edited them; do not use an LLM to decide that the change was cosmetic. |
+| Added/removed/recreated native edge, changed prerequisite objective, bound prerequisite acceptance revision or approved outcome | Invalidate the dependent input set and require a maintainer to adopt the revised relationship/outcome. Removing an edge is not automatic unblocking. |
+| Prerequisite closes and the already approved outcome is proved | Reassess automatically, retaining the existing requirement acceptance and remaining limits. Other blockers still apply. |
+| Prerequisite reopens, merge/result evidence disappears, or the declared branch no longer contains the result | Withdraw satisfaction. A reopen ends the old resolution occurrence; closing again cannot revive it without a new attributable completion or maintainer resolution for that occurrence. The prerequisite remains required. |
+| Required evidence becomes unreadable or cannot be verified | Keep work blocked; cached copies cannot prove current satisfaction. Restored access permits fresh checking, not blind reuse of an old operation authorization. |
+| Approver loses required code-write authority or explicitly withdraws acceptance | Invalidate affected active acceptance and require a new authorized decision. Historical completed effects remain facts. |
+| Unselected discussion, reactions, ordinary labels, assignees or other excluded metadata change | Do not alter accepted requirements. Such material may raise a proposed blocker, but cannot authorize new scope or spending. |
+
+Reverting text or restoring a prior appearance does not reactivate an invalidated
+acceptance: body/comment versions, title events and edge occurrences retain that
+distinction. A maintainer can accept the restored content as a fresh revision.
+Reopening the work issue never clears recorded cancellation or authorizes a retry.
+
+When Soda observes invalidation, it closes affected dispatch, stops affected agent
+work while preserving the checkout, and cancels every recorded outstanding native
+operation under the existing [withdrawal contract](../architecture/trust.md#operation-identity-and-authorization).
+For a Soda acceptance change this ordering begins with the decision itself.
+Native source changes advance the native revision, so guarded writes reject stale
+observations even before a webhook is delivered. Pending cancellation or uncertain
+writes hold progress; committed effects retain their actual outcome. A newly
+recorded acceptance cannot activate replacement work until those outcomes and
+required process stops are resolved. Reassessment uses fresh prompts, review/check
+evidence and authority within existing limits; it never silently resumes an old
+assignment or replenishes its budget.
+
 ### Prompt assembly
 
 Each run receives a recorded assignment assembled from:
@@ -149,7 +298,8 @@ Each run receives a recorded assignment assembled from:
 1. Controller policy: repository/target, assigned role and checkout, permitted
    actions, limits, required evidence, and how to report a blocker or stop.
 2. Accepted issue title/body, acceptance outcomes, authorized clarifications and
-   dependency outcomes, identified by their input revision.
+   dependency outcomes, identified by their [accepted-input revision](#accepted-requirements-and-native-records)
+   and current readiness evidence.
 3. Repository instructions from the approved base, relevant source/docs/tests,
    environment setup and verification commands. Include only context relevant to
    the objective; do not dump unrelated conversations or private account files.

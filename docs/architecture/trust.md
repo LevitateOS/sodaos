@@ -66,6 +66,16 @@ adoption; reading or merely commenting on it is not adoption. Factory agents can
 create new spending authority by filing their own issues. Routine accepted issues
 proceed under the standing policy without per-issue administrator approval.
 
+Soda records the [accepted native inputs](../product/overview.md#accepted-requirements-and-native-records)
+through a deliberate acceptance action authenticated by Fountain's current native
+browser admission, or the narrowly defined verified initial-creation path. Require
+current **code-unit write** permission; native issue-edit permission is insufficient.
+The human identity is host-derived, never supplied by a comment or actor field.
+Native comment posters, dependency creators, labels and command-like prose do not
+establish acceptance. Its receipt is Soda product authority, while source text and
+relationships remain native records. Fountain exposes generic permission-checked
+snapshot/version data, not factory approval fields or a Soda decision parser.
+
 Only write-authorized maintainers can adopt changes to requirements/dependencies,
 confirm product decisions, or pause, cancel, resume, retry or take over repository
 work. Other comments are context or suggestions, never policy or automatically
