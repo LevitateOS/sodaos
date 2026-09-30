@@ -35,8 +35,9 @@ Do not treat package paths as the product vocabulary.
 ## Factory implementation planning
 
 The [factory implementation plan](factory-implementation-plan.md) records the
-current source baseline, owning contracts and exclusions. Its deliverables and
-ordered implementation tasks are still to be derived. The
+current source baseline, owning contracts, exclusions and
+[requirement deliverables](factory-implementation-plan.md#deliverable-map).
+Exact changes and ordered implementation tasks are still to be derived. The
 [earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.
