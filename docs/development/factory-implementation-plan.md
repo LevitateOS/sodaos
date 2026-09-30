@@ -10,8 +10,10 @@ deliverables, identifies source changes, references the defined implementation
 interfaces, establishes their dependency graph and places the uncertain native
 integrations into early implementation-and-proof milestones. The
 [implementation tasks](#reviewable-implementation-tasks) define reviewable outcomes,
-owners, prerequisites, changes, checks and completion conditions. Delivery grouping
-and final plan review remain to be settled.
+owners, prerequisites, changes, checks and completion conditions.
+[Integration, cutover and qualification](#integration-cutover-and-qualification)
+define how those outcomes join, when features become usable and when to demonstrate
+and qualify the complete product. Final plan review remains to be settled.
 The current work is documentation only. The linked owning guides remain authoritative
 for behavior, and this plan does not duplicate or replace their requirements.
 
@@ -304,25 +306,14 @@ flowchart LR
 
 D24 is an obligation on replacement nodes, not a deferred cleanup feature. Change
 code, callers, formats, configuration, packaging and fixtures together according
-to the [removal closure](#removal-closure-and-retained-exceptions):
-
-- S-launch/S-run replace manual CLI execution, independent `execution.db` and
-  disposable `host/workspace` with their controller, broker/Muse, ownership and
-  worker-service callers. Keep the publisher, provider custody and human execution
-  primitives that still have callers. These nodes share a coherent replacement
-  cutover: an early S-run proof can use a bounded driver before S-launch exists,
-  without landing a second selectable runtime. Graph nodes are not mandatory
-  separate commits; land replacement and last-caller removal together. Do not pull
-  broad orchestration ahead of the runtime proof merely to make an intermediate
-  node independently landable. Unfinished new behavior stays unavailable.
-- F-browser and S-spaces carry extension contributions, routing/browser assets,
-  generated outputs and presentation callers with their source changes. Local
-  runner removal in A-support must preserve shared Tailnet assets and native
-  Actions/separately managed capacity. This work need not wait for factory merge.
-- A-package advances with those changes. R-candidate verifies their closure; it
-  is not the first point at which stale binaries, configs or handbook instructions
-  are removed. Current reference/public instructions change when their replacement
-  actually lands, not because this dependency graph exists.
+to the [removal closure](#removal-closure-and-retained-exceptions). ST02 owns the
+coherent runtime cutover, including the old publication/review and human-merge
+callers; ST08–ST12 later add automatic consumers to that single runtime. Early
+S-run proof can use a bounded driver without landing a second selectable engine.
+Graph nodes are not mandatory separate commits. The
+[cutover procedure](#replacing-the-existing-callers) below assigns closure to the
+replacement tasks; R-candidate verifies it rather than postponing removal until
+release assembly. Unfinished behavior stays unavailable.
 
 The runtime issue/review/fix/unblock loop is intentionally cyclic; the delivery
 graph is not. Native fixtures break false dependencies from PR/review/merge proof
@@ -764,6 +755,126 @@ remain independent, and ST11 can progress before intake/coding finishes. FT11–
 remain native-fixture siblings. RT03 and RT04 can run independently when their
 own prerequisites/resources are available. Failure pauses the affected dependent
 branch under the milestone rules; task numbering does not require serial execution.
+
+## Integration, cutover and qualification
+
+Delivery follows demonstrated prerequisites, not calendar dates or task numbering.
+The groups below join the existing tasks; they add neither a second backlog nor
+new architecture. Behavior remains owned by the linked product, interface and
+testing contracts. Nothing in this schedule records a completed implementation
+or authorizes production activation.
+
+### Joining the components and making features available
+
+All product consumers join the same
+[coordinator and records](../architecture/factory-interfaces.md#service-and-persistence-placement).
+The backend owns factory decisions and their durable dispatch records, the host
+owns fixed Project/process operations, and the broker owns provider custody.
+Fountain owns native authentication, observations and conditional mutations.
+Browser requests and unattended operations use their separate native admissions;
+Spaces observes the recorded execution rather than starting another agent engine.
+
+| Integration group | Join and prerequisite evidence | Available behavior and remaining hold |
+| --- | --- | --- |
+| Native host and independent Soda package | FT01/FT02 join the selected Fountain host/SDK, Soda manifest/package and actual private channels. Carry changed service/socket/user mappings with each narrow proof. | Native browser contributions and background admission are usable at their proved scope. They do not establish authoritative factory reads or safe writes. A Soda package change need not rebuild an unchanged Fountain host. |
+| Shared Project execution | ST01 then ST02 join preparation, the backend supervisor/store, fixed host operations and execution-bound broker custody. M2/M3 identify the actual Project OS and first named harness. | Bounded supervised development runs work through the new runtime; automatic intake is unavailable. Other harnesses remain unavailable until their own role, result, credential and stop evidence passes. Seeded preparation grants prove only the fixture boundary. |
+| Product controls and views | ST03/ST04 independently attach real Spaces observation and intervention to those same runs. ST05 joins the separate owner grants and the real preparation acceptance/administration journey. | Admitted settings, preparation, views and controls become usable when their respective task passes. Settings can report missing prerequisites; enabling a policy cannot make unfinished automation operational. Resume stays queued while its execution prerequisites are absent. |
+| Native evidence and automatic intake | FT09 closes the complete writer/recovery domain before FT10 snapshots become authoritative. ST06–ST08 join actual native acceptance, discovery/readiness, assignment and proven Project execution. ST11 can assess real CI independently after its own prerequisites. | Accepted work can reach bounded automatic coding in development. Missing publication/review/merge stages remain visibly unavailable; coding success is not completed issue work. Native fixture reads or a merge-only proof cannot remove the FT09 hold. |
+| Candidate and review | ST09 joins FT11 publication and FT12 PR creation to the retained clean publisher; ST10 joins FT13 review and the separately proven reviewer execution. Each native kind requires FT09 and its own completion evidence. | Development runs can publish, review and correct attributable exact candidates. Each operation retains its own ID, cancellation, effect and completion state in the existing attempt; no direct push/POST fallback fills an unfinished stage. |
+| Complete automatic loop | ST12 joins ST10, ST11 and FT14; ST15 then composes it with ST03/ST04 and all transitive native prerequisites. | The real development demonstration can run after the components pass. Only its passing composed result establishes the complete factory at that scope. A committed merge still waits for native completion and the required issue outcome before dependent pickup. |
+| Qualified appliance | ST13/ST14 close retired-runner and retained-support integration. RT01 supplies protected evidence admission. RT02 assembles the exact candidate after these and ST15; RT03/RT04 qualify their own native target. | The candidate becomes eligible for delivery only for the architecture, harnesses and paths actually qualified. Qualification alone does not sign, publish or activate it. |
+
+These availability holds belong in the current routes, controls and capability
+declarations; they are not a new feature-flag or version-negotiation subsystem.
+During implementation, report the missing stage rather than silently falling back
+to the former engine. Keep native Git, Actions and human Project workflows usable
+under their existing authority. The retired interactive Git credential mediation
+does not return; provider selection retains the agreed no-fallback limits.
+
+For every integrated assembly, identify the exact Fountain revision and SDK,
+separate Soda package/backend, Project OS and changed helper/service inputs used
+by its evidence. Final candidate identities and source/license inventories follow
+the [release workflow](release.md#fountain-upstream-maintenance). Consume one
+supported set of contracts, without legacy readers or dual formats. If the actual
+Soda caller exposes a missing generic authentication or mutation capability,
+resolve it in Fountain before the dependent integration proceeds; do not add a
+login relay, borrowed browser identity or direct native database access.
+
+### Replacing the existing callers
+
+1. **Prove the replacement before expanding its consumers.** Use the early
+   milestones and smallest development assembly. Before replacing a deployed
+   experimental path in a task-owned fixture, stop its admission, account for its
+   exact executions, native outcomes and provider leases, and retire them through
+   their current owners. Confirm retirement before removing owning state. If an
+   effect or credential return remains uncertain, retain its authoritative owner
+   and attributable evidence, keep the affected fixture's replacement admission
+   closed and prevent connection reuse. Removing the engine or starting a new
+   controller does not establish a fence. Independent fixtures can still progress.
+2. **Land ST02 as one runtime replacement.** Remove manual `Admit`/`Execute`, the
+   old controller and independent `execution.db`, disposable `host/workspace`,
+   worker formats/configuration and broad capture/stop callers together. Remove
+   ordinary factory push/direct PR/review and human-merge callers here, even though
+   ST09/ST10/ST12 arrive later. Preserve useful candidate validation and provider
+   custody. The remaining operator client only inspects, stops and reconciles the
+   backend; unfinished new stages have no selectable legacy backend.
+3. **Close each affected surface with its source change.** FT01/ST03 carry native
+   contributions, routes, manifest declarations and generated browser assets.
+   ST13 accounts for exact owned runner resources before deleting their management
+   path, and removes commands, routes, configuration, staging and fixtures while
+   relocating shared Tailnet assets. Each task updates its callers, affected tests,
+   installed selectors and current reference/handbook instructions together.
+4. **Start new automatic product work from current authority.** Do not import or resume old
+   experimental attempts or turn retired configuration into new grants. Use the
+   new owner settings, approved preparation and native acceptance journey. Preserve
+   human Projects/checkouts, service data, native collaboration and protected
+   provider custody; removing an experiment does not authorize deleting them.
+   Disposable experimental state needs no permanent migration/compatibility path.
+   Earlier bounded driver fixtures remain permitted at their explicitly limited
+   proof scope; they cannot establish product admission or seed production grants.
+5. **Verify closure in RT02 and the installed target.** Confirm the selected
+   binaries, services, routes, assets and instructions have only their intended
+   current callers. Reuse affected task checks instead of adding a permanent
+   legacy-detection service. Unsupported deployment inputs remain unavailable.
+   Recovery follows the existing release/state-preservation contract; neither an
+   old controller nor an old database restored over later writes is a fallback.
+
+The removed Soda forge OAuth/login/Git mediation is already absent at the planning
+baseline. It is not another implementation task. Native forge authentication and
+legitimate provider/Tailnet OAuth remain under their existing owners.
+
+### Demonstration and native qualification schedule
+
+| When to run | Scheduled work | Evidence and consequence |
+| --- | --- | --- |
+| With each affected FT/ST task | Focused source checks, minimum packaging and the named early/native boundary case. RT01's missing protected admission observations may proceed independently on the smallest applicable development target. | Establish the actual dependency before building its orchestration. A fixture approval, prototype gate or old worker receipt retains only its stated scope. No complete production build is required merely to join two components. |
+| After ST12, ST03 and ST04 pass, including their transitive prerequisites | **ST15: the real composed development demonstration.** Use real owner grants and accepted requirements, approved tooling/service preparation, one proved subscription harness, native CI on separately managed capacity and rendered Spaces. | Run the [finished product journey](testing.md#finished-product-demonstration): blocked input and accepted answer, automatic coding, exact PR, independent review/correction, complete checks, conditional merge, confirmed issue outcome and automatic dependent pickup. Keep human dirty work, terminal and service data present. This is developmental evidence, not shipping qualification. |
+| After ST15, ST13, ST14 and RT01 pass | **RT02: produce the first complete FCOS candidate and consuming installation media**, separately for each intended native architecture using the existing build/media pipeline. | Bind exact clean source revisions, candidate/media bytes, configuration and notices. Verify archive/image/installed-inventory identities as required by the release owner. Retained old extension or factory evidence does not certify this assembly. |
+| After the matching RT02 candidate and native execution prerequisites are ready | **RT03 / RT04: qualify the exact installed candidate** on native x86_64 / aarch64, independently. | Exercise the affected installation/update/recovery and retained-support paths, and run the real finished-factory demonstration against these bytes through existing acceptance tooling. Prove each selectable harness's native boundary; one representative composed journey per qualified target need not expand into every harness/component combination. No sibling or emulated receipt substitutes for missing native evidence. |
+| After all required cases pass for that target | Protected admission and existing finalization consume the exact successful candidate/media evidence. | Do not rebuild tested shipping bytes to finalize. Advertise only qualified upgrade sources; preserve the current `UpgradeFrom` refusal until real protected evidence supports its replacement. Signing/publication/production activation remain separate authorized actions. |
+
+RT01's prerequisite for RT02 is the working protected admission mechanism, proved
+with bounded evidence. It does not require a future RT02 candidate to have already
+qualified. RT03/RT04 supply that candidate's real installation/update/recovery
+observations; unsupported upgrade sources stay refused until their required native
+evidence exists. This keeps candidate production independent of an unproved
+upgrade claim without dropping update/recovery qualification.
+
+For ST15 and installed qualification, use a bounded separate correction case if
+the normal agent result needs no fix; do not fabricate findings. Use deterministic
+fixtures for rejection races, duplicates and short-limit accounting rather than
+spending provider time to exhaust clocks. The acceptance owner specifies those
+cases and the [receipt contents](testing.md#recording-completion); this schedule
+does not introduce another harness or duplicate evidence store.
+
+A failed boundary pauses its dependent integration or qualification, with the next
+check narrowed to the unresolved fact under the milestone failure rules. Reuse
+unchanged evidence at its valid scope. Driver-only debugging can use retained
+artifacts in an explicitly non-qualifying development check without rebuilding
+shipping bytes. A shipping change requires refreshed candidate identity and the
+affected evidence; a failed release run remains failed, never relabeled or resumed
+as qualified. An unavailable native target remains unqualified without forcing a
+repeat build of the other architecture.
 
 ## Source change inventory
 
