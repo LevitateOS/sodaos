@@ -45,8 +45,9 @@ records, transitions and process bindings. The
 parallel work from integration that requires demonstrated native capabilities;
 the [early milestones](factory-implementation-plan.md#early-integration-milestones)
 bound implementation/proof, pass scope and failure reconsideration for the uncertain
-native integrations. Remaining executable tasks and delivery milestones are still
-to be derived. The
+native integrations. The [implementation tasks](factory-implementation-plan.md#reviewable-implementation-tasks)
+assign concrete outcomes, owners, prerequisites, changes, checks and completion
+conditions; final delivery grouping and plan review remain. The
 [earlier extension transition plan](forgejo-extensions-plan.md) supplies evidence
 and unfinished delivery work for reconciliation, not a competing execution queue.
 Plans are removed after completion and absorption into the owning guides.
