@@ -202,9 +202,7 @@ func rootfsFileMap() map[string]string {
 	files := map[string]string{
 		"appliance/config/soda.sysusers":         "usr/lib/sysusers.d/soda.conf",
 		"appliance/host-image/packages.tmpfiles": "usr/lib/tmpfiles.d/soda-host-packages.conf",
-		"appliance/config/runners.sysusers":      "usr/lib/sysusers.d/soda-runners.conf",
 		"appliance/config/soda.tmpfiles":         "usr/lib/tmpfiles.d/soda.conf",
-		"appliance/config/runners.tmpfiles":      "usr/lib/tmpfiles.d/soda-runners.conf",
 		"appliance/config/90-soda-routing.conf":  "usr/lib/sysctl.d/90-soda-routing.conf",
 		"appliance/config/cockpit.socket.conf":   "usr/lib/systemd/system/cockpit.socket.d/10-soda.conf",
 		"appliance/config/cockpit.pam":           "etc/pam.d/cockpit",

@@ -6,7 +6,6 @@
   "executable": "run",
   "pages": [
     {"id": "spaces", "title": "Spaces", "scope": "global", "entry": "soda-spaces-entry.js"},
-    {"id": "runners", "title": "Runners", "scope": "admin", "permission": "admin", "entry": "soda-runners-entry.js"},
     {"id": "tailnet", "title": "Tailnet", "scope": "admin", "permission": "admin", "entry": "soda-tailnet-entry.js"}
   ],
   "panels": [

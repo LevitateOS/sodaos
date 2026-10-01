@@ -8,7 +8,6 @@ const root = resolve(import.meta.dir, '..');
 const entries = {
   'soda-spaces-entry.js': 'frontend/spaces/soda-spaces-entry.ts',
   'soda-workspace-panel-entry.js': 'frontend/spaces/soda-workspace-panel-entry.ts',
-  'soda-runners-entry.js': 'frontend/runners/soda-runners-entry.ts',
   'soda-tailnet-entry.js': 'frontend/tailnet/soda-tailnet-entry.ts',
 } as const;
 const styles = {
@@ -17,7 +16,7 @@ const styles = {
   'sodaspaces-page.css': 'frontend/spaces/sodaspaces-workspace.css',
   'sodaspaces-drawer.css': 'frontend/spaces/sodaspaces-project.css',
   'sodaspaces-terminal.css': 'frontend/spaces/sodaspaces-terminal.css',
-  'soda-settings.css': 'frontend/runners/soda-settings.css',
+  'soda-settings.css': 'frontend/tailnet/soda-settings.css',
   'soda-tailnet.css': 'frontend/tailnet/soda-tailnet.css',
 } as const;
 

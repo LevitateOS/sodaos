@@ -82,7 +82,7 @@ func allowedContribution(request extensions.ContributionRequest, operatorID stri
 	contribution := request.Contribution
 	if contribution.Kind == "page" && contribution.Scope == "global" {
 		return contribution.ID == "spaces" ||
-			((contribution.ID == "runners" || contribution.ID == "tailnet") && request.ActorID == operatorID)
+			(contribution.ID == "tailnet" && request.ActorID == operatorID)
 	}
 	return contribution.Kind == "panel" && contribution.Scope == "panel" && contribution.ID == "workspace"
 }

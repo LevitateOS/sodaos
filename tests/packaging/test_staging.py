@@ -20,7 +20,6 @@ class NativeStage(unittest.TestCase):
             'soda-setup',
             'soda-tailnet',
             'soda-forgejo-tailnet',
-            'soda-runners',
         ]:
             p = self.root / 'usr/local/libexec/soda' / name
             self.assertTrue(p.is_file(), str(p))

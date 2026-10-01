@@ -121,15 +121,7 @@ try {
   });
   assert.equal(ordinary.host, 'loaded');
   assert.equal(ordinary.logs, '');
-  stage = 'retained root runner CLI read path';
-  const summary = await stock.evaluate(async () => {
-    const raw = await window.cockpit.spawn(['/usr/local/libexec/soda/soda-runners', 'list'], { err: 'message' }).input('{}\n');
-    const data: unknown = JSON.parse(raw);
-    if (!data || typeof data !== 'object' || !('runner_count' in data) || !('active_listeners' in data) || !('total_capacity' in data)) throw new Error('Invalid runner capacity response');
-    return { count: data.runner_count, listeners: data.active_listeners, capacity: data.total_capacity };
-  });
-  assert(Object.values(summary).every(Number.isInteger));
-  console.log('Root CLI capacity, ordinary systemd/journal access and retired runner navigation checked. Native Runners and provider jobs use their separate journey.');
+  console.log('Ordinary systemd/journal access and retired runner navigation checked. Native Runners and provider jobs use their separate journey.');
   assert.equal(await stock.evaluate(async script => await window.cockpit.spawn(['python3', '-c', script], { err: 'message' }), originProbe), before.origins, 'Core browser origins changed during stock read-only observations');
   // Native host administration. Opening pages must not create containers, edit
   // accounts/files/policy or collect/upload a diagnostic report.

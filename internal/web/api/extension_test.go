@@ -56,9 +56,9 @@ func TestExtensionProductRouteAllowlist(t *testing.T) {
 		{http.MethodPost, "/environments", true},
 		{http.MethodPost, "/environments/p0123456789abcdef01234567/join", true},
 		{http.MethodGet, "/identity/connections/abc-123/grants", true},
-		{http.MethodPost, "/settings/runners/soda-runner-x/stop", true},
+		{http.MethodPost, "/settings/runners/soda-runner-x/stop", false},
 		{http.MethodPost, "/settings/tailnet/enrollment", true},
-		{http.MethodGet, "/settings/runners", true},
+		{http.MethodGet, "/settings/runners", false},
 		{http.MethodDelete, "/settings/runners", false},
 		{http.MethodGet, "/settings/runners/secret/remove", false},
 		{http.MethodPost, "/environments/12/connection", false},
@@ -82,13 +82,9 @@ func TestExtensionProductContributionScopes(t *testing.T) {
 	}{
 		{"/api/spaces", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 		{"/api/environments/1/join", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
-		{"/api/settings/runners", extensions.Contribution{Kind: "page", ID: "runners", Scope: "admin"}, true},
-		{"/api/settings/runners", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
-		{"/api/settings/runners", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, false},
 		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "admin"}, true},
 		{"/api/settings/tailnet", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
 		{"/api/environments/1/tailnet", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
-		{"/api/settings/runners", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},
 	} {
 		t.Run(test.path+"/"+test.contribution.ID, func(t *testing.T) {
 			if got := extensionProductContribution(test.path, test.contribution); got != test.allowed {

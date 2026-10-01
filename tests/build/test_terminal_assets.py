@@ -76,7 +76,7 @@ class TerminalAssets(unittest.TestCase):
             self.assertNotIn('build:forgejo', scripts[f'test:{group}:prepared'])
         self.assertEqual(
             scripts['test:frontend:prepared'],
-            'SODA_RUNNERS_COMPONENT=1 SODA_TAILNET_COMPONENT=1 bun test tests/frontend/*.test.ts',
+            'SODA_TAILNET_COMPONENT=1 bun test tests/frontend/*.test.ts',
         )
         self.assertEqual(
             scripts['test:forgejo:prepared'],

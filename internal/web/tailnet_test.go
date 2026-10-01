@@ -147,7 +147,7 @@ func tailnetOffSettings() tailnet.SettingsView {
 func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
 	calls := 0
 	fail := false
-	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
+	s := stubbedHostWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if fail {
 			w.WriteHeader(409)
@@ -186,7 +186,7 @@ func TestTailnetOperatorAdmissionAndNativeFailureSecrecy(t *testing.T) {
 
 func TestTailnetMutationStrictFieldsAndRequestGuards(t *testing.T) {
 	calls := 0
-	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(422) })
+	s := stubbedHostWebFixture(t, func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(422) })
 	valid := `{"action":"signin","revision":"` + strings.Repeat("a", 64) + `"}`
 	for _, header := range []string{"actor", "generation", "origin"} {
 		r := apiTestRequest("POST", "/api/settings/tailnet/host", valid, "alice")
@@ -221,7 +221,7 @@ func TestTailnetMutationStrictFieldsAndRequestGuards(t *testing.T) {
 
 func TestTailnetEnrollmentNeverEchoesInputAndRejectsEndpointOverride(t *testing.T) {
 	calls := 0
-	s := runnerWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
+	s := stubbedHostWebFixture(t, func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if r.URL.Path != "/tailnet/enrollment" {
 			t.Error(r.URL.Path)

@@ -58,7 +58,7 @@ func TestSodaContributionPolicyKeepsOperatorPagesNarrow(t *testing.T) {
 	}{
 		{"spaces page", "99", extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}, true},
 		{"workspace panel", "99", extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}, true},
-		{"operator runners", "42", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, true},
+		{"retired runners page", "42", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
 		{"operator tailnet", "42", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, true},
 		{"other runners actor", "43", extensions.Contribution{Kind: "page", ID: "runners", Scope: "global"}, false},
 		{"leading zero actor", "042", extensions.Contribution{Kind: "page", ID: "tailnet", Scope: "global"}, false},

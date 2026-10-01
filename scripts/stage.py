@@ -70,9 +70,7 @@ for name in ['muse', 'muse-native', 'soda-identity-compose']:
 # Stock Cockpit only. Never copy an ignored retired cockpit/dist tree.
 configs = {
     'soda.sysusers': '/etc/sysusers.d/soda.conf',
-    'runners.sysusers': '/etc/sysusers.d/soda-runners.conf',
     'soda.tmpfiles': '/etc/tmpfiles.d/soda.conf',
-    'runners.tmpfiles': '/etc/tmpfiles.d/soda-runners.conf',
     '90-soda-routing.conf': '/etc/sysctl.d/90-soda-routing.conf',
     'cockpit.pam': '/etc/pam.d/cockpit',
     'cockpit.conf': '/etc/cockpit/cockpit.conf',

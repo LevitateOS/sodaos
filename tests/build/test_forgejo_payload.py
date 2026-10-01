@@ -45,13 +45,11 @@ class ForgejoPayload(unittest.TestCase):
 
     def test_extension_pages_are_declared_in_native_package(self):
         extension = json.loads((ROOT / 'appliance/soda-extension/extension.json').read_text())
-        self.assertEqual({entry['id'] for entry in extension['pages']}, {'spaces', 'runners', 'tailnet'})
+        self.assertEqual({entry['id'] for entry in extension['pages']}, {'spaces', 'tailnet'})
 
     def test_operator_settings_use_the_separate_package(self):
         package = json.loads((ROOT / 'appliance/soda-extension/extension.json').read_text())
-        self.assertEqual(
-            {entry['id'] for entry in package['pages'] if entry['scope'] == 'admin'}, {'runners', 'tailnet'}
-        )
+        self.assertEqual({entry['id'] for entry in package['pages'] if entry['scope'] == 'admin'}, {'tailnet'})
 
     def test_locale_fetch_is_locked_and_preserves_native_catalog(self):
         native = b'[common]\nname = Native\n[settings]\ntitle = Settings\n'

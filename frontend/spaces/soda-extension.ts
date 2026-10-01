@@ -30,7 +30,7 @@ export function prepareExtensionMount(root: HTMLElement, context: ExtensionMount
     context.extensionId !== 'soda' ||
     !context.sessionGeneration ||
     !(
-      (['spaces', 'runners', 'tailnet'].includes(context.pageId || '') && !context.panelId) ||
+      (['spaces', 'tailnet'].includes(context.pageId || '') && !context.panelId) ||
       (context.panelId === 'workspace' && !context.pageId)
     )
   ) {

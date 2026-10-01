@@ -1,5 +1,5 @@
 // Package api serves product HTTP and WebSocket APIs for environments,
-// spaces, terminals, runners and Tailnet settings.
+// spaces, terminals and Tailnet settings.
 package api
 
 import (

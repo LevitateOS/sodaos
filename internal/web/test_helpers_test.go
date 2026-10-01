@@ -14,6 +14,7 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
 )
 
@@ -191,9 +192,7 @@ func nativeAPIServeWithOptions(t *testing.T, s *Server, w http.ResponseWriter, r
 	_ = nativeProductProxyForActorWithCallback(t, s, extensions.Contribution{}, login, callback)
 	path := strings.TrimPrefix(r.URL.Path, config.SodaPath)
 	contribution := extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}
-	if strings.HasPrefix(path, "/api/settings/runners") {
-		contribution.ID, contribution.Scope = "runners", "admin"
-	} else if strings.HasPrefix(path, "/api/settings/tailnet") {
+	if strings.HasPrefix(path, "/api/settings/tailnet") {
 		contribution.ID, contribution.Scope = "tailnet", "admin"
 	}
 	for name, values := range nativeProductHeadersForActor(r.Method, s.Config.ForgejoURL, contribution, login) {
@@ -220,9 +219,7 @@ func nativeProductRequest(t *testing.T, proxy *httptest.Server, origin, method, 
 		t.Fatal(err)
 	}
 	contribution := extensions.Contribution{Kind: "page", ID: "spaces", Scope: "global"}
-	if strings.HasPrefix(path, "/settings/runners") {
-		contribution.ID, contribution.Scope = "runners", "admin"
-	} else if strings.HasPrefix(path, "/settings/tailnet") {
+	if strings.HasPrefix(path, "/settings/tailnet") {
 		contribution.ID, contribution.Scope = "tailnet", "admin"
 	} else if !strings.HasPrefix(path, "/spaces") && !strings.HasPrefix(path, "/environments") && !strings.HasPrefix(path, "/repositories") {
 		contribution = extensions.Contribution{Kind: "panel", ID: "workspace", Scope: "panel"}
@@ -237,4 +234,19 @@ func nativeProductRequest(t *testing.T, proxy *httptest.Server, origin, method, 
 	}
 	t.Cleanup(func() { _ = response.Body.Close() })
 	return response
+}
+
+func stubbedHostWebFixture(t *testing.T, native http.HandlerFunc) *Server {
+	t.Helper()
+	s := apiTestServer(t)
+	peer := httptest.NewServer(native)
+	t.Cleanup(peer.Close)
+	s.SetHost(&host.Client{HTTP: peer.Client()})
+	transport := peer.Client().Transport
+	s.Host.HTTP.Transport = roundTrip(func(r *http.Request) (*http.Response, error) {
+		r.URL.Scheme = "http"
+		r.URL.Host = strings.TrimPrefix(peer.URL, "http://")
+		return transport.RoundTrip(r)
+	})
+	return s
 }

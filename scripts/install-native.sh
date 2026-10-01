@@ -136,8 +136,8 @@ for prefix in etc usr/local var; do
     --no-same-owner --no-overwrite-dir
 done
 find "$bundle/rootfs" -mindepth 1 -printf '/%P\0' | xargs -0 -r restorecon -F
-systemd-sysusers /etc/sysusers.d/soda.conf /etc/sysusers.d/soda-runners.conf
-systemd-tmpfiles --create /etc/tmpfiles.d/soda.conf /etc/tmpfiles.d/soda-runners.conf
+systemd-sysusers /etc/sysusers.d/soda.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/soda.conf
 configure_network apply
 # Chown exact verified customization entries only, never unrelated mutable data.
 python3 - "$bundle/build-info.json" <<'PYOWNER'

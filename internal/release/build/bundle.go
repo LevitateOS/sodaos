@@ -189,7 +189,7 @@ func publicEtcPath(p string) bool {
 	for _, name := range []string{
 		"containers/systemd/forgejo.container", "containers/systemd/soda-dashboard.container", "containers/systemd/soda-proxy.container",
 		"systemd/system/soda-host.service", "systemd/system/soda-host.socket", "systemd/system/soda-identity.service", "systemd/system/soda-identity.socket", "systemd/system/soda-identity-runtime.socket", "systemd/system/soda-project@.service", "systemd/system/soda-tailnet@.service", "systemd/system/cockpit.socket.d/10-soda.conf",
-		"sysusers.d/soda.conf", "sysusers.d/soda-runners.conf", "tmpfiles.d/soda.conf", "tmpfiles.d/soda-runners.conf", "sysctl.d/90-soda-routing.conf",
+		"sysusers.d/soda.conf", "tmpfiles.d/soda.conf", "sysctl.d/90-soda-routing.conf",
 		"pam.d/cockpit", "cockpit/cockpit.conf", "cockpit/disallowed-users", "profile.d/soda-console-welcome.sh", "motd", "fastfetch/config.jsonc", "soda/forgejo.env", "soda/proxy.Caddyfile",
 		"cockpit/branding/branding.css", "cockpit/branding/theme.css", "cockpit/branding/palette.css", "cockpit/branding/favicon.ico", "cockpit/branding/apple-touch-icon.png", "cockpit/branding/soda-symbol-brutalist.svg", "cockpit/branding/soda-symbol-brutalist-dark.svg",
 	} {

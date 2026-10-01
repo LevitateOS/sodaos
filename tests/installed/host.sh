@@ -107,7 +107,7 @@ done
 for directory in /etc /var /var/lib; do
   [[ $(stat -c '%u:%g:%a' "$directory") == 0:0:755 ]]
 done
-for command in soda-dashboard soda-host soda-setup soda-forgejo-tailnet soda-runners soda-tailnet; do
+for command in soda-dashboard soda-host soda-setup soda-forgejo-tailnet soda-tailnet; do
   file="/usr/local/libexec/soda/$command"
   [[ $(stat -c '%u:%g:%a' "$file") == 0:0:755 ]]
   matchpathcon -V "$file"

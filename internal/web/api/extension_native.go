@@ -100,9 +100,6 @@ func (s *API) extensionProductUser(w http.ResponseWriter, r *http.Request, actor
 }
 
 func extensionProductContribution(path string, contribution extensions.Contribution) bool {
-	if path == "/api/settings/runners" || strings.HasPrefix(path, "/api/settings/runners/") {
-		return extensionAdminPageContribution(contribution, "runners")
-	}
 	if path == "/api/settings/tailnet" || strings.HasPrefix(path, "/api/settings/tailnet/") {
 		return extensionAdminPageContribution(contribution, "tailnet")
 	}
@@ -177,9 +174,6 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/identity/connections/{identityID}/revoke", protect(s.apiIdentityRevoke, http.MethodPost))
 	mux.HandleFunc("POST /api/identity/grants/{identityID}/revoke", protect(s.apiIdentityRevokeGrant, http.MethodPost))
 	mux.HandleFunc("POST /api/identity/leases/{identityID}/end", protect(s.apiIdentityEndLease, http.MethodPost))
-	mux.HandleFunc("GET /api/settings/runners", protect(s.apiRunners, http.MethodGet))
-	mux.HandleFunc("POST /api/settings/runners", protect(s.apiRunners, http.MethodPost))
-	mux.HandleFunc("POST /api/settings/runners/{runner}/{action}", protect(s.apiRunnerAction, http.MethodPost))
 	mux.HandleFunc("GET /api/settings/tailnet", protect(s.apiTailnetSettings, http.MethodGet))
 	mux.HandleFunc("POST /api/settings/tailnet/host", protect(s.apiTailnetHost, http.MethodPost))
 	mux.HandleFunc("POST /api/settings/tailnet/enrollment", protect(s.apiTailnetEnrollment, http.MethodPost))

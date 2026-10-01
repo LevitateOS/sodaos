@@ -274,19 +274,10 @@ func extensionSettingsRoute(parts []string, method string) bool {
 		return false
 	}
 	switch parts[1] {
-	case "runners":
-		return extensionRunnersRoute(parts, method)
 	case "tailnet":
 		return extensionTailnetSettingsRoute(parts, method)
 	}
 	return false
-}
-
-func extensionRunnersRoute(parts []string, method string) bool {
-	if len(parts) == 2 {
-		return method == http.MethodGet || method == http.MethodPost
-	}
-	return len(parts) == 4 && extensionProductID(parts[2]) && extensionProductID(parts[3]) && method == http.MethodPost
 }
 
 func extensionTailnetSettingsRoute(parts []string, method string) bool {

@@ -35,7 +35,10 @@ func TestSodaNavigationComesFromForgejoExtensionManifest(t *testing.T) {
 			permission string
 		}{page.Scope, page.Permission}
 	}
-	if pages["spaces"].scope != "global" || pages["runners"].scope != "admin" || pages["runners"].permission != "admin" || pages["tailnet"].scope != "admin" || pages["tailnet"].permission != "admin" {
+	if _, retired := pages["runners"]; retired {
+		t.Fatalf("retired runners page still declared: %+v", pages)
+	}
+	if pages["spaces"].scope != "global" || pages["tailnet"].scope != "admin" || pages["tailnet"].permission != "admin" {
 		t.Fatalf("unexpected extension page declarations: %+v", pages)
 	}
 	workspacePanel := false

@@ -29,7 +29,6 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/release/build"
 	"github.com/levitateos/sodaos/internal/release/deliver"
-	"github.com/levitateos/sodaos/internal/runners"
 	"github.com/levitateos/sodaos/internal/strictjson"
 	"github.com/levitateos/sodaos/internal/tailnet"
 )
@@ -166,26 +165,23 @@ type Daemon struct {
 	Companion     *tailnetexec.Companion
 	Terminal      *terminal.Service
 	Project       *projectexec.Runtime
-	Runners       *runners.Operations
 	Config        Config
 	Exec          Executor
 	admissionOnce sync.Once
 	admission     chan struct{}
 }
 
-// NewDaemon wires the thin host facade with project, terminal, runners and
+// NewDaemon wires the thin host facade with project, terminal and
 // optional Tailnet companion runtimes. Callers outside package host should use
 // this instead of assembling subsystem packages themselves.
 func NewDaemon(c Config) *Daemon {
 	native := Native{}
-	runnerNative := runners.NewNative()
 	d := &Daemon{
 		Identity: identityclient.New(c.IdentitySocket),
 		Config:   c,
 		Exec:     native,
 		Project:  projectRuntime(native, c),
 		Terminal: &terminal.Service{Exec: native, CodexHarness: c.CodexHarness, CodexHarnessSHA256: c.CodexHarnessSHA256},
-		Runners:  &runners.Operations{Local: runnerNative, Lifecycle: runnerNative},
 	}
 	d.Terminal.EndIdentity = d.Identity.EndLease
 	if c.MuseSHA256 != "" {
@@ -247,10 +243,6 @@ func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
 	}
 	if strings.HasPrefix(r.URL.Path, "/tailnet/") {
 		d.tailnetHandler(w, r)
-		return true
-	}
-	if strings.HasPrefix(r.URL.Path, "/runners/") {
-		d.runnerHandler(w, r)
 		return true
 	}
 	if r.URL.Path == "/terminal" {
