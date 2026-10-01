@@ -40,6 +40,11 @@ type Config struct {
 	// intake route verifies delivery HMACs against it; when unset or
 	// unreadable, intake refuses as unavailable instead of guessing.
 	FactoryIntakeSecretFile string `json:"factory_intake_secret_file"`
+	// Optional private publication workspace root. When unset, the
+	// backend uses its private data directory. The directory must be
+	// backend-private; validated bundles and push workspaces live here,
+	// never inside a Project.
+	FactoryPublicationRoot string `json:"factory_publication_root"`
 }
 
 // BackgroundServiceConfigured reports whether native background service
@@ -112,6 +117,9 @@ func validateConfigPaths(c Config) error {
 	}
 	if c.FactoryIntakeSecretFile != "" && !filepath.IsAbs(c.FactoryIntakeSecretFile) {
 		return errors.New("factory_intake_secret_file must be an absolute path")
+	}
+	if c.FactoryPublicationRoot != "" && !filepath.IsAbs(c.FactoryPublicationRoot) {
+		return errors.New("factory_publication_root must be an absolute path")
 	}
 	if c.BackgroundServiceConfigured() {
 		if !filepath.IsAbs(c.ForgejoBackgroundSocket) {

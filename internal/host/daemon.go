@@ -273,6 +273,8 @@ var errNotFound = errors.New("not found")
 
 var errOutputStale = errors.New("factory output incarnation changed")
 
+var errExportStale = errors.New("factory run incarnation changed")
+
 var errUnavailable = errors.New("factory runtime unavailable")
 
 func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
@@ -295,7 +297,7 @@ func hasNativeCleanPath(r *http.Request) bool {
 	switch r.URL.Path {
 	case "/lifecycle", "/access-keys", "/profile", "/create", "/os",
 		"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold",
-		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness":
+		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness", "/factory-export":
 		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
 	default:
 		return true
@@ -509,6 +511,19 @@ func (d *Daemon) dispatchFactory(ctx context.Context, path string, decode func(a
 			return nil, errOutputStale
 		}
 		return out, err
+	case "/factory-export":
+		var in project.FactoryExport
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		out, err := factory.Export(ctx, in)
+		if errors.Is(err, identity.ErrNotFound) {
+			return nil, errNotFound
+		}
+		if errors.Is(err, identity.ErrStale) {
+			return nil, errExportStale
+		}
+		return out, err
 	default:
 		return nil, errNotFound
 	}
@@ -526,7 +541,7 @@ func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func
 		return d.dispatchMutation(ctx, path, decode)
 	case "/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
 		return d.dispatchPrepare(ctx, path, decode)
-	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness":
+	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness", "/factory-export":
 		return d.dispatchFactory(ctx, path, decode)
 	default:
 		return nil, errNotFound
@@ -577,6 +592,18 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, errOutputStale) {
 			http.Error(w, "factory output incarnation changed", http.StatusConflict)
+			return
+		}
+		if errors.Is(err, errExportStale) {
+			http.Error(w, "factory run incarnation changed", http.StatusConflict)
+			return
+		}
+		if errors.Is(err, project.ErrFactoryExportCandidate) {
+			http.Error(w, project.ErrFactoryExportCandidate.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		if errors.Is(err, project.ErrFactoryExportBounds) {
+			http.Error(w, project.ErrFactoryExportBounds.Error(), http.StatusRequestEntityTooLarge)
 			return
 		}
 		slog.Error("project native operation failed", "operation", r.URL.Path, "error", err)

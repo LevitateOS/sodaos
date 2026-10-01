@@ -89,6 +89,7 @@ func (c *Coordinator) withdrawAndStopRuns(ctx context.Context, repository int64,
 	if err != nil {
 		return factory.Withdrawal{}, nil, err
 	}
+	withdrawal.Publications = c.cancelRepositoryPublications(ctx, repository)
 	outcomes := []factory.RunStopOutcome{}
 	p, err := c.Store.ProjectByRepository(ctx, repository)
 	if err != nil {

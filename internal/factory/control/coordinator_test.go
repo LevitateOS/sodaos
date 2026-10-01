@@ -49,6 +49,10 @@ func (s *stubHost) FactoryTakeover(ctx context.Context, in project.FactoryTakeov
 	return s.takeover(in)
 }
 
+func (s *stubHost) FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
+	return project.FactoryExportState{}, errors.New("unexpected host export")
+}
+
 func (s *stubHost) FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error) {
 	if s.harness == nil {
 		return project.FactoryHarnessPin{}, errors.New("unexpected host harness query")

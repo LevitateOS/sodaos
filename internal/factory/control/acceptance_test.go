@@ -99,7 +99,7 @@ func TestAdmitAcceptanceVerifiesAndRecords(t *testing.T) {
 		t.Fatal(err)
 	}
 	again, err := c.AdmitAcceptance(context.Background(), command, "native:7", second)
-	if err != nil || again != first || again.Depth != 2 {
+	if err != nil || !reflect.DeepEqual(again, first) || again.Depth != 2 {
 		t.Fatalf("replay: %+v %v", again, err)
 	}
 	changed := second
@@ -450,7 +450,7 @@ func TestWithdrawAcceptanceLatchesAndReplays(t *testing.T) {
 		t.Fatal(receipt, err)
 	}
 	again, err := c.WithdrawAcceptance(context.Background(), command, "native:7", 42, 3, decision.ID, 7)
-	if err != nil || again != receipt {
+	if err != nil || !reflect.DeepEqual(again, receipt) {
 		t.Fatalf("replay: %+v %v", again, err)
 	}
 	status, err := c.AcceptanceStatus(context.Background(), 42, "3")

@@ -48,12 +48,16 @@ func New(c config.Config, db *store.Store) *Server {
 	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
 	s.API.Coordinator = s.Coordinator
 	if c.BackgroundServiceConfigured() {
+		background := forgejo.NewServiceBackground(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID, "")
 		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
 			c.ForgejoBackgroundCredentialFile, client)
+		observer.ShareBackground(background)
 		source := api.NewServiceReadinessSource(observer)
 		s.Coordinator.AcceptanceReads = source
 		s.Coordinator.Readiness = source
 		s.Coordinator.DispatchReads = source
+		s.Coordinator.Publication = forgejo.NewPublisher(background, client, c.ForgejoInternalURL,
+			publicationRoot(c), c.ForgejoBackgroundCredentialFile)
 	}
 	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
 		Coordinator: s.Coordinator, Secret: loadIntakeSecret(c),
@@ -87,6 +91,20 @@ func (s *Server) forgejoHome(w http.ResponseWriter, r *http.Request) {
 
 // CloseTerminals shuts down native terminal peers before process exit.
 func (s *Server) CloseTerminals() { s.API.CloseTerminals() }
+
+// defaultFactoryPublicationRoot is the private backend publication
+// workspace created by tmpfiles: validated bundles and push workspaces
+// live here, never inside a Project.
+const defaultFactoryPublicationRoot = "/var/lib/soda/dashboard/publication"
+
+// publicationRoot resolves the configured publication workspace root,
+// defaulting to the private backend data directory.
+func publicationRoot(c config.Config) string {
+	if c.FactoryPublicationRoot != "" {
+		return c.FactoryPublicationRoot
+	}
+	return defaultFactoryPublicationRoot
+}
 
 // loadIntakeSecret reads the optional native webhook intake secret. An
 // unset or unreadable secret disables intake: deliveries refuse as

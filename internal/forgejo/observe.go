@@ -28,6 +28,7 @@ type ServiceObserver struct {
 	hostUID        uint32
 	mu             sync.Mutex
 	client         extensions.BackgroundClient
+	background     *ServiceBackground
 	actor          string
 }
 
@@ -61,17 +62,32 @@ func (o *ServiceObserver) ensureClient(ctx context.Context) (extensions.Backgrou
 	if o.socket == "" || o.credentialFile == "" {
 		return nil, ErrUnavailable
 	}
-	client, err := extensions.BootstrapServiceBackground(ctx, extensions.ServiceBridgeOptions{
-		SocketPath: o.socket, ExpectedHostUID: o.hostUID,
-	})
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		return nil, err
-	}
-	o.client = client
+	o.client = &backgroundClientAdapter{background: o.sharedBackgroundLocked()}
 	return o.client, nil
+}
+
+// sharedBackgroundLocked returns the observer's service transport,
+// building an unshared one when the server did not share. Callers hold
+// the observer mutex.
+func (o *ServiceObserver) sharedBackgroundLocked() *ServiceBackground {
+	if o.background == nil {
+		o.background = NewServiceBackground(o.socket, o.hostUID, "")
+	}
+	return o.background
+}
+
+// ShareBackground shares one service admission between snapshot readers
+// and conditional-operation publishers. The native host revokes the
+// previous service admission on every bootstrap, so splitting readers
+// and publishers across two bootstraps would invalidate each other.
+func (o *ServiceObserver) ShareBackground(background *ServiceBackground) {
+	if background == nil {
+		return
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.background = background
+	o.client = &backgroundClientAdapter{background: background}
 }
 
 func (o *ServiceObserver) ensureActor(ctx context.Context) (string, error) {

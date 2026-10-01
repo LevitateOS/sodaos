@@ -57,6 +57,10 @@ func (f *fakeDispatchHost) FactoryTakeover(ctx context.Context, in project.Facto
 	return project.TakeoverResult{}, errors.New("unexpected host takeover")
 }
 
+func (f *fakeDispatchHost) FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
+	return project.FactoryExportState{}, errors.New("unexpected host export")
+}
+
 type fakeDispatchBroker struct {
 	get func(kind, id string) (identity.Execution, error)
 }

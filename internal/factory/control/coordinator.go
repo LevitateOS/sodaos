@@ -1,7 +1,8 @@
 // Package control supervises recorded factory runs: status reads recorded
-// state, stop retires one run, and reconcile settles every outstanding run
-// against host and broker truth. It cannot launch, retry, spend or publish;
-// the host owns native execution and the broker owns credential custody.
+// state, dispatch starts bounded recorded assignments, and reconcile settles
+// outstanding runs against host and broker truth. Publication advances finished
+// candidates through persisted conditional operations. The host owns native
+// execution and the broker owns credential custody.
 package control
 
 import (
@@ -31,12 +32,14 @@ var (
 // HostFactory is the coordinator's entire host surface: launch starts one
 // recorded run under supervision, stop retires one run, inspect observes
 // one run without mutating it, takeover copies a retired run's retained
-// work, and harness reports the staged-harness pin dispatch requires.
+// work, export reads a settled run's exact candidate bundle, and harness
+// reports the staged-harness pin dispatch requires.
 type HostFactory interface {
 	FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error)
 	FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error)
 	FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error)
 	FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error)
+	FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error)
 	FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error)
 }
 
@@ -55,6 +58,8 @@ type BrokerExecution interface {
 // and validity checks refuse as unavailable instead of guessing.
 // DispatchReads brackets accepted-input content plus the target tip for
 // dispatch; while no source is wired, dispatch waits instead of guessing.
+// Publication executes conditional publication operations; while no
+// executor is wired, finished candidates wait instead of publishing.
 type Coordinator struct {
 	Store           *store.Store
 	Host            HostFactory
@@ -62,6 +67,7 @@ type Coordinator struct {
 	AcceptanceReads AcceptanceSource
 	Readiness       ReadinessObservation
 	DispatchReads   DispatchReads
+	Publication     PublicationExecutor
 	lock            *os.File
 }
 
@@ -97,6 +103,9 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	if report := RecoverDispatch(ctx, c.dispatchDeps()); len(report.Errors) != 0 {
 		_ = c.Close()
 		return errors.New("factory dispatch recovery failed")
+	}
+	if c.Publication != nil {
+		c.PublishPass(ctx)
 	}
 	return nil
 }

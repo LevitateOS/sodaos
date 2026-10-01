@@ -26,7 +26,11 @@ func TestFactoryAssignmentDTORendersInputsAndResult(t *testing.T) {
 			Findings: []string{}, Reported: true, RecordedUnix: 2,
 		},
 	}
-	view := factoryAssignmentDTO(a, &factory.Reservation{Connection: "conn", State: factory.ReservationConsumed, PlannedMinutes: 30})
+	view := factoryAssignmentDTO(a, &factory.Reservation{Connection: "conn", State: factory.ReservationConsumed, PlannedMinutes: 30}, &factory.Publication{
+		Publish:  factory.PublicationOperation{Kind: factory.OpRefPublish, Effect: factory.OpEffectCommitted},
+		PRCreate: factory.PublicationOperation{Kind: factory.OpPRCreate, Effect: factory.OpEffectCommitted},
+		Stage:    factory.PublicationPublished, Reason: factory.PublishReasonLinked, PRNumber: 9, PRID: 8,
+	})
 	if view.Repository != "7" || view.Issue != "3" || view.Prompt != "assignment prompt" {
 		t.Fatalf("view = %+v", view)
 	}
@@ -39,8 +43,11 @@ func TestFactoryAssignmentDTORendersInputsAndResult(t *testing.T) {
 	if view.Authority.Sponsorship != 2 {
 		t.Fatalf("authority = %+v", view.Authority)
 	}
-	plain := factoryAssignmentDTO(factory.Assignment{ID: a.ID, Repository: 7, Issue: 3}, nil)
-	if plain.Result != nil || plain.Reservation != nil {
+	if view.Publication == nil || view.Publication.Stage != factory.PublicationPublished || view.Publication.PRNumber != "9" {
+		t.Fatalf("publication = %+v", view.Publication)
+	}
+	plain := factoryAssignmentDTO(factory.Assignment{ID: a.ID, Repository: 7, Issue: 3}, nil, nil)
+	if plain.Result != nil || plain.Reservation != nil || plain.Publication != nil {
 		t.Fatalf("plain = %+v", plain)
 	}
 }
@@ -54,5 +61,17 @@ func TestCurrentIssueAssignmentSelectsLatest(t *testing.T) {
 	got, ok := currentIssueAssignment([]factory.Assignment{first, second})
 	if !ok || got.ID != second.ID {
 		t.Fatalf("selected = %+v %v", got, ok)
+	}
+}
+
+func TestFactoryAssignmentDTOPreservesIncompletePublication(t *testing.T) {
+	view := factoryAssignmentDTO(factory.Assignment{}, nil, &factory.Publication{
+		Publish:  factory.PublicationOperation{Effect: factory.OpEffectCommitted, Completion: factory.OpCompletionComplete, Cancellation: factory.OpCancelTooLate},
+		PRCreate: factory.PublicationOperation{Effect: factory.OpEffectCommitted, Completion: factory.OpCompletionNeedsIntervention, Cancellation: factory.OpCancelTooLate},
+		Stage:    factory.PublicationFenced, WithdrawRequested: true, PRNumber: 9, PRID: 8,
+	})
+	p := view.Publication
+	if p == nil || p.PRNumber != "9" || p.PublishCompletion != factory.OpCompletionComplete || p.PRCreateCompletion != factory.OpCompletionNeedsIntervention || p.PRCreateCancellation != factory.OpCancelTooLate || !p.WithdrawRequested {
+		t.Fatalf("incomplete publication hidden: %+v", p)
 	}
 }

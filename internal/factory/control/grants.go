@@ -20,11 +20,12 @@ var ErrIneffectiveAuthority = errors.New("factory grants do not authorize dispat
 // revision, whether the change withdrew dispatch, the captured outstanding
 // IDs in order, and the visible effective authority afterwards.
 type GrantReceipt struct {
-	Effective factory.EffectiveAuthority `json:"effective"`
-	Captured  []string                   `json:"captured,omitempty"`
-	CommandID string                     `json:"command_id"`
-	Revision  int64                      `json:"revision"`
-	Withdrawn bool                       `json:"withdrawn"`
+	Publications factory.PublicationWithdrawal `json:"publications"`
+	Effective    factory.EffectiveAuthority    `json:"effective"`
+	Captured     []string                      `json:"captured,omitempty"`
+	CommandID    string                        `json:"command_id"`
+	Revision     int64                         `json:"revision"`
+	Withdrawn    bool                          `json:"withdrawn"`
 }
 
 // DecisionReceipt is the durable outcome of one preparation decision: the
@@ -155,6 +156,9 @@ func (c *Coordinator) applyGrant(ctx context.Context, commandID, principal, typ,
 		if receipt.Captured == nil {
 			receipt.Captured = []string{}
 		}
+	}
+	if repository > 0 {
+		receipt.Publications = c.cancelRepositoryPublications(bounded, repository)
 	}
 	effective, err := c.EffectiveAuthority(bounded, repository)
 	if err != nil {

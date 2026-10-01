@@ -692,7 +692,9 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 // queued issues within current limits. It never fails: every operational
 // failure lands in the report, and a later pass retries.
 func (c *Coordinator) Dispatch(ctx context.Context) DispatchReport {
-	return DispatchPass(ctx, c.dispatchDeps())
+	report := DispatchPass(ctx, c.dispatchDeps())
+	c.publishAfterDispatch(ctx, report)
+	return report
 }
 
 // dispatchAfterIntake runs one best-effort dispatch pass after a native

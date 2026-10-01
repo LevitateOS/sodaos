@@ -97,17 +97,19 @@ type AcceptanceSource interface {
 // AcceptanceReceipt is the durable outcome of one acceptance decision:
 // the admitted decision, the advanced head and its chain depth.
 type AcceptanceReceipt struct {
-	CommandID  string `json:"command_id"`
-	DecisionID string `json:"decision_id"`
-	Head       string `json:"head"`
-	Depth      int64  `json:"depth"`
+	Publications factory.PublicationWithdrawal `json:"publications"`
+	CommandID    string                        `json:"command_id"`
+	DecisionID   string                        `json:"decision_id"`
+	Head         string                        `json:"head"`
+	Depth        int64                         `json:"depth"`
 }
 
 // WithdrawalReceipt is the durable outcome of one acceptance withdrawal.
 type WithdrawalReceipt struct {
-	CommandID string `json:"command_id"`
-	Decision  string `json:"decision"`
-	Withdrawn bool   `json:"withdrawn"`
+	Publications factory.PublicationWithdrawal `json:"publications"`
+	CommandID    string                        `json:"command_id"`
+	Decision     string                        `json:"decision"`
+	Withdrawn    bool                          `json:"withdrawn"`
 }
 
 // AdmitAcceptance records a maintainer's exact-inputs acceptance after
@@ -170,6 +172,9 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 		return AcceptanceReceipt{}, err
 	}
 	receipt := AcceptanceReceipt{CommandID: cmd.ID, DecisionID: decision.ID, Head: head, Depth: depth}
+	if decision.Predecessor != "" {
+		receipt.Publications = c.cancelAcceptancePublications(bounded, decision.Repository, mustIssueIndex(decision.IssueIndex), decision.Predecessor)
+	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return AcceptanceReceipt{}, err
@@ -542,7 +547,8 @@ func (c *Coordinator) WithdrawAcceptance(ctx context.Context, commandID, princip
 		}
 		return WithdrawalReceipt{}, err
 	}
-	receipt := WithdrawalReceipt{CommandID: cmd.ID, Decision: decision, Withdrawn: true}
+	receipt := WithdrawalReceipt{CommandID: cmd.ID, Decision: decision, Withdrawn: true,
+		Publications: c.cancelAcceptancePublications(bounded, repository, issue, decision)}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return WithdrawalReceipt{}, err

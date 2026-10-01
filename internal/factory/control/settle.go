@@ -29,10 +29,11 @@ type FencedRun struct {
 
 // ReconcileReceipt is the durable outcome of one reconcile command.
 type ReconcileReceipt struct {
-	Settled   []string         `json:"settled"`
-	Fenced    []FencedRun      `json:"fenced,omitempty"`
-	Readiness *ReadinessReport `json:"readiness,omitempty"`
-	Dispatch  *DispatchReport  `json:"dispatch,omitempty"`
+	Settled     []string         `json:"settled"`
+	Fenced      []FencedRun      `json:"fenced,omitempty"`
+	Readiness   *ReadinessReport `json:"readiness,omitempty"`
+	Dispatch    *DispatchReport  `json:"dispatch,omitempty"`
+	Publication *PublishReport   `json:"publication,omitempty"`
 }
 
 // Stop retires one recorded run and settles it when retirement and broker
@@ -102,6 +103,10 @@ func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (Recon
 	if c.DispatchReads != nil {
 		dispatch := c.Dispatch(bounded)
 		receipt.Dispatch = &dispatch
+	}
+	if c.Publication != nil {
+		published := c.PublishPass(bounded)
+		receipt.Publication = &published
 	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
@@ -188,6 +193,7 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 	// a completed issue retriggers its dependants.
 	if finished, ok := AccountSettledRun(ctx, c.Store, run, state.Output, time.Now()); ok && finished.Outcome == factory.Succeeded {
 		c.assessDispatchDependants(ctx, finished.Repository, finished.Issue)
+		c.publishAfterSettle(ctx, finished)
 	}
 	receipt.Confirmed, receipt.Outcome, receipt.Reason = true, string(outcome), run.Summary
 	return receipt

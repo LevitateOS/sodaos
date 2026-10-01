@@ -18,7 +18,8 @@
     "native.organization.ownership",
     "native.user.public_keys.read",
     "native.contribution.authorize",
-    "native.service.bridge"
+    "native.service.bridge",
+    "native.background.operations"
   ],
   "policies": ["forgejo.username"],
   "preferred_workspace": true

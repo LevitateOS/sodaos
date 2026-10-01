@@ -34,6 +34,28 @@ type factoryAssignmentReservation struct {
 	PlannedMinutes int    `json:"planned_minutes"`
 }
 
+// factoryAssignmentPublication renders one assignment's publication:
+// its stage and outcome, the exact linked PR once creation commits,
+// and each conditional operation's effect with its bounded native
+// reason. Absent until publication starts.
+type factoryAssignmentPublication struct {
+	PublishCompletion    string `json:"publish_completion,omitempty"`
+	PublishCancellation  string `json:"publish_cancellation,omitempty"`
+	PRCreateCompletion   string `json:"pr_create_completion,omitempty"`
+	PRCreateCancellation string `json:"pr_create_cancellation,omitempty"`
+	WithdrawRequested    bool   `json:"withdraw_requested"`
+	PublishEffect        string `json:"publish_effect"`
+	PublishReason        string `json:"publish_reason,omitempty"`
+	PRCreateEffect       string `json:"pr_create_effect"`
+	PRCreateReason       string `json:"pr_create_reason,omitempty"`
+	Stage                string `json:"stage"`
+	Reason               string `json:"reason,omitempty"`
+	PRNumber             string `json:"pr_number,omitempty"`
+	PRID                 string `json:"pr_id,omitempty"`
+	PublishOperation     string `json:"publish_operation,omitempty"`
+	PRCreateOp           string `json:"pr_create_operation,omitempty"`
+}
+
 // factoryAssignmentView renders one dispatch assignment with its exact
 // bound inputs and recorded result. The prompt carries accepted native
 // text plus IDs and digests only: the builder takes no credential
@@ -41,6 +63,7 @@ type factoryAssignmentReservation struct {
 type factoryAssignmentView struct {
 	Result       *factoryAssignmentResult      `json:"result,omitempty"`
 	Reservation  *factoryAssignmentReservation `json:"reservation,omitempty"`
+	Publication  *factoryAssignmentPublication `json:"publication,omitempty"`
 	Authority    factory.AuthorityRef          `json:"authority"`
 	RunHistory   []string                      `json:"run_history"`
 	ID           string                        `json:"id"`
@@ -68,7 +91,7 @@ type factoryAssignmentView struct {
 	FinishedUnix int64                         `json:"finished_unix,omitempty"`
 }
 
-func factoryAssignmentDTO(a factory.Assignment, reservation *factory.Reservation) factoryAssignmentView {
+func factoryAssignmentDTO(a factory.Assignment, reservation *factory.Reservation, publication *factory.Publication) factoryAssignmentView {
 	view := factoryAssignmentView{
 		Authority: a.Authority, RunHistory: a.RunHistory,
 		ID: a.ID, ProjectID: a.ProjectID, Role: a.Role, Acceptance: a.Acceptance,
@@ -93,6 +116,22 @@ func factoryAssignmentDTO(a factory.Assignment, reservation *factory.Reservation
 			Connection: reservation.Connection, State: reservation.State,
 			PlannedMinutes: reservation.PlannedMinutes,
 		}
+	}
+	if publication != nil {
+		rendered := &factoryAssignmentPublication{
+			PublishCompletion: publication.Publish.Completion, PublishCancellation: publication.Publish.Cancellation,
+			PRCreateCompletion: publication.PRCreate.Completion, PRCreateCancellation: publication.PRCreate.Cancellation,
+			WithdrawRequested: publication.WithdrawRequested,
+			PublishEffect:     publication.Publish.Effect, PublishReason: publication.Publish.Reason,
+			PRCreateEffect: publication.PRCreate.Effect, PRCreateReason: publication.PRCreate.Reason,
+			Stage: publication.Stage, Reason: publication.Reason,
+			PublishOperation: publication.Publish.OperationID, PRCreateOp: publication.PRCreate.OperationID,
+		}
+		if publication.PRNumber != 0 {
+			rendered.PRNumber = strconv.FormatInt(publication.PRNumber, 10)
+			rendered.PRID = strconv.FormatInt(publication.PRID, 10)
+		}
+		view.Publication = rendered
 	}
 	return view
 }
@@ -137,5 +176,12 @@ func (s *API) apiFactoryAssignment(w http.ResponseWriter, r *http.Request, v sto
 		auth.JSONError(w, 503, "store_unavailable", "Could not read assignment reservation.")
 		return
 	}
-	auth.JSONResponse(w, 200, factoryAssignmentDTO(current, reservation))
+	var publication *factory.Publication
+	if recorded, err := s.Store.PublicationByAssignment(r.Context(), current.ID); err == nil {
+		publication = &recorded
+	} else if !errors.Is(err, store.ErrNotFound) {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read assignment publication.")
+		return
+	}
+	auth.JSONResponse(w, 200, factoryAssignmentDTO(current, reservation, publication))
 }

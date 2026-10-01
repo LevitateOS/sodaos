@@ -413,11 +413,12 @@ const MaxCapturedDispatch = 1024
 // closing principal and every outstanding ID captured in order. Local
 // withdrawal acknowledges requested cancellation, not a won native race.
 type Withdrawal struct {
-	Captured   []string `json:"captured"`
-	Repository int64    `json:"repository,string"`
-	Revision   int64    `json:"revision"`
-	Cause      string   `json:"cause"`
-	ClosedBy   string   `json:"closed_by"`
+	Publications PublicationWithdrawal `json:"publications"`
+	Captured     []string              `json:"captured"`
+	Repository   int64                 `json:"repository,string"`
+	Revision     int64                 `json:"revision"`
+	Cause        string                `json:"cause"`
+	ClosedBy     string                `json:"closed_by"`
 }
 
 func (w Withdrawal) Validate() error {

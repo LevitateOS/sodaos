@@ -92,6 +92,42 @@ func (c *Client) FactoryOutput(ctx context.Context, in project.FactoryOutput) (p
 	return out, factoryOutputError(in, out, err)
 }
 
+// factoryExportResponseLimit bounds one export response: the base64
+// 4MB bundle plus its JSON envelope.
+const factoryExportResponseLimit = 8 << 20
+
+func (c *Client) FactoryExport(ctx context.Context, in project.FactoryExport) (project.FactoryExportState, error) {
+	var out project.FactoryExportState
+	if err := in.Validate(); err != nil {
+		return out, err
+	}
+	err := c.callLimit(ctx, "/factory-export", in, &out, factoryExportResponseLimit)
+	return out, factoryExportError(in, out, err)
+}
+
+func factoryExportError(in project.FactoryExport, out project.FactoryExportState, err error) error {
+	var httpErr nativeHTTPError
+	if errors.As(err, &httpErr) {
+		if httpErr.status == http.StatusNotFound {
+			return ErrRunNotFound
+		}
+		if httpErr.status == http.StatusConflict {
+			return ErrRunStale
+		}
+		if httpErr.status == http.StatusUnprocessableEntity {
+			return project.ErrFactoryExportCandidate
+		}
+		if httpErr.status == http.StatusRequestEntityTooLarge {
+			return project.ErrFactoryExportBounds
+		}
+	}
+	if err == nil && (out.ID != in.ID || out.Project != in.Project || out.Candidate != in.Candidate ||
+		!project.ValidFactoryPhase(out.Phase) || len(out.Bundle) == 0 || len(out.Bundle) > 8<<20) {
+		return errors.New("native factory export does not match its identity")
+	}
+	return err
+}
+
 func (c *Client) FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error) {
 	var out project.TakeoverResult
 	err := c.callLimit(ctx, "/factory-takeover", in, &out, factoryResponseLimit)
