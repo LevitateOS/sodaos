@@ -71,5 +71,14 @@ fenced for intervention.
    and needs intervention, not a retry with different names.
 5. Lift inhibition by removing the marker, then restart the native writers.
 
-Durable service/domain stop controls beyond this operator procedure belong to
-the complete native mutation domain work (FT09).
+The durable service/domain controls for steps 1, 2 and 5 are the
+`soda-forgejo-domain` host operator command (`appliance/bin/soda-forgejo-domain`,
+staged to `/usr/local/sbin` alongside `soda-activate`): `stop` stops
+`forgejo.service` and verifies
+no container or unit survivor remains; `inhibit` runtime-masks the unit and
+creates the offline marker, resolving the deployment `AppDataPath` from its
+`app.ini` (`FORGEJO__server__APP_DATA_PATH` wins) and refusing to guess;
+`status` reports unit, mask, container and marker state only, never native
+reservation rows; `lift` removes the marker and unmasks; `start` refuses
+while the marker exists. Reservation diagnostics stay behind Forgejo's own
+`admin native-operation status`. There is no force-unlock verb.

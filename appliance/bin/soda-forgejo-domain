@@ -1,0 +1,196 @@
+#!/usr/bin/python3
+"""Whole-domain stop and restart-inhibition controls for native recovery.
+
+Host-operator controls for the offline native-mutation recovery procedure:
+stop every native writer, inhibit restart, reconcile via Forgejo's own
+`admin native-operation` commands, lift inhibition, restart. There is no
+force-unlock verb: a fenced reservation stays held for intervention.
+
+Verbs: stop, inhibit, status, lift, start. Run as root.
+"""
+
+import argparse
+import configparser
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+UNIT = "forgejo.service"
+CONTAINER = "soda-forgejo"
+DATA_ROOT = Path("/var/lib/soda/forgejo")
+APP_INI = DATA_ROOT / "gitea" / "conf" / "app.ini"
+ENV_FILE = Path("/etc/soda/forgejo.env")
+# Fountain contract: models/nativeoperation OfflineMarkerPath joins this
+# name onto the deployment's AppDataPath. This script never invents a
+# second marker name.
+MARKER_NAME = "nativeop-offline"
+STOP_TIMEOUT = 60
+
+
+def die(message):
+    print("soda-forgejo-domain: %s" % message, file=sys.stderr)
+    sys.exit(1)
+
+
+def run(*cmd):
+    return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+
+def unit_active():
+    return run("systemctl", "is-active", "--quiet", UNIT).returncode == 0
+
+
+def unit_masked():
+    out = run("systemctl", "is-enabled", UNIT)
+    return "masked" in (out.stdout or "")
+
+
+def container_present():
+    out = run("podman", "ps", "--filter", "name=%s" % CONTAINER, "--format", "{{.Names}}")
+    if out.returncode != 0:
+        die("podman ps failed:\n%s" % (out.stdout or ""))
+    return CONTAINER in (out.stdout or "").split()
+
+
+def app_data_path(env_file=ENV_FILE, app_ini=APP_INI):
+    """Resolve the deployment's Forgejo AppDataPath, container-side.
+
+    Reads [server] APP_DATA_PATH from the deployment app.ini with the
+    /etc/soda/forgejo.env FORGEJO__server__APP_DATA_PATH override winning,
+    matching Forgejo's own precedence. Refuses to guess: an absent or
+    relative value is an explicit error, never a default.
+    """
+    value = None
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("FORGEJO__server__APP_DATA_PATH="):
+                value = line.split("=", 1)[1].strip().strip("'\"")
+    if value is None:
+        if not app_ini.is_file():
+            die("deployment app.ini not found at %s" % app_ini)
+        ini = configparser.ConfigParser()
+        ini.read(app_ini)
+        if ini.has_option("server", "APP_DATA_PATH"):
+            value = ini.get("server", "APP_DATA_PATH").strip()
+    if not value:
+        die("APP_DATA_PATH is not set in %s nor %s; refusing to guess" % (app_ini, env_file))
+    if not value.startswith("/"):
+        die("APP_DATA_PATH %r is relative; refusing to resolve against an unknown work path" % value)
+    return value
+
+
+def marker_path(env_file=ENV_FILE, app_ini=APP_INI, data_root=DATA_ROOT):
+    """Map the container-side marker path onto the host data volume."""
+    container = os.path.join(app_data_path(env_file, app_ini), MARKER_NAME)
+    if container != "/data" and not container.startswith("/data/"):
+        die("AppDataPath %r is outside the /data volume; cannot map to the host" % container)
+    host = data_root / os.path.relpath(container, "/data")
+    for parent in (host, host.parent):
+        if parent.is_symlink():
+            die("marker path %s must not contain symlinks" % parent)
+    return host
+
+
+def cmd_stop(_args):
+    out = run("systemctl", "stop", UNIT)
+    if out.returncode != 0:
+        die("systemctl stop failed:\n%s" % (out.stdout or ""))
+    deadline = time.time() + STOP_TIMEOUT
+    while time.time() < deadline:
+        if not unit_active() and not container_present():
+            print("stopped: %s inactive, container %s absent" % (UNIT, CONTAINER))
+            return
+        time.sleep(2)
+    survivors = []
+    if unit_active():
+        survivors.append("unit %s still active" % UNIT)
+    if container_present():
+        survivors.append("container %s still present" % CONTAINER)
+    die("whole-domain stop failed: %s" % "; ".join(survivors))
+
+
+def cmd_inhibit(_args):
+    if unit_active() or container_present():
+        die("native writers still running; run stop first and verify it")
+    out = run("systemctl", "mask", "--runtime", UNIT)
+    if out.returncode != 0:
+        die("systemctl mask failed:\n%s" % (out.stdout or ""))
+    marker = marker_path()
+    marker.write_text("offline recovery\n")
+    os.chmod(marker, 0o600)
+    print("inhibited: %s masked (runtime), marker %s" % (UNIT, marker))
+
+
+def cmd_status(_args):
+    # Bounded host-side readout only: unit state, container presence and
+    # marker presence. Reservation diagnostics stay behind Forgejo's own
+    # `admin native-operation status`, which reads the deployment database
+    # through the native binary; this script never opens native SQL.
+    print("unit: %s %s" % (UNIT, "active" if unit_active() else "inactive"))
+    print("masked: %s" % ("yes" if unit_masked() else "no"))
+    print("container: %s %s" % (CONTAINER, "present" if container_present() else "absent"))
+    try:
+        marker = marker_path()
+    except SystemExit:
+        print("marker: unknown (AppDataPath unresolved)")
+        raise
+    if marker.exists():
+        print("marker: present at %s" % marker)
+    else:
+        print("marker: absent (expected at %s)" % marker)
+
+
+def cmd_lift(_args):
+    try:
+        marker = marker_path()
+    except SystemExit:
+        marker = None
+    if marker is not None and marker.exists():
+        marker.unlink()
+        print("marker removed: %s" % marker)
+    else:
+        print("marker already absent")
+    out = run("systemctl", "unmask", UNIT)
+    if out.returncode != 0:
+        die("systemctl unmask failed:\n%s" % (out.stdout or ""))
+    print("unmasked: %s" % UNIT)
+
+
+def cmd_start(_args):
+    try:
+        marker = marker_path()
+    except SystemExit:
+        marker = None
+    if marker is not None and marker.exists():
+        die("restart inhibited: marker %s present; reconcile, then run lift" % marker)
+    if unit_masked():
+        die("unit %s is masked; run lift first" % UNIT)
+    out = run("systemctl", "start", UNIT)
+    if out.returncode != 0:
+        die("systemctl start failed:\n%s" % (out.stdout or ""))
+    if not unit_active():
+        die("unit %s did not become active" % UNIT)
+    print("started: %s active" % UNIT)
+
+
+parser = argparse.ArgumentParser(prog="soda-forgejo-domain", description=__doc__)
+parser.add_argument(
+    "verb",
+    choices=["stop", "inhibit", "status", "lift", "start"],
+    help="stop writers and verify; mask unit and create the offline marker; "
+    "bounded host-side readout; remove marker and unmask; refuse while "
+    "inhibited, else start the unit",
+)
+args = parser.parse_args()
+if os.geteuid() != 0:
+    parser.error("native host operator/root required")
+{
+    "stop": cmd_stop,
+    "inhibit": cmd_inhibit,
+    "status": cmd_status,
+    "lift": cmd_lift,
+    "start": cmd_start,
+}[args.verb](args)

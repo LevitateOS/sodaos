@@ -171,6 +171,7 @@ if vendor:
     fastfetch.write_text(fastfetch.read_text().replace('/usr/local/share/soda/', '/usr/share/soda/'))
 else:
     copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
+    copy(source / 'appliance/bin/soda-forgejo-domain', '/usr/local/sbin/soda-forgejo-domain', 0o750)
     copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)
     tailnet_cli = stage / 'usr/local/bin/soda-tailnet'
     tailnet_cli.parent.mkdir(parents=True, exist_ok=True)
