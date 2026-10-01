@@ -42,3 +42,34 @@ the [factory operator reference](../reference/factory.md). A repository, project
 join or issue label does not admit work. Follow the
 [first-task walkthrough](../public/30-Use-Soda/15-software-factory.md) for explicit
 admission, verification and human merge.
+
+## Offline native-mutation recovery
+
+When an interrupted conditional or ordinary native mutation leaves its
+reservation owner held, the host operator reconciles it offline under the
+[recovery authority](../architecture/trust.md#sequencing-and-database-recovery) contract. There
+is no force-unlock flag and no timeout-based release; an unknown effect stays
+fenced for intervention.
+
+1. Stop every native writer for the data set through the deployment's
+   service controls: HTTP/SSH write ingress, native services, queue
+   workers, scheduled and admin commands, and all surviving native
+   descendants. Verify the whole domain has stopped; main-process exit
+   alone is insufficient.
+2. Inhibit restart for the duration of reconciliation, then create the
+   offline marker at `$AppDataPath/nativeop-offline` (the Forgejo
+   `AppDataPath` of this deployment). New ownership claims refuse while
+   the marker exists.
+3. Run the offline reconciliation command from the Forgejo server binary,
+   naming the exact held owner and fencing generation:
+   `admin native-operation recover --owner OWNER --generation GENERATION`.
+   The command refuses while the marker is absent.
+4. Read the printed verdict: `released` means the known effect was
+   established and the exact owner released; `idle` means the reservation
+   already holds no owner; `fenced` (exit 3) means the owner stays held —
+   wrong owner/generation, unaccounted effects or uncertain attribution —
+   and needs intervention, not a retry with different names.
+5. Lift inhibition by removing the marker, then restart the native writers.
+
+Durable service/domain stop controls beyond this operator procedure belong to
+the complete native mutation domain work (FT09).
