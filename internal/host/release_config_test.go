@@ -18,7 +18,12 @@ func TestImageDefaultsAreImmutableAndNeverRewriteMachineConfig(t *testing.T) {
 		p.Architecture = "aarch64"
 	}
 	for _, n := range deliver.Names {
-		p.Images[n] = deliver.Image{Reference: p.RepositoryPrefix + "-" + n + "@sha256:" + strings.Repeat("e", 64), Manifest: "sha256:" + strings.Repeat("e", 64), Config: "sha256:" + strings.Repeat("f", 64), ArchiveSHA256: strings.Repeat("1", 64)}
+		manifest, config := strings.Repeat("e", 64), strings.Repeat("f", 64)
+		if n == "extension" {
+			// The payload requires an independent extension image identity.
+			manifest, config = strings.Repeat("0", 64), strings.Repeat("1", 64)
+		}
+		p.Images[n] = deliver.Image{Reference: p.RepositoryPrefix + "-" + n + "@sha256:" + manifest, Manifest: "sha256:" + manifest, Config: "sha256:" + config, ArchiveSHA256: strings.Repeat("1", 64)}
 	}
 	root := t.TempDir()
 	release := filepath.Join(root, "release.json")
