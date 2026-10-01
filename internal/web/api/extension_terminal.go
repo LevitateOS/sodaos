@@ -26,6 +26,7 @@ func (s *API) ExtensionHandler() http.Handler {
 	mux.HandleFunc("/api/environments/{id}/terminal", s.extensionTerminalStream)
 	mux.HandleFunc("/api/environments/{id}/terminal-sessions", s.extensionReserveTerminal)
 	mux.HandleFunc("/api/environments/{id}/terminal-sessions/{terminalID}", s.extensionTerminalSession)
+	mux.HandleFunc("/api/factory/runs/{runID}/output", s.factoryOutputStream)
 	s.registerExtensionProductRoutes(mux)
 	mux.Handle("/", s.Auth.ExtensionHandler())
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -34,7 +35,7 @@ func (s *API) ExtensionHandler() http.Handler {
 			http.NotFound(w, r)
 			return
 		}
-		if !privateTerminalStreamRoute(r) {
+		if !privateTerminalStreamRoute(r) && !privateFactoryOutputRoute(r) {
 			r.Body = http.MaxBytesReader(w, r.Body, auth.APIBodyLimit)
 		}
 		mux.ServeHTTP(w, r)

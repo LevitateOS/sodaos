@@ -29,6 +29,19 @@ type SpaceView struct {
 	Preparation          *spacePreparationView `json:"preparation,omitempty"`
 	FactoryAuthority     *spaceAuthorityView   `json:"factory_authority,omitempty"`
 	FactoryControl       *spaceControlView     `json:"factory_control,omitempty"`
+	FactoryRuns          []SpaceFactoryRun     `json:"factory_runs"`
+}
+
+// SpaceFactoryRun maps one recorded run to its display row: identity,
+// display binding and recorded outcome. Liveness and process identity stay
+// on the run status route; the collection performs no host calls.
+type SpaceFactoryRun struct {
+	Outcome    factory.Outcome `json:"outcome,omitempty"`
+	ID         string          `json:"id"`
+	Role       string          `json:"role"`
+	Issue      string          `json:"issue,omitempty"`
+	Attempt    string          `json:"attempt,omitempty"`
+	Reconciled bool            `json:"reconciled"`
 }
 
 // spaceAuthorityView exposes the effective factory verdict for the row's
@@ -124,7 +137,9 @@ func (s *API) inspectSpaceRow(
 	v store.Session,
 	p store.Project,
 	runs []factory.Run,
+	views map[string]factory.RunView,
 	terminalCount *int,
+	factoryCount *int,
 ) (SpaceView, bool, bool) {
 	check, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
@@ -142,6 +157,7 @@ func (s *API) inspectSpaceRow(
 		Administrator:        reader.administrator && !reader.authorityUnavailable,
 		AuthorityUnavailable: reader.authorityUnavailable,
 		Terminals:            []TerminalView{},
+		FactoryRuns:          []SpaceFactoryRun{},
 	}
 
 	if !s.inspectSpaceNative(check, p, &row) {
@@ -155,7 +171,39 @@ func (s *API) inspectSpaceRow(
 	row.Preparation = s.inspectSpacePreparation(check, p.ID)
 	row.FactoryAuthority = s.inspectSpaceAuthority(check, p.RepositoryID)
 	row.FactoryControl = s.inspectSpaceControl(check, runs, p.ID, p.RepositoryID)
+	row.FactoryRuns, complete = inspectSpaceFactoryRuns(row.FactoryRuns, runs, views, p.ID, factoryCount, complete)
 	return row, true, complete
+}
+
+// inspectSpaceFactoryRuns maps the row's recorded runs to display rows.
+// Like terminals, the collection caps published runs globally; overflow
+// marks the collection incomplete rather than silently dropping truth.
+func inspectSpaceFactoryRuns(
+	out []SpaceFactoryRun,
+	runs []factory.Run,
+	views map[string]factory.RunView,
+	projectID string,
+	factoryCount *int,
+	complete bool,
+) ([]SpaceFactoryRun, bool) {
+	for _, run := range runs {
+		if run.ProjectID != projectID {
+			continue
+		}
+		if *factoryCount >= 64 {
+			return out, false
+		}
+		row := SpaceFactoryRun{ID: run.ID, Role: run.Role, Outcome: run.Outcome, Reconciled: run.Reconciled}
+		if view, ok := views[run.ID]; ok {
+			if view.Issue > 0 {
+				row.Issue = strconv.FormatInt(view.Issue, 10)
+			}
+			row.Attempt = view.Attempt
+		}
+		out = append(out, row)
+		*factoryCount++
+	}
+	return out, complete
 }
 
 func (s *API) inspectSpaceAuthority(ctx context.Context, repository int64) *spaceAuthorityView {
@@ -220,6 +268,7 @@ func (s *API) inspectSpaces(
 	v store.Session,
 	projects []store.Project,
 	runs []factory.Run,
+	views map[string]factory.RunView,
 ) SpacesView {
 	actor := SpacesActor{ID: strconv.FormatInt(v.User.ID, 10), Login: v.User.Login}
 	if authority, ok := requestExtensionAuthority(r); ok {
@@ -230,12 +279,13 @@ func (s *API) inspectSpaces(
 		projects = projects[:128]
 	}
 	terminalCount := 0
+	factoryCount := 0
 	for _, p := range projects {
 		if ctx.Err() != nil || len(response.Items) >= 32 {
 			response.Complete = false
 			break
 		}
-		row, keep, complete := s.inspectSpaceRow(r, ctx, v, p, runs, &terminalCount)
+		row, keep, complete := s.inspectSpaceRow(r, ctx, v, p, runs, views, &terminalCount, &factoryCount)
 		if !complete {
 			response.Complete = false
 		}
@@ -288,7 +338,13 @@ func (s *API) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Session)
 	if err != nil {
 		runs = nil
 	}
-	response := s.inspectSpaces(r, ctx, v, projects, runs)
+	views := map[string]factory.RunView{}
+	if listed, err := s.Store.FactoryRunViews(ctx, 1000); err == nil {
+		for _, view := range listed {
+			views[view.RunID] = view
+		}
+	}
+	response := s.inspectSpaces(r, ctx, v, projects, runs, views)
 	if !s.verifySpacesSession(w, ctx, r, v) {
 		return
 	}

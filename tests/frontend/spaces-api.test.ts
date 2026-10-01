@@ -7,7 +7,9 @@ import {
   factoryAuthorityText,
   factoryControlText,
   factoryCommandId,
+  factoryRunText,
 } from '../../frontend/spaces/sodaspaces-api';
+import type {FactoryRun} from '../../frontend/spaces/sodaspaces-api';
 const binding = {
   expectedUserId: '1',
   repositoryId: '7',
@@ -42,6 +44,7 @@ const row = {
   native_unavailable: false,
   observed: {id: binding.environmentId, running: true},
   terminals: [terminal],
+  factory_runs: [],
 };
 test('repository choices bind stable identity and distinguish existing reservations from Create', () => {
   const repo = {id: '7', owner: 'alice', name: 'repo', can_create: true, project: null};
@@ -202,4 +205,30 @@ test('Factory command identities are idempotent ledger keys', () => {
   const first = factoryCommandId();
   assert.match(first, /^[a-f0-9]{32}$/);
   assert.notEqual(first, factoryCommandId());
+});
+test('Spaces admits factory run rows and renders their status', () => {
+  const actor = {id: '1', login: 'soda-tester'};
+  const active: FactoryRun = {id: 'b'.repeat(32), role: 'coder', issue: '42', attempt: 'attempt-1', reconciled: false};
+  const settled: FactoryRun = {id: 'c'.repeat(32), role: 'reviewer', outcome: 'succeeded', reconciled: true};
+  const parsed = spacesResponse({actor, items: [{...row, factory_runs: [active, settled]}], complete: true});
+  assert.deepEqual(parsed.items[0]?.factory_runs, [active, settled]);
+  assert.equal(factoryRunText(active), 'coder · issue #42 · active');
+  assert.equal(factoryRunText(settled), 'reviewer · run cccccccc · succeeded');
+  assert.equal(
+    factoryRunText({id: 'd'.repeat(32), role: 'coder', attempt: 'attempt-2', reconciled: false}),
+    'coder · attempt-2 · active'
+  );
+  for (const runs of [
+    [{...active, id: 'short'}],
+    [{...active, role: 'Coder'}],
+    [{...active, issue: '0'}],
+    [{...active, attempt: '../escape'}],
+    [{...active, outcome: 'stopped'}],
+    [{...active, reconciled: 'no'}],
+    [active, active],
+    Array(65).fill(active),
+    'runs',
+  ])
+    assert.throws(() => spacesResponse({actor, items: [{...row, factory_runs: runs}], complete: true}));
+  assert.throws(() => spacesResponse({actor, items: [{...row, factory_runs: undefined}], complete: true}));
 });

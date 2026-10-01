@@ -37,6 +37,8 @@ paths are private service routes, not public URLs to call directly:
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |
 | POST | `/api/repositories/{repositoryID}/factory/actions` | Code-write pause/resume of factory dispatch (command envelope) |
 | POST | `/api/factory/runs/{runID}/actions` | Code-write run stop/retry/takeover (command envelope; takeover also requires membership) |
+| GET | `/api/factory/runs/{runID}` | Code-write run status: recorded facts, display binding, observed host state |
+| GET | `/api/factory/runs/{runID}/output` | Code-write read-only run output WebSocket (status/output/closed frames; input rejected) |
 | GET | `/api/factory/commands/{commandID}` | Durable command outcome read-back |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/environments` | List / create environments |

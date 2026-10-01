@@ -267,6 +267,8 @@ func (d *Daemon) acquireAdmission(ctx context.Context) error {
 
 var errNotFound = errors.New("not found")
 
+var errOutputStale = errors.New("factory output incarnation changed")
+
 var errUnavailable = errors.New("factory runtime unavailable")
 
 func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
@@ -289,7 +291,7 @@ func hasNativeCleanPath(r *http.Request) bool {
 	switch r.URL.Path {
 	case "/lifecycle", "/access-keys", "/profile", "/create", "/os",
 		"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold",
-		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover":
+		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output":
 		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
 	default:
 		return true
@@ -479,6 +481,19 @@ func (d *Daemon) dispatchFactory(ctx context.Context, path string, decode func(a
 			return nil, errNotFound
 		}
 		return out, err
+	case "/factory-output":
+		var in project.FactoryOutput
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		out, err := factory.Output(ctx, in)
+		if errors.Is(err, identity.ErrNotFound) {
+			return nil, errNotFound
+		}
+		if errors.Is(err, identity.ErrStale) {
+			return nil, errOutputStale
+		}
+		return out, err
 	default:
 		return nil, errNotFound
 	}
@@ -496,7 +511,7 @@ func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func
 		return d.dispatchMutation(ctx, path, decode)
 	case "/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
 		return d.dispatchPrepare(ctx, path, decode)
-	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover":
+	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output":
 		return d.dispatchFactory(ctx, path, decode)
 	default:
 		return nil, errNotFound
@@ -543,6 +558,10 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if errors.Is(err, errUnavailable) {
 			http.Error(w, "factory runtime unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if errors.Is(err, errOutputStale) {
+			http.Error(w, "factory output incarnation changed", http.StatusConflict)
 			return
 		}
 		slog.Error("project native operation failed", "operation", r.URL.Path, "error", err)

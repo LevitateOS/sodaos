@@ -70,7 +70,7 @@ func Extension(socket string) (http.Handler, func()) {
 			auth.JSONError(w, http.StatusForbidden, "invalid_contribution", "Soda contribution is unavailable.")
 			return
 		}
-		if !extensionTerminalStreamRoute(r) {
+		if !extensionTerminalStreamRoute(r) && !extensionFactoryOutputStreamRoute(r) {
 			r.Body = http.MaxBytesReader(w, r.Body, auth.APIBodyLimit)
 		}
 		proxy.ServeHTTP(w, r)
@@ -203,9 +203,16 @@ func extensionFactoryRoute(parts []string, method string) bool {
 	case 2:
 		return parts[1] == "capacity" && method == http.MethodPut
 	case 3:
-		return parts[1] == "commands" && extensionProductID(parts[2]) && method == http.MethodGet
+		if parts[1] == "commands" && extensionProductID(parts[2]) {
+			return method == http.MethodGet
+		}
+		return parts[1] == "runs" && extensionProductID(parts[2]) && method == http.MethodGet
 	case 4:
-		return parts[1] == "runs" && extensionProductID(parts[2]) && parts[3] == "actions" && method == http.MethodPost
+		if parts[1] != "runs" || !extensionProductID(parts[2]) {
+			return false
+		}
+		return parts[3] == "actions" && method == http.MethodPost ||
+			parts[3] == "output" && method == http.MethodGet
 	}
 	return false
 }
@@ -329,6 +336,14 @@ func extensionTerminalStreamRoute(r *http.Request) bool {
 	return len(parts) == 4 && parts[1] == "environments" && parts[2] != "" && parts[3] == "terminal" && r.Method == http.MethodGet
 }
 
+// extensionFactoryOutputStreamRoute admits the read-only factory output
+// stream through the proxy with its WebSocket upgrade headers. Proxy paths
+// carry no /api prefix; the private service route is registered separately.
+func extensionFactoryOutputStreamRoute(r *http.Request) bool {
+	parts := strings.Split(r.URL.Path, "/")
+	return len(parts) == 5 && parts[1] == "factory" && parts[2] == "runs" && parts[3] != "" && parts[4] == "output" && r.Method == http.MethodGet
+}
+
 func extensionTerminalRoute(r *http.Request) bool {
 	if extensionTerminalStreamRoute(r) {
 		return true
@@ -363,7 +378,7 @@ func rewriteExtensionRequest(request *httputil.ProxyRequest) {
 			request.Out.Header.Add(name, value)
 		}
 	}
-	if extensionTerminalStreamRoute(request.In) {
+	if extensionTerminalStreamRoute(request.In) || extensionFactoryOutputStreamRoute(request.In) {
 		for _, name := range []string{"Connection", "Upgrade", "Sec-WebSocket-Key", "Sec-WebSocket-Version"} {
 			for _, value := range request.In.Header.Values(name) {
 				request.Out.Header.Add(name, value)

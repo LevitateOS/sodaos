@@ -42,6 +42,7 @@ export function createWorkspaceModel(
     native_unavailable: false,
     observed: {id: p.id, running: true},
     terminals: [],
+    factory_runs: [],
   }));
   const alpha = spaces[0],
     beta = spaces[1];
@@ -139,6 +140,7 @@ export function createWorkspaceModel(
           ...base,
           login: '',
           terminals: [],
+          factory_runs: [],
           environment: {...base.environment, profile, provisioned: createOutcome !== 'incomplete'},
         };
         spaces.push(space);

@@ -50,6 +50,16 @@ func factoryCodexPaths(run domain.FactoryRun) (FactoryCodexPaths, error) {
 	}, nil
 }
 
+// FactoryCodexOutputSlice is one observed byte slice of a run's recorded
+// CLI output with its cursor placement.
+type FactoryCodexOutputSlice struct {
+	Data      []byte
+	Total     int64
+	Offset    int64
+	Truncated bool
+	Gap       bool
+}
+
 // systemdEscape doubles every dollar for command text transported through
 // systemd-run: the manager reduces $$ to a literal $ and would otherwise
 // erase $VAR references and collapse $$ before the shell ever runs. Only

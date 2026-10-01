@@ -12,6 +12,11 @@ import (
 // fence unknown runs; absence of a receipt is not proof of retirement.
 var ErrRunNotFound = errors.New("factory run not found")
 
+// ErrRunStale reports a recorded run whose container incarnation no longer
+// resolves. Callers refuse the read rather than serving another
+// execution's bytes.
+var ErrRunStale = errors.New("factory run incarnation changed")
+
 // factoryResponseLimit bounds run observations, which carry bounded
 // last-message output alongside the recorded state.
 const factoryResponseLimit = 128 << 10
@@ -20,6 +25,22 @@ func factoryNotFound(err error) error {
 	var httpErr nativeHTTPError
 	if errors.As(err, &httpErr) && httpErr.status == http.StatusNotFound {
 		return ErrRunNotFound
+	}
+	return err
+}
+
+func factoryOutputError(in project.FactoryOutput, out project.FactoryOutputState, err error) error {
+	var httpErr nativeHTTPError
+	if errors.As(err, &httpErr) {
+		if httpErr.status == http.StatusNotFound {
+			return ErrRunNotFound
+		}
+		if httpErr.status == http.StatusConflict {
+			return ErrRunStale
+		}
+	}
+	if err == nil && (out.ID != in.ID || out.Project != in.Project || !project.ValidFactoryPhase(out.Phase)) {
+		return errors.New("native factory output does not match its identity")
 	}
 	return err
 }
@@ -54,6 +75,12 @@ func (c *Client) FactoryStop(ctx context.Context, in project.FactoryStop) (proje
 		err = errors.New("native factory stop was not confirmed")
 	}
 	return out, err
+}
+
+func (c *Client) FactoryOutput(ctx context.Context, in project.FactoryOutput) (project.FactoryOutputState, error) {
+	var out project.FactoryOutputState
+	err := c.callLimit(ctx, "/factory-output", in, &out, factoryResponseLimit)
+	return out, factoryOutputError(in, out, err)
 }
 
 func (c *Client) FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error) {

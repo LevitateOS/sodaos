@@ -31,7 +31,7 @@ func TestOpenCreatesOnlyTheCurrentSchema(t *testing.T) {
 }
 
 func TestOpenRejectsOldSchemaWithoutMutation(t *testing.T) {
-	for _, version := range []int{1, 13, 14, 15, 16, 17, 18} {
+	for _, version := range []int{1, 13, 14, 15, 16, 17, 18, 19} {
 		t.Run("version_"+strconv.Itoa(version), func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "old.db")
 			db, err := sql.Open("sqlite", path)
