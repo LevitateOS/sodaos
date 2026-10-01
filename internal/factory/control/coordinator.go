@@ -28,11 +28,13 @@ var (
 	ErrCommandRunning = errors.New("factory command already running")
 )
 
-// HostFactory is the coordinator's entire host surface: stop retires one run
-// and returns its observed state. Launch and inspection belong to dispatch
-// and watch transports, not to supervision.
+// HostFactory is the coordinator's entire host surface: stop retires one
+// run, inspect observes one run without mutating it, and takeover copies a
+// retired run's retained work. Launch belongs to dispatch, not supervision.
 type HostFactory interface {
 	FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error)
+	FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error)
+	FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error)
 }
 
 // BrokerExecution is the coordinator's entire broker surface: close seals

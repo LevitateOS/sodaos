@@ -189,6 +189,8 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 		switch parts[3] {
 		case "policy", "operator-grant", "environment-grant":
 			return method == http.MethodPut
+		case "actions":
+			return method == http.MethodPost
 		}
 		return false
 	}
@@ -197,7 +199,15 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 }
 
 func extensionFactoryRoute(parts []string, method string) bool {
-	return len(parts) == 2 && parts[1] == "capacity" && method == http.MethodPut
+	switch len(parts) {
+	case 2:
+		return parts[1] == "capacity" && method == http.MethodPut
+	case 3:
+		return parts[1] == "commands" && extensionProductID(parts[2]) && method == http.MethodGet
+	case 4:
+		return parts[1] == "runs" && extensionProductID(parts[2]) && parts[3] == "actions" && method == http.MethodPost
+	}
+	return false
 }
 
 func extensionEnvironmentRoute(parts []string, method string) bool {

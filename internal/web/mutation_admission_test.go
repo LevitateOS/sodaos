@@ -67,6 +67,13 @@ func TestMutationAdmissionAfterNativeCallbackIO(t *testing.T) {
 						}
 						_, _ = w.WriteString(`{"revision":"` + strings.Repeat("a", 64) + `","keys":[]}`)
 					default:
+						if req.URL.Path == "/prepare-hold" {
+							if operation != "stop" || in["hold"] != true {
+								t.Error("hold dispatched outside coordinated stop")
+							}
+							_, _ = w.WriteString(`{"active":true,"revision":1}`)
+							break
+						}
 						if req.URL.Path != "/lifecycle" || in["action"] != operation {
 							t.Error("lifecycle action changed")
 						}
@@ -104,7 +111,13 @@ func TestMutationAdmissionAfterNativeCallbackIO(t *testing.T) {
 				w := httptest.NewRecorder()
 				nativeAPIServeWithCallback(t, s, w, r, callback)
 				if change == "unchanged" {
-					if w.Code != 200 || nativeCalls != 1 {
+					// Coordinated stop dispatches the maintenance hold before
+					// the lifecycle call; every other mutation keeps one call.
+					want := 1
+					if operation == "stop" {
+						want = 2
+					}
+					if w.Code != 200 || nativeCalls != want {
 						t.Errorf("authorized mutation: status=%d native=%d body=%s", w.Code, nativeCalls, w.Body.String())
 					}
 				} else if w.Code < 400 || nativeCalls != 0 {

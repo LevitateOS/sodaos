@@ -80,6 +80,29 @@ func TestFactoryStopValidationNeverExecutes(t *testing.T) {
 	}
 }
 
+func TestFactoryTakeoverValidationNeverExecutes(t *testing.T) {
+	exec := &factoryNoExec{}
+	d := testFactoryDaemon(t, exec)
+	r := httptest.NewRequest(http.MethodPost, "/factory-takeover", strings.NewReader(`{"project":"p123456789012345678901234","id":"`+strings.Repeat("a", 32)+`","member":"../../root"}`))
+	w := httptest.NewRecorder()
+	d.ServeHTTP(w, r)
+	if w.Code == http.StatusOK || exec.called {
+		t.Fatal("untrusted takeover member reached native execution")
+	}
+}
+
+func TestFactoryTakeoverUnknownRunIsNotFound(t *testing.T) {
+	exec := &factoryNoExec{}
+	d := testFactoryDaemon(t, exec)
+	body, _ := json.Marshal(project.FactoryTakeover{Project: "p123456789012345678901234", ID: strings.Repeat("a", 32), Member: "alice"})
+	r := httptest.NewRequest(http.MethodPost, "/factory-takeover", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	d.ServeHTTP(w, r)
+	if w.Code != http.StatusNotFound || exec.called {
+		t.Fatal("unknown takeover was not a clean miss", w.Code)
+	}
+}
+
 func factoryCallback(t *testing.T, d *Daemon, action string, lease identity.Lease) error {
 	t.Helper()
 	body, err := json.Marshal(identity.DeliveryWire{Lease: lease})

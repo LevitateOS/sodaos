@@ -24,9 +24,11 @@ const FactoryStateRoot = "/var/lib/soda/host/factory"
 
 // Factory orchestrates supervised factory runs: durable run receipts, broker
 // lease acquisition with execution identity, and managed native execution
-// through host/terminal. It never holds its per-run lock across broker or
-// native calls; late-stop fencing works through receipt re-checks and broker
-// close, so the Register-to-Validate callback cannot deadlock against it.
+// through host/terminal. Launch and stop never hold the per-run lock across
+// broker or native calls; late-stop fencing works through receipt re-checks
+// and broker close, so the Register-to-Validate callback cannot deadlock
+// against them. Takeover is the exception: it makes no broker calls, so it
+// holds the lock across the copy to serialize duplicate takeovers.
 type Factory struct {
 	terminal *terminal.Service
 	broker   *identityclient.Client
@@ -726,6 +728,47 @@ func (f *Factory) Inspect(ctx context.Context, req domain.FactoryInspect) (domai
 		cancel()
 	}
 	return receiptState(receipt, live), nil
+}
+
+// Takeover copies one retired run's retained work into the admitted
+// member's own derived checkout destination. The receipt must be terminal
+// with a recorded binding; the copy verifies the recorded container
+// incarnation against the current running Project container and excludes
+// role Git state plus the private run homes. Uncertain, running and
+// never-admitted runs refuse: takeover cannot finish while retirement or
+// credential accounting is unresolved.
+func (f *Factory) Takeover(ctx context.Context, req domain.FactoryTakeover) (domain.TakeoverResult, error) {
+	var empty domain.TakeoverResult
+	if err := req.Validate(); err != nil {
+		return empty, err
+	}
+	file, err := f.lockRun(ctx, req.Project, req.ID)
+	if err != nil {
+		return empty, err
+	}
+	defer func() { _ = file.Close() }()
+	receipt, exists, err := f.loadReceipt(req.Project, req.ID)
+	if err != nil {
+		return empty, err
+	}
+	if !exists {
+		return empty, identity.ErrNotFound
+	}
+	if !receiptTerminal(receipt.Phase) || receipt.Run.Validate() != nil || receipt.Binding == nil {
+		return empty, errors.New("factory run is not retired for takeover")
+	}
+	if !domain.TakeoverSource("/home/"+receipt.Run.Role+"/checkouts/"+receipt.Run.Preparation, receipt.Run.Role, receipt.Run.Preparation) {
+		return empty, errors.New("invalid takeover source")
+	}
+	dest, reused, err := f.terminal.FactoryTakeoverCopy(ctx, req.Project, receipt.Binding.Project, receipt.Run.Role, receipt.Run.Preparation, req.Member, req.ID)
+	if err != nil {
+		return empty, err
+	}
+	result := domain.TakeoverResult{ID: req.ID, Project: req.Project, Member: req.Member, Destination: dest, Reused: reused}
+	if err = result.Validate(); err != nil {
+		return empty, err
+	}
+	return result, nil
 }
 
 func (f *Factory) recordStopOutcome(ctx context.Context, receipt factoryReceipt, uncertain bool, reason string, overwrite bool) (domain.FactoryState, error) {

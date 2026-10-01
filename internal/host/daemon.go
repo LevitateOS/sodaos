@@ -289,7 +289,7 @@ func hasNativeCleanPath(r *http.Request) bool {
 	switch r.URL.Path {
 	case "/lifecycle", "/access-keys", "/profile", "/create", "/os",
 		"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold",
-		"/factory-launch", "/factory-inspect", "/factory-stop":
+		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover":
 		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
 	default:
 		return true
@@ -469,6 +469,16 @@ func (d *Daemon) dispatchFactory(ctx context.Context, path string, decode func(a
 			return nil, err
 		}
 		return factory.Stop(ctx, in)
+	case "/factory-takeover":
+		var in project.FactoryTakeover
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		out, err := factory.Takeover(ctx, in)
+		if errors.Is(err, identity.ErrNotFound) {
+			return nil, errNotFound
+		}
+		return out, err
 	default:
 		return nil, errNotFound
 	}
@@ -486,7 +496,7 @@ func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func
 		return d.dispatchMutation(ctx, path, decode)
 	case "/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
 		return d.dispatchPrepare(ctx, path, decode)
-	case "/factory-launch", "/factory-inspect", "/factory-stop":
+	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover":
 		return d.dispatchFactory(ctx, path, decode)
 	default:
 		return nil, errNotFound

@@ -48,6 +48,9 @@ func managementWebFixture(t *testing.T) (*Server, *[]string) {
 				t.Error("untrusted lifecycle target")
 			}
 			response = fmt.Sprintf(`{"environment":{"id":%q,"running":%t},"boot_enabled":%t}`, webTerminalProject, running, running)
+		case "/prepare-hold":
+			hold, _ := body["hold"].(bool)
+			response = fmt.Sprintf(`{"active":%t,"revision":1}`, hold)
 		case "/access-keys":
 			if body["identity"] != float64(1) || body["login"] != "original-alice" {
 				t.Error("key update remapped native identity")

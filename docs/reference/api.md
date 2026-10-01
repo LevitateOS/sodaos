@@ -35,6 +35,9 @@ paths are private service routes, not public URLs to call directly:
 | PUT | `/api/repositories/{repositoryID}/factory/environment-grant` | Owner environment setup permission (command envelope) |
 | PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
 | PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |
+| POST | `/api/repositories/{repositoryID}/factory/actions` | Code-write pause/resume of factory dispatch (command envelope) |
+| POST | `/api/factory/runs/{runID}/actions` | Code-write run stop/retry/takeover (command envelope; takeover also requires membership) |
+| GET | `/api/factory/commands/{commandID}` | Durable command outcome read-back |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/environments` | List / create environments |
 | GET | `/api/environments/{id}` | Environment detail |
@@ -42,7 +45,7 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/environments/{id}/members` | Members |
 | GET | `/api/environments/{id}/connection` | Connection details |
 | GET | `/api/environments/{id}/os` | OS/profile observation |
-| GET/POST | `/api/environments/{id}/lifecycle` | Lifecycle read / Start/Stop |
+| GET/POST | `/api/environments/{id}/lifecycle` | Lifecycle read / coordinated Start/Stop (dispatch withdrawal, run stop, maintenance hold, no-revive verification) |
 | GET/POST | `/api/environments/{id}/access-keys` | Managed access keys |
 | GET/POST | `/api/environments/{id}/preparation` | Preparation read / maintenance hold |
 | POST | `/api/environments/{id}/preparation/acceptances` | Maintainer requirement acceptance (decision envelope) |

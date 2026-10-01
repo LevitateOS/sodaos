@@ -1,10 +1,13 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/levitateos/sodaos/internal/web/auth"
 
+	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 )
@@ -122,24 +125,124 @@ func (s *API) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Sessi
 	if !ok {
 		return
 	}
-	action := "inspect"
 	if r.Method == "POST" {
-		var cleanup func()
-		var ok bool
-		action, cleanup, ok = s.handleLifecycleMutation(w, r, v, p)
+		action, cleanup, ok := s.handleLifecycleMutation(w, r, v, p)
 		if !ok {
 			return
 		}
 		if cleanup != nil {
 			defer cleanup()
 		}
-	} else if _, ok := s.authorizeEnvironmentRead(w, r, v, p); !ok {
+		if action == "stop" {
+			s.apiLifecycleStop(w, r, v, p)
+		} else {
+			s.apiLifecycleStart(w, r, v, p)
+		}
 		return
 	}
-	result, err := s.Host.Lifecycle(r.Context(), project.Lifecycle{Project: p.ID, Action: action})
+	if _, ok := s.authorizeEnvironmentRead(w, r, v, p); !ok {
+		return
+	}
+	result, err := s.Host.Lifecycle(r.Context(), project.Lifecycle{Project: p.ID, Action: "inspect"})
 	if err != nil {
 		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Refresh or ask the operator to inspect; do not repeat or repair blindly.")
 		return
 	}
 	auth.JSONResponse(w, 200, result)
+}
+
+// lifecycleStopControlView reports the factory coordination around an
+// explicit Project stop: the withdrawal that closed dispatch first, every
+// outstanding run's stop outcome, and the maintenance hold state. Uncertain
+// runs stay fenced inside the receipt; the stop itself still proceeds.
+type lifecycleStopControlView struct {
+	Withdrawal factory.Withdrawal       `json:"withdrawal"`
+	Runs       []factory.RunStopOutcome `json:"runs"`
+	Hold       bool                     `json:"hold"`
+	HoldSynced bool                     `json:"hold_synced"`
+}
+
+type lifecycleStopView struct {
+	project.LifecycleState
+	Control lifecycleStopControlView `json:"control"`
+}
+
+// apiLifecycleStop coordinates an explicit Project stop: withdraw dispatch
+// and stop outstanding runs first, set the maintenance hold, then stop the
+// host unit. A hold failure never wedges the stop; it is reported instead.
+func (s *API) apiLifecycleStop(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) {
+	if s.Coordinator == nil {
+		auth.JSONError(w, 500, "coordinator_unavailable", "Factory coordination is unavailable.")
+		return
+	}
+	withdrawal, outcomes, err := s.Coordinator.StopProject(r.Context(), factoryPrincipal(v), p.ID)
+	if err != nil {
+		if errors.Is(err, control.ErrNotFound) {
+			auth.JSONError(w, 404, "not_found", "Environment not found.")
+		} else {
+			auth.JSONError(w, 503, "store_unavailable", "Could not withdraw factory dispatch.")
+		}
+		return
+	}
+	held, synced := s.lifecycleStopHold(r, p.ID)
+	result, err := s.Host.Lifecycle(r.Context(), project.Lifecycle{Project: p.ID, Action: "stop"})
+	if err != nil {
+		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Refresh or ask the operator to inspect; do not repeat or repair blindly.")
+		return
+	}
+	auth.JSONResponse(w, 200, lifecycleStopView{LifecycleState: result, Control: lifecycleStopControlView{Withdrawal: withdrawal, Runs: outcomes, Hold: held, HoldSynced: synced}})
+}
+
+// lifecycleStopHold sets the maintenance hold marker-first, following the
+// preparation hold protocol. An already held project needs no marker
+// write; any failure reports unsynced and lets the stop proceed.
+func (s *API) lifecycleStopHold(r *http.Request, projectID string) (held, synced bool) {
+	current, err := s.Store.MaintenanceHold(r.Context(), projectID)
+	if err == nil && current.Hold {
+		return true, true
+	}
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return false, false
+	}
+	var revision int64
+	if err == nil {
+		revision = current.Revision
+	}
+	if _, err = s.Host.HoldPreparation(r.Context(), project.PrepareHold{Project: projectID, Hold: true, Revision: revision + 1}); err != nil {
+		return false, false
+	}
+	if err = s.Store.SaveMaintenanceHold(r.Context(), project.MaintenanceHold{Project: projectID, Revision: revision, Hold: true}); err != nil {
+		return false, false
+	}
+	return true, true
+}
+
+type lifecycleStartView struct {
+	project.LifecycleState
+	Verification factory.StartVerification `json:"verification"`
+}
+
+// apiLifecycleStart starts the host unit and then proves no old run
+// revived. Leases stay closed and the maintenance hold keeps its state;
+// releasing it stays an explicit hold control.
+func (s *API) apiLifecycleStart(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) {
+	if s.Coordinator == nil {
+		auth.JSONError(w, 500, "coordinator_unavailable", "Factory coordination is unavailable.")
+		return
+	}
+	result, err := s.Host.Lifecycle(r.Context(), project.Lifecycle{Project: p.ID, Action: "start"})
+	if err != nil {
+		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Refresh or ask the operator to inspect; do not repeat or repair blindly.")
+		return
+	}
+	verification, err := s.Coordinator.VerifyProjectStart(r.Context(), p.ID)
+	if err != nil {
+		if errors.Is(err, control.ErrNotFound) {
+			auth.JSONError(w, 404, "not_found", "Environment not found.")
+		} else {
+			auth.JSONError(w, 503, "store_unavailable", "Project started but revival could not be verified; refresh and reconcile.")
+		}
+		return
+	}
+	auth.JSONResponse(w, 200, lifecycleStartView{LifecycleState: result, Verification: verification})
 }

@@ -49,6 +49,7 @@ import {
   repositoryChoices,
   projectId,
   factoryAuthorityText,
+  factoryControlText,
 } from './sodaspaces-api.js';
 import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
@@ -1533,7 +1534,8 @@ export class SodaSpaces extends LitElement {
     return (
       this.projectStatus(space) +
       (space.tailnet_state ? ' · Tailnet policy: ' + space.tailnet_state : '') +
-      factoryAuthorityText(space.factory_authority)
+      factoryAuthorityText(space.factory_authority) +
+      factoryControlText(space.factory_control)
     );
   }
   private projectRows(space: Space) {

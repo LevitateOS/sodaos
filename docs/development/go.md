@@ -14,8 +14,8 @@ remain in [architecture](../architecture/overview.md).
 | If you are adding… | It goes in… |
 | --- | --- |
 | Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
-| Supervised factory runs: status/stop/reconcile coordinator | `factory/control`; `cmd/soda-factory` is a thin client of its private operator endpoint |
-| Run identity, outcome and operator command records | `factory` — pure domain types and validation; no runtime or SQL |
+| Supervised factory runs: status/stop/reconcile coordinator plus pause/resume/retry/takeover lifecycle controls | `factory/control`; `cmd/soda-factory` is a thin client of its private operator endpoint |
+| Run identity, outcome and operator/control command records | `factory` — pure domain types and validation; no runtime or SQL |
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
 | Serialized provider custody and enrollment | `identity/control`; `cmd/soda-identity` wires private service/runtime |
 | Muse native device enrollment and immutable CLI credentials | `identity/muse` — pinned upstream CLI; no Meta refresh service |

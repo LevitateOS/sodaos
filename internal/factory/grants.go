@@ -48,14 +48,21 @@ const (
 	CommandRequirement      = "preparation-requirement"
 	CommandApproval         = "preparation-approval"
 	CommandReopen           = "reopen"
+	CommandPause            = "pause"
+	CommandResume           = "resume"
+	CommandRetry            = "retry"
+	CommandTakeover         = "takeover"
 )
 
 // SettingsCommandType reports whether typ is a grant/settings command. The
 // operator stop/reconcile commands stay payload-free with their own digest.
+// Lifecycle pause/resume/retry/takeover ride the same idempotent ledger
+// through the admitted browser controls, never the operator endpoint.
 func SettingsCommandType(typ string) bool {
 	switch typ {
 	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship,
-		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen:
+		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
+		CommandPause, CommandResume, CommandRetry, CommandTakeover:
 		return true
 	default:
 		return false

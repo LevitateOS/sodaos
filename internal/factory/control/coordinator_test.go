@@ -15,13 +15,29 @@ import (
 )
 
 type stubHost struct {
-	stop  func(project.FactoryStop) (project.FactoryState, error)
-	calls int
+	stop     func(project.FactoryStop) (project.FactoryState, error)
+	inspect  func(project.FactoryInspect) (project.FactoryState, error)
+	takeover func(project.FactoryTakeover) (project.TakeoverResult, error)
+	calls    int
 }
 
 func (s *stubHost) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
 	s.calls++
 	return s.stop(in)
+}
+
+func (s *stubHost) FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error) {
+	if s.inspect == nil {
+		return project.FactoryState{}, errors.New("unexpected host inspect")
+	}
+	return s.inspect(in)
+}
+
+func (s *stubHost) FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error) {
+	if s.takeover == nil {
+		return project.TakeoverResult{}, errors.New("unexpected host takeover")
+	}
+	return s.takeover(in)
 }
 
 type stubBroker struct {

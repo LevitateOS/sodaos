@@ -10,6 +10,7 @@ import (
 
 	"github.com/levitateos/sodaos/internal/web/auth"
 
+	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
@@ -27,6 +28,7 @@ type SpaceView struct {
 	Terminals            []TerminalView        `json:"terminals"`
 	Preparation          *spacePreparationView `json:"preparation,omitempty"`
 	FactoryAuthority     *spaceAuthorityView   `json:"factory_authority,omitempty"`
+	FactoryControl       *spaceControlView     `json:"factory_control,omitempty"`
 }
 
 // spaceAuthorityView exposes the effective factory verdict for the row's
@@ -121,6 +123,7 @@ func (s *API) inspectSpaceRow(
 	ctx context.Context,
 	v store.Session,
 	p store.Project,
+	runs []factory.Run,
 	terminalCount *int,
 ) (SpaceView, bool, bool) {
 	check, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -151,6 +154,7 @@ func (s *API) inspectSpaceRow(
 	// Preparation readiness is a durable store read, never a native call.
 	row.Preparation = s.inspectSpacePreparation(check, p.ID)
 	row.FactoryAuthority = s.inspectSpaceAuthority(check, p.RepositoryID)
+	row.FactoryControl = s.inspectSpaceControl(check, runs, p.ID, p.RepositoryID)
 	return row, true, complete
 }
 
@@ -163,6 +167,40 @@ func (s *API) inspectSpaceAuthority(ctx context.Context, repository int64) *spac
 		return nil
 	}
 	return &spaceAuthorityView{Missing: effective.Missing, Effective: effective.Effective, DispatchOpen: effective.DispatchOpen}
+}
+
+// spaceControlView exposes the intervention state for the row's factory:
+// whether dispatch is open and why it closed, whether the owner paused,
+// and how many recorded runs are unsettled. It carries reason codes and
+// counts only, never credentials or run contents.
+type spaceControlView struct {
+	WithdrawalCause string `json:"withdrawal_cause,omitempty"`
+	UnsettledRuns   int    `json:"unsettled_runs"`
+	Paused          bool   `json:"paused"`
+	DispatchOpen    bool   `json:"dispatch_open"`
+}
+
+func (s *API) inspectSpaceControl(ctx context.Context, runs []factory.Run, projectID string, repository int64) *spaceControlView {
+	view := &spaceControlView{}
+	if policy, err := s.Store.RepositoryPolicy(ctx, repository); err == nil {
+		view.Paused = policy.Paused
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	open, _, withdrawal, err := s.Store.DispatchState(ctx, repository)
+	if err != nil {
+		return nil
+	}
+	view.DispatchOpen = open
+	if !open {
+		view.WithdrawalCause = withdrawal.Cause
+	}
+	for _, run := range runs {
+		if run.ProjectID == projectID && !run.Reconciled {
+			view.UnsettledRuns++
+		}
+	}
+	return view
 }
 
 func appendSpaceRow(response *SpacesView, row SpaceView) bool {
@@ -181,6 +219,7 @@ func (s *API) inspectSpaces(
 	ctx context.Context,
 	v store.Session,
 	projects []store.Project,
+	runs []factory.Run,
 ) SpacesView {
 	actor := SpacesActor{ID: strconv.FormatInt(v.User.ID, 10), Login: v.User.Login}
 	if authority, ok := requestExtensionAuthority(r); ok {
@@ -196,7 +235,7 @@ func (s *API) inspectSpaces(
 			response.Complete = false
 			break
 		}
-		row, keep, complete := s.inspectSpaceRow(r, ctx, v, p, &terminalCount)
+		row, keep, complete := s.inspectSpaceRow(r, ctx, v, p, runs, &terminalCount)
 		if !complete {
 			response.Complete = false
 		}
@@ -245,7 +284,11 @@ func (s *API) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Session)
 		auth.JSONError(w, 503, "spaces_unavailable", "Could not enumerate Soda associations.")
 		return
 	}
-	response := s.inspectSpaces(r, ctx, v, projects)
+	runs, err := s.Store.FactoryRuns(ctx, 1000)
+	if err != nil {
+		runs = nil
+	}
+	response := s.inspectSpaces(r, ctx, v, projects, runs)
 	if !s.verifySpacesSession(w, ctx, r, v) {
 		return
 	}

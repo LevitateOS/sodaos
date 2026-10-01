@@ -55,3 +55,12 @@ func (c *Client) FactoryStop(ctx context.Context, in project.FactoryStop) (proje
 	}
 	return out, err
 }
+
+func (c *Client) FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error) {
+	var out project.TakeoverResult
+	err := c.callLimit(ctx, "/factory-takeover", in, &out, factoryResponseLimit)
+	if err == nil && (out.Validate() != nil || out.ID != in.ID || out.Project != in.Project || out.Member != in.Member) {
+		err = errors.New("native factory takeover did not return the admitted destination")
+	}
+	return out, factoryNotFound(err)
+}

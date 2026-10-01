@@ -301,9 +301,16 @@ export interface FactoryAuthority {
   dispatch_open: boolean;
   missing: string[];
 }
+export interface FactoryControl {
+  dispatch_open: boolean;
+  paused: boolean;
+  unsettled_runs: number;
+  withdrawal_cause?: string;
+}
 export interface Space {
   tailnet_state?: string;
   factory_authority?: FactoryAuthority;
+  factory_control?: FactoryControl;
   environment: Environment & {name: string; repository: string; owner_id: string; provisioned: boolean};
   login: string;
   environment_administrator: boolean;
@@ -319,6 +326,24 @@ export function factoryAuthorityText(authority: FactoryAuthority | undefined) {
   if (!authority) return '';
   if (authority.effective) return ' · Factory ready';
   return ' · Factory needs: ' + authority.missing.slice(0, 3).join(', ');
+}
+// factoryControlText renders the admitted intervention state as a bounded
+// status suffix: sticky pause, closed dispatch and unsettled runs.
+export function factoryControlText(control: FactoryControl | undefined) {
+  if (!control) return '';
+  const parts: string[] = [];
+  if (control.paused) parts.push('paused');
+  if (!control.dispatch_open)
+    parts.push('dispatch closed' + (control.withdrawal_cause ? ': ' + control.withdrawal_cause : ''));
+  if (control.unsettled_runs > 0) parts.push(control.unsettled_runs + ' unsettled');
+  if (parts.length === 0) return '';
+  return ' · Factory ' + parts.join(', ');
+}
+// factoryCommandId generates a client command identity for one idempotent
+// lifecycle control. The backend replays a reused identity instead of
+// executing twice.
+export function factoryCommandId() {
+  return crypto.randomUUID().replace(/-/g, '');
 }
 function spaceNetwork(data: Record<string, unknown>) {
   const network = data.tailnet_state;
@@ -342,6 +367,29 @@ function spaceFactoryAuthority(row: Record<string, unknown>) {
     effective: detail.effective as boolean,
     dispatch_open: detail.dispatch_open as boolean,
     missing,
+  };
+}
+function admitUnsettledRuns(value: unknown) {
+  check(typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 1000);
+  return value as number;
+}
+function admitWithdrawalCause(cause: unknown, open: boolean) {
+  check(open || cause !== undefined);
+  check(cause === undefined || (typeof cause === 'string' && /^[a-z_]{1,256}$/.test(cause)));
+  return typeof cause === 'string' ? cause : undefined;
+}
+function spaceFactoryControl(row: Record<string, unknown>) {
+  const control = row.factory_control;
+  if (control === undefined) return undefined;
+  const detail = object(control);
+  check(typeof detail.dispatch_open === 'boolean' && typeof detail.paused === 'boolean');
+  const open = detail.dispatch_open as boolean;
+  const cause = admitWithdrawalCause(detail.withdrawal_cause, open);
+  return {
+    dispatch_open: open,
+    paused: detail.paused as boolean,
+    unsettled_runs: admitUnsettledRuns(detail.unsettled_runs),
+    ...(cause ? {withdrawal_cause: cause} : {}),
   };
 }
 function admitSpaceTerminal(
@@ -401,10 +449,12 @@ function spaceItem(
   const terminals = spaceTerminals(row, detail, expectedUserId, repositoryId, environmentId, sessions);
   const network = spaceNetwork(data);
   const authority = spaceFactoryAuthority(row);
+  const control = spaceFactoryControl(row);
   return {
     ...detail,
     ...(typeof network === 'string' ? {tailnet_state: network} : {}),
     ...(authority ? {factory_authority: authority} : {}),
+    ...(control ? {factory_control: control} : {}),
     environment: {...detail.environment, name: env.name, repository: env.repository, owner_id: env.owner_id},
     terminals,
   };

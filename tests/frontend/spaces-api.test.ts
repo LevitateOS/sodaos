@@ -5,6 +5,8 @@ import {
   terminalResponse,
   repositoryChoices,
   factoryAuthorityText,
+  factoryControlText,
+  factoryCommandId,
 } from '../../frontend/spaces/sodaspaces-api';
 const binding = {
   expectedUserId: '1',
@@ -162,4 +164,42 @@ test('Spaces admits the factory authority verdict and renders its status', () =>
       complete: true,
     })
   );
+});
+test('Spaces admits the factory control state and renders its status', () => {
+  const actor = {id: '1', login: 'soda-tester'};
+  const paused = {dispatch_open: false, paused: true, unsettled_runs: 2, withdrawal_cause: 'control_paused'};
+  const parsed = spacesResponse({actor, items: [{...row, factory_control: paused}], complete: true});
+  assert.deepEqual(parsed.items[0]?.factory_control, paused);
+  const absent = spacesResponse({actor, items: [row], complete: true});
+  assert.equal(absent.items[0]?.factory_control, undefined);
+  assert.equal(factoryControlText(undefined), '');
+  assert.equal(factoryControlText({dispatch_open: true, paused: false, unsettled_runs: 0}), '');
+  assert.equal(factoryControlText(paused), ' · Factory paused, dispatch closed: control_paused, 2 unsettled');
+  assert.equal(factoryControlText({dispatch_open: true, paused: false, unsettled_runs: 1}), ' · Factory 1 unsettled');
+  assert.throws(() =>
+    spacesResponse({
+      actor,
+      items: [{...row, factory_control: {...paused, unsettled_runs: -1}}],
+      complete: true,
+    })
+  );
+  assert.throws(() =>
+    spacesResponse({
+      actor,
+      items: [{...row, factory_control: {...paused, withdrawal_cause: 'Control Paused'}}],
+      complete: true,
+    })
+  );
+  assert.throws(() =>
+    spacesResponse({
+      actor,
+      items: [{...row, factory_control: {dispatch_open: false, paused: false, unsettled_runs: 0}}],
+      complete: true,
+    })
+  );
+});
+test('Factory command identities are idempotent ledger keys', () => {
+  const first = factoryCommandId();
+  assert.match(first, /^[a-f0-9]{32}$/);
+  assert.notEqual(first, factoryCommandId());
 });
