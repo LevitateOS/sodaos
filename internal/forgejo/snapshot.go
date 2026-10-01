@@ -1,5 +1,5 @@
 // Package forgejo snapshot reads are the thin Soda caller for permission-checked
-// native evidence (FT10, early start).
+// native evidence (FT10, F-read).
 //
 // A SnapshotRequest selects bounded native families; BracketedRead observes
 // the atomic native revision before and after the read and accepts the
@@ -8,12 +8,11 @@
 // records are returned with Visible=false so the consumer blocks work
 // without leaking inaccessible content.
 //
-// This file defines DTOs and bracket logic only. The native snapshot
-// transport (SDK read dispatch plus host conversion) is coordinated work
-// that lands after FT09; until the F-read proof passes, no read through
-// this caller is authoritative and no consumer may authorize work from it.
-// There is no native SQL access, no second graph, and no factory approval,
-// acceptance or readiness field here.
+// The revision is caller bracket evidence, never host content: BracketedRead
+// binds the agreed idle revision after the bracket holds. BackgroundSnapshotReader
+// is the thin transport over the Fountain SDK. There is no native SQL
+// access, no second graph, and no factory approval, acceptance or readiness
+// field here.
 package forgejo
 
 import (
@@ -164,11 +163,37 @@ func ValidateRequest(req SnapshotRequest) error {
 	if req.Limit < 0 || req.Limit > SnapshotPageLimit || len(req.Cursor) > SnapshotCursorLimit {
 		return ErrInvalidSnapshot
 	}
+	if req.Cursor != "" && !decimalID(req.Cursor) {
+		return ErrInvalidSnapshot
+	}
 	if seen[FamilyRefs] && len(req.Refs) == 0 {
 		return ErrInvalidSnapshot
 	}
 	if seen[FamilyChecks] && req.SHA == "" {
 		return ErrInvalidSnapshot
+	}
+	if seen[FamilyIssue] && req.IssueIndex == "" {
+		return ErrInvalidSnapshot
+	}
+	if seen[FamilyDependencies] && req.IssueIndex == "" {
+		return ErrInvalidSnapshot
+	}
+	if seen[FamilyPull] && req.PullNumber == "" {
+		return ErrInvalidSnapshot
+	}
+	if seen[FamilyComments] {
+		byIssue := req.IssueIndex != ""
+		byIDs := len(req.CommentIDs) > 0
+		if byIssue == byIDs {
+			return ErrInvalidSnapshot
+		}
+	}
+	if seen[FamilyReviews] {
+		byIssue := req.IssueIndex != ""
+		byPull := req.PullNumber != ""
+		if byIssue == byPull {
+			return ErrInvalidSnapshot
+		}
 	}
 	return nil
 }
@@ -370,8 +395,8 @@ type NativeSnapshot struct {
 // SnapshotReader performs revision observations and snapshot reads over the
 // background channel. Snapshot reads present the bound native actor
 // credential privately; revision observations use owning-installation
-// admission. The native snapshot transport arrives with the coordinated
-// read dispatch; tests and future callers supply the implementation.
+// admission. BackgroundSnapshotReader is the thin SDK transport; tests
+// supply fakes.
 type SnapshotReader interface {
 	ReadNativeRevision(ctx context.Context) (extensions.NativeRevisionObservation, error)
 	ReadSnapshot(ctx context.Context, credential extensions.CredentialFile, req SnapshotRequest) (NativeSnapshot, error)
@@ -381,7 +406,9 @@ type SnapshotReader interface {
 // two revision observations, and accepts the result only when both
 // observations are equal and idle and every requested family is present and
 // complete. Hidden records are returned with Visible=false for the
-// consumer's authorization decision; they are not silently dropped.
+// consumer's authorization decision; they are not silently dropped. The
+// agreed idle revision is bound by the caller after the bracket holds; any
+// revision the transport returned is replaced, never trusted.
 func BracketedRead(ctx context.Context, reader SnapshotReader, credential extensions.CredentialFile, req SnapshotRequest) (NativeSnapshot, error) {
 	if reader == nil {
 		return NativeSnapshot{}, ErrInvalidSnapshot
@@ -413,6 +440,7 @@ func BracketedRead(ctx context.Context, reader SnapshotReader, credential extens
 	if after.Revision != before.Revision {
 		return NativeSnapshot{}, ErrStaleSnapshot
 	}
+	snapshot.Revision = before.Revision
 	if err := ValidateSnapshot(req, snapshot, before.Revision); err != nil {
 		return NativeSnapshot{}, err
 	}
