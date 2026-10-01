@@ -154,6 +154,8 @@ func extensionProductRoute(r *http.Request) bool {
 	switch parts[0] {
 	case "repositories":
 		return extensionRepositoryRoute(parts, r.Method)
+	case "factory":
+		return extensionFactoryRoute(parts, r.Method)
 	case "spaces":
 		return len(parts) == 1 && r.Method == http.MethodGet
 	case "environments":
@@ -174,8 +176,28 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 	if len(parts) == 1 {
 		return method == http.MethodGet
 	}
-	return len(parts) == 3 && extensionProductID(parts[1]) &&
-		(parts[2] == "profiles" || parts[2] == "tailnet-options") && method == http.MethodGet
+	if !extensionProductID(parts[1]) {
+		return false
+	}
+	if len(parts) == 3 {
+		if parts[2] == "profiles" || parts[2] == "tailnet-options" {
+			return method == http.MethodGet
+		}
+		return parts[2] == "factory" && method == http.MethodGet
+	}
+	if len(parts) == 4 && parts[2] == "factory" {
+		switch parts[3] {
+		case "policy", "operator-grant", "environment-grant":
+			return method == http.MethodPut
+		}
+		return false
+	}
+	return len(parts) == 5 && parts[2] == "factory" && parts[3] == "sponsorships" &&
+		extensionProductID(parts[4]) && method == http.MethodPut
+}
+
+func extensionFactoryRoute(parts []string, method string) bool {
+	return len(parts) == 2 && parts[1] == "capacity" && method == http.MethodPut
 }
 
 func extensionEnvironmentRoute(parts []string, method string) bool {
@@ -187,9 +209,14 @@ func extensionEnvironmentRoute(parts []string, method string) bool {
 	case 3:
 		return extensionProductID(parts[1]) && extensionEnvironmentActionRoute(parts[2], method)
 	case 4:
-		return extensionEnvironmentIdentityPath(parts, method)
+		return extensionEnvironmentIdentityPath(parts, method) || extensionEnvironmentPreparationPath(parts, method)
 	}
 	return false
+}
+
+func extensionEnvironmentPreparationPath(parts []string, method string) bool {
+	return extensionProductID(parts[1]) && parts[2] == "preparation" &&
+		(parts[3] == "acceptances" || parts[3] == "actions") && method == http.MethodPost
 }
 
 func extensionEnvironmentIdentityPath(parts []string, method string) bool {

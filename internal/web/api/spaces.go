@@ -26,6 +26,16 @@ type SpaceView struct {
 	Observed             *project.Environment  `json:"observed"`
 	Terminals            []TerminalView        `json:"terminals"`
 	Preparation          *spacePreparationView `json:"preparation,omitempty"`
+	FactoryAuthority     *spaceAuthorityView   `json:"factory_authority,omitempty"`
+}
+
+// spaceAuthorityView exposes the effective factory verdict for the row's
+// repository: whether dispatch may proceed and which authorization is
+// missing or withdrawn. It carries reason codes only, never credentials.
+type spaceAuthorityView struct {
+	Missing      []string `json:"missing"`
+	Effective    bool     `json:"effective"`
+	DispatchOpen bool     `json:"dispatch_open"`
 }
 
 type SpacesView struct {
@@ -140,7 +150,19 @@ func (s *API) inspectSpaceRow(
 	s.inspectSpaceTailnet(check, p, reader, &row)
 	// Preparation readiness is a durable store read, never a native call.
 	row.Preparation = s.inspectSpacePreparation(check, p.ID)
+	row.FactoryAuthority = s.inspectSpaceAuthority(check, p.RepositoryID)
 	return row, true, complete
+}
+
+func (s *API) inspectSpaceAuthority(ctx context.Context, repository int64) *spaceAuthorityView {
+	if s.Coordinator == nil {
+		return nil
+	}
+	effective, err := s.Coordinator.EffectiveAuthority(ctx, repository)
+	if err != nil {
+		return nil
+	}
+	return &spaceAuthorityView{Missing: effective.Missing, Effective: effective.Effective, DispatchOpen: effective.DispatchOpen}
 }
 
 func appendSpaceRow(response *SpacesView, row SpaceView) bool {

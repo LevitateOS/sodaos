@@ -55,16 +55,18 @@ const (
 	CommandReconcile = "reconcile"
 )
 
-// Command is one admitted operator command. The client generates ID; the
-// coordinator records the digest and durable outcome. Same ID with a changed
-// payload conflicts instead of executing twice. Commands cannot supply a
-// human native identity, accept requirements or change policy.
+// Command is one admitted command. The client generates ID; the coordinator
+// records the normalized digest and durable outcome. Same ID with a changed
+// payload conflicts instead of executing twice. Operator commands cannot
+// supply a human native identity, accept requirements or change policy;
+// settings commands carry the admitted grant fields as their payload.
 type Command struct {
 	ID        string `json:"id"`
 	Type      string `json:"type"`
 	Target    string `json:"target,omitempty"`
 	Principal string `json:"principal"`
 	Digest    string `json:"digest"`
+	Payload   string `json:"payload,omitempty"`
 	Outcome   string `json:"outcome,omitempty"`
 	Created   string `json:"created,omitempty"`
 	Finished  string `json:"finished,omitempty"`
@@ -76,20 +78,29 @@ func (c Command) Validate() error {
 	}
 	switch c.Type {
 	case CommandStop:
-		if !ValidID(c.Target) {
+		if !ValidID(c.Target) || c.Payload != "" {
 			return errors.New("stop requires its recorded run")
 		}
 	case CommandReconcile:
-		if c.Target != "" {
+		if c.Target != "" || c.Payload != "" {
 			return errors.New("reconcile addresses all recorded runs")
 		}
 	default:
-		return errors.New("command is not a durable operator mutation")
+		if !SettingsCommandType(c.Type) {
+			return errors.New("command is not a durable mutation")
+		}
+		if c.Target == "" || len(c.Target) > 256 || c.Payload == "" || len(c.Payload) > 8192 {
+			return errors.New("settings command requires its target and normalized payload")
+		}
 	}
 	if c.Principal == "" || len(c.Principal) > 128 {
 		return errors.New("invalid command principal")
 	}
-	if c.Digest != CommandDigest(c.Type, c.Target) {
+	if c.Payload == "" {
+		if c.Digest != CommandDigest(c.Type, c.Target) {
+			return errors.New("command digest differs from its payload")
+		}
+	} else if c.Digest != SettingsDigest(c.Type, c.Target, c.Payload) {
 		return errors.New("command digest differs from its payload")
 	}
 	if len(c.Outcome) > 64<<10 {

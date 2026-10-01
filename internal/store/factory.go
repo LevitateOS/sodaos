@@ -108,7 +108,7 @@ func (s *Store) RecordFactoryCommand(ctx context.Context, c factory.Command, now
 		return factory.Command{}, false, errors.New("new command must not carry an outcome")
 	}
 	created := now.UTC().Format(time.RFC3339Nano)
-	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_commands(id,type,target,principal,digest,created) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`, c.ID, c.Type, c.Target, c.Principal, c.Digest, created)
+	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_commands(id,type,target,principal,digest,payload,created) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`, c.ID, c.Type, c.Target, c.Principal, c.Digest, c.Payload, created)
 	if err != nil {
 		return factory.Command{}, false, fmt.Errorf("factory command record failed: %w", err)
 	}
@@ -129,7 +129,7 @@ func (s *Store) RecordFactoryCommand(ctx context.Context, c factory.Command, now
 func (s *Store) FactoryCommand(ctx context.Context, id string) (factory.Command, error) {
 	var c factory.Command
 	var created, finished string
-	err := s.db.QueryRowContext(ctx, `SELECT id,type,target,principal,digest,outcome,created,finished FROM factory_commands WHERE id=?`, id).Scan(&c.ID, &c.Type, &c.Target, &c.Principal, &c.Digest, &c.Outcome, &created, &finished)
+	err := s.db.QueryRowContext(ctx, `SELECT id,type,target,principal,digest,payload,outcome,created,finished FROM factory_commands WHERE id=?`, id).Scan(&c.ID, &c.Type, &c.Target, &c.Principal, &c.Digest, &c.Payload, &c.Outcome, &created, &finished)
 	if err != nil {
 		return c, err
 	}

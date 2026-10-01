@@ -296,8 +296,14 @@ export function terminalResponse(value: unknown, binding: TerminalIdentity): Ter
   const data = object(value);
   return data.terminal === null ? null : terminalMetadata(data.terminal, binding);
 }
+export interface FactoryAuthority {
+  effective: boolean;
+  dispatch_open: boolean;
+  missing: string[];
+}
 export interface Space {
   tailnet_state?: string;
+  factory_authority?: FactoryAuthority;
   environment: Environment & {name: string; repository: string; owner_id: string; provisioned: boolean};
   login: string;
   environment_administrator: boolean;
@@ -307,10 +313,36 @@ export interface Space {
   observed: Detail['observed'];
   terminals: TerminalMetadata[];
 }
+// factoryAuthorityText renders the admitted authority verdict as a bounded
+// status suffix. Reason codes are stable backend identifiers, never secrets.
+export function factoryAuthorityText(authority: FactoryAuthority | undefined) {
+  if (!authority) return '';
+  if (authority.effective) return ' · Factory ready';
+  return ' · Factory needs: ' + authority.missing.slice(0, 3).join(', ');
+}
 function spaceNetwork(data: Record<string, unknown>) {
   const network = data.tailnet_state;
   check(network === undefined || (typeof network === 'string' && ['unavailable', 'off', 'managed'].includes(network)));
   return typeof network === 'string' ? network : undefined;
+}
+function spaceFactoryAuthority(row: Record<string, unknown>) {
+  const authority = row.factory_authority;
+  if (authority === undefined) return undefined;
+  const detail = object(authority);
+  check(
+    typeof detail.effective === 'boolean' &&
+      typeof detail.dispatch_open === 'boolean' &&
+      Array.isArray(detail.missing) &&
+      detail.missing.length <= 16 &&
+      detail.missing.every((reason: unknown) => typeof reason === 'string' && /^[a-z_]{1,64}$/.test(reason)) &&
+      (detail.missing.length === 0) === detail.effective
+  );
+  const missing = detail.missing as string[];
+  return {
+    effective: detail.effective as boolean,
+    dispatch_open: detail.dispatch_open as boolean,
+    missing,
+  };
 }
 function admitSpaceTerminal(
   value: unknown,
@@ -368,9 +400,11 @@ function spaceItem(
   const detail = detailResponse(row, {id: environmentId, repository_id: repositoryId});
   const terminals = spaceTerminals(row, detail, expectedUserId, repositoryId, environmentId, sessions);
   const network = spaceNetwork(data);
+  const authority = spaceFactoryAuthority(row);
   return {
     ...detail,
     ...(typeof network === 'string' ? {tailnet_state: network} : {}),
+    ...(authority ? {factory_authority: authority} : {}),
     environment: {...detail.environment, name: env.name, repository: env.repository, owner_id: env.owner_id},
     terminals,
   };

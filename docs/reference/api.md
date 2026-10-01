@@ -29,6 +29,12 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/me/forgejo-keys` | List the current actor's native Forgejo public keys |
 | GET | `/api/repositories` | Native repository picker (`q`, `cursor`) |
 | GET | `/api/repositories/{repositoryID}/profiles` | Supported creation profiles |
+| GET | `/api/repositories/{repositoryID}/factory` | Factory policy, effective grants and missing authority |
+| PUT | `/api/repositories/{repositoryID}/factory/policy` | Owner/admin repository factory policy (command envelope) |
+| PUT | `/api/repositories/{repositoryID}/factory/operator-grant` | Operator repository permission (command envelope) |
+| PUT | `/api/repositories/{repositoryID}/factory/environment-grant` | Owner environment setup permission (command envelope) |
+| PUT | `/api/repositories/{repositoryID}/factory/sponsorships/{connection}` | Connection-owner sponsorship (command envelope) |
+| PUT | `/api/factory/capacity` | Operator appliance capacity (command envelope) |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/environments` | List / create environments |
 | GET | `/api/environments/{id}` | Environment detail |
@@ -38,6 +44,9 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/environments/{id}/os` | OS/profile observation |
 | GET/POST | `/api/environments/{id}/lifecycle` | Lifecycle read / Start/Stop |
 | GET/POST | `/api/environments/{id}/access-keys` | Managed access keys |
+| GET/POST | `/api/environments/{id}/preparation` | Preparation read / maintenance hold |
+| POST | `/api/environments/{id}/preparation/acceptances` | Maintainer requirement acceptance (decision envelope) |
+| POST | `/api/environments/{id}/preparation/actions` | Hold / inspect / administrator approval |
 | POST | `/api/environments/{id}/identity/launch` | Start a broker-authorized identity lease |
 | GET/POST | `/api/environments/{id}/terminal-sessions` | Inspect/reserve terminal sessions |
 | GET/POST | `/api/environments/{id}/terminal-sessions/{terminalID}` | Inspect / End / Rename |

@@ -7,10 +7,10 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 17
+const schemaFormatVersion = 18
 
 const currentSchema = `CREATE TABLE schema_version(version INTEGER PRIMARY KEY);
-INSERT INTO schema_version(version) VALUES(17);
+INSERT INTO schema_version(version) VALUES(18);
 CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '');
 CREATE TABLE keys(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint));
 CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready INTEGER NOT NULL DEFAULT 0 CHECK(ready IN(0,1)), creation_profile TEXT CHECK(creation_profile IS NULL OR (length(CAST(creation_profile AS BLOB))<=1024 AND json_valid(creation_profile))));
@@ -37,14 +37,32 @@ OR (json_extract(OLD.data,'$.reconciled')=1 AND json_extract(NEW.data,'$.reconci
 BEGIN SELECT RAISE(ABORT,'factory run binding is immutable'); END;
 CREATE TABLE factory_commands(
 id TEXT PRIMARY KEY, type TEXT NOT NULL, target TEXT NOT NULL DEFAULT '',
-principal TEXT NOT NULL, digest TEXT NOT NULL,
+principal TEXT NOT NULL, digest TEXT NOT NULL, payload TEXT NOT NULL DEFAULT '' CHECK(length(payload)<=8192),
 outcome TEXT NOT NULL DEFAULT '' CHECK(length(outcome)<=65536),
 created TEXT NOT NULL, finished TEXT NOT NULL DEFAULT '');
 CREATE TRIGGER factory_command_immutable BEFORE UPDATE ON factory_commands
 WHEN NEW.id!=OLD.id OR NEW.type!=OLD.type OR NEW.target!=OLD.target
-OR NEW.principal!=OLD.principal OR NEW.digest!=OLD.digest OR NEW.created!=OLD.created
+OR NEW.principal!=OLD.principal OR NEW.digest!=OLD.digest OR NEW.payload!=OLD.payload OR NEW.created!=OLD.created
 OR (OLD.finished!='' AND (NEW.finished!=OLD.finished OR NEW.outcome!=OLD.outcome))
 BEGIN SELECT RAISE(ABORT,'factory command is immutable'); END;
+CREATE TABLE factory_policies(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE factory_capacity(id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE factory_operator_grants(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE factory_sponsorships(repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)), PRIMARY KEY(repository,connection));
+CREATE TABLE factory_dispatch(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL, open INTEGER NOT NULL CHECK(open IN(0,1)), data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE factory_dispatch_regs(id TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE INDEX factory_dispatch_regs_repository ON factory_dispatch_regs(repository);
+CREATE TRIGGER factory_dispatch_reg_immutable_update BEFORE UPDATE ON factory_dispatch_regs BEGIN SELECT RAISE(ABORT,'dispatch registration is immutable'); END;
+CREATE TRIGGER factory_dispatch_reg_immutable_delete BEFORE DELETE ON factory_dispatch_regs BEGIN SELECT RAISE(ABORT,'dispatch registration is immutable'); END;
+CREATE TABLE project_environment_grants(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE project_requirement_decisions(id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), predecessor TEXT NOT NULL DEFAULT '', data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE project_requirement_heads(project_id TEXT PRIMARY KEY REFERENCES projects(id), decision TEXT NOT NULL);
+CREATE TRIGGER project_requirement_decision_immutable_update BEFORE UPDATE ON project_requirement_decisions BEGIN SELECT RAISE(ABORT,'requirement decision is immutable'); END;
+CREATE TRIGGER project_requirement_decision_immutable_delete BEFORE DELETE ON project_requirement_decisions BEGIN SELECT RAISE(ABORT,'requirement decision is immutable'); END;
+CREATE TABLE project_approval_decisions(id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), predecessor TEXT NOT NULL DEFAULT '', data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE project_approval_heads(project_id TEXT PRIMARY KEY REFERENCES projects(id), decision TEXT NOT NULL);
+CREATE TRIGGER project_approval_decision_immutable_update BEFORE UPDATE ON project_approval_decisions BEGIN SELECT RAISE(ABORT,'approval decision is immutable'); END;
+CREATE TRIGGER project_approval_decision_immutable_delete BEFORE DELETE ON project_approval_decisions BEGIN SELECT RAISE(ABORT,'approval decision is immutable'); END;
 CREATE TABLE identity_connections(id TEXT PRIMARY KEY, owner_id INTEGER NOT NULL, generation INTEGER NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)), credential BLOB NOT NULL);
 CREATE TABLE identity_grants(id TEXT PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES identity_connections(id), user_id INTEGER NOT NULL, project_id TEXT NOT NULL, revision INTEGER NOT NULL, revoked INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
 CREATE UNIQUE INDEX identity_grant_recipient ON identity_grants(connection_id,user_id,project_id) WHERE revoked=0;
@@ -113,7 +131,18 @@ func verifyRequiredColumns(ctx context.Context, tx *sql.Tx) error {
 		`SELECT id,project_id,role,revision,requirements,approval,data FROM project_preparations LIMIT 0`,
 		`SELECT kind,execution_id,state,lease_id,data FROM identity_executions LIMIT 0`,
 		`SELECT id,active,settled,data FROM factory_runs LIMIT 0`,
-		`SELECT id,type,target,principal,digest,outcome,created,finished FROM factory_commands LIMIT 0`,
+		`SELECT id,type,target,principal,digest,payload,outcome,created,finished FROM factory_commands LIMIT 0`,
+		`SELECT repository,revision,data FROM factory_policies LIMIT 0`,
+		`SELECT id,revision,data FROM factory_capacity LIMIT 0`,
+		`SELECT repository,revision,data FROM factory_operator_grants LIMIT 0`,
+		`SELECT repository,connection,revision,data FROM factory_sponsorships LIMIT 0`,
+		`SELECT repository,revision,open,data FROM factory_dispatch LIMIT 0`,
+		`SELECT id,repository,revision,data FROM factory_dispatch_regs LIMIT 0`,
+		`SELECT repository,revision,data FROM project_environment_grants LIMIT 0`,
+		`SELECT id,project_id,predecessor,data FROM project_requirement_decisions LIMIT 0`,
+		`SELECT project_id,decision FROM project_requirement_heads LIMIT 0`,
+		`SELECT id,project_id,predecessor,data FROM project_approval_decisions LIMIT 0`,
+		`SELECT project_id,decision FROM project_approval_heads LIMIT 0`,
 	} {
 		rows, err := tx.QueryContext(ctx, query)
 		if err != nil {

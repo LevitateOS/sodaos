@@ -48,6 +48,7 @@ import {
   terminalID,
   repositoryChoices,
   projectId,
+  factoryAuthorityText,
 } from './sodaspaces-api.js';
 import type {Space, TerminalMetadata, RepositoryChoices} from './sodaspaces-api.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
@@ -1529,7 +1530,11 @@ export class SodaSpaces extends LitElement {
     };
   }
   private projectSubtitle(space: Space) {
-    return this.projectStatus(space) + (space.tailnet_state ? ' · Tailnet policy: ' + space.tailnet_state : '');
+    return (
+      this.projectStatus(space) +
+      (space.tailnet_state ? ' · Tailnet policy: ' + space.tailnet_state : '') +
+      factoryAuthorityText(space.factory_authority)
+    );
   }
   private projectRows(space: Space) {
     const query = this.search.toLocaleLowerCase();

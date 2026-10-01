@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {spacesResponse, terminalResponse, repositoryChoices} from '../../frontend/spaces/sodaspaces-api';
+import {
+  spacesResponse,
+  terminalResponse,
+  repositoryChoices,
+  factoryAuthorityText,
+} from '../../frontend/spaces/sodaspaces-api';
 const binding = {
   expectedUserId: '1',
   repositoryId: '7',
@@ -120,5 +125,41 @@ test('degraded collection cannot carry session metadata or elevation', () => {
     spacesResponse({actor, items: [{...row, authority_unavailable: true, terminals: []}], complete: false}).items
       .length,
     1
+  );
+});
+test('Spaces admits the factory authority verdict and renders its status', () => {
+  const actor = {id: '1', login: 'soda-tester'};
+  const ready = {effective: true, dispatch_open: true, missing: []};
+  const parsed = spacesResponse({actor, items: [{...row, factory_authority: ready}], complete: true});
+  assert.deepEqual(parsed.items[0]?.factory_authority, ready);
+  assert.equal(parsed.items.length, 1);
+  const absent = spacesResponse({actor, items: [row], complete: true});
+  assert.equal(absent.items[0]?.factory_authority, undefined);
+  assert.equal(factoryAuthorityText(undefined), '');
+  assert.equal(factoryAuthorityText(ready), ' · Factory ready');
+  assert.equal(
+    factoryAuthorityText({effective: false, dispatch_open: false, missing: ['policy_paused', 'dispatch_closed']}),
+    ' · Factory needs: policy_paused, dispatch_closed'
+  );
+  assert.throws(() =>
+    spacesResponse({
+      actor,
+      items: [{...row, factory_authority: {effective: true, dispatch_open: true, missing: ['policy_paused']}}],
+      complete: true,
+    })
+  );
+  assert.throws(() =>
+    spacesResponse({
+      actor,
+      items: [{...row, factory_authority: {effective: 'yes', dispatch_open: true, missing: []}}],
+      complete: true,
+    })
+  );
+  assert.throws(() =>
+    spacesResponse({
+      actor,
+      items: [{...row, factory_authority: {effective: false, dispatch_open: false, missing: ['Policy Paused']}}],
+      complete: true,
+    })
   );
 });

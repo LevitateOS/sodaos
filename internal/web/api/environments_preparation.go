@@ -32,6 +32,8 @@ type environmentPreparationView struct {
 	Project      string                `json:"project"`
 	Hold         bool                  `json:"hold"`
 	HoldRevision int64                 `json:"hold_revision"`
+	Requirements string                `json:"requirements,omitempty"`
+	Approval     string                `json:"approval,omitempty"`
 	Preparations []preparationItemView `json:"preparations"`
 }
 
@@ -69,9 +71,22 @@ func (s *API) apiPreparation(w http.ResponseWriter, r *http.Request, v store.Ses
 	if !ok {
 		return
 	}
-	auth.JSONResponse(w, 200, environmentPreparationView{
+	view := environmentPreparationView{
 		Project: p.ID, Hold: held, HoldRevision: revision, Preparations: items,
-	})
+	}
+	if head, err := s.Store.RequirementHead(r.Context(), p.ID); err == nil {
+		view.Requirements = head
+	} else if !errors.Is(err, store.ErrNotFound) {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read requirement acceptance.")
+		return
+	}
+	if head, err := s.Store.ApprovalHead(r.Context(), p.ID); err == nil {
+		view.Approval = head
+	} else if !errors.Is(err, store.ErrNotFound) {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read privileged-effect approval.")
+		return
+	}
+	auth.JSONResponse(w, 200, view)
 }
 
 func (s *API) preparationHoldState(w http.ResponseWriter, r *http.Request, projectID string) (bool, int64) {

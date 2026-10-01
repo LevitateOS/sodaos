@@ -46,6 +46,7 @@ func New(c config.Config, db *store.Store) *Server {
 	broker := identityclient.New(c.IdentitySocket)
 	s.API.Identity = broker
 	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
+	s.API.Coordinator = s.Coordinator
 
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/store"
@@ -16,12 +17,13 @@ import (
 
 // API owns native-extension product handlers and its terminal peer registry.
 type API struct {
-	Config   *config.Config
-	Store    *store.Store
-	Forgejo  *forgejo.Client
-	Host     *host.Client
-	Auth     *auth.Service
-	Identity IdentityClient
+	Config      *config.Config
+	Store       *store.Store
+	Forgejo     *forgejo.Client
+	Host        *host.Client
+	Auth        *auth.Service
+	Identity    IdentityClient
+	Coordinator *control.Coordinator
 
 	terminalMu       sync.Mutex
 	SpacesSlots      chan struct{}
