@@ -53,6 +53,7 @@ func New(c config.Config, db *store.Store) *Server {
 		source := api.NewServiceReadinessSource(observer)
 		s.Coordinator.AcceptanceReads = source
 		s.Coordinator.Readiness = source
+		s.Coordinator.DispatchReads = source
 	}
 	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
 		Coordinator: s.Coordinator, Secret: loadIntakeSecret(c),

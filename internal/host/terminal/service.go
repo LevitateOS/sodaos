@@ -25,10 +25,11 @@ type Executor interface {
 }
 
 type Service struct {
-	Exec               Executor
-	CodexHarness       string
-	CodexHarnessSHA256 string
-	EndIdentity        func(context.Context, int64, string) error
+	Exec                Executor
+	CodexHarness        string
+	CodexHarnessSHA256  string
+	CodexHarnessVersion string
+	EndIdentity         func(context.Context, int64, string) error
 
 	mu      sync.Mutex
 	streams map[*http.Request]context.CancelFunc

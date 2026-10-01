@@ -43,6 +43,7 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}` | Current issue acceptance, validity and readiness |
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptances` | Code-write exact-inputs acceptance (command envelope) |
 | POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal` | Code-write acceptance withdrawal (command envelope) |
+| GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}/assignment` | Current dispatch assignment: exact bound inputs, staged prompt, recorded result |
 | POST | `/api/factory/intake` | Authenticated native webhook intake (HMAC; issues and comments queue readiness assessment) |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/environments` | List / create environments |

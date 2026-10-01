@@ -101,6 +101,10 @@ func (c *Coordinator) ObserveIssueEvent(ctx context.Context, hint IntakeHint) (f
 	if _, err = c.Store.RecordIntakeDelivery(ctx, hint.Delivery, hint.Repository, hint.Issue, "event", time.Now()); err != nil {
 		return factory.IssueControl{}, false, err
 	}
+	// Best-effort automatic dispatch: queued work launches within current
+	// limits without operator admission. Failures wait for the next
+	// trigger; the assessment above already recorded.
+	c.dispatchAfterIntake(ctx)
 	return outcome.control, outcome.changed, nil
 }
 

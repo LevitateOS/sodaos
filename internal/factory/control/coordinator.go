@@ -28,13 +28,16 @@ var (
 	ErrCommandRunning = errors.New("factory command already running")
 )
 
-// HostFactory is the coordinator's entire host surface: stop retires one
-// run, inspect observes one run without mutating it, and takeover copies a
-// retired run's retained work. Launch belongs to dispatch, not supervision.
+// HostFactory is the coordinator's entire host surface: launch starts one
+// recorded run under supervision, stop retires one run, inspect observes
+// one run without mutating it, takeover copies a retired run's retained
+// work, and harness reports the staged-harness pin dispatch requires.
 type HostFactory interface {
+	FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error)
 	FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error)
 	FactoryInspect(ctx context.Context, in project.FactoryInspect) (project.FactoryState, error)
 	FactoryTakeover(ctx context.Context, in project.FactoryTakeover) (project.TakeoverResult, error)
+	FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error)
 }
 
 // BrokerExecution is the coordinator's entire broker surface: close seals
@@ -50,12 +53,15 @@ type BrokerExecution interface {
 // before serving operator commands. AcceptanceReads brackets native issue
 // evidence for acceptance decisions; while no source is wired, admission
 // and validity checks refuse as unavailable instead of guessing.
+// DispatchReads brackets accepted-input content plus the target tip for
+// dispatch; while no source is wired, dispatch waits instead of guessing.
 type Coordinator struct {
 	Store           *store.Store
 	Host            HostFactory
 	Broker          BrokerExecution
 	AcceptanceReads AcceptanceSource
 	Readiness       ReadinessObservation
+	DispatchReads   DispatchReads
 	lock            *os.File
 }
 
@@ -87,6 +93,10 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	if _, err = c.reconcileRuns(ctx); err != nil {
 		_ = c.Close()
 		return err
+	}
+	if report := RecoverDispatch(ctx, c.dispatchDeps()); len(report.Errors) != 0 {
+		_ = c.Close()
+		return errors.New("factory dispatch recovery failed")
 	}
 	return nil
 }

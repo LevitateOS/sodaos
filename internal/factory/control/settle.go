@@ -32,6 +32,7 @@ type ReconcileReceipt struct {
 	Settled   []string         `json:"settled"`
 	Fenced    []FencedRun      `json:"fenced,omitempty"`
 	Readiness *ReadinessReport `json:"readiness,omitempty"`
+	Dispatch  *DispatchReport  `json:"dispatch,omitempty"`
 }
 
 // Stop retires one recorded run and settles it when retirement and broker
@@ -98,6 +99,10 @@ func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (Recon
 	}
 	report := c.reconcileReadinessAll(bounded)
 	receipt.Readiness = &report
+	if c.DispatchReads != nil {
+		dispatch := c.Dispatch(bounded)
+		receipt.Dispatch = &dispatch
+	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return ReconcileReceipt{}, err
@@ -177,6 +182,12 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 	if err = c.Store.SaveFactoryRun(ctx, run); err != nil {
 		receipt.Uncertain, receipt.Reason = true, "run record unsettled"
 		return receipt
+	}
+	// Best-effort dispatch accounting: confirmed usage, reservation
+	// consume and the recorded result. Recovery replays anything missed;
+	// a completed issue retriggers its dependants.
+	if finished, ok := AccountSettledRun(ctx, c.Store, run, state.Output, time.Now()); ok && finished.Outcome == factory.Succeeded {
+		c.assessDispatchDependants(ctx, finished.Repository, finished.Issue)
 	}
 	receipt.Confirmed, receipt.Outcome, receipt.Reason = true, string(outcome), run.Summary
 	return receipt

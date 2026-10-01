@@ -37,18 +37,19 @@ import (
 var networkName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,30}$`)
 
 type Config struct {
-	MuseSHA256         string `json:"muse_sha256"`
-	MuseVersion        string `json:"muse_version"`
-	MuseSocket         string `json:"muse_socket"`
-	IdentitySocket     string `json:"identity_socket"`
-	CodexHarness       string `json:"codex_harness"`
-	CodexHarnessSHA256 string `json:"codex_harness_sha256"`
-	TailnetManagement  bool   `json:"tailnet_management,omitempty"`
-	TailnetImage       string `json:"tailnet_image,omitempty"`
-	Image              string `json:"image"`
-	Network            string `json:"network"`
-	Subnet             string `json:"subnet"`
-	Bridge             string `json:"bridge"`
+	MuseSHA256          string `json:"muse_sha256"`
+	MuseVersion         string `json:"muse_version"`
+	MuseSocket          string `json:"muse_socket"`
+	IdentitySocket      string `json:"identity_socket"`
+	CodexHarness        string `json:"codex_harness"`
+	CodexHarnessSHA256  string `json:"codex_harness_sha256"`
+	CodexHarnessVersion string `json:"codex_harness_version,omitempty"`
+	TailnetManagement   bool   `json:"tailnet_management,omitempty"`
+	TailnetImage        string `json:"tailnet_image,omitempty"`
+	Image               string `json:"image"`
+	Network             string `json:"network"`
+	Subnet              string `json:"subnet"`
+	Bridge              string `json:"bridge"`
 }
 
 func LoadConfig(path string) (Config, error) {
@@ -93,6 +94,9 @@ func validateIdentityRuntime(c Config) error {
 	}
 	if !filepath.IsAbs(c.IdentitySocket) || !filepath.IsAbs(c.CodexHarness) || len(c.CodexHarnessSHA256) != 64 {
 		return errors.New("explicit identity runtime socket and verified harness required")
+	}
+	if c.CodexHarnessVersion != "" && !project.ValidHarnessVersion(c.CodexHarnessVersion) {
+		return errors.New("invalid staged harness version")
 	}
 	return nil
 }
@@ -212,7 +216,7 @@ func NewDaemon(c Config) *Daemon {
 		Config:   c,
 		Exec:     native,
 		Project:  projectRuntime(native, c),
-		Terminal: &terminal.Service{Exec: native, CodexHarness: c.CodexHarness, CodexHarnessSHA256: c.CodexHarnessSHA256},
+		Terminal: &terminal.Service{Exec: native, CodexHarness: c.CodexHarness, CodexHarnessSHA256: c.CodexHarnessSHA256, CodexHarnessVersion: c.CodexHarnessVersion},
 	}
 	d.Terminal.EndIdentity = d.Identity.EndLease
 	if c.MuseSHA256 != "" {
@@ -291,7 +295,7 @@ func hasNativeCleanPath(r *http.Request) bool {
 	switch r.URL.Path {
 	case "/lifecycle", "/access-keys", "/profile", "/create", "/os",
 		"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold",
-		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output":
+		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness":
 		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
 	default:
 		return true
@@ -455,6 +459,17 @@ func (d *Daemon) dispatchFactory(ctx context.Context, path string, decode func(a
 			return nil, err
 		}
 		return factory.Launch(ctx, in)
+	case "/factory-harness":
+		var in struct{}
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		pin := factory.HarnessPin()
+		pin.Image = d.Config.Image
+		if err := pin.Validate(); err != nil {
+			return nil, errUnavailable
+		}
+		return pin, nil
 	case "/factory-inspect":
 		var in project.FactoryInspect
 		if err := decode(&in); err != nil {
@@ -511,7 +526,7 @@ func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func
 		return d.dispatchMutation(ctx, path, decode)
 	case "/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
 		return d.dispatchPrepare(ctx, path, decode)
-	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output":
+	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness":
 		return d.dispatchFactory(ctx, path, decode)
 	default:
 		return nil, errNotFound

@@ -14,12 +14,14 @@ import (
 // same service credential.
 type ServiceReadinessSource struct {
 	Evidence AcceptanceSnapshotSource
+	Dispatch DispatchSnapshotSource
 	Observer *forgejo.ServiceObserver
 }
 
 var (
 	_ control.AcceptanceSource     = (*ServiceReadinessSource)(nil)
 	_ control.ReadinessObservation = (*ServiceReadinessSource)(nil)
+	_ control.DispatchReads        = (*ServiceReadinessSource)(nil)
 )
 
 // NewServiceReadinessSource binds one service observer to both
@@ -27,6 +29,9 @@ var (
 func NewServiceReadinessSource(observer *forgejo.ServiceObserver) *ServiceReadinessSource {
 	return &ServiceReadinessSource{
 		Evidence: AcceptanceSnapshotSource{
+			Reader: observer.SnapshotReader(), Credential: observer.Credential(),
+		},
+		Dispatch: DispatchSnapshotSource{
 			Reader: observer.SnapshotReader(), Credential: observer.Credential(),
 		},
 		Observer: observer,
@@ -40,6 +45,15 @@ func (s *ServiceReadinessSource) ReadAcceptanceEvidence(ctx context.Context, rep
 		return control.AcceptanceEvidence{}, &control.AcceptanceRefusal{Reason: control.RefusalSnapshotUnavailable}
 	}
 	return s.Evidence.ReadAcceptanceEvidence(ctx, repository, issue, commentIDs)
+}
+
+// ReadDispatchInputs brackets one accepted-input read at a single idle
+// revision through the service background channel.
+func (s *ServiceReadinessSource) ReadDispatchInputs(ctx context.Context, repository, issue string, commentIDs []string, targetRef string) (control.DispatchInputs, error) {
+	if s == nil || s.Observer == nil {
+		return control.DispatchInputs{}, &control.AcceptanceRefusal{Reason: control.RefusalSnapshotUnavailable}
+	}
+	return s.Dispatch.ReadDispatchInputs(ctx, repository, issue, commentIDs, targetRef)
 }
 
 // ObserveNativeRevision observes the atomic native revision and idle/busy

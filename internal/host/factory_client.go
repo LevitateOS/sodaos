@@ -67,6 +67,15 @@ func (c *Client) FactoryInspect(ctx context.Context, in project.FactoryInspect) 
 	return out, factoryNotFound(err)
 }
 
+func (c *Client) FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error) {
+	var out project.FactoryHarnessPin
+	err := c.callLimit(ctx, "/factory-harness", struct{}{}, &out, factoryResponseLimit)
+	if err == nil && out.Validate() != nil {
+		err = errors.New("native factory harness pin is not usable")
+	}
+	return out, err
+}
+
 func (c *Client) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
 	var out project.FactoryState
 	err := c.callLimit(ctx, "/factory-stop", in, &out, factoryResponseLimit)

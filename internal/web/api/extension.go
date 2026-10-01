@@ -202,6 +202,7 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 	}
 	if len(parts) == 6 && parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) {
 		return parts[5] == "acceptances" && method == http.MethodPost ||
+			parts[5] == "assignment" && method == http.MethodGet ||
 			parts[5] == "withdrawal" && method == http.MethodPost
 	}
 	return false

@@ -55,6 +55,17 @@ func OpenFactory(stateDir string, term *terminal.Service, broker *identityclient
 	return &Factory{terminal: term, broker: broker, stateDir: stateDir}, nil
 }
 
+// HarnessPin reports the staged-harness identity the executor admits: the
+// proved family, its configured version and its content pin. The execution
+// image rides daemon configuration alongside it.
+func (f *Factory) HarnessPin() domain.FactoryHarnessPin {
+	return domain.FactoryHarnessPin{
+		Harness: domain.FactoryHarnessCodex,
+		Version: f.terminal.CodexHarnessVersion,
+		SHA256:  f.terminal.CodexHarnessSHA256,
+	}
+}
+
 // factoryReceipt is the durable per-run record. The broker execution identity
 // (factory, run ID) is the cross-service source of truth for the lease link;
 // this receipt additionally carries the native binding and outcome.

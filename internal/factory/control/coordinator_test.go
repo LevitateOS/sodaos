@@ -18,7 +18,16 @@ type stubHost struct {
 	stop     func(project.FactoryStop) (project.FactoryState, error)
 	inspect  func(project.FactoryInspect) (project.FactoryState, error)
 	takeover func(project.FactoryTakeover) (project.TakeoverResult, error)
+	launch   func(project.FactoryLaunch) (project.FactoryState, error)
+	harness  func() (project.FactoryHarnessPin, error)
 	calls    int
+}
+
+func (s *stubHost) FactoryLaunch(ctx context.Context, in project.FactoryLaunch) (project.FactoryState, error) {
+	if s.launch == nil {
+		return project.FactoryState{}, errors.New("unexpected host launch")
+	}
+	return s.launch(in)
 }
 
 func (s *stubHost) FactoryStop(ctx context.Context, in project.FactoryStop) (project.FactoryState, error) {
@@ -38,6 +47,13 @@ func (s *stubHost) FactoryTakeover(ctx context.Context, in project.FactoryTakeov
 		return project.TakeoverResult{}, errors.New("unexpected host takeover")
 	}
 	return s.takeover(in)
+}
+
+func (s *stubHost) FactoryHarness(ctx context.Context) (project.FactoryHarnessPin, error) {
+	if s.harness == nil {
+		return project.FactoryHarnessPin{}, errors.New("unexpected host harness query")
+	}
+	return s.harness()
 }
 
 type stubBroker struct {
