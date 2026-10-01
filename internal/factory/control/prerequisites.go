@@ -131,7 +131,8 @@ func (a *issueAssessor) endpointEvidence(ctx context.Context, prereq factory.Acc
 // assessCodePrereq evaluates one code prerequisite route: the recorded
 // endpoint acceptance must still exist, head the endpoint and stay valid,
 // or the dependent relation needs readoption. Satisfaction itself waits
-// for attributable factory completion, so a current route still pends.
+// for attributable factory completion: a confirmed merge on the bound
+// acceptance. A current route without one still pends.
 func (a *issueAssessor) assessCodePrereq(ctx context.Context, prereq factory.AcceptedPrerequisite, endpointHead string, endpointDecision *factory.Acceptance, evidence AcceptanceEvidence, assessed *prereqAssessment, fingerprint *factory.FingerprintInput) error {
 	input := factory.FingerprintPrereq{
 		Occurrence: prereq.Occurrence, Outcome: prereq.Outcome, EndpointHead: endpointHead,
@@ -163,17 +164,39 @@ func (a *issueAssessor) assessCodePrereq(ctx context.Context, prereq factory.Acc
 			if !valid {
 				invalid(factory.DetailPrereqAcceptanceInvalid)
 			} else {
-				input.Blocker = factory.BlockerCodePending
-				assessed.blockers = append(assessed.blockers, factory.Blocker{
-					Code:         factory.BlockerCodePending,
-					EndpointRepo: prereq.EndpointRepo, EndpointIssue: prereq.EndpointIssue,
-					Resolution: factory.BlockerResolution(factory.BlockerCodePending),
-				})
+				satisfied, err := a.codePrereqCompleted(ctx, prereq)
+				if err != nil {
+					return err
+				}
+				if !satisfied {
+					input.Blocker = factory.BlockerCodePending
+					assessed.blockers = append(assessed.blockers, factory.Blocker{
+						Code:         factory.BlockerCodePending,
+						EndpointRepo: prereq.EndpointRepo, EndpointIssue: prereq.EndpointIssue,
+						Resolution: factory.BlockerResolution(factory.BlockerCodePending),
+					})
+				} else {
+					input.Satisfied = true
+				}
 			}
 		}
 	}
 	fingerprint.Prereqs = append(fingerprint.Prereqs, input)
 	return nil
+}
+
+// codePrereqCompleted reports whether attributable factory completion
+// delivered the endpoint's accepted route: a confirmed merge whose
+// acceptance is still the prerequisite's bound head.
+func (a *issueAssessor) codePrereqCompleted(ctx context.Context, prereq factory.AcceptedPrerequisite) (bool, error) {
+	completed, err := a.coordinator.Store.IssueMergeCompletion(ctx, prereq.EndpointRepo, prereq.EndpointIssue)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return completed.Acceptance == prereq.PrereqAcceptance, nil
 }
 
 // assessResultPrereq evaluates one result prerequisite: the endpoint must

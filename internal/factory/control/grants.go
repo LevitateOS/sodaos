@@ -21,6 +21,7 @@ var ErrIneffectiveAuthority = errors.New("factory grants do not authorize dispat
 // IDs in order, and the visible effective authority afterwards.
 type GrantReceipt struct {
 	Publications factory.PublicationWithdrawal `json:"publications"`
+	Merges       factory.MergeWithdrawal       `json:"merges"`
 	Effective    factory.EffectiveAuthority    `json:"effective"`
 	Captured     []string                      `json:"captured,omitempty"`
 	CommandID    string                        `json:"command_id"`
@@ -159,6 +160,7 @@ func (c *Coordinator) applyGrant(ctx context.Context, commandID, principal, typ,
 	}
 	if repository > 0 {
 		receipt.Publications = c.cancelRepositoryPublications(bounded, repository)
+		receipt.Merges = c.cancelRepositoryMerges(bounded, repository)
 	}
 	effective, err := c.EffectiveAuthority(bounded, repository)
 	if err != nil {

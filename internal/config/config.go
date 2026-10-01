@@ -39,6 +39,9 @@ type Config struct {
 	// Optional separate native reviewer credential. It must belong to the
 	// repository policy's distinct review-only operation binding.
 	ForgejoReviewCredentialFile string `json:"forgejo_review_credential_file"`
+	// Optional separate native merge credential. It must belong to the
+	// repository policy's distinct merge-only operation binding.
+	ForgejoMergeCredentialFile string `json:"forgejo_merge_credential_file"`
 	// Optional native webhook intake secret file. When set, the factory
 	// intake route verifies delivery HMACs against it; when unset or
 	// unreadable, intake refuses as unavailable instead of guessing.
@@ -130,6 +133,14 @@ func validateConfigPaths(c Config) error {
 		}
 		if !c.BackgroundServiceConfigured() {
 			return errors.New("forgejo_review_credential_file requires background service inputs")
+		}
+	}
+	if c.ForgejoMergeCredentialFile != "" {
+		if !filepath.IsAbs(c.ForgejoMergeCredentialFile) {
+			return errors.New("forgejo_merge_credential_file must be an absolute path")
+		}
+		if !c.BackgroundServiceConfigured() {
+			return errors.New("forgejo_merge_credential_file requires background service inputs")
 		}
 	}
 	if c.BackgroundServiceConfigured() {

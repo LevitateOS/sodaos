@@ -34,6 +34,7 @@ type ReconcileReceipt struct {
 	Readiness   *ReadinessReport `json:"readiness,omitempty"`
 	Dispatch    *DispatchReport  `json:"dispatch,omitempty"`
 	Publication *PublishReport   `json:"publication,omitempty"`
+	Merge       *MergeReport     `json:"merge,omitempty"`
 }
 
 // Stop retires one recorded run and settles it when retirement and broker
@@ -107,6 +108,10 @@ func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (Recon
 	if c.Publication != nil {
 		published := c.PublishPass(bounded)
 		receipt.Publication = &published
+	}
+	if c.Merges != nil {
+		merged := c.MergePass(bounded)
+		receipt.Merge = &merged
 	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {

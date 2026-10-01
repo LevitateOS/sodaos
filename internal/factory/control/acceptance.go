@@ -98,6 +98,7 @@ type AcceptanceSource interface {
 // the admitted decision, the advanced head and its chain depth.
 type AcceptanceReceipt struct {
 	Publications factory.PublicationWithdrawal `json:"publications"`
+	Merges       factory.MergeWithdrawal       `json:"merges"`
 	CommandID    string                        `json:"command_id"`
 	DecisionID   string                        `json:"decision_id"`
 	Head         string                        `json:"head"`
@@ -107,6 +108,7 @@ type AcceptanceReceipt struct {
 // WithdrawalReceipt is the durable outcome of one acceptance withdrawal.
 type WithdrawalReceipt struct {
 	Publications factory.PublicationWithdrawal `json:"publications"`
+	Merges       factory.MergeWithdrawal       `json:"merges"`
 	CommandID    string                        `json:"command_id"`
 	Decision     string                        `json:"decision"`
 	Withdrawn    bool                          `json:"withdrawn"`
@@ -174,6 +176,7 @@ func (c *Coordinator) AdmitAcceptance(ctx context.Context, commandID, principal 
 	receipt := AcceptanceReceipt{CommandID: cmd.ID, DecisionID: decision.ID, Head: head, Depth: depth}
 	if decision.Predecessor != "" {
 		receipt.Publications = c.cancelAcceptancePublications(bounded, decision.Repository, mustIssueIndex(decision.IssueIndex), decision.Predecessor)
+		receipt.Merges = c.cancelAcceptanceMerges(bounded, decision.Repository, mustIssueIndex(decision.IssueIndex), decision.Predecessor)
 	}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
@@ -548,7 +551,8 @@ func (c *Coordinator) WithdrawAcceptance(ctx context.Context, commandID, princip
 		return WithdrawalReceipt{}, err
 	}
 	receipt := WithdrawalReceipt{CommandID: cmd.ID, Decision: decision, Withdrawn: true,
-		Publications: c.cancelAcceptancePublications(bounded, repository, issue, decision)}
+		Publications: c.cancelAcceptancePublications(bounded, repository, issue, decision),
+		Merges:       c.cancelAcceptanceMerges(bounded, repository, issue, decision)}
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return WithdrawalReceipt{}, err

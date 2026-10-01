@@ -279,6 +279,7 @@ type factoryIssueView struct {
 	Issue      string                     `json:"issue"`
 	Readiness  *readinessView             `json:"readiness,omitempty"`
 	Checks     *checksView                `json:"checks,omitempty"`
+	Merge      *mergeView                 `json:"merge,omitempty"`
 }
 
 // readinessView is the durable readiness verdict for one native issue:
@@ -336,6 +337,34 @@ func checksViewDTO(a factory.CheckAssessment) *checksView {
 	return view
 }
 
+// mergeView is the latest merge for one repository issue: its stage,
+// bounded reason, exact PR linkage and confirmed completion stamps. It
+// carries IDs, commits and codes only.
+type mergeView struct {
+	Resolution string `json:"resolution"`
+	HeadOID    string `json:"head_oid"`
+	BaseOID    string `json:"base_oid"`
+	Commit     string `json:"merged_commit,omitempty"`
+	Stage      string `json:"stage"`
+	Reason     string `json:"reason,omitempty"`
+	PRNumber   string `json:"pr_number"`
+	PRID       string `json:"pr_id"`
+	Revision   int64  `json:"revision"`
+	Finished   int64  `json:"finished_unix,omitempty"`
+}
+
+// mergeViewDTO renders one recorded merge. Absence of a record leaves
+// the issue without a merge verdict, never a guessed completion.
+func mergeViewDTO(m factory.Merge) *mergeView {
+	return &mergeView{
+		Resolution: factory.MergeResolution(m.Reason),
+		HeadOID:    m.HeadOID, BaseOID: m.BaseOID, Commit: m.MergedCommit,
+		Stage: m.Stage, Reason: m.Reason,
+		PRNumber: strconv.FormatInt(m.PRNumber, 10), PRID: strconv.FormatInt(m.PRID, 10),
+		Revision: m.Revision, Finished: m.FinishedUnix,
+	}
+}
+
 // apiFactoryIssue shows the current acceptance for one native issue and
 // whether it is still valid, plus the recorded readiness and check
 // verdicts. Visibility of the repository authorizes the read; the
@@ -374,6 +403,12 @@ func (s *API) apiFactoryIssue(w http.ResponseWriter, r *http.Request, v store.Se
 		view.Checks = checksViewDTO(assessed)
 	} else if !errors.Is(err, store.ErrNotFound) {
 		auth.JSONError(w, 503, "store_unavailable", "Could not read check assessment.")
+		return
+	}
+	if merged, err := s.Store.MergeForIssue(r.Context(), repository, index); err == nil {
+		view.Merge = mergeViewDTO(merged)
+	} else if !errors.Is(err, store.ErrNotFound) {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read issue merge.")
 		return
 	}
 	auth.JSONResponse(w, 200, view)

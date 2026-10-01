@@ -61,6 +61,9 @@ func New(c config.Config, db *store.Store) *Server {
 		if c.ForgejoReviewCredentialFile != "" {
 			s.Coordinator.Reviews = forgejo.NewReviewer(background, client, c.ForgejoReviewCredentialFile)
 		}
+		if c.ForgejoMergeCredentialFile != "" {
+			s.Coordinator.Merges = forgejo.NewMerger(background, client, c.ForgejoMergeCredentialFile)
+		}
 	}
 	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
 		Coordinator: s.Coordinator, Secret: loadIntakeSecret(c),

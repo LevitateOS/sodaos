@@ -60,6 +60,8 @@ type BrokerExecution interface {
 // dispatch; while no source is wired, dispatch waits instead of guessing.
 // Publication executes conditional publication operations; while no
 // executor is wired, finished candidates wait instead of publishing.
+// Merges executes conditional merge operations; while no executor is
+// wired, published candidates wait instead of merging.
 type Coordinator struct {
 	Store           *store.Store
 	Host            HostFactory
@@ -69,6 +71,7 @@ type Coordinator struct {
 	DispatchReads   DispatchReads
 	Publication     PublicationExecutor
 	Reviews         ReviewExecutor
+	Merges          MergeExecutor
 	lock            *os.File
 }
 
@@ -107,6 +110,9 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 	}
 	if c.Publication != nil {
 		c.PublishPass(ctx)
+	}
+	if c.Merges != nil {
+		c.MergePass(ctx)
 	}
 	return nil
 }

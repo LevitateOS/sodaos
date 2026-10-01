@@ -414,6 +414,7 @@ const MaxCapturedDispatch = 1024
 // withdrawal acknowledges requested cancellation, not a won native race.
 type Withdrawal struct {
 	Publications PublicationWithdrawal `json:"publications"`
+	Merges       MergeWithdrawal       `json:"merges"`
 	Captured     []string              `json:"captured"`
 	Repository   int64                 `json:"repository,string"`
 	Revision     int64                 `json:"revision"`

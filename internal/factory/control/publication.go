@@ -551,7 +551,7 @@ func (c *Coordinator) cancelPublications(ctx context.Context, repository, issue 
 // A successful host launch returns after the supervised CLI has retired. Only
 // terminal replies enter settlement; a running duplicate remains supervised.
 func (c *Coordinator) publishAfterDispatch(ctx context.Context, report DispatchReport) {
-	if c.Publication == nil {
+	if c.Publication == nil && c.Merges == nil {
 		return
 	}
 	bounded, stop := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Minute)
@@ -566,6 +566,7 @@ func (c *Coordinator) publishAfterDispatch(ctx context.Context, report DispatchR
 		}
 	}
 	c.PublishPass(bounded)
+	c.MergePass(bounded)
 }
 
 // Withdrawal stays open while any cancellation or effect is unknown. Native
