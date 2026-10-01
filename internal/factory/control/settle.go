@@ -29,8 +29,9 @@ type FencedRun struct {
 
 // ReconcileReceipt is the durable outcome of one reconcile command.
 type ReconcileReceipt struct {
-	Settled []string    `json:"settled"`
-	Fenced  []FencedRun `json:"fenced,omitempty"`
+	Settled   []string         `json:"settled"`
+	Fenced    []FencedRun      `json:"fenced,omitempty"`
+	Readiness *ReadinessReport `json:"readiness,omitempty"`
 }
 
 // Stop retires one recorded run and settles it when retirement and broker
@@ -95,6 +96,8 @@ func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (Recon
 	if err != nil {
 		return ReconcileReceipt{}, err
 	}
+	report := c.reconcileReadinessAll(bounded)
+	receipt.Readiness = &report
 	outcome, err := json.Marshal(receipt)
 	if err != nil {
 		return ReconcileReceipt{}, err

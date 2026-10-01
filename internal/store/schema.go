@@ -7,10 +7,10 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 21
+const schemaFormatVersion = 22
 
 const currentSchema = `CREATE TABLE schema_version(version INTEGER PRIMARY KEY);
-INSERT INTO schema_version(version) VALUES(21);
+INSERT INTO schema_version(version) VALUES(22);
 CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '');
 CREATE TABLE keys(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint));
 CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready INTEGER NOT NULL DEFAULT 0 CHECK(ready IN(0,1)), creation_profile TEXT CHECK(creation_profile IS NULL OR (length(CAST(creation_profile AS BLOB))<=1024 AND json_valid(creation_profile))));
@@ -65,6 +65,9 @@ CREATE TABLE issue_acceptance_heads(repository INTEGER NOT NULL CHECK(repository
 CREATE TRIGGER issue_acceptance_decision_immutable_update BEFORE UPDATE ON issue_acceptance_decisions BEGIN SELECT RAISE(ABORT,'acceptance decision is immutable'); END;
 CREATE TRIGGER issue_acceptance_decision_immutable_delete BEFORE DELETE ON issue_acceptance_decisions BEGIN SELECT RAISE(ABORT,'acceptance decision is immutable'); END;
 CREATE TABLE issue_acceptance_withdrawals(repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), decision TEXT NOT NULL, withdrawer INTEGER NOT NULL CHECK(withdrawer>0), PRIMARY KEY(repository,issue,decision));
+CREATE TABLE issue_controls(repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), revision INTEGER NOT NULL CHECK(revision>0), data TEXT NOT NULL CHECK(json_valid(data)), PRIMARY KEY(repository,issue));
+CREATE TABLE intake_deliveries(delivery TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), kind TEXT NOT NULL, received_at INTEGER NOT NULL);
+CREATE TABLE factory_readiness_sweeps(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL CHECK(revision>0), swept_at INTEGER NOT NULL);
 CREATE TRIGGER issue_acceptance_withdrawal_immutable_update BEFORE UPDATE ON issue_acceptance_withdrawals BEGIN SELECT RAISE(ABORT,'acceptance withdrawal is immutable'); END;
 CREATE TRIGGER issue_acceptance_withdrawal_immutable_delete BEFORE DELETE ON issue_acceptance_withdrawals BEGIN SELECT RAISE(ABORT,'acceptance withdrawal is immutable'); END;
 CREATE TABLE project_environment_grants(repository INTEGER PRIMARY KEY CHECK(repository>0), revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));

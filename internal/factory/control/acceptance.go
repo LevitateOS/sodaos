@@ -53,9 +53,12 @@ type AcceptanceIssueView struct {
 	PosterID      string
 	ContentVer    int
 	Lifecycle     int
+	ClosedUnix    int64
 	Verified      bool
 	FirstCreated  bool
 	Visible       bool
+	Closed        bool
+	IsPull        bool
 }
 
 // AcceptanceComment is one bracketed native comment revision.
@@ -392,37 +395,42 @@ type AcceptanceValidity struct {
 // revision. Restored text does not reactivate: versions and occurrences
 // retain the distinction. Read-only: it records no decision.
 func (c *Coordinator) AcceptanceStatus(ctx context.Context, repository int64, issue string) (AcceptanceValidity, error) {
+	status, _, err := c.acceptanceStatus(ctx, repository, issue)
+	return status, err
+}
+
+func (c *Coordinator) acceptanceStatus(ctx context.Context, repository int64, issue string) (AcceptanceValidity, AcceptanceEvidence, error) {
 	bounded, stop := context.WithTimeout(ctx, 30*time.Second)
 	defer stop()
 	index := mustIssueIndex(issue)
 	if repository <= 0 || index <= 0 {
-		return AcceptanceValidity{}, errors.New("invalid acceptance scope")
+		return AcceptanceValidity{}, AcceptanceEvidence{}, errors.New("invalid acceptance scope")
 	}
 	head, err := c.Store.AcceptanceHead(bounded, repository, index)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return AcceptanceValidity{Reasons: []string{"no_acceptance"}}, nil
+			return AcceptanceValidity{Reasons: []string{"no_acceptance"}}, AcceptanceEvidence{}, nil
 		}
-		return AcceptanceValidity{}, err
+		return AcceptanceValidity{}, AcceptanceEvidence{}, err
 	}
 	decision, err := c.Store.AcceptanceDecision(bounded, head)
 	if err != nil {
-		return AcceptanceValidity{}, err
+		return AcceptanceValidity{}, AcceptanceEvidence{}, err
 	}
 	status := AcceptanceValidity{Acceptance: &decision}
 	if withdrawn, _, err := c.Store.AcceptanceWithdrawn(bounded, repository, index, head); err != nil {
-		return AcceptanceValidity{}, err
+		return AcceptanceValidity{}, AcceptanceEvidence{}, err
 	} else if withdrawn {
 		status.Withdrawn = true
 		status.Reasons = []string{"withdrawn"}
-		return status, nil
+		return status, AcceptanceEvidence{}, nil
 	}
 	if c.AcceptanceReads == nil {
-		return AcceptanceValidity{}, refuseAcceptance(RefusalSnapshotUnavailable)
+		return AcceptanceValidity{}, AcceptanceEvidence{}, refuseAcceptance(RefusalSnapshotUnavailable)
 	}
 	evidence, err := c.readAcceptanceEvidence(bounded, decision)
 	if err != nil {
-		return AcceptanceValidity{}, err
+		return AcceptanceValidity{}, AcceptanceEvidence{}, err
 	}
 	status.Revision = evidence.Revision
 	status.Reasons = assessAcceptance(decision, evidence)
@@ -436,7 +444,7 @@ func (c *Coordinator) AcceptanceStatus(ctx context.Context, repository int64, is
 		head, err := c.Store.AcceptanceHead(bounded, prereq.EndpointRepo, prereq.EndpointIssue)
 		if err != nil || head != prereq.PrereqAcceptance {
 			if err != nil && !errors.Is(err, store.ErrNotFound) {
-				return AcceptanceValidity{}, err
+				return AcceptanceValidity{}, AcceptanceEvidence{}, err
 			}
 			status.Reasons = append(status.Reasons, RefusalPrereqStale)
 		}
@@ -445,7 +453,7 @@ func (c *Coordinator) AcceptanceStatus(ctx context.Context, repository int64, is
 	if status.Valid {
 		status.Reasons = nil
 	}
-	return status, nil
+	return status, evidence, nil
 }
 
 // assessAcceptance compares one recorded decision against fresh evidence.

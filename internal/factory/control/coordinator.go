@@ -55,6 +55,7 @@ type Coordinator struct {
 	Host            HostFactory
 	Broker          BrokerExecution
 	AcceptanceReads AcceptanceSource
+	Readiness       ReadinessObservation
 	lock            *os.File
 }
 

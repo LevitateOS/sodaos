@@ -61,9 +61,12 @@ func (s AcceptanceSnapshotSource) ReadAcceptanceEvidence(ctx context.Context, re
 			PosterID:      snapshot.Issue.Provenance.PosterID,
 			ContentVer:    snapshot.Issue.ContentVersion,
 			Lifecycle:     len(snapshot.Issue.Lifecycle),
+			ClosedUnix:    snapshot.Issue.ClosedUnix,
 			Verified:      snapshot.Issue.Provenance.Verified,
 			FirstCreated:  snapshot.Issue.Provenance.FirstCreated,
 			Visible:       snapshot.Issue.Visible,
+			Closed:        snapshot.Issue.IsClosed,
+			IsPull:        snapshot.Issue.IsPull,
 		},
 	}
 	if snapshot.Comments != nil {
@@ -274,6 +277,19 @@ type factoryIssueView struct {
 	Status     control.AcceptanceValidity `json:"status"`
 	Repository string                     `json:"repository"`
 	Issue      string                     `json:"issue"`
+	Readiness  *readinessView             `json:"readiness,omitempty"`
+}
+
+// readinessView is the durable readiness verdict for one native issue:
+// its classification, primary reason, structured blockers, assessed
+// acceptance and record revision. It carries IDs and codes only.
+type readinessView struct {
+	Blockers   []factory.Blocker `json:"blockers,omitempty"`
+	Acceptance string            `json:"acceptance,omitempty"`
+	Readiness  string            `json:"readiness"`
+	Reason     string            `json:"reason"`
+	Revision   int64             `json:"revision"`
+	Assessed   int64             `json:"assessed_unix"`
 }
 
 // apiFactoryIssue shows the current acceptance for one native issue and
@@ -297,7 +313,19 @@ func (s *API) apiFactoryIssue(w http.ResponseWriter, r *http.Request, v store.Se
 		acceptanceDecisionError(w, err)
 		return
 	}
-	auth.JSONResponse(w, 200, factoryIssueView{Status: status, Repository: strconv.FormatInt(repository, 10), Issue: issue})
+	view := factoryIssueView{Status: status, Repository: strconv.FormatInt(repository, 10), Issue: issue}
+	index, _ := strconv.ParseInt(issue, 10, 64)
+	if assessed, err := s.Store.IssueControl(r.Context(), repository, index); err == nil {
+		view.Readiness = &readinessView{
+			Blockers: assessed.Blockers, Acceptance: assessed.Acceptance,
+			Readiness: assessed.Readiness, Reason: assessed.Reason,
+			Revision: assessed.Revision, Assessed: assessed.AssessedUnix,
+		}
+	} else if !errors.Is(err, store.ErrNotFound) {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read issue readiness.")
+		return
+	}
+	auth.JSONResponse(w, 200, view)
 }
 
 // acceptanceDecisionError maps acceptance failures to status codes.

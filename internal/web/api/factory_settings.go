@@ -179,6 +179,16 @@ func (s *API) apiFactoryStatus(w http.ResponseWriter, r *http.Request, v store.S
 		return
 	}
 	view.Effective = effective
+	controls, err := s.Store.IssueControls(ctx, repository, store.MaxIssueControls)
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not read factory queue.")
+		return
+	}
+	for _, recorded := range controls {
+		if recorded.Readiness == factory.ReadinessQueued {
+			view.Queue.Queued++
+		}
+	}
 	auth.JSONResponse(w, 200, view)
 }
 

@@ -36,6 +36,10 @@ type Config struct {
 	ForgejoBackgroundSocket         string  `json:"forgejo_background_socket"`
 	ForgejoBackgroundHostUID        *uint32 `json:"forgejo_background_host_uid"`
 	ForgejoBackgroundCredentialFile string  `json:"forgejo_background_credential_file"`
+	// Optional native webhook intake secret file. When set, the factory
+	// intake route verifies delivery HMACs against it; when unset or
+	// unreadable, intake refuses as unavailable instead of guessing.
+	FactoryIntakeSecretFile string `json:"factory_intake_secret_file"`
 }
 
 // BackgroundServiceConfigured reports whether native background service
@@ -105,6 +109,9 @@ func validateConfigPaths(c Config) error {
 	}
 	if c.OperatorID <= 0 {
 		return errors.New("operator_id is required; run operator setup first")
+	}
+	if c.FactoryIntakeSecretFile != "" && !filepath.IsAbs(c.FactoryIntakeSecretFile) {
+		return errors.New("factory_intake_secret_file must be an absolute path")
 	}
 	if c.BackgroundServiceConfigured() {
 		if !filepath.IsAbs(c.ForgejoBackgroundSocket) {

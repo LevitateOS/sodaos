@@ -47,6 +47,16 @@ func New(c config.Config, db *store.Store) *Server {
 	s.API.Identity = broker
 	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
 	s.API.Coordinator = s.Coordinator
+	if c.BackgroundServiceConfigured() {
+		observer := forgejo.NewServiceObserver(c.ForgejoBackgroundSocket, *c.ForgejoBackgroundHostUID,
+			c.ForgejoBackgroundCredentialFile, client)
+		source := api.NewServiceReadinessSource(observer)
+		s.Coordinator.AcceptanceReads = source
+		s.Coordinator.Readiness = source
+	}
+	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
+		Coordinator: s.Coordinator, Secret: loadIntakeSecret(c),
+	}.ServeHTTP)
 
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -76,6 +86,20 @@ func (s *Server) forgejoHome(w http.ResponseWriter, r *http.Request) {
 
 // CloseTerminals shuts down native terminal peers before process exit.
 func (s *Server) CloseTerminals() { s.API.CloseTerminals() }
+
+// loadIntakeSecret reads the optional native webhook intake secret. An
+// unset or unreadable secret disables intake: deliveries refuse as
+// unavailable instead of bypassing authentication.
+func loadIntakeSecret(c config.Config) []byte {
+	if c.FactoryIntakeSecretFile == "" {
+		return nil
+	}
+	secret, err := config.Secret(c.FactoryIntakeSecretFile)
+	if err != nil {
+		return nil
+	}
+	return []byte(secret)
+}
 
 // StartCoordinator takes exclusive factory-ledger ownership and settles
 // outstanding runs before the operator endpoint serves. Only the serving
