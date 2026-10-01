@@ -48,6 +48,8 @@ const (
 	CommandRequirement      = "preparation-requirement"
 	CommandApproval         = "preparation-approval"
 	CommandReopen           = "reopen"
+	CommandAcceptance       = "acceptance"
+	CommandWithdrawal       = "withdrawal"
 	CommandPause            = "pause"
 	CommandResume           = "resume"
 	CommandRetry            = "retry"
@@ -62,6 +64,7 @@ func SettingsCommandType(typ string) bool {
 	switch typ {
 	case CommandPolicy, CommandOperatorGrant, CommandCapacity, CommandSponsorship,
 		CommandEnvironmentGrant, CommandRequirement, CommandApproval, CommandReopen,
+		CommandAcceptance, CommandWithdrawal,
 		CommandPause, CommandResume, CommandRetry, CommandTakeover:
 		return true
 	default:

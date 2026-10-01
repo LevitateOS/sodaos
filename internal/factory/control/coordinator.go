@@ -47,12 +47,15 @@ type BrokerExecution interface {
 
 // Coordinator supervises the factory ledger in the dashboard store. One
 // coordinator owns the database at a time; startup settles outstanding runs
-// before serving operator commands.
+// before serving operator commands. AcceptanceReads brackets native issue
+// evidence for acceptance decisions; while no source is wired, admission
+// and validity checks refuse as unavailable instead of guessing.
 type Coordinator struct {
-	Store  *store.Store
-	Host   HostFactory
-	Broker BrokerExecution
-	lock   *os.File
+	Store           *store.Store
+	Host            HostFactory
+	Broker          BrokerExecution
+	AcceptanceReads AcceptanceSource
+	lock            *os.File
 }
 
 func NewCoordinator(db *store.Store, host HostFactory, broker BrokerExecution) *Coordinator {

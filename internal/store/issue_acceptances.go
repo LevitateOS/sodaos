@@ -1,0 +1,143 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+
+	"github.com/levitateos/sodaos/internal/factory"
+)
+
+// AdmitAcceptanceDecision records one immutable issue acceptance and
+// advances its repository/issue head. The expected predecessor must equal
+// the current head, or be empty when no decision was ever recorded.
+// Repeating the identical decision replays without advancing twice; new
+// content under a recorded ID conflicts instead of overwriting history.
+func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptance) error {
+	if err := d.Validate(); err != nil {
+		return err
+	}
+	issue, err := strconv.ParseInt(d.IssueIndex, 10, 64)
+	if err != nil || issue <= 0 {
+		return errors.New("invalid acceptance issue index")
+	}
+	data, err := json.Marshal(d)
+	if err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var head sql.NullString
+	err = tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=? AND issue=?`, d.Repository, issue).Scan(&head)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	current := ""
+	if head.Valid {
+		current = head.String
+	}
+	if current == d.ID {
+		var raw []byte
+		if err = tx.QueryRowContext(ctx, `SELECT data FROM issue_acceptance_decisions WHERE id=?`, d.ID).Scan(&raw); err != nil {
+			return err
+		}
+		if string(raw) != string(data) {
+			return ErrCommandConflict
+		}
+		return tx.Commit()
+	}
+	if current != d.Predecessor {
+		return ErrStaleRevision
+	}
+	var taken int
+	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM issue_acceptance_decisions WHERE id=?`, d.ID).Scan(&taken); err != nil {
+		return err
+	}
+	if taken != 0 {
+		return ErrCommandConflict
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO issue_acceptance_decisions(id,repository,issue,predecessor,data) VALUES(?,?,?,?,?)`, d.ID, d.Repository, issue, d.Predecessor, string(data)); err != nil {
+		return fmt.Errorf("acceptance admission failed: %w", err)
+	}
+	result, err := tx.ExecContext(ctx, `INSERT INTO issue_acceptance_heads(repository,issue,decision) VALUES(?,?,?)
+		ON CONFLICT(repository,issue) DO UPDATE SET decision=? WHERE issue_acceptance_heads.decision=?`, d.Repository, issue, d.ID, d.ID, d.Predecessor)
+	if err != nil {
+		return fmt.Errorf("acceptance head advance failed: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrStaleRevision
+	}
+	return tx.Commit()
+}
+
+// AcceptanceDecision returns one recorded issue acceptance.
+func (s *Store) AcceptanceDecision(ctx context.Context, id string) (factory.Acceptance, error) {
+	var d factory.Acceptance
+	var data []byte
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM issue_acceptance_decisions WHERE id=?`, id).Scan(&data)
+	if err == nil {
+		err = json.Unmarshal(data, &d)
+	}
+	return d, err
+}
+
+// AcceptanceHead returns the current acceptance decision for one native issue.
+func (s *Store) AcceptanceHead(ctx context.Context, repository, issue int64) (string, error) {
+	var head string
+	err := s.db.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=? AND issue=?`, repository, issue).Scan(&head)
+	return head, err
+}
+
+// AcceptanceDepth counts the recorded acceptance chain for one native issue.
+func (s *Store) AcceptanceDepth(ctx context.Context, repository, issue int64) (int64, error) {
+	var depth int64
+	err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM issue_acceptance_decisions WHERE repository=? AND issue=?`, repository, issue).Scan(&depth)
+	return depth, err
+}
+
+// WithdrawAcceptanceDecision latches one recorded head decision as
+// withdrawn by a current maintainer. Repeating the identical withdrawal
+// replays; withdrawing a superseded decision is stale. A later acceptance
+// advances the head past the latch with a fresh decision.
+func (s *Store) WithdrawAcceptanceDecision(ctx context.Context, repository, issue int64, decision string, withdrawer int64) error {
+	if repository <= 0 || issue <= 0 || withdrawer <= 0 || decision == "" {
+		return errors.New("invalid acceptance withdrawal")
+	}
+	head, err := s.AcceptanceHead(ctx, repository, issue)
+	if err != nil {
+		return err
+	}
+	if head != decision {
+		return ErrStaleRevision
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT INTO issue_acceptance_withdrawals(repository,issue,decision,withdrawer) VALUES(?,?,?,?) ON CONFLICT(repository,issue,decision) DO NOTHING`,
+		repository, issue, decision, withdrawer)
+	if err != nil {
+		return fmt.Errorf("acceptance withdrawal failed: %w", err)
+	}
+	return nil
+}
+
+// AcceptanceWithdrawn reports whether the named decision was withdrawn and,
+// when so, the withdrawing maintainer.
+func (s *Store) AcceptanceWithdrawn(ctx context.Context, repository, issue int64, decision string) (bool, int64, error) {
+	var withdrawer int64
+	err := s.db.QueryRowContext(ctx, `SELECT withdrawer FROM issue_acceptance_withdrawals WHERE repository=? AND issue=? AND decision=?`, repository, issue, decision).Scan(&withdrawer)
+	if errors.Is(err, ErrNotFound) {
+		return false, 0, nil
+	}
+	if err != nil {
+		return false, 0, err
+	}
+	return true, withdrawer, nil
+}

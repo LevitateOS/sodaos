@@ -40,6 +40,9 @@ paths are private service routes, not public URLs to call directly:
 | GET | `/api/factory/runs/{runID}` | Code-write run status: recorded facts, display binding, observed host state |
 | GET | `/api/factory/runs/{runID}/output` | Code-write read-only run output WebSocket (status/output/closed frames; input rejected) |
 | GET | `/api/factory/commands/{commandID}` | Durable command outcome read-back |
+| GET | `/api/repositories/{repositoryID}/factory/issues/{issueID}` | Current issue acceptance and validity |
+| POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/acceptances` | Code-write exact-inputs acceptance (command envelope) |
+| POST | `/api/repositories/{repositoryID}/factory/issues/{issueID}/withdrawal` | Code-write acceptance withdrawal (command envelope) |
 | GET | `/api/spaces` | Spaces inventory for the native actor |
 | GET/POST | `/api/environments` | List / create environments |
 | GET | `/api/environments/{id}` | Environment detail |

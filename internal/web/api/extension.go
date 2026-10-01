@@ -194,8 +194,17 @@ func extensionRepositoryRoute(parts []string, method string) bool {
 		}
 		return false
 	}
-	return len(parts) == 5 && parts[2] == "factory" && parts[3] == "sponsorships" &&
-		extensionProductID(parts[4]) && method == http.MethodPut
+	if len(parts) == 5 && parts[2] == "factory" && parts[3] == "sponsorships" {
+		return extensionProductID(parts[4]) && method == http.MethodPut
+	}
+	if len(parts) == 5 && parts[2] == "factory" && parts[3] == "issues" {
+		return extensionProductID(parts[4]) && method == http.MethodGet
+	}
+	if len(parts) == 6 && parts[2] == "factory" && parts[3] == "issues" && extensionProductID(parts[4]) {
+		return parts[5] == "acceptances" && method == http.MethodPost ||
+			parts[5] == "withdrawal" && method == http.MethodPost
+	}
+	return false
 }
 
 func extensionFactoryRoute(parts []string, method string) bool {
