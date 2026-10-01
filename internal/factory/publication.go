@@ -325,7 +325,7 @@ func (p Publication) Validate() error {
 	if !ValidID(p.ID) || !ValidID(p.AssignmentID) {
 		return errors.New("invalid publication identity")
 	}
-	if !ValidProjectID(p.ProjectID) || !project.ValidFactoryRole(p.Role) {
+	if !ValidProjectID(p.ProjectID) || p.Role != project.RoleCoder {
 		return errors.New("invalid publication address")
 	}
 	if p.Repository <= 0 || p.Issue <= 0 || p.Revision < 0 {

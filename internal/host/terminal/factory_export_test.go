@@ -150,7 +150,7 @@ func TestFactoryExportBundleReadsExactCandidate(t *testing.T) {
 	}
 	cfg := publish.Config{Root: root, Remote: "http://127.0.0.1:1/target.git", Username: "soda-tester", TokenFile: token}
 	now := time.Now()
-	run := factory.Run{ID: factory.NewID(), ProjectID: takeoverProject, Role: "coder", InputSHA: f.base,
+	run := factory.Run{ID: factory.NewID(), ProjectID: takeoverProject, Role: domain.RoleCoder, InputSHA: f.base,
 		Started: now, Deadline: now.Add(time.Hour), Image: "sha256:" + strings.Repeat("a", 64), Harness: "test", Model: "test"}
 	if err := cfg.ValidateCandidate(t.Context(), publish.Request{Run: run, BaseSHA: f.base, Commit: f.candidate, Bundle: bundle}); err != nil {
 		t.Fatalf("real export rejected by retained publisher: %v", err)

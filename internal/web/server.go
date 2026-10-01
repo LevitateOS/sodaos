@@ -58,6 +58,9 @@ func New(c config.Config, db *store.Store) *Server {
 		s.Coordinator.DispatchReads = source
 		s.Coordinator.Publication = forgejo.NewPublisher(background, client, c.ForgejoInternalURL,
 			publicationRoot(c), c.ForgejoBackgroundCredentialFile)
+		if c.ForgejoReviewCredentialFile != "" {
+			s.Coordinator.Reviews = forgejo.NewReviewer(background, client, c.ForgejoReviewCredentialFile)
+		}
 	}
 	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
 		Coordinator: s.Coordinator, Secret: loadIntakeSecret(c),

@@ -68,6 +68,7 @@ type Coordinator struct {
 	Readiness       ReadinessObservation
 	DispatchReads   DispatchReads
 	Publication     PublicationExecutor
+	Reviews         ReviewExecutor
 	lock            *os.File
 }
 

@@ -36,6 +36,9 @@ type Config struct {
 	ForgejoBackgroundSocket         string  `json:"forgejo_background_socket"`
 	ForgejoBackgroundHostUID        *uint32 `json:"forgejo_background_host_uid"`
 	ForgejoBackgroundCredentialFile string  `json:"forgejo_background_credential_file"`
+	// Optional separate native reviewer credential. It must belong to the
+	// repository policy's distinct review-only operation binding.
+	ForgejoReviewCredentialFile string `json:"forgejo_review_credential_file"`
 	// Optional native webhook intake secret file. When set, the factory
 	// intake route verifies delivery HMACs against it; when unset or
 	// unreadable, intake refuses as unavailable instead of guessing.
@@ -120,6 +123,14 @@ func validateConfigPaths(c Config) error {
 	}
 	if c.FactoryPublicationRoot != "" && !filepath.IsAbs(c.FactoryPublicationRoot) {
 		return errors.New("factory_publication_root must be an absolute path")
+	}
+	if c.ForgejoReviewCredentialFile != "" {
+		if !filepath.IsAbs(c.ForgejoReviewCredentialFile) {
+			return errors.New("forgejo_review_credential_file must be an absolute path")
+		}
+		if !c.BackgroundServiceConfigured() {
+			return errors.New("forgejo_review_credential_file requires background service inputs")
+		}
 	}
 	if c.BackgroundServiceConfigured() {
 		if !filepath.IsAbs(c.ForgejoBackgroundSocket) {

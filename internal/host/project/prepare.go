@@ -294,7 +294,9 @@ func (r *Runtime) clonePreparationSource(ctx context.Context, prep domain.Prepar
 		if len(bytes.TrimSpace(out)) != 0 {
 			return errors.New("preparation checkout holds unknown partial effects; use a new identity")
 		}
-		if _, err = r.roleExec(ctx, prep, "/usr/bin/git", "clone", bundle, checkout); err != nil {
+		if _, err = r.roleExec(ctx, prep, "/usr/bin/env", "-i", "PATH=/usr/bin:/bin", "HOME="+home,
+			"GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_NO_REPLACE_OBJECTS=1", "GIT_TERMINAL_PROMPT=0",
+			"/usr/bin/git", "clone", "--template=", "--config", "core.hooksPath=/dev/null", bundle, checkout); err != nil {
 			return errors.New("preparation source clone unconfirmed")
 		}
 		if err = r.confirmPreparationHead(ctx, prep, checkout); err != nil {

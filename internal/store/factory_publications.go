@@ -221,6 +221,7 @@ func (s *Store) PublishableAssignments(ctx context.Context, limit int) ([]factor
 	rows, err := s.db.QueryContext(ctx, `SELECT a.data FROM factory_assignments a
 		LEFT JOIN factory_publications p ON p.assignment=a.id
 		WHERE a.stage='finished' AND p.assignment IS NULL
+		AND json_extract(a.data,'$.role')='soda-coder'
 		AND json_extract(a.data,'$.outcome')='succeeded'
 		AND json_extract(a.data,'$.result.reported')=1
 		AND json_extract(a.data,'$.result.status')='completed'

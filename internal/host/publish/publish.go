@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/factory"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 type Config struct {
@@ -55,6 +56,9 @@ func validateRemote(remote string) error {
 }
 
 func (r Request) Validate() error {
+	if r.Run.Role != project.RoleCoder {
+		return errors.New("only the coding role may publish a candidate")
+	}
 	if err := r.Run.Validate(); err != nil {
 		return err
 	}

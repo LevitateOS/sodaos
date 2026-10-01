@@ -61,7 +61,7 @@ func candidateFixture(t *testing.T, changed string) (Config, Request) {
 		t.Fatal(err)
 	}
 	now := time.Now()
-	r := factory.Run{ID: factory.NewID(), ProjectID: "p123456789012345678901234", Role: "coder", InputSHA: base, Started: now, Deadline: now.Add(time.Hour), Image: "sha256:" + strings.Repeat("b", 64), Harness: "test", Model: "test"}
+	r := factory.Run{ID: factory.NewID(), ProjectID: "p123456789012345678901234", Role: "soda-coder", InputSHA: base, Started: now, Deadline: now.Add(time.Hour), Image: "sha256:" + strings.Repeat("b", 64), Harness: "test", Model: "test"}
 	return Config{Root: root, Remote: "http://127.0.0.1:1/target.git", Username: "soda-tester", TokenFile: token}, Request{Run: r, BaseSHA: base, Commit: sha, Bundle: bundle}
 }
 

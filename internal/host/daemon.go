@@ -296,8 +296,8 @@ func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
 func hasNativeCleanPath(r *http.Request) bool {
 	switch r.URL.Path {
 	case "/lifecycle", "/access-keys", "/profile", "/create", "/os",
-		"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold",
-		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness", "/factory-export":
+		"/prepare", "/prepare-candidate", "/prepare-inspect", "/prepare-stop", "/prepare-hold",
+		"/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness", "/factory-export", "/factory-candidate-inspect":
 		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
 	default:
 		return true
@@ -323,7 +323,7 @@ func nativeRequestErrorMessage(code int) string {
 
 func isAdmittedMutationPath(path string) bool {
 	return path == "/lifecycle" || path == "/access-keys" || path == "/account" ||
-		path == "/prepare" || path == "/prepare-stop" || path == "/prepare-hold"
+		path == "/prepare" || path == "/prepare-candidate" || path == "/prepare-stop" || path == "/prepare-hold"
 }
 
 func makeBodyDecoder(body io.Reader, ctx context.Context) func(any) error {
@@ -421,6 +421,12 @@ func (d *Daemon) dispatchPrepare(ctx context.Context, path string, decode func(a
 			return nil, err
 		}
 		return d.Project.Prepare(ctx, in)
+	case "/prepare-candidate":
+		var in project.FactoryCandidate
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.Project.PrepareCandidate(ctx, in)
 	case "/prepare-inspect":
 		var in project.PrepareInspect
 		if err := decode(&in); err != nil {
@@ -511,6 +517,19 @@ func (d *Daemon) dispatchFactory(ctx context.Context, path string, decode func(a
 			return nil, errOutputStale
 		}
 		return out, err
+	case "/factory-candidate-inspect":
+		var in project.FactoryCandidateInspect
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		out, err := factory.InspectCandidate(ctx, in)
+		if errors.Is(err, identity.ErrNotFound) {
+			return nil, errNotFound
+		}
+		if errors.Is(err, identity.ErrStale) {
+			return nil, errExportStale
+		}
+		return out, err
 	case "/factory-export":
 		var in project.FactoryExport
 		if err := decode(&in); err != nil {
@@ -539,9 +558,9 @@ func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func
 		return d.dispatchCreateTargeted(ctx, path, decode)
 	case "/lifecycle", "/access-keys", "/account":
 		return d.dispatchMutation(ctx, path, decode)
-	case "/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
+	case "/prepare", "/prepare-candidate", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
 		return d.dispatchPrepare(ctx, path, decode)
-	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness", "/factory-export":
+	case "/factory-launch", "/factory-inspect", "/factory-stop", "/factory-takeover", "/factory-output", "/factory-harness", "/factory-export", "/factory-candidate-inspect":
 		return d.dispatchFactory(ctx, path, decode)
 	default:
 		return nil, errNotFound
@@ -558,11 +577,11 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
 	defer cancel()
-	// /prepare carries bounded approved inputs and a source bundle, and
+	// Preparation routes carry bounded source bundles and approved inputs, and
 	// /factory-launch carries a bounded prompt; every other native route
 	// keeps the small body cap.
 	bodyLimit := 65536
-	if r.URL.Path == "/prepare" || r.URL.Path == "/factory-launch" {
+	if r.URL.Path == "/prepare" || r.URL.Path == "/prepare-candidate" || r.URL.Path == "/factory-launch" {
 		bodyLimit = 1 << 20
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, int64(bodyLimit))
