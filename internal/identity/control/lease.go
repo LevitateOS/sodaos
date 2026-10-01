@@ -15,6 +15,72 @@ func (c *Controller) Acquire(ctx context.Context, in identity.AcquireRequest) (i
 	if err := in.Validate(time.Now()); err != nil {
 		return identity.Lease{}, err
 	}
+	digest := identity.AcquisitionDigest(in)
+	existing, created, err := c.admitExecution(ctx, in, digest)
+	if err != nil {
+		return identity.Lease{}, err
+	}
+	if !created && existing.LeaseID != "" {
+		return c.replayAcquisition(ctx, existing, digest)
+	}
+	// A fresh identity, or a pending identity whose earlier reservation
+	// never landed, proceeds to reserve exactly one lease for this digest.
+	l, err := c.reserveExecutionLease(ctx, in)
+	if err != nil {
+		return l, err
+	}
+	existing.State, existing.LeaseID = identity.ExecutionLive, l.ID
+	if err = c.store.IdentityObserveExecution(ctx, existing); err != nil {
+		return identity.Lease{}, err
+	}
+	return l, nil
+}
+
+// admitExecution records the (kind, execution_id) identity before any lease
+// work. A terminal execution or a changed request for a live identity refuses;
+// the same digest replays the recorded lease instead of reserving another.
+func (c *Controller) admitExecution(ctx context.Context, in identity.AcquireRequest, digest string) (identity.Execution, bool, error) {
+	e := identity.Execution{Kind: in.Kind, ExecutionID: in.ExecutionID, Digest: digest, State: identity.ExecutionPending}
+	existing, created, err := c.store.IdentityAdmitExecution(ctx, e)
+	if err != nil {
+		return identity.Execution{}, false, err
+	}
+	if !created && (existing.State == identity.ExecutionTerminal || existing.Digest != digest) {
+		return identity.Execution{}, false, identity.ErrDenied
+	}
+	return existing, created, nil
+}
+
+func (c *Controller) replayAcquisition(ctx context.Context, existing identity.Execution, digest string) (identity.Lease, error) {
+	if existing.Digest != digest || existing.State == identity.ExecutionTerminal {
+		return identity.Lease{}, identity.ErrDenied
+	}
+	if existing.LeaseID == "" {
+		return identity.Lease{}, identity.ErrUncertain
+	}
+	l, err := c.store.IdentityLease(ctx, existing.LeaseID)
+	if err != nil {
+		return identity.Lease{}, identity.ErrUncertain
+	}
+	// Re-check current reservation authority: revocation or withdrawal
+	// after the original acquire must not hand the lease out again.
+	conn, err := c.store.IdentityConnection(ctx, l.ConnectionID)
+	if err != nil {
+		return identity.Lease{}, identity.ErrUncertain
+	}
+	if conn.ProviderID != l.ProviderID {
+		return identity.Lease{}, identity.ErrDenied
+	}
+	if conn.State != identity.Ready || c.providers[conn.ProviderID] == nil {
+		return identity.Lease{}, identity.ErrUncertain
+	}
+	if err = c.authorizeReservation(ctx, conn, &l); err != nil {
+		return identity.Lease{}, err
+	}
+	return l, nil
+}
+
+func (c *Controller) reserveExecutionLease(ctx context.Context, in identity.AcquireRequest) (identity.Lease, error) {
 	conn, err := c.store.IdentityConnection(ctx, in.ConnectionID)
 	if err != nil {
 		return identity.Lease{}, err
@@ -30,6 +96,59 @@ func (c *Controller) Acquire(ctx context.Context, in identity.AcquireRequest) (i
 		return l, err
 	}
 	return l, c.store.IdentityReserve(ctx, l)
+}
+
+// GetExecution returns the immutable acquisition digest, lease/binding
+// metadata and pending/live/terminal state without credentials.
+func (c *Controller) GetExecution(ctx context.Context, kind, executionID string) (identity.Execution, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if (kind != identity.Factory && kind != identity.Terminal) || executionID == "" {
+		return identity.Execution{}, identity.ErrDenied
+	}
+	e, err := c.store.IdentityExecution(ctx, kind, executionID)
+	if errors.Is(err, store.ErrNotFound) {
+		return identity.Execution{}, identity.ErrNotFound
+	}
+	return e, err
+}
+
+// CloseExecution creates a terminal acquisition tombstone even before
+// acquisition arrives, prevents subsequent acquisition/registration and
+// reconciles any existing lease. It reports uncertain until custody and
+// process retirement are established; a consumed start marker followed by an
+// absent unit stays fenced rather than treated as completion.
+func (c *Controller) CloseExecution(ctx context.Context, kind, executionID string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if (kind != identity.Factory && kind != identity.Terminal) || executionID == "" {
+		return identity.ErrDenied
+	}
+	existing, created, err := c.store.IdentityAdmitExecution(ctx, identity.Execution{Kind: kind, ExecutionID: executionID, State: identity.ExecutionTerminal})
+	if err != nil {
+		return err
+	}
+	if created {
+		return nil
+	}
+	// A terminal execution with a surviving lease still needs retirement;
+	// closing twice must not report success while native work continues.
+	// The last observed binding stays retained for attribution.
+	if existing.LeaseID != "" {
+		if l, err := c.store.IdentityLease(ctx, existing.LeaseID); err == nil {
+			if l.Binding != nil {
+				existing.Binding = l.Binding
+			}
+			if err = c.end(ctx, l); err != nil {
+				existing.State = identity.ExecutionTerminal
+				_ = c.store.IdentityObserveExecution(ctx, existing)
+				return identity.ErrUncertain
+			}
+		}
+		existing.LeaseID = ""
+	}
+	existing.State = identity.ExecutionTerminal
+	return c.store.IdentityObserveExecution(ctx, existing)
 }
 
 func (c *Controller) authorizeReservation(ctx context.Context, conn identity.Connection, l *identity.Lease) error {
@@ -60,9 +179,16 @@ func (c *Controller) Register(ctx context.Context, id string, b identity.Binding
 	if err != nil {
 		return identity.Delivery{}, err
 	}
+	if err = c.registrationExecution(ctx, l); err != nil {
+		return identity.Delivery{}, err
+	}
 	l.Binding = &b
 	if err = c.store.IdentityRegister(ctx, l); err != nil {
 		return identity.Delivery{}, err
+	}
+	if err = c.observeExecutionBinding(ctx, l); err != nil {
+		_ = c.uncertain(ctx, l)
+		return identity.Delivery{}, identity.ErrUncertain
 	}
 	if err = c.runtime.Validate(ctx, l); err != nil {
 		_ = c.uncertain(ctx, l)
@@ -73,6 +199,65 @@ func (c *Controller) Register(ctx context.Context, id string, b identity.Binding
 		return identity.Delivery{}, err
 	}
 	return identity.Delivery{Lease: l, Credential: data}, nil
+}
+
+// registrationExecution refuses a lease whose execution was closed after
+// acquisition. A closed execution whose lease survived reconciliation stays
+// fenced; it can never deliver credentials again.
+func (c *Controller) registrationExecution(ctx context.Context, l identity.Lease) error {
+	e, err := c.store.IdentityExecution(ctx, l.Kind, l.ExecutionID)
+	if err != nil {
+		return identity.ErrDenied
+	}
+	if e.State == identity.ExecutionTerminal || e.LeaseID != l.ID {
+		return identity.ErrDenied
+	}
+	return nil
+}
+
+func (c *Controller) observeExecutionBinding(ctx context.Context, l identity.Lease) error {
+	e, err := c.store.IdentityExecution(ctx, l.Kind, l.ExecutionID)
+	if err != nil {
+		return err
+	}
+	e.Binding = l.Binding
+	return c.store.IdentityObserveExecution(ctx, e)
+}
+
+// observeTerminal retains the nonsecret acquisition identity after its lease
+// is gone. A missing execution is ignored; only admitted leases reach it.
+func (c *Controller) observeTerminal(ctx context.Context, l identity.Lease) error {
+	e, err := c.store.IdentityExecution(ctx, l.Kind, l.ExecutionID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	e.State = identity.ExecutionTerminal
+	return c.store.IdentityObserveExecution(ctx, e)
+}
+
+// releaseExecutionLease detaches a reconciled lease from its execution
+// without tombstoning it: recovery may retry the same identity, gated by
+// current connection authority and native re-attestation. Only Return and
+// CloseExecution make an execution terminal. A tombstone keeps its state.
+func (c *Controller) releaseExecutionLease(ctx context.Context, l identity.Lease) error {
+	e, err := c.store.IdentityExecution(ctx, l.Kind, l.ExecutionID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if e.LeaseID != "" && e.LeaseID != l.ID {
+		return nil
+	}
+	e.LeaseID, e.Binding = "", nil
+	if e.State == identity.ExecutionLive {
+		e.State = identity.ExecutionPending
+	}
+	return c.store.IdentityObserveExecution(ctx, e)
 }
 
 func (c *Controller) registration(ctx context.Context, id string, b identity.Binding) (identity.Lease, identity.Connection, error) {
@@ -126,13 +311,19 @@ func (c *Controller) Return(ctx context.Context, id string, b identity.Binding, 
 		return identity.ErrUncertain
 	}
 	if l.ProviderID == identity.Muse {
-		return c.store.IdentityForgetLease(ctx, l.ID)
+		if err := c.store.IdentityForgetLease(ctx, l.ID); err != nil {
+			return err
+		}
+		return c.observeTerminal(ctx, l)
 	}
 	if !identity.CredentialValid(data) {
 		_ = c.uncertain(ctx, l)
 		return identity.ErrUncertain
 	}
-	return c.store.IdentityReturn(ctx, l, data)
+	if err := c.store.IdentityReturn(ctx, l, data); err != nil {
+		return err
+	}
+	return c.observeTerminal(ctx, l)
 }
 
 func (c *Controller) uncertain(ctx context.Context, l identity.Lease) error {
@@ -148,7 +339,10 @@ func (c *Controller) uncertain(ctx context.Context, l identity.Lease) error {
 
 func (c *Controller) end(ctx context.Context, l identity.Lease) error {
 	if l.Binding == nil {
-		return c.store.IdentityForgetLease(ctx, l.ID)
+		if err := c.store.IdentityForgetLease(ctx, l.ID); err != nil {
+			return err
+		}
+		return c.releaseExecutionLease(ctx, l)
 	}
 	if l.ProviderID != identity.Muse {
 		if err := c.uncertain(ctx, l); err != nil {
@@ -161,7 +355,10 @@ func (c *Controller) end(ctx context.Context, l identity.Lease) error {
 			return identity.ErrUncertain
 		}
 	}
-	return c.store.IdentityForgetLease(ctx, l.ID)
+	if err := c.store.IdentityForgetLease(ctx, l.ID); err != nil {
+		return err
+	}
+	return c.releaseExecutionLease(ctx, l)
 }
 
 func (c *Controller) EndLease(ctx context.Context, owner int64, id string) error {
@@ -181,7 +378,10 @@ func (c *Controller) EndLease(ctx context.Context, owner int64, id string) error
 
 func (c *Controller) finish(ctx context.Context, l identity.Lease) error {
 	if l.Binding == nil {
-		return c.store.IdentityForgetLease(ctx, l.ID)
+		if err := c.store.IdentityForgetLease(ctx, l.ID); err != nil {
+			return err
+		}
+		return c.releaseExecutionLease(ctx, l)
 	}
 	if l.ProviderID == identity.Muse {
 		return c.end(ctx, l)
@@ -202,7 +402,7 @@ func (c *Controller) finish(ctx context.Context, l identity.Lease) error {
 		_ = c.uncertain(ctx, l)
 		return err
 	}
-	return nil
+	return c.releaseExecutionLease(ctx, l)
 }
 
 // ReconcileLease is scoped recovery, never cancellation of another execution.

@@ -79,6 +79,44 @@ func TestIdentityCipherBindingAndLeaseReturnAtomicity(t *testing.T) {
 	}
 }
 
+func TestIdentityExecutionAdmitsOnceAndGuardsDigest(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "executions.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	ctx := t.Context()
+	first := identity.Execution{Kind: identity.Factory, ExecutionID: "run", Digest: "digest", State: identity.ExecutionPending}
+	if _, created, err := s.IdentityAdmitExecution(ctx, first); err != nil || !created {
+		t.Fatal("execution admission failed", err)
+	}
+	repeated, created, err := s.IdentityAdmitExecution(ctx, first)
+	if err != nil || created || repeated.Digest != "digest" {
+		t.Fatal("execution re-admission failed", err)
+	}
+	live := first
+	live.State, live.LeaseID = identity.ExecutionLive, "lease"
+	if err = s.IdentityObserveExecution(ctx, live); err != nil {
+		t.Fatal(err)
+	}
+	changed := live
+	changed.Digest = "other"
+	if err = s.IdentityObserveExecution(ctx, changed); err == nil {
+		t.Fatal("execution digest mutated")
+	}
+	terminal := live
+	terminal.State = identity.ExecutionTerminal
+	if err = s.IdentityObserveExecution(ctx, terminal); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.IdentityObserveExecution(ctx, live); err == nil {
+		t.Fatal("terminal execution revived")
+	}
+	if _, err = s.IdentityExecution(ctx, identity.Factory, "absent"); err != ErrNotFound {
+		t.Fatal("missing execution misreported", err)
+	}
+}
+
 func TestIdentityAuditFailureRollsBackAdmission(t *testing.T) {
 	s, err := OpenEncrypted(filepath.Join(t.TempDir(), "identity.db"), bytes.Repeat([]byte{4}, 32))
 	if err != nil {

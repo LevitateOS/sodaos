@@ -336,8 +336,6 @@ func (m *MuseRuntime) Muse(ctx context.Context, action string, delivery identity
 	b := delivery.Lease.Binding
 	var err error
 	switch b.Scope {
-	case "muse-factory":
-		err = m.factoryOperation(ctx, action, delivery)
 	case "muse-project":
 		err = m.projectOperation(ctx, action, delivery)
 	default:
@@ -352,44 +350,6 @@ func museDeliveryValid(delivery identity.Delivery) bool {
 		return false
 	}
 	return delivery.Lease.ProviderID == identity.Muse && terminalID.MatchString(delivery.Lease.ExecutionID) && b.ID == delivery.Lease.ExecutionID && terminalID.MatchString(b.InvocationID)
-}
-
-func (m *MuseRuntime) factoryOperation(ctx context.Context, action string, delivery identity.Delivery) error {
-	b := delivery.Lease.Binding
-	unit := "soda-muse-" + b.ID + ".service"
-	if !m.validFactoryCredentialRoot(b.CredentialRoot, b.ID) {
-		return identity.ErrDenied
-	}
-	if action == "validate" {
-		id, err := m.factoryInvocation(ctx, unit, false)
-		if err != nil || id != b.InvocationID {
-			return identity.ErrStale
-		}
-		return nil
-	}
-	if action != "stop" {
-		return identity.ErrDenied
-	}
-	if err := m.stopFactoryUnit(ctx, unit, b.InvocationID); err != nil {
-		return err
-	}
-	if err := m.cleanupExecutionState(ctx, *b); err != nil {
-		return err
-	}
-	_, err := m.podman(ctx, nil, "unshare", "/usr/bin/rm", "--recursive", "--force", "--", b.CredentialRoot)
-	return err
-}
-
-func (m *MuseRuntime) validFactoryCredentialRoot(path, id string) bool {
-	if !filepath.IsAbs(m.FactoryRoot) || filepath.Clean(path) != path {
-		return false
-	}
-	relative, err := filepath.Rel(m.FactoryRoot, path)
-	if err != nil {
-		return false
-	}
-	parts := strings.Split(relative, string(filepath.Separator))
-	return len(parts) == 2 && terminalID.MatchString(parts[0]) && parts[1] == id
 }
 
 func (m *MuseRuntime) projectOperation(ctx context.Context, action string, delivery identity.Delivery) error {

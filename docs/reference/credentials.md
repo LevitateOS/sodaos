@@ -10,9 +10,10 @@ Factory execution, publication actors and provider account authentication are
 distinct from these credentials. Their authority belongs to
 [Trust](../architecture/trust.md#factory-authority-boundary); delivery and
 CLI execution belongs to the [factory reference](factory.md). The Identity Broker
-below owns provider custody and delegation. Target factory integration in a shared
-Project must satisfy the [execution boundary](../architecture/trust.md#project-execution-boundary);
-current whole-worker credential capture is not a suitable shared-Project operation.
+below owns provider custody and delegation. Supervised factory runs in a shared
+Project satisfy the [execution boundary](../architecture/trust.md#project-execution-boundary):
+credential return captures only the recorded run boundary after its descendants
+retire; whole-container capture is removed.
 
 ## New installations
 
@@ -99,17 +100,18 @@ This is controlled credential exposure: authorized code can read and copy the
 upstream account credential. Project root/wheel and host administrators are trusted.
 Other processes under the same project login can also read that login's staged
 credentials; human-session termination does not terminate those unrelated processes.
-The provider sees the connected account, not a separately scoped Soda worker.
+The provider sees the connected account, not a separately scoped Soda execution.
 Soda cannot invalidate copies or recall already accepted upstream requests; provider
 logout/revocation is separate. This mode does not restrict where repository data
 can be sent. Git read/publication/review permissions remain independent.
 
 Each Codex connection has one active stream across enrollment, human and factory use.
-Factory waits within its existing deadline; a human start reports unavailable
-while busy. Native OCI identity and labels attest factory runs. Human sessions bind
-to the exact project OCI incarnation, terminal, lease and systemd invocation. The
-broker delivers credentials only after native attestation. Workspaces receive no
-broker or host socket. A copied ID alone is not an admission credential.
+A human start reports unavailable while busy. Factory runs acquire by execution
+identity and bind the exact run, container, unit and systemd incarnation. Human
+sessions bind to the exact project OCI incarnation, terminal, lease and systemd
+invocation. The broker delivers credentials only after native attestation of that
+exact binding. Runs receive no broker or host socket. A copied ID alone is not
+an admission credential.
 
 Browser detach leaves the managed Codex session and lease running. Normal End or
 the maximum twelve-hour human deadline freezes the complete tool cgroup, captures
@@ -164,15 +166,15 @@ failure.
 
 ### Service configuration
 
-Broker and factory share the dedicated `soda-identity` operator, its rootless Podman
-storage and runtime context. Configure subordinate UID/GID ranges and rootless
-Podman prerequisites before use, as for the existing factory. The dashboard stays
-separate. `soda-identity.socket` admits administration at
+The broker runs as the dedicated `soda-identity` operator with its private
+state. Factory execution and retirement go through the host daemon over its
+fixed process contract; the broker never shells out to container runtimes.
+The dashboard stays separate. `soda-identity.socket` admits administration at
 `/run/soda/identity/admin.sock` for the Soda service group; the execution socket
 `/run/soda/identity/runtime.sock` is owner-only (root host also has access).
 Systemd preserves the socket identity across service restarts and kills the full
 broker service cgroup, including enrollment children. Neither socket enters a
-project or factory workspace.
+project.
 
 `/etc/soda/identity.json` selects these paths, the host socket, a separate broker
 SQLite `database`, private base64 32-byte `key_file`, and `codex` fields `binary`,
@@ -187,9 +189,10 @@ startup instead of generating a replacement.
 
 Host configuration selects `identity_socket` and a verified `codex_harness` release
 package with `codex_harness_sha256`. The host stages the supplied package into a
-managed session's private tmpfs. Factory selects the same tested CLI version and
-its actual architecture-specific digest. Provider credentials must not be embedded
-in that package, images, persistent project homes or exported artifacts.
+managed session's private tmpfs. Supervised factory runs stage the proved harness
+version selected by their run record with its actual executable digest; the only
+proved factory harness is Codex CLI `0.157.1`. Provider credentials must not be
+embedded in that package, images, persistent project homes or exported artifacts.
 
 Provision configuration and a fresh key explicitly, then enable the broker sockets
 and service. `soda-setup` does not invent a Codex account, choose an external package
@@ -198,16 +201,9 @@ release remains subject to the normal installation guide.
 
 Source owners: `identity` records, `identity/control` custody, provider-specific
 protocol packages, `identity/client` private transport, `store` encrypted rows,
-`web/api` native extension authority, and native workspace/terminal executors for attestation
+`web/api` native extension authority, and native terminal executors for attestation
 and complete execution termination.
 
 For project Muse execution, host configuration supplies `identity_socket`,
 `muse_socket`, `muse_version` and `muse_sha256` from the pinned release manifest.
-For workers, broker configuration adds `muse_worker_socket` and
-`muse_worker_root`; the latter is a private tmpfs directory. Its dedicated operator
-must have a lingering systemd user manager and an available user D-Bus socket.
-Execution uses that manager while retaining the existing rootless Podman context.
-Factory configuration supplies `muse_tools_directory`, `muse_socket` and
-`muse_credential_root`, matching the broker’s public interface and tmpfs root.
-Only pinned public tools and the launch interface enter the worker. The worker’s explicit
-egress profile must permit `api.meta.ai` for Muse subscription requests.
+Muse factory runs stay unavailable until their own supervised-run proof passes.

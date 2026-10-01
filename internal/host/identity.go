@@ -93,6 +93,9 @@ func (d *Daemon) identityOperation(ctx context.Context, path string, body io.Rea
 	if err := strictjson.Decode(body, &in); err != nil {
 		return nil, err
 	}
+	if in.Lease.Kind == identity.Factory {
+		return d.factoryIdentityOperation(ctx, strings.TrimPrefix(path, "/identity/"), identity.Delivery(in))
+	}
 	var out identity.Delivery
 	var err error
 	if in.Lease.ProviderID == identity.Muse && in.Lease.Binding != nil && in.Lease.Binding.Scope == "muse-project" && d.Muse != nil {
@@ -101,6 +104,32 @@ func (d *Daemon) identityOperation(ctx context.Context, path string, body io.Rea
 		out, err = d.Terminal.Identity(ctx, strings.TrimPrefix(path, "/identity/"), identity.Delivery(in))
 	}
 	return identity.DeliveryWire(out), err
+}
+
+// factoryIdentityOperation serves broker validate/stop/finish callbacks for
+// supervised factory runs through the exact run binding. Unproved providers
+// and harnesses deny at binding validation; they deliver nothing.
+func (d *Daemon) factoryIdentityOperation(ctx context.Context, action string, delivery identity.Delivery) (any, error) {
+	if d.Terminal == nil {
+		return nil, identity.ErrDenied
+	}
+	out := delivery
+	out.Credential = nil
+	var err error
+	switch action {
+	case "validate":
+		err = d.Terminal.FactoryCodexValidate(ctx, delivery.Lease)
+	case "stop":
+		err = d.Terminal.FactoryCodexStop(ctx, delivery.Lease)
+	case "finish":
+		out.Credential, err = d.Terminal.FactoryCodexFinish(ctx, delivery.Lease)
+	default:
+		err = identity.ErrDenied
+	}
+	if err != nil {
+		return nil, err
+	}
+	return identity.DeliveryWire(out), nil
 }
 
 func (d *Daemon) identityHandler(w http.ResponseWriter, r *http.Request) {

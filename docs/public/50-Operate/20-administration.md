@@ -102,37 +102,30 @@ publishing private backups or raw environment dumps.
 
 ## Operate factory runs
 
-Use the configured unprivileged operator command and exact admitted attempt ID:
+Use the private operator command against the dashboard backend's operator
+socket and the exact recorded run ID:
 
 ```sh
-soda-factory --config /home/soda-tester/factory/config.json status ATTEMPT_ID
-soda-factory --config /home/soda-tester/factory/config.json cancel ATTEMPT_ID
+soda-factory --socket /run/soda/operator/factory.sock status RUN_ID
+soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID stop RUN_ID
 ```
 
-Status distinguishes terminal outcome from cleanup completion. Cancellation
-withdraws publication authority and terminates surviving workspace processes.
-Admission checks CPU and memory capacity with headroom for human use; each worker
-also has process and writable-storage limits. Coordinate factory, CI and persistent
-project demand rather than admitting against nominal hardware capacity alone.
+Status distinguishes terminal outcome from settlement. Stop retires exactly the
+recorded run's processes and seals its broker execution; human sessions and
+sibling runs are never targeted.
 
-After a controller restart, reconcile interrupted attempts:
+After an outage, settle outstanding runs:
 
 ```sh
-soda-factory --config /home/soda-tester/factory/config.json recover
+soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID reconcile
 ```
 
-Recovery ends interrupted work in `needs-human` and removes only resources recorded
-as belonging to its runs. It does not infer intent from container names, resume
-conversations, reset deadlines or prune human projects. Inspect incomplete cleanup
-before allowing another attempt or reuse of a provider credential stream.
+Reconcile retires remaining execution and settles accounting for each run
+whose effects confirm. It does not infer intent from container names, resume
+conversations or launch replacement runs. Runs whose effects stay unresolved
+are reported as fenced; resolve the outage and reconcile again with a fresh
+command ID. Inspect fenced runs before reusing a provider credential stream.
 
-Status, cancellation and recovery can use local state while Forgejo or the provider
-is unavailable. After connectivity returns, explicitly retry outcome reporting:
-
-```sh
-soda-factory --config /home/soda-tester/factory/config.json report ATTEMPT_ID
-```
-
-Forgejo retains software discussions and results; Soda retains admission, execution
-and infrastructure decisions. Link their records by attempt/run ID. Keep raw
-transcripts and secret diagnostics private; do not publish them as audit artifacts.
+Forgejo retains software discussions and results; Soda retains execution and
+infrastructure decisions. Link their records by run ID. Keep raw transcripts
+and secret diagnostics private; do not publish them as audit artifacts.

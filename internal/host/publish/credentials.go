@@ -21,7 +21,7 @@ const (
 // Scan from the admitted base even when retrying a previously published tip.
 // Only that base is trusted; a prior candidate must not exempt worker objects.
 func (g *repository) checkCredentials(ctx context.Context, r Request) error {
-	out, err := g.run(ctx, "rev-list", "--objects", "--no-object-names", r.Commit, "^"+r.Attempt.Work.BaseSHA)
+	out, err := g.run(ctx, "rev-list", "--objects", "--no-object-names", r.Commit, "^"+r.BaseSHA)
 	if err != nil {
 		return err
 	}

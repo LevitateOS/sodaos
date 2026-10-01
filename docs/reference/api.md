@@ -8,7 +8,7 @@ remain native.
 Source owners: `internal/web/api`, `internal/web/auth`, and the extension service
 registration in `internal/web/api/extension_terminal.go`.
 
-Factory admission, execution, status and cancellation use the separate
+Factory run status, stop and reconcile use the separate
 [`soda-factory` operator command](factory.md). These routes do not create agent
 runs or grant factory execution authority.
 

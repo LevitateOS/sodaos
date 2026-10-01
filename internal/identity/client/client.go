@@ -55,6 +55,8 @@ func decodeError(body io.Reader) error {
 		return identity.ErrStale
 	case "reauth":
 		return identity.ErrUncertain
+	case "missing":
+		return identity.ErrNotFound
 	}
 	return errors.New("identity operation failed")
 }
@@ -161,4 +163,14 @@ func (c *Client) Return(ctx context.Context, id string, b identity.Binding, data
 
 func (c *Client) Reject(ctx context.Context, id string, b identity.Binding) error {
 	return c.call(ctx, "/reject", identity.Request{ID: id, Binding: &b}, nil)
+}
+
+func (c *Client) GetExecution(ctx context.Context, kind, executionID string) (identity.Execution, error) {
+	var out identity.Execution
+	err := c.call(ctx, "/execution/get", identity.Request{Kind: kind, ExecutionID: executionID}, &out)
+	return out, err
+}
+
+func (c *Client) CloseExecution(ctx context.Context, kind, executionID string) error {
+	return c.call(ctx, "/execution/close", identity.Request{Kind: kind, ExecutionID: executionID}, nil)
 }

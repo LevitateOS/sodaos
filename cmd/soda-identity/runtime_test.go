@@ -1,77 +1,85 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"os"
+	"encoding/json"
+	"errors"
+	"net"
+	"net/http"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"github.com/levitateos/sodaos/internal/host"
 	"github.com/levitateos/sodaos/internal/identity"
 )
 
-func TestFactoryStopRejectsUncertainOrForeignBoundary(t *testing.T) {
-	for _, scenario := range []string{"engine-failed", "foreign-label", "still-running"} {
-		t.Run(scenario, func(t *testing.T) {
-			lease, log := fakeFactoryRuntime(t, scenario)
-			if err := (nativeRuntime{}).Stop(context.Background(), lease); err == nil {
-				t.Fatal("unconfirmed or foreign execution accepted as stopped")
-			}
-			if scenario != "still-running" && strings.Contains(readRuntimeLog(t, log), "kill") {
-				t.Fatal("unattested execution was killed")
-			}
-		})
-	}
-}
-
-func TestFactoryStopConfirmsExactAbsence(t *testing.T) {
-	lease, log := fakeFactoryRuntime(t, "absent")
-	if err := (nativeRuntime{}).Stop(context.Background(), lease); err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(readRuntimeLog(t, log), "kill") {
-		t.Fatal("absence caused a mutation")
-	}
-	if err := (nativeRuntime{}).Validate(context.Background(), lease); err == nil {
-		t.Fatal("absent execution admitted")
-	}
-}
-
-func fakeFactoryRuntime(t *testing.T, scenario string) (identity.Lease, string) {
+func testHostServer(t *testing.T, handle func(w http.ResponseWriter, r *http.Request)) *host.Client {
 	t.Helper()
-	dir := t.TempDir()
-	log := filepath.Join(dir, "commands")
-	id := strings.Repeat("a", 64)
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	t.Setenv("SODA_TEST_SCENARIO", scenario)
-	t.Setenv("SODA_TEST_COMMANDS", log)
-	script := `#!/bin/sh
-printf '%s\n' "$*" >> "$SODA_TEST_COMMANDS"
-shift
-case "$1" in
-container)
-  case "$SODA_TEST_SCENARIO" in absent) exit 1;; engine-failed) exit 125;; esac
-  exit 0;;
-inspect)
-  owner=execution
-  test "$SODA_TEST_SCENARIO" != foreign-label || owner=other-execution
-  printf '{"id":"%s","owner":"%s","running":true}\n' "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" "$owner"
-  exit 0;;
-kill) exit 0;;
-esac
-exit 125
-`
-	if err := os.WriteFile(filepath.Join(dir, "podman"), []byte(script), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	return identity.Lease{Kind: identity.Factory, ExecutionID: "execution", Binding: &identity.Binding{Kind: identity.Factory, ID: id}}, log
-}
-
-func readRuntimeLog(t *testing.T, path string) string {
-	t.Helper()
-	data, err := os.ReadFile(path)
+	socket := filepath.Join(t.TempDir(), "host.sock")
+	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return string(data)
+	t.Cleanup(func() { _ = listener.Close() })
+	server := &http.Server{Handler: http.HandlerFunc(handle)}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
+	return host.NewClient(socket)
+}
+
+func TestRuntimeDelegatesBothKindsToHost(t *testing.T) {
+	var paths []string
+	client := testHostServer(t, func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		var in identity.DeliveryWire
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		out := identity.DeliveryWire{Lease: in.Lease, Credential: []byte(`{"returned":true}`)}
+		_ = json.NewEncoder(w).Encode(out)
+	})
+	runtime := nativeRuntime{Host: client}
+	ctx := context.Background()
+	for _, kind := range []string{identity.Terminal, identity.Factory} {
+		lease := identity.Lease{Kind: kind, ExecutionID: "execution", Binding: &identity.Binding{Kind: kind, ID: "execution"}}
+		if err := runtime.Validate(ctx, lease); err != nil {
+			t.Fatal(kind, err)
+		}
+		if err := runtime.Stop(ctx, lease); err != nil {
+			t.Fatal(kind, err)
+		}
+		data, err := runtime.Finish(ctx, lease)
+		if err != nil || !bytes.Equal(data, []byte(`{"returned":true}`)) {
+			t.Fatal(kind, data, err)
+		}
+	}
+	want := []string{"/identity/validate", "/identity/stop", "/identity/finish", "/identity/validate", "/identity/stop", "/identity/finish"}
+	if len(paths) != len(want) {
+		t.Fatal("host callbacks missing", paths)
+	}
+	for i := range want {
+		if paths[i] != want[i] {
+			t.Fatal("host callbacks out of order", paths)
+		}
+	}
+}
+
+func TestRuntimeRefusesUnboundLease(t *testing.T) {
+	client := testHostServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Error("unbound lease reached the host")
+	})
+	runtime := nativeRuntime{Host: client}
+	ctx := context.Background()
+	lease := identity.Lease{Kind: identity.Factory, ExecutionID: "execution"}
+	if err := runtime.Validate(ctx, lease); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("unbound lease validated", err)
+	}
+	if _, err := runtime.Finish(ctx, lease); !errors.Is(err, identity.ErrDenied) {
+		t.Fatal("unbound lease finished", err)
+	}
+	if err := runtime.Stop(ctx, lease); err != nil {
+		t.Fatal("unbound stop failed", err)
+	}
 }

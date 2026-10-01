@@ -19,15 +19,15 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Appliance applications | Separate Podman containers for the maintained Forgejo extension host, Soda's Go API service and Caddy |
 | Persistent application data | Soda SQLite database and a separate Forgejo volume (including installed extension packages) |
 | Identity Broker | Host userspace `soda-identity`, private administration/execution sockets and encrypted subscription custody |
-| Factory execution | Unprivileged `soda-factory` operator command, execution ledger, narrow publisher and rootless Podman workspaces |
+| Factory execution | Supervised runs inside persistent Projects, `factory/control` coordinator, run ledger and private `soda-factory` operator endpoint |
 | Projects | Persistent Project OS containers with project-local accounts, writable roots, SSH and shared installations |
 | Project workloads | Nested Podman inside the project |
 
-This table locates existing services. The target replaces disposable factory
-workers with execution inside the same persistent Project used by humans; the
+This table locates existing services. Factory work executes inside the same
+persistent Project used by humans; the
 [environment model](../product/projects.md#environment-relationships) owns that
-relationship. The two runtime paths in the current tree are not a target dual
-backend or a compatibility requirement.
+relationship. There is one supervised runtime; the removed disposable-worker
+path is not a compatibility requirement.
 
 **Forgejo is a standalone container, not a Podman pod.** A pod groups containers; it
 is not a user database, init system or filesystem. Project containers share the host

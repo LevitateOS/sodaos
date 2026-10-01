@@ -278,6 +278,74 @@ func (s *Store) IdentityReturn(ctx context.Context, l identity.Lease, credential
 	return tx.Commit()
 }
 
+// IdentityExecution returns the retained acquisition identity for one
+// (kind, execution_id). The record outlives lease return/deletion.
+func (s *Store) IdentityExecution(ctx context.Context, kind, executionID string) (identity.Execution, error) {
+	var e identity.Execution
+	var data []byte
+	err := s.db.QueryRowContext(ctx, `SELECT data FROM identity_executions WHERE kind=? AND execution_id=?`, kind, executionID).Scan(&data)
+	if err == nil {
+		err = json.Unmarshal(data, &e)
+	}
+	return e, err
+}
+
+// IdentityAdmitExecution records one execution identity. Repeating the same
+// identity returns the recorded row; callers compare digests to detect a
+// changed request for that ID.
+func (s *Store) IdentityAdmitExecution(ctx context.Context, e identity.Execution) (identity.Execution, bool, error) {
+	if err := e.Validate(); err != nil {
+		return identity.Execution{}, false, err
+	}
+	data, err := json.Marshal(e)
+	if err != nil {
+		return identity.Execution{}, false, err
+	}
+	result, err := s.db.ExecContext(ctx, `INSERT INTO identity_executions(kind,execution_id,state,lease_id,data) VALUES(?,?,?,?,?)
+		ON CONFLICT(kind,execution_id) DO NOTHING`, e.Kind, e.ExecutionID, e.State, e.LeaseID, string(data))
+	if err != nil {
+		return identity.Execution{}, false, err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return identity.Execution{}, false, err
+	}
+	if n == 1 {
+		return e, true, nil
+	}
+	existing, err := s.IdentityExecution(ctx, e.Kind, e.ExecutionID)
+	if err != nil {
+		return identity.Execution{}, false, err
+	}
+	return existing, false, nil
+}
+
+// IdentityObserveExecution advances an execution's state, lease and binding.
+// The acquisition digest is additionally guarded by a schema trigger, and a
+// terminal execution can never leave that state.
+func (s *Store) IdentityObserveExecution(ctx context.Context, e identity.Execution) error {
+	if err := e.Validate(); err != nil {
+		return err
+	}
+	data, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+	result, err := s.db.ExecContext(ctx, `UPDATE identity_executions SET state=?,lease_id=?,data=? WHERE kind=? AND execution_id=?`,
+		e.State, e.LeaseID, string(data), e.Kind, e.ExecutionID)
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n != 1 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *Store) IdentityForgetLease(ctx context.Context, id string) error {
 	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
 		var data []byte

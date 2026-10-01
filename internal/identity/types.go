@@ -2,8 +2,11 @@
 package identity
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -13,6 +16,7 @@ var (
 	ErrBusy      = errors.New("subscription is in use")
 	ErrStale     = errors.New("identity generation changed")
 	ErrUncertain = errors.New("subscription requires reconnection")
+	ErrNotFound  = errors.New("identity execution missing")
 )
 
 const (
@@ -23,6 +27,18 @@ const (
 	Revoked  = "revoked"
 	Factory  = "factory"
 	Terminal = "terminal"
+)
+
+const (
+	// ExecutionPending means the execution identity is admitted but no lease
+	// has been reserved yet; a retry with the same digest may proceed.
+	ExecutionPending = "pending"
+	// ExecutionLive means a lease is reserved for this execution identity.
+	ExecutionLive = "live"
+	// ExecutionTerminal means the execution can never acquire again. The
+	// nonsecret identity outlives lease return/deletion; a consumed or
+	// closed execution cannot acquire a new lease.
+	ExecutionTerminal = "terminal"
 )
 
 type Connection struct {
@@ -141,6 +157,58 @@ func (b Binding) Validate() error {
 
 func CredentialValid(data []byte) bool {
 	return len(data) > 0 && len(data) <= 256<<10 && json.Valid(data)
+}
+
+// Execution is the unique (kind, execution_id) acquisition identity. The
+// digest binds the immutable request; the same ID with a changed request
+// refuses. Binding carries only nonsecret process metadata, never credentials.
+type Execution struct {
+	Binding     *Binding `json:"binding,omitempty"`
+	Kind        string   `json:"kind"`
+	ExecutionID string   `json:"execution_id"`
+	Digest      string   `json:"digest"`
+	State       string   `json:"state"`
+	LeaseID     string   `json:"lease_id,omitempty"`
+}
+
+func (e Execution) Validate() error {
+	if (e.Kind != Factory && e.Kind != Terminal) || e.ExecutionID == "" || len(e.ExecutionID) > 128 {
+		return ErrDenied
+	}
+	switch e.State {
+	case ExecutionPending, ExecutionLive, ExecutionTerminal:
+	default:
+		return ErrDenied
+	}
+	if e.State != ExecutionTerminal && e.Digest == "" {
+		return ErrDenied
+	}
+	if e.Binding != nil {
+		if err := e.Binding.Validate(); err != nil {
+			return err
+		}
+		// Binding identity rules belong to the runtime adapter:
+		// supervised factory runs bind run IDs. The record retains the
+		// kind-matched binding the adapter attested.
+		if e.Binding.Kind != e.Kind {
+			return ErrDenied
+		}
+	}
+	return nil
+}
+
+// AcquisitionDigest binds an acquire request to its execution identity. The
+// deadline is a bound, not identity: retries keep the original lease deadline.
+func AcquisitionDigest(in AcquireRequest) string {
+	canonical := strings.Join([]string{
+		in.Kind, in.ExecutionID, in.ProviderID, in.ConnectionID,
+		strings.TrimSpace(strings.ToLower(in.Role)),
+		in.ProjectID,
+		strconv.FormatInt(in.ActorID, 10),
+		strconv.FormatInt(in.RepositoryID, 10),
+	}, "\x00")
+	sum := sha256.Sum256([]byte(canonical))
+	return hex.EncodeToString(sum[:])
 }
 
 // ProviderValid identifies the supported native account adapters. Execution

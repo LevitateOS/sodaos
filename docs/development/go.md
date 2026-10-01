@@ -14,8 +14,8 @@ remain in [architecture](../architecture/overview.md).
 | If you are adding… | It goes in… |
 | --- | --- |
 | Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
-| Bounded factory admission and fixed execution loop | `factory/control`; `cmd/soda-factory` wires operator configuration and commands |
-| Work Item, attempt/run identity, budgets and fixed factory lifecycle policy | `factory` — pure domain types and validation; no runtime or SQL |
+| Supervised factory runs: status/stop/reconcile coordinator | `factory/control`; `cmd/soda-factory` is a thin client of its private operator endpoint |
+| Run identity, outcome and operator command records | `factory` — pure domain types and validation; no runtime or SQL |
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
 | Serialized provider custody and enrollment | `identity/control`; `cmd/soda-identity` wires private service/runtime |
 | Muse native device enrollment and immutable CLI credentials | `identity/muse` — pinned upstream CLI; no Meta refresh service |
@@ -27,8 +27,8 @@ remain in [architecture](../architecture/overview.md).
 | Unix client + thin daemon mux/admission | `host` (`client.go`, `daemon.go`; decode straight into `project` types — no translators) |
 | Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `host/project` (package `project`; executes on domain `project` types) |
 | Privileged terminal attach | `host/terminal` (package `terminal`) |
-| Narrow factory Git publication | `host/publish` (unprivileged; imports verified candidate bundles) |
-| Disposable factory OCI execution | `host/workspace` (unprivileged; consumes `factory` run records) |
+| Narrow factory Git publication validation | `host/publish` (unprivileged; validates verified candidate bundles, no push) |
+| Supervised factory run orchestration | `host/project` factory runs (durable receipts; uses `host/terminal` + broker handshake) |
 | Tailnet companion container runtime | `host/tailnet` (package `tailnet`) |
 | Install phase on Linux | `installer/<phase>_linux.go` |
 | Build-time installed path consts | `platform` (`legacy.go` / `vendor.go` build-tag pair) |
@@ -41,10 +41,10 @@ Hard size rule: prefer production files under 400 LOC; do not grow a production
 
 `cmd/soda-dashboard` enters through `web` (plus `config`/`store`/`avatar`
 for process startup only). `cmd/soda-host` enters through `host`
-(plus `tailnet`). `web.Server` constructs `auth`/`api`; `host.Daemon`
-wires the persistent development executors. `cmd/soda-factory` wires
-`factory/control`, which owns the bounded loop and composes the unprivileged
-workspace and publication executors. Do not add
+(plus `tailnet`). `web.Server` constructs `auth`/`api` and the
+`factory/control` coordinator; `host.Daemon` wires the persistent
+development executors. `cmd/soda-factory` is a thin Unix client of the
+coordinator's private operator endpoint and keeps no database. Do not add
 forwarding packages or compatibility shims for moved code. The host
 Client may re-export `host/terminal` wire types so `web` never imports
 the privileged terminal executor directly.
@@ -94,7 +94,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `avatar` | Robot SVG render | Identity lookup | `avatar.go` |
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
-| `factory` | Bounded work/run identities and fixed lifecycle policy (references canonical `identity` leases) | Forgejo collaboration, runtime execution, SQLite | `types.go`, `lifecycle.go` |
+| `factory` | Supervised run identity/outcome and operator command records (references canonical `identity` leases and `project` IDs) | Forgejo collaboration, runtime execution, SQLite | `types.go`, `run.go` |
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
 | `identity/control` | Provider-specific account custody, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
 | `identity/muse` | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | concern files |
@@ -113,7 +113,7 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `release/deliver` | Payload model, signing, publication | Building images | `payload.go`, `publish.go`, `finalize.go` |
 | `release/image` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
 | `runners` | Local CI runner composition + operator identity | Forgejo Actions UI | `model.go`, `native.go`, `operator.go` |
-| `store` | SQLite schema + row ops, including the factory execution/resource ledger | HTTP, host execute | `store.go`, `schema.go`, `factory.go` |
+| `store` | SQLite schema + row ops, including the factory run/command ledger | HTTP, host execute | `store.go`, `schema.go`, `factory.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
 | `testoci` | Inert OCI test fixtures | Production images | `fixture.go` |
@@ -134,15 +134,14 @@ not as an invitation to reorganize `internal/`:
   run and usage records. Reference canonical `identity` records; use Project IDs
   rather than inventing a second Project DTO. `project` owns preparation and
   checkout/lifecycle records. `store` is still the only SQL owner.
-- `factory/control` composes `store`, `forgejo`/Fountain SDK, `host.Client` and
-  unprivileged `host/publish`. Replace its `host/workspace` dependency with the
-  host client and canonical Project records; it must not import privileged
-  `host/project` or `host/terminal` execution. Remove `host/workspace` and its
-  architecture-test required-directory entry with its last caller.
+- `factory/control` is the run supervisor: it composes `store`, narrow
+  `host.Client`/`identity/client` interfaces and canonical Project records; it
+  must not import privileged `host/project` or `host/terminal` execution.
+  `host/workspace` is removed with its architecture-test entries.
 - `web` wires the coordinator and its explicit lifecycle. `web/api` admits calls
   into `factory/control`; it still cannot call native executor packages directly.
-  `cmd/soda-dashboard` continues to enter through `web`. Convert any retained
-  `cmd/soda-factory` controls to that coordinator's admitted API, not a second
+  `cmd/soda-dashboard` continues to enter through `web`. `cmd/soda-factory`
+  controls address the coordinator's private operator endpoint, not a second
   local controller/database.
 - `host` supplies typed client methods and thin admission/routing. Fixed Project
   preparation/launch orchestration belongs in `host/project`, using

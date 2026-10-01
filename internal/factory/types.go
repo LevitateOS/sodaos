@@ -1,23 +1,17 @@
-// Package factory owns bounded software-work identities and lifecycle policy.
-// It does not execute containers, persist rows or duplicate Forgejo collaboration.
+// Package factory owns supervised software-work run records and operator
+// command validation. It does not execute containers, persist rows or
+// duplicate Forgejo collaboration. ST02 removed the manual attempt admission
+// and fixed repair/merge lifecycle; runs stand alone, keyed by execution ID.
 package factory
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"regexp"
-	"time"
 
-	"github.com/levitateos/sodaos/internal/identity"
-)
-
-type Role string
-
-const (
-	Implementation Role = "implementation"
-	Review         Role = "review"
-	Repair         Role = "repair"
+	"github.com/levitateos/sodaos/internal/project"
 )
 
 type Outcome string
@@ -29,20 +23,10 @@ const (
 	NeedsHuman Outcome = "needs-human"
 )
 
-type Phase string
-
-const (
-	Implement Phase = "implementation"
-	Verify    Phase = "verification"
-	Fix       Phase = "repair"
-	Reverify  Phase = "final-verification"
-	Finished  Phase = "finished"
-)
-
 var (
 	identifier = regexp.MustCompile(`^[a-f0-9]{32}$`)
 	commit     = regexp.MustCompile(`^[a-f0-9]{40}$`)
-	delivery   = regexp.MustCompile(`^[A-Za-z0-9_.:-]{1,128}$`)
+	role       = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 )
 
 func NewID() string {
@@ -55,136 +39,68 @@ func NewID() string {
 func ValidID(id string) bool     { return identifier.MatchString(id) }
 func ValidCommit(id string) bool { return commit.MatchString(id) }
 
-// WorkItem records the objective and revisions admitted by a human. It is not
-// a mirror of the issue's discussion or a credential-bearing request.
-type WorkItem struct {
-	RepositoryID int64  `json:"repository_id"`
-	Issue        int64  `json:"issue"`
-	HumanID      int64  `json:"human_id"`
-	Objective    string `json:"objective"`
-	BaseSHA      string `json:"base_sha"`
-	PolicySHA    string `json:"policy_sha"`
+// ValidProjectID reuses the canonical Project identity; factory records never
+// invent a second Project DTO.
+func ValidProjectID(id string) bool { return project.ValidID(id) }
+
+func validOutcome(outcome Outcome) bool {
+	return outcome == "" || outcome == Succeeded || outcome == Failed || outcome == Cancelled || outcome == NeedsHuman
 }
 
-// Attempt is one admission of a WorkItem. Each agent execution is a separate Run.
-// Cleanup is deliberately independent of the terminal software-work outcome.
-type Attempt struct {
-	ID              string    `json:"id"`
-	Delivery        string    `json:"delivery"`
-	Work            WorkItem  `json:"work"`
-	Admitted        time.Time `json:"admitted"`
-	Deadline        time.Time `json:"deadline"`
-	Phase           Phase     `json:"phase"`
-	Outcome         Outcome   `json:"outcome,omitempty"`
-	Summary         string    `json:"summary,omitempty"`
-	Candidate       string    `json:"candidate,omitempty"`
-	Pull            int64     `json:"pull,omitempty"`
-	Executions      int       `json:"executions"`
-	CIEvaluations   int       `json:"ci_evaluations"`
-	CI              *Evidence `json:"ci,omitempty"`
-	Review          *Evidence `json:"review,omitempty"`
-	CleanupComplete bool      `json:"cleanup_complete"`
-	Revision        int64     `json:"revision"`
+// Command types served by the private operator endpoint. Status is a read;
+// stop and reconcile are durable idempotent mutations.
+const (
+	CommandStatus    = "status"
+	CommandStop      = "stop"
+	CommandReconcile = "reconcile"
+)
+
+// Command is one admitted operator command. The client generates ID; the
+// coordinator records the digest and durable outcome. Same ID with a changed
+// payload conflicts instead of executing twice. Commands cannot supply a
+// human native identity, accept requirements or change policy.
+type Command struct {
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	Target    string `json:"target,omitempty"`
+	Principal string `json:"principal"`
+	Digest    string `json:"digest"`
+	Outcome   string `json:"outcome,omitempty"`
+	Created   string `json:"created,omitempty"`
+	Finished  string `json:"finished,omitempty"`
 }
 
-type Evidence struct {
-	ID     string `json:"id"`
-	Commit string `json:"commit"`
-	Passed bool   `json:"passed"`
-}
-
-// Resource intent is recorded before provisioning. Restart reconciliation uses
-// these exact names/IDs plus the run ownership label; it never scans for intent.
-type Resource struct {
-	Kind string `json:"kind"`
-	Name string `json:"name"`
-	ID   string `json:"id,omitempty"`
-}
-
-type Run struct {
-	CredentialDelegated bool              `json:"credential_delegated"`
-	CredentialReturned  bool              `json:"credential_returned"`
-	IdentityLeaseID     string            `json:"identity_lease_id,omitempty"`
-	IdentityGeneration  int64             `json:"identity_generation,omitempty"`
-	IdentityBinding     *identity.Binding `json:"identity_binding,omitempty"`
-	ID                  string            `json:"id"`
-	AttemptID           string            `json:"attempt_id"`
-	Role                Role              `json:"role"`
-	InputSHA            string            `json:"input_sha"`
-	Started             time.Time         `json:"started"`
-	Deadline            time.Time         `json:"deadline"`
-	Outcome             Outcome           `json:"outcome,omitempty"`
-	Summary             string            `json:"summary,omitempty"`
-	Resources           []Resource        `json:"resources"`
-	CleanupComplete     bool              `json:"cleanup_complete"`
-	Image               string            `json:"image"`
-	Harness             string            `json:"harness"`
-	Model               string            `json:"model"`
-}
-
-func New(work WorkItem, event string, now time.Time) (Attempt, error) {
-	a := Attempt{ID: NewID(), Delivery: event, Work: work, Admitted: now, Deadline: now.Add(3 * time.Hour), Phase: Implement, CleanupComplete: true}
-	return a, a.Validate()
-}
-
-func (w WorkItem) Validate() error {
-	if w.RepositoryID <= 0 || w.Issue <= 0 || w.HumanID <= 0 {
-		return errors.New("invalid human work identity")
+func (c Command) Validate() error {
+	if !ValidID(c.ID) {
+		return errors.New("invalid command identity")
 	}
-	if len(w.Objective) == 0 || len(w.Objective) > 64<<10 {
-		return errors.New("invalid work objective")
-	}
-	if !ValidCommit(w.BaseSHA) || !ValidDigest(w.PolicySHA) {
-		return errors.New("invalid admitted source or policy revision")
-	}
-	return nil
-}
-
-func (a Attempt) Validate() error {
-	if !ValidID(a.ID) || !delivery.MatchString(a.Delivery) {
-		return errors.New("invalid factory admission identity")
-	}
-	if err := a.Work.Validate(); err != nil {
-		return err
-	}
-	if err := a.validateDeadline(); err != nil {
-		return err
-	}
-	if err := a.validateLimits(); err != nil {
-		return err
-	}
-	if a.Candidate != "" && !ValidCommit(a.Candidate) {
-		return errors.New("invalid candidate commit")
-	}
-	return a.validatePhase()
-}
-
-func (a Attempt) validateDeadline() error {
-	if a.Admitted.IsZero() || !a.Deadline.After(a.Admitted) || a.Deadline.Sub(a.Admitted) > 3*time.Hour {
-		return errors.New("invalid attempt deadline")
-	}
-	return nil
-}
-
-func (a Attempt) validateLimits() error {
-	if a.Executions < 0 || a.Executions > 4 || a.CIEvaluations < 0 || a.CIEvaluations > 2 || len(a.Summary) > 16<<10 || a.Pull < 0 {
-		return errors.New("invalid factory limits")
-	}
-	return nil
-}
-
-func (a Attempt) validatePhase() error {
-	switch a.Phase {
-	case Implement, Verify, Fix, Reverify:
-		if a.Outcome != "" {
-			return errors.New("active attempt has terminal outcome")
+	switch c.Type {
+	case CommandStop:
+		if !ValidID(c.Target) {
+			return errors.New("stop requires its recorded run")
 		}
-	case Finished:
-		if a.Outcome == "" || !validOutcome(a.Outcome) {
-			return errors.New("invalid terminal outcome")
+	case CommandReconcile:
+		if c.Target != "" {
+			return errors.New("reconcile addresses all recorded runs")
 		}
 	default:
-		return errors.New("invalid factory phase")
+		return errors.New("command is not a durable operator mutation")
+	}
+	if c.Principal == "" || len(c.Principal) > 128 {
+		return errors.New("invalid command principal")
+	}
+	if c.Digest != CommandDigest(c.Type, c.Target) {
+		return errors.New("command digest differs from its payload")
+	}
+	if len(c.Outcome) > 64<<10 {
+		return errors.New("command outcome exceeds retained output limit")
 	}
 	return nil
+}
+
+// CommandDigest binds a command ID to its exact payload. Status reads carry
+// no durable command and never use this digest.
+func CommandDigest(typ, target string) string {
+	sum := sha256.Sum256([]byte(typ + "\x00" + target))
+	return hex.EncodeToString(sum[:])
 }

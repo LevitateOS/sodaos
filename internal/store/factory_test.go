@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,7 +12,7 @@ import (
 	"github.com/levitateos/sodaos/internal/identity"
 )
 
-func factoryFixture(t *testing.T) (*Store, factory.Attempt, time.Time) {
+func factoryFixture(t *testing.T) (*Store, time.Time) {
 	t.Helper()
 	s, err := Open(filepath.Join(t.TempDir(), "factory.db"))
 	if err != nil {
@@ -22,242 +23,98 @@ func factoryFixture(t *testing.T) (*Store, factory.Attempt, time.Time) {
 			t.Error(err)
 		}
 	})
-	now := time.Date(2026, 9, 26, 0, 0, 0, 0, time.UTC)
-	a, err := factory.New(factory.WorkItem{RepositoryID: 7, Issue: 1, HumanID: 3, Objective: "repair the check", BaseSHA: strings.Repeat("a", 40), PolicySHA: strings.Repeat("a", 64)}, "delivery-1", now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	a, created, err := s.AdmitFactory(context.Background(), a)
-	if err != nil || !created {
-		t.Fatal(a, created, err)
-	}
-	return s, a, now
+	return s, time.Date(2026, 9, 26, 0, 0, 0, 0, time.UTC)
 }
 
-func factoryExecution(t *testing.T, a factory.Attempt, role factory.Role, now time.Time) factory.Run {
-	t.Helper()
-	r, err := a.BeginRun(role, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	r.Image = "sha256:" + strings.Repeat("d", 64)
-	r.Harness, r.Model = "codex-0.153.4", "test-model"
-	r.Resources = []factory.Resource{{Kind: "workspace", Name: factory.ResourceName(r.ID, "workspace")}}
-	return r
+func factoryRun(now time.Time) factory.Run {
+	return factory.Run{ID: factory.NewID(), ProjectID: "p123456789012345678901234", Role: "coder", InputSHA: strings.Repeat("a", 40), Started: now, Deadline: now.Add(time.Hour), Image: "sha256:" + strings.Repeat("d", 64), Harness: "codex-0.157.1", Model: "test-model"}
 }
 
-func TestFactoryDuplicateDeliveryAndExplicitRestart(t *testing.T) {
-	s, a, now := factoryFixture(t)
+func TestFactoryRunIdentityOnlyAdvances(t *testing.T) {
+	s, now := factoryFixture(t)
 	ctx := context.Background()
-	duplicate, err := factory.New(a.Work, a.Delivery, now.Add(time.Minute))
-	if err != nil {
+	r := factoryRun(now)
+	if err := s.RecordFactoryRun(ctx, r); err != nil {
 		t.Fatal(err)
 	}
-	got, created, err := s.AdmitFactory(ctx, duplicate)
-	if err != nil || created || got.ID != a.ID || !got.Deadline.Equal(a.Deadline) {
-		t.Fatal(got, created, err)
+	if err := s.RecordFactoryRun(ctx, r); err == nil {
+		t.Fatal("consumed run identity reused")
 	}
-	restart, err := factory.New(a.Work, "human-restart", now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := s.AdmitFactory(ctx, restart); err == nil {
-		t.Fatal("restart overlapped active work")
-	}
-	a.Finish(factory.Cancelled, "human cancellation")
-	ok, err := s.SaveFactoryAttempt(ctx, &a)
-	if err != nil || !ok {
-		t.Fatal(ok, err)
-	}
-	got, created, err = s.AdmitFactory(ctx, duplicate)
-	if err != nil || created || got.Outcome != factory.Cancelled {
-		t.Fatal(got, created, err)
-	}
-	if _, created, err := s.AdmitFactory(ctx, restart); err != nil || !created {
-		t.Fatal(created, err)
-	}
-}
-
-func TestFactoryCancellationRejectsStaleWriterAndChangedAdmission(t *testing.T) {
-	s, a, _ := factoryFixture(t)
-	ctx := context.Background()
-	stale := a
-	a.Finish(factory.Cancelled, "cancelled")
-	if ok, err := s.SaveFactoryAttempt(ctx, &a); err != nil || !ok {
-		t.Fatal(ok, err)
-	}
-	if ok, err := s.SaveFactoryAttempt(ctx, &stale); err != nil || ok {
-		t.Fatal("stale writer", ok, err)
-	}
-	a.Work.BaseSHA = strings.Repeat("b", 40)
-	if _, err := s.SaveFactoryAttempt(ctx, &a); err == nil {
-		t.Fatal("admitted revision changed")
-	}
-	got, err := s.FactoryAttempt(ctx, a.ID)
-	if err != nil || got.Outcome != factory.Cancelled || got.Work.BaseSHA != stale.Work.BaseSHA {
-		t.Fatal(got, err)
-	}
-}
-
-func TestFactoryResourceOwnershipSurvivesReopenAndBlocksLeakedCleanup(t *testing.T) {
-	s, a, now := factoryFixture(t)
-	ctx := context.Background()
-	r := factoryExecution(t, a, factory.Implementation, now)
-	if err := s.StartFactoryRun(ctx, &a, r); err != nil {
-		t.Fatal(err)
-	}
-	if a.Executions != 1 || a.CleanupComplete {
-		t.Fatal(a)
-	}
-	r.Resources[0].ID = strings.Repeat("c", 64)
+	r.IdentityLeaseID, r.IdentityGeneration, r.CredentialDelegated = "lease", 3, true
+	id := r.ID
+	r.IdentityBinding = &identity.Binding{Kind: identity.Factory, ID: id, Generation: 3}
 	if err := s.SaveFactoryRun(ctx, r); err != nil {
 		t.Fatal(err)
 	}
-	var path string
-	if err := s.db.QueryRow(`SELECT file FROM pragma_database_list WHERE name='main'`).Scan(&path); err != nil {
-		t.Fatal(err)
+	r.IdentityGeneration = 4
+	if err := s.SaveFactoryRun(ctx, r); err == nil {
+		t.Fatal("reserved credential generation changed")
 	}
-	other, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := other.Close(); err != nil {
-			t.Error(err)
-		}
-	}()
-	runs, err := other.FactoryRuns(ctx, a.ID)
-	if err != nil || len(runs) != 1 || runs[0].Resources[0].ID != r.Resources[0].ID {
-		t.Fatal(runs, err)
-	}
-	if err := a.CandidateFrom(r, strings.Repeat("b", 40), now); err != nil {
-		t.Fatal(err)
-	}
-	if ok, err := s.SaveFactoryAttempt(ctx, &a); err != nil || !ok {
-		t.Fatal(ok, err)
-	}
-	r.Outcome = factory.Succeeded
+	r.IdentityGeneration = 3
+	r.Outcome, r.Summary, r.CredentialReturned, r.Reconciled = factory.Cancelled, "stopped by operator", true, true
 	if err := s.SaveFactoryRun(ctx, r); err != nil {
 		t.Fatal(err)
 	}
-	a.CleanupComplete = true
-	if ok, err := s.SaveFactoryAttempt(ctx, &a); err != nil || ok {
-		t.Fatal("leaked run marked clean", ok, err)
-	}
-	a.CleanupComplete = false
-	reviewer := factoryExecution(t, a, factory.Review, now)
-	if err := s.StartFactoryRun(ctx, &a, reviewer); err == nil {
-		t.Fatal("new run overlapped leaked workspace")
-	}
-	got, err := s.FactoryAttempt(ctx, a.ID)
-	if err != nil || got.Executions != 1 {
-		t.Fatal("failed launch consumed budget", got, err)
-	}
-	r.CleanupComplete = true
-	if err := s.SaveFactoryRun(ctx, r); err != nil {
-		t.Fatal(err)
-	}
-	a.CleanupComplete = true
-	if ok, err := s.SaveFactoryAttempt(ctx, &a); err != nil || !ok {
-		t.Fatal(ok, err)
-	}
-	if err := s.StartFactoryRun(ctx, &a, reviewer); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestFactoryRunBindingAndTerminalOutcomeCannotBeRewritten(t *testing.T) {
-	s, a, now := factoryFixture(t)
-	ctx := context.Background()
-	r := factoryExecution(t, a, factory.Implementation, now)
-	if err := s.StartFactoryRun(ctx, &a, r); err != nil {
-		t.Fatal(err)
-	}
-	changed := r
-	changed.InputSHA = strings.Repeat("b", 40)
-	if err := s.SaveFactoryRun(ctx, changed); err == nil {
-		t.Fatal("run input changed")
-	}
-	changed = r
-	changed.Resources = append([]factory.Resource(nil), r.Resources...)
-	changed.Resources[0].Name = "persistent-human-project"
-	if err := s.SaveFactoryRun(ctx, changed); err == nil {
-		t.Fatal("unowned resource entered ledger")
+	r.Outcome = factory.Failed
+	if err := s.SaveFactoryRun(ctx, r); err == nil {
+		t.Fatal("terminal outcome changed")
 	}
 	r.Outcome = factory.Cancelled
-	if err := s.SaveFactoryRun(ctx, r); err != nil {
-		t.Fatal(err)
-	}
-	r.Outcome = ""
+	r.Reconciled = false
 	if err := s.SaveFactoryRun(ctx, r); err == nil {
-		t.Fatal("terminal execution reactivated")
+		t.Fatal("settled run reopened")
 	}
 }
 
-func TestLatestFactoryAttemptFollowsExplicitAdmission(t *testing.T) {
-	s, a, now := factoryFixture(t)
-	a.Finish(factory.NeedsHuman, "needs clarification")
-	saved, err := s.SaveFactoryAttempt(t.Context(), &a)
-	if err != nil || !saved {
-		t.Fatal(err)
+func TestFactoryRunsListNewestFirst(t *testing.T) {
+	s, now := factoryFixture(t)
+	ctx := context.Background()
+	var ids []string
+	for range 3 {
+		r := factoryRun(now)
+		ids = append(ids, r.ID)
+		if err := s.RecordFactoryRun(ctx, r); err != nil {
+			t.Fatal(err)
+		}
 	}
-	next, err := factory.New(a.Work, "human-next", now.Add(time.Minute))
+	got, err := s.FactoryRuns(ctx, 10)
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, _, err = s.AdmitFactory(t.Context(), next)
-	if err != nil {
-		t.Fatal(err)
+	if len(got) != 3 || got[0].ID != ids[2] || got[2].ID != ids[0] {
+		t.Fatal("recorded runs out of order")
 	}
-	latest, err := s.LatestFactoryAttempt(t.Context(), a.Work.RepositoryID, a.Work.Issue)
-	if err != nil || latest.ID != next.ID {
-		t.Fatal("older result replaced current work state")
+	got, err = s.FactoryRuns(ctx, 2)
+	if err != nil || len(got) != 2 {
+		t.Fatal("run list bound ignored")
 	}
 }
 
-func TestFactoryCredentialDelegationSurvivesStaleWritesAndCleanup(t *testing.T) {
-	s, a, now := factoryFixture(t)
-	r := factoryExecution(t, a, factory.Implementation, now)
-	if err := s.StartFactoryRun(t.Context(), &a, r); err != nil {
+func TestFactoryCommandIdentityConflictsOnChangedPayload(t *testing.T) {
+	s, now := factoryFixture(t)
+	ctx := context.Background()
+	run := factory.NewID()
+	c := factory.Command{ID: factory.NewID(), Type: factory.CommandStop, Target: run, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandStop, run)}
+	stored, created, err := s.RecordFactoryCommand(ctx, c, now)
+	if err != nil || !created || stored.Finished != "" {
+		t.Fatal(stored, created, err)
+	}
+	replay, created, err := s.RecordFactoryCommand(ctx, c, now)
+	if err != nil || created || replay.ID != c.ID {
+		t.Fatal(replay, created, err)
+	}
+	c.Target = factory.NewID()
+	if _, _, err = s.RecordFactoryCommand(ctx, c, now); err == nil {
+		t.Fatal("changed command payload reused its identity")
+	}
+	if err = s.FinishFactoryCommand(ctx, stored.ID, `{"stopped":true}`, now); err != nil {
 		t.Fatal(err)
 	}
-	stale := r
-	r.IdentityLeaseID = factory.NewID()
-	r.IdentityGeneration = 1
-	r.Resources = []factory.Resource{{Kind: "workspace", Name: factory.ResourceName(r.ID, "workspace"), ID: strings.Repeat("d", 64)}}
-	r.IdentityBinding = &identity.Binding{Kind: identity.Factory, ID: strings.Repeat("d", 64), Generation: 1}
-	r.CredentialDelegated = true
-	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
-		t.Fatal(err)
+	finished, err := s.FactoryCommand(ctx, stored.ID)
+	if err != nil || finished.Outcome != `{"stopped":true}` || finished.Finished == "" {
+		t.Fatal(finished, err)
 	}
-	if err := s.SaveFactoryRun(t.Context(), stale); err == nil {
-		t.Fatal("stale writer erased delegation")
-	}
-	changed := r
-	changed.IdentityLeaseID = factory.NewID()
-	if err := s.SaveFactoryRun(t.Context(), changed); err == nil {
-		t.Fatal("changed identity lease")
-	}
-	r.Outcome = factory.NeedsHuman
-	r.CleanupComplete = true
-	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
-		t.Fatal(err)
-	}
-	stored, err := s.FactoryRun(t.Context(), r.ID)
-	if err != nil || stored.IdentityLeaseID != r.IdentityLeaseID {
-		t.Fatal("cleanup erased identity attribution")
-	}
-
-	stale = r
-	r.CredentialReturned = true
-	if err := s.SaveFactoryRun(t.Context(), r); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.SaveFactoryRun(t.Context(), stale); err == nil {
-		t.Fatal("stale writer erased credential return")
-	}
-	stored, err = s.FactoryRun(t.Context(), r.ID)
-	if err != nil || !stored.CredentialReturned {
-		t.Fatal("credential return was not retained")
+	if err = s.FinishFactoryCommand(ctx, stored.ID, `{"stopped":false}`, now); !errors.Is(err, ErrNotFound) {
+		t.Fatal("durable outcome rewritten")
 	}
 }

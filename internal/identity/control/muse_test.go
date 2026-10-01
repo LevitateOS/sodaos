@@ -77,7 +77,7 @@ func TestMuseGrantRevocationRetiresOnlyGrantedLease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	delegated, err := c.Acquire(t.Context(), museAcquireInput(conn.ID, 2))
+	delegated, err := c.Acquire(t.Context(), museAcquireInput(conn.ID, 2, "delegated-execution"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,8 +109,8 @@ func TestMuseRejectionAndFailedDisconnectRetireEveryLease(t *testing.T) {
 		c, s, r, _ := controllerFixture(t)
 		conn := museConnection(t, c)
 		var leases []identity.Lease
-		for range 2 {
-			l, err := c.Acquire(t.Context(), museAcquireInput(conn.ID, 1))
+		for _, execID := range []string{"rejection-a", "rejection-b"} {
+			l, err := c.Acquire(t.Context(), museAcquireInput(conn.ID, 1, execID))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -140,8 +140,8 @@ func TestMuseRejectionAndFailedDisconnectRetireEveryLease(t *testing.T) {
 	}
 }
 
-func museAcquireInput(id string, actor int64) identity.AcquireRequest {
-	in := acquireInput(id, actor)
+func museAcquireInput(id string, actor int64, exec ...string) identity.AcquireRequest {
+	in := acquireInput(id, actor, exec...)
 	in.ProviderID = identity.Muse
 	return in
 }

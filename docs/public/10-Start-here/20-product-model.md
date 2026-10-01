@@ -1,6 +1,6 @@
 # Product model
 
-Understand the operator-invoked factory workflow, bounded agent runs and persistent human projects.
+Understand supervised factory runs, bounded agent execution and persistent human projects.
 
 This chapter describes the `soda-factory` command and human project workflow.
 
@@ -8,45 +8,37 @@ This chapter describes the `soda-factory` command and human project workflow.
 
 | Concept | Meaning |
 | --- | --- |
-| Work Item | A Forgejo issue or pull request with a human-authorized objective |
-| Attempt | One explicit admission, with recorded inputs and limits for the fixed implementation, verification and repair loop |
-| Run | One bounded agent execution performing an assigned role against an exact source revision |
-| Workspace | The fresh disposable environment allocated to a run |
+| Run | One bounded supervised agent execution with a recorded identity, exact process binding and outcome |
 | Persistent Project | A shared human development environment with lasting accounts, tools and data |
 
-An issue describes work; it does not itself grant execution authority. Soda checks
-human authorization and trusted configuration before admitting it. Forgejo owns
-software collaboration and repository policy; Soda owns execution and cleanup;
-the agent performs the task; people authorize objectives and merge verified changes.
+Forgejo owns software collaboration and repository policy; Soda owns supervised
+execution and its records; the agent performs the task. Automatic intake
+remains unavailable: nothing admits, launches or publishes work on its own.
 
-A new candidate commit requires new CI and fresh review. One repair may follow
-a repairable failure. Runs end when work finishes, limits expire or authority is
-withdrawn. Their cleanup is recorded separately from their outcome. Follow the
+Runs end when work finishes, limits expire or the operator stops them. Their
+settlement is recorded separately from their outcome. Follow the
 [factory walkthrough](../30-Use-Soda/15-software-factory.md).
 
-## Four identities for factory work
+## Identities for factory work
 
 | Identity | Role |
 | --- | --- |
-| Authorizing human | Approves the objective within their repository permissions |
 | Soda execution principal | Identifies a single run and its permitted operations |
-| Forgejo actor | Publishes the assigned candidate or review through a separate bot account |
 | Provider account | Supplies model access under its own authentication and usage terms |
 
 A role is an authority template, not permission for an agent to name itself a
 reviewer or grant another process additional access. Separate identities constrain
 operations; they do not guarantee independent reasoning or correct code.
 
-Dedicated container workspaces have host-enforced limits but share the host kernel.
-Soda is for a trusted team on a private network, not hostile public multitenancy.
-Provider credentials require protected enrollment and may require renewal; cleanup
-cannot revoke a token copied outside the runtime.
+Factory runs execute inside Projects with host-enforced boundaries but share the
+host kernel. Soda is for a trusted team on a private network, not hostile public
+multitenancy. Provider credentials require protected enrollment and may require
+renewal; credential return cannot revoke a token copied outside the runtime.
 
 ## Persistent human development
 
-Agent workspaces are destroyed after their runs. Human project environments have
-separate roots, credentials and lifetimes. The following layers describe manual
-development and intervention, not the disposable factory runtime.
+Human project environments have separate roots, credentials and lifetimes. The
+following layers describe manual development and intervention.
 
 ## Three layers for human development
 

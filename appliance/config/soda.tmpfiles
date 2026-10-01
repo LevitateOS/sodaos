@@ -7,3 +7,5 @@ d /run/soda/extension 2770 root soda-extension-ipc -
 d /home/soda-identity 0700 soda-identity soda -
 d /run/soda/identity 0750 soda-identity soda -
 d /run/soda-tailnet 0700 root root -
+d /run/soda/operator 0700 soda root -
+d /var/lib/soda/host/factory 0700 root root -

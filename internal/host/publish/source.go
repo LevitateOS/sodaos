@@ -11,7 +11,7 @@ import (
 )
 
 // Source supplies a fresh complete bundle at an exact trusted remote revision.
-// The same fixed remote is used for source retrieval and candidate publication.
+// Publication under this remote is a separately persisted conditional operation.
 func (c Config) Source(ctx context.Context, sha string) ([]byte, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err

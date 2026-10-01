@@ -3,24 +3,8 @@ package forgejo
 import (
 	"context"
 	"net/url"
-	"strconv"
 	"strings"
 )
-
-// RepositoryByID follows native identity across repository renames/transfers.
-func (c *Client) RepositoryByID(ctx context.Context, token string, id int64) (Repository, error) {
-	if id <= 0 {
-		return Repository{}, ErrInvalidResponse
-	}
-	var repo Repository
-	if err := c.request(ctx, "GET", "/repositories/"+strconv.FormatInt(id, 10), token, nil, &repo); err != nil {
-		return Repository{}, err
-	}
-	if repo.ID != id || repo.Owner.ID <= 0 || repo.Owner.Login == "" || repo.Name == "" || repo.FullName == "" {
-		return Repository{}, ErrInvalidResponse
-	}
-	return repo, nil
-}
 
 // OrganizationOwner asks Forgejo for the acting user's native ownership, not
 // repository administration or the broader organization is_admin capability.

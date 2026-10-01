@@ -5,10 +5,8 @@ package terminal
 import (
 	"context"
 	"errors"
-	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/levitateos/sodaos/internal/identity"
 )
@@ -62,27 +60,10 @@ func TestMuseCommandPreservesArgumentsAndRestrictsAuth(t *testing.T) {
 	}
 }
 
-func TestMuseFactoryNativeDeadline(t *testing.T) {
-	runtime := &MuseRuntime{}
-	execution := &museFactoryExecution{lease: identity.Lease{Deadline: time.Now().Add(time.Minute)}}
-	command := runtime.factoryCommand(context.Background(), execution)
-	for _, arg := range command.Args {
-		if !strings.HasPrefix(arg, "--property=RuntimeMaxSec=") {
-			continue
-		}
-		seconds, err := strconv.ParseFloat(strings.TrimPrefix(arg, "--property=RuntimeMaxSec="), 64)
-		if err != nil || seconds <= 55 || seconds > 60 {
-			t.Fatalf("native deadline exceeds parent reservation: %s", arg)
-		}
-		return
-	}
-	t.Fatal("native deadline supervision absent")
-}
-
 func TestMuseStateCleanupBlocksUnavailableContainer(t *testing.T) {
 	executor := &identityExecutor{existsErr: errors.New("native container unavailable")}
 	runtime := &MuseRuntime{Exec: executor}
-	binding := identity.Binding{Scope: "muse-factory", ID: strings.Repeat("a", 32), Project: strings.Repeat("b", 64)}
+	binding := identity.Binding{Scope: "muse-project", ID: strings.Repeat("a", 32), Project: strings.Repeat("b", 64)}
 	if err := runtime.cleanupExecutionState(context.Background(), binding); err != identity.ErrUncertain {
 		t.Fatalf("cleanup uncertainty lost: %v", err)
 	}

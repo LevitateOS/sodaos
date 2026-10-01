@@ -19,7 +19,6 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/host"
-	"github.com/levitateos/sodaos/internal/host/terminal"
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/identity/codex"
 	"github.com/levitateos/sodaos/internal/identity/control"
@@ -29,15 +28,13 @@ import (
 )
 
 type settings struct {
-	MuseWorkerRoot   string       `json:"muse_worker_root"`
-	MuseWorkerSocket string       `json:"muse_worker_socket"`
-	Database         string       `json:"database"`
-	KeyFile          string       `json:"key_file"`
-	AdminSocket      string       `json:"admin_socket"`
-	RuntimeSocket    string       `json:"runtime_socket"`
-	HostSocket       string       `json:"host_socket"`
-	Codex            codex.Config `json:"codex"`
-	Muse             muse.Config  `json:"muse"`
+	Database      string       `json:"database"`
+	KeyFile       string       `json:"key_file"`
+	AdminSocket   string       `json:"admin_socket"`
+	RuntimeSocket string       `json:"runtime_socket"`
+	HostSocket    string       `json:"host_socket"`
+	Codex         codex.Config `json:"codex"`
+	Muse          muse.Config  `json:"muse"`
 }
 
 func main() {
@@ -64,9 +61,6 @@ func load(path string) (settings, error) {
 	}
 	if c.AdminSocket == c.RuntimeSocket {
 		return c, errors.New("administration and runtime sockets must differ")
-	}
-	if err := validateWorkerSettings(c); err != nil {
-		return c, err
 	}
 	return c, nil
 }
@@ -105,7 +99,7 @@ func run() error {
 		return err
 	}
 	defer func() { _ = admin.Close(); _ = runtime.Close() }()
-	broker, db, worker, err := openService(c)
+	broker, db, err := openService(c)
 	if err != nil {
 		return err
 	}
@@ -113,29 +107,20 @@ func run() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
-	launch, err := openFactoryMuseSocket(c)
-	if err != nil {
-		return err
-	}
-	defer closeWorkerSocket(launch)
 	if err = broker.Reconcile(ctx); err != nil {
 		slog.Warn("identity execution termination remains unconfirmed")
 	}
-	return serve(ctx, broker, admin, runtime, worker, launch)
+	return serve(ctx, broker, admin, runtime)
 }
 
-func serve(ctx context.Context, b *control.Controller, admin, runtime net.Listener, worker *terminal.MuseRuntime, launch *net.UnixListener) error {
+func serve(ctx context.Context, b *control.Controller, admin, runtime net.Listener) error {
 	servers := []*http.Server{
 		{Handler: b.Handler(false), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192},
 		{Handler: b.Handler(true), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 8192},
 	}
-	errs := make(chan error, 3)
+	errs := make(chan error, 2)
 	go func() { errs <- servers[0].Serve(admin) }()
 	go func() { errs <- servers[1].Serve(runtime) }()
-	if launch != nil {
-		launcher := &terminal.MuseLaunch{Start: worker.StartFactory}
-		go func() { errs <- launcher.Serve(ctx, launch) }()
-	}
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -160,19 +145,17 @@ func serve(ctx context.Context, b *control.Controller, admin, runtime net.Listen
 	}
 }
 
-func openService(c settings) (*control.Controller, *store.Store, *terminal.MuseRuntime, error) {
+func openService(c settings) (*control.Controller, *store.Store, error) {
 	db, err := openStore(c)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	worker := factoryMuseRuntime(c, db)
-	b, err := openBroker(c, db, worker)
+	b, err := openBroker(c, db)
 	if err != nil {
 		_ = db.Close()
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	wireFactoryMuse(worker, b)
-	return b, db, worker, nil
+	return b, db, nil
 }
 
 func openStore(c settings) (*store.Store, error) {
@@ -183,7 +166,7 @@ func openStore(c settings) (*store.Store, error) {
 	return store.OpenEncrypted(c.Database, key)
 }
 
-func openBroker(c settings, db *store.Store, worker *terminal.MuseRuntime) (*control.Controller, error) {
+func openBroker(c settings, db *store.Store) (*control.Controller, error) {
 	providers := map[string]identity.Provider{}
 	if c.Codex.Binary != "" {
 		if err := os.MkdirAll(c.Codex.Root, 0o700); err != nil {
@@ -205,7 +188,7 @@ func openBroker(c settings, db *store.Store, worker *terminal.MuseRuntime) (*con
 		}
 		providers[identity.Muse] = p
 	}
-	return control.New(db, providers, nativeRuntime{Host: host.NewClient(c.HostSocket), Muse: worker, Store: db})
+	return control.New(db, providers, nativeRuntime{Host: host.NewClient(c.HostSocket)})
 }
 
 func serviceListeners(c settings) (net.Listener, net.Listener, error) {

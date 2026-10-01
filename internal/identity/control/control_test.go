@@ -80,8 +80,12 @@ func controllerFixture(t *testing.T) (*Controller, *store.Store, *testRuntime, i
 	return c, s, r, *e.Connection
 }
 
-func acquireInput(id string, actor int64) identity.AcquireRequest {
-	return identity.AcquireRequest{ProviderID: identity.Codex, ConnectionID: id, ActorID: actor, ExecutionID: "execution", ProjectID: "project", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
+func acquireInput(id string, actor int64, exec ...string) identity.AcquireRequest {
+	execution := "execution"
+	if len(exec) > 0 {
+		execution = exec[0]
+	}
+	return identity.AcquireRequest{ProviderID: identity.Codex, ConnectionID: id, ActorID: actor, ExecutionID: execution, ProjectID: "project", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
 }
 
 func registerBinding(l identity.Lease) identity.Binding {
@@ -116,7 +120,7 @@ func TestNamedGrantSerializationAndMaintainedReturn(t *testing.T) {
 	if err != nil || len(available) != 1 || available[0].Email != "" {
 		t.Fatal("delegated discovery leaked account identity", err)
 	}
-	wrong := acquireInput(conn.ID, 2)
+	wrong := acquireInput(conn.ID, 2, "wrong-project")
 	wrong.ProjectID = "other"
 	if _, err = c.Acquire(ctx, wrong); !errors.Is(err, identity.ErrDenied) {
 		t.Fatal("wrong project admitted", err)
@@ -125,7 +129,7 @@ func TestNamedGrantSerializationAndMaintainedReturn(t *testing.T) {
 	if err != nil || l.GrantID != g.ID {
 		t.Fatal(err)
 	}
-	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1)); !errors.Is(err, identity.ErrBusy) {
+	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1, "parallel-copy")); !errors.Is(err, identity.ErrBusy) {
 		t.Fatal("parallel refresh copy admitted", err)
 	}
 	b := registerBinding(l)
@@ -283,7 +287,7 @@ func TestGrantRevocationDeniesBeforeRetirementAndPreservesOtherGrant(t *testing.
 	if err != nil || stillAuthorized.Revoked || stillAuthorized.Revision != other.Revision {
 		t.Fatal("unrelated grant changed", err)
 	}
-	next, err := c.Acquire(ctx, acquireInput(conn.ID, 3))
+	next, err := c.Acquire(ctx, acquireInput(conn.ID, 3, "other-grant"))
 	if err != nil {
 		t.Fatal("other authorized grant cannot reuse sponsorship", err)
 	}
@@ -342,7 +346,7 @@ func TestGrantCaptureFailureStillAttemptsStopAndKeepsUncertainLease(t *testing.T
 	if err != nil || !revoked.Revoked {
 		t.Fatal("failed capture revived grant", err)
 	}
-	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1)); !errors.Is(err, identity.ErrUncertain) {
+	if _, err = c.Acquire(ctx, acquireInput(conn.ID, 1, "sponsor-retry")); !errors.Is(err, identity.ErrUncertain) {
 		t.Fatal("uncertain sponsor was reusable", err)
 	}
 	for _, value := range r.finishedData {

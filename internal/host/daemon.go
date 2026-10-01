@@ -24,6 +24,7 @@ import (
 	projectexec "github.com/levitateos/sodaos/internal/host/project"
 	tailnetexec "github.com/levitateos/sodaos/internal/host/tailnet"
 	"github.com/levitateos/sodaos/internal/host/terminal"
+	"github.com/levitateos/sodaos/internal/identity"
 	identityclient "github.com/levitateos/sodaos/internal/identity/client"
 	"github.com/levitateos/sodaos/internal/platform"
 	"github.com/levitateos/sodaos/internal/project"
@@ -165,10 +166,40 @@ type Daemon struct {
 	Companion     *tailnetexec.Companion
 	Terminal      *terminal.Service
 	Project       *projectexec.Runtime
+	Factory       *projectexec.Factory
 	Config        Config
 	Exec          Executor
 	admissionOnce sync.Once
 	admission     chan struct{}
+	factoryOnce   sync.Once
+	factoryErr    error
+}
+
+// factoryRun opens supervised run orchestration over the protected receipt
+// root. Tests inject Daemon.Factory; the appliance daemon lazily opens the
+// fixed root on first factory call.
+func (d *Daemon) factoryRun() (*projectexec.Factory, error) {
+	d.factoryOnce.Do(func() {
+		if d.Factory != nil {
+			return
+		}
+		if d.Terminal == nil || d.Identity == nil {
+			d.factoryErr = errUnavailable
+			return
+		}
+		if err := os.MkdirAll(projectexec.FactoryStateRoot, 0o700); err != nil {
+			d.factoryErr = err
+			return
+		}
+		d.Factory, d.factoryErr = projectexec.OpenFactory(projectexec.FactoryStateRoot, d.Terminal, d.Identity)
+	})
+	if d.factoryErr != nil {
+		return nil, d.factoryErr
+	}
+	if d.Factory == nil {
+		return nil, errUnavailable
+	}
+	return d.Factory, nil
 }
 
 // NewDaemon wires the thin host facade with project, terminal and
@@ -236,6 +267,8 @@ func (d *Daemon) acquireAdmission(ctx context.Context) error {
 
 var errNotFound = errors.New("not found")
 
+var errUnavailable = errors.New("factory runtime unavailable")
+
 func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
 	if strings.HasPrefix(r.URL.Path, "/identity/") {
 		d.identityHandler(w, r)
@@ -255,7 +288,8 @@ func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
 func hasNativeCleanPath(r *http.Request) bool {
 	switch r.URL.Path {
 	case "/lifecycle", "/access-keys", "/profile", "/create", "/os",
-		"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
+		"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold",
+		"/factory-launch", "/factory-inspect", "/factory-stop":
 		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
 	default:
 		return true
@@ -402,6 +436,44 @@ func (d *Daemon) dispatchPrepare(ctx context.Context, path string, decode func(a
 	}
 }
 
+// Factory routes stay off the shared mutation gate: a launch runs for tens
+// of minutes, and per-run locks plus broker serialization are the control.
+// Unknown runs report 404; a run whose effects are uncertain stays fenced
+// in its receipt instead of surfacing as success.
+func (d *Daemon) dispatchFactory(ctx context.Context, path string, decode func(any) error) (any, error) {
+	factory, err := d.factoryRun()
+	if err != nil {
+		slog.Error("factory run orchestration unavailable", "operation", path, "error", err)
+		return nil, errUnavailable
+	}
+	switch path {
+	case "/factory-launch":
+		var in project.FactoryLaunch
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return factory.Launch(ctx, in)
+	case "/factory-inspect":
+		var in project.FactoryInspect
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		out, err := factory.Inspect(ctx, in)
+		if errors.Is(err, identity.ErrNotFound) {
+			return nil, errNotFound
+		}
+		return out, err
+	case "/factory-stop":
+		var in project.FactoryStop
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return factory.Stop(ctx, in)
+	default:
+		return nil, errNotFound
+	}
+}
+
 func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func(any) error) (any, error) {
 	switch path {
 	case "/profile":
@@ -414,6 +486,8 @@ func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func
 		return d.dispatchMutation(ctx, path, decode)
 	case "/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
 		return d.dispatchPrepare(ctx, path, decode)
+	case "/factory-launch", "/factory-inspect", "/factory-stop":
+		return d.dispatchFactory(ctx, path, decode)
 	default:
 		return nil, errNotFound
 	}
@@ -429,10 +503,11 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
 	defer cancel()
-	// /prepare carries bounded approved inputs and a source bundle; every
-	// other native route keeps the small body cap.
+	// /prepare carries bounded approved inputs and a source bundle, and
+	// /factory-launch carries a bounded prompt; every other native route
+	// keeps the small body cap.
 	bodyLimit := 65536
-	if r.URL.Path == "/prepare" {
+	if r.URL.Path == "/prepare" || r.URL.Path == "/factory-launch" {
 		bodyLimit = 1 << 20
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, int64(bodyLimit))
@@ -454,6 +529,10 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, errNotFound) {
 			http.NotFound(w, r)
+			return
+		}
+		if errors.Is(err, errUnavailable) {
+			http.Error(w, "factory runtime unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		slog.Error("project native operation failed", "operation", r.URL.Path, "error", err)

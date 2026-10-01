@@ -18,7 +18,7 @@ UMask=0077
 LimitCORE=0
 Restart=on-failure
 RestartSec=3
-# Factory commands use this same operator and rootless Podman context.
+# The broker only moves subscription credentials; factory runs execute via the host daemon.
 # The credential runtime socket is owner-only; dashboard uses administration.
 
 [Install]

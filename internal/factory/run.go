@@ -13,9 +13,35 @@ var digest = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 func ValidDigest(value string) bool { return digest.MatchString(value) }
 
+// Run is one supervised factory execution, keyed by its broker execution ID.
+// The supervisor reconciles its lease/binding/credential facts against host
+// and broker truth; Reconciled marks the settled run exactly once.
+type Run struct {
+	CredentialDelegated bool              `json:"credential_delegated"`
+	CredentialReturned  bool              `json:"credential_returned"`
+	IdentityLeaseID     string            `json:"identity_lease_id,omitempty"`
+	IdentityGeneration  int64             `json:"identity_generation,omitempty"`
+	IdentityBinding     *identity.Binding `json:"identity_binding,omitempty"`
+	ID                  string            `json:"id"`
+	ProjectID           string            `json:"project_id"`
+	Role                string            `json:"role"`
+	InputSHA            string            `json:"input_sha"`
+	Started             time.Time         `json:"started"`
+	Deadline            time.Time         `json:"deadline"`
+	Outcome             Outcome           `json:"outcome,omitempty"`
+	Summary             string            `json:"summary,omitempty"`
+	Reconciled          bool              `json:"reconciled"`
+	Image               string            `json:"image"`
+	Harness             string            `json:"harness"`
+	Model               string            `json:"model"`
+}
+
 func (r Run) Validate() error {
-	if !ValidID(r.ID) || !ValidID(r.AttemptID) || !ValidCommit(r.InputSHA) {
+	if !ValidID(r.ID) || !ValidCommit(r.InputSHA) {
 		return errors.New("invalid factory execution identity")
+	}
+	if !ValidProjectID(r.ProjectID) || !role.MatchString(r.Role) {
+		return errors.New("invalid factory execution address")
 	}
 	if err := r.validateDeadline(); err != nil {
 		return err
@@ -26,22 +52,11 @@ func (r Run) Validate() error {
 	if err := r.validateOutcome(); err != nil {
 		return err
 	}
-	if err := r.validateCredentials(); err != nil {
-		return err
-	}
-	return r.validateResources()
+	return r.validateCredentials()
 }
 
 func (r Run) validateDeadline() error {
-	limit := 30 * time.Minute
-	switch r.Role {
-	case Implementation:
-		limit = 90 * time.Minute
-	case Review, Repair:
-	default:
-		return errors.New("invalid factory role")
-	}
-	if r.Started.IsZero() || !r.Deadline.After(r.Started) || r.Deadline.Sub(r.Started) > limit {
+	if r.Started.IsZero() || !r.Deadline.After(r.Started) || r.Deadline.Sub(r.Started) > 3*time.Hour {
 		return errors.New("invalid execution deadline")
 	}
 	return nil
@@ -59,53 +74,11 @@ func (r Run) validateProvenance() error {
 }
 
 func (r Run) validateOutcome() error {
-	if !validOutcome(r.Outcome) || len(r.Summary) > 16<<10 || (r.Outcome == "" && r.CleanupComplete) {
+	if !validOutcome(r.Outcome) || len(r.Summary) > 16<<10 || (r.Outcome == "" && r.Reconciled) {
 		return errors.New("invalid execution outcome")
 	}
 	return nil
 }
-
-func (r Run) Authority(attemptID string, now time.Time) error {
-	if r.AttemptID != attemptID || r.Outcome != "" || !now.Before(r.Deadline) {
-		return errors.New("run authority is inactive or expired")
-	}
-	return nil
-}
-
-func (r Run) reviewEvidence(attemptID, sha string) (Evidence, error) {
-	if r.Role != Review || r.AttemptID != attemptID || r.InputSHA != sha || r.Outcome != Succeeded || !r.CleanupComplete || !ValidID(r.ID) {
-		return Evidence{}, errors.New("review does not bind to a fresh completed candidate run")
-	}
-	return Evidence{ID: r.ID, Commit: r.InputSHA}, nil
-}
-
-func validOutcome(outcome Outcome) bool {
-	return outcome == "" || outcome == Succeeded || outcome == Failed || outcome == Cancelled || outcome == NeedsHuman
-}
-
-func (r Run) validateResources() error {
-	if len(r.Resources) > 3 {
-		return errors.New("too many workspace resources")
-	}
-	seen := map[string]bool{}
-	for _, resource := range r.Resources {
-		if seen[resource.Kind] || resource.Name != ResourceName(r.ID, resource.Kind) {
-			return errors.New("resource is not owned by this run")
-		}
-		switch resource.Kind {
-		case "workspace", "proxy", "network":
-		default:
-			return errors.New("unknown workspace resource kind")
-		}
-		if resource.ID != "" && !ValidDigest(resource.ID) {
-			return errors.New("invalid resource ID")
-		}
-		seen[resource.Kind] = true
-	}
-	return nil
-}
-
-func ResourceName(runID, kind string) string { return "soda-factory-" + kind + "-" + runID }
 
 func (r Run) validateCredentials() error {
 	if r.CredentialReturned && !r.CredentialDelegated {
@@ -135,13 +108,8 @@ func (r Run) validateIdentityBinding() error {
 	if b == nil {
 		return nil
 	}
-	if b.Validate() != nil || b.Kind != identity.Factory || b.Generation != r.IdentityGeneration {
+	if b.Validate() != nil || b.Kind != identity.Factory || b.Generation != r.IdentityGeneration || b.ID != r.ID {
 		return errors.New("invalid execution binding")
 	}
-	for _, resource := range r.Resources {
-		if resource.Kind == "workspace" && resource.ID == b.ID {
-			return nil
-		}
-	}
-	return errors.New("credential binding differs from workspace")
+	return nil
 }

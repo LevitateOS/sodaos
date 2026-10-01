@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"sync"
-	"time"
 
 	"github.com/levitateos/sodaos/internal/identity"
 )
@@ -16,8 +15,6 @@ type MuseRuntime struct {
 	Exec            Executor
 	BinaryVersion   string
 	BinarySHA256    string
-	FactoryRoot     string
-	FactoryResolve  func(context.Context, MusePeer) (MuseFactoryCaller, error)
 	Acquire         func(context.Context, identity.AcquireRequest) (identity.Lease, error)
 	Attach          func(context.Context, string, identity.Binding) (identity.Delivery, error)
 	End             func(context.Context, int64, string) error
@@ -65,13 +62,4 @@ type MuseInvocation struct {
 type MuseLaunch struct {
 	Start    func(context.Context, MusePeer, identity.LaunchRequest, [3]*os.File) (MuseInvocation, error)
 	Register func(context.Context, MusePeer, identity.NestedRegistration) error
-}
-
-// MuseFactoryCaller is produced by trusted broker lease/native OCI attestation.
-// No launch request can supply this record.
-type MuseFactoryCaller struct {
-	Container, Project, Login, CredentialRoot string
-	Actor                                     int64
-	Deadline                                  time.Time
-	UID, GID, HostPID                         int
 }

@@ -3,7 +3,6 @@ package publish
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"crypto/sha1"
 	"fmt"
 	"io"
@@ -59,17 +58,9 @@ func TestPublisherRejectsCredentialHistoryBeforeAuthorization(t *testing.T) {
 			candidateGit(t, c, "commit", "-m", "remove private input")
 			candidateBundle(t, c, &r)
 			r.ProtectedCredentials = []string{"synthetic-original-credential", secret}
-			for _, retry := range []bool{false, true} {
-				if retry {
-					r.Attempt.Candidate = r.Commit
-				}
-				err := c.Candidate(t.Context(), r, func() error {
-					t.Fatal("credential-bearing history reached authorization")
-					return context.Canceled
-				})
-				if err == nil || !strings.Contains(err.Error(), "protected credential") {
-					t.Fatalf("expected credential rejection, got %v", err)
-				}
+			err := c.ValidateCandidate(t.Context(), r)
+			if err == nil || !strings.Contains(err.Error(), "protected credential") {
+				t.Fatalf("expected credential rejection, got %v", err)
 			}
 		})
 	}
@@ -78,10 +69,8 @@ func TestPublisherRejectsCredentialHistoryBeforeAuthorization(t *testing.T) {
 func TestPublisherAcceptsCleanCandidateWithCredentialDenylist(t *testing.T) {
 	c, r := candidateFixture(t, "README.md")
 	r.ProtectedCredentials = []string{"synthetic-original-credential", "synthetic-renewed-credential"}
-	called := false
-	err := c.Candidate(t.Context(), r, func() error { called = true; return context.Canceled })
-	if !called || err != context.Canceled {
-		t.Fatalf("clean candidate did not reach authorization: %v", err)
+	if err := c.ValidateCandidate(t.Context(), r); err != nil {
+		t.Fatalf("clean candidate rejected: %v", err)
 	}
 }
 
@@ -93,10 +82,7 @@ func TestPublisherRejectsCompressedOversizedDecodedObject(t *testing.T) {
 	candidateGit(t, c, "add", ".")
 	candidateGit(t, c, "commit", "-m", "compressible oversized object")
 	candidateBundle(t, c, &r)
-	err := c.Candidate(t.Context(), r, func() error {
-		t.Fatal("oversized decoded object reached authorization")
-		return nil
-	})
+	err := c.ValidateCandidate(t.Context(), r)
 	if err == nil || !strings.Contains(err.Error(), "decoded credential scan limit") {
 		t.Fatalf("expected decoded limit rejection, got %v", err)
 	}

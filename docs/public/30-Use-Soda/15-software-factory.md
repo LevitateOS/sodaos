@@ -1,131 +1,72 @@
-# Run your first software factory task
+# Supervise software factory runs
 
-Use the factory operator interface to admit a Forgejo issue, run a bounded coding task, and inspect its verified pull request before merging it yourself.
+Factory work runs as supervised agent executions inside a Project, with durable
+run records, exact process binding and credential return. The operator
+interface inspects recorded runs, retires one run and settles outstanding
+work. Automatic intake remains unavailable: nothing admits issues, launches
+runs or publishes results on its own.
 
-## Prepare the factory
+## Inspect recorded runs
 
-Use a private repository on this appliance's Forgejo. The authorizing person must
-have write access. Configure separate non-administrator implementation and review
-bot accounts, and protect the default branch through Forgejo's native settings.
-The implementation worker cannot merge or publish to arbitrary branches; the
-review worker can submit findings for its assigned pull request and commit.
-
-The operator prepares the `soda-factory` command and a private configuration file.
-It selects the Forgejo origin, repository ID, authorizing human's token file,
-implementation and review actors and token files, and a Forgejo Actions workflow.
-It also selects the agent version and model, pinned workspace and proxy images,
-permitted network destinations, and CPU, memory, process and writable-storage
-limits. Run the command as an unprivileged Linux operator with rootless Podman,
-user namespaces, cgroup v2 and SELinux.
-
-Keep configuration and credential files private with mode `0600`; factory state,
-workspace and publication directories use mode `0700`. Supply secrets through
-restricted files, never issues, command arguments or logs. Factory credentials
-are separate from human project credentials. See
-[People and access](../50-Operate/10-people-and-access.md#factory-identities-and-provider-access).
-
-The initial account-auth profile uses Codex with a dedicated enrolled credential
-home. Use the selected profile's supported private automation and enrollment
-procedure. Account reuse lasts until renewal or revocation requires intervention;
-it is not universal or permanent login. Soda does not silently switch to paid
-API billing if the subscription becomes unavailable. Other harnesses and provider
-accounts require their own qualified profile.
-
-Configure the selected CI workflow to evaluate candidate pull requests on
-`pull_request` events for `opened` and `synchronize`. Do not trigger additional
-candidate evaluations from review or agent comments. CI remains Forgejo Actions;
-Soda observes its result instead of adding another CI queue. See
-[CI runners](50-ci-runners.md#verify-factory-candidates).
-
-## Authorize a clear objective
-
-Create an issue describing the expected behavior, relevant context and useful
-acceptance checks. Resolve ambiguity before assigning work. Repository content
-and issue comments are task input, not permission to change the execution policy.
-Labels alone do not authorize a run.
-
-The authorized operator admits the issue explicitly:
+Use the private operator command against the dashboard backend's operator
+socket:
 
 ```sh
-soda-factory --config /home/soda-tester/factory/config.json admit 12 issue-12-attempt-1
+soda-factory --socket /run/soda/operator/factory.sock status
+soda-factory --socket /run/soda/operator/factory.sock status RUN_ID
 ```
 
-Replace the private configuration path, issue number and delivery ID with your
-own values. Admission returns an attempt ID and records the objective, source
-revision, authorizing person and policy. Repeating the same delivery ID returns
-the existing attempt; it does not create another execution or reset its limits.
-A different delivery is not admitted while the earlier attempt or cleanup remains
-active.
+Status returns bounded recorded metadata for each run: Project, role, input
+revision, deadline, harness and model provenance, broker lease facts, outcome
+and whether the run is settled. Credential-adjacent paths are redacted. A
+run whose outcome is recorded but unsettled still needs reconcile.
 
-## Run and inspect the attempt
+Run outcomes are `succeeded`, `failed`, `cancelled` and `needs-human`.
+Settlement is recorded separately: a finished execution is not proof that
+retirement, credential return and broker closure all confirmed.
 
-Use the returned attempt ID:
+## Stop one run
 
 ```sh
-soda-factory --config /home/soda-tester/factory/config.json run ATTEMPT_ID
-soda-factory --config /home/soda-tester/factory/config.json status ATTEMPT_ID
+soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID stop RUN_ID
 ```
 
-Implementation starts from a fresh checkout. The agent edits, tests and commits
-locally. A separate publisher checks the candidate and publishes only the assigned
-branch, `soda/factory/ATTEMPT_ID`, then creates its pull request. Forgejo write
-credentials stay outside the agent workspace. The worker cannot change protected
-CI or policy paths.
+Stop retires exactly the recorded run's processes, seals its broker
+execution and settles the run when both confirm. The command ID is yours to
+generate: repeating the same ID with the same run replays the stored
+outcome, and reusing an ID for a different run conflicts instead of acting
+twice. If retirement or closure stays uncertain, the run stays unsettled for
+reconcile; never treat a fenced stop as proof the run ended.
 
-CI and a fresh review workspace check the candidate's exact commit. The reviewer
-receives the requirement and repository context, with a separate execution identity
-and clean environment. It cannot publish implementation changes. A successful
-agent process is not proof of correct software; inspect the test and review evidence.
+Human sessions and sibling runs are never targeted: a stop addresses one run
+identity and its recorded unit and process group only.
 
-If the first candidate has a repairable failure, one repair run may produce a
-new commit. That commit needs new CI and a new fresh review; earlier evidence
-cannot verify it. A further failure returns the attempt to a person.
-
-## Understand time limits and outcomes
-
-The initial limits are 90 minutes for implementation, 30 minutes for each review
-or repair, one repair, four agent executions and two CI evaluations. The entire
-attempt has a three-hour elapsed deadline, including waiting. One work item has
-one active execution, and a Codex credential stream is used by one execution at
-a time. CPU, memory, process, disk and network limits are enforced outside the agent.
-
-Run outcomes are `succeeded`, `failed`, `cancelled` and `needs-human`. Cleanup
-completion is recorded separately: a finished execution is not proof that all
-resources have been removed. Forgejo comments and `soda:` labels summarize the
-outcome and any intervention; the local status record includes run IDs and cleanup.
-
-Expired limits, unavailable authentication or unresolved ambiguity require human
-intervention. Repeated events and agent comments cannot silently restart the work.
-See [Administration](../50-Operate/20-administration.md#operate-factory-runs)
-for interrupted execution and reporting after an outage.
-
-## Review and merge yourself
-
-Inspect the pull request's final head commit, implementation summary, CI result
-and fresh review. Confirm that all verification refers to that same commit and
-that the native protected-branch requirements are satisfied. If the candidate
-changes, obtain new verification before merging.
-
-Merge through Forgejo using your human account. Soda does not automatically
-merge, deploy the result to production or promote running service data. See
-[Collaboration](35-collaboration.md#review-and-merge).
-
-## Cancel or start a new explicit attempt
+## Settle outstanding work
 
 ```sh
-soda-factory --config /home/soda-tester/factory/config.json cancel ATTEMPT_ID
+soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID reconcile
 ```
 
-Cancellation withdraws publication authority, terminates the workspace's processes
-and reconciles its recorded resources. Closing the issue also withdraws further
-work when Soda checks its state. Confirm cleanup with `status`.
+Reconcile retires every outstanding recorded run and settles accounting for
+each one whose effects confirm. It cannot launch, retry or publish work.
+Runs whose effects stay unresolved are reported as fenced with their
+reasons; resolve the underlying outage and reconcile again with a fresh
+command ID. Dashboard startup settles outstanding runs before serving.
 
-After resolving an intervention and completing cleanup, a human can admit the
-issue with a new delivery ID, such as `issue-12-attempt-2`. This is a new explicit
-attempt, not a continuation that erases the earlier outcome. Running an already
-terminal attempt reports its outcome without launching another agent.
+## Understand the execution boundary
 
-Persistent human projects remain available for investigation and manual development.
-See [Projects and workspaces](20-projects-and-workspaces.md) and
-[Connect and develop](../40-Develop/10-connect-and-develop.md). Do not reuse their
-writable roots or credentials as disposable factory resources.
+Each run executes a fixed CLI entrypoint under a recorded identity: run ID,
+Project container, host unit and systemd incarnation. The Identity Broker
+delivers subscription credentials only after the host attests that exact
+waiting binding, and takes the state back after the run's descendants
+retire. A run never sees the broker or host sockets. Unknown credential
+return keeps the connection unavailable until the run is accounted for.
+
+The only proved factory harness is Codex CLI `0.157.1`, pinned per run with
+its executable digest. Other harnesses stay unavailable until their own
+supervised-run proof passes. Soda uses subscription access only and never
+switches to paid API billing if the subscription becomes unavailable.
+
+Persistent human projects remain available for investigation and manual
+development. See [Projects and workspaces](20-projects-and-workspaces.md) and
+[Connect and develop](../40-Develop/10-connect-and-develop.md).

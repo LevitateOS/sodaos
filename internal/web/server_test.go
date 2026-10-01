@@ -26,6 +26,7 @@ func TestRootOnlyRedirectsToConfiguredForgejo(t *testing.T) {
 		}
 	}
 }
+
 func TestNoNativeDestinationDoesNotLoopOrRender(t *testing.T) {
 	for _, base := range []string{"", "//evil.example", "javascript:alert(1)", "https://user:password@example.test", "https://forgejo.example.test?redirect=evil", "https://forgejo.example.test/native/", "http://forgejo.example.test"} {
 		s := New(config.Config{ForgejoURL: base}, nil)
@@ -39,5 +40,18 @@ func TestNoNativeDestinationDoesNotLoopOrRender(t *testing.T) {
 		if w.Code != 200 || w.Body.String() != "ok\n" {
 			t.Fatal("health check depends on a frontend")
 		}
+	}
+}
+
+func TestCoordinatorSharesBackendStoreAndClients(t *testing.T) {
+	s := New(config.Config{ForgejoURL: "https://forgejo.example.test"}, nil)
+	if s.Coordinator == nil || s.Coordinator.Store != s.Store {
+		t.Fatal("coordinator does not own the backend database")
+	}
+	if s.Coordinator.Host != s.Host {
+		t.Fatal("coordinator bypasses the backend host client")
+	}
+	if s.Coordinator.Broker == nil {
+		t.Fatal("coordinator has no broker client")
 	}
 }

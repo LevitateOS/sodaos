@@ -20,6 +20,9 @@ import (
 // over importing database/sql solely for sql.ErrNoRows.
 var ErrNotFound = sql.ErrNoRows
 
+// ErrCommandConflict reports a reused command identity with changed content.
+var ErrCommandConflict = errors.New("command identity reused for different content")
+
 type Store struct {
 	db     *sql.DB
 	grants *grantCipher

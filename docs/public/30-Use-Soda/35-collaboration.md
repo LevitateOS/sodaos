@@ -2,10 +2,9 @@
 
 Authorize clear objectives, inspect exact-commit verification and merge results through Forgejo using your human account.
 
-For agent work, follow the [factory walkthrough](15-software-factory.md). Soda
-publishes the assigned candidate and a fresh reviewer submits findings. Your team
-retains the final merge decision. The same native issues, branches and reviews
-also support manual development.
+For agent work, follow the [factory walkthrough](15-software-factory.md). Your
+team retains every publication and merge decision. The same native issues,
+branches and reviews also support manual development.
 
 ## Issues and notifications
 
@@ -20,7 +19,7 @@ private diagnostics or unrelated personal data into public issues or attachments
 
 ## Review and merge
 
-For a factory task, the publisher creates the branch and pull request. Follow
+For a factory task, follow
 [Review a factory candidate](#review-a-factory-candidate) to inspect the final
 verified commit. For manual development, create your own candidate as follows:
 
@@ -80,10 +79,8 @@ permission system. No Soda action copies upstream roles or bypasses a native den
 ## Review a factory candidate
 
 Check the issue objective and the pull request's final head commit. Its CI result
-and fresh review must reference that exact commit. A repair creates a new candidate
-and invalidates the earlier evidence; verify it again before human merge.
+and fresh review must reference that exact commit. A changed candidate
+invalidates the earlier evidence; verify it again before human merge.
 
-Resolve unclear requirements or exhausted limits yourself before authorizing a
-new attempt. Agent comments, labels and repeated deliveries cannot reset the
-attempt's limits. Keep findings in Forgejo and infrastructure status in the linked
-run record. See the [factory walkthrough](15-software-factory.md).
+Keep findings in Forgejo and infrastructure status in the linked run record.
+See the [factory walkthrough](15-software-factory.md).

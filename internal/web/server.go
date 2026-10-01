@@ -3,13 +3,16 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/avatar"
 	"github.com/levitateos/sodaos/internal/config"
+	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/forgejo"
 	"github.com/levitateos/sodaos/internal/host"
 	identityclient "github.com/levitateos/sodaos/internal/identity/client"
@@ -20,13 +23,14 @@ import (
 
 // Server is the dashboard HTTP facade. Handlers live in Auth and API.
 type Server struct {
-	Config  config.Config
-	Store   *store.Store
-	Forgejo *forgejo.Client
-	Host    *host.Client
-	Auth    *auth.Service
-	API     *api.API
-	mux     *http.ServeMux
+	Config      config.Config
+	Store       *store.Store
+	Forgejo     *forgejo.Client
+	Host        *host.Client
+	Auth        *auth.Service
+	API         *api.API
+	Coordinator *control.Coordinator
+	mux         *http.ServeMux
 }
 
 // New constructs auth and product APIs and registers all dashboard routes.
@@ -39,7 +43,9 @@ func New(c config.Config, db *store.Store) *Server {
 	}
 	s.Auth = auth.New(&s.Config, db)
 	s.API = api.New(&s.Config, db, client, hostClient, s.Auth)
-	s.API.Identity = identityclient.New(c.IdentitySocket)
+	broker := identityclient.New(c.IdentitySocket)
+	s.API.Identity = broker
+	s.Coordinator = control.NewCoordinator(db, hostClient, broker)
 
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
@@ -69,6 +75,16 @@ func (s *Server) forgejoHome(w http.ResponseWriter, r *http.Request) {
 
 // CloseTerminals shuts down native terminal peers before process exit.
 func (s *Server) CloseTerminals() { s.API.CloseTerminals() }
+
+// StartCoordinator takes exclusive factory-ledger ownership and settles
+// outstanding runs before the operator endpoint serves. Only the serving
+// backend calls this; request handling never starts a coordinator.
+func (s *Server) StartCoordinator(ctx context.Context) error {
+	return s.Coordinator.Start(ctx, filepath.Join(filepath.Dir(s.Config.Database), "factory-coordinator.lock"))
+}
+
+// CloseCoordinator releases factory-ledger ownership before process exit.
+func (s *Server) CloseCoordinator() { _ = s.Coordinator.Close() }
 
 // SetForgejo replaces the Forgejo client on the facade and product API.
 func (s *Server) SetForgejo(client *forgejo.Client) {

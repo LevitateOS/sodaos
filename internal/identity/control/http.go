@@ -42,6 +42,8 @@ func responseError(err error) (int, string) {
 	switch {
 	case errors.Is(err, identity.ErrDenied):
 		return http.StatusForbidden, "denied"
+	case errors.Is(err, identity.ErrNotFound):
+		return http.StatusNotFound, "missing"
 	case errors.Is(err, store.ErrNotFound):
 		return http.StatusNotFound, "missing"
 	case errors.Is(err, identity.ErrBusy):
@@ -123,6 +125,10 @@ func (c *Controller) runtimeRequest(r *http.Request, in identity.Request) (any, 
 		return c.boundLeaseRequest(r, in)
 	case "/reconcile-lease":
 		return nil, c.ReconcileLease(ctx, in.ID)
+	case "/execution/get":
+		return c.GetExecution(ctx, in.Kind, in.ExecutionID)
+	case "/execution/close":
+		return nil, c.CloseExecution(ctx, in.Kind, in.ExecutionID)
 	default:
 		return nil, identity.ErrDenied
 	}

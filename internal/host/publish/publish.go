@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/levitateos/sodaos/internal/factory"
 )
@@ -24,14 +23,12 @@ type Config struct {
 }
 
 type Request struct {
-	Attempt              factory.Attempt
 	Run                  factory.Run
+	BaseSHA              string
 	Commit               string
 	Bundle               []byte
 	ProtectedCredentials []string
 }
-
-func Branch(attemptID string) string { return "soda/factory/" + attemptID }
 
 func (c Config) Validate() error {
 	if err := validateRemote(c.Remote); err != nil {
@@ -57,29 +54,28 @@ func validateRemote(remote string) error {
 	return errors.New("publication requires TLS or a local fixture")
 }
 
-func (r Request) Validate(now time.Time) error {
-	a := r.Attempt
-	if err := a.Authority(now); err != nil {
-		return err
-	}
+func (r Request) Validate() error {
 	if err := r.Run.Validate(); err != nil {
 		return err
 	}
-	if err := r.Run.Authority(a.ID, now); err != nil {
-		return err
+	if !factory.ValidCommit(r.BaseSHA) || !factory.ValidCommit(r.Commit) || r.Commit == r.Run.InputSHA {
+		return errors.New("candidate is not a fresh exact commit")
 	}
-	return a.CandidateFrom(r.Run, r.Commit, now)
+	if len(r.Bundle) == 0 || len(r.Bundle) > 4<<20 {
+		return errors.New("candidate bundle exceeds input limit")
+	}
+	return nil
 }
 
-// Candidate imports only a verified bundle into a fresh bare repository, then
-// publishes one predetermined branch using an exact expected-commit lease.
-// authorize must recheck durable state and Forgejo authority under the controller
-// publication lock; cancellation uses the same lock.
-func (c Config) Candidate(ctx context.Context, r Request, authorize func() error) error {
+// ValidateCandidate imports only a verified bundle into a fresh bare
+// repository, then checks the exact candidate, its ancestry, protected paths
+// and credential material. It performs no push; publication is a separately
+// persisted conditional operation built on this validation.
+func (c Config) ValidateCandidate(ctx context.Context, r Request) error {
 	if err := c.Validate(); err != nil {
 		return err
 	}
-	if err := r.Validate(time.Now()); err != nil {
+	if err := r.Validate(); err != nil {
 		return err
 	}
 	git, cleanup, err := c.prepare(ctx, r)
@@ -90,22 +86,7 @@ func (c Config) Candidate(ctx context.Context, r Request, authorize func() error
 	if err = git.validateCandidate(ctx, r, c.ProtectedPaths); err != nil {
 		return err
 	}
-	if err = git.checkCredentials(ctx, r); err != nil {
-		return err
-	}
-	target := "refs/heads/" + Branch(r.Attempt.ID)
-	if err = authorize(); err != nil {
-		return err
-	}
-	if err = r.Validate(time.Now()); err != nil {
-		return err
-	}
-	if err = git.verifyTarget(ctx, c.Remote, target, r.Attempt.Candidate); err != nil {
-		return err
-	}
-	expected := r.Attempt.Candidate
-	_, err = git.run(ctx, "push", "--force-with-lease="+target+":"+expected, c.Remote, r.Commit+":"+target)
-	return err
+	return git.checkCredentials(ctx, r)
 }
 
 func (c Config) prepare(ctx context.Context, r Request) (*repository, func(), error) {
@@ -167,7 +148,7 @@ func (g *repository) validateCandidate(ctx context.Context, r Request, paths []s
 	if _, err = g.run(ctx, "merge-base", "--is-ancestor", r.Run.InputSHA, r.Commit); err != nil {
 		return errors.New("candidate is not based on admitted input")
 	}
-	out, err = g.run(ctx, "diff", "--name-only", "-z", r.Attempt.Work.BaseSHA, r.Commit)
+	out, err = g.run(ctx, "diff", "--name-only", "-z", r.BaseSHA, r.Commit)
 	if err != nil {
 		return err
 	}
@@ -180,18 +161,3 @@ func (g *repository) validateCandidate(ctx context.Context, r Request, paths []s
 }
 
 func localFixture(host string) bool { return host == "127.0.0.1" || host == "localhost" }
-
-func (g *repository) verifyTarget(ctx context.Context, remote, target, expected string) error {
-	out, err := g.run(ctx, "ls-remote", remote, target)
-	if err != nil {
-		return err
-	}
-	want := ""
-	if expected != "" {
-		want = expected + "\t" + target
-	}
-	if strings.TrimSpace(string(out)) != want {
-		return errors.New("publication target differs from expected revision")
-	}
-	return nil
-}

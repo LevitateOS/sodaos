@@ -60,40 +60,26 @@ func candidateFixture(t *testing.T, changed string) (Config, Request) {
 	if err := os.WriteFile(token, []byte("synthetic"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	a, err := factory.New(factory.WorkItem{RepositoryID: 1, Issue: 1, HumanID: 1, Objective: "change", BaseSHA: base, PolicySHA: strings.Repeat("a", 64)}, "event", time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	r, err := a.BeginRun(factory.Implementation, time.Now())
-	if err != nil {
-		t.Fatal(err)
-	}
-	r.Image = "sha256:" + strings.Repeat("b", 64)
-	r.Harness = "test"
-	r.Model = "test"
-	return Config{Root: root, Remote: "http://127.0.0.1:1/target.git", Username: "soda-tester", TokenFile: token}, Request{Attempt: a, Run: r, Commit: sha, Bundle: bundle}
+	now := time.Now()
+	r := factory.Run{ID: factory.NewID(), ProjectID: "p123456789012345678901234", Role: "coder", InputSHA: base, Started: now, Deadline: now.Add(time.Hour), Image: "sha256:" + strings.Repeat("b", 64), Harness: "test", Model: "test"}
+	return Config{Root: root, Remote: "http://127.0.0.1:1/target.git", Username: "soda-tester", TokenFile: token}, Request{Run: r, BaseSHA: base, Commit: sha, Bundle: bundle}
 }
 
-func TestPublisherValidatesCandidateBeforeAuthorityCheck(t *testing.T) {
-	for _, path := range []string{"README.md", ".forgejo/workflows/verify.yaml"} {
-		t.Run(path, func(t *testing.T) {
-			c, r := candidateFixture(t, path)
-			called := false
-			err := c.Candidate(context.Background(), r, func() error { called = true; return context.Canceled })
-			if err == nil {
-				t.Fatal("publication succeeded without authority")
-			}
-			if called != (path == "README.md") {
-				t.Fatalf("unexpected authorization stage: %v", err)
-			}
-		})
+func TestPublisherValidatesCandidate(t *testing.T) {
+	c, r := candidateFixture(t, "README.md")
+	if err := c.ValidateCandidate(context.Background(), r); err != nil {
+		t.Fatal(err)
+	}
+	c, r = candidateFixture(t, ".forgejo/workflows/verify.yaml")
+	if err := c.ValidateCandidate(context.Background(), r); err == nil {
+		t.Fatal("protected path accepted")
 	}
 }
 
 func TestPublisherRejectsMismatchedBundle(t *testing.T) {
 	c, r := candidateFixture(t, "README.md")
 	r.Commit = strings.Repeat("c", 40)
-	if err := c.Candidate(context.Background(), r, func() error { t.Fatal("mismatched candidate reached publication"); return nil }); err == nil {
+	if err := c.ValidateCandidate(context.Background(), r); err == nil {
 		t.Fatal("mismatched bundle accepted")
 	}
 }
