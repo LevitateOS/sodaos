@@ -29,6 +29,19 @@ type Config struct {
 	IdentitySocket     string `json:"identity_socket"`
 	GrantKeyFile       string `json:"grant_key_file"`
 	OperatorID         int64  `json:"operator_id"`
+	// Optional native background admission inputs. When set, all three are
+	// required: the operator-configured shared service callback socket, the
+	// expected native host peer UID verified against kernel credentials,
+	// and the restricted native PAT file read via Secret.
+	ForgejoBackgroundSocket         string  `json:"forgejo_background_socket"`
+	ForgejoBackgroundHostUID        *uint32 `json:"forgejo_background_host_uid"`
+	ForgejoBackgroundCredentialFile string  `json:"forgejo_background_credential_file"`
+}
+
+// BackgroundServiceConfigured reports whether native background service
+// admission inputs are present.
+func (c Config) BackgroundServiceConfigured() bool {
+	return c.ForgejoBackgroundSocket != "" || c.ForgejoBackgroundHostUID != nil || c.ForgejoBackgroundCredentialFile != ""
 }
 
 func decodeConfig(path string) (Config, error) {
@@ -92,6 +105,17 @@ func validateConfigPaths(c Config) error {
 	}
 	if c.OperatorID <= 0 {
 		return errors.New("operator_id is required; run operator setup first")
+	}
+	if c.BackgroundServiceConfigured() {
+		if !filepath.IsAbs(c.ForgejoBackgroundSocket) {
+			return errors.New("forgejo_background_socket must be an absolute path")
+		}
+		if c.ForgejoBackgroundHostUID == nil {
+			return errors.New("forgejo_background_host_uid is required with background service inputs")
+		}
+		if !filepath.IsAbs(c.ForgejoBackgroundCredentialFile) {
+			return errors.New("forgejo_background_credential_file must be an absolute path")
+		}
 	}
 	return nil
 }
