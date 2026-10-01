@@ -48,8 +48,8 @@ func admitPublicationInputs(c Config) error {
 }
 
 func admitConfig(c Config) error {
-	if c.Serial == 0 || (c.Class != "normal" && c.Class != "emergency") || c.Notes == "" || len(c.Notes) > 16384 {
-		return errors.New("exact release serial, class and notes required")
+	if err := admitReleaseIdentity(c); err != nil {
+		return err
 	}
 	if _, err := os.Stat(c.Trust); err != nil {
 		return errors.New("public release trust configuration required")
@@ -91,20 +91,6 @@ func loadSigner(path string) (SecretFiles, error) {
 		return keys, errors.New("restricted signer key inputs required")
 	}
 	return keys, nil
-}
-
-func qualificationFromEvidence(c Config, evidencePath string) (Qualification, error) {
-	sum, err := build.HashFile(evidencePath)
-	if err != nil {
-		return Qualification{}, err
-	}
-	return Qualification{
-		Serial:   c.Serial,
-		Class:    c.Class,
-		Scope:    "native-install-upgrade-recovery",
-		Notes:    c.Notes,
-		Evidence: map[string]string{"qualification.json": "sha256:" + sum},
-	}, nil
 }
 
 func documentDigest(oci string) (string, error) {
@@ -222,7 +208,7 @@ func Finalize(ctx context.Context, r Runner, c Config, candidate, media, evidenc
 	if err != nil {
 		return "", err
 	}
-	q, err := qualificationFromEvidence(c, evidence)
+	q, err := AdmitQualification(c, candidate, media, evidence)
 	if err != nil {
 		return "", err
 	}

@@ -33,14 +33,3 @@ func TestBindChannelReleasesRequiresArchitectures(t *testing.T) {
 	require.NoError(t, bindChannelReleases(&offer, "ghcr.io/example/sodaos-release@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
 	require.Equal(t, "ghcr.io/example/sodaos-release@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", offer.Releases["x86_64"])
 }
-
-func TestQualificationEvidenceBindsExactReceiptHash(t *testing.T) {
-	root := privateDir(t)
-	evidence := filepath.Join(root, "qualification.json")
-	require.NoError(t, os.WriteFile(evidence, []byte(`{"scope":"native-install-upgrade-recovery"}`), 0o600))
-	q, err := qualificationFromEvidence(Config{Serial: 3, Class: "normal", Notes: "fixture notes"}, evidence)
-	require.NoError(t, err)
-	require.Equal(t, "native-install-upgrade-recovery", q.Scope)
-	require.Equal(t, uint64(3), q.Serial)
-	require.Contains(t, q.Evidence, "qualification.json")
-}
