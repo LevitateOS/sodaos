@@ -7,10 +7,10 @@ import (
 	"fmt"
 )
 
-const schemaFormatVersion = 14
+const schemaFormatVersion = 15
 
 const currentSchema = `CREATE TABLE schema_version(version INTEGER PRIMARY KEY);
-INSERT INTO schema_version(version) VALUES(14);
+INSERT INTO schema_version(version) VALUES(15);
 CREATE TABLE users(id INTEGER PRIMARY KEY CHECK(id>0), login TEXT NOT NULL, name TEXT NOT NULL DEFAULT '');
 CREATE TABLE keys(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), public TEXT NOT NULL, fingerprint TEXT NOT NULL, UNIQUE(user_id,fingerprint));
 CREATE TABLE projects(id TEXT PRIMARY KEY, name TEXT NOT NULL, repository_id INTEGER NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES users(id), repository TEXT NOT NULL, ip TEXT NOT NULL DEFAULT '', ready INTEGER NOT NULL DEFAULT 0 CHECK(ready IN(0,1)), creation_profile TEXT CHECK(creation_profile IS NULL OR (length(CAST(creation_profile AS BLOB))<=1024 AND json_valid(creation_profile))));
@@ -54,7 +54,14 @@ CREATE UNIQUE INDEX identity_grant_recipient ON identity_grants(connection_id,us
 CREATE TABLE identity_leases(id TEXT PRIMARY KEY, connection_id TEXT NOT NULL REFERENCES identity_connections(id), data TEXT NOT NULL CHECK(json_valid(data)));
 CREATE TABLE identity_events(id INTEGER PRIMARY KEY AUTOINCREMENT, owner_id INTEGER NOT NULL, connection_id TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
 CREATE TRIGGER identity_events_immutable_update BEFORE UPDATE ON identity_events BEGIN SELECT RAISE(ABORT,'identity audit is immutable'); END;
-CREATE TRIGGER identity_events_immutable_delete BEFORE DELETE ON identity_events BEGIN SELECT RAISE(ABORT,'identity audit is immutable'); END;`
+CREATE TRIGGER identity_events_immutable_delete BEFORE DELETE ON identity_events BEGIN SELECT RAISE(ABORT,'identity audit is immutable'); END;
+CREATE TABLE project_lifecycle_grants(project_id TEXT PRIMARY KEY REFERENCES projects(id), revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE project_maintenance(project_id TEXT PRIMARY KEY REFERENCES projects(id), revision INTEGER NOT NULL, hold INTEGER NOT NULL CHECK(hold IN(0,1)), data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE TABLE project_preparations(id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), role TEXT NOT NULL, revision INTEGER NOT NULL, requirements TEXT NOT NULL, approval TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)));
+CREATE INDEX project_preparations_project ON project_preparations(project_id);
+CREATE TRIGGER preparation_refs_immutable BEFORE UPDATE ON project_preparations
+WHEN NEW.id!=OLD.id OR NEW.project_id!=OLD.project_id OR NEW.role!=OLD.role OR NEW.requirements!=OLD.requirements OR NEW.approval!=OLD.approval
+BEGIN SELECT RAISE(ABORT,'preparation references are immutable'); END;`
 
 // SchemaVersion is a format identifier. This unreleased database format has no
 // compatibility migrations; older versioned files are refused without mutation.
@@ -98,6 +105,9 @@ func verifyRequiredColumns(ctx context.Context, tx *sql.Tx) error {
 		`SELECT id,name,repository_id,owner_id,repository,ip,ready,creation_profile FROM projects LIMIT 0`,
 		`SELECT project_id,user_id,login FROM memberships LIMIT 0`,
 		`SELECT id,ciphertext FROM grant_key_check LIMIT 0`,
+		`SELECT project_id,revision,data FROM project_lifecycle_grants LIMIT 0`,
+		`SELECT project_id,revision,hold,data FROM project_maintenance LIMIT 0`,
+		`SELECT id,project_id,role,revision,requirements,approval,data FROM project_preparations LIMIT 0`,
 	} {
 		rows, err := tx.QueryContext(ctx, query)
 		if err != nil {
@@ -116,6 +126,17 @@ func verifyImmutableCreationProfile(ctx context.Context, tx *sql.Tx) error {
 		return err
 	}
 	if hasImmutableProfile != 1 {
+		return errors.New("database schema is incomplete")
+	}
+	return nil
+}
+
+func verifyImmutablePreparationRefs(ctx context.Context, tx *sql.Tx) error {
+	var hasImmutableRefs int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name='preparation_refs_immutable' AND tbl_name='project_preparations'`).Scan(&hasImmutableRefs); err != nil {
+		return err
+	}
+	if hasImmutableRefs != 1 {
 		return errors.New("database schema is incomplete")
 	}
 	return nil
@@ -153,6 +174,9 @@ func initializeSchema(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 	if err = verifyImmutableCreationProfile(ctx, tx); err != nil {
+		return err
+	}
+	if err = verifyImmutablePreparationRefs(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit()

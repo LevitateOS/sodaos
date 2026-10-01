@@ -1,0 +1,800 @@
+#!/usr/bin/python3
+"""Bounded factory role and preparation setup. Fixed roles, layout and state
+paths only; accepts no caller-supplied command, package recipe, image or path.
+Approved file bytes arrive over stdin and are written root-owned read-only
+before any role execution. Setup runs detached as the assigned role so that
+inspect/stop can address the preparation before completion."""
+
+import base64
+import binascii
+import fcntl
+import grp
+import hashlib
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import time
+
+FACTORY = Path('/var/lib/soda/factory')
+PREPARATIONS = FACTORY / 'preparations'
+CREDENTIALS = FACTORY / 'credentials'
+HOLD = FACTORY / 'maintenance-hold'
+LOCK = FACTORY / 'lock'
+ROLES = ('soda-coder', 'soda-reviewer')
+NOLOGIN = '/usr/sbin/nologin'
+SETUP_ENTRY = 'setup.sh'
+CHECK_ENTRY = 'check.sh'
+SHELL = '/bin/bash'
+GIT = '/usr/bin/git'
+LOG_CAP = 65536
+INPUT_CAP = 4 * 1024 * 1024 + 65536
+
+ID_RE = re.compile(r'f[0-9a-f]{24}\Z')
+ROLE_RE = re.compile(r'soda-(coder|reviewer)\Z')
+NAME_RE = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}\Z')
+DIGEST_RE = re.compile(r'[0-9a-f]{64}\Z')
+COMMIT_RE = re.compile(r'[0-9a-f]{40}\Z')
+
+
+def fail(message):
+    raise ValueError(message)
+
+
+def check_id(value):
+    if not isinstance(value, str) or not ID_RE.match(value):
+        fail('unsupported preparation identity')
+
+
+def check_role(value):
+    if not isinstance(value, str) or value not in ROLES:
+        fail('unsupported factory role')
+
+
+def check_name(value):
+    if not isinstance(value, str) or not NAME_RE.match(value) or '..' in value:
+        fail('unsupported approved file name')
+
+
+def check_digest(value):
+    if not isinstance(value, str) or not DIGEST_RE.match(value):
+        fail('unsupported approved digest')
+
+
+def check_commit(value):
+    if not isinstance(value, str) or not COMMIT_RE.match(value):
+        fail('unsupported source commit')
+
+
+def prep_dir(pid):
+    check_id(pid)
+    return PREPARATIONS / pid
+
+
+def owned_dir(path, mode):
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_gid != 0:
+        fail('unsafe factory directory: ' + path.name)
+    if info.st_mode & 0o777 != mode:
+        fail('unsafe factory directory mode: ' + path.name)
+
+
+def read_json(path, limit):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1:
+            fail('unsafe factory metadata: ' + path.name)
+        raw = stream.read(limit + 1)
+        if len(raw) > limit:
+            fail('oversized factory metadata: ' + path.name)
+        return json.loads(raw)
+
+
+def write_new(path, raw, mode):
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'wb') as stream:
+        stream.write(raw)
+        stream.flush()
+        os.fchmod(stream.fileno(), mode)
+        os.fsync(stream.fileno())
+
+
+def ensure_layout():
+    if os.geteuid() != 0:
+        fail('project-local root required')
+    FACTORY.mkdir(mode=0o755, parents=True, exist_ok=True)
+    for path, mode in ((PREPARATIONS, 0o755), (CREDENTIALS, 0o755)):
+        path.mkdir(mode=mode, parents=True, exist_ok=True)
+    owned_dir(FACTORY, 0o755)
+    owned_dir(PREPARATIONS, 0o755)
+    owned_dir(CREDENTIALS, 0o755)
+    LOCK.touch(mode=0o644, exist_ok=True)
+
+
+def role_record(login):
+    try:
+        return pwd.getpwnam(login)
+    except KeyError:
+        return None
+
+
+def ensure_role(login):
+    check_role(login)
+    account = role_record(login)
+    if account is None:
+        subprocess.run(['useradd', '--create-home', '--shell', NOLOGIN, '--password', '!', login], check=True)
+        account = role_record(login)
+        os.chmod(account.pw_dir, 0o700)
+    if account.pw_shell != NOLOGIN:
+        fail('existing factory account has an interactive shell: ' + login)
+    groups = [g.gr_name for g in grp.getgrall() if login in g.gr_mem]
+    primary = grp.getgrgid(account.pw_gid).gr_name
+    if set(groups + [primary]) != {login}:
+        fail('existing factory account has unexpected groups: ' + login)
+    keyfile = Path('/etc/ssh/authorized_keys') / login
+    if os.path.lexists(keyfile):
+        fail('factory account must not hold external SSH keys: ' + login)
+    home = Path(account.pw_dir)
+    info = home.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != account.pw_uid or info.st_mode & 0o077:
+        fail('unsafe factory home: ' + login)
+    checkouts = home / 'checkouts'
+    if checkouts.is_symlink():
+        fail('unsafe factory checkout root: ' + login)
+    checkouts.mkdir(mode=0o755, parents=True, exist_ok=True)
+    os.chown(checkouts, account.pw_uid, account.pw_gid)
+    creds = CREDENTIALS / login
+    creds.mkdir(mode=0o755, parents=True, exist_ok=True)
+    owned_dir(creds, 0o755)
+    return account
+
+
+def do_ensure(data):
+    if set(data) != {'op'}:
+        fail('unsupported ensure request')
+    ensure_layout()
+    return {'roles': [ensure_role(login).pw_name for login in ROLES]}
+
+
+def hold_state():
+    try:
+        held = read_json(HOLD, 1024)
+    except FileNotFoundError:
+        return {'active': False, 'revision': -1}
+    if set(held) != {'revision'} or type(held['revision']) is not int:
+        fail('unsafe maintenance hold')
+    return {'active': True, 'revision': held['revision']}
+
+
+def refuse_barred(directory):
+    if hold_state()['active']:
+        fail('maintenance hold denies preparation')
+    if os.path.lexists(directory / 'stopped.json'):
+        fail('preparation was stopped; use a new identity')
+
+
+def decode_files(raw):
+    if not isinstance(raw, dict) or not 0 < len(raw) <= 8:
+        fail('unsupported approved file set')
+    if SETUP_ENTRY not in raw or CHECK_ENTRY not in raw:
+        fail('approved entrypoints are required')
+    total = 0
+    files = {}
+    for name, encoded in raw.items():
+        check_name(name)
+        if not isinstance(encoded, str):
+            fail('unsupported approved file encoding')
+        try:
+            contents = base64.b64decode(encoded.encode(), validate=True)
+        except (binascii.Error, ValueError):
+            fail('unsupported approved file encoding')
+        if not 0 < len(contents) <= 32 * 1024:
+            fail('unsupported approved file size')
+        total += len(contents)
+        files[name] = contents
+    if total > 128 * 1024:
+        fail('approved inputs exceed the bounded size')
+    return files
+
+
+def verify_bundle(snapshot, commit):
+    work = snapshot / 'verify-tmp'
+    if work.exists():
+        shutil.rmtree(work)
+    work.mkdir(mode=0o700)
+    try:
+        subprocess.run(
+            [GIT, 'clone', '-q', '--no-checkout', str(snapshot / 'source.bundle'), str(work / 'repo')], check=True
+        )
+        subprocess.run([GIT, '-C', str(work / 'repo'), 'cat-file', '-e', commit], check=True)
+    except subprocess.SubprocessError:
+        fail('source bundle does not carry the approved commit')
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def check_credential_file(role, name):
+    check_name(name)
+    account = role_record(role)
+    parent = CREDENTIALS / role
+    try:
+        info = parent.lstat()
+    except FileNotFoundError:
+        fail('assigned service credential is missing')
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0:
+        fail('unsafe service credential directory')
+    path = parent / name
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        fail('assigned service credential is missing')
+    with os.fdopen(fd, 'rb'):
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != account.pw_uid or info.st_mode & 0o777 != 0o600:
+            fail('assigned service credential is not role-private')
+    return str(path)
+
+
+def approve_inputs(data):
+    keys = {'op', 'id', 'role', 'setup_digest', 'source_commit', 'files', 'bundle', 'credential'}
+    if set(data) != keys:
+        fail('unsupported approve request')
+    pid, role = data['id'], data['role']
+    check_id(pid)
+    check_role(role)
+    check_digest(data['setup_digest'])
+    check_commit(data['source_commit'])
+    credential = data['credential']
+    if not isinstance(credential, str):
+        fail('unsupported credential reference')
+    if credential != '':
+        check_name(credential)
+    try:
+        bundle = base64.b64decode(data['bundle'].encode(), validate=True)
+    except (binascii.Error, ValueError, AttributeError):
+        fail('unsupported source bundle encoding')
+    if not 0 < len(bundle) <= 512 * 1024:
+        fail('unsupported source bundle size')
+    files = decode_files(data['files'])
+    digest = hashlib.sha256()
+    for name in sorted(files):
+        digest.update(name.encode() + b'\x00' + files[name])
+    if digest.hexdigest() != data['setup_digest']:
+        fail('approved inputs do not match their digest')
+    request = {
+        'id': pid,
+        'role': role,
+        'setup_digest': data['setup_digest'],
+        'source_commit': data['source_commit'],
+        'credential': credential if credential != '' else '',
+    }
+    return pid, role, request, files, bundle
+
+
+def write_snapshot(directory, request, files, bundle, account):
+    snapshot = directory / 'snapshot'
+    snapshot.mkdir(mode=0o755)
+    for name, contents in files.items():
+        write_new(snapshot / name, contents, 0o644)
+    write_new(snapshot / 'source.bundle', bundle, 0o644)
+    verify_bundle(snapshot, request['source_commit'])
+    checkout = Path(account.pw_dir) / 'checkouts' / request['id']
+    if os.path.lexists(checkout):
+        fail('checkout path already exists')
+    checkout.mkdir(mode=0o755)
+    os.chown(checkout, account.pw_uid, account.pw_gid)
+    # The role-owned private home is created after the source clone lands, so
+    # the clone always starts from an empty directory.
+    credential_path = ''
+    if request['credential'] != '':
+        credential_path = check_credential_file(request['role'], request['credential'])
+    write_new(directory / 'request.json', json.dumps(request).encode(), 0o644)
+    return checkout, credential_path
+
+
+def do_approve(data):
+    pid, role, request, files, bundle = approve_inputs(data)
+    ensure_layout()
+    directory = prep_dir(pid)
+    refuse_barred(directory)
+    try:
+        saved = read_json(directory / 'request.json', 4096)
+    except FileNotFoundError:
+        saved = None
+    if saved is not None:
+        if saved != request:
+            fail('preparation identity already carries different approved inputs')
+        return {'approved': pid, 'repeated': True}
+    account = ensure_role(role)
+    directory.mkdir(mode=0o755)
+    try:
+        checkout, credential_path = write_snapshot(directory, request, files, bundle, account)
+    except BaseException:
+        shutil.rmtree(directory, ignore_errors=True)
+        shutil.rmtree(Path(account.pw_dir) / 'checkouts' / pid, ignore_errors=True)
+        raise
+    return {'approved': pid, 'repeated': False, 'checkout': str(checkout), 'credential_file': credential_path}
+
+
+def check_tool_entry(tool):
+    if (
+        not isinstance(tool, dict)
+        or set(tool) != {'name', 'path', 'version'}
+        or not all(isinstance(tool[k], str) for k in tool)
+        or len(tool['path']) > 256
+        or len(tool['version']) > 256
+    ):
+        fail('unsupported tool evidence')
+
+
+def check_verified(verified):
+    if (
+        not isinstance(verified, dict)
+        or set(verified) - {'uid', 'login', 'groups', 'refusal'}
+        or {'uid', 'login', 'groups'} - set(verified)
+    ):
+        fail('unsupported launcher evidence')
+    if not isinstance(verified.get('refusal', ''), str) or len(verified.get('refusal', '')) > 256:
+        fail('unsupported launcher refusal')
+
+
+def do_record(data):
+    keys = {'op', 'id', 'tools', 'missing', 'verified'}
+    if set(data) != keys:
+        fail('unsupported record request')
+    check_id(data['id'])
+    tools, missing, verified = data['tools'], data['missing'], data['verified']
+    if not isinstance(tools, list) or len(tools) > 8:
+        fail('unsupported tool evidence')
+    for tool in tools:
+        check_tool_entry(tool)
+    if not isinstance(missing, str) or len(missing) > 256:
+        fail('unsupported missing requirement')
+    check_verified(verified)
+    ensure_layout()
+    directory = prep_dir(data['id'])
+    refuse_barred(directory)
+    if not os.path.lexists(directory / 'request.json'):
+        fail('unknown preparation identity')
+    if os.path.lexists(directory / 'finished.json'):
+        fail('preparation already finished')
+    payload = json.dumps({'tools': tools, 'missing': missing, 'verified': verified}).encode()
+    target = directory / 'tools.json'
+    try:
+        write_new(target, payload, 0o644)
+    except FileExistsError:
+        if read_json(target, 65536) != json.loads(payload):
+            fail('preparation already carries different tool evidence')
+    return {'recorded': data['id'], 'waiting': missing != ''}
+
+
+def run_as_role(argv, environ, workdir, logpath, account):
+    """Run one fixed entrypoint as the role, capturing bounded output. The
+    supervisor stays root so role code cannot forge logs or completion."""
+    reader, writer = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        try:
+            os.close(reader)
+            os.dup2(writer, 1)
+            os.dup2(writer, 2)
+            os.close(writer)
+            os.chdir(workdir)
+            # Drop supplementary groups first so the role keeps exactly its
+            # primary group, matching the launcher verification. The
+            # privileged supervisor is always root; the call is skipped only
+            # for unprivileged unit-test drivers of this function.
+            if os.geteuid() == 0:
+                os.setgroups([])
+            os.setgid(account.pw_gid)
+            os.setuid(account.pw_uid)
+            os.execve(argv[0], argv, environ)
+        finally:
+            os._exit(127)
+    os.close(writer)
+    kept = 0
+    with open(logpath, 'wb') as log:
+        while True:
+            chunk = os.read(reader, 65536)
+            if not chunk:
+                break
+            if kept < LOG_CAP:
+                take = chunk[: LOG_CAP - kept]
+                log.write(take)
+                kept += len(take)
+        if kept >= LOG_CAP:
+            log.write(b'\n[output truncated]\n')
+    os.close(reader)
+    _, status = os.waitpid(pid, 0)
+    return os.waitstatus_to_exitcode(status)
+
+
+def child_environ(path_value, home, credential_file, role, pid, snapshot):
+    environ = {
+        'PATH': path_value,
+        'HOME': home,
+        'TMPDIR': home + '/tmp',
+        'SODA_ROLE': role,
+        'SODA_PREPARATION_ID': pid,
+        'SODA_SNAPSHOT': snapshot,
+    }
+    if credential_file != '':
+        environ['SODA_CREDENTIAL_FILE'] = credential_file
+    return environ
+
+
+def run_preparation(directory, request, tools, account):
+    checkout = str(Path(account.pw_dir) / 'checkouts' / request['id'])
+    home = checkout + '/.soda-home'
+    tmp = Path(home) / 'tmp'
+    tmp.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chown(tmp, account.pw_uid, account.pw_gid)
+    dirs = sorted({str(Path(tool['path']).parent) for tool in tools})
+    path_value = ':'.join(dirs + ['/usr/bin', '/bin'])
+    credential_file = ''
+    if request['credential'] != '':
+        credential_file = str(CREDENTIALS / request['role'] / request['credential'])
+    snapshot = str(directory / 'snapshot')
+    environ = child_environ(path_value, home, credential_file, request['role'], request['id'], snapshot)
+    setup_exit = run_as_role(
+        [SHELL, snapshot + '/' + SETUP_ENTRY], environ, checkout, str(directory / 'setup.log'), account
+    )
+    check_exit = None
+    if setup_exit == 0 and not os.path.lexists(directory / 'stopped.json'):
+        check_exit = run_as_role(
+            [SHELL, snapshot + '/' + CHECK_ENTRY], environ, checkout, str(directory / 'check.log'), account
+        )
+    finished = {'setup_exit': setup_exit, 'check_exit': check_exit}
+    write_new(directory / 'finished.json', json.dumps(finished).encode(), 0o644)
+
+
+def spawn_detached(directory, request, tools):
+    # The detached supervisor closes inherited descriptors, including the
+    # caller's state lock, so completion never depends on that lock.
+    account = role_record(request['role'])
+    first = os.fork()
+    if first != 0:
+        _, status = os.waitpid(first, 0)
+        if status != 0:
+            fail('detached setup launch unconfirmed')
+        return read_json(directory / 'started.json', 1024)
+    try:
+        os.setsid()
+        second = os.fork()
+        if second != 0:
+            write_new(directory / 'started.json', json.dumps({'pid': second, 'pgid': second}).encode(), 0o644)
+            os._exit(0)
+    except BaseException:
+        os._exit(1)
+    try:
+        os.closerange(3, 1024)
+        os.setpgid(0, 0)
+        os.chdir('/')
+        devnull = os.open('/dev/null', os.O_RDWR)
+        os.dup2(devnull, 0)
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
+        if devnull > 2:
+            os.close(devnull)
+        # A stop tombstone racing the launch wins: never start setup after it.
+        if os.path.lexists(directory / 'stopped.json'):
+            os._exit(0)
+        run_preparation(directory, request, tools, account)
+    except BaseException:
+        try:
+            write_new(
+                directory / 'finished.json',
+                json.dumps({'setup_exit': 127, 'check_exit': None, 'launch_error': True}).encode(),
+                0o644,
+            )
+        except OSError:
+            pass
+    finally:
+        os._exit(0)
+
+
+def start_prestate(directory):
+    try:
+        request = read_json(directory / 'request.json', 4096)
+    except FileNotFoundError:
+        fail('unknown preparation identity')
+    try:
+        tools = read_json(directory / 'tools.json', 65536)
+    except FileNotFoundError:
+        fail('tool evidence is not recorded')
+    if tools['missing'] != '':
+        fail('missing prerequisite bars setup: ' + tools['missing'])
+    if tools['verified'].get('refusal', '') != '':
+        fail('launcher verification bars setup: ' + tools['verified'].get('refusal', ''))
+    if os.path.lexists(directory / 'finished.json'):
+        fail('preparation already finished')
+    return request, tools
+
+
+def do_start(data):
+    if set(data) != {'op', 'id'}:
+        fail('unsupported start request')
+    check_id(data['id'])
+    ensure_layout()
+    directory = prep_dir(data['id'])
+    refuse_barred(directory)
+    request, tools = start_prestate(directory)
+    try:
+        started = read_json(directory / 'started.json', 1024)
+    except FileNotFoundError:
+        started = None
+    if started is not None:
+        if not group_alive(started['pgid']):
+            fail('preparation supervisor is gone; stop and use a new identity')
+        return {'started': data['id'], 'repeated': True}
+    started = spawn_detached(directory, request, tools['tools'])
+    return {'started': data['id'], 'repeated': False, 'pgid': started['pgid']}
+
+
+def read_log(path):
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return ''
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0:
+            fail('unsafe preparation log: ' + path.name)
+        raw = stream.read(LOG_CAP + 1024)
+        return raw.decode('utf-8', 'replace')
+
+
+def phase_of(directory):
+    try:
+        finished = read_json(directory / 'finished.json', 1024)
+    except FileNotFoundError:
+        finished = None
+    if finished is not None:
+        if finished['setup_exit'] == 0 and finished['check_exit'] == 0:
+            return 'ready', finished
+        return 'failed', finished
+    try:
+        tools = read_json(directory / 'tools.json', 65536)
+    except FileNotFoundError:
+        return 'approved', None
+    if tools['missing'] != '':
+        return 'waiting', None
+    if tools['verified'].get('refusal', '') != '':
+        return 'failed', None
+    try:
+        started = read_json(directory / 'started.json', 1024)
+    except FileNotFoundError:
+        return 'approved', None
+    # A dead supervisor without completion is interrupted, not running: stop
+    # the identity and prepare again with a new one. Never resurrect it here.
+    if not group_alive(started['pgid']):
+        return 'interrupted', None
+    return 'running', None
+
+
+def do_inspect(data):
+    if set(data) not in ({'op'}, {'op', 'id'}):
+        fail('unsupported inspect request')
+    ensure_layout()
+    held = hold_state()
+    if 'id' not in data:
+        return {'hold': held}
+    check_id(data['id'])
+    directory = prep_dir(data['id'])
+    try:
+        request = read_json(directory / 'request.json', 4096)
+    except FileNotFoundError:
+        return {'hold': held, 'known': False}
+    phase, finished = phase_of(directory)
+    try:
+        tools = read_json(directory / 'tools.json', 65536)
+    except FileNotFoundError:
+        tools = {'tools': [], 'missing': '', 'verified': {}}
+    stopped = os.path.lexists(directory / 'stopped.json')
+    if stopped and phase in ('running', 'approved', 'waiting', 'interrupted'):
+        phase = 'stopped'
+    result = {
+        'hold': held,
+        'known': True,
+        'phase': phase,
+        'role': request['role'],
+        'setup_digest': request['setup_digest'],
+        'source_commit': request['source_commit'],
+        'tools': tools['tools'],
+        'missing': tools['missing'],
+        'verified': tools['verified'],
+        'stopped': stopped,
+        'ready': phase == 'ready',
+        'setup_log': read_log(directory / 'setup.log'),
+        'check_log': read_log(directory / 'check.log'),
+    }
+    if finished is not None:
+        result['setup_exit'] = finished['setup_exit']
+        result['check_exit'] = finished['check_exit']
+    return result
+
+
+def proc_state_group(entry):
+    """State and process group of one /proc stat entry.
+
+    After the pid and command name, the fields are state, ppid, pgrp.
+    Unreadable entries report (None, None).
+    """
+    try:
+        fields = (entry / 'stat').read_text().rsplit(')', 1)[1].split()
+    except (OSError, IndexError):
+        return None, None
+    if len(fields) < 3:
+        return None, None
+    return fields[0], fields[2]
+
+
+def group_alive(pgid, proot=Path('/proc')):
+    # Zombies hold no setup scope; only living members keep a group alive.
+    want = str(pgid)
+    for entry in proot.iterdir():
+        if not entry.name.isdigit():
+            continue
+        state, group = proc_state_group(entry)
+        if state != 'Z' and group == want:
+            return True
+    return False
+
+
+def leader_owned_by(started, account, proot=Path('/proc')):
+    entry = proot / str(started['pid'])
+    state, group = proc_state_group(entry)
+    if group != str(started['pgid']) or state == 'Z':
+        return False
+    try:
+        info = entry.lstat()
+    except OSError:
+        return False
+    return info.st_uid == 0 or info.st_uid == account.pw_uid
+
+
+def signal_group(pgid):
+    try:
+        os.killpg(pgid, signal.SIGTERM)
+    except ProcessLookupError:
+        return 'confirmed'
+    except PermissionError:
+        return 'uncertain'
+    deadline = time.monotonic() + 5
+    while group_alive(pgid) and time.monotonic() < deadline:
+        time.sleep(0.2)
+    if not group_alive(pgid):
+        return 'confirmed'
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    time.sleep(0.5)
+    if group_alive(pgid):
+        return 'uncertain'
+    return 'confirmed'
+
+
+def retire_group(directory, request):
+    try:
+        started = read_json(directory / 'started.json', 1024)
+    except FileNotFoundError:
+        return 'confirmed'
+    account = role_record(request['role'])
+    if not leader_owned_by(started, account):
+        if group_alive(started['pgid']):
+            return 'uncertain'
+        return 'confirmed'
+    return signal_group(started['pgid'])
+
+
+def do_stop(data):
+    if set(data) != {'op', 'id'}:
+        fail('unsupported stop request')
+    check_id(data['id'])
+    ensure_layout()
+    directory = prep_dir(data['id'])
+    try:
+        request = read_json(directory / 'request.json', 4096)
+    except FileNotFoundError:
+        # A stop tombstone before any observation still bars the identity.
+        directory.mkdir(mode=0o755, parents=True, exist_ok=True)
+        request = None
+    try:
+        write_new(directory / 'stopped.json', json.dumps({'stopped': True}).encode(), 0o644)
+    except FileExistsError:
+        pass
+    if request is None:
+        return {'stopped': data['id'], 'retirement': 'confirmed', 'known': False}
+    if os.path.lexists(directory / 'finished.json'):
+        return {'stopped': data['id'], 'retirement': 'confirmed', 'known': True}
+    return {'stopped': data['id'], 'retirement': retire_group(directory, request), 'known': True}
+
+
+def any_running():
+    for entry in PREPARATIONS.iterdir():
+        if not ID_RE.match(entry.name):
+            continue
+        if (
+            os.path.lexists(entry / 'started.json')
+            and not os.path.lexists(entry / 'finished.json')
+            and not os.path.lexists(entry / 'stopped.json')
+        ):
+            return True
+    return False
+
+
+def do_hold(data):
+    if set(data) != {'op', 'revision'} or type(data['revision']) is not int:
+        fail('unsupported hold request')
+    ensure_layout()
+    try:
+        write_new(HOLD, json.dumps({'revision': data['revision']}).encode(), 0o644)
+    except FileExistsError:
+        current = read_json(HOLD, 1024)
+        if current != {'revision': data['revision']}:
+            fail('maintenance hold already carries another revision')
+    return {'hold': hold_state()}
+
+
+def do_release(data):
+    if set(data) != {'op', 'revision'} or type(data['revision']) is not int:
+        fail('unsupported release request')
+    ensure_layout()
+    held = hold_state()
+    if not held['active']:
+        return {'hold': held}
+    if held['revision'] != data['revision']:
+        fail('stale maintenance hold revision')
+    if any_running():
+        fail('running preparations bar hold release')
+    HOLD.unlink()
+    return {'hold': hold_state()}
+
+
+DISPATCH = {
+    'ensure': do_ensure,
+    'approve': do_approve,
+    'record': do_record,
+    'start': do_start,
+    'inspect': do_inspect,
+    'stop': do_stop,
+    'hold': do_hold,
+    'release': do_release,
+}
+
+
+def main():
+    os.umask(0o022)
+    if os.geteuid() != 0:
+        fail('project-local root required')
+    body = sys.stdin.buffer.read(INPUT_CAP + 1)
+    if len(body) > INPUT_CAP:
+        fail('oversized request')
+    data = json.loads(body)
+    if not isinstance(data, dict) or data.get('op') not in DISPATCH:
+        fail('unsupported factory operation')
+    ensure_layout()
+    fd = os.open(LOCK, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        if data['op'] == 'inspect':
+            fcntl.flock(fd, fcntl.LOCK_SH)
+        else:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+        print(json.dumps(DISPATCH[data['op']](data)))
+    finally:
+        os.close(fd)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, OSError, subprocess.SubprocessError):
+        sys.exit('factory preparation unconfirmed; inspect native state and managed files')

@@ -39,7 +39,7 @@ COPY project-os/rootfs/ /
 COPY internal/host/terminal/project_terminal.py /usr/libexec/soda/project-terminal
 # Check the final userspace after all package operations, not just the base tag.
 RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2" && \
-    chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \
+    chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account /usr/libexec/soda/project-factory-roles && \
     chmod 0440 /etc/sudoers.d/soda-project && \
     systemctl enable sshd.service soda-project-init.service soda-podman.socket && \
     rm -f /etc/ssh/ssh_host_* && truncate -s 0 /etc/machine-id

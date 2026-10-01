@@ -262,7 +262,8 @@ func (d *Daemon) routeSubsystem(w http.ResponseWriter, r *http.Request) bool {
 
 func hasNativeCleanPath(r *http.Request) bool {
 	switch r.URL.Path {
-	case "/lifecycle", "/access-keys", "/profile", "/create", "/os":
+	case "/lifecycle", "/access-keys", "/profile", "/create", "/os",
+		"/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
 		return r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.RawPath == ""
 	default:
 		return true
@@ -287,7 +288,8 @@ func nativeRequestErrorMessage(code int) string {
 }
 
 func isAdmittedMutationPath(path string) bool {
-	return path == "/lifecycle" || path == "/access-keys" || path == "/account"
+	return path == "/lifecycle" || path == "/access-keys" || path == "/account" ||
+		path == "/prepare" || path == "/prepare-stop" || path == "/prepare-hold"
 }
 
 func makeBodyDecoder(body io.Reader, ctx context.Context) func(any) error {
@@ -377,6 +379,37 @@ func (d *Daemon) dispatchMutation(ctx context.Context, path string, decode func(
 	}
 }
 
+func (d *Daemon) dispatchPrepare(ctx context.Context, path string, decode func(any) error) (any, error) {
+	switch path {
+	case "/prepare":
+		var in project.Prepare
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.Project.Prepare(ctx, in)
+	case "/prepare-inspect":
+		var in project.PrepareInspect
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.Project.InspectPreparation(ctx, in)
+	case "/prepare-stop":
+		var in project.PrepareStop
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.Project.StopPreparation(ctx, in)
+	case "/prepare-hold":
+		var in project.PrepareHold
+		if err := decode(&in); err != nil {
+			return nil, err
+		}
+		return d.Project.HoldPreparation(ctx, in)
+	default:
+		return nil, errNotFound
+	}
+}
+
 func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func(any) error) (any, error) {
 	switch path {
 	case "/profile":
@@ -387,6 +420,8 @@ func (d *Daemon) dispatchOperation(ctx context.Context, path string, decode func
 		return d.dispatchCreateTargeted(ctx, path, decode)
 	case "/lifecycle", "/access-keys", "/account":
 		return d.dispatchMutation(ctx, path, decode)
+	case "/prepare", "/prepare-inspect", "/prepare-stop", "/prepare-hold":
+		return d.dispatchPrepare(ctx, path, decode)
 	default:
 		return nil, errNotFound
 	}
@@ -402,7 +437,13 @@ func (d *Daemon) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
 	defer cancel()
-	r.Body = http.MaxBytesReader(w, r.Body, 65536)
+	// /prepare carries bounded approved inputs and a source bundle; every
+	// other native route keeps the small body cap.
+	bodyLimit := 65536
+	if r.URL.Path == "/prepare" {
+		bodyLimit = 1 << 20
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, int64(bodyLimit))
 	decode := makeBodyDecoder(r.Body, ctx)
 	if ctx.Err() != nil {
 		http.Error(w, "native operation cancelled before admission", http.StatusRequestTimeout)

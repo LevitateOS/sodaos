@@ -163,6 +163,8 @@ func (s *API) registerExtensionProductRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/environments/{id}/lifecycle", protect(s.apiLifecycle, http.MethodPost))
 	mux.HandleFunc("GET /api/environments/{id}/access-keys", protect(s.apiAccessKeys, http.MethodGet))
 	mux.HandleFunc("POST /api/environments/{id}/access-keys", protect(s.apiAccessKeys, http.MethodPost))
+	mux.HandleFunc("GET /api/environments/{id}/preparation", protect(s.apiPreparation, http.MethodGet))
+	mux.HandleFunc("POST /api/environments/{id}/preparation", protect(s.apiPreparation, http.MethodPost))
 	mux.HandleFunc("POST /api/environments/{id}/identity/launch", protect(s.apiIdentityLaunch, http.MethodPost))
 	mux.HandleFunc("GET /api/environments/{id}/identity/connections", protect(s.apiIdentityAvailable, http.MethodGet))
 	mux.HandleFunc("POST /api/environments/{id}/identity/grants", protect(s.apiIdentityCreateGrant, http.MethodPost))

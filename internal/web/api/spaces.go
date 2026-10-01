@@ -16,15 +16,16 @@ import (
 )
 
 type SpaceView struct {
-	TailnetState         string               `json:"tailnet_state,omitempty"`
-	Environment          EnvironmentView      `json:"environment"`
-	Login                string               `json:"login"`
-	ExecutionAllowed     bool                 `json:"execution_allowed"`
-	Administrator        bool                 `json:"environment_administrator"`
-	AuthorityUnavailable bool                 `json:"authority_unavailable"`
-	NativeUnavailable    bool                 `json:"native_unavailable"`
-	Observed             *project.Environment `json:"observed"`
-	Terminals            []TerminalView       `json:"terminals"`
+	TailnetState         string                `json:"tailnet_state,omitempty"`
+	Environment          EnvironmentView       `json:"environment"`
+	Login                string                `json:"login"`
+	ExecutionAllowed     bool                  `json:"execution_allowed"`
+	Administrator        bool                  `json:"environment_administrator"`
+	AuthorityUnavailable bool                  `json:"authority_unavailable"`
+	NativeUnavailable    bool                  `json:"native_unavailable"`
+	Observed             *project.Environment  `json:"observed"`
+	Terminals            []TerminalView        `json:"terminals"`
+	Preparation          *spacePreparationView `json:"preparation,omitempty"`
 }
 
 type SpacesView struct {
@@ -137,6 +138,8 @@ func (s *API) inspectSpaceRow(
 		complete = false
 	}
 	s.inspectSpaceTailnet(check, p, reader, &row)
+	// Preparation readiness is a durable store read, never a native call.
+	row.Preparation = s.inspectSpacePreparation(check, p.ID)
 	return row, true, complete
 }
 
