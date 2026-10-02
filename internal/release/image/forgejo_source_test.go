@@ -11,6 +11,7 @@ import (
 
 func TestExtractForgejoSnapshotLaysOutReplacePath(t *testing.T) {
 	out := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(out, "work"), 0o700))
 	var calls []string
 	execute := func(dir, name string, args ...string) error {
 		calls = append(calls, name+" "+strings.Join(args, " "))
