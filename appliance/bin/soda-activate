@@ -39,7 +39,7 @@ if args.local_tls:
         parser.error('local TLS uses the exact selected private IP on HTTPS port 443')
 if cfg['forgejo_internal_url'] != 'http://127.0.0.1:3000' or cfg['listen'] != '127.0.0.1:8080':
     parser.error('bundled service recipes require the documented internal listeners')
-if cfg['grant_key_file'] != '/etc/soda/grant-key' or cfg['host_socket'] != '/run/soda/host.sock' or cfg.get('identity_socket', '/run/soda/identity/admin.sock') != '/run/soda/identity/admin.sock':
+if cfg['grant_key_file'] != '/etc/soda/grant-key' or cfg['host_socket'] != '/run/soda/host.sock' or (cfg.get('identity_socket') or '/run/soda/identity/admin.sock') != '/run/soda/identity/admin.sock':
     parser.error('bundled isolated service mounts require the standard private file and socket paths')
 account = pwd.getpwnam('soda')
 if account.pw_uid != 2000 or account.pw_gid != 2000:

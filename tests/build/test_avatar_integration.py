@@ -142,6 +142,55 @@ class AvatarActivation(unittest.TestCase):
                     runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
                 run.assert_not_called()
 
+    def test_empty_identity_socket_uses_standard_admin_socket(self):
+        # soda-setup records Go's unset value ("") for identity_socket; the Go
+        # loader fills the standard path. Activation must accept the same
+        # encoding instead of rejecting its own setup output.
+        with tempfile.TemporaryDirectory() as directory:
+            temp = Path(directory)
+            config_root = temp / 'etc/soda'
+            config_root.mkdir(parents=True)
+            config = {
+                'forgejo_url': 'https://192.168.2.100',
+                'forgejo_internal_url': 'http://127.0.0.1:3000',
+                'listen': '127.0.0.1:8080',
+                'grant_key_file': '/etc/soda/grant-key',
+                'host_socket': '/run/soda/host.sock',
+                'identity_socket': '',
+                'operator_id': 7,
+            }
+            (config_root / 'dashboard.json').write_text(json.dumps(config))
+            (config_root / 'grant-key').write_text('synthetic, not a credential')
+            (config_root / 'grant-key').chmod(0o600)
+            extension_root = temp / 'var/lib/soda/forgejo/gitea/extensions'
+            extension_root.parent.mkdir(parents=True)
+            (config_root / 'forgejo.env').write_text('FORGEJO__ui__DEFAULT_THEME=soda-auto\n')
+
+            def mapped_path(value):
+                path = Path(value)
+                if str(path) == '/etc/soda' or str(path).startswith('/etc/soda/'):
+                    return config_root / path.relative_to('/etc/soda')
+                if str(path).startswith('/var/lib/soda/'):
+                    return temp / path.relative_to('/')
+                if str(path).startswith('/etc/containers/'):
+                    return temp / path.relative_to('/')
+                return path
+
+            with (
+                patch(
+                    'sys.argv',
+                    ['soda-activate', '--bind-ip', '192.168.2.100', '--local-tls'],
+                ),
+                patch('pathlib.Path', side_effect=mapped_path),
+                patch('os.geteuid', return_value=0),
+                patch('os.chown'),
+                patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=2000, pw_gid=2000)),
+                patch('subprocess.run'),
+                patch('builtins.print'),
+            ):
+                runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
+            self.assertEqual((extension_root / '.data/soda/operator-id').read_text(), '7\n')
+
 
 class AvatarPackaging(unittest.TestCase):
     def test_real_metadata_collector_copies_dependency_notices(self):
