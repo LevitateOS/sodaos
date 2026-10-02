@@ -536,7 +536,7 @@ func runBuild(ctx context.Context, r Request, progress *build.BuildProgress, exe
 	defer func() { err = errors.Join(err, closeLog()) }()
 
 	artifacts := filepath.Join(r.Out, "artifacts")
-	p := build.Production{Source: snapshot, ForgejoSource: filepath.Join(r.Out, "work/forgejo-source"), ForgejoRevision: r.ForgejoRevision, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, LiveInputs: r.LiveInputs, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
+	p := build.Production{Source: snapshot, ForgejoSource: filepath.Join(r.Out, "work/forgejo-ext"), ForgejoRevision: r.ForgejoRevision, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, LiveInputs: r.LiveInputs, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
 
 	contextDir, base, mediaTooling, assembler, err := prepareBuildProduction(&p, r, snapshot, revision, execute, capture, progress.Phase)
 	if err != nil {
