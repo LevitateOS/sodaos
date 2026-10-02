@@ -291,6 +291,7 @@ type Publication struct {
 	WithdrawRequested bool                 `json:"withdraw_requested,omitempty"`
 	Publish           PublicationOperation `json:"publish"`
 	PRCreate          PublicationOperation `json:"pr_create"`
+	Corrections       CorrectionOps        `json:"corrections,omitempty"`
 	Authority         AuthorityRef         `json:"authority"`
 	ID                string               `json:"id"`
 	AssignmentID      string               `json:"assignment_id"`
@@ -367,8 +368,47 @@ func (p Publication) Validate() error {
 	if p.Publish.Kind != OpRefPublish || p.PRCreate.Kind != OpPRCreate {
 		return errors.New("publication operations have the wrong kinds")
 	}
+	initial := p.Candidate
+	if len(p.Corrections) > 0 {
+		if (p.Stage != PublicationPublished && p.Stage != PublicationFenced) || p.PRNumber <= 0 || p.PRCreate.Work == nil || p.Publish.Work == nil {
+			return errors.New("corrections require a published linked PR")
+		}
+		initial = p.Publish.Work.Candidate
+		head := initial
+		for i := range p.Corrections {
+			correction := p.Corrections[i]
+			if err := correction.Validate(); err != nil {
+				return err
+			}
+			if correction.Kind != OpRefPublish {
+				return errors.New("correction is not a branch publication")
+			}
+			if correction.OperationID != PublicationOperationID(p.ID, OpRefPublish, i+2) {
+				return errors.New("correction identity is not the next branch attempt")
+			}
+			work := correction.Work
+			if work == nil {
+				return errors.New("correction lacks its recorded intent")
+			}
+			if work.CorrectionNumber != p.PRNumber || work.CorrectionAuthor != p.PRCreate.Work.ActorID {
+				return errors.New("correction does not bind the linked PR")
+			}
+			if work.Repository != p.Repository || work.TargetBranch != p.TargetBranch {
+				return errors.New("correction intent differs from its publication")
+			}
+			if work.ExpectedOld != head || !ValidCommit(work.Candidate) || work.Candidate == head {
+				return errors.New("correction does not chain its predecessor tip")
+			}
+			if correction.Effect == OpEffectCommitted {
+				head = work.Candidate
+			}
+		}
+		if head != p.Candidate {
+			return errors.New("publication head differs from its committed corrections")
+		}
+	}
 	for _, op := range []PublicationOperation{p.Publish, p.PRCreate} {
-		if op.Work != nil && (op.Work.Candidate != p.Candidate || op.Work.Repository != p.Repository || op.Work.TargetBranch != p.TargetBranch) {
+		if op.Work != nil && (op.Work.Candidate != initial || op.Work.Repository != p.Repository || op.Work.TargetBranch != p.TargetBranch) {
 			return errors.New("publication operation intent differs from its publication")
 		}
 	}

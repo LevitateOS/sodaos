@@ -588,5 +588,5 @@ func MergeTargetChanged(m Merge, p Publication) bool {
 	return m.Repository != p.Repository || m.Issue != p.Issue || m.PRNumber != p.PRNumber || m.PRID != p.PRID ||
 		m.HeadRef == "" || m.BaseRef == "" || m.HeadOID == "" || m.BaseOID == "" ||
 		p.PRCreate.HeadRef != m.HeadRef || p.PRCreate.BaseRef != m.BaseRef ||
-		p.PRCreate.HeadOID != m.HeadOID || p.PRCreate.BaseOID != m.BaseOID
+		p.Candidate != m.HeadOID || p.PRCreate.BaseOID != m.BaseOID
 }

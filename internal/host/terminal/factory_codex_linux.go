@@ -148,7 +148,11 @@ func (s *Service) FactoryCodexReserve(ctx context.Context, run domain.FactoryRun
 	execArgs := []string{
 		"--remote=false", "exec", "--user", run.Role, "--workdir", p.Checkout,
 		"--env", "HOME=" + p.Home, "--env", "CODEX_HOME=" + p.Codex, "--env", "TERM=dumb",
-		container, "/usr/bin/setsid", "--wait", "/usr/bin/sh", "-c", systemdEscape(factorySupervisor(p, guest)),
+		// Factory runs need a default git author identity so coder
+		// commits succeed; an explicit git -c user.name/email still wins.
+		"--env", "GIT_AUTHOR_NAME=" + run.Role, "--env", "GIT_AUTHOR_EMAIL=" + run.Role + "@localhost",
+		"--env", "GIT_COMMITTER_NAME=" + run.Role, "--env", "GIT_COMMITTER_EMAIL=" + run.Role + "@localhost",
+		container, "/usr/bin/setsid", "--wait", "/usr/bin/sh", "-c", systemdEscape(factorySupervisor(p, guest, run.Model)),
 	}
 	runArgs := []string{
 		"--unit=" + unit, "--collect", "--property=KillMode=control-group",

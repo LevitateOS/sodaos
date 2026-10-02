@@ -121,12 +121,29 @@ func (s *Store) UpdatePublication(ctx context.Context, p factory.Publication) er
 func publicationUpdateAllowed(old, next factory.Publication) error {
 	if old.ID != next.ID || old.AssignmentID != next.AssignmentID || old.ProjectID != next.ProjectID ||
 		old.Role != next.Role || old.Acceptance != next.Acceptance || old.Preparation != next.Preparation ||
-		old.Run != next.Run || old.Candidate != next.Candidate || old.BaseSHA != next.BaseSHA ||
+		old.BaseSHA != next.BaseSHA ||
 		old.TargetBranch != next.TargetBranch || old.Repository != next.Repository || old.Issue != next.Issue ||
 		old.CreatedUnix != next.CreatedUnix || old.Authority != next.Authority || old.WithdrawRequested && !next.WithdrawRequested {
 		return ErrPublicationConflict
 	}
-	if old.Stage != factory.PublicationOpen && old.Stage != factory.PublicationFenced {
+	// The run and head advance only along a recorded correction chain;
+	// Publication.Validate pins the exact chain and head.
+	if (old.Run != next.Run || old.Candidate != next.Candidate) && len(next.Corrections) == 0 {
+		return ErrPublicationConflict
+	}
+	if len(next.Corrections) < len(old.Corrections) {
+		return ErrPublicationConflict
+	}
+	for i := range old.Corrections {
+		if !publicationOperationUpdateAllowed(old.Corrections[i], next.Corrections[i]) {
+			return ErrPublicationConflict
+		}
+	}
+	switch {
+	case old.Stage == factory.PublicationOpen || old.Stage == factory.PublicationFenced:
+	case old.Stage == factory.PublicationPublished &&
+		(next.Stage == factory.PublicationPublished || next.Stage == factory.PublicationFenced):
+	default:
 		return ErrPublicationConflict
 	}
 	if !publicationOperationUpdateAllowed(old.Publish, next.Publish) || !publicationOperationUpdateAllowed(old.PRCreate, next.PRCreate) {

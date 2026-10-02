@@ -125,7 +125,9 @@ func (c *Coordinator) mergeOne(ctx context.Context, p factory.Publication, repor
 		Authority: p.Authority, ID: factory.NewID(), PublicationID: p.ID,
 		AssignmentID: p.AssignmentID, ProjectID: p.ProjectID, Role: p.Role,
 		Acceptance: p.Acceptance, HeadRef: p.PRCreate.HeadRef, BaseRef: p.PRCreate.BaseRef,
-		HeadOID: p.PRCreate.HeadOID, BaseOID: p.PRCreate.BaseOID,
+		// The merge follows the latest published head: the creation tip
+		// before any correction, the newest correction after one.
+		HeadOID: p.Candidate, BaseOID: p.PRCreate.BaseOID,
 		Stage: factory.MergeOpen, Repository: p.Repository, Issue: p.Issue,
 		PRNumber: p.PRNumber, PRID: p.PRID, IssueID: p.PRCreate.IssueID,
 		PRAuthorID: p.PRCreate.Work.ActorID, ReviewerID: policy.Review.ActorID,
@@ -208,9 +210,29 @@ func (c *Coordinator) reconcileMerge(ctx context.Context, m factory.Merge, repor
 			return
 		}
 	}
-	if p.Stage != factory.PublicationPublished || factory.MergeTargetChanged(m, p) {
+	if p.Stage != factory.PublicationPublished {
 		c.finishMerge(ctx, m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
 		return
+	}
+	if factory.MergeTargetChanged(m, p) {
+		// An undriven row follows the newest published head: a
+		// correction supersedes the creation tip, so rebase the row
+		// onto it instead of failing the merge. Any other target
+		// change, or a row that already drove, keeps the invalid
+		// failure.
+		if op.Attempts == 0 && op.Work == nil && op.Effect == "" &&
+			m.Repository == p.Repository && m.Issue == p.Issue &&
+			m.PRNumber == p.PRNumber && m.PRID == p.PRID &&
+			m.HeadRef == p.PRCreate.HeadRef && m.BaseRef == p.PRCreate.BaseRef &&
+			m.BaseOID == p.PRCreate.BaseOID {
+			m.HeadOID = p.Candidate
+			if !c.storeMerge(ctx, &m, report) {
+				return
+			}
+		} else {
+			c.finishMerge(ctx, m, factory.MergeFailed, factory.Failed, factory.MergeReasonInvalid, report)
+			return
+		}
 	}
 	policy, revision, allowed := c.mergeAuthority(ctx, m, report)
 	if !allowed {
@@ -466,6 +488,10 @@ func (c *Coordinator) completeMerge(ctx context.Context, m *factory.Merge, repor
 	// Failures wait for the next trigger; the merge above already
 	// recorded.
 	_, _ = c.assessCascade(ctx, m.Repository, m.Issue, make(map[factory.DependenceRef]bool))
+	// Completion itself is new dependant input (the code-prereq
+	// completion record): release dependants even when the merged
+	// issue's own verdict is unchanged, mirroring run settlement.
+	c.assessDispatchDependants(ctx, m.Repository, m.Issue)
 	c.dispatchAfterIntake(ctx)
 }
 

@@ -116,7 +116,12 @@ func shellQuote(value string) string {
 // file ends the wait promptly so retirement never waits out the bounded
 // gate. Every outcome lands in the exit file: the collecting unit may vanish
 // before the exit status can be re-read from systemd.
-func factorySupervisor(p FactoryCodexPaths, guest string) string {
+func factorySupervisor(p FactoryCodexPaths, guest, model string) string {
+	command := shellQuote(guest) + " exec --color never --sandbox danger-full-access --skip-git-repo-check --config " + shellQuote(`model_reasoning_effort="low"`)
+	if model != "" {
+		command += " --model " + shellQuote(model)
+	}
+	command += " --output-last-message " + shellQuote(p.Output) + " - <" + shellQuote(p.Prompt)
 	steps := []string{
 		"RUNDIR=" + shellQuote(p.RunDir),
 		"exec >\"$RUNDIR/stdout.log\" 2>&1",
@@ -124,7 +129,7 @@ func factorySupervisor(p FactoryCodexPaths, guest string) string {
 		`fail() { echo "$1" >"$RUNDIR/exit"; exit "$1"; }`,
 		`i=0; while [ ! -f "$RUNDIR/marker" ]; do [ -f "$RUNDIR/stop" ] && fail 44; i=$((i+1)); [ "$i" -gt 600 ] && fail 42; sleep 1; done`,
 		`mv "$RUNDIR/marker" "$RUNDIR/started" || fail 43`,
-		shellQuote(guest) + " exec --color never --sandbox danger-full-access --skip-git-repo-check --config " + shellQuote(`model_reasoning_effort="low"`) + " --output-last-message " + shellQuote(p.Output) + " - <" + shellQuote(p.Prompt),
+		command,
 		`CODE=$?; echo "$CODE" >"$RUNDIR/exit"; exit "$CODE"`,
 	}
 	return strings.Join(steps, "\n") + "\n"

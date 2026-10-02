@@ -124,8 +124,13 @@ func mergeUpdateAllowed(old, next factory.Merge) error {
 		old.Repository != next.Repository || old.Issue != next.Issue || old.PRNumber != next.PRNumber ||
 		old.PRID != next.PRID || old.IssueID != next.IssueID || old.PRAuthorID != next.PRAuthorID ||
 		old.ReviewerID != next.ReviewerID || old.HeadRef != next.HeadRef || old.BaseRef != next.BaseRef ||
-		old.HeadOID != next.HeadOID || old.BaseOID != next.BaseOID ||
+		old.BaseOID != next.BaseOID ||
 		old.CreatedUnix != next.CreatedUnix || old.Authority != next.Authority || old.WithdrawRequested && !next.WithdrawRequested {
+		return ErrMergeConflict
+	}
+	// A pristine row (no drive ever recorded) may follow the newest
+	// published head; every other HeadOID change stays a conflict.
+	if old.HeadOID != next.HeadOID && !mergeRebaseAllowed(old, next) {
 		return ErrMergeConflict
 	}
 	if old.Stage != factory.MergeOpen && old.Stage != factory.MergeFenced {
@@ -135,6 +140,19 @@ func mergeUpdateAllowed(old, next factory.Merge) error {
 		return ErrMergeConflict
 	}
 	return nil
+}
+
+func mergeRebaseAllowed(old, next factory.Merge) bool {
+	pristine := func(o factory.MergeOperation) bool {
+		return o.Work == nil && o.OperationID == "" && o.InstallationID == "" &&
+			o.ActorID == 0 && o.RepositoryID == 0 && o.Effect == "" &&
+			o.Cancellation == "" && o.Completion == "" && o.Reason == "" &&
+			o.Receipt == "" && o.HeadRef == "" && o.BaseRef == "" &&
+			o.HeadOID == "" && o.BaseOID == "" && o.MergedCommit == "" &&
+			o.Attempts == 0 && o.PRNumber == 0 && o.PRID == 0 &&
+			o.IssueID == 0 && o.UpdatedUnix == 0
+	}
+	return old.Operation.Kind == next.Operation.Kind && pristine(old.Operation) && pristine(next.Operation) && next.HeadOID != ""
 }
 
 func mergeOperationUpdateAllowed(old, next factory.MergeOperation) bool {

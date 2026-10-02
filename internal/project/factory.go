@@ -80,6 +80,7 @@ type FactoryRun struct {
 	Preparation  string    `json:"preparation"`
 	Harness      string    `json:"harness"`
 	HarnessVers  string    `json:"harness_version"`
+	Model        string    `json:"model,omitempty"`
 	Assignment   string    `json:"assignment"`
 	SourceCommit string    `json:"source_commit"`
 	Connection   string    `json:"connection"`
@@ -94,6 +95,18 @@ func (r FactoryRun) Validate() error {
 	}
 	if r.Harness != FactoryHarnessCodex || !ValidHarnessVersion(r.HarnessVers) {
 		return errors.New("unsupported factory harness")
+	}
+	// Empty keeps the CLI default for older launches; a set model pins
+	// spend to the dispatch-selected policy choice.
+	if r.Model != "" {
+		if len(r.Model) > 128 {
+			return errors.New("invalid run model selection")
+		}
+		for i := 0; i < len(r.Model); i++ {
+			if r.Model[i] < 0x20 || r.Model[i] == 0x7f {
+				return errors.New("invalid run model selection")
+			}
+		}
 	}
 	if !ValidDigest(r.Assignment) || !ValidCommit(r.SourceCommit) {
 		return errors.New("invalid run assignment or source identity")
