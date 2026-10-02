@@ -270,7 +270,7 @@ func TestMergeTargetChanged(t *testing.T) {
 	if MergeTargetChanged(m, p) {
 		t.Fatal("identical target reported changed")
 	}
-	p.PRCreate.HeadOID = strings.Repeat("c", 40)
+	p.Candidate = strings.Repeat("c", 40)
 	if !MergeTargetChanged(m, p) {
 		t.Fatal("moved candidate reported unchanged")
 	}

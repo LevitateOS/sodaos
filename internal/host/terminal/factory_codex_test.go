@@ -62,7 +62,7 @@ func TestFactorySupervisorIsFixedEntrypoint(t *testing.T) {
 		Prompt: "/home/soda-coder/checkouts/f00/.soda-home/runs/a00/prompt",
 		Output: "/home/soda-coder/checkouts/f00/.soda-home/runs/a00/last-message.txt",
 	}
-	script := factorySupervisor(p, "/usr/local/bin/codex-factory-0.157.1")
+	script := factorySupervisor(p, "/usr/local/bin/codex-factory-0.157.1", "")
 	for _, want := range []string{
 		"supervisor.pid", "marker", "started", "stop", "fail 42", "fail 43", "fail 44",
 		"codex-factory-0.157.1", "exec --color never", "--sandbox danger-full-access",
@@ -83,7 +83,7 @@ func TestSystemdEscapeDoublesEveryDollar(t *testing.T) {
 		t.Fatal("systemd escaping changed", got)
 	}
 	p := FactoryCodexPaths{RunDir: "/r", Prompt: "/r/prompt", Output: "/r/out"}
-	escaped := systemdEscape(factorySupervisor(p, "/bin/codex"))
+	escaped := systemdEscape(factorySupervisor(p, "/bin/codex", ""))
 	for _, want := range []string{"$$$$", "$${20}", "$$RUNDIR", "$$?"} {
 		if !strings.Contains(escaped, want) {
 			t.Fatalf("escaped supervisor lost %q", want)
