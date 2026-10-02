@@ -24,23 +24,55 @@ export function decodeProbeHTTP(data: Buffer) {
   return {status: Number(status[1]), headers, body};
 }
 
-export async function readProbeHTTPS(origin: URL, caFile: string, rawPath: string, headers: Record<string, string> = {}) {
+export async function readProbeHTTPS(
+  origin: URL,
+  caFile: string,
+  rawPath: string,
+  headers: Record<string, string> = {}
+) {
   assert(origin.protocol === 'https:' && !origin.username && !origin.password);
   assert(rawPath.startsWith('/') && !/[\r\n\0]/.test(rawPath));
-  const args = ['curl', '-q', '--silent', '--show-error', '--noproxy', '*', '--proto', '=https', '--http1.1',
-    '--path-as-is', '--max-time', '15', '--max-filesize', '65536', '--cacert', caFile, '--dump-header', '-'];
+  const args = [
+    'curl',
+    '-q',
+    '--silent',
+    '--show-error',
+    '--noproxy',
+    '*',
+    '--proto',
+    '=https',
+    '--http1.1',
+    '--path-as-is',
+    '--max-time',
+    '15',
+    '--max-filesize',
+    '65536',
+    '--cacert',
+    caFile,
+    '--dump-header',
+    '-',
+  ];
   for (const [key, value] of Object.entries(headers)) {
     assert(['If-None-Match', 'If-Modified-Since'].includes(key) && !/[\r\n\0]/.test(value));
     args.push('--header', key + ': ' + value);
   }
   args.push('--url', origin.origin + rawPath);
-  const child = Bun.spawn(args, {stdin: 'ignore', stdout: 'pipe', stderr: 'ignore', timeout: 16000, killSignal: 'SIGKILL'});
-  const reader = child.stdout.getReader(), chunks: Buffer[] = [];
+  const child = Bun.spawn(args, {
+    stdin: 'ignore',
+    stdout: 'pipe',
+    stderr: 'ignore',
+    timeout: 16000,
+    killSignal: 'SIGKILL',
+  });
+  const reader = child.stdout.getReader(),
+    chunks: Buffer[] = [];
   let size = 0;
   try {
     for (;;) {
-      const next = await reader.read(); if (next.done) break;
-      size += next.value.byteLength; assert(size <= 81920, 'HTTPS observation exceeds limit');
+      const next = await reader.read();
+      if (next.done) break;
+      size += next.value.byteLength;
+      assert(size <= 81920, 'HTTPS observation exceeds limit');
       chunks.push(Buffer.from(next.value));
     }
     assert.equal(await child.exited, 0, 'Verified HTTPS observation failed');

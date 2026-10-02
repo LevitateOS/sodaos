@@ -1,21 +1,27 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { test } from 'node:test';
-import { chromium } from 'playwright';
+import {readFile} from 'node:fs/promises';
+import {test} from 'node:test';
+import {chromium} from 'playwright';
 
 // Explicit opt-in: read only the existing local stock preview's public CSS.
 // No login, fixture mutations, template reload or service lifecycle operations.
 const origin = process.env.SODA_FORGEJO_LAYOUT_ORIGIN;
-test('milestone rows retain one canvas, clear boundaries and responsive columns', { skip: !origin }, async () => {
+test('milestone rows retain one canvas, clear boundaries and responsive columns', {skip: !origin}, async () => {
   assert.equal(origin, 'http://localhost:3300');
   const response = await fetch(`${origin}/assets/css/index.css`);
   assert.equal(response.status, 200);
   const nativeCSS = await response.text();
-  const header = await readFile(new URL('../../appliance/forgejo/templates/custom/header.tmpl', import.meta.url), 'utf8');
-  const styles = await Promise.all([...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map(async ([, file]) =>
-    readFile(new URL(`../../assets/branding/forgejo/${file}`, import.meta.url), 'utf8')));
+  const header = await readFile(
+    new URL('../../appliance/forgejo/templates/custom/header.tmpl', import.meta.url),
+    'utf8'
+  );
+  const styles = await Promise.all(
+    [...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map(async ([, file]) =>
+      readFile(new URL(`../../assets/branding/forgejo/${file}`, import.meta.url), 'utf8')
+    )
+  );
   const palette = await readFile(new URL('../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
-  const browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const browser = await chromium.launch({channel: 'chrome', headless: true});
   try {
     const page = await browser.newPage();
     await page.setContent(`<style>${nativeCSS}\n${palette}\n${styles.join('\n')}</style>
@@ -32,35 +38,67 @@ test('milestone rows retain one canvas, clear boundaries and responsive columns'
           </div>
         </div>
       </main>`);
-    for (const theme of ["light", "dark"]) for (const width of [1440, 1100, 1024, 900, 768, 700, 390, 320]) {
-      await page.evaluate(theme => document.documentElement.style.colorScheme = theme, theme);
-      await page.setViewportSize({ width, height: 1000 });
-      const layout = await page.evaluate(() => {
-        const rect = (selector: string) => {
-          const element = document.querySelector(selector);
-          if (!element) throw Error(`Missing milestone fixture ${selector}`);
-          const { x, y, width, right, bottom } = element.getBoundingClientRect();
-          return { x, y, width, right, bottom };
-        };
-        return { sidebar: rect('.flex-container-nav'), card: rect('.milestone-card'), overflow: document.documentElement.scrollWidth > innerWidth };
-      });
-      const rows = await page.locator('.soda-milestone-row').evaluateAll(es=>es.map(e=>{ const heading=e.querySelector('h3'), description=e.querySelector('.soda-milestone-description'); if(!heading || !description) throw Error('Missing milestone row markup'); return ({background:getComputedStyle(e).backgroundColor,border:getComputedStyle(e).borderTopWidth,padding:getComputedStyle(e).paddingTop,title:getComputedStyle(heading).fontSize,description:description.getBoundingClientRect().height});}));
-      assert.deepEqual(rows.map(r=>r.background),['rgba(0, 0, 0, 0)','rgba(0, 0, 0, 0)']);
-      assert.deepEqual(rows.map(r=>r.border),['0px','1px']);
-      for(const row of rows){assert.equal(row.padding,'24px');assert.equal(row.title,'20px');assert(row.description<=43);}
-      assert.equal(layout.overflow, false, `${width}px: horizontal overflow`);
-      if (width > 900) {
-        assert.equal(layout.sidebar.width, 240, `${width}px: bounded repository sidebar`);
-        assert(layout.card.x >= layout.sidebar.right + 23, `${width}px: separate columns`);
-        assert(layout.card.width > 300, `${width}px: usable milestone card`);
-      } else {
-        assert(layout.card.y >= layout.sidebar.bottom, `${width}px: stacked cards`);
-        assert(Math.abs(layout.card.width - layout.sidebar.width) < 1, `${width}px: full-width cards`);
+    for (const theme of ['light', 'dark'])
+      for (const width of [1440, 1100, 1024, 900, 768, 700, 390, 320]) {
+        await page.evaluate((theme) => (document.documentElement.style.colorScheme = theme), theme);
+        await page.setViewportSize({width, height: 1000});
+        const layout = await page.evaluate(() => {
+          const rect = (selector: string) => {
+            const element = document.querySelector(selector);
+            if (!element) throw Error(`Missing milestone fixture ${selector}`);
+            const {x, y, width, right, bottom} = element.getBoundingClientRect();
+            return {x, y, width, right, bottom};
+          };
+          return {
+            sidebar: rect('.flex-container-nav'),
+            card: rect('.milestone-card'),
+            overflow: document.documentElement.scrollWidth > innerWidth,
+          };
+        });
+        const rows = await page.locator('.soda-milestone-row').evaluateAll((es) =>
+          es.map((e) => {
+            const heading = e.querySelector('h3'),
+              description = e.querySelector('.soda-milestone-description');
+            if (!heading || !description) throw Error('Missing milestone row markup');
+            return {
+              background: getComputedStyle(e).backgroundColor,
+              border: getComputedStyle(e).borderTopWidth,
+              padding: getComputedStyle(e).paddingTop,
+              title: getComputedStyle(heading).fontSize,
+              description: description.getBoundingClientRect().height,
+            };
+          })
+        );
+        assert.deepEqual(
+          rows.map((r) => r.background),
+          ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)']
+        );
+        assert.deepEqual(
+          rows.map((r) => r.border),
+          ['0px', '1px']
+        );
+        for (const row of rows) {
+          assert.equal(row.padding, '24px');
+          assert.equal(row.title, '20px');
+          assert(row.description <= 43);
+        }
+        assert.equal(layout.overflow, false, `${width}px: horizontal overflow`);
+        if (width > 900) {
+          assert.equal(layout.sidebar.width, 240, `${width}px: bounded repository sidebar`);
+          assert(layout.card.x >= layout.sidebar.right + 23, `${width}px: separate columns`);
+          assert(layout.card.width > 300, `${width}px: usable milestone card`);
+        } else {
+          assert(layout.card.y >= layout.sidebar.bottom, `${width}px: stacked cards`);
+          assert(Math.abs(layout.card.width - layout.sidebar.width) < 1, `${width}px: full-width cards`);
+        }
       }
-    }
     const description = page.locator('.soda-milestone-description').first();
     await description.locator('a').focus();
-    assert.equal(await description.evaluate(e=>getComputedStyle(e).display),'block','keyboard focus exposes the complete linked description');
+    assert.equal(
+      await description.evaluate((e) => getComputedStyle(e).display),
+      'block',
+      'keyboard focus exposes the complete linked description'
+    );
   } finally {
     await browser.close();
   }

@@ -5,15 +5,21 @@ import path from 'node:path';
 import {chromium, type Page} from 'playwright';
 
 const mode = Bun.argv[2];
-assert((mode === '--check' || mode === '--serve') && Bun.argv.length === 3,
-  'usage: bun docs/design/spaces/review.ts --check|--serve');
+assert(
+  (mode === '--check' || mode === '--serve') && Bun.argv.length === 3,
+  'usage: bun docs/design/spaces/review.ts --check|--serve'
+);
 assert(Bun.version === '1.4.2', 'Use the pinned Bun version');
 process.umask(0o077);
 const root = path.resolve(import.meta.dir, '../../..');
 const out = path.join(root, '.artifacts/spaces-design', String(Date.now()));
 await mkdir(path.dirname(out), {recursive: true, mode: 0o700});
 await mkdir(out, {mode: 0o700});
-const build = await Bun.build({entrypoints: [path.join(import.meta.dir, 'preview.ts')], target: 'browser', outdir: out});
+const build = await Bun.build({
+  entrypoints: [path.join(import.meta.dir, 'preview.ts')],
+  target: 'browser',
+  outdir: out,
+});
 assert(build.success, 'Design preview emission failed');
 const assets: Record<string, {file: string; type: string}> = {
   '/': {file: path.join(import.meta.dir, 'index.html'), type: 'text/html'},
@@ -21,25 +27,48 @@ const assets: Record<string, {file: string; type: string}> = {
   '/preview.css': {file: path.join(import.meta.dir, 'preview.css'), type: 'text/css'},
   '/palette.css': {file: path.join(root, 'assets/branding/theme/palette.css'), type: 'text/css'},
   '/symbol.svg': {file: path.join(root, 'assets/branding/source/soda-symbol.svg'), type: 'image/svg+xml'},
-  '/barlow.woff2': {file: path.join(root, 'assets/branding/fonts/barlow/barlow-latin-400-normal.woff2'), type: 'font/woff2'},
-  '/barlow-semibold.woff2': {file: path.join(root, 'assets/branding/fonts/barlow/barlow-latin-600-normal.woff2'), type: 'font/woff2'},
-  '/mono.woff2': {file: path.join(root, 'assets/branding/fonts/ibm-plex-mono/ibm-plex-mono-latin-400-normal.woff2'), type: 'font/woff2'},
+  '/barlow.woff2': {
+    file: path.join(root, 'assets/branding/fonts/barlow/barlow-latin-400-normal.woff2'),
+    type: 'font/woff2',
+  },
+  '/barlow-semibold.woff2': {
+    file: path.join(root, 'assets/branding/fonts/barlow/barlow-latin-600-normal.woff2'),
+    type: 'font/woff2',
+  },
+  '/mono.woff2': {
+    file: path.join(root, 'assets/branding/fonts/ibm-plex-mono/ibm-plex-mono-latin-400-normal.woff2'),
+    type: 'font/woff2',
+  },
 };
-const server = Bun.serve({hostname: '127.0.0.1', port: mode === '--serve' ? 33450 : 0,
+const server = Bun.serve({
+  hostname: '127.0.0.1',
+  port: mode === '--serve' ? 33450 : 0,
   fetch(request) {
     const asset = assets[new URL(request.url).pathname];
     if (request.method !== 'GET' || !asset) return new Response('Design preview: no API or route here', {status: 404});
-    return new Response(Bun.file(asset.file), {headers: {'Content-Type': asset.type, 'Cache-Control': 'no-store',
-      'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'"}});
+    return new Response(Bun.file(asset.file), {
+      headers: {
+        'Content-Type': asset.type,
+        'Cache-Control': 'no-store',
+        'Content-Security-Policy':
+          "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'",
+      },
+    });
   },
 });
 if (mode === '--serve') {
-  console.log(`Design preview ONLY: ${server.url}\nNo API/project connections. Ctrl-C stops this preview.\nGenerated output: ${out}`);
-  const stop = () => { void server.stop(true); };
-  process.once('SIGINT', stop); process.once('SIGTERM', stop);
+  console.log(
+    `Design preview ONLY: ${server.url}\nNo API/project connections. Ctrl-C stops this preview.\nGenerated output: ${out}`
+  );
+  const stop = () => {
+    void server.stop(true);
+  };
+  process.once('SIGINT', stop);
+  process.once('SIGTERM', stop);
 } else {
-  const browser = await chromium.launch({headless: true, chromiumSandbox: true}).catch(async error => {
-    await server.stop(true); throw error;
+  const browser = await chromium.launch({headless: true, chromiumSandbox: true}).catch(async (error) => {
+    await server.stop(true);
+    throw error;
   });
   try {
     const context = await browser.newContext();
@@ -47,9 +76,12 @@ if (mode === '--serve') {
     const captures: Array<{file: string; width: number; height: number; scene: string; theme: string}> = [];
     let outsideRequests = 0;
     const page = await context.newPage();
-    page.on('pageerror', error => errors.push(error.message));
-    await context.route('**/*', route => {
-      if (new URL(route.request().url()).origin !== server.url.origin) { outsideRequests++; return route.abort(); }
+    page.on('pageerror', (error) => errors.push(error.message));
+    await context.route('**/*', (route) => {
+      if (new URL(route.request().url()).origin !== server.url.origin) {
+        outsideRequests++;
+        return route.abort();
+      }
       return route.continue();
     });
     async function load(width: number, height: number, scene = 'working', theme = 'dark') {
@@ -61,11 +93,14 @@ if (mode === '--serve') {
     async function capture(file: string, scene: string, theme: string) {
       assert(await page.getByText('DESIGN PREVIEW', {exact: true}).isVisible());
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Horizontal page overflow');
-      const viewport = page.viewportSize(); assert(viewport);
+      const viewport = page.viewportSize();
+      assert(viewport);
       await page.screenshot({path: path.join(out, file)});
       captures.push({file, ...viewport, scene, theme});
     }
-    async function tabIDs(p: Page) { return p.locator('[role=tab]').evaluateAll(nodes => nodes.map(n => n.id).sort()); }
+    async function tabIDs(p: Page) {
+      return p.locator('[role=tab]').evaluateAll((nodes) => nodes.map((n) => n.id).sort());
+    }
     try {
       await load(1440, 960);
       assert.equal(await page.locator('[role=tab]').count(), 6);
@@ -74,10 +109,16 @@ if (mode === '--serve') {
       const original = await tabIDs(page);
       await page.getByRole('tab', {name: 'acme/api · shell', exact: true}).focus();
       await page.keyboard.press('ArrowRight');
-      assert.equal(await page.getByRole('tab', {name: 'acme/api · tests', exact: true}).getAttribute('aria-selected'), 'true');
+      assert.equal(
+        await page.getByRole('tab', {name: 'acme/api · tests', exact: true}).getAttribute('aria-selected'),
+        'true'
+      );
       await page.getByRole('button', {name: 'Actions for tests in acme/api', exact: true}).click();
       await page.getByRole('button', {name: 'Move to another pane', exact: true}).click();
-      assert.equal(await page.locator('.pane[data-group="1"] [role=tab][aria-selected=true]').getAttribute('id'), 'tab-sample-api-tests');
+      assert.equal(
+        await page.locator('.pane[data-group="1"] [role=tab][aria-selected=true]').getAttribute('id'),
+        'tab-sample-api-tests'
+      );
       assert.deepEqual(await tabIDs(page), original);
       await page.getByRole('button', {name: 'Actions for tests in acme/api', exact: true}).click();
       await page.getByRole('button', {name: 'Move to another pane', exact: true}).click();
@@ -91,7 +132,9 @@ if (mode === '--serve') {
       await page.getByRole('button', {name: 'Restore pane layout', exact: true}).click();
       assert.equal(await page.locator('.pane:visible').count(), 2);
       await page.locator('#search').fill('no-match');
-      assert(await page.getByText('No matching projects or terminal labels. Your open views have not changed.').isVisible());
+      assert(
+        await page.getByText('No matching projects or terminal labels. Your open views have not changed.').isVisible()
+      );
       assert.deepEqual(await tabIDs(page), original);
       await page.locator('#search').fill('');
       await page.locator('#layout').selectOption('grid');
@@ -140,15 +183,34 @@ if (mode === '--serve') {
       await capture('mobile-retention-light.png', 'away', 'light');
       await load(1440, 960, 'working', 'light');
       await capture('desktop-light.png', 'working', 'light');
-      assert.equal(outsideRequests, 0); assert.deepEqual(errors, []);
+      assert.equal(outsideRequests, 0);
+      assert.deepEqual(errors, []);
       const sourceHashes: Record<string, string> = {};
-      for (const file of ['index.html', 'preview.css', 'preview.ts', 'review.ts']) sourceHashes[file] = new Bun.CryptoHasher('sha256').update(await Bun.file(path.join(import.meta.dir, file)).bytes()).digest('hex');
+      for (const file of ['index.html', 'preview.css', 'preview.ts', 'review.ts'])
+        sourceHashes[file] = new Bun.CryptoHasher('sha256')
+          .update(await Bun.file(path.join(import.meta.dir, file)).bytes())
+          .digest('hex');
       const git = Bun.spawnSync(['git', 'rev-parse', 'HEAD'], {cwd: root, stdout: 'pipe', stderr: 'pipe'});
       const status = Bun.spawnSync(['git', 'status', '--porcelain'], {cwd: root, stdout: 'pipe', stderr: 'pipe'});
-      assert.equal(git.exitCode, 0); assert.equal(status.exitCode, 0);
-      const result = {kind: 'DESIGN MOCKUP — not product evidence', revision: git.stdout.toString().trim(), dirty: status.stdout.toString().length !== 0, sourceHashes, captures, checks: 'sample tab identity, keyboard selection, moving, filtering, layout/maximize, details, explicit project-scoped creation, Hide versus End, cancellation, sibling isolation, mobile selection, overflow, no outside requests/page errors', browser: browser.version()};
+      assert.equal(git.exitCode, 0);
+      assert.equal(status.exitCode, 0);
+      const result = {
+        kind: 'DESIGN MOCKUP — not product evidence',
+        revision: git.stdout.toString().trim(),
+        dirty: status.stdout.toString().length !== 0,
+        sourceHashes,
+        captures,
+        checks:
+          'sample tab identity, keyboard selection, moving, filtering, layout/maximize, details, explicit project-scoped creation, Hide versus End, cancellation, sibling isolation, mobile selection, overflow, no outside requests/page errors',
+        browser: browser.version(),
+      };
       await Bun.write(path.join(out, 'review.json'), JSON.stringify(result, null, 2) + '\n');
       console.log(`PASS design-only browser checks; captures: ${out}`);
-    } finally { await context.close(); }
-  } finally { await browser.close(); await server.stop(true); }
+    } finally {
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+    await server.stop(true);
+  }
 }

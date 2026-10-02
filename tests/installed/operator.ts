@@ -3,7 +3,7 @@
 // No custom page, advertisement refresh, enrollment or provider mutation.
 import assert from 'node:assert/strict';
 import type {} from './cockpit-types.ts';
-import { lstat, mkdir } from 'node:fs/promises';
+import {lstat, mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import type {Page} from 'playwright';
 
@@ -19,7 +19,8 @@ export async function loginOperator(page: Page, origin: string, password: string
 
 export async function openOperatorPackage(page: Page, label: string, name: string) {
   const suffix = `/${name}/index.html`;
-  const matches = (candidate: import('playwright').Frame) => candidate.url() !== '' && new URL(candidate.url()).pathname.endsWith(suffix);
+  const matches = (candidate: import('playwright').Frame) =>
+    candidate.url() !== '' && new URL(candidate.url()).pathname.endsWith(suffix);
   const existing = page.frames().find(matches);
   // iframe.src can be assigned while Playwright still sees about:blank. Wait
   // for the actual native frame navigation, or reuse its already loaded frame.
@@ -34,132 +35,197 @@ export async function openOperatorPackage(page: Page, label: string, name: strin
 }
 
 if (import.meta.main) {
-const args = Bun.argv.slice(2);
-assert.equal(args.length, 5, 'usage: operator.ts HTTPS_ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --stock-read-only');
-const [origin, passwordFile, browserHome, hostname, permission] = args;
-assert.equal(permission, '--stock-read-only', 'Select the stock-page read-only journey explicitly');
-assert(origin && passwordFile && browserHome && hostname, 'All operator arguments are required');
-const url = new URL(origin);
-assert.equal(url.protocol, 'https:');
-assert(!url.username && !url.password && !url.search && !url.hash && url.pathname === '/');
-assert(path.isAbsolute(passwordFile) && path.isAbsolute(browserHome));
-const secretStat = await lstat(passwordFile), homeStat = await lstat(browserHome);
-assert(secretStat.isFile() && secretStat.size <= 65536 && (secretStat.mode & 0o077) === 0);
-assert(homeStat.isDirectory() && (homeStat.mode & 0o077) === 0);
-const password = (await Bun.file(passwordFile).text()).replace(/\r?\n$/, '');
-assert(password && !/[\r\n]/.test(password));
-const profile = path.join(browserHome, 'cockpit-profile');
-await mkdir(profile, { mode: 0o700 }); // exclusive; no inherited login/cookie state
-const {chromium} = await import('playwright');
-let context: import('playwright').BrowserContext | undefined;
-let stage = 'trusted browser startup';
-let interrupted = false;
-const interrupt = async () => {
-  interrupted = true;
-  process.exitCode = 1;
-  try { await context?.close(); } catch { /* main/finally reports failure */ }
-};
-process.once('SIGTERM', interrupt);
-process.once('SIGINT', interrupt);
-try {
-  context = await chromium.launchPersistentContext(profile, {
-    headless: true,
-    env: { ...process.env, HOME: browserHome, XDG_CONFIG_HOME: path.join(browserHome, '.config'), XDG_DATA_HOME: path.join(browserHome, '.local/share') },
-  });
-  context.setDefaultTimeout(30_000);
-  const page = await context.newPage();
-  stage = 'root Cockpit password login';
-  await loginOperator(page, url.origin, password);
-
-  stage = 'native target and core origin snapshot before stock observations';
-  const originProbe = 'import json; x=json.load(open("/etc/soda/dashboard.json")); print(json.dumps({k:x[k] for k in ("forgejo_url","forgejo_internal_url")},sort_keys=True))';
-  await page.waitForFunction(() => [window, ...[...document.querySelectorAll('iframe')].map(frame => frame.contentWindow)].some(candidate => candidate?.cockpit));
-  const before = await page.evaluate(async script => {
-    const candidate = [window, ...[...document.querySelectorAll('iframe')].map(frame => frame.contentWindow)].find(value => value?.cockpit);
-    if (!candidate?.cockpit) throw new Error('Cockpit browser API unavailable');
-    const c = candidate.cockpit;
-    return { host: (await c.spawn(['hostname'], { err: 'message' })).trim(), origins: await c.spawn(['python3', '-c', script], { err: 'message' }) };
-  }, originProbe);
-  assert.equal(before.host, hostname);
-
-  stage = 'stock Overview native root session and SELinux/socket access';
-  const stock = await openOperatorPackage(page, 'Overview', 'system');
-  const native = await stock.evaluate(async () => {
-    const c = window.cockpit;
-    if (!c.manifests || Object.keys(c.manifests).some(name => name.startsWith('soda-'))) throw new Error('Custom Soda package still installed');
-    const uid = (await c.spawn(['id', '-u'], { err: 'message' })).trim();
-    const host = (await c.spawn(['hostname'], { err: 'message' })).trim();
-    const domain = (await c.spawn(['id', '-Z'], { err: 'message' })).trim();
-    const enforcing = (await c.spawn(['getenforce'], { err: 'message' })).trim();
-    const status: unknown = JSON.parse(await c.spawn(['/usr/bin/tailscale', 'status', '--json'], { err: 'message' }));
-    if (!status || typeof status !== 'object' || !('BackendState' in status) || typeof status.BackendState !== 'string') throw new Error('Invalid Tailnet status');
-    const http = c.http('/var/run/tailscale/tailscaled.sock', { superuser: 'require', headers: { Host: 'local-tailscaled.sock' } });
+  const args = Bun.argv.slice(2);
+  assert.equal(
+    args.length,
+    5,
+    'usage: operator.ts HTTPS_ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --stock-read-only'
+  );
+  const [origin, passwordFile, browserHome, hostname, permission] = args;
+  assert.equal(permission, '--stock-read-only', 'Select the stock-page read-only journey explicitly');
+  assert(origin && passwordFile && browserHome && hostname, 'All operator arguments are required');
+  const url = new URL(origin);
+  assert.equal(url.protocol, 'https:');
+  assert(!url.username && !url.password && !url.search && !url.hash && url.pathname === '/');
+  assert(path.isAbsolute(passwordFile) && path.isAbsolute(browserHome));
+  const secretStat = await lstat(passwordFile),
+    homeStat = await lstat(browserHome);
+  assert(secretStat.isFile() && secretStat.size <= 65536 && (secretStat.mode & 0o077) === 0);
+  assert(homeStat.isDirectory() && (homeStat.mode & 0o077) === 0);
+  const password = (await Bun.file(passwordFile).text()).replace(/\r?\n$/, '');
+  assert(password && !/[\r\n]/.test(password));
+  const profile = path.join(browserHome, 'cockpit-profile');
+  await mkdir(profile, {mode: 0o700}); // exclusive; no inherited login/cookie state
+  const {chromium} = await import('playwright');
+  let context: import('playwright').BrowserContext | undefined;
+  let stage = 'trusted browser startup';
+  let interrupted = false;
+  const interrupt = async () => {
+    interrupted = true;
+    process.exitCode = 1;
     try {
-      const prefs: unknown = JSON.parse(await http.request({method: 'GET', path: '/localapi/v0/prefs', body: ''}));
-      if (!prefs || typeof prefs !== 'object' || !('WantRunning' in prefs) || typeof prefs.WantRunning !== 'boolean') throw new Error('Invalid Tailnet preferences');
-      return { uid, host, domain, enforcing, backend: status.BackendState, wantRunning: prefs.WantRunning };
-    } finally { http.close(); }
-  });
-  assert.equal(native.uid, '0');
-  assert.equal(native.host, hostname);
-  assert.equal(native.enforcing, 'Enforcing');
-  assert(native.domain.includes(':') && !native.domain.includes(':cockpit_session_t:'), 'root stayed in the restricted preauthentication SELinux domain');
-  assert.equal(typeof native.backend, 'string');
-  assert.equal(typeof native.wantRunning, 'boolean');
-  console.log('Native root Cockpit session read Tailnet status/preferences with its native SELinux transition. No enrollment/exit-node/route action was requested.');
+      await context?.close();
+    } catch {
+      /* main/finally reports failure */
+    }
+  };
+  process.once('SIGTERM', interrupt);
+  process.once('SIGINT', interrupt);
+  try {
+    context = await chromium.launchPersistentContext(profile, {
+      headless: true,
+      env: {
+        ...process.env,
+        HOME: browserHome,
+        XDG_CONFIG_HOME: path.join(browserHome, '.config'),
+        XDG_DATA_HOME: path.join(browserHome, '.local/share'),
+      },
+    });
+    context.setDefaultTimeout(30_000);
+    const page = await context.newPage();
+    stage = 'root Cockpit password login';
+    await loginOperator(page, url.origin, password);
 
-  stage = 'stock-only navigation and ordinary administration';
-  for (const name of ['Runners', 'Tailscale', 'Tailnet']) assert.equal(await page.getByRole('link', {name, exact: true}).count(), 0);
-  await page.getByRole('link', {name: 'Services', exact: true}).waitFor();
-  await page.getByRole('link', {name: 'Logs', exact: true}).waitFor();
-  const ordinary = await stock.evaluate(async () => {
-    const c = window.cockpit;
-    return {
-      host: (await c.spawn(['systemctl', 'show', 'soda-host.service', '--property=LoadState', '--value'], {err:'message'})).trim(),
-      logs: (await c.spawn(['journalctl', '--quiet', '--no-pager', '--lines=0'], {err:'message'})).trim(),
-    };
-  });
-  assert.equal(ordinary.host, 'loaded');
-  assert.equal(ordinary.logs, '');
-  console.log('Ordinary systemd/journal access and retired runner navigation checked. Native Runners and provider jobs use their separate journey.');
-  assert.equal(await stock.evaluate(async script => await window.cockpit.spawn(['python3', '-c', script], { err: 'message' }), originProbe), before.origins, 'Core browser origins changed during stock read-only observations');
-  // Native host administration. Opening pages must not create containers, edit
-  // accounts/files/policy or collect/upload a diagnostic report.
-  for (const [label, packageName] of [
-    ['Podman containers', 'podman'], ['File browser', 'files'],
-    ['SELinux', 'selinux'], ['Diagnostic reports', 'sosreport'], ['Accounts', 'users'],
-  ] as const) {
-    stage = 'native administration page: ' + label;
-    const frame = await openOperatorPackage(page, label, packageName);
-    if (packageName === 'podman') {
-      // Podman also renders names in collapsed details; observe visible rows.
-      for (const name of ['soda-forgejo', 'soda-dashboard', 'soda-proxy']) {
-        await frame.getByText(name, {exact: true}).filter({visible: true}).first().waitFor();
+    stage = 'native target and core origin snapshot before stock observations';
+    const originProbe =
+      'import json; x=json.load(open("/etc/soda/dashboard.json")); print(json.dumps({k:x[k] for k in ("forgejo_url","forgejo_internal_url")},sort_keys=True))';
+    await page.waitForFunction(() =>
+      [window, ...[...document.querySelectorAll('iframe')].map((frame) => frame.contentWindow)].some(
+        (candidate) => candidate?.cockpit
+      )
+    );
+    const before = await page.evaluate(async (script) => {
+      const candidate = [window, ...[...document.querySelectorAll('iframe')].map((frame) => frame.contentWindow)].find(
+        (value) => value?.cockpit
+      );
+      if (!candidate?.cockpit) throw new Error('Cockpit browser API unavailable');
+      const c = candidate.cockpit;
+      return {
+        host: (await c.spawn(['hostname'], {err: 'message'})).trim(),
+        origins: await c.spawn(['python3', '-c', script], {err: 'message'}),
+      };
+    }, originProbe);
+    assert.equal(before.host, hostname);
+
+    stage = 'stock Overview native root session and SELinux/socket access';
+    const stock = await openOperatorPackage(page, 'Overview', 'system');
+    const native = await stock.evaluate(async () => {
+      const c = window.cockpit;
+      if (!c.manifests || Object.keys(c.manifests).some((name) => name.startsWith('soda-')))
+        throw new Error('Custom Soda package still installed');
+      const uid = (await c.spawn(['id', '-u'], {err: 'message'})).trim();
+      const host = (await c.spawn(['hostname'], {err: 'message'})).trim();
+      const domain = (await c.spawn(['id', '-Z'], {err: 'message'})).trim();
+      const enforcing = (await c.spawn(['getenforce'], {err: 'message'})).trim();
+      const status: unknown = JSON.parse(await c.spawn(['/usr/bin/tailscale', 'status', '--json'], {err: 'message'}));
+      if (
+        !status ||
+        typeof status !== 'object' ||
+        !('BackendState' in status) ||
+        typeof status.BackendState !== 'string'
+      )
+        throw new Error('Invalid Tailnet status');
+      const http = c.http('/var/run/tailscale/tailscaled.sock', {
+        superuser: 'require',
+        headers: {Host: 'local-tailscaled.sock'},
+      });
+      try {
+        const prefs: unknown = JSON.parse(await http.request({method: 'GET', path: '/localapi/v0/prefs', body: ''}));
+        if (!prefs || typeof prefs !== 'object' || !('WantRunning' in prefs) || typeof prefs.WantRunning !== 'boolean')
+          throw new Error('Invalid Tailnet preferences');
+        return {uid, host, domain, enforcing, backend: status.BackendState, wantRunning: prefs.WantRunning};
+      } finally {
+        http.close();
       }
+    });
+    assert.equal(native.uid, '0');
+    assert.equal(native.host, hostname);
+    assert.equal(native.enforcing, 'Enforcing');
+    assert(
+      native.domain.includes(':') && !native.domain.includes(':cockpit_session_t:'),
+      'root stayed in the restricted preauthentication SELinux domain'
+    );
+    assert.equal(typeof native.backend, 'string');
+    assert.equal(typeof native.wantRunning, 'boolean');
+    console.log(
+      'Native root Cockpit session read Tailnet status/preferences with its native SELinux transition. No enrollment/exit-node/route action was requested.'
+    );
+
+    stage = 'stock-only navigation and ordinary administration';
+    for (const name of ['Runners', 'Tailscale', 'Tailnet'])
+      assert.equal(await page.getByRole('link', {name, exact: true}).count(), 0);
+    await page.getByRole('link', {name: 'Services', exact: true}).waitFor();
+    await page.getByRole('link', {name: 'Logs', exact: true}).waitFor();
+    const ordinary = await stock.evaluate(async () => {
+      const c = window.cockpit;
+      return {
+        host: (
+          await c.spawn(['systemctl', 'show', 'soda-host.service', '--property=LoadState', '--value'], {err: 'message'})
+        ).trim(),
+        logs: (await c.spawn(['journalctl', '--quiet', '--no-pager', '--lines=0'], {err: 'message'})).trim(),
+      };
+    });
+    assert.equal(ordinary.host, 'loaded');
+    assert.equal(ordinary.logs, '');
+    console.log(
+      'Ordinary systemd/journal access and retired runner navigation checked. Native Runners and provider jobs use their separate journey.'
+    );
+    assert.equal(
+      await stock.evaluate(
+        async (script) => await window.cockpit.spawn(['python3', '-c', script], {err: 'message'}),
+        originProbe
+      ),
+      before.origins,
+      'Core browser origins changed during stock read-only observations'
+    );
+    // Native host administration. Opening pages must not create containers, edit
+    // accounts/files/policy or collect/upload a diagnostic report.
+    for (const [label, packageName] of [
+      ['Podman containers', 'podman'],
+      ['File browser', 'files'],
+      ['SELinux', 'selinux'],
+      ['Diagnostic reports', 'sosreport'],
+      ['Accounts', 'users'],
+    ] as const) {
+      stage = 'native administration page: ' + label;
+      const frame = await openOperatorPackage(page, label, packageName);
+      if (packageName === 'podman') {
+        // Podman also renders names in collapsed details; observe visible rows.
+        for (const name of ['soda-forgejo', 'soda-dashboard', 'soda-proxy']) {
+          await frame.getByText(name, {exact: true}).filter({visible: true}).first().waitFor();
+        }
+      }
+      if (packageName === 'files') await frame.getByRole('button', {name: 'Upload', exact: true}).waitFor();
+      if (packageName === 'selinux') {
+        await frame.getByRole('heading', {name: 'SELinux policy', exact: true}).waitFor();
+        assert(
+          await frame.locator('input[type=checkbox]').first().isChecked(),
+          'native SELinux policy is not enforcing'
+        );
+      }
+      if (packageName === 'sosreport') await frame.getByRole('button', {name: 'Run report', exact: true}).waitFor();
+      if (packageName === 'users') await frame.getByRole('heading', {name: 'Accounts', exact: true}).waitFor();
+      console.log('Native administration page opened: ' + label + '. No management write requested.');
     }
-    if (packageName === 'files') await frame.getByRole('button', {name: 'Upload', exact: true}).waitFor();
-    if (packageName === 'selinux') {
-      await frame.getByRole('heading', {name: 'SELinux policy', exact: true}).waitFor();
-      assert(await frame.locator('input[type=checkbox]').first().isChecked(), 'native SELinux policy is not enforcing');
+    stage = 'Cockpit sign-out';
+    // An iframe's logout() leaves the outer shell on its Reconnect screen.
+    // Exercise the actual stock shell action, including its login navigation.
+    await page.getByRole('button', {name: 'Session', exact: true}).click();
+    await page.getByRole('menuitem', {name: 'Log out', exact: true}).click();
+    await page.locator('#login-user-input').waitFor({state: 'visible'});
+    assert(!interrupted);
+  } catch (error) {
+    // Never retain browser call logs, bodies, cookies, queries or password text.
+    console.error(`Operator browser check failed during ${stage} (${error instanceof Error ? error.name : 'Error'}).`);
+    process.exitCode = 1;
+  } finally {
+    try {
+      await context?.close();
+    } catch {
+      console.error('Operator browser process cleanup failed.');
+      process.exitCode = 1;
     }
-    if (packageName === 'sosreport') await frame.getByRole('button', {name: 'Run report', exact: true}).waitFor();
-    if (packageName === 'users') await frame.getByRole('heading', {name: 'Accounts', exact: true}).waitFor();
-    console.log('Native administration page opened: ' + label + '. No management write requested.');
+    process.removeListener('SIGTERM', interrupt);
+    process.removeListener('SIGINT', interrupt);
   }
-  stage = 'Cockpit sign-out';
-  // An iframe's logout() leaves the outer shell on its Reconnect screen.
-  // Exercise the actual stock shell action, including its login navigation.
-  await page.getByRole('button', {name: 'Session', exact: true}).click();
-  await page.getByRole('menuitem', {name: 'Log out', exact: true}).click();
-  await page.locator('#login-user-input').waitFor({ state: 'visible' });
-  assert(!interrupted);
-} catch (error) {
-  // Never retain browser call logs, bodies, cookies, queries or password text.
-  console.error(`Operator browser check failed during ${stage} (${error instanceof Error ? error.name : 'Error'}).`);
-  process.exitCode = 1;
-} finally {
-  try { await context?.close(); } catch { console.error('Operator browser process cleanup failed.'); process.exitCode = 1; }
-  process.removeListener('SIGTERM', interrupt);
-  process.removeListener('SIGINT', interrupt);
-}
 }

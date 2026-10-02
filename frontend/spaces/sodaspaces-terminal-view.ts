@@ -29,21 +29,40 @@ export interface TerminalCommands {
 }
 function actions(view: TerminalPresentation, commands: TerminalCommands): TemplateResult {
   return html`
-    <button type="button" class="ui basic button danger" data-action="end" ?disabled=${!view.canEnd}
-      @click=${commands.end}>End terminal…</button>
+    <button
+      type="button"
+      class="ui basic button danger"
+      data-action="end"
+      ?disabled=${!view.canEnd}
+      @click=${commands.end}
+    >
+      End terminal…
+    </button>
   `;
 }
 function confirmation(view: TerminalPresentation, commands: TerminalCommands): TemplateResult {
   return html`
-    <div class="soda-terminal-confirm" role="dialog" aria-label="End terminal confirmation"
+    <div
+      class="soda-terminal-confirm"
+      role="dialog"
+      aria-label="End terminal confirmation"
       @keydown=${(event: KeyboardEvent) => {
-        if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation(); commands.cancelEnd();}
-      }}>
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          commands.cancelEnd();
+        }
+      }}
+    >
       <h4>End “${view.confirmingName}” in ${view.project}?</h4>
-      <p>Original account: ${view.login}. This ends this terminal and processes in its managed session.
-        Unsaved in-process work will be lost. Files and independently managed services remain.</p>
+      <p>
+        Original account: ${view.login}. This ends this terminal and processes in its managed session. Unsaved
+        in-process work will be lost. Files and independently managed services remain.
+      </p>
       <button type="button" class="ui button" data-action="cancel-end" @click=${commands.cancelEnd}>Cancel</button>
-      <button type="button" class="ui button danger" ?disabled=${!view.canConfirm} @click=${commands.confirmEnd}>End terminal</button>
+      <button type="button" class="ui button danger" ?disabled=${!view.canConfirm} @click=${commands.confirmEnd}>
+        End terminal
+      </button>
     </div>
   `;
 }
@@ -56,22 +75,37 @@ export function renderTerminal(view: TerminalPresentation, commands: TerminalCom
           <summary aria-label="Terminal actions" data-action="controls">⋯</summary>
           <div>
             <p class="soda-menu-heading" title=${view.name}><span>${view.name}</span></p>
-            <button type="button" class="ui button" ?disabled=${!view.canEnd} @click=${commands.rename}>Rename terminal</button>
-            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.hide}>Hide terminal</button>
-            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.project}>Project settings</button>
+            <button type="button" class="ui button" ?disabled=${!view.canEnd} @click=${commands.rename}>
+              Rename terminal
+            </button>
+            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.hide}>
+              Hide terminal
+            </button>
+            <button type="button" class="ui button" ?disabled=${view.disabled} @click=${commands.project}>
+              Project settings
+            </button>
             <div class="soda-menu-separator"></div>
             ${actions(view, commands)}
           </div>
         </details>
       </div>
       ${!view.ready && view.canConnect ? html`<button type="button" class="ui primary button" @click=${commands.connect}>${view.connectLabel}</button>` : ''}
-      <p class=${'soda-terminal-status' + (!view.notice ? ' soda-visually-hidden' : '')}
-        role="status" tabindex="-1">${view.message}</p>
+      <p class=${'soda-terminal-status' + (!view.notice ? ' soda-visually-hidden' : '')} role="status" tabindex="-1">
+        ${view.message}
+      </p>
       ${view.confirmingName !== null ? confirmation(view, commands) : ''}
       <!-- Xterm exclusively owns this stable, unconditional node's descendants. -->
-      <div class="soda-terminal-screen" ?hidden=${!view.screenVisible}
+      <div
+        class="soda-terminal-screen"
+        ?hidden=${!view.screenVisible}
         aria-label=${`Terminal for ${view.login}; Ctrl+Shift+Enter focuses terminal controls`}
-        @keydown=${(event: KeyboardEvent) => {if (event.key === 'Escape') {event.preventDefault(); event.stopPropagation();}}}></div>
+        @keydown=${(event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+      ></div>
     </section>
   `;
 }

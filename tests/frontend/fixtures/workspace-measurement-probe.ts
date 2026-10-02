@@ -14,15 +14,20 @@ interface MeasurementProbe {
   releaseFonts: () => void;
 }
 declare global {
-  interface Window { measurementProbe: MeasurementProbe }
+  interface Window {
+    measurementProbe: MeasurementProbe;
+  }
 }
 
 export function installMeasurementProbe() {
-  const probe: MeasurementProbe = window.measurementProbe = {
-    observers: [], signals: [], beforeFirstRender: -1, minimumNotifications: 0,
+  const probe: MeasurementProbe = (window.measurementProbe = {
+    observers: [],
+    signals: [],
+    beforeFirstRender: -1,
+    minimumNotifications: 0,
     releaseFonts: () => {},
-  };
-  const ready = new Promise<FontFaceSet>(resolve => {
+  });
+  const ready = new Promise<FontFaceSet>((resolve) => {
     probe.releaseFonts = () => resolve(document.fonts);
   });
   Object.defineProperty(document.fonts, 'ready', {configurable: true, value: ready});
@@ -45,13 +50,17 @@ export function installMeasurementProbe() {
     }
   };
   const add = EventTarget.prototype.addEventListener;
-  EventTarget.prototype.addEventListener = function(type, callback, options) {
-    if ((this === document.fonts && type === 'loadingdone' || this === window.visualViewport && type === 'resize') &&
-      typeof options === 'object' && options.signal) probe.signals.push(options.signal);
+  EventTarget.prototype.addEventListener = function (type, callback, options) {
+    if (
+      ((this === document.fonts && type === 'loadingdone') || (this === window.visualViewport && type === 'resize')) &&
+      typeof options === 'object' &&
+      options.signal
+    )
+      probe.signals.push(options.signal);
     add.call(this, type, callback, options);
   };
   const mount = window.createWorkspaceFixture;
-  window.createWorkspaceFixture = mode => {
+  window.createWorkspaceFixture = (mode) => {
     const fixture = mount(mode);
     probe.beforeFirstRender = probe.observers.length;
     fixture.root.addEventListener('soda-workspace-minimum', () => probe.minimumNotifications++);

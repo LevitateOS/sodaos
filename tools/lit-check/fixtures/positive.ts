@@ -9,9 +9,12 @@ export class CheckedControl extends LitElement {
   declare count: number;
   declare active: boolean;
   protected render() {
-    return html`<input .value=${String(this.count)} ?disabled=${!this.active}>
-      ${action('Run', false, () => {})}
-      ${repeat(['a', 'b'], value => value, value => html`<span>${value}</span>`)}`;
+    return html`<input .value=${String(this.count)} ?disabled=${!this.active} /> ${action('Run', false, () => {})}
+      ${repeat(
+        ['a', 'b'],
+        (value) => value,
+        (value) => html`<span>${value}</span>`
+      )}`;
   }
 }
 customElements.define('checked-control', CheckedControl);

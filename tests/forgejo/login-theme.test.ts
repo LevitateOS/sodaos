@@ -4,23 +4,64 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 
 const source = readFileSync(new URL('../../.artifacts/forgejo-js/login-theme.js', import.meta.url), 'utf8');
-function page({stored = null, dark = false, blocked = false, prefix = '', buttonPresent = true}: {stored?: string | null; dark?: boolean; blocked?: boolean; prefix?: string; buttonPresent?: boolean} = {}) {
+function page({
+  stored = null,
+  dark = false,
+  blocked = false,
+  prefix = '',
+  buttonPresent = true,
+}: {stored?: string | null; dark?: boolean; blocked?: boolean; prefix?: string; buttonPresent?: boolean} = {}) {
   type Callback = (...args: unknown[]) => void;
-  const events: Record<string, Callback> = {}, clicks: Record<string, Callback> = {}, systemEvents: Record<string, Callback> = {}, attributes: Record<string, string> = {};
+  const events: Record<string, Callback> = {},
+    clicks: Record<string, Callback> = {},
+    systemEvents: Record<string, Callback> = {},
+    attributes: Record<string, string> = {};
   let domReady = false;
   const root: {dataset: {theme: string; sodaLoginTheme?: string}} = {dataset: {theme: 'forgejo-auto'}};
-  const button = {hidden: true, setAttribute: (key: string, value: string) => { attributes[key] = value; }, addEventListener: (key: string, fn: Callback) => {clicks[key] = fn;}};
-  const system = {matches: dark, addEventListener: (key: string, fn: Callback) => {systemEvents[key] = fn;}};
+  const button = {
+    hidden: true,
+    setAttribute: (key: string, value: string) => {
+      attributes[key] = value;
+    },
+    addEventListener: (key: string, fn: Callback) => {
+      clicks[key] = fn;
+    },
+  };
+  const system = {
+    matches: dark,
+    addEventListener: (key: string, fn: Callback) => {
+      systemEvents[key] = fn;
+    },
+  };
   const storage = new Map([[`soda.login.theme:${prefix || '/'}`, stored]]);
   runInNewContext(source, {
     document: {
       documentElement: root,
       currentScript: {dataset: {appSubUrl: prefix}},
-      getElementById: () => domReady && buttonPresent ? button : null,
-      addEventListener: (key: string, fn: Callback) => {events[key] = (...args: unknown[]) => {domReady = true; return fn(...args);};},
+      getElementById: () => (domReady && buttonPresent ? button : null),
+      addEventListener: (key: string, fn: Callback) => {
+        events[key] = (...args: unknown[]) => {
+          domReady = true;
+          return fn(...args);
+        };
+      },
     },
-    window: {matchMedia: () => system, addEventListener: (key: string, fn: Callback) => {events[key] = fn;}},
-    localStorage: {getItem: (key: string) => {if (blocked) throw Error('blocked'); return storage.get(key);}, setItem: (key: string, value: string) => {if (blocked) throw Error('blocked'); storage.set(key, value);}},
+    window: {
+      matchMedia: () => system,
+      addEventListener: (key: string, fn: Callback) => {
+        events[key] = fn;
+      },
+    },
+    localStorage: {
+      getItem: (key: string) => {
+        if (blocked) throw Error('blocked');
+        return storage.get(key);
+      },
+      setItem: (key: string, value: string) => {
+        if (blocked) throw Error('blocked');
+        storage.set(key, value);
+      },
+    },
   });
   return {root, button, attributes, storage, events, clicks, system, systemEvents};
 }
@@ -28,7 +69,8 @@ test('system preference applies before DOM readiness and follows system changes'
   const p = page({dark: true});
   assert.equal(p.root.dataset.sodaLoginTheme, 'dark');
   assert(p.systemEvents.change);
-  p.system.matches = false; p.systemEvents.change();
+  p.system.matches = false;
+  p.systemEvents.change();
   assert.equal(p.root.dataset.sodaLoginTheme, 'light');
   assert.equal(p.root.dataset.theme, 'forgejo-auto');
 });

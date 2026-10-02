@@ -8,7 +8,9 @@ class SodaLitSmoke extends LitElement {
   };
 
   static styles = css`
-    button { font: inherit; }
+    button {
+      font: inherit;
+    }
   `;
 
   declare count: number;
@@ -28,7 +30,13 @@ class SodaLitSmoke extends LitElement {
     return html`
       <button type="button" @click=${this.increment}>${this.label}: ${this.count}</button>
       ${this.count === 0 ? nothing : html`<output>${this.count}</output>`}
-      <div class="keyed">${repeat(this.count % 2 ? ['b', 'a'] : ['a', 'b'], key => key, key => html`<span data-key=${key}>${key}</span>`)}</div>
+      <div class="keyed">
+        ${repeat(
+          this.count % 2 ? ['b', 'a'] : ['a', 'b'],
+          (key) => key,
+          (key) => html`<span data-key=${key}>${key}</span>`
+        )}
+      </div>
     `;
   }
 }
@@ -40,6 +48,6 @@ if (!standalone) throw new Error('Missing standalone render target');
 render(html`<span>standalone runtime render</span>`, standalone);
 
 await Promise.all(
-  [...document.querySelectorAll<SodaLitSmoke>('soda-lit-smoke')].map(element => element.updateComplete),
+  [...document.querySelectorAll<SodaLitSmoke>('soda-lit-smoke')].map((element) => element.updateComplete)
 );
 document.body.dataset.litSmokeModules = String(Number(document.body.dataset.litSmokeModules ?? '0') + 1);

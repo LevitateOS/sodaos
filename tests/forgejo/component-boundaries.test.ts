@@ -1,113 +1,163 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { test } from 'node:test';
-import { chromium } from 'playwright';
+import {readFile} from 'node:fs/promises';
+import {test} from 'node:test';
+import {chromium} from 'playwright';
 
 // Explicit local opt-in. Native CSS plus the complete candidate CSS cascade,
 // with small native markup contracts; no account, fixture or provider writes.
 const origin = process.env.SODA_FORGEJO_LAYOUT_ORIGIN;
-test('expanded components preserve native state and layout boundaries', { skip: !origin }, async t => {
+test('expanded components preserve native state and layout boundaries', {skip: !origin}, async (t) => {
   assert.equal(origin, 'http://localhost:3300');
-  const header = await readFile(new URL('../../appliance/forgejo/templates/custom/header.tmpl', import.meta.url), 'utf8');
+  const header = await readFile(
+    new URL('../../appliance/forgejo/templates/custom/header.tmpl', import.meta.url),
+    'utf8'
+  );
   const files = [...header.matchAll(/\/soda\/forgejo\/([^?]+\.css)\?v=/g)].map(([, name]) => name);
-  const styles = await Promise.all(files.map(name => readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8')));
+  const styles = await Promise.all(
+    files.map((name) => readFile(new URL(`../../assets/branding/forgejo/${name}`, import.meta.url), 'utf8'))
+  );
   const palette = await readFile(new URL('../../assets/branding/theme/palette.css', import.meta.url), 'utf8');
-  const browser = await chromium.launch({ channel: 'chrome', headless: true, chromiumSandbox: true });
+  const browser = await chromium.launch({channel: 'chrome', headless: true, chromiumSandbox: true});
   try {
-    const page = await browser.newPage({ viewport: { width: 1654, height: 1000 } });
+    const page = await browser.newPage({viewport: {width: 1654, height: 1000}});
     async function render(markup: string, theme = 'light') {
-      await page.mouse.move(1600,990);
+      await page.mouse.move(1600, 990);
       await page.setContent(`<link rel="stylesheet" href="${origin}/assets/css/index.css">
         <link rel="stylesheet" href="${origin}/assets/css/theme-forgejo-${theme}.css">
         <style>${palette}\n${styles.join('\n').replace(/@import[^;]+;/g, '')}</style>${markup}`);
     }
 
     await t.test('native form icons retain clearance and section headings share type', async () => {
-      for (const theme of ['light','dark']) for (const width of [1440,390,320]) {
-        await page.setViewportSize({width,height:1000});
-        await render(`<main class="soda-page soda-settings-shell soda-settings"><div class="user-setting-content"><h4 class="ui top attached header soda-p-heading">Native heading</h4><section><h4 class="ui top attached header soda-p-heading">Nested native heading</h4></section><form class="ui form soda-p-form"><fieldset class="soda-form-section"><legend>Form heading</legend><div class="ui left icon input"><input placeholder="Search"><i class="icon">⌕</i></div><div class="ui icon input"><input placeholder="Search"><i class="icon">⌕</i></div></fieldset></form></div></main>`,theme);
-        for (const heading of await page.locator('h4,legend').all()) assert.equal(await heading.evaluate(el=>getComputedStyle(el).fontSize),'22px');
-        assert.equal(await page.locator('.left.input input').evaluate(el=>getComputedStyle(el).paddingInlineStart),'40px');
-        assert.equal(await page.locator('.input:not(.left) input').evaluate(el=>getComputedStyle(el).paddingInlineEnd),'40px');
-      }
-      await page.setViewportSize({width:1654,height:1000});
+      for (const theme of ['light', 'dark'])
+        for (const width of [1440, 390, 320]) {
+          await page.setViewportSize({width, height: 1000});
+          await render(
+            `<main class="soda-page soda-settings-shell soda-settings"><div class="user-setting-content"><h4 class="ui top attached header soda-p-heading">Native heading</h4><section><h4 class="ui top attached header soda-p-heading">Nested native heading</h4></section><form class="ui form soda-p-form"><fieldset class="soda-form-section"><legend>Form heading</legend><div class="ui left icon input"><input placeholder="Search"><i class="icon">⌕</i></div><div class="ui icon input"><input placeholder="Search"><i class="icon">⌕</i></div></fieldset></form></div></main>`,
+            theme
+          );
+          for (const heading of await page.locator('h4,legend').all())
+            assert.equal(await heading.evaluate((el) => getComputedStyle(el).fontSize), '22px');
+          assert.equal(
+            await page.locator('.left.input input').evaluate((el) => getComputedStyle(el).paddingInlineStart),
+            '40px'
+          );
+          assert.equal(
+            await page.locator('.input:not(.left) input').evaluate((el) => getComputedStyle(el).paddingInlineEnd),
+            '40px'
+          );
+        }
+      await page.setViewportSize({width: 1654, height: 1000});
     });
 
     await t.test('static guidance inside forms is visible without exposing validation messages', async () => {
-      for (const theme of ['light','dark']) {
-        await render(`<main class="soda-page"><div class="ui form"><div class="ui info message soda-notice">Context</div><div class="ui warning message soda-notice">Consequences</div><div class="ui error message">Inactive validation</div></div></main>`,theme);
+      for (const theme of ['light', 'dark']) {
+        await render(
+          `<main class="soda-page"><div class="ui form"><div class="ui info message soda-notice">Context</div><div class="ui warning message soda-notice">Consequences</div><div class="ui error message">Inactive validation</div></div></main>`,
+          theme
+        );
         assert(await page.locator('.info.message').isVisible());
         assert(await page.locator('.warning.message').isVisible());
-        assert.equal(await page.locator('.error.message').isVisible(),false);
+        assert.equal(await page.locator('.error.message').isVisible(), false);
       }
     });
 
     await t.test('settings headings stay above their bodies at every width', async () => {
       for (const width of [1440, 900, 899, 390, 320]) {
-        await page.setViewportSize({ width, height: 1000 });
-        await render(`<main class="soda-page soda-settings-shell soda-settings"><div class="user-setting-content"><section class="soda-settings-section"><h2>Email addresses</h2><div class="soda-settings-section-body"><p>Description</p><form class="ui form soda-p-form"><label>Email<input></label></form></div></section><h2 class="soda-settings-inventory-heading">Keys<div class="ui right"><button class="ui primary button">Add key</button></div></h2></div></main>`);
+        await page.setViewportSize({width, height: 1000});
+        await render(
+          `<main class="soda-page soda-settings-shell soda-settings"><div class="user-setting-content"><section class="soda-settings-section"><h2>Email addresses</h2><div class="soda-settings-section-body"><p>Description</p><form class="ui form soda-p-form"><label>Email<input></label></form></div></section><h2 class="soda-settings-inventory-heading">Keys<div class="ui right"><button class="ui primary button">Add key</button></div></h2></div></main>`
+        );
         const placement = await page.evaluate(() => {
           const headingElement = document.querySelector('.soda-settings-section > h2');
           const bodyElement = document.querySelector('.soda-settings-section-body');
           if (!headingElement || !bodyElement) throw Error('Missing settings sections');
           const heading = headingElement.getBoundingClientRect();
           const body = bodyElement.getBoundingClientRect();
-          return { above: heading.bottom <= body.top, inset: String(Math.round(body.left - heading.left)) + 'px', fits: document.documentElement.scrollWidth <= innerWidth };
+          return {
+            above: heading.bottom <= body.top,
+            inset: String(Math.round(body.left - heading.left)) + 'px',
+            fits: document.documentElement.scrollWidth <= innerWidth,
+          };
         });
-        assert.deepEqual(placement, { above: true, inset: width <= 1000 ? '16px' : '40px', fits: true });
+        assert.deepEqual(placement, {above: true, inset: width <= 1000 ? '16px' : '40px', fits: true});
       }
-      await page.setViewportSize({ width: 1654, height: 1000 });
+      await page.setViewportSize({width: 1654, height: 1000});
     });
 
     await t.test('page and compact empty states stay open and fit narrow layouts', async () => {
       for (const theme of ['light', 'dark']) {
         for (const width of [1440, 390, 320]) {
-          await page.setViewportSize({ width, height: 1000 });
-          await render(`<main class="soda-page"><section class="soda-empty soda-empty--page"><div class="soda-empty-symbol" aria-hidden="true"><svg></svg></div><h2 class="soda-empty-title">There are no blocked users.</h2></section><section class="soda-empty soda-empty--compact"><div class="soda-empty-symbol" aria-hidden="true"><svg></svg></div><h2 class="soda-empty-title">There are no deploy keys yet.</h2></section></main>`, theme);
+          await page.setViewportSize({width, height: 1000});
+          await render(
+            `<main class="soda-page"><section class="soda-empty soda-empty--page"><div class="soda-empty-symbol" aria-hidden="true"><svg></svg></div><h2 class="soda-empty-title">There are no blocked users.</h2></section><section class="soda-empty soda-empty--compact"><div class="soda-empty-symbol" aria-hidden="true"><svg></svg></div><h2 class="soda-empty-title">There are no deploy keys yet.</h2></section></main>`,
+            theme
+          );
           const state = await page.evaluate(() => {
             const full = document.querySelector('.soda-empty--page');
             const compact = document.querySelector('.soda-empty--compact');
             const fullSymbol = full?.querySelector('.soda-empty-symbol');
             const compactSymbol = compact?.querySelector('.soda-empty-symbol');
             if (!full || !compact || !fullSymbol || !compactSymbol) throw Error('Missing empty state markup');
-            return { border: getComputedStyle(full).borderTopWidth,
+            return {
+              border: getComputedStyle(full).borderTopWidth,
               background: getComputedStyle(full).backgroundColor,
               fullIcon: fullSymbol.getBoundingClientRect().width,
               compactIcon: compactSymbol.getBoundingClientRect().width,
-              fits: document.documentElement.scrollWidth <= innerWidth };
+              fits: document.documentElement.scrollWidth <= innerWidth,
+            };
           });
-          assert.deepEqual(state, { border: '0px', background: 'rgba(0, 0, 0, 0)', fullIcon: 32, compactIcon: 32, fits: true });
+          assert.deepEqual(state, {
+            border: '0px',
+            background: 'rgba(0, 0, 0, 0)',
+            fullIcon: 32,
+            compactIcon: 32,
+            fits: true,
+          });
         }
       }
-      await page.setViewportSize({ width: 1654, height: 1000 });
+      await page.setViewportSize({width: 1654, height: 1000});
     });
 
     await t.test('form focus and errors survive the shared input cascade in both themes', async () => {
       for (const theme of ['light', 'dark']) {
-        await render(`<main class="soda-page"><form class="ui form soda-form">
+        await render(
+          `<main class="soda-page"><form class="ui form soda-form">
           <div class="field"><input id="normal"></div>
           <div class="field error"><input id="field-input"><textarea id="field-textarea"></textarea>
             <div id="field-dropdown" class="ui selection dropdown"></div></div>
           <input id="input-error" class="error"><textarea id="textarea-error" class="error"></textarea>
         </form><div id="native-error" style="border:1px solid var(--color-error-border)"></div>
-          <div id="focus-color" style="border:1px solid var(--soda-page-link)"></div></main>`, theme);
-        const borders = await page.evaluate(() => Object.fromEntries(
-          [...document.querySelectorAll('[id]')].map(el => [el.id, getComputedStyle(el).borderTopColor])));
+          <div id="focus-color" style="border:1px solid var(--soda-page-link)"></div></main>`,
+          theme
+        );
+        const borders = await page.evaluate(() =>
+          Object.fromEntries(
+            [...document.querySelectorAll('[id]')].map((el) => [el.id, getComputedStyle(el).borderTopColor])
+          )
+        );
         for (const id of ['field-input', 'field-textarea', 'field-dropdown', 'input-error', 'textarea-error']) {
           assert.equal(borders[id], borders['native-error'], `${theme}: ${id} must retain the native error border`);
         }
         assert.notEqual(borders.normal, borders['native-error']);
         await page.locator('#normal').focus();
-        assert.equal(await page.locator('#normal').evaluate(el => getComputedStyle(el).borderTopColor), borders['focus-color']);
+        assert.equal(
+          await page.locator('#normal').evaluate((el) => getComputedStyle(el).borderTopColor),
+          borders['focus-color']
+        );
         await page.locator('#field-input').focus();
-        assert.equal(await page.locator('#field-input').evaluate(el => getComputedStyle(el).borderTopColor), borders['native-error']);
+        assert.equal(
+          await page.locator('#field-input').evaluate((el) => getComputedStyle(el).borderTopColor),
+          borders['native-error']
+        );
       }
     });
 
     await t.test('repository toolbar aligns native control variants and joins clone edges', async () => {
-      for (const theme of ['light', 'dark']) for (const width of [1440, 960, 800, 720, 390, 320]) {
-        await page.setViewportSize({ width, height: 1000 });
-        await render(`<main class="soda-page soda-code"><div class="ui container soda-page-container"><div class="soda-repo-main">
+      for (const theme of ['light', 'dark'])
+        for (const width of [1440, 960, 800, 720, 390, 320]) {
+          await page.setViewportSize({width, height: 1000});
+          await render(
+            `<main class="soda-page soda-code"><div class="ui container soda-page-container"><div class="soda-repo-main">
           <div class="repo-button-row soda-toolbar"><div class="button-sequence">
             <div class="soda-code-ref-selector"><div class="ui dropdown custom"><button id="branch" class="branch-dropdown-button ui basic small compact button">main</button></div></div>
             <a id="new-pull-request" class="ui compact basic button">↗</a>
@@ -118,57 +168,110 @@ test('expanded components preserve native state and layout boundaries', { skip: 
             <input id="url" class="soda-code-clone-url" value="http://localhost:3300/alice/activity-workbench" readonly>
             <button id="copy" class="ui small icon button">⧉</button>
             <button id="more" class="ui small dropdown icon button">…</button><script type="application/json">{}</script>
-          </div></div></div></div></main>`, theme);
-        const controls = await page.locator('[id]').evaluateAll(els => els.map(el => ({id:el.id,height:el.getBoundingClientRect().height,top:getComputedStyle(el).borderTopRightRadius,left:getComputedStyle(el).borderTopLeftRadius})));
-        for (const c of controls) assert.equal(c.height,44,`${theme}/${width}: ${c.id}`);
-        for (const id of ['protocol','url','copy']) assert.equal(controls.find(c=>c.id===id)?.top,'0px');
-        assert.equal(controls.find(c=>c.id==='more')?.top,'0px');
-        assert.equal(controls.find(c=>c.id==='protocol')?.left,'0px');
-        if (width <= 1000) {
-          const rows = await page.evaluate(() => {
-            const toolbar = document.querySelector('.repo-button-row.soda-toolbar');
-            const tools = toolbar?.querySelector('.button-sequence');
-            const clone = toolbar?.querySelector('.clone-panel');
-            if (!toolbar || !tools || !clone) throw Error('Missing repository toolbar groups');
-            return {
-              toolbarWidth: toolbar.getBoundingClientRect().width,
-              cloneWidth: clone.getBoundingClientRect().width,
-              toolsBottom: tools.getBoundingClientRect().bottom,
-              cloneTop: clone.getBoundingClientRect().top,
-            };
-          });
-          assert.equal(rows.cloneWidth, rows.toolbarWidth, `${theme}/${width}: clone row width`);
-          assert(rows.cloneTop >= rows.toolsBottom, `${theme}/${width}: clone row placement`);
+          </div></div></div></div></main>`,
+            theme
+          );
+          const controls = await page.locator('[id]').evaluateAll((els) =>
+            els.map((el) => ({
+              id: el.id,
+              height: el.getBoundingClientRect().height,
+              top: getComputedStyle(el).borderTopRightRadius,
+              left: getComputedStyle(el).borderTopLeftRadius,
+            }))
+          );
+          for (const c of controls) assert.equal(c.height, 44, `${theme}/${width}: ${c.id}`);
+          for (const id of ['protocol', 'url', 'copy']) assert.equal(controls.find((c) => c.id === id)?.top, '0px');
+          assert.equal(controls.find((c) => c.id === 'more')?.top, '0px');
+          assert.equal(controls.find((c) => c.id === 'protocol')?.left, '0px');
+          if (width <= 1000) {
+            const rows = await page.evaluate(() => {
+              const toolbar = document.querySelector('.repo-button-row.soda-toolbar');
+              const tools = toolbar?.querySelector('.button-sequence');
+              const clone = toolbar?.querySelector('.clone-panel');
+              if (!toolbar || !tools || !clone) throw Error('Missing repository toolbar groups');
+              return {
+                toolbarWidth: toolbar.getBoundingClientRect().width,
+                cloneWidth: clone.getBoundingClientRect().width,
+                toolsBottom: tools.getBoundingClientRect().bottom,
+                cloneTop: clone.getBoundingClientRect().top,
+              };
+            });
+            assert.equal(rows.cloneWidth, rows.toolbarWidth, `${theme}/${width}: clone row width`);
+            assert(rows.cloneTop >= rows.toolsBottom, `${theme}/${width}: clone row placement`);
+          }
+          assert.equal(
+            await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+            false,
+            `${theme}/${width}: toolbar overflow`
+          );
         }
-        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth > innerWidth),false, `${theme}/${width}: toolbar overflow`);
-      }
-      await page.setViewportSize({width:1654,height:1000});
+      await page.setViewportSize({width: 1654, height: 1000});
     });
 
     await t.test('shared buttons use compact type and quiet secondary surfaces', async () => {
-      for (const theme of ['light','dark']) {
-        await render(`<main class="soda-page"><button id="basic-neutral" class="ui basic button">Add file</button><button id="neutral" class="ui button">Cancel</button><a id="secondary" class="button secondary" href="#">Add file</a><button id="primary" class="ui primary button">Save</button><button id="compact" class="ui compact button">Filter</button><div class="ui buttons"><button id="joined-first" class="ui button">One</button><button id="joined-last" class="ui button">Two</button></div><form class="ui form soda-p-form"><button id="form-save" class="primary button">Save profile</button></form></main>`, theme);
-        for (const id of ['basic-neutral','neutral','secondary','primary','form-save']) {
-          const style=await page.locator('#'+id).evaluate(el=>({height:el.getBoundingClientRect().height,radius:getComputedStyle(el).borderTopLeftRadius,font:getComputedStyle(el).fontSize}));
-          assert.equal(style.height,44);assert.equal(style.radius,'0px');assert.equal(style.font,'13px');
+      for (const theme of ['light', 'dark']) {
+        await render(
+          `<main class="soda-page"><button id="basic-neutral" class="ui basic button">Add file</button><button id="neutral" class="ui button">Cancel</button><a id="secondary" class="button secondary" href="#">Add file</a><button id="primary" class="ui primary button">Save</button><button id="compact" class="ui compact button">Filter</button><div class="ui buttons"><button id="joined-first" class="ui button">One</button><button id="joined-last" class="ui button">Two</button></div><form class="ui form soda-p-form"><button id="form-save" class="primary button">Save profile</button></form></main>`,
+          theme
+        );
+        for (const id of ['basic-neutral', 'neutral', 'secondary', 'primary', 'form-save']) {
+          const style = await page.locator('#' + id).evaluate((el) => ({
+            height: el.getBoundingClientRect().height,
+            radius: getComputedStyle(el).borderTopLeftRadius,
+            font: getComputedStyle(el).fontSize,
+          }));
+          assert.equal(style.height, 44);
+          assert.equal(style.radius, '0px');
+          assert.equal(style.font, '13px');
         }
-        assert.equal(await page.locator('#compact').evaluate(el=>el.getBoundingClientRect().height),44);
-        for (const id of ['neutral','basic-neutral']) assert.equal(await page.locator('#'+id).evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+        assert.equal(await page.locator('#compact').evaluate((el) => el.getBoundingClientRect().height), 44);
+        for (const id of ['neutral', 'basic-neutral'])
+          assert.equal(
+            await page.locator('#' + id).evaluate((el) => getComputedStyle(el).backgroundColor),
+            'rgba(0, 0, 0, 0)'
+          );
         await page.locator('#neutral').hover();
-        await page.waitForFunction(()=>{const neutral = document.querySelector('#neutral'); return neutral && getComputedStyle(neutral).backgroundColor!=='rgba(0, 0, 0, 0)';});
-        assert.equal(await page.locator('#joined-first').evaluate(el=>getComputedStyle(el).borderTopRightRadius),'0px');
-        assert.equal(await page.locator('#joined-last').evaluate(el=>getComputedStyle(el).borderTopLeftRadius),'0px');
+        await page.waitForFunction(() => {
+          const neutral = document.querySelector('#neutral');
+          return neutral && getComputedStyle(neutral).backgroundColor !== 'rgba(0, 0, 0, 0)';
+        });
+        assert.equal(
+          await page.locator('#joined-first').evaluate((el) => getComputedStyle(el).borderTopRightRadius),
+          '0px'
+        );
+        assert.equal(
+          await page.locator('#joined-last').evaluate((el) => getComputedStyle(el).borderTopLeftRadius),
+          '0px'
+        );
       }
     });
 
     await t.test('native size classes and adjoining inputs share the selected 44px size', async () => {
-      const variants=['ui mini button','ui tiny button','ui small compact button','ui basic button','button secondary','btn','ui icon button','soda-p-compact ui button','soda-icon-action'];
-      for (const theme of ['light','dark']) {
-        await render(`<main class="soda-page soda-settings-shell soda-settings">${variants.map((cls,i)=>`<button id="size-${i}" class="${cls}">Action</button>`).join('')}<form class="ui form soda-p-form"><input id="single-value"><div id="single-selection" class="ui selection dropdown"><span class="text">English</span></div></form><div class="ui labeled button"><button id="watch" class="ui tiny button">Watch</button><a id="counter" class="ui basic label">24</a></div></main>`,theme);
+      const variants = [
+        'ui mini button',
+        'ui tiny button',
+        'ui small compact button',
+        'ui basic button',
+        'button secondary',
+        'btn',
+        'ui icon button',
+        'soda-p-compact ui button',
+        'soda-icon-action',
+      ];
+      for (const theme of ['light', 'dark']) {
+        await render(
+          `<main class="soda-page soda-settings-shell soda-settings">${variants.map((cls, i) => `<button id="size-${i}" class="${cls}">Action</button>`).join('')}<form class="ui form soda-p-form"><input id="single-value"><div id="single-selection" class="ui selection dropdown"><span class="text">English</span></div></form><div class="ui labeled button"><button id="watch" class="ui tiny button">Watch</button><a id="counter" class="ui basic label">24</a></div></main>`,
+          theme
+        );
         for (const el of await page.locator('[id]').all()) {
-          assert.equal(await el.evaluate(e=>e.getBoundingClientRect().height),44,(await el.getAttribute('id')) ?? 'missing control ID');
+          assert.equal(
+            await el.evaluate((e) => e.getBoundingClientRect().height),
+            44,
+            (await el.getAttribute('id')) ?? 'missing control ID'
+          );
         }
-        for (const el of await page.locator('button').all()) assert.equal(await el.evaluate(e=>getComputedStyle(e).fontSize),'13px');
+        for (const el of await page.locator('button').all())
+          assert.equal(await el.evaluate((e) => getComputedStyle(e).fontSize), '13px');
       }
     });
 
@@ -178,8 +281,9 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         <table id="settings-table" class="ui attached segment"><tbody><tr><td>Notice</td></tr></tbody></table>
         <div id="settings-panel" class="ui attached segment">Panel</div>
       </section></main><table id="native-table" class="ui attached segment"><tbody><tr><td>Reference</td></tr></tbody></table>`);
-      const padding = await page.evaluate(() => Object.fromEntries(
-        [...document.querySelectorAll('[id]')].map(el => [el.id, getComputedStyle(el).paddingTop])));
+      const padding = await page.evaluate(() =>
+        Object.fromEntries([...document.querySelectorAll('[id]')].map((el) => [el.id, getComputedStyle(el).paddingTop]))
+      );
       assert.equal(padding['settings-table'], padding['native-table']);
       assert.equal(padding['settings-panel'], '0px');
     });
@@ -190,20 +294,26 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         <div id="fluid" class="ui container fluid padded">Native diff / blame canvas</div>
         <div id="pull-files" class="ui container fluid padded soda-pull-files-container">Pull files</div>
       </main>`);
-      const widths = await page.evaluate(() => Object.fromEntries(
-        [...document.querySelectorAll('[id]')].map(el => [el.id, el.getBoundingClientRect().width])));
+      const widths = await page.evaluate(() =>
+        Object.fromEntries(
+          [...document.querySelectorAll('[id]')].map((el) => [el.id, el.getBoundingClientRect().width])
+        )
+      );
       assert.equal(widths.ordinary, 1120);
       assert.equal(widths['pull-files'], 1440);
-      assert.equal(await page.locator('#pull-files').evaluate(el => el.getBoundingClientRect().left), (1654 - 1440) / 2);
+      assert.equal(
+        await page.locator('#pull-files').evaluate((el) => el.getBoundingClientRect().left),
+        (1654 - 1440) / 2
+      );
       assert(widths.fluid !== undefined);
       assert(widths.fluid > 1440, 'native fluid canvas must not inherit the ordinary content cap');
-      await page.setViewportSize({ width: 390, height: 844 });
+      await page.setViewportSize({width: 390, height: 844});
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-      await page.setViewportSize({ width: 1654, height: 1000 });
+      await page.setViewportSize({width: 1654, height: 1000});
     });
 
     await t.test('repository-context status pages bound native unit navigation at 390px', async () => {
-      await page.setViewportSize({ width: 390, height: 844 });
+      await page.setViewportSize({width: 390, height: 844});
       await render(`<main class="page-content ui repository soda-page soda-status">
         <div class="secondary-nav soda-page-marker soda-repository-header">
           <div class="ui container"><div class="repo-header"><div class="flex-item tw-items-center">
@@ -221,7 +331,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
           <h1 class="error-code">404</h1><p>The page you are trying to reach is unavailable.</p>
         </div>
       </main>`);
-      const bounds = await page.locator('#status-card').evaluate(card => ({
+      const bounds = await page.locator('#status-card').evaluate((card) => ({
         pageWidth: document.documentElement.scrollWidth,
         viewportWidth: innerWidth,
         cardLeft: card.getBoundingClientRect().left,
@@ -230,7 +340,7 @@ test('expanded components preserve native state and layout boundaries', { skip: 
       assert.equal(bounds.pageWidth, bounds.viewportWidth);
       assert(bounds.cardLeft >= 16, 'status card must retain its mobile gutter');
       assert(bounds.cardRight <= bounds.viewportWidth - 16 + 1, 'status card must remain inside the viewport');
-      await page.setViewportSize({ width: 1654, height: 1000 });
+      await page.setViewportSize({width: 1654, height: 1000});
     });
 
     await t.test('settings search, row and modal forms keep native control sizes', async () => {
@@ -240,15 +350,17 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         <div class="flex-item"><form class="ui form"><input id="row"></form></div>
         <dialog open><form class="ui form"><input id="modal"></form></dialog>
       </section></main><form class="ui form"><input id="native"></form>`);
-      const heights = await page.evaluate(() => Object.fromEntries(
-        [...document.querySelectorAll('input')].map(el => [el.id, getComputedStyle(el).minHeight])));
+      const heights = await page.evaluate(() =>
+        Object.fromEntries([...document.querySelectorAll('input')].map((el) => [el.id, getComputedStyle(el).minHeight]))
+      );
       assert.equal(heights.principal, '44px');
       for (const id of ['search', 'row', 'modal']) assert.equal(heights[id], heights.native, id);
     });
 
     await t.test('primary action colors preserve native button states in both themes', async () => {
       for (const theme of ['light', 'dark']) {
-        await render(`<main class="soda-page">
+        await render(
+          `<main class="soda-page">
           <div id="action-color" style="background:var(--soda-button-primary-bg)"></div>
           <div id="red-color" style="background:var(--color-red)"></div>
           <div id="green-color" style="background:var(--color-green)"></div>
@@ -266,26 +378,49 @@ test('expanded components preserve native state and layout boundaries', { skip: 
           <button id="red-primary" class="ui primary red tiny button">Delete</button>
           <button id="positive-primary" class="ui primary positive tiny button">Approve</button>
           <button id="basic-primary" class="ui primary basic tiny button">Basic</button>
-        </main>`, theme);
-        const states = await page.evaluate(() => Object.fromEntries(
-          [...document.querySelectorAll('[id]')].map(el => {
-            const style = getComputedStyle(el);
-            return [el.id, {
-              background: style.backgroundColor,
-              color: style.color,
-              cursor: style.cursor,
-              fontSize: style.fontSize,
-              opacity: style.opacity,
-              paddingBlock: `${style.paddingTop} ${style.paddingBottom}`,
-              pointerEvents: style.pointerEvents,
-            }];
-          })));
-        for (const id of ['settings-primary', 'form-primary', 'repository-primary', 'tiny-primary', 'disabled-primary', 'loading-primary']) {
+        </main>`,
+          theme
+        );
+        const states = await page.evaluate(() =>
+          Object.fromEntries(
+            [...document.querySelectorAll('[id]')].map((el) => {
+              const style = getComputedStyle(el);
+              return [
+                el.id,
+                {
+                  background: style.backgroundColor,
+                  color: style.color,
+                  cursor: style.cursor,
+                  fontSize: style.fontSize,
+                  opacity: style.opacity,
+                  paddingBlock: `${style.paddingTop} ${style.paddingBottom}`,
+                  pointerEvents: style.pointerEvents,
+                },
+              ];
+            })
+          )
+        );
+        for (const id of [
+          'settings-primary',
+          'form-primary',
+          'repository-primary',
+          'tiny-primary',
+          'disabled-primary',
+          'loading-primary',
+        ]) {
           assert(states[id] && states['action-color']);
-          assert.equal(states[id].background, states['action-color'].background, `${theme}: ${id} must use the filled primary`);
+          assert.equal(
+            states[id].background,
+            states['action-color'].background,
+            `${theme}: ${id} must use the filled primary`
+          );
         }
         assert(states['anchor-primary'] && states['form-primary']);
-        assert.equal(states['anchor-primary'].color, states['form-primary'].color, 'primary anchor text remains legible');
+        assert.equal(
+          states['anchor-primary'].color,
+          states['form-primary'].color,
+          'primary anchor text remains legible'
+        );
         assert(states['anchor-primary']);
         assert.notEqual(states['anchor-primary'].color, states['anchor-primary'].background);
         assert(states['tiny-primary'] && states['tiny-native']);
@@ -320,14 +455,17 @@ test('expanded components preserve native state and layout boundaries', { skip: 
         <div id="profile-surface" style="background:var(--soda-page-surface)"></div>
         <div id="profile-action" style="background:var(--soda-button-primary-bg)"></div>
       </div>`);
-      const colors = await page.evaluate(() => Object.fromEntries(
-        [...document.querySelectorAll('[id]')].map(el => [el.id, getComputedStyle(el).backgroundColor])));
+      const colors = await page.evaluate(() =>
+        Object.fromEntries(
+          [...document.querySelectorAll('[id]')].map((el) => [el.id, getComputedStyle(el).backgroundColor])
+        )
+      );
       assert.equal(colors['profile-avatar-card'], 'rgba(0, 0, 0, 0)');
       assert.equal(colors['shared-follow'], colors['profile-action']);
     });
 
     await t.test('package cleanup preview contains a wide native table at 390px', async () => {
-      await page.setViewportSize({ width: 390, height: 844 });
+      await page.setViewportSize({width: 390, height: 844});
       await render(`<main class="soda-page soda-packages"><div class="ui container soda-page-container">
         <section class="soda-package-section soda-package-cleanup-preview">
           <h4 class="ui top attached header soda-package-section-heading">Cleanup preview</h4>
@@ -340,30 +478,33 @@ test('expanded components preserve native state and layout boundaries', { skip: 
             </tr></tbody></table>
           </div>
         </section></div></main>`);
-      const before = await page.locator('#preview').evaluate(wrapper => {
+      const before = await page.locator('#preview').evaluate((wrapper) => {
         const last = wrapper.querySelector('#last-cell');
         if (!last) throw Error('Missing last table cell');
-        return ({
-        clientWidth: wrapper.clientWidth,
-        scrollWidth: wrapper.scrollWidth,
-        pageOverflow: document.documentElement.scrollWidth > innerWidth,
-        lastRight: last.getBoundingClientRect().right,
-        wrapperRight: wrapper.getBoundingClientRect().right,
-      });});
+        return {
+          clientWidth: wrapper.clientWidth,
+          scrollWidth: wrapper.scrollWidth,
+          pageOverflow: document.documentElement.scrollWidth > innerWidth,
+          lastRight: last.getBoundingClientRect().right,
+          wrapperRight: wrapper.getBoundingClientRect().right,
+        };
+      });
       assert.equal(before.pageOverflow, false);
       assert(before.scrollWidth > before.clientWidth, 'native cleanup table must overflow its bounded wrapper');
       assert(before.lastRight > before.wrapperRight, 'the final native column should initially be beyond the viewport');
-      const after = await page.locator('#preview').evaluate(wrapper => {
+      const after = await page.locator('#preview').evaluate((wrapper) => {
         wrapper.scrollLeft = wrapper.scrollWidth;
         const cell = wrapper.querySelector('#last-cell');
         if (!cell) throw Error('Missing last table cell');
         const last = cell.getBoundingClientRect();
         const bounds = wrapper.getBoundingClientRect();
-        return { scrollLeft: wrapper.scrollLeft, lastRight: last.right, wrapperRight: bounds.right };
+        return {scrollLeft: wrapper.scrollLeft, lastRight: last.right, wrapperRight: bounds.right};
       });
       assert(after.scrollLeft > 0, 'cleanup preview must accept horizontal scrolling');
       assert(after.lastRight <= after.wrapperRight + 1, 'the final native column must be reachable');
-      await page.setViewportSize({ width: 1654, height: 1000 });
+      await page.setViewportSize({width: 1654, height: 1000});
     });
-  } finally { await browser.close(); }
+  } finally {
+    await browser.close();
+  }
 });
