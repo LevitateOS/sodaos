@@ -30,7 +30,9 @@ def fetch(arch, out):
     if arch != 'x86_64':
         raise ValueError('Tea staging supports x86_64 only')
     machine = 62
-    if out.exists() or out.is_symlink():
+    binary = out / 'bin/tea'
+    license_file = out / 'licenses/tea/LICENSE'
+    if binary.exists() or binary.is_symlink() or license_file.exists() or license_file.is_symlink():
         raise ValueError('Tea output already exists; select a fresh output directory')
     tag = latest_tag()
     version = tag[1:]
@@ -51,9 +53,8 @@ def fetch(arch, out):
     license_body = download(f'https://gitea.com/gitea/tea/raw/tag/{tag}/LICENSE', 1_000_000)
     if not license_body:
         raise ValueError('Tea license download is empty')
-    out.mkdir(parents=True, exist_ok=False)
-    (out / 'bin').mkdir()
-    binary = out / 'bin/tea'
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'bin').mkdir(exist_ok=True)
     binary.write_bytes(body)
     binary.chmod(0o755)
     license_dir = out / 'licenses/tea'

@@ -110,15 +110,31 @@ class ProjectTools(unittest.TestCase):
             self.fetch('x86_64')
         self.assertFalse(self.out.exists())
 
-    def test_existing_output_is_preserved(self):
-        self.out.mkdir()
-        existing = self.out / 'retained'
-        existing.write_bytes(b'keep')
-        with patch.object(self.module.urllib.request, 'urlopen') as download:
-            with self.assertRaisesRegex(ValueError, 'output already exists'):
-                self.module.fetch('x86_64', self.out)
-            download.assert_not_called()
-        self.assertEqual(existing.read_bytes(), b'keep')
+    def test_shared_output_dir_stages_alongside_existing_files(self):
+        out = self.out / 'x86_64'
+        (out / 'bin').mkdir(parents=True)
+        retained = out / 'bin/soda-host'
+        retained.write_bytes(b'keep')
+        self.fetch('x86_64')
+        self.assertEqual((out / 'bin/tea').read_bytes(), self.bodies['x86_64'])
+        self.assertEqual((out / 'licenses/tea/LICENSE').read_bytes(), self.license)
+        self.assertEqual(retained.read_bytes(), b'keep')
+
+    def test_existing_tea_outputs_are_refused_without_fetch(self):
+        for index, sentinel in enumerate(('bin/tea', 'licenses/tea/LICENSE')):
+            with self.subTest(sentinel=sentinel):
+                out = self.root / f'occupied-{index}'
+                target = out / sentinel
+                target.parent.mkdir(parents=True)
+                target.write_bytes(b'keep')
+                with patch.object(self.module.urllib.request, 'urlopen') as download:
+                    with self.assertRaisesRegex(ValueError, 'output already exists'):
+                        self.module.fetch('x86_64', out)
+                    download.assert_not_called()
+                self.assertEqual(target.read_bytes(), b'keep')
+                for child in sorted(out.rglob('*')):
+                    if child != target and child.is_file():
+                        self.fail(f'staged beside refused output: {child}')
 
     def test_network_failure_leaves_no_stage(self):
         out = self.out / 'x86_64'

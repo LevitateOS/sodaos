@@ -180,10 +180,8 @@ func (p Production) assetSteps(stage []string) error {
 	}
 	steps = append(steps,
 		assetStep{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
-		// Tea first: fetch-tea.py refuses a pre-existing project-tools dir,
-		// while the Muse fetch is idempotent and stages into it.
-		assetStep{"Fetch upstream Tea binary", []string{"python3", "scripts/fetch-tea.py", "--arch", p.Arch}},
 		assetStep{"Fetch upstream Muse binary", []string{"go", "run", "./tools/soda-fetch-muse", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools/bin/muse-native")}},
+		assetStep{"Fetch upstream Tea binary", []string{"python3", "scripts/fetch-tea.py", "--arch", p.Arch}},
 		assetStep{"Stage appliance files", stage},
 	)
 	for _, s := range steps {
