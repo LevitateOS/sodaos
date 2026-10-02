@@ -9,12 +9,10 @@ import (
 )
 
 func inspectELF(path, arch string) error {
-	want := elf.EM_X86_64
-	if arch == "aarch64" {
-		want = elf.EM_AARCH64
-	} else if arch != "x86_64" {
+	if arch != "x86_64" {
 		return errors.New("unknown native architecture")
 	}
+	want := elf.EM_X86_64
 	f, err := elf.Open(path)
 	if err != nil {
 		return err
@@ -25,6 +23,7 @@ func inspectELF(path, arch string) error {
 	}
 	return nil
 }
+
 func inspectBinaries(root, arch string, files map[string]File) error {
 	for name, entry := range files {
 		if entry.Directory || entry.Link != "" {

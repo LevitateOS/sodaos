@@ -8,24 +8,24 @@ import (
 
 func TestCoreOSISOResolvesLiveTriple(t *testing.T) {
 	streamFixtureServer(t, fixtureStreamDoc(t, nil), fixtureIndexDoc(t, nil), 200)
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		release, img, err := ResolveCoreOSISO(context.Background(), arch)
-		if err != nil || release != "44.20260901.1.0" || img.SHA256 != strings.Repeat("a", 64) {
-			t.Fatal("missing resolved ISO input", err)
-		}
-		if !strings.HasSuffix(img.URL, ".iso") || img.SignatureURL != img.URL+".sig" {
-			t.Fatalf("resolved ISO triple malformed: %+v", img)
-		}
-		_, qemu, err := ResolveCoreOSQEMU(context.Background(), arch)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if qemu.URL == img.URL {
-			t.Fatal("QEMU image admitted as ISO")
-		}
+	release, img, err := ResolveCoreOSISO(context.Background(), "x86_64")
+	if err != nil || release != "44.20260901.1.0" || img.SHA256 != strings.Repeat("a", 64) {
+		t.Fatal("missing resolved ISO input", err)
 	}
-	if _, _, err := ResolveCoreOSISO(context.Background(), "riscv64"); err == nil {
-		t.Fatal("unknown architecture admitted")
+	if !strings.HasSuffix(img.URL, ".iso") || img.SignatureURL != img.URL+".sig" {
+		t.Fatalf("resolved ISO triple malformed: %+v", img)
+	}
+	_, qemu, err := ResolveCoreOSQEMU(context.Background(), "x86_64")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if qemu.URL == img.URL {
+		t.Fatal("QEMU image admitted as ISO")
+	}
+	for _, arch := range []string{"aarch64", "riscv64"} {
+		if _, _, err := ResolveCoreOSISO(context.Background(), arch); err == nil {
+			t.Fatalf("unsupported architecture admitted: %s", arch)
+		}
 	}
 }
 

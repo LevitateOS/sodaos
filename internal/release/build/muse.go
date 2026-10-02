@@ -63,7 +63,7 @@ func loadMuseRelease(manifest, arch string) (museRelease, museArtifact, error) {
 }
 
 func validMuseArtifact(version, arch string, artifact museArtifact) bool {
-	expected := map[string]string{"x86_64": "muse-x86-linux", "aarch64": "muse-aarch64-linux"}[arch]
+	expected := map[string]string{"x86_64": "muse-x86-linux"}[arch]
 	return artifact.File == expected && Digest(artifact.SHA256) && artifact.Size > 0 && regexp.MustCompile(`^\d+\.\d+\.\d+-R\d+\.\d+$`).MatchString(version)
 }
 

@@ -59,8 +59,8 @@ implementation sequence. Existing interface behavior remains in the references.
 | Private LAN access, project IPs and native service ports | Retain | A factory still needs reachable development services and human access. An observed address is not proof of a working route. [Networking](../architecture/networking.md). |
 | Caddy/private HTTPS and client trust setup | Retain | Keep one configured native browser origin, local or supplied certificates and explicit client trust. Baseline use requires no purchased domain or public hosting. [Operator setup](../guides/operator-setup.md). |
 | Optional host Tailnet and project companions | Adapt | Preserve operator policy and project-scoped enrollment through native extension controls. Keep opt-in behavior and separate device identities; factory readiness must not require Tailscale where LAN connectivity suffices. [Tailnet model](../architecture/networking.md#tailnet-model). |
-| Native Forgejo CI with separately managed capacity | Retain | Required checks must run and identify the candidate commit. Soda observes Actions; coding/review agents are not CI runners. [Runners](../reference/runners.md). |
-| Soda-provisioned local CI execution and Runner OS | Defer | Keep the isolated-job requirement. Complete the first factory using separately managed Actions capacity; do not restore shared host-account execution to obtain local capacity. [Runner boundary](../reference/runners.md#deferred-execution-boundary). |
+| Native Forgejo CI with separately managed capacity | Retain | Required checks must run and identify the candidate commit. Soda observes Actions; coding/review agents are not CI runners. [CI runners](../public/30-Use-Soda/50-ci-runners.md). |
+| Soda-provisioned local CI execution and Runner OS | Defer | Keep the isolated-job requirement. Complete the first factory using separately managed Actions capacity; do not restore shared host-account execution to obtain local capacity. |
 | Operator bootstrap, appliance identity and privileged helper | Retain | Keep explicit setup, the configured operator boundary, restricted secret inputs and fixed privileged operations. Factory sponsorship is a separate authority decision. [Trust](../architecture/trust.md). |
 | Stock Cockpit and host diagnosis/recovery | Retain | Keep native host administration under operator access, including logs, storage, networking and services. [Cockpit](../development/cockpit.md). |
 | Soda branding, avatars and console guidance | Retain | Preserve the existing presentation and attribution through supported host/extension mechanisms. These do not justify a separate Soda shell or login system. [Branding](../design/branding.md). |
@@ -76,11 +76,10 @@ implementation sequence. Existing interface behavior remains in the references.
   per issue, mandatory human merge, fixed one-repair policy and a fresh disposable
   container for every stage. Useful operator actions may address the same current
   factory; they must not preserve a second execution engine or legacy format.
-- **Shared host-account runner execution and experimental compatibility:** retire
-  remaining obsolete artifacts and callers with their replacement or removal.
+- **Shared host-account runner execution and experimental compatibility:** retired.
+  Obsolete artifacts and callers were removed with their replacement or removal.
   Any real experimental resource cleanup is explicit maintenance, not a permanent
-  alternative CI subsystem. The existing cleanup behavior remains described
-  by the runner reference until it is removed.
+  alternative CI subsystem.
 - **Superseded presentation and forge patches:** retire the standalone Soda
   dashboard/login shell, custom Cockpit project pages and Soda-specific copies or
   patches of native Forgejo behavior superseded by Fountain's generic extension

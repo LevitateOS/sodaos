@@ -16,13 +16,10 @@ import (
 )
 
 func OCIArchitecture(arch string) (string, error) {
-	switch arch {
-	case "x86_64":
+	if arch == "x86_64" {
 		return "amd64", nil
-	case "aarch64":
-		return "arm64", nil
 	}
-	return "", errors.New("expected x86_64 or aarch64")
+	return "", errors.New("expected x86_64")
 }
 
 func RequireNative(arch string) error {

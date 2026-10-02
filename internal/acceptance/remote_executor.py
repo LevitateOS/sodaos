@@ -24,11 +24,7 @@ def phase_request():
         raise ValueError('request values must be strings')
     if not re.fullmatch('[0-9a-f]{40}', x['Revision']):
         raise ValueError('full revision required')
-    if (
-        x['Architecture'] not in ('x86_64', 'aarch64')
-        or platform.system() != 'Linux'
-        or platform.machine() != x['Architecture']
-    ):
+    if x['Architecture'] != 'x86_64' or platform.system() != 'Linux' or platform.machine() != x['Architecture']:
         raise ValueError('matching-native Linux required')
     if platform.node() != x['Target']:
         raise ValueError('actual native hostname does not match target')

@@ -10,7 +10,7 @@ import struct
 from pathlib import Path
 
 p = argparse.ArgumentParser()
-p.add_argument('--arch', choices=['x86_64', 'aarch64'], required=True)
+p.add_argument('--arch', choices=['x86_64'], required=True)
 p.add_argument('--host-context', type=Path)
 p.add_argument('--forgejo-context', type=Path)
 a = p.parse_args()

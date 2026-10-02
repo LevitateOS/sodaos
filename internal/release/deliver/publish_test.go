@@ -237,7 +237,7 @@ func TestFetchAdvancesObservedAuthorityEvenWhenImageUnavailable(t *testing.T) {
 	require.Zero(t, f.writes)
 	require.NoFileExists(t, filepath.Join(root, "fetch/verified.json"))
 	// A different architecture is an honest unavailable result, never fallback.
-	require.ErrorContains(t, Fetch(t.Context(), f, tr, "candidate", "aarch64", state, filepath.Join(root, "arm"), time.Now()), "architecture unavailable")
+	require.ErrorContains(t, Fetch(t.Context(), f, tr, "candidate", "aarch64", state, filepath.Join(root, "arm"), time.Now()), "expected x86_64")
 }
 
 func completeRegistry(t *testing.T, root string, tr Trust) (*registryDouble, string, string, Channel) {

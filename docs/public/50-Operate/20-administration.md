@@ -46,8 +46,7 @@ tailscale status
 ss -lntp
 ```
 
-Projects use `soda-project@PROJECT_ID.service`; runners use
-`soda-runner@RUNNER_ID.service`. Substitute verified existing IDs. Use Cockpit
+Projects use `soda-project@PROJECT_ID.service`. Substitute verified existing IDs. Use Cockpit
 Logs or a bounded `journalctl -u UNIT -n 100 --no-pager` for the affected unit.
 Logs can contain sensitive data: inspect privately and redact before sharing.
 Do not dump full container inspection, process environments or credential files.
@@ -59,7 +58,7 @@ appliance Podman socket to bypass a failed operation.
 ## Capacity and persistence
 
 Use native metrics and storage inspection to understand CPU, memory, disk and
-I/O pressure. Coordinate shared workloads and runner slots against actual
+I/O pressure. Coordinate shared workloads and CI capacity against actual
 capacity. Inspect caches and data with their owners before removal; project
 writable roots are data, not disposable container cache.
 

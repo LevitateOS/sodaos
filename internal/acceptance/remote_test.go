@@ -172,17 +172,15 @@ func TestFixtureTrustIsKnownBeforeBoot(t *testing.T) {
 }
 
 func TestVMArgumentsRetainDiskAndNativeIsolation(t *testing.T) {
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		c := VMConfig{Name: "soda-native-fixture", Architecture: arch, Work: "/private/owned", Ignition: "/private/input.ign", Firmware: "/firmware/code", SSH: Remote{Port: 22222}}
-		args := strings.Join(c.args(), " ")
-		for _, s := range []string{"accel=kvm", "-cpu host", "hostfwd=tcp:127.0.0.1:22222-:22", "/private/owned/disk.qcow2", "/private/owned/vars.fd", "opt/com.coreos/config"} {
-			if !strings.Contains(args, s) {
-				t.Fatal(args)
-			}
-		}
-		if strings.Contains(args, "-daemonize") || strings.Contains(args, "tap,") {
+	c := VMConfig{Name: "soda-native-fixture", Architecture: "x86_64", Work: "/private/owned", Ignition: "/private/input.ign", Firmware: "/firmware/code", SSH: Remote{Port: 22222}}
+	args := strings.Join(c.args(), " ")
+	for _, s := range []string{"-machine q35,accel=kvm", "accel=kvm", "-cpu host", "hostfwd=tcp:127.0.0.1:22222-:22", "/private/owned/disk.qcow2", "/private/owned/vars.fd", "opt/com.coreos/config"} {
+		if !strings.Contains(args, s) {
 			t.Fatal(args)
 		}
+	}
+	if strings.Contains(args, "-daemonize") || strings.Contains(args, "tap,") {
+		t.Fatal(args)
 	}
 }
 

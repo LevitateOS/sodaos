@@ -426,9 +426,8 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 
 Shell/PAM checks require `SODA_NATIVE_VALIDATE` equal to the actual host. Browser checks use a fresh profile below a restricted browser home, retain it privately, and never bypass TLS. Native provider CLI package/version evidence is included in build metadata; personal authentication remains product validation.
 
-Local runner execution is [unavailable](../reference/runners.md). Existing-state
-observation and Stop/Remove use the Fountain-hosted **Runners** extension page
-and the root `soda-runners` stdin protocol. Historical installed runner execution
+Local runner execution is unavailable. No runner observation, Stop/Remove,
+or `soda-runners` control protocol ships. Historical installed runner execution
 receipts and their optional drivers do not qualify the current deferred feature.
 Never dump runner credentials, container environments or entire provider responses.
 

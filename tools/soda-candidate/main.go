@@ -53,7 +53,7 @@ func parseOptions(args []string) (options, error) {
 	fs := flag.NewFlagSet("soda-candidate", flag.ContinueOnError)
 	fs.StringVar(&o.controller, "controller", "", "admitted soda-build executable (asked when empty)")
 	fs.StringVar(&o.workerConfig, "worker-config", "", "restricted worker configuration (asked when empty)")
-	fs.StringVar(&o.arch, "arch", native, "matching native x86_64 or aarch64")
+	fs.StringVar(&o.arch, "arch", native, "matching native x86_64")
 	fs.StringVar(&o.out, "out", "", "fresh output below .artifacts/releases (asked when empty)")
 	fs.StringVar(&o.mode, "mode", "", "candidate or media (asked when empty)")
 	fs.StringVar(&o.compression, "media-compression", "", "fast: development media only")
@@ -81,21 +81,17 @@ func validateModeFlag(mode string) error {
 }
 
 func validateArchFlag(arch string) error {
-	if arch != "x86_64" && arch != "aarch64" {
-		return errors.New("matching native x86_64 or aarch64 required")
+	if arch != "x86_64" {
+		return errors.New("matching native x86_64 required")
 	}
 	return nil
 }
 
 func nativeArch() (string, error) {
-	switch runtime.GOARCH {
-	case "amd64":
+	if runtime.GOARCH == "amd64" {
 		return "x86_64", nil
-	case "arm64":
-		return "aarch64", nil
-	default:
-		return "", fmt.Errorf("unsupported native %s: build requires matching x86_64 or aarch64", runtime.GOARCH)
 	}
+	return "", fmt.Errorf("unsupported native %s: build requires matching x86_64", runtime.GOARCH)
 }
 
 // validateResolved checks the final answers in the controller's own

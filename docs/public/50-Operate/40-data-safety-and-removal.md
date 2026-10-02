@@ -46,17 +46,12 @@ Forgejo disablement, project SSH keys/sessions, external Git credentials and
 Tailnet policy have distinct native owners. Removing one does not automatically
 remove the others or safely hand over project administration.
 
-## Repository and runner deletion
+## Repository deletion
 
 Forgejo owns repository deletion and its native safeguards. Deleting a Git
 repository does not delete or back up an associated Soda environment. Likewise,
 removing a local checkout does not revoke the remote account or its keys.
 Coordinate linked repository ownership/destructive changes with the operator.
-
-The [Runners page](../30-Use-Soda/50-ci-runners.md#remove-or-replace-a-runner) has
-an explicit local removal operation. It destroys the selected runner's local
-account/work state; the provider's record and history require separate review.
-Preserve any needed job files before confirming it.
 
 ## After unexpected loss or a partial failure
 

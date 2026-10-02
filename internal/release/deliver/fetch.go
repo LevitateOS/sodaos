@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -100,7 +101,17 @@ func fetchDocument(ctx context.Context, r Runner, t Trust, ref, out string, v an
 
 func resolveVerificationArchitectures(c Channel, arch string) ([]string, error) {
 	if arch == "" {
-		return []string{"x86_64", "aarch64"}, nil
+		// Promotion verifies every advertised architecture; an
+		// unsupported advertisement refuses the whole offer.
+		arches := make([]string, 0, len(c.Releases))
+		for a := range c.Releases {
+			if _, err := build.OCIArchitecture(a); err != nil {
+				return nil, err
+			}
+			arches = append(arches, a)
+		}
+		sort.Strings(arches)
+		return arches, nil
 	}
 	if _, err := build.OCIArchitecture(arch); err != nil {
 		return nil, err

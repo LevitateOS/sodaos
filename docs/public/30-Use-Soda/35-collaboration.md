@@ -56,10 +56,9 @@ Use Actions to inspect workflows, runs and checks. Follow the native provider
 links for job logs, artifacts or run controls presented there. Forgejo owns its
 scheduling and results; GitHub owns those for GitHub-hosted repositories.
 
-Starting a local listener does not mean a job passed. The host operator manages
-[local runner capacity](50-ci-runners.md) separately in Cockpit. Keep workflow
+Starting a local listener does not mean a job passed. Keep workflow
 labels aligned with the registered provider labels, and only run trusted code
-on the team's local runner capacity.
+on the team's [provider capacity](50-ci-runners.md).
 
 ## Releases, wiki and packages
 

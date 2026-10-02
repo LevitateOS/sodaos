@@ -44,7 +44,6 @@ command workflow. Spaces connects repository environments with human and factory
 | [Credentials](reference/credentials.md) | Provider connections, grants and credential custody |
 | [Project OS](reference/project-os.md) | Project runtime baseline contracts |
 | [Factory](reference/factory.md) | Existing bounded software-work operator interface |
-| [Runners](reference/runners.md) | Local CI runner capacity contracts |
 | [Terminal](reference/terminal.md) | Managed terminal and WebSocket contracts |
 | [Forgejo customization](reference/forgejo.md) | Supported Forgejo presentation integration |
 | [Configuration](reference/configuration.md) | Dashboard config fields and paths |

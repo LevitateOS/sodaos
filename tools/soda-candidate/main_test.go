@@ -15,6 +15,17 @@ import (
 	"time"
 )
 
+func TestValidateArchFlagAdmitsOnlyX8664(t *testing.T) {
+	if err := validateArchFlag("x86_64"); err != nil {
+		t.Fatal(err)
+	}
+	for _, arch := range []string{"", "aarch64", "amd64", "arm64"} {
+		if err := validateArchFlag(arch); err == nil {
+			t.Fatalf("unsupported arch admitted: %q", arch)
+		}
+	}
+}
+
 func TestParseControllerEvents(t *testing.T) {
 	e, ok := parseEvent("START P1 / Build runtime")
 	if !ok || e.kind != "START" || e.label != "P1 / Build runtime" {

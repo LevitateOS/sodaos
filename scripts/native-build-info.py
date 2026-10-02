@@ -138,7 +138,7 @@ def collect(root, arch, revision):
 
 if __name__ == '__main__':
     p = argparse.ArgumentParser()
-    p.add_argument('--arch', choices=('x86_64', 'aarch64'), required=True)
+    p.add_argument('--arch', choices=('x86_64',), required=True)
     p.add_argument('--revision', required=True)
     args = p.parse_args()
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(143))

@@ -3,7 +3,7 @@
 Navigate as **package + concern file**. A package owns one job you can say in
 one sentence. `internal/` is a shallow domain hierarchy: top-level names are
 major Soda concepts (`project`, `host`, `web`, `release`, `tailnet`,
-`runners`, `store`, `forgejo`, `installer`); subpackages are genuine
+`store`, `forgejo`, `installer`); subpackages are genuine
 subordinate boundaries (`host/project`, `web/api`, `release/deliver`).
 Appliance entrypoints live in `cmd/`; support tools live in `tools/`. This
 guide owns Go package placement and house style. Product/security boundaries
@@ -22,7 +22,7 @@ remain in [architecture](../architecture/overview.md).
 | Codex app-server protocol | `identity/codex` — verified CLI protocol and private credential files |
 | Trusted broker Unix transport | `identity/client` — service callers only; never mounted in workspaces |
 | Native extension identity / profile / me keys | `web/auth` |
-| Product HTTP/WS (environments, spaces, factory views, terminal, lifecycle, runners, tailnet settings, pages) | `web/api` |
+| Product HTTP/WS (environments, spaces, factory views, terminal, lifecycle, tailnet settings, pages) | `web/api` |
 | Dashboard mux root, namespace gate, `web.New` wiring only | `web` (`Server` wires `Auth` + `API`; no handlers, no aliases) |
 | Unix client + thin daemon mux/admission | `host` (`client.go`, `daemon.go`; decode straight into `project` types — no translators) |
 | Privileged project env (create/inspect/lifecycle/keys/profiles/os) | `host/project` (package `project`; executes on domain `project` types) |
@@ -32,7 +32,6 @@ remain in [architecture](../architecture/overview.md).
 | Tailnet companion container runtime | `host/tailnet` (package `tailnet`) |
 | Install phase on Linux | `installer/<phase>_linux.go` |
 | Build-time installed path consts | `platform` (`legacy.go` / `vendor.go` build-tag pair) |
-| Runner composition + native operator identity | `runners` (`operator.go`) |
 | Release build primitives / image assembly / delivery | `release/build`, `release/image`, `release/deliver` |
 | Domain policy / Forgejo client / SQLite | `tailnet` / `forgejo` / `store` |
 
@@ -76,7 +75,7 @@ and alias the executor import at the facade (`projectexec`,
 concrete product concern (`lifecycle.go`, `enrollment.go`,
 `control.go`). Ban new `helpers.go`, `utils.go`, or vague
 `management.go`. Matching concern names across layers (`terminal.go`,
-`runners.go`, `lifecycle.go`) are intentional. Never resurrect a retired
+`lifecycle.go`) are intentional. Never resurrect a retired
 top-level package path (`internal/projectos`, `internal/linuxhost`,
 `internal/installlayout`, `internal/webapp`, `internal/webauth`,
 `internal/nativebuild`, `internal/nativequalification`,
@@ -112,7 +111,6 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `release/build` | Shared build primitives | Qualify/sign/install UX | `production.go`, `oci.go` |
 | `release/deliver` | Payload model, signing, publication | Building images | `payload.go`, `publish.go`, `finalize.go` |
 | `release/image` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
-| `runners` | Local CI runner composition + operator identity | Forgejo Actions UI | `model.go`, `native.go`, `operator.go` |
 | `store` | SQLite schema + row ops, including the factory run/command ledger | HTTP, host execute | `store.go`, `schema.go`, `factory.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
@@ -166,7 +164,6 @@ API is required by this placement.
 | Project | `project` (types + validation) | `host/project` | `web/api` (+ thin `host` daemon routes) |
 | Tailnet | `tailnet` | `host/tailnet` | `web/api` (+ thin `host` daemon routes) |
 | Terminal | access/lifetime in `web/api` + store | `host/terminal` | `web/api` |
-| Runners | `runners` incl. `operator.go` | runner cmds via `host` daemon routes | `web/api` |
 
 ## Release debug map
 
@@ -221,7 +218,7 @@ library root. Own them with Forgejo UI docs; do not treat them as `internal/`.
 Hexagonal/ports-everywhere, ORM/sqlc mandate, re-litigating the `release/`,
 `host/`, `web/` hierarchies, interface DI graphs, repository wrappers around
 `*Store`, micro-packages (`pages`, `forgejo_keys`, `hostd`), splitting
-`tailnet`/`runners`/`store`, dual shims for old god method sets, and rewriting
+`tailnet`/`store`, dual shims for old god method sets, and rewriting
 `scripts/` into `internal/`.
 
 ## Enforcement

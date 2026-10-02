@@ -26,7 +26,7 @@ Soda development-access public keys.
 
 Cockpit listens on all interfaces and is root/operator-only. Do not silently expose host
 administration or development services publicly. Stock Cockpit administration and
-its private security boundary remain even when Tailnet or Runners controls move into
+its private security boundary remain even when Tailnet controls move into
 native Soda operator settings.
 
 ## Tailnet model
@@ -53,5 +53,4 @@ API surface: [HTTP API](../reference/api.md).
 
 Forgejo owns CI workflows, registration authority, scheduling and results. The
 factory uses separately managed Actions capacity; Soda-provisioned local execution
-is deferred. Existing local observation and cleanup do not establish usable CI
-capacity. See [Runners](../reference/runners.md).
+is deferred and no local observation or cleanup controls ship.

@@ -40,9 +40,8 @@ dashboard route are removed as part of the native cutover.
 | Native Actions settings | Forgejo CI configuration and separately managed capacity; local Soda execution is deferred |
 | Operator Tailnet settings | Host Tailnet controls and enrollment policy |
 
-Forgejo retains Actions settings, scheduling and permissions. Existing Soda runner
-observation and cleanup controls are described in the
-[runner reference](../reference/runners.md); the
+Forgejo retains Actions settings, scheduling and permissions. No Soda runner
+observation or cleanup controls ship; the
 [feature disposition](scope.md#feature-disposition) owns future local capacity scope.
 
 ## Sessions and views
@@ -108,7 +107,7 @@ Wire contracts live in [Terminal](../reference/terminal.md) and [HTTP API](../re
 | --- | --- |
 | Project profile / Spaces creation | Repository settings |
 | Factory policy and intervention | Repository administration and work context under the [factory authority rules](../architecture/trust.md#factory-authority-boundary); detailed control placement remains to be designed |
-| Local Sodarunners capacity | Deferred; existing observation/cleanup controls are documented in the [runner reference](../reference/runners.md) |
+| Local Sodarunners capacity | Deferred; no local observation or cleanup controls ship |
 | Host Tailnet and enrollment policy | Global Soda-operator settings |
 
 ## Integration boundary

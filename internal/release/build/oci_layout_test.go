@@ -27,6 +27,7 @@ func layoutFixture(t *testing.T) (string, map[string]string) {
 	}
 	return layout, revisions
 }
+
 func TestSharedOCILayoutPreservesIdentitiesAndCountsBlobsOnce(t *testing.T) {
 	dir, revisions := layoutFixture(t)
 	got, err := build.InspectOCILayout(dir, "x86_64", revisions)
@@ -48,13 +49,14 @@ func TestSharedOCILayoutPreservesIdentitiesAndCountsBlobsOnce(t *testing.T) {
 		require.Equal(t, revisions[ref], image.Revision)
 	}
 	_, err = build.InspectOCILayout(dir, "aarch64", revisions)
-	require.ErrorContains(t, err, "linux/arm64")
+	require.ErrorContains(t, err, "expected x86_64")
 	for ref := range revisions {
 		revisions[ref] = strings.Repeat("b", 40)
 	}
 	_, err = build.InspectOCILayout(dir, "x86_64", revisions)
 	require.ErrorContains(t, err, "revision mismatch")
 }
+
 func TestSharedOCILayoutRefusesSubstitution(t *testing.T) {
 	for _, kind := range []string{"missing", "corrupt", "symlink-file", "symlink-dir", "symlink-root", "duplicate-ref", "wrong-ref", "wrong-size", "external-url", "empty-index", "nested-index"} {
 		t.Run(kind, func(t *testing.T) {

@@ -61,8 +61,6 @@ paths are private service routes, not public URLs to call directly:
 | GET/POST | `/api/environments/{id}/terminal-sessions` | Inspect/reserve terminal sessions |
 | GET/POST | `/api/environments/{id}/terminal-sessions/{terminalID}` | Inspect / End / Rename |
 | GET | `/api/environments/{id}/terminal` | Native terminal WebSocket attachment |
-| GET/POST | `/api/settings/runners` | Operator runner view / registration request |
-| POST | `/api/settings/runners/{runner}/{action}` | Operator runner action |
 | GET | `/api/settings/tailnet` | Host Tailnet settings |
 | POST | `/api/settings/tailnet/host` | Host Tailnet actions |
 | POST | `/api/settings/tailnet/enrollment` | Enrollment policy |

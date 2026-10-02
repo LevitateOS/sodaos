@@ -1,9 +1,8 @@
 # CI runners
 
 Supply separately managed Forgejo Actions capacity for candidate verification.
-[Local Soda execution is unavailable](../../reference/runners.md); its Runners
-page currently supports inspecting, stopping and removing existing experimental
-listeners. Registration, Start and Restart are disabled.
+Local Soda execution is unavailable and no local runner controls ship:
+there is no local Runners page, registration, Start, Stop, Remove or Restart.
 
 Forgejo owns workflows, scheduling and results. Follow
 [Forgejo Actions administration](https://forgejo.org/docs/latest/admin/actions/)

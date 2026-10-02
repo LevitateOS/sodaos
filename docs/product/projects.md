@@ -233,7 +233,7 @@ and graphical desktops are [deferred](scope.md#deferred).
 | Rocky headless | Rocky Linux | Terminal (default) |
 
 Mise is required in the supported Project OS. A future Runner OS remains separate
-from developer environments; [local CI execution](../reference/runners.md) is deferred.
+from developer environments; local CI execution is [deferred](scope.md#deferred).
 
 Profiles describe initial userspace and interface, not independent backends.
 Server-side code resolves a bounded profile ID to installed, architecture-compatible

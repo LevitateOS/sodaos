@@ -24,11 +24,10 @@ func fixtureLiveInputs() LiveInputs {
 			Release:     "44.20260901.1.0",
 			MetadataURL: "https://builds.test/prod/streams/stable/builds/44.20260901.1.0/release.json",
 			Container: map[string]string{
-				"x86_64":  "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("c", 64),
-				"aarch64": "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("d", 64),
+				"x86_64": "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("c", 64),
 			},
-			ISO:  map[string]CoreOSImage{"x86_64": img, "aarch64": img},
-			QEMU: map[string]CoreOSImage{"x86_64": img, "aarch64": img},
+			ISO:  map[string]CoreOSImage{"x86_64": img},
+			QEMU: map[string]CoreOSImage{"x86_64": img},
 		},
 		Tailnet: TailnetInputs{
 			Version: "1.98.2",

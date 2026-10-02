@@ -37,7 +37,7 @@ func parseBuildFlags() (buildFlags, error) {
 	development := flag.Bool("development", false, "explicit development-only run; never release-qualified")
 	target := flag.String("target", "", "development boundary: candidate or media (requires --development)")
 	compression := flag.String("media-compression", "", "fast: development media only; changes host compression metadata (default: upstream)")
-	arch := flag.String("arch", "", "matching native x86_64 or aarch64")
+	arch := flag.String("arch", "", "matching native x86_64")
 	out := flag.String("out", "", "fresh absolute output below .artifacts/releases (parent must exist)")
 	prefix := flag.String("repository-prefix", "ghcr.io/levitateos/sodaos", "intended immutable image repositories; no publication")
 	rootfs := flag.String("rootfs-base-url", "", "public base URL for the exact hash-named rootfs file")

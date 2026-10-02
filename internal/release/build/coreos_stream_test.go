@@ -25,20 +25,18 @@ func fixtureDisk(base, file string, uncompressed bool) map[string]string {
 // corrupt one entry to prove fail-closed parsing.
 func fixtureStreamDoc(t *testing.T, mutate func(arch, kind string, disk map[string]string)) string {
 	t.Helper()
-	arches := map[string]any{}
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		base := fmt.Sprintf("https://builds.test/prod/streams/stable/builds/44.20260901.1.0/%s/fedora-coreos-44.20260901.1.0", arch)
-		iso := fixtureDisk(base, "fedora-coreos-44.20260901.1.0-live."+arch+".iso", false)
-		qemu := fixtureDisk(base, "fedora-coreos-44.20260901.1.0-qemu."+arch+".qcow2.xz", true)
-		if mutate != nil {
-			mutate(arch, "iso", iso)
-			mutate(arch, "qcow2.xz", qemu)
-		}
-		arches[arch] = map[string]any{"artifacts": map[string]any{
-			"metal": map[string]any{"formats": map[string]any{"iso": map[string]any{"disk": iso}}},
-			"qemu":  map[string]any{"formats": map[string]any{"qcow2.xz": map[string]any{"disk": qemu}}},
-		}}
+	const arch = "x86_64"
+	base := fmt.Sprintf("https://builds.test/prod/streams/stable/builds/44.20260901.1.0/%s/fedora-coreos-44.20260901.1.0", arch)
+	iso := fixtureDisk(base, "fedora-coreos-44.20260901.1.0-live."+arch+".iso", false)
+	qemu := fixtureDisk(base, "fedora-coreos-44.20260901.1.0-qemu."+arch+".qcow2.xz", true)
+	if mutate != nil {
+		mutate(arch, "iso", iso)
+		mutate(arch, "qcow2.xz", qemu)
 	}
+	arches := map[string]any{arch: map[string]any{"artifacts": map[string]any{
+		"metal": map[string]any{"formats": map[string]any{"iso": map[string]any{"disk": iso}}},
+		"qemu":  map[string]any{"formats": map[string]any{"qcow2.xz": map[string]any{"disk": qemu}}},
+	}}}
 	data, err := json.Marshal(map[string]any{"architectures": arches})
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +48,6 @@ func fixtureIndexDoc(t *testing.T, mutate func(entries []any) []any) string {
 	t.Helper()
 	entries := []any{
 		map[string]any{"digest": "sha256:" + strings.Repeat("c", 64), "platform": map[string]any{"architecture": "amd64"}},
-		map[string]any{"digest": "sha256:" + strings.Repeat("d", 64), "platform": map[string]any{"architecture": "arm64"}},
 	}
 	if mutate != nil {
 		entries = mutate(entries)
@@ -100,16 +97,14 @@ func TestResolveCoreOSFindsLiveBuild(t *testing.T) {
 	if !strings.HasSuffix(resolved.Container["x86_64"], "@sha256:"+strings.Repeat("c", 64)) {
 		t.Fatalf("x86_64 container resolved as %q", resolved.Container["x86_64"])
 	}
-	if !strings.HasSuffix(resolved.Container["aarch64"], "@sha256:"+strings.Repeat("d", 64)) {
-		t.Fatalf("aarch64 container resolved as %q", resolved.Container["aarch64"])
+	if len(resolved.Container) != 1 || len(resolved.ISO) != 1 || len(resolved.QEMU) != 1 {
+		t.Fatal("resolution carries non-x86_64 entries")
 	}
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		if !strings.HasSuffix(resolved.ISO[arch].URL, ".iso") || resolved.ISO[arch].SHA256 != strings.Repeat("a", 64) {
-			t.Fatalf("%s ISO triple malformed: %+v", arch, resolved.ISO[arch])
-		}
-		if resolved.QEMU[arch].UncompressedSHA256 != strings.Repeat("b", 64) {
-			t.Fatalf("%s qemu triple malformed: %+v", arch, resolved.QEMU[arch])
-		}
+	if !strings.HasSuffix(resolved.ISO["x86_64"].URL, ".iso") || resolved.ISO["x86_64"].SHA256 != strings.Repeat("a", 64) {
+		t.Fatalf("x86_64 ISO triple malformed: %+v", resolved.ISO["x86_64"])
+	}
+	if resolved.QEMU["x86_64"].UncompressedSHA256 != strings.Repeat("b", 64) {
+		t.Fatalf("x86_64 qemu triple malformed: %+v", resolved.QEMU["x86_64"])
 	}
 }
 
@@ -173,7 +168,7 @@ func TestLiveInputsFileRoundTrip(t *testing.T) {
 	if back.CoreOS.Container["x86_64"] != inputs.CoreOS.Container["x86_64"] {
 		t.Fatal("inputs file lost base digests")
 	}
-	if back.CoreOS.ISO["x86_64"] != inputs.CoreOS.ISO["x86_64"] || back.CoreOS.QEMU["aarch64"] != inputs.CoreOS.QEMU["aarch64"] {
+	if back.CoreOS.ISO["x86_64"] != inputs.CoreOS.ISO["x86_64"] || back.CoreOS.QEMU["x86_64"] != inputs.CoreOS.QEMU["x86_64"] {
 		t.Fatal("inputs file lost media triples")
 	}
 	if back.Tailnet != inputs.Tailnet {
@@ -230,7 +225,6 @@ func tailnetFixtureServer(t *testing.T) {
 		w.Header().Set("Content-Type", "text/html")
 		_, _ = fmt.Fprint(w, `<html><body>
 <a href="tailscale_1.9.9_amd64.tgz">old</a>
-<a href="tailscale_1.10.2_arm64.tgz">new-arm</a>
 <a href="tailscale_1.10.2_amd64.tgz">new</a>
 <a href="tailscale_1.10.10_amd64.tgz">newest</a>
 </body></html>`)
@@ -250,22 +244,22 @@ func tailnetFixtureServer(t *testing.T) {
 
 func TestResolveTailnetInputsFloats(t *testing.T) {
 	tailnetFixtureServer(t)
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		got, err := ResolveTailnetInputs(context.Background(), arch)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if got.Version != "1.10.10" {
-			t.Fatalf("newest stable not selected for %s: %s", arch, got.Version)
-		}
-		if got.SHA256 != strings.Repeat("c", 64) {
-			t.Fatalf("checksum not read for %s", arch)
-		}
-		if got.Base != "docker.io/tailscale/alpine-base:3.22" {
-			t.Fatalf("newest base tag not selected for %s: %s", arch, got.Base)
-		}
+	got, err := ResolveTailnetInputs(context.Background(), "x86_64")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if _, err := ResolveTailnetInputs(context.Background(), "armv7"); err == nil {
-		t.Fatal("unknown architecture admitted")
+	if got.Version != "1.10.10" {
+		t.Fatalf("newest stable not selected: %s", got.Version)
+	}
+	if got.SHA256 != strings.Repeat("c", 64) {
+		t.Fatal("checksum not read")
+	}
+	if got.Base != "docker.io/tailscale/alpine-base:3.22" {
+		t.Fatalf("newest base tag not selected: %s", got.Base)
+	}
+	for _, arch := range []string{"aarch64", "armv7"} {
+		if _, err := ResolveTailnetInputs(context.Background(), arch); err == nil {
+			t.Fatalf("unsupported architecture admitted: %s", arch)
+		}
 	}
 }

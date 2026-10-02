@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -14,9 +13,6 @@ import (
 
 func TestImageDefaultsAreImmutableAndNeverRewriteMachineConfig(t *testing.T) {
 	p := deliver.Payload{Format: 3, ID: "44.20260817.3.2.soda-" + strings.Repeat("a", 12), Revision: strings.Repeat("a", 40), Architecture: "x86_64", CoreOS: "44.20260817.3.2", Base: "quay.io/fedora/fedora-coreos@sha256:" + strings.Repeat("b", 64), RepositoryPrefix: "ghcr.io/example/sodaos", Schema: 10, PresentationSHA256: strings.Repeat("c", 64), HostPackagesSHA256: strings.Repeat("d", 64), Images: map[string]deliver.Image{}}
-	if runtime.GOARCH == "arm64" {
-		p.Architecture = "aarch64"
-	}
 	for _, n := range deliver.Names {
 		manifest, config := strings.Repeat("e", 64), strings.Repeat("f", 64)
 		if n == "extension" {

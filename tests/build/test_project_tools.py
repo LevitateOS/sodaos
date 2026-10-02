@@ -19,7 +19,7 @@ def elf_body(machine):
 
 
 class ProjectTools(unittest.TestCase):
-    ARCHES = {'x86_64': ('amd64', 62), 'aarch64': ('arm64', 183)}
+    ARCHES = {'x86_64': ('amd64', 62)}
     VERSION = '0.99.1'
     TAG = 'v0.99.1'
 
@@ -54,8 +54,7 @@ class ProjectTools(unittest.TestCase):
                 if self.corrupt == 'binary':
                     return io.BytesIO(b'corrupt')
                 if self.corrupt == 'arch':
-                    other = 'aarch64' if arch == 'x86_64' else 'x86_64'
-                    return io.BytesIO(self.bodies[other])
+                    return io.BytesIO(elf_body(183))
                 return io.BytesIO(self.bodies[arch])
         raise AssertionError(f'unexpected fetch: {url}')
 
@@ -64,8 +63,7 @@ class ProjectTools(unittest.TestCase):
         for arch, (gnu, _) in self.ARCHES.items():
             body = self.bodies[arch]
             if self.corrupt == 'arch':
-                other = 'aarch64' if arch == 'x86_64' else 'x86_64'
-                body = self.bodies[other]
+                body = elf_body(183)
             lines += f'{hashlib.sha256(body).hexdigest()}  tea-{self.VERSION}-linux-{gnu}\n'
         return lines.encode()
 
@@ -73,15 +71,20 @@ class ProjectTools(unittest.TestCase):
         with patch.object(self.module.urllib.request, 'urlopen', side_effect=self.dispatch):
             self.module.fetch(arch, out or self.out / arch)
 
-    def test_each_architecture_stages_exact_upstream_bytes_and_license(self):
-        for arch, body in self.bodies.items():
-            with self.subTest(arch=arch):
-                self.fetch(arch)
-                out = self.out / arch
-                self.assertEqual((out / 'bin/tea').read_bytes(), body)
-                self.assertEqual((out / 'bin/tea').stat().st_mode & 0o777, 0o755)
-                self.assertEqual((out / 'licenses/tea/LICENSE').read_bytes(), self.license)
-                self.assertEqual((out / 'licenses/tea/LICENSE').stat().st_mode & 0o777, 0o644)
+    def test_x86_64_stages_exact_upstream_bytes_and_license(self):
+        self.fetch('x86_64')
+        out = self.out / 'x86_64'
+        self.assertEqual((out / 'bin/tea').read_bytes(), self.bodies['x86_64'])
+        self.assertEqual((out / 'bin/tea').stat().st_mode & 0o777, 0o755)
+        self.assertEqual((out / 'licenses/tea/LICENSE').read_bytes(), self.license)
+        self.assertEqual((out / 'licenses/tea/LICENSE').stat().st_mode & 0o777, 0o644)
+
+    def test_unsupported_architecture_is_refused_without_fetch(self):
+        with patch.object(self.module.urllib.request, 'urlopen') as download:
+            with self.assertRaisesRegex(ValueError, 'x86_64 only'):
+                self.module.fetch('aarch64', self.out / 'aarch64')
+            download.assert_not_called()
+        self.assertFalse(self.out.exists())
 
     def test_corrupt_download_leaves_no_stage(self):
         self.corrupt = 'binary'

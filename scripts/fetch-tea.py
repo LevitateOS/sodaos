@@ -27,12 +27,14 @@ def latest_tag():
 
 
 def fetch(arch, out):
-    machine = {'x86_64': 62, 'aarch64': 183}[arch]
+    if arch != 'x86_64':
+        raise ValueError('Tea staging supports x86_64 only')
+    machine = 62
     if out.exists() or out.is_symlink():
         raise ValueError('Tea output already exists; select a fresh output directory')
     tag = latest_tag()
     version = tag[1:]
-    filename = f'tea-{version}-linux-{"amd64" if arch == "x86_64" else "arm64"}'
+    filename = f'tea-{version}-linux-amd64'
     base = f'https://dl.gitea.com/tea/{version}'
     expected = None
     for line in download(base + '/checksums.txt', 1_000_000).decode('utf-8').splitlines():
@@ -63,7 +65,7 @@ def fetch(arch, out):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--arch', choices=('x86_64', 'aarch64'), required=True)
+    parser.add_argument('--arch', choices=('x86_64',), required=True)
     parser.add_argument('--out', type=Path)
     args = parser.parse_args()
     fetch(args.arch, args.out or ROOT / '.artifacts/native' / args.arch / 'project-tools')

@@ -25,58 +25,59 @@ func sourceRoot(t *testing.T) string {
 func TestPrepareVendorContextFromActualOwners(t *testing.T) {
 	streamFixtures(t, goodStreamDoc(), goodIndexDoc())
 	source := sourceRoot(t)
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		t.Run(arch, func(t *testing.T) {
-			out := filepath.Join(t.TempDir(), "context")
-			base, err := Prepare(source, out, arch, strings.Repeat("a", 40))
-			require.NoError(t, err)
-			require.Contains(t, base.Images[arch], "@sha256:")
-			read := func(name string) string {
-				t.Helper()
-				data, e := os.ReadFile(filepath.Join(out, name))
-				require.NoError(t, e)
-				return string(data)
-			}
-			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-host.service"), "ExecStart=/usr/libexec/soda/soda-host")
-			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-tailnet@.service"), "/usr/libexec/soda/soda-host --tailnet-action=run")
-			require.Contains(t, read("rootfs/etc/profile.d/soda-console-welcome.sh"), "/usr/libexec/soda/soda-console-welcome")
-			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "/usr/libexec/soda/soda-console-welcome")
-			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "Before=getty@tty1.service")
-			require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "Wants=forgejo.service soda-dashboard.service soda-proxy.service")
-			require.Contains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "Image=localhost/soda-dashboard:dev") // Explicitly not yet bound app delivery.
-			require.NoFileExists(t, filepath.Join(out, "rootfs/etc/zincati/config.d/90-soda-image.toml"))
-			for _, path := range []string{"rootfs/var", "rootfs/usr/sbin", "rootfs/usr/local", "rootfs/etc/soda", "rootfs/etc/systemd/system", "rootfs/etc/containers/systemd"} {
-				require.NoDirExists(t, filepath.Join(out, path))
-			}
-			for _, path := range []string{"rootfs/usr/libexec/soda/soda-console-welcome", "rootfs/usr/bin/soda-activate"} {
-				info, e := os.Stat(filepath.Join(out, path))
-				require.NoError(t, e)
-				require.Equal(t, os.FileMode(0o755), info.Mode().Perm())
-			}
-			target, e := os.Readlink(filepath.Join(out, "rootfs/usr/bin/soda-tailnet"))
+	t.Run("x86_64", func(t *testing.T) {
+		const arch = "x86_64"
+		out := filepath.Join(t.TempDir(), "context")
+		base, err := Prepare(source, out, arch, strings.Repeat("a", 40))
+		require.NoError(t, err)
+		require.Contains(t, base.Images[arch], "@sha256:")
+		read := func(name string) string {
+			t.Helper()
+			data, e := os.ReadFile(filepath.Join(out, name))
 			require.NoError(t, e)
-			require.Equal(t, "../libexec/soda/soda-tailnet", target)
-			target, e = os.Readlink(filepath.Join(out, "rootfs/usr/bin/soda-setup"))
+			return string(data)
+		}
+		require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-host.service"), "ExecStart=/usr/libexec/soda/soda-host")
+		require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-tailnet@.service"), "/usr/libexec/soda/soda-host --tailnet-action=run")
+		require.Contains(t, read("rootfs/etc/profile.d/soda-console-welcome.sh"), "/usr/libexec/soda/soda-console-welcome")
+		require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "/usr/libexec/soda/soda-console-welcome")
+		require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "Before=getty@tty1.service")
+		require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "Wants=forgejo.service soda-dashboard.service soda-proxy.service")
+		require.Contains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "Image=localhost/soda-dashboard:dev") // Explicitly not yet bound app delivery.
+		require.NoFileExists(t, filepath.Join(out, "rootfs/etc/zincati/config.d/90-soda-image.toml"))
+		for _, path := range []string{"rootfs/var", "rootfs/usr/sbin", "rootfs/usr/local", "rootfs/etc/soda", "rootfs/etc/systemd/system", "rootfs/etc/containers/systemd"} {
+			require.NoDirExists(t, filepath.Join(out, path))
+		}
+		for _, path := range []string{"rootfs/usr/libexec/soda/soda-console-welcome", "rootfs/usr/bin/soda-activate"} {
+			info, e := os.Stat(filepath.Join(out, path))
 			require.NoError(t, e)
-			require.Equal(t, "../libexec/soda/soda-setup", target)
-			packages := read("packages.list")
-			original, e := os.ReadFile(filepath.Join(source, "appliance/provisioning/base.json"))
-			require.NoError(t, e)
-			expected, repo, e := PackageInputs(original)
-			require.NoError(t, e)
-			require.Equal(t, strings.Join(expected, "\n")+"\n", packages)
-			require.Equal(t, repo+"\n", read("tailscale-repo.url"))
-			require.Contains(t, packages, "cockpit-ostree\n")
-			require.Contains(t, packages, "tailscale\n")
-			require.NoError(t, Inventory(out))
-			inventory, e := os.ReadFile(filepath.Join(filepath.Dir(out), "context-inventory.json"))
-			require.NoError(t, e)
-			require.Contains(t, string(inventory), "usr/lib/systemd/system/soda-host.service")
-			require.Error(t, Inventory(out)) // Never overwrite previous evidence.
-			_, e = Prepare(source, out, arch, strings.Repeat("a", 40))
-			require.Error(t, e)
-		})
-	}
+			require.Equal(t, os.FileMode(0o755), info.Mode().Perm())
+		}
+		target, e := os.Readlink(filepath.Join(out, "rootfs/usr/bin/soda-tailnet"))
+		require.NoError(t, e)
+		require.Equal(t, "../libexec/soda/soda-tailnet", target)
+		target, e = os.Readlink(filepath.Join(out, "rootfs/usr/bin/soda-setup"))
+		require.NoError(t, e)
+		require.Equal(t, "../libexec/soda/soda-setup", target)
+		packages := read("packages.list")
+		original, e := os.ReadFile(filepath.Join(source, "appliance/provisioning/base.json"))
+		require.NoError(t, e)
+		expected, repo, e := PackageInputs(original)
+		require.NoError(t, e)
+		require.Equal(t, strings.Join(expected, "\n")+"\n", packages)
+		require.Equal(t, repo+"\n", read("tailscale-repo.url"))
+		require.Contains(t, packages, "cockpit-ostree\n")
+		require.Contains(t, packages, "tailscale\n")
+		require.NoError(t, Inventory(out))
+		inventory, e := os.ReadFile(filepath.Join(filepath.Dir(out), "context-inventory.json"))
+		require.NoError(t, e)
+		require.Contains(t, string(inventory), "usr/lib/systemd/system/soda-host.service")
+		require.Error(t, Inventory(out)) // Never overwrite previous evidence.
+		_, e = Prepare(source, out, arch, strings.Repeat("a", 40))
+		require.Error(t, e)
+	})
+	_, err := Prepare(source, filepath.Join(t.TempDir(), "context"), "aarch64", strings.Repeat("a", 40))
+	require.Error(t, err)
 	// The live first-install sources are not rewritten by vendor context generation.
 	b, err := os.ReadFile(filepath.Join(source, "appliance/services/soda-host.service"))
 	require.NoError(t, err)
@@ -132,33 +133,31 @@ func fixtureDisk(base, file string, uncompressed bool) string {
 	return disk + "}"
 }
 
-// goodStreamDoc builds a minimal valid stream document for both arches.
+// goodStreamDoc builds a minimal valid x86_64 stream document.
 func goodStreamDoc() string {
-	arches := []string{}
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		base := fmt.Sprintf("https://builds.test/prod/streams/stable/builds/44.20260901.1.0/%s/fedora-coreos-44.20260901.1.0", arch)
-		arches = append(arches, fmt.Sprintf(`%q:{"artifacts":{"metal":{"formats":{"iso":{"disk":%s}}},"qemu":{"formats":{"qcow2.xz":{"disk":%s}}}}}`, arch,
-			fixtureDisk(base, "fedora-coreos-44.20260901.1.0-live."+arch+".iso", false),
-			fixtureDisk(base, "fedora-coreos-44.20260901.1.0-qemu."+arch+".qcow2.xz", true)))
-	}
-	return `{"architectures":{` + strings.Join(arches, ",") + `}}`
+	const arch = "x86_64"
+	base := fmt.Sprintf("https://builds.test/prod/streams/stable/builds/44.20260901.1.0/%s/fedora-coreos-44.20260901.1.0", arch)
+	entry := fmt.Sprintf(`%q:{"artifacts":{"metal":{"formats":{"iso":{"disk":%s}}},"qemu":{"formats":{"qcow2.xz":{"disk":%s}}}}}`, arch,
+		fixtureDisk(base, "fedora-coreos-44.20260901.1.0-live."+arch+".iso", false),
+		fixtureDisk(base, "fedora-coreos-44.20260901.1.0-qemu."+arch+".qcow2.xz", true))
+	return `{"architectures":{` + entry + `}}`
 }
 
 func goodIndexDoc() string {
 	return `{"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[` +
-		`{"digest":"sha256:` + strings.Repeat("c", 64) + `","platform":{"architecture":"amd64"}},` +
-		`{"digest":"sha256:` + strings.Repeat("d", 64) + `","platform":{"architecture":"arm64"}}]}`
+		`{"digest":"sha256:` + strings.Repeat("c", 64) + `","platform":{"architecture":"amd64"}}]}`
 }
 
 func TestBaseStreamAndUnsafeOutputRefusal(t *testing.T) {
 	streamFixtures(t, goodStreamDoc(), goodIndexDoc())
 	_, err := LoadBase("armv7")
 	require.Error(t, err)
+	_, err = LoadBase("aarch64")
+	require.Error(t, err)
 	base, err := LoadBase("x86_64")
 	require.NoError(t, err)
 	require.Equal(t, "44.20260901.1.0", base.Release)
 	require.Contains(t, base.Images["x86_64"], "@sha256:"+strings.Repeat("c", 64))
-	require.Contains(t, base.Images["aarch64"], "@sha256:"+strings.Repeat("d", 64))
 	require.Contains(t, base.MetadataURL, "/builds/44.20260901.1.0/release.json")
 	t.Run("admitted file", func(t *testing.T) {
 		resolved, err := build.ResolveCoreOS(context.Background())
@@ -178,7 +177,7 @@ func TestBaseStreamAndUnsafeOutputRefusal(t *testing.T) {
 		require.Error(t, err)
 	})
 	for name, doc := range map[string]string{
-		"missing arch":   strings.Replace(goodStreamDoc(), `"aarch64":{"artifacts"`, `"ppc64le":{"artifacts"`, 1),
+		"missing arch":   strings.Replace(goodStreamDoc(), `"x86_64":{"artifacts"`, `"ppc64le":{"artifacts"`, 1),
 		"bad digest":     strings.Replace(goodStreamDoc(), strings.Repeat("a", 64), "zz", 1),
 		"bad release":    strings.Replace(goodStreamDoc(), "44.20260901.1.0", "yesterday", -1),
 		"bad image ref":  `{"architectures":{}}`,

@@ -290,12 +290,8 @@ func LaunchVM(ctx context.Context, c VMConfig, e *Evidence) (*VM, error) {
 }
 
 func (c VMConfig) args() []string {
-	machine := "q35"
-	if c.Architecture == "aarch64" {
-		machine = "virt"
-	}
 	return []string{
-		"-name", c.Name, "-machine", machine + ",accel=kvm", "-cpu", "host", "-smp", "4", "-m", "8192", "-display", "none", "-monitor", "none", "-serial", "stdio",
+		"-name", c.Name, "-machine", "q35,accel=kvm", "-cpu", "host", "-smp", "4", "-m", "8192", "-display", "none", "-monitor", "none", "-serial", "stdio",
 		"-drive", "if=pflash,format=raw,readonly=on,file=" + c.Firmware, "-drive", "if=pflash,format=raw,file=" + filepath.Join(c.Work, "vars.fd"),
 		"-drive", "if=virtio,format=qcow2,file=" + filepath.Join(c.Work, "disk.qcow2"), "-fw_cfg", "name=opt/com.coreos/config,file=" + c.Ignition,
 		"-nic", "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:" + strconv.Itoa(c.SSH.Port) + "-:22", "-qmp", "unix:" + filepath.Join(c.Work, "qmp.sock") + ",server=on,wait=off",

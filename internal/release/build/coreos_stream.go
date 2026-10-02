@@ -41,7 +41,7 @@ func coreOSRegistry() string {
 }
 
 const (
-	defaultTailnetIndexURL    = "https://pkgs.tailscale.com/stable/"
+	defaultTailnetIndexURL = "https://pkgs.tailscale.com/stable/"
 	// No query string: the shared fetch gate admits strict HTTPS only, and
 	// the repository holds few tags, so the default first page is complete.
 	defaultTailnetBaseTagsURL = "https://hub.docker.com/v2/repositories/tailscale/alpine-base/tags"
@@ -97,7 +97,7 @@ func latestTailnetRelease(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	found := regexp.MustCompile(`tailscale_([0-9]+)\.([0-9]+)\.([0-9]+)_(?:amd64|arm64)\.tgz`).FindAllStringSubmatch(raw, -1)
+	found := regexp.MustCompile(`tailscale_([0-9]+)\.([0-9]+)\.([0-9]+)_amd64\.tgz`).FindAllStringSubmatch(raw, -1)
 	var best [3]int
 	version := ""
 	for _, m := range found {
@@ -227,9 +227,8 @@ type streamArch struct {
 }
 
 // resolveStreamBuild parses one stable-stream document into release and
-// per-arch ISO/QEMU triples. The stream carries no release field on the
-// entries themselves, so the release parses out of the ISO location path
-// and must agree across architectures.
+// the x86_64 ISO/QEMU triple. The stream carries no release field on the
+// entries themselves, so the release parses out of the ISO location path.
 func resolveStreamBuild(data []byte) (release string, iso, qemu map[string]CoreOSImage, err error) {
 	var doc struct {
 		Architectures map[string]streamArch `json:"architectures"`
@@ -238,31 +237,26 @@ func resolveStreamBuild(data []byte) (release string, iso, qemu map[string]CoreO
 		return "", nil, nil, err
 	}
 	iso, qemu = map[string]CoreOSImage{}, map[string]CoreOSImage{}
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		entry, ok := doc.Architectures[arch]
-		if !ok {
-			return "", nil, nil, fmt.Errorf("stable stream lacks architecture %s", arch)
-		}
-		isoFormat, ok := entry.Artifacts["metal"].Formats["iso"]
-		if !ok {
-			return "", nil, nil, fmt.Errorf("stable stream lacks %s live ISO", arch)
-		}
-		m := streamReleasePattern.FindStringSubmatch(isoFormat.Disk.Location)
-		if len(m) != 2 {
-			return "", nil, nil, fmt.Errorf("stable stream %s ISO location names no release", arch)
-		}
-		if release == "" {
-			release = m[1]
-		} else if m[1] != release {
-			return "", nil, nil, fmt.Errorf("stable stream architectures disagree on release (%s vs %s)", release, m[1])
-		}
-		qemuFormat, ok := entry.Artifacts["qemu"].Formats["qcow2.xz"]
-		if !ok {
-			return "", nil, nil, fmt.Errorf("stable stream lacks %s qemu image", arch)
-		}
-		iso[arch] = CoreOSImage{URL: isoFormat.Disk.Location, SignatureURL: isoFormat.Disk.Signature, SHA256: isoFormat.Disk.SHA256}
-		qemu[arch] = CoreOSImage{URL: qemuFormat.Disk.Location, SignatureURL: qemuFormat.Disk.Signature, SHA256: qemuFormat.Disk.SHA256, UncompressedSHA256: qemuFormat.Disk.UncompressedSHA256}
+	const arch = "x86_64"
+	entry, ok := doc.Architectures[arch]
+	if !ok {
+		return "", nil, nil, fmt.Errorf("stable stream lacks architecture %s", arch)
 	}
+	isoFormat, ok := entry.Artifacts["metal"].Formats["iso"]
+	if !ok {
+		return "", nil, nil, fmt.Errorf("stable stream lacks %s live ISO", arch)
+	}
+	m := streamReleasePattern.FindStringSubmatch(isoFormat.Disk.Location)
+	if len(m) != 2 {
+		return "", nil, nil, fmt.Errorf("stable stream %s ISO location names no release", arch)
+	}
+	release = m[1]
+	qemuFormat, ok := entry.Artifacts["qemu"].Formats["qcow2.xz"]
+	if !ok {
+		return "", nil, nil, fmt.Errorf("stable stream lacks %s qemu image", arch)
+	}
+	iso[arch] = CoreOSImage{URL: isoFormat.Disk.Location, SignatureURL: isoFormat.Disk.Signature, SHA256: isoFormat.Disk.SHA256}
+	qemu[arch] = CoreOSImage{URL: qemuFormat.Disk.Location, SignatureURL: qemuFormat.Disk.Signature, SHA256: qemuFormat.Disk.SHA256, UncompressedSHA256: qemuFormat.Disk.UncompressedSHA256}
 	if err := validStreamImages(release, iso, qemu); err != nil {
 		return "", nil, nil, err
 	}
@@ -275,15 +269,14 @@ func validStreamImages(release string, iso, qemu map[string]CoreOSImage) error {
 	if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(release) {
 		return errors.New("stable stream release is malformed")
 	}
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		img, ok := iso[arch]
-		if !ok || !httpsURL(img.URL) || !strings.HasSuffix(img.URL, ".iso") || img.SignatureURL != img.URL+".sig" || !Digest(img.SHA256) {
-			return fmt.Errorf("stable stream %s live ISO is malformed", arch)
-		}
-		q, ok := qemu[arch]
-		if !ok || !httpsURL(q.URL) || !httpsURL(q.SignatureURL) || !Digest(q.SHA256) || !Digest(q.UncompressedSHA256) {
-			return fmt.Errorf("stable stream %s qemu image is malformed", arch)
-		}
+	const arch = "x86_64"
+	img, ok := iso[arch]
+	if !ok || !httpsURL(img.URL) || !strings.HasSuffix(img.URL, ".iso") || img.SignatureURL != img.URL+".sig" || !Digest(img.SHA256) {
+		return fmt.Errorf("stable stream %s live ISO is malformed", arch)
+	}
+	q, ok := qemu[arch]
+	if !ok || !httpsURL(q.URL) || !httpsURL(q.SignatureURL) || !Digest(q.SHA256) || !Digest(q.UncompressedSHA256) {
+		return fmt.Errorf("stable stream %s qemu image is malformed", arch)
 	}
 	return nil
 }
@@ -338,27 +331,26 @@ func resolveRegistryDigests(ctx context.Context, registry string) (map[string]st
 		return nil, err
 	}
 	digests := map[string]string{}
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		ociArch, err := OCIArchitecture(arch)
-		if err != nil {
-			return nil, err
-		}
-		found := ""
-		for _, m := range index.Manifests {
-			if m.Platform.Architecture != ociArch {
-				continue
-			}
-			d, ok := strings.CutPrefix(m.Digest, "sha256:")
-			if !ok || !Digest(d) {
-				return nil, fmt.Errorf("container index %s digest is malformed", arch)
-			}
-			found = m.Digest
-		}
-		if found == "" {
-			return nil, fmt.Errorf("container index lacks architecture %s", arch)
-		}
-		digests[arch] = parsed.Host + "/" + coreOSContainerRepo + "@" + found
+	const arch = "x86_64"
+	ociArch, err := OCIArchitecture(arch)
+	if err != nil {
+		return nil, err
 	}
+	found := ""
+	for _, m := range index.Manifests {
+		if m.Platform.Architecture != ociArch {
+			continue
+		}
+		d, ok := strings.CutPrefix(m.Digest, "sha256:")
+		if !ok || !Digest(d) {
+			return nil, fmt.Errorf("container index %s digest is malformed", arch)
+		}
+		found = m.Digest
+	}
+	if found == "" {
+		return nil, fmt.Errorf("container index lacks architecture %s", arch)
+	}
+	digests[arch] = parsed.Host + "/" + coreOSContainerRepo + "@" + found
 	return digests, nil
 }
 
@@ -490,8 +482,8 @@ func ValidTailnetInputs(tailnet TailnetInputs) error {
 }
 
 // ValidResolvedCoreOS applies the live resolution shape rules to admitted
-// inputs: release form and cross-arch agreement, verified ISO/QEMU triples,
-// release metadata URL, and digest-pinned container refs for both arches.
+// inputs: release form, verified x86_64 ISO/QEMU triples, release
+// metadata URL, and the digest-pinned x86_64 container ref.
 // The registry host itself is not allowlisted: digest-pinned pulls verify
 // content downstream, so a retargeted host cannot substitute bytes.
 func ValidResolvedCoreOS(resolved ResolvedCoreOS) error {
@@ -501,14 +493,12 @@ func ValidResolvedCoreOS(resolved ResolvedCoreOS) error {
 	if !httpsURL(resolved.MetadataURL) || !strings.HasSuffix(resolved.MetadataURL, "/builds/"+resolved.Release+"/release.json") {
 		return errors.New("resolved CoreOS metadata URL is malformed")
 	}
-	if len(resolved.Container) != 2 {
-		return errors.New("both architecture base digests required")
+	if len(resolved.Container) != 1 {
+		return errors.New("x86_64 base digest required")
 	}
-	for _, arch := range []string{"x86_64", "aarch64"} {
-		host, digest, ok := strings.Cut(resolved.Container[arch], "/fedora/fedora-coreos@sha256:")
-		if !ok || host == "" || strings.Contains(host, "/") || !Digest(digest) {
-			return errors.New("digest-pinned CoreOS base required")
-		}
+	host, digest, ok := strings.Cut(resolved.Container["x86_64"], "/fedora/fedora-coreos@sha256:")
+	if !ok || host == "" || strings.Contains(host, "/") || !Digest(digest) {
+		return errors.New("digest-pinned CoreOS base required")
 	}
 	return nil
 }

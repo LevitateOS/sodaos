@@ -39,11 +39,8 @@ func (m mediaIdentity) validate(imageVersion, arch string) error {
 }
 
 func architecture() string {
-	switch runtime.GOARCH {
-	case "amd64":
+	if runtime.GOARCH == "amd64" {
 		return "x86_64"
-	case "arm64":
-		return "aarch64"
 	}
 	return "unsupported"
 }

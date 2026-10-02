@@ -260,8 +260,7 @@ func TestDependencyDirection(t *testing.T) {
 	}
 
 	// Leaf capabilities never reach up.
-	forbid(t, edges, "internal/runners", "internal/web", "internal/host", "internal/store", "internal/release")
-	forbid(t, edges, "internal/tailnet", "internal/web", "internal/host", "internal/store", "internal/release", "internal/runners")
+	forbid(t, edges, "internal/tailnet", "internal/web", "internal/host", "internal/store", "internal/release")
 
 	// The dashboard binary wires the web facade, never the privileged
 	// daemon directly.

@@ -1,10 +1,10 @@
 #!/bin/bash
 # Verify a soda-build candidate artifacts directory. Does not build, install or publish.
 set -euo pipefail
-arch=${1:?usage: check-native.sh x86_64|aarch64 CANDIDATE_ARTIFACTS_DIR}
-candidate=${2:?usage: check-native.sh x86_64|aarch64 CANDIDATE_ARTIFACTS_DIR}
+arch=${1:?usage: check-native.sh x86_64 CANDIDATE_ARTIFACTS_DIR}
+candidate=${2:?usage: check-native.sh x86_64 CANDIDATE_ARTIFACTS_DIR}
 [[ $(uname -s) == Linux && $(uname -m) == "$arch" ]] || { echo 'Matching native Linux required' >&2; exit 1; }
-case "$arch" in x86_64) export GOARCH=amd64;; aarch64) export GOARCH=arm64;; *) exit 2;; esac
+case "$arch" in x86_64) export GOARCH=amd64;; *) exit 2;; esac
 export GOOS=linux GOWORK=off GOFLAGS=-mod=readonly CGO_ENABLED=0
 cd "$(dirname "$0")/.."
 export GOTOOLCHAIN=local
