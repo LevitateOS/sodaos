@@ -45,12 +45,14 @@ embedded = root.parent / "work/host-context/rootfs/usr/share/soda/host-image/con
 if json.loads(embedded.read_text()) != content:
     sys.exit("host and candidate content inventories differ")
 paths = {
+    "dashboard:/usr/local/bin/soda-dashboard": root.parent / "work/host-context/rootfs/usr/libexec/soda/soda-dashboard",
     "forgejo:/usr/local/bin/gitea": root / "forgejo-context/forgejo-bin",
     "extension:/usr/local/bin/gitea": root / "forgejo-context/forgejo-bin",
     "extension:/usr/share/soda/extension/extension.json": root / "extension-context/extension/extension.json",
     "extension:/usr/share/soda/extension/backend": root / "extension-context/extension/backend",
     "extension:/usr/share/soda/extension/run": root / "extension-context/extension/run",
     "host:/usr/share/containers/systemd/forgejo.container": root.parent / "work/host-context/rootfs/usr/share/containers/systemd/forgejo.container",
+    "host:/usr/share/containers/systemd/soda-dashboard.container": root.parent / "work/host-context/rootfs/usr/share/containers/systemd/soda-dashboard.container",
     "host:/usr/lib/systemd/system/soda-extension-install.service": root.parent / "work/host-context/rootfs/usr/lib/systemd/system/soda-extension-install.service",
 }
 if content.get("forgejo:/usr/local/bin/gitea") != content.get("extension:/usr/local/bin/gitea"):
