@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -30,6 +29,7 @@ import (
 	"github.com/levitateos/sodaos/internal/forgejo"
 	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 type nativeST12Config struct {
@@ -652,47 +652,12 @@ func nativeMergeSeedPublication(t *testing.T, c nativeST12Config, fx *nativeFixt
 	return factory.Publication{}, factory.Assignment{}
 }
 
-// nativeMergeInsertEdge records one blocked-by-blocker edge directly in
-// the fixture database: the staged build serves dependency reads but
-// exposes no working REST writer (24 variants probed, all rejected).
-// Soda observes the edge back through production snapshots, so the
-// proved observation path stays native.
+// nativeMergeInsertEdge records one blocked-by-blocker edge in the staged
+// Forgejo database; Soda observes it back through production snapshots,
+// so the proved observation path stays native.
 func nativeMergeInsertEdge(t *testing.T, c nativeST12Config, blockedID, blockerID int64) {
 	t.Helper()
-	db, err := sql.Open("sqlite", "file:"+c.FountainDB+"?_pragma=busy_timeout(10000)")
-	nativeMust(t, err)
-	defer func() { _ = db.Close() }()
-	rows, err := db.Query(`PRAGMA table_info(issue_dependency)`)
-	nativeMust(t, err)
-	columns := map[string]bool{}
-	for rows.Next() {
-		var cid int
-		var name, typ string
-		var notNull, pk int
-		var dflt *string
-		nativeMust(t, rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk))
-		columns[name] = true
-	}
-	nativeMust(t, rows.Close())
-	t.Logf("issue_dependency columns: %v", columns)
-	names := []string{"issue_id", "dependency_id"}
-	values := []any{blockedID, blockerID}
-	now := time.Now().Unix()
-	for _, optional := range []struct {
-		name  string
-		value any
-	}{{"user_id", c.CreatorID}, {"created_unix", now}, {"updated_unix", now}} {
-		if columns[optional.name] {
-			names = append(names, optional.name)
-			values = append(values, optional.value)
-		}
-	}
-	if !columns["issue_id"] || !columns["dependency_id"] {
-		t.Fatalf("native dependency table lacks its edge columns: %v", columns)
-	}
-	placeholders := strings.Repeat("?,", len(names))
-	_, err = db.Exec(`INSERT INTO issue_dependency(`+strings.Join(names, ",")+`) VALUES(`+placeholders[:len(placeholders)-1]+`)`, values...)
-	nativeMust(t, err)
+	nativeMust(t, store.SeedStagedDependencyEdge(c.FountainDB, c.CreatorID, blockedID, blockerID))
 }
 
 // TestNativeMergeFullPass proves the complete ST12 path: a published PR

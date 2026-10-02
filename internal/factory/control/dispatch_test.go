@@ -3,7 +3,6 @@ package control
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -17,8 +16,6 @@ import (
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
-
-	_ "modernc.org/sqlite"
 )
 
 func dispatchDigest(text string) string {
@@ -101,7 +98,6 @@ type dispatchFixture struct {
 	reads    *fakeDispatchReads
 	policy   factory.RepositoryPolicy
 	proj     string
-	path     string
 	repo     int64
 	tip      string
 	harness  string
@@ -116,21 +112,6 @@ func dispatchTestDB(t *testing.T) (*store.Store, string) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	raw, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = raw.Close() }()
-	for _, stmt := range []string{
-		`CREATE TABLE IF NOT EXISTS factory_assignments(id TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), run TEXT NOT NULL, stage TEXT NOT NULL, revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)))`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS factory_unfinished_assignment ON factory_assignments(repository,issue) WHERE stage='assigned'`,
-		`CREATE TABLE IF NOT EXISTS factory_reservations(assignment TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)))`,
-		`CREATE TABLE IF NOT EXISTS factory_usage(run TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, minutes INTEGER NOT NULL CHECK(minutes>=0), data TEXT NOT NULL CHECK(json_valid(data)))`,
-	} {
-		if _, err := raw.Exec(stmt); err != nil {
-			t.Fatal(err)
-		}
-	}
 	return db, path
 }
 
@@ -244,12 +225,17 @@ func (fx *dispatchFixture) accept(t *testing.T, issue int64, id string) factory.
 
 func (fx *dispatchFixture) queue(t *testing.T, issue int64, head string) {
 	t.Helper()
+	fx.queueAt(t, issue, head, time.Now())
+}
+
+func (fx *dispatchFixture) queueAt(t *testing.T, issue int64, head string, seen time.Time) {
+	t.Helper()
 	control := factory.IssueControl{
 		Repository: fx.repo, Issue: issue, Acceptance: head,
 		Readiness: factory.ReadinessQueued, Reason: factory.ReasonEligible,
 		Fingerprint: strings.Repeat("1", 64), Authority: strings.Repeat("2", 64),
 	}
-	if _, _, err := fx.db.RecordIssueAssessment(context.Background(), control, time.Now()); err != nil {
+	if _, _, err := fx.db.RecordIssueAssessment(context.Background(), control, seen); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -263,34 +249,18 @@ func (fx *dispatchFixture) deps() DispatchDeps {
 	return DispatchDeps{Store: fx.db, Host: fx.host, Broker: fx.broker, Reads: reads, Authority: coord.EffectiveAuthority}
 }
 
-func (fx *dispatchFixture) stampFirstSeen(t *testing.T, issue int64, seen time.Time) {
-	t.Helper()
-	raw, err := sql.Open("sqlite", fx.path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = raw.Close() }()
-	if _, err := raw.Exec(`UPDATE issue_controls SET data=json_set(data,'$.first_seen_unix',?) WHERE repository=? AND issue=?`,
-		seen.Unix(), fx.repo, issue); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestDispatchPassLaunchesOldestWithinShortLimit(t *testing.T) {
 	ctx := context.Background()
-	db, path := dispatchTestDB(t)
+	db, _ := dispatchTestDB(t)
 	fx := dispatchSeed(t, db)
-	fx.path = path
 	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
 		t.Fatal(err)
 	}
 	oldHead := fx.accept(t, 3, "d333333333333333333333333")
 	youngHead := fx.accept(t, 5, "d555555555555555555555555")
-	fx.queue(t, 3, oldHead.ID)
-	fx.queue(t, 5, youngHead.ID)
 	now := time.Now()
-	fx.stampFirstSeen(t, 3, now.Add(-2*time.Hour))
-	fx.stampFirstSeen(t, 5, now.Add(-time.Hour))
+	fx.queueAt(t, 3, oldHead.ID, now.Add(-2*time.Hour))
+	fx.queueAt(t, 5, youngHead.ID, now.Add(-time.Hour))
 
 	report := DispatchPass(ctx, fx.deps())
 	if len(report.Launched) != 1 || report.Launched[0].Issue != 3 {

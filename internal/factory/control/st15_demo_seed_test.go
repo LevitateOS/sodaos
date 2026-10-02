@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -24,7 +23,6 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
-	_ "modernc.org/sqlite"
 )
 
 func (fx *st15Fixture) st09() nativeST09Config {
@@ -423,39 +421,7 @@ func (fx *st15Fixture) readComment(commentID int64) string {
 
 func (fx *st15Fixture) insertEdge(blockedID, blockerID int64) {
 	fx.t.Helper()
-	db, err := sql.Open("sqlite", "file:"+fx.cfg.FountainDB+"?_pragma=busy_timeout(10000)")
-	nativeMust(fx.t, err)
-	defer func() { _ = db.Close() }()
-	rows, err := db.Query(`PRAGMA table_info(issue_dependency)`)
-	nativeMust(fx.t, err)
-	columns := map[string]bool{}
-	for rows.Next() {
-		var cid int
-		var name, typ string
-		var notNull, pk int
-		var dflt *string
-		nativeMust(fx.t, rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk))
-		columns[name] = true
-	}
-	nativeMust(fx.t, rows.Close())
-	if !columns["issue_id"] || !columns["dependency_id"] {
-		fx.t.Fatalf("native dependency table lacks its edge columns: %v", columns)
-	}
-	names := []string{"issue_id", "dependency_id"}
-	values := []any{blockedID, blockerID}
-	now := time.Now().Unix()
-	for _, optional := range []struct {
-		name  string
-		value any
-	}{{"user_id", fx.cfg.CreatorID}, {"created_unix", now}, {"updated_unix", now}} {
-		if columns[optional.name] {
-			names = append(names, optional.name)
-			values = append(values, optional.value)
-		}
-	}
-	placeholders := strings.Repeat("?,", len(names))
-	_, err = db.Exec(`INSERT INTO issue_dependency(`+strings.Join(names, ",")+`) VALUES(`+placeholders[:len(placeholders)-1]+`)`, values...)
-	nativeMust(fx.t, err)
+	nativeMust(fx.t, store.SeedStagedDependencyEdge(fx.cfg.FountainDB, fx.cfg.CreatorID, blockedID, blockerID))
 }
 
 // issueOpenedHint delivers the creation webhook for one maintainer issue.
