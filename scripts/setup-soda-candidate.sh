@@ -152,9 +152,11 @@ if command -v semanage >/dev/null; then
   for d in go-build go-mod .config; do
     sudo semanage fcontext -a -t soda_build_cache_t "$BUILD_HOME/$d(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t soda_build_cache_t "$BUILD_HOME/$d(/.*)?"
   done
+  sudo semanage fcontext -a -t soda_build_runtime_t "$RUNTIME(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t soda_build_runtime_t "$RUNTIME(/.*)?"
 fi
-command -v restorecon >/dev/null && sudo restorecon -R "$BUILD_HOME/go-build" "$BUILD_HOME/go-mod" "$BUILD_HOME/.config"
+command -v restorecon >/dev/null && sudo restorecon -R "$BUILD_HOME/go-build" "$BUILD_HOME/go-mod" "$BUILD_HOME/.config" "$RUNTIME"
 sudo stat -c %C "$BUILD_HOME/go-build" | grep -q ":soda_build_cache_t:" || fail "worker Go cache is not soda_build_cache_t; the sandboxed worker could not map it"
+sudo stat -c %C "$RUNTIME" | grep -q ":soda_build_runtime_t:" || fail "worker runtime is not soda_build_runtime_t; pasta could not use its netns dir"
 
 echo "-- worker git ownership exception"
 if [ ! -f /etc/gitconfig ] || ! grep -qF "directory = /run/soda-build-source" /etc/gitconfig; then

@@ -7,6 +7,7 @@ require {
 	type initrc_tmp_t;
 	type sshd_t;
 	type ssh_keygen_tmp_t;
+	type pasta_t;
 	type certmaster_port_t;
 	type cluster_port_t;
 	type cyphesis_port_t;
@@ -42,11 +43,17 @@ require {
 # var_lib_t worker home, so every package load fails with a synthesized
 # "could not import ... (permission denied)" and no failing open syscall.
 # A dedicated cache type grants init_t exactly its Go state dirs. Podman
-# storage, the runtime dir and the frontend caches keep their types so the
-# container stack and offline module warming are undisturbed.
+# storage and the frontend caches keep their types so the container stack
+# and offline module warming are undisturbed.
 type soda_build_cache_t;
 # semanage only records file contexts for file_type members.
 typeattribute soda_build_cache_t file_type;
+# Podman state, the runtime dir and the frontend caches keep their types so
+# the container stack and offline module warming are undisturbed, except the
+# worker runtime dir itself: pasta cannot use container_var_lib_t or var_lib_t
+# netns dirs, so it carries a dedicated type both init_t and pasta_t manage.
+type soda_build_runtime_t;
+typeattribute soda_build_runtime_t file_type;
 
 allow init_t self:process setpgid;
 # go test builds and runs test binaries in the unit's PrivateTmp, which
@@ -85,3 +92,14 @@ allow unconfined_t soda_build_cache_t:file { getattr relabelfrom relabelto };
 allow unconfined_t soda_build_cache_t:dir { getattr search read open relabelfrom relabelto };
 allow setfiles_t soda_build_cache_t:file { getattr relabelfrom relabelto };
 allow setfiles_t soda_build_cache_t:dir { getattr search read open relabelfrom relabelto };
+# The worker runtime dir (podman state, netns, libpod tmp) is worker-private:
+# init_t manages it and pasta_t manages the netns entries it creates. Same
+# provisioning relabel shape as the cache type.
+allow init_t soda_build_runtime_t:file { create open read write getattr setattr lock append unlink rename map };
+allow init_t soda_build_runtime_t:dir { create open read write getattr setattr search add_name remove_name rmdir };
+allow pasta_t soda_build_runtime_t:file { create open read write getattr setattr lock append unlink rename map };
+allow pasta_t soda_build_runtime_t:dir { create open read write getattr setattr search add_name remove_name rmdir };
+allow unconfined_t soda_build_runtime_t:file { getattr relabelfrom relabelto };
+allow unconfined_t soda_build_runtime_t:dir { getattr search read open relabelfrom relabelto };
+allow setfiles_t soda_build_runtime_t:file { getattr relabelfrom relabelto };
+allow setfiles_t soda_build_runtime_t:dir { getattr search read open relabelfrom relabelto };
