@@ -23,10 +23,6 @@ func (e harnessStreamExecutor) RunReader(ctx context.Context, in io.Reader, comm
 }
 
 func TestIdentityHarnessStreamsModesWithoutHostOwnership(t *testing.T) {
-	harness := t.TempDir()
-	if err := os.WriteFile(filepath.Join(harness, "codex"), []byte("synthetic release"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	container := strings.Repeat("c", 64)
 	target := "/run/soda-terminals/" + strings.Repeat("b", 32) + "/model/harness"
 	consumer := func(_ context.Context, in io.Reader, command string, args ...string) ([]byte, error) {
@@ -61,11 +57,27 @@ func TestIdentityHarnessStreamsModesWithoutHostOwnership(t *testing.T) {
 		if !found {
 			t.Fatal("release missing")
 		}
+		// Drain to pipe EOF like podman tar --extract does: stopping
+		// at the tar end marker leaves record padding unread, which
+		// deadlocks tar against small pipe buffers with nobody
+		// draining and the test stuck in Wait.
+		if _, err := io.Copy(io.Discard, in); err != nil {
+			return nil, err
+		}
 		return nil, nil
 	}
-	service := Service{CodexHarness: harness, Exec: harnessStreamExecutor{consume: consumer}}
-	if err := service.streamIdentityHarness(context.Background(), container, target); err != nil {
-		t.Fatal(err)
+	// Repeat the transfer: closing the pipe before Wait raced tar's
+	// final flush and failed healthy transfers with SIGPIPE under
+	// parallel-suite load. Ten fresh harnesses stress that window.
+	for i := 0; i < 10; i++ {
+		harness := t.TempDir()
+		if err := os.WriteFile(filepath.Join(harness, "codex"), []byte("synthetic release"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		service := Service{CodexHarness: harness, Exec: harnessStreamExecutor{consume: consumer}}
+		if err := service.streamIdentityHarness(context.Background(), container, target); err != nil {
+			t.Fatalf("iteration %d: %v", i, err)
+		}
 	}
 }
 

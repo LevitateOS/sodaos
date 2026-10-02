@@ -27,6 +27,9 @@ func (s *Service) streamIdentityHarness(ctx context.Context, container, path str
 	if consumerErr != nil {
 		cancel()
 	}
+	// A draining consumer (podman tar --extract reads to EOF, so tar
+	// already exited) makes this close harmless; a consumer that
+	// returns early gets a fast SIGPIPE failure instead of a hung Wait.
 	_ = stream.Close()
 	producerErr := producer.Wait()
 	if consumerErr != nil || producerErr != nil {

@@ -2,6 +2,7 @@ package acceptance
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -97,7 +98,9 @@ func TestOwnedLeaderExitAndCancellationStopResistantDescendant(t *testing.T) {
 			deadline = time.Now().Add(2 * time.Second)
 			for {
 				raw, err := os.ReadFile("/proc/" + pid + "/stat")
-				if os.IsNotExist(err) {
+				// ESRCH means the descendant exited between open and
+				// read: it no longer executes, same as ENOENT.
+				if os.IsNotExist(err) || errors.Is(err, syscall.ESRCH) {
 					break
 				}
 				if err != nil {
