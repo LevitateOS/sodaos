@@ -54,8 +54,8 @@ function createWorkspaceFixture(mode: 'native' | 'page' = 'page', firstUse = fal
   };
   const context =
     mode === 'page'
-      ? {kind: 'page' as const, transport}
-      : {kind: 'native' as const, transport, repositoryId: '7', pageRepositoryId: '7'};
+      ? {kind: 'page' as const, transport, forgejoPrefix: subpath}
+      : {kind: 'native' as const, transport, forgejoPrefix: subpath, repositoryId: '7', pageRepositoryId: '7'};
   let api = mountSodaspaces(model.root, context);
   return {
     get api() {

@@ -1,5 +1,10 @@
 /* Shared workspace presentation; pane geometry stays inside its mount. */
 .soda-spaces-page-mount { min-height: 0; min-width: 0; }
+/* A Spaces page mount breaks its native shell out to full bleed. Native
+   components.css loads last with !important gutters; this wins on
+   specificity (0,4,0 over 0,3,0) without touching native controls. */
+:is(.soda-page, .page-content:has(.soda-page-marker)):has(.soda-spaces-page-mount) { padding: 0; margin: 0; min-height: 0; }
+:is(.soda-page, .page-content:has(.soda-page-marker)):has(.soda-spaces-page-mount) > .soda-page-container { max-width: none; width: 100% !important; padding: 0; margin: 0; }
 .soda-visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: 0 !important; overflow: hidden !important; clip-path: inset(50%); white-space: nowrap; }
 .soda-workspace { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; min-width: 0; font: var(--soda-font-workspace); color: var(--soda-page-text); }
 .soda-workspace [hidden] { display: none !important; }

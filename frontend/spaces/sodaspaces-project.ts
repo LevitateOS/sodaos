@@ -814,8 +814,14 @@ export class SodaProjectControls extends LitElement {
       ${this.renderIdentity()}
     </section>`;
   }
+  private journeyIdentityHidden() {
+    // Identity connections need an established project login. During the
+    // first-use journey (configure, join, uncertain outcomes) the section
+    // would only double the journey's own recovery controls.
+    return this.shouldRenderJourney() && !this.detail?.login;
+  }
   private renderIdentity() {
-    if (!this.identityPresentationReady() || !this.binding) return html``;
+    if (!this.identityPresentationReady() || !this.binding || this.journeyIdentityHidden()) return html``;
     const actor = this.binding?.expectedUserId;
     if (!actor) return html``;
     return html`<soda-identity

@@ -253,7 +253,7 @@ function createFixture(options: TerminalFixtureOptions = {}) {
     };
   });
   const button = (text: string) => {
-    const found = [...root.querySelectorAll('button')].find((b) => b.textContent === text);
+    const found = [...root.querySelectorAll('button')].find((b) => b.textContent?.replace(/\s+/g, ' ').trim() === text);
     if (!found) throw Error('Missing button: ' + text);
     return found;
   };

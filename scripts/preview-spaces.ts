@@ -189,10 +189,18 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
         const path = source.startsWith('@build/forgejo-js/') ? resolve(out, basename(source)) : resolve(root, source);
         return new Response(Bun.file(path), {headers: {'Cache-Control': 'no-store'}});
       }
-      if (url.pathname === '/' && req.method === 'GET')
+      if (url.pathname === '/' && req.method === 'GET') {
+        // Fresh navigation renews an expired development grant, mirroring a
+        // re-authenticated Forgejo session: without this the Reconnect action
+        // (a plain reload) could never recover the expired scenario.
+        if (review.fault === 'expired') {
+          review.fault = 'healthy';
+          review.model.setStatus(200);
+        }
         return new Response(Bun.file(resolve(root, 'scripts/fixtures/spaces-review.html')), {
           headers: {'Content-Type': 'text/html', 'Cache-Control': 'no-store'},
         });
+      }
       return json({error: 'This route is outside the local Spaces fixture'}, 404);
     },
     websocket: {

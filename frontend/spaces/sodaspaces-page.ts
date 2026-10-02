@@ -2,7 +2,6 @@ import {mountSodaspaces} from './sodaspaces-workspace.js';
 import type {PreparedExtensionMount} from './soda-extension.js';
 
 export function mountSpacesPage(root: HTMLElement, transport: PreparedExtensionMount, forgejoPrefix = '') {
-  root.classList.add('soda-spaces-page-mount');
   const workspace = mountSodaspaces(root, {kind: 'page', transport, forgejoPrefix});
   let disposed = false;
   const measure = () => {

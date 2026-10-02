@@ -1,6 +1,6 @@
 import test, {before, after, type TestContext} from 'node:test';
 import assert from 'node:assert/strict';
-import {chromium, type Browser, type Page} from 'playwright';
+import {chromium, type Browser, type Locator, type Page} from 'playwright';
 import path from 'node:path';
 import type {} from './fixtures/workspace-fixture';
 import {installMeasurementProbe} from './fixtures/workspace-measurement-probe';
@@ -10,6 +10,11 @@ import {parseLayout, focusedPane} from '../../frontend/spaces/sodaspaces-layout'
 
 const root = path.resolve(import.meta.dirname, '../..');
 let browser: Browser, server: ReturnType<typeof Bun.serve>;
+// Lit preserves template whitespace in text nodes, so raw text contents vary with
+// source formatting. Collapse runs like rendered HTML does.
+async function textContents(locator: Locator): Promise<string[]> {
+  return (await locator.allTextContents()).map((s) => s.replace(/\s+/g, ' ').trim());
+}
 before(async () => {
   const build = await Bun.build({
     entrypoints: [path.join(root, 'tests/frontend/fixtures/workspace-fixture.ts')],
@@ -274,16 +279,17 @@ for (const mode of ['native', 'page'] as const)
       {sockets: 3, closed: [0, 0, 0], actions: ['attach', 'attach', 'attach'], writes: 0}
     );
     assert.equal(await page.locator('#native-draft').inputValue(), 'unsaved');
+    const callsBeforeHide = await page.evaluate(() => window.workspaceFixture.calls.length);
     await page.evaluate(() => {
       const f = window.workspaceFixture;
       f.api.setVisible(false);
       f.api.setVisible(true);
     });
     assert.equal(await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.method !== 'GET').length), 0);
-    assert.equal(
-      await page.evaluate(() => window.workspaceFixture.calls.filter((c) => c.path.endsWith('/api/session')).length),
-      1
-    );
+    // Visibility is presentation-only since lifetime custody was removed: re-show
+    // issues no new calls and the exact terminals keep their xterm owners.
+    assert.equal(await page.evaluate(() => window.workspaceFixture.calls.length), callsBeforeHide);
+    assert.equal(await page.locator('.xterm').count(), 3);
   });
 test('observed unread coalesces noisy hidden output, survives refresh, and clears only deliberate viewing', async (t) => {
   const page = await fixture(t);
@@ -340,7 +346,7 @@ test('attention has stable authorized counts/order and exact navigation without 
   });
   await page.getByRole('button', {name: 'Projects', exact: true}).click();
   await page.getByRole('button', {name: 'Attention (3)', exact: true}).click();
-  assert.deepEqual(await page.locator('.soda-session-list > button > span').allTextContents(), [
+  assert.deepEqual(await textContents(page.locator('.soda-session-list > button > span')), [
     'Build',
     'Edit',
     'Other project',
@@ -1168,7 +1174,7 @@ for (const theme of ['light', 'dark'])
       await page.locator('.soda-workspace-terminal:visible').getByLabel('Terminal actions', {exact: true}).click();
       const terminalMenu = page.locator('.soda-workspace-terminal:visible .soda-menu[open] > div');
       assert.equal(await terminalMenu.locator('.soda-menu-heading').innerText(), 'Terminal 1');
-      assert.deepEqual(await terminalMenu.getByRole('button').allTextContents(), [
+      assert.deepEqual(await textContents(terminalMenu.getByRole('button')), [
         'Rename terminal',
         'Hide terminal',
         'Project settings',
@@ -1186,7 +1192,7 @@ for (const theme of ['light', 'dark'])
       await page.keyboard.press('Escape');
       await page.getByLabel('Pane actions', {exact: true}).click();
       const paneMenu = page.locator('.soda-pane-chrome .soda-menu[open] > div');
-      assert.deepEqual(await paneMenu.getByRole('button').allTextContents(), ['Split right', 'Split below']);
+      assert.deepEqual(await textContents(paneMenu.getByRole('button')), ['Split right', 'Split below']);
       await captureSpacesComponent(page, `pane-menu-${theme}-${width}`);
       await page.keyboard.press('Escape');
       assert(await terminalScreen?.evaluate((node) => node.isConnected));

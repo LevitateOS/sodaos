@@ -2,52 +2,73 @@
 // Ported from soda-os bc1d3e0; no application mutations, but launches a browser
 // and writes screenshots. Run only in the later authorized native phase.
 import assert from 'node:assert/strict';
-import { mkdir } from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import path from 'node:path';
 
 import {chromium, type Page, type Locator} from 'playwright';
 const [preview, evidence] = Bun.argv.slice(2);
-assert(preview && evidence && Bun.argv.length === 4,
-  'usage: bun scripts/check-forgejo-branding.ts PREVIEW_URL EVIDENCE_DIRECTORY');
+assert(
+  preview && evidence && Bun.argv.length === 4,
+  'usage: bun scripts/check-forgejo-branding.ts PREVIEW_URL EVIDENCE_DIRECTORY'
+);
 assert(process.env.SODA_NATIVE_VALIDATE, 'Set SODA_NATIVE_VALIDATE to the authorized disposable target name');
-assert(process.platform === 'linux' && ['x64', 'arm64'].includes(process.arch), 'Matching-native Linux browser required');
+assert(
+  process.platform === 'linux' && ['x64', 'arm64'].includes(process.arch),
+  'Matching-native Linux browser required'
+);
 const url = new URL(preview);
-assert(['http:', 'https:'].includes(url.protocol) && !url.username && !url.password &&
-  url.pathname === '/assets/soda-theme-preview.html' && !url.search && !url.hash,
-  'Use the disposable /assets/soda-theme-preview.html URL, without credentials or query parameters');
-await mkdir(path.dirname(path.resolve(evidence)), { recursive: true });
+assert(
+  ['http:', 'https:'].includes(url.protocol) &&
+    !url.username &&
+    !url.password &&
+    url.pathname === '/assets/soda-theme-preview.html' &&
+    !url.search &&
+    !url.hash,
+  'Use the disposable /assets/soda-theme-preview.html URL, without credentials or query parameters'
+);
+await mkdir(path.dirname(path.resolve(evidence)), {recursive: true});
 await mkdir(evidence); // Require a fresh directory; never overwrite prior evidence.
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({headless: true});
 const semanticNames = [
-  '--color-diff-added-row-bg', '--color-diff-removed-row-bg',
-  '--color-diff-added-word-bg', '--color-diff-removed-word-bg',
-  '--color-ansi-red', '--color-ansi-green', '--color-console-bg',
-  '--color-error-bg', '--color-error-text',
+  '--color-diff-added-row-bg',
+  '--color-diff-removed-row-bg',
+  '--color-diff-added-word-bg',
+  '--color-diff-removed-word-bg',
+  '--color-ansi-red',
+  '--color-ansi-green',
+  '--color-console-bg',
+  '--color-error-bg',
+  '--color-error-text',
 ];
 
 function contrast(left: string, right: string) {
   function luminance(rgb: string) {
-    const channels = rgb.match(/[\d.]+/g); assert(channels && channels.length >= 3);
-    const values = channels.slice(0, 3).map(Number).map(value => {
-      const channel = value / 255;
-      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    });
+    const channels = rgb.match(/[\d.]+/g);
+    assert(channels && channels.length >= 3);
+    const values = channels
+      .slice(0, 3)
+      .map(Number)
+      .map((value) => {
+        const channel = value / 255;
+        return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      });
     const [red, green, blue] = values;
     assert(red !== undefined && green !== undefined && blue !== undefined);
     return red * 0.2126 + green * 0.7152 + blue * 0.0722;
   }
-  const a = luminance(left), b = luminance(right);
+  const a = luminance(left),
+    b = luminance(right);
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
 async function colors(locator: Locator) {
-  return locator.evaluate(async element => {
+  return locator.evaluate(async (element) => {
     // Flush style, then sample the end of native CSS transitions, not a frame
     // between normal/hover/active colors.
-    getComputedStyle(element).backgroundColor;
-    await Promise.all(element.getAnimations().map(animation => animation.finished));
+    void getComputedStyle(element).backgroundColor;
+    await Promise.all(element.getAnimations().map((animation) => animation.finished));
     const style = getComputedStyle(element);
-    return { color: style.color, background: style.backgroundColor };
+    return {color: style.color, background: style.backgroundColor};
   });
 }
 
@@ -55,9 +76,9 @@ async function visit(page: Page, theme: string) {
   url.searchParams.set('theme', theme);
   await page.goto(url.href);
   await page.evaluate(() => document.fonts.ready);
-  return page.evaluate(names => {
+  return page.evaluate((names) => {
     const style = getComputedStyle(document.documentElement);
-    return Object.fromEntries(names.map(name => [name, style.getPropertyValue(name).trim()]));
+    return Object.fromEntries(names.map((name) => [name, style.getPropertyValue(name).trim()]));
   }, semanticNames);
 }
 
@@ -73,7 +94,7 @@ async function checkButtons(page: Page) {
     const active = await colors(button);
     activeBackground = active.background;
     await page.mouse.up();
-    for (const [state, value] of Object.entries({ normal, hover, active })) {
+    for (const [state, value] of Object.entries({normal, hover, active})) {
       assert(contrast(value.color, value.background) >= 4.5, `${selector} ${state}: ${JSON.stringify(value)}`);
     }
     assert.notEqual(normal.background, hover.background, `${selector} hover feedback`);
@@ -89,25 +110,27 @@ async function checkButtons(page: Page) {
 
 async function checkFocusAndImages(page: Page) {
   await page.locator('#repository').focus();
-  const focus = await page.locator('#repository').evaluate(element => {
+  const focus = await page.locator('#repository').evaluate((element) => {
     const style = getComputedStyle(element);
-    return { width: style.outlineWidth, style: style.outlineStyle };
+    return {width: style.outlineWidth, style: style.outlineStyle};
   });
-  assert.deepEqual(focus, { width: '2px', style: 'solid' });
+  assert.deepEqual(focus, {width: '2px', style: 'solid'});
   const problems = await page.evaluate(() => ({
     overflow: document.documentElement.scrollWidth > innerWidth,
-    broken: [...document.images].filter(image => !image.complete || !image.naturalWidth).map(image => image.src),
+    broken: [...document.images].filter((image) => !image.complete || !image.naturalWidth).map((image) => image.src),
   }));
-  assert.deepEqual(problems, { overflow: false, broken: [] });
+  assert.deepEqual(problems, {overflow: false, broken: []});
 }
 
 try {
   for (const scheme of ['light', 'dark'] as const) {
-    const context = await browser.newContext({ colorScheme: scheme, viewport: { width: 1280, height: 1000 } });
+    const context = await browser.newContext({colorScheme: scheme, viewport: {width: 1280, height: 1000}});
     const page = await context.newPage();
     const errors: string[] = [];
-    page.on('pageerror', error => errors.push(error.message));
-    page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
+    page.on('pageerror', (error) => errors.push(error.message));
+    page.on('response', (response) => {
+      if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`);
+    });
     const baseline = await visit(page, `forgejo-${scheme}`);
     for (const [name, value] of Object.entries(baseline)) assert(value, `Missing native semantic color: ${name}`);
     for (const theme of [`soda-${scheme}`, 'soda-auto']) {
@@ -117,34 +140,46 @@ try {
       assert(contrast(body.color, body.background) >= 4.5);
       await checkButtons(page);
       await checkFocusAndImages(page);
-      await page.screenshot({ path: path.join(evidence, `${theme}-${scheme}.png`), fullPage: true });
+      await page.screenshot({path: path.join(evidence, `${theme}-${scheme}.png`), fullPage: true});
     }
     // Automatic mode responds to a preference change without a page reload.
-    await page.emulateMedia({ colorScheme: scheme === 'light' ? 'dark' : 'light' });
-    assert.equal((await colors(page.locator('body'))).background,
-      scheme === 'light' ? 'rgb(12, 16, 23)' : 'rgb(255, 253, 248)');
+    await page.emulateMedia({colorScheme: scheme === 'light' ? 'dark' : 'light'});
+    assert.equal(
+      (await colors(page.locator('body'))).background,
+      scheme === 'light' ? 'rgb(12, 16, 23)' : 'rgb(255, 253, 248)'
+    );
     // Explicit user choice must not follow the opposite OS preference.
     await visit(page, `soda-${scheme}`);
-    assert.equal((await colors(page.locator('body'))).background,
-      scheme === 'light' ? 'rgb(255, 253, 248)' : 'rgb(12, 16, 23)');
+    assert.equal(
+      (await colors(page.locator('body'))).background,
+      scheme === 'light' ? 'rgb(255, 253, 248)' : 'rgb(12, 16, 23)'
+    );
     assert.deepEqual(errors, []);
     await context.close();
   }
-  for (const [width, scale] of [[320, 1], [390, 1], [1280, 2]] as const) {
-    const context = await browser.newContext({ viewport: { width, height: 1000 }, deviceScaleFactor: scale });
+  for (const [width, scale] of [
+    [320, 1],
+    [390, 1],
+    [1280, 2],
+  ] as const) {
+    const context = await browser.newContext({viewport: {width, height: 1000}, deviceScaleFactor: scale});
     const page = await context.newPage();
     const errors: string[] = [];
-    page.on('pageerror', error => errors.push(error.message));
-    page.on('response', response => { if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`); });
+    page.on('pageerror', (error) => errors.push(error.message));
+    page.on('response', (response) => {
+      if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`);
+    });
     for (const mode of ['light', 'dark'] as const) {
       await visit(page, `soda-${mode}`);
       await checkFocusAndImages(page);
-      await page.screenshot({ path: path.join(evidence, `soda-${mode}-${width}-${scale}x.png`), fullPage: true });
+      await page.screenshot({path: path.join(evidence, `soda-${mode}-${width}-${scale}x.png`), fullPage: true});
     }
     assert.deepEqual(errors, []);
     await context.close();
   }
-  console.log('Forgejo theme checks passed: native CSS, control states/contrast, semantic colors, focus, automatic/explicit modes, mobile and 2x.');
+  console.log(
+    'Forgejo theme checks passed: native CSS, control states/contrast, semantic colors, focus, automatic/explicit modes, mobile and 2x.'
+  );
 } finally {
   await browser.close();
 }

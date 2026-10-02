@@ -237,17 +237,14 @@ export class SodaFactoryWatch extends LitElement {
     const running = live ? `${phase} · live` : phase;
     return terminal ? ended : running;
   }
+  private fitReady() {
+    return !!this.terminal && !!this.fit && this.viewVisible && !this.closest('[hidden]');
+  }
+  private screenPresent(screen: HTMLElement | null): screen is HTMLElement {
+    return !!screen?.isConnected && !!screen.clientWidth && !!screen.clientHeight;
+  }
   private canFit(screen: HTMLElement | null): screen is HTMLElement {
-    return (
-      !!this.terminal &&
-      !!this.fit &&
-      this.viewVisible &&
-      !this.closest('[hidden]') &&
-      (this.state === 'ready' || this.state === 'opening') &&
-      !!screen?.isConnected &&
-      !!screen.clientWidth &&
-      !!screen.clientHeight
-    );
+    return this.fitReady() && this.screenPresent(screen) && (this.state === 'ready' || this.state === 'opening');
   }
   // Presentation only: fitting never sends a resize frame. The read-only
   // stream rejects every client frame past the handshake.
@@ -429,16 +426,19 @@ export class SodaFactoryWatch extends LitElement {
     this.message = 'Reading the recorded run…';
     try {
       if (await this.inspectRun(n, request)) return;
-      const {Terminal, FitAddon} = await this.loadRenderer();
-      if (!this.live(n)) return;
-      const screen = await this.awaitScreen(n);
-      if (!screen || !this.live(n)) return;
-      const terminal = this.terminal || this.openScreen(screen, Terminal, FitAddon);
-      this.bindPeer(n, terminal, this.cursor);
+      await this.attachPeer(n);
     } catch {
       if (this.live(n))
         this.detach('Could not authorize or attach. Sign in again or inspect the exact run; nothing was replayed.');
     }
+  }
+  private async attachPeer(n: number) {
+    const {Terminal, FitAddon} = await this.loadRenderer();
+    if (!this.live(n)) return;
+    const screen = await this.awaitScreen(n);
+    if (!screen || !this.live(n)) return;
+    const terminal = this.terminal || this.openScreen(screen, Terminal, FitAddon);
+    this.bindPeer(n, terminal, this.cursor);
   }
   private async screenReady() {
     const n = this.generation;
@@ -474,17 +474,32 @@ export class SodaFactoryWatch extends LitElement {
   }
 }
 customElements.define('soda-factory-watch', SodaFactoryWatch);
-function admitWatchContext(root: HTMLElement, context: FactoryWatchContext) {
-  const {expectedUserId, repositoryId, environmentId, runId, role} = context;
+function optionalMatches(value: string | undefined, pattern: RegExp) {
+  return value === undefined || pattern.test(value);
+}
+function admitWatchIds(
+  expectedUserId: string,
+  repositoryId: string,
+  environmentId: string,
+  runId: string,
+  role: string
+) {
   if (
-    root.ownerDocument !== document ||
     !/^[1-9][0-9]{0,18}$/.test(expectedUserId) ||
     !/^[1-9][0-9]{0,18}$/.test(repositoryId) ||
     !/^p[0-9a-f]{24}$/.test(environmentId) ||
     !/^[0-9a-f]{32}$/.test(runId) ||
-    !/^[a-z][a-z0-9-]{0,63}$/.test(role) ||
-    (context.issue !== undefined && !/^[1-9][0-9]{0,18}$/.test(context.issue)) ||
-    (context.attempt !== undefined && !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(context.attempt))
+    !/^[a-z][a-z0-9-]{0,63}$/.test(role)
+  )
+    throw Error('Invalid factory watch context');
+}
+function admitWatchContext(root: HTMLElement, context: FactoryWatchContext) {
+  const {expectedUserId, repositoryId, environmentId, runId, role} = context;
+  admitWatchIds(expectedUserId, repositoryId, environmentId, runId, role);
+  if (
+    root.ownerDocument !== document ||
+    !optionalMatches(context.issue, /^[1-9][0-9]{0,18}$/) ||
+    !optionalMatches(context.attempt, /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/)
   )
     throw Error('Invalid factory watch context');
 }

@@ -3036,6 +3036,7 @@ export function mountSodaspaces(
           (context.pageRepositoryId === undefined || id(context.pageRepositoryId))
         : context.kind === 'page')
   );
+  if (context.kind === 'page') root.classList.add('soda-spaces-page-mount');
   const box = new SodaSpaces();
   box.configure(context, factory);
   root.append(box);
