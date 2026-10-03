@@ -59,10 +59,11 @@ snapshot is not automatically application-consistent; use the provider's actual
 guarantees and each application's quiescing procedure.
 
 For file/application backups, follow [Forgejo backup guidance](https://forgejo.org/docs/latest/admin/upgrade/#backup)
-and your databases' native methods. Use SQLite's supported backup mechanism or
-stop its writer before copying; a live main database file without its WAL state
-is not a reliable backup. Coordinate the Soda records, encryption key and native
-project state at the same recovery point.
+and your databases' native methods. Back up PostgreSQL with its supported
+mechanism — the nightly `soda-postgres-backup.timer` running `soda-pg-backup`
+(`pg_dump` per database plus globals, 7 runs retained), or `soda-pg-restore`
+for recovery — never by copying live data files. Coordinate the Soda records,
+encryption key and native project state at the same recovery point.
 
 ## Restore in isolation first
 

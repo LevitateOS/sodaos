@@ -58,7 +58,9 @@ On the host, replace the example Forgejo origin and token-file path:
 Setup records the operator identity and creates the grant-encryption key.
 It creates no OAuth application and retains no OAuth secret; it keeps no
 bootstrap-token copy/reference and leaves the supplied token file unchanged.
-Existing copies need
+After durable configuration, setup revokes the bootstrap token server-side
+so the token itself is unusable; failures before that point keep it usable
+for retry. Other existing copies need
 separately authorized maintenance;
 setup does not delete or revoke them.
 Soda's browser pages and product operations use Forgejo's native extension service
