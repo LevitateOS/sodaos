@@ -17,10 +17,13 @@ Cross-compilation or emulation is not native proof. Native validation follows th
 
 ## Source checks
 
-Choose checks for the change. Common entry points are listed in
-[AGENTS.md](../../AGENTS.md#commands). Examples:
+Run Go checks with the pinned toolchain first on `PATH`. It provides the
+`go.mod`-pinned Go from `/usr/local/lib/soda/pinned-go/bin`; anything else
+is refused by `scripts/check-source.sh`. Choose checks for the change. Common
+entry points are listed in [AGENTS.md](../../AGENTS.md#commands). Examples:
 
 ```sh
+export PATH=/usr/local/lib/soda/pinned-go/bin:$PATH
 go test ./internal/project ./internal/web/...
 bun run typecheck
 bun run test:frontend
