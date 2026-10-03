@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"database/sql"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -19,17 +18,13 @@ const (
 
 func prepTestStore(t *testing.T) (*Store, context.Context) {
 	t.Helper()
-	s, err := Open(filepath.Join(t.TempDir(), "prep.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { s.Close() })
+	s, _ := postgresFixture(t, nil)
 	ctx := context.Background()
-	if err = s.UpsertUser(ctx, User{ID: 3, Login: "soda-tester"}); err != nil {
+	if err := s.UpsertUser(ctx, User{ID: 3, Login: "soda-tester"}); err != nil {
 		t.Fatal(err)
 	}
 	profile := &project.Profile{ID: project.RockyHeadless, Distribution: "rocky", Version: "10.2", Interface: "headless", Architecture: "amd64", Image: "sha256:" + strings.Repeat("a", 64), Revision: strings.Repeat("b", 40)}
-	if err = s.CreateProject(ctx, Project{ID: prepTestProject, Name: "n", RepositoryID: 7, OwnerID: 3, Repository: "o/n", Profile: profile}); err != nil {
+	if err := s.CreateProject(ctx, Project{ID: prepTestProject, Name: "n", RepositoryID: 7, OwnerID: 3, Repository: "o/n", Profile: profile}); err != nil {
 		t.Fatal(err)
 	}
 	return s, ctx
@@ -108,7 +103,7 @@ func TestPreparationRefsAreImmutable(t *testing.T) {
 	if _, _, err := s.AdmitPreparation(ctx, prepTestPreparation()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.db.Exec(`UPDATE project_preparations SET requirements='d99999999999999999999999' WHERE id=?`, prepTestID); err == nil {
+	if _, err := s.exec(ctx, `UPDATE project_preparations SET requirements='d99999999999999999999999' WHERE id=?`, prepTestID); err == nil {
 		t.Fatal("requirement reference mutation accepted")
 	}
 	current, err := s.Preparation(ctx, prepTestID)

@@ -39,7 +39,7 @@ func (s *Store) AdmitRequirementDecision(ctx context.Context, d project.Requirem
 func (s *Store) RequirementDecision(ctx context.Context, id string) (project.RequirementDecision, error) {
 	var d project.RequirementDecision
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM project_requirement_decisions WHERE id=?`, id).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM project_requirement_decisions WHERE id=?`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &d)
 	}
@@ -49,7 +49,7 @@ func (s *Store) RequirementDecision(ctx context.Context, id string) (project.Req
 // RequirementHead returns the current requirement decision for one project.
 func (s *Store) RequirementHead(ctx context.Context, projectID string) (string, error) {
 	var head string
-	err := s.db.QueryRowContext(ctx, `SELECT decision FROM project_requirement_heads WHERE project_id=?`, projectID).Scan(&head)
+	err := s.queryRow(ctx, `SELECT decision FROM project_requirement_heads WHERE project_id=?`, projectID).Scan(&head)
 	return head, err
 }
 
@@ -57,7 +57,7 @@ func (s *Store) RequirementHead(ctx context.Context, projectID string) (string, 
 // decision to the head. Preparation references carry this depth.
 func (s *Store) RequirementDepth(ctx context.Context, projectID string) (int64, error) {
 	var depth int64
-	err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM project_requirement_decisions WHERE project_id=?`, projectID).Scan(&depth)
+	err := s.queryRow(ctx, `SELECT count(*) FROM project_requirement_decisions WHERE project_id=?`, projectID).Scan(&depth)
 	return depth, err
 }
 
@@ -73,7 +73,7 @@ func (s *Store) AdmitApprovalDecision(ctx context.Context, d project.ApprovalDec
 func (s *Store) ApprovalDecision(ctx context.Context, id string) (project.ApprovalDecision, error) {
 	var d project.ApprovalDecision
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM project_approval_decisions WHERE id=?`, id).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM project_approval_decisions WHERE id=?`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &d)
 	}
@@ -83,14 +83,14 @@ func (s *Store) ApprovalDecision(ctx context.Context, id string) (project.Approv
 // ApprovalHead returns the current privileged-effect approval for one project.
 func (s *Store) ApprovalHead(ctx context.Context, projectID string) (string, error) {
 	var head string
-	err := s.db.QueryRowContext(ctx, `SELECT decision FROM project_approval_heads WHERE project_id=?`, projectID).Scan(&head)
+	err := s.queryRow(ctx, `SELECT decision FROM project_approval_heads WHERE project_id=?`, projectID).Scan(&head)
 	return head, err
 }
 
 // ApprovalDepth counts the recorded approval chain for preparation references.
 func (s *Store) ApprovalDepth(ctx context.Context, projectID string) (int64, error) {
 	var depth int64
-	err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM project_approval_decisions WHERE project_id=?`, projectID).Scan(&depth)
+	err := s.queryRow(ctx, `SELECT count(*) FROM project_approval_decisions WHERE project_id=?`, projectID).Scan(&depth)
 	return depth, err
 }
 
@@ -103,13 +103,13 @@ func (s *Store) admitProjectDecision(ctx context.Context, table, heads, id, pred
 	if err != nil {
 		return err
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
 	var head sql.NullString
-	err = tx.QueryRowContext(ctx, `SELECT decision FROM `+heads+` WHERE project_id=?`, projectID).Scan(&head)
+	err = tx.queryRow(ctx, `SELECT decision FROM `+heads+` WHERE project_id=?`, projectID).Scan(&head)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -119,10 +119,14 @@ func (s *Store) admitProjectDecision(ctx context.Context, table, heads, id, pred
 	}
 	if current == id {
 		var raw []byte
-		if err = tx.QueryRowContext(ctx, `SELECT data FROM `+table+` WHERE id=?`, id).Scan(&raw); err != nil {
+		if err = tx.queryRow(ctx, `SELECT data FROM `+table+` WHERE id=?`, id).Scan(&raw); err != nil {
 			return err
 		}
-		if string(raw) != string(data) {
+		same, err := sameJSONDocument(ctx, tx, raw, data)
+		if err != nil {
+			return err
+		}
+		if !same {
 			return ErrCommandConflict
 		}
 		return tx.Commit()
@@ -131,16 +135,16 @@ func (s *Store) admitProjectDecision(ctx context.Context, table, heads, id, pred
 		return ErrStaleRevision
 	}
 	var taken int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM `+table+` WHERE id=?`, id).Scan(&taken); err != nil {
+	if err = tx.queryRow(ctx, `SELECT count(*) FROM `+table+` WHERE id=?`, id).Scan(&taken); err != nil {
 		return err
 	}
 	if taken != 0 {
 		return ErrCommandConflict
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO `+table+`(id,project_id,predecessor,data) VALUES(?,?,?,?)`, id, projectID, predecessor, string(data)); err != nil {
+	if _, err = tx.exec(ctx, `INSERT INTO `+table+`(id,project_id,predecessor,data) VALUES(?,?,?,?)`, id, projectID, predecessor, string(data)); err != nil {
 		return fmt.Errorf("decision admission failed: %w", err)
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO `+heads+`(project_id,decision) VALUES(?,?)
+	result, err := tx.exec(ctx, `INSERT INTO `+heads+`(project_id,decision) VALUES(?,?)
 		ON CONFLICT(project_id) DO UPDATE SET decision=? WHERE `+heads+`.decision=?`, projectID, id, id, predecessor)
 	if err != nil {
 		return fmt.Errorf("decision head advance failed: %w", err)

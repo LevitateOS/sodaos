@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	// The staged Forgejo database file is SQLite; the Soda store itself is
+	// PostgreSQL. This import serves only the external staging seeder below.
+	_ "modernc.org/sqlite"
 )
 
 // SeedStagedDependencyEdge records one blocked-by-blocker edge in a staged

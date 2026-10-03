@@ -24,8 +24,8 @@ func (s *Store) IdentitySaveConnection(ctx context.Context, c identity.Connectio
 	if err != nil {
 		return err
 	}
-	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO identity_connections(id,owner_id,generation,state,data,credential) VALUES(?,?,?,?,?,?)`, c.ID, c.OwnerID, c.Generation, c.State, data, s.grants.seal(credential, identityBinding(c))); err != nil {
+	return s.identityAtomic(ctx, func(tx *tx) error {
+		if _, err := tx.exec(ctx, `INSERT INTO identity_connections(id,owner_id,generation,state,data,credential) VALUES(?,?,?,?,?,?)`, c.ID, c.OwnerID, c.Generation, c.State, data, s.grants.seal(credential, identityBinding(c))); err != nil {
 			return err
 		}
 		return appendIdentityEvent(ctx, tx, identity.Event{Action: "connected", OwnerID: c.OwnerID, ActorID: c.OwnerID, ConnectionID: c.ID, Generation: c.Generation})
@@ -35,7 +35,7 @@ func (s *Store) IdentitySaveConnection(ctx context.Context, c identity.Connectio
 func (s *Store) IdentityConnection(ctx context.Context, id string) (identity.Connection, error) {
 	var c identity.Connection
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM identity_connections WHERE id=?`, id).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM identity_connections WHERE id=?`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &c)
 	}
@@ -44,7 +44,7 @@ func (s *Store) IdentityConnection(ctx context.Context, id string) (identity.Con
 
 func (s *Store) IdentityCredential(ctx context.Context, c identity.Connection) ([]byte, error) {
 	var encrypted []byte
-	err := s.db.QueryRowContext(ctx, `SELECT credential FROM identity_connections WHERE id=? AND generation=? AND state='ready'`, c.ID, c.Generation).Scan(&encrypted)
+	err := s.queryRow(ctx, `SELECT credential FROM identity_connections WHERE id=? AND generation=? AND state='ready'`, c.ID, c.Generation).Scan(&encrypted)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (s *Store) IdentityCredential(ctx context.Context, c identity.Connection) (
 }
 
 func (s *Store) IdentityConnections(ctx context.Context, owner int64) ([]identity.Connection, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM identity_connections WHERE owner_id=? ORDER BY id`, owner)
+	rows, err := s.query(ctx, `SELECT data FROM identity_connections WHERE owner_id=? ORDER BY id`, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (s *Store) IdentityConnections(ctx context.Context, owner int64) ([]identit
 }
 
 func (s *Store) IdentityAvailable(ctx context.Context, actor int64, project string) ([]identity.Connection, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.data FROM identity_connections c WHERE c.state='ready' AND (c.owner_id=? OR EXISTS(SELECT 1 FROM identity_grants g WHERE g.connection_id=c.id AND g.user_id=? AND g.project_id=? AND g.revoked=0)) ORDER BY c.id`, actor, actor, project)
+	rows, err := s.query(ctx, `SELECT c.data FROM identity_connections c WHERE c.state='ready' AND (c.owner_id=? OR EXISTS(SELECT 1 FROM identity_grants g WHERE g.connection_id=c.id AND g.user_id=? AND g.project_id=? AND NOT g.revoked)) ORDER BY c.id`, actor, actor, project)
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +103,8 @@ func (s *Store) IdentityState(ctx context.Context, c identity.Connection, state 
 	if err != nil {
 		return err
 	}
-	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `UPDATE identity_connections SET state=?,data=?,credential=CASE WHEN ?='revoked' THEN X'' ELSE credential END WHERE id=? AND generation=?`, state, data, state, c.ID, c.Generation)
+	return s.identityAtomic(ctx, func(tx *tx) error {
+		res, err := tx.exec(ctx, `UPDATE identity_connections SET state=?,data=?,credential=CASE WHEN ?='revoked' THEN '\x'::bytea ELSE credential END WHERE id=? AND generation=?`, state, data, state, c.ID, c.Generation)
 		if err = identityChanged(res, err); err != nil {
 			return err
 		}
@@ -131,8 +131,8 @@ func (s *Store) IdentitySaveGrant(ctx context.Context, g identity.Grant) error {
 	if err != nil {
 		return err
 	}
-	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO identity_grants(id,connection_id,user_id,project_id,revision,revoked,data) VALUES(?,?,?,?,?,?,?)`, g.ID, g.ConnectionID, g.UserID, g.ProjectID, g.Revision, g.Revoked, data); err != nil {
+	return s.identityAtomic(ctx, func(tx *tx) error {
+		if _, err := tx.exec(ctx, `INSERT INTO identity_grants(id,connection_id,user_id,project_id,revision,revoked,data) VALUES(?,?,?,?,?,?,?)`, g.ID, g.ConnectionID, g.UserID, g.ProjectID, g.Revision, g.Revoked, data); err != nil {
 			return err
 		}
 		return appendIdentityEvent(ctx, tx, identity.Event{Action: "grant_created", ConnectionID: g.ConnectionID, GrantID: g.ID, ProjectID: g.ProjectID})
@@ -142,7 +142,7 @@ func (s *Store) IdentitySaveGrant(ctx context.Context, g identity.Grant) error {
 func (s *Store) IdentityGrant(ctx context.Context, id string) (identity.Grant, error) {
 	var g identity.Grant
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM identity_grants WHERE id=?`, id).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM identity_grants WHERE id=?`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &g)
 	}
@@ -150,7 +150,7 @@ func (s *Store) IdentityGrant(ctx context.Context, id string) (identity.Grant, e
 }
 
 func (s *Store) IdentityGrants(ctx context.Context, id string) ([]identity.Grant, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM identity_grants WHERE connection_id=? ORDER BY id`, id)
+	rows, err := s.query(ctx, `SELECT data FROM identity_grants WHERE connection_id=? ORDER BY id`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -177,8 +177,8 @@ func (s *Store) IdentityRevokeGrant(ctx context.Context, g identity.Grant) error
 	if err != nil {
 		return err
 	}
-	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `UPDATE identity_grants SET revoked=1,revision=?,data=? WHERE id=? AND revision=?`, g.Revision, data, g.ID, g.Revision-1)
+	return s.identityAtomic(ctx, func(tx *tx) error {
+		res, err := tx.exec(ctx, `UPDATE identity_grants SET revoked=TRUE,revision=?,data=? WHERE id=? AND revision=?`, g.Revision, data, g.ID, g.Revision-1)
 		if err = identityChanged(res, err); err != nil {
 			return err
 		}
@@ -187,7 +187,7 @@ func (s *Store) IdentityRevokeGrant(ctx context.Context, g identity.Grant) error
 }
 
 func (s *Store) IdentityLeases(ctx context.Context) ([]identity.Lease, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM identity_leases ORDER BY id`)
+	rows, err := s.query(ctx, `SELECT data FROM identity_leases ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (s *Store) IdentityLeases(ctx context.Context) ([]identity.Lease, error) {
 func (s *Store) IdentityLease(ctx context.Context, id string) (identity.Lease, error) {
 	var l identity.Lease
 	var d []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM identity_leases WHERE id=?`, id).Scan(&d)
+	err := s.queryRow(ctx, `SELECT data FROM identity_leases WHERE id=?`, id).Scan(&d)
 	if err == nil {
 		err = json.Unmarshal(d, &l)
 	}
@@ -225,8 +225,8 @@ func (s *Store) IdentityReserve(ctx context.Context, l identity.Lease) error {
 	if err != nil {
 		return err
 	}
-	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `INSERT INTO identity_leases(id,connection_id,data) SELECT ?,id,? FROM identity_connections WHERE id=? AND generation=? AND state='ready' AND json_extract(data,'$.provider_id')=? AND (?='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=?)) AND (?='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=? AND connection_id=? AND user_id=? AND project_id=? AND revision=? AND revoked=0))`, l.ID, d, l.ConnectionID, l.Generation, l.ProviderID, l.ProviderID, l.ConnectionID, l.GrantID, l.GrantID, l.ConnectionID, l.ActorID, l.ProjectID, l.GrantRevision)
+	return s.identityAtomic(ctx, func(tx *tx) error {
+		res, err := tx.exec(ctx, `INSERT INTO identity_leases(id,connection_id,data) SELECT ?,id,? FROM identity_connections WHERE id=? AND generation=? AND state='ready' AND data->>'provider_id'=? AND (?='muse' OR NOT EXISTS(SELECT 1 FROM identity_leases WHERE connection_id=?)) AND (?='' OR EXISTS(SELECT 1 FROM identity_grants WHERE id=? AND connection_id=? AND user_id=? AND project_id=? AND revision=? AND revoked=FALSE))`, l.ID, d, l.ConnectionID, l.Generation, l.ProviderID, l.ProviderID, l.ConnectionID, l.GrantID, l.GrantID, l.ConnectionID, l.ActorID, l.ProjectID, l.GrantRevision)
 		if err != nil {
 			return err
 		}
@@ -246,8 +246,8 @@ func (s *Store) IdentityRegister(ctx context.Context, l identity.Lease) error {
 	if err != nil {
 		return err
 	}
-	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, `UPDATE identity_leases SET data=? WHERE id=? AND json_extract(data,'$.binding') IS NULL`, d, l.ID)
+	return s.identityAtomic(ctx, func(tx *tx) error {
+		res, err := tx.exec(ctx, `UPDATE identity_leases SET data=? WHERE id=? AND (data->'binding') IS NULL`, d, l.ID)
 		if err = identityChanged(res, err); err != nil {
 			return err
 		}
@@ -260,7 +260,7 @@ func (s *Store) IdentityReturn(ctx context.Context, l identity.Lease, credential
 	if !identity.CredentialValid(credential) {
 		return identity.ErrUncertain
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -268,7 +268,7 @@ func (s *Store) IdentityReturn(ctx context.Context, l identity.Lease, credential
 	if err := s.identityMaintainCredential(ctx, tx, l, credential); err != nil {
 		return err
 	}
-	res, err := tx.ExecContext(ctx, `DELETE FROM identity_leases WHERE id=? AND connection_id=? AND json_extract(data,'$.generation')=?`, l.ID, l.ConnectionID, l.Generation)
+	res, err := tx.exec(ctx, `DELETE FROM identity_leases WHERE id=? AND connection_id=? AND (data->>'generation')::bigint=?`, l.ID, l.ConnectionID, l.Generation)
 	if err = identityChanged(res, err); err != nil {
 		return err
 	}
@@ -283,7 +283,7 @@ func (s *Store) IdentityReturn(ctx context.Context, l identity.Lease, credential
 func (s *Store) IdentityExecution(ctx context.Context, kind, executionID string) (identity.Execution, error) {
 	var e identity.Execution
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM identity_executions WHERE kind=? AND execution_id=?`, kind, executionID).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM identity_executions WHERE kind=? AND execution_id=?`, kind, executionID).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &e)
 	}
@@ -301,7 +301,7 @@ func (s *Store) IdentityAdmitExecution(ctx context.Context, e identity.Execution
 	if err != nil {
 		return identity.Execution{}, false, err
 	}
-	result, err := s.db.ExecContext(ctx, `INSERT INTO identity_executions(kind,execution_id,state,lease_id,data) VALUES(?,?,?,?,?)
+	result, err := s.exec(ctx, `INSERT INTO identity_executions(kind,execution_id,state,lease_id,data) VALUES(?,?,?,?,?)
 		ON CONFLICT(kind,execution_id) DO NOTHING`, e.Kind, e.ExecutionID, e.State, e.LeaseID, string(data))
 	if err != nil {
 		return identity.Execution{}, false, err
@@ -331,7 +331,7 @@ func (s *Store) IdentityObserveExecution(ctx context.Context, e identity.Executi
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE identity_executions SET state=?,lease_id=?,data=? WHERE kind=? AND execution_id=?`,
+	result, err := s.exec(ctx, `UPDATE identity_executions SET state=?,lease_id=?,data=? WHERE kind=? AND execution_id=?`,
 		e.State, e.LeaseID, string(data), e.Kind, e.ExecutionID)
 	if err != nil {
 		return err
@@ -347,26 +347,26 @@ func (s *Store) IdentityObserveExecution(ctx context.Context, e identity.Executi
 }
 
 func (s *Store) IdentityForgetLease(ctx context.Context, id string) error {
-	return s.identityAtomic(ctx, func(tx *sql.Tx) error {
+	return s.identityAtomic(ctx, func(tx *tx) error {
 		var data []byte
 		var l identity.Lease
-		if err := tx.QueryRowContext(ctx, `SELECT data FROM identity_leases WHERE id=?`, id).Scan(&data); err != nil {
+		if err := tx.queryRow(ctx, `SELECT data FROM identity_leases WHERE id=?`, id).Scan(&data); err != nil {
 			return err
 		}
 		if err := json.Unmarshal(data, &l); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `DELETE FROM identity_leases WHERE id=?`, id); err != nil {
+		if _, err := tx.exec(ctx, `DELETE FROM identity_leases WHERE id=?`, id); err != nil {
 			return err
 		}
 		return appendIdentityEvent(ctx, tx, leaseEvent(l, "reconciled"))
 	})
 }
 
-func (s *Store) identityMaintainCredential(ctx context.Context, tx *sql.Tx, l identity.Lease, credential []byte) error {
+func (s *Store) identityMaintainCredential(ctx context.Context, tx *tx, l identity.Lease, credential []byte) error {
 	var data []byte
 	var c identity.Connection
-	if err := tx.QueryRowContext(ctx, `SELECT data FROM identity_connections WHERE id=? AND generation=? AND state='ready'`, l.ConnectionID, l.Generation).Scan(&data); err != nil {
+	if err := tx.queryRow(ctx, `SELECT data FROM identity_connections WHERE id=? AND generation=? AND state='ready'`, l.ConnectionID, l.Generation).Scan(&data); err != nil {
 		return identity.ErrStale
 	}
 	if err := json.Unmarshal(data, &c); err != nil {
@@ -380,7 +380,7 @@ func (s *Store) identityMaintainCredential(ctx context.Context, tx *sql.Tx, l id
 	if err != nil {
 		return err
 	}
-	res, err := tx.ExecContext(ctx, `UPDATE identity_connections SET generation=?,data=?,credential=? WHERE id=? AND generation=?`, c.Generation, data, s.grants.seal(credential, identityBinding(c)), c.ID, l.Generation)
+	res, err := tx.exec(ctx, `UPDATE identity_connections SET generation=?,data=?,credential=? WHERE id=? AND generation=?`, c.Generation, data, s.grants.seal(credential, identityBinding(c)), c.ID, l.Generation)
 	if err = identityChanged(res, err); err != nil {
 		return err
 	}

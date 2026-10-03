@@ -2,15 +2,14 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/identity"
 )
 
-func (s *Store) identityAtomic(ctx context.Context, operation func(*sql.Tx) error) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+func (s *Store) identityAtomic(ctx context.Context, operation func(*tx) error) error {
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
 	}
@@ -21,10 +20,10 @@ func (s *Store) identityAtomic(ctx context.Context, operation func(*sql.Tx) erro
 	return tx.Commit()
 }
 
-func appendIdentityEvent(ctx context.Context, tx *sql.Tx, event identity.Event) error {
+func appendIdentityEvent(ctx context.Context, tx *tx, event identity.Event) error {
 	if event.OwnerID == 0 {
 		var generation int64
-		if err := tx.QueryRowContext(ctx, `SELECT owner_id,generation FROM identity_connections WHERE id=?`, event.ConnectionID).Scan(&event.OwnerID, &generation); err != nil {
+		if err := tx.queryRow(ctx, `SELECT owner_id,generation FROM identity_connections WHERE id=?`, event.ConnectionID).Scan(&event.OwnerID, &generation); err != nil {
 			return err
 		}
 		if event.Generation == 0 {
@@ -39,7 +38,7 @@ func appendIdentityEvent(ctx context.Context, tx *sql.Tx, event identity.Event) 
 	if err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO identity_events(owner_id,connection_id,data) VALUES(?,?,?)`, event.OwnerID, event.ConnectionID, data)
+	_, err = tx.exec(ctx, `INSERT INTO identity_events(owner_id,connection_id,data) VALUES(?,?,?)`, event.OwnerID, event.ConnectionID, data)
 	return err
 }
 
@@ -51,7 +50,7 @@ func (s *Store) IdentityEvents(ctx context.Context, owner int64, id string) ([]i
 	if owner <= 0 {
 		return nil, identity.ErrDenied
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id,data FROM identity_events WHERE owner_id=? AND connection_id=? ORDER BY id DESC LIMIT 200`, owner, id)
+	rows, err := s.query(ctx, `SELECT id,data FROM identity_events WHERE owner_id=? AND connection_id=? ORDER BY id DESC LIMIT 200`, owner, id)
 	if err != nil {
 		return nil, err
 	}

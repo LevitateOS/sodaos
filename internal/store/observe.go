@@ -4,71 +4,58 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"net/url"
-	"os"
-	"path/filepath"
+	"strings"
 )
 
-func openReadOnly(path string) (*sql.DB, error) {
-	info, err := os.Stat(path)
+func openReadOnly(dsn string) (*sql.DB, error) {
+	if strings.TrimSpace(dsn) == "" {
+		return nil, errors.New("postgres connection string is required")
+	}
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return nil, err
 	}
-	if !info.Mode().IsRegular() {
-		return nil, errors.New("database path must be a regular file")
-	}
-	absolute, err := filepath.Abs(path)
-	if err != nil {
-		return nil, err
-	}
-	dsn := url.URL{Scheme: "file", Path: absolute, RawQuery: url.Values{
-		"mode":    {"ro"},
-		"_pragma": {"foreign_keys(1)", "busy_timeout(5000)"},
-	}.Encode()}
-	db, err := sql.Open("sqlite", dsn.String())
-	if err != nil {
-		return nil, err
-	}
-	db.SetMaxOpenConns(1)
+	db.SetMaxOpenConns(4)
 	return db, nil
 }
 
-// ReadSchemaVersion opens an existing database read-only without migrating and
+// ReadSchemaVersion connects to an existing database without migrating and
 // returns the single schema_version row. Callers that need the current schema
 // must use OpenObserve or Open instead.
-func ReadSchemaVersion(ctx context.Context, path string) (int, error) {
-	db, err := openReadOnly(path)
+func ReadSchemaVersion(ctx context.Context, dsn string) (int, error) {
+	db, err := openReadOnly(dsn)
 	if err != nil {
 		return 0, err
 	}
 	defer db.Close()
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	inner, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return 0, err
 	}
-	defer func() { _ = tx.Rollback() }()
-	return loadSchemaVersion(ctx, tx)
+	defer func() { _ = inner.Rollback() }()
+	return loadSchemaVersion(ctx, &tx{inner: inner})
 }
 
-// OpenObserve opens an existing database read-only without migrating. It refuses
-// unless the stored schema exactly matches SchemaVersion().
-func OpenObserve(ctx context.Context, path string) (*Store, error) {
-	db, err := openReadOnly(path)
+// OpenObserve connects to an existing database without migrating. It refuses
+// unless the stored schema exactly matches SchemaVersion(). Observation
+// performs reads only; it never initializes or repairs the schema.
+func OpenObserve(ctx context.Context, dsn string) (*Store, error) {
+	db, err := openReadOnly(dsn)
 	if err != nil {
 		return nil, err
 	}
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	inner, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		db.Close()
 		return nil, err
 	}
-	version, err := loadSchemaVersion(ctx, tx)
+	version, err := loadSchemaVersion(ctx, &tx{inner: inner})
 	if err != nil {
-		_ = tx.Rollback()
+		_ = inner.Rollback()
 		db.Close()
 		return nil, err
 	}
-	if err = tx.Rollback(); err != nil {
+	if err = inner.Rollback(); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -79,10 +66,29 @@ func OpenObserve(ctx context.Context, path string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// IntegrityCheck runs SQLite's integrity_check against an already opened store.
+// IntegrityCheck verifies the opened store's schema version, required
+// columns and immutability guards in a read-only transaction.
 func (s *Store) IntegrityCheck(ctx context.Context) error {
-	var integrity string
-	if err := s.db.QueryRowContext(ctx, `PRAGMA integrity_check`).Scan(&integrity); err != nil || integrity != "ok" {
+	inner, err := s.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return errors.New("soda database integrity failed")
+	}
+	defer func() { _ = inner.Rollback() }()
+	t := &tx{inner: inner}
+	version, err := loadSchemaVersion(ctx, t)
+	if err != nil || version != SchemaVersion() {
+		return errors.New("soda database integrity failed")
+	}
+	if err = verifyRequiredColumns(ctx, t); err != nil {
+		return errors.New("soda database integrity failed")
+	}
+	if err = verifyImmutableCreationProfile(ctx, t); err != nil {
+		return errors.New("soda database integrity failed")
+	}
+	if err = verifyImmutablePreparationRefs(ctx, t); err != nil {
+		return errors.New("soda database integrity failed")
+	}
+	if err = verifyImmutableExecutionIdentity(ctx, t); err != nil {
 		return errors.New("soda database integrity failed")
 	}
 	return nil

@@ -32,7 +32,7 @@ func (s *Store) RecordMerge(ctx context.Context, m factory.Merge) error {
 	if err != nil {
 		return err
 	}
-	if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_merges(publication,repository,issue,pr,stage,revision,data) VALUES(?,?,?,?,?,?,?)`,
+	if _, err = s.exec(ctx, `INSERT INTO factory_merges(publication,repository,issue,pr,stage,revision,data) VALUES(?,?,?,?,?,?,?)`,
 		m.PublicationID, m.Repository, m.Issue, m.PRNumber, m.Stage, m.Revision, string(data)); err != nil {
 		return fmt.Errorf("merge record failed: %w", err)
 	}
@@ -43,7 +43,7 @@ func (s *Store) RecordMerge(ctx context.Context, m factory.Merge) error {
 func (s *Store) MergeByPublication(ctx context.Context, publicationID string) (factory.Merge, error) {
 	var m factory.Merge
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_merges WHERE publication=?`, publicationID).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM factory_merges WHERE publication=?`, publicationID).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &m)
 	}
@@ -78,17 +78,17 @@ func (s *Store) UpdateMerge(ctx context.Context, m factory.Merge) error {
 	}
 	// Gate inspection and registration share one statement: a withdrawal
 	// either sees this operation or closes the gate before it can register.
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_merges SET stage=?,revision=?,data=?
+	result, err := s.exec(ctx, `UPDATE factory_merges SET stage=?,revision=?,data=?
 		WHERE publication=? AND revision=?
-		AND (?=0 OR (
-		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=? AND open=0)
+		AND (NOT ? OR (
+		 NOT EXISTS(SELECT 1 FROM factory_dispatch WHERE repository=? AND NOT open)
 		 AND EXISTS(SELECT 1 FROM issue_acceptance_heads WHERE repository=? AND issue=? AND decision=?)
 		 AND NOT EXISTS(SELECT 1 FROM issue_acceptance_withdrawals WHERE repository=? AND issue=? AND decision=?)
 		 AND EXISTS(SELECT 1 FROM factory_policies WHERE repository=? AND revision=?)
 		 AND EXISTS(SELECT 1 FROM factory_operator_grants WHERE repository=? AND revision=?)
 		 AND EXISTS(SELECT 1 FROM project_environment_grants WHERE repository=? AND revision=?)
 		 AND EXISTS(SELECT 1 FROM factory_sponsorships s JOIN factory_assignments a
-		   ON a.id=? AND s.connection=json_extract(a.data,'$.connection')
+		   ON a.id=? AND s.connection=a.data->>'connection'
 		   WHERE s.repository=? AND s.revision=?)
 		 AND EXISTS(SELECT 1 FROM project_requirement_heads WHERE project_id=? AND decision=?)
 		 AND EXISTS(SELECT 1 FROM project_approval_heads WHERE project_id=? AND decision=?)
@@ -181,8 +181,8 @@ func (s *Store) OutstandingMerges(ctx context.Context, repository int64, limit i
 	if limit <= 0 || limit > storeMergeLimit {
 		return nil, errors.New("invalid merge listing limit")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_merges
-		WHERE repository=? AND stage IN ('open','fenced') ORDER BY rowid LIMIT ?`, repository, limit)
+	rows, err := s.query(ctx, `SELECT data FROM factory_merges
+		WHERE repository=? AND stage IN ('open','fenced') ORDER BY seq LIMIT ?`, repository, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -209,8 +209,8 @@ func (s *Store) OpenMerges(ctx context.Context, limit int) ([]factory.Merge, err
 	if limit <= 0 || limit > storeMergeLimit {
 		return nil, errors.New("invalid merge listing limit")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_merges
-		WHERE stage IN ('open','fenced') ORDER BY rowid LIMIT ?`, limit)
+	rows, err := s.query(ctx, `SELECT data FROM factory_merges
+		WHERE stage IN ('open','fenced') ORDER BY seq LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -237,10 +237,10 @@ func (s *Store) MergeablePublications(ctx context.Context, limit int) ([]factory
 	if limit <= 0 || limit > storeMergeableLimit {
 		return nil, errors.New("invalid mergeable listing limit")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT p.data FROM factory_publications p
-		LEFT JOIN factory_merges m ON m.publication=p.data->>'$.id'
+	rows, err := s.query(ctx, `SELECT p.data FROM factory_publications p
+		LEFT JOIN factory_merges m ON m.publication=p.data->>'id'
 		WHERE p.stage='published' AND m.publication IS NULL
-		ORDER BY p.rowid LIMIT ?`, limit)
+		ORDER BY p.seq LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (s *Store) MergeablePublications(ctx context.Context, limit int) ([]factory
 func (s *Store) MergeForIssue(ctx context.Context, repository, issue int64) (factory.Merge, error) {
 	var m factory.Merge
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_merges WHERE repository=? AND issue=? ORDER BY rowid DESC LIMIT 1`, repository, issue).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM factory_merges WHERE repository=? AND issue=? ORDER BY seq DESC LIMIT 1`, repository, issue).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &m)
 	}
@@ -278,7 +278,7 @@ func (s *Store) MergeForIssue(ctx context.Context, repository, issue int64) (fac
 func (s *Store) IssueMergeCompletion(ctx context.Context, repository, issue int64) (factory.Merge, error) {
 	var m factory.Merge
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_merges WHERE repository=? AND issue=? AND stage='merged' ORDER BY rowid DESC LIMIT 1`, repository, issue).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM factory_merges WHERE repository=? AND issue=? AND stage='merged' ORDER BY seq DESC LIMIT 1`, repository, issue).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &m)
 	}

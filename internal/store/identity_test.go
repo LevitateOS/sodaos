@@ -2,7 +2,6 @@ package store
 
 import (
 	"bytes"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -10,19 +9,16 @@ import (
 )
 
 func TestIdentityCipherBindingAndLeaseReturnAtomicity(t *testing.T) {
-	s, err := OpenEncrypted(filepath.Join(t.TempDir(), "identity.db"), bytes.Repeat([]byte{4}, 32))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = s.Close() }()
+	s, _ := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
 	ctx := t.Context()
+	var err error
 	c := identity.Connection{ProviderID: identity.Codex, ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
 	credential := []byte(`{"tokens":{"refresh_token":"synthetic-secret"}}`)
 	if err = s.IdentitySaveConnection(ctx, c, credential); err != nil {
 		t.Fatal(err)
 	}
 	var encrypted []byte
-	if err = s.db.QueryRow(`SELECT credential FROM identity_connections WHERE id=?`, c.ID).Scan(&encrypted); err != nil {
+	if err := s.queryRow(ctx, `SELECT credential FROM identity_connections WHERE id=?`, c.ID).Scan(&encrypted); err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(encrypted, []byte("synthetic-secret")) {
@@ -67,25 +63,22 @@ func TestIdentityCipherBindingAndLeaseReturnAtomicity(t *testing.T) {
 	if err != nil || len(other) != 0 {
 		t.Fatal("other owner read audit", err)
 	}
-	if _, err = s.db.Exec(`UPDATE identity_events SET data='{}'`); err == nil {
+	if _, err := s.exec(ctx, `UPDATE identity_events SET data='{}'`); err == nil {
 		t.Fatal("audit mutated")
 	}
-	if _, err = s.db.Exec(`DELETE FROM identity_events`); err == nil {
+	if _, err := s.exec(ctx, `DELETE FROM identity_events`); err == nil {
 		t.Fatal("audit deleted")
 	}
 	var leaked int
-	if err = s.db.QueryRow(`SELECT count(*) FROM identity_events WHERE instr(data,'synthetic-secret')>0`).Scan(&leaked); err != nil || leaked != 0 {
+	if err := s.queryRow(ctx, `SELECT count(*) FROM identity_events WHERE strpos(data::text,'synthetic-secret')>0`).Scan(&leaked); err != nil || leaked != 0 {
 		t.Fatal("credentials entered audit", err)
 	}
 }
 
 func TestIdentityExecutionAdmitsOnceAndGuardsDigest(t *testing.T) {
-	s, err := Open(filepath.Join(t.TempDir(), "executions.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = s.Close() }()
+	s, _ := postgresFixture(t, nil)
 	ctx := t.Context()
+	var err error
 	first := identity.Execution{Kind: identity.Factory, ExecutionID: "run", Digest: "digest", State: identity.ExecutionPending}
 	if _, created, err := s.IdentityAdmitExecution(ctx, first); err != nil || !created {
 		t.Fatal("execution admission failed", err)
@@ -118,24 +111,23 @@ func TestIdentityExecutionAdmitsOnceAndGuardsDigest(t *testing.T) {
 }
 
 func TestIdentityAuditFailureRollsBackAdmission(t *testing.T) {
-	s, err := OpenEncrypted(filepath.Join(t.TempDir(), "identity.db"), bytes.Repeat([]byte{4}, 32))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = s.Close() }()
+	s, _ := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
 	ctx := t.Context()
 	c := identity.Connection{ProviderID: identity.Codex, ID: "subscription", OwnerID: 1, Generation: 1, State: identity.Ready}
-	if err = s.IdentitySaveConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic"}}`)); err != nil {
+	if err := s.IdentitySaveConnection(ctx, c, []byte(`{"tokens":{"refresh_token":"synthetic"}}`)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.db.Exec(`CREATE TRIGGER failed_identity_audit BEFORE INSERT ON identity_events BEGIN SELECT RAISE(ABORT,'audit unavailable'); END;`); err != nil {
+	if _, err := s.db.Exec(`CREATE OR REPLACE FUNCTION fail_identity_audit() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'audit unavailable'; END $$ LANGUAGE plpgsql`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`CREATE TRIGGER failed_identity_audit BEFORE INSERT ON identity_events FOR EACH ROW EXECUTE FUNCTION fail_identity_audit()`); err != nil {
 		t.Fatal(err)
 	}
 	l := identity.Lease{ProviderID: identity.Codex, ID: "lease", ConnectionID: c.ID, Generation: 1, ActorID: 1, ExecutionID: "execution", Kind: identity.Factory, Deadline: time.Now().Add(time.Hour)}
-	if err = s.IdentityReserve(ctx, l); err == nil {
+	if err := s.IdentityReserve(ctx, l); err == nil {
 		t.Fatal("unaudited credential reservation committed")
 	}
-	if _, err = s.IdentityLease(ctx, l.ID); err != ErrNotFound {
+	if _, err := s.IdentityLease(ctx, l.ID); err != ErrNotFound {
 		t.Fatal("audit failure left committed reservation", err)
 	}
 }

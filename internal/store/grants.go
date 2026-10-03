@@ -50,14 +50,14 @@ const keyBinding = "soda/session-grants/key-check/v1"
 // Check an existing encrypted database before validating or creating its schema.
 func (s *Store) checkGrantKey(ctx context.Context) error {
 	var exists int
-	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name='grant_key_check'`).Scan(&exists); err != nil {
+	if err := s.queryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='grant_key_check'`).Scan(&exists); err != nil {
 		return err
 	}
 	if exists == 0 {
 		return nil
 	}
 	var ciphertext []byte
-	err := s.db.QueryRowContext(ctx, `SELECT ciphertext FROM grant_key_check WHERE id=1`).Scan(&ciphertext)
+	err := s.queryRow(ctx, `SELECT ciphertext FROM grant_key_check WHERE id=1`).Scan(&ciphertext)
 	if errors.Is(err, sql.ErrNoRows) {
 		return s.rejectUnkeyedIdentityCredentials(ctx)
 	}
@@ -69,14 +69,14 @@ func (s *Store) checkGrantKey(ctx context.Context) error {
 
 func (s *Store) rejectUnkeyedIdentityCredentials(ctx context.Context) error {
 	var identityTable int
-	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name='identity_connections'`).Scan(&identityTable); err != nil {
+	if err := s.queryRow(ctx, `SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name='identity_connections'`).Scan(&identityTable); err != nil {
 		return err
 	}
 	if identityTable == 0 {
 		return nil
 	}
 	var encrypted int
-	if err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM identity_connections WHERE length(credential)>0`).Scan(&encrypted); err != nil {
+	if err := s.queryRow(ctx, `SELECT count(*) FROM identity_connections WHERE octet_length(credential)>0`).Scan(&encrypted); err != nil {
 		return err
 	}
 	if encrypted != 0 {
@@ -94,7 +94,7 @@ func (s *Store) validateGrantKey(ciphertext []byte) error {
 }
 
 func (s *Store) initializeGrantKey(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO grant_key_check(id,ciphertext) VALUES(1,?)`, s.grants.seal([]byte(keyBinding), keyBinding))
+	_, err := s.exec(ctx, `INSERT INTO grant_key_check(id,ciphertext) VALUES(1,?) ON CONFLICT(id) DO NOTHING`, s.grants.seal([]byte(keyBinding), keyBinding))
 	if err != nil {
 		return err
 	}

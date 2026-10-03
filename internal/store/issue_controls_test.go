@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,11 +12,7 @@ import (
 
 func readinessTestStore(t *testing.T) (*Store, context.Context) {
 	t.Helper()
-	s, err := Open(filepath.Join(t.TempDir(), "readiness.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { s.Close() })
+	s, _ := postgresFixture(t, nil)
 	return s, context.Background()
 }
 

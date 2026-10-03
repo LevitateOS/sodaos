@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,15 +11,11 @@ import (
 
 func takeoverStore(t *testing.T) *Store {
 	t.Helper()
-	s, err := Open(filepath.Join(t.TempDir(), "soda.db"))
-	if err != nil {
+	s, _ := postgresFixture(t, nil)
+	if err := s.UpsertUser(context.Background(), User{ID: 1, Login: "alice", Name: "alice"}); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = s.Close() })
-	if err = s.UpsertUser(context.Background(), User{ID: 1, Login: "alice", Name: "alice"}); err != nil {
-		t.Fatal(err)
-	}
-	if err = s.CreateProject(context.Background(), Project{ID: "p765432109876543210987654", Name: "factory", RepositoryID: 7, OwnerID: 1, Repository: "alice/factory"}); err != nil {
+	if err := s.CreateProject(context.Background(), Project{ID: "p765432109876543210987654", Name: "factory", RepositoryID: 7, OwnerID: 1, Repository: "alice/factory"}); err != nil {
 		t.Fatal(err)
 	}
 	return s

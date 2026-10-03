@@ -28,13 +28,13 @@ func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptanc
 	if err != nil {
 		return err
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := s.begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
 	var head sql.NullString
-	err = tx.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=? AND issue=?`, d.Repository, issue).Scan(&head)
+	err = tx.queryRow(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=? AND issue=?`, d.Repository, issue).Scan(&head)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
@@ -44,10 +44,14 @@ func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptanc
 	}
 	if current == d.ID {
 		var raw []byte
-		if err = tx.QueryRowContext(ctx, `SELECT data FROM issue_acceptance_decisions WHERE id=?`, d.ID).Scan(&raw); err != nil {
+		if err = tx.queryRow(ctx, `SELECT data FROM issue_acceptance_decisions WHERE id=?`, d.ID).Scan(&raw); err != nil {
 			return err
 		}
-		if string(raw) != string(data) {
+		same, err := sameJSONDocument(ctx, tx, raw, data)
+		if err != nil {
+			return err
+		}
+		if !same {
 			return ErrCommandConflict
 		}
 		return tx.Commit()
@@ -56,16 +60,16 @@ func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptanc
 		return ErrStaleRevision
 	}
 	var taken int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM issue_acceptance_decisions WHERE id=?`, d.ID).Scan(&taken); err != nil {
+	if err = tx.queryRow(ctx, `SELECT count(*) FROM issue_acceptance_decisions WHERE id=?`, d.ID).Scan(&taken); err != nil {
 		return err
 	}
 	if taken != 0 {
 		return ErrCommandConflict
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO issue_acceptance_decisions(id,repository,issue,predecessor,data) VALUES(?,?,?,?,?)`, d.ID, d.Repository, issue, d.Predecessor, string(data)); err != nil {
+	if _, err = tx.exec(ctx, `INSERT INTO issue_acceptance_decisions(id,repository,issue,predecessor,data) VALUES(?,?,?,?,?)`, d.ID, d.Repository, issue, d.Predecessor, string(data)); err != nil {
 		return fmt.Errorf("acceptance admission failed: %w", err)
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO issue_acceptance_heads(repository,issue,decision) VALUES(?,?,?)
+	result, err := tx.exec(ctx, `INSERT INTO issue_acceptance_heads(repository,issue,decision) VALUES(?,?,?)
 		ON CONFLICT(repository,issue) DO UPDATE SET decision=? WHERE issue_acceptance_heads.decision=?`, d.Repository, issue, d.ID, d.ID, d.Predecessor)
 	if err != nil {
 		return fmt.Errorf("acceptance head advance failed: %w", err)
@@ -84,7 +88,7 @@ func (s *Store) AdmitAcceptanceDecision(ctx context.Context, d factory.Acceptanc
 func (s *Store) AcceptanceDecision(ctx context.Context, id string) (factory.Acceptance, error) {
 	var d factory.Acceptance
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM issue_acceptance_decisions WHERE id=?`, id).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM issue_acceptance_decisions WHERE id=?`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &d)
 	}
@@ -94,14 +98,14 @@ func (s *Store) AcceptanceDecision(ctx context.Context, id string) (factory.Acce
 // AcceptanceHead returns the current acceptance decision for one native issue.
 func (s *Store) AcceptanceHead(ctx context.Context, repository, issue int64) (string, error) {
 	var head string
-	err := s.db.QueryRowContext(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=? AND issue=?`, repository, issue).Scan(&head)
+	err := s.queryRow(ctx, `SELECT decision FROM issue_acceptance_heads WHERE repository=? AND issue=?`, repository, issue).Scan(&head)
 	return head, err
 }
 
 // AcceptanceDepth counts the recorded acceptance chain for one native issue.
 func (s *Store) AcceptanceDepth(ctx context.Context, repository, issue int64) (int64, error) {
 	var depth int64
-	err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM issue_acceptance_decisions WHERE repository=? AND issue=?`, repository, issue).Scan(&depth)
+	err := s.queryRow(ctx, `SELECT count(*) FROM issue_acceptance_decisions WHERE repository=? AND issue=?`, repository, issue).Scan(&depth)
 	return depth, err
 }
 
@@ -120,7 +124,7 @@ func (s *Store) WithdrawAcceptanceDecision(ctx context.Context, repository, issu
 	if head != decision {
 		return ErrStaleRevision
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO issue_acceptance_withdrawals(repository,issue,decision,withdrawer) VALUES(?,?,?,?) ON CONFLICT(repository,issue,decision) DO NOTHING`,
+	_, err = s.exec(ctx, `INSERT INTO issue_acceptance_withdrawals(repository,issue,decision,withdrawer) VALUES(?,?,?,?) ON CONFLICT(repository,issue,decision) DO NOTHING`,
 		repository, issue, decision, withdrawer)
 	if err != nil {
 		return fmt.Errorf("acceptance withdrawal failed: %w", err)
@@ -132,7 +136,7 @@ func (s *Store) WithdrawAcceptanceDecision(ctx context.Context, repository, issu
 // when so, the withdrawing maintainer.
 func (s *Store) AcceptanceWithdrawn(ctx context.Context, repository, issue int64, decision string) (bool, int64, error) {
 	var withdrawer int64
-	err := s.db.QueryRowContext(ctx, `SELECT withdrawer FROM issue_acceptance_withdrawals WHERE repository=? AND issue=? AND decision=?`, repository, issue, decision).Scan(&withdrawer)
+	err := s.queryRow(ctx, `SELECT withdrawer FROM issue_acceptance_withdrawals WHERE repository=? AND issue=? AND decision=?`, repository, issue, decision).Scan(&withdrawer)
 	if errors.Is(err, ErrNotFound) {
 		return false, 0, nil
 	}

@@ -3,29 +3,24 @@ package store
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 )
 
 func TestMembersListingIsBounded(t *testing.T) {
 	ctx := context.Background()
-	s, err := Open(filepath.Join(t.TempDir(), "soda.db"))
-	if err != nil {
+	s, _ := postgresFixture(t, nil)
+	if err := s.UpsertUser(ctx, User{ID: 1, Login: "member-000"}); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
-	if err = s.UpsertUser(ctx, User{ID: 1, Login: "member-000"}); err != nil {
-		t.Fatal(err)
-	}
-	if err = s.CreateProject(ctx, Project{ID: "p123", Name: "Demo", RepositoryID: 42, OwnerID: 1, Repository: "alice/demo"}); err != nil {
+	if err := s.CreateProject(ctx, Project{ID: "p123", Name: "Demo", RepositoryID: 42, OwnerID: 1, Repository: "alice/demo"}); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 135; i++ {
 		login := fmt.Sprintf("member-%03d", i)
-		if err = s.UpsertUser(ctx, User{ID: int64(i + 1), Login: login}); err != nil {
+		if err := s.UpsertUser(ctx, User{ID: int64(i + 1), Login: login}); err != nil {
 			t.Fatal(err)
 		}
-		if err = s.Join(ctx, "p123", int64(i+1), login); err != nil {
+		if err := s.Join(ctx, "p123", int64(i+1), login); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -40,15 +35,11 @@ func TestMembersListingIsBounded(t *testing.T) {
 
 func TestPersistenceAndMembership(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "soda.db")
-	s, err := Open(path)
-	if err != nil {
+	s, dsn := postgresFixture(t, nil)
+	if err := s.UpsertUser(ctx, User{ID: 1, Login: "alice"}); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.UpsertUser(ctx, User{ID: 1, Login: "alice"}); err != nil {
-		t.Fatal(err)
-	}
-	if err = s.CreateProject(ctx, Project{ID: "p123", Name: "Demo", RepositoryID: 42, OwnerID: 1, Repository: "alice/demo"}); err != nil {
+	if err := s.CreateProject(ctx, Project{ID: "p123", Name: "Demo", RepositoryID: 42, OwnerID: 1, Repository: "alice/demo"}); err != nil {
 		t.Fatal(err)
 	}
 	p, err := s.Project(ctx, "p123")
@@ -59,7 +50,7 @@ func TestPersistenceAndMembership(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Close()
-	s, err = Open(path)
+	s, err = Open(dsn)
 	if err != nil {
 		t.Fatal(err)
 	}

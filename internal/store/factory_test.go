@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -14,15 +13,7 @@ import (
 
 func factoryFixture(t *testing.T) (*Store, time.Time) {
 	t.Helper()
-	s, err := Open(filepath.Join(t.TempDir(), "factory.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := s.Close(); err != nil {
-			t.Error(err)
-		}
-	})
+	s, _ := postgresFixture(t, nil)
 	return s, time.Date(2026, 9, 26, 0, 0, 0, 0, time.UTC)
 }
 

@@ -96,7 +96,7 @@ func TestWithdrawAcceptanceLatchesHead(t *testing.T) {
 	if err != nil || withdrawn {
 		t.Fatalf("fresh head latched: %v %v", withdrawn, err)
 	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM issue_acceptance_decisions WHERE id=?`, first.ID); err == nil {
+	if _, err := s.exec(ctx, `DELETE FROM issue_acceptance_decisions WHERE id=?`, first.ID); err == nil {
 		t.Fatal("decision delete accepted")
 	}
 }

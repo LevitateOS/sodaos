@@ -1,7 +1,6 @@
 package store
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -9,18 +8,14 @@ import (
 )
 
 func TestProjectWithoutCreationProfileAndImmutableCreation(t *testing.T) {
-	s, err := Open(filepath.Join(t.TempDir(), "current.db"))
-	if err != nil {
+	s, _ := postgresFixture(t, nil)
+	if err := s.UpsertUser(t.Context(), User{ID: 1, Login: "soda-tester", Name: "Synthetic account"}); err != nil {
 		t.Fatal(err)
 	}
-	defer s.Close()
-	if err = s.UpsertUser(t.Context(), User{ID: 1, Login: "soda-tester", Name: "Synthetic account"}); err != nil {
+	if _, err := s.exec(t.Context(), `INSERT INTO projects(id,name,repository_id,owner_id,repository,ip,ready) VALUES('existing','Existing',7,1,'soda-tester/existing','10.0.0.2',TRUE)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.db.Exec(`INSERT INTO projects(id,name,repository_id,owner_id,repository,ip,ready) VALUES('existing','Existing',7,1,'soda-tester/existing','10.0.0.2',1)`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = s.db.Exec(`INSERT INTO memberships(project_id,user_id,login) VALUES('existing',1,'soda-tester')`); err != nil {
+	if _, err := s.exec(t.Context(), `INSERT INTO memberships(project_id,user_id,login) VALUES('existing',1,'soda-tester')`); err != nil {
 		t.Fatal(err)
 	}
 	p, err := s.Project(t.Context(), "existing")
@@ -42,7 +37,7 @@ func TestProjectWithoutCreationProfileAndImmutableCreation(t *testing.T) {
 	if err != nil || loaded.Profile == nil || *loaded.Profile != profile || !loaded.Ready {
 		t.Fatal(loaded, err)
 	}
-	if _, err := s.db.Exec(`UPDATE projects SET creation_profile=NULL WHERE id='new'`); err == nil {
+	if _, err := s.exec(t.Context(), `UPDATE projects SET creation_profile=NULL WHERE id='new'`); err == nil {
 		t.Fatal("creation identity was mutable")
 	}
 }

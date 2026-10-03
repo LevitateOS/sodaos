@@ -21,7 +21,7 @@ func (s *Store) RecordCheckAssessment(ctx context.Context, a factory.CheckAssess
 		return empty, fmt.Errorf("check assessment carries a fresh record: %w", ErrStaleRevision)
 	}
 	var revision int64
-	err := s.db.QueryRowContext(ctx, `SELECT revision FROM factory_check_assessments WHERE repository=? AND pr=?`, a.Repository, a.PRNumber).Scan(&revision)
+	err := s.queryRow(ctx, `SELECT revision FROM factory_check_assessments WHERE repository=? AND pr=?`, a.Repository, a.PRNumber).Scan(&revision)
 	if err != nil && err != ErrNotFound {
 		return empty, err
 	}
@@ -31,7 +31,7 @@ func (s *Store) RecordCheckAssessment(ctx context.Context, a factory.CheckAssess
 	if err != nil {
 		return empty, err
 	}
-	if _, err = s.db.ExecContext(ctx, `INSERT INTO factory_check_assessments(repository,pr,revision,data) VALUES(?,?,?,?)
+	if _, err = s.exec(ctx, `INSERT INTO factory_check_assessments(repository,pr,revision,data) VALUES(?,?,?,?)
 		ON CONFLICT(repository,pr) DO UPDATE SET revision=excluded.revision,data=excluded.data`,
 		stored.Repository, stored.PRNumber, stored.Revision, string(data)); err != nil {
 		return empty, fmt.Errorf("check assessment record failed: %w", err)
@@ -44,7 +44,7 @@ func (s *Store) RecordCheckAssessment(ctx context.Context, a factory.CheckAssess
 func (s *Store) CheckAssessment(ctx context.Context, repository, prNumber int64) (factory.CheckAssessment, error) {
 	var a factory.CheckAssessment
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_check_assessments WHERE repository=? AND pr=?`, repository, prNumber).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM factory_check_assessments WHERE repository=? AND pr=?`, repository, prNumber).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &a)
 	}

@@ -3,39 +3,34 @@ package store
 import (
 	"bytes"
 	"errors"
-	"path/filepath"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/identity"
 )
 
 func TestIdentityEncryptionKeyMustSurviveRestart(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "identity.db")
 	key := bytes.Repeat([]byte{7}, 32)
-	s, err := OpenEncrypted(path, key)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s, dsn := postgresFixture(t, key)
 	c := identity.Connection{ProviderID: identity.Codex, ID: "account", OwnerID: 1, Generation: 1, State: identity.Ready}
-	if err = s.IdentitySaveConnection(t.Context(), c, []byte(`{"tokens":{"refresh_token":"synthetic-secret"}}`)); err != nil {
+	if err := s.IdentitySaveConnection(t.Context(), c, []byte(`{"tokens":{"refresh_token":"synthetic-secret"}}`)); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Close(); err != nil {
+	if err := s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if opened, err := Open(path); !errors.Is(err, ErrGrantKey) {
+	if opened, err := Open(dsn); !errors.Is(err, ErrGrantKey) {
 		if opened != nil {
 			_ = opened.Close()
 		}
 		t.Fatal("missing encryption key admitted", err)
 	}
-	if opened, err := OpenEncrypted(path, bytes.Repeat([]byte{8}, 32)); !errors.Is(err, ErrGrantKey) {
+	if opened, err := OpenEncrypted(dsn, bytes.Repeat([]byte{8}, 32)); !errors.Is(err, ErrGrantKey) {
 		if opened != nil {
 			_ = opened.Close()
 		}
 		t.Fatal("incorrect encryption key admitted", err)
 	}
-	s, err = OpenEncrypted(path, key)
+	s, err := OpenEncrypted(dsn, key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,13 +38,13 @@ func TestIdentityEncryptionKeyMustSurviveRestart(t *testing.T) {
 	if err != nil || !bytes.Contains(credential, []byte("synthetic-secret")) {
 		t.Fatal("identity credential did not survive restart", err)
 	}
-	if _, err = s.db.Exec(`DELETE FROM grant_key_check`); err != nil {
+	if _, err = s.exec(t.Context(), `DELETE FROM grant_key_check`); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if opened, err := OpenEncrypted(path, key); !errors.Is(err, ErrGrantKey) {
+	if opened, err := OpenEncrypted(dsn, key); !errors.Is(err, ErrGrantKey) {
 		if opened != nil {
 			_ = opened.Close()
 		}

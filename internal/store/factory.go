@@ -23,7 +23,7 @@ func (s *Store) RecordFactoryRun(ctx context.Context, r factory.Run) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES(?,1,0,?)`, r.ID, string(data))
+	_, err = s.exec(ctx, `INSERT INTO factory_runs(id,active,settled,data) VALUES(?,TRUE,FALSE,?)`, r.ID, string(data))
 	if err != nil {
 		return fmt.Errorf("factory run record failed: %w", err)
 	}
@@ -33,7 +33,7 @@ func (s *Store) RecordFactoryRun(ctx context.Context, r factory.Run) error {
 func (s *Store) FactoryRun(ctx context.Context, id string) (factory.Run, error) {
 	var r factory.Run
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT data FROM factory_runs WHERE id=?`, id).Scan(&data)
+	err := s.queryRow(ctx, `SELECT data FROM factory_runs WHERE id=?`, id).Scan(&data)
 	if err == nil {
 		err = json.Unmarshal(data, &r)
 	}
@@ -50,13 +50,13 @@ func (s *Store) SaveFactoryRun(ctx context.Context, r factory.Run) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_runs SET active=?,settled=?,data=? WHERE id=?
-AND (coalesce(json_extract(data,'$.identity_lease_id'),'')='' OR (json_extract(data,'$.identity_lease_id')=? AND json_extract(data,'$.identity_generation')=?))
-AND (json_extract(data,'$.identity_binding') IS NULL OR json_extract(data,'$.identity_binding')=json_extract(?,'$.identity_binding'))
-AND (coalesce(json_extract(data,'$.credential_delegated'),0)=0 OR ?=1)
-AND (coalesce(json_extract(data,'$.credential_returned'),0)=0 OR ?=1)
-AND (coalesce(json_extract(data,'$.outcome'),'')='' OR json_extract(data,'$.outcome')=?)
-AND (json_extract(data,'$.reconciled')=0 OR ?=1)`, r.Outcome == "", r.Reconciled, string(data), r.ID, r.IdentityLeaseID, r.IdentityGeneration, string(data), r.CredentialDelegated, r.CredentialReturned, r.Outcome, r.Reconciled)
+	result, err := s.exec(ctx, `UPDATE factory_runs SET active=?,settled=?,data=? WHERE id=?
+AND (coalesce(data->>'identity_lease_id','')='' OR (data->>'identity_lease_id'=? AND (data->>'identity_generation')::bigint=?))
+AND ((data->'identity_binding') IS NULL OR (data->'identity_binding')=(?::jsonb->'identity_binding'))
+AND (coalesce((data->>'credential_delegated')::boolean,FALSE)=FALSE OR ?)
+AND (coalesce((data->>'credential_returned')::boolean,FALSE)=FALSE OR ?)
+AND (coalesce(data->>'outcome','')='' OR data->>'outcome'=?)
+AND ((data->>'reconciled')::boolean=FALSE OR ?)`, r.Outcome == "", r.Reconciled, string(data), r.ID, r.IdentityLeaseID, r.IdentityGeneration, string(data), r.CredentialDelegated, r.CredentialReturned, r.Outcome, r.Reconciled)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func (s *Store) FactoryRuns(ctx context.Context, limit int) ([]factory.Run, erro
 	if limit < 1 || limit > 1000 {
 		return nil, errors.New("invalid run list bound")
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT data FROM factory_runs ORDER BY rowid DESC LIMIT ?`, limit)
+	rows, err := s.query(ctx, `SELECT data FROM factory_runs ORDER BY seq DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (s *Store) RecordFactoryCommand(ctx context.Context, c factory.Command, now
 		return factory.Command{}, false, errors.New("new command must not carry an outcome")
 	}
 	created := now.UTC().Format(time.RFC3339Nano)
-	result, err := s.db.ExecContext(ctx, `INSERT INTO factory_commands(id,type,target,principal,digest,payload,created) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`, c.ID, c.Type, c.Target, c.Principal, c.Digest, c.Payload, created)
+	result, err := s.exec(ctx, `INSERT INTO factory_commands(id,type,target,principal,digest,payload,created) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`, c.ID, c.Type, c.Target, c.Principal, c.Digest, c.Payload, created)
 	if err != nil {
 		return factory.Command{}, false, fmt.Errorf("factory command record failed: %w", err)
 	}
@@ -129,7 +129,7 @@ func (s *Store) RecordFactoryCommand(ctx context.Context, c factory.Command, now
 func (s *Store) FactoryCommand(ctx context.Context, id string) (factory.Command, error) {
 	var c factory.Command
 	var created, finished string
-	err := s.db.QueryRowContext(ctx, `SELECT id,type,target,principal,digest,payload,outcome,created,finished FROM factory_commands WHERE id=?`, id).Scan(&c.ID, &c.Type, &c.Target, &c.Principal, &c.Digest, &c.Payload, &c.Outcome, &created, &finished)
+	err := s.queryRow(ctx, `SELECT id,type,target,principal,digest,payload,outcome,created,finished FROM factory_commands WHERE id=?`, id).Scan(&c.ID, &c.Type, &c.Target, &c.Principal, &c.Digest, &c.Payload, &c.Outcome, &created, &finished)
 	if err != nil {
 		return c, err
 	}
@@ -139,12 +139,34 @@ func (s *Store) FactoryCommand(ctx context.Context, id string) (factory.Command,
 
 // FinishFactoryCommand records the durable outcome exactly once. A lost reply
 // replays the stored outcome; it never re-executes the command.
+// UnfinishedCommands lists recorded commands without a finish, oldest
+// first, for restart recovery. A crash between record and finish leaves
+// exactly this state; the coordinator settles what it can from durable
+// target state and leaves the rest running.
+func (s *Store) UnfinishedCommands(ctx context.Context, limit int) ([]factory.Command, error) {
+	rows, err := s.query(ctx, `SELECT id,type,target,principal,digest,payload,outcome,created,finished FROM factory_commands WHERE finished='' ORDER BY created,id LIMIT ?`,
+		min(max(limit, 1), 101))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []factory.Command
+	for rows.Next() {
+		var c factory.Command
+		if err = rows.Scan(&c.ID, &c.Type, &c.Target, &c.Principal, &c.Digest, &c.Payload, &c.Outcome, &c.Created, &c.Finished); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) FinishFactoryCommand(ctx context.Context, id, outcome string, now time.Time) error {
 	if len(outcome) > 64<<10 {
 		return errors.New("command outcome exceeds retained output limit")
 	}
 	finished := now.UTC().Format(time.RFC3339Nano)
-	result, err := s.db.ExecContext(ctx, `UPDATE factory_commands SET outcome=?,finished=? WHERE id=? AND finished=''`, outcome, finished, id)
+	result, err := s.exec(ctx, `UPDATE factory_commands SET outcome=?,finished=? WHERE id=? AND finished=''`, outcome, finished, id)
 	if err != nil {
 		return err
 	}

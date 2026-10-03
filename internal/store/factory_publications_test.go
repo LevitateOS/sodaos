@@ -21,6 +21,7 @@ func publicationStoreFixture(t *testing.T) *Store {
 	policy.Repository = 7
 	for _, err := range []error{
 		db.UpsertUser(ctx, User{ID: 7, Login: "soda-tester"}),
+		db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 7, MaxConcurrentRuns: 2, MaxQueued: 10}),
 		db.SaveRepositoryPolicy(ctx, policy),
 		db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: 7, GrantedBy: 7, Active: true, MaxConcurrent: 2}),
 		db.SaveSponsorship(ctx, factory.Sponsorship{Repository: 7, GrantedBy: 7, Connection: "conn", GrantID: "grant", Generation: 1, Roles: []string{project.RoleCoder}, AllowanceMinutes: 60, MaxConcurrent: 1, Active: true}),
@@ -144,10 +145,18 @@ func recordFinishedAssignment(t *testing.T, db *Store, now time.Time, issue int6
 	assigned := a
 	assigned.Stage, assigned.Outcome, assigned.Reason, assigned.Result, assigned.FinishedUnix =
 		factory.AssignmentAssigned, "", "", nil, 0
-	if err := db.RecordDispatchPacket(ctx, assigned, r, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(assigned), assigned, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.FinishAssignment(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	settled := run
+	settled.Outcome, settled.Reconciled = factory.Succeeded, true
+	if err := db.SaveFactoryRun(ctx, settled); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
 		t.Fatal(err)
 	}
 	return a
@@ -353,7 +362,7 @@ func seedPublicationAssignment(t *testing.T, db *Store, p factory.Publication) {
 	reservation.AssignmentID, reservation.Repository = a.ID, a.Repository
 	run.ID, run.ProjectID = a.Run, a.ProjectID
 	view.RunID, view.Attempt, view.Repository, view.Issue = a.Run, a.ID, a.Repository, a.Issue
-	if err := db.RecordDispatchPacket(context.Background(), a, reservation, run, view); err != nil {
+	if err := db.RecordDispatchPacket(context.Background(), dispatchTestRegistration(a), a, reservation, run, view); err != nil {
 		t.Fatal(err)
 	}
 }

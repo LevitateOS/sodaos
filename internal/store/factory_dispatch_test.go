@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -12,29 +13,35 @@ import (
 	"github.com/levitateos/sodaos/internal/project"
 )
 
-// ensureDispatchTables creates the ST08 dispatch tables when the schema
-// does not carry them yet. It is idempotent: once schema v23 lands, these
-// statements are no-ops and the tests run against the true schema.
-func ensureDispatchTables(t *testing.T, db *Store) {
+func dispatchStoreFixture(t *testing.T) *Store {
+	t.Helper()
+	db := grantStoreFixture(t)
+	seedDispatchLimits(t, db)
+	return db
+}
+
+// seedDispatchLimits records the capacity, policy, operator grant and
+// sponsorship the atomic admission gate requires: repository 7 on
+// connection "conn" with room for two concurrent runs.
+func seedDispatchLimits(t *testing.T, db *Store) {
 	t.Helper()
 	ctx := context.Background()
-	for _, stmt := range []string{
-		`CREATE TABLE IF NOT EXISTS factory_assignments(id TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), issue INTEGER NOT NULL CHECK(issue>0), run TEXT NOT NULL, stage TEXT NOT NULL, revision INTEGER NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)))`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS factory_unfinished_assignment ON factory_assignments(repository,issue) WHERE stage='assigned'`,
-		`CREATE TABLE IF NOT EXISTS factory_reservations(assignment TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, state TEXT NOT NULL, data TEXT NOT NULL CHECK(json_valid(data)))`,
-		`CREATE TABLE IF NOT EXISTS factory_usage(run TEXT PRIMARY KEY, repository INTEGER NOT NULL CHECK(repository>0), connection TEXT NOT NULL, minutes INTEGER NOT NULL CHECK(minutes>=0), data TEXT NOT NULL CHECK(json_valid(data)))`,
+	policy := grantTestPolicy()
+	policy.Repository = 7
+	for _, err := range []error{
+		db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: 7, MaxConcurrentRuns: 2, MaxQueued: 10}),
+		db.SaveRepositoryPolicy(ctx, policy),
+		db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: 7, GrantedBy: 7, MaxConcurrent: 2, Active: true}),
+		db.SaveSponsorship(ctx, factory.Sponsorship{Repository: 7, GrantedBy: 7, Generation: 1, Connection: "conn", GrantID: "grant", Roles: []string{project.RoleCoder}, AllowanceMinutes: 120, MaxConcurrent: 2, Active: true}),
 	} {
-		if _, err := db.db.ExecContext(ctx, stmt); err != nil {
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
 }
 
-func dispatchStoreFixture(t *testing.T) *Store {
-	t.Helper()
-	db := grantStoreFixture(t)
-	ensureDispatchTables(t, db)
-	return db
+func dispatchTestRegistration(a factory.Assignment) factory.DispatchRegistration {
+	return factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}
 }
 
 func dispatchTestPrompt(t *testing.T) []byte {
@@ -83,7 +90,7 @@ func TestRecordDispatchPacket(t *testing.T) {
 	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := db.RecordDispatchPacket(ctx, a, r, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
 		t.Fatalf("packet refused: %v", err)
 	}
 	got, err := db.Assignment(ctx, a.ID)
@@ -106,7 +113,7 @@ func TestRecordDispatchPacket(t *testing.T) {
 	again.ID, again.Run, again.RunHistory = factory.NewID(), run2.ID, []string{run2.ID}
 	r2.AssignmentID = again.ID
 	view2.Attempt = again.ID
-	if err := db.RecordDispatchPacket(ctx, again, r2, run2, view2); err == nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(again), again, r2, run2, view2); err == nil {
 		t.Fatal("second unfinished assignment for the issue accepted")
 	} else if !isAssignmentActive(err) {
 		t.Fatalf("wrong conflict error: %v", err)
@@ -117,28 +124,61 @@ func isAssignmentActive(err error) bool {
 	return err != nil && (err == ErrAssignmentActive || strings.Contains(err.Error(), "unfinished assignment"))
 }
 
-func TestDispatchAttemptAndFinish(t *testing.T) {
+func retryTestRun(t *testing.T, a factory.Assignment, run factory.Run) (factory.Run, factory.RunView) {
+	t.Helper()
+	id := factory.NewID()
+	next := factory.Run{
+		ID: id, ProjectID: a.ProjectID, Role: a.Role, InputSHA: run.InputSHA,
+		Started: run.Started, Deadline: run.Deadline,
+		Image: run.Image, Harness: run.Harness, Model: run.Model,
+	}
+	return next, factory.RunView{RunID: id, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
+}
+
+func TestRecordRetryPacketBoundsAttemptsAndFinishes(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := db.RecordDispatchPacket(ctx, a, r, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
-	second := factory.NewID()
-	next, err := db.NoteDispatchAttempt(ctx, a.ID, second)
-	if err != nil || next.Attempts != 2 || next.Run != second || len(next.RunHistory) != 2 {
-		t.Fatalf("attempt not noted: %+v %v", next, err)
+	settle := func(id string) {
+		t.Helper()
+		stored, err := db.FactoryRun(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stored.Outcome, stored.Reconciled, stored.Summary = factory.Failed, true, "superseded"
+		if err := db.SaveFactoryRun(ctx, stored); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if _, err = db.NoteDispatchAttempt(ctx, a.ID, second); err == nil {
+	second, secondView := retryTestRun(t, a, run)
+	next, err := db.RecordRetryPacket(ctx, a, second, secondView, 30)
+	if err != nil || next.Attempts != 2 || next.Run != second.ID || len(next.RunHistory) != 2 {
+		t.Fatalf("attempt not recorded: %+v %v", next, err)
+	}
+	if _, err = db.FactoryRun(ctx, second.ID); err != nil {
+		t.Fatalf("retry run missing: %v", err)
+	}
+	if _, err = db.RecordRetryPacket(ctx, a, second, secondView, 30); !errors.Is(err, ErrStaleRevision) {
+		t.Fatalf("stale retry accepted: %v", err)
+	}
+	if _, err = db.RecordRetryPacket(ctx, next, second, secondView, 30); err == nil {
 		t.Fatal("reused run identity accepted")
 	}
-	third := factory.NewID()
-	if _, err = db.NoteDispatchAttempt(ctx, a.ID, third); err != nil {
+	// Recovery settles the superseded run before the next attempt, so it
+	// stops counting against capacity.
+	settle(run.ID)
+	third, thirdView := retryTestRun(t, a, run)
+	current, err := db.RecordRetryPacket(ctx, next, third, thirdView, 30)
+	if err != nil {
 		t.Fatalf("third attempt refused: %v", err)
 	}
-	if _, err = db.NoteDispatchAttempt(ctx, a.ID, factory.NewID()); err == nil {
-		t.Fatal("fourth attempt accepted")
+	fourth, fourthView := retryTestRun(t, a, run)
+	if _, err = db.RecordRetryPacket(ctx, current, fourth, fourthView, 30); !errors.Is(err, ErrAssignmentActive) {
+		t.Fatalf("fourth attempt accepted: %v", err)
 	}
 	finished, err := db.Assignment(ctx, a.ID)
 	if err != nil {
@@ -160,12 +200,113 @@ func TestDispatchAttemptAndFinish(t *testing.T) {
 	}
 }
 
+func TestRecordDispatchPacketEnforcesLimits(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	t.Run("capacity", func(t *testing.T) {
+		db := grantStoreFixture(t)
+		seedDispatchLimits(t, db)
+		if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+			t.Fatal(err)
+		}
+		a, r, run, view := dispatchTestPacket(t, now)
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
+			t.Fatal(err)
+		}
+		b, r2, run2, view2 := dispatchTestPacket(t, now)
+		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		r2.AssignmentID = b.ID
+		view2.Issue, view2.Attempt = 4, b.ID
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
+			t.Fatalf("over-capacity packet accepted: %v", err)
+		}
+		if _, err := db.Assignment(ctx, b.ID); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("refused packet left an assignment: %v", err)
+		}
+	})
+	t.Run("allowance", func(t *testing.T) {
+		db := grantStoreFixture(t)
+		seedDispatchLimits(t, db)
+		sponsorship, err := db.Sponsorship(ctx, 7, "conn")
+		if err != nil {
+			t.Fatal(err)
+		}
+		sponsorship.AllowanceMinutes = 30
+		if err := db.SaveSponsorship(ctx, sponsorship); err != nil {
+			t.Fatal(err)
+		}
+		a, r, run, view := dispatchTestPacket(t, now)
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
+			t.Fatal(err)
+		}
+		b, r2, run2, view2 := dispatchTestPacket(t, now)
+		b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+		r2.AssignmentID = b.ID
+		view2.Issue, view2.Attempt = 4, b.ID
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrAllowanceExhausted) {
+			t.Fatalf("over-budget packet accepted: %v", err)
+		}
+	})
+	t.Run("missing grants", func(t *testing.T) {
+		db := grantStoreFixture(t)
+		a, r, run, view := dispatchTestPacket(t, now)
+		if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); !errors.Is(err, ErrAdmissionChanged) {
+			t.Fatalf("unlimited packet accepted: %v", err)
+		}
+	})
+}
+
+func TestRecordRetryPacketReholdsAndRefusesLimits(t *testing.T) {
+	ctx := context.Background()
+	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	db := dispatchStoreFixture(t)
+	a, r, run, view := dispatchTestPacket(t, now)
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.ReleaseReservation(ctx, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	second, secondView := retryTestRun(t, a, run)
+	next, err := db.RecordRetryPacket(ctx, a, second, secondView, 45)
+	if err != nil {
+		t.Fatalf("retry refused: %v", err)
+	}
+	held, err := db.Reservation(ctx, a.ID)
+	if err != nil || held.State != factory.ReservationHeld || held.PlannedMinutes != 45 {
+		t.Fatalf("reservation not reheld: %+v %v", held, err)
+	}
+	if err := db.SaveCapacity(ctx, factory.Capacity{Revision: 1, UpdatedBy: 7, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+		t.Fatal(err)
+	}
+	b, r2, run2, view2 := dispatchTestPacket(t, now)
+	b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
+	r2.AssignmentID = b.ID
+	view2.Issue, view2.Attempt = 4, b.ID
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(b), b, r2, run2, view2); !errors.Is(err, ErrCapacityFull) {
+		t.Fatalf("over-capacity packet accepted: %v", err)
+	}
+	if _, err := db.Assignment(ctx, b.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("refused packet left an assignment: %v", err)
+	}
+	// A refused retry consumes no attempt either: the assignment still
+	// retries once room frees.
+	third, thirdView := retryTestRun(t, a, run)
+	if _, err = db.RecordRetryPacket(ctx, next, third, thirdView, 45); !errors.Is(err, ErrCapacityFull) {
+		t.Fatalf("over-capacity retry accepted: %v", err)
+	}
+	stored, err := db.Assignment(ctx, a.ID)
+	if err != nil || stored.Attempts != next.Attempts {
+		t.Fatalf("retry attempts wrong: %+v %v", stored, err)
+	}
+}
+
 func TestReservationTransitions(t *testing.T) {
 	ctx := context.Background()
 	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := db.RecordDispatchPacket(ctx, a, r, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ConsumeReservation(ctx, a.ID); err != nil {
@@ -186,7 +327,7 @@ func TestReservationTransitions(t *testing.T) {
 	b.ID, b.Issue, b.Run, b.RunHistory = factory.NewID(), 4, run2.ID, []string{run2.ID}
 	r2.AssignmentID = b.ID
 	view2.Issue, view2.Attempt = 4, b.ID
-	if err := db.RecordDispatchPacket(ctx, b, r2, run2, view2); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(b), b, r2, run2, view2); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.ReleaseReservation(ctx, b.ID); err != nil {
@@ -274,8 +415,8 @@ func TestQueuedControlsOldestFirst(t *testing.T) {
 		{8, 2, now.Add(-2 * time.Hour).Unix()},
 		{7, 3, now.Add(-2 * time.Hour).Unix()},
 	} {
-		if _, err := db.db.ExecContext(ctx, `UPDATE issue_controls
-			SET data=json_set(data,'$.first_seen_unix',?) WHERE repository=? AND issue=?`,
+		if _, err := db.exec(ctx, `UPDATE issue_controls
+			SET data=jsonb_set(data,'{first_seen_unix}',to_jsonb(?::bigint)) WHERE repository=? AND issue=?`,
 			stamp.seen, stamp.repository, stamp.issue); err != nil {
 			t.Fatal(err)
 		}
@@ -300,7 +441,7 @@ func TestActiveRunCountsSkipAttributed(t *testing.T) {
 	now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	db := dispatchStoreFixture(t)
 	a, r, run, view := dispatchTestPacket(t, now)
-	if err := db.RecordDispatchPacket(ctx, a, r, run, view); err != nil {
+	if err := db.RecordDispatchPacket(ctx, dispatchTestRegistration(a), a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	human := factory.Run{

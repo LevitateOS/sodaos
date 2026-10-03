@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -15,11 +14,7 @@ func grantTestTime() time.Time { return time.Date(2026, 10, 1, 0, 0, 0, 0, time.
 
 func grantStoreFixture(t *testing.T) *Store {
 	t.Helper()
-	db, err := Open(filepath.Join(t.TempDir(), "grants.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
+	db, _ := postgresFixture(t, nil)
 	return db
 }
 
