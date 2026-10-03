@@ -96,6 +96,24 @@ func TestWorkerPathLeadsWithFixedGoRoot(t *testing.T) {
 	t.Fatal("worker PATH missing")
 }
 
+func TestAdmitStorageRoot(t *testing.T) {
+	good := workerConfig{StorageRoot: "/home/soda-candidate", BuildHome: "/home/soda-candidate/home", Runtime: "/home/soda-candidate/run"}
+	require.NoError(t, admitStorageRoot(good))
+	for name, mutate := range map[string]func(*workerConfig){
+		"missing root":    func(c *workerConfig) { c.StorageRoot = "" },
+		"relative root":   func(c *workerConfig) { c.StorageRoot = "home/soda-candidate" },
+		"home on root":    func(c *workerConfig) { c.BuildHome = "/var/lib/soda-candidate-home" },
+		"runtime on root": func(c *workerConfig) { c.Runtime = "/var/lib/soda-candidate-run" },
+		"sibling prefix":  func(c *workerConfig) { c.BuildHome = "/home/soda-candidate-evil" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := good
+			mutate(&c)
+			require.Error(t, admitStorageRoot(c))
+		})
+	}
+}
+
 func TestFastMediaWorkerSelection(t *testing.T) {
 	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
 	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "media", MediaCompression: "fast", RootfsBaseURL: "https://example.invalid"}

@@ -109,7 +109,12 @@ rotate_fixture_authority() {
   command -v skopeo >/dev/null || fail "skopeo required"
   local authority="/var/lib/soda-candidate-authority" tmpd now
   tmpd="$(mktemp -d)" || fail "cannot stage secrets"
-  trap 'rm -rf "$tmpd"' EXIT
+  [ -n "$tmpd" ] && [ -d "$tmpd" ] || fail "cannot stage secrets"
+  # Expand now: tmpd is function-local, so a single-quoted trap would
+  # evaluate empty after return and retain staging (B7). This removes
+  # only this call's own staging directory on success or failure.
+  # shellcheck disable=SC2064
+  trap "rm -rf -- \"$tmpd\"" EXIT
   chmod 0700 "$tmpd"
   head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$tmpd/passphrase"
   chmod 0600 "$tmpd/passphrase"

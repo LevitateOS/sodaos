@@ -7,6 +7,8 @@
 # stand in for release keys.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# shellcheck source=scripts/candidate-storage.sh
+. ./scripts/candidate-storage.sh
 
 PREFIX="${SODA_REPOSITORY_PREFIX:-ghcr.io/levitateos/sodaos}"
 REFRESH="${SODA_REFRESH_AUTHORITY:-0}"
@@ -27,8 +29,13 @@ ADMITTED="/usr/local/lib/soda/soda-build"
 PINNED_GO="/usr/local/lib/soda/pinned-go"
 WRAPPER="/usr/sbin/soda-candidate"
 OUTPUT_PARENT="$PWD/.artifacts/releases/isolated"
-BUILD_HOME="/var/lib/soda-candidate-home"
-RUNTIME="/var/lib/soda-candidate-run"
+# Heavy worker state on /home via the single storage configuration (D1).
+# TOOLS (one bun binary) and AUTHORITY (keys plus worker.json) stay small
+# on root; everything heavy — engine storage, Go caches, browsers,
+# per-attempt runtime and setup scratch — lives under the storage root.
+BUILD_HOME="$SODA_CANDIDATE_HOME"
+RUNTIME="$SODA_CANDIDATE_RUN"
+SCRATCH_ROOT="$SODA_CANDIDATE_SCRATCH"
 TOOLS="/var/lib/soda-candidate-tools"
 AUTHORITY="/var/lib/soda-candidate-authority"
 WORKER_JSON="$AUTHORITY/worker.json"
@@ -57,6 +64,29 @@ refuse_active_build() {
   fi
 }
 
+# migrate_candidate_home moves heavy worker HOME content from the legacy
+# root-backed path to the /home storage root. Engine-aware and preserving:
+# it refuses while a build is active or the worker owns any process, copies
+# (never moves) only into an empty new home, and leaves the legacy tree in
+# place for the owner to retire (D2). The worker unit always binds this
+# home at the same guest path, so recorded engine paths keep working.
+# No pruning here.
+migrate_candidate_home() {
+  if [ ! -d "$SODA_LEGACY_HOME" ]; then return 0; fi
+  if [ -n "$(ls -A "$BUILD_HOME" 2>/dev/null)" ]; then
+    echo "-- new worker home already populated; legacy $SODA_LEGACY_HOME preserved untouched"
+    return 0
+  fi
+  refuse_active_build
+  if command -v pgrep >/dev/null && pgrep -u soda-build-worker >/dev/null 2>&1; then
+    fail "soda-build-worker still owns processes; finish them before migrating heavy state"
+  fi
+  echo "-- migrating legacy worker home to $BUILD_HOME (legacy preserved)"
+  sudo cp -a "$SODA_LEGACY_HOME/." "$BUILD_HOME/"
+  sudo chown -R soda-build-worker:soda-build-worker "$BUILD_HOME"
+  echo "-- legacy $SODA_LEGACY_HOME preserved; retire it explicitly (D2) after the new home proves itself"
+}
+
 [ -f go.mod ] || fail "run from the repository root"
 [ -n "$FORGEJO_SOURCE" ] || fail "set SODA_FORGEJO_SOURCE to the clean canonical Forgejo fork checkout"
 [ -d "$FORGEJO_SOURCE/.git" ] && [ "$(realpath "$FORGEJO_SOURCE")" = "$FORGEJO_SOURCE" ] || fail "canonical Forgejo checkout required"
@@ -82,8 +112,12 @@ WANT="go version go$PINNED linux/amd64"
 claim_setup_lease
 refuse_active_build
 
+echo "-- candidate storage root ($SODA_CANDIDATE_ROOT)"
+sudo mkdir -p "$SCRATCH_ROOT"
+sudo chown "${SUDO_USER:-$(id -un)}" "$SCRATCH_ROOT"
+
 echo "-- build tools from committed source"
-BINDIR="$(mktemp -d)"
+BINDIR="$(mktemp -d "$SCRATCH_ROOT/setup-bindir.XXXXXXXX")"
 trap 'rm -rf "$BINDIR"' EXIT
 go build -o "$BINDIR/soda-build" ./tools/soda-build
 go build -o "$BINDIR/soda-candidate" ./tools/soda-candidate
@@ -99,6 +133,10 @@ WANT_WRAPPER="$(readlink -f "$WRAPPER")"
 
 echo "-- worker directories"
 sudo mkdir -p "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME" "$TOOLS/bin" "$AUTHORITY"
+migrate_candidate_home
+if [ -n "$(ls -A "$SODA_LEGACY_RUN" 2>/dev/null)" ]; then
+  echo "-- legacy $SODA_LEGACY_RUN holds leftovers; preserved untouched (new runs use $RUNTIME)"
+fi
 # The pinned GOROOT installs at a fixed host path instead of the bound
 # tools dir so it carries lib_t and stays executable for the worker
 # domain, and /usr/local stays readable under ProtectSystem=strict. The
@@ -128,6 +166,13 @@ sudo find "$PINNED_GO" -type d -exec chmod 0755 {} +
 sudo find "$PINNED_GO" -type f -exec chmod a+r {} +
 sudo stat -c %C "$PINNED_GO/bin/go" | grep -q ":lib_t:" || fail "pinned GOROOT is not lib_t; the sandboxed worker could not execute it"
 sudo chown soda-build-worker:soda-build-worker "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME"
+# The storage root itself stays traversable for both the worker (bound
+# home/runtime below it) and the operator (scratch): label it like the
+# other build state so the sandboxed worker can reach its binds.
+if command -v semanage >/dev/null; then
+  sudo semanage fcontext -a -t var_lib_t "$SODA_CANDIDATE_ROOT(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t var_lib_t "$SODA_CANDIDATE_ROOT(/.*)?"
+fi
+command -v restorecon >/dev/null && sudo restorecon "$SODA_CANDIDATE_ROOT"
 # The service worker is denied file creation on user_home_t, so the output
 # parent inside the checkout needs var_lib_t to take build output.
 if command -v semanage >/dev/null; then
@@ -156,7 +201,7 @@ sudo -u soda-build-worker env HOME="$BUILD_HOME" "$PINNED_GO/bin/go" env -w GOPR
 # (mirroring the workspaces list) so node_modules never lands in the
 # checkout. Bun refuses files owned by another user, so the scratch tree
 # belongs to the worker first.
-TMPW="$(mktemp -d)"
+TMPW="$(mktemp -d "$SCRATCH_ROOT/setup-bun.XXXXXXXX")"
 mkdir -p "$TMPW/tools"
 cp package.json bun.lock bunfig.toml "$TMPW/"
 cp -a tools/lit-check "$TMPW/tools/"
@@ -216,6 +261,7 @@ json.dump({
   "Source": "$PWD",
   "ForgejoSource": sys.argv[2],
   "OutputParent": "$OUTPUT_PARENT",
+  "StorageRoot": "$SODA_CANDIDATE_ROOT",
   "BuildHome": "$BUILD_HOME",
   "Runtime": "$RUNTIME",
   "Tools": "$TOOLS",
@@ -229,7 +275,7 @@ if [ -f "$AUTHORITY/artifact.private" ] && [ "$REFRESH" != "1" ]; then
 else
   echo "-- fixture-only media authority (never release keys)"
   refuse_active_build
-  TMPD="$(mktemp -d)"
+  TMPD="$(mktemp -d "$SCRATCH_ROOT/setup-authority.XXXXXXXX")"
   trap 'rm -rf "$BINDIR" "$TMPD"' EXIT
   head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$TMPD/passphrase"
   for role in artifact candidate preview stable; do

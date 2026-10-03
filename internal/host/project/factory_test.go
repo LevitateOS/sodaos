@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -183,5 +186,113 @@ func TestFactoryInspectMissingIsNotFound(t *testing.T) {
 	_, err := f.Inspect(t.Context(), domain.FactoryInspect{Project: "p" + strings.Repeat("b", 24), ID: strings.Repeat("a", 32)})
 	if !errors.Is(err, identity.ErrNotFound) {
 		t.Fatal("missing run misreported", err)
+	}
+}
+
+// factoryBrokerStub records broker cleanup calls over a Unix socket.
+type factoryBrokerStub struct {
+	mu   sync.Mutex
+	hits []string
+}
+
+func (s *factoryBrokerStub) handler(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	s.hits = append(s.hits, r.URL.Path)
+	s.mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(`{}`))
+}
+
+func (s *factoryBrokerStub) count(path string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, hit := range s.hits {
+		if hit == path {
+			n++
+		}
+	}
+	return n
+}
+
+type factoryExitError int
+
+func (e factoryExitError) Error() string { return "native exit status" }
+
+func (e factoryExitError) ExitCode() int { return int(e) }
+
+// TestFactoryTimeoutCleanupSurvivesExpiredParent is the N-RUN1 host-side
+// regression: when the run deadline or the caller already expired the
+// parent, retirement must still stop the boundary, reconcile broker
+// custody and record the outcome under a usable bounded context.
+func TestFactoryTimeoutCleanupSurvivesExpiredParent(t *testing.T) {
+	pin := strings.Repeat("f", 64)
+	stub := &factoryBrokerStub{}
+	sock := filepath.Join(t.TempDir(), "broker.sock")
+	listener, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := &http.Server{Handler: http.HandlerFunc(stub.handler)}
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { _ = server.Close() })
+	exec := &factoryFakeExec{run: func(_ context.Context, _ []byte, command string, args ...string) ([]byte, error) {
+		joined := command + " " + strings.Join(args, " ")
+		if strings.Contains(joined, "systemctl") {
+			for _, arg := range args {
+				if arg == "show" {
+					return []byte("ActiveState=inactive\nInvocationID=" + strings.Repeat("e", 32) + "\n"), nil
+				}
+			}
+			return nil, nil
+		}
+		if strings.Contains(joined, "container") && strings.Contains(joined, "exists") {
+			return nil, factoryExitError(1)
+		}
+		return nil, errors.New("native execution unavailable in unit test")
+	}}
+	stateDir := filepath.Join(t.TempDir(), "runs")
+	if err := os.Mkdir(stateDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	term := &terminal.Service{Exec: exec, CodexHarnessSHA256: pin}
+	f, err := OpenFactory(stateDir, term, identityclient.New(sock))
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := factoryTestRun()
+	_, runDir, _, _ := domain.FactoryRunPaths(domain.RoleCoder, run.Preparation, run.ID)
+	binding := identity.Binding{
+		Kind: identity.Factory, ID: run.ID, Project: strings.Repeat("d", 64),
+		Login: domain.RoleCoder, UID: 2001, GID: 2001, Scope: domain.FactoryScopeCodex,
+		InvocationID: strings.Repeat("e", 32), CredentialRoot: runDir, Generation: 3, ChildID: run.Preparation,
+	}
+	lease := identity.Lease{
+		ProviderID: identity.Codex, ID: "lease-1", ConnectionID: "subscription",
+		Generation: 3, ActorID: 1001, ProjectID: run.Project, ExecutionID: run.ID,
+		Kind: identity.Factory, Binding: &binding,
+	}
+	seed := factoryReceipt{Run: run, Lease: &lease, Binding: &binding, Generation: 3, Phase: domain.FactoryRunning, Started: true, Delivered: true}
+	if err := f.storeReceipt(seed); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	state, err := f.stopTimedOut(ctx, seed, lease, binding)
+	if err != nil {
+		t.Fatalf("expired parent lost the timeout outcome: %v", err)
+	}
+	if state.Phase != domain.FactoryUncertain || state.Reason != "deadline-exceeded" {
+		t.Fatalf("timeout outcome misrecorded: %+v", state)
+	}
+	if exec.calls == 0 {
+		t.Fatal("native retirement never ran")
+	}
+	if stub.count("/reconcile-lease") == 0 || stub.count("/execution/close") == 0 {
+		t.Fatal("broker custody cleanup never ran")
+	}
+	observed, err := f.Inspect(context.Background(), domain.FactoryInspect{Project: run.Project, ID: run.ID})
+	if err != nil || observed.Phase != domain.FactoryUncertain {
+		t.Fatalf("timeout receipt not durable: %+v %v", observed, err)
 	}
 }

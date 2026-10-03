@@ -22,6 +22,21 @@ import (
 // leaf. Tests and drivers inject their own state directory instead.
 const FactoryStateRoot = "/var/lib/soda/host/factory"
 
+// factoryCleanupTimeout bounds post-expiry retirement: native stop
+// (~15s plus a few execs), credential capture/return and the durable
+// receipt must still complete when the run deadline or the caller already
+// expired the operation parent.
+const factoryCleanupTimeout = 60 * time.Second
+
+// cleanupContext detaches retirement work from an expired operation
+// parent. The run deadline or a caller timeout ends the admitted wait;
+// it must not also cancel the stop, credential custody and receipt that
+// record the outcome. Bounded so a wedged native boundary cannot stall
+// the caller forever.
+func cleanupContext(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(parent), factoryCleanupTimeout)
+}
+
 // Factory orchestrates supervised factory runs: durable run receipts, broker
 // lease acquisition with execution identity, and managed native execution
 // through host/terminal. Launch and stop never hold the per-run lock across
@@ -339,6 +354,8 @@ func (f *Factory) acquireRunLease(ctx context.Context, run domain.FactoryRun) (i
 // failRun records a refusal that never acquired native or broker resources.
 // A concurrent stop still wins: the tombstone is authoritative.
 func (f *Factory) failRun(ctx context.Context, receipt factoryReceipt, cause error) (domain.FactoryState, error) {
+	ctx, cancel := cleanupContext(ctx)
+	defer cancel()
 	file, err := f.lockRun(ctx, receipt.Run.Project, receipt.Run.ID)
 	if err != nil {
 		return domain.FactoryState{}, err
@@ -384,6 +401,8 @@ func runReason(err error) string {
 // abandonRun closes the broker execution and records failure after a refused
 // local step. Transport failures stay errors: the step may have landed.
 func (f *Factory) abandonRun(ctx context.Context, receipt factoryReceipt, reason string) (domain.FactoryState, error) {
+	ctx, cancel := cleanupContext(ctx)
+	defer cancel()
 	_ = f.broker.CloseExecution(ctx, identity.Factory, receipt.Run.ID)
 	file, err := f.lockRun(ctx, receipt.Run.Project, receipt.Run.ID)
 	if err != nil {
@@ -490,6 +509,8 @@ func (f *Factory) launchYielded(ctx context.Context, receipt factoryReceipt) boo
 // stopFailedStart retires a run whose start never confirmed: native stop,
 // credential capture attempt, broker return or reconcile, then close.
 func (f *Factory) stopFailedStart(ctx context.Context, receipt factoryReceipt, lease identity.Lease, binding identity.Binding) (domain.FactoryState, error) {
+	ctx, cancel := cleanupContext(ctx)
+	defer cancel()
 	l := leaseWithBinding(lease, binding)
 	_ = f.terminal.FactoryCodexStop(ctx, l)
 	if f.launchYielded(ctx, receipt) {
@@ -514,6 +535,8 @@ func (f *Factory) stopFailedStart(ctx context.Context, receipt factoryReceipt, l
 }
 
 func (f *Factory) stopTimedOut(ctx context.Context, receipt factoryReceipt, lease identity.Lease, binding identity.Binding) (domain.FactoryState, error) {
+	ctx, cancel := cleanupContext(ctx)
+	defer cancel()
 	l := leaseWithBinding(lease, binding)
 	uncertain := false
 	if err := f.terminal.FactoryCodexStop(ctx, l); err != nil {
@@ -540,6 +563,8 @@ func (f *Factory) stopTimedOut(ctx context.Context, receipt factoryReceipt, leas
 }
 
 func (f *Factory) finishRun(ctx context.Context, receipt factoryReceipt, lease identity.Lease, binding identity.Binding, exit int, output string) (domain.FactoryState, error) {
+	ctx, cancel := cleanupContext(ctx)
+	defer cancel()
 	l := leaseWithBinding(lease, binding)
 	if exit >= 0 {
 		receipt.ExitCode = &exit

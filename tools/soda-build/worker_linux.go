@@ -18,9 +18,12 @@ import (
 
 // workerConfig is installed by the operator, not emitted by a build. Paths name
 // existing, separately owned task directories; this command does not create users,
-// grant sudo, install trust or adopt an existing service/VM.
+// grant sudo, install trust or adopt an existing service/VM. StorageRoot is the
+// single /home storage root from scripts/candidate-storage.sh: heavy worker
+// state (home, runtime) must live under it, never on the small root filesystem.
 type workerConfig struct {
 	Executable, Source, ForgejoSource, OutputParent    string
+	StorageRoot                                        string
 	BuildHome, Runtime, Tools, MediaAuthorityDirectory string
 }
 
@@ -90,11 +93,25 @@ func admitLoadedWorkerConfig(c workerConfig, r image.Request) error {
 }
 
 func workerConfigPaths(c workerConfig, r image.Request) []string {
-	paths := []string{c.Source, c.ForgejoSource, c.OutputParent, c.BuildHome, c.Runtime, c.Tools}
+	paths := []string{c.Source, c.ForgejoSource, c.OutputParent, c.StorageRoot, c.BuildHome, c.Runtime, c.Tools}
 	if r.WantsMedia() {
 		paths = append(paths, c.MediaAuthorityDirectory)
 	}
 	return paths
+}
+
+// admitStorageRoot enforces the single storage configuration: the heavy
+// worker home and runtime must sit under the admitted storage root.
+func admitStorageRoot(c workerConfig) error {
+	if c.StorageRoot == "" || !filepath.IsAbs(c.StorageRoot) || filepath.Clean(c.StorageRoot) != c.StorageRoot {
+		return errors.New("worker storage root required; rerun the setup script")
+	}
+	for name, p := range map[string]string{"build home": c.BuildHome, "runtime": c.Runtime} {
+		if p != c.StorageRoot && !strings.HasPrefix(p, c.StorageRoot+"/") {
+			return fmt.Errorf("worker %s %q is outside the admitted storage root %q", name, p, c.StorageRoot)
+		}
+	}
+	return nil
 }
 
 func loadWorkerConfig(path string, r image.Request) (workerConfig, error) {
@@ -106,6 +123,9 @@ func loadWorkerConfig(path string, r image.Request) (workerConfig, error) {
 		return c, errors.New("root-owned restricted worker configuration required")
 	}
 	if err := deliver.ReadJSON(path, &c); err != nil {
+		return c, err
+	}
+	if err := admitStorageRoot(c); err != nil {
 		return c, err
 	}
 	if err := admitLoadedWorkerConfig(c, r); err != nil {

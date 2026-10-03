@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -58,11 +57,7 @@ func (r *testRuntime) Finish(ctx context.Context, l identity.Lease) ([]byte, err
 
 func controllerFixture(t *testing.T) (*Controller, *store.Store, *testRuntime, identity.Connection) {
 	t.Helper()
-	s, err := store.OpenEncrypted(filepath.Join(t.TempDir(), "broker.db"), bytes.Repeat([]byte{3}, 32))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = s.Close() })
+	s := postgresFixture(t, bytes.Repeat([]byte{3}, 32))
 	r := &testRuntime{}
 	c, err := New(s, map[string]identity.Provider{identity.Codex: testProvider{}, identity.Muse: testProvider{}}, r)
 	if err != nil {
