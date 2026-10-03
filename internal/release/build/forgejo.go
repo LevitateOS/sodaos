@@ -12,6 +12,33 @@ import (
 // docker.io/library/golang:1.26.7-alpine multi-platform index.
 const ForgejoCompilerImage = "docker.io/library/golang@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468"
 
+// ForgejoBunVersion is the only JS toolchain permitted for the archived
+// fork's frontend. The container fetches the musl build from the upstream
+// release and verifies ForgejoBunSHA256 before use.
+const ForgejoBunVersion = "1.4.2"
+
+// ForgejoBunSHA256 pins bun-linux-x64-musl.zip for ForgejoBunVersion.
+const ForgejoBunSHA256 = "4835eca59d6da70f4674f5642f6e459dcadab773695b2ed9922d131057989742"
+
+// Fountain derives from Forgejo 15.0 LTS. The compatibility token follows
+// the fork Makefile's GITEA_COMPATIBILITY contract.
+const (
+	ForgejoUpstreamBase = "15.0.9"
+	ForgejoCompatToken  = "gitea-1.22.0"
+)
+
+// forgejoVersionStamp maps the exact archived revision to the
+// Makefile-shaped version identity: <base>-soda.<short>+<compat>. The
+// Makefile appends +gitea-1.22.0 to every fork version; the describe count
+// is unknowable without git, so the soda marker carries the short revision
+// instead of faking a describe count.
+func forgejoVersionStamp(revision string) (string, error) {
+	if !Revision(revision) {
+		return "", errors.New("exact Forgejo source revision required")
+	}
+	return ForgejoUpstreamBase + "-soda." + revision[:12] + "+" + ForgejoCompatToken, nil
+}
+
 type ForgejoToolchain struct {
 	CompilerImage string
 	APKPackages   []string
@@ -97,15 +124,39 @@ func (p Production) validateForgejoBuild() error {
 }
 
 func forgejoBuildArgs(p Production, root, platform string) []string {
-	const script = `set -eu
+	// Production callers always set ForgejoRevision; the archive gate
+	// rejects anything else before this build runs. An empty stamp keeps
+	// upstream defaults for direct unit-test callers only.
+	stamp, err := forgejoVersionStamp(p.ForgejoRevision)
+	if err != nil {
+		stamp = ""
+	}
+	script := `set -eu
 apk add --no-cache build-base=0.5-r4
+wget -O /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v` + ForgejoBunVersion + `/bun-linux-x64-musl.zip"
+echo "` + ForgejoBunSHA256 + `  /tmp/bun.zip" | sha256sum -c -
+rm -rf /tmp/bun-extract && mkdir -p /tmp/bun-extract
+unzip -q -o -d /tmp/bun-extract /tmp/bun.zip
+install -m 755 /tmp/bun-extract/bun-linux-x64-musl/bun /usr/local/bin/bun
+test "$(bun --version)" = "` + ForgejoBunVersion + `"
 mkdir -p /work/out/gocache /work/out/gopath /work/out/tmp
 LC_ALL=C apk info -v | LC_ALL=C sort > /work/out/apk-packages.txt
+# The git archive never contains built frontend outputs; generate them with
+# the pinned Bun toolchain before bindata embeds public/. The frozen install
+# resolves from the archived package lock; Bun is the only JS toolchain.
+bun install --frozen-lockfile --no-progress
+BROWSERSLIST_IGNORE_OLD_DATA=true bun ./node_modules/.bin/webpack
+test -s public/assets/js/index.js
+test -s public/assets/css/index.css
 for package in options public templates migration; do
   (cd modules/$package && go generate -tags bindata .)
 done
-go build -buildvcs=false -tags 'bindata sqlite sqlite_unlock_notify' -trimpath -o /work/out/forgejo-bin .`
-	return []string{"--remote=false", "run", "--rm", "--pull=always", "--platform=linux/" + platform, "--volume=" + p.ForgejoSource + ":/work/source:Z", "--volume=" + root + ":/work/out:Z", "--workdir=/work/source", "--env=GOCACHE=/work/out/gocache", "--env=GOPATH=/work/out/gopath", "--env=TMPDIR=/work/out/tmp", ForgejoCompilerImage, "sh", "-ec", script}
+LDFLAGS=""
+if [ -n "${FORGEJO_VERSION:-}" ]; then
+  LDFLAGS="-X main.Version=${FORGEJO_VERSION} -X main.ForgejoVersion=${FORGEJO_VERSION} -X main.ReleaseVersion=${FORGEJO_VERSION} -X \"main.Tags=bindata sqlite sqlite_unlock_notify\""
+fi
+go build -buildvcs=false -tags 'bindata sqlite sqlite_unlock_notify' -ldflags "${LDFLAGS}" -trimpath -o /work/out/forgejo-bin .`
+	return []string{"--remote=false", "run", "--rm", "--pull=always", "--platform=linux/" + platform, "--volume=" + p.ForgejoSource + ":/work/source:Z", "--volume=" + root + ":/work/out:Z", "--workdir=/work/source", "--env=GOCACHE=/work/out/gocache", "--env=GOPATH=/work/out/gopath", "--env=TMPDIR=/work/out/tmp", "--env=FORGEJO_VERSION=" + stamp, ForgejoCompilerImage, "sh", "-ec", script}
 }
 
 func (p Production) inspectForgejoBuild(root string) (string, error) {
