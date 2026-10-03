@@ -2,7 +2,6 @@ package control_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -88,9 +87,10 @@ func (fx *st15Fixture) stopRunSettled(runID string) project.FactoryState {
 	}
 }
 
-// settleDirect settles one driver-sequenced run exactly like the
-// coordinator settle path: host stop, broker close, recorded outcome,
-// usage row. It returns the run output.
+// settleDirect settles one reviewer run the driver sequenced itself: host
+// stop, broker close, recorded outcome, usage row. It returns the full
+// run output for the explicit production submission. Reviewer-only until
+// reviewer dispatch lands; coder runs settle through stopSettled below.
 func (fx *st15Fixture) settleDirect(run factory.Run, assignmentID string) string {
 	fx.t.Helper()
 	ctx := fx.ctx
@@ -146,84 +146,51 @@ func (fx *st15Fixture) settleDirect(run factory.Run, assignmentID string) string
 	return state.Output
 }
 
-// settleDispatched settles one production-dispatched run through the
-// production accounting path and returns its assignment and output.
-func (fx *st15Fixture) settleDispatched(runID string) (factory.Assignment, string) {
+// stopSettled retires one run through the production stop path, retrying
+// while retirement reports uncertain: the product contract converges a
+// repeated stop once racing retirement settles, so a bounded retry follows
+// production semantics. Anything still uncertain after the bound fails.
+func (fx *st15Fixture) stopSettled(runID string) control.StopReceipt {
 	fx.t.Helper()
-	run, err := fx.db.FactoryRun(fx.ctx, runID)
-	if err != nil {
-		fx.t.Fatal(err)
-	}
-	state := fx.stopRunSettled(runID)
-	var outcome factory.Outcome
-	switch {
-	case state.Retirement == "uncertain":
-		fx.t.Fatalf("ST15 run %s retired uncertain", runID)
-	case state.Phase == project.FactoryCompleted:
-		outcome = factory.Succeeded
-	case state.Phase == project.FactoryFailed:
-		outcome = factory.Failed
-	case state.Phase == project.FactoryStopped:
-		outcome = factory.Cancelled
-	default:
-		fx.t.Fatalf("ST15 run %s unsettled: %+v", runID, state)
-	}
-	if err := fx.coord.Broker.CloseExecution(fx.ctx, identity.Factory, runID); err != nil {
-		fx.t.Fatal(err)
-	}
-	run.Outcome, run.Summary, run.Reconciled = outcome, state.Output, true
-	if len(run.Summary) > 16*1024 {
-		run.Summary = run.Summary[:16*1024]
-	}
-	if err := fx.db.SaveFactoryRun(fx.ctx, run); err != nil {
-		fx.t.Fatal(err)
-	}
-	// Production accounting: usage, reservation consume, attempt finish.
-	// Reconcile itself stays out of the journey: it would record merges
-	// eagerly, before review and checks evidence exists.
-	probe, perr := fx.db.AssignmentByRun(fx.ctx, runID)
-	if perr != nil {
-		fx.t.Logf("ST15 settle probe run=%s AssignmentByRun err: %v", runID, perr)
-	} else {
-		fx.t.Logf("ST15 settle probe run=%s assignment=%s stage=%s head=%s history=%v attempts=%d",
-			runID, probe.ID, probe.Stage, probe.Run, probe.RunHistory, probe.Attempts)
-		if res, rerr := fx.db.Reservation(fx.ctx, probe.ID); rerr != nil {
-			fx.t.Logf("ST15 settle probe reservation err: %v", rerr)
-		} else {
-			fx.t.Logf("ST15 settle probe reservation state=%s revision=%d", res.State, res.Revision)
+	var receipt control.StopReceipt
+	for attempt := 0; ; attempt++ {
+		cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandStop, Target: runID,
+			Principal: "soda-maintainer", Digest: factory.CommandDigest(factory.CommandStop, runID)}
+		var err error
+		receipt, err = fx.coord.Stop(fx.ctx, cmd)
+		if err != nil {
+			fx.t.Fatal(err)
 		}
-	}
-	if _, uerr := fx.db.RunUsage(fx.ctx, runID); uerr != nil {
-		fx.t.Logf("ST15 settle probe no prior usage for run=%s: %v", runID, uerr)
-	} else {
-		fx.t.Logf("ST15 settle probe prior usage already recorded for run=%s", runID)
-	}
-	assignment, ok := control.AccountSettledRun(fx.ctx, fx.db, run, state.Output, time.Now())
-	if !ok {
-		// The shared control plane may have settled first (dashboard
-		// settle/reconcile racing the journey's explicit sequencing):
-		// adopt the finished assignment instead of failing. The
-		// journey's outcome checks below still judge the result.
-		adopted, aerr := fx.db.AssignmentByRun(fx.ctx, runID)
-		if aerr != nil || adopted.Stage != factory.AssignmentFinished {
-			fx.t.Fatalf("ST15 run %s accounting refused", runID)
+		if !receipt.Uncertain || attempt >= 5 {
+			break
 		}
-		fx.t.Logf("ST15 run %s already settled externally; adopting assignment %s outcome=%s",
-			runID, adopted.ID, adopted.Outcome)
-		assignment = adopted
+		fx.t.Logf("ST15 run %s stop uncertain (attempt %d), retrying", runID, attempt+1)
+		time.Sleep(5 * time.Second)
 	}
-	st15Receipt(fx.t, "run-"+runID, map[string]any{
-		"role": run.Role, "outcome": outcome, "container": state.Container,
-		"assignment": assignment.ID, "attempts": assignment.Attempts,
-	})
-	return assignment, state.Output
+	if !receipt.Confirmed {
+		fx.t.Fatalf("ST15 run %s retired uncertain: %s", runID, receipt.Reason)
+	}
+	return receipt
 }
 
-type st15Review struct {
-	Verdict  string   `json:"verdict"`
-	Summary  string   `json:"summary"`
-	Body     string   `json:"body"`
-	Findings []string `json:"findings"`
+// settleDispatched settles one production-dispatched run through the
+// production stop path and returns its assignment and recorded summary.
+// The stop retires the run, records its outcome and advances publication;
+// the fixture only observes the result.
+func (fx *st15Fixture) settleDispatched(runID string) (factory.Assignment, string) {
+	fx.t.Helper()
+	receipt := fx.stopSettled(runID)
+	assignment, err := fx.db.AssignmentByRun(fx.ctx, runID)
+	if err != nil {
+		fx.t.Fatalf("ST15 run %s assignment: %v", runID, err)
+	}
+	if assignment.Stage != factory.AssignmentFinished {
+		fx.t.Fatalf("ST15 run %s assignment unsettled: %+v", runID, assignment)
+	}
+	st15Receipt(fx.t, "run-"+runID, map[string]any{
+		"outcome": receipt.Outcome, "assignment": assignment.ID, "attempts": assignment.Attempts,
+	})
+	return assignment, receipt.Reason
 }
 
 // reviewPrompt builds the reviewer brief from accepted requirements and
@@ -246,76 +213,18 @@ func (fx *st15Fixture) reviewPrompt(issueTitle, issueBody, answer, head, base st
 		"Never print credentials, tokens or secret files.\n"
 }
 
-func parseReview(t interface {
-	Helper()
-	Fatalf(string, ...any)
-}, output string,
-) st15Review {
-	t.Helper()
-	start := strings.LastIndex(output, "```review-json")
-	if start < 0 {
-		t.Fatalf("ST15 review lacks its fenced report")
-	}
-	rest := output[start+len("```review-json"):]
-	end := strings.Index(rest, "```")
-	if end < 0 {
-		t.Fatalf("ST15 review report unterminated")
-	}
-	var review st15Review
-	if err := json.Unmarshal([]byte(rest[:end]), &review); err != nil {
-		t.Fatalf("ST15 review report invalid: %v", err)
-	}
-	if review.Verdict != "approve" && review.Verdict != "request-changes" {
-		t.Fatalf("ST15 review verdict invalid: %q", review.Verdict)
-	}
-	if review.Verdict == "request-changes" && strings.TrimSpace(review.Body) == "" {
-		t.Fatalf("ST15 requested changes lack findings")
-	}
-	return review
-}
-
-// submitReview observes the exact head and submits the agent's genuine
-// verdict through the separate reviewer actor. It returns the adopted
-// outcome and the event submitted.
-func (fx *st15Fixture) submitReview(head, base string, review st15Review) (factory.ReviewOutcome, string) {
+// submitReview submits one settled reviewer run's genuine verdict through
+// the production review path and returns the adopted outcome and event.
+func (fx *st15Fixture) submitReview(runID, output string) (factory.ReviewOutcome, string) {
 	fx.t.Helper()
-	ctx := fx.ctx
-	p, err := fx.db.PublicationByAssignment(ctx, fx.assignA)
+	adopted, err := fx.coord.SubmitReviewForRun(fx.ctx, runID, output)
 	if err != nil {
-		fx.t.Fatal(err)
+		fx.t.Fatalf("ST15 review submit: %v", err)
 	}
-	event := "APPROVED"
-	if review.Verdict == "request-changes" {
-		event = "REQUEST_CHANGES"
+	if adopted.ReviewerID != fx.cfg.ReviewerID {
+		fx.t.Fatalf("ST15 review adopted by a foreign reviewer: %+v", adopted)
 	}
-	body := review.Body
-	if strings.TrimSpace(body) == "" {
-		body = review.Summary
-	}
-	w := factory.ReviewWork{
-		OperationID: "st15-review-" + factory.NewID(), AuthRevision: "st15-composed-demo",
-		Repository: fx.cfg.Repository, ActorID: fx.cfg.ReviewerID,
-		PRNumber: p.PRNumber, PRID: p.PRID, IssueID: p.PRCreate.IssueID, PRAuthorID: p.PRCreate.Work.ActorID,
-		HeadRef: p.PRCreate.HeadRef, BaseRef: p.PRCreate.BaseRef, HeadOID: head, BaseOID: base,
-		Event: event, Body: body,
-	}
-	observed, err := fx.coord.Reviews.ObserveReview(ctx, w)
-	if err != nil {
-		fx.t.Fatalf("ST15 review observe %s: %v", head[:12], err)
-	}
-	w.NativeRev, w.NotAfter = observed.NativeRev, time.Now().Unix()+600
-	outcome, err := fx.coord.Reviews.SubmitReview(ctx, w)
-	if err != nil {
-		fx.t.Fatalf("ST15 review submit %s: %v", head[:12], err)
-	}
-	adopted, err := fx.coord.Reviews.AdoptReview(w, outcome)
-	if err != nil {
-		fx.t.Fatal(err)
-	}
-	if outcome.Completion != factory.OpCompletionComplete || adopted.ReviewerID != fx.cfg.ReviewerID {
-		fx.t.Fatalf("ST15 review incomplete: %+v %+v", outcome, adopted)
-	}
-	return adopted, event
+	return adopted, adopted.Event
 }
 
 // seedCIStatus records one native commit status (the fixture CI verdict)

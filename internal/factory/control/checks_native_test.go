@@ -72,9 +72,7 @@ func nativeCheckAssessor(t *testing.T, c nativeST09Config) *forgejo.CheckAssesso
 
 func nativeCheckDB(t *testing.T) *store.Store {
 	t.Helper()
-	db, err := store.Open(filepath.Join(t.TempDir(), "checks.db"))
-	nativeMust(t, err)
-	t.Cleanup(func() { _ = db.Close() })
+	db, _ := postgresFixture(t, nil)
 	return db
 }
 

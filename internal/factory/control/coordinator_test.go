@@ -75,11 +75,7 @@ func (s *stubBroker) CloseExecution(ctx context.Context, kind, id string) error 
 
 func coordinatorFixture(t *testing.T, host HostFactory, broker BrokerExecution) *Coordinator {
 	t.Helper()
-	db, err := store.Open(filepath.Join(t.TempDir(), "coordinator.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
+	db, _ := postgresFixture(t, nil)
 	if host == nil {
 		host = &stubHost{stop: func(project.FactoryStop) (project.FactoryState, error) {
 			return project.FactoryState{}, errors.New("unexpected host call")
@@ -288,4 +284,117 @@ func TestStartTakesExclusiveOwnership(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = second.Close()
+}
+
+// restartCoordinatorAfterCrash reopens the database and starts a fresh
+// coordinator over the crash prefix: recorded but unfinished commands
+// plus whatever run state the crash left behind.
+func restartCoordinatorAfterCrash(t *testing.T, dsn string, host HostFactory, broker BrokerExecution) *Coordinator {
+	t.Helper()
+	reopened, err := store.Open(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	restarted := NewCoordinator(reopened, host, broker)
+	if err := restarted.Start(context.Background(), filepath.Join(t.TempDir(), "coordinator.lock")); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = restarted.Close() })
+	return restarted
+}
+
+func settledStopBroker() *stubBroker {
+	return &stubBroker{
+		get:   func(string, string) (identity.Execution, error) { return identity.Execution{}, identity.ErrNotFound },
+		close: func(string, string) error { return nil },
+	}
+}
+
+func TestRestartedStopReportsEstablishedOutcome(t *testing.T) {
+	ctx := context.Background()
+	db, dsn := postgresFixture(t, nil)
+	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
+	r := recordRun(t, c, nil)
+	cmd := stopCommand(r.ID)
+	if _, created, err := db.RecordFactoryCommand(ctx, cmd, time.Now()); err != nil || !created {
+		t.Fatalf("command prefix unrecorded: %v", err)
+	}
+	// Crash before the finish lands: close without finishing.
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	host := &stubHost{}
+	host.stop = func(project.FactoryStop) (project.FactoryState, error) {
+		return project.FactoryState{ID: r.ID, Phase: project.FactoryStopped, Retirement: "confirmed", Reason: "stop-before-start"}, nil
+	}
+	restarted := restartCoordinatorAfterCrash(t, dsn, host, settledStopBroker())
+	receipt, err := restarted.Stop(ctx, cmd)
+	if err != nil || !receipt.Confirmed || receipt.Uncertain {
+		t.Fatalf("replay after restart: %+v %v", receipt, err)
+	}
+	again, err := restarted.Stop(ctx, cmd)
+	if err != nil || again != receipt {
+		t.Fatalf("second replay after restart: %+v %v", again, err)
+	}
+}
+
+func TestRestartedStopPreservesUncertainty(t *testing.T) {
+	ctx := context.Background()
+	db, dsn := postgresFixture(t, nil)
+	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
+	r := recordRun(t, c, nil)
+	cmd := stopCommand(r.ID)
+	if _, created, err := db.RecordFactoryCommand(ctx, cmd, time.Now()); err != nil || !created {
+		t.Fatalf("command prefix unrecorded: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	host := &stubHost{}
+	host.stop = func(project.FactoryStop) (project.FactoryState, error) {
+		return project.FactoryState{}, errors.New("synthetic host outage")
+	}
+	restarted := restartCoordinatorAfterCrash(t, dsn, host, settledStopBroker())
+	receipt, err := restarted.Stop(ctx, cmd)
+	if err != nil {
+		t.Fatalf("uncertain replay errored: %v", err)
+	}
+	if receipt.Confirmed || !receipt.Uncertain {
+		t.Fatalf("uncertain effect reported as established: %+v", receipt)
+	}
+	run, err := restarted.Store.FactoryRun(ctx, r.ID)
+	if err != nil || run.Reconciled {
+		t.Fatalf("fenced run settled by an unconfirmed stop: %+v %v", run, err)
+	}
+	stored, err := restarted.Store.FactoryCommand(ctx, cmd.ID)
+	if err != nil || stored.Finished == "" {
+		t.Fatalf("abandoned command left running: %+v %v", stored, err)
+	}
+}
+
+func TestRestartedReconcileReportsSettledRuns(t *testing.T) {
+	ctx := context.Background()
+	db, dsn := postgresFixture(t, nil)
+	c := NewCoordinator(db, &stubHost{}, &stubBroker{})
+	r := recordRun(t, c, nil)
+	cmd := factory.Command{ID: factory.NewID(), Type: factory.CommandReconcile, Principal: "os-uid:0", Digest: factory.CommandDigest(factory.CommandReconcile, "")}
+	if _, created, err := db.RecordFactoryCommand(ctx, cmd, time.Now()); err != nil || !created {
+		t.Fatalf("command prefix unrecorded: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	host := &stubHost{}
+	host.stop = func(project.FactoryStop) (project.FactoryState, error) {
+		return project.FactoryState{ID: r.ID, Phase: project.FactoryCompleted, Reason: "done"}, nil
+	}
+	restarted := restartCoordinatorAfterCrash(t, dsn, host, settledStopBroker())
+	receipt, err := restarted.Reconcile(ctx, cmd)
+	if err != nil {
+		t.Fatalf("replay after restart: %v", err)
+	}
+	if len(receipt.Settled) != 1 || receipt.Settled[0] != r.ID {
+		t.Fatalf("settled runs after restart: %+v", receipt)
+	}
 }

@@ -82,6 +82,39 @@ type planWait struct {
 
 func waitFor(reason, detail string) *planWait { return &planWait{Reason: reason, Detail: detail} }
 
+// admissionWait maps an atomic packet refusal to its wait. A refusal
+// proves a concurrent admission consumed the room first; the issue waits
+// for a later pass instead of launching.
+func admissionWait(err error) *planWait {
+	switch {
+	case errors.Is(err, store.ErrCapacityFull):
+		return waitFor(WaitCapacity, "appliance runs at its limit")
+	case errors.Is(err, store.ErrRepositoryFull):
+		return waitFor(WaitRepository, "repository runs at its limit")
+	case errors.Is(err, store.ErrSponsorshipFull):
+		return waitFor(WaitSponsorship, "sponsorship runs at its limit")
+	case errors.Is(err, store.ErrAllowanceExhausted):
+		return waitFor(WaitAllowance, "sponsorship allowance is exhausted")
+	case errors.Is(err, store.ErrAdmissionChanged):
+		return waitFor(WaitAuthority, "grants changed during dispatch")
+	default:
+		return nil
+	}
+}
+
+// refreshOccupancy reloads the pass snapshot after a lost admission race
+// so later issues plan against the winner's reservation instead of stale
+// emptiness. The packet gate stays authoritative: if the reload itself
+// fails, the pass continues and the gate refuses any over-admission.
+func refreshOccupancy(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, report *DispatchReport) {
+	fresh, err := snapshotOccupancy(ctx, deps.Store)
+	if err != nil {
+		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "capacity accounting unavailable"})
+		return
+	}
+	*occupancy = fresh
+}
+
 // planAttempt verifies one dispatch end to end without recording
 // anything. Every check that fails reports its wait or failure; a full
 // plan hands its exact bound inputs to the executor.
@@ -384,9 +417,10 @@ func promptSections(selected []factory.SelectedSource, comments []DispatchCommen
 }
 
 // executeFreshAttempt records one fresh assignment under the open gate and
-// launches its first run. Registration precedes the packet so a closed
-// gate refuses before anything is recorded; the packet lands atomically
-// before any host call.
+// launches its first run. Registration, packet and the admission-gate
+// limit recheck land in one transaction before any host call, so a
+// concurrent pass either wins the issue or consumes the room first; the
+// loser waits on a refreshed snapshot instead of admitting stale work.
 func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *passOccupancy, plan *attemptPlan, repository, issue int64, report *DispatchReport) {
 	now := time.Now()
 	assignmentID, runID := factory.NewID(), factory.NewID()
@@ -407,15 +441,8 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch assignment invalid"})
 		return
 	}
-	if err := deps.Store.RegisterDispatch(ctx, factory.DispatchRegistration{
+	registration := factory.DispatchRegistration{
 		ID: assignmentID, Repository: repository, Revision: plan.gateRev, Authority: authority,
-	}); err != nil {
-		if errors.Is(err, store.ErrDispatchClosed) {
-			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitDispatchClosed, Detail: "dispatch gate closed during dispatch"})
-			return
-		}
-		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch registration failed"})
-		return
 	}
 	reservation := factory.Reservation{
 		AssignmentID: assignmentID, Repository: repository,
@@ -427,9 +454,19 @@ func executeFreshAttempt(ctx context.Context, deps DispatchDeps, occupancy *pass
 		Image: plan.pin.Image, Harness: assignment.Harness, Model: assignment.Model,
 	}
 	view := factory.RunView{RunID: runID, Repository: repository, Issue: issue, Attempt: assignmentID}
-	if err := deps.Store.RecordDispatchPacket(ctx, assignment, reservation, run, view); err != nil {
+	if err := deps.Store.RecordDispatchPacket(ctx, registration, assignment, reservation, run, view); err != nil {
+		if errors.Is(err, store.ErrDispatchClosed) {
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitDispatchClosed, Detail: "dispatch gate closed during dispatch"})
+			return
+		}
 		if errors.Is(err, store.ErrAssignmentActive) {
+			refreshOccupancy(ctx, deps, occupancy, report)
 			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: WaitAssigned, Detail: "a concurrent dispatch won this issue"})
+			return
+		}
+		if wait := admissionWait(err); wait != nil {
+			refreshOccupancy(ctx, deps, occupancy, report)
+			report.Waits = append(report.Waits, DispatchWait{Repository: repository, Issue: issue, Reason: wait.Reason, Detail: wait.Detail})
 			return
 		}
 		report.Errors = append(report.Errors, DispatchError{Repository: repository, Issue: issue, Reason: DispatchErrStore, Detail: "dispatch packet unrecorded"})
@@ -485,41 +522,21 @@ func retryAttempt(ctx context.Context, deps DispatchDeps, a factory.Assignment, 
 		return
 	}
 	runID := factory.NewID()
-	next, err := deps.Store.NoteDispatchAttempt(ctx, a.ID, runID)
-	if err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "dispatch attempt unrecorded"})
-		return
-	}
 	now := time.Now()
 	run := factory.Run{
 		ID: runID, ProjectID: a.ProjectID, Role: a.Role, InputSHA: a.SourceCommit,
 		Started: now, Deadline: plan.deadline,
 		Image: plan.pin.Image, Harness: a.Harness, Model: a.Model,
 	}
-	if err := deps.Store.RecordFactoryRun(ctx, run); err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "attempt run unrecorded"})
-		return
-	}
-	if _, _, err := deps.Store.RecordFactoryRunView(ctx, factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}); err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "attempt view unrecorded"})
-		return
-	}
-	reservation, err := deps.Store.Reservation(ctx, a.ID)
+	view := factory.RunView{RunID: runID, Repository: a.Repository, Issue: a.Issue, Attempt: a.ID}
+	next, err := deps.Store.RecordRetryPacket(ctx, a, run, view, plan.planned)
 	if err != nil {
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "assignment reservation unreadable"})
-		return
-	}
-	switch reservation.State {
-	case factory.ReservationReleased:
-		reservation.State, reservation.PlannedMinutes = factory.ReservationHeld, plan.planned
-		reservation.Revision++
-		if err := deps.Store.ReholdReservation(ctx, reservation); err != nil {
-			report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "reservation re-hold failed"})
+		// A limit refusal defers quietly: the fresh visit already
+		// reports the issue as assigned, and a later pass retries.
+		if admissionWait(err) != nil {
 			return
 		}
-	case factory.ReservationHeld:
-	default:
-		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "reservation behind a retry is not held"})
+		report.Errors = append(report.Errors, DispatchError{Repository: a.Repository, Issue: a.Issue, Reason: DispatchErrStore, Detail: "dispatch attempt unrecorded"})
 		return
 	}
 	launch := project.FactoryLaunch{

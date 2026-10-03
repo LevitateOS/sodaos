@@ -419,12 +419,8 @@ func (fx *st15Fixture) setupHostStack() error {
 	if _, err := rand.Read(key); err != nil {
 		return err
 	}
-	brokerDB, err := store.OpenEncrypted(filepath.Join(scratch, "broker.db"), key)
-	if err != nil {
-		return err
-	}
+	brokerDB, _ := postgresFixture(t, key)
 	fx.brokerDB = brokerDB
-	t.Cleanup(func() { _ = brokerDB.Close() })
 	credentialPath := os.Getenv("SODA_ST15_PROVIDER_CREDENTIAL")
 	var auth []byte
 	if credentialPath == "" {

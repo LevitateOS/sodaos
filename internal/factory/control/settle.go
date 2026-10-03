@@ -9,6 +9,7 @@ import (
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/project"
+	"github.com/levitateos/sodaos/internal/store"
 )
 
 // StopReceipt is the durable outcome of one stop command. Uncertain stays
@@ -34,6 +35,7 @@ type ReconcileReceipt struct {
 	Readiness   *ReadinessReport `json:"readiness,omitempty"`
 	Dispatch    *DispatchReport  `json:"dispatch,omitempty"`
 	Publication *PublishReport   `json:"publication,omitempty"`
+	Checks      *CheckReport     `json:"checks,omitempty"`
 	Merge       *MergeReport     `json:"merge,omitempty"`
 }
 
@@ -109,6 +111,10 @@ func (c *Coordinator) Reconcile(ctx context.Context, cmd factory.Command) (Recon
 		published := c.PublishPass(bounded)
 		receipt.Publication = &published
 	}
+	if c.Checks != nil {
+		assessed := c.CheckPass(bounded)
+		receipt.Checks = &assessed
+	}
 	if c.Merges != nil {
 		merged := c.MergePass(bounded)
 		receipt.Merge = &merged
@@ -134,26 +140,106 @@ func replayReconcile(stored factory.Command) (ReconcileReceipt, error) {
 	return receipt, nil
 }
 
-func (c *Coordinator) reconcileRuns(ctx context.Context) (ReconcileReceipt, error) {
-	receipt := ReconcileReceipt{Settled: []string{}}
-	runs, err := c.Store.FactoryRuns(ctx, 1000)
-	if err != nil {
-		return receipt, err
+// settleAbandonedCommands finishes stop and reconcile commands that a
+// crash left recorded but unfinished. Start just reconciled every run,
+// so each command settles from durable target state through the existing
+// settle path: an established outcome replays from the record without
+// host calls, and an unconfirmed effect finishes uncertain instead of
+// timing out into success. Other command types stay running; their
+// effects have no durable derivation here. Visited identities bound the
+// walk so commands that stay running never spin recovery.
+func (c *Coordinator) settleAbandonedCommands(ctx context.Context, settle ReconcileReceipt) error {
+	visited := map[string]bool{}
+	for {
+		batch, err := c.Store.UnfinishedCommands(ctx, 100)
+		if err != nil {
+			return err
+		}
+		progress := false
+		for _, cmd := range batch {
+			if visited[cmd.ID] {
+				continue
+			}
+			visited[cmd.ID] = true
+			progress = true
+			if err := c.settleAbandonedCommand(ctx, cmd, settle); err != nil {
+				return err
+			}
+		}
+		if !progress || len(batch) < 100 {
+			return nil
+		}
 	}
-	for _, run := range runs {
-		if run.Reconciled {
-			continue
+}
+
+func (c *Coordinator) settleAbandonedCommand(ctx context.Context, cmd factory.Command, settle ReconcileReceipt) error {
+	switch cmd.Type {
+	case factory.CommandStop:
+		run, err := c.Store.FactoryRun(ctx, cmd.Target)
+		if err != nil {
+			if !errors.Is(err, store.ErrNotFound) {
+				return err
+			}
+			return c.finishAbandonedCommand(ctx, cmd.ID, StopReceipt{RunID: cmd.Target, Uncertain: true, Reason: "stop target missing"})
 		}
 		bounded, stop := context.WithTimeout(ctx, 2*time.Minute)
-		settled := c.settleRun(bounded, run)
+		receipt := c.settleRun(bounded, run)
 		stop()
-		if settled.Uncertain {
-			receipt.Fenced = append(receipt.Fenced, FencedRun{ID: run.ID, Reason: settled.Reason})
-			continue
-		}
-		receipt.Settled = append(receipt.Settled, run.ID)
+		return c.finishAbandonedCommand(ctx, cmd.ID, receipt)
+	case factory.CommandReconcile:
+		return c.finishAbandonedCommand(ctx, cmd.ID, ReconcileReceipt{Settled: settle.Settled, Fenced: settle.Fenced})
+	default:
+		return nil
 	}
-	return receipt, nil
+}
+
+func (c *Coordinator) finishAbandonedCommand(ctx context.Context, id string, receipt any) error {
+	outcome, err := json.Marshal(receipt)
+	if err != nil {
+		return err
+	}
+	if err = c.Store.FinishFactoryCommand(ctx, id, string(outcome), time.Now()); err != nil {
+		// A concurrent executor finished first; its receipt stands.
+		if errors.Is(err, store.ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (c *Coordinator) reconcileRuns(ctx context.Context) (ReconcileReceipt, error) {
+	receipt := ReconcileReceipt{Settled: []string{}}
+	// Outstanding work first, in progressing batches: settled history
+	// never displaces an unresolved run no matter how many settled rows
+	// exist. Fenced runs stay unsettled, so visited identities bound the
+	// walk instead of batch fullness alone.
+	visited := map[string]bool{}
+	for {
+		batch, err := c.Store.FactoryUnsettledRuns(ctx, 1000)
+		if err != nil {
+			return receipt, err
+		}
+		progress := false
+		for _, run := range batch {
+			if visited[run.ID] {
+				continue
+			}
+			visited[run.ID] = true
+			progress = true
+			bounded, stop := context.WithTimeout(ctx, 2*time.Minute)
+			settled := c.settleRun(bounded, run)
+			stop()
+			if settled.Uncertain {
+				receipt.Fenced = append(receipt.Fenced, FencedRun{ID: run.ID, Reason: settled.Reason})
+				continue
+			}
+			receipt.Settled = append(receipt.Settled, run.ID)
+		}
+		if !progress || len(batch) < 1000 {
+			return receipt, nil
+		}
+	}
 }
 
 // settleRun drives one recorded run to its settled state: host stop, broker
@@ -199,6 +285,15 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 	if finished, ok := AccountSettledRun(ctx, c.Store, run, state.Output, time.Now()); ok && finished.Outcome == factory.Succeeded {
 		c.assessDispatchDependants(ctx, finished.Repository, finished.Issue)
 		c.publishAfterSettle(ctx, finished)
+	}
+	// A completed run beyond its assignment's finishing one advances the
+	// same PR as a correction; the finishing run published above.
+	c.correctAfterSettle(ctx, run, state.Output)
+	// A completed reviewer run submits its genuine verdict through the
+	// separate reviewer actor. Runs without an assignment (like reviews)
+	// never reach the accounting path above.
+	if run.Role == project.RoleReviewer && outcome == factory.Succeeded {
+		c.reviewAfterSettle(ctx, run, state.Output)
 	}
 	receipt.Confirmed, receipt.Outcome, receipt.Reason = true, string(outcome), run.Summary
 	return receipt

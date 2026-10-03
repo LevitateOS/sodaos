@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -20,13 +19,8 @@ import (
 // publicationTestDB exercises the production schema without fixture DDL.
 func publicationTestDB(t *testing.T) (*store.Store, string) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "publication.db")
-	db, err := store.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	return db, path
+	db, dsn := postgresFixture(t, nil)
+	return db, dsn
 }
 
 type fakePublishHost struct {
@@ -228,7 +222,7 @@ func (fx *publishFixture) finishReported(t *testing.T, issue int64) factory.Assi
 		Image: "sha256:" + strings.Repeat("b", 64), Harness: "codex-1.2.3", Model: "m",
 	}
 	view := factory.RunView{RunID: a.Run, Repository: fx.seed.repo, Issue: issue, Attempt: a.ID}
-	if err := fx.db.RecordDispatchPacket(ctx, a, r, run, view); err != nil {
+	if err := fx.db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, a, r, run, view); err != nil {
 		t.Fatal(err)
 	}
 	run.Outcome, run.Reconciled = factory.Succeeded, true

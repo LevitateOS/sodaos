@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 )
@@ -73,6 +74,73 @@ type ReviewObservation struct {
 	BaseRef      string `json:"base_ref"`
 	HeadOID      string `json:"head_oid"`
 	BaseOID      string `json:"base_oid"`
+}
+
+// ReviewAuthRevision binds one submitted review to its assignment and run:
+// the opaque native authorization revision, never a credential.
+func ReviewAuthRevision(assignmentID, runID string) string {
+	return "soda-assignment:" + assignmentID + ":review-run:" + runID
+}
+
+// ReviewReportFence delimits the reviewer report block: the review prompt
+// instructs the CLI to close its work with exactly one fenced review-json
+// block, and the supervisor parses the last such block strictly.
+const ReviewReportFence = "review-json"
+
+// ReviewReport is one reviewer agent's genuine verdict on an exact
+// candidate: approve it or request changes with concrete findings.
+type ReviewReport struct {
+	Verdict  string   `json:"verdict"`
+	Summary  string   `json:"summary"`
+	Body     string   `json:"body"`
+	Findings []string `json:"findings"`
+}
+
+// Validate checks the verdict shape. Approvals carry a summary; requested
+// changes carry findings in the body, never an empty report.
+func (r ReviewReport) Validate() error {
+	switch r.Verdict {
+	case "approve":
+	case "request-changes":
+		if strings.TrimSpace(r.Body) == "" {
+			return errors.New("requested changes need findings")
+		}
+	default:
+		return errors.New("invalid review verdict")
+	}
+	if len(r.Body) > 65536 || len(r.Summary) > 4096 {
+		return errors.New("review report exceeds its bound")
+	}
+	return nil
+}
+
+// ParseReviewReport extracts the last fenced review block from reviewer
+// output and validates it strictly. Unknown fields refuse; anything
+// unparseable reports false instead of guessing a verdict.
+func ParseReviewReport(output string) (ReviewReport, bool) {
+	start := strings.LastIndex(output, "```"+ReviewReportFence)
+	if start < 0 {
+		return ReviewReport{}, false
+	}
+	rest := output[start+len("```"+ReviewReportFence):]
+	end := strings.Index(rest, "```")
+	if end < 0 {
+		return ReviewReport{}, false
+	}
+	body := strings.TrimSpace(rest[:end])
+	if body == "" || len(body) > 65536+8192 {
+		return ReviewReport{}, false
+	}
+	var report ReviewReport
+	decoder := json.NewDecoder(strings.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&report); err != nil {
+		return ReviewReport{}, false
+	}
+	if report.Validate() != nil {
+		return ReviewReport{}, false
+	}
+	return report, true
 }
 
 // ReviewOutcome is the attributable native review identity adopted from its

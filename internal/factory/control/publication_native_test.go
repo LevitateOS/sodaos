@@ -223,9 +223,7 @@ type nativeFixture struct {
 func nativeSeed(t *testing.T, c nativeST09Config, n nativeCandidate) *nativeFixture {
 	t.Helper()
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "publication.db")
-	db, err := store.Open(path)
-	nativeMust(t, err)
+	db, path := postgresFixture(t, nil)
 	fx := &nativeFixture{cfg: c, db: db, path: path, project: "p" + factory.NewID()[:24], preparation: "f" + factory.NewID()[:24], host: &nativeHost{bundle: n.bundle}}
 	t.Cleanup(func() { _ = fx.db.Close() })
 	nativeMust(t, db.UpsertUser(ctx, store.User{ID: c.CreatorID, Login: "soda-maintainer"}))
@@ -319,7 +317,7 @@ func (fx *nativeFixture) assignment(t *testing.T, n nativeCandidate) factory.Ass
 	a := factory.Assignment{Authority: bound, ID: factory.NewID(), ProjectID: fx.project, Role: project.RoleCoder, Repository: c.Repository, Issue: issue.Number, NativeRev: decision.NativeRev, Acceptance: decision.ID, Preparation: fx.preparation, Harness: "codex-1.2.3", HarnessVers: "1.2.3", Model: "fixture", Connection: "fixture-connection", SourceCommit: n.base, Prompt: prompt, PromptSHA: hex.EncodeToString(hash[:]), Run: factory.NewID(), Stage: factory.AssignmentAssigned, Attempts: 1, CreatedUnix: now.Unix()}
 	a.RunHistory = []string{a.Run}
 	run := factory.Run{ID: a.Run, ProjectID: a.ProjectID, Role: a.Role, InputSHA: n.base, Started: now, Deadline: now.Add(time.Hour), Image: "sha256:" + strings.Repeat("b", 64), Harness: a.Harness, Model: a.Model}
-	nativeMust(t, fx.db.RecordDispatchPacket(ctx, a, factory.Reservation{AssignmentID: a.ID, Repository: c.Repository, Connection: a.Connection, State: factory.ReservationHeld, PlannedMinutes: 30}, run, factory.RunView{RunID: a.Run, Repository: c.Repository, Issue: a.Issue, Attempt: a.ID}))
+	nativeMust(t, fx.db.RecordDispatchPacket(ctx, factory.DispatchRegistration{ID: a.ID, Repository: a.Repository, Authority: a.Authority}, a, factory.Reservation{AssignmentID: a.ID, Repository: c.Repository, Connection: a.Connection, State: factory.ReservationHeld, PlannedMinutes: 30}, run, factory.RunView{RunID: a.Run, Repository: c.Repository, Issue: a.Issue, Attempt: a.ID}))
 	run.Reconciled, run.Outcome, run.Summary = true, factory.Succeeded, "completed fixture candidate"
 	nativeMust(t, fx.db.SaveFactoryRun(ctx, run))
 	nativeMust(t, fx.db.ConsumeReservation(ctx, a.ID))

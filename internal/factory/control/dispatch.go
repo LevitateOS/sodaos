@@ -170,13 +170,16 @@ const (
 
 // DispatchDeps gathers one dispatch pass's dependencies. Authority
 // derives the visible enablement verdict; the coordinator passes its own
-// EffectiveAuthority so dispatch and assessment share one verdict.
+// EffectiveAuthority so dispatch and assessment share one verdict. Queue
+// carries fair-rotation progress across passes; a nil queue visits from
+// the beginning without advancing.
 type DispatchDeps struct {
 	Store     *store.Store
 	Host      DispatchHost
 	Broker    DispatchBroker
 	Reads     DispatchReads
 	Authority func(ctx context.Context, repository int64) (factory.EffectiveAuthority, error)
+	Queue     *DispatchQueueCursor
 }
 
 // dispatchReady reports whether one pass has its required dependencies.
@@ -211,10 +214,21 @@ func DispatchPass(ctx context.Context, deps DispatchDeps) DispatchReport {
 	if !dispatchReady(deps) {
 		return report
 	}
-	queued, err := deps.Store.QueuedControls(ctx, MaxDispatchVisits)
+	firstSeen, repo, issue, hasCursor := deps.Queue.start()
+	queued, err := deps.Store.QueuedControlsAfter(ctx, MaxDispatchVisits, firstSeen, repo, issue, hasCursor)
 	if err != nil {
 		report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "queued listing unavailable"})
 		return report
+	}
+	if hasCursor && len(queued) == 0 {
+		// Rotation reached the end of the listing: wrap to the
+		// beginning so this same pass still visits waiting work.
+		deps.Queue.reset()
+		queued, err = deps.Store.QueuedControlsAfter(ctx, MaxDispatchVisits, 0, 0, 0, false)
+		if err != nil {
+			report.Errors = append(report.Errors, DispatchError{Reason: DispatchErrStore, Detail: "queued listing unavailable"})
+			return report
+		}
 	}
 	occupancy, err := snapshotOccupancy(ctx, deps.Store)
 	if err != nil {
@@ -227,6 +241,11 @@ func DispatchPass(ctx context.Context, deps DispatchDeps) DispatchReport {
 			return report
 		}
 		dispatchOne(ctx, deps, &occupancy, control, &report)
+	}
+	// A short batch observed the end of the listing, so rotation
+	// wraps; a full batch continues after the last visited control.
+	if len(queued) > 0 {
+		deps.Queue.advance(queued[len(queued)-1], len(queued) < MaxDispatchVisits)
 	}
 	return report
 }
@@ -685,6 +704,7 @@ func (c *Coordinator) dispatchDeps() DispatchDeps {
 	return DispatchDeps{
 		Store: c.Store, Host: c.Host, Broker: c.Broker,
 		Reads: c.DispatchReads, Authority: c.EffectiveAuthority,
+		Queue: &c.queue,
 	}
 }
 

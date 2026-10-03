@@ -56,8 +56,10 @@ func (fx *st15Fixture) repoURL() string {
 	return strings.Replace(fx.cfg.FountainURL, "://", "://soda-maintainer:"+strings.TrimSpace(string(token))+"@", 1) + "/" + fx.cfg.Owner + "/" + fx.cfg.Repo + ".git"
 }
 
-// setupProject records the project, policy, grants and capacity the
-// journey runs under, all through production store APIs.
+// setupProject records the project and submits the policy, grants and
+// capacity the journey runs under through the production grant path.
+// Identity and project rows are fixture seeding; every grant travels the
+// same coordinator calls an operator uses.
 func (fx *st15Fixture) setupProject() error {
 	ctx := fx.ctx
 	db := fx.db
@@ -93,27 +95,32 @@ func (fx *st15Fixture) setupProject() error {
 		Merge:         actor(factory.OpMerge, fx.cfg.TokenID, fx.cfg.ActorID),
 		MaxConcurrent: 2,
 	}
-	if err := db.SaveRepositoryPolicy(ctx, policy); err != nil {
+	if _, err := fx.coord.ApplyPolicy(ctx, factory.NewID(), "soda-maintainer", 0, policy); err != nil {
 		return err
 	}
-	if err := db.SaveCapacity(ctx, factory.Capacity{UpdatedBy: owner, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
+	if _, err := fx.coord.ApplyCapacity(ctx, factory.NewID(), "soda-maintainer", 0,
+		factory.Capacity{UpdatedBy: owner, MaxConcurrentRuns: 1, MaxQueued: 10}); err != nil {
 		return err
 	}
-	if err := db.SaveOperatorGrant(ctx, factory.OperatorGrant{Repository: fx.cfg.Repository, GrantedBy: owner, MaxConcurrent: 2, Active: true}); err != nil {
+	if _, err := fx.coord.ApplyOperatorGrant(ctx, factory.NewID(), "soda-maintainer", 0,
+		factory.OperatorGrant{Repository: fx.cfg.Repository, GrantedBy: owner, MaxConcurrent: 2, Active: true}); err != nil {
 		return err
 	}
-	if err := db.SaveSponsorship(ctx, factory.Sponsorship{
+	if _, err := fx.coord.ApplySponsorship(ctx, factory.NewID(), "soda-maintainer", 0, factory.Sponsorship{
 		Repository: fx.cfg.Repository, GrantedBy: owner, Generation: 1, Connection: "st15-codex", GrantID: "st15-grant",
 		Roles: []string{project.RoleCoder, project.RoleReviewer}, AllowanceMinutes: 60, MaxConcurrent: 2, Active: true,
 	}); err != nil {
 		return err
 	}
 	// Revoked until the provider gate: no intake auto-dispatch may
-	// launch while the journey stages its inputs.
-	return db.SaveEnvironmentGrant(ctx, project.EnvironmentGrant{Repository: fx.cfg.Repository, Owner: owner, Profile: &project.Profile{
-		ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6", Interface: "headless",
-		Architecture: "amd64", Image: fx.image, Revision: strings.Repeat("c", 40),
-	}, Active: false})
+	// launch while the journey stages its inputs. The withdrawal also
+	// closes the dispatch gate; activation reopens it.
+	_, err := fx.coord.ApplyEnvironmentGrant(ctx, factory.NewID(), "soda-maintainer", 0,
+		project.EnvironmentGrant{Repository: fx.cfg.Repository, Owner: owner, Profile: &project.Profile{
+			ID: project.RockyHeadless, Distribution: "rocky", Version: "9.6", Interface: "headless",
+			Architecture: "amd64", Image: fx.image, Revision: strings.Repeat("c", 40),
+		}, Active: false})
+	return err
 }
 
 // seedRepository pushes the journey base: the buggy widget, its tests and
@@ -338,6 +345,7 @@ func (fx *st15Fixture) wireCoordinator() error {
 	}
 	coord.Publication = forgejo.NewPublisher(background, rest, fx.cfg.FountainURL, publishRoot, fx.cfg.TokenFile)
 	coord.Reviews = forgejo.NewReviewer(background, rest, fx.cfg.ReviewerTokenFile)
+	coord.Checks = forgejo.NewCheckAssessor(background, rest, fx.cfg.TokenFile)
 	coord.Merges = forgejo.NewMerger(background, rest, fx.cfg.TokenFile)
 	fx.coord = coord
 	secret := make([]byte, 32)

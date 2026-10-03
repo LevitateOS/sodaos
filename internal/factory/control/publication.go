@@ -113,6 +113,7 @@ func (c *Coordinator) publishAfterSettle(ctx context.Context, a factory.Assignme
 	}
 	report := PublishReport{Published: []PublishLink{}}
 	c.publishOne(ctx, a, &report)
+	c.progressAfterPublish(ctx, a.ID)
 }
 
 func (c *Coordinator) publishOne(ctx context.Context, a factory.Assignment, report *PublishReport) {
@@ -551,7 +552,7 @@ func (c *Coordinator) cancelPublications(ctx context.Context, repository, issue 
 // A successful host launch returns after the supervised CLI has retired. Only
 // terminal replies enter settlement; a running duplicate remains supervised.
 func (c *Coordinator) publishAfterDispatch(ctx context.Context, report DispatchReport) {
-	if c.Publication == nil && c.Merges == nil {
+	if c.Publication == nil && c.Checks == nil && c.Merges == nil {
 		return
 	}
 	bounded, stop := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Minute)
@@ -566,6 +567,7 @@ func (c *Coordinator) publishAfterDispatch(ctx context.Context, report DispatchR
 		}
 	}
 	c.PublishPass(bounded)
+	c.CheckPass(bounded)
 	c.MergePass(bounded)
 }
 

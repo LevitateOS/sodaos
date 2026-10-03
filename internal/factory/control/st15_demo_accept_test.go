@@ -327,7 +327,7 @@ func (fx *st15Fixture) proveGrantWithdrawal() error {
 	}
 	if grant.Active {
 		grant.Active = false
-		if err := fx.db.SaveEnvironmentGrant(fx.ctx, grant); err != nil {
+		if _, err := fx.coord.ApplyEnvironmentGrant(fx.ctx, factory.NewID(), "soda-maintainer", grant.Revision, grant); err != nil {
 			return err
 		}
 	}
@@ -340,14 +340,18 @@ func (fx *st15Fixture) proveGrantWithdrawal() error {
 }
 
 // activateAuthority restores the environment grant after the provider
-// gate, so the journey proceeds to real execution.
+// gate and reopens dispatch, so the journey proceeds to real execution.
 func (fx *st15Fixture) activateAuthority() error {
 	grant, err := fx.db.EnvironmentGrant(fx.ctx, fx.cfg.Repository)
 	if err != nil {
 		return err
 	}
 	grant.Active = true
-	return fx.db.SaveEnvironmentGrant(fx.ctx, grant)
+	if _, err := fx.coord.ApplyEnvironmentGrant(fx.ctx, factory.NewID(), "soda-maintainer", grant.Revision, grant); err != nil {
+		return err
+	}
+	_, err = fx.coord.ResumeRepository(fx.ctx, factory.NewID(), "soda-maintainer", fx.cfg.Repository)
+	return err
 }
 
 var _ = forgejo.ContentDigest

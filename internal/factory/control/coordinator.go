@@ -62,6 +62,8 @@ type BrokerExecution interface {
 // executor is wired, finished candidates wait instead of publishing.
 // Merges executes conditional merge operations; while no executor is
 // wired, published candidates wait instead of merging.
+// Checks observes native check evidence for published candidates; while
+// no assessor is wired, checks report unavailable instead of guessing.
 type Coordinator struct {
 	Store           *store.Store
 	Host            HostFactory
@@ -71,7 +73,10 @@ type Coordinator struct {
 	DispatchReads   DispatchReads
 	Publication     PublicationExecutor
 	Reviews         ReviewExecutor
+	Checks          CheckObserver
 	Merges          MergeExecutor
+	traversal       traversalState
+	queue           DispatchQueueCursor
 	lock            *os.File
 }
 
@@ -100,7 +105,8 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 		return errors.New("another factory coordinator owns this database")
 	}
 	c.lock = file
-	if _, err = c.reconcileRuns(ctx); err != nil {
+	settle, err := c.reconcileRuns(ctx)
+	if err != nil {
 		_ = c.Close()
 		return err
 	}
@@ -108,8 +114,15 @@ func (c *Coordinator) Start(ctx context.Context, lockPath string) error {
 		_ = c.Close()
 		return errors.New("factory dispatch recovery failed")
 	}
+	if err = c.settleAbandonedCommands(ctx, settle); err != nil {
+		_ = c.Close()
+		return err
+	}
 	if c.Publication != nil {
 		c.PublishPass(ctx)
+	}
+	if c.Checks != nil {
+		c.CheckPass(ctx)
 	}
 	if c.Merges != nil {
 		c.MergePass(ctx)

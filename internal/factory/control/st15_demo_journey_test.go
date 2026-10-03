@@ -306,13 +306,19 @@ func (fx *st15Fixture) reviewLeg(head, prep string) (factory.ReviewOutcome, stri
 	title, body, _ := fx.readIssue(fx.issueAIndex)
 	answer := fx.readComment(fx.answerA)
 	prompt := fx.reviewPrompt(title, body, answer, head, fx.sourceHead)
+	// The review run itself is still driver-sequenced: reviewer dispatch
+	// is the remaining production gap. Its verdict submits through the
+	// production review path, never a fixture-native trio.
 	run, _ := fx.launchDirect(project.RoleReviewer, prep, fx.assignA, prompt, head)
 	output := fx.settleDirect(run, fx.assignA)
-	review := parseReview(fx.t, output)
-	adopted, event := fx.submitReview(head, fx.sourceHead, review)
+	report, ok := factory.ParseReviewReport(output)
+	if !ok {
+		fx.t.Fatal("ST15 review lacks its fenced report")
+	}
+	adopted, event := fx.submitReview(run.ID, output)
 	st15Receipt(fx.t, "review-"+head[:12], map[string]any{
-		"run": run.ID, "verdict": review.Verdict, "event": event,
-		"review": adopted.ReviewID, "summary": review.Summary, "findings": review.Findings,
+		"run": run.ID, "verdict": report.Verdict, "event": event,
+		"review": adopted.ReviewID, "summary": report.Summary, "findings": report.Findings,
 	})
 	return adopted, event
 }
@@ -329,13 +335,13 @@ func (fx *st15Fixture) ciFail() error {
 	fx.requireContentStatus(fx.head1, "tests/test_total_regression.py", http.StatusNotFound)
 	fx.seedCIStatus(fx.head1, "st15-build", "success", "widget compiles")
 	fx.seedCIStatus(fx.head1, "st15-test", "failure", "required regression test tests/test_total_regression.py missing")
-	assessor := forgejo.NewCheckAssessor(fx.bg, fx.rest, fx.cfg.TokenFile)
-	report := fx.coord.AssessPublicationChecks(fx.ctx, assessor, fx.cfg.ActorID, fx.assignA)
-	if len(report.Errors) != 0 || len(report.Assessed) != 1 || report.Assessed[0].Verdict != factory.CheckFailed {
+	report := fx.coord.CheckPass(fx.ctx)
+	link, ok := st15CheckLink(report, fx.assignA)
+	if !ok || len(report.Errors) != 0 || link.Verdict != factory.CheckFailed {
 		return fmt.Errorf("CI failure unrecorded: %+v", report)
 	}
-	fx.ciFailRev = report.Assessed[0].Revision
-	st15Receipt(fx.t, "ci-fail", report.Assessed[0])
+	fx.ciFailRev = link.Revision
+	st15Receipt(fx.t, "ci-fail", link)
 	return nil
 }
 
@@ -362,7 +368,11 @@ func (fx *st15Fixture) requireContentStatus(head, path string, status int) {
 }
 
 // correctA authorizes the explicit retry, runs the correction with the
-// recorded CI and review appendix, and publishes it to the same PR.
+// recorded CI and review appendix, and observes its publication to the
+// same PR. The correction run itself is still driver-sequenced with its
+// findings appendix: findings-aware correction dispatch is the remaining
+// production gap. Settling runs through the production stop, which
+// publishes the correction automatically.
 func (fx *st15Fixture) correctA() error {
 	if _, err := fx.coord.RetryRun(fx.ctx, factory.NewID(), "soda-maintainer", fx.runA); err != nil {
 		return fmt.Errorf("explicit retry: %w", err)
@@ -383,22 +393,30 @@ func (fx *st15Fixture) correctA() error {
 	prompt := append(a.Prompt, appendix.String()...)
 	run, _ := fx.launchDirect(project.RoleCoder, fx.coderPrep, fx.assignA, string(prompt), fx.head1)
 	fx.runC = run.ID
-	output := fx.settleDirect(run, fx.assignA)
-	// A failed run must fail here with its own cause, never as a
-	// candidate wait inside the correction pass.
-	if reported, ok := factory.ParseHarnessResult(output); !ok || reported.Status != "completed" {
-		st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(output, 40)})
-		return fmt.Errorf("correction run produced no completed result (parse=%v)", ok)
+	receipt := fx.stopSettled(run.ID)
+	if receipt.Outcome != string(factory.Succeeded) {
+		st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(receipt.Reason, 40)})
+		return fmt.Errorf("correction run ended %s: %s", receipt.Outcome, receipt.Reason)
 	}
-	report := fx.coord.PublishCorrection(fx.ctx, fx.assignA, run.ID, output)
-	if len(report.Errors) != 0 || len(report.Corrected) != 1 {
-		st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(output, 40), "report": report})
-		return fmt.Errorf("correction unpublished: %+v", report)
+	deadline := time.Now().Add(2 * time.Minute)
+	for time.Now().Before(deadline) {
+		p, err := fx.db.PublicationByAssignment(fx.ctx, fx.assignA)
+		if err != nil {
+			return err
+		}
+		if p.Candidate != fx.head1 && factory.ValidCommit(p.Candidate) {
+			fx.head2 = p.Candidate
+			fx.requireContentStatus(fx.head2, "tests/test_total_regression.py", http.StatusOK)
+			st15Receipt(fx.t, "correct-A", map[string]any{"head": fx.head2, "run": run.ID})
+			return nil
+		}
+		time.Sleep(2 * time.Second)
 	}
-	fx.head2 = report.Corrected[0].HeadOID
-	fx.requireContentStatus(fx.head2, "tests/test_total_regression.py", http.StatusOK)
-	st15Receipt(fx.t, "correct-A", report.Corrected[0])
-	return nil
+	// Surface the production correction report once for the failure; when
+	// the stop already linked the head this replays as recorded.
+	report := fx.coord.PublishCorrection(fx.ctx, fx.assignA, run.ID, receipt.Reason)
+	st15Receipt(fx.t, "correction-output", map[string]any{"output_tail": tailLines(receipt.Reason, 40), "report": report})
+	return fmt.Errorf("correction unpublished: %+v", report)
 }
 
 func (fx *st15Fixture) reviewLeg2() error {
@@ -425,17 +443,28 @@ func (fx *st15Fixture) reviewLeg2() error {
 	return nil
 }
 
+// st15CheckLink finds one assignment's assessment inside a production
+// check sweep.
+func st15CheckLink(report control.CheckReport, assignmentID string) (control.CheckLink, bool) {
+	for _, link := range report.Assessed {
+		if link.AssignmentID == assignmentID {
+			return link, true
+		}
+	}
+	return control.CheckLink{}, false
+}
+
 // ciPass seeds the passing verdict on the corrected head and records it.
 func (fx *st15Fixture) ciPass() error {
 	fx.seedCIStatus(fx.head2, "st15-build", "success", "widget compiles")
 	fx.seedCIStatus(fx.head2, "st15-test", "success", "required regression test present")
-	assessor := forgejo.NewCheckAssessor(fx.bg, fx.rest, fx.cfg.TokenFile)
-	report := fx.coord.AssessPublicationChecks(fx.ctx, assessor, fx.cfg.ActorID, fx.assignA)
-	if len(report.Errors) != 0 || len(report.Assessed) != 1 || report.Assessed[0].Verdict != factory.CheckPass {
+	report := fx.coord.CheckPass(fx.ctx)
+	link, ok := st15CheckLink(report, fx.assignA)
+	if !ok || len(report.Errors) != 0 || link.Verdict != factory.CheckPass {
 		return fmt.Errorf("CI pass unrecorded: %+v", report)
 	}
-	fx.ciPassRev = report.Assessed[0].Revision
-	st15Receipt(fx.t, "ci-pass", report.Assessed[0])
+	fx.ciPassRev = link.Revision
+	st15Receipt(fx.t, "ci-pass", link)
 	return nil
 }
 
@@ -473,12 +502,12 @@ func (fx *st15Fixture) mergeAndDependants() error {
 	// The dependant starts automatically inside the completing pass.
 	// Poll for its run, but fail fast when the merge drive already
 	// reported terminally: a failed merge never dispatches B, so
-	// waiting out the run timeout would mask the real failure.
+	// waiting out the run timeout would mask the real failure. No
+	// fallback intake is synthesized: the dependant must arrive via the
+	// completion cascade alone, or the journey fails truthfully.
 	var runB string
 	var pending *mergeOutcome
 	trigger := "completion-cascade"
-	var mergedAt time.Time
-	fallbackDone := false
 	deadlineB := time.Now().Add(45 * time.Minute)
 pollB:
 	for time.Now().Before(deadlineB) {
@@ -488,9 +517,6 @@ pollB:
 				return fmt.Errorf("merge terminal without merging: %+v", outcome.merge)
 			}
 			pending = &outcome
-			if mergedAt.IsZero() {
-				mergedAt = time.Now()
-			}
 		case err := <-driven:
 			return err
 		default:
@@ -498,19 +524,6 @@ pollB:
 		if id := fx.runForIssue(fx.issueBIndex); id != "" {
 			runB = id
 			break pollB
-		}
-		if pending != nil && !fallbackDone && !mergedAt.IsZero() && time.Since(mergedAt) > 90*time.Second {
-			// The completion cascade normally releases B within
-			// seconds. If a transient cascade error was swallowed,
-			// the fixture has no ambient intake traffic to supply
-			// production's normal next trigger — so synthesize one
-			// real intake event and re-observe exactly like
-			// dispatch-A. The release itself stays fully automatic.
-			fallbackDone = true
-			trigger = "intake-fallback"
-			fx.t.Log("ST15 B not released by completion cascade; firing intake fallback")
-			fx.commentHint(fx.issueBIndex)
-			fx.observeControl(fx.issueBIndex)
 		}
 		time.Sleep(2 * time.Second)
 	}
@@ -654,11 +667,11 @@ func TestST15ComposedDemo(t *testing.T) {
 	fx := &st15Fixture{t: t, ctx: context.Background(), cfg: cfg}
 	fx.check("host-stack", fx.setupHostStack())
 	fx.check("factory-store", fx.openFactoryStore())
+	fx.check("wire-coordinator", fx.wireCoordinator())
 	fx.check("project", fx.setupProject())
 	fx.check("seed-repository", fx.seedRepository())
 	fx.check("prepare-roles", fx.prepareRoles())
 	fx.check("human-work", fx.seedHumanWork())
-	fx.check("wire-coordinator", fx.wireCoordinator())
 	fx.stallForBrowserDiag()
 	fx.check("grant-withdrawal", fx.proveGrantWithdrawal())
 	fx.check("seed-issues", fx.seedIssues())

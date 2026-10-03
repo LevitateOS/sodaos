@@ -96,7 +96,12 @@ func (c *Coordinator) ReconcileReadiness(ctx context.Context, repository int64) 
 	}
 	authorityHash := factory.AuthorityFingerprint(authority)
 	visited := make(map[factory.DependenceRef]bool)
-	for page := 1; page <= MaxReconcilePages; page++ {
+	// Bounded continuation: each sweep covers the next page window and
+	// records where the following sweep resumes, so repeated sweeps
+	// reach deep pages instead of revisiting the same prefix.
+	start := c.traversal.nextSweepPage(repository)
+	complete := false
+	for page := start; page < start+MaxReconcilePages; page++ {
 		indexes, hasMore, err := c.Readiness.ListRepositoryIssues(ctx, repository, page)
 		if err != nil {
 			sweep.Reason = ReadinessSweepUnavailable
@@ -124,12 +129,14 @@ func (c *Coordinator) ReconcileReadiness(ctx context.Context, repository int64) 
 			}
 		}
 		if !hasMore {
+			complete = true
 			break
 		}
-		if page == MaxReconcilePages {
+		if page == start+MaxReconcilePages-1 {
 			sweep.Truncated = true
 		}
 	}
+	c.traversal.advanceSweepPage(repository, start+MaxReconcilePages, complete)
 	if !sweep.Truncated && sweep.Failed == 0 && sweep.Reason == "" {
 		if err := c.Store.SaveReadinessSweep(ctx, repository, revision, time.Now()); err != nil {
 			return sweep, err
@@ -217,19 +224,31 @@ func (c *Coordinator) reconcileReadinessAll(ctx context.Context) ReadinessReport
 		report.Error = ReadinessSweepUnavailable
 		return report
 	}
+	enabled := policies[:0:0]
 	for _, policy := range policies {
-		if !policy.Enabled || policy.Paused {
-			continue
+		if policy.Enabled && !policy.Paused {
+			enabled = append(enabled, policy)
 		}
-		if len(report.Sweeps) >= MaxSweepRepos {
-			report.TruncatedRepos = true
-			break
-		}
-		sweep, err := c.ReconcileReadiness(ctx, policy.Repository)
+	}
+	if len(enabled) == 0 {
+		return report
+	}
+	// Fair rotation: each sweep covers the next repository window and
+	// records where the following sweep resumes.
+	start := c.traversal.nextSweepRepo(len(enabled))
+	visits := len(enabled)
+	if visits > MaxSweepRepos {
+		visits = MaxSweepRepos
+		report.TruncatedRepos = true
+	}
+	for i := 0; i < visits; i++ {
+		repository := enabled[(start+i)%len(enabled)].Repository
+		sweep, err := c.ReconcileReadiness(ctx, repository)
 		if err != nil {
-			sweep = ReadinessSweep{Repository: policy.Repository, Reason: ReadinessSweepUnavailable}
+			sweep = ReadinessSweep{Repository: repository, Reason: ReadinessSweepUnavailable}
 		}
 		report.Sweeps = append(report.Sweeps, sweep)
 	}
+	c.traversal.advanceSweepRepo(len(report.Sweeps), len(enabled))
 	return report
 }
