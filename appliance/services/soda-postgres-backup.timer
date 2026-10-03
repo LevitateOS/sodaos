@@ -1,0 +1,11 @@
+[Unit]
+Description=Nightly Soda PostgreSQL backup schedule
+Requires=soda-postgres-backup.service
+
+[Timer]
+OnCalendar=*-*-* 02:00
+Persistent=true
+Unit=soda-postgres-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,8 @@
+[Unit]
+Description=Soda appliance container network
+
+[Network]
+Label=io.soda.network=appliance
+
+[Install]
+WantedBy=multi-user.target

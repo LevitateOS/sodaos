@@ -1,0 +1,39 @@
+#!/bin/bash
+# Idempotently create the appliance PostgreSQL roles and databases.
+# Runs as root: reads mode-0600 password files and applies them over
+# container-local peer auth. Missing roles/databases are created; existing
+# role passwords are reset to the files, so a replaced data dir or rotated
+# file converges on the next boot. Role and database share one name
+# (default roles: forgejo soda).
+#
+# Environment overrides (used by tests; production uses the defaults):
+#   SODA_PG_CONTAINER     container name (default soda-postgres)
+#   SODA_PG_PASSWORD_DIR  dir holding <role>.passwd files (default /etc/soda/postgres)
+#   SODA_PG_DATABASES     space-separated roles/databases (default "forgejo soda")
+set -euo pipefail
+
+container="${SODA_PG_CONTAINER:-soda-postgres}"
+pwdir="${SODA_PG_PASSWORD_DIR:-/etc/soda/postgres}"
+databases="${SODA_PG_DATABASES:-forgejo soda}"
+
+deadline=$((SECONDS + 180))
+until podman exec -u postgres "$container" pg_isready -q >/dev/null 2>&1; do
+	[ $SECONDS -lt "$deadline" ] || { echo "container $container never became ready" >&2; exit 1; }
+	sleep 2
+done
+
+sql=''
+for db in $databases; do
+	case "$db" in ''|*[!a-z0-9_]*|'pg_'*) echo "refusing database name: $db" >&2; exit 2;; esac
+	pwfile="$pwdir/$db.passwd"
+	[ -s "$pwfile" ] || { echo "missing password file: $pwfile" >&2; exit 1; }
+	pw="$(cat "$pwfile")"
+	[ -n "$pw" ] || { echo "empty password file: $pwfile" >&2; exit 1; }
+	esc="${pw//\'/\'\'}"
+	# Newlines matter: \gexec consumes the rest of its line.
+	sql+="DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='$db') THEN CREATE ROLE \"$db\" LOGIN; END IF; END \$\$;"$'\n'
+	sql+="ALTER ROLE \"$db\" WITH LOGIN PASSWORD '$esc';"$'\n'
+	sql+="SELECT 'CREATE DATABASE \"$db\" OWNER \"$db\"' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname='$db')\\gexec"$'\n'
+done
+podman exec -i -u postgres "$container" psql -v ON_ERROR_STOP=1 -f - <<<"$sql" >/dev/null
+echo "roles ready: $databases"

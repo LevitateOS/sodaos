@@ -3,6 +3,11 @@ d /var/lib/soda/dashboard 0700 soda soda -
 d /var/lib/soda/dashboard/publication 0700 soda soda -
 d /var/lib/soda/forgejo 0755 root root -
 d /var/lib/soda/proxy 0700 root root -
+# PostgreSQL data dir owned by the image's postgres user (uid/gid 999);
+# backups are root-only. Password files under /etc/soda/postgres are
+# mode-0600 setup state, not tmpfiles content.
+d /var/lib/soda/postgres 0700 999 999 -
+d /var/lib/soda/backups/postgres 0700 root root -
 d /run/soda 0755 root root -
 # IPC between the dashboard (uid 2000, group 2100) and the Forgejo extension
 # (bare container uid; its entrypoint drops supplemental groups). Other-wx

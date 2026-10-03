@@ -1,0 +1,69 @@
+#!/bin/bash
+# Restore appliance PostgreSQL databases from a soda-pg-backup run.
+# Usage: soda-pg-restore --yes <backup-dir> [db ...]
+# Default database list is every *.dump in the run. Missing databases are
+# recreated owned by their same-name role (the appliance role==db convention).
+#
+# Stop Forgejo and soda-host before restoring, and restore globals only onto
+# a fresh cluster (first init already creates the standard roles):
+#   soda-pg-restore --yes --globals <backup-dir>
+#
+# Same SODA_PG_CONTAINER override as soda-pg-backup. Authentication is
+# container-local peer auth; passwords never appear in argv or logs.
+set -euo pipefail
+
+container="${SODA_PG_CONTAINER:-soda-postgres}"
+globals_only=0
+if [ "${1:-}" = "--yes" ]; then
+	shift
+else
+	echo "refusing without --yes: stop forgejo.service and soda-host first, then repeat with --yes" >&2
+	exit 2
+fi
+if [ "${1:-}" = "--globals" ]; then
+	globals_only=1
+	shift
+fi
+run="${1:-}"
+[ -n "$run" ] && [ -d "$run" ] || { echo "backup dir required" >&2; exit 2; }
+shift || true
+
+if [ "$globals_only" = 1 ]; then
+	[ -s "$run/globals.sql" ] || { echo "no globals.sql in $run" >&2; exit 1; }
+	podman exec -i -u postgres "$container" psql -v ON_ERROR_STOP=1 -f - <"$run/globals.sql" >/dev/null
+	echo "globals restored from $run"
+	exit 0
+fi
+
+dbs=()
+if [ "$#" -gt 0 ]; then
+	dbs=("$@")
+else
+	for dump in "$run"/*.dump; do
+		[ -e "$dump" ] || { echo "no database dumps in $run" >&2; exit 1; }
+		dbs+=("$(basename "$dump" .dump)")
+	done
+fi
+
+stage="soda-restore-$$"
+for db in "${dbs[@]}"; do
+	case "$db" in
+		''|*[!a-z0-9_]*|'pg_'*) echo "refusing database name: $db" >&2; exit 2;;
+	esac
+	dump="$run/$db.dump"
+	[ -s "$dump" ] || { echo "no dump for $db in $run" >&2; exit 1; }
+	if [ "$(podman exec -u postgres "$container" psql -tAc "SELECT 1 FROM pg_database WHERE datname='$db'")" != "1" ]; then
+		podman exec -u postgres "$container" createdb --owner="$db" "$db" >/dev/null
+	fi
+	podman cp "$dump" "$container:/tmp/$stage-$db.dump"
+	# podman cp stages the file root-owned; hand it to postgres for restore
+	# and cleanup so no world-writable staging is needed.
+	podman exec "$container" chown postgres:postgres "/tmp/$stage-$db.dump"
+	if ! podman exec -u postgres "$container" pg_restore --dbname="$db" --clean --if-exists "/tmp/$stage-$db.dump"; then
+		podman exec -u postgres "$container" rm -f "/tmp/$stage-$db.dump"
+		echo "restore of $db failed" >&2
+		exit 1
+	fi
+	podman exec -u postgres "$container" rm -f "/tmp/$stage-$db.dump"
+	echo "restored $db from $run"
+done

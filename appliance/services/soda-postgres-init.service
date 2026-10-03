@@ -1,0 +1,14 @@
+[Unit]
+Description=Soda PostgreSQL roles and databases
+Requires=soda-postgres.service
+After=soda-postgres.service
+Before=forgejo.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/soda-pg-init-roles
+RemainAfterExit=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

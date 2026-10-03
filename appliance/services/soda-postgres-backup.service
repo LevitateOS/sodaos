@@ -1,0 +1,12 @@
+[Unit]
+Description=Nightly Soda PostgreSQL backup
+After=soda-postgres-init.service
+Wants=soda-postgres-init.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/soda-pg-backup
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
