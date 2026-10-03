@@ -92,3 +92,9 @@ total decoded content; exceeding a limit denies validation. This literal
 check does not prevent intentional encoding or exfiltration by code that can
 read the injected credential. Source bundles stay bounded to 4 MiB. No push,
 direct PR or review submission path remains.
+
+## Storage decision gate
+
+The ledger stays on SQLite and unconfigured intake stays fail-closed.
+Measurements, revisit criteria and the reservation-race analysis live in
+the [factory storage decision gate](../factory/decision-gate.md).
