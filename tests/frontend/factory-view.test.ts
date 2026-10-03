@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   factoryStatusFrame,
   factoryOutputFrame,
+  factoryOutputCursor,
   factoryClosedReason,
   factoryRunStatusResponse,
 } from '../../frontend/spaces/sodaspaces-api';
@@ -73,6 +74,24 @@ test('factory output frames carry server cursors over exact bytes', () => {
     {type: 'output', data: '', cursor: 0, next: 0, gap: false, truncated: false, extra: 0},
   ])
     assert.throws(() => factoryOutputFrame(frame));
+});
+
+test('factory output cursors admit the trailing-window jump', () => {
+  const jump = factoryOutputFrame({type: 'output', data: '', cursor: 1, next: 1, gap: false, truncated: true});
+  assert.equal(factoryOutputCursor(0, jump), 1);
+  const continued = factoryOutputFrame({
+    type: 'output',
+    data: 'aGVsbG8=',
+    cursor: 5,
+    next: 10,
+    gap: false,
+    truncated: false,
+  });
+  assert.equal(factoryOutputCursor(5, continued), 10);
+  const gap = factoryOutputFrame({type: 'output', data: '', cursor: 9, next: 9, gap: true, truncated: false});
+  assert.equal(factoryOutputCursor(0, gap), 9);
+  assert.throws(() => factoryOutputCursor(0, continued));
+  assert.throws(() => factoryOutputCursor(5, jump));
 });
 
 test('factory close frames end the view with a bounded reason', () => {

@@ -4,8 +4,10 @@ import "errors"
 
 const (
 	// MaxFactoryOutputRead bounds one output slice. Watchers resume by
-	// cursor; no single read carries a whole session.
-	MaxFactoryOutputRead = 32 * 1024
+	// cursor; no single read carries a whole session. The bound keeps one
+	// base64 JSON frame within Fountain's 32768-byte proxy message limit:
+	// 24320 raw bytes encode to 32428 with at most 93 envelope bytes.
+	MaxFactoryOutputRead = 24*1024 - 256
 	// MaxFactoryOutputWindow bounds the trailing window served when a
 	// watcher attaches without a cursor. Older bytes report truncated.
 	MaxFactoryOutputWindow = 256 * 1024

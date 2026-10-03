@@ -301,7 +301,7 @@ func (s *API) pumpFactorySlice(ctx context.Context, conn *websocket.Conn, identi
 			return cursor, true, false
 		}
 	}
-	if out.Terminal {
+	if out.Terminal && out.Next >= out.Total {
 		_ = writeFactoryFrame(ctx, conn, factoryClosedFrame{Type: "closed", Reason: "eof"})
 		return out.Next, true, true
 	}

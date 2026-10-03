@@ -682,6 +682,15 @@ export function factoryOutputFrame(value: unknown): FactoryOutput {
   check(frame.next - frame.cursor === bytes.length);
   return {bytes, cursor: frame.cursor, next: frame.next, gap: frame.gap, truncated: frame.truncated};
 }
+// factoryOutputCursor admits one output slice against the viewer's position
+// and returns the advanced cursor. A truncated first frame jumps a
+// zero-cursor viewer into the trailing window; a gap jumps to the recorded
+// size; otherwise the cursor must continue exactly.
+export function factoryOutputCursor(viewer: number, frame: FactoryOutput): number {
+  check(Number.isSafeInteger(viewer) && viewer >= 0);
+  if (frame.cursor !== viewer && !frame.gap && !(frame.truncated && viewer === 0)) throw Error('cursor');
+  return frame.next;
+}
 // factoryClosedReason admits the terminal frame of an attachment. Any reason
 // ends the view; unknown reasons still end it rather than stalling.
 export function factoryClosedReason(value: unknown): string {

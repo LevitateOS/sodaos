@@ -6,6 +6,7 @@ import {
   factoryRunStatusResponse,
   factoryStatusFrame,
   factoryOutputFrame,
+  factoryOutputCursor,
   factoryClosedReason,
 } from './sodaspaces-api.js';
 import type {TerminalView, Renderer} from './sodaspaces-terminal.js';
@@ -363,12 +364,12 @@ export class SodaFactoryWatch extends LitElement {
   }
   private acceptOutput(frame: ReturnType<typeof factoryOutputFrame>, terminal: TerminalView, queued: {bytes: number}) {
     if (this.state !== 'ready') throw Error('frame');
-    if (frame.cursor !== this.cursor && !frame.gap) throw Error('cursor');
+    const next = factoryOutputCursor(this.cursor, frame);
     if (frame.truncated) terminal.write('\r\n… earlier output truncated …\r\n');
     if (frame.gap) terminal.write(`\r\n… output gap: skipped to byte ${frame.next} …\r\n`);
     if (queued.bytes + frame.bytes.length > 262144) throw Error('output');
     queued.bytes += frame.bytes.length;
-    this.cursor = frame.next;
+    this.cursor = next;
     if (frame.bytes.length)
       terminal.write(frame.bytes, () => {
         queued.bytes -= frame.bytes.length;
