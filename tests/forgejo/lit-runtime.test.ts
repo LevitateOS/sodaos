@@ -7,6 +7,7 @@ import payload from '../../internal/release/build/forgejo-payload.json';
 import {buildForgejoModule} from '../../scripts/build-forgejo';
 
 const root = path.resolve(import.meta.dirname, '../..');
+const installedOrigin = process.env.SODA_INSTALLED_ORIGIN;
 const runtimePath = path.join(root, '.artifacts/forgejo-js/lit.js');
 const appSubURL = '/native';
 const runtimeURL = `${appSubURL}/assets/soda/forgejo/lit.js`;
@@ -170,5 +171,42 @@ test(
       1,
       'both modules must share one browser runtime request'
     );
+  }
+);
+
+test(
+  'Installed appliance serves its first-party assets in Chromium',
+  {
+    skip: !installedOrigin && process.env.SODA_INSTALLED_GATE !== '1',
+  },
+  async (t) => {
+    assert(installedOrigin, 'SODA_INSTALLED_ORIGIN is required for the installed-asset gate');
+    const origin = new URL(installedOrigin);
+    assert(
+      (origin.protocol === 'http:' || origin.protocol === 'https:') && !origin.username && !origin.password,
+      'installed origin must be an http(s) URL without credentials'
+    );
+    const browser = await chromium.launch({headless: true, chromiumSandbox: true});
+    t.after(() => browser.close());
+    const page = await browser.newPage();
+    const missing: string[] = [];
+    let firstPartyRequests = 0;
+    page.on('response', (response) => {
+      const url = new URL(response.url());
+      if (url.origin !== origin.origin || !url.pathname.startsWith('/assets/soda/')) return;
+      firstPartyRequests++;
+      if (response.status() >= 400) missing.push(`${response.status()} ${url.pathname}`);
+    });
+    const home = await page.goto(origin.origin + '/', {waitUntil: 'load', timeout: 30000});
+    assert.equal(home?.status(), 200, 'installed home page must load');
+    // Deterministic probes for payload-staged first-party assets: the public
+    // home page logo and the shared Lit runtime bundle.
+    for (const asset of ['/assets/soda/source/soda-symbol-brutalist.svg', '/assets/soda/forgejo/lit.js']) {
+      const response = await page.request.get(origin.origin + asset, {timeout: 15000});
+      assert.equal(response.status(), 200, `installed first-party asset must be served: ${asset}`);
+      assert((await response.body()).length > 0, `installed first-party asset must not be empty: ${asset}`);
+    }
+    assert(firstPartyRequests > 0, 'home page must exercise first-party assets');
+    assert.deepEqual(missing, []);
   }
 );
