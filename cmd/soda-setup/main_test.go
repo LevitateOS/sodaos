@@ -13,6 +13,75 @@ import (
 	"github.com/levitateos/sodaos/internal/config"
 )
 
+func TestSetupRevokesBootstrapTokenOnSuccess(t *testing.T) {
+	const token = "synthetic-bootstrap-token-not-for-retention"
+	for _, name := range []string{"success-revokes", "failure-keeps-retry-token"} {
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			dir := filepath.Join(root, "soda")
+			if err := os.Mkdir(dir, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			tokenPath := filepath.Join(root, "operator-input")
+			if err := os.WriteFile(tokenPath, []byte(token+"\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			out := filepath.Join(dir, "dashboard.json")
+			revoked := false
+			deletes := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("Authorization") != "token "+token {
+					w.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+				switch r.Method + " " + r.URL.Path {
+				case "GET /api/v1/user":
+					if revoked {
+						w.WriteHeader(http.StatusUnauthorized)
+						return
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "soda-tester", "is_admin": name != "failure-keeps-retry-token"})
+				case "DELETE /api/v1/user/token":
+					deletes++
+					if revoked {
+						w.WriteHeader(http.StatusUnauthorized)
+						return
+					}
+					revoked = true
+					w.WriteHeader(http.StatusNoContent)
+				default:
+					t.Error("setup reached an unexpected provider endpoint")
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+
+			setupErr := setup("https://forgejo.test/", server.URL, tokenPath, out)
+			if name == "success-revokes" {
+				if setupErr != nil {
+					t.Fatalf("setup failed: %v", setupErr)
+				}
+				if deletes != 1 {
+					t.Fatalf("successful setup issued %d revocation calls, want 1", deletes)
+				}
+				if !revoked {
+					t.Fatal("bootstrap token survives successful setup")
+				}
+				return
+			}
+			if setupErr == nil {
+				t.Fatal("failing setup unexpectedly succeeded")
+			}
+			if deletes != 0 {
+				t.Fatal("failed setup revoked the retry token")
+			}
+			if revoked {
+				t.Fatal("failed setup must keep the bootstrap token usable for retry")
+			}
+		})
+	}
+}
+
 func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 	const token = "synthetic-bootstrap-token-not-for-retention"
 	for _, name := range []string{"new", "unrelated-file", "existing-config", "existing-key", "non-admin", "current-denied", "missing-token"} {
@@ -58,6 +127,8 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 						return
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "soda-tester", "is_admin": name != "non-admin"})
+				case "DELETE /api/v1/user/token":
+					w.WriteHeader(http.StatusNoContent)
 				default:
 					t.Error("setup reached an unexpected provider endpoint")
 					w.WriteHeader(http.StatusNotFound)
@@ -93,6 +164,9 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 			var wantCalls []string
 			if name != "existing-config" && name != "missing-token" {
 				wantCalls = append(wantCalls, "GET /api/v1/user")
+			}
+			if success {
+				wantCalls = append(wantCalls, "DELETE /api/v1/user/token")
 			}
 			if !reflect.DeepEqual(gotCalls, wantCalls) {
 				t.Fatal("unexpected provider calls or automatic replay", gotCalls)

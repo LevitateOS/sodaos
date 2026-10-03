@@ -106,3 +106,10 @@ func (c *Client) Current(ctx context.Context, token string) (User, error) {
 	err := c.request(ctx, "GET", "/user", token, nil, &u)
 	return u, err
 }
+
+// RevokeCurrentToken deletes the access token used for the request. Setup
+// calls it once, after its configuration is written, so a failed setup keeps
+// its retry token.
+func (c *Client) RevokeCurrentToken(ctx context.Context, token string) error {
+	return c.request(ctx, "DELETE", "/user/token", token, nil, nil)
+}

@@ -88,6 +88,11 @@ func setupOperator(internal, token string) (forgejo.User, error) {
 	return u, nil
 }
 
+func revokeBootstrapToken(internal, token string) error {
+	client := forgejo.New(internal)
+	return client.RevokeCurrentToken(context.Background(), token)
+}
+
 func setup(external, internal, tokenPath, out string) error {
 	if err := admitSetupPaths(external, internal, out); err != nil {
 		return err
@@ -119,6 +124,11 @@ func setup(external, internal, tokenPath, out string) error {
 		_ = os.Remove(keyPath)
 		return err
 	}
-	fmt.Println("Dashboard configuration created. Set native soda service ownership before enabling the dashboard. No host privilege was granted to a Forgejo user.")
+	// Revoke only after the configuration is durable: earlier failures keep
+	// the bootstrap token so the operator can retry with it.
+	if err := revokeBootstrapToken(internal, token); err != nil {
+		return fmt.Errorf("dashboard configuration written, but the bootstrap token is still live; revoke it in Forgejo Settings > Applications, then continue activation with the installed soda-activate command: %v", err)
+	}
+	fmt.Println("Dashboard configuration created and the bootstrap token revoked. Set native soda service ownership before enabling the dashboard. No host privilege was granted to a Forgejo user.")
 	return nil
 }

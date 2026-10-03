@@ -21,7 +21,8 @@ Install/activate context: [Installation](installation.md).
    Supply it through a mode-0600 file; never expose it to developers.
 4. Run `/usr/bin/soda-setup --forgejo-url https://FORGEJO --token-file /home/operator/forgejo-token`.
    Setup records `operator_id` and creates the grant-encryption key. It refuses
-   to overwrite existing configuration.
+   to overwrite existing configuration. On success it revokes the bootstrap
+   token; a failed setup keeps the token so the operator can retry with it.
 5. Run `/usr/bin/soda-activate` with the explicit private bind address and
    either `--local-tls` for that IP or an existing certificate/key. Local TLS requires
    explicit trust of the appliance's public root certificate on intended clients.
