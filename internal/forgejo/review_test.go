@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -169,7 +168,7 @@ func TestReviewerLostSubmitReply(t *testing.T) {
 	fixture := reviewTestOutcome(t, w)
 	record := extensions.OperationRecord{InstallationID: "install-1", OperationID: w.OperationID, Kind: factory.OpReviewSubmit, ActorID: "11", RepositoryID: "7", Outcome: factory.OpEffectCommitted, EffectState: factory.OpEffectCommitted, CancellationStatus: factory.OpCancelNone, CompletionState: factory.OpCompletionComplete, Receipt: fixture.Receipt}
 	fake := &scriptedBackgroundServer{revision: 12, ops: map[string]extensions.OperationRecord{w.OperationID: record}}
-	socket := filepath.Join(t.TempDir(), "r.sock")
+	socket := shortSocketPath(t, "r.sock")
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)

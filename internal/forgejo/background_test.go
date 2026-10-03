@@ -174,9 +174,23 @@ func TestServiceBackgroundRejectsForeignNestedRecord(t *testing.T) {
 	}
 }
 
+// shortSocketPath returns a unix socket path under a short fixed-parent
+// directory. t.TempDir inherits TMPDIR, and a long temp parent plus the
+// test-name suffix exceeds the 107-byte unix socket path limit, so fixtures
+// that bind unix sockets must not build their path from it.
+func shortSocketPath(t *testing.T, name string) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "soda-forgejo-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return filepath.Join(dir, name)
+}
+
 func serveScriptedBackground(t *testing.T, fake *scriptedBackgroundServer) string {
 	t.Helper()
-	socket := filepath.Join(t.TempDir(), "background.sock")
+	socket := shortSocketPath(t, "background.sock")
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
