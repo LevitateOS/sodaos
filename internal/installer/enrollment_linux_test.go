@@ -83,6 +83,75 @@ func TestEnrollmentStatePublishesWholeAndPreservesExisting(t *testing.T) {
 	}
 }
 
+func enrollmentGuardRunner(t *testing.T, listOutput []byte, listErr error) commandRunner {
+	t.Helper()
+	return func(_ context.Context, name string, args []string, _ io.Reader) ([]byte, error) {
+		if name != "systemctl" || len(args) == 0 {
+			t.Fatalf("unexpected guard command %s %v", name, args)
+		}
+		switch args[0] {
+		case "show":
+			return []byte("not-found\n"), nil
+		case "list-unit-files":
+			return listOutput, listErr
+		default:
+			t.Fatalf("unexpected guard command %s %v", name, args)
+			return nil, nil
+		}
+	}
+}
+
+func TestGuardExistingEnrollmentTemplateAbsent(t *testing.T) {
+	for _, scenario := range []struct {
+		name       string
+		listOutput []byte
+		listErr    error
+	}{
+		{"older systemd empty listing", []byte(""), nil},
+		{"systemd 259 no-match exit 1", nil, &commandExit{name: "systemctl", code: 1}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			err := guardExistingEnrollmentState(context.Background(), enrollmentGuardRunner(t, scenario.listOutput, scenario.listErr))
+			if err == nil {
+				// Privileged runs reserve real state; release what this call created.
+				if removeErr := os.Remove(enrollmentDir); removeErr != nil {
+					t.Fatal(removeErr)
+				}
+				return
+			}
+			if strings.Contains(err.Error(), "template") {
+				t.Fatalf("absent template refused arming: %v", err)
+			}
+			if !strings.Contains(err.Error(), "cannot be reserved") {
+				t.Fatalf("unexpected guard error: %v", err)
+			}
+		})
+	}
+}
+
+func TestGuardExistingEnrollmentTemplateRefused(t *testing.T) {
+	for _, scenario := range []struct {
+		name       string
+		listOutput []byte
+		listErr    error
+	}{
+		{"template listed", []byte("soda-key-enrollment@.service static -\n"), nil},
+		{"inspection interrupted", nil, &commandExit{name: "systemctl", code: 1, interrupted: true}},
+		{"inspection failed", nil, &commandExit{name: "systemctl", code: -1}},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			err := guardExistingEnrollmentState(context.Background(), enrollmentGuardRunner(t, scenario.listOutput, scenario.listErr))
+			if err == nil {
+				_ = os.Remove(enrollmentDir)
+				t.Fatal("guard accepted despite template presence or failed inspection")
+			}
+			if strings.Contains(err.Error(), "cannot be reserved") {
+				t.Fatalf("guard proceeded past the template check: %v", err)
+			}
+		})
+	}
+}
+
 func TestEnrollmentAddressSelectionRetriesTypos(t *testing.T) {
 	for _, input := range []string{"typo\n0\n3\n2\n", "Back\n", "cancel\n"} {
 		t.Run(strings.ReplaceAll(input, "\n", "-"), func(t *testing.T) {

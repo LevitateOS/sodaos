@@ -224,6 +224,15 @@ func selectEnrollmentTarget(ctx context.Context, c console, run commandRunner) (
 	return selected, ctx.Err()
 }
 
+// systemdUnitFileNoMatch reports whether a list-unit-files failure is the
+// no-match exit (systemd 259 exits 1 with empty output when the pattern
+// matches no unit file) rather than an interrupted or otherwise failed
+// inspection. Publication still refuses to replace an existing file.
+func systemdUnitFileNoMatch(err error) bool {
+	var exit *commandExit
+	return errors.As(err, &exit) && exit.code == 1 && !exit.interrupted
+}
+
 func guardExistingEnrollmentState(ctx context.Context, run commandRunner) error {
 	// An existing unit or state is never replaced or adopted. No reopen after a
 	// crash is inferred; runtime expiry/reboot bounds abandoned attempts.
@@ -237,8 +246,11 @@ func guardExistingEnrollmentState(ctx context.Context, run commandRunner) error 
 	// Inspect the manager's unit-file search path rather than trying to start or
 	// load the abstract @.service name, and never replace a vendor/operator file.
 	templates, inspectErr := run(ctx, "systemctl", []string{"list-unit-files", "--no-legend", "--no-pager", enrollmentTemplateUnit}, nil)
-	if inspectErr != nil || strings.TrimSpace(string(templates)) != "" {
+	if strings.TrimSpace(string(templates)) != "" {
 		return errors.New("existing enrollment service template must be preserved; no replacement")
+	}
+	if inspectErr != nil && !systemdUnitFileNoMatch(inspectErr) {
+		return errors.New("cannot verify enrollment service template absence; no replacement")
 	}
 	if err := os.Mkdir(enrollmentDir, 0o700); err != nil {
 		return errors.New("enrollment state already exists or cannot be reserved; no replacement")
