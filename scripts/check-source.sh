@@ -14,6 +14,7 @@ got_version="$(go version)" || exit $?
 go mod verify
 go test -mod=readonly ./...
 bash scripts/check-sql-locality.sh
+bash scripts/check-no-npm.sh
 bun run typecheck
 bun run test
 python3 -m unittest discover -s tests/build

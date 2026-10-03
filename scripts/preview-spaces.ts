@@ -85,7 +85,7 @@ export async function startSpacesPreview(port = 24455, liveReload = false) {
     if (input === 'pwd') return '/home/alice/project\r\n';
     if (input === 'ls') return 'README.md  package.json  src/  tests/\r\n';
     if (input === 'git status') return 'On branch main\r\nChanges not staged for commit:\r\n  modified: src/app.ts\r\n';
-    if (input === 'bun test' || input === 'npm test')
+    if (input === 'bun test')
       return '\x1b[32m✓\x1b[0m project navigation\r\n\x1b[32m✓\x1b[0m terminal layout\r\n\r\n2 simulated tests passed\r\n';
     if (input === 'clear') return '\x1b[2J\x1b[H';
     if (input.startsWith('echo ')) return input.slice(5) + '\r\n';

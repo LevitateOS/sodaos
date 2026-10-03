@@ -18,6 +18,7 @@
     "check:ruff": "bash scripts/check-ruff.sh",
     "check:py-complexity": "bash scripts/check-py-complexity.sh",
     "check:lit": "bun scripts/check-lit.ts",
+    "check:no-npm": "bash scripts/check-no-npm.sh",
     "test:lit-check": "bun scripts/check-lit.ts --fixtures",
     "test": "bun run build:forgejo && bun run test:frontend:prepared && bun run test:forgejo:prepared",
     "test:frontend": "bun run build:forgejo && bun run test:frontend:prepared",
