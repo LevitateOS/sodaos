@@ -31,7 +31,8 @@ guest to its exact inputs and receipts.
 installer ISOs, and three hash-named `*-rootfs.img` files (0644).
 Installer-to-rootfs pairing by mtime: iso27/d086ae.., iso28/643730..,
 iso29/ab4531... . Keep all three rootfs files while any guest may
-reinstall from them; the D3 replacement serves exactly this set.
+reinstall from them; the D3 replacement serves exactly this rootfs
+set from `/home/soda-rootfs`.
 
 No retention state was changed by this lane: investigate, document,
 never touch retained evidence.

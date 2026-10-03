@@ -10,8 +10,9 @@ Measured 2026-10-03 (read-only `du`; no pruning performed by this lane):
 - `.artifacts` total: 170G. `/home` is 44% used (464G free): no
   capacity emergency, so GC is hygiene, not rescue.
 - `/home/libvirt/images`: 35G on disk (sparse), 3x 42.9GB apparent live
-  QCOW2 + installer ISOs + three `*-rootfs.img` files. Served over HTTP
-  by `soda-rootfs-server.service` (see D3); never prune live guest disks
+  QCOW2 + installer ISOs + three `*-rootfs.img` files. Installer rootfs
+  files are served over HTTP from the rootfs-only `/home/soda-rootfs` by
+  `soda-rootfs-server.service` (see D3); never prune live guest disks
   or the rootfs files their installers reference.
 - `/var/lib/soda-candidate-home`: ~2.1G readable (Go/Bun/Playwright
   worker caches, partly soda-build-worker-owned). Warm caches are what

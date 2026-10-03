@@ -12,12 +12,14 @@ PREFIX="${SODA_REPOSITORY_PREFIX:-ghcr.io/levitateos/sodaos}"
 REFRESH="${SODA_REFRESH_AUTHORITY:-0}"
 FORGEJO_SOURCE="${SODA_FORGEJO_SOURCE:-}"
 # Pickup folder for the built system image. The ISO is only the boot menu;
-# the installer downloads the big rootfs file from the address below.
-ROOTFS_DIR="/var/lib/soda-rootfs"
-# The installing machine fetches this address, so it must be reachable from
-# the guest: prefer the libvirt bridge when present. Loopback always points
-# at the guest itself and the media build refuses it.
-ROOTFS_URL="http://127.0.0.1:8080"
+# the installer downloads the big rootfs file from the persistent server,
+# which serves this same directory. One rootfs-only location on the roomy
+# disk: never the guest-disk directory, never the small root filesystem.
+ROOTFS_DIR="/home/soda-rootfs"
+# The installing machine fetches the rootfs over HTTP, so the address must
+# be reachable from the guest: the libvirt bridge when present. Loopback
+# always points at the guest itself and the media build refuses it.
+ROOTFS_URL=""
 if BRIDGE_IP="$(ip -4 -o addr show virbr0 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)" && [ -n "$BRIDGE_IP" ]; then
   ROOTFS_URL="http://$BRIDGE_IP:8080"
 fi
@@ -223,10 +225,16 @@ sudo mkdir -p "$ROOTFS_DIR"
 # $USER is unset under set -u or points at root under sudo; the invoking
 # operator is always the id outside sudo.
 sudo chown "$(id -un)" "$ROOTFS_DIR"
+command -v restorecon >/dev/null && sudo restorecon "$ROOTFS_DIR"
 
 cat <<EOF
 -- ready. Development candidate command from $PWD:
   sudo $ADMITTED --worker-config $WORKER_JSON --arch x86_64 \\
     --out $OUTPUT_PARENT/manual-01 --development --target candidate \\
     --forgejo-source $FORGEJO_SOURCE
+-- installer rootfs pickup: $ROOTFS_DIR (served by soda-rootfs-server.service)
+  media builds file their hash-named rootfs here: pass --rootfs-dir $ROOTFS_DIR
 EOF
+if [ -n "$ROOTFS_URL" ]; then
+  printf '%s\n' "-- guests fetch the filed rootfs from: $ROOTFS_URL"
+fi

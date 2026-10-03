@@ -1,127 +1,37 @@
-# soda-rootfs-server.service — STAGED hardened replacement for D3.
+# soda-rootfs-server.service — STAGED persistent installer-rootfs server (D3).
 #
-# Status: staged only. This lane never installs, restarts, or edits host
+# Status: staged only. This change never installs, restarts, or edits host
 # units. Installing this file is an explicit owner decision (host mutation):
+#   sudo install -m 0644 scripts/ops/soda-rootfs-server.py \
+#     /usr/local/lib/soda/soda-rootfs-server.py
 #   sudo install -m 0644 scripts/ops/soda-rootfs-server.service \
 #     /etc/systemd/system/soda-rootfs-server.service
+#   sudo cp /home/libvirt/images/*-rootfs.img /home/soda-rootfs/
+#   sudo chown root:root /home/soda-rootfs/*-rootfs.img
+#   sudo chmod 0644 /home/soda-rootfs/*-rootfs.img
 #   sudo systemctl daemon-reload
 #   sudo systemctl restart soda-rootfs-server.service
 #   curl -s http://192.168.122.1:8080/ | head -1    # expect 404, no listing
 #   curl -s -o /dev/null -w '%{http_code}\n' \
 #     http://192.168.122.1:8080/soda-iso28.qcow2    # expect 404
 #
-# Exposure this closes (read-only inventory, 2026-10-03, see lane report):
-# the installed unit runs as root
-#   /usr/bin/python3 -m http.server 8080 --bind 192.168.122.1 \
-#     --directory /home/libvirt/images
-# and serves, with directory listings, the three live guest disks
-# (soda-iso27/28/29.qcow2, 42956488704 bytes each, 0600 qemu:qemu on disk
-# but world-readable over HTTP because the server runs as root), four
-# installer/boot ISOs, and three *-rootfs.img files. The replacement keeps
-# the approved rootfs fetch (exact ^[0-9a-f]{64}-rootfs\.img$ names on the
-# same guest-reachable address) and denies listings, QCOW2, ISO, traversal,
-# subpaths, symlinks, and non-GET/HEAD methods by construction.
+# Convergence: setup (scripts/setup-soda-candidate.sh), build filing
+# (--rootfs-dir), and this unit share one rootfs-only directory,
+# /home/soda-rootfs on the roomy disk. Copy only *-rootfs.img into it:
+# QCOW2 guest disks and installer ISOs stay in /home/libvirt/images and
+# are unservable from here by path construction. Retained VMs remain
+# intact; never move their disks.
 #
-# Design: DynamicUser (no new account; the ephemeral UID cannot read the
-# 0600 qemu guest disks even if the allowlist ever failed — the 0644
-# rootfs images stay servable), read-only /home, no new privileges, memory
-# and CPU bounds, loopback-independent fixed bridge bind (parity with the
-# installed unit: guests fetch 192.168.122.1:8080).
+# The unit runs scripts/ops/soda-rootfs-server.py with no second copy:
+# no commented duplicate, no encoded blob. It serves exact
+# ^[0-9a-f]{64}-rootfs\.img$ names on the same guest-reachable address
+# and denies listings, QCOW2, ISO, traversal, subpaths, symlinks, and
+# non-GET/HEAD methods by construction. Behavior checks live in
+# tests/build/test_rootfs_serving.py.
 #
-# Audit: the "#S"-prefixed comment lines below reproduce the embedded
-# server source byte for byte. The ExecStart blob MUST decode to the same
-# bytes; verify with:
-#   f=scripts/ops/soda-rootfs-server.service
-#   grep '^#S' "$f" | sed 's/^#S//' > /tmp/audit-server.py
-#   grep '^ExecStart=' "$f" | grep -o "b64decode('[^']*')" \
-#     | sed "s/.*b64decode('//;s/')\$//" | base64 -d > /tmp/blob-server.py
-#   diff /tmp/audit-server.py /tmp/blob-server.py && \
-#     python3 -m py_compile /tmp/blob-server.py
-# Behavior proof lives with the lane report (17-case fixture probe).
-#
-#S"""Exact-file rootfs server (stdlib only). Serves ONLY ^[0-9a-f]{64}-rootfs\\.img$.
-#S
-#SDeny by construction: no directory listing, no QCOW2, no ISO, no traversal,
-#Sno symlinks, no subpaths, GET/HEAD only. Anything else is 404/501.
-#S"""
-#Simport http.server
-#Simport os
-#Simport re
-#Simport stat
-#Simport urllib.parse
-#S
-#SROOT = b"/home/libvirt/images"
-#SALLOW = re.compile(rb"^[0-9a-f]{64}-rootfs\.img$")
-#SCHUNK = 1048576
-#S
-#S
-#Sclass Handler(http.server.BaseHTTPRequestHandler):
-#S    server_version = "soda-rootfs/1"
-#S
-#S    def _refuse(self):
-#S        self.send_error(404)
-#S        return None
-#S
-#S    def _open_allowed(self):
-#S        raw = urllib.parse.urlparse(self.path).path
-#S        try:
-#S            name = urllib.parse.unquote(raw, encoding="ascii", errors="strict")
-#S        except (UnicodeDecodeError, ValueError):
-#S            return self._refuse()
-#S        if not name.startswith("/") or "/" in name[1:]:
-#S            return self._refuse()
-#S        token = name[1:].encode("ascii", "strict")
-#S        if not ALLOW.match(token):
-#S            return self._refuse()
-#S        try:
-#S            fd = os.open(os.path.join(ROOT, token), os.O_RDONLY | os.O_NOFOLLOW)
-#S        except OSError:
-#S            return self._refuse()
-#S        try:
-#S            if not stat.S_ISREG(os.fstat(fd).st_mode):
-#S                os.close(fd)
-#S                return self._refuse()
-#S            return os.fdopen(fd, "rb", buffering=0)
-#S        except OSError:
-#S            try:
-#S                os.close(fd)
-#S            except OSError:
-#S                pass
-#S            return self._refuse()
-#S
-#S    def _serve(self):
-#S        body = self._open_allowed()
-#S        if body is None:
-#S            return
-#S        try:
-#S            size = os.fstat(body.fileno()).st_size
-#S            self.send_response(200)
-#S            self.send_header("Content-Type", "application/octet-stream")
-#S            self.send_header("Content-Length", str(size))
-#S            self.send_header("Cache-Control", "no-store")
-#S            self.end_headers()
-#S            if self.command == "GET":
-#S                while True:
-#S                    chunk = body.read(CHUNK)
-#S                    if not chunk:
-#S                        break
-#S                    self.wfile.write(chunk)
-#S        finally:
-#S            body.close()
-#S
-#S    def do_GET(self):
-#S        self._serve()
-#S
-#S    def do_HEAD(self):
-#S        self._serve()
-#S
-#S    def log_message(self, *args):
-#S        pass
-#S
-#S
-#Sif __name__ == "__main__":
-#S    httpd = http.server.ThreadingHTTPServer(("192.168.122.1", 8080), Handler)
-#S    httpd.serve_forever()
+# Design: DynamicUser (no new account), read-only /home, no new
+# privileges, memory and CPU bounds, loopback-independent fixed bridge
+# bind: guests fetch 192.168.122.1:8080.
 #
 [Unit]
 Description=SodaOS install rootfs exact-file HTTP server for libvirt guests
@@ -130,7 +40,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 -c "import base64;exec(compile(base64.b64decode('IiIiRXhhY3QtZmlsZSByb290ZnMgc2VydmVyIChzdGRsaWIgb25seSkuIFNlcnZlcyBPTkxZIF5bMC05YS1mXXs2NH0tcm9vdGZzXFwuaW1nJC4KCkRlbnkgYnkgY29uc3RydWN0aW9uOiBubyBkaXJlY3RvcnkgbGlzdGluZywgbm8gUUNPVzIsIG5vIElTTywgbm8gdHJhdmVyc2FsLApubyBzeW1saW5rcywgbm8gc3VicGF0aHMsIEdFVC9IRUFEIG9ubHkuIEFueXRoaW5nIGVsc2UgaXMgNDA0LzUwMS4KIiIiCmltcG9ydCBodHRwLnNlcnZlcgppbXBvcnQgb3MKaW1wb3J0IHJlCmltcG9ydCBzdGF0CmltcG9ydCB1cmxsaWIucGFyc2UKClJPT1QgPSBiIi9ob21lL2xpYnZpcnQvaW1hZ2VzIgpBTExPVyA9IHJlLmNvbXBpbGUocmIiXlswLTlhLWZdezY0fS1yb290ZnNcLmltZyQiKQpDSFVOSyA9IDEwNDg1NzYKCgpjbGFzcyBIYW5kbGVyKGh0dHAuc2VydmVyLkJhc2VIVFRQUmVxdWVzdEhhbmRsZXIpOgogICAgc2VydmVyX3ZlcnNpb24gPSAic29kYS1yb290ZnMvMSIKCiAgICBkZWYgX3JlZnVzZShzZWxmKToKICAgICAgICBzZWxmLnNlbmRfZXJyb3IoNDA0KQogICAgICAgIHJldHVybiBOb25lCgogICAgZGVmIF9vcGVuX2FsbG93ZWQoc2VsZik6CiAgICAgICAgcmF3ID0gdXJsbGliLnBhcnNlLnVybHBhcnNlKHNlbGYucGF0aCkucGF0aAogICAgICAgIHRyeToKICAgICAgICAgICAgbmFtZSA9IHVybGxpYi5wYXJzZS51bnF1b3RlKHJhdywgZW5jb2Rpbmc9ImFzY2lpIiwgZXJyb3JzPSJzdHJpY3QiKQogICAgICAgIGV4Y2VwdCAoVW5pY29kZURlY29kZUVycm9yLCBWYWx1ZUVycm9yKToKICAgICAgICAgICAgcmV0dXJuIHNlbGYuX3JlZnVzZSgpCiAgICAgICAgaWYgbm90IG5hbWUuc3RhcnRzd2l0aCgiLyIpIG9yICIvIiBpbiBuYW1lWzE6XToKICAgICAgICAgICAgcmV0dXJuIHNlbGYuX3JlZnVzZSgpCiAgICAgICAgdG9rZW4gPSBuYW1lWzE6XS5lbmNvZGUoImFzY2lpIiwgInN0cmljdCIpCiAgICAgICAgaWYgbm90IEFMTE9XLm1hdGNoKHRva2VuKToKICAgICAgICAgICAgcmV0dXJuIHNlbGYuX3JlZnVzZSgpCiAgICAgICAgdHJ5OgogICAgICAgICAgICBmZCA9IG9zLm9wZW4ob3MucGF0aC5qb2luKFJPT1QsIHRva2VuKSwgb3MuT19SRE9OTFkgfCBvcy5PX05PRk9MTE9XKQogICAgICAgIGV4Y2VwdCBPU0Vycm9yOgogICAgICAgICAgICByZXR1cm4gc2VsZi5fcmVmdXNlKCkKICAgICAgICB0cnk6CiAgICAgICAgICAgIGlmIG5vdCBzdGF0LlNfSVNSRUcob3MuZnN0YXQoZmQpLnN0X21vZGUpOgogICAgICAgICAgICAgICAgb3MuY2xvc2UoZmQpCiAgICAgICAgICAgICAgICByZXR1cm4gc2VsZi5fcmVmdXNlKCkKICAgICAgICAgICAgcmV0dXJuIG9zLmZkb3BlbihmZCwgInJiIiwgYnVmZmVyaW5nPTApCiAgICAgICAgZXhjZXB0IE9TRXJyb3I6CiAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgIG9zLmNsb3NlKGZkKQogICAgICAgICAgICBleGNlcHQgT1NFcnJvcjoKICAgICAgICAgICAgICAgIHBhc3MKICAgICAgICAgICAgcmV0dXJuIHNlbGYuX3JlZnVzZSgpCgogICAgZGVmIF9zZXJ2ZShzZWxmKToKICAgICAgICBib2R5ID0gc2VsZi5fb3Blbl9hbGxvd2VkKCkKICAgICAgICBpZiBib2R5IGlzIE5vbmU6CiAgICAgICAgICAgIHJldHVybgogICAgICAgIHRyeToKICAgICAgICAgICAgc2l6ZSA9IG9zLmZzdGF0KGJvZHkuZmlsZW5vKCkpLnN0X3NpemUKICAgICAgICAgICAgc2VsZi5zZW5kX3Jlc3BvbnNlKDIwMCkKICAgICAgICAgICAgc2VsZi5zZW5kX2hlYWRlcigiQ29udGVudC1UeXBlIiwgImFwcGxpY2F0aW9uL29jdGV0LXN0cmVhbSIpCiAgICAgICAgICAgIHNlbGYuc2VuZF9oZWFkZXIoIkNvbnRlbnQtTGVuZ3RoIiwgc3RyKHNpemUpKQogICAgICAgICAgICBzZWxmLnNlbmRfaGVhZGVyKCJDYWNoZS1Db250cm9sIiwgIm5vLXN0b3JlIikKICAgICAgICAgICAgc2VsZi5lbmRfaGVhZGVycygpCiAgICAgICAgICAgIGlmIHNlbGYuY29tbWFuZCA9PSAiR0VUIjoKICAgICAgICAgICAgICAgIHdoaWxlIFRydWU6CiAgICAgICAgICAgICAgICAgICAgY2h1bmsgPSBib2R5LnJlYWQoQ0hVTkspCiAgICAgICAgICAgICAgICAgICAgaWYgbm90IGNodW5rOgogICAgICAgICAgICAgICAgICAgICAgICBicmVhawogICAgICAgICAgICAgICAgICAgIHNlbGYud2ZpbGUud3JpdGUoY2h1bmspCiAgICAgICAgZmluYWxseToKICAgICAgICAgICAgYm9keS5jbG9zZSgpCgogICAgZGVmIGRvX0dFVChzZWxmKToKICAgICAgICBzZWxmLl9zZXJ2ZSgpCgogICAgZGVmIGRvX0hFQUQoc2VsZik6CiAgICAgICAgc2VsZi5fc2VydmUoKQoKICAgIGRlZiBsb2dfbWVzc2FnZShzZWxmLCAqYXJncyk6CiAgICAgICAgcGFzcwoKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6CiAgICBodHRwZCA9IGh0dHAuc2VydmVyLlRocmVhZGluZ0hUVFBTZXJ2ZXIoKCIxOTIuMTY4LjEyMi4xIiwgODA4MCksIEhhbmRsZXIpCiAgICBodHRwZC5zZXJ2ZV9mb3JldmVyKCkK'),'soda-rootfs-server','exec'))"
+ExecStart=/usr/bin/python3 /usr/local/lib/soda/soda-rootfs-server.py
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=10s
