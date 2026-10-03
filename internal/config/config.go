@@ -24,11 +24,14 @@ type Config struct {
 	Listen             string `json:"listen"`
 	ForgejoURL         string `json:"forgejo_url"`
 	ForgejoInternalURL string `json:"forgejo_internal_url"`
-	Database           string `json:"database"`
-	HostSocket         string `json:"host_socket"`
-	IdentitySocket     string `json:"identity_socket"`
-	GrantKeyFile       string `json:"grant_key_file"`
-	OperatorID         int64  `json:"operator_id"`
+	// DatabaseDSNFile is the restricted secret file holding the
+	// PostgreSQL connection URL for the Soda store. The connection URL
+	// carries credentials, so it never appears in configuration text.
+	DatabaseDSNFile string `json:"database_dsn_file"`
+	HostSocket      string `json:"host_socket"`
+	IdentitySocket  string `json:"identity_socket"`
+	GrantKeyFile    string `json:"grant_key_file"`
+	OperatorID      int64  `json:"operator_id"`
 	// Optional native background admission inputs. When set, all three are
 	// required: the operator-configured shared service callback socket, the
 	// expected native host peer UID verified against kernel credentials,
@@ -113,7 +116,7 @@ func validateConfigPaths(c Config) error {
 	if c.IdentitySocket != "" && !filepath.IsAbs(c.IdentitySocket) {
 		return errors.New("identity_socket must be an absolute path")
 	}
-	for name, value := range map[string]string{"database": c.Database, "host_socket": c.HostSocket, "grant_key_file": c.GrantKeyFile} {
+	for name, value := range map[string]string{"database_dsn_file": c.DatabaseDSNFile, "host_socket": c.HostSocket, "grant_key_file": c.GrantKeyFile} {
 		if !filepath.IsAbs(value) {
 			return fmt.Errorf("%s must be an absolute path", name)
 		}

@@ -28,13 +28,13 @@ import (
 )
 
 type settings struct {
-	Database      string       `json:"database"`
-	KeyFile       string       `json:"key_file"`
-	AdminSocket   string       `json:"admin_socket"`
-	RuntimeSocket string       `json:"runtime_socket"`
-	HostSocket    string       `json:"host_socket"`
-	Codex         codex.Config `json:"codex"`
-	Muse          muse.Config  `json:"muse"`
+	DatabaseDSNFile string       `json:"database_dsn_file"`
+	KeyFile         string       `json:"key_file"`
+	AdminSocket     string       `json:"admin_socket"`
+	RuntimeSocket   string       `json:"runtime_socket"`
+	HostSocket      string       `json:"host_socket"`
+	Codex           codex.Config `json:"codex"`
+	Muse            muse.Config  `json:"muse"`
 }
 
 func main() {
@@ -54,7 +54,7 @@ func load(path string) (settings, error) {
 	if err = strictjson.Decode(f, &c); err != nil {
 		return c, err
 	}
-	for _, p := range []string{c.Database, c.KeyFile, c.AdminSocket, c.RuntimeSocket, c.HostSocket} {
+	for _, p := range []string{c.DatabaseDSNFile, c.KeyFile, c.AdminSocket, c.RuntimeSocket, c.HostSocket} {
 		if !filepath.IsAbs(p) {
 			return c, errors.New("explicit absolute service paths required")
 		}
@@ -163,7 +163,11 @@ func openStore(c settings) (*store.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return store.OpenEncrypted(c.Database, key)
+	dsn, err := config.Secret(c.DatabaseDSNFile)
+	if err != nil {
+		return nil, err
+	}
+	return store.OpenEncrypted(dsn, key)
 }
 
 func openBroker(c settings, db *store.Store) (*control.Controller, error) {

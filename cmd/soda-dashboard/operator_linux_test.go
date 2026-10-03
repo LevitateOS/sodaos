@@ -13,16 +13,11 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/factory/control"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 func operatorRoundTrip(t *testing.T, uid uint32) (*http.Response, error) {
 	t.Helper()
-	db, err := store.Open(filepath.Join(t.TempDir(), "dashboard.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
+	db := postgresFixture(t)
 	coordinator := control.NewCoordinator(db, nil, nil)
 	socket := filepath.Join(t.TempDir(), "operator.sock")
 	server, listener, err := operatorHTTPServer(socket, uid, coordinator)
@@ -55,11 +50,7 @@ func TestOperatorSocketAdmitsConfiguredPeer(t *testing.T) {
 }
 
 func TestOperatorSocketRebindsStalePath(t *testing.T) {
-	db, err := store.Open(filepath.Join(t.TempDir(), "dashboard.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
+	db := postgresFixture(t)
 	coordinator := control.NewCoordinator(db, nil, nil)
 	socket := filepath.Join(t.TempDir(), "operator.sock")
 	first, firstListener, err := operatorHTTPServer(socket, uint32(os.Geteuid()), coordinator)

@@ -117,7 +117,9 @@ func setup(external, internal, tokenPath, out string) error {
 	if err := writeSetupSecret(keyPath, base64.StdEncoding.EncodeToString(key)); err != nil {
 		return err
 	}
-	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(external, "/"), ForgejoInternalURL: strings.TrimRight(internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", GrantKeyFile: keyPath, OperatorID: u.ID}
+	// The PostgreSQL connection URL file is provisioned with the A10
+	// database service; setup records its path only.
+	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(external, "/"), ForgejoInternalURL: strings.TrimRight(internal, "/"), DatabaseDSNFile: "/etc/soda/postgres/soda.dsn", HostSocket: "/run/soda/host.sock", GrantKeyFile: keyPath, OperatorID: u.ID}
 	if err = writeSetupConfig(out, c); err != nil {
 		// This run created the key through O_EXCL, so no other setup owns
 		// it; remove it so a retry is not blocked by our own partial state.
