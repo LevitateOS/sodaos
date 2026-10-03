@@ -3,6 +3,7 @@ package installer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -92,6 +93,11 @@ func selectDisk(disks []Disk, selected string) (Disk, string, bool) {
 		return Disk{}, "Choose an available disk number.", false
 	}
 	disk := disks[index-1]
+	// Blocked disks stay visible with their reason so the operator can see
+	// the full inventory, but they are not installable targets.
+	if disk.Blocked != "" {
+		return Disk{}, fmt.Sprintf("Disk %d is unavailable: %s. Choose an available disk number.", index, disk.Blocked), false
+	}
 	return disk, "", true
 }
 
@@ -157,6 +163,18 @@ func validPassword(password, confirmation string) bool {
 	return utf8.ValidString(password) && utf8.RuneCountInString(password) >= minPasswordRunes && password == confirmation
 }
 
+// passwordFeedback tells a mismatch from a too-short entry so a rejection
+// teaches the exact rule instead of repeating one combined sentence.
+func passwordFeedback(password, confirmation string) string {
+	if password != confirmation {
+		return "Passwords do not match."
+	}
+	if !utf8.ValidString(password) || utf8.RuneCountInString(password) < minPasswordRunes {
+		return "Use at least 12 characters."
+	}
+	return ""
+}
+
 func hashPassword(ctx context.Context, run commandRunner, password string) (string, error) {
 	hash, err := run(ctx, "openssl", []string{"passwd", "-6", "-stdin"}, strings.NewReader(password+"\n"))
 	if err != nil {
@@ -175,6 +193,7 @@ func stepPassword(ctx context.Context, c console, run commandRunner) (string, er
 			feedback = ""
 		}
 		c.print("This password is for root login after reboot, local console and SSH.")
+		c.print("Use at least 12 characters; both entries must match.")
 		c.print("Enroll a key later and disable password logins yourself to go key-only.")
 		c.print("Type back, restart, or cancel in a password field to navigate.")
 		password, err := askSecretNav(c, "Password")
@@ -186,7 +205,7 @@ func stepPassword(ctx context.Context, c console, run commandRunner) (string, er
 			return "", err
 		}
 		if !validPassword(password, confirmation) {
-			feedback = "Passwords must match and use at least 12 characters."
+			feedback = passwordFeedback(password, confirmation)
 			continue
 		}
 		return hashPassword(ctx, run, password)
@@ -227,7 +246,7 @@ func printFinalReview(c console, choices diskInstallChoices, payloadBytes uint64
 	c.print("ERASE ALL DATA on:")
 	c.print("  %s", diskSummary(choices.disk.Device))
 	if choices.disk.Blocked != "" {
-		c.print("  Installer note: %s. Typing ERASE still wipes it.", choices.disk.Blocked)
+		c.print("  Installer note: %s.", choices.disk.Blocked)
 	}
 	c.print("Hostname: %s", choices.hostname)
 	c.print("Project subnet: %s", choices.subnet)

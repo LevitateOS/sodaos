@@ -106,9 +106,8 @@ func scanDisks(ctx context.Context, run commandRunner) ([]Disk, error) {
 			disk.Sequence, err = diskSequence(device)
 			if err != nil {
 				disk.Blocked = "cannot establish kernel disk identity"
-			}
-			if err := checkHolders(device); err != nil {
-				disk.Blocked = "device has holders or cannot be inspected"
+			} else if err := checkHolders(device); err != nil {
+				disk.Blocked = err.Error()
 			}
 		}
 		disks = append(disks, disk)
@@ -133,8 +132,11 @@ func diskSequence(device BlockDevice) (string, error) {
 
 func checkHolders(device BlockDevice) error {
 	entries, err := os.ReadDir(filepath.Join("/sys/class/block", filepath.Base(device.Name), "holders"))
-	if err != nil || len(entries) != 0 {
-		return errors.New("device has holders or cannot be inspected")
+	if err != nil {
+		return errors.New("cannot inspect device holders for " + device.Name)
+	}
+	if len(entries) != 0 {
+		return errors.New("device " + device.Name + " has holders; it is in use by another device")
 	}
 	for _, child := range device.Children {
 		if err := checkHolders(child); err != nil {
@@ -147,8 +149,9 @@ func checkHolders(device BlockDevice) error {
 func sameDisk(selected Disk, observed []Disk) error {
 	for _, current := range observed {
 		if current.Device.Name == selected.Device.Name {
-			// Blocked disks are installable with explicit ERASE intent, but any
-			// identity, partition or use change since selection still refuses.
+			// The wizard no longer selects blocked disks; this recheck only
+			// confirms the selection is unchanged. Any identity, partition
+			// or use change since selection still refuses.
 			if selected.Sequence == "" || !reflect.DeepEqual(selected, current) {
 				return errors.New("disk identity, partition inventory or use changed; no installation started")
 			}
