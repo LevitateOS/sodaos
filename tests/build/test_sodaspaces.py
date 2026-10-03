@@ -1,6 +1,5 @@
 """Production staging/preflight in temporary filesystems; never host installation."""
 
-import ast
 import hashlib
 import json
 import os
@@ -23,7 +22,6 @@ FILES = (
     'public/assets/soda/forgejo/repository-actions.js',
     'public/assets/soda/forgejo/notification-preview.js',
 )
-PREFIX = 'rootfs/var/lib/soda/forgejo/gitea/'
 
 
 class SodaspacesPackaging(unittest.TestCase):
@@ -89,19 +87,16 @@ class SodaspacesPackaging(unittest.TestCase):
             )
             for name in ('LICENSE', 'NOTICE'):
                 shutil.copyfile(ROOT / name, checkout / name)
-            (checkout / 'cmd/soda-dashboard').mkdir(parents=True)
             build = checkout / '.artifacts/native/x86_64'
-            (build / 'bin').mkdir(parents=True)
-            (build / 'bin/soda-dashboard').write_text('synthetic; never executed')
             (build / 'project-tools/bin').mkdir(parents=True)
             for name in ('muse', 'muse-native', 'soda-identity-compose'):
                 (build / 'project-tools/bin' / name).write_text('synthetic; never executed')
-            (build / 'forgejo-locales').mkdir()
-            (build / 'forgejo-locales/locale_en-US.ini').write_text('synthetic full-catalog output; not native proof')
             (build / 'forgejo-js').mkdir()
             for origin in json.loads((checkout / 'internal/release/build/forgejo-payload.json').read_text()).values():
                 if origin.startswith('@build/forgejo-js/'):
                     (build / origin.removeprefix('@build/')).write_text('// synthetic compiled browser fixture\n')
+            (build / 'forgejo-locales').mkdir()
+            (build / 'forgejo-locales/locale_en-US.ini').write_text('synthetic full-catalog output; not native proof')
             # Synthetic bytes and lock only inside this temporary checkout.
             (build / 'terminal-assets').mkdir()
             lock_path = checkout / 'appliance/terminal-assets.lock.json'
@@ -117,89 +112,11 @@ class SodaspacesPackaging(unittest.TestCase):
                 folder = checkout / 'cockpit/dist' / f'soda-{page}'
                 folder.mkdir(parents=True)
                 (folder / 'index.html').write_text('synthetic Cockpit package')
-            previous = os.umask(0o077)
-            try:
-                with (
-                    patch('sys.argv', ['stage.py', '--arch', 'x86_64']),
-                    patch('platform.system', return_value='Linux'),
-                    patch('platform.machine', return_value='x86_64'),
-                ):
-                    runpy.run_path(str(checkout / 'scripts/stage.py'), run_name='__main__')
-            finally:
-                os.umask(previous)
-            stage = build / 'rootfs'
-            self.assertFalse((stage / 'usr/local/share/cockpit/soda-runners').exists())
-            self.assertFalse((stage / 'usr/local/share/cockpit').exists())
-            self.assertFalse((stage / 'etc/cockpit/users.override.json').exists())
-            self.assertFalse((stage / 'etc/cockpit/users.override.json').is_symlink())
-            self.assertIn('uid = 0', (stage / 'etc/pam.d/cockpit').read_text())
-            brand = stage / 'etc/cockpit/branding'
-            self.assertEqual(
-                (brand / 'soda-symbol-brutalist.svg').read_bytes(),
-                (ROOT / 'assets/branding/source/soda-symbol-brutalist.svg').read_bytes(),
-            )
-            self.assertTrue((brand / 'fonts/barlow-condensed/LICENSE').is_file())
-            self.assertEqual(
-                (brand / 'apple-touch-icon.png').read_bytes(),
-                (ROOT / 'assets/branding/forgejo/apple-touch-icon.png').read_bytes(),
-            )
-            icon = (brand / 'favicon.ico').read_bytes()
-            self.assertEqual(struct.unpack_from('<HHH', icon), (0, 1, 2))
-            for i, (size, name) in enumerate(((16, 'favicon-16.png'), (32, 'favicon.png'))):
-                w, h, colors, reserved, planes, bits, length, offset = struct.unpack_from('<BBBBHHII', icon, 6 + 16 * i)
-                self.assertEqual((w, h, colors, reserved, planes, bits), (size, size, 0, 0, 1, 32))
-                self.assertEqual(icon[offset : offset + length], (ROOT / 'assets/branding/forgejo' / name).read_bytes())
-            self.assertFalse((brand / 'login-background-light.svg').exists())
-            self.assertFalse((brand / 'soda-symbol.svg').exists())
-            self.assertFalse((stage / 'usr/local/lib/soda/github-actions-runner').exists())
-            logo = stage / 'usr/local/share/soda/fastfetch/sodaos.txt'
-            self.assertEqual(logo.read_bytes(), (ROOT / 'assets/branding/terminal/sodaos.txt').read_bytes())
-            self.assertIn(
-                '/usr/local/share/soda/fastfetch/sodaos.txt', (stage / 'etc/fastfetch/config.jsonc').read_text()
-            )
-            self.assertFalse((stage / 'usr/share').exists())
-            for asset in (stage / PREFIX.removeprefix('rootfs/') / 'public/assets').rglob('*'):
-                self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
-            for name in FILES:
-                p = stage / PREFIX.removeprefix('rootfs/') / name
-                origin = json.loads((checkout / 'internal/release/build/forgejo-payload.json').read_text())[name]
-                original = build / origin.removeprefix('@build/') if origin.startswith('@build/') else checkout / origin
-                self.assertEqual(p.read_bytes(), original.read_bytes())
-                self.assertEqual(stat.S_IMODE(p.stat().st_mode), 0o644)
-                for parent in p.parents:
-                    if parent == stage:
-                        break
-                    self.assertEqual(stat.S_IMODE(parent.stat().st_mode), 0o755)
-
-            # The payload-served copies resolve the upstream theme three levels
-            # up; the staged native-css copies are asserted after the rename.
-            for theme in ('dark', 'light'):
-                source = (checkout / f'assets/branding/forgejo/css/theme-soda-{theme}.css').read_text()
-                self.assertIn(f'@import "../../../css/theme-forgejo-{theme}.css";', source)
-
-            for name, origin in json.loads(
-                (checkout / 'internal/release/build/forgejo-payload.json').read_text()
-            ).items():
-                original = build / origin.removeprefix('@build/') if origin.startswith('@build/') else checkout / origin
-                target = stage / PREFIX.removeprefix('rootfs/') / name
-                self.assertEqual(target.read_bytes(), original.read_bytes())
-                self.assertEqual(stat.S_IMODE(target.stat().st_mode), 0o644)
-
-            # Reuse these exact inputs for the direct vendor destinations. Keep
-            # the legacy result as an oracle, not an intermediate vendor input.
-            legacy = stage.rename(build / 'legacy-fixture')
-            # The staged native-css copies must resolve the upstream theme
-            # from their own directory; a payload-relative import 404s in
-            # browsers.
-            for theme in ('dark', 'light'):
-                staged = legacy / PREFIX.removeprefix('rootfs/') / f'public/assets/css/theme-soda-{theme}.css'
-                self.assertIn(f'@import "theme-forgejo-{theme}.css";', staged.read_text())
-                self.assertNotIn('css/theme-forgejo-', staged.read_text())
             host = checkout / 'host-context'
             vendor_root = host / 'rootfs'
             marker = vendor_root / 'usr/libexec/soda/soda-dashboard'
             marker.parent.mkdir(parents=True)
-            marker.write_text('already compiled vendor program; never executed')
+            marker.write_text('already compiled program; never executed')
             forgejo_context = checkout / 'forgejo-context'
             forgejo_context.mkdir(mode=0o700)
             host.chmod(0o700)
@@ -226,31 +143,77 @@ class SodaspacesPackaging(unittest.TestCase):
                     os.umask(previous)
 
             vendor_stage()
-            self.assertFalse(stage.exists(), 'vendor assets recreated writable staging')
+            # The single image layout owns every path; no writable tree is created.
+            self.assertFalse((build / 'rootfs').exists())
             self.assertFalse((vendor_root / 'var').exists())
             self.assertFalse((vendor_root / 'usr/local').exists())
-            self.assertEqual(marker.read_text(), 'already compiled vendor program; never executed')
+            self.assertFalse((vendor_root / 'etc/cockpit/users.override.json').exists())
+            self.assertFalse((vendor_root / 'etc/cockpit/users.override.json').is_symlink())
+            self.assertEqual(marker.read_text(), 'already compiled program; never executed')
             for directory in (host, forgejo_context):
                 self.assertEqual(stat.S_IMODE(directory.stat().st_mode), 0o700, 'changed private context ancestor')
             presentation = forgejo_context / 'forgejo'
+            manifest = json.loads((checkout / 'internal/release/build/forgejo-payload.json').read_text())
+
+            def original(origin):
+                return build / origin.removeprefix('@build/') if origin.startswith('@build/') else checkout / origin
+
+            for path in [presentation, *presentation.rglob('*')]:
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755 if path.is_dir() else 0o644)
+            for name in FILES:
+                self.assertEqual((presentation / name).read_bytes(), original(manifest[name]).read_bytes())
+            for name, origin in manifest.items():
+                staged = presentation / name
+                self.assertEqual(staged.read_bytes(), original(origin).read_bytes())
+                self.assertEqual(stat.S_IMODE(staged.stat().st_mode), 0o644)
+                for parent in staged.parents:
+                    if parent == presentation:
+                        break
+                    self.assertEqual(stat.S_IMODE(parent.stat().st_mode), 0o755)
+            # The payload-served copies resolve the upstream theme three levels
+            # up; the staged native-css copies must resolve it from their own
+            # directory instead, or the import 404s in browsers.
+            for theme in ('dark', 'light'):
+                source = (checkout / f'assets/branding/forgejo/css/theme-soda-{theme}.css').read_text()
+                self.assertIn(f'@import "../../../css/theme-forgejo-{theme}.css";', source)
+                staged = presentation / f'public/assets/css/theme-soda-{theme}.css'
+                self.assertIn(f'@import "theme-forgejo-{theme}.css";', staged.read_text())
+                self.assertNotIn('css/theme-forgejo-', staged.read_text())
+            brand = vendor_root / 'etc/cockpit/branding'
+            self.assertEqual(
+                (brand / 'soda-symbol-brutalist.svg').read_bytes(),
+                (ROOT / 'assets/branding/source/soda-symbol-brutalist.svg').read_bytes(),
+            )
+            self.assertTrue((brand / 'fonts/barlow-condensed/LICENSE').is_file())
+            self.assertEqual(
+                (brand / 'apple-touch-icon.png').read_bytes(),
+                (ROOT / 'assets/branding/forgejo/apple-touch-icon.png').read_bytes(),
+            )
+            icon = (brand / 'favicon.ico').read_bytes()
+            self.assertEqual(struct.unpack_from('<HHH', icon), (0, 1, 2))
+            for i, (size, name) in enumerate(((16, 'favicon-16.png'), (32, 'favicon.png'))):
+                w, h, colors, reserved, planes, bits, length, offset = struct.unpack_from('<BBBBHHII', icon, 6 + 16 * i)
+                self.assertEqual((w, h, colors, reserved, planes, bits), (size, size, 0, 0, 1, 32))
+                self.assertEqual(icon[offset : offset + length], (ROOT / 'assets/branding/forgejo' / name).read_bytes())
+            self.assertFalse((brand / 'login-background-light.svg').exists())
+            self.assertFalse((brand / 'soda-symbol.svg').exists())
+            for path in (vendor_root / 'etc/cockpit/branding').rglob('*'):
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755 if path.is_dir() else 0o644)
+            logo = vendor_root / 'usr/share/soda/fastfetch/sodaos.txt'
+            self.assertEqual(logo.read_bytes(), (ROOT / 'assets/branding/terminal/sodaos.txt').read_bytes())
+            self.assertIn('/usr/share/soda/fastfetch/', (vendor_root / 'etc/fastfetch/config.jsonc').read_text())
+            self.assertEqual(stat.S_IMODE((vendor_root / 'etc/soda/forgejo.env').stat().st_mode), 0o600)
+            for tool in ('muse', 'muse-native', 'soda-identity-compose'):
+                staged = vendor_root / 'usr/share/soda/muse-tools' / tool
+                self.assertEqual(stat.S_IMODE(staged.stat().st_mode), 0o755)
+            for asset in (presentation / 'public/assets').rglob('*'):
+                self.assertEqual(stat.S_IMODE(asset.stat().st_mode), 0o755 if asset.is_dir() else 0o644)
+                self.assertNotIn('soda-runners', asset.parts)
+                self.assertNotIn('soda-tailscale', asset.parts)
 
             def inventory(root):
                 return {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
 
-            self.assertEqual(inventory(presentation), inventory(legacy / PREFIX.removeprefix('rootfs/')))
-            for path in [presentation, *presentation.rglob('*')]:
-                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755 if path.is_dir() else 0o644)
-            self.assertEqual(
-                inventory(vendor_root / 'etc/cockpit/branding'), inventory(legacy / 'etc/cockpit/branding')
-            )
-            for path in (vendor_root / 'etc/cockpit/branding').rglob('*'):
-                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o755 if path.is_dir() else 0o644)
-            self.assertEqual(
-                (vendor_root / 'usr/share/soda/fastfetch/sodaos.txt').read_bytes(),
-                (legacy / 'usr/local/share/soda/fastfetch/sodaos.txt').read_bytes(),
-            )
-            self.assertIn('/usr/share/soda/fastfetch/', (vendor_root / 'etc/fastfetch/config.jsonc').read_text())
-            self.assertEqual(stat.S_IMODE((vendor_root / 'etc/soda/forgejo.env').stat().st_mode), 0o600)
             before = inventory(vendor_root), inventory(presentation)
             with self.assertRaises(SystemExit):
                 vendor_stage()
@@ -263,119 +226,6 @@ class SodaspacesPackaging(unittest.TestCase):
                 vendor_stage(args[:-1] + [str(link)])
             # Copying public data must not normalize the canonical/private inputs.
             self.assertEqual(
-                stat.S_IMODE((checkout / 'assets/branding/source/soda-symbol-brutalist.svg').stat().st_mode), 0o600
+                stat.S_IMODE((checkout / 'assets/branding/source/soda-symbol-brutalist.svg').stat().st_mode),
+                0o600,
             )
-
-    def test_original_source_notices_in_metadata(self):
-        module = runpy.run_path(str(ROOT / 'scripts/native-build-info.py'))
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            for name in (
-                'appliance',
-                'project-os',
-                'cockpit',
-                'docs',
-                'scripts',
-                'tools',
-                'go.mod',
-                'go.sum',
-                'package.json',
-                'bun.lock',
-                'bunfig.toml',
-                'LICENSE',
-                'NOTICE',
-            ):
-                (root / name).symlink_to(ROOT / name)
-            stage = root / '.artifacts/native/x86_64'
-            stage.mkdir(parents=True)
-            for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
-                (stage / (name + '.iid')).write_text('sha256:' + '1' * 64)
-
-            def synthetic_output(args):
-                if '--entrypoint=/usr/local/bin/tailscale' in args:
-                    return json.dumps({'short': 'synthetic tailscale version'})
-                if '--entrypoint=/usr/local/bin/tailscaled' in args:
-                    return 'synthetic tailscaled version'
-                return '[]' if '{{json .RepoDigests}}' in args else 'synthetic metadata; no commands run'
-
-            with (
-                patch.dict(module['collect'].__globals__, output=synthetic_output),
-                patch('platform.system', return_value='Linux'),
-                patch('platform.machine', return_value='x86_64'),
-            ):
-                module['collect'](root, 'x86_64', '1' * 40)
-            self.assertEqual(
-                (stage / 'inputs/lit-check-package.json').read_bytes(),
-                (ROOT / 'tools/lit-check/package.json').read_bytes(),
-            )
-            build_info = json.loads((stage / 'inputs/native-build.json').read_text())
-            self.assertEqual(
-                build_info['Images']['tailnet']['CLIs'],
-                {
-                    '/usr/local/bin/tailscale': json.dumps({'short': 'synthetic tailscale version'}),
-                    '/usr/local/bin/tailscaled': 'synthetic tailscaled version',
-                },
-            )
-            self.assertFalse((stage / 'inputs/cockpit-package.json').exists())
-            for source, name in (('LICENSE', 'soda-LICENSE'), ('NOTICE', 'soda-NOTICE')):
-                self.assertEqual((stage / 'notices' / name).read_bytes(), (ROOT / source).read_bytes())
-
-    def test_destination_refusal_before_writes(self):
-        installer = (ROOT / 'scripts/install-native.sh').read_text()
-        start = installer.index(
-            'python3 - "$bundle/build-info.json"', installer.index('# Inspect existing destination ancestors')
-        )
-        end = installer.index('\nPY\n', start)
-        program = installer[start:end].split("<<'PY'\n", 1)[1]
-        tree = ast.parse(program)
-        # Execute the actual readonly function; its production caller is fixed '/'.
-        self.assertEqual(
-            ast.unparse(tree.body[-1]),
-            "check_destinations(Path('/'), json.loads(Path(sys.argv[1]).read_text())['Files'])",
-        )
-        namespace = {}
-        exec(compile(ast.Module(body=tree.body[:-1], type_ignores=[]), '<installer-preflight>', 'exec'), namespace)
-        check = namespace['check_destinations']
-        self.assertLess(end, installer.index('install -d -m 0700 /etc/soda'))
-        self.assertLess(end, installer.index('configure_network apply'))
-        real_stat = Path.stat
-
-        def root_owned(path, *args, **kwargs):
-            values = list(real_stat(path, *args, **kwargs))
-            values[4] = 0  # Simulate host root ownership, never chown the test host.
-            return os.stat_result(values)
-
-        with tempfile.TemporaryDirectory() as tmp, patch.object(Path, 'stat', root_owned):
-            root = Path(tmp).resolve()
-            payload = [PREFIX + name for name in FILES]
-            check(root, payload)
-            self.assertEqual(list(root.iterdir()), [])
-            for name in FILES:
-                target = root / PREFIX.removeprefix('rootfs/') / name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text('operator bytes')
-                with self.assertRaisesRegex(SystemExit, 'occupied Sodaspaces'):
-                    check(root, payload)
-                self.assertEqual(target.read_text(), 'operator bytes')
-                target.unlink()  # Only exact temporary fixture files.
-            target = root / PREFIX.removeprefix('rootfs/') / FILES[0]
-            target.symlink_to(root / 'missing')
-            with self.assertRaisesRegex(SystemExit, 'symlink'):
-                check(root, payload)
-            target.unlink()
-            os.mkfifo(target)
-            with self.assertRaisesRegex(SystemExit, 'occupied Sodaspaces'):
-                check(root, payload)
-            target.unlink()
-            target.parent.chmod(0o777)
-            with self.assertRaisesRegex(SystemExit, 'unsafe installation'):
-                check(root, payload)
-            target.parent.chmod(0o755)
-            # Keep the one stock CoreOS link; refuse other links in ancestry.
-            (root / 'usr').mkdir()
-            (root / 'var/usrlocal').mkdir()
-            (root / 'usr/local').symlink_to(root / 'var/usrlocal', target_is_directory=True)
-            check(root, ['rootfs/usr/local/bin/tool'])
-            (root / 'var/usrlocal/bin').symlink_to(root / 'elsewhere')
-            with self.assertRaisesRegex(SystemExit, 'symlink'):
-                check(root, ['rootfs/usr/local/bin/tool'])

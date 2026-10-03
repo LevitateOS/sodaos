@@ -163,7 +163,7 @@ func validOperatorToken(token string) bool {
 func promptOperatorToken(c console, address, origin string) (string, error) {
 	c.print("The final Soda address will be %s", origin)
 	c.print("Use a stable address or DHCP reservation. Changing it later needs explicit configuration maintenance.")
-	c.print("If you have no SSH key access yet, cancel and run %s enroll-key at the local console.", installerBinary)
+	c.print("If you have no SSH key access yet, cancel and run %s enroll-key at the local console.", candidateInstallerBinary)
 	c.print("From your laptop, connect with an SSH tunnel to the native Forgejo installer:")
 	c.print("ssh -L 33000:127.0.0.1:3000 root@%s", address)
 	c.print("Open http://localhost:33000 and complete Forgejo's own installation and administrator account setup.")

@@ -38,7 +38,7 @@ func TestCandidateSharedLayoutAuthenticatesAllImagesWithoutArchives(t *testing.T
 	require.NoError(t, os.WriteFile(console, []byte("prebuilt fixture"), 0o755))
 	consoleHash, err := build.HashFile(console)
 	require.NoError(t, err)
-	m := mediaIdentity{Format: 2, Architecture: p.Architecture, Release: p.CoreOS, Revision: rev, InstallerVersion: "coreos-installer 0.26.0", HostManifest: "sha256:" + hash, PayloadSHA256: payloadHash, ConsoleSHA256: consoleHash}
+	m := mediaIdentity{Architecture: p.Architecture, Release: p.CoreOS, Revision: rev, InstallerVersion: "coreos-installer 0.26.0", HostManifest: "sha256:" + hash, PayloadSHA256: payloadHash, ConsoleSHA256: consoleHash}
 	_, uniqueBytes, err := deliver.VerifyContent(p, images)
 	require.NoError(t, err)
 	size, err := candidateRequirement(m, root)
@@ -52,7 +52,7 @@ func TestCandidateSharedLayoutAuthenticatesAllImagesWithoutArchives(t *testing.T
 	for _, forbidden := range []string{"/run/media/iso", "http", "--dest-device"} {
 		require.NotContains(t, string(live), forbidden)
 	}
-	for _, mutate := range []func(*mediaIdentity){func(m *mediaIdentity) { m.Format = 1 }, func(m *mediaIdentity) { m.BundleSHA256 = hash }, func(m *mediaIdentity) { m.HostManifest = "latest" }, func(m *mediaIdentity) { m.Revision = strings.Repeat("c", 40) }, func(m *mediaIdentity) { m.PayloadSHA256 = hash }, func(m *mediaIdentity) { m.ConsoleSHA256 = hash }} {
+	for _, mutate := range []func(*mediaIdentity){func(m *mediaIdentity) { m.HostManifest = "latest" }, func(m *mediaIdentity) { m.Revision = strings.Repeat("c", 40) }, func(m *mediaIdentity) { m.PayloadSHA256 = hash }, func(m *mediaIdentity) { m.ConsoleSHA256 = hash }, func(m *mediaIdentity) { m.InstallerVersion = "coreos-installer 0.25.0" }} {
 		bad := m
 		mutate(&bad)
 		_, err = candidateRequirement(bad, root)

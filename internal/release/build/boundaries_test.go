@@ -7,66 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
-
-func TestBundleRejectsLinkedVerifierParent(t *testing.T) {
-	root := fixtureBundle(t)
-	tools := filepath.Join(root, "tools")
-	outside := filepath.Join(t.TempDir(), "retained-tools")
-	if err := os.Rename(tools, outside); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(outside, tools); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := tree(root); err == nil {
-		t.Fatal("followed outside verifier parent")
-	}
-}
-
-func TestBundleRejectsRetiredReactPayload(t *testing.T) {
-	for _, name := range []string{"rootfs/usr/local/share/soda/dashboard/index.html", "inputs/dashboard-package.json", "inputs/dashboard-pnpm-lock.yaml"} {
-		t.Run(name, func(t *testing.T) {
-			root := fixtureBundle(t)
-			file := filepath.Join(root, name)
-			if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(file, []byte("retired React payload"), 0o644); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := tree(root); err == nil {
-				t.Fatal("accepted retired React payload")
-			}
-		})
-	}
-}
-
-func TestBuildInputIdentityIsChecked(t *testing.T) {
-	root := fixtureBundle(t)
-	var inv Inventory
-	if err := ReadJSON(filepath.Join(root, inventoryName), &inv); err != nil {
-		t.Fatal(err)
-	}
-	if err := verifyBuildInputs(root, "x86_64", fixtureRevision, inv.Images); err != nil {
-		t.Fatal(err)
-	}
-	if err := verifyBuildInputs(root, "aarch64", fixtureRevision, inv.Images); err == nil {
-		t.Fatal("accepted mismatched input platform")
-	}
-	inv.Images["dashboard"] = Image{Config: "sha256:" + strings.Repeat("0", 64)}
-	if err := verifyBuildInputs(root, "x86_64", fixtureRevision, inv.Images); err == nil {
-		t.Fatal("accepted mismatched input image")
-	}
-	if err := os.WriteFile(filepath.Join(root, "inputs/native-build.json"), []byte("not JSON"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := verifyBuildInputs(root, "x86_64", fixtureRevision, inv.Images); err == nil {
-		t.Fatal("accepted malformed build inputs")
-	}
-}
 
 func TestOCIRejectsIndexSchemaTypeAndDuplicateDirectories(t *testing.T) {
 	for _, mode := range []string{"schema", "type", "duplicate-directory", "external-descriptor"} {

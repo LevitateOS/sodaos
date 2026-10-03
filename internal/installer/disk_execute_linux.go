@@ -94,44 +94,23 @@ func diskInstallationStarted(marker string) (bool, error) {
 }
 
 func destinationForMedia(media mediaIdentity, template []byte, choices diskInstallChoices) ([]byte, error) {
-	switch media.Format {
-	case 2:
-		factory, err := readRegular("/usr/share/soda/defaults/host.example.json", 16384)
-		if err != nil {
-			return nil, err
-		}
-		return candidateDestination(template, factory, choices)
-	case 0:
-		return Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
-	default:
-		return nil, errors.New("unsupported media format; only the legacy and candidate installers are supported")
+	if err := media.validate(media.Release, architecture()); err != nil {
+		return nil, err
 	}
-}
-
-func attachContinuation(media mediaIdentity, destination []byte) ([]byte, error) {
-	if media.Format != 0 {
-		return destination, nil
-	}
-	binary, err := readRegular(installerBinary, 64<<20)
+	factory, err := readRegular("/usr/share/soda/defaults/host.example.json", 16384)
 	if err != nil {
 		return nil, err
 	}
-	return addContinuation(destination, binary)
+	return candidateDestination(template, factory, choices)
 }
 
-func printDiskComplete(c console, media mediaIdentity) {
-	if media.Format == 2 {
-		c.print("SodaOS disk installation completed with all five application images local.")
-		c.print("Remove installation media, then confirm the reboot prompt below; log in locally as root with your password.")
-		c.print("Native startup imports the included images before starting their services.")
-		c.print("SSH password access is enabled; log in as root over SSH with your password.")
-		c.print("To go key-only later, run locally after reboot: %s enroll-key, then disable password logins yourself.", candidateInstallerBinary)
-		c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
-		return
-	}
-	c.print("CoreOS disk installation completed; Soda setup is not complete.")
-	c.print("Remove installation media, then confirm the reboot prompt below.")
-	c.print("On the installed system run: sudo %s continue", installerBinary)
+func printDiskComplete(c console) {
+	c.print("SodaOS disk installation completed with all five application images local.")
+	c.print("Remove installation media, then confirm the reboot prompt below; log in locally as root with your password.")
+	c.print("Native startup imports the included images before starting their services.")
+	c.print("SSH password access is enabled; log in as root over SSH with your password.")
+	c.print("To go key-only later, run locally after reboot: %s enroll-key, then disable password logins yourself.", candidateInstallerBinary)
+	c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
 }
 
 // rebootAfterInstall closes the live-console installer session. The console
@@ -169,12 +148,7 @@ func verifyDiskMedia() (mediaIdentity, uint64, error) {
 	if err := build.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
 		return media, 0, errors.New("missing media identity")
 	}
-	// Reject unknown formats here so they can never fall through to the
-	// legacy provisioning path below.
-	if media.Format != 0 && media.Format != 2 {
-		return media, 0, errors.New("unsupported media format; only the legacy and candidate installers are supported")
-	}
-	payloadBytes, err := payloadRequirement(media)
+	payloadBytes, err := candidateRequirement(media, "/")
 	if err != nil {
 		return media, 0, err
 	}
@@ -211,13 +185,8 @@ func promptDiskAttempt(c console) error {
 	return err
 }
 
-func finishDiskAttempt(ctx context.Context, c console, disk Disk, media mediaIdentity, payloadBytes uint64) error {
-	if media.Format != 2 {
-		if err := copyInstalledPayload(ctx, disk, media, payloadBytes, command); err != nil {
-			return err
-		}
-	}
-	printDiskComplete(c, media)
+func finishDiskAttempt(c console) error {
+	printDiskComplete(c)
 	return nil
 }
 
@@ -245,10 +214,6 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	if err != nil {
 		return err
 	}
-	destination, err = attachContinuation(media, destination)
-	if err != nil {
-		return err
-	}
 	ignition, err := writeAttemptIgnition(destination)
 	if err != nil {
 		return err
@@ -259,7 +224,7 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	if err := executeAttemptDisk(ctx, choices.disk, ignition, marker); err != nil {
 		return err
 	}
-	return finishDiskAttempt(ctx, c, choices.disk, media, payloadBytes)
+	return finishDiskAttempt(c)
 }
 
 func executeAttemptDisk(ctx context.Context, disk Disk, ignition, marker string) error {

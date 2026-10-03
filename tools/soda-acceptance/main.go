@@ -45,8 +45,6 @@ type runOptions struct {
 	remoteFile    string
 	request       string
 	config        string
-	source        string
-	destination   string
 	hold          bool
 	restart       bool
 	timeout       time.Duration
@@ -92,13 +90,6 @@ func validateNativeOpts(owner, request, remote string) error {
 	return nil
 }
 
-func validateTransferOpts(owner, source, dest, remote string) error {
-	if owner != "P05" || source == "" || dest == "" || remote == "" {
-		return errors.New("transfer requires P05, pinned remote, bundle and destination")
-	}
-	return nil
-}
-
 func validateProbeSSHOpts(owner, remote string) error {
 	if owner != "P11" || remote == "" {
 		return errors.New("probe-ssh requires P11 and a pinned Git endpoint")
@@ -117,8 +108,6 @@ func validateRemoteAction(opts runOptions) error {
 	switch opts.action {
 	case "native":
 		return validateNativeOpts(opts.owner, opts.request, opts.remoteFile)
-	case "transfer":
-		return validateTransferOpts(opts.owner, opts.source, opts.destination, opts.remoteFile)
 	case "probe-ssh":
 		return validateProbeSSHOpts(opts.owner, opts.remoteFile)
 	case "vm":
@@ -149,8 +138,6 @@ func parseOptionFlags(action string, args []string) (runOptions, error) {
 	remoteFile := f.String("remote", "", "pinned SSH connection JSON")
 	request := f.String("request", "", "restricted exact-source native request JSON")
 	config := f.String("config", "", "VM configuration JSON")
-	source := f.String("bundle", "", "verified source bundle directory")
-	destination := f.String("destination", "", "new absolute remote ARCH directory")
 	hold := f.Bool("hold", false, "keep fresh VM running for separately invoked core checks")
 	restart := f.Bool("restart", false, "explicitly restart this new VM once, retaining disk/NVRAM")
 	timeout := f.Duration("timeout", 30*time.Minute, "bounded phase duration")
@@ -170,8 +157,6 @@ func parseOptionFlags(action string, args []string) (runOptions, error) {
 		remoteFile:    *remoteFile,
 		request:       *request,
 		config:        *config,
-		source:        *source,
-		destination:   *destination,
 		hold:          *hold,
 		restart:       *restart,
 		timeout:       *timeout,
@@ -184,7 +169,7 @@ func parseOptionFlags(action string, args []string) (runOptions, error) {
 func parseRunOptions(args []string) (runOptions, error) {
 	action := args[0]
 	switch action {
-	case "exec", "native", "transfer", "vm", "probe-ssh":
+	case "exec", "native", "vm", "probe-ssh":
 	default:
 		return runOptions{}, errors.New("no product/media/release workflow is implemented by this support tool")
 	}
@@ -327,22 +312,6 @@ func executeProbeSSH(phase context.Context, e *acceptance.Evidence, remote accep
 	return nil, werr
 }
 
-func executeTransfer(phase context.Context, e *acceptance.Evidence, remote acceptance.Remote, source, destination, arch, revision, target string, o *acceptance.Observation) (error, error) {
-	o.Invocation = []string{"transfer sealed bundle", source, destination}
-	r, werr := remote.TransferBundle(phase, e, source, destination, arch, revision, target)
-	o.ExitCode = r.ExitCode
-	for name, hash := range r.Artifacts {
-		o.Artifacts[name] = hash
-	}
-	if r.Started {
-		o.Execution = "completed"
-		if r.Err != nil {
-			o.Execution = "failed"
-		}
-	}
-	return r.Err, werr
-}
-
 func runVMPhase(phase context.Context, e *acceptance.Evidence, vm *acceptance.VM, vmConfig acceptance.VMConfig, restart, hold bool, o *acceptance.Observation) (error, error) {
 	o.Execution = "completed"
 	evidenceErr := e.Write("boot-ready.txt", []byte("Fresh guest reached pinned SSH readiness. This is fixture evidence, not a product check.\n"))
@@ -398,8 +367,6 @@ func executeAction(phase context.Context, e *acceptance.Evidence, opts runOption
 		return executeExecOrNative(phase, e, opts.action, opts.cmdArgs, opts.remoteFile, opts.request, opts.revision, opts.arch, opts.target, &remote, o)
 	case "probe-ssh":
 		return executeProbeSSH(phase, e, remote, o)
-	case "transfer":
-		return executeTransfer(phase, e, remote, opts.source, opts.destination, opts.arch, opts.revision, opts.target, o)
 	case "vm":
 		return executeVM(phase, e, vmConfig, opts.restart, opts.hold, o)
 	default:
@@ -466,7 +433,7 @@ func finalizeObservation(e *acceptance.Evidence, o acceptance.Observation, opera
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: soda-acceptance exec|native|transfer|vm|probe-ssh|report [flags]")
+		return errors.New("usage: soda-acceptance exec|native|vm|probe-ssh|report [flags]")
 	}
 	action := args[0]
 	if action == "report" {

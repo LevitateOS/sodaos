@@ -28,7 +28,7 @@ def phase_request():
         raise ValueError('matching-native Linux required')
     if platform.node() != x['Target']:
         raise ValueError('actual native hostname does not match target')
-    if x['Phase'] not in ('prepare', 'build', 'check', 'bundle'):
+    if x['Phase'] not in ('prepare', 'build', 'check'):
         raise ValueError('unknown phase; no install/VM/provider/release phases')
     work = Path(x['Work'])
     if not work.is_absolute() or work.parent.resolve() != work.parent or not work.parent.is_dir():
@@ -91,9 +91,6 @@ def admit_existing_run(x, work, receipt):
         raise ValueError('phase does not belong to this source/target/run')
     if not (work / 'prepare.completed').is_file():
         raise ValueError('prepare did not complete')
-    prerequisite = {'bundle': 'check.completed'}.get(x['Phase'])
-    if prerequisite and not (work / prerequisite).is_file():
-        raise ValueError('required earlier phase did not complete')
 
 
 def phase_command(phase, x, work):
@@ -115,26 +112,6 @@ def phase_command(phase, x, work):
         if not candidate.is_dir():
             raise ValueError('check requires work/candidate pointing at soda-build artifacts')
         return ['bash', 'scripts/check-native.sh', x['Architecture'], str(candidate)]
-    if phase == 'bundle':
-        (work / 'bundle').mkdir(mode=0o700)
-        candidate = work / 'candidate'
-        if not candidate.is_dir():
-            raise ValueError('bundle requires work/candidate soda-build artifacts')
-        tool = candidate / 'tools' / 'soda-artifacts'
-        if not tool.is_file():
-            raise ValueError('candidate tools/soda-artifacts required for bundle export')
-        return [
-            str(tool),
-            'bundle',
-            '--source',
-            str(candidate),
-            '--out',
-            str(work / 'bundle' / x['Architecture']),
-            '--arch',
-            x['Architecture'],
-            '--revision',
-            x['Revision'],
-        ]
     return None
 
 

@@ -18,6 +18,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestSourceSnapshotsLandInCandidateDirectory(t *testing.T) {
+	out := t.TempDir()
+	for _, dir := range []string{"work", "artifacts"} {
+		require.NoError(t, os.Mkdir(filepath.Join(out, dir), 0o700))
+	}
+	var calls []string
+	execute := func(dir, name string, args ...string) error {
+		calls = append(calls, name+" "+strings.Join(args, " "))
+		return nil
+	}
+	revision := strings.Repeat("a", 40)
+	snapshot, err := extractBuildSnapshot(t.TempDir(), out, revision, execute)
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(out, "work/source"), snapshot)
+	require.Len(t, calls, 2)
+	require.Contains(t, calls[0], "archive")
+	require.Contains(t, calls[0], filepath.Join(out, "artifacts/source.tar"))
+	require.Contains(t, calls[0], revision)
+	require.True(t, strings.HasPrefix(calls[1], "tar "))
+}
+
 func TestControllerAdmissionRefusesBeforeProduction(t *testing.T) {
 	for _, mode := range []string{"dirty", "revision", "occupied", "outside", "worktree", "architecture", "forgejo-dirty", "forgejo-revision", "forgejo-worktree"} {
 		t.Run(mode, func(t *testing.T) {
@@ -160,10 +181,9 @@ func TestCandidateBoundaryDoesNotAdmitOrDispatchMedia(t *testing.T) {
 func TestCandidateRecordsExactForkArchive(t *testing.T) {
 	root := t.TempDir()
 	out := filepath.Join(root, "artifacts")
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "inputs"), 0o700))
 	require.NoError(t, os.Mkdir(out, 0o700))
 	archive := []byte("archived fork source")
-	require.NoError(t, os.WriteFile(filepath.Join(root, "inputs/forgejo-source.tar"), archive, 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(out, "forgejo-source.tar"), archive, 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(out, "payload.json"), []byte("payload"), 0o600))
 	toolchain, err := json.MarshalIndent(build.ForgejoToolchain{CompilerImage: build.ForgejoCompilerImage, APKPackages: []string{"build-base-0.5-r4", "gcc-14.2.0-r6", "musl-dev-1.2.5-r10"}}, "", "  ")
 	require.NoError(t, err)
@@ -198,7 +218,7 @@ func TestCandidateRecordsExactForkArchive(t *testing.T) {
 	require.Equal(t, candidate.ContentSHA256["forgejo:/usr/local/bin/gitea"], candidate.ContentSHA256["extension:/usr/local/bin/gitea"])
 	require.NoError(t, candidate.ForgejoToolchain.Validate())
 	require.Error(t, recordCandidate(out, "ghcr.io/example/sodaos", build.Image{}, "", "", "x86_64"))
-	require.NoError(t, os.Remove(filepath.Join(root, "inputs/forgejo-source.tar")))
+	require.NoError(t, os.Remove(filepath.Join(out, "forgejo-source.tar")))
 	require.Error(t, recordCandidate(out, "ghcr.io/example/sodaos", host, "", revision, "x86_64"))
 }
 

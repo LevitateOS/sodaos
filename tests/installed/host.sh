@@ -7,12 +7,6 @@ podman() { command podman --remote=false "$@"; }
 }
 [[ $(id -u) == 0 && -f /etc/soda/installed ]]
 [[ $(getenforce) == Enforcing ]]
-if [[ -n ${SODA_BUNDLE:-} ]]; then
-  "$SODA_BUNDLE/tools/soda-artifacts" verify-installed --source "$SODA_BUNDLE" \
-    --arch "$(uname -m)" --revision "${SODA_REVISION:?Selected bundle revision required}"
-else
-  printf 'Artifact identity not checked: substrate facts only; supply SODA_BUNDLE/SODA_REVISION for candidate binding.\n'
-fi
 . /etc/os-release
 [[ "$ID" == fedora && ${VARIANT_ID:-} == coreos ]]
 phase=pre-activation

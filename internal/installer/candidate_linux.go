@@ -13,30 +13,15 @@ import (
 
 const candidateInstallerBinary = "/usr/libexec/soda/soda-install"
 
-func (m mediaIdentity) validFormat0() bool {
-	return build.Digest(m.BundleSHA256) && m.HostManifest == "" && m.PayloadSHA256 == "" && m.ConsoleSHA256 == ""
-}
-
-func (m mediaIdentity) validFormat2() bool {
-	return m.BundleSHA256 == "" && strings.HasPrefix(m.HostManifest, "sha256:") && build.Digest(strings.TrimPrefix(m.HostManifest, "sha256:")) && build.Digest(m.PayloadSHA256) && build.Digest(m.ConsoleSHA256)
-}
-
 func (m mediaIdentity) validContent() bool {
-	switch m.Format {
-	case 0:
-		return m.validFormat0()
-	case 2:
-		return m.validFormat2()
-	default:
-		return false
-	}
+	return strings.HasPrefix(m.HostManifest, "sha256:") && build.Digest(strings.TrimPrefix(m.HostManifest, "sha256:")) && build.Digest(m.PayloadSHA256) && build.Digest(m.ConsoleSHA256)
 }
 
 // The authenticated minimal ISO anchors native stream verification before live
 // Ignition runs. Verify its expected Soda payload and all local image content, not an
 // ISO mount or rpm-ostree status (the live EROFS root is not a booted deployment).
 func candidateIdentityMatches(m mediaIdentity) error {
-	if m.Format != 2 || m.validate(m.Release, architecture()) != nil || m.InstallerVersion != "coreos-installer 0.26.0" {
+	if m.validate(m.Release, architecture()) != nil || m.InstallerVersion != "coreos-installer 0.26.0" {
 		return errors.New("invalid candidate media identity")
 	}
 	return nil

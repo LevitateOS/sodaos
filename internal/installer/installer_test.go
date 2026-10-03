@@ -109,16 +109,6 @@ func TestDestinationUsesConvertedPublicBootstrap(t *testing.T) {
 			t.Error("template collision accepted")
 		}
 	}
-	withBinary, err := addContinuation(data, []byte("fixture-not-an-executable"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(withBinary), "/var/usrlocal/libexec/soda/soda-install") || strings.Contains(string(withBinary), "ExecStart=") {
-		t.Fatal("continuation must be explicit, not an automatic install service")
-	}
-	if _, err := addContinuation(withBinary, []byte("duplicate")); err == nil {
-		t.Fatal("continuation collision accepted")
-	}
 	if _, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(paths["/etc/hostname"].(map[string]interface{})["contents"].(map[string]interface{})["source"].(string), "data:;base64,")); err != nil {
 		t.Fatal(err)
 	}
@@ -260,17 +250,6 @@ func TestDiskExecutionBoundary(t *testing.T) {
 	}
 }
 
-func TestExtensionActivationRequired(t *testing.T) {
-	for _, raw := range []string{`{}`, `{"deployments":[{"booted":false},{"booted":true}]}`, `{"deployments":[{"booted":true,"staged":true}]}`, `{"deployments":[{"booted":true},{"booted":true}]}`, `invalid`} {
-		if extensionsBooted([]byte(raw)) == nil {
-			t.Fatal("unconfirmed activation accepted")
-		}
-	}
-	if err := extensionsBooted([]byte(`{"deployments":[{"booted":true},{"booted":false}]}`)); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestPrivateInputAndOutputBounds(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "input")
@@ -294,9 +273,6 @@ func TestPrivateInputAndOutputBounds(t *testing.T) {
 	if _, err := b.Write(make([]byte, (8<<20)+1)); err == nil {
 		t.Fatal("unbounded command output")
 	}
-	if _, err := verifyTrustedBundle(dir, "not-a-digest", "x86_64"); err == nil {
-		t.Fatal("untrusted bundle accepted")
-	}
 }
 
 func TestOSReleaseParsing(t *testing.T) {
@@ -304,7 +280,7 @@ func TestOSReleaseParsing(t *testing.T) {
 	if values["VERSION_ID"] != "44" || values["IMAGE_VERSION"] != "44.20260817.3.2" || values["VARIANT_ID"] != "coreos" {
 		t.Fatal(values)
 	}
-	media := mediaIdentity{Architecture: "x86_64", Release: "44.20260817.3.2", Revision: strings.Repeat("a", 40), BundleSHA256: strings.Repeat("b", 64)}
+	media := mediaIdentity{Architecture: "x86_64", Release: "44.20260817.3.2", Revision: strings.Repeat("a", 40), HostManifest: "sha256:" + strings.Repeat("b", 64), PayloadSHA256: strings.Repeat("c", 64), ConsoleSHA256: strings.Repeat("d", 64)}
 	if err := media.validate(values["IMAGE_VERSION"], "x86_64"); err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +302,7 @@ func TestOSReleaseParsing(t *testing.T) {
 		t.Fatal("empty image identity accepted")
 	}
 	media.Release = values["IMAGE_VERSION"]
-	media.BundleSHA256 = "unreviewed"
+	media.PayloadSHA256 = "unreviewed"
 	if err := media.validate(values["IMAGE_VERSION"], "x86_64"); err == nil {
 		t.Fatal("invalid included payload digest accepted")
 	}

@@ -124,20 +124,6 @@ class OutsideContracts(unittest.TestCase):
             container = (ROOT / 'appliance/services' / name).read_text()
             self.assertIn('ConditionPathExists=/etc/soda/activated', container)
 
-    def test_native_install_accepts_any_canonical_ipv4_project_network(self):
-        source = (ROOT / 'scripts/install-native.sh').read_text()
-        self.assertIn("'canonical IPv4 project network required'", source)
-        self.assertNotIn('RFC1918', source)
-
-    def test_installer_verifies_before_copy_and_retains_first_install_guard(self):
-        source = (ROOT / 'scripts/install-native.sh').read_text()
-        self.assertLess(source.index('soda-artifacts" verify'), source.index('tar -C'))
-        self.assertLess(source.index('configure_network check'), source.index('tar -C'))
-        self.assertIn('/etc/soda/install-started', source)
-        self.assertIn('--no-same-owner --no-overwrite-dir', source)
-        self.assertIn('podman tag "$id" "$reference"', source)
-        self.assertNotIn('podman pull', source)
-
     def test_https_origin_refuses_credentials_and_downgrades(self):
         module = load('https_fixture', 'tests/installed/service-https.py')
         import argparse

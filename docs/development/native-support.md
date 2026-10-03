@@ -17,11 +17,10 @@ Notices: [Notices](../research/notices.md).
 | Interface | Owner / implementation boundary |
 | --- | --- |
 | `build-native.sh` / `build-iso.sh` / `soda-host-image` | Use `tools/soda-build`. |
-| `check-native.sh ARCH CANDIDATE_DIR` | Verifies a soda-build candidate artifacts directory; does not build. Optional `SODA_STAGE` still runs retained packaging readers. |
+| `check-native.sh ARCH CANDIDATE_DIR` | Verifies a soda-build candidate artifacts directory; does not build. |
 | Containerfile `BASE_IMAGE` argument | The build pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
-| `install-native.sh /absolute/bundle/ARCH PRIVATE_SUBNET` | Existing first-install interface. Support adds verified archives, preflight before delivery, existing core tag restoration and a retained partial-install marker. No setup/OAuth/migration implementation is copied. |
 | `render-provisioning.py` | Public `appliance/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
-| `tools/soda-artifacts`, `tools/soda-acceptance` | Separate native `tools/` output, never appliance `cmd/`, rootfs or container payload. The bundle carries only the verifier as a transport utility, not an installed program. |
+| `tools/soda-artifacts`, `tools/soda-acceptance` | Separate native `tools/` output, never appliance `cmd/`, rootfs or container payload. Candidates carry them for archive inspection and media-input conversion, not as installed programs. |
 | Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; the read-only native-page journey and exported-payload checks passed at their documented local scope. |
 
 Reuse and licensing are recorded in [native support notices](../research/notices.md). The predecessor checkout and `scripts/test-vm.sh` remain separate and preserved.
@@ -35,16 +34,15 @@ This section owns command effects, not an approval queue. Apply the
 local work does not need a new grant per command.
 
 - `exec`: runs exactly the supplied owned check, locally or over pinned SSH. Its selected check determines browser, native and provider effects.
-- `native`: one remote `prepare`, `build`, `check` or `bundle` phase. No automatic next phase. Preparation clones the canonical repository into a new private checkout; it never copies laptop binaries/dependencies/state.
+- `native`: one remote `prepare`, `build` or `check` phase. No automatic next phase. Preparation clones the canonical repository into a new private checkout; it never copies laptop binaries/dependencies/state.
 - `fetch-coreos`: downloads/verifies/decompresses a public QEMU base into a fresh private cache. No overwrite, key import, VM or installation.
 - `fetch-coreos-iso`: downloads/verifies the uncompressed upstream ISO resolved live from the stable stream for the requested architecture, using the same trusted-key/signature boundary, into new `coreos.iso` and `verified-iso.json` outputs. No stored version is consulted. It does not customize, boot, publish or install; soda-build media assembly is the concrete media caller.
 - `convert-butane`: runs strict native Butane conversion into a new restricted file. No boot or install.
 - `vm`: creates a new KVM overlay/NVRAM/process, boots to pinned SSH, then shuts down. `--restart` explicitly tests one restart of those same files. `--hold` keeps it available for separately authorized checks. The selected Ignition may install extensions: that requires installation permission as well as boot permission.
-- `transfer`: validates/streams only a sealed bundle into a new remote directory, checks the transferred verifier before executing it, and verifies the payload. It does **not** install.
 - `probe-ssh`: direct Git-endpoint key exchange using an existing trusted pin, without credentials, proxy, keyscan or Git authentication.
 - `report`: reads/cites existing observations and verifies their retained-file hashes. No native work, retry, product verdict or publication.
 
-The existing build now pulls the unchanged selected Forgejo/Caddy references for the matching platform and runs fresh, network-disabled, read-only image-inspection containers for RPM/Tea/gh version metadata. These are build inspection containers, **not project containers**. Include those operations in a build grant. The installer loads those exact archives and restores existing service references rather than looking up mutable tags later.
+The existing build now pulls the unchanged selected Forgejo/Caddy references for the matching platform and runs fresh, network-disabled, read-only image-inspection containers for RPM/Tea/gh version metadata. These are build inspection containers, **not project containers**. Include those operations in a build grant. The candidate embeds those exact images for native import rather than looking up mutable tags later.
 
 ## Build and artifact contract
 
@@ -56,18 +54,11 @@ Use a fresh exact-revision checkout on matching-native Linux. A dirty checkout, 
 ```sh
 # After soda-build writes candidate artifacts:
 bash scripts/check-native.sh x86_64 /ABS/PATH/TO/artifacts
-# Optional export when the candidate (or a retained sealed stage) includes soda-artifacts:
-/ABS/PATH/TO/artifacts/tools/soda-artifacts bundle \
-  --source /ABS/PATH/TO/artifacts \
-  --arch x86_64 --revision FULL_COMMIT_SHA \
-  --out /absolute/new-export/x86_64
 ```
 
-The export's parent must already exist; the `ARCH` directory must not. A legacy bundle contains `rootfs/`, five actual OCI archives (including the floating Tailnet companion), the matching installer, verifier, public dependency/input records, notices, `build-info.json` and `SHA256SUMS`. soda-build candidates carry payload/candidate/OCI archives under `artifacts/` without a writable rootfs tree. The inspector checks ELF architecture, blob hashes, config/platform/source/base identity, required existing core payload, modes, symlinks and the exact file inventory when verifying a sealed legacy stage. The payload contains Fountain branding/templates and the separately packaged Soda extension and service, not a standalone React frontend or Go page shells. Core packaging tests still own their detailed payload assertions when `SODA_STAGE` points at a retained rootfs.
+soda-build candidates carry payload/candidate/OCI archives under `artifacts/`. The payload contains Fountain branding/templates and the separately packaged Soda extension and service, not a standalone React frontend or Go page shells. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
 
-`SHA256SUMS` identifies `build-info.json`, which identifies every delivered payload file. Establish that checksum through a trusted external channel **before executing any bundled program**, then verify the inventory. These are integrity records, not signatures or reproducible-build claims. Mutable package repositories and actual resolved RPMs are recorded, not disguised as pinned/reproducible inputs.
-
-The first installer verifies before copying writable prefixes, validates the RFC1918 subnet and subordinate ranges before applying them, and refuses existing/partial Soda state. `/etc/soda/install-started` remains after a partial failure; do not remove it to pretend the attempt was clean. Application setup, HTTPS activation and migrations still use core-owned commands. Fresh extension bootstrap needs its separately approved activation reboot before installation; [existing Cockpit addon maintenance](../guides/installation.md) owns the native additive live-update option. Do not install Soda on the builder.
+The disk installer verifies candidate media before writing, validates the explicit project subnet before applying it, and refuses to replay an attempted install. Application setup, HTTPS activation and migrations still use core-owned commands. Do not install Soda on the builder.
 
 ## Local host-content image candidate
 
@@ -160,7 +151,7 @@ readers and storage selectors are removed. No bootc installer, update engine, bo
 lint or sysusers workaround is used, and Zincati is not disabled. Fedora's inherited
 packages/bootable-container labels are not a Soda bootc integration.
 
-Outputs occupy `inputs/`, `work/`, `artifacts/`, `evidence/`, `release/` and `logs/`.
+Outputs occupy `work/`, `artifacts/`, `evidence/`, `release/` and `logs/`.
 `artifacts/` contains the six OCI archives (five under `images/`), tool binaries and
 hashes, payload/candidate identities and frozen app provenance. The once-compiled
 installer is also embedded in the host; native checks bind it to the exported tool.
@@ -303,7 +294,7 @@ candidate commissioning grant; this guide does not authorize additional effects.
 
 ## SSH, commands and exact-source remote phases
 
-Owned process execution (`exec`, `native`, `transfer`, `vm`) now requires Linux's
+Owned process execution (`exec`, `native`, `vm`) now requires Linux's
 non-reaping wait support. The leader remains pinned until its group is terminated,
 so an exited parent cannot leave descendants behind or let cleanup signal a reused
 PID. Non-Linux coordination can use existing approved SSH tooling; report/metadata
@@ -346,7 +337,7 @@ Literal argv quoting preserves empty/metacharacter arguments; stdin is not logge
 }
 ```
 
-The target is the machine's actual hostname, not an assumed DNS alias. Supply matching `--revision`, `--arch`, `--target`, `--owner P02`, `--remote`, `--request` and a **new** `--evidence` directory. Later requests change only `Phase` and reuse the binding. `check` requires completed `build`; `bundle` requires completed `check`. Each phase is exclusive, verifies the unchanged clean checkout, and retains failed work. No automatic retry or revision switch.
+The target is the machine's actual hostname, not an assumed DNS alias. Supply matching `--revision`, `--arch`, `--target`, `--owner P02`, `--remote`, `--request` and a **new** `--evidence` directory. Later requests change only `Phase` and reuse the binding. `check` requires completed `build`. Each phase is exclusive, verifies the unchanged clean checkout, and retains failed work. No automatic retry or revision switch.
 
 Remote commands are bounded with native `timeout` plus a 10-second termination allowance. Closing SSH is **not proof that a remote process has already stopped**; on interruption, retain the failed observation and inspect the authorized target before retrying. Core tests/provider actions own their resource cleanup. Source tools may be built on a separately authorized client for coordination; a client tool build is never appliance-architecture evidence.
 
@@ -415,7 +406,7 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 
 | Entry point | Observation, not a substitute for |
 | --- | --- |
-| `tests/installed/host.sh` | CoreOS/layering, service identities/capabilities, labels, listeners, observed activation phase; not login or a client route. Optional `SODA_HOST_PHASE` asserts the intended phase. Supply `SODA_BUNDLE`/`SODA_REVISION` to verify immutable delivered bytes and current service image IDs against that candidate; without them the script explicitly records that identity was not checked. |
+| `tests/installed/host.sh` | CoreOS/layering, service identities/capabilities, labels, listeners, observed activation phase; not login or a client route. Optional `SODA_HOST_PHASE` asserts the intended phase. Installed bytes and current service image IDs are verified against the installed release inventory. |
 | `service-ordering.sh` | Actual generated unit dependencies and failed units; no service mutations. |
 | `cockpit-account.py` | Real PAM account stage permits root and denies existing `nobody`; no new account and no password/session proof. |
 | `service-https.py ORIGIN CA_FILE` | Configured-origin trusted TLS from the selected client, no redirect/login journey or insecure fallback. |
@@ -435,9 +426,9 @@ Interactive console/native-branding reviews reuse the existing console welcome, 
 
 ## Evidence records
 
-For candidate-bound host evidence, invoke `verify-installed` (directly or through the host check's bundle/revision variables). It compares the install-attempt revision, immutable delivered files/modes/links and current Forgejo/dashboard/proxy image IDs. It deliberately does not compare mutable configuration, databases or existing project containers, whose policy and assertions remain core-owned.
+For candidate-bound host evidence, the host check compares installed content and current image IDs against `/usr/share/soda/release.json` and its content inventory. It deliberately does not compare mutable configuration, databases or existing project containers, whose policy and assertions remain core-owned.
 
-Each new private evidence root has bounded, streaming-redacted captures. Structured values are sanitized before JSON encoding; `observation.pending.json` is retained and linked exclusively to `observation.json` only after successful write/close/leak checks. A finalization failure leaves no new final record. The record includes: owner, requested source, actual tool VCS state, client platform, selected target/topology/invocation, separate execution/evidence outcomes, public artifact references, file hashes and cleanup status. Add `--secret-file` for each known private value; SSH/bootstrap paths are not credential contents. Private Ignition values are collected before serial capture. Transfers automatically retain the selected manifest hash; evidence records show invocation, exit and cleanup context. Generic `exec` source/target fields remain caller-declared unless the invoked owner check verifies them. Redirect queries are omitted. Exact-secret scanning is defense in depth, not proof against unknown secrets; capture selected facts only.
+Each new private evidence root has bounded, streaming-redacted captures. Structured values are sanitized before JSON encoding; `observation.pending.json` is retained and linked exclusively to `observation.json` only after successful write/close/leak checks. A finalization failure leaves no new final record. The record includes: owner, requested source, actual tool VCS state, client platform, selected target/topology/invocation, separate execution/evidence outcomes, public artifact references, file hashes and cleanup status. Add `--secret-file` for each known private value; SSH/bootstrap paths are not credential contents. Private Ignition values are collected before serial capture. Evidence records show invocation, exit and cleanup context. Generic `exec` source/target fields remain caller-declared unless the invoked owner check verifies them. Redirect queries are omitted. Exact-secret scanning is defense in depth, not proof against unknown secrets; capture selected facts only.
 
 ```sh
 /path/to/soda-acceptance report --arch x86_64 --revision FULL_COMMIT_SHA \

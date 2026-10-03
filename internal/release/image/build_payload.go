@@ -177,7 +177,6 @@ func sealCandidatePayload(p deliver.Payload, source, context, out string, produc
 }
 
 // completeCandidate is image-layout assembly, not a second component producer.
-// The legacy installer uses the same Production methods with its explicit layout.
 // The payload seals later: the host inventory floats, so its fingerprint is
 // recorded from the built image and set before sealing.
 func completeCandidate(source, context, out, arch, revision, prefix string, base Base, producer build.Production, phase func(string) error) (deliver.Payload, error) {

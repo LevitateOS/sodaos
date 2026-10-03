@@ -56,9 +56,6 @@ class RemoteExecutorTests(unittest.TestCase):
         (self.work / 'candidate').mkdir()
         (self.work / 'candidate' / 'payload.json').write_text('{}')
         (self.work / 'candidate' / 'candidate.json').write_text('{}')
-        (self.work / 'candidate' / 'tools').mkdir()
-        (self.work / 'candidate' / 'tools' / 'soda-artifacts').write_text('#!/bin/true\n')
-        (self.work / 'candidate' / 'tools' / 'soda-artifacts').chmod(0o755)
         before = len(self.calls)
         self.invoke('build')
         self.assertEqual(len(self.calls), before, 'build admits candidate bytes; it does not run a producer')
@@ -66,15 +63,13 @@ class RemoteExecutorTests(unittest.TestCase):
         self.invoke('check')
         self.assertEqual(self.calls[-1][:3], ['bash', 'scripts/check-native.sh', 'x86_64'])
         self.assertTrue(str(self.calls[-1][3]).endswith('/candidate'))
-        self.invoke('bundle')
-        self.assertIn('--revision', self.calls[-1])
-        self.assertTrue((self.work / 'bundle.completed').is_file())
         self.assertFalse(any('install-native.sh' in part for call in self.calls for part in call))
         self.assertFalse(any('build-native.sh' in part for call in self.calls for part in call))
 
     def test_unknown_phase_target_arch_and_revision_fail_before_creation(self):
         for phase, changes in [
             ('install', {}),
+            ('bundle', {}),
             ('prepare', {'Target': 'other'}),
             ('prepare', {'Architecture': 'aarch64'}),
             ('prepare', {'Revision': 'main'}),

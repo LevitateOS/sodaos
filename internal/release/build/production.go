@@ -2,7 +2,7 @@
 // production steps). It is not qualification orchestration, signing or install UX.
 package build
 
-// The two installation layouts share these concrete production steps, not two
+// The single image layout owns these concrete production steps, not two
 // copies of their command sequences. Containerfiles, locks and stage.py remain
 // the owners of content. This code never signs, publishes or installs anything.
 import (
@@ -25,13 +25,10 @@ type Production struct {
 	// LiveInputs is the controller-resolved live inputs file for this attempt.
 	// The worker never fetches: floating toolchain versions come from here.
 	LiveInputs string
-	// Vendor selects image-owned binaries and Forgejo presentation. Legacy is
-	// deliberately not byte-equivalent; it still uses the writable installer.
-	Vendor  bool
-	Execute BuildExec
-	Capture BuildCapture
-	Next    func(string) error
-	inputs  []ResolvedInput // admitted once; disk provenance is not execution authority
+	Execute    BuildExec
+	Capture    BuildCapture
+	Next       func(string) error
+	inputs     []ResolvedInput // admitted once; disk provenance is not execution authority
 }
 
 func (p Production) step(label string) error {
@@ -72,9 +69,9 @@ func SodaCommands(source string) ([]string, error) {
 	return names, nil // ReadDir is sorted.
 }
 
-// Compile is the sole Go command recipe for runtime programs and legacy support
-// tools. Vendor binaries intentionally use their layout tag and archive-safe VCS
-// mode; callers cannot silently substitute legacy binaries in a host image.
+// Compile is the sole Go command recipe for runtime programs and support
+// tools. Binaries intentionally use archive-safe VCS mode; the single image
+// layout owns every install path.
 func (p Production) Compile(name, pkg, dest string) error {
 	if e := p.validate(); e != nil {
 		return e
@@ -82,12 +79,7 @@ func (p Production) Compile(name, pkg, dest string) error {
 	if e := p.step("Compile " + name); e != nil {
 		return e
 	}
-	args := []string{"build", "-mod=readonly", "-trimpath"}
-	if p.Vendor {
-		args = append(args, "-buildvcs=false", "-tags=soda_host_image")
-	} else {
-		args = append(args, "-buildvcs=true")
-	}
+	args := []string{"build", "-mod=readonly", "-trimpath", "-buildvcs=false"}
 	args = append(args, "-o", dest, pkg)
 	if e := p.Execute(p.Source, "go", args...); e != nil {
 		return e
@@ -98,20 +90,15 @@ func (p Production) Compile(name, pkg, dest string) error {
 	return inspectELF(dest, p.Arch)
 }
 
-// Assets runs exactly once before layout-specific assembly or image production.
+// Assets runs exactly once before image production.
 func (p Production) Assets(hostContext, forgejoContext string) error {
 	if e := p.validate(); e != nil {
 		return e
 	}
-	stage := []string{"python3", "scripts/stage.py", "--arch", p.Arch}
-	if p.Vendor {
-		if !filepath.IsAbs(hostContext) || !filepath.IsAbs(forgejoContext) {
-			return errors.New("explicit vendor asset destinations required")
-		}
-		stage = append(stage, "--host-context", hostContext, "--forgejo-context", forgejoContext)
-	} else if hostContext != "" || forgejoContext != "" {
-		return errors.New("legacy assets cannot use vendor destinations")
+	if !filepath.IsAbs(hostContext) || !filepath.IsAbs(forgejoContext) {
+		return errors.New("explicit asset destinations required")
 	}
+	stage := []string{"python3", "scripts/stage.py", "--arch", p.Arch, "--host-context", hostContext, "--forgejo-context", forgejoContext}
 	return p.assetSteps(stage)
 }
 
@@ -174,9 +161,7 @@ func (p Production) assetSteps(stage []string) error {
 	steps := []assetStep{
 		{"Build frontend assets", []string{"bun", "scripts/build-forgejo.ts", "--out", filepath.Join(p.Native, "forgejo-js")}},
 		{"Fetch terminal assets", []string{"python3", "scripts/fetch-terminal.py", "--out", filepath.Join(p.Native, "terminal-assets")}},
-	}
-	if p.Vendor {
-		steps = append(steps, assetStep{"Build Soda extension browser assets", []string{"bun", "scripts/build-soda-extension.ts", "--out", filepath.Join(p.Native, "soda-extension-assets"), "--terminal-assets", filepath.Join(p.Native, "terminal-assets")}})
+		{"Build Soda extension browser assets", []string{"bun", "scripts/build-soda-extension.ts", "--out", filepath.Join(p.Native, "soda-extension-assets"), "--terminal-assets", filepath.Join(p.Native, "terminal-assets")}},
 	}
 	steps = append(steps,
 		assetStep{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
@@ -200,10 +185,7 @@ type ProducedImage struct {
 	ArchiveSHA256 string
 }
 
-// Images produces each selected app archive once. The only layout-specific app
-// recipe is Forgejo: vendor builds immutable presentation; legacy pulls upstream
-// and stages presentation into writable paths at installation. Proxy/caddy is one
-// component with the legacy archive filename retained for bundle compatibility.
+// Images produces each selected app archive once.
 func (p Production) pullFrozenImage(inputs []ResolvedInput, label, ref, iidName string) (string, string, error) {
 	if e := p.step("Select frozen " + label); e != nil {
 		return "", "", e
@@ -229,8 +211,8 @@ func (p Production) Images(forgejoContext string) (map[string]ProducedImage, err
 	if e := p.validate(); e != nil {
 		return nil, e
 	}
-	if p.Vendor != (forgejoContext != "") {
-		return nil, errors.New("explicit Forgejo layout required")
+	if forgejoContext == "" {
+		return nil, errors.New("explicit Forgejo context required")
 	}
 	archives := filepath.Join(p.Out, "images")
 	if e := os.Mkdir(archives, 0o755); e != nil {
@@ -460,23 +442,15 @@ func (p Production) exportForgejoImage(
 	if err != nil {
 		return err
 	}
-	iid := "forgejo"
-	if p.Vendor {
-		iid = "forgejo-base"
-	}
-	id, pinned, err := pull("Forgejo", forgejo, iid)
+	_, pinned, err := pull("Forgejo", forgejo, "forgejo-base")
 	if err != nil {
 		return err
 	}
-	revision := ""
-	if p.Vendor {
-		id, err = build("forgejo", forgejoContext, "Containerfile", pinned)
-		if err != nil {
-			return err
-		}
-		revision = p.Revision
+	id, err := build("forgejo", forgejoContext, "Containerfile", pinned)
+	if err != nil {
+		return err
 	}
-	return export("forgejo", id, revision)
+	return export("forgejo", id, p.Revision)
 }
 
 func (p Production) exportProxyImage(
@@ -487,15 +461,11 @@ func (p Production) exportProxyImage(
 	if err != nil {
 		return err
 	}
-	name := "caddy"
-	if p.Vendor {
-		name = "proxy"
-	}
-	id, _, err := pull("Proxy", proxy, name)
+	id, _, err := pull("Proxy", proxy, "proxy")
 	if err != nil {
 		return err
 	}
-	return export(name, id, "")
+	return export("proxy", id, "")
 }
 
 func (p Production) exportTailnetImage(
@@ -524,9 +494,6 @@ func (p Production) exportExtensionImage(
 	build func(string, string, string, string, ...string) (string, error),
 	export func(string, string, string) error,
 ) error {
-	if !p.Vendor {
-		return nil
-	}
 	id, err := build("extension", filepath.Join(p.Out, "extension-context"), "Containerfile", images["forgejo"].Config)
 	if err != nil {
 		return err

@@ -289,7 +289,7 @@ func admitBuildInputs(r Request, capture build.BuildCapture) (string, error) {
 }
 
 func initBuildDirectories(out string) error {
-	for _, dir := range []string{"inputs", "work", "artifacts", "evidence", "release", "logs"} {
+	for _, dir := range []string{"work", "artifacts", "evidence", "release", "logs"} {
 		if err := os.Mkdir(filepath.Join(out, dir), 0o700); err != nil {
 			return err
 		}
@@ -302,7 +302,7 @@ func extractBuildSnapshot(source, out, revision string, execute build.BuildExec)
 	if err := os.Mkdir(snapshot, 0o700); err != nil {
 		return "", err
 	}
-	archive := filepath.Join(out, "inputs/source.tar")
+	archive := filepath.Join(out, "artifacts/source.tar")
 	if err := execute(source, "git", "archive", "--format=tar", "--output", archive, revision); err != nil {
 		return "", err
 	}
@@ -536,7 +536,7 @@ func runBuild(ctx context.Context, r Request, progress *build.BuildProgress, exe
 	defer func() { err = errors.Join(err, closeLog()) }()
 
 	artifacts := filepath.Join(r.Out, "artifacts")
-	p := build.Production{Source: snapshot, ForgejoSource: filepath.Join(r.Out, "work/forgejo-ext"), ForgejoRevision: r.ForgejoRevision, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, LiveInputs: r.LiveInputs, Vendor: true, Execute: execute, Capture: capture, Next: progress.Next}
+	p := build.Production{Source: snapshot, ForgejoSource: filepath.Join(r.Out, "work/forgejo-ext"), ForgejoRevision: r.ForgejoRevision, Native: filepath.Join(snapshot, ".artifacts/native", r.Arch), Out: artifacts, Arch: r.Arch, Revision: revision, LiveInputs: r.LiveInputs, Execute: execute, Capture: capture, Next: progress.Next}
 
 	contextDir, base, mediaTooling, assembler, err := prepareBuildProduction(&p, r, snapshot, revision, execute, capture, progress.Phase)
 	if err != nil {

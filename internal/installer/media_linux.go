@@ -28,7 +28,7 @@ func CandidateLiveConfig(payload, destination []byte, manifest, consoleSHA256 st
 		return nil, errors.New("public converted destination template required")
 	}
 	sum := sha256.Sum256(payload)
-	m := mediaIdentity{Format: 2, Architecture: p.Architecture, Release: p.CoreOS, Revision: p.Revision, InstallerVersion: "coreos-installer 0.26.0", HostManifest: manifest, PayloadSHA256: hex.EncodeToString(sum[:]), ConsoleSHA256: consoleSHA256}
+	m := mediaIdentity{Architecture: p.Architecture, Release: p.CoreOS, Revision: p.Revision, InstallerVersion: "coreos-installer 0.26.0", HostManifest: manifest, PayloadSHA256: hex.EncodeToString(sum[:]), ConsoleSHA256: consoleSHA256}
 	if m.validate(p.CoreOS, p.Architecture) != nil {
 		return nil, errors.New("candidate media identity required")
 	}

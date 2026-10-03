@@ -37,7 +37,7 @@ func fixtureLiveInputs() LiveInputs {
 	}
 }
 
-func productionFixture(t *testing.T, vendor bool) (Production, *[]string) {
+func productionFixture(t *testing.T) (Production, *[]string) {
 	t.Helper()
 	root := t.TempDir()
 	out := filepath.Join(root, ".artifacts/native/x86_64")
@@ -75,7 +75,7 @@ func productionFixture(t *testing.T, vendor bool) (Production, *[]string) {
 		t.Fatal(e)
 	}
 	var calls []string
-	p := Production{Source: root, Native: out, Out: out, Arch: "x86_64", Revision: fixtureRevision, LiveInputs: livePath, Vendor: vendor}
+	p := Production{Source: root, Native: out, Out: out, Arch: "x86_64", Revision: fixtureRevision, LiveInputs: livePath}
 	p.Next = func(s string) error { calls = append(calls, "STEP "+s); return nil }
 	p.Capture = func(dir, name string, args ...string) (string, error) {
 		calls = append(calls, name+" "+strings.Join(args, " "))
@@ -129,87 +129,69 @@ func productionFixture(t *testing.T, vendor bool) (Production, *[]string) {
 	return p, &calls
 }
 
-func TestProductionBothLayoutsUseOneAssetAndImageSequence(t *testing.T) {
-	for _, vendor := range []bool{false, true} {
-		t.Run(map[bool]string{false: "legacy", true: "vendor"}[vendor], func(t *testing.T) {
-			p, calls := productionFixture(t, vendor)
-			host, forgejo := "", ""
-			if vendor {
-				host = filepath.Join(p.Out, "context")
-				forgejo = filepath.Join(p.Out, "forgejo-context")
-			}
-			if e := p.Dependencies(); e != nil {
-				t.Fatal(e)
-			}
-			if e := p.ResolveInputs(); e != nil {
-				t.Fatal(e)
-			}
-			if e := p.Assets(host, forgejo); e != nil {
-				t.Fatal(e)
-			}
-			for _, tool := range []string{"muse", "soda-identity-compose"} {
-				info, err := os.Stat(filepath.Join(p.Native, "project-tools/bin", tool))
-				if err != nil || info.Mode().Perm() != 0o755 {
-					t.Fatalf("public tool %s must be executable by project accounts: %v", tool, err)
-				}
-			}
-			images, e := p.Images(forgejo)
-			if e != nil {
-				t.Fatal(e)
-			}
-			wantImages := 5
-			if vendor {
-				wantImages++
-			}
-			if len(images) != wantImages {
-				t.Fatal(images)
-			}
-			text := strings.Join(*calls, "\n")
-			for _, needle := range []string{"bun install --frozen-lockfile", "bun scripts/build-forgejo.ts", "python3 scripts/fetch-tea.py", "python3 scripts/stage.py", "STEP Build image: dashboard\n", "STEP Build image: project-os\n", "STEP Build image: tailnet\n"} {
-				if strings.Count(text, needle) != 1 {
-					t.Fatalf("not produced exactly once: %s\n%s", needle, text)
-				}
-			}
-			if strings.Contains(text, "--host-context "+host+" --forgejo-context "+forgejo) != vendor {
-				t.Fatal("asset destinations do not match the selected layout", text)
-			}
-			if strings.Contains(text, "bun scripts/build-soda-extension.ts --out ") != vendor {
-				t.Fatal("separate Soda package asset build does not match vendor layout", text)
-			}
-			if strings.Count(text, " save --format=oci-archive") != wantImages {
-				t.Fatal(text)
-			}
-			if strings.Contains(text, " push ") || strings.Contains(text, " --rm ") || strings.Contains(text, "--replace") {
-				t.Fatal("unapproved publication/cleanup")
-			}
-			if strings.Contains(text, "STEP Build image: forgejo\n") != vendor {
-				t.Fatal("Forgejo layout confused")
-			}
-			proxy := "caddy"
-			if vendor {
-				proxy = "proxy"
-			}
-			if _, ok := images[proxy]; !ok {
-				t.Fatal("legacy filename or vendor identity lost")
-			}
-			for name, im := range images {
-				if !Digest(im.ArchiveSHA256) || im.Manifest == "" || im.Config == "" {
-					t.Fatal(im)
-				}
-				if _, e := os.Stat(filepath.Join(p.Out, "images", name+".oci")); e != nil {
-					t.Fatal(e)
-				}
-			}
-			before := len(*calls)
-			if _, e = p.Images(forgejo); e == nil || len(*calls) != before {
-				t.Fatal("replayed production over retained outputs")
-			}
-		})
+func TestProductionUsesOneAssetAndImageSequence(t *testing.T) {
+	p, calls := productionFixture(t)
+	host := filepath.Join(p.Out, "context")
+	forgejo := filepath.Join(p.Out, "forgejo-context")
+	if e := p.Dependencies(); e != nil {
+		t.Fatal(e)
+	}
+	if e := p.ResolveInputs(); e != nil {
+		t.Fatal(e)
+	}
+	if e := p.Assets(host, forgejo); e != nil {
+		t.Fatal(e)
+	}
+	for _, tool := range []string{"muse", "soda-identity-compose"} {
+		info, err := os.Stat(filepath.Join(p.Native, "project-tools/bin", tool))
+		if err != nil || info.Mode().Perm() != 0o755 {
+			t.Fatalf("public tool %s must be executable by project accounts: %v", tool, err)
+		}
+	}
+	images, e := p.Images(forgejo)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if len(images) != 6 {
+		t.Fatal(images)
+	}
+	text := strings.Join(*calls, "\n")
+	for _, needle := range []string{"bun install --frozen-lockfile", "bun scripts/build-forgejo.ts", "python3 scripts/fetch-tea.py", "python3 scripts/stage.py", "STEP Build image: dashboard\n", "STEP Build image: project-os\n", "STEP Build image: tailnet\n", "STEP Build image: forgejo\n", "bun scripts/build-soda-extension.ts --out "} {
+		if strings.Count(text, needle) != 1 {
+			t.Fatalf("not produced exactly once: %s\n%s", needle, text)
+		}
+	}
+	if !strings.Contains(text, "--host-context "+host+" --forgejo-context "+forgejo) {
+		t.Fatal("asset destinations do not match the selected layout", text)
+	}
+	if strings.Count(text, " save --format=oci-archive") != 6 {
+		t.Fatal(text)
+	}
+	if strings.Contains(text, " push ") || strings.Contains(text, " --rm ") || strings.Contains(text, "--replace") {
+		t.Fatal("unapproved publication/cleanup")
+	}
+	if _, ok := images["proxy"]; !ok {
+		t.Fatal("proxy identity lost")
+	}
+	if _, ok := images["caddy"]; ok {
+		t.Fatal("retired proxy filename retained")
+	}
+	for name, im := range images {
+		if !Digest(im.ArchiveSHA256) || im.Manifest == "" || im.Config == "" {
+			t.Fatal(im)
+		}
+		if _, e := os.Stat(filepath.Join(p.Out, "images", name+".oci")); e != nil {
+			t.Fatal(e)
+		}
+	}
+	before := len(*calls)
+	if _, e = p.Images(forgejo); e == nil || len(*calls) != before {
+		t.Fatal("replayed production over retained outputs")
 	}
 }
 
 func TestProductionFailureStopsBeforeLaterImages(t *testing.T) {
-	p, calls := productionFixture(t, true)
+	p, calls := productionFixture(t)
 	execute := p.Execute
 	sentinel := errors.New("fixture build refused")
 	p.Execute = func(dir, name string, args ...string) error {
@@ -236,7 +218,7 @@ func TestProductionFailureStopsBeforeLaterImages(t *testing.T) {
 func TestProductionRefusesWrongToolchainInputsAndLayout(t *testing.T) {
 	for _, mode := range []string{"bun", "base", "tailnet", "forgejo", "platform", "revision"} {
 		t.Run(mode, func(t *testing.T) {
-			p, _ := productionFixture(t, true)
+			p, _ := productionFixture(t)
 			switch mode {
 			case "bun":
 				p.Capture = func(string, string, ...string) (string, error) { return "different", nil }
@@ -259,7 +241,7 @@ func TestProductionRefusesWrongToolchainInputsAndLayout(t *testing.T) {
 				}
 			case "forgejo":
 				if _, e := p.Images(""); e == nil {
-					t.Fatal("legacy Forgejo entered host payload")
+					t.Fatal("unstaged Forgejo entered host payload")
 				}
 				return
 			case "platform":
@@ -275,36 +257,30 @@ func TestProductionRefusesWrongToolchainInputsAndLayout(t *testing.T) {
 }
 
 func TestProductionAssetDestinationsRefuseBeforeCommands(t *testing.T) {
-	for _, vendor := range []bool{false, true} {
-		p, calls := productionFixture(t, vendor)
-		host, forgejo := "/host-context", "/forgejo-context"
-		if vendor {
-			forgejo = ""
-		}
-		if err := p.Assets(host, forgejo); err == nil || len(*calls) != 0 {
+	for _, destinations := range [][2]string{{"/host-context", ""}, {"", "/forgejo-context"}, {"relative-host", "/forgejo-context"}, {"/host-context", "relative-forgejo"}} {
+		p, calls := productionFixture(t)
+		if err := p.Assets(destinations[0], destinations[1]); err == nil || len(*calls) != 0 {
 			t.Fatal("invalid asset layout had downstream effects", err, *calls)
 		}
 	}
 }
 
 func TestProductionCompileKeepsLayoutAndVerifiesELF(t *testing.T) {
-	for _, vendor := range []bool{false, true} {
-		p, calls := productionFixture(t, vendor)
-		dest := filepath.Join(p.Out, "program")
-		if e := p.Compile("soda-host", "./cmd/soda-host", dest); e != nil {
-			t.Fatal(e)
-		}
-		text := strings.Join(*calls, "\n")
-		if strings.Contains(text, "-tags=soda_host_image") != vendor || strings.Contains(text, "-buildvcs=false") != vendor {
-			t.Fatal(text)
-		}
-		if strings.Count(text, "go build") != 1 {
-			t.Fatal("duplicate compilation")
-		}
-		p.Execute = func(string, string, ...string) error { return os.WriteFile(dest, []byte("not ELF"), 0o755) }
-		if e := p.Compile("soda-host", "./cmd/soda-host", dest); e == nil {
-			t.Fatal("invalid program accepted")
-		}
+	p, calls := productionFixture(t)
+	dest := filepath.Join(p.Out, "program")
+	if e := p.Compile("soda-host", "./cmd/soda-host", dest); e != nil {
+		t.Fatal(e)
+	}
+	text := strings.Join(*calls, "\n")
+	if !strings.Contains(text, "-buildvcs=false") || strings.Contains(text, "-tags=") || strings.Contains(text, "-buildvcs=true") {
+		t.Fatal(text)
+	}
+	if strings.Count(text, "go build") != 1 {
+		t.Fatal("duplicate compilation")
+	}
+	p.Execute = func(string, string, ...string) error { return os.WriteFile(dest, []byte("not ELF"), 0o755) }
+	if e := p.Compile("soda-host", "./cmd/soda-host", dest); e == nil {
+		t.Fatal("invalid program accepted")
 	}
 }
 

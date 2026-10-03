@@ -14,7 +14,7 @@ import (
 
 func main() {
 	if len(os.Args) != 2 || !action(os.Args[1]) {
-		fmt.Fprintln(os.Stderr, "usage: soda-install disk|continue|configure|enroll-key|enrollment-serve|enrollment-receive")
+		fmt.Fprintln(os.Stderr, "usage: soda-install disk|configure|enroll-key|enrollment-serve|enrollment-receive")
 		os.Exit(2)
 	}
 	signals := []os.Signal{syscall.SIGTERM, syscall.SIGHUP}
@@ -31,7 +31,7 @@ func main() {
 
 func action(value string) bool {
 	switch value {
-	case "disk", "continue", "configure", "enroll-key", "enrollment-serve", "enrollment-receive":
+	case "disk", "configure", "enroll-key", "enrollment-serve", "enrollment-receive":
 		return true
 	default:
 		return false

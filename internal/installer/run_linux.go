@@ -7,14 +7,12 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/levitateos/sodaos/internal/platform"
 	"github.com/levitateos/sodaos/internal/release/build"
 	"golang.org/x/sys/unix"
 )
 
 const (
 	dataDir           = "/usr/local/share/soda-installer"
-	installerBinary   = platform.Libexec + "/soda-install"
 	diskAttemptMarker = "/run/soda-installer-disk-started"
 )
 
@@ -25,9 +23,7 @@ var (
 )
 
 type mediaIdentity struct {
-	Format                                            int
 	Architecture, Release, InstallerVersion, Revision string
-	BundleSHA256                                      string
 	HostManifest, PayloadSHA256, ConsoleSHA256        string
 }
 
@@ -46,7 +42,7 @@ func architecture() string {
 }
 
 // Run requires a controlling terminal. The live service starts disk review;
-// installed-host continuation is explicitly operator-started.
+// installed-host actions are explicitly operator-started.
 func runEnrollmentAction(ctx context.Context, action string) (bool, error) {
 	switch action {
 	case "enrollment-serve":
@@ -77,8 +73,6 @@ func lockInstaller() (*os.File, error) {
 
 func runLockedInstall(ctx context.Context, c console, action string) error {
 	switch action {
-	case "continue":
-		return continueInstall(ctx, c, command)
 	case "configure":
 		return configureInstall(ctx, c, command)
 	case "enroll-key":
@@ -89,7 +83,7 @@ func runLockedInstall(ctx context.Context, c console, action string) error {
 }
 
 func validInstallAction(action string) bool {
-	return action == "disk" || action == "continue" || action == "configure" || action == "enroll-key"
+	return action == "disk" || action == "configure" || action == "enroll-key"
 }
 
 func Run(ctx context.Context, action string) error {
@@ -100,7 +94,7 @@ func Run(ctx context.Context, action string) error {
 		return err
 	}
 	if !validInstallAction(action) {
-		return errors.New("usage: soda-install disk|continue|configure|enroll-key")
+		return errors.New("usage: soda-install disk|configure|enroll-key")
 	}
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {

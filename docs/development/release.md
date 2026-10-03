@@ -43,12 +43,12 @@ or lifecycle boundaries. A generator completing successfully is not source or
 license verification.
 
 Build the candidate only from the two clean exact-revision checkouts. Before
-qualification, verify that `inputs/forgejo-source.tar` is the archived Fountain
+qualification, verify that `artifacts/forgejo-source.tar` is the archived Fountain
 revision used to compile the executable and contains `LICENSE`, `sdk/go.mod`, SDK
 source, `contrib/extensions/README.md`, and the vendored dependency licenses/change
 notes. Verify separately that the SodaOS source archive contains the Soda extension
-package/backend sources and that the bundle carries `soda-LICENSE` and
-`soda-NOTICE`. Bind both source archives, the runtime image and the separately built
+package/backend sources and that the host image carries `LICENSE` and
+`NOTICE` under `/usr/share/licenses/soda/`. Bind both source archives, the runtime image and the separately built
 package/image in the candidate inventory, then repeat the affected native installed
 journeys on native `x86_64` under the [platform scope](../architecture/release.md#architectures).
 The candidate also records the native architecture and hashes of the patched

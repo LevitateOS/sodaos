@@ -7,13 +7,11 @@ SODA_CADDY_BINARY opts into a test-owned loopback proxy using the selected Caddy
 import contextlib
 import http.client
 import http.server
-import importlib.util
 import io
 import json
 import os
 from pathlib import Path
 import runpy
-import shutil
 import socket
 import subprocess
 import sys
@@ -251,62 +249,10 @@ class AvatarActivation(unittest.TestCase):
 
 
 class AvatarPackaging(unittest.TestCase):
-    def test_real_metadata_collector_copies_dependency_notices(self):
-        spec = importlib.util.spec_from_file_location('avatar_build_info', ROOT / 'scripts/native-build-info.py')
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            # Actual public inputs; only the build observations below are synthetic.
-            for source in (
-                'go.mod',
-                'go.sum',
-                'package.json',
-                'tools/lit-check/package.json',
-                'bun.lock',
-                'bunfig.toml',
-                'scripts/install-native.sh',
-                'docs/research/notices.md',
-                'project-os/licenses/tea-LICENSE',
-                'appliance/licenses/avatar-dependencies.txt',
-                'LICENSE',
-                'NOTICE',
-            ):
-                destination = root / source
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(ROOT / source, destination)
-            stage = root / '.artifacts/native/x86_64'
-            stage.mkdir(parents=True)
-            for name in ('base', 'project-os', 'dashboard', 'forgejo', 'caddy', 'tailnet'):
-                (stage / (name + '.iid')).write_text('sha256:' + 'a' * 64)
-
-            def observed_output(args):
-                if '--entrypoint=/usr/local/bin/tailscale' in args:
-                    return json.dumps({'short': 'synthetic tailscale version'})
-                if '--entrypoint=/usr/local/bin/tailscaled' in args:
-                    return 'synthetic tailscaled version'
-                if '{{json .RepoDigests}}' in args:
-                    return '[]'
-                return 'synthetic build observation'
-
-            with (
-                patch.object(module.platform, 'system', return_value='Linux'),
-                patch.object(module.platform, 'machine', return_value='x86_64'),
-                patch.object(module, 'output', side_effect=observed_output),
-            ):
-                module.collect(root, 'x86_64', 'a' * 40)
-            self.assertEqual(
-                (stage / 'notices/avatar-dependencies.txt').read_bytes(),
-                (ROOT / 'appliance/licenses/avatar-dependencies.txt').read_bytes(),
-            )
-            self.assertEqual(
-                (stage / 'inputs/lit-check-package.json').read_bytes(),
-                (ROOT / 'tools/lit-check/package.json').read_bytes(),
-            )
-            self.assertFalse((stage / 'inputs/github-runner-source.toml').exists())
-            self.assertFalse((ROOT / 'cmd/soda-avatars').exists())
-            self.assertFalse((ROOT / 'scripts/build-native.sh').exists())
-            self.assertNotIn('soda-avatars', (ROOT / 'tools/soda-build/main.go').read_text())
+    def test_no_avatar_runtime_command(self):
+        self.assertFalse((ROOT / 'cmd/soda-avatars').exists())
+        self.assertFalse((ROOT / 'scripts/build-native.sh').exists())
+        self.assertNotIn('soda-avatars', (ROOT / 'tools/soda-build/main.go').read_text())
 
 
 @unittest.skipUnless(os.environ.get('SODA_CADDY_BINARY'), 'set SODA_CADDY_BINARY for real loopback routing checks')

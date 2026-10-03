@@ -30,9 +30,9 @@ class TailnetImage(unittest.TestCase):
         self.assertIn('"appliance/tailnet.Containerfile"', build)
 
     def test_observed_versions_recorded_without_gate(self):
-        info = (ROOT / 'scripts/native-build-info.py').read_text()
-        self.assertNotIn('require_tailnet_release', info)
-        self.assertIn('recorded in native-build.json as-is', info)
+        build = (ROOT / 'internal/release/build/production.go').read_text()
+        self.assertNotIn('require_tailnet_release', build)
+        self.assertIn('liveTailnetInputs', build)
 
 
 if __name__ == '__main__':

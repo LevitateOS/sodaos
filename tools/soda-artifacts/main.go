@@ -32,14 +32,14 @@ type artifactFlags struct {
 
 func parseArtifactFlags(args []string) (string, artifactFlags, error) {
 	if len(args) == 0 {
-		return "", artifactFlags{}, errors.New("usage: soda-artifacts inspect-oci|seal|verify|verify-installed|bundle|fetch-coreos|fetch-coreos-iso|convert-butane [flags]")
+		return "", artifactFlags{}, errors.New("usage: soda-artifacts inspect-oci|fetch-coreos|fetch-coreos-iso|convert-butane [flags]")
 	}
 	action := args[0]
 	f := flag.NewFlagSet(action, flag.ContinueOnError)
 	f.SetOutput(io.Discard)
 	arch := f.String("arch", "", "matching native architecture")
 	revision := f.String("revision", "", "full source revision")
-	source := f.String("source", "", "stage/bundle or private Butane file")
+	source := f.String("source", "", "OCI archive or private Butane file")
 	out := f.String("out", "", "new absolute output directory/file")
 	keyring := f.String("keyring", "", "already trusted Fedora keyring")
 	signer := f.String("signer", "", "full independently trusted signer fingerprint")
@@ -132,18 +132,6 @@ func runArtifactAction(ctx context.Context, action string, f artifactFlags) erro
 	switch action {
 	case "inspect-oci":
 		return inspectArtifactOCI(f.source, f.arch, f.revision)
-	case "seal":
-		return build.Seal(f.source, f.arch, f.revision)
-	case "verify":
-		_, err := build.Verify(f.source, f.arch, f.revision)
-		return err
-	case "verify-installed":
-		return build.VerifyInstalled(ctx, f.source, f.arch, f.revision)
-	case "bundle":
-		if err := build.RequireNative(f.arch); err != nil {
-			return err
-		}
-		return build.Bundle(f.source, f.out, f.arch, f.revision)
 	case "convert-butane":
 		return convertButane(ctx, f.source, f.out, f.arch)
 	default:

@@ -147,7 +147,7 @@ func recordCandidateInputs(out string, record *deliver.Candidate) error {
 	if err != nil || record.Host.Architecture != platform {
 		return errors.New("native candidate architecture differs from host image")
 	}
-	record.ForgejoSourceSHA256, err = build.HashFile(filepath.Join(filepath.Dir(out), "inputs/forgejo-source.tar"))
+	record.ForgejoSourceSHA256, err = build.HashFile(filepath.Join(out, "forgejo-source.tar"))
 	if err != nil {
 		return err
 	}

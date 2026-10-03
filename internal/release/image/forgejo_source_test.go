@@ -26,7 +26,7 @@ func TestExtractForgejoSnapshotLaysOutReplacePath(t *testing.T) {
 	require.Len(t, calls, 2)
 	require.Contains(t, calls[0], "archive")
 	require.Contains(t, calls[0], revision)
-	require.Contains(t, calls[0], filepath.Join(out, "inputs/forgejo-source.tar"))
+	require.Contains(t, calls[0], filepath.Join(out, "artifacts/forgejo-source.tar"))
 	require.True(t, strings.HasPrefix(calls[1], "tar "))
 }
 

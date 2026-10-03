@@ -59,7 +59,7 @@ func coreOSHost(live bool) error {
 		return err
 	}
 	if live != liveISOFromCmdline(cmdline) {
-		return errors.New("disk action requires the live ISO; continuation requires the installed host")
+		return errors.New("disk action requires the live ISO; installed-host actions require the installed host")
 	}
 	if live {
 		if err := admitLiveInstaller(values); err != nil {

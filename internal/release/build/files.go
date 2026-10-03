@@ -15,6 +15,16 @@ import (
 	"syscall"
 )
 
+// File identifies one inventoried byte, link or directory for producer
+// records and context inventories. It is a shared primitive, not bundle
+// acceptance.
+type File struct {
+	SHA256    string `json:"sha256,omitempty"`
+	Mode      uint32 `json:"mode"`
+	Link      string `json:"link,omitempty"`
+	Directory bool   `json:"directory,omitempty"`
+}
+
 func OCIArchitecture(arch string) (string, error) {
 	if arch == "x86_64" {
 		return "amd64", nil

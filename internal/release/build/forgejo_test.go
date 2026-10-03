@@ -19,7 +19,7 @@ func TestStageForkBinaryUsesExplicitFrozenSource(t *testing.T) {
 		}
 	}
 	var command []string
-	p := Production{ForgejoSource: source, Native: filepath.Join(root, "native"), Out: out, Arch: "x86_64", Vendor: true}
+	p := Production{ForgejoSource: source, Native: filepath.Join(root, "native"), Out: out, Arch: "x86_64"}
 	p.Next = func(string) error { return nil }
 	p.Execute = func(dir, name string, args ...string) error {
 		if dir != source || name != "podman" {

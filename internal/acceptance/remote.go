@@ -28,7 +28,7 @@ func (r Remote) NativePhase(requestFile, revision, arch, target string) (Command
 		return Command{}, errors.New("remote request does not match selected revision/platform/target")
 	}
 	switch request.Phase {
-	case "prepare", "build", "check", "bundle":
+	case "prepare", "build", "check":
 	default:
 		return Command{}, errors.New("unknown native phase")
 	}

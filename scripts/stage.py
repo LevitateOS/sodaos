@@ -11,28 +11,20 @@ from pathlib import Path
 
 p = argparse.ArgumentParser()
 p.add_argument('--arch', choices=['x86_64'], required=True)
-p.add_argument('--host-context', type=Path)
-p.add_argument('--forgejo-context', type=Path)
+p.add_argument('--host-context', type=Path, required=True)
+p.add_argument('--forgejo-context', type=Path, required=True)
 a = p.parse_args()
-if bool(a.host_context) != bool(a.forgejo_context):
-    p.error('host and Forgejo contexts must be supplied together')
-vendor = a.host_context is not None
 if platform.system() != 'Linux' or platform.machine() != a.arch:
     p.error('matching native Linux required')
 source = Path(__file__).resolve().parents[1]
 build = source / '.artifacts/native' / a.arch
-stage = a.host_context / 'rootfs' if vendor else build / 'rootfs'
-forgejo = a.forgejo_context / 'forgejo' if vendor else stage / 'var/lib/soda/forgejo/gitea'
-if vendor:
-    for directory in (stage, a.forgejo_context):
-        if not directory.is_absolute() or directory.resolve() != directory or not directory.is_dir():
-            p.error('real prepared host and fresh Forgejo context directories required')
-    if forgejo.exists() or forgejo.is_symlink():
-        p.error('occupied Forgejo presentation refused')
-else:
-    if stage.exists() or stage.is_symlink():
-        p.error('rootfs staging already exists; retain the attempt and use fresh output')
-    stage.mkdir(parents=True)
+stage = a.host_context / 'rootfs'
+forgejo = a.forgejo_context / 'forgejo'
+for directory in (stage, a.forgejo_context):
+    if not directory.is_absolute() or directory.resolve() != directory or not directory.is_dir():
+        p.error('real prepared host and fresh Forgejo context directories required')
+if forgejo.exists() or forgejo.is_symlink():
+    p.error('occupied Forgejo presentation refused')
 
 
 def copy(src, dest, mode=None, root=stage):
@@ -52,35 +44,11 @@ def copy(src, dest, mode=None, root=stage):
     return target
 
 
-# Vendor programs/units/configuration are already emitted directly by Go.
-# Keep the retiring writable layout usable; never create it for vendor assets.
-if not vendor:
-    for command in (source / 'cmd').iterdir():
-        if command.is_dir():
-            if command.name in {'soda-artifacts', 'soda-acceptance'}:
-                p.error('outside support tools must not be staged on the appliance')
-            copy(build / 'bin' / command.name, f'/usr/local/libexec/soda/{command.name}', 0o755)
-    for unit in (source / 'appliance/services').iterdir():
-        folder = '/etc/containers/systemd' if unit.suffix == '.container' else '/etc/systemd/system'
-        copy(unit, f'{folder}/{unit.name}', 0o644)
+# Programs/units/configuration are already emitted directly by Go.
 # Public, pinned tools only; runtime credentials never enter a build context.
-muse_tools = '/usr/share/soda/muse-tools' if vendor else '/usr/local/share/soda/muse-tools'
+muse_tools = '/usr/share/soda/muse-tools'
 for name in ['muse', 'muse-native', 'soda-identity-compose']:
     copy(build / 'project-tools/bin' / name, muse_tools + '/' + name, 0o755)
-# Stock Cockpit only. Never copy an ignored retired cockpit/dist tree.
-configs = {
-    'soda.sysusers': '/etc/sysusers.d/soda.conf',
-    'soda.tmpfiles': '/etc/tmpfiles.d/soda.conf',
-    '90-soda-routing.conf': '/etc/sysctl.d/90-soda-routing.conf',
-    'cockpit.pam': '/etc/pam.d/cockpit',
-    'cockpit.conf': '/etc/cockpit/cockpit.conf',
-    'cockpit.socket.conf': '/etc/systemd/system/cockpit.socket.d/10-soda.conf',
-    'console-welcome.sh': '/etc/profile.d/soda-console-welcome.sh',
-}
-if not vendor:
-    for src, dest in configs.items():
-        copy(source / 'appliance/config' / src, dest, 0o644)
-    (stage / 'etc/cockpit/disallowed-users').write_text('')
 # Config-root branding avoids immutable /usr/share and native package conflicts.
 brand = stage / 'etc/cockpit/branding'
 brand.mkdir(parents=True)
@@ -160,24 +128,13 @@ for name, origin in payload.items():
     target = copy(src, name, 0o644, root=forgejo)
     for parent in target.parents:
         parent.chmod(0o755)
-        if parent == (forgejo if vendor else stage / 'var'):
+        if parent == forgejo:
             break
 # MOTD is plain text; fastfetch alone interprets the logo's color placeholders.
 copy(source / 'assets/branding/terminal/motd.txt', '/etc/motd', 0o644)
-share = '/usr/share/soda' if vendor else '/usr/local/share/soda'
-copy(source / 'assets/branding/terminal/sodaos.txt', share + '/fastfetch/sodaos.txt', 0o644)
+copy(source / 'assets/branding/terminal/sodaos.txt', '/usr/share/soda/fastfetch/sodaos.txt', 0o644)
 fastfetch = copy(source / 'assets/branding/terminal/fastfetch.jsonc', '/etc/fastfetch/config.jsonc', 0o644)
-if vendor:
-    fastfetch.write_text(fastfetch.read_text().replace('/usr/local/share/soda/', '/usr/share/soda/'))
-else:
-    copy(source / 'appliance/bin/soda-activate', '/usr/local/sbin/soda-activate', 0o750)
-    copy(source / 'appliance/bin/soda-forgejo-domain', '/usr/local/sbin/soda-forgejo-domain', 0o750)
-    copy(source / 'appliance/bin/soda-console-welcome', '/usr/local/libexec/soda/soda-console-welcome', 0o755)
-    tailnet_cli = stage / 'usr/local/bin/soda-tailnet'
-    tailnet_cli.parent.mkdir(parents=True, exist_ok=True)
-    tailnet_cli.symlink_to('/usr/local/libexec/soda/soda-tailnet')
-    link = stage / 'usr/local/sbin/soda-setup'
-    link.symlink_to('/usr/local/libexec/soda/soda-setup')
+fastfetch.write_text(fastfetch.read_text().replace('/usr/local/share/soda/', '/usr/share/soda/'))
 copy(source / 'appliance/config/forgejo.env', '/etc/soda/forgejo.env', 0o600)
 copy(source / 'appliance/config/proxy.Caddyfile', '/etc/soda/proxy.Caddyfile', 0o644)
 print(stage)

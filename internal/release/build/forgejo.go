@@ -117,7 +117,7 @@ func (p Production) BuildForgejoBinary() (string, error) {
 }
 
 func (p Production) validateForgejoBuild() error {
-	if !p.Vendor || !filepath.IsAbs(p.ForgejoSource) || p.Execute == nil {
+	if !filepath.IsAbs(p.ForgejoSource) || p.Execute == nil {
 		return errors.New("explicit archived Forgejo source required")
 	}
 	return nil

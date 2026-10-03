@@ -9,7 +9,7 @@ import (
 )
 
 func TestInvalidActionsDoNotCreateEvidence(t *testing.T) {
-	for _, action := range []string{"publish", "exec", "native", "transfer", "vm", "probe-ssh"} {
+	for _, action := range []string{"publish", "exec", "native", "vm", "probe-ssh"} {
 		t.Run(action, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "evidence")
 			args := []string{action, "--owner", "P07", "--revision", strings.Repeat("a", 40), "--arch", "x86_64", "--target", "fixture", "--evidence", path}
