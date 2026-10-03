@@ -2,14 +2,12 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -462,115 +460,6 @@ func TestHostArtifactPathLeavesForeignPathsAlone(t *testing.T) {
 	}
 }
 
-func writeWorkerJSON(t *testing.T, runtimeDir string) string {
-	t.Helper()
-	tools := t.TempDir()
-	path := t.TempDir() + "/worker.json"
-	raw := `{"OutputParent": "/out", "Runtime": "` + runtimeDir + `", "Tools": "` + tools + `"}`
-	if err := os.WriteFile(path, []byte(raw), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return path
-}
-
-// stubProbeExec answers every environment probe positively.
-func stubProbeExec(t *testing.T) {
-	t.Helper()
-	real := execRunner
-	execRunner = func(name string, args ...string) (string, error) {
-		switch name {
-		case "stat":
-			if len(args) > 0 && args[len(args)-1] == workerGoCache {
-				return "system_u:object_r:soda_build_cache_t:s0", nil
-			}
-			return "system_u:object_r:lib_t:s0\n", nil
-		case "/usr/bin/git":
-			return "/run/soda-build-source\n", nil
-		default:
-			return "", nil
-		}
-	}
-	t.Cleanup(func() { execRunner = real })
-}
-
-func prepareOpts(config string) options {
-	return options{arch: "x86_64", mode: "candidate", out: "/out/fresh-01", workerConfig: config, repoPrefix: "x"}
-}
-
-// chdirRepoRoot runs a probe test from the checkout root, where go.mod lives.
-func chdirRepoRoot(t *testing.T) {
-	t.Helper()
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("cannot locate test file")
-	}
-	root := filepath.Dir(filepath.Dir(filepath.Dir(file)))
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chdir(root); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chdir(cwd); err != nil {
-			t.Fatal(err)
-		}
-	})
-}
-
-func TestPrepareRuntimeClearsIdleState(t *testing.T) {
-	chdirRepoRoot(t)
-	stubProbeExec(t)
-	runtimeDir := t.TempDir()
-	if err := os.WriteFile(runtimeDir+"/stale.lock", []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	quiet := func() (string, error) { return "", nil }
-	if err := prepareRuntime(prepareOpts(writeWorkerJSON(t, runtimeDir)), quiet); err != nil {
-		t.Fatal(err)
-	}
-	entries, err := os.ReadDir(runtimeDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(entries) != 0 {
-		t.Fatalf("stale runtime state survived: %v", entries)
-	}
-}
-
-func TestPrepareRuntimeRefusesConcurrentBuild(t *testing.T) {
-	chdirRepoRoot(t)
-	stubProbeExec(t)
-	runtimeDir := t.TempDir()
-	busy := func() (string, error) { return "soda-build-manual-01.service loaded active running\n", nil }
-	err := prepareRuntime(prepareOpts(writeWorkerJSON(t, runtimeDir)), busy)
-	if err == nil || !strings.Contains(err.Error(), "already running") {
-		t.Fatalf("concurrent build not refused, got: %v", err)
-	}
-}
-
-func TestPrepareRuntimeRechecksAfterClear(t *testing.T) {
-	chdirRepoRoot(t)
-	stubProbeExec(t)
-	runtimeDir := t.TempDir()
-	calls := 0
-	racing := func() (string, error) {
-		calls++
-		if calls > 1 {
-			return "soda-build-manual-01.service loaded active running\n", nil
-		}
-		return "", nil
-	}
-	err := prepareRuntime(prepareOpts(writeWorkerJSON(t, runtimeDir)), racing)
-	if err == nil || !strings.Contains(err.Error(), "already running") {
-		t.Fatalf("build started during clear not refused, got: %v", err)
-	}
-	if calls != 2 {
-		t.Fatalf("concurrent-build check ran %d times, want 2 (before and after clear)", calls)
-	}
-}
-
 func TestControllerArgsEmptyModeDefaultsMedia(t *testing.T) {
 	o := baseOptions()
 	o.mode = ""
@@ -580,128 +469,6 @@ func TestControllerArgsEmptyModeDefaultsMedia(t *testing.T) {
 	}
 	if !strings.Contains(joined, "--rootfs-base-url "+o.rootfsURL) {
 		t.Fatalf("defaulted media target omitted the rootfs base URL: %s", joined)
-	}
-}
-
-func TestPrepareRuntimeNamesSetupDrift(t *testing.T) {
-	stubProbeExec(t)
-	quiet := func() (string, error) { return "", nil }
-	if err := prepareRuntime(prepareOpts(t.TempDir()+"/absent.json"), quiet); err == nil ||
-		!strings.Contains(err.Error(), "setup script") {
-		t.Fatalf("missing config unexplained, got: %v", err)
-	}
-	bad, err := os.CreateTemp(t.TempDir(), "worker*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := bad.WriteString("{nope"); err != nil {
-		t.Fatal(err)
-	}
-	if err := bad.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if err := prepareRuntime(prepareOpts(bad.Name()), quiet); err == nil {
-		t.Fatal("invalid worker config accepted")
-	}
-}
-
-func TestControllerToolchainMismatchNamed(t *testing.T) {
-	chdirRepoRoot(t)
-	stubProbeExec(t)
-	pin, err := pinnedGoVersion()
-	if err != nil {
-		t.Fatal(err)
-	}
-	self, err := os.Executable()
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The isolated worker builds this test binary with the pinned
-	// toolchain, so the mismatch premise is unavailable there; the message
-	// itself is covered hermetically by TestControllerVersionErrorNamed.
-	if stamp, err := controllerGoVersion(self); err == nil && stamp == "go"+pin {
-		t.Skip("test binary carries the pinned toolchain; mismatch premise unavailable")
-	}
-	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
-	o.controller = self // test binary: never the pinned toolchain
-	quiet := func() (string, error) { return "", nil }
-	err = prepareRuntime(o, quiet)
-	if err == nil || !strings.Contains(err.Error(), "rebuild with the pinned toolchain") {
-		t.Fatalf("toolchain downgrade not named, got: %v", err)
-	}
-}
-
-func TestControllerVersionErrorNamed(t *testing.T) {
-	if err := controllerVersionError("go1.26.7", "1.26.7"); err != nil {
-		t.Fatalf("matching toolchain refused: %v", err)
-	}
-	err := controllerVersionError("go1.27.0", "1.26.7")
-	if err == nil || !strings.Contains(err.Error(), "rebuild with the pinned toolchain") || !strings.Contains(err.Error(), "go1.27.0") {
-		t.Fatalf("toolchain downgrade not named, got: %v", err)
-	}
-}
-
-func TestModuleCacheLabelRefused(t *testing.T) {
-	chdirRepoRoot(t)
-	real := execRunner
-	execRunner = func(name string, args ...string) (string, error) {
-		if name == "stat" {
-			return "unconfined_u:object_r:cache_home_t:s0\n", nil
-		}
-		return "", nil
-	}
-	t.Cleanup(func() { execRunner = real })
-	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
-	quiet := func() (string, error) { return "", nil }
-	err := prepareRuntime(o, quiet)
-	if err == nil || !strings.Contains(err.Error(), "want lib_t") {
-		t.Fatalf("foreign label not refused, got: %v", err)
-	}
-}
-
-func TestWorkerCacheLabelRefused(t *testing.T) {
-	chdirRepoRoot(t)
-	real := execRunner
-	execRunner = func(name string, args ...string) (string, error) {
-		if name == "stat" {
-			if len(args) > 0 && args[len(args)-1] == workerGoCache {
-				return "unconfined_u:object_r:var_lib_t:s0", nil
-			}
-			return "system_u:object_r:lib_t:s0", nil
-		}
-		return "", nil
-	}
-	t.Cleanup(func() { execRunner = real })
-	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
-	quiet := func() (string, error) { return "", nil }
-	err := prepareRuntime(o, quiet)
-	if err == nil || !strings.Contains(err.Error(), "want soda_build_cache_t") {
-		t.Fatalf("foreign cache label not refused, got: %v", err)
-	}
-}
-
-func TestSetpgidDenialExplained(t *testing.T) {
-	chdirRepoRoot(t)
-	real := execRunner
-	execRunner = func(name string, args ...string) (string, error) {
-		switch name {
-		case "stat":
-			if len(args) > 0 && args[len(args)-1] == workerGoCache {
-				return "system_u:object_r:soda_build_cache_t:s0", nil
-			}
-			return "system_u:object_r:lib_t:s0\n", nil
-		case "/usr/bin/git":
-			return "/run/soda-build-source\n", nil
-		default:
-			return "", errors.New("exit status 1")
-		}
-	}
-	t.Cleanup(func() { execRunner = real })
-	o := prepareOpts(writeWorkerJSON(t, t.TempDir()))
-	quiet := func() (string, error) { return "", nil }
-	err := prepareRuntime(o, quiet)
-	if err == nil || !strings.Contains(err.Error(), "SELinux module") {
-		t.Fatalf("setpgid denial unexplained, got: %v", err)
 	}
 }
 
@@ -775,5 +542,78 @@ func TestBuildLinesCollapsesOldSuccesses(t *testing.T) {
 		if strings.Contains(joined, hidden) {
 			t.Fatalf("table leaks collapsed %q:\n%s", hidden, joined)
 		}
+	}
+}
+
+// TestResolveOptionsDefersWorkerAdmissionToController pins the N-BUILD4
+// boundary: preseeded answers pass through without any worker-config
+// read, environment probe, or runtime preparation. The controller admits
+// everything after dispatch and its errors surface there.
+func TestResolveOptionsDefersWorkerAdmissionToController(t *testing.T) {
+	o, err := resolveOptions([]string{
+		"--controller", "/admitted/soda-build",
+		"--worker-config", "/nonexistent/worker.json",
+		"--arch", "x86_64",
+		"--out", "/tmp/fresh-out-01",
+		"--mode", "candidate",
+		"--non-interactive",
+	}, os.Stdin, os.Stderr)
+	if err != nil {
+		t.Fatalf("wrapper must defer worker-config admission to the controller, got: %v", err)
+	}
+	if o.workerConfig != "/nonexistent/worker.json" {
+		t.Fatalf("preseeded worker config not passed through: %+v", o)
+	}
+}
+
+// TestReadyRunTouchesNoWorkerState pins the other half: readyRun admits
+// only the checkout and the pickup folder. A missing worker config, a
+// missing toolchain, or another attempt's state must not stop it, because
+// the wrapper neither checks nor deletes any of that.
+func TestReadyRunTouchesNoWorkerState(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git unavailable")
+	}
+	root := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = root
+		cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "HOME="+t.TempDir())
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	git("init", "-q")
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module fixture\n\ngo 1.26.7\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "go.mod")
+	git("-c", "user.email=soda-tester@invalid", "-c", "user.name=soda-tester", "commit", "-qm", "fixture")
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	o := options{
+		controller:   "/admitted/soda-build",
+		workerConfig: filepath.Join(root, "missing-worker.json"),
+		arch:         "x86_64",
+		out:          filepath.Join(root, "fresh-01"),
+		mode:         "candidate",
+		repoPrefix:   "ghcr.io/levitateos/sodaos",
+	}
+	if err := readyRun(&o); err != nil {
+		t.Fatalf("readyRun must not require worker state, got: %v", err)
+	}
+	if o.rootfsDir != filepath.Join(root, ".artifacts", "rootfs") {
+		t.Fatalf("pickup folder not defaulted under the checkout: %q", o.rootfsDir)
 	}
 }

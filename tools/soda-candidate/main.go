@@ -226,25 +226,14 @@ func describe(o options) string {
 	return fmt.Sprintf("mode %s | arch %s | out %s | run %s", modeLabel(o.mode), o.arch, o.out, o.controller)
 }
 
-// preseedRuntime fails fast on a preseeded config before asking anything;
-// the prepareRuntime call in run covers a path typed on the screen. Both
-// are cheap and idempotent: refuse a running worker, then drop idle
-// session state.
-func preseedRuntime(o options) error {
-	if o.workerConfig == "" {
-		return nil
-	}
-	return prepareRuntime(o, listRunningBuildUnits)
-}
-
 func resolveOptions(args []string, stdin, stderr *os.File) (options, error) {
 	o, err := parseOptions(args)
 	if err != nil {
 		return o, err
 	}
-	if err := preseedRuntime(o); err != nil {
-		return o, err
-	}
+	// No worker admission here: the controller owns the worker config,
+	// the worker's environment, and runtime state. Preseeded answers are
+	// validated and passed through; controller errors surface after dispatch.
 	if !isTerminal(stdin) || !isTerminal(stderr) || o.nonInteractive {
 		if o.mode == "" {
 			return o, errors.New("choose --mode candidate or media (or run on a terminal)")
@@ -258,16 +247,14 @@ func resolveOptions(args []string, stdin, stderr *os.File) (options, error) {
 	return o, nil
 }
 
-// readyRun admits the checkout, points the pickup folder at the checkout,
-// and clears stale runtime state before the controller starts.
+// readyRun admits the checkout and points the pickup folder at the
+// checkout. Shared worker admission and runtime ownership belong to the
+// controller; the wrapper never prepares or deletes worker state.
 func readyRun(o *options) error {
 	if err := preflight(*o); err != nil {
 		return err
 	}
-	if err := defaultRootfsDir(o); err != nil {
-		return err
-	}
-	return prepareRuntime(*o, listRunningBuildUnits)
+	return defaultRootfsDir(o)
 }
 
 func run(args []string, stdin, stdout, stderr *os.File) error {

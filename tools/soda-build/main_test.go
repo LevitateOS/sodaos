@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -189,4 +190,90 @@ func TestControllerSubreaperReapsLeaderFirstDescendant(t *testing.T) {
 	require.NoError(t, err)
 	// ESRCH, not an orphaned zombie waiting for init. Signal 0 only observes.
 	require.ErrorIs(t, unix.Kill(pid, 0), unix.ESRCH)
+}
+
+func TestClaimAttemptRuntimeIsolatesAttempts(t *testing.T) {
+	parent := t.TempDir()
+	uid, gid := os.Getuid(), os.Getgid()
+	first, releaseFirst, err := claimAttemptRuntime(parent, "/source/.artifacts/releases/isolated/manual-01", uid, gid)
+	require.NoError(t, err)
+	second, releaseSecond, err := claimAttemptRuntime(parent, "/source/.artifacts/releases/isolated/manual-01", uid, gid)
+	require.NoError(t, err)
+	require.NotEqual(t, first, second, "same-leaf retries must not reuse runtime state")
+	for _, dir := range []string{first, second} {
+		require.Equal(t, parent, filepath.Dir(dir))
+		st, err := os.Stat(dir)
+		require.NoError(t, err)
+		require.True(t, st.IsDir())
+		require.Equal(t, os.FileMode(0o700), st.Mode().Perm())
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(first, "a.lock"), []byte("a"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(second, "b.lock"), []byte("b"), 0o600))
+	require.NoError(t, releaseFirst())
+	require.NoDirExists(t, first)
+	require.FileExists(t, filepath.Join(second, "b.lock"), "releasing one attempt must not touch another's runtime")
+	require.NoError(t, releaseSecond())
+	require.NoDirExists(t, second)
+	entries, err := os.ReadDir(parent)
+	require.NoError(t, err)
+	require.Empty(t, entries, "released attempts must leave no residue in the shared parent")
+}
+
+func TestClaimAttemptRuntimeRefusesBadInput(t *testing.T) {
+	uid, gid := os.Getuid(), os.Getgid()
+	parent := t.TempDir()
+	if _, _, err := claimAttemptRuntime(filepath.Join(parent, "missing"), "/source/out/leaf", uid, gid); err == nil {
+		t.Fatal("missing runtime parent accepted")
+	}
+	plain := filepath.Join(parent, "plain")
+	require.NoError(t, os.WriteFile(plain, []byte("x"), 0o600))
+	if _, _, err := claimAttemptRuntime(plain, "/source/out/leaf", uid, gid); err == nil {
+		t.Fatal("non-directory runtime parent accepted")
+	}
+	for _, out := range []string{"", "/"} {
+		if _, _, err := claimAttemptRuntime(parent, out, uid, gid); err == nil {
+			t.Fatalf("output %q claimed a runtime without a leaf", out)
+		}
+	}
+	entries, err := os.ReadDir(parent)
+	require.NoError(t, err)
+	require.Len(t, entries, 1, "refused claims must not create runtime state: %v", entries)
+}
+
+func TestReleaseAttemptRuntimeRefusesForeignPaths(t *testing.T) {
+	parent := t.TempDir()
+	uid, gid := os.Getuid(), os.Getgid()
+	owned, release, err := claimAttemptRuntime(parent, "/source/out/leaf", uid, gid)
+	require.NoError(t, err)
+	defer func() { _ = release() }()
+	outside := t.TempDir()
+	nested := filepath.Join(owned, "nested")
+	require.NoError(t, os.Mkdir(nested, 0o700))
+	link := filepath.Join(parent, "link")
+	require.NoError(t, os.Symlink(owned, link))
+	for _, dir := range []string{parent, outside, nested, link, filepath.Join(parent, "missing")} {
+		if err := releaseAttemptRuntime(parent, dir); err == nil {
+			t.Fatalf("release of %q accepted", dir)
+		}
+	}
+	require.DirExists(t, owned, "refused releases must leave the owned directory alone")
+}
+
+func TestBuildWorkerBindsAttemptRuntime(t *testing.T) {
+	c := workerConfig{Source: "/source", OutputParent: "/source/.artifacts/releases/isolated", Runtime: "/run/attempt-xyz", Tools: "/tools", MediaAuthorityDirectory: "/authority"}
+	r := image.Request{Source: c.Source, Out: c.OutputParent + "/test", Development: true, Target: "candidate"}
+	w, err := buildWorker(c, r)
+	require.NoError(t, err)
+	require.Contains(t, w.Writable, c.Runtime+":"+workerRuntime)
+}
+
+func TestWorkerRuntimeIDsMatchWorker(t *testing.T) {
+	u, err := user.Lookup("soda-build-worker")
+	if err != nil {
+		t.Skip("isolated worker identity unavailable")
+	}
+	uid, gid, err := workerRuntimeIDs()
+	require.NoError(t, err)
+	require.Equal(t, u.Uid, strconv.Itoa(uid))
+	require.Equal(t, u.Gid, strconv.Itoa(gid))
 }

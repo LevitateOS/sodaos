@@ -35,12 +35,34 @@ WORKER_JSON="$AUTHORITY/worker.json"
 
 fail() { printf 'setup-soda-candidate: %s\n' "$*" >&2; exit 1; }
 
+# Setup is the only writer of the shared provisioned tools, worker policy,
+# and fixture authority, so concurrent setups would publish over each other.
+# The lock lives in /tmp, never in the checkout: an untracked file there
+# would trip the controller's clean-tree admission.
+claim_setup_lease() {
+  local lock="/tmp/soda-setup-$(id -un).lock"
+  exec 9>"$lock" || fail "cannot open setup lease $lock"
+  flock -n 9 || fail "another setup is already running for this operator"
+}
+
+# Refuse while a build worker unit is alive. The ACTIVE column (not a
+# running-only SUB-state filter) also covers units that are still starting,
+# so setup never deletes a compiler or policy out from under a live build.
+# Failed or collected units are already gone and do not block setup.
+refuse_active_build() {
+  local units
+  units="$(systemctl list-units --all --type=service --no-legend --plain 'soda-build-*' 2>/dev/null)" || fail "cannot list worker units; refusing to touch shared build state"
+  if printf '%s' "$units" | awk '$3 == "active" || $3 == "activating" || $3 == "deactivating" { found=1 } END { exit !found }'; then
+    fail "a candidate build is still active; finish it before rerunning setup"
+  fi
+}
+
 [ -f go.mod ] || fail "run from the repository root"
 [ -n "$FORGEJO_SOURCE" ] || fail "set SODA_FORGEJO_SOURCE to the clean canonical Forgejo fork checkout"
 [ -d "$FORGEJO_SOURCE/.git" ] && [ "$(realpath "$FORGEJO_SOURCE")" = "$FORGEJO_SOURCE" ] || fail "canonical Forgejo checkout required"
 [ -z "$(git -c "safe.directory=$FORGEJO_SOURCE" -C "$FORGEJO_SOURCE" status --porcelain --untracked-files=normal)" ] || fail "Forgejo source must be clean and committed"
 [ "$(uname -m)" = "x86_64" ] || fail "matching native x86_64 required on this host"
-command -v go bun podman skopeo python3 >/dev/null || fail "pinned go, bun, podman, skopeo and python3 required"
+command -v go bun podman skopeo python3 flock >/dev/null || fail "pinned go, bun, podman, skopeo, python3 and flock required"
 id soda-build-worker >/dev/null 2>&1 || fail "soda-build-worker user missing"
 [ -n "$(git status --porcelain --untracked-files=no)" ] && fail "commit or stash tracked changes first; the controller refuses dirty source"
 PINNED="$(grep '^go ' go.mod | awk '{print $2}')"
@@ -53,6 +75,12 @@ export GOTOOLCHAIN="go$PINNED"
 go version >/dev/null || fail "cannot fetch Go $PINNED"
 PINNED_GOROOT="$(go env GOROOT)"
 WANT="go version go$PINNED linux/amd64"
+
+# Singular setup (lease held until exit), and no setup while a build is
+# alive. The build refusal is re-checked at each destructive step below;
+# this early check fails fast.
+claim_setup_lease
+refuse_active_build
 
 echo "-- build tools from committed source"
 BINDIR="$(mktemp -d)"
@@ -75,9 +103,20 @@ sudo mkdir -p "$OUTPUT_PARENT" "$BUILD_HOME" "$RUNTIME" "$TOOLS/bin" "$AUTHORITY
 # tools dir so it carries lib_t and stays executable for the worker
 # domain, and /usr/local stays readable under ProtectSystem=strict. The
 # single-file bun binary tolerates the bind, so it stays in $TOOLS.
-sudo rm -rf "$TOOLS/go" "$PINNED_GO" "$TOOLS/bin/bun"
-sudo cp -a "$PINNED_GOROOT" "$PINNED_GO"
-sudo cp "$(command -v bun)" "$TOOLS/bin/bun"
+# Stage replacements before publishing: the old tree stays live until the
+# new one is complete and verified, so a failed copy never removes the
+# compiler out from under the next build.
+sudo rm -rf "$PINNED_GO.new" "$TOOLS/bin/bun.new"
+sudo cp -a "$PINNED_GOROOT" "$PINNED_GO.new"
+[ "$("$PINNED_GO.new/bin/go" version)" = "$WANT" ] || fail "staged Go is not $PINNED; refusing to publish it"
+sudo cp "$(command -v bun)" "$TOOLS/bin/bun.new"
+sudo -u soda-build-worker "$TOOLS/bin/bun.new" --version >/dev/null || fail "staged bun is not worker-runnable; refusing to publish it"
+# Re-check immediately before the destructive publish: no build may start
+# between the early check and this swap.
+refuse_active_build
+sudo rm -rf "$TOOLS/go" "$PINNED_GO"
+sudo mv "$PINNED_GO.new" "$PINNED_GO"
+sudo mv "$TOOLS/bin/bun.new" "$TOOLS/bin/bun"
 sudo chown -R root:root "$PINNED_GO" "$TOOLS"
 if command -v semanage >/dev/null; then
   sudo semanage fcontext -a -t bin_t "$TOOLS(/.*)?" 2>/dev/null || sudo semanage fcontext -m -t bin_t "$TOOLS(/.*)?"
@@ -134,9 +173,12 @@ sudo chown -R soda-build-worker:soda-build-worker "$BUILD_HOME"
 
 echo "-- worker SELinux policy (process groups plus Go cache mapping)"
 command -v checkmodule semodule_package semodule >/dev/null || fail "policycoreutils tooling required for the worker SELinux module"
-sudo semodule -r soda-build-setpgid 2>/dev/null || true
 checkmodule -M -m -o "$BINDIR/soda-build-worker.mod" scripts/selinux/soda-build-worker.te
 semodule_package -o "$BINDIR/soda-build-worker.pp" -m "$BINDIR/soda-build-worker.mod"
+# Compile before removing: the old module stays loaded until the new one
+# is ready, and no build may start between the check and the swap.
+refuse_active_build
+sudo semodule -r soda-build-setpgid 2>/dev/null || true
 sudo semodule -i "$BINDIR/soda-build-worker.pp"
 # Go runs as init_t in the worker and mmaps its cache files; the default
 # var_lib_t home withholds map, so the Go state dirs carry a dedicated
@@ -186,6 +228,7 @@ if [ -f "$AUTHORITY/artifact.private" ] && [ "$REFRESH" != "1" ]; then
   echo "-- fixture authority already exists; keeping it (SODA_REFRESH_AUTHORITY=1 to regenerate)"
 else
   echo "-- fixture-only media authority (never release keys)"
+  refuse_active_build
   TMPD="$(mktemp -d)"
   trap 'rm -rf "$BINDIR" "$TMPD"' EXIT
   head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' >"$TMPD/passphrase"

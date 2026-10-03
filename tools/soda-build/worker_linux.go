@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -118,6 +119,68 @@ func loadWorkerConfig(path string, r image.Request) (workerConfig, error) {
 	return c, nil
 }
 
+// workerRuntimeIDs resolves the isolated identity that owns per-attempt
+// runtime state. The controller runs as root and hands each attempt
+// directory to the worker; nothing is ever shared or re-owned mid-build.
+func workerRuntimeIDs() (uid, gid int, err error) {
+	u, err := user.Lookup("soda-build-worker")
+	if err != nil {
+		return 0, 0, err
+	}
+	uid, err = strconv.Atoi(u.Uid)
+	if err != nil {
+		return 0, 0, err
+	}
+	gid, err = strconv.Atoi(u.Gid)
+	if err != nil {
+		return 0, 0, err
+	}
+	return uid, gid, nil
+}
+
+// claimAttemptRuntime creates a fresh unique runtime directory for one
+// dispatch and hands it to the worker identity. Attempts never share
+// runtime state, so no attempt prepares or deletes another's sockets,
+// locks, or namespaces; stale locks from a killed run cannot poison the
+// next one because the next one never reuses the directory. The directory
+// inherits the parent's SELinux type. Release removes only this directory.
+func claimAttemptRuntime(parent, out string, uid, gid int) (dir string, release func() error, err error) {
+	leaf := filepath.Base(out)
+	if leaf == "" || leaf == "." || leaf == ".." {
+		return "", nil, errors.New("explicit safe output leaf required")
+	}
+	if st, err := os.Stat(parent); err != nil || !st.IsDir() {
+		return "", nil, errors.New("worker runtime directory missing; rerun the setup script")
+	}
+	dir, err = os.MkdirTemp(parent, "soda-build-"+leaf+"-")
+	if err != nil {
+		return "", nil, fmt.Errorf("cannot claim attempt runtime: %w", err)
+	}
+	if err := os.Chown(dir, uid, gid); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", nil, fmt.Errorf("cannot hand attempt runtime to the worker: %w", err)
+	}
+	return dir, func() error { return releaseAttemptRuntime(parent, dir) }, nil
+}
+
+// releaseAttemptRuntime removes one claimed attempt directory. It refuses
+// anything that is not a direct child directory of the runtime parent,
+// never the parent itself, so a confused caller cannot delete shared state.
+func releaseAttemptRuntime(parent, dir string) error {
+	rel, err := filepath.Rel(parent, dir)
+	if err != nil || rel == "." || rel == ".." || strings.ContainsRune(rel, '/') || strings.HasPrefix(rel, "..") {
+		return fmt.Errorf("refusing to release %q outside runtime %q", dir, parent)
+	}
+	st, err := os.Lstat(dir)
+	if err != nil {
+		return fmt.Errorf("cannot release attempt runtime: %w", err)
+	}
+	if !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to release non-directory %q", dir)
+	}
+	return os.RemoveAll(dir)
+}
+
 // runBuildWorker delegates the existing producer, never another recipe. The
 // service cannot see operator homes or real release custody; only its selected
 // source view, caches and output parent are bound into that namespace.
@@ -133,6 +196,20 @@ func runBuildWorker(ctx context.Context, c workerConfig, r image.Request, p *bui
 	if err := resolveWorkerLiveInputs(ctx, c, &r); err != nil {
 		return result, err
 	}
+	uid, gid, err := workerRuntimeIDs()
+	if err != nil {
+		return result, err
+	}
+	attempt, release, err := claimAttemptRuntime(c.Runtime, r.Out, uid, gid)
+	if err != nil {
+		return result, err
+	}
+	defer func() {
+		if err := release(); err != nil {
+			fmt.Fprintln(os.Stderr, "warning: cannot release attempt runtime:", err)
+		}
+	}()
+	c.Runtime = attempt
 	w, err := buildWorker(c, r)
 	if err != nil {
 		return result, err
