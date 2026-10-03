@@ -14,8 +14,12 @@ Forgejo identity. Project owners administer only their own environments.
 Do not create developer host accounts or reuse root's password as a team login.
 
 Complete the selected release's host/component installation first. Its initial
-Forgejo and Cockpit listeners are loopback-only. Keep native console access and
-use the operator's verified SSH key; keep bootstrap access private.
+Forgejo listener is loopback-only; Cockpit listens on all interfaces with
+root-only authentication from the start, so keep the host on its private
+network. Keep native console access and use the operator's verified SSH key;
+keep bootstrap access private. If no operator key is installed yet, the
+[optional key enrollment](../../operator/enroll-key.md) imports one laptop key
+through a short password-only window.
 
 ## Configure Forgejo privately
 
@@ -37,7 +41,8 @@ Forgejo's own persistent data and follow its
 ## Configure Soda's identity integration
 
 Using Forgejo's native settings, create the operator token required for setup:
-`write:user` (includes `read:user`), belonging to the Forgejo administrator.
+`read:user`, belonging to a Forgejo site administrator. Setup only reads
+`/api/v1/user` to confirm that administrator identity.
 Setup does not need admin or repository token scopes. Store it through a
 private input channel in a mode-0600 file on the appliance, not argv or a shared
 terminal transcript. Do not lend this server credential to developers.
@@ -50,9 +55,10 @@ On the host, replace the example Forgejo origin and token-file path:
   --token-file /root/private/forgejo-token
 ```
 
-Setup creates the actual OAuth application and records the operator identity.
-Setup retains the OAuth secret and grant-encryption key, not a bootstrap-token
-copy/reference, and leaves the supplied token file unchanged. Existing copies need
+Setup records the operator identity and creates the grant-encryption key.
+It creates no OAuth application and retains no OAuth secret; it keeps no
+bootstrap-token copy/reference and leaves the supplied token file unchanged.
+Existing copies need
 separately authorized maintenance;
 setup does not delete or revoke them.
 Soda's browser pages and product operations use Forgejo's native extension service
@@ -111,14 +117,15 @@ configuration, grant-encryption key, databases and project roots during
 
 ## Configure bounded agent execution
 
-After private Forgejo access is established, prepare one private repository and
-separate implementation and review bot accounts. Configure the authorizing human,
-protected token files, selected Forgejo Actions workflow and agent profile through
-the [factory walkthrough](../30-Use-Soda/15-software-factory.md#prepare-the-factory).
-Configure CPU, memory, process and writable-storage limits against available
-capacity, and select permitted network destinations deliberately.
+After private Forgejo access is established, supervise bounded agent execution
+through the [factory operator reference](../../reference/factory.md): the
+`soda-factory` operator command inspects recorded runs, retires one run and
+settles outstanding work, as shown in the
+[first-task walkthrough](../30-Use-Soda/15-software-factory.md). Automatic
+intake remains unavailable: a project join, issue label or repository creation
+does not admit work. Configure CPU, memory, process and writable-storage limits
+against available capacity, and select permitted network destinations deliberately.
 
 Keep the dedicated provider credential home outside human project roots. Protect
-the factory ledger and its workspace/publication directories. A project join,
-issue label or repository creation does not admit work. Verify the first task,
+the factory ledger and its workspace/publication directories. Verify the first task,
 its exact-commit CI and review, and recorded cleanup before routine operation.

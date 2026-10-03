@@ -42,7 +42,7 @@ or clearly failed machine state rather than a silently partial appliance.
 
 ## After first boot
 
-1. Import a laptop SSH key after local password login when that path is selected.
+1. Import a laptop SSH key after local password login when that path is selected ([optional key enrollment](../operator/enroll-key.md)).
 2. Configure private browser access with explicit client certificate trust.
 3. Complete [Operator setup](operator-setup.md).
 
