@@ -94,14 +94,18 @@ func diskInstallationStarted(marker string) (bool, error) {
 }
 
 func destinationForMedia(media mediaIdentity, template []byte, choices diskInstallChoices) ([]byte, error) {
-	if media.Format == 2 {
+	switch media.Format {
+	case 2:
 		factory, err := readRegular("/usr/share/soda/defaults/host.example.json", 16384)
 		if err != nil {
 			return nil, err
 		}
 		return candidateDestination(template, factory, choices)
+	case 0:
+		return Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
+	default:
+		return nil, errors.New("unsupported media format; only the legacy and candidate installers are supported")
 	}
-	return Destination(template, choices.hostname, "", choices.passwordHash, choices.subnet)
 }
 
 func attachContinuation(media mediaIdentity, destination []byte) ([]byte, error) {
@@ -140,7 +144,11 @@ func printDiskComplete(c console, media mediaIdentity) {
 // nobody.
 func rebootAfterInstall(ctx context.Context, c console, run commandRunner, installErr error) error {
 	if installErr != nil {
+		// Post-failure landing: no automatic retry or reboot happened. The
+		// prompt below is the inspection window: examine this live boot from
+		// another terminal before confirming, because rebooting discards it.
 		c.print("Installation did not complete: %v.", installErr)
+		c.print("No automatic retry or reboot was performed. Inspect this live boot from another terminal before confirming the reboot below; rebooting discards live-boot inspection state.")
 	}
 	c.print("Press Enter to reboot the machine.")
 	_, _ = c.line()
@@ -160,6 +168,11 @@ func verifyDiskMedia() (mediaIdentity, uint64, error) {
 	var media mediaIdentity
 	if err := build.ReadJSON(filepath.Join(dataDir, "media.json"), &media); err != nil {
 		return media, 0, errors.New("missing media identity")
+	}
+	// Reject unknown formats here so they can never fall through to the
+	// legacy provisioning path below.
+	if media.Format != 0 && media.Format != 2 {
+		return media, 0, errors.New("unsupported media format; only the legacy and candidate installers are supported")
 	}
 	payloadBytes, err := payloadRequirement(media)
 	if err != nil {
