@@ -76,7 +76,16 @@ allow init_t devpts_t:chr_file { open read write ioctl };
 allow init_t { ephemeral_port_t unreserved_port_t certmaster_port_t cluster_port_t cyphesis_port_t gear_port_t gluster_port_t hadoop_datanode_port_t hplip_port_t isns_port_t keystone_port_t matahari_port_t postgrey_port_t virt_migration_port_t }:tcp_socket name_connect;
 # P2 stages upstream build inputs (the pinned Muse binary, container
 # layers) over HTTPS from inside the worker, so init_t needs
-# name_connect to the web ports. Fetches are pinned and checksummed.
+# name_connect to the web ports. This is the worker's only admitted
+# network exception: live inputs stay controller-resolved (see
+# resolveWorkerLiveInputs), Go stays GOPROXY=off, and every P2 fetch is
+# pinned and checksummed. SELinux cannot scope the grant by destination
+# host, so this allows the worker domain to reach any http_port_t
+# listener; that breadth is the accepted trust cost of in-worker P2.
+# Narrowing options need an owner decision: move P2 fetching to the
+# controller and drop this rule, or accept it as documented. Installing
+# or removing this module is a host mutation; the staged .te here is
+# never applied by the lane.
 allow init_t http_port_t:tcp_socket name_connect;
 # Shell children of the test binaries run as initrc_t, so files they write
 # (the subreaper pidfile) and scripts the tests stage under var_lib_t need

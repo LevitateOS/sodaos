@@ -152,9 +152,14 @@ func runBuildWorker(ctx context.Context, c workerConfig, r image.Request, p *bui
 
 // resolveWorkerLiveInputs resolves the live inputs on the controller,
 // where outbound HTTPS is admitted, and records them beside the attempt
-// output for the isolated worker, which SELinux denies outbound HTTPS.
-// The worker consumes only its own attempt's file and validates it like
-// a live resolution; digest-pinned pulls verify content downstream.
+// output for the isolated worker. The worker still consumes only its own
+// attempt's file and validates it like a live resolution; digest-pinned
+// pulls verify content downstream. Live inputs stay controller-resolved
+// even though the worker policy admits one narrow exception: P2 stages
+// pinned, checksummed inputs over HTTPS from inside the worker (see
+// scripts/selinux/soda-build-worker.te), so the worker is no longer
+// fully denied outbound HTTPS. Keep this comment and the policy rule in
+// sync; if P2 moves to the controller, remove the http_port_t grant.
 func resolveWorkerLiveInputs(ctx context.Context, c workerConfig, r *image.Request) error {
 	coreOS, err := build.ResolveCoreOS(ctx)
 	if err != nil {
