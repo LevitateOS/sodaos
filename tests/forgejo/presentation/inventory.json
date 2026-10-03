@@ -1439,7 +1439,7 @@
         "native": "not individually captured",
         "requiredStates": "not all verified"
       },
-      "beforeRoleHash": "c364b5aa315e7392b67dde67e06906effa5d482416a8f5649f886a70dba604eb",
+      "beforeRoleHash": "7f2236a3523ca302b51ced01b690c5bf6af8cfccc909be253e7e06e62044d130",
       "upstreamCallers": [],
       "entryPoint": "native handler or extension hook; route evidence tracked separately"
     },
