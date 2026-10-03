@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -67,6 +68,10 @@ func openTestFactory(t *testing.T, pin string) *Factory {
 }
 
 func TestFactoryOpenRefusesSharedState(t *testing.T) {
+	// Exercise the worker-like private umask: Mkdir alone would leave the
+	// shared fixture private, so its mode is set explicitly below.
+	oldMask := syscall.Umask(0o077)
+	defer syscall.Umask(oldMask)
 	term := &terminal.Service{}
 	broker := identityclient.New(filepath.Join(t.TempDir(), "dead.sock"))
 	if _, err := OpenFactory("relative/path", term, broker); err == nil {
@@ -74,6 +79,9 @@ func TestFactoryOpenRefusesSharedState(t *testing.T) {
 	}
 	shared := filepath.Join(t.TempDir(), "shared")
 	if err := os.Mkdir(shared, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(shared, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := OpenFactory(shared, term, broker); err == nil {
