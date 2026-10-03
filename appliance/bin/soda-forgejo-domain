@@ -72,7 +72,10 @@ def app_data_path(env_file=ENV_FILE, app_ini=APP_INI):
         if not app_ini.is_file():
             die("deployment app.ini not found at %s" % app_ini)
         ini = configparser.ConfigParser()
-        ini.read(app_ini)
+        try:
+            ini.read(app_ini)
+        except (configparser.Error, UnicodeDecodeError) as parse_error:
+            die("cannot parse deployment app.ini at %s: %s" % (app_ini, parse_error))
         if ini.has_option("server", "APP_DATA_PATH"):
             value = ini.get("server", "APP_DATA_PATH").strip()
     if not value:
