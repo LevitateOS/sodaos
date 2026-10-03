@@ -16,6 +16,12 @@ const imageConfigPath = "usr/share/coreos-assembler/image.json"
 
 // The caller has admitted the development/media request. Only this metadata field
 // changes; upstream Assembler reads it from the resulting distinct host candidate.
+// Measured tradeoff (development media only): fast shortens a media build from
+// 21m24s to 18m35s with a 2.85% larger rootfs and unchanged ISO size (see
+// docs/development/native-support.md). The level-1 fsoptions below are the
+// entire difference; the producer, admission, and readback paths are shared,
+// so build-timing deltas between fast and default builds come from EROFS/LZMA
+// compression cost, not from skipped stages.
 func setMediaCompression(config map[string]json.RawMessage, mode string) error {
 	if mode == "" {
 		return nil // production and ordinary development preserve upstream defaults
