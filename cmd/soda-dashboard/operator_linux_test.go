@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/levitateos/sodaos/internal/factory/control"
 	"github.com/levitateos/sodaos/internal/store"
@@ -30,7 +31,9 @@ func operatorRoundTrip(t *testing.T, uid uint32) (*http.Response, error) {
 	}
 	t.Cleanup(func() { _ = listener.Close(); _ = server.Close() })
 	go func() { _ = server.Serve(listener) }()
-	client := &http.Client{Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+	// A bounded client turns a server-side deadlock into a fast failure
+	// instead of hanging the whole package until the go test timeout.
+	client := &http.Client{Timeout: 15 * time.Second, Transport: &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}}
 	req, err := http.NewRequest(http.MethodPost, "http://soda-operator/operator/factory", bytes.NewReader([]byte(`{"type":"status"}`)))

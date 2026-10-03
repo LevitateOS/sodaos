@@ -84,7 +84,7 @@ func runLockedInstall(ctx context.Context, c console, action string) error {
 	case "enroll-key":
 		return armEnrollment(ctx, c, command)
 	default:
-		return installDisk(ctx, c)
+		return rebootAfterInstall(ctx, c, command, installDisk(ctx, c))
 	}
 }
 

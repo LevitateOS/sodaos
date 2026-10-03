@@ -19,14 +19,15 @@ Install/activate context: [Installation](installation.md).
 3. Create an operator access token with `read:user`. Setup reads `/api/v1/user`.
    The token must belong to a Forgejo site administrator for Soda's bootstrap eligibility check.
    Supply it through a mode-0600 file; never expose it to developers.
-4. Run `/usr/local/sbin/soda-setup --forgejo-url https://FORGEJO --token-file /home/operator/forgejo-token`.
+4. Run `/usr/bin/soda-setup --forgejo-url https://FORGEJO --token-file /home/operator/forgejo-token`.
    Setup records `operator_id` and creates the grant-encryption key. It refuses
    to overwrite existing configuration.
-5. Run `/usr/local/sbin/soda-activate` with the explicit private bind address and
+5. Run `/usr/bin/soda-activate` with the explicit private bind address and
    either `--local-tls` for that IP or an existing certificate/key. Local TLS requires
    explicit trust of the appliance's public root certificate on intended clients.
 
-Use absolute setup/activation paths: CoreOS root SSH PATH may omit `/usr/local/sbin`.
+Both tools ship in `/usr/bin`, which is on the default root PATH; the absolute
+paths above work even under restricted SSH environments.
 
 Developers use native Forgejo account creation. Browser pages and product
 operations use Forgejo's native extension service on the configured HTTPS origin.
@@ -73,7 +74,7 @@ fenced for intervention.
 
 The durable service/domain controls for steps 1, 2 and 5 are the
 `soda-forgejo-domain` host operator command (`appliance/bin/soda-forgejo-domain`,
-staged to `/usr/local/sbin` alongside `soda-activate`): `stop` stops
+staged to `/usr/bin` alongside `soda-activate`): `stop` stops
 `forgejo.service` and verifies
 no container or unit survivor remains; `inhibit` runtime-masks the unit and
 creates the offline marker, resolving the deployment `AppDataPath` from its

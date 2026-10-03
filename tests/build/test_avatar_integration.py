@@ -86,6 +86,7 @@ class AvatarActivation(unittest.TestCase):
                     patch('subprocess.run') as run,
                     patch('builtins.print'),
                 ):
+                    run.return_value.returncode = 0
                     runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
                 values = dict(line.split('=', 1) for line in (config_root / 'forgejo.env').read_text().splitlines())
                 self.assertEqual(
@@ -98,7 +99,7 @@ class AvatarActivation(unittest.TestCase):
                 self.assertFalse(
                     any('DISABLE_GRAVATAR' in k or 'FEDERATED' in k or 'OFFLINE_MODE' in k for k in values)
                 )
-                self.assertEqual(run.call_count, 3)  # existing activation phases only
+                self.assertEqual(run.call_count, 6)  # 3 activation phases + 3 is-active health probes
                 self.assertEqual(
                     [call.args for call in chown.call_args_list],
                     [
@@ -185,11 +186,68 @@ class AvatarActivation(unittest.TestCase):
                 patch('os.geteuid', return_value=0),
                 patch('os.chown'),
                 patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=2000, pw_gid=2000)),
-                patch('subprocess.run'),
+                patch('subprocess.run') as run,
                 patch('builtins.print'),
             ):
+                run.return_value.returncode = 0
                 runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
             self.assertEqual((extension_root / '.data/soda/operator-id').read_text(), '7\n')
+            env = dict(
+                line.split('=', 1)
+                for line in (config_root / 'forgejo.env').read_text().splitlines()
+                if line and not line.startswith('#') and '=' in line
+            )
+            self.assertEqual(env['FORGEJO__extensions__SERVICE_BRIDGE_PEERS'], '2000:soda')
+
+    def test_activation_reports_units_that_never_become_active(self):
+        with tempfile.TemporaryDirectory() as directory:
+            temp = Path(directory)
+            config_root = temp / 'etc/soda'
+            config_root.mkdir(parents=True)
+            config = {
+                'forgejo_url': 'https://192.168.2.100',
+                'forgejo_internal_url': 'http://127.0.0.1:3000',
+                'listen': '127.0.0.1:8080',
+                'grant_key_file': '/etc/soda/grant-key',
+                'host_socket': '/run/soda/host.sock',
+                'identity_socket': '/run/soda/identity/admin.sock',
+                'operator_id': 7,
+            }
+            (config_root / 'dashboard.json').write_text(json.dumps(config))
+            (config_root / 'grant-key').write_text('synthetic, not a credential')
+            (config_root / 'grant-key').chmod(0o600)
+            extension_root = temp / 'var/lib/soda/forgejo/gitea/extensions'
+            extension_root.parent.mkdir(parents=True)
+            (config_root / 'forgejo.env').write_text('FORGEJO__ui__DEFAULT_THEME=soda-auto\n')
+
+            def mapped_path(value):
+                path = Path(value)
+                if str(path) == '/etc/soda' or str(path).startswith('/etc/soda/'):
+                    return config_root / path.relative_to('/etc/soda')
+                if str(path).startswith('/var/lib/soda/'):
+                    return temp / path.relative_to('/')
+                if str(path).startswith('/etc/containers/'):
+                    return temp / path.relative_to('/')
+                return path
+
+            with (
+                patch(
+                    'sys.argv',
+                    ['soda-activate', '--bind-ip', '192.168.2.100', '--local-tls'],
+                ),
+                patch('pathlib.Path', side_effect=mapped_path),
+                patch('os.geteuid', return_value=0),
+                patch('os.chown'),
+                patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=2000, pw_gid=2000)),
+                patch('subprocess.run') as run,
+                patch('time.monotonic', side_effect=[0.0, 61.0, 61.0]),
+                patch('time.sleep'),
+                patch('builtins.print'),
+            ):
+                run.return_value.returncode = 1
+                with self.assertRaises(SystemExit) as failure:
+                    runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
+                self.assertEqual(failure.exception.code, 2)
 
 
 class AvatarPackaging(unittest.TestCase):

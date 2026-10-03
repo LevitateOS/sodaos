@@ -45,7 +45,7 @@ terminal transcript. Do not lend this server credential to developers.
 On the host, replace the example Forgejo origin and token-file path:
 
 ```sh
-/usr/local/sbin/soda-setup \
+/usr/bin/soda-setup \
   --forgejo-url https://git.example.test \
   --token-file /root/private/forgejo-token
 ```
@@ -68,7 +68,7 @@ Supply a valid certificate/key covering the configured Forgejo/Sodaspaces origin
 restricted private input directory. Select the private appliance IP deliberately:
 
 ```sh
-/usr/local/sbin/soda-activate \
+/usr/bin/soda-activate \
   --bind-ip PRIVATE_APPLIANCE_IP \
   --certificate /root/private/browser-cert.pem \
   --private-key /root/private/browser-key.pem

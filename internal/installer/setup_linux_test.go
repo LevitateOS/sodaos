@@ -169,6 +169,10 @@ func TestPrivateSetupKeepsCredentialOutOfCommandsAndTranscript(t *testing.T) {
 					t.Fatalf("setup failed: %v, mutations %d", err, mutations)
 				}
 				readUntil("certificate is not available yet")
+				leftovers, _ := filepath.Glob(filepath.Join(root, "soda-setup-*"))
+				if len(leftovers) != 0 {
+					t.Fatalf("operator token workdir persists: %v", leftovers)
+				}
 			}
 			if strings.Contains(transcript.String(), token) {
 				t.Fatal("operator token echoed to console")

@@ -20,7 +20,7 @@ Use the actual installation configuration and displayed connection details:
 | Soda dashboard | Configured HTTPS origin on the private proxy | Forgejo-backed Soda session |
 | Forgejo browser | Its own configured HTTPS origin | Forgejo identity and permissions |
 | Host operator SSH | Approved private appliance endpoint, normally port 22 | Native root/operator key |
-| Cockpit | Host loopback 9090 by default, through operator SSH forwarding | Native root-only browser authentication |
+| Cockpit | LAN 9090 on the private network, or through operator SSH forwarding | Native root-only browser authentication |
 | Forgejo Git SSH | Configured private appliance listener, port 2222; copy the clone URL | Personal Forgejo Git key |
 | Project SSH/SCP/SFTP | Displayed project IP, port 22 | Joined project-local account and installed public key |
 | Project applications | Project IP and published application port, or project loopback with an SSH forward | Private route plus application authentication |
@@ -105,8 +105,8 @@ Use the private operator command against the dashboard backend's operator
 socket and the exact recorded run ID:
 
 ```sh
-soda-factory --socket /run/soda/operator/factory.sock status RUN_ID
-soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID stop RUN_ID
+soda-factory --socket /run/soda/operator/operator.sock status RUN_ID
+soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID stop RUN_ID
 ```
 
 Status distinguishes terminal outcome from settlement. Stop retires exactly the
@@ -116,7 +116,7 @@ sibling runs are never targeted.
 After an outage, settle outstanding runs:
 
 ```sh
-soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID reconcile
+soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID reconcile
 ```
 
 Reconcile retires remaining execution and settles accounting for each run

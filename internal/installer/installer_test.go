@@ -55,6 +55,17 @@ func TestInputValidation(t *testing.T) {
 			t.Errorf("invalid project subnet accepted: %s", value)
 		}
 	}
+	if !validPassword("synthetic-twelve", "synthetic-twelve") {
+		t.Error("12-character password refused")
+	}
+	for _, bad := range []string{"", "x", "short-pass!", "eleven-chr"} {
+		if validPassword(bad, bad) {
+			t.Errorf("weak password accepted: %q", bad)
+		}
+	}
+	if validPassword("synthetic-twelve", "synthetic-other!") {
+		t.Error("mismatched password accepted")
+	}
 }
 
 func TestDestinationUsesConvertedPublicBootstrap(t *testing.T) {

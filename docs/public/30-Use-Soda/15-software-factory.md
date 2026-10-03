@@ -12,8 +12,8 @@ Use the private operator command against the dashboard backend's operator
 socket:
 
 ```sh
-soda-factory --socket /run/soda/operator/factory.sock status
-soda-factory --socket /run/soda/operator/factory.sock status RUN_ID
+soda-factory --socket /run/soda/operator/operator.sock status
+soda-factory --socket /run/soda/operator/operator.sock status RUN_ID
 ```
 
 Status returns bounded recorded metadata for each run: Project, role, input
@@ -28,7 +28,7 @@ retirement, credential return and broker closure all confirmed.
 ## Stop one run
 
 ```sh
-soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID stop RUN_ID
+soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID stop RUN_ID
 ```
 
 Stop retires exactly the recorded run's processes, seals its broker
@@ -44,7 +44,7 @@ identity and its recorded unit and process group only.
 ## Settle outstanding work
 
 ```sh
-soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID reconcile
+soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID reconcile
 ```
 
 Reconcile retires every outstanding recorded run and settles accounting for

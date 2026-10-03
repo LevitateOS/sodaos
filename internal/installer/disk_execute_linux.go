@@ -118,17 +118,40 @@ func attachContinuation(media mediaIdentity, destination []byte) ([]byte, error)
 func printDiskComplete(c console, media mediaIdentity) {
 	if media.Format == 2 {
 		c.print("SodaOS disk installation completed with all five application images local.")
-		c.print("Remove installation media and reboot explicitly; log in locally as root with your password.")
-		c.print("Native startup imports the included images before starting their services. No reboot was performed.")
+		c.print("Remove installation media, then confirm the reboot prompt below; log in locally as root with your password.")
+		c.print("Native startup imports the included images before starting their services.")
 		c.print("SSH password access is enabled; log in as root over SSH with your password.")
 		c.print("To go key-only later, run locally after reboot: %s enroll-key, then disable password logins yourself.", candidateInstallerBinary)
 		c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
 		return
 	}
 	c.print("CoreOS disk installation completed; Soda setup is not complete.")
-	c.print("Remove installation media and reboot explicitly.")
+	c.print("Remove installation media, then confirm the reboot prompt below.")
 	c.print("On the installed system run: sudo %s continue", installerBinary)
-	c.print("No reboot was performed.")
+}
+
+// rebootAfterInstall closes the live-console installer session. The console
+// service runs with Restart=no and the getty masked, so merely returning
+// strands the operator on a frozen screen with no way forward; every terminal
+// outcome (success, cancel, or failure) therefore ends in a prompted reboot.
+// The prompt preserves the completion screen for reading; the operator
+// confirms after removing the installation media. A read error (Ctrl-C/EOF)
+// still reboots: nothing is unsaved at this point and a frozen console helps
+// nobody.
+func rebootAfterInstall(ctx context.Context, c console, run commandRunner, installErr error) error {
+	if installErr != nil {
+		c.print("Installation did not complete: %v.", installErr)
+	}
+	c.print("Press Enter to reboot the machine.")
+	_, _ = c.line()
+	c.print("Rebooting...")
+	if _, err := run(ctx, "systemctl", []string{"reboot"}, nil); err != nil {
+		if installErr != nil {
+			return installErr
+		}
+		return err
+	}
+	return installErr
 }
 
 // verifyDiskMedia hashes the full media payload (gigabytes on slow drives).

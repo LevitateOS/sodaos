@@ -27,10 +27,10 @@ Build the operator binary with the repository's pinned Go toolchain:
 
 ```sh
 go build -o .artifacts/soda-factory ./cmd/soda-factory
-.artifacts/soda-factory --socket /run/soda/operator/factory.sock status
-.artifacts/soda-factory --socket /run/soda/operator/factory.sock status RUN_ID
-.artifacts/soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID stop RUN_ID
-.artifacts/soda-factory --socket /run/soda/operator/factory.sock --command COMMAND_ID reconcile
+.artifacts/soda-factory --socket /run/soda/operator/operator.sock status
+.artifacts/soda-factory --socket /run/soda/operator/operator.sock status RUN_ID
+.artifacts/soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID stop RUN_ID
+.artifacts/soda-factory --socket /run/soda/operator/operator.sock --command COMMAND_ID reconcile
 ```
 
 Status is a read without a durable command and returns bounded recorded run

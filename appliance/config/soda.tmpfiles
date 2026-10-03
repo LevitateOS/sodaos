@@ -4,7 +4,12 @@ d /var/lib/soda/dashboard/publication 0700 soda soda -
 d /var/lib/soda/forgejo 0755 root root -
 d /var/lib/soda/proxy 0700 root root -
 d /run/soda 0755 root root -
-d /run/soda/extension 2770 root soda-extension-ipc -
+# IPC between the dashboard (uid 2000, group 2100) and the Forgejo extension
+# (bare container uid; its entrypoint drops supplemental groups). Other-wx
+# admits the extension to known socket names without listing; the sticky bit
+# keeps each side deleting only its own socket. Request authorization stays
+# at the protocol layer (native authority + bridge peers), not on these bits.
+d /run/soda/extension 3773 root soda-extension-ipc -
 d /home/soda-identity 0700 soda-identity soda -
 d /run/soda/identity 0750 soda-identity soda -
 d /run/soda-tailnet 0700 root root -

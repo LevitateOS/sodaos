@@ -48,7 +48,7 @@ func TestPrepareVendorContextFromActualOwners(t *testing.T) {
 		for _, path := range []string{"rootfs/var", "rootfs/usr/sbin", "rootfs/usr/local", "rootfs/etc/soda", "rootfs/etc/systemd/system", "rootfs/etc/containers/systemd"} {
 			require.NoDirExists(t, filepath.Join(out, path))
 		}
-		for _, path := range []string{"rootfs/usr/libexec/soda/soda-console-welcome", "rootfs/usr/bin/soda-activate"} {
+		for _, path := range []string{"rootfs/usr/libexec/soda/soda-console-welcome", "rootfs/usr/bin/soda-activate", "rootfs/usr/bin/soda-forgejo-domain"} {
 			info, e := os.Stat(filepath.Join(out, path))
 			require.NoError(t, e)
 			require.Equal(t, os.FileMode(0o755), info.Mode().Perm())

@@ -187,6 +187,8 @@ func executeSetupAndActivation(ctx context.Context, run commandRunner, root, tem
 	if err != nil {
 		return err
 	}
+	// The operator token must not outlive this attempt, including failures.
+	defer func() { _ = os.RemoveAll(work) }()
 	tokenPath := filepath.Join(work, "operator-token")
 	if err := writeSetupFile(tokenPath, []byte(token+"\n")); err != nil {
 		return err

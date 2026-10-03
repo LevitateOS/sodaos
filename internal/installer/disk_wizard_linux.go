@@ -149,8 +149,12 @@ func stepHostname(c console, selectedDisk Disk, currentHostname string) (string,
 	}
 }
 
+// minPasswordRunes guards LAN SSH and console root logins; the installer
+// refuses short bootstraps instead of shipping a guessable appliance.
+const minPasswordRunes = 12
+
 func validPassword(password, confirmation string) bool {
-	return utf8.ValidString(password) && password != "" && password == confirmation
+	return utf8.ValidString(password) && utf8.RuneCountInString(password) >= minPasswordRunes && password == confirmation
 }
 
 func hashPassword(ctx context.Context, run commandRunner, password string) (string, error) {
@@ -182,7 +186,7 @@ func stepPassword(ctx context.Context, c console, run commandRunner) (string, er
 			return "", err
 		}
 		if !validPassword(password, confirmation) {
-			feedback = "Passwords must match and must not be empty."
+			feedback = "Passwords must match and use at least 12 characters."
 			continue
 		}
 		return hashPassword(ctx, run, password)

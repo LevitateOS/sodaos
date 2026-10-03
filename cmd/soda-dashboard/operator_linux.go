@@ -35,11 +35,24 @@ func operatorPeerOK(conn net.Conn, uid uint32) bool {
 	if !ok {
 		return false
 	}
-	file, err := unixConn.File()
+	// SyscallConn reads the fd without disturbing the connection: File()
+	// would flip it to blocking mode, after which the HTTP server's
+	// background read becomes uninterruptible and Close deadlocks.
+	raw, err := unixConn.SyscallConn()
 	if err != nil {
 		return false
 	}
-	defer func() { _ = file.Close() }()
-	credentials, err := unix.GetsockoptUcred(int(file.Fd()), unix.SOL_SOCKET, unix.SO_PEERCRED)
-	return err == nil && credentials.Uid == uid
+	var peer uint32
+	var syscallErr error
+	if err := raw.Control(func(fd uintptr) {
+		credentials, err := unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
+		if err != nil {
+			syscallErr = err
+			return
+		}
+		peer = credentials.Uid
+	}); err != nil {
+		return false
+	}
+	return syscallErr == nil && peer == uid
 }
