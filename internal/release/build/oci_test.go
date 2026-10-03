@@ -201,6 +201,33 @@ func TestOCIMemberScannerAppliesWhiteouts(t *testing.T) {
 	}
 }
 
+func TestOCIMemberScannerIgnoresBenignBaseLayerEntries(t *testing.T) {
+	var data bytes.Buffer
+	tw := tar.NewWriter(&data)
+	// Base layers include the tar root directory, and systemd ships escaped
+	// unit names with literal backslashes. Neither can match a request.
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: ".", Typeflag: tar.TypeDir, Mode: 0o755}))
+	escaped := []byte("escaped unit")
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: `usr/lib/systemd/system/system-systemd\x2dcryptsetup.slice`, Mode: 0o644, Size: int64(len(escaped))}))
+	_, err := tw.Write(escaped)
+	require.NoError(t, err)
+	content := []byte("verified member")
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "wanted", Mode: 0o644, Size: int64(len(content))}))
+	_, err = tw.Write(content)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	wanted := map[string]string{"wanted": "/wanted"}
+	members, err := scanOCILayer(bytes.NewReader(data.Bytes()), wanted)
+	require.NoError(t, err)
+	resolved, err := resolveOCIMembers([]map[string]layerMember{members}, []bool{false}, wanted)
+	require.NoError(t, err)
+	contentSum := sha256.Sum256(content)
+	require.Equal(t, hex.EncodeToString(contentSum[:]), resolved["/wanted"])
+	if _, err := requestedOCIPaths([]string{`/usr/a\b`}); err == nil {
+		t.Fatal("backslash request accepted")
+	}
+}
+
 func TestOCIArchiveLayerCompressionAndDigest(t *testing.T) {
 	var layer bytes.Buffer
 	layerTar := tar.NewWriter(&layer)

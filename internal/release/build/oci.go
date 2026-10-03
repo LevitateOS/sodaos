@@ -204,11 +204,14 @@ func requestedOCIPaths(paths []string) (map[string]string, error) {
 	return wanted, nil
 }
 
+// cleanLayerName admits real Linux layer entries. Backslashes stay permitted:
+// base layers ship systemd escaped unit names, and member requests reject
+// backslashes, so such entries can never match a request.
 func cleanLayerName(name string) (string, error) {
 	name = strings.TrimPrefix(name, "./")
 	clean := path.Clean(name)
 	segments := strings.Split(name, "/")
-	if clean == "." || path.IsAbs(clean) || slices.Contains(segments, "..") || strings.ContainsAny(clean, "\\\n\r\x00") {
+	if clean == "." || path.IsAbs(clean) || slices.Contains(segments, "..") || strings.ContainsAny(clean, "\n\r\x00") {
 		return "", errors.New("unsafe OCI layer path")
 	}
 	return clean, nil
@@ -282,6 +285,11 @@ func recordLayerEntry(tr io.Reader, h *tar.Header, name string, found map[string
 }
 
 func scanLayerHeader(tr io.Reader, h *tar.Header, found map[string]layerMember, seen map[string]bool, wanted map[string]string) error {
+	// Base layers include the tar root directory. It can never match a
+	// requested member, so skip it instead of refusing the archive.
+	if h.Name == "." || h.Name == "./" {
+		return nil
+	}
 	name, err := cleanLayerName(h.Name)
 	if err != nil {
 		return err
