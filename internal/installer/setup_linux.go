@@ -39,10 +39,20 @@ func skipSetupInterface(network setupInterface) bool {
 	return !up || network.Name == "soda0" || strings.HasPrefix(network.Name, "podman") || strings.HasPrefix(network.Name, "veth")
 }
 
-func appendSetupAddress(choices []setupAddress, seen map[string]bool, name, local, scope string) []setupAddress {
+func appendSetupAddress(choices []setupAddress, seen map[string]bool, excluded *[]string, name, local, scope string) []setupAddress {
 	if _, err := privateSetupOrigin(local); err == nil && scope == "global" && !seen[local] {
 		choices = append(choices, setupAddress{name, local})
 		seen[local] = true
+		return choices
+	}
+	if len(*excluded) < 8 {
+		reason := "not a private LAN or Tailscale address"
+		if scope != "global" {
+			reason = "scope " + scope + ", not global"
+		} else if seen[local] {
+			reason = "duplicate address"
+		}
+		*excluded = append(*excluded, name+" "+local+" ("+reason+")")
 	}
 	return choices
 }
@@ -66,17 +76,23 @@ func setupAddresses(data []byte) ([]setupAddress, error) {
 		return nil, errors.New("cannot inspect private setup addresses")
 	}
 	var choices []setupAddress
+	var excluded []string
 	seen := map[string]bool{}
 	for _, network := range interfaces {
 		if skipSetupInterface(network) {
 			continue
 		}
 		for _, address := range network.Addresses {
-			choices = appendSetupAddress(choices, seen, network.Name, address.Local, address.Scope)
+			choices = appendSetupAddress(choices, seen, &excluded, network.Name, address.Local, address.Scope)
 		}
 	}
 	if len(choices) == 0 {
-		return nil, errors.New("no private setup address is available; configure networking first")
+		// Name what the filter rejected so the operator can compare with the
+		// unfiltered live addresses shown during disk installation.
+		if len(excluded) == 0 {
+			return nil, errors.New("no private setup address is available; configure networking first")
+		}
+		return nil, errors.New("no private setup address is available; configure networking first (observed but unusable: " + strings.Join(excluded, "; ") + ")")
 	}
 	return choices, nil
 }
@@ -98,10 +114,13 @@ func checkPreexistingInstall(root string) (bool, error) {
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return false, errors.New("cannot inspect existing activation")
 	}
-	for _, name := range []string{"dashboard.json", "setup-started"} {
-		if _, err := os.Lstat(filepath.Join(root, name)); !errors.Is(err, os.ErrNotExist) {
-			return false, errors.New("existing or partial operator setup requires inspection before retrying")
-		}
+	// Partial states refuse automatic replay, but each names its explicit
+	// operator recovery instead of stranding a failed attempt with no retry.
+	if _, err := os.Lstat(filepath.Join(root, "dashboard.json")); !errors.Is(err, os.ErrNotExist) {
+		return false, errors.New("operator configuration already exists; complete activation with the installed soda-activate command, or inspect the existing files before any manual maintenance; configure will not replay setup")
+	}
+	if _, err := os.Lstat(filepath.Join(root, "setup-started")); !errors.Is(err, os.ErrNotExist) {
+		return false, errors.New("a previous setup attempt reserved " + filepath.Join(root, "setup-started") + " but wrote no configuration; confirm no setup is running, remove only that reservation file, then rerun configure")
 	}
 	return false, nil
 }
@@ -193,11 +212,21 @@ func executeSetupAndActivation(ctx context.Context, run commandRunner, root, tem
 	if err := writeSetupFile(tokenPath, []byte(token+"\n")); err != nil {
 		return err
 	}
-	if err := writeSetupFile(filepath.Join(root, "setup-started"), []byte(origin+"\n")); err != nil {
+	startedPath := filepath.Join(root, "setup-started")
+	if err := writeSetupFile(startedPath, []byte(origin+"\n")); err != nil {
 		return errors.New("cannot reserve operator setup; no native API request made")
 	}
 	if _, err := run(ctx, platform.Sbin+"/soda-setup", []string{"--forgejo-url", origin, "--token-file", tokenPath, "--out", filepath.Join(root, "dashboard.json")}, nil); err != nil {
-		return errors.New("operator setup failed; inspect the existing configuration before retrying. " + failureSummary(err))
+		// Roll back only this attempt's reservation: without dashboard.json
+		// nothing references the marker or the orphaned grant key, so a plain
+		// rerun is safe. A written dashboard.json is always preserved.
+		summary := failureSummary(err)
+		if _, statErr := os.Lstat(filepath.Join(root, "dashboard.json")); errors.Is(statErr, os.ErrNotExist) {
+			_ = os.Remove(startedPath)
+			_ = os.Remove(filepath.Join(root, "grant-key"))
+			return errors.New("operator setup failed; this attempt wrote no configuration and its reservation was removed, so rerunning configure is safe after addressing the cause. " + summary)
+		}
+		return errors.New("operator setup failed; inspect the existing configuration before retrying. " + summary)
 	}
 	if _, err := run(ctx, platform.Sbin+"/soda-activate", []string{"--bind-ip", selected.Address, "--local-tls"}, nil); err != nil {
 		return errors.New("private activation failed; preserve the existing configuration for inspection. " + failureSummary(err))
@@ -297,16 +326,20 @@ func confirmActiveBrowserUnits(ctx context.Context, run commandRunner) error {
 	return nil
 }
 
-func printLocalCAGuidance(c console, origin *url.URL, caPath string) error {
+func printLocalCAGuidance(c console, origin *url.URL, address, caPath string) error {
 	certificate, err := readRegular(caPath, 16384)
 	if err != nil {
-		c.print("The local certificate is not available yet. Inspect soda-proxy.service, then run configure again to show the trust instructions. Existing setup will not be replayed.")
+		// Active units without trust material are not a ready browser
+		// address: say so before any Open guidance, not after it.
+		c.print("The browser services report active, but the local CA certificate is not available yet; do not open the browser address until the trust material below exists.")
+		c.print("Inspect soda-proxy.service, then run configure again to show the trust instructions. Existing setup will not be replayed.")
 		return nil
 	}
 	fingerprint, err := localCAFingerprint(certificate)
 	if err != nil {
 		return err
 	}
+	c.print("The browser services report active. Open %s only after completing the client trust below; browser login still needs verification.", address)
 	c.print("Local CA certificate SHA-256: %s", fingerprint)
 	c.print("Copy only the public root.crt file over your verified SSH connection:")
 	c.print("scp root@%s:%s ./soda-local-ca.crt", origin.Host, caPath)
@@ -332,11 +365,12 @@ func configuredAccess(ctx context.Context, c console, root, caPath string, run c
 	if err := confirmActiveBrowserUnits(ctx, run); err != nil {
 		return err
 	}
-	c.print("The browser services report active. Open %s after setting up client trust; browser login still needs verification.", address)
 	if local {
-		if err := printLocalCAGuidance(c, origin, caPath); err != nil {
+		if err := printLocalCAGuidance(c, origin, address, caPath); err != nil {
 			return err
 		}
+	} else {
+		c.print("The browser services report active. Open %s after setting up client trust for your supplied certificate; browser login still needs verification.", address)
 	}
 	c.print("Sign in to native Forgejo, create or choose a repository, and open Sodaspaces to create and join its development environment.")
 	c.print("Verify a browser terminal in that project. Opening this setup screen is not a completed project/access test.")

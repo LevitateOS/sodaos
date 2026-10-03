@@ -114,6 +114,9 @@ func setup(external, internal, tokenPath, out string) error {
 	}
 	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(external, "/"), ForgejoInternalURL: strings.TrimRight(internal, "/"), Database: "/var/lib/soda/dashboard/soda.db", HostSocket: "/run/soda/host.sock", GrantKeyFile: keyPath, OperatorID: u.ID}
 	if err = writeSetupConfig(out, c); err != nil {
+		// This run created the key through O_EXCL, so no other setup owns
+		// it; remove it so a retry is not blocked by our own partial state.
+		_ = os.Remove(keyPath)
 		return err
 	}
 	fmt.Println("Dashboard configuration created. Set native soda service ownership before enabling the dashboard. No host privilege was granted to a Forgejo user.")
