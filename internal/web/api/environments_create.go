@@ -26,8 +26,6 @@ type createEnvironmentInput struct {
 }
 
 var (
-	errStoreUnavailable   = errors.New("could not inspect reservation")
-	errReservationFailed  = errors.New("repository already has a reservation")
 	errProfileUnavailable = errors.New("profile unavailable")
 	errSessionChanged     = errors.New("session changed")
 )
@@ -45,18 +43,7 @@ func parseCreateEnvironmentInput(w http.ResponseWriter, r *http.Request) (*creat
 	return &input, repoID, true
 }
 
-func (s *API) checkRepositoryReservation(ctx context.Context, repoID int64) error {
-	_, err := s.Store.ProjectByRepository(ctx, repoID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return errStoreUnavailable
-	}
-	return errReservationFailed
-}
-
-func (s *API) precheckRepositoryAndReservation(w http.ResponseWriter, r *http.Request, v store.Session, repoID int64) bool {
+func (s *API) verifyRepositoryOwner(w http.ResponseWriter, r *http.Request, v store.Session, repoID int64) bool {
 	access, err := s.visibleRepository(r, v, repoID)
 	if err != nil {
 		auth.ProviderError(w, err)
@@ -66,15 +53,22 @@ func (s *API) precheckRepositoryAndReservation(w http.ResponseWriter, r *http.Re
 		auth.JSONError(w, 403, "owner_required", "Only the human repository owner can create its environment. Organization-owned environments are not supported.")
 		return false
 	}
-	if err := s.checkRepositoryReservation(r.Context(), repoID); err != nil {
-		if errors.Is(err, errReservationFailed) {
-			auth.JSONError(w, 409, "reservation_failed", "Repository already has a reservation. Refresh; do not recreate it.")
-		} else {
-			auth.JSONError(w, 503, "store_unavailable", "Could not inspect reservation.")
-		}
-		return false
-	}
 	return true
+}
+
+// lookupReservation reads one repository's retained reservation. A ready
+// reservation stays a conflict; an unready one is reconciled from host
+// evidence by the caller instead of being provisioned anew.
+func (s *API) lookupReservation(w http.ResponseWriter, ctx context.Context, repoID int64) (store.Project, bool, bool) {
+	p, err := s.Store.ProjectByRepository(ctx, repoID)
+	if errors.Is(err, store.ErrNotFound) {
+		return store.Project{}, false, true
+	}
+	if err != nil {
+		auth.JSONError(w, 503, "store_unavailable", "Could not inspect reservation.")
+		return store.Project{}, false, false
+	}
+	return p, true, true
 }
 
 func (s *API) checkTailnetPreflight(ctx context.Context, sel *tailnet.ProjectSelection) error {
@@ -141,8 +135,10 @@ func (s *API) reconfirmRepositoryAndSession(w http.ResponseWriter, r *http.Reque
 	return access, true
 }
 
-func (s *API) provisionAndSaveProject(w http.ResponseWriter, ctx context.Context, p store.Project) (store.Project, bool) {
-	env, err := s.Host.Create(ctx, project.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile})
+func (s *API) provisionAndSaveProject(w http.ResponseWriter, r *http.Request, p store.Project) (store.Project, bool) {
+	opCtx, cancel := operationContext(r.Context(), createOperationTimeout)
+	defer cancel()
+	env, err := s.Host.Create(opCtx, project.Create{ID: p.ID, Owner: p.OwnerID, Profile: p.Profile})
 	if err != nil {
 		auth.JSONResponse(w, 502, struct {
 			Error       apiError        `json:"error"`
@@ -150,7 +146,7 @@ func (s *API) provisionAndSaveProject(w http.ResponseWriter, ctx context.Context
 		}{apiError{"provisioning_incomplete", "Reservation retained; native provisioning was not confirmed. Inspect this environment with the operator; do not recreate it."}, EnvironmentDTO(p)})
 		return p, false
 	}
-	if err = s.Store.MarkReady(ctx, p.ID, env.IP); err != nil {
+	if err = s.Store.MarkReady(opCtx, p.ID, env.IP); err != nil {
 		auth.JSONResponse(w, 503, struct {
 			Error       apiError        `json:"error"`
 			Environment EnvironmentView `json:"environment"`
@@ -159,6 +155,32 @@ func (s *API) provisionAndSaveProject(w http.ResponseWriter, ctx context.Context
 	}
 	p.Ready = true
 	return p, true
+}
+
+// reconcileCreate finishes a retained unready reservation from host
+// evidence, or reports its truthful unresolved state. Ownership and
+// session freshness were already verified by the caller. It never
+// deletes or recreates the native root.
+func (s *API) reconcileCreate(w http.ResponseWriter, r *http.Request, p store.Project) {
+	env, nativeErr := s.Host.Inspect(r.Context(), p.ID)
+	observed, nativeErr := observedEnvironment(p, env, nativeErr)
+	if observed == nil || !provisioningConfirmed(p, *observed) {
+		auth.JSONResponse(w, 409, struct {
+			Error             apiError             `json:"error"`
+			Environment       EnvironmentView      `json:"environment"`
+			Observed          *project.Environment `json:"observed"`
+			NativeUnavailable bool                 `json:"native_unavailable"`
+		}{apiError{"provisioning_incomplete", "Reservation retained; native provisioning was not confirmed. Inspect this environment with the operator; do not recreate it."}, EnvironmentDTO(p), observed, nativeErr != nil})
+		return
+	}
+	if updated, finished := s.reconcileProvisioning(r.Context(), p, *observed); finished {
+		auth.JSONResponse(w, 200, EnvironmentDTO(updated))
+		return
+	}
+	auth.JSONResponse(w, 503, struct {
+		Error       apiError        `json:"error"`
+		Environment EnvironmentView `json:"environment"`
+	}{apiError{"result_not_saved", "Native provisioning was confirmed, but its result was not saved. Inspect the retained environment; do not recreate it."}, EnvironmentDTO(p)})
 }
 
 func (s *API) applyCreatedEnvironmentTailnet(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project, sel *tailnet.ProjectSelection) (string, bool) {
@@ -185,7 +207,25 @@ func (s *API) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v sto
 	if !ok {
 		return
 	}
-	if !s.precheckRepositoryAndReservation(w, r, v, repositoryID) {
+	if !s.verifyRepositoryOwner(w, r, v, repositoryID) {
+		return
+	}
+	existing, found, ok := s.lookupReservation(w, r.Context(), repositoryID)
+	if !ok {
+		return
+	}
+	if found && existing.Ready {
+		auth.JSONError(w, 409, "reservation_failed", "Repository already has a reservation. Refresh; do not recreate it.")
+		return
+	}
+	if found {
+		// Finish the retained reservation from host evidence instead of
+		// provisioning anew. Profile and Tailnet prechecks describe a new
+		// reservation, not this one; only ownership and session apply.
+		if _, ok := s.reconfirmRepositoryAndSession(w, r, v, repositoryID); !ok {
+			return
+		}
+		s.reconcileCreate(w, r, existing)
 		return
 	}
 	profile, ok := s.precheckProfileAndTailnet(w, r.Context(), input.Tailnet)
@@ -201,10 +241,16 @@ func (s *API) apiCreateEnvironment(w http.ResponseWriter, r *http.Request, v sto
 	_, _ = rand.Read(bytes)
 	p := store.Project{Profile: &profile, ID: "p" + hex.EncodeToString(bytes), Name: repo.Name, RepositoryID: repo.ID, OwnerID: v.User.ID, Repository: repo.FullName}
 	if err := s.Store.CreateProject(r.Context(), p); err != nil {
+		// Lost a concurrent creation race: the winner owns the
+		// reservation. Reconcile it when it is still unready.
+		if winner, rerr := s.Store.ProjectByRepository(r.Context(), repositoryID); rerr == nil && !winner.Ready {
+			s.reconcileCreate(w, r, winner)
+			return
+		}
 		auth.JSONError(w, 409, "reservation_failed", "Repository may already have an environment reservation. Refresh its environment before retrying.")
 		return
 	}
-	p, ok = s.provisionAndSaveProject(w, r.Context(), p)
+	p, ok = s.provisionAndSaveProject(w, r, p)
 	if !ok {
 		return
 	}

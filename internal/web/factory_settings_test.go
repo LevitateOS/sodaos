@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -34,13 +33,9 @@ func factorySettingsServer(t *testing.T) *Server {
 
 func factoryEncryptedServer(t *testing.T) *Server {
 	t.Helper()
-	db, err := store.OpenEncrypted(filepath.Join(t.TempDir(), "soda.db"), bytes.Repeat([]byte{4}, 32))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
+	db := postgresFixture(t, bytes.Repeat([]byte{4}, 32))
 	for i, login := range []string{"alice", "bob"} {
-		if err = db.UpsertUser(context.Background(), store.User{ID: int64(i + 1), Login: login, Name: login}); err != nil {
+		if err := db.UpsertUser(context.Background(), store.User{ID: int64(i + 1), Login: login, Name: login}); err != nil {
 			t.Fatal(err)
 		}
 	}

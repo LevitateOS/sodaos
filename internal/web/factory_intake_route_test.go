@@ -15,7 +15,6 @@ import (
 
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory/control"
-	"github.com/levitateos/sodaos/internal/store"
 )
 
 type intakeRouteSource struct {
@@ -29,14 +28,11 @@ func (s intakeRouteSource) ReadAcceptanceEvidence(context.Context, string, strin
 func intakeRouteServer(t *testing.T, secret string) (*Server, func()) {
 	t.Helper()
 	dir := t.TempDir()
-	db, err := store.Open(filepath.Join(dir, "soda.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	db := postgresFixture(t, nil)
 	c := config.Config{
 		Listen: "127.0.0.1:8080", ForgejoURL: "https://forgejo.test/",
 		ForgejoInternalURL: "http://127.0.0.1:3000",
-		Database:           filepath.Join(dir, "soda.db"),
+		DatabaseDSNFile:    filepath.Join(dir, "soda.dsn"),
 		HostSocket:         filepath.Join(dir, "host.sock"),
 		IdentitySocket:     filepath.Join(dir, "identity.sock"),
 		GrantKeyFile:       filepath.Join(dir, "grant-key"),
@@ -50,7 +46,7 @@ func intakeRouteServer(t *testing.T, secret string) (*Server, func()) {
 		c.FactoryIntakeSecretFile = path
 	}
 	server := New(c, db)
-	return server, func() { _ = db.Close() }
+	return server, func() {}
 }
 
 func TestFactoryIntakeRouteServesVerifiedDeliveries(t *testing.T) {

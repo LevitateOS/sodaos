@@ -24,14 +24,10 @@ func (f roundTrip) RoundTrip(r *http.Request) (*http.Response, error) { return f
 
 func apiTestServer(t *testing.T) *Server {
 	t.Helper()
-	db, err := store.Open(filepath.Join(t.TempDir(), "soda.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
+	db := postgresFixture(t, nil)
 	for i, login := range []string{"alice", "bob"} {
 		id := int64(i + 1)
-		if err = db.UpsertUser(context.Background(), store.User{ID: id, Login: login, Name: login}); err != nil {
+		if err := db.UpsertUser(context.Background(), store.User{ID: id, Login: login, Name: login}); err != nil {
 			t.Fatal(err)
 		}
 	}

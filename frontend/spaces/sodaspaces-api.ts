@@ -774,6 +774,8 @@ export function spacesResponse(value: unknown): {
   actor: {id: string; login: string};
   items: Space[];
   complete: boolean;
+  nextAfter: string;
+  factoryIncomplete: boolean;
 } {
   const data = object(value);
   const actor = object(data.actor);
@@ -785,10 +787,18 @@ export function spacesResponse(value: unknown): {
       Array.isArray(data.items) &&
       data.items.length <= 32
   );
+  check(data.next_after === undefined || projectId(data.next_after));
+  check(data.factory_incomplete === undefined || typeof data.factory_incomplete === 'boolean');
   const seen = new Set<string>(),
     sessions = new Set<string>();
   const items = data.items.map((row: unknown) => spaceItem(row, actor.id as string, data, seen, sessions));
-  return {actor: {id: actor.id as string, login: actor.login as string}, items, complete: data.complete};
+  return {
+    actor: {id: actor.id as string, login: actor.login as string},
+    items,
+    complete: data.complete,
+    nextAfter: typeof data.next_after === 'string' ? data.next_after : '',
+    factoryIncomplete: data.factory_incomplete === true,
+  };
 }
 export interface RepositoryChoice {
   id: string;

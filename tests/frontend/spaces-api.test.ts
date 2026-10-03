@@ -201,6 +201,22 @@ test('Spaces admits the factory control state and renders its status', () => {
     })
   );
 });
+test('Spaces admits the bounded next cursor and factory incompleteness', () => {
+  const actor = {id: '1', login: 'soda-tester'};
+  const cursor = 'p0123456789abcdef01234567';
+  const paged = spacesResponse({actor, items: [row], complete: false, next_after: cursor});
+  assert.equal(paged.nextAfter, cursor);
+  assert.equal(paged.factoryIncomplete, false);
+  const failed = spacesResponse({actor, items: [row], complete: false, factory_incomplete: true});
+  assert.equal(failed.factoryIncomplete, true);
+  assert.equal(failed.nextAfter, '');
+  const clean = spacesResponse({actor, items: [row], complete: true});
+  assert.equal(clean.nextAfter, '');
+  assert.equal(clean.factoryIncomplete, false);
+  assert.throws(() => spacesResponse({actor, items: [row], complete: false, next_after: 'nope'}));
+  assert.throws(() => spacesResponse({actor, items: [row], complete: false, next_after: 7}));
+  assert.throws(() => spacesResponse({actor, items: [row], complete: false, factory_incomplete: 'yes'}));
+});
 test('Factory command identities are idempotent ledger keys', () => {
   const first = factoryCommandId();
   assert.match(first, /^[a-f0-9]{32}$/);

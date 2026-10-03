@@ -137,6 +137,14 @@ func (s *API) apiEnvironment(w http.ResponseWriter, r *http.Request, v store.Ses
 	// provisioning result, not evidence of a running or client-reachable service.
 	env, nativeErr := s.Host.Inspect(r.Context(), p.ID)
 	observed, nativeErr := observedEnvironment(p, env, nativeErr)
+	// Inspection finishes a retained reservation once host evidence proves
+	// it, so an ordinary refresh heals an interrupted creation. Anything
+	// unconfirmed stays visibly unresolved below.
+	if !p.Ready && observed != nil {
+		if updated, finished := s.reconcileProvisioning(r.Context(), p, *observed); finished {
+			p = updated
+		}
+	}
 	if !s.requireListedSession(w, r, v) {
 		return
 	}

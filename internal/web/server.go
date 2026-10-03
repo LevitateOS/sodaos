@@ -63,6 +63,7 @@ func New(c config.Config, db *store.Store) *Server {
 		}
 		if c.ForgejoMergeCredentialFile != "" {
 			s.Coordinator.Merges = forgejo.NewMerger(background, client, c.ForgejoMergeCredentialFile)
+			s.Coordinator.Checks = forgejo.NewCheckAssessor(background, client, c.ForgejoMergeCredentialFile)
 		}
 	}
 	s.mux.HandleFunc("POST /api/factory/intake", api.IntakeHandler{
@@ -130,7 +131,7 @@ func loadIntakeSecret(c config.Config) []byte {
 // outstanding runs before the operator endpoint serves. Only the serving
 // backend calls this; request handling never starts a coordinator.
 func (s *Server) StartCoordinator(ctx context.Context) error {
-	return s.Coordinator.Start(ctx, filepath.Join(filepath.Dir(s.Config.Database), "factory-coordinator.lock"))
+	return s.Coordinator.Start(ctx, filepath.Join(filepath.Dir(s.Config.DatabaseDSNFile), "factory-coordinator.lock"))
 }
 
 // CloseCoordinator releases factory-ledger ownership before process exit.

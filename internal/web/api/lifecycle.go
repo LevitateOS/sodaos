@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -12,20 +13,12 @@ import (
 	"github.com/levitateos/sodaos/internal/store"
 )
 
-func (s *API) checkLifecycleEnvironment(w http.ResponseWriter, r *http.Request) (store.Project, bool) {
+func (s *API) loadLifecycleEnvironment(w http.ResponseWriter, r *http.Request) (store.Project, bool) {
 	if r.URL.RawQuery != "" || r.URL.ForceQuery {
 		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
 		return store.Project{}, false
 	}
-	p, ok := s.loadEnvironment(w, r)
-	if !ok {
-		return store.Project{}, false
-	}
-	if !p.Ready {
-		auth.JSONError(w, 409, "not_provisioned", "Provisioning is incomplete; do not repair or recreate it.")
-		return store.Project{}, false
-	}
-	return p, true
+	return s.loadEnvironment(w, r)
 }
 
 type lifecycleRequest struct {
@@ -104,6 +97,12 @@ func (s *API) handleLifecycleMutation(w http.ResponseWriter, r *http.Request, v 
 	if !ok {
 		return "", nil, false
 	}
+	// Start on a retained reservation finishes an interrupted creation;
+	// stopping unconfirmed provisioning stays refused.
+	if action == "stop" && !p.Ready {
+		auth.JSONError(w, 409, "not_provisioned", "Provisioning is incomplete; do not repair or recreate it.")
+		return "", nil, false
+	}
 	if !s.authorizeLifecycleOperator(w, r, v, p.RepositoryID) {
 		return "", nil, false
 	}
@@ -121,7 +120,7 @@ func (s *API) handleLifecycleMutation(w http.ResponseWriter, r *http.Request, v 
 }
 
 func (s *API) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Session) {
-	p, ok := s.checkLifecycleEnvironment(w, r)
+	p, ok := s.loadLifecycleEnvironment(w, r)
 	if !ok {
 		return
 	}
@@ -143,10 +142,16 @@ func (s *API) apiLifecycle(w http.ResponseWriter, r *http.Request, v store.Sessi
 	if _, ok := s.authorizeEnvironmentRead(w, r, v, p); !ok {
 		return
 	}
+	// Inspection stays available while provisioning is incomplete: it
+	// reports host evidence and finishes the retained reservation once
+	// that evidence proves the admitted creation.
 	result, err := s.Host.Lifecycle(r.Context(), project.Lifecycle{Project: p.ID, Action: "inspect"})
 	if err != nil {
 		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Refresh or ask the operator to inspect; do not repeat or repair blindly.")
 		return
+	}
+	if !p.Ready {
+		_, _ = s.reconcileProvisioning(r.Context(), p, result.Environment)
 	}
 	auth.JSONResponse(w, 200, result)
 }
@@ -170,12 +175,16 @@ type lifecycleStopView struct {
 // apiLifecycleStop coordinates an explicit Project stop: withdraw dispatch
 // and stop outstanding runs first, set the maintenance hold, then stop the
 // host unit. A hold failure never wedges the stop; it is reported instead.
+// The admitted sequence runs detached from the request so response
+// cancellation cannot strand it between factory and host effects.
 func (s *API) apiLifecycleStop(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) {
 	if s.Coordinator == nil {
 		auth.JSONError(w, 500, "coordinator_unavailable", "Factory coordination is unavailable.")
 		return
 	}
-	withdrawal, outcomes, err := s.Coordinator.StopProject(r.Context(), factoryPrincipal(v), p.ID)
+	opCtx, cancel := operationContext(r.Context(), stopOperationTimeout)
+	defer cancel()
+	withdrawal, outcomes, err := s.Coordinator.StopProject(opCtx, factoryPrincipal(v), p.ID)
 	if err != nil {
 		if errors.Is(err, control.ErrNotFound) {
 			auth.JSONError(w, 404, "not_found", "Environment not found.")
@@ -184,8 +193,8 @@ func (s *API) apiLifecycleStop(w http.ResponseWriter, r *http.Request, v store.S
 		}
 		return
 	}
-	held, synced := s.lifecycleStopHold(r, p.ID)
-	result, err := s.Host.Lifecycle(r.Context(), project.Lifecycle{Project: p.ID, Action: "stop"})
+	held, synced := s.lifecycleStopHold(opCtx, p.ID)
+	result, err := s.Host.Lifecycle(opCtx, project.Lifecycle{Project: p.ID, Action: "stop"})
 	if err != nil {
 		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Refresh or ask the operator to inspect; do not repeat or repair blindly.")
 		return
@@ -196,8 +205,8 @@ func (s *API) apiLifecycleStop(w http.ResponseWriter, r *http.Request, v store.S
 // lifecycleStopHold sets the maintenance hold marker-first, following the
 // preparation hold protocol. An already held project needs no marker
 // write; any failure reports unsynced and lets the stop proceed.
-func (s *API) lifecycleStopHold(r *http.Request, projectID string) (held, synced bool) {
-	current, err := s.Store.MaintenanceHold(r.Context(), projectID)
+func (s *API) lifecycleStopHold(ctx context.Context, projectID string) (held, synced bool) {
+	current, err := s.Store.MaintenanceHold(ctx, projectID)
 	if err == nil && current.Hold {
 		return true, true
 	}
@@ -208,10 +217,10 @@ func (s *API) lifecycleStopHold(r *http.Request, projectID string) (held, synced
 	if err == nil {
 		revision = current.Revision
 	}
-	if _, err = s.Host.HoldPreparation(r.Context(), project.PrepareHold{Project: projectID, Hold: true, Revision: revision + 1}); err != nil {
+	if _, err = s.Host.HoldPreparation(ctx, project.PrepareHold{Project: projectID, Hold: true, Revision: revision + 1}); err != nil {
 		return false, false
 	}
-	if err = s.Store.SaveMaintenanceHold(r.Context(), project.MaintenanceHold{Project: projectID, Revision: revision, Hold: true}); err != nil {
+	if err = s.Store.SaveMaintenanceHold(ctx, project.MaintenanceHold{Project: projectID, Revision: revision, Hold: true}); err != nil {
 		return false, false
 	}
 	return true, true
@@ -224,18 +233,32 @@ type lifecycleStartView struct {
 
 // apiLifecycleStart starts the host unit and then proves no old run
 // revived. Leases stay closed and the maintenance hold keeps its state;
-// releasing it stays an explicit hold control.
+// releasing it stays an explicit hold control. Starting a retained
+// reservation finishes an interrupted creation from the same evidence.
 func (s *API) apiLifecycleStart(w http.ResponseWriter, r *http.Request, v store.Session, p store.Project) {
 	if s.Coordinator == nil {
 		auth.JSONError(w, 500, "coordinator_unavailable", "Factory coordination is unavailable.")
 		return
 	}
-	result, err := s.Host.Lifecycle(r.Context(), project.Lifecycle{Project: p.ID, Action: "start"})
+	opCtx, cancel := operationContext(r.Context(), startOperationTimeout)
+	defer cancel()
+	result, err := s.Host.Lifecycle(opCtx, project.Lifecycle{Project: p.ID, Action: "start"})
 	if err != nil {
 		auth.JSONError(w, 502, "native_outcome_unconfirmed", "Native state was not confirmed. Refresh or ask the operator to inspect; do not repeat or repair blindly.")
 		return
 	}
-	verification, err := s.Coordinator.VerifyProjectStart(r.Context(), p.ID)
+	if !p.Ready {
+		if updated, finished := s.reconcileProvisioning(opCtx, p, result.Environment); finished {
+			p = updated
+		} else if provisioningConfirmed(p, result.Environment) {
+			auth.JSONResponse(w, 503, struct {
+				Error       apiError        `json:"error"`
+				Environment EnvironmentView `json:"environment"`
+			}{apiError{"result_not_saved", "Native start was confirmed, but its result was not saved. Inspect the retained environment; do not recreate it."}, EnvironmentDTO(p)})
+			return
+		}
+	}
+	verification, err := s.Coordinator.VerifyProjectStart(opCtx, p.ID)
 	if err != nil {
 		if errors.Is(err, control.ErrNotFound) {
 			auth.JSONError(w, 404, "not_found", "Environment not found.")

@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -56,11 +55,7 @@ func TestExtensionAuthorityFailsWithoutLiveHost(t *testing.T) {
 
 func TestExtensionServiceRejectsUnverifiedMutation(t *testing.T) {
 	t.Setenv(extensions.CallbackEnv, "")
-	db, err := store.Open(filepath.Join(t.TempDir(), "soda.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
+	db := postgresFixture(t)
 	if err := db.UpsertUser(context.Background(), store.User{ID: 42, Login: "soda-tester", Name: "original"}); err != nil {
 		t.Fatal(err)
 	}

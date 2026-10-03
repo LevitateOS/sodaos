@@ -54,9 +54,11 @@ type spaceAuthorityView struct {
 }
 
 type SpacesView struct {
-	Items    []SpaceView `json:"items"`
-	Complete bool        `json:"complete"`
-	Actor    SpacesActor `json:"actor"`
+	Items             []SpaceView `json:"items"`
+	Complete          bool        `json:"complete"`
+	Actor             SpacesActor `json:"actor"`
+	NextAfter         string      `json:"next_after,omitempty"`
+	FactoryIncomplete bool        `json:"factory_incomplete,omitempty"`
 }
 
 type SpacesActor struct {
@@ -138,8 +140,9 @@ func (s *API) inspectSpaceRow(
 	p store.Project,
 	runs []factory.Run,
 	views map[string]factory.RunView,
+	runsKnown bool,
 	terminalCount *int,
-	factoryCount *int,
+	usage *spacesRunUsage,
 ) (SpaceView, bool, bool) {
 	check, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
@@ -170,28 +173,40 @@ func (s *API) inspectSpaceRow(
 	// Preparation readiness is a durable store read, never a native call.
 	row.Preparation = s.inspectSpacePreparation(check, p.ID)
 	row.FactoryAuthority = s.inspectSpaceAuthority(check, p.RepositoryID)
-	row.FactoryControl = s.inspectSpaceControl(check, runs, p.ID, p.RepositoryID)
-	row.FactoryRuns, complete = inspectSpaceFactoryRuns(row.FactoryRuns, runs, views, p.ID, factoryCount, complete)
+	row.FactoryControl = s.inspectSpaceControl(check, runs, runsKnown, p.ID, p.RepositoryID)
+	row.FactoryRuns, complete = inspectSpaceFactoryRuns(row.FactoryRuns, runs, views, p.ID, usage, complete)
 	return row, true, complete
 }
 
 // inspectSpaceFactoryRuns maps the row's recorded runs to display rows.
 // Like terminals, the collection caps published runs globally; overflow
 // marks the collection incomplete rather than silently dropping truth.
+// Live rows admit before settled history, so a cap filled by history
+// never hides unsettled work in a later row.
 func inspectSpaceFactoryRuns(
 	out []SpaceFactoryRun,
 	runs []factory.Run,
 	views map[string]factory.RunView,
 	projectID string,
-	factoryCount *int,
+	usage *spacesRunUsage,
 	complete bool,
 ) ([]SpaceFactoryRun, bool) {
 	for _, run := range runs {
 		if run.ProjectID != projectID {
 			continue
 		}
-		if *factoryCount >= 64 {
-			return out, false
+		if run.Reconciled {
+			if usage.history >= usage.historyBudget {
+				complete = false
+				continue
+			}
+			usage.history++
+		} else {
+			if usage.unsettled >= spacesRunCap {
+				complete = false
+				continue
+			}
+			usage.unsettled++
 		}
 		row := SpaceFactoryRun{ID: run.ID, Role: run.Role, Outcome: run.Outcome, Reconciled: run.Reconciled}
 		if view, ok := views[run.ID]; ok {
@@ -201,7 +216,6 @@ func inspectSpaceFactoryRuns(
 			row.Attempt = view.Attempt
 		}
 		out = append(out, row)
-		*factoryCount++
 	}
 	return out, complete
 }
@@ -228,7 +242,12 @@ type spaceControlView struct {
 	DispatchOpen    bool   `json:"dispatch_open"`
 }
 
-func (s *API) inspectSpaceControl(ctx context.Context, runs []factory.Run, projectID string, repository int64) *spaceControlView {
+func (s *API) inspectSpaceControl(ctx context.Context, runs []factory.Run, runsKnown bool, projectID string, repository int64) *spaceControlView {
+	// An unreadable run listing leaves the unsettled count unknown: no
+	// control rather than an authoritative zero.
+	if !runsKnown {
+		return nil
+	}
 	view := &spaceControlView{}
 	if policy, err := s.Store.RepositoryPolicy(ctx, repository); err == nil {
 		view.Paused = policy.Paused
@@ -266,34 +285,56 @@ func (s *API) inspectSpaces(
 	r *http.Request,
 	ctx context.Context,
 	v store.Session,
-	projects []store.Project,
-	runs []factory.Run,
-	views map[string]factory.RunView,
+	inv spacesInventory,
+	after string,
 ) SpacesView {
 	actor := SpacesActor{ID: strconv.FormatInt(v.User.ID, 10), Login: v.User.Login}
 	if authority, ok := requestExtensionAuthority(r); ok {
 		actor = SpacesActor{ID: authority.Actor.ID, Login: authority.Actor.Username}
 	}
-	response := SpacesView{Items: []SpaceView{}, Complete: len(projects) <= 128, Actor: actor}
+	response := SpacesView{Items: []SpaceView{}, Complete: true, Actor: actor}
+	if !inv.factoryComplete() {
+		response.Complete = false
+		response.FactoryIncomplete = true
+	}
+	projects := inv.projects
 	if len(projects) > 128 {
 		projects = projects[:128]
 	}
 	terminalCount := 0
-	factoryCount := 0
+	usage := newSpacesRunUsage(inv.runs)
+	scanned := 0
+	progress := ""
 	for _, p := range projects {
 		if ctx.Err() != nil || len(response.Items) >= 32 {
 			response.Complete = false
 			break
 		}
-		row, keep, complete := s.inspectSpaceRow(r, ctx, v, p, runs, views, &terminalCount, &factoryCount)
+		scanned++
+		row, keep, complete := s.inspectSpaceRow(r, ctx, v, p, inv.runs, inv.views, inv.runsKnown(), &terminalCount, usage)
 		if !complete {
 			response.Complete = false
 		}
 		if !keep {
+			progress = p.ID
 			continue
 		}
 		if !appendSpaceRow(&response, row) {
+			// The JSON cap dropped this row: resume before it so
+			// the next page still covers it under a fresh budget.
+			response.Complete = false
 			break
+		}
+		progress = p.ID
+	}
+	// A full fetch proves more associations remain; a short scan of a
+	// partial fetch means the page stopped early. Either way the next
+	// page resumes after the last covered association.
+	if len(inv.projects) == spacesAssociationPage || scanned < len(inv.projects) {
+		response.Complete = false
+		response.NextAfter = progress
+		if response.NextAfter == "" {
+			response.NextAfter = after
 		}
 	}
 	return response
@@ -315,9 +356,12 @@ func (s *API) verifySpacesSession(w http.ResponseWriter, ctx context.Context, r 
 // 2 seconds per row, 128 scanned associations, 32 published rows, <=64 KiB JSON.
 // No missing repository_id overload, copied permissions, unauthorized counts,
 // unbounded fan-out or denial placeholders. Limits are incomplete, not empty truth.
+// One optional cursor continues the bounded association scan: after names the
+// last covered project identity and the page resumes past it.
 func (s *API) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Session) {
-	if r.URL.RawQuery != "" || r.URL.ForceQuery {
-		auth.JSONError(w, 400, "invalid_request", "No query parameters are accepted.")
+	after, ok := parseSpacesCursor(r)
+	if !ok {
+		auth.JSONError(w, 400, "invalid_request", "Only a project cursor is accepted.")
 		return
 	}
 	select {
@@ -329,24 +373,32 @@ func (s *API) apiSpaces(w http.ResponseWriter, r *http.Request, v store.Session)
 	}
 	ctx, done := context.WithTimeout(r.Context(), 8*time.Second)
 	defer done()
-	projects, err := s.Store.SpaceProjects(ctx)
+	inv, err := s.loadSpacesInventory(ctx, after)
 	if err != nil {
 		auth.JSONError(w, 503, "spaces_unavailable", "Could not enumerate Soda associations.")
 		return
 	}
-	runs, err := s.Store.FactoryRuns(ctx, 1000)
-	if err != nil {
-		runs = nil
-	}
-	views := map[string]factory.RunView{}
-	if listed, err := s.Store.FactoryRunViews(ctx, 1000); err == nil {
-		for _, view := range listed {
-			views[view.RunID] = view
-		}
-	}
-	response := s.inspectSpaces(r, ctx, v, projects, runs, views)
+	response := s.inspectSpaces(r, ctx, v, inv, after)
 	if !s.verifySpacesSession(w, ctx, r, v) {
 		return
 	}
 	auth.JSONResponse(w, 200, response)
+}
+
+// parseSpacesCursor admits an empty query or exactly one project cursor.
+// Anything else stays a rejected alias: cursors paginate one inventory,
+// they never select repositories, actors or terminals.
+func parseSpacesCursor(r *http.Request) (string, bool) {
+	if r.URL.RawQuery == "" && !r.URL.ForceQuery {
+		return "", true
+	}
+	query := r.URL.Query()
+	if len(query) != 1 {
+		return "", false
+	}
+	after := query["after"]
+	if len(after) != 1 || !project.ValidID(after[0]) {
+		return "", false
+	}
+	return after[0], true
 }

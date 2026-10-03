@@ -236,6 +236,9 @@ export class SodaSpaces extends LitElement {
     openingDrawer: {
       state: true,
     },
+    nextAfter: {
+      state: true,
+    },
   };
   declare private spaces: Space[];
   declare private status: string;
@@ -254,6 +257,7 @@ export class SodaSpaces extends LitElement {
   } | null;
   declare private attentionOnly: boolean;
   declare private openingDrawer: boolean;
+  declare private nextAfter: string;
   private reconnectRequired = false;
   private observedAt = 0;
   private now = Date.now();
@@ -312,7 +316,7 @@ export class SodaSpaces extends LitElement {
   constructor() {
     super();
     this.spaces = [];
-    this.project = this.repositoryQuery = this.repositoryChoice = this.repositoryError = '';
+    this.project = this.repositoryQuery = this.repositoryChoice = this.repositoryError = this.nextAfter = '';
     this.setup = null;
     this.complete = this.repositoryBusy = false;
     this.repositoryResult = undefined;
@@ -864,7 +868,7 @@ export class SodaSpaces extends LitElement {
         (space) => space.environment.id,
         (space) => this.projectRows(space)
       )}
-      ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
+      ${this.renderMoreProjects()} ${this.renderCreateAnotherProject()} ${this.renderEmptySpaces()}
     </nav>`;
   }
   private renderCanvas() {
@@ -2121,16 +2125,47 @@ export class SodaSpaces extends LitElement {
     const request = (this.request = new AbortController());
     return request;
   }
-  private applySpacesCollection(collection: {items: Space[]; complete: boolean}) {
+  private collectionStatus(complete: boolean, factoryIncomplete: boolean) {
+    if (complete) return '';
+    return factoryIncomplete
+      ? 'We couldn’t load all projects, terminals and factory history. Some may be missing from this list.'
+      : 'We couldn’t load all projects and terminals. Some may be missing from this list.';
+  }
+  private applySpacesCollection(collection: {
+    items: Space[];
+    complete: boolean;
+    nextAfter: string;
+    factoryIncomplete: boolean;
+  }) {
     this.spaces = collection.items;
     this.complete = collection.complete;
+    this.nextAfter = collection.nextAfter;
     this.available = true;
     if (!this.setup && !this.selectedSpace && collection.complete)
       this.project = this.spaces[0]?.environment.repository_id || '';
     this.now = this.observedAt = Date.now();
-    this.status = collection.complete
-      ? ''
-      : 'We couldn’t load all projects and terminals. Some may be missing from this list.';
+    this.status = this.collectionStatus(collection.complete, collection.factoryIncomplete);
+  }
+  private appendSpacesCollection(collection: {
+    items: Space[];
+    complete: boolean;
+    nextAfter: string;
+    factoryIncomplete: boolean;
+  }) {
+    const seen = new Set(this.spaces.map((s) => s.environment.id));
+    const grown = [...this.spaces];
+    for (const item of collection.items) {
+      if (seen.has(item.environment.id)) continue;
+      seen.add(item.environment.id);
+      grown.push(item);
+    }
+    this.spaces = grown;
+    this.nextAfter = collection.nextAfter;
+    // The last page decides: earlier pages always report incomplete
+    // while more follow, and degraded rows keep their own inline state.
+    this.complete = collection.nextAfter === '' && collection.complete;
+    this.now = this.observedAt = Date.now();
+    this.status = this.collectionStatus(this.complete, collection.factoryIncomplete);
   }
   private slotLost(slot: Slot, space: Space | undefined, complete: boolean) {
     if (space) return space.authority_unavailable || !space.execution_allowed || space.login !== slot.binding.login;
@@ -2234,6 +2269,40 @@ export class SodaSpaces extends LitElement {
     const timer = window.setTimeout(() => request.abort(), 15000);
     try {
       await this.refreshLive(n, request);
+    } catch {
+      this.refreshFailed(n);
+    } finally {
+      window.clearTimeout(timer);
+      if (this.live(n)) this.busy = false;
+    }
+  }
+  private readonly onMoreProjects = () => this.loadMore();
+  private renderMoreProjects() {
+    if (!this.nextAfter || this.stale) return '';
+    const label = this.busy ? 'Loading…' : 'Show more projects';
+    return html`<button class="ui button soda-more-projects" ?disabled=${this.busy} @click=${this.onMoreProjects}>
+      ${label}
+    </button>`;
+  }
+  async loadMore() {
+    if (this.refreshBlocked() || !this.nextAfter) return;
+    const n = this.epoch;
+    const request = this.beginRefreshRead();
+    const timer = window.setTimeout(() => request.abort(), 15000);
+    try {
+      const collection = spacesResponse(
+        await this.api(`/api/spaces?after=${this.nextAfter}`, undefined, request.signal)
+      );
+      if (!this.live(n)) return;
+      if (this.actor && this.actor.id !== collection.actor.id) {
+        this.invalidate();
+        return;
+      }
+      this.appendSpacesCollection(collection);
+      this.refreshSlots(this.complete);
+      await this.updateComplete;
+      if (!this.live(n)) return;
+      await this.finishRefreshSuccess(n, request.signal);
     } catch {
       this.refreshFailed(n);
     } finally {
