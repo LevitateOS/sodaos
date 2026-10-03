@@ -221,21 +221,26 @@ func installDiskAttempt(ctx context.Context, c console, marker string) error {
 	c.page("Installing CoreOS")
 	c.print("Writing the confirmed disk. Do not disconnect it.")
 	c.print("Raw diagnostics are suppressed to protect provisioning inputs.")
-	if err := executeAttemptDisk(ctx, choices.disk, ignition, marker); err != nil {
+	if err := executeAttemptDisk(ctx, choices.disk, ignition, marker, choices.removableOK); err != nil {
 		return err
 	}
 	return finishDiskAttempt(c)
 }
 
-func executeAttemptDisk(ctx context.Context, disk Disk, ignition, marker string) error {
+func executeAttemptDisk(ctx context.Context, disk Disk, ignition, marker string, removableConfirmed bool) error {
 	return executeDisk(ctx, disk, ignition, func() ([]Disk, error) { return scanDisks(ctx, command) }, func() error {
 		return build.WriteNew(marker, []byte(disk.Device.Name+"\n"), 0o600)
-	}, command)
+	}, command, removableConfirmed)
 }
 
-func executeDisk(ctx context.Context, selected Disk, ignition string, inspect func() ([]Disk, error), mark func() error, run commandRunner) error {
+func executeDisk(ctx context.Context, selected Disk, ignition string, inspect func() ([]Disk, error), mark func() error, run commandRunner, removableConfirmed bool) error {
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	// Blocked or unavailable selections never reach a write, even when the
+	// fresh inventory matches them exactly.
+	if selected.Blocked != "" {
+		return errors.New("selected disk is unavailable (" + selected.Blocked + "); no installation started")
 	}
 	observed, err := inspect()
 	if err != nil {
@@ -243,6 +248,16 @@ func executeDisk(ctx context.Context, selected Disk, ignition string, inspect fu
 	}
 	if err := sameDisk(selected, observed); err != nil {
 		return err
+	}
+	for _, current := range observed {
+		if current.Device.Name == selected.Device.Name && current.Blocked != "" {
+			return errors.New("selected disk became unavailable (" + current.Blocked + "); no installation started")
+		}
+	}
+	// Removable targets write only after the explicit removable
+	// confirmation travelled with this attempt.
+	if selected.Removable && !removableConfirmed {
+		return errors.New("removable disk " + selected.Device.Name + " needs explicit intentional confirmation; no installation started")
 	}
 	if err := mark(); err != nil {
 		return errors.New("cannot reserve disk installation attempt")

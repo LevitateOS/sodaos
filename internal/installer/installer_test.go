@@ -232,7 +232,7 @@ func TestDiskExecutionBoundary(t *testing.T) {
 					return errors.New("failed")
 				}
 				return nil
-			}, run)
+			}, run, false)
 			early := test.changed || test.cancelled || test.markFailure
 			if early && calls != 0 {
 				t.Fatal("disk write before safe preflight")
@@ -247,6 +247,131 @@ func TestDiskExecutionBoundary(t *testing.T) {
 				t.Fatal("native diagnostics leaked")
 			}
 		})
+	}
+}
+
+func TestErasePhraseDistinguishesRemovable(t *testing.T) {
+	fixed := erasePhrase(fixtureDisk())
+	removable := fixtureDisk()
+	removable.Removable = true
+	wantFixed, wantRemovable := "ERASE /dev/sda", "ERASE REMOVABLE /dev/sda"
+	if fixed != wantFixed || erasePhrase(removable) != wantRemovable {
+		t.Fatalf("phrases %q / %q, want %q / %q", fixed, erasePhrase(removable), wantFixed, wantRemovable)
+	}
+	if fixed == erasePhrase(removable) {
+		t.Fatal("fixed-disk confirmation authorizes a removable target")
+	}
+}
+
+func TestRemovableExecutionGate(t *testing.T) {
+	removable := fixtureDisk()
+	removable.Removable = true
+	inspect := func() ([]Disk, error) { return []Disk{removable}, nil }
+	refused := executeDisk(context.Background(), removable, "/private/destination.ign", inspect,
+		func() error { t.Fatal("refused attempt reserved the marker"); return nil },
+		func(context.Context, string, []string, io.Reader) ([]byte, error) {
+			t.Fatal("removable disk wrote without explicit confirmation")
+			return nil, nil
+		}, false)
+	if refused == nil || !strings.Contains(refused.Error(), "explicit intentional confirmation") {
+		t.Fatalf("unconfirmed removable accepted: %v", refused)
+	}
+	writes := 0
+	if err := executeDisk(context.Background(), removable, "/private/destination.ign", inspect,
+		func() error { return nil },
+		func(context.Context, string, []string, io.Reader) ([]byte, error) { writes++; return nil, nil }, true); err != nil {
+		t.Fatalf("confirmed removable refused: %v", err)
+	}
+	if writes != 1 {
+		t.Fatalf("confirmed removable wrote %d times, want 1", writes)
+	}
+}
+
+func TestBlockedExecutionGate(t *testing.T) {
+	blocked := fixtureDisk()
+	blocked.Blocked = "current installer media"
+	inspect := func() ([]Disk, error) { return []Disk{blocked}, nil }
+	watch := func(name string, selected Disk) {
+		t.Helper()
+		err := executeDisk(context.Background(), selected, "/private/destination.ign", inspect,
+			func() error { t.Fatalf("%s reserved the marker", name); return nil },
+			func(context.Context, string, []string, io.Reader) ([]byte, error) {
+				t.Fatalf("%s reached a write", name)
+				return nil, nil
+			}, true)
+		if err == nil {
+			t.Fatalf("%s reached a write", name)
+		}
+	}
+	// A blocked selection never reaches a write even when the fresh
+	// inventory matches it exactly and removable confirmation travelled.
+	watch("blocked selection", blocked)
+	// A target that became unavailable after selection also refuses: the
+	// identity recheck fails before any write.
+	fresh := fixtureDisk()
+	if err := executeDisk(context.Background(), fresh, "/private/destination.ign", inspect,
+		func() error { t.Fatal("stale selection reserved the marker"); return nil },
+		func(context.Context, string, []string, io.Reader) ([]byte, error) {
+			t.Fatal("stale selection reached a write")
+			return nil, nil
+		}, false); err == nil {
+		t.Fatal("newly blocked target reached a write")
+	}
+}
+
+func TestParseLiveMediaDisks(t *testing.T) {
+	mountinfo := []byte("19 1 8:1 / /run/initramfs/live rw - vfat /dev/sdb1 rw\n" +
+		"20 1 8:17 / /run/media/iso ro - iso9660 /dev/sr0 ro\n" +
+		"21 1 253:0 / /sysroot rw - ext4 /dev/mapper/live-rw rw\n" +
+		"22 1 8:33 / /data rw - ext4 /dev/sdc1 rw\n")
+	parentOf := func(dev string) string {
+		switch dev {
+		case "/dev/sdb1":
+			return "/dev/sdb"
+		case "/dev/sr0":
+			return "/dev/sr0"
+		default:
+			return ""
+		}
+	}
+	got := parseLiveMediaDisks(mountinfo, []byte("BOOT_IMAGE=(hd0,gpt2)/boot/vmlinuz root=/dev/mapper/live-rw\n"), parentOf)
+	if !got["/dev/sdb"] || !got["/dev/sr0"] || len(got) != 2 {
+		t.Fatalf("live media %v, want {/dev/sdb /dev/sr0}", got)
+	}
+	got = parseLiveMediaDisks([]byte("19 1 8:1 / / rw - ext4 /dev/sda1 rw\n"),
+		[]byte("root=live:/dev/sdc1 console=ttyS0\n"), func(dev string) string {
+			if dev == "/dev/sdc1" {
+				return "/dev/sdc"
+			}
+			return ""
+		})
+	if !got["/dev/sdc"] || len(got) != 1 {
+		t.Fatalf("cmdline live media %v, want {/dev/sdc}", got)
+	}
+	if got := parseLiveMediaDisks([]byte("19 1 8:1 / / rw - ext4 /dev/sda1 rw\n"), []byte("root=/dev/sda2\n"), parentOf); len(got) != 0 {
+		t.Fatalf("ordinary boot detected media %v", got)
+	}
+}
+
+func TestParentDiskOfSys(t *testing.T) {
+	sys := t.TempDir()
+	os.MkdirAll(filepath.Join(sys, "block"), 0o755)
+	// Whole disk: class entry links directly under block/.
+	if err := os.Symlink("../../block/sda", filepath.Join(sys, "sda")); err != nil {
+		t.Fatal(err)
+	}
+	// Partition: class entry links under its parent disk.
+	if err := os.Symlink("../../block/sdb/sdb1", filepath.Join(sys, "sdb1")); err != nil {
+		t.Fatal(err)
+	}
+	if got := parentDiskOfSys(sys, "/dev/sda"); got != "/dev/sda" {
+		t.Fatalf("disk parent %q, want /dev/sda", got)
+	}
+	if got := parentDiskOfSys(sys, "/dev/sdb1"); got != "/dev/sdb" {
+		t.Fatalf("partition parent %q, want /dev/sdb", got)
+	}
+	if got := parentDiskOfSys(sys, "/dev/missing"); got != "" {
+		t.Fatalf("missing device parent %q, want empty", got)
 	}
 }
 

@@ -14,6 +14,10 @@ type diskInstallChoices struct {
 	hostname     string
 	passwordHash string
 	subnet       string
+	// removableOK records that the operator typed the distinct removable
+	// confirmation phrase for a removable target. It is set only by the
+	// final review and travels with the confirmed disk to the writer.
+	removableOK bool
 }
 
 func checkNav(value string) error {
@@ -83,6 +87,9 @@ func printDiskList(c console, disks []Disk, feedback string) {
 		}
 		if disk.Blocked != "" {
 			c.print("   Unavailable: %s", disk.Blocked)
+		}
+		if disk.Removable && disk.Blocked == "" {
+			c.print("   Removable device: erasing it needs the explicit removable confirmation below.")
 		}
 	}
 }
@@ -248,6 +255,9 @@ func printFinalReview(c console, choices diskInstallChoices, payloadBytes uint64
 	if choices.disk.Blocked != "" {
 		c.print("  Installer note: %s.", choices.disk.Blocked)
 	}
+	if choices.disk.Removable {
+		c.print("  Removable device: this target writes only with the explicit removable confirmation.")
+	}
 	c.print("Hostname: %s", choices.hostname)
 	c.print("Project subnet: %s", choices.subnet)
 	c.print("Operator access: root password (local console and SSH)")
@@ -256,8 +266,18 @@ func printFinalReview(c console, choices diskInstallChoices, payloadBytes uint64
 	c.print("After writing, follow the completion screen for media removal and next steps.")
 }
 
-func confirmFinalReview(c console, diskName string) error {
-	phrase := "ERASE " + diskName
+// erasePhrase is the exact confirmation the operator must type. Removable
+// targets use a distinct phrase so a fixed-disk confirmation can never
+// authorize them by habit.
+func erasePhrase(disk Disk) string {
+	if disk.Removable {
+		return "ERASE REMOVABLE " + disk.Device.Name
+	}
+	return "ERASE " + disk.Device.Name
+}
+
+func confirmFinalReview(c console, disk Disk) error {
+	phrase := erasePhrase(disk)
 	for {
 		answer, err := askNav(c, "Type exactly "+phrase+", back, restart, or cancel")
 		if err != nil {
@@ -278,11 +298,17 @@ func stepSubnetAndReview(ctx context.Context, c console, run commandRunner, choi
 		}
 		choices.subnet = subnet
 		printFinalReview(c, *choices, payloadBytes)
-		err = confirmFinalReview(c, choices.disk.Device.Name)
+		err = confirmFinalReview(c, choices.disk)
 		if errors.Is(err, errBack) {
+			choices.removableOK = false
 			continue
 		}
-		return err
+		if err != nil {
+			choices.removableOK = false
+			return err
+		}
+		choices.removableOK = choices.disk.Removable
+		return nil
 	}
 }
 
@@ -293,6 +319,7 @@ func dispatchInstallStep(ctx context.Context, c console, run commandRunner, insp
 	case 1:
 		var err error
 		result.disk, err = stepDisk(ctx, c, run, inspect)
+		result.removableOK = false
 		return err
 	case 2:
 		var err error

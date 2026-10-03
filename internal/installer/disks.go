@@ -16,6 +16,7 @@ type BlockDevice struct {
 	Name        string        `json:"name"`
 	KName       string        `json:"kname"`
 	Type        string        `json:"type"`
+	Tran        string        `json:"tran"`
 	Size        uint64        `json:"size"`
 	Model       string        `json:"model"`
 	Serial      string        `json:"serial"`
@@ -30,9 +31,10 @@ type BlockDevice struct {
 }
 
 type Disk struct {
-	Device   BlockDevice
-	Sequence string
-	Blocked  string
+	Device    BlockDevice
+	Sequence  string
+	Blocked   string
+	Removable bool
 }
 
 func deviceNames(d BlockDevice) bool {
@@ -86,7 +88,7 @@ func unused(d BlockDevice) string {
 }
 
 func scanDisks(ctx context.Context, run commandRunner) ([]Disk, error) {
-	data, err := run(ctx, "lsblk", []string{"--json", "--bytes", "--paths", "--output", "NAME,KNAME,TYPE,SIZE,MODEL,SERIAL,WWN,MAJ:MIN,RO,MOUNTPOINTS,FSTYPE,UUID,PARTUUID"}, nil)
+	data, err := run(ctx, "lsblk", []string{"--json", "--bytes", "--paths", "--output", "NAME,KNAME,TYPE,TRAN,SIZE,MODEL,SERIAL,WWN,MAJ:MIN,RO,MOUNTPOINTS,FSTYPE,UUID,PARTUUID"}, nil)
 	if err != nil {
 		return nil, errors.New("cannot inventory block devices")
 	}
@@ -96,12 +98,13 @@ func scanDisks(ctx context.Context, run commandRunner) ([]Disk, error) {
 	if err = json.Unmarshal(data, &tree); err != nil {
 		return nil, errors.New("cannot decode block device inventory")
 	}
+	media := liveMediaDisks()
 	var disks []Disk
 	for _, device := range tree.Devices {
 		if device.Type != "disk" {
 			continue
 		}
-		disk := Disk{Device: device, Blocked: unused(device)}
+		disk := Disk{Device: device, Blocked: unused(device), Removable: diskRemovable(device)}
 		if disk.Blocked == "" {
 			disk.Sequence, err = diskSequence(device)
 			if err != nil {
@@ -110,9 +113,110 @@ func scanDisks(ctx context.Context, run commandRunner) ([]Disk, error) {
 				disk.Blocked = err.Error()
 			}
 		}
+		// The disk backing the running installer is never a target, even
+		// when it looks like an ordinary writable disk.
+		if media[device.Name] {
+			disk.Blocked = "current installer media"
+		}
 		disks = append(disks, disk)
 	}
 	return disks, nil
+}
+
+// diskRemovable reports whether the kernel flags the device removable or it
+// arrived over USB. Either signal makes the target removable-only: writable
+// solely after the explicit removable confirmation, never by accident.
+func diskRemovable(d BlockDevice) bool {
+	if strings.EqualFold(d.Tran, "usb") {
+		return true
+	}
+	data, err := os.ReadFile(filepath.Join("/sys/class/block", filepath.Base(d.Name), "removable"))
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(data)) == "1"
+}
+
+// liveMediaDisks names the parent disks backing the running live installer:
+// block devices mounted at live-media mountpoints or carrying a live
+// optical filesystem, plus any live root named on the kernel command line.
+func liveMediaDisks() map[string]bool {
+	mountinfo, _ := os.ReadFile("/proc/self/mountinfo")
+	cmdline, _ := os.ReadFile("/proc/cmdline")
+	return parseLiveMediaDisks(mountinfo, cmdline, parentDiskOf)
+}
+
+// parseLiveMediaDisks extracts live-media parent disks from mount table and
+// kernel command line bytes. parentOf maps a /dev node to its parent disk.
+func parseLiveMediaDisks(mountinfo, cmdline []byte, parentOf func(string) string) map[string]bool {
+	out := map[string]bool{}
+	for _, line := range strings.Split(string(mountinfo), "\n") {
+		fields := strings.Split(line, " ")
+		sep := -1
+		for i, field := range fields {
+			if field == "-" {
+				sep = i
+				break
+			}
+		}
+		if sep < 0 || len(fields) < sep+3 || len(fields) < 5 {
+			continue
+		}
+		mountpoint, fstype, source := fields[4], fields[sep+1], fields[sep+2]
+		liveMount := mountpoint == "/run/initramfs/live" ||
+			strings.HasPrefix(mountpoint, "/run/media/") ||
+			strings.HasPrefix(mountpoint, "/run/archiso/")
+		liveFS := (fstype == "iso9660" || fstype == "udf") && strings.HasPrefix(source, "/dev/")
+		if !liveMount && !liveFS {
+			continue
+		}
+		if !strings.HasPrefix(source, "/dev/") {
+			continue
+		}
+		if parent := parentOf(source); parent != "" {
+			out[parent] = true
+		}
+	}
+	for _, token := range strings.Fields(string(cmdline)) {
+		dev := ""
+		for _, prefix := range []string{"root=live:", "live:", "bootdev="} {
+			if rest, ok := strings.CutPrefix(token, prefix); ok && strings.HasPrefix(rest, "/dev/") {
+				dev = rest
+			}
+		}
+		if dev == "" {
+			continue
+		}
+		if parent := parentOf(dev); parent != "" {
+			out[parent] = true
+		}
+	}
+	return out
+}
+
+// parentDiskOf maps a /dev node to its parent disk through sysfs: a
+// partition resolves to its disk, a whole disk to itself, anything
+// unresolvable to "".
+func parentDiskOf(dev string) string {
+	return parentDiskOfSys("/sys/class/block", dev)
+}
+
+func parentDiskOfSys(sysRoot, dev string) string {
+	resolved := dev
+	if canonical, err := filepath.EvalSymlinks(dev); err == nil {
+		resolved = canonical
+	}
+	if !strings.HasPrefix(resolved, "/dev/") {
+		return ""
+	}
+	link, err := os.Readlink(filepath.Join(sysRoot, filepath.Base(resolved)))
+	if err != nil {
+		return ""
+	}
+	if parent := filepath.Base(filepath.Dir(link)); parent != "block" {
+		return "/dev/" + parent
+	}
+	return "/dev/" + filepath.Base(resolved)
 }
 
 func diskSequence(device BlockDevice) (string, error) {
