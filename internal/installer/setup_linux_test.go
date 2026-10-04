@@ -260,3 +260,51 @@ func TestConfiguredGuidanceReportsInactiveServiceWithoutReplay(t *testing.T) {
 		t.Fatalf("incomplete activation was not reported: %v, %v", err, observed)
 	}
 }
+
+// TestSetupRollbackKeepsReferencedState pins the A3 contract: a failed setup
+// attempt preserves referenced configuration (dashboard.json plus its grant
+// key) for inspection, while an unreferenced orphan grant key from a partial
+// attempt is cleaned with this attempt's reservation so a retry is not
+// blocked by stale state.
+func TestSetupRollbackKeepsReferencedState(t *testing.T) {
+	fail := func(context.Context, string, []string, io.Reader) ([]byte, error) {
+		return nil, errors.New("synthetic setup failure")
+	}
+	selected := setupAddress{Interface: "eth0", Address: "192.168.1.5"}
+
+	t.Run("referenced configuration preserved", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "dashboard.json"), []byte(`{"operator":"kept"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "grant-key"), []byte("preexisting-key"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := executeSetupAndActivation(context.Background(), fail, root, t.TempDir(), "https://192.168.1.5", "bootstrap-token", selected)
+		if err == nil || !strings.Contains(err.Error(), "inspect the existing configuration") {
+			t.Fatalf("referenced failure misreported: %v", err)
+		}
+		for name, want := range map[string]string{"dashboard.json": `{"operator":"kept"}`, "grant-key": "preexisting-key"} {
+			got, readErr := os.ReadFile(filepath.Join(root, name))
+			if readErr != nil || string(got) != want {
+				t.Fatalf("%s = %q, %v; want preserved %q", name, got, readErr, want)
+			}
+		}
+	})
+
+	t.Run("orphan reservation cleaned", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.WriteFile(filepath.Join(root, "grant-key"), []byte("orphan-key"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := executeSetupAndActivation(context.Background(), fail, root, t.TempDir(), "https://192.168.1.5", "bootstrap-token", selected)
+		if err == nil || !strings.Contains(err.Error(), "rerunning configure is safe") {
+			t.Fatalf("orphan failure misreported: %v", err)
+		}
+		for _, name := range []string{"grant-key", "setup-started"} {
+			if _, statErr := os.Lstat(filepath.Join(root, name)); !errors.Is(statErr, os.ErrNotExist) {
+				t.Fatalf("%s survived rollback: %v", name, statErr)
+			}
+		}
+	})
+}
