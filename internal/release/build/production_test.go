@@ -94,18 +94,31 @@ func productionFixture(t *testing.T) (Production, *[]string) {
 		t.Fatalf("unexpected observation: %v", args)
 		return "", nil
 	}
+	writeELF := func(dest string) error {
+		header := make([]byte, 64)
+		copy(header, []byte{0x7f, 'E', 'L', 'F', 2, 1, 1})
+		binary.LittleEndian.PutUint16(header[16:], 2)
+		binary.LittleEndian.PutUint16(header[18:], 62)
+		binary.LittleEndian.PutUint32(header[20:], 1)
+		binary.LittleEndian.PutUint16(header[52:], 64)
+		if e := os.MkdirAll(filepath.Dir(dest), 0o755); e != nil {
+			return e
+		}
+		return os.WriteFile(dest, header, 0o700)
+	}
 	p.Execute = func(dir, name string, args ...string) error {
 		calls = append(calls, name+" "+strings.Join(args, " "))
 		if name == "go" && args[0] == "build" {
-			header := make([]byte, 64)
-			copy(header, []byte{0x7f, 'E', 'L', 'F', 2, 1, 1})
-			binary.LittleEndian.PutUint16(header[16:], 2)
-			binary.LittleEndian.PutUint16(header[18:], 62)
-			binary.LittleEndian.PutUint32(header[20:], 1)
-			binary.LittleEndian.PutUint16(header[52:], 64)
 			for i, a := range args {
 				if a == "-o" {
-					return os.WriteFile(args[i+1], header, 0o700)
+					return writeELF(args[i+1])
+				}
+			}
+		}
+		if name == "cargo" && args[0] == "build" {
+			for i, a := range args {
+				if a == "-p" && i+1 < len(args) {
+					return writeELF(filepath.Join(dir, "target", "release", args[i+1]))
 				}
 			}
 		}
@@ -281,6 +294,30 @@ func TestProductionCompileKeepsLayoutAndVerifiesELF(t *testing.T) {
 	p.Execute = func(string, string, ...string) error { return os.WriteFile(dest, []byte("not ELF"), 0o755) }
 	if e := p.Compile("soda-host", "./cmd/soda-host", dest); e == nil {
 		t.Fatal("invalid program accepted")
+	}
+}
+
+func TestProductionCompileRustKeepsLayoutAndVerifiesELF(t *testing.T) {
+	p, calls := productionFixture(t)
+	dest := filepath.Join(p.Out, "soda-identity-compose")
+	if e := p.CompileRust("soda-identity-compose", "soda-identity-compose", dest); e != nil {
+		t.Fatal(e)
+	}
+	text := strings.Join(*calls, "\n")
+	if !strings.Contains(text, "cargo build --release --locked --offline") || !strings.Contains(text, "-p soda-identity-compose") {
+		t.Fatal(text)
+	}
+	if strings.Count(text, "cargo build") != 1 {
+		t.Fatal("duplicate compilation")
+	}
+	for _, bad := range [][2]string{{"", "bin"}, {"crate", ""}, {"a/b", "bin"}, {"crate", "a/bin"}} {
+		if e := p.CompileRust(bad[0], bad[1], dest); e == nil {
+			t.Fatal("invalid Rust selection accepted", bad)
+		}
+	}
+	p.Execute = func(string, string, ...string) error { return nil }
+	if e := p.CompileRust("missing-crate", "missing-crate", dest); e == nil {
+		t.Fatal("missing Rust binary accepted")
 	}
 }
 
