@@ -118,8 +118,16 @@ pub fn parse_control_argv(argv: &[String]) -> Option<ControlArgs> {
     let seconds: i64 = argv[6].parse().ok()?;
     // `int()` accepts surrounding whitespace and +/-; Rust's parse is
     // stricter, so re-check the canonical shapes the callers emit.
-    for (raw, parsed) in [(&argv[3], identity), (&argv[4], cols), (&argv[5], rows), (&argv[6], seconds)] {
-        if raw.is_empty() || (raw != &parsed.to_string() && !(raw.starts_with('+') && &raw[1..] == &parsed.to_string())) {
+    for (raw, parsed) in [
+        (&argv[3], identity),
+        (&argv[4], cols),
+        (&argv[5], rows),
+        (&argv[6], seconds),
+    ] {
+        if raw.is_empty()
+            || (raw != &parsed.to_string()
+                && !(raw.starts_with('+') && &raw[1..] == &parsed.to_string()))
+        {
             // Python int() also strips whitespace; emulate exactly.
             let trimmed = raw.trim();
             if trimmed.parse::<i64>().ok() != Some(parsed) {
@@ -135,7 +143,9 @@ pub fn parse_control_argv(argv: &[String]) -> Option<ControlArgs> {
         return None;
     }
     require_terminal_target(&argv[0], &argv[1])?;
-    if (matches!(argv[0].as_str(), "reserve" | "create" | "attach") && !dimensions(cols, rows)) || !valid_name(&argv[8]) {
+    if (matches!(argv[0].as_str(), "reserve" | "create" | "attach") && !dimensions(cols, rows))
+        || !valid_name(&argv[8])
+    {
         return None;
     }
     require_creation_scope(&argv[0], &argv[9])?;
@@ -155,7 +165,9 @@ pub fn parse_control_argv(argv: &[String]) -> Option<ControlArgs> {
 
 pub fn valid_identifier(identifier: &str) -> bool {
     identifier.len() == 32
-        && identifier.bytes().all(|b| b.is_ascii_hexdigit() && (b.is_ascii_digit() || b.is_ascii_lowercase()))
+        && identifier
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && (b.is_ascii_digit() || b.is_ascii_lowercase()))
 }
 
 fn require_terminal_target(action: &str, identifier: &str) -> Option<()> {
@@ -170,7 +182,10 @@ fn require_terminal_target(action: &str, identifier: &str) -> Option<()> {
 }
 
 pub fn valid_scope(scope: &str) -> bool {
-    scope.len() == 64 && scope.bytes().all(|b| b.is_ascii_hexdigit() && (b.is_ascii_digit() || b.is_ascii_lowercase()))
+    scope.len() == 64
+        && scope
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && (b.is_ascii_digit() || b.is_ascii_lowercase()))
 }
 
 fn require_creation_scope(action: &str, scope: &str) -> Option<()> {
@@ -199,7 +214,11 @@ mod tests {
             "3600".to_string(),
             "b".repeat(64),
             "term".to_string(),
-            if matches!(action, "reserve" | "create") { "c".repeat(64) } else { String::new() },
+            if matches!(action, "reserve" | "create") {
+                "c".repeat(64)
+            } else {
+                String::new()
+            },
         ]
     }
 
@@ -213,21 +232,36 @@ mod tests {
             decode_frame(br#"{"type":"resize","cols":80,"rows":24}"#),
             Some(ControlFrame::Resize { cols: 80, rows: 24 })
         );
-        assert_eq!(decode_frame(br#"{"type":"heartbeat"}"#), Some(ControlFrame::Heartbeat));
-        assert_eq!(decode_frame(br#"{"type":"close"}"#), Some(ControlFrame::Close));
+        assert_eq!(
+            decode_frame(br#"{"type":"heartbeat"}"#),
+            Some(ControlFrame::Heartbeat)
+        );
+        assert_eq!(
+            decode_frame(br#"{"type":"close"}"#),
+            Some(ControlFrame::Close)
+        );
         // Shape violations.
         assert_eq!(decode_frame(br#"{"type":"close","x":1}"#), None);
         assert_eq!(decode_frame(br#"{"type":"input","data":""}"#), None);
         assert_eq!(decode_frame(br#"{"type":"input","data":"!!!}"#), None);
-        assert_eq!(decode_frame(br#"{"type":"resize","cols":1,"rows":24}"#), None);
-        assert_eq!(decode_frame(br#"{"type":"resize","cols":80,"rows":24.0}"#), None);
+        assert_eq!(
+            decode_frame(br#"{"type":"resize","cols":1,"rows":24}"#),
+            None
+        );
+        assert_eq!(
+            decode_frame(br#"{"type":"resize","cols":80,"rows":24.0}"#),
+            None
+        );
         assert_eq!(decode_frame(br#"{"type":"nope"}"#), None);
         assert_eq!(decode_frame(br#"{"type":"close","type":"close"}"#), None);
         assert_eq!(decode_frame(b"[1]"), None);
         assert_eq!(decode_frame(b"\xff\xfe"), None);
         // Oversized input rejected (16385 decoded bytes).
         let big = "Y".repeat(21848);
-        assert_eq!(decode_frame(format!("{{\"type\":\"input\",\"data\":\"{big}\"}}").as_bytes()), None);
+        assert_eq!(
+            decode_frame(format!("{{\"type\":\"input\",\"data\":\"{big}\"}}").as_bytes()),
+            None
+        );
     }
 
     #[test]

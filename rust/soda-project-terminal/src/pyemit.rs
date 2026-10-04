@@ -73,7 +73,11 @@ pub fn escape_py(out: &mut String, text: &str) {
             }
             c => {
                 let v = c as u32 - 0x10000;
-                out.push_str(&format!("\\u{:04x}\\u{:04x}", 0xd800 + (v >> 10), 0xdc00 + (v & 0x3ff)));
+                out.push_str(&format!(
+                    "\\u{:04x}\\u{:04x}",
+                    0xd800 + (v >> 10),
+                    0xdc00 + (v & 0x3ff)
+                ));
             }
         }
     }
@@ -98,7 +102,10 @@ pub fn unique_entries(value: &JsonValue) -> Option<&Vec<(String, JsonValue)>> {
 }
 
 /// Exact key set plus lookup over unique entries.
-pub fn shape<'a>(entries: &'a [(String, JsonValue)], keys: &[&str]) -> Option<Vec<(String, &'a JsonValue)>> {
+pub fn shape<'a>(
+    entries: &'a [(String, JsonValue)],
+    keys: &[&str],
+) -> Option<Vec<(String, &'a JsonValue)>> {
     if entries.len() != keys.len() {
         return None;
     }
@@ -134,12 +141,18 @@ mod tests {
         // Baked against CPython json.dumps(separators=(',',':'), ensure_ascii=True).
         let value = obj(vec![
             ("type", JsonValue::Str("output".to_string())),
-            ("data", JsonValue::Str("a+b/c<d>&\"q\"\\é\0\x1f\x7f😀".to_string())),
+            (
+                "data",
+                JsonValue::Str("a+b/c<d>&\"q\"\\é\0\x1f\x7f😀".to_string()),
+            ),
             ("n", JsonValue::Number("-12".to_string())),
             ("t", JsonValue::Bool(true)),
             ("f", JsonValue::Bool(false)),
             ("z", JsonValue::Null),
-            ("a", JsonValue::Array(vec![JsonValue::Number("1".to_string())])),
+            (
+                "a",
+                JsonValue::Array(vec![JsonValue::Number("1".to_string())]),
+            ),
         ]);
         assert_eq!(
             dumps(&value),
@@ -149,7 +162,10 @@ mod tests {
 
     #[test]
     fn emit_short_escapes() {
-        assert_eq!(dumps(&JsonValue::Str("\x08\x0c\n\r\t".to_string())), "\"\\b\\f\\n\\r\\t\"");
+        assert_eq!(
+            dumps(&JsonValue::Str("\x08\x0c\n\r\t".to_string())),
+            "\"\\b\\f\\n\\r\\t\""
+        );
         assert_eq!(dumps(&JsonValue::Str("/".to_string())), "\"/\"");
     }
 
@@ -181,6 +197,9 @@ mod tests {
         assert_eq!(as_int(&JsonValue::Number("4.0".to_string())), None);
         assert_eq!(as_int(&JsonValue::Number("1e3".to_string())), None);
         assert_eq!(as_int(&JsonValue::Bool(true)), None);
-        assert_eq!(as_int(&JsonValue::Number("9223372036854775808".to_string())), None);
+        assert_eq!(
+            as_int(&JsonValue::Number("9223372036854775808".to_string())),
+            None
+        );
     }
 }

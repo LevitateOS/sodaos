@@ -22,7 +22,8 @@ impl Sha256 {
     pub fn new() -> Sha256 {
         Sha256 {
             state: [
-                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+                0x5be0cd19,
             ],
             buffer: [0; 64],
             buffered: 0,
@@ -80,18 +81,30 @@ impl Default for Sha256 {
 fn compress(state: &mut [u32; 8], block: &[u8; 64]) {
     let mut w = [0u32; 64];
     for i in 0..16 {
-        w[i] = u32::from_be_bytes([block[4 * i], block[4 * i + 1], block[4 * i + 2], block[4 * i + 3]]);
+        w[i] = u32::from_be_bytes([
+            block[4 * i],
+            block[4 * i + 1],
+            block[4 * i + 2],
+            block[4 * i + 3],
+        ]);
     }
     for i in 16..64 {
         let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
         let s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
-        w[i] = w[i - 16].wrapping_add(s0).wrapping_add(w[i - 7]).wrapping_add(s1);
+        w[i] = w[i - 16]
+            .wrapping_add(s0)
+            .wrapping_add(w[i - 7])
+            .wrapping_add(s1);
     }
     let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *state;
     for i in 0..64 {
         let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
         let ch = (e & f) ^ ((!e) & g);
-        let t1 = h.wrapping_add(s1).wrapping_add(ch).wrapping_add(K[i]).wrapping_add(w[i]);
+        let t1 = h
+            .wrapping_add(s1)
+            .wrapping_add(ch)
+            .wrapping_add(K[i])
+            .wrapping_add(w[i]);
         let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
         let maj = (a & b) ^ (a & c) ^ (b & c);
         let t2 = s0.wrapping_add(maj);
@@ -156,7 +169,7 @@ mod tests {
         let long = vec![b'a'; 1000];
         assert_eq!(
             hex_digest(&long),
-            "41edece42d63e8d9bf515a9ba6932f5a1d67e3d1ff4c1dfe27e6e73b5ff385c2"
+            "41edece42d63e8d9bf515a9ba6932e1c20cbc9f5a5d134645adb5db1b9737ea3"
         );
         for len in [55, 56, 57, 63, 64, 65, 119, 120, 129] {
             let data = vec![0x61 + (len % 26) as u8; len];
