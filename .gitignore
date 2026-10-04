@@ -1,6 +1,7 @@
 /.artifacts/
 /.local/
 /node_modules/
+/rust/target/
 __pycache__/
 .ruff_cache/
 *.db
