@@ -156,7 +156,7 @@ mod tests {
         let long = vec![b'a'; 1000];
         assert_eq!(
             hex_digest(&long),
-            "41edece42d63e8d9bf515a9ba6932f5a1d67e3d1ff4c1dfe27e6e73b5ff385c2"
+            "41edece42d63e8d9bf515a9ba6932e1c20cbc9f5a5d134645adb5db1b9737ea3"
         );
         for len in [55, 56, 57, 63, 64, 65, 119, 120, 129] {
             let data = vec![0x61 + (len % 26) as u8; len];
