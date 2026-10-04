@@ -21,10 +21,7 @@ struct Item {
     files: Vec<Asset>,
 }
 
-fn lock_string<'a>(
-    item: &'a soda_json::JsonValue,
-    key: &str,
-) -> Result<&'a str, String> {
+fn lock_string<'a>(item: &'a soda_json::JsonValue, key: &str) -> Result<&'a str, String> {
     item.get(key)
         .and_then(|v| v.as_str())
         .ok_or_else(|| "terminal lock entry is malformed".to_string())
@@ -186,8 +183,7 @@ mod tests {
             tar.append_data(&mut header, name, *data).unwrap();
         }
         let tarred = tar.into_inner().unwrap();
-        let mut encoder =
-            flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         encoder.write_all(&tarred).unwrap();
         encoder.finish().unwrap()
     }
@@ -309,8 +305,7 @@ mod tests {
         let mut tar = tar::Builder::new(Vec::new());
         tar.append_dir("package/lib", ".").unwrap();
         let tarred = tar.into_inner().unwrap();
-        let mut encoder =
-            flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
         encoder.write_all(&tarred).unwrap();
         let body = encoder.finish().unwrap();
         let mut routes = HashMap::new();

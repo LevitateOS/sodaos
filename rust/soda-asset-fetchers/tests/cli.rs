@@ -18,8 +18,10 @@ struct TempDir {
 impl TempDir {
     fn new(tag: &str) -> TempDir {
         let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-        let path =
-            env::temp_dir().join(format!("soda-fetchers-cli-{tag}-{}-{id}", std::process::id()));
+        let path = env::temp_dir().join(format!(
+            "soda-fetchers-cli-{tag}-{}-{id}",
+            std::process::id()
+        ));
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         TempDir { path }
@@ -98,7 +100,10 @@ fn terminal_help_usage_and_missing_lock() {
     for args in [vec![], vec!["--out"], vec!["--out", "x", "extra"]] {
         let (code, _, err) = run(&terminal_bin(), &scratch.path, &args);
         assert_eq!(code, 2, "{args:?}");
-        assert!(err.contains("usage: soda-fetch-terminal"), "{args:?}: {err}");
+        assert!(
+            err.contains("usage: soda-fetch-terminal"),
+            "{args:?}: {err}"
+        );
     }
     // The output directory is created before the missing lock fails the run,
     // like the script's upfront mkdir.
@@ -119,7 +124,10 @@ fn muse_help_usage_and_offline_refusals() {
     );
     let (code, _, err) = run(&muse_bin(), &scratch.path, &["--bogus"]);
     assert_eq!(code, 1);
-    assert!(err.starts_with("soda-fetch-muse: usage: soda-fetch-muse"), "{err}");
+    assert!(
+        err.starts_with("soda-fetch-muse: usage: soda-fetch-muse"),
+        "{err}"
+    );
     // Relative destinations are refused before the manifest is even read.
     let (code, _, err) = run(&muse_bin(), &scratch.path, &["--out", "relative"]);
     assert_eq!(code, 1);

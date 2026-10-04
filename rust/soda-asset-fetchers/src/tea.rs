@@ -126,8 +126,7 @@ pub fn fetch(arch: &str, out: &Path, endpoints: &Endpoints) -> Result<String, St
     let base = format!("{}/{version}", endpoints.dl_base);
     let sums_url = format!("{base}/checksums.txt");
     let sums = download(&sums_url, META_LIMIT)?;
-    let sums_text =
-        std::str::from_utf8(&sums).map_err(|e| format!("fetch {sums_url}: {e}"))?;
+    let sums_text = std::str::from_utf8(&sums).map_err(|e| format!("fetch {sums_url}: {e}"))?;
     let expected = checksums_for(sums_text, &filename)
         .ok_or_else(|| "Tea checksums omit the requested archive".to_string())?;
     let body = download(&format!("{base}/{filename}"), BINARY_LIMIT)?;
@@ -267,7 +266,10 @@ mod tests {
         let message = fetch("x86_64", &out, &fixture.endpoints).unwrap();
         assert_eq!(
             message,
-            format!("Upstream Tea {VERSION} (x86_64) staged at {}", out.display())
+            format!(
+                "Upstream Tea {VERSION} (x86_64) staged at {}",
+                out.display()
+            )
         );
         assert_eq!(std::fs::read(out.join("bin/tea")).unwrap(), fixture.binary);
         assert_eq!(
@@ -304,10 +306,7 @@ mod tests {
         let binary = b"corrupt".to_vec();
         let mut raw: HashMap<String, (u16, Vec<u8>)> = HashMap::new();
         let good = elf_body(62);
-        let sums = format!(
-            "{}  tea-{VERSION}-linux-amd64\n",
-            crate::sha256_hex(&good)
-        );
+        let sums = format!("{}  tea-{VERSION}-linux-amd64\n", crate::sha256_hex(&good));
         raw.insert(
             "/api/releases/latest".to_string(),
             (200, format!(r#"{{"tag_name":"{TAG}"}}"#).into_bytes()),
@@ -316,7 +315,10 @@ mod tests {
             format!("/{VERSION}/checksums.txt"),
             (200, sums.into_bytes()),
         );
-        raw.insert(format!("/{VERSION}/tea-{VERSION}-linux-amd64"), (200, binary));
+        raw.insert(
+            format!("/{VERSION}/tea-{VERSION}-linux-amd64"),
+            (200, binary),
+        );
         raw.insert(
             format!("/raw/{TAG}/LICENSE"),
             (200, b"fixture license\n".to_vec()),

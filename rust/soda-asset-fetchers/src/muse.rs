@@ -75,8 +75,8 @@ fn load_release(manifest: &str, arch: &str) -> Result<(String, MuseArtifact), St
     };
     let text =
         std::str::from_utf8(capped).map_err(|_| "invalid Muse manifest: not UTF-8".to_string())?;
-    let value = JsonValue::parse(text)
-        .map_err(|_| "invalid Muse manifest: malformed JSON".to_string())?;
+    let value =
+        JsonValue::parse(text).map_err(|_| "invalid Muse manifest: malformed JSON".to_string())?;
     let top = match &value {
         JsonValue::Object(entries) => entries,
         _ => return Err("invalid Muse manifest: expected an object".to_string()),
@@ -105,9 +105,7 @@ fn load_release(manifest: &str, arch: &str) -> Result<(String, MuseArtifact), St
                 Some(number) => number
                     .as_integer()
                     .and_then(|n| i64::try_from(n).ok())
-                    .ok_or_else(|| {
-                        "invalid Muse manifest: size must be an integer".to_string()
-                    })?,
+                    .ok_or_else(|| "invalid Muse manifest: size must be an integer".to_string())?,
             };
             MuseArtifact { file, sha256, size }
         }
@@ -182,7 +180,6 @@ fn stage(body: &mut dyn Read, artifact: &MuseArtifact, dest: &Path) -> Result<()
             hasher.update(&buf[..n]);
             size += n as u64;
         }
-        drop(taken);
         drop(file);
         let mut hex = String::with_capacity(64);
         for byte in hasher.finalize() {
@@ -373,8 +370,13 @@ mod tests {
     fn relative_destination_is_refused_first() {
         let fixture = Fixture::start(b"verified native bytes".to_vec());
         assert_eq!(
-            fetch_muse(&fixture.manifest, "bogus-arch", Path::new("relative"), &fixture.base)
-                .unwrap_err(),
+            fetch_muse(
+                &fixture.manifest,
+                "bogus-arch",
+                Path::new("relative"),
+                &fixture.base
+            )
+            .unwrap_err(),
             "absolute Muse destination required"
         );
         assert!(fixture.server.seen().is_empty());
@@ -396,7 +398,7 @@ mod tests {
     fn invalid_pins_are_refused_without_fetch() {
         let payload = b"verified native bytes".to_vec();
         let good_sha = crate::sha256_hex(&payload);
-        let pins = vec![
+        let pins = [
             // Wrong file.
             format!(
                 r#"{{"version":"{VERSION}","artifacts":{{"x86_64":{{"file":"other","sha256":"{good_sha}","size":{}}}}}}}"#,
@@ -444,7 +446,7 @@ mod tests {
     fn unknown_manifest_fields_are_decode_errors() {
         let payload = b"verified native bytes".to_vec();
         let good_sha = crate::sha256_hex(&payload);
-        let texts = vec![
+        let texts = [
             format!(
                 r#"{{"version":"{VERSION}","artifacts":{{"x86_64":{{"file":"{FILE}","sha256":"{good_sha}","size":{}}}}},"extra":true}}"#,
                 payload.len()
@@ -511,13 +513,8 @@ mod tests {
         let fixture = Fixture::start(b"verified native bytes".to_vec());
         let dest = fixture.scratch.path.join("bin/muse");
         let missing = fixture.scratch.path.join("absent.json");
-        let err = fetch_muse(
-            missing.to_str().unwrap(),
-            "x86_64",
-            &dest,
-            &fixture.base,
-        )
-        .unwrap_err();
+        let err =
+            fetch_muse(missing.to_str().unwrap(), "x86_64", &dest, &fixture.base).unwrap_err();
         assert!(!err.is_empty());
         assert!(fixture.server.seen().is_empty());
     }

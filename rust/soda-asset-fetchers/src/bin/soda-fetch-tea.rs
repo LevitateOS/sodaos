@@ -37,7 +37,10 @@ fn parse(args: &[String]) -> Result<(String, Option<PathBuf>), String> {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.iter().any(|a| a == "--help" || a == "-help" || a == "-h") {
+    if args
+        .iter()
+        .any(|a| a == "--help" || a == "-help" || a == "-h")
+    {
         println!("{USAGE}");
         return;
     }
