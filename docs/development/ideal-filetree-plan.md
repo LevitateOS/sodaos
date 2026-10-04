@@ -14,13 +14,27 @@ revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
 Last maintained: **2026-10-05**. The reconciled source baseline and coverage are
-recorded below. The latest maintenance changes rename this document and add the
-post-merge workflow; they do not change the inspected code/package baseline.
+recorded below. This maintenance pass reconciles the six landed port PRs and the
+decided language policy; it changes the code/package baseline but not the
+placement rules.
 
-The current source has 26 Cargo packages under `rust/`. The recommendation merges
-the three release-asset packages into one, folds the sole-consumer identity
-providers into the broker, and retires the unconsumed Rust host mirror. That
-leaves 22 Cargo packages before any further language decisions. The tree places
+Decided language policy (owner): network-facing servers stay Go, system and
+privileged applications are Rust, Python is eliminated from the tracked tree.
+Open language options from earlier revisions are closed: the Rust host, installer,
+import, acceptance and release crates are the retained owners, and their Go or
+Python predecessors retire at cutover. The proposed tree below is the
+post-cutover target: it contains no pre-port implementation, even where the
+cutover commit is still pending. Pending retirements are called out as
+decided-pending with the PR or cutover that executes them.
+
+The current source has 30 Cargo packages under `rust/`. The recommendation merges
+the three release-asset packages into one and folds the sole-consumer identity
+providers into the broker; the Rust host mirror is retained because pending PR26
+consumes it as the daemon foundation. That leaves 27 Cargo packages. The four
+landed release crates (`soda-release-build`, `soda-release-deliver`,
+`soda-release-image`, `soda-release-tools`) are placed 1:1 under `lib/`; whether
+they consolidate further, and where their duplicated build helpers dedupe, is an
+open owner decision in the pending filetree layout. The tree places
 installed commands in `cmd/`, named implementation libraries in `lib/`, support
 tools in `tools/`, authored browser surfaces in `frontend/`, and image/service
 definitions in `system/`. Canonical assets stay in `assets/`; the website handbook
@@ -36,9 +50,9 @@ maintenance.
 
 ## Source coverage
 
-Last reconciled source: `899e9bf3b9b57883df42cbb520329679b3b8186d`. Inventory at that baseline: **1586 tracked paths**.
+Last reconciled source: `973b4d4e09f8e31117eead080e0bc06f12116d49`. Inventory at that baseline: **1705 tracked paths**.
 
-Initial full structural review: `899e9bf3b9b57883df42cbb520329679b3b8186d`. Latest reconciliation scope: document rename and post-merge maintenance workflow; the code/package baseline is unchanged. Keep this initial review separate from later merge checkpoints.
+Initial full structural review: `899e9bf3b9b57883df42cbb520329679b3b8186d`. Latest reconciliation scope: six landed port PRs (tests to Go #29/#31, release tools #30, release image #32, release deliver #33, release build #34) plus the decided language policy. Keep this initial review separate from later merge checkpoints.
 
 | Current root | Tracked paths | Proposed disposition |
 | --- | ---: | --- |
@@ -48,15 +62,17 @@ Initial full structural review: `899e9bf3b9b57883df42cbb520329679b3b8186d`. Late
 | `appliance` | 306 | System definitions to system; Forgejo presentation to frontend. |
 | `assets` | 169 | Retain ownership; include every leaf below. |
 | `cmd` | 21 | Retain ownership; include every leaf below. |
-| `docs` | 91 | Retain ownership; include every leaf below. |
+| `docs` | 92 | Retain ownership; include every leaf below. |
 | `factory-os` | 1 | system/factory. |
 | `frontend` | 32 | Retain ownership; include every leaf below. |
-| `internal` | 502 | Preserve domain/trust boundaries; relocate publication to Forgejo; review legacy acceptance and shared process ownership. |
-| `project-os` | 17 | system/project, preserving rootfs paths and installed identities. |
-| `rust` | 190 | All 26 packages accounted for: 22 proposed packages after consolidation and unused-host retirement. |
+| `internal` | 502 | Preserve domain/trust boundaries; relocate publication to Forgejo; review legacy acceptance and shared process ownership. Go release pipeline and daemon server half retire at their decided cutovers. |
+| `project-os` | 17 | system/project, preserving rootfs paths and installed identities. Two extensionless Python helpers port at PR42. |
+| `rust` | 283 | All 30 packages accounted for: 27 proposed packages after consolidation; host mirror retained for pending PR26. |
 | `scripts` | 83 | Retain build/check entrypoints; move SELinux and rootfs service definitions to their owners. |
-| `tests` | 111 | Retain ownership; include every leaf below. |
-| `tools` | 37 | Retain ownership; include every leaf below. |
+| `tests` | 133 | Retain ownership; Go tests stay, all `.py` retire at PR42. |
+| `tools` | 40 | Retain ownership; ported Go tools retire at release cutover. |
+
+Python inventory at this baseline: **25 tracked programs** — 23 `.py` files (21 in `tests/build`, 2 in `tests/installed`), all with landed Go successors, plus 2 extensionless libexec helpers (`project-account`, `project-factory-roles`) with no successor yet. PR42 ports the libexec pair and deletes all 25. The proposed tree already omits every one of them.
 
 There are **174 text files over 400 lines**, of which **158 are executable source, style, template, or test files**. Counts include embedded tests and are not production-only line counts. A size flag prompts a responsibility review; it does not justify arbitrary chunks or new product machinery.
 
@@ -77,12 +93,13 @@ The following recommendations are design proposals for the owner to assess.
 | --- | --- | --- |
 | `internal/host/publish` | `internal/forgejo/publish` | Its only production caller is `internal/forgejo`; it executes unprivileged repository publication. Keep the existing `BackgroundOperations` interface, credential isolation and factory/project domain inputs. Update the existing architecture rules to name this publication leaf correctly. |
 | `internal/acceptance/process*` | `internal/process` | Release image assembly and the build worker both use the same pinned process-group lifecycle. Keep one concrete implementation, its platform wait/reap code and real descendant-cleanup tests. Leave Command-to-exec setup and evidence classification with acceptance. The completion API is an unresolved extraction seam, described below. |
-| `internal/acceptance/worker_linux*` | `tools/soda-build/worker_service_linux*` | Worker and TrustedExecutable have only this tool as a production caller. Preserve both admitted worker identities, trusted executable checks, mount/environment rules, root dispatch and exact systemd unit cleanup. Use the actual shared process owner; create no worker library or new worker service. |
-| `internal/release/deliver/payload.go` and immutable parts of `internal/release/build/files.go` | Existing `internal/release` parent package: `payload.go`, `identity.go`, `json.go` | The parent currently contains only `doc.go`. Give it the existing immutable payload/image facts, digest/revision/architecture gates and bounded JSON input closure. Host can load release inputs without importing signing or build execution. Keep construction in build, orchestration in image and trust/signing/publication in deliver. |
-| `internal/testoci` | `internal/release/testoci` | All actual consumers are release tests. Retain one fixture owner and update those imports directly. |
+| `tools/soda-build/worker_linux.go` | `lib/soda-release-tools` (`worker.rs`, landed #30) | The Rust worker ports the tool-side worker and is the single worker owner. Retire the Go file at the release cutover. Preserve both admitted worker identities, trusted executable checks, mount/environment rules, root dispatch and exact systemd unit cleanup. |
+| `internal/acceptance/worker_linux*` | Retire at the release cutover (no production caller left) | Its only production caller is the retired Go tool. Do not move it into the deleted tool as previously proposed. |
+| `internal/release/{build,deliver,image}` (all Go) | Retire at the decided release cutover; `lib/soda-release-{build,deliver,image,tools}` (landed #30/#32/#33/#34) are the owners | The earlier Go-internal consolidation (parent `payload.go`/`identity.go`/`json.go`) is void: the decided language policy keeps the pipeline in Rust, so the Go side is deleted, not reshaped. Keep construction in build, orchestration in image and trust/signing/publication in deliver, now as Rust crates. |
+| `internal/testoci` | Retire with the Go release tests at the release cutover | All actual consumers are Go release tests, which retire with the Go pipeline. Fixture duty moves to the Rust oracle suites. |
 | `rust/identity-providers` + `rust/soda-identity` | One `cmd/soda-identity` Cargo package, with private `providers/codex`, `providers/muse` and existing provider types/helpers | The provider crate has exactly one direct production dependent. Consolidate package ownership while retaining provider protocol, broker policy, storage and wire modules. Fold its manifest/dependencies into the broker; remove the old package boundary and aliases. |
 | `rust/soda-asset-fetchers` + `rust/soda-stage-render` + `rust/soda-forgejo-locales` | One `tools/release-assets` Cargo package with `fetch/`, `render/`, `locales/` modules and the existing seven binaries | These are build-input operations under the existing release producer. Keep separate CLI entrypoints and test support namespaces. Existing transport/hash helpers can be reused after matching their caller behavior. This merges three manifests and library roots rather than adding another facade crate. |
-| `rust/soda-host` | Recommend retiring the unused mirror; conditional retained alternative at `lib/host` | This crate has only a library target, zero in-tree Cargo dependents and no installed host cutover. The current host daemon still compiles from Go. Retaining the mirror as a new permanent host foundation would leave two implementations without a demonstrated consumer. |
+| `rust/soda-host` | Retain at `lib/host`; pending PR26 consumes it as the daemon foundation (decided-pending) | The earlier retirement recommendation is void: the decided language policy makes this crate the host owner. PR26 wires its terminal/project executors and mux behind a new `soda-host` binary and deletes the Go daemon server half at cutover. Until that merge lands, the Go daemon remains installed and the tree carries both. |
 
 Publication evidence: `internal/forgejo/publish.go:37-58` and
 `internal/host/publish/operation.go:19-35`. Process/worker evidence:
@@ -122,17 +139,17 @@ cleanup observations before evidence classifies the outcome. Do not expose a
 raw mutable command or replace distinct failures with a single success flag.
 The existing process tests construct Command through StartProcess; adapting
 them must exercise the real process primitive and keep command/evidence tests
-at their actual owner. If Rust acceptance is retained and its obsolete Go
-execution closure is retired, the remaining primitive could instead live as
-files in existing `internal/release/build`; select one owner, never both.
+at their actual owner. Rust acceptance is retained (landed); the
+`internal/release/build` alternative owner below is dead because the Go
+pipeline retires at cutover, so the remaining primitive lives in the new
+`internal/process` package only. The obsolete Go execution closure retires with it.
 
-The immutable release move likewise carries the full ReadJSON/ReadJSONAt helper
-closure, including regular-file/inode confinement, the 4 MiB bound, exact-byte
-digest, unknown/trailing rejection and Go duplicate-last-wins behavior. It
-cannot mechanically substitute strictjson. Payload validation still supplies
-no signature, qualification or upgrade authority. Update all real callers
-directly; keep shared delivery test fixtures with their existing consumers and
-move only owner-specific assertions if their actual dependencies permit it.
+The immutable release move is superseded by the landed Rust pipeline (#32/#33/#34):
+the ReadJSON/ReadJSONAt helper closure (regular-file/inode confinement, the
+4 MiB bound, exact-byte digest, unknown/trailing rejection) now lives in the
+Rust crates instead of a reshaped Go parent. Payload validation still supplies
+no signature, qualification or upgrade authority. Shared delivery test fixtures
+move to the Rust oracle suites with their consumers at cutover.
 
 ### Boundaries that should remain
 
@@ -155,7 +172,7 @@ them into a package-local test file would break fixtures in other packages.
 Any retirement must preserve the real cross-package fixture/broker boundary;
 it does not justify a second production broker store or schema.
 
-`lib/json` has eight direct current Cargo dependents and earns shared ownership.
+`lib/json` has eleven direct current Cargo dependents (up from eight; all four landed release crates use it) and earns shared ownership.
 Its duplicate-last-wins value parser is not equivalent to strict broker
 admission, Go structured binding or Python-compatible terminal emission.
 Consolidate exact encoding or hashing primitives where contracts match; retain
@@ -173,7 +190,7 @@ daemons, containers, sockets or sidecars**.
 | Existing owner | Execution boundary | Refactor consequence |
 | --- | --- | --- |
 | Dashboard + web/API/auth + factory/control + store | Existing unprivileged dashboard process; private host/identity calls and PostgreSQL | Factory coordination remains an object inside this process. No new factory service. |
-| Go soda-host + project/terminal/Tailnet executors | Existing root service; root:soda Unix operation socket; real host namespaces | Keep the fixed privileged surface and existing launch handling in this process. Rust modules do not require a second host daemon. |
+| soda-host + project/terminal/Tailnet executors (Rust after pending PR26; Go until its cutover) | Existing root service; root:soda Unix operation socket; real host namespaces | Keep the fixed privileged surface and existing launch handling in this process. The cutover replaces the daemon implementation inside the same service; it adds no second host daemon. |
 | Identity broker + providers | Existing soda-identity service; administration socket 0660, runtime socket 0600 | Consolidating providers changes a package boundary, not credential custody or the root host execution boundary. |
 | Project terminal prepare/broker/keys/control | One existing installed helper executed inside a Project | Split modules inside the same crate and executable. The guest broker concern is distinct from the host credential broker. |
 | Muse CLI, Compose registration and maintenance | Existing entrypoints under their established caller identities | Share proven primitives, retain their different invocation/authority duties. No general identity runtime service. |
@@ -201,13 +218,14 @@ including comments and tests; they do not measure performance or safety.
 
 | Port | What the current source establishes | Recommendation for this refactor |
 | --- | --- | --- |
-| Host project/preparation/Tailnet library | Additive mirror with no production consumer; Go daemon and executors remain installed | Prefer the live Go owner and retire the unused mirror. Completing a host replacement is a distinct owner decision. |
+| Host project/preparation/Tailnet library | Decided Rust owner; terminal/project executors and daemon mux landed on `pr/26` (decided-pending), Go daemon still installed until cutover | Retain at `lib/host`. Land PR26 (adapter + binary + Go server-half deletion), then delete the superseded Go executor files with their lane owners. |
 | Project terminal | Replaces four embedded Python programs at one existing installed helper boundary; native file descriptors, PTY and process handling stay inside the Project | Retain one helper and split its real terminal/subscription/key concerns. This is the strongest current boundary for a selective native port; benefit still needs runtime evidence. |
 | Identity broker | Real replacement of the former Go broker; retains an established custody service | Consolidate provider packages. Reassess handwritten PostgreSQL transport/codecs and cross-language schema/wire maintenance before expanding them. The separate service predates the language change. |
-| Installer + image import | Both duplicate payload/OCI validation still owned and used by Go release code; installer also recreates Go certificate/IP/URL/SSH/JSON behavior | Prefer reconsidering both toward thin Go commands reusing one release owner and an installer package. If Rust stays, select one payload/OCI implementation only after comparing the current guarantees; do not solve reuse with FFI, RPC or another service. |
+| Installer + image import | Decided Rust owners; the Go release code they duplicate retires at the release cutover, resolving the duplication from the Go side | Retain both. After the Go pipeline retires, select the single surviving payload/OCI implementation per guarantee; do not solve reuse with FFI, RPC or another service. |
 | Acceptance | Replaces outside driver/remote handling; retains real installed probes and shared Go build/process users | Choose one harness owner. Go reuse is a credible simplification; if Rust stays, retire only obsolete Go driver/evidence execution and preserve live probe/process support. Account for the required remote binary. |
 | Factory CLI + Muse wrappers | Actual thin client/helper duties; Rust adds manual flag, transport and Go compatibility parsing | Reconsider language alongside shared primitive consolidation. The current source provides no reason to migrate the dashboard coordinator or add a client-side daemon. |
-| Asset fetch/render/locales | Actual build-time replacements under Go release orchestration; several recreate Python parsing/CLI behavior | Consolidate the seven binaries into one build-tools package. Go/Python remain credible alternatives when they remove emulation; no further blanket Rust migration follows from the current tree. |
+| Asset fetch/render/locales | Actual build-time replacements under release orchestration (Rust after cutover); several recreate Python parsing/CLI behavior | Consolidate the seven binaries into one build-tools package. The language decision is made; no alternative-stack migration follows. |
+| Release pipeline + tools (new) | Landed Rust crates mirror the full Go surface (#30/#32/#33/#34); Go originals still installed until cutover | Retain the four crates 1:1 under `lib/`. Cut over (repoint callers, delete Go), then dedupe the build helpers duplicated between crates per owner layout. |
 
 The installer contains **17,697 Rust source lines**, including comments,
 blank lines and embedded tests. The previous installer at the parent of
@@ -237,7 +255,7 @@ cutover: Go still orchestrates the release pipeline.
 | Current code | Observed consumers | Required disposition decision |
 | --- | --- | --- |
 | Go acceptance Evidence/Execute/Remote closure | Legacy tests only; PrivateFile remains needed by installed probes | Reuse it if Go becomes the harness owner, or retire the obsolete closure together if Rust stays. Keep the live private-input function and actual probe suite. Do not split dead closure into new modules first. |
-| Go deliver/import.go | ImportImages/NativeImport now have test-only callers; the rest of deliver is live | Restore the thin Go command caller if choosing Go import, or retire just this obsolete closure if Rust stays. |
+| Go deliver/import.go | Whole Go deliver package retires at the release cutover (Rust decided) | Retire with the package; the thin-Go-command alternative is void. |
 | Rust release-inputs Forgejo/settings/signature scaffold | No external production references; other reader/stream/Muse/identity gates are live | Retire unconsumed modules under the chosen language plan. Keep the currently used subset until its actual callers move. Do not present the whole scaffold as a replacement release engine. |
 | Go broker credential-write helpers | Seed/fixture callers; metadata reads still live | Move test-only seeding through the real fixture/broker boundary when authorized. Preserve live reads, schema and persisted encryption contract. |
 
@@ -285,7 +303,7 @@ ranges. No mixins, request buses or duplicate state controllers are implied.
 
 The extensionless Project factory-role program is part of the source review.
 Its module decomposition must stage/hash the full real module closure:
-`tests/build/test_project_factory_roles.py:20-24` loads the current wrapper, and
+`tests/build/project_factory_roles_test.go` (ported from `test_project_factory_roles.py`, #31) loads the current wrapper, and
 `internal/factory/control/st15_demo_native_test.go:321-325,371-381` copies/hashes
 that wrapper only. These checks would not verify extracted module bytes.
 Existing source-reading tests, shell imports and discovery roots
@@ -299,17 +317,17 @@ All 40 current Go packages with non-test source were checked for production impo
 | `cmd/soda-dashboard` | cmd/soda-dashboard | `internal/avatar`, `internal/config`, `internal/factory/control`, `internal/store`, `internal/web` |
 | `cmd/soda-extension` | cmd/soda-extension | `internal/web` |
 | `cmd/soda-forgejo-tailnet` | cmd/soda-forgejo-tailnet | `internal/forgejo`, `internal/tailnet` |
-| `cmd/soda-host` | cmd/soda-host | `internal/host`, `internal/tailnet` |
+| `cmd/soda-host` | cmd/soda-host (Rust binary after pending PR26; Go until cutover) | `internal/host`, `internal/tailnet` |
 | `cmd/soda-rootfs-server` | tools/soda-rootfs-server | None |
 | `cmd/soda-tailnet` | cmd/soda-tailnet | `internal/tailnet` |
-| `internal/acceptance` | acceptance probes; process → internal/process; worker → tools/soda-build; legacy harness pending | `internal/release/build` |
+| `internal/acceptance` | acceptance probes; process → internal/process; worker retires at release cutover; legacy harness pending | `internal/release/build` |
 | `internal/avatar` | internal/avatar | None |
 | `internal/config` | internal/config | None |
 | `internal/factory` | internal/factory | `internal/identity`, `internal/project` |
 | `internal/factory/control` | internal/factory/control | `internal/factory`, `internal/filelock`, `internal/identity`, `internal/project`, `internal/store`, `internal/strictjson` |
 | `internal/filelock` | internal/filelock | None |
 | `internal/forgejo` | internal/forgejo | `internal/config`, `internal/factory`, `internal/host/publish` |
-| `internal/host` | internal/host | `internal/host/project`, `internal/host/tailnet`, `internal/host/terminal`, `internal/identity`, `internal/identity/client`, `internal/platform`, `internal/project`, `internal/release/build`, `internal/release/deliver`, `internal/strictjson`, `internal/tailnet` |
+| `internal/host` | internal/host (server half retires at pending PR26; Go client surface stays) | `internal/host/project`, `internal/host/tailnet`, `internal/host/terminal`, `internal/identity`, `internal/identity/client`, `internal/platform`, `internal/project`, `internal/release/build`, `internal/release/deliver`, `internal/strictjson`, `internal/tailnet` |
 | `internal/host/project` | internal/host/project | `internal/filelock`, `internal/host/terminal`, `internal/identity`, `internal/identity/client`, `internal/platform`, `internal/project`, `internal/strictjson` |
 | `internal/host/publish` | internal/forgejo/publish | `internal/factory`, `internal/project` |
 | `internal/host/tailnet` | internal/host/tailnet | `internal/filelock`, `internal/strictjson`, `internal/tailnet` |
@@ -318,30 +336,30 @@ All 40 current Go packages with non-test source were checked for production impo
 | `internal/identity/client` | internal/identity/client | `internal/identity` |
 | `internal/platform` | internal/platform | None |
 | `internal/project` | internal/project | `internal/strictjson` |
-| `internal/release` | internal/release (immutable inputs) | None |
-| `internal/release/build` | build primitives; immutable identity/JSON → internal/release | None |
-| `internal/release/deliver` | signed delivery; immutable payload → internal/release | `internal/release/build`, `internal/strictjson` |
-| `internal/release/image` | internal/release/image | `internal/acceptance`, `internal/release/build`, `internal/release/deliver`, `internal/store` |
+| `internal/release` | Retire whole subtree at the release cutover (Rust crates landed #32/#33/#34) | None |
+| `internal/release/build` | Retire; owner is `lib/soda-release-build` | None |
+| `internal/release/deliver` | Retire; owner is `lib/soda-release-deliver` | `internal/release/build`, `internal/strictjson` |
+| `internal/release/image` | Retire; owner is `lib/soda-release-image` | `internal/acceptance`, `internal/release/build`, `internal/release/deliver`, `internal/store` |
 | `internal/store` | internal/store | `internal/factory`, `internal/identity`, `internal/project` |
 | `internal/strictjson` | internal/strictjson | None |
 | `internal/tailnet` | internal/tailnet | `internal/filelock`, `internal/platform`, `internal/strictjson` |
-| `internal/testoci` | internal/release/testoci | None |
+| `internal/testoci` | Retire with Go release tests at cutover | None |
 | `internal/web` | internal/web | `internal/avatar`, `internal/config`, `internal/factory/control`, `internal/forgejo`, `internal/host`, `internal/identity/client`, `internal/project`, `internal/store`, `internal/web/api`, `internal/web/auth` |
 | `internal/web/api` | internal/web/api | `internal/config`, `internal/factory`, `internal/factory/control`, `internal/forgejo`, `internal/host`, `internal/identity`, `internal/project`, `internal/store`, `internal/strictjson`, `internal/tailnet`, `internal/web/auth` |
 | `internal/web/auth` | internal/web/auth | `internal/config`, `internal/forgejo`, `internal/store`, `internal/strictjson` |
 | `tools/png-equal` | tools/png-equal | None |
-| `tools/soda-artifacts` | tools/soda-artifacts | `internal/release/build` |
+| `tools/soda-artifacts` | Retire at release cutover; owner is `lib/soda-release-tools` (#30) | `internal/release/build` |
 | `tools/soda-avatars` | tools/soda-avatars | `internal/avatar` |
-| `tools/soda-build` | tools/soda-build | `internal/acceptance`, `internal/release/build`, `internal/release/deliver`, `internal/release/image` |
-| `tools/soda-candidate` | tools/soda-candidate | None |
-| `tools/soda-candidate-check` | tools/soda-candidate-check | `internal/release/deliver` |
+| `tools/soda-build` | Retire at release cutover; owner is `lib/soda-release-tools` (#30) | `internal/acceptance`, `internal/release/build`, `internal/release/deliver`, `internal/release/image` |
+| `tools/soda-candidate` | Retire at release cutover; owner is `lib/soda-release-tools` (#30) | None |
+| `tools/soda-candidate-check` | tools/soda-candidate-check (disposition open: imports retiring `internal/release/deliver`; needs a Rust caller or retirement at cutover) | `internal/release/deliver` |
 | `tools/soda-installed-probes` | tools/soda-installed-probes | `internal/acceptance` |
 
 The complete tree also retains the test-only architecture package and all matching package tests. The proposed process package has a second real caller; the single-consumer worker implementation moves into its command instead of becoming another library.
 
 ## Placement rules
 
-Installed binary identities and protocols stay stable in this candidate. The release-assets package is the proposed `soda-release-assets` crate, with seven existing binaries; the three old manifests merge into its single manifest. The provider manifest folds into `soda-identity`, and its library root becomes a private providers module. Other retained Cargo identities stay the same. PostgreSQL maintenance and acceptance keep their multi-binary packages. File and package boundaries follow callers and authority; none requires a new daemon.
+Installed binary identities and protocols stay stable in this candidate. The release-assets package is the proposed `soda-release-assets` crate, with seven existing binaries; the three old manifests merge into its single manifest. The provider manifest folds into `soda-identity`, and its library root becomes a private providers module. The four landed release crates keep their identities 1:1 under `lib/`. Other retained Cargo identities stay the same. PostgreSQL maintenance and acceptance keep their multi-binary packages. File and package boundaries follow callers and authority; none requires a new daemon.
 
 | Current Cargo directory | Proposed directory |
 | --- | --- |
@@ -356,7 +374,11 @@ Installed binary identities and protocols stay stable in this candidate. The rel
 | `rust/soda-forgejo-domain/` | `cmd/soda-forgejo-domain/` |
 | `rust/soda-forgejo-locales/` | `tools/release-assets/` |
 | `rust/soda-forgejo-migrate/` | `cmd/soda-forgejo-migrate/` |
-| `rust/soda-host/` | `Recommend retirement; conditional retained alternative: lib/host/` |
+| `rust/soda-host/` | `lib/host/` (retained; pending PR26 cutover) |
+| `rust/soda-release-build/` | `lib/soda-release-build/` (landed #34; 1:1, consolidation open) |
+| `rust/soda-release-deliver/` | `lib/soda-release-deliver/` (landed #33; 1:1, consolidation open) |
+| `rust/soda-release-image/` | `lib/soda-release-image/` (landed #32; 1:1, consolidation open) |
+| `rust/soda-release-tools/` | `lib/soda-release-tools/` (landed #30; 1:1, consolidation open) |
 | `rust/soda-identity/` | `cmd/soda-identity/` |
 | `rust/soda-identity-compose/` | `cmd/soda-identity-compose/` |
 | `rust/soda-image-import/` | `cmd/soda-image-import/` |
@@ -377,7 +399,7 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | Current path | Proposed path |
 | --- | --- |
 | `internal/host/publish/` | `internal/forgejo/publish/` |
-| `internal/testoci/` | `internal/release/testoci/` |
+| `internal/testoci/` | Retire with Go release tests at cutover |
 | `appliance/forgejo/templates/` | `frontend/forgejo/templates/` |
 | `appliance/forgejo/i18n/` | `frontend/forgejo/locales/` |
 | `appliance/forgejo/` | `frontend/forgejo/` |
@@ -403,26 +425,28 @@ Additional relocations are exhaustive prefix rules; the detailed tree expands ev
 | `internal/acceptance/process_wait_linux.go` | `internal/process/wait_linux.go` |
 | `internal/acceptance/process_wait_other.go` | `internal/process/wait_other.go` |
 | `internal/acceptance/process_linux_test.go` | `internal/process/process_linux_test.go` |
-| `internal/acceptance/worker_linux.go` | `tools/soda-build/worker_service_linux.go` |
-| `internal/acceptance/worker_linux_test.go` | `tools/soda-build/worker_service_linux_test.go` |
-| `internal/release/deliver/payload.go` | `internal/release/payload.go` |
+| `internal/acceptance/worker_linux.go` | Retire at release cutover (no production caller left) |
+| `internal/acceptance/worker_linux_test.go` | Retire at release cutover |
+| `internal/release/**` (all Go) | Retire at release cutover; owners are `lib/soda-release-*` |
+| `tools/soda-build/**`, `tools/soda-candidate/**`, `tools/soda-artifacts/**` | Retire at release cutover; owner is `lib/soda-release-tools` |
+| `tests/build/*.py`, `tests/installed/*.py` | Retire at PR42; Go successors already landed |
+| `project-os/.../project-account`, `project-factory-roles` (extensionless Python) | Port at PR42 (no successor yet; privileged helpers, likely Rust); installed paths unchanged |
 | `internal/acceptance/process.go` | `internal/process/process.go`, `internal/acceptance/process_command.go` |
-| `internal/release/build/files.go` | `internal/release/build/files.go`, `internal/release/identity.go`, `internal/release/json.go` |
 | `rust/soda-identity/src/main.rs` | `cmd/soda-identity/src/main.rs`, `cmd/soda-identity/src/service.rs` |
 
-The tracked root files `installer` and `soda-candidate` are ELF build outputs. Their proposed disposition is removal from the tracked source tree; current tools build into ignored `.artifacts/`. The `rust/soda-host/` files are accounted for by the explicit unused-mirror retirement recommendation. This document deletes or executes none of these files.
+The tracked root files `installer` and `soda-candidate` are ELF build outputs. Their proposed disposition is removal from the tracked source tree; current tools build into ignored `.artifacts/`. The `rust/soda-host/` files are retained at `lib/host/` for pending PR26. Detailed decomposition entries for cutover-deleted files stay as review history; the proposed tree below omits them. This document deletes or executes none of these files.
 
 ## Complete proposed tree
 
-Every tracked source has a destination or an explicit disposition. The tree applies the package consolidations above, and retains the currently installed Rust ports while their language decision remains open. It omits the unused host mirror; its detailed module alternative follows below for an owner who elects to retain it. Existing small files keep their names unless package consolidation requires a namespace. The three release-assets integration-test namespaces retain distinct support modules.
+Every tracked source has a destination or an explicit disposition. The tree applies the package consolidations above and the decided language policy: it shows the post-cutover target, so pre-port Go/Python implementations are omitted even where their cutover commit is still pending. It retains the host crate at `lib/host/`; the decomposition section's host entries are now the retained plan, not a conditional alternative. Existing small files keep their names unless package consolidation requires a namespace. The three release-assets integration-test namespaces retain distinct support modules.
 
 The existing `sodaspaces-factory-view.ts` and `sodaspaces-terminal-view.ts` receive view concerns from their larger state owners; these are deliberate existing-owner consolidations. Their combined size still needs implementation review. The asset package receives one new library module root and one merged manifest. No other target collision is intended.
 
 ```text
 sodaos/
 ├── .agents/
-│   └── plans/
-│       └── 2026-09-16-remove-rpm-pinning.md
+│   ├── plans/
+│   │   └── 2026-09-16-remove-rpm-pinning.md
 ├── .githooks/
 │   └── pre-commit
 ├── assets/
@@ -576,34 +600,34 @@ sodaos/
 │   │   ├── icons/
 │   │   │   ├── hicolor/
 │   │   │   │   ├── 128x128/
-│   │   │   │   │   └── apps/
-│   │   │   │   │       └── soda-os.png
+│   │   │   │   │   ├── apps/
+│   │   │   │   │   │   └── soda-os.png
 │   │   │   │   ├── 16x16/
-│   │   │   │   │   └── apps/
-│   │   │   │   │       └── soda-os.png
+│   │   │   │   │   ├── apps/
+│   │   │   │   │   │   └── soda-os.png
 │   │   │   │   ├── 24x24/
-│   │   │   │   │   └── apps/
-│   │   │   │   │       └── soda-os.png
+│   │   │   │   │   ├── apps/
+│   │   │   │   │   │   └── soda-os.png
 │   │   │   │   ├── 256x256/
-│   │   │   │   │   └── apps/
-│   │   │   │   │       └── soda-os.png
+│   │   │   │   │   ├── apps/
+│   │   │   │   │   │   └── soda-os.png
 │   │   │   │   ├── 32x32/
-│   │   │   │   │   └── apps/
-│   │   │   │   │       └── soda-os.png
+│   │   │   │   │   ├── apps/
+│   │   │   │   │   │   └── soda-os.png
 │   │   │   │   ├── 48x48/
-│   │   │   │   │   └── apps/
-│   │   │   │   │       └── soda-os.png
+│   │   │   │   │   ├── apps/
+│   │   │   │   │   │   └── soda-os.png
 │   │   │   │   ├── 512x512/
-│   │   │   │   │   └── apps/
-│   │   │   │   │       └── soda-os.png
-│   │   │   │   └── 64x64/
-│   │   │   │       └── apps/
-│   │   │   │           └── soda-os.png
-│   │   │   └── octicons/
-│   │   │       ├── LICENSE
-│   │   │       ├── README.md
-│   │   │       ├── repo-19.14.0.svg
-│   │   │       └── terminal-19.14.0.svg
+│   │   │   │   │   ├── apps/
+│   │   │   │   │   │   └── soda-os.png
+│   │   │   │   ├── 64x64/
+│   │   │   │   │   ├── apps/
+│   │   │   │   │   │   └── soda-os.png
+│   │   │   ├── octicons/
+│   │   │   │   ├── LICENSE
+│   │   │   │   ├── README.md
+│   │   │   │   ├── repo-19.14.0.svg
+│   │   │   │   └── terminal-19.14.0.svg
 │   │   ├── installer/
 │   │   │   ├── manifest.tsv
 │   │   │   ├── soda-logo-black.png
@@ -703,10 +727,6 @@ sodaos/
 │   │   │   └── main.rs
 │   │   └── Cargo.toml
 │   ├── soda-forgejo-tailnet/
-│   │   ├── main.go
-│   │   └── main_test.go
-│   ├── soda-host/
-│   │   ├── launch.go
 │   │   ├── main.go
 │   │   └── main_test.go
 │   ├── soda-identity/
@@ -1037,10 +1057,10 @@ sodaos/
 │   │   │   ├── setup.rs
 │   │   │   └── system.rs
 │   │   └── Cargo.toml
-│   └── soda-tailnet/
-│       ├── command.go
-│       ├── command_test.go
-│       └── main.go
+│   ├── soda-tailnet/
+│   │   ├── command.go
+│   │   ├── command_test.go
+│   │   └── main.go
 ├── docs/
 │   ├── architecture/
 │   │   ├── factory-interfaces.md
@@ -1539,17 +1559,17 @@ sodaos/
 │   │   ├── sodaspaces-workspace.ts
 │   │   ├── sodaspaces.css
 │   │   └── terminal-vendor.d.ts
-│   └── tailnet/
-│       ├── soda-settings.css
-│       ├── soda-tailnet-actions.ts
-│       ├── soda-tailnet-confirmation-view.ts
-│       ├── soda-tailnet-enrollment-view.ts
-│       ├── soda-tailnet-entry.ts
-│       ├── soda-tailnet-host-view.ts
-│       ├── soda-tailnet-observation.ts
-│       ├── soda-tailnet-page.ts
-│       ├── soda-tailnet-response.ts
-│       └── soda-tailnet.css
+│   ├── tailnet/
+│   │   ├── soda-settings.css
+│   │   ├── soda-tailnet-actions.ts
+│   │   ├── soda-tailnet-confirmation-view.ts
+│   │   ├── soda-tailnet-enrollment-view.ts
+│   │   ├── soda-tailnet-entry.ts
+│   │   ├── soda-tailnet-host-view.ts
+│   │   ├── soda-tailnet-observation.ts
+│   │   ├── soda-tailnet-page.ts
+│   │   ├── soda-tailnet-response.ts
+│   │   └── soda-tailnet.css
 ├── internal/
 │   ├── acceptance/
 │   │   ├── command.go
@@ -1869,22 +1889,15 @@ sodaos/
 │   │   ├── admission_test.go
 │   │   ├── client.go
 │   │   ├── connection_test.go
-│   │   ├── daemon.go
-│   │   ├── daemon_admission.go
-│   │   ├── daemon_config.go
-│   │   ├── daemon_dispatch.go
-│   │   ├── daemon_test.go
 │   │   ├── factory_candidate.go
 │   │   ├── factory_candidate_route_test.go
 │   │   ├── factory_candidate_test.go
 │   │   ├── factory_client.go
-│   │   ├── factory_daemon_test.go
 │   │   ├── factory_export_test.go
 │   │   ├── factory_harness_test.go
 │   │   ├── identity.go
 │   │   ├── lifecycle.go
 │   │   ├── lifecycle_access_keys_test.go
-│   │   ├── muse.go
 │   │   ├── native_reader_test.go
 │   │   ├── os.go
 │   │   ├── os_test.go
@@ -1947,107 +1960,6 @@ sodaos/
 │   │   ├── takeover.go
 │   │   ├── takeover_test.go
 │   │   └── types.go
-│   ├── release/
-│   │   ├── build/
-│   │   │   ├── boundaries_test.go
-│   │   │   ├── clock_linux.go
-│   │   │   ├── clock_other.go
-│   │   │   ├── coreos.go
-│   │   │   ├── coreos_iso.go
-│   │   │   ├── coreos_iso_test.go
-│   │   │   ├── coreos_stream.go
-│   │   │   ├── coreos_stream_test.go
-│   │   │   ├── download_test.go
-│   │   │   ├── elf.go
-│   │   │   ├── files.go
-│   │   │   ├── forgejo-payload.json
-│   │   │   ├── forgejo.go
-│   │   │   ├── forgejo_test.go
-│   │   │   ├── input_fetch.go
-│   │   │   ├── live_inputs.go
-│   │   │   ├── oci.go
-│   │   │   ├── oci_archive.go
-│   │   │   ├── oci_layers.go
-│   │   │   ├── oci_layout.go
-│   │   │   ├── oci_layout_test.go
-│   │   │   ├── oci_manifest.go
-│   │   │   ├── oci_test.go
-│   │   │   ├── production.go
-│   │   │   ├── production_assets.go
-│   │   │   ├── production_compile.go
-│   │   │   ├── production_images.go
-│   │   │   ├── production_inputs.go
-│   │   │   ├── production_test.go
-│   │   │   ├── progress.go
-│   │   │   ├── progress_test.go
-│   │   │   └── tailnet_inputs.go
-│   │   ├── deliver/
-│   │   │   ├── admission.go
-│   │   │   ├── admission_test.go
-│   │   │   ├── candidate_model.go
-│   │   │   ├── channel_model.go
-│   │   │   ├── check.go
-│   │   │   ├── check_test.go
-│   │   │   ├── content.go
-│   │   │   ├── content_test.go
-│   │   │   ├── document.go
-│   │   │   ├── fetch.go
-│   │   │   ├── finalize.go
-│   │   │   ├── finalize_test.go
-│   │   │   ├── import.go
-│   │   │   ├── local_final_test.go
-│   │   │   ├── model.go
-│   │   │   ├── model_test.go
-│   │   │   ├── native.go
-│   │   │   ├── native_test.go
-│   │   │   ├── payload_test.go
-│   │   │   ├── prepare.go
-│   │   │   ├── prepare_test.go
-│   │   │   ├── publish.go
-│   │   │   ├── publish_test.go
-│   │   │   ├── release_model.go
-│   │   │   ├── tools.json
-│   │   │   └── trust_model.go
-│   │   ├── image/
-│   │   │   ├── assemble.go
-│   │   │   ├── assemble_test.go
-│   │   │   ├── assembler_image.go
-│   │   │   ├── build.go
-│   │   │   ├── build_compile.go
-│   │   │   ├── build_execution.go
-│   │   │   ├── build_host.go
-│   │   │   ├── build_inspect.go
-│   │   │   ├── build_layout.go
-│   │   │   ├── build_layout_test.go
-│   │   │   ├── build_media.go
-│   │   │   ├── build_media_test.go
-│   │   │   ├── build_payload.go
-│   │   │   ├── build_record.go
-│   │   │   ├── build_snapshot.go
-│   │   │   ├── build_test.go
-│   │   │   ├── candidate_live.go
-│   │   │   ├── candidate_live_test.go
-│   │   │   ├── complete.go
-│   │   │   ├── complete_test.go
-│   │   │   ├── extension_assets.go
-│   │   │   ├── extension_assets_test.go
-│   │   │   ├── forgejo_source.go
-│   │   │   ├── forgejo_source_test.go
-│   │   │   ├── installer_iso.go
-│   │   │   ├── media_compression.go
-│   │   │   ├── media_compression_test.go
-│   │   │   ├── media_container.go
-│   │   │   ├── media_events.go
-│   │   │   ├── media_inventory.go
-│   │   │   ├── media_seal.go
-│   │   │   ├── prepare.go
-│   │   │   └── prepare_test.go
-│   │   ├── testoci/
-│   │   │   └── fixture.go
-│   │   ├── doc.go
-│   │   ├── identity.go
-│   │   ├── json.go
-│   │   └── payload.go
 │   ├── store/
 │   │   ├── corruption.go
 │   │   ├── ephemeral.go
@@ -2125,130 +2037,241 @@ sodaos/
 │   │   ├── project_status.go
 │   │   ├── tailnet.go
 │   │   └── tailnet_test.go
-│   └── web/
-│       ├── api/
-│       │   ├── access_keys.go
-│       │   ├── api.go
-│       │   ├── dispatch_inputs.go
-│       │   ├── dispatch_inputs_test.go
-│       │   ├── environment_authority.go
-│       │   ├── environment_os.go
-│       │   ├── environments_api.go
-│       │   ├── environments_create.go
-│       │   ├── environments_join.go
-│       │   ├── environments_join_test.go
-│       │   ├── environments_preparation.go
-│       │   ├── extension.go
-│       │   ├── extension_native.go
-│       │   ├── extension_terminal.go
-│       │   ├── extension_terminal_authority.go
-│       │   ├── extension_terminal_stream.go
-│       │   ├── extension_test.go
-│       │   ├── factory_assignments.go
-│       │   ├── factory_assignments_test.go
-│       │   ├── factory_intake.go
-│       │   ├── factory_intake_test.go
-│       │   ├── factory_issue_view.go
-│       │   ├── factory_lifecycle.go
-│       │   ├── factory_output.go
-│       │   ├── factory_output_test.go
-│       │   ├── factory_policy.go
-│       │   ├── factory_readiness.go
-│       │   ├── factory_settings.go
-│       │   ├── factory_sponsorship.go
-│       │   ├── factory_status.go
-│       │   ├── factory_views.go
-│       │   ├── factory_views_test.go
-│       │   ├── identity.go
-│       │   ├── identity_grants.go
-│       │   ├── identity_launch.go
-│       │   ├── issue_acceptance_evidence.go
-│       │   ├── issue_acceptances.go
-│       │   ├── issue_acceptances_test.go
-│       │   ├── lifecycle.go
-│       │   ├── operator.go
-│       │   ├── preparation_decisions.go
-│       │   ├── project_profiles.go
-│       │   ├── provisioning.go
-│       │   ├── repositories.go
-│       │   ├── spaces.go
-│       │   ├── spaces_authority.go
-│       │   ├── spaces_inspection.go
-│       │   ├── spaces_inventory.go
-│       │   ├── tailnet.go
-│       │   └── terminal_registry.go
-│       ├── auth/
-│       │   ├── auth.go
-│       │   ├── development_key.go
-│       │   ├── errors.go
-│       │   ├── errors_test.go
-│       │   ├── extension.go
-│       │   ├── extension_service.go
-│       │   ├── extension_test.go
-│       │   ├── forgejo_keys.go
-│       │   ├── http.go
-│       │   ├── postgres_fixture_test.go
-│       │   ├── service.go
-│       │   └── session.go
-│       ├── testdata/
-│       │   └── avatar-browser.ts
-│       ├── avatars.go
-│       ├── avatars_browser_test.go
-│       ├── avatars_test.go
-│       ├── browser_join_test.go
-│       ├── environment_authority_test.go
-│       ├── environment_os_test.go
-│       ├── environment_read_publication_test.go
-│       ├── environments_api_test.go
-│       ├── execution_access_test.go
-│       ├── extension.go
-│       ├── extension_terminal_test.go
-│       ├── extension_test.go
-│       ├── factory_checks_view_test.go
-│       ├── factory_intake_route_test.go
-│       ├── factory_lifecycle_test.go
-│       ├── factory_output_fixture_test.go
-│       ├── factory_output_stream_test.go
-│       ├── factory_settings_test.go
-│       ├── factory_views_test.go
-│       ├── forgejo_keys_test.go
-│       ├── identity_native_test.go
-│       ├── issue_acceptances_test.go
-│       ├── join_boundary_test.go
-│       ├── lifecycle_access_keys_test.go
-│       ├── mutation_admission_test.go
-│       ├── postgres_fixture_test.go
-│       ├── preparation_test.go
-│       ├── project_profiles_test.go
-│       ├── provisioning_lifetime_test.go
-│       ├── repositories_test.go
-│       ├── repository_access_test.go
-│       ├── repository_settings_test.go
-│       ├── retired_frontend_test.go
-│       ├── server.go
-│       ├── server_test.go
-│       ├── spaces_inventory_test.go
-│       ├── spaces_test.go
-│       ├── tailnet_test.go
-│       ├── terminal_test.go
-│       └── test_helpers_test.go
+│   ├── web/
+│   │   ├── api/
+│   │   │   ├── access_keys.go
+│   │   │   ├── api.go
+│   │   │   ├── dispatch_inputs.go
+│   │   │   ├── dispatch_inputs_test.go
+│   │   │   ├── environment_authority.go
+│   │   │   ├── environment_os.go
+│   │   │   ├── environments_api.go
+│   │   │   ├── environments_create.go
+│   │   │   ├── environments_join.go
+│   │   │   ├── environments_join_test.go
+│   │   │   ├── environments_preparation.go
+│   │   │   ├── extension.go
+│   │   │   ├── extension_native.go
+│   │   │   ├── extension_terminal.go
+│   │   │   ├── extension_terminal_authority.go
+│   │   │   ├── extension_terminal_stream.go
+│   │   │   ├── extension_test.go
+│   │   │   ├── factory_assignments.go
+│   │   │   ├── factory_assignments_test.go
+│   │   │   ├── factory_intake.go
+│   │   │   ├── factory_intake_test.go
+│   │   │   ├── factory_issue_view.go
+│   │   │   ├── factory_lifecycle.go
+│   │   │   ├── factory_output.go
+│   │   │   ├── factory_output_test.go
+│   │   │   ├── factory_policy.go
+│   │   │   ├── factory_readiness.go
+│   │   │   ├── factory_settings.go
+│   │   │   ├── factory_sponsorship.go
+│   │   │   ├── factory_status.go
+│   │   │   ├── factory_views.go
+│   │   │   ├── factory_views_test.go
+│   │   │   ├── identity.go
+│   │   │   ├── identity_grants.go
+│   │   │   ├── identity_launch.go
+│   │   │   ├── issue_acceptance_evidence.go
+│   │   │   ├── issue_acceptances.go
+│   │   │   ├── issue_acceptances_test.go
+│   │   │   ├── lifecycle.go
+│   │   │   ├── operator.go
+│   │   │   ├── preparation_decisions.go
+│   │   │   ├── project_profiles.go
+│   │   │   ├── provisioning.go
+│   │   │   ├── repositories.go
+│   │   │   ├── spaces.go
+│   │   │   ├── spaces_authority.go
+│   │   │   ├── spaces_inspection.go
+│   │   │   ├── spaces_inventory.go
+│   │   │   ├── tailnet.go
+│   │   │   └── terminal_registry.go
+│   │   ├── auth/
+│   │   │   ├── auth.go
+│   │   │   ├── development_key.go
+│   │   │   ├── errors.go
+│   │   │   ├── errors_test.go
+│   │   │   ├── extension.go
+│   │   │   ├── extension_service.go
+│   │   │   ├── extension_test.go
+│   │   │   ├── forgejo_keys.go
+│   │   │   ├── http.go
+│   │   │   ├── postgres_fixture_test.go
+│   │   │   ├── service.go
+│   │   │   └── session.go
+│   │   ├── testdata/
+│   │   │   └── avatar-browser.ts
+│   │   ├── avatars.go
+│   │   ├── avatars_browser_test.go
+│   │   ├── avatars_test.go
+│   │   ├── browser_join_test.go
+│   │   ├── environment_authority_test.go
+│   │   ├── environment_os_test.go
+│   │   ├── environment_read_publication_test.go
+│   │   ├── environments_api_test.go
+│   │   ├── execution_access_test.go
+│   │   ├── extension.go
+│   │   ├── extension_terminal_test.go
+│   │   ├── extension_test.go
+│   │   ├── factory_checks_view_test.go
+│   │   ├── factory_intake_route_test.go
+│   │   ├── factory_lifecycle_test.go
+│   │   ├── factory_output_fixture_test.go
+│   │   ├── factory_output_stream_test.go
+│   │   ├── factory_settings_test.go
+│   │   ├── factory_views_test.go
+│   │   ├── forgejo_keys_test.go
+│   │   ├── identity_native_test.go
+│   │   ├── issue_acceptances_test.go
+│   │   ├── join_boundary_test.go
+│   │   ├── lifecycle_access_keys_test.go
+│   │   ├── mutation_admission_test.go
+│   │   ├── postgres_fixture_test.go
+│   │   ├── preparation_test.go
+│   │   ├── project_profiles_test.go
+│   │   ├── provisioning_lifetime_test.go
+│   │   ├── repositories_test.go
+│   │   ├── repository_access_test.go
+│   │   ├── repository_settings_test.go
+│   │   ├── retired_frontend_test.go
+│   │   ├── server.go
+│   │   ├── server_test.go
+│   │   ├── spaces_inventory_test.go
+│   │   ├── spaces_test.go
+│   │   ├── tailnet_test.go
+│   │   ├── terminal_test.go
+│   │   └── test_helpers_test.go
 ├── lib/
 │   ├── json/
 │   │   ├── src/
 │   │   │   └── lib.rs
 │   │   └── Cargo.toml
-│   └── release-inputs/
-│       ├── src/
-│       │   ├── reader/
-│       │   │   ├── forgejo.rs
-│       │   │   ├── muse.rs
-│       │   │   ├── settings.rs
-│       │   │   ├── signature.rs
-│       │   │   ├── stream.rs
-│       │   │   └── url.rs
-│       │   ├── lib.rs
-│       │   └── reader.rs
-│       └── Cargo.toml
+│   ├── release-inputs/
+│   │   ├── src/
+│   │   │   ├── reader/
+│   │   │   │   ├── forgejo.rs
+│   │   │   │   ├── muse.rs
+│   │   │   │   ├── settings.rs
+│   │   │   │   ├── signature.rs
+│   │   │   │   ├── stream.rs
+│   │   │   │   └── url.rs
+│   │   │   ├── lib.rs
+│   │   │   └── reader.rs
+│   │   └── Cargo.toml
+│   ├── soda-release-build/
+│   │   ├── src/
+│   │   │   ├── clock.rs
+│   │   │   ├── coreos.rs
+│   │   │   ├── coreos_iso.rs
+│   │   │   ├── coreos_stream.rs
+│   │   │   ├── elf.rs
+│   │   │   ├── files.rs
+│   │   │   ├── forgejo.rs
+│   │   │   ├── http.rs
+│   │   │   ├── json_go.rs
+│   │   │   ├── lib.rs
+│   │   │   ├── oci.rs
+│   │   │   ├── oci_layout.rs
+│   │   │   ├── production.rs
+│   │   │   └── progress.rs
+│   │   ├── tests/
+│   │   │   ├── data/
+│   │   │   │   ├── go-layout/
+│   │   │   │   │   ├── blobs/
+│   │   │   │   │   │   ├── sha256/
+│   │   │   │   │   │   │   ├── 098b60ba449c4b81d38cca87e08b16ff83522b9edb36bdb36025d9d370a99295
+│   │   │   │   │   │   │   ├── 9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691
+│   │   │   │   │   │   │   └── 973a9bd7fe238b1604434f944e1ad4bff0629795321210dc11fcecf853ad3dce
+│   │   │   │   │   ├── index.json
+│   │   │   │   │   └── oci-layout
+│   │   │   │   └── go-fixture.oci
+│   │   │   ├── oracle.rs
+│   │   │   └── oracle_vectors.rs
+│   │   └── Cargo.toml
+│   ├── soda-release-deliver/
+│   │   ├── src/
+│   │   │   ├── admission.rs
+│   │   │   ├── buildx.rs
+│   │   │   ├── check.rs
+│   │   │   ├── content.rs
+│   │   │   ├── document.rs
+│   │   │   ├── fetch.rs
+│   │   │   ├── finalize.rs
+│   │   │   ├── import.rs
+│   │   │   ├── jsonx.rs
+│   │   │   ├── lib.rs
+│   │   │   ├── model.rs
+│   │   │   ├── native.rs
+│   │   │   ├── oci.rs
+│   │   │   ├── payload.rs
+│   │   │   ├── prepare.rs
+│   │   │   └── publish.rs
+│   │   ├── tests/
+│   │   │   ├── goldens/
+│   │   │   │   └── deliver.json
+│   │   │   └── oracle.rs
+│   │   ├── Cargo.toml
+│   │   └── tools.json
+│   ├── soda-release-image/
+│   │   ├── src/
+│   │   │   ├── build.rs
+│   │   │   ├── build_media.rs
+│   │   │   ├── complete.rs
+│   │   │   ├── compression.rs
+│   │   │   ├── error.rs
+│   │   │   ├── events.rs
+│   │   │   ├── extension.rs
+│   │   │   ├── files.rs
+│   │   │   ├── foreign.rs
+│   │   │   ├── forgejo.rs
+│   │   │   ├── host.rs
+│   │   │   ├── ignition.rs
+│   │   │   ├── inspect.rs
+│   │   │   ├── jsonio.rs
+│   │   │   ├── layout.rs
+│   │   │   ├── lib.rs
+│   │   │   ├── media.rs
+│   │   │   ├── model.rs
+│   │   │   ├── packages.rs
+│   │   │   ├── payload_stage.rs
+│   │   │   ├── prepare.rs
+│   │   │   ├── quadlet.rs
+│   │   │   ├── recall.rs
+│   │   │   ├── record.rs
+│   │   │   ├── request.rs
+│   │   │   ├── rootfs.rs
+│   │   │   └── sys.rs
+│   │   ├── tests/
+│   │   │   └── oracle.rs
+│   │   └── Cargo.toml
+│   ├── soda-release-tools/
+│   │   ├── src/
+│   │   │   ├── bin/
+│   │   │   │   ├── soda-artifacts.rs
+│   │   │   │   ├── soda-build.rs
+│   │   │   │   └── soda-candidate.rs
+│   │   │   ├── artifacts.rs
+│   │   │   ├── build_cli.rs
+│   │   │   ├── build_spec.rs
+│   │   │   ├── candidate.rs
+│   │   │   ├── candidate_controller.rs
+│   │   │   ├── candidate_display.rs
+│   │   │   ├── candidate_fixture.rs
+│   │   │   ├── candidate_hints.rs
+│   │   │   ├── candidate_prompts.rs
+│   │   │   ├── digest.rs
+│   │   │   ├── exitcode.rs
+│   │   │   ├── goflag.rs
+│   │   │   ├── lib.rs
+│   │   │   ├── progress.rs
+│   │   │   └── worker.rs
+│   │   ├── tests/
+│   │   │   └── cli.rs
+│   │   ├── Cargo.toml
+│   │   └── build.rs
 ├── scripts/
 │   ├── fixtures/
 │   │   ├── portcontracts/
@@ -2346,8 +2369,8 @@ sodaos/
 │   │   │   └── run
 │   │   ├── forgejo/
 │   │   │   └── Containerfile
-│   │   └── tailnet/
-│   │       └── Containerfile
+│   │   ├── tailnet/
+│   │   │   └── Containerfile
 │   ├── factory/
 │   │   └── Containerfile
 │   ├── host/
@@ -2402,80 +2425,69 @@ sodaos/
 │   │   ├── forgejo-LICENSE
 │   │   ├── lit-LICENSE
 │   │   └── tailscale-LICENSE
-│   └── project/
-│       ├── licenses/
-│       │   └── tea-LICENSE
-│       ├── rootfs/
-│       │   ├── etc/
-│       │   │   ├── containers/
-│       │   │   │   ├── containers.conf
-│       │   │   │   └── storage.conf
-│       │   │   ├── mise/
-│       │   │   │   └── config.toml
-│       │   │   ├── profile.d/
-│       │   │   │   ├── soda-mise.sh
-│       │   │   │   └── soda-podman.sh
-│       │   │   ├── ssh/
-│       │   │   │   └── sshd_config.d/
-│       │   │   │       └── 10-soda.conf
-│       │   │   ├── sudoers.d/
-│       │   │   │   └── soda-project
-│       │   │   ├── systemd/
-│       │   │   │   └── system/
-│       │   │   │       ├── soda-podman.service
-│       │   │   │       ├── soda-podman.socket
-│       │   │   │       └── soda-project-init.service
-│       │   │   └── yum.repos.d/
-│       │   │       └── gh-cli.repo
-│       │   └── usr/
-│       │       └── libexec/
-│       │           └── soda/
-│       │               ├── factory_execution.py
-│       │               ├── factory_inputs.py
-│       │               ├── factory_layout.py
-│       │               ├── factory_records.py
-│       │               ├── factory_roles.py
-│       │               ├── project-account
-│       │               ├── project-factory-roles
-│       │               └── project-init
-│       ├── Containerfile
-│       └── muse-release.json
+│   ├── project/
+│   │   ├── licenses/
+│   │   │   └── tea-LICENSE
+│   │   ├── rootfs/
+│   │   │   ├── etc/
+│   │   │   │   ├── containers/
+│   │   │   │   │   ├── containers.conf
+│   │   │   │   │   └── storage.conf
+│   │   │   │   ├── mise/
+│   │   │   │   │   └── config.toml
+│   │   │   │   ├── profile.d/
+│   │   │   │   │   ├── soda-mise.sh
+│   │   │   │   │   └── soda-podman.sh
+│   │   │   │   ├── ssh/
+│   │   │   │   │   ├── sshd_config.d/
+│   │   │   │   │   │   └── 10-soda.conf
+│   │   │   │   ├── sudoers.d/
+│   │   │   │   │   └── soda-project
+│   │   │   │   ├── systemd/
+│   │   │   │   │   ├── system/
+│   │   │   │   │   │   ├── soda-podman.service
+│   │   │   │   │   │   ├── soda-podman.socket
+│   │   │   │   │   │   └── soda-project-init.service
+│   │   │   │   ├── yum.repos.d/
+│   │   │   │   │   └── gh-cli.repo
+│   │   │   ├── usr/
+│   │   │   │   ├── libexec/
+│   │   │   │   │   ├── soda/
+│   │   │   │   │   │   ├── project-account
+│   │   │   │   │   │   ├── project-factory-roles
+│   │   │   │   │   │   └── project-init
+│   │   ├── Containerfile
+│   │   └── muse-release.json
 ├── tests/
 │   ├── build/
-│   │   ├── project_keys_fixture.py
-│   │   ├── terminal_test_fixture.py
-│   │   ├── test_avatar_integration.py
-│   │   ├── test_candidate_gate.py
-│   │   ├── test_complexity_scope.py
-│   │   ├── test_forgejo_domain.py
-│   │   ├── test_forgejo_payload.py
-│   │   ├── test_native_support.py
-│   │   ├── test_operator_probe.py
-│   │   ├── test_project_account.py
-│   │   ├── test_project_factory_roles.py
-│   │   ├── test_project_foundation.py
-│   │   ├── test_project_keys.py
-│   │   ├── test_project_keys_locking.py
-│   │   ├── test_project_keys_publication.py
-│   │   ├── test_project_os_observation.py
-│   │   ├── test_project_runtime.py
-│   │   ├── test_proxy_image.py
-│   │   ├── test_sodaspaces.py
-│   │   ├── test_source_checks.py
-│   │   ├── test_tailnet_image.py
-│   │   ├── test_terminal_admission.py
-│   │   ├── test_terminal_assets.py
-│   │   ├── test_terminal_process.py
-│   │   ├── test_terminal_protocol.py
-│   │   ├── test_terminal_supervision.py
-│   │   ├── test_u08_state.py
-│   │   └── test_workload_probe.py
+│   │   ├── avatar_integration_test.go
+│   │   ├── candidate_gate_test.go
+│   │   ├── complexity_scope_test.go
+│   │   ├── forgejo_domain_test.go
+│   │   ├── forgejo_payload_test.go
+│   │   ├── helpers.go
+│   │   ├── native_support_test.go
+│   │   ├── operator_probe_test.go
+│   │   ├── project_account_test.go
+│   │   ├── project_factory_roles_test.go
+│   │   ├── project_foundation_test.go
+│   │   ├── project_keys_test.go
+│   │   ├── project_os_observation_test.go
+│   │   ├── project_runtime_test.go
+│   │   ├── proxy_image_test.go
+│   │   ├── sodaspaces_test.go
+│   │   ├── source_checks_test.go
+│   │   ├── tailnet_image_test.go
+│   │   ├── terminal_assets_test.go
+│   │   ├── terminal_test.go
+│   │   ├── u08_state_test.go
+│   │   └── workload_probe_test.go
 │   ├── fixtures/
-│   │   └── workload/
-│   │       ├── public/
-│   │       │   └── index.html
-│   │       ├── Containerfile
-│   │       └── compose.yaml
+│   │   ├── workload/
+│   │   │   ├── public/
+│   │   │   │   └── index.html
+│   │   │   ├── Containerfile
+│   │   │   └── compose.yaml
 │   ├── forgejo/
 │   │   ├── fixtures/
 │   │   │   ├── component-browser.ts
@@ -2567,29 +2579,27 @@ sodaos/
 │   │   ├── workspace-responsive.test.ts
 │   │   ├── workspace-setup.test.ts
 │   │   └── workspace.test.ts
-│   └── installed/
-│       ├── cockpit-account.py
-│       ├── cockpit-types.ts
-│       ├── forgejo-advertisement.sh
-│       ├── host.sh
-│       ├── native-browser.ts
-│       ├── operator.sh
-│       ├── operator.ts
-│       ├── project-foundation.sh
-│       ├── project-os.sh
-│       ├── project-state.py
-│       ├── service-ordering.sh
-│       ├── shared-tools.sh
-│       ├── sodaspaces-cli.ts
-│       ├── sodaspaces-controls.ts
-│       ├── sodaspaces-first-use-journey.ts
-│       ├── sodaspaces-http.ts
-│       ├── sodaspaces-input.ts
-│       ├── sodaspaces-journey-evidence.ts
-│       ├── sodaspaces-matrix-input.ts
-│       ├── sodaspaces-matrix-native.ts
-│       ├── sodaspaces-workspace-journey.ts
-│       └── workloads.sh
+│   ├── installed/
+│   │   ├── cockpit-types.ts
+│   │   ├── forgejo-advertisement.sh
+│   │   ├── host.sh
+│   │   ├── native-browser.ts
+│   │   ├── operator.sh
+│   │   ├── operator.ts
+│   │   ├── project-foundation.sh
+│   │   ├── project-os.sh
+│   │   ├── service-ordering.sh
+│   │   ├── shared-tools.sh
+│   │   ├── sodaspaces-cli.ts
+│   │   ├── sodaspaces-controls.ts
+│   │   ├── sodaspaces-first-use-journey.ts
+│   │   ├── sodaspaces-http.ts
+│   │   ├── sodaspaces-input.ts
+│   │   ├── sodaspaces-journey-evidence.ts
+│   │   ├── sodaspaces-matrix-input.ts
+│   │   ├── sodaspaces-matrix-native.ts
+│   │   ├── sodaspaces-workspace-journey.ts
+│   │   └── workloads.sh
 ├── tools/
 │   ├── acceptance/
 │   │   ├── src/
@@ -2784,17 +2794,17 @@ sodaos/
 │   │   │   ├── fixtures/
 │   │   │   │   ├── prov-root/
 │   │   │   │   │   ├── assets/
-│   │   │   │   │   │   └── branding/
-│   │   │   │   │   │       └── source/
-│   │   │   │   │   │           └── soda-symbol.svg
+│   │   │   │   │   │   ├── branding/
+│   │   │   │   │   │   │   ├── source/
+│   │   │   │   │   │   │   │   └── soda-symbol.svg
 │   │   │   │   │   ├── internal/
-│   │   │   │   │   │   └── release/
-│   │   │   │   │   │       └── build/
-│   │   │   │   │   │           └── forgejo-payload.json
-│   │   │   │   │   └── system/
-│   │   │   │   │       └── host/
-│   │   │   │   │           └── provisioning/
-│   │   │   │   │               └── base.json
+│   │   │   │   │   │   ├── release/
+│   │   │   │   │   │   │   ├── build/
+│   │   │   │   │   │   │   │   └── forgejo-payload.json
+│   │   │   │   │   ├── system/
+│   │   │   │   │   │   ├── host/
+│   │   │   │   │   │   │   ├── provisioning/
+│   │   │   │   │   │   │   │   └── base.json
 │   │   │   │   ├── ext-host.bu
 │   │   │   │   ├── ext-hostkey.bu
 │   │   │   │   ├── ext-product.bu
@@ -2812,63 +2822,38 @@ sodaos/
 │   │   │   └── render_terminal_logo.rs
 │   │   ├── Cargo.toml
 │   │   └── terminal-assets.lock.json
-│   ├── soda-artifacts/
-│   │   ├── main.go
-│   │   └── main_test.go
 │   ├── soda-avatars/
 │   │   ├── main.go
 │   │   └── main_test.go
-│   ├── soda-build/
-│   │   ├── main.go
-│   │   ├── main_test.go
-│   │   ├── worker_linux.go
-│   │   ├── worker_service_linux.go
-│   │   └── worker_service_linux_test.go
-│   ├── soda-candidate/
-│   │   ├── README.md
-│   │   ├── controller.go
-│   │   ├── display.go
-│   │   ├── display_events.go
-│   │   ├── display_failure.go
-│   │   ├── display_test.go
-│   │   ├── fixture.go
-│   │   ├── fixture_test.go
-│   │   ├── hints.go
-│   │   ├── hints_test.go
-│   │   ├── main.go
-│   │   ├── main_test.go
-│   │   ├── overview.go
-│   │   ├── overview_fields.go
-│   │   ├── overview_test.go
-│   │   ├── preflight.go
-│   │   ├── preflight_test.go
-│   │   └── prompts.go
 │   ├── soda-candidate-check/
 │   │   └── main.go
 │   ├── soda-installed-probes/
+│   │   ├── cockpit_account_test.go
+│   │   ├── installed_probes_test.go
 │   │   ├── main.go
-│   │   └── main_test.go
+│   │   ├── main_test.go
+│   │   └── project_state_test.go
 │   ├── soda-rootfs-server/
 │   │   ├── main.go
 │   │   ├── main_test.go
 │   │   └── soda-rootfs-server.service
-│   └── test-vm/
-│       ├── src/
-│       │   ├── main.rs
-│       │   ├── process.rs
-│       │   ├── start.rs
-│       │   ├── state.rs
-│       │   ├── tests.rs
-│       │   └── transport.rs
-│       ├── tests/
-│       │   ├── support/
-│       │   │   └── mod.rs
-│       │   ├── cli.rs
-│       │   ├── start.rs
-│       │   ├── status.rs
-│       │   └── transport.rs
-│       ├── Cargo.toml
-│       └── README.md
+│   ├── test-vm/
+│   │   ├── src/
+│   │   │   ├── main.rs
+│   │   │   ├── process.rs
+│   │   │   ├── start.rs
+│   │   │   ├── state.rs
+│   │   │   ├── tests.rs
+│   │   │   └── transport.rs
+│   │   ├── tests/
+│   │   │   ├── support/
+│   │   │   │   └── mod.rs
+│   │   │   ├── cli.rs
+│   │   │   ├── start.rs
+│   │   │   ├── status.rs
+│   │   │   └── transport.rs
+│   │   ├── Cargo.toml
+│   │   └── README.md
 ├── .containerignore
 ├── .gitignore
 ├── .oxfmtrc.json
@@ -2897,7 +2882,7 @@ Ignored roots remain `.artifacts/` for build/evidence outputs, `.local/` for loc
 
 ## Detailed decomposition
 
-The following names describe existing concern seams. The Rust host entries are conditional retained alternatives, excluded from the recommended tree because that library has no production consumer. Installer, importer and acceptance entries remain conditional on their language decision; selecting the Go owner supersedes their Rust splits. Historical mockup entries intentionally retain whole files. Embedded Rust tests stay descendants of their implementation module so private access can survive. A stateful frontend extraction requires an actual private seam; moving methods across files alone cannot preserve one TypeScript class owner.
+The following names describe existing concern seams. The Rust host, installer, importer and acceptance entries are the retained plan under the decided language policy; the earlier conditional alternatives are void. Entries for cutover-deleted Go/Python files stay as review history only. Historical mockup entries intentionally retain whole files. Embedded Rust tests stay descendants of their implementation module so private access can survive. A stateful frontend extraction requires an actual private seam; moving methods across files alone cannot preserve one TypeScript class owner.
 
 ### appliance/forgejo/templates/admin/auth/edit.tmpl
 
@@ -3682,18 +3667,18 @@ Evidence: TestFactoryRunStatusPendingLiveAndExcerpt at 63; TestSpacesShowsFactor
 
 ### project-os/rootfs/usr/libexec/soda/project-factory-roles
 
-Observed size: 800 lines, including tests where embedded. Separate existing role/layout, approved input custody, receipt observation and process lifecycle concerns without widening this privileged protocol.
+Observed size: 800 lines, including tests where embedded. This privileged helper is still Python and must be ported at PR42 (Python-zero); the concern seams below apply to the ported successor, not to new Python siblings. Separate existing role/layout, approved input custody, receipt observation and process lifecycle concerns without widening this privileged protocol.
 
 - `system/project/rootfs/usr/libexec/soda/project-factory-roles` — Fixed privileged extensionless entry: bounded stdin, exact operation dispatch, locking and unchanged public wrapper path.
-- `system/project/rootfs/usr/libexec/soda/factory_layout.py` — Current fixed factory paths, caps, identifiers, role names, root-owned layout/file admission primitives.
-- `system/project/rootfs/usr/libexec/soda/factory_roles.py` — Current fixed coder/reviewer account lookup, creation and restricted homes.
-- `system/project/rootfs/usr/libexec/soda/factory_inputs.py` — Current approved-file digest, Git bundle, credential-reference custody and immutable snapshot creation.
-- `system/project/rootfs/usr/libexec/soda/factory_records.py` — Current verified harness/tool receipts, log/phase/status observations and inspect output.
-- `system/project/rootfs/usr/libexec/soda/factory_execution.py` — Current role/environment execution, detached preparation, process-group Start/Stop, hold/release and confirmed ownership checks.
+- Layout seam — Current fixed factory paths, caps, identifiers, role names, root-owned layout/file admission primitives (observed 25-121).
+- Roles seam — Current fixed coder/reviewer account lookup, creation and restricted homes (observed 121-165).
+- Inputs seam — Current approved-file digest, Git bundle, credential-reference custody and immutable snapshot creation (observed 176-325).
+- Records seam — Current verified harness/tool receipts, log/phase/status observations and inspect output (observed 326-377, 541-623).
+- Execution seam — Current role/environment execution, detached preparation, process-group Start/Stop, hold/release and confirmed ownership checks (observed 378-540, 624-800).
 
 Evidence: project-factory-roles:1-6 fixed contract; 25-121 fixed paths/admission/layout; 121-165 roles; 176-325 approved inputs/bundle/credential/snapshot; 326-377 verified records; 378-540 execution; 541-623 inspect; 624-773 process stop/hold/release; 774-800 main.
 
-Open detail: Sibling modules must ship root-owned with the wrapper at the existing /usr/libexec/soda/project-factory-roles path. Existing Python SourceFileLoader and ST15 native copy/hash must load/stage/verify the full real module closure (test_project_factory_roles.py:20-24; st15_demo_native_test.go:321-325,371-381); wrapper-only hashing would no longer prove executing bytes.
+Open detail: Sibling modules must ship root-owned with the wrapper at the existing /usr/libexec/soda/project-factory-roles path. The Go role test and ST15 native copy/hash must load/stage/verify the full real module closure (project_factory_roles_test.go; st15_demo_native_test.go:321-325,371-381); wrapper-only hashing would no longer prove executing bytes.
 
 ### rust/identity-providers/src/codex.rs
 
@@ -3994,7 +3979,7 @@ Evidence: rust/soda-forgejo-locales/tests/cli.rs:23-71 shared fixture and binary
 
 Observed size: 764 lines, including tests where embedded. Keep the 254-line production account/key implementation; its distinction between provisioning key normalization and revision-checked own-account replacement is established. Split the 509-line embedded test body into existing account provisioning cases and own-account key preview/apply/drift cases. Move Mock and fixture builders with account_tests.rs and share those existing helpers within the test module only; do not introduce a new fixture service.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/account/mod.rs`
 - `lib/host/src/account/tests.rs`
@@ -4006,7 +3991,7 @@ Evidence: 19-143: revision/key validation, canonicalize_account_keys/canonical_k
 
 Observed size: 709 lines, including tests where embedded. Separate already-existing pure domain records by concern inside the same host crate: profile/Create; account/AccessKeys; OS release/observation; and core project validators plus Environment/Connection in domain.rs. Move each type with its decoder/encoder/spec constants, retaining pure no-I/O validation and wire field order. The 532 lines before tests and the 177-line embedded test module are distinct; no new canonical DTOs should be introduced.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/domain/mod.rs`
 - `lib/host/src/domain/profile.rs`
@@ -4022,7 +4007,7 @@ Open detail: The Go project domain remains the established owner; this physical 
 
 Observed size: 1661 lines, including tests where embedded. Split the current host-local codec into value/public decode/output encoding, structural scanner, string token decoding, number scanning, typed field specifications/BoundMap access, and binding/type-error handling. The production code is 1,307 lines before tests. run_machine is one 276-line structural state machine with object/array/value branches; retain that algorithm together after removing unrelated lexical and binder code rather than creating one file per state. Separate existing strict/scanner/depth/UTF8 tests from binder/escaping/tolerant tests. Keep strict request policy distinct from tolerant Podman decoding and from lib/json.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/json/mod.rs`
 - `lib/host/src/json/scan.rs`
@@ -4041,7 +4026,7 @@ Open detail: Scanner visibility/imports must be resolved inside this crate durin
 
 Observed size: 1209 lines, including tests where embedded. This is the pure preparation record/validation surface, not the executor. Group the existing validators and Preparation/Prepare identity in preparation.rs; RequirementAcceptance/AdminApproval in preparation_decisions.rs; ApprovedSetup/digest in preparation_setup.rs; resolved-tool, inspect/stop/hold and state wire in preparation_state.rs; FactoryCandidate in preparation_candidate.rs. Split 452 lines of tests into validation/digest/candidate and exact decoding/state-output cases. Move typed Spec tables with their consuming records.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/preparation/mod.rs`
 - `lib/host/src/preparation/decisions.rs`
@@ -4057,7 +4042,7 @@ Evidence: 38-101,207-315,390-437: role/phase/ID validators, Preparation and Prep
 
 Observed size: 1955 lines, including tests where embedded. Split 1,113 production lines at the existing execution phases: orchestrating prepare/inspect/stop/hold; clean role paths and ID maps; fixed helper exchange/approval; source clone/head binding and role execution; launcher/tool verification and recorded evidence; protected candidate snapshot reads; and native state decode. Keep the prepare sequence and its re-observation on error together and preserve fixed argv/body bytes. The 840-line test module has existing pure/path helpers, full preparation-chain cases, and protected candidate cases suitable for separate concern test files.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/prepare/mod.rs`
 - `lib/host/src/prepare/paths.rs`
@@ -4076,7 +4061,7 @@ Evidence: 21-150: path_clean/path_join/prepare_id_map/preparation_paths/single_l
 
 Observed size: 1383 lines, including tests where embedded. Separate Native/Executor and fixed process deadline/output handling from project operations. Keep creation/network setup/start/readiness in project_create.rs; immutable profile resolution in project_profile.rs; container observation/isolation in project_inspect.rs; OS-release reading and its shlex parser in project_os.rs; host-key reading/fingerprint in project_connection.rs. project.rs retains Config/Runtime and the common Podman entry. Existing tests occupy 396 lines and can remain one concern test module initially. Do not combine domain types with privileged execution.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/project/mod.rs`
 - `lib/host/src/project/executor.rs`
@@ -4095,7 +4080,7 @@ Open detail: soda-host/Cargo.toml currently defines only a library and no Rust b
 
 Observed size: 1028 lines, including tests where embedded. Separate authorized_keys text/options scanning and public parse/marshal/fingerprint entrypoints from standard/Go base64 semantics, SSH binary/mpint primitives, non-certificate key material, and certificate field/tuple handling. Preserve supported algorithms, NIST on-curve checks, canonical signed-minimal mpints, sorted certificate tuples, and multiline trailing-data policy. The longest existing algorithm is parse_key_fields at about 97 lines and remains cohesive; no new key algorithm or dependency is proposed.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/ssh/mod.rs`
 - `lib/host/src/ssh/base64.rs`
@@ -4110,7 +4095,7 @@ Evidence: 26-64,756-907: trim_ws, parse_public_key/parse_key_text/scan_options/p
 
 Observed size: 2188 lines, including tests where embedded. The 1,111-line production companion module combines incarnation proof, process execution, state reconciliation/start, enrollment key consumption, confirmed logout/stop, and user-facing observation. Split these existing phases within the host crate while retaining one Companion executor and TailnetControl authority boundary. Keep repeated runtime/resolver/namespace checks at their current lifecycle points. Its 1,075-line test module needs the same concern grouping: existing fixture/mock scaffolding, identity/record cases, lifecycle cases, and view/action cases.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/tailnet/companion/mod.rs`
 - `lib/host/src/tailnet/companion/identity.rs`
@@ -4130,7 +4115,7 @@ Evidence: 33-89,133-360: CompanionRecord decode/recipe/exec validation, proc nam
 
 Observed size: 1538 lines, including tests where embedded. Keep pure Tailnet DTO/error/ID definitions separate from RFC3339Nano validity, native status/preferences JSON binding with Go case folding, DNS/IP parsing/canonicalization, and project status/binding decisions. The 892-line production portion has clear existing seams. Split tests by has-node, project-status/native-binding, and address/DNS/time vectors; retain cohesive tables together rather than one file per case. None of these files gains runtime or SQL authority.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/tailnet/domain/mod.rs`
 - `lib/host/src/tailnet/domain/time.rs`
@@ -4147,7 +4132,7 @@ Evidence: 1-84: errors, reader types, RunTarget/RunBinding/ProjectRequest/Projec
 
 Observed size: 874 lines, including tests where embedded. Separate protected runtime-root/open/locking from current-run records/subdirectory preparation, ephemeral secret-file and companion-ID custody, and resolver inode/text/network-device admission. Keep file-descriptor identity and exclusive lock checks at existing mutation boundaries. Production is 566 lines; tests are 307 and can remain together because their fixtures exercise these linked filesystem boundaries.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/tailnet/files/mod.rs`
 - `lib/host/src/tailnet/files/run.rs`
@@ -4161,7 +4146,7 @@ Evidence: 36-225: Root/RunFiles structs, protected root/project ownership, open 
 
 Observed size: 1121 lines, including tests where embedded. Split the 687-line production runtime into native proc identity reading, run snapshot/record encoding plus identity digest, orchestration/companion recipe, and project container isolation/inspection. Keep snapshot rereads and exact process identity comparison before admitting a run. Extract the 433-line test portion into run/process/recipe cases and container-isolation/inspection cases; do not broaden supported isolation mappings.
 
-Disposition: recommend retiring this unused mirror. These module paths apply only if the owner explicitly elects to retain or complete that port.
+Disposition: retained at `lib/host/` under the decided language policy; pending PR26 consumes this crate as the daemon foundation.
 
 - `lib/host/src/tailnet/runtime/mod.rs`
 - `lib/host/src/tailnet/runtime/process.rs`
