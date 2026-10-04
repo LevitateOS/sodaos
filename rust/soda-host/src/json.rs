@@ -777,6 +777,11 @@ pub fn parse_go_int64(s: &str) -> Option<i64> {
     s.strip_prefix('+').unwrap_or(s).parse::<i64>().ok()
 }
 
+/// `strconv.ParseUint(s, 10, 32)`: same leading-`+` rule as above.
+pub fn parse_go_uint32(s: &str) -> Option<u32> {
+    s.strip_prefix('+').unwrap_or(s).parse::<u32>().ok()
+}
+
 /// One struct field's binding rule. `go_type` is the exact
 /// `encoding/json` type word used in mismatch messages.
 pub struct Spec {
@@ -788,6 +793,10 @@ pub enum Kind {
     Str,
     Bool,
     I64,
+    /// Go `int` (64-bit): same range as I64, `int` in messages.
+    Int,
+    /// Go `uint32`.
+    U32,
     /// `*int`: missing/null is None.
     OptInt,
     StrList,
@@ -821,6 +830,7 @@ pub enum Bound {
     Str(String),
     Bool(bool),
     I64(i64),
+    U32(u32),
     OptInt(Option<i64>),
     StrList(Vec<String>),
     Bytes(Vec<u8>),
@@ -855,6 +865,12 @@ impl BoundMap {
     pub fn take_i64(&self, name: &str) -> i64 {
         match self.get(name) {
             Some(Bound::I64(n)) => *n,
+            _ => 0,
+        }
+    }
+    pub fn take_u32(&self, name: &str) -> u32 {
+        match self.get(name) {
+            Some(Bound::U32(n)) => *n,
             _ => 0,
         }
     }
@@ -1008,6 +1024,20 @@ fn bind_value(
                 .map(Bound::I64)
                 .map_err(|_| type_error(struct_name, path, field, Some(lit), v, "int64")),
             _ => Err(type_error(struct_name, path, field, None, v, "int64")),
+        },
+        Kind::Int => match v {
+            Value::Null => Ok(Bound::I64(0)),
+            Value::Number(lit) => parse_go_int64(lit)
+                .map(Bound::I64)
+                .ok_or_else(|| type_error(struct_name, path, field, Some(lit), v, "int")),
+            _ => Err(type_error(struct_name, path, field, None, v, "int")),
+        },
+        Kind::U32 => match v {
+            Value::Null => Ok(Bound::U32(0)),
+            Value::Number(lit) => parse_go_uint32(lit)
+                .map(Bound::U32)
+                .ok_or_else(|| type_error(struct_name, path, field, Some(lit), v, "uint32")),
+            _ => Err(type_error(struct_name, path, field, None, v, "uint32")),
         },
         Kind::OptInt => match v {
             Value::Null => Ok(Bound::OptInt(None)),

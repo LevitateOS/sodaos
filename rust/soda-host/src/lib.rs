@@ -14,3 +14,7 @@ pub mod prepare;
 pub mod project;
 pub mod sha256;
 pub mod ssh;
+pub mod tailnet_companion;
+pub mod tailnet_domain;
+pub mod tailnet_files;
+pub mod tailnet_runtime;

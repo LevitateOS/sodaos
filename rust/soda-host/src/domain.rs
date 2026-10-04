@@ -41,7 +41,7 @@ fn in_ranges(table: &[(u32, u32)], c: char) -> bool {
     table.iter().any(|&(lo, hi)| v >= lo && v <= hi)
 }
 
-fn is_hex_lower(s: &str) -> bool {
+pub(crate) fn is_hex_lower(s: &str) -> bool {
     !s.is_empty()
         && s.bytes()
             .all(|b| b.is_ascii_hexdigit() && (b.is_ascii_digit() || b.is_ascii_lowercase()))
