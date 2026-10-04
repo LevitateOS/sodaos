@@ -7,10 +7,21 @@
 
 use sha2::{Digest as _, Sha256};
 
+pub mod admission;
 pub mod buildx;
+pub mod check;
+pub mod content;
+pub mod document;
+pub mod fetch;
+pub mod finalize;
+pub mod import;
 pub mod jsonx;
 pub mod model;
+pub mod native;
+pub mod oci;
 pub mod payload;
+pub mod prepare;
+pub mod publish;
 
 pub use model::{
     admit_channel, admit_release, empty_state, Channel, Highwater, Permit, Release, Seen, Trust,
@@ -69,4 +80,12 @@ pub fn is_digest_ref(s: &str) -> bool {
 /// `channel`: known channel names.
 pub fn is_channel(s: &str) -> bool {
     s == "candidate" || s == "preview" || s == "stable"
+}
+
+/// Current UTC time as a Unix timestamp (`nowUTC().Unix()`).
+pub fn now_unix() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }

@@ -202,6 +202,11 @@ impl<'a> Binder<'a> {
         }
     }
 
+    /// Raw value of a field, kept verbatim (null included).
+    pub fn raw(&mut self, name: &str) -> Result<Option<&'a JsonValue>, ()> {
+        self.find(name)
+    }
+
     /// Raw entries of a nested object for strict map decoding.
     pub fn entries(&mut self, name: &str) -> Result<Option<&'a [(String, JsonValue)]>, ()> {
         match self.optional(name)? {
@@ -269,6 +274,29 @@ impl<'a> Soft<'a> {
             None => Ok(None),
             Some(JsonValue::Bool(b)) => Ok(Some(*b)),
             Some(_) => Err(()),
+        }
+    }
+
+    pub fn object(&self, name: &str) -> Result<Option<Soft<'a>>, ()> {
+        match self.field(name) {
+            None => Ok(None),
+            Some(v @ JsonValue::Object(_)) => Ok(Some(Soft { value: v })),
+            Some(_) => Err(()),
+        }
+    }
+
+    pub fn array(&self, name: &str) -> Result<Option<&'a [JsonValue]>, ()> {
+        match self.field(name) {
+            None => Ok(None),
+            Some(JsonValue::Array(items)) => Ok(Some(items)),
+            Some(_) => Err(()),
+        }
+    }
+
+    pub fn entries(&self) -> Option<&'a [(String, JsonValue)]> {
+        match self.value {
+            JsonValue::Object(entries) => Some(entries),
+            _ => None,
         }
     }
 }
@@ -454,6 +482,72 @@ impl Emit for u64 {
 impl Emit for i32 {
     fn emit(&self, e: &mut Emitter) {
         e.int(*self as i64);
+    }
+}
+
+impl Emit for Vec<String> {
+    fn emit(&self, e: &mut Emitter) {
+        e.begin_array(self.is_empty());
+        for (i, item) in self.iter().enumerate() {
+            e.item(i == 0);
+            e.string(item);
+        }
+        e.end_array(self.is_empty());
+    }
+}
+
+impl Emit for std::collections::BTreeMap<String, String> {
+    fn emit(&self, e: &mut Emitter) {
+        e.begin_object(self.is_empty());
+        for (i, (key, value)) in self.iter().enumerate() {
+            e.field(i == 0, key);
+            e.string(value);
+        }
+        e.end_object(self.is_empty());
+    }
+}
+
+impl Emit for std::collections::BTreeMap<String, u64> {
+    fn emit(&self, e: &mut Emitter) {
+        e.begin_object(self.is_empty());
+        for (i, (key, value)) in self.iter().enumerate() {
+            e.field(i == 0, key);
+            e.uint(*value);
+        }
+        e.end_object(self.is_empty());
+    }
+}
+
+/// Indented emission of a dynamic value. Object entries keep document
+/// order: callers modeling Go structs build struct order, callers modeling
+/// Go maps pre-sort keys. Numbers are emitted verbatim.
+impl Emit for JsonValue {
+    fn emit(&self, e: &mut Emitter) {
+        match self {
+            JsonValue::Null => e.null(),
+            JsonValue::Bool(b) => e.boolean(*b),
+            JsonValue::Number(raw) => {
+                // Numbers in this port are always canonical literals.
+                e.out.push_str(raw);
+            }
+            JsonValue::Str(s) => e.string(s),
+            JsonValue::Array(items) => {
+                e.begin_array(items.is_empty());
+                for (i, item) in items.iter().enumerate() {
+                    e.item(i == 0);
+                    item.emit(e);
+                }
+                e.end_array(items.is_empty());
+            }
+            JsonValue::Object(entries) => {
+                e.begin_object(entries.is_empty());
+                for (i, (key, value)) in entries.iter().enumerate() {
+                    e.field(i == 0, key);
+                    value.emit(e);
+                }
+                e.end_object(entries.is_empty());
+            }
+        }
     }
 }
 

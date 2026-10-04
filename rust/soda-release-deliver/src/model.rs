@@ -397,7 +397,7 @@ fn required_candidate_content(files: &BTreeMap<String, String>) -> bool {
     true
 }
 
-fn path_clean(name: &str) -> String {
+pub(crate) fn path_clean(name: &str) -> String {
     if name.is_empty() {
         return ".".to_string();
     }
@@ -586,7 +586,7 @@ impl MediaBinding {
     }
 }
 
-fn valid_media_file(f: &MediaFile) -> bool {
+pub(crate) fn valid_media_file(f: &MediaFile) -> bool {
     !f.path.is_empty()
         && !f.path.contains("..")
         && !f.path.bytes().any(|b| matches!(b, b'\n' | b'\r' | 0))
@@ -594,13 +594,13 @@ fn valid_media_file(f: &MediaFile) -> bool {
         && f.bytes > 0
 }
 
-fn valid_media_url(url: &str) -> bool {
+pub(crate) fn valid_media_url(url: &str) -> bool {
     !url.is_empty()
         && !url.bytes().any(|b| matches!(b, b'\n' | b'\r' | 0 | b' '))
         && (url.starts_with("https://") || url.starts_with("http://"))
 }
 
-fn valid_media_binding(m: &MediaBinding, p: &Payload, c: &Candidate) -> bool {
+pub(crate) fn valid_media_binding(m: &MediaBinding, p: &Payload, c: &Candidate) -> bool {
     if m.revision != p.revision
         || m.architecture != p.architecture
         || m.host_manifest != c.host.manifest

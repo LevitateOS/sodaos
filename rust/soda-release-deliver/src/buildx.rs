@@ -252,8 +252,8 @@ fn is_regular(mode: u32) -> bool {
     (mode & libc::S_IFMT as u32) == libc::S_IFREG as u32
 }
 
-/// `build.HashAt`: hash a regular file confined to an open directory.
-pub fn hash_at(root: &Root, name: &str) -> Result<String, Error> {
+/// Open a regular file confined to an open directory after a no-follow stat.
+fn open_confined_regular(root: &Root, name: &str) -> Result<(std::fs::File, libc::stat), Error> {
     check_confined(name)?;
     let cname = c_string(name)?;
     let st = fstatat_no_follow(root.fd(), &cname)
@@ -282,7 +282,94 @@ pub fn hash_at(root: &Root, name: &str) -> Result<String, Error> {
     if !is_regular(actual.st_mode) || actual.st_dev != st.st_dev || actual.st_ino != st.st_ino {
         return Err(Error::msg("file changed before hashing"));
     }
+    Ok((std::fs::File::from(owned), st))
+}
+
+/// Read one layout entry confined to an open directory, with the OCI
+/// layout loader's error semantics.
+pub fn read_layout_entry(root: &Root, name: &str) -> Result<(Vec<u8>, i64), Error> {
+    check_confined(name)?;
+    let cname = c_string(name)?;
+    let st = fstatat_no_follow(root.fd(), &cname)
+        .map_err(|e| Error::msg(format!("lstat {name}: {e}")))?;
+    if !is_regular(st.st_mode) {
+        return Err(Error::msg("non-regular OCI layout entry"));
+    }
+    // SAFETY: openat on a live dirfd.
+    let fd = unsafe {
+        libc::openat(
+            root.fd(),
+            cname.as_ptr(),
+            libc::O_RDONLY | libc::O_NONBLOCK | libc::O_CLOEXEC,
+        )
+    };
+    if fd < 0 {
+        return Err(Error::msg(format!(
+            "open {name}: {}",
+            std::io::Error::last_os_error()
+        )));
+    }
+    // SAFETY: fd is a fresh owned descriptor.
+    let owned = unsafe { OwnedFd::from_raw_fd(fd) };
+    let actual = fstat_fd(owned.as_raw_fd())
+        .map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
+    if actual.st_dev != st.st_dev || actual.st_ino != st.st_ino {
+        return Err(Error::msg("OCI layout entry changed"));
+    }
     let mut file = std::fs::File::from(owned);
+    let mut data = Vec::new();
+    use std::io::Read;
+    file.read_to_end(&mut data)
+        .map_err(|e| Error::msg(format!("read {name}: {e}")))?;
+    Ok((data, st.st_size))
+}
+
+/// `readAt`: bounded regular read confined to an open directory.
+pub fn read_at(root: &Root, name: &str, maximum: i64) -> Result<Vec<u8>, Error> {
+    check_confined(name)?;
+    let cname = c_string(name)?;
+    let st = fstatat_no_follow(root.fd(), &cname)
+        .map_err(|e| Error::msg(format!("lstat {name}: {e}")))?;
+    if !is_regular(st.st_mode) || st.st_size > maximum {
+        return Err(Error::refused());
+    }
+    // SAFETY: openat on a live dirfd; flags mirror Go's O_RDONLY|O_NONBLOCK.
+    let fd = unsafe {
+        libc::openat(
+            root.fd(),
+            cname.as_ptr(),
+            libc::O_RDONLY | libc::O_NONBLOCK | libc::O_CLOEXEC,
+        )
+    };
+    if fd < 0 {
+        return Err(Error::msg(format!(
+            "open {name}: {}",
+            std::io::Error::last_os_error()
+        )));
+    }
+    // SAFETY: fd is a fresh owned descriptor.
+    let owned = unsafe { OwnedFd::from_raw_fd(fd) };
+    let actual = fstat_fd(owned.as_raw_fd())
+        .map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
+    if actual.st_dev != st.st_dev || actual.st_ino != st.st_ino {
+        return Err(Error::refused());
+    }
+    let mut file = std::fs::File::from(owned);
+    let mut data = Vec::new();
+    use std::io::Read;
+    file.by_ref()
+        .take((maximum + 1) as u64)
+        .read_to_end(&mut data)
+        .map_err(|e| Error::msg(format!("read {name}: {e}")))?;
+    if data.len() as i64 > maximum {
+        return Err(Error::refused());
+    }
+    Ok(data)
+}
+
+/// `build.HashAt`: hash a regular file confined to an open directory.
+pub fn hash_at(root: &Root, name: &str) -> Result<String, Error> {
+    let (mut file, _) = open_confined_regular(root, name)?;
     let mut hasher = Sha256::new();
     std::io::copy(&mut file, &mut HashWriter(&mut hasher))
         .map_err(|e| Error::msg(format!("read {name}: {e}")))?;
