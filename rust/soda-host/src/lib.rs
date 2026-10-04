@@ -7,6 +7,7 @@
 pub mod account;
 pub mod domain;
 pub mod json;
+pub mod muse;
 pub mod net;
 pub mod nist;
 pub mod pfactory;
@@ -19,3 +20,5 @@ pub mod tailnet_companion;
 pub mod tailnet_domain;
 pub mod tailnet_files;
 pub mod tailnet_runtime;
+pub mod tcodex;
+pub mod texec;
