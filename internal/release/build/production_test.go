@@ -304,7 +304,7 @@ func TestProductionCompileRustKeepsLayoutAndVerifiesELF(t *testing.T) {
 		t.Fatal(e)
 	}
 	text := strings.Join(*calls, "\n")
-	if !strings.Contains(text, "cargo build --release --locked --offline") || !strings.Contains(text, "-p soda-identity-compose") {
+	if !strings.Contains(text, "cargo build --release --locked") || !strings.Contains(text, "-p soda-identity-compose") {
 		t.Fatal(text)
 	}
 	if strings.Count(text, "cargo build") != 1 {

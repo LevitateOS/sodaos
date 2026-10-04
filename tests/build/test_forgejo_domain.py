@@ -17,7 +17,7 @@ class ForgejoDomainCLI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         build = subprocess.run(
-            ['cargo', 'build', '--offline', '-p', 'soda-forgejo-domain'],
+            ['cargo', 'build', '-p', 'soda-forgejo-domain'],
             cwd=ROOT,
             capture_output=True,
             text=True,

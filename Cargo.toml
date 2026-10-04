@@ -1,7 +1,6 @@
-# SodaOS Rust workspace (lane R, PR03 rust-offline-build).
-# Members build with zero network: `cargo build --offline --workspace`.
-# Every crates-io dependency must be vendored under rust/vendor/; the source
-# replacement in .cargo/config.toml makes vendoring mandatory.
+# SodaOS Rust workspace. Builds are online: `cargo build --workspace`.
+# Dependencies resolve from the network; Cargo.lock stays committed for
+# reproducibility. Never vendor dependencies.
 [workspace]
 resolver = "2"
 members = ["rust/soda-build-tools", "rust/soda-factory", "rust/soda-setup", "rust/soda-host", "rust/soda-identity-compose", "rust/soda-pg-fixture", "rust/soda-forgejo-migrate", "rust/soda-pg-maintenance", "rust/soda-console-welcome", "rust/soda-json", "rust/soda-activate", "rust/soda-forgejo-domain", "rust/soda-candidate-setup"]
