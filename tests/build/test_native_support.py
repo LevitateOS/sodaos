@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -19,22 +20,53 @@ def load(name, file):
 
 
 class Provisioning(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        build = subprocess.run(
+            ['cargo', 'build', '-p', 'soda-stage-render', '--bin', 'soda-render-provisioning'],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if build.returncode != 0:
+            raise AssertionError(f'cannot build soda-render-provisioning: {build.stderr[-2000:]}')
+        cls.render = str(ROOT / 'target/debug/soda-render-provisioning')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.root.chmod(0o700)
-        self.module = load('provisioning_fixture', 'scripts/render-provisioning.py')
         self.public = self.root / 'operator.pub'
         self.public.write_text('ssh-ed25519 AAAA synthetic-public-fixture\n')
         self.password = self.root / 'password.hash'
         self.password.write_text('$6$synthetic$not-a-real-password-hash\n')
         self.password.chmod(0o600)
 
+    def render_to(self, dest, *extra, env=None):
+        return subprocess.run(
+            [
+                self.render,
+                '--operator-key-file',
+                str(self.public),
+                '--root-password-hash-file',
+                str(self.password),
+                *extra,
+                '--out',
+                str(dest),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+
     def test_minimal_and_extension_profiles_are_distinct(self):
         for profile in ('minimal', 'extensions'):
             dest = self.root / (profile + '.bu')
-            self.module.render(self.public, self.password, dest, 'soda-native-fixture', bootstrap=profile)
+            first = self.render_to(dest, '--hostname', 'soda-native-fixture', '--bootstrap', profile)
+            self.assertEqual(first.returncode, 0, first.stderr[-2000:])
             data = json.loads(dest.read_text())
             self.assertEqual([u['name'] for u in data['passwd']['users']], ['root'])
             self.assertEqual('systemd' in data, profile == 'extensions')
@@ -43,30 +75,46 @@ class Provisioning(unittest.TestCase):
                 next(f['contents']['inline'] for f in data['storage']['files'] if f['path'] == '/etc/hostname'),
                 'soda-native-fixture\n',
             )
-            with self.assertRaises(FileExistsError):
-                self.module.render(self.public, self.password, dest)
+            before = dest.read_bytes()
+            rerun = self.render_to(dest)
+            self.assertEqual(rerun.returncode, 1, rerun.stderr[-2000:])
+            self.assertEqual(
+                rerun.stderr,
+                'Private provisioning failed (FileExistsError); check paths/modes/key format.\n',
+            )
+            self.assertEqual(dest.read_bytes(), before)
 
     def test_private_modes_and_plaintext_are_rejected_before_output(self):
         dest = self.root / 'refused.bu'
         self.password.chmod(0o644)
-        with self.assertRaises(ValueError):
-            self.module.render(self.public, self.password, dest)
+        refused = self.render_to(dest)
+        self.assertEqual(refused.returncode, 1, refused.stderr[-2000:])
+        self.assertEqual(
+            refused.stderr,
+            'Private provisioning failed (ValueError); check paths/modes/key format.\n',
+        )
         self.assertFalse(dest.exists())
         self.password.chmod(0o600)
         self.password.write_text('synthetic plaintext\n')
-        with self.assertRaises(ValueError):
-            self.module.render(self.public, self.password, dest)
+        refused = self.render_to(dest)
+        self.assertEqual(refused.returncode, 1, refused.stderr[-2000:])
         self.assertFalse(dest.exists())
 
     def test_host_key_contents_never_become_process_arguments(self):
         key = self.root / 'host-key'
         key.write_text('synthetic-private-host-key\n')
         key.chmod(0o600)
-        result = subprocess.CompletedProcess([], 0, stdout='ssh-ed25519 AAAA fixture\n', stderr='')
+        helper = self.root / 'fakebin'
+        helper.mkdir()
+        log = self.root / 'argv.log'
+        keygen = helper / 'ssh-keygen'
+        keygen.write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > {log}\nprintf "ssh-ed25519 AAAA fixture\\n"\n')
+        keygen.chmod(0o755)
         dest = self.root / 'instance.bu'
-        with patch.object(self.module.subprocess, 'run', return_value=result) as run:
-            self.module.render(self.public, self.password, dest, 'soda-native-fixture', key)
-        arguments = run.call_args.args[0]
+        env = {**os.environ, 'PATH': str(helper) + os.pathsep + os.environ['PATH']}
+        done = self.render_to(dest, '--hostname', 'soda-native-fixture', '--ssh-host-key-file', str(key), env=env)
+        self.assertEqual(done.returncode, 0, done.stderr[-2000:])
+        arguments = log.read_text()
         self.assertNotIn(key.read_text(), arguments)
         self.assertIn(str(key), arguments)
         data = json.loads(dest.read_text())

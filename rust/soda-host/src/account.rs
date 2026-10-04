@@ -9,7 +9,7 @@
 use std::time::Instant;
 
 use crate::domain::{self, AccessKeyState, AccessKeys, Account};
-use crate::json::{self, Binder};
+use crate::json::{self, Kind, Spec};
 use crate::project::{Executor, Runtime};
 use crate::ssh;
 
@@ -43,16 +43,26 @@ pub fn canonicalize_account_keys(values: &[String]) -> Result<Vec<String>, Strin
 
 /// `confirmAccount`: the helper must echo the login identity back; every
 /// shape mismatch collapses into one confirmation error.
+const CONFIRM_SPECS: &[Spec] = &[
+    Spec {
+        name: "login",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "identity",
+        kind: Kind::I64,
+    },
+];
+
 fn confirm_account(out: &[u8], login: &str, identity: i64) -> Result<(), String> {
     const ERR: &str = "native account identity was not confirmed";
     if out.len() > 4096 {
         return Err(ERR.to_string());
     }
     let v = json::decode_strict(out).map_err(|_| ERR.to_string())?;
-    let mut b = Binder::new(&v).map_err(|_| ERR.to_string())?;
-    let got_login = b.string("login").map_err(|_| ERR.to_string())?;
-    let got_identity = b.int64("identity").map_err(|_| ERR.to_string())?;
-    b.finish().map_err(|_| ERR.to_string())?;
+    let m = json::bind_root(&v, "struct", CONFIRM_SPECS, false).map_err(|_| ERR.to_string())?;
+    let got_login = m.take_string("login");
+    let got_identity = m.take_i64("identity");
     if got_login != login || got_identity != identity {
         return Err(ERR.to_string());
     }
@@ -102,20 +112,31 @@ fn valid_access_keys_request(input: &AccessKeys) -> bool {
 /// `decodeAccessKeyState`: plain `encoding/json` semantics (unknown fields
 /// ignored, last duplicate wins); only the revision shape, key presence and
 /// key canonicality are enforced.
+const KEY_STATE_SPECS: &[Spec] = &[
+    Spec {
+        name: "revision",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "keys",
+        kind: Kind::StrList,
+    },
+];
+
 pub fn decode_access_key_state(data: &[u8]) -> Result<AccessKeyState, String> {
     if data.len() > 65536 {
         return Err("native key operation not confirmed".to_string());
     }
     const ERR: &str = "invalid native key observation";
     let v = json::decode_tolerant(data).map_err(|_| ERR.to_string())?;
-    let mut b = Binder::new(&v).map_err(|_| ERR.to_string())?;
-    let revision = b.string("revision").map_err(|_| ERR.to_string())?;
-    let keys = b.string_list("keys").map_err(|_| ERR.to_string())?;
-    // No `finish()`: plain Unmarshal ignores unknown fields.
-    let keys = match keys {
-        Some(keys) => keys,
-        None => return Err(ERR.to_string()),
-    };
+    // Tolerant binding: plain Unmarshal ignores unknown fields.
+    let m = json::bind_root(&v, "AccessKeyState", KEY_STATE_SPECS, true)
+        .map_err(|_| ERR.to_string())?;
+    if !m.contains("keys") {
+        return Err(ERR.to_string());
+    }
+    let revision = m.take_string("revision");
+    let keys = m.take_str_list("keys");
     if !valid_key_revision(&revision) {
         return Err(ERR.to_string());
     }
@@ -123,31 +144,10 @@ pub fn decode_access_key_state(data: &[u8]) -> Result<AccessKeyState, String> {
     Ok(AccessKeyState { revision, keys })
 }
 
-/// `strconv.Quote` for the embedded terminal source: exact for ASCII input
-/// (`\"`, `\\`, short escapes, `\xNN` for other C0 bytes and DEL); the
-/// embedded source is pinned ASCII-only by test.
+/// `strconv.Quote` for the embedded terminal source (ASCII-exact;
+/// the embedded source is pinned ASCII-only by test).
 pub fn go_quote(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '\u{07}' => out.push_str("\\a"),
-            '\u{08}' => out.push_str("\\b"),
-            '\u{0C}' => out.push_str("\\f"),
-            '\u{0B}' => out.push_str("\\v"),
-            c if (c as u32) < 0x20 || (c as u32) == 0x7f => {
-                out.push_str(&format!("\\x{:02x}", c as u32));
-            }
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
+    crate::json::go_quote(s)
 }
 
 /// The in-container `project_keys.py` invocation: the fixed terminal module
@@ -285,8 +285,10 @@ mod tests {
     const ED: &str =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBMdFel81xfpdgYZN9cIZY6DmqOAt/QOzaSujzaIrcre";
 
+    type MockCall = (Vec<u8>, String, Vec<String>);
+
     struct Mock {
-        calls: RefCell<Vec<(Vec<u8>, String, Vec<String>)>>,
+        calls: RefCell<Vec<MockCall>>,
         script: RefCell<VecDeque<Result<Vec<u8>, String>>>,
     }
 

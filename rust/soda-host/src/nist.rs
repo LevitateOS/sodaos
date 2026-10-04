@@ -10,14 +10,16 @@
 /// Decode a hex string (whitespace-free, even length) into bytes.
 fn unhex(hex: &str) -> Vec<u8> {
     let b = hex.as_bytes();
-    assert!(b.len() % 2 == 0);
+    assert!(b.len().is_multiple_of(2));
     let val = |c: u8| match c {
         b'0'..=b'9' => c - b'0',
         b'a'..=b'f' => c - b'a' + 10,
         b'A'..=b'F' => c - b'A' + 10,
         _ => panic!("bad hex"),
     };
-    b.chunks_exact(2)
+    b.as_chunks::<2>()
+        .0
+        .iter()
         .map(|c| val(c[0]) << 4 | val(c[1]))
         .collect()
 }

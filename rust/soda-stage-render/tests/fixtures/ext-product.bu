@@ -1,0 +1,46 @@
+{
+  "variant": "fixture",
+  "version": "0.0",
+  "storage": {
+    "files": [
+      {
+        "path": "/etc/fixture.conf",
+        "mode": 420,
+        "contents": {
+          "inline": "line\nquote\"slash\\caf\u00e9"
+        }
+      },
+      {
+        "path": "/var/usrlocal/share/icons/hicolor/scalable/apps/sodaos-icon.svg",
+        "mode": 420,
+        "contents": {
+          "inline": "<svg xmlns=\"http://www.w3.org/2000/svg\"><!-- \"quoted\" \\ \u00e9 \ud83d\ude00 --></svg>\n"
+        }
+      },
+      {
+        "path": "/etc/hostname",
+        "mode": 420,
+        "contents": {
+          "inline": "fixture-01.lab.example\n"
+        }
+      }
+    ]
+  },
+  "systemd": {
+    "units": []
+  },
+  "empty": {},
+  "nothing": null,
+  "flag": true,
+  "passwd": {
+    "users": [
+      {
+        "name": "root",
+        "ssh_authorized_keys": [
+          "ssh-ed25519 AAAA synthetic-fixture-key"
+        ],
+        "password_hash": "$6$synthetic$fixture-hash"
+      }
+    ]
+  }
+}

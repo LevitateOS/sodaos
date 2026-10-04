@@ -6,3 +6,6 @@ edition = "2021"
 [lib]
 name = "soda_host"
 path = "src/lib.rs"
+
+[dependencies]
+libc = "0.2"
