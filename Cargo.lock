@@ -1365,6 +1365,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-release-tools"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "sha2 0.10.9",
+ "soda-json",
+]
+
+[[package]]
 name = "soda-rotate-lab-creds"
 version = "0.1.0"
 
