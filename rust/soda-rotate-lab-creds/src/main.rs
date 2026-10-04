@@ -86,14 +86,17 @@ fn env_or(key: &str, default: &str) -> String {
     }
 }
 
-/// `current_pwd` mirrors `$PWD`: the inherited logical path when present,
-// otherwise the physical working directory.
-fn current_pwd() -> String {
+/// `current_pwd` mirrors the script's bare `$PWD` in the metadata glob: the
+/// inherited value verbatim (even when stale or empty), or the `set -u`
+/// crash when unset. Only the crash prefix differs (fixed here instead of
+/// `$0`-and-line), since invocation paths differ inherently.
+fn current_pwd() -> Result<String, Exit> {
     match env::var("PWD") {
-        Ok(v) => v,
-        Err(_) => env::current_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_default(),
+        Ok(v) => Ok(v),
+        Err(_) => {
+            eprintln!("{FAIL_PREFIX}: PWD: unbound variable");
+            Err(Exit::Propagate(1))
+        }
     }
 }
 
@@ -404,13 +407,19 @@ fn stat_line(path: &str, want: &str) -> Result<String, Exit> {
 /// `first_live_inputs` mirrors the build-metadata glob: the first
 /// `soda-live-inputs-*.json` under the isolated releases directory in byte
 /// (LC_ALL=C collation) order, or nothing when the glob matches nothing.
+/// Like the script's `[ -e ]` guard, entries that do not resolve (dangling
+/// symlinks, unreadable paths) are skipped, not reported.
 fn first_live_inputs(pwd: &str) -> Option<String> {
     let dir = format!("{pwd}/.artifacts/releases/isolated");
     let entries = fs::read_dir(&dir).ok()?;
     let mut names: Vec<String> = entries
         .filter_map(|entry| entry.ok())
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
-        .filter(|name| name.starts_with("soda-live-inputs-") && name.ends_with(".json"))
+        .filter(|name| {
+            name.starts_with("soda-live-inputs-")
+                && name.ends_with(".json")
+                && fs::metadata(format!("{dir}/{name}")).is_ok()
+        })
         .collect();
     names.sort();
     names.into_iter().next().map(|name| format!("{dir}/{name}"))
@@ -459,7 +468,7 @@ fn inventory() -> Result<(), Exit> {
         )?
     );
     println!("-- build metadata (public pins only; informational)");
-    if let Some(first) = first_live_inputs(&current_pwd()) {
+    if let Some(first) = first_live_inputs(&current_pwd()?) {
         println!(
             "{}",
             note(
@@ -784,6 +793,27 @@ mod tests {
             first_live_inputs(&base),
             Some(format!(
                 "{}/.artifacts/releases/isolated/soda-live-inputs-a.json",
+                base
+            ))
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn first_live_inputs_skips_dangling_symlinks() {
+        use std::os::unix::fs::symlink;
+        let root = env::temp_dir().join(format!("soda-rotate-dangle-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let dir = root.join(".artifacts/releases/isolated");
+        fs::create_dir_all(&dir).unwrap();
+        let base = root.to_string_lossy().into_owned();
+        symlink("nowhere-target.json", dir.join("soda-live-inputs-zz.json")).unwrap();
+        assert_eq!(first_live_inputs(&base), None);
+        fs::write(dir.join("soda-live-inputs-aa.json"), b"a").unwrap();
+        assert_eq!(
+            first_live_inputs(&base),
+            Some(format!(
+                "{}/.artifacts/releases/isolated/soda-live-inputs-aa.json",
                 base
             ))
         );

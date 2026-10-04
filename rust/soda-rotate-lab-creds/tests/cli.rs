@@ -281,6 +281,35 @@ fn closed_stdout_dies_by_sigpipe_like_shell() {
 }
 
 #[test]
+fn unset_pwd_user_and_home_crash_like_set_u() {
+    // The script expands $PWD/$USER/$HOME bare under `set -u`; the port
+    // crashes with the same shape (fixed prefix instead of `$0`-and-line).
+    // All three crash before any mutation: inventory is read-only.
+    let root = TempDir::new("unbound");
+    let home = TempDir::new("unbound-home");
+    for (remove, set_user, message) in [
+        ("PWD", false, "PWD: unbound variable"),
+        ("USER", false, "USER: unbound variable"),
+        ("HOME", true, "HOME: unbound variable"),
+    ] {
+        let mut command = cmd(&root.path, &home.path);
+        command.arg("inventory").env_remove(remove);
+        if set_user {
+            // USER must be set so the earlier missing-path stats pass and
+            // the crash lands on HOME instead.
+            command.env("USER", "testop");
+        }
+        let out = command.output().unwrap();
+        assert_eq!(out.status.code(), Some(1), "{message}");
+        assert_eq!(
+            String::from_utf8_lossy(&out.stderr),
+            format!("rotate-lab-creds: {message}\n"),
+            "{message}"
+        );
+    }
+}
+
+#[test]
 fn missing_stat_stays_silent_like_redirected_shell() {
     // `stat` is entirely absent from PATH: the script's
     // `$(stat ... 2>/dev/null)` swallows even the shell's own "command not
