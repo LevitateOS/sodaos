@@ -20,6 +20,10 @@ name = "soda-build-tools"
 version = "0.1.0"
 
 [[package]]
+name = "soda-candidate-setup"
+version = "0.1.0"
+
+[[package]]
 name = "soda-console-welcome"
 version = "0.1.0"
 
