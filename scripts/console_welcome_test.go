@@ -47,7 +47,7 @@ fi`,
 
 func TestConsoleUsesConfiguredOriginsAndNativeUplinks(t *testing.T) {
 	config, env := consoleFixture(t, "0", `{"forgejo_url":"https://forgejo.example.test","private_input":"never-print-this"}`)
-	cmd := exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+	cmd := exec.Command(buildRustPortBinary(t, "soda-console-welcome"), config)
 	cmd.Env = env
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -71,7 +71,7 @@ func TestConsoleUsesConfiguredOriginsAndNativeUplinks(t *testing.T) {
 
 func TestConsoleUsesConfiguredDashboardPort(t *testing.T) {
 	config, env := consoleFixture(t, "0", `{"forgejo_url":"https://forgejo.example.test","listen":"127.0.0.1:18080"}`)
-	cmd := exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+	cmd := exec.Command(buildRustPortBinary(t, "soda-console-welcome"), config)
 	cmd.Env = env
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -85,7 +85,7 @@ func TestConsoleUsesConfiguredDashboardPort(t *testing.T) {
 	}
 	for _, listen := range []string{"192.168.1.10:8080", "127.0.0.1:notaport", "127.0.0.1:0", "127.0.0.1:65536", "127.0.0.1:8080:extra", "42"} {
 		config, env = consoleFixture(t, "0", `{"forgejo_url":"https://forgejo.example.test","listen":"`+listen+`"}`)
-		cmd = exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+		cmd = exec.Command(buildRustPortBinary(t, "soda-console-welcome"), config)
 		cmd.Env = env
 		out, err := cmd.CombinedOutput()
 		if err != nil || !strings.Contains(string(out), "complete operator setup") || strings.Contains(string(out), "Dashboard is loopback-first") {
@@ -96,7 +96,7 @@ func TestConsoleUsesConfiguredDashboardPort(t *testing.T) {
 
 func TestConsoleShowsForgejoInstallerBeforeSetup(t *testing.T) {
 	config, env := consoleFixture(t, "0", `{}`)
-	cmd := exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+	cmd := exec.Command(buildRustPortBinary(t, "soda-console-welcome"), config)
 	cmd.Env = env
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -117,7 +117,7 @@ func TestConsoleShowsForgejoInstallerBeforeSetup(t *testing.T) {
 
 func TestConsoleDoesNotRenderNonOperatorOrUnsafeOrigins(t *testing.T) {
 	config, env := consoleFixture(t, "1000", `{}`)
-	cmd := exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+	cmd := exec.Command(buildRustPortBinary(t, "soda-console-welcome"), config)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil || len(out) != 0 {
@@ -125,7 +125,7 @@ func TestConsoleDoesNotRenderNonOperatorOrUnsafeOrigins(t *testing.T) {
 	}
 	for _, origin := range []string{"https://name:private-value@soda.example.test", "https://@soda.example.test", "https://soda.example.test:bad-port", "https://soda.example.test:65536"} {
 		config, env = consoleFixture(t, "0", `{"forgejo_url":"`+origin+`"}`)
-		cmd = exec.Command("sh", "../appliance/bin/soda-console-welcome", config)
+		cmd = exec.Command(buildRustPortBinary(t, "soda-console-welcome"), config)
 		cmd.Env = env
 		out, err = cmd.CombinedOutput()
 		if err != nil || !strings.Contains(string(out), "complete operator setup") || strings.Contains(string(out), origin) {
@@ -139,5 +139,23 @@ func TestConsoleHookKeepsNoninteractiveSSHQuiet(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err != nil || len(out) != 0 {
 		t.Fatal("noninteractive output", err, string(out))
+	}
+}
+
+func TestConsoleWelcomeInstallWiring(t *testing.T) {
+	prepare, err := os.ReadFile("../internal/release/image/prepare.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(prepare), `"appliance/bin/soda-console-welcome"`) {
+		t.Fatal("prepare still stages the replaced shell source")
+	}
+	// The Rust binary installs where the service and login hook expect it.
+	layout, err := os.ReadFile("../internal/release/image/build.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(layout), `{"soda-console-welcome", "soda-console-welcome", "rootfs/usr/libexec/soda/soda-console-welcome"},`) {
+		t.Fatal("install table lacks the console-welcome row")
 	}
 }

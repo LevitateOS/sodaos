@@ -452,6 +452,7 @@ var rustTools = []struct{ member, bin, dest string }{
 	{"soda-pg-maintenance", "soda-pg-backup", "rootfs/usr/bin/soda-pg-backup"},
 	{"soda-pg-maintenance", "soda-pg-restore", "rootfs/usr/bin/soda-pg-restore"},
 	{"soda-pg-maintenance", "soda-pg-init-roles", "rootfs/usr/bin/soda-pg-init-roles"},
+	{"soda-console-welcome", "soda-console-welcome", "rootfs/usr/libexec/soda/soda-console-welcome"},
 }
 
 func compileRustTools(p build.Production, contextDir string) error {
@@ -468,6 +469,11 @@ func compileRustTools(p build.Production, contextDir string) error {
 }
 
 func compileShippingTools(p build.Production, snapshot, contextDir, artifacts, revision, arch string) error {
+	// Prepare no longer stages anything under usr/libexec/soda (the last
+	// shell tool compiled out), so create it explicitly for the compilers.
+	if err := os.MkdirAll(filepath.Join(contextDir, "rootfs/usr/libexec/soda"), 0o755); err != nil {
+		return err
+	}
 	if err := compileSodaCommands(p, snapshot, contextDir); err != nil {
 		return err
 	}
