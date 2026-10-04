@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/config"
@@ -40,6 +41,17 @@ func TestNoNativeDestinationDoesNotLoopOrRender(t *testing.T) {
 		if w.Code != 200 || w.Body.String() != "ok\n" {
 			t.Fatal("health check depends on a frontend")
 		}
+	}
+}
+
+func TestCoordinatorLockLivesInFactoryState(t *testing.T) {
+	root := t.TempDir()
+	c := config.Config{DatabaseDSNFile: "/run/secrets/soda.dsn", FactoryPublicationRoot: root}
+	if got, want := coordinatorLockPath(c), filepath.Join(root, "factory-coordinator.lock"); got != want {
+		t.Fatalf("lock %q, want %q", got, want)
+	}
+	if got, want := coordinatorLockPath(config.Config{DatabaseDSNFile: "/run/secrets/soda.dsn"}), filepath.Join(defaultFactoryPublicationRoot, "factory-coordinator.lock"); got != want {
+		t.Fatalf("default lock %q, want %q", got, want)
 	}
 }
 

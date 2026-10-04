@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -127,11 +128,22 @@ func loadIntakeSecret(c config.Config) []byte {
 	return []byte(secret)
 }
 
+// coordinatorLockPath keeps the factory-ledger lock in writable factory
+// state. It must not derive from the DSN file: secrets arrive on read-only
+// mounts, and the lock needs O_CREATE.
+func coordinatorLockPath(c config.Config) string {
+	return filepath.Join(publicationRoot(c), "factory-coordinator.lock")
+}
+
 // StartCoordinator takes exclusive factory-ledger ownership and settles
 // outstanding runs before the operator endpoint serves. Only the serving
 // backend calls this; request handling never starts a coordinator.
 func (s *Server) StartCoordinator(ctx context.Context) error {
-	return s.Coordinator.Start(ctx, filepath.Join(filepath.Dir(s.Config.DatabaseDSNFile), "factory-coordinator.lock"))
+	lockPath := coordinatorLockPath(s.Config)
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0o700); err != nil {
+		return err
+	}
+	return s.Coordinator.Start(ctx, lockPath)
 }
 
 // CloseCoordinator releases factory-ledger ownership before process exit.
