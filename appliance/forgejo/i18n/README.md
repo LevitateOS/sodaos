@@ -12,12 +12,12 @@ For the authorized local preview, extract the exact existing image's English INI
 with `forgejo embedded view options/locale/locale_en-US.ini`, then run:
 
 ```sh
-python3 scripts/forgejo-locales.py \
+cargo run --release --locked -p soda-forgejo-locales --bin soda-forgejo-locales -- \
   --native .artifacts/forgejo-presentation/upstream/locale_en-US.ini \
   --out .artifacts/personal-settings/locales/locale_en-US.ini
 ```
 
-The standard-library helper validates the complete native input and rejects
+The Rust helper validates the complete native input and rejects
 repeated keys and namespace collisions. It concatenates the original INI bytes
 without reserializing native values, interpolation, escapes or translation keys.
 Native JSON catalogs under `options/locale_next/` remain under native ownership.

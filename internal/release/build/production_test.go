@@ -169,13 +169,13 @@ func TestProductionUsesOneAssetAndImageSequence(t *testing.T) {
 		t.Fatal(images)
 	}
 	text := strings.Join(*calls, "\n")
-	for _, needle := range []string{"bun install --frozen-lockfile", "bun scripts/build-forgejo.ts", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-terminal -- --out ", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-muse -- --arch x86_64 --out ", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-tea -- --arch x86_64 --out ", "cargo run --release --locked -p soda-stage-render --bin soda-stage -- --arch x86_64 --host-context ", "STEP Build image: dashboard\n", "STEP Build image: project-os\n", "STEP Build image: tailnet\n", "STEP Build image: forgejo\n", "bun scripts/build-soda-extension.ts --out "} {
+	for _, needle := range []string{"bun install --frozen-lockfile", "bun scripts/build-forgejo.ts", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-terminal -- --out ", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-muse -- --arch x86_64 --out ", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-tea -- --arch x86_64 --out ", "cargo run --release --locked -p soda-forgejo-locales --bin soda-forgejo-locales -- --lock appliance/forgejo/locale.lock.json --out ", "cargo run --release --locked -p soda-stage-render --bin soda-stage -- --arch x86_64 --host-context ", "STEP Build image: dashboard\n", "STEP Build image: project-os\n", "STEP Build image: tailnet\n", "STEP Build image: forgejo\n", "bun scripts/build-soda-extension.ts --out "} {
 		if strings.Count(text, needle) != 1 {
 			t.Fatalf("not produced exactly once: %s\n%s", needle, text)
 		}
 	}
-	if strings.Contains(text, "python3 scripts/fetch-") || strings.Contains(text, "tools/soda-fetch-muse") || strings.Contains(text, "python3 scripts/stage.py") {
-		t.Fatal("retired fetcher/stage invocation retained", text)
+	if strings.Contains(text, "python3 scripts/fetch-") || strings.Contains(text, "tools/soda-fetch-muse") || strings.Contains(text, "python3 scripts/stage.py") || strings.Contains(text, "python3 scripts/forgejo-locales.py") {
+		t.Fatal("retired fetcher/stage/locales invocation retained", text)
 	}
 	if !strings.Contains(text, "--host-context "+host+" --forgejo-context "+forgejo) {
 		t.Fatal("asset destinations do not match the selected layout", text)
