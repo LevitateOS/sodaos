@@ -214,7 +214,14 @@ impl<'a> Parser<'a> {
                     return Err(err("request must be one JSON object"));
                 }
                 Some(b'-') | Some(b'0'..=b'9') => {
-                    self.parse_number()?;
+                    let lit = self.parse_number()?;
+                    // `requireObject` takes one `Token`, which converts the
+                    // number: overflow fails before the shape is judged.
+                    if !lit.parse::<f64>().is_ok_and(|v| v.is_finite()) {
+                        return Err(err(format!(
+                            "decode request: json: cannot unmarshal number {lit} into Go value of type float64"
+                        )));
+                    }
                     return Err(err("request must be one JSON object"));
                 }
                 Some(c) => {
@@ -426,7 +433,23 @@ impl<'a> Parser<'a> {
                 Some(b'f') => pending = Some(self.parse_literal("false", Value::Bool(false))?),
                 Some(b'n') => pending = Some(self.parse_literal("null", Value::Null)?),
                 Some(b'-') | Some(b'0'..=b'9') => {
-                    pending = Some(Value::Number(self.parse_number()?))
+                    let lit = self.parse_number()?;
+                    // strictjson walks each top-level value with `Token`,
+                    // which converts numbers: an overflowing literal joins
+                    // the deferred findings in walk order, after any scan
+                    // error but beside duplicate/depth findings. Underflow
+                    // to zero stays accepted, exactly like Go.
+                    if self.strict()
+                        && self.deferred.is_none()
+                        && !lit.parse::<f64>().is_ok_and(|v| v.is_finite())
+                    {
+                        self.deferred = Some(err(format!(
+                            "{}json: cannot unmarshal number {} into Go value of type float64",
+                            self.field_ctx(),
+                            lit
+                        )));
+                    }
+                    pending = Some(Value::Number(lit))
                 }
                 None if stack.len() <= 1 => return Err(err(format!("{}EOF", self.field_ctx()))),
                 None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
@@ -668,7 +691,14 @@ pub fn decode_strict(body: &[u8]) -> Result<Value, Error> {
                 return Err(err("request must contain exactly one JSON object"));
             }
             Some(b'-') | Some(b'0'..=b'9') => {
-                p.parse_number()?;
+                let lit = p.parse_number()?;
+                // `finishObject` takes one trailing `Token`, which converts
+                // the number: overflow fails before the excess-data verdict.
+                if !lit.parse::<f64>().is_ok_and(|v| v.is_finite()) {
+                    return Err(err(format!(
+                        "decode request: json: cannot unmarshal number {lit} into Go value of type float64"
+                    )));
+                }
                 return Err(err("request must contain exactly one JSON object"));
             }
             Some(c) => {
@@ -1318,6 +1348,65 @@ mod tests {
             assert!(e.0.contains("duplicate"), "{input}: {e}");
         }
         assert!(decode_strict(br#"{"id":"one","meta":{"first":"1","second":"2"}}"#).is_ok());
+    }
+
+    #[test]
+    fn strict_rejects_float64_overflowing_numbers() {
+        // Go converts every scanned number to float64: overflow fails the
+        // gate with the top-level field name, at any nesting depth.
+        for (input, field, lit) in [
+            (r#"{"z":1e999}"#, "z", "1e999"),
+            (r#"{"a":{"b":-2e999}}"#, "a", "-2e999"),
+            (r#"{"a":[1.8e308]}"#, "a", "1.8e308"),
+            (r#"{"m":1,"z":1e309,"a":1}"#, "z", "1e309"),
+            (r#"{"z":1e999,"y":2e999}"#, "z", "1e999"),
+            (
+                r#"{"z":1.7976931348623159e308}"#,
+                "z",
+                "1.7976931348623159e308",
+            ),
+        ] {
+            let e = decode_strict(input.as_bytes()).unwrap_err();
+            assert_eq!(
+                e.0,
+                format!(
+                    "decode request field \"{field}\": json: cannot unmarshal number {lit} into Go value of type float64"
+                ),
+                "{input}"
+            );
+        }
+        // Underflow to zero and the largest finite double stay accepted.
+        for input in [
+            r#"{"z":1e-999}"#,
+            r#"{"z":-1e-999}"#,
+            r#"{"z":4e-324}"#,
+            r#"{"z":0e999}"#,
+            r#"{"z":1.7976931348623157e308}"#,
+            r#"{"z":1e308}"#,
+            r#"{"z":42}"#,
+        ] {
+            assert!(decode_strict(input.as_bytes()).is_ok(), "{input}");
+        }
+        // Walk order: a duplicate earlier in the same value beats the
+        // float, but a float in an earlier field beats a later duplicate.
+        let e = decode_strict(br#"{"a":{"x":1,"x":2,"y":1e999}}"#).unwrap_err();
+        assert!(e.0.contains("duplicate"), "{e}");
+        let e = decode_strict(br#"{"a":{"x":1,"x":2},"b":1e999}"#).unwrap_err();
+        assert!(e.0.contains("duplicate"), "{e}");
+        let e = decode_strict(br#"{"b":1e999,"a":{"x":1,"x":2}}"#).unwrap_err();
+        assert!(e.0.contains("cannot unmarshal number 1e999"), "{e}");
+        // Root and trailing `Token`s convert too: bare overflow errors.
+        for (input, want) in [
+            ("1e999", "decode request: json: cannot unmarshal number 1e999 into Go value of type float64"),
+            ("{} 1e999", "decode request: json: cannot unmarshal number 1e999 into Go value of type float64"),
+            (r#"{"a":1} -2e999"#, "decode request: json: cannot unmarshal number -2e999 into Go value of type float64"),
+            ("42", "request must be one JSON object"),
+            ("{} 42", "request must contain exactly one JSON object"),
+        ] {
+            assert_eq!(decode_strict(input.as_bytes()).unwrap_err().0, want, "{input}");
+        }
+        // Tolerant decode keeps accepting: machine parsers skip values.
+        assert!(decode_tolerant(br#"{"z":1e999}"#.as_ref()).is_ok());
     }
 
     #[test]
