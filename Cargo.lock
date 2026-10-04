@@ -167,6 +167,10 @@ name = "soda-setup"
 version = "0.1.0"
 
 [[package]]
+name = "soda-test-vm"
+version = "0.1.0"
+
+[[package]]
 name = "syn"
 version = "3.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

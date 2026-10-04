@@ -23,7 +23,7 @@ Notices: [Notices](../research/notices.md).
 | `tools/soda-artifacts`, `tools/soda-acceptance` | Separate native `tools/` output, never appliance `cmd/`, rootfs or container payload. Candidates carry them for archive inspection and media-input conversion, not as installed programs. |
 | Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; the read-only native-page journey and exported-payload checks passed at their documented local scope. |
 
-Reuse and licensing are recorded in [native support notices](../research/notices.md). The predecessor checkout and `scripts/test-vm.sh` remain separate and preserved.
+Reuse and licensing are recorded in [native support notices](../research/notices.md). The predecessor checkout remains separate and preserved; `scripts/test-vm.sh` is superseded by the `soda-test-vm` Rust port.
 
 ## Effects and permissions
 
