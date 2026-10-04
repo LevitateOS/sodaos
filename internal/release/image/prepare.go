@@ -224,6 +224,7 @@ func (w preparedWriter) stageSymlinksAndExtras() error {
 	for name, target := range map[string]string{
 		"usr/bin/soda-tailnet": "../libexec/soda/soda-tailnet",
 		"usr/bin/soda-setup":   "../libexec/soda/soda-setup",
+		"usr/bin/soda-install": "../libexec/soda/soda-install",
 	} {
 		dest := filepath.Join(w.out, "rootfs", name)
 		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
