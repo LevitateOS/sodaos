@@ -1367,6 +1367,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-release-deliver"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "libc",
+ "sha2 0.10.9",
+ "soda-build-tools",
+ "soda-json",
+ "tar",
+]
+
+[[package]]
 name = "soda-release-image"
 version = "0.1.0"
 dependencies = [
