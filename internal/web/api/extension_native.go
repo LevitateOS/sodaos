@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -50,11 +51,43 @@ func (s *API) extensionProtected(next func(http.ResponseWriter, *http.Request, s
 
 func extensionProductAuthority(w http.ResponseWriter, r *http.Request) (extensions.Authority, bool) {
 	authority, err := auth.ExtensionAuthority(r)
-	if err != nil || !auth.ExtensionContribution(authority.Contribution) || !extensionProductContribution(r.URL.Path, authority.Contribution) {
+	contributionOK := err == nil && auth.ExtensionContribution(authority.Contribution)
+	productOK := contributionOK && extensionProductContribution(r.URL.Path, authority.Contribution)
+	if err != nil || !contributionOK || !productOK {
+		denial := "authority"
+		if err == nil {
+			denial = "contribution"
+			if contributionOK {
+				denial = "product"
+			}
+		}
+		logExtensionDenial(r, denial, err, authority.Contribution)
 		auth.JSONError(w, http.StatusForbidden, "native_authority_unavailable", "Current native authority is required.")
 		return extensions.Authority{}, false
 	}
 	return authority, true
+}
+
+// logExtensionDenial records which authority sub-check refused a request.
+// The response stays a bounded 403; contribution fields are routing
+// metadata, never credentials.
+func logExtensionDenial(r *http.Request, denial string, err error, contribution extensions.Contribution) {
+	slog.Warn("extension authority denied",
+		"path", r.URL.Path,
+		"denial", denial,
+		"authority_error", errorString(err),
+		"contribution_kind", contribution.Kind,
+		"contribution_scope", contribution.Scope,
+		"contribution_id", contribution.ID,
+		"contribution_action", contribution.Action,
+	)
+}
+
+func errorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 func extensionGenerationCurrent(w http.ResponseWriter, r *http.Request, authority extensions.Authority) bool {

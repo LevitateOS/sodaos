@@ -63,10 +63,12 @@ func Extension(socket string) (http.Handler, func()) {
 		}
 		authority, err := auth.ExtensionAuthority(r)
 		if err != nil {
+			logExtensionDenial(r, "authority", err, authority.Contribution)
 			auth.JSONError(w, http.StatusForbidden, "native_authority_unavailable", "Current native authority is required.")
 			return
 		}
 		if !auth.ExtensionContribution(authority.Contribution) {
+			logExtensionDenial(r, "contribution", nil, authority.Contribution)
 			auth.JSONError(w, http.StatusForbidden, "invalid_contribution", "Soda contribution is unavailable.")
 			return
 		}

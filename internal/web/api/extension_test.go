@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -41,6 +43,48 @@ func TestExtensionRejectsUnknownRouteAndUnverifiedActor(t *testing.T) {
 		handler.ServeHTTP(w, r)
 		if w.Code != test.status {
 			t.Errorf("%s %s: got %d, want %d", test.method, test.path, w.Code, test.status)
+		}
+	}
+}
+
+func TestExtensionAuthorityDenialLogsCause(t *testing.T) {
+	var buf bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(previous)
+	handler, closeTransport := Extension("/unavailable-soda-socket")
+	defer closeTransport()
+	r := httptest.NewRequest("GET", "/session", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, r)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("got %d, want 403", w.Code)
+	}
+	logged := buf.String()
+	for _, want := range []string{"extension authority denied", "path=/session", "denial=authority", "one native authority and admission are required"} {
+		if !strings.Contains(logged, want) {
+			t.Fatalf("log missing %q: %s", want, logged)
+		}
+	}
+}
+
+func TestExtensionProductAuthorityDenialLogsCause(t *testing.T) {
+	var buf bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(previous)
+	r := httptest.NewRequest("GET", "/api/spaces", nil)
+	w := httptest.NewRecorder()
+	if _, ok := extensionProductAuthority(w, r); ok {
+		t.Fatal("bare request admitted")
+	}
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("got %d, want 403", w.Code)
+	}
+	logged := buf.String()
+	for _, want := range []string{"extension authority denied", "path=/api/spaces", "denial=authority"} {
+		if !strings.Contains(logged, want) {
+			t.Fatalf("log missing %q: %s", want, logged)
 		}
 	}
 }
