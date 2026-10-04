@@ -26,6 +26,7 @@ pub const DEFAULT_ADDITIONS: &str = "appliance/forgejo/i18n/en-US.ini";
 
 /// CLI failure with the script's exit-code contract: usage and lock
 /// refusals (`parser.error`) exit 2, everything else exits 1.
+#[derive(Debug)]
 pub enum Error {
     Usage(String),
     Runtime(String),
@@ -230,7 +231,8 @@ fn load_lock(path: &Path) -> Result<(String, String), Error> {
 }
 
 /// Fetch the exact locked bytes: bounded read plus pinned SHA-256.
-fn fetch_locked(url: &str, sha256: &str) -> Result<Vec<u8>, Error> {
+/// Proxy environment handling matches the script's `urlopen` default.
+pub fn fetch_locked(url: &str, sha256: &str) -> Result<Vec<u8>, Error> {
     let response = ureq::get(url)
         .timeout(FETCH_TIMEOUT)
         .set("User-Agent", "soda-forgejo-locales/0.1.0")
@@ -493,5 +495,74 @@ mod tests {
     fn same_option_in_two_sections_is_allowed() {
         let ini = parse_ini("[a]\nx = 1\n[b]\nx = 2\n").unwrap();
         assert_eq!(ini.sections(), ["a", "b"]);
+    }
+
+    /// Serve one canned response on loopback, like the script tests'
+    /// mocked `urlopen`: the fetch rule is pinned without the network.
+    fn serve_once(status: u16, body: Vec<u8>) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/locale.ini", listener.local_addr().unwrap());
+        let handle = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0u8; 4096];
+            let _ = stream.read(&mut request);
+            let reason = if status == 200 { "OK" } else { "Error" };
+            let head = format!(
+                "HTTP/1.1 {status} {reason}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream.write_all(head.as_bytes()).unwrap();
+            stream.write_all(&body).unwrap();
+        });
+        (url, handle)
+    }
+
+    fn fetch_case(status: u16, body: Vec<u8>, sha256: &str) -> Result<Vec<u8>, Error> {
+        let (url, handle) = serve_once(status, body);
+        let result = fetch_locked(&url, sha256);
+        handle.join().unwrap();
+        result
+    }
+
+    #[test]
+    fn locked_fetch_accepts_exact_bytes() {
+        let body = b"[common]\nname = Native\n".to_vec();
+        let sha = crate::sha256_hex(&body);
+        assert_eq!(fetch_case(200, body.clone(), &sha).unwrap(), body);
+    }
+
+    #[test]
+    fn locked_fetch_refuses_changed_bytes() {
+        let err = fetch_case(200, b"incorrect".to_vec(), &"0".repeat(64)).unwrap_err();
+        assert!(matches!(err, Error::Usage(_)));
+        assert_eq!(err.message(), "native catalog differs from locked bytes");
+    }
+
+    #[test]
+    fn locked_fetch_refuses_oversize_bodies() {
+        let mut body = vec![b'x'; 1024 * 1024 + 1];
+        body[..8].copy_from_slice(b"[common]");
+        let sha = crate::sha256_hex(&body);
+        let err = fetch_case(200, body, &sha).unwrap_err();
+        assert!(matches!(err, Error::Usage(_)));
+        assert_eq!(err.message(), "native catalog differs from locked bytes");
+    }
+
+    #[test]
+    fn locked_fetch_accepts_exactly_one_mib() {
+        let mut body = vec![b'x'; 1024 * 1024];
+        body[..8].copy_from_slice(b"[common]");
+        let sha = crate::sha256_hex(&body);
+        assert_eq!(fetch_case(200, body.clone(), &sha).unwrap(), body);
+    }
+
+    #[test]
+    fn locked_fetch_refuses_error_status() {
+        let body = b"[common]\nname = Native\n".to_vec();
+        let sha = crate::sha256_hex(&body);
+        let err = fetch_case(404, body, &sha).unwrap_err();
+        assert!(matches!(err, Error::Runtime(_)));
+        assert!(err.message().contains("404"), "{}", err.message());
     }
 }
