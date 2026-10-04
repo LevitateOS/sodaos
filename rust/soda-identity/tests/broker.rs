@@ -486,3 +486,58 @@ fn http_admission_matches_go() {
     let _ = std::fs::remove_file(&admin_path);
     let _ = std::fs::remove_file(&runtime_path);
 }
+
+// A dead listener ends serve() promptly for supervisor restart, like Go's
+// Serve returning a fatal error, instead of spinning deaf forever.
+#[test]
+#[cfg(target_os = "linux")]
+fn dead_listener_fails_fast() {
+    use soda_identity::http::Server;
+    use std::os::unix::io::AsRawFd;
+    use std::os::unix::net::UnixListener;
+
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    let broker = Arc::new(controller(fixture.store(&fixture_key())));
+    let dir = std::env::temp_dir().join(format!("soda-broker-test-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("dead.sock");
+    let _ = std::fs::remove_file(&path);
+    let listener = UnixListener::bind(&path).unwrap();
+    // Close the fd behind serve's back: every accept fails fatally. Pin
+    // the number with /dev/null guards so no parallel test thread reuses
+    // it mid-test; skip if the race is lost instead of serving a live fd.
+    let fd = listener.as_raw_fd();
+    unsafe { libc::close(fd) };
+    let mut guards = Vec::new();
+    for _ in 0..64 {
+        let guard = std::fs::File::open("/dev/null").unwrap();
+        let pinned = guard.as_raw_fd() == fd;
+        guards.push(guard);
+        if pinned {
+            break;
+        }
+    }
+    if guards.iter().all(|f| f.as_raw_fd() != fd) {
+        eprintln!("could not pin dead listener fd; skipping");
+        std::mem::forget(listener);
+        return;
+    }
+    let server = Server::new(
+        Arc::clone(&broker),
+        false,
+        Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        Arc::new(std::sync::atomic::AtomicUsize::new(0)),
+    );
+    let start = std::time::Instant::now();
+    server.serve(&listener);
+    assert!(
+        start.elapsed() < std::time::Duration::from_secs(10),
+        "serve spun on a dead listener"
+    );
+    std::mem::forget(listener);
+    drop(guards);
+    let _ = std::fs::remove_file(&path);
+}
