@@ -125,6 +125,11 @@ impl Evidence {
         Ok(RedactingWriter::new(RedactOut::file(self.open(name)?), self.secrets.clone()))
     }
 
+    /// Exclusive raw file for command capture tees.
+    pub(crate) fn open_file(&self, name: &str) -> Result<File, Error> {
+        self.open(name)
+    }
+
     /// Write one complete redacted entry.
     pub fn write(&self, name: &str, data: &[u8]) -> Result<(), Error> {
         let mut writer = self.writer(name)?;

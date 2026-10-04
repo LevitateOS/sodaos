@@ -19,10 +19,10 @@ pub enum Error {
     /// Cancelled phase context. Displays as `context canceled` so retained
     /// `failure.txt` records match the Go owner exactly.
     Cancelled,
-    /// Plain message with an optional cause chain.
+    /// Plain message with a cause chain.
     Msg {
         message: String,
-        source: Option<Box<Error>>,
+        sources: Vec<Error>,
     },
 }
 
@@ -31,7 +31,7 @@ impl Error {
     pub fn msg(message: impl Into<String>) -> Error {
         Error::Msg {
             message: message.into(),
-            source: None,
+            sources: Vec::new(),
         }
     }
 
@@ -40,7 +40,7 @@ impl Error {
     pub fn redacted(message: String, cause: Error) -> Error {
         Error::Msg {
             message,
-            source: Some(Box::new(cause)),
+            sources: vec![cause],
         }
     }
 
@@ -48,8 +48,22 @@ impl Error {
     pub fn wrap(message: impl Into<String>, cause: Error) -> Error {
         Error::Msg {
             message: format!("{}: {}", message.into(), cause),
-            source: Some(Box::new(cause)),
+            sources: vec![cause],
         }
+    }
+
+    /// Join errors like Go's `errors.Join`: absent parts drop out, an empty
+    /// join is absent, and messages join with newlines.
+    pub fn join(parts: Vec<Option<Error>>) -> Option<Error> {
+        let mut errors: Vec<Error> = parts.into_iter().flatten().collect();
+        if errors.is_empty() {
+            return None;
+        }
+        if errors.len() == 1 {
+            return errors.pop();
+        }
+        let message = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
+        Some(Error::Msg { message, sources: errors })
     }
 
     /// True when this error or any cause is [`Error::Cancelled`].
@@ -57,16 +71,16 @@ impl Error {
         match self {
             Error::Cancelled => true,
             Error::Io(_) => false,
-            Error::Msg { source, .. } => source.as_ref().is_some_and(|e| e.is_cancelled()),
+            Error::Msg { sources, .. } => sources.iter().any(|e| e.is_cancelled()),
         }
     }
 
-    /// The I/O kind when this error or its outermost I/O cause has one.
+    /// The I/O kind when this error or its first I/O cause has one.
     pub fn io_kind(&self) -> Option<io::ErrorKind> {
         match self {
             Error::Io(e) => Some(e.kind()),
             Error::Cancelled => None,
-            Error::Msg { source, .. } => source.as_ref().and_then(|e| e.io_kind()),
+            Error::Msg { sources, .. } => sources.iter().find_map(|e| e.io_kind()),
         }
     }
 }
@@ -86,8 +100,8 @@ impl std::error::Error for Error {
         match self {
             Error::Io(e) => Some(e),
             Error::Cancelled => None,
-            Error::Msg { source, .. } => source
-                .as_ref()
+            Error::Msg { sources, .. } => sources
+                .first()
                 .map(|e| e as &(dyn std::error::Error + 'static)),
         }
     }

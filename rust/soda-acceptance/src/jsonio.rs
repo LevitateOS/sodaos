@@ -32,7 +32,7 @@ pub fn read_json_file(path: &str) -> Result<(JsonValue, String), Error> {
     if !before.is_regular || before.size > files::JSON_LIMIT {
         return Err(Error::msg("bounded regular JSON input required"));
     }
-    let mut handle = root.open_file_at(&name)?;
+    let handle = root.open_file_at(&name)?;
     let after = fstat_attr(&handle)?;
     if !after.is_regular || !files::same_file(before, after) {
         return Err(Error::msg("JSON input changed before reading"));
@@ -54,7 +54,7 @@ pub fn read_json_at(root: &OwnedDir, name: &str) -> Result<(JsonValue, String), 
     if !before.is_regular || before.size > files::JSON_LIMIT {
         return Err(Error::msg("bounded regular JSON input required"));
     }
-    let mut handle = root.open_file_at(name)?;
+    let handle = root.open_file_at(name)?;
     let after = fstat_attr(&handle)?;
     if !after.is_regular || !files::same_file(before, after) {
         return Err(Error::msg("JSON input changed before reading"));
@@ -126,6 +126,36 @@ pub fn require_bool(value: &JsonValue, field: &str) -> Result<bool, Error> {
         .get(field)
         .and_then(|v| v.as_bool())
         .ok_or_else(|| Error::msg(format!("invalid {field}: boolean required")))
+}
+
+/// Optional string field: missing or null decodes to empty, like Go's zero
+/// value; a present mistyped value fails, like Go's unmarshal error.
+pub fn opt_string(value: &JsonValue, field: &str) -> Result<String, Error> {
+    match value.get(field) {
+        None | Some(JsonValue::Null) => Ok(String::new()),
+        Some(JsonValue::Str(s)) => Ok(s.clone()),
+        Some(_) => Err(Error::msg(format!("invalid {field}: string required"))),
+    }
+}
+
+/// Optional integer field: missing or null decodes to zero; a present
+/// mistyped value fails.
+pub fn opt_integer(value: &JsonValue, field: &str) -> Result<i128, Error> {
+    match value.get(field) {
+        None | Some(JsonValue::Null) => Ok(0),
+        Some(v) => v
+            .as_integer()
+            .ok_or_else(|| Error::msg(format!("invalid {field}: integer required"))),
+    }
+}
+
+/// Optional boolean field: missing or null decodes to false.
+pub fn opt_bool(value: &JsonValue, field: &str) -> Result<bool, Error> {
+    match value.get(field) {
+        None | Some(JsonValue::Null) => Ok(false),
+        Some(JsonValue::Bool(b)) => Ok(*b),
+        Some(_) => Err(Error::msg(format!("invalid {field}: boolean required"))),
+    }
 }
 
 /// Escape a string exactly like Go's `encoding/json`: short escapes, HTML
