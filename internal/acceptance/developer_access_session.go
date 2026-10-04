@@ -3,8 +3,6 @@ package acceptance
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -27,7 +25,10 @@ func setupDeveloperOutput(root string, request *accessRequest) error {
 		return err
 	}
 	hostname, _ := os.Hostname()
-	sum := sha256.Sum256([]byte(developerAccessSource))
+	digest, err := developerAccessDigest()
+	if err != nil {
+		return err
+	}
 	transport := "direct project IP"
 	if request.sshConfig != "/dev/null" {
 		transport = "explicit SSH configuration; not direct-route proof"
@@ -39,7 +40,7 @@ func setupDeveloperOutput(root string, request *accessRequest) error {
 		Client:       hostname,
 		ClientArch:   machineArch(),
 		Transport:    transport,
-		ScriptSHA256: hex.EncodeToString(sum[:]),
+		ScriptSHA256: digest,
 		Users:        []accessUserResult{},
 	}
 	return nil

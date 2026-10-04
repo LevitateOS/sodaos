@@ -404,6 +404,14 @@ func TestRunDeveloperAccessEndToEnd(t *testing.T) {
 	if decoded.Transport != "direct project IP" || decoded.ClientArch != machineArch() || decoded.ScriptSHA256 == "" {
 		t.Errorf("results = %+v", decoded)
 	}
+	if len(decoded.ScriptSHA256) != 64 {
+		t.Errorf("script digest length = %d", len(decoded.ScriptSHA256))
+	}
+	for _, c := range decoded.ScriptSHA256 {
+		if !strings.ContainsRune("0123456789abcdef", c) {
+			t.Errorf("script digest not lowercase hex: %q", decoded.ScriptSHA256)
+		}
+	}
 	// Key order must match the retired Python insertion order.
 	ordered := []string{`"revision"`, `"target"`, `"project"`, `"client"`, `"client_arch"`, `"transport"`, `"script_sha256"`, `"users"`, `"cross_user_key"`, `"outcome"`}
 	previous := -1

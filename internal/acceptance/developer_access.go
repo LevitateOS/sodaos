@@ -6,7 +6,9 @@
 package acceptance
 
 import (
-	_ "embed"
+	"crypto/sha256"
+	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,8 +17,29 @@ import (
 	"path/filepath"
 )
 
-//go:embed developer_access.go
-var developerAccessSource string
+//go:embed developer_access.go developer_access_users.go developer_access_session.go developer_access_transfer.go
+var developerAccessSources embed.FS
+
+// developerAccessFiles lists the probe sources in hash order.
+var developerAccessFiles = []string{
+	"developer_access.go",
+	"developer_access_users.go",
+	"developer_access_session.go",
+	"developer_access_transfer.go",
+}
+
+// developerAccessDigest hashes the embedded probe sources.
+func developerAccessDigest() (string, error) {
+	sum := sha256.New()
+	for _, name := range developerAccessFiles {
+		data, err := developerAccessSources.ReadFile(name)
+		if err != nil {
+			return "", err
+		}
+		sum.Write(data)
+	}
+	return hex.EncodeToString(sum.Sum(nil)), nil
+}
 
 // DeveloperAccessUsage documents the probe's CLI surface.
 const DeveloperAccessUsage = "soda-installed-probes developer-access ROOT_DIR"
