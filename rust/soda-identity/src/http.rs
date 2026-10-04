@@ -301,38 +301,30 @@ fn route(
     path: &str,
     input: &Request,
     runtime_allowed: bool,
-) -> Result<Option<serde_json::Value>, Error> {
+) -> Result<Option<Vec<u8>>, Error> {
     match path {
-        "/connections" => Ok(Some(serde_json::to_value(
-            controller.connections(input.owner_id)?,
-        )?)),
-        "/available" => Ok(Some(serde_json::to_value(
-            controller.available(input.owner_id, &input.project_id)?,
-        )?)),
+        "/connections" => Ok(Some(serde_json::to_vec(&controller.connections(input.owner_id)?)?)),
+        "/available" => Ok(Some(serde_json::to_vec(&controller.available(input.owner_id, &input.project_id)?)?)),
         "/revoke" => {
             controller.revoke(input.owner_id, &input.id)?;
             Ok(None)
         }
-        "/enrollment/start" => Ok(Some(serde_json::to_value(controller.start_enrollment(
-            input.owner_id,
-            &input.provider_id,
-            &input.label,
-        )?)?)),
-        "/enrollment/read" => Ok(Some(serde_json::to_value(
-            controller.enrollment(input.owner_id, &input.id)?,
-        )?)),
+        "/enrollment/start" => {
+            let enrollment =
+                controller.start_enrollment(input.owner_id, &input.provider_id, &input.label)?;
+            Ok(Some(serde_json::to_vec(&enrollment)?))
+        }
+        "/enrollment/read" => Ok(Some(serde_json::to_vec(&controller.enrollment(input.owner_id, &input.id)?)?)),
         "/enrollment/cancel" => {
             controller.cancel_enrollment(input.owner_id, &input.id)?;
             Ok(None)
         }
-        "/grants" => Ok(Some(serde_json::to_value(
-            controller.grants(input.owner_id, &input.id)?,
-        )?)),
+        "/grants" => Ok(Some(serde_json::to_vec(&controller.grants(input.owner_id, &input.id)?)?)),
         "/grant/create" => {
             let Some(grant) = &input.grant else {
                 return Err(Error::denied("identity authority denied"));
             };
-            Ok(Some(serde_json::to_value(
+            Ok(Some(serde_json::to_vec(&
                 controller.create_grant(input.owner_id, grant)?,
             )?))
         }
@@ -340,9 +332,7 @@ fn route(
             controller.revoke_grant(input.owner_id, &input.id)?;
             Ok(None)
         }
-        "/leases" => Ok(Some(serde_json::to_value(
-            controller.leases(input.owner_id, &input.id)?,
-        )?)),
+        "/leases" => Ok(Some(serde_json::to_vec(&controller.leases(input.owner_id, &input.id)?)?)),
         "/lease/end" => {
             controller.end_lease(input.owner_id, &input.id)?;
             Ok(None)
@@ -360,20 +350,20 @@ fn route_runtime(
     controller: &Controller,
     path: &str,
     input: &Request,
-) -> Result<Option<serde_json::Value>, Error> {
+) -> Result<Option<Vec<u8>>, Error> {
     match path {
         "/acquire" => {
             let Some(acquire) = &input.acquire else {
                 return Err(Error::denied("identity authority denied"));
             };
-            Ok(Some(serde_json::to_value(controller.acquire(acquire)?)?))
+            Ok(Some(serde_json::to_vec(&controller.acquire(acquire)?)?))
         }
         "/register" => {
             let Some(binding) = &input.binding else {
                 return Err(Error::denied("identity authority denied"));
             };
             let (lease, credential) = controller.register(&input.id, binding)?;
-            Ok(Some(serde_json::to_value(DeliveryWire {
+            Ok(Some(serde_json::to_vec(&DeliveryWire {
                 lease,
                 credential,
             })?))
@@ -400,9 +390,7 @@ fn route_runtime(
             controller.reconcile_lease(&input.id)?;
             Ok(None)
         }
-        "/execution/get" => Ok(Some(serde_json::to_value(
-            controller.get_execution(&input.kind, &input.execution_id)?,
-        )?)),
+        "/execution/get" => Ok(Some(serde_json::to_vec(&controller.get_execution(&input.kind, &input.execution_id)?)?)),
         "/execution/close" => {
             controller.close_execution(&input.kind, &input.execution_id)?;
             Ok(None)
@@ -411,9 +399,9 @@ fn route_runtime(
     }
 }
 
-fn success_response(output: &Option<serde_json::Value>) -> Vec<u8> {
+fn success_response(output: &Option<Vec<u8>>) -> Vec<u8> {
     let mut body = match output {
-        Some(value) => serde_json::to_vec(value).unwrap_or_default(),
+        Some(bytes) => bytes.clone(),
         None => b"{}".to_vec(),
     };
     body.push(b'\n');
