@@ -6,6 +6,8 @@ Requires=soda-extension-install.service
 After=soda-extension-install.service
 Requires=soda-postgres-init.service
 After=soda-postgres-init.service
+Requires=soda-forgejo-migrate.service
+After=soda-forgejo-migrate.service
 # Database credentials exist only after operator setup; live media skips.
 ConditionPathExists=/etc/soda/postgres/forgejo.passwd
 

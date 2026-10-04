@@ -1,0 +1,14 @@
+[Unit]
+Description=Soda Forgejo config migration
+Before=forgejo.service
+# No config before the first install; the installer writes app.ini later.
+ConditionPathExists=/var/lib/soda/forgejo/gitea/conf/app.ini
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/soda-forgejo-migrate
+RemainAfterExit=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
