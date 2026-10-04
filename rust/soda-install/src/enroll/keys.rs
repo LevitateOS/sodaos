@@ -137,7 +137,8 @@ fn validate_authorized_keys_stat(st: &libc::stat, uid: u32) -> Result<(), Error>
 
 fn has_authorized_key(data: &[u8], key: &str) -> bool {
     for line in data.split(|b| *b == b'\n') {
-        let fields: Vec<&str> = String::from_utf8_lossy(line).split_whitespace().collect();
+        let text = String::from_utf8_lossy(line);
+        let fields: Vec<&str> = text.split_whitespace().collect();
         for i in 0..fields.len().saturating_sub(1) {
             if format!("{} {}", fields[i], fields[i + 1]) == key {
                 return true;
@@ -167,10 +168,6 @@ fn inspect_existing_authorized_keys(
     Ok((before, existing))
 }
 
-fn timespec_equal(a: &libc::timespec, b: &libc::timespec) -> bool {
-    a.tv_sec == b.tv_sec && a.tv_nsec == b.tv_nsec
-}
-
 fn verify_authorized_keys_unchanged(dir: &SshDir, before: &libc::stat) -> Result<(), Error> {
     let name = CString::new("authorized_keys").map_err(|_| Error::msg("invalid name"))?;
     let mut current: libc::stat = unsafe { std::mem::zeroed() };
@@ -179,8 +176,10 @@ fn verify_authorized_keys_unchanged(dir: &SshDir, before: &libc::stat) -> Result
     } || current.st_dev != before.st_dev
         || current.st_ino != before.st_ino
         || current.st_size != before.st_size
-        || !timespec_equal(&current.st_mtim, &before.st_mtim)
-        || !timespec_equal(&current.st_ctim, &before.st_ctim);
+        || current.st_mtime != before.st_mtime
+        || current.st_mtime_nsec != before.st_mtime_nsec
+        || current.st_ctime != before.st_ctime
+        || current.st_ctime_nsec != before.st_ctime_nsec;
     if changed {
         return Err(Error::msg("authorized keys changed before the append; no append started"));
     }
@@ -624,7 +623,7 @@ mod tests {
             let newer = format!("{TEST_KEY_2} native editor without trailing newline");
             std::fs::write(&path, &original).unwrap();
             let calls = std::cell::Cell::new(0);
-            let write = |file: &File, data: &[u8]| -> std::io::Result<usize> {
+            let write = |mut file: &File, data: &[u8]| -> std::io::Result<usize> {
                 calls.set(calls.get() + 1);
                 // This is the former Fstatat-to-Renameat race window: a native
                 // editor acts after Soda's last pre-write pathname check.
@@ -656,7 +655,7 @@ mod tests {
         let home = temp_dir();
         let path = format!("{}/.ssh/authorized_keys", home.path);
         let native = format!("{TEST_KEY} created by native editor\n");
-        let write = |file: &File, data: &[u8]| -> std::io::Result<usize> {
+        let write = |mut file: &File, data: &[u8]| -> std::io::Result<usize> {
             std::fs::write(&path, &native).unwrap();
             file.write(data)
         };
@@ -679,7 +678,7 @@ mod tests {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
         let before = std::fs::symlink_metadata(&path).unwrap();
         let partial_len = std::cell::Cell::new(0usize);
-        let write = |file: &File, data: &[u8]| -> std::io::Result<usize> {
+        let write = |mut file: &File, data: &[u8]| -> std::io::Result<usize> {
             let half = &data[..data.len() / 2];
             partial_len.set(half.len());
             let n = file.write(half)?;

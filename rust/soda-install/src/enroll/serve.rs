@@ -70,7 +70,7 @@ fn set_enrollment_connection_deadline(phase: &Ctx, stream: &UnixStream) {
 
 fn read_enrollment_key_from_connection(
     phase: &Ctx,
-    stream: &UnixStream,
+    mut stream: &UnixStream,
 ) -> Result<Option<String>, Error> {
     set_enrollment_connection_deadline(phase, stream);
     let unit = match enrollment_connection_unit(stream) {
@@ -112,7 +112,7 @@ fn enrollment_commit_status(err: Option<&Error>) -> &'static str {
 
 fn commit_enrollment_key(
     phase: &Ctx,
-    stream: &UnixStream,
+    mut stream: &UnixStream,
     key: &str,
     run: &dyn Runner,
 ) -> Result<(), Error> {

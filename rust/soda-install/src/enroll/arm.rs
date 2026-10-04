@@ -145,7 +145,8 @@ fn enrollment_window_remaining(until: i64, now: Result<i64, Error>) -> Result<Du
 }
 
 fn parse_armed_enrollment(data: &[u8]) -> Result<(EnrollmentAddress, i64), Error> {
-    let fields: Vec<&str> = String::from_utf8_lossy(data).split_whitespace().collect();
+    let text = String::from_utf8_lossy(data);
+    let fields: Vec<&str> = text.split_whitespace().collect();
     if fields.len() != 3 {
         return Err(Error::msg("invalid enrollment arm state"));
     }
@@ -509,7 +510,8 @@ mod tests {
             if input.starts_with("typo") {
                 let selected = selected.unwrap();
                 assert_eq!(selected.ip, "10.0.0.20");
-                let transcript = String::from_utf8_lossy(&drain_available(&mut master));
+                let drained = drain_available(&mut master);
+                let transcript = String::from_utf8_lossy(&drained);
                 assert_eq!(
                     transcript.matches("Enter a number from 1 to 2").count(),
                     3,

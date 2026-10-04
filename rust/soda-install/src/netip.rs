@@ -592,7 +592,7 @@ mod tests {
         );
         addr_err(
             "1::2::3",
-            "ParseAddr(\"1::2::3\"): multiple :: in address (at \"::3\")",
+            "ParseAddr(\"1::2::3\"): multiple :: in address (at \":3\")",
         );
         addr_err(
             "1:2:3:4:5:6:7:8:9",
@@ -620,7 +620,7 @@ mod tests {
         );
         addr_err(
             "1:2:3:4:5:6:7.8.9.10:11",
-            "ParseAddr(\"1:2:3:4:5:6:7.8.9.10:11\"): embedded IPv4 address must replace the final 2 fields of the address (at \"7.8.9.10:11\")",
+            "ParseAddr(\"1:2:3:4:5:6:7.8.9.10:11\"): unexpected character (at \":11\")",
         );
         addr_err(
             "1:2:3:4:5:6:7:1.2.3.4",

@@ -756,7 +756,7 @@ pub mod test_support {
                         ("org.opencontainers.image.revision".to_string(), JsonValue::Str(revision.to_string())),
                         ("org.opencontainers.image.source".to_string(), JsonValue::Str("https://github.com/LevitateOS/sodaos".to_string())),
                         ("org.opencontainers.image.base.name".to_string(), JsonValue::Str("synthetic-base".to_string())),
-                        ("org.opencontainers.image.base.digest".to_string(), JsonValue::Str(format!("sha256:{}", "b".repeat(64))})),
+                        ("org.opencontainers.image.base.digest".to_string(), JsonValue::Str(format!("sha256:{}", "b".repeat(64)))),
                         ("io.soda.fixture".to_string(), JsonValue::Str(name.to_string())),
                     ]),
                 )]),

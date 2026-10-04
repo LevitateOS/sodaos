@@ -295,7 +295,8 @@ pub fn disk_sequence_at(sys_root: &str, device: &BlockDevice) -> Result<String, 
     }
     let seq_path = pathx::join(sys_root, &[&pathx::base(&device.name), "diskseq"]);
     let data = std::fs::read(&seq_path).map_err(|e| crate::errors::path_error("open", &seq_path, e))?;
-    let seq = go_trim_space(&String::from_utf8_lossy(&data));
+    let text = String::from_utf8_lossy(&data);
+    let seq = go_trim_space(&text);
     if seq.is_empty() || !seq.bytes().all(|b| b.is_ascii_digit()) {
         return Err(Error::msg("invalid disk sequence"));
     }
@@ -491,10 +492,8 @@ mod tests {
     fn parent_disk_sysfs_walk() {
         let root = std::env::temp_dir().join(format!("soda-install-sys-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(root.join("sda/holders")).unwrap();
-        std::os::unix::fs::symlink("../../devices/pci/sda", root.join("sda")).unwrap_or(());
+        std::fs::create_dir_all(&root).unwrap();
         // Whole disk: link whose directory base is `block`.
-        let _ = std::fs::remove_file(root.join("sda"));
         std::os::unix::fs::symlink("../../devices/pci/block/sda", root.join("sda")).unwrap();
         // Partition: link whose directory base names the disk.
         std::os::unix::fs::symlink("../../devices/pci/block/sda/sda1", root.join("sda1")).unwrap();

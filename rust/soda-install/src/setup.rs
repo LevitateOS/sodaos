@@ -471,7 +471,8 @@ fn configured_access(
     let (origin, address) = installed_forgejo_origin(root)?;
     let local = uses_internal_tls(root)?;
     if local {
-        let hostname = String::from_utf8_lossy(&origin.hostname());
+        let host = origin.hostname();
+        let hostname = String::from_utf8_lossy(&host);
         let expected = private_setup_origin(&hostname).unwrap_or_default();
         if address.strip_suffix('/').unwrap_or(&address) != expected {
             return Err(Error::msg("local TLS must use the selected private IP origin"));

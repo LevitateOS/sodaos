@@ -373,14 +373,15 @@ mod tests {
     #[test]
     fn oracle_url_vectors() {
         // Oracle: TestZZOracleURL `URL` lines (errors only; fields spot-checked).
-        // NOTE: the oracle's `" https://192.168.1.5"` bad entry contradicts Go's
-        // source — a leading space parses as a relative path (only control
-        // bytes are screened). The vector below asserts Go's real behavior.
-        for bad in ["https://192.168.1.5 ", "https://a b"] {
+        // Go rejects a leading space before `https:`: the first path segment
+        // then contains a colon (`net/url` sources, verified by probe).
+        for bad in ["https://192.168.1.5 ", "https://a b", " https://192.168.1.5"] {
             assert!(parse(bad).is_err(), "accepted {bad:?}");
         }
-        let url = parse(" https://192.168.1.5").unwrap();
-        assert_eq!((url.scheme.as_str(), text(&url.path)), ("", " https://192.168.1.5"));
+        assert_eq!(
+            parse(" https://192.168.1.5").unwrap_err().text,
+            "parse \" https://192.168.1.5\": first path segment in URL cannot contain colon"
+        );
         // "https://192.168.1.5:99999" parses (port unchecked); hostname strips.
         let url = parse("https://192.168.1.5:99999").unwrap();
         assert_eq!(url.hostname(), b"192.168.1.5");

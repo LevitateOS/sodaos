@@ -9,7 +9,7 @@ use crate::buildx;
 use crate::deliver;
 use crate::errors::Error;
 use crate::inputs;
-use crate::jsongo::{parse, serialize, Soft};
+use crate::jsongo::{parse, serialize};
 use crate::run::MediaIdentity;
 use crate::wizard::DiskInstallChoices;
 
@@ -181,6 +181,7 @@ pub fn candidate_destination(
 mod tests {
     use super::*;
     use crate::deliver::NAMES;
+    use crate::jsongo::Soft;
     use std::collections::BTreeMap;
 
     pub fn candidate_root_fixture() -> (String, MediaIdentity, DiskInstallChoices) {

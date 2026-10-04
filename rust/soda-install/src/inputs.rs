@@ -186,7 +186,14 @@ mod tests {
         for good in ["soda-01", "a", "a.b.c", "host123", "x-y-z", &"a".repeat(63), &format!("{}.{}", "a".repeat(63), "b".repeat(63))] {
             assert!(hostname(good), "reject {good:?}");
         }
-        assert!(hostname(&"a".repeat(253)));
+        assert!(hostname(&format!(
+            "{}.{}.{}.{}",
+            "a".repeat(63),
+            "b".repeat(63),
+            "c".repeat(63),
+            "d".repeat(61)
+        )));
+        assert!(!hostname(&"a".repeat(253)));
         for bad in [
             "",
             &"a".repeat(254),

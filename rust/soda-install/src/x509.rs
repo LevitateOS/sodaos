@@ -1497,9 +1497,9 @@ fn pss_algorithm(params: &[u8]) -> SignatureAlgorithm {
         Some(v) => v,
         None => return SignatureAlgorithm::Unknown,
     };
-    let mgf_hash = match parse_ai(mgf_ai.params) {
-        Ok(ai) => ai,
-        Err(_) => return SignatureAlgorithm::Unknown,
+    let mgf_hash = match parse_inner_ai(mgf_ai.params) {
+        Some(ai) => ai,
+        None => return SignatureAlgorithm::Unknown,
     };
     let null_or_absent = |params: &[u8]| params.is_empty() || params == NULL_BYTES;
     if !null_or_absent(hash_ai.params)
@@ -2479,11 +2479,11 @@ mod tests {
         // Malformed notBefore (UTCTime too short).
         let mut parts = std_parts();
         parts[3] = seq(&concat(&[utctime("70010100000Z"), utctime("700102000000Z")]));
-        assert_eq!(mutant(&parts), "x509: malformed notBefore");
+        assert_eq!(mutant(&parts), "x509: malformed UTCTime");
         // Malformed notAfter (bad zone).
         let mut parts = std_parts();
         parts[3] = seq(&concat(&[utctime("700101000000Z"), utctime("700102000000X")]));
-        assert_eq!(mutant(&parts), "x509: malformed notAfter");
+        assert_eq!(mutant(&parts), "x509: malformed UTCTime");
 
         // Subject uses the issuer's error text (Go quirk).
         let mut parts = std_parts();
@@ -3024,7 +3024,7 @@ mod tests {
                 &ai_element(OID_SHA256_RSA, Some(&null())),
                 &[1]
             ))),
-            "x509: malformed notBefore"
+            "x509: malformed UTCTime"
         );
         // Hour 24.
         parts[3] = seq(&concat(&[utctime("700101240000Z"), utctime("700102000000Z")]));
@@ -3034,7 +3034,7 @@ mod tests {
                 &ai_element(OID_SHA256_RSA, Some(&null())),
                 &[1]
             ))),
-            "x509: malformed notBefore"
+            "x509: malformed UTCTime"
         );
         // GeneralizedTime wrong length.
         parts[3] = seq(&concat(&[gentime("1970010100000Z"), utctime("700102000000Z")]));
@@ -3044,7 +3044,7 @@ mod tests {
                 &ai_element(OID_SHA256_RSA, Some(&null())),
                 &[1]
             ))),
-            "x509: malformed notBefore"
+            "x509: malformed GeneralizedTime"
         );
         // Non-UTCTime/GeneralizedTime tag.
         parts[3] = seq(&concat(&[octet(b"700101000000Z"), utctime("700102000000Z")]));
@@ -3054,7 +3054,7 @@ mod tests {
                 &ai_element(OID_SHA256_RSA, Some(&null())),
                 &[1]
             ))),
-            "x509: malformed notBefore"
+            "x509: unsupported time format"
         );
     }
 
@@ -3067,8 +3067,10 @@ mod tests {
         assert!(!parse_rfc2821_mailbox(b""));
         assert!(!parse_rfc2821_mailbox(b"a"));
         assert!(!parse_rfc2821_mailbox(b"@b"));
-        assert!(!parse_rfc2821_mailbox(b"a@"));
-        assert!(!parse_rfc2821_mailbox(b"a@b@c"));
+        // Go quirk: an empty domain passes domainToReverseLabels, so "a@" is valid.
+        assert!(parse_rfc2821_mailbox(b"a@"));
+        // Go quirk: '@' (64) is a legal domain char, so "a@b@c" is valid.
+        assert!(parse_rfc2821_mailbox(b"a@b@c"));
         assert!(!parse_rfc2821_mailbox(b"\"a@c"));
         assert!(!parse_rfc2821_mailbox(b"\"a\"b@c"));
         assert!(!parse_rfc2821_mailbox(b".a@b"));
@@ -3448,7 +3450,7 @@ mod tests {
             true,
             &seq(&boolean(true)),
         )]);
-        parts[1] = ai.clone();
+        parts[2] = ai.clone();
         parts[6] = spki;
         let tbs = seq(&concat(&parts));
         let sig = signing.sign(&tbs);
@@ -3466,7 +3468,7 @@ mod tests {
             true,
             &seq(&boolean(true)),
         )]);
-        parts[1] = ai_element(OID_ED25519, None);
+        parts[2] = ai_element(OID_ED25519, None);
         parts[6] = spki_with_key(
             &ai_element(OID_ED25519, None),
             verifying.as_bytes(),

@@ -207,13 +207,13 @@ mod tests {
     #[test]
     fn run_refuses_non_root_usage() {
         let (ctx, _flag) = Ctx::test();
-        let run = crate::command::FnRunner::new(|_, _, _, _| Ok(Vec::new()));
+        let runner = crate::command::FnRunner::new(|_, _, _, _| Ok(Vec::new()));
         // Effective UID decides; the assertion only pins the usage text for
         // the invalid-action path when root.
         if unsafe { libc::geteuid() } == 0 {
-            assert_eq!(run(&ctx, &run, "bogus").unwrap_err().to_string(), "usage: soda-install disk|configure|enroll-key");
+            assert_eq!(run(&ctx, &runner, "bogus").unwrap_err().to_string(), "usage: soda-install disk|configure|enroll-key");
         } else {
-            assert_eq!(run(&ctx, &run, "bogus").unwrap_err().to_string(), "native CoreOS root required");
+            assert_eq!(run(&ctx, &runner, "bogus").unwrap_err().to_string(), "native CoreOS root required");
         }
     }
 }
