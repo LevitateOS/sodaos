@@ -221,10 +221,12 @@ impl OwnedDir {
         })
     }
 
-    /// `mkdirat` one component beneath this root with exact mode bits.
+    /// `mkdirat` beneath this root with exact mode bits, traversing
+    /// intermediate components like Go's `Root.Mkdir` on nested names.
     pub fn mkdir_at(&self, name: &str, mode: u32) -> Result<(), Error> {
-        let raw = OwnedDir::single_component(name)?;
-        let rc = unsafe { libc::mkdirat(self.fd.as_raw_fd(), raw.as_ptr(), mode) };
+        let (parent, base) = OwnedDir::split_parent(name)?;
+        let dir = self.traverse(parent)?;
+        let rc = unsafe { libc::mkdirat(dir.as_raw_fd(), base.as_ptr(), mode) };
         if rc != 0 {
             return Err(Error::from(std::io::Error::last_os_error()));
         }
@@ -433,8 +435,10 @@ pub fn private_destination(path: &str) -> Result<(), Error> {
     }
     let parent = Path::new(path).parent().unwrap_or(Path::new("/"));
     let parent_text = parent.to_string_lossy();
-    let resolved = std::fs::canonicalize(parent).map_err(|_| Error::msg("real private output parent required"))?;
-    let meta = std::fs::metadata(parent).map_err(|_| Error::msg("real private output parent required"))?;
+    // Like Go, resolution and stat failures propagate raw; only the
+    // shape violations below carry the fixed message.
+    let resolved = std::fs::canonicalize(parent)?;
+    let meta = std::fs::metadata(parent)?;
     if resolved.to_string_lossy() != parent_text || meta.mode() & 0o077 != 0 {
         return Err(Error::msg("real private output parent required"));
     }

@@ -98,6 +98,9 @@ impl SnapshotFailure {
         match error.kind() {
             ErrorKind::NotFound => SnapshotFailure::bare(SnapshotKind::FileNotFoundError),
             ErrorKind::PermissionDenied => SnapshotFailure::bare(SnapshotKind::PermissionError),
+            // `read_to_string` is the only `InvalidData` source here, like
+            // the owner's strict `read_text`/`decode` calls.
+            ErrorKind::InvalidData => SnapshotFailure::bare(SnapshotKind::UnicodeDecodeError),
             _ => SnapshotFailure::bare(SnapshotKind::OSError),
         }
     }
@@ -386,9 +389,10 @@ pub fn dumps_sorted(value: &JsonValue) -> String {
 fn list_files(dir: &Path) -> Result<Vec<PathBuf>, SnapshotFailure> {
     let mut files = Vec::new();
     for entry in std::fs::read_dir(dir).map_err(SnapshotFailure::io)? {
-        let entry = entry.map_err(SnapshotFailure::io)?;
-        if entry.file_type().map_err(SnapshotFailure::io)?.is_file() {
-            files.push(entry.path());
+        let path = entry.map_err(SnapshotFailure::io)?.path();
+        // `Path.is_file` follows symlinks, like the owner.
+        if path.is_file() {
+            files.push(path);
         }
     }
     files.sort();
@@ -422,18 +426,23 @@ fn walk_sorted(root: &Path) -> Result<Vec<PathBuf>, SnapshotFailure> {
     Ok(found)
 }
 
-fn glob_prefix(dir: &Path, prefix: &str) -> Vec<PathBuf> {
+fn glob_prefix(dir: &Path, prefix: &str) -> Result<Vec<PathBuf>, SnapshotFailure> {
     let mut hits = Vec::new();
-    let Ok(read) = std::fs::read_dir(dir) else {
-        return hits;
+    // A missing directory yields no matches, like `Path.glob`; other
+    // read failures propagate like the owner's `OSError`.
+    let read = match std::fs::read_dir(dir) {
+        Ok(read) => read,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(hits),
+        Err(error) => return Err(SnapshotFailure::io(error)),
     };
-    for entry in read.flatten() {
+    for entry in read {
+        let entry = entry.map_err(SnapshotFailure::io)?;
         if entry.file_name().as_bytes().starts_with(prefix.as_bytes()) {
             hits.push(entry.path());
         }
     }
     hits.sort();
-    hits
+    Ok(hits)
 }
 
 fn arg_list(args: &[&str]) -> Vec<String> {
@@ -448,24 +457,22 @@ pub fn check_snapshot_gate(euid: u32, containerenv: &Path) -> Result<(), Snapsho
     Ok(())
 }
 
-fn in_project_net(ip: &str) -> bool {
-    let parts: Vec<&str> = ip.split('.').collect();
-    if parts.len() != 4 {
-        return false;
-    }
-    let mut octets = [0u8; 4];
-    for (index, part) in parts.iter().enumerate() {
-        if part.is_empty() || part.len() > 3 || (part.len() > 1 && part.starts_with('0')) {
-            return false;
+/// Project IP gate, like `assert ip_address(ip) in ip_network('10.89.0.0/24')`:
+/// unparseable input is a `ValueError`, parsed-but-outside (v4 or v6) fails
+/// the bare membership assert.
+fn check_project_ip(ip: &str) -> Result<(), SnapshotFailure> {
+    match ip.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(v4)) => {
+            let octets = v4.octets();
+            if octets[0] == 10 && octets[1] == 89 && octets[2] == 0 {
+                Ok(())
+            } else {
+                Err(SnapshotFailure::assertion(""))
+            }
         }
-        match part.parse::<u16>() {
-            Ok(value) if value < 256 => octets[index] = value as u8,
-            _ => return false,
-        }
+        Ok(_) => Err(SnapshotFailure::assertion("")),
+        Err(_) => Err(SnapshotFailure::bare(SnapshotKind::ValueError)),
     }
-    // Strictly inside 10.89.0.0/24, like the Python owner's
-    // `ipaddress` membership check.
-    octets[0] == 10 && octets[1] == 89 && octets[2] == 0
 }
 
 /// Collect the full snapshot document, like the Python owner's `main`.
@@ -556,7 +563,7 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
                 set(sub_mut(&mut data, "files"), &target.to_string_lossy(), Entry::snapshot(&target, false)?.json());
             }
         }
-        for probe in glob_prefix(&home, "u08-access-") {
+        for probe in glob_prefix(&home, "u08-access-")? {
             let file_type = std::fs::symlink_metadata(&probe).map_err(SnapshotFailure::io)?.file_type();
             if !file_type.is_dir() || file_type.is_symlink() {
                 return Err(SnapshotFailure::assertion(""));
@@ -569,7 +576,7 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
 
     let shared = Path::new("/srv/project/shared");
     paths.push(shared.to_string_lossy().into_owned());
-    for probe in glob_prefix(shared, "u08-shared-") {
+    for probe in glob_prefix(shared, "u08-shared-")? {
         paths.push(probe.to_string_lossy().into_owned());
         paths.push(probe.join("members").to_string_lossy().into_owned());
     }
@@ -625,14 +632,8 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
             return Err(SnapshotFailure::assertion("No running database; restore existing workload before snapshot"));
         }
         let ip = std::env::var("SODA_PROJECT_IP").map_err(|_| SnapshotFailure::bare(SnapshotKind::KeyError))?;
-        if !in_project_net(&ip) {
-            // Malformed or out-of-range project IP.
-            if ip.split('.').count() != 4 {
-                return Err(SnapshotFailure::bare(SnapshotKind::ValueError));
-            }
-            return Err(SnapshotFailure::assertion(""));
-        }
-        let mut passfiles = glob_prefix(Path::new("/home/u08-alice-8417/.config"), "u08-db-client-")
+        check_project_ip(&ip)?;
+        let mut passfiles = glob_prefix(Path::new("/home/u08-alice-8417/.config"), "u08-db-client-")?
             .into_iter()
             .map(|dir| dir.join("pgpass"))
             .filter(|path| path.exists())
@@ -763,10 +764,23 @@ mod tests {
 
     #[test]
     fn project_network_check_is_strict() {
-        assert!(in_project_net("10.89.0.7"));
-        assert!(!in_project_net("10.89.1.7"));
-        assert!(!in_project_net("not-an-ip"));
-        assert!(!in_project_net("10.89.0.256"));
-        assert!(!in_project_net("10.89.0.07"));
+        assert!(check_project_ip("10.89.0.7").is_ok());
+        assert_eq!(
+            check_project_ip("10.89.1.7").unwrap_err().kind,
+            SnapshotKind::AssertionError
+        );
+        assert_eq!(
+            check_project_ip("not-an-ip").unwrap_err().kind,
+            SnapshotKind::ValueError
+        );
+        assert_eq!(
+            check_project_ip("10.89.0.256").unwrap_err().kind,
+            SnapshotKind::ValueError
+        );
+        assert_eq!(
+            check_project_ip("10.89.0.07").unwrap_err().kind,
+            SnapshotKind::ValueError
+        );
+        assert_eq!(check_project_ip("::1").unwrap_err().kind, SnapshotKind::AssertionError);
     }
 }

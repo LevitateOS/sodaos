@@ -693,6 +693,15 @@ mod tests {
     }
 
     #[test]
+    fn nested_names_create_parents() {
+        let fixture = Fixture::new(&[]);
+        let e = &fixture.evidence;
+        e.write("sub/dir/entry", b"nested").unwrap();
+        let raw = std::fs::read(format!("{}/sub/dir/entry", e.path())).unwrap();
+        assert_eq!(raw, b"nested");
+    }
+
+    #[test]
     fn redacted_error_retains_identity() {
         let fixture = Fixture::new(&["synthetic-password"]);
         let e = &fixture.evidence;
