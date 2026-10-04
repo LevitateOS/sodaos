@@ -3,7 +3,7 @@
 //
 // The installer ISO is only the boot menu; the guest fetches the hash-named
 // rootfs image over HTTP after the builder exits. These checks read the real
-// setup script and the staged systemd unit against this package's served
+// setup source and the staged systemd unit against this package's served
 // directory: the three must agree on one directory that holds only rootfs
 // images, served without listings, QCOW2, ISO, traversal, subpaths,
 // symlinks, or non-GET/HEAD methods. No services, units, or host paths are
@@ -42,13 +42,13 @@ func repoPath(t *testing.T, elems ...string) string {
 
 func setupRootfsDir(t *testing.T, text string) string {
 	t.Helper()
-	match := regexp.MustCompile(`(?m)^ROOTFS_DIR="([^"]+)"`).FindStringSubmatch(text)
-	require.Len(t, match, 2, "setup script names no ROOTFS_DIR")
+	match := regexp.MustCompile(`(?m)^const ROOTFS_DIR: &str = "([^"]+)";`).FindStringSubmatch(text)
+	require.Len(t, match, 2, "setup source names no ROOTFS_DIR")
 	return match[1]
 }
 
 func TestSetupAndServerConvergeOnOneHomeDirectory(t *testing.T) {
-	setup, err := os.ReadFile(repoPath(t, "scripts", "setup-soda-candidate.sh"))
+	setup, err := os.ReadFile(repoPath(t, "rust", "soda-candidate-setup", "src", "main.rs"))
 	require.NoError(t, err)
 	served := rootDir
 	require.Equal(t, served, setupRootfsDir(t, string(setup)),

@@ -7,7 +7,7 @@
 // 404/501.
 //
 // Single source for soda-rootfs-server.service: the unit runs the installed
-// binary built from this package, and scripts/setup-soda-candidate.sh
+// binary built from this package, and soda-candidate-setup
 // creates the served directory below. There is no second copy; behavior
 // checks live in main_test.go.
 package main
@@ -34,7 +34,7 @@ const (
 )
 
 // rootDir holds only *-rootfs.img files on the roomy disk. Setup
-// (scripts/setup-soda-candidate.sh) creates it; tests repoint it.
+// (soda-candidate-setup) creates it; tests repoint it.
 var rootDir = "/home/soda-rootfs"
 
 var allowName = regexp.MustCompile(`^[0-9a-f]{64}-rootfs\.img$`)

@@ -1,0 +1,11 @@
+[package]
+name = "soda-image-import"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "soda-image-import"
+path = "src/main.rs"
+
+[dependencies]
+soda-json = { path = "../soda-json" }
