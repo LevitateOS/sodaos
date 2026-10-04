@@ -322,7 +322,8 @@ cat <<EOF
     --out $OUTPUT_PARENT/manual-01 --development --target candidate \\
     --forgejo-source $FORGEJO_SOURCE
 -- installer rootfs pickup: $ROOTFS_DIR (served by soda-rootfs-server.service)
-  media builds file their hash-named rootfs here: pass --rootfs-dir $ROOTFS_DIR
+  after a media build, copy its hash-named rootfs here:
+  sudo cp <out>/artifacts/media/*-rootfs.img $ROOTFS_DIR/ && sudo chown root:root $ROOTFS_DIR/*-rootfs.img && sudo chmod 0644 $ROOTFS_DIR/*-rootfs.img
 EOF
 if [ -n "$ROOTFS_URL" ]; then
   printf '%s\n' "-- guests fetch the filed rootfs from: $ROOTFS_URL"
