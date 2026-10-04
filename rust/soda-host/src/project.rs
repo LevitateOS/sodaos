@@ -161,7 +161,12 @@ pub struct Runtime<E> {
 }
 
 impl<E: Executor> Runtime<E> {
-    fn podman(&self, stdin: &[u8], args: &[&str], deadline: Instant) -> Result<Vec<u8>, String> {
+    pub(crate) fn podman(
+        &self,
+        stdin: &[u8],
+        args: &[&str],
+        deadline: Instant,
+    ) -> Result<Vec<u8>, String> {
         self.exec.run(stdin, "/usr/bin/podman", args, deadline)
     }
 
@@ -636,10 +641,13 @@ impl<E: Executor> Runtime<E> {
             Ok(data) if data.len() <= 16384 => data,
             _ => return Err("public host key unavailable".to_string()),
         };
-        let blob =
+        let (key, _) =
             ssh::parse_authorized_key(&data).map_err(|_| "invalid public host key".to_string())?;
-        result.host_key = ssh::marshal_authorized_key(&blob);
-        result.fingerprint = ssh::fingerprint_sha256(&blob);
+        if key.key_type != ssh::ALGO_ED25519 {
+            return Err("invalid public host key".to_string());
+        }
+        result.host_key = ssh::marshal_authorized_key(&key.key_type, &key.blob);
+        result.fingerprint = ssh::fingerprint_sha256(&key.blob);
         Ok(result)
     }
 }
@@ -1328,7 +1336,7 @@ mod tests {
         blob.extend_from_slice(b"ssh-ed25519");
         blob.extend_from_slice(&[0, 0, 0, 32]);
         blob.extend_from_slice(&[0x77; 32]);
-        let line = ssh::marshal_authorized_key(&blob);
+        let line = ssh::marshal_authorized_key(ssh::ALGO_ED25519, &blob);
         let mock = Mock::new(vec![
             Ok(container_inspect(&id, "42", Some(&p), true, "10.0.0.5")),
             Ok(line.clone().into_bytes()),
