@@ -85,6 +85,9 @@ justify keeping obsolete implementations alive.
   Documentation authority rules live in [docs/README.md](docs/README.md#authority-rules):
   one canonical owner per subject; product docs are not status trackers; completed
   plans are absorbed and deleted; research is non-normative.
+- After every merge, refresh the [living ideal file tree plan](docs/development/ideal-filetree-plan.md#keeping-the-plan-current-after-every-merge)
+  against the resulting source before considering the merge task complete. Follow
+  its maintenance workflow; implementation remains deferred until time is available.
 - Report changes, checks actually run and remaining limitations concisely. Prefer
   issues, milestones and Git history for transient status. Detailed receipts belong
   in history, not additional durable docs.
