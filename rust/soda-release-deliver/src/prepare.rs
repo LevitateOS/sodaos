@@ -252,3 +252,45 @@ pub(crate) fn immutable_tag(reference: &str) -> String {
         digest.trim_start_matches("sha256:")
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn document_references_and_tags() {
+        let trust = Trust {
+            prefix: "ghcr.io/example/sodaos".to_string(),
+            ..Trust::default()
+        };
+        let digest = format!("sha256:{}", "a".repeat(64));
+        assert_eq!(
+            reference_for_document(&trust, "release", &digest).unwrap(),
+            format!("ghcr.io/example/sodaos-release@{digest}")
+        );
+        assert_eq!(
+            reference_for_document(&trust, "stable", &digest).unwrap(),
+            format!("ghcr.io/example/sodaos-channel-stable@{digest}")
+        );
+        assert!(reference_for_document(&trust, "bogus", &digest).is_err());
+        assert!(reference_for_document(&trust, "release", "nope").is_err());
+        assert_eq!(
+            immutable_tag(&format!("repo@{}", digest)),
+            format!("repo:sha256-{}", "a".repeat(64))
+        );
+    }
+
+    #[test]
+    fn prepare_refuses_bad_trust_first() {
+        let trust = Trust::default();
+        let err = prepare(
+            &trust,
+            "/nonexistent",
+            "/nonexistent-media",
+            &Qualification::default(),
+            "/tmp/srd-nope",
+        )
+        .unwrap_err();
+        assert_eq!(err, Error::refused());
+    }
+}

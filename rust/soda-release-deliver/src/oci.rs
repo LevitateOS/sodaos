@@ -63,7 +63,7 @@ struct LayerMember {
 // Small decoders (encoding/json semantics: lenient, last-wins)
 // ---------------------------------------------------------------------------
 
-fn decode_descriptor(value: &JsonValue) -> Result<Descriptor, ()> {
+fn decode_descriptor(value: &JsonValue) -> Result<Descriptor, crate::jsonx::DecodeError> {
     let soft = Soft::new(value)?;
     let mut descriptor = Descriptor {
         digest: soft.string("digest")?.unwrap_or_default(),
@@ -76,7 +76,7 @@ fn decode_descriptor(value: &JsonValue) -> Result<Descriptor, ()> {
         for item in items {
             match item {
                 JsonValue::Str(s) => descriptor.urls.push(s.clone()),
-                _ => return Err(()),
+                _ => return Err(crate::jsonx::DecodeError),
             }
         }
     }
@@ -86,7 +86,7 @@ fn decode_descriptor(value: &JsonValue) -> Result<Descriptor, ()> {
                 JsonValue::Str(s) => {
                     descriptor.annotations.insert(key.clone(), s.clone());
                 }
-                _ => return Err(()),
+                _ => return Err(crate::jsonx::DecodeError),
             }
         }
     }
@@ -1044,4 +1044,40 @@ fn inspect_layout_images(
         images.insert(reference, image);
     }
     Ok(images)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn member_path_rules() {
+        // Path validation runs before archive opening.
+        let err = inspect_oci_content("/nonexistent.oci", "x86_64", "", &[])
+            .unwrap_err();
+        assert_eq!(err, Error::msg("explicit OCI members required"));
+        let err = inspect_oci_content(
+            "/nonexistent.oci",
+            "x86_64",
+            "",
+            &["relative".to_string()],
+        )
+        .unwrap_err();
+        assert_eq!(err, Error::msg("absolute clean OCI member paths required"));
+        let err = inspect_oci("/nonexistent.oci", "aarch64", "").unwrap_err();
+        assert_eq!(err, Error::msg("expected x86_64"));
+        let err = inspect_oci("/nonexistent.oci", "x86_64", "short").unwrap_err();
+        assert_eq!(err, Error::msg("full source revision required"));
+    }
+
+    #[test]
+    fn non_archive_refused() {
+        let dir = std::env::temp_dir().join(format!("srd-oci-unit-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("junk.oci").to_string_lossy().into_owned();
+        std::fs::write(&path, b"definitely not a tar archive ....................").unwrap();
+        let err = inspect_oci(&path, "x86_64", "").unwrap_err();
+        assert!(err.0.contains("read OCI archive"), "{}", err.0);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

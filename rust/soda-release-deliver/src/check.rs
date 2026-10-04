@@ -27,3 +27,13 @@ pub fn check_candidate(
     verify_candidate_images(&root, candidate, &p, &c)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_candidate_dir_errors() {
+        assert!(check_candidate("/nonexistent-candidate-xyz", "x86_64", "r", "f").is_err());
+    }
+}

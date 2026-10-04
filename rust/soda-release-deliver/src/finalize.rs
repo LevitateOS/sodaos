@@ -279,3 +279,38 @@ pub fn finalize(
     write_final_receipt(out, &reference, &digest, published)?;
     Ok(reference)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::jsonx::{marshal, parse_strict};
+
+    #[test]
+    fn config_round_trip_and_admission() {
+        let config = Config {
+            trust: "/t/trust.json".to_string(),
+            signer: "/t/signer.json".to_string(),
+            serial: 9,
+            class: "emergency".to_string(),
+            notes: "n".to_string(),
+            ..Config::default()
+        };
+        let bytes = marshal(&config);
+        let value = parse_strict(&bytes).unwrap();
+        assert_eq!(Config::decode(&value).unwrap(), config);
+        // Partial publication inputs refuse (after trust/signer admission).
+        let mut partial = config.clone();
+        partial.auth_file = "/t/auth".to_string();
+        // trust path does not exist, so admission fails there first.
+        assert_eq!(
+            admit_config(&partial).unwrap_err(),
+            Error::msg("public release trust configuration required")
+        );
+        if unsafe { libc::geteuid() } != 0 {
+            assert_eq!(
+                load_config("/nonexistent").unwrap_err(),
+                Error::msg("protected finalization admission required")
+            );
+        }
+    }
+}

@@ -461,3 +461,52 @@ pub fn publish(
     }
     finalize_publication(r, t, p, &role, &reference, ledger_path, out, &ledger)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn trust() -> Trust {
+        Trust {
+            prefix: "ghcr.io/example/sodaos".to_string(),
+            ..Trust::default()
+        }
+    }
+
+    #[test]
+    fn ledger_phases() {
+        let trust = trust();
+        let idle = Ledger {
+            format: 1,
+            repository: format!("{}-release", trust.prefix),
+            phase: "idle".to_string(),
+            state: empty_state(),
+            ..Ledger::default()
+        };
+        assert!(idle.validate(&trust).is_ok());
+        let mut pending = idle.clone();
+        pending.phase = "pending".to_string();
+        pending.digest = format!("sha256:{}", "a".repeat(64));
+        assert!(pending.validate(&trust).is_ok());
+        let mut bad = idle.clone();
+        bad.phase = "bogus".to_string();
+        assert_eq!(bad.validate(&trust).unwrap_err(), Error::refused());
+        let mut wrong_repo = idle.clone();
+        wrong_repo.repository = "ghcr.io/other/x".to_string();
+        assert_eq!(wrong_repo.validate(&trust).unwrap_err(), Error::refused());
+    }
+
+    #[test]
+    fn channel_history_rules() {
+        let empty = Seen::default();
+        assert!(validate_channel_history(&empty, "absent").is_ok());
+        assert!(validate_channel_history(&empty, &format!("sha256:{}", "a".repeat(64))).is_err());
+        let seen = Seen {
+            sequence: 2,
+            digest: format!("sha256:{}", "b".repeat(64)),
+            issued: 10,
+        };
+        assert!(validate_channel_history(&seen, &format!("sha256:{}", "b".repeat(64))).is_ok());
+        assert!(validate_channel_history(&seen, "absent").is_err());
+    }
+}

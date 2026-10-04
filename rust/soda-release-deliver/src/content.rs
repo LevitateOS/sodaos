@@ -50,3 +50,15 @@ pub fn verify_content(
     match_layout_identities(p, &layout)?;
     Ok((layout.files, layout.bytes))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn content_path_rules() {
+        let payload = Payload::default();
+        // Payload validation runs before the path check.
+        assert!(verify_content(&payload, "/abs").is_err());
+    }
+}

@@ -533,10 +533,10 @@ pub fn unknown_field(name: &str) -> String {
     format!("json: unknown field \"{name}\"")
 }
 
-pub fn decode_bytes_value(value: &JsonValue) -> Result<Vec<u8>, ()> {
+pub fn decode_bytes_value(value: &JsonValue) -> Result<Vec<u8>, crate::jsonx::DecodeError> {
     match value {
         JsonValue::Str(s) => base64_decode(s),
-        _ => Err(()),
+        _ => Err(crate::jsonx::DecodeError),
     }
 }
 

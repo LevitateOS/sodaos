@@ -34,24 +34,52 @@ fn put_document_blob(blobs: &str, data: &[u8], media: &str) -> Result<Descriptor
     })
 }
 
+fn write_octal(field: &mut [u8], value: u64) {
+    // Go USTAR numeric: octal digits, NUL-terminated (mode 8, size/mtime 12,
+    // devmajor/devminor 8 bytes wide).
+    let width = field.len();
+    let digits = format!("{value:o}");
+    let start = width - 1 - digits.len();
+    for (i, b) in digits.bytes().enumerate() {
+        field[start + i] = b;
+    }
+    for slot in field.iter_mut().take(start) {
+        *slot = b'0';
+    }
+    field[width - 1] = 0;
+}
+
 fn document_layer(data: &[u8]) -> Result<Vec<u8>, Error> {
-    let mut header = tar::Header::new_ustar();
-    header.set_entry_type(tar::EntryType::Regular);
-    header.set_mode(0o444);
-    header.set_size(data.len() as u64);
-    header.set_mtime(0);
-    header.set_uid(0);
-    header.set_gid(0);
-    header
-        .set_cksum()
-        ;
-    let mut builder = tar::Builder::new(Vec::new());
-    builder
-        .append_data(&mut header, "record.json", data)
-        .map_err(|e| Error::msg(format!("write document layer: {e}")))?;
-    builder
-        .into_inner()
-        .map_err(|e| Error::msg(format!("write document layer: {e}")))
+    // Hand-rolled USTAR header matching Go's archive/tar writer byte for
+    // byte: {Name: record.json, Mode: 0444, Size, Typeflag: '0'}, all other
+    // fields zero.
+    let mut header = [0u8; 512];
+    header[..11].copy_from_slice(b"record.json");
+    write_octal(&mut header[100..108], 0o444);
+    write_octal(&mut header[108..116], 0);
+    write_octal(&mut header[116..124], 0);
+    write_octal(&mut header[124..136], data.len() as u64);
+    write_octal(&mut header[136..148], 0);
+    header[156] = b'0';
+    // linkname 157..257 stays zero; magic follows at 257.
+    header[257..263].copy_from_slice(b"ustar\0");
+    header[263..265].copy_from_slice(b"00");
+    write_octal(&mut header[329..337], 0);
+    write_octal(&mut header[337..345], 0);
+    let mut sum: u64 = 0;
+    for (i, b) in header.iter().enumerate() {
+        sum += if (148..156).contains(&i) { b' ' as u64 } else { *b as u64 };
+    }
+    let digits = format!("{sum:06o}");
+    header[148..154].copy_from_slice(digits.as_bytes());
+    header[154] = 0;
+    header[155] = b' ';
+    let mut layer = Vec::with_capacity(512 + data.len().next_multiple_of(512) + 1024);
+    layer.extend_from_slice(&header);
+    layer.extend_from_slice(data);
+    layer.resize(512 + data.len().next_multiple_of(512), 0);
+    layer.extend_from_slice(&[0u8; 1024]);
+    Ok(layer)
 }
 
 fn write_document_index(path: &str, md: &Descriptor) -> Result<(), Error> {
@@ -78,7 +106,7 @@ fn write_document_blobs(path: &str, data: &[u8]) -> Result<String, Error> {
     let layer = document_layer(data)?;
     let layer_desc = put_document_blob(&blobs, &layer, LAYER_TYPE)?;
     let config = format!(
-        "{{\"architecture\":\"unknown\",\"os\":\"unknown\",\"rootfs\":{{\"type\":\"layers\",\"diff_ids\":[\"{}\"]}}}}",
+        "{{\"architecture\":\"unknown\",\"os\":\"unknown\",\"rootfs\":{{\"diff_ids\":[\"{}\"],\"type\":\"layers\"}}}}",
         layer_desc.digest
     );
     let config_desc = put_document_blob(
@@ -262,4 +290,52 @@ pub fn read_document<T>(
     let record = read_document_record(&data)?;
     let value = parse_strict(&record)?;
     decode(&value).map_err(|_| Error::refused())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Channel;
+
+    fn temp_dir(prefix: &str) -> String {
+        let dir = std::env::temp_dir().join(format!(
+            "{prefix}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn document_round_trip_and_bounds() {
+        let dir = temp_dir("srd-doc-unit");
+        let channel = Channel {
+            format: 1,
+            name: "candidate".to_string(),
+            sequence: 3,
+            issued: 100,
+            expires: 200,
+            releases: [("x86_64".to_string(), "r".to_string())].into_iter().collect(),
+            ..Channel::default()
+        };
+        let out = format!("{dir}/doc");
+        let digest = write_document(&out, &channel).unwrap();
+        assert!(digest.starts_with("sha256:"));
+        // Oversize records refuse before any write.
+        let big = "x".repeat(1 << 20);
+        assert_eq!(
+            write_document(&format!("{dir}/big"), &big).unwrap_err(),
+            Error::refused()
+        );
+        // Oversize reads refuse.
+        let root = Root::open(&dir).unwrap();
+        assert_eq!(
+            read_at(&root, "doc", 8).unwrap_err(),
+            Error::refused()
+        );
+    }
 }

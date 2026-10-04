@@ -293,3 +293,68 @@ pub fn admit_qualification(
         evidence: evidence_map,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn release_identity_rules() {
+        let good = Config {
+            serial: 1,
+            class: "normal".to_string(),
+            notes: "n".to_string(),
+            ..Config::default()
+        };
+        assert!(admit_release_identity(&good).is_ok());
+        let bad = Config::default();
+        assert_eq!(
+            admit_release_identity(&bad).unwrap_err(),
+            Error::msg("exact release serial, class and notes required")
+        );
+        let mut bad_class = good.clone();
+        bad_class.class = "bogus".to_string();
+        assert!(admit_release_identity(&bad_class).is_err());
+    }
+
+    #[test]
+    fn evidence_shape_and_checks() {
+        let mut evidence = QualificationEvidence {
+            format: 1,
+            outcome: "passed".to_string(),
+            scope: QUALIFICATION_SCOPE.to_string(),
+            ..QualificationEvidence::default()
+        };
+        assert!(admit_evidence_shape(&evidence).is_ok());
+        evidence.fixture = true;
+        assert_eq!(
+            admit_evidence_shape(&evidence).unwrap_err(),
+            Error::msg("fixture evidence is explicitly non-qualifying")
+        );
+        evidence.fixture = false;
+        evidence.outcome = "failed".to_string();
+        assert!(admit_evidence_shape(&evidence).is_err());
+        evidence.outcome = "passed".to_string();
+        assert_eq!(
+            admit_evidence_checks(&evidence).unwrap_err(),
+            Error::msg("qualification evidence check set is incomplete")
+        );
+        for name in ["install", "upgrade", "recovery", "preservation"] {
+            evidence.checks.push(EvidenceCheck {
+                name: name.to_string(),
+                outcome: "passed".to_string(),
+                detail: String::new(),
+            });
+        }
+        assert!(admit_evidence_checks(&evidence).is_ok());
+        evidence.checks.push(EvidenceCheck {
+            name: "extra".to_string(),
+            outcome: "passed".to_string(),
+            detail: String::new(),
+        });
+        assert_eq!(
+            admit_evidence_checks(&evidence).unwrap_err(),
+            Error::msg("qualification evidence names an unexpected check")
+        );
+    }
+}

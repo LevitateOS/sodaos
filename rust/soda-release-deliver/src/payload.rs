@@ -70,7 +70,9 @@ pub struct Payload {
     pub presentation_sha256: String,
     pub host_packages_sha256: String,
     pub images: BTreeMap<String, Image>,
-    pub upgrade_from: Vec<String>,
+    // `nil` vs empty is observable in JSON (`null` vs `[]`); Go leaves this
+    // unset, so `None` marshals as `null` exactly like the owner.
+    pub upgrade_from: Option<Vec<String>>,
 }
 
 fn is_core_os_version(s: &str) -> bool {
@@ -155,7 +157,7 @@ impl Payload {
             return Err(Error::msg("incomplete appliance payload"));
         }
         self.valid_images()?;
-        if !self.upgrade_from.is_empty() {
+        if matches!(&self.upgrade_from, Some(entries) if !entries.is_empty()) {
             return Err(Error::msg("candidate has no qualified upgrade paths"));
         }
         Ok(())
@@ -175,7 +177,7 @@ impl Payload {
             presentation_sha256: decode_opt_string(&mut b, "PresentationSHA256")?,
             host_packages_sha256: decode_opt_string(&mut b, "HostPackagesSHA256")?,
             images: BTreeMap::new(),
-            upgrade_from: Vec::new(),
+            upgrade_from: None,
         };
         if let Some(entries) = b
             .entries("Images")
@@ -189,12 +191,14 @@ impl Payload {
             .array("UpgradeFrom")
             .map_err(|_| "invalid field UpgradeFrom".to_string())?
         {
+            let mut entries = Vec::new();
             for item in items {
                 match item {
-                    JsonValue::Str(s) => payload.upgrade_from.push(s.clone()),
+                    JsonValue::Str(s) => entries.push(s.clone()),
                     _ => return Err("invalid field UpgradeFrom".to_string()),
                 }
             }
+            payload.upgrade_from = Some(entries);
         }
         b.finish_name()?;
         Ok(payload)
@@ -286,12 +290,17 @@ impl Emit for Payload {
         }
         e.end_object(self.images.is_empty());
         e.field(false, "UpgradeFrom");
-        e.begin_array(self.upgrade_from.is_empty());
-        for (i, entry) in self.upgrade_from.iter().enumerate() {
-            e.item(i == 0);
-            e.string(entry);
+        match &self.upgrade_from {
+            None => e.null(),
+            Some(entries) => {
+                e.begin_array(entries.is_empty());
+                for (i, entry) in entries.iter().enumerate() {
+                    e.item(i == 0);
+                    e.string(entry);
+                }
+                e.end_array(entries.is_empty());
+            }
         }
-        e.end_array(self.upgrade_from.is_empty());
         e.end_object(false);
     }
 }
@@ -352,4 +361,42 @@ pub fn load(path: &str) -> Result<Payload, Error> {
     })?;
     payload.validate()?;
     Ok(payload)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repository_prefix_shapes() {
+        assert!(valid_repository_prefix("ghcr.io/example/sodaos"));
+        assert!(valid_repository_prefix("ghcr.io/a/b"));
+        assert!(valid_repository_prefix("ghcr.io/my-org/my.repo_name-1"));
+        assert!(!valid_repository_prefix("ghcr.io/example"));
+        assert!(!valid_repository_prefix("ghcr.io//sodaos"));
+        assert!(!valid_repository_prefix("quay.io/example/sodaos"));
+        assert!(!valid_repository_prefix("ghcr.io/Example/sodaos"));
+        assert!(!valid_repository_prefix("ghcr.io/example/sodaos/extra"));
+        assert!(!valid_repository_prefix(&format!("ghcr.io/e/{}", "s".repeat(200))));
+    }
+
+    #[test]
+    fn payload_identity_errors_match_go() {
+        let empty = Payload::default();
+        assert_eq!(
+            empty.validate().unwrap_err(),
+            Error::msg("invalid appliance payload identity")
+        );
+        let mut bad_core = Payload {
+            format: 3,
+            revision: "a".repeat(40),
+            core_os: "44.1".to_string(),
+            ..Payload::default()
+        };
+        bad_core.id = format!("{}.soda-{}", bad_core.core_os, &bad_core.revision[..12]);
+        assert_eq!(
+            bad_core.validate().unwrap_err(),
+            Error::msg("invalid appliance payload identity")
+        );
+    }
 }

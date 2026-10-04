@@ -13,6 +13,10 @@ use crate::Error;
 
 pub const MAX_STRICT_BYTES: usize = 1 << 20;
 
+/// Untyped JSON shape failure; callers map it to the owner's error text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DecodeError;
+
 /// Standard base64 (Go `encoding/base64.StdEncoding`), used for `[]byte`
 /// fields. Implemented locally so padding and alphabet stay exact.
 pub fn base64_encode(data: &[u8]) -> String {
@@ -40,18 +44,18 @@ pub fn base64_encode(data: &[u8]) -> String {
     out
 }
 
-pub fn base64_decode(text: &str) -> Result<Vec<u8>, ()> {
+pub fn base64_decode(text: &str) -> Result<Vec<u8>, DecodeError> {
     if text.len() % 4 != 0 {
-        return Err(());
+        return Err(DecodeError);
     }
-    let value = |c: u8| -> Result<u32, ()> {
+    let value = |c: u8| -> Result<u32, DecodeError> {
         match c {
             b'A'..=b'Z' => Ok((c - b'A') as u32),
             b'a'..=b'z' => Ok((c - b'a' + 26) as u32),
             b'0'..=b'9' => Ok((c - b'0' + 52) as u32),
             b'+' => Ok(62),
             b'/' => Ok(63),
-            _ => Err(()),
+            _ => Err(DecodeError),
         }
     };
     let bytes = text.as_bytes();
@@ -62,19 +66,19 @@ pub fn base64_decode(text: &str) -> Result<Vec<u8>, ()> {
         for (i, &c) in chunk.iter().enumerate() {
             if c == b'=' {
                 if i < 2 {
-                    return Err(());
+                    return Err(DecodeError);
                 }
                 pad += 1;
                 n <<= 6;
             } else {
                 if pad > 0 {
-                    return Err(());
+                    return Err(DecodeError);
                 }
                 n = (n << 6) | value(c)?;
             }
         }
         if pad > 2 {
-            return Err(());
+            return Err(DecodeError);
         }
         out.push((n >> 16) as u8);
         if pad < 2 {
@@ -86,21 +90,21 @@ pub fn base64_decode(text: &str) -> Result<Vec<u8>, ()> {
     }
     // Reject non-canonical trailing bits the way Go's decoder does.
     if base64_encode(&out) != text {
-        return Err(());
+        return Err(DecodeError);
     }
     Ok(out)
 }
 
-fn reject_duplicates(value: &JsonValue, depth: u32) -> Result<(), ()> {
+fn reject_duplicates(value: &JsonValue, depth: u32) -> Result<(), DecodeError> {
     if depth > 100 {
-        return Err(());
+        return Err(DecodeError);
     }
     match value {
         JsonValue::Object(entries) => {
             for i in 0..entries.len() {
                 for j in 0..i {
                     if entries[i].0 == entries[j].0 {
-                        return Err(());
+                        return Err(DecodeError);
                     }
                 }
                 reject_duplicates(&entries[i].1, depth + 1)?;
@@ -125,22 +129,22 @@ pub struct Binder<'a> {
 }
 
 impl<'a> Binder<'a> {
-    pub fn new(value: &'a JsonValue) -> Result<Binder<'a>, ()> {
+    pub fn new(value: &'a JsonValue) -> Result<Binder<'a>, DecodeError> {
         match value {
             JsonValue::Object(entries) => Ok(Binder {
                 entries,
                 seen: vec![false; entries.len()],
             }),
-            _ => Err(()),
+            _ => Err(DecodeError),
         }
     }
 
-    fn find(&mut self, name: &str) -> Result<Option<&'a JsonValue>, ()> {
+    fn find(&mut self, name: &str) -> Result<Option<&'a JsonValue>, DecodeError> {
         let mut found = None;
         for (i, (key, value)) in self.entries.iter().enumerate() {
             if key == name {
                 if found.is_some() {
-                    return Err(());
+                    return Err(DecodeError);
                 }
                 self.seen[i] = true;
                 found = Some(value);
@@ -149,75 +153,75 @@ impl<'a> Binder<'a> {
         Ok(found)
     }
 
-    fn optional(&mut self, name: &str) -> Result<Option<&'a JsonValue>, ()> {
+    fn optional(&mut self, name: &str) -> Result<Option<&'a JsonValue>, DecodeError> {
         match self.find(name)? {
             None | Some(JsonValue::Null) => Ok(None),
             Some(value) => Ok(Some(value)),
         }
     }
 
-    pub fn string(&mut self, name: &str) -> Result<Option<String>, ()> {
+    pub fn string(&mut self, name: &str) -> Result<Option<String>, DecodeError> {
         match self.optional(name)? {
             None => Ok(None),
             Some(JsonValue::Str(s)) => Ok(Some(s.clone())),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
-    pub fn boolean(&mut self, name: &str) -> Result<Option<bool>, ()> {
+    pub fn boolean(&mut self, name: &str) -> Result<Option<bool>, DecodeError> {
         match self.optional(name)? {
             None => Ok(None),
             Some(JsonValue::Bool(b)) => Ok(Some(*b)),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
-    pub fn integer(&mut self, name: &str) -> Result<Option<i128>, ()> {
+    pub fn integer(&mut self, name: &str) -> Result<Option<i128>, DecodeError> {
         match self.optional(name)? {
             None => Ok(None),
-            Some(v) => v.as_integer().map(Some).ok_or(()),
+            Some(v) => v.as_integer().map(Some).ok_or(DecodeError),
         }
     }
 
-    pub fn object(&mut self, name: &str) -> Result<Option<Binder<'a>>, ()> {
+    pub fn object(&mut self, name: &str) -> Result<Option<Binder<'a>>, DecodeError> {
         match self.optional(name)? {
             None => Ok(None),
             Some(v) => Ok(Some(Binder::new(v)?)),
         }
     }
 
-    pub fn array(&mut self, name: &str) -> Result<Option<&'a [JsonValue]>, ()> {
+    pub fn array(&mut self, name: &str) -> Result<Option<&'a [JsonValue]>, DecodeError> {
         match self.optional(name)? {
             None => Ok(None),
             Some(JsonValue::Array(items)) => Ok(Some(items)),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
-    pub fn bytes(&mut self, name: &str) -> Result<Option<Vec<u8>>, ()> {
+    pub fn bytes(&mut self, name: &str) -> Result<Option<Vec<u8>>, DecodeError> {
         match self.optional(name)? {
             None => Ok(None),
             Some(JsonValue::Str(s)) => Ok(Some(base64_decode(s)?)),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
     /// Raw value of a field, kept verbatim (null included).
-    pub fn raw(&mut self, name: &str) -> Result<Option<&'a JsonValue>, ()> {
+    pub fn raw(&mut self, name: &str) -> Result<Option<&'a JsonValue>, DecodeError> {
         self.find(name)
     }
 
     /// Raw entries of a nested object for strict map decoding.
-    pub fn entries(&mut self, name: &str) -> Result<Option<&'a [(String, JsonValue)]>, ()> {
+    pub fn entries(&mut self, name: &str) -> Result<Option<&'a [(String, JsonValue)]>, DecodeError> {
         match self.optional(name)? {
             None => Ok(None),
             Some(JsonValue::Object(entries)) => Ok(Some(entries)),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
-    pub fn finish(self) -> Result<(), ()> {
-        self.finish_name().map_err(|_| ())
+    pub fn finish(self) -> Result<(), DecodeError> {
+        self.finish_name().map_err(|_| DecodeError)
     }
 
     /// Unknown-field name in document order, for Go `encoding/json`
@@ -240,10 +244,10 @@ pub struct Soft<'a> {
 }
 
 impl<'a> Soft<'a> {
-    pub fn new(value: &'a JsonValue) -> Result<Soft<'a>, ()> {
+    pub fn new(value: &'a JsonValue) -> Result<Soft<'a>, DecodeError> {
         match value {
             JsonValue::Object(_) => Ok(Soft { value }),
-            _ => Err(()),
+            _ => Err(DecodeError),
         }
     }
 
@@ -254,42 +258,42 @@ impl<'a> Soft<'a> {
         }
     }
 
-    pub fn string(&self, name: &str) -> Result<Option<String>, ()> {
+    pub fn string(&self, name: &str) -> Result<Option<String>, DecodeError> {
         match self.field(name) {
             None => Ok(None),
             Some(JsonValue::Str(s)) => Ok(Some(s.clone())),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
-    pub fn integer(&self, name: &str) -> Result<Option<i128>, ()> {
+    pub fn integer(&self, name: &str) -> Result<Option<i128>, DecodeError> {
         match self.field(name) {
             None => Ok(None),
-            Some(v) => v.as_integer().map(Some).ok_or(()),
+            Some(v) => v.as_integer().map(Some).ok_or(DecodeError),
         }
     }
 
-    pub fn boolean(&self, name: &str) -> Result<Option<bool>, ()> {
+    pub fn boolean(&self, name: &str) -> Result<Option<bool>, DecodeError> {
         match self.field(name) {
             None => Ok(None),
             Some(JsonValue::Bool(b)) => Ok(Some(*b)),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
-    pub fn object(&self, name: &str) -> Result<Option<Soft<'a>>, ()> {
+    pub fn object(&self, name: &str) -> Result<Option<Soft<'a>>, DecodeError> {
         match self.field(name) {
             None => Ok(None),
             Some(v @ JsonValue::Object(_)) => Ok(Some(Soft { value: v })),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
-    pub fn array(&self, name: &str) -> Result<Option<&'a [JsonValue]>, ()> {
+    pub fn array(&self, name: &str) -> Result<Option<&'a [JsonValue]>, DecodeError> {
         match self.field(name) {
             None => Ok(None),
             Some(JsonValue::Array(items)) => Ok(Some(items)),
-            Some(_) => Err(()),
+            Some(_) => Err(DecodeError),
         }
     }
 
@@ -314,9 +318,9 @@ pub fn parse_strict(data: &[u8]) -> Result<JsonValue, Error> {
     Ok(value)
 }
 
-pub fn parse_lenient(data: &[u8]) -> Result<JsonValue, ()> {
-    let text = std::str::from_utf8(data).map_err(|_| ())?;
-    JsonValue::parse(text).map_err(|_| ())
+pub fn parse_lenient(data: &[u8]) -> Result<JsonValue, DecodeError> {
+    let text = std::str::from_utf8(data).map_err(|_| DecodeError)?;
+    JsonValue::parse(text).map_err(|_| DecodeError)
 }
 
 /// Last-wins deduplication mirroring `encoding/json` object semantics at
@@ -552,13 +556,13 @@ impl Emit for JsonValue {
 }
 
 /// Go `int`/`int64` field range check.
-pub fn as_i64(value: i128) -> Result<i64, ()> {
-    i64::try_from(value).map_err(|_| ())
+pub fn as_i64(value: i128) -> Result<i64, DecodeError> {
+    i64::try_from(value).map_err(|_| DecodeError)
 }
 
 /// Go `uint64` field range check.
-pub fn as_u64(value: i128) -> Result<u64, ()> {
-    u64::try_from(value).map_err(|_| ())
+pub fn as_u64(value: i128) -> Result<u64, DecodeError> {
+    u64::try_from(value).map_err(|_| DecodeError)
 }
 
 pub fn marshal<T: Emit + ?Sized>(value: &T) -> Vec<u8> {

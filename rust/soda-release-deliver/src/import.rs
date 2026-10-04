@@ -85,3 +85,81 @@ impl EngineRunner for NativeEngine {
 pub fn native_import(p: &Payload) -> Result<(), Error> {
     import_images(p, IMAGES_PATH, &NativeEngine)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::VecDeque;
+    use std::sync::Mutex;
+
+    struct ScriptEngine {
+        script: Mutex<VecDeque<RunOutcome>>,
+    }
+
+    impl EngineRunner for ScriptEngine {
+        fn run(&self, _program: &str, _args: &[&str]) -> RunOutcome {
+            self.script.lock().unwrap().pop_front().unwrap_or(RunOutcome::Failed)
+        }
+    }
+
+    fn image() -> Image {
+        Image {
+            config: format!("sha256:{}", "c".repeat(64)),
+            ..Image::default()
+        }
+    }
+
+    #[test]
+    fn import_exit_code_paths() {
+        // Already present: single exists check.
+        let engine = ScriptEngine {
+            script: Mutex::new([RunOutcome::Success].into_iter().collect()),
+        };
+        assert!(import_missing_image("proxy", &image(), "/img", &engine).is_ok());
+        // Missing (exit 1), pull ok, re-check ok.
+        let engine = ScriptEngine {
+            script: Mutex::new(
+                [RunOutcome::ExitCode(1), RunOutcome::Success, RunOutcome::Success]
+                    .into_iter()
+                    .collect(),
+            ),
+        };
+        assert!(import_missing_image("proxy", &image(), "/img", &engine).is_ok());
+        // Unexpected exit code refuses observation.
+        let engine = ScriptEngine {
+            script: Mutex::new([RunOutcome::ExitCode(2)].into_iter().collect()),
+        };
+        assert_eq!(
+            import_missing_image("proxy", &image(), "/img", &engine).unwrap_err(),
+            Error::msg("proxy image observation failed")
+        );
+        // Pull failure is unconfirmed.
+        let engine = ScriptEngine {
+            script: Mutex::new(
+                [RunOutcome::ExitCode(1), RunOutcome::ExitCode(1)]
+                    .into_iter()
+                    .collect(),
+            ),
+        };
+        assert_eq!(
+            import_missing_image("proxy", &image(), "/img", &engine).unwrap_err(),
+            Error::msg("proxy image import unconfirmed")
+        );
+        // Missing after pull is unavailable.
+        let engine = ScriptEngine {
+            script: Mutex::new(
+                [
+                    RunOutcome::ExitCode(1),
+                    RunOutcome::Success,
+                    RunOutcome::ExitCode(1),
+                ]
+                .into_iter()
+                .collect(),
+            ),
+        };
+        assert_eq!(
+            import_missing_image("proxy", &image(), "/img", &engine).unwrap_err(),
+            Error::msg("proxy imported image unavailable")
+        );
+    }
+}

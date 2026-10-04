@@ -570,3 +570,50 @@ pub fn sign(
     admit_signed_payload(t, p, &snapshot)?;
     emit_signed_directory(r, t, p, &snapshot, out, key)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockRunner {
+        output: Vec<u8>,
+    }
+
+    impl Runner for MockRunner {
+        fn run(&self, _args: &[&str]) -> Result<Vec<u8>, Error> {
+            Ok(self.output.clone())
+        }
+    }
+
+    #[test]
+    fn check_native_pins_version() {
+        let good = MockRunner {
+            output: b"skopeo version 1.22.2 something".to_vec(),
+        };
+        assert!(check_native(&good).is_ok());
+        let bad = MockRunner {
+            output: b"skopeo version 9.9.9 something".to_vec(),
+        };
+        assert_eq!(
+            check_native(&bad).unwrap_err(),
+            Error::msg("locked native skopeo required")
+        );
+    }
+
+    #[test]
+    fn private_file_rules() {
+        assert_eq!(private_file("relative/path").unwrap_err(), Error::refused());
+        assert_eq!(private_file("/nonexistent-xyz").unwrap_err(), Error::refused());
+        let dir = std::env::temp_dir().join(format!("srd-priv-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let path = dir.join("secret").to_string_lossy().into_owned();
+        std::fs::write(&path, b"data").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(private_file(&path).is_ok());
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert_eq!(private_file(&path).unwrap_err(), Error::refused());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}
