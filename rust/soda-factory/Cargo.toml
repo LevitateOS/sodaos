@@ -1,0 +1,8 @@
+[package]
+name = "soda-factory"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "soda-factory"
+path = "src/main.rs"

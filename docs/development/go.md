@@ -14,7 +14,7 @@ remain in [architecture](../architecture/overview.md).
 | If you are adding… | It goes in… |
 | --- | --- |
 | Project identity, lifecycle/key/OS types, creation profile, validation | `project` — the one canonical definition; never duplicate these DTOs |
-| Supervised factory runs: status/stop/reconcile coordinator plus pause/resume/retry/takeover lifecycle controls and readiness intake/reconciliation/assessment | `factory/control`; `cmd/soda-factory` is a thin client of its private operator endpoint |
+| Supervised factory runs: status/stop/reconcile coordinator plus pause/resume/retry/takeover lifecycle controls and readiness intake/reconciliation/assessment | `factory/control`; `rust/soda-factory` is a thin client of its private operator endpoint |
 | Run identity, outcome, display bindings and operator/control command records | `factory` — pure domain types and validation; no runtime or SQL |
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
 | Serialized provider custody and enrollment | `identity/control`; `cmd/soda-identity` wires private service/runtime |
@@ -42,7 +42,7 @@ Hard size rule: prefer production files under 400 LOC; do not grow a production
 for process startup only). `cmd/soda-host` enters through `host`
 (plus `tailnet`). `web.Server` constructs `auth`/`api` and the
 `factory/control` coordinator; `host.Daemon` wires the persistent
-development executors. `cmd/soda-factory` is a thin Unix client of the
+development executors. `rust/soda-factory` is a thin Unix client of the
 coordinator's private operator endpoint and keeps no database. Do not add
 forwarding packages or compatibility shims for moved code. The host
 Client may re-export `host/terminal` wire types so `web` never imports
@@ -138,7 +138,7 @@ not as an invitation to reorganize `internal/`:
   `host/workspace` is removed with its architecture-test entries.
 - `web` wires the coordinator and its explicit lifecycle. `web/api` admits calls
   into `factory/control`; it still cannot call native executor packages directly.
-  `cmd/soda-dashboard` continues to enter through `web`. `cmd/soda-factory`
+  `cmd/soda-dashboard` continues to enter through `web`. `rust/soda-factory`
   controls address the coordinator's private operator endpoint, not a second
   local controller/database.
 - `host` supplies typed client methods and thin admission/routing. Fixed Project
