@@ -22,7 +22,7 @@ import (
 )
 
 // buildGoPortBinary builds a not-yet-ported Go CLI. Ported binaries use
-// buildPortBinary (Rust) via the fixture's rust/ package routing.
+// buildRustPortBinary (Rust) from the wire-contracts harness instead.
 func buildGoPortBinary(t *testing.T, pkg string) string {
 	t.Helper()
 	root, err := filepath.Abs("..")
@@ -248,6 +248,9 @@ func TestCLISurface(t *testing.T) {
 				} else if b.Package == "./cmd/soda-setup" {
 					// PR07 ported setup to Rust; the fixture stays frozen.
 					binary = buildRustPortBinary(t, "soda-setup")
+				} else if b.Package == "./cmd/soda-identity-compose" {
+					// PR10 ported identity-compose to Rust; the fixture stays frozen.
+					binary = buildRustPortBinary(t, "soda-identity-compose")
 				} else {
 					binary = buildGoPortBinary(t, b.Package)
 				}

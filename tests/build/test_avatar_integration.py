@@ -7,245 +7,80 @@ SODA_CADDY_BINARY opts into a test-owned loopback proxy using the selected Caddy
 import contextlib
 import http.client
 import http.server
-import io
 import json
 import os
 from pathlib import Path
-import runpy
 import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
-from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 
 class AvatarActivation(unittest.TestCase):
-    def test_first_activation_derives_provider_from_forgejo_origin(self):
-        for origin, local_tls in (
-            ('https://forge.example.test:8443', False),
-            ('https://[fd00::5]:8443/', False),
-            ('https://192.168.2.100', True),
-            ('https://[fd00::5]', True),
-        ):
-            with self.subTest(origin=origin), tempfile.TemporaryDirectory() as directory:
-                temp = Path(directory)
-                config_root = temp / 'etc/soda'
-                config_root.mkdir(parents=True)
-                config = {
-                    'forgejo_url': origin,
-                    'forgejo_internal_url': 'http://127.0.0.1:3000',
-                    'listen': '127.0.0.1:8080',
-                    'grant_key_file': '/etc/soda/grant-key',
-                    'host_socket': '/run/soda/host.sock',
-                    'identity_socket': '/run/soda/identity/admin.sock',
-                    'operator_id': 42,
-                }
-                (config_root / 'dashboard.json').write_text(json.dumps(config))
-                for name in ('grant-key',):
-                    (config_root / name).write_text('synthetic, not a credential')
-                    (config_root / name).chmod(0o600)
-                extension_root = temp / 'var/lib/soda/forgejo/gitea/extensions'
-                extension_root.parent.mkdir(parents=True)
-                (config_root / 'forgejo.env').write_text(
-                    'FORGEJO__ui__DEFAULT_THEME=soda-auto\nFORGEJO__server__SSH_DOMAIN=retained.example.test\n'
-                )
-                for name in ('certificate', 'private-key'):
-                    (temp / name).write_text('synthetic fixture')
+    """CLI surface of the Rust soda-activate binary.
 
-                def mapped_path(value):
-                    path = Path(value)
-                    if str(path) == '/etc/soda' or str(path).startswith('/etc/soda/'):
-                        return config_root / path.relative_to('/etc/soda')
-                    if str(path).startswith('/var/lib/soda/'):
-                        return temp / path.relative_to('/')
-                    if str(path).startswith('/etc/containers/'):
-                        return temp / path.relative_to('/')
-                    return path
+    Deep activation behavior (provider derivation, file modes, ownership,
+    health probes) is covered by rust/soda-activate's own tests with
+    injected paths and fake system services.
+    """
 
-                address = 'fd00::5' if origin == 'https://[fd00::5]' else '192.168.2.100'
-                args = ['soda-activate', '--bind-ip', address]
-                if local_tls:
-                    args += ['--local-tls']
-                else:
-                    args += ['--certificate', str(temp / 'certificate'), '--private-key', str(temp / 'private-key')]
-                with (
-                    patch('sys.argv', args),
-                    patch('pathlib.Path', side_effect=mapped_path),
-                    patch('os.geteuid', return_value=0),
-                    patch('os.chown') as chown,
-                    patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=2000, pw_gid=2000)),
-                    patch('subprocess.run') as run,
-                    patch('builtins.print'),
-                ):
-                    run.return_value.returncode = 0
-                    runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
-                values = dict(line.split('=', 1) for line in (config_root / 'forgejo.env').read_text().splitlines())
-                self.assertEqual(
-                    values['FORGEJO__picture__GRAVATAR_SOURCE'], origin.rstrip('/') + '/-/soda/avatars/v1/'
-                )
-                self.assertEqual(values['FORGEJO__server__SSH_DOMAIN'], 'retained.example.test')
-                self.assertEqual(values['FORGEJO__ui__DEFAULT_THEME'], 'soda-auto')
-                self.assertEqual(values['FORGEJO__extensions__REQUIRED_IDS'], 'soda')
-                self.assertEqual(values['FORGEJO__extensions__SERVICE_CALLBACK_PATH'], '/ipc/host.sock')
-                self.assertFalse(
-                    any('DISABLE_GRAVATAR' in k or 'FEDERATED' in k or 'OFFLINE_MODE' in k for k in values)
-                )
-                self.assertEqual(run.call_count, 6)  # 3 activation phases + 3 is-active health probes
-                self.assertEqual(
-                    [call.args for call in chown.call_args_list],
-                    [
-                        (config_root, 0, 2000),
-                        (config_root / 'dashboard.json', 0, 2000),
-                        (config_root / 'grant-key', 0, 2000),
-                        (extension_root, 1000, 1000),
-                        (extension_root / '.data', 1000, 1000),
-                        (extension_root / '.data/soda', 1000, 1000),
-                        (extension_root / '.data/soda/operator-id', 1000, 1000),
-                    ],
-                )
-                for name in ('dashboard.json', 'grant-key'):
-                    self.assertEqual((config_root / name).stat().st_mode & 0o777, 0o640)
-                operator_file = extension_root / '.data/soda/operator-id'
-                self.assertEqual(operator_file.read_text(), '42\n')
-                self.assertEqual(operator_file.stat().st_mode & 0o777, 0o600)
-                self.assertEqual(extension_root.stat().st_mode & 0o777, 0o700)
-                proxy = (config_root / 'proxy.env').read_text()
-                self.assertIn(
-                    'SODA_TLS=internal\n' if local_tls else 'SODA_TLS=/etc/soda/tls/cert.pem /etc/soda/tls/key.pem\n',
-                    proxy,
-                )
-                self.assertEqual((config_root / 'tls/cert.pem').exists(), not local_tls)
+    @classmethod
+    def setUpClass(cls):
+        build = subprocess.run(
+            ['cargo', 'build', '--offline', '-p', 'soda-activate'],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if build.returncode != 0:
+            raise AssertionError(f'cannot build soda-activate: {build.stderr[-2000:]}')
+        cls.binary = str(ROOT / 'target/debug/soda-activate')
 
-    def test_tls_mode_rejects_missing_or_mixed_inputs_before_effects(self):
+    def run_activate(self, *argv):
+        return subprocess.run([self.binary, *argv], capture_output=True, text=True)
+
+    def test_help_reports_private_activation_surface(self):
+        proc = self.run_activate('--help')
+        self.assertEqual(proc.returncode, 0)
+        for flag in ('--bind-ip', '--certificate', '--private-key', '--local-tls'):
+            self.assertIn(flag, proc.stdout)
+        self.assertIn('explicit private appliance address', proc.stdout)
+
+    def test_missing_bind_ip_rejected(self):
+        proc = self.run_activate('--local-tls')
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn('the following arguments are required: --bind-ip', proc.stderr)
+
+    def test_tls_modes_rejected_before_effects(self):
         for extra in (
             [],
             ['--certificate', '/missing'],
             ['--local-tls', '--certificate', '/missing'],
             ['--local-tls', '--private-key', '/missing'],
         ):
-            with (
-                self.subTest(extra=extra),
-                patch('sys.argv', ['soda-activate', '--bind-ip', '192.168.1.5', *extra]),
-                patch('os.geteuid', return_value=0),
-                patch('subprocess.run') as run,
-                patch('sys.stderr', new_callable=io.StringIO),
-            ):
-                with self.assertRaises(SystemExit):
-                    runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
-                run.assert_not_called()
+            with self.subTest(extra=extra):
+                proc = self.run_activate('--bind-ip', '192.168.1.5', *extra)
+                self.assertEqual(proc.returncode, 2)
 
-    def test_empty_identity_socket_uses_standard_admin_socket(self):
-        # soda-setup records Go's unset value ("") for identity_socket; the Go
-        # loader fills the standard path. Activation must accept the same
-        # encoding instead of rejecting its own setup output.
-        with tempfile.TemporaryDirectory() as directory:
-            temp = Path(directory)
-            config_root = temp / 'etc/soda'
-            config_root.mkdir(parents=True)
-            config = {
-                'forgejo_url': 'https://192.168.2.100',
-                'forgejo_internal_url': 'http://127.0.0.1:3000',
-                'listen': '127.0.0.1:8080',
-                'grant_key_file': '/etc/soda/grant-key',
-                'host_socket': '/run/soda/host.sock',
-                'identity_socket': '',
-                'operator_id': 7,
-            }
-            (config_root / 'dashboard.json').write_text(json.dumps(config))
-            (config_root / 'grant-key').write_text('synthetic, not a credential')
-            (config_root / 'grant-key').chmod(0o600)
-            extension_root = temp / 'var/lib/soda/forgejo/gitea/extensions'
-            extension_root.parent.mkdir(parents=True)
-            (config_root / 'forgejo.env').write_text('FORGEJO__ui__DEFAULT_THEME=soda-auto\n')
+    def test_unknown_flags_rejected(self):
+        proc = self.run_activate('--bind-ip', '192.168.1.5', '--bogus')
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn('unrecognized arguments: --bogus', proc.stderr)
 
-            def mapped_path(value):
-                path = Path(value)
-                if str(path) == '/etc/soda' or str(path).startswith('/etc/soda/'):
-                    return config_root / path.relative_to('/etc/soda')
-                if str(path).startswith('/var/lib/soda/'):
-                    return temp / path.relative_to('/')
-                if str(path).startswith('/etc/containers/'):
-                    return temp / path.relative_to('/')
-                return path
-
-            with (
-                patch(
-                    'sys.argv',
-                    ['soda-activate', '--bind-ip', '192.168.2.100', '--local-tls'],
-                ),
-                patch('pathlib.Path', side_effect=mapped_path),
-                patch('os.geteuid', return_value=0),
-                patch('os.chown'),
-                patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=2000, pw_gid=2000)),
-                patch('subprocess.run') as run,
-                patch('builtins.print'),
-            ):
-                run.return_value.returncode = 0
-                runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
-            self.assertEqual((extension_root / '.data/soda/operator-id').read_text(), '7\n')
-            env = dict(
-                line.split('=', 1)
-                for line in (config_root / 'forgejo.env').read_text().splitlines()
-                if line and not line.startswith('#') and '=' in line
-            )
-            self.assertEqual(env['FORGEJO__extensions__SERVICE_BRIDGE_PEERS'], '2000:soda')
-
-    def test_activation_reports_units_that_never_become_active(self):
-        with tempfile.TemporaryDirectory() as directory:
-            temp = Path(directory)
-            config_root = temp / 'etc/soda'
-            config_root.mkdir(parents=True)
-            config = {
-                'forgejo_url': 'https://192.168.2.100',
-                'forgejo_internal_url': 'http://127.0.0.1:3000',
-                'listen': '127.0.0.1:8080',
-                'grant_key_file': '/etc/soda/grant-key',
-                'host_socket': '/run/soda/host.sock',
-                'identity_socket': '/run/soda/identity/admin.sock',
-                'operator_id': 7,
-            }
-            (config_root / 'dashboard.json').write_text(json.dumps(config))
-            (config_root / 'grant-key').write_text('synthetic, not a credential')
-            (config_root / 'grant-key').chmod(0o600)
-            extension_root = temp / 'var/lib/soda/forgejo/gitea/extensions'
-            extension_root.parent.mkdir(parents=True)
-            (config_root / 'forgejo.env').write_text('FORGEJO__ui__DEFAULT_THEME=soda-auto\n')
-
-            def mapped_path(value):
-                path = Path(value)
-                if str(path) == '/etc/soda' or str(path).startswith('/etc/soda/'):
-                    return config_root / path.relative_to('/etc/soda')
-                if str(path).startswith('/var/lib/soda/'):
-                    return temp / path.relative_to('/')
-                if str(path).startswith('/etc/containers/'):
-                    return temp / path.relative_to('/')
-                return path
-
-            with (
-                patch(
-                    'sys.argv',
-                    ['soda-activate', '--bind-ip', '192.168.2.100', '--local-tls'],
-                ),
-                patch('pathlib.Path', side_effect=mapped_path),
-                patch('os.geteuid', return_value=0),
-                patch('os.chown'),
-                patch('pwd.getpwnam', return_value=SimpleNamespace(pw_uid=2000, pw_gid=2000)),
-                patch('subprocess.run') as run,
-                patch('time.monotonic', side_effect=[0.0, 61.0, 61.0]),
-                patch('time.sleep'),
-                patch('builtins.print'),
-            ):
-                run.return_value.returncode = 1
-                with self.assertRaises(SystemExit) as failure:
-                    runpy.run_path(str(ROOT / 'appliance/bin/soda-activate'), run_name='__main__')
-                self.assertEqual(failure.exception.code, 2)
+    @unittest.skipIf(os.geteuid() == 0, 'root passes the operator check')
+    def test_nonroot_refused_without_effects(self):
+        proc = self.run_activate('--bind-ip', '192.168.1.5', '--local-tls')
+        self.assertEqual(proc.returncode, 2)
+        self.assertEqual(
+            proc.stderr.strip().splitlines()[-1],
+            'soda-activate: error: native host operator/root required',
+        )
 
 
 class AvatarPackaging(unittest.TestCase):
