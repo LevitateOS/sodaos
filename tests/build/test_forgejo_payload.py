@@ -1,14 +1,14 @@
-"""Exact presentation payload and locked locale build tests; no network/install."""
+"""Exact presentation payload tests; no network/install.
 
-import hashlib
-import io
+The locale merge itself is Rust (PR32), so its behavior is pinned by the
+soda-forgejo-locales crate tests; this module pins the payload manifest
+the Go build still stages.
+"""
+
 import json
 from pathlib import Path
 import re
-import runpy
-import tempfile
 import unittest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -50,54 +50,3 @@ class ForgejoPayload(unittest.TestCase):
     def test_operator_settings_use_the_separate_package(self):
         package = json.loads((ROOT / 'appliance/soda-extension/extension.json').read_text())
         self.assertEqual({entry['id'] for entry in package['pages'] if entry['scope'] == 'admin'}, {'tailnet'})
-
-    def test_locale_fetch_is_locked_and_preserves_native_catalog(self):
-        native = b'[common]\nname = Native\n[settings]\ntitle = Settings\n'
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            lock = root / 'lock.json'
-            lock.write_text(
-                json.dumps(
-                    {
-                        'url': 'https://codeberg.org/forgejo/forgejo/raw/tag/v15.0.9/options/locale/locale_en-US.ini',
-                        'sha256': hashlib.sha256(native).hexdigest(),
-                    }
-                )
-            )
-            output = root / 'locale.ini'
-            args = [
-                'forgejo-locales.py',
-                '--lock',
-                str(lock),
-                '--additions',
-                str(ROOT / 'appliance/forgejo/i18n/en-US.ini'),
-                '--out',
-                str(output),
-            ]
-            with patch('sys.argv', args), patch('urllib.request.urlopen', return_value=io.BytesIO(b'incorrect')):
-                with self.assertRaises(SystemExit):
-                    runpy.run_path(str(ROOT / 'scripts/forgejo-locales.py'), run_name='__main__')
-            self.assertFalse(output.exists())
-            with patch('sys.argv', args), patch('urllib.request.urlopen', return_value=io.BytesIO(native)):
-                runpy.run_path(str(ROOT / 'scripts/forgejo-locales.py'), run_name='__main__')
-            self.assertTrue(output.read_bytes().startswith(native))
-            self.assertIn('[soda]', output.read_text())
-
-    def test_unbounded_native_catalog_is_refused(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            native = root / 'native.ini'
-            native.write_bytes(b'[common]\nname = Native\n[settings]\ntitle = Settings\n' + b'x' * (1024 * 1024))
-            output = root / 'locale.ini'
-            args = [
-                'forgejo-locales.py',
-                '--native',
-                str(native),
-                '--additions',
-                str(ROOT / 'appliance/forgejo/i18n/en-US.ini'),
-                '--out',
-                str(output),
-            ]
-            with patch('sys.argv', args), self.assertRaises(SystemExit):
-                runpy.run_path(str(ROOT / 'scripts/forgejo-locales.py'), run_name='__main__')
-            self.assertFalse(output.exists())

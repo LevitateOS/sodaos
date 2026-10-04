@@ -15,6 +15,9 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
+
+	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 // Evidence holds an open directory capability. It never follows a path outside
@@ -198,6 +201,39 @@ func (e *Evidence) WriteJSON(name string, value any) error {
 	}
 	_, err = f.Write(data)
 	return errors.Join(err, f.Sync(), f.Close())
+}
+
+// Observation is an ordinary log index, not a scenario/qualification registry.
+type Observation struct {
+	Owner, RequestedRevision, ToolRevision, RequestedArchitecture, Target, ClientPlatform, Action, Outcome, Execution, Evidence, Cleanup, Topology string
+	ExitCode                                                                                                                                       *int
+	ToolDirty                                                                                                                                      bool
+	Invocation                                                                                                                                     []string
+	Files                                                                                                                                          map[string]string
+	Artifacts                                                                                                                                      map[string]string
+	Started, Finished                                                                                                                              time.Time
+}
+
+func (e *Evidence) Hashes() (map[string]string, error) {
+	files := map[string]string{}
+	err := fs.WalkDir(e.root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !d.Type().IsRegular() {
+			return errors.New("unexpected evidence entry")
+		}
+		sum, err := build.HashAt(e.root, path)
+		if err != nil {
+			return err
+		}
+		files[path] = sum
+		return nil
+	})
+	return files, err
 }
 
 // PublishObservation leaves incomplete attempts private and unpublishable. The

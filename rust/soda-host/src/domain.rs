@@ -5,7 +5,7 @@
 //! JSON shapes are the frozen Unix-socket wire contract; validation here
 //! is pure (no I/O), exactly like the Go package.
 
-use crate::json::{self, Binder, Value};
+use crate::json::{self, BoundMap, Kind, Spec, Value};
 
 pub const ROCKY_HEADLESS: &str = "rocky-headless";
 
@@ -41,7 +41,7 @@ fn in_ranges(table: &[(u32, u32)], c: char) -> bool {
     table.iter().any(|&(lo, hi)| v >= lo && v <= hi)
 }
 
-fn is_hex_lower(s: &str) -> bool {
+pub(crate) fn is_hex_lower(s: &str) -> bool {
     !s.is_empty()
         && s.bytes()
             .all(|b| b.is_ascii_hexdigit() && (b.is_ascii_digit() || b.is_ascii_lowercase()))
@@ -92,6 +92,37 @@ pub fn valid_container_id(id: &str) -> bool {
     id.len() == 64 && is_hex_lower(id)
 }
 
+const PROFILE_SPECS: &[Spec] = &[
+    Spec {
+        name: "id",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "distribution",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "version",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "interface",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "architecture",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "image",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "revision",
+        kind: Kind::Str,
+    },
+];
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Profile {
     pub id: String,
@@ -124,18 +155,20 @@ impl Profile {
 
     /// Strict decode of one profile object (unknown fields rejected).
     pub fn from_value(v: &Value) -> Result<Self, String> {
-        let mut b = Binder::new(v).map_err(|e| e.0)?;
-        let p = Profile {
-            id: b.string("id").map_err(|e| e.0)?,
-            distribution: b.string("distribution").map_err(|e| e.0)?,
-            version: b.string("version").map_err(|e| e.0)?,
-            interface: b.string("interface").map_err(|e| e.0)?,
-            architecture: b.string("architecture").map_err(|e| e.0)?,
-            image: b.string("image").map_err(|e| e.0)?,
-            revision: b.string("revision").map_err(|e| e.0)?,
-        };
-        b.finish().map_err(|e| e.0)?;
-        Ok(p)
+        let m = json::bind_root(v, "Profile", PROFILE_SPECS, false).map_err(|e| e.0)?;
+        Ok(Self::from_map(&m))
+    }
+
+    pub fn from_map(m: &BoundMap) -> Self {
+        Profile {
+            id: m.take_string("id"),
+            distribution: m.take_string("distribution"),
+            version: m.take_string("version"),
+            interface: m.take_string("interface"),
+            architecture: m.take_string("architecture"),
+            image: m.take_string("image"),
+            revision: m.take_string("revision"),
+        }
     }
 
     /// `encoding/json` field order and escaping, no trailing newline
@@ -177,6 +210,25 @@ pub fn decode_profile(raw: &str) -> Result<Profile, String> {
     Ok(p)
 }
 
+const CREATE_SPECS: &[Spec] = &[
+    Spec {
+        name: "profile",
+        kind: Kind::OptObject {
+            go_type: "project.Profile",
+            struct_name: "Profile",
+            specs: PROFILE_SPECS,
+        },
+    },
+    Spec {
+        name: "id",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "owner",
+        kind: Kind::I64,
+    },
+];
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Create {
     pub profile: Option<Profile>,
@@ -193,18 +245,16 @@ impl Create {
     }
 
     pub fn from_value(v: &Value) -> Result<Self, String> {
-        let mut b = Binder::new(v).map_err(|e| e.0)?;
-        let profile = match b.object("profile").map_err(|e| e.0)? {
-            Some(pv) => Some(Profile::from_value(pv)?),
-            None => None,
-        };
-        let c = Create {
-            profile,
-            id: b.string("id").map_err(|e| e.0)?,
-            owner: b.int64("owner").map_err(|e| e.0)?,
-        };
-        b.finish().map_err(|e| e.0)?;
-        Ok(c)
+        let m = json::bind_root(v, "Create", CREATE_SPECS, false).map_err(|e| e.0)?;
+        Ok(Self::from_map(&m))
+    }
+
+    pub fn from_map(m: &BoundMap) -> Self {
+        Create {
+            profile: m.take_opt_map("profile").map(|c| Profile::from_map(&c)),
+            id: m.take_string("id"),
+            owner: m.take_i64("owner"),
+        }
     }
 }
 
@@ -365,20 +415,38 @@ pub struct Account {
     pub keys: Vec<String>,
 }
 
+const ACCOUNT_SPECS: &[Spec] = &[
+    Spec {
+        name: "project",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "login",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "identity",
+        kind: Kind::I64,
+    },
+    Spec {
+        name: "keys",
+        kind: Kind::StrList,
+    },
+];
+
 impl Account {
     pub fn from_value(v: &Value) -> Result<Self, String> {
-        let mut b = Binder::new(v).map_err(|e| e.0)?;
-        let project = b.string("project").map_err(|e| e.0)?;
-        let login = b.string("login").map_err(|e| e.0)?;
-        let identity = b.int64("identity").map_err(|e| e.0)?;
-        let keys = b.string_list("keys").map_err(|e| e.0)?.unwrap_or_default();
-        b.finish().map_err(|e| e.0)?;
-        Ok(Account {
-            project,
-            login,
-            identity,
-            keys,
-        })
+        let m = json::bind_root(v, "Account", ACCOUNT_SPECS, false).map_err(|e| e.0)?;
+        Ok(Self::from_map(&m))
+    }
+
+    pub fn from_map(m: &BoundMap) -> Self {
+        Account {
+            project: m.take_string("project"),
+            login: m.take_string("login"),
+            identity: m.take_i64("identity"),
+            keys: m.take_str_list("keys"),
+        }
     }
 }
 
@@ -393,24 +461,48 @@ pub struct AccessKeys {
     pub apply: bool,
 }
 
+const ACCESS_KEYS_SPECS: &[Spec] = &[
+    Spec {
+        name: "project",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "login",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "identity",
+        kind: Kind::I64,
+    },
+    Spec {
+        name: "revision",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "keys",
+        kind: Kind::StrList,
+    },
+    Spec {
+        name: "apply",
+        kind: Kind::Bool,
+    },
+];
+
 impl AccessKeys {
     pub fn from_value(v: &Value) -> Result<Self, String> {
-        let mut b = Binder::new(v).map_err(|e| e.0)?;
-        let project = b.string("project").map_err(|e| e.0)?;
-        let login = b.string("login").map_err(|e| e.0)?;
-        let identity = b.int64("identity").map_err(|e| e.0)?;
-        let revision = b.string("revision").map_err(|e| e.0)?;
-        let keys = b.string_list("keys").map_err(|e| e.0)?.unwrap_or_default();
-        let apply = b.boolean("apply").map_err(|e| e.0)?;
-        b.finish().map_err(|e| e.0)?;
-        Ok(AccessKeys {
-            project,
-            login,
-            identity,
-            revision,
-            keys,
-            apply,
-        })
+        let m = json::bind_root(v, "AccessKeys", ACCESS_KEYS_SPECS, false).map_err(|e| e.0)?;
+        Ok(Self::from_map(&m))
+    }
+
+    pub fn from_map(m: &BoundMap) -> Self {
+        AccessKeys {
+            project: m.take_string("project"),
+            login: m.take_string("login"),
+            identity: m.take_i64("identity"),
+            revision: m.take_string("revision"),
+            keys: m.take_str_list("keys"),
+            apply: m.take_bool("apply"),
+        }
     }
 }
 

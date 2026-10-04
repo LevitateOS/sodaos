@@ -1,0 +1,19 @@
+{
+  "variant": "fixture",
+  "version": "0.0",
+  "storage": {
+    "files": [
+      {
+        "path": "/etc/fixture.conf",
+        "mode": 420,
+        "contents": {"inline": "line\nquote\"slash\\caf\u00e9"}
+      }
+    ]
+  },
+  "systemd": {
+    "units": []
+  },
+  "empty": {},
+  "nothing": null,
+  "flag": true
+}

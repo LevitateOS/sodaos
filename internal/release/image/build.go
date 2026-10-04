@@ -413,7 +413,7 @@ func compileSodaCommands(p build.Production, snapshot, contextDir string) error 
 		}
 	}
 	// Rust-ported commands no longer live under cmd/; the workspace owns them.
-	for _, name := range []string{"soda-identity-compose", "soda-factory", "soda-setup", "soda-image-import"} {
+	for _, name := range []string{"soda-identity-compose", "soda-factory", "soda-setup", "soda-image-import", "soda-muse", "soda-muse-maintain", "soda-identity"} {
 		if err = p.CompileRust(name, name, filepath.Join(contextDir, "rootfs/usr/libexec/soda", name)); err != nil {
 			return err
 		}
@@ -456,6 +456,7 @@ var rustTools = []struct{ member, bin, dest string }{
 	{"soda-pg-maintenance", "soda-pg-init-roles", "rootfs/usr/bin/soda-pg-init-roles"},
 	{"soda-console-welcome", "soda-console-welcome", "rootfs/usr/libexec/soda/soda-console-welcome"},
 	{"soda-install", "soda-install", "rootfs/usr/libexec/soda/soda-install"},
+	{"soda-acceptance", "soda-host-probes", "rootfs/usr/libexec/soda/soda-host-probes"},
 }
 
 func compileRustTools(p build.Production, contextDir string) error {
@@ -489,11 +490,14 @@ func compileShippingTools(p build.Production, snapshot, contextDir, artifacts, r
 	}
 	for _, tool := range []struct{ name, pkg string }{
 		{"soda-artifacts", "./tools/soda-artifacts"},
-		{"soda-acceptance", "./tools/soda-acceptance"},
 	} {
 		if err := p.Compile(tool.name, tool.pkg, filepath.Join(tools, tool.name)); err != nil {
 			return err
 		}
+	}
+	// The acceptance driver is Rust-ported; the workspace owns it.
+	if err := p.CompileRust("soda-acceptance", "soda-acceptance", filepath.Join(tools, "soda-acceptance")); err != nil {
+		return err
 	}
 	// The Rust console is compiled into the image above; link the tools copy
 	// from it so media hashes the exact shipped bytes.

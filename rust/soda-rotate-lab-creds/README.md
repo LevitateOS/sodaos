@@ -12,7 +12,11 @@ fixture-authority runbook prints the working `cargo run` invocation instead
 of the deleted shell path; usage and `set -u` crash lines carry the new
 argv0 instead of `$0 ... line N`; and a non-EPIPE stdout failure (ENOSPC)
 panics instead of exiting silently like `echo`. Closed-pipe death (141,
-silent) and staging cleanup on that path match the shell.
+silent) and staging cleanup on that path match the shell. Death by another
+signal (TERM/INT) during rotation leaves the 0700 staging directory behind
+while the script's EXIT trap removed it; there is no sound in-process fix,
+so a killed rotation needs its staging reaped by the owner. The metadata
+glob assumes C-locale collation order.
 
 ## Run
 

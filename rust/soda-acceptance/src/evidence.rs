@@ -1,0 +1,909 @@
+//! Private exclusive evidence with streaming redaction, mirroring
+//! `internal/acceptance/evidence.go`.
+//!
+//! An [`Evidence`] root is a fresh private directory held open; every entry
+//! is created exclusively and never overwritten. Streamed bytes pass through
+//! [`RedactingWriter`], which withholds trailing matches across writes so a
+//! split secret never reaches the file, then strips URL queries/fragments.
+//! Structured values are scrubbed before encoding, and
+//! [`Evidence::check_secrets`] re-scans every retained byte as defense in
+//! depth.
+
+use std::fs::File;
+use std::io::{Read, Write};
+
+use soda_json::JsonValue;
+
+use crate::error::Error;
+use crate::files::{self, OwnedDir};
+use crate::jsonio;
+
+/// Structured/streamed evidence size bound: 16 MiB of input bytes.
+pub const EVIDENCE_LIMIT: u64 = 16 << 20;
+/// Secret-scan block size.
+const SCAN_BLOCK: usize = 32_768;
+
+/// Private exclusive evidence root with a redaction secret set.
+pub struct Evidence {
+    root: OwnedDir,
+    secrets: Vec<Vec<u8>>,
+}
+
+/// Create a fresh private evidence directory that must not exist yet.
+/// Mirrors `CreateEvidence`, including the JSON-escaped secret variants.
+pub fn create_evidence(path: &str, secrets: &[Vec<u8>]) -> Result<Evidence, Error> {
+    if !path.starts_with('/') {
+        return Err(Error::msg("absolute fresh evidence directory required"));
+    }
+    let parent = std::path::Path::new(path)
+        .parent()
+        .unwrap_or(std::path::Path::new("/"));
+    let parent_text = parent.to_string_lossy();
+    let resolved = std::fs::canonicalize(parent)?;
+    if resolved.to_string_lossy() != files::lexical_clean(&parent_text) {
+        return Err(Error::msg("evidence parent must not contain symlinks"));
+    }
+    let raw_path = std::ffi::CString::new(path)
+        .map_err(|_| Error::msg("absolute fresh evidence directory required"))?;
+    let rc = unsafe { libc::mkdir(raw_path.as_ptr(), 0o700) };
+    if rc != 0 {
+        return Err(Error::from(std::io::Error::last_os_error()));
+    }
+    let root = OwnedDir::open(path)?;
+    let mut kept: Vec<Vec<u8>> = Vec::new();
+    for secret in secrets {
+        if secret.is_empty() {
+            continue;
+        }
+        kept.push(secret.clone());
+        // Logs may contain JSON-escaped credentials rather than raw values.
+        let mut encoded = String::new();
+        crate::jsonio::escape_go(&mut encoded, &String::from_utf8_lossy(secret));
+        let inner = &encoded[1..encoded.len() - 1];
+        if inner.as_bytes() != secret.as_slice() {
+            kept.push(inner.as_bytes().to_vec());
+        }
+    }
+    kept.sort_by_key(|a| std::cmp::Reverse(a.len()));
+    Ok(Evidence {
+        root,
+        secrets: kept,
+    })
+}
+
+fn valid_evidence_name(name: &str) -> bool {
+    !name.starts_with('/')
+        && files::lexical_clean(name) == name
+        && name != "."
+        && name != ".."
+        && !name.starts_with("../")
+}
+
+impl Evidence {
+    /// Original root path, for display and disjointness checks.
+    pub fn path(&self) -> &str {
+        self.root.path()
+    }
+
+    /// Secret set, longest first. For command capture wiring.
+    pub fn secrets(&self) -> &[Vec<u8>] {
+        &self.secrets
+    }
+
+    fn mkdir_evidence_parent(&self, current: &str) -> Result<(), Error> {
+        match self.root.mkdir_at(current, 0o700) {
+            Ok(()) => {}
+            Err(e) if e.io_kind() == Some(std::io::ErrorKind::AlreadyExists) => {}
+            Err(e) => return Err(e),
+        }
+        let attr = self.root.lstat_at(current)?;
+        if !attr.is_dir || attr.is_symlink {
+            return Err(Error::msg("unsafe evidence parent"));
+        }
+        Ok(())
+    }
+
+    fn ensure_evidence_parents(&self, dir: &str) -> Result<(), Error> {
+        if dir == "." {
+            return Ok(());
+        }
+        let mut current = String::new();
+        for part in dir.split('/') {
+            if !current.is_empty() {
+                current.push('/');
+            }
+            current.push_str(part);
+            self.mkdir_evidence_parent(&current)?;
+        }
+        Ok(())
+    }
+
+    fn open(&self, name: &str) -> Result<File, Error> {
+        if !valid_evidence_name(name) {
+            return Err(Error::msg("invalid evidence name"));
+        }
+        let dir = match name.rsplit_once('/') {
+            Some((parent, _)) => parent,
+            None => ".",
+        };
+        self.ensure_evidence_parents(dir)?;
+        self.root.create_new_at(name, 0o600)
+    }
+
+    /// Exclusive redacting stream for one evidence entry.
+    pub fn writer(&self, name: &str) -> Result<RedactingWriter, Error> {
+        Ok(RedactingWriter::new(
+            RedactOut::file(self.open(name)?),
+            self.secrets.clone(),
+        ))
+    }
+
+    /// Exclusive raw file for command capture tees.
+    pub(crate) fn open_file(&self, name: &str) -> Result<File, Error> {
+        self.open(name)
+    }
+
+    /// Write one complete redacted entry.
+    pub fn write(&self, name: &str, data: &[u8]) -> Result<(), Error> {
+        let mut writer = self.writer(name)?;
+        // Like Go, the entry always closes so retained failures join.
+        let write_err = writer.write_all(data).err().map(Error::from);
+        let close_err = writer.close().err();
+        match Error::join(vec![write_err, close_err]) {
+            Some(err) => Err(err),
+            None => Ok(()),
+        }
+    }
+
+    /// Scrub a decoded value: strings redacted, keys redacted with
+    /// collision detection, numbers/booleans/null preserved. Mirrors
+    /// `scrubJSON` (decoded with number identity, like `UseNumber`).
+    pub fn scrub_json(&self, value: &JsonValue) -> Result<JsonValue, Error> {
+        match value {
+            JsonValue::Str(s) => Ok(JsonValue::Str(self.redact_string(s))),
+            JsonValue::Array(items) => {
+                let mut out = Vec::with_capacity(items.len());
+                for item in items {
+                    out.push(self.scrub_json(item)?);
+                }
+                Ok(JsonValue::Array(out))
+            }
+            JsonValue::Object(entries) => {
+                let mut out = Vec::with_capacity(entries.len());
+                for (key, item) in entries {
+                    let scrubbed_key = self.redact_string(key);
+                    if out.iter().any(|(k, _)| k == &scrubbed_key) {
+                        return Err(Error::msg("redacted JSON key collision"));
+                    }
+                    out.push((scrubbed_key, self.scrub_json(item)?));
+                }
+                Ok(JsonValue::Object(out))
+            }
+            _ => Ok(value.clone()),
+        }
+    }
+
+    /// Confined evidence root for hash walks over retained files.
+    pub fn root(&self) -> &OwnedDir {
+        &self.root
+    }
+
+    fn encode_scrubbed_json(&self, value: &JsonValue) -> Result<Vec<u8>, Error> {
+        let mut compact = String::new();
+        jsonio::write_compact(&mut compact, value);
+        if compact.len() as u64 > EVIDENCE_LIMIT {
+            return Err(Error::msg("structured evidence limit exceeded"));
+        }
+        let decoded = JsonValue::parse(&compact)
+            .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
+        let scrubbed = self.scrub_json(&decoded)?;
+        // Go re-encodes a decoded map, so keys render sorted.
+        let sorted = sort_json_keys(scrubbed);
+        let mut data = String::new();
+        jsonio::write_indent(&mut data, &sorted);
+        data.push('\n');
+        if data.len() as u64 > EVIDENCE_LIMIT {
+            return Err(Error::msg("structured evidence limit exceeded"));
+        }
+        Ok(data.into_bytes())
+    }
+
+    /// Write one structured value: scrubbed before encoding, then scanned
+    /// for secrets before the bytes are retained. Mirrors `WriteJSON`.
+    pub fn write_json(&self, name: &str, value: &JsonValue) -> Result<(), Error> {
+        let data = self.encode_scrubbed_json(value)?;
+        for secret in &self.secrets {
+            if contains_slice(&data, secret) {
+                return Err(Error::msg("secret reached structured evidence"));
+            }
+        }
+        let file = self.open(name)?;
+        write_and_sync(file, &data)
+    }
+
+    /// Finalize one observation: pending record first, leak scan, then an
+    /// exclusive link to the final name. Mirrors `PublishObservation`.
+    pub fn publish_observation(&self, observation: &JsonValue) -> Result<(), Error> {
+        self.write_json("observation.pending.json", observation)?;
+        self.check_secrets()?;
+        self.root
+            .link_at("observation.pending.json", "observation.json")?;
+        Ok(())
+    }
+
+    /// Re-scan every retained byte for known secrets. Defense in depth,
+    /// not a claim that unknown secrets are absent.
+    pub fn check_secrets(&self) -> Result<(), Error> {
+        self.root.walk_files(&mut |rel: &str, regular: bool| {
+            if !regular {
+                return Err(Error::msg("unexpected non-regular evidence entry"));
+            }
+            self.scan_regular_evidence(rel)
+        })
+    }
+
+    fn scan_regular_evidence(&self, name: &str) -> Result<(), Error> {
+        let file = self.root.open_file_at(name)?;
+        let attr = fstat_attr(&file)?;
+        if !attr.is_regular {
+            return Err(Error::msg("evidence entry changed to a special file"));
+        }
+        scan_evidence_bytes(file, &self.secrets)
+    }
+
+    /// Redact known secrets plus URL queries/fragments/userinfo.
+    pub fn redact_string(&self, text: &str) -> String {
+        let mut out = text.to_string();
+        for secret in &self.secrets {
+            if let Ok(pattern) = std::str::from_utf8(secret) {
+                out = out.replace(pattern, "[REDACTED]");
+            }
+        }
+        redact_urls(&out)
+    }
+
+    /// Scrubbed error keeping the cause chain, like Go's `safeError`.
+    pub fn redact_error(&self, err: Error) -> Error {
+        Error::redacted(self.redact_string(&err.to_string()), err)
+    }
+}
+
+/// Recursively sort object keys, like Go's map encoding.
+fn sort_json_keys(value: JsonValue) -> JsonValue {
+    match value {
+        JsonValue::Object(entries) => {
+            let mut entries: Vec<(String, JsonValue)> = entries
+                .into_iter()
+                .map(|(k, v)| (k, sort_json_keys(v)))
+                .collect();
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            // Duplicate keys keep last-wins, like Go's map decode.
+            let mut unique: Vec<(String, JsonValue)> = Vec::with_capacity(entries.len());
+            for (key, value) in entries.into_iter().rev() {
+                if !unique.iter().any(|(k, _)| k == &key) {
+                    unique.push((key, value));
+                }
+            }
+            unique.reverse();
+            JsonValue::Object(unique)
+        }
+        JsonValue::Array(items) => {
+            JsonValue::Array(items.into_iter().map(sort_json_keys).collect())
+        }
+        other => other,
+    }
+}
+
+fn write_and_sync(mut file: File, data: &[u8]) -> Result<(), Error> {
+    // Go joins write, sync, and close errors; the file closes on drop,
+    // so only the first two are observable here.
+    let write_err = file.write_all(data).err().map(Error::from);
+    let sync_err = file.sync_all().err().map(Error::from);
+    drop(file);
+    match Error::join(vec![write_err, sync_err]) {
+        Some(err) => Err(err),
+        None => Ok(()),
+    }
+}
+
+fn fstat_attr(file: &File) -> Result<files::FileAttr, Error> {
+    use std::os::fd::AsRawFd;
+    let mut st: libc::stat = unsafe { std::mem::zeroed() };
+    let rc = unsafe { libc::fstat(file.as_raw_fd(), &mut st) };
+    if rc != 0 {
+        return Err(Error::from(std::io::Error::last_os_error()));
+    }
+    let mode = st.st_mode;
+    Ok(files::FileAttr {
+        is_regular: mode & libc::S_IFMT == libc::S_IFREG,
+        is_dir: mode & libc::S_IFMT == libc::S_IFDIR,
+        is_symlink: mode & libc::S_IFMT == libc::S_IFLNK,
+        perm: mode & 0o7777,
+        size: st.st_size.max(0) as u64,
+        uid: st.st_uid,
+        gid: st.st_gid,
+        dev: st.st_dev as u64,
+        ino: st.st_ino as u64,
+    })
+}
+
+fn contains_slice(haystack: &[u8], needle: &[u8]) -> bool {
+    if needle.is_empty() || needle.len() > haystack.len() {
+        return false;
+    }
+    haystack.windows(needle.len()).any(|w| w == needle)
+}
+
+fn longest_secret(secrets: &[Vec<u8>]) -> usize {
+    secrets.iter().map(|s| s.len()).max().unwrap_or(0).max(1)
+}
+
+fn scan_evidence_bytes(mut file: File, secrets: &[Vec<u8>]) -> Result<(), Error> {
+    let max = longest_secret(secrets);
+    let mut tail: Vec<u8> = Vec::new();
+    let mut buf = [0u8; SCAN_BLOCK];
+    loop {
+        let n = file.read(&mut buf)?;
+        let mut block = tail.clone();
+        block.extend_from_slice(&buf[..n]);
+        for secret in secrets {
+            if contains_slice(&block, secret) {
+                return Err(Error::msg("secret reached evidence"));
+            }
+        }
+        tail = if block.len() >= max {
+            block[block.len() - max + 1..].to_vec()
+        } else {
+            block
+        };
+        if n == 0 {
+            return Ok(());
+        }
+    }
+}
+
+/// Strip userinfo, queries, and fragments from `http(s)` URLs, matching
+/// Go's `redactURLs`. Malformed URLs keep a sanitized form with those parts
+/// still stripped; only the whole-URL omission differs, and only when Go's
+/// parser rejects the URL outright.
+pub fn redact_urls(text: &str) -> String {
+    // Byte-level sanitizing only removes ASCII spans or emits an ASCII
+    // literal, so valid UTF-8 input stays valid UTF-8.
+    String::from_utf8(redact_urls_bytes(text.as_bytes())).expect("url redaction preserves UTF-8")
+}
+
+/// Byte-level URL redaction, so binary command output keeps its exact
+/// retained bytes: only ASCII URL spans are rewritten, everything else
+/// passes through untouched.
+fn redact_urls_bytes(text: &[u8]) -> Vec<u8> {
+    let mut out: Vec<u8> = Vec::with_capacity(text.len());
+    let mut i = 0;
+    while i < text.len() {
+        let rest = &text[i..];
+        let prefix: &[u8] = if rest.starts_with(b"http://") {
+            b"http://"
+        } else if rest.starts_with(b"https://") {
+            b"https://"
+        } else {
+            out.push(text[i]);
+            i += 1;
+            continue;
+        };
+        let mut end = i + prefix.len();
+        while end < text.len() && !is_url_break(text[end]) {
+            end += 1;
+        }
+        out.extend_from_slice(&sanitize_url_bytes(prefix, &text[i + prefix.len()..end]));
+        i = end;
+    }
+    out
+}
+
+fn is_url_break(byte: u8) -> bool {
+    // Go's `https?://[^\s"'<>\\]+`: single quotes stay inside the match.
+    matches!(
+        byte,
+        b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c' | b'"' | b'<' | b'>' | b'\\'
+    )
+}
+
+fn sanitize_url_bytes(prefix: &[u8], rest: &[u8]) -> Vec<u8> {
+    if rest.iter().any(|b| *b < 0x20) || has_bad_escape(rest) || has_bad_brackets(rest) {
+        return b"[URL OMITTED]".to_vec();
+    }
+    let (authority, path) = match rest.iter().position(|b| *b == b'/') {
+        Some(index) => (&rest[..index], &rest[index..]),
+        None => (rest, &[][..]),
+    };
+    let host = match authority.iter().rposition(|b| *b == b'@') {
+        Some(index) => &authority[index + 1..],
+        None => authority,
+    };
+    let clean_path = match path.iter().position(|b| *b == b'?' || *b == b'#') {
+        Some(index) => &path[..index],
+        None => path,
+    };
+    let mut out = Vec::with_capacity(prefix.len() + host.len() + clean_path.len());
+    out.extend_from_slice(prefix);
+    out.extend_from_slice(host);
+    out.extend_from_slice(clean_path);
+    out
+}
+
+fn has_bad_escape(text: &[u8]) -> bool {
+    let mut i = 0;
+    while i < text.len() {
+        if text[i] == b'%' {
+            if i + 2 >= text.len()
+                || !text[i + 1].is_ascii_hexdigit()
+                || !text[i + 2].is_ascii_hexdigit()
+            {
+                return true;
+            }
+            i += 3;
+        } else {
+            i += 1;
+        }
+    }
+    false
+}
+
+fn has_bad_brackets(text: &[u8]) -> bool {
+    let authority = match text.iter().position(|b| *b == b'/') {
+        Some(index) => &text[..index],
+        None => text,
+    };
+    if let Some(open) = authority.iter().position(|b| *b == b'[') {
+        return !authority[open..].contains(&b']');
+    }
+    authority.contains(&b']')
+}
+
+/// Redaction sink: a lone file, or a file teed with a captured buffer for
+/// command results. Both sides receive redacted bytes only.
+enum RedactOut {
+    File(File),
+    Tee(File, Vec<u8>),
+    Discard,
+}
+
+impl RedactOut {
+    fn file(file: File) -> RedactOut {
+        RedactOut::File(file)
+    }
+}
+
+/// Streaming secret/URL redactor with split-match withholding. Mirrors
+/// `redactingWriter`, including the 16 MiB input bound and the
+/// line-buffered URL pass.
+pub struct RedactingWriter {
+    out: RedactOut,
+    secrets: Vec<Vec<u8>>,
+    pending: Vec<u8>,
+    url_pending: Vec<u8>,
+    count: u64,
+    limit: Option<u64>,
+    closed: bool,
+    err: Option<String>,
+}
+
+impl RedactingWriter {
+    fn new(out: RedactOut, secrets: Vec<Vec<u8>>) -> RedactingWriter {
+        RedactingWriter {
+            out,
+            secrets,
+            pending: Vec::new(),
+            url_pending: Vec::new(),
+            count: 0,
+            limit: Some(EVIDENCE_LIMIT),
+            closed: false,
+            err: None,
+        }
+    }
+
+    /// Unbounded secret-free sink for directly started test processes.
+    pub fn discard() -> RedactingWriter {
+        RedactingWriter {
+            out: RedactOut::Discard,
+            secrets: Vec::new(),
+            pending: Vec::new(),
+            url_pending: Vec::new(),
+            count: 0,
+            limit: None,
+            closed: false,
+            err: None,
+        }
+    }
+
+    /// File teed with a captured buffer, for command results.
+    pub fn tee(file: File, secrets: Vec<Vec<u8>>) -> RedactingWriter {
+        RedactingWriter::new(RedactOut::Tee(file, Vec::new()), secrets)
+    }
+
+    /// Captured buffer, for tee writers.
+    pub fn buffer(&self) -> &[u8] {
+        match &self.out {
+            RedactOut::Tee(_, buf) => buf,
+            _ => &[],
+        }
+    }
+
+    /// Take the captured buffer, for tee writers.
+    pub fn into_buffer(self) -> Vec<u8> {
+        match self.out {
+            RedactOut::Tee(_, buf) => buf,
+            _ => Vec::new(),
+        }
+    }
+
+    fn emit(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        match &mut self.out {
+            RedactOut::File(file) => file.write_all(bytes)?,
+            RedactOut::Tee(file, buf) => {
+                file.write_all(bytes)?;
+                buf.extend_from_slice(bytes);
+            }
+            RedactOut::Discard => {}
+        }
+        Ok(())
+    }
+
+    fn flush(&mut self, final_flush: bool) -> Result<(), Error> {
+        let max = longest_secret(&self.secrets);
+        let mut produced: Vec<u8> = Vec::new();
+        let pending = std::mem::take(&mut self.pending);
+        let mut consumed = 0;
+        while consumed < pending.len() && (final_flush || pending.len() - consumed >= max) {
+            let window = &pending[consumed..];
+            let mut match_len = 0;
+            for secret in &self.secrets {
+                if secret.len() > match_len && window.starts_with(secret) {
+                    match_len = secret.len();
+                }
+            }
+            if match_len > 0 {
+                produced.extend_from_slice(b"[REDACTED]");
+                consumed += match_len;
+            } else {
+                produced.push(window[0]);
+                consumed += 1;
+            }
+        }
+        self.pending = pending[consumed..].to_vec();
+        self.url_pending.extend_from_slice(&produced);
+        let end = if final_flush {
+            self.url_pending.len()
+        } else {
+            self.url_pending
+                .iter()
+                .rposition(|b| *b == b'\n')
+                .map(|i| i + 1)
+                .unwrap_or(0)
+        };
+        if end == 0 {
+            return Ok(());
+        }
+        let chunk = self.url_pending[..end].to_vec();
+        let rest = self.url_pending[end..].to_vec();
+        self.url_pending = rest;
+        let safe = redact_urls_bytes(&chunk);
+        self.emit(&safe)
+    }
+
+    /// Write bytes, retaining the first failure like the Go owner.
+    pub fn write_bytes(&mut self, data: &[u8]) -> Result<usize, Error> {
+        if self.closed {
+            return Err(Error::msg("file already closed"));
+        }
+        if let Some(message) = &self.err {
+            return Err(Error::msg(message.clone()));
+        }
+        if let Some(limit) = self.limit {
+            if self.count + data.len() as u64 > limit {
+                self.err = Some("evidence output limit exceeded".to_string());
+                return Err(Error::msg("evidence output limit exceeded"));
+            }
+        }
+        self.count += data.len() as u64;
+        self.pending.extend_from_slice(data);
+        if let Err(e) = self.flush(false) {
+            self.err = Some(e.to_string());
+            return Err(Error::msg(e.to_string()));
+        }
+        Ok(data.len())
+    }
+
+    /// Final flush and close, joining retained failures like the Go owner.
+    pub fn close(&mut self) -> Result<(), Error> {
+        if self.closed {
+            return match &self.err {
+                Some(message) => Err(Error::msg(message.clone())),
+                None => Ok(()),
+            };
+        }
+        self.closed = true;
+        // Like Go, retained and final-flush failures join; the file
+        // itself closes on drop.
+        let flush_err = self.flush(true).err();
+        let joined = Error::join(vec![self.err.clone().map(Error::msg), flush_err]);
+        self.err = joined.as_ref().map(|e| e.to_string());
+        match joined {
+            Some(err) => Err(err),
+            None => Ok(()),
+        }
+    }
+}
+
+impl Write for RedactingWriter {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+        self.write_bytes(data).map_err(std::io::Error::other)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    struct Fixture {
+        dir: std::path::PathBuf,
+        evidence: Evidence,
+    }
+
+    impl Fixture {
+        fn new(secrets: &[&str]) -> Fixture {
+            let mut dir = std::env::temp_dir();
+            dir.push(format!(
+                "soda-evidence-{}-{}",
+                std::process::id(),
+                fresh_id()
+            ));
+            std::fs::create_dir_all(&dir).unwrap();
+            let path = dir.join("evidence").to_string_lossy().into_owned();
+            let owned: Vec<Vec<u8>> = secrets.iter().map(|s| s.as_bytes().to_vec()).collect();
+            let evidence = create_evidence(&path, &owned).unwrap();
+            Fixture { dir, evidence }
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn fresh_id() -> u64 {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        NEXT.fetch_add(1, Ordering::SeqCst)
+    }
+
+    #[test]
+    fn split_secrets_and_redirect_queries() {
+        let fixture = Fixture::new(&["synthetic-password"]);
+        let e = &fixture.evidence;
+        let mut writer = e.writer("out").unwrap();
+        for part in [
+            "synthetic-",
+            "pass",
+            "word\nhttps://example.test/callback?co",
+            "de=unknown-code&state=unknown-state\n",
+        ] {
+            writer.write_bytes(part.as_bytes()).unwrap();
+        }
+        writer.close().unwrap();
+        let text = std::fs::read_to_string(format!("{}/out", e.path())).unwrap();
+        for bad in ["synthetic-password", "unknown-code", "unknown-state"] {
+            assert!(!text.contains(bad), "retained unsafe output: {text:?}");
+        }
+        assert!(text.contains("https://example.test/callback"), "{text:?}");
+        e.check_secrets().unwrap();
+    }
+
+    #[test]
+    fn exclusive_and_confined() {
+        let fixture = Fixture::new(&[]);
+        let e = &fixture.evidence;
+        e.write("once", b"first").unwrap();
+        let err = e.write("once", b"second").unwrap_err();
+        assert_eq!(err.io_kind(), Some(std::io::ErrorKind::AlreadyExists));
+        for name in ["../escape", "/absolute", "a/../b", "."] {
+            assert!(e.writer(name).is_err(), "accepted {name:?}");
+        }
+        let mut link_dir = std::env::temp_dir();
+        link_dir.push(format!(
+            "soda-evidence-link-{}-{}",
+            std::process::id(),
+            fresh_id()
+        ));
+        std::fs::create_dir_all(&link_dir).unwrap();
+        std::os::unix::fs::symlink(&link_dir, format!("{}/link", e.path())).unwrap();
+        assert!(e.writer("link/out").is_err());
+        let root_mode = std::fs::metadata(e.path()).unwrap().permissions().mode() & 0o777;
+        assert_eq!(root_mode, 0o700);
+        let file_mode = std::fs::metadata(format!("{}/once", e.path()))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(file_mode, 0o600);
+        std::fs::remove_dir_all(&link_dir).unwrap();
+    }
+
+    #[test]
+    fn nested_names_create_parents() {
+        let fixture = Fixture::new(&[]);
+        let e = &fixture.evidence;
+        e.write("sub/dir/entry", b"nested").unwrap();
+        let raw = std::fs::read(format!("{}/sub/dir/entry", e.path())).unwrap();
+        assert_eq!(raw, b"nested");
+    }
+
+    #[test]
+    fn redacted_error_retains_identity() {
+        let fixture = Fixture::new(&["synthetic-password"]);
+        let e = &fixture.evidence;
+        let sentinel = Error::msg("underlying");
+        let wrapped = Error::wrap(
+            "synthetic-password https://example.test/?code=hidden",
+            sentinel,
+        );
+        let redacted = e.redact_error(wrapped);
+        assert!(
+            !redacted.to_string().contains("synthetic-password"),
+            "{redacted}"
+        );
+        assert!(!redacted.to_string().contains("code="), "{redacted}");
+        let mut found = false;
+        let mut current: Option<&(dyn std::error::Error + 'static)> =
+            std::error::Error::source(&redacted);
+        while let Some(cause) = current {
+            if cause.to_string() == "underlying" {
+                found = true;
+            }
+            current = cause.source();
+        }
+        assert!(found, "sentinel lost: {redacted}");
+    }
+
+    #[test]
+    fn output_bound() {
+        let fixture = Fixture::new(&[]);
+        let e = &fixture.evidence;
+        let mut writer = e.writer("large").unwrap();
+        let big = vec![0u8; (EVIDENCE_LIMIT + 1) as usize];
+        assert!(writer.write_bytes(&big).is_err());
+        assert!(writer.close().is_err());
+    }
+
+    #[test]
+    fn structured_evidence_escapes_and_numeric_identity() {
+        let secret = "synthetic-\"credential\\with\nnewline";
+        let fixture = Fixture::new(&[secret]);
+        let e = &fixture.evidence;
+        let input = JsonValue::Object(vec![
+            (
+                "id".to_string(),
+                JsonValue::Number("9223372036854775807".to_string()),
+            ),
+            ("secret".to_string(), JsonValue::Str(secret.to_string())),
+            (
+                "url".to_string(),
+                JsonValue::Str("https://example.test/path?code=hidden\"".to_string()),
+            ),
+        ]);
+        e.write_json("metadata.json", &input).unwrap();
+        let raw = std::fs::read(format!("{}/metadata.json", e.path())).unwrap();
+        assert!(!contains_slice(&raw, b"hidden"), "redirect query retained");
+        let result = JsonValue::parse(std::str::from_utf8(&raw).unwrap()).unwrap();
+        match result.get("id") {
+            Some(JsonValue::Number(digits)) => assert_eq!(digits, "9223372036854775807"),
+            other => panic!("integer identity changed: {other:?}"),
+        }
+        assert_eq!(
+            result.get("secret").and_then(|v| v.as_str()),
+            Some("[REDACTED]")
+        );
+        e.check_secrets().unwrap();
+    }
+
+    #[test]
+    fn escaped_credentials_in_raw_split_writes() {
+        let secret = "synthetic-\"credential\\line\nend";
+        let fixture = Fixture::new(&[secret]);
+        let e = &fixture.evidence;
+        let mut encoded = String::new();
+        crate::jsonio::escape_go(&mut encoded, secret);
+        let inner = &encoded[1..encoded.len() - 1];
+        let mut writer = e.writer("raw").unwrap();
+        for byte in encoded.bytes() {
+            writer.write_bytes(&[byte]).unwrap();
+        }
+        writer.close().unwrap();
+        let raw = std::fs::read(format!("{}/raw", e.path())).unwrap();
+        assert!(
+            !contains_slice(&raw, inner.as_bytes()),
+            "encoded secret not redacted"
+        );
+        assert!(
+            contains_slice(&raw, b"[REDACTED]"),
+            "encoded secret not redacted"
+        );
+    }
+
+    #[test]
+    fn finalization_does_not_publish_failed_or_occupied_attempts() {
+        for mode in ["pending-collision", "leak", "final-collision"] {
+            let fixture = Fixture::new(&["synthetic-private-marker"]);
+            let e = &fixture.evidence;
+            match mode {
+                "pending-collision" => {
+                    e.root.mkdir_at("observation.pending.json", 0o700).unwrap();
+                }
+                "leak" => {
+                    let mut file = e.root.create_new_at("unredacted", 0o600).unwrap();
+                    file.write_all(b"synthetic-private-marker").unwrap();
+                }
+                _ => {
+                    let mut file = e.root.create_new_at("observation.json", 0o600).unwrap();
+                    file.write_all(b"earlier bytes").unwrap();
+                }
+            }
+            let observation = JsonValue::Object(vec![(
+                "Outcome".to_string(),
+                JsonValue::Str("completed".to_string()),
+            )]);
+            assert!(
+                e.publish_observation(&observation).is_err(),
+                "finalized failed attempt ({mode})"
+            );
+            let raw = std::fs::read(format!("{}/observation.json", e.path()));
+            if mode == "final-collision" {
+                assert_eq!(raw.unwrap(), b"earlier bytes", "overwrote previous record");
+            } else {
+                assert!(raw.is_err(), "published success-shaped record ({mode})");
+            }
+        }
+    }
+
+    #[test]
+    fn url_shapes_match_go() {
+        assert_eq!(redact_urls("no url here"), "no url here");
+        assert_eq!(
+            redact_urls("see https://example.test/callback?code=x&state=y done"),
+            "see https://example.test/callback done"
+        );
+        assert_eq!(
+            redact_urls("http://user@example.test:8080/p#frag"),
+            "http://example.test:8080/p"
+        );
+        assert_eq!(redact_urls("http://[::1]/x"), "http://[::1]/x");
+        assert_eq!(redact_urls("http://[::1/x"), "[URL OMITTED]");
+        assert_eq!(redact_urls("https://h/%zz"), "[URL OMITTED]");
+        assert_eq!(redact_urls("https://h/a%20b?x=1"), "https://h/a%20b");
+        // Go's URL class keeps single quotes inside the match.
+        assert_eq!(
+            redact_urls("see https://h/a'b?x=1 done"),
+            "see https://h/a'b done"
+        );
+    }
+
+    #[test]
+    fn binary_output_keeps_exact_bytes() {
+        let fixture = Fixture::new(&[]);
+        let e = &fixture.evidence;
+        let mut writer = e.writer("bin").unwrap();
+        let payload = b"\xff\xfenot-url-bytes\nhttps://example.test/p?code=x\n\x00\x01trailer";
+        writer.write_bytes(payload).unwrap();
+        writer.close().unwrap();
+        let raw = std::fs::read(format!("{}/bin", e.path())).unwrap();
+        assert_eq!(
+            raw,
+            b"\xff\xfenot-url-bytes\nhttps://example.test/p\n\x00\x01trailer".as_slice()
+        );
+    }
+}

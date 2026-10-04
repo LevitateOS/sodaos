@@ -8,9 +8,9 @@ const source = new URL('../../', import.meta.url);
 test('Cockpit branding is independent of retired custom-page tooling and uses current canonical assets', async () => {
   assert(!manifest.workspaces.includes('cockpit'));
   assert(!Object.values(manifest.scripts).some((command) => command.includes('--cwd cockpit')));
-  const staging = await Bun.file(new URL('scripts/stage.py', source)).text();
-  assert(!staging.includes("shutil.copytree(source / 'cockpit/dist'"));
-  assert(!staging.includes("shutil.copytree(source / 'assets/branding/cockpit'"));
+  const staging = await Bun.file(new URL('rust/soda-stage-render/src/stage.rs', source)).text();
+  assert(!staging.includes('cockpit/dist'));
+  assert(!staging.includes('copy_tree(&source.join("assets/branding/cockpit")'));
   for (const name of ['LICENSES.txt', 'patternfly-MIT.txt', 'patternfly-react-MIT.txt', 'redhat-fonts-OFL.txt']) {
     assert(
       await Bun.file(new URL('assets/branding/cockpit/provenance/' + name, source)).exists(),

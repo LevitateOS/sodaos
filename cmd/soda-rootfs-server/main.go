@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -38,6 +39,31 @@ const (
 var rootDir = "/home/soda-rootfs"
 
 var allowName = regexp.MustCompile(`^[0-9a-f]{64}-rootfs\.img$`)
+
+// requestPath mirrors the retired Python server's pipeline on the raw
+// request target: http.server reduces a leading '//' run to a single '/'
+// (CPython gh-87389), urlparse takes .path, and unquote decodes it as
+// strict ASCII. Anything unparsable reports false and the caller
+// answers 404.
+func requestPath(target string) (string, bool) {
+	if strings.HasPrefix(target, "//") {
+		target = "/" + strings.TrimLeft(target, "/")
+	}
+	parsed, err := url.Parse(target)
+	if err != nil {
+		return "", false
+	}
+	decoded, err := url.PathUnescape(parsed.EscapedPath())
+	if err != nil {
+		return "", false
+	}
+	for i := 0; i < len(decoded); i++ {
+		if decoded[i] > 127 {
+			return "", false
+		}
+	}
+	return decoded, true
+}
 
 // openAllowed resolves a request path to a served file. Anything outside
 // the exact-file contract reports false and the caller answers 404.
@@ -63,13 +89,27 @@ func openAllowed(path string) (*os.File, bool) {
 	return file, true
 }
 
+// Accepted transport divergences from the retired Python server, all
+// deny-equivalent or safer and none reachable from real guests: net/http
+// answers the never-routed OPTIONS * itself (200, empty), rejects
+// malformed request lines and smuggling-shaped headers with 400 where
+// Python answered 404/200, and speaks keep-alive HTTP/1.1 where Python
+// closed after each response. Error bodies are plain text rather than
+// Python's HTML. Mirroring any of these would mean reimplementing HTTP
+// instead of using the standard server, so the port preserves statuses,
+// success headers, and success bytes only.
 func serveRootfs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Server", serverName)
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "Unsupported method", http.StatusNotImplemented)
 		return
 	}
-	file, ok := openAllowed(r.URL.Path)
+	path, ok := requestPath(r.RequestURI)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	file, ok := openAllowed(path)
 	if !ok {
 		http.NotFound(w, r)
 		return
