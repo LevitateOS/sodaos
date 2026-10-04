@@ -45,6 +45,8 @@ func TestPrepareVendorContextFromActualOwners(t *testing.T) {
 		require.Contains(t, read("rootfs/usr/lib/systemd/system/soda-console.service"), "Wants=forgejo.service soda-dashboard.service soda-proxy.service")
 		require.Contains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "Image=localhost/soda-dashboard:dev") // Explicitly not yet bound app delivery.
 		require.Contains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID=1000")
+		require.Contains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "Volume=/run/soda/host.sock:/run/soda/host.sock:ro\n")
+		require.NotContains(t, read("rootfs/usr/share/containers/systemd/soda-dashboard.container"), "host.sock:/run/soda/host.sock:ro,z")
 		require.NoFileExists(t, filepath.Join(out, "rootfs/etc/zincati/config.d/90-soda-image.toml"))
 		for _, path := range []string{"rootfs/var", "rootfs/usr/sbin", "rootfs/usr/local", "rootfs/etc/soda", "rootfs/etc/systemd/system", "rootfs/etc/containers/systemd"} {
 			require.NoDirExists(t, filepath.Join(out, path))

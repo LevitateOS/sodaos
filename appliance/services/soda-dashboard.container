@@ -17,8 +17,12 @@ Volume=/etc/soda/dashboard.json:/etc/soda/dashboard.json:ro,Z
 Volume=/etc/soda/grant-key:/etc/soda/grant-key:ro,Z
 Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,Z
 Volume=/run/soda/postgres:/run/soda/postgres:ro,z
-Volume=/run/soda/host.sock:/run/soda/host.sock:ro,z
-Volume=/run/soda/identity:/run/soda/identity:ro,z
+# systemd owns the host and identity listener files (RemoveOnStop); a shared
+# relabel would flip them to container_file_t, after which systemd can no
+# longer unlink them and socket restarts fail with EADDRINUSE. Mount without
+# relabeling: the dashboard connects fine under the policy var_run_t label.
+Volume=/run/soda/host.sock:/run/soda/host.sock:ro
+Volume=/run/soda/identity:/run/soda/identity:ro
 Volume=/var/lib/soda/dashboard:/var/lib/soda/dashboard:rw,Z
 Volume=/run/soda/extension:/ipc:z
 Volume=/run/soda/operator:/run/soda/operator:rw,z
