@@ -1,0 +1,8 @@
+[package]
+name = "soda-forgejo-domain"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "soda-forgejo-domain"
+path = "src/main.rs"
