@@ -335,10 +335,6 @@ mod tests {
         .into_bytes()
     }
 
-    fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{b:02x}")).collect()
-    }
-
     #[test]
     fn key_revision_shape() {
         assert!(valid_key_revision(&"a".repeat(64)));
