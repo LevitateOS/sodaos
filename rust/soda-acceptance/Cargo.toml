@@ -1,0 +1,29 @@
+[package]
+name = "soda-acceptance"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Outside VM/evidence acceptance harness (lane A, PR29 Rust port of tools/soda-acceptance)"
+
+[lib]
+name = "soda_acceptance"
+path = "src/lib.rs"
+
+[[bin]]
+name = "soda-acceptance"
+path = "src/main.rs"
+
+[[bin]]
+name = "soda-acceptance-remote"
+path = "src/bin/soda-acceptance-remote.rs"
+
+[[bin]]
+name = "soda-host-probes"
+path = "src/bin/soda-host-probes.rs"
+
+[dependencies]
+soda-json = { path = "../soda-json" }
+soda-build-tools = { path = "../soda-build-tools" }
+libc = "0.2"
+flate2 = "1"
