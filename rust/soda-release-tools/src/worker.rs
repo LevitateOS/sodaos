@@ -263,7 +263,8 @@ fn decode_worker_config(data: &[u8]) -> Result<WorkerConfig, String> {
         "MediaAuthorityDirectory",
     ];
     let text = std::str::from_utf8(data).map_err(|e| e.to_string())?;
-    let value = soda_json::JsonValue::parse(text).map_err(|_| "invalid worker configuration".to_owned())?;
+    let value =
+        soda_json::JsonValue::parse(text).map_err(|_| "invalid worker configuration".to_owned())?;
     let soda_json::JsonValue::Object(entries) = &value else {
         return Err("invalid worker configuration".to_owned());
     };
@@ -347,7 +348,8 @@ pub fn claim_attempt_runtime(
         let dir = format!("{parent}/soda-build-{leaf}-{nonce:08x}");
         match std::fs::create_dir(&dir) {
             Ok(()) => {
-                if let Err(e) = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))
+                if let Err(e) =
+                    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700))
                 {
                     let _ = std::fs::remove_dir(&dir);
                     return Err(e.to_string());
@@ -382,10 +384,15 @@ fn rand_u32() -> u32 {
 /// Remove one claimed attempt directory, refusing anything that is not a
 /// direct child directory of `parent`.
 pub fn release_attempt_runtime(parent: &str, dir: &str) -> Result<(), String> {
-    let rel = dir.strip_prefix(parent).filter(|r| r.starts_with('/')).map(|r| &r[1..]);
+    let rel = dir
+        .strip_prefix(parent)
+        .filter(|r| r.starts_with('/'))
+        .map(|r| &r[1..]);
     let ok = matches!(rel, Some(r) if !r.is_empty() && r != "." && r != ".." && !r.contains('/') && !r.starts_with(".."));
     if !ok {
-        return Err(format!("refusing to release {dir:?} outside runtime {parent:?}"));
+        return Err(format!(
+            "refusing to release {dir:?} outside runtime {parent:?}"
+        ));
     }
     let st = std::fs::symlink_metadata(dir)
         .map_err(|e| format!("cannot release attempt runtime: {e}"))?;
@@ -431,7 +438,10 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
     r.validate_target()?;
     let rel = rel_path(&c.source, &r.out)?;
     let parent_rel = rel_path(&c.source, &c.output_parent)?;
-    let name = format!("soda-build-{}", r.out.rsplit('/').next().unwrap_or_default());
+    let name = format!(
+        "soda-build-{}",
+        r.out.rsplit('/').next().unwrap_or_default()
+    );
     let start_ns = std::env::var("SODA_BUILD_START_NS").unwrap_or_default();
     let mut w = Worker {
         name,
@@ -444,7 +454,11 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
             format!("{}:{WORKER_TOOLS}", c.tools),
         ],
         writable: vec![
-            format!("{}:{}", c.output_parent, join_under(WORKER_SOURCE, &parent_rel)),
+            format!(
+                "{}:{}",
+                c.output_parent,
+                join_under(WORKER_SOURCE, &parent_rel)
+            ),
             format!("{}:{WORKER_HOME}", c.build_home),
             format!("{}:{WORKER_RUNTIME}", c.runtime),
         ],
@@ -493,7 +507,8 @@ pub fn build_worker(c: &WorkerConfig, r: &Request) -> Result<Worker, String> {
         w.arguments.push("--rootfs-base-url".to_owned());
         w.arguments.push(r.rootfs_base_url.clone());
         w.arguments.push("--media-authority".to_owned());
-        w.arguments.push("/run/soda-media-authority/config.json".to_owned());
+        w.arguments
+            .push("/run/soda-media-authority/config.json".to_owned());
     }
     Ok(w)
 }
@@ -541,12 +556,17 @@ pub fn validate_worker_result(r: &Request, result: &mut ImageResult) -> Result<(
 /// Decode `evidence/build.json` (the fields result validation reads).
 pub fn decode_image_result(data: &[u8]) -> Result<ImageResult, String> {
     let text = std::str::from_utf8(data).map_err(|e| e.to_string())?;
-    let value =
-        soda_json::JsonValue::parse(text).map_err(|_| "invalid build result".to_owned())?;
+    let value = soda_json::JsonValue::parse(text).map_err(|_| "invalid build result".to_owned())?;
     if !value.is_object() {
         return Err("invalid build result".to_owned());
     }
-    let field = |key: &str| value.get(key).and_then(|v| v.as_str()).unwrap_or_default().to_owned();
+    let field = |key: &str| {
+        value
+            .get(key)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_owned()
+    };
     Ok(ImageResult {
         revision: field("Revision"),
         architecture: field("Architecture"),
@@ -570,4 +590,389 @@ pub fn read_image_result(path: &str) -> Result<ImageResult, String> {
     }
     let data = std::fs::read(path).map_err(|e| e.to_string())?;
     decode_image_result(&data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let path = std::env::temp_dir().join(format!(
+            "soda-reltools-worker-{tag}-{}-{id}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn test_config() -> WorkerConfig {
+        WorkerConfig {
+            executable: "/bin/true".to_owned(),
+            source: "/source".to_owned(),
+            forgejo_source: "/forgejo".to_owned(),
+            output_parent: "/source/.artifacts/releases/isolated".to_owned(),
+            tools: "/tools".to_owned(),
+            media_authority_directory: "/authority".to_owned(),
+            ..WorkerConfig::default()
+        }
+    }
+
+    #[test]
+    fn development_worker_inputs_and_completion() {
+        let c = test_config();
+        for target in ["candidate", "media", ""] {
+            let mut r = Request {
+                source: c.source.clone(),
+                forgejo_source: c.forgejo_source.clone(),
+                forgejo_revision: "a".repeat(40),
+                out: format!("{}/test", c.output_parent),
+                development: !target.is_empty(),
+                target: target.to_owned(),
+                ..Request::default()
+            };
+            if r.wants_media() {
+                r.rootfs_base_url = "https://example.invalid".to_owned();
+            }
+            let w = build_worker(&c, &r).unwrap();
+            assert_eq!(w.user, "soda-build-worker");
+            assert!(w
+                .read_only
+                .contains(&format!("{}:{WORKER_FORGEJO}", c.forgejo_source)));
+            assert!(w.arguments.contains(&WORKER_FORGEJO.to_owned()));
+            assert!(w.arguments.contains(&r.forgejo_revision));
+            if target == "candidate" {
+                assert!(!w.read_only.join(" ").contains("authority"));
+                assert!(!w.arguments.contains(&"--rootfs-base-url".to_owned()));
+                assert!(!w.arguments.contains(&"--media-authority".to_owned()));
+            } else {
+                assert!(w
+                    .read_only
+                    .contains(&"/authority:/run/soda-media-authority".to_owned()));
+                assert!(w.arguments.contains(&"--rootfs-base-url".to_owned()));
+            }
+            if target.is_empty() {
+                assert!(!w.arguments.contains(&"--development".to_owned()));
+            } else {
+                assert!(w.arguments.contains(&"--development".to_owned()));
+                assert!(w.arguments.contains(&target.to_owned()));
+            }
+        }
+    }
+
+    #[test]
+    fn worker_forwards_controller_live_inputs() {
+        let c = test_config();
+        let mut r = Request {
+            source: c.source.clone(),
+            out: format!("{}/test", c.output_parent),
+            development: true,
+            target: "candidate".to_owned(),
+            live_inputs:
+                "/run/soda-build-source/.artifacts/releases/isolated/soda-live-inputs-test.json"
+                    .to_owned(),
+            ..Request::default()
+        };
+        let w = build_worker(&c, &r).unwrap();
+        assert!(w.arguments.contains(&"--live-inputs".to_owned()));
+        assert!(w.arguments.contains(&r.live_inputs));
+        r.live_inputs.clear();
+        let w = build_worker(&c, &r).unwrap();
+        assert!(!w.arguments.contains(&"--live-inputs".to_owned()));
+    }
+
+    #[test]
+    fn worker_env_has_no_bun_cache_and_pinned_go_first() {
+        let c = test_config();
+        let r = Request {
+            source: c.source.clone(),
+            out: format!("{}/test", c.output_parent),
+            development: true,
+            target: "media".to_owned(),
+            rootfs_base_url: "https://example.invalid".to_owned(),
+            ..Request::default()
+        };
+        let w = build_worker(&c, &r).unwrap();
+        for env in &w.environment {
+            assert!(!env.contains("BUN_INSTALL_CACHE_DIR"), "{env}");
+        }
+        assert!(w.environment.contains(&format!("HOME={WORKER_HOME}")));
+        let path = w
+            .environment
+            .iter()
+            .find(|e| e.starts_with("PATH="))
+            .unwrap();
+        assert!(
+            path.starts_with(&format!("PATH={PINNED_GO_ROOT}/bin:")),
+            "{path}"
+        );
+        assert!(!path.contains("soda-build-tools/go"), "{path}");
+    }
+
+    #[test]
+    fn admit_storage_root_matrix() {
+        let good = WorkerConfig {
+            storage_root: "/home/soda-candidate".to_owned(),
+            build_home: "/home/soda-candidate/home".to_owned(),
+            runtime: "/home/soda-candidate/run".to_owned(),
+            ..WorkerConfig::default()
+        };
+        assert!(admit_storage_root(&good).is_ok());
+        for (name, bad) in [
+            (
+                "missing root",
+                WorkerConfig {
+                    storage_root: String::new(),
+                    ..good.clone()
+                },
+            ),
+            (
+                "relative root",
+                WorkerConfig {
+                    storage_root: "home/soda-candidate".to_owned(),
+                    ..good.clone()
+                },
+            ),
+            (
+                "home on root",
+                WorkerConfig {
+                    build_home: "/var/lib/soda-candidate-home".to_owned(),
+                    ..good.clone()
+                },
+            ),
+            (
+                "runtime on root",
+                WorkerConfig {
+                    runtime: "/var/lib/soda-candidate-run".to_owned(),
+                    ..good.clone()
+                },
+            ),
+            (
+                "sibling prefix",
+                WorkerConfig {
+                    build_home: "/home/soda-candidate-evil".to_owned(),
+                    ..good.clone()
+                },
+            ),
+        ] {
+            assert!(admit_storage_root(&bad).is_err(), "{name}");
+        }
+    }
+
+    #[test]
+    fn fast_media_worker_selection() {
+        let c = test_config();
+        let r = Request {
+            source: c.source.clone(),
+            out: format!("{}/test", c.output_parent),
+            development: true,
+            target: "media".to_owned(),
+            media_compression: "fast".to_owned(),
+            rootfs_base_url: "https://example.invalid".to_owned(),
+            ..Request::default()
+        };
+        let w = build_worker(&c, &r).unwrap();
+        assert!(w.arguments.join(" ").contains("--media-compression fast"));
+        let r = Request {
+            development: false,
+            target: String::new(),
+            ..r
+        };
+        assert!(build_worker(&c, &r).is_err());
+    }
+
+    #[test]
+    fn worker_result_binds_target_and_candidate() {
+        let source = temp_dir("result");
+        let out = source.join(".artifacts/releases/isolated/test");
+        std::fs::create_dir_all(out.join("artifacts")).unwrap();
+        std::fs::write(out.join("artifacts/candidate.json"), b"fixture").unwrap();
+        let out = out.to_string_lossy().into_owned();
+        let hash = hash_file(&format!("{out}/artifacts/candidate.json")).unwrap();
+        let r = Request {
+            source: source.to_string_lossy().into_owned(),
+            out: out.clone(),
+            revision: "a".repeat(40),
+            arch: "x86_64".to_owned(),
+            development: true,
+            target: "candidate".to_owned(),
+            ..Request::default()
+        };
+        let original = ImageResult {
+            revision: r.revision.clone(),
+            architecture: r.arch.clone(),
+            candidate: format!(
+                "{WORKER_SOURCE}/.artifacts/releases/isolated/test/artifacts/candidate.json"
+            ),
+            candidate_sha256: hash,
+            purpose: "development".to_owned(),
+            requested_target: "candidate".to_owned(),
+            completed_target: "candidate".to_owned(),
+            ..ImageResult::default()
+        };
+        for mode in [
+            "valid",
+            "media",
+            "purpose",
+            "requested",
+            "completed",
+            "hash",
+            "compression",
+        ] {
+            let mut result = original.clone();
+            match mode {
+                "media" => result.media = "unexpected-media.json".to_owned(),
+                "purpose" => result.purpose = "production".to_owned(),
+                "requested" => result.requested_target = "release".to_owned(),
+                "completed" => result.completed_target = "media".to_owned(),
+                "compression" => result.media_compression = "fast".to_owned(),
+                "hash" => result.candidate_sha256 = "b".repeat(64),
+                _ => {}
+            }
+            let err = validate_worker_result(&r, &mut result);
+            if mode == "valid" {
+                assert!(err.is_ok(), "{err:?}");
+                assert_eq!(result.candidate, format!("{out}/artifacts/candidate.json"));
+                assert!(result.media.is_empty());
+            } else {
+                assert!(err.is_err(), "{mode}");
+            }
+        }
+        let _ = std::fs::remove_dir_all(&source);
+    }
+
+    #[test]
+    fn claim_attempt_runtime_isolates_attempts() {
+        let parent = temp_dir("runtime");
+        let parent = parent.to_string_lossy().into_owned();
+        let uid = unsafe { libc::getuid() };
+        let gid = unsafe { libc::getgid() };
+        let first = claim_attempt_runtime(
+            &parent,
+            "/source/.artifacts/releases/isolated/manual-01",
+            uid,
+            gid,
+        )
+        .unwrap();
+        let second = claim_attempt_runtime(
+            &parent,
+            "/source/.artifacts/releases/isolated/manual-01",
+            uid,
+            gid,
+        )
+        .unwrap();
+        assert_ne!(first, second);
+        for dir in [&first, &second] {
+            assert_eq!(dir.rfind('/').map(|i| &dir[..i]), Some(parent.as_str()));
+            let st = std::fs::metadata(dir).unwrap();
+            assert!(st.file_type().is_dir());
+            assert_eq!(st.permissions().mode() & 0o777, 0o700);
+        }
+        std::fs::write(format!("{first}/a.lock"), b"a").unwrap();
+        std::fs::write(format!("{second}/b.lock"), b"b").unwrap();
+        release_attempt_runtime(&parent, &first).unwrap();
+        assert!(std::fs::metadata(&first).is_err());
+        assert!(std::fs::metadata(format!("{second}/b.lock")).is_ok());
+        release_attempt_runtime(&parent, &second).unwrap();
+        assert!(std::fs::metadata(&second).is_err());
+        assert!(std::fs::read_dir(&parent).unwrap().next().is_none());
+        let _ = std::fs::remove_dir_all(&parent);
+    }
+
+    #[test]
+    fn claim_attempt_runtime_refuses_bad_input() {
+        let parent = temp_dir("runtime-bad");
+        let parent = parent.to_string_lossy().into_owned();
+        let uid = unsafe { libc::getuid() };
+        let gid = unsafe { libc::getgid() };
+        assert!(
+            claim_attempt_runtime(&format!("{parent}/missing"), "/source/out/leaf", uid, gid)
+                .is_err()
+        );
+        let plain = format!("{parent}/plain");
+        std::fs::write(&plain, b"x").unwrap();
+        assert!(claim_attempt_runtime(&plain, "/source/out/leaf", uid, gid).is_err());
+        for out in ["", "/"] {
+            assert!(
+                claim_attempt_runtime(&parent, out, uid, gid).is_err(),
+                "{out:?}"
+            );
+        }
+        assert_eq!(std::fs::read_dir(&parent).unwrap().count(), 1);
+        let _ = std::fs::remove_dir_all(&parent);
+    }
+
+    #[test]
+    fn release_attempt_runtime_refuses_foreign_paths() {
+        let parent = temp_dir("release");
+        let parent = parent.to_string_lossy().into_owned();
+        let uid = unsafe { libc::getuid() };
+        let gid = unsafe { libc::getgid() };
+        let owned = claim_attempt_runtime(&parent, "/source/out/leaf", uid, gid).unwrap();
+        let outside = temp_dir("release-out");
+        let nested = format!("{owned}/nested");
+        std::fs::create_dir(&nested).unwrap();
+        let link = format!("{parent}/link");
+        std::os::unix::fs::symlink(&owned, &link).unwrap();
+        let outside = outside.to_string_lossy().into_owned();
+        let missing = format!("{parent}/missing");
+        for dir in [&parent, &outside, &nested, &link, &missing] {
+            assert!(release_attempt_runtime(&parent, dir).is_err(), "{dir}");
+        }
+        assert!(std::fs::metadata(&owned).is_ok());
+        release_attempt_runtime(&parent, &owned).unwrap();
+        let _ = std::fs::remove_dir_all(&parent);
+        let _ = std::fs::remove_dir_all(&outside);
+    }
+
+    #[test]
+    fn build_worker_binds_attempt_runtime() {
+        let c = WorkerConfig {
+            source: "/source".to_owned(),
+            output_parent: "/source/.artifacts/releases/isolated".to_owned(),
+            runtime: "/run/attempt-xyz".to_owned(),
+            tools: "/tools".to_owned(),
+            media_authority_directory: "/authority".to_owned(),
+            ..WorkerConfig::default()
+        };
+        let r = Request {
+            source: c.source.clone(),
+            out: format!("{}/test", c.output_parent),
+            development: true,
+            target: "candidate".to_owned(),
+            ..Request::default()
+        };
+        let w = build_worker(&c, &r).unwrap();
+        assert!(w
+            .writable
+            .contains(&format!("{}:{WORKER_RUNTIME}", c.runtime)));
+    }
+
+    #[test]
+    fn worker_name_rule() {
+        assert!(valid_worker_name("soda-build-manual-01"));
+        assert!(valid_worker_name("soda-qualify-x"));
+        assert!(!valid_worker_name("soda-build-"));
+        assert!(!valid_worker_name("soda-other-x"));
+        assert!(!valid_worker_name("soda-build-UPPER"));
+        assert!(!valid_worker_name(&format!(
+            "soda-build-{}",
+            "a".repeat(49)
+        )));
+    }
+
+    #[test]
+    fn decode_image_result_round_trip() {
+        let document = r#"{"Revision":"r","Architecture":"x86_64","Candidate":"c","CandidateSHA256":"s","Scope":"scope","Purpose":"development","RequestedTarget":"candidate","CompletedTarget":"candidate"}"#;
+        let result = decode_image_result(document.as_bytes()).unwrap();
+        assert_eq!(result.revision, "r");
+        assert_eq!(result.scope, "scope");
+        assert!(result.media.is_empty());
+        assert!(decode_image_result(b"[1,2]").is_err());
+    }
 }

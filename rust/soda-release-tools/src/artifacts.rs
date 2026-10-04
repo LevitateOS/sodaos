@@ -13,12 +13,42 @@ pub const USAGE: &str =
     "usage: soda-artifacts inspect-oci|fetch-coreos|fetch-coreos-iso|convert-butane [flags]";
 
 const ARTIFACT_SPECS: &[FlagSpec] = &[
-    FlagSpec { name: "arch", kind: FlagKind::Text, usage: "matching native architecture", default_text: "" },
-    FlagSpec { name: "revision", kind: FlagKind::Text, usage: "full source revision", default_text: "" },
-    FlagSpec { name: "source", kind: FlagKind::Text, usage: "OCI archive or private Butane file", default_text: "" },
-    FlagSpec { name: "out", kind: FlagKind::Text, usage: "new absolute output directory/file", default_text: "" },
-    FlagSpec { name: "keyring", kind: FlagKind::Text, usage: "already trusted Fedora keyring", default_text: "" },
-    FlagSpec { name: "signer", kind: FlagKind::Text, usage: "full independently trusted signer fingerprint", default_text: "" },
+    FlagSpec {
+        name: "arch",
+        kind: FlagKind::Text,
+        usage: "matching native architecture",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "revision",
+        kind: FlagKind::Text,
+        usage: "full source revision",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "source",
+        kind: FlagKind::Text,
+        usage: "OCI archive or private Butane file",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "out",
+        kind: FlagKind::Text,
+        usage: "new absolute output directory/file",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "keyring",
+        kind: FlagKind::Text,
+        usage: "already trusted Fedora keyring",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "signer",
+        kind: FlagKind::Text,
+        usage: "full independently trusted signer fingerprint",
+        default_text: "",
+    },
 ];
 
 #[derive(Debug, Clone, Default)]
@@ -63,7 +93,9 @@ pub fn look_path(name: &str) -> Result<String, String> {
         if is_executable_file(path) {
             return Ok(name.to_owned());
         }
-        return Err(format!("exec: {name:?}: executable file not found in $PATH"));
+        return Err(format!(
+            "exec: {name:?}: executable file not found in $PATH"
+        ));
     }
     if let Ok(path_var) = std::env::var("PATH") {
         for dir in path_var.split(':') {
@@ -74,14 +106,14 @@ pub fn look_path(name: &str) -> Result<String, String> {
             }
         }
     }
-    Err(format!("exec: {name:?}: executable file not found in $PATH"))
+    Err(format!(
+        "exec: {name:?}: executable file not found in $PATH"
+    ))
 }
 
 fn is_executable_file(path: &std::path::Path) -> bool {
     match std::fs::metadata(path) {
-        Ok(st) => {
-            st.file_type().is_file() && st.permissions().mode() & 0o111 != 0
-        }
+        Ok(st) => st.file_type().is_file() && st.permissions().mode() & 0o111 != 0,
         Err(_) => false,
     }
 }
@@ -169,7 +201,7 @@ fn run_butane(input: std::fs::File, dest: &std::fs::File) -> Result<(), String> 
 fn finish_butane_conversion(
     dest: std::fs::File,
     out: &str,
-    run: &dyn Fn() -> Result<(), String>,
+    run: impl FnOnce() -> Result<(), String>,
 ) -> Result<(), String> {
     let result = run();
     drop(dest);
@@ -196,7 +228,9 @@ pub fn convert_butane(source: &str, out: &str, arch: &str) -> Result<(), String>
     // Reopen handles for the child: the creator owns lifetime, the child
     // inherits clones.
     let dest_clone = dest.try_clone().map_err(|e| e.to_string())?;
-    finish_butane_conversion(dest, out, &|| run_butane(input.try_clone().map_err(|e| e.to_string())?, &dest_clone))
+    finish_butane_conversion(dest, out, || {
+        run_butane(input.try_clone().map_err(|e| e.to_string())?, &dest_clone)
+    })
 }
 
 fn admit_coreos_fetch(arch: &str, signer: &str, keyring: &str) -> Result<(), String> {
@@ -246,7 +280,10 @@ fn open_oci_archive(file: &str, arch: &str, revision: &str) -> Result<(), String
 
 pub fn inspect_artifact_oci(source: &str, arch: &str, revision: &str) -> Result<String, String> {
     open_oci_archive(source, arch, revision)?;
-    Err("OCI archive inspection requires the release pipeline port (not yet implemented)".to_owned())
+    Err(
+        "OCI archive inspection requires the release pipeline port (not yet implemented)"
+            .to_owned(),
+    )
 }
 
 fn run_coreos_artifact(action: &str, f: &ArtifactFlags) -> Result<(), String> {
@@ -288,5 +325,182 @@ pub fn main() {
             eprintln!("{e}");
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let id = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let path = std::env::temp_dir().join(format!(
+            "soda-reltools-artifacts-{tag}-{}-{id}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&path);
+        std::fs::create_dir_all(&path).unwrap();
+        path
+    }
+
+    fn parse_list(args: &[&str]) -> Result<(String, ArtifactFlags), String> {
+        parse_artifact_flags(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn flag_parse_matrix() {
+        assert_eq!(parse_list(&[]).unwrap_err(), USAGE);
+        let (action, f) =
+            parse_list(&["inspect-oci", "--arch", "x86_64", "--revision", "r"]).unwrap();
+        assert_eq!(action, "inspect-oci");
+        assert_eq!(f.arch, "x86_64");
+        assert_eq!(f.revision, "r");
+        assert_eq!(
+            parse_list(&["inspect-oci", "extra", "--arch", "x86_64"]).unwrap_err(),
+            "invalid artifact command flags"
+        );
+        assert_eq!(
+            parse_list(&["inspect-oci", "--bogus", "x"]).unwrap_err(),
+            "invalid artifact command flags"
+        );
+        assert_eq!(
+            parse_list(&["inspect-oci", "-h"]).unwrap_err(),
+            "invalid artifact command flags"
+        );
+    }
+
+    #[test]
+    fn unknown_action_message() {
+        let f = ArtifactFlags::default();
+        assert_eq!(
+            run_artifact_action("bogus", &f).unwrap_err(),
+            "unknown artifact action; use fetch-coreos-iso for upstream ISO inputs; QCOW2 media delivery is not selected"
+        );
+    }
+
+    #[test]
+    fn admission_order_matches_go() {
+        let f = ArtifactFlags::default();
+        assert_eq!(
+            run_artifact_action("inspect-oci", &f).unwrap_err(),
+            "expected x86_64"
+        );
+        assert_eq!(
+            run_artifact_action("fetch-coreos", &f).unwrap_err(),
+            "expected x86_64"
+        );
+        let f = ArtifactFlags {
+            arch: "x86_64".to_owned(),
+            signer: "deadbeef".to_owned(),
+            ..f
+        };
+        assert_eq!(
+            run_artifact_action("fetch-coreos", &f).unwrap_err(),
+            "full trusted signer fingerprint required"
+        );
+        let f = ArtifactFlags {
+            arch: "x86_64".to_owned(),
+            source: "/nope".to_owned(),
+            revision: "abc".to_owned(),
+            ..ArtifactFlags::default()
+        };
+        assert_eq!(
+            run_artifact_action("inspect-oci", &f).unwrap_err(),
+            "full source revision required"
+        );
+    }
+
+    #[test]
+    fn look_path_miss_message_matches_go() {
+        assert_eq!(
+            look_path("definitely-not-a-tool-xyz").unwrap_err(),
+            "exec: \"definitely-not-a-tool-xyz\": executable file not found in $PATH"
+        );
+        assert!(look_path("sh").is_ok());
+    }
+
+    #[test]
+    fn private_destination_matrix() {
+        let scratch = temp_dir("privdest");
+        assert_eq!(
+            private_destination("relative/out").unwrap_err(),
+            "absolute private output required"
+        );
+        let world = scratch.join("world");
+        std::fs::create_dir(&world).unwrap();
+        assert_eq!(
+            private_destination(world.join("o").to_str().unwrap()).unwrap_err(),
+            "real private output parent required"
+        );
+        let private = scratch.join("p");
+        std::fs::create_dir(&private).unwrap();
+        std::fs::set_permissions(&private, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let dest = private.join("o.json");
+        assert!(private_destination(dest.to_str().unwrap()).is_ok());
+        std::fs::write(&dest, b"x").unwrap();
+        assert_eq!(
+            private_destination(dest.to_str().unwrap()).unwrap_err(),
+            "output already exists or cannot be inspected"
+        );
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
+
+    #[test]
+    fn fresh_directory_matrix() {
+        let scratch = temp_dir("freshdir");
+        assert!(fresh_directory("relative").is_err());
+        let fresh = scratch.join("newdir");
+        assert!(fresh_directory(fresh.to_str().unwrap()).is_ok());
+        assert_eq!(
+            std::fs::metadata(&fresh).unwrap().permissions().mode() & 0o777,
+            0o700
+        );
+        assert!(fresh_directory(fresh.to_str().unwrap()).is_err());
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
+
+    #[test]
+    fn butane_conversion_lifecycle() {
+        use std::io::Write;
+        let scratch = temp_dir("butane");
+        // Failure removes the partial output.
+        let out = scratch.join("fail.json");
+        let dest = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&out)
+            .unwrap();
+        let out_s = out.to_string_lossy().into_owned();
+        let mut dest2 = dest.try_clone().unwrap();
+        let err = finish_butane_conversion(dest, &out_s, || {
+            let _ = dest2.write_all(b"partial");
+            Err("butane boom".to_owned())
+        })
+        .unwrap_err();
+        assert_eq!(
+            err,
+            "strict Butane conversion failed; partial output removed"
+        );
+        assert!(std::fs::symlink_metadata(&out).is_err());
+        // Success keeps the output.
+        let out = scratch.join("ok.json");
+        let dest = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&out)
+            .unwrap();
+        let out_s = out.to_string_lossy().into_owned();
+        let mut dest2 = dest.try_clone().unwrap();
+        finish_butane_conversion(dest, &out_s, || {
+            dest2.write_all(b"{}").map_err(|e| e.to_string())
+        })
+        .unwrap();
+        assert!(out.is_file());
+        let _ = std::fs::remove_dir_all(&scratch);
     }
 }

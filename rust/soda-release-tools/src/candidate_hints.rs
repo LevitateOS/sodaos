@@ -53,13 +53,34 @@ mod tests {
     #[test]
     fn known_signatures_map_to_fixes() {
         for (reason, want) in [
-            ("open /run/go/src/a.go: permission denied", "soda-candidate-setup"),
-            ("internal/strictjson/decode.go:5:2: could not import bytes (permission denied)", "map its build cache"),
-            ("go failed; retain attempt and inspect build.log: exit status 1", "soda-candidate-setup"),
-            ("GOPROXY list is not the empty string", "soda-candidate-setup"),
-            ("go: module lookup disabled by GOPROXY=off", "soda-candidate-setup"),
-            ("worker unit is already present or could not be checked", "wait for it"),
-            ("sd-bus call: Interactive authentication required", "soda-candidate-setup"),
+            (
+                "open /run/go/src/a.go: permission denied",
+                "soda-candidate-setup",
+            ),
+            (
+                "internal/strictjson/decode.go:5:2: could not import bytes (permission denied)",
+                "map its build cache",
+            ),
+            (
+                "go failed; retain attempt and inspect build.log: exit status 1",
+                "soda-candidate-setup",
+            ),
+            (
+                "GOPROXY list is not the empty string",
+                "soda-candidate-setup",
+            ),
+            (
+                "go: module lookup disabled by GOPROXY=off",
+                "soda-candidate-setup",
+            ),
+            (
+                "worker unit is already present or could not be checked",
+                "wait for it",
+            ),
+            (
+                "sd-bus call: Interactive authentication required",
+                "soda-candidate-setup",
+            ),
         ] {
             let got = failure_hint(reason);
             assert!(got.contains(want), "{reason} -> {got}");

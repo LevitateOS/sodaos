@@ -26,16 +26,67 @@ pub struct Options {
 
 pub fn flag_specs() -> Vec<FlagSpec> {
     vec![
-        FlagSpec { name: "controller", kind: FlagKind::Text, usage: "admitted soda-build executable (asked when empty)", default_text: "" },
-        FlagSpec { name: "worker-config", kind: FlagKind::Text, usage: "restricted worker configuration (asked when empty)", default_text: "" },
-        FlagSpec { name: "arch", kind: FlagKind::Text, usage: "matching native x86_64", default_text: ARCH_DEFAULT },
-        FlagSpec { name: "out", kind: FlagKind::Text, usage: "fresh output below .artifacts/releases (asked when empty)", default_text: "" },
-        FlagSpec { name: "mode", kind: FlagKind::Text, usage: "candidate or media (asked when empty)", default_text: "" },
-        FlagSpec { name: "media-compression", kind: FlagKind::Text, usage: "fast: development media only", default_text: "" },
-        FlagSpec { name: "rootfs-base-url", kind: FlagKind::Text, usage: "public base URL for the hash-named rootfs file", default_text: "" },
-        FlagSpec { name: "rootfs-dir", kind: FlagKind::Text, usage: "pickup folder served for loopback development media (default .artifacts/rootfs)", default_text: "" },
-        FlagSpec { name: "repository-prefix", kind: FlagKind::Text, usage: "intended image repositories; no publication", default_text: "ghcr.io/levitateos/sodaos" },
-        FlagSpec { name: "non-interactive", kind: FlagKind::Bool, usage: "require all flags; timestamped log output", default_text: "" },
+        FlagSpec {
+            name: "controller",
+            kind: FlagKind::Text,
+            usage: "admitted soda-build executable (asked when empty)",
+            default_text: "",
+        },
+        FlagSpec {
+            name: "worker-config",
+            kind: FlagKind::Text,
+            usage: "restricted worker configuration (asked when empty)",
+            default_text: "",
+        },
+        FlagSpec {
+            name: "arch",
+            kind: FlagKind::Text,
+            usage: "matching native x86_64",
+            default_text: ARCH_DEFAULT,
+        },
+        FlagSpec {
+            name: "out",
+            kind: FlagKind::Text,
+            usage: "fresh output below .artifacts/releases (asked when empty)",
+            default_text: "",
+        },
+        FlagSpec {
+            name: "mode",
+            kind: FlagKind::Text,
+            usage: "candidate or media (asked when empty)",
+            default_text: "",
+        },
+        FlagSpec {
+            name: "media-compression",
+            kind: FlagKind::Text,
+            usage: "fast: development media only",
+            default_text: "",
+        },
+        FlagSpec {
+            name: "rootfs-base-url",
+            kind: FlagKind::Text,
+            usage: "public base URL for the hash-named rootfs file",
+            default_text: "",
+        },
+        FlagSpec {
+            name: "rootfs-dir",
+            kind: FlagKind::Text,
+            usage:
+                "pickup folder served for loopback development media (default .artifacts/rootfs)",
+            default_text: "",
+        },
+        FlagSpec {
+            name: "repository-prefix",
+            kind: FlagKind::Text,
+            usage: "intended image repositories; no publication",
+            default_text: "ghcr.io/levitateos/sodaos",
+        },
+        FlagSpec {
+            name: "non-interactive",
+            kind: FlagKind::Bool,
+            usage: "require all flags; timestamped log output",
+            default_text: "",
+        },
     ]
 }
 
@@ -116,7 +167,10 @@ fn validate_common_paths(o: &Options) -> Result<(), String> {
     }
     let leaf = o.out.rsplit('/').next().unwrap_or_default();
     if !valid_out_leaf(leaf) {
-        return Err("output name must be lowercase letters, digits, or dashes (worker name rule)".to_owned());
+        return Err(
+            "output name must be lowercase letters, digits, or dashes (worker name rule)"
+                .to_owned(),
+        );
     }
     Ok(())
 }
@@ -166,7 +220,10 @@ pub fn dirty_files(out: &[u8]) -> Vec<String> {
 }
 
 pub fn check_clean_tree() -> Result<(), String> {
-    let output = Command::new("git").arg("status").arg("--porcelain").output();
+    let output = Command::new("git")
+        .arg("status")
+        .arg("--porcelain")
+        .output();
     let output = match output {
         Ok(o) if o.status.success() => o,
         _ => return Err("source must be a clean git checkout".to_owned()),
@@ -175,7 +232,12 @@ pub fn check_clean_tree() -> Result<(), String> {
     if lines.is_empty() {
         return Ok(());
     }
-    let mut shown = lines.iter().take(10).cloned().collect::<Vec<_>>().join("\n");
+    let mut shown = lines
+        .iter()
+        .take(10)
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n");
     let mut suffix = String::new();
     if lines.len() > 10 {
         suffix = format!("\n... and {} more", lines.len() - 10);
@@ -190,7 +252,9 @@ pub fn check_clean_tree() -> Result<(), String> {
 
 pub fn check_fresh_out(out: &str) -> Result<(), String> {
     if Path::new(out).symlink_metadata().is_ok() {
-        return Err(format!("output {out} exists; choose a fresh --out per attempt"));
+        return Err(format!(
+            "output {out} exists; choose a fresh --out per attempt"
+        ));
     }
     let parent = match out.rfind('/') {
         Some(0) => "/",
@@ -214,7 +278,10 @@ pub fn preflight(o: &Options) -> Result<(), String> {
 }
 
 pub fn monotonic_ns() -> Result<i64, String> {
-    let mut ts = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+    let mut ts = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
     if unsafe { libc::clock_gettime(libc::CLOCK_MONOTONIC, &mut ts) } != 0 {
         return Err(std::io::Error::last_os_error().to_string());
     }
@@ -265,7 +332,10 @@ pub struct ExitError {
 impl std::fmt::Display for ExitError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.code == 2 {
-            write!(f, "controller incomplete: no qualified release without final signing")
+            write!(
+                f,
+                "controller incomplete: no qualified release without final signing"
+            )
         } else {
             write!(f, "controller exited {}", self.code)
         }
@@ -330,5 +400,123 @@ pub fn main() {
             CandidateError::Exit(e) => std::process::exit(e.code),
             CandidateError::Message(_) => std::process::exit(1),
         }
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    pub fn base_options() -> Options {
+        Options {
+            controller: "/admitted/soda-build".to_owned(),
+            worker_config: "/restricted/worker.json".to_owned(),
+            arch: "x86_64".to_owned(),
+            out: "/source/.artifacts/releases/isolated/test".to_owned(),
+            mode: "media".to_owned(),
+            rootfs_url: "http://fixture:8080".to_owned(),
+            repo_prefix: "ghcr.io/levitateos/sodaos".to_owned(),
+            ..Options::default()
+        }
+    }
+
+    #[test]
+    fn arch_flag_admits_only_x86_64() {
+        assert!(validate_arch_flag("x86_64").is_ok());
+        for arch in ["", "aarch64", "amd64", "arm64"] {
+            assert!(validate_arch_flag(arch).is_err(), "{arch}");
+        }
+    }
+
+    #[test]
+    fn resolved_boundaries() {
+        let mut o = base_options();
+        assert!(validate_resolved(&o).is_ok());
+        o.mode = "candidate".to_owned();
+        assert_eq!(
+            validate_resolved(&o).unwrap_err(),
+            "candidate refuses media-only inputs"
+        );
+        o = base_options();
+        o.rootfs_url.clear();
+        assert_eq!(
+            validate_resolved(&o).unwrap_err(),
+            "media requires the rootfs base URL"
+        );
+        o.mode = "production".to_owned();
+        assert!(validate_resolved(&o).is_err());
+    }
+
+    #[test]
+    fn out_leaf_follows_worker_name_rule() {
+        for leaf in ["20260915t212541z", "manual-01", "a"] {
+            assert!(valid_out_leaf(leaf), "{leaf}");
+        }
+        for leaf in [
+            "",
+            "20260915T212541Z",
+            "has space",
+            "UPPER",
+            "under_score",
+            &"a".repeat(49),
+        ] {
+            assert!(!valid_out_leaf(leaf), "{leaf}");
+        }
+        let mut o = base_options();
+        o.out = "/source/.artifacts/releases/isolated/20260915T212541Z".to_owned();
+        let err = validate_resolved(&o).unwrap_err();
+        assert!(err.contains("lowercase"), "{err}");
+    }
+
+    #[test]
+    fn dirty_files_skips_blanks() {
+        let got = dirty_files(b" M tools/soda-candidate/main.go\n\n?? scratch\n");
+        assert_eq!(got, vec!["M tools/soda-candidate/main.go", "?? scratch"]);
+        assert!(dirty_files(b"").is_empty());
+    }
+
+    #[test]
+    fn resolve_options_defers_worker_admission_to_controller() {
+        let args = [
+            "--controller",
+            "/admitted/soda-build",
+            "--worker-config",
+            "/nonexistent/worker.json",
+            "--arch",
+            "x86_64",
+            "--out",
+            "/tmp/fresh-out-01",
+            "--mode",
+            "candidate",
+            "--non-interactive",
+        ]
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+        let mut prompt = |_: &mut Options| -> Result<(), String> {
+            panic!("must not prompt");
+        };
+        let o = resolve_options(&args, false, false, &mut prompt).unwrap();
+        assert_eq!(o.worker_config, "/nonexistent/worker.json");
+    }
+
+    #[test]
+    fn check_fresh_out_matrix() {
+        let scratch =
+            std::env::temp_dir().join(format!("soda-reltools-fresh-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        std::fs::create_dir_all(&scratch).unwrap();
+        let fresh = scratch.join("fresh-01");
+        assert!(check_fresh_out(fresh.to_str().unwrap()).is_ok());
+        std::fs::create_dir(&fresh).unwrap();
+        assert!(check_fresh_out(fresh.to_str().unwrap())
+            .unwrap_err()
+            .contains("exists"));
+        assert!(
+            check_fresh_out(scratch.join("missing-parent/fresh").to_str().unwrap())
+                .unwrap_err()
+                .contains("must already exist")
+        );
+        let _ = std::fs::remove_dir_all(&scratch);
     }
 }

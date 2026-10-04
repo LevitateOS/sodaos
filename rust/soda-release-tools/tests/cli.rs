@@ -71,7 +71,11 @@ fn build_help_matches_go() {
         let (code, out, err) = run(&build_bin(), &scratch.path, &[flag]);
         assert_eq!(code, 0, "{flag}");
         assert_eq!(out, "", "{flag}");
-        assert_eq!(err, go_build_usage(&build_bin().to_string_lossy()), "{flag}");
+        assert_eq!(
+            err,
+            go_build_usage(&build_bin().to_string_lossy()),
+            "{flag}"
+        );
     }
 }
 
@@ -82,7 +86,10 @@ fn build_flag_errors_match_go() {
     let (code, out, err) = run(&build_bin(), &scratch.path, &["--bogus", "x"]);
     assert_eq!(code, 2);
     assert_eq!(out, "");
-    assert_eq!(err, format!("flag provided but not defined: -bogus\n{usage}"));
+    assert_eq!(
+        err,
+        format!("flag provided but not defined: -bogus\n{usage}")
+    );
     let (code, _, err) = run(&build_bin(), &scratch.path, &["--arch"]);
     assert_eq!(code, 2);
     assert!(err.starts_with("flag needs an argument: -arch\n"), "{err}");
@@ -99,12 +106,18 @@ fn build_admission_matrix_matches_go() {
     let scratch = TempDir::new("build-admit");
     for (args, want) in [
         (vec!["positional"], "unexpected positional arguments\n"),
-        (vec!["--development"], "--development requires --target candidate or media\n"),
+        (
+            vec!["--development"],
+            "--development requires --target candidate or media\n",
+        ),
         (
             vec!["--development", "--target", "bogus"],
             "--development requires --target candidate or media\n",
         ),
-        (vec!["--target", "candidate"], "--target requires --development\n"),
+        (
+            vec!["--target", "candidate"],
+            "--target requires --development\n",
+        ),
         (
             vec!["--media-compression", "fast"],
             "--media-compression accepts only fast with --development --target media\n",
@@ -118,10 +131,19 @@ fn build_admission_matrix_matches_go() {
             "explicit public HTTP(S) rootfs base URL required\n",
         ),
         (
-            vec!["--development", "--target", "media", "--rootfs-base-url", "http://127.0.0.1:8080/"],
+            vec![
+                "--development",
+                "--target",
+                "media",
+                "--rootfs-base-url",
+                "http://127.0.0.1:8080/",
+            ],
             "rootfs base URL must be reachable from the installing machine, not loopback\n",
         ),
-        (vec!["--worker-build"], "explicit public HTTP(S) rootfs base URL required\n"),
+        (
+            vec!["--worker-build"],
+            "explicit public HTTP(S) rootfs base URL required\n",
+        ),
     ] {
         let (code, out, err) = run(&build_bin(), &scratch.path, &args);
         assert_eq!(code, 1, "{args:?}");
@@ -137,7 +159,12 @@ fn build_bool_forms_match_go() {
     let (code, _, err) = run(
         &build_bin(),
         &scratch.path,
-        &["-development=false", "-target=candidate", "--worker-config", "/cfg"],
+        &[
+            "-development=false",
+            "-target=candidate",
+            "--worker-config",
+            "/cfg",
+        ],
     );
     assert_eq!(code, 1);
     assert_eq!(err, "--target requires --development\n");
@@ -158,7 +185,13 @@ fn candidate_help_matches_go() {
     let (code, out, err) = run(&candidate_bin(), &scratch.path, &["-h"]);
     assert_eq!(code, 1);
     assert_eq!(out, "");
-    assert_eq!(err, format!("{}soda-candidate: flag: help requested\n", go_candidate_usage()));
+    assert_eq!(
+        err,
+        format!(
+            "{}soda-candidate: flag: help requested\n",
+            go_candidate_usage()
+        )
+    );
 }
 
 #[test]
@@ -175,15 +208,27 @@ fn candidate_flag_errors_match_go() {
         )
     );
     for (args, want) in [
-        (vec!["positional"], "soda-candidate: unexpected positional arguments\n"),
-        (vec!["--mode", "bogus"], "soda-candidate: --mode accepts candidate or media\n"),
-        (vec!["--arch", "aarch64"], "soda-candidate: matching native x86_64 required\n"),
+        (
+            vec!["positional"],
+            "soda-candidate: unexpected positional arguments\n",
+        ),
+        (
+            vec!["--mode", "bogus"],
+            "soda-candidate: --mode accepts candidate or media\n",
+        ),
+        (
+            vec!["--arch", "aarch64"],
+            "soda-candidate: matching native x86_64 required\n",
+        ),
         (
             vec!["--non-interactive"],
             "soda-candidate: choose --mode candidate or media (or run on a terminal)\n",
         ),
         // Piped stdin is not a terminal: the mode prompt is skipped too.
-        (vec![], "soda-candidate: choose --mode candidate or media (or run on a terminal)\n"),
+        (
+            vec![],
+            "soda-candidate: choose --mode candidate or media (or run on a terminal)\n",
+        ),
     ] {
         let (code, out, err) = run(&candidate_bin(), &scratch.path, &args);
         assert_eq!(code, 1, "{args:?}");
@@ -219,9 +264,16 @@ fn candidate_validation_matches_go() {
     // Fully answered media from a non-checkout fails preflight first.
     let (code, _, err) = run(&candidate_bin(), &scratch.path, &base(&out));
     assert_eq!(code, 1);
-    assert_eq!(err, "soda-candidate: run soda-candidate from the checkout root (~/Projects/sodaos)\n");
+    assert_eq!(
+        err,
+        "soda-candidate: run soda-candidate from the checkout root (~/Projects/sodaos)\n"
+    );
     // Uppercase output leaf is refused with the worker-name message.
-    let upper = scratch.path.join("20260915T212541Z").to_string_lossy().into_owned();
+    let upper = scratch
+        .path
+        .join("20260915T212541Z")
+        .to_string_lossy()
+        .into_owned();
     let (code, _, err) = run(&candidate_bin(), &scratch.path, &base(&upper));
     assert_eq!(code, 1);
     assert!(
@@ -342,13 +394,16 @@ fn artifacts_butane_refusals_match_go() {
     );
     assert_eq!(code, 1);
     // The tool check precedes the source open in both implementations.
-    let butane_present = env::var_os("PATH").map(|paths| {
-        env::split_paths(&paths).any(|dir| dir.join("butane").is_file())
-    }).unwrap_or(false);
+    let butane_present = env::var_os("PATH")
+        .map(|paths| env::split_paths(&paths).any(|dir| dir.join("butane").is_file()))
+        .unwrap_or(false);
     if butane_present {
         assert!(err.contains("No such file"), "{err}");
     } else {
-        assert_eq!(err, "exec: \"butane\": executable file not found in $PATH\n");
+        assert_eq!(
+            err,
+            "exec: \"butane\": executable file not found in $PATH\n"
+        );
     }
     assert!(!dest.exists());
 }
@@ -403,7 +458,10 @@ fn build_deep_refusal_matches_go() {
     assert_eq!(code, 1);
     assert_eq!(out, "");
     // Like Go, the FAILED progress line precedes the final message.
-    assert!(err.starts_with("FAILED   Soda development candidate (not release-qualified) | total "), "{err}");
+    assert!(
+        err.starts_with("FAILED   Soda development candidate (not release-qualified) | total "),
+        "{err}"
+    );
     // The crate binary may be stamped clean or dirty depending on the
     // checkout state at build time; every outcome matches Go exactly.
     assert!(

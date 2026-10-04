@@ -79,10 +79,7 @@ impl BuildProgress {
             },
             _ => {
                 unsafe {
-                    std::env::set_var(
-                        "SODA_BUILD_START_NS",
-                        origin_now.as_nanos().to_string(),
-                    );
+                    std::env::set_var("SODA_BUILD_START_NS", origin_now.as_nanos().to_string());
                 }
                 origin_now
             }
@@ -136,7 +133,6 @@ impl BuildProgress {
         }
         if !self.path.is_empty() {
             let file = std::fs::OpenOptions::new()
-                .write(true)
                 .append(true)
                 .custom_flags(libc::O_NOFOLLOW)
                 .open(&self.path);
@@ -382,7 +378,10 @@ mod tests {
         p.finish(None).unwrap();
         let text = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
         assert!(text.contains("START    P1 / Build runtime\n"), "{text}");
-        assert!(text.contains("DONE     P1 / Build runtime | phase "), "{text}");
+        assert!(
+            text.contains("DONE     P1 / Build runtime | phase "),
+            "{text}"
+        );
         assert!(text.contains("SUCCESS  title | total "), "{text}");
     }
 

@@ -14,19 +14,85 @@ use crate::progress::BuildProgress;
 use crate::worker;
 
 pub const FLAG_SPECS: &[FlagSpec] = &[
-    FlagSpec { name: "development", kind: FlagKind::Bool, usage: "explicit development-only run; never release-qualified", default_text: "" },
-    FlagSpec { name: "target", kind: FlagKind::Text, usage: "development boundary: candidate or media (requires --development)", default_text: "" },
-    FlagSpec { name: "media-compression", kind: FlagKind::Text, usage: "fast: development media only; changes host compression metadata (default: upstream)", default_text: "" },
-    FlagSpec { name: "arch", kind: FlagKind::Text, usage: "matching native x86_64", default_text: "" },
-    FlagSpec { name: "out", kind: FlagKind::Text, usage: "fresh absolute output below .artifacts/releases (parent must exist)", default_text: "" },
-    FlagSpec { name: "repository-prefix", kind: FlagKind::Text, usage: "intended immutable image repositories; no publication", default_text: "ghcr.io/levitateos/sodaos" },
-    FlagSpec { name: "rootfs-base-url", kind: FlagKind::Text, usage: "public base URL for the exact hash-named rootfs file", default_text: "" },
-    FlagSpec { name: "media-authority", kind: FlagKind::Text, usage: "worker-local fixture authority; not release custody", default_text: "" },
-    FlagSpec { name: "live-inputs", kind: FlagKind::Text, usage: "internal controller-resolved live inputs file", default_text: "" },
-    FlagSpec { name: "forgejo-source", kind: FlagKind::Text, usage: "explicit clean canonical Forgejo fork checkout", default_text: "" },
-    FlagSpec { name: "forgejo-revision", kind: FlagKind::Text, usage: "internal exact Forgejo source revision", default_text: "" },
-    FlagSpec { name: "worker-config", kind: FlagKind::Text, usage: "root-owned configuration for isolated worker dispatch", default_text: "" },
-    FlagSpec { name: "worker-build", kind: FlagKind::Bool, usage: "internal build stage; requires the isolated build identity", default_text: "" },
+    FlagSpec {
+        name: "development",
+        kind: FlagKind::Bool,
+        usage: "explicit development-only run; never release-qualified",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "target",
+        kind: FlagKind::Text,
+        usage: "development boundary: candidate or media (requires --development)",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "media-compression",
+        kind: FlagKind::Text,
+        usage:
+            "fast: development media only; changes host compression metadata (default: upstream)",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "arch",
+        kind: FlagKind::Text,
+        usage: "matching native x86_64",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "out",
+        kind: FlagKind::Text,
+        usage: "fresh absolute output below .artifacts/releases (parent must exist)",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "repository-prefix",
+        kind: FlagKind::Text,
+        usage: "intended immutable image repositories; no publication",
+        default_text: "ghcr.io/levitateos/sodaos",
+    },
+    FlagSpec {
+        name: "rootfs-base-url",
+        kind: FlagKind::Text,
+        usage: "public base URL for the exact hash-named rootfs file",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "media-authority",
+        kind: FlagKind::Text,
+        usage: "worker-local fixture authority; not release custody",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "live-inputs",
+        kind: FlagKind::Text,
+        usage: "internal controller-resolved live inputs file",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "forgejo-source",
+        kind: FlagKind::Text,
+        usage: "explicit clean canonical Forgejo fork checkout",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "forgejo-revision",
+        kind: FlagKind::Text,
+        usage: "internal exact Forgejo source revision",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "worker-config",
+        kind: FlagKind::Text,
+        usage: "root-owned configuration for isolated worker dispatch",
+        default_text: "",
+    },
+    FlagSpec {
+        name: "worker-build",
+        kind: FlagKind::Bool,
+        usage: "internal build stage; requires the isolated build identity",
+        default_text: "",
+    },
 ];
 
 #[derive(Debug, Clone, Default)]
@@ -83,7 +149,9 @@ pub fn admit_parent_dispatch(f: &BuildFlags) -> Result<(), String> {
         );
     }
     if !f.request.live_inputs.is_empty() || !f.request.forgejo_revision.is_empty() {
-        return Err("controller resolves live inputs per attempt; operator selection refused".to_owned());
+        return Err(
+            "controller resolves live inputs per attempt; operator selection refused".to_owned(),
+        );
     }
     if !f.request.development {
         return Err("production builds removed; development only".to_owned());
@@ -181,7 +249,10 @@ pub fn validate_forgejo_checkout_root(source: &str) -> Result<(), String> {
 }
 
 pub fn forgejo_checkout_revision(source: &str) -> Result<String, String> {
-    match forgejo_git_output(source, &["status", "--porcelain", "--untracked-files=normal"]) {
+    match forgejo_git_output(
+        source,
+        &["status", "--porcelain", "--untracked-files=normal"],
+    ) {
         Ok(status) if status.is_empty() => {}
         _ => return Err("clean committed Forgejo source required".to_owned()),
     }
@@ -249,7 +320,10 @@ pub fn run_parent_build(
 
 pub fn run() -> Result<(), ToolError> {
     let argv: Vec<String> = std::env::args().collect();
-    let argv0 = argv.first().cloned().unwrap_or_else(|| "soda-build".to_owned());
+    let argv0 = argv
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "soda-build".to_owned());
     let args = if argv.len() > 1 { &argv[1..] } else { &[] };
     match goflag::parse(FLAG_SPECS, args) {
         Err(e) if e == goflag::ERR_HELP => {
@@ -268,8 +342,7 @@ pub fn run() -> Result<(), ToolError> {
     }
     watch_build_signals();
     sanitize_build_env(f.worker_build);
-    let mut progress =
-        BuildProgress::new(&progress_title(&f.request)).map_err(ToolError::msg)?;
+    let mut progress = BuildProgress::new(&progress_title(&f.request)).map_err(ToolError::msg)?;
     let mut err: Option<ToolError> = None;
     if let Err(e) = bind_build_source(&mut f.request) {
         err = Some(ToolError::msg(e));
@@ -299,5 +372,143 @@ pub fn main() {
     if let Err(err) = run() {
         eprintln!("{err}");
         std::process::exit(build_exit_code(Some(&err)));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::build_spec::Request;
+
+    fn flags(args: &[&str]) -> Result<BuildFlags, String> {
+        parse_build_flags(&args.iter().map(|s| s.to_string()).collect::<Vec<_>>())
+    }
+
+    #[test]
+    fn live_inputs_admission_boundary() {
+        let worker = BuildFlags {
+            worker_build: true,
+            request: Request {
+                out: "/o".to_owned(),
+                arch: "x86_64".to_owned(),
+                ..Request::default()
+            },
+            ..BuildFlags::default()
+        };
+        assert!(admit_worker_build(&worker)
+            .unwrap_err()
+            .contains("requires controller-resolved live inputs"));
+        let parent = BuildFlags {
+            worker_config: "/cfg".to_owned(),
+            request: Request {
+                out: "/o".to_owned(),
+                arch: "x86_64".to_owned(),
+                live_inputs: "/inputs.json".to_owned(),
+                ..Request::default()
+            },
+            ..BuildFlags::default()
+        };
+        assert!(admit_parent_dispatch(&parent)
+            .unwrap_err()
+            .contains("operator selection refused"));
+    }
+
+    #[test]
+    fn admit_internal_dispatch_binds_authority() {
+        let bad = [
+            BuildFlags {
+                worker_build: true,
+                worker_config: "/restricted/worker.json".to_owned(),
+                ..BuildFlags::default()
+            },
+            BuildFlags {
+                worker_build: true,
+                ..BuildFlags::default()
+            },
+            BuildFlags::default(),
+            BuildFlags {
+                worker_config: "/cfg".to_owned(),
+                request: Request {
+                    media_authority: "x".to_owned(),
+                    ..Request::default()
+                },
+                ..BuildFlags::default()
+            },
+            BuildFlags {
+                worker_config: "/cfg".to_owned(),
+                request: Request {
+                    live_inputs: "x".to_owned(),
+                    ..Request::default()
+                },
+                ..BuildFlags::default()
+            },
+            BuildFlags {
+                worker_config: "/cfg".to_owned(),
+                ..BuildFlags::default()
+            },
+        ];
+        for f in &bad {
+            assert!(admit_build_dispatch(f).is_err(), "{f:?}");
+        }
+        let good = BuildFlags {
+            worker_config: "/cfg".to_owned(),
+            request: Request {
+                development: true,
+                ..Request::default()
+            },
+            ..BuildFlags::default()
+        };
+        assert!(admit_build_dispatch(&good).is_ok());
+    }
+
+    #[test]
+    fn flag_parse_matrix() {
+        let f = flags(&[
+            "--development",
+            "--target",
+            "candidate",
+            "--worker-config",
+            "/cfg",
+            "--repository-prefix",
+            "custom",
+        ])
+        .unwrap();
+        assert!(f.request.development);
+        assert_eq!(f.request.target, "candidate");
+        assert_eq!(f.worker_config, "/cfg");
+        assert_eq!(f.request.repository_prefix, "custom");
+        assert!(flags(&["--development", "positional"]).is_err());
+        assert!(flags(&["--bogus"]).unwrap_err().contains("not defined"));
+        assert_eq!(
+            flags(&["--arch"]).unwrap_err(),
+            "flag needs an argument: -arch"
+        );
+        assert_eq!(flags(&["-h"]).unwrap_err(), goflag::ERR_HELP);
+    }
+
+    #[test]
+    fn progress_title_matches_go() {
+        let dev = Request {
+            development: true,
+            target: "media".to_owned(),
+            ..Request::default()
+        };
+        assert_eq!(
+            progress_title(&dev),
+            "Soda development media (not release-qualified)"
+        );
+        assert_eq!(progress_title(&Request::default()), "Soda release build");
+    }
+
+    #[test]
+    fn forgejo_root_refusals() {
+        assert_eq!(
+            validate_forgejo_checkout_root("relative/path").unwrap_err(),
+            "explicit absolute Forgejo checkout required"
+        );
+        assert_eq!(
+            validate_forgejo_checkout_root("/definitely/not/a/checkout").unwrap_err(),
+            "canonical Forgejo checkout required"
+        );
     }
 }

@@ -24,7 +24,10 @@ extern "C" fn forward_signal(signum: libc::c_int) {
 
 pub fn controller_env(start_ns: i64) -> Vec<(String, String)> {
     let mut env: Vec<(String, String)> = std::env::vars().collect();
-    if std::env::var("SODA_BUILD_START_NS").unwrap_or_default().is_empty() {
+    if std::env::var("SODA_BUILD_START_NS")
+        .unwrap_or_default()
+        .is_empty()
+    {
         env.push(("SODA_BUILD_START_NS".to_owned(), start_ns.to_string()));
     }
     env
@@ -34,10 +37,7 @@ pub fn controller_argv(o: &Options, start_ns: i64) -> Vec<String> {
     let mut argv = vec![o.controller.clone()];
     argv.extend(controller_args(o));
     if unsafe { libc::geteuid() } != 0 {
-        let mut sudo = vec![
-            "sudo".to_owned(),
-            format!("SODA_BUILD_START_NS={start_ns}"),
-        ];
+        let mut sudo = vec!["sudo".to_owned(), format!("SODA_BUILD_START_NS={start_ns}")];
         sudo.append(&mut argv);
         return sudo;
     }
@@ -74,14 +74,25 @@ pub fn start_controller_run(o: &Options) -> Result<ControllerRun, String> {
     if let Ok(pid) = i32::try_from(child.id()) {
         CHILD_PID.store(pid, Ordering::SeqCst);
         unsafe {
-            libc::signal(libc::SIGINT, forward_signal as *const () as libc::sighandler_t);
-            libc::signal(libc::SIGTERM, forward_signal as *const () as libc::sighandler_t);
+            libc::signal(
+                libc::SIGINT,
+                forward_signal as *const () as libc::sighandler_t,
+            );
+            libc::signal(
+                libc::SIGTERM,
+                forward_signal as *const () as libc::sighandler_t,
+            );
         }
     }
     if tty {
         view.start_ticker();
     }
-    Ok(ControllerRun { child, child_stderr, view, tty })
+    Ok(ControllerRun {
+        child,
+        child_stderr,
+        view,
+        tty,
+    })
 }
 
 impl ControllerRun {

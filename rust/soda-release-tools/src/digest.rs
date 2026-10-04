@@ -80,10 +80,7 @@ mod tests {
     #[test]
     fn native_arch_admission() {
         assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
-        assert_eq!(
-            oci_architecture("aarch64").unwrap_err(),
-            "expected x86_64"
-        );
+        assert_eq!(oci_architecture("aarch64").unwrap_err(), "expected x86_64");
         if cfg!(target_arch = "x86_64") && cfg!(target_os = "linux") {
             assert!(require_native("x86_64").is_ok());
         }

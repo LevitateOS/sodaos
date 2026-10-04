@@ -33,31 +33,37 @@ pub struct ParseOutcome {
 
 impl ParseOutcome {
     pub fn boolean(&self, name: &str) -> bool {
-        self.values.iter().find_map(|(n, v)| {
-            if *n == name {
-                if let FlagValue::Bool(b) = v {
-                    Some(*b)
+        self.values
+            .iter()
+            .find_map(|(n, v)| {
+                if *n == name {
+                    if let FlagValue::Bool(b) = v {
+                        Some(*b)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
-            }
-        }).unwrap_or(false)
+            })
+            .unwrap_or(false)
     }
 
     pub fn text(&self, name: &str) -> String {
-        self.values.iter().find_map(|(n, v)| {
-            if *n == name {
-                if let FlagValue::Text(s) = v {
-                    Some(s.clone())
+        self.values
+            .iter()
+            .find_map(|(n, v)| {
+                if *n == name {
+                    if let FlagValue::Text(s) = v {
+                        Some(s.clone())
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
-            }
-        }).unwrap_or_default()
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -100,10 +106,8 @@ pub fn parse(specs: &[FlagSpec], args: &[String]) -> Result<ParseOutcome, String
             None => (name, None),
         };
         let slot = values.iter().position(|(n, _)| *n == name);
-        if name == "help" || name == "h" {
-            if slot.is_none() {
-                return Err(ERR_HELP.to_owned());
-            }
+        if (name == "help" || name == "h") && slot.is_none() {
+            return Err(ERR_HELP.to_owned());
         }
         let Some(slot) = slot else {
             return Err(format!("flag provided but not defined: -{name}"));
@@ -180,5 +184,93 @@ fn is_nonzero_default(spec: &FlagSpec) -> bool {
     match spec.kind {
         FlagKind::Bool => spec.default_text == "true",
         FlagKind::Text => !spec.default_text.is_empty(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn specs() -> Vec<FlagSpec> {
+        vec![
+            FlagSpec {
+                name: "development",
+                kind: FlagKind::Bool,
+                usage: "dev only",
+                default_text: "",
+            },
+            FlagSpec {
+                name: "arch",
+                kind: FlagKind::Text,
+                usage: "arch",
+                default_text: "",
+            },
+            FlagSpec {
+                name: "repository-prefix",
+                kind: FlagKind::Text,
+                usage: "repos",
+                default_text: "ghcr.io/x",
+            },
+        ]
+    }
+
+    fn parse_list(args: &[&str]) -> Result<ParseOutcome, String> {
+        parse(
+            &specs(),
+            &args.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+        )
+    }
+
+    #[test]
+    fn go_flag_semantics() {
+        let o = parse_list(&["--development", "--arch", "x86_64"]).unwrap();
+        assert!(o.boolean("development"));
+        assert_eq!(o.text("arch"), "x86_64");
+        assert_eq!(o.text("repository-prefix"), "ghcr.io/x");
+        assert!(o.positionals.is_empty());
+        // Single dash and inline values are equivalent.
+        let o = parse_list(&["-development=false", "-arch=x86_64"]).unwrap();
+        assert!(!o.boolean("development"));
+        assert_eq!(o.text("arch"), "x86_64");
+        // First positional stops parsing; later flags stay positional.
+        let o = parse_list(&["pos", "--arch", "x86_64"]).unwrap();
+        assert_eq!(o.positionals, vec!["pos", "--arch", "x86_64"]);
+        // A bare bool never consumes the next argument.
+        let o = parse_list(&["--development", "false"]).unwrap();
+        assert!(o.boolean("development"));
+        assert_eq!(o.positionals, vec!["false"]);
+        // Help, unknown flags, and missing values fail like Go.
+        assert_eq!(parse_list(&["-h"]).unwrap_err(), ERR_HELP);
+        assert_eq!(parse_list(&["--help"]).unwrap_err(), ERR_HELP);
+        assert_eq!(
+            parse_list(&["--bogus"]).unwrap_err(),
+            "flag provided but not defined: -bogus"
+        );
+        assert_eq!(
+            parse_list(&["--arch"]).unwrap_err(),
+            "flag needs an argument: -arch"
+        );
+        assert_eq!(parse_list(&["--"]).unwrap_err(), "bad flag syntax: --");
+        assert!(
+            parse_list(&["--development=maybe"]).unwrap_err().starts_with(
+                "invalid boolean value \"maybe\" for -development: strconv.ParseBool: parsing \"maybe\": invalid syntax"
+            )
+        );
+        for (input, want) in [("1", true), ("TRUE", true), ("False", false), ("0", false)] {
+            let o = parse_list(&[&format!("--development={input}")]).unwrap();
+            assert_eq!(o.boolean("development"), want);
+        }
+    }
+
+    #[test]
+    fn usage_is_sorted_with_go_defaults() {
+        let text = print_defaults("prog", &specs());
+        assert!(text.starts_with("Usage of prog:\n"), "{text}");
+        let arch = text.find("-arch").unwrap();
+        let dev = text.find("-development").unwrap();
+        let repo = text.find("-repository-prefix").unwrap();
+        assert!(arch < dev && dev < repo, "{text}");
+        assert!(text.contains("(default \"ghcr.io/x\")"), "{text}");
+        assert!(!text.contains("(default \"\")"), "{text}");
     }
 }

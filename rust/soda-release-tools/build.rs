@@ -4,7 +4,12 @@ use std::process::Command;
 
 fn git(args: &[&str]) -> Option<String> {
     let root = format!("{}/../..", env!("CARGO_MANIFEST_DIR"));
-    let output = Command::new("git").arg("-C").arg(&root).args(args).output().ok()?;
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(&root)
+        .args(args)
+        .output()
+        .ok()?;
     if !output.status.success() {
         return None;
     }

@@ -34,7 +34,11 @@ fn parse_start_event(kind: &str, rest: &str) -> Option<Event> {
     if rest.is_empty() {
         return None;
     }
-    Some(Event { kind: kind.to_owned(), label: rest.to_owned(), ..Event::default() })
+    Some(Event {
+        kind: kind.to_owned(),
+        label: rest.to_owned(),
+        ..Event::default()
+    })
 }
 
 fn parse_done_event(kind: &str, rest: &str) -> Option<Event> {
@@ -42,7 +46,11 @@ fn parse_done_event(kind: &str, rest: &str) -> Option<Event> {
     if parts.is_empty() || parts[0].is_empty() {
         return None;
     }
-    let mut e = Event { kind: kind.to_owned(), label: parts[0].to_owned(), ..Event::default() };
+    let mut e = Event {
+        kind: kind.to_owned(),
+        label: parts[0].to_owned(),
+        ..Event::default()
+    };
     for p in &parts[1..] {
         apply_duration_part(&mut e, p);
     }
@@ -65,7 +73,11 @@ fn parse_artifact_event(kind: &str, rest: &str) -> Option<Event> {
     if rest.is_empty() {
         return None;
     }
-    Some(Event { kind: kind.to_owned(), path: rest.to_owned(), ..Event::default() })
+    Some(Event {
+        kind: kind.to_owned(),
+        path: rest.to_owned(),
+        ..Event::default()
+    })
 }
 
 /// Map a worker sandbox path back onto the host output directory.
@@ -156,7 +168,14 @@ impl Renderer {
         match event {
             None => Self::note_locked(&mut inner, &self.writer, line),
             Some(e) => {
-                let Event { kind, label, phase_dur, path, reason, .. } = e;
+                let Event {
+                    kind,
+                    label,
+                    phase_dur,
+                    path,
+                    reason,
+                    ..
+                } = e;
                 match kind.as_str() {
                     "START" => inner.phases.push(Phase {
                         label,
@@ -191,7 +210,9 @@ impl Renderer {
                     }
                     let stamp = wall_since(inner.start);
                     let mut w = self.writer.lock().unwrap();
-                    return w.write_all(format!("[{stamp}] {shown}\n").as_bytes()).map_err(|e| e.to_string());
+                    return w
+                        .write_all(format!("[{stamp}] {shown}\n").as_bytes())
+                        .map_err(|e| e.to_string());
                 }
                 Self::draw_locked(&mut inner, &self.writer)
             }
@@ -211,7 +232,9 @@ impl Renderer {
         if !inner.tty {
             let stamp = wall_since(inner.start);
             let mut w = writer.lock().unwrap();
-            return w.write_all(format!("[{stamp}] {line}\n").as_bytes()).map_err(|e| e.to_string());
+            return w
+                .write_all(format!("[{stamp}] {line}\n").as_bytes())
+                .map_err(|e| e.to_string());
         }
         inner.log.push(line.to_owned());
         if inner.log.len() > LOG_VIEWPORT {
@@ -338,20 +361,21 @@ impl Renderer {
         let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
         let inner = Arc::clone(&self.inner);
         let writer = Arc::clone(&self.writer);
-        let thread = std::thread::spawn(move || {
-            loop {
-                std::thread::sleep(Duration::from_millis(250));
-                if stop_rx.try_recv().is_ok() {
-                    return;
-                }
-                let mut guard = match inner.lock() {
-                    Ok(g) => g,
-                    Err(_) => return,
-                };
-                let _ = Self::draw_locked(&mut guard, &writer);
+        let thread = std::thread::spawn(move || loop {
+            std::thread::sleep(Duration::from_millis(250));
+            if stop_rx.try_recv().is_ok() {
+                return;
             }
+            let mut guard = match inner.lock() {
+                Ok(g) => g,
+                Err(_) => return,
+            };
+            let _ = Self::draw_locked(&mut guard, &writer);
         });
-        *slot = Some(TickerHandle { stop: stop_tx, thread: Some(thread) });
+        *slot = Some(TickerHandle {
+            stop: stop_tx,
+            thread: Some(thread),
+        });
     }
 
     pub fn stop_ticker(&self) {
@@ -449,4 +473,214 @@ pub fn term_width(fd: libc::c_int) -> usize {
         }
     }
     80
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    struct Shared {
+        buf: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl Write for Shared {
+        fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
+            self.buf.lock().unwrap().extend_from_slice(data);
+            Ok(data.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn renderer(tty: bool) -> (Renderer, Arc<Mutex<Vec<u8>>>) {
+        let buf = Arc::new(Mutex::new(Vec::new()));
+        let view = Renderer::new(
+            Box::new(Shared {
+                buf: Arc::clone(&buf),
+            }),
+            tty,
+            80,
+        );
+        (view, buf)
+    }
+
+    fn text(buf: &Arc<Mutex<Vec<u8>>>) -> String {
+        String::from_utf8(buf.lock().unwrap().clone()).unwrap()
+    }
+
+    #[test]
+    fn parse_controller_events() {
+        let e = parse_event("START P1 / Build runtime").unwrap();
+        assert_eq!(e.kind, "START");
+        assert_eq!(e.label, "P1 / Build runtime");
+        let e = parse_event("DONE P1 / Build runtime | phase 00:05:30 | total 00:05:30").unwrap();
+        assert_eq!(e.kind, "DONE");
+        assert_eq!(e.phase_dur, "00:05:30");
+        assert_eq!(e.total_dur, "00:05:30");
+        let e = parse_event("FAILED P8 / Media | section 00:18:35 | total 00:21:24").unwrap();
+        assert_eq!(e.phase_dur, "00:18:35");
+        let e = parse_event("CANDIDATE /out/artifacts/candidate.json").unwrap();
+        assert_eq!(e.kind, "CANDIDATE");
+        assert!(!e.path.is_empty());
+        assert!(parse_event("some builder log line").is_none());
+        assert!(parse_event("START").is_none());
+    }
+
+    #[test]
+    fn padded_wire_format_parses_like_go() {
+        // The real wire pads kinds to 8 columns; the parser keeps Go's
+        // exact first-space split including the quirk this implies.
+        let e = parse_event("START    P1 / Build runtime").unwrap();
+        assert_eq!(e.kind, "START");
+        assert_eq!(e.label, "   P1 / Build runtime");
+        let e =
+            parse_event("DONE     P1 / Build runtime | phase 00:05:30 | total 00:05:30").unwrap();
+        assert_eq!(e.label, "    P1 / Build runtime");
+        assert_eq!(e.phase_dur, "00:05:30");
+    }
+
+    #[test]
+    fn running_phase_shows_live_elapsed() {
+        let (r, buf) = renderer(true);
+        r.feed("START P1 / Build runtime").unwrap();
+        let got = text(&buf);
+        assert!(
+            got.contains("P1 / Build runtime") && got.contains("(live "),
+            "{got}"
+        );
+        r.feed("DONE P1 / Build runtime | phase 00:05:30 | total 00:05:30")
+            .unwrap();
+        let got = text(&buf);
+        assert!(got.contains("[ok]") && got.contains("00:05:30"), "{got}");
+    }
+
+    #[test]
+    fn failed_run_prints_why_panel_with_host_paths() {
+        for tty in [true, false] {
+            let (r, buf) = renderer(tty);
+            r.set_out_dir("/home/op/sodaos/.artifacts/releases/isolated/run-01");
+            for line in [
+                "START P3 / Compile shipping programs",
+                "LOG /run/soda-build-source/.artifacts/releases/isolated/run-01/logs/timing.log",
+                "FAILED Compile soda-dashboard | section 00:00:00 | total 00:00:00 | reason open /run/go/src/a.go: permission denied",
+                "FAILED P3 / Compile shipping programs | phase 00:00:00 | total 00:00:00",
+            ] {
+                r.feed(line).unwrap();
+            }
+            r.finish(1).unwrap();
+            let got = text(&buf);
+            for want in [
+                "why: Compile soda-dashboard",
+                "cause: open /run/go/src/a.go: permission denied",
+                "log: /home/op/sodaos/.artifacts/releases/isolated/run-01/logs/build.log",
+            ] {
+                assert!(got.contains(want), "tty={tty} misses {want}:\n{got}");
+            }
+            assert!(
+                !got.contains(
+                    "/run/soda-build-source/.artifacts/releases/isolated/run-01/logs/timing.log"
+                ),
+                "tty={tty} leaks sandbox path:\n{got}"
+            );
+        }
+    }
+
+    #[test]
+    fn failed_run_without_reason_falls_back_to_log() {
+        let (r, buf) = renderer(false);
+        r.set_out_dir("/out/run-02");
+        r.feed("FAILED P1 / Admit | phase 00:00:01 | total 00:00:01")
+            .unwrap();
+        r.finish(1).unwrap();
+        let got = text(&buf);
+        assert!(
+            got.contains("why: P1 / Admit") && got.contains("cause: see the build log"),
+            "{got}"
+        );
+    }
+
+    #[test]
+    fn failed_panel_shows_hint_line() {
+        let (r, buf) = renderer(false);
+        r.set_out_dir("/out/run-03");
+        r.feed("FAILED Compile soda-dashboard | section 00:00:00 | total 00:00:00 | reason x.go: permission denied").unwrap();
+        r.finish(1).unwrap();
+        let got = text(&buf);
+        assert!(
+            got.contains("  hint: ") && got.contains("soda-candidate-setup"),
+            "{got}"
+        );
+    }
+
+    #[test]
+    fn host_artifact_path_leaves_foreign_paths_alone() {
+        let out = "/home/op/sodaos/.artifacts/releases/isolated/run-01";
+        assert_eq!(
+            host_artifact_path(out, "/run/soda-build-source/.artifacts/releases/isolated/run-01/artifacts/candidate.json"),
+            "/home/op/sodaos/.artifacts/releases/isolated/run-01/artifacts/candidate.json"
+        );
+        for (o, sandbox) in [
+            ("", "/run/soda-build-source/x"),
+            (out, "/somewhere/else/media.json"),
+            (out, "relative/path.json"),
+        ] {
+            assert_eq!(host_artifact_path(o, sandbox), sandbox);
+        }
+    }
+
+    #[test]
+    fn pipe_renderer_summarizes() {
+        let (r, buf) = renderer(false);
+        for line in [
+            "START P1 / Build runtime",
+            "DONE P1 / Build runtime | phase 00:05:30 | total 00:05:30",
+            "CANDIDATE /out/artifacts/candidate.json",
+        ] {
+            r.feed(line).unwrap();
+        }
+        r.finish(0).unwrap();
+        let got = text(&buf);
+        for want in ["P1 / Build runtime", "CANDIDATE", "exit 0"] {
+            assert!(got.contains(want), "{got}");
+        }
+    }
+
+    #[test]
+    fn build_lines_collapse_old_successes() {
+        let (r, _) = renderer(true);
+        let now = Instant::now();
+        {
+            let mut inner = r.inner.lock().unwrap();
+            for i in 0..8 {
+                inner.phases.push(Phase {
+                    label: format!("step {i}"),
+                    state: "ok".to_owned(),
+                    dur: "00:00:01".to_owned(),
+                    started: now,
+                });
+            }
+            inner.phases.push(Phase {
+                label: "bad step".to_owned(),
+                state: "fail".to_owned(),
+                dur: "00:00:02".to_owned(),
+                started: now,
+            });
+            inner.phases.push(Phase {
+                label: "live step".to_owned(),
+                state: "run".to_owned(),
+                dur: String::new(),
+                started: now,
+            });
+            let joined = build_lines(&inner, now).join("\n");
+            for want in ["… 3 earlier steps done", "step 7", "bad step", "live step"] {
+                assert!(joined.contains(want), "{joined}");
+            }
+            for hidden in ["step 0", "step 1", "step 2"] {
+                assert!(!joined.contains(hidden), "{joined}");
+            }
+        }
+    }
 }

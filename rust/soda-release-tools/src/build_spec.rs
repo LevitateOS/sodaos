@@ -98,8 +98,8 @@ impl Request {
 /// userinfo, queries, fragments, whitespace, and loopback hosts.
 pub fn media_base_url(value: &str) -> Result<(), String> {
     let failed = "explicit public HTTP(S) rootfs base URL required".to_owned();
-    let loopback = "rootfs base URL must be reachable from the installing machine, not loopback"
-        .to_owned();
+    let loopback =
+        "rootfs base URL must be reachable from the installing machine, not loopback".to_owned();
     if value.chars().any(|c| c == '\r' || c == '\n' || c == ' ') {
         return Err(failed);
     }
