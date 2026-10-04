@@ -30,7 +30,7 @@ var fileExists = func(path string) bool {
 // big rootfs file from here. Local fixture scope only.
 const fixtureRootfsURL = "http://127.0.0.1:8080"
 
-// standardPaths are where setup-soda-candidate.sh puts its outputs.
+// standardPaths are where soda-candidate-setup puts its outputs.
 var standardControllerPaths = []string{"/usr/local/lib/soda/soda-build"}
 
 var standardWorkerConfigPaths = []string{"/var/lib/soda-candidate-authority/worker.json"}

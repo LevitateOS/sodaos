@@ -17,7 +17,7 @@
 #   curl -s -o /dev/null -w '%{http_code}\n' \
 #     http://192.168.122.1:8080/soda-iso28.qcow2    # expect 404
 #
-# Convergence: setup (scripts/setup-soda-candidate.sh), build filing
+# Convergence: setup (soda-candidate-setup), build filing
 # (--rootfs-dir), and this unit share one rootfs-only directory,
 # /home/soda-rootfs on the roomy disk. Copy only *-rootfs.img into it:
 # QCOW2 guest disks and installer ISOs stay in /home/libvirt/images and
