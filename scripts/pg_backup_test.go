@@ -17,8 +17,10 @@ func pgFixtureStart(t *testing.T, env ...string) map[string]string {
 	if _, err := exec.LookPath("podman"); err != nil {
 		t.Skip("podman is not installed on this test host")
 	}
-	cmd := exec.Command("bash", "pg-fixture.sh", "start")
-	cmd.Dir = "."
+	// The Rust port preserves the shell CLI exactly: `start` prints
+	// KEY=VALUE assignments, `stop <container>` removes the container.
+	bin := buildRustPortBinary(t, "soda-pg-fixture")
+	cmd := exec.Command(bin, "start")
 	cmd.Env = append(os.Environ(), env...)
 	out, err := cmd.CombinedOutput()
 	if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 3 {
@@ -41,7 +43,7 @@ func pgFixtureStart(t *testing.T, env ...string) map[string]string {
 		}
 	}
 	t.Cleanup(func() {
-		stop := exec.Command("bash", "pg-fixture.sh", "stop", vars["SODA_PG_CONTAINER"])
+		stop := exec.Command(bin, "stop", vars["SODA_PG_CONTAINER"])
 		if out, err := stop.CombinedOutput(); err != nil {
 			t.Errorf("fixture stop: %v: %s", err, out)
 		}
