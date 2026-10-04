@@ -1,5 +1,4 @@
 // soda-identity-compose registers one explicitly opted-in Compose service.
-use serde::Serialize;
 use std::ffi::CString;
 use std::fs;
 use std::io;
@@ -39,7 +38,11 @@ fn run() -> Result<(), String> {
 }
 
 fn load_options() -> Result<Options, String> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    // Never panic on non-UTF-8 argv; Go replaces invalid bytes with U+FFFD.
+    let args: Vec<String> = std::env::args_os()
+        .skip(1)
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
     parse_options(&args)
 }
 
@@ -315,30 +318,58 @@ fn write_override(path: &str, service: &str, root: &str) -> Result<(), String> {
         .parent()
         .and_then(|p| p.to_str())
         .unwrap_or("/run/soda-muse-interface");
-    let mounts = vec![
+    let mounts = [
         format!("{root}:/run/soda-muse/credentials:ro"),
         String::from("/usr/local/bin/muse:/usr/local/bin/muse:ro"),
         String::from("/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro"),
         format!("{sock_dir}:{sock_dir}:ro"),
     ];
-    let wire = serde_json::json!({
-        "services": {
-            service: {
-                "volumes": mounts,
-            }
+    let mut data = String::from("{\"services\":{");
+    data.push_str(&json_string(service));
+    data.push_str(":{\"volumes\":[");
+    for (i, m) in mounts.iter().enumerate() {
+        if i > 0 {
+            data.push(',');
         }
-    });
-    let data = serde_json::to_vec(&wire).map_err(|e| e.to_string())?;
+        data.push_str(&json_string(m));
+    }
+    data.push_str("]}}}");
     let mut opts = fs::OpenOptions::new();
     opts.write(true).create(true).truncate(true);
     opts.mode(0o600);
     use std::io::Write;
     let mut f = opts.open(path).map_err(|e| e.to_string())?;
-    f.write_all(&data).map_err(|e| e.to_string())?;
+    f.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
     Ok(())
 }
 
-#[derive(Serialize)]
+// json_string matches Go encoding/json string escaping, including its
+// HTML-safe <, >, & forms, so override bytes are identical for any input.
+fn json_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '<' => out.push_str("\\u003c"),
+            '>' => out.push_str("\\u003e"),
+            '&' => out.push_str("\\u0026"),
+            '\u{2028}' => out.push_str("\\u2028"),
+            '\u{2029}' => out.push_str("\\u2029"),
+            c if (c as u32) < 0x20 => {
+                out.push_str(&format!("\\u{:04x}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
 struct NestedRegistration {
     child_id: String,
     actor_id: String,
@@ -346,23 +377,250 @@ struct NestedRegistration {
     muse: bool,
 }
 
-#[derive(Serialize)]
-struct LaunchRequest {
-    #[serde(skip_serializing_if = "String::is_empty")]
-    home: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    register: Option<NestedRegistration>,
-    #[serde(skip_serializing_if = "String::is_empty", rename = "config_home")]
-    config_home: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
-    term: String,
-    #[serde(rename = "connection_id")]
-    connection_id: String,
-    cwd: String,
-    args: Option<Vec<String>>,
-    tty: bool,
-    cols: u16,
-    rows: u16,
+// launch_request_json emits the exact Go LaunchRequest field order for a
+// registration: empty home/config_home/term omitted, nil args as null.
+fn launch_request_json(request: &NestedRegistration) -> String {
+    let mut out = String::from("{\"register\":{\"child_id\":");
+    out.push_str(&json_string(&request.child_id));
+    out.push_str(",\"actor_id\":");
+    out.push_str(&json_string(&request.actor_id));
+    out.push_str(",\"registration_id\":");
+    out.push_str(&json_string(&request.registration_id));
+    out.push_str(",\"muse\":");
+    out.push_str(if request.muse { "true" } else { "false" });
+    out.push_str(
+        "},\"connection_id\":\"\",\"cwd\":\"\",\"args\":null,\"tty\":false,\"cols\":0,\"rows\":0}",
+    );
+    out
+}
+
+// parse_launch_exit mirrors Go json.Unmarshal into LaunchExit: missing
+// fields stay zero, unknown fields are ignored, malformed JSON rejects.
+fn parse_launch_exit(body: &[u8]) -> Result<(i64, String), ()> {
+    let text = std::str::from_utf8(body).map_err(|_| ())?;
+    let mut code: i64 = 0;
+    let mut error_text = String::new();
+    let mut i = 0;
+    let bytes = text.as_bytes();
+    let skip_ws = |i: &mut usize| {
+        while *i < bytes.len() && matches!(bytes[*i], b' ' | b'\t' | b'\n' | b'\r') {
+            *i += 1;
+        }
+    };
+    skip_ws(&mut i);
+    if i >= bytes.len() || bytes[i] != b'{' {
+        return Err(());
+    }
+    i += 1;
+    // Go rejects a trailing comma, so `}` is only valid here for `{}` or
+    // right after a value; after a comma a key is required.
+    let mut after_comma = false;
+    loop {
+        skip_ws(&mut i);
+        if i < bytes.len() && bytes[i] == b'}' {
+            if after_comma {
+                return Err(());
+            }
+            i += 1;
+            break;
+        }
+        if i >= bytes.len() || bytes[i] != b'"' {
+            return Err(());
+        }
+        let (key, next) = parse_json_string(text, i)?;
+        i = next;
+        skip_ws(&mut i);
+        if i >= bytes.len() || bytes[i] != b':' {
+            return Err(());
+        }
+        i += 1;
+        skip_ws(&mut i);
+        if key == "code" {
+            let (value, next) = parse_json_integer(text, i)?;
+            code = value;
+            i = next;
+        } else if key == "error" {
+            if i >= bytes.len() || bytes[i] != b'"' {
+                return Err(());
+            }
+            let (value, next) = parse_json_string(text, i)?;
+            error_text = value;
+            i = next;
+        } else {
+            i = skip_json_value(text, i)?;
+        }
+        skip_ws(&mut i);
+        if i < bytes.len() && bytes[i] == b',' {
+            i += 1;
+            after_comma = true;
+            continue;
+        }
+        if i < bytes.len() && bytes[i] == b'}' {
+            i += 1;
+            break;
+        }
+        return Err(());
+    }
+    skip_ws(&mut i);
+    if i != bytes.len() {
+        return Err(());
+    }
+    Ok((code, error_text))
+}
+
+fn parse_json_string(text: &str, start: usize) -> Result<(String, usize), ()> {
+    let bytes = text.as_bytes();
+    if start >= bytes.len() || bytes[start] != b'"' {
+        return Err(());
+    }
+    let mut out = String::new();
+    let mut i = start + 1;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'"' => return Ok((out, i + 1)),
+            b'\\' => {
+                i += 1;
+                if i >= bytes.len() {
+                    return Err(());
+                }
+                match bytes[i] {
+                    b'"' => out.push('"'),
+                    b'\\' => out.push('\\'),
+                    b'/' => out.push('/'),
+                    b'b' => out.push('\u{0008}'),
+                    b'f' => out.push('\u{000c}'),
+                    b'n' => out.push('\n'),
+                    b'r' => out.push('\r'),
+                    b't' => out.push('\t'),
+                    b'u' => {
+                        if i + 4 >= bytes.len() {
+                            return Err(());
+                        }
+                        let hex = &text[i + 1..i + 5];
+                        let cp = u32::from_str_radix(hex, 16).map_err(|_| ())?;
+                        let c = char::from_u32(cp).ok_or(())?;
+                        // Reject lone surrogates the way Go does.
+                        if (0xd800..0xe000).contains(&cp) {
+                            return Err(());
+                        }
+                        out.push(c);
+                        i += 4;
+                    }
+                    _ => return Err(()),
+                }
+            }
+            0x00..=0x1f => return Err(()),
+            _ => {
+                let c = text[i..].chars().next().ok_or(())?;
+                out.push(c);
+                i += c.len_utf8() - 1;
+            }
+        }
+        i += 1;
+    }
+    Err(())
+}
+
+fn parse_json_integer(text: &str, start: usize) -> Result<(i64, usize), ()> {
+    let bytes = text.as_bytes();
+    let mut i = start;
+    if i < bytes.len() && bytes[i] == b'-' {
+        i += 1;
+    }
+    let digits = i;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == digits || i == start {
+        return Err(());
+    }
+    // Go rejects fractions and exponents for int fields.
+    if i < bytes.len() && (bytes[i] == b'.' || bytes[i] == b'e' || bytes[i] == b'E') {
+        return Err(());
+    }
+    text[start..i]
+        .parse::<i64>()
+        .map_err(|_| ())
+        .map(|v| (v, i))
+}
+
+fn skip_json_value(text: &str, start: usize) -> Result<usize, ()> {
+    let bytes = text.as_bytes();
+    if start >= bytes.len() {
+        return Err(());
+    }
+    match bytes[start] {
+        b'"' => parse_json_string(text, start).map(|(_, next)| next),
+        b'{' | b'[' => {
+            let open = bytes[start];
+            let close = if open == b'{' { b'}' } else { b']' };
+            let mut i = start + 1;
+            let mut depth = 1;
+            let mut in_string = false;
+            let mut escaped = false;
+            while i < bytes.len() {
+                let b = bytes[i];
+                if in_string {
+                    if escaped {
+                        escaped = false;
+                    } else if b == b'\\' {
+                        escaped = true;
+                    } else if b == b'"' {
+                        in_string = false;
+                    }
+                } else if b == b'"' {
+                    in_string = true;
+                } else if b == open {
+                    depth += 1;
+                } else if b == close {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Ok(i + 1);
+                    }
+                }
+                i += 1;
+            }
+            Err(())
+        }
+        b't' => {
+            if text[start..].starts_with("true") {
+                Ok(start + 4)
+            } else {
+                Err(())
+            }
+        }
+        b'f' => {
+            if text[start..].starts_with("false") {
+                Ok(start + 5)
+            } else {
+                Err(())
+            }
+        }
+        b'n' => {
+            if text[start..].starts_with("null") {
+                Ok(start + 4)
+            } else {
+                Err(())
+            }
+        }
+        b'-' | b'0'..=b'9' => {
+            let mut i = start;
+            if bytes[i] == b'-' {
+                i += 1;
+            }
+            while i < bytes.len()
+                && (bytes[i].is_ascii_digit()
+                    || matches!(bytes[i], b'.' | b'e' | b'E' | b'+' | b'-'))
+            {
+                i += 1;
+            }
+            if i == start {
+                return Err(());
+            }
+            Ok(i)
+        }
+        _ => Err(()),
+    }
 }
 
 fn register(request: NestedRegistration) -> Result<(), String> {
@@ -417,21 +675,10 @@ fn register(request: NestedRegistration) -> Result<(), String> {
             std::mem::size_of::<libc::timeval>() as libc::socklen_t,
         );
     }
-    let req = LaunchRequest {
-        home: String::new(),
-        register: Some(request),
-        config_home: String::new(),
-        term: String::new(),
-        connection_id: String::new(),
-        cwd: String::new(),
-        args: None,
-        tty: false,
-        cols: 0,
-        rows: 0,
-    };
-    let data = serde_json::to_vec(&req).map_err(|e| e.to_string())?;
-    let n = unsafe { libc::send(fd, data.as_ptr() as *const libc::c_void, data.len(), 0) };
-    if n < 0 || (n as usize) != data.len() {
+    let data = launch_request_json(&request);
+    let bytes = data.as_bytes();
+    let n = unsafe { libc::send(fd, bytes.as_ptr() as *const libc::c_void, bytes.len(), 0) };
+    if n < 0 || (n as usize) != bytes.len() {
         return Err(io::Error::last_os_error().to_string());
     }
     let mut body = [0u8; 4096];
@@ -439,10 +686,8 @@ fn register(request: NestedRegistration) -> Result<(), String> {
     if r <= 0 {
         return Err(String::from("identity registration unconfirmed"));
     }
-    let resp: serde_json::Value = serde_json::from_slice(&body[..r as usize])
+    let (code, err_text) = parse_launch_exit(&body[..r as usize])
         .map_err(|_| String::from("identity registration rejected"))?;
-    let code = resp.get("code").and_then(|v| v.as_i64()).unwrap_or(-1);
-    let err_text = resp.get("error").and_then(|v| v.as_str()).unwrap_or("x");
     if code != 0 || !err_text.is_empty() {
         return Err(String::from("identity registration rejected"));
     }
@@ -572,32 +817,22 @@ mod tests {
         )
         .unwrap();
         let body = fs::read(&path).unwrap();
-        let wire: serde_json::Value = serde_json::from_slice(&body).unwrap();
-        let volumes = wire["services"]["development"]["volumes"]
-            .as_array()
-            .unwrap();
-        for want in [
-            "/run/soda-muse/credentials",
-            "/usr/local/bin/muse",
-            "/run/soda-muse-interface",
-        ] {
-            let mut found = false;
-            for m in volumes {
-                if let Some(s) = m.as_str() {
-                    if mount_destination(s) == Some(want) {
-                        found = true;
-                    }
-                }
-            }
-            assert!(found, "missing {want} from {volumes:?}");
-        }
+        let text = String::from_utf8(body).unwrap();
+        assert_eq!(
+            text,
+            "{\"services\":{\"development\":{\"volumes\":[\"/run/soda-muse/nested/registration:/run/soda-muse/credentials:ro\",\"/usr/local/bin/muse:/usr/local/bin/muse:ro\",\"/usr/local/libexec/soda/muse:/usr/local/libexec/soda/muse:ro\",\"/run/soda-muse-interface:/run/soda-muse-interface:ro\"]}}}"
+        );
         let _ = fs::remove_dir_all(&dir);
     }
 
-    fn mount_destination(mount: &str) -> Option<&str> {
-        let (_, rest) = mount.split_once(':')?;
-        let (target, _) = rest.split_once(':')?;
-        Some(target)
+    #[test]
+    fn override_escapes_like_go_encoding_json() {
+        assert_eq!(
+            json_string("a<b>&\"c\\d"),
+            "\"a\\u003cb\\u003e\\u0026\\\"c\\\\d\""
+        );
+        assert_eq!(json_string("line\ntab\t"), "\"line\\ntab\\t\"");
+        assert_eq!(json_string("\u{1}"), "\"\\u0001\"");
     }
 
     #[test]
@@ -619,29 +854,57 @@ mod tests {
 
     #[test]
     fn launch_request_wire_matches_go() {
-        let req = LaunchRequest {
-            home: String::new(),
-            register: Some(NestedRegistration {
-                child_id: "c".repeat(64),
-                actor_id: "42".to_string(),
-                registration_id: "r".repeat(32),
-                muse: true,
-            }),
-            config_home: String::new(),
-            term: String::new(),
-            connection_id: String::new(),
-            cwd: String::new(),
-            args: None,
-            tty: false,
-            cols: 0,
-            rows: 0,
+        let req = NestedRegistration {
+            child_id: "c".repeat(64),
+            actor_id: "42".to_string(),
+            registration_id: "r".repeat(32),
+            muse: true,
         };
-        let v: serde_json::Value =
-            serde_json::from_slice(&serde_json::to_vec(&req).unwrap()).unwrap();
-        assert_eq!(v["register"]["actor_id"], "42");
-        assert!(v.get("home").is_none());
-        assert_eq!(v["connection_id"], "");
-        assert!(v["args"].is_null());
-        assert_eq!(v["tty"], false);
+        let wire = launch_request_json(&req);
+        let expect = format!(
+            "{{\"register\":{{\"child_id\":\"{}\",\"actor_id\":\"42\",\"registration_id\":\"{}\",\"muse\":true}},\"connection_id\":\"\",\"cwd\":\"\",\"args\":null,\"tty\":false,\"cols\":0,\"rows\":0}}",
+            "c".repeat(64),
+            "r".repeat(32)
+        );
+        assert_eq!(wire, expect);
+    }
+
+    #[test]
+    fn launch_exit_parsing_matches_go_unmarshal() {
+        assert_eq!(
+            parse_launch_exit(b"{\"code\":0}").unwrap(),
+            (0, String::new())
+        );
+        assert_eq!(parse_launch_exit(b"{}").unwrap(), (0, String::new()));
+        assert_eq!(
+            parse_launch_exit(b"{\"error\":\"denied\",\"code\":1}").unwrap(),
+            (1, String::from("denied"))
+        );
+        assert_eq!(
+            parse_launch_exit(b" { \"code\" : 0 , \"extra\" : [1,{\"x\":null}] } ").unwrap(),
+            (0, String::new())
+        );
+        assert_eq!(
+            parse_launch_exit(b"{\"code\":0,\"error\":\"a\\\"b\"}").unwrap(),
+            (0, String::from("a\"b"))
+        );
+        for bad in [
+            "",
+            "{",
+            "{\"code\":}",
+            "{\"code\":\"0\"}",
+            "{\"code\":0.0}",
+            "{\"code\":0",
+            "{\"error\":0}",
+            "{\"code\":0}trailing",
+            "{\"code\":0,\"code\":}",
+            "{\"code\":0,}",
+            "{,}",
+        ] {
+            assert!(
+                parse_launch_exit(bad.as_bytes()).is_err(),
+                "admitted {bad:?}"
+            );
+        }
     }
 }

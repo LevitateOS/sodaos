@@ -70,8 +70,9 @@ func SodaCommands(source string) ([]string, error) {
 }
 
 // CompileRust is the sole Rust command recipe for ported runtime programs.
-// The workspace at rust/ owns every crate; the single image layout owns
-// every install path. The release binary is copied to dest.
+// The top-level workspace owns every crate under rust/; the single image
+// layout owns every install path. Builds are offline from vendor/ and the
+// release binary is copied to dest.
 func (p Production) CompileRust(crate, bin, dest string) error {
 	if e := p.validate(); e != nil {
 		return e
@@ -82,12 +83,12 @@ func (p Production) CompileRust(crate, bin, dest string) error {
 	if e := p.step("Compile " + bin); e != nil {
 		return e
 	}
-	manifest := filepath.Join(p.Source, "rust", "Cargo.toml")
-	args := []string{"build", "--release", "--locked", "--manifest-path", manifest, "-p", crate}
+	manifest := filepath.Join(p.Source, "Cargo.toml")
+	args := []string{"build", "--release", "--locked", "--offline", "--manifest-path", manifest, "-p", crate}
 	if e := p.Execute(p.Source, "cargo", args...); e != nil {
 		return e
 	}
-	raw, e := os.ReadFile(filepath.Join(p.Source, "rust", "target", "release", bin))
+	raw, e := os.ReadFile(filepath.Join(p.Source, "target", "release", bin))
 	if e != nil {
 		return e
 	}

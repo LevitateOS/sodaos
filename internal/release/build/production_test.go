@@ -118,7 +118,7 @@ func productionFixture(t *testing.T) (Production, *[]string) {
 		if name == "cargo" && args[0] == "build" {
 			for i, a := range args {
 				if a == "-p" && i+1 < len(args) {
-					return writeELF(filepath.Join(dir, "rust", "target", "release", args[i+1]))
+					return writeELF(filepath.Join(dir, "target", "release", args[i+1]))
 				}
 			}
 		}
@@ -304,7 +304,7 @@ func TestProductionCompileRustKeepsLayoutAndVerifiesELF(t *testing.T) {
 		t.Fatal(e)
 	}
 	text := strings.Join(*calls, "\n")
-	if !strings.Contains(text, "cargo build --release --locked") || !strings.Contains(text, "-p soda-identity-compose") {
+	if !strings.Contains(text, "cargo build --release --locked --offline") || !strings.Contains(text, "-p soda-identity-compose") {
 		t.Fatal(text)
 	}
 	if strings.Count(text, "cargo build") != 1 {

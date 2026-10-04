@@ -1,7 +1,7 @@
 # SodaOS Rust workspace (lane R, PR03 rust-offline-build).
 # Members build with zero network: `cargo build --offline --workspace`.
-# Every crates-io dependency must be vendored under vendor/; the source
+# Every crates-io dependency must be vendored under rust/vendor/; the source
 # replacement in .cargo/config.toml makes vendoring mandatory.
 [workspace]
 resolver = "2"
-members = ["rust/soda-build-tools", "rust/soda-factory"]
+members = ["rust/soda-build-tools", "rust/soda-factory", "rust/soda-identity-compose"]
