@@ -104,9 +104,13 @@ class Provisioning(unittest.TestCase):
 
 class OutsideContracts(unittest.TestCase):
     def test_support_tools_are_not_appliance_commands(self):
-        for name in ('soda-artifacts', 'soda-acceptance'):
-            self.assertTrue((ROOT / 'tools' / name / 'main.go').is_file())
-            self.assertFalse((ROOT / 'cmd' / name).exists())
+        self.assertTrue((ROOT / 'tools' / 'soda-artifacts' / 'main.go').is_file())
+        self.assertFalse((ROOT / 'cmd' / 'soda-artifacts').exists())
+        # The acceptance driver is Rust-ported; the workspace owns it and the
+        # build still emits the binary at tools/soda-acceptance.
+        self.assertTrue((ROOT / 'rust' / 'soda-acceptance' / 'Cargo.toml').is_file())
+        self.assertFalse((ROOT / 'cmd' / 'soda-acceptance').exists())
+        self.assertFalse((ROOT / 'tools' / 'soda-acceptance' / 'main.go').exists())
         self.assertTrue((ROOT / 'tools' / 'soda-build' / 'main.go').is_file())
         self.assertFalse((ROOT / 'scripts/build-native.sh').exists())
         self.assertFalse((ROOT / 'tools/soda-host-image').exists())
@@ -127,28 +131,5 @@ class OutsideContracts(unittest.TestCase):
     # Origin validation moved with service-https.py to Go; see
     # internal/acceptance/service_https_test.go TestHTTPSOrigin.
 
-    def test_remote_dispatch_has_no_runtime_or_publication_phases(self):
-        module = load('remote_fixture', 'internal/acceptance/remote_executor.py')
-        import io
-
-        request = {
-            'Revision': 'a' * 40,
-            'Architecture': 'x86_64',
-            'Target': 'builder',
-            'Work': '/new/private',
-            'Phase': 'publish',
-        }
-
-        class Input:
-            buffer = io.BytesIO(json.dumps(request).encode())
-
-        with (
-            patch.object(module.sys, 'stdin', Input()),
-            patch.object(module.platform, 'system', return_value='Linux'),
-            patch.object(module.platform, 'machine', return_value='x86_64'),
-            patch.object(module.platform, 'node', return_value='builder'),
-            patch.object(module.subprocess, 'run') as run,
-        ):
-            with self.assertRaises(ValueError):
-                module.main()
-            run.assert_not_called()
+    # Remote dispatch moved with remote_executor.py to the Rust driver
+    # (soda-acceptance-remote); see rust/soda-acceptance remote tests.

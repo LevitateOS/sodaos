@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -125,36 +124,6 @@ func TestEvidenceScansRetainOpenDirectoryAfterRename(t *testing.T) {
 	}
 }
 
-func TestHandoffShowsCleanupAndRejectsPendingRecord(t *testing.T) {
-	e := fixtureEvidence(t)
-	if err := e.Write("check", []byte("synthetic observation")); err != nil {
-		t.Fatal(err)
-	}
-	files, err := e.Hashes()
-	if err != nil {
-		t.Fatal(err)
-	}
-	rev := strings.Repeat("a", 40)
-	o := Observation{Owner: "P05", RequestedRevision: rev, RequestedArchitecture: "x86_64", Outcome: "failed", Execution: "failed", Evidence: "completed", Cleanup: "remote cleanup unknown", Invocation: []string{"transfer"}, Files: files, Artifacts: map[string]string{"bundle/build-info.json": strings.Repeat("b", 64)}}
-	if err := e.PublishObservation(o); err != nil {
-		t.Fatal(err)
-	}
-	dir := t.TempDir()
-	if err := os.Chmod(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := Handoff(filepath.Join(dir, "pending.md"), "x86_64", rev, []string{filepath.Join(e.Path(), "observation.pending.json")}); err == nil {
-		t.Fatal("accepted pending record")
-	}
-	out := filepath.Join(dir, "final.md")
-	if err := Handoff(out, "x86_64", rev, []string{filepath.Join(e.Path(), "observation.json")}); err != nil {
-		t.Fatal(err)
-	}
-	raw, err := os.ReadFile(out)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(raw), "remote cleanup unknown") || !strings.Contains(string(raw), "bundle/build-info.json") {
-		t.Fatal("missing cleanup/artifact context")
-	}
-}
+// Handoff moved to the Rust driver (soda-acceptance report); see
+// rust/soda-acceptance report tests. This file keeps finalize coverage for
+// the retained Evidence/Observation/Hashes surface.
