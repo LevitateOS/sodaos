@@ -15,7 +15,7 @@ working directory. Anything else is refused before privilege is touched.
 
 ```sh
 cd ~/Projects/sodaos
-cargo run --manifest-path tools/soda-candidate-setup/Cargo.toml
+cargo run -p soda-candidate-setup
 sudo soda-candidate
 ```
 

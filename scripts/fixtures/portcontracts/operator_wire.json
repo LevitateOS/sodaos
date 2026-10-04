@@ -1,0 +1,162 @@
+{
+  "client_host": "soda-operator",
+  "command_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "content_type": "application/json",
+  "method": "POST",
+  "misuse": [
+    {
+      "argv": [
+        "status"
+      ],
+      "name": "missing socket",
+      "stderr_contains": "usage: soda-factory --socket PATH [--command ID] status [RUN] / stop RUN / reconcile"
+    },
+    {
+      "argv": [
+        "--socket",
+        "SOCK"
+      ],
+      "name": "no command",
+      "stderr_contains": "usage: soda-factory --socket PATH"
+    },
+    {
+      "argv": [
+        "--socket",
+        "SOCK",
+        "run",
+        "attempt"
+      ],
+      "name": "unknown command",
+      "stderr_contains": "unknown factory command"
+    },
+    {
+      "argv": [
+        "--socket",
+        "SOCK",
+        "--command",
+        "CID",
+        "status"
+      ],
+      "name": "status with command",
+      "stderr_contains": "status carries no durable command"
+    },
+    {
+      "argv": [
+        "--socket",
+        "SOCK",
+        "stop",
+        "RUN"
+      ],
+      "name": "stop without command",
+      "stderr_contains": "stop requires --command ID and one recorded run"
+    },
+    {
+      "argv": [
+        "--socket",
+        "SOCK",
+        "--command",
+        "CID",
+        "reconcile",
+        "RUN"
+      ],
+      "name": "reconcile with target",
+      "stderr_contains": "reconcile requires --command ID and no target"
+    }
+  ],
+  "path": "/operator/factory",
+  "requests": [
+    {
+      "argv": [
+        "status"
+      ],
+      "body": "{\"type\":\"status\"}\n",
+      "name": "status all"
+    },
+    {
+      "argv": [
+        "status",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "body": "{\"target\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"type\":\"status\"}\n",
+      "name": "status one"
+    },
+    {
+      "argv": [
+        "--command",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "stop",
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "body": "{\"command_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"target\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"type\":\"stop\"}\n",
+      "name": "stop"
+    },
+    {
+      "argv": [
+        "--command",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "reconcile"
+      ],
+      "body": "{\"command_id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"reconcile\"}\n",
+      "name": "reconcile"
+    }
+  ],
+  "responses": [
+    {
+      "body": "{\"runs\":[]}",
+      "code": 200,
+      "name": "ok adds missing newline",
+      "stderr_contains": "",
+      "stdout": "{\"runs\":[]}\n"
+    },
+    {
+      "body": "{\"runs\":[]}\n",
+      "code": 200,
+      "name": "ok keeps newline",
+      "stderr_contains": "",
+      "stdout": "{\"runs\":[]}\n"
+    },
+    {
+      "body": "",
+      "code": 200,
+      "name": "empty ok emits newline",
+      "stderr_contains": "",
+      "stdout": "\n"
+    },
+    {
+      "body": "{\"running\":true}\n",
+      "code": 202,
+      "name": "accepted passthrough",
+      "stderr_contains": "",
+      "stdout": "{\"running\":true}\n"
+    },
+    {
+      "body": "gone",
+      "code": 404,
+      "name": "not found",
+      "stderr_contains": "factory run not found",
+      "stdout": ""
+    },
+    {
+      "body": "clash",
+      "code": 409,
+      "name": "conflict",
+      "stderr_contains": "command identity reused for different content",
+      "stdout": ""
+    },
+    {
+      "body": "bad",
+      "code": 400,
+      "name": "bad request",
+      "stderr_contains": "operator command failed (HTTP 400)",
+      "stdout": ""
+    },
+    {
+      "body": "boom",
+      "code": 500,
+      "name": "server error",
+      "stderr_contains": "operator command failed (HTTP 500)",
+      "stdout": ""
+    }
+  ],
+  "run_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

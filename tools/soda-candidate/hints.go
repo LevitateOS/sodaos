@@ -24,23 +24,23 @@ var hintCatalog = []struct {
 }{
 	{
 		"could not import",
-		"Go cannot map its build cache under the worker domain; rerun cargo run --manifest-path tools/soda-candidate-setup/Cargo.toml from the repo root.",
+		"Go cannot map its build cache under the worker domain; rerun cargo run -p soda-candidate-setup from the repo root.",
 	},
 	{
 		"go failed",
-		"Go cannot run in the worker sandbox (often cache mapping); rerun cargo run --manifest-path tools/soda-candidate-setup/Cargo.toml from the repo root.",
+		"Go cannot run in the worker sandbox (often cache mapping); rerun cargo run -p soda-candidate-setup from the repo root.",
 	},
 	{
 		"permission denied",
-		"A provisioned file, label, or directory blocks the worker; rerun cargo run --manifest-path tools/soda-candidate-setup/Cargo.toml from the repo root.",
+		"A provisioned file, label, or directory blocks the worker; rerun cargo run -p soda-candidate-setup from the repo root.",
 	},
 	{
 		"goproxy",
-		"The worker builds offline from warmed caches; rerun cargo run --manifest-path tools/soda-candidate-setup/Cargo.toml from the repo root.",
+		"The worker builds offline from warmed caches; rerun cargo run -p soda-candidate-setup from the repo root.",
 	},
 	{
 		"module lookup disabled",
-		"The worker builds offline from warmed caches; rerun cargo run --manifest-path tools/soda-candidate-setup/Cargo.toml from the repo root.",
+		"The worker builds offline from warmed caches; rerun cargo run -p soda-candidate-setup from the repo root.",
 	},
 	{
 		"already present",
@@ -48,6 +48,6 @@ var hintCatalog = []struct {
 	},
 	{
 		"interactive authentication required",
-		"A worker container could not use systemd cgroups (no user session); rerun cargo run --manifest-path tools/soda-candidate-setup/Cargo.toml from the repo root.",
+		"A worker container could not use systemd cgroups (no user session); rerun cargo run -p soda-candidate-setup from the repo root.",
 	},
 }

@@ -1,13 +1,48 @@
 package scripts
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+var (
+	pgMaintBinOnce sync.Once
+	pgMaintBinRoot string
+	pgMaintBinDiag string
+)
+
+// pgMaintenanceBinary builds the Rust maintenance tools once (offline,
+// std-only) and returns the path of the named binary. The ports preserve
+// the shell CLI, exit codes and file behavior exactly.
+func pgMaintenanceBinary(t *testing.T, name string) string {
+	t.Helper()
+	pgMaintBinOnce.Do(func() {
+		root, err := filepath.Abs("..")
+		if err != nil {
+			pgMaintBinDiag = err.Error()
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		build := exec.CommandContext(ctx, "cargo", "build", "--offline", "-p", "soda-pg-maintenance")
+		build.Dir = root
+		if out, err := build.CombinedOutput(); err != nil {
+			pgMaintBinDiag = string(out)
+			return
+		}
+		pgMaintBinRoot = root
+	})
+	if pgMaintBinRoot == "" {
+		t.Fatalf("build soda-pg-maintenance: %s", pgMaintBinDiag)
+	}
+	return filepath.Join(pgMaintBinRoot, "target", "debug", name)
+}
 
 // Live proof that the shipped backup/restore tools round-trip both appliance
 // databases on disposable PostgreSQL. Skips when the container engine or the
@@ -17,8 +52,10 @@ func pgFixtureStart(t *testing.T, env ...string) map[string]string {
 	if _, err := exec.LookPath("podman"); err != nil {
 		t.Skip("podman is not installed on this test host")
 	}
-	cmd := exec.Command("bash", "pg-fixture.sh", "start")
-	cmd.Dir = "."
+	// The Rust port preserves the shell CLI exactly: `start` prints
+	// KEY=VALUE assignments, `stop <container>` removes the container.
+	bin := buildRustPortBinary(t, "soda-pg-fixture")
+	cmd := exec.Command(bin, "start")
 	cmd.Env = append(os.Environ(), env...)
 	out, err := cmd.CombinedOutput()
 	if exit, ok := err.(*exec.ExitError); ok && exit.ExitCode() == 3 {
@@ -41,7 +78,7 @@ func pgFixtureStart(t *testing.T, env ...string) map[string]string {
 		}
 	}
 	t.Cleanup(func() {
-		stop := exec.Command("bash", "pg-fixture.sh", "stop", vars["SODA_PG_CONTAINER"])
+		stop := exec.Command(bin, "stop", vars["SODA_PG_CONTAINER"])
 		if out, err := stop.CombinedOutput(); err != nil {
 			t.Errorf("fixture stop: %v: %s", err, out)
 		}
@@ -83,7 +120,7 @@ INSERT INTO soda_probe(note) VALUES ('first'), ('it''s quoted'), ('third');`
 	backupRoot := t.TempDir()
 	runBackup := func(keep string) string {
 		t.Helper()
-		cmd := exec.Command("bash", "../appliance/bin/soda-pg-backup")
+		cmd := exec.Command(pgMaintenanceBinary(t, "soda-pg-backup"))
 		cmd.Env = append(os.Environ(),
 			"SODA_PG_CONTAINER="+container,
 			"SODA_PG_BACKUP_DIR="+backupRoot,
@@ -140,7 +177,7 @@ INSERT INTO soda_probe(note) VALUES ('first'), ('it''s quoted'), ('third');`
 	for db := range strings.FieldsSeq(fix["SODA_PG_DATABASES"]) {
 		pgExec(t, container, db, "DROP TABLE soda_probe;")
 	}
-	restore := exec.Command("bash", "../appliance/bin/soda-pg-restore", "--yes", run)
+	restore := exec.Command(pgMaintenanceBinary(t, "soda-pg-restore"), "--yes", run)
 	restore.Env = append(os.Environ(), "SODA_PG_CONTAINER="+container)
 	if out, err := restore.CombinedOutput(); err != nil {
 		t.Fatalf("soda-pg-restore: %v: %s", err, out)
@@ -180,7 +217,7 @@ INSERT INTO soda_probe(note) VALUES ('first'), ('it''s quoted'), ('third');`
 	}
 	initRoles := func() string {
 		t.Helper()
-		cmd := exec.Command("bash", "../appliance/bin/soda-pg-init-roles")
+		cmd := exec.Command(pgMaintenanceBinary(t, "soda-pg-init-roles"))
 		cmd.Env = append(os.Environ(),
 			"SODA_PG_CONTAINER="+bare["SODA_PG_CONTAINER"],
 			"SODA_PG_PASSWORD_DIR="+pwdir,
@@ -209,7 +246,7 @@ INSERT INTO soda_probe(note) VALUES ('first'), ('it''s quoted'), ('third');`
 		t.Fatalf("role password login: %v: %s", err, out)
 	}
 	if out, err := func() ([]byte, error) {
-		cmd := exec.Command("bash", "../appliance/bin/soda-pg-init-roles")
+		cmd := exec.Command(pgMaintenanceBinary(t, "soda-pg-init-roles"))
 		cmd.Env = append(os.Environ(),
 			"SODA_PG_CONTAINER="+bare["SODA_PG_CONTAINER"],
 			"SODA_PG_PASSWORD_DIR="+t.TempDir(),
@@ -220,12 +257,12 @@ INSERT INTO soda_probe(note) VALUES ('first'), ('it''s quoted'), ('third');`
 	}
 
 	// Refusals: restore without explicit confirmation, backup with no retention.
-	refuse := exec.Command("bash", "../appliance/bin/soda-pg-restore", run)
+	refuse := exec.Command(pgMaintenanceBinary(t, "soda-pg-restore"), run)
 	refuse.Env = append(os.Environ(), "SODA_PG_CONTAINER="+container)
 	if out, err := refuse.CombinedOutput(); err == nil {
 		t.Fatalf("restore without --yes succeeded: %s", out)
 	}
-	keep := exec.Command("bash", "../appliance/bin/soda-pg-backup")
+	keep := exec.Command(pgMaintenanceBinary(t, "soda-pg-backup"))
 	keep.Env = append(os.Environ(),
 		"SODA_PG_CONTAINER="+container,
 		"SODA_PG_BACKUP_DIR="+t.TempDir(),

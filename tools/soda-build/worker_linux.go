@@ -19,7 +19,7 @@ import (
 // workerConfig is installed by the operator, not emitted by a build. Paths name
 // existing, separately owned task directories; this command does not create users,
 // grant sudo, install trust or adopt an existing service/VM. StorageRoot is the
-// single /home storage root from tools/soda-candidate-setup: heavy worker
+// single /home storage root from rust/soda-candidate-setup: heavy worker
 // state (home, runtime) must live under it, never on the small root filesystem.
 type workerConfig struct {
 	Executable, Source, ForgejoSource, OutputParent    string
