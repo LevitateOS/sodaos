@@ -15,11 +15,14 @@ pub fn decode<T: serde::de::DeserializeOwned>(
     if input.len() > max {
         return Err("request exceeds size limit".to_string());
     }
-    let text = std::str::from_utf8(input).map_err(|_| "request must contain valid UTF-8".to_string())?;
+    let text =
+        std::str::from_utf8(input).map_err(|_| "request must contain valid UTF-8".to_string())?;
     check_unique_keys(text)?;
     let mut value: serde_json::Value =
         serde_json::from_str(text).map_err(|e| format!("decode request: {e}"))?;
-    let object = value.as_object_mut().ok_or_else(|| "request must be one JSON object".to_string())?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| "request must be one JSON object".to_string())?;
     remap_case(object, fields);
     for (name, sub) in nested {
         if let Some(inner) = object.get_mut(*name).and_then(|v| v.as_object_mut()) {
@@ -88,11 +91,16 @@ struct Scanner<'a> {
 
 impl<'a> Scanner<'a> {
     fn new(text: &'a str) -> Scanner<'a> {
-        Scanner { bytes: text.as_bytes(), pos: 0 }
+        Scanner {
+            bytes: text.as_bytes(),
+            pos: 0,
+        }
     }
 
     fn skip_ws(&mut self) {
-        while self.pos < self.bytes.len() && matches!(self.bytes[self.pos], b' ' | b'\t' | b'\n' | b'\r') {
+        while self.pos < self.bytes.len()
+            && matches!(self.bytes[self.pos], b' ' | b'\t' | b'\n' | b'\r')
+        {
             self.pos += 1;
         }
     }
@@ -140,7 +148,8 @@ impl<'a> Scanner<'a> {
                         b'u' => {
                             let hex = self.bytes.get(self.pos..self.pos + 4)?;
                             self.pos += 4;
-                            let code = u32::from_str_radix(std::str::from_utf8(hex).ok()?, 16).ok()?;
+                            let code =
+                                u32::from_str_radix(std::str::from_utf8(hex).ok()?, 16).ok()?;
                             if (0xd800..0xdc00).contains(&code) {
                                 // Surrogate pair; consume the low half.
                                 if self.bytes.get(self.pos..self.pos + 2) != Some(b"\\u") {
@@ -150,7 +159,8 @@ impl<'a> Scanner<'a> {
                                 let low_hex = self.bytes.get(self.pos..self.pos + 4)?;
                                 self.pos += 4;
                                 let low =
-                                    u32::from_str_radix(std::str::from_utf8(low_hex).ok()?, 16).ok()?;
+                                    u32::from_str_radix(std::str::from_utf8(low_hex).ok()?, 16)
+                                        .ok()?;
                                 if !(0xdc00..0xe000).contains(&low) {
                                     return None;
                                 }
@@ -239,7 +249,9 @@ fn check_unique_keys(text: &str) -> Result<(), String> {
 fn check_value(s: &mut Scanner<'_>, top: &str, depth: u32) -> Result<(), String> {
     use std::collections::HashSet;
     if depth > 100 {
-        return Err(format!("decode request field {top:?}: request is nested too deeply"));
+        return Err(format!(
+            "decode request field {top:?}: request is nested too deeply"
+        ));
     }
     match s.peek() {
         Some(b'{') => {
@@ -333,7 +345,10 @@ mod tests {
             (r#"{"type":"status","type":"stop"}"#, false),
             (r#"{"type":{"a":1,"a":2}}"#, false),
             (r#"{"type":{"outer":{"key":"1","key":"2"}}}"#, false),
-            (r#"{"type":"x","target":[{"k":"1"},{"k":"1","k":"2"}]}"#, false),
+            (
+                r#"{"type":"x","target":[{"k":"1"},{"k":"1","k":"2"}]}"#,
+                false,
+            ),
             (r#"[]"#, false),
             (r#"{"type":"one"}{"type":"two"}"#, false),
             (r#"{"type":"one""#, false),
@@ -353,9 +368,11 @@ mod tests {
     fn limits_match_go() {
         let big = format!("{{\"type\":\"{}\"}}", "a".repeat(1 << 20));
         assert!(decode_envelope(&big).unwrap_err().contains("size limit"));
-        assert!(decode::<Envelope>(&[b'{', b'"', 0xff], MAX_DOCUMENT, FIELDS, &[])
-            .unwrap_err()
-            .contains("valid UTF-8"));
+        assert!(
+            decode::<Envelope>(&[b'{', b'"', 0xff], MAX_DOCUMENT, FIELDS, &[])
+                .unwrap_err()
+                .contains("valid UTF-8")
+        );
         let mut nested = String::from("{\"type\":");
         for _ in 0..150 {
             nested.push_str("{\"k\":");
@@ -365,7 +382,9 @@ mod tests {
             nested.push('}');
         }
         nested.push('}');
-        assert!(decode_envelope(&nested).unwrap_err().contains("nested too deeply"));
+        assert!(decode_envelope(&nested)
+            .unwrap_err()
+            .contains("nested too deeply"));
     }
 
     #[test]

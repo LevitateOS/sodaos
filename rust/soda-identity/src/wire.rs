@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub use identity_providers::types::{credential_valid, Connection, Enrollment};
 
 pub const CODEX: &str = "codex";
-pub const CLAUDE: &str = "claude";
+pub const MUSE: &str = "muse";
 pub const READY: &str = "ready";
 pub const REAUTH: &str = "reauth";
 pub const REVOKED: &str = "revoked";
@@ -18,12 +18,12 @@ pub const EXECUTION_LIVE: &str = "live";
 pub const EXECUTION_TERMINAL: &str = "terminal";
 
 pub fn provider_valid(id: &str) -> bool {
-    id == CODEX || id == CLAUDE
+    id == CODEX || id == MUSE
 }
 
 /// Unix time with nanoseconds, serialized exactly like Go time.Time
 /// (RFC3339Nano, UTC `Z`, trailing fractional zeros trimmed).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UnixTime {
     pub sec: i64,
     pub nanos: u32,
@@ -34,11 +34,17 @@ impl UnixTime {
         let duration = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default();
-        UnixTime { sec: duration.as_secs() as i64, nanos: duration.subsec_nanos() }
+        UnixTime {
+            sec: duration.as_secs() as i64,
+            nanos: duration.subsec_nanos(),
+        }
     }
 
     pub fn add_hours(self, hours: i64) -> UnixTime {
-        UnixTime { sec: self.sec + hours * 3600, nanos: self.nanos }
+        UnixTime {
+            sec: self.sec + hours * 3600,
+            nanos: self.nanos,
+        }
     }
 
     pub fn as_system_time(self) -> std::time::SystemTime {
@@ -84,7 +90,7 @@ fn days_from_civil(year: i64, month: u32, day: u32) -> i64 {
     let y = if month <= 2 { year - 1 } else { year };
     let era = y.div_euclid(400);
     let yoe = y.rem_euclid(400) as u64;
-    let mp = ((month as u64 + 9) % 12) as u64;
+    let mp = (month as u64 + 9) % 12;
     let doy = (153 * mp + 2) / 5 + day as u64 - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     (era * 146097 + doe as i64) - 719468
@@ -114,7 +120,10 @@ pub fn parse_rfc3339_nano(text: &str) -> Result<(i64, u32), String> {
         return Err(err());
     }
     let date = text.as_bytes();
-    if date[4] != b'-' || date[7] != b'-' || date[10] != b'T' || date[13] != b':'
+    if date[4] != b'-'
+        || date[7] != b'-'
+        || date[10] != b'T'
+        || date[13] != b':'
         || date[16] != b':'
     {
         return Err(err());
@@ -128,8 +137,12 @@ pub fn parse_rfc3339_nano(text: &str) -> Result<(i64, u32), String> {
     let hour = num(11, 13)?;
     let minute = num(14, 16)?;
     let second = num(17, 19)?;
-    if !(1..=12).contains(&month) || day < 1 || day > days_in_month(year, month as u32) as i64
-        || hour > 23 || minute > 59 || second > 59
+    if !(1..=12).contains(&month)
+        || day < 1
+        || day > days_in_month(year, month as u32) as i64
+        || hour > 23
+        || minute > 59
+        || second > 59
     {
         return Err(err());
     }
@@ -271,8 +284,7 @@ pub fn is_zero(value: &i64) -> bool {
 pub mod base64_bytes {
     use super::*;
 
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     pub fn encode(data: &[u8]) -> String {
         let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
@@ -307,7 +319,7 @@ pub mod base64_bytes {
 
     pub fn decode(text: &str) -> Result<Vec<u8>, String> {
         let bytes = text.as_bytes();
-        if bytes.len() % 4 != 0 {
+        if !bytes.len().is_multiple_of(4) {
             return Err("invalid base64 length".to_string());
         }
         let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
@@ -329,6 +341,7 @@ pub mod base64_bytes {
         Ok(out)
     }
 
+    #[allow(clippy::ptr_arg)]
     pub fn serialize<S: Serializer>(value: &Vec<u8>, ser: S) -> Result<S::Ok, S::Error> {
         ser.serialize_str(&encode(value))
     }
@@ -342,83 +355,107 @@ pub mod base64_bytes {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Grant {
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub connection_id: String,
-    #[serde(with = "i64_string")]
+    #[serde(default, with = "i64_string")]
     pub user_id: i64,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub project_id: String,
-    #[serde(deserialize_with = "null_tolerant::integer")]
+    #[serde(default, deserialize_with = "null_tolerant::integer")]
     pub revision: i64,
-    #[serde(deserialize_with = "null_tolerant::boolean")]
+    #[serde(default, deserialize_with = "null_tolerant::boolean")]
     pub revoked: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GrantRequest {
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub connection_id: String,
-    #[serde(with = "i64_string")]
+    #[serde(default, with = "i64_string")]
     pub user_id: i64,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub project_id: String,
-    #[serde(deserialize_with = "null_tolerant::boolean")]
+    #[serde(default, deserialize_with = "null_tolerant::boolean")]
     pub confirm_subscription: bool,
-    #[serde(deserialize_with = "null_tolerant::boolean")]
+    #[serde(default, deserialize_with = "null_tolerant::boolean")]
     pub confirm_credential_exposure: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AcquireRequest {
-    #[serde(
-        default,
-        skip_serializing_if = "is_zero",
-        with = "i64_string_omitted"
-    )]
+    #[serde(default, skip_serializing_if = "is_zero", with = "i64_string_omitted")]
     pub repository_id: i64,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub provider_id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub execution_id: String,
-    #[serde(with = "i64_string")]
+    #[serde(default, with = "i64_string")]
     pub actor_id: i64,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub connection_id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub project_id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub kind: String,
-    #[serde(deserialize_with = "null_tolerant::time")]
+    #[serde(default, deserialize_with = "null_tolerant::time")]
     pub deadline: UnixTime,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub role: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Binding {
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub child_id: String,
-    #[serde(deserialize_with = "null_tolerant::integer32", default, skip_serializing_if = "is_zero_i32")]
+    #[serde(
+        deserialize_with = "null_tolerant::integer32",
+        default,
+        skip_serializing_if = "is_zero_i32"
+    )]
     pub uid: i32,
-    #[serde(deserialize_with = "null_tolerant::integer32", default, skip_serializing_if = "is_zero_i32")]
+    #[serde(
+        deserialize_with = "null_tolerant::integer32",
+        default,
+        skip_serializing_if = "is_zero_i32"
+    )]
     pub gid: i32,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub scope: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub credential_root: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub invocation_id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub kind: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub project: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub login: String,
-    #[serde(deserialize_with = "null_tolerant::integer")]
+    #[serde(default, deserialize_with = "null_tolerant::integer")]
     pub generation: i64,
 }
 
@@ -428,35 +465,43 @@ pub fn is_zero_i32(value: &i32) -> bool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lease {
-    #[serde(
-        default,
-        skip_serializing_if = "is_zero",
-        with = "i64_string_omitted"
-    )]
+    #[serde(default, skip_serializing_if = "is_zero", with = "i64_string_omitted")]
     pub repository_id: i64,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub provider_id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub connection_id: String,
-    #[serde(deserialize_with = "null_tolerant::integer")]
+    #[serde(default, deserialize_with = "null_tolerant::integer")]
     pub generation: i64,
-    #[serde(with = "i64_string")]
+    #[serde(default, with = "i64_string")]
     pub actor_id: i64,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub project_id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub execution_id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub kind: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub role: String,
-    #[serde(deserialize_with = "null_tolerant::time")]
+    #[serde(default, deserialize_with = "null_tolerant::time")]
     pub deadline: UnixTime,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub grant_id: String,
-    #[serde(deserialize_with = "null_tolerant::integer", default, skip_serializing_if = "is_zero")]
+    #[serde(
+        deserialize_with = "null_tolerant::integer",
+        default,
+        skip_serializing_if = "is_zero"
+    )]
     pub grant_revision: i64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding: Option<Binding>,
@@ -466,62 +511,110 @@ pub struct Lease {
 pub struct Execution {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding: Option<Binding>,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub kind: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub execution_id: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub digest: String,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub state: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub lease_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Event {
-    #[serde(with = "i64_string")]
+    #[serde(default, with = "i64_string")]
     pub id: i64,
-    #[serde(deserialize_with = "null_tolerant::time")]
+    #[serde(default, deserialize_with = "null_tolerant::time")]
     pub time: UnixTime,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub action: String,
-    #[serde(with = "i64_string")]
+    #[serde(default, with = "i64_string")]
     pub owner_id: i64,
-    #[serde(with = "i64_string")]
+    #[serde(default, with = "i64_string")]
     pub actor_id: i64,
-    #[serde(deserialize_with = "null_tolerant::string")]
+    #[serde(default, deserialize_with = "null_tolerant::string")]
     pub connection_id: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub lease_id: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub project_id: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub grant_id: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub execution_id: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub kind: String,
-    #[serde(deserialize_with = "null_tolerant::integer")]
+    #[serde(default, deserialize_with = "null_tolerant::integer")]
     pub generation: i64,
 }
 
 /// The private Unix HTTP protocol. Browser handlers never accept it.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Request {
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub provider_id: String,
     #[serde(default, with = "i64_string")]
     pub owner_id: i64,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub id: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub label: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub project_id: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub kind: String,
-    #[serde(deserialize_with = "null_tolerant::string", default, skip_serializing_if = "String::is_empty")]
+    #[serde(
+        deserialize_with = "null_tolerant::string",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub execution_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub grant: Option<GrantRequest>,
@@ -529,7 +622,11 @@ pub struct Request {
     pub acquire: Option<AcquireRequest>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub binding: Option<Binding>,
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "base64_bytes_option")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "base64_bytes_option"
+    )]
     pub credential: Option<Vec<u8>>,
 }
 
@@ -549,7 +646,9 @@ pub mod base64_bytes_option {
 
     pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<Option<Vec<u8>>, D::Error> {
         let text = String::deserialize(de)?;
-        base64_bytes::decode(&text).map(Some).map_err(serde::de::Error::custom)
+        base64_bytes::decode(&text)
+            .map(Some)
+            .map_err(serde::de::Error::custom)
     }
 }
 
@@ -557,7 +656,7 @@ pub mod base64_bytes_option {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeliveryWire {
     pub lease: Lease,
-    #[serde(with = "base64_bytes")]
+    #[serde(default, with = "base64_bytes")]
     pub credential: Vec<u8>,
 }
 
@@ -579,22 +678,40 @@ pub struct Error {
 
 impl Error {
     pub fn denied(message: impl Into<String>) -> Error {
-        Error { kind: ErrorKind::Denied, message: message.into() }
+        Error {
+            kind: ErrorKind::Denied,
+            message: message.into(),
+        }
     }
     pub fn busy() -> Error {
-        Error { kind: ErrorKind::Busy, message: "subscription is in use".to_string() }
+        Error {
+            kind: ErrorKind::Busy,
+            message: "subscription is in use".to_string(),
+        }
     }
     pub fn stale() -> Error {
-        Error { kind: ErrorKind::Stale, message: "identity generation changed".to_string() }
+        Error {
+            kind: ErrorKind::Stale,
+            message: "identity generation changed".to_string(),
+        }
     }
     pub fn uncertain() -> Error {
-        Error { kind: ErrorKind::Uncertain, message: "subscription requires reconnection".to_string() }
+        Error {
+            kind: ErrorKind::Uncertain,
+            message: "subscription requires reconnection".to_string(),
+        }
     }
     pub fn not_found() -> Error {
-        Error { kind: ErrorKind::NotFound, message: "identity execution missing".to_string() }
+        Error {
+            kind: ErrorKind::NotFound,
+            message: "identity execution missing".to_string(),
+        }
     }
     pub fn internal(message: impl Into<String>) -> Error {
-        Error { kind: ErrorKind::Internal, message: message.into() }
+        Error {
+            kind: ErrorKind::Internal,
+            message: message.into(),
+        }
     }
     pub fn kind(&self) -> ErrorKind {
         self.kind
@@ -659,7 +776,10 @@ impl AcquireRequest {
 
 impl Binding {
     pub fn validate(&self) -> Result<(), Error> {
-        if self.id.is_empty() || self.generation <= 0 || (self.kind != FACTORY && self.kind != TERMINAL) {
+        if self.id.is_empty()
+            || self.generation <= 0
+            || (self.kind != FACTORY && self.kind != TERMINAL)
+        {
             return Err(Error::denied("identity authority denied"));
         }
         if self.kind == TERMINAL && (self.project.is_empty() || self.login.trim().is_empty()) {
@@ -766,7 +886,10 @@ mod tests {
             execution_id: "execution".to_string(),
             kind: "factory".to_string(),
             role: String::new(),
-            deadline: UnixTime { sec: 1791138605, nanos: 0 },
+            deadline: UnixTime {
+                sec: 1791138605,
+                nanos: 0,
+            },
             grant_id: String::new(),
             grant_revision: 0,
             binding: None,
@@ -784,8 +907,19 @@ mod tests {
         assert_eq!(base64_bytes::encode(b"fo"), "Zm8=");
         assert_eq!(base64_bytes::encode(b"foo"), "Zm9v");
         assert_eq!(base64_bytes::encode(br#"{"a":1}"#), "eyJhIjoxfQ==");
-        for data in [b"".as_slice(), b"f", b"fo", b"foo", b"foob", b"fooba", b"foobar"] {
-            assert_eq!(base64_bytes::decode(&base64_bytes::encode(data)).unwrap(), data);
+        for data in [
+            b"".as_slice(),
+            b"f",
+            b"fo",
+            b"foo",
+            b"foob",
+            b"fooba",
+            b"foobar",
+        ] {
+            assert_eq!(
+                base64_bytes::decode(&base64_bytes::encode(data)).unwrap(),
+                data
+            );
         }
         assert!(base64_bytes::decode("Zg").is_err());
         assert!(base64_bytes::decode("Zg=a").is_err());
@@ -814,6 +948,14 @@ mod tests {
     }
 
     #[test]
+    fn provider_ids_match_go() {
+        assert!(provider_valid("codex"));
+        assert!(provider_valid("muse"));
+        assert!(!provider_valid("claude"));
+        assert!(!provider_valid(""));
+    }
+
+    #[test]
     fn digest_matches_go_acquisition() {
         // Reference computed from the Go AcquisitionDigest on the same input.
         let request = AcquireRequest {
@@ -824,7 +966,10 @@ mod tests {
             connection_id: "conn-1".to_string(),
             project_id: "project".to_string(),
             kind: "factory".to_string(),
-            deadline: UnixTime { sec: 1791138605, nanos: 0 },
+            deadline: UnixTime {
+                sec: 1791138605,
+                nanos: 0,
+            },
             role: " Soda-Coder ".to_string(),
         };
         // sha256 of the NUL-joined canonical form, verified with sha256sum.

@@ -388,6 +388,8 @@ name = "soda-identity"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "bytes",
+ "fallible-iterator",
  "identity-providers",
  "libc",
  "postgres-protocol",
