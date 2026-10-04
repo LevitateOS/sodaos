@@ -195,7 +195,7 @@ func (p Production) assetSteps(stage []string) error {
 		{"Build Soda extension browser assets", []string{"bun", "scripts/build-soda-extension.ts", "--out", filepath.Join(p.Native, "soda-extension-assets"), "--terminal-assets", filepath.Join(p.Native, "terminal-assets")}},
 	}
 	steps = append(steps,
-		assetStep{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
+		assetStep{"Prepare Forgejo translations", []string{"cargo", "run", "--release", "--locked", "-p", "soda-forgejo-locales", "--bin", "soda-forgejo-locales", "--", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
 		assetStep{"Fetch upstream Muse binary", []string{"cargo", "run", "--release", "--locked", "-p", "soda-asset-fetchers", "--bin", "soda-fetch-muse", "--", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools/bin/muse-native")}},
 		assetStep{"Fetch upstream Tea binary", []string{"cargo", "run", "--release", "--locked", "-p", "soda-asset-fetchers", "--bin", "soda-fetch-tea", "--", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools")}},
 		assetStep{"Stage appliance files", stage},
