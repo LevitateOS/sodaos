@@ -232,7 +232,7 @@ impl Remote {
     }
 }
 
-fn look_path(name: &str) -> Result<(), Error> {
+pub(crate) fn look_path(name: &str) -> Result<(), Error> {
     if let Some(paths) = std::env::var_os("PATH") {
         for dir in std::env::split_paths(&paths) {
             let candidate = dir.join(name);
