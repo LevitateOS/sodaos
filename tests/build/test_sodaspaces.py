@@ -58,11 +58,14 @@ class SodaspacesPackaging(unittest.TestCase):
             request = root / 'target.json'
             request.write_text('{"SYNTHETIC_PRIVATE_MARKER":true}')
             request.chmod(0o600)
+            # The installed client probe is Go now; run it from the checkout
+            # with the pinned toolchain check-source.sh already requires.
             result = subprocess.run(
-                ['python3', str(ROOT / 'tests/installed/developer-access.py'), str(root)],
+                ['go', 'run', './tools/soda-installed-probes', 'developer-access', str(root)],
+                cwd=ROOT,
                 capture_output=True,
                 text=True,
-                timeout=10,
+                timeout=180,
             )
             self.assertEqual(result.returncode, 1)
             self.assertIn('Developer access incomplete', result.stderr)

@@ -124,20 +124,8 @@ class OutsideContracts(unittest.TestCase):
             container = (ROOT / 'appliance/services' / name).read_text()
             self.assertIn('ConditionPathExists=/etc/soda/activated', container)
 
-    def test_https_origin_refuses_credentials_and_downgrades(self):
-        module = load('https_fixture', 'tests/installed/service-https.py')
-        import argparse
-
-        self.assertEqual(module.origin('https://example.test:443'), 'https://example.test:443/')
-        for value in (
-            'http://example.test',
-            'https://user:secret@example.test',
-            'https://example.test/?code=x',
-            'https://example.test/path',
-            'https://example.test:0',
-        ):
-            with self.assertRaises(argparse.ArgumentTypeError):
-                module.origin(value)
+    # Origin validation moved with service-https.py to Go; see
+    # internal/acceptance/service_https_test.go TestHTTPSOrigin.
 
     def test_remote_dispatch_has_no_runtime_or_publication_phases(self):
         module = load('remote_fixture', 'internal/acceptance/remote_executor.py')
