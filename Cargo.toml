@@ -4,4 +4,4 @@
 # replacement in .cargo/config.toml makes vendoring mandatory.
 [workspace]
 resolver = "2"
-members = ["rust/soda-build-tools", "rust/soda-factory"]
+members = ["rust/soda-build-tools", "rust/soda-factory", "rust/identity-providers"]
