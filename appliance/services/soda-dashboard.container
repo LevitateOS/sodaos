@@ -24,6 +24,10 @@ Volume=/run/soda/extension:/ipc:z
 Volume=/run/soda/operator:/run/soda/operator:rw,z
 GroupAdd=2100
 Environment=FORGEJO_EXTENSION_SERVICE_CALLBACK_SOCKET=/ipc/host.sock
+# The service callback listener runs inside Forgejo as USER_UID (see
+# forgejo.container); the dashboard (2000) must pin that peer identity
+# or the SDK refuses the cross-user dial before any request flows.
+Environment=FORGEJO_EXTENSION_SERVICE_CALLBACK_PEER_UID=1000
 Exec=--extension-socket=/ipc/soda.sock --operator-socket=/run/soda/operator/operator.sock --operator-uid=0
 Tmpfs=/tmp:rw,nosuid,nodev,size=64m
 
