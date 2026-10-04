@@ -17,6 +17,10 @@ name = "soda-factory"
 version = "0.1.0"
 
 [[package]]
+name = "soda-forgejo-migrate"
+version = "0.1.0"
+
+[[package]]
 name = "soda-host"
 version = "0.1.0"
 
