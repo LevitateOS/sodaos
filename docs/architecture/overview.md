@@ -183,4 +183,4 @@ operator command's fresh workspaces follow its documented disposable lifecycle.
 - Requirement-to-source assessment: [Factory capability map](../research/factory-capability-map.md)
 - Appliance topology: `appliance/services/`
 - Project images and units: `project-os/`
-- Entrypoints: `cmd/soda-dashboard`, `cmd/soda-host`, `cmd/soda-factory`
+- Entrypoints: `cmd/soda-dashboard`, `cmd/soda-host`, `rust/soda-factory`

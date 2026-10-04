@@ -129,19 +129,22 @@ type operatorWire struct {
 	} `json:"misuse"`
 }
 
-func buildPortBinary(t *testing.T, pkg string) string {
+func buildPortBinary(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs("..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	out := filepath.Join(t.TempDir(), "soda-wire-probe")
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", "build", "-o", out, pkg)
+	cmd := exec.CommandContext(ctx, "cargo", "build", "--offline", "-p", "soda-factory")
 	cmd.Dir = root
 	if combined, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build %s: %v\n%s", pkg, err, combined)
+		t.Fatalf("build rust/soda-factory: %v\n%s", err, combined)
+	}
+	out := filepath.Join(root, "target", "debug", "soda-factory")
+	if _, err := os.Stat(out); err != nil {
+		t.Fatalf("rust soda-factory binary missing: %v", err)
 	}
 	return out
 }
@@ -202,7 +205,7 @@ func TestOperatorWireBytes(t *testing.T) {
 	if wire.Path == "" || len(wire.Requests) == 0 {
 		t.Fatal("operator wire fixture is empty")
 	}
-	binary := buildPortBinary(t, "./cmd/soda-factory")
+	binary := buildPortBinary(t)
 
 	t.Run("requests", func(t *testing.T) {
 		for _, v := range wire.Requests {
