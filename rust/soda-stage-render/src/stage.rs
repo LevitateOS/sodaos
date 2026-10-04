@@ -135,6 +135,13 @@ fn normalize_tree(root: &Path) -> Result<(), StageError> {
     Ok(())
 }
 
+/// Like bare `Path.mkdir()`: the parent must exist and the leaf must be
+/// fresh.
+fn mkdir_leaf(path: &Path) -> Result<(), StageError> {
+    std::fs::create_dir(path)
+        .map_err(|e| StageError::failure(format!("cannot create {}: {e}", path.display())))
+}
+
 /// Like `Path.mkdir(parents=True)` without `exist_ok`: missing ancestors
 /// are created, but the leaf itself must be fresh.
 fn mkdir_fresh(path: &Path) -> Result<(), StageError> {
@@ -354,7 +361,7 @@ pub fn run(source: &Path, arch: &str, stage: &Path, forgejo: &Path) -> Result<()
         std::fs::write(&stylesheet, rewritten).map_err(|e| StageError::failure(e.to_string()))?;
     }
     let images = custom.join("img");
-    mkdir_fresh(&images)?;
+    mkdir_leaf(&images)?;
     for name in ["logo.svg", "favicon.svg"] {
         std::fs::copy(
             source.join("assets/branding/source/soda-symbol-brutalist.svg"),
