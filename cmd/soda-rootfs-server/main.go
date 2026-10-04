@@ -89,6 +89,15 @@ func openAllowed(path string) (*os.File, bool) {
 	return file, true
 }
 
+// Accepted transport divergences from the retired Python server, all
+// deny-equivalent or safer and none reachable from real guests: net/http
+// answers the never-routed OPTIONS * itself (200, empty), rejects
+// malformed request lines and smuggling-shaped headers with 400 where
+// Python answered 404/200, and speaks keep-alive HTTP/1.1 where Python
+// closed after each response. Error bodies are plain text rather than
+// Python's HTML. Mirroring any of these would mean reimplementing HTTP
+// instead of using the standard server, so the port preserves statuses,
+// success headers, and success bytes only.
 func serveRootfs(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Server", serverName)
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {

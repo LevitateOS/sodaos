@@ -133,6 +133,26 @@ func TestExactFileServing(t *testing.T) {
 	require.Equal(t, http.StatusOK, status)
 	require.Empty(t, body)
 
+	// Multi-chunk streaming: rootfs images are gigabytes, so the 1 MiB
+	// copy loop must prove itself past a single buffer with exact bytes.
+	bigName := strings.Repeat("b", 64) + "-rootfs.img"
+	big := make([]byte, 2*chunkSize+12345)
+	for i := range big {
+		big[i] = byte(i*31 + 7)
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(work, bigName), big, 0o644))
+	status, header, body = fetch(http.MethodGet, "/"+bigName)
+	require.Equal(t, http.StatusOK, status)
+	require.Equal(t, big, body)
+	require.Equal(t, fmt.Sprint(len(big)), header.Get("Content-Length"))
+
+	emptyName := strings.Repeat("0", 64) + "-rootfs.img"
+	require.NoError(t, os.WriteFile(filepath.Join(work, emptyName), nil, 0o644))
+	status, header, body = fetch(http.MethodGet, "/"+emptyName)
+	require.Equal(t, http.StatusOK, status)
+	require.Empty(t, body)
+	require.Equal(t, "0", header.Get("Content-Length"))
+
 	for _, path := range []string{
 		"/",
 		"/soda-iso29.qcow2",
