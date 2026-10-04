@@ -1,6 +1,6 @@
 # Supervised factory-run operator interface
 
-This reference describes the existing `cmd/soda-factory` operator interface:
+This reference describes the existing `rust/soda-factory` operator interface:
 status reads recorded run state, stop retires one run, and reconcile settles
 outstanding runs. Runs execute as supervised Project CLI runs with durable
 start/stop receipts, exact run/container/unit/incarnation binding and
