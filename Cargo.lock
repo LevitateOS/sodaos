@@ -151,6 +151,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-muse-maintain"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "soda-pg-fixture"
 version = "0.1.0"
 
