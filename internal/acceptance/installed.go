@@ -119,11 +119,19 @@ type runOutcome struct {
 // runBounded executes a local command with a hard timeout, capturing both
 // streams. It never prints argv or stdin.
 func runBounded(name string, args []string, stdin []byte, timeout time.Duration) (runOutcome, error) {
+	return runBoundedEnv(name, args, stdin, nil, timeout)
+}
+
+// runBoundedEnv is runBounded with extra plain environment entries.
+func runBoundedEnv(name string, args []string, stdin []byte, extraEnv []string, timeout time.Duration) (runOutcome, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
+	}
+	if extraEnv != nil {
+		cmd.Env = append(os.Environ(), extraEnv...)
 	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
