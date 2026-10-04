@@ -18,10 +18,9 @@ use crate::jsonio::{self, check_no_unknown, opt_bool, opt_string};
 /// Candidate architecture gate: only `x86_64` is admitted, reported as
 /// its OCI name. Mirrors `OCIArchitecture`.
 pub fn oci_architecture(arch: &str) -> Result<String, Error> {
-    if arch == "x86_64" {
-        return Ok("amd64".to_string());
-    }
-    Err(Error::msg("expected x86_64"))
+    soda_build_tools::reader::oci_architecture(arch)
+        .map(|name| name.to_string())
+        .map_err(|err| Error::msg(err.to_string()))
 }
 
 /// Matching-native Linux gate. Mirrors `RequireNative`.
@@ -42,12 +41,12 @@ pub fn require_native(arch: &str) -> Result<(), Error> {
 
 /// Lowercase SHA-256 hex shape. Mirrors `Digest`.
 pub fn digest(text: &str) -> bool {
-    text.len() == 64 && text.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    soda_build_tools::reader::is_digest(text)
 }
 
 /// Full lowercase source-revision shape. Mirrors `Revision`.
 pub fn revision(text: &str) -> bool {
-    text.len() == 40 && text.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    soda_build_tools::reader::is_revision(text)
 }
 
 /// Owner label check. It never grants execution permission.

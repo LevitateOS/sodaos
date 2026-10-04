@@ -10,6 +10,7 @@
 
 pub mod cockpit;
 pub mod command;
+pub mod coreos;
 pub mod error;
 pub mod evidence;
 pub mod files;
