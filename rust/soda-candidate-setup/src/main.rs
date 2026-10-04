@@ -38,7 +38,22 @@ extern "C" {
     fn flock(fd: i32, op: i32) -> i32;
     fn faccessat(dirfd: i32, path: *const i8, mode: i32, flags: i32) -> i32;
     fn umask(mask: u32) -> u32;
+    fn sigaction(signum: i32, act: *const Sigaction, oldact: *mut Sigaction) -> i32;
 }
+
+/// Matches glibc's `struct sigaction` on Linux (handler, signal mask, flags,
+/// restorer). The glibc wrapper fills in the restorer itself.
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct Sigaction {
+    handler: usize,
+    mask: [u64; 16],
+    flags: i32,
+    restorer: usize,
+}
+
+const SIGPIPE: i32 = 13;
+const SIG_DFL: usize = 0;
 const LOCK_EX: i32 = 2;
 const LOCK_NB: i32 = 4;
 const AT_FDCWD: i32 = -100;
@@ -184,7 +199,11 @@ fn capture(prog: &str, args: &[&str], stderr_null: bool) -> Captured {
         Ok(child) => child,
         Err(err) => {
             let (msg, code) = spawn_diag(&err);
-            eprintln!("{FAIL_PREFIX}: {prog}: {msg}");
+            // A suppressed child stderr (`2>/dev/null`) also swallows the
+            // shell's own "command not found"; stay silent the same way.
+            if !stderr_null {
+                eprintln!("{FAIL_PREFIX}: {prog}: {msg}");
+            }
             return Captured::SpawnFailed(code);
         }
     };
@@ -238,7 +257,11 @@ fn run_with_io(
         Ok(child) => child,
         Err(err) => {
             let (msg, code) = spawn_diag(&err);
-            eprintln!("{FAIL_PREFIX}: {prog}: {msg}");
+            // A suppressed child stderr (`2>/dev/null`) also swallows the
+            // shell's own "command not found"; stay silent the same way.
+            if !stderr_null {
+                eprintln!("{FAIL_PREFIX}: {prog}: {msg}");
+            }
             return Err(Exit::Propagate(code));
         }
     };
@@ -1310,6 +1333,18 @@ fn stage_file(path: &str, bytes: &[u8]) -> Result<(), Exit> {
 }
 
 fn main() {
+    // Rust ignores SIGPIPE at startup (a write to a closed pipe would return
+    // EPIPE and println! would panic instead of dying like the shell);
+    // restore the default disposition for byte parity.
+    unsafe {
+        let restore_pipe = Sigaction {
+            handler: SIG_DFL,
+            mask: [0; 16],
+            flags: 0,
+            restorer: 0,
+        };
+        sigaction(SIGPIPE, &restore_pipe, std::ptr::null_mut());
+    }
     let mut cleanup: Vec<PathBuf> = Vec::new();
     let result = run_setup(&mut cleanup);
     for path in &cleanup {
