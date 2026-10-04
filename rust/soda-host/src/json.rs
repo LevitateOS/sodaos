@@ -50,6 +50,9 @@ struct Parser<'a> {
     /// None = tolerant (podman output): last duplicate wins. Some = strict
     /// duplicate rejection with the top-level field name for messages.
     strict_field: Option<Option<String>>,
+    /// First nested duplicate/depth finding in walk order, flushed when the
+    /// enclosing top-level value completes (strict only).
+    deferred: Option<Error>,
 }
 
 enum Frame {
@@ -75,6 +78,7 @@ impl<'a> Parser<'a> {
             bytes,
             pos: 0,
             strict_field: strict.then_some(None),
+            deferred: None,
         }
     }
 
@@ -92,15 +96,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect(&mut self, b: u8) -> Result<(), Error> {
-        if self.peek() == Some(b) {
-            self.pos += 1;
-            Ok(())
-        } else {
-            Err(err("decode request: expected more input"))
-        }
-    }
-
     fn strict(&self) -> bool {
         self.strict_field.is_some()
     }
@@ -109,7 +104,7 @@ impl<'a> Parser<'a> {
         self.strict_field
             .as_ref()
             .and_then(|f| f.clone())
-            .map(|f| format!("decode request field {f:?}: "))
+            .map(|f| format!("decode request field {}: ", go_quote(&f)))
             .unwrap_or_else(|| "decode request: ".to_string())
     }
 
@@ -127,12 +122,25 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_literal(&mut self, lit: &str, v: Value) -> Result<Value, Error> {
-        if self.bytes[self.pos..].starts_with(lit.as_bytes()) {
-            self.pos += lit.len();
-            Ok(v)
-        } else {
-            Err(err(format!("{}invalid character", self.field_ctx())))
+        debug_assert_eq!(self.peek(), Some(lit.as_bytes()[0]));
+        self.pos += 1;
+        for &want in &lit.as_bytes()[1..] {
+            match self.peek() {
+                Some(c) if c == want => {
+                    self.pos += 1;
+                }
+                None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
+                Some(c) => {
+                    return Err(err(format!(
+                        "{}invalid character {} in literal {lit} (expecting '{}')",
+                        self.field_ctx(),
+                        Self::quote_byte(c),
+                        want as char
+                    )));
+                }
+            }
         }
+        Ok(v)
     }
 
     /// Iterative JSON reader with an explicit heap stack: 10000-deep machine
@@ -140,7 +148,83 @@ impl<'a> Parser<'a> {
     /// `encoding/json`. Depth checks sit at the same positions as the former
     /// recursion: strict values (after the field name, like strictjson's
     /// depth-first scan) and tolerant container opens.
+    /// Single-quoted scanner character, mirroring `quoteChar`: `'''` and
+    /// `'"'` special-cased, `strconv.Quote`-style escapes inside, printable
+    /// ASCII raw, Latin-1 printables raw, everything else `\xnn`/`\u00nn`.
+    fn quote_byte(c: u8) -> String {
+        if c == b'\'' {
+            return "'\\''".to_string();
+        }
+        if c == b'"' {
+            return "'\"'".to_string();
+        }
+        let inner = match c {
+            b'\n' => "\\n".to_string(),
+            b'\r' => "\\r".to_string(),
+            b'\t' => "\\t".to_string(),
+            0x07 => "\\a".to_string(),
+            0x08 => "\\b".to_string(),
+            0x0C => "\\f".to_string(),
+            0x0B => "\\v".to_string(),
+            b'\\' => "\\\\".to_string(),
+            0x20..=0x7E => (c as char).to_string(),
+            0xA1..=0xFF => char::from_u32(c as u32).unwrap().to_string(),
+            _ => {
+                if c < 0xA0 {
+                    return format!("'\\x{c:02x}'");
+                }
+                return format!("'\\u00{c:02x}'");
+            }
+        };
+        format!("'{inner}'")
+    }
+
+    /// Iterative JSON reader with an explicit heap stack: 10000-deep machine
+    /// output must parse without overflowing the thread stack, exactly like
+    /// `encoding/json`. Message shapes mirror the scanner (`invalid
+    /// character`, `in string literal`, ...) wrapped the way
+    /// `strictjson.Decode` wraps `Token`/`Decode` errors: top-level framing
+    /// errors are bare, value errors carry the top field, and nested
+    /// duplicate/depth findings are deferred until the top-level value they
+    /// sit in has scanned clean (Go walks a `RawMessage` copy after the
+    /// scan, so any scan error beats them).
     fn run_machine(&mut self) -> Result<Value, Error> {
+        // Strict root: `requireObject` takes one `Token`. A scan error
+        // surfaces; any complete non-object token is rejected.
+        if self.strict() {
+            self.skip_ws();
+            match self.peek() {
+                None => return Err(err("decode request: EOF")),
+                Some(b'{') => {}
+                Some(b'[') => return Err(err("request must be one JSON object")),
+                Some(b'"') => {
+                    self.parse_string()?;
+                    return Err(err("request must be one JSON object"));
+                }
+                Some(b't') => {
+                    self.parse_literal("true", Value::Bool(true))?;
+                    return Err(err("request must be one JSON object"));
+                }
+                Some(b'f') => {
+                    self.parse_literal("false", Value::Bool(false))?;
+                    return Err(err("request must be one JSON object"));
+                }
+                Some(b'n') => {
+                    self.parse_literal("null", Value::Null)?;
+                    return Err(err("request must be one JSON object"));
+                }
+                Some(b'-') | Some(b'0'..=b'9') => {
+                    self.parse_number()?;
+                    return Err(err("request must be one JSON object"));
+                }
+                Some(c) => {
+                    return Err(err(format!(
+                        "decode request: invalid character {} looking for beginning of value",
+                        Self::quote_byte(c)
+                    )))
+                }
+            }
+        }
         let mut stack: Vec<Frame> = Vec::new();
         let mut pending: Option<Value> = None;
         loop {
@@ -162,9 +246,14 @@ impl<'a> Parser<'a> {
                         }
                     }
                 }
-                // A root-object field value just completed: clear the
-                // top-level field context (mirrors the save/restore).
+                // A root-object field value just completed: flush the first
+                // deferred nested duplicate/depth finding (Go's post-scan
+                // walk reports it before the next field is read), then clear
+                // the top-level field context.
                 if stack.len() == 1 {
+                    if let Some(e) = self.deferred.take() {
+                        return Err(e);
+                    }
                     if let Some(slot) = self.strict_field.as_mut() {
                         *slot = None;
                     }
@@ -185,53 +274,117 @@ impl<'a> Parser<'a> {
                         pending = Some(close_frame(stack.pop().expect("array frame")));
                         continue;
                     }
-                    _ => {
+                    None if stack.len() <= 1 => return Err(err("decode request: EOF")),
+                    None => {
+                        return Err(err(format!("{}unexpected EOF", self.field_ctx())));
+                    }
+                    Some(c) => {
                         return Err(err(format!(
-                            "{}expected , or {}",
+                            "{}invalid character {} after {}",
                             self.field_ctx(),
-                            if is_object { "}" } else { "]" }
-                        )))
+                            Self::quote_byte(c),
+                            if is_object {
+                                "object key:value pair"
+                            } else {
+                                "array element"
+                            }
+                        )));
                     }
                 }
             }
-            // Object field-name step comes before the depth check, like the
-            // recursive reader (and strictjson): a bad name at the depth
-            // limit still reports the bad name.
+            // Object field-name step comes before value scanning, like the
+            // streaming `Token` name read: a bad name reports before the
+            // value is touched.
             if matches!(stack.last(), Some(Frame::Object { .. })) {
                 self.skip_ws();
-                if self.peek() != Some(b'"') {
-                    return Err(err(format!(
-                        "{}request field name must be a string",
-                        self.field_ctx()
-                    )));
-                }
-                let name = self.parse_string()?;
-                if self.strict() {
-                    let duplicate = match stack.last() {
-                        Some(Frame::Object { fields, .. }) => {
-                            fields.iter().any(|(k, _)| *k == name)
+                let nested = stack.len() > 1;
+                match self.peek() {
+                    None if !nested => return Err(err("decode request: EOF")),
+                    None => {
+                        return Err(err(format!("{}unexpected EOF", self.field_ctx())));
+                    }
+                    Some(b'"') => {}
+                    Some(c) => {
+                        // A first field name reports the bare character: the
+                        // streaming error has no context in object-start
+                        // state, only once a comma was consumed.
+                        let first = match stack.last() {
+                            Some(Frame::Object { fields, .. }) => fields.is_empty(),
+                            _ => false,
+                        };
+                        if !nested && first {
+                            return Err(err(format!(
+                                "decode request: invalid character {}",
+                                Self::quote_byte(c)
+                            )));
                         }
-                        _ => false,
-                    };
-                    if duplicate {
-                        return Err(err(format!("duplicate request field {name:?}")));
+                        return Err(err(format!(
+                            "{}invalid character {} looking for beginning of object key string",
+                            self.field_ctx(),
+                            Self::quote_byte(c)
+                        )));
                     }
                 }
-                self.skip_ws();
-                self.expect(b':')?;
+                let name = self.parse_string()?;
+                let duplicate = match stack.last() {
+                    Some(Frame::Object { fields, .. }) => fields.iter().any(|(k, _)| *k == name),
+                    _ => false,
+                };
+                if self.strict() && duplicate {
+                    if nested {
+                        // Deferred: the enclosing value must scan clean
+                        // first; a later scan error beats this.
+                        if self.deferred.is_none() {
+                            self.deferred =
+                                Some(err(format!("duplicate request field {}", go_quote(&name))));
+                        }
+                    } else {
+                        return Err(err(format!("duplicate request field {}", go_quote(&name))));
+                    }
+                }
                 if let Some(Frame::Object { pending: slot, .. }) = stack.last_mut() {
                     *slot = Some(name.clone());
                 }
-                // Top-level field context for nested strict messages.
+                // Top-level field context for nested strict messages, with a
+                // fresh deferred slot for this field's value.
                 if stack.len() == 1 {
                     if let Some(slot) = self.strict_field.as_mut() {
                         *slot = Some(name);
                     }
+                    self.deferred = None;
+                }
+                self.skip_ws();
+                match self.peek() {
+                    Some(b':') => {
+                        self.pos += 1;
+                    }
+                    None if !nested => {
+                        return Err(err(format!("{}EOF", self.field_ctx())));
+                    }
+                    None => {
+                        return Err(err(format!("{}unexpected EOF", self.field_ctx())));
+                    }
+                    Some(c) if nested => {
+                        return Err(err(format!(
+                            "{}invalid character {} after object key",
+                            self.field_ctx(),
+                            Self::quote_byte(c)
+                        )));
+                    }
+                    Some(_) => {
+                        return Err(err(format!(
+                            "{}expected colon after object key",
+                            self.field_ctx()
+                        )));
+                    }
                 }
             }
-            let depth = stack.len() as u32;
-            if self.strict() && depth > MAX_NESTING {
-                return Err(err(format!(
+            // Go checks nesting depth per value in the post-scan walk, so a
+            // value that scans clean but sits too deep reports only once its
+            // top-level value completes; anything scanning past the scanner's
+            // own 10000-deep cap fails immediately like `readValue`.
+            if self.strict() && (stack.len() as u32) > MAX_NESTING && self.deferred.is_none() {
+                self.deferred = Some(err(format!(
                     "{}request is nested too deeply",
                     self.field_ctx()
                 )));
@@ -239,10 +392,18 @@ impl<'a> Parser<'a> {
             self.skip_ws();
             match self.peek() {
                 Some(b'{') | Some(b'[') => {
-                    if !self.strict() && depth >= 10_000 {
+                    let bracket = self.peek().unwrap();
+                    if self.strict() && stack.len() > 10_000 {
+                        return Err(err(format!(
+                            "{}invalid character {} exceeded max depth",
+                            self.field_ctx(),
+                            Self::quote_byte(bracket)
+                        )));
+                    }
+                    if !self.strict() && stack.len() >= 10_000 {
                         return Err(err("decode request: request is nested too deeply"));
                     }
-                    let is_object = self.peek() == Some(b'{');
+                    let is_object = bracket == b'{';
                     self.pos += 1;
                     if is_object {
                         stack.push(Frame::Object {
@@ -267,27 +428,48 @@ impl<'a> Parser<'a> {
                 Some(b'-') | Some(b'0'..=b'9') => {
                     pending = Some(Value::Number(self.parse_number()?))
                 }
-                _ => return Err(err(format!("{}invalid character", self.field_ctx()))),
+                None if stack.len() <= 1 => return Err(err(format!("{}EOF", self.field_ctx()))),
+                None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
+                Some(c) => {
+                    return Err(err(format!(
+                        "{}invalid character {} looking for beginning of value",
+                        self.field_ctx(),
+                        Self::quote_byte(c)
+                    )))
+                }
             }
         }
     }
 
+    fn hex_val(c: u8) -> Option<u32> {
+        match c {
+            b'0'..=b'9' => Some((c - b'0') as u32),
+            b'a'..=b'f' => Some((c - b'a' + 10) as u32),
+            b'A'..=b'F' => Some((c - b'A' + 10) as u32),
+            _ => None,
+        }
+    }
+
     fn hex4(&mut self) -> Result<u32, Error> {
-        if self.pos + 4 > self.bytes.len() {
-            return Err(err(format!("{}invalid string escape", self.field_ctx())));
-        }
         let mut v: u32 = 0;
-        for i in 0..4 {
-            let c = self.bytes[self.pos + i];
-            let d = match c {
-                b'0'..=b'9' => (c - b'0') as u32,
-                b'a'..=b'f' => (c - b'a' + 10) as u32,
-                b'A'..=b'F' => (c - b'A' + 10) as u32,
-                _ => return Err(err(format!("{}invalid string escape", self.field_ctx()))),
-            };
-            v = v * 16 + d;
+        for _ in 0..4 {
+            match self.peek() {
+                None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
+                Some(c) => match Self::hex_val(c) {
+                    Some(d) => {
+                        v = v * 16 + d;
+                        self.pos += 1;
+                    }
+                    None => {
+                        return Err(err(format!(
+                            "{}invalid character {} in \\u hexadecimal character escape",
+                            self.field_ctx(),
+                            Self::quote_byte(c)
+                        )))
+                    }
+                },
+            }
         }
-        self.pos += 4;
         Ok(v)
     }
 
@@ -297,7 +479,7 @@ impl<'a> Parser<'a> {
         loop {
             let c = match self.peek() {
                 Some(c) => c,
-                None => return Err(err(format!("{}unterminated string", self.field_ctx()))),
+                None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
             };
             match c {
                 b'"' => {
@@ -308,9 +490,7 @@ impl<'a> Parser<'a> {
                     self.pos += 1;
                     let e = match self.peek() {
                         Some(e) => e,
-                        None => {
-                            return Err(err(format!("{}unterminated string", self.field_ctx())))
-                        }
+                        None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
                     };
                     self.pos += 1;
                     match e {
@@ -351,13 +531,20 @@ impl<'a> Parser<'a> {
                                 out.push(char::from_u32(n).unwrap_or('\u{FFFD}'));
                             }
                         }
-                        _ => return Err(err(format!("{}invalid string escape", self.field_ctx()))),
+                        _ => {
+                            return Err(err(format!(
+                                "{}invalid character {} in string escape code",
+                                self.field_ctx(),
+                                Self::quote_byte(e)
+                            )))
+                        }
                     }
                 }
                 0x00..=0x1F => {
                     return Err(err(format!(
-                        "{}invalid character in string",
-                        self.field_ctx()
+                        "{}invalid character {} in string literal",
+                        self.field_ctx(),
+                        Self::quote_byte(c)
                     )));
                 }
                 _ => {
@@ -377,9 +564,22 @@ impl<'a> Parser<'a> {
         let start = self.pos;
         if self.peek() == Some(b'-') {
             self.pos += 1;
+            match self.peek() {
+                Some(b'0'..=b'9') => {}
+                None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
+                Some(c) => {
+                    return Err(err(format!(
+                        "{}invalid character {} in numeric literal",
+                        self.field_ctx(),
+                        Self::quote_byte(c)
+                    )))
+                }
+            }
         }
         match self.peek() {
             Some(b'0') => {
+                // A leading zero ends the integer part even before another
+                // digit: the scanner stops the value there.
                 self.pos += 1;
             }
             Some(b'1'..=b'9') => {
@@ -391,11 +591,20 @@ impl<'a> Parser<'a> {
         }
         if self.peek() == Some(b'.') {
             self.pos += 1;
-            if !matches!(self.peek(), Some(b'0'..=b'9')) {
-                return Err(err(format!("{}invalid number", self.field_ctx())));
-            }
-            while matches!(self.peek(), Some(b'0'..=b'9')) {
-                self.pos += 1;
+            match self.peek() {
+                Some(b'0'..=b'9') => {
+                    while matches!(self.peek(), Some(b'0'..=b'9')) {
+                        self.pos += 1;
+                    }
+                }
+                None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
+                Some(c) => {
+                    return Err(err(format!(
+                        "{}invalid character {} after decimal point in numeric literal",
+                        self.field_ctx(),
+                        Self::quote_byte(c)
+                    )))
+                }
             }
         }
         if matches!(self.peek(), Some(b'e' | b'E')) {
@@ -403,11 +612,20 @@ impl<'a> Parser<'a> {
             if matches!(self.peek(), Some(b'+' | b'-')) {
                 self.pos += 1;
             }
-            if !matches!(self.peek(), Some(b'0'..=b'9')) {
-                return Err(err(format!("{}invalid number", self.field_ctx())));
-            }
-            while matches!(self.peek(), Some(b'0'..=b'9')) {
-                self.pos += 1;
+            match self.peek() {
+                Some(b'0'..=b'9') => {
+                    while matches!(self.peek(), Some(b'0'..=b'9')) {
+                        self.pos += 1;
+                    }
+                }
+                None => return Err(err(format!("{}unexpected EOF", self.field_ctx()))),
+                Some(c) => {
+                    return Err(err(format!(
+                        "{}invalid character {} in exponent of numeric literal",
+                        self.field_ctx(),
+                        Self::quote_byte(c)
+                    )))
+                }
             }
         }
         Ok(String::from_utf8_lossy(&self.bytes[start..self.pos]).into_owned())
@@ -424,16 +642,49 @@ pub fn decode_strict(body: &[u8]) -> Result<Value, Error> {
     }
     let text = std::str::from_utf8(body).map_err(|_| err("request must contain valid UTF-8"))?;
     let mut p = Parser::new(text.as_bytes(), true);
-    p.skip_ws();
-    if p.peek() != Some(b'{') {
-        return Err(err("request must be one JSON object"));
-    }
-    let v = p.parse_object(0)?;
+    let mut v = p.parse_object(0)?;
     p.skip_ws();
     if !p.eof() {
-        // Distinguish trailing garbage from a second value for parity with
-        // finishObject: any trailing token is an error either way.
-        return Err(err("request must contain exactly one JSON object"));
+        // Trailing `Token`: a second complete token is excess data, but a
+        // token scan error surfaces instead.
+        match p.peek() {
+            Some(b'{') | Some(b'[') => {
+                return Err(err("request must contain exactly one JSON object"));
+            }
+            Some(b'"') => {
+                p.parse_string()?;
+                return Err(err("request must contain exactly one JSON object"));
+            }
+            Some(b't') => {
+                p.parse_literal("true", Value::Bool(true))?;
+                return Err(err("request must contain exactly one JSON object"));
+            }
+            Some(b'f') => {
+                p.parse_literal("false", Value::Bool(false))?;
+                return Err(err("request must contain exactly one JSON object"));
+            }
+            Some(b'n') => {
+                p.parse_literal("null", Value::Null)?;
+                return Err(err("request must contain exactly one JSON object"));
+            }
+            Some(b'-') | Some(b'0'..=b'9') => {
+                p.parse_number()?;
+                return Err(err("request must contain exactly one JSON object"));
+            }
+            Some(c) => {
+                return Err(err(format!(
+                    "decode request: invalid character {} looking for beginning of value",
+                    Parser::quote_byte(c)
+                )));
+            }
+            None => {}
+        }
+    }
+    // strictjson re-marshals the top-level map before struct binding, which
+    // sorts top-level keys; nested raw values keep document order. The
+    // binding driver relies on this for exact first-error ordering.
+    if let Value::Object(fields) = &mut v {
+        fields.sort_by(|a, b| a.0.cmp(&b.0));
     }
     Ok(v)
 }
@@ -494,134 +745,436 @@ impl Value {
     }
 }
 
-/// Typed strict object binding with Go field matching: exact name first,
-/// then a unique ASCII case-insensitive match; anything else is unknown.
-pub struct Binder<'a> {
-    fields: &'a Vec<(String, Value)>,
-    seen: Vec<bool>,
+/// `strconv.Quote` for ASCII input: exact for all ASCII bytes, UTF-8 passed
+/// through. Used for `unknown field` names (ASCII in practice).
+pub(crate) fn go_quote(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '\u{07}' => out.push_str("\\a"),
+            '\u{08}' => out.push_str("\\b"),
+            '\u{0C}' => out.push_str("\\f"),
+            '\u{0B}' => out.push_str("\\v"),
+            c if (c as u32) < 0x20 || (c as u32) == 0x7f => {
+                out.push_str(&format!("\\x{:02x}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
 }
 
-impl<'a> Binder<'a> {
-    pub fn new(v: &'a Value) -> Result<Self, Error> {
-        match v {
-            Value::Object(fields) => Ok(Binder {
-                fields,
-                seen: vec![false; fields.len()],
-            }),
-            _ => Err(err("decode request: expected object")),
+/// `strconv.ParseInt(s, 10, 64)`: Rust's parse rejects the leading `+`
+/// that Go accepts, so strip one first.
+pub fn parse_go_int64(s: &str) -> Option<i64> {
+    s.strip_prefix('+').unwrap_or(s).parse::<i64>().ok()
+}
+
+/// One struct field's binding rule. `go_type` is the exact
+/// `encoding/json` type word used in mismatch messages.
+pub struct Spec {
+    pub name: &'static str,
+    pub kind: Kind,
+}
+
+pub enum Kind {
+    Str,
+    Bool,
+    I64,
+    /// `*int`: missing/null is None.
+    OptInt,
+    StrList,
+    /// `[]byte`: base64 string or numeric array.
+    Bytes,
+    /// `map[string][]byte`.
+    BytesMap,
+    /// Required nested struct: null/missing binds the zero value.
+    Object {
+        go_type: &'static str,
+        struct_name: &'static str,
+        specs: &'static [Spec],
+    },
+    /// `*struct`: null/missing binds None.
+    OptObject {
+        go_type: &'static str,
+        struct_name: &'static str,
+        specs: &'static [Spec],
+    },
+    /// `[]struct`: null/missing binds empty.
+    StructList {
+        go_type: &'static str,
+        struct_name: &'static str,
+        specs: &'static [Spec],
+    },
+}
+
+/// A bound field value, keyed by spec name in [`BoundMap`].
+#[derive(Debug, Clone)]
+pub enum Bound {
+    Str(String),
+    Bool(bool),
+    I64(i64),
+    OptInt(Option<i64>),
+    StrList(Vec<String>),
+    Bytes(Vec<u8>),
+    BytesMap(HashMap<String, Vec<u8>>),
+    Map(BoundMap),
+    OptMap(Option<BoundMap>),
+    StructList(Vec<BoundMap>),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct BoundMap(HashMap<String, Bound>);
+
+impl BoundMap {
+    fn get(&self, name: &str) -> Option<&Bound> {
+        self.0.get(name)
+    }
+    fn insert(&mut self, name: String, bound: Bound) {
+        self.0.insert(name, bound);
+    }
+    pub fn take_string(&self, name: &str) -> String {
+        match self.get(name) {
+            Some(Bound::Str(s)) => s.clone(),
+            _ => String::new(),
         }
     }
-
-    fn lookup(&mut self, name: &str) -> Result<Option<&'a Value>, Error> {
-        if let Some(i) = self.fields.iter().position(|(k, _)| k == name) {
-            self.seen[i] = true;
-            return Ok(Some(&self.fields[i].1));
+    pub fn take_bool(&self, name: &str) -> bool {
+        match self.get(name) {
+            Some(Bound::Bool(b)) => *b,
+            _ => false,
         }
-        let mut found = None;
-        for (i, (k, _)) in self.fields.iter().enumerate() {
-            if k.eq_ignore_ascii_case(name) {
-                if found.is_some() {
-                    return Err(err(format!("decode request: ambiguous field {name:?}")));
-                }
-                found = Some(i);
+    }
+    pub fn take_i64(&self, name: &str) -> i64 {
+        match self.get(name) {
+            Some(Bound::I64(n)) => *n,
+            _ => 0,
+        }
+    }
+    pub fn take_opt_i64(&self, name: &str) -> Option<i64> {
+        match self.get(name) {
+            Some(Bound::OptInt(n)) => *n,
+            _ => None,
+        }
+    }
+    pub fn take_str_list(&self, name: &str) -> Vec<String> {
+        match self.get(name) {
+            Some(Bound::StrList(v)) => v.clone(),
+            _ => Vec::new(),
+        }
+    }
+    pub fn take_bytes(&self, name: &str) -> Vec<u8> {
+        match self.get(name) {
+            Some(Bound::Bytes(v)) => v.clone(),
+            _ => Vec::new(),
+        }
+    }
+    pub fn take_bytes_map(&self, name: &str) -> HashMap<String, Vec<u8>> {
+        match self.get(name) {
+            Some(Bound::BytesMap(m)) => m.clone(),
+            _ => HashMap::new(),
+        }
+    }
+    pub fn contains(&self, name: &str) -> bool {
+        self.0.contains_key(name)
+    }
+    pub fn take_map(&self, name: &str) -> BoundMap {
+        match self.get(name) {
+            Some(Bound::Map(m)) => m.clone(),
+            _ => BoundMap::default(),
+        }
+    }
+    pub fn take_opt_map(&self, name: &str) -> Option<BoundMap> {
+        match self.get(name) {
+            Some(Bound::OptMap(m)) => m.clone(),
+            _ => None,
+        }
+    }
+    pub fn take_struct_list(&self, name: &str) -> Vec<BoundMap> {
+        match self.get(name) {
+            Some(Bound::StructList(v)) => v.clone(),
+            _ => Vec::new(),
+        }
+    }
+}
+
+fn value_word(v: &Value) -> &'static str {
+    match v {
+        Value::Null => "null",
+        Value::Bool(_) => "bool",
+        Value::Number(_) => "number",
+        Value::Str(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
+
+/// `UnmarshalTypeError` with struct-field context:
+/// `json: cannot unmarshal {value} into Go struct field {S}.{path}.{field}
+/// of type {type}`. `number_word` carries the literal for int targets.
+fn type_error(
+    struct_name: &str,
+    path: &[String],
+    field: &str,
+    number_word: Option<&str>,
+    v: &Value,
+    go_type: &str,
+) -> Error {
+    let value = match (v, number_word) {
+        (Value::Number(_), Some(lit)) => format!("number {lit}"),
+        _ => value_word(v).to_string(),
+    };
+    let mut full = String::from(struct_name);
+    for p in path {
+        full.push('.');
+        full.push_str(p);
+    }
+    full.push('.');
+    full.push_str(field);
+    err(format!(
+        "decode request: json: cannot unmarshal {value} into Go struct field {full} of type {go_type}"
+    ))
+}
+
+fn bind_uint8_element(
+    v: &Value,
+    struct_name: &str,
+    path: &[String],
+    field: &str,
+) -> Result<u8, Error> {
+    match v {
+        Value::Null => Ok(0),
+        Value::Number(lit) => lit
+            .parse::<u8>()
+            .map_err(|_| type_error(struct_name, path, field, Some(lit), v, "uint8")),
+        _ => Err(type_error(struct_name, path, field, None, v, "uint8")),
+    }
+}
+
+fn bind_bytes_value(
+    v: &Value,
+    struct_name: &str,
+    path: &[String],
+    field: &str,
+    go_type: &str,
+) -> Result<Vec<u8>, Error> {
+    match v {
+        Value::Null => Ok(Vec::new()),
+        Value::Str(s) => crate::ssh::b64_decode_go(s.as_bytes())
+            .map_err(|off| err(format!("decode request: {}", crate::ssh::b64_corrupt(off)))),
+        Value::Array(items) => {
+            let mut out = Vec::with_capacity(items.len());
+            for item in items {
+                out.push(bind_uint8_element(item, struct_name, path, field)?);
             }
+            Ok(out)
         }
-        if let Some(i) = found {
-            self.seen[i] = true;
-            Ok(Some(&self.fields[i].1))
-        } else {
-            Ok(None)
-        }
+        _ => Err(type_error(struct_name, path, field, None, v, go_type)),
     }
+}
 
-    /// Required string field; missing or null decodes as empty (Go leaves
-    /// the zero value for null), wrong types are an error.
-    pub fn string(&mut self, name: &str) -> Result<String, Error> {
-        match self.lookup(name)? {
-            None | Some(Value::Null) => Ok(String::new()),
-            Some(Value::Str(s)) => Ok(s.clone()),
-            Some(_) => Err(err(format!(
-                "decode request: cannot unmarshal field {name:?} as string"
-            ))),
-        }
-    }
-
-    pub fn boolean(&mut self, name: &str) -> Result<bool, Error> {
-        match self.lookup(name)? {
-            None | Some(Value::Null) => Ok(false),
-            Some(Value::Bool(b)) => Ok(*b),
-            Some(_) => Err(err(format!(
-                "decode request: cannot unmarshal field {name:?} as bool"
-            ))),
-        }
-    }
-
-    pub fn int64(&mut self, name: &str) -> Result<i64, Error> {
-        match self.lookup(name)? {
-            None | Some(Value::Null) => Ok(0),
-            Some(v @ Value::Number(_)) => v.as_i64().ok_or_else(|| {
-                err(format!(
-                    "decode request: cannot unmarshal field {name:?} as int"
-                ))
-            }),
-            Some(_) => Err(err(format!(
-                "decode request: cannot unmarshal field {name:?} as int"
-            ))),
-        }
-    }
-
-    /// Optional nested object; missing or null yields None.
-    pub fn object(&mut self, name: &str) -> Result<Option<&'a Value>, Error> {
-        match self.lookup(name)? {
-            None | Some(Value::Null) => Ok(None),
-            Some(v @ Value::Object(_)) => Ok(Some(v)),
-            Some(_) => Err(err(format!(
-                "decode request: cannot unmarshal field {name:?} as object"
-            ))),
-        }
-    }
-
-    /// Optional string list; missing or null yields None, `[]` yields empty.
-    pub fn string_list(&mut self, name: &str) -> Result<Option<Vec<String>>, Error> {
-        match self.lookup(name)? {
-            None | Some(Value::Null) => Ok(None),
-            Some(Value::Array(items)) => {
+fn bind_value(
+    v: &Value,
+    spec: &Spec,
+    struct_name: &str,
+    path: &[String],
+    tolerant: bool,
+) -> Result<Bound, Error> {
+    // Error paths use the spec (struct field) name; values bind from any
+    // fold-matching key.
+    let field = spec.name;
+    match &spec.kind {
+        Kind::Str => match v {
+            Value::Null => Ok(Bound::Str(String::new())),
+            Value::Str(s) => Ok(Bound::Str(s.clone())),
+            _ => Err(type_error(struct_name, path, field, None, v, "string")),
+        },
+        Kind::Bool => match v {
+            Value::Null => Ok(Bound::Bool(false)),
+            Value::Bool(b) => Ok(Bound::Bool(*b)),
+            _ => Err(type_error(struct_name, path, field, None, v, "bool")),
+        },
+        Kind::I64 => match v {
+            Value::Null => Ok(Bound::I64(0)),
+            Value::Number(lit) => lit
+                .parse::<i64>()
+                .map(Bound::I64)
+                .map_err(|_| type_error(struct_name, path, field, Some(lit), v, "int64")),
+            _ => Err(type_error(struct_name, path, field, None, v, "int64")),
+        },
+        Kind::OptInt => match v {
+            Value::Null => Ok(Bound::OptInt(None)),
+            Value::Number(lit) => lit
+                .parse::<i64>()
+                .map(|n| Bound::OptInt(Some(n)))
+                .map_err(|_| type_error(struct_name, path, field, Some(lit), v, "int")),
+            _ => Err(type_error(struct_name, path, field, None, v, "int")),
+        },
+        Kind::StrList => match v {
+            Value::Null => Ok(Bound::StrList(Vec::new())),
+            Value::Array(items) => {
                 let mut out = Vec::with_capacity(items.len());
                 for item in items {
                     match item {
-                        // Null leaves the zero value, like encoding/json.
                         Value::Null => out.push(String::new()),
                         Value::Str(s) => out.push(s.clone()),
                         _ => {
-                            return Err(err(format!(
-                                "decode request: cannot unmarshal field {name:?} item as string"
-                            )))
+                            return Err(type_error(struct_name, path, field, None, item, "string"))
                         }
                     }
                 }
-                Ok(Some(out))
+                Ok(Bound::StrList(out))
             }
-            Some(_) => Err(err(format!(
-                "decode request: cannot unmarshal field {name:?} as list"
-            ))),
-        }
+            _ => Err(type_error(struct_name, path, field, None, v, "[]string")),
+        },
+        Kind::Bytes => bind_bytes_value(v, struct_name, path, field, "[]uint8").map(Bound::Bytes),
+        Kind::BytesMap => match v {
+            Value::Null => Ok(Bound::BytesMap(HashMap::new())),
+            Value::Object(entries) => {
+                let mut out = HashMap::with_capacity(entries.len());
+                for (k, val) in entries {
+                    out.insert(
+                        k.clone(),
+                        bind_bytes_value(val, struct_name, path, field, "[]uint8")?,
+                    );
+                }
+                Ok(Bound::BytesMap(out))
+            }
+            _ => Err(type_error(
+                struct_name,
+                path,
+                field,
+                None,
+                v,
+                "map[string][]uint8",
+            )),
+        },
+        Kind::Object {
+            go_type,
+            struct_name: nested,
+            specs,
+        } => match v {
+            Value::Null => Ok(Bound::Map(BoundMap::default())),
+            Value::Object(_) => {
+                let mut child = path.to_vec();
+                child.push(field.to_string());
+                bind_struct(v, nested, &child, specs, tolerant).map(Bound::Map)
+            }
+            _ => Err(type_error(struct_name, path, field, None, v, go_type)),
+        },
+        Kind::OptObject {
+            go_type,
+            struct_name: nested,
+            specs,
+        } => match v {
+            Value::Null => Ok(Bound::OptMap(None)),
+            Value::Object(_) => {
+                let mut child = path.to_vec();
+                child.push(field.to_string());
+                bind_struct(v, nested, &child, specs, tolerant).map(|m| Bound::OptMap(Some(m)))
+            }
+            _ => Err(type_error(struct_name, path, field, None, v, go_type)),
+        },
+        Kind::StructList {
+            go_type,
+            struct_name: nested,
+            specs,
+        } => match v {
+            Value::Null => Ok(Bound::StructList(Vec::new())),
+            Value::Array(items) => {
+                let mut out = Vec::with_capacity(items.len());
+                let mut child = path.to_vec();
+                child.push(field.to_string());
+                for item in items {
+                    match item {
+                        Value::Object(_) => {
+                            out.push(bind_struct(item, nested, &child, specs, tolerant)?)
+                        }
+                        _ => return Err(type_error(struct_name, path, field, None, item, go_type)),
+                    }
+                }
+                Ok(Bound::StructList(out))
+            }
+            _ => Err(type_error(struct_name, path, field, None, v, go_type)),
+        },
     }
+}
 
-    /// Raw field access for custom nested decoders (maps, DTO lists).
-    pub fn raw(&mut self, name: &str) -> Result<Option<&'a Value>, Error> {
-        self.lookup(name)
+fn match_spec<'s>(specs: &'s [Spec], key: &str) -> Option<&'s Spec> {
+    if let Some(spec) = specs.iter().find(|s| s.name == key) {
+        return Some(spec);
     }
+    let mut fold = specs.iter().filter(|s| s.name.eq_ignore_ascii_case(key));
+    let first = fold.next()?;
+    if fold.next().is_some() {
+        // Several fields fold to this key: Go hides all of them.
+        return None;
+    }
+    Some(first)
+}
 
-    /// Reject any fields the DTO did not consume (DisallowUnknownFields).
-    pub fn finish(&self) -> Result<(), Error> {
-        if let Some(i) = self.seen.iter().position(|s| !s) {
+/// Ordered struct binding with exact `encoding/json` semantics: fields are
+/// processed in value order (top level is pre-sorted like strictjson's
+/// re-marshal, nested levels keep document order), the first error wins,
+/// fold-matching keys all bind with last-wins, and unknown fields error
+/// inline. `path` is the JSON field path from the root for messages.
+/// Ordered struct binding with exact `encoding/json` semantics: fields are
+/// processed in value order (top level is pre-sorted like strictjson's
+/// re-marshal, nested levels keep document order), the first error wins,
+/// fold-matching keys all bind with last-wins, and unknown fields error
+/// inline (or are ignored when `tolerant`, like plain `Unmarshal`).
+/// `path` is the JSON field path from the root for messages.
+pub fn bind_struct(
+    v: &Value,
+    struct_name: &'static str,
+    path: &[String],
+    specs: &[Spec],
+    tolerant: bool,
+) -> Result<BoundMap, Error> {
+    let fields = match v {
+        Value::Object(fields) => fields,
+        _ => return Err(err("decode request: expected object")),
+    };
+    let mut out = BoundMap::default();
+    for (key, val) in fields.iter() {
+        let Some(spec) = match_spec(specs, key) else {
+            if tolerant {
+                continue;
+            }
             return Err(err(format!(
-                "decode request: unknown field {:?}",
-                self.fields[i].0
+                "decode request: json: unknown field {}",
+                go_quote(key)
             )));
+        };
+        // Null leaves the zero value, exactly like a missing field (unknown
+        // nulls still error above). Array elements and map values handle
+        // their own nulls inside their kinds.
+        if val.is_null() {
+            continue;
         }
-        Ok(())
+        out.insert(
+            spec.name.to_string(),
+            bind_value(val, spec, struct_name, path, tolerant)?,
+        );
     }
+    Ok(out)
+}
+
+/// Strict binding entry point: top-level struct with an empty path.
+pub fn bind_root(
+    v: &Value,
+    struct_name: &'static str,
+    specs: &[Spec],
+    tolerant: bool,
+) -> Result<BoundMap, Error> {
+    bind_struct(v, struct_name, &[], specs, tolerant)
 }
 
 /// Tolerant field lookup for podman output: exact name first, then unique
@@ -751,33 +1304,190 @@ mod tests {
     }
 
     #[test]
-    fn binder_matches_go_field_rules() {
-        let v = decode_strict(br#"{"ID":"x","Count":3,"Flag":true}"#).unwrap();
-        let mut b = Binder::new(&v).unwrap();
-        assert_eq!(b.string("id").unwrap(), "x"); // case-insensitive fallback
-        assert_eq!(b.int64("count").unwrap(), 3);
-        assert!(b.boolean("flag").unwrap());
-        b.finish().unwrap();
-
-        let v = decode_strict(br#"{"id":"x","bogus":1}"#).unwrap();
-        let mut b = Binder::new(&v).unwrap();
-        b.string("id").unwrap();
-        assert!(b.finish().is_err()); // unknown field
-
-        let v = decode_strict(br#"{"id":null,"count":null}"#).unwrap();
-        let mut b = Binder::new(&v).unwrap();
-        assert_eq!(b.string("id").unwrap(), "");
-        assert_eq!(b.int64("count").unwrap(), 0);
-
-        for bad in [
-            br#"{"count":1.5}"#.as_slice(),
-            br#"{"count":"3"}"#,
-            br#"{"count":true}"#,
-            br#"{"count":1e3}"#,
+    fn strict_scanner_messages_match_go_toolchain() {
+        // Exact `strictjson.Decode` message shapes, pinned against the
+        // pinned Go toolchain (see the corpus4 differential).
+        for (input, want) in [
+            ("", "decode request: EOF"),
+            ("  ", "decode request: EOF"),
+            ("[", "request must be one JSON object"),
+            ("[1]", "request must be one JSON object"),
+            ("1", "request must be one JSON object"),
+            ("\"a", "decode request: unexpected EOF"),
+            ("\"a\"", "request must be one JSON object"),
+            ("tru", "decode request: unexpected EOF"),
+            ("true", "request must be one JSON object"),
+            ("-", "decode request: unexpected EOF"),
+            ("-x", "decode request: invalid character 'x' in numeric literal"),
+            ("x", "decode request: invalid character 'x' looking for beginning of value"),
+            (",", "decode request: invalid character ',' looking for beginning of value"),
+            ("]", "decode request: invalid character ']' looking for beginning of value"),
+            ("{", "decode request: EOF"),
+            ("{]", "decode request: invalid character ']'"),
+            ("{1", "decode request: invalid character '1'"),
+            ("{,", "decode request: invalid character ','"),
+            ("{\"a\":1,}", "decode request: invalid character '}' looking for beginning of object key string"),
+            ("{\"a\":1,2", "decode request: invalid character '2' looking for beginning of object key string"),
+            ("{\"a\":1,", "decode request: EOF"),
+            ("{\"a\"", "decode request field \"a\": EOF"),
+            ("{\"a\" ", "decode request field \"a\": EOF"),
+            ("{\"a\" 1}", "decode request field \"a\": expected colon after object key"),
+            ("{\"a\":", "decode request field \"a\": EOF"),
+            ("{\"a\":x}", "decode request field \"a\": invalid character 'x' looking for beginning of value"),
+            ("{\"a\":tru}", "decode request field \"a\": invalid character '}' in literal true (expecting 'e')"),
+            ("{\"a\":1", "decode request: EOF"),
+            ("{\"a\":1 ", "decode request: EOF"),
+            ("{\"a\":1]", "decode request: invalid character ']' after object key:value pair"),
+            ("{\"a\":1x}", "decode request: invalid character 'x' after object key:value pair"),
+            ("{\"a\":01}", "decode request: invalid character '1' after object key:value pair"),
+            ("{\"a\":1.5e+}", "decode request field \"a\": invalid character '}' in exponent of numeric literal"),
+            ("{\"a\":1.5e+", "decode request field \"a\": unexpected EOF"),
+            ("{\"a\":1.5ex}", "decode request field \"a\": invalid character 'x' in exponent of numeric literal"),
+            ("{\"a\":1.x}", "decode request field \"a\": invalid character 'x' after decimal point in numeric literal"),
+            ("{\"a\":\"b\\x}", "decode request field \"a\": invalid character 'x' in string escape code"),
+            ("{\"a\":\"b\\u12}", "decode request field \"a\": invalid character '}' in \\u hexadecimal character escape"),
+            ("{\"a\":1}{", "request must contain exactly one JSON object"),
+            ("{\"a\":1}[", "request must contain exactly one JSON object"),
+            ("{\"a\":1}1", "request must contain exactly one JSON object"),
+            ("{\"a\":1}1x", "request must contain exactly one JSON object"),
+            ("{\"a\":1}}", "decode request: invalid character '}' looking for beginning of value"),
+            ("{\"a\":1},", "decode request: invalid character ',' looking for beginning of value"),
+            ("{\"a\":1}\"a", "decode request: unexpected EOF"),
+            ("{\"a\":1}tru", "decode request: unexpected EOF"),
+            ("{\"a\":1}-x", "decode request: invalid character 'x' in numeric literal"),
+            ("{\"f\":{\"g\":1", "decode request field \"f\": unexpected EOF"),
+            ("{\"f\":{\"g\":1,", "decode request field \"f\": unexpected EOF"),
+            ("{\"f\":{\"g\"", "decode request field \"f\": unexpected EOF"),
+            ("{\"f\":{\"g\" 1}", "decode request field \"f\": invalid character '1' after object key"),
+            ("{\"f\":[1 2]}", "decode request field \"f\": invalid character '2' after array element"),
+            ("{\"f\":[01]}", "decode request field \"f\": invalid character '1' after array element"),
+            ("{\"f\":[x]}", "decode request field \"f\": invalid character 'x' looking for beginning of value"),
+            ("{\"f\":{1}}", "decode request field \"f\": invalid character '1' looking for beginning of object key string"),
+            ("{\"a\":1,\"a\":2}", "duplicate request field \"a\""),
+            ("{\"a\":{\"x\":1,\"x\":2}}", "duplicate request field \"x\""),
+            // A scan error anywhere in the value beats a deferred nested dup.
+            ("{\"a\":{\"x\":1,\"x\":truX}}", "decode request field \"a\": invalid character 'X' in literal true (expecting 'e')"),
+            // A top duplicate reports before the later value is scanned.
+            ("{\"a\":1,\"a\":{\"x\":truX}}", "duplicate request field \"a\""),
         ] {
-            let v = decode_strict(bad).unwrap();
-            assert!(Binder::new(&v).unwrap().int64("count").is_err());
+            let got = decode_strict(input.as_bytes()).unwrap_err().0;
+            assert_eq!(got, want, "input={input:?}");
         }
+    }
+
+    #[test]
+    fn strict_depth_bounds_match_reject_duplicate_keys() {
+        // strictjson rejects values nested past depth 100 (102 opens) once
+        // the top-level value completes; the scanner itself fails past 10000.
+        for (n, ok) in [(101, true), (102, false), (103, false)] {
+            let doc = format!("{{\"n\":{}}}", "[".repeat(n) + &"]".repeat(n));
+            assert_eq!(
+                decode_strict(doc.as_bytes()).is_ok(),
+                ok,
+                "empty arrays n={n}"
+            );
+        }
+        // A scalar counts one deeper than its containers.
+        for (n, ok) in [(100, true), (101, false), (102, false)] {
+            let doc = format!("{{\"n\":{}1{}}}", "[".repeat(n), "]".repeat(n));
+            assert_eq!(
+                decode_strict(doc.as_bytes()).is_ok(),
+                ok,
+                "scalar arrays n={n}"
+            );
+            let doc = format!("{{\"n\":{}}}", "{\"a\":".repeat(n) + "1" + &"}".repeat(n));
+            assert_eq!(decode_strict(doc.as_bytes()).is_ok(), ok, "objects n={n}");
+        }
+        let doc = format!("{{\"n\":{}}}", "[".repeat(102) + &"]".repeat(102));
+        assert_eq!(
+            decode_strict(doc.as_bytes()).unwrap_err().0,
+            "decode request field \"n\": request is nested too deeply"
+        );
+        for (n, want) in [
+            (
+                10000,
+                "decode request field \"n\": request is nested too deeply",
+            ),
+            (
+                10001,
+                "decode request field \"n\": invalid character '[' exceeded max depth",
+            ),
+        ] {
+            let doc = format!("{{\"n\":{}}}", "[".repeat(n) + &"]".repeat(n));
+            assert_eq!(decode_strict(doc.as_bytes()).unwrap_err().0, want, "n={n}");
+        }
+    }
+
+    const WIDGET_SPECS: &[Spec] = &[
+        Spec {
+            name: "id",
+            kind: Kind::Str,
+        },
+        Spec {
+            name: "count",
+            kind: Kind::I64,
+        },
+        Spec {
+            name: "flag",
+            kind: Kind::Bool,
+        },
+    ];
+
+    fn bind_widget(raw: &[u8]) -> Result<BoundMap, Error> {
+        let v = decode_strict(raw)?;
+        bind_root(&v, "Widget", WIDGET_SPECS, false)
+    }
+
+    #[test]
+    fn binder_matches_go_field_rules() {
+        let m = bind_widget(br#"{"ID":"x","Count":3,"Flag":true}"#).unwrap();
+        assert_eq!(m.take_string("id"), "x"); // case-insensitive fallback
+        assert_eq!(m.take_i64("count"), 3);
+        assert!(m.take_bool("flag"));
+
+        // Unknown field, Go-quoted.
+        let err = bind_widget(br#"{"id":"x","bogus":1}"#).unwrap_err();
+        assert_eq!(err.0, "decode request: json: unknown field \"bogus\"");
+
+        // Null leaves the zero value.
+        let m = bind_widget(br#"{"id":null,"count":null}"#).unwrap();
+        assert_eq!(m.take_string("id"), "");
+        assert_eq!(m.take_i64("count"), 0);
+
+        // Exact Go mismatch messages, literal echoed for int targets only.
+        for (bad, want) in [
+            (
+                br#"{"count":1.5}"#.as_slice(),
+                "decode request: json: cannot unmarshal number 1.5 into Go struct field Widget.count of type int64",
+            ),
+            (
+                br#"{"count":"3"}"#,
+                "decode request: json: cannot unmarshal string into Go struct field Widget.count of type int64",
+            ),
+            (
+                br#"{"count":true}"#,
+                "decode request: json: cannot unmarshal bool into Go struct field Widget.count of type int64",
+            ),
+            (
+                br#"{"count":1e3}"#,
+                "decode request: json: cannot unmarshal number 1e3 into Go struct field Widget.count of type int64",
+            ),
+            (
+                br#"{"id":7}"#,
+                "decode request: json: cannot unmarshal number into Go struct field Widget.id of type string",
+            ),
+        ] {
+            let err = bind_widget(bad).unwrap_err();
+            assert_eq!(err.0, want);
+        }
+
+        // Fold-matching keys all bind, last in sorted order wins; no error.
+        let m = bind_widget(br#"{"ID":"a","id":"b"}"#).unwrap();
+        assert_eq!(m.take_string("id"), "b");
+
+        // Sorted top-level order decides between two faults.
+        let err = bind_widget(br#"{"id":1,"count":"x"}"#).unwrap_err();
+        assert!(err.0.contains("Widget.count"), "{err:?}");
     }
 
     #[test]

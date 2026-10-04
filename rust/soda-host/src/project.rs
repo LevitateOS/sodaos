@@ -28,6 +28,50 @@ use crate::ssh;
 pub const PROFILE_INSPECT_FORMAT: &str =
     "{\"Id\":{{json .ID}},\"Architecture\":{{json .Architecture}},\"Os\":{{json .Os}},\"Labels\":{{json .Labels}}}";
 
+pub(crate) const INSPECTION_SPECS: &[json::Spec] = &[
+    json::Spec {
+        name: "id",
+        kind: json::Kind::Str,
+    },
+    json::Spec {
+        name: "running",
+        kind: json::Kind::Bool,
+    },
+    json::Spec {
+        name: "project",
+        kind: json::Kind::Str,
+    },
+    json::Spec {
+        name: "owner",
+        kind: json::Kind::Str,
+    },
+    json::Spec {
+        name: "privileged",
+        kind: json::Kind::Bool,
+    },
+    json::Spec {
+        name: "userns",
+        kind: json::Kind::Str,
+    },
+    json::Spec {
+        name: "mappings",
+        kind: json::Kind::Object {
+            go_type: "struct",
+            struct_name: "struct",
+            specs: &[
+                json::Spec {
+                    name: "UidMap",
+                    kind: json::Kind::StrList,
+                },
+                json::Spec {
+                    name: "GidMap",
+                    kind: json::Kind::StrList,
+                },
+            ],
+        },
+    },
+];
+
 pub const PROJECT_INSPECT_FORMAT: &str = "{\"id\":{{json .ID}},\"running\":{{json .State.Running}},\"project\":{{json (index .Config.Labels \"org.soda.project\")}},\"owner\":{{json (index .Config.Labels \"org.soda.owner\")}},\"privileged\":{{json .HostConfig.Privileged}},\"userns\":{{json .HostConfig.UsernsMode}},\"mappings\":{{json .HostConfig.IDMappings}}}";
 
 #[derive(Debug, Clone, Default)]
@@ -287,12 +331,13 @@ impl<E: Executor> Runtime<E> {
         {
             return Err("container is not owned by this project".to_string());
         }
-        let owner: i64 = labels
-            .get("org.soda.owner")
-            .map(String::as_str)
-            .unwrap_or("")
-            .parse()
-            .map_err(|_| "invalid native project owner".to_string())?;
+        let owner: i64 = json::parse_go_int64(
+            labels
+                .get("org.soda.owner")
+                .map(String::as_str)
+                .unwrap_or(""),
+        )
+        .ok_or_else(|| "invalid native project owner".to_string())?;
         if owner <= 0 {
             return Err("invalid native project owner".to_string());
         }
@@ -506,51 +551,19 @@ impl<E: Executor> Runtime<E> {
         }
         let v =
             json::decode_strict(&data).map_err(|_| "invalid terminal inspection".to_string())?;
-        let mut b = json::Binder::new(&v).map_err(|_| "invalid terminal inspection".to_string())?;
-        let cid = b
-            .string("id")
+        let m = json::bind_root(&v, "projectInspection", INSPECTION_SPECS, false)
             .map_err(|_| "invalid terminal inspection".to_string())?;
-        let running = b
-            .boolean("running")
-            .map_err(|_| "invalid terminal inspection".to_string())?;
-        let project = b
-            .string("project")
-            .map_err(|_| "invalid terminal inspection".to_string())?;
-        let owner = b
-            .string("owner")
-            .map_err(|_| "invalid terminal inspection".to_string())?;
-        let privileged = b
-            .boolean("privileged")
-            .map_err(|_| "invalid terminal inspection".to_string())?;
-        let userns = b
-            .string("userns")
-            .map_err(|_| "invalid terminal inspection".to_string())?;
-        let (uid_map, gid_map) = match b
-            .raw("mappings")
-            .map_err(|_| "invalid terminal inspection".to_string())?
-        {
-            None | Some(Value::Null) => (Vec::new(), Vec::new()),
-            Some(mv) => {
-                let mut mb =
-                    json::Binder::new(mv).map_err(|_| "invalid terminal inspection".to_string())?;
-                let uid = mb
-                    .string_list("UidMap")
-                    .map_err(|_| "invalid terminal inspection".to_string())?
-                    .unwrap_or_default();
-                let gid = mb
-                    .string_list("GidMap")
-                    .map_err(|_| "invalid terminal inspection".to_string())?
-                    .unwrap_or_default();
-                mb.finish()
-                    .map_err(|_| "invalid terminal inspection".to_string())?;
-                (uid, gid)
-            }
-        };
-        b.finish()
-            .map_err(|_| "invalid terminal inspection".to_string())?;
-        let owner_num: i64 = owner
-            .parse()
-            .map_err(|_| "terminal target not ready or isolated".to_string())?;
+        let cid = m.take_string("id");
+        let running = m.take_bool("running");
+        let project = m.take_string("project");
+        let owner = m.take_string("owner");
+        let privileged = m.take_bool("privileged");
+        let userns = m.take_string("userns");
+        let mappings = m.take_map("mappings");
+        let uid_map = mappings.take_str_list("UidMap");
+        let gid_map = mappings.take_str_list("GidMap");
+        let owner_num: i64 = json::parse_go_int64(&owner)
+            .ok_or_else(|| "terminal target not ready or isolated".to_string())?;
         if owner_num <= 0 || (require_running && !running) {
             return Err("terminal target not ready or isolated".to_string());
         }
@@ -757,10 +770,7 @@ fn project_id_map(values: &[String]) -> bool {
     if parts.len() != 3 || parts[0] != "0" || parts[2] != "262144" {
         return false;
     }
-    match parts[1].parse::<u32>() {
-        Ok(base) if base.to_string() == parts[1] && base > 0 => true,
-        _ => false,
-    }
+    matches!(parts[1].parse::<u32>(), Ok(base) if base.to_string() == parts[1] && base > 0 && u64::from(base) + 262144 <= 4294967295)
 }
 
 // ---------- os-release parsing (project_os.py rules) ----------
