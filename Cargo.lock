@@ -91,11 +91,72 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-activate"
+version = "0.1.0"
+dependencies = [
+ "soda-json",
+]
+
+[[package]]
 name = "soda-build-tools"
 version = "0.1.0"
 
 [[package]]
+name = "soda-candidate-setup"
+version = "0.1.0"
+
+[[package]]
+name = "soda-console-welcome"
+version = "0.1.0"
+
+[[package]]
 name = "soda-factory"
+version = "0.1.0"
+
+[[package]]
+name = "soda-forgejo-domain"
+version = "0.1.0"
+
+[[package]]
+name = "soda-forgejo-migrate"
+version = "0.1.0"
+
+[[package]]
+name = "soda-host"
+version = "0.1.0"
+
+[[package]]
+name = "soda-identity-compose"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "soda-image-import"
+version = "0.1.0"
+dependencies = [
+ "soda-json",
+]
+
+[[package]]
+name = "soda-json"
+version = "0.1.0"
+
+[[package]]
+name = "soda-pg-fixture"
+version = "0.1.0"
+
+[[package]]
+name = "soda-pg-maintenance"
+version = "0.1.0"
+
+[[package]]
+name = "soda-rotate-lab-creds"
+version = "0.1.0"
+
+[[package]]
+name = "soda-setup"
 version = "0.1.0"
 
 [[package]]

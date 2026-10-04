@@ -69,6 +69,38 @@ func SodaCommands(source string) ([]string, error) {
 	return names, nil // ReadDir is sorted.
 }
 
+// CompileRust is the sole Rust command recipe for ported runtime programs.
+// The top-level workspace owns every crate under rust/; the single image
+// layout owns every install path. Builds resolve dependencies from the
+// network and the release binary is copied to dest.
+func (p Production) CompileRust(crate, bin, dest string) error {
+	if e := p.validate(); e != nil {
+		return e
+	}
+	if crate == "" || bin == "" || strings.Contains(crate, "/") || strings.Contains(bin, "/") {
+		return errors.New("explicit Rust crate and binary required")
+	}
+	if e := p.step("Compile " + bin); e != nil {
+		return e
+	}
+	manifest := filepath.Join(p.Source, "Cargo.toml")
+	args := []string{"build", "--release", "--locked", "--manifest-path", manifest, "-p", crate}
+	if e := p.Execute(p.Source, "cargo", args...); e != nil {
+		return e
+	}
+	raw, e := os.ReadFile(filepath.Join(p.Source, "target", "release", bin))
+	if e != nil {
+		return e
+	}
+	if e := os.WriteFile(dest, raw, 0o755); e != nil {
+		return e
+	}
+	if e := os.Chmod(dest, 0o755); e != nil {
+		return e
+	}
+	return inspectELF(dest, p.Arch)
+}
+
 // Compile is the sole Go command recipe for runtime programs and support
 // tools. Binaries intentionally use archive-safe VCS mode; the single image
 // layout owns every install path.
@@ -146,13 +178,11 @@ func (p Production) assetSteps(stage []string) error {
 	if err := os.MkdirAll(filepath.Join(p.Native, "project-tools/bin"), 0o755); err != nil {
 		return err
 	}
-	for _, tool := range []struct{ name, command string }{
-		{"muse", "soda-muse"},
-		{"soda-identity-compose", "soda-identity-compose"},
-	} {
-		if err := p.Compile(tool.command, "./cmd/"+tool.command, filepath.Join(p.Native, "project-tools/bin", tool.name)); err != nil {
-			return err
-		}
+	if err := p.Compile("soda-muse", "./cmd/soda-muse", filepath.Join(p.Native, "project-tools/bin", "muse")); err != nil {
+		return err
+	}
+	if err := p.CompileRust("soda-identity-compose", "soda-identity-compose", filepath.Join(p.Native, "project-tools/bin", "soda-identity-compose")); err != nil {
+		return err
 	}
 	type assetStep struct {
 		label string

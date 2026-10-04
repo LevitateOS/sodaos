@@ -1,0 +1,8 @@
+[package]
+name = "soda-pg-fixture"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "soda-pg-fixture"
+path = "src/main.rs"
