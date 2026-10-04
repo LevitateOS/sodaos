@@ -38,7 +38,16 @@ func run() error {
 	internal := flag.String("forgejo-internal-url", "http://127.0.0.1:3000", "native Forgejo origin")
 	tokenPath := flag.String("token-file", "", "operator Forgejo access token file")
 	out := flag.String("out", "/etc/soda/dashboard.json", "new dashboard configuration")
+	provisionDB := flag.Bool("provision-db-only", false, "generate database credentials without operator binding")
 	flag.Parse()
+	if *provisionDB {
+		_, dsnPath, err := provisionPostgresSecrets(postgresSecretDir)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Database credentials ready:", dsnPath)
+		return nil
+	}
 	return setup(*external, *internal, *tokenPath, *out, postgresSecretDir)
 }
 
@@ -142,6 +151,26 @@ const sodaServiceGroup = 2000
 // it doubles as the DSN host so no database TCP reaches the host.
 const postgresSocketDir = "/run/soda/postgres"
 
+// reusePostgresSecrets adopts a complete first-boot credential set so the
+// operator flow never regenerates live database passwords. It returns the
+// DSN path when all four files exist and agree, an error when they exist
+// but disagree, and "" when anything is missing (the caller then creates
+// every file O_EXCL, so partial sets still fail instead of mixing).
+func reusePostgresSecrets(dir string) (string, error) {
+	reads := map[string]string{}
+	for _, name := range []string{"super.passwd", "forgejo.passwd", "soda.passwd", "soda.dsn"} {
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return "", nil
+		}
+		reads[name] = strings.TrimSpace(string(data))
+	}
+	if reads["soda.passwd"] == "" || !strings.Contains(reads["soda.dsn"], reads["soda.passwd"]) {
+		return "", fmt.Errorf("database secrets in %s exist but disagree; inspect them before setup", dir)
+	}
+	return filepath.Join(dir, "soda.dsn"), nil
+}
+
 // provisionPostgresSecrets generates the database credential files: one
 // hex password per role plus the soda connection URL. Files land O_EXCL so
 // a pre-existing secret is never overwritten; on failure this run removes
@@ -150,6 +179,11 @@ const postgresSocketDir = "/run/soda/postgres"
 func provisionPostgresSecrets(dir string) (created []string, dsnPath string, err error) {
 	if err = os.MkdirAll(dir, 0o700); err != nil {
 		return nil, "", err
+	}
+	if reuse, rerr := reusePostgresSecrets(dir); rerr != nil {
+		return nil, "", rerr
+	} else if reuse != "" {
+		return nil, reuse, nil
 	}
 	passwords := map[string]string{}
 	for _, role := range []string{"super", "forgejo", "soda"} {

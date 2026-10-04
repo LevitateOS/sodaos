@@ -76,6 +76,18 @@ func TestForgejoUnitPostgresWiring(t *testing.T) {
 	}
 }
 
+func TestPostgresProvisionUnitWiring(t *testing.T) {
+	body := readRuntimeFile(t, "appliance/services/soda-pg-provision.service")
+	requireContains(t, body,
+		"Before=soda-postgres.service soda-postgres-init.service",
+		"ConditionPathExists=!/etc/soda/postgres/super.passwd",
+		"ExecStart=/usr/bin/soda-setup --provision-db-only",
+		"WantedBy=multi-user.target",
+	)
+	prepare := readRuntimeFile(t, "internal/release/image/prepare.go")
+	requireContains(t, prepare, `"soda-pg-provision.service"`)
+}
+
 func TestDashboardUnitDatabaseWiring(t *testing.T) {
 	body := readRuntimeFile(t, "appliance/services/soda-dashboard.container")
 	requireContains(t, body,

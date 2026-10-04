@@ -1,0 +1,15 @@
+[Unit]
+Description=Soda PostgreSQL credential provisioning
+# Secrets need no operator identity: Forgejo must already run on PostgreSQL
+# before the operator token exists, so credentials precede operator setup.
+Before=soda-postgres.service soda-postgres-init.service
+ConditionPathExists=!/etc/soda/postgres/super.passwd
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/soda-setup --provision-db-only
+RemainAfterExit=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

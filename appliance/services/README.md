@@ -11,12 +11,13 @@ other lanes build on.
 | --- | --- |
 | `soda.network` | Appliance container network (`systemd-soda`) |
 | `soda-postgres.container` | PostgreSQL 17.11, digest-pinned, data at `/var/lib/soda/postgres`, no published ports |
+| `soda-pg-provision.service` | First-boot database credential generation, runs before PostgreSQL |
 | `soda-postgres-init.service` | Idempotent role/database provisioning, runs before Forgejo |
 | `soda-forgejo-migrate.service` | One-shot config migration before Forgejo (drops legacy inline `[database] PASSWD`) |
 | `forgejo.container` | Forgejo on `postgres` via `soda-postgres:5432`, requires the init and migrate units |
 | `soda-postgres-backup.service` + `.timer` | Consistent nightly dump at 02:00 into `/var/lib/soda/backups/postgres`, keeps 7 runs |
 
-Startup chain: `soda-postgres` → `soda-postgres-init` → `soda-forgejo-migrate` → `forgejo`.
+Startup chain: `soda-pg-provision` → `soda-postgres` → `soda-postgres-init` → `soda-forgejo-migrate` → `forgejo`.
 The Soda store (A11) orders its service after `soda-postgres-init.service`
 the same way; backup runs after it so globals always hold both roles.
 

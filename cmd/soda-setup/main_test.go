@@ -175,6 +175,47 @@ func TestSetupProvisionsPostgresSecrets(t *testing.T) {
 			t.Fatal("failed setup published configuration")
 		}
 	})
+
+	t.Run("reuses complete pre-existing secrets", func(t *testing.T) {
+		root := t.TempDir()
+		dir := filepath.Join(root, "soda")
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		tokenPath := filepath.Join(root, "operator-input")
+		if err := os.WriteFile(tokenPath, []byte(token+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		pgDir := filepath.Join(root, "postgres")
+		if err := os.MkdirAll(pgDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		sodaPW := strings.Repeat("b", 64)
+		seed := map[string]string{
+			"super.passwd":   strings.Repeat("a", 64) + "\n",
+			"forgejo.passwd": strings.Repeat("c", 64) + "\n",
+			"soda.passwd":    sodaPW + "\n",
+			"soda.dsn":       "postgres://soda:" + sodaPW + "@/soda?host=/run/soda/postgres&sslmode=disable\n",
+		}
+		for name, value := range seed {
+			if err := os.WriteFile(filepath.Join(pgDir, name), []byte(value), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := setup("https://forgejo.test/", server.URL, tokenPath, filepath.Join(dir, "dashboard.json"), pgDir); err != nil {
+			t.Fatalf("setup with complete secrets failed: %v", err)
+		}
+		for name, value := range seed {
+			data, err := os.ReadFile(filepath.Join(pgDir, name))
+			if err != nil || string(data) != value {
+				t.Fatalf("%s was regenerated instead of reused", name)
+			}
+		}
+		out, err := os.ReadFile(filepath.Join(dir, "dashboard.json"))
+		if err != nil || !strings.Contains(string(out), filepath.Join(pgDir, "soda.dsn")) {
+			t.Fatal("dashboard does not point at the reused DSN")
+		}
+	})
 }
 
 func TestSetupBootstrapCredentialBoundary(t *testing.T) {

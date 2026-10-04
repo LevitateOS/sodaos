@@ -211,7 +211,7 @@ func rootfsFileMap() map[string]string {
 		"LICENSE":                                "usr/share/licenses/soda/LICENSE",
 		"NOTICE":                                 "usr/share/licenses/soda/NOTICE",
 	}
-	for _, name := range []string{"soda-host.service", "soda-host.socket", "soda-identity.service", "soda-identity.socket", "soda-identity-runtime.socket", "soda-project@.service", "soda-tailnet@.service", "soda-console.service", "soda-extension-install.service", "soda-postgres-backup.service", "soda-postgres-backup.timer", "soda-postgres-init.service", "soda-forgejo-migrate.service"} {
+	for _, name := range []string{"soda-host.service", "soda-host.socket", "soda-identity.service", "soda-identity.socket", "soda-identity-runtime.socket", "soda-project@.service", "soda-tailnet@.service", "soda-console.service", "soda-extension-install.service", "soda-postgres-backup.service", "soda-postgres-backup.timer", "soda-postgres-init.service", "soda-pg-provision.service", "soda-forgejo-migrate.service"} {
 		files["appliance/services/"+name] = "usr/lib/systemd/system/" + name
 	}
 	for _, name := range []string{"forgejo.container", "soda-dashboard.container", "soda-proxy.container", "soda-postgres.container", "soda.network"} {
