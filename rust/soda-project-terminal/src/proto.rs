@@ -126,7 +126,7 @@ pub fn parse_control_argv(argv: &[String]) -> Option<ControlArgs> {
     ] {
         if raw.is_empty()
             || (raw != &parsed.to_string()
-                && !(raw.starts_with('+') && &raw[1..] == &parsed.to_string()))
+                && !(raw.starts_with('+') && raw[1..] == *parsed.to_string()))
         {
             // Python int() also strips whitespace; emulate exactly.
             let trimmed = raw.trim();
@@ -289,7 +289,7 @@ mod tests {
         let mut bad = argv("attach");
         bad[1] = "ZZZ".to_string();
         assert!(parse_control_argv(&bad).is_none());
-        let mut bad = argv("list");
+        let bad = argv("list");
         assert!(parse_control_argv(&bad).is_none()); // list with target
         let mut bad = argv("reserve");
         bad[9] = String::new();
@@ -303,7 +303,7 @@ mod tests {
         let mut bad = argv("create");
         bad[4] = "1".to_string();
         assert!(parse_control_argv(&bad).is_none()); // dimensions
-        let mut bad = argv("bogus");
+        let bad = argv("bogus");
         assert!(parse_control_argv(&bad).is_none());
         assert!(parse_control_argv(&argv("attach")[..9]).is_none());
         // Uppercase hex rejected (fullmatch [0-9a-f]).

@@ -18,6 +18,47 @@ pub fn line(value: &JsonValue) -> Vec<u8> {
     doc.into_bytes()
 }
 
+/// Plain `json.dumps(value)` (default `(', ', ': ')` separators,
+/// `ensure_ascii=True`): the identity broker writes its result exactly so,
+/// with no trailing newline.
+pub fn dumps_default(value: &JsonValue) -> String {
+    let mut out = String::new();
+    emit_default(&mut out, value);
+    out
+}
+
+fn emit_default(out: &mut String, value: &JsonValue) {
+    match value {
+        JsonValue::Null => out.push_str("null"),
+        JsonValue::Bool(true) => out.push_str("true"),
+        JsonValue::Bool(false) => out.push_str("false"),
+        JsonValue::Number(raw) => out.push_str(raw),
+        JsonValue::Str(text) => escape_py(out, text),
+        JsonValue::Array(items) => {
+            out.push('[');
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                emit_default(out, item);
+            }
+            out.push(']');
+        }
+        JsonValue::Object(entries) => {
+            out.push('{');
+            for (i, (key, item)) in entries.iter().enumerate() {
+                if i > 0 {
+                    out.push_str(", ");
+                }
+                escape_py(out, key);
+                out.push_str(": ");
+                emit_default(out, item);
+            }
+            out.push('}');
+        }
+    }
+}
+
 fn emit(out: &mut String, value: &JsonValue) {
     match value {
         JsonValue::Null => out.push_str("null"),
@@ -157,6 +198,36 @@ mod tests {
         assert_eq!(
             dumps(&value),
             "{\"type\":\"output\",\"data\":\"a+b/c<d>&\\\"q\\\"\\\\\\u00e9\\u0000\\u001f\\u007f\\ud83d\\ude00\",\"n\":-12,\"t\":true,\"f\":false,\"z\":null,\"a\":[1]}"
+        );
+    }
+
+    #[test]
+    fn emit_default_separators() {
+        // Baked against CPython json.dumps (default separators, ensure_ascii).
+        let value = obj(vec![
+            (
+                "lease",
+                obj(vec![
+                    ("a", JsonValue::Number("1".to_string())),
+                    (
+                        "b",
+                        JsonValue::Array(vec![
+                            JsonValue::Number("1".to_string()),
+                            JsonValue::Number("2".to_string()),
+                        ]),
+                    ),
+                ]),
+            ),
+            ("credential", JsonValue::Str(String::new())),
+        ]);
+        assert_eq!(
+            dumps_default(&value),
+            "{\"lease\": {\"a\": 1, \"b\": [1, 2]}, \"credential\": \"\"}"
+        );
+        assert_eq!(dumps_default(&obj(vec![])), "{}");
+        assert_eq!(
+            dumps_default(&JsonValue::Str("é".to_string())),
+            "\"\\u00e9\""
         );
     }
 

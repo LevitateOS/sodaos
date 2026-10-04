@@ -37,6 +37,11 @@ fn cvt(rc: libc::c_int) -> std::io::Result<()> {
 /// Open `/`, then walk each `/`-separated component of `top` (empty segments
 /// skipped, so leading/trailing/doubled slashes are fine) via
 /// `open_child_dir`. The caller applies uid/mode checks to the result.
+///
+/// Retained for future locator callers (covered by `root_chain_matrix`);
+/// current call sites need per-level checks, which live in
+/// `term::checked_chain` and the keys directory walk.
+#[allow(dead_code)]
 pub fn root_chain(top: &str) -> std::io::Result<std::fs::File> {
     let mut dir = sys::open_root()?;
     for comp in top.split('/') {
@@ -52,6 +57,7 @@ fn s_isreg(mode: u32) -> bool {
     mode & libc::S_IFMT == libc::S_IFREG
 }
 
+#[cfg(test)]
 fn s_isdir(mode: u32) -> bool {
     mode & libc::S_IFMT == libc::S_IFDIR
 }
@@ -224,6 +230,41 @@ pub fn fstat_uid_mode(file: &std::fs::File) -> std::io::Result<(u32, u32)> {
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     cvt(unsafe { libc::fstat(file.as_raw_fd(), &mut st) })?;
     Ok((st.st_uid as u32, st.st_mode as u32))
+}
+
+/// Full `fstat` of `file` for the broker/keys ownership checks that also need
+/// the group, link count, device/inode identity, or nanosecond mtime (the
+/// `.py` compares `(st_dev, st_ino, st_mtime_ns)` tuples and exact modes).
+pub fn fstat_all(file: &std::fs::File) -> std::io::Result<libc::stat> {
+    let mut st: libc::stat = unsafe { std::mem::zeroed() };
+    cvt(unsafe { libc::fstat(file.as_raw_fd(), &mut st) })?;
+    Ok(st)
+}
+
+/// One `read(2)` of up to `limit` bytes (`EINTR` retried, like PEP 475).
+/// Mirrors the `.py` single-`os.read` call sites (key file, credential,
+/// cgroup events): short reads from pipes are NOT looped here.
+pub fn read_up_to(file: &std::fs::File, limit: usize) -> std::io::Result<Vec<u8>> {
+    let mut buf = vec![0u8; limit];
+    let got = loop {
+        let got = unsafe {
+            libc::read(
+                file.as_raw_fd(),
+                buf.as_mut_ptr() as *mut libc::c_void,
+                buf.len(),
+            )
+        };
+        if got < 0 {
+            let err = std::io::Error::last_os_error();
+            if err.raw_os_error() == Some(libc::EINTR) {
+                continue;
+            }
+            return Err(err);
+        }
+        break got as usize;
+    };
+    buf.truncate(got);
+    Ok(buf)
 }
 
 #[cfg(test)]
@@ -470,6 +511,24 @@ mod tests {
         let err = chmod_path(&link_str, 0o640, true).unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
         chown_path(&link_str, uid, gid, true).unwrap(); // lchown on the link
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stat_all_and_single_read() {
+        let dir = test_dir("statread");
+        std::fs::write(dir.join("f"), b"hello").unwrap();
+        let f = std::fs::File::open(dir.join("f")).unwrap();
+        let st = fstat_all(&f).unwrap();
+        assert_eq!(st.st_uid, unsafe { libc::getuid() });
+        assert_eq!(st.st_gid, unsafe { libc::getgid() });
+        assert_eq!(st.st_nlink, 1);
+        assert!(s_isreg(st.st_mode));
+        assert_eq!(st.st_size, 5);
+        // Single bounded read: exact bytes, EOF on the second call.
+        assert_eq!(read_up_to(&f, 65537).unwrap(), b"hello");
+        assert!(read_up_to(&f, 65537).unwrap().is_empty());
+        assert_eq!(read_up_to(&f, 0).unwrap(), b"");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

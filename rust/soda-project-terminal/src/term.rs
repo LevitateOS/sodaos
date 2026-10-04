@@ -61,7 +61,7 @@ pub fn terminal_path(identifier: &str) -> Result<String, String> {
 
 /// No-follow descent with the `.py` `root_directory` checks (root-owned,
 /// group/other write-free) at every level.
-fn checked_chain(top: &str) -> Result<File, String> {
+pub(crate) fn checked_chain(top: &str) -> Result<File, String> {
     let mut current = sys::open_root().map_err(|e| format!("open /: {e}"))?;
     for part in top.split('/').filter(|p| !p.is_empty()) {
         let child = sys::open_child_dir(&current, part).map_err(|e| format!("open {part}: {e}"))?;
@@ -110,7 +110,7 @@ fn fstatat(dir: &File, name: &str) -> io::Result<libc::stat> {
     Ok(info)
 }
 
-fn record_exists(dir: &File, name: &str) -> Result<bool, String> {
+pub(crate) fn record_exists(dir: &File, name: &str) -> Result<bool, String> {
     match fstatat(dir, name) {
         Ok(_) => Ok(true),
         Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(false),
@@ -568,7 +568,11 @@ fn remove_screen_contents(directory: &File, account: &Account) -> Result<(), Str
     Ok(())
 }
 
-fn remove_owned_files(path: &str, directory: &File, account: &Account) -> Result<(), String> {
+pub(crate) fn remove_owned_files(
+    path: &str,
+    directory: &File,
+    account: &Account,
+) -> Result<(), String> {
     // Only exact run-owned files after unit shutdown, never recursive removal.
     let names: HashSet<String> = list_dir_names(directory)?.into_iter().collect();
     let allowed: HashSet<&str> = [

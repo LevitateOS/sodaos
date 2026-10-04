@@ -18,16 +18,17 @@ fn value(byte: u8) -> Option<u8> {
 /// data char). Trailing-bit canonicity is NOT checked, like binascii.
 pub fn decode(input: &str) -> Option<Vec<u8>> {
     let bytes = input.as_bytes();
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return None;
     }
     if bytes.is_empty() {
         return Some(Vec::new());
     }
     let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
-    let chunks = bytes.chunks_exact(4);
+    let (chunks, rest) = bytes.as_chunks::<4>();
+    debug_assert!(rest.is_empty());
     let total = chunks.len();
-    for (index, chunk) in chunks.enumerate() {
+    for (index, chunk) in chunks.iter().enumerate() {
         let last = index + 1 == total;
         let mut values = [0u8; 4];
         let mut padding = 0;
@@ -96,11 +97,11 @@ mod tests {
         assert_eq!(decode("YR==").unwrap(), b"a");
         assert_eq!(decode("YWE=").unwrap(), b"aa");
         // Padding placement.
-        assert_eq!(decode("YW=J").is_none(), true);
-        assert_eq!(decode("====").is_none(), true);
-        assert_eq!(decode("abc").is_none(), true);
-        assert_eq!(decode("ab=d").is_none(), true);
-        assert_eq!(decode("a===").is_none(), true);
+        assert!(decode("YW=J").is_none());
+        assert!(decode("====").is_none());
+        assert!(decode("abc").is_none());
+        assert!(decode("ab=d").is_none());
+        assert!(decode("a===").is_none());
         // Round trip incl. credential sizes.
         for len in [0, 1, 2, 3, 55, 256] {
             let data: Vec<u8> = (0..len).map(|i| (i * 37 + 11) as u8).collect();
