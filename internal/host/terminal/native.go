@@ -3,11 +3,8 @@ package terminal
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
-	_ "embed"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -17,11 +14,6 @@ import (
 
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
-
-// The program is fixed product code, not a request-selected command or file.
-//
-//go:embed project_terminal.py
-var ProjectTerminal string
 
 // Process is a streaming native attachment. No caller can supply an executable,
 // shell arguments, environment or host flags.
@@ -44,13 +36,17 @@ type nativeTerminal struct {
 	once    sync.Once
 }
 
-// AttachNative starts the fixed podman/python attachment bridge.
+// AttachNative starts the fixed podman/agent attachment bridge.
 func AttachNative(container string, in TerminalRequest) (Process, error) {
 	seconds := in.Expires - time.Now().Unix()
 	if !containerID.MatchString(container) || !in.Valid(time.Now()) || seconds < 1 {
 		return nil, errors.New("invalid terminal target")
 	}
-	cmd := exec.Command("/usr/bin/podman", "--remote=false", "exec", "--interactive", container, "/usr/bin/python3", "-I", "-c", ProjectTerminal, in.Action, in.ID, in.Login, strconv.FormatInt(in.Identity, 10), strconv.Itoa(in.Cols), strconv.Itoa(in.Rows), strconv.FormatInt(seconds, 10), fmt.Sprintf("%x", sha256.Sum256([]byte(ProjectTerminal))), in.Name, in.Scope)
+	hash, err := AgentProgramHash()
+	if err != nil {
+		return nil, err
+	}
+	cmd := AgentExec(container, nil, in.Action, in.ID, in.Login, strconv.FormatInt(in.Identity, 10), strconv.Itoa(in.Cols), strconv.Itoa(in.Rows), strconv.FormatInt(seconds, 10), hash, in.Name, in.Scope)
 	// Terminal bytes never enter stderr diagnostics, journal or command-error text.
 	cmd.Stderr = io.Discard
 	input, err := cmd.StdinPipe()
