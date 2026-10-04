@@ -303,8 +303,12 @@ fn route(
     runtime_allowed: bool,
 ) -> Result<Option<Vec<u8>>, Error> {
     match path {
-        "/connections" => Ok(Some(serde_json::to_vec(&controller.connections(input.owner_id)?)?)),
-        "/available" => Ok(Some(serde_json::to_vec(&controller.available(input.owner_id, &input.project_id)?)?)),
+        "/connections" => Ok(Some(serde_json::to_vec(
+            &controller.connections(input.owner_id)?,
+        )?)),
+        "/available" => Ok(Some(serde_json::to_vec(
+            &controller.available(input.owner_id, &input.project_id)?,
+        )?)),
         "/revoke" => {
             controller.revoke(input.owner_id, &input.id)?;
             Ok(None)
@@ -314,25 +318,31 @@ fn route(
                 controller.start_enrollment(input.owner_id, &input.provider_id, &input.label)?;
             Ok(Some(serde_json::to_vec(&enrollment)?))
         }
-        "/enrollment/read" => Ok(Some(serde_json::to_vec(&controller.enrollment(input.owner_id, &input.id)?)?)),
+        "/enrollment/read" => Ok(Some(serde_json::to_vec(
+            &controller.enrollment(input.owner_id, &input.id)?,
+        )?)),
         "/enrollment/cancel" => {
             controller.cancel_enrollment(input.owner_id, &input.id)?;
             Ok(None)
         }
-        "/grants" => Ok(Some(serde_json::to_vec(&controller.grants(input.owner_id, &input.id)?)?)),
+        "/grants" => Ok(Some(serde_json::to_vec(
+            &controller.grants(input.owner_id, &input.id)?,
+        )?)),
         "/grant/create" => {
             let Some(grant) = &input.grant else {
                 return Err(Error::denied("identity authority denied"));
             };
-            Ok(Some(serde_json::to_vec(&
-                controller.create_grant(input.owner_id, grant)?,
+            Ok(Some(serde_json::to_vec(
+                &controller.create_grant(input.owner_id, grant)?,
             )?))
         }
         "/grant/revoke" => {
             controller.revoke_grant(input.owner_id, &input.id)?;
             Ok(None)
         }
-        "/leases" => Ok(Some(serde_json::to_vec(&controller.leases(input.owner_id, &input.id)?)?)),
+        "/leases" => Ok(Some(serde_json::to_vec(
+            &controller.leases(input.owner_id, &input.id)?,
+        )?)),
         "/lease/end" => {
             controller.end_lease(input.owner_id, &input.id)?;
             Ok(None)
@@ -390,7 +400,9 @@ fn route_runtime(
             controller.reconcile_lease(&input.id)?;
             Ok(None)
         }
-        "/execution/get" => Ok(Some(serde_json::to_vec(&controller.get_execution(&input.kind, &input.execution_id)?)?)),
+        "/execution/get" => Ok(Some(serde_json::to_vec(
+            &controller.get_execution(&input.kind, &input.execution_id)?,
+        )?)),
         "/execution/close" => {
             controller.close_execution(&input.kind, &input.execution_id)?;
             Ok(None)

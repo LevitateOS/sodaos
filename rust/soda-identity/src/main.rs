@@ -148,7 +148,8 @@ fn listen(path: &str, mode: u32) -> Result<UnixListener, String> {
         return Err("broker socket path is occupied".to_string());
     }
     let listener = UnixListener::bind(path).map_err(|e| e.to_string())?;
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).map_err(|e| e.to_string())?;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode))
+        .map_err(|e| e.to_string())?;
     Ok(listener)
 }
 
@@ -316,8 +317,14 @@ fn mkdir_all_mode(path: &str, mode: u32) -> Result<(), String> {
 
 fn serve(admin: UnixListener, runtime: UnixListener, broker: Arc<Controller>) {
     unsafe {
-        libc::signal(libc::SIGTERM, handle_signal as *const () as libc::sighandler_t);
-        libc::signal(libc::SIGINT, handle_signal as *const () as libc::sighandler_t);
+        libc::signal(
+            libc::SIGTERM,
+            handle_signal as *const () as libc::sighandler_t,
+        );
+        libc::signal(
+            libc::SIGINT,
+            handle_signal as *const () as libc::sighandler_t,
+        );
     }
     let shutdown = Arc::new(AtomicBool::new(false));
     let inflight = Arc::new(AtomicUsize::new(0));

@@ -404,10 +404,13 @@ fn http_admission_matches_go() {
     impl Drop for Guard {
         fn drop(&mut self) {
             // A failed assertion must still release the server threads.
-            self.shutdown.store(true, std::sync::atomic::Ordering::SeqCst);
+            self.shutdown
+                .store(true, std::sync::atomic::Ordering::SeqCst);
         }
     }
-    let _guard = Guard { shutdown: Arc::clone(&shutdown) };
+    let _guard = Guard {
+        shutdown: Arc::clone(&shutdown),
+    };
     std::thread::scope(|scope| {
         scope.spawn(|| admin_server.serve(&admin));
         scope.spawn(|| runtime_server.serve(&runtime));
