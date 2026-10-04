@@ -10,6 +10,16 @@ match the shell exactly. Like the script, the binary takes no arguments and
 ignores any it is given; it is driven by the working directory (the
 repository root) and the same environment variables.
 
+Deliberate deltas: the tool does not `cd` to the script's location (run it
+from the repository root); `worker.json` is delivered through `sudo tee`
+instead of `sudo python3` (bytes identical, staging I/O failures surface as
+setup errors instead of tracebacks); paths containing quotes or newlines
+produce valid JSON where the shell's unquoted heredoc died with a Python
+syntax error; death by signal during staging leaves the scratch staging
+behind while the script's EXIT trap removed it; spawn diagnostics carry the
+fixed tool prefix instead of `$0 ... line N`; and a non-EPIPE stdout
+failure (ENOSPC) panics instead of aborting like the `echo` builtin.
+
 ## Run
 
 From the repository root:

@@ -1,67 +1,22 @@
-"""Locked distributions in temporary fixtures, no network or native stage."""
+"""Locked terminal distributions: the fetcher itself is Rust (PR30), so this
+module pins the browser-build wiring and the shipping lock only."""
 
-import base64
-import hashlib
-import io
 import json
 from pathlib import Path
-import runpy
-import tarfile
-import tempfile
 import unittest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class TerminalAssets(unittest.TestCase):
-    def test_exact_members_checksums_and_cached_bytes(self):
-        module = runpy.run_path(str(ROOT / 'scripts/fetch-terminal.py'))
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / 'appliance').mkdir()
-            archive = io.BytesIO()
-            with tarfile.open(fileobj=archive, mode='w:gz') as tar:
-                member = tarfile.TarInfo('package/lib/xterm.mjs')
-                member.size = 9
-                tar.addfile(member, io.BytesIO(b'synthetic'))
-            body = archive.getvalue()
-            lock = [
-                {
-                    'url': 'https://example.invalid/fixture',
-                    'integrity': 'sha512-' + base64.b64encode(hashlib.sha512(body).digest()).decode(),
-                    'files': [
-                        {
-                            'member': 'package/lib/xterm.mjs',
-                            'file': 'xterm.mjs',
-                            'sha256': hashlib.sha256(b'synthetic').hexdigest(),
-                        }
-                    ],
-                }
-            ]
-            (root / 'appliance/terminal-assets.lock.json').write_text(json.dumps(lock))
-            fetch = module['fetch']
-            with (
-                patch.dict(fetch.__globals__, ROOT=root),
-                patch('urllib.request.urlopen', return_value=io.BytesIO(body)) as download,
-            ):
-                fetch(root / 'out')
-                self.assertEqual((root / 'out/xterm.mjs').read_bytes(), b'synthetic')
-                fetch(root / 'out')
-                self.assertEqual(download.call_count, 1)
-            (root / 'out/xterm.mjs').write_bytes(b'changed')
-            with (
-                patch.dict(fetch.__globals__, ROOT=root),
-                patch('urllib.request.urlopen', return_value=io.BytesIO(b'bad archive')),
-            ):
-                with self.assertRaisesRegex(ValueError, 'integrity'):
-                    fetch(root / 'out')
-            self.assertEqual((root / 'out/xterm.mjs').read_bytes(), b'changed')
-
     def test_browser_build_prepares_locked_renderer_before_emitted_modules(self):
         scripts = json.loads((ROOT / 'package.json').read_text())['scripts']
         prepare, emit = scripts['build:forgejo'].split(' && ', 1)
-        self.assertEqual(prepare, 'python3 scripts/fetch-terminal.py --out .artifacts/browser-terminal/vendor')
+        self.assertEqual(
+            prepare,
+            'cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-terminal'
+            ' -- --out .artifacts/browser-terminal/vendor',
+        )
         self.assertEqual(emit, 'bun scripts/build-forgejo.ts')
         groups = ('frontend', 'forgejo')
         self.assertEqual(

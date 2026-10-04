@@ -552,7 +552,8 @@ fn migrate_candidate_home(storage: &Storage) -> Result<(), Exit> {
         storage.home
     );
     let from = format!("{LEGACY_HOME}/.");
-    run("sudo", &["cp", "-a", &from, &storage.home])?;
+    let dest = format!("{}/", storage.home);
+    run("sudo", &["cp", "-a", &from, &dest])?;
     let owned = format!("{WORKER_USER}:{WORKER_USER}");
     run("sudo", &["chown", "-R", &owned, &storage.home])?;
     println!("-- legacy {LEGACY_HOME} preserved; retire it explicitly (D2) after the new home proves itself");
@@ -584,12 +585,19 @@ fn selinux_has_type(path: &str, marker: &str) -> bool {
     }
 }
 
-/// `run_in_dir` mirrors `(cd dir && cmd ...)`: a missing directory fails
-/// like `cd`, anything else runs the command there.
-fn run_in_dir(prog: &str, args: &[&str], dir: &str, stdout_null: bool) -> Result<(), Exit> {
+/// `run_in_dir` mirrors `(cd dir && cmd ...) || fail(msg)`: a missing
+/// directory prints the `cd` diagnostic and then fails like the script's
+/// `|| fail`, anything else runs the command there.
+fn run_in_dir(
+    prog: &str,
+    args: &[&str],
+    dir: &str,
+    stdout_null: bool,
+    fail_msg: &str,
+) -> Result<(), Exit> {
     if !is_dir(dir) {
         eprintln!("{FAIL_PREFIX}: cd: {dir}: No such file or directory");
-        return Err(Exit::Propagate(1));
+        return fail(fail_msg.to_string());
     }
     run_with_io(prog, args, stdout_null, false, None, Some(dir))
 }
@@ -731,6 +739,9 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
             return fail("another setup is already running for this operator");
         }
     }
+    // Like the script's fd 9, the lease stays held until process exit, not
+    // just until this function returns and the staging cleanup runs.
+    std::mem::forget(lease);
     refuse_active_build()?;
 
     println!("-- candidate storage root ({})", storage.root);
@@ -1005,9 +1016,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     // removed by the explicit `sudo rm -rf` after a successful warm: a
     // failure here leaks it, worker-owned, under the scratch root.
     let tmpw_tools = format!("{tmpw}/tools");
-    if fs::create_dir_all(&tmpw_tools).is_err() {
-        return Err(Exit::Propagate(1));
-    }
+    run("mkdir", &["-p", &tmpw_tools])?;
     run("cp", &["package.json", "bun.lock", "bunfig.toml", &tmpw])?;
     run("cp", &["-a", "tools/lit-check", &tmpw_tools])?;
     run("sudo", &["chown", "-R", &owned, &tmpw])?;
@@ -1030,6 +1039,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
         ],
         &tmpw,
         true,
+        "cannot warm Bun cache",
     )
     .is_err()
     {
@@ -1064,6 +1074,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
         ],
         &tmpw,
         false,
+        "cannot stage Playwright chromium",
     )
     .is_err()
     {
@@ -1529,5 +1540,19 @@ mod tests {
             random_hex_passphrase().unwrap(),
             random_hex_passphrase().unwrap()
         );
+    }
+
+    #[test]
+    fn run_in_dir_maps_missing_directory_to_fail_message() {
+        match run_in_dir(
+            "true",
+            &[],
+            "/definitely/not/a/soda-setup-dir",
+            true,
+            "cannot warm Bun cache",
+        ) {
+            Err(Exit::Fail(msg)) => assert_eq!(msg, "cannot warm Bun cache"),
+            other => panic!("expected Fail, got {other:?}"),
+        }
     }
 }

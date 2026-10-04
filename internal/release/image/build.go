@@ -413,7 +413,7 @@ func compileSodaCommands(p build.Production, snapshot, contextDir string) error 
 		}
 	}
 	// Rust-ported commands no longer live under cmd/; the workspace owns them.
-	for _, name := range []string{"soda-identity-compose", "soda-factory", "soda-setup", "soda-image-import", "soda-muse", "soda-muse-maintain"} {
+	for _, name := range []string{"soda-identity-compose", "soda-factory", "soda-setup", "soda-image-import", "soda-muse", "soda-muse-maintain", "soda-identity"} {
 		if err = p.CompileRust(name, name, filepath.Join(contextDir, "rootfs/usr/libexec/soda", name)); err != nil {
 			return err
 		}

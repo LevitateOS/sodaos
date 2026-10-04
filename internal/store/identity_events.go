@@ -41,33 +41,3 @@ func appendIdentityEvent(ctx context.Context, tx *tx, event identity.Event) erro
 	_, err = tx.exec(ctx, `INSERT INTO identity_events(owner_id,connection_id,data) VALUES(?,?,?)`, event.OwnerID, event.ConnectionID, data)
 	return err
 }
-
-func leaseEvent(l identity.Lease, action string) identity.Event {
-	return identity.Event{Action: action, ActorID: l.ActorID, ConnectionID: l.ConnectionID, LeaseID: l.ID, ProjectID: l.ProjectID, GrantID: l.GrantID, ExecutionID: l.ExecutionID, Kind: l.Kind, Generation: l.Generation}
-}
-
-func (s *Store) IdentityEvents(ctx context.Context, owner int64, id string) ([]identity.Event, error) {
-	if owner <= 0 {
-		return nil, identity.ErrDenied
-	}
-	rows, err := s.query(ctx, `SELECT id,data FROM identity_events WHERE owner_id=? AND connection_id=? ORDER BY id DESC LIMIT 200`, owner, id)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []identity.Event{}
-	for rows.Next() {
-		var id int64
-		var data []byte
-		var event identity.Event
-		if err = rows.Scan(&id, &data); err != nil {
-			return nil, err
-		}
-		if err = json.Unmarshal(data, &event); err != nil {
-			return nil, err
-		}
-		event.ID = id
-		out = append(out, event)
-	}
-	return out, rows.Err()
-}
