@@ -1,0 +1,20 @@
+[package]
+name = "soda-pg-maintenance"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "soda_pg_maintenance"
+path = "src/lib.rs"
+
+[[bin]]
+name = "soda-pg-backup"
+path = "src/bin/soda-pg-backup.rs"
+
+[[bin]]
+name = "soda-pg-restore"
+path = "src/bin/soda-pg-restore.rs"
+
+[[bin]]
+name = "soda-pg-init-roles"
+path = "src/bin/soda-pg-init-roles.rs"

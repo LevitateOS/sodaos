@@ -112,12 +112,15 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 		"RemainAfterExit=yes",
 		"UMask=0077",
 	)
-	roles := readRuntimeFile(t, "appliance/bin/soda-pg-init-roles")
+	roles := readRuntimeFile(t, "rust/soda-pg-maintenance/src/bin/soda-pg-init-roles.rs")
 	requireContains(t, roles,
 		"pg_isready",
+		"ON_ERROR_STOP",
+	)
+	provisioning := readRuntimeFile(t, "rust/soda-pg-maintenance/src/lib.rs")
+	requireContains(t, provisioning,
 		"CREATE ROLE",
 		"CREATE DATABASE",
-		"ON_ERROR_STOP",
 	)
 	service := readRuntimeFile(t, "appliance/services/soda-postgres-backup.service")
 	requireContains(t, service,
@@ -146,9 +149,23 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 		`"soda-postgres-backup.service"`,
 		`"soda-postgres-backup.timer"`,
 		`"soda-postgres-init.service"`,
+	)
+	// The replaced shell sources are gone; the Rust binaries install via
+	// the rustTools table at the units' expected paths.
+	for _, removed := range []string{
 		`"appliance/bin/soda-pg-backup"`,
 		`"appliance/bin/soda-pg-restore"`,
 		`"appliance/bin/soda-pg-init-roles"`,
+	} {
+		if strings.Contains(prepare, removed) {
+			t.Fatalf("prepare still stages the replaced shell source %s", removed)
+		}
+	}
+	layout := readRuntimeFile(t, "internal/release/image/build.go")
+	requireContains(t, layout,
+		`{"soda-pg-maintenance", "soda-pg-backup", "rootfs/usr/bin/soda-pg-backup"},`,
+		`{"soda-pg-maintenance", "soda-pg-restore", "rootfs/usr/bin/soda-pg-restore"},`,
+		`{"soda-pg-maintenance", "soda-pg-init-roles", "rootfs/usr/bin/soda-pg-init-roles"},`,
 	)
 	if strings.Contains(prepare, "postgres-init/") {
 		t.Fatal("prepare must not reference the removed initdb.d staging")

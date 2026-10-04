@@ -247,9 +247,6 @@ func (w preparedWriter) stageRootfsFiles() error {
 		"appliance/bin/soda-console-welcome": "usr/libexec/soda/soda-console-welcome",
 		"appliance/bin/soda-activate":        "usr/bin/soda-activate",
 		"appliance/bin/soda-forgejo-domain":  "usr/bin/soda-forgejo-domain",
-		"appliance/bin/soda-pg-backup":       "usr/bin/soda-pg-backup",
-		"appliance/bin/soda-pg-restore":      "usr/bin/soda-pg-restore",
-		"appliance/bin/soda-pg-init-roles":   "usr/bin/soda-pg-init-roles",
 	} {
 		if err := w.copyFile(from, "rootfs/"+to, 0o755, true); err != nil {
 			return err

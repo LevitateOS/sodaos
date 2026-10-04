@@ -36,5 +36,9 @@ name = "soda-pg-fixture"
 version = "0.1.0"
 
 [[package]]
+name = "soda-pg-maintenance"
+version = "0.1.0"
+
+[[package]]
 name = "soda-setup"
 version = "0.1.0"

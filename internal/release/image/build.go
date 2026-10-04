@@ -449,6 +449,9 @@ func recordToolFiles(tools, revision, arch, artifacts string) error {
 // source; Prepare no longer stages these paths.
 var rustTools = []struct{ member, bin, dest string }{
 	{"soda-forgejo-migrate", "soda-forgejo-migrate", "rootfs/usr/bin/soda-forgejo-migrate"},
+	{"soda-pg-maintenance", "soda-pg-backup", "rootfs/usr/bin/soda-pg-backup"},
+	{"soda-pg-maintenance", "soda-pg-restore", "rootfs/usr/bin/soda-pg-restore"},
+	{"soda-pg-maintenance", "soda-pg-init-roles", "rootfs/usr/bin/soda-pg-init-roles"},
 }
 
 func compileRustTools(p build.Production, contextDir string) error {
