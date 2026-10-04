@@ -92,7 +92,12 @@ migrate_candidate_home() {
 [ -d "$FORGEJO_SOURCE/.git" ] && [ "$(realpath "$FORGEJO_SOURCE")" = "$FORGEJO_SOURCE" ] || fail "canonical Forgejo checkout required"
 [ -z "$(git -c "safe.directory=$FORGEJO_SOURCE" -C "$FORGEJO_SOURCE" status --porcelain --untracked-files=normal)" ] || fail "Forgejo source must be clean and committed"
 [ "$(uname -m)" = "x86_64" ] || fail "matching native x86_64 required on this host"
-command -v go bun podman skopeo python3 flock >/dev/null || fail "pinned go, bun, podman, skopeo, python3 and flock required"
+# command -v with several names succeeds when ANY one resolves, so each
+# prerequisite is checked on its own; otherwise a missing tool fails
+# much later with an inscrutable empty expansion.
+for tool in go bun podman skopeo python3 flock; do
+  command -v "$tool" >/dev/null || fail "pinned go, bun, podman, skopeo, python3 and flock required (missing $tool)"
+done
 id soda-build-worker >/dev/null 2>&1 || fail "soda-build-worker user missing"
 [ -n "$(git status --porcelain --untracked-files=no)" ] && fail "commit or stash tracked changes first; the controller refuses dirty source"
 PINNED="$(grep '^go ' go.mod | awk '{print $2}')"
@@ -217,7 +222,9 @@ sudo rm -rf "$TMPW"
 sudo chown -R soda-build-worker:soda-build-worker "$BUILD_HOME"
 
 echo "-- worker SELinux policy (process groups plus Go cache mapping)"
-command -v checkmodule semodule_package semodule >/dev/null || fail "policycoreutils tooling required for the worker SELinux module"
+for tool in checkmodule semodule_package semodule; do
+  command -v "$tool" >/dev/null || fail "policycoreutils tooling required for the worker SELinux module (missing $tool)"
+done
 checkmodule -M -m -o "$BINDIR/soda-build-worker.mod" scripts/selinux/soda-build-worker.te
 semodule_package -o "$BINDIR/soda-build-worker.pp" -m "$BINDIR/soda-build-worker.mod"
 # Compile before removing: the old module stays loaded until the new one
