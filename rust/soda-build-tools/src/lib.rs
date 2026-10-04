@@ -4,6 +4,10 @@
 //! vendored sources). Later lane-R PRs add the asset-script and
 //! release/build ports on top of this crate. Dependency-free by policy:
 //! the tree must build with zero network.
+//!
+//! PR04 adds [`reader`], the read-only `internal/release/build` validators.
+
+pub mod reader;
 
 #[cfg(test)]
 mod tests {
