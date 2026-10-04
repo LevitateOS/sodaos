@@ -28,7 +28,7 @@ pub fn oci_architecture(arch: &str) -> Result<&'static str, String> {
 
 pub fn require_native(arch: &str) -> Result<(), String> {
     let native = oci_architecture(arch)?;
-    if cfg!(target_os = "linux") && native == std::env::consts::ARCH {
+    if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") && native == "amd64" {
         return Ok(());
     }
     Err("matching-native Linux required".to_owned())

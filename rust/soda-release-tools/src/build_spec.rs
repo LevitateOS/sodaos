@@ -174,7 +174,11 @@ mod tests {
         Request {
             development: true,
             target: target.to_owned(),
-            rootfs_base_url: "https://example.invalid/rootfs".to_owned(),
+            rootfs_base_url: if target == "media" {
+                "https://example.invalid/rootfs".to_owned()
+            } else {
+                String::new()
+            },
             ..Request::default()
         }
     }
