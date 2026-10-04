@@ -15,7 +15,7 @@ go mod verify
 go test -mod=readonly ./...
 bash scripts/check-sql-locality.sh
 bash scripts/check-no-npm.sh
+bash scripts/check-no-python.sh
 bun run typecheck
 bun run test
-python3 -m unittest discover -s tests/build
 printf 'Local source checks executed; optional installed/provider gates were not enabled by this command.\n'

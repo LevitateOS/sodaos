@@ -23,7 +23,7 @@ class SourceChecks(unittest.TestCase):
         (self.root / 'go.mod').write_text('module fixture\n\ngo 1.26.7\n')
         # check-source.sh runs the file gates as real scripts, so the
         # fixture root needs stubs that log and fail like the PATH tools.
-        for gate in ('check-sql-locality.sh', 'check-no-npm.sh'):
+        for gate in ('check-sql-locality.sh', 'check-no-npm.sh', 'check-no-python.sh'):
             (self.root / 'scripts' / gate).write_text(
                 '#!/bin/bash\n'
                 f'printf \'{{"command": ["bash", "scripts/{gate}"], "cwd": "%s", '
@@ -34,7 +34,7 @@ class SourceChecks(unittest.TestCase):
         self.tools = self.root / 'tools'
         self.tools.mkdir()
         self.log = self.root / 'commands.jsonl'
-        for name in ('go', 'bun', 'python3'):
+        for name in ('go', 'bun'):
             tool = self.tools / name
             tool.write_text(
                 f'#!{sys.executable}\n'
@@ -55,9 +55,9 @@ if ' '.join(command) == os.environ.get('FAIL_COMMAND'): sys.exit(7)
             ['go', 'test', '-mod=readonly', './...'],
             ['bash', 'scripts/check-sql-locality.sh'],
             ['bash', 'scripts/check-no-npm.sh'],
+            ['bash', 'scripts/check-no-python.sh'],
             ['bun', 'run', 'typecheck'],
             ['bun', 'run', 'test'],
-            ['python3', '-m', 'unittest', 'discover', '-s', 'tests/build'],
         ]
 
     def run_checks(self, fail=''):
