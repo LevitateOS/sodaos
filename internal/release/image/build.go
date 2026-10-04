@@ -413,7 +413,7 @@ func compileSodaCommands(p build.Production, snapshot, contextDir string) error 
 		}
 	}
 	// Rust-ported commands no longer live under cmd/; the workspace owns them.
-	for _, name := range []string{"soda-identity-compose"} {
+	for _, name := range []string{"soda-identity-compose", "soda-factory", "soda-setup"} {
 		if err = p.CompileRust(name, name, filepath.Join(contextDir, "rootfs/usr/libexec/soda", name)); err != nil {
 			return err
 		}
@@ -448,6 +448,7 @@ func recordToolFiles(tools, revision, arch, artifacts string) error {
 // image. Each port PR extends this table and drops its appliance/bin
 // source; Prepare no longer stages these paths.
 var rustTools = []struct{ member, bin, dest string }{
+	{"soda-activate", "soda-activate", "rootfs/usr/bin/soda-activate"},
 	{"soda-forgejo-migrate", "soda-forgejo-migrate", "rootfs/usr/bin/soda-forgejo-migrate"},
 	{"soda-pg-maintenance", "soda-pg-backup", "rootfs/usr/bin/soda-pg-backup"},
 	{"soda-pg-maintenance", "soda-pg-restore", "rootfs/usr/bin/soda-pg-restore"},
