@@ -166,8 +166,8 @@ func TestFixtureMatchesProductImage(t *testing.T) {
 	if pinned == "" {
 		t.Fatal("no Image= in soda-postgres.container")
 	}
-	fixture := readRuntimeFile(t, "scripts/pg-fixture.sh")
-	if !strings.Contains(fixture, "IMAGE='"+pinned+"'") {
+	fixture := readRuntimeFile(t, "rust/soda-pg-fixture/src/main.rs")
+	if !strings.Contains(fixture, `"`+pinned+`"`) {
 		t.Fatalf("fixture image differs from product unit: %s", pinned)
 	}
 }

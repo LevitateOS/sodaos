@@ -444,8 +444,31 @@ func recordToolFiles(tools, revision, arch, artifacts string) error {
 	return build.WriteNew(filepath.Join(artifacts, "tools.json"), append(toolData, '\n'), 0o600)
 }
 
+// rustTools maps ported Rust crates to the binaries they install in the
+// image. Each port PR extends this table and drops its appliance/bin
+// source; Prepare no longer stages these paths.
+var rustTools = []struct{ member, bin, dest string }{
+	{"soda-forgejo-migrate", "soda-forgejo-migrate", "rootfs/usr/bin/soda-forgejo-migrate"},
+}
+
+func compileRustTools(p build.Production, contextDir string) error {
+	for _, tool := range rustTools {
+		dest := filepath.Join(contextDir, tool.dest)
+		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+			return err
+		}
+		if err := p.CompileRust(tool.member, tool.bin, dest); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func compileShippingTools(p build.Production, snapshot, contextDir, artifacts, revision, arch string) error {
 	if err := compileSodaCommands(p, snapshot, contextDir); err != nil {
+		return err
+	}
+	if err := compileRustTools(p, contextDir); err != nil {
 		return err
 	}
 	tools := filepath.Join(artifacts, "tools")
