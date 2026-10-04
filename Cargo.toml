@@ -3,4 +3,4 @@
 # reproducibility. Never vendor dependencies.
 [workspace]
 resolver = "2"
-members = ["rust/soda-build-tools", "rust/soda-factory", "rust/soda-setup", "rust/soda-host", "rust/soda-identity-compose", "rust/soda-pg-fixture", "rust/soda-forgejo-migrate", "rust/soda-pg-maintenance", "rust/soda-console-welcome", "rust/soda-json", "rust/soda-activate", "rust/soda-forgejo-domain", "rust/soda-candidate-setup", "rust/soda-image-import", "rust/soda-rotate-lab-creds", "rust/identity-providers"]
+members = ["rust/soda-build-tools", "rust/soda-factory", "rust/soda-setup", "rust/soda-host", "rust/soda-identity-compose", "rust/soda-pg-fixture", "rust/soda-forgejo-migrate", "rust/soda-pg-maintenance", "rust/soda-console-welcome", "rust/soda-json", "rust/soda-activate", "rust/soda-forgejo-domain", "rust/soda-candidate-setup", "rust/soda-image-import", "rust/soda-rotate-lab-creds", "rust/identity-providers", "rust/soda-asset-fetchers"]
