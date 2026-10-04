@@ -13,7 +13,7 @@ Build/install procedures: [Installation](installation.md).
 | `tools/soda-candidate`, `tools/soda-build` | Development candidate/media producer (no release qualification) |
 | Stable CoreOS stream (resolved live per build) | Upstream ISO metadata per architecture; observed values recorded, never pinned |
 | `appliance/installer`, `internal/installer` | Interactive disk adapter and installed-host continuation |
-| `scripts/render-provisioning.py` | Public bootstrap Butane/Ignition template |
+| `soda-render-provisioning` (`rust/soda-stage-render`) | Public bootstrap Butane/Ignition template |
 
 Python and Butane are build-time tools. They are not required on the live OS.
 

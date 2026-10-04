@@ -3,8 +3,9 @@
 package build
 
 // The single image layout owns these concrete production steps, not two
-// copies of their command sequences. Containerfiles, locks and stage.py remain
-// the owners of content. This code never signs, publishes or installs anything.
+// copies of their command sequences. Containerfiles, locks and the Rust
+// stage renderer remain the owners of content. This code never signs,
+// publishes or installs anything.
 import (
 	"encoding/json"
 	"errors"
@@ -130,7 +131,7 @@ func (p Production) Assets(hostContext, forgejoContext string) error {
 	if !filepath.IsAbs(hostContext) || !filepath.IsAbs(forgejoContext) {
 		return errors.New("explicit asset destinations required")
 	}
-	stage := []string{"python3", "scripts/stage.py", "--arch", p.Arch, "--host-context", hostContext, "--forgejo-context", forgejoContext}
+	stage := []string{"cargo", "run", "--release", "--locked", "-p", "soda-stage-render", "--bin", "soda-stage", "--", "--arch", p.Arch, "--host-context", hostContext, "--forgejo-context", forgejoContext}
 	return p.assetSteps(stage)
 }
 

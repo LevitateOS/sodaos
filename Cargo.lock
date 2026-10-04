@@ -877,6 +877,14 @@ name = "soda-setup"
 version = "0.1.0"
 
 [[package]]
+name = "soda-stage-render"
+version = "0.1.0"
+dependencies = [
+ "sha2 0.10.9",
+ "soda-json",
+]
+
+[[package]]
 name = "soda-test-vm"
 version = "0.1.0"
 
