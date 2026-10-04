@@ -91,6 +91,11 @@ pub trait Executor {
         args: &[&str],
         deadline: Instant,
     ) -> Result<Vec<u8>, String>;
+    /// Mirrors Go's `HostNative()` marker assertion: the privileged host
+    /// executor whose native protocols must never leak stderr text.
+    fn is_host_native(&self) -> bool {
+        false
+    }
 }
 
 impl<E: Executor> Executor for &E {
@@ -102,6 +107,10 @@ impl<E: Executor> Executor for &E {
         deadline: Instant,
     ) -> Result<Vec<u8>, String> {
         (*self).run(stdin, cmd, args, deadline)
+    }
+
+    fn is_host_native(&self) -> bool {
+        (*self).is_host_native()
     }
 }
 
@@ -170,6 +179,10 @@ impl Executor for Native {
             exit_text(status),
             String::from_utf8_lossy(&stderr)
         ))
+    }
+
+    fn is_host_native(&self) -> bool {
+        true
     }
 }
 

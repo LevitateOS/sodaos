@@ -822,6 +822,9 @@ version = "0.1.0"
 [[package]]
 name = "soda-host"
 version = "0.1.0"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "soda-identity"
