@@ -254,19 +254,32 @@ pub fn observation_json(o: &Observation) -> JsonValue {
     JsonValue::Object(entries)
 }
 
-/// Hash every retained evidence file, like `Evidence.Hashes`.
-pub fn hashes(evidence: &Evidence) -> Result<BTreeMap<String, String>, Error> {
+/// Hash every retained evidence file, like `Evidence.Hashes`. The map
+/// is partial when the walk fails, like the Go owner's.
+pub fn hashes(evidence: &Evidence) -> (BTreeMap<String, String>, Option<Error>) {
     let mut files = BTreeMap::new();
+    let mut failure = None;
     let mut visit = |path: &str, regular: bool| -> Result<(), Error> {
         if !regular {
+            failure = Some(Error::msg("unexpected evidence entry"));
             return Err(Error::msg("unexpected evidence entry"));
         }
-        let sum = files::hash_at(evidence.root(), path)?;
-        files.insert(path.to_string(), sum);
-        Ok(())
+        match files::hash_at(evidence.root(), path) {
+            Ok(sum) => {
+                files.insert(path.to_string(), sum);
+                Ok(())
+            }
+            Err(err) => {
+                let text = err.to_string();
+                failure = Some(err);
+                Err(Error::msg(text))
+            }
+        }
     };
-    evidence.root().walk_files(&mut visit)?;
-    Ok(files)
+    if evidence.root().walk_files(&mut visit).is_err() && failure.is_none() {
+        failure = Some(Error::msg("unexpected evidence entry"));
+    }
+    (files, failure)
 }
 
 fn observation_artifacts_valid(o: &Observation) -> Result<(), Error> {
@@ -475,7 +488,8 @@ mod tests {
         let evidence_path = scratch.join("evidence").to_string_lossy().into_owned();
         let evidence = create_evidence(&evidence_path, &[]).unwrap();
         evidence.write("check.stdout", b"synthetic failed observation\n").unwrap();
-        let file_hashes = hashes(&evidence).unwrap();
+        let (file_hashes, hashes_err) = hashes(&evidence);
+        assert!(hashes_err.is_none());
         let revision_text = "a".repeat(40);
         let observation = Observation {
             owner: "P06".to_string(),

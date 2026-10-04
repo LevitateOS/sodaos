@@ -11,6 +11,7 @@
 pub mod cockpit;
 pub mod command;
 pub mod coreos;
+pub mod driver;
 pub mod error;
 pub mod evidence;
 pub mod files;
@@ -18,6 +19,7 @@ pub mod host_probes;
 pub mod jsonio;
 pub mod native_phase;
 pub mod process;
+pub mod probe;
 pub mod project_state;
 pub mod provisioning;
 pub mod qmp;

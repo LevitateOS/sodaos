@@ -25,10 +25,13 @@ const OUTPUT_LIMIT: u64 = 256 << 10;
 /// output, like Go's `ssh.FingerprintSHA256` recording.
 pub fn parse_server_host_key(stderr: &str) -> Option<String> {
     for line in stderr.lines() {
-        let rest = line.split("Server host key:").nth(1)?;
+        let Some(rest) = line.split("Server host key:").nth(1) else {
+            continue;
+        };
         let mut fields = rest.split_whitespace();
-        let _key_type = fields.next()?;
-        let fingerprint = fields.next()?;
+        let (Some(_key_type), Some(fingerprint)) = (fields.next(), fields.next()) else {
+            continue;
+        };
         if fingerprint.starts_with("SHA256:") {
             return Some(fingerprint.to_string());
         }
@@ -103,12 +106,8 @@ pub fn probe_ssh_key(phase: &Phase, remote: &Remote) -> Result<String, Error> {
         return Ok(fingerprint);
     }
     let detail = stderr.lines().rev().find(|line| !line.trim().is_empty()).unwrap_or("ssh failed").to_string();
-    Error::join(vec![
-        Some(Error::msg("pinned endpoint key was not observed")),
-        Some(Error::msg(detail)),
-    ])
-    .map(Ok)
-    .unwrap_or_else(|| Err(Error::msg("pinned endpoint key was not observed")))
+    Err(Error::join(vec![Some(Error::msg("pinned endpoint key was not observed")), Some(Error::msg(detail))])
+        .unwrap_or_else(|| Error::msg("pinned endpoint key was not observed")))
 }
 
 fn run_exchange(phase: &Phase, argv: &[String]) -> Result<String, Error> {
@@ -137,7 +136,7 @@ fn run_exchange(phase: &Phase, argv: &[String]) -> Result<String, Error> {
     }
     let _ = child.wait();
     let mut stderr = String::new();
-    if let Some(mut pipe) = child.stderr.take() {
+    if let Some(pipe) = child.stderr.take() {
         use std::io::Read;
         let mut buf = Vec::new();
         let _ = pipe.take(OUTPUT_LIMIT + 1).read_to_end(&mut buf);
@@ -170,12 +169,30 @@ mod tests {
         }
     }
 
+    fn pinned_hosts(dir: &std::path::Path, name: &str) -> String {
+        // Real key material: both ssh-keygen and Go's knownhosts parser
+        // reject mock blobs.
+        let key = dir.join("probe-key");
+        let status = std::process::Command::new("ssh-keygen")
+            .args(["-q", "-t", "ed25519", "-N", "", "-f"])
+            .arg(&key)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let public = std::fs::read_to_string(dir.join("probe-key.pub")).unwrap();
+        let public = public.split_whitespace().take(2).collect::<Vec<_>>().join(" ");
+        let hosts = dir.join(name);
+        std::fs::write(&hosts, format!("[127.0.0.1]:1 {public}\n")).unwrap();
+        hosts.to_string_lossy().into_owned()
+    }
+
     #[test]
     fn endpoint_and_pin_gates() {
         let dir = fixture_dir("gates");
-        let good = dir.join("known_hosts");
-        std::fs::write(&good, "[127.0.0.1]:1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMockMockMockMockMockMockMockMock\n").unwrap();
-        let good = good.to_string_lossy().into_owned();
+        let good = pinned_hosts(&dir, "known_hosts");
         let mut remote = remote_for(&dir, &good);
         // Refused instantly: no server on port 1, so no fingerprint.
         let err = probe_ssh_key(&Phase::background(), &remote).unwrap_err();
@@ -220,9 +237,8 @@ mod tests {
     #[test]
     fn cancelled_phase_wins() {
         let dir = fixture_dir("cancel");
-        let good = dir.join("known_hosts");
-        std::fs::write(&good, "[127.0.0.1]:1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMockMockMockMockMockMockMockMock\n").unwrap();
-        let remote = remote_for(&dir, good.to_str().unwrap());
+        let good = pinned_hosts(&dir, "known_hosts");
+        let remote = remote_for(&dir, &good);
         let phase = Phase::background();
         phase.cancel();
         assert!(probe_ssh_key(&phase, &remote).unwrap_err().is_cancelled());
