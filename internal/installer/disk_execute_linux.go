@@ -113,32 +113,55 @@ func printDiskComplete(c console) {
 	c.print("Then complete browser setup from your SSH terminal: %s configure", candidateInstallerBinary)
 }
 
-// rebootAfterInstall closes the live-console installer session. The console
-// service runs with Restart=no and the getty masked, so merely returning
-// strands the operator on a frozen screen with no way forward; every terminal
-// outcome (success, cancel, or failure) therefore ends in a prompted reboot.
-// The prompt preserves the completion screen for reading; the operator
-// confirms after removing the installation media. A read error (Ctrl-C/EOF)
-// still reboots: nothing is unsaved at this point and a frozen console helps
-// nobody.
-func rebootAfterInstall(ctx context.Context, c console, run commandRunner, installErr error) error {
+// landDiagnosticConsole is the terminal visible state for every disk-install
+// outcome (B6/N-IA3, owner-chosen): success, cancellation, partial failure,
+// EOF and reboot failure all land here. The console service runs with
+// Restart=no and the getty masked, so returning would strand the operator on
+// a frozen screen; the landing instead stays on an explicit reboot/poweroff
+// prompt with the outcome and its diagnostics preserved on screen. No install
+// action is offered, so a destructive installation can never silently repeat.
+// Ctrl-C stays on the console. A dead terminal (EOF/disconnect) cannot be
+// prompted, so it attempts one reboot rather than strand the machine; a
+// failed power action otherwise stays visible with its error.
+func landDiagnosticConsole(ctx context.Context, c console, run commandRunner, installErr error) error {
 	if installErr != nil {
-		// Post-failure landing: no automatic retry or reboot happened. The
-		// prompt below is the inspection window: examine this live boot from
-		// another terminal before confirming, because rebooting discards it.
 		c.print("Installation did not complete: %v.", installErr)
-		c.print("No automatic retry or reboot was performed. Inspect this live boot from another terminal before confirming the reboot below; rebooting discards live-boot inspection state.")
+		c.print("No automatic retry or reboot was performed. Inspect this live boot from another terminal; confirming a power action below discards live-boot inspection state.")
+	} else {
+		c.print("Installation completed. The completion details above stay on screen; nothing further runs until you choose a power action.")
 	}
-	c.print("Press Enter to reboot the machine.")
-	_, _ = c.line()
-	c.print("Rebooting...")
-	if _, err := run(ctx, "systemctl", []string{"reboot"}, nil); err != nil {
-		if installErr != nil {
+	landCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT)
+	defer func() { stop() }()
+	for {
+		choice, err := console{tty: c.tty, ctx: landCtx}.ask("Type reboot or poweroff")
+		if err != nil {
+			if landCtx.Err() != nil && ctx.Err() == nil {
+				c.print("Interrupted; the console stays. Type reboot or poweroff.")
+				stop()
+				landCtx, stop = signal.NotifyContext(ctx, syscall.SIGINT)
+				continue
+			}
+			c.print("Terminal input failed (%v); attempting one reboot so the machine is not stranded.", err)
+			if _, runErr := run(ctx, "systemctl", []string{"reboot"}, nil); runErr != nil {
+				if installErr != nil {
+					return installErr
+				}
+				return runErr
+			}
 			return installErr
 		}
-		return err
+		action := strings.ToLower(choice)
+		if action != "reboot" && action != "poweroff" {
+			c.print("Choose reboot or poweroff.")
+			continue
+		}
+		if _, runErr := run(ctx, "systemctl", []string{action}, nil); runErr != nil {
+			c.print("%s failed: %v. The console stays; inspect or choose again.", action, runErr)
+			continue
+		}
+		c.print("%s issued...", action)
+		return installErr
 	}
-	return installErr
 }
 
 // verifyDiskMedia hashes the full media payload (gigabytes on slow drives).
