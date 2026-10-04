@@ -1,0 +1,82 @@
+{
+  "binaries": [
+    {
+      "argv": [
+        "--help"
+      ],
+      "exit": 1,
+      "name": "soda-factory",
+      "package": "rust/soda-factory",
+      "stderr_contains": [
+        "Usage of soda-factory:",
+        "-socket",
+        "-command",
+        "flag: help requested"
+      ]
+    },
+    {
+      "argv": [
+        "--help"
+      ],
+      "exit": 1,
+      "name": "soda-identity-compose",
+      "package": "./cmd/soda-identity-compose",
+      "stderr_contains": [
+        "Usage of soda-identity-compose:",
+        "-login",
+        "-service",
+        "-file",
+        "-muse",
+        "flag: help requested"
+      ]
+    },
+    {
+      "argv": [
+        "bogus"
+      ],
+      "exit": 1,
+      "name": "soda-image-import",
+      "package": "./cmd/soda-image-import",
+      "stderr_exact": "root and no arguments required\n"
+    },
+    {
+      "argv": [],
+      "exit": 0,
+      "name": "soda-tailnet",
+      "package": "./cmd/soda-tailnet",
+      "stdout_contains": [
+        "Tailscale"
+      ]
+    },
+    {
+      "argv": [],
+      "exit": 1,
+      "name": "soda-forgejo-tailnet",
+      "package": "./cmd/soda-forgejo-tailnet",
+      "stderr_exact": "host operator required\n",
+      "when": "nonroot"
+    },
+    {
+      "argv": [
+        "--help"
+      ],
+      "exit": 1,
+      "name": "soda-setup",
+      "package": "./cmd/soda-setup",
+      "stderr_exact": "run through the operator's native root access\n",
+      "when": "nonroot"
+    }
+  ],
+  "source_flags": [
+    {
+      "file": "cmd/soda-setup/main.go",
+      "lines": [
+        "flag.String(\"forgejo-url\", \"\", \"Forgejo HTTPS origin\")",
+        "flag.String(\"forgejo-internal-url\", \"http://127.0.0.1:3000\", \"native Forgejo origin\")",
+        "flag.String(\"token-file\", \"\", \"operator Forgejo access token file\")",
+        "flag.String(\"out\", \"/etc/soda/dashboard.json\", \"new dashboard configuration\")",
+        "flag.Bool(\"provision-db-only\", false, \"generate database credentials without operator binding\")"
+      ]
+    }
+  ]
+}

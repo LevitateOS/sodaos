@@ -1,0 +1,242 @@
+{
+  "vectors": [
+    {
+      "name": "minimal pins defaults",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 7
+      },
+      "ok": true,
+      "expect": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "factory_intake_secret_file": "",
+        "factory_publication_root": "",
+        "forgejo_background_credential_file": "",
+        "forgejo_background_host_uid": null,
+        "forgejo_background_socket": "",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_merge_credential_file": "",
+        "forgejo_review_credential_file": "",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "identity_socket": "/run/soda/identity/admin.sock",
+        "listen": "127.0.0.1:8080",
+        "operator_id": 7
+      }
+    },
+    {
+      "name": "full trims origins",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "factory_intake_secret_file": "/etc/soda/intake.secret",
+        "factory_publication_root": "/var/lib/soda/factory-pub",
+        "forgejo_background_credential_file": "/etc/soda/bg.cred",
+        "forgejo_background_host_uid": 997,
+        "forgejo_background_socket": "/run/soda/forgejo-bg.sock",
+        "forgejo_internal_url": "http://127.0.0.1:3000/",
+        "forgejo_merge_credential_file": "/etc/soda/merge.cred",
+        "forgejo_review_credential_file": "/etc/soda/review.cred",
+        "forgejo_url": "https://forgejo.example.test/",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "identity_socket": "/run/custom/identity.sock",
+        "listen": "127.0.0.2:9090",
+        "operator_id": 9
+      },
+      "ok": true,
+      "expect": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "factory_intake_secret_file": "/etc/soda/intake.secret",
+        "factory_publication_root": "/var/lib/soda/factory-pub",
+        "forgejo_background_credential_file": "/etc/soda/bg.cred",
+        "forgejo_background_host_uid": 997,
+        "forgejo_background_socket": "/run/soda/forgejo-bg.sock",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_merge_credential_file": "/etc/soda/merge.cred",
+        "forgejo_review_credential_file": "/etc/soda/review.cred",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "identity_socket": "/run/custom/identity.sock",
+        "listen": "127.0.0.2:9090",
+        "operator_id": 9
+      }
+    },
+    {
+      "name": "non-loopback listen",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "listen": "0.0.0.0:8080",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "listen must be a loopback IP:port behind the private HTTPS proxy"
+    },
+    {
+      "name": "malformed listen",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "listen": "nope",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "listen must be a loopback IP:port behind the private HTTPS proxy"
+    },
+    {
+      "name": "http browser origin",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "http://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "browser origin must use HTTPS"
+    },
+    {
+      "name": "origin with path",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test/soda",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "must be an HTTP(S) origin without credentials, path, query or fragment"
+    },
+    {
+      "name": "missing operator",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 0
+      },
+      "ok": false,
+      "error_contains": "operator_id is required; run operator setup first"
+    },
+    {
+      "name": "relative dsn file",
+      "object": {
+        "database_dsn_file": "relative/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "database_dsn_file must be an absolute path"
+    },
+    {
+      "name": "relative identity socket",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "identity_socket": "relative.sock",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "identity_socket must be an absolute path"
+    },
+    {
+      "name": "unknown field",
+      "object": {
+        "bogus": 1,
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "unknown field"
+    },
+    {
+      "name": "trailing data",
+      "raw": "{\"forgejo_url\":\"https://forgejo.example.test\",\"forgejo_internal_url\":\"http://127.0.0.1:3000\",\"database_dsn_file\":\"/d\",\"host_socket\":\"/h\",\"grant_key_file\":\"/g\",\"operator_id\":7} {}",
+      "ok": false,
+      "error_contains": "configuration must contain one JSON object"
+    },
+    {
+      "name": "malformed json",
+      "raw": "{oops",
+      "ok": false,
+      "error_contains": "configuration:"
+    },
+    {
+      "name": "empty file",
+      "raw": "",
+      "ok": false,
+      "error_contains": "configuration:"
+    },
+    {
+      "name": "review without background",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_review_credential_file": "/etc/soda/review.cred",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "forgejo_review_credential_file requires background service inputs"
+    },
+    {
+      "name": "background missing uid",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_background_credential_file": "/etc/soda/bg.cred",
+        "forgejo_background_socket": "/run/soda/forgejo-bg.sock",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "forgejo_background_host_uid is required with background service inputs"
+    },
+    {
+      "name": "background relative socket",
+      "object": {
+        "database_dsn_file": "/run/soda/postgres/soda.dsn",
+        "forgejo_background_credential_file": "/etc/soda/bg.cred",
+        "forgejo_background_host_uid": 997,
+        "forgejo_background_socket": "relative.sock",
+        "forgejo_internal_url": "http://127.0.0.1:3000",
+        "forgejo_url": "https://forgejo.example.test",
+        "grant_key_file": "/etc/soda/grant.key",
+        "host_socket": "/run/soda/host.sock",
+        "operator_id": 7
+      },
+      "ok": false,
+      "error_contains": "forgejo_background_socket must be an absolute path"
+    }
+  ]
+}
