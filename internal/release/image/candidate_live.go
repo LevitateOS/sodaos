@@ -1,4 +1,4 @@
-package installer
+package image
 
 import (
 	"crypto/sha256"
@@ -8,14 +8,36 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/levitateos/sodaos/internal/release/build"
 	"github.com/levitateos/sodaos/internal/release/deliver"
 )
 
-// CandidateLiveConfig is a media-only leaf. Its protected caller authenticates
+// candidateInstallerBinary is the installed live-console path the generated
+// console unit executes. The Rust port owns the binary; this package owns
+// only the media handoff that references it.
+const candidateInstallerBinary = "/usr/libexec/soda/soda-install"
+
+type mediaIdentity struct {
+	Architecture, Release, InstallerVersion, Revision string
+	HostManifest, PayloadSHA256, ConsoleSHA256        string
+}
+
+func (m mediaIdentity) validate(imageVersion, arch string) error {
+	if m.Architecture != arch || m.Release == "" || m.Release != imageVersion || !build.Revision(m.Revision) || !m.validContent() {
+		return errors.New("media release, architecture, or included-payload mismatch")
+	}
+	return nil
+}
+
+func (m mediaIdentity) validContent() bool {
+	return strings.HasPrefix(m.HostManifest, "sha256:") && build.Digest(strings.TrimPrefix(m.HostManifest, "sha256:")) && build.Digest(m.PayloadSHA256) && build.Digest(m.ConsoleSHA256)
+}
+
+// candidateLiveConfig is a media-only leaf. Its protected caller authenticates
 // the candidate and supplies the already-compiled console's digest. That binary
 // is in the same native, stream-verified rootfs: no separate executable download,
 // compilation, disk selection, private input or reboot is performed here.
-func CandidateLiveConfig(payload, destination []byte, manifest, consoleSHA256 string) ([]byte, error) {
+func candidateLiveConfig(payload, destination []byte, manifest, consoleSHA256 string) ([]byte, error) {
 	var p deliver.Payload
 	if json.Unmarshal(payload, &p) != nil || p.Validate() != nil {
 		return nil, errors.New("complete ordinary-Podman candidate required")
