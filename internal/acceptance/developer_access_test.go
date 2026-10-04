@@ -47,6 +47,11 @@ func writeTestKey(t *testing.T, dir, name string, mode os.FileMode) string {
 	if err := os.WriteFile(path, []byte("private-key-bytes-never-printed"), mode); err != nil {
 		t.Fatal(err)
 	}
+	// Force exact bits: WriteFile honors the process umask, so without this
+	// the "group-readable" case collapses to 0600 under umask 077.
+	if err := os.Chmod(path, mode); err != nil {
+		t.Fatal(err)
+	}
 	return path
 }
 
