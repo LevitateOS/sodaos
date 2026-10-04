@@ -39,8 +39,8 @@ type snapReportError struct{ msg string }
 func (e *snapReportError) Error() string { return e.msg }
 
 // lifecycleRun executes one VM observation with the probe's bound.
-func lifecycleRun(args []string, stdin []byte) ([]byte, error) {
-	outcome, err := runBounded(args[0], args[1:], stdin, 180*time.Second)
+func lifecycleRun(dir string, args []string, stdin []byte) ([]byte, error) {
+	outcome, err := runBoundedDirEnv(args[0], args[1:], stdin, nil, dir, 180*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +114,7 @@ func loadSnapshotInputs(root, repo string) (snapshotInputs, error) {
 	if err != nil {
 		return inputs, err
 	}
-	inputs.vm = filepath.Join(repo, "scripts/test-vm.sh")
+	inputs.vm = filepath.Join(repo, "target/debug/soda-test-vm")
 	inputs.entries = entries
 	return inputs, nil
 }
@@ -146,8 +146,8 @@ func snapshotEntries(old []map[string]json.RawMessage, targetID string) ([]snaps
 }
 
 // queryHostSoda observes the host associations.
-func queryHostSoda(vm string) (any, error) {
-	raw, err := lifecycleRun([]string{vm, "ssh", "python3 -"}, []byte(lifecycleHostQuery))
+func queryHostSoda(vm, repo string) (any, error) {
+	raw, err := lifecycleRun(repo, []string{vm, "ssh", "python3 -"}, []byte(lifecycleHostQuery))
 	if err != nil {
 		return nil, err
 	}
@@ -159,27 +159,27 @@ func queryHostSoda(vm string) (any, error) {
 }
 
 // snapshotProject captures one project's identity and state.
-func snapshotProject(vm string, program []byte, entry snapshotEntry) (string, any, error) {
+func snapshotProject(vm, repo string, program []byte, entry snapshotEntry) (string, any, error) {
 	if !regexp.MustCompile(`^p[0-9a-f]{24}$`).MatchString(entry.identifier) {
 		return "", nil, errors.New("invalid project identifier")
 	}
 	if entry.login != "u08-alice-8417" && entry.login != "u08-bob-8417" {
 		return "", nil, errors.New("invalid project login")
 	}
-	identity, ip, err := observeProjectEndpoint(vm, entry.identifier)
+	identity, ip, err := observeProjectEndpoint(vm, repo, entry.identifier)
 	if err != nil {
 		return "", nil, err
 	}
-	return execProjectSnapshot(vm, program, entry, identity, ip)
+	return execProjectSnapshot(vm, repo, program, entry, identity, ip)
 }
 
 // observeProjectEndpoint reads a project's container identity and IP.
-func observeProjectEndpoint(vm, identifier string) (string, string, error) {
-	identityRaw, err := lifecycleRun([]string{vm, "ssh", "podman inspect --format \"{{.Id}} {{.Image}} {{.Name}}\" soda-" + identifier}, nil)
+func observeProjectEndpoint(vm, repo, identifier string) (string, string, error) {
+	identityRaw, err := lifecycleRun(repo, []string{vm, "ssh", "podman inspect --format \"{{.Id}} {{.Image}} {{.Name}}\" soda-" + identifier}, nil)
 	if err != nil {
 		return "", "", err
 	}
-	networkRaw, err := lifecycleRun([]string{vm, "ssh", "podman inspect --format \"{{json .NetworkSettings.Networks}}\" soda-" + identifier}, nil)
+	networkRaw, err := lifecycleRun(repo, []string{vm, "ssh", "podman inspect --format \"{{json .NetworkSettings.Networks}}\" soda-" + identifier}, nil)
 	if err != nil {
 		return "", "", err
 	}
@@ -191,13 +191,13 @@ func observeProjectEndpoint(vm, identifier string) (string, string, error) {
 }
 
 // execProjectSnapshot runs the project snapshot payload in the container.
-func execProjectSnapshot(vm string, program []byte, entry snapshotEntry, identity, ip string) (string, any, error) {
+func execProjectSnapshot(vm, repo string, program []byte, entry snapshotEntry, identity, ip string) (string, any, error) {
 	workloads := "0"
 	if entry.workloads {
 		workloads = "1"
 	}
 	command := "podman exec -i --env SODA_PROJECT_IP=" + ip + " --env SODA_EXPECT_WORKLOADS=" + workloads + " soda-" + entry.identifier + " python3 -"
-	stateRaw, err := lifecycleRun([]string{vm, "ssh", command}, program)
+	stateRaw, err := lifecycleRun(repo, []string{vm, "ssh", command}, program)
 	if err != nil {
 		return "", nil, err
 	}
@@ -273,7 +273,7 @@ func runSnapshotAt(root, label, repo string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	soda, err := queryHostSoda(inputs.vm)
+	soda, err := queryHostSoda(inputs.vm, repo)
 	if err != nil {
 		return err
 	}
@@ -283,13 +283,13 @@ func runSnapshotAt(root, label, repo string, stdout io.Writer) error {
 	}
 	projects := map[string]any{}
 	for _, entry := range inputs.entries {
-		identity, state, err := snapshotProject(inputs.vm, program, entry)
+		identity, state, err := snapshotProject(inputs.vm, repo, program, entry)
 		if err != nil {
 			return err
 		}
 		projects[entry.identifier] = map[string]any{"identity": identity, "state": state}
 	}
-	bootRaw, err := lifecycleRun([]string{inputs.vm, "ssh", "head -c 64 /proc/sys/kernel/random/boot_id"}, nil)
+	bootRaw, err := lifecycleRun(repo, []string{inputs.vm, "ssh", "head -c 64 /proc/sys/kernel/random/boot_id"}, nil)
 	if err != nil {
 		return err
 	}

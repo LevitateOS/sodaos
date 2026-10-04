@@ -1,0 +1,10 @@
+[package]
+name = "soda-test-vm"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "soda-test-vm"
+path = "src/main.rs"
+
+# No dependencies: std only, so the tool builds offline.
