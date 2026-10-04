@@ -21,7 +21,7 @@
 //! Exit 3 when the container engine or image is unavailable: callers skip.
 //!
 //! Rust port of scripts/pg-fixture.sh. Std-only so the tree builds and tests
-//! with zero network (`cargo build --offline`). Behavior, exit codes and
+//! without vendoring (`cargo build`). Behavior, exit codes and
 //! output lines match the shell original exactly.
 
 use std::env;

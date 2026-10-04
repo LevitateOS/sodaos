@@ -32,6 +32,10 @@ name = "soda-factory"
 version = "0.1.0"
 
 [[package]]
+name = "soda-forgejo-domain"
+version = "0.1.0"
+
+[[package]]
 name = "soda-forgejo-migrate"
 version = "0.1.0"
 
@@ -44,6 +48,13 @@ name = "soda-identity-compose"
 version = "0.1.0"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "soda-image-import"
+version = "0.1.0"
+dependencies = [
+ "soda-json",
 ]
 
 [[package]]

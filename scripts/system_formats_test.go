@@ -251,6 +251,9 @@ func TestCLISurface(t *testing.T) {
 				} else if b.Package == "./cmd/soda-identity-compose" {
 					// PR10 ported identity-compose to Rust; the fixture stays frozen.
 					binary = buildRustPortBinary(t, "soda-identity-compose")
+				} else if b.Package == "./cmd/soda-image-import" {
+					// PR11 ported image-import to Rust; the fixture stays frozen.
+					binary = buildRustPortBinary(t, "soda-image-import")
 				} else {
 					binary = buildGoPortBinary(t, b.Package)
 				}
