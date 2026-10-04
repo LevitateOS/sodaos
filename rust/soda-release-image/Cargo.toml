@@ -1,0 +1,18 @@
+[package]
+name = "soda-release-image"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Rust port of internal/release/image: candidate + media pipeline (library only; the CLI stays in tools/soda-build)"
+
+[lib]
+name = "soda_release_image"
+path = "src/lib.rs"
+
+[dependencies]
+soda-json = { path = "../soda-json" }
+soda-build-tools = { path = "../soda-build-tools" }
+sha2 = "0.10"
+base64 = "0.22"
+flate2 = "1"
