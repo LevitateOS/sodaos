@@ -285,8 +285,10 @@ mod tests {
     const ED: &str =
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBMdFel81xfpdgYZN9cIZY6DmqOAt/QOzaSujzaIrcre";
 
+    type MockCall = (Vec<u8>, String, Vec<String>);
+
     struct Mock {
-        calls: RefCell<Vec<(Vec<u8>, String, Vec<String>)>>,
+        calls: RefCell<Vec<MockCall>>,
         script: RefCell<VecDeque<Result<Vec<u8>, String>>>,
     }
 

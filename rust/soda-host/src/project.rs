@@ -770,16 +770,7 @@ fn project_id_map(values: &[String]) -> bool {
     if parts.len() != 3 || parts[0] != "0" || parts[2] != "262144" {
         return false;
     }
-    match parts[1].parse::<u32>() {
-        Ok(base)
-            if base.to_string() == parts[1]
-                && base > 0
-                && u64::from(base) + 262144 <= 4294967295 =>
-        {
-            true
-        }
-        _ => false,
-    }
+    matches!(parts[1].parse::<u32>(), Ok(base) if base.to_string() == parts[1] && base > 0 && u64::from(base) + 262144 <= 4294967295)
 }
 
 // ---------- os-release parsing (project_os.py rules) ----------
