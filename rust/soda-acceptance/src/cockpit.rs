@@ -10,7 +10,7 @@
 //! Python failures print tracebacks, while this port prints one
 //! `Cockpit account failed:` line. Success output is byte-identical.
 
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 
 /// PAM conversation aborts prompts: `PAM_CONV_ERR`, never supplying
 /// credentials to an unexpected prompt.
@@ -104,7 +104,6 @@ struct Pam {
     start: PamStart,
     acct_mgmt: PamAcctMgmt,
     end: PamEnd,
-    handle: *mut libc::c_void,
 }
 
 impl Pam {
@@ -119,19 +118,18 @@ impl Pam {
             let raw = CString::new(symbol_name).unwrap();
             libc::dlsym(library, raw.as_ptr())
         };
-        let start: PamStart = std::mem::transmute(symbol("pam_start"));
-        let acct_mgmt: PamAcctMgmt = std::mem::transmute(symbol("pam_acct_mgmt"));
-        let end: PamEnd = std::mem::transmute(symbol("pam_end"));
-        if start as *const () as *const u8 == std::ptr::null() {
+        let start_raw = symbol("pam_start");
+        let acct_raw = symbol("pam_acct_mgmt");
+        let end_raw = symbol("pam_end");
+        if start_raw.is_null() || acct_raw.is_null() || end_raw.is_null() {
             libc::dlclose(library);
             return Err(CockpitFailure::assertion("PAM initialization failed; this is not access denial"));
         }
         Ok((
             Pam {
-                start,
-                acct_mgmt,
-                end,
-                handle: library,
+                start: std::mem::transmute(start_raw),
+                acct_mgmt: std::mem::transmute(acct_raw),
+                end: std::mem::transmute(end_raw),
             },
             library,
         ))

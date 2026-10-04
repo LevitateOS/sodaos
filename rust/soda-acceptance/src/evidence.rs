@@ -165,6 +165,11 @@ impl Evidence {
         }
     }
 
+    /// Confined evidence root for hash walks over retained files.
+    pub fn root(&self) -> &OwnedDir {
+        &self.root
+    }
+
     fn encode_scrubbed_json(&self, value: &JsonValue) -> Result<Vec<u8>, Error> {
         let mut compact = String::new();
         jsonio::write_compact(&mut compact, value);
@@ -173,8 +178,10 @@ impl Evidence {
         }
         let decoded = JsonValue::parse(&compact).map_err(|_| Error::msg("structured evidence limit exceeded"))?;
         let scrubbed = self.scrub_json(&decoded)?;
+        // Go re-encodes a decoded map, so keys render sorted.
+        let sorted = sort_json_keys(scrubbed);
         let mut data = String::new();
-        jsonio::write_indent(&mut data, &scrubbed);
+        jsonio::write_indent(&mut data, &sorted);
         data.push('\n');
         if data.len() as u64 > EVIDENCE_LIMIT {
             return Err(Error::msg("structured evidence limit exceeded"));
@@ -238,6 +245,27 @@ impl Evidence {
     /// Scrubbed error keeping the cause chain, like Go's `safeError`.
     pub fn redact_error(&self, err: Error) -> Error {
         Error::redacted(self.redact_string(&err.to_string()), err)
+    }
+}
+
+/// Recursively sort object keys, like Go's map encoding.
+fn sort_json_keys(value: JsonValue) -> JsonValue {
+    match value {
+        JsonValue::Object(entries) => {
+            let mut entries: Vec<(String, JsonValue)> = entries.into_iter().map(|(k, v)| (k, sort_json_keys(v))).collect();
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            // Duplicate keys keep last-wins, like Go's map decode.
+            let mut unique: Vec<(String, JsonValue)> = Vec::with_capacity(entries.len());
+            for (key, value) in entries.into_iter().rev() {
+                if !unique.iter().any(|(k, _)| k == &key) {
+                    unique.push((key, value));
+                }
+            }
+            unique.reverse();
+            JsonValue::Object(unique)
+        }
+        JsonValue::Array(items) => JsonValue::Array(items.into_iter().map(sort_json_keys).collect()),
+        other => other,
     }
 }
 
