@@ -21,41 +21,8 @@ import (
 	"github.com/levitateos/sodaos/internal/host"
 )
 
-// portedRust maps removed Go packages to their Rust replacement crate and
-// binary names. The fixture keeps naming the Go package (frozen bytes); the
-// harness invokes the ported binary instead.
-var portedRust = map[string][2]string{
-	"./cmd/soda-identity-compose": {"soda-identity-compose", "soda-identity-compose"},
-}
-
-// buildRustPortBinary builds a ported CLI from the offline Rust workspace.
-func buildRustPortBinary(t *testing.T, pkg string) string {
-	t.Helper()
-	root, err := filepath.Abs("..")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pair, ok := portedRust[pkg]
-	if !ok {
-		t.Fatalf("no Rust port registered for %s", pkg)
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "cargo", "build", "--offline", "-p", pair[0])
-	cmd.Dir = root
-	if combined, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build rust/%s: %v\n%s", pair[0], err, combined)
-	}
-	out := filepath.Join(root, "target", "debug", pair[1])
-	if _, err := os.Stat(out); err != nil {
-		t.Fatalf("rust %s binary missing: %v", pair[1], err)
-	}
-	return out
-}
-
 // buildGoPortBinary builds a not-yet-ported Go CLI. Ported binaries use
-// buildRustPortBinary (Rust) instead; buildPortBinary covers soda-factory
-// via the fixture's rust/ package routing.
+// buildRustPortBinary (Rust) from the wire-contracts harness instead.
 func buildGoPortBinary(t *testing.T, pkg string) string {
 	t.Helper()
 	root, err := filepath.Abs("..")
@@ -227,6 +194,26 @@ func TestSystemdWiring(t *testing.T) {
 	}
 }
 
+// portedSourcePin resolves a retired Go source pin to its Rust replacement.
+// The fixture keeps the original Go lines; the port must carry the same
+// flag names, defaults, and usage text, so each pinned line contributes its
+// quoted fragments as required substrings of the Rust source.
+func portedSourcePin(file string, lines []string) (string, []string) {
+	if file != "cmd/soda-setup/main.go" {
+		return file, lines
+	}
+	var wants []string
+	for _, line := range lines {
+		for _, fragment := range strings.Split(line, "\"") {
+			if fragment == "" || strings.ContainsAny(fragment, "(),") || strings.HasPrefix(fragment, "flag.") {
+				continue
+			}
+			wants = append(wants, fragment)
+		}
+	}
+	return "rust/soda-setup/src/main.rs", wants
+}
+
 func TestCLISurface(t *testing.T) {
 	var fixture struct {
 		Binaries []struct {
@@ -257,9 +244,13 @@ func TestCLISurface(t *testing.T) {
 			binary, ok := built[b.Package]
 			if !ok {
 				if strings.HasPrefix(b.Package, "rust/") {
-					binary = buildPortBinary(t)
-				} else if _, ported := portedRust[b.Package]; ported {
-					binary = buildRustPortBinary(t, b.Package)
+					binary = buildRustPortBinary(t, strings.TrimPrefix(b.Package, "rust/"))
+				} else if b.Package == "./cmd/soda-setup" {
+					// PR07 ported setup to Rust; the fixture stays frozen.
+					binary = buildRustPortBinary(t, "soda-setup")
+				} else if b.Package == "./cmd/soda-identity-compose" {
+					// PR10 ported identity-compose to Rust; the fixture stays frozen.
+					binary = buildRustPortBinary(t, "soda-identity-compose")
 				} else {
 					binary = buildGoPortBinary(t, b.Package)
 				}
@@ -290,13 +281,14 @@ func TestCLISurface(t *testing.T) {
 	}
 	for _, pinned := range fixture.SourceFlags {
 		t.Run(pinned.File, func(t *testing.T) {
-			raw, err := os.ReadFile(filepath.Join(root, pinned.File))
+			file, lines := portedSourcePin(pinned.File, pinned.Lines)
+			raw, err := os.ReadFile(filepath.Join(root, file))
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range pinned.Lines {
+			for _, want := range lines {
 				if !strings.Contains(string(raw), want) {
-					t.Fatalf("%s lacks %q", pinned.File, want)
+					t.Fatalf("%s lacks %q", file, want)
 				}
 			}
 		})
