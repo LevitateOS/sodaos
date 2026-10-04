@@ -71,7 +71,14 @@ func TestIdentityHarnessStreamsModesWithoutHostOwnership(t *testing.T) {
 	// parallel-suite load. Ten fresh harnesses stress that window.
 	for i := 0; i < 10; i++ {
 		harness := t.TempDir()
-		if err := os.WriteFile(filepath.Join(harness, "codex"), []byte("synthetic release"), 0o755); err != nil {
+		// WriteFile honors umask, so pin the executable bit explicitly:
+		// the worker-like 0077 umask would otherwise strip it and the
+		// tar-preservation assertion would test the environment.
+		codex := filepath.Join(harness, "codex")
+		if err := os.WriteFile(codex, []byte("synthetic release"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(codex, 0o755); err != nil {
 			t.Fatal(err)
 		}
 		service := Service{CodexHarness: harness, Exec: harnessStreamExecutor{consume: consumer}}
