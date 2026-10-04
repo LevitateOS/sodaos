@@ -25,6 +25,17 @@ FILES = (
 
 
 class SodaspacesPackaging(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        build = subprocess.run(
+            ['cargo', 'build', '-p', 'soda-test-vm'],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if build.returncode != 0:
+            raise AssertionError(f'cannot build soda-test-vm: {build.stderr[-2000:]}')
+        cls.test_vm = str(ROOT / 'target/debug/soda-test-vm')
     def test_spaces_entry_is_packaged_by_the_extension(self):
         extension = json.loads((ROOT / 'appliance/soda-extension/extension.json').read_text())
         manifest = json.loads((ROOT / 'internal/release/build/forgejo-payload.json').read_text())
@@ -40,7 +51,7 @@ class SodaspacesPackaging(unittest.TestCase):
             ssh.write_text('#!/bin/sh\nprintf "%s\\n" "$@"\n')
             ssh.chmod(0o755)
             result = subprocess.run(
-                ['bash', str(ROOT / 'scripts/test-vm.sh'), 'web-tunnel'],
+                [self.test_vm, 'web-tunnel'],
                 env={**os.environ, 'PATH': tmp + os.pathsep + os.environ['PATH']},
                 capture_output=True,
                 text=True,

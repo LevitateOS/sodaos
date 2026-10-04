@@ -202,6 +202,20 @@ name = "soda-json"
 version = "0.1.0"
 
 [[package]]
+name = "soda-muse"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "soda-muse-maintain"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "soda-pg-fixture"
 version = "0.1.0"
 
@@ -215,6 +229,10 @@ version = "0.1.0"
 
 [[package]]
 name = "soda-setup"
+version = "0.1.0"
+
+[[package]]
+name = "soda-test-vm"
 version = "0.1.0"
 
 [[package]]
