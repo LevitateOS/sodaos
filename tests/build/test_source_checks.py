@@ -21,15 +21,16 @@ class SourceChecks(unittest.TestCase):
         (self.root / 'scripts').mkdir()
         shutil.copyfile(ROOT / 'scripts/check-source.sh', self.root / 'scripts/check-source.sh')
         (self.root / 'go.mod').write_text('module fixture\n\ngo 1.26.7\n')
-        # check-source.sh runs the SQL locality gate as a real script, so the
-        # fixture root needs a stub that logs and fails like the PATH tools.
-        (self.root / 'scripts' / 'check-sql-locality.sh').write_text(
-            '#!/bin/bash\n'
-            'printf \'{"command": ["bash", "scripts/check-sql-locality.sh"], "cwd": "%s", '
-            '"env": {"GOWORK": "%s", "GOFLAGS": "%s", "CGO_ENABLED": "%s", "GOTOOLCHAIN": "%s"}}\\n\' '
-            '"$PWD" "$GOWORK" "$GOFLAGS" "$CGO_ENABLED" "$GOTOOLCHAIN" >> "$COMMAND_LOG"\n'
-            'if [ "bash scripts/check-sql-locality.sh" = "${FAIL_COMMAND:-}" ]; then exit 7; fi\n'
-        )
+        # check-source.sh runs the file gates as real scripts, so the
+        # fixture root needs stubs that log and fail like the PATH tools.
+        for gate in ('check-sql-locality.sh', 'check-no-npm.sh'):
+            (self.root / 'scripts' / gate).write_text(
+                '#!/bin/bash\n'
+                f'printf \'{{"command": ["bash", "scripts/{gate}"], "cwd": "%s", '
+                '"env": {"GOWORK": "%s", "GOFLAGS": "%s", "CGO_ENABLED": "%s", "GOTOOLCHAIN": "%s"}}\\n\' '
+                f'"$PWD" "$GOWORK" "$GOFLAGS" "$CGO_ENABLED" "$GOTOOLCHAIN" >> "$COMMAND_LOG"\n'
+                f'if [ "bash scripts/{gate}" = "${{FAIL_COMMAND:-}}" ]; then exit 7; fi\n'
+            )
         self.tools = self.root / 'tools'
         self.tools.mkdir()
         self.log = self.root / 'commands.jsonl'
@@ -53,6 +54,7 @@ if ' '.join(command) == os.environ.get('FAIL_COMMAND'): sys.exit(7)
             ['go', 'mod', 'verify'],
             ['go', 'test', '-mod=readonly', './...'],
             ['bash', 'scripts/check-sql-locality.sh'],
+            ['bash', 'scripts/check-no-npm.sh'],
             ['bun', 'run', 'typecheck'],
             ['bun', 'run', 'test'],
             ['python3', '-m', 'unittest', 'discover', '-s', 'tests/build'],
