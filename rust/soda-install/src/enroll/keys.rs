@@ -19,7 +19,13 @@ use crate::signal::Ctx;
 /// Single-syscall writer, like Go's `unix.Write`: no looping, so partial
 /// writes surface for explicit uncertainty.
 fn single_write(file: &File, data: &[u8]) -> std::io::Result<usize> {
-    let n = unsafe { libc::write(file.as_raw_fd(), data.as_ptr() as *const libc::c_void, data.len()) };
+    let n = unsafe {
+        libc::write(
+            file.as_raw_fd(),
+            data.as_ptr() as *const libc::c_void,
+            data.len(),
+        )
+    };
     if n < 0 {
         Err(std::io::Error::last_os_error())
     } else {
@@ -37,7 +43,8 @@ fn errno_error() -> Error {
 
 fn path_cstr(path: &str) -> Result<CString, Error> {
     // Go's string-to-pointer conversion fails closed with EINVAL on NUL.
-    CString::new(path).map_err(|_| errors::os_error(std::io::Error::from_raw_os_error(libc::EINVAL)))
+    CString::new(path)
+        .map_err(|_| errors::os_error(std::io::Error::from_raw_os_error(libc::EINVAL)))
 }
 
 fn fstat_fd(fd: i32) -> Result<libc::stat, Error> {
@@ -64,8 +71,7 @@ fn open_dir_nofollow(path: &str) -> Result<OwnedFd, Error> {
 }
 
 fn openat_file(dir_fd: i32, name: &str, flags: i32, mode: u32) -> std::io::Result<File> {
-    let name =
-        CString::new(name).map_err(|_| std::io::Error::from_raw_os_error(libc::EINVAL))?;
+    let name = CString::new(name).map_err(|_| std::io::Error::from_raw_os_error(libc::EINVAL))?;
     let fd = unsafe { libc::openat(dir_fd, name.as_ptr(), flags | libc::O_CLOEXEC, mode) };
     if fd < 0 {
         return Err(std::io::Error::last_os_error());
@@ -113,7 +119,9 @@ fn open_and_lock_ssh_directory(home: &str, uid: u32) -> Result<SshDir, Error> {
     if dir_fd < 0 {
         return Err(errno_error());
     }
-    let dir = SshDir { fd: unsafe { OwnedFd::from_raw_fd(dir_fd) } };
+    let dir = SshDir {
+        fd: unsafe { OwnedFd::from_raw_fd(dir_fd) },
+    };
     enrollment_safe_directory(dir.raw(), uid)?;
     if unsafe { libc::flock(dir.raw(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
         return Err(Error::msg("authorized keys are busy"));
@@ -156,14 +164,14 @@ fn inspect_existing_authorized_keys(
     let before = fstat_fd(file.as_raw_fd())?;
     validate_authorized_keys_stat(&before, uid)?;
     let mut existing = Vec::new();
-    let read = (&file)
-        .take((1 << 20) + 1)
-        .read_to_end(&mut existing);
+    let read = file.take((1 << 20) + 1).read_to_end(&mut existing);
     if read.is_err() || existing.len() > 1 << 20 {
         return Err(Error::msg("cannot inspect bounded authorized keys"));
     }
     if has_authorized_key(&existing, key) {
-        return Err(Error::msg("this key already exists; verify its existing access policy"));
+        return Err(Error::msg(
+            "this key already exists; verify its existing access policy",
+        ));
     }
     Ok((before, existing))
 }
@@ -172,7 +180,12 @@ fn verify_authorized_keys_unchanged(dir: &SshDir, before: &libc::stat) -> Result
     let name = CString::new("authorized_keys").map_err(|_| Error::msg("invalid name"))?;
     let mut current: libc::stat = unsafe { std::mem::zeroed() };
     let changed = unsafe {
-        libc::fstatat(dir.raw(), name.as_ptr(), &mut current, libc::AT_SYMLINK_NOFOLLOW) != 0
+        libc::fstatat(
+            dir.raw(),
+            name.as_ptr(),
+            &mut current,
+            libc::AT_SYMLINK_NOFOLLOW,
+        ) != 0
     } || current.st_dev != before.st_dev
         || current.st_ino != before.st_ino
         || current.st_size != before.st_size
@@ -181,7 +194,9 @@ fn verify_authorized_keys_unchanged(dir: &SshDir, before: &libc::stat) -> Result
         || current.st_ctime != before.st_ctime
         || current.st_ctime_nsec != before.st_ctime_nsec;
     if changed {
-        return Err(Error::msg("authorized keys changed before the append; no append started"));
+        return Err(Error::msg(
+            "authorized keys changed before the append; no append started",
+        ));
     }
     Ok(())
 }
@@ -333,7 +348,14 @@ fn create_exclusive_key_file(
     if let Some(err) = ctx.err() {
         return Err(err);
     }
-    link_and_confirm_key_file(ctx, dir, &temp_name, temp.file.as_ref().unwrap(), uid, contents.as_bytes())
+    link_and_confirm_key_file(
+        ctx,
+        dir,
+        &temp_name,
+        temp.file.as_ref().unwrap(),
+        uid,
+        contents.as_bytes(),
+    )
 }
 
 pub fn append_enrollment_key_with_writer(
@@ -415,7 +437,15 @@ fn confirm_key_file_stats(
     let opened = fstat_fd(file.as_raw_fd()).map_err(|_| Error::EnrollUncertain)?;
     let name = CString::new("authorized_keys").map_err(|_| Error::EnrollUncertain)?;
     let mut named: libc::stat = unsafe { std::mem::zeroed() };
-    if unsafe { libc::fstatat(dir.raw(), name.as_ptr(), &mut named, libc::AT_SYMLINK_NOFOLLOW) } != 0 {
+    if unsafe {
+        libc::fstatat(
+            dir.raw(),
+            name.as_ptr(),
+            &mut named,
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    } != 0
+    {
         return Err(Error::EnrollUncertain);
     }
     validate_key_file_match(&opened, &named, uid, expected_len)
@@ -462,11 +492,10 @@ pub fn enrollment_root_home() -> Result<String, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::tests::{temp_dir, test_uid, TEST_KEY, TEST_KEY_2, TEST_KEY_3};
+    use super::*;
     use std::io::Write as _;
     use std::os::unix::fs::PermissionsExt;
-    use std::os::unix::io::AsRawFd as _;
 
     fn make_ssh_dir(home: &str) -> String {
         let dir = format!("{home}/.ssh");
@@ -493,15 +522,30 @@ mod tests {
         let mut want = existing.as_bytes().to_vec();
         want.push(b'\n');
         want.extend_from_slice(format!("{TEST_KEY_2}\n").as_bytes());
-        assert_eq!(got, want, "existing authorized keys were not preserved exactly");
-        let mode = std::fs::symlink_metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(
+            got, want,
+            "existing authorized keys were not preserved exactly"
+        );
+        let mode = std::fs::symlink_metadata(&path)
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
         assert_eq!(mode, 0o600, "native file permissions changed unsafely");
         // The restricted existing key matches as an adjacent pair: refused.
         assert!(append_enrollment_key(&test_ctx(), &home.path, TEST_KEY, test_uid()).is_err());
         // The just-imported key is a duplicate: refused.
         assert!(append_enrollment_key(&test_ctx(), &home.path, TEST_KEY_2, test_uid()).is_err());
-        assert_eq!(std::fs::read(&path).unwrap(), got, "refusal changed existing keys");
-        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "temporary key files remained");
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            got,
+            "refusal changed existing keys"
+        );
+        assert_eq!(
+            std::fs::read_dir(&dir).unwrap().count(),
+            1,
+            "temporary key files remained"
+        );
     }
 
     #[test]
@@ -510,7 +554,11 @@ mod tests {
         append_enrollment_key(&test_ctx(), &home.path, TEST_KEY, test_uid()).unwrap();
         for (name, mode) in [(".ssh", 0o700), (".ssh/authorized_keys", 0o600)] {
             let st = std::fs::symlink_metadata(format!("{}/{name}", home.path)).unwrap();
-            assert_eq!(st.permissions().mode() & 0o777, mode, "wrong mode for {name}");
+            assert_eq!(
+                st.permissions().mode() & 0o777,
+                mode,
+                "wrong mode for {name}"
+            );
             assert_eq!(std::os::unix::fs::MetadataExt::uid(&st), test_uid());
         }
     }
@@ -561,13 +609,15 @@ mod tests {
                 }
                 "key-writable" => {
                     std::fs::write(&path, original).unwrap();
-                    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o666)).unwrap();
+                    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o666))
+                        .unwrap();
                 }
                 "ssh-writable" => {
                     std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o777)).unwrap();
                 }
                 "home-writable" => {
-                    std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o777)).unwrap();
+                    std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o777))
+                        .unwrap();
                 }
                 "oversized" => {
                     std::fs::write(&path, vec![b'x'; (1 << 20) + 1]).unwrap();
@@ -581,7 +631,11 @@ mod tests {
                 append_enrollment_key(&test_ctx(), &home, TEST_KEY, uid).is_err(),
                 "unsafe key target accepted: {scenario}"
             );
-            assert_eq!(std::fs::read(&sentinel).unwrap(), original, "unrelated file changed: {scenario}");
+            assert_eq!(
+                std::fs::read(&sentinel).unwrap(),
+                original,
+                "unrelated file changed: {scenario}"
+            );
         }
     }
 
@@ -627,16 +681,30 @@ mod tests {
                 calls.set(calls.get() + 1);
                 // This is the former Fstatat-to-Renameat race window: a native
                 // editor acts after Soda's last pre-write pathname check.
-                let target = if replacement { format!("{dir}/native-editor-new-file") } else { path.clone() };
+                let target = if replacement {
+                    format!("{dir}/native-editor-new-file")
+                } else {
+                    path.clone()
+                };
                 std::fs::write(&target, &newer).unwrap();
                 if replacement {
                     std::fs::rename(&target, &path).unwrap();
                 }
                 file.write(data)
             };
-            let err = append_enrollment_key_with_writer(&test_ctx(), &home.path, TEST_KEY_3, test_uid(), &write)
-                .unwrap_err();
-            assert_eq!(err, Error::EnrollUncertain, "race not reported as uncertain: {err}");
+            let err = append_enrollment_key_with_writer(
+                &test_ctx(),
+                &home.path,
+                TEST_KEY_3,
+                test_uid(),
+                &write,
+            )
+            .unwrap_err();
+            assert_eq!(
+                err,
+                Error::EnrollUncertain,
+                "race not reported as uncertain: {err}"
+            );
             assert_eq!(calls.get(), 1);
             let mut want = newer.clone();
             if !replacement {
@@ -659,10 +727,19 @@ mod tests {
             std::fs::write(&path, &native).unwrap();
             file.write(data)
         };
-        assert!(append_enrollment_key_with_writer(&test_ctx(), &home.path, TEST_KEY_2, test_uid(), &write).is_err());
+        assert!(append_enrollment_key_with_writer(
+            &test_ctx(),
+            &home.path,
+            TEST_KEY_2,
+            test_uid(),
+            &write
+        )
+        .is_err());
         assert_eq!(std::fs::read(&path).unwrap(), native.as_bytes());
         assert_eq!(
-            std::fs::read_dir(format!("{}/.ssh", home.path)).unwrap().count(),
+            std::fs::read_dir(format!("{}/.ssh", home.path))
+                .unwrap()
+                .count(),
             1,
             "unpublished temporary key file remained"
         );
@@ -685,16 +762,30 @@ mod tests {
             assert_eq!(n, half.len());
             Err(std::io::Error::other("synthetic partial-write failure"))
         };
-        let err = append_enrollment_key_with_writer(&test_ctx(), &home.path, TEST_KEY_2, test_uid(), &write)
-            .unwrap_err();
-        assert_eq!(err, Error::EnrollUncertain, "partial append not uncertain: {err}");
+        let err = append_enrollment_key_with_writer(
+            &test_ctx(),
+            &home.path,
+            TEST_KEY_2,
+            test_uid(),
+            &write,
+        )
+        .unwrap_err();
+        assert_eq!(
+            err,
+            Error::EnrollUncertain,
+            "partial append not uncertain: {err}"
+        );
         let mut want = original.as_bytes().to_vec();
         let addition = format!("\n{TEST_KEY_2}\n");
         want.extend_from_slice(&addition.as_bytes()[..partial_len.get()]);
         assert_eq!(std::fs::read(&path).unwrap(), want);
         let after = std::fs::symlink_metadata(&path).unwrap();
         use std::os::unix::fs::MetadataExt;
-        assert_eq!((before.dev(), before.ino()), (after.dev(), after.ino()), "append replaced the native inode");
+        assert_eq!(
+            (before.dev(), before.ino()),
+            (after.dev(), after.ino()),
+            "append replaced the native inode"
+        );
         assert_eq!(before.mode(), after.mode(), "append changed the file mode");
     }
 }

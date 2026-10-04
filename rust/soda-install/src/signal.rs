@@ -28,7 +28,7 @@ extern "C" fn handle_signal(signo: libc::c_int) {
 pub fn install_handlers() {
     unsafe {
         let mut action: libc::sigaction = std::mem::zeroed();
-        action.sa_sigaction = handle_signal as usize;
+        action.sa_sigaction = handle_signal as *const () as usize;
         action.sa_flags = 0; // No SA_RESTART: event polls surface EINTR.
         libc::sigemptyset(&mut action.sa_mask);
         for signo in [libc::SIGINT, libc::SIGTERM, libc::SIGHUP] {
@@ -58,7 +58,12 @@ impl Ctx {
     /// Root scope: terminated by SIGTERM/SIGHUP, and by SIGINT when the
     /// action is not `disk` (mirroring `main.go`'s signal set).
     pub fn root(interruptible: bool) -> Ctx {
-        Ctx { source: CancelSource::Global, deadline: None, interruptible, sigint_base: SIGINT_COUNT.load(Ordering::SeqCst) }
+        Ctx {
+            source: CancelSource::Global,
+            deadline: None,
+            interruptible,
+            sigint_base: SIGINT_COUNT.load(Ordering::SeqCst),
+        }
     }
 
     /// Test scope with a private termination flag. Test scopes are not

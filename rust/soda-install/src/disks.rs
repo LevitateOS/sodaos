@@ -10,7 +10,7 @@ use crate::jsongo::Soft;
 use crate::pathx;
 use crate::signal::Ctx;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct BlockDevice {
     pub name: String,
     pub kname: String,
@@ -31,7 +31,7 @@ pub struct BlockDevice {
     pub children: Vec<BlockDevice>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Disk {
     pub device: BlockDevice,
     pub sequence: String,
@@ -39,46 +39,23 @@ pub struct Disk {
     pub removable: bool,
 }
 
-impl Default for BlockDevice {
-    fn default() -> BlockDevice {
-        BlockDevice {
-            name: String::new(),
-            kname: String::new(),
-            device_type: String::new(),
-            tran: String::new(),
-            size: 0,
-            model: String::new(),
-            serial: String::new(),
-            wwn: String::new(),
-            major_minor: String::new(),
-            read_only: false,
-            mountpoints: None,
-            fstype: String::new(),
-            uuid: String::new(),
-            partuuid: String::new(),
-            children: Vec::new(),
-        }
-    }
-}
-
-impl Default for Disk {
-    fn default() -> Disk {
-        Disk { device: BlockDevice::default(), sequence: String::new(), blocked: String::new(), removable: false }
-    }
-}
-
 fn device_names(d: &BlockDevice) -> bool {
     // `^/dev/[a-zA-Z0-9_-]+$` and KNAME equality.
     let name_ok = d.name.starts_with("/dev/")
         && d.name.len() > 5
-        && d.name[5..].bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+        && d.name[5..]
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
     if !name_ok || d.kname != d.name {
         return false;
     }
     // `^[0-9]+:[0-9]+$`
     match d.major_minor.split_once(':') {
         Some((major, minor)) => {
-            !major.is_empty() && !minor.is_empty() && major.bytes().all(|b| b.is_ascii_digit()) && minor.bytes().all(|b| b.is_ascii_digit())
+            !major.is_empty()
+                && !minor.is_empty()
+                && major.bytes().all(|b| b.is_ascii_digit())
+                && minor.bytes().all(|b| b.is_ascii_digit())
         }
         None => false,
     }
@@ -91,11 +68,9 @@ fn unused_inventory(d: &BlockDevice) -> String {
     if d.read_only {
         return "read-only device".to_string();
     }
-    for mount in d.mountpoints.as_ref().unwrap() {
-        if let Some(point) = mount {
-            if !point.is_empty() {
-                return "mounted filesystem or active swap".to_string();
-            }
+    for point in d.mountpoints.as_ref().unwrap().iter().flatten() {
+        if !point.is_empty() {
+            return "mounted filesystem or active swap".to_string();
         }
     }
     unused_fstype(d)
@@ -105,7 +80,8 @@ fn unused_fstype(d: &BlockDevice) -> String {
     match d.fstype.as_str() {
         "iso9660" | "udf" => "installation/optical media".to_string(),
         "" | "ext2" | "ext3" | "ext4" | "xfs" | "vfat" | "exfat" | "ntfs" | "swap" => String::new(),
-        _ => "unrecognized, multi-device or encrypted storage requires separate operator handling".to_string(),
+        _ => "unrecognized, multi-device or encrypted storage requires separate operator handling"
+            .to_string(),
     }
 }
 
@@ -172,17 +148,23 @@ fn decode_device(value: &JsonValue) -> Result<BlockDevice, ()> {
 }
 
 fn decode_tree(data: &[u8]) -> Result<Vec<BlockDevice>, Error> {
-    let value = crate::jsongo::parse(data).map_err(|_| Error::msg("cannot decode block device inventory"))?;
+    let value = crate::jsongo::parse(data)
+        .map_err(|_| Error::msg("cannot decode block device inventory"))?;
     // Go decodes `null` into a zero tree without error: no devices.
     if matches!(value, JsonValue::Null) {
         return Ok(Vec::new());
     }
     let soft = Soft::new(&value).map_err(|_| Error::msg("cannot decode block device inventory"))?;
-    let items = soft.array("blockdevices").map_err(|_| Error::msg("cannot decode block device inventory"))?;
+    let items = soft
+        .array("blockdevices")
+        .map_err(|_| Error::msg("cannot decode block device inventory"))?;
     let mut devices = Vec::new();
     if let Some(items) = items {
         for item in items {
-            devices.push(decode_device(item).map_err(|_| Error::msg("cannot decode block device inventory"))?);
+            devices.push(
+                decode_device(item)
+                    .map_err(|_| Error::msg("cannot decode block device inventory"))?,
+            );
         }
     }
     Ok(devices)
@@ -294,7 +276,8 @@ pub fn disk_sequence_at(sys_root: &str, device: &BlockDevice) -> Result<String, 
         return Err(Error::msg("invalid kernel device identity"));
     }
     let seq_path = pathx::join(sys_root, &[&pathx::base(&device.name), "diskseq"]);
-    let data = std::fs::read(&seq_path).map_err(|e| crate::errors::path_error("open", &seq_path, e))?;
+    let data =
+        std::fs::read(&seq_path).map_err(|e| crate::errors::path_error("open", &seq_path, e))?;
     let text = String::from_utf8_lossy(&data);
     let seq = go_trim_space(&text);
     if seq.is_empty() || !seq.bytes().all(|b| b.is_ascii_digit()) {
@@ -304,12 +287,17 @@ pub fn disk_sequence_at(sys_root: &str, device: &BlockDevice) -> Result<String, 
 }
 
 pub fn check_holders_at(sys_root: &str, device: &BlockDevice) -> Result<(), Error> {
-    let entries = std::fs::read_dir(pathx::join(sys_root, &[&pathx::base(&device.name), "holders"]))
-        .map_err(|_| Error::msg(format!("cannot inspect device holders for {}", device.name)))?;
+    let entries = std::fs::read_dir(pathx::join(
+        sys_root,
+        &[&pathx::base(&device.name), "holders"],
+    ))
+    .map_err(|_| Error::msg(format!("cannot inspect device holders for {}", device.name)))?;
     // Go's `ReadDir` fails the whole inspection on any mid-stream error.
     let mut count = 0;
     for entry in entries {
-        entry.map_err(|_| Error::msg(format!("cannot inspect device holders for {}", device.name)))?;
+        entry.map_err(|_| {
+            Error::msg(format!("cannot inspect device holders for {}", device.name))
+        })?;
         count += 1;
     }
     if count != 0 {
@@ -388,12 +376,16 @@ pub fn same_disk(selected: &Disk, observed: &[Disk]) -> Result<(), Error> {
     for current in observed {
         if current.device.name == selected.device.name {
             if selected.sequence.is_empty() || selected != current {
-                return Err(Error::msg("disk identity, partition inventory or use changed; no installation started"));
+                return Err(Error::msg(
+                    "disk identity, partition inventory or use changed; no installation started",
+                ));
             }
             return Ok(());
         }
     }
-    Err(Error::msg("selected disk disappeared; no installation started"))
+    Err(Error::msg(
+        "selected disk disappeared; no installation started",
+    ))
 }
 
 pub fn disk_summary(d: &BlockDevice) -> String {
@@ -440,7 +432,7 @@ mod tests {
         let mut d = device("/dev/nvme0n1");
         d.mountpoints = None;
         assert_eq!(unused(&d), "incomplete or unsupported device inventory");
-        let mut d = device("nvme0n1");
+        let d = device("nvme0n1");
         assert_eq!(unused(&d), "incomplete or unsupported device inventory");
         let mut d = device("/dev/nvme0n1");
         d.size = 0;
@@ -456,7 +448,10 @@ mod tests {
         assert_eq!(unused(&d), "installation/optical media");
         let mut d = device("/dev/nvme0n1");
         d.fstype = "crypto_LUKS".to_string();
-        assert_eq!(unused(&d), "unrecognized, multi-device or encrypted storage requires separate operator handling");
+        assert_eq!(
+            unused(&d),
+            "unrecognized, multi-device or encrypted storage requires separate operator handling"
+        );
         let mut d = device("/dev/nvme0n1");
         let mut child = device("/dev/nvme0n1p1");
         child.device_type = "part".to_string();
@@ -479,10 +474,14 @@ mod tests {
             "/dev/sr0".to_string()
         });
         assert!(media.contains("/dev/sr0"));
-        let media = parse_live_media_disks(b"garbage\nno-separator-here a b c d", b"root=live:/dev/sdb", &|dev| {
-            assert_eq!(dev, "/dev/sdb");
-            "/dev/sda".to_string()
-        });
+        let media = parse_live_media_disks(
+            b"garbage\nno-separator-here a b c d",
+            b"root=live:/dev/sdb",
+            &|dev| {
+                assert_eq!(dev, "/dev/sdb");
+                "/dev/sda".to_string()
+            },
+        );
         assert!(media.contains("/dev/sda"));
         let media = parse_live_media_disks(b"", b"root=/dev/sda1 quiet", &|_| panic!("no mapping"));
         assert!(media.is_empty());
@@ -497,9 +496,18 @@ mod tests {
         std::os::unix::fs::symlink("../../devices/pci/block/sda", root.join("sda")).unwrap();
         // Partition: link whose directory base names the disk.
         std::os::unix::fs::symlink("../../devices/pci/block/sda/sda1", root.join("sda1")).unwrap();
-        assert_eq!(parent_disk_of_sys(root.to_str().unwrap(), "/dev/sda1"), "/dev/sda");
-        assert_eq!(parent_disk_of_sys(root.to_str().unwrap(), "/dev/sda"), "/dev/sda");
-        assert_eq!(parent_disk_of_sys(root.to_str().unwrap(), "/dev/missing"), "");
+        assert_eq!(
+            parent_disk_of_sys(root.to_str().unwrap(), "/dev/sda1"),
+            "/dev/sda"
+        );
+        assert_eq!(
+            parent_disk_of_sys(root.to_str().unwrap(), "/dev/sda"),
+            "/dev/sda"
+        );
+        assert_eq!(
+            parent_disk_of_sys(root.to_str().unwrap(), "/dev/missing"),
+            ""
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 
@@ -510,14 +518,19 @@ mod tests {
             disk_summary(&d),
             "\"/dev/nvme0n1\" | 64.0 GiB | model \"SODA\" | serial \"123\" | WWN \"wwn-1\""
         );
-        let disk = Disk { device: d.clone(), sequence: "7".to_string(), blocked: String::new(), removable: false };
-        assert!(same_disk(&disk, &[disk.clone()]).is_ok());
+        let disk = Disk {
+            device: d.clone(),
+            sequence: "7".to_string(),
+            blocked: String::new(),
+            removable: false,
+        };
+        assert!(same_disk(&disk, std::slice::from_ref(&disk)).is_ok());
         let mut changed = disk.clone();
         changed.sequence = "8".to_string();
         assert!(same_disk(&disk, &[changed]).is_err());
         let mut unsequenced = disk.clone();
         unsequenced.sequence.clear();
-        assert!(same_disk(&unsequenced, &[disk.clone()]).is_err());
+        assert!(same_disk(&unsequenced, std::slice::from_ref(&disk)).is_err());
         assert_eq!(
             same_disk(&disk, &[]).unwrap_err().to_string(),
             "selected disk disappeared; no installation started"
@@ -552,11 +565,22 @@ mod tests {
         let disks = scan_disks_at(&ctx, &runner, root.to_str().unwrap(), &media).unwrap();
         assert_eq!(disks[0].blocked, "current installer media");
 
-        let runner = FnRunner::new(|_, _, _, _| Err(Error::CmdExit { name: "lsblk".to_string(), code: 1, interrupted: false }));
+        let runner = FnRunner::new(|_, _, _, _| {
+            Err(Error::CmdExit {
+                name: "lsblk".to_string(),
+                code: 1,
+                interrupted: false,
+            })
+        });
         assert_eq!(
-            scan_disks_at(&ctx, &runner, root.to_str().unwrap(), &std::collections::BTreeSet::new())
-                .unwrap_err()
-                .to_string(),
+            scan_disks_at(
+                &ctx,
+                &runner,
+                root.to_str().unwrap(),
+                &std::collections::BTreeSet::new()
+            )
+            .unwrap_err()
+            .to_string(),
             "cannot inventory block devices"
         );
         let _ = std::fs::remove_dir_all(&root);

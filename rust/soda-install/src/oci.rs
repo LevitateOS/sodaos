@@ -68,7 +68,8 @@ struct Loader {
 // ---------------------------------------------------------------------------
 
 fn open_root(dir: &str) -> Result<std::fs::File, Error> {
-    let st = std::fs::symlink_metadata(dir).map_err(|_| Error::msg("real OCI layout directory required"))?;
+    let st = std::fs::symlink_metadata(dir)
+        .map_err(|_| Error::msg("real OCI layout directory required"))?;
     if !st.file_type().is_dir() {
         return Err(Error::msg("real OCI layout directory required"));
     }
@@ -92,9 +93,12 @@ fn open_layout_file(root: &std::fs::File, name: &str) -> Result<std::fs::File, E
             for fd in owned {
                 unsafe { libc::close(fd) };
             }
-            return Err(errors::os_error(std::io::Error::from_raw_os_error(libc::ENOENT)));
+            return Err(errors::os_error(std::io::Error::from_raw_os_error(
+                libc::ENOENT,
+            )));
         }
-        let c = CString::new(*part).map_err(|_| errors::os_error(std::io::Error::from_raw_os_error(libc::EINVAL)))?;
+        let c = CString::new(*part)
+            .map_err(|_| errors::os_error(std::io::Error::from_raw_os_error(libc::EINVAL)))?;
         let last = i + 1 == parts.len();
         let flags = if last {
             libc::O_RDONLY | libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC
@@ -107,7 +111,11 @@ fn open_layout_file(root: &std::fs::File, name: &str) -> Result<std::fs::File, E
             for fd in owned {
                 unsafe { libc::close(fd) };
             }
-            return Err(errors::path_error("open", name, std::io::Error::from_raw_os_error(errno)));
+            return Err(errors::path_error(
+                "open",
+                name,
+                std::io::Error::from_raw_os_error(errno),
+            ));
         }
         if last {
             for fd in owned {
@@ -121,20 +129,39 @@ fn open_layout_file(root: &std::fs::File, name: &str) -> Result<std::fs::File, E
     for fd in owned {
         unsafe { libc::close(fd) };
     }
-    Err(errors::os_error(std::io::Error::from_raw_os_error(libc::ENOENT)))
+    Err(errors::os_error(std::io::Error::from_raw_os_error(
+        libc::ENOENT,
+    )))
 }
 
 fn lstat_layout_file(root: &std::fs::File, name: &str) -> Result<libc::stat, Error> {
-    let c = CString::new(name).map_err(|_| errors::os_error(std::io::Error::from_raw_os_error(libc::EINVAL)))?;
+    let c = CString::new(name)
+        .map_err(|_| errors::os_error(std::io::Error::from_raw_os_error(libc::EINVAL)))?;
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
-    if unsafe { libc::fstatat(root.as_raw_fd(), c.as_ptr(), &mut st, libc::AT_SYMLINK_NOFOLLOW) } != 0 {
+    if unsafe {
+        libc::fstatat(
+            root.as_raw_fd(),
+            c.as_ptr(),
+            &mut st,
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    } != 0
+    {
         let errno = unsafe { *libc::__errno_location() };
-        return Err(errors::path_error("lstat", name, std::io::Error::from_raw_os_error(errno)));
+        return Err(errors::path_error(
+            "lstat",
+            name,
+            std::io::Error::from_raw_os_error(errno),
+        ));
     }
     Ok(st)
 }
 
-fn copy_oci_blob(name: &str, length: i64, reader: &mut dyn Read) -> Result<(String, i64, Option<Vec<u8>>), Error> {
+fn copy_oci_blob(
+    name: &str,
+    length: i64,
+    reader: &mut dyn Read,
+) -> Result<(String, i64, Option<Vec<u8>>), Error> {
     use sha2::Digest as _;
     let mut hasher = sha2::Sha256::new();
     let mut body: Vec<u8> = Vec::new();
@@ -147,7 +174,9 @@ fn copy_oci_blob(name: &str, length: i64, reader: &mut dyn Read) -> Result<(Stri
             break;
         }
         let want = remaining.min(chunk.len() as u64) as usize;
-        let n = reader.read(&mut chunk[..want]).map_err(|e| errors::path_error("read", name, e))?;
+        let n = reader
+            .read(&mut chunk[..want])
+            .map_err(|e| errors::path_error("read", name, e))?;
         if n == 0 {
             break;
         }
@@ -165,11 +194,20 @@ fn copy_oci_blob(name: &str, length: i64, reader: &mut dyn Read) -> Result<(Stri
     if name.starts_with("blobs/") && *name != format!("blobs/sha256/{sum}") {
         return Err(Error::msg("OCI blob checksum mismatch"));
     }
-    let body = if retain && parse(&body).is_ok() { Some(body) } else { None };
+    let body = if retain && parse(&body).is_ok() {
+        Some(body)
+    } else {
+        None
+    };
     Ok((sum, size, body))
 }
 
-fn read_oci_blob(loader: &mut Loader, name: &str, length: i64, reader: &mut dyn Read) -> Result<(), Error> {
+fn read_oci_blob(
+    loader: &mut Loader,
+    name: &str,
+    length: i64,
+    reader: &mut dyn Read,
+) -> Result<(), Error> {
     if length < 0 || length == i64::MAX {
         return Err(Error::msg("invalid OCI blob size"));
     }
@@ -178,7 +216,14 @@ fn read_oci_blob(loader: &mut Loader, name: &str, length: i64, reader: &mut dyn 
     if loader.json_bytes > 32 << 20 {
         return Err(Error::msg("OCI JSON metadata limit exceeded"));
     }
-    loader.entries.insert(name.to_string(), Blob { hash: sum, size, data: body });
+    loader.entries.insert(
+        name.to_string(),
+        Blob {
+            hash: sum,
+            size,
+            data: body,
+        },
+    );
     Ok(())
 }
 
@@ -187,14 +232,18 @@ fn load_layout_file(loader: &mut Loader, name: &str) -> Result<(), Error> {
         return Ok(());
     }
     let st = lstat_layout_file(&loader.root, name)?;
-    if st.st_mode & libc::S_IFMT as u32 != libc::S_IFREG as u32 {
+    if st.st_mode & libc::S_IFMT != libc::S_IFREG {
         return Err(Error::msg("non-regular OCI layout entry"));
     }
     let file = open_layout_file(&loader.root, name)?;
     let mut opened: libc::stat = unsafe { std::mem::zeroed() };
     if unsafe { libc::fstat(file.as_raw_fd(), &mut opened) } != 0 {
         let errno = unsafe { *libc::__errno_location() };
-        return Err(errors::path_error("stat", name, std::io::Error::from_raw_os_error(errno)));
+        return Err(errors::path_error(
+            "stat",
+            name,
+            std::io::Error::from_raw_os_error(errno),
+        ));
     }
     if st.st_dev != opened.st_dev || st.st_ino != opened.st_ino {
         return Err(Error::msg("OCI layout entry changed"));
@@ -229,7 +278,7 @@ fn soft_field<'a>(entries: &'a [(String, JsonValue)], name: &str) -> Option<&'a 
     found
 }
 
-fn soft_entries<'a>(value: &'a JsonValue) -> Result<&'a [(String, JsonValue)], ()> {
+fn soft_entries(value: &JsonValue) -> Result<&[(String, JsonValue)], ()> {
     match value {
         JsonValue::Object(entries) => Ok(entries),
         _ => Err(()),
@@ -249,7 +298,10 @@ fn decode_descriptor_soft(value: &JsonValue) -> Result<Descriptor, ()> {
         match v {
             JsonValue::Null => {}
             JsonValue::Number(_) => {
-                desc.size = v.as_integer().and_then(|n| i64::try_from(n).ok()).ok_or(())?;
+                desc.size = v
+                    .as_integer()
+                    .and_then(|n| i64::try_from(n).ok())
+                    .ok_or(())?;
             }
             _ => return Err(()),
         }
@@ -283,7 +335,10 @@ fn decode_descriptor_soft(value: &JsonValue) -> Result<Descriptor, ()> {
 }
 
 fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Descriptor>, Error> {
-    let layout_data = entries.get("oci-layout").and_then(|b| b.data.as_deref()).unwrap_or(b"");
+    let layout_data = entries
+        .get("oci-layout")
+        .and_then(|b| b.data.as_deref())
+        .unwrap_or(b"");
     let layout_value = parse(layout_data).map_err(|_| Error::msg("missing OCI layout"))?;
     let version = soft_entries(&layout_value)
         .ok()
@@ -293,12 +348,18 @@ fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Descriptor>, E
     if version != "1.0.0" {
         return Err(Error::msg("missing OCI layout"));
     }
-    let index_data = entries.get("index.json").and_then(|b| b.data.as_deref()).unwrap_or(b"");
+    let index_data = entries
+        .get("index.json")
+        .and_then(|b| b.data.as_deref())
+        .unwrap_or(b"");
     let index_value = parse(index_data).map_err(|_| Error::msg("valid OCI index required"))?;
     let fields = soft_entries(&index_value).map_err(|_| Error::msg("valid OCI index required"))?;
     let schema = match soft_field(fields, "schemaVersion") {
         None | Some(JsonValue::Null) => 0i64,
-        Some(v @ JsonValue::Number(_)) => v.as_integer().and_then(|n| i64::try_from(n).ok()).ok_or_else(|| Error::msg("valid OCI index required"))?,
+        Some(v @ JsonValue::Number(_)) => v
+            .as_integer()
+            .and_then(|n| i64::try_from(n).ok())
+            .ok_or_else(|| Error::msg("valid OCI index required"))?,
         Some(_) => return Err(Error::msg("valid OCI index required")),
     };
     let media = match soft_field(fields, "mediaType") {
@@ -310,7 +371,11 @@ fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Descriptor>, E
     }
     let manifests = match soft_field(fields, "manifests") {
         None | Some(JsonValue::Null) => Vec::new(),
-        Some(JsonValue::Array(items)) => items.iter().map(decode_descriptor_soft).collect::<Result<Vec<_>, _>>().map_err(|_| Error::msg("valid OCI index required"))?,
+        Some(JsonValue::Array(items)) => items
+            .iter()
+            .map(decode_descriptor_soft)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| Error::msg("valid OCI index required"))?,
         Some(_) => return Err(Error::msg("valid OCI index required")),
     };
     Ok(manifests)
@@ -333,7 +398,10 @@ fn json_type_name(value: &JsonValue) -> String {
 }
 
 fn type_error(value: &JsonValue, go_type: &str) -> Error {
-    Error::msg(format!("json: cannot unmarshal {} into Go value of type {go_type}", json_type_name(value)))
+    Error::msg(format!(
+        "json: cannot unmarshal {} into Go value of type {go_type}",
+        json_type_name(value)
+    ))
 }
 
 fn hard_string(value: &JsonValue) -> Result<String, Error> {
@@ -347,7 +415,10 @@ fn hard_string(value: &JsonValue) -> Result<String, Error> {
 fn hard_int(value: &JsonValue) -> Result<i64, Error> {
     match value {
         JsonValue::Null => Ok(0),
-        v @ JsonValue::Number(_) => v.as_integer().and_then(|n| i64::try_from(n).ok()).ok_or_else(|| type_error(value, "int")),
+        v @ JsonValue::Number(_) => v
+            .as_integer()
+            .and_then(|n| i64::try_from(n).ok())
+            .ok_or_else(|| type_error(value, "int")),
         _ => Err(type_error(value, "int")),
     }
 }
@@ -355,7 +426,10 @@ fn hard_int(value: &JsonValue) -> Result<i64, Error> {
 fn hard_int64(value: &JsonValue) -> Result<i64, Error> {
     match value {
         JsonValue::Null => Ok(0),
-        v @ JsonValue::Number(_) => v.as_integer().and_then(|n| i64::try_from(n).ok()).ok_or_else(|| type_error(value, "int64")),
+        v @ JsonValue::Number(_) => v
+            .as_integer()
+            .and_then(|n| i64::try_from(n).ok())
+            .ok_or_else(|| type_error(value, "int64")),
         _ => Err(type_error(value, "int64")),
     }
 }
@@ -417,13 +491,23 @@ struct OciManifestDoc {
 fn parse_oci_manifest(data: &[u8]) -> Result<OciManifestDoc, Error> {
     let value = parse(data).map_err(|_| Error::msg("unexpected end of JSON input"))?;
     if matches!(value, JsonValue::Null) {
-        return Ok(OciManifestDoc { schema_version: 0, media_type: String::new(), config: Descriptor::default(), layers: Vec::new() });
+        return Ok(OciManifestDoc {
+            schema_version: 0,
+            media_type: String::new(),
+            config: Descriptor::default(),
+            layers: Vec::new(),
+        });
     }
     let entries = match &value {
         JsonValue::Object(entries) => entries,
         _ => return Err(type_error(&value, "build.ociManifest")),
     };
-    let mut doc = OciManifestDoc { schema_version: 0, media_type: String::new(), config: Descriptor::default(), layers: Vec::new() };
+    let mut doc = OciManifestDoc {
+        schema_version: 0,
+        media_type: String::new(),
+        config: Descriptor::default(),
+        layers: Vec::new(),
+    };
     if let Some(v) = hard_field(entries, "schemaVersion") {
         doc.schema_version = hard_int(v)?;
     }
@@ -463,7 +547,13 @@ struct OciConfigDoc {
 
 fn parse_oci_config(data: &[u8]) -> Result<OciConfigDoc, Error> {
     let value = parse(data).map_err(|_| Error::msg("unexpected end of JSON input"))?;
-    let mut doc = OciConfigDoc { os: String::new(), arch: String::new(), rootfs_type: String::new(), diff_ids: Vec::new(), labels: BTreeMap::new() };
+    let mut doc = OciConfigDoc {
+        os: String::new(),
+        arch: String::new(),
+        rootfs_type: String::new(),
+        diff_ids: Vec::new(),
+        labels: BTreeMap::new(),
+    };
     if matches!(value, JsonValue::Null) {
         return Ok(doc);
     }
@@ -525,7 +615,7 @@ fn parse_oci_config(data: &[u8]) -> Result<OciConfigDoc, Error> {
 // Image inspection.
 // ---------------------------------------------------------------------------
 
-fn fetch_oci_blob<'a>(loader: &mut Loader, desc: &Descriptor) -> Result<Blob, Error> {
+fn fetch_oci_blob(loader: &mut Loader, desc: &Descriptor) -> Result<Blob, Error> {
     if desc.size < 0 || !desc.urls.is_empty() {
         return Err(Error::msg("local bounded OCI descriptor required"));
     }
@@ -569,17 +659,32 @@ fn validate_oci_rootfs(diff_ids: &[String], layers: &[Descriptor]) -> Result<(),
     Ok(())
 }
 
-fn validate_oci_attribution(labels: &BTreeMap<String, String>, want_revision: &str) -> Result<(), Error> {
-    let rev = labels.get("org.opencontainers.image.revision").cloned().unwrap_or_default();
+fn validate_oci_attribution(
+    labels: &BTreeMap<String, String>,
+    want_revision: &str,
+) -> Result<(), Error> {
+    let rev = labels
+        .get("org.opencontainers.image.revision")
+        .cloned()
+        .unwrap_or_default();
     if !want_revision.is_empty() && rev != want_revision {
         return Err(Error::msg("OCI source revision mismatch"));
     }
     if want_revision.is_empty() {
         return Ok(());
     }
-    let base_digest = labels.get("org.opencontainers.image.base.digest").cloned().unwrap_or_default();
-    let source_ok = labels.get("org.opencontainers.image.source").map(|s| s.as_str()) == Some("https://github.com/LevitateOS/sodaos");
-    let base_name_ok = labels.get("org.opencontainers.image.base.name").map(|s| !s.is_empty()).unwrap_or(false);
+    let base_digest = labels
+        .get("org.opencontainers.image.base.digest")
+        .cloned()
+        .unwrap_or_default();
+    let source_ok = labels
+        .get("org.opencontainers.image.source")
+        .map(|s| s.as_str())
+        == Some("https://github.com/LevitateOS/sodaos");
+    let base_name_ok = labels
+        .get("org.opencontainers.image.base.name")
+        .map(|s| !s.is_empty())
+        .unwrap_or(false);
     let base_digest_ok = match base_digest.strip_prefix("sha256:") {
         Some(hex) => buildx::digest(hex),
         None => false,
@@ -614,22 +719,53 @@ fn inspect_oci_config(
         manifest: image_digest.to_string(),
         config: config_digest.to_string(),
         architecture: cfg.arch,
-        revision: cfg.labels.get("org.opencontainers.image.revision").cloned().unwrap_or_default(),
-        source: cfg.labels.get("org.opencontainers.image.source").cloned().unwrap_or_default(),
-        base_name: cfg.labels.get("org.opencontainers.image.base.name").cloned().unwrap_or_default(),
-        base_digest: cfg.labels.get("org.opencontainers.image.base.digest").cloned().unwrap_or_default(),
+        revision: cfg
+            .labels
+            .get("org.opencontainers.image.revision")
+            .cloned()
+            .unwrap_or_default(),
+        source: cfg
+            .labels
+            .get("org.opencontainers.image.source")
+            .cloned()
+            .unwrap_or_default(),
+        base_name: cfg
+            .labels
+            .get("org.opencontainers.image.base.name")
+            .cloned()
+            .unwrap_or_default(),
+        base_digest: cfg
+            .labels
+            .get("org.opencontainers.image.base.digest")
+            .cloned()
+            .unwrap_or_default(),
     })
 }
 
-fn inspect_oci_image(loader: &mut Loader, image: &Descriptor, want: &str, revision: &str) -> Result<OciImage, Error> {
+fn inspect_oci_image(
+    loader: &mut Loader,
+    image: &Descriptor,
+    want: &str,
+    revision: &str,
+) -> Result<OciImage, Error> {
     let manifest_blob = fetch_oci_blob(loader, image)?;
     let manifest = parse_oci_manifest(manifest_blob.data.as_deref().unwrap_or(b""))?;
     validate_oci_layers(loader, &manifest.layers)?;
     let config_blob = fetch_oci_blob(loader, &manifest.config)?;
-    inspect_oci_config(&config_blob, &manifest.layers, want, revision, &image.digest, &manifest.config.digest)
+    inspect_oci_config(
+        &config_blob,
+        &manifest.layers,
+        want,
+        revision,
+        &image.digest,
+        &manifest.config.digest,
+    )
 }
 
-fn validate_oci_layout_inputs(arch: &str, revisions: &BTreeMap<String, String>) -> Result<String, Error> {
+fn validate_oci_layout_inputs(
+    arch: &str,
+    revisions: &BTreeMap<String, String>,
+) -> Result<String, Error> {
     let want = buildx::oci_architecture(arch)?;
     if revisions.is_empty() {
         return Err(Error::msg("explicit OCI image set required"));
@@ -653,12 +789,21 @@ fn inspect_layout_descriptor(
     revisions: &BTreeMap<String, String>,
     images: &BTreeMap<String, OciImage>,
 ) -> Result<(String, OciImage), Error> {
-    let reference = desc.annotations.get("org.opencontainers.image.ref.name").cloned().unwrap_or_default();
+    let reference = desc
+        .annotations
+        .get("org.opencontainers.image.ref.name")
+        .cloned()
+        .unwrap_or_default();
     let revision = match revisions.get(&reference) {
         Some(revision) => revision.clone(),
         None => return Err(Error::msg("unexpected or duplicate OCI image reference")),
     };
-    if images.get(&reference).map(|image| !image.config.is_empty()).unwrap_or(false) || desc.media_type != MANIFEST_MEDIA_TYPE {
+    if images
+        .get(&reference)
+        .map(|image| !image.config.is_empty())
+        .unwrap_or(false)
+        || desc.media_type != MANIFEST_MEDIA_TYPE
+    {
         return Err(Error::msg("unexpected or duplicate OCI image reference"));
     }
     let image = inspect_oci_image(loader, desc, want, &revision)?;
@@ -687,10 +832,18 @@ fn inspect_layout_images(
 
 /// Verifies the exact named image set and its local blobs without running
 /// image code. References are immutable config IDs, as in our OCI exports.
-pub fn inspect_oci_layout(dir: &str, arch: &str, revisions: &BTreeMap<String, String>) -> Result<OciLayout, Error> {
+pub fn inspect_oci_layout(
+    dir: &str,
+    arch: &str,
+    revisions: &BTreeMap<String, String>,
+) -> Result<OciLayout, Error> {
     let want = validate_oci_layout_inputs(arch, revisions)?;
     let root = open_root(dir)?;
-    let mut loader = Loader { root, entries: BTreeMap::new(), json_bytes: 0 };
+    let mut loader = Loader {
+        root,
+        entries: BTreeMap::new(),
+        json_bytes: 0,
+    };
     for name in ["index.json", "oci-layout"] {
         load_layout_file(&mut loader, name)?;
     }
@@ -702,7 +855,11 @@ pub fn inspect_oci_layout(dir: &str, arch: &str, revisions: &BTreeMap<String, St
         files.insert(name.clone(), entry.hash.clone());
         bytes += entry.size as u64;
     }
-    Ok(OciLayout { images, files, bytes })
+    Ok(OciLayout {
+        images,
+        files,
+        bytes,
+    })
 }
 
 #[cfg(test)]
@@ -753,11 +910,26 @@ pub mod test_support {
                 JsonValue::Object(vec![(
                     "Labels".to_string(),
                     JsonValue::Object(vec![
-                        ("org.opencontainers.image.revision".to_string(), JsonValue::Str(revision.to_string())),
-                        ("org.opencontainers.image.source".to_string(), JsonValue::Str("https://github.com/LevitateOS/sodaos".to_string())),
-                        ("org.opencontainers.image.base.name".to_string(), JsonValue::Str("synthetic-base".to_string())),
-                        ("org.opencontainers.image.base.digest".to_string(), JsonValue::Str(format!("sha256:{}", "b".repeat(64)))),
-                        ("io.soda.fixture".to_string(), JsonValue::Str(name.to_string())),
+                        (
+                            "org.opencontainers.image.revision".to_string(),
+                            JsonValue::Str(revision.to_string()),
+                        ),
+                        (
+                            "org.opencontainers.image.source".to_string(),
+                            JsonValue::Str("https://github.com/LevitateOS/sodaos".to_string()),
+                        ),
+                        (
+                            "org.opencontainers.image.base.name".to_string(),
+                            JsonValue::Str("synthetic-base".to_string()),
+                        ),
+                        (
+                            "org.opencontainers.image.base.digest".to_string(),
+                            JsonValue::Str(format!("sha256:{}", "b".repeat(64))),
+                        ),
+                        (
+                            "io.soda.fixture".to_string(),
+                            JsonValue::Str(name.to_string()),
+                        ),
                     ]),
                 )]),
             ),
@@ -766,15 +938,24 @@ pub mod test_support {
                 "rootfs".to_string(),
                 JsonValue::Object(vec![
                     ("type".to_string(), JsonValue::Str("layers".to_string())),
-                    ("diff_ids".to_string(), JsonValue::Array(vec![JsonValue::Str(layer_digest.clone())])),
+                    (
+                        "diff_ids".to_string(),
+                        JsonValue::Array(vec![JsonValue::Str(layer_digest.clone())]),
+                    ),
                 ]),
             ),
         ]));
         let config_digest = write_blob(layout, config.as_bytes());
         let cd = desc(&config_digest, config.len(), CONFIG_MEDIA_TYPE);
         let manifest = crate::jsongo::serialize(&JsonValue::Object(vec![
-            ("schemaVersion".to_string(), JsonValue::Number("2".to_string())),
-            ("mediaType".to_string(), JsonValue::Str(MANIFEST_MEDIA_TYPE.to_string())),
+            (
+                "schemaVersion".to_string(),
+                JsonValue::Number("2".to_string()),
+            ),
+            (
+                "mediaType".to_string(),
+                JsonValue::Str(MANIFEST_MEDIA_TYPE.to_string()),
+            ),
             ("config".to_string(), cd),
             ("layers".to_string(), JsonValue::Array(vec![ld])),
         ]));
@@ -783,7 +964,10 @@ pub mod test_support {
         if let JsonValue::Object(entries) = &mut md {
             entries.push((
                 "annotations".to_string(),
-                JsonValue::Object(vec![("org.opencontainers.image.ref.name".to_string(), JsonValue::Str(config_digest.clone()))]),
+                JsonValue::Object(vec![(
+                    "org.opencontainers.image.ref.name".to_string(),
+                    JsonValue::Str(config_digest.clone()),
+                )]),
             ));
         }
         let index_path = format!("{layout}/index.json");
@@ -800,12 +984,22 @@ pub mod test_support {
                 }
             }
         } else {
-            std::fs::write(format!("{layout}/oci-layout"), br#"{"imageLayoutVersion":"1.0.0"}"#).unwrap();
+            std::fs::write(
+                format!("{layout}/oci-layout"),
+                br#"{"imageLayoutVersion":"1.0.0"}"#,
+            )
+            .unwrap();
         }
         manifests.push(md);
         let index = crate::jsongo::serialize(&JsonValue::Object(vec![
-            ("schemaVersion".to_string(), JsonValue::Number("2".to_string())),
-            ("mediaType".to_string(), JsonValue::Str(INDEX_MEDIA_TYPE.to_string())),
+            (
+                "schemaVersion".to_string(),
+                JsonValue::Number("2".to_string()),
+            ),
+            (
+                "mediaType".to_string(),
+                JsonValue::Str(INDEX_MEDIA_TYPE.to_string()),
+            ),
             ("manifests".to_string(), JsonValue::Array(manifests)),
         ]));
         std::fs::write(&index_path, index.as_bytes()).unwrap();
@@ -849,17 +1043,45 @@ mod tests {
             assert_eq!(image.architecture, "amd64");
             assert_eq!(&revisions[reference], &image.revision);
         }
-        assert_eq!(inspect_oci_layout(&dir, "aarch64", &revisions).unwrap_err().to_string(), "expected x86_64");
-        let wrong: BTreeMap<String, String> = revisions.keys().map(|k| (k.clone(), "b".repeat(40))).collect();
-        assert!(inspect_oci_layout(&dir, "x86_64", &wrong).unwrap_err().to_string().contains("revision mismatch"));
+        assert_eq!(
+            inspect_oci_layout(&dir, "aarch64", &revisions)
+                .unwrap_err()
+                .to_string(),
+            "expected x86_64"
+        );
+        let wrong: BTreeMap<String, String> = revisions
+            .keys()
+            .map(|k| (k.clone(), "b".repeat(40)))
+            .collect();
+        assert!(inspect_oci_layout(&dir, "x86_64", &wrong)
+            .unwrap_err()
+            .to_string()
+            .contains("revision mismatch"));
     }
 
     #[test]
     fn layout_refuses_substitution() {
-        for kind in ["missing", "corrupt", "symlink-file", "symlink-dir", "symlink-root", "duplicate-ref", "wrong-ref", "wrong-size", "external-url", "empty-index", "nested-index"] {
+        for kind in [
+            "missing",
+            "corrupt",
+            "symlink-file",
+            "symlink-dir",
+            "symlink-root",
+            "duplicate-ref",
+            "wrong-ref",
+            "wrong-size",
+            "external-url",
+            "empty-index",
+            "nested-index",
+        ] {
             let (mut dir, revisions) = layout_fixture();
             let before = inspect_oci_layout(&dir, "x86_64", &revisions).unwrap();
-            let blob = before.files.keys().find(|n| n.starts_with("blobs/")).unwrap().clone();
+            let blob = before
+                .files
+                .keys()
+                .find(|n| n.starts_with("blobs/"))
+                .unwrap()
+                .clone();
             match kind {
                 "missing" => std::fs::remove_file(format!("{dir}/{blob}")).unwrap(),
                 "corrupt" => std::fs::write(format!("{dir}/{blob}"), b"corrupted").unwrap(),
@@ -899,7 +1121,10 @@ mod tests {
                                 fields.retain(|(k, _)| k != "annotations");
                                 fields.push((
                                     "annotations".to_string(),
-                                    JsonValue::Object(vec![("org.opencontainers.image.ref.name".to_string(), JsonValue::Str("latest".to_string()))]),
+                                    JsonValue::Object(vec![(
+                                        "org.opencontainers.image.ref.name".to_string(),
+                                        JsonValue::Str("latest".to_string()),
+                                    )]),
                                 ));
                             }
                         }
@@ -916,7 +1141,9 @@ mod tests {
                             if let JsonValue::Object(fields) = &mut items[0] {
                                 fields.push((
                                     "urls".to_string(),
-                                    JsonValue::Array(vec![JsonValue::Str("https://example.invalid/layer".to_string())]),
+                                    JsonValue::Array(vec![JsonValue::Str(
+                                        "https://example.invalid/layer".to_string(),
+                                    )]),
                                 ));
                             }
                         }
@@ -932,10 +1159,17 @@ mod tests {
                         }
                         _ => unreachable!(),
                     }
-                    std::fs::write(&path, crate::jsongo::serialize(&JsonValue::Object(entries)).as_bytes()).unwrap();
+                    std::fs::write(
+                        &path,
+                        crate::jsongo::serialize(&JsonValue::Object(entries)).as_bytes(),
+                    )
+                    .unwrap();
                 }
             }
-            assert!(inspect_oci_layout(&dir, "x86_64", &revisions).is_err(), "{kind} accepted");
+            assert!(
+                inspect_oci_layout(&dir, "x86_64", &revisions).is_err(),
+                "{kind} accepted"
+            );
         }
     }
 }

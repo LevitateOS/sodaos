@@ -37,7 +37,10 @@ fn append_setup_address(
     scope: &str,
 ) {
     if private_setup_origin(local).is_ok() && scope == "global" && !seen.contains(local) {
-        choices.push(SetupAddress { interface: name.to_string(), address: local.to_string() });
+        choices.push(SetupAddress {
+            interface: name.to_string(),
+            address: local.to_string(),
+        });
         seen.insert(local.to_string());
         return;
     }
@@ -55,12 +58,15 @@ fn append_setup_address(
 
 pub fn private_setup_origin(value: &str) -> Result<String, Error> {
     let cgnat = netip::parse_prefix("100.64.0.0/10").expect("CGNAT prefix is valid");
-    let address = netip::parse_addr(value).map_err(|_| Error::msg("select an assigned private LAN or Tailscale address"))?;
+    let address = netip::parse_addr(value)
+        .map_err(|_| Error::msg("select an assigned private LAN or Tailscale address"))?;
     if !address.zone().is_empty()
         || address.is4_in6()
         || (!address.is_private() && !cgnat.contains(&address))
     {
-        return Err(Error::msg("select an assigned private LAN or Tailscale address"));
+        return Err(Error::msg(
+            "select an assigned private LAN or Tailscale address",
+        ));
     }
     let mut host = String::from_utf8_lossy(&address.to_string_go()).into_owned();
     if address.is6() {
@@ -79,9 +85,16 @@ fn setup_addresses(data: &[u8]) -> Result<Vec<SetupAddress>, Error> {
     let mut excluded = Vec::new();
     let mut seen = std::collections::HashSet::new();
     for item in interfaces {
-        let network = Soft::new(item).map_err(|_| Error::msg("cannot inspect private setup addresses"))?;
-        let name = network.string("ifname").map_err(|_| Error::msg("cannot inspect private setup addresses"))?.unwrap_or_default();
-        let flags: Vec<String> = match network.array("flags").map_err(|_| Error::msg("cannot inspect private setup addresses"))? {
+        let network =
+            Soft::new(item).map_err(|_| Error::msg("cannot inspect private setup addresses"))?;
+        let name = network
+            .string("ifname")
+            .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
+            .unwrap_or_default();
+        let flags: Vec<String> = match network
+            .array("flags")
+            .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
+        {
             None => Vec::new(),
             Some(items) => {
                 let mut flags = Vec::new();
@@ -97,19 +110,38 @@ fn setup_addresses(data: &[u8]) -> Result<Vec<SetupAddress>, Error> {
         if skip_setup_interface(&name, &flags) {
             continue;
         }
-        let addr_info = network.array("addr_info").map_err(|_| Error::msg("cannot inspect private setup addresses"))?.unwrap_or(&[]);
+        let addr_info = network
+            .array("addr_info")
+            .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
+            .unwrap_or(&[]);
         for entry in addr_info {
-            let address = Soft::new(entry).map_err(|_| Error::msg("cannot inspect private setup addresses"))?;
-            let local = address.string("local").map_err(|_| Error::msg("cannot inspect private setup addresses"))?.unwrap_or_default();
-            let scope = address.string("scope").map_err(|_| Error::msg("cannot inspect private setup addresses"))?.unwrap_or_default();
-            append_setup_address(&mut choices, &mut seen, &mut excluded, &name, &local, &scope);
+            let address = Soft::new(entry)
+                .map_err(|_| Error::msg("cannot inspect private setup addresses"))?;
+            let local = address
+                .string("local")
+                .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
+                .unwrap_or_default();
+            let scope = address
+                .string("scope")
+                .map_err(|_| Error::msg("cannot inspect private setup addresses"))?
+                .unwrap_or_default();
+            append_setup_address(
+                &mut choices,
+                &mut seen,
+                &mut excluded,
+                &name,
+                &local,
+                &scope,
+            );
         }
     }
     if choices.is_empty() {
         // Name what the filter rejected so the operator can compare with the
         // unfiltered live addresses shown during disk installation.
         if excluded.is_empty() {
-            return Err(Error::msg("no private setup address is available; configure networking first"));
+            return Err(Error::msg(
+                "no private setup address is available; configure networking first",
+            ));
         }
         return Err(Error::msg(format!(
             "no private setup address is available; configure networking first (observed but unusable: {})",
@@ -129,7 +161,9 @@ pub fn configure_install(ctx: &Ctx, console: &Console, run: &dyn Runner) -> Resu
 
 fn check_preexisting_install(root: &str) -> Result<bool, Error> {
     if crate::execute::read_regular(&format!("{root}/installed"), 256).is_err() {
-        return Err(Error::msg("install the included Soda components before configuring browser access"));
+        return Err(Error::msg(
+            "install the included Soda components before configuring browser access",
+        ));
     }
     match std::fs::symlink_metadata(format!("{root}/activated")) {
         Ok(_) => return Ok(true),
@@ -156,19 +190,44 @@ fn check_preexisting_install(root: &str) -> Result<bool, Error> {
 }
 
 fn query_setup_addresses(ctx: &Ctx, run: &dyn Runner) -> Result<Vec<SetupAddress>, Error> {
-    let data = run.run(ctx, "ip", &["-json".to_string(), "address".to_string(), "show".to_string(), "up".to_string()], None)
+    let data = run
+        .run(
+            ctx,
+            "ip",
+            &[
+                "-json".to_string(),
+                "address".to_string(),
+                "show".to_string(),
+                "up".to_string(),
+            ],
+            None,
+        )
         .map_err(|_| Error::msg("cannot inspect network addresses"))?;
     setup_addresses(&data)
 }
 
-fn prompt_setup_address(ctx: &Ctx, console: &Console, choices: &[SetupAddress]) -> Result<SetupAddress, Error> {
+fn prompt_setup_address(
+    ctx: &Ctx,
+    console: &Console,
+    choices: &[SetupAddress],
+) -> Result<SetupAddress, Error> {
     console.page("Private browser setup");
-    console.print("Use this SSH terminal to paste the Forgejo token when asked; input will be hidden.", &[]);
-    console.print("Select the appliance address your laptop can reach. No domain is needed.", &[]);
+    console.print(
+        "Use this SSH terminal to paste the Forgejo token when asked; input will be hidden.",
+        &[],
+    );
+    console.print(
+        "Select the appliance address your laptop can reach. No domain is needed.",
+        &[],
+    );
     for (i, choice) in choices.iter().enumerate() {
         console.print(
             "%d. %s on %q",
-            &[Arg::Int((i + 1) as i64), Arg::Str(&choice.address), Arg::Str(&choice.interface)],
+            &[
+                Arg::Int((i + 1) as i64),
+                Arg::Str(&choice.address),
+                Arg::Str(&choice.interface),
+            ],
         );
     }
     loop {
@@ -232,9 +291,14 @@ fn prompt_operator_token(
         "Caddy will issue local HTTPS certificates. You will explicitly trust its public root certificate on your laptop.",
         &[],
     );
-    let answer = console.ask(ctx, "When Forgejo setup is complete, type CONFIGURE SODA; anything else cancels")?;
+    let answer = console.ask(
+        ctx,
+        "When Forgejo setup is complete, type CONFIGURE SODA; anything else cancels",
+    )?;
     if answer != "CONFIGURE SODA" {
-        return Err(Error::msg("browser setup cancelled; no Soda configuration written"));
+        return Err(Error::msg(
+            "browser setup cancelled; no Soda configuration written",
+        ));
     }
     let token = console.secret(ctx, "Operator Forgejo token")?;
     if !valid_operator_token(&token) {
@@ -248,17 +312,22 @@ fn verify_address_still_assigned(
     run: &dyn Runner,
     selected: &SetupAddress,
 ) -> Result<(), Error> {
-    let current =
-        query_setup_addresses(ctx, run).map_err(|_| Error::msg("cannot recheck the selected address"))?;
+    let current = query_setup_addresses(ctx, run)
+        .map_err(|_| Error::msg("cannot recheck the selected address"))?;
     if current.iter().any(|choice| choice == selected) {
         return Ok(());
     }
-    Err(Error::msg("selected network address changed; restart browser setup"))
+    Err(Error::msg(
+        "selected network address changed; restart browser setup",
+    ))
 }
 
 fn make_setup_workdir(temporary: &str) -> Result<String, Error> {
     for _ in 0..100 {
-        let path = format!("{temporary}/soda-setup-{}", crate::enroll::keys::random_hex(8)?);
+        let path = format!(
+            "{temporary}/soda-setup-{}",
+            crate::enroll::keys::random_hex(8)?
+        );
         use std::os::unix::fs::DirBuilderExt;
         match std::fs::DirBuilder::new().mode(0o700).create(&path) {
             Ok(()) => return Ok(path),
@@ -330,7 +399,11 @@ fn execute_setup_and_activation(
     if let Err(err) = run.run(
         ctx,
         &format!("{SBIN}/soda-activate"),
-        &["--bind-ip".to_string(), selected.address.clone(), "--local-tls".to_string()],
+        &[
+            "--bind-ip".to_string(),
+            selected.address.clone(),
+            "--local-tls".to_string(),
+        ],
         None,
     ) {
         return Err(Error::msg(format!(
@@ -372,11 +445,18 @@ fn write_setup_file(path: &str, data: &[u8]) -> Result<(), Error> {
         .mode(0o600)
         .open(path)
         .map_err(|e| errors::path_error("open", path, e))?;
-    let write_err = file.write(data).err().map(|e| errors::path_error("write", path, e));
+    let write_err = file
+        .write(data)
+        .err()
+        .map(|e| errors::path_error("write", path, e));
     use std::os::unix::io::IntoRawFd;
     let close_err = if unsafe { libc::close(file.into_raw_fd()) } != 0 {
         let errno = unsafe { *libc::__errno_location() };
-        Some(errors::path_error("close", path, std::io::Error::from_raw_os_error(errno)))
+        Some(errors::path_error(
+            "close",
+            path,
+            std::io::Error::from_raw_os_error(errno),
+        ))
     } else {
         None
     };
@@ -407,7 +487,8 @@ fn installed_forgejo_origin(root: &str) -> Result<(crate::urlx::Url, String), Er
     let data = crate::execute::read_regular(&format!("{root}/dashboard.json"), 65536)
         .map_err(|_| Error::msg("cannot read installed browser address"))?;
     let value = parse(&data).map_err(|_| Error::msg("invalid installed browser configuration"))?;
-    let config = Soft::new(&value).map_err(|_| Error::msg("invalid installed browser configuration"))?;
+    let config =
+        Soft::new(&value).map_err(|_| Error::msg("invalid installed browser configuration"))?;
     let url = config
         .string("forgejo_url")
         .map_err(|_| Error::msg("invalid installed browser configuration"))?
@@ -423,12 +504,30 @@ fn installed_forgejo_origin(root: &str) -> Result<(crate::urlx::Url, String), Er
 fn uses_internal_tls(root: &str) -> Result<bool, Error> {
     let proxy = crate::execute::read_regular(&format!("{root}/proxy.env"), 65536)
         .map_err(|_| Error::msg("cannot inspect the installed TLS mode"))?;
-    Ok(proxy.split(|b| *b == b'\n').any(|line| line == b"SODA_TLS=internal"))
+    Ok(proxy
+        .split(|b| *b == b'\n')
+        .any(|line| line == b"SODA_TLS=internal"))
 }
 
 fn confirm_active_browser_units(ctx: &Ctx, run: &dyn Runner) -> Result<(), Error> {
-    for unit in ["forgejo.service", "soda-dashboard.service", "soda-proxy.service"] {
-        if run.run(ctx, "systemctl", &["is-active".to_string(), "--quiet".to_string(), unit.to_string()], None).is_err() {
+    for unit in [
+        "forgejo.service",
+        "soda-dashboard.service",
+        "soda-proxy.service",
+    ] {
+        if run
+            .run(
+                ctx,
+                "systemctl",
+                &[
+                    "is-active".to_string(),
+                    "--quiet".to_string(),
+                    unit.to_string(),
+                ],
+                None,
+            )
+            .is_err()
+        {
             return Err(Error::msg(format!("private activation was requested, but {unit} is not confirmed active; inspect its native service state, then rerun configure for read-only guidance; setup was not replayed")));
         }
     }
@@ -453,10 +552,19 @@ fn print_local_ca_guidance(
     };
     let fingerprint = local_ca_fingerprint(&certificate)?;
     console.print("The browser services report active. Open %s only after completing the client trust below; browser login still needs verification.", &[Arg::Str(address)]);
-    console.print("Local CA certificate SHA-256: %s", &[Arg::Str(&fingerprint)]);
-    console.print("Copy only the public root.crt file over your verified SSH connection:", &[]);
+    console.print(
+        "Local CA certificate SHA-256: %s",
+        &[Arg::Str(&fingerprint)],
+    );
+    console.print(
+        "Copy only the public root.crt file over your verified SSH connection:",
+        &[],
+    );
     let host = String::from_utf8_lossy(&origin.host);
-    console.print("scp root@%s:%s ./soda-local-ca.crt", &[Arg::Str(&host), Arg::Str(ca_path)]);
+    console.print(
+        "scp root@%s:%s ./soda-local-ca.crt",
+        &[Arg::Str(&host), Arg::Str(ca_path)],
+    );
     console.print("Compare its certificate fingerprint, then trust it in your laptop/browser certificate settings. Never copy the CA private key.", &[]);
     Ok(())
 }
@@ -475,7 +583,9 @@ fn configured_access(
         let hostname = String::from_utf8_lossy(&host);
         let expected = private_setup_origin(&hostname).unwrap_or_default();
         if address.strip_suffix('/').unwrap_or(&address) != expected {
-            return Err(Error::msg("local TLS must use the selected private IP origin"));
+            return Err(Error::msg(
+                "local TLS must use the selected private IP origin",
+            ));
         }
     }
     confirm_active_browser_units(ctx, run)?;
@@ -522,7 +632,11 @@ mod tests {
             ("100.90.1.2", "https://100.90.1.2"),
             ("fd00::123", "https://[fd00::123]"),
         ] {
-            assert_eq!(private_setup_origin(address).unwrap(), expected, "{address:?}");
+            assert_eq!(
+                private_setup_origin(address).unwrap(),
+                expected,
+                "{address:?}"
+            );
         }
         for address in [
             "127.0.0.1",
@@ -546,7 +660,10 @@ mod tests {
         let addresses = setup_addresses(data).unwrap();
         assert_eq!(
             addresses,
-            vec![SetupAddress { interface: "eth0".to_string(), address: "192.168.1.5".to_string() }]
+            vec![SetupAddress {
+                interface: "eth0".to_string(),
+                address: "192.168.1.5".to_string()
+            }]
         );
         for data in ["not json", "[]"] {
             assert!(setup_addresses(data.as_bytes()).is_err(), "{data:?}");
@@ -575,9 +692,9 @@ mod tests {
     fn ca_cert_pem(is_ca: bool) -> Vec<u8> {
         use ed25519_dalek::Signer as _;
         let signing = ed25519_dalek::SigningKey::from_bytes(&[
-            0x9D, 0x61, 0xB1, 0x9D, 0xEF, 0xFD, 0x5A, 0x60, 0xBA, 0x84, 0x4A, 0xF4, 0x92,
-            0x2E, 0xC4, 0x44, 0x48, 0xC8, 0x58, 0x07, 0x31, 0x11, 0xED, 0xD3, 0xAD, 0x45,
-            0x8B, 0x22, 0x7E, 0x4E, 0x4B, 0x63,
+            0x9D, 0x61, 0xB1, 0x9D, 0xEF, 0xFD, 0x5A, 0x60, 0xBA, 0x84, 0x4A, 0xF4, 0x92, 0x2E,
+            0xC4, 0x44, 0x48, 0xC8, 0x58, 0x07, 0x31, 0x11, 0xED, 0xD3, 0xAD, 0x45, 0x8B, 0x22,
+            0x7E, 0x4E, 0x4B, 0x63,
         ]);
         let seq_of = |parts: &[Vec<u8>]| {
             let mut contents = Vec::new();
@@ -590,10 +707,17 @@ mod tests {
         let validity = seq_of(&[tlv(0x17, b"700101000000Z"), tlv(0x17, b"700102000000Z")]);
         let spki = seq_of(&[
             ai.clone(),
-            tlv(0x03, &[&[0x00], signing.verifying_key().as_bytes().as_slice()].concat()),
+            tlv(
+                0x03,
+                &[&[0x00], signing.verifying_key().as_bytes().as_slice()].concat(),
+            ),
         ]);
         let bc = tlv(0x30, &tlv(0x01, &[if is_ca { 0xFF } else { 0x00 }]));
-        let ext = seq_of(&[tlv(0x06, &[0x55, 0x1D, 0x13]), tlv(0x01, &[0xFF]), tlv(0x04, &bc)]);
+        let ext = seq_of(&[
+            tlv(0x06, &[0x55, 0x1D, 0x13]),
+            tlv(0x01, &[0xFF]),
+            tlv(0x04, &bc),
+        ]);
         let tbs = seq_of(&[
             tlv(0xA0, &tlv(0x02, &[0x02])),
             tlv(0x02, &[0x01]),
@@ -605,7 +729,11 @@ mod tests {
             tlv(0xA3, &seq_of(&[ext])),
         ]);
         let sig = signing.sign(&tbs);
-        let cert = seq_of(&[tbs, ai, tlv(0x03, &[&[0x00], sig.to_bytes().as_slice()].concat())]);
+        let cert = seq_of(&[
+            tbs,
+            ai,
+            tlv(0x03, &[&[0x00], sig.to_bytes().as_slice()].concat()),
+        ]);
         let b64 = crate::sshkey::b64_encode(&cert);
         let mut pem = b"-----BEGIN CERTIFICATE-----\n".to_vec();
         for chunk in b64.as_bytes().chunks(64) {
@@ -646,7 +774,15 @@ mod tests {
             let (ctx, _flag) = Ctx::test();
             // Empty existing config fails read-only, without repeating setup.
             assert!(
-                configure_private_install(&ctx, &null_console(), &run, &root.path, &root.path, "missing-ca").is_err(),
+                configure_private_install(
+                    &ctx,
+                    &null_console(),
+                    &run,
+                    &root.path,
+                    &root.path,
+                    "missing-ca"
+                )
+                .is_err(),
                 "{state}"
             );
         }
@@ -690,7 +826,11 @@ mod tests {
         });
         let (ctx, _flag) = Ctx::test();
         let err = configure_install(&ctx, &null_console(), &run).unwrap_err();
-        assert!(err.to_string().contains("install the included Soda components"), "{err}");
+        assert!(
+            err.to_string()
+                .contains("install the included Soda components"),
+            "{err}"
+        );
         std::env::remove_var("SSH_CONNECTION");
         std::env::remove_var("SSH_TTY");
     }
@@ -718,7 +858,8 @@ mod tests {
             Ok(Vec::new())
         });
         let (ctx, _flag) = Ctx::test();
-        let err = configured_access(&ctx, &null_console(), &root.path, "missing-ca", &run).unwrap_err();
+        let err =
+            configured_access(&ctx, &null_console(), &root.path, "missing-ca", &run).unwrap_err();
         assert!(err.to_string().contains("soda-dashboard.service"), "{err}");
         assert_eq!(observed.borrow().len(), 2);
     }
@@ -728,11 +869,18 @@ mod tests {
         let fail = FnRunner::new(|_, _, _, _| -> Result<Vec<u8>, Error> {
             Err(Error::msg("synthetic setup failure"))
         });
-        let selected = SetupAddress { interface: "eth0".to_string(), address: "192.168.1.5".to_string() };
+        let selected = SetupAddress {
+            interface: "eth0".to_string(),
+            address: "192.168.1.5".to_string(),
+        };
         let (ctx, _flag) = Ctx::test();
         // Referenced configuration preserved.
         let root = temp_dir();
-        std::fs::write(format!("{}/dashboard.json", root.path), br#"{"operator":"kept"}"#).unwrap();
+        std::fs::write(
+            format!("{}/dashboard.json", root.path),
+            br#"{"operator":"kept"}"#,
+        )
+        .unwrap();
         std::fs::write(format!("{}/grant-key", root.path), b"preexisting-key").unwrap();
         let work = temp_dir();
         let err = execute_setup_and_activation(
@@ -745,9 +893,19 @@ mod tests {
             &selected,
         )
         .unwrap_err();
-        assert!(err.to_string().contains("inspect the existing configuration"), "{err}");
-        assert_eq!(std::fs::read(format!("{}/dashboard.json", root.path)).unwrap(), br#"{"operator":"kept"}"#);
-        assert_eq!(std::fs::read(format!("{}/grant-key", root.path)).unwrap(), b"preexisting-key");
+        assert!(
+            err.to_string()
+                .contains("inspect the existing configuration"),
+            "{err}"
+        );
+        assert_eq!(
+            std::fs::read(format!("{}/dashboard.json", root.path)).unwrap(),
+            br#"{"operator":"kept"}"#
+        );
+        assert_eq!(
+            std::fs::read(format!("{}/grant-key", root.path)).unwrap(),
+            b"preexisting-key"
+        );
         // Orphan reservation cleaned.
         let root = temp_dir();
         std::fs::write(format!("{}/grant-key", root.path), b"orphan-key").unwrap();
@@ -762,7 +920,10 @@ mod tests {
             &selected,
         )
         .unwrap_err();
-        assert!(err.to_string().contains("rerunning configure is safe"), "{err}");
+        assert!(
+            err.to_string().contains("rerunning configure is safe"),
+            "{err}"
+        );
         for name in ["grant-key", "setup-started"] {
             assert!(
                 matches!(
@@ -777,17 +938,20 @@ mod tests {
     #[test]
     fn operator_token_validation() {
         assert!(valid_operator_token(b"synthetic-operator-token"));
-        for bad in ["", " padded", "padded ", "a\nb", "a\rb", "a\0b", "\u{a0}nbsp\u{a0}"] {
+        for bad in [
+            "",
+            " padded",
+            "padded ",
+            "a\nb",
+            "a\rb",
+            "a\0b",
+            "\u{a0}nbsp\u{a0}",
+        ] {
             assert!(!valid_operator_token(bad.as_bytes()), "{bad:?}");
         }
     }
 
-    fn read_until(
-        master: &mut std::fs::File,
-        transcript: &mut Vec<u8>,
-        ctx: &Ctx,
-        needle: &str,
-    ) {
+    fn read_until(master: &mut std::fs::File, transcript: &mut Vec<u8>, ctx: &Ctx, needle: &str) {
         use std::io::Read;
         use std::os::unix::io::AsRawFd;
         loop {
@@ -797,7 +961,11 @@ mod tests {
             if ctx.err().is_some() {
                 panic!("missing setup prompt: {needle}");
             }
-            let mut fd = libc::pollfd { fd: master.as_raw_fd(), events: libc::POLLIN, revents: 0 };
+            let mut fd = libc::pollfd {
+                fd: master.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            };
             if unsafe { libc::poll(&mut fd, 1, 100) } > 0 && fd.revents & libc::POLLIN != 0 {
                 let mut data = [0u8; 4096];
                 if let Ok(n) = master.read(&mut data) {
@@ -818,7 +986,8 @@ mod tests {
             let slave_path = pty.slave_path.clone();
             let mut master = pty.master;
             let (ctx, _flag) = Ctx::test();
-            let ctx = ctx.with_timeout(std::time::Instant::now() + std::time::Duration::from_secs(15));
+            let ctx =
+                ctx.with_timeout(std::time::Instant::now() + std::time::Duration::from_secs(15));
             const TOKEN: &str = "synthetic-operator-token";
             let mutations = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
             let worker_mutations = mutations.clone();
@@ -849,16 +1018,28 @@ mod tests {
                         assert_eq!(args[2], "--token-file");
                         assert_eq!(args[4], "--out");
                         let data = std::fs::read(&args[3]).unwrap();
-                        let mode = std::fs::symlink_metadata(&args[3]).unwrap().permissions().mode() & 0o777;
-                        assert_eq!(data, format!("{TOKEN}\n").as_bytes(), "token was not passed in a restricted file");
+                        let mode = std::fs::symlink_metadata(&args[3])
+                            .unwrap()
+                            .permissions()
+                            .mode()
+                            & 0o777;
+                        assert_eq!(
+                            data,
+                            format!("{TOKEN}\n").as_bytes(),
+                            "token was not passed in a restricted file"
+                        );
                         assert_eq!(mode, 0o600, "token was not passed in a restricted file");
                         let config = format!(r#"{{"forgejo_url":"{}"}}"#, args[1]);
                         std::fs::write(&args[5], config).unwrap();
                         return Ok(Vec::new());
                     }
-                    assert_eq!(name, "/usr/bin/soda-activate", "unexpected activation: {name} {args:?}");
+                    assert_eq!(
+                        name, "/usr/bin/soda-activate",
+                        "unexpected activation: {name} {args:?}"
+                    );
                     assert_eq!(args.join(" "), "--bind-ip 192.168.1.5 --local-tls");
-                    std::fs::write(format!("{}/proxy.env", root_path), b"SODA_TLS=internal\n").unwrap();
+                    std::fs::write(format!("{}/proxy.env", root_path), b"SODA_TLS=internal\n")
+                        .unwrap();
                     Ok(Vec::new())
                 });
                 configure_private_install(
@@ -871,26 +1052,54 @@ mod tests {
                 )
             });
             let mut transcript = Vec::new();
-            read_until(&mut master, &mut transcript, &ctx, "Address number, or cancel");
+            read_until(
+                &mut master,
+                &mut transcript,
+                &ctx,
+                "Address number, or cancel",
+            );
             master.write_all(b"1\n").unwrap();
-            read_until(&mut master, &mut transcript, &ctx, "When Forgejo setup is complete");
+            read_until(
+                &mut master,
+                &mut transcript,
+                &ctx,
+                "When Forgejo setup is complete",
+            );
             {
                 let text = String::from_utf8_lossy(&transcript);
-                assert!(text.contains("Required scope: read:user"), "bootstrap guidance requests unrelated token authority");
-                assert!(!text.contains("write:admin"), "bootstrap guidance requests unrelated token authority");
-                assert!(!text.contains("read:repository"), "bootstrap guidance requests unrelated token authority");
+                assert!(
+                    text.contains("Required scope: read:user"),
+                    "bootstrap guidance requests unrelated token authority"
+                );
+                assert!(
+                    !text.contains("write:admin"),
+                    "bootstrap guidance requests unrelated token authority"
+                );
+                assert!(
+                    !text.contains("read:repository"),
+                    "bootstrap guidance requests unrelated token authority"
+                );
             }
             if cancel_setup {
                 master.write_all(b"cancel\n").unwrap();
             } else {
                 master.write_all(b"CONFIGURE SODA\n").unwrap();
-                read_until(&mut master, &mut transcript, &ctx, "Operator Forgejo token: ");
+                read_until(
+                    &mut master,
+                    &mut transcript,
+                    &ctx,
+                    "Operator Forgejo token: ",
+                );
                 master.write_all(format!("{TOKEN}\n").as_bytes()).unwrap();
             }
             let err = worker.join().unwrap();
             if cancel_setup {
                 assert!(err.is_err(), "cancelled setup succeeded");
-                assert_eq!(mutations.load(std::sync::atomic::Ordering::SeqCst), 0, "cancelled setup made native changes");
+                assert_eq!(
+                    mutations.load(std::sync::atomic::Ordering::SeqCst),
+                    0,
+                    "cancelled setup made native changes"
+                );
                 assert!(
                     matches!(
                         std::fs::symlink_metadata(format!("{}/setup-started", root.path)),
@@ -899,15 +1108,27 @@ mod tests {
                     "cancelled setup reserved an attempt"
                 );
             } else {
-                assert!(err.is_ok(), "setup failed: {err:?}, mutations {}", mutations.load(std::sync::atomic::Ordering::SeqCst));
+                assert!(
+                    err.is_ok(),
+                    "setup failed: {err:?}, mutations {}",
+                    mutations.load(std::sync::atomic::Ordering::SeqCst)
+                );
                 assert_eq!(mutations.load(std::sync::atomic::Ordering::SeqCst), 2);
-                read_until(&mut master, &mut transcript, &ctx, "certificate is not available yet");
+                read_until(
+                    &mut master,
+                    &mut transcript,
+                    &ctx,
+                    "certificate is not available yet",
+                );
                 let leftovers: Vec<_> = std::fs::read_dir(&root.path)
                     .unwrap()
                     .filter_map(|e| e.ok())
                     .filter(|e| e.file_name().to_string_lossy().starts_with("soda-setup-"))
                     .collect();
-                assert!(leftovers.is_empty(), "operator token workdir persists: {leftovers:?}");
+                assert!(
+                    leftovers.is_empty(),
+                    "operator token workdir persists: {leftovers:?}"
+                );
             }
             transcript.extend_from_slice(&drain_available(&mut master));
             assert!(

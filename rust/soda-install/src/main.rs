@@ -28,7 +28,9 @@ mod x509;
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 2 || !action(&args[1]) {
-        eprintln!("usage: soda-install disk|configure|enroll-key|enrollment-serve|enrollment-receive");
+        eprintln!(
+            "usage: soda-install disk|configure|enroll-key|enrollment-serve|enrollment-receive"
+        );
         std::process::exit(2);
     }
     crate::signal::install_handlers();

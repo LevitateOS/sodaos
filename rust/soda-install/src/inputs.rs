@@ -22,7 +22,9 @@ pub fn hostname(value: &str) -> bool {
         if !bytes[0].is_ascii_alphanumeric() || !bytes[bytes.len() - 1].is_ascii_alphanumeric() {
             return false;
         }
-        bytes.iter().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
+        bytes
+            .iter()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || *b == b'-')
     })
 }
 
@@ -48,7 +50,9 @@ fn valid_password_hash(value: &str) -> bool {
         return false;
     }
     // Any further `$` fails the charset below.
-    salt.bytes().chain(hash.bytes()).all(|b| matches!(b, b'.' | b'/' | b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z'))
+    salt.bytes()
+        .chain(hash.bytes())
+        .all(|b| matches!(b, b'.' | b'/' | b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z'))
 }
 
 fn valid_provisioning_inputs(hostname_value: &str, password_hash: &str, subnet: &str) -> bool {
@@ -56,7 +60,8 @@ fn valid_provisioning_inputs(hostname_value: &str, password_hash: &str, subnet: 
 }
 
 fn template_storage(template: &[u8]) -> Result<(JsonValue, JsonValue, Vec<JsonValue>), Error> {
-    let config = jsongo::parse(template).map_err(|_| Error::msg("invalid public destination template"))?;
+    let config =
+        jsongo::parse(template).map_err(|_| Error::msg("invalid public destination template"))?;
     // Go decodes `null` into a nil map without error; the missing ignition
     // below then reports the Ignition error, not a template error.
     let empty: Vec<(String, JsonValue)> = Vec::new();
@@ -65,7 +70,11 @@ fn template_storage(template: &[u8]) -> Result<(JsonValue, JsonValue, Vec<JsonVa
         JsonValue::Null => &empty,
         _ => return Err(Error::msg("invalid public destination template")),
     };
-    let ignition = entries.iter().rev().find(|(k, _)| k == "ignition").map(|(_, v)| v);
+    let ignition = entries
+        .iter()
+        .rev()
+        .find(|(k, _)| k == "ignition")
+        .map(|(_, v)| v);
     let version = match ignition {
         Some(value) => Soft::new(value)
             .map_err(|_| Error::msg("expected converted Ignition 3.5.0 template"))?
@@ -79,13 +88,21 @@ fn template_storage(template: &[u8]) -> Result<(JsonValue, JsonValue, Vec<JsonVa
     if entries.iter().any(|(k, _)| k == "passwd") {
         return Err(Error::msg("public template must not contain accounts"));
     }
-    let storage_value = entries.iter().rev().find(|(k, _)| k == "storage").map(|(_, v)| v);
+    let storage_value = entries
+        .iter()
+        .rev()
+        .find(|(k, _)| k == "storage")
+        .map(|(_, v)| v);
     let storage = match storage_value {
         Some(JsonValue::Object(_)) => storage_value.unwrap().clone(),
         _ => return Err(Error::msg("invalid public storage template")),
     };
     let files_value = match &storage {
-        JsonValue::Object(entries) => entries.iter().rev().find(|(k, _)| k == "files").map(|(_, v)| v),
+        JsonValue::Object(entries) => entries
+            .iter()
+            .rev()
+            .find(|(k, _)| k == "files")
+            .map(|(_, v)| v),
         _ => None,
     };
     let files = match files_value {
@@ -124,7 +141,10 @@ fn file_entry(path: &str, contents: &str) -> JsonValue {
             "contents".to_string(),
             JsonValue::Object(vec![(
                 "source".to_string(),
-                JsonValue::Str(format!("data:;base64,{}", crate::sshkey::b64_encode(contents.as_bytes()))),
+                JsonValue::Str(format!(
+                    "data:;base64,{}",
+                    crate::sshkey::b64_encode(contents.as_bytes())
+                )),
             )]),
         ),
     ])
@@ -158,20 +178,32 @@ pub fn destination(
     // Go iterates a two-entry map (random order); file order carries no
     // meaning to Ignition, so emit the deterministic sorted order.
     files.push(file_entry("/etc/hostname", &format!("{hostname_value}\n")));
-    files.push(file_entry("/etc/soda-installer/project-subnet", &format!("{subnet}\n")));
+    files.push(file_entry(
+        "/etc/soda-installer/project-subnet",
+        &format!("{subnet}\n"),
+    ));
     set_field(&mut storage, "files", JsonValue::Array(files));
     set_field(&mut config, "storage", storage);
     let mut root = vec![
         ("name".to_string(), JsonValue::Str("root".to_string())),
-        ("passwordHash".to_string(), JsonValue::Str(password_hash.to_string())),
+        (
+            "passwordHash".to_string(),
+            JsonValue::Str(password_hash.to_string()),
+        ),
     ];
     if !normalized.is_empty() {
-        root.push(("sshAuthorizedKeys".to_string(), JsonValue::Array(vec![JsonValue::Str(normalized)])));
+        root.push((
+            "sshAuthorizedKeys".to_string(),
+            JsonValue::Array(vec![JsonValue::Str(normalized)]),
+        ));
     }
     set_field(
         &mut config,
         "passwd",
-        JsonValue::Object(vec![("users".to_string(), JsonValue::Array(vec![JsonValue::Object(root)]))]),
+        JsonValue::Object(vec![(
+            "users".to_string(),
+            JsonValue::Array(vec![JsonValue::Object(root)]),
+        )]),
     );
     Ok(jsongo::serialize(&config).into_bytes())
 }
@@ -183,7 +215,15 @@ mod tests {
     #[test]
     fn hostname_vectors() {
         // Ported from TestHostname* in installer_test.go plus edges.
-        for good in ["soda-01", "a", "a.b.c", "host123", "x-y-z", &"a".repeat(63), &format!("{}.{}", "a".repeat(63), "b".repeat(63))] {
+        for good in [
+            "soda-01",
+            "a",
+            "a.b.c",
+            "host123",
+            "x-y-z",
+            &"a".repeat(63),
+            &format!("{}.{}", "a".repeat(63), "b".repeat(63)),
+        ] {
             assert!(hostname(good), "reject {good:?}");
         }
         assert!(hostname(&format!(
@@ -219,7 +259,14 @@ mod tests {
         assert!(project_subnet("10.89.0.0/24").is_ok());
         assert!(project_subnet("0.0.0.0/0").is_ok());
         assert!(project_subnet("192.168.1.1/32").is_ok());
-        for bad in ["10.89.0.1/24", "fd00::/64", "10.0.0.0/33", "not-a-subnet", "10.0.0.0/8 ", ""] {
+        for bad in [
+            "10.89.0.1/24",
+            "fd00::/64",
+            "10.0.0.0/33",
+            "not-a-subnet",
+            "10.0.0.0/8 ",
+            "",
+        ] {
             assert_eq!(
                 project_subnet(bad).unwrap_err().to_string(),
                 "canonical IPv4 project subnet required",
@@ -233,7 +280,11 @@ mod tests {
         let good = format!("$6${}${}", "s".repeat(8), "h".repeat(86));
         assert!(valid_password_hash(&good));
         assert!(valid_password_hash(&format!("$6$s${}", "h".repeat(86))));
-        assert!(valid_password_hash(&format!("$6${}${}", "s".repeat(16), "h".repeat(86))));
+        assert!(valid_password_hash(&format!(
+            "$6${}${}",
+            "s".repeat(16),
+            "h".repeat(86)
+        )));
         for bad in [
             format!("$6$${}", "h".repeat(86)),
             format!("$6${}${}", "s".repeat(17), "h".repeat(86)),
@@ -249,8 +300,10 @@ mod tests {
         }
     }
 
-    const TEMPLATE: &str = r#"{"ignition":{"version":"3.5.0"},"storage":{"files":[{"path":"/etc/keep","mode":420}]}}"#;
-    const KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKQ0MsA1tWa7risZNVfq58qNB9BByJfSJUQpWI9KvglV";
+    const TEMPLATE: &str =
+        r#"{"ignition":{"version":"3.5.0"},"storage":{"files":[{"path":"/etc/keep","mode":420}]}}"#;
+    const KEY: &str =
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKQ0MsA1tWa7risZNVfq58qNB9BByJfSJUQpWI9KvglV";
 
     fn hash() -> String {
         format!("$6${}${}", "s".repeat(8), "h".repeat(86))
@@ -258,7 +311,8 @@ mod tests {
 
     #[test]
     fn destination_assembles_config() {
-        let out = destination(TEMPLATE.as_bytes(), "soda-01", KEY, &hash(), "10.89.0.0/24").unwrap();
+        let out =
+            destination(TEMPLATE.as_bytes(), "soda-01", KEY, &hash(), "10.89.0.0/24").unwrap();
         let text = String::from_utf8(out).unwrap();
         let parsed = jsongo::parse(text.as_bytes()).unwrap();
         let config = Soft::new(&parsed).unwrap();
@@ -269,7 +323,8 @@ mod tests {
         let users = passwd.array("users").unwrap().unwrap();
         assert_eq!(users.len(), 1);
         // Deterministic key order and exact byte shape.
-        assert!(text.starts_with(r#"{"ignition":{"version":"3.5.0"},"passwd":{"users":[{"name":"root""#));
+        assert!(text
+            .starts_with(r#"{"ignition":{"version":"3.5.0"},"passwd":{"users":[{"name":"root""#));
         assert!(text.contains(r#""mode":384"#));
         assert!(text.contains("data:;base64,"));
         // Hostname file decodes to the name plus newline.
@@ -288,45 +343,99 @@ mod tests {
     #[test]
     fn destination_rejects_bad_inputs() {
         assert_eq!(
-            destination(TEMPLATE.as_bytes(), "BAD NAME", KEY, &hash(), "10.89.0.0/24").unwrap_err().to_string(),
+            destination(
+                TEMPLATE.as_bytes(),
+                "BAD NAME",
+                KEY,
+                &hash(),
+                "10.89.0.0/24"
+            )
+            .unwrap_err()
+            .to_string(),
             "invalid private provisioning inputs"
         );
         assert_eq!(
-            destination(TEMPLATE.as_bytes(), "soda-01", KEY, "not-a-hash", "10.89.0.0/24").unwrap_err().to_string(),
+            destination(
+                TEMPLATE.as_bytes(),
+                "soda-01",
+                KEY,
+                "not-a-hash",
+                "10.89.0.0/24"
+            )
+            .unwrap_err()
+            .to_string(),
             "invalid private provisioning inputs"
         );
         assert_eq!(
-            destination(TEMPLATE.as_bytes(), "soda-01", KEY, &hash(), "10.89.0.1/24").unwrap_err().to_string(),
+            destination(TEMPLATE.as_bytes(), "soda-01", KEY, &hash(), "10.89.0.1/24")
+                .unwrap_err()
+                .to_string(),
             "invalid private provisioning inputs"
         );
         assert_eq!(
-            destination(TEMPLATE.as_bytes(), "soda-01", "bogus-key", &hash(), "10.89.0.0/24").unwrap_err().to_string(),
+            destination(
+                TEMPLATE.as_bytes(),
+                "soda-01",
+                "bogus-key",
+                &hash(),
+                "10.89.0.0/24"
+            )
+            .unwrap_err()
+            .to_string(),
             "valid SSH public key without authorized_keys options required"
         );
         assert_eq!(
-            destination(b"not json", "soda-01", KEY, &hash(), "10.89.0.0/24").unwrap_err().to_string(),
+            destination(b"not json", "soda-01", KEY, &hash(), "10.89.0.0/24")
+                .unwrap_err()
+                .to_string(),
             "invalid public destination template"
         );
         assert_eq!(
-            destination(br#"{"ignition":{"version":"3.4.0"},"storage":{}}"#, "soda-01", KEY, &hash(), "10.89.0.0/24")
-                .unwrap_err()
-                .to_string(),
+            destination(
+                br#"{"ignition":{"version":"3.4.0"},"storage":{}}"#,
+                "soda-01",
+                KEY,
+                &hash(),
+                "10.89.0.0/24"
+            )
+            .unwrap_err()
+            .to_string(),
             "expected converted Ignition 3.5.0 template"
         );
         assert_eq!(
-            destination(br#"{"ignition":{"version":"3.5.0"},"storage":{},"passwd":{}}"#, "soda-01", KEY, &hash(), "10.89.0.0/24")
-                .unwrap_err()
-                .to_string(),
+            destination(
+                br#"{"ignition":{"version":"3.5.0"},"storage":{},"passwd":{}}"#,
+                "soda-01",
+                KEY,
+                &hash(),
+                "10.89.0.0/24"
+            )
+            .unwrap_err()
+            .to_string(),
             "public template must not contain accounts"
         );
         assert_eq!(
-            destination(br#"{"ignition":{"version":"3.5.0"}}"#, "soda-01", KEY, &hash(), "10.89.0.0/24").unwrap_err().to_string(),
+            destination(
+                br#"{"ignition":{"version":"3.5.0"}}"#,
+                "soda-01",
+                KEY,
+                &hash(),
+                "10.89.0.0/24"
+            )
+            .unwrap_err()
+            .to_string(),
             "invalid public storage template"
         );
         assert_eq!(
-            destination(br#"{"ignition":{"version":"3.5.0"},"storage":{}}"#, "soda-01", KEY, &hash(), "10.89.0.0/24")
-                .unwrap_err()
-                .to_string(),
+            destination(
+                br#"{"ignition":{"version":"3.5.0"},"storage":{}}"#,
+                "soda-01",
+                KEY,
+                &hash(),
+                "10.89.0.0/24"
+            )
+            .unwrap_err()
+            .to_string(),
             "invalid public files template"
         );
         assert_eq!(

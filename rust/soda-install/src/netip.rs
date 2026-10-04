@@ -89,14 +89,23 @@ fn parse_v4(input: &[u8]) -> Result<Addr, NetipError> {
     parse_v4_fields(input, 0, input.len(), &mut fields)?;
     let mut bytes = [0u8; 16];
     bytes[..4].copy_from_slice(&fields);
-    Ok(Addr { bytes, is4: true, zone: None })
+    Ok(Addr {
+        bytes,
+        is4: true,
+        zone: None,
+    })
 }
 
 /// Go `parseIPv4Fields`: strict dotted quads, no leading zeros, values
 /// `<= 255`, exactly four fields. `in` is the full original input (which may
 /// carry an IPv6 zone suffix when parsing an embedded tail); `off..end`
 /// selects the dotted-quad slice; `at` substrings are relative to it.
-fn parse_v4_fields(input: &[u8], off: usize, end: usize, fields: &mut [u8]) -> Result<(), NetipError> {
+fn parse_v4_fields(
+    input: &[u8],
+    off: usize,
+    end: usize,
+    fields: &mut [u8],
+) -> Result<(), NetipError> {
     let s = &input[off..end];
     let mut val = 0u32;
     let mut pos = 0usize;
@@ -106,7 +115,11 @@ fn parse_v4_fields(input: &[u8], off: usize, end: usize, fields: &mut [u8]) -> R
         let b = s[i];
         if b.is_ascii_digit() {
             if dig_len == 1 && val == 0 {
-                return Err(NetipError::addr(input, "IPv4 field has octet with leading zero", None));
+                return Err(NetipError::addr(
+                    input,
+                    "IPv4 field has octet with leading zero",
+                    None,
+                ));
             }
             val = val * 10 + u32::from(b - b'0');
             dig_len += 1;
@@ -129,7 +142,11 @@ fn parse_v4_fields(input: &[u8], off: usize, end: usize, fields: &mut [u8]) -> R
             val = 0;
             dig_len = 0;
         } else {
-            return Err(NetipError::addr(input, "unexpected character", Some(&s[i..])));
+            return Err(NetipError::addr(
+                input,
+                "unexpected character",
+                Some(&s[i..]),
+            ));
         }
         i += 1;
     }
@@ -151,7 +168,11 @@ fn parse_v6(input: &[u8]) -> Result<Addr, NetipError> {
         s = &input[..i];
         zone = &input[i + 1..];
         if zone.is_empty() {
-            return Err(NetipError::addr(input, "zone must be a non-empty string", None));
+            return Err(NetipError::addr(
+                input,
+                "zone must be a non-empty string",
+                None,
+            ));
         }
     }
 
@@ -182,12 +203,20 @@ fn parse_v6(input: &[u8]) -> Result<Addr, NetipError> {
                 break;
             }
             if off > 3 {
-                return Err(NetipError::addr(input, "each group must have 4 or less digits", Some(s)));
+                return Err(NetipError::addr(
+                    input,
+                    "each group must have 4 or less digits",
+                    Some(s),
+                ));
             }
             if acc > 0xffff {
                 // Unreachable in practice (four hex digits cannot exceed
                 // 0xffff), kept to mirror Go's overflow check.
-                return Err(NetipError::addr(input, "IPv6 field has value >=2^16", Some(s)));
+                return Err(NetipError::addr(
+                    input,
+                    "IPv6 field has value >=2^16",
+                    Some(s),
+                ));
             }
             off += 1;
         }
@@ -233,9 +262,17 @@ fn parse_v6(input: &[u8]) -> Result<Addr, NetipError> {
             break;
         }
         if s[0] != b':' {
-            return Err(NetipError::addr(input, "unexpected character, want colon", Some(s)));
+            return Err(NetipError::addr(
+                input,
+                "unexpected character, want colon",
+                Some(s),
+            ));
         } else if s.len() == 1 {
-            return Err(NetipError::addr(input, "colon must be followed by more characters", Some(s)));
+            return Err(NetipError::addr(
+                input,
+                "colon must be followed by more characters",
+                Some(s),
+            ));
         }
         s = &s[1..];
 
@@ -252,7 +289,11 @@ fn parse_v6(input: &[u8]) -> Result<Addr, NetipError> {
     }
 
     if !s.is_empty() {
-        return Err(NetipError::addr(input, "trailing garbage after address", Some(s)));
+        return Err(NetipError::addr(
+            input,
+            "trailing garbage after address",
+            Some(s),
+        ));
     }
 
     if i < 16 {
@@ -268,7 +309,11 @@ fn parse_v6(input: &[u8]) -> Result<Addr, NetipError> {
         }
         ip[ellipsis..ellipsis + n].fill(0);
     } else if ellipsis >= 0 {
-        return Err(NetipError::addr(input, "the :: must expand to at least one field of zeros", None));
+        return Err(NetipError::addr(
+            input,
+            "the :: must expand to at least one field of zeros",
+            None,
+        ));
     }
     Ok(v6_with_zone(ip, zone))
 }
@@ -277,7 +322,11 @@ fn v6_with_zone(ip: [u8; 16], zone: &[u8]) -> Addr {
     Addr {
         bytes: ip,
         is4: false,
-        zone: if zone.is_empty() { None } else { Some(zone.to_vec()) },
+        zone: if zone.is_empty() {
+            None
+        } else {
+            Some(zone.to_vec())
+        },
     }
 }
 
@@ -290,7 +339,10 @@ impl Addr {
     }
     /// Go `Is4In6`: `::ffff:0:0/96` exactly (zone ignored, as in Go).
     pub fn is4_in6(&self) -> bool {
-        !self.is4 && self.bytes[..10].iter().all(|b| *b == 0) && self.bytes[10] == 0xff && self.bytes[11] == 0xff
+        !self.is4
+            && self.bytes[..10].iter().all(|b| *b == 0)
+            && self.bytes[10] == 0xff
+            && self.bytes[11] == 0xff
     }
     /// Raw zone bytes, empty when absent. Go zones are unvalidated byte
     /// strings and may be invalid UTF-8 after URL unescaping.
@@ -320,8 +372,8 @@ impl Addr {
             push_dot(&mut out, &self.bytes[12..16]);
         } else {
             let mut groups = [0u16; 8];
-            for i in 0..8 {
-                groups[i] = u16::from_be_bytes([self.bytes[2 * i], self.bytes[2 * i + 1]]);
+            for (i, group) in groups.iter_mut().enumerate() {
+                *group = u16::from_be_bytes([self.bytes[2 * i], self.bytes[2 * i + 1]]);
             }
             let mut best_start = 0;
             let mut best_len = 0;
@@ -423,7 +475,10 @@ pub fn parse_prefix(value: &str) -> Result<Prefix, NetipError> {
     };
     let addr = parse_addr(&value[..slash]).map_err(|err| NetipError::prefix(value, err.text()))?;
     if !addr.zone().is_empty() {
-        return Err(NetipError::prefix(value, "IPv6 zones cannot be present in a prefix"));
+        return Err(NetipError::prefix(
+            value,
+            "IPv6 zones cannot be present in a prefix",
+        ));
     }
     let bits_str = &value[slash + 1..];
     let bits_bytes = bits_str.as_bytes();
@@ -438,7 +493,10 @@ pub fn parse_prefix(value: &str) -> Result<Prefix, NetipError> {
         if !b.is_ascii_digit() {
             return Err(NetipError::prefix(value, &bad_bits_text(bits_str)));
         }
-        bits = match bits.checked_mul(10).and_then(|v| v.checked_add(u32::from(*b - b'0'))) {
+        bits = match bits
+            .checked_mul(10)
+            .and_then(|v| v.checked_add(u32::from(*b - b'0')))
+        {
             Some(v) => v,
             None => return Err(NetipError::prefix(value, &bad_bits_text(bits_str))),
         };
@@ -459,14 +517,15 @@ impl Prefix {
     pub fn addr(&self) -> Addr {
         self.addr.clone()
     }
-    pub fn bits(&self) -> u32 {
-        self.bits
-    }
+
     /// Go `Prefix.Masked`: host bits zeroed.
     pub fn masked(&self) -> Prefix {
         let mut addr = self.addr.clone();
         addr.bytes = self.addr.masked_bytes(self.bits);
-        Prefix { addr, bits: self.bits }
+        Prefix {
+            addr,
+            bits: self.bits,
+        }
     }
     /// Go `Prefix.Contains`: zoned addresses never match (prefixes strip
     /// zones), families must agree, masked bytes must agree.
@@ -509,9 +568,23 @@ mod tests {
     fn oracle_addr_vectors() {
         // Oracle: TestZZOracleNetip `ADDR` + TestZZMicro `M` lines.
         for bad in [
-            "192.168.1.01", "1.2.3.4.5", "0x7f.0.0.1", "0177.0.0.1", "1.2.3", "1::2::3",
-            "1.2.3.4%eth0", "%eth0", "", "10.0.0.256", "1.2.3.4.", ".1.2.3.4", "1.2.3.4 ",
-            " 1.2.3.4", "010.0.0.1", "1.02.3.4", "fe80::1%",
+            "192.168.1.01",
+            "1.2.3.4.5",
+            "0x7f.0.0.1",
+            "0177.0.0.1",
+            "1.2.3",
+            "1::2::3",
+            "1.2.3.4%eth0",
+            "%eth0",
+            "",
+            "10.0.0.256",
+            "1.2.3.4.",
+            ".1.2.3.4",
+            "1.2.3.4 ",
+            " 1.2.3.4",
+            "010.0.0.1",
+            "1.02.3.4",
+            "fe80::1%",
         ] {
             assert!(parse_addr(bad).is_err(), "accepted {bad:?}");
         }
@@ -522,7 +595,13 @@ mod tests {
         addr_ok("::1", false, false, false, "::1");
         addr_ok("::ffff:1.2.3.4", false, true, false, "::ffff:1.2.3.4");
         addr_ok("::FFFF:1.2.3.4", false, true, false, "::ffff:1.2.3.4");
-        addr_ok("0:0:0:0:0:ffff:1.2.3.4", false, true, false, "::ffff:1.2.3.4");
+        addr_ok(
+            "0:0:0:0:0:ffff:1.2.3.4",
+            false,
+            true,
+            false,
+            "::ffff:1.2.3.4",
+        );
         addr_ok("64:ff9b::1.2.3.4", false, false, false, "64:ff9b::102:304");
         addr_ok("2001:db8::1", false, false, false, "2001:db8::1");
         addr_ok("fe80::1", false, false, false, "fe80::1");
@@ -532,7 +611,13 @@ mod tests {
         addr_ok("fd00::123", false, false, true, "fd00::123");
         addr_ok("100.90.1.2", true, false, false, "100.90.1.2");
         addr_ok("169.254.1.2", true, false, false, "169.254.1.2");
-        addr_ok("2001:db8:0:1:1:1:1:1", false, false, false, "2001:db8:0:1:1:1:1:1");
+        addr_ok(
+            "2001:db8:0:1:1:1:1:1",
+            false,
+            false,
+            false,
+            "2001:db8:0:1:1:1:1:1",
+        );
         addr_ok("1:0:0:2:0:0:0:3", false, false, false, "1:0:0:2::3");
         addr_ok("1:0:0:2:0:0:3:4", false, false, false, "1::2:0:0:3:4");
         addr_ok("0:0:1:2:3:4:5:6", false, false, false, "::1:2:3:4:5:6");
@@ -566,7 +651,13 @@ mod tests {
         addr_ok("::1:2:3:4:5:6:7", false, false, false, "0:1:2:3:4:5:6:7");
         addr_ok("::ffff", false, false, false, "::ffff");
         addr_ok("ffff::", false, false, false, "ffff::");
-        addr_ok("1:2:3:4:5:6:255.255.255.255", false, false, false, "1:2:3:4:5:6:ffff:ffff");
+        addr_ok(
+            "1:2:3:4:5:6:255.255.255.255",
+            false,
+            false,
+            false,
+            "1:2:3:4:5:6:ffff:ffff",
+        );
         let zoned = parse_addr("fe80::1%eth0").unwrap();
         assert_eq!(zoned.zone(), b"eth0");
         assert_eq!(text(&zoned.to_string_go()), "fe80::1%eth0");
@@ -577,11 +668,23 @@ mod tests {
         addr_err("", "ParseAddr(\"\"): unable to parse IP");
         addr_err("999", "ParseAddr(\"999\"): unable to parse IP");
         addr_err("%eth0", "ParseAddr(\"%eth0\"): missing IPv6 address");
-        addr_err("fe80::1%", "ParseAddr(\"fe80::1%\"): zone must be a non-empty string");
-        addr_err("1.2.3.4.5", "ParseAddr(\"1.2.3.4.5\"): IPv4 address too long");
+        addr_err(
+            "fe80::1%",
+            "ParseAddr(\"fe80::1%\"): zone must be a non-empty string",
+        );
+        addr_err(
+            "1.2.3.4.5",
+            "ParseAddr(\"1.2.3.4.5\"): IPv4 address too long",
+        );
         addr_err("1.2.3", "ParseAddr(\"1.2.3\"): IPv4 address too short");
-        addr_err("10.0.0.256", "ParseAddr(\"10.0.0.256\"): IPv4 field has value >255");
-        addr_err("192.168.1.01", "ParseAddr(\"192.168.1.01\"): IPv4 field has octet with leading zero");
+        addr_err(
+            "10.0.0.256",
+            "ParseAddr(\"10.0.0.256\"): IPv4 field has value >255",
+        );
+        addr_err(
+            "192.168.1.01",
+            "ParseAddr(\"192.168.1.01\"): IPv4 field has octet with leading zero",
+        );
         addr_err(
             "1.2.3.4.",
             "ParseAddr(\"1.2.3.4.\"): IPv4 field must have at least one digit (at \".\")",
@@ -659,10 +762,22 @@ mod tests {
     fn oracle_prefix_vectors() {
         // Oracle: `PREFIX` + `MP` lines.
         for bad in [
-            "10.0.0.0/33", "10.0.0.0/-1", "10.0.0.0/", "10.0.0.0", "010.0.0.0/8",
-            "10.0.0.0/08", "10.0.0.0/8 ", " 10.0.0.0/8", "10.0.0.0/+8", "10.0.0.0/8/8",
-            "fe80::1%eth0/64", "10.0.0.0/00", "10.0.0.0/000", "10.0.0.0/0008",
-            "fd00::/129", "fd00::/00",
+            "10.0.0.0/33",
+            "10.0.0.0/-1",
+            "10.0.0.0/",
+            "10.0.0.0",
+            "010.0.0.0/8",
+            "10.0.0.0/08",
+            "10.0.0.0/8 ",
+            " 10.0.0.0/8",
+            "10.0.0.0/+8",
+            "10.0.0.0/8/8",
+            "fe80::1%eth0/64",
+            "10.0.0.0/00",
+            "10.0.0.0/000",
+            "10.0.0.0/0008",
+            "fd00::/129",
+            "fd00::/00",
         ] {
             assert!(parse_prefix(bad).is_err(), "accepted {bad:?}");
         }
@@ -698,7 +813,10 @@ mod tests {
         let err = parse_prefix("10.0.0.0").unwrap_err();
         assert_eq!(err.text(), "netip.ParsePrefix(\"10.0.0.0\"): no '/'");
         let err = parse_prefix("10.0.0.0/33").unwrap_err();
-        assert_eq!(err.text(), "netip.ParsePrefix(\"10.0.0.0/33\"): prefix length out of range");
+        assert_eq!(
+            err.text(),
+            "netip.ParsePrefix(\"10.0.0.0/33\"): prefix length out of range"
+        );
         let err = parse_prefix("10.0.0.0/08").unwrap_err();
         assert_eq!(
             err.text(),

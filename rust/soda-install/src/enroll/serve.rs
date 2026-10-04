@@ -14,14 +14,19 @@ use super::arm::{enrollment_live_address, enrollment_state, enrollment_write};
 use super::keys::{append_enrollment_key, enrollment_root_home};
 use super::{
     enrollment_connection_unit, enrollment_public_key, enrollment_receiver_unit, read_bounded,
-    ENROLLMENT_DIR, ENROLLMENT_KEY_LIMIT, ENROLLMENT_SOCKET, ENROLLMENT_SOCKET_UNIT, ENROLLMENT_UNIT,
+    ENROLLMENT_DIR, ENROLLMENT_KEY_LIMIT, ENROLLMENT_SOCKET, ENROLLMENT_SOCKET_UNIT,
+    ENROLLMENT_UNIT,
 };
 
 fn validate_enrollment_server_environment() -> Result<Duration, Error> {
     let expected = format!("0::/system.slice/{ENROLLMENT_UNIT}");
     match std::fs::read("/proc/self/cgroup") {
         Ok(group) if String::from_utf8_lossy(&group).trim() == expected => {}
-        _ => return Err(Error::msg("enrollment server requires its fixed native transient service")),
+        _ => {
+            return Err(Error::msg(
+                "enrollment server requires its fixed native transient service",
+            ))
+        }
     }
     let (selected, remaining) = enrollment_state()?;
     if !enrollment_live_address(&selected) {
@@ -38,17 +43,19 @@ fn start_enrollment_broker(phase: &Ctx, run: &dyn Runner) -> Result<UnixListener
         ))
     })?;
     use std::os::unix::fs::PermissionsExt;
-    if std::fs::set_permissions(ENROLLMENT_SOCKET, std::fs::Permissions::from_mode(0o600)).is_err() {
+    if std::fs::set_permissions(ENROLLMENT_SOCKET, std::fs::Permissions::from_mode(0o600)).is_err()
+    {
         let err = std::io::Error::last_os_error();
         return Err(errors::path_error("chmod", ENROLLMENT_SOCKET, err));
     }
-    if run.run(
-        phase,
-        "systemctl",
-        &["start".to_string(), ENROLLMENT_SOCKET_UNIT.to_string()],
-        None,
-    )
-    .is_err()
+    if run
+        .run(
+            phase,
+            "systemctl",
+            &["start".to_string(), ENROLLMENT_SOCKET_UNIT.to_string()],
+            None,
+        )
+        .is_err()
     {
         return Err(Error::msg("native key-import socket could not start"));
     }
@@ -96,9 +103,7 @@ fn read_enrollment_key_from_connection(
     if let Some(err) = phase.err() {
         return Err(err);
     }
-    if let Err(err) = enrollment_state() {
-        return Err(err);
-    }
+    enrollment_state()?;
     Ok(Some(key))
 }
 
@@ -130,7 +135,15 @@ fn commit_enrollment_key(
     if err.is_none() {
         let ssh = format!("{home}/.ssh");
         let keys = format!("{home}/.ssh/authorized_keys");
-        if run.run(phase, "/usr/sbin/restorecon", &["--".to_string(), ssh, keys], None).is_err() {
+        if run
+            .run(
+                phase,
+                "/usr/sbin/restorecon",
+                &["--".to_string(), ssh, keys],
+                None,
+            )
+            .is_err()
+        {
             err = Some(Error::EnrollUncertain);
         }
     }
@@ -164,7 +177,11 @@ fn serve_enrollment_loop(
         if phase.err().is_some() {
             return Err(Error::msg("enrollment window closed"));
         }
-        let mut fd = libc::pollfd { fd: broker.as_raw_fd(), events: libc::POLLIN, revents: 0 };
+        let mut fd = libc::pollfd {
+            fd: broker.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        };
         if unsafe { libc::poll(&mut fd, 1, 1000) } < 0 {
             let errno = unsafe { *libc::__errno_location() };
             if errno != libc::EINTR {

@@ -1,7 +1,9 @@
 //! Operator console: prompting, line/password entry with terminal echo
 //! control, and the DHCP/`nmtui` network step.
 
-use std::fs::{File, OpenOptions};
+use std::fs::File;
+#[cfg(test)]
+use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::os::unix::io::AsRawFd;
 use std::os::unix::process::ExitStatusExt;
@@ -17,13 +19,17 @@ pub struct Console {
 }
 
 impl Console {
+    #[cfg(test)]
     pub fn open(path: &str) -> Result<Console, Error> {
         let tty = OpenOptions::new()
             .read(true)
             .write(true)
             .open(path)
             .map_err(|e| Error::msg(format!("cannot open operator terminal: {e}")))?;
-        Ok(Console { tty_path: path.to_string(), tty })
+        Ok(Console {
+            tty_path: path.to_string(),
+            tty,
+        })
     }
 
     fn fd(&self) -> libc::c_int {
@@ -51,7 +57,13 @@ impl Console {
                 Ok(0) => return Err(Error::msg(format!("write {}: short write", self.tty_path))),
                 Ok(n) => view = &view[n..],
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(e) => return Err(Error::msg(format!("write {}: {}", self.tty_path, errno_text(e)))),
+                Err(e) => {
+                    return Err(Error::msg(format!(
+                        "write {}: {}",
+                        self.tty_path,
+                        errno_text(e)
+                    )))
+                }
             }
         }
         Ok(())
@@ -70,13 +82,19 @@ impl Console {
     }
 
     fn poll(&self, timeout_ms: libc::c_int) -> Result<bool, Error> {
-        let mut fd = libc::pollfd { fd: self.fd(), events: libc::POLLIN, revents: 0 };
+        let mut fd = libc::pollfd {
+            fd: self.fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        };
         let result = unsafe { libc::poll(&mut fd, 1, timeout_ms) };
         if result < 0 {
             let errno = unsafe { *libc::__errno_location() };
             if errno != libc::EINTR {
                 // Go returns the raw errno text, lowercase like its table.
-                return Err(Error::msg(errno_text(std::io::Error::from_raw_os_error(errno))));
+                return Err(Error::msg(errno_text(std::io::Error::from_raw_os_error(
+                    errno,
+                ))));
             }
             return Ok(false);
         }
@@ -94,7 +112,13 @@ impl Console {
                 Ok(0) => return Ok(None),
                 Ok(_) => return Ok(Some(byte[0])),
                 Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
-                Err(e) => return Err(Error::msg(format!("read {}: {}", self.tty_path, errno_text(e)))),
+                Err(e) => {
+                    return Err(Error::msg(format!(
+                        "read {}: {}",
+                        self.tty_path,
+                        errno_text(e)
+                    )))
+                }
             }
         }
     }
@@ -136,7 +160,9 @@ impl Console {
         hidden.c_lflag &= !(libc::ECHO | libc::ECHONL);
         if unsafe { libc::ioctl(self.fd(), libc::TCSETS, &hidden) } != 0 {
             let errno = unsafe { *libc::__errno_location() };
-            return Err(Error::msg(errno_text(std::io::Error::from_raw_os_error(errno))));
+            return Err(Error::msg(errno_text(std::io::Error::from_raw_os_error(
+                errno,
+            ))));
         }
         Ok(state)
     }
@@ -232,7 +258,9 @@ impl Console {
         let status = if reaped {
             std::process::ExitStatus::from_raw(status_code)
         } else {
-            child.wait().unwrap_or_else(|_| std::process::ExitStatus::from_raw(1 << 8))
+            child
+                .wait()
+                .unwrap_or_else(|_| std::process::ExitStatus::from_raw(1 << 8))
         };
         self.page("Step 1 of 5 — Network");
         if !status.success() {
@@ -252,7 +280,10 @@ impl Console {
 
     /// Console over an already-open terminal or pipe.
     pub fn from_file(name: &str, tty: File) -> Console {
-        Console { tty_path: name.to_string(), tty }
+        Console {
+            tty_path: name.to_string(),
+            tty,
+        }
     }
 
     pub fn confirm_live_addresses(&self, ctx: &Ctx) -> Result<bool, Error> {
@@ -292,7 +323,10 @@ impl Console {
                 Ok((String::new(), false))
             }
             "keep" => Ok((String::new(), false)),
-            _ => Ok(("Choose keep, edit, back, restart, or cancel.".to_string(), true)),
+            _ => Ok((
+                "Choose keep, edit, back, restart, or cancel.".to_string(),
+                true,
+            )),
         }
     }
 
@@ -301,9 +335,19 @@ impl Console {
         ctx: &Ctx,
         run: &dyn Runner,
     ) -> Result<(bool, String), Error> {
-        let data = match run.run(ctx, "ip", &["-brief".to_string(), "address".to_string()], None) {
+        let data = match run.run(
+            ctx,
+            "ip",
+            &["-brief".to_string(), "address".to_string()],
+            None,
+        ) {
             Ok(data) => data,
-            Err(_) => return Ok((false, "Could not inspect live network addresses.".to_string())),
+            Err(_) => {
+                return Ok((
+                    false,
+                    "Could not inspect live network addresses.".to_string(),
+                ))
+            }
         };
         self.print_live_addresses(&data);
         let edit = self.confirm_live_addresses(ctx)?;
@@ -322,7 +366,10 @@ impl Console {
             }
             self.print("DHCP is ready by default.", &[]);
             self.print("Use nmtui to set a static address, gateway, or DNS.", &[]);
-            self.print("The installed system will receive the reviewed live settings.", &[]);
+            self.print(
+                "The installed system will receive the reviewed live settings.",
+                &[],
+            );
             let choice = self.choose_network_action(ctx, open_editor)?;
             open_editor = false;
             let (next, retry) = self.apply_network_choice(ctx, &choice)?;
@@ -354,7 +401,13 @@ fn go_space_len(prefix: &[u8]) -> usize {
         b'\t' | b'\n' | 0x0b | 0x0c | b'\r' | b' ' => return 1,
         0xc2 if prefix.len() >= 2 && (prefix[1] == 0x85 || prefix[1] == 0xa0) => return 2,
         0xe1 if prefix.len() >= 3 && prefix[1] == 0x9a && prefix[2] == 0x80 => return 3, // U+1680
-        0xe2 if prefix.len() >= 3 && prefix[1] == 0x80 && (prefix[2] <= 0x8a || prefix[2] == 0xa8 || prefix[2] == 0xa9 || prefix[2] == 0xaf) => {
+        0xe2 if prefix.len() >= 3
+            && prefix[1] == 0x80
+            && (prefix[2] <= 0x8a
+                || prefix[2] == 0xa8
+                || prefix[2] == 0xa9
+                || prefix[2] == 0xaf) =>
+        {
             return 3; // U+2000..U+200A, U+2028, U+2029, U+202F
         }
         0xe2 if prefix.len() >= 3 && prefix[1] == 0x81 && prefix[2] == 0x9f => return 3, // U+205F
@@ -379,7 +432,10 @@ fn trim_space_bytes(data: &[u8]) -> &[u8] {
         // scanning the longest candidate suffix first.
         let mut len = 0;
         for candidate in [3usize, 2, 1] {
-            if end >= candidate && start <= end - candidate && go_space_len(&data[end - candidate..end]) == candidate {
+            if end >= candidate
+                && start <= end - candidate
+                && go_space_len(&data[end - candidate..end]) == candidate
+            {
                 // The candidate must align with a rune boundary: it opens
                 // either at `start` or right after a non-space byte run.
                 // Mid-rune splits never match `go_space_len`, except a
@@ -427,8 +483,8 @@ fn errno_text(err: std::io::Error) -> String {
 
 #[cfg(test)]
 pub mod test_support {
-    use std::fs::{File, OpenOptions};
-    use std::io::{Read, Write};
+    use std::fs::File;
+    use std::io::Read;
     use std::os::unix::io::{AsRawFd, FromRawFd};
 
     pub struct Pty {
@@ -439,18 +495,43 @@ pub mod test_support {
     pub fn open_pty() -> Pty {
         let mut master = 0;
         let mut slave = 0;
-        assert_eq!(unsafe { libc::openpty(&mut master, &mut slave, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut()) }, 0);
+        assert_eq!(
+            unsafe {
+                libc::openpty(
+                    &mut master,
+                    &mut slave,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                )
+            },
+            0
+        );
         // ptsname_r: ptsname's static buffer races across test threads.
         let mut name = [0 as libc::c_char; 64];
-        assert_eq!(unsafe { libc::ptsname_r(master, name.as_mut_ptr(), name.len()) }, 0);
-        let slave_path = unsafe { std::ffi::CStr::from_ptr(name.as_ptr()).to_string_lossy().into_owned() };
+        assert_eq!(
+            unsafe { libc::ptsname_r(master, name.as_mut_ptr(), name.len()) },
+            0
+        );
+        let slave_path = unsafe {
+            std::ffi::CStr::from_ptr(name.as_ptr())
+                .to_string_lossy()
+                .into_owned()
+        };
         unsafe { libc::close(slave) };
-        Pty { master: unsafe { File::from_raw_fd(master) }, slave_path }
+        Pty {
+            master: unsafe { File::from_raw_fd(master) },
+            slave_path,
+        }
     }
 
     fn poll_read(master: &mut File, timeout_ms: i32) -> Option<Vec<u8>> {
         let fd = master.as_raw_fd();
-        let mut fdset: libc::pollfd = libc::pollfd { fd, events: libc::POLLIN, revents: 0 };
+        let mut fdset: libc::pollfd = libc::pollfd {
+            fd,
+            events: libc::POLLIN,
+            revents: 0,
+        };
         let ready = unsafe { libc::poll(&mut fdset, 1, timeout_ms) };
         if ready > 0 && fdset.revents & libc::POLLIN != 0 {
             let mut chunk = [0u8; 4096];
@@ -476,7 +557,10 @@ pub mod test_support {
             match poll_read(master, 50) {
                 Some(chunk) => output.extend(chunk),
                 None => {
-                    assert!(start.elapsed() < budget, "timed out waiting for console output");
+                    assert!(
+                        start.elapsed() < budget,
+                        "timed out waiting for console output"
+                    );
                     std::thread::sleep(std::time::Duration::from_millis(10));
                 }
             }
@@ -504,10 +588,6 @@ pub mod test_support {
             }
         }
         output
-    }
-
-    pub fn open_slave(path: &str) -> File {
-        OpenOptions::new().read(true).write(true).open(path).unwrap()
     }
 }
 
@@ -540,7 +620,10 @@ mod tests {
         });
         read_until(&mut master, b"Name: ", 2000);
         master.write_all(b"a\x01b\n").unwrap();
-        assert_eq!(worker.join().unwrap().unwrap_err().to_string(), "control character refused");
+        assert_eq!(
+            worker.join().unwrap().unwrap_err().to_string(),
+            "control character refused"
+        );
     }
 
     #[test]
@@ -595,9 +678,17 @@ mod tests {
             });
             console.network_with(&ctx, &runner)
         });
-        let mut output = read_until(&mut master, b"Type keep, edit, back, restart, or cancel: ", 2000);
+        let mut output = read_until(
+            &mut master,
+            b"Type keep, edit, back, restart, or cancel: ",
+            2000,
+        );
         master.write_all(b"keep\n").unwrap();
-        output.extend(read_until(&mut master, b"Type yes to use them, edit, back, restart, or cancel: ", 2000));
+        output.extend(read_until(
+            &mut master,
+            b"Type yes to use them, edit, back, restart, or cancel: ",
+            2000,
+        ));
         master.write_all(b"yes\n").unwrap();
         assert!(worker.join().unwrap().is_ok());
         output.extend(drain_idle(&mut master, 200));

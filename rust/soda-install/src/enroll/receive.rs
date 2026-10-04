@@ -21,7 +21,10 @@ fn admit_receive_enrollment() -> Result<Duration, Error> {
     }
     let (selected, remaining) = enrollment_state()?;
     let connection = std::env::var_os("SSH_CONNECTION");
-    let text = connection.as_deref().map(|v| v.to_string_lossy()).unwrap_or_default();
+    let text = connection
+        .as_deref()
+        .map(|v| v.to_string_lossy())
+        .unwrap_or_default();
     let fields: Vec<&str> = text.split_whitespace().collect();
     if fields.len() != 4 || fields[2] != selected.ip || fields[3] != ENROLLMENT_PORT {
         return Err(Error::msg("dedicated key-import SSH connection required"));
@@ -37,14 +40,16 @@ fn confirm_enrollment_import(result: &[u8], err: Option<Error>) -> Result<(), Er
         return Err(Error::EnrollUncertain);
     }
     if err.is_some() || result != b"imported\n" {
-        return Err(Error::msg("key import was not confirmed; inspect the local console before retrying"));
+        return Err(Error::msg(
+            "key import was not confirmed; inspect the local console before retrying",
+        ));
     }
     Ok(())
 }
 
 fn submit_enrollment_key(ctx: &Ctx, key: &str) -> Result<(), Error> {
-    let mut connection =
-        UnixStream::connect(ENROLLMENT_SOCKET).map_err(|_| Error::msg("key-import window is closed"))?;
+    let mut connection = UnixStream::connect(ENROLLMENT_SOCKET)
+        .map_err(|_| Error::msg("key-import window is closed"))?;
     if let Some(deadline) = ctx.deadline() {
         let timeout = deadline.saturating_duration_since(Instant::now());
         let _ = connection.set_read_timeout(Some(timeout));
@@ -92,7 +97,10 @@ pub fn receive_enrollment(ctx: &Ctx) -> Result<(), Error> {
     submit_enrollment_key(&phase, &key)?;
     {
         use std::io::Write;
-        let _ = writeln!(std::io::stdout(), "Public key imported. Verify a fresh ordinary key-only SSH login.");
+        let _ = writeln!(
+            std::io::stdout(),
+            "Public key imported. Verify a fresh ordinary key-only SSH login."
+        );
     }
     Ok(())
 }
@@ -103,7 +111,11 @@ fn enrollment_stdin(ctx: &Ctx) -> Result<Vec<u8>, Error> {
         if let Some(err) = ctx.err() {
             return Err(err);
         }
-        let mut fd = libc::pollfd { fd: 0, events: libc::POLLIN, revents: 0 };
+        let mut fd = libc::pollfd {
+            fd: 0,
+            events: libc::POLLIN,
+            revents: 0,
+        };
         if unsafe { libc::poll(&mut fd, 1, 100) } < 0 {
             let errno = unsafe { *libc::__errno_location() };
             if errno != libc::EINTR {
@@ -118,7 +130,8 @@ fn enrollment_stdin(ctx: &Ctx) -> Result<Vec<u8>, Error> {
         }
         let mut buffer = [0u8; 1024];
         let n = loop {
-            let n = unsafe { libc::read(0, buffer.as_mut_ptr() as *mut libc::c_void, buffer.len()) };
+            let n =
+                unsafe { libc::read(0, buffer.as_mut_ptr() as *mut libc::c_void, buffer.len()) };
             if n < 0 {
                 let errno = unsafe { *libc::__errno_location() };
                 if errno == libc::EINTR {

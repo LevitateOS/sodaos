@@ -15,7 +15,14 @@ use crate::oci;
 pub const PATH: &str = "/usr/share/soda/release.json";
 pub const IMAGES_PATH: &str = "/usr/share/soda/images";
 
-pub const NAMES: [&str; 6] = ["dashboard", "forgejo", "extension", "proxy", "project-os", "tailnet"];
+pub const NAMES: [&str; 6] = [
+    "dashboard",
+    "forgejo",
+    "extension",
+    "proxy",
+    "project-os",
+    "tailnet",
+];
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Image {
@@ -44,7 +51,10 @@ pub struct Payload {
 fn core_os_shape(core_os: &str) -> bool {
     // `^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$`
     let parts: Vec<&str> = core_os.split('.').collect();
-    parts.len() == 4 && parts.iter().all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
+    parts.len() == 4
+        && parts
+            .iter()
+            .all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit()))
 }
 
 fn valid_repository_prefix(s: &str) -> bool {
@@ -67,10 +77,22 @@ fn valid_repository_prefix(s: &str) -> bool {
             return false;
         }
     }
-    let owner_ok = owner.bytes().next().map(|b| b.is_ascii_lowercase() || b.is_ascii_digit()).unwrap_or(false)
-        && owner.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
-    let repo_ok = repo.bytes().next().map(|b| b.is_ascii_lowercase() || b.is_ascii_digit()).unwrap_or(false)
-        && repo.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'_' || b == b'-');
+    let owner_ok = owner
+        .bytes()
+        .next()
+        .map(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        .unwrap_or(false)
+        && owner
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
+    let repo_ok = repo
+        .bytes()
+        .next()
+        .map(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+        .unwrap_or(false)
+        && repo.bytes().all(|b| {
+            b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'.' || b == b'_' || b == b'-'
+        });
     owner_ok && repo_ok
 }
 
@@ -113,7 +135,8 @@ impl Payload {
                     digest_prefixed(&image.config)
                         && digest_prefixed(&image.manifest)
                         && buildx::digest(&image.archive_sha256)
-                        && image.reference == format!("{}-{name}@{}", self.repository_prefix, image.manifest)
+                        && image.reference
+                            == format!("{}-{name}@{}", self.repository_prefix, image.manifest)
                 }
                 None => false,
             };
@@ -122,7 +145,9 @@ impl Payload {
             }
         }
         if self.images["extension"].config == self.images["forgejo"].config {
-            return Err(Error::msg("extension requires an independent image identity"));
+            return Err(Error::msg(
+                "extension requires an independent image identity",
+            ));
         }
         Ok(())
     }
@@ -189,7 +214,9 @@ fn decode_payload(value: &JsonValue) -> Result<Payload, ()> {
         names.dedup();
         for name in names {
             let value = entries.iter().rev().find(|(k, _)| k == name).unwrap();
-            payload.images.insert(name.to_string(), decode_image(&value.1)?);
+            payload
+                .images
+                .insert(name.to_string(), decode_image(&value.1)?);
         }
     }
     if let Some(items) = binder.array("UpgradeFrom")? {
@@ -216,7 +243,11 @@ pub fn load(path: &str) -> Result<Payload, Error> {
 fn bind_image_revisions(payload: &Payload) -> Result<BTreeMap<String, String>, Error> {
     let mut revisions = BTreeMap::new();
     for name in NAMES {
-        let revision = if name == "proxy" { String::new() } else { payload.revision.clone() };
+        let revision = if name == "proxy" {
+            String::new()
+        } else {
+            payload.revision.clone()
+        };
         let reference = payload.images[name].config.clone();
         if let Some(previous) = revisions.get(&reference) {
             if *previous != revision {
@@ -241,7 +272,10 @@ fn match_layout_identities(payload: &Payload, layout: &oci::OciLayout) -> Result
 
 /// Binds the shared OCI content to the payload before import or disk
 /// writes. Each shared blob is hashed and counted once.
-pub fn verify_content(payload: &Payload, images: &str) -> Result<(BTreeMap<String, String>, u64), Error> {
+pub fn verify_content(
+    payload: &Payload,
+    images: &str,
+) -> Result<(BTreeMap<String, String>, u64), Error> {
     payload.validate()?;
     if !images.starts_with('/') || images.contains([':', '\r', '\n']) {
         return Err(Error::msg("absolute local OCI directory required"));
@@ -278,7 +312,11 @@ mod tests {
             payload.images.insert(
                 name.to_string(),
                 Image {
-                    reference: format!("{}-{name}@sha256:{}", payload.repository_prefix, "e".repeat(64)),
+                    reference: format!(
+                        "{}-{name}@sha256:{}",
+                        payload.repository_prefix,
+                        "e".repeat(64)
+                    ),
                     manifest: format!("sha256:{}", "e".repeat(64)),
                     config: format!("sha256:{}", buildx::sha256_hex(&[i as u8])),
                     archive_sha256: "1".repeat(64),
@@ -311,14 +349,26 @@ mod tests {
         assert!(bad.validate().is_err());
         let mut bad = fixture();
         bad.images.remove("proxy");
-        assert_eq!(bad.validate().unwrap_err().to_string(), "complete image set required");
+        assert_eq!(
+            bad.validate().unwrap_err().to_string(),
+            "complete image set required"
+        );
         let mut bad = fixture();
-        bad.images.get_mut("dashboard").unwrap().reference = "ghcr.io/example/dashboard:latest".to_string();
-        assert!(bad.validate().unwrap_err().to_string().contains("invalid dashboard image binding"));
+        bad.images.get_mut("dashboard").unwrap().reference =
+            "ghcr.io/example/dashboard:latest".to_string();
+        assert!(bad
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("invalid dashboard image binding"));
         let mut bad = fixture();
         let forgejo = bad.images["forgejo"].config.clone();
         bad.images.get_mut("extension").unwrap().config = forgejo;
-        assert!(bad.validate().unwrap_err().to_string().contains("independent image identity"));
+        assert!(bad
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("independent image identity"));
     }
 
     #[test]
@@ -339,24 +389,57 @@ mod tests {
             images.push((
                 name.clone(),
                 JsonValue::Object(vec![
-                    ("Reference".to_string(), JsonValue::Str(image.reference.clone())),
+                    (
+                        "Reference".to_string(),
+                        JsonValue::Str(image.reference.clone()),
+                    ),
                     ("Config".to_string(), JsonValue::Str(image.config.clone())),
-                    ("Manifest".to_string(), JsonValue::Str(image.manifest.clone())),
-                    ("ArchiveSHA256".to_string(), JsonValue::Str(image.archive_sha256.clone())),
+                    (
+                        "Manifest".to_string(),
+                        JsonValue::Str(image.manifest.clone()),
+                    ),
+                    (
+                        "ArchiveSHA256".to_string(),
+                        JsonValue::Str(image.archive_sha256.clone()),
+                    ),
                 ]),
             ));
         }
         JsonValue::Object(vec![
-            ("Format".to_string(), JsonValue::Number(payload.format.to_string())),
+            (
+                "Format".to_string(),
+                JsonValue::Number(payload.format.to_string()),
+            ),
             ("ID".to_string(), JsonValue::Str(payload.id.clone())),
-            ("Revision".to_string(), JsonValue::Str(payload.revision.clone())),
-            ("Architecture".to_string(), JsonValue::Str(payload.architecture.clone())),
-            ("CoreOS".to_string(), JsonValue::Str(payload.core_os.clone())),
+            (
+                "Revision".to_string(),
+                JsonValue::Str(payload.revision.clone()),
+            ),
+            (
+                "Architecture".to_string(),
+                JsonValue::Str(payload.architecture.clone()),
+            ),
+            (
+                "CoreOS".to_string(),
+                JsonValue::Str(payload.core_os.clone()),
+            ),
             ("Base".to_string(), JsonValue::Str(payload.base.clone())),
-            ("RepositoryPrefix".to_string(), JsonValue::Str(payload.repository_prefix.clone())),
-            ("Schema".to_string(), JsonValue::Number(payload.schema.to_string())),
-            ("PresentationSHA256".to_string(), JsonValue::Str(payload.presentation_sha256.clone())),
-            ("HostPackagesSHA256".to_string(), JsonValue::Str(payload.host_packages_sha256.clone())),
+            (
+                "RepositoryPrefix".to_string(),
+                JsonValue::Str(payload.repository_prefix.clone()),
+            ),
+            (
+                "Schema".to_string(),
+                JsonValue::Number(payload.schema.to_string()),
+            ),
+            (
+                "PresentationSHA256".to_string(),
+                JsonValue::Str(payload.presentation_sha256.clone()),
+            ),
+            (
+                "HostPackagesSHA256".to_string(),
+                JsonValue::Str(payload.host_packages_sha256.clone()),
+            ),
             ("Images".to_string(), JsonValue::Object(images)),
             ("UpgradeFrom".to_string(), JsonValue::Array(Vec::new())),
         ])
@@ -367,7 +450,8 @@ mod tests {
         let layout = crate::oci::test_support::temp_dir("soda-deliver");
         let mut configs = BTreeMap::new();
         for name in NAMES {
-            let config = crate::oci::test_support::add_image(&layout, name, "amd64", &payload.revision);
+            let config =
+                crate::oci::test_support::add_image(&layout, name, "amd64", &payload.revision);
             configs.insert(config, name.to_string());
         }
         // Fetch each manifest digest from the written index via the fixture
@@ -426,7 +510,10 @@ mod tests {
         assert!(bytes > 0);
         let mut bad = payload.clone();
         bad.images.get_mut("dashboard").unwrap().manifest = format!("sha256:{}", "9".repeat(64));
-        let reference = format!("{}-dashboard@{}", bad.repository_prefix, bad.images["dashboard"].manifest);
+        let reference = format!(
+            "{}-dashboard@{}",
+            bad.repository_prefix, bad.images["dashboard"].manifest
+        );
         bad.images.get_mut("dashboard").unwrap().reference = reference;
         assert!(verify_content(&bad, &layout).is_err());
         assert!(verify_content(&payload, "relative/layout").is_err());

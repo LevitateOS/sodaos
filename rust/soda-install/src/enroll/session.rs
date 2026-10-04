@@ -27,7 +27,11 @@ pub struct EnrollmentSession<'a> {
 
 impl<'a> EnrollmentSession<'a> {
     pub fn new(run: &'a dyn Runner) -> EnrollmentSession<'a> {
-        EnrollmentSession { run, started: false, published_units: Vec::new() }
+        EnrollmentSession {
+            run,
+            started: false,
+            published_units: Vec::new(),
+        }
     }
 
     fn stop_units(&self) -> Result<(), Error> {
@@ -39,11 +43,21 @@ impl<'a> EnrollmentSession<'a> {
         // instances. Only these exact owned names are stopped, never a glob.
         let socket_err = self
             .run
-            .run(&cleanup, "systemctl", &["stop".to_string(), ENROLLMENT_SOCKET_UNIT.to_string()], None)
+            .run(
+                &cleanup,
+                "systemctl",
+                &["stop".to_string(), ENROLLMENT_SOCKET_UNIT.to_string()],
+                None,
+            )
             .err();
         let stop_err = self
             .run
-            .run(&cleanup, "systemctl", &["stop".to_string(), ENROLLMENT_UNIT.to_string()], None)
+            .run(
+                &cleanup,
+                "systemctl",
+                &["stop".to_string(), ENROLLMENT_UNIT.to_string()],
+                None,
+            )
             .err();
         let mut stopped = stop_err.is_none();
         if !stopped {
@@ -120,10 +134,28 @@ fn write_enrollment_config(
     enforcing: bool,
 ) -> Result<(), Error> {
     let now = enrollment_boot_seconds()?;
-    enrollment_write(ENROLLMENT_DIR, "armed", &format!("{} {} {}\n", selected.name, selected.ip, now + 300))?;
+    enrollment_write(
+        ENROLLMENT_DIR,
+        "armed",
+        &format!("{} {} {}\n", selected.name, selected.ip, now + 300),
+    )?;
     enrollment_write(ENROLLMENT_DIR, "sshd_config", &enrollment_config())?;
-    if run.run(ctx, "/usr/sbin/sshd", &["-t".to_string(), "-f".to_string(), ENROLLMENT_CONFIG_PATH.to_string()], None).is_err() {
-        return Err(Error::msg("native SSH configuration check failed; no listener opened"));
+    if run
+        .run(
+            ctx,
+            "/usr/sbin/sshd",
+            &[
+                "-t".to_string(),
+                "-f".to_string(),
+                ENROLLMENT_CONFIG_PATH.to_string(),
+            ],
+            None,
+        )
+        .is_err()
+    {
+        return Err(Error::msg(
+            "native SSH configuration check failed; no listener opened",
+        ));
     }
     super::selinux::label_enrollment_config(ctx, run, enforcing)
 }
@@ -147,9 +179,10 @@ fn publish_enrollment_units(
     let dir = unsafe { std::os::unix::io::OwnedFd::from_raw_fd(fd) };
     enrollment_safe_directory(dir.as_raw_fd(), 0)?;
     let socket_config = enrollment_socket_unit_config(ip)?;
-    for (name, contents) in
-        [(ENROLLMENT_SOCKET_UNIT, socket_config), (ENROLLMENT_TEMPLATE_UNIT, enrollment_template_unit_config())]
-    {
+    for (name, contents) in [
+        (ENROLLMENT_SOCKET_UNIT, socket_config),
+        (ENROLLMENT_TEMPLATE_UNIT, enrollment_template_unit_config()),
+    ] {
         if enrollment_write(ENROLLMENT_UNIT_DIRECTORY, name, &contents).is_err() {
             return Err(Error::msg(
                 "runtime enrollment unit already exists or cannot be published; no replacement",
@@ -157,7 +190,11 @@ fn publish_enrollment_units(
         }
         session.published_units.push(name.to_string());
     }
-    if session.run.run(ctx, "systemctl", &["daemon-reload".to_string()], None).is_err() {
+    if session
+        .run
+        .run(ctx, "systemctl", &["daemon-reload".to_string()], None)
+        .is_err()
+    {
         return Err(Error::msg("native enrollment units could not be loaded"));
     }
     Ok(())
@@ -167,7 +204,11 @@ fn start_enrollment_service(ctx: &Ctx, session: &mut EnrollmentSession) -> Resul
     // Mark before starting: a lost systemd-run reply is not permission to leave
     // a possibly started window running without the cleanup attempt.
     session.started = true;
-    if session.run.run(ctx, "systemd-run", &enrollment_start_args(), None).is_err() {
+    if session
+        .run
+        .run(ctx, "systemd-run", &enrollment_start_args(), None)
+        .is_err()
+    {
         return Err(Error::msg("temporary enrollment service could not start"));
     }
     Ok(())
@@ -193,10 +234,15 @@ fn check_enrollment_result(console: &Console, ip: &str) -> Result<bool, Error> {
         return Err(Error::EnrollUncertain);
     }
     if data != b"imported\n" {
-        return Err(Error::msg("key import failed; preserve existing access and inspect locally"));
+        return Err(Error::msg(
+            "key import failed; preserve existing access and inspect locally",
+        ));
     }
     console.print("Public key installed. The import window is closing. Verify a NEW ordinary key-only SSH login from the laptop before continuing.", &[]);
-    console.print("Use the laptop private-key path matching the public .pub file you imported:", &[]);
+    console.print(
+        "Use the laptop private-key path matching the public .pub file you imported:",
+        &[],
+    );
     console.print("ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no -o ControlMaster=no -o ControlPath=none root@%s", &[Arg::Str(ip)]);
     Ok(true)
 }
@@ -219,7 +265,11 @@ fn notify_enrollment_ready(console: &Console, selected: &EnrollmentAddress, read
 fn poll_console_cancel(console: &Console, cancel_ctx: &Ctx) -> Result<(), Error> {
     // A short poll keeps cancellation responsive without abandoning a reader
     // goroutine that could consume a subsequent wizard answer.
-    let mut fd = libc::pollfd { fd: console.tty_fd(), events: libc::POLLIN, revents: 0 };
+    let mut fd = libc::pollfd {
+        fd: console.tty_fd(),
+        events: libc::POLLIN,
+        revents: 0,
+    };
     if unsafe { libc::poll(&mut fd, 1, 200) } < 0 {
         let errno = unsafe { *libc::__errno_location() };
         if errno != libc::EINTR {
@@ -272,9 +322,8 @@ fn wait_enrollment_result(
     let mut ready = false;
     let mut last_state_check: Option<Instant> = None;
     loop {
-        match check_enrollment_result(console, &selected.ip)? {
-            true => return Ok(()),
-            false => {}
+        if check_enrollment_result(console, &selected.ip)? {
+            return Ok(());
         }
         if wait_ctx.err().is_some() {
             return Err(Error::msg("key enrollment closed without confirmed import"));
@@ -307,8 +356,6 @@ pub fn arm_enrollment(ctx: &Ctx, console: &Console, run: &dyn Runner) -> Result<
         publish_enrollment_state(ctx, &mut session, &selected, enforcing)?;
         wait_enrollment_result(ctx, console, run, &selected)
     })();
-    if let Err(close_err) = session.close() {
-        return Err(close_err);
-    }
+    session.close()?;
     result
 }

@@ -68,7 +68,8 @@ fn unhex(b: u8) -> u8 {
 
 // Bytes Go's `shouldEscape` keeps raw in host/zone mode (extracted from the
 // generated table): everything else literal below 0x80 is refused in hosts.
-const HOST_OK: &[u8] = b"!$&'()*+,-.0123456789:;<=>ABCDEFGHIJKLMNOPQRSTUVWXYZ[]_abcdefghijklmnopqrstuvwxyz~\"";
+const HOST_OK: &[u8] =
+    b"!$&'()*+,-.0123456789:;<=>ABCDEFGHIJKLMNOPQRSTUVWXYZ[]_abcdefghijklmnopqrstuvwxyz~\"";
 
 fn should_escape_host(b: u8) -> bool {
     !HOST_OK.contains(&b)
@@ -171,7 +172,9 @@ fn parse_host(scheme: &str, host: &str) -> Result<Vec<u8>, String> {
         if open > 0 {
             return Err(String::from("invalid IP-literal"));
         }
-        let close = host.rfind(']').ok_or_else(|| String::from("missing ']' in host"))?;
+        let close = host
+            .rfind(']')
+            .ok_or_else(|| String::from("missing ']' in host"))?;
         let colon_port = &host[close + 1..];
         if !valid_optional_port(colon_port.as_bytes()) {
             return Err(invalid_port_error(colon_port));
@@ -219,8 +222,23 @@ fn valid_userinfo(userinfo: &str) -> bool {
         c.is_ascii_alphanumeric()
             || matches!(
                 c,
-                '-' | '.' | '_' | ':' | '~' | '!' | '$' | '&' | '\'' | '(' | ')' | '*' | '+' | ','
-                    | ';' | '=' | '%' | '@'
+                '-' | '.'
+                    | '_'
+                    | ':'
+                    | '~'
+                    | '!'
+                    | '$'
+                    | '&'
+                    | '\''
+                    | '('
+                    | ')'
+                    | '*'
+                    | '+'
+                    | ','
+                    | ';'
+                    | '='
+                    | '%'
+                    | '@'
             )
     })
 }
@@ -287,8 +305,8 @@ pub fn parse(raw: &str) -> Result<Url, ParseError> {
     };
     let mut url = parse_inner(u).map_err(|inner| ParseError::wrap(u, &inner))?;
     if !fragment.is_empty() {
-        url.fragment =
-            unescape(fragment.as_bytes(), Mode::Other).map_err(|inner| ParseError::wrap(raw, &inner))?;
+        url.fragment = unescape(fragment.as_bytes(), Mode::Other)
+            .map_err(|inner| ParseError::wrap(raw, &inner))?;
     }
     Ok(url)
 }
@@ -317,7 +335,9 @@ fn parse_inner(u: &str) -> Result<Url, String> {
         }
         let first = rest.split('/').next().unwrap_or("");
         if first.contains(':') {
-            return Err(String::from("first path segment in URL cannot contain colon"));
+            return Err(String::from(
+                "first path segment in URL cannot contain colon",
+            ));
         }
     }
     if (!url.scheme.is_empty() || !rest.starts_with("///")) && rest.starts_with("//") {
@@ -326,7 +346,7 @@ fn parse_inner(u: &str) -> Result<Url, String> {
         let (user_present, host) = parse_authority(&url.scheme, &after[..end])?;
         url.user_present = user_present;
         url.host = host;
-        url.path = unescape(after[end..].as_bytes(), Mode::Other)?;
+        url.path = unescape(&after.as_bytes()[end..], Mode::Other)?;
         return Ok(url);
     }
     url.path = unescape(rest.as_bytes(), Mode::Other)?;
@@ -375,7 +395,11 @@ mod tests {
         // Oracle: TestZZOracleURL `URL` lines (errors only; fields spot-checked).
         // Go rejects a leading space before `https:`: the first path segment
         // then contains a colon (`net/url` sources, verified by probe).
-        for bad in ["https://192.168.1.5 ", "https://a b", " https://192.168.1.5"] {
+        for bad in [
+            "https://192.168.1.5 ",
+            "https://a b",
+            " https://192.168.1.5",
+        ] {
             assert!(parse(bad).is_err(), "accepted {bad:?}");
         }
         assert_eq!(
@@ -385,25 +409,188 @@ mod tests {
         // "https://192.168.1.5:99999" parses (port unchecked); hostname strips.
         let url = parse("https://192.168.1.5:99999").unwrap();
         assert_eq!(url.hostname(), b"192.168.1.5");
-        let cases: &[(&str, &str, bool, &str, &str, &str, &str, &str)] = &[
-            ("https://192.168.1.5", "https", false, "192.168.1.5", "192.168.1.5", "", "", ""),
-            ("https://192.168.1.5/", "https", false, "192.168.1.5", "192.168.1.5", "/", "", ""),
-            ("HTTPS://192.168.1.5", "https", false, "192.168.1.5", "192.168.1.5", "", "", ""),
-            ("https://192.168.1.2:444", "https", false, "192.168.1.2:444", "192.168.1.2", "", "", ""),
-            ("https://192.168.1.2/path", "https", false, "192.168.1.2", "192.168.1.2", "/path", "", ""),
-            ("https://root@192.168.1.2", "https", true, "192.168.1.2", "192.168.1.2", "", "", ""),
-            ("https://user:pass@192.168.1.5", "https", true, "192.168.1.5", "192.168.1.5", "", "", ""),
-            ("https://192.168.1.2?argument", "https", false, "192.168.1.2", "192.168.1.2", "", "argument", ""),
-            ("https://192.168.1.2#frag", "https", false, "192.168.1.2", "192.168.1.2", "", "", "frag"),
-            ("https://[fd00::123]", "https", false, "[fd00::123]", "fd00::123", "", "", ""),
-            ("https://[FD00::123]/", "https", false, "[FD00::123]", "FD00::123", "/", "", ""),
-            ("https://soda.example.test", "https", false, "soda.example.test", "soda.example.test", "", "", ""),
-            ("http://192.168.1.5", "http", false, "192.168.1.5", "192.168.1.5", "", "", ""),
-            ("https://192.168.1.5:443", "https", false, "192.168.1.5:443", "192.168.1.5", "", "", ""),
-            ("https://192.168.1.5//", "https", false, "192.168.1.5", "192.168.1.5", "//", "", ""),
-            ("//192.168.1.5", "", false, "192.168.1.5", "192.168.1.5", "", "", ""),
+        type UrlVector<'a> = (
+            &'a str,
+            &'a str,
+            bool,
+            &'a str,
+            &'a str,
+            &'a str,
+            &'a str,
+            &'a str,
+        );
+        let cases: &[UrlVector<'_>] = &[
+            (
+                "https://192.168.1.5",
+                "https",
+                false,
+                "192.168.1.5",
+                "192.168.1.5",
+                "",
+                "",
+                "",
+            ),
+            (
+                "https://192.168.1.5/",
+                "https",
+                false,
+                "192.168.1.5",
+                "192.168.1.5",
+                "/",
+                "",
+                "",
+            ),
+            (
+                "HTTPS://192.168.1.5",
+                "https",
+                false,
+                "192.168.1.5",
+                "192.168.1.5",
+                "",
+                "",
+                "",
+            ),
+            (
+                "https://192.168.1.2:444",
+                "https",
+                false,
+                "192.168.1.2:444",
+                "192.168.1.2",
+                "",
+                "",
+                "",
+            ),
+            (
+                "https://192.168.1.2/path",
+                "https",
+                false,
+                "192.168.1.2",
+                "192.168.1.2",
+                "/path",
+                "",
+                "",
+            ),
+            (
+                "https://root@192.168.1.2",
+                "https",
+                true,
+                "192.168.1.2",
+                "192.168.1.2",
+                "",
+                "",
+                "",
+            ),
+            (
+                "https://user:pass@192.168.1.5",
+                "https",
+                true,
+                "192.168.1.5",
+                "192.168.1.5",
+                "",
+                "",
+                "",
+            ),
+            (
+                "https://192.168.1.2?argument",
+                "https",
+                false,
+                "192.168.1.2",
+                "192.168.1.2",
+                "",
+                "argument",
+                "",
+            ),
+            (
+                "https://192.168.1.2#frag",
+                "https",
+                false,
+                "192.168.1.2",
+                "192.168.1.2",
+                "",
+                "",
+                "frag",
+            ),
+            (
+                "https://[fd00::123]",
+                "https",
+                false,
+                "[fd00::123]",
+                "fd00::123",
+                "",
+                "",
+                "",
+            ),
+            (
+                "https://[FD00::123]/",
+                "https",
+                false,
+                "[FD00::123]",
+                "FD00::123",
+                "/",
+                "",
+                "",
+            ),
+            (
+                "https://soda.example.test",
+                "https",
+                false,
+                "soda.example.test",
+                "soda.example.test",
+                "",
+                "",
+                "",
+            ),
+            (
+                "http://192.168.1.5",
+                "http",
+                false,
+                "192.168.1.5",
+                "192.168.1.5",
+                "",
+                "",
+                "",
+            ),
+            (
+                "https://192.168.1.5:443",
+                "https",
+                false,
+                "192.168.1.5:443",
+                "192.168.1.5",
+                "",
+                "",
+                "",
+            ),
+            (
+                "https://192.168.1.5//",
+                "https",
+                false,
+                "192.168.1.5",
+                "192.168.1.5",
+                "//",
+                "",
+                "",
+            ),
+            (
+                "//192.168.1.5",
+                "",
+                false,
+                "192.168.1.5",
+                "192.168.1.5",
+                "",
+                "",
+                "",
+            ),
             ("https:///path", "https", false, "", "", "/path", "", ""),
-            ("https://[::1]:8080/x?y#z", "https", false, "[::1]:8080", "::1", "/x", "y", "z"),
+            (
+                "https://[::1]:8080/x?y#z",
+                "https",
+                false,
+                "[::1]:8080",
+                "::1",
+                "/x",
+                "y",
+                "z",
+            ),
             ("https://", "https", false, "", "", "", "", ""),
             ("https://?x", "https", false, "", "", "", "x", ""),
             ("https:foo", "https", false, "", "", "", "", ""),
@@ -411,7 +598,19 @@ mod tests {
         ];
         for (raw, scheme, user, host, hostname, path, query, fragment) in cases {
             let url = parse(raw).unwrap_or_else(|err| panic!("parse {raw:?}: {err}"));
-            assert_eq!(fields(&url), ((*scheme).to_string(), *user, (*host).to_string(), (*hostname).to_string(), (*path).to_string(), (*query).to_string(), (*fragment).to_string()), "{raw:?}");
+            assert_eq!(
+                fields(&url),
+                (
+                    (*scheme).to_string(),
+                    *user,
+                    (*host).to_string(),
+                    (*hostname).to_string(),
+                    (*path).to_string(),
+                    (*query).to_string(),
+                    (*fragment).to_string()
+                ),
+                "{raw:?}"
+            );
         }
         // Bare paths parse without a scheme (and fail origin checks later).
         let url = parse("192.168.1.5").unwrap();

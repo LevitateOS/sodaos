@@ -39,7 +39,9 @@ pub fn hash_file(path: &str) -> Result<String, Error> {
     let mut reader = file;
     let mut chunk = [0u8; 65536];
     loop {
-        let n = reader.read(&mut chunk).map_err(|e| errors::path_error("read", path, e))?;
+        let n = reader
+            .read(&mut chunk)
+            .map_err(|e| errors::path_error("read", path, e))?;
         if n == 0 {
             break;
         }
@@ -72,7 +74,10 @@ pub fn write_new(path: &str, data: &[u8], mode: u32) -> Result<(), Error> {
         .mode(mode)
         .open(path)
         .map_err(|e| errors::path_error("open", path, e))?;
-    let write_err = file.write_all(data).err().map(|e| errors::path_error("write", path, e));
+    let write_err = file
+        .write_all(data)
+        .err()
+        .map(|e| errors::path_error("write", path, e));
     // Capture the close error like Go's `errors.Join(write, close)`: closing
     // through libc surfaces what a dropped `File` would swallow.
     use std::os::unix::io::IntoRawFd;
@@ -80,7 +85,11 @@ pub fn write_new(path: &str, data: &[u8], mode: u32) -> Result<(), Error> {
         0 => None,
         _ => {
             let errno = unsafe { *libc::__errno_location() };
-            Some(errors::path_error("close", path, std::io::Error::from_raw_os_error(errno)))
+            Some(errors::path_error(
+                "close",
+                path,
+                std::io::Error::from_raw_os_error(errno),
+            ))
         }
     };
     match (write_err, close_err) {
@@ -103,7 +112,11 @@ fn open_at_file(dir_fd: i32, name: &str, flags: i32, mode: u32) -> Result<std::f
     let fd = unsafe { libc::openat(dir_fd, name.as_ptr(), flags | libc::O_CLOEXEC, mode) };
     if fd < 0 {
         let errno = unsafe { *libc::__errno_location() };
-        return Err(errors::path_error("open", &name.to_string_lossy(), std::io::Error::from_raw_os_error(errno)));
+        return Err(errors::path_error(
+            "open",
+            &name.to_string_lossy(),
+            std::io::Error::from_raw_os_error(errno),
+        ));
     }
     use std::os::unix::io::FromRawFd;
     Ok(unsafe { std::fs::File::from_raw_fd(fd) })
@@ -116,7 +129,11 @@ fn fstatat_nofollow(dir_fd: i32, name: &str) -> Result<libc::stat, Error> {
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     if unsafe { libc::fstatat(dir_fd, name.as_ptr(), &mut st, libc::AT_SYMLINK_NOFOLLOW) } != 0 {
         let errno = unsafe { *libc::__errno_location() };
-        return Err(errors::path_error("lstat", &name.to_string_lossy(), std::io::Error::from_raw_os_error(errno)));
+        return Err(errors::path_error(
+            "lstat",
+            &name.to_string_lossy(),
+            std::io::Error::from_raw_os_error(errno),
+        ));
     }
     Ok(st)
 }
@@ -134,13 +151,17 @@ pub fn read_json_bytes(path: &str) -> Result<Vec<u8>, Error> {
         None => (".".to_string(), path.to_string()),
     };
     if base.is_empty() || base == "." || base == ".." || base.contains('/') {
-        return Err(errors::path_error("lstat", &base, std::io::Error::from_raw_os_error(libc::EINVAL)));
+        return Err(errors::path_error(
+            "lstat",
+            &base,
+            std::io::Error::from_raw_os_error(libc::EINVAL),
+        ));
     }
     let root = open_dir_nofollow(&dir)?;
     use std::os::unix::io::AsRawFd;
     let dir_fd = root.as_raw_fd();
     let st = fstatat_nofollow(dir_fd, &base)?;
-    if st.st_mode & libc::S_IFMT as u32 != libc::S_IFREG as u32 || st.st_size as u64 > JSON_LIMIT {
+    if st.st_mode & libc::S_IFMT != libc::S_IFREG || st.st_size as u64 > JSON_LIMIT {
         return Err(Error::msg("bounded regular JSON input required"));
     }
     // No O_NOFOLLOW: like Go's `root.OpenFile`, the open follows and the
@@ -150,9 +171,13 @@ pub fn read_json_bytes(path: &str) -> Result<Vec<u8>, Error> {
     let mut actual: libc::stat = unsafe { std::mem::zeroed() };
     if unsafe { libc::fstat(file.as_raw_fd(), &mut actual) } != 0 {
         let errno = unsafe { *libc::__errno_location() };
-        return Err(errors::path_error("stat", &base, std::io::Error::from_raw_os_error(errno)));
+        return Err(errors::path_error(
+            "stat",
+            &base,
+            std::io::Error::from_raw_os_error(errno),
+        ));
     }
-    if actual.st_mode & libc::S_IFMT as u32 != libc::S_IFREG as u32 || !same_file(&st, &actual) {
+    if actual.st_mode & libc::S_IFMT != libc::S_IFREG || !same_file(&st, &actual) {
         return Err(Error::msg("JSON input changed before reading"));
     }
     let mut data = Vec::new();
@@ -178,7 +203,10 @@ mod tests {
         assert!(revision(&"a".repeat(40)));
         assert!(!revision("dirty"));
         assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
-        assert_eq!(oci_architecture("armv7").unwrap_err().to_string(), "expected x86_64");
+        assert_eq!(
+            oci_architecture("armv7").unwrap_err().to_string(),
+            "expected x86_64"
+        );
     }
 
     #[test]
@@ -187,10 +215,18 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("file");
         std::fs::write(&path, b"fixture").unwrap();
-        assert_eq!(hash_file(path.to_str().unwrap()).unwrap(), sha256_hex(b"fixture"));
         assert_eq!(
-            hash_file(dir.join("missing").to_str().unwrap()).unwrap_err().to_string(),
-            format!("lstat {}: no such file or directory", dir.join("missing").to_str().unwrap())
+            hash_file(path.to_str().unwrap()).unwrap(),
+            sha256_hex(b"fixture")
+        );
+        assert_eq!(
+            hash_file(dir.join("missing").to_str().unwrap())
+                .unwrap_err()
+                .to_string(),
+            format!(
+                "lstat {}: no such file or directory",
+                dir.join("missing").to_str().unwrap()
+            )
         );
         assert!(hash_file(dir.to_str().unwrap()).is_err());
         let created = dir.join("new");
@@ -206,7 +242,10 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("doc.json");
         std::fs::write(&path, b"{\"a\":1}").unwrap();
-        assert_eq!(read_json_bytes(path.to_str().unwrap()).unwrap(), b"{\"a\":1}");
+        assert_eq!(
+            read_json_bytes(path.to_str().unwrap()).unwrap(),
+            b"{\"a\":1}"
+        );
         std::os::unix::fs::symlink(&path, dir.join("link")).unwrap();
         assert!(read_json_bytes(dir.join("link").to_str().unwrap()).is_err());
         std::fs::remove_dir_all(&dir).unwrap();

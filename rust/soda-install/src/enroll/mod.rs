@@ -9,14 +9,12 @@ pub mod selinux;
 pub mod serve;
 pub mod session;
 
-
-
 use crate::errors::Error;
 use crate::netip;
 
-pub use session::arm_enrollment;
-pub use serve::serve_enrollment;
 pub use receive::receive_enrollment;
+pub use serve::serve_enrollment;
+pub use session::arm_enrollment;
 
 pub const ENROLLMENT_DIR: &str = "/run/soda-key-enrollment";
 pub const ENROLLMENT_UNIT: &str = "soda-key-enrollment.service";
@@ -217,12 +215,16 @@ pub fn enrollment_receiver_unit(unit: &[u8]) -> bool {
     unit.len() > PREFIX.len() + SUFFIX.len()
         && unit.starts_with(PREFIX)
         && unit.ends_with(SUFFIX)
-        && !unit.iter().any(|b| matches!(b, b'/' | b'\r' | b'\n' | b' ' | b'\t'))
+        && !unit
+            .iter()
+            .any(|b| matches!(b, b'/' | b'\r' | b'\n' | b' ' | b'\t'))
 }
 
 // Kernel credentials and the peer's native service cgroup distinguish the fixed
 // broker and socket-activated receiver instances from ordinary root SSH shells.
-pub fn enrollment_connection_unit(stream: &std::os::unix::net::UnixStream) -> Result<Vec<u8>, Error> {
+pub fn enrollment_connection_unit(
+    stream: &std::os::unix::net::UnixStream,
+) -> Result<Vec<u8>, Error> {
     use std::os::unix::io::AsRawFd;
     let mut ucred: libc::ucred = unsafe { std::mem::zeroed() };
     let mut len = std::mem::size_of::<libc::ucred>() as libc::socklen_t;
@@ -237,12 +239,15 @@ pub fn enrollment_connection_unit(stream: &std::os::unix::net::UnixStream) -> Re
     } != 0
     {
         let errno = unsafe { *libc::__errno_location() };
-        return Err(crate::errors::os_error(std::io::Error::from_raw_os_error(errno)));
+        return Err(crate::errors::os_error(std::io::Error::from_raw_os_error(
+            errno,
+        )));
     }
     if ucred.uid != 0 || ucred.pid <= 0 {
         return Err(Error::msg("dedicated native root enrollment peer required"));
     }
-    let group = std::fs::read(format!("/proc/{}/cgroup", ucred.pid)).map_err(crate::errors::os_error)?;
+    let group =
+        std::fs::read(format!("/proc/{}/cgroup", ucred.pid)).map_err(crate::errors::os_error)?;
     enrollment_peer_unit(&group)
 }
 
@@ -250,7 +255,8 @@ pub fn enrollment_connection_unit(stream: &std::os::unix::net::UnixStream) -> Re
 pub(crate) mod tests {
     use super::*;
 
-    pub const TEST_KEY: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKQ0MsA1tWa7risZNVfq58qNB9BByJfSJUQpWI9KvglV";
+    pub const TEST_KEY: &str =
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKQ0MsA1tWa7risZNVfq58qNB9BByJfSJUQpWI9KvglV";
     pub const TEST_KEY_2: &str = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCoDZAt7ewKwwXBa7tCvC9/+p//wMupqSjGVnTOvoYOUt1UNbromMK5hBZGq2xIlqJQ0rRZoTEtsE7w5BUgkNzvsioTnnjD48UeqMvJhBfSrJYTVMZeM/ttm1jmlNhbjs6nt98R/KmdsyK+2a+z5BQ+KRlr4kbKfd/UDOPj8XuA2/vW4K2301UUdDk9Jh2r/bcjRnrIyHUX1Rmga608tAWRZtJQRo+8/28JqnjQM5s4qcu1d1N2Y823P4YGaLYhRLoKhV1/gCMRRhD9ZTZpn58sVmiEGQ90YeHE/8vETm+Q2IkjZvx2vobzhvdsA3LGs3B1EN2kdbCGJRqaltrJLK+t";
     pub const TEST_KEY_3: &str = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLtQL7Kq7o6tng5YEyRN3ICkkd2BErzxr+p3zkns1Apc0BJ7BDcTZqzWuusUsWLZxRtnOVtz2FT2vd0GlCz20RI=";
 
@@ -275,7 +281,9 @@ pub(crate) mod tests {
         let ok = unsafe { libc::mkdtemp(raw) };
         let template = unsafe { std::ffi::CString::from_raw(raw) };
         assert!(!ok.is_null());
-        TempDir { path: template.to_string_lossy().into_owned() }
+        TempDir {
+            path: template.to_string_lossy().into_owned(),
+        }
     }
 
     pub fn test_uid() -> u32 {
@@ -305,11 +313,20 @@ pub(crate) mod tests {
         );
         // ptsname_r: ptsname's static buffer races across test threads.
         let mut name = [0 as libc::c_char; 64];
-        assert_eq!(unsafe { libc::ptsname_r(master, name.as_mut_ptr(), name.len()) }, 0);
-        let slave_path =
-            unsafe { std::ffi::CStr::from_ptr(name.as_ptr()).to_string_lossy().into_owned() };
+        assert_eq!(
+            unsafe { libc::ptsname_r(master, name.as_mut_ptr(), name.len()) },
+            0
+        );
+        let slave_path = unsafe {
+            std::ffi::CStr::from_ptr(name.as_ptr())
+                .to_string_lossy()
+                .into_owned()
+        };
         unsafe { libc::close(slave) };
-        TestPty { master: unsafe { std::fs::File::from_raw_fd(master) }, slave_path }
+        TestPty {
+            master: unsafe { std::fs::File::from_raw_fd(master) },
+            slave_path,
+        }
     }
 
     /// Drain whatever the console already wrote, stopping after 300 ms idle.
@@ -318,7 +335,11 @@ pub(crate) mod tests {
         use std::os::unix::io::AsRawFd;
         let mut transcript = Vec::new();
         loop {
-            let mut fd = libc::pollfd { fd: master.as_raw_fd(), events: libc::POLLIN, revents: 0 };
+            let mut fd = libc::pollfd {
+                fd: master.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            };
             if unsafe { libc::poll(&mut fd, 1, 300) } <= 0 || fd.revents & libc::POLLIN == 0 {
                 break;
             }
@@ -334,8 +355,16 @@ pub(crate) mod tests {
 
     #[test]
     fn enrollment_input_matrix() {
-        for value in [TEST_KEY.to_string(), format!("{TEST_KEY}\n"), format!("{TEST_KEY} laptop\n")] {
-            assert_eq!(enrollment_public_key(value.as_bytes()).unwrap(), TEST_KEY, "{value:?}");
+        for value in [
+            TEST_KEY.to_string(),
+            format!("{TEST_KEY}\n"),
+            format!("{TEST_KEY} laptop\n"),
+        ] {
+            assert_eq!(
+                enrollment_public_key(value.as_bytes()).unwrap(),
+                TEST_KEY,
+                "{value:?}"
+            );
         }
         let big = "x".repeat(ENROLLMENT_KEY_LIMIT + 1);
         for value in [
@@ -348,7 +377,10 @@ pub(crate) mod tests {
             format!("{TEST_KEY}\r\n"),
             format!("{TEST_KEY}\x00"),
         ] {
-            assert!(enrollment_public_key(value.as_bytes()).is_err(), "{value:?}");
+            assert!(
+                enrollment_public_key(value.as_bytes()).is_err(),
+                "{value:?}"
+            );
         }
     }
 
@@ -356,7 +388,10 @@ pub(crate) mod tests {
     fn enrollment_private_address_and_client() {
         for address in ["10.0.0.8", "172.16.3.4", "192.168.1.20"] {
             let command = enrollment_client_command(address).unwrap();
-            assert!(command.contains(&format!("root@{address} < ~/.ssh/id_ed25519.pub")), "{command}");
+            assert!(
+                command.contains(&format!("root@{address} < ~/.ssh/id_ed25519.pub")),
+                "{command}"
+            );
             assert!(command.contains("ControlPath=none"), "{command}");
             assert!(command.contains("ClearAllForwardings=yes"), "{command}");
         }
@@ -399,7 +434,14 @@ pub(crate) mod tests {
         ] {
             assert!(config.contains(&format!("\n{line}\n")), "missing {line}");
         }
-        for forbidden in ["Include ", "AcceptEnv ", "Subsystem ", "ListenAddress ", "Match ", "SetEnv "] {
+        for forbidden in [
+            "Include ",
+            "AcceptEnv ",
+            "Subsystem ",
+            "ListenAddress ",
+            "Match ",
+            "SetEnv ",
+        ] {
             assert!(!config.contains(forbidden), "unexpected {forbidden:?}");
         }
         let args = enrollment_start_args().join(" ");
@@ -442,7 +484,10 @@ pub(crate) mod tests {
             "Restart=no",
             "ExecStart=/usr/sbin/sshd -i -e -f /run/soda-key-enrollment/sshd_config",
         ] {
-            assert!(connection.contains(&format!("\n{line}\n")), "missing {line}");
+            assert!(
+                connection.contains(&format!("\n{line}\n")),
+                "missing {line}"
+            );
         }
         assert!(!(config + &connection).contains("[Install]"));
     }

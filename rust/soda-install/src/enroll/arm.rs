@@ -150,7 +150,10 @@ fn parse_armed_enrollment(data: &[u8]) -> Result<(EnrollmentAddress, i64), Error
     if fields.len() != 3 {
         return Err(Error::msg("invalid enrollment arm state"));
     }
-    let selected = EnrollmentAddress { name: fields[0].to_string(), ip: fields[1].to_string() };
+    let selected = EnrollmentAddress {
+        name: fields[0].to_string(),
+        ip: fields[1].to_string(),
+    };
     enrollment_private_address(&selected.ip)?;
     match fields[2].parse::<i64>() {
         Ok(until) => Ok((selected, until)),
@@ -202,7 +205,9 @@ fn select_enrollment_address(
     addresses: &[EnrollmentAddress],
 ) -> Result<EnrollmentAddress, Error> {
     if addresses.is_empty() {
-        return Err(Error::msg("no private address available for key enrollment"));
+        return Err(Error::msg(
+            "no private address available for key enrollment",
+        ));
     }
     for (i, address) in addresses.iter().enumerate() {
         console.print(
@@ -215,7 +220,10 @@ fn select_enrollment_address(
         );
     }
     loop {
-        let value = console.ask(ctx, "Private interface/address number (back or cancel exits)")?;
+        let value = console.ask(
+            ctx,
+            "Private interface/address number (back or cancel exits)",
+        )?;
         match parse_enrollment_choice(&value, addresses.len()) {
             Ok(index) => return Ok(addresses[index - 1].clone()),
             Err(err) if is_choice_hint(&err) => {
@@ -232,20 +240,28 @@ fn select_enrollment_address(
 fn inspect_host_fingerprint(ctx: &Ctx, run: &dyn Runner) -> Result<String, Error> {
     // Derive the public host fingerprint from the actual existing private host
     // key via native ssh-keygen; do not trust a possibly stale .pub companion.
-    let public = run.run(
-        ctx,
-        "/usr/bin/ssh-keygen",
-        &["-y".to_string(), "-f".to_string(), "/etc/ssh/ssh_host_ed25519_key".to_string()],
-        None,
-    )
-    .map_err(|_| Error::msg("native Ed25519 SSH host key unavailable; no enrollment window opened"))?;
-    let parsed = crate::sshkey::parse_authorized_key_bytes(&public).map_err(|_| {
-        Error::msg("cannot inspect native SSH host identity")
-    })?;
+    let public = run
+        .run(
+            ctx,
+            "/usr/bin/ssh-keygen",
+            &[
+                "-y".to_string(),
+                "-f".to_string(),
+                "/etc/ssh/ssh_host_ed25519_key".to_string(),
+            ],
+            None,
+        )
+        .map_err(|_| {
+            Error::msg("native Ed25519 SSH host key unavailable; no enrollment window opened")
+        })?;
+    let parsed = crate::sshkey::parse_authorized_key_bytes(&public)
+        .map_err(|_| Error::msg("cannot inspect native SSH host identity"))?;
     if parsed.key.key_type() != "ssh-ed25519" {
         return Err(Error::msg("cannot inspect native SSH host identity"));
     }
-    Ok(crate::sshkey::fingerprint_sha256_wire(&parsed.key.marshal()))
+    Ok(crate::sshkey::fingerprint_sha256_wire(
+        &parsed.key.marshal(),
+    ))
 }
 
 fn confirm_enrollment_intent(
@@ -264,7 +280,9 @@ fn confirm_enrollment_intent(
         return Err(Error::msg("key enrollment cancelled"));
     }
     if !enrollment_live_address(selected) {
-        return Err(Error::msg("selected interface address changed; no window opened"));
+        return Err(Error::msg(
+            "selected interface address changed; no window opened",
+        ));
     }
     Ok(())
 }
@@ -298,7 +316,14 @@ pub fn select_enrollment_target(
 // matches no unit file) rather than an interrupted or otherwise failed
 // inspection. Publication still refuses to replace an existing file.
 fn systemd_unit_file_no_match(err: &Error) -> bool {
-    matches!(err, Error::CmdExit { code: 1, interrupted: false, .. })
+    matches!(
+        err,
+        Error::CmdExit {
+            code: 1,
+            interrupted: false,
+            ..
+        }
+    )
 }
 
 pub fn guard_existing_enrollment_state(ctx: &Ctx, run: &dyn Runner) -> Result<(), Error> {
@@ -321,7 +346,9 @@ pub fn guard_existing_enrollment_state(ctx: &Ctx, run: &dyn Runner) -> Result<()
             Err(_) => String::new(),
         };
         if loaded != "not-found" {
-            return Err(Error::msg("existing enrollment service/state must finish; no replacement"));
+            return Err(Error::msg(
+                "existing enrollment service/state must finish; no replacement",
+            ));
         }
     }
     // A template without an instance is a unit file, not a loadable service.
@@ -355,7 +382,11 @@ pub fn guard_existing_enrollment_state(ctx: &Ctx, run: &dyn Runner) -> Result<()
         }
     }
     use std::os::unix::fs::DirBuilderExt;
-    if std::fs::DirBuilder::new().mode(0o700).create(ENROLLMENT_DIR).is_err() {
+    if std::fs::DirBuilder::new()
+        .mode(0o700)
+        .create(ENROLLMENT_DIR)
+        .is_err()
+    {
         return Err(Error::msg(
             "enrollment state already exists or cannot be reserved; no replacement",
         ));
@@ -365,8 +396,8 @@ pub fn guard_existing_enrollment_state(ctx: &Ctx, run: &dyn Runner) -> Result<()
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::tests::{drain_available, open_test_pty, temp_dir, ENV_LOCK};
+    use super::*;
     use crate::command::FnRunner;
 
     #[test]
@@ -398,7 +429,11 @@ mod tests {
             let handle = scope.spawn(|| enrollment_write(&directory.path, "result", &value));
             loop {
                 match std::fs::read(&path) {
-                    Ok(data) => assert_eq!(data, value.as_bytes(), "reader observed a partial state receipt"),
+                    Ok(data) => assert_eq!(
+                        data,
+                        value.as_bytes(),
+                        "reader observed a partial state receipt"
+                    ),
                     Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
                     Err(err) => panic!("{err}"),
                 }
@@ -413,6 +448,7 @@ mod tests {
         assert_eq!(std::fs::read_dir(&directory.path).unwrap().count(), 1);
     }
 
+    #[allow(clippy::type_complexity)]
     fn guard_runner(
         list_output: Vec<u8>,
         list_err: Option<Error>,
@@ -438,7 +474,11 @@ mod tests {
             (b"".to_vec(), None),
             (
                 Vec::new(),
-                Some(Error::CmdExit { name: "systemctl".to_string(), code: 1, interrupted: false }),
+                Some(Error::CmdExit {
+                    name: "systemctl".to_string(),
+                    code: 1,
+                    interrupted: false,
+                }),
             ),
         ] {
             let run = guard_runner(list_output, list_err);
@@ -448,7 +488,10 @@ mod tests {
                     std::fs::remove_dir(ENROLLMENT_DIR).unwrap();
                 }
                 Err(err) => {
-                    assert!(!err.to_string().contains("template"), "absent template refused arming: {err}");
+                    assert!(
+                        !err.to_string().contains("template"),
+                        "absent template refused arming: {err}"
+                    );
                     assert!(
                         err.to_string().contains("cannot be reserved"),
                         "unexpected guard error: {err}"
@@ -465,11 +508,19 @@ mod tests {
             (b"soda-key-enrollment@.service static -\n".to_vec(), None),
             (
                 Vec::new(),
-                Some(Error::CmdExit { name: "systemctl".to_string(), code: 1, interrupted: true }),
+                Some(Error::CmdExit {
+                    name: "systemctl".to_string(),
+                    code: 1,
+                    interrupted: true,
+                }),
             ),
             (
                 Vec::new(),
-                Some(Error::CmdExit { name: "systemctl".to_string(), code: -1, interrupted: false }),
+                Some(Error::CmdExit {
+                    name: "systemctl".to_string(),
+                    code: -1,
+                    interrupted: false,
+                }),
             ),
         ] {
             let run = guard_runner(list_output, list_err);
@@ -498,10 +549,17 @@ mod tests {
             let worker = std::thread::spawn(move || {
                 let console = Console::open(&slave_path).unwrap();
                 let (ctx, _flag) = Ctx::test();
-                let ctx = ctx.with_timeout(std::time::Instant::now() + std::time::Duration::from_secs(10));
+                let ctx = ctx
+                    .with_timeout(std::time::Instant::now() + std::time::Duration::from_secs(10));
                 let addresses = vec![
-                    EnrollmentAddress { name: "test0".to_string(), ip: "192.168.1.20".to_string() },
-                    EnrollmentAddress { name: "test1".to_string(), ip: "10.0.0.20".to_string() },
+                    EnrollmentAddress {
+                        name: "test0".to_string(),
+                        ip: "192.168.1.20".to_string(),
+                    },
+                    EnrollmentAddress {
+                        name: "test1".to_string(),
+                        ip: "10.0.0.20".to_string(),
+                    },
                 ];
                 select_enrollment_address(&ctx, &console, &addresses)
             });
@@ -518,7 +576,10 @@ mod tests {
                     "invalid numbers did not receive clear retry feedback: {transcript:?}"
                 );
             } else {
-                assert!(selected.is_err(), "explicit back/cancel selected an address");
+                assert!(
+                    selected.is_err(),
+                    "explicit back/cancel selected an address"
+                );
             }
         }
     }
@@ -539,11 +600,17 @@ mod tests {
         for value in ["sh", "scp -t /root", "internal-sftp", ":", "\n"] {
             std::env::set_var("SSH_ORIGINAL_COMMAND", value);
             std::env::remove_var("SSH_TTY");
-            assert!(super::super::receive_enrollment(&ctx).is_err(), "client command accepted: {value:?}");
+            assert!(
+                super::super::receive_enrollment(&ctx).is_err(),
+                "client command accepted: {value:?}"
+            );
         }
         std::env::set_var("SSH_ORIGINAL_COMMAND", "");
         std::env::set_var("SSH_TTY", "/dev/pts/1");
-        assert!(super::super::receive_enrollment(&ctx).is_err(), "PTY enrollment accepted");
+        assert!(
+            super::super::receive_enrollment(&ctx).is_err(),
+            "PTY enrollment accepted"
+        );
         std::env::remove_var("SSH_ORIGINAL_COMMAND");
         std::env::remove_var("SSH_TTY");
     }

@@ -118,11 +118,16 @@ pub fn eval_symlinks(path: &str) -> Result<String, crate::errors::Error> {
                         }
                         let target = std::fs::read_link(&lookup)
                             .map_err(|e| crate::errors::link_error("readlink", &lookup, "", e))?;
-                        let target = String::from_utf8_lossy(target.as_os_str().as_bytes()).into_owned();
+                        let target =
+                            String::from_utf8_lossy(target.as_os_str().as_bytes()).into_owned();
                         let rest = parts[i + 1..].join("/");
                         let parent = dir(&lookup);
                         current = if target.starts_with('/') {
-                            if rest.is_empty() { target } else { format!("{target}/{rest}") }
+                            if rest.is_empty() {
+                                target
+                            } else {
+                                format!("{target}/{rest}")
+                            }
                         } else if rest.is_empty() {
                             join(&parent, &[&target])
                         } else {
@@ -201,7 +206,8 @@ mod tests {
 
     #[test]
     fn symlinks_resolve() {
-        let root = std::env::temp_dir().join(format!("soda-install-pathtest-{}", std::process::id()));
+        let root =
+            std::env::temp_dir().join(format!("soda-install-pathtest-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         std::fs::create_dir_all(root.join("a/b")).unwrap();
         std::fs::write(root.join("a/b/file"), b"x").unwrap();

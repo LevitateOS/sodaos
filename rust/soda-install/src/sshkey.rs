@@ -127,7 +127,10 @@ fn parse_u32(input: &[u8]) -> Result<(u32, &[u8]), ()> {
     if input.len() < 4 {
         return Err(());
     }
-    Ok((u32::from_be_bytes([input[0], input[1], input[2], input[3]]), &input[4..]))
+    Ok((
+        u32::from_be_bytes([input[0], input[1], input[2], input[3]]),
+        &input[4..],
+    ))
 }
 
 fn parse_u64(input: &[u8]) -> Result<(u64, &[u8]), ()> {
@@ -149,7 +152,10 @@ fn parse_mpint(input: &[u8]) -> Result<(bool, Vec<u8>, &[u8]), ()> {
         return Ok((false, Vec::new(), rest));
     }
     if contents[0] & 0x80 == 0 {
-        let start = contents.iter().position(|b| *b != 0).unwrap_or(contents.len());
+        let start = contents
+            .iter()
+            .position(|b| *b != 0)
+            .unwrap_or(contents.len());
         return Ok((false, contents[start..].to_vec(), rest));
     }
     // Negative: two's complement magnitude.
@@ -225,13 +231,30 @@ fn cmp_mag(a: &[u8], b: &[u8]) -> std::cmp::Ordering {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Key {
-    Rsa { e: u32, n_negative: bool, n_mag: Vec<u8> },
+    Rsa {
+        e: u32,
+        n_negative: bool,
+        n_mag: Vec<u8>,
+    },
     Dss,
-    Ecdsa { curve: &'static str, point: Vec<u8> },
-    Ed25519 { key: [u8; 32] },
-    SkEcdsa { point: Vec<u8>, application: Vec<u8> },
-    SkEd25519 { key: [u8; 32], application: Vec<u8> },
-    Cert { algo: String },
+    Ecdsa {
+        curve: &'static str,
+        point: Vec<u8>,
+    },
+    Ed25519 {
+        key: [u8; 32],
+    },
+    SkEcdsa {
+        point: Vec<u8>,
+        application: Vec<u8>,
+    },
+    SkEd25519 {
+        key: [u8; 32],
+        application: Vec<u8>,
+    },
+    Cert {
+        algo: String,
+    },
 }
 
 impl Key {
@@ -250,7 +273,11 @@ impl Key {
     pub fn marshal(&self) -> Vec<u8> {
         let mut out = marshal_string(self.key_type().as_bytes());
         match self {
-            Key::Rsa { e, n_negative, n_mag } => {
+            Key::Rsa {
+                e,
+                n_negative,
+                n_mag,
+            } => {
                 let mut mag = e.to_be_bytes().to_vec();
                 let start = mag.iter().position(|b| *b != 0).unwrap_or(mag.len());
                 mag = mag[start..].to_vec();
@@ -319,7 +346,14 @@ fn parse_rsa(input: &[u8]) -> Result<(Key, &[u8]), ()> {
     if e < 3 || e & 1 == 0 {
         return Err(());
     }
-    Ok((Key::Rsa { e, n_negative: n_neg, n_mag }, rest))
+    Ok((
+        Key::Rsa {
+            e,
+            n_negative: n_neg,
+            n_mag,
+        },
+        rest,
+    ))
 }
 
 fn parse_dsa(input: &[u8]) -> Result<(Key, &[u8]), ()> {
@@ -378,7 +412,10 @@ fn parse_sk_ecdsa(input: &[u8]) -> Result<(Key, &[u8]), ()> {
     }
     let point = ecdsa_point("nistp256", point)?;
     Ok((
-        Key::SkEcdsa { point, application: application.to_vec() },
+        Key::SkEcdsa {
+            point,
+            application: application.to_vec(),
+        },
         rest,
     ))
 }
@@ -392,7 +429,10 @@ fn parse_sk_ed25519(input: &[u8]) -> Result<(Key, &[u8]), ()> {
     let mut fixed = [0u8; 32];
     fixed.copy_from_slice(key);
     Ok((
-        Key::SkEd25519 { key: fixed, application: application.to_vec() },
+        Key::SkEd25519 {
+            key: fixed,
+            application: application.to_vec(),
+        },
         rest,
     ))
 }
@@ -473,10 +513,10 @@ fn parse_cert(input: &[u8], algo: &str) -> Result<Key, ()> {
     parse_public_key(sigkey)?;
     let (format, sig_rest) = parse_string(signature)?; // format
     let (_, sig_rest) = parse_string(sig_rest)?; // blob
-    // Go stashes trailing bytes for SK signature formats and rejects them
-    // for every other format.
-    // The four SK signature formats share one shape: "sk-" + key +
-    // optional "-cert-v01" + "@openssh.com", with two possible keys.
+                                                 // Go stashes trailing bytes for SK signature formats and rejects them
+                                                 // for every other format.
+                                                 // The four SK signature formats share one shape: "sk-" + key +
+                                                 // optional "-cert-v01" + "@openssh.com", with two possible keys.
     let sk_trailing = match format.strip_suffix(b"@openssh.com") {
         Some(head) => {
             let head = head.strip_suffix(b"-cert-v01").unwrap_or(head);
@@ -487,7 +527,9 @@ fn parse_cert(input: &[u8], algo: &str) -> Result<Key, ()> {
     if !sig_rest.is_empty() && !sk_trailing {
         return Err(());
     }
-    Ok(Key::Cert { algo: algo.to_string() })
+    Ok(Key::Cert {
+        algo: algo.to_string(),
+    })
 }
 
 /// x/crypto `parsePubKey`: structural validation, trailing bytes returned.
@@ -495,7 +537,9 @@ fn parse_pub_key<'a>(input: &'a [u8], algo: &str) -> Result<(Key, &'a [u8]), ()>
     match algo {
         "ssh-rsa" => parse_rsa(input),
         "ssh-dss" => parse_dsa(input),
-        "ecdsa-sha2-nistp256" | "ecdsa-sha2-nistp384" | "ecdsa-sha2-nistp521" => parse_ecdsa(input, algo),
+        "ecdsa-sha2-nistp256" | "ecdsa-sha2-nistp384" | "ecdsa-sha2-nistp521" => {
+            parse_ecdsa(input, algo)
+        }
         "sk-ecdsa-sha2-nistp256@openssh.com" => parse_sk_ecdsa(input),
         "ssh-ed25519" => parse_ed25519(input),
         "sk-ssh-ed25519@openssh.com" => parse_sk_ed25519(input),
@@ -593,7 +637,10 @@ pub fn parse_authorized_key(line: &str) -> Result<AuthorizedKey, ()> {
     let (declared, after) = (&trimmed[..split], &trimmed[split..]);
     if let Ok((key, _)) = parse_key_field(after.as_bytes()) {
         if declared == key.key_type() {
-            return Ok(AuthorizedKey { key, options_empty: true });
+            return Ok(AuthorizedKey {
+                key,
+                options_empty: true,
+            });
         }
     }
     // Options field at the beginning.
@@ -660,7 +707,11 @@ pub fn public_key(value: &str) -> Result<String, &'static str> {
         | Key::SkEd25519 { .. } => {}
         Key::Dss | Key::Cert { .. } => return Err("unsupported operator SSH key type"),
     }
-    Ok(format!("{} {}", parsed.key.key_type(), b64_encode(&parsed.key.marshal())))
+    Ok(format!(
+        "{} {}",
+        parsed.key.key_type(),
+        b64_encode(&parsed.key.marshal())
+    ))
 }
 
 /// `ssh.FingerprintSHA256` over canonical key wire bytes.
@@ -673,7 +724,8 @@ pub fn fingerprint_sha256_wire(wire: &[u8]) -> String {
 mod tests {
     use super::*;
 
-    const ED25519: &str = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKQ0MsA1tWa7risZNVfq58qNB9BByJfSJUQpWI9KvglV";
+    const ED25519: &str =
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKQ0MsA1tWa7risZNVfq58qNB9BByJfSJUQpWI9KvglV";
     const RSA: &str = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCoDZAt7ewKwwXBa7tCvC9/+p//wMupqSjGVnTOvoYOUt1UNbromMK5hBZGq2xIlqJQ0rRZoTEtsE7w5BUgkNzvsioTnnjD48UeqMvJhBfSrJYTVMZeM/ttm1jmlNhbjs6nt98R/KmdsyK+2a+z5BQ+KRlr4kbKfd/UDOPj8XuA2/vW4K2301UUdDk9Jh2r/bcjRnrIyHUX1Rmga608tAWRZtJQRo+8/28JqnjQM5s4qcu1d1N2Y823P4YGaLYhRLoKhV1/gCMRRhD9ZTZpn58sVmiEGQ90YeHE/8vETm+Q2IkjZvx2vobzhvdsA3LGs3B1EN2kdbCGJRqaltrJLK+t";
     const ECDSA256: &str = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBLtQL7Kq7o6tng5YEyRN3ICkkd2BErzxr+p3zkns1Apc0BJ7BDcTZqzWuusUsWLZxRtnOVtz2FT2vd0GlCz20RI=";
     const ECDSA384: &str = "ecdsa-sha2-nistp384 AAAAE2VjZHNhLXNoYTItbmlzdHAzODQAAAAIbmlzdHAzODQAAABhBNuz0aERM3G5ldqem61DeWNH6TPAuvKqwTrF2yCFg4tphB+K2icoJtn+oELywJfa5vRZmifM9zYAviqIcFjRIWZw2eeZQBdu8563omqOcS8x0JMVFFRTuPhpASQwnaK2OA==";
@@ -701,17 +753,31 @@ mod tests {
             "SHA256:8zz4BxDGZ75OGjyLd0V7cLMngT+KWeelWxFYt6+fKtc"
         );
         // Raw tool output with a trailing newline parses like Go.
-        let key = parse_authorized_key_bytes(format!("{ED25519}\n").as_bytes()).unwrap().key;
+        let key = parse_authorized_key_bytes(format!("{ED25519}\n").as_bytes())
+            .unwrap()
+            .key;
         assert_eq!(key.key_type(), "ssh-ed25519");
     }
 
     #[test]
     fn rejects_match_go_taxonomy() {
         // "one SSH public key required": size/CTL pre-checks.
-        assert_eq!(public_key(&"x".repeat(16385)).unwrap_err(), "one SSH public key required");
-        assert_eq!(public_key(&format!("{ED25519}\n")).unwrap_err(), "one SSH public key required");
-        assert_eq!(public_key(&format!("{ED25519}\r")).unwrap_err(), "one SSH public key required");
-        assert_eq!(public_key(&format!("{ED25519}\0")).unwrap_err(), "one SSH public key required");
+        assert_eq!(
+            public_key(&"x".repeat(16385)).unwrap_err(),
+            "one SSH public key required"
+        );
+        assert_eq!(
+            public_key(&format!("{ED25519}\n")).unwrap_err(),
+            "one SSH public key required"
+        );
+        assert_eq!(
+            public_key(&format!("{ED25519}\r")).unwrap_err(),
+            "one SSH public key required"
+        );
+        assert_eq!(
+            public_key(&format!("{ED25519}\0")).unwrap_err(),
+            "one SSH public key required"
+        );
         // "valid SSH public key ...": unparsable, options, or key material.
         let opt_cases = [
             format!("command=\"x\" {ED25519}"),
@@ -758,14 +824,20 @@ mod tests {
     #[test]
     fn unsupported_types_reported() {
         // Valid DSA wire (P 1024-bit, Q 160-bit) parses but is unsupported.
-        let p = vec![0x81u8].into_iter().chain(vec![0u8; 127]).collect::<Vec<u8>>();
+        let p = vec![0x81u8]
+            .into_iter()
+            .chain(vec![0u8; 127])
+            .collect::<Vec<u8>>();
         let mut wire = marshal_string(b"ssh-dss");
         wire.extend(marshal_mpint(false, &p));
         wire.extend(marshal_mpint(false, &[0x81; 20]));
         wire.extend(marshal_mpint(false, &[0x02]));
         wire.extend(marshal_mpint(false, &[0x03]));
         let dss = format!("ssh-dss {}", b64_encode(&wire));
-        assert_eq!(public_key(&dss).unwrap_err(), "unsupported operator SSH key type");
+        assert_eq!(
+            public_key(&dss).unwrap_err(),
+            "unsupported operator SSH key type"
+        );
     }
 
     #[test]
@@ -783,7 +855,7 @@ mod tests {
         // Even exponent and oversized exponent are refused.
         let mut bad = marshal_string(b"ssh-rsa");
         bad.extend(marshal_string(&[4]));
-        bad.extend(marshal_string(&vec![9u8; 64]));
+        bad.extend(marshal_string(&[9u8; 64]));
         assert!(public_key(&format!("ssh-rsa {}", b64_encode(&bad))).is_err());
     }
 
@@ -815,7 +887,13 @@ mod tests {
 
     #[test]
     fn mpint_round_trip() {
-        for (neg, mag) in [(false, vec![]), (false, vec![1]), (false, vec![0x80]), (true, vec![1]), (true, vec![0x80])] {
+        for (neg, mag) in [
+            (false, vec![]),
+            (false, vec![1]),
+            (false, vec![0x80]),
+            (true, vec![1]),
+            (true, vec![0x80]),
+        ] {
             let encoded = marshal_mpint(neg, &mag);
             let (n, m, rest) = parse_mpint(&encoded).unwrap();
             assert!(rest.is_empty());

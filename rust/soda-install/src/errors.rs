@@ -3,6 +3,8 @@
 
 use std::fmt;
 
+use crate::fmtx::{sprintf, Arg};
+
 /// All installer failures. Messages match the Go errors byte for byte.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
@@ -19,7 +21,11 @@ pub enum Error {
     /// `errCancel` sentinel: `"cancel requested"`.
     Cancel,
     /// `commandExit`: failed child with exit code and interrupt flag.
-    CmdExit { name: String, code: i32, interrupted: bool },
+    CmdExit {
+        name: String,
+        code: i32,
+        interrupted: bool,
+    },
     /// `errEnrollmentWriteUncertain`: the authorized-key write may have
     /// completed but could not be confirmed.
     EnrollUncertain,
@@ -28,10 +34,6 @@ pub enum Error {
 impl Error {
     pub fn msg(text: impl Into<String>) -> Error {
         Error::Msg(text.into())
-    }
-    /// `errors.Is(err, context.Canceled)`.
-    pub fn is_canceled(&self) -> bool {
-        matches!(self, Error::Canceled)
     }
 }
 
@@ -46,7 +48,11 @@ impl fmt::Display for Error {
             Error::Cancel => write!(f, "cancel requested"),
             Error::CmdExit { name, code, interrupted } => write!(
                 f,
-                "{name} failed (exit {code}, interrupted {interrupted}); raw diagnostics suppressed"
+                "{}",
+                sprintf(
+                    "%s failed (exit %d, interrupted %t); raw diagnostics suppressed",
+                    &[Arg::Str(name), Arg::Int(*code as i64), Arg::Bool(*interrupted)]
+                )
             ),
             Error::EnrollUncertain => write!(
                 f,

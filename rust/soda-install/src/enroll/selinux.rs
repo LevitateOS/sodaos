@@ -83,7 +83,11 @@ pub fn label_enrollment_config(
     if let Err(err) = run.run(
         ctx,
         "chcon",
-        &["-t".to_string(), "etc_t".to_string(), super::ENROLLMENT_CONFIG_PATH.to_string()],
+        &[
+            "-t".to_string(),
+            "etc_t".to_string(),
+            super::ENROLLMENT_CONFIG_PATH.to_string(),
+        ],
         None,
     ) {
         if !enforcing {
@@ -112,7 +116,11 @@ mod tests {
             ("ssh_port_t tcp 2222\n", false),
             ("", false),
         ] {
-            assert_eq!(enrollment_port_labeled(listing.as_bytes()), want, "{listing:?}");
+            assert_eq!(
+                enrollment_port_labeled(listing.as_bytes()),
+                want,
+                "{listing:?}"
+            );
         }
     }
 
@@ -127,7 +135,9 @@ mod tests {
         // Labeled port needs no change: list only.
         let calls = std::cell::RefCell::new(Vec::new());
         let run = FnRunner::new(|_, name: &str, args: &[String], _| {
-            calls.borrow_mut().push(format!("{name} {}", args.join(" ")));
+            calls
+                .borrow_mut()
+                .push(format!("{name} {}", args.join(" ")));
             Ok(b"ssh_port_t tcp 22222, 22\n".to_vec())
         });
         ensure_enrollment_port_label(&ctx, &run, true).unwrap();
@@ -135,18 +145,31 @@ mod tests {
         // Missing label is added.
         let calls = std::cell::RefCell::new(Vec::new());
         let run = FnRunner::new(|_, name: &str, args: &[String], _| {
-            calls.borrow_mut().push(format!("{name} {}", args.join(" ")));
-            if !args.is_empty() && args[0] == "port" && args.get(1).map(String::as_str) != Some("-a") {
+            calls
+                .borrow_mut()
+                .push(format!("{name} {}", args.join(" ")));
+            if !args.is_empty()
+                && args[0] == "port"
+                && args.get(1).map(String::as_str) != Some("-a")
+            {
                 return Ok(b"ssh_port_t tcp 22\n".to_vec());
             }
             Ok(Vec::new())
         });
         ensure_enrollment_port_label(&ctx, &run, true).unwrap();
         assert_eq!(calls.borrow().len(), 2);
-        assert!(calls.borrow()[1].contains("port -a -t ssh_port_t -p tcp 22222"), "{:?}", calls.borrow());
+        assert!(
+            calls.borrow()[1].contains("port -a -t ssh_port_t -p tcp 22222"),
+            "{:?}",
+            calls.borrow()
+        );
         // Missing semanage stays loud when enforcing.
         let run = FnRunner::new(|_, _, _, _| -> Result<Vec<u8>, Error> {
-            Err(Error::CmdExit { name: "semanage".to_string(), code: 127, interrupted: false })
+            Err(Error::CmdExit {
+                name: "semanage".to_string(),
+                code: 127,
+                interrupted: false,
+            })
         });
         assert!(ensure_enrollment_port_label(&ctx, &run, true).is_err());
     }
@@ -156,12 +179,23 @@ mod tests {
         let (ctx, _flag) = Ctx::test();
         let run = FnRunner::new(|_, name: &str, args: &[String], _| {
             assert_eq!(name, "chcon");
-            assert_eq!(args, &["-t".to_string(), "etc_t".to_string(), super::super::ENROLLMENT_CONFIG_PATH.to_string()]);
+            assert_eq!(
+                args,
+                &[
+                    "-t".to_string(),
+                    "etc_t".to_string(),
+                    super::super::ENROLLMENT_CONFIG_PATH.to_string()
+                ]
+            );
             Ok(Vec::new())
         });
         label_enrollment_config(&ctx, &run, true).unwrap();
         let failing = FnRunner::new(|_, _, _, _| -> Result<Vec<u8>, Error> {
-            Err(Error::CmdExit { name: "chcon".to_string(), code: 1, interrupted: false })
+            Err(Error::CmdExit {
+                name: "chcon".to_string(),
+                code: 1,
+                interrupted: false,
+            })
         });
         assert!(label_enrollment_config(&ctx, &failing, true).is_err());
         label_enrollment_config(&ctx, &failing, false).unwrap();

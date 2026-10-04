@@ -173,7 +173,7 @@ impl<'a> Reader<'a> {
 
     /// BIT STRING with padding-bit checks. Returns `(bytes, bit_length)`.
     fn read_bitstring(&mut self) -> Option<(&'a [u8], usize)> {
-        let bytes = self.read_asn1(0x03)?;
+        let bytes = self.read_asn1(TAG_BITSTRING)?;
         if bytes.is_empty() {
             return None;
         }
@@ -376,8 +376,6 @@ const OID_CURVE_P384: &[u8] = &[0x2b, 0x81, 0x04, 0x00, 0x22];
 const OID_CURVE_P521: &[u8] = &[0x2b, 0x81, 0x04, 0x00, 0x23];
 
 const OID_AIA: &[u8] = &[0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x01, 0x01];
-const OID_AIA_OCSP: &[u8] = &[0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01];
-const OID_AIA_ISSUERS: &[u8] = &[0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x02];
 
 const NULL_BYTES: &[u8] = &[0x05, 0x00];
 
@@ -452,14 +450,12 @@ impl PublicKeyAlgorithm {
 }
 
 /// Go `x509.KeyUsage` bits (only bits 0-8 exist).
-pub const KEY_USAGE_DIGITAL_SIGNATURE: u16 = 1 << 0;
-pub const KEY_USAGE_CONTENT_COMMITMENT: u16 = 1 << 1;
-pub const KEY_USAGE_KEY_ENCIPHERMENT: u16 = 1 << 2;
-pub const KEY_USAGE_DATA_ENCIPHERMENT: u16 = 1 << 3;
-pub const KEY_USAGE_KEY_AGREEMENT: u16 = 1 << 4;
 pub const KEY_USAGE_CERT_SIGN: u16 = 1 << 5;
-pub const KEY_USAGE_CRL_SIGN: u16 = 1 << 6;
-pub const KEY_USAGE_ENCIPHER_ONLY: u16 = 1 << 7;
+#[cfg(test)]
+pub const KEY_USAGE_DIGITAL_SIGNATURE: u16 = 1 << 0;
+#[cfg(test)]
+pub const KEY_USAGE_KEY_ENCIPHERMENT: u16 = 1 << 2;
+#[cfg(test)]
 pub const KEY_USAGE_DECIPHER_ONLY: u16 = 1 << 8;
 
 /// Parsed public key. ECDSA keys are validated on-curve at parse time, as in
@@ -467,7 +463,14 @@ pub const KEY_USAGE_DECIPHER_ONLY: u16 = 1 << 8;
 #[derive(Debug)]
 pub enum PublicKeyData {
     Rsa(rsa::RsaPublicKey),
-    Dsa { y: Vec<u8>, p: Vec<u8>, q: Vec<u8>, g: Vec<u8> },
+    // Parsed for structural fidelity like Go; verification refuses DSA later.
+    #[allow(dead_code)]
+    Dsa {
+        y: Vec<u8>,
+        p: Vec<u8>,
+        q: Vec<u8>,
+        g: Vec<u8>,
+    },
     Ecdsa224(ecdsa::VerifyingKey<p224::NistP224>),
     Ecdsa256(ecdsa::VerifyingKey<p256::NistP256>),
     Ecdsa384(ecdsa::VerifyingKey<p384::NistP384>),
@@ -477,7 +480,9 @@ pub enum PublicKeyData {
 
 /// Parsed certificate: the fields the installer reads, plus raw blobs.
 /// Times are absolute Unix seconds (UTCTime/GeneralizedTime carry no nanos).
+/// Raw blobs mirror Go's `x509.Certificate` even where uncompared.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Certificate {
     pub raw: Vec<u8>,
     pub raw_tbs: Vec<u8>,
@@ -576,16 +581,39 @@ fn time_fields(contents: &[u8], digits: usize) -> Option<i64> {
     }
     let offset = parse_zone(zone)?;
     let num = |from: usize, to: usize| -> u32 {
-        datetime[from..to].iter().fold(0u32, |v, b| v * 10 + u32::from(*b - b'0'))
+        datetime[from..to]
+            .iter()
+            .fold(0u32, |v, b| v * 10 + u32::from(*b - b'0'))
     };
     // 14 digits: YYYYMMDDHHMMSS. 12: YYMMDDHHMMSS. Otherwise the
     // minute-precision UTCTime fallback YYMMDDHHMM (10 digits).
     let (year, month, day, hour, min, sec) = match digits {
-        14 => (num(0, 4) as i64, num(4, 6), num(6, 8), num(8, 10), num(10, 12), num(12, 14)),
-        12 => (utc_year(num(0, 2)), num(2, 4), num(4, 6), num(6, 8), num(8, 10), num(10, 12)),
-        _ => (utc_year(num(0, 2)), num(2, 4), num(4, 6), num(6, 8), num(8, 10), 0),
+        14 => (
+            num(0, 4) as i64,
+            num(4, 6),
+            num(6, 8),
+            num(8, 10),
+            num(10, 12),
+            num(12, 14),
+        ),
+        12 => (
+            utc_year(num(0, 2)),
+            num(2, 4),
+            num(4, 6),
+            num(6, 8),
+            num(8, 10),
+            num(10, 12),
+        ),
+        _ => (
+            utc_year(num(0, 2)),
+            num(2, 4),
+            num(4, 6),
+            num(6, 8),
+            num(8, 10),
+            0,
+        ),
     };
-    if month < 1 || month > 12 {
+    if !(1..=12).contains(&month) {
         return None;
     }
     if day < 1 || day > days_in_month(year, month) {
@@ -637,7 +665,7 @@ fn parse_asn1_string(tag: u8, value: &[u8]) -> Result<(), String> {
             }
         }
         30 => {
-            if value.len() % 2 != 0 {
+            if !value.len().is_multiple_of(2) {
                 return Err(String::from("invalid BMPString"));
             }
             let mut units = value;
@@ -696,9 +724,9 @@ fn parse_name(element: &[u8]) -> Result<(), String> {
             let mut attr = Reader::new(attr);
             attr.read_oid()
                 .ok_or_else(|| String::from("x509: invalid RDNSequence: invalid attribute type"))?;
-            let (value_tag, value) = attr
-                .read_any()
-                .ok_or_else(|| String::from("x509: invalid RDNSequence: invalid attribute value"))?;
+            let (value_tag, value) = attr.read_any().ok_or_else(|| {
+                String::from("x509: invalid RDNSequence: invalid attribute value")
+            })?;
             parse_asn1_string(value_tag, value).map_err(|err| {
                 format!("x509: invalid RDNSequence: invalid attribute value: {err}")
             })?;
@@ -738,7 +766,8 @@ fn parse_time(reader: &mut Reader<'_>) -> Result<i64, String> {
         let contents = reader
             .read_asn1(TAG_GENTIME)
             .ok_or_else(|| String::from("x509: malformed GeneralizedTime"))?;
-        parse_generalized_time(contents).ok_or_else(|| String::from("x509: malformed GeneralizedTime"))
+        parse_generalized_time(contents)
+            .ok_or_else(|| String::from("x509: malformed GeneralizedTime"))
     } else {
         Err(String::from("x509: unsupported time format"))
     }
@@ -771,7 +800,11 @@ fn parse_extension(contents: &[u8]) -> Result<Extension<'_>, String> {
     let value = reader
         .read_asn1(TAG_OCTET)
         .ok_or_else(|| String::from("x509: malformed extension value field"))?;
-    Ok(Extension { id, critical, value })
+    Ok(Extension {
+        id,
+        critical,
+        value,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -890,7 +923,9 @@ fn parse_san(value: &[u8]) -> Result<bool, String> {
             }
             6 => {
                 if !is_ia5_string(data) {
-                    return Err(String::from("x509: SAN uniformResourceIdentifier is malformed"));
+                    return Err(String::from(
+                        "x509: SAN uniformResourceIdentifier is malformed",
+                    ));
                 }
                 let uri_str = std::str::from_utf8(data).map_err(|_| {
                     String::from("x509: SAN uniformResourceIdentifier is malformed")
@@ -899,13 +934,19 @@ fn parse_san(value: &[u8]) -> Result<bool, String> {
                     format!("x509: cannot parse URI {}: {}", quoted(data), err.text())
                 })?;
                 if !uri.host.is_empty() && !domain_name_valid(&uri.host, false) {
-                    return Err(format!("x509: cannot parse URI {}: invalid domain", quoted(data)));
+                    return Err(format!(
+                        "x509: cannot parse URI {}: invalid domain",
+                        quoted(data)
+                    ));
                 }
                 parsed_any = true;
             }
             7 => {
                 if data.len() != 4 && data.len() != 16 {
-                    return Err(format!("x509: cannot parse IP address of length {}", data.len()));
+                    return Err(format!(
+                        "x509: cannot parse IP address of length {}",
+                        data.len()
+                    ));
                 }
                 parsed_any = true;
             }
@@ -1071,20 +1112,26 @@ fn name_constraint_values(subtrees: &[u8]) -> Result<bool, String> {
     let mut reader = Reader::new(subtrees);
     let mut unhandled = false;
     while !reader.is_empty() {
-        let seq = reader.read_asn1(TAG_SEQ).ok_or_else(|| {
-            String::from("x509: invalid NameConstraints extension")
-        })?;
+        let seq = reader
+            .read_asn1(TAG_SEQ)
+            .ok_or_else(|| String::from("x509: invalid NameConstraints extension"))?;
         let mut seq = Reader::new(seq);
-        let (tag, value) = seq.read_any().ok_or_else(|| {
-            String::from("x509: invalid NameConstraints extension")
-        })?;
+        let (tag, value) = seq
+            .read_any()
+            .ok_or_else(|| String::from("x509: invalid NameConstraints extension"))?;
         match tag {
             0x82 => {
                 if !is_ia5_string(value) {
-                    return Err(format!("x509: invalid constraint value: {}", ia5_error(value)));
+                    return Err(format!(
+                        "x509: invalid constraint value: {}",
+                        ia5_error(value)
+                    ));
                 }
                 if !domain_name_valid(value, true) {
-                    return Err(format!("x509: failed to parse dnsName constraint {}", quoted(value)));
+                    return Err(format!(
+                        "x509: failed to parse dnsName constraint {}",
+                        quoted(value)
+                    ));
                 }
             }
             0x87 => {
@@ -1092,7 +1139,9 @@ fn name_constraint_values(subtrees: &[u8]) -> Result<bool, String> {
                     8 => &value[4..],
                     32 => &value[16..],
                     len => {
-                        return Err(format!("x509: IP constraint contained value of length {len}"));
+                        return Err(format!(
+                            "x509: IP constraint contained value of length {len}"
+                        ));
                     }
                 };
                 if !is_valid_ip_mask(mask) {
@@ -1104,7 +1153,10 @@ fn name_constraint_values(subtrees: &[u8]) -> Result<bool, String> {
             }
             0x81 => {
                 if !is_ia5_string(value) {
-                    return Err(format!("x509: invalid constraint value: {}", ia5_error(value)));
+                    return Err(format!(
+                        "x509: invalid constraint value: {}",
+                        ia5_error(value)
+                    ));
                 }
                 if value.contains(&b'@') {
                     if !parse_rfc2821_mailbox(value) {
@@ -1122,7 +1174,10 @@ fn name_constraint_values(subtrees: &[u8]) -> Result<bool, String> {
             }
             0x86 => {
                 if !is_ia5_string(value) {
-                    return Err(format!("x509: invalid constraint value: {}", ia5_error(value)));
+                    return Err(format!(
+                        "x509: invalid constraint value: {}",
+                        ia5_error(value)
+                    ));
                 }
                 let is_ip = netip::parse_addr_bytes(value)
                     .map(|addr| addr.zone().is_empty())
@@ -1134,7 +1189,10 @@ fn name_constraint_values(subtrees: &[u8]) -> Result<bool, String> {
                     ));
                 }
                 if !domain_name_valid(value, true) {
-                    return Err(format!("x509: failed to parse URI constraint {}", quoted(value)));
+                    return Err(format!(
+                        "x509: failed to parse URI constraint {}",
+                        quoted(value)
+                    ));
                 }
             }
             _ => unhandled = true,
@@ -1204,7 +1262,9 @@ fn parse_crl_distribution_points(value: &[u8]) -> Result<(), String> {
 
 fn parse_authority_key_id(ext: &Extension<'_>) -> Result<(), String> {
     if ext.critical {
-        return Err(String::from("x509: authority key identifier incorrectly marked critical"));
+        return Err(String::from(
+            "x509: authority key identifier incorrectly marked critical",
+        ));
     }
     let mut reader = Reader::new(ext.value);
     let contents = reader
@@ -1254,7 +1314,9 @@ fn parse_ext_key_usage(value: &[u8]) -> Result<(), String> {
 
 fn parse_subject_key_id(ext: &Extension<'_>) -> Result<(), String> {
     if ext.critical {
-        return Err(String::from("x509: subject key identifier incorrectly marked critical"));
+        return Err(String::from(
+            "x509: subject key identifier incorrectly marked critical",
+        ));
     }
     let mut reader = Reader::new(ext.value);
     reader
@@ -1333,7 +1395,9 @@ fn parse_inhibit_any_policy(value: &[u8]) -> Result<(), String> {
 
 fn parse_authority_info_access(ext: &Extension<'_>) -> Result<(), String> {
     if ext.critical {
-        return Err(String::from("x509: authority info access incorrectly marked critical"));
+        return Err(String::from(
+            "x509: authority info access incorrectly marked critical",
+        ));
     }
     let mut reader = Reader::new(ext.value);
     let contents = reader
@@ -1603,9 +1667,19 @@ const P521_PRIME: [u8; 66] = [
 
 /// Go's P-256 coordinate error is platform dependent (assembly wording on
 /// amd64/arm64/ppc64le/s390x, fiat wording elsewhere, `purego` excluded).
-#[cfg(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "powerpc64", target_arch = "s390x"))]
+#[cfg(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "powerpc64",
+    target_arch = "s390x"
+))]
 const P256_ELEMENT_ERROR: &str = "invalid P256 element encoding";
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "powerpc64", target_arch = "s390x")))]
+#[cfg(not(any(
+    target_arch = "x86_64",
+    target_arch = "aarch64",
+    target_arch = "powerpc64",
+    target_arch = "s390x"
+)))]
 const P256_ELEMENT_ERROR: &str = "invalid P256Element encoding";
 
 fn magnitude(bytes: &[u8]) -> &[u8] {
@@ -1644,7 +1718,9 @@ fn parse_rsa_key(params: &[u8], data: &[u8]) -> Result<PublicKeyData, String> {
         return Err(String::from("x509: RSA modulus is not a positive number"));
     }
     if e <= 0 {
-        return Err(String::from("x509: RSA public exponent is not a positive number"));
+        return Err(String::from(
+            "x509: RSA public exponent is not a positive number",
+        ));
     }
     let key = rsa::RsaPublicKey::new_unchecked(
         rsa::BigUint::from_bytes_be(magnitude(n)),
@@ -1687,7 +1763,12 @@ fn parse_dsa_key(params: &[u8], data: &[u8]) -> Result<PublicKeyData, String> {
 
 /// Validated curve point length/prefix/range shared by all four curves.
 /// Returns the coordinate field length on success.
-fn check_ec_point(data: &[u8], prime: &[u8], point_error: &str, element_error: &str) -> Result<usize, String> {
+fn check_ec_point(
+    data: &[u8],
+    prime: &[u8],
+    point_error: &str,
+    element_error: &str,
+) -> Result<usize, String> {
     if data.is_empty() || data[0] != 4 {
         return Err(String::from("ecdsa: invalid uncompressed public key"));
     }
@@ -1708,22 +1789,42 @@ fn parse_ecdsa_key(params: &[u8], data: &[u8]) -> Result<PublicKeyData, String> 
         .read_oid()
         .ok_or_else(|| String::from("x509: invalid ECDSA parameters"))?;
     if curve == OID_CURVE_P224 {
-        check_ec_point(data, &P224_PRIME, "invalid P224 point encoding", "invalid P224Element encoding")?;
+        check_ec_point(
+            data,
+            &P224_PRIME,
+            "invalid P224 point encoding",
+            "invalid P224Element encoding",
+        )?;
         let key = ecdsa::VerifyingKey::<p224::NistP224>::from_sec1_bytes(data)
             .map_err(|_| String::from("P224 point not on curve"))?;
         Ok(PublicKeyData::Ecdsa224(key))
     } else if curve == OID_CURVE_P256 {
-        check_ec_point(data, &P256_PRIME, "invalid P256 point encoding", P256_ELEMENT_ERROR)?;
+        check_ec_point(
+            data,
+            &P256_PRIME,
+            "invalid P256 point encoding",
+            P256_ELEMENT_ERROR,
+        )?;
         let key = ecdsa::VerifyingKey::<p256::NistP256>::from_sec1_bytes(data)
             .map_err(|_| String::from("P256 point not on curve"))?;
         Ok(PublicKeyData::Ecdsa256(key))
     } else if curve == OID_CURVE_P384 {
-        check_ec_point(data, &P384_PRIME, "invalid P384 point encoding", "invalid P384Element encoding")?;
+        check_ec_point(
+            data,
+            &P384_PRIME,
+            "invalid P384 point encoding",
+            "invalid P384Element encoding",
+        )?;
         let key = ecdsa::VerifyingKey::<p384::NistP384>::from_sec1_bytes(data)
             .map_err(|_| String::from("P384 point not on curve"))?;
         Ok(PublicKeyData::Ecdsa384(key))
     } else if curve == OID_CURVE_P521 {
-        check_ec_point(data, &P521_PRIME, "invalid P521 point encoding", "invalid P521Element encoding")?;
+        check_ec_point(
+            data,
+            &P521_PRIME,
+            "invalid P521 point encoding",
+            "invalid P521Element encoding",
+        )?;
         let key = ecdsa::VerifyingKey::<p521::NistP521>::from_sec1_bytes(data)
             .map_err(|_| String::from("P521 point not on curve"))?;
         Ok(PublicKeyData::Ecdsa521(key))
@@ -1734,7 +1835,9 @@ fn parse_ecdsa_key(params: &[u8], data: &[u8]) -> Result<PublicKeyData, String> 
 
 fn parse_ed25519_key(params: &[u8], data: &[u8]) -> Result<PublicKeyData, String> {
     if !params.is_empty() {
-        return Err(String::from("x509: Ed25519 key encoded with illegal parameters"));
+        return Err(String::from(
+            "x509: Ed25519 key encoded with illegal parameters",
+        ));
     }
     if data.len() != 32 {
         return Err(String::from("x509: wrong Ed25519 public key size"));
@@ -1858,7 +1961,11 @@ pub fn parse_certificate(der: &[u8]) -> Result<Certificate, String> {
         .ok_or_else(|| String::from("x509: malformed subjectPublicKey"))?;
     let key_data = right_align(spk_bytes, spk_bits);
     let public_key = if public_key_algorithm != PublicKeyAlgorithm::Unknown {
-        Some(parse_public_key(public_key_algorithm, pk_ai.params, &key_data)?)
+        Some(parse_public_key(
+            public_key_algorithm,
+            pk_ai.params,
+            &key_data,
+        )?)
     } else {
         None
     };
@@ -1950,7 +2057,10 @@ const ERR_ECDSA_FAILURE: &str = "x509: ECDSA verification failure";
 const ERR_ED25519_FAILURE: &str = "x509: Ed25519 verification failure";
 
 fn insecure_algorithm_error(algo: SignatureAlgorithm) -> String {
-    format!("x509: cannot verify signature: insecure algorithm {}", algo.name())
+    format!(
+        "x509: cannot verify signature: insecure algorithm {}",
+        algo.name()
+    )
 }
 
 fn mismatch_error(expected: PublicKeyAlgorithm, got: &str) -> String {
@@ -2062,9 +2172,15 @@ fn verify_rsa(
         return Err(mismatch_error(expected, "*rsa.PublicKey"));
     }
     let ok = match (hash, pss) {
-        (Hash::Sha256, false) => key.verify(rsa::Pkcs1v15Sign::new::<sha2::Sha256>(), hashed, signature),
-        (Hash::Sha384, false) => key.verify(rsa::Pkcs1v15Sign::new::<sha2::Sha384>(), hashed, signature),
-        (Hash::Sha512, false) => key.verify(rsa::Pkcs1v15Sign::new::<sha2::Sha512>(), hashed, signature),
+        (Hash::Sha256, false) => {
+            key.verify(rsa::Pkcs1v15Sign::new::<sha2::Sha256>(), hashed, signature)
+        }
+        (Hash::Sha384, false) => {
+            key.verify(rsa::Pkcs1v15Sign::new::<sha2::Sha384>(), hashed, signature)
+        }
+        (Hash::Sha512, false) => {
+            key.verify(rsa::Pkcs1v15Sign::new::<sha2::Sha512>(), hashed, signature)
+        }
         // Go verifies PSS with salt length equal to the hash length.
         (Hash::Sha256, true) => key.verify(rsa::pss::Pss::new::<sha2::Sha256>(), hashed, signature),
         (Hash::Sha384, true) => key.verify(rsa::pss::Pss::new::<sha2::Sha384>(), hashed, signature),
@@ -2164,8 +2280,10 @@ fn verify_ed25519(
     if expected != PublicKeyAlgorithm::Ed25519 {
         return Err(mismatch_error(expected, "ed25519.PublicKey"));
     }
-    let vk = ed25519_dalek::VerifyingKey::from_bytes(key).map_err(|_| String::from(ERR_ED25519_FAILURE))?;
-    let sig = ed25519_dalek::Signature::try_from(signature).map_err(|_| String::from(ERR_ED25519_FAILURE))?;
+    let vk = ed25519_dalek::VerifyingKey::from_bytes(key)
+        .map_err(|_| String::from(ERR_ED25519_FAILURE))?;
+    let sig = ed25519_dalek::Signature::try_from(signature)
+        .map_err(|_| String::from(ERR_ED25519_FAILURE))?;
     vk.verify(signed, &sig)
         .map_err(|_| String::from(ERR_ED25519_FAILURE))
 }
@@ -2339,7 +2457,11 @@ mod tests {
     }
 
     fn std_spki() -> Vec<u8> {
-        rsa_spki(&[0x00, 0xC0, 0xFF, 0xEE], &[0x01, 0x00, 0x01], Some(&null()))
+        rsa_spki(
+            &[0x00, 0xC0, 0xFF, 0xEE],
+            &[0x01, 0x00, 0x01],
+            Some(&null()),
+        )
     }
 
     fn std_validity() -> Vec<u8> {
@@ -2415,7 +2537,10 @@ mod tests {
     #[test]
     fn parse_structural_error_texts() {
         // Empty and wrong outer tag.
-        assert_eq!(err_text(parse_certificate(&[])), "x509: malformed certificate");
+        assert_eq!(
+            err_text(parse_certificate(&[])),
+            "x509: malformed certificate"
+        );
         assert_eq!(
             err_text(parse_certificate(&[0x31, 0x00])),
             "x509: malformed certificate"
@@ -2478,11 +2603,17 @@ mod tests {
         assert_eq!(mutant(&parts), "x509: malformed validity");
         // Malformed notBefore (UTCTime too short).
         let mut parts = std_parts();
-        parts[3] = seq(&concat(&[utctime("70010100000Z"), utctime("700102000000Z")]));
+        parts[3] = seq(&concat(&[
+            utctime("70010100000Z"),
+            utctime("700102000000Z"),
+        ]));
         assert_eq!(mutant(&parts), "x509: malformed UTCTime");
         // Malformed notAfter (bad zone).
         let mut parts = std_parts();
-        parts[3] = seq(&concat(&[utctime("700101000000Z"), utctime("700102000000X")]));
+        parts[3] = seq(&concat(&[
+            utctime("700101000000Z"),
+            utctime("700102000000X"),
+        ]));
         assert_eq!(mutant(&parts), "x509: malformed UTCTime");
 
         // Subject uses the issuer's error text (Go quirk).
@@ -2521,11 +2652,8 @@ mod tests {
         );
 
         // Inner/outer AI mismatch.
-        let mismatch = cert_from_tbs_parts(
-            &std_parts(),
-            &ai_element(OID_SHA1_RSA, Some(&null())),
-            &[1],
-        );
+        let mismatch =
+            cert_from_tbs_parts(&std_parts(), &ai_element(OID_SHA1_RSA, Some(&null())), &[1]);
         assert_eq!(
             err_text(parse_certificate(&mismatch)),
             "x509: inner and outer signature algorithm identifiers don't match"
@@ -2537,7 +2665,10 @@ mod tests {
             ai_element(OID_SHA256_RSA, Some(&null())),
             octet(&[1]),
         ]));
-        assert_eq!(err_text(parse_certificate(&bad_sig)), "x509: malformed signature");
+        assert_eq!(
+            err_text(parse_certificate(&bad_sig)),
+            "x509: malformed signature"
+        );
     }
 
     #[test]
@@ -2560,11 +2691,15 @@ mod tests {
     #[test]
     fn parse_unknown_signature_algorithm_yields_unknown() {
         let ai = ai_element(&[0x2A, 0x03], None);
-        let cert = parse_certificate(&cert_from_tbs_parts(&{
-            let mut parts = std_parts();
-            parts[1] = ai.clone();
-            parts
-        }, &ai, &[1]))
+        let cert = parse_certificate(&cert_from_tbs_parts(
+            &{
+                let mut parts = std_parts();
+                parts[1] = ai.clone();
+                parts
+            },
+            &ai,
+            &[1],
+        ))
         .expect("unknown sig algorithm parses");
         assert_eq!(cert.signature_algorithm, SignatureAlgorithm::Unknown);
     }
@@ -2575,8 +2710,8 @@ mod tests {
         // v2 without unique IDs.
         let mut parts = std_parts();
         parts.insert(0, tlv(0xA0, &int_small(1)));
-        let cert = parse_certificate(&cert_from_tbs_parts(&parts, &outer, &[1]))
-            .expect("v2 parses");
+        let cert =
+            parse_certificate(&cert_from_tbs_parts(&parts, &outer, &[1])).expect("v2 parses");
         assert_eq!(cert.version, 2);
         // v2 with well-formed unique IDs (skipped).
         let mut parts = parts.clone();
@@ -2597,7 +2732,11 @@ mod tests {
         parts.insert(0, tlv(0xA0, &int_small(2)));
         parts.push(tlv(0xA3, &[0x04, 0x01, 0x00]));
         assert_eq!(
-            err_text(parse_certificate(&cert_from_tbs_parts(&parts, &outer, &[1]))),
+            err_text(parse_certificate(&cert_from_tbs_parts(
+                &parts,
+                &outer,
+                &[1]
+            ))),
             "x509: malformed extensions"
         );
     }
@@ -2622,7 +2761,10 @@ mod tests {
         let rsa = ai_element(OID_RSA_ENC, Some(&null()));
         // Missing NULL parameters (absent and wrong).
         assert_eq!(
-            key_err(&spki_with_key(&ai_element(OID_RSA_ENC, None), &key(&[1], &[1]))),
+            key_err(&spki_with_key(
+                &ai_element(OID_RSA_ENC, None),
+                &key(&[1], &[1])
+            )),
             "x509: RSA key missing NULL parameters"
         );
         assert_eq!(
@@ -2639,7 +2781,10 @@ mod tests {
         );
         // Modulus not an INTEGER.
         assert_eq!(
-            key_err(&spki_with_key(&rsa, &seq(&concat(&[octet(&[1]), int_small(1)])))),
+            key_err(&spki_with_key(
+                &rsa,
+                &seq(&concat(&[octet(&[1]), int_small(1)]))
+            )),
             "x509: invalid RSA modulus"
         );
         // Exponent missing.
@@ -2793,14 +2938,14 @@ mod tests {
     fn parse_ecdsa_p256_generator() {
         // The P-256 base point is the standard on-curve vector.
         let gx = [
-            0x6B, 0x17, 0xD1, 0xF2, 0xE1, 0x2C, 0x42, 0x47, 0xF8, 0xBC, 0xE6, 0xE5, 0x63,
-            0xA4, 0x40, 0xF2, 0x77, 0x03, 0x7D, 0x81, 0x2D, 0xEB, 0x33, 0xA0, 0xF4, 0xA1,
-            0x39, 0x45, 0xD8, 0x98, 0xC2, 0x96,
+            0x6B, 0x17, 0xD1, 0xF2, 0xE1, 0x2C, 0x42, 0x47, 0xF8, 0xBC, 0xE6, 0xE5, 0x63, 0xA4,
+            0x40, 0xF2, 0x77, 0x03, 0x7D, 0x81, 0x2D, 0xEB, 0x33, 0xA0, 0xF4, 0xA1, 0x39, 0x45,
+            0xD8, 0x98, 0xC2, 0x96,
         ];
         let gy = [
-            0x4F, 0xE3, 0x42, 0xE2, 0xFE, 0x1A, 0x7F, 0x9B, 0x8E, 0xE7, 0xEB, 0x4A, 0x7C,
-            0x0F, 0x9E, 0x16, 0x2B, 0xCE, 0x33, 0x57, 0x6B, 0x31, 0x5E, 0xCE, 0xCB, 0xB6,
-            0x40, 0x68, 0x37, 0xBF, 0x51, 0xF5,
+            0x4F, 0xE3, 0x42, 0xE2, 0xFE, 0x1A, 0x7F, 0x9B, 0x8E, 0xE7, 0xEB, 0x4A, 0x7C, 0x0F,
+            0x9E, 0x16, 0x2B, 0xCE, 0x33, 0x57, 0x6B, 0x31, 0x5E, 0xCE, 0xCB, 0xB6, 0x40, 0x68,
+            0x37, 0xBF, 0x51, 0xF5,
         ];
         let mut point = vec![0x04];
         point.extend_from_slice(&gx);
@@ -3017,7 +3162,10 @@ mod tests {
     fn validity_time_rejections() {
         // Month 13.
         let mut parts = std_parts();
-        parts[3] = seq(&concat(&[utctime("701301000000Z"), utctime("700102000000Z")]));
+        parts[3] = seq(&concat(&[
+            utctime("701301000000Z"),
+            utctime("700102000000Z"),
+        ]));
         assert_eq!(
             err_text(parse_certificate(&cert_from_tbs_parts(
                 &parts,
@@ -3027,7 +3175,10 @@ mod tests {
             "x509: malformed UTCTime"
         );
         // Hour 24.
-        parts[3] = seq(&concat(&[utctime("700101240000Z"), utctime("700102000000Z")]));
+        parts[3] = seq(&concat(&[
+            utctime("700101240000Z"),
+            utctime("700102000000Z"),
+        ]));
         assert_eq!(
             err_text(parse_certificate(&cert_from_tbs_parts(
                 &parts,
@@ -3037,7 +3188,10 @@ mod tests {
             "x509: malformed UTCTime"
         );
         // GeneralizedTime wrong length.
-        parts[3] = seq(&concat(&[gentime("1970010100000Z"), utctime("700102000000Z")]));
+        parts[3] = seq(&concat(&[
+            gentime("1970010100000Z"),
+            utctime("700102000000Z"),
+        ]));
         assert_eq!(
             err_text(parse_certificate(&cert_from_tbs_parts(
                 &parts,
@@ -3047,7 +3201,10 @@ mod tests {
             "x509: malformed GeneralizedTime"
         );
         // Non-UTCTime/GeneralizedTime tag.
-        parts[3] = seq(&concat(&[octet(b"700101000000Z"), utctime("700102000000Z")]));
+        parts[3] = seq(&concat(&[
+            octet(b"700101000000Z"),
+            utctime("700102000000Z"),
+        ]));
         assert_eq!(
             err_text(parse_certificate(&cert_from_tbs_parts(
                 &parts,
@@ -3084,16 +3241,10 @@ mod tests {
     fn ecdsa_signature_lenient_parse() {
         // Minimal valid.
         let sig = seq(&concat(&[int_small(1), int_small(2)]));
-        assert_eq!(
-            parse_ecdsa_signature(&sig),
-            Some((vec![0x01], vec![0x02]))
-        );
+        assert_eq!(parse_ecdsa_signature(&sig), Some((vec![0x01], vec![0x02])));
         // Non-minimal integers are accepted (encoding/asn1 semantics).
         let sig = seq(&concat(&[int_raw(&[0x00, 0x00, 0x01]), int_small(2)]));
-        assert_eq!(
-            parse_ecdsa_signature(&sig),
-            Some((vec![0x01], vec![0x02]))
-        );
+        assert_eq!(parse_ecdsa_signature(&sig), Some((vec![0x01], vec![0x02])));
         // Negative, zero, and empty values are rejected.
         let sig = seq(&concat(&[int_raw(&[0xFF]), int_small(2)]));
         assert_eq!(parse_ecdsa_signature(&sig), None);
@@ -3127,7 +3278,11 @@ mod tests {
     }
 
     fn v3_cert(exts: &[Vec<u8>]) -> Vec<u8> {
-        cert_from_tbs_parts(&v3_parts(exts), &ai_element(OID_SHA256_RSA, Some(&null())), &[1])
+        cert_from_tbs_parts(
+            &v3_parts(exts),
+            &ai_element(OID_SHA256_RSA, Some(&null())),
+            &[1],
+        )
     }
 
     fn ku_value(bits: &[u8], unused: u8) -> Vec<u8> {
@@ -3285,8 +3440,7 @@ mod tests {
         let ai = ai_element(sig_oid, params);
         let mut parts = std_parts();
         parts[1] = ai.clone();
-        parse_certificate(&cert_from_tbs_parts(&parts, &ai, &[0xDE, 0xAD]))
-            .expect("child parses")
+        parse_certificate(&cert_from_tbs_parts(&parts, &ai, &[0xDE, 0xAD])).expect("child parses")
     }
 
     #[test]
@@ -3325,11 +3479,7 @@ mod tests {
             ))
         );
         // Unknown parent public key algorithm.
-        let mut parts = v3_parts(&[extension(
-            OID_BASIC_CONSTRAINTS,
-            true,
-            &seq(&boolean(true)),
-        )]);
+        let mut parts = v3_parts(&[extension(OID_BASIC_CONSTRAINTS, true, &seq(&boolean(true)))]);
         parts[6] = seq(&concat(&[ai_element(&[0x2A, 0x03], None), bitstring(&[1])]));
         let parent = parse_certificate(&cert_from_tbs_parts(
             &parts,
@@ -3396,14 +3546,14 @@ mod tests {
         // ECDSA (P-256 generator) key with an RSA signature algorithm.
         let mut point = vec![0x04];
         point.extend_from_slice(&[
-            0x6B, 0x17, 0xD1, 0xF2, 0xE1, 0x2C, 0x42, 0x47, 0xF8, 0xBC, 0xE6, 0xE5,
-            0x63, 0xA4, 0x40, 0xF2, 0x77, 0x03, 0x7D, 0x81, 0x2D, 0xEB, 0x33, 0xA0,
-            0xF4, 0xA1, 0x39, 0x45, 0xD8, 0x98, 0xC2, 0x96,
+            0x6B, 0x17, 0xD1, 0xF2, 0xE1, 0x2C, 0x42, 0x47, 0xF8, 0xBC, 0xE6, 0xE5, 0x63, 0xA4,
+            0x40, 0xF2, 0x77, 0x03, 0x7D, 0x81, 0x2D, 0xEB, 0x33, 0xA0, 0xF4, 0xA1, 0x39, 0x45,
+            0xD8, 0x98, 0xC2, 0x96,
         ]);
         point.extend_from_slice(&[
-            0x4F, 0xE3, 0x42, 0xE2, 0xFE, 0x1A, 0x7F, 0x9B, 0x8E, 0xE7, 0xEB, 0x4A,
-            0x7C, 0x0F, 0x9E, 0x16, 0x2B, 0xCE, 0x33, 0x57, 0x6B, 0x31, 0x5E, 0xCE,
-            0xCB, 0xB6, 0x40, 0x68, 0x37, 0xBF, 0x51, 0xF5,
+            0x4F, 0xE3, 0x42, 0xE2, 0xFE, 0x1A, 0x7F, 0x9B, 0x8E, 0xE7, 0xEB, 0x4A, 0x7C, 0x0F,
+            0x9E, 0x16, 0x2B, 0xCE, 0x33, 0x57, 0x6B, 0x31, 0x5E, 0xCE, 0xCB, 0xB6, 0x40, 0x68,
+            0x37, 0xBF, 0x51, 0xF5,
         ]);
         let ec_parent = ca_cert(&ec_spki(OID_P256, &point), &[]);
         let child = child_with_alg(OID_SHA256_RSA, Some(&null()));
@@ -3435,21 +3585,14 @@ mod tests {
     fn check_signature_ed25519_self_signed_round_trip() {
         use ed25519_dalek::Signer as _;
         let signing = ed25519_dalek::SigningKey::from_bytes(&[
-            0x9D, 0x61, 0xB1, 0x9D, 0xEF, 0xFD, 0x5A, 0x60, 0xBA, 0x84, 0x4A, 0xF4,
-            0x92, 0x2E, 0xC4, 0x44, 0x48, 0xC8, 0x58, 0x07, 0x31, 0x11, 0xED, 0xD3,
-            0xAD, 0x45, 0x8B, 0x22, 0x7E, 0x4E, 0x4B, 0x63,
+            0x9D, 0x61, 0xB1, 0x9D, 0xEF, 0xFD, 0x5A, 0x60, 0xBA, 0x84, 0x4A, 0xF4, 0x92, 0x2E,
+            0xC4, 0x44, 0x48, 0xC8, 0x58, 0x07, 0x31, 0x11, 0xED, 0xD3, 0xAD, 0x45, 0x8B, 0x22,
+            0x7E, 0x4E, 0x4B, 0x63,
         ]);
         let verifying = signing.verifying_key();
-        let spki = spki_with_key(
-            &ai_element(OID_ED25519, None),
-            verifying.as_bytes(),
-        );
+        let spki = spki_with_key(&ai_element(OID_ED25519, None), verifying.as_bytes());
         let ai = ai_element(OID_ED25519, None);
-        let mut parts = v3_parts(&[extension(
-            OID_BASIC_CONSTRAINTS,
-            true,
-            &seq(&boolean(true)),
-        )]);
+        let mut parts = v3_parts(&[extension(OID_BASIC_CONSTRAINTS, true, &seq(&boolean(true)))]);
         parts[2] = ai.clone();
         parts[6] = spki;
         let tbs = seq(&concat(&parts));
@@ -3463,16 +3606,9 @@ mod tests {
         // A tampered signature fails.
         let mut bad = sig.to_bytes();
         bad[0] ^= 0x01;
-        let mut parts = v3_parts(&[extension(
-            OID_BASIC_CONSTRAINTS,
-            true,
-            &seq(&boolean(true)),
-        )]);
+        let mut parts = v3_parts(&[extension(OID_BASIC_CONSTRAINTS, true, &seq(&boolean(true)))]);
         parts[2] = ai_element(OID_ED25519, None);
-        parts[6] = spki_with_key(
-            &ai_element(OID_ED25519, None),
-            verifying.as_bytes(),
-        );
+        parts[6] = spki_with_key(&ai_element(OID_ED25519, None), verifying.as_bytes());
         let tbs = seq(&concat(&parts));
         let tampered = parse_certificate(&seq(&concat(&[
             tbs,

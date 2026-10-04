@@ -36,7 +36,9 @@ pub fn sprintf(format: &str, args: &[Arg<'_>]) -> String {
             }
             None => panic!("dangling format verb"),
         };
-        let arg = args.get(index).unwrap_or_else(|| panic!("missing format arg"));
+        let arg = args
+            .get(index)
+            .unwrap_or_else(|| panic!("missing format arg"));
         index += 1;
         match (verb, arg) {
             ("s", Arg::Str(s)) => out.push_str(s),
@@ -81,7 +83,10 @@ pub fn go_quote_into(out: &mut String, bytes: &[u8]) {
                 // Go emits one `\xNN` per invalid byte; consume one bad byte
                 // per step so a multi-byte run quotes each byte separately.
                 let valid = err.valid_up_to();
-                for ch in std::str::from_utf8(&bytes[i..i + valid]).unwrap_or("").chars() {
+                for ch in std::str::from_utf8(&bytes[i..i + valid])
+                    .unwrap_or("")
+                    .chars()
+                {
                     quote_char(out, ch);
                 }
                 write!(out, "\\x{:02x}", bytes[i + valid]).unwrap();
@@ -255,8 +260,14 @@ mod tests {
     #[test]
     fn space_and_case_match_go() {
         // Oracle: TRIM/FIELDS/LOWER/FOLD lines.
-        assert_eq!(go_trim_space("  \t\n\u{b}\u{c}\r \u{85}\u{a0}x\u{85}\u{a0}  "), "x");
-        assert_eq!(go_fields("a\tb\nc\u{b}d\u{c}e\rf\u{85}g\u{a0}h  i"), vec!["a", "b", "c", "d", "e", "f", "g", "h", "i"]);
+        assert_eq!(
+            go_trim_space("  \t\n\u{b}\u{c}\r \u{85}\u{a0}x\u{85}\u{a0}  "),
+            "x"
+        );
+        assert_eq!(
+            go_fields("a\tb\nc\u{b}d\u{c}e\rf\u{85}g\u{a0}h  i"),
+            vec!["a", "b", "c", "d", "e", "f", "g", "h", "i"]
+        );
         // Go's White_Space set includes the exotic Unicode spaces.
         assert_eq!(go_trim_space("\u{2000}x\u{2000}"), "x");
         assert_eq!(go_trim_space("\u{1680}\u{2028}x\u{2029}\u{3000}"), "x");
@@ -278,12 +289,17 @@ mod tests {
     fn verbs_cover_call_sites() {
         assert_eq!(sprintf("%d. %s", &[Arg::Uint(2), Arg::Str("x")]), "2. x");
         assert_eq!(
-            sprintf("%d. %q: %s", &[Arg::Int(1), Arg::Str("eth0"), Arg::Str("ip")]),
+            sprintf(
+                "%d. %q: %s",
+                &[Arg::Int(1), Arg::Str("eth0"), Arg::Str("ip")]
+            ),
             "1. \"eth0\": ip"
         );
         assert_eq!(
-            sprintf("%s failed (exit %d, interrupted %t); raw diagnostics suppressed",
-                &[Arg::Str("ip"), Arg::Int(1), Arg::Bool(false)]),
+            sprintf(
+                "%s failed (exit %d, interrupted %t); raw diagnostics suppressed",
+                &[Arg::Str("ip"), Arg::Int(1), Arg::Bool(false)]
+            ),
             "ip failed (exit 1, interrupted false); raw diagnostics suppressed"
         );
         assert_eq!(sprintf("100%% %v", &[Arg::Str("ok")]), "100% ok");

@@ -16,7 +16,9 @@ use crate::wizard::DiskInstallChoices;
 pub const CANDIDATE_INSTALLER_BINARY: &str = "/usr/libexec/soda/soda-install";
 
 pub fn candidate_identity_matches(media: &MediaIdentity) -> Result<(), Error> {
-    if media.validate(&media.release.clone(), &crate::run::architecture()).is_err()
+    if media
+        .validate(&media.release.clone(), &crate::run::architecture())
+        .is_err()
         || media.installer_version != "coreos-installer 0.26.0"
     {
         return Err(Error::msg("invalid candidate media identity"));
@@ -31,7 +33,10 @@ fn candidate_file_matches(path: &str, want: &str, mismatch: &str) -> Result<(), 
     }
 }
 
-fn candidate_release_matches(media: &MediaIdentity, payload_path: &str) -> Result<deliver::Payload, Error> {
+fn candidate_release_matches(
+    media: &MediaIdentity,
+    payload_path: &str,
+) -> Result<deliver::Payload, Error> {
     match deliver::load(payload_path) {
         Ok(payload)
             if payload.revision == media.revision
@@ -52,7 +57,11 @@ pub fn candidate_requirement(media: &MediaIdentity, root: &str) -> Result<u64, E
         "candidate installer differs from prebuilt tool",
     )?;
     let payload = format!("{root}{}", deliver::PATH);
-    candidate_file_matches(&payload, &media.payload_sha256, "live candidate payload differs from authenticated media")?;
+    candidate_file_matches(
+        &payload,
+        &media.payload_sha256,
+        "live candidate payload differs from authenticated media",
+    )?;
     let loaded = candidate_release_matches(media, &payload)?;
     let (_, total) = deliver::verify_content(&loaded, &format!("{root}{}", deliver::IMAGES_PATH))?;
     Ok(total)
@@ -108,18 +117,28 @@ fn rewrite_candidate_host_file(files: &mut Vec<JsonValue>, machine: &[u8]) -> Re
             JsonValue::Null => continue,
             _ => return Err(Error::msg("invalid destination files")),
         };
-        let path = entries.iter().rev().find(|(k, _)| k == "path").map(|(_, v)| v);
+        let path = entries
+            .iter()
+            .rev()
+            .find(|(k, _)| k == "path")
+            .map(|(_, v)| v);
         if matches!(path, Some(JsonValue::Str(p)) if p == "/etc/soda/host.json") {
             return Err(Error::msg("machine configuration collision"));
         }
         if matches!(path, Some(JsonValue::Str(p)) if p == "/etc/soda-installer/project-subnet") {
             entries.retain(|(k, _)| k != "path" && k != "contents");
-            entries.push(("path".to_string(), JsonValue::Str("/etc/soda/host.json".to_string())));
+            entries.push((
+                "path".to_string(),
+                JsonValue::Str("/etc/soda/host.json".to_string()),
+            ));
             entries.push((
                 "contents".to_string(),
                 JsonValue::Object(vec![(
                     "source".to_string(),
-                    JsonValue::Str(format!("data:;base64,{}", crate::sshkey::b64_encode(machine))),
+                    JsonValue::Str(format!(
+                        "data:;base64,{}",
+                        crate::sshkey::b64_encode(machine)
+                    )),
                 )]),
             ));
         }
@@ -146,18 +165,34 @@ pub fn candidate_destination(
     entries.retain(|(k, _)| k != "subnet");
     entries.push(("subnet".to_string(), JsonValue::Str(choices.subnet.clone())));
     let machine = serialize(&JsonValue::Object(entries));
-    let destination = inputs::destination(template, &choices.hostname, "", &choices.password_hash, &choices.subnet)?;
+    let destination = inputs::destination(
+        template,
+        &choices.hostname,
+        "",
+        &choices.password_hash,
+        &choices.subnet,
+    )?;
     let config = parse(&destination).map_err(|_| Error::msg("invalid destination"))?;
     let mut config_entries = match config {
         JsonValue::Object(entries) => entries,
         _ => return Err(Error::msg("invalid destination")),
     };
-    let storage_value = config_entries.iter().rev().find(|(k, _)| k == "storage").map(|(_, v)| v.clone()).unwrap_or(JsonValue::Null);
+    let storage_value = config_entries
+        .iter()
+        .rev()
+        .find(|(k, _)| k == "storage")
+        .map(|(_, v)| v.clone())
+        .unwrap_or(JsonValue::Null);
     let mut storage_entries = match storage_value {
         JsonValue::Object(entries) => entries,
         _ => return Err(Error::msg("invalid destination")),
     };
-    let files_value = storage_entries.iter().rev().find(|(k, _)| k == "files").map(|(_, v)| v.clone()).unwrap_or(JsonValue::Null);
+    let files_value = storage_entries
+        .iter()
+        .rev()
+        .find(|(k, _)| k == "files")
+        .map(|(_, v)| v.clone())
+        .unwrap_or(JsonValue::Null);
     let mut files = match files_value {
         JsonValue::Array(files) => files,
         JsonValue::Null => Vec::new(),
@@ -167,11 +202,12 @@ pub fn candidate_destination(
     let encoded_files = JsonValue::Array(files);
     // Re-encode through parsed values so nested duplicates collapse exactly
     // like Go remarshaling decoded `RawMessage`s.
-    let files_json: JsonValue = parse(serialize(&encoded_files).as_bytes()).map_err(|_| Error::msg("invalid destination"))?;
+    let files_json: JsonValue = parse(serialize(&encoded_files).as_bytes())
+        .map_err(|_| Error::msg("invalid destination"))?;
     storage_entries.retain(|(k, _)| k != "files");
     storage_entries.push(("files".to_string(), files_json));
-    let storage_json: JsonValue =
-        parse(serialize(&JsonValue::Object(storage_entries)).as_bytes()).map_err(|_| Error::msg("invalid destination"))?;
+    let storage_json: JsonValue = parse(serialize(&JsonValue::Object(storage_entries)).as_bytes())
+        .map_err(|_| Error::msg("invalid destination"))?;
     config_entries.retain(|(k, _)| k != "storage");
     config_entries.push(("storage".to_string(), storage_json));
     Ok(serialize(&JsonValue::Object(config_entries)).into_bytes())
@@ -204,7 +240,10 @@ mod tests {
                             for item in items {
                                 let soft = Soft::new(item).unwrap();
                                 let annotations = soft.object("annotations").unwrap().unwrap();
-                                let got = annotations.string("org.opencontainers.image.ref.name").unwrap().unwrap();
+                                let got = annotations
+                                    .string("org.opencontainers.image.ref.name")
+                                    .unwrap()
+                                    .unwrap();
                                 if got == reference {
                                     manifest = soft.string("digest").unwrap().unwrap();
                                 }
@@ -223,7 +262,7 @@ mod tests {
                 },
             );
         }
-        let mut payload = deliver::Payload {
+        let payload = deliver::Payload {
             format: 3,
             id: format!("44.20260817.3.2.soda-{}", &revision[..12]),
             revision: revision.clone(),
@@ -244,24 +283,54 @@ mod tests {
             image_entries.push((
                 name.clone(),
                 JsonValue::Object(vec![
-                    ("Reference".to_string(), JsonValue::Str(image.reference.clone())),
+                    (
+                        "Reference".to_string(),
+                        JsonValue::Str(image.reference.clone()),
+                    ),
                     ("Config".to_string(), JsonValue::Str(image.config.clone())),
-                    ("Manifest".to_string(), JsonValue::Str(image.manifest.clone())),
-                    ("ArchiveSHA256".to_string(), JsonValue::Str(image.archive_sha256.clone())),
+                    (
+                        "Manifest".to_string(),
+                        JsonValue::Str(image.manifest.clone()),
+                    ),
+                    (
+                        "ArchiveSHA256".to_string(),
+                        JsonValue::Str(image.archive_sha256.clone()),
+                    ),
                 ]),
             ));
         }
         let raw = serialize(&JsonValue::Object(vec![
             ("Format".to_string(), JsonValue::Number("3".to_string())),
             ("ID".to_string(), JsonValue::Str(payload.id.clone())),
-            ("Revision".to_string(), JsonValue::Str(payload.revision.clone())),
-            ("Architecture".to_string(), JsonValue::Str(payload.architecture.clone())),
-            ("CoreOS".to_string(), JsonValue::Str(payload.core_os.clone())),
+            (
+                "Revision".to_string(),
+                JsonValue::Str(payload.revision.clone()),
+            ),
+            (
+                "Architecture".to_string(),
+                JsonValue::Str(payload.architecture.clone()),
+            ),
+            (
+                "CoreOS".to_string(),
+                JsonValue::Str(payload.core_os.clone()),
+            ),
             ("Base".to_string(), JsonValue::Str(payload.base.clone())),
-            ("RepositoryPrefix".to_string(), JsonValue::Str(payload.repository_prefix.clone())),
-            ("Schema".to_string(), JsonValue::Number(payload.schema.to_string())),
-            ("PresentationSHA256".to_string(), JsonValue::Str(payload.presentation_sha256.clone())),
-            ("HostPackagesSHA256".to_string(), JsonValue::Str(payload.host_packages_sha256.clone())),
+            (
+                "RepositoryPrefix".to_string(),
+                JsonValue::Str(payload.repository_prefix.clone()),
+            ),
+            (
+                "Schema".to_string(),
+                JsonValue::Number(payload.schema.to_string()),
+            ),
+            (
+                "PresentationSHA256".to_string(),
+                JsonValue::Str(payload.presentation_sha256.clone()),
+            ),
+            (
+                "HostPackagesSHA256".to_string(),
+                JsonValue::Str(payload.host_packages_sha256.clone()),
+            ),
             ("Images".to_string(), JsonValue::Object(image_entries)),
             ("UpgradeFrom".to_string(), JsonValue::Array(Vec::new())),
         ]));
@@ -317,7 +386,10 @@ mod tests {
         let (root2, media2, _) = candidate_root_fixture();
         let images2 = format!("{root2}{}", deliver::IMAGES_PATH);
         let payload2 = deliver::load(&format!("{root2}{}", deliver::PATH)).unwrap();
-        let tailnet = payload2.images["tailnet"].config.trim_start_matches("sha256:").to_string();
+        let tailnet = payload2.images["tailnet"]
+            .config
+            .trim_start_matches("sha256:")
+            .to_string();
         std::fs::remove_file(format!("{images2}/blobs/sha256/{tailnet}")).unwrap();
         assert!(candidate_requirement(&media2, &root2).is_err());
     }
@@ -340,7 +412,10 @@ mod tests {
         assert_eq!(users.len(), 1);
         let root = Soft::new(&users[0]).unwrap();
         assert_eq!(root.string("name").unwrap().unwrap(), "root");
-        assert_eq!(root.string("passwordHash").unwrap().unwrap(), choices.password_hash);
+        assert_eq!(
+            root.string("passwordHash").unwrap().unwrap(),
+            choices.password_hash
+        );
         assert!(root.field("sshAuthorizedKeys").unwrap().is_none());
         let storage = config.object("storage").unwrap().unwrap();
         let files = storage.array("files").unwrap().unwrap();

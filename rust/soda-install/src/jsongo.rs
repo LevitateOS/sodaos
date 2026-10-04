@@ -15,7 +15,10 @@ pub struct Binder<'a> {
 impl<'a> Binder<'a> {
     pub fn new(value: &'a JsonValue) -> Result<Binder<'a>, ()> {
         match value {
-            JsonValue::Object(entries) => Ok(Binder { entries, seen: vec![false; entries.len()] }),
+            JsonValue::Object(entries) => Ok(Binder {
+                entries,
+                seen: vec![false; entries.len()],
+            }),
             _ => Err(()),
         }
     }
@@ -60,6 +63,7 @@ impl<'a> Binder<'a> {
         }
     }
 
+    #[cfg(test)]
     pub fn boolean(&mut self, name: &str) -> Result<Option<bool>, ()> {
         match self.field(name)? {
             None => Ok(None),
@@ -68,6 +72,7 @@ impl<'a> Binder<'a> {
         }
     }
 
+    #[cfg(test)]
     pub fn object(&mut self, name: &str) -> Result<Option<Binder<'a>>, ()> {
         match self.field(name)? {
             None => Ok(None),
@@ -132,6 +137,7 @@ impl<'a> Soft<'a> {
         }
     }
 
+    #[cfg(test)]
     pub fn integer(&self, name: &str) -> Result<Option<i64>, ()> {
         match self.field(name)? {
             None => Ok(None),
@@ -160,6 +166,7 @@ impl<'a> Soft<'a> {
         }
     }
 
+    #[cfg(test)]
     pub fn object(&self, name: &str) -> Result<Option<Soft<'a>>, ()> {
         match self.field(name)? {
             None => Ok(None),
@@ -223,7 +230,13 @@ fn write_value(out: &mut String, value: &JsonValue) {
                 }
                 escape_into(out, key);
                 out.push(':');
-                let value = entries.iter().rev().find(|(k, _)| k == key).unwrap().1.clone();
+                let value = entries
+                    .iter()
+                    .rev()
+                    .find(|(k, _)| k == key)
+                    .unwrap()
+                    .1
+                    .clone();
                 write_value(out, &value);
             }
             out.push('}');
@@ -304,11 +317,17 @@ mod tests {
     #[test]
     fn serializer_is_go_compatible() {
         let value = parse_ok(r#"{"b":1,"a":[true,null,"x"],"c":{"z":2,"y":1}}"#);
-        assert_eq!(serialize(&value), r#"{"a":[true,null,"x"],"b":1,"c":{"y":1,"z":2}}"#);
+        assert_eq!(
+            serialize(&value),
+            r#"{"a":[true,null,"x"],"b":1,"c":{"y":1,"z":2}}"#
+        );
         let value = parse_ok(r#"{"s":"a<b>&\"q\""}"#);
         assert_eq!(serialize(&value), r#"{"s":"a\u003cb\u003e\u0026\"q\""}"#);
         let value = parse_ok(r#"{"n":3.50,"big":99999999999999999999999}"#);
-        assert_eq!(serialize(&value), r#"{"big":99999999999999999999999,"n":3.50}"#);
+        assert_eq!(
+            serialize(&value),
+            r#"{"big":99999999999999999999999,"n":3.50}"#
+        );
         // Duplicate keys collapse, last wins.
         let value = parse_ok(r#"{"a":1,"a":2}"#);
         assert_eq!(serialize(&value), r#"{"a":2}"#);

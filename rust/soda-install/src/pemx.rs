@@ -18,11 +18,19 @@ fn get_line(data: &[u8]) -> (&[u8], &[u8], usize) {
                 end -= 1;
             }
             let line = &data[..end];
-            let trim = line.iter().rposition(|b| *b != b' ' && *b != b'\t').map(|p| p + 1).unwrap_or(0);
+            let trim = line
+                .iter()
+                .rposition(|b| *b != b' ' && *b != b'\t')
+                .map(|p| p + 1)
+                .unwrap_or(0);
             (&line[..trim], &data[i + 1..], i + 1)
         }
         None => {
-            let trim = data.iter().rposition(|b| *b != b' ' && *b != b'\t').map(|p| p + 1).unwrap_or(0);
+            let trim = data
+                .iter()
+                .rposition(|b| *b != b' ' && *b != b'\t')
+                .map(|p| p + 1)
+                .unwrap_or(0);
             (&data[..trim], &[], data.len())
         }
     }
@@ -117,7 +125,9 @@ pub fn decode(data: &[u8]) -> (Option<Block>, &[u8]) {
             end_trailer = trailer;
             continue;
         }
-        if &trailer_bytes[..der_type.len()] != der_type || !trailer_bytes[..want].ends_with(END_OF_LINE) {
+        if &trailer_bytes[..der_type.len()] != der_type
+            || !trailer_bytes[..want].ends_with(END_OF_LINE)
+        {
             end_trailer = trailer;
             continue;
         }
@@ -151,7 +161,10 @@ pub fn decode(data: &[u8]) -> (Option<Block>, &[u8]) {
         }
         let (_, tail, _) = get_line(&rest[at as usize..]);
         return (
-            Some(Block { der_type: String::from_utf8_lossy(der_type).into_owned(), bytes }),
+            Some(Block {
+                der_type: String::from_utf8_lossy(der_type).into_owned(),
+                bytes,
+            }),
             tail,
         );
     }
@@ -209,7 +222,10 @@ mod tests {
         assert!(found.is_none());
         assert_eq!(rest, lower.as_bytes());
 
-        let noend = format!("-----BEGIN CERTIFICATE-----\n{}\n", crate::sshkey::b64_encode(&der));
+        let noend = format!(
+            "-----BEGIN CERTIFICATE-----\n{}\n",
+            crate::sshkey::b64_encode(&der)
+        );
         let (found, rest) = decode(noend.as_bytes());
         assert!(found.is_none());
         assert_eq!(rest, noend.as_bytes());

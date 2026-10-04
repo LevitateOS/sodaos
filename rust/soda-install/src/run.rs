@@ -34,7 +34,9 @@ impl MediaIdentity {
             || !buildx::revision(&self.revision)
             || !self.valid_content()
         {
-            return Err(Error::msg("media release, architecture, or included-payload mismatch"));
+            return Err(Error::msg(
+                "media release, architecture, or included-payload mismatch",
+            ));
         }
         Ok(())
     }
@@ -42,7 +44,9 @@ impl MediaIdentity {
     pub fn valid_content(&self) -> bool {
         match self.host_manifest.strip_prefix("sha256:") {
             Some(hex) => {
-                buildx::digest(hex) && buildx::digest(&self.payload_sha256) && buildx::digest(&self.console_sha256)
+                buildx::digest(hex)
+                    && buildx::digest(&self.payload_sha256)
+                    && buildx::digest(&self.console_sha256)
             }
             None => false,
         }
@@ -51,17 +55,41 @@ impl MediaIdentity {
 
 pub fn decode_media_identity(data: &[u8]) -> Result<MediaIdentity, Error> {
     let value = parse(data).map_err(|_| Error::msg("invalid media identity document"))?;
-    let mut binder = Binder::new(&value).map_err(|_| Error::msg("invalid media identity document"))?;
+    let mut binder =
+        Binder::new(&value).map_err(|_| Error::msg("invalid media identity document"))?;
     let media = MediaIdentity {
-        architecture: binder.string("Architecture").map_err(|_| Error::msg("invalid media identity document"))?.unwrap_or_default(),
-        release: binder.string("Release").map_err(|_| Error::msg("invalid media identity document"))?.unwrap_or_default(),
-        installer_version: binder.string("InstallerVersion").map_err(|_| Error::msg("invalid media identity document"))?.unwrap_or_default(),
-        revision: binder.string("Revision").map_err(|_| Error::msg("invalid media identity document"))?.unwrap_or_default(),
-        host_manifest: binder.string("HostManifest").map_err(|_| Error::msg("invalid media identity document"))?.unwrap_or_default(),
-        payload_sha256: binder.string("PayloadSHA256").map_err(|_| Error::msg("invalid media identity document"))?.unwrap_or_default(),
-        console_sha256: binder.string("ConsoleSHA256").map_err(|_| Error::msg("invalid media identity document"))?.unwrap_or_default(),
+        architecture: binder
+            .string("Architecture")
+            .map_err(|_| Error::msg("invalid media identity document"))?
+            .unwrap_or_default(),
+        release: binder
+            .string("Release")
+            .map_err(|_| Error::msg("invalid media identity document"))?
+            .unwrap_or_default(),
+        installer_version: binder
+            .string("InstallerVersion")
+            .map_err(|_| Error::msg("invalid media identity document"))?
+            .unwrap_or_default(),
+        revision: binder
+            .string("Revision")
+            .map_err(|_| Error::msg("invalid media identity document"))?
+            .unwrap_or_default(),
+        host_manifest: binder
+            .string("HostManifest")
+            .map_err(|_| Error::msg("invalid media identity document"))?
+            .unwrap_or_default(),
+        payload_sha256: binder
+            .string("PayloadSHA256")
+            .map_err(|_| Error::msg("invalid media identity document"))?
+            .unwrap_or_default(),
+        console_sha256: binder
+            .string("ConsoleSHA256")
+            .map_err(|_| Error::msg("invalid media identity document"))?
+            .unwrap_or_default(),
     };
-    binder.finish().map_err(|_| Error::msg("invalid media identity document"))?;
+    binder
+        .finish()
+        .map_err(|_| Error::msg("invalid media identity document"))?;
     Ok(media)
 }
 
@@ -124,7 +152,12 @@ fn lock_installer() -> Result<InstallLock, Error> {
     Ok(InstallLock { file })
 }
 
-fn run_locked_install(ctx: &Ctx, console: &Console, run: &dyn Runner, action: &str) -> Result<(), Error> {
+fn run_locked_install(
+    ctx: &Ctx,
+    console: &Console,
+    run: &dyn Runner,
+    action: &str,
+) -> Result<(), Error> {
     match action {
         "configure" => crate::setup::configure_install(ctx, console, run),
         "enroll-key" => crate::enroll::arm_enrollment(ctx, console, run),
@@ -197,7 +230,11 @@ mod tests {
         // Strict document: unknown fields refused.
         let doc = format!(
             r#"{{"Architecture":"x86_64","Release":"{}","InstallerVersion":"coreos-installer 0.26.0","Revision":"{}","HostManifest":"{}","PayloadSHA256":"{}","ConsoleSHA256":"{}","Bogus":1}}"#,
-            media.release, media.revision, media.host_manifest, media.payload_sha256, media.console_sha256
+            media.release,
+            media.revision,
+            media.host_manifest,
+            media.payload_sha256,
+            media.console_sha256
         );
         assert!(decode_media_identity(doc.as_bytes()).is_err());
         let doc = doc.replace(r#","Bogus":1"#, "");
@@ -211,9 +248,15 @@ mod tests {
         // Effective UID decides; the assertion only pins the usage text for
         // the invalid-action path when root.
         if unsafe { libc::geteuid() } == 0 {
-            assert_eq!(run(&ctx, &runner, "bogus").unwrap_err().to_string(), "usage: soda-install disk|configure|enroll-key");
+            assert_eq!(
+                run(&ctx, &runner, "bogus").unwrap_err().to_string(),
+                "usage: soda-install disk|configure|enroll-key"
+            );
         } else {
-            assert_eq!(run(&ctx, &runner, "bogus").unwrap_err().to_string(), "native CoreOS root required");
+            assert_eq!(
+                run(&ctx, &runner, "bogus").unwrap_err().to_string(),
+                "native CoreOS root required"
+            );
         }
     }
 }

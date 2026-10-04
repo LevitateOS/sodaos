@@ -21,22 +21,37 @@ const OUTPUT_GRACE: Duration = Duration::from_secs(2);
 /// Command runner: `Ok(output)` on exit 0 within the output bound,
 /// `Err(Error::CmdExit)` otherwise.
 pub trait Runner {
-    fn run(&self, ctx: &Ctx, name: &str, args: &[String], input: Option<&[u8]>) -> Result<Vec<u8>, Error>;
+    fn run(
+        &self,
+        ctx: &Ctx,
+        name: &str,
+        args: &[String],
+        input: Option<&[u8]>,
+    ) -> Result<Vec<u8>, Error>;
 }
 
 /// Closure-backed runner for tests.
+#[cfg(test)]
 pub struct FnRunner<F: Fn(&Ctx, &str, &[String], Option<&[u8]>) -> Result<Vec<u8>, Error>> {
     func: F,
 }
 
+#[cfg(test)]
 impl<F: Fn(&Ctx, &str, &[String], Option<&[u8]>) -> Result<Vec<u8>, Error>> FnRunner<F> {
     pub fn new(func: F) -> FnRunner<F> {
         FnRunner { func }
     }
 }
 
+#[cfg(test)]
 impl<F: Fn(&Ctx, &str, &[String], Option<&[u8]>) -> Result<Vec<u8>, Error>> Runner for FnRunner<F> {
-    fn run(&self, ctx: &Ctx, name: &str, args: &[String], input: Option<&[u8]>) -> Result<Vec<u8>, Error> {
+    fn run(
+        &self,
+        ctx: &Ctx,
+        name: &str,
+        args: &[String],
+        input: Option<&[u8]>,
+    ) -> Result<Vec<u8>, Error> {
         (self.func)(ctx, name, args, input)
     }
 }
@@ -55,15 +70,29 @@ pub fn failure_summary(err: &Error) -> String {
 pub struct RealRunner;
 
 impl Runner for RealRunner {
-    fn run(&self, ctx: &Ctx, name: &str, args: &[String], input: Option<&[u8]>) -> Result<Vec<u8>, Error> {
+    fn run(
+        &self,
+        ctx: &Ctx,
+        name: &str,
+        args: &[String],
+        input: Option<&[u8]>,
+    ) -> Result<Vec<u8>, Error> {
         if ctx.err().is_some() {
             // Go refuses to start cancelled commands; without a process
             // state the exit code is -1 and the phase is interrupted.
-            return Err(Error::CmdExit { name: name.to_string(), code: -1, interrupted: true });
+            return Err(Error::CmdExit {
+                name: name.to_string(),
+                code: -1,
+                interrupted: true,
+            });
         }
         let mut child = match std::process::Command::new(name)
             .args(args)
-            .stdin(if input.is_some() { Stdio::piped() } else { Stdio::null() })
+            .stdin(if input.is_some() {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()
@@ -145,14 +174,20 @@ impl Runner for RealRunner {
                 }
             }
         };
-        let (output, exceeded) = output_rx.recv_timeout(OUTPUT_GRACE).unwrap_or((Vec::new(), true));
+        let (output, exceeded) = output_rx
+            .recv_timeout(OUTPUT_GRACE)
+            .unwrap_or((Vec::new(), true));
         let code = status.code().unwrap_or(-1);
         // Go converts every failure (exit code, signal, output bound, or a
         // cancel that won the race) into commandExit; a kill we issued or a
         // cancelled phase marks the attempt interrupted.
         let interrupted = killed || ctx.err().is_some();
         if exceeded || !status.success() {
-            return Err(Error::CmdExit { name: name.to_string(), code, interrupted });
+            return Err(Error::CmdExit {
+                name: name.to_string(),
+                code,
+                interrupted,
+            });
         }
         Ok(output)
     }
@@ -168,17 +203,32 @@ mod tests {
         let (ctx, _flag) = Ctx::test();
         let output = runner.run(&ctx, "echo", &["hi".to_string()], None).unwrap();
         assert_eq!(output, b"hi\n");
-        let err = runner.run(&ctx, "sh", &["-c".to_string(), "exit 3".to_string()], None).unwrap_err();
+        let err = runner
+            .run(&ctx, "sh", &["-c".to_string(), "exit 3".to_string()], None)
+            .unwrap_err();
         assert_eq!(
             err,
-            Error::CmdExit { name: "sh".to_string(), code: 3, interrupted: false }
+            Error::CmdExit {
+                name: "sh".to_string(),
+                code: 3,
+                interrupted: false
+            }
         );
         assert_eq!(
             err.to_string(),
             "sh failed (exit 3, interrupted false); raw diagnostics suppressed"
         );
-        let err = runner.run(&ctx, "no-such-soda-command", &[], None).unwrap_err();
-        assert_eq!(err, Error::CmdExit { name: "no-such-soda-command".to_string(), code: -1, interrupted: false });
+        let err = runner
+            .run(&ctx, "no-such-soda-command", &[], None)
+            .unwrap_err();
+        assert_eq!(
+            err,
+            Error::CmdExit {
+                name: "no-such-soda-command".to_string(),
+                code: -1,
+                interrupted: false
+            }
+        );
         assert_eq!(
             failure_summary(&err),
             "no-such-soda-command failed (exit -1, interrupted false); raw diagnostics suppressed"
@@ -194,8 +244,17 @@ mod tests {
         let runner = RealRunner;
         let (ctx, flag) = Ctx::test();
         flag.store(true, std::sync::atomic::Ordering::SeqCst);
-        let err = runner.run(&ctx, "echo", &["hi".to_string()], None).unwrap_err();
-        assert_eq!(err, Error::CmdExit { name: "echo".to_string(), code: -1, interrupted: true });
+        let err = runner
+            .run(&ctx, "echo", &["hi".to_string()], None)
+            .unwrap_err();
+        assert_eq!(
+            err,
+            Error::CmdExit {
+                name: "echo".to_string(),
+                code: -1,
+                interrupted: true
+            }
+        );
     }
 
     #[test]

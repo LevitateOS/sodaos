@@ -9,7 +9,9 @@ use crate::fmtx::{go_lower, sprintf, Arg};
 use crate::inputs;
 use crate::signal::Ctx;
 
-#[derive(Debug, Clone)]
+type DiskInspector<'a> = &'a dyn Fn(&Ctx, &dyn Runner) -> Result<Vec<Disk>, Error>;
+
+#[derive(Debug, Clone, Default)]
 pub struct DiskInstallChoices {
     pub disk: Disk,
     pub hostname: String,
@@ -18,18 +20,6 @@ pub struct DiskInstallChoices {
     /// Set only by the final review for removable targets; travels with
     /// the confirmed disk to the writer.
     pub removable_ok: bool,
-}
-
-impl Default for DiskInstallChoices {
-    fn default() -> DiskInstallChoices {
-        DiskInstallChoices {
-            disk: Disk::default(),
-            hostname: String::new(),
-            password_hash: String::new(),
-            subnet: String::new(),
-            removable_ok: false,
-        }
-    }
 }
 
 fn check_nav(value: &str) -> Option<Error> {
@@ -69,7 +59,10 @@ fn step_network(ctx: &Ctx, console: &Console, run: &dyn Runner) -> Result<(), Er
 
 fn handle_disk_inspect_failure(console: &Console, ctx: &Ctx) -> Result<(), Error> {
     console.page("Step 2 of 5 — Installation disk");
-    console.print("Could not inspect disks. No disk installation started.", &[]);
+    console.print(
+        "Could not inspect disks. No disk installation started.",
+        &[],
+    );
     // Any non-navigation word retries; only navigation errors return.
     let _ = ask_nav(console, ctx, "Type retry, back, restart, or cancel")?;
     Ok(())
@@ -82,7 +75,13 @@ fn print_disk_list(console: &Console, disks: &[Disk], feedback: &str) {
         console.print("", &[]);
     }
     for (i, disk) in disks.iter().enumerate() {
-        console.print("%d. %s", &[Arg::Uint((i + 1) as u64), Arg::Str(&disk_summary(&disk.device))]);
+        console.print(
+            "%d. %s",
+            &[
+                Arg::Uint((i + 1) as u64),
+                Arg::Str(&disk_summary(&disk.device)),
+            ],
+        );
         for child in &disk.device.children {
             console.print(
                 "   %q: %.1f GiB, filesystem %q",
@@ -97,7 +96,10 @@ fn print_disk_list(console: &Console, disks: &[Disk], feedback: &str) {
             console.print("   Unavailable: %s", &[Arg::Str(&disk.blocked)]);
         }
         if disk.removable && disk.blocked.is_empty() {
-            console.print("   Removable device: erasing it needs the explicit removable confirmation below.", &[]);
+            console.print(
+                "   Removable device: erasing it needs the explicit removable confirmation below.",
+                &[],
+            );
         }
     }
 }
@@ -124,7 +126,7 @@ fn step_disk(
     ctx: &Ctx,
     console: &Console,
     run: &dyn Runner,
-    inspect: &dyn Fn(&Ctx, &dyn Runner) -> Result<Vec<Disk>, Error>,
+    inspect: DiskInspector<'_>,
 ) -> Result<Disk, Error> {
     let mut feedback = String::new();
     loop {
@@ -146,7 +148,12 @@ fn step_disk(
     }
 }
 
-fn step_hostname(console: &Console, ctx: &Ctx, selected: &Disk, current: &str) -> Result<String, Error> {
+fn step_hostname(
+    console: &Console,
+    ctx: &Ctx,
+    selected: &Disk,
+    current: &str,
+) -> Result<String, Error> {
     let mut feedback = String::new();
     loop {
         console.page("Step 3 of 5 — Hostname");
@@ -155,9 +162,16 @@ fn step_hostname(console: &Console, ctx: &Ctx, selected: &Disk, current: &str) -
             console.print("", &[]);
             feedback.clear();
         }
-        console.print("Selected disk: %s", &[Arg::Str(&disk_summary(&selected.device))]);
+        console.print(
+            "Selected disk: %s",
+            &[Arg::Str(&disk_summary(&selected.device))],
+        );
         let default = if current.is_empty() { "soda" } else { current };
-        let mut value = ask_nav(console, ctx, &format!("Hostname [{default}], back, restart, or cancel"))?;
+        let mut value = ask_nav(
+            console,
+            ctx,
+            &format!("Hostname [{default}], back, restart, or cancel"),
+        )?;
         if value.is_empty() {
             value = default.to_string();
         }
@@ -192,7 +206,12 @@ fn hash_password(ctx: &Ctx, run: &dyn Runner, password: &[u8]) -> Result<String,
     let mut input = password.to_vec();
     input.push(b'\n');
     let hash = run
-        .run(ctx, "openssl", &["passwd".to_string(), "-6".to_string(), "-stdin".to_string()], Some(&input))
+        .run(
+            ctx,
+            "openssl",
+            &["passwd".to_string(), "-6".to_string(), "-stdin".to_string()],
+            Some(&input),
+        )
         .map_err(|_| Error::msg("password hashing failed"))?;
     Ok(crate::fmtx::go_trim_space(&String::from_utf8_lossy(&hash)).to_string())
 }
@@ -206,10 +225,19 @@ fn step_password(ctx: &Ctx, console: &Console, run: &dyn Runner) -> Result<Strin
             console.print("", &[]);
             feedback.clear();
         }
-        console.print("This password is for root login after reboot, local console and SSH.", &[]);
+        console.print(
+            "This password is for root login after reboot, local console and SSH.",
+            &[],
+        );
         console.print("Use at least 12 characters; both entries must match.", &[]);
-        console.print("Enroll a key later and disable password logins yourself to go key-only.", &[]);
-        console.print("Type back, restart, or cancel in a password field to navigate.", &[]);
+        console.print(
+            "Enroll a key later and disable password logins yourself to go key-only.",
+            &[],
+        );
+        console.print(
+            "Type back, restart, or cancel in a password field to navigate.",
+            &[],
+        );
         let password = ask_secret_nav(console, ctx, "Password")?;
         let confirmation = ask_secret_nav(console, ctx, "Confirm password")?;
         if !valid_password(&password, &confirmation) {
@@ -233,8 +261,16 @@ fn step_subnet(console: &Console, ctx: &Ctx, current: &str) -> Result<String, Er
             "Developer client routing is configured separately. Any canonical IPv4 range is accepted, including public or overlapping ranges.",
             &[],
         );
-        let default = if current.is_empty() { "10.89.0.0/24" } else { current };
-        let mut subnet = ask_nav(console, ctx, &format!("Project IPv4 subnet [{default}], back, restart, or cancel"))?;
+        let default = if current.is_empty() {
+            "10.89.0.0/24"
+        } else {
+            current
+        };
+        let mut subnet = ask_nav(
+            console,
+            ctx,
+            &format!("Project IPv4 subnet [{default}], back, restart, or cancel"),
+        )?;
         if subnet.is_empty() {
             subnet = default.to_string();
         }
@@ -254,17 +290,29 @@ fn print_final_review(console: &Console, choices: &DiskInstallChoices, payload_b
         console.print("  Installer note: %s.", &[Arg::Str(&choices.disk.blocked)]);
     }
     if choices.disk.removable {
-        console.print("  Removable device: this target writes only with the explicit removable confirmation.", &[]);
+        console.print(
+            "  Removable device: this target writes only with the explicit removable confirmation.",
+            &[],
+        );
     }
     console.print("Hostname: %s", &[Arg::Str(&choices.hostname)]);
     console.print("Project subnet: %s", &[Arg::Str(&choices.subnet)]);
-    console.print("Operator access: root password (local console and SSH)", &[]);
+    console.print(
+        "Operator access: root password (local console and SSH)",
+        &[],
+    );
     console.print(
         "Included Soda payload: %.1f MiB verified",
         &[Arg::Float(payload_bytes as f64 / (1u64 << 20) as f64)],
     );
-    console.print("Network settings will be copied to the installed system.", &[]);
-    console.print("After writing, follow the completion screen for media removal and next steps.", &[]);
+    console.print(
+        "Network settings will be copied to the installed system.",
+        &[],
+    );
+    console.print(
+        "After writing, follow the completion screen for media removal and next steps.",
+        &[],
+    );
 }
 
 fn erase_phrase(disk: &Disk) -> String {
@@ -277,7 +325,11 @@ fn erase_phrase(disk: &Disk) -> String {
 fn confirm_final_review(console: &Console, ctx: &Ctx, disk: &Disk) -> Result<(), Error> {
     let phrase = erase_phrase(disk);
     loop {
-        let answer = ask_nav(console, ctx, &format!("Type exactly {phrase}, back, restart, or cancel"))?;
+        let answer = ask_nav(
+            console,
+            ctx,
+            &format!("Type exactly {phrase}, back, restart, or cancel"),
+        )?;
         if answer == phrase {
             return Ok(());
         }
@@ -317,7 +369,7 @@ fn dispatch_install_step(
     ctx: &Ctx,
     console: &Console,
     run: &dyn Runner,
-    inspect: &dyn Fn(&Ctx, &dyn Runner) -> Result<Vec<Disk>, Error>,
+    inspect: DiskInspector<'_>,
     payload_bytes: u64,
     step: i32,
     result: &mut DiskInstallChoices,
@@ -379,7 +431,7 @@ pub fn collect_disk_install_choices(
     ctx: &Ctx,
     console: &Console,
     run: &dyn Runner,
-    inspect: &dyn Fn(&Ctx, &dyn Runner) -> Result<Vec<Disk>, Error>,
+    inspect: DiskInspector<'_>,
     payload_bytes: u64,
 ) -> Result<DiskInstallChoices, Error> {
     let mut result = DiskInstallChoices::default();
@@ -424,11 +476,26 @@ mod tests {
             blocked: String::new(),
             removable: false,
         };
-        assert!(select_disk(&[disk.clone()], "1").is_ok());
-        assert_eq!(select_disk(&[disk.clone()], "0").unwrap_err(), "Choose an available disk number.");
-        assert_eq!(select_disk(&[disk.clone()], "2").unwrap_err(), "Choose an available disk number.");
-        assert_eq!(select_disk(&[disk.clone()], "x").unwrap_err(), "Choose an available disk number.");
-        assert_eq!(select_disk(&[disk.clone()], "+1").unwrap().device.name, "/dev/sda");
+        assert!(select_disk(std::slice::from_ref(&disk), "1").is_ok());
+        assert_eq!(
+            select_disk(std::slice::from_ref(&disk), "0").unwrap_err(),
+            "Choose an available disk number."
+        );
+        assert_eq!(
+            select_disk(std::slice::from_ref(&disk), "2").unwrap_err(),
+            "Choose an available disk number."
+        );
+        assert_eq!(
+            select_disk(std::slice::from_ref(&disk), "x").unwrap_err(),
+            "Choose an available disk number."
+        );
+        assert_eq!(
+            select_disk(std::slice::from_ref(&disk), "+1")
+                .unwrap()
+                .device
+                .name,
+            "/dev/sda"
+        );
         let mut blocked = disk.clone();
         blocked.blocked = "busy".to_string();
         assert_eq!(
@@ -444,9 +511,15 @@ mod tests {
         assert!(!valid_password(b"twelve-chars!!", b"twelve-chars!?"));
         assert!(!valid_password(b"\xff\xfe-twelve!!", b"\xff\xfe-twelve!!"));
         assert_eq!(password_feedback(b"a", b"b"), "Passwords do not match.");
-        assert_eq!(password_feedback(b"short", b"short"), "Use at least 12 characters.");
+        assert_eq!(
+            password_feedback(b"short", b"short"),
+            "Use at least 12 characters."
+        );
         assert_eq!(password_feedback(b"twelve-chars!!", b"twelve-chars!!"), "");
-        assert_eq!(password_feedback(b"\xff\xfe-twelve!!", b"\xff\xfe-twelve!!"), "Use at least 12 characters.");
+        assert_eq!(
+            password_feedback(b"\xff\xfe-twelve!!", b"\xff\xfe-twelve!!"),
+            "Use at least 12 characters."
+        );
     }
 
     #[test]
@@ -462,7 +535,10 @@ mod tests {
                     return Ok(b"lo UP 127.0.0.1/8\n".to_vec());
                 }
                 if name == "openssl" {
-                    assert_eq!(args, &["passwd".to_string(), "-6".to_string(), "-stdin".to_string()]);
+                    assert_eq!(
+                        args,
+                        &["passwd".to_string(), "-6".to_string(), "-stdin".to_string()]
+                    );
                     return Ok(b"$6$salt$hash\n".to_vec());
                 }
                 panic!("unexpected command {name}");
@@ -489,23 +565,53 @@ mod tests {
                 blocked: String::new(),
                 removable: false,
             };
-            collect_disk_install_choices(&ctx, &console, &runner, &|_, _| Ok(vec![disk.clone()]), 10 << 20)
+            collect_disk_install_choices(
+                &ctx,
+                &console,
+                &runner,
+                &|_, _| Ok(vec![disk.clone()]),
+                10 << 20,
+            )
         });
-        let mut output = read_until(&mut master, b"Type keep, edit, back, restart, or cancel: ", 3000);
+        let mut output = read_until(
+            &mut master,
+            b"Type keep, edit, back, restart, or cancel: ",
+            3000,
+        );
         master.write_all(b"keep\n").unwrap();
-        output.extend(read_until(&mut master, b"Type yes to use them, edit, back, restart, or cancel: ", 3000));
+        output.extend(read_until(
+            &mut master,
+            b"Type yes to use them, edit, back, restart, or cancel: ",
+            3000,
+        ));
         master.write_all(b"yes\n").unwrap();
-        output.extend(read_until(&mut master, b"Disk number, back, restart, or cancel: ", 3000));
+        output.extend(read_until(
+            &mut master,
+            b"Disk number, back, restart, or cancel: ",
+            3000,
+        ));
         master.write_all(b"1\n").unwrap();
-        output.extend(read_until(&mut master, b"Hostname [soda], back, restart, or cancel: ", 3000));
+        output.extend(read_until(
+            &mut master,
+            b"Hostname [soda], back, restart, or cancel: ",
+            3000,
+        ));
         master.write_all(b"\n").unwrap();
         output.extend(read_until(&mut master, b"Password: ", 3000));
         master.write_all(b"twelve-chars!!\n").unwrap();
         output.extend(read_until(&mut master, b"Confirm password: ", 3000));
         master.write_all(b"twelve-chars!!\n").unwrap();
-        output.extend(read_until(&mut master, b"Project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ", 3000));
+        output.extend(read_until(
+            &mut master,
+            b"Project IPv4 subnet [10.89.0.0/24], back, restart, or cancel: ",
+            3000,
+        ));
         master.write_all(b"\n").unwrap();
-        output.extend(read_until(&mut master, b"Type exactly ERASE /dev/sda, back, restart, or cancel: ", 3000));
+        output.extend(read_until(
+            &mut master,
+            b"Type exactly ERASE /dev/sda, back, restart, or cancel: ",
+            3000,
+        ));
         master.write_all(b"ERASE /dev/sda\n").unwrap();
         let choices = worker.join().unwrap().unwrap();
         output.extend(drain_idle(&mut master, 200));
