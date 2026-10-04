@@ -96,8 +96,10 @@ pub struct Remote {
 }
 
 /// Decode connection JSON with Go field names and no unknown fields.
+/// `Timeout` is admitted and ignored, like Go's `json:"-"` under
+/// `DisallowUnknownFields`; the driver always sets the deadline.
 pub fn decode_remote(value: &JsonValue) -> Result<Remote, Error> {
-    jsonio::check_no_unknown(value, &["User", "Host", "Port", "Key", "KnownHosts"])?;
+    jsonio::check_no_unknown(value, &["User", "Host", "Port", "Key", "KnownHosts", "Timeout"])?;
     let port = jsonio::opt_integer(value, "Port")?;
     let port: i64 = port.try_into().map_err(|_| Error::msg("invalid Port: integer required"))?;
     Ok(Remote {

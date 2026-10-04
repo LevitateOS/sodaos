@@ -133,8 +133,13 @@ impl Evidence {
     /// Write one complete redacted entry.
     pub fn write(&self, name: &str, data: &[u8]) -> Result<(), Error> {
         let mut writer = self.writer(name)?;
-        writer.write_all(data).map_err(Error::from)?;
-        writer.close()
+        // Like Go, the entry always closes so retained failures join.
+        let write_err = writer.write_all(data).err().map(Error::from);
+        let close_err = writer.close().err();
+        match Error::join(vec![write_err, close_err]) {
+            Some(err) => Err(err),
+            None => Ok(()),
+        }
     }
 
     /// Scrub a decoded value: strings redacted, keys redacted with
@@ -270,16 +275,15 @@ fn sort_json_keys(value: JsonValue) -> JsonValue {
 }
 
 fn write_and_sync(mut file: File, data: &[u8]) -> Result<(), Error> {
+    // Go joins write, sync, and close errors; the file closes on drop,
+    // so only the first two are observable here.
     let write_err = file.write_all(data).err().map(Error::from);
     let sync_err = file.sync_all().err().map(Error::from);
     drop(file);
-    if let Some(e) = write_err {
-        return Err(e);
+    match Error::join(vec![write_err, sync_err]) {
+        Some(err) => Err(err),
+        None => Ok(()),
     }
-    if let Some(e) = sync_err {
-        return Err(e);
-    }
-    Ok(())
 }
 
 fn fstat_attr(file: &File) -> Result<files::FileAttr, Error> {
@@ -343,60 +347,71 @@ fn scan_evidence_bytes(mut file: File, secrets: &[Vec<u8>]) -> Result<(), Error>
 /// still stripped; only the whole-URL omission differs, and only when Go's
 /// parser rejects the URL outright.
 pub fn redact_urls(text: &str) -> String {
-    let bytes = text.as_bytes();
-    let mut out = String::with_capacity(text.len());
+    // Byte-level sanitizing only removes ASCII spans or emits an ASCII
+    // literal, so valid UTF-8 input stays valid UTF-8.
+    String::from_utf8(redact_urls_bytes(text.as_bytes())).expect("url redaction preserves UTF-8")
+}
+
+/// Byte-level URL redaction, so binary command output keeps its exact
+/// retained bytes: only ASCII URL spans are rewritten, everything else
+/// passes through untouched.
+fn redact_urls_bytes(text: &[u8]) -> Vec<u8> {
+    let mut out: Vec<u8> = Vec::with_capacity(text.len());
     let mut i = 0;
-    while i < bytes.len() {
+    while i < text.len() {
         let rest = &text[i..];
-        let scheme = if rest.starts_with("http://") {
-            Some("http://")
-        } else if rest.starts_with("https://") {
-            Some("https://")
+        let prefix: &[u8] = if rest.starts_with(b"http://") {
+            b"http://"
+        } else if rest.starts_with(b"https://") {
+            b"https://"
         } else {
-            None
+            out.push(text[i]);
+            i += 1;
+            continue;
         };
-        if let Some(prefix) = scheme {
-            let mut end = i + prefix.len();
-            while end < bytes.len() && !is_url_break(bytes[end]) {
-                end += 1;
-            }
-            out.push_str(&sanitize_url(prefix, &text[i + prefix.len()..end]));
-            i = end;
-        } else {
-            let ch = text[i..].chars().next().unwrap_or('\u{FFFD}');
-            out.push(ch);
-            i += ch.len_utf8();
+        let mut end = i + prefix.len();
+        while end < text.len() && !is_url_break(text[end]) {
+            end += 1;
         }
+        out.extend_from_slice(&sanitize_url_bytes(prefix, &text[i + prefix.len()..end]));
+        i = end;
     }
     out
 }
 
 fn is_url_break(byte: u8) -> bool {
-    matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c' | b'"' | b'\'' | b'<' | b'>' | b'\\')
+    // Go's `https?://[^\s"'<>\\]+`: single quotes stay inside the match.
+    matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c' | b'"' | b'<' | b'>' | b'\\')
 }
 
-fn sanitize_url(prefix: &str, rest: &str) -> String {
-    if rest.bytes().any(|b| b < 0x20) || has_bad_escape(rest) || has_bad_brackets(rest) {
-        return "[URL OMITTED]".to_string();
+fn sanitize_url_bytes(prefix: &[u8], rest: &[u8]) -> Vec<u8> {
+    if rest.iter().any(|b| *b < 0x20) || has_bad_escape(rest) || has_bad_brackets(rest) {
+        return b"[URL OMITTED]".to_vec();
     }
-    let (authority, path) = match rest.find('/') {
+    let (authority, path) = match rest.iter().position(|b| *b == b'/') {
         Some(index) => (&rest[..index], &rest[index..]),
-        None => (rest, ""),
+        None => (rest, &[][..]),
     };
-    let host = match authority.rfind('@') {
+    let host = match authority.iter().rposition(|b| *b == b'@') {
         Some(index) => &authority[index + 1..],
         None => authority,
     };
-    let clean_path = path.split(['?', '#']).next().unwrap_or("");
-    format!("{prefix}{host}{clean_path}")
+    let clean_path = match path.iter().position(|b| *b == b'?' || *b == b'#') {
+        Some(index) => &path[..index],
+        None => path,
+    };
+    let mut out = Vec::with_capacity(prefix.len() + host.len() + clean_path.len());
+    out.extend_from_slice(prefix);
+    out.extend_from_slice(host);
+    out.extend_from_slice(clean_path);
+    out
 }
 
-fn has_bad_escape(text: &str) -> bool {
-    let bytes = text.as_bytes();
+fn has_bad_escape(text: &[u8]) -> bool {
     let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' {
-            if i + 2 >= bytes.len() || !bytes[i + 1].is_ascii_hexdigit() || !bytes[i + 2].is_ascii_hexdigit() {
+    while i < text.len() {
+        if text[i] == b'%' {
+            if i + 2 >= text.len() || !text[i + 1].is_ascii_hexdigit() || !text[i + 2].is_ascii_hexdigit() {
                 return true;
             }
             i += 3;
@@ -407,12 +422,15 @@ fn has_bad_escape(text: &str) -> bool {
     false
 }
 
-fn has_bad_brackets(text: &str) -> bool {
-    let authority = text.split('/').next().unwrap_or("");
-    if let Some(open) = authority.find('[') {
-        return !authority[open..].contains(']');
+fn has_bad_brackets(text: &[u8]) -> bool {
+    let authority = match text.iter().position(|b| *b == b'/') {
+        Some(index) => &text[..index],
+        None => text,
+    };
+    if let Some(open) = authority.iter().position(|b| *b == b'[') {
+        return !authority[open..].contains(&b']');
     }
-    authority.contains(']')
+    authority.contains(&b']')
 }
 
 /// Redaction sink: a lone file, or a file teed with a captured buffer for
@@ -535,11 +553,11 @@ impl RedactingWriter {
         if end == 0 {
             return Ok(());
         }
-        let chunk = String::from_utf8_lossy(&self.url_pending[..end]).into_owned();
+        let chunk = self.url_pending[..end].to_vec();
         let rest = self.url_pending[end..].to_vec();
         self.url_pending = rest;
-        let safe = redact_urls(&chunk);
-        self.emit(safe.as_bytes())
+        let safe = redact_urls_bytes(&chunk);
+        self.emit(&safe)
     }
 
     /// Write bytes, retaining the first failure like the Go owner.
@@ -574,13 +592,13 @@ impl RedactingWriter {
             };
         }
         self.closed = true;
-        if let Err(e) = self.flush(true) {
-            if self.err.is_none() {
-                self.err = Some(e.to_string());
-            }
-        }
-        match &self.err {
-            Some(message) => Err(Error::msg(message.clone())),
+        // Like Go, retained and final-flush failures join; the file
+        // itself closes on drop.
+        let flush_err = self.flush(true).err();
+        let joined = Error::join(vec![self.err.clone().map(Error::msg), flush_err]);
+        self.err = joined.as_ref().map(|e| e.to_string());
+        match joined {
+            Some(err) => Err(err),
             None => Ok(()),
         }
     }
@@ -791,5 +809,22 @@ mod tests {
         assert_eq!(redact_urls("http://[::1/x"), "[URL OMITTED]");
         assert_eq!(redact_urls("https://h/%zz"), "[URL OMITTED]");
         assert_eq!(redact_urls("https://h/a%20b?x=1"), "https://h/a%20b");
+        // Go's URL class keeps single quotes inside the match.
+        assert_eq!(redact_urls("see https://h/a'b?x=1 done"), "see https://h/a'b done");
+    }
+
+    #[test]
+    fn binary_output_keeps_exact_bytes() {
+        let fixture = Fixture::new(&[]);
+        let e = &fixture.evidence;
+        let mut writer = e.writer("bin").unwrap();
+        let payload = b"\xff\xfenot-url-bytes\nhttps://example.test/p?code=x\n\x00\x01trailer";
+        writer.write_bytes(payload).unwrap();
+        writer.close().unwrap();
+        let raw = std::fs::read(format!("{}/bin", e.path())).unwrap();
+        assert_eq!(
+            raw,
+            b"\xff\xfenot-url-bytes\nhttps://example.test/p\n\x00\x01trailer".as_slice()
+        );
     }
 }

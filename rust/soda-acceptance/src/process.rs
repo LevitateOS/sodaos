@@ -25,52 +25,62 @@ use crate::evidence::RedactingWriter;
 /// Shared redacting sink for pump threads.
 pub type SharedWriter = Arc<Mutex<RedactingWriter>>;
 
-/// Cancellable phase context with an optional deadline.
+struct PhaseInner {
+    deadline: Option<Instant>,
+    cancelled: AtomicBool,
+}
+
+/// Cancellable phase context with an optional deadline, like Go's
+/// `context.Context`: cancellation and expiry flow downward only, so
+/// cancelling a child never disturbs its parent or siblings.
 #[derive(Clone)]
 pub struct Phase {
-    deadline: Option<Instant>,
-    cancelled: Arc<AtomicBool>,
+    inner: Arc<PhaseInner>,
+    parent: Option<Box<Phase>>,
 }
 
 impl Phase {
+    fn new(deadline: Option<Instant>, parent: Option<Phase>) -> Phase {
+        Phase {
+            inner: Arc::new(PhaseInner {
+                deadline,
+                cancelled: AtomicBool::new(false),
+            }),
+            parent: parent.map(Box::new),
+        }
+    }
+
     /// Unbounded, uncancelled-until-asked phase.
     pub fn background() -> Phase {
-        Phase {
-            deadline: None,
-            cancelled: Arc::new(AtomicBool::new(false)),
-        }
+        Phase::new(None, None)
     }
 
     /// Phase expiring after `duration`.
     pub fn timeout(duration: Duration) -> Phase {
-        Phase {
-            deadline: Some(Instant::now() + duration),
-            cancelled: Arc::new(AtomicBool::new(false)),
-        }
+        Phase::new(Some(Instant::now() + duration), None)
     }
 
-    /// Child phase sharing cancellation with a tighter deadline.
+    /// Child phase with a tighter deadline. It observes its parent's
+    /// cancellation and expiry, but cancelling it stays local.
     pub fn child(&self, duration: Duration) -> Phase {
-        let deadline = Some(Instant::now() + duration).min(self.deadline);
-        Phase {
-            deadline,
-            cancelled: self.cancelled.clone(),
-        }
+        let deadline = Some(Instant::now() + duration).min(self.inner.deadline);
+        Phase::new(deadline, Some(self.clone()))
     }
 
     /// Cancel this phase and its children.
     pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
+        self.inner.cancelled.store(true, Ordering::SeqCst);
     }
 
-    /// True after [`Phase::cancel`].
+    /// True after [`Phase::cancel`], here or on any parent.
     pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::SeqCst)
+        self.inner.cancelled.load(Ordering::SeqCst) || self.parent.as_ref().is_some_and(|p| p.is_cancelled())
     }
 
-    /// True once the deadline has passed.
+    /// True once the deadline has passed, here or on any parent.
     pub fn expired(&self) -> bool {
-        self.deadline.is_some_and(|d| Instant::now() >= d)
+        self.inner.deadline.is_some_and(|d| Instant::now() >= d)
+            || self.parent.as_ref().is_some_and(|p| p.expired())
     }
 
     /// Fail when cancelled or expired, like `ctx.Err()`.
@@ -86,7 +96,7 @@ impl Phase {
 
     /// Current deadline, if any.
     pub fn deadline(&self) -> Option<Instant> {
-        self.deadline
+        self.inner.deadline
     }
 }
 
@@ -352,26 +362,51 @@ fn reap_leader(pid: i32) -> (Option<i32>, Option<String>) {
         }
     } else if libc::WIFSIGNALED(status) {
         let signal = libc::WTERMSIG(status);
-        (Some(-1), Some(format!("signal: {}", signal_name(signal))))
+        let mut text = format!("signal: {}", signal_name(signal));
+        if libc::WCOREDUMP(status) {
+            text.push_str(" (core dumped)");
+        }
+        (Some(-1), Some(text))
     } else {
         (Some(-1), Some("stopped process reaped".to_string()))
     }
 }
 
+/// Go `syscall.Signal.String` names on Linux.
 #[cfg(target_os = "linux")]
 fn signal_name(signal: i32) -> String {
     match signal {
         libc::SIGHUP => "hangup",
         libc::SIGINT => "interrupt",
         libc::SIGQUIT => "quit",
+        libc::SIGILL => "illegal instruction",
+        libc::SIGTRAP => "trace/breakpoint trap",
         libc::SIGABRT => "aborted",
         libc::SIGBUS => "bus error",
         libc::SIGFPE => "floating point exception",
         libc::SIGKILL => "killed",
+        libc::SIGUSR1 => "user defined signal 1",
         libc::SIGSEGV => "segmentation violation",
+        libc::SIGUSR2 => "user defined signal 2",
         libc::SIGPIPE => "broken pipe",
         libc::SIGALRM => "alarm clock",
         libc::SIGTERM => "terminated",
+        libc::SIGSTKFLT => "stack fault",
+        libc::SIGCHLD => "child exited",
+        libc::SIGCONT => "continued",
+        libc::SIGSTOP => "stopped (signal)",
+        libc::SIGTSTP => "stopped",
+        libc::SIGTTIN => "stopped (tty input)",
+        libc::SIGTTOU => "stopped (tty output)",
+        libc::SIGURG => "urgent I/O condition",
+        libc::SIGXCPU => "CPU time limit exceeded",
+        libc::SIGXFSZ => "file size limit exceeded",
+        libc::SIGVTALRM => "virtual timer expired",
+        libc::SIGPROF => "profiling timer expired",
+        libc::SIGWINCH => "window changed",
+        libc::SIGIO => "I/O possible",
+        libc::SIGPWR => "power failure",
+        libc::SIGSYS => "bad system call",
         _ => return format!("signal {signal}"),
     }
     .to_string()
@@ -568,6 +603,21 @@ mod tests {
         let (out, err) = discard_pair();
         let result = start_process(&phase, &shell_command("exit 0"), out, err);
         assert!(result.unwrap_err().is_cancelled());
+    }
+
+    #[test]
+    fn child_cancel_stays_local_but_parent_flows_down() {
+        let root = Phase::background();
+        let child = root.child(Duration::from_secs(60));
+        child.cancel();
+        assert!(child.check().is_err());
+        assert!(root.check().is_ok());
+        assert!(!root.is_cancelled());
+        let sibling = root.child(Duration::from_secs(60));
+        assert!(sibling.check().is_ok());
+        root.cancel();
+        assert!(sibling.check().is_err());
+        assert!(child.check().is_err());
     }
 
     #[test]
