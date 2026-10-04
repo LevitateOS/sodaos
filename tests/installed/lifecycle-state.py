@@ -36,14 +36,16 @@ def main():
     assert mode == 'snapshot' and len(labels) == 1
     target = json.loads((root / 'target.json').read_text())
     repo = Path(__file__).resolve().parents[2]
-    vm = str(repo / 'scripts/test-vm.sh')
+    vm = str(repo / 'target/debug/soda-test-vm')
     old = json.loads((repo / '.artifacts/test-vm/u08-8417a90/observed-bindings.json').read_text())
     entries = [(b['environmentID'], b['login'], True if b['login'] == 'u08-alice-8417' else False) for b in old]
     entries.append((target['environment_id'], 'u08-alice-8417', True))
     assert len(entries) == 3 and len({x[0] for x in entries}) == 3
 
     def run(args, data=None):
-        result = subprocess.run(args, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180)
+        # The Rust VM tool resolves .artifacts from the working directory
+        # (the retired script cd'd to the repo itself), so run it there.
+        result = subprocess.run(args, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=180, cwd=repo)
         if result.returncode:
             # The project snapshot deliberately emits only its safe operation/type.
             detail = (
