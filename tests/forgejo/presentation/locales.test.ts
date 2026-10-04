@@ -1,28 +1,53 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {spawnSync} from 'node:child_process';
-test('locale generation preserves native bytes and rejects namespace/duplicate-key collisions', () => {
+import {mkdtempSync, writeFileSync, readFileSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join, resolve} from 'node:path';
+
+const root = resolve(import.meta.dirname, '..', '..', '..');
+
+function merge(native: string, additions: string): {status: number; out: string} {
+  const dir = mkdtempSync(join(tmpdir(), 'soda-locales-'));
+  const nativeFile = join(dir, 'native.ini');
+  const additionsFile = join(dir, 'additions.ini');
+  const outFile = join(dir, 'locale.ini');
+  writeFileSync(nativeFile, native);
+  writeFileSync(additionsFile, additions);
   const result = spawnSync(
-    'python3',
+    'cargo',
     [
-      '-c',
-      `
-import importlib.util
-spec=importlib.util.spec_from_file_location('locales','scripts/forgejo-locales.py')
-module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
-native='[common]\\nhome = Home %s\\n[settings]\\nprofile = Profile\\n'
-extra='[soda]\\nnav_personal = Personal\\n'
-assert module.merge(native,extra)==native+'\\n'+extra
-for additions in ['[soda]\\nx = one\\nx = two\\n','[settings]\\nprofile = Wrong\\n']:
- try: module.merge(native,additions)
- except Exception: pass
- else: raise AssertionError('duplicate namespace/key accepted')
-try: module.merge('[soda]\\nx = y\\n',extra)
-except ValueError: pass
-else: raise AssertionError('incomplete native catalog accepted')
-`,
+      'run',
+      '--release',
+      '--locked',
+      '-p',
+      'soda-forgejo-locales',
+      '--bin',
+      'soda-forgejo-locales',
+      '--',
+      '--native',
+      nativeFile,
+      '--additions',
+      additionsFile,
+      '--out',
+      outFile,
     ],
-    {encoding: 'utf8'}
+    {encoding: 'utf8', cwd: root}
   );
-  assert.equal(result.status, 0, result.stderr);
+  const status = result.status ?? 1;
+  return {status, out: status === 0 ? readFileSync(outFile, 'utf8') : result.stderr};
+}
+
+test('locale generation preserves native bytes and rejects namespace/duplicate-key collisions', () => {
+  const native = '[common]\nhome = Home %s\n[settings]\nprofile = Profile\n';
+  const extra = '[soda]\nnav_personal = Personal\n';
+  const merged = merge(native, extra);
+  assert.equal(merged.status, 0, merged.out);
+  assert.equal(merged.out, native + '\n' + extra);
+  for (const additions of ['[soda]\nx = one\nx = two\n', '[settings]\nprofile = Wrong\n']) {
+    const refused = merge(native, additions);
+    assert.notEqual(refused.status, 0, 'duplicate namespace/key accepted');
+  }
+  const incomplete = merge('[soda]\nx = y\n', extra);
+  assert.notEqual(incomplete.status, 0, 'incomplete native catalog accepted');
 });
