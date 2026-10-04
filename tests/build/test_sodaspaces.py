@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import runpy
+import platform
 import shutil
 import stat
 import struct
@@ -12,10 +12,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "scripts"))
 FILES = (
     'templates/custom/header.tmpl',
     'templates/custom/footer.tmpl',
@@ -27,15 +25,18 @@ FILES = (
 class SodaspacesPackaging(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        build = subprocess.run(
-            ['cargo', 'build', '-p', 'soda-test-vm'],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-        )
-        if build.returncode != 0:
-            raise AssertionError(f'cannot build soda-test-vm: {build.stderr[-2000:]}')
+        for package, binary in (('soda-test-vm', 'soda-test-vm'), ('soda-stage-render', 'soda-stage')):
+            build = subprocess.run(
+                ['cargo', 'build', '-p', package, '--bin', binary],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            if build.returncode != 0:
+                raise AssertionError(f'cannot build {binary}: {build.stderr[-2000:]}')
         cls.test_vm = str(ROOT / 'target/debug/soda-test-vm')
+        cls.stage = str(ROOT / 'target/debug/soda-stage')
+
     def test_spaces_entry_is_packaged_by_the_extension(self):
         extension = json.loads((ROOT / 'appliance/soda-extension/extension.json').read_text())
         manifest = json.loads((ROOT / 'internal/release/build/forgejo-payload.json').read_text())
@@ -83,12 +84,14 @@ class SodaspacesPackaging(unittest.TestCase):
             self.assertNotIn('SYNTHETIC_PRIVATE_MARKER', result.stdout + result.stderr)
             self.assertEqual(list(root.iterdir()), [request])
 
+    @unittest.skipUnless(
+        sys.platform == 'linux' and platform.machine() == 'x86_64',
+        'soda-stage requires native Linux x86_64',
+    )
     def test_actual_stage_recipe_with_synthetic_build_inputs(self):
         # No generated artifact is placed in the production .artifacts/native tree.
         with tempfile.TemporaryDirectory() as tmp:
             checkout = Path(tmp).resolve()
-            (checkout / 'scripts').mkdir()
-            shutil.copyfile(ROOT / 'scripts/stage.py', checkout / 'scripts/stage.py')
             shutil.copytree(ROOT / 'assets', checkout / 'assets')
             for asset in (checkout / 'assets').rglob('*'):
                 asset.chmod(0o700 if asset.is_dir() else 0o600)
@@ -147,16 +150,19 @@ class SodaspacesPackaging(unittest.TestCase):
             def vendor_stage(argv=args):
                 previous = os.umask(0o077)
                 try:
-                    with (
-                        patch('sys.argv', argv),
-                        patch('platform.system', return_value='Linux'),
-                        patch('platform.machine', return_value='x86_64'),
-                    ):
-                        runpy.run_path(str(checkout / 'scripts/stage.py'), run_name='__main__')
+                    return subprocess.run(
+                        [self.stage, *argv[1:]],
+                        cwd=checkout,
+                        capture_output=True,
+                        text=True,
+                        timeout=180,
+                    )
                 finally:
                     os.umask(previous)
 
-            vendor_stage()
+            first = vendor_stage()
+            self.assertEqual(first.returncode, 0, first.stderr[-2000:])
+            self.assertEqual(first.stdout.strip(), str(vendor_root))
             # The single image layout owns every path; no writable tree is created.
             self.assertFalse((build / 'rootfs').exists())
             self.assertFalse((vendor_root / 'var').exists())
@@ -229,15 +235,18 @@ class SodaspacesPackaging(unittest.TestCase):
                 return {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
 
             before = inventory(vendor_root), inventory(presentation)
-            with self.assertRaises(SystemExit):
-                vendor_stage()
+            rerun = vendor_stage()
+            self.assertEqual(rerun.returncode, 2, rerun.stderr[-2000:])
+            self.assertIn('occupied Forgejo presentation refused', rerun.stderr)
             self.assertEqual(before, (inventory(vendor_root), inventory(presentation)))
-            with self.assertRaises(SystemExit):
-                vendor_stage(['stage.py', '--arch', 'x86_64', '--host-context', str(host)])
+            missing = vendor_stage(['stage.py', '--arch', 'x86_64', '--host-context', str(host)])
+            self.assertEqual(missing.returncode, 2, missing.stderr[-2000:])
+            self.assertIn('the following arguments are required: --forgejo-context', missing.stderr)
             link = checkout / 'linked-forgejo-context'
             link.symlink_to(forgejo_context, target_is_directory=True)
-            with self.assertRaises(SystemExit):
-                vendor_stage(args[:-1] + [str(link)])
+            linked = vendor_stage(args[:-1] + [str(link)])
+            self.assertEqual(linked.returncode, 2, linked.stderr[-2000:])
+            self.assertIn('real prepared host and fresh Forgejo context directories required', linked.stderr)
             # Copying public data must not normalize the canonical/private inputs.
             self.assertEqual(
                 stat.S_IMODE((checkout / 'assets/branding/source/soda-symbol-brutalist.svg').stat().st_mode),
