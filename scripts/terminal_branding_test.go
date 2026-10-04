@@ -9,7 +9,7 @@ import (
 )
 
 func TestTerminalBrandingMatchesCanonicalSymbol(t *testing.T) {
-	cmd := exec.Command("python3", "render-terminal-logo.py", "--check")
+	cmd := exec.Command("cargo", "run", "--locked", "-p", "soda-stage-render", "--bin", "soda-render-terminal-logo", "--", "--check")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("terminal symbol drift: %v\n%s", err, out)
 	}
