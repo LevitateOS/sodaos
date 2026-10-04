@@ -34,7 +34,11 @@ func TestIdentityEncryptionKeyMustSurviveRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	credential, err := s.IdentityCredential(t.Context(), c)
+	var encrypted []byte
+	if err := s.queryRow(t.Context(), `SELECT credential FROM identity_connections WHERE id=?`, c.ID).Scan(&encrypted); err != nil {
+		t.Fatal(err)
+	}
+	credential, err := s.grants.open(encrypted, identityBinding(c))
 	if err != nil || !bytes.Contains(credential, []byte("synthetic-secret")) {
 		t.Fatal("identity credential did not survive restart", err)
 	}

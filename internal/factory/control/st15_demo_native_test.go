@@ -12,11 +12,11 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -36,7 +36,6 @@ import (
 	terminalexec "github.com/levitateos/sodaos/internal/host/terminal"
 	"github.com/levitateos/sodaos/internal/identity"
 	identityclient "github.com/levitateos/sodaos/internal/identity/client"
-	identitycontrol "github.com/levitateos/sodaos/internal/identity/control"
 	"github.com/levitateos/sodaos/internal/store"
 	"github.com/levitateos/sodaos/internal/web/api"
 )
@@ -111,8 +110,6 @@ type st15Fixture struct {
 
 	scratch  string
 	db       *store.Store
-	brokerDB *store.Store
-	broker   *identitycontrol.Controller
 	client   *identityclient.Client
 	term     *terminalexec.Service
 	rt       *projectexec.Runtime
@@ -238,66 +235,73 @@ func (h *st15HostEndpoint) handler() http.Handler {
 	})
 }
 
-type st15HostRuntime struct {
-	client *http.Client
+// st15RepoRoot locates the checkout so the fixture builds the broker from
+// the tree under test, including worktrees.
+func st15RepoRoot(t *testing.T) string {
+	t.Helper()
+	dir, err := os.Getwd()
+	nativeMust(t, err)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			if _, err := os.Stat(filepath.Join(dir, "Cargo.toml")); err == nil {
+				return dir
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("repository root not found")
+		}
+		dir = parent
+	}
 }
 
-func st15NewHostRuntime(socket string) *st15HostRuntime {
-	transport := &http.Transport{DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-		var dialer net.Dialer
-		return dialer.DialContext(ctx, "unix", socket)
-	}}
-	return &st15HostRuntime{client: &http.Client{Transport: transport, Timeout: 90 * time.Second}}
-}
-
-func (h *st15HostRuntime) call(ctx context.Context, op string, l identity.Lease) ([]byte, error) {
-	body, err := json.Marshal(identity.DeliveryWire{Lease: l})
-	if err != nil {
-		return nil, err
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://host/identity/"+op, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	response, err := h.client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = response.Body.Close() }()
-	data, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("identity operation unconfirmed (HTTP %d)", response.StatusCode)
-	}
-	var out identity.DeliveryWire
-	if err = json.Unmarshal(data, &out); err != nil {
-		return nil, err
-	}
-	return out.Credential, nil
-}
-
-func (h *st15HostRuntime) Validate(ctx context.Context, l identity.Lease) error {
-	_, err := h.call(ctx, "validate", l)
-	return err
-}
-
-func (h *st15HostRuntime) Stop(ctx context.Context, l identity.Lease) error {
-	_, err := h.call(ctx, "stop", l)
-	return err
-}
-
-func (h *st15HostRuntime) Finish(ctx context.Context, l identity.Lease) ([]byte, error) {
-	return h.call(ctx, "finish", l)
-}
-
-// st15StubProvider satisfies broker construction; ST15 never enrolls (the
+// st15BuildBroker compiles the Rust identity broker; ST15 never
+// enrolls, so the pinned provider below is construction-only (the
 // connection is seeded directly from the configured credential file).
-type st15StubProvider struct{}
+func st15BuildBroker(t *testing.T) string {
+	t.Helper()
+	if _, err := exec.LookPath("cargo"); err != nil {
+		t.Skip("cargo unavailable")
+	}
+	root := st15RepoRoot(t)
+	build := exec.Command("cargo", "build", "-p", "soda-identity", "--bin", "soda-identity")
+	build.Dir = root
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build soda-identity: %v\n%s", err, out)
+	}
+	return filepath.Join(root, "target", "debug", "soda-identity")
+}
 
-func (st15StubProvider) Start(context.Context, int64) (identity.EnrollmentSession, error) {
-	return nil, errors.New("enrollment unavailable in the ST15 fixture")
+// st15TmpfsRoot confines the construction-only provider root to private
+// tmpfs, which the broker validates before serving.
+func st15TmpfsRoot(t *testing.T) string {
+	t.Helper()
+	parent := filepath.Join("/dev/shm", fmt.Sprintf("soda-st15-%d", os.Getpid()))
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		t.Skipf("tmpfs provider root unavailable: %v", err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(parent) })
+	return parent
+}
+
+func st15FakeCodex(t *testing.T, dir string) (binary, sum string) {
+	t.Helper()
+	binary = filepath.Join(dir, "codex-fixture")
+	script := "#!/bin/sh\nif [ \"$1\" = --version ]; then echo 'codex-cli 0.153.4'; exit 0; fi\necho unexpected >&2\nexit 1\n"
+	nativeMust(t, os.WriteFile(binary, []byte(script), 0o700))
+	return binary, st15SHA256([]byte(script))
+}
+
+func st15WaitSocket(t *testing.T, path string) {
+	t.Helper()
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Lstat(path); err == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("broker socket %s never appeared", path)
 }
 
 // setupHostStack stands up the container, helper, harness, daemon and
@@ -419,8 +423,7 @@ func (fx *st15Fixture) setupHostStack() error {
 	if _, err := rand.Read(key); err != nil {
 		return err
 	}
-	brokerDB, _ := postgresFixture(t, key)
-	fx.brokerDB = brokerDB
+	brokerDB, brokerDSN := postgresFixture(t, key)
 	credentialPath := os.Getenv("SODA_ST15_PROVIDER_CREDENTIAL")
 	var auth []byte
 	if credentialPath == "" {
@@ -441,7 +444,8 @@ func (fx *st15Fixture) setupHostStack() error {
 	if err = brokerDB.IdentitySaveConnection(fx.ctx, conn, auth); err != nil {
 		return err
 	}
-	for _, sock := range []string{fx.cfg.BrokerSocket, fx.cfg.HostSocket} {
+	runtimeSocket := fx.cfg.BrokerSocket + ".runtime"
+	for _, sock := range []string{fx.cfg.BrokerSocket, runtimeSocket, fx.cfg.HostSocket} {
 		_ = os.Remove(sock)
 	}
 	endpoint := &st15HostEndpoint{daemon: &hostexec.Daemon{
@@ -456,19 +460,56 @@ func (fx *st15Fixture) setupHostStack() error {
 	hostSrv := &http.Server{Handler: endpoint.handler(), ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = hostSrv.Serve(hostListener) }()
 	t.Cleanup(func() { _ = hostSrv.Close() })
-	broker, err := identitycontrol.New(fx.brokerDB, map[string]identity.Provider{identity.Codex: st15StubProvider{}}, st15NewHostRuntime(fx.cfg.HostSocket))
+	// The Rust broker serves the fixture sockets: the dashboard keeps
+	// dialing the configured admin socket while the factory client uses
+	// the runtime socket, matching the production topology.
+	brokerBinary := st15BuildBroker(t)
+	writeSecret := func(name, content string) string {
+		path := filepath.Join(scratch, name)
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	dsnFile := writeSecret("broker-dsn", brokerDSN+"\n")
+	keyFile := writeSecret("broker-key", base64.StdEncoding.EncodeToString(key)+"\n")
+	codexBinary, codexSum := st15FakeCodex(t, scratch)
+	codexRoot := filepath.Join(st15TmpfsRoot(t), "codex")
+	if err := os.MkdirAll(codexRoot, 0o700); err != nil {
+		return err
+	}
+	settings, err := json.Marshal(map[string]any{
+		"database_dsn_file": dsnFile,
+		"key_file":          keyFile,
+		"admin_socket":      fx.cfg.BrokerSocket,
+		"runtime_socket":    runtimeSocket,
+		"host_socket":       fx.cfg.HostSocket,
+		"codex": map[string]any{
+			"binary": codexBinary, "version": "0.153.4", "sha256": codexSum, "root": codexRoot,
+		},
+		"muse": map[string]any{},
+	})
 	if err != nil {
 		return err
 	}
-	fx.broker = broker
-	brokerListener, err := net.Listen("unix", fx.cfg.BrokerSocket)
-	if err != nil {
+	configPath := filepath.Join(scratch, "identity.json")
+	if err := os.WriteFile(configPath, settings, 0o600); err != nil {
 		return err
 	}
-	brokerSrv := &http.Server{Handler: broker.Handler(true), ReadHeaderTimeout: 5 * time.Second}
-	go func() { _ = brokerSrv.Serve(brokerListener) }()
-	t.Cleanup(func() { _ = brokerSrv.Close() })
-	fx.client = identityclient.New(fx.cfg.BrokerSocket)
+	brokerCmd := exec.Command(brokerBinary, "--config", configPath)
+	var brokerLog bytes.Buffer
+	brokerCmd.Stdout = &brokerLog
+	brokerCmd.Stderr = &brokerLog
+	if err := brokerCmd.Start(); err != nil {
+		return err
+	}
+	t.Cleanup(func() {
+		_ = brokerCmd.Process.Kill()
+		_ = brokerCmd.Wait()
+	})
+	st15WaitSocket(t, fx.cfg.BrokerSocket)
+	st15WaitSocket(t, runtimeSocket)
+	fx.client = identityclient.New(runtimeSocket)
 	if _, err = fx.client.GetExecution(fx.ctx, identity.Factory, strings.Repeat("f", 32)); !errors.Is(err, identity.ErrNotFound) {
 		return fmt.Errorf("broker transport check failed: %v", err)
 	}
