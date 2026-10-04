@@ -2,7 +2,6 @@ package web
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -15,7 +14,6 @@ import (
 
 	extensions "forgejo.org/extension-sdk"
 	"github.com/coder/websocket"
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/project"
@@ -140,15 +138,7 @@ func TestSpacesFailedRunReadIsIncomplete(t *testing.T) {
 	live := "pfffffffffffffffffffffff0"
 	inventoryProject(t, s, live, 102)
 	recordInventoryRun(t, s, inventoryRun(time.Now(), live), false)
-	raw, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = raw.Exec(`INSERT INTO factory_runs(id,active,settled,data) VALUES($1,$2,$3,$4)`,
-		"corrupt", true, false, `{"id":123}`); err != nil {
-		t.Fatal(err)
-	}
-	if err = raw.Close(); err != nil {
+	if err := store.InjectCorruptFactoryRun(context.Background(), dsn, "corrupt", true, false, `{"id":123}`); err != nil {
 		t.Fatal(err)
 	}
 	result := readSpacesPath(t, s, "/api/spaces", spacesCallback(0, new(atomic.Int32)))
@@ -169,14 +159,7 @@ func TestSpacesFailedViewReadIsIncomplete(t *testing.T) {
 	live := "pfffffffffffffffffffffff0"
 	inventoryProject(t, s, live, 102)
 	recordInventoryRun(t, s, inventoryRun(time.Now(), live), false)
-	raw, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = raw.Exec(`DROP TABLE factory_run_views`); err != nil {
-		t.Fatal(err)
-	}
-	if err = raw.Close(); err != nil {
+	if err := store.DropFactoryRunViews(context.Background(), dsn); err != nil {
 		t.Fatal(err)
 	}
 	result := readSpacesPath(t, s, "/api/spaces", spacesCallback(0, new(atomic.Int32)))

@@ -41,7 +41,7 @@ func TestSetupRevokesBootstrapTokenOnSuccess(t *testing.T) {
 						return
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "soda-tester", "is_admin": name != "failure-keeps-retry-token"})
-				case "DELETE /api/v1/user/token":
+				case http.MethodDelete + " /api/v1/user/token":
 					deletes++
 					if revoked {
 						w.WriteHeader(http.StatusUnauthorized)
@@ -88,7 +88,7 @@ func TestSetupProvisionsPostgresSecrets(t *testing.T) {
 		switch r.Method + " " + r.URL.Path {
 		case "GET /api/v1/user":
 			_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "soda-tester", "is_admin": true})
-		case "DELETE /api/v1/user/token":
+		case http.MethodDelete + " /api/v1/user/token":
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			w.WriteHeader(http.StatusNotFound)
@@ -263,7 +263,7 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 						return
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "soda-tester", "is_admin": name != "non-admin"})
-				case "DELETE /api/v1/user/token":
+				case http.MethodDelete + " /api/v1/user/token":
 					w.WriteHeader(http.StatusNoContent)
 				default:
 					t.Error("setup reached an unexpected provider endpoint")
@@ -302,7 +302,7 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 				wantCalls = append(wantCalls, "GET /api/v1/user")
 			}
 			if success {
-				wantCalls = append(wantCalls, "DELETE /api/v1/user/token")
+				wantCalls = append(wantCalls, http.MethodDelete+" /api/v1/user/token")
 			}
 			if !reflect.DeepEqual(gotCalls, wantCalls) {
 				t.Fatal("unexpected provider calls or automatic replay", gotCalls)
