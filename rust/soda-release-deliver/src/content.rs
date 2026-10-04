@@ -14,7 +14,11 @@ fn bind_image_revisions(p: &Payload) -> Result<BTreeMap<String, String>, Error> 
         } else {
             p.revision.clone()
         };
-        let reference = p.images.get(name).map(|i| i.config.clone()).unwrap_or_default();
+        let reference = p
+            .images
+            .get(name)
+            .map(|i| i.config.clone())
+            .unwrap_or_default();
         if let Some(previous) = revisions.get(&reference) {
             if *previous != revision {
                 return Err(Error::msg("conflicting OCI source bindings"));
@@ -28,7 +32,11 @@ fn bind_image_revisions(p: &Payload) -> Result<BTreeMap<String, String>, Error> 
 fn match_layout_identities(p: &Payload, layout: &OciLayout) -> Result<(), Error> {
     for name in NAMES {
         let expected = p.images.get(name).cloned().unwrap_or_default();
-        let got = layout.images.get(&expected.config).cloned().unwrap_or_default();
+        let got = layout
+            .images
+            .get(&expected.config)
+            .cloned()
+            .unwrap_or_default();
         if got.config != expected.config || got.manifest != expected.manifest {
             return Err(Error::msg(format!("{name} OCI identity mismatch")));
         }
@@ -37,10 +45,7 @@ fn match_layout_identities(p: &Payload, layout: &OciLayout) -> Result<(), Error>
 }
 
 /// `VerifyContent`: bind shared OCI content to the payload.
-pub fn verify_content(
-    p: &Payload,
-    images: &str,
-) -> Result<(BTreeMap<String, String>, u64), Error> {
+pub fn verify_content(p: &Payload, images: &str) -> Result<(BTreeMap<String, String>, u64), Error> {
     p.validate()?;
     if !images.starts_with('/') || images.bytes().any(|b| matches!(b, b':' | b'\r' | b'\n')) {
         return Err(Error::msg("absolute local OCI directory required"));

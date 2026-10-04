@@ -20,8 +20,7 @@ pub struct DecodeError;
 /// Standard base64 (Go `encoding/base64.StdEncoding`), used for `[]byte`
 /// fields. Implemented locally so padding and alphabet stay exact.
 pub fn base64_encode(data: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
         let mut n: u32 = 0;
@@ -45,7 +44,7 @@ pub fn base64_encode(data: &[u8]) -> String {
 }
 
 pub fn base64_decode(text: &str) -> Result<Vec<u8>, DecodeError> {
-    if text.len() % 4 != 0 {
+    if !text.len().is_multiple_of(4) {
         return Err(DecodeError);
     }
     let value = |c: u8| -> Result<u32, DecodeError> {
@@ -212,7 +211,10 @@ impl<'a> Binder<'a> {
     }
 
     /// Raw entries of a nested object for strict map decoding.
-    pub fn entries(&mut self, name: &str) -> Result<Option<&'a [(String, JsonValue)]>, DecodeError> {
+    pub fn entries(
+        &mut self,
+        name: &str,
+    ) -> Result<Option<&'a [(String, JsonValue)]>, DecodeError> {
         match self.optional(name)? {
             None => Ok(None),
             Some(JsonValue::Object(entries)) => Ok(Some(entries)),
@@ -347,6 +349,7 @@ pub fn dedupe_last_wins(value: JsonValue) -> JsonValue {
 }
 
 /// Indented emitter mirroring `json.MarshalIndent(v, "", "  ")`.
+#[derive(Default)]
 pub struct Emitter {
     out: String,
     level: usize,
@@ -354,10 +357,7 @@ pub struct Emitter {
 
 impl Emitter {
     pub fn new() -> Emitter {
-        Emitter {
-            out: String::new(),
-            level: 0,
-        }
+        Emitter::default()
     }
 
     pub fn finish(mut self) -> String {

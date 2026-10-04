@@ -112,9 +112,7 @@ fn parse_p256_spki(der: &[u8]) -> Result<(), Error> {
     // ecPublicKey 1.2.840.10045.2.1
     let ec_oid: &[u8] = &[0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01];
     // secp256r1 1.2.840.10045.3.1.7
-    let curve_oid: &[u8] = &[
-        0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07,
-    ];
+    let curve_oid: &[u8] = &[0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07];
     if der.get(pos..pos + ec_oid.len()) != Some(ec_oid) {
         return Err(refused());
     }
@@ -139,9 +137,9 @@ fn parse_p256_spki(der: &[u8]) -> Result<(), Error> {
     }
     // Coordinates must be below the P-256 field prime.
     let prime: &[u8] = &[
-        0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff,
     ];
     let x = &der[pos + 2..pos + 34];
     let y = &der[pos + 34..pos + 66];
@@ -152,7 +150,7 @@ fn parse_p256_spki(der: &[u8]) -> Result<(), Error> {
 }
 
 fn admit_trust_role_keys(keys: &[String], seen: &mut BTreeSet<String>) -> Result<(), Error> {
-    if keys.len() < 1 || keys.len() > 4 {
+    if keys.is_empty() || keys.len() > 4 {
         return Err(Error::refused());
     }
     for key in keys {
@@ -175,8 +173,7 @@ impl Trust {
             let empty = Vec::new();
             let keys = self.keys.get(role).unwrap_or(&empty);
             admit_trust_role_keys(keys, &mut seen)?;
-            if role != "artifact" && self.minimum_sequence.get(role).copied().unwrap_or(0) == 0
-            {
+            if role != "artifact" && self.minimum_sequence.get(role).copied().unwrap_or(0) == 0 {
                 return Err(Error::refused());
             }
         }
@@ -184,10 +181,7 @@ impl Trust {
     }
 
     pub fn role(&self, repository: &str) -> Result<String, Error> {
-        for name in ["host", "release", "media"]
-            .into_iter()
-            .chain(NAMES.into_iter())
-        {
+        for name in ["host", "release", "media"].into_iter().chain(NAMES) {
             if repository == format!("{}-{name}", self.prefix) {
                 return Ok("artifact".to_string());
             }
@@ -249,9 +243,10 @@ impl Trust {
                 let raw = item
                     .as_integer()
                     .ok_or_else(|| "invalid field MinimumSequence".to_string())?;
-                trust
-                    .minimum_sequence
-                    .insert(channel.clone(), as_u64(raw).map_err(|_| "invalid field MinimumSequence")?);
+                trust.minimum_sequence.insert(
+                    channel.clone(),
+                    as_u64(raw).map_err(|_| "invalid field MinimumSequence")?,
+                );
             }
         }
         b.finish_name()?;
@@ -353,8 +348,7 @@ fn valid_candidate_build(c: &Candidate, p: &Payload) -> bool {
 /// `ValidCandidateContent`: exact required content bindings plus assets.
 pub fn valid_candidate_content(files: &BTreeMap<String, String>) -> bool {
     if !required_candidate_content(files)
-        || files.get("forgejo:/usr/local/bin/gitea")
-            != files.get("extension:/usr/local/bin/gitea")
+        || files.get("forgejo:/usr/local/bin/gitea") != files.get("extension:/usr/local/bin/gitea")
     {
         return false;
     }
@@ -415,7 +409,11 @@ pub(crate) fn path_clean(name: &str) -> String {
         }
     }
     // Go keeps leading ".." for relative paths; the pop/push above models it.
-    let mut out = if rooted { "/".to_string() } else { String::new() };
+    let mut out = if rooted {
+        "/".to_string()
+    } else {
+        String::new()
+    };
     out.push_str(&parts.join("/"));
     if out.is_empty() {
         ".".to_string()
@@ -453,8 +451,7 @@ impl Candidate {
         if p.validate().is_err() {
             return Err(Error::refused());
         }
-        if !valid_candidate_host(self, p, arch) || !valid_candidate_provenance(self, p, payload)
-        {
+        if !valid_candidate_host(self, p, arch) || !valid_candidate_provenance(self, p, payload) {
             return Err(Error::refused());
         }
         Ok(())
@@ -633,8 +630,7 @@ fn valid_release_identity(r: &Release) -> bool {
     r.format == 1
         && r.serial != 0
         && (r.class == "normal" || r.class == "emergency")
-        && (r.qualification == "local-only"
-            || r.qualification == "native-install-upgrade-recovery")
+        && (r.qualification == "local-only" || r.qualification == "native-install-upgrade-recovery")
 }
 
 fn valid_release_notes_and_evidence(r: &Release) -> bool {
@@ -679,7 +675,8 @@ fn valid_release_provenance(r: &Release, p: &Payload, c: &Candidate) -> bool {
             _ => return false,
         }
     }
-    r.provenance.get("packages.txt").map(String::as_str) == Some(format!("sha256:{}", p.host_packages_sha256).as_str())
+    r.provenance.get("packages.txt").map(String::as_str)
+        == Some(format!("sha256:{}", p.host_packages_sha256).as_str())
         && r.provenance.get("presentation.json").map(String::as_str)
             == Some(format!("sha256:{}", p.presentation_sha256).as_str())
         && r.provenance.get("forgejo-source.tar").map(String::as_str)
@@ -915,7 +912,10 @@ fn valid_highwater_maps(s: &Highwater) -> bool {
 
 fn valid_highwater_channels(s: &Highwater) -> bool {
     for (channel, seen) in &s.channels {
-        if !is_channel(channel) || seen.sequence == 0 || !is_digest_ref(&seen.digest) || seen.issued <= 0
+        if !is_channel(channel)
+            || seen.sequence == 0
+            || !is_digest_ref(&seen.digest)
+            || seen.issued <= 0
         {
             return false;
         }
@@ -1064,15 +1064,19 @@ fn validate_channel_identity(
     Ok(())
 }
 
-fn validate_channel_timing(t: &Trust, s: &Highwater, c: &Channel, now_unix: i64) -> Result<(), Error> {
+fn validate_channel_timing(
+    t: &Trust,
+    s: &Highwater,
+    c: &Channel,
+    now_unix: i64,
+) -> Result<(), Error> {
     if now_unix < t.not_before || now_unix < s.checked_at - t.clock_skew_seconds {
         return Err(Error::refused());
     }
     if c.issued < t.not_before || c.issued > now_unix + t.clock_skew_seconds {
         return Err(Error::refused());
     }
-    if c.expires <= now_unix || c.expires <= c.issued || c.expires - c.issued > t.max_age_seconds
-    {
+    if c.expires <= now_unix || c.expires <= c.issued || c.expires - c.issued > t.max_age_seconds {
         return Err(Error::refused());
     }
     Ok(())
@@ -1257,10 +1261,7 @@ mod tests {
         unknown.insert("host:/etc/passwd".to_string(), "b".repeat(64));
         assert!(!valid_candidate_content(&unknown));
         let mut mismatch = full_content();
-        mismatch.insert(
-            "extension:/usr/local/bin/gitea".to_string(),
-            "b".repeat(64),
-        );
+        mismatch.insert("extension:/usr/local/bin/gitea".to_string(), "b".repeat(64));
         assert!(!valid_candidate_content(&mismatch));
         let mut bad_digest = full_content();
         bad_digest.insert(
@@ -1304,6 +1305,8 @@ mod tests {
         );
         assert!(trust.role("ghcr.io/other/x").is_err());
         assert!(trust.reference("no-at-sign").is_err());
-        assert!(trust.reference("ghcr.io/example/sodaos-release@bogus").is_err());
+        assert!(trust
+            .reference("ghcr.io/example/sodaos-release@bogus")
+            .is_err());
     }
 }

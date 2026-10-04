@@ -28,12 +28,17 @@ fn goldens() -> JsonValue {
 }
 
 fn golden_str(g: &JsonValue, name: &str) -> String {
-    g.get(name).and_then(|v| v.as_str()).unwrap_or("").to_string()
+    g.get(name)
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string()
 }
 
 fn golden_result(g: &JsonValue, name: &str) -> (bool, String) {
     let results = g.get("results").expect("results");
-    let entry = results.get(name).unwrap_or_else(|| panic!("missing result {name}"));
+    let entry = results
+        .get(name)
+        .unwrap_or_else(|| panic!("missing result {name}"));
     let ok = entry.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
     let err = entry
         .get("err")
@@ -83,7 +88,10 @@ fn fixtures_round_trip_byte_identical() {
     let (payload, _) = decode_payload(&g);
     assert_eq!(marshal(&payload), golden_str(&g, "payload").into_bytes());
     let (candidate, _) = decode_candidate(&g);
-    assert_eq!(marshal(&candidate), golden_str(&g, "candidate").into_bytes());
+    assert_eq!(
+        marshal(&candidate),
+        golden_str(&g, "candidate").into_bytes()
+    );
     let release = decode_release(&g);
     assert_eq!(marshal(&release), golden_str(&g, "release").into_bytes());
     let channel = decode_channel(&g);
@@ -132,10 +140,7 @@ fn validation_battery_matches_oracle() {
     );
     let mut bad = candidate.clone();
     bad.architecture = "aarch64".to_string();
-    check(
-        "candidate.bad_arch",
-        bad.validate(&payload, &payload_bytes),
-    );
+    check("candidate.bad_arch", bad.validate(&payload, &payload_bytes));
     let mut bad = candidate.clone();
     bad.content_sha256.clear();
     assert!(!valid_candidate_content(&bad.content_sha256));
@@ -144,19 +149,16 @@ fn validation_battery_matches_oracle() {
         bad.validate(&payload, &payload_bytes),
     );
 
-    check(
-        "release.validate",
-        release.validate(&trust).map(|_| ()),
-    );
+    check("release.validate", release.validate(&trust).map(|_| ()));
     let mut bad = release.clone();
     bad.qualification = "bogus".to_string();
-    check("release.bad_qualification", bad.validate(&trust).map(|_| ()));
-    let mut bad = release.clone();
-    bad.provenance.clear();
     check(
-        "release.empty_provenance",
+        "release.bad_qualification",
         bad.validate(&trust).map(|_| ()),
     );
+    let mut bad = release.clone();
+    bad.provenance.clear();
+    check("release.empty_provenance", bad.validate(&trust).map(|_| ()));
 
     let now = golden_now(&g);
     let permit = Permit {
@@ -185,7 +187,9 @@ fn validation_battery_matches_oracle() {
 fn golden_now(g: &JsonValue) -> i64 {
     let raw = golden_str(g, "channel.admitted_state");
     let value = parse_strict(raw.as_bytes()).expect("admitted strict");
-    Highwater::decode(&value).expect("admitted decode").checked_at
+    Highwater::decode(&value)
+        .expect("admitted decode")
+        .checked_at
 }
 
 #[test]
@@ -199,8 +203,8 @@ fn channel_progression_matches_oracle() {
     let mut state = empty_state();
     state.trust_epoch = trust.epoch;
     state.checked_at = now - 20;
-    let next = admit_channel(&trust, &state, &channel, &digest, "candidate", now)
-        .expect("channel.admit");
+    let next =
+        admit_channel(&trust, &state, &channel, &digest, "candidate", now).expect("channel.admit");
     assert_eq!(
         marshal(&next),
         golden_str(&g, "channel.admitted_state").into_bytes()
@@ -240,11 +244,7 @@ fn release_admission_matches_oracle() {
         let value = parse_strict(raw.as_bytes()).unwrap();
         Highwater::decode(&value).unwrap()
     };
-    let arch_ref = format!(
-        "{}-release@sha256:{}",
-        trust.prefix,
-        "9".repeat(64)
-    );
+    let arch_ref = format!("{}-release@sha256:{}", trust.prefix, "9".repeat(64));
     let offer = Channel {
         format: 1,
         name: "candidate".to_string(),
@@ -252,7 +252,9 @@ fn release_admission_matches_oracle() {
         issued: now - 10,
         expires: now + 600,
         withdrawn: false,
-        releases: [("x86_64".to_string(), arch_ref.clone())].into_iter().collect(),
+        releases: [("x86_64".to_string(), arch_ref.clone())]
+            .into_iter()
+            .collect(),
     };
     let next = admit_release(&trust, &admitted, &offer, "x86_64", &arch_ref, &release)
         .expect("release.admit_candidate");
@@ -298,16 +300,12 @@ fn merge_policy_matches_oracle_semantically() {
 fn dom_sort(value: JsonValue) -> JsonValue {
     match value {
         JsonValue::Object(entries) => {
-            let mut entries: Vec<(String, JsonValue)> = entries
-                .into_iter()
-                .map(|(k, v)| (k, dom_sort(v)))
-                .collect();
+            let mut entries: Vec<(String, JsonValue)> =
+                entries.into_iter().map(|(k, v)| (k, dom_sort(v))).collect();
             entries.sort_by(|a, b| a.0.cmp(&b.0));
             JsonValue::Object(entries)
         }
-        JsonValue::Array(items) => {
-            JsonValue::Array(items.into_iter().map(dom_sort).collect())
-        }
+        JsonValue::Array(items) => JsonValue::Array(items.into_iter().map(dom_sort).collect()),
         scalar => scalar,
     }
 }
@@ -321,15 +319,15 @@ fn write_document_digests_match_oracle() {
     let channel_out = format!("{dir}/ch");
     let digest = write_document(&channel_out, &channel).expect("write channel");
     assert_eq!(digest, golden_str(&g, "document.channel_digest"));
-    let back: Channel = read_document(&copy_as_dir(&channel_out), &digest, Channel::decode)
-        .expect("read channel");
+    let back: Channel =
+        read_document(&copy_as_dir(&channel_out), &digest, Channel::decode).expect("read channel");
     assert_eq!(back, channel);
 
     let release_out = format!("{dir}/rel");
     let digest = write_document(&release_out, &release).expect("write release");
     assert_eq!(digest, golden_str(&g, "document.release_digest"));
-    let back: Release = read_document(&copy_as_dir(&release_out), &digest, Release::decode)
-        .expect("read release");
+    let back: Release =
+        read_document(&copy_as_dir(&release_out), &digest, Release::decode).expect("read release");
     assert_eq!(back, release);
 }
 
@@ -375,8 +373,14 @@ fn oci_inspection_matches_oracle() {
     std::fs::write(&plain_path, &plain).unwrap();
     let image = inspect_oci(&plain_path, "x86_64", &revision).expect("oci.inspect_plain");
     let want_image = JsonValue::parse(&golden_str(&g, "oci.plain_image")).unwrap();
-    assert_eq!(image.manifest, want_image.get("Manifest").unwrap().as_str().unwrap());
-    assert_eq!(image.config, want_image.get("Config").unwrap().as_str().unwrap());
+    assert_eq!(
+        image.manifest,
+        want_image.get("Manifest").unwrap().as_str().unwrap()
+    );
+    assert_eq!(
+        image.config,
+        want_image.get("Config").unwrap().as_str().unwrap()
+    );
     assert_eq!(
         image.architecture,
         want_image.get("Architecture").unwrap().as_str().unwrap()
@@ -487,18 +491,34 @@ fn check_candidate_binds_before_archives() {
     std::fs::write(format!("{dir}/candidate.json"), golden_str(&g, "candidate")).unwrap();
     let (payload, _) = decode_payload(&g);
     let (candidate, _) = decode_candidate(&g);
-    let err = check_candidate(&dir, "aarch64", &payload.revision, &candidate.forgejo_revision)
-        .unwrap_err()
-        .0;
-    assert_eq!(err, "candidate architecture: release authority or completeness refused");
+    let err = check_candidate(
+        &dir,
+        "aarch64",
+        &payload.revision,
+        &candidate.forgejo_revision,
+    )
+    .unwrap_err()
+    .0;
+    assert_eq!(
+        err,
+        "candidate architecture: release authority or completeness refused"
+    );
     let err = check_candidate(&dir, "x86_64", &"0".repeat(40), &candidate.forgejo_revision)
         .unwrap_err()
         .0;
-    assert_eq!(err, "candidate soda revision: release authority or completeness refused");
+    assert_eq!(
+        err,
+        "candidate soda revision: release authority or completeness refused"
+    );
     // Correct bindings reach the archive check, which fails without .oci files.
-    let err = check_candidate(&dir, "x86_64", &payload.revision, &candidate.forgejo_revision)
-        .unwrap_err()
-        .0;
+    let err = check_candidate(
+        &dir,
+        "x86_64",
+        &payload.revision,
+        &candidate.forgejo_revision,
+    )
+    .unwrap_err()
+    .0;
     assert!(err.contains("host archive"), "{err}");
 }
 
@@ -521,8 +541,24 @@ fn admit_qualification_accepts_bound_evidence() {
         json_escape(&payload.architecture),
         json_escape(&hex_sha256(&payload_bytes)),
         json_escape(&candidate.host.manifest),
-        json_escape(media.get("ISO").unwrap().get("SHA256").unwrap().as_str().unwrap()),
-        json_escape(media.get("Rootfs").unwrap().get("SHA256").unwrap().as_str().unwrap()),
+        json_escape(
+            media
+                .get("ISO")
+                .unwrap()
+                .get("SHA256")
+                .unwrap()
+                .as_str()
+                .unwrap()
+        ),
+        json_escape(
+            media
+                .get("Rootfs")
+                .unwrap()
+                .get("SHA256")
+                .unwrap()
+                .as_str()
+                .unwrap()
+        ),
     );
     std::fs::write(&evidence_path, &evidence).unwrap();
     let config = Config {
@@ -531,16 +567,22 @@ fn admit_qualification_accepts_bound_evidence() {
         notes: "admit me".to_string(),
         ..Config::default()
     };
-    let qualification = admit_qualification(&config, &dir, &media_path, &evidence_path)
-        .expect("admit");
+    let qualification =
+        admit_qualification(&config, &dir, &media_path, &evidence_path).expect("admit");
     assert_eq!(qualification.serial, 7);
     assert_eq!(qualification.scope, "native-install-upgrade-recovery");
     assert!(qualification.evidence.contains_key("qualification.json"));
 
     // Fixture evidence is explicitly non-qualifying.
     let bad_path = format!("{dir}-evidence-bad.json");
-    std::fs::write(&bad_path, evidence.replace(r#""Fixture":false"#, r#""Fixture":true"#)).unwrap();
-    let err = admit_qualification(&config, &dir, &media_path, &bad_path).unwrap_err().0;
+    std::fs::write(
+        &bad_path,
+        evidence.replace(r#""Fixture":false"#, r#""Fixture":true"#),
+    )
+    .unwrap();
+    let err = admit_qualification(&config, &dir, &media_path, &bad_path)
+        .unwrap_err()
+        .0;
     assert_eq!(err, "fixture evidence is explicitly non-qualifying");
 }
 

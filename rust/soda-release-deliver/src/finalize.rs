@@ -124,8 +124,8 @@ fn load_trust(path: &str) -> Result<Trust, Error> {
 }
 
 fn load_signer(path: &str) -> Result<SecretFiles, Error> {
-    let keys: SecretFiles =
-        read_json(path, SecretFiles::decode).map_err(|_| Error::msg("restricted signer configuration refused"))?;
+    let keys: SecretFiles = read_json(path, SecretFiles::decode)
+        .map_err(|_| Error::msg("restricted signer configuration refused"))?;
     if private_file(&keys.key).is_err() || private_file(&keys.passphrase).is_err() {
         return Err(Error::msg("restricted signer key inputs required"));
     }
@@ -137,12 +137,18 @@ fn document_digest(oci: &str) -> Result<String, Error> {
         .map_err(|e| Error::msg(format!("read {oci}/index.json: {e}")))?;
     let value = parse_lenient(&data).map_err(|_| Error::refused())?;
     let soft = Soft::new(&value).map_err(|_| Error::refused())?;
-    let manifests = soft.array("manifests").map_err(|_| Error::refused())?.unwrap_or(&[]);
+    let manifests = soft
+        .array("manifests")
+        .map_err(|_| Error::refused())?
+        .unwrap_or(&[]);
     if manifests.len() != 1 {
         return Err(Error::refused());
     }
     let manifest = Soft::new(&manifests[0]).map_err(|_| Error::refused())?;
-    let digest = manifest.string("digest").map_err(|_| Error::refused())?.unwrap_or_default();
+    let digest = manifest
+        .string("digest")
+        .map_err(|_| Error::refused())?
+        .unwrap_or_default();
     if !is_digest_ref(&digest) {
         return Err(Error::refused());
     }
@@ -220,7 +226,12 @@ fn publish_channel_last(
     )
 }
 
-fn write_final_receipt(out: &str, reference: &str, digest: &str, published: bool) -> Result<(), Error> {
+fn write_final_receipt(
+    out: &str,
+    reference: &str,
+    digest: &str,
+    published: bool,
+) -> Result<(), Error> {
     // Go map order is sorted: digest, published, reference, scope.
     let receipt = JsonValue::Object(vec![
         ("digest".to_string(), JsonValue::Str(digest.to_string())),

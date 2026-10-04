@@ -141,7 +141,11 @@ fn valid_forgejo_apk_list(packages: &[String]) -> bool {
         if i > 0 && packages[i - 1] >= *name {
             return false;
         }
-        if name.is_empty() || name.bytes().any(|c| matches!(c, b' ' | b'\t' | b'\n' | b'\r' | b'\\' | 0)) {
+        if name.is_empty()
+            || name
+                .bytes()
+                .any(|c| matches!(c, b' ' | b'\t' | b'\n' | b'\r' | b'\\' | 0))
+        {
             return false;
         }
     }
@@ -181,9 +185,8 @@ impl Root {
 }
 
 fn open_dir_fd(path: &str) -> std::io::Result<OwnedFd> {
-    let cpath = CString::new(path).map_err(|_| {
-        std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid path")
-    })?;
+    let cpath = CString::new(path)
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid path"))?;
     // SAFETY: open(2) with a NUL-terminated path; result checked.
     let fd = unsafe {
         libc::open(
@@ -225,14 +228,7 @@ fn c_string(name: &str) -> Result<CString, Error> {
 fn fstatat_no_follow(dirfd: i32, name: &CString) -> std::io::Result<libc::stat> {
     let mut st: libc::stat = unsafe { std::mem::zeroed() };
     // SAFETY: fstatat on a live dirfd with a valid path and output struct.
-    let rc = unsafe {
-        libc::fstatat(
-            dirfd,
-            name.as_ptr(),
-            &mut st,
-            libc::AT_SYMLINK_NOFOLLOW,
-        )
-    };
+    let rc = unsafe { libc::fstatat(dirfd, name.as_ptr(), &mut st, libc::AT_SYMLINK_NOFOLLOW) };
     if rc != 0 {
         return Err(std::io::Error::last_os_error());
     }
@@ -249,7 +245,7 @@ fn fstat_fd(fd: i32) -> std::io::Result<libc::stat> {
 }
 
 fn is_regular(mode: u32) -> bool {
-    (mode & libc::S_IFMT as u32) == libc::S_IFREG as u32
+    (mode & libc::S_IFMT) == libc::S_IFREG
 }
 
 /// Open a regular file confined to an open directory after a no-follow stat.
@@ -277,8 +273,8 @@ fn open_confined_regular(root: &Root, name: &str) -> Result<(std::fs::File, libc
     }
     // SAFETY: fd is a fresh owned descriptor.
     let owned = unsafe { OwnedFd::from_raw_fd(fd) };
-    let actual = fstat_fd(owned.as_raw_fd())
-        .map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
+    let actual =
+        fstat_fd(owned.as_raw_fd()).map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
     if !is_regular(actual.st_mode) || actual.st_dev != st.st_dev || actual.st_ino != st.st_ino {
         return Err(Error::msg("file changed before hashing"));
     }
@@ -311,8 +307,8 @@ pub fn read_layout_entry(root: &Root, name: &str) -> Result<(Vec<u8>, i64), Erro
     }
     // SAFETY: fd is a fresh owned descriptor.
     let owned = unsafe { OwnedFd::from_raw_fd(fd) };
-    let actual = fstat_fd(owned.as_raw_fd())
-        .map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
+    let actual =
+        fstat_fd(owned.as_raw_fd()).map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
     if actual.st_dev != st.st_dev || actual.st_ino != st.st_ino {
         return Err(Error::msg("OCI layout entry changed"));
     }
@@ -349,8 +345,8 @@ pub fn read_at(root: &Root, name: &str, maximum: i64) -> Result<Vec<u8>, Error> 
     }
     // SAFETY: fd is a fresh owned descriptor.
     let owned = unsafe { OwnedFd::from_raw_fd(fd) };
-    let actual = fstat_fd(owned.as_raw_fd())
-        .map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
+    let actual =
+        fstat_fd(owned.as_raw_fd()).map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
     if actual.st_dev != st.st_dev || actual.st_ino != st.st_ino {
         return Err(Error::refused());
     }
@@ -506,10 +502,9 @@ pub fn read_json_at(
     }
     // SAFETY: fd is a fresh owned descriptor.
     let owned = unsafe { OwnedFd::from_raw_fd(fd) };
-    let actual = fstat_fd(owned.as_raw_fd())
-        .map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
-    if !is_regular(actual.st_mode) || actual.st_dev != st.st_dev || actual.st_ino != st.st_ino
-    {
+    let actual =
+        fstat_fd(owned.as_raw_fd()).map_err(|e| Error::msg(format!("stat {name}: {e}")))?;
+    if !is_regular(actual.st_mode) || actual.st_dev != st.st_dev || actual.st_ino != st.st_ino {
         return Err(Error::msg("JSON input changed before reading"));
     }
     let file = std::fs::File::from(owned);
@@ -548,14 +543,10 @@ mod tests {
     fn toolchain_validation_matches_go() {
         let good = ForgejoToolchain {
             compiler_image: FORGEJO_COMPILER_IMAGE.to_string(),
-            apk_packages: [
-                "build-base-0.5-r4",
-                "gcc-14.2.0-r6",
-                "musl-dev-1.2.5-r10",
-            ]
-            .iter()
-            .map(|s| s.to_string())
-            .collect(),
+            apk_packages: ["build-base-0.5-r4", "gcc-14.2.0-r6", "musl-dev-1.2.5-r10"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
         };
         assert!(good.validate().is_ok());
         let bad = ForgejoToolchain {

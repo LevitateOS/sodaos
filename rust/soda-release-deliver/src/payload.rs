@@ -138,7 +138,9 @@ impl Payload {
             }
         }
         if self.images["extension"].config == self.images["forgejo"].config {
-            return Err(Error::msg("extension requires an independent image identity"));
+            return Err(Error::msg(
+                "extension requires an independent image identity",
+            ));
         }
         Ok(())
     }
@@ -210,8 +212,7 @@ impl Payload {
 }
 
 pub fn decode_opt_string(b: &mut Binder<'_>, name: &str) -> Result<String, String> {
-    Ok(b
-        .string(name)
+    Ok(b.string(name)
         .map_err(|_| format!("invalid field {name}"))?
         .unwrap_or_default())
 }
@@ -377,7 +378,10 @@ mod tests {
         assert!(!valid_repository_prefix("quay.io/example/sodaos"));
         assert!(!valid_repository_prefix("ghcr.io/Example/sodaos"));
         assert!(!valid_repository_prefix("ghcr.io/example/sodaos/extra"));
-        assert!(!valid_repository_prefix(&format!("ghcr.io/e/{}", "s".repeat(200))));
+        assert!(!valid_repository_prefix(&format!(
+            "ghcr.io/e/{}",
+            "s".repeat(200)
+        )));
     }
 
     #[test]

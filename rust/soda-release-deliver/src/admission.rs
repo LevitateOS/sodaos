@@ -10,9 +10,7 @@ use crate::document::read_file;
 use crate::finalize::Config;
 use crate::jsonx::{parse_strict, Binder, Emit, Emitter};
 use crate::model::{Candidate, MediaBinding};
-use crate::payload::{
-    decode_opt_bool, decode_opt_i64, decode_opt_string, Payload,
-};
+use crate::payload::{decode_opt_bool, decode_opt_i64, decode_opt_string, Payload};
 use crate::prepare::{read_media_binding, Qualification};
 use crate::Error;
 
@@ -156,13 +154,11 @@ fn sha256_hex(data: &[u8]) -> String {
     format!("{:x}", hasher.finalize())
 }
 
-fn decode_qualification_evidence(
-    path: &str,
-) -> Result<(QualificationEvidence, Vec<u8>), Error> {
+fn decode_qualification_evidence(path: &str) -> Result<(QualificationEvidence, Vec<u8>), Error> {
     let raw = read_file(path, 1 << 20)?;
     let value = parse_strict(&raw).map_err(|_| Error::msg("qualification evidence refused"))?;
-    let evidence =
-        QualificationEvidence::decode(&value).map_err(|_| Error::msg("qualification evidence refused"))?;
+    let evidence = QualificationEvidence::decode(&value)
+        .map_err(|_| Error::msg("qualification evidence refused"))?;
     Ok((evidence, raw))
 }
 
@@ -186,7 +182,9 @@ fn admit_evidence_shape(evidence: &QualificationEvidence) -> Result<(), Error> {
 
 fn admit_evidence_check(check: &EvidenceCheck, seen: &mut BTreeSet<String>) -> Result<(), Error> {
     if !seen.remove(&check.name) {
-        return Err(Error::msg("qualification evidence names an unexpected check"));
+        return Err(Error::msg(
+            "qualification evidence names an unexpected check",
+        ));
     }
     if check.outcome != "passed" {
         return Err(Error::msg(format!(
@@ -220,10 +218,14 @@ pub(crate) fn load_admitted_candidate(
     let root = Root::open(candidate)?;
     let payload = read_at(&root, "payload.json", 1 << 20)?;
     let raw = read_at(&root, "candidate.json", 1 << 20)?;
-    let payload_value = parse_strict(&payload).map_err(|_| Error::msg("candidate metadata refused"))?;
-    let candidate_value = parse_strict(&raw).map_err(|_| Error::msg("candidate metadata refused"))?;
-    let p = Payload::decode(&payload_value).map_err(|_| Error::msg("candidate metadata refused"))?;
-    let c = Candidate::decode(&candidate_value).map_err(|_| Error::msg("candidate metadata refused"))?;
+    let payload_value =
+        parse_strict(&payload).map_err(|_| Error::msg("candidate metadata refused"))?;
+    let candidate_value =
+        parse_strict(&raw).map_err(|_| Error::msg("candidate metadata refused"))?;
+    let p =
+        Payload::decode(&payload_value).map_err(|_| Error::msg("candidate metadata refused"))?;
+    let c = Candidate::decode(&candidate_value)
+        .map_err(|_| Error::msg("candidate metadata refused"))?;
     c.validate(&p, &payload)?;
     Ok((p, c, payload))
 }

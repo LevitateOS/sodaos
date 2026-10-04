@@ -72,9 +72,7 @@ pub fn hash_bytes(data: &[u8]) -> String {
 
 /// `Digest`: `sha256:`-prefixed digest shape.
 pub fn is_digest_ref(s: &str) -> bool {
-    s.len() == 7 + 64
-        && s.starts_with("sha256:")
-        && soda_build_tools::reader::is_digest(&s[7..])
+    s.len() == 7 + 64 && s.starts_with("sha256:") && soda_build_tools::reader::is_digest(&s[7..])
 }
 
 /// `channel`: known channel names.

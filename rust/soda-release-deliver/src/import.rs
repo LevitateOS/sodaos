@@ -53,11 +53,7 @@ fn import_missing_image(
 }
 
 /// `ImportImages`: verify content and import missing exact images.
-pub fn import_images(
-    p: &Payload,
-    images: &str,
-    run: &dyn EngineRunner,
-) -> Result<(), Error> {
+pub fn import_images(p: &Payload, images: &str, run: &dyn EngineRunner) -> Result<(), Error> {
     verify_content(p, images)?;
     for name in NAMES {
         let image = p.images.get(name).cloned().unwrap_or_default();
@@ -98,7 +94,11 @@ mod tests {
 
     impl EngineRunner for ScriptEngine {
         fn run(&self, _program: &str, _args: &[&str]) -> RunOutcome {
-            self.script.lock().unwrap().pop_front().unwrap_or(RunOutcome::Failed)
+            self.script
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or(RunOutcome::Failed)
         }
     }
 
@@ -119,9 +119,13 @@ mod tests {
         // Missing (exit 1), pull ok, re-check ok.
         let engine = ScriptEngine {
             script: Mutex::new(
-                [RunOutcome::ExitCode(1), RunOutcome::Success, RunOutcome::Success]
-                    .into_iter()
-                    .collect(),
+                [
+                    RunOutcome::ExitCode(1),
+                    RunOutcome::Success,
+                    RunOutcome::Success,
+                ]
+                .into_iter()
+                .collect(),
             ),
         };
         assert!(import_missing_image("proxy", &image(), "/img", &engine).is_ok());

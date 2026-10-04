@@ -12,8 +12,8 @@ use crate::jsonx::{marshal, parse_lenient, Emit, Soft};
 use crate::model::{
     admit_channel, admit_release, empty_state, Candidate, Channel, Highwater, Release, Trust,
 };
-use crate::payload::Payload;
 use crate::native::{private_file, verify_copy, write_json, Runner};
+use crate::payload::Payload;
 use crate::{hash_bytes, is_channel, now_unix, Error};
 
 pub(crate) fn discover(r: &dyn Runner, t: &Trust, name: &str) -> Result<String, Error> {
@@ -174,10 +174,7 @@ fn check_verified_image_metadata(config: &[u8], arch: &str) -> Result<(), Error>
     Ok(())
 }
 
-fn check_verified_image_manifest(
-    manifest_path: &str,
-    expected_config: &str,
-) -> Result<(), Error> {
+fn check_verified_image_manifest(manifest_path: &str, expected_config: &str) -> Result<(), Error> {
     let data = read_file(manifest_path, 1 << 20)?;
     let value = parse_lenient(&data).map_err(|_| Error::refused())?;
     let soft = Soft::new(&value).map_err(|_| Error::refused())?;
@@ -214,10 +211,7 @@ fn verify_release_image_copy(
     check_verified_image_manifest(&format!("{path}/image/manifest.json"), expected_config)
 }
 
-fn build_expected_release_configs(
-    candidate: &Candidate,
-    p: &Payload,
-) -> BTreeMap<String, String> {
+fn build_expected_release_configs(candidate: &Candidate, p: &Payload) -> BTreeMap<String, String> {
     let mut expected = BTreeMap::new();
     expected.insert(
         candidate.host_reference.clone(),
@@ -255,7 +249,11 @@ fn verify_release_images(
             reference,
             arch,
             &path,
-            expected.get(reference).cloned().unwrap_or_default().as_str(),
+            expected
+                .get(reference)
+                .cloned()
+                .unwrap_or_default()
+                .as_str(),
         )?;
         refs_seen.insert(reference.clone(), arch.to_string());
     }
@@ -283,6 +281,7 @@ impl ReleaseIdentityTracker {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
 fn verify_architecture_release(
     r: &dyn Runner,
     t: &Trust,
@@ -340,7 +339,15 @@ pub(crate) fn verify_releases(
             continue;
         }
         match verify_architecture_release(
-            r, t, &state, c, &name, &reference, out, &mut tracker, &mut refs_seen,
+            r,
+            t,
+            &state,
+            c,
+            &name,
+            &reference,
+            out,
+            &mut tracker,
+            &mut refs_seen,
         ) {
             Ok(next) => state = next,
             Err((next, e)) => return (next, Err(e)),
@@ -357,6 +364,7 @@ fn admit_fetch_request(t: &Trust, name: &str, arch: &str) -> Result<(), Error> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
 fn complete_fetch(
     r: &dyn Runner,
     t: &Trust,
@@ -371,10 +379,7 @@ fn complete_fetch(
     save_state(state_path, &next)?;
     verification?;
     let receipt = JsonValue::Object(vec![
-        (
-            "Architecture".to_string(),
-            JsonValue::Str(arch.to_string()),
-        ),
+        ("Architecture".to_string(), JsonValue::Str(arch.to_string())),
         ("Channel".to_string(), JsonValue::Str(reference.to_string())),
         (
             "Scope".to_string(),
@@ -403,7 +408,8 @@ pub fn fetch(
     let state: Highwater = read_json(state_path, Highwater::decode)?;
     fresh_directory(out)?;
     let reference = discover(r, t, name)?;
-    let offer: Channel = fetch_document(r, t, &reference, &format!("{out}/channel"), Channel::decode)?;
+    let offer: Channel =
+        fetch_document(r, t, &reference, &format!("{out}/channel"), Channel::decode)?;
     let digest = reference.split('@').nth(1).unwrap_or("");
     let state = admit_channel(t, &state, &offer, digest, name, now_unix)?;
     save_state(state_path, &state)?;
@@ -447,7 +453,9 @@ mod tests {
         state.checked_at = 42;
         save_state(&path, &state).unwrap();
         let raw = std::fs::read(&path).unwrap();
-        assert!(String::from_utf8(raw).unwrap().contains("\"CheckedAt\": 42"));
+        assert!(String::from_utf8(raw)
+            .unwrap()
+            .contains("\"CheckedAt\": 42"));
     }
 
     #[test]

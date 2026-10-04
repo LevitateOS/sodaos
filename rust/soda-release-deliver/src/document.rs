@@ -68,7 +68,11 @@ fn document_layer(data: &[u8]) -> Result<Vec<u8>, Error> {
     write_octal(&mut header[337..345], 0);
     let mut sum: u64 = 0;
     for (i, b) in header.iter().enumerate() {
-        sum += if (148..156).contains(&i) { b' ' as u64 } else { *b as u64 };
+        sum += if (148..156).contains(&i) {
+            b' ' as u64
+        } else {
+            *b as u64
+        };
     }
     let digits = format!("{sum:06o}");
     header[148..154].copy_from_slice(digits.as_bytes());
@@ -203,15 +207,25 @@ impl OciManifestDoc {
             None => Descriptor::default(),
         };
         let mut layers = Vec::new();
-        if let Some(items) = soft.array("layers").map_err(|_| "invalid layers".to_string())? {
+        if let Some(items) = soft
+            .array("layers")
+            .map_err(|_| "invalid layers".to_string())?
+        {
             for item in items {
                 layers.push(decode_doc_descriptor(item)?);
             }
         }
         Ok(OciManifestDoc {
-            schema_version: as_i64(soft.integer("schemaVersion").map_err(|_| "invalid schemaVersion".to_string())?.unwrap_or(0))
-                .map_err(|_| "invalid schemaVersion".to_string())?,
-            media_type: soft.string("mediaType").map_err(|_| "invalid mediaType".to_string())?.unwrap_or_default(),
+            schema_version: as_i64(
+                soft.integer("schemaVersion")
+                    .map_err(|_| "invalid schemaVersion".to_string())?
+                    .unwrap_or(0),
+            )
+            .map_err(|_| "invalid schemaVersion".to_string())?,
+            media_type: soft
+                .string("mediaType")
+                .map_err(|_| "invalid mediaType".to_string())?
+                .unwrap_or_default(),
             config,
             layers,
         })
@@ -229,10 +243,20 @@ fn decode_doc_descriptor(value: &JsonValue) -> Result<Descriptor, String> {
         }
     }
     Ok(Descriptor {
-        media_type: soft.string("mediaType").map_err(|_| "invalid descriptor".to_string())?.unwrap_or_default(),
-        digest: soft.string("digest").map_err(|_| "invalid descriptor".to_string())?.unwrap_or_default(),
-        size: as_i64(soft.integer("size").map_err(|_| "invalid descriptor".to_string())?.unwrap_or(0))
-            .map_err(|_| "invalid descriptor".to_string())?,
+        media_type: soft
+            .string("mediaType")
+            .map_err(|_| "invalid descriptor".to_string())?
+            .unwrap_or_default(),
+        digest: soft
+            .string("digest")
+            .map_err(|_| "invalid descriptor".to_string())?
+            .unwrap_or_default(),
+        size: as_i64(
+            soft.integer("size")
+                .map_err(|_| "invalid descriptor".to_string())?
+                .unwrap_or(0),
+        )
+        .map_err(|_| "invalid descriptor".to_string())?,
     })
 }
 
@@ -250,9 +274,7 @@ fn read_document_blob(root: &Root, d: &Descriptor) -> Result<Vec<u8>, Error> {
 
 fn read_document_record(data: &[u8]) -> Result<Vec<u8>, Error> {
     let mut archive = tar::Archive::new(data);
-    let mut items = archive
-        .entries()
-        .map_err(|_| Error::refused())?;
+    let mut items = archive.entries().map_err(|_| Error::refused())?;
     let first = match items.next() {
         Some(Ok(entry)) => entry,
         _ => return Err(Error::refused()),
@@ -319,7 +341,9 @@ mod tests {
             sequence: 3,
             issued: 100,
             expires: 200,
-            releases: [("x86_64".to_string(), "r".to_string())].into_iter().collect(),
+            releases: [("x86_64".to_string(), "r".to_string())]
+                .into_iter()
+                .collect(),
             ..Channel::default()
         };
         let out = format!("{dir}/doc");
@@ -333,9 +357,6 @@ mod tests {
         );
         // Oversize reads refuse.
         let root = Root::open(&dir).unwrap();
-        assert_eq!(
-            read_at(&root, "doc", 8).unwrap_err(),
-            Error::refused()
-        );
+        assert_eq!(read_at(&root, "doc", 8).unwrap_err(), Error::refused());
     }
 }

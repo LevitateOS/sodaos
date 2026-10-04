@@ -10,7 +10,9 @@ use flate2::read::GzDecoder;
 use sha2::{Digest as _, Sha256};
 use soda_json::JsonValue;
 
-use crate::buildx::{is_digest, is_revision, oci_architecture, read_layout_entry, Image as BuildImage, Root};
+use crate::buildx::{
+    is_digest, is_revision, oci_architecture, read_layout_entry, Image as BuildImage, Root,
+};
 use crate::jsonx::{as_i64, parse_lenient, Soft};
 use crate::model::path_clean;
 use crate::Error;
@@ -80,7 +82,10 @@ fn decode_descriptor(value: &JsonValue) -> Result<Descriptor, crate::jsonx::Deco
             }
         }
     }
-    if let Some(entries) = soft.object("annotations")?.and_then(|o| o.entries().map(|e| e.to_vec())) {
+    if let Some(entries) = soft
+        .object("annotations")?
+        .and_then(|o| o.entries().map(|e| e.to_vec()))
+    {
         for (key, item) in &entries {
             match item {
                 JsonValue::Str(s) => {
@@ -109,8 +114,12 @@ fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Descriptor>, E
         .and_then(|data| parse_lenient(data).ok())
         .ok_or_else(|| Error::msg("valid OCI index required"))?;
     let soft = Soft::new(&value).map_err(|_| Error::msg("valid OCI index required"))?;
-    let version = as_i64(soft.integer("schemaVersion").map_err(|_| Error::msg("valid OCI index required"))?.unwrap_or(0))
-        .map_err(|_| Error::msg("valid OCI index required"))?;
+    let version = as_i64(
+        soft.integer("schemaVersion")
+            .map_err(|_| Error::msg("valid OCI index required"))?
+            .unwrap_or(0),
+    )
+    .map_err(|_| Error::msg("valid OCI index required"))?;
     let media = soft
         .string("mediaType")
         .map_err(|_| Error::msg("valid OCI index required"))?
@@ -124,7 +133,8 @@ fn read_oci_index(entries: &BTreeMap<String, Blob>) -> Result<Vec<Descriptor>, E
         .map_err(|_| Error::msg("valid OCI index required"))?
     {
         for item in items {
-            manifests.push(decode_descriptor(item).map_err(|_| Error::msg("valid OCI index required"))?);
+            manifests
+                .push(decode_descriptor(item).map_err(|_| Error::msg("valid OCI index required"))?);
         }
     }
     Ok(manifests)
@@ -134,8 +144,14 @@ fn parse_oci_manifest(data: &[u8]) -> Result<OciManifest, Error> {
     let value = parse_lenient(data).map_err(|_| Error::msg("invalid OCI image manifest"))?;
     let soft = Soft::new(&value).map_err(|_| Error::msg("invalid OCI image manifest"))?;
     let invalid = || Error::msg("invalid OCI image manifest");
-    let version = soft.integer("schemaVersion").map_err(|_| invalid())?.unwrap_or(0);
-    let media = soft.string("mediaType").map_err(|_| invalid())?.unwrap_or_default();
+    let version = soft
+        .integer("schemaVersion")
+        .map_err(|_| invalid())?
+        .unwrap_or(0);
+    let media = soft
+        .string("mediaType")
+        .map_err(|_| invalid())?
+        .unwrap_or_default();
     if version != 2 || (!media.is_empty() && media != MANIFEST_TYPE) {
         return Err(invalid());
     }
@@ -172,7 +188,10 @@ fn parse_oci_config(data: &[u8]) -> Result<OciConfig, Error> {
     let mut diff_ids = Vec::new();
     let mut rootfs_type = String::new();
     if let Some(rootfs) = rootfs {
-        rootfs_type = rootfs.string("type").map_err(|_| invalid())?.unwrap_or_default();
+        rootfs_type = rootfs
+            .string("type")
+            .map_err(|_| invalid())?
+            .unwrap_or_default();
         if let Some(items) = rootfs.array("diff_ids").map_err(|_| invalid())? {
             for item in items {
                 match item {
@@ -184,7 +203,10 @@ fn parse_oci_config(data: &[u8]) -> Result<OciConfig, Error> {
     }
     let mut labels = BTreeMap::new();
     if let Some(config) = soft.object("config").map_err(|_| invalid())? {
-        if let Some(entries) = config.object("Labels").map_err(|_| invalid())?.and_then(|o| o.entries().map(|e| e.to_vec()))
+        if let Some(entries) = config
+            .object("Labels")
+            .map_err(|_| invalid())?
+            .and_then(|o| o.entries().map(|e| e.to_vec()))
         {
             for (key, item) in &entries {
                 match item {
@@ -197,8 +219,14 @@ fn parse_oci_config(data: &[u8]) -> Result<OciConfig, Error> {
         }
     }
     Ok(OciConfig {
-        os: soft.string("os").map_err(|_| invalid())?.unwrap_or_default(),
-        arch: soft.string("architecture").map_err(|_| invalid())?.unwrap_or_default(),
+        os: soft
+            .string("os")
+            .map_err(|_| invalid())?
+            .unwrap_or_default(),
+        arch: soft
+            .string("architecture")
+            .map_err(|_| invalid())?
+            .unwrap_or_default(),
         rootfs_type,
         diff_ids,
         labels,
@@ -252,11 +280,7 @@ fn read_oci_blob(
     Ok(())
 }
 
-fn fetch_oci_blob(
-    entries: &BTreeMap<String, Blob>,
-    d: &Descriptor,
-    load: &Option<Box<dyn Fn(&str) -> Result<(), Error>>>,
-) -> Result<Blob, Error> {
+fn fetch_oci_blob(entries: &BTreeMap<String, Blob>, d: &Descriptor) -> Result<Blob, Error> {
     if d.size < 0 || !d.urls.is_empty() {
         return Err(Error::msg("local bounded OCI descriptor required"));
     }
@@ -265,9 +289,6 @@ fn fetch_oci_blob(
         return Err(Error::msg("invalid OCI digest"));
     }
     let name = format!("blobs/sha256/{hex}");
-    if let Some(load) = load {
-        load(&name)?;
-    }
     match entries.get(&name) {
         Some(blob) if blob.size == d.size => Ok(blob.clone()),
         _ => Err(Error::msg("missing or wrong-size OCI blob")),
@@ -281,14 +302,13 @@ fn fetch_oci_blob(
 fn validate_oci_layers(
     entries: &BTreeMap<String, Blob>,
     layers: &[Descriptor],
-    load: &Option<Box<dyn Fn(&str) -> Result<(), Error>>>,
 ) -> Result<(), Error> {
     for layer in layers {
         match layer.media_type.as_str() {
             LAYER_TAR | LAYER_GZIP | LAYER_ZSTD => {}
             _ => return Err(Error::msg("unsupported OCI layer media type")),
         }
-        fetch_oci_blob(entries, layer, load)?;
+        fetch_oci_blob(entries, layer)?;
     }
     Ok(())
 }
@@ -379,13 +399,12 @@ fn inspect_oci_image(
     image: &Descriptor,
     want: &str,
     revision: &str,
-    load: &Option<Box<dyn Fn(&str) -> Result<(), Error>>>,
 ) -> Result<BuildImage, Error> {
-    let manifest_blob = fetch_oci_blob(entries, image, load)?;
+    let manifest_blob = fetch_oci_blob(entries, image)?;
     let empty = Vec::new();
     let manifest = parse_oci_manifest(manifest_blob.data.as_ref().unwrap_or(&empty))?;
-    validate_oci_layers(entries, &manifest.layers, load)?;
-    let config_blob = fetch_oci_blob(entries, &manifest.config, load)?;
+    validate_oci_layers(entries, &manifest.layers)?;
+    let config_blob = fetch_oci_blob(entries, &manifest.config)?;
     inspect_oci_config(
         &config_blob,
         &manifest.layers,
@@ -400,18 +419,21 @@ fn inspect_oci_image(
 // Archive ingestion
 // ---------------------------------------------------------------------------
 
-fn open_oci_archive(file: &str, arch: &str, revision: &str) -> Result<(String, std::fs::File), Error> {
+fn open_oci_archive(
+    file: &str,
+    arch: &str,
+    revision: &str,
+) -> Result<(String, std::fs::File), Error> {
     let want = oci_architecture(arch).map_err(|e| Error::msg(e.0))?;
     if !revision.is_empty() && !is_revision(revision) {
         return Err(Error::msg("full source revision required"));
     }
-    let st = std::fs::symlink_metadata(file)
-        .map_err(|e| Error::msg(format!("lstat {file}: {e}")))?;
+    let st =
+        std::fs::symlink_metadata(file).map_err(|e| Error::msg(format!("lstat {file}: {e}")))?;
     if !st.is_file() {
         return Err(Error::msg("OCI archive must be regular"));
     }
-    let f =
-        std::fs::File::open(file).map_err(|e| Error::msg(format!("open {file}: {e}")))?;
+    let f = std::fs::File::open(file).map_err(|e| Error::msg(format!("open {file}: {e}")))?;
     Ok((want.to_string(), f))
 }
 
@@ -425,9 +447,7 @@ fn is_valid_oci_regular_entry(name: &str) -> bool {
     }
 }
 
-fn read_oci_archive_entries<R: Read>(
-    reader: R,
-) -> Result<BTreeMap<String, Blob>, Error> {
+fn read_oci_archive_entries<R: Read>(reader: R) -> Result<BTreeMap<String, Blob>, Error> {
     let mut archive = tar::Archive::new(reader);
     let mut entries: BTreeMap<String, Blob> = BTreeMap::new();
     let mut seen: BTreeSet<String> = BTreeSet::new();
@@ -474,8 +494,7 @@ fn read_oci_archive_entries<R: Read>(
         let size = header
             .size()
             .map_err(|e| Error::msg(format!("read OCI archive: {e}")))?;
-        let length =
-            i64::try_from(size).map_err(|_| Error::msg("invalid OCI blob size"))?;
+        let length = i64::try_from(size).map_err(|_| Error::msg("invalid OCI blob size"))?;
         let mut data = Vec::new();
         item.read_to_end(&mut data)
             .map_err(|e| Error::msg(format!("read OCI archive: {e}")))?;
@@ -493,7 +512,7 @@ fn inspect_archive_index(
     if index.len() != 1 || index[0].media_type != MANIFEST_TYPE {
         return Err(Error::msg("single-platform OCI index required"));
     }
-    inspect_oci_image(entries, &index[0], want, revision, &None)
+    inspect_oci_image(entries, &index[0], want, revision)
 }
 
 /// `build.InspectOCI`: verify single-image archive identity.
@@ -511,7 +530,11 @@ fn requested_oci_paths(paths: &[String]) -> Result<BTreeMap<String, String>, Err
     let mut wanted: BTreeMap<String, String> = BTreeMap::new();
     for requested in paths {
         let name = requested.strip_prefix('/').unwrap_or("");
-        if !requested.starts_with('/') || name.is_empty() || path_clean(name) != name || name.bytes().any(|b| matches!(b, b'\\' | b'\n' | b'\r' | 0)) {
+        if !requested.starts_with('/')
+            || name.is_empty()
+            || path_clean(name) != name
+            || name.bytes().any(|b| matches!(b, b'\\' | b'\n' | b'\r' | 0))
+        {
             return Err(Error::msg("absolute clean OCI member paths required"));
         }
         if wanted.insert(name.to_string(), requested.clone()).is_some() {
@@ -565,7 +588,10 @@ fn whiteout_target(name: &str) -> Option<String> {
     if !base.starts_with(".wh.") || base == ".wh..wh..opq" {
         return None;
     }
-    Some(path_join(path_dir(name), base.strip_prefix(".wh.").unwrap_or("")))
+    Some(path_join(
+        path_dir(name),
+        base.strip_prefix(".wh.").unwrap_or(""),
+    ))
 }
 
 fn record_layer_deletion(
@@ -636,7 +662,8 @@ fn record_layer_entry<R: Read>(
     wanted: &BTreeMap<String, String>,
 ) -> Result<(), Error> {
     if let Some(removed) = whiteout_target(name) {
-        return Ok(record_layer_deletion(found, wanted, &removed));
+        record_layer_deletion(found, wanted, &removed);
+        return Ok(());
     }
     if path_base(name) == ".wh..wh..opq" {
         record_opaque_directory(found, wanted, path_dir(name));
@@ -716,9 +743,7 @@ fn scan_oci_layer<R: Read>(
     Ok(found)
 }
 
-fn layer_archive_indexes(
-    layers: &[Descriptor],
-) -> Result<BTreeMap<String, Vec<usize>>, Error> {
+fn layer_archive_indexes(layers: &[Descriptor]) -> Result<BTreeMap<String, Vec<usize>>, Error> {
     let mut indexes: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     let mut seen: BTreeMap<String, &Descriptor> = BTreeMap::new();
     for (i, layer) in layers.iter().enumerate() {
@@ -811,7 +836,9 @@ fn resolve_oci_members(
                 None => continue,
             };
             if member.blocked {
-                return Err(Error::msg("requested OCI member has a non-directory ancestor"));
+                return Err(Error::msg(
+                    "requested OCI member has a non-directory ancestor",
+                ));
             }
             if !member.present {
                 return Err(Error::msg("requested OCI member was removed"));
@@ -835,8 +862,8 @@ fn inspect_content_manifest(
     if index.len() != 1 || index[0].media_type != MANIFEST_TYPE {
         return Err(Error::msg("single-platform OCI index required"));
     }
-    let image = inspect_oci_image(entries, &index[0], want, revision, &None)?;
-    let manifest_blob = fetch_oci_blob(entries, &index[0], &None)?;
+    let image = inspect_oci_image(entries, &index[0], want, revision)?;
+    let manifest_blob = fetch_oci_blob(entries, &index[0])?;
     let empty = Vec::new();
     let manifest = parse_oci_manifest(manifest_blob.data.as_ref().unwrap_or(&empty))?;
     Ok((image, manifest))
@@ -861,11 +888,13 @@ pub fn inspect_oci_content(
     Ok((image, content))
 }
 
+type LayerScan = (Vec<BTreeMap<String, LayerMember>>, Vec<bool>);
+
 fn scan_oci_archive_layers<R: Read>(
     reader: R,
     layers: &[Descriptor],
     wanted: &BTreeMap<String, String>,
-) -> Result<(Vec<BTreeMap<String, LayerMember>>, Vec<bool>), Error> {
+) -> Result<LayerScan, Error> {
     let indexes = layer_archive_indexes(layers)?;
     let mut found: Vec<BTreeMap<String, LayerMember>> = Vec::new();
     found.resize_with(layers.len(), BTreeMap::new);
@@ -877,7 +906,10 @@ fn scan_oci_archive_layers<R: Read>(
     for item in items {
         let mut item = item.map_err(|e| Error::msg(format!("read OCI archive: {e}")))?;
         let raw_name = String::from_utf8_lossy(&item.path_bytes()).into_owned();
-        let positions = indexes.get(&path_clean(&raw_name)).cloned().unwrap_or_default();
+        let positions = indexes
+            .get(&path_clean(&raw_name))
+            .cloned()
+            .unwrap_or_default();
         if positions.is_empty() {
             continue;
         }
@@ -921,8 +953,8 @@ pub fn inspect_oci_layout(
     revisions: &BTreeMap<String, String>,
 ) -> Result<OciLayout, Error> {
     let want = validate_oci_layout_inputs(arch, revisions)?;
-    let info =
-        std::fs::symlink_metadata(dir).map_err(|_| Error::msg("real OCI layout directory required"))?;
+    let info = std::fs::symlink_metadata(dir)
+        .map_err(|_| Error::msg("real OCI layout directory required"))?;
     if !info.is_dir() {
         return Err(Error::msg("real OCI layout directory required"));
     }
@@ -1053,16 +1085,10 @@ mod tests {
     #[test]
     fn member_path_rules() {
         // Path validation runs before archive opening.
-        let err = inspect_oci_content("/nonexistent.oci", "x86_64", "", &[])
-            .unwrap_err();
+        let err = inspect_oci_content("/nonexistent.oci", "x86_64", "", &[]).unwrap_err();
         assert_eq!(err, Error::msg("explicit OCI members required"));
-        let err = inspect_oci_content(
-            "/nonexistent.oci",
-            "x86_64",
-            "",
-            &["relative".to_string()],
-        )
-        .unwrap_err();
+        let err = inspect_oci_content("/nonexistent.oci", "x86_64", "", &["relative".to_string()])
+            .unwrap_err();
         assert_eq!(err, Error::msg("absolute clean OCI member paths required"));
         let err = inspect_oci("/nonexistent.oci", "aarch64", "").unwrap_err();
         assert_eq!(err, Error::msg("expected x86_64"));

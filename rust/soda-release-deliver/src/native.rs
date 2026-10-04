@@ -7,9 +7,7 @@ use soda_json::JsonValue;
 
 use crate::buildx::{fresh_directory, write_new};
 use crate::document::{read_document, read_file};
-use crate::jsonx::{
-    base64_encode, marshal, parse_lenient, parse_strict, Binder, Emit, Emitter,
-};
+use crate::jsonx::{base64_encode, marshal, parse_lenient, parse_strict, Binder, Emit, Emitter};
 use crate::model::{admit_channel, empty_state, Channel, Permit, Release, Trust};
 use crate::payload::decode_opt_string;
 use crate::{hash_bytes, is_channel, now_unix, Error};
@@ -49,8 +47,7 @@ impl Runner for Native {
 
 /// `CheckNative`: require the locked skopeo version.
 pub fn check_native(r: &dyn Runner) -> Result<(), Error> {
-    let value = parse_lenient(TOOL_LOCK.as_bytes())
-        .map_err(|_| Error::msg("invalid tool lock"))?;
+    let value = parse_lenient(TOOL_LOCK.as_bytes()).map_err(|_| Error::msg("invalid tool lock"))?;
     let versions = match &value {
         JsonValue::Object(entries) => entries,
         _ => return Err(Error::msg("invalid tool lock")),
@@ -95,8 +92,7 @@ pub fn private_file(path: &str) -> Result<(), Error> {
     if !path.starts_with('/') {
         return Err(Error::refused());
     }
-    let resolved =
-        std::fs::canonicalize(path).map_err(|_| Error::refused())?;
+    let resolved = std::fs::canonicalize(path).map_err(|_| Error::refused())?;
     if resolved.to_string_lossy() != path {
         return Err(Error::refused());
     }
@@ -268,10 +264,7 @@ fn soda_override_exists(existing: &str, repo: &str) -> bool {
         || existing.starts_with(&format!("{repo}/"))
 }
 
-fn apply_soda_trust(
-    t: &Trust,
-    docker: &mut Vec<(String, JsonValue)>,
-) -> Result<(), Error> {
+fn apply_soda_trust(t: &Trust, docker: &mut Vec<(String, JsonValue)>) -> Result<(), Error> {
     for repo in soda_trust_repos(t) {
         for (existing, _) in docker.iter() {
             if soda_override_exists(existing, &repo) {
@@ -281,10 +274,7 @@ fn apply_soda_trust(
             }
         }
         let req = requirement(t, &repo)?;
-        docker.push((
-            repo,
-            JsonValue::Array(vec![requirement_value(&req)]),
-        ));
+        docker.push((repo, JsonValue::Array(vec![requirement_value(&req)])));
     }
     Ok(())
 }
@@ -328,7 +318,10 @@ pub fn merge_policy(t: &Trust, original: &[u8]) -> Result<Vec<u8>, Error> {
     }
     let merged = JsonValue::Object(vec![
         ("default".to_string(), default_raw),
-        ("transports".to_string(), JsonValue::Object(transport_entries)),
+        (
+            "transports".to_string(),
+            JsonValue::Object(transport_entries),
+        ),
     ]);
     Ok(marshal(&merged))
 }
@@ -456,12 +449,7 @@ impl SecretFiles {
     }
 }
 
-fn admit_sign_inputs(
-    t: &Trust,
-    p: &Permit,
-    input: &str,
-    key: &SecretFiles,
-) -> Result<(), Error> {
+fn admit_sign_inputs(t: &Trust, p: &Permit, input: &str, key: &SecretFiles) -> Result<(), Error> {
     if t.validate().is_err()
         || p.validate(t, now_unix()).is_err()
         || private_file(&key.key).is_err()
@@ -506,13 +494,11 @@ fn admit_signed_payload(t: &Trust, p: &Permit, snapshot: &str) -> Result<(), Err
     }
     let role = t.role(&p.repository).unwrap_or_default();
     if is_channel(&role) {
-        let channel: Channel =
-            read_document(snapshot, &p.digest, Channel::decode)?;
+        let channel: Channel = read_document(snapshot, &p.digest, Channel::decode)?;
         admit_channel(t, &empty_state(), &channel, &p.digest, &role, now_unix())?;
     }
     if p.repository == format!("{}-release", t.prefix) {
-        let release: Release =
-            read_document(snapshot, &p.digest, Release::decode)?;
+        let release: Release = read_document(snapshot, &p.digest, Release::decode)?;
         release.validate(t)?;
     }
     Ok(())
@@ -545,7 +531,13 @@ fn emit_signed_directory(
         &format!("dir:{snapshot}"),
         &format!("dir:{signed}"),
     ])?;
-    verify_copy(r, t, &reference, &format!("dir:{signed}"), &format!("{out}/check"))?;
+    verify_copy(
+        r,
+        t,
+        &reference,
+        &format!("dir:{signed}"),
+        &format!("{out}/check"),
+    )?;
     let mut receipt = BTreeMap::new();
     receipt.insert("Reference".to_string(), reference);
     receipt.insert(
@@ -603,7 +595,10 @@ mod tests {
     #[test]
     fn private_file_rules() {
         assert_eq!(private_file("relative/path").unwrap_err(), Error::refused());
-        assert_eq!(private_file("/nonexistent-xyz").unwrap_err(), Error::refused());
+        assert_eq!(
+            private_file("/nonexistent-xyz").unwrap_err(),
+            Error::refused()
+        );
         let dir = std::env::temp_dir().join(format!("srd-priv-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         use std::os::unix::fs::PermissionsExt;

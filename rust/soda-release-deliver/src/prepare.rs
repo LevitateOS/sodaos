@@ -26,10 +26,7 @@ fn hash_release_provenance(root: &Root, release: &mut Release) -> Result<(), Err
         ("forgejo-source.tar", "forgejo-source.tar"),
         ("app-inputs.json", "app-inputs.json"),
         ("packages.txt", "packages.txt"),
-        (
-            "presentation.json",
-            "forgejo-context/presentation.json",
-        ),
+        ("presentation.json", "forgejo-context/presentation.json"),
     ] {
         let hash = hash_at(root, path)?;
         release
@@ -115,9 +112,7 @@ fn candidate_content_with_embedded_inventory(
     let mut with_inventory = content.clone();
     with_inventory.insert(
         "host:/usr/share/soda/host-image/content.json".to_string(),
-        hash_bytes(&data)
-            .trim_start_matches("sha256:")
-            .to_string(),
+        hash_bytes(&data).trim_start_matches("sha256:").to_string(),
     );
     Ok(with_inventory)
 }
@@ -130,12 +125,13 @@ fn inspect_candidate_image(
     content: &BTreeMap<String, String>,
 ) -> Result<BuildImage, Error> {
     if content.is_empty() {
-        return inspect_oci(path, arch, revision).map_err(|_| Error::at(&format!("{name} identity")));
+        return inspect_oci(path, arch, revision)
+            .map_err(|_| Error::at(&format!("{name} identity")));
     }
     let (expected, members) = candidate_image_content(content, name);
     let member_paths: Vec<String> = members;
-    let (image, observed) =
-        inspect_oci_content(path, arch, revision, &member_paths).map_err(|_| Error::at(&format!("{name} content")))?;
+    let (image, observed) = inspect_oci_content(path, arch, revision, &member_paths)
+        .map_err(|_| Error::at(&format!("{name} content")))?;
     for (member, digest) in &expected {
         if observed.get(member) != Some(digest) {
             return Err(Error::at(&format!("{name} content")));
@@ -247,10 +243,7 @@ pub fn reference_for_document(t: &Trust, kind: &str, digest: &str) -> Result<Str
 
 pub(crate) fn immutable_tag(reference: &str) -> String {
     let (repo, digest) = reference.split_once('@').unwrap_or((reference, ""));
-    format!(
-        "{repo}:sha256-{}",
-        digest.trim_start_matches("sha256:")
-    )
+    format!("{repo}:sha256-{}", digest.trim_start_matches("sha256:"))
 }
 
 #[cfg(test)]

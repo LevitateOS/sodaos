@@ -8,9 +8,7 @@ use crate::buildx::{fresh_directory, private_destination};
 use crate::document::{read_document, read_json};
 use crate::fetch::{discover, fetch_document, lock_state, save_state, verify_releases};
 use crate::jsonx::{parse_lenient, Binder};
-use crate::model::{
-    admit_channel, empty_state, Channel, Highwater, Permit, Seen, Trust,
-};
+use crate::model::{admit_channel, empty_state, Channel, Highwater, Permit, Seen, Trust};
 use crate::native::{private_file, verify_copy, write_json, Runner};
 use crate::payload::{decode_opt_i64, decode_opt_string};
 use crate::prepare::immutable_tag;
@@ -28,8 +26,7 @@ pub struct Ledger {
 
 impl Ledger {
     pub fn validate(&self, t: &Trust) -> Result<(), Error> {
-        if self.format != 1 || self.state.validate().is_err() || self.state.trust_epoch > t.epoch
-        {
+        if self.format != 1 || self.state.validate().is_err() || self.state.trust_epoch > t.epoch {
             return Err(Error::refused());
         }
         t.role(&self.repository)?;
@@ -230,11 +227,14 @@ fn validate_channel_history(current: &Seen, previous: &str) -> Result<(), Error>
         ));
     }
     if current.sequence != 0 && previous != current.digest {
-        return Err(Error::msg("protected permit disagrees with publisher history"));
+        return Err(Error::msg(
+            "protected permit disagrees with publisher history",
+        ));
     }
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
 fn admit_channel_offer(
     r: &dyn Runner,
     t: &Trust,
@@ -254,6 +254,7 @@ fn admit_channel_offer(
     Ok((verified, offer))
 }
 
+#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
 fn admit_signed(
     r: &dyn Runner,
     t: &Trust,
@@ -304,7 +305,15 @@ fn commit_immutable(
             .create(&immutable)
             .map_err(|e| Error::msg(format!("mkdir {immutable}: {e}")))?;
     }
-    upload(r, t, reference, copy, &immutable_tag(reference), auth, &immutable)?;
+    upload(
+        r,
+        t,
+        reference,
+        copy,
+        &immutable_tag(reference),
+        auth,
+        &immutable,
+    )?;
     verify_copy(
         r,
         t,
@@ -314,11 +323,7 @@ fn commit_immutable(
     )
 }
 
-fn channel_tag_exists(
-    r: &dyn Runner,
-    repository: &str,
-    role: &str,
-) -> Result<bool, Error> {
+fn channel_tag_exists(r: &dyn Runner, repository: &str, role: &str) -> Result<bool, Error> {
     let tags = r.run(&[
         "--command-timeout=2m",
         "list-tags",
@@ -327,8 +332,14 @@ fn channel_tag_exists(
     ])?;
     let value = parse_lenient(&tags).map_err(|_| Error::refused())?;
     let soft = crate::jsonx::Soft::new(&value).map_err(|_| Error::refused())?;
-    let listed = soft.string("Repository").map_err(|_| Error::refused())?.unwrap_or_default();
-    let names = soft.array("Tags").map_err(|_| Error::refused())?.unwrap_or(&[]);
+    let listed = soft
+        .string("Repository")
+        .map_err(|_| Error::refused())?
+        .unwrap_or_default();
+    let names = soft
+        .array("Tags")
+        .map_err(|_| Error::refused())?
+        .unwrap_or(&[]);
     if listed != repository || names.is_empty() {
         return Err(Error::refused());
     }
@@ -362,13 +373,17 @@ fn verify_previous_channel(
         &format!("{out}/previous-channel"),
         Channel::decode,
     )?;
-    if old.format != 1 || old.name != role || old.sequence >= offer.sequence || old.issued > offer.issued
+    if old.format != 1
+        || old.name != role
+        || old.sequence >= offer.sequence
+        || old.issued > offer.issued
     {
         return Err(Error::refused());
     }
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
 fn promote_channel(
     r: &dyn Runner,
     t: &Trust,
@@ -385,7 +400,9 @@ fn promote_channel(
     if exists {
         verify_previous_channel(r, t, p, role, out, offer)?;
     } else if p.previous != "absent" {
-        return Err(Error::msg("expected channel missing; no automatic bootstrap"));
+        return Err(Error::msg(
+            "expected channel missing; no automatic bootstrap",
+        ));
     }
     p.validate(t, now_unix())?;
     admit_channel(t, &ledger.state, offer, &p.digest, role, now_unix())?;
@@ -408,6 +425,7 @@ fn promote_channel(
     )
 }
 
+#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
 fn finalize_publication(
     r: &dyn Runner,
     t: &Trust,
@@ -432,6 +450,7 @@ fn finalize_publication(
 }
 
 /// `Publish`: ledger-serialized publication for a protected worker.
+#[allow(clippy::too_many_arguments)] // Arity mirrors the Go owner 1:1.
 pub fn publish(
     r: &dyn Runner,
     t: &Trust,
@@ -457,7 +476,9 @@ pub fn publish(
         admit_signed(r, t, p, &role, signed, auth, ledger_path, out, &ledger)?;
     commit_immutable(r, t, &reference, &copy, auth, out)?;
     if is_channel(&role) {
-        promote_channel(r, t, p, &role, &reference, &copy, auth, out, &offer, &ledger)?;
+        promote_channel(
+            r, t, p, &role, &reference, &copy, auth, out, &offer, &ledger,
+        )?;
     }
     finalize_publication(r, t, p, &role, &reference, ledger_path, out, &ledger)
 }
