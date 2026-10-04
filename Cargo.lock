@@ -9,11 +9,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
 
 [[package]]
+name = "soda-activate"
+version = "0.1.0"
+dependencies = [
+ "soda-json",
+]
+
+[[package]]
 name = "soda-build-tools"
 version = "0.1.0"
 
 [[package]]
 name = "soda-candidate-setup"
+version = "0.1.0"
+
+[[package]]
+name = "soda-console-welcome"
 version = "0.1.0"
 
 [[package]]
@@ -34,6 +45,10 @@ version = "0.1.0"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "soda-json"
+version = "0.1.0"
 
 [[package]]
 name = "soda-pg-fixture"
