@@ -35,8 +35,8 @@ COPY ${ARTIFACT_DIR}/project-tools/bin/muse-native /usr/local/libexec/soda/muse
 COPY ${ARTIFACT_DIR}/project-tools/bin/tea /usr/local/bin/tea
 COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/licenses/tea/LICENSE
 COPY project-os/rootfs/ /
-# Same fixed program as the helper embeds; never downloaded or installed on Open.
-COPY internal/host/terminal/project_terminal.py /usr/libexec/soda/project-terminal
+# Same fixed program the host daemon verifies; never downloaded or installed on Open.
+COPY ${ARTIFACT_DIR}/project-tools/bin/project-terminal /usr/libexec/soda/project-terminal
 # Check the final userspace after all package operations, not just the base tag.
 RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2" && \
     chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account /usr/libexec/soda/project-factory-roles && \

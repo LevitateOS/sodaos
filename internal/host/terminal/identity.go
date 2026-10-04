@@ -4,22 +4,17 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/levitateos/sodaos/internal/identity"
 	"github.com/levitateos/sodaos/internal/strictjson"
 )
-
-//go:embed identity_terminal.py
-var identityTerminal string
 
 type identityRequest struct {
 	Action        string                `json:"action"`
@@ -60,9 +55,9 @@ func (s *Service) identityCall(ctx context.Context, container string, request id
 	if err != nil {
 		return identity.Delivery{}, err
 	}
-	// Both programs are fixed product code. Secrets travel only over stdin.
-	program := "namespace={'__name__':'soda_terminal'};exec(" + strconv.Quote(ProjectTerminal) + ",namespace);exec(" + strconv.Quote(identityTerminal) + ",namespace)"
-	out, err := s.podman(ctx, body, "--remote=false", "exec", "--interactive", container, "/usr/bin/python3", "-I", "-c", program)
+	// The agent is fixed product code. Secrets travel only over stdin.
+	agent := AgentExec(container, body, "broker")
+	out, err := s.podman(ctx, body, agent.Args[1:]...)
 	if err != nil {
 		return identity.Delivery{}, errors.New("managed Codex operation failed")
 	}
@@ -82,7 +77,11 @@ func (s *Service) PrepareIdentity(ctx context.Context, lease identity.Lease, log
 	if err != nil {
 		return identity.Binding{}, err
 	}
-	request := identityRequest{Container: container, Action: "prepare", Delivery: identity.DeliveryWire{Lease: lease}, Login: login, Scope: scope, Cols: cols, Rows: rows, SourceHash: fmt.Sprintf("%x", sha256.Sum256([]byte(ProjectTerminal)))}
+	hash, err := AgentProgramHash()
+	if err != nil {
+		return identity.Binding{}, err
+	}
+	request := identityRequest{Container: container, Action: "prepare", Delivery: identity.DeliveryWire{Lease: lease}, Login: login, Scope: scope, Cols: cols, Rows: rows, SourceHash: hash}
 	result, err := s.identityCall(ctx, container, request)
 	if err != nil {
 		return identity.Binding{}, err

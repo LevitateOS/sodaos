@@ -185,6 +185,9 @@ func (p Production) assetSteps(stage []string) error {
 	if err := p.CompileRust("soda-identity-compose", "soda-identity-compose", filepath.Join(p.Native, "project-tools/bin", "soda-identity-compose")); err != nil {
 		return err
 	}
+	if err := p.CompileRust("soda-project-terminal", "project-terminal", filepath.Join(p.Native, "project-tools/bin", "project-terminal")); err != nil {
+		return err
+	}
 	type assetStep struct {
 		label string
 		args  []string
