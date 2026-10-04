@@ -124,9 +124,18 @@ func runBounded(name string, args []string, stdin []byte, timeout time.Duration)
 
 // runBoundedEnv is runBounded with extra plain environment entries.
 func runBoundedEnv(name string, args []string, stdin []byte, extraEnv []string, timeout time.Duration) (runOutcome, error) {
+	return runBoundedDirEnv(name, args, stdin, extraEnv, "", timeout)
+}
+
+// runBoundedDirEnv is runBoundedEnv with a fixed working directory for
+// tools that resolve paths from the cwd. Empty dir inherits the caller.
+func runBoundedDirEnv(name string, args []string, stdin []byte, extraEnv []string, dir string, timeout time.Duration) (runOutcome, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	if stdin != nil {
 		cmd.Stdin = bytes.NewReader(stdin)
 	}

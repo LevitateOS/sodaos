@@ -178,7 +178,7 @@ func (p Production) assetSteps(stage []string) error {
 	if err := os.MkdirAll(filepath.Join(p.Native, "project-tools/bin"), 0o755); err != nil {
 		return err
 	}
-	if err := p.Compile("soda-muse", "./cmd/soda-muse", filepath.Join(p.Native, "project-tools/bin", "muse")); err != nil {
+	if err := p.CompileRust("soda-muse", "soda-muse", filepath.Join(p.Native, "project-tools/bin", "muse")); err != nil {
 		return err
 	}
 	if err := p.CompileRust("soda-identity-compose", "soda-identity-compose", filepath.Join(p.Native, "project-tools/bin", "soda-identity-compose")); err != nil {

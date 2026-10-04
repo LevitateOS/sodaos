@@ -1,0 +1,11 @@
+[package]
+name = "soda-muse-maintain"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "soda-muse-maintain"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"

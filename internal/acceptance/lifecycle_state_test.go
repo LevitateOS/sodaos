@@ -123,21 +123,21 @@ func TestWriteSnapshot(t *testing.T) {
 }
 
 func TestLifecycleRun(t *testing.T) {
-	out, err := lifecycleRun([]string{"sh", "-c", "printf out"}, nil)
+	out, err := lifecycleRun("", []string{"sh", "-c", "printf out"}, nil)
 	if err != nil || string(out) != "out" {
 		t.Errorf("run = %q %v", out, err)
 	}
-	_, err = lifecycleRun([]string{"sh", "-c", "echo 'Project snapshot failed: snap RuntimeError boom' >&2; exit 3"}, nil)
+	_, err = lifecycleRun("", []string{"sh", "-c", "echo 'Project snapshot failed: snap RuntimeError boom' >&2; exit 3"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "Snapshot command failed; no empty substitution: Project snapshot failed: snap RuntimeError boom") {
 		t.Errorf("prefixed detail = %v", err)
 	}
-	_, err = lifecycleRun([]string{"sh", "-c", "echo noise >&2; exit 3"}, nil)
+	_, err = lifecycleRun("", []string{"sh", "-c", "echo noise >&2; exit 3"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "operator observation failed") || strings.Contains(err.Error(), "noise") {
 		t.Errorf("generic detail = %v", err)
 	}
 }
 
-// stubTestVM installs a fake scripts/test-vm.sh that emulates the VM session.
+// stubTestVM installs a fake target/debug/soda-test-vm that emulates the VM session.
 func stubTestVM(t *testing.T, repo string) {
 	t.Helper()
 	script := "#!/bin/sh\n" +
@@ -150,7 +150,7 @@ func stubTestVM(t *testing.T, repo string) {
 		"*'boot_id'*) printf 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';;\n" +
 		"*) exit 6;;\n" +
 		"esac\n"
-	path := filepath.Join(repo, "scripts/test-vm.sh")
+	path := filepath.Join(repo, "target/debug/soda-test-vm")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
