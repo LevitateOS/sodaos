@@ -1,0 +1,15 @@
+[package]
+name = "soda-project-terminal"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Fixed project-local terminal agent (PR25 Rust port of project_terminal.py, identity_terminal.py, project_keys.py)"
+
+[[bin]]
+name = "project-terminal"
+path = "src/main.rs"
+
+[dependencies]
+soda-json = { path = "../soda-json" }
+libc = "0.2"
