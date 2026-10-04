@@ -7,8 +7,9 @@ a disk, or changes host networking.
 Messages, exit codes, the QEMU command line, ssh/tail argv, lock handling,
 and pidfile checks match the shell exactly, with three deliberate deltas:
 the tool operates relative to the current directory (invoke it from the
-repository root) instead of cd-ing to the script's own location, whose
-cd/dirname failure modes are not modeled; the usage
+repository root; `$PWD` is honored only when it names the cwd) instead
+of cd-ing to the script's own location, whose cd/dirname failure modes
+are not modeled; the usage
 and started lines print the working `cargo run` invocation instead of the
 deleted script path; and `exec` uses execvp PATH search, which skips a
 broken shadow entry where bash would stop and fail. A non-EPIPE stdout

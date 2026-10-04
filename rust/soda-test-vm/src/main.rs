@@ -8,8 +8,9 @@
 // passes the rest through) and its empty-$1 default to status.
 //
 // Deliberate deltas: the tool operates relative to the current directory
-// (invoke it from the repository root) instead of cd-ing to the script's
-// own location, which is meaningless for an installed binary; the usage
+// (invoke it from the repository root; `$PWD` is honored only when it
+// names the cwd) instead of cd-ing to the script's own location, which
+// is meaningless for an installed binary; the usage
 // and started lines print the working `cargo run` invocation instead of
 // the deleted script path; and `exec` uses execvp PATH search, which skips
 // a broken shadow entry where bash would stop and fail.
@@ -98,14 +99,19 @@ fn env_or(key: &str, default: &str) -> String {
     }
 }
 
-/// `current_pwd` mirrors `$PWD`: the inherited logical path when present,
-// otherwise the physical working directory.
+/// `current_pwd` mirrors the script's post-`cd` `$PWD`: the inherited
+/// logical path when it names the current directory (symlinked invocations
+/// keep their logical spelling like the script), otherwise the physical
+/// working directory. Callers that fix the cwd without fixing `$PWD` still
+/// resolve correctly.
 fn current_pwd() -> String {
+    let physical = env::current_dir().unwrap_or_default();
     match env::var("PWD") {
-        Ok(v) => v,
-        Err(_) => env::current_dir()
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_default(),
+        Ok(logical) if !logical.is_empty() => match fs::canonicalize(&logical) {
+            Ok(resolved) if resolved == physical => logical,
+            _ => physical.to_string_lossy().into_owned(),
+        },
+        _ => physical.to_string_lossy().into_owned(),
     }
 }
 

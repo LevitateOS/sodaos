@@ -724,6 +724,26 @@ fn ssh_and_tunnels_exec_with_exact_argv() {
 }
 
 #[test]
+fn stale_pwd_falls_back_to_working_directory() {
+    // A $PWD that does not name the cwd (callers that fix the cwd only)
+    // is ignored; an empty one too. The live pidfile proves resolution
+    // used the fixture, not the stale value.
+    for pwd in ["/nonexistent-stale-soda-vm", ""] {
+        let root = TempDir::new("stalepwd");
+        let vm = vm_fixture(&root.path);
+        fs::write(vm.join("qemu.pid"), format!("{}\n", std::process::id())).unwrap();
+        let mut command = cmd(&root.path);
+        command.env("PWD", pwd);
+        let out = command.arg("status").output().unwrap();
+        assert_eq!(out.status.code(), Some(0), "PWD={pwd:?}");
+        assert!(
+            String::from_utf8_lossy(&out.stdout).contains("is running"),
+            "PWD={pwd:?}"
+        );
+    }
+}
+
+#[test]
 fn closed_stdout_dies_by_sigpipe_like_shell() {
     use std::os::fd::FromRawFd;
     use std::os::unix::process::ExitStatusExt;
