@@ -19,7 +19,7 @@ import (
 // workerConfig is installed by the operator, not emitted by a build. Paths name
 // existing, separately owned task directories; this command does not create users,
 // grant sudo, install trust or adopt an existing service/VM. StorageRoot is the
-// single /home storage root from scripts/candidate-storage.sh: heavy worker
+// single /home storage root from tools/soda-candidate-setup: heavy worker
 // state (home, runtime) must live under it, never on the small root filesystem.
 type workerConfig struct {
 	Executable, Source, ForgejoSource, OutputParent    string
@@ -34,7 +34,7 @@ const (
 	workerTools   = "/run/soda-build-tools"
 	workerForgejo = "/run/soda-build-forgejo-source"
 	// pinnedGoRoot is the fixed host GOROOT provisioned by
-	// setup-soda-candidate.sh. It carries lib_t there so the worker
+	// soda-candidate-setup. It carries lib_t there so the worker
 	// domain can execute it, so it cannot live under workerTools.
 	pinnedGoRoot = "/usr/local/lib/soda/pinned-go"
 )

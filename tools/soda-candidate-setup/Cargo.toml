@@ -1,0 +1,6 @@
+[package]
+name = "soda-candidate-setup"
+version = "0.1.0"
+edition = "2021"
+
+# No dependencies: std only, so the tool builds offline.

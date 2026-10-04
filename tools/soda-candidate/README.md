@@ -15,11 +15,11 @@ working directory. Anything else is refused before privilege is touched.
 
 ```sh
 cd ~/Projects/sodaos
-bash scripts/setup-soda-candidate.sh
+cargo run --manifest-path tools/soda-candidate-setup/Cargo.toml
 sudo soda-candidate
 ```
 
-The script builds both tools from committed source, installs the wrapper
+The setup tool builds both tools from committed source, installs the wrapper
 where sudo resolves it (`/usr/sbin`, since `secure_path` excludes
 `/usr/local/bin`), admits the controller, creates the worker directories,
 and writes the restricted worker config plus a fixture-only media authority.
@@ -53,7 +53,7 @@ The ISO is only the boot menu. The rootfs is the actual operating system
 disk image (gigabytes), which the installer downloads during installation.
 The URL is the pickup address where the installer is told to fetch it. For
 local builds there is nothing to look up and nothing to hand-run: the setup
-script creates `/var/lib/soda-rootfs`, the TUI prefills
+tool creates `/var/lib/soda-rootfs`, the TUI prefills
 `http://127.0.0.1:8080`, the wrapper serves that folder during the build,
 and files the produced `*-rootfs.img` there afterwards. A busy port means
 you already serve it yourself; any non-loopback address stays fully yours.

@@ -2,7 +2,7 @@
 
 The installer ISO is only the boot menu; the guest fetches the hash-named
 rootfs image over HTTP after the builder exits. These checks read the real
-setup script, the staged systemd unit, and the single server source: the
+setup source, the staged systemd unit, and the single server source: the
 three must agree on one directory that holds only rootfs images, served
 without listings, QCOW2, ISO, traversal, subpaths, symlinks, or non-GET/HEAD
 methods. No services, units, or host paths are touched.
@@ -21,7 +21,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SETUP = ROOT / "scripts/setup-soda-candidate.sh"
+SETUP = ROOT / "tools/soda-candidate-setup/src/main.rs"
 UNIT = ROOT / "scripts/ops/soda-rootfs-server.service"
 SERVER = ROOT / "scripts/ops/soda-rootfs-server.py"
 
@@ -33,9 +33,9 @@ ALLOW_NAME = "f" * 64 + "-rootfs.img"
 
 
 def setup_rootfs_dir(text):
-    match = re.search(r'^ROOTFS_DIR="([^"]+)"', text, re.M)
+    match = re.search(r'^const ROOTFS_DIR: &str = "([^"]+)";', text, re.M)
     if not match:
-        raise AssertionError("setup script names no ROOTFS_DIR")
+        raise AssertionError("setup source names no ROOTFS_DIR")
     return match.group(1)
 
 
