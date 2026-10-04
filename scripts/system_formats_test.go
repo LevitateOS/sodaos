@@ -21,8 +21,41 @@ import (
 	"github.com/levitateos/sodaos/internal/host"
 )
 
+// portedRust maps removed Go packages to their Rust replacement crate and
+// binary names. The fixture keeps naming the Go package (frozen bytes); the
+// harness invokes the ported binary instead.
+var portedRust = map[string][2]string{
+	"./cmd/soda-identity-compose": {"soda-identity-compose", "soda-identity-compose"},
+}
+
+// buildRustPortBinary builds a ported CLI from the offline Rust workspace.
+func buildRustPortBinary(t *testing.T, pkg string) string {
+	t.Helper()
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pair, ok := portedRust[pkg]
+	if !ok {
+		t.Fatalf("no Rust port registered for %s", pkg)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "cargo", "build", "--offline", "-p", pair[0])
+	cmd.Dir = root
+	if combined, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("build rust/%s: %v\n%s", pair[0], err, combined)
+	}
+	out := filepath.Join(root, "target", "debug", pair[1])
+	if _, err := os.Stat(out); err != nil {
+		t.Fatalf("rust %s binary missing: %v", pair[1], err)
+	}
+	return out
+}
+
 // buildGoPortBinary builds a not-yet-ported Go CLI. Ported binaries use
-// buildPortBinary (Rust) via the fixture's rust/ package routing.
+// buildRustPortBinary (Rust) instead; buildPortBinary covers soda-factory
+// via the fixture's rust/ package routing.
 func buildGoPortBinary(t *testing.T, pkg string) string {
 	t.Helper()
 	root, err := filepath.Abs("..")
@@ -225,6 +258,8 @@ func TestCLISurface(t *testing.T) {
 			if !ok {
 				if strings.HasPrefix(b.Package, "rust/") {
 					binary = buildPortBinary(t)
+				} else if _, ported := portedRust[b.Package]; ported {
+					binary = buildRustPortBinary(t, b.Package)
 				} else {
 					binary = buildGoPortBinary(t, b.Package)
 				}
