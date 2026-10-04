@@ -244,13 +244,8 @@ func (w preparedWriter) stageRootfsFiles() error {
 		}
 	}
 	for from, to := range map[string]string{
-		"appliance/bin/soda-console-welcome": "usr/libexec/soda/soda-console-welcome",
-		"appliance/bin/soda-activate":        "usr/bin/soda-activate",
-		"appliance/bin/soda-forgejo-domain":  "usr/bin/soda-forgejo-domain",
-		"appliance/bin/soda-forgejo-migrate": "usr/bin/soda-forgejo-migrate",
-		"appliance/bin/soda-pg-backup":       "usr/bin/soda-pg-backup",
-		"appliance/bin/soda-pg-restore":      "usr/bin/soda-pg-restore",
-		"appliance/bin/soda-pg-init-roles":   "usr/bin/soda-pg-init-roles",
+		"appliance/bin/soda-activate":       "usr/bin/soda-activate",
+		"appliance/bin/soda-forgejo-domain": "usr/bin/soda-forgejo-domain",
 	} {
 		if err := w.copyFile(from, "rootfs/"+to, 0o755, true); err != nil {
 			return err
