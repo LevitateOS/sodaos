@@ -156,4 +156,28 @@ func TestExactFileServing(t *testing.T) {
 	reply, err := bufio.NewReader(raw).ReadString('\n')
 	require.NoError(t, err)
 	require.Contains(t, reply, "501", "only GET/HEAD are served")
+
+	// The retired Python server ran on http.server, which reduces a
+	// leading '//' run to a single '/' before the handler sees the
+	// target (CPython gh-87389). Decoded slashes must not collapse:
+	// decoding happens after that reduction. Raw sockets pin the exact
+	// request-target bytes.
+	rawStatus := func(target string) string {
+		conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
+		require.NoError(t, err)
+		defer func() { _ = conn.Close() }()
+		_, err = fmt.Fprintf(conn, "GET %s HTTP/1.0\r\nContent-Length: 0\r\n\r\n", target)
+		require.NoError(t, err)
+		line, err := bufio.NewReader(conn).ReadString('\n')
+		require.NoError(t, err)
+		return line
+	}
+	require.Contains(t, rawStatus("//"+allowNameFixture), "200",
+		"a leading '//' run collapses like http.server")
+	require.Contains(t, rawStatus("///"+allowNameFixture), "200",
+		"a longer leading '/' run collapses like http.server")
+	require.Contains(t, rawStatus("//host/"+allowNameFixture), "404",
+		"a collapsed '//host/' prefix is a denied subpath")
+	require.Contains(t, rawStatus("/%2F"+allowNameFixture), "404",
+		"a decoded '/' must not collapse")
 }
