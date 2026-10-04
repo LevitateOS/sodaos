@@ -118,7 +118,11 @@ func productionFixture(t *testing.T) (Production, *[]string) {
 		if name == "cargo" && args[0] == "build" {
 			for i, a := range args {
 				if a == "-p" && i+1 < len(args) {
-					return writeELF(filepath.Join(dir, "target", "release", args[i+1]))
+					bin := args[i+1]
+					if renamed, ok := map[string]string{"soda-project-terminal": "project-terminal"}[bin]; ok {
+						bin = renamed
+					}
+					return writeELF(filepath.Join(dir, "target", "release", bin))
 				}
 			}
 		}
@@ -155,7 +159,7 @@ func TestProductionUsesOneAssetAndImageSequence(t *testing.T) {
 	if e := p.Assets(host, forgejo); e != nil {
 		t.Fatal(e)
 	}
-	for _, tool := range []string{"muse", "soda-identity-compose"} {
+	for _, tool := range []string{"muse", "soda-identity-compose", "project-terminal"} {
 		info, err := os.Stat(filepath.Join(p.Native, "project-tools/bin", tool))
 		if err != nil || info.Mode().Perm() != 0o755 {
 			t.Fatalf("public tool %s must be executable by project accounts: %v", tool, err)

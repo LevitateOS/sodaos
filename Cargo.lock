@@ -1346,6 +1346,14 @@ name = "soda-pg-maintenance"
 version = "0.1.0"
 
 [[package]]
+name = "soda-project-terminal"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "soda-json",
+]
+
+[[package]]
 name = "soda-rotate-lab-creds"
 version = "0.1.0"
 

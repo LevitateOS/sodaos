@@ -1,13 +1,10 @@
 package host
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -82,6 +79,7 @@ func TestLifecycleUsesExistingUnitAndRetainsIdentity(t *testing.T) {
 		}
 	}
 }
+
 func TestLifecycleRefusesUnexpectedUnitBeforeMutation(t *testing.T) {
 	for _, unit := range []string{"LoadState=not-found\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/other.service\nDropInPaths=\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/etc/systemd/system/override.conf\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/usr/lib/systemd/system/service.d/10-timeout-abort.conf /etc/systemd/system/override.conf\nUnitFileState=enabled\n", "LoadState=loaded\nFragmentPath=/etc/systemd/system/soda-project@.service\nDropInPaths=/usr/lib/systemd/system/service.d/other.conf\nUnitFileState=enabled\n"} {
 		exec := managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
@@ -121,33 +119,6 @@ func TestLifecycleRejectsCallerSelectedTargetsBeforeExec(t *testing.T) {
 		t.Fatal("invalid target reached host")
 	}
 }
-func TestEmbeddedKeyProgramLoadsAndRefusesLocalUnprivilegedAccount(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("this check must never use a host root account")
-	}
-	path, err := exec.LookPath("python3")
-	if err != nil {
-		t.Skip("Python unavailable")
-	}
-	hostExec := managementExec(func(_ context.Context, in []byte, cmd string, args ...string) ([]byte, error) {
-		if len(args) > 1 && args[1] == "inspect" {
-			return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":"p0123456789abcdef01234567","owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64))), nil
-		}
-		// Exercise the actual assembled fixed Python source, substituting only the
-		// external Podman boundary. No root account/filesystem or native project used.
-		p := exec.Command(path, "-I", "-c", args[7])
-		p.Stdin = bytes.NewReader(in)
-		out, e := p.CombinedOutput()
-		if e == nil || string(out) != "native key operation not confirmed\n" {
-			t.Fatal("embedded program failed to load/refuse safely")
-		}
-		return nil, e
-	})
-	d := testDaemon(hostExec, Config{})
-	if _, err := d.Project.AccessKeys(t.Context(), project.AccessKeys{Project: "p0123456789abcdef01234567", Login: "alice", Identity: 1}); err == nil {
-		t.Fatal("unprivileged native update accepted")
-	}
-}
 
 func TestKeyPreviewUsesExistingMarkerValidatorAndVerifiedContainer(t *testing.T) {
 	id := "p0123456789abcdef01234567"
@@ -157,11 +128,14 @@ func TestKeyPreviewUsesExistingMarkerValidatorAndVerifiedContainer(t *testing.T)
 		if len(args) > 1 && args[1] == "inspect" {
 			return []byte(fmt.Sprintf(`{"id":%q,"running":true,"project":%q,"owner":"1","privileged":false,"userns":"private","mappings":{"UidMap":["0:1000000:262144"],"GidMap":["0:1000000:262144"]}}`, strings.Repeat("a", 64), id)), nil
 		}
-		if cmd != "/usr/bin/podman" || strings.Join(args[:7], " ") != "--remote=false exec --interactive "+strings.Repeat("a", 64)+" /usr/bin/python3 -I -c" {
+		joined := strings.Join(args, " ")
+		if cmd != "/usr/bin/podman" || !strings.Contains(joined, "/usr/libexec/soda/project-terminal keys") {
 			t.Fatal("unexpected native key command")
 		}
-		if !strings.Contains(args[7], "types.ModuleType('project_terminal')") || !strings.Contains(args[7], "from project_terminal import account_for") {
-			t.Fatal("identity validator was not reused")
+		for _, arg := range args {
+			if arg == "-c" {
+				t.Fatal("key operation left the fixed agent binary")
+			}
 		}
 		var body map[string]any
 		if json.Unmarshal(in, &body) != nil || body["login"] != "alice" || body["identity"] != float64(1) || body["apply"] != false {

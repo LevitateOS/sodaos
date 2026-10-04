@@ -2,9 +2,8 @@
 //!
 //! Ports the account tail of `create.go` (`Account`, `canonicalizeAccountKeys`,
 //! `confirmAccount`) and `access_keys.go` (`AccessKeys`, `canonicalKeys`,
-//! `decodeAccessKeyState`). The in-container Python programs
-//! (`project_keys.py`, `project_terminal.py`) keep executing inside the project
-//! container; they are embedded byte-for-byte like the Go `go:embed`s.
+//! `decodeAccessKeyState`). In-container key operations run through the fixed
+//! `project-terminal` agent binary (`keys` action), like the Go `AgentExec`.
 
 use std::time::Instant;
 
@@ -13,10 +12,8 @@ use crate::json::{self, Kind, Spec};
 use crate::project::{Executor, Runtime};
 use crate::ssh;
 
-/// Byte-identical embeds of the in-container Python sources.
-const PROJECT_KEYS_PY: &str = include_str!("../../../internal/host/project/project_keys.py");
-const PROJECT_TERMINAL_PY: &str =
-    include_str!("../../../internal/host/terminal/project_terminal.py");
+/// Fixed in-container terminal agent, mirroring Go `terminal.AgentProgram`.
+pub const AGENT_PROGRAM: &str = "/usr/libexec/soda/project-terminal";
 
 /// `keyRevision = ^[0-9a-f]{64}$`.
 pub fn valid_key_revision(s: &str) -> bool {
@@ -144,23 +141,6 @@ pub fn decode_access_key_state(data: &[u8]) -> Result<AccessKeyState, String> {
     Ok(AccessKeyState { revision, keys })
 }
 
-/// `strconv.Quote` for the embedded terminal source (ASCII-exact;
-/// the embedded source is pinned ASCII-only by test).
-pub fn go_quote(s: &str) -> String {
-    crate::json::go_quote(s)
-}
-
-/// The in-container `project_keys.py` invocation: the fixed terminal module
-/// is preloaded in memory, exactly like the Go `program` construction.
-pub fn keys_program() -> String {
-    let mut program =
-        String::from("import sys,types\nm=types.ModuleType('project_terminal')\nexec(");
-    program.push_str(&go_quote(PROJECT_TERMINAL_PY));
-    program.push_str(",m.__dict__)\nsys.modules['project_terminal']=m\n");
-    program.push_str(PROJECT_KEYS_PY);
-    program
-}
-
 impl<E: Executor> Runtime<E> {
     /// `Account`: provision a project login via the in-container helper.
     pub fn account(&self, input: &Account, deadline: Instant) -> Result<(), String> {
@@ -253,16 +233,13 @@ impl<E: Executor> Runtime<E> {
         body.push_str(",\"revision\":");
         body.push_str(&json::quote(&input.revision));
         body.push('}');
-        let program = keys_program();
         let args = [
             "--remote=false",
             "exec",
             "--interactive",
             &cid,
-            "/usr/bin/python3",
-            "-I",
-            "-c",
-            &program,
+            AGENT_PROGRAM,
+            "keys",
         ];
         let data = self
             .podman(body.as_bytes(), &args, deadline)
@@ -356,10 +333,6 @@ mod tests {
             "{{\"id\":{cid:?},\"running\":true,\"project\":{id:?},\"owner\":\"42\",\"privileged\":false,\"userns\":\"private\",\"mappings\":{{\"UidMap\":[\"0:1000000:262144\"],\"GidMap\":[\"0:1000000:262144\"]}}}}"
         )
         .into_bytes()
-    }
-
-    fn hex(bytes: &[u8]) -> String {
-        bytes.iter().map(|b| format!("{b:02x}")).collect()
     }
 
     #[test]
@@ -495,31 +468,9 @@ mod tests {
     }
 
     #[test]
-    fn go_quote_matches_pinned_toolchain_output() {
-        assert_eq!(
-            go_quote("a\"b\\c\nd\te\x01f\x7fg"),
-            "\"a\\\"b\\\\c\\nd\\te\\x01f\\x7fg\""
-        );
-        // The embedded source must stay ASCII for the passthrough to be exact.
-        assert!(PROJECT_TERMINAL_PY.bytes().all(|b| b < 0x80));
-        assert!(PROJECT_KEYS_PY.bytes().all(|b| b < 0x80));
-        // Pinned against `strconv.Quote` from the pinned Go toolchain.
-        assert_eq!(
-            hex(&crate::sha256::digest(
-                go_quote(PROJECT_TERMINAL_PY).as_bytes()
-            )),
-            "81d75bbdb44b8c05891718c859b7943476ae10e199bcb099014612ac1db606c6"
-        );
-        let program = keys_program();
-        assert_eq!(program.len(), 50890);
-        assert_eq!(
-            hex(&crate::sha256::digest(program.as_bytes())),
-            "7e0ce2820b8ffd63873949f64dc1f9d77e3dad3c79cb7b6243e709147ab73a87"
-        );
-        assert!(
-            program.starts_with("import sys,types\nm=types.ModuleType('project_terminal')\nexec(")
-        );
-        assert!(program.ends_with(PROJECT_KEYS_PY));
+    fn agent_program_path_matches_go() {
+        // Mirrors Go `terminal.AgentProgram`: the fixed in-container agent.
+        assert_eq!(AGENT_PROGRAM, "/usr/libexec/soda/project-terminal");
     }
 
     #[test]
@@ -671,18 +622,16 @@ mod tests {
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[1].1, "/usr/bin/podman");
         assert_eq!(
-            &calls[1].2[..7],
+            &calls[1].2[..6],
             &[
                 "--remote=false".to_string(),
                 "exec".to_string(),
                 "--interactive".to_string(),
                 "f".repeat(64),
-                "/usr/bin/python3".to_string(),
-                "-I".to_string(),
-                "-c".to_string(),
+                AGENT_PROGRAM.to_string(),
+                "keys".to_string(),
             ]
         );
-        assert_eq!(calls[1].2[7], keys_program());
         assert_eq!(
             String::from_utf8(calls[1].0.clone()).unwrap(),
             "{\"apply\":false,\"identity\":1,\"keys\":[],\"login\":\"alice\",\"revision\":\"\"}"

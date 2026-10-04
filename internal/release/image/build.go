@@ -457,6 +457,7 @@ var rustTools = []struct{ member, bin, dest string }{
 	{"soda-console-welcome", "soda-console-welcome", "rootfs/usr/libexec/soda/soda-console-welcome"},
 	{"soda-install", "soda-install", "rootfs/usr/libexec/soda/soda-install"},
 	{"soda-acceptance", "soda-host-probes", "rootfs/usr/libexec/soda/soda-host-probes"},
+	{"soda-project-terminal", "project-terminal", "rootfs/usr/libexec/soda/project-terminal"},
 }
 
 func compileRustTools(p build.Production, contextDir string) error {

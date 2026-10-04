@@ -2,11 +2,9 @@ package project
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/levitateos/sodaos/internal/host/terminal"
@@ -15,9 +13,6 @@ import (
 )
 
 var keyRevision = regexp.MustCompile(`^[0-9a-f]{64}$`)
-
-//go:embed project_keys.py
-var projectKeys string
 
 func canonicalKeys(values []string) ([]string, error) {
 	if len(values) > 32 {
@@ -100,11 +95,10 @@ func (r *Runtime) AccessKeys(ctx context.Context, in domain.AccessKeys) (domain.
 	if err = r.previewAccessKeys(ctx, in); err != nil {
 		return out, err
 	}
-	// Load the existing fixed identity validator as an in-memory Python module.
-	// No project file installation/import search, new image or duplicated validator.
-	program := "import sys,types\nm=types.ModuleType('project_terminal')\nexec(" + strconv.Quote(terminal.ProjectTerminal) + ",m.__dict__)\nsys.modules['project_terminal']=m\n" + projectKeys
+	// The fixed agent owns key validation; the request travels only over stdin.
 	body, _ := json.Marshal(map[string]any{"login": in.Login, "identity": in.Identity, "apply": in.Apply, "revision": in.Revision, "keys": keys})
-	data, err := r.podman(ctx, body, "--remote=false", "exec", "--interactive", cid, "/usr/bin/python3", "-I", "-c", program)
+	agent := terminal.AgentExec(cid, body, "keys")
+	data, err := r.podman(ctx, body, agent.Args[1:]...)
 	if err != nil {
 		return out, errors.New("native key operation not confirmed")
 	}
