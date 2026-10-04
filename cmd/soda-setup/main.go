@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -15,6 +16,12 @@ import (
 	"github.com/levitateos/sodaos/internal/config"
 	"github.com/levitateos/sodaos/internal/forgejo"
 )
+
+// postgresSecretDir holds the mode-0600 PostgreSQL credential files setup
+// generates: super/forgejo/soda .passwd plus the soda connection URL. The
+// database units stay skipped until these exist, so live media shows a
+// clean skip instead of a failed database.
+const postgresSecretDir = "/etc/soda/postgres"
 
 func main() {
 	if err := run(); err != nil {
@@ -32,7 +39,7 @@ func run() error {
 	tokenPath := flag.String("token-file", "", "operator Forgejo access token file")
 	out := flag.String("out", "/etc/soda/dashboard.json", "new dashboard configuration")
 	flag.Parse()
-	return setup(*external, *internal, *tokenPath, *out)
+	return setup(*external, *internal, *tokenPath, *out, postgresSecretDir)
 }
 
 func writeSetupSecret(path, value string) error {
@@ -93,7 +100,77 @@ func revokeBootstrapToken(internal, token string) error {
 	return client.RevokeCurrentToken(context.Background(), token)
 }
 
-func setup(external, internal, tokenPath, out string) error {
+func writeSecretFile(path, value string) error {
+	f, e := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if e != nil {
+		return fmt.Errorf("create %s: %w", path, e)
+	}
+	_, e = f.WriteString(value + "\n")
+	ce := f.Close()
+	if e != nil {
+		_ = os.Remove(path)
+		return e
+	}
+	if ce != nil {
+		_ = os.Remove(path)
+		return ce
+	}
+	return nil
+}
+
+func randomPassword() (string, error) {
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("generate database password: %w", err)
+	}
+	return hex.EncodeToString(raw), nil
+}
+
+// provisionPostgresSecrets generates the database credential files: one
+// hex password per role plus the soda connection URL. Files land O_EXCL so
+// a pre-existing secret is never overwritten; on failure this run removes
+// only the files it created, preserving anything already there.
+func provisionPostgresSecrets(dir string) (created []string, dsnPath string, err error) {
+	if err = os.MkdirAll(dir, 0o700); err != nil {
+		return nil, "", err
+	}
+	passwords := map[string]string{}
+	for _, role := range []string{"super", "forgejo", "soda"} {
+		var pw string
+		pw, err = randomPassword()
+		if err != nil {
+			break
+		}
+		path := filepath.Join(dir, role+".passwd")
+		if err = writeSecretFile(path, pw); err != nil {
+			break
+		}
+		created = append(created, path)
+		passwords[role] = pw
+	}
+	if err == nil {
+		dsnPath = filepath.Join(dir, "soda.dsn")
+		dsn := "postgres://soda:" + passwords["soda"] + "@soda-postgres:5432/soda?sslmode=disable"
+		if err = writeSecretFile(dsnPath, dsn); err == nil {
+			created = append(created, dsnPath)
+		}
+	}
+	if err != nil {
+		for _, path := range created {
+			_ = os.Remove(path)
+		}
+		return nil, "", err
+	}
+	return created, dsnPath, nil
+}
+
+func removeOwnFiles(paths []string) {
+	for _, path := range paths {
+		_ = os.Remove(path)
+	}
+}
+
+func setup(external, internal, tokenPath, out, pgDir string) error {
 	if err := admitSetupPaths(external, internal, out); err != nil {
 		return err
 	}
@@ -117,13 +194,18 @@ func setup(external, internal, tokenPath, out string) error {
 	if err := writeSetupSecret(keyPath, base64.StdEncoding.EncodeToString(key)); err != nil {
 		return err
 	}
-	// The PostgreSQL connection URL file is provisioned with the A10
-	// database service; setup records its path only.
-	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(external, "/"), ForgejoInternalURL: strings.TrimRight(internal, "/"), DatabaseDSNFile: "/etc/soda/postgres/soda.dsn", HostSocket: "/run/soda/host.sock", GrantKeyFile: keyPath, OperatorID: u.ID}
-	if err = writeSetupConfig(out, c); err != nil {
-		// This run created the key through O_EXCL, so no other setup owns
-		// it; remove it so a retry is not blocked by our own partial state.
+	pgCreated, dsnPath, err := provisionPostgresSecrets(pgDir)
+	if err != nil {
 		_ = os.Remove(keyPath)
+		return err
+	}
+	c := config.Config{Listen: "127.0.0.1:8080", ForgejoURL: strings.TrimRight(external, "/"), ForgejoInternalURL: strings.TrimRight(internal, "/"), DatabaseDSNFile: dsnPath, HostSocket: "/run/soda/host.sock", GrantKeyFile: keyPath, OperatorID: u.ID}
+	if err = writeSetupConfig(out, c); err != nil {
+		// This run created the key and database secrets through O_EXCL, so
+		// no other setup owns them; remove them so a retry is not blocked
+		// by our own partial state.
+		_ = os.Remove(keyPath)
+		removeOwnFiles(pgCreated)
 		return err
 	}
 	// Revoke only after the configuration is durable: earlier failures keep

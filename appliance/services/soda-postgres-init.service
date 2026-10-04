@@ -3,6 +3,9 @@ Description=Soda PostgreSQL roles and databases
 Requires=soda-postgres.service
 After=soda-postgres.service
 Before=forgejo.service
+# Roles provision only after operator setup; live media skips cleanly.
+ConditionPathExists=/etc/soda/postgres/forgejo.passwd
+ConditionPathExists=/etc/soda/postgres/soda.passwd
 
 [Service]
 Type=oneshot

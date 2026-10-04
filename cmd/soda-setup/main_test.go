@@ -56,7 +56,7 @@ func TestSetupRevokesBootstrapTokenOnSuccess(t *testing.T) {
 			}))
 			defer server.Close()
 
-			setupErr := setup("https://forgejo.test/", server.URL, tokenPath, out)
+			setupErr := setup("https://forgejo.test/", server.URL, tokenPath, out, filepath.Join(root, "postgres"))
 			if name == "success-revokes" {
 				if setupErr != nil {
 					t.Fatalf("setup failed: %v", setupErr)
@@ -80,6 +80,101 @@ func TestSetupRevokesBootstrapTokenOnSuccess(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetupProvisionsPostgresSecrets(t *testing.T) {
+	const token = "synthetic-bootstrap-token-not-for-retention"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method + " " + r.URL.Path {
+		case "GET /api/v1/user":
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": 42, "login": "soda-tester", "is_admin": true})
+		case "DELETE /api/v1/user/token":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Run("generates all four files", func(t *testing.T) {
+		root := t.TempDir()
+		dir := filepath.Join(root, "soda")
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		tokenPath := filepath.Join(root, "operator-input")
+		if err := os.WriteFile(tokenPath, []byte(token+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		pgDir := filepath.Join(root, "postgres")
+		if err := setup("https://forgejo.test/", server.URL, tokenPath, filepath.Join(dir, "dashboard.json"), pgDir); err != nil {
+			t.Fatalf("setup failed: %v", err)
+		}
+		passwords := map[string]string{}
+		for _, role := range []string{"super", "forgejo", "soda"} {
+			data, err := os.ReadFile(filepath.Join(pgDir, role+".passwd"))
+			st, statErr := os.Stat(filepath.Join(pgDir, role+".passwd"))
+			if err != nil || statErr != nil || st.Mode().Perm() != 0o600 {
+				t.Fatalf("%s password file missing or not restricted", role)
+			}
+			pw := strings.TrimSpace(string(data))
+			if len(pw) != 64 {
+				t.Fatalf("%s password has %d chars, want 64 hex", role, len(pw))
+			}
+			for _, c := range pw {
+				if !strings.ContainsRune("0123456789abcdef", c) {
+					t.Fatalf("%s password is not hex", role)
+				}
+			}
+			passwords[role] = pw
+		}
+		if passwords["super"] == passwords["forgejo"] || passwords["forgejo"] == passwords["soda"] || passwords["super"] == passwords["soda"] {
+			t.Fatal("role passwords are not distinct")
+		}
+		dsn, err := os.ReadFile(filepath.Join(pgDir, "soda.dsn"))
+		st, statErr := os.Stat(filepath.Join(pgDir, "soda.dsn"))
+		if err != nil || statErr != nil || st.Mode().Perm() != 0o600 {
+			t.Fatal("soda.dsn missing or not restricted")
+		}
+		want := "postgres://soda:" + passwords["soda"] + "@soda-postgres:5432/soda?sslmode=disable"
+		if strings.TrimSpace(string(dsn)) != want {
+			t.Fatal("soda.dsn does not carry the soda role password")
+		}
+	})
+
+	t.Run("preserves pre-existing secrets", func(t *testing.T) {
+		root := t.TempDir()
+		dir := filepath.Join(root, "soda")
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		tokenPath := filepath.Join(root, "operator-input")
+		if err := os.WriteFile(tokenPath, []byte(token+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		pgDir := filepath.Join(root, "postgres")
+		if err := os.MkdirAll(pgDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		prior := filepath.Join(pgDir, "super.passwd")
+		if err := os.WriteFile(prior, []byte("operator-owned-secret\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := setup("https://forgejo.test/", server.URL, tokenPath, filepath.Join(dir, "dashboard.json"), pgDir)
+		if err == nil {
+			t.Fatal("setup overwrote pre-existing database secrets")
+		}
+		data, _ := os.ReadFile(prior)
+		if string(data) != "operator-owned-secret\n" {
+			t.Fatal("pre-existing secret changed")
+		}
+		if _, statErr := os.Stat(filepath.Join(dir, "grant-key")); !os.IsNotExist(statErr) {
+			t.Fatal("failed setup left its own grant key behind")
+		}
+		if _, statErr := os.Stat(filepath.Join(dir, "dashboard.json")); !os.IsNotExist(statErr) {
+			t.Fatal("failed setup published configuration")
+		}
+	})
 }
 
 func TestSetupBootstrapCredentialBoundary(t *testing.T) {
@@ -147,7 +242,7 @@ func TestSetupBootstrapCredentialBoundary(t *testing.T) {
 			func() {
 				os.Stdout = log
 				defer func() { os.Stdout = original }()
-				setupErr = setup("https://forgejo.test/", server.URL, tokenPath, out)
+				setupErr = setup("https://forgejo.test/", server.URL, tokenPath, out, filepath.Join(root, "postgres"))
 			}()
 			output, _ := os.ReadFile(log.Name())
 			if strings.Contains(string(output), token) || (setupErr != nil && strings.Contains(setupErr.Error(), token)) {
