@@ -11,7 +11,22 @@ test('native Soda package contains its entire local browser asset graph', async 
   const work = await mkdtemp(resolve(artifactRoot, 'soda-extension-test-'));
   try {
     const terminal = resolve(work, 'terminal');
-    const fetch = Bun.spawnSync(['python3', 'scripts/fetch-terminal.py', '--out', terminal], {cwd: root});
+    const fetch = Bun.spawnSync(
+      [
+        'cargo',
+        'run',
+        '--release',
+        '--locked',
+        '-p',
+        'soda-asset-fetchers',
+        '--bin',
+        'soda-fetch-terminal',
+        '--',
+        '--out',
+        terminal,
+      ],
+      {cwd: root}
+    );
     expect(fetch.exitCode).toBe(0);
     const out = resolve(work, 'output');
     const files = await buildSodaExtensionAssets(out, terminal);
