@@ -439,7 +439,8 @@ fn split_origin(origin: &str) -> Result<(String, u16), ProbeFailure> {
             None if after.is_empty() => 443,
             None => return Err(err()),
         };
-        (host.to_string(), port)
+        // `urlsplit` lowercases every hostname, bracketed or not.
+        (host.to_lowercase(), port)
     } else if let Some((host, digits)) = host_port.rsplit_once(':') {
         if host.is_empty() || digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
             return Err(err());
@@ -448,6 +449,8 @@ fn split_origin(origin: &str) -> Result<(String, u16), ProbeFailure> {
     } else {
         (host_port.to_lowercase(), 443)
     };
+    // Python's `origin.port or 443`: an explicit zero still means 443.
+    let port = if port == 0 { 443 } else { port };
     Ok((host, port))
 }
 
@@ -662,6 +665,8 @@ mod tests {
         assert_eq!(split_origin("https://example.test").unwrap(), ("example.test".to_string(), 443));
         assert_eq!(split_origin("https://Example.Test:8443/x").unwrap(), ("example.test".to_string(), 8443));
         assert_eq!(split_origin("https://user@[::1]:2222").unwrap(), ("::1".to_string(), 2222));
+        assert_eq!(split_origin("https://[FE80::1]").unwrap(), ("fe80::1".to_string(), 443));
+        assert_eq!(split_origin("https://example.test:0").unwrap(), ("example.test".to_string(), 443));
         assert!(split_origin("http://example.test").is_err());
         assert!(split_origin("https://").is_err());
         assert!(split_origin("https://host:notaport").is_err());
