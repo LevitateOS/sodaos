@@ -17,7 +17,9 @@ if [ -n "$locks" ]; then
   fail=1
 fi
 
-files=$(git ls-files '*.go' '*.py' '*.sh' '*.ts' '*.js' '*.mjs' '*.json' '*.toml' '*.container' '*Dockerfile*' '*.md' || true)
+# The gate's own enforcement text names the banned invocations, so it must
+# not scan itself; every other tracked file is still checked.
+files=$(git ls-files '*.go' '*.py' '*.sh' '*.ts' '*.js' '*.mjs' '*.json' '*.toml' '*.container' '*Dockerfile*' '*.md' | grep -v '^scripts/check-no-npm\.sh$' || true)
 if [ -n "$files" ]; then
   # shellcheck disable=SC2086
   hits=$(grep -nE "(^|[^a-zA-Z])npx([^a-zA-Z]|$)|npm (install|i|ci|run|exec|test|publish)([^a-zA-Z]|$)" $files || true)
