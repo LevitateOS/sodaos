@@ -455,6 +455,7 @@ var rustTools = []struct{ member, bin, dest string }{
 	{"soda-pg-maintenance", "soda-pg-restore", "rootfs/usr/bin/soda-pg-restore"},
 	{"soda-pg-maintenance", "soda-pg-init-roles", "rootfs/usr/bin/soda-pg-init-roles"},
 	{"soda-console-welcome", "soda-console-welcome", "rootfs/usr/libexec/soda/soda-console-welcome"},
+	{"soda-install", "soda-install", "rootfs/usr/libexec/soda/soda-install"},
 }
 
 func compileRustTools(p build.Production, contextDir string) error {
@@ -487,7 +488,6 @@ func compileShippingTools(p build.Production, snapshot, contextDir, artifacts, r
 		return err
 	}
 	for _, tool := range []struct{ name, pkg string }{
-		{"soda-installer", "./appliance/installer"},
 		{"soda-artifacts", "./tools/soda-artifacts"},
 		{"soda-acceptance", "./tools/soda-acceptance"},
 	} {
@@ -495,7 +495,9 @@ func compileShippingTools(p build.Production, snapshot, contextDir, artifacts, r
 			return err
 		}
 	}
-	if err := os.Link(filepath.Join(tools, "soda-installer"), filepath.Join(contextDir, "rootfs/usr/libexec/soda/soda-install")); err != nil {
+	// The Rust console is compiled into the image above; link the tools copy
+	// from it so media hashes the exact shipped bytes.
+	if err := os.Link(filepath.Join(contextDir, "rootfs/usr/libexec/soda/soda-install"), filepath.Join(tools, "soda-installer")); err != nil {
 		return err
 	}
 	return recordToolFiles(tools, revision, arch, artifacts)

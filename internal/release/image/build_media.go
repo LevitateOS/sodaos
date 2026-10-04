@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/levitateos/sodaos/internal/installer"
 	"github.com/levitateos/sodaos/internal/release/build"
 	"github.com/levitateos/sodaos/internal/release/deliver"
 )
@@ -101,7 +100,7 @@ func prepareMediaInputs(source, out string, tools mediaTools, p build.Production
 	if err != nil {
 		return err
 	}
-	live, err := installer.CandidateLiveConfig(payload, []byte(destination), candidate.Host.Manifest, console)
+	live, err := candidateLiveConfig(payload, []byte(destination), candidate.Host.Manifest, console)
 	if err != nil {
 		return err
 	}

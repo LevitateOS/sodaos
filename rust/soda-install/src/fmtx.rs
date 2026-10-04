@@ -119,29 +119,16 @@ fn quote_char(out: &mut String, ch: char) {
     }
 }
 
-/// Go `strings.TrimSpace`: exactly `[\t\n\x0b\x0c\r \x85\xa0]`.
+/// Go `strings.TrimSpace`: Go's `unicode.IsSpace` is exactly Unicode
+/// White_Space, which is Rust's `char::is_whitespace` (including U+1680,
+/// U+2000..U+200A, U+2028/2029, U+202F, U+205F, U+3000).
 pub fn go_trim_space(value: &str) -> &str {
-    value.trim_matches(|c| matches!(c, '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{85}' | '\u{a0}'))
+    value.trim_matches(char::is_whitespace)
 }
 
 /// Go `strings.Fields` with Go's space set.
 pub fn go_fields(value: &str) -> Vec<&str> {
-    let mut fields = Vec::new();
-    let mut start: Option<usize> = None;
-    for (i, c) in value.char_indices() {
-        let space = matches!(c, '\t' | '\n' | '\u{b}' | '\u{c}' | '\r' | ' ' | '\u{85}' | '\u{a0}');
-        if space {
-            if let Some(s) = start.take() {
-                fields.push(&value[s..i]);
-            }
-        } else if start.is_none() {
-            start = Some(i);
-        }
-    }
-    if let Some(s) = start.take() {
-        fields.push(&value[s..]);
-    }
-    fields
+    value.split_whitespace().collect()
 }
 
 /// Go `strings.ToLower`: per-rune simple mapping (`İ` folds to `i`, unlike
@@ -270,8 +257,10 @@ mod tests {
         // Oracle: TRIM/FIELDS/LOWER/FOLD lines.
         assert_eq!(go_trim_space("  \t\n\u{b}\u{c}\r \u{85}\u{a0}x\u{85}\u{a0}  "), "x");
         assert_eq!(go_fields("a\tb\nc\u{b}d\u{c}e\rf\u{85}g\u{a0}h  i"), vec!["a", "b", "c", "d", "e", "f", "g", "h", "i"]);
-        // Rust's White_Space set is wider than Go's; exotic spaces stay.
-        assert_eq!(go_trim_space("\u{2000}x\u{2000}"), "\u{2000}x\u{2000}");
+        // Go's White_Space set includes the exotic Unicode spaces.
+        assert_eq!(go_trim_space("\u{2000}x\u{2000}"), "x");
+        assert_eq!(go_trim_space("\u{1680}\u{2028}x\u{2029}\u{3000}"), "x");
+        assert_eq!(go_fields("a\u{2000}b\u{3000}c"), vec!["a", "b", "c"]);
         assert_eq!(go_lower("BACK"), "back");
         assert_eq!(go_lower("İ"), "i");
         assert_eq!(go_lower("Σς"), "σς");

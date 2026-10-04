@@ -45,18 +45,11 @@ pub fn join(first: &str, rest: &[&str]) -> String {
     clean(&path)
 }
 
-/// Go `filepath.Dir`: directory part, cleaned; empty becomes `"."`.
+/// Go `filepath.Dir`: `Clean` of the `Split` directory part, which keeps
+/// its trailing slash, so `"/a/b/"` is `"/a/b"`.
 pub fn dir(path: &str) -> String {
-    let trimmed = path.trim_end_matches('/');
-    if trimmed.is_empty() {
-        if path.is_empty() {
-            return ".".to_string();
-        }
-        return "/".to_string();
-    }
-    match trimmed.rfind('/') {
-        Some(0) => "/".to_string(),
-        Some(i) => clean(&trimmed[..i]),
+    match path.rfind('/') {
+        Some(i) => clean(&path[..i + 1]),
         None => ".".to_string(),
     }
 }
@@ -78,10 +71,15 @@ pub fn base(path: &str) -> String {
 
 /// Go `filepath.EvalSymlinks`: resolve every symlink lexically, following
 /// the same plan (walk each element, resolve links against their directory).
-pub fn eval_symlinks(path: &str) -> Result<String, String> {
+/// Failures keep Go's `lstat`/`readlink` error shapes.
+pub fn eval_symlinks(path: &str) -> Result<String, crate::errors::Error> {
     use std::os::unix::ffi::OsStrExt;
     if path.is_empty() {
-        return Err("no such file or directory".to_string());
+        return Err(crate::errors::path_error(
+            "lstat",
+            "",
+            std::io::Error::from_raw_os_error(libc::ENOENT),
+        ));
     }
     let mut link_count = 0;
     let mut current = path.to_string();
@@ -92,7 +90,7 @@ pub fn eval_symlinks(path: &str) -> Result<String, String> {
         let parts: Vec<&str> = current.split('/').collect();
         let mut stack: Vec<String> = Vec::new();
         let mut changed = false;
-        let mut failed: Option<String> = None;
+        let mut failed: Option<crate::errors::Error> = None;
         for (i, part) in parts.iter().enumerate() {
             if part.is_empty() || *part == "." {
                 continue;
@@ -116,9 +114,10 @@ pub fn eval_symlinks(path: &str) -> Result<String, String> {
                     if meta.file_type().is_symlink() {
                         link_count += 1;
                         if link_count > 255 {
-                            return Err("too many links".to_string());
+                            return Err(crate::errors::Error::msg("EvalSymlinks: too many links"));
                         }
-                        let target = std::fs::read_link(&lookup).map_err(|e| e.to_string())?;
+                        let target = std::fs::read_link(&lookup)
+                            .map_err(|e| crate::errors::link_error("readlink", &lookup, "", e))?;
                         let target = String::from_utf8_lossy(target.as_os_str().as_bytes()).into_owned();
                         let rest = parts[i + 1..].join("/");
                         let parent = dir(&lookup);
@@ -134,7 +133,7 @@ pub fn eval_symlinks(path: &str) -> Result<String, String> {
                     }
                 }
                 Err(e) => {
-                    failed = Some(e.to_string());
+                    failed = Some(crate::errors::path_error("lstat", &lookup, e));
                     break;
                 }
             }
@@ -190,6 +189,9 @@ mod tests {
         assert_eq!(dir("/a"), "/");
         assert_eq!(dir("a"), ".");
         assert_eq!(dir("/"), "/");
+        assert_eq!(dir(""), ".");
+        assert_eq!(dir("/a/b/"), "/a/b");
+        assert_eq!(dir("a/b/"), "a/b");
         assert_eq!(base("/a/b/c"), "c");
         assert_eq!(base("/a/b/"), "b");
         assert_eq!(base("/"), "/");

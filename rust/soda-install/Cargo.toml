@@ -10,14 +10,13 @@ path = "src/main.rs"
 [dependencies]
 soda-json = { path = "../soda-json" }
 libc = "=0.2.190"
-sha2 = "0.10"
-der = "0.7"
+sha2 = { version = "0.10", features = ["oid"] }
 elliptic-curve = "0.13"
-spki = "0.7"
-x509-cert = "0.2"
 p224 = "0.13"
 p256 = "0.13"
 p384 = "0.13"
 p521 = "0.13"
 rsa = "0.9"
+ecdsa = { version = "0.16", features = ["verifying"] }
+signature = "2"
 ed25519-dalek = { version = "2", default-features = false, features = ["alloc", "fast", "zeroize"] }

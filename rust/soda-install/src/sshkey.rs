@@ -5,7 +5,7 @@
 use elliptic_curve::sec1::ToEncodedPoint;
 use sha2::{Digest, Sha256};
 
-use crate::fmtx::{go_fields, go_trim_space};
+use crate::fmtx::go_trim_space;
 
 // ---------------------------------------------------------------------------
 // Base64: exact Go `StdEncoding.Decode` (lenient trailing quantum, strict
@@ -280,7 +280,11 @@ impl Key {
 
 fn ecdsa_point(curve: &str, bytes: &[u8]) -> Result<Vec<u8>, ()> {
     // Go `elliptic.Unmarshal` accepts uncompressed points on the curve only;
-    // re-encode canonically like `elliptic.Marshal`.
+    // re-encode canonically like `elliptic.Marshal`. Compressed encodings
+    // are refused even though the curve backend would parse them.
+    if bytes.first() != Some(&0x04) {
+        return Err(());
+    }
     let canonical = match curve {
         "nistp256" => {
             let key = p256::PublicKey::from_sec1_bytes(bytes).map_err(|_| ())?;
@@ -323,7 +327,10 @@ fn parse_dsa(input: &[u8]) -> Result<(Key, &[u8]), ()> {
     let (q_neg, q, rest) = parse_mpint(rest)?;
     let (g_neg, g, rest) = parse_mpint(rest)?;
     let (y_neg, y, rest) = parse_mpint(rest)?;
-    if p_neg || q_neg || bit_len(&p) != 1024 || bit_len(&q) != 160 {
+    // Go checks only bit lengths of P and Q (sign ignored); Y and G must
+    // be positive and below P.
+    let _ = (p_neg, q_neg);
+    if bit_len(&p) != 1024 || bit_len(&q) != 160 {
         return Err(());
     }
     if g_neg || g.is_empty() || cmp_mag(&g, &p) != std::cmp::Ordering::Less {
@@ -464,15 +471,20 @@ fn parse_cert(input: &[u8], algo: &str) -> Result<Key, ()> {
         return Err(());
     }
     parse_public_key(sigkey)?;
-    let (_, sig_rest) = parse_string(signature)?; // format
+    let (format, sig_rest) = parse_string(signature)?; // format
     let (_, sig_rest) = parse_string(sig_rest)?; // blob
-    // SK signature formats consume trailing bytes; others must end exactly.
-    let (format, _) = parse_string(signature)?;
-    let sk = format == b"sk-ecdsa-sha2-nistp256@openssh.com"
-        || format == b"sk-ssh-ed25519@openssh.com"
-        || format == b"sk-ecdsa-sha2-nistp256-cert-v01@openssh.com"
-        || format == b"sk-ssh-ed25519-cert-v01@openssh.com";
-    if !sk && !sig_rest.is_empty() {
+    // Go stashes trailing bytes for SK signature formats and rejects them
+    // for every other format.
+    // The four SK signature formats share one shape: "sk-" + key +
+    // optional "-cert-v01" + "@openssh.com", with two possible keys.
+    let sk_trailing = match format.strip_suffix(b"@openssh.com") {
+        Some(head) => {
+            let head = head.strip_suffix(b"-cert-v01").unwrap_or(head);
+            matches!(head.strip_prefix(b"sk-"), Some(m) if m == b"ecdsa-sha2-nistp256" || m == b"ssh-ed25519")
+        }
+        None => false,
+    };
+    if !sig_rest.is_empty() && !sk_trailing {
         return Err(());
     }
     Ok(Key::Cert { algo: algo.to_string() })
@@ -600,6 +612,36 @@ pub fn parse_authorized_key(line: &str) -> Result<AuthorizedKey, ()> {
     }
 }
 
+/// x/crypto `ParseAuthorizedKey` over raw bytes: blank and comment lines
+/// are skipped and the first parseable line wins. Carriage returns
+/// truncate the line, as in Go. Lossy decoding is outcome-equivalent
+/// here: only ASCII bytes take part in trimming, splitting, option
+/// scanning, and base64, and the comment is discarded by every caller.
+pub fn parse_authorized_key_bytes(mut input: &[u8]) -> Result<AuthorizedKey, ()> {
+    loop {
+        let line;
+        match input.iter().position(|b| *b == b'\n') {
+            Some(i) => {
+                line = &input[..i];
+                input = &input[i + 1..];
+            }
+            None => {
+                line = input;
+                input = &[];
+            }
+        };
+        let line = match line.iter().position(|b| *b == b'\r') {
+            Some(i) => &line[..i],
+            None => line,
+        };
+        match parse_authorized_key(&String::from_utf8_lossy(line)) {
+            Ok(key) => return Ok(key),
+            Err(_) if input.is_empty() => return Err(()),
+            Err(_) => {}
+        }
+    }
+}
+
 /// Installer `PublicKey`: validated, comment-stripped, canonical `type b64`.
 pub fn public_key(value: &str) -> Result<String, &'static str> {
     if value.len() > 16384 || value.contains(['\r', '\n', '\0']) {
@@ -621,15 +663,10 @@ pub fn public_key(value: &str) -> Result<String, &'static str> {
     Ok(format!("{} {}", parsed.key.key_type(), b64_encode(&parsed.key.marshal())))
 }
 
-/// `ssh.FingerprintSHA256` over a canonical key line.
-pub fn fingerprint_sha256(canonical: &str) -> Result<String, ()> {
-    let fields = go_fields(canonical);
-    if fields.len() != 2 {
-        return Err(());
-    }
-    let wire = b64_decode_go(fields[1].as_bytes())?;
-    let digest = Sha256::digest(&wire);
-    Ok(format!("SHA256:{}", b64_encode_raw(&digest)))
+/// `ssh.FingerprintSHA256` over canonical key wire bytes.
+pub fn fingerprint_sha256_wire(wire: &[u8]) -> String {
+    let digest = Sha256::digest(wire);
+    format!("SHA256:{}", b64_encode_raw(&digest))
 }
 
 #[cfg(test)]
@@ -658,10 +695,14 @@ mod tests {
             assert_eq!(public_key(&format!("  {key}  ")).unwrap(), key);
             assert_eq!(public_key(&format!("{key}\tcomment")).unwrap(), key);
         }
+        let key = parse_authorized_key(ED25519).unwrap().key;
         assert_eq!(
-            fingerprint_sha256(ED25519).unwrap(),
+            fingerprint_sha256_wire(&key.marshal()),
             "SHA256:8zz4BxDGZ75OGjyLd0V7cLMngT+KWeelWxFYt6+fKtc"
         );
+        // Raw tool output with a trailing newline parses like Go.
+        let key = parse_authorized_key_bytes(format!("{ED25519}\n").as_bytes()).unwrap().key;
+        assert_eq!(key.key_type(), "ssh-ed25519");
     }
 
     #[test]
