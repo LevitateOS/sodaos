@@ -45,8 +45,10 @@ pub fn decode(input: &str) -> Option<Vec<u8>> {
                 values[i] = value(*byte)?;
             }
         }
-        let triple =
-            (u32::from(values[0]) << 18) | (u32::from(values[1]) << 12) | (u32::from(values[2]) << 6) | u32::from(values[3]);
+        let triple = (u32::from(values[0]) << 18)
+            | (u32::from(values[1]) << 12)
+            | (u32::from(values[2]) << 6)
+            | u32::from(values[3]);
         out.push((triple >> 16) as u8);
         if padding < 2 {
             out.push((triple >> 8) as u8);
@@ -98,7 +100,7 @@ mod tests {
         assert_eq!(decode("====").is_none(), true);
         assert_eq!(decode("abc").is_none(), true);
         assert_eq!(decode("ab=d").is_none(), true);
-        assert_eq!(decode("a===") .is_none(), true);
+        assert_eq!(decode("a===").is_none(), true);
         // Round trip incl. credential sizes.
         for len in [0, 1, 2, 3, 55, 256] {
             let data: Vec<u8> = (0..len).map(|i| (i * 37 + 11) as u8).collect();
