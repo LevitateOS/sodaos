@@ -1,7 +1,0 @@
-# All crates-io dependencies resolve from the committed vendor/ tree, so
-# Rust builds never need the network. Verify with `cargo build --offline`.
-[source.crates-io]
-replace-with = "vendored-sources"
-
-[source.vendored-sources]
-directory = "vendor"
