@@ -80,20 +80,20 @@ pub fn digest(data: &[u8]) -> [u8; 32] {
         0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
         0x5be0cd19,
     ];
-    let mut chunks = data.chunks_exact(64);
-    for block in &mut chunks {
+    let (blocks, remainder) = data.as_chunks::<64>();
+    for block in blocks {
         let mut fixed = [0u8; 64];
         fixed.copy_from_slice(block);
         compress(&mut state, &fixed);
     }
-    let mut tail = Vec::from(chunks.remainder());
+    let mut tail = Vec::from(remainder);
     let bit_len = (data.len() as u64).wrapping_mul(8);
     tail.push(0x80);
     while tail.len() % 64 != 56 {
         tail.push(0);
     }
     tail.extend_from_slice(&bit_len.to_be_bytes());
-    for block in tail.chunks_exact(64) {
+    for block in tail.as_chunks::<64>().0 {
         let mut fixed = [0u8; 64];
         fixed.copy_from_slice(block);
         compress(&mut state, &fixed);

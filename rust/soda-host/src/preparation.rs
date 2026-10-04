@@ -1086,9 +1086,8 @@ mod tests {
         // Pinned against strictjson + encoding/json from the pinned toolchain.
         let cases = [
             (
-                format!(
-                    "{{\"preparation\":{{\"revision\":\"x\"}},\"setup\":{{\"files\":{{\"a\":\"QUJD\"}},\"bundle\":\"QUJD\"}}}}"
-                ),
+                "{\"preparation\":{\"revision\":\"x\"},\"setup\":{\"files\":{\"a\":\"QUJD\"},\"bundle\":\"QUJD\"}}"
+                    .to_string(),
                 "decode request: json: cannot unmarshal string into Go struct field Preparation.preparation.revision of type int64",
             ),
             (

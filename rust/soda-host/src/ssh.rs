@@ -75,7 +75,7 @@ fn b64_value(c: u8) -> Option<u8> {
 
 pub fn b64_decode(s: &str) -> Result<Vec<u8>, String> {
     let b = s.as_bytes();
-    if b.is_empty() || b.len() % 4 != 0 {
+    if b.is_empty() || !b.len().is_multiple_of(4) {
         return Err("invalid base64".to_string());
     }
     let mut out = Vec::with_capacity(b.len() / 4 * 3);
@@ -470,9 +470,7 @@ enum KeyMaterial {
 
 #[derive(Debug, Clone)]
 struct CertMaterial {
-    cert_type: String,
     nonce: Vec<u8>,
-    inner_algo: &'static str,
     inner: KeyMaterial,
     serial: u64,
     cert_type_num: u32,
@@ -594,7 +592,9 @@ fn parse_key_fields(algo: &str, buf: &[u8]) -> Result<(KeyMaterial, Vec<u8>), ()
     }
 }
 
-fn parse_tuples(mut buf: &[u8]) -> Result<(Vec<(Vec<u8>, Vec<u8>)>, ()), ()> {
+type ParsedTuples = (Vec<(Vec<u8>, Vec<u8>)>, ());
+
+fn parse_tuples(mut buf: &[u8]) -> Result<ParsedTuples, ()> {
     let mut out = Vec::new();
     let mut last: Option<Vec<u8>> = None;
     while !buf.is_empty() {
@@ -621,7 +621,7 @@ fn parse_tuples(mut buf: &[u8]) -> Result<(Vec<(Vec<u8>, Vec<u8>)>, ()), ()> {
 }
 
 fn parse_cert(
-    algo: &str,
+    _algo: &str,
     inner_algo: &'static str,
     buf: &[u8],
 ) -> Result<(KeyMaterial, Vec<u8>), ()> {
@@ -659,9 +659,7 @@ fn parse_cert(
     }
     Ok((
         KeyMaterial::Cert(Box::new(CertMaterial {
-            cert_type: algo.to_string(),
             nonce: nonce.to_vec(),
-            inner_algo,
             inner,
             serial,
             cert_type_num,

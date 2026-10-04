@@ -39,9 +39,7 @@ pub fn path_clean(path: &str) -> String {
         dotdot = 1;
     }
     while r < n {
-        if b[r] == b'/' {
-            r += 1;
-        } else if b[r] == b'.' && (r + 1 == n || b[r + 1] == b'/') {
+        if b[r] == b'/' || (b[r] == b'.' && (r + 1 == n || b[r + 1] == b'/')) {
             r += 1;
         } else if b[r] == b'.' && r + 1 < n && b[r + 1] == b'.' && (r + 2 == n || b[r + 2] == b'/')
         {
@@ -463,15 +461,10 @@ impl<E: Executor> Runtime<E> {
         if state.stopped || state.ready || state.phase == preparation::PREPARE_FAILED {
             return Ok(state);
         }
-        if let Err(err) = self.clone_preparation_source(prep, deadline) {
-            return Err(err);
-        }
+        self.clone_preparation_source(prep, deadline)?;
         let verified = self.verify_launcher_environment(prep, deadline)?;
         let (tools, missing) = self.resolve_preparation_tools(prep, deadline)?;
-        if let Err(err) = self.record_preparation_tools(prep, &tools, &missing, &verified, deadline)
-        {
-            return Err(err);
-        }
+        self.record_preparation_tools(prep, &tools, &missing, &verified, deadline)?;
         if !missing.is_empty() || !verified.refusal.is_empty() {
             return self.inspect_preparation_state(&prep.project, &prep.id, &container, deadline);
         }
@@ -1129,8 +1122,10 @@ mod tests {
     const COMMIT: &str = "0123456789abcdef0123456789abcdef01234567";
     const EFFECTS: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
+    type MockCall = (Vec<u8>, String, Vec<String>);
+
     struct Mock {
-        calls: RefCell<Vec<(Vec<u8>, String, Vec<String>)>>,
+        calls: RefCell<Vec<MockCall>>,
         script: RefCell<VecDeque<Result<Vec<u8>, String>>>,
     }
 
