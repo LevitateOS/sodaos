@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/levitateos/sodaos/internal/identity/muse"
+	"github.com/levitateos/sodaos/internal/identity"
 	"golang.org/x/sys/unix"
 )
 
@@ -28,7 +28,7 @@ func closeTools(sources []tool) {
 }
 
 func loadTools(root, digest, version string) ([]tool, error) {
-	if version != muse.Version {
+	if version != identity.MuseVersion {
 		return nil, errors.New("muse maintenance version differs from pinned release")
 	}
 	var sources []tool

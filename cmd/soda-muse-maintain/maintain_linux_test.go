@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/levitateos/sodaos/internal/identity/muse"
+	"github.com/levitateos/sodaos/internal/identity"
 )
 
 func syntheticTools(t *testing.T) []tool {
@@ -137,7 +137,7 @@ func TestSourceAndNativeDigestAdmission(t *testing.T) {
 			t.Fatal("non-root source admitted")
 		}
 	}
-	if _, err := loadTools(root, hex.EncodeToString(sum[:]), muse.Version+"-other"); err == nil {
+	if _, err := loadTools(root, hex.EncodeToString(sum[:]), identity.MuseVersion+"-other"); err == nil {
 		t.Fatal("unqualified version admitted")
 	}
 }

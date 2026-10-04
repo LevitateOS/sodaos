@@ -20,13 +20,16 @@ var (
 )
 
 const (
-	Codex    = "codex"
-	Muse     = "muse"
-	Ready    = "ready"
-	Reauth   = "reauth"
-	Revoked  = "revoked"
-	Factory  = "factory"
-	Terminal = "terminal"
+	Codex = "codex"
+	Muse  = "muse"
+	// MuseVersion pins the harness release the broker and the maintain
+	// tool enroll against; it moved here when the Go provider was removed.
+	MuseVersion = "1.4.0-R4161.1"
+	Ready       = "ready"
+	Reauth      = "reauth"
+	Revoked     = "revoked"
+	Factory     = "factory"
+	Terminal    = "terminal"
 )
 
 const (
