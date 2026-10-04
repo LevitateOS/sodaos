@@ -26,6 +26,5 @@ pub mod qmp;
 pub mod remote;
 pub mod report;
 pub mod sha256;
-pub mod stream;
 pub mod trust;
 pub mod vm;

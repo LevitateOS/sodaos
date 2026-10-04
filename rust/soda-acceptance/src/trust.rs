@@ -27,7 +27,7 @@ fn b64_value(byte: u8) -> Option<u8> {
 /// Strict standard-alphabet base64 decode, like Go's `StdEncoding`.
 pub fn decode_base64(input: &str) -> Result<Vec<u8>, Error> {
     let bytes = input.as_bytes();
-    if bytes.is_empty() || bytes.len() % 4 != 0 {
+    if bytes.len() % 4 != 0 {
         return Err(Error::msg("invalid base64"));
     }
     let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
@@ -164,26 +164,41 @@ pub struct IgnitionFile {
 }
 
 /// Decode the storage files of an Ignition document, ignoring unknown
-/// fields like the Go owner does.
+/// fields like the Go owner does. Present-but-mistyped shapes fail like
+/// Go's `Unmarshal` type errors; callers map them to their own message.
 pub fn decode_ignition_files(value: &JsonValue) -> Result<Vec<IgnitionFile>, Error> {
     let mut files = Vec::new();
-    if let Some(JsonValue::Array(items)) = value.get("storage").and_then(|s| s.get("files")) {
-        for item in items {
-            let contents = item.get("contents");
-            files.push(IgnitionFile {
-                path: crate::jsonio::opt_string(item, "path")?,
-                source: contents
-                    .and_then(|c| c.get("source"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or_default()
-                    .to_string(),
-                compression: contents
-                    .and_then(|c| c.get("compression"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or_default()
-                    .to_string(),
-            });
-        }
+    let storage = match value.get("storage") {
+        None | Some(JsonValue::Null) => return Ok(files),
+        Some(JsonValue::Object(_)) => value.get("storage"),
+        Some(_) => return Err(Error::msg("invalid storage: object required")),
+    };
+    let items = match storage.and_then(|s| s.get("files")) {
+        None | Some(JsonValue::Null) => return Ok(files),
+        Some(JsonValue::Array(items)) => items,
+        Some(_) => return Err(Error::msg("invalid files: array required")),
+    };
+    for item in items {
+        let JsonValue::Object(_) = item else {
+            return Err(Error::msg("invalid file: object required"));
+        };
+        let contents = match item.get("contents") {
+            None | Some(JsonValue::Null) => None,
+            Some(JsonValue::Object(_)) => item.get("contents"),
+            Some(_) => return Err(Error::msg("invalid contents: object required")),
+        };
+        let field = |name: &str| -> Result<String, Error> {
+            match contents.and_then(|c| c.get(name)) {
+                None | Some(JsonValue::Null) => Ok(String::new()),
+                Some(JsonValue::Str(s)) => Ok(s.clone()),
+                Some(_) => Err(Error::msg(format!("invalid {name}: string required"))),
+            }
+        };
+        files.push(IgnitionFile {
+            path: crate::jsonio::opt_string(item, "path")?,
+            source: field("source")?,
+            compression: field("compression")?,
+        });
     }
     Ok(files)
 }
@@ -199,9 +214,10 @@ fn is_fixture_trust_file(path: &str) -> bool {
     path == "/etc/hostname" || path == "/etc/ssh/ssh_host_ed25519_key"
 }
 
-/// Go's `strings.TrimSpace` set: ASCII whitespace plus U+0085/U+00A0.
+/// Go's `strings.TrimSpace` is Unicode White Space, which is exactly
+/// Rust's `str::trim`.
 fn trim_space(text: &str) -> &str {
-    text.trim_matches(|c| matches!(c, '\t' | '\n' | '\x0B' | '\x0C' | '\r' | ' ' | '\u{85}' | '\u{A0}'))
+    text.trim()
 }
 
 fn run_ssh_keygen(args: &[&str]) -> Result<String, Error> {
@@ -298,7 +314,7 @@ mod tests {
         for raw in [b"f".as_slice(), b"fo", b"foo", b"foob", b"fooba", b"foobar", b"\x00\xff binary \x01"] {
             assert_eq!(decode_base64(&encode_base64(raw)).unwrap(), raw);
         }
-        assert!(decode_base64("").is_err());
+        assert_eq!(decode_base64("").unwrap(), b"");
         for bad in ["a", "abc", "ab=c", "a===", "ab!d", "abcd=", "===="] {
             assert!(decode_base64(bad).is_err(), "{bad}");
         }
