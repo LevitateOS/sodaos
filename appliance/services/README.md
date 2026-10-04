@@ -57,19 +57,22 @@ restore and init authenticate over container-local peer auth
 
 ## Disposable test fixture
 
-`scripts/pg-fixture.sh` starts an ephemeral loopback PostgreSQL on the
-same pinned image and role==database shape with random per-run passwords:
+`soda-pg-fixture` (Rust, `rust/soda-pg-fixture`) starts an ephemeral
+loopback PostgreSQL on the same pinned image and role==database shape
+with random per-run passwords. Build once with
+`cargo build --manifest-path rust/soda-pg-fixture/Cargo.toml`,
+then:
 
 ```sh
-eval "$(scripts/pg-fixture.sh start)"
+eval "$(rust/soda-pg-fixture/target/debug/soda-pg-fixture start)"
 # $SODA_PG_HOST:$SODA_PG_PORT, $SODA_PG_DATABASES, $SODA_PG_DIR/*.passwd (0600)
-scripts/pg-fixture.sh stop "$SODA_PG_CONTAINER"; rm -rf "$SODA_PG_DIR"
+rust/soda-pg-fixture/target/debug/soda-pg-fixture stop "$SODA_PG_CONTAINER"; rm -rf "$SODA_PG_DIR"
 ```
 
 Passwords are exposed as file paths only; stdout carries no secrets.
 `SODA_PG_DATABASES=""` starts a bare cluster to test provisioning itself.
 Exit 3 means engine/image unavailable and tests must skip. Forgejo-side
-tests (N-ST1) invoke the same script via the sodaos checkout.
+tests (N-ST1) invoke the same binary via the sodaos checkout.
 
 The round-trip test is `scripts/pg_backup_test.go`; the unit-text contract
 is `scripts/pg_runtime_test.go`.

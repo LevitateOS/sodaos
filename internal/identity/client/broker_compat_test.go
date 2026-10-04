@@ -53,7 +53,7 @@ func buildBroker(t *testing.T) string {
 		t.Skip("cargo unavailable")
 	}
 	root := repoRoot(t)
-	build := exec.Command("cargo", "build", "--offline", "-p", "soda-identity", "--bin", "soda-identity")
+	build := exec.Command("cargo", "build", "-p", "soda-identity", "--bin", "soda-identity")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build soda-identity: %v\n%s", err, out)

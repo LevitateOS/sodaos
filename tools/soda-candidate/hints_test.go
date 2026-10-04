@@ -11,13 +11,13 @@ func TestFailureHintMatchesKnownSignatures(t *testing.T) {
 		reason string
 		want   string
 	}{
-		{"open /run/go/src/a.go: permission denied", "setup-soda-candidate.sh"},
+		{"open /run/go/src/a.go: permission denied", "soda-candidate-setup"},
 		{"internal/strictjson/decode.go:5:2: could not import bytes (permission denied)", "map its build cache"},
-		{"go failed; retain attempt and inspect build.log: exit status 1", "setup-soda-candidate.sh"},
-		{"GOPROXY list is not the empty string", "setup-soda-candidate.sh"},
-		{"go: module lookup disabled by GOPROXY=off", "setup-soda-candidate.sh"},
+		{"go failed; retain attempt and inspect build.log: exit status 1", "soda-candidate-setup"},
+		{"GOPROXY list is not the empty string", "soda-candidate-setup"},
+		{"go: module lookup disabled by GOPROXY=off", "soda-candidate-setup"},
 		{"worker unit is already present or could not be checked", "wait for it"},
-		{"sd-bus call: Interactive authentication required", "setup-soda-candidate.sh"},
+		{"sd-bus call: Interactive authentication required", "soda-candidate-setup"},
 		{"some brand-new failure mode", ""},
 		{"", ""},
 	} {
@@ -37,7 +37,7 @@ func TestFailedPanelShowsHintLine(t *testing.T) {
 	if err := r.finish(1); err != nil {
 		t.Fatal(err)
 	}
-	if got := b.String(); !strings.Contains(got, "  hint: ") || !strings.Contains(got, "setup-soda-candidate.sh") {
+	if got := b.String(); !strings.Contains(got, "  hint: ") || !strings.Contains(got, "soda-candidate-setup") {
 		t.Fatalf("hint line missing:\n%s", got)
 	}
 }

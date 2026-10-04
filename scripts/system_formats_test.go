@@ -22,7 +22,7 @@ import (
 )
 
 // buildGoPortBinary builds a not-yet-ported Go CLI. Ported binaries use
-// buildPortBinary (Rust) via the fixture's rust/ package routing.
+// buildRustPortBinary (Rust) from the wire-contracts harness instead.
 func buildGoPortBinary(t *testing.T, pkg string) string {
 	t.Helper()
 	root, err := filepath.Abs("..")
@@ -194,6 +194,26 @@ func TestSystemdWiring(t *testing.T) {
 	}
 }
 
+// portedSourcePin resolves a retired Go source pin to its Rust replacement.
+// The fixture keeps the original Go lines; the port must carry the same
+// flag names, defaults, and usage text, so each pinned line contributes its
+// quoted fragments as required substrings of the Rust source.
+func portedSourcePin(file string, lines []string) (string, []string) {
+	if file != "cmd/soda-setup/main.go" {
+		return file, lines
+	}
+	var wants []string
+	for _, line := range lines {
+		for _, fragment := range strings.Split(line, "\"") {
+			if fragment == "" || strings.ContainsAny(fragment, "(),") || strings.HasPrefix(fragment, "flag.") {
+				continue
+			}
+			wants = append(wants, fragment)
+		}
+	}
+	return "rust/soda-setup/src/main.rs", wants
+}
+
 func TestCLISurface(t *testing.T) {
 	var fixture struct {
 		Binaries []struct {
@@ -224,7 +244,16 @@ func TestCLISurface(t *testing.T) {
 			binary, ok := built[b.Package]
 			if !ok {
 				if strings.HasPrefix(b.Package, "rust/") {
-					binary = buildPortBinary(t)
+					binary = buildRustPortBinary(t, strings.TrimPrefix(b.Package, "rust/"))
+				} else if b.Package == "./cmd/soda-setup" {
+					// PR07 ported setup to Rust; the fixture stays frozen.
+					binary = buildRustPortBinary(t, "soda-setup")
+				} else if b.Package == "./cmd/soda-identity-compose" {
+					// PR10 ported identity-compose to Rust; the fixture stays frozen.
+					binary = buildRustPortBinary(t, "soda-identity-compose")
+				} else if b.Package == "./cmd/soda-image-import" {
+					// PR11 ported image-import to Rust; the fixture stays frozen.
+					binary = buildRustPortBinary(t, "soda-image-import")
 				} else {
 					binary = buildGoPortBinary(t, b.Package)
 				}
@@ -255,13 +284,14 @@ func TestCLISurface(t *testing.T) {
 	}
 	for _, pinned := range fixture.SourceFlags {
 		t.Run(pinned.File, func(t *testing.T) {
-			raw, err := os.ReadFile(filepath.Join(root, pinned.File))
+			file, lines := portedSourcePin(pinned.File, pinned.Lines)
+			raw, err := os.ReadFile(filepath.Join(root, file))
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range pinned.Lines {
+			for _, want := range lines {
 				if !strings.Contains(string(raw), want) {
-					t.Fatalf("%s lacks %q", pinned.File, want)
+					t.Fatalf("%s lacks %q", file, want)
 				}
 			}
 		})

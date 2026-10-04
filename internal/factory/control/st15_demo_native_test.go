@@ -255,7 +255,7 @@ func st15RepoRoot(t *testing.T) string {
 	}
 }
 
-// st15BuildBroker compiles the Rust identity broker offline; ST15 never
+// st15BuildBroker compiles the Rust identity broker; ST15 never
 // enrolls, so the pinned provider below is construction-only (the
 // connection is seeded directly from the configured credential file).
 func st15BuildBroker(t *testing.T) string {
@@ -264,7 +264,7 @@ func st15BuildBroker(t *testing.T) string {
 		t.Skip("cargo unavailable")
 	}
 	root := st15RepoRoot(t)
-	build := exec.Command("cargo", "build", "--offline", "-p", "soda-identity", "--bin", "soda-identity")
+	build := exec.Command("cargo", "build", "-p", "soda-identity", "--bin", "soda-identity")
 	build.Dir = root
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build soda-identity: %v\n%s", err, out)

@@ -12,7 +12,7 @@ import (
 
 // TestFixtureDSN builds a superuser connection URL from the A10 disposable
 // fixture environment: SODA_PG_HOST, SODA_PG_PORT and
-// SODA_PG_SUPER_PASSWORD_FILE, as printed by scripts/pg-fixture.sh start.
+// SODA_PG_SUPER_PASSWORD_FILE, as printed by soda-pg-fixture start.
 // It reports ok=false when the fixture is absent; tests skip instead of
 // guessing a database. The password travels from its restricted file into
 // the returned URL only; it is never logged.
