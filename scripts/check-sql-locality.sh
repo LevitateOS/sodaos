@@ -10,6 +10,12 @@ trap 'rm -f "$hits_file"' EXIT
 while IFS= read -r -d '' file; do
   case "$file" in
     ./internal/store/*) continue ;;
+    # The workload-access acceptance probe issues PostgreSQL DML to ephemeral
+    # test workloads through the psql CLI (ported from
+    # tests/installed/workload-access.py). It never touches product SQLite or
+    # database/sql; this narrow exclusion keeps the product gate intact.
+    ./internal/acceptance/workload_access.go) continue ;;
+    ./internal/acceptance/workload_access_test.go) continue ;;
   esac
   if grep -nE '"database/sql"|sql\.Open[[:space:]]*\(|`(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]|"[[:space:]]*(SELECT|INSERT|UPDATE|DELETE|CREATE TABLE|ALTER TABLE|PRAGMA)[[:space:]]' "$file" >"$hits_file" 2>/dev/null; then
     while IFS= read -r hit; do
