@@ -40,9 +40,24 @@ fn stream_url() -> String {
 /// Registry endpoint, overridable for fixtures.
 fn registry_url() -> String {
     match std::env::var("SODA_COREOS_REGISTRY").map(|value| value.trim().to_string()) {
-        Ok(url) if !url.is_empty() => url.trim_end_matches('/').to_string(),
+        // `TrimSuffix` drops one trailing slash, not a run of them.
+        Ok(url) if !url.is_empty() => url.strip_suffix('/').unwrap_or(&url).to_string(),
         _ => DEFAULT_REGISTRY.to_string(),
     }
+}
+
+/// Release metadata URL for one stream endpoint, like the Go owner's
+/// `streamReleaseURL`. The QEMU closure discards the URL, but a stream
+/// endpoint that names no stream still fails resolution.
+fn stream_release_url(stream_url: &str, release: &str) -> Result<String, Error> {
+    let Some((prefix, _)) = stream_url.split_once("/streams/") else {
+        return Err(Error::msg("CoreOS stream URL names no stream"));
+    };
+    let meta = format!("{prefix}/prod/streams/stable/builds/{release}/release.json");
+    if !https_url(&meta) {
+        return Err(Error::msg("CoreOS release metadata URL is malformed"));
+    }
+    Ok(meta)
 }
 
 fn curl_spec(url: &str, body: &str, headers: &str, extra: &[String], max_filesize: u64) -> CommandSpec {
@@ -239,8 +254,12 @@ pub fn resolve_registry_digest(phase: &Phase) -> Result<String, Error> {
     }
     let text = std::str::from_utf8(&body).map_err(|_| Error::msg("container index is malformed"))?;
     let index = JsonValue::parse(text).map_err(|_| Error::msg("container index is malformed"))?;
-    let Some(JsonValue::Array(manifests)) = index.get("manifests") else {
-        return Err(Error::msg("container index is malformed"));
+    // Missing/null `manifests` decodes to no entries, like Go: the
+    // lookup below then reports the lacking architecture.
+    let manifests = match index.get("manifests") {
+        None | Some(JsonValue::Null) => &[],
+        Some(JsonValue::Array(manifests)) => manifests.as_slice(),
+        Some(_) => return Err(Error::msg("container index is malformed")),
     };
     let oci_arch = oci_architecture("x86_64").map_err(|err| Error::msg(err.to_string()))?;
     let mut found = String::new();
@@ -288,6 +307,7 @@ pub fn resolve_qemu(phase: &Phase, arch: &str) -> Result<(String, CoreOSImage), 
     }
     let (release, _, qemu) = resolve_stream_build(&body)?;
     let _ = resolve_registry_digest(phase)?;
+    let _ = stream_release_url(&url, &release)?;
     Ok((release, qemu))
 }
 

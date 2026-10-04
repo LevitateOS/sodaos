@@ -176,7 +176,8 @@ fn validate_vm_paths(config: &VmConfig, evidence: &Evidence) -> Result<(), Error
             return Err(Error::msg("absolute paths without QEMU separators required"));
         }
     }
-    if format!("{}/qmp.sock", config.work).len() > 100 {
+    // `filepath.Join` cleans, so `/w/` and `/w` measure the same.
+    if files::lexical_clean(&format!("{}/qmp.sock", config.work)).len() > 100 {
         return Err(Error::msg("select a shorter private work directory for QMP"));
     }
     disjoint_vm_work(&config.work, evidence)?;
@@ -484,7 +485,9 @@ impl<'a> Vm<'a> {
         let process = self.process.as_ref().unwrap();
         loop {
             let mut status = JsonValue::Null;
-            if self.qmp.execute("query-status", "status", None, Some(&mut status), deadline).is_ok() && status.is_object() {
+            // Any successful response is readiness, like the Go owner;
+            // the payload content is not consulted.
+            if self.qmp.execute("query-status", "status", None, Some(&mut status), deadline).is_ok() {
                 return Ok(());
             }
             if process.is_done() {
