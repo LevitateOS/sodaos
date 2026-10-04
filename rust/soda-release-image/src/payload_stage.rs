@@ -1,0 +1,335 @@
+//! `build_payload.go`: application image staging + payload sealing.
+
+use std::collections::HashMap;
+use std::fs;
+
+use crate::complete;
+use crate::error::Error;
+use crate::extension;
+use crate::foreign::Production;
+use crate::jsonio;
+use crate::model;
+use crate::sys;
+
+pub fn link_candidate_commands(source: &str, context: &str, native: &str) -> Result<(), Error> {
+    fs::create_dir_all(sys::join(&[native, "bin"]))?;
+    let commands = sys::soda_commands(source)?;
+    // Reuse the already compiled vendor binaries; never compile again for assets.
+    for name in commands {
+        fs::hard_link(
+            sys::join(&[context, "rootfs/usr/libexec/soda", &name]),
+            sys::join(&[native, "bin", &name]),
+        )
+        .map_err(|e| Error::msg(e.to_string()))?;
+    }
+    Ok(())
+}
+
+pub fn stage_candidate_forgejo(
+    payload: &mut model::Payload,
+    source: &str,
+    context: &str,
+    out: &str,
+    production: &dyn Production,
+) -> Result<String, Error> {
+    let forgejo_context = sys::join(&[out, "forgejo-context"]);
+    sys::create_dir(&forgejo_context, 0o700)?;
+    production.stage_fork_binary(&forgejo_context)?;
+    production.assets(context, &forgejo_context)?;
+    production.next("Verify immutable Forgejo presentation")?;
+    payload.presentation_sha256 = complete::stage_presentation(&forgejo_context, context)?;
+    let recipe = fs::read(sys::join(&[source, "appliance/forgejo.Containerfile"]))?;
+    sys::write_new(
+        &sys::join(&[forgejo_context.as_str(), "Containerfile"]),
+        &recipe,
+        0o644,
+    )?;
+    stage_extension_package(source, context, out, production.native())?;
+    crate::build::link_prepared_assets(production)?;
+    Ok(forgejo_context)
+}
+
+pub fn stage_extension_package(
+    source: &str,
+    context: &str,
+    out: &str,
+    native: &str,
+) -> Result<(), Error> {
+    let root = sys::join(&[out, "extension-context"]);
+    let package_dir = sys::join(&[&root, "extension"]);
+    fs::create_dir_all(&package_dir)?;
+    let mut pairs = [("extension.json", 0o644), ("run", 0o755)];
+    pairs.sort();
+    for (name, mode) in pairs {
+        let data = fs::read(sys::join(&[source, "appliance/soda-extension", name]))?;
+        sys::write_new(&sys::join(&[&package_dir, name]), &data, mode)?;
+    }
+    fs::hard_link(
+        sys::join(&[context, "rootfs/usr/libexec/soda/soda-extension"]),
+        sys::join(&[&package_dir, "backend"]),
+    )
+    .map_err(|e| Error::msg(e.to_string()))?;
+    extension::stage_extension_assets(native, &package_dir)?;
+    let recipe = fs::read(sys::join(&[
+        source,
+        "appliance/soda-extension.Containerfile",
+    ]))?;
+    sys::write_new(&sys::join(&[&root, "Containerfile"]), &recipe, 0o644)
+}
+
+pub fn record_candidate_images(
+    payload: &mut model::Payload,
+    prefix: &str,
+    images: &HashMap<String, model::ProducedImage>,
+) {
+    let mut names: Vec<&String> = images.keys().collect();
+    names.sort();
+    for name in names {
+        let image = &images[name];
+        match payload.images.iter_mut().find(|(n, _)| n == name) {
+            Some((_, slot)) => {
+                *slot = model::PayloadImage {
+                    reference: format!("{prefix}-{name}@{}", image.manifest),
+                    manifest: image.manifest.clone(),
+                    config: image.config.clone(),
+                    archive_sha256: image.archive_sha256.clone(),
+                };
+            }
+            None => payload.images.push((
+                (*name).clone(),
+                model::PayloadImage {
+                    reference: format!("{prefix}-{name}@{}", image.manifest),
+                    manifest: image.manifest.clone(),
+                    config: image.config.clone(),
+                    archive_sha256: image.archive_sha256.clone(),
+                },
+            )),
+        }
+    }
+}
+
+pub fn inspect_candidate_forgejo(
+    source: &str,
+    out: &str,
+    images: &HashMap<String, model::ProducedImage>,
+    production: &dyn Production,
+) -> Result<(), Error> {
+    production.next("Inspect immutable Forgejo presentation")?;
+    let empty = model::ProducedImage::default();
+    let config = images.get("forgejo").unwrap_or(&empty).config.clone();
+    // Read-only upstream binary, not its database/bootstrap entrypoint.
+    let script = "test \"$GITEA_CUSTOM\" = /usr/share/soda/forgejo\ntest \"$FORGEJO_CUSTOM\" = \"$GITEA_CUSTOM\"\ntest \"$(readlink \"$GITEA_CUSTOM/conf\")\" = /data/gitea/conf\ntest \"$(stat -c '%u:%g:%a' \"$GITEA_CUSTOM/templates/custom/header.tmpl\")\" = 0:0:444\n/usr/local/bin/gitea --version\n/usr/local/bin/gitea extensions --help >/dev/null";
+    let result = production
+        .capture(
+            source,
+            "podman",
+            &[
+                "--remote=false".to_string(),
+                "run".to_string(),
+                "--cidfile".to_string(),
+                sys::join(&[out, "forgejo-inspect.cid"]),
+                "--network=none".to_string(),
+                "--read-only".to_string(),
+                "--entrypoint=/bin/sh".to_string(),
+                config,
+                "-ec".to_string(),
+                script.to_string(),
+            ],
+        )
+        .map_err(|e| Error::msg(format!("forgejo payload image inspection failed: {}", e.0)))?;
+    inspect_candidate_files(out, images, production)?;
+    sys::write_new(
+        &sys::join(&[out, "forgejo-inspection.txt"]),
+        format!("{result}\n").as_bytes(),
+        0o600,
+    )
+}
+
+pub fn inspect_candidate_files(
+    out: &str,
+    images: &HashMap<String, model::ProducedImage>,
+    production: &dyn Production,
+) -> Result<(), Error> {
+    let empty = model::ProducedImage::default();
+    inspect_packaged_file(
+        out,
+        &images.get("forgejo").unwrap_or(&empty).config.clone(),
+        "forgejo-context/forgejo-bin",
+        "/usr/local/bin/gitea",
+        production,
+    )?;
+    inspect_packaged_file(
+        out,
+        &images.get("extension").unwrap_or(&empty).config.clone(),
+        "forgejo-context/forgejo-bin",
+        "/usr/local/bin/gitea",
+        production,
+    )?;
+    let mut pairs = [
+        (
+            "extension-context/extension/extension.json",
+            "/usr/share/soda/extension/extension.json",
+        ),
+        (
+            "extension-context/extension/backend",
+            "/usr/share/soda/extension/backend",
+        ),
+        (
+            "extension-context/extension/run",
+            "/usr/share/soda/extension/run",
+        ),
+    ];
+    pairs.sort();
+    for (staged, installed) in pairs {
+        inspect_packaged_file(
+            out,
+            &images.get("extension").unwrap_or(&empty).config.clone(),
+            staged,
+            installed,
+            production,
+        )?;
+    }
+    inspect_extension_assets(
+        out,
+        &images.get("extension").unwrap_or(&empty).config.clone(),
+        production,
+    )
+}
+
+pub fn inspect_extension_assets(
+    out: &str,
+    image_id: &str,
+    production: &dyn Production,
+) -> Result<(), Error> {
+    let assets = sys::join(&[out, "extension-context/extension/assets"]);
+    sys::walk(&assets, |path, is_dir, _| {
+        if is_dir {
+            return Ok(());
+        }
+        let rel = sys::rel_path(&assets, path)?;
+        inspect_packaged_file(
+            out,
+            image_id,
+            &format!("extension-context/extension/assets/{rel}"),
+            &format!("/usr/share/soda/extension/assets/{}", sys::to_slash(&rel)),
+            production,
+        )
+    })
+}
+
+pub fn inspect_packaged_file(
+    out: &str,
+    image_id: &str,
+    staged: &str,
+    installed: &str,
+    production: &dyn Production,
+) -> Result<(), Error> {
+    let want = sys::hash_file(&sys::join(&[out, staged]))?;
+    let observed = production.capture(
+        out,
+        "podman",
+        &[
+            "--remote=false".to_string(),
+            "run".to_string(),
+            "--rm".to_string(),
+            "--network=none".to_string(),
+            "--read-only".to_string(),
+            "--cap-drop=all".to_string(),
+            "--security-opt=no-new-privileges".to_string(),
+            "--entrypoint=/usr/bin/sha256sum".to_string(),
+            image_id.to_string(),
+            installed.to_string(),
+        ],
+    );
+    match observed {
+        Ok(observed) if observed == format!("{want}  {installed}") => Ok(()),
+        _ => Err(Error::msg(format!(
+            "packaged content differs from staged source: {installed}"
+        ))),
+    }
+}
+
+pub fn seal_candidate_payload(
+    payload: &model::Payload,
+    source: &str,
+    context: &str,
+    out: &str,
+    production: &dyn Production,
+) -> Result<(), Error> {
+    production.next("Assemble host payload and ordinary Podman image references")?;
+    payload.validate()?;
+    complete::complete(
+        source,
+        context,
+        &sys::join(&[out, "images"]),
+        payload,
+        Some(production),
+    )?;
+    let mut record = jsonio::to_indent(&payload.to_json());
+    record.push('\n');
+    sys::write_new(&sys::join(&[out, "payload.json"]), record.as_bytes(), 0o600)
+}
+
+/// completeCandidate is image-layout assembly, not a second component
+/// producer. The payload seals later: the host inventory floats, so its
+/// fingerprint is recorded from the built image and set before sealing.
+pub fn complete_candidate(
+    source: &str,
+    context: &str,
+    out: &str,
+    arch: &str,
+    revision: &str,
+    prefix: &str,
+    base: &crate::prepare::Base,
+    production: &dyn Production,
+    phase: &mut dyn FnMut(&str) -> Result<(), Error>,
+) -> Result<model::Payload, Error> {
+    let mut payload = model::Payload {
+        format: 3,
+        id: format!(
+            "{}.soda-{}",
+            base.release,
+            revision.get(..12).unwrap_or(revision)
+        ),
+        revision: revision.to_string(),
+        architecture: arch.to_string(),
+        core_os: base.release.clone(),
+        base: base.image(arch),
+        repository_prefix: prefix.to_string(),
+        schema: model::SCHEMA_VERSION,
+        images: Vec::new(),
+        upgrade_from: Vec::new(),
+        ..model::Payload::default()
+    };
+    link_candidate_commands(source, context, production.native())?;
+    let forgejo_context = stage_candidate_forgejo(&mut payload, source, context, out, production)?;
+    phase("P4 / Build application images")?;
+    let images = production.images(&forgejo_context)?;
+    record_candidate_images(&mut payload, prefix, &images);
+    inspect_candidate_forgejo(source, out, &images, production)?;
+    Ok(payload)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn oracle_record_candidate_images_binds_references() {
+        // Oracle: Go recordCandidateImages reference shape.
+        let mut payload = model::Payload::default();
+        let mut images = HashMap::new();
+        images.insert(
+            "forgejo".to_string(),
+            model::ProducedImage {
+                manifest: "sha256:manifest".to_string(),
+                config: "sha256:config".to_string(),
+                archive_sha256: "archive".to_string(),
+            },
+        );
+        record_candidate_images(&mut payload, "ghcr.io/e/sodaos", &images);
+        let image = payload.image("forgejo");
+        assert_eq!(image.reference, "ghcr.io/e/sodaos-forgejo@sha256:manifest");
+        assert_eq!(image.config, "sha256:config");
+    }
+}

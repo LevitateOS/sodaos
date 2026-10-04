@@ -1367,6 +1367,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-release-image"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "flate2",
+ "sha2 0.10.9",
+ "soda-build-tools",
+ "soda-json",
+]
+
+[[package]]
+name = "soda-release-tools"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "sha2 0.10.9",
+ "soda-json",
+]
+
+[[package]]
 name = "soda-rotate-lab-creds"
 version = "0.1.0"
 
