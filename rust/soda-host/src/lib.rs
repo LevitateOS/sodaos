@@ -6,6 +6,10 @@
 
 pub mod account;
 pub mod domain;
+pub mod gmux_admission;
+pub mod gmux_backend;
+pub mod gmux_routes;
+pub mod gmux_server;
 pub mod json;
 pub mod muse;
 pub mod net;
