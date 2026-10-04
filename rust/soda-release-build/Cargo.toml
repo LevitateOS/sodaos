@@ -1,0 +1,20 @@
+[package]
+name = "soda-release-build"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Rust port of internal/release/build (OCI/CoreOS/production build pipeline)"
+
+[lib]
+name = "soda_release_build"
+path = "src/lib.rs"
+
+[dependencies]
+soda-json = { path = "../soda-json" }
+soda-build-tools = { path = "../soda-build-tools" }
+libc = "0.2"
+sha2 = "0.10"
+flate2 = "1"
+tar = "0.4"
+ureq = { version = "2", default-features = false, features = ["tls"] }

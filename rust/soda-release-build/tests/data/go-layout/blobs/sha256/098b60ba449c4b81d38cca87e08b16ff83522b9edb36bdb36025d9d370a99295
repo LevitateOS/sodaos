@@ -1,0 +1,1 @@
+{"config":{"digest":"sha256:9265b4ccf05645aeded07db50e8b29fd99e83b6b4994a4ae9e952aca54c3f691","mediaType":"application/vnd.oci.image.config.v1+json","size":492},"layers":[{"digest":"sha256:973a9bd7fe238b1604434f944e1ad4bff0629795321210dc11fcecf853ad3dce","mediaType":"application/vnd.oci.image.layer.v1.tar","size":2048}],"schemaVersion":2}
