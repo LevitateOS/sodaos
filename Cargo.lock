@@ -767,6 +767,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9395f0f0eee849a9b707b2f06bb92a6a422090e2123bb2ef8e87a0e61892a8e"
 
 [[package]]
+name = "soda-acceptance"
+version = "0.1.0"
+dependencies = [
+ "flate2",
+ "libc",
+ "soda-build-tools",
+ "soda-json",
+]
+
+[[package]]
 name = "soda-activate"
 version = "0.1.0"
 dependencies = [
