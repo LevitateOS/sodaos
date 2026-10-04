@@ -415,6 +415,20 @@ func compileSodaCommands(p build.Production, snapshot, contextDir string) error 
 	return nil
 }
 
+// compileRustCommands installs ported runtime programs at their pinned
+// appliance paths. Each lane owns its entries; the identity broker
+// (lane B, PR28) is the first Rust command in the image.
+func compileRustCommands(p build.Production, contextDir string) error {
+	for _, command := range []struct{ name, pkg string }{
+		{"soda-identity", "soda-identity"},
+	} {
+		if err := p.CompileRust(command.name, command.pkg, filepath.Join(contextDir, "rootfs/usr/libexec/soda", command.name)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func recordToolFiles(tools, revision, arch, artifacts string) error {
 	toolFiles := map[string]build.File{}
 	entries, err := os.ReadDir(tools)
@@ -440,6 +454,9 @@ func recordToolFiles(tools, revision, arch, artifacts string) error {
 
 func compileShippingTools(p build.Production, snapshot, contextDir, artifacts, revision, arch string) error {
 	if err := compileSodaCommands(p, snapshot, contextDir); err != nil {
+		return err
+	}
+	if err := compileRustCommands(p, contextDir); err != nil {
 		return err
 	}
 	tools := filepath.Join(artifacts, "tools")

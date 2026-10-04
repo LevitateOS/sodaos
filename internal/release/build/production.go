@@ -90,6 +90,32 @@ func (p Production) Compile(name, pkg, dest string) error {
 	return inspectELF(dest, p.Arch)
 }
 
+// CompileRust is the Rust command recipe for ported runtime programs. The
+// workspace builds offline from the committed vendor tree with the locked
+// dependency graph; the single image layout owns every install path.
+func (p Production) CompileRust(name, pkg, dest string) error {
+	if e := p.validate(); e != nil {
+		return e
+	}
+	if e := p.step("Compile " + name); e != nil {
+		return e
+	}
+	if e := p.Execute(p.Source, "cargo", "build", "--offline", "--locked", "--release", "-p", pkg); e != nil {
+		return e
+	}
+	built, e := os.ReadFile(filepath.Join(p.Source, "target", "release", name))
+	if e != nil {
+		return e
+	}
+	if e := os.WriteFile(dest, built, 0o755); e != nil {
+		return e
+	}
+	if e := os.Chmod(dest, 0o755); e != nil {
+		return e
+	}
+	return inspectELF(dest, p.Arch)
+}
+
 // Assets runs exactly once before image production.
 func (p Production) Assets(hostContext, forgejoContext string) error {
 	if e := p.validate(); e != nil {

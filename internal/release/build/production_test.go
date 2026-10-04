@@ -284,6 +284,47 @@ func TestProductionCompileKeepsLayoutAndVerifiesELF(t *testing.T) {
 	}
 }
 
+func TestProductionCompileRustKeepsLayoutAndVerifiesELF(t *testing.T) {
+	p, calls := productionFixture(t)
+	dest := filepath.Join(p.Out, "soda-identity")
+	writeProgram := func(body []byte) {
+		release := filepath.Join(p.Source, "target", "release")
+		if err := os.MkdirAll(release, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(release, "soda-identity"), body, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	p.Execute = func(dir, name string, args ...string) error {
+		*calls = append(*calls, name+" "+strings.Join(args, " "))
+		if name != "cargo" || strings.Join(args, " ") != "build --offline --locked --release -p soda-identity" {
+			t.Fatalf("unexpected execution: %s %v", name, args)
+		}
+		header := make([]byte, 64)
+		copy(header, []byte{0x7f, 'E', 'L', 'F', 2, 1, 1})
+		binary.LittleEndian.PutUint16(header[16:], 2)
+		binary.LittleEndian.PutUint16(header[18:], 62)
+		binary.LittleEndian.PutUint32(header[20:], 1)
+		binary.LittleEndian.PutUint16(header[52:], 64)
+		writeProgram(header)
+		return nil
+	}
+	if e := p.CompileRust("soda-identity", "soda-identity", dest); e != nil {
+		t.Fatal(e)
+	}
+	if strings.Count(strings.Join(*calls, "\n"), "cargo build") != 1 {
+		t.Fatal("duplicate compilation")
+	}
+	p.Execute = func(string, string, ...string) error {
+		writeProgram([]byte("not ELF"))
+		return nil
+	}
+	if e := p.CompileRust("soda-identity", "soda-identity", dest); e == nil {
+		t.Fatal("invalid program accepted")
+	}
+}
+
 func TestSodaCommandsRefusesSupportToolsInRuntime(t *testing.T) {
 	root := t.TempDir()
 	for _, name := range []string{"soda-host", "soda-dashboard"} {
