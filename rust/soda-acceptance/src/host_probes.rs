@@ -73,7 +73,11 @@ pub fn dumps(value: &JsonValue) -> String {
                 }
                 c => {
                     let code = c as u32 - 0x10000;
-                    out.push_str(&format!("\\u{:04x}\\u{:04x}", 0xd800 + (code >> 10), 0xdc00 + (code & 0x3ff)));
+                    out.push_str(&format!(
+                        "\\u{:04x}\\u{:04x}",
+                        0xd800 + (code >> 10),
+                        0xdc00 + (code & 0x3ff)
+                    ));
                 }
             }
         }
@@ -131,7 +135,10 @@ fn parse_json(text: &str, op: &'static str) -> Result<JsonValue, ProbeFailure> {
 }
 
 fn get_str<'a>(value: &'a JsonValue, key: &str, op: &'static str) -> Result<&'a str, ProbeFailure> {
-    value.get(key).and_then(|v| v.as_str()).ok_or_else(|| ProbeFailure::failed(op))
+    value
+        .get(key)
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| ProbeFailure::failed(op))
 }
 
 /// Run a probe subprocess to completion, returning stdout. Failures
@@ -155,7 +162,9 @@ fn sha256_file(path: &std::path::Path, op: &'static str) -> Result<String, Probe
     let mut digest = Sha256::new();
     let mut chunk = vec![0u8; 1024 * 1024];
     loop {
-        let n = file.read(&mut chunk).map_err(|_| ProbeFailure::failed(op))?;
+        let n = file
+            .read(&mut chunk)
+            .map_err(|_| ProbeFailure::failed(op))?;
         if n == 0 {
             break;
         }
@@ -173,9 +182,15 @@ fn podman(args: &[&str], op: &'static str) -> Result<String, ProbeFailure> {
 /// Installed content inventory, images, and (when activated) the
 /// extension package: the first `host.sh` Python block.
 pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
-    let payload = parse_json(&read_text("/usr/share/soda/release.json", "read release.json")?, "parse release.json")?;
+    let payload = parse_json(
+        &read_text("/usr/share/soda/release.json", "read release.json")?,
+        "parse release.json",
+    )?;
     let content = parse_json(
-        &read_text("/usr/share/soda/host-image/content.json", "read content inventory")?,
+        &read_text(
+            "/usr/share/soda/host-image/content.json",
+            "read content inventory",
+        )?,
         "parse content inventory",
     )?;
     let fixed = BTreeSet::from([
@@ -194,7 +209,11 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
         return Err(ProbeFailure::failed("parse content inventory"));
     };
     let names: BTreeSet<&str> = entries.iter().map(|(k, _)| k.as_str()).collect();
-    let assets: BTreeSet<&str> = names.iter().copied().filter(|name| name.starts_with(asset_prefix)).collect();
+    let assets: BTreeSet<&str> = names
+        .iter()
+        .copied()
+        .filter(|name| name.starts_with(asset_prefix))
+        .collect();
     let mut want = fixed.clone();
     want.extend(assets.iter().copied());
     if assets.is_empty() || names != want {
@@ -202,39 +221,73 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
     }
     for name in &assets {
         let relative = name.strip_prefix(asset_prefix).unwrap_or("");
-        if relative.is_empty() || relative.split('/').any(|part| part == "..") || relative.starts_with('/') {
-            return Err(ProbeFailure::exit("unsafe installed extension asset inventory"));
+        if relative.is_empty()
+            || relative.split('/').any(|part| part == "..")
+            || relative.starts_with('/')
+        {
+            return Err(ProbeFailure::exit(
+                "unsafe installed extension asset inventory",
+            ));
         }
     }
     if get_str(&payload, "Architecture", "parse release.json")? != std::env::consts::ARCH {
-        return Err(ProbeFailure::exit("installed release architecture differs from native host"));
+        return Err(ProbeFailure::exit(
+            "installed release architecture differs from native host",
+        ));
     }
-    let packages = read_file("/usr/share/soda/host-image/packages.txt", "read package inventory")?;
-    if sha256::hex_lower(&sha256::digest(&packages)) != get_str(&payload, "HostPackagesSHA256", "parse release.json")? {
-        return Err(ProbeFailure::exit("installed RPM inventory differs from release metadata"));
+    let packages = read_file(
+        "/usr/share/soda/host-image/packages.txt",
+        "read package inventory",
+    )?;
+    if sha256::hex_lower(&sha256::digest(&packages))
+        != get_str(&payload, "HostPackagesSHA256", "parse release.json")?
+    {
+        return Err(ProbeFailure::exit(
+            "installed RPM inventory differs from release metadata",
+        ));
     }
-    let images = payload.get("Images").ok_or_else(|| ProbeFailure::failed("parse release.json"))?;
+    let images = payload
+        .get("Images")
+        .ok_or_else(|| ProbeFailure::failed("parse release.json"))?;
     let config = |name: &str| -> Result<&str, ProbeFailure> {
-        images.get(name).and_then(|image| image.get("Config")).and_then(|v| v.as_str()).ok_or_else(|| ProbeFailure::failed("parse release.json"))
+        images
+            .get(name)
+            .and_then(|image| image.get("Config"))
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProbeFailure::failed("parse release.json"))
     };
     if config("forgejo")? == config("extension")? {
         return Err(ProbeFailure::exit("independent extension image required"));
     }
     let content_digest = |name: &str| -> Result<&str, ProbeFailure> {
-        content.get(name).and_then(|v| v.as_str()).ok_or_else(|| ProbeFailure::failed("parse content inventory"))
+        content
+            .get(name)
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| ProbeFailure::failed("parse content inventory"))
     };
-    if content_digest("forgejo:/usr/local/bin/gitea")? != content_digest("extension:/usr/local/bin/gitea")? {
-        return Err(ProbeFailure::exit("extension installer CLI differs from patched Forgejo"));
+    if content_digest("forgejo:/usr/local/bin/gitea")?
+        != content_digest("extension:/usr/local/bin/gitea")?
+    {
+        return Err(ProbeFailure::exit(
+            "extension installer CLI differs from patched Forgejo",
+        ));
     }
     for name in ["dashboard", "forgejo", "extension"] {
         let image = config(name)?;
-        let observed = podman(&["image", "inspect", "--format", "{{.Id}}", image], "inspect installed image")?;
+        let observed = podman(
+            &["image", "inspect", "--format", "{{.Id}}", image],
+            "inspect installed image",
+        )?;
         if observed.trim() != image {
-            return Err(ProbeFailure::exit(format!("{name} image identity differs from installed release")));
+            return Err(ProbeFailure::exit(format!(
+                "{name} image identity differs from installed release"
+            )));
         }
     }
     for (name, expected) in entries {
-        let expected = expected.as_str().ok_or_else(|| ProbeFailure::failed("parse content inventory"))?;
+        let expected = expected
+            .as_str()
+            .ok_or_else(|| ProbeFailure::failed("parse content inventory"))?;
         let Some((component, path)) = name.split_once(':') else {
             return Err(ProbeFailure::failed("parse content inventory"));
         };
@@ -263,7 +316,9 @@ pub fn host_content(phase: &str) -> Result<String, ProbeFailure> {
             }
         };
         if actual != expected {
-            return Err(ProbeFailure::exit(format!("installed content differs from release inventory: {name}")));
+            return Err(ProbeFailure::exit(format!(
+                "installed content differs from release inventory: {name}"
+            )));
         }
     }
     let checked = if phase == "activated" {
@@ -284,32 +339,53 @@ fn check_extension_package(content: &JsonValue) -> Result<(), ProbeFailure> {
     let mut ordered: Vec<String> = Vec::new();
     for (name, digest) in entries {
         if let Some(relative) = name.strip_prefix(package_prefix) {
-            expected.insert(relative.to_string(), digest.as_str().ok_or_else(|| ProbeFailure::failed("parse content inventory"))?);
+            expected.insert(
+                relative.to_string(),
+                digest
+                    .as_str()
+                    .ok_or_else(|| ProbeFailure::failed("parse content inventory"))?,
+            );
             ordered.push(relative.to_string());
         }
     }
     let root = std::path::Path::new("/var/lib/soda/forgejo/gitea/extensions/soda");
-    let meta = std::fs::symlink_metadata(root).map_err(|_| ProbeFailure::exit("installed Soda extension package is not a regular directory"))?;
+    let meta = std::fs::symlink_metadata(root).map_err(|_| {
+        ProbeFailure::exit("installed Soda extension package is not a regular directory")
+    })?;
     if !meta.is_dir() || meta.is_symlink() {
-        return Err(ProbeFailure::exit("installed Soda extension package is not a regular directory"));
+        return Err(ProbeFailure::exit(
+            "installed Soda extension package is not a regular directory",
+        ));
     }
     let mut observed = BTreeSet::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
         let mut children: Vec<std::path::PathBuf> = Vec::new();
-        for entry in std::fs::read_dir(&dir).map_err(|_| ProbeFailure::failed("walk extension package"))? {
-            children.push(entry.map_err(|_| ProbeFailure::failed("walk extension package"))?.path());
+        for entry in
+            std::fs::read_dir(&dir).map_err(|_| ProbeFailure::failed("walk extension package"))?
+        {
+            children.push(
+                entry
+                    .map_err(|_| ProbeFailure::failed("walk extension package"))?
+                    .path(),
+            );
         }
         children.sort();
         for path in children {
-            let file_type = std::fs::symlink_metadata(&path).map_err(|_| ProbeFailure::failed("walk extension package"))?.file_type();
+            let file_type = std::fs::symlink_metadata(&path)
+                .map_err(|_| ProbeFailure::failed("walk extension package"))?
+                .file_type();
             if file_type.is_symlink() {
-                return Err(ProbeFailure::exit("installed Soda extension package contains a symlink"));
+                return Err(ProbeFailure::exit(
+                    "installed Soda extension package contains a symlink",
+                ));
             }
             if file_type.is_dir() {
                 stack.push(path);
             } else if file_type.is_file() {
-                let relative = path.strip_prefix(root).map_err(|_| ProbeFailure::failed("walk extension package"))?;
+                let relative = path
+                    .strip_prefix(root)
+                    .map_err(|_| ProbeFailure::failed("walk extension package"))?;
                 let relative = relative.to_string_lossy().replace('\\', "/");
                 if relative != ".disabled" {
                     observed.insert(relative);
@@ -319,12 +395,16 @@ fn check_extension_package(content: &JsonValue) -> Result<(), ProbeFailure> {
     }
     let want: BTreeSet<String> = expected.keys().cloned().collect();
     if observed != want {
-        return Err(ProbeFailure::exit("installed Soda extension package differs from candidate inventory"));
+        return Err(ProbeFailure::exit(
+            "installed Soda extension package differs from candidate inventory",
+        ));
     }
     for relative in &ordered {
         let actual = sha256_file(&root.join(relative), "read extension package")?;
         if actual != expected[relative.as_str()] {
-            return Err(ProbeFailure::exit(format!("installed package replacement differs from candidate inventory: {relative}")));
+            return Err(ProbeFailure::exit(format!(
+                "installed package replacement differs from candidate inventory: {relative}"
+            )));
         }
     }
     Ok(())
@@ -352,7 +432,9 @@ fn parse_listeners(output: &str) -> Result<BTreeSet<Listener>, ProbeFailure> {
         if port.is_empty() || !port.bytes().all(|b| b.is_ascii_digit()) {
             return Err(ProbeFailure::failed("parse listeners"));
         }
-        let port: u16 = port.parse().map_err(|_| ProbeFailure::failed("parse listeners"))?;
+        let port: u16 = port
+            .parse()
+            .map_err(|_| ProbeFailure::failed("parse listeners"))?;
         listeners.insert(Listener {
             address: address.trim_matches(|c| c == '[' || c == ']').to_string(),
             port,
@@ -362,14 +444,18 @@ fn parse_listeners(output: &str) -> Result<BTreeSet<Listener>, ProbeFailure> {
 }
 
 fn bound(listeners: &BTreeSet<Listener>, address: &str, port: u16) -> Result<(), ProbeFailure> {
-    if !listeners.contains(&Listener { address: address.to_string(), port }) {
+    if !listeners.contains(&Listener {
+        address: address.to_string(),
+        port,
+    }) {
         return Err(ProbeFailure::exit("required service binding missing"));
     }
     for listener in listeners {
         if listener.port != port {
             continue;
         }
-        let allowed = listener.address == address || (address == "127.0.0.1" && listener.address == "::1");
+        let allowed =
+            listener.address == address || (address == "127.0.0.1" && listener.address == "::1");
         if !allowed {
             return Err(ProbeFailure::exit("unexpected additional service binding"));
         }
@@ -377,8 +463,16 @@ fn bound(listeners: &BTreeSet<Listener>, address: &str, port: u16) -> Result<(),
     Ok(())
 }
 
-fn published(listeners: &BTreeSet<Listener>, address: &str, host_port: u16, container_port: u16) -> Result<(), ProbeFailure> {
-    let mapping = podman(&["port", "soda-forgejo", &format!("{container_port}/tcp")], "read published ports")?;
+fn published(
+    listeners: &BTreeSet<Listener>,
+    address: &str,
+    host_port: u16,
+    container_port: u16,
+) -> Result<(), ProbeFailure> {
+    let mapping = podman(
+        &["port", "soda-forgejo", &format!("{container_port}/tcp")],
+        "read published ports",
+    )?;
     let expected = if address.contains(':') {
         format!("[{address}]:{host_port}")
     } else {
@@ -390,12 +484,19 @@ fn published(listeners: &BTreeSet<Listener>, address: &str, host_port: u16, cont
     // Rootful bridge publication may use DNAT, not a host listening process.
     for listener in listeners {
         if listener.port == host_port && listener.address != address {
-            return Err(ProbeFailure::exit("unexpected host listener on published port"));
+            return Err(ProbeFailure::exit(
+                "unexpected host listener on published port",
+            ));
         }
     }
-    let ip: IpAddr = address.parse().map_err(|_| ProbeFailure::failed("connect published endpoint"))?;
-    TcpStream::connect_timeout(&std::net::SocketAddr::new(ip, host_port), Duration::from_secs(5))
+    let ip: IpAddr = address
+        .parse()
         .map_err(|_| ProbeFailure::failed("connect published endpoint"))?;
+    TcpStream::connect_timeout(
+        &std::net::SocketAddr::new(ip, host_port),
+        Duration::from_secs(5),
+    )
+    .map_err(|_| ProbeFailure::failed("connect published endpoint"))?;
     Ok(())
 }
 
@@ -435,7 +536,9 @@ fn split_origin(origin: &str) -> Result<(String, u16), ProbeFailure> {
             return Err(err());
         }
         let port = match after.strip_prefix(':') {
-            Some(digits) => digits.parse::<u16>().map_err(|_| ProbeFailure::failed("parse origin"))?,
+            Some(digits) => digits
+                .parse::<u16>()
+                .map_err(|_| ProbeFailure::failed("parse origin"))?,
             None if after.is_empty() => 443,
             None => return Err(err()),
         };
@@ -445,7 +548,12 @@ fn split_origin(origin: &str) -> Result<(String, u16), ProbeFailure> {
         if host.is_empty() || digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
             return Err(err());
         }
-        (host.to_lowercase(), digits.parse::<u16>().map_err(|_| ProbeFailure::failed("parse origin"))?)
+        (
+            host.to_lowercase(),
+            digits
+                .parse::<u16>()
+                .map_err(|_| ProbeFailure::failed("parse origin"))?,
+        )
     } else {
         (host_port.to_lowercase(), 443)
     };
@@ -491,18 +599,30 @@ pub fn host_listeners(phase: &str) -> Result<String, ProbeFailure> {
     bound(&listeners, "127.0.0.1", 9090)?;
     published(&listeners, "127.0.0.1", 3000, 3000)?;
     if phase == "activated" {
-        let cfg = parse_json(&read_text("/etc/soda/dashboard.json", "read dashboard.json")?, "parse dashboard.json")?;
+        let cfg = parse_json(
+            &read_text("/etc/soda/dashboard.json", "read dashboard.json")?,
+            "parse dashboard.json",
+        )?;
         // Retired bootstrap files are not dashboard credentials and need not exist.
         let grant = get_str(&cfg, "grant_key_file", "parse dashboard.json")?;
         let path = std::path::Path::new(grant);
-        let info = std::fs::symlink_metadata(path).map_err(|_| ProbeFailure::exit("configured dashboard credential permissions invalid"))?;
+        let info = std::fs::symlink_metadata(path).map_err(|_| {
+            ProbeFailure::exit("configured dashboard credential permissions invalid")
+        })?;
         use std::os::unix::fs::MetadataExt;
-        if !grant.starts_with('/') || !info.is_file() || info.uid() != 0 || info.gid() != 2000 || info.mode() & 0o7777 != 0o640 {
-            return Err(ProbeFailure::exit("configured dashboard credential permissions invalid"));
+        if !grant.starts_with('/')
+            || !info.is_file()
+            || info.uid() != 0
+            || info.gid() != 2000
+            || info.mode() & 0o7777 != 0o640
+        {
+            return Err(ProbeFailure::exit(
+                "configured dashboard credential permissions invalid",
+            ));
         }
         for name in ["cert.pem", "key.pem"] {
-            let info =
-                std::fs::symlink_metadata(std::path::Path::new("/etc/soda/tls").join(name)).map_err(|_| ProbeFailure::exit("TLS material permissions invalid"))?;
+            let info = std::fs::symlink_metadata(std::path::Path::new("/etc/soda/tls").join(name))
+                .map_err(|_| ProbeFailure::exit("TLS material permissions invalid"))?;
             if !info.is_file() || info.uid() != 0 || info.mode() & 0o7777 != 0o600 {
                 return Err(ProbeFailure::exit("TLS material permissions invalid"));
             }
@@ -510,17 +630,27 @@ pub fn host_listeners(phase: &str) -> Result<String, ProbeFailure> {
         // These are the variables actually consumed by the packaged Caddy config,
         // not ports reconstructed from a client's unrelated browser tunnel.
         let env = parse_env_file(&read_text("/etc/soda/proxy.env", "read proxy.env")?)?;
-        let bind_raw = env.get("SODA_BIND").ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;
-        let bind: IpAddr = bind_raw.parse().map_err(|_| ProbeFailure::exit("private explicit proxy bind required"))?;
+        let bind_raw = env
+            .get("SODA_BIND")
+            .ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;
+        let bind: IpAddr = bind_raw
+            .parse()
+            .map_err(|_| ProbeFailure::exit("private explicit proxy bind required"))?;
         if !is_private_bind(bind) || bind.is_unspecified() {
             return Err(ProbeFailure::exit("private explicit proxy bind required"));
         }
         let address = bind.to_string();
         if cfg.get("public_url").is_some() || env.contains_key("SODA_ORIGIN") {
-            return Err(ProbeFailure::exit("legacy separate-origin configuration requires rehearsed maintenance"));
+            return Err(ProbeFailure::exit(
+                "legacy separate-origin configuration requires rehearsed maintenance",
+            ));
         }
-        let forgejo_origin = env.get("FORGEJO_ORIGIN").ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;
-        if forgejo_origin.trim_end_matches('/') != get_str(&cfg, "forgejo_url", "parse dashboard.json")?.trim_end_matches('/') {
+        let forgejo_origin = env
+            .get("FORGEJO_ORIGIN")
+            .ok_or_else(|| ProbeFailure::failed("parse proxy.env"))?;
+        if forgejo_origin.trim_end_matches('/')
+            != get_str(&cfg, "forgejo_url", "parse dashboard.json")?.trim_end_matches('/')
+        {
             return Err(ProbeFailure::exit("proxy and API browser origin mismatch"));
         }
         let (host, port) = split_origin(forgejo_origin)?;
@@ -529,8 +659,15 @@ pub fn host_listeners(phase: &str) -> Result<String, ProbeFailure> {
         let Some((host, port)) = listen.rsplit_once(':') else {
             return Err(ProbeFailure::failed("parse dashboard.json"));
         };
-        let port: u16 = port.trim().parse().map_err(|_| ProbeFailure::failed("parse dashboard.json"))?;
-        bound(&listeners, host.trim_matches(|c| c == '[' || c == ']'), port)?;
+        let port: u16 = port
+            .trim()
+            .parse()
+            .map_err(|_| ProbeFailure::failed("parse dashboard.json"))?;
+        bound(
+            &listeners,
+            host.trim_matches(|c| c == '[' || c == ']'),
+            port,
+        )?;
         published(&listeners, &address, 2222, 22)?;
     } else {
         published(&listeners, "127.0.0.1", 2222, 22)?;
@@ -556,7 +693,10 @@ pub fn host_deployments(stdin: &str) -> Result<String, ProbeFailure> {
         };
         let mut summary = Vec::new();
         for key in ["booted", "version", "checksum", "requested-packages"] {
-            summary.push((key.to_string(), deployment.get(key).cloned().unwrap_or(JsonValue::Null)));
+            summary.push((
+                key.to_string(),
+                deployment.get(key).cloned().unwrap_or(JsonValue::Null),
+            ));
         }
         out.push(JsonValue::Object(summary));
     }
@@ -575,7 +715,11 @@ pub fn operator_tailscale(stdin: &str) -> Result<String, ProbeFailure> {
     let expired = match doc.get("Self") {
         None => JsonValue::Null,
         Some(value) if !is_truthy(value) => JsonValue::Null,
-        Some(JsonValue::Object(_)) => doc.get("Self").and_then(|v| v.get("Expired")).cloned().unwrap_or(JsonValue::Null),
+        Some(JsonValue::Object(_)) => doc
+            .get("Self")
+            .and_then(|v| v.get("Expired"))
+            .cloned()
+            .unwrap_or(JsonValue::Null),
         Some(_) => return Err(ProbeFailure::failed("validate tailscale status")),
     };
     Ok(dumps(&JsonValue::Object(vec![
@@ -587,10 +731,21 @@ pub fn operator_tailscale(stdin: &str) -> Result<String, ProbeFailure> {
 /// Core browser origins: the `forgejo-advertisement.sh` `origins()`
 /// helper.
 pub fn forgejo_origins() -> Result<String, ProbeFailure> {
-    let cfg = parse_json(&read_text("/etc/soda/dashboard.json", "read dashboard.json")?, "parse dashboard.json")?;
+    let cfg = parse_json(
+        &read_text("/etc/soda/dashboard.json", "read dashboard.json")?,
+        "parse dashboard.json",
+    )?;
     Ok(dumps(&JsonValue::Object(vec![
-        ("forgejo_internal_url".to_string(), JsonValue::Str(get_str(&cfg, "forgejo_internal_url", "parse dashboard.json")?.to_string())),
-        ("forgejo_url".to_string(), JsonValue::Str(get_str(&cfg, "forgejo_url", "parse dashboard.json")?.to_string())),
+        (
+            "forgejo_internal_url".to_string(),
+            JsonValue::Str(
+                get_str(&cfg, "forgejo_internal_url", "parse dashboard.json")?.to_string(),
+            ),
+        ),
+        (
+            "forgejo_url".to_string(),
+            JsonValue::Str(get_str(&cfg, "forgejo_url", "parse dashboard.json")?.to_string()),
+        ),
     ])) + "\n")
 }
 
@@ -602,13 +757,16 @@ pub fn forgejo_tailnet(stdin: &str) -> Result<String, ProbeFailure> {
     let expired = match doc.get("Self") {
         None => false,
         Some(value) if !is_truthy(value) => false,
-        Some(JsonValue::Object(_)) => {
-            doc.get("Self").and_then(|v| v.get("Expired")).is_some_and(is_truthy)
-        }
+        Some(JsonValue::Object(_)) => doc
+            .get("Self")
+            .and_then(|v| v.get("Expired"))
+            .is_some_and(is_truthy),
         Some(_) => return Err(ProbeFailure::failed("validate tailscale status")),
     };
     if !running || expired {
-        return Err(ProbeFailure::exit("approved running Tailnet required; no enrollment is performed"));
+        return Err(ProbeFailure::exit(
+            "approved running Tailnet required; no enrollment is performed",
+        ));
     }
     Ok(String::new())
 }
@@ -623,10 +781,17 @@ pub fn forgejo_advertisement() -> Result<String, ProbeFailure> {
             values.insert(key.to_string(), value.to_string());
         }
     }
-    let host = values.get("FORGEJO__server__SSH_DOMAIN").ok_or_else(|| ProbeFailure::failed("parse forgejo.env"))?;
-    let port = values.get("FORGEJO__server__SSH_PORT").ok_or_else(|| ProbeFailure::failed("parse forgejo.env"))?;
+    let host = values
+        .get("FORGEJO__server__SSH_DOMAIN")
+        .ok_or_else(|| ProbeFailure::failed("parse forgejo.env"))?;
+    let port = values
+        .get("FORGEJO__server__SSH_PORT")
+        .ok_or_else(|| ProbeFailure::failed("parse forgejo.env"))?;
     let status = parse_json(
-        &run_output(&["/usr/bin/tailscale", "status", "--json"], "read tailscale status")?,
+        &run_output(
+            &["/usr/bin/tailscale", "status", "--json"],
+            "read tailscale status",
+        )?,
         "parse tailscale status",
     )?;
     let on_tailnet = match status.get("TailscaleIPs") {
@@ -634,11 +799,18 @@ pub fn forgejo_advertisement() -> Result<String, ProbeFailure> {
         _ => false,
     };
     if !on_tailnet {
-        return Err(ProbeFailure::exit("advertisement does not match a current Tailnet address"));
+        return Err(ProbeFailure::exit(
+            "advertisement does not match a current Tailnet address",
+        ));
     }
     let listeners = podman(&["port", "soda-forgejo", "22/tcp"], "read published ports")?;
-    if !listeners.lines().any(|line| line == format!("{host}:{port}")) {
-        return Err(ProbeFailure::exit("advertised endpoint is not a real selected private listener"));
+    if !listeners
+        .lines()
+        .any(|line| line == format!("{host}:{port}"))
+    {
+        return Err(ProbeFailure::exit(
+            "advertised endpoint is not a real selected private listener",
+        ));
     }
     Ok(format!(
         "Listener-checked Git SSH advertisement: {host} {port}\nCore browser origins unchanged. Probe the pinned endpoint from the intended client; this is not routed Git authentication proof.\n"
@@ -653,20 +825,41 @@ mod tests {
     fn dumps_keeps_order_and_separators() {
         let value = JsonValue::Object(vec![
             ("b".to_string(), JsonValue::Number("1".to_string())),
-            ("a".to_string(), JsonValue::Array(vec![JsonValue::Bool(true), JsonValue::Null])),
+            (
+                "a".to_string(),
+                JsonValue::Array(vec![JsonValue::Bool(true), JsonValue::Null]),
+            ),
         ]);
         assert_eq!(dumps(&value), r#"{"b": 1, "a": [true, null]}"#);
-        let value = JsonValue::Object(vec![("e".to_string(), JsonValue::Str("é\t\"q\"".to_string()))]);
+        let value = JsonValue::Object(vec![(
+            "e".to_string(),
+            JsonValue::Str("é\t\"q\"".to_string()),
+        )]);
         assert_eq!(dumps(&value), "{\"e\": \"\\u00e9\\t\\\"q\\\"\"}");
     }
 
     #[test]
     fn origins_split_hosts_and_ports() {
-        assert_eq!(split_origin("https://example.test").unwrap(), ("example.test".to_string(), 443));
-        assert_eq!(split_origin("https://Example.Test:8443/x").unwrap(), ("example.test".to_string(), 8443));
-        assert_eq!(split_origin("https://user@[::1]:2222").unwrap(), ("::1".to_string(), 2222));
-        assert_eq!(split_origin("https://[FE80::1]").unwrap(), ("fe80::1".to_string(), 443));
-        assert_eq!(split_origin("https://example.test:0").unwrap(), ("example.test".to_string(), 443));
+        assert_eq!(
+            split_origin("https://example.test").unwrap(),
+            ("example.test".to_string(), 443)
+        );
+        assert_eq!(
+            split_origin("https://Example.Test:8443/x").unwrap(),
+            ("example.test".to_string(), 8443)
+        );
+        assert_eq!(
+            split_origin("https://user@[::1]:2222").unwrap(),
+            ("::1".to_string(), 2222)
+        );
+        assert_eq!(
+            split_origin("https://[FE80::1]").unwrap(),
+            ("fe80::1".to_string(), 443)
+        );
+        assert_eq!(
+            split_origin("https://example.test:0").unwrap(),
+            ("example.test".to_string(), 443)
+        );
         assert!(split_origin("http://example.test").is_err());
         assert!(split_origin("https://").is_err());
         assert!(split_origin("https://host:notaport").is_err());
@@ -674,7 +867,13 @@ mod tests {
 
     #[test]
     fn private_binds_match_plain_lan_shapes() {
-        for ip in ["10.1.2.3", "100.100.0.1", "172.20.0.1", "192.168.0.1", "fc00::1"] {
+        for ip in [
+            "10.1.2.3",
+            "100.100.0.1",
+            "172.20.0.1",
+            "192.168.0.1",
+            "fc00::1",
+        ] {
             assert!(is_private_bind(ip.parse().unwrap()), "{ip}");
         }
         for ip in ["8.8.8.8", "0.0.0.0", "::", "127.0.0.1", "fe80::1"] {
@@ -688,10 +887,16 @@ mod tests {
         let listeners = parse_listeners(rows).unwrap();
         assert_eq!(listeners.len(), 2);
         bound(&listeners, "127.0.0.1", 9090).unwrap();
-        assert_eq!(bound(&listeners, "127.0.0.1", 3000).unwrap_err(), ProbeFailure::exit("required service binding missing"));
+        assert_eq!(
+            bound(&listeners, "127.0.0.1", 3000).unwrap_err(),
+            ProbeFailure::exit("required service binding missing")
+        );
         let rows = "LISTEN 0 128 0.0.0.0:9090 0.0.0.0:*\n";
         let listeners = parse_listeners(rows).unwrap();
-        assert_eq!(bound(&listeners, "127.0.0.1", 9090).unwrap_err(), ProbeFailure::exit("required service binding missing"));
+        assert_eq!(
+            bound(&listeners, "127.0.0.1", 9090).unwrap_err(),
+            ProbeFailure::exit("required service binding missing")
+        );
         assert!(parse_listeners("short row\n").is_err());
     }
 
@@ -700,17 +905,24 @@ mod tests {
         let env = parse_env_file("A=1\n\nB=x=y\n").unwrap();
         assert_eq!(env.get("A").unwrap(), "1");
         assert_eq!(env.get("B").unwrap(), "x=y");
-        assert_eq!(parse_env_file("BARE\n").unwrap_err(), ProbeFailure::failed("parse proxy.env"));
+        assert_eq!(
+            parse_env_file("BARE\n").unwrap_err(),
+            ProbeFailure::failed("parse proxy.env")
+        );
     }
 
     #[test]
     fn tailscale_summaries_shape() {
-        let out = operator_tailscale(r#"{"BackendState": "Running", "Self": {"Expired": false}}"#).unwrap();
+        let out = operator_tailscale(r#"{"BackendState": "Running", "Self": {"Expired": false}}"#)
+            .unwrap();
         assert_eq!(out, "{\"BackendState\": \"Running\", \"Expired\": false}\n");
         let out = operator_tailscale(r#"{"BackendState": "Stopped"}"#).unwrap();
         assert_eq!(out, "{\"BackendState\": \"Stopped\", \"Expired\": null}\n");
         assert!(operator_tailscale(r#"{"BackendState": 7}"#).is_err());
-        assert_eq!(forgejo_tailnet(r#"{"BackendState": "Running", "Self": {"Expired": false}}"#).unwrap(), "");
+        assert_eq!(
+            forgejo_tailnet(r#"{"BackendState": "Running", "Self": {"Expired": false}}"#).unwrap(),
+            ""
+        );
         assert_eq!(
             forgejo_tailnet(r#"{"BackendState": "NoState"}"#).unwrap_err(),
             ProbeFailure::exit("approved running Tailnet required; no enrollment is performed")

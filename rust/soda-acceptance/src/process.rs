@@ -10,9 +10,9 @@
 #[cfg(target_os = "linux")]
 use std::io::{Read, Write};
 #[cfg(target_os = "linux")]
-use std::process::{Command, Stdio};
-#[cfg(target_os = "linux")]
 use std::os::unix::process::CommandExt;
+#[cfg(target_os = "linux")]
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
@@ -74,7 +74,8 @@ impl Phase {
 
     /// True after [`Phase::cancel`], here or on any parent.
     pub fn is_cancelled(&self) -> bool {
-        self.inner.cancelled.load(Ordering::SeqCst) || self.parent.as_ref().is_some_and(|p| p.is_cancelled())
+        self.inner.cancelled.load(Ordering::SeqCst)
+            || self.parent.as_ref().is_some_and(|p| p.is_cancelled())
     }
 
     /// True once the deadline has passed, here or on any parent.
@@ -129,7 +130,6 @@ struct ProcessState {
 /// Owned child process with group cleanup.
 pub struct Process {
     // Manual `Debug` below: handles and guards have none.
-
     pid: i32,
     state: Mutex<ProcessState>,
     done: Condvar,
@@ -321,7 +321,14 @@ fn reaper_main(process: Arc<Process>, pid: i32) {
 fn wait_owned_exit(pid: i32) -> Option<String> {
     loop {
         let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
-        let rc = unsafe { libc::waitid(libc::P_PID, pid as u32, &mut info, libc::WEXITED | libc::WNOWAIT) };
+        let rc = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                pid as u32,
+                &mut info,
+                libc::WEXITED | libc::WNOWAIT,
+            )
+        };
         if rc == 0 {
             return None;
         }
@@ -351,7 +358,10 @@ fn reap_leader(pid: i32) -> (Option<i32>, Option<String>) {
         if errno == libc::ECHILD {
             return (None, None);
         }
-        return (None, Some(std::io::Error::from_raw_os_error(errno).to_string()));
+        return (
+            None,
+            Some(std::io::Error::from_raw_os_error(errno).to_string()),
+        );
     }
     if libc::WIFEXITED(status) {
         let code = libc::WEXITSTATUS(status);
@@ -433,7 +443,9 @@ fn reap_owned_children(pgid: i32) -> Option<String> {
 
 impl std::fmt::Debug for Process {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Process").field("pid", &self.pid).finish_non_exhaustive()
+        f.debug_struct("Process")
+            .field("pid", &self.pid)
+            .finish_non_exhaustive()
     }
 }
 
@@ -475,7 +487,10 @@ impl Process {
             };
             let now = Instant::now();
             if slice > now {
-                let (guard, _) = self.done.wait_timeout(state, slice - now).unwrap_or_else(|e| e.into_inner());
+                let (guard, _) = self
+                    .done
+                    .wait_timeout(state, slice - now)
+                    .unwrap_or_else(|e| e.into_inner());
                 state = guard;
             }
         }
@@ -489,7 +504,10 @@ impl Process {
             if now >= deadline {
                 return false;
             }
-            let (guard, _) = self.done.wait_timeout(state, deadline - now).unwrap_or_else(|e| e.into_inner());
+            let (guard, _) = self
+                .done
+                .wait_timeout(state, deadline - now)
+                .unwrap_or_else(|e| e.into_inner());
             state = guard;
         }
         true
@@ -527,13 +545,26 @@ impl Process {
         }
         let kill_err = self.signal(libc::SIGKILL).err().map(|e| e.to_string());
         if self.wait_done_timeout(Duration::from_secs(5)) {
-            let outcome_err = self.outcome().and_then(|o| o.combined()).map(|e| e.to_string());
-            let mut parts = vec![Some("owned group required forced termination: context deadline exceeded".to_string()), kill_err, outcome_err];
+            let outcome_err = self
+                .outcome()
+                .and_then(|o| o.combined())
+                .map(|e| e.to_string());
+            let mut parts = vec![
+                Some(
+                    "owned group required forced termination: context deadline exceeded"
+                        .to_string(),
+                ),
+                kill_err,
+                outcome_err,
+            ];
             parts.retain(|p| p.is_some());
             let message = parts.into_iter().flatten().collect::<Vec<_>>().join("\n");
             return Err(message);
         }
-        let mut parts = vec![kill_err, Some("owned group cleanup did not complete".to_string())];
+        let mut parts = vec![
+            kill_err,
+            Some("owned group cleanup did not complete".to_string()),
+        ];
         parts.retain(|p| p.is_some());
         Err(parts.into_iter().flatten().collect::<Vec<_>>().join("\n"))
     }
@@ -624,8 +655,11 @@ mod tests {
     #[cfg(target_os = "linux")]
     fn owned_process_wait_and_cleanup() {
         let (out, err) = discard_pair();
-        let process = start_process(&Phase::background(), &shell_command("exit 0"), out, err).unwrap();
-        process.wait(&Phase::timeout(Duration::from_secs(5))).unwrap();
+        let process =
+            start_process(&Phase::background(), &shell_command("exit 0"), out, err).unwrap();
+        process
+            .wait(&Phase::timeout(Duration::from_secs(5)))
+            .unwrap();
         process.stop().unwrap();
         process.stop().unwrap();
         assert!(process.is_done());
@@ -649,7 +683,8 @@ mod tests {
                 ),
             };
             let (out, err) = discard_pair();
-            let process = start_process(&Phase::background(), &shell_command(&script), out, err).unwrap();
+            let process =
+                start_process(&Phase::background(), &shell_command(&script), out, err).unwrap();
             let deadline = Instant::now() + Duration::from_secs(5);
             let pid = loop {
                 if let Ok(raw) = std::fs::read_to_string(&pid_file) {
@@ -665,7 +700,10 @@ mod tests {
                 let stop = process.stop();
                 if mode == "leader-resistant" {
                     let message = stop.unwrap_err().to_string();
-                    assert!(message.contains("owned group required forced termination"), "{message}");
+                    assert!(
+                        message.contains("owned group required forced termination"),
+                        "{message}"
+                    );
                 }
             }
             let waited = process.wait(&Phase::timeout(Duration::from_secs(25)));
@@ -687,7 +725,10 @@ mod tests {
                         if tail.split_whitespace().next() == Some("Z") {
                             break;
                         }
-                        assert!(Instant::now() < deadline, "TERM-resistant descendant survived ({mode})");
+                        assert!(
+                            Instant::now() < deadline,
+                            "TERM-resistant descendant survived ({mode})"
+                        );
                         std::thread::sleep(Duration::from_millis(10));
                     }
                 }

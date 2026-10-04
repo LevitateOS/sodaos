@@ -96,7 +96,9 @@ impl Runner for SystemRunner {
         if let Some(dir) = cwd {
             command.current_dir(dir);
         }
-        command.env("GIT_TERMINAL_PROMPT", "0").env("GOTOOLCHAIN", "local");
+        command
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GOTOOLCHAIN", "local");
         match command.status() {
             Ok(status) if status.success() => Ok(()),
             Ok(_) => Err(PayloadFailure::Subprocess("command failed".to_string())),
@@ -110,7 +112,9 @@ impl Runner for SystemRunner {
         if let Some(dir) = cwd {
             command.current_dir(dir);
         }
-        command.env("GIT_TERMINAL_PROMPT", "0").env("GOTOOLCHAIN", "local");
+        command
+            .env("GIT_TERMINAL_PROMPT", "0")
+            .env("GOTOOLCHAIN", "local");
         match command.output() {
             Ok(output) if output.status.success() => Ok(output.stdout),
             Ok(_) => Err(PayloadFailure::Subprocess("command failed".to_string())),
@@ -172,7 +176,10 @@ fn value_error(message: impl Into<String>) -> PayloadFailure {
 }
 
 /// Validate an exact-source request, like `phase_request`.
-pub fn phase_request(raw: &str, platform: &Platform) -> Result<(PhaseRequest, HashMap<String, String>), PayloadFailure> {
+pub fn phase_request(
+    raw: &str,
+    platform: &Platform,
+) -> Result<(PhaseRequest, HashMap<String, String>), PayloadFailure> {
     if raw.len() > REQUEST_LIMIT {
         return Err(value_error("request too large"));
     }
@@ -182,11 +189,17 @@ pub fn phase_request(raw: &str, platform: &Platform) -> Result<(PhaseRequest, Ha
     };
     let mut fields = HashMap::new();
     for (key, item) in entries {
-        let text = item.as_str().ok_or_else(|| value_error("request values must be strings"))?;
+        let text = item
+            .as_str()
+            .ok_or_else(|| value_error("request values must be strings"))?;
         fields.insert(key.clone(), text.to_string());
     }
     let keys: std::collections::HashSet<&str> = fields.keys().map(|k| k.as_str()).collect();
-    if keys != ["Revision", "Architecture", "Target", "Work", "Phase"].into_iter().collect() {
+    if keys
+        != ["Revision", "Architecture", "Target", "Work", "Phase"]
+            .into_iter()
+            .collect()
+    {
         return Err(value_error("unexpected request fields"));
     }
     let get = |name: &str| fields.get(name).cloned().unwrap_or_default();
@@ -200,22 +213,36 @@ pub fn phase_request(raw: &str, platform: &Platform) -> Result<(PhaseRequest, Ha
     if !soda_build_tools::reader::is_revision(&request.revision) {
         return Err(value_error("full revision required"));
     }
-    if request.architecture != "x86_64" || platform.os != "Linux" || platform.arch != request.architecture {
+    if request.architecture != "x86_64"
+        || platform.os != "Linux"
+        || platform.arch != request.architecture
+    {
         return Err(value_error("matching-native Linux required"));
     }
     if platform.hostname != request.target {
         return Err(value_error("actual native hostname does not match target"));
     }
     if !["prepare", "build", "check"].contains(&request.phase.as_str()) {
-        return Err(value_error("unknown phase; no install/VM/provider/release phases"));
+        return Err(value_error(
+            "unknown phase; no install/VM/provider/release phases",
+        ));
     }
     if !request.work.starts_with('/') {
-        return Err(value_error("absolute fresh work path with existing real parent required"));
+        return Err(value_error(
+            "absolute fresh work path with existing real parent required",
+        ));
     }
-    let parent = std::path::Path::new(&request.work).parent().unwrap_or(std::path::Path::new("/"));
-    let resolved = std::fs::canonicalize(parent).map_err(|_| value_error("absolute fresh work path with existing real parent required"))?;
-    if resolved.to_string_lossy() != crate::files::lexical_clean(&parent.to_string_lossy()) || !parent.is_dir() {
-        return Err(value_error("absolute fresh work path with existing real parent required"));
+    let parent = std::path::Path::new(&request.work)
+        .parent()
+        .unwrap_or(std::path::Path::new("/"));
+    let resolved = std::fs::canonicalize(parent)
+        .map_err(|_| value_error("absolute fresh work path with existing real parent required"))?;
+    if resolved.to_string_lossy() != crate::files::lexical_clean(&parent.to_string_lossy())
+        || !parent.is_dir()
+    {
+        return Err(value_error(
+            "absolute fresh work path with existing real parent required",
+        ));
     }
     let mut receipt = fields;
     receipt.remove("Phase");
@@ -223,7 +250,14 @@ pub fn phase_request(raw: &str, platform: &Platform) -> Result<(PhaseRequest, Ha
 }
 
 fn git_head(runner: &dyn Runner, checkout: &str) -> Result<String, PayloadFailure> {
-    let out = runner.output(&["git".to_string(), "rev-parse".to_string(), "HEAD".to_string()], Some(checkout))?;
+    let out = runner.output(
+        &[
+            "git".to_string(),
+            "rev-parse".to_string(),
+            "HEAD".to_string(),
+        ],
+        Some(checkout),
+    )?;
     Ok(String::from_utf8_lossy(&out).trim().to_string())
 }
 
@@ -239,20 +273,32 @@ fn git_dirty(runner: &dyn Runner, checkout: &str) -> Result<Vec<u8>, PayloadFail
     )
 }
 
-fn require_checkout(runner: &dyn Runner, checkout: &str, revision: &str) -> Result<String, PayloadFailure> {
+fn require_checkout(
+    runner: &dyn Runner,
+    checkout: &str,
+    revision: &str,
+) -> Result<String, PayloadFailure> {
     let meta = std::fs::symlink_metadata(checkout).map_err(PayloadFailure::os)?;
     if meta.is_symlink() || !meta.is_dir() {
         return Err(value_error("real checkout required"));
     }
     let head = git_head(runner, checkout)?;
     if head != revision || !git_dirty(runner, checkout)?.is_empty() {
-        return Err(value_error("checkout revision/content changed; use a fresh run"));
+        return Err(value_error(
+            "checkout revision/content changed; use a fresh run",
+        ));
     }
     Ok(head)
 }
 
-fn write_receipt(path: &std::path::Path, receipt: &HashMap<String, String>) -> Result<(), PayloadFailure> {
-    let mut entries: Vec<(String, JsonValue)> = receipt.iter().map(|(k, v)| (k.clone(), JsonValue::Str(v.clone()))).collect();
+fn write_receipt(
+    path: &std::path::Path,
+    receipt: &HashMap<String, String>,
+) -> Result<(), PayloadFailure> {
+    let mut entries: Vec<(String, JsonValue)> = receipt
+        .iter()
+        .map(|(k, v)| (k.clone(), JsonValue::Str(v.clone())))
+        .collect();
     entries.sort_by(|a, b| a.0.cmp(&b.0));
     let mut text = String::new();
     jsonio::write_compact(&mut text, &JsonValue::Object(entries));
@@ -269,7 +315,8 @@ fn prepare_checkout(
     checkout: &str,
     receipt: &HashMap<String, String>,
 ) -> Result<(), PayloadFailure> {
-    let raw = std::ffi::CString::new(work.as_os_str().as_bytes()).map_err(|_| value_error("absolute fresh work path with existing real parent required"))?;
+    let raw = std::ffi::CString::new(work.as_os_str().as_bytes())
+        .map_err(|_| value_error("absolute fresh work path with existing real parent required"))?;
     let rc = unsafe { libc::mkdir(raw.as_ptr(), 0o700) };
     if rc != 0 {
         return Err(PayloadFailure::os(std::io::Error::last_os_error()));
@@ -301,23 +348,31 @@ fn prepare_checkout(
     )
 }
 
-fn admit_existing_run(work: &std::path::Path, receipt: &HashMap<String, String>) -> Result<(), PayloadFailure> {
+fn admit_existing_run(
+    work: &std::path::Path,
+    receipt: &HashMap<String, String>,
+) -> Result<(), PayloadFailure> {
     let meta = std::fs::symlink_metadata(work).map_err(PayloadFailure::os)?;
     use std::os::unix::fs::MetadataExt;
     if !meta.is_dir() || meta.uid() != unsafe { libc::getuid() } || meta.mode() & 0o077 != 0 {
         return Err(value_error("private owned run directory required"));
     }
     let raw = std::fs::read_to_string(work.join("request.json")).map_err(PayloadFailure::os)?;
-    let parsed = JsonValue::parse(&raw).map_err(|_| value_error("phase does not belong to this source/target/run"))?;
+    let parsed = JsonValue::parse(&raw)
+        .map_err(|_| value_error("phase does not belong to this source/target/run"))?;
     let JsonValue::Object(entries) = &parsed else {
-        return Err(value_error("phase does not belong to this source/target/run"));
+        return Err(value_error(
+            "phase does not belong to this source/target/run",
+        ));
     };
     let mut stored = HashMap::new();
     for (key, item) in entries {
         stored.insert(key.clone(), item.as_str().unwrap_or_default().to_string());
     }
     if stored != *receipt {
-        return Err(value_error("phase does not belong to this source/target/run"));
+        return Err(value_error(
+            "phase does not belong to this source/target/run",
+        ));
     }
     if !work.join("prepare.completed").is_file() {
         return Err(value_error("prepare did not complete"));
@@ -325,11 +380,17 @@ fn admit_existing_run(work: &std::path::Path, receipt: &HashMap<String, String>)
     Ok(())
 }
 
-fn phase_command(request: &PhaseRequest, work: &std::path::Path) -> Result<Option<Vec<String>>, PayloadFailure> {
+fn phase_command(
+    request: &PhaseRequest,
+    work: &std::path::Path,
+) -> Result<Option<Vec<String>>, PayloadFailure> {
     let candidate = work.join("candidate");
     match request.phase.as_str() {
         "build" => {
-            if !candidate.is_dir() || !candidate.join("payload.json").is_file() || !candidate.join("candidate.json").is_file() {
+            if !candidate.is_dir()
+                || !candidate.join("payload.json").is_file()
+                || !candidate.join("candidate.json").is_file()
+            {
                 return Err(value_error(
                     "build admits an existing soda-build candidate at work/candidate; legacy build-native is retired",
                 ));
@@ -341,7 +402,9 @@ fn phase_command(request: &PhaseRequest, work: &std::path::Path) -> Result<Optio
                 return Err(value_error("required earlier phase did not complete"));
             }
             if !candidate.is_dir() {
-                return Err(value_error("check requires work/candidate pointing at soda-build artifacts"));
+                return Err(value_error(
+                    "check requires work/candidate pointing at soda-build artifacts",
+                ));
             }
             Ok(Some(vec![
                 "bash".to_string(),
@@ -355,7 +418,11 @@ fn phase_command(request: &PhaseRequest, work: &std::path::Path) -> Result<Optio
 }
 
 /// Run one native phase, like the Python `main`.
-pub fn run_phase(raw_request: &str, platform: &Platform, runner: &dyn Runner) -> Result<(), PayloadFailure> {
+pub fn run_phase(
+    raw_request: &str,
+    platform: &Platform,
+    runner: &dyn Runner,
+) -> Result<(), PayloadFailure> {
     let (request, receipt) = phase_request(raw_request, platform)?;
     let work = std::path::PathBuf::from(&request.work);
     let checkout = work.join("source").to_string_lossy().into_owned();
@@ -450,8 +517,10 @@ mod tests {
                 fields.insert(key.to_string(), value.to_string());
             }
             let mut text = String::new();
-            let entries: Vec<(String, JsonValue)> =
-                fields.into_iter().map(|(k, v)| (k, JsonValue::Str(v))).collect();
+            let entries: Vec<(String, JsonValue)> = fields
+                .into_iter()
+                .map(|(k, v)| (k, JsonValue::Str(v)))
+                .collect();
             jsonio::write_compact(&mut text, &JsonValue::Object(entries));
             text
         }
@@ -493,11 +562,22 @@ mod tests {
         seed_candidate(&harness.work);
         let before = harness.calls();
         harness.invoke("build", &[]).unwrap();
-        assert_eq!(harness.calls(), before, "build admits candidate bytes; it does not run a producer");
+        assert_eq!(
+            harness.calls(),
+            before,
+            "build admits candidate bytes; it does not run a producer"
+        );
         assert!(!harness.work.join("check.started").exists());
         harness.invoke("check", &[]).unwrap();
         let last = harness.runner.calls.borrow().last().cloned().unwrap();
-        assert_eq!(last[..3], ["bash".to_string(), "scripts/check-native.sh".to_string(), "x86_64".to_string()]);
+        assert_eq!(
+            last[..3],
+            [
+                "bash".to_string(),
+                "scripts/check-native.sh".to_string(),
+                "x86_64".to_string()
+            ]
+        );
         assert!(last[3].ends_with("/candidate"));
         for call in harness.runner.calls.borrow().iter() {
             for part in call {
@@ -546,7 +626,9 @@ mod tests {
         harness.invoke("prepare", &[]).unwrap();
         let before = harness.calls();
         assert!(harness.invoke("check", &[]).is_err());
-        assert!(harness.invoke("build", &[("Revision", &"b".repeat(40))]).is_err());
+        assert!(harness
+            .invoke("build", &[("Revision", &"b".repeat(40))])
+            .is_err());
         *harness.runner.dirty.borrow_mut() = b" M source.go\n".to_vec();
         assert!(harness.invoke("build", &[]).is_err());
         assert_eq!(harness.calls(), before);

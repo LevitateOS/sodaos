@@ -25,7 +25,9 @@ use crate::sha256;
 pub fn read_json_file(path: &str) -> Result<(JsonValue, String), Error> {
     let file = Path::new(path);
     let parent = file.parent().unwrap_or(Path::new("/"));
-    let base = file.file_name().ok_or_else(|| Error::msg("bounded regular JSON input required"))?;
+    let base = file
+        .file_name()
+        .ok_or_else(|| Error::msg("bounded regular JSON input required"))?;
     let root = OwnedDir::open(&parent.to_string_lossy())?;
     let name = base.to_string_lossy();
     let before = root.lstat_at(&name)?;
@@ -267,7 +269,9 @@ fn write_padding(out: &mut String, depth: usize) {
 /// fractional digits are trimmed, and a whole second has no fraction.
 pub fn now_rfc3339_nano() -> String {
     let now = std::time::SystemTime::now();
-    let elapsed = now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+    let elapsed = now
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
     format_unix_nano(elapsed.as_secs() as i64, elapsed.subsec_nanos())
 }
 
@@ -309,9 +313,18 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
 pub fn validate_rfc3339(text: &str) -> Result<(), Error> {
     let err = || Error::msg(format!("invalid timestamp: {text:?}"));
     let (date, rest) = text.split_once('T').ok_or_else(err)?;
-    let year: i64 = date.get(0..4).and_then(|s| s.parse().ok()).ok_or_else(err)?;
-    let month: u32 = date.get(5..7).and_then(|s| s.parse().ok()).ok_or_else(err)?;
-    let day: u32 = date.get(8..10).and_then(|s| s.parse().ok()).ok_or_else(err)?;
+    let year: i64 = date
+        .get(0..4)
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(err)?;
+    let month: u32 = date
+        .get(5..7)
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(err)?;
+    let day: u32 = date
+        .get(8..10)
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(err)?;
     if date.len() != 10 || date.as_bytes()[4] != b'-' || date.as_bytes()[7] != b'-' {
         return Err(err());
     }
@@ -319,9 +332,18 @@ pub fn validate_rfc3339(text: &str) -> Result<(), Error> {
         return Err(err());
     }
     let (clock, zone) = split_zone(rest).ok_or_else(err)?;
-    let hour: u32 = clock.get(0..2).and_then(|s| s.parse().ok()).ok_or_else(err)?;
-    let minute: u32 = clock.get(3..5).and_then(|s| s.parse().ok()).ok_or_else(err)?;
-    let second: u32 = clock.get(6..8).and_then(|s| s.parse().ok()).ok_or_else(err)?;
+    let hour: u32 = clock
+        .get(0..2)
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(err)?;
+    let minute: u32 = clock
+        .get(3..5)
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(err)?;
+    let second: u32 = clock
+        .get(6..8)
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(err)?;
     if clock.len() < 8 || clock.as_bytes()[2] != b':' || clock.as_bytes()[5] != b':' {
         return Err(err());
     }
@@ -330,7 +352,11 @@ pub fn validate_rfc3339(text: &str) -> Result<(), Error> {
     }
     if clock.len() > 8 {
         let frac = clock.get(8..).ok_or_else(err)?;
-        if !frac.starts_with('.') || frac.len() < 2 || frac.len() > 10 || !frac[1..].bytes().all(|b| b.is_ascii_digit()) {
+        if !frac.starts_with('.')
+            || frac.len() < 2
+            || frac.len() > 10
+            || !frac[1..].bytes().all(|b| b.is_ascii_digit())
+        {
             return Err(err());
         }
     }
@@ -341,8 +367,14 @@ pub fn validate_rfc3339(text: &str) -> Result<(), Error> {
             if *sign != b'+' && *sign != b'-' {
                 return Err(err());
             }
-            let hour: u32 = zone.get(1..3).and_then(|s| s.parse().ok()).ok_or_else(err)?;
-            let minute: u32 = zone.get(4..6).and_then(|s| s.parse().ok()).ok_or_else(err)?;
+            let hour: u32 = zone
+                .get(1..3)
+                .and_then(|s| s.parse().ok())
+                .ok_or_else(err)?;
+            let minute: u32 = zone
+                .get(4..6)
+                .and_then(|s| s.parse().ok())
+                .ok_or_else(err)?;
             if zone.len() != 6 || zone.as_bytes()[3] != b':' || hour > 23 || minute > 59 {
                 return Err(err());
             }
@@ -415,7 +447,10 @@ mod tests {
         }
         let mut indent = String::new();
         write_indent(&mut indent, &parse("{\"a\":null,\"b\":[1,{}]}"));
-        assert_eq!(indent, "{\n  \"a\": null,\n  \"b\": [\n    1,\n    {}\n  ]\n}");
+        assert_eq!(
+            indent,
+            "{\n  \"a\": null,\n  \"b\": [\n    1,\n    {}\n  ]\n}"
+        );
     }
 
     #[test]
@@ -423,7 +458,10 @@ mod tests {
         assert_eq!(format_unix_nano(0, 0), "1970-01-01T00:00:00Z");
         assert_eq!(format_unix_nano(0, 120_000_000), "1970-01-01T00:00:00.12Z");
         assert_eq!(format_unix_nano(1_704_067_200, 0), "2024-01-01T00:00:00Z");
-        assert_eq!(format_unix_nano(1_893_456_000, 1), "2030-01-01T00:00:00.000000001Z");
+        assert_eq!(
+            format_unix_nano(1_893_456_000, 1),
+            "2030-01-01T00:00:00.000000001Z"
+        );
         assert_eq!(format_unix_nano(-1, 0), "1969-12-31T23:59:59Z");
         assert!(validate_rfc3339(&now_rfc3339_nano()).is_ok());
     }

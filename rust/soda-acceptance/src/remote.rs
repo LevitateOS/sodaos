@@ -9,7 +9,7 @@
 
 use soda_json::JsonValue;
 
-use crate::command::{CommandSpec, Remote, StdinSpec, quote};
+use crate::command::{quote, CommandSpec, Remote, StdinSpec};
 use crate::error::Error;
 use crate::files;
 use crate::jsonio;
@@ -30,7 +30,10 @@ pub struct RemoteRequest {
 
 /// Decode a restricted native request with exactly the Go owner's fields.
 pub fn decode_remote_request(value: &JsonValue) -> Result<RemoteRequest, Error> {
-    jsonio::check_no_unknown(value, &["Revision", "Architecture", "Target", "Work", "Phase"])?;
+    jsonio::check_no_unknown(
+        value,
+        &["Revision", "Architecture", "Target", "Work", "Phase"],
+    )?;
     Ok(RemoteRequest {
         revision: jsonio::opt_string(value, "Revision")?,
         architecture: jsonio::opt_string(value, "Architecture")?,
@@ -57,7 +60,9 @@ pub fn native_phase(
     let (request, _) = jsonio::read_json_file(request_file)?;
     let request = decode_remote_request(&request)?;
     if request.revision != revision || request.architecture != arch || request.target != target {
-        return Err(Error::msg("remote request does not match selected revision/platform/target"));
+        return Err(Error::msg(
+            "remote request does not match selected revision/platform/target",
+        ));
     }
     if !["prepare", "build", "check"].contains(&request.phase.as_str()) {
         return Err(Error::msg("unknown native phase"));
@@ -70,7 +75,10 @@ pub fn native_phase(
     let script = format!(
         "tmp=$(mktemp) && cat > \"$tmp\" && chmod 700 \"$tmp\" && \"$tmp\" native-phase {quoted}; rc=$?; rm -f \"$tmp\"; exit $rc"
     );
-    remote.command(&["sh".to_string(), "-c".to_string(), script], StdinSpec::Bytes(payload.to_vec()))
+    remote.command(
+        &["sh".to_string(), "-c".to_string(), script],
+        StdinSpec::Bytes(payload.to_vec()),
+    )
 }
 
 #[cfg(test)]
@@ -92,9 +100,15 @@ mod tests {
             &mut text,
             &JsonValue::Object(vec![
                 ("Revision".to_string(), JsonValue::Str(revision.to_string())),
-                ("Architecture".to_string(), JsonValue::Str("x86_64".to_string())),
+                (
+                    "Architecture".to_string(),
+                    JsonValue::Str("x86_64".to_string()),
+                ),
                 ("Target".to_string(), JsonValue::Str(target.to_string())),
-                ("Work".to_string(), JsonValue::Str("/private/fresh".to_string())),
+                (
+                    "Work".to_string(),
+                    JsonValue::Str("/private/fresh".to_string()),
+                ),
                 ("Phase".to_string(), JsonValue::Str(phase.to_string())),
             ]),
         );
@@ -118,7 +132,15 @@ mod tests {
             port: 0,
             timeout: Duration::ZERO,
         };
-        assert!(native_phase(&remote, &request, &"b".repeat(40), "x86_64", "builder", b"payload").is_err());
+        assert!(native_phase(
+            &remote,
+            &request,
+            &"b".repeat(40),
+            "x86_64",
+            "builder",
+            b"payload"
+        )
+        .is_err());
         assert!(native_phase(&remote, &request, &revision, "x86_64", "other", b"payload").is_err());
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -137,7 +159,10 @@ mod tests {
             port: 0,
             timeout: Duration::ZERO,
         };
-        let err = native_phase(&remote, &request, &revision, "x86_64", "fixture", b"payload").unwrap_err();
+        let err = native_phase(
+            &remote, &request, &revision, "x86_64", "fixture", b"payload",
+        )
+        .unwrap_err();
         assert!(err.to_string().contains("unknown native phase"), "{err}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -161,7 +186,15 @@ mod tests {
             port: 22222,
             timeout: Duration::ZERO,
         };
-        let command = native_phase(&remote, &request, &revision, "x86_64", "builder", b"payload-bytes").unwrap();
+        let command = native_phase(
+            &remote,
+            &request,
+            &revision,
+            "x86_64",
+            "builder",
+            b"payload-bytes",
+        )
+        .unwrap();
         assert_eq!(command.name, "ssh");
         let last = command.args.last().unwrap();
         for part in ["mktemp", "chmod 700", "native-phase", "rm -f", &revision] {

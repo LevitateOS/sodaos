@@ -21,19 +21,22 @@ const INLINE_GZIP_LIMIT: u64 = 1 << 20;
 const B64_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 fn b64_value(byte: u8) -> Option<u8> {
-    B64_ALPHABET.iter().position(|b| *b == byte).map(|i| i as u8)
+    B64_ALPHABET
+        .iter()
+        .position(|b| *b == byte)
+        .map(|i| i as u8)
 }
 
 /// Strict standard-alphabet base64 decode, like Go's `StdEncoding`.
 pub fn decode_base64(input: &str) -> Result<Vec<u8>, Error> {
     let bytes = input.as_bytes();
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return Err(Error::msg("invalid base64"));
     }
     let mut out = Vec::with_capacity(bytes.len() / 4 * 3);
-    let chunks = bytes.chunks_exact(4);
+    let (chunks, _) = bytes.as_chunks::<4>();
     let total = chunks.len();
-    for (index, chunk) in chunks.enumerate() {
+    for (index, chunk) in chunks.iter().enumerate() {
         let last = index + 1 == total;
         let mut values = [0u8; 4];
         let mut padding = 0;
@@ -51,7 +54,10 @@ pub fn decode_base64(input: &str) -> Result<Vec<u8>, Error> {
                 values[i] = b64_value(*byte).ok_or_else(|| Error::msg("invalid base64"))?;
             }
         }
-        let triple = ((values[0] as u32) << 18) | ((values[1] as u32) << 12) | ((values[2] as u32) << 6) | values[3] as u32;
+        let triple = ((values[0] as u32) << 18)
+            | ((values[1] as u32) << 12)
+            | ((values[2] as u32) << 6)
+            | values[3] as u32;
         out.push((triple >> 16) as u8);
         if padding < 2 {
             out.push((triple >> 8) as u8);
@@ -98,8 +104,10 @@ fn percent_decode(input: &str) -> Result<Vec<u8>, Error> {
             if i + 2 >= bytes.len() {
                 return Err(Error::msg("invalid inline encoding"));
             }
-            let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).map_err(|_| Error::msg("invalid inline encoding"))?;
-            let byte = u8::from_str_radix(hex, 16).map_err(|_| Error::msg("invalid inline encoding"))?;
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3])
+                .map_err(|_| Error::msg("invalid inline encoding"))?;
+            let byte =
+                u8::from_str_radix(hex, 16).map_err(|_| Error::msg("invalid inline encoding"))?;
             out.push(byte);
             i += 3;
         } else {
@@ -113,7 +121,9 @@ fn percent_decode(input: &str) -> Result<Vec<u8>, Error> {
 /// Decode an inline `data:` URI: unescape first, then base64-decode when
 /// the mediatype ends with `;base64`. Mirrors `decodeDataURI`.
 pub fn decode_data_uri(source: &str) -> Result<Vec<u8>, Error> {
-    let (head, data) = source.split_once(',').ok_or_else(|| Error::msg("inline data URI required"))?;
+    let (head, data) = source
+        .split_once(',')
+        .ok_or_else(|| Error::msg("inline data URI required"))?;
     if !head.starts_with("data:") {
         return Err(Error::msg("inline data URI required"));
     }
@@ -203,11 +213,16 @@ pub fn decode_ignition_files(value: &JsonValue) -> Result<Vec<IgnitionFile>, Err
     Ok(files)
 }
 
+/// Lenient Ignition parse failure. Callers map it to their own input
+/// message, like Go's per-caller `Unmarshal` checks.
+#[derive(Debug)]
+pub struct IgnitionError;
+
 /// Parse a lenient Ignition document. Callers map failure to their own
 /// input message, like Go's per-caller `Unmarshal` checks.
-pub fn parse_ignition(data: &[u8]) -> Result<JsonValue, ()> {
-    let text = std::str::from_utf8(data).map_err(|_| ())?;
-    JsonValue::parse(text).map_err(|_| ())
+pub fn parse_ignition(data: &[u8]) -> Result<JsonValue, IgnitionError> {
+    let text = std::str::from_utf8(data).map_err(|_| IgnitionError)?;
+    JsonValue::parse(text).map_err(|_| IgnitionError)
 }
 
 fn is_fixture_trust_file(path: &str) -> bool {
@@ -261,7 +276,8 @@ pub fn verify_fixture_trust(path: &str, name: &str, remote: &Remote) -> Result<(
     if !trust_parse.success() {
         return Err(Error::msg("invalid pinned known_hosts"));
     }
-    let files = decode_ignition_files(&parsed).map_err(|_| Error::msg("invalid private Ignition"))?;
+    let files =
+        decode_ignition_files(&parsed).map_err(|_| Error::msg("invalid private Ignition"))?;
     let mut matched = false;
     let mut hostname = false;
     for file in &files {
@@ -273,11 +289,17 @@ pub fn verify_fixture_trust(path: &str, name: &str, remote: &Remote) -> Result<(
             hostname = trim_space(&String::from_utf8_lossy(&body)) == name;
             continue;
         }
-        verify_pinned_host_key(&body, &known_hosts_query(&remote.host, remote.port), &remote.known_hosts)?;
+        verify_pinned_host_key(
+            &body,
+            &known_hosts_query(&remote.host, remote.port),
+            &remote.known_hosts,
+        )?;
         matched = true;
     }
     if !matched || !hostname {
-        return Err(Error::msg("matching fixture hostname and pinned Ed25519 host key required in Ignition"));
+        return Err(Error::msg(
+            "matching fixture hostname and pinned Ed25519 host key required in Ignition",
+        ));
     }
     Ok(())
 }
@@ -287,9 +309,10 @@ fn verify_pinned_host_key(body: &[u8], query: &str, known_hosts: &str) -> Result
     let priv_path = scratch.join("host_key");
     std::fs::write(&priv_path, body).map_err(Error::from)?;
     use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(&priv_path, std::fs::Permissions::from_mode(0o600)).map_err(Error::from)?;
-    let derived =
-        run_ssh_keygen(&["-y", "-P", "", "-f", &priv_path.to_string_lossy()]).map_err(|_| Error::msg("invalid per-instance host key"))?;
+    std::fs::set_permissions(&priv_path, std::fs::Permissions::from_mode(0o600))
+        .map_err(Error::from)?;
+    let derived = run_ssh_keygen(&["-y", "-P", "", "-f", &priv_path.to_string_lossy()])
+        .map_err(|_| Error::msg("invalid per-instance host key"))?;
     let mut parts = derived.split_whitespace();
     let (key_type, key_b64) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
     let found = run_ssh_keygen(&["-F", query, "-f", known_hosts]).unwrap_or_default();
@@ -302,7 +325,9 @@ fn verify_pinned_host_key(body: &[u8], query: &str, known_hosts: &str) -> Result
             return Ok(());
         }
     }
-    Err(Error::msg("ignition host key does not match pinned management trust"))
+    Err(Error::msg(
+        "ignition host key does not match pinned management trust",
+    ))
 }
 
 #[cfg(test)]
@@ -311,7 +336,15 @@ mod tests {
 
     #[test]
     fn base64_round_trip_and_rejections() {
-        for raw in [b"f".as_slice(), b"fo", b"foo", b"foob", b"fooba", b"foobar", b"\x00\xff binary \x01"] {
+        for raw in [
+            b"f".as_slice(),
+            b"fo",
+            b"foo",
+            b"foob",
+            b"fooba",
+            b"foobar",
+            b"\x00\xff binary \x01",
+        ] {
             assert_eq!(decode_base64(&encode_base64(raw)).unwrap(), raw);
         }
         assert_eq!(decode_base64("").unwrap(), b"");
@@ -323,16 +356,39 @@ mod tests {
 
     #[test]
     fn data_uri_matrix() {
-        assert_eq!(decode_data_uri("data:,soda-native-fixture%0A").unwrap(), b"soda-native-fixture\n");
+        assert_eq!(
+            decode_data_uri("data:,soda-native-fixture%0A").unwrap(),
+            b"soda-native-fixture\n"
+        );
         assert_eq!(decode_data_uri("data:,a+b%41").unwrap(), b"a+bA");
         assert_eq!(decode_data_uri("data:;base64,Zm9v").unwrap(), b"foo");
-        assert_eq!(decode_data_uri("data:text/plain;base64,Zm9v").unwrap(), b"foo");
-        assert_eq!(decode_data_uri("data:text/plain;charset=utf-8;base64,Zm9v").unwrap(), b"foo");
+        assert_eq!(
+            decode_data_uri("data:text/plain;base64,Zm9v").unwrap(),
+            b"foo"
+        );
+        assert_eq!(
+            decode_data_uri("data:text/plain;charset=utf-8;base64,Zm9v").unwrap(),
+            b"foo"
+        );
         assert_eq!(decode_data_uri("data:,plain").unwrap(), b"plain");
-        assert_eq!(decode_data_uri("plain").unwrap_err().to_string(), "inline data URI required");
-        assert_eq!(decode_data_uri("https://example.test/x").unwrap_err().to_string(), "inline data URI required");
-        assert_eq!(decode_data_uri("data:,a%zz").unwrap_err().to_string(), "invalid inline encoding");
-        assert_eq!(decode_data_uri("data:;base64,!!!").unwrap_err().to_string(), "invalid inline base64");
+        assert_eq!(
+            decode_data_uri("plain").unwrap_err().to_string(),
+            "inline data URI required"
+        );
+        assert_eq!(
+            decode_data_uri("https://example.test/x")
+                .unwrap_err()
+                .to_string(),
+            "inline data URI required"
+        );
+        assert_eq!(
+            decode_data_uri("data:,a%zz").unwrap_err().to_string(),
+            "invalid inline encoding"
+        );
+        assert_eq!(
+            decode_data_uri("data:;base64,!!!").unwrap_err().to_string(),
+            "invalid inline base64"
+        );
         assert_eq!(decode_data_uri("data:,not-gzip").unwrap(), b"not-gzip");
     }
 
@@ -340,7 +396,9 @@ mod tests {
     fn inline_data_compression_gates() {
         assert!(inline_data("data:,not-gzip", "gzip").is_err());
         assert_eq!(
-            inline_data("data:,plain", "unknown").unwrap_err().to_string(),
+            inline_data("data:,plain", "unknown")
+                .unwrap_err()
+                .to_string(),
             "unsupported inline compression"
         );
         assert_eq!(inline_data("data:,plain", "").unwrap(), b"plain");
@@ -430,13 +488,17 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&input, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert_eq!(
-            verify_fixture_trust(&input, "soda-native-fixture", &remote).unwrap_err().to_string(),
+            verify_fixture_trust(&input, "soda-native-fixture", &remote)
+                .unwrap_err()
+                .to_string(),
             "invalid private Ignition"
         );
         std::fs::write(&input, b"{\"storage\":{\"files\":[]}}").unwrap();
         std::fs::set_permissions(&input, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert_eq!(
-            verify_fixture_trust(&input, "soda-native-fixture", &remote).unwrap_err().to_string(),
+            verify_fixture_trust(&input, "soda-native-fixture", &remote)
+                .unwrap_err()
+                .to_string(),
             "matching fixture hostname and pinned Ed25519 host key required in Ignition"
         );
         std::fs::remove_dir_all(&dir).unwrap();

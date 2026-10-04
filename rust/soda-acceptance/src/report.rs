@@ -57,10 +57,17 @@ pub fn valid_owner(owner: &str) -> bool {
     }
     // U01-U20: `^U(?:0[1-9]|1[0-9]|20)$`.
     let bytes = owner.as_bytes();
-    if bytes.len() != 3 || bytes[0] != b'U' || !bytes[1].is_ascii_digit() || !bytes[2].is_ascii_digit() {
+    if bytes.len() != 3
+        || bytes[0] != b'U'
+        || !bytes[1].is_ascii_digit()
+        || !bytes[2].is_ascii_digit()
+    {
         return false;
     }
-    matches!((bytes[1] - b'0', bytes[2] - b'0'), (0, 1..=9) | (1, 0..=9) | (2, 0))
+    matches!(
+        (bytes[1] - b'0', bytes[2] - b'0'),
+        (0, 1..=9) | (1, 0..=9) | (2, 0)
+    )
 }
 
 /// One observation: an ordinary log index, not a scenario/qualification
@@ -148,7 +155,10 @@ fn opt_string_list(value: &JsonValue, field: &str) -> Result<Option<Vec<String>>
     }
 }
 
-fn opt_string_map(value: &JsonValue, field: &str) -> Result<Option<BTreeMap<String, String>>, Error> {
+fn opt_string_map(
+    value: &JsonValue,
+    field: &str,
+) -> Result<Option<BTreeMap<String, String>>, Error> {
     match value.get(field) {
         None | Some(JsonValue::Null) => Ok(None),
         Some(JsonValue::Object(entries)) => {
@@ -171,7 +181,8 @@ fn opt_timestamp(value: &JsonValue, field: &str) -> Result<String, Error> {
     match value.get(field) {
         None | Some(JsonValue::Null) => Ok(String::new()),
         Some(JsonValue::Str(s)) => {
-            jsonio::validate_rfc3339(s).map_err(|_| Error::msg(format!("invalid {field}: timestamp required")))?;
+            jsonio::validate_rfc3339(s)
+                .map_err(|_| Error::msg(format!("invalid {field}: timestamp required")))?;
             Ok(s.clone())
         }
         Some(_) => Err(Error::msg(format!("invalid {field}: timestamp required"))),
@@ -188,7 +199,10 @@ pub fn observation_from_json(value: &JsonValue) -> Result<Observation, Error> {
             let code = v
                 .as_integer()
                 .ok_or_else(|| Error::msg("invalid ExitCode: integer required"))?;
-            Some(i64::try_from(code).map_err(|_| Error::msg("invalid ExitCode: integer required"))?)
+            Some(
+                i64::try_from(code)
+                    .map_err(|_| Error::msg("invalid ExitCode: integer required"))?,
+            )
         }
     };
     Ok(Observation {
@@ -215,7 +229,11 @@ pub fn observation_from_json(value: &JsonValue) -> Result<Observation, Error> {
 }
 
 fn map_json(map: &BTreeMap<String, String>) -> JsonValue {
-    JsonValue::Object(map.iter().map(|(k, v)| (k.clone(), JsonValue::Str(v.clone()))).collect())
+    JsonValue::Object(
+        map.iter()
+            .map(|(k, v)| (k.clone(), JsonValue::Str(v.clone())))
+            .collect(),
+    )
 }
 
 /// Encode an observation in Go struct field order. The evidence writer
@@ -224,9 +242,15 @@ pub fn observation_json(o: &Observation) -> JsonValue {
     let mut entries = Vec::with_capacity(OBSERVATION_FIELDS.len());
     let mut field = |name: &str, value: JsonValue| entries.push((name.to_string(), value));
     field("Owner", JsonValue::Str(o.owner.clone()));
-    field("RequestedRevision", JsonValue::Str(o.requested_revision.clone()));
+    field(
+        "RequestedRevision",
+        JsonValue::Str(o.requested_revision.clone()),
+    );
     field("ToolRevision", JsonValue::Str(o.tool_revision.clone()));
-    field("RequestedArchitecture", JsonValue::Str(o.requested_architecture.clone()));
+    field(
+        "RequestedArchitecture",
+        JsonValue::Str(o.requested_architecture.clone()),
+    );
     field("Target", JsonValue::Str(o.target.clone()));
     field("ClientPlatform", JsonValue::Str(o.client_platform.clone()));
     field("Action", JsonValue::Str(o.action.clone()));
@@ -237,18 +261,31 @@ pub fn observation_json(o: &Observation) -> JsonValue {
     field("Topology", JsonValue::Str(o.topology.clone()));
     field(
         "ExitCode",
-        o.exit_code.map(|code| JsonValue::Number(code.to_string())).unwrap_or(JsonValue::Null),
+        o.exit_code
+            .map(|code| JsonValue::Number(code.to_string()))
+            .unwrap_or(JsonValue::Null),
     );
     field("ToolDirty", JsonValue::Bool(o.tool_dirty));
     field(
         "Invocation",
         o.invocation
             .as_ref()
-            .map(|args| JsonValue::Array(args.iter().map(|arg| JsonValue::Str(arg.clone())).collect()))
+            .map(|args| {
+                JsonValue::Array(args.iter().map(|arg| JsonValue::Str(arg.clone())).collect())
+            })
             .unwrap_or(JsonValue::Null),
     );
-    field("Files", o.files.as_ref().map(map_json).unwrap_or(JsonValue::Null));
-    field("Artifacts", o.artifacts.as_ref().map(map_json).unwrap_or(JsonValue::Null));
+    field(
+        "Files",
+        o.files.as_ref().map(map_json).unwrap_or(JsonValue::Null),
+    );
+    field(
+        "Artifacts",
+        o.artifacts
+            .as_ref()
+            .map(map_json)
+            .unwrap_or(JsonValue::Null),
+    );
     field("Started", JsonValue::Str(o.started.clone()));
     field("Finished", JsonValue::Str(o.finished.clone()));
     JsonValue::Object(entries)
@@ -300,7 +337,12 @@ fn observation_files_match(root: &OwnedDir, o: &Observation) -> Result<(), Error
     for (name, sum) in files {
         // `filepath.IsLocal` plus `Clean` identity on a clean POSIX path:
         // relative, no leading escape, never ".".
-        if files::lexical_clean(name) != *name || name == "." || name.starts_with('/') || name == ".." || name.starts_with("../") {
+        if files::lexical_clean(name) != *name
+            || name == "."
+            || name.starts_with('/')
+            || name == ".."
+            || name.starts_with("../")
+        {
             return Err(Error::msg("unsafe observation reference"));
         }
         match files::hash_at(root, name) {
@@ -314,7 +356,11 @@ fn observation_files_match(root: &OwnedDir, o: &Observation) -> Result<(), Error
 fn split_record(file: &str) -> (String, String) {
     match file.rsplit_once('/') {
         Some((parent, base)) => {
-            let parent = if parent.is_empty() { "/".to_string() } else { parent.to_string() };
+            let parent = if parent.is_empty() {
+                "/".to_string()
+            } else {
+                parent.to_string()
+            };
             (parent, base.to_string())
         }
         None => (".".to_string(), file.to_string()),
@@ -334,13 +380,21 @@ pub fn read_observation(file: &str) -> Result<(Observation, String), Error> {
     Ok((observation, hash))
 }
 
-fn admit_handoff_observation(o: &Observation, arch: &str, revision_text: &str) -> Result<(), Error> {
+fn admit_handoff_observation(
+    o: &Observation,
+    arch: &str,
+    revision_text: &str,
+) -> Result<(), Error> {
     if !valid_owner(&o.owner) {
         return Err(Error::msg("unknown observation owner"));
     }
     match o.outcome.as_str() {
         "completed" => {
-            let files_empty = o.files.as_ref().map(|files| files.is_empty()).unwrap_or(true);
+            let files_empty = o
+                .files
+                .as_ref()
+                .map(|files| files.is_empty())
+                .unwrap_or(true);
             if o.execution != "completed" || o.evidence != "completed" || files_empty {
                 return Err(Error::msg("completed observation lacks execution/evidence"));
             }
@@ -349,7 +403,9 @@ fn admit_handoff_observation(o: &Observation, arch: &str, revision_text: &str) -
         _ => return Err(Error::msg("unknown observation outcome")),
     }
     if o.requested_revision != revision_text || o.requested_architecture != arch {
-        return Err(Error::msg("observation belongs to a different candidate/platform"));
+        return Err(Error::msg(
+            "observation belongs to a different candidate/platform",
+        ));
     }
     Ok(())
 }
@@ -360,7 +416,9 @@ fn append_missing_owners(text: &mut String, seen: &std::collections::BTreeSet<St
     owners.sort();
     for owner in owners {
         if !seen.contains(owner) {
-            text.push_str(&format!("- {owner}: no observation supplied (not a pass).\n"));
+            text.push_str(&format!(
+                "- {owner}: no observation supplied (not a pass).\n"
+            ));
         }
     }
 }
@@ -379,16 +437,26 @@ fn handoff_description(o: &Observation) -> String {
     field("Topology", JsonValue::Str(o.topology.clone()));
     field(
         "ExitCode",
-        o.exit_code.map(|code| JsonValue::Number(code.to_string())).unwrap_or(JsonValue::Null),
+        o.exit_code
+            .map(|code| JsonValue::Number(code.to_string()))
+            .unwrap_or(JsonValue::Null),
     );
     field(
         "Invocation",
         o.invocation
             .as_ref()
-            .map(|args| JsonValue::Array(args.iter().map(|arg| JsonValue::Str(arg.clone())).collect()))
+            .map(|args| {
+                JsonValue::Array(args.iter().map(|arg| JsonValue::Str(arg.clone())).collect())
+            })
             .unwrap_or(JsonValue::Null),
     );
-    field("Artifacts", o.artifacts.as_ref().map(map_json).unwrap_or(JsonValue::Null));
+    field(
+        "Artifacts",
+        o.artifacts
+            .as_ref()
+            .map(map_json)
+            .unwrap_or(JsonValue::Null),
+    );
     let mut out = String::new();
     jsonio::write_compact(&mut out, &JsonValue::Object(entries));
     out
@@ -397,7 +465,12 @@ fn handoff_description(o: &Observation) -> String {
 /// Cite exact observations and explicitly leave missing scopes open.
 /// It can complete without core product evidence and never certifies
 /// readiness.
-pub fn handoff(out: &str, arch: &str, revision_text: &str, records: &[String]) -> Result<(), Error> {
+pub fn handoff(
+    out: &str,
+    arch: &str,
+    revision_text: &str,
+    records: &[String],
+) -> Result<(), Error> {
     files::private_destination(out)?;
     oci_architecture(arch)?;
     if !revision(revision_text) {
@@ -416,7 +489,9 @@ pub fn handoff(out: &str, arch: &str, revision_text: &str, records: &[String]) -
         let description = handoff_description(&o);
         let mut location = String::new();
         jsonio::escape_go(&mut location, file);
-        text.push_str(&format!("    {description}\n    record-sha256: {hash}\n    path: {location}\n\n"));
+        text.push_str(&format!(
+            "    {description}\n    record-sha256: {hash}\n    path: {location}\n\n"
+        ));
         seen.insert(o.owner.clone());
     }
     append_missing_owners(&mut text, &seen);
@@ -432,10 +507,14 @@ mod tests {
 
     #[test]
     fn owner_and_shape_gates() {
-        for owner in ["P02", "P03", "P04", "P05", "P06", "P11", "U01", "U08", "U09", "U10", "U19", "U20"] {
+        for owner in [
+            "P02", "P03", "P04", "P05", "P06", "P11", "U01", "U08", "U09", "U10", "U19", "U20",
+        ] {
             assert!(valid_owner(owner), "{owner}");
         }
-        for owner in ["", "P07", "P08", "P01", "P12", "U00", "U21", "U8", "u08", "P0", "U200"] {
+        for owner in [
+            "", "P07", "P08", "P01", "P12", "U00", "U21", "U8", "u08", "P0", "U200",
+        ] {
             assert!(!valid_owner(owner), "{owner}");
         }
         assert_eq!(oci_architecture("x86_64").unwrap(), "amd64");
@@ -475,9 +554,15 @@ mod tests {
             entries.push(("Extra".to_string(), JsonValue::Bool(true)));
         }
         assert!(observation_from_json(&bad).is_err());
-        let mistyped = JsonValue::Object(vec![("ExitCode".to_string(), JsonValue::Str("0".to_string()))]);
+        let mistyped = JsonValue::Object(vec![(
+            "ExitCode".to_string(),
+            JsonValue::Str("0".to_string()),
+        )]);
         assert!(observation_from_json(&mistyped).is_err());
-        let bad_time = JsonValue::Object(vec![("Started".to_string(), JsonValue::Str("not-a-time".to_string()))]);
+        let bad_time = JsonValue::Object(vec![(
+            "Started".to_string(),
+            JsonValue::Str("not-a-time".to_string()),
+        )]);
         assert!(observation_from_json(&bad_time).is_err());
     }
 
@@ -487,7 +572,9 @@ mod tests {
         let scratch = TempDir::new("report").unwrap();
         let evidence_path = scratch.join("evidence").to_string_lossy().into_owned();
         let evidence = create_evidence(&evidence_path, &[]).unwrap();
-        evidence.write("check.stdout", b"synthetic failed observation\n").unwrap();
+        evidence
+            .write("check.stdout", b"synthetic failed observation\n")
+            .unwrap();
         let (file_hashes, hashes_err) = hashes(&evidence);
         assert!(hashes_err.is_none());
         let revision_text = "a".repeat(40);
@@ -506,17 +593,36 @@ mod tests {
         };
         let mut compact = String::new();
         jsonio::write_compact(&mut compact, &observation_json(&observation));
-        evidence.write("observation.json", compact.as_bytes()).unwrap();
+        evidence
+            .write("observation.json", compact.as_bytes())
+            .unwrap();
         let parent = TempDir::new("handoff").unwrap();
         let out = parent.join("handoff.md").to_string_lossy().into_owned();
         let record = format!("{evidence_path}/observation.json");
-        handoff(&out, "x86_64", &revision_text, &[record.clone()]).unwrap();
+        handoff(
+            &out,
+            "x86_64",
+            &revision_text,
+            std::slice::from_ref(&record),
+        )
+        .unwrap();
         let text = std::fs::read_to_string(&out).unwrap();
-        for required in ["failed", "U20 owns it", "U08: no observation supplied", "P09/P10 remain not selected"] {
+        for required in [
+            "failed",
+            "U20 owns it",
+            "U08: no observation supplied",
+            "P09/P10 remain not selected",
+        ] {
             assert!(text.contains(required), "missing {required:?}");
         }
         let wrong = parent.join("wrong.md").to_string_lossy().into_owned();
-        assert!(handoff(&wrong, "aarch64", &revision_text, &[record.clone()]).is_err());
+        assert!(handoff(
+            &wrong,
+            "aarch64",
+            &revision_text,
+            std::slice::from_ref(&record)
+        )
+        .is_err());
         std::fs::write(format!("{evidence_path}/check.stdout"), b"changed").unwrap();
         let changed = parent.join("changed.md").to_string_lossy().into_owned();
         assert!(handoff(&changed, "x86_64", &revision_text, &[record]).is_err());
@@ -542,10 +648,18 @@ mod tests {
         };
         let mut compact = String::new();
         jsonio::write_compact(&mut compact, &observation_json(&observation));
-        evidence.write("observation.json", compact.as_bytes()).unwrap();
+        evidence
+            .write("observation.json", compact.as_bytes())
+            .unwrap();
         let parent = TempDir::new("handoff").unwrap();
         let out = parent.join("handoff.md").to_string_lossy().into_owned();
-        let err = handoff(&out, "x86_64", &revision_text, &[format!("{evidence_path}/observation.json")]).unwrap_err();
+        let err = handoff(
+            &out,
+            "x86_64",
+            &revision_text,
+            &[format!("{evidence_path}/observation.json")],
+        )
+        .unwrap_err();
         assert_eq!(err.to_string(), "unsafe observation reference");
     }
 }

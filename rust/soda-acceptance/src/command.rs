@@ -45,6 +45,7 @@ pub struct CommandSpec {
 }
 
 /// Separated command outcome, mirroring Go's `Result`.
+#[derive(Default)]
 pub struct CommandResult {
     /// Redacted captured stdout.
     pub stdout: Vec<u8>,
@@ -56,18 +57,6 @@ pub struct CommandResult {
     pub started: bool,
     /// Exit code, or `-1` for signal termination.
     pub exit_code: Option<i32>,
-}
-
-impl Default for CommandResult {
-    fn default() -> CommandResult {
-        CommandResult {
-            stdout: Vec::new(),
-            stderr: Vec::new(),
-            err: None,
-            started: false,
-            exit_code: None,
-        }
-    }
 }
 
 /// Shell-quote argv for one SSH remote command, byte-identical to Go's
@@ -99,9 +88,14 @@ pub struct Remote {
 /// `Timeout` is admitted and ignored, like Go's `json:"-"` under
 /// `DisallowUnknownFields`; the driver always sets the deadline.
 pub fn decode_remote(value: &JsonValue) -> Result<Remote, Error> {
-    jsonio::check_no_unknown(value, &["User", "Host", "Port", "Key", "KnownHosts", "Timeout"])?;
+    jsonio::check_no_unknown(
+        value,
+        &["User", "Host", "Port", "Key", "KnownHosts", "Timeout"],
+    )?;
     let port = jsonio::opt_integer(value, "Port")?;
-    let port: i64 = port.try_into().map_err(|_| Error::msg("invalid Port: integer required"))?;
+    let port: i64 = port
+        .try_into()
+        .map_err(|_| Error::msg("invalid Port: integer required"))?;
     Ok(Remote {
         user: jsonio::opt_string(value, "User")?,
         host: jsonio::opt_string(value, "Host")?,
@@ -246,7 +240,9 @@ pub(crate) fn look_path(name: &str) -> Result<(), Error> {
             }
         }
     }
-    Err(Error::msg(format!("exec: {name:?}: executable file not found in $PATH")))
+    Err(Error::msg(format!(
+        "exec: {name:?}: executable file not found in $PATH"
+    )))
 }
 
 fn ssh_true(args: &[String]) -> bool {
@@ -277,7 +273,10 @@ fn ssh_true(args: &[String]) -> bool {
 }
 
 fn valid_command_label(label: &str) -> bool {
-    !label.is_empty() && label.chars().all(|c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'))
+    !label.is_empty()
+        && label
+            .chars()
+            .all(|c| matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-'))
 }
 
 fn redact_opt(evidence: &Evidence, err: Option<Error>) -> Option<Error> {
@@ -302,7 +301,10 @@ pub fn execute(
     spec: &CommandSpec,
 ) -> (CommandResult, Option<Error>) {
     if !valid_command_label(label) {
-        return (CommandResult::default(), Some(Error::msg("invalid command label")));
+        return (
+            CommandResult::default(),
+            Some(Error::msg("invalid command label")),
+        );
     }
     let out_file = match evidence.open_file(&format!("{label}.stdout")) {
         Ok(file) => file,
@@ -315,14 +317,22 @@ pub fn execute(
             return (CommandResult::default(), Some(e));
         }
     };
-    let out: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(out_file, evidence.secrets().to_vec())));
-    let err_writer: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(err_file, evidence.secrets().to_vec())));
+    let out: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(
+        out_file,
+        evidence.secrets().to_vec(),
+    )));
+    let err_writer: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(
+        err_file,
+        evidence.secrets().to_vec(),
+    )));
     let process = match process::start_process(phase, spec, out.clone(), err_writer.clone()) {
         Ok(process) => process,
         Err(run_err) => {
             let write_err = Error::join(vec![close_shared(&out), close_shared(&err_writer)]);
-            let mut result = CommandResult::default();
-            result.err = Some(evidence.redact_error(run_err));
+            let result = CommandResult {
+                err: Some(evidence.redact_error(run_err)),
+                ..Default::default()
+            };
             return (result, redact_opt(evidence, write_err));
         }
     };
@@ -338,10 +348,17 @@ pub fn execute(
             let _ = close_shared(&out_close);
             let _ = close_shared(&err_close);
         });
-        let mut result = CommandResult::default();
-        result.started = true;
-        result.err = redact_opt(evidence, run_err);
-        return (result, Some(Error::msg("evidence still owned by incomplete process cleanup")));
+        let result = CommandResult {
+            started: true,
+            err: redact_opt(evidence, run_err),
+            ..Default::default()
+        };
+        return (
+            result,
+            Some(Error::msg(
+                "evidence still owned by incomplete process cleanup",
+            )),
+        );
     }
     let pump_err = process.join_pumps();
     let close_err = Error::join(vec![close_shared(&out), close_shared(&err_writer)]);
@@ -358,8 +375,16 @@ pub fn execute(
         }
         _ => (run_err, close_err),
     };
-    let stdout = out.lock().unwrap_or_else(|e| e.into_inner()).buffer().to_vec();
-    let stderr = err_writer.lock().unwrap_or_else(|e| e.into_inner()).buffer().to_vec();
+    let stdout = out
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .buffer()
+        .to_vec();
+    let stderr = err_writer
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .buffer()
+        .to_vec();
     let mut result = CommandResult {
         stdout,
         stderr,
@@ -379,7 +404,11 @@ mod tests {
 
     fn fixture_evidence() -> (std::path::PathBuf, Evidence) {
         let mut dir = std::env::temp_dir();
-        dir.push(format!("soda-command-{}-{}", std::process::id(), fresh_id()));
+        dir.push(format!(
+            "soda-command-{}-{}",
+            std::process::id(),
+            fresh_id()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("evidence").to_string_lossy().into_owned();
         let evidence = crate::evidence::create_evidence(&path, &[]).unwrap();
@@ -428,7 +457,10 @@ mod tests {
             timeout: Duration::ZERO,
         };
         let command = remote
-            .command(&["printf".to_string(), "%s".to_string(), "a b".to_string()], StdinSpec::Bytes(b"input".to_vec()))
+            .command(
+                &["printf".to_string(), "%s".to_string(), "a b".to_string()],
+                StdinSpec::Bytes(b"input".to_vec()),
+            )
             .unwrap();
         let joined = command.args.join(" ");
         for required in [
@@ -500,10 +532,15 @@ mod tests {
 
     fn secret_evidence() -> (std::path::PathBuf, Evidence) {
         let mut dir = std::env::temp_dir();
-        dir.push(format!("soda-command-secret-{}-{}", std::process::id(), fresh_id()));
+        dir.push(format!(
+            "soda-command-secret-{}-{}",
+            std::process::id(),
+            fresh_id()
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("evidence").to_string_lossy().into_owned();
-        let evidence = crate::evidence::create_evidence(&path, &[b"synthetic-password".to_vec()]).unwrap();
+        let evidence =
+            crate::evidence::create_evidence(&path, &[b"synthetic-password".to_vec()]).unwrap();
         (dir, evidence)
     }
 

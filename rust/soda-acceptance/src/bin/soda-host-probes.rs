@@ -11,7 +11,12 @@ fn read_stdin() -> String {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let outcome = match args.iter().map(|arg| arg.as_str()).collect::<Vec<_>>().as_slice() {
+    let outcome = match args
+        .iter()
+        .map(|arg| arg.as_str())
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
         ["host-content", phase] => host_probes::host_content(phase),
         ["host-listeners", phase] => host_probes::host_listeners(phase),
         ["host-deployments"] => host_probes::host_deployments(&read_stdin()),

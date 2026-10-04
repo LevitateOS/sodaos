@@ -35,13 +35,16 @@ pub fn create_evidence(path: &str, secrets: &[Vec<u8>]) -> Result<Evidence, Erro
     if !path.starts_with('/') {
         return Err(Error::msg("absolute fresh evidence directory required"));
     }
-    let parent = std::path::Path::new(path).parent().unwrap_or(std::path::Path::new("/"));
+    let parent = std::path::Path::new(path)
+        .parent()
+        .unwrap_or(std::path::Path::new("/"));
     let parent_text = parent.to_string_lossy();
     let resolved = std::fs::canonicalize(parent)?;
     if resolved.to_string_lossy() != files::lexical_clean(&parent_text) {
         return Err(Error::msg("evidence parent must not contain symlinks"));
     }
-    let raw_path = std::ffi::CString::new(path).map_err(|_| Error::msg("absolute fresh evidence directory required"))?;
+    let raw_path = std::ffi::CString::new(path)
+        .map_err(|_| Error::msg("absolute fresh evidence directory required"))?;
     let rc = unsafe { libc::mkdir(raw_path.as_ptr(), 0o700) };
     if rc != 0 {
         return Err(Error::from(std::io::Error::last_os_error()));
@@ -61,12 +64,19 @@ pub fn create_evidence(path: &str, secrets: &[Vec<u8>]) -> Result<Evidence, Erro
             kept.push(inner.as_bytes().to_vec());
         }
     }
-    kept.sort_by(|a, b| b.len().cmp(&a.len()));
-    Ok(Evidence { root, secrets: kept })
+    kept.sort_by_key(|a| std::cmp::Reverse(a.len()));
+    Ok(Evidence {
+        root,
+        secrets: kept,
+    })
 }
 
 fn valid_evidence_name(name: &str) -> bool {
-    !name.starts_with('/') && files::lexical_clean(name) == name && name != "." && name != ".." && !name.starts_with("../")
+    !name.starts_with('/')
+        && files::lexical_clean(name) == name
+        && name != "."
+        && name != ".."
+        && !name.starts_with("../")
 }
 
 impl Evidence {
@@ -122,7 +132,10 @@ impl Evidence {
 
     /// Exclusive redacting stream for one evidence entry.
     pub fn writer(&self, name: &str) -> Result<RedactingWriter, Error> {
-        Ok(RedactingWriter::new(RedactOut::file(self.open(name)?), self.secrets.clone()))
+        Ok(RedactingWriter::new(
+            RedactOut::file(self.open(name)?),
+            self.secrets.clone(),
+        ))
     }
 
     /// Exclusive raw file for command capture tees.
@@ -181,7 +194,8 @@ impl Evidence {
         if compact.len() as u64 > EVIDENCE_LIMIT {
             return Err(Error::msg("structured evidence limit exceeded"));
         }
-        let decoded = JsonValue::parse(&compact).map_err(|_| Error::msg("structured evidence limit exceeded"))?;
+        let decoded = JsonValue::parse(&compact)
+            .map_err(|_| Error::msg("structured evidence limit exceeded"))?;
         let scrubbed = self.scrub_json(&decoded)?;
         // Go re-encodes a decoded map, so keys render sorted.
         let sorted = sort_json_keys(scrubbed);
@@ -212,7 +226,8 @@ impl Evidence {
     pub fn publish_observation(&self, observation: &JsonValue) -> Result<(), Error> {
         self.write_json("observation.pending.json", observation)?;
         self.check_secrets()?;
-        self.root.link_at("observation.pending.json", "observation.json")?;
+        self.root
+            .link_at("observation.pending.json", "observation.json")?;
         Ok(())
     }
 
@@ -257,7 +272,10 @@ impl Evidence {
 fn sort_json_keys(value: JsonValue) -> JsonValue {
     match value {
         JsonValue::Object(entries) => {
-            let mut entries: Vec<(String, JsonValue)> = entries.into_iter().map(|(k, v)| (k, sort_json_keys(v))).collect();
+            let mut entries: Vec<(String, JsonValue)> = entries
+                .into_iter()
+                .map(|(k, v)| (k, sort_json_keys(v)))
+                .collect();
             entries.sort_by(|a, b| a.0.cmp(&b.0));
             // Duplicate keys keep last-wins, like Go's map decode.
             let mut unique: Vec<(String, JsonValue)> = Vec::with_capacity(entries.len());
@@ -269,7 +287,9 @@ fn sort_json_keys(value: JsonValue) -> JsonValue {
             unique.reverse();
             JsonValue::Object(unique)
         }
-        JsonValue::Array(items) => JsonValue::Array(items.into_iter().map(sort_json_keys).collect()),
+        JsonValue::Array(items) => {
+            JsonValue::Array(items.into_iter().map(sort_json_keys).collect())
+        }
         other => other,
     }
 }
@@ -381,7 +401,10 @@ fn redact_urls_bytes(text: &[u8]) -> Vec<u8> {
 
 fn is_url_break(byte: u8) -> bool {
     // Go's `https?://[^\s"'<>\\]+`: single quotes stay inside the match.
-    matches!(byte, b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c' | b'"' | b'<' | b'>' | b'\\')
+    matches!(
+        byte,
+        b' ' | b'\t' | b'\n' | b'\r' | b'\x0b' | b'\x0c' | b'"' | b'<' | b'>' | b'\\'
+    )
 }
 
 fn sanitize_url_bytes(prefix: &[u8], rest: &[u8]) -> Vec<u8> {
@@ -411,7 +434,10 @@ fn has_bad_escape(text: &[u8]) -> bool {
     let mut i = 0;
     while i < text.len() {
         if text[i] == b'%' {
-            if i + 2 >= text.len() || !text[i + 1].is_ascii_hexdigit() || !text[i + 2].is_ascii_hexdigit() {
+            if i + 2 >= text.len()
+                || !text[i + 1].is_ascii_hexdigit()
+                || !text[i + 2].is_ascii_hexdigit()
+            {
                 return true;
             }
             i += 3;
@@ -548,7 +574,11 @@ impl RedactingWriter {
         let end = if final_flush {
             self.url_pending.len()
         } else {
-            self.url_pending.iter().rposition(|b| *b == b'\n').map(|i| i + 1).unwrap_or(0)
+            self.url_pending
+                .iter()
+                .rposition(|b| *b == b'\n')
+                .map(|i| i + 1)
+                .unwrap_or(0)
         };
         if end == 0 {
             return Ok(());
@@ -627,7 +657,11 @@ mod tests {
     impl Fixture {
         fn new(secrets: &[&str]) -> Fixture {
             let mut dir = std::env::temp_dir();
-            dir.push(format!("soda-evidence-{}-{}", std::process::id(), fresh_id()));
+            dir.push(format!(
+                "soda-evidence-{}-{}",
+                std::process::id(),
+                fresh_id()
+            ));
             std::fs::create_dir_all(&dir).unwrap();
             let path = dir.join("evidence").to_string_lossy().into_owned();
             let owned: Vec<Vec<u8>> = secrets.iter().map(|s| s.as_bytes().to_vec()).collect();
@@ -681,13 +715,21 @@ mod tests {
             assert!(e.writer(name).is_err(), "accepted {name:?}");
         }
         let mut link_dir = std::env::temp_dir();
-        link_dir.push(format!("soda-evidence-link-{}-{}", std::process::id(), fresh_id()));
+        link_dir.push(format!(
+            "soda-evidence-link-{}-{}",
+            std::process::id(),
+            fresh_id()
+        ));
         std::fs::create_dir_all(&link_dir).unwrap();
         std::os::unix::fs::symlink(&link_dir, format!("{}/link", e.path())).unwrap();
         assert!(e.writer("link/out").is_err());
         let root_mode = std::fs::metadata(e.path()).unwrap().permissions().mode() & 0o777;
         assert_eq!(root_mode, 0o700);
-        let file_mode = std::fs::metadata(format!("{}/once", e.path())).unwrap().permissions().mode() & 0o777;
+        let file_mode = std::fs::metadata(format!("{}/once", e.path()))
+            .unwrap()
+            .permissions()
+            .mode()
+            & 0o777;
         assert_eq!(file_mode, 0o600);
         std::fs::remove_dir_all(&link_dir).unwrap();
     }
@@ -706,12 +748,19 @@ mod tests {
         let fixture = Fixture::new(&["synthetic-password"]);
         let e = &fixture.evidence;
         let sentinel = Error::msg("underlying");
-        let wrapped = Error::wrap("synthetic-password https://example.test/?code=hidden", sentinel);
+        let wrapped = Error::wrap(
+            "synthetic-password https://example.test/?code=hidden",
+            sentinel,
+        );
         let redacted = e.redact_error(wrapped);
-        assert!(!redacted.to_string().contains("synthetic-password"), "{redacted}");
+        assert!(
+            !redacted.to_string().contains("synthetic-password"),
+            "{redacted}"
+        );
         assert!(!redacted.to_string().contains("code="), "{redacted}");
         let mut found = false;
-        let mut current: Option<&(dyn std::error::Error + 'static)> = std::error::Error::source(&redacted);
+        let mut current: Option<&(dyn std::error::Error + 'static)> =
+            std::error::Error::source(&redacted);
         while let Some(cause) = current {
             if cause.to_string() == "underlying" {
                 found = true;
@@ -737,7 +786,10 @@ mod tests {
         let fixture = Fixture::new(&[secret]);
         let e = &fixture.evidence;
         let input = JsonValue::Object(vec![
-            ("id".to_string(), JsonValue::Number("9223372036854775807".to_string())),
+            (
+                "id".to_string(),
+                JsonValue::Number("9223372036854775807".to_string()),
+            ),
             ("secret".to_string(), JsonValue::Str(secret.to_string())),
             (
                 "url".to_string(),
@@ -752,7 +804,10 @@ mod tests {
             Some(JsonValue::Number(digits)) => assert_eq!(digits, "9223372036854775807"),
             other => panic!("integer identity changed: {other:?}"),
         }
-        assert_eq!(result.get("secret").and_then(|v| v.as_str()), Some("[REDACTED]"));
+        assert_eq!(
+            result.get("secret").and_then(|v| v.as_str()),
+            Some("[REDACTED]")
+        );
         e.check_secrets().unwrap();
     }
 
@@ -770,8 +825,14 @@ mod tests {
         }
         writer.close().unwrap();
         let raw = std::fs::read(format!("{}/raw", e.path())).unwrap();
-        assert!(!contains_slice(&raw, inner.as_bytes()), "encoded secret not redacted");
-        assert!(contains_slice(&raw, b"[REDACTED]"), "encoded secret not redacted");
+        assert!(
+            !contains_slice(&raw, inner.as_bytes()),
+            "encoded secret not redacted"
+        );
+        assert!(
+            contains_slice(&raw, b"[REDACTED]"),
+            "encoded secret not redacted"
+        );
     }
 
     #[test]
@@ -792,8 +853,14 @@ mod tests {
                     file.write_all(b"earlier bytes").unwrap();
                 }
             }
-            let observation = JsonValue::Object(vec![("Outcome".to_string(), JsonValue::Str("completed".to_string()))]);
-            assert!(e.publish_observation(&observation).is_err(), "finalized failed attempt ({mode})");
+            let observation = JsonValue::Object(vec![(
+                "Outcome".to_string(),
+                JsonValue::Str("completed".to_string()),
+            )]);
+            assert!(
+                e.publish_observation(&observation).is_err(),
+                "finalized failed attempt ({mode})"
+            );
             let raw = std::fs::read(format!("{}/observation.json", e.path()));
             if mode == "final-collision" {
                 assert_eq!(raw.unwrap(), b"earlier bytes", "overwrote previous record");
@@ -819,7 +886,10 @@ mod tests {
         assert_eq!(redact_urls("https://h/%zz"), "[URL OMITTED]");
         assert_eq!(redact_urls("https://h/a%20b?x=1"), "https://h/a%20b");
         // Go's URL class keeps single quotes inside the match.
-        assert_eq!(redact_urls("see https://h/a'b?x=1 done"), "see https://h/a'b done");
+        assert_eq!(
+            redact_urls("see https://h/a'b?x=1 done"),
+            "see https://h/a'b done"
+        );
     }
 
     #[test]

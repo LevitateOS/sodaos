@@ -62,8 +62,15 @@ impl Error {
         if errors.len() == 1 {
             return errors.pop();
         }
-        let message = errors.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n");
-        Some(Error::Msg { message, sources: errors })
+        let message = errors
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        Some(Error::Msg {
+            message,
+            sources: errors,
+        })
     }
 
     /// True when this error or any cause is [`Error::Cancelled`].

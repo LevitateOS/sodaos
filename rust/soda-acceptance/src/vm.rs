@@ -82,12 +82,24 @@ impl RemoteConfig {
 pub fn decode_vm_config(value: &JsonValue) -> Result<VmConfig, Error> {
     jsonio::check_no_unknown(
         value,
-        &["Name", "Architecture", "BaseReceipt", "Ignition", "QEMU", "Firmware", "Variables", "Work", "DiskGiB", "SSH"],
+        &[
+            "Name",
+            "Architecture",
+            "BaseReceipt",
+            "Ignition",
+            "QEMU",
+            "Firmware",
+            "Variables",
+            "Work",
+            "DiskGiB",
+            "SSH",
+        ],
     )?;
     let ssh_value = value.get("SSH").cloned().unwrap_or(JsonValue::Null);
     let ssh = command::decode_remote(&ssh_value)?;
     let disk_gib = jsonio::opt_integer(value, "DiskGiB")?;
-    let disk_gib = i64::try_from(disk_gib).map_err(|_| Error::msg("invalid DiskGiB: integer required"))?;
+    let disk_gib =
+        i64::try_from(disk_gib).map_err(|_| Error::msg("invalid DiskGiB: integer required"))?;
     Ok(VmConfig {
         name: jsonio::opt_string(value, "Name")?,
         architecture: jsonio::opt_string(value, "Architecture")?,
@@ -111,14 +123,22 @@ pub fn decode_vm_config(value: &JsonValue) -> Result<VmConfig, Error> {
 /// `^soda-native-[a-z0-9-]+$` fixture names.
 fn valid_vm_name(name: &str) -> bool {
     match name.strip_prefix("soda-native-") {
-        Some(rest) => !rest.is_empty() && rest.bytes().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-')),
+        Some(rest) => {
+            !rest.is_empty()
+                && rest
+                    .bytes()
+                    .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-'))
+        }
         None => false,
     }
 }
 
 /// `^(?:[A-F0-9]{40}|[A-F0-9]{64})$` signer fingerprints.
 fn valid_signer(signer: &str) -> bool {
-    (signer.len() == 40 || signer.len() == 64) && signer.bytes().all(|b| matches!(b, b'0'..=b'9' | b'A'..=b'F'))
+    (signer.len() == 40 || signer.len() == 64)
+        && signer
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'A'..=b'F'))
 }
 
 fn validate_vm_config_identity(config: &VmConfig) -> Result<(), Error> {
@@ -173,12 +193,16 @@ fn validate_vm_paths(config: &VmConfig, evidence: &Evidence) -> Result<(), Error
         &config.ssh.known_hosts,
     ] {
         if !path.starts_with('/') || path.contains([',', '\n', '\r']) {
-            return Err(Error::msg("absolute paths without QEMU separators required"));
+            return Err(Error::msg(
+                "absolute paths without QEMU separators required",
+            ));
         }
     }
     // `filepath.Join` cleans, so `/w/` and `/w` measure the same.
     if files::lexical_clean(&format!("{}/qmp.sock", config.work)).len() > 100 {
-        return Err(Error::msg("select a shorter private work directory for QMP"));
+        return Err(Error::msg(
+            "select a shorter private work directory for QMP",
+        ));
     }
     disjoint_vm_work(&config.work, evidence)?;
     match std::fs::symlink_metadata(&config.work) {
@@ -211,7 +235,11 @@ fn check_vm_host_tools_and_kvm(qemu: &str, ssh_port: i64) -> Result<(), Error> {
     command::look_path(qemu)?;
     command::look_path("qemu-img")?;
     command::look_path("ssh")?;
-    let kvm = std::fs::OpenOptions::new().read(true).write(true).open("/dev/kvm").map_err(Error::from)?;
+    let kvm = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("/dev/kvm")
+        .map_err(Error::from)?;
     drop(kvm);
     let port = u16::try_from(ssh_port).map_err(|_| Error::msg("invalid SSH user/port"))?;
     let listener = std::net::TcpListener::bind(("127.0.0.1", port)).map_err(Error::from)?;
@@ -242,7 +270,10 @@ pub struct VerifiedBase {
 }
 
 fn decode_verified_base(value: &JsonValue) -> Result<VerifiedBase, Error> {
-    jsonio::check_no_unknown(value, &["Path", "SHA256", "Architecture", "Release", "Signer"])?;
+    jsonio::check_no_unknown(
+        value,
+        &["Path", "SHA256", "Architecture", "Release", "Signer"],
+    )?;
     Ok(VerifiedBase {
         path: jsonio::opt_string(value, "Path")?,
         sha256: jsonio::opt_string(value, "SHA256")?,
@@ -256,7 +287,10 @@ fn verify_launch_base_image(phase: &Phase, config: &VmConfig) -> Result<Verified
     let (value, _) = jsonio::read_json_file(&config.base_receipt)?;
     let base = decode_verified_base(&value)?;
     let (release, image) = coreos::resolve_qemu(phase, &config.architecture)?;
-    if base.architecture != config.architecture || base.release != release || base.sha256 != image.uncompressed_sha256 {
+    if base.architecture != config.architecture
+        || base.release != release
+        || base.sha256 != image.uncompressed_sha256
+    {
         return Err(Error::msg("base does not match resolved CoreOS input"));
     }
     if !base.path.starts_with('/') || base.path.contains([',', '\n', '\r']) {
@@ -265,7 +299,9 @@ fn verify_launch_base_image(phase: &Phase, config: &VmConfig) -> Result<Verified
     let meta = std::fs::symlink_metadata(&base.path).map_err(Error::from)?;
     use std::os::unix::fs::MetadataExt;
     if meta.mode() & 0o222 != 0 {
-        return Err(Error::msg("verified base must be read-only; fetch a fresh cache, never chmod a live base"));
+        return Err(Error::msg(
+            "verified base must be read-only; fetch a fresh cache, never chmod a live base",
+        ));
     }
     if !valid_signer(&base.signer) {
         return Err(Error::msg("verified base receipt lacks selected signer"));
@@ -273,17 +309,29 @@ fn verify_launch_base_image(phase: &Phase, config: &VmConfig) -> Result<Verified
     match files::hash_file(&base.path) {
         Ok(sum) if sum == base.sha256 => Ok(base),
         Ok(_) => Err(Error::msg("base checksum mismatch")),
-        Err(err) => Err(Error::join(vec![Some(err), Some(Error::msg("base checksum mismatch"))]).unwrap()),
+        Err(err) => {
+            Err(Error::join(vec![Some(err), Some(Error::msg("base checksum mismatch"))]).unwrap())
+        }
     }
 }
 
-fn publish_launch_fixture(config: &VmConfig, evidence: &Evidence, base: &VerifiedBase) -> Result<(), Error> {
+fn publish_launch_fixture(
+    config: &VmConfig,
+    evidence: &Evidence,
+    base: &VerifiedBase,
+) -> Result<(), Error> {
     let firmware_hash = files::hash_file(&config.firmware)?;
     let vars_hash = files::hash_file(&config.variables)?;
     let description = JsonValue::Object(vec![
         ("Name".to_string(), JsonValue::Str(config.name.clone())),
-        ("Architecture".to_string(), JsonValue::Str(config.architecture.clone())),
-        ("BaseSHA256".to_string(), JsonValue::Str(base.sha256.clone())),
+        (
+            "Architecture".to_string(),
+            JsonValue::Str(config.architecture.clone()),
+        ),
+        (
+            "BaseSHA256".to_string(),
+            JsonValue::Str(base.sha256.clone()),
+        ),
         ("Release".to_string(), JsonValue::Str(base.release.clone())),
         ("FirmwareSHA256".to_string(), JsonValue::Str(firmware_hash)),
         ("VariablesSHA256".to_string(), JsonValue::Str(vars_hash)),
@@ -309,11 +357,20 @@ fn verify_qemu_commands(phase: &Phase, evidence: &Evidence, qemu: &str) -> Resul
     Ok(())
 }
 
-fn verify_base_image_format(phase: &Phase, evidence: &Evidence, base_path: &str, disk_gib: i64) -> Result<(), Error> {
+fn verify_base_image_format(
+    phase: &Phase,
+    evidence: &Evidence,
+    base_path: &str,
+    disk_gib: i64,
+) -> Result<(), Error> {
     // qemu-img obtains its normal image locks; never request unsafe -U access.
     let spec = CommandSpec {
         name: "qemu-img".to_string(),
-        args: vec!["info".to_string(), "--output=json".to_string(), base_path.to_string()],
+        args: vec![
+            "info".to_string(),
+            "--output=json".to_string(),
+            base_path.to_string(),
+        ],
         dir: None,
         stdin: StdinSpec::Null,
         env: Vec::new(),
@@ -322,10 +379,13 @@ fn verify_base_image_format(phase: &Phase, evidence: &Evidence, base_path: &str,
     if let Some(joined) = Error::join(vec![evidence_err, result.err]) {
         return Err(joined);
     }
-    let text = std::str::from_utf8(&result.stdout).map_err(|_| Error::msg("invalid base image info"))?;
+    let text =
+        std::str::from_utf8(&result.stdout).map_err(|_| Error::msg("invalid base image info"))?;
     let info = JsonValue::parse(text).map_err(|_| Error::msg("invalid base image info"))?;
-    let format = jsonio::opt_string(&info, "format").map_err(|_| Error::msg("invalid base image info"))?;
-    let backing = jsonio::opt_string(&info, "backing-filename").map_err(|_| Error::msg("invalid base image info"))?;
+    let format =
+        jsonio::opt_string(&info, "format").map_err(|_| Error::msg("invalid base image info"))?;
+    let backing = jsonio::opt_string(&info, "backing-filename")
+        .map_err(|_| Error::msg("invalid base image info"))?;
     let size = info
         .get("virtual-size")
         .and_then(|v| v.as_integer())
@@ -337,7 +397,12 @@ fn verify_base_image_format(phase: &Phase, evidence: &Evidence, base_path: &str,
     Ok(())
 }
 
-fn prepare_vm_work_directory(phase: &Phase, evidence: &Evidence, config: &VmConfig, base_path: &str) -> Result<(), Error> {
+fn prepare_vm_work_directory(
+    phase: &Phase,
+    evidence: &Evidence,
+    config: &VmConfig,
+    base_path: &str,
+) -> Result<(), Error> {
     files::fresh_directory(&config.work)?;
     let disk = format!("{}/disk.qcow2", config.work);
     let spec = CommandSpec {
@@ -395,7 +460,10 @@ impl VmConfig {
             "-fw_cfg".to_string(),
             format!("name=opt/com.coreos/config,file={}", self.ignition),
             "-nic".to_string(),
-            format!("user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:{}-:22", self.ssh.port),
+            format!(
+                "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:{}-:22",
+                self.ssh.port
+            ),
             "-qmp".to_string(),
             format!("unix:{}/qmp.sock,server=on,wait=off", self.work),
         ]
@@ -426,35 +494,42 @@ pub struct Vm<'a> {
 
 /// Launch a fresh fixture VM: preflight, verified base, fixture
 /// record, QEMU checks, work directory, then boot to SSH readiness.
-pub fn launch_vm<'a>(phase: &Phase, mut config: VmConfig, evidence: &'a Evidence) -> Result<Vm<'a>, LaunchFailure<'a>> {
+pub fn launch_vm<'a>(
+    phase: &Phase,
+    mut config: VmConfig,
+    evidence: &'a Evidence,
+) -> Result<Vm<'a>, Box<LaunchFailure<'a>>> {
     if config.disk_gib == 0 {
         config.disk_gib = 64;
     }
     if let Err(err) = preflight(&config, evidence) {
-        return Err(LaunchFailure { vm: None, err });
+        return Err(Box::new(LaunchFailure { vm: None, err }));
     }
     let base = match verify_launch_base_image(phase, &config) {
         Ok(base) => base,
-        Err(err) => return Err(LaunchFailure { vm: None, err }),
+        Err(err) => return Err(Box::new(LaunchFailure { vm: None, err })),
     };
     if let Err(err) = publish_launch_fixture(&config, evidence, &base) {
-        return Err(LaunchFailure { vm: None, err });
+        return Err(Box::new(LaunchFailure { vm: None, err }));
     }
     if let Err(err) = verify_qemu_commands(phase, evidence, &config.qemu) {
-        return Err(LaunchFailure { vm: None, err });
+        return Err(Box::new(LaunchFailure { vm: None, err }));
     }
     if let Err(err) = verify_base_image_format(phase, evidence, &base.path, config.disk_gib) {
-        return Err(LaunchFailure { vm: None, err });
+        return Err(Box::new(LaunchFailure { vm: None, err }));
     }
     if let Err(err) = prepare_vm_work_directory(phase, evidence, &config, &base.path) {
-        return Err(LaunchFailure { vm: None, err });
+        return Err(Box::new(LaunchFailure { vm: None, err }));
     }
     let mut vm = Vm {
         config,
         process: None,
         boot_args: None,
         wait_ssh: true,
-        qmp: QmpClient { socket: String::new(), dial: None },
+        qmp: QmpClient {
+            socket: String::new(),
+            dial: None,
+        },
         outputs: Vec::new(),
         evidence,
         attempt: 0,
@@ -462,7 +537,10 @@ pub fn launch_vm<'a>(phase: &Phase, mut config: VmConfig, evidence: &'a Evidence
     };
     if let Err(err) = vm.start(phase) {
         let joined = Error::join(vec![Some(err), vm.close().err()]).unwrap();
-        return Err(LaunchFailure { vm: Some(vm), err: joined });
+        return Err(Box::new(LaunchFailure {
+            vm: Some(vm),
+            err: joined,
+        }));
     }
     Ok(vm)
 }
@@ -471,23 +549,35 @@ impl<'a> Vm<'a> {
     fn open_boot_logs(&mut self) -> Result<(SharedWriter, SharedWriter), Error> {
         let label = format!("boot-{}", self.attempt);
         let out_file = self.evidence.open_file(&format!("{label}.serial"))?;
-        let out: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(out_file, self.evidence.secrets().to_vec())));
+        let out: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(
+            out_file,
+            self.evidence.secrets().to_vec(),
+        )));
         self.outputs.push(out.clone());
         let err_file = self.evidence.open_file(&format!("{label}.stderr"))?;
-        let err_writer: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(err_file, self.evidence.secrets().to_vec())));
+        let err_writer: SharedWriter = Arc::new(Mutex::new(RedactingWriter::tee(
+            err_file,
+            self.evidence.secrets().to_vec(),
+        )));
         self.outputs.push(err_writer.clone());
         Ok((out, err_writer))
     }
 
     fn wait_qemu_ready(&self, phase: &Phase) -> Result<(), Error> {
         let ready = phase.child(Duration::from_secs(30));
-        let deadline = ready.deadline().unwrap_or_else(|| Instant::now() + Duration::from_secs(30));
+        let deadline = ready
+            .deadline()
+            .unwrap_or_else(|| Instant::now() + Duration::from_secs(30));
         let process = self.process.as_ref().unwrap();
         loop {
             let mut status = JsonValue::Null;
             // Any successful response is readiness, like the Go owner;
             // the payload content is not consulted.
-            if self.qmp.execute("query-status", "status", None, Some(&mut status), deadline).is_ok() {
+            if self
+                .qmp
+                .execute("query-status", "status", None, Some(&mut status), deadline)
+                .is_ok()
+            {
                 return Ok(());
             }
             if process.is_done() {
@@ -497,9 +587,7 @@ impl<'a> Vm<'a> {
                 ])
                 .unwrap());
             }
-            if let Err(err) = ready.check() {
-                return Err(err);
-            }
+            ready.check()?;
             std::thread::sleep(Duration::from_millis(200));
         }
     }
@@ -570,8 +658,11 @@ impl<'a> Vm<'a> {
             return Ok(());
         };
         let shutdown = phase.child(Duration::from_secs(2 * 60));
-        let deadline = shutdown.deadline().unwrap_or_else(|| Instant::now() + Duration::from_secs(2 * 60));
-        self.qmp.execute("system_powerdown", "powerdown", None, None, deadline)?;
+        let deadline = shutdown
+            .deadline()
+            .unwrap_or_else(|| Instant::now() + Duration::from_secs(2 * 60));
+        self.qmp
+            .execute("system_powerdown", "powerdown", None, None, deadline)?;
         process.wait(&shutdown)?;
         self.process = None;
         match std::fs::remove_file(&self.qmp.socket) {
@@ -602,9 +693,7 @@ impl<'a> Vm<'a> {
             return Err(Error::msg("guest exited unexpectedly"));
         };
         loop {
-            if let Err(err) = phase.check() {
-                return Err(err);
-            }
+            phase.check()?;
             if process.is_done() {
                 return Err(Error::join(vec![
                     Some(Error::msg("guest exited unexpectedly")),
@@ -632,7 +721,10 @@ impl<'a> Vm<'a> {
                         let _ = slot.close();
                     }
                 });
-                err = Error::join(vec![err, Some(Error::msg("VM capture still owned by incomplete cleanup"))]);
+                err = Error::join(vec![
+                    err,
+                    Some(Error::msg("VM capture still owned by incomplete cleanup")),
+                ]);
                 return err.map(Err).unwrap_or(Ok(()));
             }
         }
@@ -701,7 +793,10 @@ mod tests {
             work: "/private/owned".to_string(),
             ignition: "/private/input.ign".to_string(),
             firmware: "/firmware/code".to_string(),
-            ssh: RemoteConfig { port: 22222, ..RemoteConfig::default() },
+            ssh: RemoteConfig {
+                port: 22222,
+                ..RemoteConfig::default()
+            },
             ..fixture_config()
         };
         let args = config.args().join(" ");
@@ -716,7 +811,10 @@ mod tests {
         ] {
             assert!(args.contains(part), "{args}");
         }
-        assert!(!args.contains("-daemonize") && !args.contains("tap,"), "{args}");
+        assert!(
+            !args.contains("-daemonize") && !args.contains("tap,"),
+            "{args}"
+        );
     }
 
     #[test]
@@ -744,11 +842,17 @@ mod tests {
     #[test]
     fn vm_config_decode_rejects_unknown_and_mistyped() {
         let mut entries = vec![
-            ("Name".to_string(), JsonValue::Str("soda-native-fixture".to_string())),
+            (
+                "Name".to_string(),
+                JsonValue::Str("soda-native-fixture".to_string()),
+            ),
             ("DiskGiB".to_string(), JsonValue::Number("64".to_string())),
             (
                 "SSH".to_string(),
-                JsonValue::Object(vec![("Port".to_string(), JsonValue::Number("22222".to_string()))]),
+                JsonValue::Object(vec![(
+                    "Port".to_string(),
+                    JsonValue::Number("22222".to_string()),
+                )]),
             ),
         ];
         let config = decode_vm_config(&JsonValue::Object(entries.clone())).unwrap();
@@ -756,7 +860,10 @@ mod tests {
         assert_eq!(config.ssh.port, 22222);
         entries.push(("Extra".to_string(), JsonValue::Bool(true)));
         assert!(decode_vm_config(&JsonValue::Object(entries)).is_err());
-        let bad = JsonValue::Object(vec![("DiskGiB".to_string(), JsonValue::Str("64".to_string()))]);
+        let bad = JsonValue::Object(vec![(
+            "DiskGiB".to_string(),
+            JsonValue::Str("64".to_string()),
+        )]);
         assert!(decode_vm_config(&bad).is_err());
     }
 
@@ -767,7 +874,10 @@ mod tests {
         let evidence = create_evidence(&evidence_path, &[]).unwrap();
         let mut config = fixture_config();
         config.name = "wrong".to_string();
-        assert_eq!(preflight(&config, &evidence).err().unwrap().to_string(), "fresh soda-native-* fixture name required");
+        assert_eq!(
+            preflight(&config, &evidence).err().unwrap().to_string(),
+            "fresh soda-native-* fixture name required"
+        );
         config = fixture_config();
         config.disk_gib = 0;
         assert_eq!(
@@ -818,7 +928,10 @@ mod tests {
             process: None,
             boot_args: None,
             wait_ssh: true,
-            qmp: QmpClient { socket: scratch.join("missing.sock").to_string_lossy().into_owned(), dial: None },
+            qmp: QmpClient {
+                socket: scratch.join("missing.sock").to_string_lossy().into_owned(),
+                dial: None,
+            },
             outputs: Vec::new(),
             evidence: &evidence,
             attempt: 0,

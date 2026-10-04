@@ -51,8 +51,12 @@ pub fn lexical_clean(path: &str) -> String {
 }
 
 fn c_string(path: &Path) -> Result<CString, Error> {
-    CString::new(path.as_os_str().as_bytes())
-        .map_err(|_| Error::from(std::io::Error::new(std::io::ErrorKind::InvalidInput, "path contains NUL")))
+    CString::new(path.as_os_str().as_bytes()).map_err(|_| {
+        Error::from(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "path contains NUL",
+        ))
+    })
 }
 
 /// File identity plus the mode bits callers gate on.
@@ -89,8 +93,8 @@ impl FileAttr {
             size: st.st_size.max(0) as u64,
             uid: st.st_uid,
             gid: st.st_gid,
-            dev: st.st_dev as u64,
-            ino: st.st_ino as u64,
+            dev: st.st_dev,
+            ino: st.st_ino,
         }
     }
 }
@@ -115,7 +119,12 @@ impl OwnedDir {
     /// Open an existing directory, like `os.OpenRoot`.
     pub fn open(path: &str) -> Result<OwnedDir, Error> {
         let raw = c_string(Path::new(path))?;
-        let fd = unsafe { libc::open(raw.as_ptr(), libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC) };
+        let fd = unsafe {
+            libc::open(
+                raw.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC,
+            )
+        };
         if fd < 0 {
             return Err(Error::from(std::io::Error::last_os_error()));
         }
@@ -181,7 +190,14 @@ impl OwnedDir {
         let (parent, base) = OwnedDir::split_parent(name)?;
         let dir = self.traverse(parent)?;
         let mut st: libc::stat = unsafe { std::mem::zeroed() };
-        let rc = unsafe { libc::fstatat(dir.as_raw_fd(), base.as_ptr(), &mut st, libc::AT_SYMLINK_NOFOLLOW) };
+        let rc = unsafe {
+            libc::fstatat(
+                dir.as_raw_fd(),
+                base.as_ptr(),
+                &mut st,
+                libc::AT_SYMLINK_NOFOLLOW,
+            )
+        };
         if rc != 0 {
             return Err(Error::from(std::io::Error::last_os_error()));
         }
@@ -285,11 +301,18 @@ impl OwnedDir {
     /// Walk entries beneath this root, yielding root-relative paths with a
     /// regularity flag. Directories recurse; callers report their own error
     /// for non-regular entries like the Go owner does.
-    pub fn walk_files(&self, visit: &mut dyn FnMut(&str, bool) -> Result<(), Error>) -> Result<(), Error> {
+    pub fn walk_files(
+        &self,
+        visit: &mut dyn FnMut(&str, bool) -> Result<(), Error>,
+    ) -> Result<(), Error> {
         self.walk_recursion("", visit)
     }
 
-    fn walk_recursion(&self, prefix: &str, visit: &mut dyn FnMut(&str, bool) -> Result<(), Error>) -> Result<(), Error> {
+    fn walk_recursion(
+        &self,
+        prefix: &str,
+        visit: &mut dyn FnMut(&str, bool) -> Result<(), Error>,
+    ) -> Result<(), Error> {
         let dir = if prefix.is_empty() {
             OwnedDir {
                 fd: self.duplicate()?,
@@ -356,7 +379,9 @@ pub fn private_file(path: &str) -> Result<Vec<u8>, Error> {
             .file_name()
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_default();
-        return Err(Error::msg(format!("restricted regular input required: {base}")));
+        return Err(Error::msg(format!(
+            "restricted regular input required: {base}"
+        )));
     }
     Ok(std::fs::read(path)?)
 }
@@ -487,7 +512,11 @@ impl Drop for TempDir {
 
 /// Exclusive file creation with exact mode bits. Mirrors `WriteNew`.
 pub fn write_new(path: &str, data: &[u8], mode: u32) -> Result<(), Error> {
-    let mut file = OpenOptions::new().write(true).create_new(true).mode(mode).open(path)?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(mode)
+        .open(path)?;
     file.write_all(data)?;
     Ok(())
 }
@@ -588,10 +617,16 @@ mod tests {
             let mut file = root.create_new_at("sub/file", 0o600).unwrap();
             file.write_all(b"data").unwrap();
         }
-        assert_eq!(hash_at(&root, "sub/file").unwrap(), crate::sha256::hex_lower(&crate::sha256::digest(b"data")));
+        assert_eq!(
+            hash_at(&root, "sub/file").unwrap(),
+            crate::sha256::hex_lower(&crate::sha256::digest(b"data"))
+        );
         root.link_at("sub/file", "linked").unwrap();
         assert!(root.link_at("sub/file", "linked").is_err());
-        assert!(root.create_new_at("sub/file", 0o600).unwrap_err().io_kind() == Some(std::io::ErrorKind::AlreadyExists));
+        assert!(
+            root.create_new_at("sub/file", 0o600).unwrap_err().io_kind()
+                == Some(std::io::ErrorKind::AlreadyExists)
+        );
 
         let outside = temp_dir("soda-files-outside");
         let escape = dir.join("escape");
@@ -644,12 +679,16 @@ mod tests {
         private_destination(out.to_str().unwrap()).unwrap();
         write_new(out.to_str().unwrap(), b"bytes", 0o600).unwrap();
         assert_eq!(
-            private_destination(out.to_str().unwrap()).unwrap_err().to_string(),
+            private_destination(out.to_str().unwrap())
+                .unwrap_err()
+                .to_string(),
             "output already exists or cannot be inspected"
         );
         std::fs::set_permissions(&parent, std::fs::Permissions::from_mode(0o755)).unwrap();
         assert_eq!(
-            private_destination(parent.join("other").to_str().unwrap()).unwrap_err().to_string(),
+            private_destination(parent.join("other").to_str().unwrap())
+                .unwrap_err()
+                .to_string(),
             "real private output parent required"
         );
         std::fs::remove_dir_all(&dir).unwrap();

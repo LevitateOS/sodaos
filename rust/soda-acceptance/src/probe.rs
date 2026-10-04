@@ -43,7 +43,10 @@ pub fn parse_server_host_key(stderr: &str) -> Option<String> {
 /// fingerprint. Mirrors `(Remote).ProbeSSHKey`, including the validation
 /// order and the phase check after the exchange.
 pub fn probe_ssh_key(phase: &Phase, remote: &Remote) -> Result<String, Error> {
-    if remote.user != "git" || !(1..=65535).contains(&remote.port) || !remote.known_hosts.starts_with('/') {
+    if remote.user != "git"
+        || !(1..=65535).contains(&remote.port)
+        || !remote.known_hosts.starts_with('/')
+    {
         return Err(Error::msg("explicit Git SSH endpoint and pin required"));
     }
     let meta = std::fs::symlink_metadata(&remote.known_hosts)?;
@@ -99,15 +102,21 @@ pub fn probe_ssh_key(phase: &Phase, remote: &Remote) -> Result<String, Error> {
         "true".to_string(),
     ];
     let stderr = run_exchange(&inner, &argv)?;
-    if let Err(e) = inner.check() {
-        return Err(e);
-    }
+    inner.check()?;
     if let Some(fingerprint) = parse_server_host_key(&stderr) {
         return Ok(fingerprint);
     }
-    let detail = stderr.lines().rev().find(|line| !line.trim().is_empty()).unwrap_or("ssh failed").to_string();
-    Err(Error::join(vec![Some(Error::msg("pinned endpoint key was not observed")), Some(Error::msg(detail))])
-        .unwrap_or_else(|| Error::msg("pinned endpoint key was not observed")))
+    let detail = stderr
+        .lines()
+        .rev()
+        .find(|line| !line.trim().is_empty())
+        .unwrap_or("ssh failed")
+        .to_string();
+    Err(Error::join(vec![
+        Some(Error::msg("pinned endpoint key was not observed")),
+        Some(Error::msg(detail)),
+    ])
+    .unwrap_or_else(|| Error::msg("pinned endpoint key was not observed")))
 }
 
 fn run_exchange(phase: &Phase, argv: &[String]) -> Result<String, Error> {
@@ -183,7 +192,11 @@ mod tests {
             .unwrap();
         assert!(status.success());
         let public = std::fs::read_to_string(dir.join("probe-key.pub")).unwrap();
-        let public = public.split_whitespace().take(2).collect::<Vec<_>>().join(" ");
+        let public = public
+            .split_whitespace()
+            .take(2)
+            .collect::<Vec<_>>()
+            .join(" ");
         let hosts = dir.join(name);
         std::fs::write(&hosts, format!("[127.0.0.1]:1 {public}\n")).unwrap();
         hosts.to_string_lossy().into_owned()
@@ -196,11 +209,17 @@ mod tests {
         let mut remote = remote_for(&dir, &good);
         // Refused instantly: no server on port 1, so no fingerprint.
         let err = probe_ssh_key(&Phase::background(), &remote).unwrap_err();
-        assert!(err.to_string().contains("pinned endpoint key was not observed"), "{err}");
+        assert!(
+            err.to_string()
+                .contains("pinned endpoint key was not observed"),
+            "{err}"
+        );
 
         remote.user = "operator".to_string();
         assert_eq!(
-            probe_ssh_key(&Phase::background(), &remote).unwrap_err().to_string(),
+            probe_ssh_key(&Phase::background(), &remote)
+                .unwrap_err()
+                .to_string(),
             "explicit Git SSH endpoint and pin required"
         );
         remote.user = "git".to_string();
@@ -216,7 +235,9 @@ mod tests {
         std::fs::set_permissions(&open, std::fs::Permissions::from_mode(0o666)).unwrap();
         remote.known_hosts = open.to_string_lossy().into_owned();
         assert_eq!(
-            probe_ssh_key(&Phase::background(), &remote).unwrap_err().to_string(),
+            probe_ssh_key(&Phase::background(), &remote)
+                .unwrap_err()
+                .to_string(),
             "trusted regular known_hosts required"
         );
 
@@ -224,7 +245,9 @@ mod tests {
         std::fs::write(&garbage, "this is not a known_hosts file at all\n").unwrap();
         remote.known_hosts = garbage.to_string_lossy().into_owned();
         assert_eq!(
-            probe_ssh_key(&Phase::background(), &remote).unwrap_err().to_string(),
+            probe_ssh_key(&Phase::background(), &remote)
+                .unwrap_err()
+                .to_string(),
             "invalid pinned known_hosts file"
         );
 
@@ -248,8 +271,14 @@ mod tests {
     #[test]
     fn fingerprint_lines_parse() {
         let stderr = "debug1: Connecting to 127.0.0.1 [127.0.0.1] port 22.\ndebug1: Server host key: ssh-ed25519 SHA256:abc123+/=\ndebug1: Authenticated.\n";
-        assert_eq!(parse_server_host_key(stderr).as_deref(), Some("SHA256:abc123+/="));
+        assert_eq!(
+            parse_server_host_key(stderr).as_deref(),
+            Some("SHA256:abc123+/=")
+        );
         assert_eq!(parse_server_host_key("no keys here\n"), None);
-        assert_eq!(parse_server_host_key("debug1: Server host key: ssh-rsa MD5:aa:bb\n"), None);
+        assert_eq!(
+            parse_server_host_key("debug1: Server host key: ssh-rsa MD5:aa:bb\n"),
+            None
+        );
     }
 }

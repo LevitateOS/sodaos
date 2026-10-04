@@ -56,7 +56,11 @@ impl QmpClient {
             .set_read_timeout(Some(timeout))
             .and_then(|()| connection.set_write_timeout(Some(timeout)))
             .map_err(|err| Error::msg(format!("set QMP deadline: {err}")))?;
-        let mut reader = BufReader::new(connection.try_clone().map_err(|err| Error::msg(format!("connect QMP socket: {err}")))?);
+        let mut reader = BufReader::new(
+            connection
+                .try_clone()
+                .map_err(|err| Error::msg(format!("connect QMP socket: {err}")))?,
+        );
         let mut writer = connection;
         negotiate(&mut reader, &mut writer)?;
         let mut request = vec![("execute".to_string(), JsonValue::Str(command.to_string()))];
@@ -109,23 +113,35 @@ fn send_message(writer: &mut UnixStream, value: &JsonValue) -> std::io::Result<(
 }
 
 fn negotiate(reader: &mut BufReader<UnixStream>, writer: &mut UnixStream) -> Result<(), Error> {
-    let greeting = read_message(reader).map_err(|err| Error::msg(format!("read QMP greeting: {err}")))?;
+    let greeting =
+        read_message(reader).map_err(|err| Error::msg(format!("read QMP greeting: {err}")))?;
     if greeting.get("QMP").is_none() {
         return Err(Error::msg("QMP greeting is missing capabilities"));
     }
     let capabilities = JsonValue::Object(vec![
-        ("execute".to_string(), JsonValue::Str("qmp_capabilities".to_string())),
+        (
+            "execute".to_string(),
+            JsonValue::Str("qmp_capabilities".to_string()),
+        ),
         ("id".to_string(), JsonValue::Str("capabilities".to_string())),
     ]);
-    send_message(writer, &capabilities).map_err(|err| Error::msg(format!("enable QMP capabilities: {err}")))?;
+    send_message(writer, &capabilities)
+        .map_err(|err| Error::msg(format!("enable QMP capabilities: {err}")))?;
     decode_response(reader, "capabilities", None)
 }
 
-fn decode_response(reader: &mut BufReader<UnixStream>, id: &str, result: Option<&mut JsonValue>) -> Result<(), Error> {
+fn decode_response(
+    reader: &mut BufReader<UnixStream>,
+    id: &str,
+    result: Option<&mut JsonValue>,
+) -> Result<(), Error> {
     loop {
-        let response = read_message(reader).map_err(|err| Error::msg(format!("read QMP response {id}: {err}")))?;
+        let response = read_message(reader)
+            .map_err(|err| Error::msg(format!("read QMP response {id}: {err}")))?;
         let JsonValue::Object(_) = response else {
-            return Err(Error::msg(format!("read QMP response {id}: invalid QMP message")));
+            return Err(Error::msg(format!(
+                "read QMP response {id}: invalid QMP message"
+            )));
         };
         if response.get("id").and_then(|v| v.as_str()) != Some(id) {
             continue;
@@ -135,8 +151,14 @@ fn decode_response(reader: &mut BufReader<UnixStream>, id: &str, result: Option<
                 let class = error.get("class").and_then(|v| v.as_str());
                 let desc = error.get("desc").and_then(|v| v.as_str());
                 match (class, desc) {
-                    (Some(class), Some(desc)) => return Err(Error::msg(format!("QMP {id} failed: {class}: {desc}"))),
-                    _ => return Err(Error::msg(format!("read QMP response {id}: invalid QMP message"))),
+                    (Some(class), Some(desc)) => {
+                        return Err(Error::msg(format!("QMP {id} failed: {class}: {desc}")))
+                    }
+                    _ => {
+                        return Err(Error::msg(format!(
+                            "read QMP response {id}: invalid QMP message"
+                        )))
+                    }
                 }
             }
         }
@@ -165,11 +187,21 @@ mod tests {
             let (connection, _) = listener.accept().unwrap();
             let mut reader = BufReader::new(connection.try_clone().unwrap());
             let mut writer = connection;
-            send_message(&mut writer, &JsonValue::Object(vec![("QMP".to_string(), JsonValue::Object(vec![]))])).unwrap();
+            send_message(
+                &mut writer,
+                &JsonValue::Object(vec![("QMP".to_string(), JsonValue::Object(vec![]))]),
+            )
+            .unwrap();
             for _ in 0..2 {
                 let request = read_message(&mut reader).unwrap();
-                let id = request.get("id").and_then(|v| v.as_str()).unwrap().to_string();
-                let body = if request.get("execute").and_then(|v| v.as_str()) == Some("qmp_capabilities") {
+                let id = request
+                    .get("id")
+                    .and_then(|v| v.as_str())
+                    .unwrap()
+                    .to_string();
+                let body = if request.get("execute").and_then(|v| v.as_str())
+                    == Some("qmp_capabilities")
+                {
                     "{}".to_string()
                 } else {
                     payload.to_string()
@@ -193,9 +225,18 @@ mod tests {
         let client = QmpClient { socket, dial: None };
         let mut result = JsonValue::Null;
         client
-            .execute("query-status", "status", None, Some(&mut result), Instant::now() + std::time::Duration::from_secs(30))
+            .execute(
+                "query-status",
+                "status",
+                None,
+                Some(&mut result),
+                Instant::now() + std::time::Duration::from_secs(30),
+            )
             .unwrap();
-        assert_eq!(result.get("status").and_then(|v| v.as_str()), Some("running"));
+        assert_eq!(
+            result.get("status").and_then(|v| v.as_str()),
+            Some("running")
+        );
         server.join().unwrap();
     }
 
@@ -203,7 +244,9 @@ mod tests {
 
     fn pair_dial(_: &str) -> std::io::Result<UnixStream> {
         let mut guard = PAIR_SERVER.get().unwrap().lock().unwrap();
-        guard.take().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotConnected, "no paired QMP server"))
+        guard.take().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::NotConnected, "no paired QMP server")
+        })
     }
 
     /// Port of `TestQMPClientReportsNativeError` from `qmp_test.go`.
@@ -219,21 +262,36 @@ mod tests {
         let server = std::thread::spawn(move || {
             let mut reader = BufReader::new(server_end.try_clone().unwrap());
             let mut writer = server_end;
-            send_message(&mut writer, &JsonValue::Object(vec![("QMP".to_string(), JsonValue::Object(vec![]))])).unwrap();
+            send_message(
+                &mut writer,
+                &JsonValue::Object(vec![("QMP".to_string(), JsonValue::Object(vec![]))]),
+            )
+            .unwrap();
             let request = read_message(&mut reader).unwrap();
-            let id = request.get("id").and_then(|v| v.as_str()).unwrap().to_string();
+            let id = request
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap()
+                .to_string();
             let ok = JsonValue::Object(vec![
                 ("return".to_string(), JsonValue::parse("{}").unwrap()),
                 ("id".to_string(), JsonValue::Str(id)),
             ]);
             send_message(&mut writer, &ok).unwrap();
             let request = read_message(&mut reader).unwrap();
-            let id = request.get("id").and_then(|v| v.as_str()).unwrap().to_string();
+            let id = request
+                .get("id")
+                .and_then(|v| v.as_str())
+                .unwrap()
+                .to_string();
             let failure = JsonValue::Object(vec![
                 (
                     "error".to_string(),
                     JsonValue::Object(vec![
-                        ("class".to_string(), JsonValue::Str("GenericError".to_string())),
+                        (
+                            "class".to_string(),
+                            JsonValue::Str("GenericError".to_string()),
+                        ),
                         ("desc".to_string(), JsonValue::Str("rejected".to_string())),
                     ]),
                 ),
@@ -246,7 +304,13 @@ mod tests {
             dial: Some(pair_dial),
         };
         let err = client
-            .execute("system_powerdown", "powerdown", None, None, Instant::now() + std::time::Duration::from_secs(30))
+            .execute(
+                "system_powerdown",
+                "powerdown",
+                None,
+                None,
+                Instant::now() + std::time::Duration::from_secs(30),
+            )
             .unwrap_err();
         assert!(err.to_string().contains("GenericError: rejected"), "{err}");
         server.join().unwrap();
@@ -263,7 +327,13 @@ mod tests {
         });
         let client = QmpClient { socket, dial: None };
         let err = client
-            .execute("query-status", "status", None, None, Instant::now() + std::time::Duration::from_secs(30))
+            .execute(
+                "query-status",
+                "status",
+                None,
+                None,
+                Instant::now() + std::time::Duration::from_secs(30),
+            )
             .unwrap_err();
         assert_eq!(err.to_string(), "QMP greeting is missing capabilities");
         server.join().unwrap();

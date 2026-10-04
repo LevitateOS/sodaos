@@ -29,7 +29,8 @@ pub fn provisioning_secrets(path: &str) -> Result<Vec<Vec<u8>>, Error> {
             }
         }
     }
-    let files = trust::decode_ignition_files(&parsed).map_err(|_| Error::msg(single_document_message()))?;
+    let files =
+        trust::decode_ignition_files(&parsed).map_err(|_| Error::msg(single_document_message()))?;
     for file in &files {
         if !is_private_host_key_path(&file.path) {
             continue;
@@ -51,18 +52,30 @@ fn single_document_message() -> &'static str {
 }
 
 fn is_single_complete_v3(parsed: &JsonValue) -> bool {
-    let version = parsed.get("ignition").and_then(|i| i.get("version")).and_then(|v| v.as_str()).unwrap_or("");
+    let version = parsed
+        .get("ignition")
+        .and_then(|i| i.get("version"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
     if !version.starts_with("3.") {
         return false;
     }
-    if let Some(merge) = parsed.get("ignition").and_then(|i| i.get("config")).and_then(|c| c.get("merge")) {
+    if let Some(merge) = parsed
+        .get("ignition")
+        .and_then(|i| i.get("config"))
+        .and_then(|c| c.get("merge"))
+    {
         match merge {
             JsonValue::Null => {}
             JsonValue::Array(items) if items.is_empty() => {}
             _ => return false,
         }
     }
-    if let Some(replace) = parsed.get("ignition").and_then(|i| i.get("config")).and_then(|c| c.get("replace")) {
+    if let Some(replace) = parsed
+        .get("ignition")
+        .and_then(|i| i.get("config"))
+        .and_then(|c| c.get("replace"))
+    {
         if !matches!(replace, JsonValue::Null) {
             return false;
         }
@@ -92,7 +105,10 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let key = "line-one\nline-two\n";
-        let source = format!("data:;base64,{}", crate::trust::encode_base64(key.as_bytes()));
+        let source = format!(
+            "data:;base64,{}",
+            crate::trust::encode_base64(key.as_bytes())
+        );
         let body = format!(
             "{{\"ignition\":{{\"version\":\"3.5.0\"}},\"passwd\":{{\"users\":[{{\"PasswordHash\":\"$6$salt$hash\"}},{{}}]}},\"storage\":{{\"files\":[{{\"path\":\"/etc/motd\",\"contents\":{{\"source\":\"data:,hi\"}}}},{{\"path\":\"/etc/ssh/ssh_host_ed25519_key\",\"contents\":{{\"source\":\"{source}\"}}}}]}}}}"
         );
@@ -114,8 +130,14 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         for (name, body) in [
             ("bad-version", "{\"ignition\":{\"version\":\"2.0.0\"}}"),
-            ("merge", "{\"ignition\":{\"version\":\"3.5.0\",\"config\":{\"merge\":[{}]}}}"),
-            ("replace", "{\"ignition\":{\"version\":\"3.5.0\",\"config\":{\"replace\":{}}}}"),
+            (
+                "merge",
+                "{\"ignition\":{\"version\":\"3.5.0\",\"config\":{\"merge\":[{}]}}}",
+            ),
+            (
+                "replace",
+                "{\"ignition\":{\"version\":\"3.5.0\",\"config\":{\"replace\":{}}}}",
+            ),
             ("garbage", "not json"),
         ] {
             let input = write_input(&dir, name, body.as_bytes());

@@ -171,7 +171,11 @@ fn parse_flags(args: &[String], specs: &[(&str, FlagKind)]) -> Result<ParsedFlag
             index += 1;
             break;
         }
-        let flag = if let Some(stripped) = arg.strip_prefix("--") { stripped } else { &arg[1..] };
+        let flag = if let Some(stripped) = arg.strip_prefix("--") {
+            stripped
+        } else {
+            &arg[1..]
+        };
         let (name, inline) = match flag.split_once('=') {
             Some((name, value)) => (name, Some(value)),
             None => (flag, None),
@@ -203,10 +207,16 @@ fn parse_flags(args: &[String], specs: &[(&str, FlagKind)]) -> Result<ParsedFlag
                 parsed.strings.insert(name.to_string(), value);
             }
             FlagKind::Duration => {
-                parsed.durations.insert(name.to_string(), parse_duration(&value)?);
+                parsed
+                    .durations
+                    .insert(name.to_string(), parse_duration(&value)?);
             }
             FlagKind::Repeat => {
-                parsed.repeats.entry(name.to_string()).or_default().push(value);
+                parsed
+                    .repeats
+                    .entry(name.to_string())
+                    .or_default()
+                    .push(value);
             }
             FlagKind::Bool => unreachable!(),
         }
@@ -250,7 +260,10 @@ fn valid_target(target: &str) -> bool {
         _ => return false,
     }
     let rest = chars.as_str();
-    rest.len() <= 127 && rest.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
+    rest.len() <= 127
+        && rest
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
 }
 
 fn validate_common_options(opts: &RunOptions) -> Result<(), Error> {
@@ -259,11 +272,15 @@ fn validate_common_options(opts: &RunOptions) -> Result<(), Error> {
         || opts.timeout.is_zero()
         || opts.timeout > Duration::from_secs(24 * 3600)
     {
-        return Err(Error::msg("revision, non-secret target and bounded timeout required"));
+        return Err(Error::msg(
+            "revision, non-secret target and bounded timeout required",
+        ));
     }
     report::oci_architecture(&opts.arch)?;
     if !report::valid_owner(&opts.owner) {
-        return Err(Error::msg("explicit owner required; P07/P08 are not independent tasks"));
+        return Err(Error::msg(
+            "explicit owner required; P07/P08 are not independent tasks",
+        ));
     }
     Ok(())
 }
@@ -276,7 +293,9 @@ fn validate_action_options(opts: &RunOptions) -> Result<(), Error> {
         return Err(Error::msg("unexpected check command"));
     }
     if opts.action != "vm" && (opts.hold || opts.restart) {
-        return Err(Error::msg("hold/restart are explicit fresh-VM actions only"));
+        return Err(Error::msg(
+            "hold/restart are explicit fresh-VM actions only",
+        ));
     }
     match opts.action.as_str() {
         "native" => {
@@ -286,13 +305,13 @@ fn validate_action_options(opts: &RunOptions) -> Result<(), Error> {
         }
         "probe-ssh" => {
             if opts.owner != "P11" || opts.remote_file.is_empty() {
-                return Err(Error::msg("probe-ssh requires P11 and a pinned Git endpoint"));
+                return Err(Error::msg(
+                    "probe-ssh requires P11 and a pinned Git endpoint",
+                ));
             }
         }
-        "vm" => {
-            if opts.owner != "P03" || opts.config.is_empty() || !opts.remote_file.is_empty() {
-                return Err(Error::msg("vm requires P03 and config"));
-            }
+        "vm" if (opts.owner != "P03" || opts.config.is_empty() || !opts.remote_file.is_empty()) => {
+            return Err(Error::msg("vm requires P03 and config"));
         }
         _ => {}
     }
@@ -307,7 +326,11 @@ fn parse_run_options(args: &[String]) -> Result<RunOptions, Error> {
     let action = args[0].clone();
     match action.as_str() {
         "exec" | "native" | "vm" | "probe-ssh" => {}
-        _ => return Err(Error::msg("no product/media/release workflow is implemented by this support tool")),
+        _ => {
+            return Err(Error::msg(
+                "no product/media/release workflow is implemented by this support tool",
+            ))
+        }
     }
     let parsed = parse_flags(
         &args[1..],
@@ -328,7 +351,11 @@ fn parse_run_options(args: &[String]) -> Result<RunOptions, Error> {
         ],
     )
     .map_err(|_| Error::msg("invalid support command flags"))?;
-    let timeout_nanos = parsed.durations.get("timeout").copied().unwrap_or(30 * 60 * 1_000_000_000);
+    let timeout_nanos = parsed
+        .durations
+        .get("timeout")
+        .copied()
+        .unwrap_or(30 * 60 * 1_000_000_000);
     let opts = RunOptions {
         action,
         owner: flag_string(&parsed, "owner"),
@@ -346,8 +373,16 @@ fn parse_run_options(args: &[String]) -> Result<RunOptions, Error> {
         } else {
             Duration::from_nanos(timeout_nanos as u64)
         },
-        secret_files: parsed.repeats.get("secret-file").cloned().unwrap_or_default(),
-        artifact_files: parsed.repeats.get("artifact-file").cloned().unwrap_or_default(),
+        secret_files: parsed
+            .repeats
+            .get("secret-file")
+            .cloned()
+            .unwrap_or_default(),
+        artifact_files: parsed
+            .repeats
+            .get("artifact-file")
+            .cloned()
+            .unwrap_or_default(),
         cmd_args: parsed.positionals,
     };
     validate_common_options(&opts)?;
@@ -372,7 +407,11 @@ fn read_secret_files(files: &[String]) -> Result<Vec<Vec<u8>>, Error> {
     Ok(secrets)
 }
 
-fn load_vm_secrets(config_path: &str, arch: &str, target: &str) -> Result<(vm::VmConfig, Vec<Vec<u8>>), Error> {
+fn load_vm_secrets(
+    config_path: &str,
+    arch: &str,
+    target: &str,
+) -> Result<(vm::VmConfig, Vec<Vec<u8>>), Error> {
     let (value, _) = jsonio::read_json_file(config_path)?;
     let vm_config = vm::decode_vm_config(&value)?;
     if vm_config.architecture != arch || vm_config.name != target {
@@ -439,7 +478,10 @@ fn init_observation(opts: &RunOptions) -> Result<(Observation, Remote), Error> {
 /// missing sibling is a new deployment-shape failure with no Go text.
 fn payload_bytes() -> Result<Vec<u8>, Error> {
     let driver = std::env::current_exe().map_err(Error::from)?;
-    let payload = driver.parent().unwrap_or(std::path::Path::new(".")).join("soda-acceptance-remote");
+    let payload = driver
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .join("soda-acceptance-remote");
     std::fs::read(&payload).map_err(Error::from)
 }
 
@@ -592,7 +634,8 @@ fn execute_vm(
     hold: bool,
     observation: &mut Observation,
 ) -> (Option<Error>, Option<Error>) {
-    observation.topology = "matching-native KVM; loopback management SSH only, no routed-client claim".to_string();
+    observation.topology =
+        "matching-native KVM; loopback management SSH only, no routed-client claim".to_string();
     let mut invocation = vec![
         "fresh VM".to_string(),
         vm_config.name.clone(),
@@ -612,17 +655,28 @@ fn execute_vm(
     let mut guest = match vm::launch_vm(phase, vm_config, evidence) {
         Ok(guest) => guest,
         Err(failure) => {
+            let failure = *failure;
             if let Some(mut started) = failure.vm {
                 observation.execution = "failed".to_string();
-                observation.cleanup = "completed after failed launch; private work retained".to_string();
+                observation.cleanup =
+                    "completed after failed launch; private work retained".to_string();
                 if started.close().is_err() {
-                    observation.cleanup = "failed after failed launch; private work retained".to_string();
+                    observation.cleanup =
+                        "failed after failed launch; private work retained".to_string();
                 }
             }
             return (Some(failure.err), None);
         }
     };
-    run_vm_phase(phase, evidence, &mut guest, &work, restart, hold, observation)
+    run_vm_phase(
+        phase,
+        evidence,
+        &mut guest,
+        &work,
+        restart,
+        hold,
+        observation,
+    )
 }
 
 fn execute_action(
@@ -648,13 +702,22 @@ fn execute_action(
             observation,
         ),
         "probe-ssh" => execute_probe_ssh(phase, evidence, remote, observation),
-        "vm" => execute_vm(phase, evidence, vm_config, opts.restart, opts.hold, observation),
+        "vm" => execute_vm(
+            phase,
+            evidence,
+            vm_config,
+            opts.restart,
+            opts.hold,
+            observation,
+        ),
         _ => (None, None),
     }
 }
 
 fn read_build_settings(observation: &mut Observation) {
-    observation.tool_revision = option_env!("BUILD_REVISION").unwrap_or("unknown").to_string();
+    observation.tool_revision = option_env!("BUILD_REVISION")
+        .unwrap_or("unknown")
+        .to_string();
     observation.tool_dirty = option_env!("BUILD_MODIFIED").unwrap_or("false") == "true";
     if observation.tool_revision.is_empty() {
         observation.tool_revision = "unknown".to_string();
@@ -670,8 +733,10 @@ fn redact_observation_strings(evidence: &Evidence, observation: &mut Observation
     observation.topology = evidence.redact_string(&observation.topology);
     observation.cleanup = evidence.redact_string(&observation.cleanup);
     if let Some(artifacts) = observation.artifacts.as_mut() {
-        let redacted: Vec<(String, String)> =
-            artifacts.iter().map(|(name, sum)| (evidence.redact_string(name), sum.clone())).collect();
+        let redacted: Vec<(String, String)> = artifacts
+            .iter()
+            .map(|(name, sum)| (evidence.redact_string(name), sum.clone()))
+            .collect();
         *artifacts = redacted.into_iter().collect();
     }
 }
@@ -680,7 +745,10 @@ fn redact_observation_strings(evidence: &Evidence, observation: &mut Observation
 /// through, several join with newlines. Used where the Go owner
 /// formats a join it also keeps split; owned errors move only once.
 fn combine_messages(errors: &[&Option<Error>]) -> Option<String> {
-    let parts: Vec<String> = errors.iter().filter_map(|e| e.as_ref().map(|e| e.to_string())).collect();
+    let parts: Vec<String> = errors
+        .iter()
+        .filter_map(|e| e.as_ref().map(|e| e.to_string()))
+        .collect();
     if parts.is_empty() {
         return None;
     }
@@ -701,12 +769,21 @@ fn finalize_observation(
         // No success-shaped final record exists until retention has finalized.
         let combined = combine_messages(&[&operation_err, &evidence_err]).unwrap_or_default();
         let redacted = evidence.redact_string(&combined);
-        evidence_err = Error::join(vec![evidence_err, evidence.write("failure.txt", format!("{redacted}\n").as_bytes()).err()]);
+        evidence_err = Error::join(vec![
+            evidence_err,
+            evidence
+                .write("failure.txt", format!("{redacted}\n").as_bytes())
+                .err(),
+        ]);
     }
     let (hashes, hashes_err) = report::hashes(evidence);
     observation.files = Some(hashes);
     evidence_err = Error::join(vec![evidence_err, hashes_err]);
-    observation.evidence = if evidence_err.is_some() { "failed".to_string() } else { "completed".to_string() };
+    observation.evidence = if evidence_err.is_some() {
+        "failed".to_string()
+    } else {
+        "completed".to_string()
+    };
     observation.outcome = if operation_failed || evidence_err.is_some() {
         "failed".to_string()
     } else {
@@ -718,7 +795,9 @@ fn finalize_observation(
     observation.finished = jsonio::now_rfc3339_nano();
     redact_observation_strings(evidence, &mut observation);
     // No success-shaped final record exists until retention has finalized.
-    let publish_err = evidence.publish_observation(&report::observation_json(&observation)).err();
+    let publish_err = evidence
+        .publish_observation(&report::observation_json(&observation))
+        .err();
     match combine_messages(&[&operation_err, &evidence_err, &publish_err]) {
         None => Ok(()),
         Some(combined) => Err(Error::msg(evidence.redact_string(&combined))),
@@ -728,7 +807,9 @@ fn finalize_observation(
 /// Run one driver action. Mirrors `run`.
 pub fn run(root: &Phase, args: &[String]) -> Result<(), Error> {
     if args.is_empty() {
-        return Err(Error::msg("usage: soda-acceptance exec|native|vm|probe-ssh|report [flags]"));
+        return Err(Error::msg(
+            "usage: soda-acceptance exec|native|vm|probe-ssh|report [flags]",
+        ));
     }
     if args[0] == "report" {
         return report(&args[1..]);
@@ -738,14 +819,26 @@ pub fn run(root: &Phase, args: &[String]) -> Result<(), Error> {
     let evidence = create_evidence(&opts.evidence, &secrets)?;
     let phase = root.child(opts.timeout);
     let (mut observation, remote) = init_observation(&opts)?;
-    let (operation_err, evidence_err) = execute_action(&phase, &evidence, &opts, vm_config, &remote, &mut observation);
+    let (operation_err, evidence_err) = execute_action(
+        &phase,
+        &evidence,
+        &opts,
+        vm_config,
+        &remote,
+        &mut observation,
+    );
     finalize_observation(&evidence, observation, operation_err, evidence_err)
 }
 
 fn report(args: &[String]) -> Result<(), Error> {
     let parsed = parse_flags(
         args,
-        &[("arch", FlagKind::Str), ("revision", FlagKind::Str), ("out", FlagKind::Str), ("record", FlagKind::Repeat)],
+        &[
+            ("arch", FlagKind::Str),
+            ("revision", FlagKind::Str),
+            ("out", FlagKind::Str),
+            ("record", FlagKind::Repeat),
+        ],
     )
     .map_err(|_| Error::msg("invalid report flags"))?;
     if !parsed.positionals.is_empty() {
@@ -755,7 +848,12 @@ fn report(args: &[String]) -> Result<(), Error> {
         &flag_string(&parsed, "out"),
         &flag_string(&parsed, "arch"),
         &flag_string(&parsed, "revision"),
-        parsed.repeats.get("record").cloned().unwrap_or_default().as_slice(),
+        parsed
+            .repeats
+            .get("record")
+            .cloned()
+            .unwrap_or_default()
+            .as_slice(),
     )
 }
 
@@ -782,42 +880,81 @@ mod tests {
 
     #[test]
     fn flags_mirror_go_forms() {
-        let args = ["--owner", "P02", "-revision=a", "--hold", "-secret-file", "one", "--secret-file=two", "--", "pos"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>();
+        let args = [
+            "--owner",
+            "P02",
+            "-revision=a",
+            "--hold",
+            "-secret-file",
+            "one",
+            "--secret-file=two",
+            "--",
+            "pos",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
         let parsed = parse_flags(
             &args,
-            &[("owner", FlagKind::Str), ("revision", FlagKind::Str), ("hold", FlagKind::Bool), ("secret-file", FlagKind::Repeat)],
+            &[
+                ("owner", FlagKind::Str),
+                ("revision", FlagKind::Str),
+                ("hold", FlagKind::Bool),
+                ("secret-file", FlagKind::Repeat),
+            ],
         )
         .unwrap();
         assert_eq!(flag_string(&parsed, "owner"), "P02");
         assert_eq!(flag_string(&parsed, "revision"), "a");
         assert_eq!(parsed.bools.get("hold"), Some(&true));
-        assert_eq!(parsed.repeats.get("secret-file").unwrap(), &vec!["one".to_string(), "two".to_string()]);
+        assert_eq!(
+            parsed.repeats.get("secret-file").unwrap(),
+            &vec!["one".to_string(), "two".to_string()]
+        );
         assert_eq!(parsed.positionals, vec!["pos".to_string()]);
         // Bools take no separate value; unknown flags and missing values fail.
-        let args = ["-hold", "false"].iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let args = ["-hold", "false"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
         let parsed = parse_flags(&args, &[("hold", FlagKind::Bool)]).unwrap();
         assert_eq!(parsed.positionals, vec!["false".to_string()]);
         let args = ["-bogus"].iter().map(|s| s.to_string()).collect::<Vec<_>>();
         assert!(parse_flags(&args, &[("hold", FlagKind::Bool)]).is_err());
         let args = ["-owner"].iter().map(|s| s.to_string()).collect::<Vec<_>>();
         assert!(parse_flags(&args, &[("owner", FlagKind::Str)]).is_err());
-        let args = ["-hold=maybe"].iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let args = ["-hold=maybe"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
         assert!(parse_flags(&args, &[("hold", FlagKind::Bool)]).is_err());
     }
 
     #[test]
     fn option_validation_matches_go_messages() {
-        let base = ["exec", "--owner", "P02", "--revision", &"a".repeat(40), "--arch", "x86_64", "--target", "fixture", "--evidence", "/tmp/x"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<_>>();
+        let base = [
+            "exec",
+            "--owner",
+            "P02",
+            "--revision",
+            &"a".repeat(40),
+            "--arch",
+            "x86_64",
+            "--target",
+            "fixture",
+            "--evidence",
+            "/tmp/x",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>();
         let mut with_cmd = base.clone();
         with_cmd.extend(["--".to_string(), "true".to_string()]);
         assert!(parse_run_options(&with_cmd).is_ok());
-        assert_eq!(parse_run_options(&base).err().unwrap().to_string(), "an existing owned check command is required");
+        assert_eq!(
+            parse_run_options(&base).err().unwrap().to_string(),
+            "an existing owned check command is required"
+        );
         let mut bad_owner = with_cmd.clone();
         bad_owner[2] = "P07".to_string();
         assert_eq!(
@@ -825,12 +962,20 @@ mod tests {
             "explicit owner required; P07/P08 are not independent tasks"
         );
         let mut bad_timeout = base.clone();
-        bad_timeout.extend(["--timeout".to_string(), "25h".to_string(), "--".to_string(), "true".to_string()]);
+        bad_timeout.extend([
+            "--timeout".to_string(),
+            "25h".to_string(),
+            "--".to_string(),
+            "true".to_string(),
+        ]);
         assert_eq!(
             parse_run_options(&bad_timeout).err().unwrap().to_string(),
             "revision, non-secret target and bounded timeout required"
         );
-        let publish = ["publish"].iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let publish = ["publish"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>();
         assert_eq!(
             parse_run_options(&publish).err().unwrap().to_string(),
             "no product/media/release workflow is implemented by this support tool"
@@ -838,10 +983,22 @@ mod tests {
     }
 
     fn run_args(action: &str, evidence: &str) -> Vec<String> {
-        [action, "--owner", "P07", "--revision", &"a".repeat(40), "--arch", "x86_64", "--target", "fixture", "--evidence", evidence]
-            .iter()
-            .map(|s| s.to_string())
-            .collect()
+        [
+            action,
+            "--owner",
+            "P07",
+            "--revision",
+            &"a".repeat(40),
+            "--arch",
+            "x86_64",
+            "--target",
+            "fixture",
+            "--evidence",
+            evidence,
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
     }
 
     /// Port of `TestInvalidActionsDoNotCreateEvidence` from `main_test.go`.

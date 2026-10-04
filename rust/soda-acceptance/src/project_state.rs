@@ -108,7 +108,12 @@ impl SnapshotFailure {
 
 impl std::fmt::Display for SnapshotFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Project snapshot failed: {} {}", self.kind.name(), self.detail)
+        write!(
+            f,
+            "Project snapshot failed: {} {}",
+            self.kind.name(),
+            self.detail
+        )
     }
 }
 
@@ -157,7 +162,11 @@ fn sub_mut<'a>(object: &'a mut JsonValue, key: &str) -> &'a mut JsonValue {
 /// Run a snapshot command with piped output and a timeout, returning
 /// stripped stdout. Stderr is drained and discarded, like the Python
 /// owner capturing it and never reading it.
-pub fn command_with_timeout(argv: &[String], extra_env: &[(&str, &str)], timeout: Duration) -> Result<String, SnapshotFailure> {
+pub fn command_with_timeout(
+    argv: &[String],
+    extra_env: &[(&str, &str)],
+    timeout: Duration,
+) -> Result<String, SnapshotFailure> {
     let mut child = Command::new(&argv[0])
         .args(&argv[1..])
         .envs(extra_env.iter().copied())
@@ -199,7 +208,8 @@ pub fn command_with_timeout(argv: &[String], extra_env: &[(&str, &str)], timeout
                 if stdout.len() > 4 * 1024 * 1024 {
                     return Err(SnapshotFailure::runtime("Snapshot output exceeded bound"));
                 }
-                let text = String::from_utf8(stdout).map_err(|_| SnapshotFailure::bare(SnapshotKind::UnicodeDecodeError))?;
+                let text = String::from_utf8(stdout)
+                    .map_err(|_| SnapshotFailure::bare(SnapshotKind::UnicodeDecodeError))?;
                 return Ok(text.trim().to_string());
             }
             None if Instant::now() >= deadline => {
@@ -340,7 +350,11 @@ pub fn dumps_sorted(value: &JsonValue) -> String {
                 c => {
                     // ensure_ascii astral planes as lowercase surrogate pairs.
                     let code = c as u32 - 0x10000;
-                    out.push_str(&format!("\\u{:04x}\\u{:04x}", 0xd800 + (code >> 10), 0xdc00 + (code & 0x3ff)));
+                    out.push_str(&format!(
+                        "\\u{:04x}\\u{:04x}",
+                        0xd800 + (code >> 10),
+                        0xdc00 + (code & 0x3ff)
+                    ));
                 }
             }
         }
@@ -401,7 +415,11 @@ fn list_files(dir: &Path) -> Result<Vec<PathBuf>, SnapshotFailure> {
 
 fn has_git_part(checkout: &Path, path: &Path) -> bool {
     path.strip_prefix(checkout)
-        .map(|relative| relative.components().any(|part| part.as_os_str().as_bytes() == b".git"))
+        .map(|relative| {
+            relative
+                .components()
+                .any(|part| part.as_os_str().as_bytes() == b".git")
+        })
         .unwrap_or(false)
 }
 
@@ -416,7 +434,9 @@ fn walk_sorted(root: &Path) -> Result<Vec<PathBuf>, SnapshotFailure> {
         entries.sort();
         for path in entries {
             found.push(path.clone());
-            let file_type = std::fs::symlink_metadata(&path).map_err(SnapshotFailure::io)?.file_type();
+            let file_type = std::fs::symlink_metadata(&path)
+                .map_err(SnapshotFailure::io)?
+                .file_type();
             if file_type.is_dir() && !file_type.is_symlink() {
                 stack.push(path);
             }
@@ -516,9 +536,17 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
             continue;
         }
         let mut person = obj();
-        set(&mut person, "identity", s(command(&arg_list(&["id", login]), &[])?));
+        set(
+            &mut person,
+            "identity",
+            s(command(&arg_list(&["id", login]), &[])?),
+        );
         set(&mut person, "home", Entry::snapshot(&home, true)?.json());
-        set(&mut person, "shared", Entry::snapshot(&home.join("shared"), true)?.json());
+        set(
+            &mut person,
+            "shared",
+            Entry::snapshot(&home.join("shared"), true)?.json(),
+        );
         set(sub_mut(&mut data, "people"), login, person);
 
         let checkout = home.join("u08-personal-checkout");
@@ -532,7 +560,9 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
                 if has_git_part(&checkout, &file) {
                     continue;
                 }
-                let file_type = std::fs::symlink_metadata(&file).map_err(SnapshotFailure::io)?.file_type();
+                let file_type = std::fs::symlink_metadata(&file)
+                    .map_err(SnapshotFailure::io)?
+                    .file_type();
                 if file_type.is_file() || file_type.is_symlink() {
                     paths.push(file.to_string_lossy().into_owned());
                 }
@@ -542,29 +572,76 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
             set(
                 &mut git,
                 "head",
-                s(command(&arg_list(&["runuser", "-u", login, "--", "git", "-C", &checkout_arg, "rev-parse", "HEAD"]), &[])?),
+                s(command(
+                    &arg_list(&[
+                        "runuser",
+                        "-u",
+                        login,
+                        "--",
+                        "git",
+                        "-C",
+                        &checkout_arg,
+                        "rev-parse",
+                        "HEAD",
+                    ]),
+                    &[],
+                )?),
             );
             set(
                 &mut git,
                 "status",
-                s(command(&arg_list(&["runuser", "-u", login, "--", "git", "-C", &checkout_arg, "status", "--porcelain=v1"]), &[])?),
+                s(command(
+                    &arg_list(&[
+                        "runuser",
+                        "-u",
+                        login,
+                        "--",
+                        "git",
+                        "-C",
+                        &checkout_arg,
+                        "status",
+                        "--porcelain=v1",
+                    ]),
+                    &[],
+                )?),
             );
             set(
                 &mut git,
                 "refs",
-                s(command(&arg_list(&["runuser", "-u", login, "--", "git", "-C", &checkout_arg, "show-ref"]), &[])?),
+                s(command(
+                    &arg_list(&[
+                        "runuser",
+                        "-u",
+                        login,
+                        "--",
+                        "git",
+                        "-C",
+                        &checkout_arg,
+                        "show-ref",
+                    ]),
+                    &[],
+                )?),
             );
             set(sub_mut(&mut data, "git"), login, git);
         }
 
-        for private in [".ssh/u08-personal-git/identity", ".config/soda-u08-workload/database-password"] {
+        for private in [
+            ".ssh/u08-personal-git/identity",
+            ".config/soda-u08-workload/database-password",
+        ] {
             let target = home.join(private);
             if target.exists() {
-                set(sub_mut(&mut data, "files"), &target.to_string_lossy(), Entry::snapshot(&target, false)?.json());
+                set(
+                    sub_mut(&mut data, "files"),
+                    &target.to_string_lossy(),
+                    Entry::snapshot(&target, false)?.json(),
+                );
             }
         }
         for probe in glob_prefix(&home, "u08-access-")? {
-            let file_type = std::fs::symlink_metadata(&probe).map_err(SnapshotFailure::io)?.file_type();
+            let file_type = std::fs::symlink_metadata(&probe)
+                .map_err(SnapshotFailure::io)?
+                .file_type();
             if !file_type.is_dir() || file_type.is_symlink() {
                 return Err(SnapshotFailure::assertion(""));
             }
@@ -586,20 +663,31 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
     }
     let unique: BTreeSet<String> = paths.into_iter().collect();
     for path in &unique {
-        set(sub_mut(&mut data, "files"), path, Entry::snapshot(Path::new(path), true)?.json());
+        set(
+            sub_mut(&mut data, "files"),
+            path,
+            Entry::snapshot(Path::new(path), true)?.json(),
+        );
     }
 
     // Fixed project-local API. A second project without initialized workload
     // storage still gets complete account/rootfs coverage, not fabricated lists.
     let expect = std::env::var("SODA_EXPECT_WORKLOADS").unwrap_or_default();
     if expect != "0" && expect != "1" {
-        return Err(SnapshotFailure::assertion("Caller must declare required workload observations"));
+        return Err(SnapshotFailure::assertion(
+            "Caller must declare required workload observations",
+        ));
     }
     if expect == "1" {
         let podman = ["podman", "--url", "unix:///run/soda-podman/podman.sock"];
-        let ids = output_lines(&command(&arg_list(&[podman[0], podman[1], podman[2], "ps", "-aq", "--no-trunc"]), &[])?);
+        let ids = output_lines(&command(
+            &arg_list(&[podman[0], podman[1], podman[2], "ps", "-aq", "--no-trunc"]),
+            &[],
+        )?);
         if ids.len() < 2 {
-            return Err(SnapshotFailure::assertion("Missing required workload containers"));
+            return Err(SnapshotFailure::assertion(
+                "Missing required workload containers",
+            ));
         }
         let mut sorted_ids = ids;
         sorted_ids.sort();
@@ -620,30 +708,63 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
             )?));
         }
         set(&mut data, "workloads", JsonValue::Array(workloads));
-        let mut volumes = output_lines(&command(&arg_list(&[podman[0], podman[1], podman[2], "volume", "ls", "--format", "{{.Name}}"]), &[])?);
+        let mut volumes = output_lines(&command(
+            &arg_list(&[
+                podman[0],
+                podman[1],
+                podman[2],
+                "volume",
+                "ls",
+                "--format",
+                "{{.Name}}",
+            ]),
+            &[],
+        )?);
         volumes.sort();
-        set(&mut data, "volumes", JsonValue::Array(volumes.into_iter().map(s).collect()));
-        let names = output_lines(&command(&arg_list(&[podman[0], podman[1], podman[2], "ps", "--format", "{{.Names}}"]), &[])?);
+        set(
+            &mut data,
+            "volumes",
+            JsonValue::Array(volumes.into_iter().map(s).collect()),
+        );
+        let names = output_lines(&command(
+            &arg_list(&[
+                podman[0],
+                podman[1],
+                podman[2],
+                "ps",
+                "--format",
+                "{{.Names}}",
+            ]),
+            &[],
+        )?);
         let databases: Vec<String> = names
             .into_iter()
             .filter(|name| name == "u08-projectnet-database" || name == "workload_database_1")
             .collect();
         if databases.is_empty() {
-            return Err(SnapshotFailure::assertion("No running database; restore existing workload before snapshot"));
+            return Err(SnapshotFailure::assertion(
+                "No running database; restore existing workload before snapshot",
+            ));
         }
-        let ip = std::env::var("SODA_PROJECT_IP").map_err(|_| SnapshotFailure::bare(SnapshotKind::KeyError))?;
+        let ip = std::env::var("SODA_PROJECT_IP")
+            .map_err(|_| SnapshotFailure::bare(SnapshotKind::KeyError))?;
         check_project_ip(&ip)?;
-        let mut passfiles = glob_prefix(Path::new("/home/u08-alice-8417/.config"), "u08-db-client-")?
-            .into_iter()
-            .map(|dir| dir.join("pgpass"))
-            .filter(|path| path.exists())
-            .collect::<Vec<PathBuf>>();
+        let mut passfiles =
+            glob_prefix(Path::new("/home/u08-alice-8417/.config"), "u08-db-client-")?
+                .into_iter()
+                .map(|dir| dir.join("pgpass"))
+                .filter(|path| path.exists())
+                .collect::<Vec<PathBuf>>();
         passfiles.sort();
         if passfiles.is_empty() {
-            return Err(SnapshotFailure::assertion("Missing native client credential input"));
+            return Err(SnapshotFailure::assertion(
+                "Missing native client credential input",
+            ));
         }
         let passfile = passfiles.pop().unwrap();
-        let link_type = std::fs::symlink_metadata(&passfile).map_err(SnapshotFailure::io)?.file_type();
+        let link_type = std::fs::symlink_metadata(&passfile)
+            .map_err(SnapshotFailure::io)?
+            .file_type();
         if link_type.is_symlink() {
             return Err(SnapshotFailure::assertion(""));
         }
@@ -655,7 +776,9 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
         let cached = std::fs::read_to_string(&passfile).map_err(SnapshotFailure::io)?;
         let endpoint = cached.split(':').next().unwrap_or("");
         if endpoint != ip {
-            return Err(SnapshotFailure::assertion("Cached credential endpoint differs from live native target"));
+            return Err(SnapshotFailure::assertion(
+                "Cached credential endpoint differs from live native target",
+            ));
         }
         let mut database = obj();
         for name in &databases {
@@ -663,13 +786,30 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
             // on exec into a different-UID workload and no credential export.
             let rows = command(
                 &arg_list(&[
-                    "psql", "-X", "-w", "-h", &ip, "-p", "5432", "-U", "developer", "-d", "soda_example", "-At", "-c",
+                    "psql",
+                    "-X",
+                    "-w",
+                    "-h",
+                    &ip,
+                    "-p",
+                    "5432",
+                    "-U",
+                    "developer",
+                    "-d",
+                    "soda_example",
+                    "-At",
+                    "-c",
                     "SELECT run_id,value FROM soda_u08_probe ORDER BY run_id",
                 ]),
-                &[("PGPASSFILE", &passfile.to_string_lossy()), ("PGCONNECT_TIMEOUT", "5")],
+                &[
+                    ("PGPASSFILE", &passfile.to_string_lossy()),
+                    ("PGCONNECT_TIMEOUT", "5"),
+                ],
             )?;
             if rows.is_empty() {
-                return Err(SnapshotFailure::assertion("Empty required database snapshot"));
+                return Err(SnapshotFailure::assertion(
+                    "Empty required database snapshot",
+                ));
             }
             set(&mut database, name, s(rows));
         }
@@ -693,8 +833,14 @@ mod tests {
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o640)).unwrap();
         let json = Entry::snapshot(&path, true).unwrap().json();
         assert_eq!(json.get("mode").unwrap().as_integer().unwrap(), 0o640);
-        assert_eq!(json.get("uid").unwrap().as_integer().unwrap(), unsafe { libc::getuid() } as i128);
-        assert_eq!(json.get("gid").unwrap().as_integer().unwrap(), unsafe { libc::getgid() } as i128);
+        assert_eq!(
+            json.get("uid").unwrap().as_integer().unwrap(),
+            unsafe { libc::getuid() } as i128
+        );
+        assert_eq!(
+            json.get("gid").unwrap().as_integer().unwrap(),
+            unsafe { libc::getgid() } as i128
+        );
         let mut digest = Sha256::new();
         digest.update(b"snapshot-me");
         assert_eq!(
@@ -730,7 +876,10 @@ mod tests {
         let marker = dir.path().join(".containerenv");
         std::fs::write(&marker, b"").unwrap();
         assert!(check_snapshot_gate(0, &marker).is_ok());
-        assert_eq!(check_snapshot_gate(1000, &marker).unwrap_err(), SnapshotFailure::assertion(""));
+        assert_eq!(
+            check_snapshot_gate(1000, &marker).unwrap_err(),
+            SnapshotFailure::assertion("")
+        );
         assert_eq!(
             check_snapshot_gate(0, &dir.path().join("missing")).unwrap_err(),
             SnapshotFailure::assertion("")
@@ -744,7 +893,8 @@ mod tests {
         let err = command(&arg_list(&["false"]), &[]).unwrap_err();
         assert_eq!(err.kind, SnapshotKind::RuntimeError);
         assert_eq!(err.detail, "Required snapshot command failed: false");
-        let err = command_with_timeout(&arg_list(&["sleep", "5"]), &[], Duration::from_millis(100)).unwrap_err();
+        let err = command_with_timeout(&arg_list(&["sleep", "5"]), &[], Duration::from_millis(100))
+            .unwrap_err();
         assert_eq!(err.kind, SnapshotKind::TimeoutExpired);
         let err = command(&arg_list(&["head", "-c", "5000000", "/dev/zero"]), &[]).unwrap_err();
         assert_eq!(err.kind, SnapshotKind::RuntimeError);
@@ -755,7 +905,11 @@ mod tests {
     fn dumps_sorted_matches_python_separators() {
         let mut value = obj();
         set(&mut value, "b", n(1));
-        set(&mut value, "a", JsonValue::Array(vec![JsonValue::Bool(true), s("x\ny")]));
+        set(
+            &mut value,
+            "a",
+            JsonValue::Array(vec![JsonValue::Bool(true), s("x\ny")]),
+        );
         assert_eq!(dumps_sorted(&value), r#"{"a": [true, "x\ny"], "b": 1}"#);
         let mut unicode = obj();
         set(&mut unicode, "e", s("é💾"));
@@ -781,6 +935,9 @@ mod tests {
             check_project_ip("10.89.0.07").unwrap_err().kind,
             SnapshotKind::ValueError
         );
-        assert_eq!(check_project_ip("::1").unwrap_err().kind, SnapshotKind::AssertionError);
+        assert_eq!(
+            check_project_ip("::1").unwrap_err().kind,
+            SnapshotKind::AssertionError
+        );
     }
 }

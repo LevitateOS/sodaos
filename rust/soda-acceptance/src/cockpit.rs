@@ -14,17 +14,32 @@ use std::ffi::CString;
 
 /// PAM conversation aborts prompts: `PAM_CONV_ERR`, never supplying
 /// credentials to an unexpected prompt.
-extern "C" fn no_prompt(_count: libc::c_int, _messages: *mut *mut libc::c_void, _response: *mut *mut libc::c_void, _appdata: *mut libc::c_void) -> libc::c_int {
+extern "C" fn no_prompt(
+    _count: libc::c_int,
+    _messages: *mut *mut libc::c_void,
+    _response: *mut *mut libc::c_void,
+    _appdata: *mut libc::c_void,
+) -> libc::c_int {
     19
 }
 
 #[repr(C)]
 struct Conversation {
-    conv: extern "C" fn(libc::c_int, *mut *mut libc::c_void, *mut *mut libc::c_void, *mut libc::c_void) -> libc::c_int,
+    conv: extern "C" fn(
+        libc::c_int,
+        *mut *mut libc::c_void,
+        *mut *mut libc::c_void,
+        *mut libc::c_void,
+    ) -> libc::c_int,
     appdata_ptr: *mut libc::c_void,
 }
 
-type PamStart = unsafe extern "C" fn(*const libc::c_char, *const libc::c_char, *const Conversation, *mut *mut libc::c_void) -> libc::c_int;
+type PamStart = unsafe extern "C" fn(
+    *const libc::c_char,
+    *const libc::c_char,
+    *const Conversation,
+    *mut *mut libc::c_void,
+) -> libc::c_int;
 type PamAcctMgmt = unsafe extern "C" fn(*mut libc::c_void, libc::c_int) -> libc::c_int;
 type PamEnd = unsafe extern "C" fn(*mut libc::c_void, libc::c_int) -> libc::c_int;
 
@@ -67,7 +82,12 @@ impl CockpitFailure {
 
 impl std::fmt::Display for CockpitFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Cockpit account failed: {} {}", self.kind.name(), self.detail)
+        write!(
+            f,
+            "Cockpit account failed: {} {}",
+            self.kind.name(),
+            self.detail
+        )
     }
 }
 
@@ -90,7 +110,15 @@ fn account_uid(name: &str) -> Result<u32, CockpitFailure> {
     let mut entry: libc::passwd = unsafe { std::mem::zeroed() };
     let mut buffer = vec![0 as libc::c_char; 4096];
     let mut result: *mut libc::passwd = std::ptr::null_mut();
-    let rc = unsafe { libc::getpwnam_r(user.as_ptr(), &mut entry, buffer.as_mut_ptr(), buffer.len(), &mut result) };
+    let rc = unsafe {
+        libc::getpwnam_r(
+            user.as_ptr(),
+            &mut entry,
+            buffer.as_mut_ptr(),
+            buffer.len(),
+            &mut result,
+        )
+    };
     if rc != 0 || result.is_null() {
         return Err(CockpitFailure {
             kind: CockpitKind::KeyError,
@@ -112,7 +140,9 @@ impl Pam {
         let name = CString::new("libpam.so.0").unwrap();
         let library = libc::dlopen(name.as_ptr(), libc::RTLD_NOW);
         if library.is_null() {
-            return Err(CockpitFailure::assertion("PAM initialization failed; this is not access denial"));
+            return Err(CockpitFailure::assertion(
+                "PAM initialization failed; this is not access denial",
+            ));
         }
         let symbol = |symbol_name: &str| {
             let raw = CString::new(symbol_name).unwrap();
@@ -123,13 +153,29 @@ impl Pam {
         let end_raw = symbol("pam_end");
         if start_raw.is_null() || acct_raw.is_null() || end_raw.is_null() {
             libc::dlclose(library);
-            return Err(CockpitFailure::assertion("PAM initialization failed; this is not access denial"));
+            return Err(CockpitFailure::assertion(
+                "PAM initialization failed; this is not access denial",
+            ));
         }
         Ok((
             Pam {
-                start: std::mem::transmute(start_raw),
-                acct_mgmt: std::mem::transmute(acct_raw),
-                end: std::mem::transmute(end_raw),
+                start: std::mem::transmute::<
+                    *mut libc::c_void,
+                    unsafe extern "C" fn(
+                        *const i8,
+                        *const i8,
+                        *const Conversation,
+                        *mut *mut libc::c_void,
+                    ) -> i32,
+                >(start_raw),
+                acct_mgmt: std::mem::transmute::<
+                    *mut libc::c_void,
+                    unsafe extern "C" fn(*mut libc::c_void, i32) -> i32,
+                >(acct_raw),
+                end: std::mem::transmute::<
+                    *mut libc::c_void,
+                    unsafe extern "C" fn(*mut libc::c_void, i32) -> i32,
+                >(end_raw),
             },
             library,
         ))
@@ -147,12 +193,16 @@ fn account_phase(pam: &Pam, username: &str, allowed: bool) -> Result<(), Cockpit
     let mut handle: *mut libc::c_void = std::ptr::null_mut();
     let code = unsafe { (pam.start)(service.as_ptr(), user.as_ptr(), &conv, &mut handle) };
     if code != 0 {
-        return Err(CockpitFailure::assertion("PAM initialization failed; this is not access denial"));
+        return Err(CockpitFailure::assertion(
+            "PAM initialization failed; this is not access denial",
+        ));
     }
     let code = unsafe { (pam.acct_mgmt)(handle, 0) };
     let verdict = if allowed {
         if code != 0 {
-            Err(CockpitFailure::assertion("root Cockpit account phase did not succeed"))
+            Err(CockpitFailure::assertion(
+                "root Cockpit account phase did not succeed",
+            ))
         } else {
             Ok(())
         }
@@ -172,7 +222,11 @@ fn account_phase(pam: &Pam, username: &str, allowed: bool) -> Result<(), Cockpit
 
 /// Run the full Cockpit account probe: gate, account existence, then the
 /// root/nobody PAM account phases. Returns the success line on completion.
-pub fn run_cockpit(uid: u32, validate: Option<&str>, hostname: &str) -> Result<String, CockpitFailure> {
+pub fn run_cockpit(
+    uid: u32,
+    validate: Option<&str>,
+    hostname: &str,
+) -> Result<String, CockpitFailure> {
     check_gate(uid, validate, hostname).map_err(|detail| CockpitFailure {
         kind: CockpitKind::AssertionError,
         detail,
@@ -208,7 +262,10 @@ mod tests {
             check_gate(0, Some("other"), "host").unwrap_err(),
             "explicit native root target required"
         );
-        assert_eq!(check_gate(0, None, "host").unwrap_err(), "explicit native root target required");
+        assert_eq!(
+            check_gate(0, None, "host").unwrap_err(),
+            "explicit native root target required"
+        );
     }
 
     #[test]
