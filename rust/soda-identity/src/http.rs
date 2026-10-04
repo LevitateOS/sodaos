@@ -94,12 +94,14 @@ impl Server {
 
     pub fn serve(&self, listener: &UnixListener) {
         listener.set_nonblocking(true).ok();
+        let mut fatal_errors = 0u32;
         loop {
             if self.shutdown.load(Ordering::SeqCst) {
                 return;
             }
             match listener.accept() {
                 Ok((stream, _)) => {
+                    fatal_errors = 0;
                     self.inflight.fetch_add(1, Ordering::SeqCst);
                     let controller = Arc::clone(&self.controller);
                     let inflight = Arc::clone(&self.inflight);
@@ -110,10 +112,25 @@ impl Server {
                     });
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    fatal_errors = 0;
+                    std::thread::sleep(Duration::from_millis(50));
+                }
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::Interrupted
+                        || e.kind() == std::io::ErrorKind::ConnectionAborted =>
+                {
+                    // Transient or per-connection failure: keep serving.
+                    fatal_errors = 0;
                     std::thread::sleep(Duration::from_millis(50));
                 }
                 Err(_) => {
                     if self.shutdown.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    fatal_errors += 1;
+                    // Fail fast for supervisor restart, like Go's Serve on
+                    // a fatal listener error, instead of spinning deaf.
+                    if fatal_errors >= 20 {
                         return;
                     }
                     std::thread::sleep(Duration::from_millis(50));

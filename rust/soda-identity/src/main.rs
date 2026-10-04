@@ -5,6 +5,7 @@ use soda_identity::runtime::HostClient;
 use soda_identity::store::Store;
 use std::collections::HashMap;
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+use std::os::unix::io::FromRawFd;
 use std::os::unix::net::UnixListener;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -194,8 +195,6 @@ fn activated_listeners(settings: &Settings) -> Result<(UnixListener, UnixListene
     Ok((admin, runtime))
 }
 
-use std::os::unix::io::FromRawFd;
-
 fn open_store(settings: &Settings) -> Result<Store, String> {
     let key = grant_key(&settings.key_file)?;
     let dsn = secret(&settings.database_dsn_file)?;
@@ -341,13 +340,19 @@ fn serve(admin: UnixListener, runtime: UnixListener, broker: Arc<Controller>) {
         Arc::clone(&inflight),
     );
     std::thread::scope(|scope| {
-        scope.spawn(|| admin_server.serve(&admin));
-        scope.spawn(|| runtime_server.serve(&runtime));
+        let admin_done = scope.spawn(|| admin_server.serve(&admin));
+        let runtime_done = scope.spawn(|| runtime_server.serve(&runtime));
         // Reconcile every 5s; each sweep is bounded by the store timeouts.
         let mut last = Instant::now() - Duration::from_secs(5);
         loop {
             if SHUTDOWN.load(Ordering::SeqCst) {
                 break;
+            }
+            // A server ends only on shutdown or fatal listener failure;
+            // exit for supervisor restart like the Go broker's Serve error.
+            if admin_done.is_finished() || runtime_done.is_finished() {
+                eprintln!("soda-identity: listener failed");
+                std::process::exit(1);
             }
             if last.elapsed() >= Duration::from_secs(5) {
                 last = Instant::now();
