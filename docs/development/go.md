@@ -17,9 +17,9 @@ remain in [architecture](../architecture/overview.md).
 | Supervised factory runs: status/stop/reconcile coordinator plus pause/resume/retry/takeover lifecycle controls and readiness intake/reconciliation/assessment | `factory/control`; `rust/soda-factory` is a thin client of its private operator endpoint |
 | Run identity, outcome, display bindings and operator/control command records | `factory` — pure domain types and validation; no runtime or SQL |
 | Provider connection, delegation and execution lease types | `identity` — canonical domain records; no runtime or SQL |
-| Serialized provider custody and enrollment | `identity/control`; `cmd/soda-identity` wires private service/runtime |
-| Muse native device enrollment and immutable CLI credentials | `identity/muse` — pinned upstream CLI; no Meta refresh service |
-| Codex app-server protocol | `identity/codex` — verified CLI protocol and private credential files |
+| Serialized provider custody and enrollment | `rust/soda-identity` wires private service/runtime; `identity` keeps domain records |
+| Muse native device enrollment and immutable CLI credentials | `rust/identity-providers` (muse) — pinned upstream CLI; no Meta refresh service |
+| Codex app-server protocol | `rust/identity-providers` (codex) — verified CLI protocol and private credential files |
 | Trusted broker Unix transport | `identity/client` — service callers only; never mounted in workspaces |
 | Native extension identity / profile / me keys | `web/auth` |
 | Product HTTP/WS (environments, spaces, factory views, terminal, lifecycle, tailnet settings, pages) | `web/api` |
@@ -95,9 +95,9 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
 | `factory` | Supervised run identity/outcome and operator command records (references canonical `identity` leases and `project` IDs) | Forgejo collaboration, runtime execution, SQLite | `types.go`, `run.go` |
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
-| `identity/control` | Provider-specific account custody, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
-| `identity/muse` | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | concern files |
-| `identity/codex` | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | concern files |
+| `rust/soda-identity` | Provider-specific account custody, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
+| `rust/identity-providers` | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | concern files |
+| `rust/identity-providers` | Codex app-server protocol and isolated CLI credential cache | Soda delegation policy | concern files |
 | `identity/client` | Private broker Unix client | Browser authority, credential persistence | `client.go` |
 | `forgejo` | Forgejo HTTP API client | Forgejo DB, upstream rules | `client.go` |
 | `host` | Unix client + thin Daemon mux/admission | Project/terminal/companion guts | `client.go`, `daemon.go`, `project.go` |
@@ -149,8 +149,8 @@ not as an invitation to reorganize `internal/`:
   decides factory policy. Canonical factory/Project/identity request records cross
   the facade directly, without forwarding DTO packages.
 - `identity` owns acquisition identity, lease and process-binding types;
-  `identity/control` enforces execution uniqueness and credential custody, using
-  `store` for persistence. Broker runtime adapters use the fixed host process
+  `rust/soda-identity` enforces execution uniqueness and credential custody over
+  its private store. Broker runtime adapters use the fixed host process
   contract instead of disposable-container or hard-coded worker assumptions.
 
 Keep construction in facades and behavior in the existing concern packages.
