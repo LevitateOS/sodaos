@@ -354,6 +354,90 @@ pub fn valid_os_release(p: &OsRelease) -> bool {
     true
 }
 
+// ---- PR20: account DTOs (`Account`, `AccessKeys`, `AccessKeyState`) ----
+
+/// `Account`: a project login identity with its authorized keys.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Account {
+    pub project: String,
+    pub login: String,
+    pub identity: i64,
+    pub keys: Vec<String>,
+}
+
+impl Account {
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let mut b = Binder::new(v).map_err(|e| e.0)?;
+        let project = b.string("project").map_err(|e| e.0)?;
+        let login = b.string("login").map_err(|e| e.0)?;
+        let identity = b.int64("identity").map_err(|e| e.0)?;
+        let keys = b.string_list("keys").map_err(|e| e.0)?.unwrap_or_default();
+        b.finish().map_err(|e| e.0)?;
+        Ok(Account {
+            project,
+            login,
+            identity,
+            keys,
+        })
+    }
+}
+
+/// `AccessKeys`: replace or observe a login's authorized key set.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccessKeys {
+    pub project: String,
+    pub login: String,
+    pub identity: i64,
+    pub revision: String,
+    pub keys: Vec<String>,
+    pub apply: bool,
+}
+
+impl AccessKeys {
+    pub fn from_value(v: &Value) -> Result<Self, String> {
+        let mut b = Binder::new(v).map_err(|e| e.0)?;
+        let project = b.string("project").map_err(|e| e.0)?;
+        let login = b.string("login").map_err(|e| e.0)?;
+        let identity = b.int64("identity").map_err(|e| e.0)?;
+        let revision = b.string("revision").map_err(|e| e.0)?;
+        let keys = b.string_list("keys").map_err(|e| e.0)?.unwrap_or_default();
+        let apply = b.boolean("apply").map_err(|e| e.0)?;
+        b.finish().map_err(|e| e.0)?;
+        Ok(AccessKeys {
+            project,
+            login,
+            identity,
+            revision,
+            keys,
+            apply,
+        })
+    }
+}
+
+/// `AccessKeyState`: the observed key set and its revision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccessKeyState {
+    pub revision: String,
+    pub keys: Vec<String>,
+}
+
+impl AccessKeyState {
+    /// `encoding/json` struct order (`revision`, `keys`), no trailing newline.
+    pub fn encode(&self) -> String {
+        let mut out = String::from("{\"revision\":");
+        out.push_str(&json::quote(&self.revision));
+        out.push_str(",\"keys\":[");
+        for (i, k) in self.keys.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            out.push_str(&json::quote(k));
+        }
+        out.push_str("]}");
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -481,5 +565,53 @@ mod tests {
             name: "Rocky Linux \u{e9}".to_string(),
             ..good.clone()
         }));
+    }
+
+    #[test]
+    fn account_dto_strict_shape() {
+        let v = json::decode_strict(
+            br#"{"project":"p0123456789abcdef01234567","login":"alice","identity":1,"keys":["a","b"]}"#,
+        )
+        .unwrap();
+        let a = Account::from_value(&v).unwrap();
+        assert_eq!(a.login, "alice");
+        assert_eq!(a.identity, 1);
+        assert_eq!(a.keys, vec!["a".to_string(), "b".to_string()]);
+        // Missing keys decodes as empty (browser-only account).
+        let v = json::decode_strict(
+            br#"{"project":"p0123456789abcdef01234567","login":"alice","identity":1}"#,
+        )
+        .unwrap();
+        assert!(Account::from_value(&v).unwrap().keys.is_empty());
+        // Unknown fields rejected.
+        let v = json::decode_strict(br#"{"project":"p","login":"a","identity":1,"admin":true}"#)
+            .unwrap();
+        assert!(Account::from_value(&v).is_err());
+        // Non-integer identity rejected.
+        let v = json::decode_strict(br#"{"project":"p","login":"a","identity":1.5}"#).unwrap();
+        assert!(Account::from_value(&v).is_err());
+    }
+
+    #[test]
+    fn access_keys_dto_strict_shape() {
+        let v = json::decode_strict(
+            br#"{"project":"p","login":"a","identity":7,"revision":"r","keys":["k"],"apply":true}"#,
+        )
+        .unwrap();
+        let a = AccessKeys::from_value(&v).unwrap();
+        assert_eq!(a.identity, 7);
+        assert!(a.apply);
+        assert_eq!(a.keys, vec!["k".to_string()]);
+        // Duplicates rejected at the strict layer.
+        assert!(json::decode_strict(br#"{"project":"p","project":"q"}"#).is_err());
+    }
+
+    #[test]
+    fn access_key_state_encodes_struct_order() {
+        let s = AccessKeyState {
+            revision: "r".to_string(),
+            keys: vec!["a\"b".to_string()],
+        };
+        assert_eq!(s.encode(), "{\"revision\":\"r\",\"keys\":[\"a\\\"b\"]}");
     }
 }
