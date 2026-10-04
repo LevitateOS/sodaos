@@ -1,0 +1,8 @@
+[package]
+name = "soda-host"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "soda_host"
+path = "src/lib.rs"

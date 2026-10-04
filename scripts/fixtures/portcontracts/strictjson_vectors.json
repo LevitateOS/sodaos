@@ -1,0 +1,100 @@
+{
+  "vectors": [
+    {
+      "error_contains": "",
+      "input": "{\"type\":\"status\"}",
+      "name": "one known object",
+      "ok": true
+    },
+    {
+      "error_contains": "",
+      "input": "{}",
+      "name": "empty object",
+      "ok": true
+    },
+    {
+      "error_contains": "",
+      "input": "  {\"type\":\"status\",\"target\":\"r\"}  ",
+      "name": "surrounding whitespace",
+      "ok": true
+    },
+    {
+      "error_contains": "",
+      "input": "{\"type\":\"a\\\"b \\u00e9\"}",
+      "name": "escaped string",
+      "ok": true
+    },
+    {
+      "error_contains": "unknown field",
+      "input": "{\"type\":\"status\",\"project_id\":\"site\"}",
+      "name": "unknown field",
+      "ok": false
+    },
+    {
+      "error_contains": "duplicate request field",
+      "input": "{\"type\":\"status\",\"type\":\"stop\"}",
+      "name": "duplicate top-level field",
+      "ok": false
+    },
+    {
+      "error_contains": "duplicate",
+      "input": "{\"type\":{\"a\":1,\"a\":2}}",
+      "name": "nested duplicate object",
+      "ok": false
+    },
+    {
+      "error_contains": "duplicate",
+      "input": "{\"type\":{\"outer\":{\"key\":\"1\",\"key\":\"2\"}}}",
+      "name": "deeply nested duplicate",
+      "ok": false
+    },
+    {
+      "error_contains": "duplicate",
+      "input": "{\"type\":\"x\",\"target\":[{\"k\":\"1\"},{\"k\":\"1\",\"k\":\"2\"}]}",
+      "name": "duplicate in nested list",
+      "ok": false
+    },
+    {
+      "error_contains": "one JSON object",
+      "input": "[]",
+      "name": "array",
+      "ok": false
+    },
+    {
+      "error_contains": "one JSON object",
+      "input": "\"hello\"",
+      "name": "scalar",
+      "ok": false
+    },
+    {
+      "error_contains": "exactly one JSON object",
+      "input": "{\"type\":\"status\"}{\"type\":\"stop\"}",
+      "name": "trailing object",
+      "ok": false
+    },
+    {
+      "error_contains": "exactly one JSON object",
+      "input": "{} 42",
+      "name": "trailing scalar",
+      "ok": false
+    },
+    {
+      "error_contains": "decode request",
+      "input": "{\"type\":\"status\"",
+      "name": "unclosed object",
+      "ok": false
+    },
+    {
+      "error_contains": "decode request",
+      "input": "",
+      "name": "empty input",
+      "ok": false
+    },
+    {
+      "error_contains": "decode request",
+      "input": "  \n ",
+      "name": "whitespace only",
+      "ok": false
+    }
+  ]
+}
