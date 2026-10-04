@@ -276,6 +276,25 @@ fn reports_missing_tool() {
     );
 }
 
+#[test]
+fn missing_ip_stays_silent() {
+    // `ip` is entirely absent from PATH: the script's `$(ip ... 2>/dev/null)`
+    // swallows even the shell's own "command not found", so the port must
+    // print no spawn diagnostic either. Fails at the go.mod gate, before the
+    // lease; no side effects.
+    let root = TempDir::new("noip");
+    let empty = TempDir::new("noip-bin");
+    let mut command = cmd(&root.path);
+    command.env("PATH", &empty.path);
+    let out = command.output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stdout.is_empty());
+    assert_eq!(
+        String::from_utf8_lossy(&out.stderr),
+        "setup-soda-candidate: run from the repository root\n"
+    );
+}
+
 fn full_fake_bin(tag: &str, smart_go: bool, delegating_id: bool) -> Option<TempDir> {
     let fakes = TempDir::new(tag);
     fake_ip(&fakes.path);

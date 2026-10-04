@@ -636,6 +636,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-image-import"
+version = "0.1.0"
+dependencies = [
+ "soda-json",
+]
+
+[[package]]
 name = "soda-install"
 version = "0.1.0"
 dependencies = [
@@ -664,6 +671,10 @@ version = "0.1.0"
 
 [[package]]
 name = "soda-pg-maintenance"
+version = "0.1.0"
+
+[[package]]
+name = "soda-rotate-lab-creds"
 version = "0.1.0"
 
 [[package]]

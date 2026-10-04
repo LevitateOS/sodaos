@@ -30,7 +30,7 @@ func pgMaintenanceBinary(t *testing.T, name string) string {
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
-		build := exec.CommandContext(ctx, "cargo", "build", "--offline", "-p", "soda-pg-maintenance")
+		build := exec.CommandContext(ctx, "cargo", "build", "-p", "soda-pg-maintenance")
 		build.Dir = root
 		if out, err := build.CombinedOutput(); err != nil {
 			pgMaintBinDiag = string(out)

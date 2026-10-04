@@ -3,7 +3,7 @@
 //! the default. Preserves the predecessor's main-table uplink lookup.
 //!
 //! Rust port of appliance/bin/soda-console-welcome, including its embedded
-//! Python config/origin validation. Std-only (`cargo build --offline`).
+//! Python config/origin validation. Std-only (`cargo build`).
 //! Every banner line, subprocess argv shape, validation rule and exit code
 //! matches the shell original; subprocesses are resolved via PATH so the
 //! installed command doubles keep working.

@@ -52,6 +52,23 @@ struct Parser<'a> {
     strict_field: Option<Option<String>>,
 }
 
+enum Frame {
+    Object {
+        fields: Vec<(String, Value)>,
+        pending: Option<String>,
+    },
+    Array {
+        items: Vec<Value>,
+    },
+}
+
+fn close_frame(frame: Frame) -> Value {
+    match frame {
+        Frame::Object { fields, .. } => Value::Object(fields),
+        Frame::Array { items } => Value::Array(items),
+    }
+}
+
 impl<'a> Parser<'a> {
     fn new(bytes: &'a [u8], strict: bool) -> Self {
         Parser {
@@ -97,22 +114,15 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_value(&mut self, depth: u32) -> Result<Value, Error> {
-        if depth > MAX_NESTING {
-            return Err(err(format!(
-                "{}request is nested too deeply",
-                self.field_ctx()
-            )));
-        }
-        self.skip_ws();
-        match self.peek() {
-            Some(b'{') => self.parse_object(depth),
-            Some(b'[') => self.parse_array(depth),
-            Some(b'"') => Ok(Value::Str(self.parse_string()?)),
-            Some(b't') => self.parse_literal("true", Value::Bool(true)),
-            Some(b'f') => self.parse_literal("false", Value::Bool(false)),
-            Some(b'n') => self.parse_literal("null", Value::Null),
-            Some(b'-') | Some(b'0'..=b'9') => Ok(Value::Number(self.parse_number()?)),
-            _ => Err(err(format!("{}invalid character", self.field_ctx()))),
+        debug_assert_eq!(depth, 0);
+        self.run_machine()
+    }
+
+    fn parse_object(&mut self, depth: u32) -> Result<Value, Error> {
+        debug_assert_eq!(depth, 0);
+        match self.run_machine()? {
+            v @ Value::Object(_) => Ok(v),
+            _ => Err(err("decode request: expected object")),
         }
     }
 
@@ -125,78 +135,139 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_object(&mut self, depth: u32) -> Result<Value, Error> {
-        self.pos += 1; // {
-        let mut fields: Vec<(String, Value)> = Vec::new();
-        self.skip_ws();
-        if self.peek() == Some(b'}') {
-            self.pos += 1;
-            return Ok(Value::Object(fields));
-        }
+    /// Iterative JSON reader with an explicit heap stack: 10000-deep machine
+    /// output must parse without overflowing the thread stack, exactly like
+    /// `encoding/json`. Depth checks sit at the same positions as the former
+    /// recursion: strict values (after the field name, like strictjson's
+    /// depth-first scan) and tolerant container opens.
+    fn run_machine(&mut self) -> Result<Value, Error> {
+        let mut stack: Vec<Frame> = Vec::new();
+        let mut pending: Option<Value> = None;
         loop {
-            self.skip_ws();
-            if self.peek() != Some(b'"') {
+            if let Some(v) = pending.take() {
+                match stack.last_mut() {
+                    None => return Ok(v),
+                    Some(Frame::Array { items }) => items.push(v),
+                    Some(Frame::Object {
+                        fields,
+                        pending: name,
+                    }) => {
+                        let name = name.take().expect("object value without field name");
+                        if self.strict() {
+                            fields.push((name, v));
+                        } else if let Some(slot) = fields.iter_mut().find(|(k, _)| *k == name) {
+                            slot.1 = v;
+                        } else {
+                            fields.push((name, v));
+                        }
+                    }
+                }
+                // A root-object field value just completed: clear the
+                // top-level field context (mirrors the save/restore).
+                if stack.len() == 1 {
+                    if let Some(slot) = self.strict_field.as_mut() {
+                        *slot = None;
+                    }
+                }
+                self.skip_ws();
+                let is_object = matches!(stack.last(), Some(Frame::Object { .. }));
+                match self.peek() {
+                    Some(b',') => {
+                        self.pos += 1;
+                    }
+                    Some(b'}') if is_object => {
+                        self.pos += 1;
+                        pending = Some(close_frame(stack.pop().expect("object frame")));
+                        continue;
+                    }
+                    Some(b']') if !is_object => {
+                        self.pos += 1;
+                        pending = Some(close_frame(stack.pop().expect("array frame")));
+                        continue;
+                    }
+                    _ => {
+                        return Err(err(format!(
+                            "{}expected , or {}",
+                            self.field_ctx(),
+                            if is_object { "}" } else { "]" }
+                        )))
+                    }
+                }
+            }
+            // Object field-name step comes before the depth check, like the
+            // recursive reader (and strictjson): a bad name at the depth
+            // limit still reports the bad name.
+            if matches!(stack.last(), Some(Frame::Object { .. })) {
+                self.skip_ws();
+                if self.peek() != Some(b'"') {
+                    return Err(err(format!(
+                        "{}request field name must be a string",
+                        self.field_ctx()
+                    )));
+                }
+                let name = self.parse_string()?;
+                if self.strict() {
+                    let duplicate = match stack.last() {
+                        Some(Frame::Object { fields, .. }) => {
+                            fields.iter().any(|(k, _)| *k == name)
+                        }
+                        _ => false,
+                    };
+                    if duplicate {
+                        return Err(err(format!("duplicate request field {name:?}")));
+                    }
+                }
+                self.skip_ws();
+                self.expect(b':')?;
+                if let Some(Frame::Object { pending: slot, .. }) = stack.last_mut() {
+                    *slot = Some(name.clone());
+                }
+                // Top-level field context for nested strict messages.
+                if stack.len() == 1 {
+                    if let Some(slot) = self.strict_field.as_mut() {
+                        *slot = Some(name);
+                    }
+                }
+            }
+            let depth = stack.len() as u32;
+            if self.strict() && depth > MAX_NESTING {
                 return Err(err(format!(
-                    "{}request field name must be a string",
+                    "{}request is nested too deeply",
                     self.field_ctx()
                 )));
             }
-            let name = self.parse_string()?;
-            if self.strict() && fields.iter().any(|(k, _)| *k == name) {
-                return Err(err(format!("duplicate request field {name:?}")));
-            }
-            self.skip_ws();
-            self.expect(b':')?;
-            // Track the top-level field name for nested strict messages.
-            let saved = self.strict_field.clone();
-            if depth == 0 {
-                if let Some(slot) = self.strict_field.as_mut() {
-                    *slot = Some(name.clone());
-                }
-            }
-            let value = self.parse_value(depth + 1)?;
-            self.strict_field = saved;
-            if self.strict() {
-                fields.push((name, value));
-            } else if let Some(slot) = fields.iter_mut().find(|(k, _)| *k == name) {
-                slot.1 = value;
-            } else {
-                fields.push((name, value));
-            }
             self.skip_ws();
             match self.peek() {
-                Some(b',') => {
+                Some(b'{') | Some(b'[') => {
+                    if !self.strict() && depth >= 10_000 {
+                        return Err(err("decode request: request is nested too deeply"));
+                    }
+                    let is_object = self.peek() == Some(b'{');
                     self.pos += 1;
+                    if is_object {
+                        stack.push(Frame::Object {
+                            fields: Vec::new(),
+                            pending: None,
+                        });
+                    } else {
+                        stack.push(Frame::Array { items: Vec::new() });
+                    }
+                    self.skip_ws();
+                    let closed = (is_object && self.peek() == Some(b'}'))
+                        || (!is_object && self.peek() == Some(b']'));
+                    if closed {
+                        self.pos += 1;
+                        pending = Some(close_frame(stack.pop().expect("new frame")));
+                    }
                 }
-                Some(b'}') => {
-                    self.pos += 1;
-                    return Ok(Value::Object(fields));
+                Some(b'"') => pending = Some(Value::Str(self.parse_string()?)),
+                Some(b't') => pending = Some(self.parse_literal("true", Value::Bool(true))?),
+                Some(b'f') => pending = Some(self.parse_literal("false", Value::Bool(false))?),
+                Some(b'n') => pending = Some(self.parse_literal("null", Value::Null)?),
+                Some(b'-') | Some(b'0'..=b'9') => {
+                    pending = Some(Value::Number(self.parse_number()?))
                 }
-                _ => return Err(err(format!("{}expected , or }}", self.field_ctx()))),
-            }
-        }
-    }
-
-    fn parse_array(&mut self, depth: u32) -> Result<Value, Error> {
-        self.pos += 1; // [
-        let mut items = Vec::new();
-        self.skip_ws();
-        if self.peek() == Some(b']') {
-            self.pos += 1;
-            return Ok(Value::Array(items));
-        }
-        loop {
-            items.push(self.parse_value(depth + 1)?);
-            self.skip_ws();
-            match self.peek() {
-                Some(b',') => {
-                    self.pos += 1;
-                }
-                Some(b']') => {
-                    self.pos += 1;
-                    return Ok(Value::Array(items));
-                }
-                _ => return Err(err(format!("{}expected , or ]", self.field_ctx()))),
+                _ => return Err(err(format!("{}invalid character", self.field_ctx()))),
             }
         }
     }
@@ -742,5 +813,20 @@ mod tests {
         assert_eq!(tolerant_get(&v, "a").unwrap().as_str().unwrap(), "2");
         let v = decode_tolerant(br#"[{"a":1}]"#).unwrap();
         assert!(v.as_array().is_some());
+    }
+
+    #[test]
+    fn tolerant_decode_matches_go_nesting_limit() {
+        // encoding/json fails opening the 10001st container; scalars at
+        // depth are fine. Pinned against the pinned Go toolchain.
+        for (n, ok) in [(9999, true), (10000, false)] {
+            let doc = format!("{{\"n\":{}}}", "[".repeat(n) + &"]".repeat(n));
+            assert_eq!(decode_tolerant(doc.as_bytes()).is_ok(), ok, "n={n}");
+            let doc = format!("{{\"n\":{}1{}}}", "[".repeat(n), "]".repeat(n));
+            assert_eq!(decode_tolerant(doc.as_bytes()).is_ok(), ok, "scalar n={n}");
+        }
+        // Strict requests keep strictjson's much smaller depth-100 scan.
+        let doc = format!("{{\"n\":{}}}", "[".repeat(102) + &"]".repeat(102));
+        assert!(decode_strict(doc.as_bytes()).is_err());
     }
 }

@@ -60,7 +60,7 @@ restore and init authenticate over container-local peer auth
 `soda-pg-fixture` (Rust, `rust/soda-pg-fixture`) starts an ephemeral
 loopback PostgreSQL on the same pinned image and role==database shape
 with random per-run passwords. Build once with
-`cargo build --offline --manifest-path rust/soda-pg-fixture/Cargo.toml`,
+`cargo build --manifest-path rust/soda-pg-fixture/Cargo.toml`,
 then:
 
 ```sh
