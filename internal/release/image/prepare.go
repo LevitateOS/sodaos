@@ -244,7 +244,6 @@ func (w preparedWriter) stageRootfsFiles() error {
 		}
 	}
 	for from, to := range map[string]string{
-		"appliance/bin/soda-activate":       "usr/bin/soda-activate",
 		"appliance/bin/soda-forgejo-domain": "usr/bin/soda-forgejo-domain",
 	} {
 		if err := w.copyFile(from, "rootfs/"+to, 0o755, true); err != nil {
