@@ -51,6 +51,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-image-import"
+version = "0.1.0"
+dependencies = [
+ "soda-json",
+]
+
+[[package]]
 name = "soda-json"
 version = "0.1.0"
 
