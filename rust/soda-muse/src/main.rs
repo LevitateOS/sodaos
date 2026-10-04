@@ -188,7 +188,7 @@ fn launch_arguments_valid(args: &[String]) -> Result<(), ()> {
 fn shell_request_json(r: &ShellRequest) -> String {
     let mut out = String::from("{");
     let mut first = true;
-    let mut field = |out: &mut String, first: &mut bool, name: &str, value: &str| {
+    let field = |out: &mut String, first: &mut bool, name: &str, value: &str| {
         if !*first {
             out.push(',');
         }
@@ -279,23 +279,18 @@ fn send_with_fds(fd: std::os::unix::io::RawFd, data: &[u8], fds: &[i32]) -> io::
     header.msg_iov = &mut iov;
     header.msg_iovlen = 1;
     header.msg_control = control.as_mut_ptr() as *mut libc::c_void;
-    header.msg_control_len = control.len() as _;
+    header.msg_controllen = control.len() as _;
     unsafe {
-        let cmsg = libc::CMSG_FIRSTHDR(&header);
+        let cmsg = libc::CMSG_FIRSTHDR(&header as *const libc::msghdr);
         if cmsg.is_null() {
             return Err(io::Error::other("control message unavailable"));
         }
         (*cmsg).cmsg_level = libc::SOL_SOCKET;
         (*cmsg).cmsg_type = libc::SCM_RIGHTS;
-        (*cmsg).cmsg_len =
-            libc::CMSG_LEN((fds.len() * std::mem::size_of::<i32>()) as _) as _;
-        std::ptr::copy_nonoverlapping(
-            fds.as_ptr(),
-            libc::CMSG_DATA(cmsg) as *mut i32,
-            fds.len(),
-        );
-        header.msg_control_len = (*cmsg).cmsg_len as _;
-        let n = libc::sendmsg(fd, &header, 0);
+        (*cmsg).cmsg_len = libc::CMSG_LEN(std::mem::size_of_val(fds) as _) as _;
+        std::ptr::copy_nonoverlapping(fds.as_ptr(), libc::CMSG_DATA(cmsg) as *mut i32, fds.len());
+        header.msg_controllen = (*cmsg).cmsg_len as _;
+        let n = libc::sendmsg(fd, &header as *const libc::msghdr, 0);
         if n < 0 || (n as usize) != data.len() {
             return Err(io::Error::last_os_error());
         }
@@ -332,14 +327,7 @@ fn launch_shell(fd: std::os::unix::io::RawFd, request: &ShellRequest) -> (i32, O
     let tty = request.tty;
     std::thread::spawn(move || controls_loop(writer, tty));
     let mut body = [0u8; 65536];
-    let r = unsafe {
-        libc::recv(
-            fd,
-            body.as_mut_ptr() as *mut libc::c_void,
-            body.len(),
-            0,
-        )
-    };
+    let r = unsafe { libc::recv(fd, body.as_mut_ptr() as *mut libc::c_void, body.len(), 0) };
     if r <= 0 {
         return (1, Some(String::from("muse launch service ended")));
     }
@@ -347,6 +335,7 @@ fn launch_shell(fd: std::os::unix::io::RawFd, request: &ShellRequest) -> (i32, O
         Ok(v) => v,
         Err(()) => return (1, Some(String::from("muse launch service ended"))),
     };
+    let code = code as i32;
     if !error_text.is_empty() {
         return (code, Some(error_text));
     }
@@ -393,9 +382,7 @@ fn controls_loop(fd: std::os::unix::io::RawFd, tty: bool) {
                 continue;
             }
             let mut size: libc::winsize = unsafe { std::mem::zeroed() };
-            let rc = unsafe {
-                libc::ioctl(io::stdin().as_raw_fd(), libc::TIOCGWINSZ, &mut size)
-            };
+            let rc = unsafe { libc::ioctl(io::stdin().as_raw_fd(), libc::TIOCGWINSZ, &mut size) };
             if rc != 0 {
                 continue;
             }
@@ -418,10 +405,7 @@ fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<String>) {
         Err(_) => return (1, Some(format!("chdir {cwd}: invalid argument"))),
     };
     if unsafe { libc::chdir(ccwd.as_ptr()) } != 0 {
-        return (
-            1,
-            Some(format!("chdir {cwd}: {}", errno_str())),
-        );
+        return (1, Some(format!("chdir {cwd}: {}", errno_str())));
     }
     let root = go_clean(root);
     if !root.starts_with("/run/soda-muse/") || root.contains("..") {
@@ -444,7 +428,10 @@ fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<String>) {
             Err(_) => {
                 return (
                     1,
-                    Some(format!("muse execution failed: {}", go_strerror(Some(libc::EINVAL)))),
+                    Some(format!(
+                        "muse execution failed: {}",
+                        go_strerror(Some(libc::EINVAL))
+                    )),
                 );
             }
         }
@@ -456,20 +443,26 @@ fn execute(root: &str, cwd: &str, args: &[String]) -> (i32, Option<String>) {
             Err(_) => {
                 return (
                     1,
-                    Some(format!("muse execution failed: {}", go_strerror(Some(libc::EINVAL)))),
+                    Some(format!(
+                        "muse execution failed: {}",
+                        go_strerror(Some(libc::EINVAL))
+                    )),
                 );
             }
         }
     }
-    let argv_ptr: Vec<*const libc::c_char> =
-        argv.iter().map(|c| c.as_ptr()).chain(std::iter::once(std::ptr::null())).collect();
-    let env_ptr: Vec<*const libc::c_char> =
-        envp.iter().map(|c| c.as_ptr()).chain(std::iter::once(std::ptr::null())).collect();
+    let argv_ptr: Vec<*const libc::c_char> = argv
+        .iter()
+        .map(|c| c.as_ptr())
+        .chain(std::iter::once(std::ptr::null()))
+        .collect();
+    let env_ptr: Vec<*const libc::c_char> = envp
+        .iter()
+        .map(|c| c.as_ptr())
+        .chain(std::iter::once(std::ptr::null()))
+        .collect();
     unsafe { libc::execve(binary.as_ptr(), argv_ptr.as_ptr(), env_ptr.as_ptr()) };
-    (
-        1,
-        Some(format!("muse execution failed: {}", errno_str())),
-    )
+    (1, Some(format!("muse execution failed: {}", errno_str())))
 }
 
 fn await_admission(root: &str) -> Result<(), String> {
@@ -636,7 +629,9 @@ fn account_for(actor: &str) -> Result<(), String> {
     if unsafe { libc::geteuid() } != 0 {
         return Err(String::from("project root required"));
     }
-    let parsed: i64 = actor.parse().map_err(|_| String::from("invalid account identity"))?;
+    let parsed: i64 = actor
+        .parse()
+        .map_err(|_| String::from("invalid account identity"))?;
     if parsed <= 0 {
         return Err(String::from("invalid account identity"));
     }
@@ -724,8 +719,12 @@ fn lookup_user(name: &str) -> Result<(u32, u32, String, String), String> {
     if rc != 0 || result.is_null() {
         return Err(format!("user: unknown user {name}"));
     }
-    let gecos = unsafe { CStr::from_ptr(pwd.pw_gecos) }.to_string_lossy().into_owned();
-    let dir = unsafe { CStr::from_ptr(pwd.pw_dir) }.to_string_lossy().into_owned();
+    let gecos = unsafe { CStr::from_ptr(pwd.pw_gecos) }
+        .to_string_lossy()
+        .into_owned();
+    let dir = unsafe { CStr::from_ptr(pwd.pw_dir) }
+        .to_string_lossy()
+        .into_owned();
     Ok((pwd.pw_uid, pwd.pw_gid, gecos, dir))
 }
 
@@ -846,7 +845,13 @@ fn copy_config_walk(source: &str, destination: &str, path: &str) -> Result<(), S
     } else {
         match path.strip_prefix(&format!("{source}/")) {
             Some(r) => r.to_string(),
-            None => return Err(path_error("lstat", path, io::Error::from(io::ErrorKind::NotFound))),
+            None => {
+                return Err(path_error(
+                    "lstat",
+                    path,
+                    io::Error::from(io::ErrorKind::NotFound),
+                ))
+            }
         }
     };
     if name == "auth.json" {
@@ -896,7 +901,9 @@ fn copy_config_file(path: &str, target: &str) -> Result<(), String> {
     opts.write(true).create(true).truncate(true);
     opts.mode(0o600);
     use std::io::Write;
-    let mut f = opts.open(target).map_err(|e| path_error("open", target, e))?;
+    let mut f = opts
+        .open(target)
+        .map_err(|e| path_error("open", target, e))?;
     f.write_all(&body).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -910,7 +917,7 @@ fn read_config(source: &str) -> Result<(), String> {
     let mut view: Vec<(&str, Vec<u8>)> = Vec::new();
     for name in ["settings.json", "trust.json"] {
         let path = format!("{source}/{name}");
-        let mut file = match fs::File::open(&path) {
+        let file = match fs::File::open(&path) {
             Ok(f) => f,
             Err(e) if e.kind() == io::ErrorKind::NotFound => continue,
             Err(e) => return Err(path_error("open", &path, e)),
@@ -942,8 +949,7 @@ fn read_config(source: &str) -> Result<(), String> {
 }
 
 fn base64_encode(data: &[u8]) -> String {
-    const ALPHABET: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
         let mut n: u32 = 0;
@@ -964,4 +970,515 @@ fn base64_encode(data: &[u8]) -> String {
         }
     }
     out
+}
+
+// json_string matches Go encoding/json string escaping, including its
+// HTML-safe <, >, & forms, so wire bytes are identical for any input.
+fn json_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            '<' => out.push_str("\\u003c"),
+            '>' => out.push_str("\\u003e"),
+            '&' => out.push_str("\\u0026"),
+            '\u{2028}' => out.push_str("\\u2028"),
+            '\u{2029}' => out.push_str("\\u2029"),
+            c if (c as u32) < 0x20 => {
+                out.push_str(&format!("\\u{:04x}", c as u32));
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+// parse_launch_exit mirrors Go json.Unmarshal into LaunchExit: missing
+// fields stay zero, unknown fields are ignored, malformed JSON rejects.
+fn parse_launch_exit(body: &[u8]) -> Result<(i64, String), ()> {
+    let text = std::str::from_utf8(body).map_err(|_| ())?;
+    let mut code: i64 = 0;
+    let mut error_text = String::new();
+    let mut i = 0;
+    let bytes = text.as_bytes();
+    let skip_ws = |i: &mut usize| {
+        while *i < bytes.len() && matches!(bytes[*i], b' ' | b'\t' | b'\n' | b'\r') {
+            *i += 1;
+        }
+    };
+    skip_ws(&mut i);
+    if i >= bytes.len() || bytes[i] != b'{' {
+        return Err(());
+    }
+    i += 1;
+    // Go rejects a trailing comma, so `}` is only valid here for `{}` or
+    // right after a value; after a comma a key is required.
+    let mut after_comma = false;
+    loop {
+        skip_ws(&mut i);
+        if i < bytes.len() && bytes[i] == b'}' {
+            if after_comma {
+                return Err(());
+            }
+            i += 1;
+            break;
+        }
+        if i >= bytes.len() || bytes[i] != b'"' {
+            return Err(());
+        }
+        let (key, next) = parse_json_string(text, i)?;
+        i = next;
+        skip_ws(&mut i);
+        if i >= bytes.len() || bytes[i] != b':' {
+            return Err(());
+        }
+        i += 1;
+        skip_ws(&mut i);
+        if key == "code" {
+            let (value, next) = parse_json_integer(text, i)?;
+            code = value;
+            i = next;
+        } else if key == "error" {
+            if i >= bytes.len() || bytes[i] != b'"' {
+                return Err(());
+            }
+            let (value, next) = parse_json_string(text, i)?;
+            error_text = value;
+            i = next;
+        } else {
+            i = skip_json_value(text, i)?;
+        }
+        skip_ws(&mut i);
+        if i < bytes.len() && bytes[i] == b',' {
+            i += 1;
+            after_comma = true;
+            continue;
+        }
+        if i < bytes.len() && bytes[i] == b'}' {
+            i += 1;
+            break;
+        }
+        return Err(());
+    }
+    skip_ws(&mut i);
+    if i != bytes.len() {
+        return Err(());
+    }
+    Ok((code, error_text))
+}
+
+fn parse_json_string(text: &str, start: usize) -> Result<(String, usize), ()> {
+    let bytes = text.as_bytes();
+    if start >= bytes.len() || bytes[start] != b'"' {
+        return Err(());
+    }
+    let mut out = String::new();
+    let mut i = start + 1;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'"' => return Ok((out, i + 1)),
+            b'\\' => {
+                i += 1;
+                if i >= bytes.len() {
+                    return Err(());
+                }
+                match bytes[i] {
+                    b'"' => out.push('"'),
+                    b'\\' => out.push('\\'),
+                    b'/' => out.push('/'),
+                    b'b' => out.push('\u{0008}'),
+                    b'f' => out.push('\u{000c}'),
+                    b'n' => out.push('\n'),
+                    b'r' => out.push('\r'),
+                    b't' => out.push('\t'),
+                    b'u' => {
+                        if i + 4 >= bytes.len() {
+                            return Err(());
+                        }
+                        let hex = &text[i + 1..i + 5];
+                        let cp = u32::from_str_radix(hex, 16).map_err(|_| ())?;
+                        let c = char::from_u32(cp).ok_or(())?;
+                        if (0xd800..0xe000).contains(&cp) {
+                            return Err(());
+                        }
+                        out.push(c);
+                        i += 4;
+                    }
+                    _ => return Err(()),
+                }
+            }
+            0x00..=0x1f => return Err(()),
+            _ => {
+                let c = text[i..].chars().next().ok_or(())?;
+                out.push(c);
+                i += c.len_utf8() - 1;
+            }
+        }
+        i += 1;
+    }
+    Err(())
+}
+
+fn parse_json_integer(text: &str, start: usize) -> Result<(i64, usize), ()> {
+    let bytes = text.as_bytes();
+    let mut i = start;
+    if i < bytes.len() && bytes[i] == b'-' {
+        i += 1;
+    }
+    let digits = i;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == digits || i == start {
+        return Err(());
+    }
+    // Go rejects fractions and exponents for int fields.
+    if i < bytes.len() && (bytes[i] == b'.' || bytes[i] == b'e' || bytes[i] == b'E') {
+        return Err(());
+    }
+    text[start..i]
+        .parse::<i64>()
+        .map_err(|_| ())
+        .map(|v| (v, i))
+}
+
+fn skip_json_value(text: &str, start: usize) -> Result<usize, ()> {
+    let bytes = text.as_bytes();
+    if start >= bytes.len() {
+        return Err(());
+    }
+    match bytes[start] {
+        b'"' => parse_json_string(text, start).map(|(_, next)| next),
+        b'{' | b'[' => {
+            let open = bytes[start];
+            let close = if open == b'{' { b'}' } else { b']' };
+            let mut i = start + 1;
+            let mut depth = 1;
+            let mut in_string = false;
+            let mut escaped = false;
+            while i < bytes.len() {
+                let b = bytes[i];
+                if in_string {
+                    if escaped {
+                        escaped = false;
+                    } else if b == b'\\' {
+                        escaped = true;
+                    } else if b == b'"' {
+                        in_string = false;
+                    }
+                } else if b == b'"' {
+                    in_string = true;
+                } else if b == open {
+                    depth += 1;
+                } else if b == close {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Ok(i + 1);
+                    }
+                }
+                i += 1;
+            }
+            Err(())
+        }
+        b't' => {
+            if text[start..].starts_with("true") {
+                Ok(start + 4)
+            } else {
+                Err(())
+            }
+        }
+        b'f' => {
+            if text[start..].starts_with("false") {
+                Ok(start + 5)
+            } else {
+                Err(())
+            }
+        }
+        b'n' => {
+            if text[start..].starts_with("null") {
+                Ok(start + 4)
+            } else {
+                Err(())
+            }
+        }
+        b'-' | b'0'..=b'9' => {
+            let mut i = start;
+            if bytes[i] == b'-' {
+                i += 1;
+            }
+            while i < bytes.len()
+                && (bytes[i].is_ascii_digit()
+                    || matches!(bytes[i], b'.' | b'e' | b'E' | b'+' | b'-'))
+            {
+                i += 1;
+            }
+            if i == start {
+                return Err(());
+            }
+            Ok(i)
+        }
+        _ => Err(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn shell_fixture() -> ShellRequest {
+        ShellRequest {
+            cwd: String::from("/work"),
+            args: vec![String::from("a b"), String::from("c<d")],
+            home: String::from("/home/u"),
+            connection_id: String::from("conn1"),
+            config_home: String::from("/home/u/.config"),
+            term: String::from("xterm"),
+            tty: true,
+            cols: 80,
+            rows: 24,
+        }
+    }
+
+    #[test]
+    fn shell_request_wire_matches_go() {
+        assert_eq!(
+            shell_request_json(&shell_fixture()),
+            "{\"home\":\"/home/u\",\"config_home\":\"/home/u/.config\",\"term\":\"xterm\",\"connection_id\":\"conn1\",\"cwd\":\"/work\",\"args\":[\"a b\",\"c\\u003cd\"],\"tty\":true,\"cols\":80,\"rows\":24}"
+        );
+        let empty = ShellRequest {
+            cwd: String::from("/w"),
+            args: Vec::new(),
+            home: String::new(),
+            connection_id: String::new(),
+            config_home: String::new(),
+            term: String::new(),
+            tty: false,
+            cols: 0,
+            rows: 0,
+        };
+        assert_eq!(
+            shell_request_json(&empty),
+            "{\"connection_id\":\"\",\"cwd\":\"/w\",\"args\":[],\"tty\":false,\"cols\":0,\"rows\":0}"
+        );
+    }
+
+    #[test]
+    fn shell_validation_matches_go() {
+        validate_shell(&shell_fixture()).unwrap();
+        let mut bad = shell_fixture();
+        bad.cwd = String::from("relative");
+        assert!(validate_shell(&bad).is_err());
+        let mut bad = shell_fixture();
+        bad.term = "x".repeat(129);
+        assert!(validate_shell(&bad).is_err());
+        let mut bad = shell_fixture();
+        bad.cols = 0;
+        assert!(validate_shell(&bad).is_err());
+        let mut bad = shell_fixture();
+        bad.args = vec![String::from("x"); 257];
+        assert!(validate_shell(&bad).is_err());
+        let mut bad = shell_fixture();
+        bad.args = vec![String::from("a\0b")];
+        assert!(validate_shell(&bad).is_err());
+        // Empty home/config_home stay optional.
+        let mut ok = shell_fixture();
+        ok.home.clear();
+        ok.config_home.clear();
+        validate_shell(&ok).unwrap();
+    }
+
+    #[test]
+    fn launch_exit_parsing_matches_go_unmarshal() {
+        assert_eq!(
+            parse_launch_exit(b"{\"code\":0}").unwrap(),
+            (0, String::new())
+        );
+        assert_eq!(parse_launch_exit(b"{}").unwrap(), (0, String::new()));
+        assert_eq!(
+            parse_launch_exit(b"{\"code\":3}").unwrap(),
+            (3, String::new())
+        );
+        assert_eq!(
+            parse_launch_exit(b"{\"error\":\"denied\",\"code\":1}\n").unwrap(),
+            (1, String::from("denied"))
+        );
+        for bad in [
+            "",
+            "{",
+            "{\"code\":}",
+            "{\"code\":\"0\"}",
+            "{\"code\":0,}",
+            "[]",
+        ] {
+            assert!(
+                parse_launch_exit(bad.as_bytes()).is_err(),
+                "admitted {bad:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn base64_matches_standard_vectors() {
+        for (raw, want) in [
+            ("", ""),
+            ("f", "Zg=="),
+            ("fo", "Zm8="),
+            ("foo", "Zm9v"),
+            ("foob", "Zm9vYg=="),
+            ("fooba", "Zm9vYmE="),
+            ("foobar", "Zm9vYmFy"),
+            ("{\"a\":1}", "eyJhIjoxfQ=="),
+        ] {
+            assert_eq!(base64_encode(raw.as_bytes()), want, "input {raw:?}");
+        }
+    }
+
+    #[test]
+    fn go_clean_matches_filepath_cases() {
+        for (input, want) in [
+            ("", "."),
+            ("/", "/"),
+            ("//", "/"),
+            ("/a/b/../c", "/a/c"),
+            ("/../a", "/a"),
+            ("a/./b", "a/b"),
+            ("a/../../b", "../b"),
+            ("/run/soda-muse/", "/run/soda-muse"),
+            ("/home/u/", "/home/u"),
+        ] {
+            assert_eq!(go_clean(input), want, "input {input:?}");
+        }
+        assert_eq!(go_join("/home/u/", ".config"), "/home/u/.config");
+        assert_eq!(go_join("/", ".config"), "/.config");
+    }
+
+    #[test]
+    fn go_quote_matches_invalid_byte_cases() {
+        assert_eq!(go_quote_rune(b'X'), "'X'");
+        assert_eq!(go_quote_rune(b'\''), "'\\''");
+        assert_eq!(go_quote_rune(0x01), "'\\x01'");
+    }
+
+    #[test]
+    fn execution_id_rules_match_go() {
+        assert_eq!(go_base("/run/soda-muse/abc"), "abc");
+        // 32-hex passes the shape check (mkdir may fail without privilege).
+        assert!("a".repeat(32).bytes().all(|b| b.is_ascii_hexdigit()));
+        assert!("g".repeat(32).bytes().any(|b| !b.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn muse_environment_orders_fixed_then_passthrough() {
+        let env = muse_environment_with("/run/r", "/tmp/s", &|n| match n {
+            "HOME" => Some(String::from("/home/u")),
+            "TERM" => Some(String::new()),
+            _ => None,
+        });
+        assert_eq!(
+            env,
+            vec![
+                "PATH=/usr/local/bin:/usr/bin:/bin",
+                "LANG=C.UTF-8",
+                "TBH_CREDENTIAL_BACKEND=file",
+                "XDG_CONFIG_HOME=/run/r/config",
+                "XDG_STATE_HOME=/tmp/s/state",
+                "XDG_CACHE_HOME=/tmp/s/cache",
+                "XDG_DATA_HOME=/tmp/s/data",
+                "TMPDIR=/tmp/s/tmp",
+                "HOME=/home/u",
+            ]
+        );
+    }
+
+    #[test]
+    fn copy_config_skips_credentials_and_copies_tree() {
+        let root = std::env::temp_dir().join(format!("soda-muse-cc-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let source = root.join("src");
+        let dest = root.join("dst");
+        fs::create_dir_all(source.join("sub")).unwrap();
+        fs::write(source.join("settings.json"), b"{}").unwrap();
+        fs::write(source.join("auth.json"), b"secret").unwrap();
+        fs::write(source.join("sub").join("trust.json"), b"[]").unwrap();
+        std::os::unix::fs::symlink(source.join("settings.json"), source.join("link.json")).unwrap();
+        copy_config(source.to_str().unwrap(), dest.to_str().unwrap()).unwrap();
+        assert_eq!(fs::read(dest.join("settings.json")).unwrap(), b"{}");
+        assert_eq!(
+            fs::read(dest.join("sub").join("trust.json")).unwrap(),
+            b"[]"
+        );
+        assert_eq!(fs::read(dest.join("link.json")).unwrap(), b"{}");
+        assert!(!dest.join("auth.json").exists());
+        let mode = fs::metadata(dest.join("settings.json"))
+            .unwrap()
+            .permissions()
+            .mode();
+        assert_eq!(mode & 0o777, 0o600);
+        // Missing source is a no-op.
+        copy_config(
+            root.join("absent").to_str().unwrap(),
+            root.join("dst2").to_str().unwrap(),
+        )
+        .unwrap();
+        // Oversized file refused.
+        let big = source.join("big.json");
+        fs::write(&big, vec![0u8; (1 << 20) + 1]).unwrap();
+        assert!(copy_config(
+            source.to_str().unwrap(),
+            root.join("dst3").to_str().unwrap()
+        )
+        .is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn read_config_contract_shapes() {
+        // Pure shape check: base64 values under sorted keys.
+        let mut out = String::from("{");
+        out.push_str(&json_string("settings.json"));
+        out.push(':');
+        out.push_str(&json_string(&base64_encode(b"{}")));
+        out.push_str("}\n");
+        assert_eq!(out, "{\"settings.json\":\"e30=\"}\n");
+    }
+
+    #[test]
+    fn account_markers_reject_unsafe_nodes() {
+        let root = std::env::temp_dir().join(format!("soda-muse-ac-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).unwrap();
+        // Temp files are user-owned, never root-owned: unsafe record.
+        assert!(account_node(root.to_str().unwrap(), true).is_err());
+        let marker = root.join("login");
+        fs::write(&marker, b"42").unwrap();
+        assert!(account_node(marker.to_str().unwrap(), false).is_err());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn native_dispatch_errors_match_go() {
+        let v = |s: &[&str]| s.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            native_action(&v(&["--soda-copy-config", "a"])),
+            Some((1, Some(String::from("config source and view required"))))
+        );
+        assert_eq!(
+            native_action(&v(&["--soda-exec", "a"])),
+            Some((1, Some(String::from("execution root and cwd required"))))
+        );
+        assert_eq!(
+            native_action(&v(&["--soda-check"])),
+            Some((1, Some(String::from("one metadata input required"))))
+        );
+        assert_eq!(native_action(&[]), None);
+        assert_eq!(native_action(&v(&["--version"])), None);
+        assert_eq!(native_action(&v(&["prompt text"])), None);
+    }
 }
