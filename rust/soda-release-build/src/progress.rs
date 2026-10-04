@@ -17,8 +17,9 @@ pub struct BuildProgress {
     path: String,
     origin: Duration,
     started: Duration,
-    now: Box<dyn Fn() -> Duration + Send + Sync>,
-    stderr: Box<dyn Write + Send>,
+    /// Injectable clock and output, like Go's public `Now`/`Stderr` fields.
+    pub now: Box<dyn Fn() -> Duration + Send + Sync>,
+    pub stderr: Box<dyn Write + Send>,
     finished: bool,
     phase: String,
     phase_started: Duration,
