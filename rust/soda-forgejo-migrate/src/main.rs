@@ -6,7 +6,7 @@
 //! PASSWD entries (notably [mailer]) must survive.
 //!
 //! Rust port of appliance/bin/soda-forgejo-migrate. Std-only so the tree
-//! builds with zero network (`cargo build --offline`). Behavior matches the
+//! builds without vendoring (`cargo build`). Behavior matches the
 //! shell original: missing config skips silently, the file is rewritten in
 //! place (mode preserved), and awk's print/trailing-newline semantics hold.
 

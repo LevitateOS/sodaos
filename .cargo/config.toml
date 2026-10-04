@@ -1,8 +1,0 @@
-# All crates-io dependencies resolve from the committed rust/vendor/ tree,
-# so Rust builds never need the network. Verify with `cargo build --offline`.
-# The tree lives under rust/ because a top-level vendor/ would hijack Go builds.
-[source.crates-io]
-replace-with = "vendored-sources"
-
-[source.vendored-sources]
-directory = "rust/vendor"

@@ -1,7 +1,7 @@
 //! Shared helpers for the appliance PostgreSQL maintenance tools
 //! (soda-pg-backup, soda-pg-restore, soda-pg-init-roles). Rust ports of
-//! appliance/bin/soda-pg-*. Std-only so the tree builds with zero network
-//! (`cargo build --offline`).
+//! appliance/bin/soda-pg-*. Std-only so the tree builds without vendoring
+//! (`cargo build`).
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
