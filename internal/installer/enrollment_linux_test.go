@@ -185,3 +185,101 @@ func TestEnrollmentAddressSelectionRetriesTypos(t *testing.T) {
 		})
 	}
 }
+
+func TestEnrollmentPortLabeled(t *testing.T) {
+	for _, scenario := range []struct {
+		name    string
+		listing string
+		want    bool
+	}{
+		{"absent", "ssh_port_t tcp 22\n", false},
+		{"labeled with 22", "ssh_port_t tcp 22222, 22\n", true},
+		{"labeled alone", "ssh_port_t                     tcp      22222\n", true},
+		{"other type", "unreserved_port_t tcp 22222\n", false},
+		{"other protocol", "ssh_port_t udp 22222\n", false},
+		{"prefix port", "ssh_port_t tcp 2222\n", false},
+		{"empty", "", false},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			if got := enrollmentPortLabeled([]byte(scenario.listing)); got != scenario.want {
+				t.Fatalf("got %t", got)
+			}
+		})
+	}
+}
+
+func TestEnsureEnrollmentPortLabel(t *testing.T) {
+	ctx := context.Background()
+	t.Run("permissive skips without running semanage", func(t *testing.T) {
+		run := func(context.Context, string, []string, io.Reader) ([]byte, error) {
+			t.Fatal("semanage must not run without enforcement")
+			return nil, nil
+		}
+		if err := ensureEnrollmentPortLabel(ctx, run, false); err != nil {
+			t.Fatal(err)
+		}
+	})
+	t.Run("labeled port needs no change", func(t *testing.T) {
+		var calls []string
+		run := func(_ context.Context, name string, args []string, _ io.Reader) ([]byte, error) {
+			calls = append(calls, name+" "+strings.Join(args, " "))
+			return []byte("ssh_port_t tcp 22222, 22\n"), nil
+		}
+		if err := ensureEnrollmentPortLabel(ctx, run, true); err != nil {
+			t.Fatal(err)
+		}
+		if len(calls) != 1 {
+			t.Fatalf("ran %d commands, want list only", len(calls))
+		}
+	})
+	t.Run("missing label is added", func(t *testing.T) {
+		var calls []string
+		run := func(_ context.Context, name string, args []string, _ io.Reader) ([]byte, error) {
+			calls = append(calls, name+" "+strings.Join(args, " "))
+			if len(args) > 0 && args[0] == "port" {
+				return []byte("ssh_port_t tcp 22\n"), nil
+			}
+			return nil, nil
+		}
+		if err := ensureEnrollmentPortLabel(ctx, run, true); err != nil {
+			t.Fatal(err)
+		}
+		if len(calls) != 2 || !strings.Contains(calls[1], "port -a -t ssh_port_t -p tcp 22222") {
+			t.Fatalf("calls %v", calls)
+		}
+	})
+	t.Run("missing semanage stays loud when enforcing", func(t *testing.T) {
+		run := func(context.Context, string, []string, io.Reader) ([]byte, error) {
+			return nil, &commandExit{name: "semanage", code: 127}
+		}
+		if err := ensureEnrollmentPortLabel(ctx, run, true); err == nil {
+			t.Fatal("uninspectable labeling accepted")
+		}
+	})
+}
+
+func TestLabelEnrollmentConfig(t *testing.T) {
+	ctx := context.Background()
+	run := func(_ context.Context, name string, args []string, _ io.Reader) ([]byte, error) {
+		if name != "chcon" {
+			t.Fatalf("unexpected command %s", name)
+		}
+		want := []string{"-t", "etc_t", enrollmentConfigPath}
+		if strings.Join(args, " ") != strings.Join(want, " ") {
+			t.Fatalf("args %v", args)
+		}
+		return nil, nil
+	}
+	if err := labelEnrollmentConfig(ctx, run, true); err != nil {
+		t.Fatal(err)
+	}
+	failing := func(context.Context, string, []string, io.Reader) ([]byte, error) {
+		return nil, &commandExit{name: "chcon", code: 1}
+	}
+	if err := labelEnrollmentConfig(ctx, failing, true); err == nil {
+		t.Fatal("failed relabel accepted while enforcing")
+	}
+	if err := labelEnrollmentConfig(ctx, failing, false); err != nil {
+		t.Fatalf("failed relabel refused without enforcement: %v", err)
+	}
+}

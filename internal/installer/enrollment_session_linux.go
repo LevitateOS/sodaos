@@ -76,7 +76,7 @@ func (s *enrollmentSession) close() error {
 	return err
 }
 
-func writeEnrollmentConfig(ctx context.Context, run commandRunner, selected enrollmentAddress) error {
+func writeEnrollmentConfig(ctx context.Context, run commandRunner, selected enrollmentAddress, enforcing bool) error {
 	now, err := enrollmentBootSeconds()
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func writeEnrollmentConfig(ctx context.Context, run commandRunner, selected enro
 	if _, err := run(ctx, "/usr/sbin/sshd", []string{"-t", "-f", enrollmentConfigPath}, nil); err != nil {
 		return errors.New("native SSH configuration check failed; no listener opened")
 	}
-	return nil
+	return labelEnrollmentConfig(ctx, run, enforcing)
 }
 
 func publishEnrollmentUnits(ctx context.Context, session *enrollmentSession, ip string) error {
@@ -128,8 +128,8 @@ func startEnrollmentService(ctx context.Context, session *enrollmentSession) err
 	return nil
 }
 
-func publishEnrollmentState(ctx context.Context, session *enrollmentSession, selected enrollmentAddress) error {
-	if err := writeEnrollmentConfig(ctx, session.run, selected); err != nil {
+func publishEnrollmentState(ctx context.Context, session *enrollmentSession, selected enrollmentAddress, enforcing bool) error {
+	if err := writeEnrollmentConfig(ctx, session.run, selected, enforcing); err != nil {
 		return err
 	}
 	if err := publishEnrollmentUnits(ctx, session, selected.ip); err != nil {
@@ -230,6 +230,12 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 	if err != nil {
 		return err
 	}
+	// The admission helper reports enforcement as success; enrollment
+	// branches on it instead of refusing to run.
+	enforcing := selinuxEnforcing() == nil
+	if err = ensureEnrollmentPortLabel(ctx, run, enforcing); err != nil {
+		return err
+	}
 	if err = guardExistingEnrollmentState(ctx, run); err != nil {
 		return err
 	}
@@ -239,7 +245,7 @@ func armEnrollment(ctx context.Context, c console, run commandRunner) (result er
 			result = closeErr
 		}
 	}()
-	if err = publishEnrollmentState(ctx, &session, selected); err != nil {
+	if err = publishEnrollmentState(ctx, &session, selected, enforcing); err != nil {
 		return err
 	}
 	return waitEnrollmentResult(ctx, c, run, selected)
