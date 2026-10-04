@@ -2,7 +2,11 @@
 Description=Soda appliance PostgreSQL 17 (Forgejo and Soda stores)
 After=network-online.target
 Wants=network-online.target
-# Secrets exist only after operator setup; live media skips cleanly.
+# First boot provisions secrets through this dependency. The provision unit
+# gates itself on the install stamp, so live media skips the dependency and
+# this condition keeps skipping here exactly as before.
+Requires=soda-pg-provision.service
+After=soda-pg-provision.service
 ConditionPathExists=/etc/soda/postgres/super.passwd
 
 [Container]

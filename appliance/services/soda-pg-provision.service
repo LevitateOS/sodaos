@@ -2,7 +2,10 @@
 Description=Soda PostgreSQL credential provisioning
 # Secrets need no operator identity: Forgejo must already run on PostgreSQL
 # before the operator token exists, so credentials precede operator setup.
-Before=soda-postgres.service soda-postgres-init.service
+# PostgreSQL requires this unit, which pulls it into every boot transaction.
+# The install stamp keeps live media out: provisioning runs only where the
+# installer wrote /etc/soda/installed, so live boots skip exactly as before.
+ConditionPathExists=/etc/soda/installed
 ConditionPathExists=!/etc/soda/postgres/super.passwd
 
 [Service]
