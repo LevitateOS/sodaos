@@ -133,10 +133,10 @@ func TestSetupProvisionsPostgresSecrets(t *testing.T) {
 		}
 		dsn, err := os.ReadFile(filepath.Join(pgDir, "soda.dsn"))
 		st, statErr := os.Stat(filepath.Join(pgDir, "soda.dsn"))
-		if err != nil || statErr != nil || st.Mode().Perm() != 0o600 {
-			t.Fatal("soda.dsn missing or not restricted")
+		if err != nil || statErr != nil || st.Mode().Perm() != 0o640 {
+			t.Fatal("soda.dsn missing or not group-readable")
 		}
-		want := "postgres://soda:" + passwords["soda"] + "@soda-postgres:5432/soda?sslmode=disable"
+		want := "postgres://soda:" + passwords["soda"] + "@/soda?host=/run/soda/postgres&sslmode=disable"
 		if strings.TrimSpace(string(dsn)) != want {
 			t.Fatal("soda.dsn does not carry the soda role password")
 		}

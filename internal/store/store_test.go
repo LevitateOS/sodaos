@@ -3,7 +3,10 @@ package store
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 )
 
 func TestMembersListingIsBounded(t *testing.T) {
@@ -57,5 +60,25 @@ func TestPersistenceAndMembership(t *testing.T) {
 	defer s.Close()
 	if login, err := s.MemberLogin(ctx, "p123", 1); err != nil || login != "alice" {
 		t.Fatalf("%q %v", login, err)
+	}
+}
+
+// TestSetupSocketDSNParses pins the setup-generated unix-socket DSN shape:
+// the appliance driver must resolve the socket directory, role and database
+// without a TCP host. Parsing needs no server.
+func TestSetupSocketDSNParses(t *testing.T) {
+	dsn := "postgres://soda:" + strings.Repeat("a", 64) + "@/soda?host=/run/soda/postgres&sslmode=disable"
+	cfg, err := pgx.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Host != "/run/soda/postgres" {
+		t.Fatalf("host %q, want socket directory", cfg.Host)
+	}
+	if cfg.User != "soda" || cfg.Database != "soda" {
+		t.Fatalf("user %q database %q", cfg.User, cfg.Database)
+	}
+	if cfg.Password != strings.Repeat("a", 64) {
+		t.Fatal("password did not survive the socket DSN")
 	}
 }

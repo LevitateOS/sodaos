@@ -9,6 +9,10 @@ d /var/lib/soda/proxy 0700 root root -
 d /var/lib/soda/postgres 0700 999 999 -
 d /var/lib/soda/backups/postgres 0700 root root -
 d /run/soda 0755 root root -
+# PostgreSQL unix-socket directory shared with host-network/native clients.
+# Owned by the DB image uid (999) so postmaster can create the socket; the
+# 0777 socket itself admits the dashboard and identity broker.
+d /run/soda/postgres 0755 999 999 -
 # IPC between the dashboard (uid 2000, group 2100) and the Forgejo extension
 # (bare container uid; its entrypoint drops supplemental groups). Other-wx
 # admits the extension to known socket names without listing; the sticky bit

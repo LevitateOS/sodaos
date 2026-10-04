@@ -10,10 +10,13 @@ Image=docker.io/library/postgres:17@sha256:67f41722b7a8cbdb868a44a4995c846eddfdc
 ContainerName=soda-postgres
 Pull=missing
 Network=soda.network
-# No PublishPort: database traffic stays inside the appliance container
-# network. Host operators reach it through the backup/restore tools, which
-# use podman exec with container-local peer authentication.
+# No PublishPort: no database TCP reaches the host. Host-network and native
+# clients (dashboard, identity broker) connect through the shared unix
+# socket below; Forgejo uses TCP inside the appliance container network.
+# Host operators reach it through the backup/restore tools, which use
+# podman exec with container-local peer authentication.
 Volume=/var/lib/soda/postgres:/var/lib/postgresql/data:Z
+Volume=/run/soda/postgres:/var/run/postgresql:z
 Volume=/etc/soda/postgres/super.passwd:/run/secrets/soda-pg-super:ro,Z
 Environment=POSTGRES_PASSWORD_FILE=/run/secrets/soda-pg-super
 # Only the superuser password is mounted here: the entrypoint reads it as

@@ -36,6 +36,7 @@ func TestPostgresUnitTopology(t *testing.T) {
 		"Pull=missing",
 		"Network=soda.network",
 		"Volume=/var/lib/soda/postgres:/var/lib/postgresql/data:Z",
+		"Volume=/run/soda/postgres:/var/run/postgresql:z",
 		"Volume=/etc/soda/postgres/super.passwd:/run/secrets/soda-pg-super:ro,Z",
 		"Environment=POSTGRES_PASSWORD_FILE=/run/secrets/soda-pg-super",
 		"WantedBy=multi-user.target",
@@ -75,6 +76,14 @@ func TestForgejoUnitPostgresWiring(t *testing.T) {
 	}
 }
 
+func TestDashboardUnitDatabaseWiring(t *testing.T) {
+	body := readRuntimeFile(t, "appliance/services/soda-dashboard.container")
+	requireContains(t, body,
+		"Volume=/etc/soda/postgres/soda.dsn:/etc/soda/postgres/soda.dsn:ro,Z",
+		"Volume=/run/soda/postgres:/run/soda/postgres:ro,z",
+	)
+}
+
 func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 	init := readRuntimeFile(t, "appliance/services/soda-postgres-init.service")
 	requireContains(t, init,
@@ -111,6 +120,7 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 	requireContains(t, tmpfiles,
 		"d /var/lib/soda/postgres 0700 999 999 -",
 		"d /var/lib/soda/backups/postgres 0700 root root -",
+		"d /run/soda/postgres 0755 999 999 -",
 	)
 	prepare := readRuntimeFile(t, "internal/release/image/prepare.go")
 	requireContains(t, prepare,

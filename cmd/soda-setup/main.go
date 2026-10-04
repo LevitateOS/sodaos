@@ -17,10 +17,10 @@ import (
 	"github.com/levitateos/sodaos/internal/forgejo"
 )
 
-// postgresSecretDir holds the mode-0600 PostgreSQL credential files setup
-// generates: super/forgejo/soda .passwd plus the soda connection URL. The
-// database units stay skipped until these exist, so live media shows a
-// clean skip instead of a failed database.
+// postgresSecretDir holds the PostgreSQL credential files setup generates:
+// super/forgejo/soda .passwd (0600) plus the soda connection URL (0640,
+// group soda). The database units stay skipped until these exist, so live
+// media shows a clean skip instead of a failed database.
 const postgresSecretDir = "/etc/soda/postgres"
 
 func main() {
@@ -126,10 +126,27 @@ func randomPassword() (string, error) {
 	return hex.EncodeToString(raw), nil
 }
 
+// Forgejo reads its database password over a root-owned read-only mount as
+// the image user (USER_UID/USER_GID 1000 in forgejo.container); the source
+// file must carry that ownership because the entrypoint drops supplementary
+// groups, so group readability alone does not admit it.
+const forgejoDBUser = 1000
+
+// The soda DSN is read by the dashboard (uid/gid 2000) and the identity
+// broker (gid 2000). Group soda (2000, appliance/config/soda.sysusers)
+// admits exactly those service identities.
+const sodaServiceGroup = 2000
+
+// postgresSocketDir is the host path of the PostgreSQL unix-socket
+// directory shared with host-network and native clients (soda.tmpfiles);
+// it doubles as the DSN host so no database TCP reaches the host.
+const postgresSocketDir = "/run/soda/postgres"
+
 // provisionPostgresSecrets generates the database credential files: one
 // hex password per role plus the soda connection URL. Files land O_EXCL so
 // a pre-existing secret is never overwritten; on failure this run removes
-// only the files it created, preserving anything already there.
+// only the files it created, preserving anything already there. Ownership
+// fixes apply at creation only; pre-existing files keep their metadata.
 func provisionPostgresSecrets(dir string) (created []string, dsnPath string, err error) {
 	if err = os.MkdirAll(dir, 0o700); err != nil {
 		return nil, "", err
@@ -145,14 +162,23 @@ func provisionPostgresSecrets(dir string) (created []string, dsnPath string, err
 		if err = writeSecretFile(path, pw); err != nil {
 			break
 		}
+		if role == "forgejo" && os.Geteuid() == 0 {
+			if err = os.Chown(path, forgejoDBUser, forgejoDBUser); err != nil {
+				_ = os.Remove(path)
+				break
+			}
+		}
 		created = append(created, path)
 		passwords[role] = pw
 	}
 	if err == nil {
 		dsnPath = filepath.Join(dir, "soda.dsn")
-		dsn := "postgres://soda:" + passwords["soda"] + "@soda-postgres:5432/soda?sslmode=disable"
+		dsn := "postgres://soda:" + passwords["soda"] + "@/soda?host=" + postgresSocketDir + "&sslmode=disable"
 		if err = writeSecretFile(dsnPath, dsn); err == nil {
 			created = append(created, dsnPath)
+			if err = os.Chmod(dsnPath, 0o640); err == nil && os.Geteuid() == 0 {
+				err = os.Chown(dsnPath, 0, sodaServiceGroup)
+			}
 		}
 	}
 	if err != nil {
