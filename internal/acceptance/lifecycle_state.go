@@ -7,6 +7,7 @@ package acceptance
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,21 +17,25 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
+	"strings"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 // LifecycleStateUsage documents the probe's CLI surface.
 const LifecycleStateUsage = "soda-installed-probes lifecycle-state FIXTURE_DIR {snapshot LABEL|compare BEFORE AFTER}"
 
-// lifecycleHostQuery is the host database observation piped to python3 - over
-// the VM session, byte-identical to the retired probe.
-const lifecycleHostQuery = `import json,sqlite3,pathlib
-p=pathlib.Path('/etc/soda/dashboard.json'); config=json.loads(p.read_text())
-with sqlite3.connect('file:'+config['database']+'?mode=ro',uri=True) as db:
- assert db.execute('pragma integrity_check').fetchall()==[('ok',)]
- data={table:sorted(db.execute('select * from '+table).fetchall(),key=repr) for table in ['users','keys','projects','memberships']}
- print(json.dumps(data,sort_keys=True))
-`
+// hostSodaTables is the dashboard observation surface, unchanged from the
+// retired probe.
+var hostSodaTables = []string{"users", "keys", "projects", "memberships"}
+
+// shQuote single-quotes one remote-shell word; single quotes inside are
+// closed, escaped and reopened, so arbitrary operator paths stay one word.
+func shQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
 
 // snapReportError marks lifecycle failures whose operational message is safe
 // to report alongside the failure type.
@@ -145,17 +150,112 @@ func snapshotEntries(old []map[string]json.RawMessage, targetID string) ([]snaps
 	return entries, nil
 }
 
-// queryHostSoda observes the host associations.
+// queryHostSoda observes the host associations. The config and the
+// database file travel over plain remote reads; the dump runs locally
+// against a private copy, so no interpreter is needed on the target. A
+// torn copy fails closed on the same integrity check the retired probe
+// ran. Row order is deterministic per run; it sorts by the canonical
+// JSON rendering rather than Python repr, so snapshots from the retired
+// probe are not order-identical (same tables, same rows).
 func queryHostSoda(vm, repo string) (any, error) {
-	raw, err := lifecycleRun(repo, []string{vm, "ssh", "python3 -"}, []byte(lifecycleHostQuery))
+	configRaw, err := lifecycleRun(repo, []string{vm, "ssh", "cat /etc/soda/dashboard.json"}, nil)
 	if err != nil {
 		return nil, err
 	}
-	var soda any
-	if json.Unmarshal(raw, &soda) != nil {
+	var config struct {
+		Database string `json:"database"`
+	}
+	if json.Unmarshal(configRaw, &config) != nil || config.Database == "" || strings.ContainsAny(config.Database, "\x00\r\n") {
 		return nil, errors.New("invalid host observation")
 	}
-	return soda, nil
+	dbRaw, err := lifecycleRun(repo, []string{vm, "ssh", "cat " + shQuote(config.Database)}, nil)
+	if err != nil {
+		return nil, err
+	}
+	data, err := dumpHostSoda(dbRaw)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+// dumpHostSoda queries one dashboard database copy: integrity first, then
+// the four tables with canonically ordered rows.
+func dumpHostSoda(dbRaw []byte) (map[string]any, error) {
+	dir, err := os.MkdirTemp("", "soda-snapshot-")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	dbPath := filepath.Join(dir, "dashboard.db")
+	if err := os.WriteFile(dbPath, dbRaw, 0o600); err != nil {
+		return nil, err
+	}
+	db, err := sql.Open("sqlite", "file:"+dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = db.Close() }()
+	var check string
+	if err := db.QueryRow("PRAGMA integrity_check").Scan(&check); err != nil || check != "ok" {
+		return nil, errors.New("invalid host observation")
+	}
+	data := map[string]any{}
+	for _, table := range hostSodaTables {
+		rows, err := dumpHostTable(db, table)
+		if err != nil {
+			return nil, err
+		}
+		data[table] = rows
+	}
+	return data, nil
+}
+
+// dumpHostTable reads one table with canonically ordered rows. Values
+// normalize to JSON natives; blobs decode as text like the retired probe's
+// str path.
+func dumpHostTable(db *sql.DB, table string) ([]any, error) {
+	rows, err := db.Query("select * from " + table)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	out := []any{}
+	for rows.Next() {
+		values := make([]any, len(columns))
+		pointers := make([]any, len(columns))
+		for i := range values {
+			pointers[i] = &values[i]
+		}
+		if err := rows.Scan(pointers...); err != nil {
+			return nil, err
+		}
+		row := make([]any, len(columns))
+		for i, value := range values {
+			switch value := value.(type) {
+			case []byte:
+				row[i] = string(value)
+			case time.Time:
+				row[i] = value.UTC().Format(time.RFC3339Nano)
+			default:
+				row[i] = value
+			}
+		}
+		out = append(out, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sort.Slice(out, func(i, j int) bool {
+		left, _ := json.Marshal(out[i])
+		right, _ := json.Marshal(out[j])
+		return string(left) < string(right)
+	})
+	return out, nil
 }
 
 // snapshotProject captures one project's identity and state.
@@ -190,13 +290,36 @@ func observeProjectEndpoint(vm, repo, identifier string) (string, string, error)
 	return string(bytes.TrimSpace(identityRaw)), ip, nil
 }
 
+// remoteSnapshotWrapper stages piped stdin as an executable temporary,
+// runs the project-state subcommand, and always removes the temporary.
+// It mirrors the Rust driver's remote template, so the probe is piped
+// over the session and never installed. Double quotes only: the wrapper
+// travels single-quoted through the remote shell.
+const remoteSnapshotWrapper = `tmp=$(mktemp) && cat > "$tmp" && chmod 700 "$tmp" && "$tmp" project-state; rc=$?; rm -f "$tmp"; exit $rc`
+
+// remotePayload reads the prebuilt acceptance probe. Like soda-test-vm,
+// the operator builds it once per checkout:
+//
+//	cargo build -p soda-acceptance --bin soda-acceptance-remote
+func remotePayload(repo string) ([]byte, error) {
+	data, err := os.ReadFile(filepath.Join(repo, "target/debug/soda-acceptance-remote"))
+	if err != nil {
+		return nil, errors.New("prebuilt soda-acceptance-remote missing; run: cargo build -p soda-acceptance --bin soda-acceptance-remote")
+	}
+	return data, nil
+}
+
 // execProjectSnapshot runs the project snapshot payload in the container.
 func execProjectSnapshot(vm, repo string, program []byte, entry snapshotEntry, identity, ip string) (string, any, error) {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil || !projectSubnet.Contains(addr) {
+		return "", nil, errors.New("invalid project IP")
+	}
 	workloads := "0"
 	if entry.workloads {
 		workloads = "1"
 	}
-	command := "podman exec -i --env SODA_PROJECT_IP=" + ip + " --env SODA_EXPECT_WORKLOADS=" + workloads + " soda-" + entry.identifier + " python3 -"
+	command := "podman exec -i --env SODA_PROJECT_IP=" + addr.String() + " --env SODA_EXPECT_WORKLOADS=" + workloads + " soda-" + entry.identifier + " sh -c '" + remoteSnapshotWrapper + "'"
 	stateRaw, err := lifecycleRun(repo, []string{vm, "ssh", command}, program)
 	if err != nil {
 		return "", nil, err
@@ -210,6 +333,9 @@ func execProjectSnapshot(vm, repo string, program []byte, entry snapshotEntry, i
 	}
 	return identity, state, nil
 }
+
+// projectSubnet bounds the container addresses the snapshot accepts.
+var projectSubnet = netip.MustParsePrefix("10.89.0.0/24")
 
 // projectSnapshotIP extracts the validated project IP.
 func projectSnapshotIP(networkRaw []byte) (string, error) {
@@ -277,7 +403,7 @@ func runSnapshotAt(root, label, repo string, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	program, err := os.ReadFile(filepath.Join(repo, "tests/installed/project-state.py"))
+	program, err := remotePayload(repo)
 	if err != nil {
 		return err
 	}
