@@ -215,6 +215,31 @@ fn capture(prog: &str, args: &[&str], stderr_null: bool) -> Captured {
     Captured::Done(code, out)
 }
 
+/// Preflight clean-tree check (D01-F3): only a *successful* status with
+/// empty output proves clean. Spawn failure or a failing status refuses.
+fn git_tree_clean(captured: &Captured) -> bool {
+    match captured {
+        Captured::SpawnFailed(_) => false,
+        Captured::Done(code, out) => *code == 0 && stripped(out).is_empty(),
+    }
+}
+
+/// Admitted controller recipe (D01-F2): the existing Rust release-tools
+/// package, never the retired ./tools Go paths.
+fn controller_cargo_argv() -> [&'static str; 9] {
+    [
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "soda-release-tools",
+        "--bin",
+        "soda-build",
+        "--bin",
+        "soda-candidate",
+    ]
+}
+
 /// `run` mirrors a bare command: inherited stdio, propagated status.
 fn run(prog: &str, args: &[&str]) -> Result<(), Exit> {
     run_with_io(prog, args, false, false, None, None)
@@ -645,7 +670,8 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
         return fail("canonical Forgejo checkout required");
     }
     let safe_dir = format!("safe.directory={forgejo_source}");
-    let forgejo_clean = match capture(
+    // D01-F3: a failed inspection must not pass as clean.
+    let forgejo_clean = git_tree_clean(&capture(
         "git",
         &[
             "-c",
@@ -657,10 +683,7 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
             "--untracked-files=normal",
         ],
         false,
-    ) {
-        Captured::SpawnFailed(_) => true,
-        Captured::Done(_, out) => stripped(&out).is_empty(),
-    };
+    ));
     if !forgejo_clean {
         return fail("Forgejo source must be clean and committed");
     }
@@ -685,14 +708,12 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     if !user_ok {
         return fail("soda-build-worker user missing");
     }
-    let dirty = match capture(
+    // D01-F3: only a successful empty status proves clean.
+    let dirty = !git_tree_clean(&capture(
         "git",
         &["status", "--porcelain", "--untracked-files=no"],
         false,
-    ) {
-        Captured::SpawnFailed(_) => false,
-        Captured::Done(_, out) => !stripped(&out).is_empty(),
-    };
+    ));
     if dirty {
         return fail("commit or stash tracked changes first; the controller refuses dirty source");
     }
@@ -766,19 +787,22 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     cleanup.push(PathBuf::from(&bindir));
     let soda_build = format!("{bindir}/soda-build");
     let soda_candidate = format!("{bindir}/soda-candidate");
-    run("go", &["build", "-o", &soda_build, "./tools/soda-build"])?;
-    run(
-        "go",
-        &["build", "-o", &soda_candidate, "./tools/soda-candidate"],
-    )?;
-    let stamp_ok = match capture("go", &["version", &soda_build], false) {
-        Captured::SpawnFailed(_) => false,
-        Captured::Done(_, out) => stripped(&out) == format!("{soda_build}: go{pinned}").as_bytes(),
-    };
-    if !stamp_ok {
-        return fail(format!(
-            "controller stamp is not Go {pinned}; refusing to admit it"
-        ));
+    // D01-F2: the admitted controller is the existing Rust release-tools
+    // build; the toolchain-pinned cargo build runs from this
+    // verified-clean checkout.
+    run("cargo", &controller_cargo_argv())?;
+    // Fresh bindir, populated only by this build's outputs: these bytes
+    // are the current Rust producer provenance. Both must land as real
+    // executables or setup refuses to admit them.
+    let target_dir = env::var("CARGO_TARGET_DIR").unwrap_or_else(|_| "target".to_string());
+    for (bin, dest) in [
+        ("soda-build", &soda_build),
+        ("soda-candidate", &soda_candidate),
+    ] {
+        let built = format!("{target_dir}/release/{bin}");
+        if fs::copy(&built, dest).is_err() || !is_executable(Path::new(dest)) {
+            return fail(format!("admitted controller binary missing from {built}"));
+        }
     }
 
     println!("-- install wrapper and admitted controller");
@@ -1554,5 +1578,39 @@ mod tests {
             Err(Exit::Fail(msg)) => assert_eq!(msg, "cannot warm Bun cache"),
             other => panic!("expected Fail, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn git_tree_clean_requires_successful_empty_status() {
+        // D01-F3: only a successful status with empty output proves clean.
+        assert!(git_tree_clean(&Captured::Done(0, Vec::new())));
+        assert!(git_tree_clean(&Captured::Done(0, b"\n".to_vec())));
+        assert!(!git_tree_clean(&Captured::Done(
+            0,
+            b" M src/main.rs\n".to_vec()
+        )));
+        assert!(!git_tree_clean(&Captured::Done(1, Vec::new())));
+        assert!(!git_tree_clean(&Captured::SpawnFailed(127)));
+    }
+
+    #[test]
+    fn controller_build_selects_rust_release_tools() {
+        // D01-F2: pinned Rust recipe, never the retired Go paths.
+        let argv = controller_cargo_argv();
+        assert_eq!(
+            argv.as_slice(),
+            &[
+                "build",
+                "--release",
+                "--locked",
+                "-p",
+                "soda-release-tools",
+                "--bin",
+                "soda-build",
+                "--bin",
+                "soda-candidate",
+            ]
+        );
+        assert!(!argv.iter().any(|a| a.contains("tools/soda-")));
     }
 }
