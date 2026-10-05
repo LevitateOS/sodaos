@@ -683,10 +683,11 @@ pub fn compile_shipping_tools(
     compile_rust_tools(production, context_dir)?;
     let tools = sys::join(&[artifacts, "tools"]);
     sys::create_dir(&tools, 0o755)?;
-    // Single shipping tool, like the Go owner one-entry table.
-    production.compile(
+    // D03-F2: soda-artifacts is Rust-ported; build the existing
+    // release-tools binary into the unchanged tools output.
+    production.compile_rust(
+        "soda-release-tools",
         "soda-artifacts",
-        "./tools/soda-artifacts",
         &sys::join(&[&tools, "soda-artifacts"]),
     )?;
     // The acceptance driver is Rust-ported; the workspace owns it.
@@ -694,6 +695,13 @@ pub fn compile_shipping_tools(
         "soda-acceptance",
         "soda-acceptance",
         &sys::join(&[&tools, "soda-acceptance"]),
+    )?;
+    // D03-F3: the remote companion ships alongside the driver, which
+    // resolves it as a runtime sibling before remote invocation.
+    production.compile_rust(
+        "soda-acceptance",
+        "soda-acceptance-remote",
+        &sys::join(&[&tools, "soda-acceptance-remote"]),
     )?;
     // The Rust console is compiled into the image above; link the tools copy
     // from it so media hashes the exact shipped bytes.
@@ -1510,6 +1518,171 @@ mod tests {
             .unwrap()
             .file_type()
             .is_symlink());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn shipping_tools_use_rust_recipes_and_ship_remote_companion() {
+        // D03-F2/D03-F3: the actual production recipe must build
+        // soda-artifacts from the Rust release-tools package (never the
+        // deleted ./tools/soda-artifacts Go path) and must ship the
+        // soda-acceptance-remote companion alongside the driver.
+        use std::cell::RefCell;
+        struct Recorder {
+            go: RefCell<Vec<(String, String, String)>>,
+            rust: RefCell<Vec<(String, String, String)>>,
+        }
+        impl Production for Recorder {
+            fn source(&self) -> &str {
+                ""
+            }
+            fn forgejo_source(&self) -> &str {
+                ""
+            }
+            fn forgejo_revision(&self) -> &str {
+                ""
+            }
+            fn native(&self) -> &str {
+                ""
+            }
+            fn out(&self) -> &str {
+                ""
+            }
+            fn arch(&self) -> &str {
+                "x86_64"
+            }
+            fn revision(&self) -> &str {
+                ""
+            }
+            fn live_inputs(&self) -> &str {
+                ""
+            }
+            fn execute(&self, _: &str, _: &str, _: &[String]) -> Result<(), Error> {
+                panic!("command run")
+            }
+            fn capture(&self, _: &str, _: &str, _: &[String]) -> Result<String, Error> {
+                panic!("command run")
+            }
+            fn next(&self, _: &str) -> Result<(), Error> {
+                Ok(())
+            }
+            fn resolve_inputs(&mut self) -> Result<(), Error> {
+                Ok(())
+            }
+            fn dependencies(&self) -> Result<(), Error> {
+                Ok(())
+            }
+            fn compile(&self, name: &str, pkg: &str, dest: &str) -> Result<(), Error> {
+                self.go
+                    .borrow_mut()
+                    .push((name.into(), pkg.into(), dest.into()));
+                fs::write(dest, b"stub-go").map_err(Error::from)?;
+                Ok(())
+            }
+            fn compile_rust(&self, crate_name: &str, bin: &str, dest: &str) -> Result<(), Error> {
+                self.rust
+                    .borrow_mut()
+                    .push((crate_name.into(), bin.into(), dest.into()));
+                fs::write(dest, b"stub-rust").map_err(Error::from)?;
+                Ok(())
+            }
+            fn stage_fork_binary(&self, _: &str) -> Result<(), Error> {
+                Ok(())
+            }
+            fn assets(&self, _: &str, _: &str) -> Result<(), Error> {
+                Ok(())
+            }
+            fn images(&self, _: &str) -> Result<HashMap<String, model::ProducedImage>, Error> {
+                Ok(Default::default())
+            }
+            fn inspect_oci(&self, _: &str, _: &str, _: &str) -> Result<model::Image, Error> {
+                Ok(Default::default())
+            }
+            fn verify_content(
+                &self,
+                _: &model::Payload,
+                _: &str,
+            ) -> Result<(HashMap<String, String>, u64), Error> {
+                Ok(Default::default())
+            }
+            fn resolve_core_os(&self) -> Result<model::ResolvedCoreOS, Error> {
+                Ok(Default::default())
+            }
+            fn read_live_inputs(&self, _: &str) -> Result<model::LiveInputs, Error> {
+                Ok(Default::default())
+            }
+            fn check_native(&self, _: &str) -> Result<(), Error> {
+                Ok(())
+            }
+            fn sign_media(
+                &self,
+                _: &model::Trust,
+                _: &model::Permit,
+                _: &str,
+                _: &str,
+                _: &str,
+                _: &model::SecretFiles,
+                _: &str,
+            ) -> Result<(), Error> {
+                Ok(())
+            }
+            fn verify_copy(
+                &self,
+                _: &model::Trust,
+                _: &str,
+                _: &str,
+                _: &str,
+                _: &str,
+            ) -> Result<(), Error> {
+                Ok(())
+            }
+            fn write_document(&self, _: &str, _: &soda_json::JsonValue) -> Result<String, Error> {
+                Ok(String::new())
+            }
+        }
+        let dir = std::env::temp_dir().join(format!("sri-ship-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let snapshot = dir.join("snap");
+        fs::create_dir_all(snapshot.join("cmd/soda-fake")).unwrap();
+        let context = dir.join("ctx").to_str().unwrap().to_string();
+        let artifacts = dir.join("art").to_str().unwrap().to_string();
+        fs::create_dir_all(&artifacts).unwrap();
+        let recorder = Recorder {
+            go: RefCell::new(Vec::new()),
+            rust: RefCell::new(Vec::new()),
+        };
+        compile_shipping_tools(
+            &recorder,
+            snapshot.to_str().unwrap(),
+            &context,
+            &artifacts,
+            &"r".repeat(40),
+            "x86_64",
+        )
+        .unwrap();
+        let tools = format!("{artifacts}/tools");
+        // D03-F2: artifacts via Rust, never the deleted Go path.
+        assert!(recorder.rust.borrow().iter().any(|(c, b, d)| {
+            c == "soda-release-tools"
+                && b == "soda-artifacts"
+                && d == &format!("{tools}/soda-artifacts")
+        }));
+        assert!(!recorder
+            .go
+            .borrow()
+            .iter()
+            .any(|(_, p, _)| p == "./tools/soda-artifacts"));
+        // D03-F3: remote companion recorded alongside the driver.
+        assert!(recorder.rust.borrow().iter().any(|(c, b, d)| {
+            c == "soda-acceptance"
+                && b == "soda-acceptance-remote"
+                && d == &format!("{tools}/soda-acceptance-remote")
+        }));
+        let inventory = fs::read(format!("{artifacts}/tools.json")).unwrap();
+        let record = soda_json::JsonValue::parse(std::str::from_utf8(&inventory).unwrap()).unwrap();
+        let files = record.get("Files").unwrap();
+        assert!(files.get("soda-acceptance-remote").is_some());
+        assert!(files.get("soda-artifacts").is_some());
         let _ = fs::remove_dir_all(&dir);
     }
 }
