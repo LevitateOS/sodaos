@@ -13,6 +13,3 @@ path = "src/main.rs"
 [dependencies]
 soda-json = { path = "../soda-json" }
 libc = "0.2"
-# Exact port of the key validation regex: Python str \w (isalnum-or-underscore)
-# and \s (White_Space plus FS/GS/RS/US) need real Unicode property tables.
-regex = "1"

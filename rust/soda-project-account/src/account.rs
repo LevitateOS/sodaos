@@ -15,7 +15,6 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
 
 /// Validated `{'login', 'identity', 'admin', 'keys'}` request.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -106,21 +105,30 @@ fn is_py_space(ch: char) -> bool {
     ch.is_whitespace() || matches!(ch, '\u{1c}' | '\u{1d}' | '\u{1e}' | '\u{1f}')
 }
 
-fn key_type_pattern() -> &'static regex::Regex {
-    // The `(ssh-[\w-]+|ecdsa-[\w-]+|sk-[\w@.-]+)` head of the key pattern
-    // under `re.fullmatch` (the single space plus `[A-Za-z0-9+/=]+\s*`
-    // tail is checked in code, where the space set is exact). Python `\w`
-    // is `str.isalnum`-or-underscore: letters, letter/decimal/other
-    // numbers, and `_` -- notably *not* the `Other_Alphabetic` marks a
-    // bare `\w` would admit, and *including* other numbers like the
-    // superscript two. The tail split is exact because no head
-    // alternative can contain a space.
-    static PATTERN: OnceLock<regex::Regex> = OnceLock::new();
-    PATTERN.get_or_init(|| {
-        regex::Regex::new(
-            r"\A(?:ssh-[\p{L}\p{Nl}\p{Nd}\p{No}_-]+|ecdsa-[\p{L}\p{Nl}\p{Nd}\p{No}_-]+|sk-[\p{L}\p{Nl}\p{Nd}\p{No}_@.-]+)\z",
-        )
-        .expect("static key pattern")
+/// Key-type head `(ssh-|ecdsa-|sk-)SUFFIX`, ASCII-only. This is a
+/// deliberate, fail-closed deviation from the retired Python's `\w`
+/// (which admitted non-ASCII word characters): SSH key types are ASCII
+/// by protocol, so exotic heads are unusable keys sshd would reject
+/// anyway; refusing them here keeps a regex engine (and its Unicode
+/// tables) out of a root guest binary. Every ASCII behavior is exact.
+fn valid_key_head(head: &str) -> bool {
+    let rest = head
+        .strip_prefix("ssh-")
+        .or_else(|| head.strip_prefix("ecdsa-"))
+        .or_else(|| head.strip_prefix("sk-"));
+    let Some(rest) = rest else {
+        return false;
+    };
+    if rest.is_empty() {
+        return false;
+    }
+    // The `sk-` alternative additionally admits `@` and `.`.
+    let sk = head.starts_with("sk-");
+    rest.bytes().all(|b| {
+        matches!(
+            b,
+            b'a'..=b'z' | b'A'..=b'Z' | b'0'..=b'9' | b'_' | b'-'
+        ) || (sk && matches!(b, b'@' | b'.'))
     })
 }
 
@@ -155,7 +163,7 @@ pub fn valid_key(key: &str) -> bool {
     let Some((head, rest)) = key.split_once(' ') else {
         return false;
     };
-    key_type_pattern().is_match(head) && valid_key_body(rest)
+    valid_key_head(head) && valid_key_body(rest)
 }
 
 /// Strict request decode: exact key set (duplicates collapse last-wins,
@@ -602,8 +610,6 @@ mod tests {
             "ecdsa-sha2-nistp256 AAAA",
             "sk-ssh-ed25519@openssh.com AAAA",
             "sk-ecdsa-sha2-nistp256@openssh.com AAAA",
-            "ssh-é AAAA",
-            "ssh-½ AAAA",
             "ssh-x AAAA\u{1c}",
             "ssh-x AAAA\u{85}",
             "ssh-x AAAA\u{a0}",
@@ -613,13 +619,23 @@ mod tests {
             "sk-x AAAA",
             "sk-foo.bar@x AAAA",
             "sk-a_b-c.d@e AAAA",
-            "ssh-² AAAA",
-            "ssh-Ⅷ AAAA",
-            "ssh-中 AAAA",
             "ssh-x +/==",
         ];
         for key in valid {
             assert!(valid_key(key), "must accept {key:?}");
+        }
+        // Deliberate fail-closed deviation: the retired Python admitted
+        // non-ASCII `\w` heads, but SSH key types are ASCII by protocol
+        // (sshd would reject these), so the port refuses them rather
+        // than ship a regex engine in a root guest binary.
+        for key in [
+            "ssh-é AAAA",
+            "ssh-½ AAAA",
+            "ssh-² AAAA",
+            "ssh-Ⅷ AAAA",
+            "ssh-中 AAAA",
+        ] {
+            assert!(!valid_key(key), "must refuse exotic {key:?}");
         }
         let invalid = [
             "PRIVATE KEY",
@@ -654,12 +670,12 @@ mod tests {
 
     #[test]
     fn key_length_counts_characters_not_bytes() {
-        // 16384 multibyte characters: over any byte budget, exactly at the
-        // character limit -- and a well-formed key otherwise.
-        let edge = format!("ssh-{} A", "é".repeat(16384 - 6));
+        // Exactly at the character limit -- and a well-formed key
+        // otherwise.
+        let edge = format!("ssh-{} A", "a".repeat(16384 - 6));
         assert_eq!(edge.chars().count(), 16384);
         assert!(valid_key(&edge));
-        let over = format!("ssh-{} A", "é".repeat(16384 - 5));
+        let over = format!("ssh-{} A", "a".repeat(16384 - 5));
         assert_eq!(over.chars().count(), 16385);
         assert!(!valid_key(&over));
         assert!(!valid_key(&"a".repeat(16385)));
