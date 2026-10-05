@@ -105,14 +105,18 @@ func TestForgejoMigrateUnitWiring(t *testing.T) {
 		"Requires=soda-forgejo-migrate.service",
 		"After=soda-forgejo-migrate.service",
 	)
-	prepare := readRuntimeFile(t, "internal/release/image/prepare.go")
+	prepare := readRuntimeFile(t, "rust/soda-release-image/src/prepare.rs")
 	requireContains(t, prepare, `"soda-forgejo-migrate.service"`)
 	if strings.Contains(prepare, `"appliance/bin/soda-forgejo-migrate"`) {
 		t.Fatal("prepare still stages the replaced shell source")
 	}
 	// The Rust binary installs where the unit expects it.
-	layout := readRuntimeFile(t, "internal/release/image/build.go")
+	layout := readRuntimeFile(t, "rust/soda-release-image/src/build.rs")
 	requireContains(t, layout,
-		`{"soda-forgejo-migrate", "soda-forgejo-migrate", "rootfs/usr/bin/soda-forgejo-migrate"},`,
+		`(
+        "soda-forgejo-migrate",
+        "soda-forgejo-migrate",
+        "rootfs/usr/bin/soda-forgejo-migrate",
+    ),`,
 	)
 }

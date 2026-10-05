@@ -20,15 +20,13 @@ pub mod terminal_logo;
 use std::path::{Path, PathBuf};
 
 /// Locate the checkout root: the nearest ancestor-or-self holding the
-/// build payload manifest the stage renderer consumes. The manifest is
-/// build-owned data, not one of the ported scripts, so it survives the
-/// cutover and keeps identifying the tree.
+/// branding payload manifest the stage renderer consumes.
 pub fn source_root() -> Result<PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
     let mut dir: &Path = &cwd;
     loop {
         if dir
-            .join("internal/release/build/forgejo-payload.json")
+            .join("assets/branding/forgejo/forgejo-payload.json")
             .is_file()
         {
             return Ok(dir.to_path_buf());

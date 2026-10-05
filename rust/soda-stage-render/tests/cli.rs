@@ -677,7 +677,7 @@ fn logo_root(scratch: &TempDir) -> PathBuf {
     let terminal = root.join("assets/branding/terminal");
     fs::create_dir_all(&source).unwrap();
     fs::create_dir_all(&terminal).unwrap();
-    let marker = root.join("internal/release/build");
+    let marker = root.join("assets/branding/forgejo");
     fs::create_dir_all(&marker).unwrap();
     fs::write(marker.join("forgejo-payload.json"), "{}").unwrap();
     let repo = repo_root();

@@ -5,7 +5,7 @@ Soda release candidates and installation media. It asks, it shows progress,
 it never signs.
 
 Contract and command effects live in the owning guide:
-[Native support](../../docs/development/native-support.md). This file is only
+[Native support](../development/native-support.md). This file is only
 the entry point.
 
 ## Run
@@ -63,7 +63,7 @@ you already serve it yourself; any non-loopback address stays fully yours.
 A failed run ends with the cause last: the failed step, its reason, the host
 build log, and a fix hint when the failure is a known one. Preflight refusals
 (dirty tree, reused output) name the fix directly. Full contract and log
-locations live in [Native support](../../docs/development/native-support.md).
+locations live in [Native support](../development/native-support.md).
 
 ## Never
 

@@ -12,7 +12,7 @@ import (
 
 func payloadFiles(t *testing.T) map[string]string {
 	t.Helper()
-	raw, ok := ReadJSON(t, "internal/release/build/forgejo-payload.json").(map[string]any)
+	raw, ok := ReadJSON(t, "assets/branding/forgejo/forgejo-payload.json").(map[string]any)
 	Require(t, ok, "payload manifest is not an object")
 	files := make(map[string]string, len(raw))
 	for dest, source := range raw {

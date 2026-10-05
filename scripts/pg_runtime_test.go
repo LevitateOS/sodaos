@@ -89,7 +89,7 @@ func TestPostgresProvisionUnitWiring(t *testing.T) {
 		"Requires=soda-pg-provision.service",
 		"After=soda-pg-provision.service",
 	)
-	prepare := readRuntimeFile(t, "internal/release/image/prepare.go")
+	prepare := readRuntimeFile(t, "rust/soda-release-image/src/prepare.rs")
 	requireContains(t, prepare, `"soda-pg-provision.service"`)
 }
 
@@ -142,7 +142,7 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 		"d /var/lib/soda/backups/postgres 0700 root root -",
 		"d /run/soda/postgres 0755 999 999 -",
 	)
-	prepare := readRuntimeFile(t, "internal/release/image/prepare.go")
+	prepare := readRuntimeFile(t, "rust/soda-release-image/src/prepare.rs")
 	requireContains(t, prepare,
 		`"soda-postgres.container"`,
 		`"soda.network"`,
@@ -161,11 +161,23 @@ func TestPostgresBackupScheduleAndStaging(t *testing.T) {
 			t.Fatalf("prepare still stages the replaced shell source %s", removed)
 		}
 	}
-	layout := readRuntimeFile(t, "internal/release/image/build.go")
+	layout := readRuntimeFile(t, "rust/soda-release-image/src/build.rs")
 	requireContains(t, layout,
-		`{"soda-pg-maintenance", "soda-pg-backup", "rootfs/usr/bin/soda-pg-backup"},`,
-		`{"soda-pg-maintenance", "soda-pg-restore", "rootfs/usr/bin/soda-pg-restore"},`,
-		`{"soda-pg-maintenance", "soda-pg-init-roles", "rootfs/usr/bin/soda-pg-init-roles"},`,
+		`(
+        "soda-pg-maintenance",
+        "soda-pg-backup",
+        "rootfs/usr/bin/soda-pg-backup",
+    ),`,
+		`(
+        "soda-pg-maintenance",
+        "soda-pg-restore",
+        "rootfs/usr/bin/soda-pg-restore",
+    ),`,
+		`(
+        "soda-pg-maintenance",
+        "soda-pg-init-roles",
+        "rootfs/usr/bin/soda-pg-init-roles",
+    ),`,
 	)
 	if strings.Contains(prepare, "postgres-init/") {
 		t.Fatal("prepare must not reference the removed initdb.d staging")
