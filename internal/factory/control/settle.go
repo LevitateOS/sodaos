@@ -256,7 +256,22 @@ func (c *Coordinator) settleRun(ctx context.Context, run factory.Run) StopReceip
 		receipt.Uncertain, receipt.Reason = true, "host stop unconfirmed"
 		return receipt
 	}
-	if err = c.Broker.CloseExecution(ctx, identity.Factory, run.ID); err != nil {
+	// The broker fence is idempotent: ride out a transient close
+	// failure before fencing the run.
+	var closeErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				break
+			case <-time.After(time.Second):
+			}
+		}
+		if closeErr = c.Broker.CloseExecution(ctx, identity.Factory, run.ID); closeErr == nil {
+			break
+		}
+	}
+	if closeErr != nil {
 		receipt.Uncertain, receipt.Reason = true, "broker closure unconfirmed"
 		return receipt
 	}
