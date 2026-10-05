@@ -3,6 +3,8 @@ package acceptance
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,8 +18,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/levitateos/sodaos/internal/release/build"
 )
 
 // Evidence holds an open directory capability. It never follows a path outside
@@ -214,6 +214,35 @@ type Observation struct {
 	Started, Finished                                                                                                                              time.Time
 }
 
+// hashAt hashes one regular file through the directory capability,
+// refusing symlinks and files that change between stat and hash.
+func hashAt(root *os.Root, name string) (string, error) {
+	st, err := root.Lstat(name)
+	if err != nil {
+		return "", err
+	}
+	if !st.Mode().IsRegular() {
+		return "", errors.New("regular non-symlink file required")
+	}
+	f, err := root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	actual, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !actual.Mode().IsRegular() || !os.SameFile(st, actual) {
+		return "", errors.New("file changed before hashing")
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
 func (e *Evidence) Hashes() (map[string]string, error) {
 	files := map[string]string{}
 	err := fs.WalkDir(e.root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
@@ -226,7 +255,7 @@ func (e *Evidence) Hashes() (map[string]string, error) {
 		if !d.Type().IsRegular() {
 			return errors.New("unexpected evidence entry")
 		}
-		sum, err := build.HashAt(e.root, path)
+		sum, err := hashAt(e.root, path)
 		if err != nil {
 			return err
 		}
