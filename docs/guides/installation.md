@@ -18,7 +18,7 @@ require explicit task approval. This guide is not that approval.
 
 Use a native `x86_64` builder under the
 [platform scope](../architecture/release.md#architectures). Install the pinned Go,
-Bun and Python toolchains and native Podman. From the repository root:
+Rust and Bun toolchains and native Podman. From the repository root:
 
 ```sh
 bun install --frozen-lockfile

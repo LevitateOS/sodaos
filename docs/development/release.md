@@ -8,10 +8,10 @@ How developers produce and qualify release candidates. Durable model:
 
 | Symptom or task | Open first | Then |
 | --- | --- | --- |
-| Candidate will not build | `release/build`, `tools/soda-build` | `release/image` |
-| Media/assemble wrong | `release/image` | `rust/soda-install` |
+| Candidate will not build | `rust/soda-release-build`, `rust/soda-release-tools` (`soda-build`) | `rust/soda-release-image` |
+| Media/assemble wrong | `rust/soda-release-image` | `rust/soda-install` |
 | Guest/fixture behavior | `internal/acceptance` | `tests/build` |
-| Sign/publish | `release/deliver` | explicit grant (no operator CLI) |
+| Sign/publish | `rust/soda-release-deliver` | explicit grant (no operator CLI) |
 
 ## Development vs qualification
 

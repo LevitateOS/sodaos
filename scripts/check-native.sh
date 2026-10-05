@@ -9,6 +9,7 @@ export GOOS=linux GOWORK=off GOFLAGS=-mod=readonly CGO_ENABLED=0
 cd "$(dirname "$0")/.."
 export GOTOOLCHAIN=local
 [[ $(go env GOVERSION) == go1.26.7 && $(bun --version) == 1.4.2 ]] || { echo 'Pinned native source-check tools required' >&2; exit 1; }
+command -v cargo >/dev/null || { echo 'Rust toolchain required for the candidate check' >&2; exit 1; }
 go mod verify
 revision=$(git rev-parse HEAD)
 [[ -z $(git status --porcelain --untracked-files=normal) ]] || { echo 'Check requires a clean exact-revision checkout' >&2; exit 1; }
