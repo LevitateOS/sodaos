@@ -408,7 +408,7 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 | --- | --- |
 | `tests/installed/host.sh` | CoreOS/layering, service identities/capabilities, labels, listeners, observed activation phase; not login or a client route. Optional `SODA_HOST_PHASE` asserts the intended phase. Installed bytes and current service image IDs are verified against the installed release inventory. |
 | `service-ordering.sh` | Actual generated unit dependencies and failed units; no service mutations. |
-| `cockpit-account.py` | Real PAM account stage permits root and denies existing `nobody`; no new account and no password/session proof. |
+| `soda-acceptance-remote cockpit-account` (debug build) | Real PAM account stage permits root and denies existing `nobody`; no new account and no password/session proof. |
 | `/path/to/soda-installed-probes service-https ORIGIN CA_FILE` | Configured-origin trusted TLS from the selected client, no redirect/login journey or insecure fallback. |
 | `operator.sh` | Selected native Tailnet/runner/version/branding/quiet-hook facts; no enrollment, registration or job. |
 | `operator.ts ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --stock-read-only` | Actual root login, stock Overview bridge/PAM/SELinux/native CLI read paths, Services/Logs and logout; reject Soda custom packages. Trust the CA in the isolated browser home first. No advertisement refresh or enrollment; no screenshot/trace/provider-body capture. Authored for the stock-only candidate, not executed on unretired targets. |

@@ -139,23 +139,6 @@ func SetEnv(env []string, key, val string) []string {
 	return append(out, prefix+val)
 }
 
-// Python3 resolves the python3 binary (the Go spelling of sys.executable).
-func Python3(t *testing.T) string {
-	t.Helper()
-	path, err := exec.LookPath("python3")
-	if err != nil {
-		t.Fatalf("python3 required: %v", err)
-	}
-	abs, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return path
-	}
-	if !filepath.IsAbs(abs) {
-		return path
-	}
-	return abs
-}
-
 var (
 	cargoMu    sync.Mutex
 	cargoBuilt = map[string]string{} // build key -> "" on success, stderr tail on failure
@@ -188,6 +171,21 @@ func CargoBinary(t *testing.T, pkg, bin string, extra ...string) string {
 		t.Fatalf("cannot build %s: %s", bin, failure)
 	}
 	return filepath.Join(RepoRoot, "target", "debug", bin)
+}
+
+// raisedAs reports whether an exception MRO names one of the expected
+// classes. Temporary home: the u08 driver retired to Rust, and the last
+// user (project_factory_roles_test.go) goes with Lane B's rewrite, which
+// deletes this with driveModule/Python3.
+func raisedAs(mro []string, names ...string) bool {
+	for _, entry := range mro {
+		for _, name := range names {
+			if entry == name {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func tail(s string, n int) string {

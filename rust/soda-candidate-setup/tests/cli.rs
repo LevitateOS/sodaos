@@ -261,7 +261,7 @@ fn reports_missing_tool() {
         "realpath",
         &format!("exec {} \"$@\"", realpath.display()),
     );
-    for tool in ["bun", "podman", "skopeo", "python3", "flock"] {
+    for tool in ["bun", "podman", "skopeo", "flock"] {
         write_fake(&fakes.path, tool, "exit 0");
     }
     let mut command = cmd(&root.path);
@@ -272,7 +272,7 @@ fn reports_missing_tool() {
     assert!(out.stdout.is_empty());
     assert_eq!(
         String::from_utf8_lossy(&out.stderr),
-        "setup-soda-candidate: pinned go, bun, podman, skopeo, python3 and flock required (missing go)\n"
+        "setup-soda-candidate: pinned go, bun, podman, skopeo and flock required (missing go)\n"
     );
 }
 
@@ -321,7 +321,7 @@ fn full_fake_bin(tag: &str, smart_go: bool, delegating_id: bool) -> Option<TempD
     } else {
         write_fake(&fakes.path, "go", "exit 0");
     }
-    for tool in ["bun", "podman", "skopeo", "python3", "flock"] {
+    for tool in ["bun", "podman", "skopeo", "flock"] {
         write_fake(&fakes.path, tool, "exit 0");
     }
     Some(fakes)

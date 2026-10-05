@@ -1,52 +1,45 @@
 package main
 
-// Port of tests/installed/cockpit-account.py into the installed-probes
-// suite: the real PAM gate probe, executed (refusal paths) and pinned.
+// Cockpit account gate coverage for the installed-probes suite: CLI
+// refusal shape plus the behavior contracts owned by the Rust probe.
+// The retired tests/installed/cockpit-account.py asserted the same
+// refusals; success output is byte-identical between the two.
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestCockpitAccountRefusesWithoutNativeRootTarget(t *testing.T) {
+func TestCockpitAccountRefusesOutsideNativeRoot(t *testing.T) {
 	if os.Geteuid() == 0 {
-		t.Skip("root passes the operator check")
+		t.Skip("root enters the PAM path")
 	}
-	script := filepath.Join(probeRoot, "tests/installed/cockpit-account.py")
-	hostname, err := os.Hostname()
-	requireProbe(t, err == nil, "hostname: %v", err)
-	for _, tc := range []struct {
-		name string
-		env  []string
-	}{
-		{"default env", nil},
-		{"declared native target", append(os.Environ(), "SODA_NATIVE_VALIDATE="+hostname)},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			result := runProbe(t, tc.env, 30*time.Second, "python3", script)
-			checkProbe(t, result.code == 1, "exit = %d", result.code)
-			checkProbe(t, result.stdout == "", "stdout=%q", result.stdout)
-			checkProbe(t, result.stderr == "explicit native root target required\n", "stderr=%q", result.stderr)
-		})
+	probe := remoteProbeBinary(t)
+	for _, env := range [][]string{nil, {"SODA_NATIVE_VALIDATE=wrong"}} {
+		result := runProbe(t, env, 30*time.Second, probe, "cockpit-account")
+		checkProbe(t, result.code == 1, "exit = %d", result.code)
+		checkProbe(t, !strings.HasPrefix(result.stdout, "Cockpit PAM gate"), "stdout=%q", result.stdout)
+		checkProbe(t, result.stderr != "", "empty stderr")
 	}
 }
 
-func TestCockpitAccountPAMGateContracts(t *testing.T) {
-	source := readProbeSource(t, "tests/installed/cockpit-account.py")
+func TestCockpitAccountContracts(t *testing.T) {
+	source := readProbeSource(t, "rust/soda-acceptance/src/cockpit.rs")
 	for _, want := range []string{
-		"SODA_NATIVE_VALIDATE",
-		"platform.node()",
-		"pwd.getpwnam('root').pw_uid == 0",
-		"pwd.getpwnam('nobody').pw_uid != 0",
+		"explicit native root target required",
+		`account_uid("root")? != 0`,
+		`account_uid("nobody")? == 0`,
 		"pam_acct_mgmt",
-		"PAM_CONV_ERR",
-		"[('root', True), ('nobody', False)]",
-		"code in (6, 7)",
-		"pam_end(handle, code)",
+		"no_prompt",
+		`account_phase(&pam, "root", true)`,
+		`account_phase(&pam, "nobody", false)`,
+		"code == 6 || code == 7",
+		"(pam.end)(handle, code)",
 	} {
 		checkProbe(t, strings.Contains(source, want), "missing contract %q", want)
 	}
+	driver := readProbeSource(t, "rust/soda-acceptance/src/bin/soda-acceptance-remote.rs")
+	checkProbe(t, strings.Contains(driver, "SODA_NATIVE_VALIDATE"), "missing env contract")
 }

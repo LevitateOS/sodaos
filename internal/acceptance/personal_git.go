@@ -27,41 +27,51 @@ import (
 // PersonalGitUsage documents the probe's CLI surface.
 const PersonalGitUsage = "soda-installed-probes personal-git {prepare|exercise|unlock} FIXTURE_DIR"
 
-// gitRemoteTemplate is the remote key/agent program, byte-identical to the
-// dedented template the retired Python probe piped to python3 -. The
-// placeholders are replaced exactly as before.
-const gitRemoteTemplate = `import os, pathlib, re, secrets, subprocess
-base = pathlib.Path.home()/'.ssh/u08-personal-git'
-base.parent.mkdir(mode=0o700,exist_ok=True)
+// gitRemoteTemplate is the remote key/agent program in POSIX shell,
+// piped to sh -se like gitFetchProbe. It replaces the retired Python
+// template command for command: same directories, modes, umask, askpass
+// shape, agent-singleton probe (ssh-add -l must exit 2 for a stale
+// socket), key add, temporary cleanup and git-ssh writer. Every child
+// closes stdin: the program itself arrives over stdin, so an inheriting
+// child would consume the script. The placeholders are replaced exactly
+// as before.
+const gitRemoteTemplate = `set -eu
+base="$HOME/.ssh/u08-personal-git"
+mkdir -p -m 0700 "$HOME/.ssh"
 PREPARE_DIRECTORY
-os.umask(0o077)
-password = base/'temporary-passphrase'
-ask = base/'temporary-askpass'
-password.write_text(PASSPHRASE_INPUT)
-ask.write_text('#!/bin/sh\\nexec /usr/bin/head -c 128 '+str(password)+'\\n')
-ask.chmod(0o700)
-env = {**os.environ,'SSH_ASKPASS':str(ask),'SSH_ASKPASS_REQUIRE':'force','DISPLAY':'soda-u08'}
-def run(args):
-    r=subprocess.run(args,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
-    if r.returncode: raise RuntimeError('Git key/agent operation failed')
-    return r.stdout
+umask 077
+password="$base/temporary-passphrase"
+ask="$base/temporary-askpass"
+printf '%s' PASSPHRASE_INPUT > "$password"
+printf '#!/bin/sh\nexec /usr/bin/head -c 128 %s\n' "$password" > "$ask"
+chmod 0700 "$ask"
+export SSH_ASKPASS="$ask" SSH_ASKPASS_REQUIRE=force DISPLAY=soda-u08
 PREPARE_KEY
 # A socket without a live agent is a retained run-owned transient.
-if (base/'agent').exists():
-    probe=subprocess.run(['ssh-add','-l'],env={**env,'SSH_AUTH_SOCK':str(base/'agent')},stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-    if probe.returncode != 2: raise RuntimeError('Agent already live; no duplicate start')
-    (base/'agent').unlink()
-agent=run(['ssh-agent','-a',str(base/'agent'),'-s']).decode()
-pid=re.search(r'SSH_AGENT_PID=(\\d+)',agent).group(1)
-(base/'agent.pid').write_text(pid+'\\n')
-env['SSH_AUTH_SOCK']=str(base/'agent')
-run(['ssh-add',str(base/'identity')])
+if [ -e "$base/agent" ]; then
+	set +e
+	SSH_AUTH_SOCK="$base/agent" ssh-add -l </dev/null >/dev/null 2>&1
+	code=$?
+	set -e
+	if [ "$code" != 2 ]; then echo 'Agent already live; no duplicate start' >&2; exit 1; fi
+	rm -f "$base/agent"
+fi
+agent=$(ssh-agent -a "$base/agent" -s </dev/null)
+pid=$(printf '%s' "$agent" | sed -n 's/.*SSH_AGENT_PID=\([0-9][0-9]*\).*/\1/p')
+[ -n "$pid" ] || { echo 'Git key/agent operation failed' >&2; exit 1; }
+printf '%s\n' "$pid" > "$base/agent.pid"
+export SSH_AUTH_SOCK="$base/agent"
+ssh-add "$base/identity" </dev/null
 # Only these exact run-owned temporary secret inputs are removed.
 # The encrypted key and live agent remain in this user's home.
-password.unlink(); ask.unlink()
-(base/'git-ssh').write_text('#!/bin/sh\\nexport SSH_AUTH_SOCK='+str(base/'agent')+'\\nexec /usr/bin/ssh -F /dev/null -o BatchMode=yes -o ForwardAgent=no -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile='+str(base/'known_hosts')+' -i '+str(base/'identity')+' "$@"\\n')
-(base/'git-ssh').chmod(0o700)
-print((base/'identity.pub').read_text().strip())
+rm -f "$password" "$ask"
+{
+	printf '#!/bin/sh\n'
+	printf 'export SSH_AUTH_SOCK=%s\n' "$base/agent"
+	printf 'exec /usr/bin/ssh -F /dev/null -o BatchMode=yes -o ForwardAgent=no -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=%s -i %s "$@"\n' "$base/known_hosts" "$base/identity"
+} > "$base/git-ssh"
+chmod 0700 "$base/git-ssh"
+cat "$base/identity.pub"
 `
 
 // gitFetchProbe is the collaborator fetch check piped to sh -se.
@@ -160,16 +170,16 @@ func tokenPassphrase() (string, error) {
 }
 
 // gitRemoteProgram renders the remote program for a validated passphrase.
-// The passphrase charset admits no quoting, so single-quote wrapping matches
-// Python's repr exactly.
+// The passphrase charset ([A-Za-z0-9_-]) admits no quoting, so
+// single-quote wrapping is exact.
 func gitRemoteProgram(passphrase string, prepare bool) string {
 	program := strings.ReplaceAll(gitRemoteTemplate, "PASSPHRASE_INPUT", "'"+passphrase+"'")
 	if prepare {
-		program = strings.ReplaceAll(program, "PREPARE_DIRECTORY", "base.mkdir(mode=0o700)")
-		return strings.ReplaceAll(program, "PREPARE_KEY", "run(['ssh-keygen','-q','-t','ed25519','-f',str(base/'identity'),'-C','U08 personal project Git'])")
+		program = strings.ReplaceAll(program, "PREPARE_DIRECTORY", `mkdir -m 0700 "$base"`)
+		return strings.ReplaceAll(program, "PREPARE_KEY", `ssh-keygen -q -t ed25519 -f "$base/identity" -C 'U08 personal project Git' </dev/null`)
 	}
-	program = strings.ReplaceAll(program, "PREPARE_DIRECTORY", "assert base.is_dir()")
-	return strings.ReplaceAll(program, "PREPARE_KEY", "assert (base/'identity').is_file()")
+	program = strings.ReplaceAll(program, "PREPARE_DIRECTORY", `[ -d "$base" ] || exit 1`)
+	return strings.ReplaceAll(program, "PREPARE_KEY", `[ -f "$base/identity" ] || exit 1`)
 }
 
 // preparePassfile creates a fresh passphrase file with exclusive 0600.
@@ -241,7 +251,7 @@ func (p *gitProbe) fetchExportedKey(base []string, passfile string, prepare bool
 		return nil, err
 	}
 	program := gitRemoteProgram(passphrase, prepare)
-	public, err := gitChecked(append(append([]string{"ssh"}, base...), "python3 -"), []byte(program))
+	public, err := gitChecked(append(append([]string{"ssh"}, base...), "sh -se"), []byte(program))
 	if err != nil {
 		return nil, err
 	}

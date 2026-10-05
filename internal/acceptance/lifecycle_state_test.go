@@ -2,11 +2,15 @@ package acceptance
 
 import (
 	"bytes"
+	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	_ "modernc.org/sqlite"
 )
 
 func lifecycleFixture(t *testing.T) string {
@@ -137,16 +141,48 @@ func TestLifecycleRun(t *testing.T) {
 	}
 }
 
+// stubDashboardDB builds a real dashboard database with seeded rows and
+// returns its bytes for the VM stub to serve.
+func stubDashboardDB(t *testing.T) []byte {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "dashboard.db")
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	for _, table := range []string{"users", "keys", "projects", "memberships"} {
+		if _, err := db.Exec("create table " + table + " (name text, scope integer, note text)"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(`insert into users values ('bob', 2, null), ('alice', 1, 'root')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`insert into keys values ('k2', 7, null)`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
 // stubTestVM installs a fake target/debug/soda-test-vm that emulates the VM session.
-func stubTestVM(t *testing.T, repo string) {
+func stubTestVM(t *testing.T, repo string, dbRaw []byte) {
 	t.Helper()
 	script := "#!/bin/sh\n" +
 		"if [ \"$1\" != ssh ]; then exit 9; fi\n" +
 		"case \"$2\" in\n" +
-		"'python3 -') body=$(cat); case \"$body\" in *'pragma integrity_check'*) printf '{\"users\": [], \"keys\": []}';; *) exit 8;; esac;;\n" +
+		"'cat /etc/soda/dashboard.json') printf '{\"database\": \"/var/lib/soda/dashboard.db\"}';;\n" +
+		"'cat '\"'\"'/var/lib/soda/dashboard.db'\"'\"'') printf '" + base64.StdEncoding.EncodeToString(dbRaw) + "' | base64 -d;;\n" +
 		"*'{{.Id}}'*) printf 'abc123 image456 soda-p000';;\n" +
 		"*'Networks'*) printf '{\"soda-projects\": {\"IPAddress\": \"10.89.0.5\"}}';;\n" +
-		"*'podman exec'*) body=$(cat); case \"$body\" in *'SNAPSHOT-PAYLOAD-MARKER'*) printf '{\"people\": {\"u\": 1}, \"files\": {\"f\": 1}}';; *) exit 7;; esac;;\n" +
+		"*'podman exec'*'project-state'*) body=$(cat); case \"$body\" in *'SNAPSHOT-PAYLOAD-MARKER'*) printf '{\"people\": {\"u\": 1}, \"files\": {\"f\": 1}}';; *) exit 7;; esac;;\n" +
 		"*'boot_id'*) printf 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';;\n" +
 		"*) exit 6;;\n" +
 		"esac\n"
@@ -162,7 +198,8 @@ func stubTestVM(t *testing.T, repo string) {
 func TestRunSnapshotAt(t *testing.T) {
 	t.Setenv("SODA_NATIVE_VALIDATE", "soda-test")
 	repo := t.TempDir()
-	stubTestVM(t, repo)
+	dbRaw := stubDashboardDB(t)
+	stubTestVM(t, repo, dbRaw)
 	bindings := `[{"environmentID": "p111111111111111111111111", "login": "u08-alice-8417"}, {"environmentID": "p222222222222222222222222", "login": "u08-bob-8417"}]`
 	bindPath := filepath.Join(repo, ".artifacts/test-vm/u08-8417a90/observed-bindings.json")
 	if err := os.MkdirAll(filepath.Dir(bindPath), 0o755); err != nil {
@@ -171,11 +208,8 @@ func TestRunSnapshotAt(t *testing.T) {
 	if err := os.WriteFile(bindPath, []byte(bindings), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	probePath := filepath.Join(repo, "tests/installed/project-state.py")
-	if err := os.MkdirAll(filepath.Dir(probePath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(probePath, []byte("# SNAPSHOT-PAYLOAD-MARKER\n"), 0o644); err != nil {
+	probePath := filepath.Join(repo, "target/debug/soda-acceptance-remote")
+	if err := os.WriteFile(probePath, []byte("SNAPSHOT-PAYLOAD-MARKER"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	root := lifecycleFixture(t)
@@ -212,6 +246,67 @@ func TestRunSnapshotAt(t *testing.T) {
 	for id, project := range snapshot.Stable.Projects {
 		if project.Identity == "" || len(project.State) == 0 {
 			t.Errorf("project %s = %+v", id, project)
+		}
+	}
+	users, _ := snapshot.Stable.Soda["users"].([]any)
+	if len(users) != 2 {
+		t.Fatalf("soda users = %v", snapshot.Stable.Soda["users"])
+	}
+	// Canonical JSON order: alice's row sorts before bob's.
+	first, _ := users[0].([]any)
+	if len(first) != 3 || first[0] != "alice" || first[1] != 1.0 || first[2] != "root" {
+		t.Errorf("first user = %v", first)
+	}
+	keys, _ := snapshot.Stable.Soda["keys"].([]any)
+	if len(keys) != 1 {
+		t.Errorf("soda keys = %v", snapshot.Stable.Soda["keys"])
+	}
+	for _, table := range []string{"projects", "memberships"} {
+		rows, _ := snapshot.Stable.Soda[table].([]any)
+		if rows == nil || len(rows) != 0 {
+			t.Errorf("soda %s = %v", table, snapshot.Stable.Soda[table])
+		}
+	}
+}
+
+func TestDumpHostSoda(t *testing.T) {
+	data, err := dumpHostSoda(stubDashboardDB(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(data) != 4 {
+		t.Fatalf("tables = %v", data)
+	}
+	for _, bad := range [][]byte{
+		[]byte("not a database"),
+		[]byte("SQLite format 3\x00short"),
+	} {
+		if _, err := dumpHostSoda(bad); err == nil {
+			t.Errorf("corrupt database accepted: %q", bad)
+		}
+	}
+}
+
+func TestRemotePayloadMissing(t *testing.T) {
+	repo := t.TempDir()
+	if _, err := remotePayload(repo); err == nil || !strings.Contains(err.Error(), "cargo build -p soda-acceptance --bin soda-acceptance-remote") {
+		t.Errorf("missing payload = %v", err)
+	}
+}
+
+func TestShQuote(t *testing.T) {
+	if got := shQuote("/var/lib/soda/dashboard.db"); got != "'/var/lib/soda/dashboard.db'" {
+		t.Errorf("quote = %s", got)
+	}
+	if got := shQuote("/odd'path/x.db"); got != `'/odd'\''path/x.db'` {
+		t.Errorf("quote = %s", got)
+	}
+}
+
+func TestExecProjectSnapshotRejectsBadIP(t *testing.T) {
+	for _, ip := range []string{"10.90.0.5", "not-an-ip", "10.89.0.5; id", ""} {
+		if _, _, err := execProjectSnapshot("vm", "repo", nil, snapshotEntry{}, "id", ip); err == nil {
+			t.Errorf("ip accepted: %q", ip)
 		}
 	}
 }

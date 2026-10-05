@@ -450,6 +450,22 @@ func st15BuildBroker(t *testing.T) string {
 	return filepath.Join(root, "target", "debug", "soda-identity")
 }
 
+// st15BuildFactoryRoles compiles the Rust factory-roles helper the
+// fixture stages into the project container.
+func st15BuildFactoryRoles(t *testing.T) string {
+	t.Helper()
+	if _, err := exec.LookPath("cargo"); err != nil {
+		t.Skip("cargo unavailable")
+	}
+	root := st15RepoRoot(t)
+	build := exec.Command("cargo", "build", "-p", "soda-project-factory-roles", "--bin", "project-factory-roles")
+	build.Dir = root
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build project-factory-roles: %v\n%s", err, out)
+	}
+	return filepath.Join(root, "target", "debug", "project-factory-roles")
+}
+
 // st15TmpfsRoot confines the construction-only provider root to private
 // tmpfs, which the broker validates before serving.
 func st15TmpfsRoot(t *testing.T) string {
@@ -496,7 +512,8 @@ func (fx *st15Fixture) setupHostStack() error {
 	if err := os.Mkdir(stateDir, 0o700); err != nil {
 		return err
 	}
-	helper, err := os.ReadFile("/home/vince/Projects/sodaos/project-os/rootfs/usr/libexec/soda/project-factory-roles")
+	helperPath := st15BuildFactoryRoles(t)
+	helper, err := os.ReadFile(helperPath)
 	if err != nil {
 		return err
 	}
@@ -546,7 +563,7 @@ func (fx *st15Fixture) setupHostStack() error {
 	if err != nil {
 		return err
 	}
-	if _, err := st15Podman(fx.ctx, nil, "cp", "/home/vince/Projects/sodaos/project-os/rootfs/usr/libexec/soda/project-factory-roles", name+":/usr/libexec/soda/project-factory-roles"); err != nil {
+	if _, err := st15Podman(fx.ctx, nil, "cp", helperPath, name+":/usr/libexec/soda/project-factory-roles"); err != nil {
 		return err
 	}
 	if _, err := st15Pexec(fx.ctx, name, "", nil, "/usr/bin/chmod", "0755", "/usr/libexec/soda/project-factory-roles"); err != nil {

@@ -1,10 +1,11 @@
-//! Native Cockpit account gate, mirroring `tests/installed/cockpit-account.py`.
+//! Native Cockpit account gate. This module owns the probe (the retired
+//! `tests/installed/cockpit-account.py` asserted the same refusals).
 //!
 //! A real PAM account phase: root must succeed and the existing non-root
 //! `nobody` must fail with an explicit permission/auth denial. No account
 //! is created, no credentials are ever supplied, and nothing here proves
 //! authentication or session context. PAM is loaded dynamically at
-//! runtime, exactly like the Python owner's `ctypes` use.
+//! runtime, exactly like the retired probe's `ctypes` use.
 //!
 //! Failure rendering differs from Python in one documented way: uncaught
 //! Python failures print tracebacks, while this port prints one
@@ -93,7 +94,7 @@ impl std::fmt::Display for CockpitFailure {
 
 impl std::error::Error for CockpitFailure {}
 
-/// Explicit native root target gate, like the Python owner's entry check.
+/// Explicit native root target gate, like the retired probe's entry check.
 /// Pure over its inputs so tests cover it without privileges.
 pub fn check_gate(uid: u32, validate: Option<&str>, hostname: &str) -> Result<(), String> {
     if uid != 0 || validate != Some(hostname) {

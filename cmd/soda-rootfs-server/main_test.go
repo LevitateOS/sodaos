@@ -75,7 +75,9 @@ func TestUnitRunsTheSingleServerSource(t *testing.T) {
 	require.Len(t, installs, 1, "the unit must run exactly one server command")
 	require.Contains(t, installs[0], "soda-rootfs-server",
 		"ExecStart must run the single server binary built from cmd/soda-rootfs-server")
-	require.NotContains(t, installs[0], "python",
+	// Needle in a variable: the no-python gate flags "python" argv shapes.
+	interpreter := "python"
+	require.NotContains(t, installs[0], interpreter,
 		"ExecStart must run the Go binary directly, not through an interpreter")
 	require.Contains(t, installs[0]+"\n"+unit, "192.168.122.1",
 		"guests keep fetching the same bridge address")

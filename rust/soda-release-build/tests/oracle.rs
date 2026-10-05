@@ -372,6 +372,12 @@ fn oracle_production_sequence() {
                     if bin == "soda-project-terminal" {
                         bin = "project-terminal".to_string();
                     }
+                    if bin == "soda-project-account" {
+                        bin = "project-account".to_string();
+                    }
+                    if bin == "soda-project-factory-roles" {
+                        bin = "project-factory-roles".to_string();
+                    }
                     let dest = PathBuf::from(dir).join("target/release").join(bin);
                     std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
                     std::fs::write(&dest, fixture_elf()).unwrap();

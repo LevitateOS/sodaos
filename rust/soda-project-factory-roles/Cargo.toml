@@ -1,0 +1,15 @@
+[package]
+name = "soda-project-factory-roles"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Fixed bounded factory role helper (Rust port of project-factory-roles)"
+
+[[bin]]
+name = "project-factory-roles"
+path = "src/main.rs"
+
+[dependencies]
+soda-json = { path = "../soda-json" }
+libc = "0.2"

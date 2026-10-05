@@ -24,7 +24,7 @@ func execTestPreparation() domain.Preparation {
 		ID: execTestID, Project: execTestProject, Role: domain.RoleCoder,
 		Requirements: domain.RequirementAcceptance{ID: "d0123456789abcdef01234567", Revision: 1, Approver: 7, SourceCommit: execTestCommit, Digest: execTestDigest},
 		Approval:     domain.AdminApproval{ID: "d123456789abcdef012345678", Revision: 1, Approver: 9, EffectsDigest: execTestDigest},
-		SourceCommit: execTestCommit, SetupDigest: domain.SetupDigestOf(setup.Files), Tools: []string{"python3"},
+		SourceCommit: execTestCommit, SetupDigest: domain.SetupDigestOf(setup.Files), Tools: []string{"node"},
 	}
 }
 
@@ -168,13 +168,13 @@ func prepareScript(exec *scriptedExec, missing string, groupsOverride string, ph
 
 func TestPrepareWaitsOnMissingToolWithoutStarting(t *testing.T) {
 	exec := &scriptedExec{}
-	prepareScript(exec, "python3", "", domain.PrepareRunning)
+	prepareScript(exec, "node", "", domain.PrepareRunning)
 	r := &Runtime{Exec: exec}
 	state, err := r.Prepare(context.Background(), domain.Prepare{Preparation: execTestPreparation(), Setup: execTestSetup()})
 	if err != nil {
 		t.Fatalf("waiting prepare errored: %v", err)
 	}
-	if state.Phase != domain.PrepareWaiting || state.Missing != "python3" || state.Ready || state.Container != execTestContainer {
+	if state.Phase != domain.PrepareWaiting || state.Missing != "node" || state.Ready || state.Container != execTestContainer {
 		t.Fatalf("waiting state: %+v", state)
 	}
 	for _, op := range exec.ops {
