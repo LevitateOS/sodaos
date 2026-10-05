@@ -34,9 +34,11 @@ fn parse_start_event(kind: &str, rest: &str) -> Option<Event> {
     if rest.is_empty() {
         return None;
     }
+    // D01-F5: the wire pads kinds to 8 columns; normalize the padding out
+    // of label identity so DONE closes its START.
     Some(Event {
         kind: kind.to_owned(),
-        label: rest.to_owned(),
+        label: rest.trim_start().to_owned(),
         ..Event::default()
     })
 }
@@ -48,7 +50,7 @@ fn parse_done_event(kind: &str, rest: &str) -> Option<Event> {
     }
     let mut e = Event {
         kind: kind.to_owned(),
-        label: parts[0].to_owned(),
+        label: parts[0].trim_start().to_owned(),
         ..Event::default()
     };
     for p in &parts[1..] {
@@ -530,16 +532,32 @@ mod tests {
     }
 
     #[test]
-    fn padded_wire_format_parses_like_go() {
-        // The real wire pads kinds to 8 columns; the parser keeps Go's
-        // exact first-space split including the quirk this implies.
+    fn padded_wire_labels_normalize_for_identity() {
+        // D01-F5: the real wire pads kinds to 8 columns; the parser keeps
+        // the first-space split but normalizes label identity so DONE
+        // closes its START instead of appending a padded duplicate.
         let e = parse_event("START    P1 / Build runtime").unwrap();
         assert_eq!(e.kind, "START");
-        assert_eq!(e.label, "   P1 / Build runtime");
+        assert_eq!(e.label, "P1 / Build runtime");
         let e =
             parse_event("DONE     P1 / Build runtime | phase 00:05:30 | total 00:05:30").unwrap();
-        assert_eq!(e.label, "    P1 / Build runtime");
+        assert_eq!(e.label, "P1 / Build runtime");
         assert_eq!(e.phase_dur, "00:05:30");
+    }
+
+    #[test]
+    fn padded_wire_lifecycle_closes_one_phase() {
+        // D01-F5: real emitted START->DONE closes the same phase; the
+        // original must not linger as running next to a duplicate.
+        let (r, buf) = renderer(true);
+        r.feed("START    P1 / Build runtime").unwrap();
+        let drawn = text(&buf).len();
+        r.feed("DONE     P1 / Build runtime | phase 00:05:30 | total 00:05:30")
+            .unwrap();
+        // Only the post-DONE redraw matters; the buffer retains history.
+        let got = &text(&buf)[drawn..];
+        assert!(got.contains("[ok]") && got.contains("00:05:30"), "{got}");
+        assert!(!got.contains("(live "), "{got}");
     }
 
     #[test]
