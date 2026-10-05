@@ -245,9 +245,14 @@ impl<'a> Parser<'a> {
                             if (0xd800..0xdc00).contains(&code)
                                 && self.bytes.get(self.pos..self.pos + 2) == Some(b"\\u".as_slice())
                             {
-                                let low_hex =
-                                    std::str::from_utf8(&self.bytes[self.pos + 2..self.pos + 6])
-                                        .map_err(|_| ParseError)?;
+                                // H03-F1: the low-surrogate tail needs 4 hex
+                                // bytes after \u; a truncated tail is malformed
+                                // input, not a panic.
+                                let tail = self
+                                    .bytes
+                                    .get(self.pos + 2..self.pos + 6)
+                                    .ok_or(ParseError)?;
+                                let low_hex = std::str::from_utf8(tail).map_err(|_| ParseError)?;
                                 let low =
                                     u32::from_str_radix(low_hex, 16).map_err(|_| ParseError)?;
                                 if (0xdc00..0xe000).contains(&low) {
@@ -358,6 +363,33 @@ mod tests {
         assert!(JsonValue::parse("{\"a\":1} x").is_err());
         assert!(JsonValue::parse("").is_err());
         assert!(JsonValue::parse("{\"a\":}").is_err());
+    }
+
+    #[test]
+    fn truncated_surrogate_tail_is_error_not_panic() {
+        // H03-F1: a high surrogate followed by a truncated \u tail must
+        // return ParseError, never panic on the unchecked tail slice.
+        assert_eq!(JsonValue::parse("\"\\uD800\\u12\""), Err(ParseError));
+        assert_eq!(JsonValue::parse("\"\\uD800\\u\""), Err(ParseError));
+        // Established behavior is preserved: valid pairs decode, lone
+        // surrogates map to U+FFFD like Go, and a non-low \u tail falls
+        // through to lone-surrogate handling plus a fresh escape.
+        assert_eq!(
+            JsonValue::parse("\"\\uD834\\uDD1E\"")
+                .expect("pair")
+                .as_str(),
+            Some("\u{1D11E}")
+        );
+        assert_eq!(
+            JsonValue::parse("\"\\uD800\"").expect("lone").as_str(),
+            Some("\u{FFFD}")
+        );
+        assert_eq!(
+            JsonValue::parse("\"\\uD800\\u0041\"")
+                .expect("fallthrough")
+                .as_str(),
+            Some("\u{FFFD}A")
+        );
     }
 
     #[test]
