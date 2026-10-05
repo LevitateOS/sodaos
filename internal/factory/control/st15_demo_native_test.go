@@ -485,6 +485,13 @@ func (fx *st15Fixture) setupHostStack() error {
 	if out, err := exec.CommandContext(fx.ctx, "sudo", "-n", "install", "-d", "-m", "700", "/var/lib/soda/host/factory").CombinedOutput(); err != nil {
 		return fmt.Errorf("factory state dir: %w: %s", err, strings.TrimSpace(string(out)))
 	}
+	// Factory spawn runs systemd-run --user on the daemon's (root)
+	// user bus; a bare host never started user@0, so start it
+	// transiently for the fixture. Production must guarantee the same
+	// bus (linger at install); without it every reserve refuses.
+	if out, err := exec.CommandContext(fx.ctx, "sudo", "-n", "systemctl", "start", "user@0.service").CombinedOutput(); err != nil {
+		return fmt.Errorf("root user manager: %w: %s", err, strings.TrimSpace(string(out)))
+	}
 	daemonCfg, err := json.Marshal(map[string]any{
 		"muse_sha256": "", "muse_version": "", "muse_socket": "",
 		"identity_socket": runtimeSocket,
