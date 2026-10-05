@@ -243,13 +243,8 @@ func (w preparedWriter) stageRootfsFiles() error {
 			return err
 		}
 	}
-	for from, to := range map[string]string{
-		"appliance/bin/soda-forgejo-domain": "usr/bin/soda-forgejo-domain",
-	} {
-		if err := w.copyFile(from, "rootfs/"+to, 0o755, true); err != nil {
-			return err
-		}
-	}
+	// All appliance/bin operators are compiled by the Rust install table
+	// now; no script files remain to stage from source.
 	return w.stageSymlinksAndExtras()
 }
 

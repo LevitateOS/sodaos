@@ -33,7 +33,7 @@ class AvatarActivation(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         build = subprocess.run(
-            ['cargo', 'build', '--offline', '-p', 'soda-activate'],
+            ['cargo', 'build', '-p', 'soda-activate'],
             cwd=ROOT,
             capture_output=True,
             text=True,

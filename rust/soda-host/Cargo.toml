@@ -6,3 +6,12 @@ edition = "2021"
 [lib]
 name = "soda_host"
 path = "src/lib.rs"
+
+[[bin]]
+name = "soda-host"
+path = "src/main.rs"
+
+[dependencies]
+libc = "0.2"
+soda-release-deliver = { path = "../soda-release-deliver" }
+soda-release-build = { path = "../soda-release-build" }

@@ -62,6 +62,15 @@ func testTerminalLease() identity.Lease {
 }
 
 func TestPrepareIdentityRecordsNativeContainer(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("reservation binds the root-owned agent binary")
+	}
+	agent := filepath.Join(t.TempDir(), "project-terminal")
+	content := []byte("soda-test-agent-binary")
+	if err := os.WriteFile(agent, content, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SODA_PROJECT_TERMINAL", agent)
 	lease := testTerminalLease()
 	lease.Binding = nil
 	exec := &identityExecutor{container: strings.Repeat("c", 64)}
@@ -72,6 +81,23 @@ func TestPrepareIdentityRecordsNativeContainer(t *testing.T) {
 	}
 	if len(exec.requests) != 1 || exec.requests[0].Container != exec.container || len(exec.requests[0].Delivery.Credential) != 0 {
 		t.Fatal("reservation did not bind exact native target without credentials")
+	}
+	if want := fmt.Sprintf("%x", sha256.Sum256(content)); exec.requests[0].SourceHash != want {
+		t.Fatal("reservation did not bind the agent binary digest")
+	}
+}
+
+func TestPrepareIdentityRefusesUnverifiedAgent(t *testing.T) {
+	t.Setenv("SODA_PROJECT_TERMINAL", filepath.Join(t.TempDir(), "absent"))
+	lease := testTerminalLease()
+	lease.Binding = nil
+	exec := &identityExecutor{container: strings.Repeat("c", 64)}
+	service := Service{Exec: exec}
+	if _, err := service.PrepareIdentity(context.Background(), lease, "soda-tester", strings.Repeat("d", 64), 100, 30); err == nil {
+		t.Fatal("reservation accepted an unverified agent")
+	}
+	if len(exec.requests) != 0 {
+		t.Fatal("unverified agent reached the native target")
 	}
 }
 

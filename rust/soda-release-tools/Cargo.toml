@@ -1,0 +1,28 @@
+[package]
+name = "soda-release-tools"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+description = "Rust ports of the soda-build, soda-candidate, and soda-artifacts release CLIs"
+
+[lib]
+name = "soda_release_tools"
+path = "src/lib.rs"
+
+[[bin]]
+name = "soda-build"
+path = "src/bin/soda-build.rs"
+
+[[bin]]
+name = "soda-candidate"
+path = "src/bin/soda-candidate.rs"
+
+[[bin]]
+name = "soda-artifacts"
+path = "src/bin/soda-artifacts.rs"
+
+[dependencies]
+soda-json = { path = "../soda-json" }
+libc = "=0.2.190"
+sha2 = "0.10"

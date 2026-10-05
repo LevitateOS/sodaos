@@ -168,6 +168,10 @@ func validSSHHost(host string) bool {
 	return net.ParseIP(host) != nil || regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]*$`).MatchString(host)
 }
 
+func regularUnwritableFile(st os.FileInfo) bool {
+	return st.Mode().IsRegular() && st.Mode().Perm()&0o022 == 0
+}
+
 func trustedKnownHosts(path string) error {
 	if !filepath.IsAbs(path) {
 		return errors.New("absolute pinned known_hosts required")

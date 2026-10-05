@@ -13,7 +13,7 @@ import (
 
 const preparationTestProject = "p0123456789abcdef01234567"
 
-func preparationTestDaemon(t *testing.T, enabled func(context.Context, string, string) (bool, error), calls *int) *Daemon {
+func preparationTestCompanion(t *testing.T, enabled func(context.Context, string, string) (bool, error), calls *int) *tailnetexec.Companion {
 	t.Helper()
 	cid := strings.Repeat("a", 64)
 	exec := managementExec(func(_ context.Context, _ []byte, cmd string, args ...string) ([]byte, error) {
@@ -31,24 +31,20 @@ func preparationTestDaemon(t *testing.T, enabled func(context.Context, string, s
 		return nil, errors.New("synthetic-secret-podman-failure-tskey-auth-synthetic")
 	})
 	image := "sha256:" + strings.Repeat("d", 64)
-	control := tailnet.NewProjectControl()
-	d := testDaemonPtr(exec, Config{TailnetManagement: true, TailnetImage: image})
-	d.Tailnet = control
-	d.Companion = &tailnetexec.Companion{
+	return &tailnetexec.Companion{
 		Exec:         exec,
-		Tailnet:      control,
+		Tailnet:      tailnet.NewProjectControl(),
 		Image:        image,
 		EnabledCheck: enabled,
 	}
-	return d
 }
 
 func TestOffPolicyIsCleanNoOpWithoutRuntimeReadiness(t *testing.T) {
 	calls := 0
-	d := preparationTestDaemon(t, func(context.Context, string, string) (bool, error) { return false, nil }, &calls)
+	companion := preparationTestCompanion(t, func(context.Context, string, string) (bool, error) { return false, nil }, &calls)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	cid, e := d.Companion.StartTailnet(ctx, preparationTestProject)
+	cid, e := companion.StartTailnet(ctx, preparationTestProject)
 	if e != nil || cid != "" {
 		t.Fatal("Off policy was not a clean no-op", cid, e)
 	}
@@ -59,8 +55,8 @@ func TestOffPolicyIsCleanNoOpWithoutRuntimeReadiness(t *testing.T) {
 
 func TestMalformedPolicyFailsSafelyBeforeRuntime(t *testing.T) {
 	calls := 0
-	d := preparationTestDaemon(t, func(context.Context, string, string) (bool, error) { return false, tailnet.ErrUnavailable }, &calls)
-	_, e := d.Companion.StartTailnet(t.Context(), preparationTestProject)
+	companion := preparationTestCompanion(t, func(context.Context, string, string) (bool, error) { return false, tailnet.ErrUnavailable }, &calls)
+	_, e := companion.StartTailnet(t.Context(), preparationTestProject)
 	if !errors.Is(e, tailnet.ErrUnavailable) || !strings.Contains(e.Error(), "Tailnet policy") {
 		t.Fatal("malformed policy did not fail at its stage", e)
 	}
@@ -74,10 +70,10 @@ func TestMalformedPolicyFailsSafelyBeforeRuntime(t *testing.T) {
 
 func TestEnabledProjectRunFailureIdentifiesItsStage(t *testing.T) {
 	calls := 0
-	d := preparationTestDaemon(t, func(context.Context, string, string) (bool, error) { return true, nil }, &calls)
+	companion := preparationTestCompanion(t, func(context.Context, string, string) (bool, error) { return true, nil }, &calls)
 	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 	defer cancel()
-	_, e := d.Companion.StartTailnet(ctx, preparationTestProject)
+	_, e := companion.StartTailnet(ctx, preparationTestProject)
 	if e == nil {
 		t.Fatal("incompatible runtime accepted")
 	}

@@ -19,11 +19,11 @@ Notices: [Notices](../research/notices.md).
 | `build-native.sh` / `build-iso.sh` / `soda-host-image` | Use `tools/soda-build`. |
 | `check-native.sh ARCH CANDIDATE_DIR` | Verifies a soda-build candidate artifacts directory; does not build. |
 | Containerfile `BASE_IMAGE` argument | The build pins the existing Rocky reference to its resolved native digest reference during that build; unchanged default, no base upgrade or frontend change. |
-| `render-provisioning.py` | Public `appliance/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
+| `soda-render-provisioning` (`rust/soda-stage-render`) | Public `appliance/provisioning/base.json` and shared host-branding assets plus private per-instance inputs. Existing extension bootstrap remains the default; `--bootstrap minimal` is a fixture-only alternative without package installation. |
 | `tools/soda-artifacts`, `tools/soda-acceptance` | Separate native `tools/` output, never appliance `cmd/`, rootfs or container payload. Candidates carry them for archive inspection and media-input conversion, not as installed programs. |
 | Installed checks | Host/operator observations stay separate from product-owned developer/shared-tools/workload/persistence journeys. Old standalone browser harnesses are removed; the read-only native-page journey and exported-payload checks passed at their documented local scope. |
 
-Reuse and licensing are recorded in [native support notices](../research/notices.md). The predecessor checkout and `scripts/test-vm.sh` remain separate and preserved.
+Reuse and licensing are recorded in [native support notices](../research/notices.md). The predecessor checkout remains separate and preserved; `scripts/test-vm.sh` is superseded by the `soda-test-vm` Rust port.
 
 ## Effects and permissions
 
@@ -358,7 +358,7 @@ Both compressed/uncompressed hashes and the selected GPG signature must match. S
 Prepare one private directory, a fresh Ed25519 **host** key, the operator's existing public authentication key, and a private crypt password-hash file. Host and operator keys are different identities. Host-key generation and conversion are explicit actions; never put passwords/hashes/key contents in shell arguments or logs.
 
 ```sh
-python3 scripts/render-provisioning.py --bootstrap minimal \
+cargo run -p soda-stage-render --bin soda-render-provisioning -- --bootstrap minimal \
   --operator-key-file /absolute/private/operator.pub \
   --root-password-hash-file /absolute/private/root.hash \
   --ssh-host-key-file /absolute/private/instance-host-key \
@@ -409,7 +409,7 @@ Invoke these existing/new entrypoints only with their named grants and actual ta
 | `tests/installed/host.sh` | CoreOS/layering, service identities/capabilities, labels, listeners, observed activation phase; not login or a client route. Optional `SODA_HOST_PHASE` asserts the intended phase. Installed bytes and current service image IDs are verified against the installed release inventory. |
 | `service-ordering.sh` | Actual generated unit dependencies and failed units; no service mutations. |
 | `cockpit-account.py` | Real PAM account stage permits root and denies existing `nobody`; no new account and no password/session proof. |
-| `service-https.py ORIGIN CA_FILE` | Configured-origin trusted TLS from the selected client, no redirect/login journey or insecure fallback. |
+| `/path/to/soda-installed-probes service-https ORIGIN CA_FILE` | Configured-origin trusted TLS from the selected client, no redirect/login journey or insecure fallback. |
 | `operator.sh` | Selected native Tailnet/runner/version/branding/quiet-hook facts; no enrollment, registration or job. |
 | `operator.ts ORIGIN PASSWORD_FILE PRIVATE_BROWSER_HOME HOSTNAME --stock-read-only` | Actual root login, stock Overview bridge/PAM/SELinux/native CLI read paths, Services/Logs and logout; reject Soda custom packages. Trust the CA in the isolated browser home first. No advertisement refresh or enrollment; no screenshot/trace/provider-body capture. Authored for the stock-only candidate, not executed on unretired targets. |
 | `forgejo-advertisement.sh` | Explicit existing-helper invocation and unchanged core origins; also requires `SODA_ALLOW_FORGEJO_ADVERTISEMENT_REFRESH=1` and an already approved running Tailnet. |

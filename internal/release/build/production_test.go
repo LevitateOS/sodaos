@@ -118,7 +118,11 @@ func productionFixture(t *testing.T) (Production, *[]string) {
 		if name == "cargo" && args[0] == "build" {
 			for i, a := range args {
 				if a == "-p" && i+1 < len(args) {
-					return writeELF(filepath.Join(dir, "target", "release", args[i+1]))
+					bin := args[i+1]
+					if renamed, ok := map[string]string{"soda-project-terminal": "project-terminal"}[bin]; ok {
+						bin = renamed
+					}
+					return writeELF(filepath.Join(dir, "target", "release", bin))
 				}
 			}
 		}
@@ -155,7 +159,7 @@ func TestProductionUsesOneAssetAndImageSequence(t *testing.T) {
 	if e := p.Assets(host, forgejo); e != nil {
 		t.Fatal(e)
 	}
-	for _, tool := range []string{"muse", "soda-identity-compose"} {
+	for _, tool := range []string{"muse", "soda-identity-compose", "project-terminal"} {
 		info, err := os.Stat(filepath.Join(p.Native, "project-tools/bin", tool))
 		if err != nil || info.Mode().Perm() != 0o755 {
 			t.Fatalf("public tool %s must be executable by project accounts: %v", tool, err)
@@ -169,10 +173,13 @@ func TestProductionUsesOneAssetAndImageSequence(t *testing.T) {
 		t.Fatal(images)
 	}
 	text := strings.Join(*calls, "\n")
-	for _, needle := range []string{"bun install --frozen-lockfile", "bun scripts/build-forgejo.ts", "python3 scripts/fetch-tea.py", "python3 scripts/stage.py", "STEP Build image: dashboard\n", "STEP Build image: project-os\n", "STEP Build image: tailnet\n", "STEP Build image: forgejo\n", "bun scripts/build-soda-extension.ts --out "} {
+	for _, needle := range []string{"bun install --frozen-lockfile", "bun scripts/build-forgejo.ts", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-terminal -- --out ", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-muse -- --arch x86_64 --out ", "cargo run --release --locked -p soda-asset-fetchers --bin soda-fetch-tea -- --arch x86_64 --out ", "cargo run --release --locked -p soda-forgejo-locales --bin soda-forgejo-locales -- --lock appliance/forgejo/locale.lock.json --out ", "cargo run --release --locked -p soda-stage-render --bin soda-stage -- --arch x86_64 --host-context ", "STEP Build image: dashboard\n", "STEP Build image: project-os\n", "STEP Build image: tailnet\n", "STEP Build image: forgejo\n", "bun scripts/build-soda-extension.ts --out "} {
 		if strings.Count(text, needle) != 1 {
 			t.Fatalf("not produced exactly once: %s\n%s", needle, text)
 		}
+	}
+	if strings.Contains(text, "python3 scripts/fetch-") || strings.Contains(text, "tools/soda-fetch-muse") || strings.Contains(text, "python3 scripts/stage.py") || strings.Contains(text, "python3 scripts/forgejo-locales.py") {
+		t.Fatal("retired fetcher/stage/locales invocation retained", text)
 	}
 	if !strings.Contains(text, "--host-context "+host+" --forgejo-context "+forgejo) {
 		t.Fatal("asset destinations do not match the selected layout", text)
@@ -304,7 +311,7 @@ func TestProductionCompileRustKeepsLayoutAndVerifiesELF(t *testing.T) {
 		t.Fatal(e)
 	}
 	text := strings.Join(*calls, "\n")
-	if !strings.Contains(text, "cargo build --release --locked --offline") || !strings.Contains(text, "-p soda-identity-compose") {
+	if !strings.Contains(text, "cargo build --release --locked") || !strings.Contains(text, "-p soda-identity-compose") {
 		t.Fatal(text)
 	}
 	if strings.Count(text, "cargo build") != 1 {

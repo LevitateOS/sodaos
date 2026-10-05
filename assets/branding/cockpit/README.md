@@ -21,7 +21,7 @@ colors remain owned by Cockpit.
 
 ## Staging
 
-`scripts/stage.py` creates `/etc/cockpit/branding/` from:
+`soda-stage` (`rust/soda-stage-render`) creates `/etc/cockpit/branding/` from:
 
 - This directory's active CSS and the canonical `../theme/palette.css` (local import).
 - `../source/soda-symbol-brutalist.svg` and its dark variant.

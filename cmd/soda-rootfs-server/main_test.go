@@ -3,7 +3,7 @@
 //
 // The installer ISO is only the boot menu; the guest fetches the hash-named
 // rootfs image over HTTP after the builder exits. These checks read the real
-// setup script and the staged systemd unit against this package's served
+// setup source and the staged systemd unit against this package's served
 // directory: the three must agree on one directory that holds only rootfs
 // images, served without listings, QCOW2, ISO, traversal, subpaths,
 // symlinks, or non-GET/HEAD methods. No services, units, or host paths are
@@ -42,13 +42,13 @@ func repoPath(t *testing.T, elems ...string) string {
 
 func setupRootfsDir(t *testing.T, text string) string {
 	t.Helper()
-	match := regexp.MustCompile(`(?m)^ROOTFS_DIR="([^"]+)"`).FindStringSubmatch(text)
-	require.Len(t, match, 2, "setup script names no ROOTFS_DIR")
+	match := regexp.MustCompile(`(?m)^const ROOTFS_DIR: &str = "([^"]+)";`).FindStringSubmatch(text)
+	require.Len(t, match, 2, "setup source names no ROOTFS_DIR")
 	return match[1]
 }
 
 func TestSetupAndServerConvergeOnOneHomeDirectory(t *testing.T) {
-	setup, err := os.ReadFile(repoPath(t, "scripts", "setup-soda-candidate.sh"))
+	setup, err := os.ReadFile(repoPath(t, "rust", "soda-candidate-setup", "src", "main.rs"))
 	require.NoError(t, err)
 	served := rootDir
 	require.Equal(t, served, setupRootfsDir(t, string(setup)),
@@ -133,6 +133,26 @@ func TestExactFileServing(t *testing.T) {
 	require.Equal(t, http.StatusOK, status)
 	require.Empty(t, body)
 
+	// Multi-chunk streaming: rootfs images are gigabytes, so the 1 MiB
+	// copy loop must prove itself past a single buffer with exact bytes.
+	bigName := strings.Repeat("b", 64) + "-rootfs.img"
+	big := make([]byte, 2*chunkSize+12345)
+	for i := range big {
+		big[i] = byte(i*31 + 7)
+	}
+	require.NoError(t, os.WriteFile(filepath.Join(work, bigName), big, 0o644))
+	status, header, body = fetch(http.MethodGet, "/"+bigName)
+	require.Equal(t, http.StatusOK, status)
+	require.Equal(t, big, body)
+	require.Equal(t, fmt.Sprint(len(big)), header.Get("Content-Length"))
+
+	emptyName := strings.Repeat("0", 64) + "-rootfs.img"
+	require.NoError(t, os.WriteFile(filepath.Join(work, emptyName), nil, 0o644))
+	status, header, body = fetch(http.MethodGet, "/"+emptyName)
+	require.Equal(t, http.StatusOK, status)
+	require.Empty(t, body)
+	require.Equal(t, "0", header.Get("Content-Length"))
+
 	for _, path := range []string{
 		"/",
 		"/soda-iso29.qcow2",
@@ -156,4 +176,28 @@ func TestExactFileServing(t *testing.T) {
 	reply, err := bufio.NewReader(raw).ReadString('\n')
 	require.NoError(t, err)
 	require.Contains(t, reply, "501", "only GET/HEAD are served")
+
+	// The retired Python server ran on http.server, which reduces a
+	// leading '//' run to a single '/' before the handler sees the
+	// target (CPython gh-87389). Decoded slashes must not collapse:
+	// decoding happens after that reduction. Raw sockets pin the exact
+	// request-target bytes.
+	rawStatus := func(target string) string {
+		conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
+		require.NoError(t, err)
+		defer func() { _ = conn.Close() }()
+		_, err = fmt.Fprintf(conn, "GET %s HTTP/1.0\r\nContent-Length: 0\r\n\r\n", target)
+		require.NoError(t, err)
+		line, err := bufio.NewReader(conn).ReadString('\n')
+		require.NoError(t, err)
+		return line
+	}
+	require.Contains(t, rawStatus("//"+allowNameFixture), "200",
+		"a leading '//' run collapses like http.server")
+	require.Contains(t, rawStatus("///"+allowNameFixture), "200",
+		"a longer leading '/' run collapses like http.server")
+	require.Contains(t, rawStatus("//host/"+allowNameFixture), "404",
+		"a collapsed '//host/' prefix is a denied subpath")
+	require.Contains(t, rawStatus("/%2F"+allowNameFixture), "404",
+		"a decoded '/' must not collapse")
 }

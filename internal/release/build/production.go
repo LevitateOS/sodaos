@@ -3,8 +3,9 @@
 package build
 
 // The single image layout owns these concrete production steps, not two
-// copies of their command sequences. Containerfiles, locks and stage.py remain
-// the owners of content. This code never signs, publishes or installs anything.
+// copies of their command sequences. Containerfiles, locks and the Rust
+// stage renderer remain the owners of content. This code never signs,
+// publishes or installs anything.
 import (
 	"encoding/json"
 	"errors"
@@ -71,8 +72,8 @@ func SodaCommands(source string) ([]string, error) {
 
 // CompileRust is the sole Rust command recipe for ported runtime programs.
 // The top-level workspace owns every crate under rust/; the single image
-// layout owns every install path. Builds are offline from vendor/ and the
-// release binary is copied to dest.
+// layout owns every install path. Builds resolve dependencies from the
+// network and the release binary is copied to dest.
 func (p Production) CompileRust(crate, bin, dest string) error {
 	if e := p.validate(); e != nil {
 		return e
@@ -84,7 +85,7 @@ func (p Production) CompileRust(crate, bin, dest string) error {
 		return e
 	}
 	manifest := filepath.Join(p.Source, "Cargo.toml")
-	args := []string{"build", "--release", "--locked", "--offline", "--manifest-path", manifest, "-p", crate}
+	args := []string{"build", "--release", "--locked", "--manifest-path", manifest, "-p", crate}
 	if e := p.Execute(p.Source, "cargo", args...); e != nil {
 		return e
 	}
@@ -130,7 +131,7 @@ func (p Production) Assets(hostContext, forgejoContext string) error {
 	if !filepath.IsAbs(hostContext) || !filepath.IsAbs(forgejoContext) {
 		return errors.New("explicit asset destinations required")
 	}
-	stage := []string{"python3", "scripts/stage.py", "--arch", p.Arch, "--host-context", hostContext, "--forgejo-context", forgejoContext}
+	stage := []string{"cargo", "run", "--release", "--locked", "-p", "soda-stage-render", "--bin", "soda-stage", "--", "--arch", p.Arch, "--host-context", hostContext, "--forgejo-context", forgejoContext}
 	return p.assetSteps(stage)
 }
 
@@ -178,10 +179,13 @@ func (p Production) assetSteps(stage []string) error {
 	if err := os.MkdirAll(filepath.Join(p.Native, "project-tools/bin"), 0o755); err != nil {
 		return err
 	}
-	if err := p.Compile("soda-muse", "./cmd/soda-muse", filepath.Join(p.Native, "project-tools/bin", "muse")); err != nil {
+	if err := p.CompileRust("soda-muse", "soda-muse", filepath.Join(p.Native, "project-tools/bin", "muse")); err != nil {
 		return err
 	}
 	if err := p.CompileRust("soda-identity-compose", "soda-identity-compose", filepath.Join(p.Native, "project-tools/bin", "soda-identity-compose")); err != nil {
+		return err
+	}
+	if err := p.CompileRust("soda-project-terminal", "project-terminal", filepath.Join(p.Native, "project-tools/bin", "project-terminal")); err != nil {
 		return err
 	}
 	type assetStep struct {
@@ -190,13 +194,13 @@ func (p Production) assetSteps(stage []string) error {
 	}
 	steps := []assetStep{
 		{"Build frontend assets", []string{"bun", "scripts/build-forgejo.ts", "--out", filepath.Join(p.Native, "forgejo-js")}},
-		{"Fetch terminal assets", []string{"python3", "scripts/fetch-terminal.py", "--out", filepath.Join(p.Native, "terminal-assets")}},
+		{"Fetch terminal assets", []string{"cargo", "run", "--release", "--locked", "-p", "soda-asset-fetchers", "--bin", "soda-fetch-terminal", "--", "--out", filepath.Join(p.Native, "terminal-assets")}},
 		{"Build Soda extension browser assets", []string{"bun", "scripts/build-soda-extension.ts", "--out", filepath.Join(p.Native, "soda-extension-assets"), "--terminal-assets", filepath.Join(p.Native, "terminal-assets")}},
 	}
 	steps = append(steps,
-		assetStep{"Prepare Forgejo translations", []string{"python3", "scripts/forgejo-locales.py", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
-		assetStep{"Fetch upstream Muse binary", []string{"go", "run", "./tools/soda-fetch-muse", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools/bin/muse-native")}},
-		assetStep{"Fetch upstream Tea binary", []string{"python3", "scripts/fetch-tea.py", "--arch", p.Arch}},
+		assetStep{"Prepare Forgejo translations", []string{"cargo", "run", "--release", "--locked", "-p", "soda-forgejo-locales", "--bin", "soda-forgejo-locales", "--", "--lock", "appliance/forgejo/locale.lock.json", "--out", filepath.Join(p.Native, "forgejo-locales/locale_en-US.ini")}},
+		assetStep{"Fetch upstream Muse binary", []string{"cargo", "run", "--release", "--locked", "-p", "soda-asset-fetchers", "--bin", "soda-fetch-muse", "--", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools/bin/muse-native")}},
+		assetStep{"Fetch upstream Tea binary", []string{"cargo", "run", "--release", "--locked", "-p", "soda-asset-fetchers", "--bin", "soda-fetch-tea", "--", "--arch", p.Arch, "--out", filepath.Join(p.Native, "project-tools")}},
 		assetStep{"Stage appliance files", stage},
 	)
 	for _, s := range steps {

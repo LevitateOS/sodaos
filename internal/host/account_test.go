@@ -27,9 +27,9 @@ func (e *accountExecutor) Run(_ context.Context, in []byte, command string, args
 }
 func TestNativeAccountOnlyAndInvalidIdentities(t *testing.T) {
 	exec := &accountExecutor{}
-	d := testDaemon(exec, Config{Network: "soda-projects", Subnet: "10.89.0.0/24"})
+	d := testProject(exec, Config{Network: "soda-projects", Subnet: "10.89.0.0/24"})
 	in := project.Account{Project: "p0123456789abcdef01234567", Login: "bob", Identity: 2, Keys: []string{}}
-	if err := d.Project.Account(context.Background(), in); err != nil {
+	if err := d.Account(context.Background(), in); err != nil {
 		t.Fatal(err)
 	}
 	var body struct {
@@ -41,7 +41,7 @@ func TestNativeAccountOnlyAndInvalidIdentities(t *testing.T) {
 	}
 	exec.body = nil
 	in.Login = "root"
-	if d.Project.Account(context.Background(), in) == nil || exec.body != nil {
+	if d.Account(context.Background(), in) == nil || exec.body != nil {
 		t.Fatal("root accepted")
 	}
 }
@@ -57,8 +57,8 @@ func TestNativeProjectAdministrationComesFromOwnerLabel(t *testing.T) {
 	}
 	for _, uid := range []int64{1, 2} {
 		exec := &accountExecutor{}
-		d := testDaemon(exec, Config{Network: "soda-projects", Subnet: "10.89.0.0/24"})
-		err = d.Project.Account(context.Background(), project.Account{Project: "p0123456789abcdef01234567", Login: "alice", Identity: uid, Keys: []string{string(ssh.MarshalAuthorizedKey(key))}})
+		d := testProject(exec, Config{Network: "soda-projects", Subnet: "10.89.0.0/24"})
+		err = d.Account(context.Background(), project.Account{Project: "p0123456789abcdef01234567", Login: "alice", Identity: uid, Keys: []string{string(ssh.MarshalAuthorizedKey(key))}})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -20,6 +20,7 @@ impl JsonValue {
         let mut parser = Parser {
             bytes: text.as_bytes(),
             pos: 0,
+            depth: 0,
         };
         parser.skip_ws();
         let value = parser.parse_value()?;
@@ -89,6 +90,8 @@ pub fn escape_into(out: &mut String, value: &str) {
             '<' => out.push_str("\\u003c"),
             '>' => out.push_str("\\u003e"),
             '&' => out.push_str("\\u0026"),
+            '\u{2028}' => out.push_str("\\u2028"),
+            '\u{2029}' => out.push_str("\\u2029"),
             c if (c as u32) < 0x20 => {
                 out.push_str(&format!("\\u{:04x}", c as u32));
             }
@@ -101,7 +104,12 @@ pub fn escape_into(out: &mut String, value: &str) {
 struct Parser<'a> {
     bytes: &'a [u8],
     pos: usize,
+    depth: u32,
 }
+
+/// Go caps nesting at 10000; refuse deeper input instead of overflowing the
+/// stack on hostile blobs.
+const MAX_DEPTH: u32 = 10000;
 
 impl<'a> Parser<'a> {
     fn skip_ws(&mut self) {
@@ -114,8 +122,24 @@ impl<'a> Parser<'a> {
 
     fn parse_value(&mut self) -> Result<JsonValue, ParseError> {
         match self.bytes.get(self.pos) {
-            Some(b'{') => self.parse_object(),
-            Some(b'[') => self.parse_array(),
+            Some(b'{') => {
+                if self.depth >= MAX_DEPTH {
+                    return Err(ParseError);
+                }
+                self.depth += 1;
+                let value = self.parse_object();
+                self.depth -= 1;
+                value
+            }
+            Some(b'[') => {
+                if self.depth >= MAX_DEPTH {
+                    return Err(ParseError);
+                }
+                self.depth += 1;
+                let value = self.parse_array();
+                self.depth -= 1;
+                value
+            }
             Some(b'"') => Ok(JsonValue::Str(self.parse_string()?)),
             Some(b't') => self.parse_literal("true", JsonValue::Bool(true)),
             Some(b'f') => self.parse_literal("false", JsonValue::Bool(false)),
@@ -231,7 +255,8 @@ impl<'a> Parser<'a> {
                                     self.pos += 6;
                                 }
                             }
-                            let ch = char::from_u32(code).ok_or(ParseError)?;
+                            // Go replaces lone surrogates with U+FFFD instead of failing.
+                            let ch = char::from_u32(code).unwrap_or('\u{FFFD}');
                             let mut buf = [0u8; 4];
                             out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
                         }

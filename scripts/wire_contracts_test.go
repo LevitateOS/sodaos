@@ -137,7 +137,7 @@ func buildRustPortBinary(t *testing.T, crate string) string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "cargo", "build", "--offline", "-p", crate)
+	cmd := exec.CommandContext(ctx, "cargo", "build", "-p", crate)
 	cmd.Dir = root
 	if combined, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build rust/%s: %v\n%s", crate, err, combined)
