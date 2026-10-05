@@ -22,8 +22,8 @@ pub trait Runtime: Send + Sync {
     fn finish(&self, lease: &Lease) -> Result<Vec<u8>, Error>;
 }
 
-pub fn map_provider_error(err: identity_providers::Error) -> Error {
-    use identity_providers::Kind;
+pub fn map_provider_error(err: crate::providers::Error) -> Error {
+    use crate::providers::Kind;
     match err.kind() {
         // Only teardown uncertainty escapes with its kind (the broker maps
         // it to `reauth`); every other provider failure is internal, exactly
@@ -33,11 +33,11 @@ pub fn map_provider_error(err: identity_providers::Error) -> Error {
     }
 }
 
-pub struct CodexProvider(pub identity_providers::codex::Provider);
-pub struct MuseProvider(pub identity_providers::muse::Provider);
+pub struct CodexProvider(pub crate::providers::codex::Provider);
+pub struct MuseProvider(pub crate::providers::muse::Provider);
 
-struct CodexSession(identity_providers::codex::Session);
-struct MuseSession(identity_providers::muse::Session);
+struct CodexSession(crate::providers::codex::Session);
+struct MuseSession(crate::providers::muse::Session);
 
 impl EnrollmentSession for CodexSession {
     fn snapshot(&self) -> Enrollment {
@@ -173,7 +173,7 @@ pub(crate) fn join_errors(failures: Vec<Error>) -> Result<(), Error> {
 pub(crate) fn new_id() -> String {
     let mut bytes = [0u8; 16];
     fill_random(&mut bytes).expect("identity randomness unavailable");
-    identity_providers::sha256::hex(&bytes)
+    crate::providers::sha256::hex(&bytes)
 }
 
 fn fill_random(out: &mut [u8]) -> std::io::Result<()> {

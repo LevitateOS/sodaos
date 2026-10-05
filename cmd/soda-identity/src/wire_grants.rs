@@ -149,5 +149,5 @@ pub fn acquisition_digest(input: &AcquireRequest) -> String {
         &input.repository_id.to_string(),
     ]
     .join("\x00");
-    identity_providers::sha256::hex(&identity_providers::sha256::digest(canonical.as_bytes()))
+    crate::providers::sha256::hex(&crate::providers::sha256::digest(canonical.as_bytes()))
 }
