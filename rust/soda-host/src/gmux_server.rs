@@ -17,6 +17,7 @@ use crate::gmux_backend::ExecBackend;
 use crate::gmux_routes::{dispatch, error_response, DaemonConfig, RouteOutcome};
 use std::io;
 use std::io::{Read, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -361,4 +362,27 @@ pub fn systemd_listener() -> io::Result<UnixListener> {
         ));
     }
     Ok(unsafe { UnixListener::from_raw_fd(3) })
+}
+
+/// Bind a Unix listener at an explicit path (fixture/debug mode).
+///
+/// Same root gate as activation; the caller pre-cleans the path. Used
+/// with `--listen-path` when no supervisor passes a listener. Unlike
+/// the systemd unit (0660 root:soda), the bound socket is world
+/// accessible: connecting needs write permission and the fixture
+/// driver runs as an unprivileged user, so confine access through the
+/// socket directory's own permissions instead.
+pub fn bind_listener(path: &str) -> io::Result<UnixListener> {
+    // SAFETY: `geteuid` is async-signal-safe and infallible.
+    if unsafe { libc::geteuid() } != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "requires root and the soda-host systemd Unix socket",
+        ));
+    }
+    let listener = UnixListener::bind(path)?;
+    let mut perms = std::fs::metadata(path)?.permissions();
+    perms.set_mode(0o777);
+    std::fs::set_permissions(path, perms)?;
+    Ok(listener)
 }

@@ -77,8 +77,9 @@ genuinely covers the package's combined surface. Facade integration tests
 (e.g. `web/*_test.go` exercising the server) stay with the facade and
 reference the owning packages (`api.*`, `auth.*`) directly — forwarding
 aliases between internal packages are banned and `internal/archcheck`
-fails if `web/aliases.go` returns. The host Client may re-export
-`host/terminal` wire types so transport never imports that executor.
+fails if `web/aliases.go` returns. Terminal wire types live in `host`
+itself (the `host/terminal` executor was cut over to the Rust
+`soda-host` daemon) so transport never imports an executor.
 
 ## Interfaces and errors
 
@@ -95,11 +96,12 @@ in-tree `errors.Is` caller. Libraries never log; long-lived processes use
 Top-level `internal/` names are major Soda concepts (`project`, `host`,
 `web`, `release`, `tailnet`, `runners`, `store`, `forgejo`, `installer`,
 plus small primitives). Subpackages express genuine subordinate
-boundaries only: privilege execution under `host/` (`host/project`,
-`host/terminal`, `host/tailnet`), HTTP transport under `web/`
+boundaries only: HTTP transport under `web/`
 (`web/api`, `web/auth`), release construction under `release/`
 (`release/build`, `release/image`,
-`release/deliver`). No `internal/models`, `internal/services`,
+`release/deliver`). Privilege execution moved out of `host/`
+subpackages into the Rust `soda-host` daemon; only the `host/publish`
+helper remains without a Rust replacement. No `internal/models`, `internal/services`,
 `internal/utils` or other horizontal dumping grounds; no micro-packages;
 no splitting `tailnet` / `runners` / `store`; no resurrecting retired
 top-level paths (`internal/projectos`, `internal/linuxhost`,

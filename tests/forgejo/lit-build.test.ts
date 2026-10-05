@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import {dirname, join, resolve} from 'node:path';
 import test from 'node:test';
 import {buildForgejoModule, presentationVersion} from '../../scripts/build-forgejo.ts';
-import payload from '../../internal/release/build/forgejo-payload.json';
+import payload from '../../assets/branding/forgejo/forgejo-payload.json';
 
 const root = resolve(import.meta.dirname, '../..');
 

@@ -219,10 +219,16 @@ func TestDependencyDirection(t *testing.T) {
 	allowOnly(t, edges, "internal/identity")
 	allowOnly(t, edges, "internal/identity/client", "internal/identity", "internal/strictjson")
 
-	// Native project, terminal, companion and factory execution lives under host/.
-	for _, pkg := range []string{"internal/host/project", "internal/host/terminal", "internal/host/tailnet", "internal/host/publish"} {
-		if _, err := os.Stat(filepath.Join(root, pkg)); err != nil {
-			t.Errorf("native executor %s missing", pkg)
+	// Privilege execution lives in the Rust `soda-host` daemon; the only
+	// Go executor left under host/ is host/publish (no Rust replacement).
+	// The cutover pins both halves: publish present, the superseded
+	// project/terminal/tailnet executors absent.
+	if _, err := os.Stat(filepath.Join(root, "internal/host/publish")); err != nil {
+		t.Errorf("native executor internal/host/publish missing")
+	}
+	for _, pkg := range []string{"internal/host/project", "internal/host/terminal", "internal/host/tailnet"} {
+		if _, err := os.Stat(filepath.Join(root, pkg)); !os.IsNotExist(err) {
+			t.Errorf("superseded executor %s resurrected; execution lives in the Rust daemon", pkg)
 		}
 	}
 
@@ -230,7 +236,7 @@ func TestDependencyDirection(t *testing.T) {
 	// directly; it goes through the host client and domain types.
 	for _, pkg := range []string{"internal/web", "internal/web/api", "internal/web/auth"} {
 		forbid(t, edges, pkg,
-			"internal/host/project", "internal/host/terminal", "internal/host/tailnet", "internal/host/publish",
+			"internal/host/publish",
 			"internal/release")
 	}
 
@@ -240,17 +246,15 @@ func TestDependencyDirection(t *testing.T) {
 		forbid(t, edges, pkg, "internal/web", "internal/host")
 	}
 
-	// Privileged executors stay leaves: no upward import of the daemon,
-	// no outward reach into transport, storage or release. The single
-	// exception is host/project -> host/terminal: key operations attach
-	// through the terminal executor.
-	for _, pkg := range []string{"internal/host/project", "internal/host/terminal", "internal/host/tailnet", "internal/host/publish"} {
+	// The remaining privileged helper stays a leaf: no upward import of
+	// the daemon, no outward reach into transport, storage or release.
+	for _, pkg := range []string{"internal/host/publish"} {
 		forbid(t, edges, pkg, "internal/web", "internal/release", "internal/store")
 		for _, imp := range importsOf(edges, pkg) {
 			if imp == "internal/host" {
 				t.Errorf("%s must not import the host daemon", pkg)
 			}
-			if imp != "internal/host/terminal" && strings.HasPrefix(imp, "internal/host/") {
+			if strings.HasPrefix(imp, "internal/host/") {
 				t.Errorf("%s must not import sibling executor %s", pkg, imp)
 			}
 		}

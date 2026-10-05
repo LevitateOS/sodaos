@@ -5389,13 +5389,24 @@ mod tests {
     }
 
     #[test]
-    fn candidate_script_matches_go_source() {
-        // Pin the embedded script against the Go oracle at compile time.
-        const GO: &str = include_str!("../../../internal/host/project/factory_candidate.go");
-        const MARKER: &str = "const candidateInspectScript = `";
-        let start = GO.find(MARKER).unwrap() + MARKER.len();
-        let end = GO[start..].find('`').unwrap() + start;
-        assert_eq!(&GO[start..end], CANDIDATE_INSPECT_SCRIPT);
+    fn candidate_script_pins_cutover_shape() {
+        // The Go oracle is retired at executor cutover: the embedded
+        // script is canonical now, pinned by its security-critical shape
+        // (behavior stays covered by inspect_candidate_reports_clean_and_dirty).
+        for marker in [
+            "set -eu\numask 077",
+            "core.hooksPath=/dev/null",
+            "GIT_OBJECT_DIRECTORY=\"$src/.git/objects\"",
+            "trap '/usr/bin/rm -rf \"$dir\"' EXIT HUP INT TERM",
+            "diff-index --cached --quiet --no-ext-diff --no-textconv",
+            "diff-files --quiet --no-ext-diff --no-textconv",
+            "printf '%s %s\\n' \"$head\" \"$dirty\"",
+        ] {
+            assert!(
+                CANDIDATE_INSPECT_SCRIPT.contains(marker),
+                "candidate script lost {marker:?}"
+            );
+        }
     }
 
     #[test]

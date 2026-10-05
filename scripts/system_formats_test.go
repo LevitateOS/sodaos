@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/levitateos/sodaos/internal/config"
-	"github.com/levitateos/sodaos/internal/host"
 )
 
 // buildGoPortBinary builds a not-yet-ported Go CLI. Ported binaries use
@@ -110,41 +109,6 @@ func TestDashboardConfigLimits(t *testing.T) {
 	_, err := config.Load(path)
 	if err == nil || !strings.Contains(err.Error(), "configuration exceeds 64 KiB") {
 		t.Fatalf("oversized config not refused: %v", err)
-	}
-}
-
-func TestHostConfigBytes(t *testing.T) {
-	var fixture struct {
-		Full        map[string]any `json:"full"`
-		FullJSON    string         `json:"full_json"`
-		Minimal     map[string]any `json:"minimal"`
-		MinimalJSON string         `json:"minimal_json"`
-	}
-	portContractFixture(t, "host_config_bytes.json", &fixture)
-	for name, tc := range map[string]struct {
-		object map[string]any
-		want   string
-	}{
-		"full":    {object: fixture.Full, want: fixture.FullJSON},
-		"minimal": {object: fixture.Minimal, want: fixture.MinimalJSON},
-	} {
-		t.Run(name, func(t *testing.T) {
-			raw, err := json.Marshal(tc.object)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var decoded host.Config
-			if err := json.Unmarshal(raw, &decoded); err != nil {
-				t.Fatal(err)
-			}
-			encoded, err := json.Marshal(decoded)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if string(encoded) != tc.want {
-				t.Fatalf("bytes %s, want %s", encoded, tc.want)
-			}
-		})
 	}
 }
 
