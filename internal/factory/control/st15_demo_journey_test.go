@@ -28,7 +28,7 @@ import (
 func (fx *st15Fixture) providerGate() error {
 	if fx.synthetic {
 		st15Receipt(fx.t, "provider-gate", map[string]any{"credential": "absent", "legs": fx.checks})
-		return errors.New("ST15 requires SODA_ST15_PROVIDER_CREDENTIAL: a 0600 file of codex auth.json bytes; refusing synthetic execution")
+		return errors.New("ST15 requires SODA_ST15_PROVIDER_CREDENTIAL: a 0600 file of muse api-key JSON bytes; refusing synthetic execution")
 	}
 	return nil
 }
@@ -149,7 +149,7 @@ func (fx *st15Fixture) stallForBrowserDiag() {
 	run := factory.Run{
 		ID: runID, ProjectID: fx.projectID, Role: project.RoleCoder, InputSHA: strings.Repeat("d", 40),
 		Started: now, Deadline: now.Add(30 * time.Minute),
-		Image: fx.image, Harness: project.FactoryHarnessCodex, Model: "gpt-6-luna",
+		Image: fx.image, Harness: project.FactoryHarnessMuseCode, Model: "muse-spark-1.3",
 	}
 	nativeMust(fx.t, fx.db.RecordFactoryRun(fx.ctx, run))
 	_, _, err := fx.db.RecordFactoryRunView(fx.ctx, factory.RunView{

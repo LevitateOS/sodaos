@@ -409,26 +409,31 @@ func (fx *st15Fixture) setupHostStack() error {
 	if err := os.MkdirAll(harnessDir, 0o700); err != nil {
 		return err
 	}
-	codex, err := os.ReadFile("/home/vince/.local/bin/codex")
+	// The staged guest is the static muse binary itself, resolved the
+	// way the launcher does (never the auto-updating shell wrapper).
+	installed, err := os.ReadFile("/home/vince/.local/bin/.muse-version")
 	if err != nil {
 		return err
 	}
-	if err = os.WriteFile(filepath.Join(harnessDir, "codex"), codex, 0o755); err != nil {
-		return err
-	}
-	host, err := os.ReadFile("/home/vince/.codex/packages/standalone/current/bin/codex-code-mode-host")
+	museBin := filepath.Join("/home/vince/.local/bin", "muse-bin-"+strings.TrimSpace(string(installed)))
+	muse, err := os.ReadFile(museBin)
 	if err != nil {
 		return err
 	}
-	if err = os.WriteFile(filepath.Join(harnessDir, "codex-code-mode-host"), host, 0o755); err != nil {
+	stagedBin := filepath.Join(harnessDir, "muse")
+	if err = os.WriteFile(stagedBin, muse, 0o755); err != nil {
 		return err
 	}
-	versionOut, err := exec.CommandContext(fx.ctx, "/home/vince/.local/bin/codex", "--version").CombinedOutput()
+	versionOut, err := exec.CommandContext(fx.ctx, stagedBin, "--version").CombinedOutput()
 	if err != nil {
 		return err
 	}
-	fx.versions = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(versionOut)), "codex-cli "))
-	fx.harnessSHA = st15SHA256(codex)
+	fields := strings.Fields(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(string(versionOut)), "Muse Code ")))
+	if len(fields) == 0 {
+		return fmt.Errorf("muse version unparseable: %q", strings.TrimSpace(string(versionOut)))
+	}
+	fx.versions = fields[0]
+	fx.harnessSHA = st15SHA256(muse)
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		return err
@@ -438,7 +443,7 @@ func (fx *st15Fixture) setupHostStack() error {
 	var auth []byte
 	if credentialPath == "" {
 		fx.synthetic = true
-		auth = []byte(`{"tokens":{"id_token":"ST15-SYNTHETIC-NONCREDENTIAL","access_token":"ST15-SYNTHETIC-NONCREDENTIAL","refresh_token":"ST15-SYNTHETIC-NONCREDENTIAL","account_id":"st15-synthetic"}}`)
+		auth = []byte(`{"api_key":"ST15-SYNTHETIC-NONCREDENTIAL"}`)
 	} else {
 		raw, err := os.ReadFile(credentialPath)
 		if err != nil {
@@ -450,7 +455,7 @@ func (fx *st15Fixture) setupHostStack() error {
 	if !identity.CredentialValid(auth) {
 		return errors.New("provider credential unusable")
 	}
-	conn := identity.Connection{ID: "st15-codex", ProviderID: identity.Codex, OwnerID: fx.cfg.CreatorID, Label: "st15-fixture", State: identity.Ready, Generation: 1}
+	conn := identity.Connection{ID: "st15-muse-code", ProviderID: identity.MuseCode, OwnerID: fx.cfg.CreatorID, Label: "st15-fixture", State: identity.Ready, Generation: 1}
 	if err = brokerDB.IdentitySaveConnection(fx.ctx, conn, auth); err != nil {
 		return err
 	}
@@ -469,11 +474,12 @@ func (fx *st15Fixture) setupHostStack() error {
 	}
 	daemonCfg, err := json.Marshal(map[string]any{
 		"muse_sha256": "", "muse_version": "", "muse_socket": "",
-		"identity_socket":       runtimeSocket,
-		"codex_harness":         filepath.Join(scratch, "harness"),
-		"codex_harness_sha256":  fx.harnessSHA,
-		"codex_harness_version": fx.versions,
-		"tailnet_management":    false, "tailnet_image": "",
+		"identity_socket": runtimeSocket,
+		"codex_harness":   "", "codex_harness_sha256": "", "codex_harness_version": "",
+		"muse_harness":         filepath.Join(scratch, "harness"),
+		"muse_harness_sha256":  fx.harnessSHA,
+		"muse_harness_version": fx.versions,
+		"tailnet_management":   false, "tailnet_image": "",
 		"image": fx.image, "network": "soda-projects",
 		"subnet": "10.89.0.0/24", "bridge": "soda0",
 	})
@@ -571,7 +577,7 @@ func (fx *st15Fixture) setupHostStack() error {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	t.Logf("ST15 host stack: container %.12s image %.16s harness codex-%s project-os %s",
+	t.Logf("ST15 host stack: container %.12s image %.16s harness muse-code-%s project-os %s",
 		strings.TrimSpace(string(id)), fx.image, fx.versions, strings.TrimSpace(string(osRelease)))
 	if pin.Version != fx.versions {
 		return fmt.Errorf("harness pin %q differs from staged %q", pin.Version, fx.versions)
