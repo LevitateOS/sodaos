@@ -299,23 +299,17 @@ pub fn print_build_artifacts(candidate: &str, media: &str, scope: &str) {
     let _ = writeln!(stderr, "{scope}");
 }
 
-/// Parent dispatch up to the release-pipeline boundary: the config is
-/// admitted locally, then worker execution (live-input resolution plus the
-/// systemd sandbox run) needs the owning pipeline port.
+/// Parent dispatch: admit the config, run the isolated worker, and
+/// report the produced artifacts.
 pub fn run_parent_build(
     worker_config_path: &str,
     r: &Request,
     progress: &mut BuildProgress,
 ) -> Result<(), String> {
     let config = worker::load_worker_config(worker_config_path, r)?;
-    let boundary = if r.wants_media() {
-        "P1-P8 / Isolated source-to-media worker"
-    } else {
-        "P1-P6 / Isolated development candidate worker"
-    };
-    progress.phase(boundary)?;
-    let _ = config;
-    Err("isolated worker dispatch requires the release pipeline port (live inputs and sandbox execution are not yet implemented)".to_owned())
+    let result = worker::run_build_worker(&config, r, progress)?;
+    print_build_artifacts(&result.candidate, &result.media, &result.scope);
+    Ok(())
 }
 
 pub fn run() -> Result<(), ToolError> {
@@ -347,10 +341,10 @@ pub fn run() -> Result<(), ToolError> {
     if let Err(e) = bind_build_source(&mut f.request) {
         err = Some(ToolError::msg(e));
     } else if f.worker_build {
-        // Worker-stage image build: the owning pipeline port.
-        err = Some(ToolError::msg(
-            "worker-stage image build requires the release pipeline port (not yet implemented)",
-        ));
+        // Worker-stage image build: stage completion only.
+        if let Err(e) = crate::pipeline::run_worker_stage(&f.request, &mut progress) {
+            err = Some(ToolError::msg(e));
+        }
     } else if let Err(e) = run_parent_build(&f.worker_config, &f.request, &mut progress) {
         err = Some(ToolError::msg(e));
     }
