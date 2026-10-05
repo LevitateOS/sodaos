@@ -1197,29 +1197,39 @@ pub fn run_build_command(
     // Never copy raw argv, environment or stdin into the progress/evidence stream.
     writeln!(log, "\nCOMMAND {base}").map_err(Error::from)?;
     let mut child = command.spawn().map_err(|e| Error::msg(e.to_string()))?;
-    loop {
+    // D03-F1: drain both pipes concurrently with the exit poll. A child
+    // filling the pipe buffer would otherwise block forever while the
+    // parent waits for exit. Same shape as the worker drain threads.
+    let stdout_drain = drain_pipe(child.stdout.take());
+    let stderr_drain = drain_pipe(child.stderr.take());
+    let status = loop {
         match child.try_wait().map_err(|e| Error::msg(e.to_string()))? {
-            Some(_) => break,
+            Some(status) => break status,
             None if cancel.is_cancelled() => {
                 let _ = child.kill();
                 let _ = child.wait();
+                let _ = stdout_drain.map(|t| t.join());
+                let _ = stderr_drain.map(|t| t.join());
                 return Err(Error::msg(format!(
                     "{base} failed; retain attempt and inspect build.log: build cancelled"
                 )));
             }
             None => std::thread::sleep(std::time::Duration::from_millis(10)),
         }
-    }
-    let completed = child
-        .wait_with_output()
-        .map_err(|e| Error::msg(e.to_string()))?;
-    log.write_all(&completed.stderr).map_err(Error::from)?;
-    let text = String::from_utf8_lossy(&completed.stdout).into_owned();
+    };
+    let stdout_bytes = stdout_drain
+        .map(|t| t.join().unwrap_or_default())
+        .unwrap_or_default();
+    let stderr_bytes = stderr_drain
+        .map(|t| t.join().unwrap_or_default())
+        .unwrap_or_default();
+    log.write_all(&stderr_bytes).map_err(Error::from)?;
+    let text = String::from_utf8_lossy(&stdout_bytes).into_owned();
     match output {
         None => {}
         Some(out) => {
-            log.write_all(&completed.stdout).map_err(Error::from)?;
-            out.write_all(&completed.stdout).map_err(Error::from)?;
+            log.write_all(&stdout_bytes).map_err(Error::from)?;
+            out.write_all(&stdout_bytes).map_err(Error::from)?;
         }
     }
     if cancel.is_cancelled() {
@@ -1227,8 +1237,8 @@ pub fn run_build_command(
             "{base} failed; retain attempt and inspect build.log: build cancelled"
         )));
     }
-    if !completed.status.success() {
-        let reason = match completed.status.code() {
+    if !status.success() {
+        let reason = match status.code() {
             Some(code) => format!("exit status {code}"),
             None => "terminated by signal".to_string(),
         };
@@ -1237,6 +1247,18 @@ pub fn run_build_command(
         )));
     }
     Ok(text.trim().to_string())
+}
+
+fn drain_pipe<R: std::io::Read + Send + 'static>(
+    pipe: Option<R>,
+) -> Option<std::thread::JoinHandle<Vec<u8>>> {
+    pipe.map(|mut pipe| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            let _ = pipe.read_to_end(&mut buf);
+            buf
+        })
+    })
 }
 
 /// linkPreparedAssets points the snapshot at the already-built frontend
@@ -1322,6 +1344,52 @@ mod tests {
             err.0,
             "sh failed; retain attempt and inspect build.log: exit status 3"
         );
+    }
+
+    #[test]
+    fn run_build_command_drains_saturated_pipes() {
+        // D03-F1: 256 KiB on each stream exceeds the 64 KiB pipe buffer;
+        // the executor must drain concurrently instead of hanging forever.
+        let cancel = Cancel::new();
+        let mut log: Vec<u8> = Vec::new();
+        let out = run_build_command(
+            &cancel,
+            &mut log,
+            None,
+            "/tmp",
+            "sh",
+            &[
+                "-c".to_string(),
+                "head -c 262144 /dev/zero >&2; head -c 262144 /dev/zero".to_string(),
+            ],
+        )
+        .unwrap();
+        assert_eq!(out.len(), 262144);
+        assert!(log.len() >= 262144);
+    }
+
+    #[test]
+    fn run_build_command_cancel_kills_and_reports() {
+        // D03-F1: cancellation during a slow child kills it and reports
+        // promptly; the concurrent drains are reaped without hanging.
+        let cancel = Cancel::new();
+        let mut log: Vec<u8> = Vec::new();
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+                cancel.cancel();
+            });
+            let err = run_build_command(
+                &cancel,
+                &mut log,
+                None,
+                "/tmp",
+                "sh",
+                &["-c".to_string(), "sleep 30".to_string()],
+            )
+            .unwrap_err();
+            assert!(err.0.contains("build cancelled"), "unexpected: {}", err.0);
+        });
     }
 
     #[test]
