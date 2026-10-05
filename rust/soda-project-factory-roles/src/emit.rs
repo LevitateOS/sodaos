@@ -173,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn emit_matches_cpython() {
+    fn emit_matches_reference() {
         // Baked against CPython json.dumps (default separators, ensure_ascii).
         let value = obj(vec![
             ("roles", JsonValue::Array(vec![str_value("soda-coder")])),
@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn equality_matches_python() {
+    fn equality_matches_reference() {
         // Order-insensitive, last-wins.
         assert!(json_equal(
             &parse("{\"a\": 1, \"b\": [1, {\"x\": null}]}"),

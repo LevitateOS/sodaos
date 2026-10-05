@@ -284,13 +284,13 @@ mod tests {
         let (git, _) = scratch.git_script("git-ok", 0);
         let ctx = scratch.ctx(&git);
         crate::ops_approve::do_approve(&ctx, &approve_default(PID)).unwrap();
-        let result = do_record(&ctx, &record_value(PID, "python3", None)).unwrap();
+        let result = do_record(&ctx, &record_value(PID, "node22", None)).unwrap();
         assert_eq!(result.get("recorded").and_then(|v| v.as_str()), Some(PID));
         assert_eq!(result.get("waiting").and_then(|v| v.as_bool()), Some(true));
         let ready = do_record(&ctx, &record_value(PID2, "", None));
         assert_fail(ready, "unknown preparation identity");
         // Identical repeat is accepted; changed evidence conflicts.
-        assert!(do_record(&ctx, &record_value(PID, "python3", None)).is_ok());
+        assert!(do_record(&ctx, &record_value(PID, "node22", None)).is_ok());
         assert_fail(
             do_record(&ctx, &record_value(PID, "other-tool", None)),
             "preparation already carries different tool evidence",
@@ -345,9 +345,9 @@ mod tests {
             Err(Error::Fail(text)) => assert_eq!(text, "tool evidence is not recorded"),
             other => panic!("unexpected {other:?}"),
         }
-        do_record(&ctx, &record_value(PID, "python3", None)).unwrap();
+        do_record(&ctx, &record_value(PID, "node22", None)).unwrap();
         match start_prestate(&ctx, &directory) {
-            Err(Error::Fail(text)) => assert_eq!(text, "missing prerequisite bars setup: python3"),
+            Err(Error::Fail(text)) => assert_eq!(text, "missing prerequisite bars setup: node22"),
             other => panic!("unexpected {other:?}"),
         }
     }

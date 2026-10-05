@@ -119,7 +119,7 @@ func productionFixture(t *testing.T) (Production, *[]string) {
 			for i, a := range args {
 				if a == "-p" && i+1 < len(args) {
 					bin := args[i+1]
-					if renamed, ok := map[string]string{"soda-project-terminal": "project-terminal"}[bin]; ok {
+					if renamed, ok := map[string]string{"soda-project-terminal": "project-terminal", "soda-project-factory-roles": "project-factory-roles"}[bin]; ok {
 						bin = renamed
 					}
 					return writeELF(filepath.Join(dir, "target", "release", bin))

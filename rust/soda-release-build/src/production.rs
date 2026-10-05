@@ -221,6 +221,11 @@ impl Production {
             "project-terminal",
             &bindir.join("project-terminal").to_string_lossy(),
         )?;
+        self.compile_rust(
+            "soda-project-factory-roles",
+            "project-factory-roles",
+            &bindir.join("project-factory-roles").to_string_lossy(),
+        )?;
         let native = self.native.clone();
         let steps: Vec<(&str, Vec<String>)> = vec![
             (
@@ -948,6 +953,9 @@ mod tests {
                         let mut bin = args[i + 1].clone();
                         if bin == "soda-project-terminal" {
                             bin = "project-terminal".to_string();
+                        }
+                        if bin == "soda-project-factory-roles" {
+                            bin = "project-factory-roles".to_string();
                         }
                         let dest = PathBuf::from(dir).join("target/release").join(bin);
                         std::fs::create_dir_all(dest.parent().unwrap()).unwrap();

@@ -512,7 +512,7 @@ mod tests {
         write_proot_stat(
             &proot,
             "46",
-            "46 (python3) S 1 46 45 0 -1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0",
+            "46 (worker) S 1 46 45 0 -1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0",
         );
         write_proot_stat(
             &proot,
@@ -529,7 +529,7 @@ mod tests {
         write_proot_stat(
             &proot,
             "46",
-            "46 (python3) Z 1 46 45 0 -1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0",
+            "46 (worker) Z 1 46 45 0 -1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0",
         );
         write_proot_stat(
             &proot,
@@ -692,12 +692,12 @@ mod tests {
         );
         assert_eq!(state.get("ready").and_then(|v| v.as_bool()), Some(false));
         assert_eq!(state.get("setup_log").and_then(|v| v.as_str()), Some(""));
-        crate::ops_record::do_record(&ctx, &record_value(PID, "python3", None)).unwrap();
+        crate::ops_record::do_record(&ctx, &record_value(PID, "node22", None)).unwrap();
         let state = do_inspect(&ctx, &op_value("inspect", Some(PID))).unwrap();
         assert_eq!(state.get("phase").and_then(|v| v.as_str()), Some("waiting"));
         assert_eq!(
             state.get("missing").and_then(|v| v.as_str()),
-            Some("python3")
+            Some("node22")
         );
         // Launcher refusal fails without any start.
         crate::ops_approve::do_approve(&ctx, &approve_default(PID2)).unwrap();

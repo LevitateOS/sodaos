@@ -37,9 +37,10 @@ COPY ${ARTIFACT_DIR}/project-tools/licenses/tea/LICENSE /usr/local/share/license
 COPY project-os/rootfs/ /
 # Same fixed program the host daemon verifies; never downloaded or installed on Open.
 COPY ${ARTIFACT_DIR}/project-tools/bin/project-terminal /usr/libexec/soda/project-terminal
+COPY ${ARTIFACT_DIR}/project-tools/bin/project-factory-roles /usr/libexec/soda/project-factory-roles
 # Check the final userspace after all package operations, not just the base tag.
 RUN . /etc/os-release && test "$ID:$VERSION_ID" = "rocky:10.2" && \
-    chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account /usr/libexec/soda/project-factory-roles && \
+    chmod 0755 /usr/libexec/soda/project-init /usr/libexec/soda/project-account && \
     chmod 0440 /etc/sudoers.d/soda-project && \
     systemctl enable sshd.service soda-project-init.service soda-podman.socket && \
     rm -f /etc/ssh/ssh_host_* && truncate -s 0 /etc/machine-id

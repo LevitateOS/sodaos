@@ -1,414 +1,481 @@
-// Port of test_project_factory_roles.py: factory helper state machine.
-//
-// project-factory-roles is still Python, so a driver per case reproduces the
-// setUp doubles plus the test body and reports observations as JSON; every
-// assertion below lives in Go.
+// Behavioral coverage for the project-factory-roles helper. Every case
+// drives the compiled Rust binary with the factory redirected to a
+// test-owned directory plus a recording stand-in for git; the embedded
+// interpreter driver is gone and no interpreter runs anywhere here.
 package build
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
-// rolesDriver is the setUp doubles plus one case body from
-// test_project_factory_roles.py, printing a JSON observation object.
-const rolesDriver = `
-import base64, hashlib, importlib.machinery, importlib.util, json, os, sys, types
-from pathlib import Path
-from unittest.mock import patch
+const (
+	rolesPID    = "f0123456789abcdef01234567"
+	rolesPID2   = "f123456789abcdef012345678"
+	rolesCommit = "cccccccccccccccccccccccccccccccccccccccc"
+	// Fixed refusal contract: exit 1, empty stdout, this stderr line.
+	rolesFixedStderr = "factory preparation unconfirmed; inspect native state and managed files\n"
+)
 
-repo, root, case = sys.argv[1], Path(sys.argv[2]), sys.argv[3]
-source = Path(repo) / 'project-os/rootfs/usr/libexec/soda/project-factory-roles'
-loader = importlib.machinery.SourceFileLoader('project_factory_roles', str(source))
-spec = importlib.util.spec_from_loader(loader.name, loader)
-roles = importlib.util.module_from_spec(spec)
-loader.exec_module(roles)
-
-PID = 'f0123456789abcdef01234567'
-COMMIT = 'c' * 40
-
-def canonical_digest(files):
-    digest = hashlib.sha256()
-    for name in sorted(files):
-        digest.update(name.encode() + b'\x00' + files[name])
-    return digest.hexdigest()
-
-def approve_request(**overrides):
-    raw = {'setup.sh': b'true\n', 'check.sh': b'true\n'}
-    files = {name: base64.b64encode(contents).decode() for name, contents in raw.items()}
-    request = {'op': 'approve', 'id': PID, 'role': 'soda-coder',
-               'setup_digest': canonical_digest(raw), 'source_commit': COMMIT,
-               'files': files, 'bundle': base64.b64encode(b'bundle').decode(), 'credential': ''}
-    request.update(overrides)
-    return request
-
-factory = root / 'factory'
-users, commands = {}, []
-patch.object(roles, 'FACTORY', factory).start()
-patch.object(roles, 'PREPARATIONS', factory / 'preparations').start()
-patch.object(roles, 'CREDENTIALS', factory / 'credentials').start()
-patch.object(roles, 'HOLD', factory / 'maintenance-hold').start()
-patch.object(roles, 'LOCK', factory / 'lock').start()
-patch.object(roles.os, 'geteuid', return_value=0).start()
-patch.object(roles.os, 'chown', return_value=None).start()
-native_fstat, native_lstat = os.fstat, Path.lstat
-
-def root_owner(info):
-    fields = {name: getattr(info, name) for name in dir(info) if name.startswith('st_')}
-    fields.update(st_uid=0, st_gid=0)
-    return types.SimpleNamespace(**fields)
-
-def home_owner(path, info):
-    text = str(path)
-    for user in users.values():
-        if text == user.pw_dir or text.startswith(user.pw_dir + '/'):
-            info.st_uid, info.st_gid = user.pw_uid, user.pw_gid
-    return info
-
-patch.object(roles.os, 'fstat', side_effect=lambda fd: root_owner(native_fstat(fd))).start()
-patch.object(Path, 'lstat', lambda path: home_owner(path, root_owner(native_lstat(path)))).start()
-
-def lookup(name):
-    if name not in users:
-        raise KeyError(name)
-    return users[name]
-
-def groups():
-    return [types.SimpleNamespace(gr_name=name, gr_mem=[name]) for name in users]
-
-def primary(gid):
-    for name, user in users.items():
-        if user.pw_gid == gid:
-            return types.SimpleNamespace(gr_name=name)
-    raise KeyError(gid)
-
-def run_command(args, **options):
-    commands.append(args)
-    if args[0] == 'useradd':
-        home = root / args[-1]
-        home.mkdir(mode=0o700, exist_ok=True)
-        uid = 2000 + len(users)
-        users[args[-1]] = types.SimpleNamespace(
-            pw_name=args[-1], pw_dir=str(home), pw_uid=uid, pw_gid=uid, pw_shell=roles.NOLOGIN)
-        return types.SimpleNamespace(stdout=b'')
-    if args[0] == roles.GIT:
-        return types.SimpleNamespace(stdout=b'')
-    raise AssertionError('unexpected native command: %r' % (args,))
-
-patch.object(roles.pwd, 'getpwnam', side_effect=lookup).start()
-patch.object(roles.subprocess, 'run', side_effect=run_command).start()
-patch.object(roles.grp, 'getgrall', side_effect=groups).start()
-patch.object(roles.grp, 'getgrgid', side_effect=primary).start()
-
-def approve(**overrides):
-    return roles.do_approve(approve_request(**overrides))
-
-def record(missing='', refusal=''):
-    verified = {'uid': str(os.getuid()), 'login': 'soda-coder', 'groups': 'soda-coder'}
-    if refusal:
-        verified['refusal'] = refusal
-    return roles.do_record({'op': 'record', 'id': PID, 'tools': [], 'missing': missing, 'verified': verified})
-
-def attempt(fn, *args, **kwargs):
-    try:
-        return {'mro': None, 'value': fn(*args, **kwargs)}
-    except Exception as failure:
-        return {'mro': [c.__name__ for c in type(failure).__mro__]}
-
-def b64(path):
-    return base64.b64encode(path.read_bytes()).decode()
-
-def mode(path):
-    return path.stat().st_mode & 0o777
-
-obs = {}
-if case == 'ensure':
-    obs['result'] = roles.do_ensure({'op': 'ensure'})
-    obs['names'] = [command[0] for command in commands]
-    obs['cmd0'] = commands[0]
-    obs['count_before'] = len(commands)
-    roles.do_ensure({'op': 'ensure'})
-    obs['count_after'] = len(commands)
-elif case == 'ensure_refuses':
-    home = root / 'soda-coder'
-    home.mkdir(mode=0o700)
-    users['soda-coder'] = types.SimpleNamespace(
-        pw_name='soda-coder', pw_dir=str(home), pw_uid=0, pw_gid=0, pw_shell='/bin/bash')
-    obs['attempt'] = attempt(roles.do_ensure, {'op': 'ensure'})
-elif case == 'approve_snapshot':
-    result = approve()
-    snapshot = factory / 'preparations' / PID / 'snapshot'
-    obs['approved'] = result['approved']
-    obs['setup'] = b64(snapshot / 'setup.sh')
-    obs['setup_mode'] = mode(snapshot / 'setup.sh')
-    obs['git_clone'] = any(command[:2] == [roles.GIT, 'clone'] for command in commands)
-    obs['verify_tmp'] = (snapshot / 'verify-tmp').exists()
-    obs['repeated'] = bool(approve()['repeated'])
-    obs['bad_digest'] = attempt(approve, setup_digest='e' * 64)
-elif case == 'approve_rejects':
-    bad = [dict(role='root'), dict(id='../escape'), dict(setup_digest='zz'),
-           dict(source_commit='short'), dict(credential='../x'),
-           dict(files={'setup.sh': base64.b64encode(b'x').decode()}),
-           dict(bundle='!!!'), dict(extra=1)]
-    obs['attempts'] = [attempt(approve, **values) for values in bad]
-    obs['commands'] = commands
-elif case == 'record_phases':
-    approve()
-    obs['waiting'] = bool(record(missing='python3')['waiting'])
-    state = roles.do_inspect({'op': 'inspect', 'id': PID})
-    obs['state'] = [state['phase'], state['missing'], state['ready']]
-    obs['changed_missing'] = attempt(record, missing='other-tool')
-elif case == 'launcher_refusal':
-    approve()
-    record(refusal='role holds unexpected groups')
-    obs['phase'] = roles.do_inspect({'op': 'inspect', 'id': PID})['phase']
-    obs['start'] = attempt(roles.do_start, {'op': 'start', 'id': PID})
-elif case == 'start_spawns':
-    approve()
-    record()
-    started_path = factory / 'preparations' / PID / 'started.json'
-    def fake_fork():
-        started_path.write_text(json.dumps({'pid': 999, 'pgid': 999}))
-        return 999
-    with patch.object(roles.os, 'fork', side_effect=fake_fork):
-        with patch.object(roles.os, 'waitpid', return_value=(999, 0)):
-            with patch.object(roles, 'group_alive', return_value=True):
-                obs['result'] = roles.do_start({'op': 'start', 'id': PID})
-    with patch.object(roles, 'group_alive', return_value=True):
-        obs['phase'] = roles.do_inspect({'op': 'inspect', 'id': PID})['phase']
-elif case == 'dead_supervisor':
-    approve()
-    record()
-    (factory / 'preparations' / PID / 'started.json').write_text(json.dumps({'pid': 999, 'pgid': 999}))
-    with patch.object(roles, 'group_alive', return_value=False):
-        obs['phase'] = roles.do_inspect({'op': 'inspect', 'id': PID})['phase']
-        obs['start'] = attempt(roles.do_start, {'op': 'start', 'id': PID})
-elif case == 'stop_bars':
-    stopped = roles.do_stop({'op': 'stop', 'id': PID})
-    obs['unknown'] = [stopped['known'], stopped['retirement']]
-    obs['approve_blocked'] = attempt(approve)
-    other = approve_request(id='f123456789abcdef012345678')
-    roles.do_approve(other)
-    roles.do_record({'op': 'record', 'id': other['id'], 'tools': [], 'missing': '',
-                     'verified': {'uid': '1', 'login': 'soda-coder', 'groups': 'soda-coder'}})
-    with patch.object(roles, 'group_alive', return_value=False):
-        stopped = roles.do_stop({'op': 'stop', 'id': other['id']})
-    obs['known'] = [stopped['known'], stopped['retirement']]
-    state = roles.do_inspect({'op': 'inspect', 'id': other['id']})
-    obs['state'] = [state['phase'], state['stopped']]
-elif case == 'hold_release':
-    approve()
-    obs['held'] = bool(roles.do_hold({'op': 'hold', 'revision': 1})['hold']['active'])
-    obs['approve_blocked'] = attempt(approve, id='f123456789abcdef012345678')
-    obs['release_wrong_rev'] = attempt(roles.do_release, {'op': 'release', 'revision': 2})
-    directory = factory / 'preparations' / PID
-    (directory / 'started.json').write_text(json.dumps({'pid': 999, 'pgid': 999}))
-    with patch.object(roles, 'group_alive', return_value=True):
-        obs['release_running'] = attempt(roles.do_release, {'op': 'release', 'revision': 1})
-    roles.do_stop({'op': 'stop', 'id': PID})
-    obs['released'] = bool(roles.do_release({'op': 'release', 'revision': 1})['hold']['active'])
-elif case == 'proc_group':
-    proot = root / 'proc'
-    (proot / '46').mkdir(parents=True)
-    (proot / '46' / 'stat').write_text('46 (python3) S 1 46 45 0 -1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0')
-    (proot / '47').mkdir()
-    (proot / '47' / 'stat').write_text('47 (my) proc) S 46 46 45 0 -1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0')
-    account = types.SimpleNamespace(pw_uid=2000, pw_gid=2000)
-    obs['alive46'] = bool(roles.group_alive(46, proot))
-    obs['alive45'] = bool(roles.group_alive(45, proot))
-    obs['owned'] = bool(roles.leader_owned_by({'pid': 46, 'pgid': 46}, account, proot))
-    obs['wrong_pgid'] = bool(roles.leader_owned_by({'pid': 46, 'pgid': 45}, account, proot))
-    obs['missing_pid'] = bool(roles.leader_owned_by({'pid': 999, 'pgid': 46}, account, proot))
-    (proot / '46' / 'stat').write_text('46 (python3) Z 1 46 45 0 -1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0')
-    (proot / '47' / 'stat').write_text('47 (sleep) Z 46 46 45 0 -1 0 0 0 0 0 0 0 0 0 0 1 0 1 0 0 0 0')
-    obs['zombie_alive'] = bool(roles.group_alive(46, proot))
-    obs['zombie_owned'] = bool(roles.leader_owned_by({'pid': 46, 'pgid': 46}, account, proot))
-elif case == 'run_as_role':
-    patch.object(roles.os, 'geteuid', return_value=os.getuid()).start()
-    account = types.SimpleNamespace(pw_uid=os.getuid(), pw_gid=os.getgid())
-    work = root / 'work'
-    work.mkdir()
-    log = str(root / 'test.log')
-    obs['code'] = roles.run_as_role(
-        ['/bin/sh', '-c', 'echo out; exit 3'], {'PATH': '/usr/bin:/bin'}, str(work), log, account)
-    obs['log'] = b64(Path(log))
-    with patch.object(roles, 'LOG_CAP', 4):
-        roles.run_as_role(['/bin/sh', '-c', 'echo overflow'],
-                          {'PATH': '/usr/bin:/bin'}, str(work), log, account)
-    obs['truncated'] = b64(Path(log))
-else:
-    raise SystemExit('unknown case: ' + case)
-print(json.dumps(obs))
-`
-
-// runRolesCase runs one driver case in a fresh temp root and returns its
-// decoded JSON observations.
-func runRolesCase(t *testing.T, caseName string) map[string]any {
-	t.Helper()
-	result := Run(t, RunOpt{}, Python3(t), "-c", rolesDriver, RepoRoot, TempDir(t), caseName)
-	Require(t, result.Code == 0, "roles driver %s failed: %s", caseName, result.Stderr)
-	var obs map[string]any
-	Require(t, json.Unmarshal([]byte(result.Stdout), &obs) == nil, "parse %s output %q", caseName, result.Stdout)
-	return obs
+// rolesEnv is one isolated helper world: a scratch factory plus a
+// recording git stand-in.
+type rolesEnv struct {
+	factory string
+	git     string
+	record  string
 }
 
-// rolesAttemptMRO extracts the exception MRO from an attempt observation
-// (nil when the driver call succeeded).
-func rolesAttemptMRO(t *testing.T, value any) []string {
+func rolesBinary(t *testing.T) string {
 	t.Helper()
-	attempt, ok := value.(map[string]any)
-	Require(t, ok, "attempt is %T", value)
-	raw, ok := attempt["mro"].([]any)
-	if !ok {
-		return nil
-	}
-	mro := make([]string, 0, len(raw))
-	for _, entry := range raw {
-		text, ok := entry.(string)
-		Require(t, ok, "mro entry is %T", entry)
-		mro = append(mro, text)
-	}
-	return mro
+	return CargoBinary(t, "soda-project-factory-roles", "project-factory-roles")
 }
 
-func rolesText(t *testing.T, value any) string {
+func rolesSetup(t *testing.T) rolesEnv {
 	t.Helper()
-	raw, err := base64.StdEncoding.DecodeString(value.(string))
-	Require(t, err == nil, "decode bytes: %v", err)
-	return string(raw)
+	root := TempDir(t)
+	record := filepath.Join(root, "git.record")
+	git := filepath.Join(root, "git")
+	script := fmt.Sprintf("#!/bin/sh\n{ echo '---'; printf '<%%s>\\n' \"$@\"; } >> '%s'\nexit 0\n", record)
+	WriteFile(t, git, []byte(script), 0o755)
+	return rolesEnv{factory: filepath.Join(root, "factory"), git: git, record: record}
 }
 
-func rolesStrings(t *testing.T, value any) []string {
+// rolesRun pipes one request body to the helper and captures the result.
+func rolesRun(t *testing.T, fenv rolesEnv, stdin []byte) ProcResult {
 	t.Helper()
-	raw, ok := value.([]any)
-	Require(t, ok, "list is %T", value)
-	out := make([]string, 0, len(raw))
-	for _, entry := range raw {
-		text, ok := entry.(string)
-		Require(t, ok, "list entry is %T", entry)
-		out = append(out, text)
+	cmd := exec.Command(rolesBinary(t))
+	cmd.Env = SetEnv(SetEnv(os.Environ(), "SODA_FACTORY_DIR", fenv.factory), "SODA_FACTORY_GIT", fenv.git)
+	cmd.Stdin = bytes.NewReader(stdin)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	code := 0
+	if err != nil {
+		if exit, ok := err.(*exec.ExitError); ok {
+			code = exit.ExitCode()
+		} else {
+			t.Fatalf("run helper: %v", err)
+		}
 	}
-	return out
+	return ProcResult{Code: code, Stdout: stdout.String(), Stderr: stderr.String()}
+}
+
+// rolesOK runs a request that must succeed and returns its decoded JSON.
+func rolesOK(t *testing.T, fenv rolesEnv, body []byte) map[string]any {
+	t.Helper()
+	result := rolesRun(t, fenv, body)
+	Require(t, result.Code == 0, "helper failed: code=%d stderr=%q", result.Code, result.Stderr)
+	Require(t, result.Stderr == "", "stderr = %q", result.Stderr)
+	var decoded map[string]any
+	Require(t, json.Unmarshal([]byte(result.Stdout), &decoded) == nil, "parse %q", result.Stdout)
+	return decoded
+}
+
+// rolesRefused runs a request that must fail with the fixed contract.
+func rolesRefused(t *testing.T, fenv rolesEnv, body []byte) {
+	t.Helper()
+	result := rolesRun(t, fenv, body)
+	Check(t, result.Code == 1, "code = %d (stdout=%q stderr=%q)", result.Code, result.Stdout, result.Stderr)
+	Check(t, result.Stdout == "", "stdout = %q", result.Stdout)
+	Check(t, result.Stderr == rolesFixedStderr, "stderr = %q", result.Stderr)
+}
+
+// rolesDigest recomputes the canonical approved-inputs digest.
+func rolesDigest(files map[string][]byte) string {
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	sum := sha256.New()
+	for _, name := range names {
+		sum.Write([]byte(name))
+		sum.Write([]byte{0})
+		sum.Write(files[name])
+	}
+	return fmt.Sprintf("%x", sum.Sum(nil))
+}
+
+func rolesMarshal(t *testing.T, value map[string]any) []byte {
+	t.Helper()
+	body, err := json.Marshal(value)
+	Require(t, err == nil, "marshal: %v", err)
+	return body
+}
+
+func rolesApprove(t *testing.T, pid, role string, files map[string][]byte, bundle []byte, credential string) []byte {
+	t.Helper()
+	encoded := map[string]string{}
+	for name, contents := range files {
+		encoded[name] = base64.StdEncoding.EncodeToString(contents)
+	}
+	return rolesMarshal(t, map[string]any{
+		"op": "approve", "id": pid, "role": role,
+		"setup_digest": rolesDigest(files), "source_commit": rolesCommit,
+		"files": encoded, "bundle": base64.StdEncoding.EncodeToString(bundle), "credential": credential,
+	})
+}
+
+func rolesFixture(t *testing.T, pid string) []byte {
+	t.Helper()
+	return rolesApprove(t, pid, "soda-coder",
+		map[string][]byte{"setup.sh": []byte("true\n"), "check.sh": []byte("true\n")},
+		[]byte("bundle"), "")
+}
+
+func rolesRecord(t *testing.T, pid, missing, refusal string) []byte {
+	t.Helper()
+	verified := map[string]any{"uid": "1", "login": "soda-coder", "groups": "soda-coder"}
+	if refusal != "" {
+		verified["refusal"] = refusal
+	}
+	return rolesMarshal(t, map[string]any{
+		"op": "record", "id": pid, "tools": []any{}, "missing": missing, "verified": verified,
+	})
+}
+
+func rolesOp(t *testing.T, op, pid string) []byte {
+	t.Helper()
+	value := map[string]any{"op": op}
+	if pid != "" {
+		value["id"] = pid
+	}
+	return rolesMarshal(t, value)
+}
+
+func rolesMode(t *testing.T, path string) os.FileMode {
+	t.Helper()
+	info, err := os.Stat(path)
+	Require(t, err == nil, "stat %s: %v", path, err)
+	return info.Mode().Perm()
+}
+
+func rolesWaitFile(t *testing.T, path string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for {
+		if _, err := os.Stat(path); err == nil {
+			return
+		}
+		Require(t, time.Now().Before(deadline), "timed out waiting for %s", path)
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// rolesDeadPGID returns a process group that just exited: a group leader
+// is spawned, reaped, and proven gone before its pgid is handed out.
+func rolesDeadPGID(t *testing.T) int {
+	t.Helper()
+	cmd := exec.Command("/bin/true")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	Require(t, cmd.Start() == nil, "spawn true")
+	pgid := cmd.Process.Pid
+	Require(t, cmd.Wait() == nil, "reap true")
+	Require(t, !rolesGroupAlive(pgid), "group %d unexpectedly alive", pgid)
+	return pgid
+}
+
+// rolesGroupAlive reports whether any non-zombie process keeps pgid.
+func rolesGroupAlive(pgid int) bool {
+	want := fmt.Sprintf("%d", pgid)
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if name == "" {
+			continue
+		}
+		digits := true
+		for i := 0; i < len(name); i++ {
+			if name[i] < '0' || name[i] > '9' {
+				digits = false
+				break
+			}
+		}
+		if !digits {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join("/proc", name, "stat"))
+		if err != nil {
+			continue
+		}
+		text := string(raw)
+		idx := strings.LastIndexByte(text, ')')
+		if idx < 0 {
+			continue
+		}
+		fields := strings.Fields(text[idx+1:])
+		if len(fields) < 3 || fields[0] == "Z" || fields[2] != want {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func TestRolesEnsureProvisionsLockedRolesWithoutExtraGroups(t *testing.T) {
-	obs := runRolesCase(t, "ensure")
-	result, ok := obs["result"].(map[string]any)
-	Require(t, ok, "result is %T", obs["result"])
-	Check(t, len(rolesStrings(t, result["roles"])) == 2, "roles = %v", result["roles"])
-	names := rolesStrings(t, obs["names"])
-	Require(t, len(names) == 2, "commands = %v", names)
-	Check(t, names[0] == "useradd" && names[1] == "useradd", "commands = %v", names)
-	cmd := rolesStrings(t, obs["cmd0"])
-	found := false
-	for i, word := range cmd {
-		if word == "--password" && i+1 < len(cmd) {
-			Check(t, cmd[i+1] == "!", "password = %q", cmd[i+1])
-		}
-		found = found || word == "--shell"
+	fenv := rolesSetup(t)
+	decoded := rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	roles, ok := decoded["roles"].([]any)
+	Require(t, ok && len(roles) == 2, "roles = %v", decoded["roles"])
+	Check(t, roles[0] == "soda-coder" && roles[1] == "soda-reviewer", "roles = %v", roles)
+	for _, login := range []string{"soda-coder", "soda-reviewer"} {
+		home := filepath.Join(fenv.factory, "test-homes", login)
+		Check(t, rolesMode(t, home) == 0o700, "%s home mode = %o", login, rolesMode(t, home))
+		Check(t, rolesMode(t, filepath.Join(home, "checkouts")) == 0o755, "%s checkouts", login)
+		Check(t, rolesMode(t, filepath.Join(fenv.factory, "credentials", login)) == 0o755, "%s creds", login)
 	}
-	Check(t, found, "--shell missing in %v", cmd)
-	Check(t, obs["count_before"] == obs["count_after"], "rerun issued commands")
+	// Idempotent rerun with no git traffic.
+	again := rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	Check(t, fmt.Sprintf("%v", again["roles"]) == fmt.Sprintf("%v", roles), "rerun = %v", again)
+	_, err := os.Stat(fenv.record)
+	Check(t, os.IsNotExist(err), "git ran during ensure")
 }
 
 func TestRolesEnsureRefusesInteractiveOrGroupedAccounts(t *testing.T) {
-	obs := runRolesCase(t, "ensure_refuses")
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["attempt"]), "ValueError"), "mro = %v", obs["attempt"])
+	fenv := rolesSetup(t)
+	overlay := filepath.Join(fenv.factory, "test-accounts")
+	Require(t, os.MkdirAll(overlay, 0o755) == nil, "mkdir overlay")
+	WriteFile(t, filepath.Join(overlay, "soda-coder.json"), []byte(`{"shell": "/bin/bash"}`), 0o644)
+	rolesRefused(t, fenv, rolesOp(t, "ensure", ""))
 }
 
 func TestRolesApproveWritesProtectedSnapshotAndVerifiesBundle(t *testing.T) {
-	obs := runRolesCase(t, "approve_snapshot")
-	Check(t, obs["approved"] == "f0123456789abcdef01234567", "approved = %v", obs["approved"])
-	Check(t, rolesText(t, obs["setup"]) == "true\n", "setup = %q", rolesText(t, obs["setup"]))
-	Check(t, obs["setup_mode"] == float64(0o644), "setup mode = %v", obs["setup_mode"])
-	Check(t, obs["git_clone"] == true, "no git clone")
-	Check(t, obs["verify_tmp"] == false, "verify-tmp remains")
-	Check(t, obs["repeated"] == true, "repeat not reported")
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["bad_digest"]), "ValueError"), "bad digest accepted")
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	decoded := rolesOK(t, fenv, rolesFixture(t, rolesPID))
+	Check(t, decoded["approved"] == rolesPID, "approved = %v", decoded["approved"])
+	Check(t, decoded["repeated"] == false, "repeated = %v", decoded["repeated"])
+	snapshot := filepath.Join(fenv.factory, "preparations", rolesPID, "snapshot")
+	setup, err := os.ReadFile(filepath.Join(snapshot, "setup.sh"))
+	Require(t, err == nil, "read setup: %v", err)
+	Check(t, string(setup) == "true\n", "setup = %q", setup)
+	Check(t, rolesMode(t, filepath.Join(snapshot, "setup.sh")) == 0o644, "setup mode")
+	Check(t, rolesMode(t, filepath.Join(snapshot, "source.bundle")) == 0o644, "bundle mode")
+	// Exact verification argv, in order.
+	record, err := os.ReadFile(fenv.record)
+	Require(t, err == nil, "read git record: %v", err)
+	bundle := filepath.Join(snapshot, "source.bundle")
+	repo := filepath.Join(snapshot, "verify-tmp", "repo")
+	Check(t, strings.Contains(string(record),
+		"---\n<clone>\n<-q>\n<--no-checkout>\n<"+bundle+">\n<"+repo+">\n"), "clone argv:\n%s", record)
+	Check(t, strings.Contains(string(record),
+		"---\n<-C>\n<"+repo+">\n<cat-file>\n<-e>\n<"+rolesCommit+">\n"), "cat-file argv:\n%s", record)
+	_, err = os.Stat(filepath.Join(snapshot, "verify-tmp"))
+	Check(t, os.IsNotExist(err), "verify-tmp remains")
+	repeated := rolesOK(t, fenv, rolesFixture(t, rolesPID))
+	Check(t, repeated["repeated"] == true, "repeat not reported")
+	conflict := map[string]any{}
+	Require(t, json.Unmarshal(rolesFixture(t, rolesPID), &conflict) == nil, "decode fixture")
+	conflict["setup_digest"] = strings.Repeat("e", 64)
+	rolesRefused(t, fenv, rolesMarshal(t, conflict))
 }
 
 func TestRolesApproveRejectsUntrustedInputsBeforeEffects(t *testing.T) {
-	obs := runRolesCase(t, "approve_rejects")
-	attempts, ok := obs["attempts"].([]any)
-	Require(t, ok && len(attempts) == 8, "attempts = %v", obs["attempts"])
-	for i, attempt := range attempts {
-		Check(t, raisedAs(rolesAttemptMRO(t, attempt), "ValueError"), "input %d accepted", i)
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	var base map[string]any
+	Require(t, json.Unmarshal(rolesFixture(t, rolesPID), &base) == nil, "decode fixture")
+	clone := func() map[string]any {
+		out := map[string]any{}
+		for key, value := range base {
+			out[key] = value
+		}
+		return out
 	}
-	commands, ok := obs["commands"].([]any)
-	Require(t, ok, "commands is %T", obs["commands"])
-	Check(t, len(commands) == 0, "effects before refusal: %v", commands)
+	single := clone()
+	single["files"] = map[string]any{"setup.sh": base64.StdEncoding.EncodeToString([]byte("x"))}
+	cases := []struct {
+		name  string
+		value map[string]any
+	}{
+		{"role", func() map[string]any { v := clone(); v["role"] = "root"; return v }()},
+		{"id", func() map[string]any { v := clone(); v["id"] = "../escape"; return v }()},
+		{"digest", func() map[string]any { v := clone(); v["setup_digest"] = "zz"; return v }()},
+		{"commit", func() map[string]any { v := clone(); v["source_commit"] = "short"; return v }()},
+		{"credential", func() map[string]any { v := clone(); v["credential"] = "../x"; return v }()},
+		{"files", single},
+		{"bundle", func() map[string]any { v := clone(); v["bundle"] = "!!!"; return v }()},
+		{"extra", func() map[string]any { v := clone(); v["extra"] = 1; return v }()},
+	}
+	Require(t, len(cases) == 8, "cases = %d", len(cases))
+	for _, tc := range cases {
+		rolesRefused(t, fenv, rolesMarshal(t, tc.value))
+	}
+	_, err := os.Stat(fenv.record)
+	Check(t, os.IsNotExist(err), "git ran before refusal")
+	_, err = os.Stat(filepath.Join(fenv.factory, "preparations", rolesPID))
+	Check(t, os.IsNotExist(err), "effects before refusal")
 }
 
 func TestRolesRecordReportsWaitingAndFailedPhases(t *testing.T) {
-	obs := runRolesCase(t, "record_phases")
-	Check(t, obs["waiting"] == true, "not waiting")
-	state, ok := obs["state"].([]any)
-	Require(t, ok && len(state) == 3, "state = %v", obs["state"])
-	Check(t, state[0] == "waiting" && state[1] == "python3" && state[2] == false, "state = %v", state)
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["changed_missing"]), "ValueError"), "missing change accepted")
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	rolesOK(t, fenv, rolesFixture(t, rolesPID))
+	recorded := rolesOK(t, fenv, rolesRecord(t, rolesPID, "node22", ""))
+	Check(t, recorded["waiting"] == true, "not waiting")
+	state := rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID))
+	Check(t, state["phase"] == "waiting" && state["missing"] == "node22" && state["ready"] == false,
+		"state = %v/%v/%v", state["phase"], state["missing"], state["ready"])
+	rolesRefused(t, fenv, rolesRecord(t, rolesPID, "other-tool", ""))
 }
 
 func TestRolesLauncherRefusalFailsWithoutStart(t *testing.T) {
-	obs := runRolesCase(t, "launcher_refusal")
-	Check(t, obs["phase"] == "failed", "phase = %v", obs["phase"])
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["start"]), "ValueError"), "start after refusal accepted")
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	rolesOK(t, fenv, rolesFixture(t, rolesPID))
+	rolesOK(t, fenv, rolesRecord(t, rolesPID, "", "role holds unexpected groups"))
+	state := rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID))
+	Check(t, state["phase"] == "failed", "phase = %v", state["phase"])
+	rolesRefused(t, fenv, rolesOp(t, "start", rolesPID))
 }
 
 func TestRolesStartSpawnsSupervisorAndReportsRunning(t *testing.T) {
-	obs := runRolesCase(t, "start_spawns")
-	result, ok := obs["result"].(map[string]any)
-	Require(t, ok, "result is %T", obs["result"])
-	Check(t, result["pgid"] == float64(999), "pgid = %v", result["pgid"])
-	Check(t, obs["phase"] == "running", "phase = %v", obs["phase"])
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	rolesOK(t, fenv, rolesApprove(t, rolesPID, "soda-coder",
+		map[string][]byte{"setup.sh": []byte("sleep 120"), "check.sh": []byte("true\n")},
+		[]byte("bundle"), ""))
+	rolesOK(t, fenv, rolesRecord(t, rolesPID, "", ""))
+	started := rolesOK(t, fenv, rolesOp(t, "start", rolesPID))
+	pgid, ok := started["pgid"].(float64)
+	Require(t, ok && pgid > 0, "pgid = %v", started["pgid"])
+	t.Cleanup(func() { _ = syscall.Kill(-int(pgid), syscall.SIGKILL) })
+	state := rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID))
+	Check(t, state["phase"] == "running", "phase = %v", state["phase"])
+	repeated := rolesOK(t, fenv, rolesOp(t, "start", rolesPID))
+	Check(t, repeated["repeated"] == true, "repeat not reported")
+	_, hasPGID := repeated["pgid"]
+	Check(t, !hasPGID, "repeat carries pgid = %v", repeated["pgid"])
+	stopped := rolesOK(t, fenv, rolesOp(t, "stop", rolesPID))
+	Check(t, stopped["known"] == true && stopped["retirement"] == "confirmed", "stop = %v", stopped)
+	state = rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID))
+	Check(t, state["phase"] == "stopped" && state["stopped"] == true, "state = %v", state["phase"])
 }
 
 func TestRolesDeadSupervisorReportsInterrupted(t *testing.T) {
-	obs := runRolesCase(t, "dead_supervisor")
-	Check(t, obs["phase"] == "interrupted", "phase = %v", obs["phase"])
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["start"]), "ValueError"), "start after interrupt accepted")
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	rolesOK(t, fenv, rolesFixture(t, rolesPID))
+	rolesOK(t, fenv, rolesRecord(t, rolesPID, "", ""))
+	pgid := rolesDeadPGID(t)
+	WriteFile(t, filepath.Join(fenv.factory, "preparations", rolesPID, "started.json"),
+		[]byte(fmt.Sprintf(`{"pid": %d, "pgid": %d}`, pgid, pgid)), 0o644)
+	state := rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID))
+	Check(t, state["phase"] == "interrupted", "phase = %v", state["phase"])
+	rolesRefused(t, fenv, rolesOp(t, "start", rolesPID))
 }
 
 func TestRolesStopBarsUnknownIdentityAndRetiresKnown(t *testing.T) {
-	obs := runRolesCase(t, "stop_bars")
-	unknown, ok := obs["unknown"].([]any)
-	Require(t, ok && len(unknown) == 2, "unknown = %v", obs["unknown"])
-	Check(t, unknown[0] == false && unknown[1] == "confirmed", "unknown = %v", unknown)
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["approve_blocked"]), "ValueError"), "approve after stop accepted")
-	known, ok := obs["known"].([]any)
-	Require(t, ok && len(known) == 2, "known = %v", obs["known"])
-	Check(t, known[0] == true && known[1] == "confirmed", "known = %v", known)
-	state, ok := obs["state"].([]any)
-	Require(t, ok && len(state) == 2, "state = %v", obs["state"])
-	Check(t, state[0] == "stopped" && state[1] == true, "state = %v", state)
+	fenv := rolesSetup(t)
+	stopped := rolesOK(t, fenv, rolesOp(t, "stop", rolesPID))
+	Check(t, stopped["known"] == false && stopped["retirement"] == "confirmed", "unknown = %v", stopped)
+	rolesRefused(t, fenv, rolesFixture(t, rolesPID))
+	rolesOK(t, fenv, rolesFixture(t, rolesPID2))
+	rolesOK(t, fenv, rolesRecord(t, rolesPID2, "", ""))
+	stopped = rolesOK(t, fenv, rolesOp(t, "stop", rolesPID2))
+	Check(t, stopped["known"] == true && stopped["retirement"] == "confirmed", "known = %v", stopped)
+	state := rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID2))
+	Check(t, state["phase"] == "stopped" && state["stopped"] == true, "state = %v", state["phase"])
 }
 
 func TestRolesHoldDeniesApproveAndReleaseNeedsRevisionAndQuiescence(t *testing.T) {
-	obs := runRolesCase(t, "hold_release")
-	Check(t, obs["held"] == true, "hold not active")
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["approve_blocked"]), "ValueError"), "approve under hold accepted")
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["release_wrong_rev"]), "ValueError"), "wrong revision released")
-	Check(t, raisedAs(rolesAttemptMRO(t, obs["release_running"]), "ValueError"), "running preparation released")
-	Check(t, obs["released"] == false, "hold still active")
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	rolesOK(t, fenv, rolesFixture(t, rolesPID))
+	held := rolesOK(t, fenv, rolesMarshal(t, map[string]any{"op": "hold", "revision": 1}))
+	Check(t, held["hold"].(map[string]any)["active"] == true, "hold not active")
+	rolesRefused(t, fenv, rolesFixture(t, rolesPID2))
+	rolesRefused(t, fenv, rolesMarshal(t, map[string]any{"op": "release", "revision": 2}))
+	WriteFile(t, filepath.Join(fenv.factory, "preparations", rolesPID, "started.json"),
+		[]byte(`{"pid": 999, "pgid": 999}`), 0o644)
+	rolesRefused(t, fenv, rolesMarshal(t, map[string]any{"op": "release", "revision": 1}))
+	rolesOK(t, fenv, rolesOp(t, "stop", rolesPID))
+	released := rolesOK(t, fenv, rolesMarshal(t, map[string]any{"op": "release", "revision": 1}))
+	Check(t, released["hold"].(map[string]any)["active"] == false, "hold still active")
 }
 
-func TestRolesProcGroupReadsPgrpNotSession(t *testing.T) {
-	obs := runRolesCase(t, "proc_group")
-	Check(t, obs["alive46"] == true, "group 46 not alive")
-	Check(t, obs["alive45"] == false, "session 45 reported alive")
-	Check(t, obs["owned"] == true, "leader not owned")
-	Check(t, obs["wrong_pgid"] == false, "wrong pgid owned")
-	Check(t, obs["missing_pid"] == false, "missing pid owned")
-	Check(t, obs["zombie_alive"] == false, "zombie group alive")
-	Check(t, obs["zombie_owned"] == false, "zombie leader owned")
+func TestRolesSupervisorLivenessTracksProcessGroup(t *testing.T) {
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	rolesOK(t, fenv, rolesApprove(t, rolesPID, "soda-coder",
+		map[string][]byte{"setup.sh": []byte("sleep 120"), "check.sh": []byte("true\n")},
+		[]byte("bundle"), ""))
+	rolesOK(t, fenv, rolesRecord(t, rolesPID, "", ""))
+	started := rolesOK(t, fenv, rolesOp(t, "start", rolesPID))
+	pgid := int(started["pgid"].(float64))
+	t.Cleanup(func() { _ = syscall.Kill(-pgid, syscall.SIGKILL) })
+	Require(t, rolesGroupAlive(pgid), "supervisor group %d not alive", pgid)
+	// A crashed supervisor (group gone, no completion) reads interrupted,
+	// and the identity refuses any restart.
+	Require(t, syscall.Kill(-pgid, syscall.SIGKILL) == nil, "kill group %d", pgid)
+	deadline := time.Now().Add(10 * time.Second)
+	for rolesGroupAlive(pgid) && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	Require(t, !rolesGroupAlive(pgid), "group %d survives SIGKILL", pgid)
+	state := rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID))
+	Check(t, state["phase"] == "interrupted", "phase = %v", state["phase"])
+	rolesRefused(t, fenv, rolesOp(t, "start", rolesPID))
 }
 
 func TestRolesRunAsRoleCapturesBoundedOutputAndExit(t *testing.T) {
-	obs := runRolesCase(t, "run_as_role")
-	Check(t, obs["code"] == float64(3), "code = %v", obs["code"])
-	Check(t, rolesText(t, obs["log"]) == "out\n", "log = %q", rolesText(t, obs["log"]))
-	truncated := rolesText(t, obs["truncated"])
-	Check(t, len(truncated) >= len("[output truncated]\n") &&
-		truncated[len(truncated)-len("[output truncated]\n"):] == "[output truncated]\n",
-		"log not truncated: %q", truncated)
+	fenv := rolesSetup(t)
+	rolesOK(t, fenv, rolesOp(t, "ensure", ""))
+	rolesOK(t, fenv, rolesApprove(t, rolesPID, "soda-coder",
+		map[string][]byte{"setup.sh": []byte("echo out; exit 3"), "check.sh": []byte("echo ran")},
+		[]byte("bundle"), ""))
+	rolesOK(t, fenv, rolesRecord(t, rolesPID, "", ""))
+	rolesOK(t, fenv, rolesOp(t, "start", rolesPID))
+	rolesWaitFile(t, filepath.Join(fenv.factory, "preparations", rolesPID, "finished.json"), 30*time.Second)
+	state := rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID))
+	Check(t, state["phase"] == "failed", "phase = %v", state["phase"])
+	Check(t, state["setup_exit"] == float64(3), "setup_exit = %v", state["setup_exit"])
+	Check(t, state["check_exit"] == nil, "check ran after setup failure: %v", state["check_exit"])
+	Check(t, state["setup_log"] == "out\n", "log = %q", state["setup_log"])
+	// Output past the cap truncates with the marker.
+	rolesOK(t, fenv, rolesApprove(t, rolesPID2, "soda-coder",
+		map[string][]byte{"setup.sh": []byte("yes | head -c 70000"), "check.sh": []byte("true\n")},
+		[]byte("bundle"), ""))
+	rolesOK(t, fenv, rolesRecord(t, rolesPID2, "", ""))
+	rolesOK(t, fenv, rolesOp(t, "start", rolesPID2))
+	rolesWaitFile(t, filepath.Join(fenv.factory, "preparations", rolesPID2, "finished.json"), 30*time.Second)
+	state = rolesOK(t, fenv, rolesOp(t, "inspect", rolesPID2))
+	log, ok := state["setup_log"].(string)
+	Require(t, ok, "setup_log = %T", state["setup_log"])
+	Check(t, strings.HasSuffix(log, "\n[output truncated]\n"), "log not truncated: %q", log[len(log)-30:])
+	Check(t, len(log) == 65536+len("\n[output truncated]\n"), "log length = %d", len(log))
+}
+
+func TestRolesRejectsMalformedRequests(t *testing.T) {
+	fenv := rolesSetup(t)
+	for _, body := range []string{
+		"not json",
+		"",
+		"[1, 2]",
+		"null",
+		`{"op": "frobnicate"}`,
+		`{"id": "x"}`,
+		`{"op": "ensure", "extra": 1}`,
+		`{"op": "hold", "revision": true}`,
+		`{"op": "approve"}`,
+		`{"op": "stop", "id": "../escape"}`,
+	} {
+		rolesRefused(t, fenv, []byte(body))
+	}
+	rolesRefused(t, fenv, bytes.Repeat([]byte("x"), 4*1024*1024+65536+1))
 }
