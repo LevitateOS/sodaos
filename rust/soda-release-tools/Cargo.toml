@@ -24,5 +24,8 @@ path = "src/bin/soda-artifacts.rs"
 
 [dependencies]
 soda-json = { path = "../soda-json" }
+soda-release-build = { path = "../soda-release-build" }
+soda-release-deliver = { path = "../soda-release-deliver" }
+soda-release-image = { path = "../soda-release-image" }
 libc = "=0.2.190"
 sha2 = "0.10"
