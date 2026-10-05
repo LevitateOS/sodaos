@@ -294,14 +294,7 @@ impl ImageProduction for RealProduction {
     }
 
     fn capture(&self, dir: &str, name: &str, args: &[String]) -> Result<String, ImageError> {
-        // Mirrors the build owner's private capture helper, including its
-        // exact refusal when no hook is wired.
-        match &self.inner.capture {
-            Some(capture) => capture(dir, name, args).map_err(build_err),
-            None => Err(ImageError::msg(
-                "explicit native production inputs required",
-            )),
-        }
+        self.inner.call_capture(dir, name, args).map_err(build_err)
     }
 
     fn next(&self, label: &str) -> Result<(), ImageError> {

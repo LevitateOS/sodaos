@@ -56,7 +56,7 @@ impl Production {
         }
     }
 
-    fn call_capture(&self, dir: &str, name: &str, args: &[String]) -> Result<String, Error> {
+    pub fn call_capture(&self, dir: &str, name: &str, args: &[String]) -> Result<String, Error> {
         match &self.capture {
             Some(capture) => capture(dir, name, args),
             None => Err(Error::msg("explicit native production inputs required")),
