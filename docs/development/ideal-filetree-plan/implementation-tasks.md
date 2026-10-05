@@ -65,16 +65,16 @@ Lead A; [P10](reviews/P10.md), [P11](reviews/P11.md). C owns system/Containerfil
 
 Lead A; [I01](reviews/I01.md), [I02](reviews/I02.md), [I03](reviews/I03.md), [I04](reviews/I04.md), [I05](reviews/I05.md), [I06](reviews/I06.md), [I10](reviews/I10.md). C01 bounded parser work; B01/H02 schema/admin-reader handoffs.
 
-- [ ] **A05.M** Consolidate broker/provider package ownership under `cmd/soda-identity`; keep one Controller/State/Store/Tx and reviewed enrollment/grant/acquisition/registration/retirement/store/wire descendants. Retain Go domain/client and canonical PostgreSQL schema with its existing mirror assertion.
-- [ ] **A05.C** Correct I06-F1 terminal execution fencing after successful admitted End/expiry/return using actual provider-specific retirement; preserve legitimate recovery before any returned binding. Do not add I05 terminal-Muse InvocationID enforcement or public history/retention from unresolved requirements (Q3/Q4).
-- [ ] **A05.V** Exercise actual same-ID terminal fencing, current grants, encrypted custody and atomic append subjects; coordinate sponsor metadata and fixture rebinding with B01 before shadow-write retirement.
+- [x] **A05.M** [run 20261005: DONE, integrated 8c489d16 + R01 91c6d3e7] Consolidate broker/provider package ownership under `cmd/soda-identity`; keep one Controller/State/Store/Tx and reviewed enrollment/grant/acquisition/registration/retirement/store/wire descendants. Retain Go domain/client and canonical PostgreSQL schema with its existing mirror assertion.
+- [x] **A05.C** [run 20261005: DONE, lane V closed on live disposable PG; overall acceptance pending C CORR-C-001 caller closure] Correct I06-F1 terminal execution fencing after successful admitted End/expiry/return using actual provider-specific retirement; preserve legitimate recovery before any returned binding. Do not add I05 terminal-Muse InvocationID enforcement or public history/retention from unresolved requirements (Q3/Q4).
+- [x] **A05.V** [run 20261005: DONE, 25 unit + 10 integration executed, 0 skips] Exercise actual same-ID terminal fencing, current grants, encrypted custody and atomic append subjects; coordinate sponsor metadata and fixture rebinding with B01 before shadow-write retirement.
 
 ### A06 Provider adapters
 
 Lead A; [I07](reviews/I07.md), [I08](reviews/I08.md). A05 provider-support/construction ownership must be fixed before independent child-module work.
 
-- [ ] **A06.M** Fold the actual Codex/Muse implementations into private `cmd/soda-identity/src/providers/{codex,muse}` descendants; preserve one shared support/type owner and direct imports.
-- [ ] **A06.V** Preserve pinned constructors, sanitized protocol, stop-before-read/cleanup, serialized Codex execution and concurrent immutable Muse lease behavior. Existing adapter assertions are source tests; real provider calls remain separate qualification.
+- [x] **A06.M** [run 20261005: DONE, integrated db2b92d7 + R01 eb6b14d6, predecessor retired] Fold the actual Codex/Muse implementations into private `cmd/soda-identity/src/providers/{codex,muse}` descendants; preserve one shared support/type owner and direct imports.
+- [x] **A06.V** [run 20261005: DONE, 41 unit + 10 integration on live PG, 0 skips] Preserve pinned constructors, sanitized protocol, stop-before-read/cleanup, serialized Codex execution and concurrent immutable Muse lease behavior. Existing adapter assertions are source tests; real provider calls remain separate qualification.
 
 ### A07 Native launch and interactive attachment
 
@@ -100,17 +100,17 @@ Lead A; [S01](reviews/S01.md), [S02](reviews/S02.md), [S03](reviews/S03.md), [S0
 
 Lead B; [F01](reviews/F01.md), [F02](reviews/F02.md), [F03](reviews/F03.md), [F04](reviews/F04.md). A05 broker-admin/custody and C02 PostgreSQL challenge; schema has one writer.
 
-- [ ] **B01.M** Split current Go grants/authority/domain resources/sponsorship, policy/settings/status APIs and Store concerns inside the existing dashboard. Preserve canonical Go DDL/Rust mirror and real cross-package fixtures.
+- [x] **B01.M** [run 20261005: DONE, integrated 60964bea + CORR-B-001 via 8d835377] Split current Go grants/authority/domain resources/sponsorship, policy/settings/status APIs and Store concerns inside the existing dashboard. Preserve canonical Go DDL/Rust mirror and real cross-package fixtures.
 - [ ] **B01.C** Close the recorded exact specification gates, then correct F01-F1 effect/receipt atomicity, F03-F1 connection-wide rolling-window accounting, F04-F1 sponsor/beneficiary/Project attribution and F04-F2 broker-admin metadata reads. Complete F04-F2 before retiring production dashboard credential-shadow methods; preserve/rebind actual native/ST15/Store/web seed consumers to the reviewed single `internal/store/identity_fixture.go` owner with canonical sealing/atomic append.
-- [ ] **B01.V** Use actual disposable PostgreSQL command/receipt/quota subjects and real broker-admin caller assertions; do not create another ledger or treat fixture writes as production broker ownership.
+- [x] **B01.V** [run 20261005: DONE on disposable PG per EVID-B-002] Use actual disposable PostgreSQL command/receipt/quota subjects and real broker-admin caller assertions; do not create another ledger or treat fixture writes as production broker ownership.
 
 ### B02 Accepted inputs and readiness
 
 Lead B; [F05](reviews/F05.md), [F06](reviews/F06.md). B01 for shared Store leaves; B07 for the existing publication diagnostic owner.
 
-- [ ] **B02.M** Extract accepted evidence/initial/status and readiness/prerequisite/sweep/traversal/API concerns with their actual snapshots and tests.
-- [ ] **B02.C** Correct F05-F1 recorded replay versus fresh stale-screen admission and F06-F2 diagnostic dependency at the existing `StatusError`/publication owner. Unknown native readiness/merge observations remain Q5/Q6 gates.
-- [ ] **B02.V** Test the real replay and intake subjects, source ownership assertions and fresh versus persisted authority; no replacement poller or status writer.
+- [x] **B02.M** [run 20261005: DONE, integrated 8d835377] Extract accepted evidence/initial/status and readiness/prerequisite/sweep/traversal/API concerns with their actual snapshots and tests.
+- [x] **B02.C** [run 20261005: DONE; Q5/Q6 unknowns still gated] Correct F05-F1 recorded replay versus fresh stale-screen admission and F06-F2 diagnostic dependency at the existing `StatusError`/publication owner. Unknown native readiness/merge observations remain Q5/Q6 gates.
+- [x] **B02.V** [run 20261005: DONE on disposable PG] Test the real replay and intake subjects, source ownership assertions and fresh versus persisted authority; no replacement poller or status writer.
 
 ### B03 Dispatch and intervention
 
