@@ -65,8 +65,6 @@ pub const MAX_FACTORY_EXPORT_BUNDLE: usize = 4 << 20;
 
 /// Broker kind for supervised factory executions.
 pub const IDENTITY_FACTORY: &str = "factory";
-/// Broker provider for supervised factory executions.
-pub const IDENTITY_CODEX: &str = "codex";
 /// Terminal broker execution state meaning custody settled elsewhere.
 pub const EXECUTION_TERMINAL: &str = "terminal";
 
@@ -2029,9 +2027,12 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         deadline: Instant,
     ) -> Result<FactoryState, FactoryError> {
         let run_deadline = drive_deadline(deadline, deadline_nanos);
+        // The validated harness family names its broker provider
+        // ("codex"/"muse" are both); the lease must come from the run's
+        // own provider or the broker denies the connection mismatch.
         let lease = match self.broker.acquire(
             &AcquireRequest {
-                provider_id: IDENTITY_CODEX.to_string(),
+                provider_id: req.run.harness.clone(),
                 execution_id: req.run.id.clone(),
                 actor_id: req.run.actor,
                 connection_id: req.run.connection.clone(),
@@ -4416,6 +4417,22 @@ mod tests {
         assert!(state.encode().starts_with(
             "{\"exit_code\":0,\"generation\":3,\"uid\":1001,\"gid\":1001,\"credential_returned\":true,\"live\":false,\"delivered\":true"
         ));
+    }
+
+    #[test]
+    fn launch_muse_harness_acquires_muse_provider() {
+        let (_dir, factory, _exec, term, broker) = wired_factory("launch-muse-provider");
+        let mut req = sample_launch();
+        req.run.harness = FACTORY_HARNESS_MUSE.to_string();
+        script_success(&term, &broker, &req.run, 0, "done");
+        let state = factory.launch(&req, deadline()).unwrap();
+        assert_eq!(state.phase, "completed");
+        // The broker saw the muse acquisition identity: a codex
+        // provider against a muse connection denies the run.
+        let calls = broker.acquire_calls.borrow();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].provider_id, "muse");
+        assert_eq!(calls[0].execution_id, req.run.id);
     }
 
     #[test]
