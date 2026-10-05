@@ -7,6 +7,7 @@ use crate::files::{is_digest, is_revision, oci_architecture, write_new};
 use crate::json_go::{marshal_indent, Emit};
 use crate::oci::{inspect_oci, Image};
 use crate::{io_error, Error};
+use soda_build_tools::reader::settings::{recipe_base, unit_image};
 use soda_json::JsonValue;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -55,7 +56,7 @@ impl Production {
         }
     }
 
-    fn call_capture(&self, dir: &str, name: &str, args: &[String]) -> Result<String, Error> {
+    pub fn call_capture(&self, dir: &str, name: &str, args: &[String]) -> Result<String, Error> {
         match &self.capture {
             Some(capture) => capture(dir, name, args),
             None => Err(Error::msg("explicit native production inputs required")),
@@ -445,17 +446,21 @@ impl Production {
     }
 
     fn recipe_image_refs(&self) -> Result<(String, String, String), Error> {
-        let rocky = recipe_base(&PathBuf::from(&self.source).join("project-os/Containerfile"))?;
+        let rocky = recipe_base(&PathBuf::from(&self.source).join("project-os/Containerfile"))
+            .map_err(|e| Error::msg(e.to_string()))?;
         let dashboard =
-            recipe_base(&PathBuf::from(&self.source).join("appliance/dashboard.Containerfile"))?;
+            recipe_base(&PathBuf::from(&self.source).join("appliance/dashboard.Containerfile"))
+                .map_err(|e| Error::msg(e.to_string()))?;
         if rocky != dashboard {
             return Err(Error::msg("dashboard and Project OS base owners disagree"));
         }
         let forgejo =
-            unit_image(&PathBuf::from(&self.source).join("appliance/services/forgejo.container"))?;
+            unit_image(&PathBuf::from(&self.source).join("appliance/services/forgejo.container"))
+                .map_err(|e| Error::msg(e.to_string()))?;
         let proxy = unit_image(
             &PathBuf::from(&self.source).join("appliance/services/soda-proxy.container"),
-        )?;
+        )
+        .map_err(|e| Error::msg(e.to_string()))?;
         Ok((rocky, forgejo, proxy))
     }
 
@@ -565,9 +570,11 @@ impl Production {
     }
 
     fn resolve_rocky_base(&self, pull: PullFn) -> Result<(String, String), Error> {
-        let rocky = recipe_base(&PathBuf::from(&self.source).join("project-os/Containerfile"))?;
+        let rocky = recipe_base(&PathBuf::from(&self.source).join("project-os/Containerfile"))
+            .map_err(|e| Error::msg(e.to_string()))?;
         let dashboard =
-            recipe_base(&PathBuf::from(&self.source).join("appliance/dashboard.Containerfile"))?;
+            recipe_base(&PathBuf::from(&self.source).join("appliance/dashboard.Containerfile"))
+                .map_err(|e| Error::msg(e.to_string()))?;
         if rocky != dashboard {
             return Err(Error::msg("dashboard and Project OS base owners disagree"));
         }
@@ -615,7 +622,8 @@ impl Production {
         export: ExportFn,
     ) -> Result<(), Error> {
         let forgejo =
-            unit_image(&PathBuf::from(&self.source).join("appliance/services/forgejo.container"))?;
+            unit_image(&PathBuf::from(&self.source).join("appliance/services/forgejo.container"))
+                .map_err(|e| Error::msg(e.to_string()))?;
         let (_, pinned) = pull("Forgejo", &forgejo, "forgejo-base")?;
         let id = build("forgejo", forgejo_context, "Containerfile", &pinned, &[])?;
         export("forgejo", &id, &self.revision)
@@ -624,7 +632,8 @@ impl Production {
     fn export_proxy_image(&self, pull: PullFn, export: ExportFn) -> Result<(), Error> {
         let proxy = unit_image(
             &PathBuf::from(&self.source).join("appliance/services/soda-proxy.container"),
-        )?;
+        )
+        .map_err(|e| Error::msg(e.to_string()))?;
         let (id, _) = pull("Proxy", &proxy, "proxy")?;
         export("proxy", &id, "")
     }
@@ -782,69 +791,6 @@ fn lexical_rel(base: &Path, target: &Path) -> String {
     // Outside: Go would produce a "../.." path; the caller only needs the
     // ".." prefix signal, so synthesize it cheaply.
     format!("..{target_clean}")
-}
-
-fn single_setting(path: &Path, prefix: &str) -> Result<String, Error> {
-    let body = std::fs::read(path).map_err(|e| io_error("open", path, e))?;
-    let text = String::from_utf8_lossy(&body);
-    let mut value = String::new();
-    for line in text.split('\n') {
-        if line.starts_with(prefix) {
-            if !value.is_empty() {
-                return Err(Error::msg(format!("duplicate {prefix} input")));
-            }
-            value = line.trim_start_matches(prefix).to_string();
-        }
-    }
-    if value.is_empty() {
-        return Err(Error::msg(format!("missing {prefix} input")));
-    }
-    Ok(value)
-}
-
-fn recipe_base(path: &Path) -> Result<String, Error> {
-    single_setting(path, "ARG BASE_IMAGE=")
-}
-
-fn unit_image(path: &Path) -> Result<String, Error> {
-    single_setting(path, "Image=")
-}
-
-/// Runtime appliance commands: sorted `cmd/soda-*` directories, support
-/// tools refused.
-pub fn soda_commands(source: &str) -> Result<Vec<String>, Error> {
-    let mut names = Vec::new();
-    let entries = std::fs::read_dir(PathBuf::from(source).join("cmd"))
-        .map_err(|e| io_error("open", Path::new(source), e))?;
-    let mut dirs: Vec<String> = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(|e| io_error("read", Path::new(source), e))?;
-        if entry
-            .file_type()
-            .map_err(|e| io_error("stat", Path::new(source), e))?
-            .is_dir()
-        {
-            dirs.push(entry.file_name().to_string_lossy().into_owned());
-        }
-    }
-    dirs.sort();
-    for name in dirs {
-        let rest = name.strip_prefix("soda-").unwrap_or("");
-        let valid = !rest.is_empty()
-            && rest
-                .bytes()
-                .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-'));
-        if !valid || name == "soda-artifacts" || name == "soda-acceptance" {
-            return Err(Error::msg(
-                "support tools must remain outside appliance commands",
-            ));
-        }
-        names.push(name);
-    }
-    if names.is_empty() {
-        return Err(Error::msg("missing Soda commands"));
-    }
-    Ok(names)
 }
 
 #[cfg(test)]
@@ -1163,28 +1109,6 @@ mod tests {
                 .compile_rust(bad_crate, bad_bin, &dest.to_string_lossy())
                 .is_err());
         }
-    }
-
-    #[test]
-    fn oracle_soda_commands() {
-        // Oracle: TestSodaCommandsRefusesSupportToolsInRuntime.
-        let root = std::env::temp_dir().join(format!(
-            "soda-cmds-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        for name in ["soda-host", "soda-dashboard"] {
-            std::fs::create_dir_all(root.join("cmd").join(name)).unwrap();
-        }
-        assert_eq!(
-            soda_commands(&root.to_string_lossy()).unwrap(),
-            vec!["soda-dashboard".to_string(), "soda-host".to_string()]
-        );
-        std::fs::create_dir(root.join("cmd/soda-artifacts")).unwrap();
-        assert!(soda_commands(&root.to_string_lossy()).is_err());
     }
 
     #[test]

@@ -78,7 +78,7 @@ func TestAvatarNoAvatarRuntimeCommand(t *testing.T) {
 	Check(t, os.IsNotExist(err), "cmd/soda-avatars present")
 	_, err = os.Stat(filepath.Join(RepoRoot, "scripts/build-native.sh"))
 	Check(t, os.IsNotExist(err), "build-native.sh present")
-	Check(t, !strings.Contains(ReadFile(t, "tools/soda-build/main.go"), "soda-avatars"), "soda-avatars in soda-build")
+	Check(t, !strings.Contains(ReadFile(t, "rust/soda-release-tools/src/build_cli.rs"), "soda-avatars"), "soda-avatars in soda-build")
 }
 
 func caddyBinary(t *testing.T) string {

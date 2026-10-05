@@ -183,7 +183,7 @@ func TestSourceNativeGateStillSurroundsSharedSourceChecks(t *testing.T) {
 		"soda-build candidate artifacts directory required (payload.json, candidate.json, host.oci)",
 		"verifier=$artifacts/tools/soda-artifacts",
 		`"$verifier" verify --source "$artifacts" --arch "$arch" --revision "$revision"`,
-		"tools/soda-candidate-check",
+		"--bin soda-candidate-check",
 		`--soda-revision "$revision"`,
 		`--forgejo-revision "$forgejo_revision"`,
 	} {

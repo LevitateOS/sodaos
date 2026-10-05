@@ -199,16 +199,17 @@ func TestOutsideSupportToolsAreNotApplianceCommands(t *testing.T) {
 		_, err := os.Stat(filepath.Join(RepoRoot, rel))
 		return err == nil
 	}
-	Check(t, statIsFile("tools/soda-artifacts/main.go"), "soda-artifacts owner missing")
+	Check(t, statIsFile("rust/soda-release-tools/src/artifacts.rs"), "soda-artifacts owner missing")
 	Check(t, !statExists("cmd/soda-artifacts"), "cmd soda-artifacts present")
 	Check(t, statIsFile("rust/soda-acceptance/Cargo.toml"), "acceptance crate missing")
 	Check(t, !statExists("cmd/soda-acceptance"), "cmd soda-acceptance present")
 	Check(t, !statExists("tools/soda-acceptance/main.go"), "go acceptance driver present")
-	Check(t, statIsFile("tools/soda-build/main.go"), "soda-build missing")
+	Check(t, statIsFile("rust/soda-release-tools/src/build_cli.rs"), "soda-build missing")
 	Check(t, !statExists("scripts/build-native.sh"), "build-native.sh present")
 	Check(t, !statExists("tools/soda-host-image"), "soda-host-image present")
-	producer := ReadFile(t, "internal/release/build/production.go")
-	Check(t, strings.Contains(producer, `"save", "--format=oci-archive"`), "missing save")
+	producer := ReadFile(t, "rust/soda-release-build/src/production.rs")
+	Check(t, strings.Contains(producer, `"save".to_string()`), "missing save")
+	Check(t, strings.Contains(producer, `"--format=oci-archive".to_string()`), "missing oci-archive")
 	Check(t, strings.Contains(producer, "--iidfile"), "missing iidfile")
 	Check(t, !strings.Contains(producer, `"push"`), "push present")
 }

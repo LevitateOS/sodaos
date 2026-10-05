@@ -4,9 +4,13 @@
 //! behind the release-pipeline boundary in `build_cli`.
 
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 use crate::build_spec::{ImageResult, Request};
 use crate::digest::hash_file;
+use crate::progress::BuildProgress;
 
 pub const WORKER_SOURCE: &str = "/run/soda-build-source";
 pub const WORKER_HOME: &str = "/var/lib/soda-build-worker";
@@ -592,6 +596,355 @@ pub fn read_image_result(path: &str) -> Result<ImageResult, String> {
     decode_image_result(&data)
 }
 
+// Isolated-worker execution boundary (Go `internal/acceptance`
+// `worker_linux.go` `arguments` + `Run`, `tools/soda-build`
+// `runBuildWorker` + `resolveWorkerLiveInputs`). Identity and
+// executable admission reuse `valid_worker_name` (which matches the Go
+// `^soda-(build|qualify)-[a-z0-9-]{1,48}$` rule exactly) and
+// `trusted_executable` (root-owned, non-writable, symlink-free chain
+// with a regular executable leaf, as in Go).
+
+fn valid_worker_identity(w: &Worker) -> Result<(), String> {
+    if !valid_worker_name(&w.name) {
+        return Err("exact task worker name required".to_owned());
+    }
+    if w.user != "soda-build-worker" && w.user != "soda-qualifier" {
+        return Err("separate approved worker identity required".to_owned());
+    }
+    if !w.directory.starts_with('/')
+        || w.directory
+            .chars()
+            .any(|c| c == '\n' || c == '\r' || c == ':')
+    {
+        return Err("absolute worker directory required".to_owned());
+    }
+    trusted_executable(&w.executable)
+}
+
+fn append_bind_paths(
+    mut args: Vec<String>,
+    property: &str,
+    paths: &[String],
+) -> Result<Vec<String>, String> {
+    for pair in paths {
+        let parts: Vec<&str> = pair.split(':').collect();
+        let ok = parts.len() == 2
+            && parts[0].starts_with('/')
+            && parts[1].starts_with('/')
+            && !pair
+                .chars()
+                .any(|c| c == '\n' || c == '\r' || c == '\t' || c == ' ' || c == '%');
+        if !ok {
+            return Err("explicit absolute worker bind pair required".to_owned());
+        }
+        args.push(format!("--property={property}={pair}"));
+    }
+    Ok(args)
+}
+
+fn allowed_worker_env_key(key: &str) -> bool {
+    matches!(
+        key,
+        "HOME"
+            | "PATH"
+            | "XDG_RUNTIME_DIR"
+            | "GOTOOLCHAIN"
+            | "GOCACHE"
+            | "GOMODCACHE"
+            | "BUN_INSTALL_CACHE_DIR"
+            | "PLAYWRIGHT_BROWSERS_PATH"
+            | "SODA_BUILD_START_NS"
+    )
+}
+
+fn append_worker_env(mut args: Vec<String>, environment: &[String]) -> Result<Vec<String>, String> {
+    for env in environment {
+        let (key, ok) = match env.split_once('=') {
+            Some((key, _)) => (key, true),
+            None => (env.as_str(), false),
+        };
+        if !allowed_worker_env_key(key) {
+            return Err("worker environment key refused".to_owned());
+        }
+        if !ok || env.chars().any(|c| c == '\n' || c == '\r' || c == '\0') {
+            return Err("invalid worker environment".to_owned());
+        }
+        args.push(format!("--setenv={env}"));
+    }
+    Ok(args)
+}
+
+/// `acceptance.Worker.arguments`: the exact `systemd-run` transient-unit
+/// argv for one admitted worker dispatch.
+pub fn worker_argv(w: &Worker) -> Result<Vec<String>, String> {
+    valid_worker_identity(w)?;
+    let mut args = vec![
+        "--quiet".to_owned(),
+        "--wait".to_owned(),
+        "--pipe".to_owned(),
+        "--collect".to_owned(),
+        "--service-type=exec".to_owned(),
+        format!("--unit={}", w.name),
+        format!("--property=User={}", w.user),
+        format!("--property=Group={}", w.user),
+        format!("--property=WorkingDirectory={}", w.directory),
+        "--property=ProtectHome=tmpfs".to_owned(),
+        "--property=ProtectSystem=strict".to_owned(),
+        "--property=PrivateTmp=yes".to_owned(),
+        "--property=PrivateMounts=yes".to_owned(),
+        "--property=Delegate=yes".to_owned(),
+        "--property=CPUQuota=400%".to_owned(),
+        "--property=MemoryMax=16G".to_owned(),
+        "--property=CPUAffinity=0 1 2 3".to_owned(),
+        "--property=KillMode=control-group".to_owned(),
+        "--property=TimeoutStopSec=20s".to_owned(),
+        "--property=UMask=0077".to_owned(),
+        "--property=InaccessiblePaths=-/var/lib/soda-release -/root".to_owned(),
+    ];
+    args = append_bind_paths(args, "BindReadOnlyPaths", &w.read_only)?;
+    args = append_bind_paths(args, "BindPaths", &w.writable)?;
+    args = append_worker_env(args, &w.environment)?;
+    args.push("--".to_owned());
+    args.push(w.executable.clone());
+    args.extend(w.arguments.iter().cloned());
+    Ok(args)
+}
+
+fn drain_pipe<R: std::io::Read + Send + 'static>(
+    pipe: Option<R>,
+) -> Option<std::thread::JoinHandle<Vec<u8>>> {
+    pipe.map(|mut pipe| {
+        std::thread::spawn(move || {
+            let mut buf = Vec::new();
+            let _ = pipe.read_to_end(&mut buf);
+            buf
+        })
+    })
+}
+
+fn join_drains(
+    out: &mut dyn std::io::Write,
+    err_out: &mut dyn std::io::Write,
+    out_drain: Option<std::thread::JoinHandle<Vec<u8>>>,
+    err_drain: Option<std::thread::JoinHandle<Vec<u8>>>,
+) -> Result<(), String> {
+    let stdout = out_drain
+        .map(|t| t.join().unwrap_or_default())
+        .unwrap_or_default();
+    let stderr = err_drain
+        .map(|t| t.join().unwrap_or_default())
+        .unwrap_or_default();
+    out.write_all(&stdout).map_err(|e| e.to_string())?;
+    err_out.write_all(&stderr).map_err(|e| e.to_string())?;
+    let _ = out.flush();
+    let _ = err_out.flush();
+    Ok(())
+}
+
+/// `acceptance.Worker.Run`: dispatch one admitted worker under its own
+/// transient systemd unit, forwarding unit output to the given writers.
+/// `cancelled` is polled while the unit runs (no async runtime in this
+/// crate, so `try_wait` polling); on cancellation the exact unit is
+/// stopped with a 30s timeout and the joined failure is reported.
+/// Output is forwarded after the unit exits rather than streamed.
+pub fn run_worker(
+    w: &Worker,
+    out: &mut dyn std::io::Write,
+    err_out: &mut dyn std::io::Write,
+    cancelled: &dyn Fn() -> bool,
+) -> Result<(), String> {
+    if euid() != 0 {
+        return Err("trusted root controller required for worker dispatch".to_owned());
+    }
+    let args = worker_argv(w)?;
+    // Refuse an existing unit instead of adopting or replacing its processes.
+    let unit = format!("{}.service", w.name);
+    let probed = Command::new("/usr/bin/systemctl")
+        .args(["show", &unit, "--property=LoadState", "--value"])
+        .output();
+    match probed {
+        Ok(output)
+            if output.status.success()
+                && String::from_utf8_lossy(&output.stdout).trim() == "not-found" => {}
+        _ => {
+            return Err("worker unit is already present or could not be checked".to_owned());
+        }
+    }
+    // Give systemd anonymous pipes, not caller-owned log file descriptors.
+    let mut child = Command::new("/usr/bin/systemd-run")
+        .args(&args)
+        .env_clear()
+        .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+        .env("LANG", "C.UTF-8")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    let out_drain = drain_pipe(child.stdout.take());
+    let err_drain = drain_pipe(child.stderr.take());
+    loop {
+        if cancelled() {
+            break;
+        }
+        match child.try_wait().map_err(|e| e.to_string())? {
+            Some(status) => {
+                join_drains(out, err_out, out_drain, err_drain)?;
+                if status.success() {
+                    return Ok(());
+                }
+                return Err(format!("worker {} failed: {status}", w.name));
+            }
+            None => std::thread::sleep(Duration::from_millis(10)),
+        }
+    }
+    // Stopping only systemd-run does not stop its service. Own the exact unit
+    // even when the controller's request has already been cancelled.
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let stop_err: Option<String> = match Command::new("/usr/bin/systemctl")
+        .args(["stop", &unit])
+        .env_clear()
+        .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
+        .env("LANG", "C.UTF-8")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+    {
+        Ok(mut stop) => loop {
+            match stop.try_wait().map_err(|e| e.to_string())? {
+                Some(status) if status.success() => break None,
+                Some(status) => break Some(format!("systemctl stop {unit}: {status}")),
+                None if Instant::now() >= deadline => {
+                    let _ = stop.kill();
+                    let _ = stop.wait();
+                    break Some(format!("systemctl stop {unit}: timed out"));
+                }
+                None => std::thread::sleep(Duration::from_millis(10)),
+            }
+        },
+        Err(e) => Some(e.to_string()),
+    };
+    let _ = child.kill();
+    let child_err = child.wait().err().map(|e| e.to_string());
+    join_drains(out, err_out, out_drain, err_drain).ok();
+    let mut parts = vec!["cancelled".to_owned()];
+    parts.extend(stop_err);
+    parts.extend(child_err);
+    Err(format!("worker {} failed: {}", w.name, parts.join("\n")))
+}
+
+/// Pure live-input file naming: `soda-live-inputs-<out-basename>.json`.
+pub fn live_inputs_name(out: &str) -> String {
+    format!(
+        "soda-live-inputs-{}.json",
+        out.trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .unwrap_or_default()
+    )
+}
+
+/// Pure live-input path computation: the controller-side file path and
+/// the worker-visible `--live-inputs` value. No network.
+pub fn live_inputs_paths(
+    source: &str,
+    output_parent: &str,
+    out: &str,
+) -> Result<(String, String), String> {
+    let name = live_inputs_name(out);
+    let parent_rel = rel_path(source, output_parent)?;
+    let controller = format!("{}/{}", output_parent.trim_end_matches('/'), name);
+    let worker_rel = if parent_rel.is_empty() {
+        name
+    } else {
+        format!("{parent_rel}/{name}")
+    };
+    Ok((controller, join_under(WORKER_SOURCE, &worker_rel)))
+}
+
+// resolveWorkerLiveInputs resolves the live inputs on the controller,
+// where outbound HTTPS is admitted, and records them beside the attempt
+// output for the isolated worker. The worker still consumes only its own
+// attempt's file and validates it like a live resolution; digest-pinned
+// pulls verify content downstream. Live inputs stay controller-resolved
+// even though the worker policy admits one narrow exception: P2 stages
+// pinned, checksummed inputs over HTTPS from inside the worker (see
+// scripts/selinux/soda-build-worker.te), so the worker is no longer
+// fully denied outbound HTTPS. Keep this comment and the policy rule in
+// sync; if P2 moves to the controller, remove the http_port_t grant.
+pub fn resolve_live_inputs(c: &WorkerConfig, r: &mut Request) -> Result<(), String> {
+    use soda_release_build::coreos_stream::{
+        resolve_coreos, resolve_tailnet_inputs, write_live_inputs, LiveInputs,
+    };
+    let coreos = resolve_coreos().map_err(|e| e.to_string())?;
+    let tailnet = resolve_tailnet_inputs(&r.arch).map_err(|e| e.to_string())?;
+    let (controller, worker) = live_inputs_paths(&c.source, &c.output_parent, &r.out)?;
+    write_live_inputs(Path::new(&controller), &LiveInputs { coreos, tailnet })
+        .map_err(|e| e.to_string())?;
+    r.live_inputs = worker;
+    Ok(())
+}
+
+/// `runBuildWorker`: delegate the existing producer to the isolated
+/// worker, never another recipe. The worker cannot see operator homes
+/// or real release custody; only its selected source view, caches and
+/// output parent are bound into that namespace.
+pub fn run_build_worker(
+    config: &WorkerConfig,
+    request: &Request,
+    progress: &mut BuildProgress,
+) -> Result<ImageResult, String> {
+    let boundary = if request.wants_media() {
+        "P1-P8 / Isolated source-to-media worker"
+    } else {
+        "P1-P6 / Isolated development candidate worker"
+    };
+    progress.phase(boundary)?;
+    let mut c = config.clone();
+    let mut r = request.clone();
+    resolve_live_inputs(&c, &mut r)?;
+    let (uid, gid) = worker_runtime_ids()?;
+    let attempt = claim_attempt_runtime(&c.runtime, &r.out, uid, gid)?;
+    let parent = c.runtime.clone();
+    c.runtime = attempt.clone();
+    let outcome = run_build_worker_attempt(&c, &r, progress);
+    if let Err(e) = release_attempt_runtime(&parent, &attempt) {
+        eprintln!("warning: cannot release attempt runtime: {e}");
+    }
+    outcome
+}
+
+fn run_build_worker_attempt(
+    c: &WorkerConfig,
+    r: &Request,
+    progress: &mut BuildProgress,
+) -> Result<ImageResult, String> {
+    let w = build_worker(c, r)?;
+    let mut out = std::io::stderr();
+    let mut err = std::io::stderr();
+    run_worker(&w, &mut out, &mut err, &|| false)?;
+    // Producer output is not qualification authority. P9 independently admits it.
+    let mut result = read_image_result(&format!(
+        "{}/evidence/build.json",
+        r.out.trim_end_matches('/')
+    ))?;
+    validate_worker_result(r, &mut result)?;
+    match (progress.end(None), progress.end_phase(None)) {
+        (Ok(()), Ok(())) => Ok(result),
+        (a, b) => {
+            let mut parts = Vec::new();
+            if let Err(e) = a {
+                parts.push(e);
+            }
+            if let Err(e) = b {
+                parts.push(e);
+            }
+            Err(parts.join("\n"))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -974,5 +1327,190 @@ mod tests {
         assert_eq!(result.scope, "scope");
         assert!(result.media.is_empty());
         assert!(decode_image_result(b"[1,2]").is_err());
+    }
+
+    fn argv_executable() -> String {
+        for candidate in ["/usr/bin/true", "/bin/true"] {
+            if trusted_executable(candidate).is_ok() {
+                return candidate.to_owned();
+            }
+        }
+        panic!("no trusted test executable available");
+    }
+
+    fn argv_fixture() -> Worker {
+        Worker {
+            name: "soda-build-manual-01".to_owned(),
+            user: "soda-build-worker".to_owned(),
+            executable: argv_executable(),
+            directory: "/run/soda-build-source".to_owned(),
+            read_only: vec!["/source:/run/soda-build-source".to_owned()],
+            writable: vec!["/out:/run/soda-build-source/.artifacts/releases/isolated".to_owned()],
+            environment: vec!["HOME=/var/lib/soda-build-worker".to_owned()],
+            arguments: vec!["--worker-build".to_owned()],
+        }
+    }
+
+    #[test]
+    fn worker_argv_golden() {
+        let w = argv_fixture();
+        let argv = worker_argv(&w).unwrap();
+        let expected: Vec<String> = [
+            "--quiet",
+            "--wait",
+            "--pipe",
+            "--collect",
+            "--service-type=exec",
+            "--unit=soda-build-manual-01",
+            "--property=User=soda-build-worker",
+            "--property=Group=soda-build-worker",
+            "--property=WorkingDirectory=/run/soda-build-source",
+            "--property=ProtectHome=tmpfs",
+            "--property=ProtectSystem=strict",
+            "--property=PrivateTmp=yes",
+            "--property=PrivateMounts=yes",
+            "--property=Delegate=yes",
+            "--property=CPUQuota=400%",
+            "--property=MemoryMax=16G",
+            "--property=CPUAffinity=0 1 2 3",
+            "--property=KillMode=control-group",
+            "--property=TimeoutStopSec=20s",
+            "--property=UMask=0077",
+            "--property=InaccessiblePaths=-/var/lib/soda-release -/root",
+            "--property=BindReadOnlyPaths=/source:/run/soda-build-source",
+            "--property=BindPaths=/out:/run/soda-build-source/.artifacts/releases/isolated",
+            "--setenv=HOME=/var/lib/soda-build-worker",
+            "--",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .chain([w.executable.clone(), "--worker-build".to_owned()])
+        .collect();
+        assert_eq!(argv, expected);
+    }
+
+    #[test]
+    fn worker_argv_refuses_bad_identity() {
+        let w = argv_fixture();
+        let mut bad = w.clone();
+        bad.name = "soda-other-x".to_owned();
+        assert_eq!(
+            worker_argv(&bad).unwrap_err(),
+            "exact task worker name required"
+        );
+        let mut bad = w.clone();
+        bad.user = "root".to_owned();
+        assert_eq!(
+            worker_argv(&bad).unwrap_err(),
+            "separate approved worker identity required"
+        );
+        let mut bad = w.clone();
+        bad.directory = "relative".to_owned();
+        assert_eq!(
+            worker_argv(&bad).unwrap_err(),
+            "absolute worker directory required"
+        );
+        let mut bad = w.clone();
+        bad.directory = "/run/soda-build-source:extra".to_owned();
+        assert_eq!(
+            worker_argv(&bad).unwrap_err(),
+            "absolute worker directory required"
+        );
+    }
+
+    #[test]
+    fn worker_argv_refuses_bad_bind_and_env() {
+        let w = argv_fixture();
+        for bad in [
+            "relative:/guest",
+            "/host:relative",
+            "/host:/guest:extra",
+            "/ho st:/guest",
+            "/host:/gue\nst",
+            "/host:/gue%st",
+        ] {
+            let mut bound = w.clone();
+            bound.writable = vec![bad.to_owned()];
+            assert_eq!(
+                worker_argv(&bound).unwrap_err(),
+                "explicit absolute worker bind pair required",
+                "{bad:?}"
+            );
+        }
+        let mut refused = w.clone();
+        refused.environment = vec!["SODA_EVIL=1".to_owned()];
+        assert_eq!(
+            worker_argv(&refused).unwrap_err(),
+            "worker environment key refused"
+        );
+        for bad in ["HOME", "HOME=/a\nb", "HOME=/a\rb", "PATH=/bin\0x"] {
+            let mut invalid = w.clone();
+            invalid.environment = vec![bad.to_owned()];
+            assert_eq!(
+                worker_argv(&invalid).unwrap_err(),
+                "invalid worker environment",
+                "{bad:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn live_inputs_paths_are_pure() {
+        let (controller, worker) = live_inputs_paths(
+            "/source",
+            "/source/.artifacts/releases/isolated",
+            "/source/.artifacts/releases/isolated/manual-01",
+        )
+        .unwrap();
+        assert_eq!(
+            controller,
+            "/source/.artifacts/releases/isolated/soda-live-inputs-manual-01.json"
+        );
+        assert_eq!(
+            worker,
+            "/run/soda-build-source/.artifacts/releases/isolated/soda-live-inputs-manual-01.json"
+        );
+        assert_eq!(live_inputs_name("/a/b/c"), "soda-live-inputs-c.json");
+        assert!(live_inputs_paths("/source", "/elsewhere", "/source/out").is_err());
+    }
+
+    struct EnvRestore {
+        prior: Option<String>,
+    }
+
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            match &self.prior {
+                Some(v) => std::env::set_var("SODA_BUILD_START_NS", v),
+                None => std::env::remove_var("SODA_BUILD_START_NS"),
+            }
+        }
+    }
+
+    #[test]
+    fn run_build_worker_fails_before_dispatch_without_progress() {
+        let _restore = EnvRestore {
+            prior: std::env::var("SODA_BUILD_START_NS").ok(),
+        };
+        std::env::remove_var("SODA_BUILD_START_NS");
+        let mut progress = BuildProgress::new("test").unwrap();
+        let _captured = progress.capture();
+        progress.finish(None).unwrap();
+        let config = WorkerConfig::default();
+        // Both media branches fail at the phase boundary: no live-input
+        // network, no root lookup, no systemd dispatch.
+        for request in [
+            Request {
+                development: true,
+                target: "candidate".to_owned(),
+                ..Request::default()
+            },
+            Request::default(),
+        ] {
+            assert_eq!(
+                run_build_worker(&config, &request, &mut progress).unwrap_err(),
+                "invalid progress transition"
+            );
+        }
     }
 }

@@ -227,7 +227,7 @@ including comments and tests; they do not measure performance or safety.
 | Acceptance | Rust owns outside driver/remote handling; Go installed probe orchestration remains live | Retain Rust acceptance and its remote binary. Retire obsolete Go driver/evidence/process execution and tests; preserve live probe input support. Replace embedded Python payloads and tests that still execute predecessors before claiming cutover complete. |
 | Factory CLI + Muse wrappers | Actual thin client/helper duties; Rust adds manual flag, transport and Go compatibility parsing | Reconsider language alongside shared primitive consolidation. The current source provides no reason to migrate the dashboard coordinator or add a client-side daemon. |
 | Asset fetch/render/locales | Actual build-time replacements under release orchestration (Rust after cutover); several recreate Python parsing/CLI behavior | Consolidate the seven binaries into one build-tools package. The language decision is made; no alternative-stack migration follows. |
-| Release pipeline + tools (new) | Four Rust crates landed (#30/#32/#33/#34); Go still orchestrates the installed producer. The Rust CLI has unfinished worker/pipeline wiring and the image crate needs a supplied production implementation | Retain the four crates under `lib/`, split their actual concerns below, and wire tools → image → build/deliver at cutover. Preserve candidate-check and payload data, then remove Go. Landed library/oracle coverage does not prove a working release producer. |
+| Release pipeline + tools (new) | Four Rust crates landed (#30/#32/#33/#34) and cut over: tools → image → build/deliver is wired, candidate-check and payload data preserved, Go removed | Retain the four crates under `lib/` and split their actual concerns below. |
 
 The installer contains **17,697 Rust source lines**, including comments,
 blank lines and embedded tests. The previous installer at the parent of
@@ -249,8 +249,9 @@ and native admission at `internal/host/daemon.go:61-80`. Port history was checke
 at `977ebe55` (installer), `0123e689` (import), `c753342a` (acceptance),
 `a096a06c` (identity), `c439c209` (host library), `899e9bf3` (terminal),
 `999f42ff` (factory CLI), `1c3a7cdc` (Muse), `5abc5733` (stage/render) and
-`179a8723` (locales). The last commit's release-build title is not a producer
-cutover: Go still orchestrates the release pipeline.
+`179a8723` (locales). The release cutover wired tools → image →
+build/deliver, preserved candidate-check and payload data, and removed the
+Go pipeline: Rust orchestrates the release producer.
 
 ### Ownership decisions before further splitting
 

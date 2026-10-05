@@ -29,10 +29,10 @@ func splitNative(t *testing.T) (before, after string) {
 	return parts[0], parts[1]
 }
 
-func TestCandidateCheckUsesTheGoValidatorOwner(t *testing.T) {
+func TestCandidateCheckUsesTheRustValidatorOwner(t *testing.T) {
 	before, after := splitNative(t)
 	for _, want := range []string{
-		"tools/soda-candidate-check",
+		"--bin soda-candidate-check",
 		`--candidate "$artifacts"`,
 		`--arch "$arch"`,
 		`--soda-revision "$revision"`,

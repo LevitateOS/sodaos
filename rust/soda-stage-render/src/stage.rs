@@ -160,7 +160,7 @@ fn read_text(path: &Path) -> Result<String, StageError> {
 }
 
 fn payload_entries(source: &Path) -> Result<Vec<(String, String)>, StageError> {
-    let path = source.join("internal/release/build/forgejo-payload.json");
+    let path = source.join("assets/branding/forgejo/forgejo-payload.json");
     let text = read_text(&path)?;
     let value = JsonValue::parse(&text)
         .map_err(|_| StageError::failure(format!("cannot parse {}", path.display())))?;

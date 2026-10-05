@@ -143,7 +143,7 @@ func TestConsoleHookKeepsNoninteractiveSSHQuiet(t *testing.T) {
 }
 
 func TestConsoleWelcomeInstallWiring(t *testing.T) {
-	prepare, err := os.ReadFile("../internal/release/image/prepare.go")
+	prepare, err := os.ReadFile("../rust/soda-release-image/src/prepare.rs")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,11 +151,15 @@ func TestConsoleWelcomeInstallWiring(t *testing.T) {
 		t.Fatal("prepare still stages the replaced shell source")
 	}
 	// The Rust binary installs where the service and login hook expect it.
-	layout, err := os.ReadFile("../internal/release/image/build.go")
+	layout, err := os.ReadFile("../rust/soda-release-image/src/build.rs")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(layout), `{"soda-console-welcome", "soda-console-welcome", "rootfs/usr/libexec/soda/soda-console-welcome"},`) {
+	if !strings.Contains(string(layout), `(
+        "soda-console-welcome",
+        "soda-console-welcome",
+        "rootfs/usr/libexec/soda/soda-console-welcome",
+    ),`) {
 		t.Fatal("install table lacks the console-welcome row")
 	}
 }
