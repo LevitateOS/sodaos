@@ -15,24 +15,27 @@ revise it in place rather than create a replacement plan or accumulate a merge
 diary. Maintaining it does not authorize executing the refactor.
 
 Last maintained: **2026-10-05**. The latest coverage pass accounts for all
-**1,597 tracked paths** and their mixed responsibilities across **80 candidate
-review slices**, at `26d420f28cb432bac2d69a177676fed3d1ee43c3`. The complete
+**1,719 tracked paths** and their mixed responsibilities across **80 candidate
+review slices**, at `0d8d3b8ebb5a7df36759685529f27f417d96fac8`. The complete
 proposed tree, package counts and historical decomposition use the structural
 baseline `d7e565aa1019753997a99fd430ba103d7a472b48`, corrected here to exclude
 11 positively evidenced obsolete proposed leaves. The plan folder layout is
-also reflected in the proposed tree; this documentation split does not advance
-either source review baseline. Complete structural
+also reflected in the proposed tree. The five-file source delta and the
+documentation split are reconciled in the catalog and coverage ledger. Complete structural
 reconciliation of later changes remains pending. Pending source cutovers remain
 explicit; proposed paths are not landed code.
 
-Pending source reconciliation: the checkout advanced during this documentation
-split to `c659c4ea5fefc85d7abc4a914117df4664e39b91`. The delta after the recorded
-coverage snapshot changes the five paths below, including one new test file.
-Their affected slice cards, responsibility maps and structural proposals still
-need an upkeep pass; this split does not establish their code validity.
+Latest upkeep reconciles the complete delta from `26d420f2` to `0d8d3b8e`.
+The five source/test paths below have current responsibility maps, test-scope
+descriptions and affected concern allocations. The new settlement test has an
+inventory entry and target leaf. The documentation split replaces one tracked
+plan with 122 sections, all attributed to H06 documentation upkeep; the total
+inventory therefore grows by 122 paths, not just the one new test. Unchanged
+source coverage is reused after checking the committed delta. This is source
+reconciliation, not a validity audit or new behavioral qualification.
 
 - [internal/factory/control/settle.go](../../../internal/factory/control/settle.go)
-- [internal/factory/control/settle_test.go](../../../internal/factory/control/settle_test.go) — added after the snapshot
+- [internal/factory/control/settle_test.go](../../../internal/factory/control/settle_test.go) — new PostgreSQL regression scenarios with stub host/broker
 - [internal/factory/control/st15_demo_native_test.go](../../../internal/factory/control/st15_demo_native_test.go)
 - [rust/soda-host/src/pfactory.rs](../../../rust/soda-host/src/pfactory.rs)
 - [rust/soda-identity/tests/broker.rs](../../../rust/soda-identity/tests/broker.rs)

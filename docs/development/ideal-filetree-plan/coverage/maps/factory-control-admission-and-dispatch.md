@@ -415,3 +415,44 @@ Test/fixture assertions inspected as source only; no test, build, native driver 
 | [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 39–65 | Assertions TestReadinessAllReachesDeepRepositories: repeated sweeps never reached repository 33: %v; declarations/fields: `TestReadinessAllReachesDeepRepositories` |
 | [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 66–103 | Dispatch queue continuation beyond waiting prefix assertions; declarations/fields: `TestDispatchPassReachesRunnableBehindWaitingPrefix` |
 
+<a id="coverage-19d2f4e17a6a"></a>
+
+## [internal/factory/control/settle.go](../../../../../internal/factory/control/settle.go)
+
+0d8d3b8e adds bounded broker-close attempts after a successful host-stop call. Cancellation may end the one-second retry wait; cancellation behavior was not executed. Existing Reconcile/progression calls are mapped separately instead of hiding their responsibilities under the settlement owner. Source inspection only; no runtime or correctness qualification.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1–14 | Package/import scaffolding |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 15–41 | Stop, fenced-run and reconciliation receipt declarations |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 42–72 | Durable Stop command and settlement |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 73–83 | Replay stored Stop receipt |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 84–103 | Durable Reconcile command and outstanding-run settlement |
+| [F06](../../slices/factory-coordination.md#f06-issue-intake-and-readiness) / active | 104–106 | Invoke readiness progression from Reconcile; readiness authority remains F06 |
+| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 107–109 | Invoke dispatch progression; assignment authority remains F07 |
+| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 110–113 | Invoke publication progression |
+| [F11](../../slices/factory-coordination.md#f11-candidate-verification-assessment) / active | 114–117 | Invoke check progression |
+| [F12](../../slices/factory-coordination.md#f12-merge-eligibility-and-completion) / active | 118–121 | Invoke merge progression |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 122–142 | Durable Reconcile receipt and replay |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 143–210 | Abandoned Stop/Reconcile command settlement and receipt completion |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 211–244 | Outstanding-run walk and fenced/settled receipts |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 245–299 | Host retirement, up to three broker-close attempts, identity fact adoption and durable settlement; declarations/fields: `settleRun` |
+| [F07](../../slices/factory-coordination.md#f07-assignment-and-dispatch) / active | 300–301 | Settled-run accounting and dependant assessment |
+| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 302–303 | Publication after successful accounting |
+| [F09](../../slices/factory-coordination.md#f09-publication-progression) / active | 304–306 | Correction after settlement |
+| [F10](../../slices/factory-coordination.md#f10-independent-review-and-correction) / active | 307–312 | Independent reviewer progression |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 313–369 | Confirmed receipt, retirement outcome/reason and identity-fact reconciliation helpers |
+
+
+<a id="coverage-b913f84dada5"></a>
+
+## [internal/factory/control/settle_test.go](../../../../../internal/factory/control/settle_test.go)
+
+New optional-PostgreSQL integration scenarios use the existing coordinator fixture with stub host/broker; their assertions were inspected without execution.
+
+| Slice / lifecycle | Current lines | Responsibility and declarations |
+| --- | --- | --- |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 1–12 | Package/import scaffolding |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 13–53 | Transient broker-close recovery on second attempt, Cancelled outcome and stored reconciliation; declarations/fields: `TestSettleRunRetriesTransientBrokerClose` |
+| [F08](../../slices/factory-coordination.md#f08-run-lifecycle-and-intervention) / active | 54–78 | Three failed broker closes leave an uncertain receipt; declarations/fields: `TestSettleRunRefusesUnconfirmedBrokerClose` |
+

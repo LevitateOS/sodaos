@@ -2,25 +2,38 @@
 
 ## Complete source-to-slice coverage
 
-Coverage snapshot: **2026-10-05**, committed source `26d420f28cb432bac2d69a177676fed3d1ee43c3`. Every one of the **1,597 tracked paths** is listed exactly once across the [tracked-file inventories](inventory/README.md), including source, tests, SQL inside source, configuration, manifests, documents, binary assets and generated exports. The pass inspected entrypoints/declarations, fields, routes, stored-state groups, install/build consumers and ambiguous bodies; it is a responsibility inventory, not a claim that every statement is correct.
+Coverage snapshot: **2026-10-05**, committed source `0d8d3b8ebb5a7df36759685529f27f417d96fac8`. Every one of the **1,719 tracked paths** is listed exactly once across the [tracked-file inventories](inventory/README.md), including source, tests, SQL inside source, configuration, manifests, documents, binary assets and generated exports. The pass inspected entrypoints/declarations, fields, routes, stored-state groups, install/build consumers and ambiguous bodies; it is a responsibility inventory, not a claim that every statement is correct.
 
-The underlying inspection used immutable `ddd8715b` blobs and then checked the complete committed delta to `26d420f2`: ST15 fixture root-user-manager and background dependent-stop setup, current-pass merge-row admission, nested-fence result/review parsing with their assertion/fixture changes, and factory-register refusal diagnostics. All nine changed backend files were reread at their final committed content; the additional Rust factory-register diagnostic and its surrounding delivery/cleanup branch were inspected and remapped. This plan accounts for its own committed version as documentation; the new ledger is not recursively part of the snapshot it describes. Any later working-tree or committed changes require another upkeep pass.
+The full responsibility inventory was established at `26d420f2`, using the
+previous immutable-source inspection and its checked merge deltas. Latest upkeep
+checks the complete committed delta to `0d8d3b8e`: five source/test files, the
+replacement of one plan document with 122 maintained sections, and three incoming
+documentation links. The changed code, affected callers/tests and current concern
+allocations were inspected; unchanged source coverage is reused. The new test and
+every split document have inventory entries. The plan sections retain H06
+documentation-upkeep attribution and do not become runtime owners of the subjects
+they describe. No tests, builds, native drivers or installed journeys ran.
+
+The current detailed-map span count below is computed from the maintained
+Markdown, including disjoint spans within rows. The original full pass recorded
+18,956 underlying declaration/field intervals; that historical count used a
+different representation and is not relabeled as the current rendered count.
 
 | Coverage check | Result |
 | --- | ---: |
-| Tracked paths accounted for / missing / duplicate ledger entries | 1,597 / 0 / 0 |
+| Tracked paths accounted for / missing / duplicate ledger entries | 1,719 / 0 / 0 |
 | Candidate slices | 80 |
-| Text responsibility intervals checked for line coverage | 18956 |
-| Files with multiple slice responsibilities or mixed retirement units | 364 |
+| Rendered responsibility spans checked in detailed maps | 14535 |
+| Files with multiple slice responsibilities or mixed retirement units | 365 |
 | Current executable/style/template/test/configuration files over 400 lines | 199 |
-| Files with linked responsibility maps | 456 |
+| Files with linked responsibility maps | 458 |
 | Active unowned responsibility intervals | 0 |
 | Explicit competing-ownership findings awaiting reconciliation | 0 |
 | Files carrying uncertain lifecycle or unresolved boundary notes | 28 |
 
 | File lifecycle | Paths |
 | --- | ---: |
-| active | 1540 |
+| active | 1662 |
 | unknown | 8 |
 | obsolete | 11 |
 | generated | 38 |
@@ -35,10 +48,10 @@ Lifecycle is separate from the slice: obsolete sources are attributed to their f
 | `appliance` | 306 |
 | `assets` | 170 |
 | `cmd` | 18 |
-| `docs` | 93 |
+| `docs` | 214 |
 | `factory-os` | 1 |
 | `frontend` | 32 |
-| `internal` | 356 |
+| `internal` | 357 |
 | `project-os` | 15 |
 | `rust` | 369 |
 | `scripts` | 79 |
@@ -146,7 +159,7 @@ A shared file or a dependency on another slice is not itself overlapping authori
 | [internal/host/publish/source.go](../../../../internal/host/publish/source.go) | unknown lifecycle: Committed ddd8715b source map. Cohesive functions keep one owner; a dependency/reference does not confer authority over the referenced state. Current caller/build graph distinguishes unreferenced helper definitions from active installed probes; intended retirement not established.; unclear: Source/BranchRevision/sourceRepository have no current Go call found (git grep BranchRevision and .Source); this bounded source-bundle path is a P07 input responsibility, but retained use/retirement is unknown. Unit tests elsewhere do not establish an active caller. |
 | [internal/store/identity.go](../../../../internal/store/identity.go) | unclear: IdentityConnection/IdentityGrant are read by current factory sponsorship admission. IdentitySaveConnection/IdentitySaveGrant have demonstrated test/compatibility/ST15 fixture callers only; native broker is the production mutation owner. Keep shared-schema fixture seeding separate from a second production credential/delegation owner; do not retire the metadata read surface. |
 | [internal/web/auth/session.go](../../../../internal/web/auth/session.go) | unclear: G09 preferences mutation is current source. Representative inspected auth extension test covers refusal of an unverified mutation and preserved name; dedicated successful preference persistence/reload coverage was not demonstrated by this file inventory. |
-| [rust/soda-host/src/pfactory.rs](../../../../rust/soda-host/src/pfactory.rs) | unclear: Run harness family currently doubles as broker provider_id (drive:2030-2035); only codex/muse pass valid_harness_family. New Muse routing regression at 4427 uses scripted terminal/broker and a Codex-shaped sample lease, so broader provider independence/native Muse success is not established.; unclear: Native filesystem receipts/tombstones (F08) coordinate the shared database run controller and broker execution fences. stop/finish orchestrators cross F08 and I06; ownership of each durable store is distinct, while end-to-end convergence needs the real callers/native proof rather than receipt unit tests. |
+| [rust/soda-host/src/pfactory.rs](../../../../rust/soda-host/src/pfactory.rs) | unclear: Run harness family currently doubles as broker provider_id (drive:2038-2043); only codex/muse pass valid_harness_family. New Muse routing regression at 4457 uses scripted terminal/broker and a Codex-shaped sample lease, so broader provider independence/native Muse success is not established.; unclear: Native filesystem receipts/tombstones (F08) coordinate the shared database run controller and broker execution fences. stop/finish orchestrators cross F08 and I06; ownership of each durable store is distinct, while end-to-end convergence needs the real callers/native proof rather than receipt unit tests. |
 | [rust/soda-identity/src/schema.rs](../../../../rust/soda-identity/src/schema.rs) | unclear: Duplication/source-of-truth seam; no competing authority demonstrated. This compatibility copy duplicates the full shared Go schema, not merely identity tables. Go internal/store/schema.go remains declared source of truth; drift test compares statements/query expectations. Generated copy does not give broker ownership of all Project/factory/user tables. |
 | [rust/soda-identity/src/store.rs](../../../../rust/soda-identity/src/store.rs) | unclear: Store::events:556-572 is a bounded owner/connection read helper with no Rust caller found. The Rust HTTP route table has no audit-read route. Immutable append is part of domain transactions; read exposure/retention policy is not inferred. |
 | [rust/soda-install/src/sshkey.rs](../../../../rust/soda-install/src/sshkey.rs) | unclear: This is a separate Go-shaped SSH parser for installer input/root operator enrollment; host ssh.rs governs Project developer keys. Shared parsing duplication exists, but these consumers have distinct authority and are not merged in the coverage map. |
@@ -169,10 +182,10 @@ Cross-slice priorities for the intended-model review:
 - [Responsibility maps](maps/README.md) retain the deeper resolution for mixed and oversized files.
 - [Slice catalog](../slices/README.md) describes the candidate review owners.
 
-The snapshot inventory retains `docs/development/ideal-filetree-plan.md`, its
-path at the recorded commit. That row now links to the moved plan index. The
-documentation split adds files to the working tree, but does not silently
-advance this source snapshot or recursively inventory its own new pages.
+The inventory accounts for the 122 maintained plan sections at their committed
+paths; the removed monolith has no current inventory row. Upkeep changes these
+existing documents without adding tracked files. Their own planning prose does
+not establish domain requirements or behavioral verification.
 
 ### What this coverage gate establishes
 

@@ -33,7 +33,7 @@ page. These groups do not establish target packages, services or sidecars.
 | [Developer tools](developer-tools.md) | 3 |
 | [Documentation contracts](documentation-contracts.md) | 11 |
 | [Documentation development and design](documentation-development-and-design.md) | 16 |
-| [Factory control admission and dispatch](factory-control-admission-and-dispatch.md) | 14 |
+| [Factory control admission and dispatch](factory-control-admission-and-dispatch.md) | 16 |
 | [Factory control native fixtures](factory-control-native-fixtures.md) | 5 |
 | [Factory control publication and review](factory-control-publication-and-review.md) | 10 |
 | [Host factory runs](host-factory-runs.md) | 1 |

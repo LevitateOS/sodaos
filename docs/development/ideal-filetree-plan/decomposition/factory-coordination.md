@@ -202,13 +202,13 @@ Evidence: TestST15ComposedDemo at 664; writeFinalReceipt at 651; dispatchA at 99
 
 ## internal/factory/control/st15_demo_native_test.go
 
-Observed size: 548 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
+Observed size at 0d8d3b8e: 637 lines, including tests where embedded. Keep the same Go package, exported contracts and execution order; move existing concern definitions together.
 
 - `internal/factory/control/st15_demo_native_test.go` — Existing fixture identity/configuration, receipts and command helpers.
 - `internal/factory/control/st15_demo_stack_test.go` — Explicit task fixture host/broker/runtime stack setup and cleanup.
 - `internal/factory/control/st15_demo_broker_test.go` — Current fixture broker build, tmpfs and socket wait.
 
-Evidence: loadST15 at 69; st15Receipt at 96; st15Podman at 166; setupHostStack at 309; openFactoryStore at 536; st15BuildBroker at 261; st15TmpfsRoot at 277; st15WaitSocket at 295.
+Evidence at 0d8d3b8e: loadST15 at 64; st15Receipt at 91; st15Podman at 167; setupHostStack at 340; openFactoryStore at 625; st15BuildBroker at 247; st15TmpfsRoot at 295; st15WaitSocket at 326. Broker file logging and kill/wait/file-close cleanup at 579–598 stay with st15_demo_stack_test.go.
 
 ## internal/factory/control/st15_demo_seed_test.go
 

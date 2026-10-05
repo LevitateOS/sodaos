@@ -1396,6 +1396,7 @@ duplicate file leaves or competing Rust module roots are not intended.
 │   │   │   ├── review_executor.go
 │   │   │   ├── review_native_primitive_test.go
 │   │   │   ├── settle.go
+│   │   │   ├── settle_test.go
 │   │   │   ├── st15_demo_accept_test.go
 │   │   │   ├── st15_demo_broker_test.go
 │   │   │   ├── st15_demo_coding_test.go
@@ -2775,4 +2776,3 @@ duplicate file leaves or competing Rust module roots are not intended.
 ```
 
 Ignored roots remain `.artifacts/` for build/evidence outputs, `.local/` for local inputs, `target/` for Cargo outputs, and `node_modules/` for dependencies. Their generated contents and private fixtures are outside the tracked-source inventory and are not enumerated here.
-

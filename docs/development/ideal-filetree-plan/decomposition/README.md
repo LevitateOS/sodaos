@@ -12,7 +12,9 @@ stateful frontend extraction requires an actual private seam; moving methods
 across files alone cannot preserve one TypeScript class owner.
 
 
-These reviews retain the structural baseline recorded in the main index. Page
+These reviews retain the structural baseline recorded in the main index, except
+the identity broker and ST15 native-fixture entries explicitly refreshed at
+0d8d3b8e. The host factory allocation in port-assessment.md is also refreshed. Page
 groups organize existing source paths for navigation; they do not decide target
 package boundaries. Retired sources keep their removal dispositions. Current
 mixed-file resolution lives in the [responsibility maps](../coverage/maps/README.md).

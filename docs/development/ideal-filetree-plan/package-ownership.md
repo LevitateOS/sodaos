@@ -2,7 +2,7 @@
 
 ## Source coverage
 
-Structural reconciliation baseline: `d7e565aa1019753997a99fd430ba103d7a472b48`, with **1705 tracked paths** at that commit. Latest slice coverage is recorded separately at `26d420f2` in the [coverage index](coverage/README.md). These are documentation corrections.
+Structural reconciliation baseline: `d7e565aa1019753997a99fd430ba103d7a472b48`, with **1705 tracked paths** at that commit. Latest slice coverage is recorded separately at `0d8d3b8e` in the [coverage index](coverage/README.md). The table and full structural counts below remain historical; latest upkeep reconciles the five source/test changes after `26d420f2` and the documentation split without claiming a new full structural review.
 
 Initial full structural review: `899e9bf3b9b57883df42cbb520329679b3b8186d`. Latest reconciliation scope: six landed port PRs (tests to Go #29/#31, release tools #30, release image #32, release deliver #33, release build #34) plus the decided language policy. Keep this initial review separate from later merge checkpoints.
 
@@ -160,4 +160,3 @@ Topology evidence: `internal/web/server.go:25-50`,
 `project-os/Containerfile:32-39`, `rust/soda-factory/src/main.rs:1-16`, and
 `internal/host/tailnet/runtime.go:242-258`. Existing services, binaries, crates
 and concern files are separate counts; none implies another.
-

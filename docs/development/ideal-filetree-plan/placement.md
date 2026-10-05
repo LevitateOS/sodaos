@@ -26,12 +26,11 @@ than factory records. These refinements account for the concrete workspace
 navigation, pane, eligibility and dialog functions omitted by broad first-pass
 ranges. No mixins, request buses or duplicate state controllers are implied.
 
-The extensionless Project factory-role program is part of the source review.
-Its Rust successor's real compiled bytes must be staged and hashed:
-`tests/build/project_factory_roles_test.go` still imports the Python program,
-and `internal/factory/control/st15_demo_native_test.go:321-325,371-381`
-copies/hashes that source. Repoint both to the compiled native helper, preserving
-their actual observations rather than keeping a dead wrapper for the checks.
+Current native-helper verification is present in source at 0d8d3b8e:
+`tests/build/project_factory_roles_test.go` drives the compiled Rust helper, and
+`internal/factory/control/st15_demo_native_test.go:277-294,348-353,399-410`
+builds, stages and hashes its compiled bytes. Preserve those real observations
+during package consolidation. Neither verification path was executed for upkeep.
 Existing source-reading tests, shell imports and discovery roots
 must follow the actual owning files rather than manufacture passing substitutes.
 ### Every current Go package

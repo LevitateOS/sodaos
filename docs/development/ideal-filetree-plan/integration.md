@@ -92,12 +92,15 @@ The initial review covered 1,586 paths at its recorded baseline. The historical
 structural reconciliation accounted for all 1,705 paths at d7e565aa, with 1,488
 retained/moved dispositions and 217 retirements, and reviewed all 190 oversized
 code files then present. Those are historical counts, not the current source
-inventory. The latest coverage ledger accounts for all 1,597 tracked paths at
-26d420f2 and gives current mixed/oversized responsibility maps separately.
+inventory. The latest coverage ledger accounts for all 1,719 tracked paths at
+0d8d3b8e and gives current mixed/oversized responsibility maps separately. The
+five-file source delta and documentation split are reconciled; unchanged code
+reuses its earlier inspection. No tests or native operations were run for upkeep.
 
-The primary tree now contains 2,358 unique leaves after excluding 11 obsolete
+The primary tree now contains 2,359 unique leaves after excluding 11 obsolete
 proposals found by the coverage pass and replacing the single plan document
-with its 122 maintained Markdown sections. It retains 27 Cargo package manifests
+with its 122 maintained Markdown sections and adding the new settlement test
+at its existing Go package destination. It retains 27 Cargo package manifests
 plus the root workspace manifest. These counts include proposed native
 entrypoints and concern splits, not measured final implementation sizes. Full
 structural reconciliation after d7e565aa remains pending. Shared destination
@@ -108,4 +111,3 @@ host implementations, Python sources and the newly evidenced historical mockup,
 retired provenance overrides and alternate factory recipe. Live input/wire and
 probe portions remain separately mapped; unknown lifecycle is not treated as
 proof of dead code.
-

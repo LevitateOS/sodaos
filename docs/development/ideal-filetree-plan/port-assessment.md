@@ -145,24 +145,24 @@ final merged bytes before claiming a fresh review of them:
 
 - `lib/host/src/daemon/http.rs` — 1-364: accept loop, handle_connection, read_request, drain_head, percent_decode and systemd_listener; keep the existing algorithm cohesive.
 
-**rust/soda-host/src/pfactory.rs** (5728 lines on the inspected branch).
+**rust/soda-host/src/pfactory.rs** (6081 lines at 0d8d3b8e).
 
-- `lib/host/src/factory/mod.rs` — 1269-1371,1577-1625: FactoryTerminal/FactoryBroker, Secret/RunLock/Factory, open_factory/harness_pin; one state/lock owner.
-- `lib/host/src/factory/run.rs` — 40-198,363-547: factory phase/run/path validators, FactoryRun and FactoryLaunch.
-- `lib/host/src/factory/deadline.rs` — 199-362: RFC3339Nano parse and current native deadline math.
-- `lib/host/src/factory/identity.rs` — 548-848: whole Binding/Lease/AcquireRequest declarations and their Spec tables/codecs.
-- `lib/host/src/factory/state.rs` — 849-983: OutputSlice, FactoryState and FactoryHarnessPin.
-- `lib/host/src/factory/requests.rs` — 984-1268: whole inspect/stop/takeover/output/export/candidate request and response declarations/codecs.
-- `lib/host/src/factory/receipt.rs` — 1372-1576,1626-1795: FactoryReceipt decode/state mapping and lock/load/store/tombstone/write.
-- `lib/host/src/factory/launch.rs` — 1796-1936,2023-2067: launch/drive/consume_start/update_receipt; same sequence and custody.
-- `lib/host/src/factory/finish.rs` — 1937-2022,2068-2255: fail/abandon/refresh_stopped/yielded/start-failure/timeout/finish and uncertainty mapping.
-- `lib/host/src/factory/stop.rs` — 2256-2395,2467-2507: stop, reconcile_run_credential and record_stop_outcome.
-- `lib/host/src/factory/inspect.rs` — 2396-2466: inspect/takeover and exact copy destination.
-- `lib/host/src/factory/artifacts.rs` — 2508-2605: existing bounded output/export operations.
-- `lib/host/src/factory/candidate.rs` — 2606-2751: inspect_candidate/run_reason/protected candidate script.
-- `lib/host/src/factory/confirmation.rs` — 2752-2968: confirm_factory_*, confirm_prepare* and exact status mappings.
+- `lib/host/src/factory/mod.rs` — 1–39,1457–1556,1773–1821: shared preamble/imports, FactoryTerminal/FactoryBroker, Secret/RunLock/Factory, open_factory/harness_pin; one state/lock owner.
+- `lib/host/src/factory/run.rs` — 40–201,365–588: factory phase/run/path validators, FactoryRun and FactoryLaunch.
+- `lib/host/src/factory/deadline.rs` — 202–364: RFC3339Nano parse and current native deadline math.
+- `lib/host/src/factory/identity.rs` — 589–887: whole Binding/Lease/AcquireRequest declarations and their Spec tables/codecs.
+- `lib/host/src/factory/state.rs` — 888–1021: OutputSlice, FactoryState and FactoryHarnessPin.
+- `lib/host/src/factory/requests.rs` — 1022–1456: whole inspect/stop/takeover/output/export/candidate request and response declarations/codecs.
+- `lib/host/src/factory/receipt.rs` — 1557–1772,1822–1991: FactoryReceipt decode/state mapping, stop-owned receipt guard and lock/load/store/tombstone/write.
+- `lib/host/src/factory/launch.rs` — 1992–2139,2226–2270: launch/drive/consume_start/update_receipt; same sequence and custody.
+- `lib/host/src/factory/finish.rs` — 2140–2225,2271–2458: fail/abandon/refresh_stopped/yielded/start-failure/timeout/finish and uncertainty mapping.
+- `lib/host/src/factory/stop.rs` — 2459–2620,2692–2732: stop, bounded broker-close attempts, pre-delivery settlement, reconcile_run_credential and record_stop_outcome.
+- `lib/host/src/factory/inspect.rs` — 2621–2691: inspect/takeover and exact copy destination.
+- `lib/host/src/factory/artifacts.rs` — 2733–2830: existing bounded output/export operations.
+- `lib/host/src/factory/candidate.rs` — 2831–2968: inspect_candidate/run_reason/protected candidate script.
+- `lib/host/src/factory/confirmation.rs` — 2969–3194: confirm_factory_*, confirm_prepare* and exact status mappings.
 
-Existing test allocation: common; wire; launch; stop; artifacts; candidate; confirmation. Source grouping: 2969-3536 existing fixture/mock closure; wire/receipt cases3537-4162; launch4163-4564; stop/inspect4565-4809; takeover/output/export4810-5182; candidate5183-5452; confirmations5453-5728. Keep cohesive vectors/fixtures intact; individual case boundaries rather than arbitrary ranges determine implementation placement.
+Existing test allocation: common; wire; launch; stop; artifacts; candidate; confirmation. The embedded test module is 3195–6081 (2887 lines); production/pre-test material is 1–3194. New scripted regressions at 4882–4976 cover preservation of stop-owned uncertainty, pre-delivery stop and transient broker closure, and belong with the existing stop tests. Keep cohesive vectors/fixtures intact; the exact current responsibility map, rather than older branch ranges, determines case placement. This upkeep adds no module, process or API and establishes no native race proof.
 
 **rust/soda-host/src/texec.rs** (4826 lines on the inspected branch).
 
@@ -288,4 +288,3 @@ source packages. The two replacement entrypoints share one existing Cargo
 package; the ephemeral probe uses one existing acceptance payload. This adds
 no daemon, socket, container or sidecar. Python cutover verification must check
 retained executable bodies and real test invocations, not only filename suffixes.
-

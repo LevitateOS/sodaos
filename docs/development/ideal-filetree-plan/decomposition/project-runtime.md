@@ -23,9 +23,10 @@ Evidence: project-factory-roles:1-6 fixed contract; 25-121 fixed paths/admission
 
 Open detail: Declare the two helper binaries and private shared library in the
 existing project-terminal manifest. Install the compiled helper root-owned at
-its existing path, and update project_factory_roles_test.go and the ST15 native
-copy/hash at st15_demo_native_test.go:321-325,371-381 to stage/verify those real
-executing bytes. The old Python source and import driver both retire.
+its existing path. At 0d8d3b8e, project_factory_roles_test.go drives the compiled
+helper, and the ST15 native fixture already builds/stages/hashes it at
+st15_demo_native_test.go:277-294,348-353,399-410. Keep those executing-byte
+observations during consolidation; this source inspection is not installed proof.
 
 ## rust/soda-project-terminal/src/broker.rs
 

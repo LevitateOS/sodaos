@@ -114,12 +114,12 @@ Open detail: Module imports and serde with/deserialize_with/skip_serializing_if 
 
 ## rust/soda-identity/tests/broker.rs
 
-Observed size: 543 lines, including tests where embedded. This whole 543-line file is integration-test code, not 203 lines of production before the first #[test]. Extract only the existing environment-gated PostgreSQL/StubProvider/StubRuntime fixture support into tests/common/mod.rs; group persistent custody/fencing/revoke checks in broker.rs, enrollment-to-lease path in enrollment.rs, and admin/runtime HTTP plus dead-listener shutdown in http.rs. Keep the same real broker/store under test, fixture opt-in, native cleanup and skips; do not create a new test harness.
+Observed size at 0d8d3b8e: 634 lines, including tests where embedded. This whole 634-line file is integration-test code, not 203 lines of production before the first #[test]. Extract only the existing environment-gated PostgreSQL/StubProvider/StubRuntime fixture support into tests/common/mod.rs; group persistent custody/fencing/revoke checks in broker.rs, enrollment-to-lease path in enrollment.rs, and admin/runtime HTTP plus dead-listener shutdown in http.rs. Keep the same real broker/store under test, fixture opt-in, native cleanup and skips; do not create a new test harness.
 
 - `cmd/soda-identity/tests/broker.rs`
 - `cmd/soda-identity/tests/enrollment.rs`
 - `cmd/soda-identity/tests/http.rs`
 - `cmd/soda-identity/tests/common/mod.rs`
 
-Evidence: 1-203: super_dsn/Ephemeral create/store/drop, fixed credentials/connections, StubSession/Provider/Runtime and controller/binding -> tests/common/mod.rs; 204-238,305-367: store_round_trip/close_execution_fences_late_registration/revoke_retires_live_leases -> tests/broker.rs; 239-304: enrollment_to_lease_lifecycle -> tests/enrollment.rs; 368-543: http_admission_matches_go and dead_listener_fails_fast including thread/FD guards -> tests/http.rs.
+Evidence at 0d8d3b8e: 1–203: existing PostgreSQL/StubProvider/StubRuntime fixture support -> tests/common/mod.rs; 204–237,305–458: persistent custody/delegation, Muse retirement, execution fencing, post-reconcile repeated closure and revoke checks -> tests/broker.rs; 238–304: enrollment lifecycle -> tests/enrollment.rs; 459–634: HTTP admission and dead-listener lifetime checks -> tests/http.rs. These remain source-inspected integration scenarios, not executed native proof.
 
