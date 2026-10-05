@@ -13,99 +13,26 @@
 // pre-limited by the mux; over-limit bodies fail here as decode errors,
 // exactly like Go's `MaxBytesReader` surfacing through strict decode.
 //
-// SCAFFOLD (temporary, branch-only): the `scaffold` module below stands in
-// for the three still-missing lane pieces (iclient, tcontrol, mserve) with
-// the exact contracted signatures. Every scaffold call fails with a
-// `scaffold:`-prefixed error that maps to `BackendError::Unimplemented`, and
-// the scaffold tests pin that list. Integration deletes the module and those
-// tests with it; `HAS_SCAFFOLDS` must read false before the PR26 merge.
-// (pops and tcodex lanes already integrated as real modules.)
+// All lane modules are integrated (iclient, tcontrol, mserve, pops,
+// tcodex); no scaffold remains. `HAS_SCAFFOLDS` reads false and the
+// `scaffold:` error mapping below is defensive only: no producer remains.
 use std::os::unix::net::UnixStream;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::gmux_backend::{BackendError, ExecBackend, TerminalSession};
-use crate::{domain, json, pfactory, project, texec};
+use crate::{domain, json, pfactory, project, tcontrol, texec};
 
-/// False once every lane module is integrated and `scaffold` is deleted.
-pub const HAS_SCAFFOLDS: bool = true;
+/// False: every lane module is integrated, no scaffold remains.
+pub const HAS_SCAFFOLDS: bool = false;
 
 const SCAFFOLD_PREFIX: &str = "scaffold:";
 
-/// Lane-owned surface, exact contracted signatures, failing until the lanes
-/// land. Each item names its owning branch.
-mod scaffold {
-    use std::time::Instant;
-
-    fn pending(what: &str) -> String {
-        format!("scaffold:{what} pending lane integration")
-    }
-
-    /// pr/26-tcontrol: tailnet control plane.
-    pub struct Control;
-
-    impl Control {
-        pub fn new() -> Self {
-            Control
-        }
-        pub fn settings(&self, _deadline: Instant) -> Result<Vec<u8>, String> {
-            Err(pending("tcontrol.settings"))
-        }
-        pub fn options(&self, _deadline: Instant) -> Result<Vec<u8>, String> {
-            Err(pending("tcontrol.options"))
-        }
-        pub fn host_action(&self, _body: &[u8], _deadline: Instant) -> Result<Vec<u8>, String> {
-            Err(pending("tcontrol.host_action"))
-        }
-        pub fn enrollment(&self, _body: &[u8], _deadline: Instant) -> Result<Vec<u8>, String> {
-            Err(pending("tcontrol.enrollment"))
-        }
-        pub fn project(
-            &self,
-            _req: &crate::tailnet_domain::ProjectRequest,
-            _cid: &str,
-            _deadline: Instant,
-        ) -> Result<crate::tailnet_domain::ProjectView, String> {
-            Err(pending("tcontrol.project"))
-        }
-    }
-
-    /// TailnetControl over the scaffold control so the companion field below
-    /// typechecks; every method fails until Lane T lands its impl, at which
-    /// point the backend field swaps type with no call-site change.
-    impl crate::tailnet_companion::TailnetControl for Control {
-        fn project(
-            &self,
-            _req: &crate::tailnet_domain::ProjectRequest,
-            _cid: &str,
-            _deadline: Instant,
-        ) -> Result<crate::tailnet_domain::ProjectView, String> {
-            Err(pending("tcontrol.TailnetControl.project"))
-        }
-        fn run_binding(
-            &self,
-            _target: &crate::tailnet_domain::RunTarget,
-            _deadline: Instant,
-        ) -> Result<crate::tailnet_domain::RunBinding, String> {
-            Err(pending("tcontrol.TailnetControl.run_binding"))
-        }
-        fn enroll_run(
-            &self,
-            _target: &crate::tailnet_domain::RunTarget,
-            _recheck: &dyn Fn(Instant) -> Result<(), String>,
-            _consume: &dyn Fn(Instant, &str) -> Result<(), String>,
-            _deadline: Instant,
-        ) -> Result<(), String> {
-            Err(pending("tcontrol.TailnetControl.enroll_run"))
-        }
-    }
-}
-
 // -- error mapping (daemon.go ServeHTTP + subsystem handlers) --
 
-/// Go maps every unrecognized dispatch error to 500. Scaffold failures map
-/// to 501 so integration gaps stay visible (GMUX_PATCHES.md §7).
+/// Go maps every unrecognized dispatch error to 500. The `scaffold:` prefix
+/// still maps to 501 defensively, though no producer remains.
 fn internal(err: String) -> BackendError {
     if err.starts_with(SCAFFOLD_PREFIX) {
         BackendError::Unimplemented
@@ -216,8 +143,9 @@ pub struct DaemonBackend {
     terminal: texec::Service<project::Native>,
     factory: OnceLock<Result<Factory, String>>,
     broker: crate::iclient::BrokerClient,
-    tailnet: scaffold::Control,
-    companion: crate::tailnet_companion::Companion<project::Native, scaffold::Control>,
+    tailnet: tcontrol::Control<project::Native>,
+    companion:
+        crate::tailnet_companion::Companion<project::Native, tcontrol::Control<project::Native>>,
     pops: crate::pops::Ops<project::Native>,
     muse: Option<crate::muse::MuseRuntime<project::Native, HooksSeam>>,
     codex_harness: String,
@@ -242,10 +170,10 @@ impl DaemonBackend {
             },
             factory: OnceLock::new(),
             broker: crate::iclient::BrokerClient::new(&broker_socket),
-            tailnet: scaffold::Control::new(),
+            tailnet: tcontrol::Control::new(project::Native, tcontrol::Options::default()),
             companion: crate::tailnet_companion::Companion {
                 exec: project::Native,
-                tailnet: scaffold::Control::new(),
+                tailnet: tcontrol::Control::new(project::Native, tcontrol::Options::default()),
                 image: cfg.tailnet_image.clone(),
                 enabled_check: None,
             },
@@ -592,8 +520,7 @@ impl pfactory::FactoryBroker for BrokerSeam {
         req: &pfactory::AcquireRequest,
         deadline: Instant,
     ) -> Result<pfactory::Lease, pfactory::FactoryError> {
-        // The scaffold broker fails here until Lane I lands; the conversion
-        // below is final and covered by the round-trip test.
+        // The conversion below is final and covered by the round-trip test.
         let treq = cv_acquire_to_texec(req);
         self.broker
             .acquire(&treq, deadline)
@@ -602,11 +529,17 @@ impl pfactory::FactoryBroker for BrokerSeam {
     }
     fn register(
         &self,
-        _lease_id: &str,
-        _binding: &pfactory::Binding,
-        _deadline: Instant,
+        lease_id: &str,
+        binding: &pfactory::Binding,
+        deadline: Instant,
     ) -> Result<Vec<u8>, pfactory::FactoryError> {
-        Err(pfactory::FactoryError::Msg(scaffold_broker_err()))
+        // Go `factory.go` consumes `delivery.Credential` from Register; a
+        // missing credential decodes as empty, like Go's nil slice.
+        let tbinding = cv_binding_to_texec(binding);
+        self.broker
+            .register(lease_id, &tbinding, deadline)
+            .map(|delivery| delivery.credential.unwrap_or_default())
+            .map_err(pfactory::FactoryError::Msg)
     }
     fn return_lease(
         &self,
@@ -642,10 +575,6 @@ impl pfactory::FactoryBroker for BrokerSeam {
             .close_execution(kind, execution_id, deadline)
             .map_err(pfactory::FactoryError::Msg)
     }
-}
-
-fn scaffold_broker_err() -> String {
-    format!("{SCAFFOLD_PREFIX}iclient pending lane integration")
 }
 
 impl crate::muse::MuseHooks for HooksSeam {
@@ -942,7 +871,7 @@ impl ExecBackend for DaemonBackend {
 
     fn identity_launch(&self, body: &[u8]) -> Result<Vec<u8>, BackendError> {
         // The mux maps every non-501 identity error to 409, like Go's
-        // `identityHandler`; `internal` preserves the scaffold signal.
+        // `identityHandler`.
         let input = texec::TerminalStart::decode(body).map_err(internal)?;
         let lease = texec::identity_launch(
             self,
@@ -1701,30 +1630,52 @@ mod tests {
         ));
     }
 
-    // -- scaffold tripwires (deleted at integration with the scaffold mod) --
+    // -- integrated tailnet control plane (Lane T, no scaffold) --
 
-    #[test]
-    #[allow(clippy::assertions_on_constants)]
-    fn scaffolds_advertised() {
-        assert!(HAS_SCAFFOLDS);
+    /// Backend whose tailnet controls observe scratch state paths that are
+    /// never created, so the real control plane answers deterministically
+    /// (default policy view, unavailable host) without appliance paths.
+    fn backend_with_scratch_tailnet(name: &str) -> DaemonBackend {
+        let mut backend = backend();
+        let root = std::path::PathBuf::from("target/dbackend-test")
+            .join(format!("{name}-{}", std::process::id()));
+        let opts = tcontrol::Options {
+            state_dir: root.join("soda-tailnet"),
+            socket: root.join("tailscaled.sock"),
+            ..tcontrol::Options::default()
+        };
+        backend.tailnet = tcontrol::Control::new(project::Native, opts.clone());
+        backend.companion.tailnet = tcontrol::Control::new(project::Native, opts);
+        backend
     }
 
     #[test]
-    fn scaffold_tailnet_and_identity_surface_as_unimplemented() {
-        // Valid-shaped bodies that reach past decode into scaffolded
-        // executors must report 501, never 500 or success.
+    fn tailnet_settings_and_options_answer_without_appliance_state() {
+        let backend = backend_with_scratch_tailnet("settings");
+        let settings = backend.tailnet("settings", b"{}").expect("settings");
+        let body = String::from_utf8(settings).expect("utf8 settings");
+        assert!(body.contains("\"host_unavailable\":true"), "{body}");
+        assert!(body.contains("\"revision\":\"0\""), "{body}");
+        let options = backend.tailnet("options", b"{}").expect("options");
+        let obody = String::from_utf8(options).expect("utf8 options");
+        assert!(obody.contains("\"revision\":\"0\""), "{obody}");
+    }
+
+    #[test]
+    fn tailnet_host_and_enrollment_reject_malformed_bodies() {
+        let backend = backend_with_scratch_tailnet("reject");
         assert!(matches!(
-            backend().tailnet("settings", b"{}"),
-            Err(BackendError::Unimplemented)
+            backend.tailnet("host", b"{"),
+            Err(BackendError::Invalid)
         ));
         assert!(matches!(
-            backend().tailnet("host", b"{}"),
-            Err(BackendError::Unimplemented)
+            backend.tailnet("enrollment", b"{"),
+            Err(BackendError::Invalid)
         ));
-        assert!(matches!(
-            backend().tailnet("enrollment", b"{}"),
-            Err(BackendError::Unimplemented)
-        ));
+    }
+
+    #[test]
+    fn identity_launch_without_broker_is_internal() {
         // No broker listens at the test socket: the real client fails to
         // connect and the launch reports 500, exactly like Go's
         // `identityHandler` on broker errors.
@@ -1733,8 +1684,8 @@ mod tests {
             backend().identity_launch(start),
             Err(BackendError::Internal)
         ));
-        // Muse-scoped delivery with muse configured reaches the mserve
-        // scaffold instead of the terminal identity path.
+        // The muse-configured backend constructs (real mserve runtime, no
+        // I/O at open).
         let _ = backend_with_muse();
     }
 

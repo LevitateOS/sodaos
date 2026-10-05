@@ -1,9 +1,11 @@
 //! Oracle tests for the PR26 tailnet control-plane port.
 //!
-//! The `tcontrol*.rs` modules are not in `lib.rs` yet, so they are included
-//! here via `#[path]`; shared crate items are re-exported through shim
-//! modules so the `crate::` paths inside the ported files resolve unchanged.
-//! At lib wire-up these shims disappear with no changes to `tcontrol*.rs`.
+//! The `tcontrol*.rs` modules are compiled into the lib AND included here
+//! via `#[path]`; shared crate items are re-exported through shim modules
+//! so the `crate::` paths inside the ported files resolve unchanged. The
+//! duplication is deliberate: the oracle drives `pub(crate)` test seams
+//! (stub transports, sync hook) that are unreachable through the public
+//! surface, so it must compile the same sources as its own crate.
 //!
 //! Test state lives under `target/tcontrol-test/` (never `/tmp`).
 
