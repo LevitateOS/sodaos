@@ -11,8 +11,8 @@ import (
 func TestTailnetNoStoredPins(t *testing.T) {
 	_, err := os.Stat(filepath.Join(RepoRoot, "appliance/locks"))
 	Check(t, os.IsNotExist(err), "appliance/locks exists: %v", err)
-	build := ReadFile(t, "internal/release/build/production.go")
-	Check(t, !strings.Contains(build, "locks/"), "production.go references locks/")
+	build := ReadFile(t, "rust/soda-release-build/src/production.rs")
+	Check(t, !strings.Contains(build, "locks/"), "production.rs references locks/")
 }
 
 func TestTailnetRecipeFloatsOnBuildArgs(t *testing.T) {
@@ -26,14 +26,14 @@ func TestTailnetRecipeFloatsOnBuildArgs(t *testing.T) {
 }
 
 func TestTailnetBuildWiresLiveInputsWithoutLock(t *testing.T) {
-	build := strings.ReplaceAll(ReadFile(t, "internal/release/build/production.go"), " ", "")
-	Check(t, strings.Contains(build, `"--build-arg=TAILSCALE_VERSION="+tail.Version`), "missing version arg")
-	Check(t, strings.Contains(build, `"--build-arg=ARCHIVE_SHA256="+tail.SHA256`), "missing sha arg")
+	build := strings.ReplaceAll(ReadFile(t, "rust/soda-release-build/src/production.rs"), " ", "")
+	Check(t, strings.Contains(build, `"--build-arg=TAILSCALE_VERSION={}"`), "missing version arg")
+	Check(t, strings.Contains(build, `"--build-arg=ARCHIVE_SHA256={}"`), "missing sha arg")
 	Check(t, strings.Contains(build, `"appliance/tailnet.Containerfile"`), "missing Containerfile ref")
 }
 
 func TestTailnetObservedVersionsRecordedWithoutGate(t *testing.T) {
-	build := ReadFile(t, "internal/release/build/production.go")
+	build := ReadFile(t, "rust/soda-release-build/src/production.rs")
 	Check(t, !strings.Contains(build, "require_tailnet_release"), "gate present")
-	Check(t, strings.Contains(build, "liveTailnetInputs"), "missing liveTailnetInputs")
+	Check(t, strings.Contains(build, "live_tailnet_inputs"), "missing live_tailnet_inputs")
 }
