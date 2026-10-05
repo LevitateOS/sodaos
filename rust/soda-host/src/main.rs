@@ -383,4 +383,22 @@ mod tests {
         let result = run_tailnet_action("/nonexistent.json", "run", "bad id", 0);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn exit_code_contract_and_systemd_retry() {
+        // Go `exitStatus` parity (cmd/soda-host/main_test.go, retired at
+        // cutover): preparation failures exit 78 even with staged
+        // diagnostics appended; any other failure exits 1; clean is 0.
+        let staged = MainError::TailnetPreparation(
+            "tailnet preparation unconfirmed; observe and explicitly retry: synthetic backend refused"
+                .to_string(),
+        );
+        assert_eq!(staged.exit_code(), 78);
+        assert_eq!(MainError::Other("daemon exited".to_string()).exit_code(), 1);
+        // The companion unit must not restart the explicit-retry signal.
+        let unit = std::fs::read_to_string("../../appliance/services/soda-tailnet@.service")
+            .expect("companion unit file");
+        assert!(unit.contains("RestartPreventExitStatus=78\n"), "{unit}");
+        assert!(unit.contains("Restart=on-failure\n"), "{unit}");
+    }
 }

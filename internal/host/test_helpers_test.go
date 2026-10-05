@@ -1,11 +1,10 @@
 package host
 
-// testDaemon builds a Daemon with Project wired to the same Exec/Config.
-func testDaemon(exec Executor, c Config) Daemon {
-	return Daemon{Exec: exec, Config: c, Project: projectRuntime(exec, c)}
-}
+import (
+	projectexec "github.com/levitateos/sodaos/internal/host/project"
+)
 
-func testDaemonPtr(exec Executor, c Config) *Daemon {
-	d := testDaemon(exec, c)
-	return &d
+// testProject builds the privileged project runtime over a fake executor.
+func testProject(exec Executor, c Config) *projectexec.Runtime {
+	return projectRuntime(exec, c)
 }

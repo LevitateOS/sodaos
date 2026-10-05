@@ -69,8 +69,8 @@ func TestOSObservationIsSeparateAndNeverStartsOrInfersAProfile(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := &osInspection{running: tc.running, missing: tc.missing, response: tc.raw}
-			d := testDaemon(e, Config{Image: "not-an-existing-root-identity"})
-			out, err := d.Project.ObserveOS(t.Context(), "p0123456789abcdef01234567")
+			d := testProject(e, Config{Image: "not-an-existing-root-identity"})
+			out, err := d.ObserveOS(t.Context(), "p0123456789abcdef01234567")
 			if err != nil || out.Environment.Profile != nil || out.Unavailable == tc.valid || (out.Release != nil) != tc.valid || out.Environment.Image != "sha256:"+strings.Repeat("a", 64) {
 				t.Fatal(out, err)
 			}
@@ -90,8 +90,8 @@ func TestOSObservationIsSeparateAndNeverStartsOrInfersAProfile(t *testing.T) {
 		})
 	}
 	e := &noExec{}
-	d := testDaemon(e, Config{})
-	if _, err := d.Project.ObserveOS(t.Context(), "../other"); err == nil || e.called {
+	d := testProject(e, Config{})
+	if _, err := d.ObserveOS(t.Context(), "../other"); err == nil || e.called {
 		t.Fatal("untrusted ID reached executor")
 	}
 }
