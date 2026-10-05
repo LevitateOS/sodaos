@@ -1717,6 +1717,14 @@ fn receipt_terminal(phase: &str) -> bool {
     matches!(phase, "completed" | "failed" | "stopped")
 }
 
+/// Stop-owned outcomes: a concurrent operator stop recorded the run's
+/// fate (cleanly or fenced-uncertain). The launch path never advances
+/// past them and never overwrites them; only the stop path itself may
+/// repair an uncertain stop.
+fn receipt_stop_owned(phase: &str) -> bool {
+    phase == FACTORY_STOPPED || phase == FACTORY_UNCERTAIN
+}
+
 /// Retained last-message output is byte-truncated for the response. Go
 /// slices bytes and lets `encoding/json` substitute U+FFFD per invalid
 /// byte; Rust strings cannot hold the split sequence, so the lossy
@@ -2142,7 +2150,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         if !exists {
             return Ok(FactoryState::default());
         }
-        if current.phase == FACTORY_STOPPED {
+        if receipt_stop_owned(&current.phase) {
             return Ok(receipt_state(&current, false));
         }
         if cause == FactoryError::Busy {
@@ -2180,7 +2188,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         if !exists {
             return Ok(FactoryState::default());
         }
-        if current.phase == FACTORY_STOPPED {
+        if receipt_stop_owned(&current.phase) {
             return Ok(receipt_state(&current, false));
         }
         current.phase = FACTORY_FAILED.to_string();
@@ -2201,7 +2209,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         if !exists {
             return Ok(None);
         }
-        if current.phase == FACTORY_STOPPED {
+        if receipt_stop_owned(&current.phase) {
             return Ok(Some(receipt_state(&current, false)));
         }
         current.lease = receipt.lease.clone();
@@ -2225,7 +2233,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         if !exists {
             return Ok(None);
         }
-        if current.phase == FACTORY_STOPPED || current.started {
+        if receipt_stop_owned(&current.phase) || current.started {
             return Ok(Some(receipt_state(&current, false)));
         }
         current.started = true;
@@ -2265,7 +2273,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
             return false;
         };
         match self.load_receipt(&receipt.run.project, &receipt.run.id) {
-            Ok((current, true)) => current.phase == FACTORY_STOPPED,
+            Ok((current, true)) => receipt_stop_owned(&current.phase),
             _ => false,
         }
     }
@@ -2503,7 +2511,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         receipt.phase = FACTORY_STOPPED.to_string();
         self.store_receipt(&receipt)?;
         drop(lock);
-        let mut uncertain = false;
+        let mut native_uncertain = false;
         match (&receipt.binding, &receipt.lease) {
             (Some(binding), Some(lease)) => {
                 if self
@@ -2511,26 +2519,48 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
                     .stop(&lease.with_binding(binding), deadline)
                     .is_err()
                 {
-                    uncertain = true;
+                    native_uncertain = true;
                 }
             }
             _ => {
                 if receipt.run.validate().is_ok()
                     && self.terminal.stop_unbound(&receipt.run, deadline).is_err()
                 {
-                    uncertain = true;
+                    native_uncertain = true;
                 }
             }
         }
-        if !self.reconcile_run_credential(&mut receipt, deadline) {
-            uncertain = true;
+        let credential_ok = self.reconcile_run_credential(&mut receipt, deadline);
+        // The broker fence is idempotent: retry transient close failures
+        // before declaring the stop uncertain.
+        let mut closed = false;
+        for attempt in 0..3 {
+            if self
+                .broker
+                .close_execution(IDENTITY_FACTORY, &req.id, deadline)
+                .is_ok()
+            {
+                closed = true;
+                break;
+            }
+            if attempt < 2 {
+                std::thread::sleep(Duration::from_millis(200));
+            }
         }
-        if self
-            .broker
-            .close_execution(IDENTITY_FACTORY, &req.id, deadline)
-            .is_err()
-        {
-            uncertain = true;
+        let mut uncertain = native_uncertain || !credential_ok || !closed;
+        // Stop-before-start owns its outcome: a run that never started
+        // and never took delivery holds no CLI effect and no credential,
+        // so a confirmed fence settles it even when the native unit was
+        // already absent (reserve race). The racing launch's own failure
+        // path reaps any unit its reserve just created.
+        if closed && !receipt.started && !receipt.delivered {
+            uncertain = false;
+        }
+        if uncertain {
+            eprintln!(
+                "factory run {} stop uncertain: native={native_uncertain} credential_ok={credential_ok} closed={closed}",
+                req.id
+            );
         }
         let reason = if uncertain {
             "stop-uncertain"
@@ -2674,7 +2704,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         }
         // A concurrent operator stop owns the outcome of a launch; only
         // the stop path itself overwrites the tombstone it just persisted.
-        if current.phase == FACTORY_STOPPED && !overwrite {
+        if receipt_stop_owned(&current.phase) && !overwrite {
             return Ok(receipt_state(&current, false));
         }
         current.credential_returned = receipt.credential_returned;
@@ -4847,6 +4877,101 @@ mod tests {
         assert_eq!(state.reason, "stopped");
         assert_eq!(state.retirement, "confirmed");
         assert_eq!(broker.reconcile_calls.borrow().len(), 0);
+    }
+
+    #[test]
+    fn launch_path_respects_stop_owned_uncertain() {
+        // A concurrent stop that fenced uncertain owns the outcome: the
+        // launch path neither advances past it nor overwrites it.
+        let (dir, factory, _exec, _term, broker) = wired_factory("stop-owned");
+        let run = sample_run();
+        // Abandon fences first, then defers to the stop's outcome.
+        broker.close.borrow_mut().push_back(Ok(()));
+        let receipt = FactoryReceipt {
+            run: run.clone(),
+            lease: Some(sample_lease(&run)),
+            generation: 1,
+            phase: "uncertain".to_string(),
+            retirement: "uncertain".to_string(),
+            reason: "stop-uncertain".to_string(),
+            ..FactoryReceipt::default()
+        };
+        factory.store_receipt(&receipt).unwrap();
+        // Abandon after a failed register keeps the stop's outcome.
+        let state = factory
+            .abandon_run(&receipt, "register-refused", deadline())
+            .unwrap();
+        assert_eq!(state.phase, "uncertain");
+        assert_eq!(state.reason, "stop-uncertain");
+        assert_eq!(state.retirement, "uncertain");
+        // A failed acquire keeps it too.
+        let state = factory
+            .fail_run(&receipt, FactoryError::msg("nope"), deadline())
+            .unwrap();
+        assert_eq!(state.phase, "uncertain");
+        // The start gate refuses to advance past it.
+        let mut probe = receipt.clone();
+        let held = factory.consume_start(&mut probe, deadline()).unwrap();
+        assert_eq!(held.unwrap().phase, "uncertain");
+        let text =
+            String::from_utf8(receipt_bytes(&dir, &run.project, &run.id)).unwrap();
+        assert!(text.contains("\"phase\":\"uncertain\""), "{text}");
+        assert!(text.contains("\"reason\":\"stop-uncertain\""), "{text}");
+    }
+
+    /// Hand-write an approved receipt holding a lease, as if a launch
+    /// were inside reserve (pre-start, pre-delivery).
+    fn write_approved_with_lease(dir: &std::path::Path, run: &FactoryRun) {
+        let receipt = FactoryReceipt {
+            run: run.clone(),
+            lease: Some(sample_lease(run)),
+            generation: 1,
+            phase: "approved".to_string(),
+            ..FactoryReceipt::default()
+        };
+        receipt.validate().unwrap();
+        std::fs::write(
+            dir.join(format!("{}-{}.json", run.project, run.id)),
+            receipt.encode().as_bytes(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn stop_before_delivery_confirms_despite_native_failure() {
+        // ST15 dependant race: the stop lands while reserve is in flight
+        // and the native unit is absent. The fence confirms, the run
+        // never started and never took delivery: stopped, not uncertain.
+        let (dir, factory, _exec, term, broker) = wired_factory("stop-predelivery");
+        let run = sample_run();
+        write_approved_with_lease(&dir, &run);
+        term.stop_unbound
+            .borrow_mut()
+            .push_back(Err(FactoryError::msg("no unit yet")));
+        broker.close.borrow_mut().push_back(Ok(()));
+        let state = factory.stop(&stop_req(&run), deadline()).unwrap();
+        assert_eq!(state.phase, "stopped");
+        assert_eq!(state.reason, "stopped");
+        assert_eq!(state.retirement, "confirmed");
+    }
+
+    #[test]
+    fn stop_close_retries_before_uncertain() {
+        // A transient broker close heals inside the stop; only a fence
+        // that never confirms fences the run.
+        let (dir, factory, _exec, term, broker) = wired_factory("stop-closeretry");
+        let run = sample_run();
+        write_approved_with_lease(&dir, &run);
+        term.stop_unbound.borrow_mut().push_back(Ok(()));
+        broker
+            .close
+            .borrow_mut()
+            .push_back(Err(FactoryError::msg("blip")));
+        broker.close.borrow_mut().push_back(Ok(()));
+        let state = factory.stop(&stop_req(&run), deadline()).unwrap();
+        assert_eq!(state.phase, "stopped");
+        assert_eq!(state.retirement, "confirmed");
+        assert_eq!(broker.close_calls.borrow().len(), 2);
     }
 
     /// Hand-write a running receipt with lease and binding, as if a launch
