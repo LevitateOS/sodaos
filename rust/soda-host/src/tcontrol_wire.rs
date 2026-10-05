@@ -50,6 +50,16 @@ pub fn err_unconfirmed() -> String {
     ERR_UNCONFIRMED.to_string()
 }
 
+/// Mirror of `tailnet.ErrNotEnrolled`, for the CLI client surface only.
+pub fn err_not_enrolled() -> String {
+    "tailscale is not enrolled".to_string()
+}
+
+/// Mirror of `tailnet.ErrIPv4Unavailable`, for the CLI client surface only.
+pub fn err_ipv4_unavailable() -> String {
+    "tailscale did not report an IPv4 address".to_string()
+}
+
 /// Best-effort in-place zeroing of a secret string, mirroring the explicit
 /// `Secret = ""` assignments in Go. Clears this allocation only; other copies
 /// (JSON buffers, curl stdin) are cleared at their own use sites.

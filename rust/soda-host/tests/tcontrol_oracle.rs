@@ -30,6 +30,8 @@ mod tailnet_domain {
 mod tcontrol_wire;
 #[path = "../src/tcontrol_policy.rs"]
 mod tcontrol_policy;
+#[path = "../src/tcontrol_native.rs"]
+mod tcontrol_native;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -46,6 +48,7 @@ fn scratch(name: &str) -> PathBuf {
     dir
 }
 
+use tcontrol_native as native;
 use tcontrol_policy as policy;
 use tcontrol_wire as wire;
 
@@ -1312,5 +1315,525 @@ fn policy_project_missing_is_off_while_malformed_fails_safely() {
         )
         .expect_err("bad run");
     assert!(e.contains("invalid request"), "{e}");
+}
+
+// ---------- Native observation ----------
+
+use soda_host::project::Executor;
+
+const NATIVE_STATUS: &str = r#"{"Version":"1.102.4","CurrentTailnet":{"Name":"soda.example.test","MagicDNSEnabled":true},"BackendState":"Running","HaveNodeKey":true,"Self":{"ID":"self","DNSName":"host.example.ts.net.","TailscaleIPs":["100.64.0.1"]},"Peer":{"peer":{"ID":"peer","DNSName":"exit.example.ts.net.","TailscaleIPs":["100.64.0.2"],"Online":true,"ExitNodeOption":true}},"AuthURL":"https://login.tailscale.com/a/synthetic","Health":["sensitive native diagnostic"],"PrivateKey":"must-not-project"}"#;
+const NATIVE_PREFS: &str = r#"{"WantRunning":true,"ExitNodeID":"","ExitNodeIP":"","ExitNodeAllowLANAccess":false,"AdvertiseRoutes":["10.8.0.0/16"],"Persist":{"PrivateNodeKey":"must-not-project"}}"#;
+
+// Byte-exact Go goldens (transient `go test` dump of `observe`/`Settings`
+// over the fixtures above; helper deleted after capture).
+const GO_REVISION: &str = "c2325fcf010801018acfa617389a67457360b7763a3b7343869ff73f5c4ad304";
+const GO_FRESH_REVISION: &str = "2a70710052e2a0eccf94ce7d4d5051fb35d5ff241253fcd702d7afe92cb3d443";
+const GO_HOSTVIEW: &str = r#"{"tailnet":"soda.example.test","magic_dns_enabled":true,"revision":"c2325fcf010801018acfa617389a67457360b7763a3b7343869ff73f5c4ad304","state":"Running","have_node_key":true,"expired":false,"dns_name":"host.example.ts.net","addresses":["100.64.0.1"],"peers":[{"id":"peer","dns_name":"exit.example.ts.net","addresses":["100.64.0.2"],"online":true,"exit_node":true,"expired":false}],"health_issues":1,"preferences":{"want_running":true,"exit_node_id":"","exit_node_ip":"","allow_lan":false,"advertise_exit_node":false}}"#;
+
+fn fixture_transport(
+    status: String,
+    prefs: String,
+) -> Box<native::Transport> {
+    Box::new(
+        move |method: &str, path: &str, _body: Option<&[u8]>, _d: Instant| {
+            if method == "GET" && path == "status" {
+                Ok((200, status.as_bytes().to_vec()))
+            } else if method == "GET" && path == "prefs" {
+                Ok((200, prefs.as_bytes().to_vec()))
+            } else {
+                Ok((500, Vec::new()))
+            }
+        },
+    )
+}
+
+struct FakeExec {
+    f: Box<dyn Fn(&[u8], &str, &[&str], Instant) -> Result<Vec<u8>, String> + Send + Sync>,
+}
+
+impl Executor for FakeExec {
+    fn run(
+        &self,
+        stdin: &[u8],
+        cmd: &str,
+        args: &[&str],
+        deadline: Instant,
+    ) -> Result<Vec<u8>, String> {
+        (self.f)(stdin, cmd, args, deadline)
+    }
+}
+
+fn boom_exec() -> FakeExec {
+    FakeExec {
+        f: Box::new(|_, _, _, _| panic!("unexpected native mutation")),
+    }
+}
+
+#[test]
+fn native_observe_fixture_matches_go_goldens() {
+    let t = fixture_transport(NATIVE_STATUS.to_string(), NATIVE_PREFS.to_string());
+    for _ in 0..2 {
+        let (view, auth) = native::observe(&t, soon(5000)).unwrap();
+        assert!(view.validate().is_ok());
+        assert_eq!(view.revision, GO_REVISION);
+        assert_eq!(auth, "https://login.tailscale.com/a/synthetic");
+        let mut encoded = String::new();
+        view.encode_into(&mut encoded);
+        assert_eq!(encoded, GO_HOSTVIEW);
+        for secret in [
+            "sensitive native diagnostic",
+            "PrivateNodeKey",
+            "must-not-project",
+            "login.tailscale.com",
+        ] {
+            assert!(!encoded.contains(secret), "projected {secret}");
+        }
+        assert_eq!(view.health_issues, 1);
+        assert_eq!(view.peers.len(), 1);
+        assert!(!view.preferences.advertise_exit_node);
+    }
+}
+
+#[test]
+fn native_fresh_daemon_omits_false_node_key() {
+    for field in ["", r#","HaveNodeKey":false"#] {
+        let status = format!(
+            r#"{{"Version":"1.102.4-t3caf7d9e7-g084ee3b64","BackendState":"NeedsLogin","Self":{{"ID":"","DNSName":"","TailscaleIPs":null}},"Peer":null{field}}}"#
+        );
+        let prefs = r#"{"WantRunning":false,"ExitNodeID":"","ExitNodeIP":"","ExitNodeAllowLANAccess":false,"AdvertiseRoutes":null}"#;
+        let t = fixture_transport(status, prefs.to_string());
+        let (view, _) = native::observe(&t, soon(5000)).unwrap();
+        assert!(view.validate().is_ok());
+        assert_eq!(view.revision, GO_FRESH_REVISION);
+        assert_eq!(view.state, "NeedsLogin");
+        assert!(!view.have_node_key && !view.preferences.want_running);
+        assert!(view.addresses.is_empty());
+    }
+}
+
+#[test]
+fn native_node_key_optional_but_strict() {
+    for field in [
+        "",
+        r#""HaveNodeKey":null,"#,
+        r#""HaveNodeKey":"false","#,
+        r#""HaveNodeKey":0,"#,
+        r#""haveNodeKey":true,"#,
+    ] {
+        let status = NATIVE_STATUS.replacen(r#""HaveNodeKey":true,"#, field, 1);
+        let t = fixture_transport(status, NATIVE_PREFS.to_string());
+        assert!(
+            native::observe(&t, soon(5000)).is_err(),
+            "accepted field {field:?}"
+        );
+    }
+}
+
+#[test]
+fn native_unavailable_kinds() {
+    for kind in ["state", "prefs", "oversize", "null", "duplicate", "status-code"] {
+        let mut status = NATIVE_STATUS.to_string();
+        let mut prefs = NATIVE_PREFS.to_string();
+        match kind {
+            "state" => status = status.replacen("Running", "UnknownState", 1),
+            "prefs" => prefs = "{}".to_string(),
+            "oversize" => status = format!("{status}{}", " ".repeat(65536)),
+            "null" => status = "null".to_string(),
+            "duplicate" => {
+                status = status.replacen(
+                    r#""HaveNodeKey":true"#,
+                    r#""HaveNodeKey":true,"HaveNodeKey":false"#,
+                    1,
+                )
+            }
+            _ => {}
+        }
+        let t: Box<native::Transport> = if kind == "status-code" {
+            Box::new(|_, _, _, _| Ok((500, Vec::new())))
+        } else {
+            fixture_transport(status, prefs)
+        };
+        assert!(native::observe(&t, soon(5000)).is_err(), "accepted {kind}");
+    }
+    assert!(native::finish_local(200, &[0u8; 65537]).is_err());
+    assert!(native::finish_local(204, b"").is_ok());
+    assert!(native::finish_local(301, b"").is_err());
+}
+
+#[test]
+fn native_revision_tracks_identity_without_release_veto() {
+    let t = fixture_transport(NATIVE_STATUS.to_string(), NATIVE_PREFS.to_string());
+    let (before, _) = native::observe(&t, soon(5000)).unwrap();
+    let status = NATIVE_STATUS
+        .replacen(r#""ID":"self""#, r#""ID":"replacement""#, 1)
+        .replacen("1.102.4", "1.1.0", 1);
+    let t2 = fixture_transport(status, NATIVE_PREFS.to_string());
+    let (after, _) = native::observe(&t2, soon(5000)).unwrap();
+    assert_ne!(after.revision, before.revision);
+}
+
+#[test]
+fn native_sha256_matches_reference() {
+    assert_eq!(
+        soda_host::sha256::hex_lower(&soda_host::sha256::digest(b"abc")),
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+}
+
+#[test]
+fn native_signin_reauth_preserves_prefs() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    let patches = Arc::new(AtomicU32::new(0));
+    let logins = Arc::new(AtomicU32::new(0));
+    let status = NATIVE_STATUS.replacen(r#""Running""#, r#""NeedsLogin""#, 1);
+    let t: Box<native::Transport> = Box::new({
+        let (patches, logins) = (patches.clone(), logins.clone());
+        move |method: &str, path: &str, body: Option<&[u8]>, _d: Instant| {
+            match (method, path) {
+                ("GET", "status") => Ok((200, status.as_bytes().to_vec())),
+                ("GET", "prefs") => Ok((200, NATIVE_PREFS.as_bytes().to_vec())),
+                ("PATCH", "prefs") => {
+                    patches.fetch_add(1, Ordering::SeqCst);
+                    assert_eq!(
+                        body.unwrap_or_default(),
+                        br#"{"WantRunning":true,"WantRunningSet":true}"#
+                    );
+                    Ok((200, b"{}".to_vec()))
+                }
+                ("POST", "login-interactive") => {
+                    logins.fetch_add(1, Ordering::SeqCst);
+                    Ok((204, Vec::new()))
+                }
+                _ => panic!("unexpected {method} {path}"),
+            }
+        }
+    });
+    let (before, _) = native::observe(&t, soon(5000)).unwrap();
+    let exec = boom_exec();
+    native::execute_signin(
+        &t,
+        &exec,
+        native::DEFAULT_CLI,
+        std::path::Path::new(native::HOST_SOCKET),
+        &before,
+        soon(5000),
+    )
+    .unwrap();
+    assert_eq!(patches.load(Ordering::SeqCst), 1);
+    assert_eq!(logins.load(Ordering::SeqCst), 1);
+    // Readback is pending while the auth URL is live.
+    let req = wire::HostRequest {
+        action: "signin".to_string(),
+        revision: before.revision.clone(),
+        ..Default::default()
+    };
+    let result = native::readback_host_action(&t, &req, "", None, soon(5000));
+    assert!(result.validate().is_ok());
+    assert_eq!(result.outcome, "pending");
+    assert!(!result.auth_url.is_empty());
+}
+
+#[test]
+fn native_exit_node_and_logout_confirm() {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    use std::sync::Arc;
+    for action in ["exit-node", "logout"] {
+        let mutations = Arc::new(AtomicU32::new(0));
+        let changed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let t: Box<native::Transport> = Box::new({
+            let (mutations, changed) = (mutations.clone(), changed.clone());
+            move |method: &str, path: &str, _body: Option<&[u8]>, _d: Instant| {
+                match (method, path) {
+                    ("GET", "status") => {
+                        let mut status = NATIVE_STATUS.to_string();
+                        if changed.load(Ordering::SeqCst) && action == "logout" {
+                            status = status
+                                .replacen(r#""Running""#, r#""NeedsLogin""#, 1)
+                                .replacen(r#""HaveNodeKey":true"#, r#""HaveNodeKey":false"#, 1);
+                        }
+                        Ok((200, status.into_bytes()))
+                    }
+                    ("GET", "prefs") => {
+                        let mut prefs = NATIVE_PREFS.to_string();
+                        if changed.load(Ordering::SeqCst) && action == "exit-node" {
+                            prefs = prefs
+                                .replacen(r#""ExitNodeID":"""#, r#""ExitNodeID":"peer""#, 1)
+                                .replacen(
+                                    r#""ExitNodeAllowLANAccess":false"#,
+                                    r#""ExitNodeAllowLANAccess":true"#,
+                                    1,
+                                );
+                        }
+                        Ok((200, prefs.into_bytes()))
+                    }
+                    ("POST", "logout") => {
+                        assert_eq!(action, "logout");
+                        mutations.fetch_add(1, Ordering::SeqCst);
+                        changed.store(true, Ordering::SeqCst);
+                        Ok((204, Vec::new()))
+                    }
+                    _ => panic!("unexpected {method} {path}"),
+                }
+            }
+        });
+        let exec = FakeExec {
+            f: Box::new({
+                let (mutations, changed) = (mutations.clone(), changed.clone());
+                move |_, cmd: &str, args: &[&str], _| {
+                    assert_eq!(cmd, native::DEFAULT_CLI);
+                    let sock = format!("--socket={}", native::HOST_SOCKET);
+                    assert_eq!(
+                        args,
+                        &[sock.as_str(), "set", "--exit-node=100.64.0.2", "--exit-node-allow-lan-access=true"][..]
+                    );
+                    mutations.fetch_add(1, Ordering::SeqCst);
+                    changed.store(true, Ordering::SeqCst);
+                    Ok(Vec::new())
+                }
+            }),
+        };
+        let (before, _) = native::observe(&t, soon(5000)).unwrap();
+        let mut req = wire::HostRequest {
+            action: action.to_string(),
+            revision: before.revision.clone(),
+            confirm: action.to_string(),
+            ..Default::default()
+        };
+        let selected;
+        let action_err;
+        if action == "exit-node" {
+            req.exit_node = Some("100.64.0.2".to_string());
+            req.allow_lan = Some(true);
+            let socket = std::path::Path::new(native::HOST_SOCKET);
+            match native::execute_exit_node(&t, &exec, native::DEFAULT_CLI, socket, &req, &before, soon(5000)) {
+                Ok(id) => {
+                    selected = id;
+                    action_err = None;
+                }
+                Err(e) => {
+                    selected = String::new();
+                    action_err = Some(e);
+                }
+            }
+        } else {
+            selected = String::new();
+            action_err = native::execute_logout(&t, soon(5000)).err();
+        }
+        let result = native::readback_host_action(&t, &req, &selected, action_err, soon(5000));
+        assert!(result.validate().is_ok(), "{action}: {result:?}");
+        assert_eq!(result.outcome, "confirmed", "{action}");
+        assert_eq!(mutations.load(Ordering::SeqCst), 1);
+        assert!(result.auth_url.is_empty());
+    }
+}
+
+#[test]
+fn native_offline_exit_conflicts_and_retained_id_stays_unconfirmed() {
+    // Offline peer: no command runs, conflict surfaces.
+    let status = NATIVE_STATUS.replacen(r#""Online":true"#, r#""Online":false"#, 1);
+    let t = fixture_transport(status, NATIVE_PREFS.to_string());
+    let (before, _) = native::observe(&t, soon(5000)).unwrap();
+    let req = wire::HostRequest {
+        action: "exit-node".to_string(),
+        revision: before.revision.clone(),
+        confirm: "exit-node".to_string(),
+        exit_node: Some("100.64.0.2".to_string()),
+        allow_lan: Some(false),
+        ..Default::default()
+    };
+    let exec = boom_exec();
+    let socket = std::path::Path::new(native::HOST_SOCKET);
+    let e = native::execute_exit_node(&t, &exec, native::DEFAULT_CLI, socket, &req, &before, soon(5000))
+        .expect_err("offline selected");
+    assert!(e.contains("conflict"), "{e}");
+    // Clear with a retained native ID: command runs, readback unconfirmed.
+    let prefs = NATIVE_PREFS.replacen(r#""ExitNodeID":"""#, r#""ExitNodeID":"peer""#, 1);
+    let t = fixture_transport(NATIVE_STATUS.to_string(), prefs);
+    let (before, _) = native::observe(&t, soon(5000)).unwrap();
+    let req = wire::HostRequest {
+        action: "exit-node".to_string(),
+        revision: before.revision.clone(),
+        confirm: "exit-node".to_string(),
+        exit_node: Some(String::new()),
+        allow_lan: Some(false),
+        ..Default::default()
+    };
+    let exec = FakeExec {
+        f: Box::new(|_, cmd, args, _| {
+            assert_eq!(cmd, native::DEFAULT_CLI);
+            assert!(args.iter().any(|a| a.contains("--exit-node=")));
+            Ok(Vec::new())
+        }),
+    };
+    let selected =
+        native::execute_exit_node(&t, &exec, native::DEFAULT_CLI, socket, &req, &before, soon(5000))
+            .unwrap();
+    let result = native::readback_host_action(&t, &req, &selected, None, soon(5000));
+    assert_eq!(result.outcome, "unconfirmed");
+}
+
+#[test]
+fn native_up_notifications_and_command_bounds() {
+    assert!(native::decode_up_notifications(b"").is_ok());
+    assert!(native::decode_up_notifications(
+        b"{\n\"AuthURL\":\"https://login.tailscale.com/a/synthetic\"\n}\n{\"BackendState\":\"NeedsLogin\"}\n"
+    )
+    .is_ok());
+    for bad in [
+        &b"not json"[..],
+        b"{\"Error\":\"must-not-escape-private-diagnostic\"}",
+        b"{\"AuthURL\":5}",
+        b"{} {",
+        b"5",
+    ] {
+        let e = native::decode_up_notifications(bad).expect_err("accepted");
+        assert!(!e.contains("must-not-escape"), "{e}");
+    }
+    let exec = FakeExec {
+        f: Box::new(|_, _, _, _| Ok(vec![0u8; 65537])),
+    };
+    assert!(native::run_command(&exec, "/bin/true", &[], soon(5000)).is_err());
+    let exec = FakeExec {
+        f: Box::new(|_, _, _, _| Err("synthetic secret diagnostic".to_string())),
+    };
+    let e = native::run_command(&exec, "/bin/false", &[], soon(5000)).expect_err("accepted");
+    assert!(!e.contains("synthetic"), "{e}");
+}
+
+#[test]
+fn native_local_request_over_real_socket() {
+    use std::io::{Read, Write};
+    use std::os::unix::net::UnixListener;
+    let dir = scratch("sock");
+    let path = dir.join("s");
+    let listener = UnixListener::bind(&path).unwrap();
+    let server = std::thread::spawn(move || {
+        for _ in 0..4 {
+            let (mut conn, _) = listener.accept().unwrap();
+            let mut head = vec![0u8; 4096];
+            let mut total = Vec::new();
+            loop {
+                let n = conn.read(&mut head).unwrap();
+                if n == 0 {
+                    break;
+                }
+                total.extend_from_slice(&head[..n]);
+                if total.windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            let text = String::from_utf8_lossy(&total).into_owned();
+            let (code, body) = if text.contains("GET /localapi/v0/status ") {
+                ("200 OK", NATIVE_STATUS)
+            } else if text.contains("GET /localapi/v0/prefs ") {
+                ("200 OK", NATIVE_PREFS)
+            } else if text.contains("GET /localapi/v0/boom ") {
+                ("500 Internal Server Error", "")
+            } else {
+                ("200 OK", "not json")
+            };
+            conn.write_all(format!("HTTP/1.1 {code}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).as_bytes())
+                .unwrap();
+        }
+    });
+    let t: Box<native::Transport> = Box::new({
+        let path = path.clone();
+        move |method: &str, p: &str, body: Option<&[u8]>, d: Instant| {
+            native::local_request(&path, method, p, body, d)
+        }
+    });
+    let (view, auth) = native::observe(&t, soon(5000)).unwrap();
+    assert_eq!(view.revision, GO_REVISION);
+    assert_eq!(auth, "https://login.tailscale.com/a/synthetic");
+    assert!(native::local_request(&path, "GET", "boom", None, soon(5000)).is_ok());
+    let (status, _) = native::local_request(&path, "GET", "boom", None, soon(5000)).unwrap();
+    assert_eq!(status, 500);
+    server.join().unwrap();
+    assert!(native::local_request(&dir.join("missing"), "GET", "status", None, soon(5000)).is_err());
+    assert!(native::local_request(&path, "GET", "status", None, Instant::now()).is_err());
+}
+
+#[test]
+fn native_cli_client_vectors() {
+    let status_exec = |output: &'static str| FakeExec {
+        f: Box::new(move |stdin, cmd, args, _| {
+            assert!(stdin.is_empty());
+            assert_eq!(args, ["status", "--json"]);
+            assert_eq!(cmd, "/bin/tailscale");
+            Ok(output.as_bytes().to_vec())
+        }),
+    };
+    let status = native::cli_status(
+        &status_exec(r#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net."}}"#),
+        "/bin/tailscale",
+        soon(5000),
+    )
+    .unwrap();
+    assert_eq!(status.identity, "atlas.example.ts.net");
+    let endpoint = native::cli_endpoint(
+        &status_exec(r#"{"BackendState":"Running","Self":{"DNSName":"Atlas.Example.ts.net.","TailscaleIPs":["fd7a:115c:a1e0::1","100.88.77.66"]},"CurrentTailnet":{"MagicDNSEnabled":true}}"#),
+        "/bin/tailscale",
+        soon(5000),
+    )
+    .unwrap();
+    assert_eq!(endpoint.identity, "atlas.example.ts.net");
+    assert_eq!(endpoint.ipv4, "100.88.77.66");
+    for dns in ["", "atlas.example.ts.net."] {
+        let endpoint = native::cli_endpoint(
+            &status_exec(Box::leak(
+                format!(r#"{{"BackendState":"Running","Self":{{"DNSName":"{dns}","TailscaleIPs":["100.88.77.66"]}}}}"#)
+                    .into_boxed_str(),
+            )),
+            "/bin/tailscale",
+            soon(5000),
+        )
+        .unwrap();
+        assert_eq!(endpoint.identity, "100.88.77.66");
+    }
+    for (output, want) in [
+        (r#"{"BackendState":"NeedsLogin","Self":{}}"#, "not enrolled"),
+        (
+            r#"{"BackendState":"Stopped","Self":{"TailscaleIPs":["100.88.77.66"]}}"#,
+            "not enrolled",
+        ),
+        (r#"{"BackendState":"Running","Self":{}}"#, "IPv4"),
+        (
+            r#"{"BackendState":"Running","Self":{"DNSName":"atlas.example.ts.net","TailscaleIPs":["fd7a:115c:a1e0::1"]}}"#,
+            "IPv4",
+        ),
+        (
+            r#"{"BackendState":"Running","Self":{"Expired":true,"DNSName":"atlas.example.ts.net.","TailscaleIPs":["100.88.77.66"]}}"#,
+            "not enrolled",
+        ),
+    ] {
+        let e = native::cli_endpoint(&status_exec(output), "/bin/tailscale", soon(5000))
+            .expect_err("advertised");
+        assert!(e.contains(want), "{e}");
+    }
+    for bad in ["", "{}", r#"{"BackendState":"Running""#, "{} {}"] {
+        assert!(native::cli_status(&status_exec(bad), "/bin/tailscale", soon(5000)).is_err());
+    }
+    let status = native::cli_status(
+        &status_exec(r#"{"BackendState":"NeedsLogin","AuthURL":"https://fixture.invalid/auth"}"#),
+        "/bin/tailscale",
+        soon(5000),
+    )
+    .unwrap();
+    assert!(status.auth_pending);
+    assert!(
+        native::cli_status(
+            &status_exec(r#"{"BackendState":"Running","Self":{"DNSName":"atlas.local"}}"#),
+            "/bin/tailscale",
+            soon(5000)
+        )
+        .is_err()
+    );
+    // CLI failures carry the native diagnostic, like Go.
+    let exec = FakeExec {
+        f: Box::new(|_, _, _, _| Err("exit 7: daemon unavailable".to_string())),
+    };
+    let e = native::cli_status(&exec, "/bin/tailscale", soon(5000)).expect_err("accepted");
+    assert!(e.contains("unavailable") && e.contains("daemon unavailable"), "{e}");
 }
 
