@@ -2081,7 +2081,8 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
         let credential = Secret(
             match self.broker.register(&lease.id, &binding, run_deadline) {
                 Ok(credential) => credential,
-                Err(_) => {
+                Err(cause) => {
+                    eprintln!("factory run {} register refused: {cause:?}", req.run.id);
                     let _ = self
                         .terminal
                         .stop(&lease.with_binding(&binding), run_deadline);
