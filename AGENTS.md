@@ -178,11 +178,11 @@ Choose checks for the change; this table is not a mandatory sequence.
 | `go test ./internal/runners` | Example focused Go package test; select the affected package/tests. |
 | `bun run typecheck` | Strict TypeScript and Lit checks. |
 | `bash scripts/check-oxfmt.sh` / `check-oxlint.sh` / `check-ts-complexity.sh` | TypeScript format, correctness lint, and cyclomatic-below-10 on browser-payload TS (see [typescript guide](docs/development/typescript.md)). |
-| `bash scripts/check-ruff-format.sh` / `check-ruff.sh` / `check-py-complexity.sh` | Python format, correctness lint, and cyclomatic-below-10 on shipping Python (see [Python tooling](docs/development/python.md)). |
+| `bash scripts/check-no-python.sh` | Zero-Python gate: no tracked `.py`, no Python shebang/execution (see [Python elimination](docs/development/python.md)). |
 | `bash scripts/check-gofumpt.sh` / `check-staticcheck.sh` / `check-errcheck.sh` | Go format (gofumpt), staticcheck, and unchecked-error lint; linux analysis for the last two. |
 | `bun run test:frontend` / `bun run test:forgejo` | Build browser assets and run the selected suite. |
 | `bun test tests/forgejo/cockpit-branding.test.ts` | Independent stock-Cockpit branding source/component checks. |
-| `bun run check:source` | Broad Go, TypeScript, browser and Python source checks. |
+| `bun run check:source` | Broad Go, TypeScript and browser source checks, including the zero-Python gate. |
 | `bash scripts/check-native.sh ARCH CANDIDATE_DIR` | Verify a soda-build candidate artifacts directory; does not build, install or publish. |
 | `bash scripts/build-native.sh ARCH` | Removed at B6; use `tools/soda-build`. |
 
@@ -204,7 +204,7 @@ Service/image source in `appliance/services/` and `project-os/` establishes topo
 | Product scope and ownership | [Architecture](docs/architecture/overview.md), [Spaces](docs/product/spaces.md), [Scope](docs/product/scope.md) |
 | Runners and Tailnet | [Runners](docs/reference/runners.md), [Networking](docs/architecture/networking.md) |
 | Forgejo customization and UI | [Forgejo](docs/reference/forgejo.md), [Lit](docs/development/lit.md), [TypeScript](docs/development/typescript.md) |
-| Python format/lint/complexity | [Python tooling](docs/development/python.md) |
+| Python elimination record | [Python elimination](docs/development/python.md) |
 | Project runtime and access | [Project OS](docs/reference/project-os.md), [Terminal](docs/reference/terminal.md), [API](docs/reference/api.md), [Credentials](docs/reference/credentials.md) |
 | Cockpit and operator setup | [Cockpit](docs/development/cockpit.md), [Operator setup](docs/guides/operator-setup.md) |
 | Release | [Release architecture](docs/architecture/release.md), [Release workflow](docs/development/release.md) |

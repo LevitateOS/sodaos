@@ -113,8 +113,8 @@ for this feature. Do not use old whole-database backups to erase later writes.
 ```sh
 go test ./internal/avatar ./internal/web ./tools/soda-avatars ./internal/release/build
 go test -race ./internal/avatar ./internal/web -run 'Avatar|Render|Definition|Versioned|Stable|Offline|InputBounds'
-python3 -m unittest discover -s tests/build -p test_avatar_integration.py
-SODA_CADDY_BINARY=/absolute/path/to/caddy python3 -m unittest discover -s tests/build -p test_avatar_integration.py
+go test ./tests/build/ -run 'Avatar'
+SODA_CADDY_BINARY=/absolute/path/to/caddy go test ./tests/build/ -run 'Avatar'
 SODA_AVATAR_BROWSER_CHECK=1 go test ./internal/web -run TestAvatarBrowserRendering -v
 go run ./tools/soda-avatars
 ```
