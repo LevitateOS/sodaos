@@ -239,7 +239,7 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
     Ok(())
 }
 
-/// `validateIdentityRuntime`, extended for the muse-code harness
+/// `validateIdentityRuntime`, extended for the muse harness
 /// family: each configured family needs the runtime socket and a
 /// verified pin, exactly like codex.
 fn validate_identity_runtime(c: &Config) -> Result<(), String> {

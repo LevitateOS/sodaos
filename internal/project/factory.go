@@ -20,13 +20,12 @@ const (
 	// FactoryScopeCodex is the fixed factory execution discriminator carried
 	// in the broker binding for supervised Codex runs.
 	FactoryScopeCodex = "factory-codex"
-	// FactoryHarnessMuseCode is the Muse Code CLI harness family
-	// (`muse exec` runs). It is distinct from the native "muse"
-	// provider, which is a different adapter.
-	FactoryHarnessMuseCode = "muse-code"
-	// FactoryScopeMuseCode is the fixed factory execution discriminator
+	// FactoryHarnessMuse is the Muse Code CLI harness family
+	// (`muse exec` runs backed by the native "muse" provider).
+	FactoryHarnessMuse = "muse"
+	// FactoryScopeMuse is the fixed factory execution discriminator
 	// carried in the broker binding for supervised Muse Code runs.
-	FactoryScopeMuseCode = "factory-muse-code"
+	FactoryScopeMuse = "factory-muse"
 )
 
 const (
@@ -69,7 +68,7 @@ func ValidHarnessVersion(version string) bool { return harnessVersion.MatchStrin
 
 // ValidHarnessFamily identifies the supported supervised CLI families.
 func ValidHarnessFamily(family string) bool {
-	return family == FactoryHarnessCodex || family == FactoryHarnessMuseCode
+	return family == FactoryHarnessCodex || family == FactoryHarnessMuse
 }
 
 const (

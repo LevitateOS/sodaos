@@ -385,14 +385,14 @@ impl pfactory::FactoryTerminal for TerminalSeam {
         self.pin_family().to_string()
     }
     fn harness_version(&self) -> String {
-        if self.pin_family() == pfactory::FACTORY_HARNESS_MUSE_CODE {
+        if self.pin_family() == pfactory::FACTORY_HARNESS_MUSE {
             self.muse_harness_version.clone()
         } else {
             self.harness_version.clone()
         }
     }
     fn harness_sha256(&self) -> String {
-        if self.pin_family() == pfactory::FACTORY_HARNESS_MUSE_CODE {
+        if self.pin_family() == pfactory::FACTORY_HARNESS_MUSE {
             self.muse_harness_sha256.clone()
         } else {
             self.harness_sha256.clone()
@@ -409,7 +409,7 @@ impl pfactory::FactoryTerminal for TerminalSeam {
         let service = self.service();
         let trun = cv_run_to_tcodex(run);
         let tlease = cv_lease_to_texec(lease);
-        let out = if run.harness == pfactory::FACTORY_HARNESS_MUSE_CODE {
+        let out = if run.harness == pfactory::FACTORY_HARNESS_MUSE {
             service
                 .factory_muse_reserve(&trun, &tlease, pin, max_secs, deadline)
                 .map(|(binding, _paths)| binding)
@@ -483,7 +483,7 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     ) -> Result<(), pfactory::FactoryError> {
         let service = self.service();
         let trun = cv_run_to_tcodex(run);
-        if run.harness == pfactory::FACTORY_HARNESS_MUSE_CODE {
+        if run.harness == pfactory::FACTORY_HARNESS_MUSE {
             service
                 .factory_muse_stop_unbound(&trun, deadline)
                 .map_err(pfactory::FactoryError::Msg)
@@ -513,7 +513,7 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     fn live(&self, binding: &pfactory::Binding, deadline: Instant) -> bool {
         let service = self.service();
         let tbinding = cv_binding_to_texec(binding);
-        if tbinding.scope == tcodex::FACTORY_SCOPE_MUSE_CODE {
+        if tbinding.scope == tcodex::FACTORY_SCOPE_MUSE {
             service.factory_muse_live(&tbinding, deadline)
         } else {
             service.factory_codex_live(&tbinding, deadline)
@@ -529,7 +529,7 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     ) -> Result<pfactory::OutputSlice, pfactory::FactoryError> {
         let service = self.service();
         let tbinding = cv_binding_to_texec(binding);
-        if tbinding.scope == tcodex::FACTORY_SCOPE_MUSE_CODE {
+        if tbinding.scope == tcodex::FACTORY_SCOPE_MUSE {
             service
                 .factory_muse_output(project, &tbinding, offset, limit, deadline)
                 .map(|s| cv_slice_to_pfactory(&s))
@@ -572,14 +572,14 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     }
 }
 
-/// A lease takes the muse path when its binding carries the muse-code
+/// A lease takes the muse path when its binding carries the factory-muse
 /// scope. Anything else (including unbound) stays on the codex path,
 /// which denies what it does not recognize.
 fn muse_scoped_lease(lease: &texec::Lease) -> bool {
     lease
         .binding
         .as_ref()
-        .is_some_and(|b| b.scope == tcodex::FACTORY_SCOPE_MUSE_CODE)
+        .is_some_and(|b| b.scope == tcodex::FACTORY_SCOPE_MUSE)
 }
 
 impl TerminalSeam {
@@ -599,12 +599,12 @@ impl TerminalSeam {
     }
 
     /// The pin advertises the codex harness when configured, else the
-    /// muse-code harness when configured, else nothing usable.
+    /// muse harness when configured, else nothing usable.
     fn pin_family(&self) -> &'static str {
         if !self.harness.is_empty() {
             pfactory::FACTORY_HARNESS_CODEX
         } else if !self.muse_harness.is_empty() {
-            pfactory::FACTORY_HARNESS_MUSE_CODE
+            pfactory::FACTORY_HARNESS_MUSE
         } else {
             pfactory::FACTORY_HARNESS_CODEX
         }

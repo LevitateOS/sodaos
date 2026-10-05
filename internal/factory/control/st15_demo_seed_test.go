@@ -107,7 +107,7 @@ func (fx *st15Fixture) setupProject() error {
 		return err
 	}
 	if _, err := fx.coord.ApplySponsorship(ctx, factory.NewID(), "soda-maintainer", 0, factory.Sponsorship{
-		Repository: fx.cfg.Repository, GrantedBy: owner, Generation: 1, Connection: "st15-muse-code", GrantID: "st15-grant",
+		Repository: fx.cfg.Repository, GrantedBy: owner, Generation: 1, Connection: "st15-muse", GrantID: "st15-grant",
 		Roles: []string{project.RoleCoder, project.RoleReviewer}, AllowanceMinutes: 60, MaxConcurrent: 2, Active: true,
 	}); err != nil {
 		return err

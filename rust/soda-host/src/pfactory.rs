@@ -42,11 +42,11 @@ pub const FACTORY_STATE_ROOT: &str = "/var/lib/soda/host/factory";
 /// First harness family.
 pub const FACTORY_HARNESS_CODEX: &str = "codex";
 /// Muse Code CLI harness family.
-pub const FACTORY_HARNESS_MUSE_CODE: &str = "muse-code";
+pub const FACTORY_HARNESS_MUSE: &str = "muse";
 
 /// Supported supervised CLI families.
 pub fn valid_harness_family(family: &str) -> bool {
-    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE_CODE
+    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE
 }
 
 pub const FACTORY_APPROVED: &str = "approved";

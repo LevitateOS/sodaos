@@ -13,8 +13,14 @@ func TestFactoryHarnessPinValidate(t *testing.T) {
 	if err := good.Validate(); err != nil {
 		t.Fatalf("pin refused: %v", err)
 	}
+	muse := good
+	muse.Harness = FactoryHarnessMuse
+	if err := muse.Validate(); err != nil {
+		t.Fatalf("muse pin refused: %v", err)
+	}
 	for name, mutate := range map[string]func(*FactoryHarnessPin){
-		"harness": func(p *FactoryHarnessPin) { p.Harness = "muse" },
+		// The retired parallel family name stays denied.
+		"harness": func(p *FactoryHarnessPin) { p.Harness = "muse-code" },
 		"version": func(p *FactoryHarnessPin) { p.Version = "" },
 		"sha":     func(p *FactoryHarnessPin) { p.SHA256 = "short" },
 		"image":   func(p *FactoryHarnessPin) { p.Image = "localhost/soda:latest" },
