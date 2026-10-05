@@ -1356,6 +1356,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "soda-project-factory-roles"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "soda-json",
+]
+
+[[package]]
 name = "soda-project-terminal"
 version = "0.1.0"
 dependencies = [
