@@ -240,8 +240,6 @@ pub fn output_lines(text: &str) -> Vec<String> {
 /// Snapshot entry payload beyond uid/gid/mode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EntryBody {
-    /// Symlink target.
-    Link(String),
     /// File content hash.
     Sha256(String),
     /// File size without content access.
@@ -271,12 +269,11 @@ impl Entry {
             mode: meta.mode() & 0o7777,
             body: EntryBody::Dir,
         };
+        // Fail closed on links, like the owner: `lstat` sees neither a
+        // regular file nor a directory, so the snapshot aborts instead of
+        // following or recording an administrator's unexpected link.
         if file_type.is_symlink() {
-            let target = std::fs::read_link(path).map_err(SnapshotFailure::io)?;
-            return Ok(Entry {
-                body: EntryBody::Link(target.to_string_lossy().into_owned()),
-                ..entry
-            });
+            return Err(SnapshotFailure::bare(SnapshotKind::FileNotFoundError));
         }
         if file_type.is_file() && contents {
             if meta.len() > 512 * 1024 * 1024 {
@@ -316,7 +313,6 @@ impl Entry {
         set(&mut object, "gid", n(self.gid));
         set(&mut object, "mode", n(self.mode));
         match &self.body {
-            EntryBody::Link(target) => set(&mut object, "link", s(target.clone())),
             EntryBody::Sha256(hash) => set(&mut object, "sha256", s(hash.clone())),
             EntryBody::Size(size) => set(&mut object, "size", n(size)),
             EntryBody::Dir => {}
@@ -446,6 +442,38 @@ fn walk_sorted(root: &Path) -> Result<Vec<PathBuf>, SnapshotFailure> {
     Ok(found)
 }
 
+/// Snapshot one home's `.ssh` entries in sorted name order. Only
+/// `config` and `known_hosts` export hashes; every other file exports
+/// size, and `authorized_keys` is excluded (it is covered by the
+/// accounts dump). `is_file`/`is_dir` follow symlinks exactly like the
+/// owner's checks, and the entry itself fails the snapshot on a link.
+fn snapshot_ssh_files(home: &Path) -> Result<Vec<(String, JsonValue)>, SnapshotFailure> {
+    let ssh = home.join(".ssh");
+    let mut names = Vec::new();
+    for dir_entry in std::fs::read_dir(&ssh).map_err(SnapshotFailure::io)? {
+        names.push(dir_entry.map_err(SnapshotFailure::io)?.file_name());
+    }
+    names.sort();
+    let mut out = Vec::new();
+    for name in names {
+        let path = ssh.join(&name);
+        let name = name.to_string_lossy().into_owned();
+        if path.is_file() && name != "authorized_keys" {
+            let contents = name == "config" || name == "known_hosts";
+            out.push((name, Entry::snapshot(&path, contents)?.json()));
+        } else if path.is_dir()
+            && !std::fs::symlink_metadata(&path)
+                .map_err(SnapshotFailure::io)?
+                .file_type()
+                .is_symlink()
+            && name != "u08-personal-git"
+        {
+            out.push((name, Entry::snapshot(&path, false)?.json()));
+        }
+    }
+    Ok(out)
+}
+
 fn glob_prefix(dir: &Path, prefix: &str) -> Result<Vec<PathBuf>, SnapshotFailure> {
     let mut hits = Vec::new();
     // A missing directory yields no matches, like `Path.glob`; other
@@ -547,6 +575,9 @@ pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
             "shared",
             Entry::snapshot(&home.join("shared"), true)?.json(),
         );
+        for (name, value) in snapshot_ssh_files(&home)? {
+            set(&mut person, &name, value);
+        }
         set(sub_mut(&mut data, "people"), login, person);
 
         let checkout = home.join("u08-personal-checkout");
@@ -868,6 +899,53 @@ mod tests {
         let err = Entry::snapshot(Path::new("/dev/null"), true).unwrap_err();
         assert_eq!(err.kind, SnapshotKind::RuntimeError);
         assert_eq!(err.detail, "Unsupported snapshot file");
+    }
+
+    /// The owner fails closed on links and missing paths instead of
+    /// following them or substituting emptiness.
+    #[test]
+    fn entry_fails_closed_on_links_and_missing_paths() {
+        let dir = TempDir::new("snapshot").unwrap();
+        let target = dir.path().join("target.txt");
+        std::fs::write(&target, b"data").unwrap();
+        let link = dir.path().join("link.txt");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        let err = Entry::snapshot(&link, true).unwrap_err();
+        assert_eq!(err.kind, SnapshotKind::FileNotFoundError);
+        let err = Entry::snapshot(&dir.path().join("missing"), false).unwrap_err();
+        assert_eq!(err.kind, SnapshotKind::FileNotFoundError);
+        // A changed file changes its hash.
+        let first = Entry::snapshot(&target, true).unwrap();
+        std::fs::write(&target, b"changed").unwrap();
+        let second = Entry::snapshot(&target, true).unwrap();
+        assert_ne!(first.json(), second.json());
+    }
+
+    /// The `.ssh` loop exports hashes only for `config`/`known_hosts`,
+    /// sizes for the rest, skips `authorized_keys`/`u08-personal-git`,
+    /// and fails the snapshot on a link.
+    #[test]
+    fn ssh_files_export_hashes_sizes_and_reject_links() {
+        let dir = TempDir::new("snapshot").unwrap();
+        let home = dir.path().join("home");
+        let ssh = home.join(".ssh");
+        std::fs::create_dir_all(&ssh).unwrap();
+        std::fs::write(ssh.join("config"), b"Host x\n").unwrap();
+        std::fs::write(ssh.join("identity"), b"PRIVATE").unwrap();
+        std::fs::write(ssh.join("authorized_keys"), b"ssh-ed25519 AAAA\n").unwrap();
+        std::fs::create_dir_all(ssh.join("u08-personal-git")).unwrap();
+        let entries = snapshot_ssh_files(&home).unwrap();
+        let names: Vec<&str> = entries.iter().map(|(name, _)| name.as_str()).collect();
+        assert_eq!(names, vec!["config", "identity"]);
+        let config = entries[0].1.clone();
+        assert!(config.get("sha256").is_some());
+        assert!(config.get("size").is_none());
+        let identity = entries[1].1.clone();
+        assert_eq!(identity.get("size").unwrap().as_integer().unwrap(), 7);
+        assert!(identity.get("sha256").is_none());
+        std::os::unix::fs::symlink(ssh.join("config"), ssh.join("alias")).unwrap();
+        let err = snapshot_ssh_files(&home).unwrap_err();
+        assert_eq!(err.kind, SnapshotKind::FileNotFoundError);
     }
 
     #[test]
