@@ -109,6 +109,24 @@ func happyMerger() *fakeMerger {
 	}
 }
 
+// pendingMerger observes pending live checks: MergePass opens its row
+// but reconcile waits, leaving the row open and undriven for tests
+// that regress the stored evidence afterwards.
+func pendingMerger() *fakeMerger {
+	exec := happyMerger()
+	observe := exec.observe
+	exec.observe = func(w factory.MergeWork) (factory.MergeObservation, error) {
+		observation, err := observe(w)
+		if err != nil {
+			return observation, err
+		}
+		observation.Checks.Checks = nil
+		observation.Checks.ObservedContexts = 0
+		return observation, nil
+	}
+	return exec
+}
+
 type mergeFixture struct {
 	publish *publishFixture
 	exec    *fakeMerger
@@ -240,9 +258,51 @@ func TestMergePassReconcilesLostSubmitReply(t *testing.T) {
 	}
 }
 
+func TestMergePassSkipsRowWithoutCurrentPass(t *testing.T) {
+	fx, p := mergeSeed(t, 3)
+	ctx := context.Background()
+	stored, err := fx.publish.db.CheckAssessment(ctx, p.Repository, p.PRNumber)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.Verdict, stored.Reason = factory.CheckFailed, factory.CheckReasonFailed
+	stored.Results[0].Passed, stored.Results[0].State = false, "failure"
+	stored.Revision = 0
+	if _, err := fx.publish.db.RecordCheckAssessment(ctx, stored); err != nil {
+		t.Fatal(err)
+	}
+	fx.wire(happyMerger())
+	if report := fx.pass(t); len(report.Merged) != 0 {
+		t.Fatalf("failing head merged: %+v", report)
+	}
+	if _, err := fx.publish.db.MergeByPublication(ctx, p.ID); err == nil {
+		t.Fatal("failing head opened a merge row")
+	}
+	stored.Verdict, stored.Reason = factory.CheckPass, factory.CheckReasonPass
+	stored.Results[0].Passed, stored.Results[0].State = true, factory.CheckStateSuccess
+	stored.Revision = 0
+	if _, err := fx.publish.db.RecordCheckAssessment(ctx, stored); err != nil {
+		t.Fatal(err)
+	}
+	fx.pass(t)
+	m := fx.merge(t, p)
+	if m.Stage != factory.MergeMerged {
+		t.Fatalf("passing head unmerged: %+v", m)
+	}
+}
+
 func TestMergePassWaitsForStaleCheckEvidence(t *testing.T) {
 	fx, p := mergeSeed(t, 3)
 	ctx := context.Background()
+	// MergePass only opens rows behind a current pass, so open the
+	// reconciled row first (pending live evidence leaves it open and
+	// undriven), then regress the stored evidence.
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(ctx, p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
 	stored, err := fx.publish.db.CheckAssessment(ctx, p.Repository, p.PRNumber)
 	if err != nil {
 		t.Fatal(err)
@@ -273,6 +333,15 @@ func TestMergePassWaitsForStaleCheckEvidence(t *testing.T) {
 func TestMergePassRefusesFailedCheckEvidence(t *testing.T) {
 	fx, p := mergeSeed(t, 3)
 	ctx := context.Background()
+	// Open the reconciled row behind the seeded current pass first;
+	// the failure below must refuse an already-open row, since
+	// MergePass never opens rows for failing heads.
+	fx.wire(pendingMerger())
+	setup := MergeReport{Merged: []MergeLink{}}
+	fx.publish.coord.mergeOne(ctx, p, &setup)
+	if len(setup.Errors) != 0 {
+		t.Fatalf("setup merge open: %+v", setup)
+	}
 	stored, err := fx.publish.db.CheckAssessment(ctx, p.Repository, p.PRNumber)
 	if err != nil {
 		t.Fatal(err)

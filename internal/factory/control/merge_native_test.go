@@ -574,6 +574,29 @@ func nativeMergeAssess(t *testing.T, c nativeST12Config, fx *nativeFixture, p fa
 	return stored
 }
 
+// nativeMergeOpenRow records an open merge row exactly like mergeOne's
+// construction, for reconcile-gating tests: MergePass only opens rows
+// behind a current pass, so tests that regress the evidence afterwards
+// seed their row directly instead of driving the opening policy.
+func nativeMergeOpenRow(t *testing.T, fx *nativeFixture, p factory.Publication) {
+	t.Helper()
+	ctx := context.Background()
+	policy, err := fx.db.RepositoryPolicy(ctx, p.Repository)
+	nativeMust(t, err)
+	m := factory.Merge{
+		Operation: factory.MergeOperation{Kind: factory.OpMerge},
+		Authority: p.Authority, ID: factory.NewID(), PublicationID: p.ID,
+		AssignmentID: p.AssignmentID, ProjectID: p.ProjectID, Role: p.Role,
+		Acceptance: p.Acceptance, HeadRef: p.PRCreate.HeadRef, BaseRef: p.PRCreate.BaseRef,
+		HeadOID: p.Candidate, BaseOID: p.PRCreate.BaseOID,
+		Stage: factory.MergeOpen, Repository: p.Repository, Issue: p.Issue,
+		PRNumber: p.PRNumber, PRID: p.PRID, IssueID: p.PRCreate.IssueID,
+		PRAuthorID: p.PRCreate.Work.ActorID, ReviewerID: policy.Review.ActorID,
+		CreatedUnix: time.Now().Unix(),
+	}
+	nativeMust(t, fx.db.RecordMerge(ctx, m))
+}
+
 // nativeMergeDrive runs MergePass until the merge leaves open/fenced or
 // the deadline passes. Waits retry; transient native_unavailable errors
 // retry too, since the fenced host refuses with 503 while a native
@@ -770,11 +793,10 @@ func nativeMergeAdvanceBranch(t *testing.T, c nativeST12Config, branch string) s
 // binding without submitting anything.
 func TestNativeMergeStaleHead(t *testing.T) {
 	c := loadNativeST12(t)
-	ctx := context.Background()
 	fx, n := nativeMergeSetup(t, c)
 	p, a := nativeMergeSeedPublication(t, c, fx, n)
 	before := nativeTip(t, c.nativeST09Config, c.BaseBranch)
-	fx.coord.MergePass(ctx)
+	nativeMergeOpenRow(t, fx, p)
 	head2 := nativeMergeAdvanceBranch(t, c, factory.PublicationBranch(a.ID))
 	if head2 == p.PRCreate.HeadOID {
 		t.Fatal("advance did not move the candidate")
@@ -804,10 +826,9 @@ func TestNativeMergeStaleHead(t *testing.T) {
 // refuses its unverified base without submitting anything.
 func TestNativeMergeStaleBase(t *testing.T) {
 	c := loadNativeST12(t)
-	ctx := context.Background()
 	fx, n := nativeMergeSetup(t, c)
 	p, _ := nativeMergeSeedPublication(t, c, fx, n)
-	fx.coord.MergePass(ctx)
+	nativeMergeOpenRow(t, fx, p)
 	base2 := nativeMergeAdvanceBranch(t, c, strings.TrimPrefix(c.BaseBranch, "refs/heads/"))
 	if base2 == p.PRCreate.BaseOID {
 		t.Fatal("advance did not move the base")
@@ -830,7 +851,7 @@ func TestNativeMergeWithdrawBeforeSubmit(t *testing.T) {
 	fx, n := nativeMergeSetup(t, c)
 	p, _ := nativeMergeSeedPublication(t, c, fx, n)
 	before := nativeTip(t, c.nativeST09Config, c.BaseBranch)
-	fx.coord.MergePass(ctx)
+	nativeMergeOpenRow(t, fx, p)
 	m, err := fx.db.MergeByPublication(ctx, p.ID)
 	nativeMust(t, err)
 	if m.Stage != factory.MergeOpen || m.Operation.Work != nil {
@@ -871,7 +892,7 @@ func nativeMergeAuthorityAttempt(t *testing.T, c nativeST12Config) bool {
 	fx, n := nativeMergeSetup(t, c)
 	p, _ := nativeMergeSeedPublication(t, c, fx, n)
 	before := nativeTip(t, c.nativeST09Config, c.BaseBranch)
-	fx.coord.MergePass(ctx)
+	nativeMergeOpenRow(t, fx, p)
 	m, err := fx.db.MergeByPublication(ctx, p.ID)
 	nativeMust(t, err)
 	if m.Stage != factory.MergeOpen || m.Operation.Work != nil {

@@ -93,6 +93,14 @@ func (c *Coordinator) MergePass(ctx context.Context) MergeReport {
 		return report
 	}
 	for _, p := range mergeable {
+		// Merge rows open only behind a passing verdict on the exact
+		// current head and base (the review-cycle rule): opening one
+		// early would strand the publication, since assessed checks
+		// never revisit a publication that already holds a merge row
+		// and a failed verdict on the row's head fails it terminally.
+		if !c.checkCurrent(ctx, p) {
+			continue
+		}
 		c.mergeOne(ctx, p, &report)
 	}
 	return report
