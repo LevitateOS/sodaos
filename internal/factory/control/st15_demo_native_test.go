@@ -8,7 +8,6 @@
 package control_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -579,15 +578,20 @@ func (fx *st15Fixture) setupHostStack() error {
 		return err
 	}
 	brokerCmd := exec.Command(brokerBinary, "--config", configPath)
-	var brokerLog bytes.Buffer
-	brokerCmd.Stdout = &brokerLog
-	brokerCmd.Stderr = &brokerLog
+	brokerLogPath := filepath.Join(scratch, "soda-identity.log")
+	brokerLog, err := os.Create(brokerLogPath)
+	if err != nil {
+		return err
+	}
+	brokerCmd.Stdout = brokerLog
+	brokerCmd.Stderr = brokerLog
 	if err := brokerCmd.Start(); err != nil {
 		return err
 	}
 	t.Cleanup(func() {
 		_ = brokerCmd.Process.Kill()
 		_ = brokerCmd.Wait()
+		_ = brokerLog.Close()
 	})
 	st15WaitSocket(t, fx.cfg.BrokerSocket)
 	st15WaitSocket(t, runtimeSocket)
