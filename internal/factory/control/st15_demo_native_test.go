@@ -8,7 +8,6 @@
 package control_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -138,6 +137,11 @@ type st15Fixture struct {
 	review1, review2               factory.ReviewOutcome
 	verdict1, verdict2             string
 	ciFailRev, ciPassRev           int64
+
+	// controlBrowser carries the background dependant-stop verdict:
+	// the browser boots during review-2 and polls for B's run, so
+	// the stop lands within seconds of record.
+	controlBrowser chan error
 
 	checks []st15Check
 }
@@ -485,6 +489,13 @@ func (fx *st15Fixture) setupHostStack() error {
 	if out, err := exec.CommandContext(fx.ctx, "sudo", "-n", "install", "-d", "-m", "700", "/var/lib/soda/host/factory").CombinedOutput(); err != nil {
 		return fmt.Errorf("factory state dir: %w: %s", err, strings.TrimSpace(string(out)))
 	}
+	// Factory spawn runs systemd-run --user on the daemon's (root)
+	// user bus; a bare host never started user@0, so start it
+	// transiently for the fixture. Production must guarantee the same
+	// bus (linger at install); without it every reserve refuses.
+	if out, err := exec.CommandContext(fx.ctx, "sudo", "-n", "systemctl", "start", "user@0.service").CombinedOutput(); err != nil {
+		return fmt.Errorf("root user manager: %w: %s", err, strings.TrimSpace(string(out)))
+	}
 	daemonCfg, err := json.Marshal(map[string]any{
 		"muse_sha256": "", "muse_version": "", "muse_socket": "",
 		"identity_socket": runtimeSocket,
@@ -567,15 +578,20 @@ func (fx *st15Fixture) setupHostStack() error {
 		return err
 	}
 	brokerCmd := exec.Command(brokerBinary, "--config", configPath)
-	var brokerLog bytes.Buffer
-	brokerCmd.Stdout = &brokerLog
-	brokerCmd.Stderr = &brokerLog
+	brokerLogPath := filepath.Join(scratch, "soda-identity.log")
+	brokerLog, err := os.Create(brokerLogPath)
+	if err != nil {
+		return err
+	}
+	brokerCmd.Stdout = brokerLog
+	brokerCmd.Stderr = brokerLog
 	if err := brokerCmd.Start(); err != nil {
 		return err
 	}
 	t.Cleanup(func() {
 		_ = brokerCmd.Process.Kill()
 		_ = brokerCmd.Wait()
+		_ = brokerLog.Close()
 	})
 	st15WaitSocket(t, fx.cfg.BrokerSocket)
 	st15WaitSocket(t, runtimeSocket)

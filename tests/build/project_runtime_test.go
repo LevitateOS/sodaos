@@ -94,6 +94,12 @@ func TestRuntimeOnlyNetworkSysctlSubtreeIsRebound(t *testing.T) {
 	Check(t, strings.Contains(init, "mount --bind /run/soda-net-proc/sys/net /proc/sys/net"), "missing bind")
 	Check(t, !strings.Contains(init, "remount,rw /proc/sys"), "remount present")
 	Check(t, strings.Index(init, "mount --bind") < strings.Index(init, "touch /run/soda-project-ready"), "bind after ready")
+	// Where the kernel forbids userns proc mounts the boot degrades
+	// loudly instead of bricking the project; nested setups check the
+	// marker.
+	Check(t, strings.Contains(init, "touch /run/soda-net-sysctl-readonly"), "missing degrade marker")
+	Check(t, strings.Contains(init, "nested networking degraded"), "missing degrade warning")
+	Check(t, !strings.Contains(init, "exit 1"), "hard exit on mount failure")
 }
 
 func TestRuntimeSharedToolsUsesLiveIsolationAddress(t *testing.T) {

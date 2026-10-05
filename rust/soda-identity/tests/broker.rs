@@ -387,6 +387,44 @@ fn close_execution_fences_late_registration() {
 }
 
 #[test]
+fn close_after_reconcile_is_idempotent() {
+    // The ST15 dependant-stop sequence: acquire, reconcile the unbound
+    // lease (forget), then close twice (daemon stop, coordinator
+    // settle). Every close confirms; late registration stays fenced.
+    let Some(fixture) = Ephemeral::create() else {
+        eprintln!("SODA_PG_* fixture unavailable");
+        return;
+    };
+    let broker = controller(fixture.store(&fixture_key()));
+    broker.start_enrollment(1, "codex", "synthetic").unwrap();
+    let read = broker.enrollment(1, "enrollment-1").unwrap();
+    let conn = read.connection.unwrap();
+    let deadline = UnixTime {
+        sec: UnixTime::now().sec + 3600,
+        nanos: 0,
+    };
+    let lease = broker
+        .acquire(&AcquireRequest {
+            repository_id: 0,
+            provider_id: "codex".to_string(),
+            execution_id: "execution-8".to_string(),
+            actor_id: 1,
+            connection_id: conn.id.clone(),
+            project_id: "project".to_string(),
+            kind: "factory".to_string(),
+            deadline,
+            role: String::new(),
+        })
+        .unwrap();
+    broker.reconcile_lease(&lease.id).unwrap();
+    broker.close_execution("factory", "execution-8").unwrap();
+    broker.close_execution("factory", "execution-8").unwrap();
+    assert!(broker.register(&lease.id, &binding("factory", 1)).is_err());
+    let execution = broker.get_execution("factory", "execution-8").unwrap();
+    assert_eq!(execution.state, "terminal");
+}
+
+#[test]
 fn revoke_retires_live_leases() {
     let Some(fixture) = Ephemeral::create() else {
         eprintln!("SODA_PG_* fixture unavailable");

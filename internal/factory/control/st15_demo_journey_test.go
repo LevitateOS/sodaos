@@ -68,7 +68,7 @@ func (fx *st15Fixture) pollRunForIssue(index int64, timeout time.Duration) strin
 
 // runBrowser executes the Playwright check in one mode. Secrets cross by
 // file path only; the receipt carries IDs and counts.
-func (fx *st15Fixture) runBrowser(mode, runID, role string, issue int64) {
+func (fx *st15Fixture) runBrowser(mode, runID, role string, issue int64) error {
 	fx.t.Helper()
 	out := filepath.Join(st15ReceiptDir(fx.t), "browser-"+mode+".json")
 	cmd := exec.CommandContext(fx.ctx, "/home/vince/.bun/bin/bun", "/home/vince/Projects/sodaos/.artifacts/st15-demo/spaces-check.ts")
@@ -87,8 +87,9 @@ func (fx *st15Fixture) runBrowser(mode, runID, role string, issue int64) {
 	combined, err := cmd.CombinedOutput()
 	fx.t.Logf("ST15 browser %s: %s", mode, strings.TrimSpace(string(combined)))
 	if err != nil {
-		fx.t.Fatalf("ST15 browser %s: %v", mode, err)
+		return fmt.Errorf("ST15 browser %s: %w", mode, err)
 	}
+	return nil
 }
 
 // dispatchA launches the coding run through production intake
@@ -108,7 +109,9 @@ func (fx *st15Fixture) dispatchA() error {
 	}
 	runID := fx.pollRunForIssue(fx.issueAIndex, 10*time.Minute)
 	fx.t.Logf("ST15 auto-dispatch launched run %s for A", runID)
-	fx.runBrowser("watch", runID, project.RoleCoder, fx.issueAIndex)
+	if err := fx.runBrowser("watch", runID, project.RoleCoder, fx.issueAIndex); err != nil {
+		fx.t.Fatal(err)
+	}
 	fx.t.Log("ST15 browser detached; the coding run continues without it")
 	// An explicit pass must not duplicate the launch.
 	report := fx.coord.Dispatch(fx.ctx)
@@ -420,6 +423,14 @@ func (fx *st15Fixture) correctA() error {
 }
 
 func (fx *st15Fixture) reviewLeg2() error {
+	// Boot the dependant-stop browser now, in the background: it polls
+	// for B's run while review-2, ci-pass, and the merge drive run, so
+	// the stop lands within seconds of record. Starting it after B
+	// records would race a fast CLI past completion.
+	fx.controlBrowser = make(chan error, 1)
+	go func() {
+		fx.controlBrowser <- fx.runBrowser("control", "", project.RoleCoder, fx.issueBIndex)
+	}()
 	// The head-1 approval cannot observe the new tip: staleness refuses.
 	p, err := fx.db.PublicationByAssignment(fx.ctx, fx.assignA)
 	if err != nil {
@@ -531,7 +542,15 @@ pollB:
 		return errors.New("ST15 no run recorded for dependant issue")
 	}
 	fx.assignB = mustViewAttempt(fx, runB)
-	fx.runBrowser("control", runB, project.RoleCoder, fx.issueBIndex)
+	// The control browser booted during review-2 and has been polling
+	// for B's run since; it stops the run within seconds of record,
+	// long before any CLI can finish. Await its verdict here.
+	if fx.controlBrowser == nil {
+		return errors.New("ST15 control browser never started")
+	}
+	if err := <-fx.controlBrowser; err != nil {
+		return err
+	}
 	if pending == nil {
 		select {
 		case o := <-done:

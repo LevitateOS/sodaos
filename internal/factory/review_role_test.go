@@ -1,6 +1,7 @@
 package factory
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/levitateos/sodaos/internal/project"
@@ -26,6 +27,10 @@ func TestParseReviewReport(t *testing.T) {
 	changes := "```review-json\n{\"verdict\":\"request-changes\",\"summary\":\"fix\",\"body\":\"line 3 is wrong\",\"findings\":[\"line 3\"]}\n```"
 	if report, ok := ParseReviewReport(changes); !ok || report.Verdict != "request-changes" || len(report.Findings) != 1 {
 		t.Fatalf("changes report rejected: %+v %v", report, ok)
+	}
+	nested := "```review-json\n{\"verdict\":\"approve\",\"summary\":\"solid\",\"body\":\"see:\\n```diff\\n-a\\n+b\\n```\",\"findings\":[]}\n```"
+	if report, ok := ParseReviewReport(nested); !ok || report.Verdict != "approve" || !strings.Contains(report.Body, "```diff") {
+		t.Fatalf("nested-fence report rejected: %+v %v", report, ok)
 	}
 	for name, output := range map[string]string{
 		"missing fence":     "no report here",

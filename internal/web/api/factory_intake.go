@@ -7,12 +7,15 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/levitateos/sodaos/internal/factory"
 	"github.com/levitateos/sodaos/internal/factory/control"
+	hostpublish "github.com/levitateos/sodaos/internal/host/publish"
 	"github.com/levitateos/sodaos/internal/web/auth"
 )
 
@@ -88,6 +91,12 @@ func (h IntakeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	assessed, changed, err := h.Coordinator.ObserveIssueEvent(r.Context(), hint)
 	if err != nil {
+		attrs := []any{"delivery", delivery, "event", event, "error", err}
+		var status *hostpublish.StatusError
+		if errors.As(err, &status) {
+			attrs = append(attrs, "native_status", status.Status, "native_body", status.Body)
+		}
+		slog.Warn("factory intake assessment unavailable", attrs...)
 		auth.JSONError(w, http.StatusServiceUnavailable, "intake_unavailable", "Readiness assessment is unavailable; the native side retries.")
 		return
 	}
