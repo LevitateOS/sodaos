@@ -27,13 +27,6 @@ func checkProbe(t *testing.T, cond bool, format string, args ...any) {
 	}
 }
 
-func requireProbe(t *testing.T, cond bool, format string, args ...any) {
-	t.Helper()
-	if !cond {
-		t.Fatalf(format, args...)
-	}
-}
-
 type probeResult struct {
 	code   int
 	stdout string
