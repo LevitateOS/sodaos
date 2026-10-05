@@ -28,6 +28,9 @@ pub struct Config {
     pub codex_harness: String,
     pub codex_harness_sha256: String,
     pub codex_harness_version: String,
+    pub muse_harness: String,
+    pub muse_harness_sha256: String,
+    pub muse_harness_version: String,
     pub tailnet_management: bool,
     pub tailnet_image: String,
     pub image: String,
@@ -63,6 +66,18 @@ const CONFIG_SPECS: &[Spec] = &[
     },
     Spec {
         name: "codex_harness_version",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "muse_harness",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "muse_harness_sha256",
+        kind: Kind::Str,
+    },
+    Spec {
+        name: "muse_harness_version",
         kind: Kind::Str,
     },
     Spec {
@@ -224,21 +239,39 @@ fn validate_muse_runtime(c: &Config) -> Result<(), String> {
     Ok(())
 }
 
-/// `validateIdentityRuntime`.
+/// `validateIdentityRuntime`, extended for the muse-code harness
+/// family: each configured family needs the runtime socket and a
+/// verified pin, exactly like codex.
 fn validate_identity_runtime(c: &Config) -> Result<(), String> {
-    if c.codex_harness.is_empty() {
-        return Ok(());
+    if !c.codex_harness.is_empty() {
+        if !c.identity_socket.starts_with('/')
+            || !c.codex_harness.starts_with('/')
+            || c.codex_harness_sha256.len() != 64
+        {
+            return Err(
+                "explicit identity runtime socket and verified harness required".to_string(),
+            );
+        }
+        if !c.codex_harness_version.is_empty()
+            && !pfactory::valid_harness_version(&c.codex_harness_version)
+        {
+            return Err("invalid staged harness version".to_string());
+        }
     }
-    if !c.identity_socket.starts_with('/')
-        || !c.codex_harness.starts_with('/')
-        || c.codex_harness_sha256.len() != 64
-    {
-        return Err("explicit identity runtime socket and verified harness required".to_string());
-    }
-    if !c.codex_harness_version.is_empty()
-        && !pfactory::valid_harness_version(&c.codex_harness_version)
-    {
-        return Err("invalid staged harness version".to_string());
+    if !c.muse_harness.is_empty() {
+        if !c.identity_socket.starts_with('/')
+            || !c.muse_harness.starts_with('/')
+            || c.muse_harness_sha256.len() != 64
+        {
+            return Err(
+                "explicit identity runtime socket and verified harness required".to_string(),
+            );
+        }
+        if !c.muse_harness_version.is_empty()
+            && !pfactory::valid_harness_version(&c.muse_harness_version)
+        {
+            return Err("invalid staged harness version".to_string());
+        }
     }
     Ok(())
 }
@@ -307,6 +340,9 @@ pub fn load_config(path: &str, release_path: &str) -> Result<Config, String> {
         codex_harness: m.take_string("codex_harness"),
         codex_harness_sha256: m.take_string("codex_harness_sha256"),
         codex_harness_version: m.take_string("codex_harness_version"),
+        muse_harness: m.take_string("muse_harness"),
+        muse_harness_sha256: m.take_string("muse_harness_sha256"),
+        muse_harness_version: m.take_string("muse_harness_version"),
         tailnet_management: m.take_bool("tailnet_management"),
         tailnet_image: m.take_string("tailnet_image"),
         image: m.take_string("image"),

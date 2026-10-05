@@ -66,6 +66,7 @@ pub const IDENTITY_LAUNCH_PATH: &str = "/identity/launch";
 /// Provider/kind discriminators from `internal/identity/types.go`.
 pub const PROVIDER_CODEX: &str = "codex";
 pub const PROVIDER_MUSE: &str = "muse";
+pub const PROVIDER_MUSE_CODE: &str = "muse-code";
 pub const KIND_FACTORY: &str = "factory";
 pub const KIND_TERMINAL: &str = "terminal";
 /// Muse project-execution scope carried in broker bindings.
@@ -1500,6 +1501,9 @@ pub struct Service<E> {
     pub codex_harness: String,
     pub codex_harness_sha256: String,
     pub codex_harness_version: String,
+    pub muse_harness: String,
+    pub muse_harness_sha256: String,
+    pub muse_harness_version: String,
 }
 
 /// `podman --remote=false inspect --format <terminalInspect> <name>`.
@@ -3799,6 +3803,9 @@ mod tests {
             codex_harness_sha256:
                 "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string(),
             codex_harness_version: "1.0".to_string(),
+            muse_harness: String::new(),
+            muse_harness_sha256: String::new(),
+            muse_harness_version: String::new(),
         }
     }
 

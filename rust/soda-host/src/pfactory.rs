@@ -1456,6 +1456,7 @@ impl FactoryCandidateState {
 /// Supervised native boundary: the `terminal.Service` methods the factory
 /// orchestrator calls. Ported with the terminal lane; tests script fakes.
 pub trait FactoryTerminal {
+    fn harness_family(&self) -> String;
     fn harness_version(&self) -> String;
     fn harness_sha256(&self) -> String;
     fn reserve(
@@ -1805,7 +1806,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     /// configuration, exactly like the Go dispatch.
     pub fn harness_pin(&self) -> FactoryHarnessPin {
         FactoryHarnessPin {
-            harness: FACTORY_HARNESS_CODEX.to_string(),
+            harness: self.terminal.harness_family(),
             version: self.terminal.harness_version(),
             sha256: self.terminal.harness_sha256(),
             image: String::new(),
@@ -3373,6 +3374,9 @@ mod tests {
     }
 
     impl FactoryTerminal for FakeTerminal {
+        fn harness_family(&self) -> String {
+            FACTORY_HARNESS_CODEX.to_string()
+        }
         fn harness_version(&self) -> String {
             self.version.clone()
         }
@@ -3589,6 +3593,9 @@ mod tests {
     }
 
     impl FactoryTerminal for std::rc::Rc<FakeTerminal> {
+        fn harness_family(&self) -> String {
+            (**self).harness_family()
+        }
         fn harness_version(&self) -> String {
             (**self).harness_version()
         }

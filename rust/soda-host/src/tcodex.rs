@@ -259,7 +259,7 @@ pub fn factory_unit_name(run: &str) -> Option<String> {
     Some(format!("soda-factory-{run}.service"))
 }
 
-fn factory_unit_name_or_denied(run: &str) -> Result<String, String> {
+pub(crate) fn factory_unit_name_or_denied(run: &str) -> Result<String, String> {
     factory_unit_name(run).ok_or_else(texec::err_denied)
 }
 
@@ -721,7 +721,7 @@ pub fn factory_role_id(out: &[u8]) -> Result<i64, String> {
 
 /// Sleep until `target` in slices, failing if `deadline` passes first.
 /// Mirrors Go's `select` on `ctx.Done()` vs `time.After`.
-fn sleep_until(target: Instant, deadline: Instant) -> Result<(), ()> {
+pub(crate) fn sleep_until(target: Instant, deadline: Instant) -> Result<(), ()> {
     loop {
         let now = Instant::now();
         if now >= deadline {
@@ -743,7 +743,7 @@ impl<E: Executor> Service<E> {
         self.exec.run(&[], "/usr/bin/env", &refs, deadline)
     }
 
-    fn run_podman(
+    pub(crate) fn run_podman(
         &self,
         stdin: &[u8],
         argv: &[String],
@@ -1092,7 +1092,7 @@ impl<E: Executor> Service<E> {
         }
     }
 
-    fn factory_stage_file(
+    pub(crate) fn factory_stage_file(
         &self,
         container: &str,
         binding: &Binding,
@@ -1197,7 +1197,7 @@ impl<E: Executor> Service<E> {
         let p = factory_codex_binding(lease)?;
         let binding = lease.binding.as_ref().ok_or_else(texec::err_denied)?;
         let unit = factory_unit_name_or_denied(&lease.execution_id)?;
-        let before = self.factory_read_pid(&binding.project, &p, deadline);
+        let before = self.factory_read_pid(&binding.project, &p.pid_file, deadline);
         let _ = self.factory_systemctl(&["stop", &unit], deadline);
         self.factory_await_inactive(&unit, deadline)?;
         match self.factory_container_exists(&binding.project, deadline) {
@@ -1205,18 +1205,22 @@ impl<E: Executor> Service<E> {
             Ok(false) => return Ok(()),
             Err(err) => return Err(err),
         }
-        self.factory_retire(&binding.project, &p, deadline)?;
-        let after = self.factory_read_pid(&binding.project, &p, deadline);
+        self.factory_retire(&binding.project, &p.run_dir, deadline)?;
+        let after = self.factory_read_pid(&binding.project, &p.pid_file, deadline);
         if !after.is_empty() && after != before {
-            self.factory_retire(&binding.project, &p, deadline)?;
-            if self.factory_read_pid(&binding.project, &p, deadline) != after {
+            self.factory_retire(&binding.project, &p.run_dir, deadline)?;
+            if self.factory_read_pid(&binding.project, &p.pid_file, deadline) != after {
                 return Err(texec::err_uncertain());
             }
         }
         Ok(())
     }
 
-    fn factory_await_inactive(&self, unit: &str, deadline: Instant) -> Result<(), String> {
+    pub(crate) fn factory_await_inactive(
+        &self,
+        unit: &str,
+        deadline: Instant,
+    ) -> Result<(), String> {
         let end = Instant::now() + Duration::from_secs(15);
         loop {
             if let Ok(show) = self.factory_unit_state(unit, deadline) {
@@ -1234,29 +1238,35 @@ impl<E: Executor> Service<E> {
         }
     }
 
-    fn factory_retire(
+    pub(crate) fn factory_retire(
         &self,
         container: &str,
-        p: &FactoryCodexPaths,
+        run_dir: &str,
         deadline: Instant,
     ) -> Result<(), String> {
+        // The retire script only needs the run directory; build the shim
+        // paths so the golden-pinned builder stays untouched.
+        let p = FactoryCodexPaths {
+            run_dir: run_dir.to_string(),
+            ..Default::default()
+        };
         let argv = vec![
             "--remote=false".to_string(),
             "exec".to_string(),
             container.to_string(),
             "/usr/bin/sh".to_string(),
             "-c".to_string(),
-            factory_retire(p),
+            factory_retire(&p),
         ];
         self.run_podman(&[], &argv, deadline)
             .map(|_| ())
             .map_err(|_| texec::err_uncertain())
     }
 
-    fn factory_read_pid(
+    pub(crate) fn factory_read_pid(
         &self,
         container: &str,
-        p: &FactoryCodexPaths,
+        pid_file: &str,
         deadline: Instant,
     ) -> String {
         let argv = vec![
@@ -1264,7 +1274,7 @@ impl<E: Executor> Service<E> {
             "exec".to_string(),
             container.to_string(),
             "/usr/bin/cat".to_string(),
-            p.pid_file.clone(),
+            pid_file.to_string(),
         ];
         match self.run_podman(&[], &argv, deadline) {
             Ok(out) if out.len() <= 256 && out.contains(&b' ') => {
@@ -1274,7 +1284,11 @@ impl<E: Executor> Service<E> {
         }
     }
 
-    fn factory_container_exists(&self, container: &str, deadline: Instant) -> Result<bool, String> {
+    pub(crate) fn factory_container_exists(
+        &self,
+        container: &str,
+        deadline: Instant,
+    ) -> Result<bool, String> {
         match self.run_podman(&[], &texec::container_exists_argv(container), deadline) {
             Ok(_) => Ok(true),
             Err(err) if texec::exit_code_of(&err) == Some(1) => Ok(false),
@@ -1341,12 +1355,12 @@ impl<E: Executor> Service<E> {
                 }
             }
         };
-        let before = self.factory_read_pid(&container, &p, deadline);
-        self.factory_retire(&container, &p, deadline)?;
-        let after = self.factory_read_pid(&container, &p, deadline);
+        let before = self.factory_read_pid(&container, &p.pid_file, deadline);
+        self.factory_retire(&container, &p.run_dir, deadline)?;
+        let after = self.factory_read_pid(&container, &p.pid_file, deadline);
         if !after.is_empty() && after != before {
-            self.factory_retire(&container, &p, deadline)?;
-            if self.factory_read_pid(&container, &p, deadline) != after {
+            self.factory_retire(&container, &p.run_dir, deadline)?;
+            if self.factory_read_pid(&container, &p.pid_file, deadline) != after {
                 return Err(texec::err_uncertain());
             }
         }
@@ -1651,9 +1665,19 @@ impl<E: Executor> Service<E> {
     ) -> Result<Delivery, String> {
         let mut out = delivery.clone();
         out.credential = None;
+        let muse = delivery
+            .lease
+            .binding
+            .as_ref()
+            .is_some_and(|b| b.scope == FACTORY_SCOPE_MUSE_CODE);
         match action {
+            "validate" if muse => self.factory_muse_validate(&delivery.lease, deadline)?,
             "validate" => self.factory_codex_validate(&delivery.lease, deadline)?,
+            "stop" if muse => self.factory_muse_stop(&delivery.lease, deadline)?,
             "stop" => self.factory_codex_stop(&delivery.lease, deadline)?,
+            "finish" if muse => {
+                out.credential = Some(self.factory_muse_finish(&delivery.lease, deadline)?);
+            }
             "finish" => {
                 out.credential = Some(self.factory_codex_finish(&delivery.lease, deadline)?);
             }
@@ -1757,6 +1781,9 @@ mod tests {
             codex_harness: "/opt/harness".to_string(),
             codex_harness_sha256: PIN.to_string(),
             codex_harness_version: "1.2.3".to_string(),
+            muse_harness: String::new(),
+            muse_harness_sha256: String::new(),
+            muse_harness_version: String::new(),
         }
     }
 
