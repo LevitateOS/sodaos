@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use crate::gmux_backend::{BackendError, ExecBackend, TerminalSession};
-use crate::{domain, json, pfactory, project, tcontrol, texec};
+use crate::{domain, json, pfactory, project, tcodex, tcontrol, texec};
 
 /// False: every lane module is integrated, no scaffold remains.
 pub const HAS_SCAFFOLDS: bool = false;
@@ -92,6 +92,9 @@ pub struct BackendConfig {
     pub codex_harness: String,
     pub codex_harness_sha256: String,
     pub codex_harness_version: String,
+    pub muse_harness: String,
+    pub muse_harness_sha256: String,
+    pub muse_harness_version: String,
     pub broker_socket: String,
     pub tailnet_image: String,
     /// `Some` exactly when the operator configured a muse release digest
@@ -110,6 +113,9 @@ pub struct TerminalSeam {
     harness: String,
     harness_version: String,
     harness_sha256: String,
+    muse_harness: String,
+    muse_harness_version: String,
+    muse_harness_sha256: String,
 }
 
 /// Broker side of supervised factory runs. Delegates to the identity
@@ -167,6 +173,9 @@ impl DaemonBackend {
                 codex_harness: cfg.codex_harness.clone(),
                 codex_harness_sha256: cfg.codex_harness_sha256.clone(),
                 codex_harness_version: cfg.codex_harness_version.clone(),
+                muse_harness: cfg.muse_harness.clone(),
+                muse_harness_sha256: cfg.muse_harness_sha256.clone(),
+                muse_harness_version: cfg.muse_harness_version.clone(),
             },
             factory: OnceLock::new(),
             broker: crate::iclient::BrokerClient::new(&broker_socket),
@@ -234,6 +243,9 @@ impl DaemonBackend {
                         harness: self.terminal.codex_harness.clone(),
                         harness_version: self.terminal.codex_harness_version.clone(),
                         harness_sha256: self.terminal.codex_harness_sha256.clone(),
+                        muse_harness: self.terminal.muse_harness.clone(),
+                        muse_harness_version: self.terminal.muse_harness_version.clone(),
+                        muse_harness_sha256: self.terminal.muse_harness_sha256.clone(),
                     },
                     BrokerSeam {
                         broker: crate::iclient::BrokerClient::new(&self.broker_socket),
@@ -369,11 +381,22 @@ fn cv_slice_to_pfactory(s: &crate::tcodex::FactoryCodexOutputSlice) -> pfactory:
 // -- seam implementations --
 
 impl pfactory::FactoryTerminal for TerminalSeam {
+    fn harness_family(&self) -> String {
+        self.pin_family().to_string()
+    }
     fn harness_version(&self) -> String {
-        self.harness_version.clone()
+        if self.pin_family() == pfactory::FACTORY_HARNESS_MUSE_CODE {
+            self.muse_harness_version.clone()
+        } else {
+            self.harness_version.clone()
+        }
     }
     fn harness_sha256(&self) -> String {
-        self.harness_sha256.clone()
+        if self.pin_family() == pfactory::FACTORY_HARNESS_MUSE_CODE {
+            self.muse_harness_sha256.clone()
+        } else {
+            self.harness_sha256.clone()
+        }
     }
     fn reserve(
         &self,
@@ -386,9 +409,16 @@ impl pfactory::FactoryTerminal for TerminalSeam {
         let service = self.service();
         let trun = cv_run_to_tcodex(run);
         let tlease = cv_lease_to_texec(lease);
-        service
-            .factory_codex_reserve(&trun, &tlease, pin, max_secs, deadline)
-            .map(|(binding, _paths)| cv_binding_to_pfactory(&binding))
+        let out = if run.harness == pfactory::FACTORY_HARNESS_MUSE_CODE {
+            service
+                .factory_muse_reserve(&trun, &tlease, pin, max_secs, deadline)
+                .map(|(binding, _paths)| binding)
+        } else {
+            service
+                .factory_codex_reserve(&trun, &tlease, pin, max_secs, deadline)
+                .map(|(binding, _paths)| binding)
+        };
+        out.map(|binding| cv_binding_to_pfactory(&binding))
             .map_err(pfactory::FactoryError::Msg)
     }
     fn start(
@@ -400,9 +430,15 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     ) -> Result<(), pfactory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
-        service
-            .factory_codex_start(&tlease, credential, prompt, deadline)
-            .map_err(pfactory::FactoryError::Msg)
+        if muse_scoped_lease(&tlease) {
+            service
+                .factory_muse_start(&tlease, credential, prompt, deadline)
+                .map_err(pfactory::FactoryError::Msg)
+        } else {
+            service
+                .factory_codex_start(&tlease, credential, prompt, deadline)
+                .map_err(pfactory::FactoryError::Msg)
+        }
     }
     fn wait(
         &self,
@@ -411,10 +447,17 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     ) -> Result<(i64, String), pfactory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
-        service
-            .factory_codex_wait(&tlease, deadline)
-            .map(|(code, out)| (code as i64, out))
-            .map_err(pfactory::FactoryError::Msg)
+        if muse_scoped_lease(&tlease) {
+            service
+                .factory_muse_wait(&tlease, deadline)
+                .map(|(code, out)| (code as i64, out))
+                .map_err(pfactory::FactoryError::Msg)
+        } else {
+            service
+                .factory_codex_wait(&tlease, deadline)
+                .map(|(code, out)| (code as i64, out))
+                .map_err(pfactory::FactoryError::Msg)
+        }
     }
     fn stop(
         &self,
@@ -423,9 +466,15 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     ) -> Result<(), pfactory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
-        service
-            .factory_codex_stop(&tlease, deadline)
-            .map_err(pfactory::FactoryError::Msg)
+        if muse_scoped_lease(&tlease) {
+            service
+                .factory_muse_stop(&tlease, deadline)
+                .map_err(pfactory::FactoryError::Msg)
+        } else {
+            service
+                .factory_codex_stop(&tlease, deadline)
+                .map_err(pfactory::FactoryError::Msg)
+        }
     }
     fn stop_unbound(
         &self,
@@ -434,9 +483,15 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     ) -> Result<(), pfactory::FactoryError> {
         let service = self.service();
         let trun = cv_run_to_tcodex(run);
-        service
-            .factory_codex_stop_unbound(&trun, deadline)
-            .map_err(pfactory::FactoryError::Msg)
+        if run.harness == pfactory::FACTORY_HARNESS_MUSE_CODE {
+            service
+                .factory_muse_stop_unbound(&trun, deadline)
+                .map_err(pfactory::FactoryError::Msg)
+        } else {
+            service
+                .factory_codex_stop_unbound(&trun, deadline)
+                .map_err(pfactory::FactoryError::Msg)
+        }
     }
     fn capture(
         &self,
@@ -445,14 +500,24 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     ) -> Result<Vec<u8>, pfactory::FactoryError> {
         let service = self.service();
         let tlease = cv_lease_to_texec(lease);
-        service
-            .factory_codex_capture(&tlease, deadline)
-            .map_err(pfactory::FactoryError::Msg)
+        if muse_scoped_lease(&tlease) {
+            service
+                .factory_muse_capture(&tlease, deadline)
+                .map_err(pfactory::FactoryError::Msg)
+        } else {
+            service
+                .factory_codex_capture(&tlease, deadline)
+                .map_err(pfactory::FactoryError::Msg)
+        }
     }
     fn live(&self, binding: &pfactory::Binding, deadline: Instant) -> bool {
         let service = self.service();
         let tbinding = cv_binding_to_texec(binding);
-        service.factory_codex_live(&tbinding, deadline)
+        if tbinding.scope == tcodex::FACTORY_SCOPE_MUSE_CODE {
+            service.factory_muse_live(&tbinding, deadline)
+        } else {
+            service.factory_codex_live(&tbinding, deadline)
+        }
     }
     fn output(
         &self,
@@ -464,10 +529,17 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     ) -> Result<pfactory::OutputSlice, pfactory::FactoryError> {
         let service = self.service();
         let tbinding = cv_binding_to_texec(binding);
-        service
-            .factory_codex_output(project, &tbinding, offset, limit, deadline)
-            .map(|s| cv_slice_to_pfactory(&s))
-            .map_err(pfactory::FactoryError::Msg)
+        if tbinding.scope == tcodex::FACTORY_SCOPE_MUSE_CODE {
+            service
+                .factory_muse_output(project, &tbinding, offset, limit, deadline)
+                .map(|s| cv_slice_to_pfactory(&s))
+                .map_err(pfactory::FactoryError::Msg)
+        } else {
+            service
+                .factory_codex_output(project, &tbinding, offset, limit, deadline)
+                .map(|s| cv_slice_to_pfactory(&s))
+                .map_err(pfactory::FactoryError::Msg)
+        }
     }
     fn takeover_copy(
         &self,
@@ -500,6 +572,16 @@ impl pfactory::FactoryTerminal for TerminalSeam {
     }
 }
 
+/// A lease takes the muse path when its binding carries the muse-code
+/// scope. Anything else (including unbound) stays on the codex path,
+/// which denies what it does not recognize.
+fn muse_scoped_lease(lease: &texec::Lease) -> bool {
+    lease
+        .binding
+        .as_ref()
+        .is_some_and(|b| b.scope == tcodex::FACTORY_SCOPE_MUSE_CODE)
+}
+
 impl TerminalSeam {
     /// The seam owns no service state: it rebuilds the value service (pure
     /// configuration + the shared executor shape) per call. Service methods
@@ -510,6 +592,21 @@ impl TerminalSeam {
             codex_harness: self.harness.clone(),
             codex_harness_sha256: self.harness_sha256.clone(),
             codex_harness_version: self.harness_version.clone(),
+            muse_harness: self.muse_harness.clone(),
+            muse_harness_sha256: self.muse_harness_sha256.clone(),
+            muse_harness_version: self.muse_harness_version.clone(),
+        }
+    }
+
+    /// The pin advertises the codex harness when configured, else the
+    /// muse-code harness when configured, else nothing usable.
+    fn pin_family(&self) -> &'static str {
+        if !self.harness.is_empty() {
+            pfactory::FACTORY_HARNESS_CODEX
+        } else if !self.muse_harness.is_empty() {
+            pfactory::FACTORY_HARNESS_MUSE_CODE
+        } else {
+            pfactory::FACTORY_HARNESS_CODEX
         }
     }
 }
@@ -1531,6 +1628,9 @@ mod tests {
             codex_harness_sha256:
                 "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
             codex_harness_version: "v0".to_string(),
+            muse_harness: String::new(),
+            muse_harness_sha256: String::new(),
+            muse_harness_version: String::new(),
             broker_socket: "/run/soda-test-broker.sock".to_string(),
             tailnet_image: "ghcr.io/test/tailnet:latest".to_string(),
             muse: None,

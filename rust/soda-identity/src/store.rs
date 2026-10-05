@@ -666,7 +666,7 @@ impl<'a> Tx<'a> {
     }
 
     fn maintain_credential(&self, lease: &Lease, credential: &[u8]) -> Result<(), Error> {
-        use crate::wire::CODEX;
+        use crate::wire::{CODEX, MUSE_CODE};
         let found = self.query(
             "SELECT data FROM identity_connections WHERE id=? AND generation=? AND state='ready'",
             &[
@@ -678,7 +678,8 @@ impl<'a> Tx<'a> {
             return Err(Error::stale());
         };
         let mut connection: Connection = serde_json::from_str(row.text(0)?)?;
-        if connection.provider_id != CODEX || lease.provider_id != CODEX {
+        let rotated = |id: &str| id == CODEX || id == MUSE_CODE;
+        if connection.provider_id != lease.provider_id || !rotated(&lease.provider_id) {
             return Err(Error::denied("identity authority denied"));
         }
         connection.generation += 1;

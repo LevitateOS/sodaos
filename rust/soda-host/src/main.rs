@@ -203,6 +203,9 @@ fn open_backend(config: &iconfig::Config) -> DaemonBackend {
             codex_harness: config.codex_harness.clone(),
             codex_harness_sha256: config.codex_harness_sha256.clone(),
             codex_harness_version: config.codex_harness_version.clone(),
+            muse_harness: config.muse_harness.clone(),
+            muse_harness_sha256: config.muse_harness_sha256.clone(),
+            muse_harness_version: config.muse_harness_version.clone(),
             broker_socket: config.identity_socket.clone(),
             tailnet_image: config.tailnet_image.clone(),
             muse: if config.muse_sha256.is_empty() {

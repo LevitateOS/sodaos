@@ -39,8 +39,15 @@ use crate::project::{Config, Executor, Runtime};
 /// Daemon receipt directory for supervised factory runs.
 pub const FACTORY_STATE_ROOT: &str = "/var/lib/soda/host/factory";
 
-/// First harness family: the only selectable supervised executor.
+/// First harness family.
 pub const FACTORY_HARNESS_CODEX: &str = "codex";
+/// Muse Code CLI harness family.
+pub const FACTORY_HARNESS_MUSE_CODE: &str = "muse-code";
+
+/// Supported supervised CLI families.
+pub fn valid_harness_family(family: &str) -> bool {
+    family == FACTORY_HARNESS_CODEX || family == FACTORY_HARNESS_MUSE_CODE
+}
 
 pub const FACTORY_APPROVED: &str = "approved";
 pub const FACTORY_RUNNING: &str = "running";
@@ -389,7 +396,7 @@ impl FactoryRun {
         if !preparation::valid_preparation_id(&self.preparation) {
             return Err("invalid run preparation reference".to_string());
         }
-        if self.harness != FACTORY_HARNESS_CODEX || !valid_harness_version(&self.harness_vers) {
+        if !valid_harness_family(&self.harness) || !valid_harness_version(&self.harness_vers) {
             return Err("unsupported factory harness".to_string());
         }
         if !self.model.is_empty() {
@@ -989,7 +996,7 @@ pub struct FactoryHarnessPin {
 
 impl FactoryHarnessPin {
     pub fn validate(&self) -> Result<(), String> {
-        if self.harness != FACTORY_HARNESS_CODEX || !valid_harness_version(&self.version) {
+        if !valid_harness_family(&self.harness) || !valid_harness_version(&self.version) {
             return Err("unsupported factory harness".to_string());
         }
         if !preparation::valid_digest(&self.sha256) {
@@ -1449,6 +1456,7 @@ impl FactoryCandidateState {
 /// Supervised native boundary: the `terminal.Service` methods the factory
 /// orchestrator calls. Ported with the terminal lane; tests script fakes.
 pub trait FactoryTerminal {
+    fn harness_family(&self) -> String;
     fn harness_version(&self) -> String;
     fn harness_sha256(&self) -> String;
     fn reserve(
@@ -1798,7 +1806,7 @@ impl<E: Executor, T: FactoryTerminal, B: FactoryBroker> Factory<E, T, B> {
     /// configuration, exactly like the Go dispatch.
     pub fn harness_pin(&self) -> FactoryHarnessPin {
         FactoryHarnessPin {
-            harness: FACTORY_HARNESS_CODEX.to_string(),
+            harness: self.terminal.harness_family(),
             version: self.terminal.harness_version(),
             sha256: self.terminal.harness_sha256(),
             image: String::new(),
@@ -3366,6 +3374,9 @@ mod tests {
     }
 
     impl FactoryTerminal for FakeTerminal {
+        fn harness_family(&self) -> String {
+            FACTORY_HARNESS_CODEX.to_string()
+        }
         fn harness_version(&self) -> String {
             self.version.clone()
         }
@@ -3582,6 +3593,9 @@ mod tests {
     }
 
     impl FactoryTerminal for std::rc::Rc<FakeTerminal> {
+        fn harness_family(&self) -> String {
+            (**self).harness_family()
+        }
         fn harness_version(&self) -> String {
             (**self).harness_version()
         }

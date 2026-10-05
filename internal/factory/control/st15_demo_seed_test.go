@@ -85,8 +85,8 @@ func (fx *st15Fixture) setupProject() error {
 	policy := factory.RepositoryPolicy{
 		Repository: fx.cfg.Repository, GrantedBy: owner, Enabled: true, TargetBranch: "refs/heads/main",
 		Roles: map[string]factory.RoleSelection{
-			project.RoleCoder:    {Harness: fx.versions, Model: "gpt-6-luna"},
-			project.RoleReviewer: {Harness: fx.versions, Model: "gpt-6-luna"},
+			project.RoleCoder:    {Harness: fx.versions, Model: "muse-spark-1.3"},
+			project.RoleReviewer: {Harness: fx.versions, Model: "muse-spark-1.3"},
 		},
 		Checks: []string{"st15-build", "st15-test"}, MergeMethod: factory.MergeFastForward,
 		Publish:       actor(factory.OpRefPublish, fx.cfg.TokenID, fx.cfg.ActorID),
@@ -107,7 +107,7 @@ func (fx *st15Fixture) setupProject() error {
 		return err
 	}
 	if _, err := fx.coord.ApplySponsorship(ctx, factory.NewID(), "soda-maintainer", 0, factory.Sponsorship{
-		Repository: fx.cfg.Repository, GrantedBy: owner, Generation: 1, Connection: "st15-codex", GrantID: "st15-grant",
+		Repository: fx.cfg.Repository, GrantedBy: owner, Generation: 1, Connection: "st15-muse-code", GrantID: "st15-grant",
 		Roles: []string{project.RoleCoder, project.RoleReviewer}, AllowanceMinutes: 60, MaxConcurrent: 2, Active: true,
 	}); err != nil {
 		return err

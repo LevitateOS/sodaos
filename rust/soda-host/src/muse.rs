@@ -1056,6 +1056,9 @@ impl<E: Executor, H: MuseHooks> MuseRuntime<E, H> {
             codex_harness: String::new(),
             codex_harness_sha256: String::new(),
             codex_harness_version: String::new(),
+            muse_harness: String::new(),
+            muse_harness_sha256: String::new(),
+            muse_harness_version: String::new(),
         };
         match svc.project_container(&caller.project, true, deadline) {
             Ok(verified) if verified == caller.container => {}

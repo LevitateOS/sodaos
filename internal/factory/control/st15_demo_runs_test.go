@@ -31,7 +31,7 @@ func (fx *st15Fixture) launchDirect(role, preparation, assignmentID, prompt, sou
 	run := factory.Run{
 		ID: runID, ProjectID: fx.projectID, Role: role, InputSHA: source,
 		Started: now, Deadline: now.Add(30 * time.Minute),
-		Image: fx.image, Harness: project.FactoryHarnessCodex, Model: "gpt-6-luna",
+		Image: fx.image, Harness: project.FactoryHarnessMuseCode, Model: "muse-spark-1.3",
 	}
 	if err := fx.db.RecordFactoryRun(ctx, run); err != nil {
 		fx.t.Fatal(err)
@@ -45,10 +45,10 @@ func (fx *st15Fixture) launchDirect(role, preparation, assignmentID, prompt, sou
 		Run: project.FactoryRun{
 			Deadline: now.Add(30 * time.Minute), Actor: fx.cfg.CreatorID, ID: runID,
 			Project: fx.projectID, Role: role, Preparation: preparation,
-			Harness: project.FactoryHarnessCodex, HarnessVers: fx.versions,
-			Model:      "gpt-6-luna",
+			Harness: project.FactoryHarnessMuseCode, HarnessVers: fx.versions,
+			Model:      "muse-spark-1.3",
 			Assignment: project.FactoryPromptDigest([]byte(prompt)), SourceCommit: source,
-			Connection: "st15-codex",
+			Connection: "st15-muse-code",
 		},
 		Prompt: []byte(prompt), HarnessSHA256: fx.harnessSHA,
 	})
@@ -125,7 +125,7 @@ func (fx *st15Fixture) settleDirect(run factory.Run, assignmentID string) string
 		minutes = int((elapsed + time.Minute - time.Nanosecond) / time.Minute)
 	}
 	if err := fx.db.RecordRunUsage(ctx, factory.Usage{
-		RunID: run.ID, Repository: fx.cfg.Repository, Connection: "st15-codex",
+		RunID: run.ID, Repository: fx.cfg.Repository, Connection: "st15-muse-code",
 		Minutes: minutes, RecordedUnix: time.Now().Unix(),
 	}); err != nil {
 		fx.t.Fatal(err)
