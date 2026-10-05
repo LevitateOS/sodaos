@@ -17,7 +17,7 @@ Product concepts: [overview](../product/overview.md). Trust and privilege:
 | Host | Fedora CoreOS, native rpm-ostree layering, Podman, systemd |
 | Native operator services | Stock branded Cockpit, Tailnet/Runners management, `tailscaled`, restricted Soda project helper |
 | Appliance applications | Separate Podman containers for the maintained Forgejo extension host, Soda's Go API service and Caddy |
-| Persistent application data | Soda SQLite database and a separate Forgejo volume (including installed extension packages) |
+| Persistent application data | Soda PostgreSQL database and a separate Forgejo volume (including installed extension packages) |
 | Identity Broker | Host userspace `soda-identity`, private administration/execution sockets and encrypted subscription custody |
 | Factory execution | Supervised runs inside persistent Projects, `factory/control` coordinator, run ledger and private `soda-factory` operator endpoint |
 | Projects | Persistent Project OS containers with project-local accounts, writable roots, SSH and shared installations |
@@ -160,8 +160,8 @@ generic forge authority follows the [Fountain boundary](trust.md#fountain-consum
 | State | Owner |
 | --- | --- |
 | Forgejo database and repos | Forgejo volume |
-| Soda SQLite, environments, preferences and product grants | Soda data volume |
-| Factory admissions, attempts, runs and resource ledger | Protected factory `execution.db` under the configured operator root |
+| Soda PostgreSQL store, environments, preferences and product grants | Soda data volume |
+| Factory admissions, attempts, runs and resource ledger | Protected factory ledger in the retained PostgreSQL store |
 | Attempt-owned coding checkout and branch | Preserved across sequential runs and pauses under the [Project model](../product/projects.md#persistence); not a human checkout |
 | Run-owned review checkout, scratch, processes and transient secrets | Disposable only where exclusively assigned; recorded ownership and confirmed termination/credential return govern cleanup |
 | Retained factory results | Protected factory operator state, separate from disposable resources and public logs |

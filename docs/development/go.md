@@ -33,7 +33,7 @@ remain in [architecture](../architecture/overview.md).
 | Install phase on Linux | `installer/<phase>_linux.go` |
 | Build-time installed path consts | `platform` (`legacy.go` / `vendor.go` build-tag pair) |
 | Release build primitives / image assembly / delivery | `release/build`, `release/image`, `release/deliver` |
-| Domain policy / Forgejo client / SQLite | `tailnet` / `forgejo` / `store` |
+| Domain policy / Forgejo client / PostgreSQL store | `tailnet` / `forgejo` / `store` |
 
 Hard size rule: prefer production files under 400 LOC; do not grow a production
 `.go` file past 500 LOC—split by noun or phase instead.
@@ -89,12 +89,12 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 
 | Package | Owns | Does not own | Look here first |
 | --- | --- | --- | --- |
-| `acceptance` | Outside support VM/evidence checks | Product HTTP, SQLite, install UX | `tools/soda-acceptance` |
+| `acceptance` | Outside support VM/evidence checks | Product HTTP, PostgreSQL store, install UX | `tools/soda-acceptance` |
 | `archcheck` | Package-topology boundary tests | Product behavior | `arch_test.go` |
 | `avatar` | Robot SVG render | Identity lookup | `avatar.go` |
 | `config` | Dashboard/operator JSON load | Secrets at rest, migrations | `config.go` |
 | `filelock` | Advisory file locks | Business policy | `filelock.go` |
-| `factory` | Supervised run identity/outcome and operator command records (references canonical `identity` leases and `project` IDs) | Forgejo collaboration, runtime execution, SQLite | `types.go`, `run.go` |
+| `factory` | Supervised run identity/outcome and operator command records (references canonical `identity` leases and `project` IDs) | Forgejo collaboration, runtime execution, PostgreSQL store | `types.go`, `run.go` |
 | `identity` | Connection, delegation, execution lease records and validation | HTTP, native execution, SQL | `types.go` |
 | `rust/soda-identity` | Provider-specific account custody, enrollment, revocation and reconciliation | Browser authority, factory publication | concern files |
 | `rust/identity-providers` | Muse native enrollment and immutable credential validation | Soda grants, custom upstream refresh | concern files |
@@ -105,14 +105,14 @@ top-level package path (`internal/projectos`, `internal/linuxhost`,
 | `host/project` | Privileged project env execution | HTTP admission, Tailnet policy, terminal attach | `create.go`, `lifecycle.go` |
 | `host/terminal` | Privileged terminal attach | Project create | `service.go`, `types.go` |
 | `host/tailnet` | Companion container runtime | Tailnet policy (`tailnet`) | `companion.go`, `runtime.go` |
-| `installer` | Console-to-CoreOS install adapter | Host daemon, SQLite | phase `*_linux.go` files |
+| `installer` | Console-to-CoreOS install adapter | Host daemon, PostgreSQL store | phase `*_linux.go` files |
 | `platform` | Build-time installed path consts | Scratch `/run` paths | `legacy.go` / `vendor.go` |
 | `project` | Canonical project domain: profile, lifecycle/key/OS types, validation | I/O, HTTP, privileged execution | `types.go`, `profile.go`, `project.go` |
 | `release` | Release-construction overview only | Any build/publish logic | `doc.go` |
 | `release/build` | Shared build primitives | Qualify/sign/install UX | `production.go`, `oci.go` |
 | `release/deliver` | Payload model, signing, publication | Building images | `payload.go`, `publish.go`, `finalize.go` |
 | `release/image` | Host image assemble/prepare | Qualification, publish | `build.go`, `prepare.go` |
-| `store` | SQLite schema + row ops, including the factory run/command ledger | HTTP, host execute | `store.go`, `schema.go`, `factory.go` |
+| `store` | PostgreSQL schema + row ops, including the factory run/command ledger | HTTP, host execute | `store.go`, `schema.go`, `factory.go` |
 | `strictjson` | Bounded single-object JSON decode | Domain validation | `decode.go` |
 | `tailnet` | Tailnet policy/identity/`Control` | Companion launch | `control.go`, `policy.go` |
 | `testoci` | Inert OCI test fixtures | Production images | `fixture.go` |
@@ -196,7 +196,7 @@ library root. Own them with Forgejo UI docs; do not treat them as `internal/`.
 
 ## Hard invariants (persistence)
 
-1. **SQL locality.** Product SQLite lives only in `store`. Callers use exported
+1. **SQL locality.** Product PostgreSQL lives only in `store`. Callers use exported
    methods and `store.ErrNotFound`.
 2. **One schema owner.** Migrations and `SchemaVersion()` change only in `store`.
 3. **One implementation per concern.** No dual paths or parallel query styles.
