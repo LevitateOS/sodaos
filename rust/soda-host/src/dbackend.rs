@@ -38,79 +38,8 @@ const SCAFFOLD_PREFIX: &str = "scaffold:";
 mod scaffold {
     use std::time::Instant;
 
-    use crate::muse::MuseConnection;
-    use crate::texec::{AcquireRequest, Binding, Delivery, Lease};
-
     fn pending(what: &str) -> String {
         format!("scaffold:{what} pending lane integration")
-    }
-
-    /// pr/26-iclient: Unix-socket identity broker client.
-    pub struct Broker {
-        pub socket: String,
-    }
-
-    impl Broker {
-        pub fn new(socket_path: &str) -> Self {
-            Broker {
-                socket: socket_path.to_string(),
-            }
-        }
-        pub fn acquire(&self, _req: &AcquireRequest, _deadline: Instant) -> Result<Lease, String> {
-            Err(pending("iclient.acquire"))
-        }
-        pub fn register(
-            &self,
-            _lease_id: &str,
-            _binding: &Binding,
-            _deadline: Instant,
-        ) -> Result<Delivery, String> {
-            Err(pending("iclient.register"))
-        }
-        pub fn reconcile_lease(&self, _lease_id: &str, _deadline: Instant) -> Result<(), String> {
-            Err(pending("iclient.reconcile_lease"))
-        }
-        pub fn end_lease(
-            &self,
-            _actor: i64,
-            _lease_id: &str,
-            _deadline: Instant,
-        ) -> Result<(), String> {
-            Err(pending("iclient.end_lease"))
-        }
-        pub fn return_lease(
-            &self,
-            _lease_id: &str,
-            _binding: &Binding,
-            _credential: &[u8],
-            _deadline: Instant,
-        ) -> Result<(), String> {
-            Err(pending("iclient.return_lease"))
-        }
-        pub fn get_execution(
-            &self,
-            _kind: &str,
-            _execution_id: &str,
-            _deadline: Instant,
-        ) -> Result<Execution, String> {
-            Err(pending("iclient.get_execution"))
-        }
-        pub fn close_execution(
-            &self,
-            _kind: &str,
-            _execution_id: &str,
-            _deadline: Instant,
-        ) -> Result<(), String> {
-            Err(pending("iclient.close_execution"))
-        }
-        pub fn available(
-            &self,
-            _actor: i64,
-            _project: &str,
-            _deadline: Instant,
-        ) -> Result<Vec<MuseConnection>, String> {
-            Err(pending("iclient.available"))
-        }
     }
 
     /// pr/26-tcontrol: tailnet control plane.
@@ -142,13 +71,6 @@ mod scaffold {
         }
     }
 
-    /// pr/26-iclient: broker execution record.
-    pub struct Execution;
-
-    pub fn execution_is_terminal(_e: &Execution) -> bool {
-        false
-    }
-
     /// TailnetControl over the scaffold control so the companion field below
     /// typechecks; every method fails until Lane T lands its impl, at which
     /// point the backend field swaps type with no call-site change.
@@ -177,11 +99,6 @@ mod scaffold {
         ) -> Result<(), String> {
             Err(pending("tcontrol.TailnetControl.enroll_run"))
         }
-    }
-
-    /// pr/26-mserve: muse-project lease action dispatch.
-    pub fn muse_action(_action: &str, _delivery: &Delivery) -> Result<Delivery, String> {
-        Err(pending("mserve.muse"))
     }
 }
 
@@ -272,12 +189,12 @@ pub struct TerminalSeam {
 /// broker client; method names match the lane contract so this impl is
 /// final except for the client type.
 pub struct BrokerSeam {
-    broker: scaffold::Broker,
+    broker: crate::iclient::BrokerClient,
 }
 
 /// Muse lease hooks over the identity broker client.
 pub struct HooksSeam {
-    broker: scaffold::Broker,
+    broker: crate::iclient::BrokerClient,
 }
 
 type Factory = pfactory::Factory<project::Native, TerminalSeam, BrokerSeam>;
@@ -289,12 +206,13 @@ pub struct DaemonBackend {
     project: project::Runtime<project::Native>,
     terminal: texec::Service<project::Native>,
     factory: OnceLock<Result<Factory, String>>,
-    broker: scaffold::Broker,
+    broker: crate::iclient::BrokerClient,
     tailnet: scaffold::Control,
     companion: crate::tailnet_companion::Companion<project::Native, scaffold::Control>,
     pops: crate::pops::Ops<project::Native>,
     muse: Option<crate::muse::MuseRuntime<project::Native, HooksSeam>>,
     codex_harness: String,
+    broker_socket: String,
     factory_state_dir: String,
     next_session: AtomicU64,
 }
@@ -314,7 +232,7 @@ impl DaemonBackend {
                 codex_harness_version: cfg.codex_harness_version.clone(),
             },
             factory: OnceLock::new(),
-            broker: scaffold::Broker::new(&broker_socket),
+            broker: crate::iclient::BrokerClient::new(&broker_socket),
             tailnet: scaffold::Control::new(),
             companion: crate::tailnet_companion::Companion {
                 exec: project::Native,
@@ -330,13 +248,14 @@ impl DaemonBackend {
                 crate::muse::MuseRuntime::new(
                     project::Native,
                     HooksSeam {
-                        broker: scaffold::Broker::new(&broker_socket),
+                        broker: crate::iclient::BrokerClient::new(&broker_socket),
                     },
                     m.version,
                     m.sha256,
                 )
             }),
             codex_harness: cfg.codex_harness,
+            broker_socket: broker_socket.clone(),
             factory_state_dir: factory_state_dir.to_string(),
             next_session: AtomicU64::new(1),
         }
@@ -366,7 +285,7 @@ impl DaemonBackend {
                         harness_sha256: self.terminal.codex_harness_sha256.clone(),
                     },
                     BrokerSeam {
-                        broker: scaffold::Broker::new(&self.broker.socket),
+                        broker: crate::iclient::BrokerClient::new(&self.broker_socket),
                     },
                 )
             })
@@ -687,7 +606,7 @@ impl pfactory::FactoryBroker for BrokerSeam {
     ) -> Result<bool, pfactory::FactoryError> {
         self.broker
             .get_execution(kind, execution_id, deadline)
-            .map(|exec| scaffold::execution_is_terminal(&exec))
+            .map(|exec| crate::iclient::execution_is_terminal(&exec))
             .map_err(pfactory::FactoryError::Msg)
     }
     fn close_execution(
@@ -1029,11 +948,15 @@ impl ExecBackend for DaemonBackend {
                 .binding
                 .as_ref()
                 .is_some_and(|b| b.scope == "muse-project");
-        if muse_scoped && self.muse.is_some() {
-            // Lane M replaces this call with `MuseRuntime::muse`; unknown
-            // actions stay denied, never executed.
-            let out = scaffold::muse_action(action, &delivery).map_err(internal)?;
-            return Ok(out.encode().into_bytes());
+        if muse_scoped {
+            if let Some(m) = &self.muse {
+                let out = m
+                    .muse(action, &delivery, native_deadline())
+                    .map_err(internal)?;
+                return Ok(out.encode().into_bytes());
+            }
+            // Muse-scoped without a muse runtime falls through to the
+            // terminal identity path, which denies it (Go parity).
         }
         let out = self
             .terminal
@@ -1779,10 +1702,13 @@ mod tests {
             backend().tailnet("enrollment", b"{}"),
             Err(BackendError::Unimplemented)
         ));
+        // No broker listens at the test socket: the real client fails to
+        // connect and the launch reports 500, exactly like Go's
+        // `identityHandler` on broker errors.
         let start = br#"{"connection_id":"c","project_id":"p0123456789abcdef01234567","actor_id":"1","login":"l","scope":"s","cols":80,"rows":24}"#;
         assert!(matches!(
             backend().identity_launch(start),
-            Err(BackendError::Unimplemented)
+            Err(BackendError::Internal)
         ));
         // Muse-scoped delivery with muse configured reaches the mserve
         // scaffold instead of the terminal identity path.
