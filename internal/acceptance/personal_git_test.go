@@ -3,7 +3,9 @@ package acceptance
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,37 +20,119 @@ func TestGitRemoteProgram(t *testing.T) {
 				t.Errorf("prepare=%v leaves %s", prepare, placeholder)
 			}
 		}
-		if !strings.Contains(program, "password.write_text('"+pass+"')") {
+		if !strings.Contains(program, "printf '%s' '"+pass+"'") {
 			t.Errorf("prepare=%v misquotes passphrase", prepare)
 		}
-		if !strings.HasPrefix(program, "import os, pathlib, re, secrets, subprocess\n") {
+		if !strings.HasPrefix(program, "set -eu\n") {
 			t.Errorf("prepare=%v bad prefix", prepare)
 		}
-		if !strings.HasSuffix(program, "print((base/'identity.pub').read_text().strip())\n") {
+		if !strings.HasSuffix(program, "cat \"$base/identity.pub\"\n") {
 			t.Errorf("prepare=%v bad suffix", prepare)
+		}
+		if strings.Contains(strings.ToLower(program), "python") {
+			t.Errorf("prepare=%v carries Python", prepare)
 		}
 	}
 	prepare := gitRemoteProgram(pass, true)
-	if !strings.Contains(prepare, "\nbase.mkdir(mode=0o700)\n") || !strings.Contains(prepare, "ssh-keygen") {
+	if !strings.Contains(prepare, "\nmkdir -m 0700 \"$base\"\n") || !strings.Contains(prepare, "ssh-keygen") {
 		t.Error("prepare program misses key generation")
 	}
-	if strings.Contains(prepare, "assert base.is_dir()") || strings.Contains(prepare, "assert (base/'identity').is_file()") {
+	if strings.Contains(prepare, `[ -d "$base" ] || exit 1`) || strings.Contains(prepare, `[ -f "$base/identity" ] || exit 1`) {
 		t.Error("prepare program carries unlock assertions")
 	}
 	unlock := gitRemoteProgram(pass, false)
-	if !strings.Contains(unlock, "\nassert base.is_dir()\n") || !strings.Contains(unlock, "assert (base/'identity').is_file()") {
+	if !strings.Contains(unlock, "\n[ -d \"$base\" ] || exit 1\n") || !strings.Contains(unlock, `[ -f "$base/identity" ] || exit 1`) {
 		t.Error("unlock program misses assertions")
 	}
-	if strings.Contains(unlock, "base.mkdir(mode=0o700)") || strings.Contains(unlock, "ssh-keygen") {
+	if strings.Contains(unlock, "mkdir -m 0700") || strings.Contains(unlock, "ssh-keygen") {
 		t.Error("unlock program carries prepare actions")
 	}
-	// Byte-critical lines verified identical against the retired Python
-	// template (oracle diff at port time).
-	if !strings.Contains(prepare, `ask.write_text('#!/bin/sh\\nexec /usr/bin/head -c 128 '+str(password)+'\\n')`) {
+	// Byte-critical lines: the askpass helper shape and the agent PID
+	// capture must stay exact.
+	if !strings.Contains(prepare, `printf '#!/bin/sh\nexec /usr/bin/head -c 128 %s\n' "$password" > "$ask"`) {
 		t.Error("askpass line differs")
 	}
-	if !strings.Contains(prepare, `pid=re.search(r'SSH_AGENT_PID=(\\d+)',agent).group(1)`) {
+	if !strings.Contains(prepare, `sed -n 's/.*SSH_AGENT_PID=\([0-9][0-9]*\).*/\1/p'`) {
 		t.Error("agent pid line differs")
+	}
+}
+
+func TestGitRemoteProgramExecutesPrepareThenUnlock(t *testing.T) {
+	home := t.TempDir()
+	bin := t.TempDir()
+	stub := func(name, body string) {
+		t.Helper()
+		path := filepath.Join(bin, name)
+		if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Stub keygen writes a fixed key pair for whatever -f path it gets.
+	stub("ssh-keygen", `while [ $# -gt 0 ]; do if [ "$1" = "-f" ]; then key="$2"; shift 2; else shift; fi; done
+printf 'PRIVATE\n' > "$key"
+printf 'ssh-ed25519 AAAASTUBKEY U08 personal project Git\n' > "$key.pub"`)
+	stub("ssh-agent", `printf 'SSH_AGENT_PID=4242; export SSH_AGENT_PID;\n'`)
+	// No live agent anywhere in the fixture: -l always reports none (exit 2).
+	stub("ssh-add", `if [ "$1" = "-l" ]; then exit 2; fi
+exit 0`)
+	run := func(program string) (string, int) {
+		t.Helper()
+		cmd := exec.Command("sh", "-se")
+		cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+		cmd.Stdin = strings.NewReader(program)
+		out, err := cmd.Output()
+		if err == nil {
+			return string(out), 0
+		}
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			return string(out), exit.ExitCode()
+		}
+		t.Fatalf("run: %v", err)
+		return "", -1
+	}
+	pass := strings.Repeat("C", 43)
+	base := filepath.Join(home, ".ssh/u08-personal-git")
+	out, code := run(gitRemoteProgram(pass, true))
+	if code != 0 {
+		t.Fatalf("prepare exit = %d", code)
+	}
+	if out != "ssh-ed25519 AAAASTUBKEY U08 personal project Git\n" {
+		t.Fatalf("prepare stdout = %q", out)
+	}
+	for _, dir := range []string{filepath.Join(home, ".ssh"), base} {
+		st, err := os.Stat(dir)
+		if err != nil || !st.IsDir() || st.Mode().Perm() != 0o700 {
+			t.Errorf("dir %s = %v %v", dir, st, err)
+		}
+	}
+	for _, gone := range []string{"temporary-passphrase", "temporary-askpass"} {
+		if _, err := os.Stat(filepath.Join(base, gone)); !os.IsNotExist(err) {
+			t.Errorf("%s retained", gone)
+		}
+	}
+	gitssh, err := os.ReadFile(filepath.Join(base, "git-ssh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"SSH_AUTH_SOCK=" + base + "/agent", "IdentitiesOnly=yes", "-i " + base + "/identity", "\"$@\""} {
+		if !strings.Contains(string(gitssh), want) {
+			t.Errorf("git-ssh misses %q:\n%s", want, gitssh)
+		}
+	}
+	if st, _ := os.Stat(filepath.Join(base, "git-ssh")); st.Mode().Perm() != 0o700 {
+		t.Errorf("git-ssh mode = %o", st.Mode().Perm())
+	}
+	pid, err := os.ReadFile(filepath.Join(base, "agent.pid"))
+	if err != nil || string(pid) != "4242\n" {
+		t.Errorf("agent.pid = %q %v", pid, err)
+	}
+	out, code = run(gitRemoteProgram(pass, false))
+	if code != 0 || out != "ssh-ed25519 AAAASTUBKEY U08 personal project Git\n" {
+		t.Fatalf("unlock = %d %q", code, out)
+	}
+	if _, code := run(gitRemoteProgram(pass, true)); code == 0 {
+		t.Error("second prepare accepted")
 	}
 }
 
@@ -219,7 +303,7 @@ func TestRunPersonalGitPrepareUnlock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"python3 -", "IdentitiesOnly=yes", "u08-alice-8417@10.89.0.2", "u08-bob-8417@10.89.0.2"} {
+	for _, want := range []string{"sh -se", "IdentitiesOnly=yes", "u08-alice-8417@10.89.0.2", "u08-bob-8417@10.89.0.2"} {
 		if !strings.Contains(string(argv), want) {
 			t.Errorf("argv log misses %q:\n%s", want, argv)
 		}
