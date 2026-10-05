@@ -1,12 +1,10 @@
 //! Shipping-tool compilation: Soda command discovery, Rust tool builds,
 //! and the tools.json inventory record.
-use std::collections::HashMap;
 use std::fs;
 
 use crate::error::Error;
 use crate::foreign::Production;
 use crate::jsonio;
-use crate::model;
 use crate::sys;
 
 pub fn compile_soda_commands(
@@ -218,6 +216,9 @@ mod tests {
     use super::*;
 
     use std::cell::RefCell;
+    use std::collections::HashMap;
+
+    use crate::model;
     struct Recorder {
         go: RefCell<Vec<(String, String, String)>>,
         rust: RefCell<Vec<(String, String, String)>>,
