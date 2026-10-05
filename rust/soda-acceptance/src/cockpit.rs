@@ -1,4 +1,5 @@
-//! Native Cockpit account gate, mirroring `tests/installed/cockpit-account.py`.
+//! Native Cockpit account gate. This module owns the probe (the retired
+//! `tests/installed/cockpit-account.py` asserted the same refusals).
 //!
 //! A real PAM account phase: root must succeed and the existing non-root
 //! `nobody` must fail with an explicit permission/auth denial. No account

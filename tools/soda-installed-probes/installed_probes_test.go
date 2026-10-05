@@ -69,3 +69,18 @@ func readProbeSource(t *testing.T, rel string) string {
 	}
 	return string(data)
 }
+
+// remoteProbeBinary builds the acceptance probe binary once and returns
+// its path. The installed probes are owned by the Rust binary; the Go
+// tests execute it rather than duplicating its logic.
+func remoteProbeBinary(t *testing.T) string {
+	t.Helper()
+	cmd := exec.Command("cargo", "build", "-p", "soda-acceptance", "--bin", "soda-acceptance-remote")
+	cmd.Dir = probeRoot
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("cargo build soda-acceptance-remote: %v\n%s", err, stderr.String())
+	}
+	return filepath.Join(probeRoot, "target", "debug", "soda-acceptance-remote")
+}

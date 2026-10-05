@@ -1,12 +1,12 @@
-//! Bounded, read-only U08 state snapshot, mirroring
-//! `tests/installed/project-state.py`.
+//! Bounded, read-only U08 state snapshot. This module owns the probe (it
+//! replaces the retired `tests/installed/project-state.py`).
 //!
 //! Run as root INSIDE a selected project. No
 //! environment/secret/DB-credential/shadow/private-key contents are
 //! exported. The driver supplies the compiled probe over the selected
 //! administrator SSH session.
 //!
-//! Failure taxonomy mirrors the Python owner: `RuntimeError` and
+//! Failure taxonomy mirrors the retired probe: `RuntimeError` and
 //! `AssertionError` keep their detail text, every other kind renders
 //! with an empty detail.
 
@@ -62,7 +62,7 @@ impl SnapshotKind {
 }
 
 /// Snapshot failure. Only `RuntimeError` and `AssertionError` carry
-/// detail, like the Python owner's handler.
+/// detail, like the retired probe's handler.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SnapshotFailure {
     /// Failure kind.
@@ -99,7 +99,7 @@ impl SnapshotFailure {
             ErrorKind::NotFound => SnapshotFailure::bare(SnapshotKind::FileNotFoundError),
             ErrorKind::PermissionDenied => SnapshotFailure::bare(SnapshotKind::PermissionError),
             // `read_to_string` is the only `InvalidData` source here, like
-            // the owner's strict `read_text`/`decode` calls.
+            // the retired probe's strict `read_text`/`decode` calls.
             ErrorKind::InvalidData => SnapshotFailure::bare(SnapshotKind::UnicodeDecodeError),
             _ => SnapshotFailure::bare(SnapshotKind::OSError),
         }
@@ -135,7 +135,7 @@ fn n(value: impl std::fmt::Display) -> JsonValue {
 }
 
 /// Dict-style assignment: replace an existing key, else append. The
-/// Python owner overwrites `data['files']` entries when the final
+/// The retired probe overwrites `data['files']` entries when the final
 /// hashed pass covers a path recorded earlier without contents.
 fn set(object: &mut JsonValue, key: &str, value: JsonValue) {
     if let JsonValue::Object(entries) = object {
@@ -223,13 +223,13 @@ pub fn command_with_timeout(
     }
 }
 
-/// Snapshot command with the owner's 30s timeout and inherited environment.
+/// Snapshot command with the retired probe's 30s timeout and inherited environment.
 pub fn command(argv: &[String], extra_env: &[(&str, &str)]) -> Result<String, SnapshotFailure> {
     command_with_timeout(argv, extra_env, Duration::from_secs(30))
 }
 
 /// Split stripped command output into lines. Empty output yields no
-/// lines, like the Python owner's `strip().splitlines()`.
+/// lines, like the retired probe's `strip().splitlines()`.
 pub fn output_lines(text: &str) -> Vec<String> {
     if text.is_empty() {
         return Vec::new();
@@ -258,7 +258,7 @@ pub struct Entry {
 }
 
 impl Entry {
-    /// Snapshot one path via `lstat`, like the Python owner's `entry`.
+    /// Snapshot one path via `lstat`, like the retired probe's `entry`.
     pub fn snapshot(path: &Path, contents: bool) -> Result<Entry, SnapshotFailure> {
         use std::os::unix::fs::MetadataExt;
         let meta = std::fs::symlink_metadata(path).map_err(SnapshotFailure::io)?;
@@ -269,7 +269,7 @@ impl Entry {
             mode: meta.mode() & 0o7777,
             body: EntryBody::Dir,
         };
-        // Fail closed on links, like the owner: `lstat` sees neither a
+        // Fail closed on links, like the retired probe: `lstat` sees neither a
         // regular file nor a directory, so the snapshot aborts instead of
         // following or recording an administrator's unexpected link.
         if file_type.is_symlink() {
@@ -306,7 +306,7 @@ impl Entry {
         Ok(entry)
     }
 
-    /// Render as the owner's JSON object.
+    /// Render as the retired probe's JSON object.
     pub fn json(&self) -> JsonValue {
         let mut object = obj();
         set(&mut object, "uid", n(self.uid));
@@ -400,7 +400,7 @@ fn list_files(dir: &Path) -> Result<Vec<PathBuf>, SnapshotFailure> {
     let mut files = Vec::new();
     for entry in std::fs::read_dir(dir).map_err(SnapshotFailure::io)? {
         let path = entry.map_err(SnapshotFailure::io)?.path();
-        // `Path.is_file` follows symlinks, like the owner.
+        // `Path.is_file` follows symlinks, like the retired probe.
         if path.is_file() {
             files.push(path);
         }
@@ -477,7 +477,7 @@ fn snapshot_ssh_files(home: &Path) -> Result<Vec<(String, JsonValue)>, SnapshotF
 fn glob_prefix(dir: &Path, prefix: &str) -> Result<Vec<PathBuf>, SnapshotFailure> {
     let mut hits = Vec::new();
     // A missing directory yields no matches, like `Path.glob`; other
-    // read failures propagate like the owner's `OSError`.
+    // read failures propagate like the retired probe's `OSError`.
     let read = match std::fs::read_dir(dir) {
         Ok(read) => read,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(hits),
@@ -523,7 +523,7 @@ fn check_project_ip(ip: &str) -> Result<(), SnapshotFailure> {
     }
 }
 
-/// Collect the full snapshot document, like the Python owner's `main`.
+/// Collect the full snapshot document, like the retired probe's `main`.
 pub fn run_snapshot() -> Result<JsonValue, SnapshotFailure> {
     check_snapshot_gate(unsafe { libc::geteuid() }, Path::new("/run/.containerenv"))?;
     let mut data = obj();
