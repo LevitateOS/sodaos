@@ -33,8 +33,8 @@ func TestFoundationInstalledProbeRequiresScopeBeforeWrites(t *testing.T) {
 	script := filepath.Join(RepoRoot, "tests/installed/project-foundation.sh")
 	result := Run(t, RunOpt{}, "/bin/sh", "-n", script)
 	Require(t, result.Code == 0, "sh -n failed: %s", result.Stderr)
-	defpath := Run(t, RunOpt{}, "python3", "-c", "import os;print(os.defpath)")
-	Require(t, defpath.Code == 0, "cannot read os.defpath")
+	defpath := Run(t, RunOpt{}, "getconf", "PATH")
+	Require(t, defpath.Code == 0, "cannot read default PATH")
 	temporary := TempDir(t)
 	run := Run(t, RunOpt{Env: []string{
 		"PATH=" + strings.TrimSpace(defpath.Stdout),

@@ -111,7 +111,7 @@ test('matrix approval cannot inherit a single-terminal, foreign actor/project or
     )
   );
 });
-test('exact native observer requires original account, PID/start, unit, cgroup and records; quoted Python compiles without execution', async () => {
+test('exact native observer requires original account, PID/start, unit, cgroup and records; quoted shell parses without execution', async () => {
   const request = matrixInput(scope(), base),
     project = request.projects[0];
   const session = {id: 'a'.repeat(32), name: 'probe', actor: '1', environment: project.environment};
@@ -127,14 +127,15 @@ test('exact native observer requires original account, PID/start, unit, cgroup a
   };
   await inspectMatrixProcess(request, project, 0, session, facts, false, (command) => {
     assert(command.includes(session.id));
-    const result = Bun.spawnSync(
-      [
-        'python3',
-        '-c',
-        'import shlex,sys; a=shlex.split(sys.stdin.read()); assert a[:3]==["python3","-I","-c"]; compile(a[3],"native-observer","exec")',
-      ],
-      {stdin: Buffer.from(command), stdout: 'pipe', stderr: 'pipe'}
-    );
+    assert(command.startsWith('sh -c '));
+    const quoted = command.slice('sh -c '.length);
+    assert(quoted.startsWith("'") && quoted.endsWith("'"));
+    const code = quoted.slice(1, -1).replaceAll(`'\\''`, `'`);
+    const result = Bun.spawnSync(['sh', '-n'], {
+      stdin: Buffer.from(code),
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
     assert.equal(result.exitCode, 0, result.stderr.toString());
     return JSON.stringify(live);
   });

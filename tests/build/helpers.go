@@ -139,23 +139,6 @@ func SetEnv(env []string, key, val string) []string {
 	return append(out, prefix+val)
 }
 
-// Python3 resolves the python3 binary (the Go spelling of sys.executable).
-func Python3(t *testing.T) string {
-	t.Helper()
-	path, err := exec.LookPath("python3")
-	if err != nil {
-		t.Fatalf("python3 required: %v", err)
-	}
-	abs, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return path
-	}
-	if !filepath.IsAbs(abs) {
-		return path
-	}
-	return abs
-}
-
 var (
 	cargoMu    sync.Mutex
 	cargoBuilt = map[string]string{} // build key -> "" on success, stderr tail on failure

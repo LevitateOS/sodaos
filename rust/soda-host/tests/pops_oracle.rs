@@ -36,7 +36,7 @@ const GO_HOLD_FALSE: &str = "{\"active\":false,\"revision\":0}";
 const GO_PREPARE_FULL: &str = "{\"id\":\"f0123456789abcdef01234567\",\"project\":\"p0123456789abcdef01234567\",\"role\":\"soda-coder\",\"phase\":\"running\",\"container\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"source_commit\":\"abcdef0123456789abcdef0123456789abcdef01\",\"setup_digest\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"tools\":[{\"name\":\"python3\",\"path\":\"/usr/bin/python3\",\"version\":\"9.9-test\"}],\"setup_exit\":0,\"check_exit\":1,\"output\":\"--- setup ---\\nok\\n--- check ---\\nfail\",\"ready\":false,\"stopped\":false}";
 const GO_PREPARE_READY: &str = "{\"id\":\"f0123456789abcdef01234567\",\"project\":\"p0123456789abcdef01234567\",\"role\":\"soda-coder\",\"phase\":\"ready\",\"container\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"source_commit\":\"abcdef0123456789abcdef0123456789abcdef01\",\"setup_digest\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"ready\":true,\"stopped\":false}";
 const GO_PREPARE_STOPPED: &str = "{\"id\":\"f0123456789abcdef01234567\",\"project\":\"p0123456789abcdef01234567\",\"role\":\"soda-coder\",\"phase\":\"stopped\",\"container\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"source_commit\":\"abcdef0123456789abcdef0123456789abcdef01\",\"setup_digest\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"ready\":false,\"stopped\":true,\"retirement\":\"confirmed\"}";
-const GO_PREPARE_MISSING: &str = "{\"id\":\"f0123456789abcdef01234567\",\"project\":\"p0123456789abcdef01234567\",\"role\":\"soda-coder\",\"phase\":\"waiting\",\"container\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"source_commit\":\"abcdef0123456789abcdef0123456789abcdef01\",\"setup_digest\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"missing\":\"python3\",\"ready\":false,\"stopped\":false}";
+const GO_PREPARE_MISSING: &str = "{\"id\":\"f0123456789abcdef01234567\",\"project\":\"p0123456789abcdef01234567\",\"role\":\"soda-coder\",\"phase\":\"waiting\",\"container\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"source_commit\":\"abcdef0123456789abcdef0123456789abcdef01\",\"setup_digest\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\",\"missing\":\"node\",\"ready\":false,\"stopped\":false}";
 // Stdin bodies the ops post to podman (Go map marshal => sorted keys).
 const GO_KEYS_BODY_APPLY: &str = "{\"apply\":true,\"identity\":7,\"keys\":[\"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBMdFel81xfpdgYZN9cIZY6DmqOAt/QOzaSujzaIrcre\"],\"login\":\"alice\",\"revision\":\"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\"}";
 const GO_ACCOUNT_BODY: &str = "{\"admin\":true,\"identity\":7,\"keys\":[\"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBMdFel81xfpdgYZN9cIZY6DmqOAt/QOzaSujzaIrcre\\n\"],\"login\":\"alice\"}";
@@ -816,7 +816,7 @@ fn oracle_prepare_state_missing_encoding() {
         "waiting",
         REV,
         "",
-        "python3",
+        "node",
         false,
         false,
         None,

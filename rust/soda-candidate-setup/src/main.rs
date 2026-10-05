@@ -671,10 +671,10 @@ fn run_setup(cleanup: &mut Vec<PathBuf>) -> Result<(), Exit> {
     if !arch_ok {
         return fail("matching native x86_64 required on this host");
     }
-    for tool in ["go", "bun", "podman", "skopeo", "python3", "flock"] {
+    for tool in ["go", "bun", "podman", "skopeo", "flock"] {
         if command_v(tool).is_none() {
             return fail(format!(
-                "pinned go, bun, podman, skopeo, python3 and flock required (missing {tool})"
+                "pinned go, bun, podman, skopeo and flock required (missing {tool})"
             ));
         }
     }
